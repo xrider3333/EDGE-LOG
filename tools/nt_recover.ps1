@@ -224,6 +224,36 @@ if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
   exit 3
 }
 
+# ── 3c. CLEAR A STALE BREAKER LATCH ────────────────────────────────────────────────
+# The breaker latches in memory and is only ever cleared by hand. That is right while the
+# loss stands, but the loss is a DAILY figure -- it resets when the session rolls. If the
+# machine stays on overnight the latch survives into a fresh day and silently blocks every
+# strategy while the reason for it no longer exists (it would have done exactly that on
+# 2026-08-20 after the 08-19 collision). So: clear it ONLY when the condition behind it is
+# genuinely gone, never merely because it is inconvenient.
+try {
+  $riskJson = (Invoke-WebRequest -Uri "$bridge/risk" -TimeoutSec 8 -UseBasicParsing).Content | ConvertFrom-Json
+  if ($riskJson.tripped) {
+    $lim = [double]$riskJson.limits.max_daily_loss_usd
+    $worst = 0.0
+    foreach ($a in @($riskJson.accounts)) {
+      $r = 0.0; try { $r = [double]$a.realized_today } catch {}
+      if ($r -lt $worst) { $worst = $r }
+    }
+    if ($lim -gt 0 -and $worst -le (-1 * $lim)) {
+      Log "breaker is TRIPPED and the loss still stands ($worst vs limit -$lim) - leaving it alone"
+      Log "  $($riskJson.reason)"
+      Log "Nothing will be enabled today. This is the guardrail doing its job."
+      exit 6
+    }
+    Log "breaker was latched but the day has rolled (worst realized $worst, limit -$lim) - clearing it"
+    try {
+      Invoke-WebRequest -Uri "$bridge/risk/reset" -Method POST -TimeoutSec 8 -UseBasicParsing | Out-Null
+      Log "breaker latch cleared; the limits themselves are untouched"
+    } catch { Log "WARN: could not clear the breaker: $_" }
+  }
+} catch { }
+
 # ── 4. enable whatever is not already Realtime ─────────────────────────────────────
 # RETRY, because a freshly-launched NinjaTrader is not ready the moment the bridge
 # answers. The strategies live on CHARTS, and the charts take another minute or two to
