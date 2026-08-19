@@ -103,3 +103,37 @@ in, ~1h40m into the session. The fix is to remove the human from the boot path:
 Signing out destroys the session and kills NinjaTrader, the gate and the runner -- and
 auto-logon only applies at BOOT, so it will not bring them back. Shutting down is fine;
 the next boot logs itself in.
+
+## Powering the PC off overnight (2026-08-19)
+
+The owner shuts the machine down at night. That is workable, because the SHADOW layer
+already backfills every leg: `api/paper.py` re-runs each config nightly on the 24-hour
+1-minute master, which carries full overnight bars (verified 2026-08-19: continuous
+coverage every ET hour except the 17:00 maintenance break, source=yahoo, current to the
+minute). So the performance RECORD stays complete whether the PC was on or not.
+
+What the backfill does NOT replace:
+
+- **Fill realism.** Slippage, rejections and latency only exist on the live NinjaTrader
+  leg, so those are measured on DAYTIME trades only. The reconcile already scores
+  slippage on matched pairs only, so this degrades coverage, not correctness.
+- **An open position.** A real demo position left on the broker at shutdown keeps its
+  resting stop but nothing trails it or takes its exit, and next morning `nt_recover`
+  (correctly) refuses to enable into that mismatch. NOISE and ORB230 flatten at the
+  session close so they are never exposed; ENGU-Q holds across sessions by design --
+  6 of its last 11 trades were still open at the hour the PC goes off.
+
+So before powering down:
+
+```
+powershell -ExecutionPolicy Bypass -File C:\EdgeLog
+t_eod_safe.ps1
+```
+
+It flattens the demo account if anything is open, stops the three strategies, verifies no
+working orders remain, and refuses to say "safe" if any of that fails. `-WhatIf` previews.
+
+ONE DEPENDENCY WORTH KNOWING: the 1-minute master is topped up from Yahoo, which only
+serves ~7 days of intraday history. If the machine stays off for more than a week the gap
+becomes permanent (that is exactly how the 2026-07-01..08-05 hole happened). Running the
+PC on weekdays is enough; a two-week holiday with it switched off is not.
