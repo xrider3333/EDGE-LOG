@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.139';
+const VERSION='73.140';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.140',date:'2026-08-18',notes:['THE FIVE OLD BOOK RUNS NOW READ CORRECTLY ON SCREEN. Runs 238, 258, 261, 262 and 263 were saved before the units fix, so their headline money was counted twice and printed 20 times too large. Nothing in Firestore was rewritten - the app now corrects those figures as it reads them. Run 261 reads $984,200 with a $56,090 drawdown instead of $19.7 million with a $1.1 million drawdown.','The correction is worked out from the run itself, never from a run number or a date. A book run always carries its own pooled block, and that block was always right. If the stored headline already matches that block the run is left completely alone; only when the headline is exactly that block times the saved contract size is it divided back down. A book run saved from today onward matches its own block, so it is never touched.','Corrected: the headline net, the max drawdown, the dollars-per-day and everything derived from them, which includes MAR and the equity scaling in COMPARE. Left exactly as saved: the profit factor, the trade count, the lockbox figures, the equity curve values and the PASS or FAIL verdict, because none of those were ever wrong.','The RUNBOARD BOOKS table and the RUNBOARD matrix read the pooled block directly and were always right. They are deliberately not corrected a second time, so their numbers are unchanged.','A corrected run carries a small amber UNITS CORRECTED tag in Past Runs, on the RUNBOARD list and at the top of its report. Hover it and it says what was adjusted and what was left alone.']},
 {v:'73.139',date:'2026-08-18',notes:['COMPARE > STUDIES: every study now shows a scatter chart above its table, the same risk map you were reading in the summary file. Worst drawdown runs left to right and the champion or baseline point is drawn larger with a white outline, so you can see at a glance which variants sit up and to the left of it.','The chart is driven by the same study registry the tables read. A new study you add gets its chart automatically once it names its two axis columns and their captions, with no change to the drawing code.','A row missing either axis figure is left off its chart, and the line underneath the chart says how many were left off and why. No figure is ever substituted to fill a gap.']},
 {v:'73.138',date:'2026-08-18',notes:['COMPARE > STUDIES: a losing money figure now keeps its minus sign, matching the study table you were already reading. Drawdown stays positive, because its heading already says drawdown.']},
 {v:'73.137',date:'2026-08-18',notes:['FIX to a wrong number, not an ugly one. The big headline dollar figure on a BOOK run was 20 times too large. A book already counts its money in dollars - it converts each leg with that leg own contract size before pooling the trades - but the step that saves the run treated that figure as raw points and multiplied it by 20 a second time. Run 261 read 19,684,006 when the book actually made 984,200 over that stretch, and run 262 read 12,980,663 instead of 649,033. The max drawdown and the dollars-per-day on those cards were inflated the same 20 times.','What was always right: the BOOKS table on the RUNBOARD, the equity curve, the lockbox figure, the profit factor, the trade count and the PASS or FAIL verdict. Those read the book own pooled block and never went through the bad step. That is why one run doc could show a correct 261,794 lockbox next to a 19.7 million headline.','Books started through the RUN A BOOK button were never affected. The five that were - 238, 258, 261, 262 and 263 - were queued by script. From the next book run onward the headline is correct. The five old cards are left exactly as they were saved: divide their headline net, drawdown and per-day figures by 20 to read them.','Second thing worth knowing, and it is by design rather than a bug: a book headline covers the stretch BEFORE the lockbox, not the whole window. The whole-window total lives in the BOOKS table.']},
@@ -1552,6 +1553,58 @@ return true;}catch(e){console.error(e);return false;}}
 // and re-subscribes HERE ONLY — the trades/lessons/backtests/meta listeners are untouched.
 // idempotent: safe to call again with the same limit (just re-attaches the same listener).
 function _subscribeRuns(uid,lim){
+// ── LEGACY BOOK UNITS (v73.140) ────────────────────────────────────────────────────────
+//   A BOOK is already counted in dollars when it reaches the save step - every leg is
+//   converted with its OWN contract size while the trades are pooled. Runs saved before
+//   the engine fix (web v73.137) then went through the ordinary points-to-dollars step a
+//   SECOND time, so the headline net, the max drawdown and the dollars-per-day on those
+//   documents are the true figure multiplied by the job's contract size (20).
+//   Those documents were never rewritten, so the correction happens here, on read.
+//   HOW A LEGACY RUN IS TOLD APART FROM A CORRECT ONE - from the data, never from a run
+//   number or a date. The book's own pooled block is intact on every book run and always
+//   held the truth. So we simply ask which of two things the stored headline equals:
+//     it equals the book's own pooled figure            -> saved correctly, leave it alone
+//     it equals that figure times the stored multiplier -> saved before the fix, divide
+//   Anything else is left untouched rather than guessed at. Run 204 (saved with a
+//   multiplier of 1) takes the first branch; runs 238/258/261/262/263 take the second.
+//   WHAT IS ADJUSTED: the headline net, the max drawdown, the dollars-per-day, and the
+//   stored multiplier itself (pinned to 1, which is what the engine now saves). Every
+//   risk-adjusted figure in the app is derived from net and drawdown, so it follows.
+//   WHAT IS NOT TOUCHED: the book's own pooled block, the equity curve, the lockbox
+//   figures, the profit factor, the trade count and the verdict - all of them were always
+//   right. The RUNBOARD BOOKS tile and the 1E matrix read the pooled block directly, so
+//   they keep reading the same correct numbers and are NOT corrected a second time.
+function _bookUnitsOnRead(x){
+  try{
+    const bk=x&&x.book;if(!bk)return x;
+    const pre=bk.pre_lockbox||{},who=bk.whole||{};
+    const pooled=(pre.total_pnl!=null&&isFinite(+pre.total_pnl))?+pre.total_pnl
+                :((who.total_pnl!=null&&isFinite(+who.total_pnl))?+who.total_pnl:null);
+    if(pooled==null)return x;
+    const m=+x.multiplier;if(!isFinite(m)||m<=1)return x;
+    const usd=+x.best_pnl_usd;if(!isFinite(usd))return x;
+    const tol=Math.max(1,Math.abs(pooled*m)*1e-6);
+    if(Math.abs(usd-pooled)<=tol)return x;          // already correct - do NOT divide
+    if(Math.abs(usd-pooled*m)>tol)return x;         // unrecognised shape - leave it alone
+    x._bookUnitFix=m;
+    x.best_pnl_usd=usd/m;
+    if(isFinite(+x.best_dd_usd))x.best_dd_usd=(+x.best_dd_usd)/m;
+    if(isFinite(+x.best_pnl_per_day))x.best_pnl_per_day=(+x.best_pnl_per_day)/m;
+    x.multiplier=1;
+  }catch(_){ }
+  return x;
+}
+// the quiet marker the owner sees wherever a corrected run is printed.
+function _bookFixChip(r,sz){
+  if(!r||!r._bookUnitFix)return '';
+  const t='This run was saved before the units fix, when a book’s money was counted twice. '
+    +'Its net, max drawdown and dollars-per-day are shown divided by '+r._bookUnitFix+', which is the '
+    +'figure the book itself recorded. The profit factor, trade count, equity curve, lockbox '
+    +'figures and the verdict were always correct and are shown exactly as saved.';
+  return '<span title="'+t+'" style="cursor:help;font-size:'+(sz||'8px')+';font-weight:700;letter-spacing:.3px;'
+    +'padding:1px 5px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;'
+    +'white-space:nowrap">⚖ units corrected</span>';
+}
   if(!db||!uid)return;
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns)unsubRuns();
@@ -1560,7 +1613,7 @@ function _subscribeRuns(uid,lim){
   //   object instead (crashed Rankings: "(r.timestamp||'').slice is not a function").
   unsubRuns=runsRef.orderBy('timestamp','desc').limit(runsLimit).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};const t=x.timestamp;
     if(t&&typeof t!=='string'){try{const dt=(t.seconds!=null)?new Date(t.seconds*1000):new Date(t);if(!isNaN(+dt))x.timestamp=dt.toISOString();else x.timestamp='';}catch(_){x.timestamp='';}}
-    return x;});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+    return _bookUnitsOnRead(x);});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
 }
 window._loadMoreRuns=()=>{if(!_runsUid)return;_subscribeRuns(_runsUid,(runsLimit||75)+75);};
 function subscribeAll(uid){
@@ -15063,6 +15116,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span data-detstar="'+d.id+'" title="star this run" style="cursor:pointer;color:'+(d.starred?'var(--yellow)':'var(--text5)')+';font-size:13px;flex:0 0 auto">'+(d.starred?'★':'☆')+'</span>'
         +'<span title="'+((d.famKey&&d.famSeq!=null)?('family run id '+d.famKey+'-'+d.famSeq):'')+'" style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT '+d.id+':</span>'
         +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400).replace(/\s*&middot;\s*|\s+·\s+/g,' ')+'</span>'
+        +(d._bookUnitFix?('<span style="flex:0 0 auto">'+_bookFixChip(d,'8.5px')+'</span>'):'')
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
@@ -17811,7 +17865,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       else{const _rrow=(o,i)=>{const r=o.r,sc=o.s,col=sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)';const vv=r.validate?r.validate.verdict:'';return '<tr class="arow" data-rank-run="'+r.id+'" style="cursor:pointer">'
           +'<td style="color:var(--text5)">'+(i+1)+'</td>'
           +'<td><div style="display:flex;align-items:center;gap:8px"><span style="width:26px;text-align:right;font-weight:800;color:'+col+'">'+_scTxt(sc)+'</span><span style="flex:1;height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;min-width:54px;display:inline-block"><span style="display:block;height:100%;width:'+((sc!=null&&isFinite(sc))?sc:0)+'%;background:'+col+'"></span></span></div></td>'
-          +'<td style="font-size:var(--fsxs)">'+runTag(r)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+'</td>'
+          +'<td style="font-size:var(--fsxs)">'+runTag(r)+(vv?' <span style="font-size:8px;color:'+(vv==='PASS'?'var(--green)':vv==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vv+'</span>':'')+(r._bookUnitFix?(' '+_bookFixChip(r)):'')+'</td>'
           +'<td style="font-size:var(--fsxs)">'+instTag(r.instrument)+' '+(r.timeframe||'')+'</td><td style="font-size:var(--fsxs);color:var(--text5)">'+(r.scope||'')+'</td>'
           +'<td style="text-align:right">'+(r.best_pf||0).toFixed(2)+'</td>'
           +'<td style="text-align:right">'+(function(){var dd=Math.abs(+r.best_dd_usd||0);return dd>1e-9?((+r.best_pnl_usd||0)/dd).toFixed(1):'—';})()+'</td>'
@@ -18975,7 +19029,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<td class="prstar"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'+r.id+((r.famKey&&r.famSeq!=null)?'<div title="family run id — chronological within '+r.famKey+', stable (never renumbers)" style="margin-top:1px;font-size:7.5px;color:var(--text4);font-weight:700;letter-spacing:.2px">'+r.famKey+'-'+r.famSeq+'</div>':'')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
-            +'<td style="white-space:nowrap">'+runTag(r)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+'</td>'
+            +'<td style="white-space:nowrap">'+runTag(r)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+(r._bookUnitFix?(' '+_bookFixChip(r)):'')+'</td>'
             +'<td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)" title="total trades in this run">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="mode '+_modeNum(r)+' · '+(_modeName[_modeNum(r)]||'')+' — '+String(r.scope||'').replace(/"/g,'')+'"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(r.scope||'')+'</td>'
             +'<td style="white-space:nowrap">'+(ik?instTag(ik):'—')+'</td>'
