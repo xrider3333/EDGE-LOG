@@ -180,6 +180,58 @@ def edit_recycle_rails(dry):
     log(f"bridge.json: {changed} (live-reloads within 10s)")
 
 
+def edit_daily_loss(new_usd, dry):
+    """Change the dollar circuit breaker, with the reasoning written into the file.
+
+    WHY (2026-08-19): the breaker sat at $1,500, which was correct when NOISE on MICRO
+    contracts was the only thing trading. It was never revisited when ENGU-Q went live on a
+    FULL NQ contract. ENGU-Q risks ~250 NQ points per trade by design -- about $5,000 -- so
+    the limit sat BELOW a single ordinary stop-out. Measured from its own NinjaTrader
+    blotter: average losing trade -$3,879, worst -$8,905, and 6 of 8 losing trades plus 6 of
+    9 losing days would have tripped it.
+
+    That is not a safety net. A breaker that fires on normal strategy behaviour kills the
+    forward test at random and teaches everyone to ignore it -- and on 2026-08-19 it fired
+    on a loss caused by a bug of ours (two strategies sharing one account), flattened
+    everything and disabled the roster for the day.
+
+    The number wants to sit just ABOVE a realistic worst day for the whole book -- one full
+    ENGU-Q stop plus NOISE on micros, so roughly $10,000 -- and well below anything a
+    runaway would reach. It stays a real limit; it stops being a coin toss.
+
+    Revisit if ENGU-Q moves to micro contracts: that divides its risk by ten and makes a
+    ~$1,500 breaker correct again."""
+    import json as _json
+    s = open(BRIDGE_JSON, encoding="utf-8", newline="").read()
+    cur = _json.loads(s).get("max_daily_loss_usd")
+    if cur == new_usd:
+        log(f"bridge.json: daily loss breaker is already ${new_usd:,}")
+        return
+    old_line = f'"max_daily_loss_usd": {cur}'
+    if old_line not in s:
+        raise SystemExit(f"bridge.json: expected {old_line} - refusing to guess")
+    if dry:
+        log(f"DRY RUN: would change the daily loss breaker ${cur:,} -> ${new_usd:,}")
+        return
+    note = ("Set to %d on 2026-08-19. The previous $%s was sized when NOISE on MICRO "
+            "contracts was the only live leg and was never revisited when ENGU-Q went live "
+            "on a FULL NQ contract risking ~250 points (~$5,000) per trade -- so the limit "
+            "sat BELOW one ordinary stop-out. Measured from ENGU-Q's own blotter: average "
+            "losing trade -$3,879, worst -$8,905, and 6 of 8 losing trades and 6 of 9 losing "
+            "days would have tripped it. A breaker that fires on normal behaviour protects "
+            "nothing and trains everyone to ignore it. This sits just above a realistic worst "
+            "day for the whole book, so it still catches what it is FOR -- a software fault, "
+            "an order loop, a runaway -- while leaving ordinary losses alone. Revisit if "
+            "ENGU-Q moves to micros, which would make ~1500 correct again.") % (new_usd, f"{cur:,}")
+    s = s.replace(old_line, f'"max_daily_loss_usd": {new_usd}', 1)
+    marker = '  "max_orders_per_min"'
+    if marker in s:
+        s = s.replace(marker, '  "_daily_loss_comment": ' + _json.dumps(note) + ',' + "\n" + marker, 1)
+    open(BRIDGE_JSON, "w", encoding="utf-8", newline="").write(s)
+    _json.loads(open(BRIDGE_JSON, encoding="utf-8").read())   # never leave invalid JSON behind
+    log(f"bridge.json: daily loss breaker ${cur:,} -> ${new_usd:,} (live-reloads within 10s)")
+
+
 ENGUQ_STRATEGY_ID = 386606474          # verified against NinjaTrader.sqlite Strategies
 RTH_TEMPLATE = "EDGELOG RTH 0930-1600"
 ETH_TEMPLATE = "CME US Index Futures ETH"   # already present on disk and used elsewhere
@@ -595,12 +647,30 @@ def main():
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
     ap.add_argument("--add-orb230", action="store_true",
                     help="create the EdgeLogORB230 strategy row (run #230 port) on ORBV2's chart")
+    ap.add_argument("--daily-loss", type=int, default=None,
+                    help="set the dollar circuit breaker (USD); re-derived from measured strategy risk")
     ap.add_argument("--split-accounts", action="store_true",
                     help="move ORB230 onto Sim101 so two NQ strategies cannot net together")
     ap.add_argument("--remove-orbv2", action="store_true",
                     help="delete the retired EdgeLogORBV2 row entirely (DB + chart)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.daily_loss is not None:
+        if a.daily_loss < 500 or a.daily_loss > 50000:
+            log("refusing: a daily loss breaker outside $500-$50,000 is almost certainly a typo")
+            return 1
+        edit_daily_loss(a.daily_loss, a.dry_run)
+        if a.dry_run:
+            return 0
+        time.sleep(12)          # the bridge re-reads the file every 10s
+        try:
+            lim = get("/risk").get("limits", {}).get("max_daily_loss_usd")
+            log(f"bridge now reports max_daily_loss_usd = {lim}")
+            return 0 if int(lim) == a.daily_loss else 1
+        except Exception as e:
+            log(f"could not confirm via the bridge: {e}")
+            return 1
+
     if a.split_accounts:
         if a.dry_run:
             split_accounts(True)
