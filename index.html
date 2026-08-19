@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.157';
+const VERSION='73.158';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.158',date:'2026-08-19',notes:['THE APP NOW OPENS IN ABOUT THREE SECONDS INSTEAD OF THIRTY. Loading the page used to download every one of your last 75 runs in full, including the parts only a run report ever shows - the gate bake-off tables, the full set of config equity curves, the per-config scatter data and the trade excursion tables. That was about 25 megabytes of saved data, which Firestore sends as roughly 387 megabytes once it wraps every number in its own tag. The first screen needs about a fifth of a megabyte of it.','Past Runs now asks the server for only the columns the list actually shows, and fetches a run report in full the moment you click that run. You will see a brief LOADING line the first time you open a report; after that it is instant, and the last eight reports you opened stay in memory.','This is also why the app used to lock up for a minute when you clicked quickly between the COMPARE modes. It was never the drawing - each redraw takes about a fifth of a second. The browser was busy unpacking that run data in the background and could not answer the clicks. With the data gone, the clicks answer straight away.','The Builder job list now reads the newest 12 jobs rather than 50. It only ever displayed 12, and the other 38 were carrying a full copy of their finished results - about 12 megabytes of it - on every single page load.','Nothing was deleted and no run lost any detail. If the faster read ever fails the app quietly falls back to the old way of loading, so the list can never come up empty.']},
 {v:'73.157',date:'2026-08-19',notes:['LEGS ARE NOW INCLUDE / EXCLUDE. Click any leg to take it out of the cumulative curve AND out of every total, table and cross-engine row beneath it, then click it again to bring it back. Several variants of the same strategy run side by side - three NOISE rows alone - so reading one of them means removing the others from the maths, not just dimming them on the chart.','Nothing is deleted when you exclude a leg. The runner still computes it every night and its history comes straight back. A show all button appears whenever anything is hidden, and the board refuses to let you switch off the last leg.','TODAY now says where its money comes from. The figure is EDGELOG own engine, and it sits next to how many fills NinjaTrader actually recorded that day. On a day NinjaTrader was down those two disagree, and that is the point: the strategy still has a result and this is where you read it.']},
 {v:'73.156',date:'2026-08-19',notes:['COMPARE > STUDIES: the board now compares individual strategies only. Every study about pooled books - several strategies traded together as one account - has been taken off it, at the owner request. Forty-six rows removed: the pooled-books study, the book leg weighting grid, the book legs re-measured the book way, and the ORB plus NOISE book row that sat inside the NOISE study.','The research itself was not touched. Every one of those results is still written down in the repository book round log.','Row numbers are permanent handles, so nothing was renumbered. Rows 25, 28 to 46 and 236 to 261 are retired and will never be handed to a new row. The next free number is 262.','The explanatory notes that talked about pooled books have been reworded, because their subject is gone. The board now says plainly why a combination cannot be compared with one strategy: it ties up more margin, so the two are not like for like. Use the RUNBOARD mode to compare whole combinations.']},
 {v:'73.155',date:'2026-08-19',notes:['COMPARE > STUDIES: six new studies covering the research that was run locally in Python over the past fortnight and never became a saved run. One hundred and one new rows, numbered 161 to 261.','NOISE parameter sweep, the cells behind the headlines. The August 17th campaign reported whole families as one line - it said the volatility-conditional exits were dead across all eight settings, but only two of them ever reached the board. The missing cells are now rows of their own, re-run through the committed harness so the figures are measured rather than remembered.','Do the NOISE filters carry to the ES contract? The nine configurations re-run on a second contract with nothing re-fitted, as the outside check that the filters are not simply fitted to NQ. Every filter beats the champion and none of them clears the promotion bar.','NOISE trade-context scan. Six blind scans over sixteen market-condition measures, ninety-six statistical tests behind six rows. The study says so in its own description rather than pretending each row is a tested configuration.','ORB hunt, the rest of the local cells. The August 17th exit hunt ran fifty-eight configurations. Ten were already here as saved runs and eleven more went up in the ORB ideas study, so this is the remaining thirty-seven. Nothing appears twice.','Book leg weighting grid. All sixteen weightings, re-run so the board carries real dollars instead of the two ratios the round log printed. The rule picked a fitted weighting and it was rejected, and the shape of the grid shows why.','Book legs measured the book way. The same ten strategies re-measured on the book drawdown convention, marked plainly as re-measurements rather than as new things tested, so nobody counts them twice.','Two rows carry dashes instead of money on purpose. Both were genuinely run and both failed, but their settings and figures were never written down, and a blank that says why is better than an invented number.']},
@@ -1615,16 +1616,108 @@ return true;}catch(e){console.error(e);return false;}}
 // (runsLimit, declared above) and the LOAD MORE row on the Past Runs list bumps it by +75
 // and re-subscribes HERE ONLY — the trades/lessons/backtests/meta listeners are untouched.
 // idempotent: safe to call again with the same limit (just re-attaches the same listener).
+// -- BOOT SPEED (measured 2026-08-19). The Past Runs listener used to pull all 75 run
+//    documents WHOLE. That is 25 MB of stored data, which Firestore's listen channel
+//    encodes as roughly 387 MB of typed JSON - and the first screen needs about 0.2 MB of
+//    it. Everything else is report-only bulk: the gate bake-off block, the full-population
+//    equity curves, the per-config point cloud, the MAE/MFE tables. It cost about 28
+//    seconds of boot, during which the browser's main thread was starved in 5-13 second
+//    blocks - which is ALSO why clicking quickly between COMPARE modes looked frozen.
+//    Fix: fetch the LIST through one field-projected REST query (the listen channel cannot
+//    project fields; only the REST query can), and pull a run's FULL document only when its
+//    report is actually opened. Same number of billed reads as before - a projection still
+//    bills one read per document - but about 43x fewer bytes. If the REST call fails for
+//    any reason we fall back to the old whole-document listener, so a bad token or a
+//    blocked request can never leave the list empty.
+//    NOT the fix: offline persistence. It was deliberately removed in v71.61 and must not
+//    come back - see the note in initFB above.
+const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.book'.split(',');
+function _fsVal(v){
+  if(!v||typeof v!=='object')return null;
+  if('stringValue' in v)return v.stringValue;
+  if('integerValue' in v)return +v.integerValue;
+  if('doubleValue' in v)return +v.doubleValue;
+  if('booleanValue' in v)return !!v.booleanValue;
+  if('nullValue' in v)return null;
+  if('timestampValue' in v)return v.timestampValue;
+  if('arrayValue' in v)return (((v.arrayValue||{}).values)||[]).map(_fsVal);
+  if('mapValue' in v)return _fsFields(((v.mapValue||{}).fields)||{});
+  if('referenceValue' in v)return v.referenceValue;
+  if('bytesValue' in v)return v.bytesValue;
+  return null;
+}
+function _fsFields(f){const o={};for(const k in f)o[k]=_fsVal(f[k]);return o;}
+function _isoTs(x){const t=x.timestamp;
+  if(t&&typeof t!=='string'){try{const dt=(t.seconds!=null)?new Date(t.seconds*1000):new Date(t);x.timestamp=isNaN(+dt)?'':dt.toISOString();}catch(_){x.timestamp='';}}
+  return x;}
+// One projected REST read of the runs list. Resolves to the same shape the listener built,
+// with _lite true on every row so the report knows to pull the whole document first.
+function _runsLiteFetch(uid,lim){
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+':runQuery';
+  const body={structuredQuery:{from:[{collectionId:'runs'}],orderBy:[{field:{fieldPath:'timestamp'},direction:'DESCENDING'}],limit:lim,select:{fields:RUNS_LITE_FIELDS.map(f=>({fieldPath:f}))}}};
+  return auth.currentUser.getIdToken()
+    .then(tok=>fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)}))
+    .then(r=>{if(!r.ok)throw new Error('runs REST '+r.status);return r.json();})
+    .then(rows=>(rows||[]).filter(x=>x&&x.document).map(x=>{
+      const did=String(x.document.name||'').split('/').pop();
+      const o=Object.assign({id:did},_fsFields(x.document.fields||{}));
+      o._lite=true;
+      return _bookUnitsOnRead(_isoTs(o));
+    }));
+}
+// The whole document for ONE run, fetched the first time its report is opened and kept in
+// a small cache. Bounded to the 8 most recently opened so a long browsing session cannot
+// accumulate the same hundreds of megabytes the boot used to pull in one go.
+window._runFull=window._runFull||{};window._runHydrating=window._runHydrating||{};window._runFullOrder=window._runFullOrder||[];
+function _hydrateRun(id){
+  id=String(id);
+  if(!runsRef||window._runFull[id]||window._runHydrating[id])return;
+  window._runHydrating[id]=1;
+  runsRef.doc(id).get().then(snap=>{
+    delete window._runHydrating[id];
+    if(!snap.exists)return;
+    window._runFull[id]=_bookUnitsOnRead(_isoTs(Object.assign({id:id},snap.data())));
+    window._runFullOrder.push(id);
+    while(window._runFullOrder.length>8){const old=window._runFullOrder.shift();if(old!==id)delete window._runFull[old];}
+    renderApp();
+  }).catch(e=>{delete window._runHydrating[id];console.warn('[run] full document fetch failed for',id,(e&&e.message)||e);});
+}
+// Re-read the projected list after the runner finishes a job (a new run doc appears). The
+// listen channel used to do this for free; a debounce keeps it to one read burst per job.
+let _runsRefreshT=null;
+function _refreshRunsLite(){
+  if(!_runsUid||!window._runsLiteOk)return;
+  clearTimeout(_runsRefreshT);
+  _runsRefreshT=setTimeout(()=>{_subscribeRuns(_runsUid,runsLimit);},2500);
+}
 function _subscribeRuns(uid,lim){
   if(!db||!uid)return;
   runsRef=db.collection('users').doc(uid).collection('runs');
-  if(unsubRuns)unsubRuns();
   runsLimit=lim||75;
-  // normalize timestamp to an ISO STRING on read — some docs carry a Firestore Timestamp
+  // Fast path: one projected REST read. Only when it fails do we attach the old listener.
+  _runsLiteFetch(uid,runsLimit).then(list=>{
+    if(unsubRuns){try{unsubRuns();}catch(_){}unsubRuns=null;}
+    window._runsLiteOk=true;
+    runHistory=list;
+    try{window._setStage('RUNS LOADED ('+list.length+')');}catch(_){}
+    if(activeTab==='augur')renderApp();
+  }).catch(e=>{
+    console.warn('[runs] projected read failed, falling back to the whole-document listener:',(e&&e.message)||e);
+    window._runsLiteOk=false;
+    _subscribeRunsFull(uid,runsLimit);
+  });
+}
+// The original whole-document listener, kept as the fallback path ONLY.
+function _subscribeRunsFull(uid,lim){
+  if(!db||!uid)return;
+  runsRef=db.collection('users').doc(uid).collection('runs');
+  if(unsubRuns){try{unsubRuns();}catch(_){}}
+  runsLimit=lim||75;
+  // normalize timestamp to an ISO STRING on read - some docs carry a Firestore Timestamp
   //   object instead (crashed Rankings: "(r.timestamp||'').slice is not a function").
-  unsubRuns=runsRef.orderBy('timestamp','desc').limit(runsLimit).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};const t=x.timestamp;
-    if(t&&typeof t!=='string'){try{const dt=(t.seconds!=null)?new Date(t.seconds*1000):new Date(t);if(!isNaN(+dt))x.timestamp=dt.toISOString();else x.timestamp='';}catch(_){x.timestamp='';}}
-    return _bookUnitsOnRead(x);});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+  unsubRuns=runsRef.orderBy('timestamp','desc').limit(runsLimit).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};
+    return _bookUnitsOnRead(_isoTs(x));});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
 }
 window._loadMoreRuns=()=>{if(!_runsUid)return;_subscribeRuns(_runsUid,(runsLimit||75)+75);};
 function subscribeAll(uid){
@@ -1636,7 +1729,17 @@ function subscribeAll(uid){
   unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='journal')renderApp();});
   btRef=db.collection('users').doc(uid).collection('backtests');
   if(unsubBT)unsubBT();
-  unsubBT=btRef.orderBy('createdAt','desc').limit(50).onSnapshot(snap=>{backtests=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='augur')renderApp();});
+  // BOOT SPEED: this listener pulled the newest 50 job documents whole, and 99.7% of that
+  //   weight is the finished `result` block - a duplicate of what already got saved as a
+  //   run. Measured 2026-08-19: 15.6 MB stored across 50 jobs. The Builder only ever
+  //   displays the newest 12 (see `grids` below), so 12 is what we now read: ~3.7 MB.
+  //   It also doubles as the "a job just finished" signal that re-reads the runs list,
+  //   which the old whole-document runs listener used to give us for free.
+  unsubBT=btRef.orderBy('createdAt','desc').limit(12).onSnapshot(snap=>{backtests=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const _sig=backtests.filter(b=>b.status==='done').map(b=>b.id).join(',');
+    if(window._btDoneSig!=null&&_sig!==window._btDoneSig)_refreshRunsLite();
+    window._btDoneSig=_sig;
+    if(activeTab==='augur')renderApp();});
   runsRef=db.collection('users').doc(uid).collection('runs');
   _runsUid=uid;
   _subscribeRuns(uid,runsLimit);
@@ -20074,6 +20177,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const selId=augurRunSel||pickFrom[0].id;
         let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
         if(!d)d=pickFrom[0];
+        // The list rows come from the projected read, which deliberately leaves out the heavy
+        //   report-only blocks. The REPORT needs them, so the first time a run is opened we
+        //   fetch that one whole document and re-render with it. _runHydrating gates the
+        //   placeholder below so the report never renders half-empty and looks broken.
+        let _runLoading=false;
+        if(d&&d._lite){const _full=(window._runFull||{})[String(d.id)];
+          if(_full)d=_full;else{_hydrateRun(d.id);_runLoading=true;}}
         const _anyF=fStratSet.size||fInst||fTf||fScope||fStar||fFam;
         // sortable header — click the label to sort (▾ marks the active column).
         const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;vertical-align:bottom;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
@@ -20167,7 +20277,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   Results tab (one bad field would throw out of the RENDER: augur wrapper and blank
         //   the page). Isolate the throw to this card, show the message, keep the list usable.
         let _detailInner;
-        try{_detailInner=runDetail(d);}
+        try{_detailInner=_runLoading
+          ?('<div style="padding:40px 18px;text-align:center;font-size:var(--fsxs);color:var(--text5);letter-spacing:2px">LOADING RUN #'+d.id+' REPORT&hellip;</div>')
+          :runDetail(d);}
         catch(_de){console.error('runDetail failed for run',d&&d.id,_de);
           _detailInner='<div style="padding:22px 18px;font-size:var(--fsm)"><div style="color:var(--red);margin-bottom:6px">⚠ This run\'s detail couldn\'t render</div>'
             +'<div style="color:var(--text4);font-size:var(--fsxs);margin-bottom:8px">Likely a legacy or partial record. The other runs are unaffected — pick another from the list.</div>'
@@ -21257,12 +21369,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // family quick-toggle chips (flat + grouped): click = filter to that family, click again = all
       content.querySelectorAll('[data-rffam]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const f=ch.dataset.rffam;savePref('rfFam',(APREF.rfFam===f)?'':f);renderApp();};});
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
-      const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({starred:r.starred?0:1}).catch(e=>alert('star failed: '+e.message));};
+      const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;const nv=r.starred?0:1;runsRef.doc(String(id)).update({starred:nv}).then(()=>{r.starred=nv;const f=(window._runFull||{})[String(id)];if(f)f.starred=nv;renderApp();}).catch(e=>alert('star failed: '+e.message));};
       content.querySelectorAll('[data-star]').forEach(s=>{s.onclick=(e)=>{e.stopPropagation();_toggleStar(s.dataset.star);};});
       const _ds=content.querySelector('[data-detstar]');if(_ds)_ds.onclick=()=>_toggleStar(_ds.dataset.detstar);
       // archive / un-archive a run: sets a web-only `archived` flag on the Firestore doc, which
       //   the Past Runs filter hides by default (runner sync_runs uses merge=True so it survives).
-      const _toggleArch=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;runsRef.doc(String(id)).update({archived:r.archived?0:1}).catch(e=>alert('archive failed: '+e.message));};
+      const _toggleArch=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;const nv=r.archived?0:1;runsRef.doc(String(id)).update({archived:nv}).then(()=>{r.archived=nv;const f=(window._runFull||{})[String(id)];if(f)f.archived=nv;renderApp();}).catch(e=>alert('archive failed: '+e.message));};
       const _da=content.querySelector('[data-arch-id]');if(_da)_da.onclick=()=>_toggleArch(_da.dataset.archId);
       // CHART METRIC toggle (item L): re-render the §2 param charts on NET $ / MAX DD / MAR
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});
@@ -21543,7 +21655,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _nb=el('det-note');if(_nb)_nb.onclick=()=>{const id=_nb.dataset.noteId,cur=_nb.dataset.noteVal||'';const nv=prompt('Note for run #'+id+' (leave blank to clear):',cur);if(nv===null||!runsRef)return;runsRef.doc(String(id)).update({note:nv}).then(()=>renderApp()).catch(e=>alert('note failed: '+e.message));};
       // delete a run: remove the web doc now + queue a runner command to drop it from the
       // local history DB (so a future full re-sync won't bring it back).
-      const _del=el('det-del');if(_del)_del.onclick=async()=>{const id=_del.dataset.delId;if(!confirm('Delete run #'+id+'? Removes it from the web and your local AUGUR history.'))return;try{await runsRef.doc(String(id)).delete();if(cmdRef)await cmdRef.add({action:'delete_run',payload:{id:+id},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(String(augurRunSel)===String(id))augurRunSel=null;}catch(e){alert('delete failed: '+e.message);}renderApp();};
+      const _del=el('det-del');if(_del)_del.onclick=async()=>{const id=_del.dataset.delId;if(!confirm('Delete run #'+id+'? Removes it from the web and your local AUGUR history.'))return;try{await runsRef.doc(String(id)).delete();if(cmdRef)await cmdRef.add({action:'delete_run',payload:{id:+id},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(String(augurRunSel)===String(id))augurRunSel=null;runHistory=runHistory.filter(r=>String(r.id)!==String(id));try{delete window._runFull[String(id)];}catch(_){}}catch(e){alert('delete failed: '+e.message);}renderApp();};
       // SIZING OVERLAY (ORB): queue a backtest of this run's config WITH the sizing rule;
       // the runner attaches res["sizing"] (baseline vs sized) and the report card renders it.
       content.querySelectorAll('[data-sizing-run]').forEach(btn=>{btn.onclick=async()=>{
