@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.138';
+const VERSION='73.139';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.139',date:'2026-08-18',notes:['COMPARE > STUDIES: every study now shows a scatter chart above its table, the same risk map you were reading in the summary file. Worst drawdown runs left to right and the champion or baseline point is drawn larger with a white outline, so you can see at a glance which variants sit up and to the left of it.','The chart is driven by the same study registry the tables read. A new study you add gets its chart automatically once it names its two axis columns and their captions, with no change to the drawing code.','A row missing either axis figure is left off its chart, and the line underneath the chart says how many were left off and why. No figure is ever substituted to fill a gap.']},
 {v:'73.138',date:'2026-08-18',notes:['COMPARE > STUDIES: a losing money figure now keeps its minus sign, matching the study table you were already reading. Drawdown stays positive, because its heading already says drawdown.']},
 {v:'73.137',date:'2026-08-18',notes:['FIX to a wrong number, not an ugly one. The big headline dollar figure on a BOOK run was 20 times too large. A book already counts its money in dollars - it converts each leg with that leg own contract size before pooling the trades - but the step that saves the run treated that figure as raw points and multiplied it by 20 a second time. Run 261 read 19,684,006 when the book actually made 984,200 over that stretch, and run 262 read 12,980,663 instead of 649,033. The max drawdown and the dollars-per-day on those cards were inflated the same 20 times.','What was always right: the BOOKS table on the RUNBOARD, the equity curve, the lockbox figure, the profit factor, the trade count and the PASS or FAIL verdict. Those read the book own pooled block and never went through the bad step. That is why one run doc could show a correct 261,794 lockbox next to a 19.7 million headline.','Books started through the RUN A BOOK button were never affected. The five that were - 238, 258, 261, 262 and 263 - were queued by script. From the next book run onward the headline is correct. The five old cards are left exactly as they were saved: divide their headline net, drawdown and per-day figures by 20 to read them.','Second thing worth knowing, and it is by design rather than a bug: a book headline covers the stretch BEFORE the lockbox, not the whole window. The whole-window total lives in the BOOKS table.']},
 {v:'73.136',date:'2026-08-18',notes:['The new COMPARE mode is called STUDIES, not RESEARCH. The Backtester already has a RESEARCH tab (the backtesting stack), and two nav items one row apart with the same name was confusing. Nothing else changed.']},
@@ -16617,6 +16618,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
            isLbl    header text for the in-sample money column. Use IN-SAMPLE when the
                     study really has a separate walk-forward stage, PRE-LOCKBOX when the
                     figure is everything before the lockbox pooled together.
+           chart    {x,y,xCap,yCap,tip,xFmt,yFmt} — THE SCATTER CHART ABOVE THE TABLE.
+                    This block is what makes the chart plug and play: the drawing code
+                    never knows which columns a study charts, it only reads this.
+                      x     field name driving the horizontal position (e.g. 'dd')
+                      y     field name driving the vertical position. Use 'pdd' (profit
+                            divided by drawdown) instead of raw profit whenever the rows
+                            carry different amounts of margin, as pooled books do —
+                            raw profit would flatter the bigger books unfairly.
+                      xCap  horizontal axis caption, plain English, and it MUST say which
+                            direction is better (e.g. "further LEFT is better")
+                      yCap  vertical axis caption, same rule (e.g. "HIGHER is better")
+                      tip   optional [field,...] named in the hover text of every point.
+                            Defaults to the two axis fields.
+                      xFmt  optional 'money' | 'num', how the axis ticks and hover text are
+                      yFmt  written. Defaults to money for the money columns (is wf lb tot
+                            dd) and to a plain number for anything else.
+                    A row missing EITHER axis value is left OFF the chart and counted in
+                    the line printed underneath it, carrying the same reason the table
+                    dash gives. Nothing is ever substituted to make a point plottable.
+                    OMIT the whole block and the study renders as a table only.
            dashWhy  {field: reason} — the hover text shown on a dash for a MISSING value in
                     that column, for every row in the study. Fields: is wf lb tot dd pf pdd trd
                     A missing number is ALWAYS a dash with a reason. Never substitute a
@@ -16645,6 +16666,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {key:'noise',title:'NOISE single-strategy variants',disc:'2026-08-17',isLbl:'IN-SAMPLE',
        sub:'One strategy on its own. NQ 5-minute bars, 2010 to 2026. Twenty-six configurations tested against the crowned champion.',
        note:'Skipping short trades the day after a weak close (row 2) is the single-strategy recommendation. It was the only change that passed every test for fragility.',
+       chart:{x:'dd',y:'wf',xCap:'Worst drawdown — further LEFT is better',yCap:'Walk-forward profit — HIGHER is better',tip:['wf','dd','tot']},
        dashWhy:{wf:'A pooled book produces no walk-forward folds, so this stage does not exist for this row.',is:'This row was measured as a whole-run figure only, so it has no separate in-sample stage.'},
        rows:[
         {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[242,254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
@@ -16678,6 +16700,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
        ]},
       {key:'books',title:'Pooled books',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',
        sub:'Several strategies traded together in one account, one contract each, every trade pooled and the pile scored as one strategy.',
+       chart:{x:'dd',y:'pdd',xCap:'Worst drawdown — further LEFT is better',yCap:'Profit divided by drawdown — HIGHER is better',tip:['tot','dd','pdd']},
        note:'Books cannot be compared head to head against single strategies: more legs means more margin, so profit divided by drawdown is the fair comparison, not raw profit. Row 28 beats the stated baseline (row 34) on every measure. Equal weighting was kept because tuned weights lost almost all of their advantage out of sample.',
        dashWhy:{wf:'A pooled book tunes nothing during the run, so it produces no walk-forward folds by design. An eight-stretch consistency count is used instead.'},
        rows:[
@@ -16703,6 +16726,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
        ]},
       {key:'xfam',title:'Does the weak-close filter transfer?',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',
        sub:'The same filter that works on NOISE, applied to ORB and to ENGU-Q. Different strategies and different windows, so compare each row only against its own crown.',
+       chart:{x:'dd',y:'tot',xCap:'Worst drawdown — further LEFT is better',yCap:'Total profit — HIGHER is better',tip:['tot','dd','pdd']},
        note:'The filter does not transfer and both crowns stand. Nothing here was adopted and nothing was queued. The mechanism is REVERSED on ORB: short trades after a weak close MAKE money there, about $86 each across 248 trades, while the same trades lose about $118 each on NOISE. Row 63 is worth remembering because it cuts ENGU-Q drawdown by 31% for under 7% of profit, but it fails the profit test so it is not an adoption.',
        dashWhy:{wf:'Walk-forward was not re-run for these local filter tests, so there is no fold figure to report.',trd:'The study recorded money and ratios only, so no trade count exists for this row.'},
        rows:[
@@ -17277,6 +17301,76 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td(_reCell(st,rw,'trd',v=>'<span style="color:var(--text5)">'+Math.round(v).toLocaleString()+'</span>'))
             +td('<span style="color:'+col+'">'+_reEsc(rw.read)+'</span>','left',';white-space:normal')
             +'</tr>';};
+        // ── STUDY SCATTER CHART (owner ask 2026-08-18: he had been reading a rendered summary
+        //    that paired every table with a risk map above it, and the map is the part he
+        //    wanted in the app). PLUG AND PLAY: this function holds NO per-study knowledge —
+        //    which two columns to plot, what the captions say and what the hover text lists all
+        //    come out of the study.chart block in the registry above, so a future study charts
+        //    itself the moment it is appended. Drawn as plain inline SVG, the same way the rest
+        //    of the app draws, with no library and no separate script.
+        const _reMoneyF={is:1,wf:1,lb:1,tot:1,dd:1};
+        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades'};
+        const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
+        const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
+        const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
+        const _reChart=st=>{
+          const cf=st.chart;if(!cf||!cf.x||!cf.y)return '';
+          const rows=st.rows||[];
+          const gv=(r,f)=>{const v=r[f];return (v==null||!isFinite(v))?null:+v;};
+          const pts=[],skip=[];
+          rows.forEach(r=>{const x=gv(r,cf.x),y=gv(r,cf.y);
+            if(x==null||y==null)skip.push({r:r,f:(x==null?cf.x:cf.y)});else pts.push({r:r,x:x,y:y});});
+          if(!pts.length)return '';
+          const xf=_reAxFmt(cf.x,cf.xFmt),yf=_reAxFmt(cf.y,cf.yFmt);
+          const L=88,R=950,T=22,B=384;
+          const ext=k=>{let lo=Infinity,hi=-Infinity;pts.forEach(p=>{lo=Math.min(lo,p[k]);hi=Math.max(hi,p[k]);});
+            if(!(hi>lo)){const pad=Math.abs(hi)*0.1||1;lo=hi-pad;hi=hi+pad;}
+            const pd=(hi-lo)*0.07;return [lo-pd,hi+pd];};
+          const xe=ext('x'),ye=ext('y');
+          const px=v=>L+(v-xe[0])/(xe[1]-xe[0])*(R-L);
+          const py=v=>B-(v-ye[0])/(ye[1]-ye[0])*(B-T);
+          let g='';
+          for(let i=0;i<5;i++){
+            const yv=ye[0]+(ye[1]-ye[0])*i/4,yy=B-(B-T)*i/4;
+            g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
+              +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text5)" font-size="11" text-anchor="end">'+_reTick(yv,yf)+'</text>';
+            const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
+            g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
+              +'<text x="'+xx.toFixed(1)+'" y="404" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reTick(xv,xf)+'</text>';}
+          g+='<text x="'+((L+R)/2)+'" y="430" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(cf.xCap||'')+'</text>'
+            +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(cf.yCap||'')+'</text>';
+          const tipF=(Array.isArray(cf.tip)&&cf.tip.length)?cf.tip:[cf.y,cf.x];
+          // plot the biggest first so the smaller dots land on top and stay readable
+          pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
+            const r=p.r,col=_reTone[r.tone]||'var(--text4)',champ=(r.tone==='champ');
+            const runs=Array.isArray(r.runs)?r.runs:[];
+            // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
+            // change. Under DATE RAN the table splits into ran and never-run blocks, so the
+            // chart fades the never-run points to match what is being read underneath it.
+            const dim=(_reDate==='ran'&&!runs.length);
+            const rad=champ?9:6.5;
+            let tp=r.n+' '+r.name;
+            tipF.forEach(f=>{const v=gv(r,f);
+              tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':_reVal(v,_reAxFmt(f,(f===cf.x?cf.xFmt:(f===cf.y?cf.yFmt:null)))));});
+            if(dim)tp+=' | never run as a validate run';
+            g+='<circle cx="'+px(p.x).toFixed(1)+'" cy="'+py(p.y).toFixed(1)+'" r="'+rad+'" fill="'+col+'" fill-opacity="'+(dim?0.16:(champ?0.95:0.7))+'" stroke="'+(champ?'#ffffff':col)+'" stroke-width="'+(champ?2:1)+'" stroke-opacity="'+(dim?0.3:1)+'" style="cursor:help"><title>'+_reEsc(tp)+'</title></circle>'
+              +'<text x="'+(px(p.x)+rad+4.5).toFixed(1)+'" y="'+(py(p.y)+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+r.n+'</text>';});
+          // the omitted-row line. Counts are real and every reason is the one the table gives.
+          let omit;
+          if(!skip.length){omit='Every one of the '+rows.length+' rows is on the chart.';}
+          else{const seen={},order=[];
+            skip.forEach(s=>{const w=_reWhy(st,s.r,s.f);if(!seen[w]){seen[w]=[];order.push(w);}seen[w].push(s.r.n);});
+            omit=skip.length+' of the '+rows.length+' rows are not on the chart, because a point needs both figures and these do not have one. '
+              +order.map(w=>'Row'+(seen[w].length>1?'s ':' ')+seen[w].join(', ')+': '+w).join(' ')
+              +' Nothing was substituted to put them on.';}
+          const lg='<span style="display:inline-flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
+            +['champ','good','frag','fail','ref'].map(k=>'<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_reTone[k]+';margin-right:5px"></i>'+_reToneNm[k]+'</span>').join('')
+            +'<span style="color:var(--text5)">The best results sit toward the top left.</span></span>';
+          return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px;margin-bottom:11px">'
+            +'<svg viewBox="0 0 980 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
+            +'<div style="margin-top:8px">'+lg+'</div>'
+            +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-top:6px;max-width:960px">'+_reEsc(omit)
+            +(_reDate==='ran'?' The faded points were never run as a validate run, matching the second block of the table below.':'')+'</div></div>';};
         const _reTile=st=>{
           const rows=(st.rows||[]).slice();
           let bodyRows;
@@ -17309,6 +17403,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+_reEsc(st.title)+'</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+(st.rows||[]).length+' rows · discovered '+_reEsc(st.disc||'')+'</span></div>'
             +'<div style="font-size:9.5px;color:var(--text4);line-height:1.7;margin-bottom:9px;max-width:960px">'+_reEsc(st.sub)+'</div>'
+            +_reChart(st)
             +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
             +(st.note?('<div style="font-size:9px;color:var(--text5);line-height:1.8;margin-top:9px;max-width:960px">'+_reEsc(st.note)+'</div>'):''),0);};
         const _reDateBtns=_ctlGrp('ORDER BY','which date the board orders and groups on',
