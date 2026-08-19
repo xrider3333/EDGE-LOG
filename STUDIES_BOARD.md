@@ -24,7 +24,7 @@ edit the renderer to add data.
 
 ---
 
-## 2. The five controls at the top of the board
+## 2. The controls at the top of the board
 
 These controls apply to every study on the board at once, and each one changes the chart
 and the table together, so the two can never disagree.
@@ -55,6 +55,37 @@ how many rows are hidden.
 
 **CLEAR FILTERS** appears only while something is filtered and drops all of them.
 
+**TIME SCOPE — all time, past week, past month, past three months.** This narrows the whole
+board to recent work. It applies to the charts and the tables together, and the board states
+how many rows it is holding back, separately from the count the filters print, so you can
+always tell which control is responsible.
+
+**SCOPE DATE — follows order by, discovered, or date ran.** Every row carries two different
+dates and they answer different questions: the date the result was **discovered** in research,
+which every row has, and the date it **ran** as a real validate run, which only rows persisted
+as runs have at all. The board therefore never chooses for you. SCOPE DATE defaults to
+following the ORDER BY control, and a line under the controls says in words which of the two
+dates is in force and what cut-off date it is using. ORDER BY RESULT is not a date at all, so
+under that setting the scope falls back to the date discovered **and says so** rather than
+quietly picking one.
+
+A row that was never run has no date ran, so a run-date scope cannot place it. Those rows are
+held back, but they are never dropped without a word: they are counted and named by row number
+under the controls and again under each study chart, together with the two ways to bring them
+back. This is the same honesty the DATE RAN ordering already uses when it puts those rows in
+their own labelled block instead of inventing a date for them.
+
+**COLOUR — theme, colour, or shapes only.** This changes this board alone and never touches the
+app theme. THEME follows the app theme, which is what the board did before the control existed.
+COLOUR forces the five approved colours whatever the theme is doing: blue for the champion,
+green for held up, amber for fragile, red for failed and grey for reference. SHAPES ONLY drops
+everything to one neutral ink.
+
+**The verdict shapes are drawn in all three settings.** Colour is reinforcement laid on top of
+the shape and is never a substitute for it, so turning colour off loses no meaning and nothing
+becomes unreadable. Money keeps its minus sign in every setting. The choice is persisted the
+same way every other view preference on this board is.
+
 ---
 
 ## 3. The registry — study fields
@@ -72,6 +103,7 @@ Each entry in `RESEARCH_STUDIES` is one study.
 | `isLbl` | yes | The heading for the in-sample money column. Use `IN-SAMPLE` when the study really has a separate walk-forward stage. Use `PRE-LOCKBOX` when that figure is everything before the lockbox pooled together, which is what a pooled book has. |
 | `chart` | no | The scatter chart block, described below. Leave it out and the study renders as a table only. |
 | `dashWhy` | no | An object mapping a field name to the reason its dash shows, for every row in the study. |
+| `win` | no | The default **data window** for every row in the study that has neither a run nor its own `win`. See section 4A. |
 | `rows` | yes | The array of rows. |
 
 ### The `chart` block
@@ -108,9 +140,45 @@ are always being read on the same stretch of history in the same unit.
 | `pf` | no | The profit factor. |
 | `trd` | no | The trade count. |
 | `why` | no | An object mapping a field name to the reason its dash shows, overriding `dashWhy` for this row alone. |
+| `win` | no | `{from:'YYYY-MM-DD', to:'YYYY-MM-DD'}` — the **data window** this row's figures cover. See section 4A. |
 
 **Do not supply a profit-divided-by-drawdown figure.** The board computes it from the
 selected stage profit and the drawdown, so it always matches whatever stage is on screen.
+
+---
+
+## 4A. The data window, and why the board warns about it
+
+Rows on this board were computed at different times, over different date ranges, and the
+underlying price data has been backfilled since some of them were run. Two totals can therefore
+look directly comparable and not be. The board makes that visible rather than leaving the owner
+to discover it.
+
+**Every study table has a DATA WINDOW column.** It shows the stretch of history behind every
+figure on that row, and where it came from is fixed by one rule:
+
+- **A row with a `runs` array reads its window off the saved run document**, from the run's own
+  from-date and to-date. That is the truth for that row, so anything written in the registry for
+  it is ignored. You never have to supply a window for a row that was persisted as a run.
+- **A row without one reads `win` on the row, falling back to `win` on the study.** This is the
+  only case where you supply a window by hand, and it is for local research where nothing else
+  records the range.
+- **A row with neither shows a dash that says the window is unknown.** That is the honest answer.
+
+**Never guess a window.** An assumed range is exactly the error this column exists to catch. A
+dash saying "unknown" is always better than a range nobody measured.
+
+**The common window** is printed under every study chart and once for the whole board. It is the
+stretch every visible row that records a window genuinely shares: the latest start and the
+earliest end across them. When the visible rows do not all cover it, the line warns you, names
+the rows that reach outside it and says by how much, and those rows also carry a warning sign in
+their own window cell with the gap spelled out on hover. Rows recording no window at all are
+counted and named too, because "we cannot tell" is a different statement from "they agree".
+
+The point is narrow and worth stating plainly: **the owner should never put two totals side by
+side without knowing whether they cover the same stretch of history.** Surfacing the window is
+all this does. Recomputing, re-running or refreshing a row to put it on a common window is a
+separate and much larger piece of work, and nothing on this board attempts it.
 
 ---
 
@@ -169,8 +237,10 @@ and its own table for exactly this reason.
 sign is wrong. Losing money figures in the profit columns do keep their minus sign.
 
 **Do not compare across windows.** Two rows measured on different date ranges are not
-comparable even inside one study. Say so in the row's `what` line and in the study notes, and
-use the strategy-type filter to let the owner read each family on its own.
+comparable even inside one study. Say so in the row's `what` line and in the study notes, use
+the strategy-type filter to let the owner read each family on its own, and record a `win` for
+any local row whose range you actually know so the DATA WINDOW column and the common-window
+warning can do their job. Never invent one to fill the column.
 
 ---
 

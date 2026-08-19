@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.143';
+const VERSION='73.144';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.144',date:'2026-08-19',notes:['COMPARE > STUDIES: a TIME SCOPE control - ALL TIME, PAST WEEK, PAST MONTH, PAST 3 MONTHS. It narrows the charts and the tables together and always says how many rows it is holding back, beside the count the filters already print.','A row carries TWO different dates, so the scope never picks one quietly. The date it was DISCOVERED in research, which every row has, and the date it RAN as a real validate run, which only rows saved as runs have at all. SCOPE DATE is its own control - FOLLOWS ORDER BY, DISCOVERED or DATE RAN - and a line under the controls states in words which date is being read and from what cut-off. ORDER BY RESULT is not a date, so FOLLOWS ORDER BY falls back to the date discovered and says so.','Scoping on the date ran cannot place a row that was never run. Those rows are held back but never dropped without a word: they are counted and named by row number under the controls and again under the study chart, with the two ways to bring them back spelled out. It is the same honesty the DATE RAN ordering already uses when it puts them in their own labelled block.','A COLOUR control for this board alone, which never touches your app theme. THEME keeps what the board always did. COLOUR forces the five approved colours whatever the theme is doing - blue champion, green held up, amber fragile, red failed, grey reference. SHAPES ONLY drops to one neutral ink. THE VERDICT SHAPES ARE DRAWN IN ALL THREE, on the chart, in the legend and beside every name, so colour is reinforcement and never the only signal. Money keeps its minus sign in every setting. The choice is saved like every other view preference here.','A DATA WINDOW column on every study table: the stretch of history that row’s figures actually cover, read from the saved run document where the row has a run number and from the studies registry where it does not. It is never guessed - a row that records no window shows a dash saying so.','THE COMMON WINDOW, printed under every study chart and once for the whole board: the stretch every visible row genuinely shares. When they do not share one the line warns you, names the rows that reach outside it and says by how much. Those rows also get a warning sign in their own window cell. This matters because some runs are older and saw less data than the backfill has since added, so their totals were never comparable - the board now says so instead of leaving you to find out.','Nothing was recomputed, re-run or refreshed. This release only surfaces the window each row already covers and warns when the windows disagree.','The studies registry gains an optional data window per study and per row, so a locally computed result can record the stretch it covers instead of showing a dash. STUDIES_BOARD.md documents the new field and both new controls.']},
 {v:'73.143',date:'2026-08-18',notes:['COMPARE > STUDIES: a PROFIT STAGE toggle (in-sample, walk-forward, lockbox, total). It sets the height of every chart point, highlights the matching money column in every table and drives the profit divided by drawdown column, so every row on screen is compared on the same stretch of history. A row with no figure for that stage shows a dash saying why and leaves the chart, and the line under the chart counts it. No figure from another stage is ever put in its place.','A VERTICAL AXIS toggle: raw profit, or profit divided by the worst drawdown. On the ratio the tick labels read as plain numbers rather than dollars. Each study keeps its own default - books open on the ratio because more legs means more margin, single strategies open on raw profit - and PER STUDY honours those defaults.','Filter chips for strategy type, verdict, discovered date and run status. They are built from the tags the rows carry rather than written into the code, so a new study tags its rows and gets its buttons for free. Filters narrow the chart and the table together and the board always says how many rows are hidden.','The dots no longer rely on colour. Every verdict has its own shape, size and outline - a filled circle for the champion, a filled square, a hollow circle, a cross and a hollow triangle - so all five read on the monochrome theme. The legend and the name column show the same marks. Colour is still applied on top for the colour themes.','The chart and the table now talk to each other both ways. Clicking a point scrolls the table to its row and lights it up; hovering a row lights up its point. The permanent row number is the link.','Each study table scrolls on its own with its headings pinned, so a long study no longer runs off the page, and the wide columns still scroll sideways without moving the page.','Ported from the summary file: a RANK column, tinted champion and winning rows, the bulleted notes under each table, the shapes in the legend and the note that the best results sit toward the top left. ORDER BY gains a RESULT option that sorts best first on the selected stage.','A new document at the repo root, STUDIES_BOARD.md, explains the whole registry for anyone adding the next study: every field, how to tag rows, what a row needs to appear on the chart, the permanent-row-number rule, the dash-with-a-reason rule and why a pooled book is never compared head to head with a single strategy.']},
 {v:'73.142',date:'2026-08-18',notes:['THE FIVE OLD BOOK RUNS NOW READ CORRECTLY ON SCREEN. Runs 238, 258, 261, 262 and 263 were saved before the units fix, so their headline money was counted twice and printed 20 times too large. Nothing in Firestore was rewritten - the app now corrects those figures as it reads them. Run 261 reads $984,200 with a $56,090 drawdown instead of $19.7 million with a $1.1 million drawdown.','The correction is worked out from the run itself, never from a run number or a date. A book run always carries its own pooled block, and that block was always right. If the stored headline already matches that block the run is left completely alone; only when the headline is exactly that block times the saved contract size is it divided back down. A book run saved from today onward matches its own block, so it is never touched.','Corrected: the headline net, the max drawdown, the dollars-per-day and everything derived from them, which includes MAR and the equity scaling in COMPARE. Left exactly as saved: the profit factor, the trade count, the lockbox figures, the equity curve values and the PASS or FAIL verdict, because none of those were ever wrong.','The RUNBOARD BOOKS table and the RUNBOARD matrix read the pooled block directly and were always right. They are deliberately not corrected a second time, so their numbers are unchanged.','A corrected run carries a small amber UNITS CORRECTED tag in Past Runs, on the RUNBOARD list and at the top of its report. Hover it and it says what was adjusted and what was left alone.']},
 {v:'73.139',date:'2026-08-18',notes:['COMPARE > STUDIES: every study now shows a scatter chart above its table, the same risk map you were reading in the summary file. Worst drawdown runs left to right and the champion or baseline point is drawn larger with a white outline, so you can see at a glance which variants sit up and to the left of it.','The chart is driven by the same study registry the tables read. A new study you add gets its chart automatically once it names its two axis columns and their captions, with no change to the drawing code.','A row missing either axis figure is left off its chart, and the line underneath the chart says how many were left off and why. No figure is ever substituted to fill a gap.']},
@@ -16732,6 +16733,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
                     dd is ALWAYS a positive number (house rule). PROFIT/DD is COMPUTED from
                     the selected stage and dd, so it never needs to be supplied.
            why      optional {field: reason} overriding dashWhy for this row alone
+           win      optional {from:'YYYY-MM-DD',to:'YYYY-MM-DD'} — THE DATA WINDOW, the stretch
+                    of history this row's figures actually cover.
+                    A ROW WITH A `runs` ARRAY DOES NOT NEED THIS. The board reads the window
+                    straight off the saved run document, which is the truth for that row, and
+                    ignores anything written here. Supply it only for LOCAL research, where
+                    nothing else records the range.
+                    NEVER GUESS ONE. Rows were computed at different times and the underlying
+                    data has been backfilled since, so an assumed range is exactly the error
+                    this column exists to catch. Leave it out and the row honestly prints a
+                    dash saying the window is unknown.
+                    The board computes the COMMON WINDOW across every visible row — the latest
+                    start and the earliest end — prints it under each chart and once for the
+                    whole board, and warns, naming rows and day counts, when the visible rows
+                    do not all cover it.
+
+         STUDY-LEVEL `win` works the same way and is the default for every row in the study that
+         has neither a run nor its own `win`. Only set it when every one of those rows really was
+         computed over that same range.
          ================================================================================= */
       const RESEARCH_STUDIES=[
       {key:'noise',title:'NOISE single-strategy variants',disc:'2026-08-17',isLbl:'IN-SAMPLE',fam:'NOISE',
@@ -17339,18 +17358,117 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reStage=(_reStages.indexOf(APREF.resStage)>=0)?APREF.resStage:'tot';
         const _reAxis=(APREF.resAxis==='ratio'||APREF.resAxis==='raw')?APREF.resAxis:'auto';
         const _reFilt=(()=>{try{const o=JSON.parse(APREF.resFilt||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
+        // ── TIME SCOPE (owner ask 2026-08-19: "add a scope to add whats been run past week,
+        //    month etc"). It narrows the WHOLE board — charts and tables together — to a recent
+        //    stretch of work, and it always says how many rows it is holding back.
+        //    THE AMBIGUITY THIS CONTROL HAS TO SETTLE: every row carries TWO different dates. The
+        //    date it was DISCOVERED in research, which every row has, and the date it RAN as a real
+        //    validate run, which only rows persisted as runs have at all. Scoping on one is not the
+        //    same question as scoping on the other, so the board never picks silently: SCOPE DATE
+        //    is its own control, it defaults to FOLLOWS ORDER BY, and the line under the controls
+        //    spells out in words which of the two dates is being read right now. ORDER BY RESULT is
+        //    not a date at all, so FOLLOWS ORDER BY falls back to DISCOVERED and says so rather
+        //    than pretending it followed something.
+        //    A row with no DATE RAN cannot be placed inside a run-date scope. It is held back, but
+        //    never quietly: it is counted and named by row number in the line under the controls
+        //    and again under the study chart, the same way the DATE RAN view already puts those
+        //    rows in their own labelled block instead of inventing a date for them.
+        const _reScopeDefs=[['all','ALL TIME',0],['7','PAST WEEK',7],['30','PAST MONTH',30],['90','PAST 3 MONTHS',90]];
+        const _reScope=(['all','7','30','90'].indexOf(String(APREF.resScope))>=0)?String(APREF.resScope):'all';
+        const _reScopeN=(_reScope==='all')?0:+_reScope;
+        const _reScopeNm=(_reScopeDefs.filter(o=>o[0]===_reScope)[0]||_reScopeDefs[0])[1];
+        const _reSBasis=(APREF.resSBasis==='disc'||APREF.resSBasis==='ran')?APREF.resSBasis:'follow';
+        const _reSOn=(_reSBasis==='follow')?((_reDate==='ran')?'ran':'disc'):_reSBasis;
+        const _reSOnNm=(_reSOn==='ran')?'DATE RAN':'DISCOVERED';
+        const _reCut=_reScopeN?(new Date(Date.now()-_reScopeN*86400000).toISOString().slice(0,10)):'';
         const _reFT='#c084fc';
-        const _reTone={champ:'var(--blue)',good:'var(--green)',frag:'var(--yellow)',fail:'var(--red)',ref:'var(--text5)'};
+        // ── COLOUR TOGGLE (owner ask 2026-08-19: "add color toggle?"). The owner runs the app on
+        //    the monochrome theme, which is why every verdict already carries its OWN SHAPE. This
+        //    control changes THIS BOARD ONLY — it never touches the app theme — and has three
+        //    settings:
+        //      THEME       follow the app theme. Exactly what the board did before this control
+        //                  existed, so nothing moves for anyone who never touches it.
+        //      COLOUR      force the five approved colours whatever the theme is doing: blue for
+        //                  the champion, green for held up, amber for fragile, red for failed and
+        //                  grey for reference.
+        //      SHAPES ONLY force one neutral ink so the shape is the only thing carrying meaning.
+        //    THE SHAPES ARE DRAWN IN ALL THREE SETTINGS. Colour is reinforcement laid on top of
+        //    the shape and is never a replacement for it, so turning colour off loses no meaning.
+        const _reCol=(APREF.resColour==='on'||APREF.resColour==='off')?APREF.resColour:'theme';
+        const _reToneSet={
+          theme:{champ:'var(--blue)',good:'var(--green)',frag:'var(--yellow)',fail:'var(--red)',ref:'var(--text5)'},
+          on:{champ:'#60a5fa',good:'#4ade80',frag:'#fbbf24',fail:'#f87171',ref:'#9ca3af'},
+          off:{champ:'var(--text2)',good:'var(--text2)',frag:'var(--text3)',fail:'var(--text3)',ref:'var(--text5)'}};
+        const _reTone=_reToneSet[_reCol];
+        // a losing figure keeps its minus sign in every setting; only the ink changes
+        const _reUp=(_reCol==='on')?'#4ade80':((_reCol==='off')?'var(--text2)':'var(--green)');
+        const _reDn=(_reCol==='on')?'#f87171':((_reCol==='off')?'var(--text3)':'var(--red)');
+        const _reWarnC=(_reCol==='on')?'#fbbf24':((_reCol==='off')?'var(--text3)':'var(--yellow)');
         const _reToneNm={champ:'champion or baseline',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
         const _reToneMk={champ:'large filled circle with a bright outline',good:'filled square',frag:'hollow circle',fail:'cross',ref:'hollow triangle'};
         const _reEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-        const _reRunDate=id=>{const r=(runHistory||[]).find(x=>x&&String(x.id)===String(id));
+        const _reRunRec=id=>(runHistory||[]).find(x=>x&&String(x.id)===String(id));
+        const _reRunDate=id=>{const r=_reRunRec(id);
           return (r&&r.timestamp)?String(r.timestamp).slice(0,10):'';};
+        // ── THE SCOPE TEST. Says whether the row is inside the selected stretch, and whether it
+        //    fell out because it has no date of the kind being scoped on at all — the caller counts
+        //    and names those separately so they are never lost without a word.
+        const _reInScope=(st,rw)=>{
+          if(!_reScopeN)return {ok:true,nod:false};
+          const d=(_reSOn==='ran')
+            ?((Array.isArray(rw.runs)&&rw.runs.length)?_reRunDate(rw.runs[0]):'')
+            :String(rw.disc||st.disc||'');
+          if(!d)return {ok:false,nod:true};
+          return {ok:(d>=_reCut),nod:false};};
+        // ── DATA WINDOW (owner ask 2026-08-19: rows are not apples to apples, because they were
+        //    computed over different date ranges and the data has since been backfilled). This
+        //    reads the REAL window each row's figures cover: off the saved run document where the
+        //    row has a run number, off the studies registry where it does not. It never guesses and
+        //    never widens one row's window to match another. A row that records no window says so
+        //    in plain words, because unknown is the honest answer and a made-up range is not.
+        const _reWinOf=(st,rw)=>{
+          const runs=Array.isArray(rw.runs)?rw.runs:[];
+          if(runs.length){const r=_reRunRec(runs[0]);
+            if(r&&r.date_from&&r.date_to)return {f:String(r.date_from).slice(0,10),t:String(r.date_to).slice(0,10),
+              src:'read from the saved document for run #'+runs[0]};}
+          const w=rw.win||st.win;
+          if(w&&w.from&&w.to)return {f:String(w.from).slice(0,10),t:String(w.to).slice(0,10),
+            src:'recorded in the studies registry'};
+          return null;};
+        const _reDayGap=(a,b)=>{const x=Date.parse(a+'T00:00:00Z'),y=Date.parse(b+'T00:00:00Z');
+          return (isNaN(x)||isNaN(y))?null:Math.round((y-x)/86400000);};
+        const _reDayTxt=d=>(d==null)?'an unknown amount':((d>=730)?((d/365.25).toFixed(1)+' years'):((d>=60)?(Math.round(d/30.44)+' months'):(d+' day'+(d===1?'':'s'))));
+        // THE COMMON WINDOW is the stretch every visible row that records a window actually covers:
+        //   the latest start and the earliest end. Anything outside it was seen by some rows and
+        //   not by others, which is exactly what makes two totals not comparable.
+        const _reComFrom=(w,none)=>{
+          if(!w.length)return {n:0,none:none,f:null,t:null,diff:[]};
+          let f=w[0].f,t=w[0].t,mf=w[0].f,mt=w[0].t;
+          w.forEach(o=>{if(o.f>f)f=o.f;if(o.t<t)t=o.t;if(o.f<mf)mf=o.f;if(o.t>mt)mt=o.t;});
+          const diff=w.filter(o=>o.f!==f||o.t!==t);
+          return {n:w.length,none:none,f:f,t:t,mf:mf,mt:mt,diff:diff,
+                  headD:_reDayGap(mf,f),tailD:_reDayGap(t,mt),span:_reDayGap(f,t)};};
+        const _reCommon=(st,rows)=>{
+          const w=[],none=[];
+          rows.forEach(r=>{const o=_reWinOf(st,r);if(o)w.push({n:r.n,f:o.f,t:o.t});else none.push(r.n);});
+          return _reComFrom(w,none);};
+        // the plain-English line printed under every study chart, and once for the whole board
+        const _reWinLine=(com,total,what)=>{
+          if(!com.n)return 'DATA WINDOW: not one of the '+total+' rows '+what+' records the stretch of history its figures cover, so nothing here can tell you whether they are comparable. Treat their totals as unrelated numbers until each row records a data window.';
+          let s='DATA WINDOW: the '+com.n+' row'+(com.n>1?'s':'')+' '+what+' that record one all cover '+com.f+' to '+com.t+((com.span!=null)?(' in common, which is '+_reDayTxt(com.span)+' of history'):'')+'.';
+          if(com.diff.length){
+            s+=' They do NOT all cover the same stretch: '+com.diff.length+' of them differ';
+            if(com.headD)s+=', starting up to '+_reDayTxt(com.headD)+' earlier';
+            if(com.tailD)s+=(com.headD?' and':',')+' running up to '+_reDayTxt(com.tailD)+' further at the end';
+            s+='. Row'+(com.diff.length>1?'s ':' ')+com.diff.map(o=>o.n).join(', ')+' cover history the others never saw, so putting their totals beside the rest overstates them. Compare them on the shared stretch, or re-run them on one window.';
+          }else{s+=' Every one of them covers the same stretch, so on that count their totals are comparable.';}
+          if(com.none.length)s+=' A further '+com.none.length+' row'+(com.none.length>1?'s record':' records')+' no data window at all (row'+(com.none.length>1?'s ':' ')+com.none.join(', ')+'), so there is no way to tell whether they cover the same history. Nothing was assumed for them.';
+          return s;};
         const _reDash=why=>'<span title="'+_reEsc(why||'This figure was never measured for this row.')+'" style="color:var(--text5);cursor:help">—</span>';
         const _reWhy=(st,rw,f)=>((rw.why&&rw.why[f])||(st.dashWhy&&st.dashWhy[f])||'This figure was never measured for this row, so nothing is shown rather than a number from a different window.');
         // a losing money figure keeps its minus sign, the way the approved study table shows it.
         // DRAWDOWN is the one column that never takes a minus - its header already says drawdown.
-        const _reMoney=v=>(v>=0?'<span style="color:var(--green)">$':'<span style="color:var(--red)">-$')+Math.round(Math.abs(v)).toLocaleString()+'</span>';
+        const _reMoney=v=>(v>=0?('<span style="color:'+_reUp+'">$'):('<span style="color:'+_reDn+'">-$'))+Math.round(Math.abs(v)).toLocaleString()+'</span>';
         const _reNum=(r,f)=>{const v=r&&r[f];return (v==null||!isFinite(v))?null:+v;};
         // every cell goes through here: a real number renders, a missing one renders as a dash
         // that says WHY on hover. There is no third path — nothing is ever silently substituted.
@@ -17420,8 +17538,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reRank=(st,rows)=>{const m={};
           rows.map(r=>({r:r,v:_reYv(st,r)})).filter(o=>o.v!=null).sort((a,b)=>b.v-a.v)
             .forEach((o,i)=>{m[o.r.n]=i+1;});return m;};
-        const _reBg=tone=>(tone==='champ')?'color-mix(in srgb,var(--blue) 13%,transparent)':((tone==='good')?'color-mix(in srgb,var(--green) 9%,transparent)':'');
-        const _reRow=(st,rw,rank)=>{
+        // row accents follow the COLOUR setting as well, so SHAPES ONLY really is monochrome and
+        //   COLOUR really does tint on a monochrome theme. The shapes are unaffected either way.
+        const _reBg=tone=>{const b=(_reCol==='off')?'var(--text)':((_reCol==='on')?'#60a5fa':'var(--blue)'),
+              g=(_reCol==='off')?'var(--text)':((_reCol==='on')?'#4ade80':'var(--green)'),
+              pa=(_reCol==='off')?'8%':'13%',pb=(_reCol==='off')?'4%':'9%';
+          return (tone==='champ')?('color-mix(in srgb,'+b+' '+pa+',transparent)')
+            :((tone==='good')?('color-mix(in srgb,'+g+' '+pb+',transparent)'):'');};
+        const _reRow=(st,rw,rank,com)=>{
           const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:7px 8px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
           const col=_reTone[rw.tone]||'var(--text4)';
           const runs=Array.isArray(rw.runs)?rw.runs:[];
@@ -17432,6 +17556,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const dCell=(_reDate==='ran')
             ?(runs.length?(_reRunDate(runs[0])||_reDash('This run exists but its saved date could not be read from run history.')):_reDash('This row was never run as a validate run, so it has no date ran.'))
             :(rw.disc||st.disc||_reDash('No discovery date was recorded for this row.'));
+          // DATA WINDOW: the stretch of history this row's figures actually cover. Read from the
+          //   real run document when the row has a run number, from the registry when it does not,
+          //   and left as a dash that says so when neither records one. A row reaching outside the
+          //   stretch every visible row shares is flagged, with the size of the gap on hover.
+          const wo=_reWinOf(st,rw);
+          const winCell=(()=>{
+            if(!wo)return _reDash('This row does not record the stretch of history its figures cover. It was computed locally and its registry entry carries no data window, so there is no honest way to say whether it covers the same history as the rows around it.');
+            const off=(com&&com.n&&(wo.f!==com.f||wo.t!==com.t));
+            let tip=wo.f+' to '+wo.t+', '+wo.src+'. This is the stretch of history behind every figure on this row.';
+            if(off){const hd=_reDayGap(wo.f,com.f),td=_reDayGap(com.t,wo.t);
+              tip+=' It does NOT match the stretch every row now shown has in common, which is '+com.f+' to '+com.t;
+              if(hd>0)tip+=': it starts '+_reDayTxt(hd)+' earlier';
+              if(td>0)tip+=((hd>0)?' and':':')+' it runs '+_reDayTxt(td)+' further at the end';
+              tip+='. Its totals therefore include history the other rows never saw, so do not put them side by side without saying so.';}
+            return '<span title="'+_reEsc(tip)+'" style="color:var(--text4);font-size:9px;cursor:help">'+wo.f+' \u2192 '+wo.t+'</span>'
+              +(off?('<span title="'+_reEsc(tip)+'" style="color:'+_reWarnC+';cursor:help"> \u26a0</span>'):'');})();
           const bg=_reBg(rw.tone);
           const em=';background:color-mix(in srgb,var(--text) 7%,transparent);font-weight:700';
           const pddCell=(()=>{const p=_reNum(rw,_reStage),d=_reNum(rw,'dd');
@@ -17444,6 +17584,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td('<span style="color:var(--text4)">'+_reEsc(rw.what)+'</span>','left',';white-space:normal;min-width:210px')
             +td(runCell,'left')
             +td('<span style="color:var(--text4);font-size:10px">'+dCell+'</span>','left')
+            +td(winCell,'left')
             +td(_reCell(st,rw,'is',_reMoney),null,(_reStage==='is')?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reStage==='wf')?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reStage==='lb')?em:'')
@@ -17458,7 +17599,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    the horizontal column and its caption come out of the study chart block, and the
         //    height comes from the stage and axis the owner picked. Plain inline SVG, no library.
         //    Every point is clickable and carries the same handle as its table row.
-        const _reChart=(st,rows,rank,hidden)=>{
+        const _reChart=(st,rows,rank,hidden,scopeNote)=>{
           const cf=st.chart;if(!cf||!cf.x)return '';
           const pts=[],skip=[];
           rows.forEach(r=>{const x=_reNum(r,cf.x),y=_reYv(st,r);
@@ -17517,39 +17658,57 @@ namespace NinjaTrader.NinjaScript.Strategies {
             omit=skip.length+' of the '+(pts.length+skip.length)+' rows now shown are not on the chart, because a point needs both figures and these do not have one. '
               +order.map(w=>'Row'+(seen[w].length>1?'s ':' ')+seen[w].join(', ')+': '+w).join(' ')
               +' Nothing was substituted to put them on.';}
-          if(hidden)omit+=' A further '+hidden+' row'+(hidden>1?'s are':' is')+' hidden by the filters above.';
+          if(hidden)omit+=' A further '+hidden+' row'+(hidden>1?'s are':' is')+' not on this tile at all, held back by the controls above.';
+          if(scopeNote)omit+=scopeNote;
           return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px;margin-bottom:11px">'
             +'<svg viewBox="0 0 980 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
             +'<div style="margin-top:8px">'+_reLegend('The best results sit toward the top left. Click a point to jump to its row; hover a row to light up its point.')+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-top:6px;max-width:960px">'+_reEsc(omit)
             +(_reDate==='ran'?' The faded points were never run as a validate run, matching the second block of the table below.':'')+'</div></div>';};
-        let _reShown=0,_reHidden=0;
+        let _reShown=0,_reHidden=0,_reFiltOut=0,_reScopeOut=0,_reNoDate=[],_reWinAll=[],_reWinNone=[];
         const _reTile=st=>{
           const all=(st.rows||[]).slice();
-          const rows=all.filter(r=>_rePass(st,r));
+          const kept=all.filter(r=>_rePass(st,r));
+          const filtOut=all.length-kept.length;
+          // THE TIME SCOPE is applied after the filter chips and counted on its own, so the board
+          //   can say WHICH control is holding a row back instead of lumping the two together.
+          //   A row with no date of the kind being scoped on is collected by row number and named
+          //   in words below, never dropped without a word.
+          const inSc=[],outSc=[],noDate=[];
+          kept.forEach(r=>{const v=_reInScope(st,r);
+            if(v.ok)inSc.push(r);else{outSc.push(r);if(v.nod)noDate.push(r.n);}});
+          const rows=inSc;
           const hidden=all.length-rows.length;
-          _reShown+=rows.length;_reHidden+=hidden;
+          _reShown+=rows.length;_reHidden+=hidden;_reFiltOut+=filtOut;_reScopeOut+=outSc.length;
+          noDate.forEach(n=>_reNoDate.push(n));
+          const com=_reCommon(st,rows);
+          rows.forEach(r=>{const o=_reWinOf(st,r);
+            if(o)_reWinAll.push({n:r.n,f:o.f,t:o.t});else _reWinNone.push(r.n);});
+          let scopeNote='';
+          if(_reScopeN){
+            scopeNote=' TIME SCOPE '+_reScopeNm+' is reading the '+_reSOnNm+' date and is holding back '+outSc.length+' of the '+kept.length+' rows this study would otherwise show.';
+            if(noDate.length)scopeNote+=' '+noDate.length+' of those, row'+(noDate.length>1?'s ':' ')+noDate.join(', ')+', have no '+_reSOnNm+' date at all, so a scope on that date cannot place them. They are named here rather than dropped quietly. Set SCOPE DATE to DISCOVERED, or the scope to ALL TIME, to bring them back.';}
           const rank=_reRank(st,rows);
           let bodyRows;
           if(!rows.length){
-            bodyRows='<tr><td colspan="15" style="padding:16px 8px;color:var(--text5);font-size:10px">Every row in this study is hidden by the filters above. Clear a filter to bring them back.</td></tr>';
+            bodyRows='<tr><td colspan="16" style="padding:16px 8px;color:var(--text5);font-size:10px">Every row in this study is held back by the filters or the time scope above. Clear a filter, or widen the scope, to bring them back.</td></tr>';
           }else if(_reDate==='ran'){
             // ran-first, newest first; anything without a run drops into its own labelled block
             const withRun=rows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
             const noRun=rows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
             withRun.sort((a,b)=>{const da=_reRunDate(a.runs[0]),db=_reRunDate(b.runs[0]);
               return (da===db)?((+b.runs[0]||0)-(+a.runs[0]||0)):((db>da)?1:-1);});
-            const sep=(t,tip)=>'<tr><td colspan="15" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
-            bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN · '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r,rank[r.n])).join('')):'')
-              +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN · '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n])).join('')):'');
+            const sep=(t,tip)=>'<tr><td colspan="16" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+            bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN · '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
+              +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN · '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
           }else if(_reDate==='res'){
             // best first on the stage and axis now selected; rows with no figure for it sit last
             const ord=rows.slice().sort((a,b)=>{const va=_reYv(st,a),vb=_reYv(st,b);
               if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
-            bodyRows=ord.map(r=>_reRow(st,r,rank[r.n])).join('');
+            bodyRows=ord.map(r=>_reRow(st,r,rank[r.n],com)).join('');
           }else{
             // discovered view keeps the registry order, which is the order the owner approved
-            bodyRows=rows.map(r=>_reRow(st,r,rank[r.n])).join('');
+            bodyRows=rows.map(r=>_reRow(st,r,rank[r.n],com)).join('');
           }
           const _emH=sg=>(_reStage===sg)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
           const _hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:8px;letter-spacing:1.1px;color:var(--text5);font-weight:700;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
@@ -17560,6 +17719,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('WHAT IT DOES','left')
             +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
             +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
+            +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. Read from the saved run document where the row has a run number, and from the studies registry where it does not — never guessed. A warning sign means this row does not match the stretch every row now shown has in common, so its totals are not comparable with theirs; hover it and it says by how much.')
             +_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.',_emH('is'))
             +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
@@ -17571,9 +17731,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const notes=Array.isArray(st.notes)?st.notes:(st.note?[st.note]:[]);
           return tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:3px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+_reEsc(st.title)+'</span>'
-            +'<span style="font-size:8px;color:var(--text5)">'+rows.length+' of '+all.length+' rows shown'+(hidden?(' · '+hidden+' hidden by the filters'):'')+' · discovered '+_reEsc(st.disc||'')+'</span></div>'
+            +'<span style="font-size:8px;color:var(--text5)">'+rows.length+' of '+all.length+' rows shown'+(filtOut?(' · '+filtOut+' hidden by the filters'):'')+(outSc.length?(' · '+outSc.length+' outside the time scope'):'')+' · discovered '+_reEsc(st.disc||'')+'</span></div>'
             +'<div style="font-size:9.5px;color:var(--text4);line-height:1.7;margin-bottom:9px;max-width:960px">'+_reEsc(st.sub)+'</div>'
-            +_reChart(st,rows,rank,hidden)
+            +_reChart(st,rows,rank,hidden,scopeNote)
+            +'<div style="font-size:9px;color:'+((com.diff.length||com.none.length)?_reWarnC:'var(--text5)')+';line-height:1.75;margin:0 0 9px;max-width:960px">'+_reEsc(_reWinLine(com,rows.length,'now shown in this study'))+'</div>'
             +'<div data-rescroll style="position:relative;max-height:430px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
             +'<div style="font-size:8px;color:var(--text5);margin-top:5px">The table scrolls on its own and keeps its headings pinned, so the page underneath stays where it is.</div>'
             +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.8;margin:9px 0 0;padding-left:15px;max-width:960px">'
@@ -17593,25 +17754,67 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _tabBtn('data-resaxis="auto"','PER STUDY',_reAxis==='auto','let each study keep its own default - books use profit divided by drawdown because more legs means more margin, single strategies use raw profit',_TONE.rank)
            +_tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels',_TONE.rank)
            +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars, and this is the fair way to read a pooled book beside a single strategy',_TONE.rank),_TONE.rank);
+        // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
+        //   because the scope means nothing until you know which date it is reading.
+        const _reScopeBtns=_ctlGrp('TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
+            _reScopeDefs.map(o=>_tabBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
+              (o[2]?('show only rows dated within the past '+o[2]+' days on whichever date SCOPE DATE names'):'no time scope at all - every row on the board is eligible whatever date it carries')
+              +'. Read SCOPE DATE beside this: a row carries a date it was DISCOVERED and, if it was ever saved as a run, a separate date it RAN, and the two answer different questions.',_TONE.samp)).join(''),_TONE.samp);
+        const _reSBasisBtns=_ctlGrp('SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
+            _tabBtn('data-ressbasis="follow"','FOLLOWS ORDER BY',_reSBasis==='follow','use whichever date ORDER BY is set to, so the scope and the ordering always agree. ORDER BY RESULT is not a date at all, so this falls back to the date discovered and the line below says so out loud',_TONE.heat)
+           +_tabBtn('data-ressbasis="disc"','DISCOVERED',_reSBasis==='disc','scope on the date the result was found in research. Every row on the board has one of these, so nothing is held back for want of a date',_TONE.heat)
+           +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSBasis==='ran','scope on the date the real validate run finished. Only rows that were persisted as runs have one at all - the rest are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
+        const _reColBtns=_ctlGrp('COLOUR','turn colour on for this board alone, without changing the app theme. The verdict shapes are drawn in every setting, so nothing becomes unreadable',
+            _tabBtn('data-rescolour="theme"','THEME',_reCol==='theme','follow the app theme, which is what this board did before this control existed',_reFT)
+           +_tabBtn('data-rescolour="on"','COLOUR',_reCol==='on','force the five approved colours whatever the theme is doing: blue for the champion, green for held up, amber for fragile, red for failed, grey for reference. The shapes stay exactly as they are',_reFT)
+           +_tabBtn('data-rescolour="off"','SHAPES ONLY',_reCol==='off','one neutral ink everywhere, so the shape alone carries the verdict. This is the monochrome reading and it loses no meaning',_reFT),_reFT);
         const _reFiltBtns=_reFacets.map(f=>{const sel=_reFilt[f.k]||[];
           return _ctlGrp(f.cap,f.tip+'. Click a value to narrow the chart and the table together; click it again to widen back. Nothing ticked means everything is shown.',
             _reOpts[f.k].map(v=>_tabBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',_reEsc(f.lbl(v)),sel.indexOf(v)>=0,
               'show only rows tagged '+_reEsc(f.lbl(v))+' - this button exists because at least one row in the registry carries that tag',_reFT)).join(''),_reFT);}).join('');
         const _reClear=_reFiltOn?('<span data-reclear title="drop every filter and show all rows again" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;color:var(--text3);background:color-mix(in srgb,var(--red) 16%,transparent)">CLEAR FILTERS</span>'):'';
         const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
-        const _reCount='<div style="font-size:9px;color:'+(_reHidden?'var(--yellow)':'var(--text5)')+';margin-top:7px">'
-          +(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are hidden by the filters. '+_reShown+' are shown, on the charts and in the tables alike.')
-                     :('All '+_reTotal+' rows on this board are shown. No filter is narrowing anything.'))+'</div>';
+        const _reCount='<div style="font-size:9px;color:'+(_reHidden?_reWarnC:'var(--text5)')+';margin-top:7px">'
+          +(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are not shown — '+_reFiltOut+' held back by the filters and '+_reScopeOut+' by the time scope. '+_reShown+' are shown, on the charts and in the tables alike.')
+                     :('All '+_reTotal+' rows on this board are shown. Neither the filters nor the time scope is narrowing anything.'))+'</div>';
+        // WHICH DATE THE SCOPE IS READING, in words, every time. This is the line that keeps the
+        //   scope honest: a row carries a date discovered and, separately, a date it ran, and a
+        //   board that quietly picked one would be telling the owner something it never said.
+        const _reScopeLine='<div style="font-size:9px;color:'+(_reScopeN?_reWarnC:'var(--text5)')+';margin-top:5px;line-height:1.75;max-width:960px">'
+          +_reEsc(_reScopeN
+            ?('TIME SCOPE is set to '+_reScopeNm+' and it is reading the '+_reSOnNm+' date'
+              +((_reSBasis==='follow')
+                ?(', because SCOPE DATE is following ORDER BY'+((_reDate==='res')?', and ORDER BY is set to RESULT, which is not a date at all, so the scope has fallen back to the date discovered rather than pick one quietly':'')+'.')
+                :', because you chose that date explicitly.')
+              +' Only rows whose '+_reSOnNm+' date falls on or after '+_reCut+' are shown, on the charts and in the tables alike. '
+              +_reScopeOut+' of the '+_reTotal+' rows on the board fall outside it.'
+              +(_reNoDate.length?(' '+_reNoDate.length+' of those, row'+((_reNoDate.length>1)?'s ':' ')+_reNoDate.join(', ')+', carry no '+_reSOnNm+' date at all, so a scope on that date cannot place them either way. They are named here rather than dropped without a word — set SCOPE DATE to DISCOVERED, which every row has, or the scope to ALL TIME, to read them again.'):''))
+            :('TIME SCOPE is off, so every row on the board is eligible whatever date it carries. Turn it on to read only recent work; SCOPE DATE beside it decides whether that means the date a result was discovered in research or the date it ran as a real validate run, and those are different questions.'))
+          +'</div>';
+        // THE COMMON WINDOW across everything on screen. Rows were computed over different date
+        //   ranges and the underlying data has since been backfilled, so two totals can look
+        //   comparable and not be. This says what stretch they all genuinely share, and warns
+        //   when they do not share one, naming the rows and the size of the gap.
+        const _reComAll=_reComFrom(_reWinAll,_reWinNone);
+        const _reWinBoard='<div style="font-size:9px;color:'+((_reComAll.diff.length||_reComAll.none.length)?_reWarnC:'var(--text5)')+';margin-top:5px;line-height:1.75;max-width:960px">'
+          +_reEsc(_reWinLine(_reComAll,_reShown,'now shown across the whole board'))+'</div>';
         body=modeToggle
           +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">STUDIES</span>'
             +'<span style="font-size:8px;color:var(--text5)">completed studies · one tile per study · a row with a run number opens its report</span>'
             +'<span style="margin-left:auto;display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:flex-end">'+_reStageBtns+_reAxisBtns+_reDateBtns+'</span></div>'
+            +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reScopeBtns+_reSBasisBtns+_reColBtns+'</div>'
             +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reFiltBtns+_reClear+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
             +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change.</div>'
             +_reCount
-            +'<div style="margin-top:8px">'+_reLegend('Every verdict has its own shape as well as its own colour, so the chart still reads on the monochrome theme.')+'</div>',0)
+            +_reScopeLine
+            +_reWinBoard
+            +'<div style="margin-top:8px">'+_reLegend((_reCol==='off')
+                ?'COLOUR is off, so every mark is drawn in one ink and the shape alone carries the verdict. Nothing is lost: the shapes were always the signal.'
+                :((_reCol==='on')
+                  ?'COLOUR is on for this board only, and your app theme is untouched. The shapes are still drawn, so colour is reinforcement rather than the only signal.'
+                  :'Every verdict has its own shape as well as its own colour, so the chart still reads on the monochrome theme. The COLOUR control above can force colour on or off for this board alone.'))+'</div>',0)
           +_reBody;
         }else if(_cmpMode==='board'){
         // ── RUNBOARD body (owner ask 2026-08-09: "make it like 1A and 1E - a funnel chart and a
@@ -19895,6 +20098,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(cur.length)o[k]=cur;else delete o[k];
         savePref('resFilt',JSON.stringify(o));renderApp();};});
       content.querySelectorAll('[data-reclear]').forEach(b=>{b.onclick=()=>{savePref('resFilt','{}');renderApp();};});
+      // STUDIES board: the TIME SCOPE, the date it reads, and the colour setting. All three are
+      //   persisted through savePref exactly like every other view preference on this board, so
+      //   they survive a reload and a re-render.
+      content.querySelectorAll('[data-resscope]').forEach(b=>{b.onclick=()=>{savePref('resScope',b.dataset.resscope);renderApp();};});
+      content.querySelectorAll('[data-ressbasis]').forEach(b=>{b.onclick=()=>{savePref('resSBasis',b.dataset.ressbasis);renderApp();};});
+      content.querySelectorAll('[data-rescolour]').forEach(b=>{b.onclick=()=>{savePref('resColour',b.dataset.rescolour);renderApp();};});
       // STUDIES board: the chart and the table talk to each other BOTH WAYS. The link is the
       //   permanent row number, so a point and its row always find each other. Clicking a point
       //   scrolls its own table box (never the page) until that row is centred and lights it up;
