@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.142';
+const VERSION='73.143';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.143',date:'2026-08-18',notes:['COMPARE > STUDIES: a PROFIT STAGE toggle (in-sample, walk-forward, lockbox, total). It sets the height of every chart point, highlights the matching money column in every table and drives the profit divided by drawdown column, so every row on screen is compared on the same stretch of history. A row with no figure for that stage shows a dash saying why and leaves the chart, and the line under the chart counts it. No figure from another stage is ever put in its place.','A VERTICAL AXIS toggle: raw profit, or profit divided by the worst drawdown. On the ratio the tick labels read as plain numbers rather than dollars. Each study keeps its own default - books open on the ratio because more legs means more margin, single strategies open on raw profit - and PER STUDY honours those defaults.','Filter chips for strategy type, verdict, discovered date and run status. They are built from the tags the rows carry rather than written into the code, so a new study tags its rows and gets its buttons for free. Filters narrow the chart and the table together and the board always says how many rows are hidden.','The dots no longer rely on colour. Every verdict has its own shape, size and outline - a filled circle for the champion, a filled square, a hollow circle, a cross and a hollow triangle - so all five read on the monochrome theme. The legend and the name column show the same marks. Colour is still applied on top for the colour themes.','The chart and the table now talk to each other both ways. Clicking a point scrolls the table to its row and lights it up; hovering a row lights up its point. The permanent row number is the link.','Each study table scrolls on its own with its headings pinned, so a long study no longer runs off the page, and the wide columns still scroll sideways without moving the page.','Ported from the summary file: a RANK column, tinted champion and winning rows, the bulleted notes under each table, the shapes in the legend and the note that the best results sit toward the top left. ORDER BY gains a RESULT option that sorts best first on the selected stage.','A new document at the repo root, STUDIES_BOARD.md, explains the whole registry for anyone adding the next study: every field, how to tag rows, what a row needs to appear on the chart, the permanent-row-number rule, the dash-with-a-reason rule and why a pooled book is never compared head to head with a single strategy.']},
 {v:'73.142',date:'2026-08-18',notes:['THE FIVE OLD BOOK RUNS NOW READ CORRECTLY ON SCREEN. Runs 238, 258, 261, 262 and 263 were saved before the units fix, so their headline money was counted twice and printed 20 times too large. Nothing in Firestore was rewritten - the app now corrects those figures as it reads them. Run 261 reads $984,200 with a $56,090 drawdown instead of $19.7 million with a $1.1 million drawdown.','The correction is worked out from the run itself, never from a run number or a date. A book run always carries its own pooled block, and that block was always right. If the stored headline already matches that block the run is left completely alone; only when the headline is exactly that block times the saved contract size is it divided back down. A book run saved from today onward matches its own block, so it is never touched.','Corrected: the headline net, the max drawdown, the dollars-per-day and everything derived from them, which includes MAR and the equity scaling in COMPARE. Left exactly as saved: the profit factor, the trade count, the lockbox figures, the equity curve values and the PASS or FAIL verdict, because none of those were ever wrong.','The RUNBOARD BOOKS table and the RUNBOARD matrix read the pooled block directly and were always right. They are deliberately not corrected a second time, so their numbers are unchanged.','A corrected run carries a small amber UNITS CORRECTED tag in Past Runs, on the RUNBOARD list and at the top of its report. Hover it and it says what was adjusted and what was left alone.']},
 {v:'73.139',date:'2026-08-18',notes:['COMPARE > STUDIES: every study now shows a scatter chart above its table, the same risk map you were reading in the summary file. Worst drawdown runs left to right and the champion or baseline point is drawn larger with a white outline, so you can see at a glance which variants sit up and to the left of it.','The chart is driven by the same study registry the tables read. A new study you add gets its chart automatically once it names its two axis columns and their captions, with no change to the drawing code.','A row missing either axis figure is left off its chart, and the line underneath the chart says how many were left off and why. No figure is ever substituted to fill a gap.']},
 {v:'73.138',date:'2026-08-18',notes:['COMPARE > STUDIES: a losing money figure now keeps its minus sign, matching the study table you were already reading. Drawdown stays positive, because its heading already says drawdown.']},
@@ -16659,38 +16660,48 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   numbers ($434.7k / MAR 8.62 / LB $98.5k) because the common window adds a negative
       //   ~6-week tail (Jul-Aug 2026) -- stated, not hidden.
       /* ══════════════════════════════════════════════════════════════════════════════════
-         RESEARCH BOARD DATA — the ONE place to add a completed research study.
-         Rendered at COMPARE ▸ RESEARCH. Adding a study means APPENDING to this array.
+         STUDIES BOARD DATA — the ONE place to add a completed research study.
+         Rendered at COMPARE > STUDIES. Adding a study means APPENDING to this array.
          Never edit the renderer below to add data.
+
+         READ STUDIES_BOARD.md AT THE REPO ROOT FIRST. It is the full written contract for
+         this registry: every field, how to add a study or a row, how tagging feeds the
+         filters, which figures a row needs to appear on the chart at each stage, and the
+         comparability rules. This comment is the short version of that document.
 
          STUDY SHAPE
            key      unique short id, lowercase
            title    the study name the owner reads at the top of its tile
            sub      one plain-English line: what was tested, on what, over what window
-           note     optional caveat printed under the study table (plain English)
+           notes    array of plain-English bullets printed under the study table. A single
+                    `note` string still works and renders as one bullet.
            disc     DATE DISCOVERED for the whole study, YYYY-MM-DD. A row may override.
+           fam      DEFAULT STRATEGY-TYPE TAG for every row (NOISE, ORB, ENGU-Q, BOOK...).
+                    A row may override it. This tag is what the STRATEGY TYPE filter is
+                    built from — the filter reads the data, so a new tag appears on its own.
            isLbl    header text for the in-sample money column. Use IN-SAMPLE when the
                     study really has a separate walk-forward stage, PRE-LOCKBOX when the
                     figure is everything before the lockbox pooled together.
-           chart    {x,y,xCap,yCap,tip,xFmt,yFmt} — THE SCATTER CHART ABOVE THE TABLE.
+           chart    {x,xCap,yMode,tip,xFmt} — THE SCATTER CHART ABOVE THE TABLE.
                     This block is what makes the chart plug and play: the drawing code
-                    never knows which columns a study charts, it only reads this.
+                    never knows which column a study charts, it only reads this.
                       x     field name driving the horizontal position (e.g. 'dd')
-                      y     field name driving the vertical position. Use 'pdd' (profit
-                            divided by drawdown) instead of raw profit whenever the rows
-                            carry different amounts of margin, as pooled books do —
-                            raw profit would flatter the bigger books unfairly.
                       xCap  horizontal axis caption, plain English, and it MUST say which
                             direction is better (e.g. "further LEFT is better")
-                      yCap  vertical axis caption, same rule (e.g. "HIGHER is better")
+                      yMode 'ratio' or 'raw' — the study DEFAULT for the vertical axis.
+                            Use 'ratio' (profit divided by the worst drawdown) whenever the
+                            rows carry different amounts of margin, as pooled books do, so
+                            raw profit cannot flatter the bigger books. The owner can
+                            override it for the whole board with the VERTICAL AXIS control.
                       tip   optional [field,...] named in the hover text of every point.
-                            Defaults to the two axis fields.
-                      xFmt  optional 'money' | 'num', how the axis ticks and hover text are
-                      yFmt  written. Defaults to money for the money columns (is wf lb tot
-                            dd) and to a plain number for anything else.
-                    A row missing EITHER axis value is left OFF the chart and counted in
-                    the line printed underneath it, carrying the same reason the table
-                    dash gives. Nothing is ever substituted to make a point plottable.
+                      xFmt  optional 'money' | 'num' for the horizontal ticks. Defaults to
+                            money for the money columns (is wf lb tot dd), number otherwise.
+                    THE VERTICAL AXIS IS NOT DECLARED HERE. It is always the profit stage
+                    the owner picked (in-sample / walk-forward / lockbox / total), raw or
+                    divided by drawdown, so every study on screen is read the same way.
+                    A row missing EITHER figure is left OFF the chart and counted in the
+                    line printed underneath it, carrying the same reason the table dash
+                    gives. Nothing is ever substituted to make a point plottable.
                     OMIT the whole block and the study renders as a table only.
            dashWhy  {field: reason} — the hover text shown on a dash for a MISSING value in
                     that column, for every row in the study. Fields: is wf lb tot dd pf pdd trd
@@ -16699,28 +16710,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
          ROW SHAPE
            n        ROW NUMBER — a permanent handle. Once the owner has seen it, it never
-                    changes and is never reused. New rows take the next free number.
+                    changes and is never reused. New rows take the next free number. It is
+                    also the link between a chart point and its table row.
            name     short name, exactly as the owner has already seen it
            what     plain-English description of what the variant does
+           fam      optional per-row override of the study strategy-type tag
            tone     champ (champion or baseline) | good (beat it and held up) |
                     frag (works but fragile) | fail (failed) | ref (reference or superseded)
+                    Each tone has its OWN SHAPE on the chart — filled circle, filled square,
+                    hollow circle, cross, hollow triangle — so the verdict reads with no
+                    colour at all on the monochrome theme. Colour is reinforcement only.
            read     the short verdict text
            runs     [runId, ...] of the real Auto-Validate runs that persisted this row.
                     OMIT the field entirely for local-only research — the row then prints
                     "local" in the RUN column, exactly like the RUNBOARD does, and it
                     carries no DATE RAN.
            disc     optional per-row override of the study DATE DISCOVERED
-           is wf lb tot dd pf pdd trd
+           is wf lb tot dd pf trd
                     the numbers. Leave a field OUT (or null) when it does not exist for
                     that row — it prints a dash with the study dashWhy reason on hover.
-                    dd is ALWAYS a positive number (house rule).
+                    dd is ALWAYS a positive number (house rule). PROFIT/DD is COMPUTED from
+                    the selected stage and dd, so it never needs to be supplied.
            why      optional {field: reason} overriding dashWhy for this row alone
-         ═════════════════════════════════════════════════════════════════════════════════ */
+         ================================================================================= */
       const RESEARCH_STUDIES=[
-      {key:'noise',title:'NOISE single-strategy variants',disc:'2026-08-17',isLbl:'IN-SAMPLE',
+      {key:'noise',title:'NOISE single-strategy variants',disc:'2026-08-17',isLbl:'IN-SAMPLE',fam:'NOISE',
        sub:'One strategy on its own. NQ 5-minute bars, 2010 to 2026. Twenty-six configurations tested against the crowned champion.',
-       note:'Skipping short trades the day after a weak close (row 2) is the single-strategy recommendation. It was the only change that passed every test for fragility.',
-       chart:{x:'dd',y:'wf',xCap:'Worst drawdown — further LEFT is better',yCap:'Walk-forward profit — HIGHER is better',tip:['wf','dd','tot']},
+       notes:['Row 2 is the single-strategy recommendation. Skipping short trades the day after a weak close was the only change that passed every test for fragility.','Rows 25 and 26 have no walk-forward figure. A pooled book produces no walk-forward folds, and the older ORB run covered different dates. They leave the chart whenever the walk-forward stage is selected.','Read this study on raw profit. Every row here trades one strategy on one contract, so they all carry the same margin and the dollars are directly comparable.'],
+       chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'raw',tip:['dd','tot']},
        dashWhy:{wf:'A pooled book produces no walk-forward folds, so this stage does not exist for this row.',is:'This row was measured as a whole-run figure only, so it has no separate in-sample stage.'},
        rows:[
         {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[242,254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
@@ -16747,15 +16764,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:22,name:'Long Veto',what:'Skip long trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9745,wf:216728,lb:25507,tot:280710,dd:34882,pf:1.22,pdd:8.05,trd:4527},
         {n:23,name:'Strong Full Veto',what:'Skip all trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9168,wf:156775,lb:35340,tot:221607,dd:33185,pf:1.20,pdd:6.68,trd:4087},
         {n:24,name:'Loss Skip',what:'Skip the trade after any loss.',tone:'fail',read:'Only losing in-sample',is:-3908,wf:120583,lb:12071,tot:135214,dd:32019,pf:1.12,pdd:4.22,trd:4057},
-        {n:25,name:'Book: ORB + NOISE',what:'The first pooled book. Two strategies as one.',tone:'ref',read:'Superseded by the pooled books study',runs:[238],lb:168845,tot:716089,dd:39809,pf:1.29,pdd:17.99,trd:7025},
-        {n:26,name:'ORB Crown (old)',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
+        {n:25,fam:'BOOK',name:'Book: ORB + NOISE',what:'The first pooled book. Two strategies as one.',tone:'ref',read:'Superseded by the pooled books study',runs:[238],lb:168845,tot:716089,dd:39809,pf:1.29,pdd:17.99,trd:7025},
+        {n:26,fam:'ORB',name:'ORB Crown (old)',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
          why:{wf:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.',is:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.'}},
         {n:27,name:'Champion (old data)',what:'Same as row 1, before the data backfill.',tone:'ref',read:'Superseded',is:6190,wf:270934,lb:23146,tot:322842,dd:30412,pf:1.21,pdd:10.62,trd:5616}
        ]},
-      {key:'books',title:'Pooled books',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',
+      {key:'books',title:'Pooled books',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'BOOK',
        sub:'Several strategies traded together in one account, one contract each, every trade pooled and the pile scored as one strategy.',
-       chart:{x:'dd',y:'pdd',xCap:'Worst drawdown — further LEFT is better',yCap:'Profit divided by drawdown — HIGHER is better',tip:['tot','dd','pdd']},
-       note:'Books cannot be compared head to head against single strategies: more legs means more margin, so profit divided by drawdown is the fair comparison, not raw profit. Row 28 beats the stated baseline (row 34) on every measure. Equal weighting was kept because tuned weights lost almost all of their advantage out of sample.',
+       chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'ratio',tip:['dd','tot']},
+       notes:['Row 28 is the headline result. It beats the stated baseline, row 34, on every single measure: more profit, a smaller drawdown, a better profit factor, a better lockbox stretch and no losing years.','Books cannot be compared head to head against single strategies. More legs means more margin, so profit divided by drawdown is the fair comparison and raw profit is not. That is why this study opens on the ratio.','Books emit no walk-forward folds, so selecting the walk-forward stage empties this chart on purpose. An eight-stretch consistency count is used instead.','Equal weighting was kept. Tuned weights looked far better in sample and lost almost all of that advantage out of sample.','The measured correlation between ORB and NOISE is about 0.4, not the 0.21 to 0.25 the older notes assumed. The diversification is real but weaker than believed.'],
        dashWhy:{wf:'A pooled book tunes nothing during the run, so it produces no walk-forward folds by design. An eight-stretch consistency count is used instead.'},
        rows:[
         {n:28,name:'Triple Book',what:'ORB + ENGU-Q + NOISE (Short Veto + Wild10).',tone:'good',read:'Beats the baseline on every axis',runs:[261],is:987186,lb:258808,tot:1245994,dd:56090,pf:1.369,pdd:22.21,trd:9048},
@@ -16778,10 +16795,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:45,name:'Duo: Old ORB + Full',what:'Old ORB crown + NOISE (Full Veto).',tone:'good',read:'Beats the first book',is:522566,lb:192418,tot:714984,dd:35696,pf:1.300,pdd:20.03,trd:7011},
         {n:46,name:'Duo: Old ORB + Plain',what:'Old ORB crown + the plain NOISE champion.',tone:'fail',read:'Worst of the group',is:491573,lb:192537,tot:684110,dd:42670,pf:1.240,pdd:16.03,trd:8240}
        ]},
-      {key:'xfam',title:'Does the weak-close filter transfer?',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',
+      {key:'xfam',title:'Does the weak-close filter transfer?',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'ORB',
        sub:'The same filter that works on NOISE, applied to ORB and to ENGU-Q. Different strategies and different windows, so compare each row only against its own crown.',
-       chart:{x:'dd',y:'tot',xCap:'Worst drawdown — further LEFT is better',yCap:'Total profit — HIGHER is better',tip:['tot','dd','pdd']},
-       note:'The filter does not transfer and both crowns stand. Nothing here was adopted and nothing was queued. The mechanism is REVERSED on ORB: short trades after a weak close MAKE money there, about $86 each across 248 trades, while the same trades lose about $118 each on NOISE. Row 63 is worth remembering because it cuts ENGU-Q drawdown by 31% for under 7% of profit, but it fails the profit test so it is not an adoption.',
+       chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'raw',tip:['dd','tot']},
+       notes:['The filter does not transfer and both crowns stand. Nothing here was adopted and nothing was queued.','The mechanism is reversed on ORB. Short trades after a weak close make money there, about $86 each across 248 trades, while the same trades lose about $118 each on NOISE. The belief that this was a program-wide pattern was wrong.','Compare each row only against its own crown. Use the STRATEGY TYPE filter to read the ORB rows and the ENGU-Q rows separately, because they were measured on different strategies and different windows.','Row 63 is worth remembering. It cuts ENGU-Q drawdown by 31% and nearly repairs its only losing year for under 7% of profit. It fails the profit test so it is not an adoption, but it is the lever if ENGU-Q is ever sized up.'],
        dashWhy:{wf:'Walk-forward was not re-run for these local filter tests, so there is no fold figure to report.',trd:'The study recorded money and ratios only, so no trade count exists for this row.'},
        rows:[
         {n:47,name:'ORB Crown',what:'The standing ORB crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[234],is:300932,lb:88943,tot:389874,dd:29142,pf:1.31,pdd:13.38},
@@ -16797,13 +16814,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:57,name:'ORB Strong Veto .85',what:'Skip all ORB trades after a strong close.',tone:'fail',read:'Fails',is:207014,lb:84000,tot:291014,dd:30954,pf:1.26,pdd:9.40},
         {n:58,name:'ORB Strong Veto .75',what:'Same, tight threshold.',tone:'fail',read:'Fails',is:189399,lb:88141,tot:277540,dd:28109,pf:1.28,pdd:9.87},
         {n:59,name:'ORB Strong Veto .80',what:'Same, standard threshold.',tone:'fail',read:'Fails',is:194311,lb:77003,tot:271315,dd:35743,pf:1.26,pdd:7.59},
-        {n:60,name:'ENGU-Q Crown',what:'The ENGU-Q day-session crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[227],is:364699,lb:88852,tot:477521,dd:65635,pf:1.41,pdd:7.28},
-        {n:61,name:'ENGU-Q Long Veto .85',what:'Skip ENGU-Q longs after a strong close.',tone:'frag',read:'Drawdown lever only',is:348303,lb:102496,tot:470937,dd:60559,pf:1.44,pdd:7.78},
-        {n:62,name:'ENGU-Q Long Veto .80',what:'Same, standard threshold.',tone:'frag',read:'Drawdown lever only',is:340560,lb:106926,tot:465097,dd:58296,pf:1.45,pdd:7.98},
-        {n:63,name:'ENGU-Q Long Veto .75',what:'Same, tight threshold. Cuts drawdown 31%.',tone:'frag',read:'Best drawdown lever',is:313675,lb:104831,tot:445955,dd:52853,pf:1.46,pdd:8.44},
-        {n:64,name:'ENGU-Q Full Veto .15',what:'Skip all ENGU-Q trades after a weak close.',tone:'fail',read:'Fails on profit',is:300242,lb:96238,tot:421519,dd:50373,pf:1.35,pdd:8.37},
-        {n:65,name:'ENGU-Q Full Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:279516,lb:104826,tot:407835,dd:48486,pf:1.34,pdd:8.41},
-        {n:66,name:'ENGU-Q Full Veto .25',what:'Same, loose threshold.',tone:'fail',read:'Fails',is:241629,lb:74945,tot:313924,dd:65533,pf:1.25,pdd:4.79}
+        {n:60,fam:'ENGU-Q',name:'ENGU-Q Crown',what:'The ENGU-Q day-session crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[227],is:364699,lb:88852,tot:477521,dd:65635,pf:1.41,pdd:7.28},
+        {n:61,fam:'ENGU-Q',name:'ENGU-Q Long Veto .85',what:'Skip ENGU-Q longs after a strong close.',tone:'frag',read:'Drawdown lever only',is:348303,lb:102496,tot:470937,dd:60559,pf:1.44,pdd:7.78},
+        {n:62,fam:'ENGU-Q',name:'ENGU-Q Long Veto .80',what:'Same, standard threshold.',tone:'frag',read:'Drawdown lever only',is:340560,lb:106926,tot:465097,dd:58296,pf:1.45,pdd:7.98},
+        {n:63,fam:'ENGU-Q',name:'ENGU-Q Long Veto .75',what:'Same, tight threshold. Cuts drawdown 31%.',tone:'frag',read:'Best drawdown lever',is:313675,lb:104831,tot:445955,dd:52853,pf:1.46,pdd:8.44},
+        {n:64,fam:'ENGU-Q',name:'ENGU-Q Full Veto .15',what:'Skip all ENGU-Q trades after a weak close.',tone:'fail',read:'Fails on profit',is:300242,lb:96238,tot:421519,dd:50373,pf:1.35,pdd:8.37},
+        {n:65,fam:'ENGU-Q',name:'ENGU-Q Full Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:279516,lb:104826,tot:407835,dd:48486,pf:1.34,pdd:8.41},
+        {n:66,fam:'ENGU-Q',name:'ENGU-Q Full Veto .25',what:'Same, loose threshold.',tone:'fail',read:'Fails',is:241629,lb:74945,tot:313924,dd:65533,pf:1.25,pdd:4.79}
        ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
@@ -17303,18 +17320,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_cmpModeBtn('research','STUDIES','the completed research studies — every variant that was tested, what it does in plain English, and whether it was ever run as a real validate run')
           +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">completed studies · one tile each · order by date discovered or date ran</span>':'')))+'</div>';
         if(_cmpMode==='research'){
-        // ── RESEARCH board (owner ask 2026-08-18: "add these to the compare tab so i can see it
-        //    on edge log. we will be adding different strategies as well so make sure its plug
-        //    and play" + "add a toggle by date discovered/ran"). Every row comes from the
-        //    RESEARCH_STUDIES registry above — this renderer holds NO data. One tile per study,
-        //    because a pooled book cannot be compared head to head with a single strategy.
-        //    DATE toggle: DISCOVERED = when the result was found in research (carried on the
-        //    row), RAN = the date the real Auto-Validate run saved, read live out of run
-        //    history. A row with no run number can never have a DATE RAN, so under that view it
-        //    is moved into its own clearly-labelled block with a dash — never a borrowed date.
-        const _reDate=(APREF.resDate==='ran')?'ran':'disc';
+        // ── STUDIES board (owner asks 2026-08-18). Every row comes from the RESEARCH_STUDIES
+        //    registry above — this renderer holds NO data, so a new study renders itself the
+        //    moment it is appended. The full contract is written up in STUDIES_BOARD.md at the
+        //    repo root; read that before adding a study.
+        //    FOUR CONTROLS, all applied to the chart AND the table at the same time so the two
+        //    always read the same numbers:
+        //      PROFIT STAGE  in-sample / walk-forward / lockbox / total. A row with no figure
+        //                    for the chosen stage shows a dash that says why and drops off the
+        //                    chart. A number from a different stage is NEVER substituted.
+        //      VERTICAL AXIS raw profit, or profit divided by the worst drawdown. Books default
+        //                    to the ratio because more legs means more margin; single-strategy
+        //                    studies default to raw profit. PER STUDY honours those defaults.
+        //      ORDER BY      date discovered, date the real validate run finished, or result.
+        //      FILTERS       built from whatever tags the registry rows carry, never hardcoded.
+        const _reDate=(APREF.resDate==='ran')?'ran':((APREF.resDate==='res')?'res':'disc');
+        const _reStages=['is','wf','lb','tot'];
+        const _reStage=(_reStages.indexOf(APREF.resStage)>=0)?APREF.resStage:'tot';
+        const _reAxis=(APREF.resAxis==='ratio'||APREF.resAxis==='raw')?APREF.resAxis:'auto';
+        const _reFilt=(()=>{try{const o=JSON.parse(APREF.resFilt||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
+        const _reFT='#c084fc';
         const _reTone={champ:'var(--blue)',good:'var(--green)',frag:'var(--yellow)',fail:'var(--red)',ref:'var(--text5)'};
         const _reToneNm={champ:'champion or baseline',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
+        const _reToneMk={champ:'large filled circle with a bright outline',good:'filled square',frag:'hollow circle',fail:'cross',ref:'hollow triangle'};
         const _reEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
         const _reRunDate=id=>{const r=(runHistory||[]).find(x=>x&&String(x.id)===String(id));
           return (r&&r.timestamp)?String(r.timestamp).slice(0,10):'';};
@@ -17323,12 +17351,77 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // a losing money figure keeps its minus sign, the way the approved study table shows it.
         // DRAWDOWN is the one column that never takes a minus - its header already says drawdown.
         const _reMoney=v=>(v>=0?'<span style="color:var(--green)">$':'<span style="color:var(--red)">-$')+Math.round(Math.abs(v)).toLocaleString()+'</span>';
+        const _reNum=(r,f)=>{const v=r&&r[f];return (v==null||!isFinite(v))?null:+v;};
         // every cell goes through here: a real number renders, a missing one renders as a dash
         // that says WHY on hover. There is no third path — nothing is ever silently substituted.
-        const _reCell=(st,rw,f,fmt)=>{const v=rw[f];
-          return (v==null||!isFinite(v))?_reDash(_reWhy(st,rw,f)):fmt(v);};
-        const _reHd=(t,al,tip)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:8px;letter-spacing:1.1px;color:var(--text5);font-weight:700;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap'+(tip?';cursor:help':'')+'">'+t+'</th>';
-        const _reRow=(st,rw)=>{
+        const _reCell=(st,rw,f,fmt)=>{const v=_reNum(rw,f);return (v==null)?_reDash(_reWhy(st,rw,f)):fmt(v);};
+        const _reMoneyF={is:1,wf:1,lb:1,tot:1,dd:1};
+        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades'};
+        const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
+        const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
+        const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
+        // ── STAGE. One selected stage drives the chart height, the emphasised table column and
+        //    the profit-divided-by-drawdown column, so every row on screen is read on the same
+        //    stretch of history. The in-sample heading follows each study, because a pooled book
+        //    has no separate walk-forward stage and calls that column PRE-LOCKBOX instead.
+        const _reStageNm={is:'IN-SAMPLE',wf:'WALK-FWD',lb:'LOCKBOX',tot:'TOTAL'};
+        const _reStWord=(st,sg)=>(sg==='is')?((((st&&st.isLbl))==='PRE-LOCKBOX')?'Pre-lockbox':'In-sample'):(sg==='wf'?'Walk-forward':(sg==='lb'?'Lockbox':'Total'));
+        const _reMode=st=>(_reAxis==='auto')?((((st&&st.chart&&st.chart.yMode))==='ratio')?'ratio':'raw'):_reAxis;
+        // the plotted value: the chosen stage profit, or that profit divided by the worst
+        // drawdown. Either input missing means no value at all — never a stand-in.
+        const _reYv=(st,rw)=>{const p=_reNum(rw,_reStage);if(p==null)return null;
+          if(_reMode(st)!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
+        const _reYwhy=(st,rw)=>{const p=_reNum(rw,_reStage);
+          return (p==null)?_reWhy(st,rw,_reStage):_reWhy(st,rw,'dd');};
+        const _reYfmt=st=>(_reMode(st)==='ratio')?'num':'money';
+        const _reYcap=st=>_reStWord(st,_reStage)+(_reMode(st)==='ratio'?' profit divided by the worst drawdown — HIGHER is better':' profit — HIGHER is better');
+        // ── FILTERS, built from the data. Each facet names a tag the registry rows carry, and
+        //    its buttons are whatever distinct values actually appear, so a new study that tags
+        //    its rows gets its buttons for free with no change here.
+        const _reFacets=[
+          {k:'fam',cap:'STRATEGY TYPE',tip:'which strategy family the row belongs to - this comes off the row tag in the registry, so a new family appears here on its own',
+           val:(st,r)=>String(r.fam||st.fam||'UNTAGGED'),lbl:v=>v},
+          {k:'tone',cap:'VERDICT',tip:'how the row was judged when the study closed',
+           val:(st,r)=>String(r.tone||'ref'),lbl:v=>(_reToneNm[v]||v).toUpperCase()},
+          {k:'disc',cap:'DISCOVERED',tip:'the date the result was found in research',
+           val:(st,r)=>String(r.disc||st.disc||'undated'),lbl:v=>v},
+          {k:'run',cap:'RUN STATUS',tip:'whether the row was persisted as a real validate run or only ever computed locally',
+           val:(st,r)=>((Array.isArray(r.runs)&&r.runs.length)?'ran':'local'),lbl:v=>(v==='ran'?'RAN AS A RUN':'LOCAL ONLY')}];
+        const _reOpts={};
+        _reFacets.forEach(f=>{const seen={},out=[];
+          RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const v=f.val(st,r);if(!seen[v]){seen[v]=1;out.push(v);}}));
+          out.sort();_reOpts[f.k]=out;});
+        const _rePass=(st,r)=>_reFacets.every(f=>{const sel=_reFilt[f.k];
+          return !(sel&&sel.length)||sel.indexOf(f.val(st,r))>=0;});
+        const _reFiltOn=_reFacets.some(f=>(_reFilt[f.k]||[]).length);
+        // ── MONOCHROME-SAFE MARKS (owner 2026-08-18: "dots dont apear as colors (monochrome
+        //    them)"). The owner runs the monochrome theme, so colour cannot carry the verdict on
+        //    its own. Every verdict now has its OWN SHAPE, its own size and its own outline, and
+        //    the legend shows the shapes. The theme colour is still applied on top, so a colour
+        //    theme still reads correctly, but it is reinforcement and never the only signal.
+        const _reSz={champ:9,good:6.6,frag:6.6,fail:6.2,ref:6.4};
+        const _reShape=(tone,cx,cy,s,col,fo,so)=>{
+          const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
+          const bod=' fill-opacity="'+fo+'" stroke-opacity="'+so+'"';
+          if(tone==='champ')return '<circle cx="'+x+'" cy="'+y+'" r="'+s+'" fill="'+col+'" stroke="var(--text)" stroke-width="2"'+bod+'/>';
+          if(tone==='good'){const h=s*0.9;return '<rect x="'+(cx-h).toFixed(1)+'" y="'+(cy-h).toFixed(1)+'" width="'+(2*h).toFixed(1)+'" height="'+(2*h).toFixed(1)+'" fill="'+col+'" stroke="'+col+'" stroke-width="1"'+bod+'/>';}
+          if(tone==='frag')return '<circle cx="'+x+'" cy="'+y+'" r="'+s+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-opacity="'+so+'"/>';
+          if(tone==='fail'){const h=s*0.95;return '<path d="M'+(cx-h).toFixed(1)+' '+(cy-h).toFixed(1)+'L'+(cx+h).toFixed(1)+' '+(cy+h).toFixed(1)+'M'+(cx-h).toFixed(1)+' '+(cy+h).toFixed(1)+'L'+(cx+h).toFixed(1)+' '+(cy-h).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linecap="round" stroke-opacity="'+so+'"/>';}
+          const h=s*1.15;
+          return '<path d="M'+x+' '+(cy-h).toFixed(1)+'L'+(cx+h).toFixed(1)+' '+(cy+h*0.78).toFixed(1)+'L'+(cx-h).toFixed(1)+' '+(cy+h*0.78).toFixed(1)+'Z" fill="none" stroke="'+col+'" stroke-width="1.9" stroke-opacity="'+so+'"/>';};
+        const _reMk=tone=>'<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px;margin-right:5px">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
+        const _reLegend=extra=>'<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
+          +['champ','good','frag','fail','ref'].map(k=>'<span title="'+_reEsc('drawn as a '+_reToneMk[k]+', so the verdict reads with no colour at all')+'" style="cursor:help">'+_reMk(k)+_reToneNm[k]+'</span>').join('')
+          +(extra?('<span style="color:var(--text5)">'+_reEsc(extra)+'</span>'):'')+'</span>';
+        // ── RANK, ported from the summary file the owner approved: every study table opens with
+        //    the position the row holds on the CURRENT stage and axis, so re-reading the board on
+        //    a different stage re-ranks it honestly. The permanent ROW number sits beside it and
+        //    never moves. A row with no figure for the stage gets a dash, not a made-up place.
+        const _reRank=(st,rows)=>{const m={};
+          rows.map(r=>({r:r,v:_reYv(st,r)})).filter(o=>o.v!=null).sort((a,b)=>b.v-a.v)
+            .forEach((o,i)=>{m[o.r.n]=i+1;});return m;};
+        const _reBg=tone=>(tone==='champ')?'color-mix(in srgb,var(--blue) 13%,transparent)':((tone==='good')?'color-mix(in srgb,var(--green) 9%,transparent)':'');
+        const _reRow=(st,rw,rank)=>{
           const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:7px 8px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
           const col=_reTone[rw.tone]||'var(--text4)';
           const runs=Array.isArray(rw.runs)?rw.runs:[];
@@ -17339,141 +17432,187 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const dCell=(_reDate==='ran')
             ?(runs.length?(_reRunDate(runs[0])||_reDash('This run exists but its saved date could not be read from run history.')):_reDash('This row was never run as a validate run, so it has no date ran.'))
             :(rw.disc||st.disc||_reDash('No discovery date was recorded for this row.'));
-          return '<tr'+(runs.length?(' data-rank-run="'+runs[0]+'" style="cursor:pointer"'):'')+'>'
+          const bg=_reBg(rw.tone);
+          const em=';background:color-mix(in srgb,var(--text) 7%,transparent);font-weight:700';
+          const pddCell=(()=>{const p=_reNum(rw,_reStage),d=_reNum(rw,'dd');
+            return (p==null||d==null||!d)?_reDash(_reYwhy(st,rw)):('<b>'+(p/Math.abs(d)).toFixed(2)+'</b>');})();
+          const mk='<svg width="15" height="15" viewBox="0 0 15 15" style="vertical-align:-3px;margin-right:6px">'+_reShape(rw.tone,7.5,7.5,4.4,col,1,1)+'</svg>';
+          return '<tr data-rerow="'+st.key+':'+rw.n+'"'+(runs.length?(' data-rank-run="'+runs[0]+'"'):'')+' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
+            +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]||'')+'" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:7px;cursor:help"></span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>','left')
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>','left')
             +td('<span style="color:var(--text4)">'+_reEsc(rw.what)+'</span>','left',';white-space:normal;min-width:210px')
             +td(runCell,'left')
             +td('<span style="color:var(--text4);font-size:10px">'+dCell+'</span>','left')
-            +td(_reCell(st,rw,'is',_reMoney))
-            +td(_reCell(st,rw,'wf',v=>'<b>'+_reMoney(v)+'</b>'))
-            +td(_reCell(st,rw,'lb',_reMoney))
-            +td(_reCell(st,rw,'tot',v=>'<b>'+_reMoney(v)+'</b>'))
+            +td(_reCell(st,rw,'is',_reMoney),null,(_reStage==='is')?em:'')
+            +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reStage==='wf')?em:'')
+            +td(_reCell(st,rw,'lb',_reMoney),null,(_reStage==='lb')?em:'')
+            +td(_reCell(st,rw,'tot',v=>_reMoney(v)),null,(_reStage==='tot')?em:'')
             +td(_reCell(st,rw,'dd',v=>'$'+Math.round(Math.abs(v)).toLocaleString()))
             +td(_reCell(st,rw,'pf',v=>v.toFixed(2)))
-            +td(_reCell(st,rw,'pdd',v=>'<b>'+v.toFixed(2)+'</b>'))
+            +td(pddCell)
             +td(_reCell(st,rw,'trd',v=>'<span style="color:var(--text5)">'+Math.round(v).toLocaleString()+'</span>'))
             +td('<span style="color:'+col+'">'+_reEsc(rw.read)+'</span>','left',';white-space:normal')
             +'</tr>';};
-        // ── STUDY SCATTER CHART (owner ask 2026-08-18: he had been reading a rendered summary
-        //    that paired every table with a risk map above it, and the map is the part he
-        //    wanted in the app). PLUG AND PLAY: this function holds NO per-study knowledge —
-        //    which two columns to plot, what the captions say and what the hover text lists all
-        //    come out of the study.chart block in the registry above, so a future study charts
-        //    itself the moment it is appended. Drawn as plain inline SVG, the same way the rest
-        //    of the app draws, with no library and no separate script.
-        const _reMoneyF={is:1,wf:1,lb:1,tot:1,dd:1};
-        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades'};
-        const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
-        const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
-        const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
-        const _reChart=st=>{
-          const cf=st.chart;if(!cf||!cf.x||!cf.y)return '';
-          const rows=st.rows||[];
-          const gv=(r,f)=>{const v=r[f];return (v==null||!isFinite(v))?null:+v;};
+        // ── STUDY SCATTER CHART. PLUG AND PLAY: this function holds NO per-study knowledge —
+        //    the horizontal column and its caption come out of the study chart block, and the
+        //    height comes from the stage and axis the owner picked. Plain inline SVG, no library.
+        //    Every point is clickable and carries the same handle as its table row.
+        const _reChart=(st,rows,rank,hidden)=>{
+          const cf=st.chart;if(!cf||!cf.x)return '';
           const pts=[],skip=[];
-          rows.forEach(r=>{const x=gv(r,cf.x),y=gv(r,cf.y);
-            if(x==null||y==null)skip.push({r:r,f:(x==null?cf.x:cf.y)});else pts.push({r:r,x:x,y:y});});
-          if(!pts.length)return '';
-          const xf=_reAxFmt(cf.x,cf.xFmt),yf=_reAxFmt(cf.y,cf.yFmt);
+          rows.forEach(r=>{const x=_reNum(r,cf.x),y=_reYv(st,r);
+            if(x==null)skip.push({r:r,w:_reWhy(st,r,cf.x)});
+            else if(y==null)skip.push({r:r,w:_reYwhy(st,r)});
+            else pts.push({r:r,x:x,y:y});});
+          const yf=_reYfmt(st),xf=_reAxFmt(cf.x,cf.xFmt);
           const L=88,R=950,T=22,B=384;
-          const ext=k=>{let lo=Infinity,hi=-Infinity;pts.forEach(p=>{lo=Math.min(lo,p[k]);hi=Math.max(hi,p[k]);});
-            if(!(hi>lo)){const pad=Math.abs(hi)*0.1||1;lo=hi-pad;hi=hi+pad;}
-            const pd=(hi-lo)*0.07;return [lo-pd,hi+pd];};
-          const xe=ext('x'),ye=ext('y');
-          const px=v=>L+(v-xe[0])/(xe[1]-xe[0])*(R-L);
-          const py=v=>B-(v-ye[0])/(ye[1]-ye[0])*(B-T);
           let g='';
-          for(let i=0;i<5;i++){
-            const yv=ye[0]+(ye[1]-ye[0])*i/4,yy=B-(B-T)*i/4;
-            g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
-              +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text5)" font-size="11" text-anchor="end">'+_reTick(yv,yf)+'</text>';
-            const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
-            g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
-              +'<text x="'+xx.toFixed(1)+'" y="404" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reTick(xv,xf)+'</text>';}
-          g+='<text x="'+((L+R)/2)+'" y="430" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(cf.xCap||'')+'</text>'
-            +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(cf.yCap||'')+'</text>';
-          const tipF=(Array.isArray(cf.tip)&&cf.tip.length)?cf.tip:[cf.y,cf.x];
-          // plot the biggest first so the smaller dots land on top and stay readable
-          pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
-            const r=p.r,col=_reTone[r.tone]||'var(--text4)',champ=(r.tone==='champ');
-            const runs=Array.isArray(r.runs)?r.runs:[];
-            // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
-            // change. Under DATE RAN the table splits into ran and never-run blocks, so the
-            // chart fades the never-run points to match what is being read underneath it.
-            const dim=(_reDate==='ran'&&!runs.length);
-            const rad=champ?9:6.5;
-            let tp=r.n+' '+r.name;
-            tipF.forEach(f=>{const v=gv(r,f);
-              tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':_reVal(v,_reAxFmt(f,(f===cf.x?cf.xFmt:(f===cf.y?cf.yFmt:null)))));});
-            if(dim)tp+=' | never run as a validate run';
-            g+='<circle cx="'+px(p.x).toFixed(1)+'" cy="'+py(p.y).toFixed(1)+'" r="'+rad+'" fill="'+col+'" fill-opacity="'+(dim?0.16:(champ?0.95:0.7))+'" stroke="'+(champ?'#ffffff':col)+'" stroke-width="'+(champ?2:1)+'" stroke-opacity="'+(dim?0.3:1)+'" style="cursor:help"><title>'+_reEsc(tp)+'</title></circle>'
-              +'<text x="'+(px(p.x)+rad+4.5).toFixed(1)+'" y="'+(py(p.y)+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+r.n+'</text>';});
+          if(pts.length){
+            const ext=k=>{let lo=Infinity,hi=-Infinity;pts.forEach(p=>{lo=Math.min(lo,p[k]);hi=Math.max(hi,p[k]);});
+              if(!(hi>lo)){const pad=Math.abs(hi)*0.1||1;lo=hi-pad;hi=hi+pad;}
+              const pd=(hi-lo)*0.07;return [lo-pd,hi+pd];};
+            const xe=ext('x'),ye=ext('y');
+            const px=v=>L+(v-xe[0])/(xe[1]-xe[0])*(R-L);
+            const py=v=>B-(v-ye[0])/(ye[1]-ye[0])*(B-T);
+            for(let i=0;i<5;i++){
+              const yv=ye[0]+(ye[1]-ye[0])*i/4,yy=B-(B-T)*i/4;
+              g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
+                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text5)" font-size="11" text-anchor="end">'+_reTick(yv,yf)+'</text>';
+              const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
+              g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
+                +'<text x="'+xx.toFixed(1)+'" y="404" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reTick(xv,xf)+'</text>';}
+            g+='<text x="'+((L+R)/2)+'" y="430" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(cf.xCap||'')+'</text>'
+              +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(_reYcap(st))+'</text>';
+            const tipF=(Array.isArray(cf.tip)&&cf.tip.length)?cf.tip:[cf.x];
+            // plot the biggest first so the smaller marks land on top and stay readable
+            pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
+              const r=p.r,col=_reTone[r.tone]||'var(--text4)',champ=(r.tone==='champ');
+              const runs=Array.isArray(r.runs)?r.runs:[];
+              // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
+              // change. Under DATE RAN the table splits into ran and never-run blocks, so the
+              // chart fades the never-run points to match what is being read underneath it.
+              const dim=(_reDate==='ran'&&!runs.length);
+              const s=_reSz[r.tone]||6.5,cx=px(p.x),cy=py(p.y);
+              let tp=r.n+' '+r.name+' | '+_reToneNm[r.tone]
+                +' | '+_reStWord(st,_reStage)+(_reMode(st)==='ratio'?' profit divided by drawdown ':' profit ')+_reVal(p.y,yf);
+              tipF.forEach(f=>{const v=_reNum(r,f);
+                tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':_reVal(v,_reAxFmt(f,(f===cf.x?cf.xFmt:null))));});
+              if(rank[r.n])tp+=' | rank '+rank[r.n]+' of '+pts.length;
+              if(dim)tp+=' | never run as a validate run';
+              tp+=' | click to jump to its row in the table below';
+              g+='<g data-repoint="'+st.key+':'+r.n+'" style="cursor:pointer">'
+                +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+6).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
+                +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+7).toFixed(1)+'" fill="transparent"/>'
+                +_reShape(r.tone,cx,cy,s,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
+                +'<text x="'+(cx+s+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+r.n+'</text>'
+                +'<title>'+_reEsc(tp)+'</title></g>';});
+          }else{
+            g+='<text x="'+((L+R)/2)+'" y="'+((T+B)/2)+'" fill="var(--text5)" font-size="13" text-anchor="middle">Nothing to plot: no row now shown has both figures for the stage selected.</text>';}
           // the omitted-row line. Counts are real and every reason is the one the table gives.
           let omit;
-          if(!skip.length){omit='Every one of the '+rows.length+' rows is on the chart.';}
+          if(!skip.length){omit='Every one of the '+pts.length+' rows now shown is on the chart.';}
           else{const seen={},order=[];
-            skip.forEach(s=>{const w=_reWhy(st,s.r,s.f);if(!seen[w]){seen[w]=[];order.push(w);}seen[w].push(s.r.n);});
-            omit=skip.length+' of the '+rows.length+' rows are not on the chart, because a point needs both figures and these do not have one. '
+            skip.forEach(s=>{if(!seen[s.w]){seen[s.w]=[];order.push(s.w);}seen[s.w].push(s.r.n);});
+            omit=skip.length+' of the '+(pts.length+skip.length)+' rows now shown are not on the chart, because a point needs both figures and these do not have one. '
               +order.map(w=>'Row'+(seen[w].length>1?'s ':' ')+seen[w].join(', ')+': '+w).join(' ')
               +' Nothing was substituted to put them on.';}
-          const lg='<span style="display:inline-flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
-            +['champ','good','frag','fail','ref'].map(k=>'<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_reTone[k]+';margin-right:5px"></i>'+_reToneNm[k]+'</span>').join('')
-            +'<span style="color:var(--text5)">The best results sit toward the top left.</span></span>';
+          if(hidden)omit+=' A further '+hidden+' row'+(hidden>1?'s are':' is')+' hidden by the filters above.';
           return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px;margin-bottom:11px">'
             +'<svg viewBox="0 0 980 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
-            +'<div style="margin-top:8px">'+lg+'</div>'
+            +'<div style="margin-top:8px">'+_reLegend('The best results sit toward the top left. Click a point to jump to its row; hover a row to light up its point.')+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-top:6px;max-width:960px">'+_reEsc(omit)
             +(_reDate==='ran'?' The faded points were never run as a validate run, matching the second block of the table below.':'')+'</div></div>';};
+        let _reShown=0,_reHidden=0;
         const _reTile=st=>{
-          const rows=(st.rows||[]).slice();
+          const all=(st.rows||[]).slice();
+          const rows=all.filter(r=>_rePass(st,r));
+          const hidden=all.length-rows.length;
+          _reShown+=rows.length;_reHidden+=hidden;
+          const rank=_reRank(st,rows);
           let bodyRows;
-          if(_reDate==='ran'){
+          if(!rows.length){
+            bodyRows='<tr><td colspan="15" style="padding:16px 8px;color:var(--text5);font-size:10px">Every row in this study is hidden by the filters above. Clear a filter to bring them back.</td></tr>';
+          }else if(_reDate==='ran'){
             // ran-first, newest first; anything without a run drops into its own labelled block
             const withRun=rows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
             const noRun=rows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
             withRun.sort((a,b)=>{const da=_reRunDate(a.runs[0]),db=_reRunDate(b.runs[0]);
               return (da===db)?((+b.runs[0]||0)-(+a.runs[0]||0)):((db>da)?1:-1);});
-            const sep=(t,tip)=>'<tr><td colspan="14" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
-            bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN · '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r)).join('')):'')
-              +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN · '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r)).join('')):'');
+            const sep=(t,tip)=>'<tr><td colspan="15" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+            bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN · '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r,rank[r.n])).join('')):'')
+              +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN · '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n])).join('')):'');
+          }else if(_reDate==='res'){
+            // best first on the stage and axis now selected; rows with no figure for it sit last
+            const ord=rows.slice().sort((a,b)=>{const va=_reYv(st,a),vb=_reYv(st,b);
+              if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
+            bodyRows=ord.map(r=>_reRow(st,r,rank[r.n])).join('');
           }else{
             // discovered view keeps the registry order, which is the order the owner approved
-            bodyRows=rows.map(r=>_reRow(st,r)).join('');
+            bodyRows=rows.map(r=>_reRow(st,r,rank[r.n])).join('');
           }
-          const hd='<tr>'+_reHd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
-            +_reHd('NAME','left')+_reHd('WHAT IT DOES','left')
-            +_reHd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
-            +_reHd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
-            +_reHd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.')
-            +_reHd('WALK-FWD',null,'Data held back while tuning and then tested forward.')
-            +_reHd('LOCKBOX',null,'Never touched until the end. The honest forward read.')
-            +_reHd('TOTAL',null,'The whole run, end to end.')
-            +_reHd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
-            +_reHd('PF',null,'Profit factor: gross wins divided by gross losses.')
-            +_reHd('PROFIT÷DD',null,'Total profit divided by the worst drawdown.')
-            +_reHd('TRADES')+_reHd('READ','left')+'</tr>';
+          const _emH=sg=>(_reStage===sg)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
+          const _hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:8px;letter-spacing:1.1px;color:var(--text5);font-weight:700;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
+          const stg=_reStWord(st,_reStage);
+          const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
+            +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
+            +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour.')
+            +_hd('WHAT IT DOES','left')
+            +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
+            +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
+            +_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.',_emH('is'))
+            +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
+            +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
+            +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
+            +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
+            +_hd('PF',null,'Profit factor: gross wins divided by gross losses.')
+            +_hd('PROFIT÷DD',null,stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes.')
+            +_hd('TRADES')+_hd('READ','left')+'</tr>';
+          const notes=Array.isArray(st.notes)?st.notes:(st.note?[st.note]:[]);
           return tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:3px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+_reEsc(st.title)+'</span>'
-            +'<span style="font-size:8px;color:var(--text5)">'+(st.rows||[]).length+' rows · discovered '+_reEsc(st.disc||'')+'</span></div>'
+            +'<span style="font-size:8px;color:var(--text5)">'+rows.length+' of '+all.length+' rows shown'+(hidden?(' · '+hidden+' hidden by the filters'):'')+' · discovered '+_reEsc(st.disc||'')+'</span></div>'
             +'<div style="font-size:9.5px;color:var(--text4);line-height:1.7;margin-bottom:9px;max-width:960px">'+_reEsc(st.sub)+'</div>'
-            +_reChart(st)
-            +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
-            +(st.note?('<div style="font-size:9px;color:var(--text5);line-height:1.8;margin-top:9px;max-width:960px">'+_reEsc(st.note)+'</div>'):''),0);};
-        const _reDateBtns=_ctlGrp('ORDER BY','which date the board orders and groups on',
-            _tabBtn('data-resdate="disc"','DATE DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.samp)
-           +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.samp),_TONE.samp);
-        const _reLegend='<span style="display:inline-flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
-          +['champ','good','frag','fail','ref'].map(k=>'<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_reTone[k]+';margin-right:5px"></i>'+_reToneNm[k]+'</span>').join('')+'</span>';
+            +_reChart(st,rows,rank,hidden)
+            +'<div data-rescroll style="position:relative;max-height:430px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
+            +'<div style="font-size:8px;color:var(--text5);margin-top:5px">The table scrolls on its own and keeps its headings pinned, so the page underneath stays where it is.</div>'
+            +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.8;margin:9px 0 0;padding-left:15px;max-width:960px">'
+                +notes.map(n=>'<li style="margin-bottom:5px">'+_reEsc(n)+'</li>').join('')+'</ul>'):''),0);};
+        const _reBody=RESEARCH_STUDIES.map(_reTile).join('');
+        const _reDateBtns=_ctlGrp('ORDER BY','which order the board lists the rows in',
+            _tabBtn('data-resdate="disc"','DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.heat)
+           +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.heat)
+           +_tabBtn('data-resdate="res"','RESULT',_reDate==='res','order best first on the profit stage and axis selected here - rows with no figure for that stage sit at the bottom',_TONE.heat),_TONE.heat);
+        const _reStageBtns=_ctlGrp('PROFIT STAGE','which stretch of history every study is read on - the chart height, the highlighted column and the profit divided by drawdown column all follow it',
+            _reStages.map(sg=>_tabBtn('data-resstage="'+sg+'"',_reStageNm[sg],_reStage===sg,
+              (sg==='is'?'the stretch the config was tuned on - a pooled book has no separate walk-forward stage, so its version of this column is everything before the lockbox':
+               (sg==='wf'?'data held back while tuning and then tested forward - pooled books produce none of these, so those rows show a dash and drop off the chart':
+               (sg==='lb'?'the stretch never touched until the very end, the honest forward read':'the whole run end to end')))
+              +'. A row with no figure for this stage shows a dash that says why and leaves the chart. No other stage is ever substituted for it.',_TONE.samp)).join(''),_TONE.samp);
+        const _reAxisBtns=_ctlGrp('VERTICAL AXIS','what the height of the chart measures',
+            _tabBtn('data-resaxis="auto"','PER STUDY',_reAxis==='auto','let each study keep its own default - books use profit divided by drawdown because more legs means more margin, single strategies use raw profit',_TONE.rank)
+           +_tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels',_TONE.rank)
+           +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars, and this is the fair way to read a pooled book beside a single strategy',_TONE.rank),_TONE.rank);
+        const _reFiltBtns=_reFacets.map(f=>{const sel=_reFilt[f.k]||[];
+          return _ctlGrp(f.cap,f.tip+'. Click a value to narrow the chart and the table together; click it again to widen back. Nothing ticked means everything is shown.',
+            _reOpts[f.k].map(v=>_tabBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',_reEsc(f.lbl(v)),sel.indexOf(v)>=0,
+              'show only rows tagged '+_reEsc(f.lbl(v))+' - this button exists because at least one row in the registry carries that tag',_reFT)).join(''),_reFT);}).join('');
+        const _reClear=_reFiltOn?('<span data-reclear title="drop every filter and show all rows again" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;color:var(--text3);background:color-mix(in srgb,var(--red) 16%,transparent)">CLEAR FILTERS</span>'):'';
+        const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
+        const _reCount='<div style="font-size:9px;color:'+(_reHidden?'var(--yellow)':'var(--text5)')+';margin-top:7px">'
+          +(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are hidden by the filters. '+_reShown+' are shown, on the charts and in the tables alike.')
+                     :('All '+_reTotal+' rows on this board are shown. No filter is narrowing anything.'))+'</div>';
         body=modeToggle
           +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">STUDIES</span>'
             +'<span style="font-size:8px;color:var(--text5)">completed studies · one tile per study · a row with a run number opens its report</span>'
-            +'<span style="margin-left:auto">'+_reDateBtns+'</span></div>'
+            +'<span style="margin-left:auto;display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:flex-end">'+_reStageBtns+_reAxisBtns+_reDateBtns+'</span></div>'
+            +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reFiltBtns+_reClear+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
-            +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number.</div>'
-            +'<div style="margin-top:8px">'+_reLegend+'</div>',0)
-          +RESEARCH_STUDIES.map(_reTile).join('');
+            +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change.</div>'
+            +_reCount
+            +'<div style="margin-top:8px">'+_reLegend('Every verdict has its own shape as well as its own colour, so the chart still reads on the monochrome theme.')+'</div>',0)
+          +_reBody;
         }else if(_cmpMode==='board'){
         // ── RUNBOARD body (owner ask 2026-08-09: "make it like 1A and 1E - a funnel chart and a
         //    table chart, populated with the top runs from each strategy"). The funnel is the SAME
@@ -19746,6 +19885,44 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
       // RESEARCH board: DATE DISCOVERED / DATE RAN ordering toggle (persisted like every other view pref)
       content.querySelectorAll('[data-resdate]').forEach(b=>{b.onclick=()=>{savePref('resDate',b.dataset.resdate);renderApp();};});
+      // STUDIES board: profit stage, vertical axis and the data-driven filter chips
+      content.querySelectorAll('[data-resstage]').forEach(b=>{b.onclick=()=>{savePref('resStage',b.dataset.resstage);renderApp();};});
+      content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
+      content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
+        let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
+        const k=b.dataset.refilt,v=b.dataset.refiltv,cur=Array.isArray(o[k])?o[k].slice():[];
+        const i=cur.indexOf(v);if(i>=0)cur.splice(i,1);else cur.push(v);
+        if(cur.length)o[k]=cur;else delete o[k];
+        savePref('resFilt',JSON.stringify(o));renderApp();};});
+      content.querySelectorAll('[data-reclear]').forEach(b=>{b.onclick=()=>{savePref('resFilt','{}');renderApp();};});
+      // STUDIES board: the chart and the table talk to each other BOTH WAYS. The link is the
+      //   permanent row number, so a point and its row always find each other. Clicking a point
+      //   scrolls its own table box (never the page) until that row is centred and lights it up;
+      //   hovering a row lights up its point. Nothing here re-renders, so nothing flickers.
+      (()=>{
+        const pts=content.querySelectorAll('[data-repoint]'),rws=content.querySelectorAll('tr[data-rerow]');
+        if(!pts.length&&!rws.length)return;
+        const HL='color-mix(in srgb,var(--text) 16%,transparent)';
+        const setHL=(k,on)=>{
+          pts.forEach(p=>{if(p.getAttribute('data-repoint')!==k)return;
+            const h=p.querySelector('.rehl');if(h)h.setAttribute('opacity',on?'1':'0');});
+          rws.forEach(t=>{if(t.getAttribute('data-rerow')!==k)return;
+            if(on){if(t.dataset.rebg==null)t.dataset.rebg=t.style.background||'';t.style.background=HL;}
+            else{t.style.background=t.dataset.rebg||'';}});};
+        let timer=null;
+        pts.forEach(p=>{const k=p.getAttribute('data-repoint');
+          p.addEventListener('mouseenter',()=>setHL(k,true));
+          p.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});
+          p.addEventListener('click',()=>{
+            rws.forEach(t=>{if(t.getAttribute('data-rerow')!==k)return;
+              const sc=t.closest('[data-rescroll]');
+              if(sc)sc.scrollTop=Math.max(0,t.offsetTop-sc.clientHeight/2+t.offsetHeight/2);});
+            setHL(k,true);if(timer)clearTimeout(timer);
+            timer=setTimeout(()=>{timer=null;setHL(k,false);},2800);});});
+        rws.forEach(t=>{const k=t.getAttribute('data-rerow');
+          t.addEventListener('mouseenter',()=>setHL(k,true));
+          t.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});});
+      })();
       content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{savePref('rbSample',b.dataset.rbs);renderApp();};});
       content.querySelectorAll('[data-rbr]').forEach(b=>{b.onclick=()=>{savePref('rbRank',b.dataset.rbr);renderApp();};});
       // VERT ⇄ HORIZ metric-table orientation toggle
