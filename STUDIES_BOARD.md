@@ -445,17 +445,29 @@ they survive a reload and a re-render. None of them is registry data.
 
 ## 8. What is on the board today (2026-08-19)
 
-Seven studies, ninety-nine rows.
+19 studies, 261 rows.
 
 | Study | Rows | What it covers |
 | --- | --- | --- |
-| NOISE single-strategy variants | 1–24, 27 | The twenty-six filter variants of the NOISE strategy. |
+| NOISE single-strategy variants | 1–27 | The twenty-six filter variants of the NOISE strategy. |
 | Pooled books | 28–46 | Two-leg and three-leg books. Read on profit divided by drawdown. |
 | Does the weak-close filter transfer? | 47–66 | The weak-close filters carried across to ORB and ENGU-Q. |
 | ORB breakeven and plateau hunt | 67–77 | Eleven exit variants of the ORB crown on identical entries. |
 | ORB grail hunt, round one | 78–83 | The six searches that rebuilt ORB on a legally fillable entry. |
 | ENGU-Q session and entry variants | 84–92 | Day session against 24 hours, timeframe, and how the entry fills. |
-| What is running in paper right now | 93–99 | The seven live paper legs. Table only, no chart. |
+| What is running in paper right now | 93–99 | The live paper legs. Table only, no chart. |
+| ORB round three, the entry re-opened | 100–115 | The ORB entry re-tested under the current exit. |
+| ORB ideas tested and killed | 116–129 | ORB ideas measured against the crown and rejected. |
+| ENGU-Q limit depth, the whole curve | 130–142 | The rest of the ENGU-Q limit-depth curve. |
+| ENGU-Q short mirror | 143–146 | The ENGU-Q short mirror. |
+| ENGU-Q bar type and trailing stop | 147–158 | ENGU-Q bar type and trailing stop. |
+| ENGU-Q concurrent positions | 159–160 | ENGU-Q concurrent positions. |
+| NOISE parameter sweep, the cells behind the headlines | 161–183 | The NOISE campaign cells the round log only reported as a family verdict. |
+| Do the NOISE filters carry to the ES contract? | 184–192 | The same nine NOISE configurations on a second contract, nothing re-fitted. |
+| NOISE trade-context scan | 193–198 | Six blind scans, ninety-six statistical tests. Table only, no chart. |
+| ORB hunt, the rest of the local cells | 199–235 | The rest of the August 17th ORB exit hunt, never saved as runs. |
+| Book leg weighting grid | 236–251 | All sixteen weightings of the three-leg book. |
+| Book legs measured the book way | 252–261 | Ten legs re-measured on the book's own drawdown convention. |
 
 Rows 25 and 26 sit inside the NOISE study as cross-references to a book and to the older ORB
 crown; that is why the NOISE study's row numbers are not contiguous.
@@ -464,3 +476,40 @@ crown; that is why the NOISE study's row numbers are not contiguous.
 configuration the paper forward test is actually running is rows 26, 83 and 93 — the *previous*
 crown. Filtering STATUS to CROWNED ONLY and then to IN PAPER ONLY shows this in two clicks. Fixing
 it is a deployment decision and belongs to the owner, not to the board.
+
+---
+
+## 9. Local research, and the three rules it needs
+
+Most of the studies added on 2026-08-19 are **local research**: work run through a committed
+Python harness that never became a saved Auto-Validate run. None of those rows carries a `runs`
+array, so every one of them prints `local` in the RUN column and none of them carries a date ran.
+Three rules apply to this kind of study, and they matter more here than anywhere else on the
+board.
+
+**Never write a figure you did not measure.** Every number in those studies came either verbatim
+from a committed round log or from re-running the committed harness. Where a harness was re-run,
+the cells that overlap rows already on the board were checked against them and reproduce them to
+the dollar; that check is what licenses the rest of the re-run. If you cannot reproduce a figure
+cheaply, the row still belongs on the board with a dash and a reason.
+
+**A cell that was tested and died still belongs on the board.** Two rows in the NOISE parameter
+sweep carry dashes across every column, because the round log recorded that the cell was run and
+failed but never wrote down its settings or its figures. They are on the board anyway, with the
+reason on hover, because "this was tried and it did not work" is exactly the thing the board
+exists to stop somebody rediscovering the expensive way.
+
+**Say when a row is not one tested configuration.** Two of these studies are not straightforward
+grids of backtests, and each says so in its own description rather than letting the reader assume.
+The trade-context study is six statistical scans standing for ninety-six tests, over only two
+backtested configurations, both of which were already on the board. The book-legs study is ten
+*re-measurements* of configurations counted elsewhere, on a different drawdown convention. A
+summarised row must never be presented as if it were a single tested configuration, and a
+re-measurement must never be counted as a new thing tested.
+
+**One more practical note.** Several sessions add to this registry at the same time. Before you
+write a row number, read the highest number currently on `origin/main` rather than the highest
+number in your own checkout, and if you find that a concurrent session has already recorded a
+configuration you were about to add, leave theirs alone and say in your own study's notes which
+rows carry the rest of the family. Row numbers are permanent handles and a duplicate is worse
+than a gap.
