@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.134';
+const VERSION='73.135';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.135',date:'2026-08-18',notes:['COMPARE has a fourth mode: RESEARCH. It holds the completed research studies as tables you can read on the site instead of in chat - the 26 NOISE variants, the pooled books, and the cross-family filter transfer tests on ORB and ENGU-Q. Every row keeps the row number you were already given, its short name, a plain-English line saying what it does, and the same verdict colour coding: blue is the champion or baseline, green beat it and held up, amber works but is fragile, red failed, grey is a reference.','Each study gets its own table on purpose. A pooled book uses more margin than a single strategy, so a book cannot be compared head to head with one strategy - the board says so and points you at profit divided by drawdown instead of raw profit.','ORDER BY toggle: DATE DISCOVERED or DATE RAN. Date ran is read live out of run history, so it is the date the real validate run actually finished. Rows that were only ever computed locally have no run, so under DATE RAN they move into their own block marked never run as a validate run and show a dash. No date is ever invented.','A row that was saved as a real run shows its run number and opens that run report when you click it. A row that was not shows the word local, the same convention the RUNBOARD uses. Where a figure genuinely does not exist - books emit no walk-forward folds, the transfer tests recorded no trade counts - the cell is a dash that tells you why on hover, never a number borrowed from a different window. Drawdown is always positive.','Adding the next study is data only: append one entry to the research registry at the top of the compare section with its rows, and the board renders it. No rendering code changes.']},
 {v:'73.123',date:'2026-08-18',notes:['ORB IS BACK ON THE BOARD, and it is live again in NinjaTrader. The old ORB strategy there was DELETED yesterday - it still ran the retired pre-#230 settings, so its fills measured a config nothing else uses. A real port of run #230 replaced it and went live this morning on NQ 5-minute: close-confirmed entry, partial at 3R, trailed runner, the same settings this leg computes. Hovering its badge says so.','ORB was archived when it was the dead one. That reason is gone, so both ORB rows return to the strip, the curve and the tables. Nothing was ever lost - the runner computed them nightly the whole time - and you can re-archive them any time.','Honest caveat kept in the hover: the new port has never traded beside its backtest, so its first fills still owe a comparison against the engine.']},
 {v:'73.134',date:'2026-08-18',notes:['RUNBOARD BOOKS rebuilt on LEGAL legs only: champion row = the live-honest baseline (legal ORB #234 + the certified ETH leg #226 - the two paper legs). RTH-leg book rows carry a new RTH-stop warning chip (run #227 measured a real 24h stop costing ~$178k vs those numbers). The 3-leg 1:1:1 stack is marked dead: more net, worse MAR - it doubles the NQ-trend factor instead of diversifying. Old leaky-ORB rows retired.','Every row parity-gated to its certified anchor to the dollar; window 2010-06-07 to 2026-08-13, LB = the #234 lockbox year. Rebuild: tools/t7_legal_book.py + t7c_board_json.py.']},
 {v:'73.122',date:'2026-08-18',notes:['ORB IS BACK ON THE BOARD, and it is live again in NinjaTrader. The old ORB strategy there was DELETED yesterday - it still ran the retired pre-#230 settings, so its fills measured a config nothing else uses. A real port of run #230 replaced it and went live this morning on NQ 5-minute: close-confirmed entry, partial at 3R, trailed runner, the same settings this leg computes. Hovering its badge says so.','ORB was archived when it was the dead one. That reason is gone, so both ORB rows return to the strip, the curve and the tables. Nothing was ever lost - the runner computed them nightly the whole time - and you can re-archive them any time.','Honest caveat kept in the hover: the new port has never traded beside its backtest, so its first fills still owe a comparison against the engine.']},
@@ -16572,7 +16573,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v67.6 (owner ask): BY STRATEGY mode — one curve per strategy family (its champion config,
       //   picked automatically by score) instead of manually picked runs. PICK RUNS stays the
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
-      const _cmpMode=(APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':'runs');
+      const _cmpMode=(APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':((APREF.cmpMode==='research')?'research':'runs'));
       // v68.0 (owner ask): metric-table orientation — VERT (runs as columns, metrics as rows,
       //   the original layout) or HORIZ (runs as rows, metrics as columns) so a comparison with
       //   many runs fits without sideways scrolling. Persists like every other Compare pref.
@@ -16599,6 +16600,131 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   (history: ORB.md + git). ETH standalone reads lower than its certified June-window
       //   numbers ($434.7k / MAR 8.62 / LB $98.5k) because the common window adds a negative
       //   ~6-week tail (Jul-Aug 2026) -- stated, not hidden.
+      /* ══════════════════════════════════════════════════════════════════════════════════
+         RESEARCH BOARD DATA — the ONE place to add a completed research study.
+         Rendered at COMPARE ▸ RESEARCH. Adding a study means APPENDING to this array.
+         Never edit the renderer below to add data.
+
+         STUDY SHAPE
+           key      unique short id, lowercase
+           title    the study name the owner reads at the top of its tile
+           sub      one plain-English line: what was tested, on what, over what window
+           note     optional caveat printed under the study table (plain English)
+           disc     DATE DISCOVERED for the whole study, YYYY-MM-DD. A row may override.
+           isLbl    header text for the in-sample money column. Use IN-SAMPLE when the
+                    study really has a separate walk-forward stage, PRE-LOCKBOX when the
+                    figure is everything before the lockbox pooled together.
+           dashWhy  {field: reason} — the hover text shown on a dash for a MISSING value in
+                    that column, for every row in the study. Fields: is wf lb tot dd pf pdd trd
+                    A missing number is ALWAYS a dash with a reason. Never substitute a
+                    number measured over a different window.
+
+         ROW SHAPE
+           n        ROW NUMBER — a permanent handle. Once the owner has seen it, it never
+                    changes and is never reused. New rows take the next free number.
+           name     short name, exactly as the owner has already seen it
+           what     plain-English description of what the variant does
+           tone     champ (champion or baseline) | good (beat it and held up) |
+                    frag (works but fragile) | fail (failed) | ref (reference or superseded)
+           read     the short verdict text
+           runs     [runId, ...] of the real Auto-Validate runs that persisted this row.
+                    OMIT the field entirely for local-only research — the row then prints
+                    "local" in the RUN column, exactly like the RUNBOARD does, and it
+                    carries no DATE RAN.
+           disc     optional per-row override of the study DATE DISCOVERED
+           is wf lb tot dd pf pdd trd
+                    the numbers. Leave a field OUT (or null) when it does not exist for
+                    that row — it prints a dash with the study dashWhy reason on hover.
+                    dd is ALWAYS a positive number (house rule).
+           why      optional {field: reason} overriding dashWhy for this row alone
+         ═════════════════════════════════════════════════════════════════════════════════ */
+      const RESEARCH_STUDIES=[
+      {key:'noise',title:'NOISE single-strategy variants',disc:'2026-08-17',isLbl:'IN-SAMPLE',
+       sub:'One strategy on its own. NQ 5-minute bars, 2010 to 2026. Twenty-six configurations tested against the crowned champion.',
+       note:'Skipping short trades the day after a weak close (row 2) is the single-strategy recommendation. It was the only change that passed every test for fragility.',
+       dashWhy:{wf:'A pooled book produces no walk-forward folds, so this stage does not exist for this row.',is:'This row was measured as a whole-run figure only, so it has no separate in-sample stage.'},
+       rows:[
+        {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[242,254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
+        {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'good',read:'Best raw profit',runs:[241,253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
+        {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'good',read:'Best all-round',runs:[243,252],is:16445,wf:303685,lb:40648,tot:380745,dd:22096,pf:1.39,pdd:17.23,trd:4429},
+        {n:4,name:'Skip Wild 2%',what:'Skip the wildest 2% of days.',tone:'frag',read:'Tail-driven',runs:[256],is:12321,wf:296734,lb:61018,tot:384690,dd:22334,pf:1.29,pdd:17.22,trd:5347},
+        {n:5,name:'Wait2 + Short Veto',what:'Wait 2 bars to enter, plus row 2.',tone:'frag',read:'Pre-registered pick',is:17330,wf:315369,lb:32556,tot:367959,dd:37729,pf:1.32,pdd:9.75,trd:4418},
+        {n:6,name:'Skip Wild 5%',what:'Skip the wildest 5% of days.',tone:'frag',read:'Tail-driven',is:11470,wf:291493,lb:52580,tot:375262,dd:28873,pf:1.30,pdd:13.00,trd:5159},
+        {n:7,name:'Full Veto',what:'Skip all trades the day after a weak close.',tone:'good',read:'Strong lockbox',runs:[245,251],is:9033,wf:299750,lb:49470,tot:366855,dd:29041,pf:1.34,pdd:12.63,trd:4404},
+        {n:8,name:'Skip Wild 10%',what:'Skip the wildest 10% of days.',tone:'frag',read:'Tail-driven',is:13168,wf:297522,lb:40328,tot:372285,dd:23698,pf:1.35,pdd:15.71,trd:4732},
+        {n:9,name:'Wait3 + Short Veto',what:'Wait 3 bars to enter, plus row 2.',tone:'good',read:'Holds up',is:18326,wf:297514,lb:35969,tot:365105,dd:26189,pf:1.36,pdd:13.94,trd:3865},
+        {n:10,name:'Triple Stack',what:'Wait 2 bars, row 2, and skip the wildest 10%.',tone:'frag',read:'Over-stacked',is:18367,wf:298690,lb:20084,tot:349773,dd:19433,pf:1.42,pdd:18.00,trd:3757},
+        {n:11,name:'Wait 3',what:'Wait 3 bars before entering.',tone:'good',read:'Holds up',is:8850,wf:290181,lb:40227,tot:344973,dd:31332,pf:1.31,pdd:11.01,trd:4151},
+        {n:12,name:'Wild Stop Tighten',what:'Use a tighter stop on wild days.',tone:'good',read:'Small effect',is:6738,wf:276395,lb:38326,tot:339503,dd:29432,pf:1.22,pdd:11.54,trd:5654},
+        {n:13,name:'Wild Band Exit',what:'Exit at the band on wild days.',tone:'fail',read:'Dead',is:5490,wf:271046,lb:43837,tot:336903,dd:27129,pf:1.23,pdd:12.42,trd:5922},
+        {n:14,name:'Wait2 + Wild10',what:'Wait 2 bars, and skip the wildest 10%.',tone:'fail',read:'Dead',is:12771,wf:290905,lb:15512,tot:334370,dd:21205,pf:1.36,pdd:15.77,trd:4011},
+        {n:15,name:'Time Stop 36',what:'Close the trade after 36 bars.',tone:'fail',read:'Dead',is:671,wf:266191,lb:42658,tot:329452,dd:33854,pf:1.19,pdd:9.73,trd:6675},
+        {n:16,name:'Free Search',what:'Let the optimiser search with filters on.',tone:'fail',read:'Wandered off, weak',is:6634,wf:291279,lb:19468,tot:326810,dd:19757,pf:1.29,pdd:16.54,trd:5151},
+        {n:17,name:'Wild EOD Exit',what:'Exit at end of day on wild days.',tone:'fail',read:'Dead',is:6380,wf:268242,lb:33873,tot:325154,dd:39301,pf:1.21,pdd:8.27,trd:5326},
+        {n:18,name:'Wait3 Triple',what:'Wait 3 bars, row 2, and skip the wildest 10%.',tone:'frag',read:'Over-stacked',is:17564,wf:276566,lb:22541,tot:321560,dd:17762,pf:1.43,pdd:18.10,trd:3292},
+        {n:19,name:'Wait 2',what:'Wait 2 bars before entering.',tone:'fail',read:'Worst drawdown',is:5927,wf:293172,lb:27983,tot:320914,dd:44189,pf:1.25,pdd:7.26,trd:4762},
+        {n:20,name:'Wait3 + Wild10',what:'Wait 3 bars, and skip the wildest 10%.',tone:'frag',read:'Thin',is:12603,wf:275121,lb:26800,tot:320393,dd:16630,pf:1.40,pdd:19.27,trd:3504},
+        {n:21,name:'Skip Quiet Days',what:'Skip the calmest days instead of the wildest.',tone:'fail',read:'Dead',is:9839,wf:240965,lb:50081,tot:315848,dd:32794,pf:1.22,pdd:9.63,trd:5082},
+        {n:22,name:'Long Veto',what:'Skip long trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9745,wf:216728,lb:25507,tot:280710,dd:34882,pf:1.22,pdd:8.05,trd:4527},
+        {n:23,name:'Strong Full Veto',what:'Skip all trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9168,wf:156775,lb:35340,tot:221607,dd:33185,pf:1.20,pdd:6.68,trd:4087},
+        {n:24,name:'Loss Skip',what:'Skip the trade after any loss.',tone:'fail',read:'Only losing in-sample',is:-3908,wf:120583,lb:12071,tot:135214,dd:32019,pf:1.12,pdd:4.22,trd:4057},
+        {n:25,name:'Book: ORB + NOISE',what:'The first pooled book. Two strategies as one.',tone:'ref',read:'Superseded by the pooled books study',runs:[238],lb:168845,tot:716089,dd:39809,pf:1.29,pdd:17.99,trd:7025},
+        {n:26,name:'ORB Crown (old)',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
+         why:{wf:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.',is:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.'}},
+        {n:27,name:'Champion (old data)',what:'Same as row 1, before the data backfill.',tone:'ref',read:'Superseded',is:6190,wf:270934,lb:23146,tot:322842,dd:30412,pf:1.21,pdd:10.62,trd:5616}
+       ]},
+      {key:'books',title:'Pooled books',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',
+       sub:'Several strategies traded together in one account, one contract each, every trade pooled and the pile scored as one strategy.',
+       note:'Books cannot be compared head to head against single strategies: more legs means more margin, so profit divided by drawdown is the fair comparison, not raw profit. Row 28 beats the stated baseline (row 34) on every measure. Equal weighting was kept because tuned weights lost almost all of their advantage out of sample.',
+       dashWhy:{wf:'A pooled book tunes nothing during the run, so it produces no walk-forward folds by design. An eight-stretch consistency count is used instead.'},
+       rows:[
+        {n:28,name:'Triple Book',what:'ORB + ENGU-Q + NOISE (Short Veto + Wild10).',tone:'good',read:'Beats the baseline on every axis',runs:[261],is:987186,lb:258808,tot:1245994,dd:56090,pf:1.369,pdd:22.21,trd:9048},
+        {n:29,name:'Triple: Short Veto',what:'ORB + ENGU-Q + NOISE (Short Veto).',tone:'good',read:'Better ratio, worse drawdown',is:995149,lb:237534,tot:1232683,dd:60405,pf:1.330,pdd:20.41,trd:9820},
+        {n:30,name:'Triple: Wild 2%',what:'ORB + ENGU-Q + NOISE (Skip Wild 2%).',tone:'good',read:'Better ratio, worse drawdown',is:968584,lb:257214,tot:1225798,dd:57250,pf:1.330,pdd:21.41,trd:9953},
+        {n:31,name:'Triple: Full Veto',what:'ORB + ENGU-Q + NOISE (Full Veto).',tone:'good',read:'Better ratio, worse drawdown',is:958674,lb:256929,tot:1215603,dd:61239,pf:1.350,pdd:19.85,trd:9017},
+        {n:32,name:'Triple: Old Leg',what:'ORB + ENGU-Q + the NOISE leg the first book used.',tone:'frag',read:'Better ratio, worse drawdown',is:980422,lb:232548,tot:1212970,dd:62395,pf:1.340,pdd:19.44,trd:9027},
+        {n:33,name:'Triple: Plain',what:'ORB + ENGU-Q + the plain NOISE champion.',tone:'frag',read:'Weakest triple',is:946094,lb:231021,tot:1177115,dd:63111,pf:1.300,pdd:18.65,trd:10237},
+        {n:34,name:'Baseline Book',what:'ORB + ENGU-Q, equal weight. The stated baseline.',tone:'champ',read:'The thing to beat',runs:[262],is:649186,lb:201639,tot:850825,dd:58171,pf:1.352,pdd:14.63,trd:4632},
+        {n:35,name:'Duo: Short Veto',what:'Current ORB + NOISE (Short Veto).',tone:'good',read:'Best two-leg profit',is:543872,lb:234183,tot:778055,dd:38169,pf:1.300,pdd:20.38,trd:7821},
+        {n:36,name:'Duo: Wild 2%',what:'Current ORB + NOISE (Skip Wild 2%).',tone:'frag',read:'Best two-leg lockbox',is:532398,lb:242167,tot:774565,dd:40470,pf:1.300,pdd:19.14,trd:7954},
+        {n:37,name:'Duo: Short + Wild10',what:'Current ORB + NOISE (Short Veto + Wild10).',tone:'good',read:'Best two-leg profit factor',runs:[263],is:543472,lb:227147,tot:770619,dd:35518,pf:1.340,pdd:21.70,trd:7036},
+        {n:38,name:'Duo: Old Leg',what:'Current ORB + the NOISE leg the first book used.',tone:'frag',read:'Incumbent, upgraded ORB',is:556137,lb:201697,tot:757834,dd:37609,pf:1.310,pdd:20.15,trd:7025},
+        {n:39,name:'Duo: Full Veto',what:'Current ORB + NOISE (Full Veto).',tone:'good',read:'Best two-leg ratio',runs:[258],is:531459,lb:225270,tot:756729,dd:33691,pf:1.320,pdd:22.46,trd:7011},
+        {n:40,name:'Duo: Old ORB + Short',what:'Old ORB crown + NOISE (Short Veto).',tone:'good',read:'Beats the first book',is:534980,lb:201330,tot:736310,dd:40369,pf:1.280,pdd:18.24,trd:7821},
+        {n:41,name:'Duo: Old ORB + Wild2',what:'Old ORB crown + NOISE (Skip Wild 2%).',tone:'frag',read:'Beats the first book',is:523506,lb:209314,tot:732820,dd:42670,pf:1.280,pdd:17.17,trd:7954},
+        {n:42,name:'Duo: Old ORB + S+W10',what:'Old ORB crown + NOISE (Short Veto + Wild10).',tone:'good',read:'Beats the first book',is:534580,lb:194294,tot:728874,dd:37718,pf:1.320,pdd:19.32,trd:7036},
+        {n:43,name:'Duo: Plain',what:'Current ORB + the plain NOISE champion.',tone:'frag',read:'Control',is:500465,lb:225390,tot:725855,dd:40470,pf:1.260,pdd:17.94,trd:8240},
+        {n:44,name:'First Book',what:'The original pooled book.',tone:'ref',read:'The incumbent',runs:[238],is:547244,lb:168845,tot:716089,dd:39809,pf:1.290,pdd:17.99,trd:7025},
+        {n:45,name:'Duo: Old ORB + Full',what:'Old ORB crown + NOISE (Full Veto).',tone:'good',read:'Beats the first book',is:522566,lb:192418,tot:714984,dd:35696,pf:1.300,pdd:20.03,trd:7011},
+        {n:46,name:'Duo: Old ORB + Plain',what:'Old ORB crown + the plain NOISE champion.',tone:'fail',read:'Worst of the group',is:491573,lb:192537,tot:684110,dd:42670,pf:1.240,pdd:16.03,trd:8240}
+       ]},
+      {key:'xfam',title:'Does the weak-close filter transfer?',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',
+       sub:'The same filter that works on NOISE, applied to ORB and to ENGU-Q. Different strategies and different windows, so compare each row only against its own crown.',
+       note:'The filter does not transfer and both crowns stand. Nothing here was adopted and nothing was queued. The mechanism is REVERSED on ORB: short trades after a weak close MAKE money there, about $86 each across 248 trades, while the same trades lose about $118 each on NOISE. Row 63 is worth remembering because it cuts ENGU-Q drawdown by 31% for under 7% of profit, but it fails the profit test so it is not an adoption.',
+       dashWhy:{wf:'Walk-forward was not re-run for these local filter tests, so there is no fold figure to report.',trd:'The study recorded money and ratios only, so no trade count exists for this row.'},
+       rows:[
+        {n:47,name:'ORB Crown',what:'The standing ORB crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[234],is:300932,lb:88943,tot:389874,dd:29142,pf:1.31,pdd:13.38},
+        {n:48,name:'ORB Short Veto .25',what:'Skip ORB shorts after a weak close, loose threshold.',tone:'fail',read:'Fails on profit',is:284840,lb:96546,tot:381385,dd:26796,pf:1.33,pdd:14.23},
+        {n:49,name:'ORB Short Veto .15',what:'Same, tight threshold.',tone:'fail',read:'Fails on profit',is:284545,lb:88425,tot:372970,dd:33564,pf:1.31,pdd:11.11},
+        {n:50,name:'ORB Short Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:286237,lb:82627,tot:368864,dd:33564,pf:1.31,pdd:10.99},
+        {n:51,name:'ORB Full Veto .15',what:'Skip all ORB trades after a weak close.',tone:'fail',read:'Fails',is:262024,lb:85344,tot:347368,dd:29946,pf:1.30,pdd:11.60},
+        {n:52,name:'ORB Long Veto .75',what:'Skip ORB longs after a strong close.',tone:'fail',read:'Fails',is:259661,lb:78851,tot:338512,dd:29078,pf:1.29,pdd:11.64},
+        {n:53,name:'ORB Long Veto .85',what:'Same, loose threshold.',tone:'fail',read:'Fails',is:257381,lb:79662,tot:337042,dd:30750,pf:1.28,pdd:10.96},
+        {n:54,name:'ORB Long Veto .80',what:'Same, standard threshold.',tone:'fail',read:'Fails',is:254860,lb:75713,tot:330573,dd:31269,pf:1.28,pdd:10.57},
+        {n:55,name:'ORB Full Veto .20',what:'Skip all ORB trades after a weak close, standard threshold.',tone:'fail',read:'Fails',is:228002,lb:75351,tot:303353,dd:29946,pf:1.28,pdd:10.13},
+        {n:56,name:'ORB Full Veto .25',what:'Same, loose threshold.',tone:'fail',read:'Fails',is:214903,lb:76547,tot:291451,dd:27619,pf:1.29,pdd:10.55},
+        {n:57,name:'ORB Strong Veto .85',what:'Skip all ORB trades after a strong close.',tone:'fail',read:'Fails',is:207014,lb:84000,tot:291014,dd:30954,pf:1.26,pdd:9.40},
+        {n:58,name:'ORB Strong Veto .75',what:'Same, tight threshold.',tone:'fail',read:'Fails',is:189399,lb:88141,tot:277540,dd:28109,pf:1.28,pdd:9.87},
+        {n:59,name:'ORB Strong Veto .80',what:'Same, standard threshold.',tone:'fail',read:'Fails',is:194311,lb:77003,tot:271315,dd:35743,pf:1.26,pdd:7.59},
+        {n:60,name:'ENGU-Q Crown',what:'The ENGU-Q day-session crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[227],is:364699,lb:88852,tot:477521,dd:65635,pf:1.41,pdd:7.28},
+        {n:61,name:'ENGU-Q Long Veto .85',what:'Skip ENGU-Q longs after a strong close.',tone:'frag',read:'Drawdown lever only',is:348303,lb:102496,tot:470937,dd:60559,pf:1.44,pdd:7.78},
+        {n:62,name:'ENGU-Q Long Veto .80',what:'Same, standard threshold.',tone:'frag',read:'Drawdown lever only',is:340560,lb:106926,tot:465097,dd:58296,pf:1.45,pdd:7.98},
+        {n:63,name:'ENGU-Q Long Veto .75',what:'Same, tight threshold. Cuts drawdown 31%.',tone:'frag',read:'Best drawdown lever',is:313675,lb:104831,tot:445955,dd:52853,pf:1.46,pdd:8.44},
+        {n:64,name:'ENGU-Q Full Veto .15',what:'Skip all ENGU-Q trades after a weak close.',tone:'fail',read:'Fails on profit',is:300242,lb:96238,tot:421519,dd:50373,pf:1.35,pdd:8.37},
+        {n:65,name:'ENGU-Q Full Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:279516,lb:104826,tot:407835,dd:48486,pf:1.34,pdd:8.41},
+        {n:66,name:'ENGU-Q Full Veto .25',what:'Same, loose threshold.',tone:'fail',read:'Fails',is:241629,lb:74945,tot:313924,dd:65533,pf:1.25,pdd:4.79}
+       ]}
+      ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
       // (retired la:true rows removed 2026-08-18; RB_ORB_LA_TIP kept for the renderer)
       const RB_ORB_LA_TIP='This book pools the ORB leg, and ORB fills on a bar using that same bars FINISHED volume, which a live trader could not have known yet. Most of the ORB edge traces to that gap. This net dollar figure is not something a live account could have achieved, so this book baseline is under review.';
@@ -17093,8 +17219,108 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_cmpModeBtn('runs','PICK RUNS','manually choose which runs go into the comparison — your picks, your tabs, your saved sets')
           +_cmpModeBtn('fam','BY STRATEGY','one curve per strategy family, its top config, chosen automatically by score — no manual picking')
           +_cmpModeBtn('board','RUNBOARD','compare whole BOOKS (deployable strategy combinations) as one strategy each — sample and rank selectable')
-          +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':''))+'</div>';
-        if(_cmpMode==='board'){
+          +_cmpModeBtn('research','RESEARCH','the completed research studies — every variant that was tested, what it does in plain English, and whether it was ever run as a real validate run')
+          +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">completed studies · one tile each · order by date discovered or date ran</span>':'')))+'</div>';
+        if(_cmpMode==='research'){
+        // ── RESEARCH board (owner ask 2026-08-18: "add these to the compare tab so i can see it
+        //    on edge log. we will be adding different strategies as well so make sure its plug
+        //    and play" + "add a toggle by date discovered/ran"). Every row comes from the
+        //    RESEARCH_STUDIES registry above — this renderer holds NO data. One tile per study,
+        //    because a pooled book cannot be compared head to head with a single strategy.
+        //    DATE toggle: DISCOVERED = when the result was found in research (carried on the
+        //    row), RAN = the date the real Auto-Validate run saved, read live out of run
+        //    history. A row with no run number can never have a DATE RAN, so under that view it
+        //    is moved into its own clearly-labelled block with a dash — never a borrowed date.
+        const _reDate=(APREF.resDate==='ran')?'ran':'disc';
+        const _reTone={champ:'var(--blue)',good:'var(--green)',frag:'var(--yellow)',fail:'var(--red)',ref:'var(--text5)'};
+        const _reToneNm={champ:'champion or baseline',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
+        const _reEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+        const _reRunDate=id=>{const r=(runHistory||[]).find(x=>x&&String(x.id)===String(id));
+          return (r&&r.timestamp)?String(r.timestamp).slice(0,10):'';};
+        const _reDash=why=>'<span title="'+_reEsc(why||'This figure was never measured for this row.')+'" style="color:var(--text5);cursor:help">—</span>';
+        const _reWhy=(st,rw,f)=>((rw.why&&rw.why[f])||(st.dashWhy&&st.dashWhy[f])||'This figure was never measured for this row, so nothing is shown rather than a number from a different window.');
+        const _reMoney=v=>(v>=0?'<span style="color:var(--green)">':'<span style="color:var(--red)">')+'$'+Math.round(Math.abs(v)).toLocaleString()+'</span>';
+        // every cell goes through here: a real number renders, a missing one renders as a dash
+        // that says WHY on hover. There is no third path — nothing is ever silently substituted.
+        const _reCell=(st,rw,f,fmt)=>{const v=rw[f];
+          return (v==null||!isFinite(v))?_reDash(_reWhy(st,rw,f)):fmt(v);};
+        const _reHd=(t,al,tip)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:8px;letter-spacing:1.1px;color:var(--text5);font-weight:700;padding:7px 8px;border-bottom:1px solid var(--border);white-space:nowrap'+(tip?';cursor:help':'')+'">'+t+'</th>';
+        const _reRow=(st,rw)=>{
+          const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:7px 8px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
+          const col=_reTone[rw.tone]||'var(--text4)';
+          const runs=Array.isArray(rw.runs)?rw.runs:[];
+          const runCell=runs.length
+            ?('<span title="'+_reEsc('This result was persisted as a real run. Click the row to open its report.')+'" style="color:var(--text2)">#'+runs[0]+'</span>'
+              +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):''))
+            :('<span title="'+_reEsc('Local research only. This was computed on the machine and never persisted as an Auto-Validate run, so it has no run number and no date ran.')+'" style="color:var(--text5);font-style:italic;cursor:help">local</span>');
+          const dCell=(_reDate==='ran')
+            ?(runs.length?(_reRunDate(runs[0])||_reDash('This run exists but its saved date could not be read from run history.')):_reDash('This row was never run as a validate run, so it has no date ran.'))
+            :(rw.disc||st.disc||_reDash('No discovery date was recorded for this row.'));
+          return '<tr'+(runs.length?(' data-rank-run="'+runs[0]+'" style="cursor:pointer"'):'')+'>'
+            +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]||'')+'" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+col+';margin-right:7px;cursor:help"></span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>','left')
+            +td('<span style="color:var(--text4)">'+_reEsc(rw.what)+'</span>','left',';white-space:normal;min-width:210px')
+            +td(runCell,'left')
+            +td('<span style="color:var(--text4);font-size:10px">'+dCell+'</span>','left')
+            +td(_reCell(st,rw,'is',_reMoney))
+            +td(_reCell(st,rw,'wf',v=>'<b>'+_reMoney(v)+'</b>'))
+            +td(_reCell(st,rw,'lb',_reMoney))
+            +td(_reCell(st,rw,'tot',v=>'<b>'+_reMoney(v)+'</b>'))
+            +td(_reCell(st,rw,'dd',v=>'$'+Math.round(Math.abs(v)).toLocaleString()))
+            +td(_reCell(st,rw,'pf',v=>v.toFixed(2)))
+            +td(_reCell(st,rw,'pdd',v=>'<b>'+v.toFixed(2)+'</b>'))
+            +td(_reCell(st,rw,'trd',v=>'<span style="color:var(--text5)">'+Math.round(v).toLocaleString()+'</span>'))
+            +td('<span style="color:'+col+'">'+_reEsc(rw.read)+'</span>','left',';white-space:normal')
+            +'</tr>';};
+        const _reTile=st=>{
+          const rows=(st.rows||[]).slice();
+          let bodyRows;
+          if(_reDate==='ran'){
+            // ran-first, newest first; anything without a run drops into its own labelled block
+            const withRun=rows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
+            const noRun=rows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
+            withRun.sort((a,b)=>{const da=_reRunDate(a.runs[0]),db=_reRunDate(b.runs[0]);
+              return (da===db)?((+b.runs[0]||0)-(+a.runs[0]||0)):((db>da)?1:-1);});
+            const sep=(t,tip)=>'<tr><td colspan="14" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+            bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN · '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r)).join('')):'')
+              +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN · '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r)).join('')):'');
+          }else{
+            // discovered view keeps the registry order, which is the order the owner approved
+            bodyRows=rows.map(r=>_reRow(st,r)).join('');
+          }
+          const hd='<tr>'+_reHd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
+            +_reHd('NAME','left')+_reHd('WHAT IT DOES','left')
+            +_reHd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
+            +_reHd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
+            +_reHd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.')
+            +_reHd('WALK-FWD',null,'Data held back while tuning and then tested forward.')
+            +_reHd('LOCKBOX',null,'Never touched until the end. The honest forward read.')
+            +_reHd('TOTAL',null,'The whole run, end to end.')
+            +_reHd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
+            +_reHd('PF',null,'Profit factor: gross wins divided by gross losses.')
+            +_reHd('PROFIT÷DD',null,'Total profit divided by the worst drawdown.')
+            +_reHd('TRADES')+_reHd('READ','left')+'</tr>';
+          return tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:3px">'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+_reEsc(st.title)+'</span>'
+            +'<span style="font-size:8px;color:var(--text5)">'+(st.rows||[]).length+' rows · discovered '+_reEsc(st.disc||'')+'</span></div>'
+            +'<div style="font-size:9.5px;color:var(--text4);line-height:1.7;margin-bottom:9px;max-width:960px">'+_reEsc(st.sub)+'</div>'
+            +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
+            +(st.note?('<div style="font-size:9px;color:var(--text5);line-height:1.8;margin-top:9px;max-width:960px">'+_reEsc(st.note)+'</div>'):''),0);};
+        const _reDateBtns=_ctlGrp('ORDER BY','which date the board orders and groups on',
+            _tabBtn('data-resdate="disc"','DATE DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.samp)
+           +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.samp),_TONE.samp);
+        const _reLegend='<span style="display:inline-flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
+          +['champ','good','frag','fail','ref'].map(k=>'<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_reTone[k]+';margin-right:5px"></i>'+_reToneNm[k]+'</span>').join('')+'</span>';
+        body=modeToggle
+          +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RESEARCH</span>'
+            +'<span style="font-size:8px;color:var(--text5)">completed studies · one tile per study · a row with a run number opens its report</span>'
+            +'<span style="margin-left:auto">'+_reDateBtns+'</span></div>'
+            +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
+            +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number.</div>'
+            +'<div style="margin-top:8px">'+_reLegend+'</div>',0)
+          +RESEARCH_STUDIES.map(_reTile).join('');
+        }else if(_cmpMode==='board'){
         // ── RUNBOARD body (owner ask 2026-08-09: "make it like 1A and 1E - a funnel chart and a
         //    table chart, populated with the top runs from each strategy"). The funnel is the SAME
         //    live overlay PICK RUNS uses (key pills on their lines, crosshair, drawdown pane,
@@ -19364,6 +19590,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // PICK RUNS ⇄ BY STRATEGY mode toggle (top of the Compare body)
       content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.cmpmode);renderApp();};});
       // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
+      // RESEARCH board: DATE DISCOVERED / DATE RAN ordering toggle (persisted like every other view pref)
+      content.querySelectorAll('[data-resdate]').forEach(b=>{b.onclick=()=>{savePref('resDate',b.dataset.resdate);renderApp();};});
       content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{savePref('rbSample',b.dataset.rbs);renderApp();};});
       content.querySelectorAll('[data-rbr]').forEach(b=>{b.onclick=()=>{savePref('rbRank',b.dataset.rbr);renderApp();};});
       // VERT ⇄ HORIZ metric-table orientation toggle
