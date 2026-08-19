@@ -55,6 +55,74 @@ how many rows are hidden.
 
 **CLEAR FILTERS** appears only while something is filtered and drops all of them.
 
+**COMPARE ON — ratios as is, common window, or per year.** Raw totals measured over different
+stretches of history are not comparable, and section 4A explains why the board already knew that.
+This control decides the basis every figure on the board is read on, and the board always states
+in words which basis is in force and how many of the rows now shown it can actually reach.
+
+- **RATIOS AS IS** is what the board has always done. Every figure is exactly what its row
+  recorded, over whatever window that row happens to cover. It reaches every row. The
+  common-window warning underneath still says where the windows disagree.
+- **COMMON WINDOW** is the rigorous option and it costs no re-running. Where a row is backed by a
+  real run with a saved equity curve, the curve is sliced to the stretch the rows on that tile
+  genuinely share, and the profit and the worst drawdown are recomputed on exactly that slice.
+  Four extra columns appear — COMMON $, COMMON DD, COMMON PF and COMMON ÷DD — and the chart plots
+  the sliced figure. **A row that cannot be recomputed shows a dash that says why on hover, never
+  its un-sliced figure.** PROFIT STAGE is ignored under this basis and the board says so out loud:
+  the shared stretch is a calendar range and a stage is a different cut of the same run.
+- **PER YEAR** divides each row's own profit by the number of years its own window covers, so a
+  longer window is not automatically flattered. It needs only a recorded data window and not a
+  saved curve, which makes it the widest-coverage option. Three extra columns appear — PER YEAR,
+  YEARS and PER YR÷DD.
+
+**How the common-window slice actually works, and its three honest limits.** A run saves its
+champion equity as a *downsampled* cumulative curve plus the run's from-date and to-date and,
+where the run had a lockbox, the index at which the lockbox begins together with the lockbox's own
+start date. Those are the only points on the curve whose calendar date is recorded. Everything
+between two of them is ordered by trade, not by calendar, so a cut inside a long undated stretch
+could only be guessed.
+
+1. **A cut may only land inside a dated stretch of at most 800 days.** Anything else is refused
+   with a dash naming the stretch and its length. In practice the common window's start is every
+   run's own start date (exact, no placing at all) and its end falls inside the lockbox year, which
+   is dated. A run that saved no lockbox boundary is refused, and that is the intended outcome.
+2. **The sliced drawdown is a floor.** It is read off the downsampled curve, which nets several
+   trades into each point, so the true worst drawdown on the slice can only be deeper. It is also
+   not the same measurement as the DRAWDOWN column, which came off the run's own saved figures, so
+   the two can differ in either direction. The hover text says both things on every figure.
+3. **Profit factor cannot be recomputed at all.** Gross winnings over gross losses needs every
+   individual trade, and netting trades into curve points destroys exactly that. COMMON PF is
+   therefore always a dash carrying that explanation. It is never estimated.
+
+A figure whose end-of-window cut had to be placed rather than read carries a `≈` after it, and the
+hover says which dated stretch it was placed inside and how long that stretch was.
+
+**Which ratio survives a slightly mismatched window.** This is printed in the UI under the
+controls, and it reflects what this project has measured rather than a preference. Profit factor is
+the most robust of the three, because it is a property of the whole trade population, so a few
+extra weeks move it only a little. Profit divided by drawdown is the most fragile, because a
+drawdown is one single worst event and one extra month can introduce a new worst event that moves
+the figure a long way — this project measured the confidence interval around a maximum drawdown to
+be wider than the drawdown itself. Sharpe sits between the two. The board carries no Sharpe column
+today, so that last point is guidance for reading Sharpe on the run reports.
+
+**VALUE ZOOM — fit all, trim 5%, trim 10%, trim 20%.** The chart axes have always spanned only the
+rows actually plotted, so filtering already rescales them; FIT ALL is that plain fit-to-visible
+reading and is the default. What filtering cannot fix is one distant row squashing all the others
+into a band, and the trim settings drop that percentage of the most extreme values off both axis
+ranges so the cluster spreads out. **Nothing is hidden by it.** A row pushed outside the range is
+still drawn, pinned to the edge it ran off, given a dashed warning ring, and named under the chart
+with the figure it actually holds.
+
+**Chart height — the drag handle under every study chart.** Each chart carries the same slim drag
+bar the run report puts under every one of its charts. Drag it down and the chart grows, drag it up
+and it shrinks, double-click it and the chart returns to the standard height. The size is remembered
+**per study** and persisted like every other view preference here, so it survives a reload. What is
+stored is the chart's drawing height in its own drawing units rather than a pixel count, which is
+why a resized chart still fills the width of its tile at any browser size and why its axis captions,
+tick numbers and legend stay exactly the size they always were — the plot area is the part that
+grows.
+
 **TIME SCOPE — all time, past week, past month, past three months.** This narrows the whole
 board to recent work. It applies to the charts and the tables together, and the board states
 how many rows it is holding back, separately from the count the filters print, so you can
@@ -152,6 +220,11 @@ are always being read on the same stretch of history in the same unit.
 | `why` | no | An object mapping a field name to the reason its dash shows, overriding `dashWhy` for this row alone. |
 | `win` | no | `{from:'YYYY-MM-DD', to:'YYYY-MM-DD'}` — the **data window** this row's figures cover. See section 4A. |
 
+**A `win` on a local row is worth more than it used to be.** It is what lets the PER YEAR basis
+place that row, so a local research row that records its window is readable on two of the three
+bases instead of one. It still cannot be read on COMMON WINDOW, because that needs a saved curve
+and a local row has none — it shows a dash saying exactly that.
+
 **Do not supply a profit-divided-by-drawdown figure.** The board computes it from the
 selected stage profit and the drawdown, so it always matches whatever stage is on screen.
 
@@ -186,9 +259,15 @@ their own window cell with the gap spelled out on hover. Rows recording no windo
 counted and named too, because "we cannot tell" is a different statement from "they agree".
 
 The point is narrow and worth stating plainly: **the owner should never put two totals side by
-side without knowing whether they cover the same stretch of history.** Surfacing the window is
-all this does. Recomputing, re-running or refreshing a row to put it on a common window is a
-separate and much larger piece of work, and nothing on this board attempts it.
+side without knowing whether they cover the same stretch of history.** Surfacing the window is what
+this column does.
+
+Acting on it is the job of the **COMPARE ON** control described in section 2. Where a row is backed
+by a run with a saved equity curve, COMMON WINDOW slices that curve to the shared stretch and
+recomputes the row on it; PER YEAR divides by the row's own length instead and reaches every row
+that records a window at all. Neither re-runs anything, and neither invents a figure for a row it
+cannot place. Re-running a row on a fresh common window is still a separate and much larger piece
+of work that nothing on this board attempts.
 
 ---
 
@@ -341,6 +420,26 @@ What happens with no further code change:
 
 Finally, follow the repo's standing release rule: bump `VERSION` in `index.html` by 0.1,
 prepend a short entry to the `CHANGELOG` array, and ship from your own worktree.
+
+---
+
+## 7A. The view preferences this board persists
+
+All of them go through the same `savePref` store every other view preference on the site uses, so
+they survive a reload and a re-render. None of them is registry data.
+
+| Preference | Values | What it holds |
+| --- | --- | --- |
+| `resStage` | `is` `wf` `lb` `tot` | the profit stage |
+| `resAxis` | `auto` `raw` `ratio` | the vertical axis |
+| `resDate` | `disc` `ran` `res` | the order-by control |
+| `resFilt` | JSON object of arrays | the filter chips |
+| `resScope` | `all` `7` `30` `90` | the time scope |
+| `resSBasis` | `follow` `disc` `ran` | which date the time scope reads |
+| `resColour` | `theme` `on` `off` | the board-only colour setting |
+| `resBasis` | `asis` `common` `year` | **new** — the fair-comparison basis |
+| `resZoom` | `all` `95` `90` `80` | **new** — how much of the value range the axes trim |
+| `resChH` | object, study `key` to a number | **new** — the dragged chart height per study, in the chart's own drawing units, clamped to 260–1400. A study absent from the object is at the standard 440. |
 
 ---
 
