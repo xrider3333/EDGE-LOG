@@ -405,6 +405,68 @@ def remove_orbv2(dry):
     log("removed: ORBV2's 3 DB rows deleted, ORB230 promoted to Strategy0 on the NQ 5-min chart")
 
 
+# Account ids, read from NinjaTrader's own Accounts table 2026-08-19.
+#   3 = 1810769      REAL MONEY. Never referenced here; the bridge hard-locks it anyway.
+#   4 = DEMO7240108  the broker demo -- real fills, one netted position.
+#   2 = Sim101       NinjaTrader's internal simulator; fills come from live prices.
+ACCT_DEMO = 4
+ACCT_SIM101 = 2
+ORB230_STRATEGY_ID = 386606475
+
+
+def split_accounts(dry):
+    """Move ORB230 onto its own account so it cannot close another strategy's trade.
+
+    WHY (2026-08-19, and it cost $1,737 to learn): ENGU-Q and ORB230 both trade NQ, and
+    both were pointed at DEMO7240108. NinjaTrader tracks a position per STRATEGY, which is
+    what made this look safe -- but orders go to ONE broker account and the broker NETS
+    them. At 13:10 ORB230 sold 2 contracts; the broker applied that against ENGU-Q's open
+    long, closing it at market and realising its loss. That breached the daily loss limit,
+    the killswitch flattened everything and disabled all three strategies.
+
+    This is not an edge case. Measured from ENGU-Q's own blotter, it holds a position on
+    14 of 14 trading days and 60% of clock time, so nearly every ORB entry would land on
+    top of an open ENGU-Q trade.
+
+    NOISE needs no change: it trades MNQ, a different instrument, which never nets against
+    NQ. Only the two NQ strategies had to be separated.
+
+    The account link lives ONLY in Strategy2Account -- verified that ORB230's Userdata XML
+    carries no account of its own, unlike the instrument, which is stored in both places.
+
+    NOTE FOR LIVE TRADING: this fixes paper, not live. A real futures account nets by
+    definition, so two strategies on one instrument in one live account will always do
+    this. The live answer is a single combined strategy holding one net position (the
+    engine's BOOK job type scores exactly that), separate broker sub-accounts, or putting
+    each strategy on a different instrument."""
+    import sqlite3
+    con = sqlite3.connect(f"file:{NT_DB}?mode=ro", uri=True)
+    try:
+        row = con.execute("SELECT Account, Nr FROM Strategy2Account WHERE Strategy=?",
+                          (ORB230_STRATEGY_ID,)).fetchone()
+    finally:
+        con.close()
+    if row is None:
+        raise SystemExit("ORB230 has no account link - refusing to guess")
+    if row[0] == ACCT_SIM101:
+        log("ORB230 is already on Sim101 - nothing to do")
+        return
+    if row[0] != ACCT_DEMO:
+        raise SystemExit(f"ORB230 is on account {row[0]}, expected {ACCT_DEMO} - refusing")
+    if dry:
+        log(f"DRY RUN: would move ORB230 from account {ACCT_DEMO} (DEMO7240108) "
+            f"to {ACCT_SIM101} (Sim101)")
+        return
+    con = sqlite3.connect(NT_DB)
+    try:
+        con.execute("UPDATE Strategy2Account SET Account=? WHERE Strategy=?",
+                    (ACCT_SIM101, ORB230_STRATEGY_ID))
+        con.commit()
+    finally:
+        con.close()
+    log("db: ORB230 moved to Sim101 - it can no longer net against ENGU-Q")
+
+
 def set_qty_via_bridge(qty):
     """Qty is a live NinjaScript property (comes from SetDefaults=1 each boot), so it is
     set through the bridge's own sanctioned setparam path: disable -> write -> enable."""
@@ -533,10 +595,54 @@ def main():
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
     ap.add_argument("--add-orb230", action="store_true",
                     help="create the EdgeLogORB230 strategy row (run #230 port) on ORBV2's chart")
+    ap.add_argument("--split-accounts", action="store_true",
+                    help="move ORB230 onto Sim101 so two NQ strategies cannot net together")
     ap.add_argument("--remove-orbv2", action="store_true",
                     help="delete the retired EdgeLogORBV2 row entirely (DB + chart)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+    if a.split_accounts:
+        if a.dry_run:
+            split_accounts(True)
+            return 0
+        try:
+            pos = get("/positions").get("positions", [])
+        except Exception:
+            pos = []
+        if pos:
+            log(f"REFUSING: a position is open: {pos}")
+            return 1
+        backup(NT_DB)
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                BRIDGE + "/shutdown", method="POST", data=b""), timeout=8)
+            log("clean shutdown requested")
+        except Exception as e:
+            log(f"clean shutdown failed ({e}) - stopping the process")
+        for _ in range(20):
+            time.sleep(3)
+            r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                                "(Get-Process NinjaTrader -ErrorAction SilentlyContinue) -ne $null"],
+                               capture_output=True, text=True)
+            if "True" not in (r.stdout or ""):
+                break
+        else:
+            stop_nt()
+        time.sleep(3)
+        split_accounts(False)
+        log("relaunching via nt_recover.ps1 ...")
+        r = subprocess.run(["powershell", "-ExecutionPolicy", "Bypass", "-File", RECOVER],
+                           capture_output=True, text=True, timeout=600)
+        log("recover: " + " / ".join((r.stdout or "").strip().splitlines()[-1:]))
+        strats = {x.get("name"): x for x in get("/strategies").get("strategies", [])}
+        for k, v in strats.items():
+            log(f"  {k}: account={v.get('account')} state={v.get('state')} {v.get('instrument')}")
+        ob = strats.get("EdgeLogORB230") or {}
+        ok = ob.get("account") == "Sim101"
+        log("RESULT: " + ("PASS - ORB230 is on its own account; the two NQ strategies are separated"
+                          if ok else "INCOMPLETE - read the lines above"))
+        return 0 if ok else 1
+
     if a.remove_orbv2:
         if a.dry_run:
             remove_orbv2(True)

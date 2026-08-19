@@ -250,8 +250,12 @@ do {
     # so the in-process window walk returns nothing. Enumerate NinjaTraders top-level
     # windows from OUTSIDE the app instead, and say what is on screen: only a person can
     # answer a dialog, and they need to be told rather than left guessing.
+    # MATCH DIALOGS, do not exclude known windows. The first version treated anything that
+    # was not a Control Center / Chart / Editor / Analyzer as a blocking dialog, and
+    # promptly aborted a healthy recovery because a SuperDOM was open (2026-08-19). A
+    # normal window is not a dialog; only look for titles NinjaTrader uses for modals.
     $titles = @(NtWindowTitles)
-    $blocking = @($titles | Where-Object { $_ -and $_ -notmatch "^(Control Center|Chart|NinjaScript Editor|Strategy Analyzer)" })
+    $blocking = @($titles | Where-Object { $_ -and $_ -match "^(Warning|Error|Assertion|Confirm|Information|Attention)" })
     if ($blocking.Count -gt 0) {
       Log "A DIALOG IS BLOCKING NINJATRADER - nobody can recover this without a click:"
       foreach ($t in $blocking) { Log "  window: $t" }
