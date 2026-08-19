@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.155';
+const VERSION='73.156';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.156',date:'2026-08-19',notes:['COMPARE > STUDIES: the board now compares individual strategies only. Every study about pooled books - several strategies traded together as one account - has been taken off it, at the owner request. Forty-six rows removed: the pooled-books study, the book leg weighting grid, the book legs re-measured the book way, and the ORB plus NOISE book row that sat inside the NOISE study.','The research itself was not touched. Every one of those results is still written down in the repository book round log.','Row numbers are permanent handles, so nothing was renumbered. Rows 25, 28 to 46 and 236 to 261 are retired and will never be handed to a new row. The next free number is 262.','The explanatory notes that talked about pooled books have been reworded, because their subject is gone. The board now says plainly why a combination cannot be compared with one strategy: it ties up more margin, so the two are not like for like. Use the RUNBOARD mode to compare whole combinations.']},
 {v:'73.155',date:'2026-08-19',notes:['COMPARE > STUDIES: six new studies covering the research that was run locally in Python over the past fortnight and never became a saved run. One hundred and one new rows, numbered 161 to 261.','NOISE parameter sweep, the cells behind the headlines. The August 17th campaign reported whole families as one line - it said the volatility-conditional exits were dead across all eight settings, but only two of them ever reached the board. The missing cells are now rows of their own, re-run through the committed harness so the figures are measured rather than remembered.','Do the NOISE filters carry to the ES contract? The nine configurations re-run on a second contract with nothing re-fitted, as the outside check that the filters are not simply fitted to NQ. Every filter beats the champion and none of them clears the promotion bar.','NOISE trade-context scan. Six blind scans over sixteen market-condition measures, ninety-six statistical tests behind six rows. The study says so in its own description rather than pretending each row is a tested configuration.','ORB hunt, the rest of the local cells. The August 17th exit hunt ran fifty-eight configurations. Ten were already here as saved runs and eleven more went up in the ORB ideas study, so this is the remaining thirty-seven. Nothing appears twice.','Book leg weighting grid. All sixteen weightings, re-run so the board carries real dollars instead of the two ratios the round log printed. The rule picked a fitted weighting and it was rejected, and the shape of the grid shows why.','Book legs measured the book way. The same ten strategies re-measured on the book drawdown convention, marked plainly as re-measurements rather than as new things tested, so nobody counts them twice.','Two rows carry dashes instead of money on purpose. Both were genuinely run and both failed, but their settings and figures were never written down, and a blank that says why is better than an invented number.']},
 {v:'73.153',date:'2026-08-19',notes:['COMPARE > STUDIES: the charts resize. Every study chart carries the same slim drag bar the run report puts under its charts - drag it down to make that chart taller, up to make it shorter, double-click it to put it back. The size is remembered per study and survives a reload. It stores a drawing height rather than a pixel count, so a resized chart still fills the width of its tile at any window size and its axis captions, tick numbers and legend stay exactly the size they were - the plot area is what grows.','A VALUE ZOOM control - FIT ALL, TRIM 5%, TRIM 10%, TRIM 20%. The axes always spanned only the rows actually shown, so filtering already rescaled them and FIT ALL is that reading. The trims drop that share of the most extreme values off both axis ranges so a cluster can spread out instead of being flattened by one distant row. NOTHING IS HIDDEN: a trimmed row is still drawn, pinned to the edge it ran off, ringed with a dashed warning, and named under the chart with the figure it actually holds.','A COMPARE ON control, because raw totals over mismatched windows are misleading and this board had already proved the windows do not match. Three honest bases, and the board always states in words which one is in force and how many rows it can reach.','COMMON WINDOW is the rigorous one and it costs no re-running: where a row has a real run with a saved equity curve, that curve is sliced to the stretch every row on the tile genuinely shares and the profit and worst drawdown are recomputed on exactly that slice. Four columns appear and the chart plots the sliced figure. A row with no saved curve shows a DASH SAYING WHY and never its un-sliced number - mixing sliced and un-sliced figures in one column is the silent blending this board exists to prevent.','Three limits are printed on the figures themselves rather than buried. A cut may only be placed inside a dated stretch of at most 800 days, so a run that saved no lockbox boundary is refused outright. The sliced drawdown is read off a downsampled curve, so it is a FLOOR and it is not the same measurement as the DRAWDOWN column. And a profit factor cannot be recomputed from a curve at all, because netting trades into curve points destroys the gross winnings and gross losses it is made of - so COMMON PF is always a dash carrying that reason, never an estimate.','PER YEAR divides each row profit by the number of years its own window covers, so a longer window stops being automatically flattered. It needs only a recorded window and not a curve, which makes it the widest-coverage basis - a local research row that records its window is readable on it.','A plain-English guide under the controls saying what each basis means and when to trust it, including which ratio survives a slightly different window: profit factor is the most robust because it is a property of the whole trade population, profit divided by drawdown is the most fragile because a drawdown is one single worst event and this project measured its confidence interval to be WIDER than the drawdown itself, and Sharpe sits between the two.','PROFIT STAGE is ignored under COMMON WINDOW and the board says so out loud rather than quietly - a shared stretch is a calendar range and a stage is a different cut of the same run.','STUDIES_BOARD.md documents the new controls, how the slice works, its three limits, and every view preference this board persists.']},
 {v:'73.152',date:'2026-08-19',notes:['COMPARE > STUDIES: four new ENGU-Q studies covering the research that was measured and never became a run. The whole limit-depth curve, the short mirror, bar type and trailing stop, and concurrent positions.','Thirty-one new rows, numbers 130 to 160. None of them has a walk-forward figure because none was ever run as a validate, so each shows a dash that says so on hover and leaves the chart when the walk-forward stage is selected.','The limit-depth study is the one to read. It shows the adopted depth sits on a broad shoulder rather than a spike: profit factor beats the control at every depth from 0.15 to 1.00, and the adopted depth has the strongest lockbox of all of them.','Rows 138 and 139 show the best profit divided by drawdown on the whole board and are marked fragile on purpose. A five thousand sample bootstrap put their drawdown advantage over the adopted depth at minus two hundred and forty five dollars, winning barely half the time, so the board says so rather than quietly recommending them.','The short mirror study records a clean negative: the mirrored short side loses in fifteen of seventeen years, and running both directions is worse than long alone because the shorts also take the single position slot away from the longs.']},
@@ -16698,9 +16699,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
                             direction is better (e.g. "further LEFT is better")
                       yMode 'ratio' or 'raw' — the study DEFAULT for the vertical axis.
                             Use 'ratio' (profit divided by the worst drawdown) whenever the
-                            rows carry different amounts of margin, as pooled books do, so
-                            raw profit cannot flatter the bigger books. The owner can
-                            override it for the whole board with the VERTICAL AXIS control.
+                            rows carry different amounts of margin, so raw profit cannot
+                            flatter the row that simply risked more. Every study here is
+                            single strategies on one contract, so every one of them uses
+                            'raw' today. The owner can override it for the whole board with
+                            the VERTICAL AXIS control.
                       tip   optional [field,...] named in the hover text of every point.
                       xFmt  optional 'money' | 'num' for the horizontal ticks. Defaults to
                             money for the money columns (is wf lb tot dd), number otherwise.
@@ -16762,9 +16765,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const RESEARCH_STUDIES=[
       {key:'noise',title:'NOISE single-strategy variants',disc:'2026-08-17',isLbl:'IN-SAMPLE',fam:'NOISE',
        sub:'One strategy on its own. NQ 5-minute bars, 2010 to 2026. Twenty-six configurations tested against the crowned champion.',
-       notes:['Row 2 is the single-strategy recommendation. Skipping short trades the day after a weak close was the only change that passed every test for fragility.','Rows 25 and 26 have no walk-forward figure. A pooled book produces no walk-forward folds, and the older ORB run covered different dates. They leave the chart whenever the walk-forward stage is selected.','Read this study on raw profit. Every row here trades one strategy on one contract, so they all carry the same margin and the dollars are directly comparable.'],
+       notes:['Row 2 is the single-strategy recommendation. Skipping short trades the day after a weak close was the only change that passed every test for fragility.','Row 26 has no walk-forward figure, because that older ORB run covered different dates from the rows above it. It leaves the chart whenever the walk-forward stage is selected.','Read this study on raw profit. Every row here trades one strategy on one contract, so they all carry the same margin and the dollars are directly comparable.'],
        chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'raw',tip:['dd','tot']},
-       dashWhy:{wf:'A pooled book produces no walk-forward folds, so this stage does not exist for this row.',is:'This row was measured as a whole-run figure only, so it has no separate in-sample stage.'},
        rows:[
         {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[231,242,254],live:'both',liveWhy:'This is the standing NOISE champion and it is also the raw NOISE configuration running in the paper forward test right now, where it is the matched control for the two gated NOISE legs.',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
         {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'good',read:'Best raw profit',runs:[241,253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
@@ -16790,36 +16792,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:22,name:'Long Veto',what:'Skip long trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9745,wf:216728,lb:25507,tot:280710,dd:34882,pf:1.22,pdd:8.05,trd:4527},
         {n:23,name:'Strong Full Veto',what:'Skip all trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9168,wf:156775,lb:35340,tot:221607,dd:33185,pf:1.20,pdd:6.68,trd:4087},
         {n:24,name:'Loss Skip',what:'Skip the trade after any loss.',tone:'fail',read:'Only losing in-sample',is:-3908,wf:120583,lb:12071,tot:135214,dd:32019,pf:1.12,pdd:4.22,trd:4057},
-        {n:25,fam:'BOOK',name:'Book: ORB + NOISE',what:'The first pooled book. Two strategies as one.',tone:'ref',read:'Superseded by the pooled books study',runs:[238],lb:168845,tot:716089,dd:39809,pf:1.29,pdd:17.99,trd:7025},
         {n:26,fam:'ORB',name:'ORB Crown (old)',runs:[230],live:'paper',liveWhy:'This configuration is the one actually running in the ORB paper forward test right now, even though it is no longer the crowned ORB champion. The crown moved on to row 47 and the paper leg did not follow it.',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
          why:{wf:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.',is:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.'}},
         {n:27,name:'Champion (old data)',runs:[225],what:'Same as row 1, before the data backfill.',tone:'ref',read:'Superseded',is:6190,wf:270934,lb:23146,tot:322842,dd:30412,pf:1.21,pdd:10.62,trd:5616}
-       ]},
-      {key:'books',title:'Pooled books',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'BOOK',
-       sub:'Several strategies traded together in one account, one contract each, every trade pooled and the pile scored as one strategy.',
-       chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'ratio',tip:['dd','tot']},
-       notes:['Row 28 is the headline result. It beats the stated baseline, row 34, on every single measure: more profit, a smaller drawdown, a better profit factor, a better lockbox stretch and no losing years.','Books cannot be compared head to head against single strategies. More legs means more margin, so profit divided by drawdown is the fair comparison and raw profit is not. That is why this study opens on the ratio.','Books emit no walk-forward folds, so selecting the walk-forward stage empties this chart on purpose. An eight-stretch consistency count is used instead.','Equal weighting was kept. Tuned weights looked far better in sample and lost almost all of that advantage out of sample.','The measured correlation between ORB and NOISE is about 0.4, not the 0.21 to 0.25 the older notes assumed. The diversification is real but weaker than believed.'],
-       dashWhy:{wf:'A pooled book tunes nothing during the run, so it produces no walk-forward folds by design. An eight-stretch consistency count is used instead.'},
-       rows:[
-        {n:28,name:'Triple Book',what:'ORB + ENGU-Q + NOISE (Short Veto + Wild10).',tone:'good',read:'Beats the baseline on every axis',runs:[261],is:987186,lb:258808,tot:1245994,dd:56090,pf:1.369,pdd:22.21,trd:9048},
-        {n:29,name:'Triple: Short Veto',what:'ORB + ENGU-Q + NOISE (Short Veto).',tone:'good',read:'Better ratio, worse drawdown',is:995149,lb:237534,tot:1232683,dd:60405,pf:1.330,pdd:20.41,trd:9820},
-        {n:30,name:'Triple: Wild 2%',what:'ORB + ENGU-Q + NOISE (Skip Wild 2%).',tone:'good',read:'Better ratio, worse drawdown',is:968584,lb:257214,tot:1225798,dd:57250,pf:1.330,pdd:21.41,trd:9953},
-        {n:31,name:'Triple: Full Veto',what:'ORB + ENGU-Q + NOISE (Full Veto).',tone:'good',read:'Better ratio, worse drawdown',is:958674,lb:256929,tot:1215603,dd:61239,pf:1.350,pdd:19.85,trd:9017},
-        {n:32,name:'Triple: Old Leg',what:'ORB + ENGU-Q + the NOISE leg the first book used.',tone:'frag',read:'Better ratio, worse drawdown',is:980422,lb:232548,tot:1212970,dd:62395,pf:1.340,pdd:19.44,trd:9027},
-        {n:33,name:'Triple: Plain',what:'ORB + ENGU-Q + the plain NOISE champion.',tone:'frag',read:'Weakest triple',is:946094,lb:231021,tot:1177115,dd:63111,pf:1.300,pdd:18.65,trd:10237},
-        {n:34,name:'Baseline Book',what:'ORB + ENGU-Q, equal weight. The stated baseline.',tone:'champ',read:'The thing to beat',runs:[262],is:649186,lb:201639,tot:850825,dd:58171,pf:1.352,pdd:14.63,trd:4632},
-        {n:35,name:'Duo: Short Veto',what:'Current ORB + NOISE (Short Veto).',tone:'good',read:'Best two-leg profit',is:543872,lb:234183,tot:778055,dd:38169,pf:1.300,pdd:20.38,trd:7821},
-        {n:36,name:'Duo: Wild 2%',what:'Current ORB + NOISE (Skip Wild 2%).',tone:'frag',read:'Best two-leg lockbox',is:532398,lb:242167,tot:774565,dd:40470,pf:1.300,pdd:19.14,trd:7954},
-        {n:37,name:'Duo: Short + Wild10',what:'Current ORB + NOISE (Short Veto + Wild10).',tone:'good',read:'Best two-leg profit factor',runs:[263],is:543472,lb:227147,tot:770619,dd:35518,pf:1.340,pdd:21.70,trd:7036},
-        {n:38,name:'Duo: Old Leg',what:'Current ORB + the NOISE leg the first book used.',tone:'frag',read:'Incumbent, upgraded ORB',is:556137,lb:201697,tot:757834,dd:37609,pf:1.310,pdd:20.15,trd:7025},
-        {n:39,name:'Duo: Full Veto',what:'Current ORB + NOISE (Full Veto).',tone:'good',read:'Best two-leg ratio',runs:[258],is:531459,lb:225270,tot:756729,dd:33691,pf:1.320,pdd:22.46,trd:7011},
-        {n:40,name:'Duo: Old ORB + Short',what:'Old ORB crown + NOISE (Short Veto).',tone:'good',read:'Beats the first book',is:534980,lb:201330,tot:736310,dd:40369,pf:1.280,pdd:18.24,trd:7821},
-        {n:41,name:'Duo: Old ORB + Wild2',what:'Old ORB crown + NOISE (Skip Wild 2%).',tone:'frag',read:'Beats the first book',is:523506,lb:209314,tot:732820,dd:42670,pf:1.280,pdd:17.17,trd:7954},
-        {n:42,name:'Duo: Old ORB + S+W10',what:'Old ORB crown + NOISE (Short Veto + Wild10).',tone:'good',read:'Beats the first book',is:534580,lb:194294,tot:728874,dd:37718,pf:1.320,pdd:19.32,trd:7036},
-        {n:43,name:'Duo: Plain',what:'Current ORB + the plain NOISE champion.',tone:'frag',read:'Control',is:500465,lb:225390,tot:725855,dd:40470,pf:1.260,pdd:17.94,trd:8240},
-        {n:44,name:'First Book',what:'The original pooled book.',tone:'ref',read:'The incumbent',runs:[238],is:547244,lb:168845,tot:716089,dd:39809,pf:1.290,pdd:17.99,trd:7025},
-        {n:45,name:'Duo: Old ORB + Full',what:'Old ORB crown + NOISE (Full Veto).',tone:'good',read:'Beats the first book',is:522566,lb:192418,tot:714984,dd:35696,pf:1.300,pdd:20.03,trd:7011},
-        {n:46,name:'Duo: Old ORB + Plain',what:'Old ORB crown + the plain NOISE champion.',tone:'fail',read:'Worst of the group',is:491573,lb:192537,tot:684110,dd:42670,pf:1.240,pdd:16.03,trd:8240}
        ]},
       {key:'xfam',title:'Does the weak-close filter transfer?',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'ORB',
        sub:'The same filter that works on NOISE, applied to ORB and to ENGU-Q. Different strategies and different windows, so compare each row only against its own crown.',
@@ -17251,63 +17226,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:233,name:'Fade 2-Bar Range, Target 1.0',what:'The two-bar fade with a one times risk target.',tone:'fail',read:'Loses money',is:-16270,lb:-6904,tot:-22759,dd:48148,pf:0.94},
         {n:234,name:'Fade 2-Bar Range, Target 1.5',what:'The two-bar fade with a 1.5 times risk target.',tone:'fail',read:'Loses money',is:-18034,lb:6775,tot:-10844,dd:53720,pf:0.98},
         {n:235,name:'Fade 2-Bar Range, Target 2.0',what:'The two-bar fade with a 2 times risk target.',tone:'fail',read:'Loses money',is:-4989,lb:-2470,tot:-7044,dd:49668,pf:0.99}
-       ]},
-      // -- The per-leg weighting grid from the BOOK round. Sixteen cells, all re-run
-      //    2026-08-19 through the committed book harness so the board carries real dollars
-      //    rather than the two ratios the round log printed.
-      {key:'bookwt',title:'Book leg weighting grid',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'BOOK',
-       sub:'Sixteen weightings of the three-leg book, with the ORB leg fixed at one contract and the other two legs varied over a half, one, one and a half and two contracts. NQ, June 2010 to June 2026. Local research, no run numbers.',
-       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'ratio',tip:['dd','tot','lb']},
-       win:{from:'2010-06-07',to:'2026-06-30'},
-       notes:['Read this study on profit divided by drawdown and never on raw profit. A cell that buys two contracts of a leg makes more money because it risks more, not because it is better, so the raw dollar column is meaningless as a ranking here.',
-              'Every one of the sixteen cells is shown rather than summarised, because the point of the grid is its shape. Money rises smoothly with size and the ratio does not follow it, which is what tells you the ranking is about leverage rather than about skill.',
-              'The rule was written down before any weighted result was looked at. It picked a half contract of ENGU-Q and two contracts of NOISE, which scored 23.3 before the held-out stretch against equal weighting 16.5.',
-              'It was not adopted. On the held-out stretch the winner scored 4.87 against equal weighting 4.63, so almost the entire advantage vanished, which is the classic signature of a weight fitted to the past. The winning weights also shrink the one leg that is genuinely uncorrelated with the others, which is the opposite of what diversification argues for.',
-              'A half contract is not tradeable in a single futures product anyway, so several of these cells could never be traded as written.',
-              'The date window stops at the end of June 2026 because the one-minute data this book needs has a real three-week hole after that, and a backtest spanning a hole is not a backtest.'],
-       dashWhy:{wf:'A pooled book tunes nothing while it runs, so it produces no walk-forward folds by design.'},
-       rows:[
-        {n:236,name:'Weights: ENGU-Q 0.5, NOISE 2.0',what:'One ORB contract, 0.5 of an ENGU-Q contract and 2.0 of a NOISE contract, pooled into one account.',tone:'fail',read:'Won the rule, rejected as fitted',is:1166985,lb:208795,tot:1375781,dd:50073,pf:1.31,trd:9820},
-        {n:237,name:'Weights: ENGU-Q 0.5, NOISE 1.5',what:'One ORB contract, 0.5 of an ENGU-Q contract and 1.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:994004,lb:190848,tot:1184852,dd:47915,pf:1.31,trd:9820},
-        {n:238,name:'Weights: ENGU-Q 1.0, NOISE 2.0',what:'One ORB contract, 1.0 of an ENGU-Q contract and 2.0 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1341113,lb:273428,tot:1614541,dd:64720,pf:1.32,trd:9820},
-        {n:239,name:'Weights: ENGU-Q 1.5, NOISE 2.0',what:'One ORB contract, 1.5 of an ENGU-Q contract and 2.0 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1515240,lb:338062,tot:1853301,dd:79647,pf:1.33,trd:9820},
-        {n:240,name:'Weights: ENGU-Q 1.0, NOISE 1.5',what:'One ORB contract, 1.0 of an ENGU-Q contract and 1.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1168131,lb:255481,tot:1423612,dd:62562,pf:1.32,trd:9820},
-        {n:241,name:'Weights: ENGU-Q 0.5, NOISE 1.0',what:'One ORB contract, 0.5 of an ENGU-Q contract and 1.0 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:821022,lb:172901,tot:993923,dd:45758,pf:1.31,trd:9820},
-        {n:242,name:'Weights: ENGU-Q 1.5, NOISE 1.5',what:'One ORB contract, 1.5 of an ENGU-Q contract and 1.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1342258,lb:320114,tot:1662373,dd:77210,pf:1.33,trd:9820},
-        {n:243,name:'Weights: ENGU-Q 2.0, NOISE 2.0',what:'One ORB contract, 2.0 of an ENGU-Q contract and 2.0 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1689367,lb:402695,tot:2092062,dd:101877,pf:1.34,trd:9820},
-        {n:244,name:'Weights: ENGU-Q 1.0, NOISE 1.0',what:'One ORB contract, 1.0 of an ENGU-Q contract and 1.0 of a NOISE contract, pooled into one account.',tone:'champ',read:'Equal weighting, the one that was kept',is:995149,lb:237534,tot:1232683,dd:60405,pf:1.33,trd:9820},
-        {n:245,name:'Weights: ENGU-Q 2.0, NOISE 1.5',what:'One ORB contract, 2.0 of an ENGU-Q contract and 1.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1516385,lb:384748,tot:1901133,dd:99847,pf:1.34,trd:9820},
-        {n:246,name:'Weights: ENGU-Q 1.5, NOISE 1.0',what:'One ORB contract, 1.5 of an ENGU-Q contract and 1.0 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1169277,lb:302167,tot:1471444,dd:75052,pf:1.34,trd:9820},
-        {n:247,name:'Weights: ENGU-Q 0.5, NOISE 0.5',what:'One ORB contract, 0.5 of an ENGU-Q contract and 0.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:648041,lb:154953,tot:802994,dd:43600,pf:1.32,trd:9820},
-        {n:248,name:'Weights: ENGU-Q 2.0, NOISE 1.0',what:'One ORB contract, 2.0 of an ENGU-Q contract and 1.0 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1343404,lb:366800,tot:1710204,dd:97817,pf:1.35,trd:9820},
-        {n:249,name:'Weights: ENGU-Q 1.0, NOISE 0.5',what:'One ORB contract, 1.0 of an ENGU-Q contract and 0.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:822168,lb:219586,tot:1041754,dd:58601,pf:1.34,trd:9820},
-        {n:250,name:'Weights: ENGU-Q 1.5, NOISE 0.5',what:'One ORB contract, 1.5 of an ENGU-Q contract and 0.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:996295,lb:284220,tot:1280515,dd:74289,pf:1.35,trd:9820},
-        {n:251,name:'Weights: ENGU-Q 2.0, NOISE 0.5',what:'One ORB contract, 2.0 of an ENGU-Q contract and 0.5 of a NOISE contract, pooled into one account.',tone:'ref',read:'Grid cell',is:1170422,lb:348853,tot:1519275,dd:95786,pf:1.36,trd:9820}
-       ]},
-      // -- The book round's standalone leg measurements. These are the SAME configurations
-      //    that appear elsewhere on the board, re-measured on the book's own drawdown
-      //    convention and lockbox boundary. They are here so the book rows can be read
-      //    against their own legs, not as new configurations.
-      {key:'booklegs',title:'Book legs measured the book way',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'BOOK',
-       sub:'The ten single strategies the book round measured on their own, using the book drawdown convention and the book lockbox boundary rather than their own. NQ, June 2010 onward. Local research, no run numbers.',
-       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'raw',tip:['dd','tot','lb']},
-       notes:['These are not new configurations. Every one of them already appears somewhere else on the board. What is new is the measurement: a book measures drawdown on the daily account balance rather than trade by trade, and it counts its lockbox from its own boundary rather than from each strategy own. Both differences move the numbers a little.',
-              'They are here so that a book row can be read against the legs that built it without leaving the board, and so nobody mistakes the small differences for a disagreement between two sources.',
-              'Do not count these ten rows as ten more things that were tested. They are ten re-measurements of things counted already.',
-              'The last two rows cover a shorter window ending in June 2026, because the three-leg book needs one-minute data that has a real three-week hole after that date. The data window column shows this and the common-window warning will flag it.',
-              'Read this study on raw profit. Every row is a single strategy on one contract.'],
-       dashWhy:{wf:'A book leg is a pinned configuration replayed inside a pooled account. Nothing is tuned, so there are no walk-forward folds.'},
-       rows:[
-        {n:252,name:'Leg: Old ORB Crown',what:'The previous ORB crown measured on its own as a book leg.',tone:'ref',read:'Reference leg',is:213784,lb:134346,tot:348129,dd:35474,pf:1.26,trd:2607,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:253,name:'Leg: Current ORB Crown',what:'The current ORB crown measured on its own as a book leg.',tone:'ref',read:'Reference leg',is:222676,lb:167198,tot:389874,dd:29142,pf:1.31,trd:2607,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:254,name:'Leg: NOISE Champion',what:'The plain NOISE champion measured on its own as a book leg.',tone:'ref',read:'The control leg',is:277790,lb:58191,tot:335981,dd:32076,pf:1.22,trd:5633,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:255,name:'Leg: NOISE, First Book Leg',what:'The NOISE configuration the first pooled book actually used.',tone:'frag',read:'Weakest recent stretch of the six',is:333461,lb:34499,tot:367959,dd:34418,pf:1.32,trd:4418,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:256,name:'Leg: NOISE Short Veto',what:'The NOISE variant that skips short trades after a weak close.',tone:'good',read:'Best profit of the NOISE legs',is:321196,lb:66984,tot:388181,dd:30473,pf:1.29,trd:5214,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:257,name:'Leg: NOISE Short Veto + Wild10',what:'The short veto with the wildest ten percent of days also skipped.',tone:'good',read:'Best ratio of the NOISE legs',is:320797,lb:59948,tot:380745,dd:21865,pf:1.39,trd:4429,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:258,name:'Leg: NOISE Full Veto',what:'The NOISE variant that skips everything after a weak close.',tone:'good',read:'Wins the ratio inside the book',is:308783,lb:58072,tot:366855,dd:29041,pf:1.34,trd:4404,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:259,name:'Leg: NOISE Skip Wild 2%',what:'The NOISE variant that skips the wildest two percent of days.',tone:'frag',read:'Strong ratio, tail driven',is:309722,lb:74968,tot:384690,dd:22334,pf:1.29,trd:5347,win:{from:'2010-06-07',to:'2026-08-12'}},
-        {n:260,name:'Leg: ORB on the Book Window',what:'The current ORB crown measured over the shorter window the three-leg book is forced onto.',tone:'ref',read:'Reference for the triple book',is:300932,lb:72373,tot:373305,dd:29142,pf:1.30,trd:2584,win:{from:'2010-06-07',to:'2026-06-30'}},
-        {n:261,name:'Leg: ENGU-Q on the Book Window',what:'The ENGU-Q day-session leg measured over the same shorter window.',tone:'ref',read:'The genuinely uncorrelated leg',is:348254,lb:129266,tot:477521,dd:65635,pf:1.41,trd:2048,win:{from:'2010-06-07',to:'2026-06-30'}}
        ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
@@ -17816,9 +17734,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //      PROFIT STAGE  in-sample / walk-forward / lockbox / total. A row with no figure
         //                    for the chosen stage shows a dash that says why and drops off the
         //                    chart. A number from a different stage is NEVER substituted.
-        //      VERTICAL AXIS raw profit, or profit divided by the worst drawdown. Books default
-        //                    to the ratio because more legs means more margin; single-strategy
-        //                    studies default to raw profit. PER STUDY honours those defaults.
+        //      VERTICAL AXIS raw profit, or profit divided by the worst drawdown. Every study on
+        //                    this board is single strategies only, so they all default to raw
+        //                    profit. PER STUDY honours whatever default each study declares.
         //      ORDER BY      date discovered, date the real validate run finished, or result.
         //      FILTERS       built from whatever tags the registry rows carry, never hardcoded.
         const _reDate=(APREF.resDate==='ran')?'ran':((APREF.resDate==='res')?'res':'disc');
@@ -18117,8 +18035,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
         // ── STAGE. One selected stage drives the chart height, the emphasised table column and
         //    the profit-divided-by-drawdown column, so every row on screen is read on the same
-        //    stretch of history. The in-sample heading follows each study, because a pooled book
-        //    has no separate walk-forward stage and calls that column PRE-LOCKBOX instead.
+        //    stretch of history. The in-sample heading follows each study, because a study whose
+        //    rows had no separate walk-forward stage calls that column PRE-LOCKBOX instead.
         const _reStageNm={is:'IN-SAMPLE',wf:'WALK-FWD',lb:'LOCKBOX',tot:'TOTAL'};
         const _reStWord=(st,sg)=>(sg==='is')?((((st&&st.isLbl))==='PRE-LOCKBOX')?'Pre-lockbox':'In-sample'):(sg==='wf'?'Walk-forward':(sg==='lb'?'Lockbox':'Total'));
         const _reMode=st=>(_reAxis==='auto')?((((st&&st.chart&&st.chart.yMode))==='ratio')?'ratio':'raw'):_reAxis;
@@ -18490,14 +18408,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-resdate="res"','RESULT',_reDate==='res','order best first on the profit stage and axis selected here - rows with no figure for that stage sit at the bottom',_TONE.heat),_TONE.heat);
         const _reStageBtns=_ctlGrp('PROFIT STAGE','which stretch of history every study is read on - the chart height, the highlighted column and the profit divided by drawdown column all follow it',
             _reStages.map(sg=>_tabBtn('data-resstage="'+sg+'"',_reStageNm[sg],_reStage===sg,
-              (sg==='is'?'the stretch the config was tuned on - a pooled book has no separate walk-forward stage, so its version of this column is everything before the lockbox':
-               (sg==='wf'?'data held back while tuning and then tested forward - pooled books produce none of these, so those rows show a dash and drop off the chart':
+              (sg==='is'?'the stretch the config was tuned on - a study whose rows had no separate walk-forward stage calls this column everything before the lockbox instead':
+               (sg==='wf'?'data held back while tuning and then tested forward - a row that never ran this stage shows a dash and drops off the chart':
                (sg==='lb'?'the stretch never touched until the very end, the honest forward read':'the whole run end to end')))
               +'. A row with no figure for this stage shows a dash that says why and leaves the chart. No other stage is ever substituted for it.',_TONE.samp)).join(''),_TONE.samp);
         const _reAxisBtns=_ctlGrp('VERTICAL AXIS','what the height of the chart measures',
-            _tabBtn('data-resaxis="auto"','PER STUDY',_reAxis==='auto','let each study keep its own default - books use profit divided by drawdown because more legs means more margin, single strategies use raw profit',_TONE.rank)
+            _tabBtn('data-resaxis="auto"','PER STUDY',_reAxis==='auto','let each study keep its own default - every study on this board is single strategies on one contract, so they all open on raw profit',_TONE.rank)
            +_tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels',_TONE.rank)
-           +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars, and this is the fair way to read a pooled book beside a single strategy',_TONE.rank),_TONE.rank);
+           +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars, and it is the fairer reading when two rows do not risk the same amount',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
         const _reScopeBtns=_ctlGrp('TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
@@ -18586,7 +18504,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reScopeBtns+_reSBasisBtns+_reColBtns+'</div>'
             +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reFiltBtns+_reClear+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
-            +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change. The STATUS column keeps apart two things that are easy to confuse: CROWN means the row is the standing champion of its family, and PAPER means that exact configuration is running in the nightly paper forward test right now. A row can be one, both or neither.</div>'
+            +'Each study is its own table because the studies do not share a yardstick. This board compares individual strategies against each other and never combinations of strategies, because a combination ties up more margin than one strategy does and the two can never be read as a like-for-like comparison. Use the RUNBOARD mode to compare whole strategy combinations. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change. The STATUS column keeps apart two things that are easy to confuse: CROWN means the row is the standing champion of its family, and PAPER means that exact configuration is running in the nightly paper forward test right now. A row can be one, both or neither.</div>'
             +_reCount
             +_reBasLine
             +_reScopeLine

@@ -39,8 +39,8 @@ when you hover it, and the row drops off the chart with the omitted-count line u
 **VERTICAL AXIS — per study, raw profit, or profit divided by drawdown.** Raw profit plots
 the money itself and its tick labels read as dollars. Profit divided by drawdown plots a
 plain number and its tick labels carry no dollar sign. PER STUDY lets each study keep the
-default it declared, which is the ratio for pooled books and raw profit for single
-strategies.
+default it declared. Every study on the board is single strategies on one contract, so they
+all declare raw profit today.
 
 **ORDER BY — discovered, date ran, or result.** Discovered keeps the registry order, which
 is the order the owner approved. Date ran reads the real finish date out of run history and
@@ -175,7 +175,7 @@ Each entry in `RESEARCH_STUDIES` is one study.
 | `sub` | yes | One plain-English line saying what was tested, on what instrument, over what window. |
 | `notes` | no | An array of plain-English bullets printed under the table. A single `note` string still works and renders as one bullet. |
 | `disc` | yes | The date the study was discovered, written `YYYY-MM-DD`. Any row may override it. |
-| `fam` | yes | The default strategy-type tag for every row, such as `NOISE`, `ORB`, `ENGU-Q` or `BOOK`. This is what the STRATEGY TYPE filter is built from. |
+| `fam` | yes | The default strategy-type tag for every row, such as `NOISE`, `ORB` or `ENGU-Q`. This is what the STRATEGY TYPE filter is built from. |
 | `isLbl` | yes | The heading for the in-sample money column. Use `IN-SAMPLE` when the study really has a separate walk-forward stage. Use `PRE-LOCKBOX` when that figure is everything before the lockbox pooled together, which is what a pooled book has. |
 | `chart` | no | The scatter chart block, described below. Leave it out and the study renders as a table only. |
 | `dashWhy` | no | An object mapping a field name to the reason its dash shows, for every row in the study. |
@@ -315,7 +315,7 @@ that tags its rows gets its buttons for free.
 Three of the four filters read tags you supply.
 
 **Strategy type** reads `fam` on the row, falling back to `fam` on the study. Use the family
-name the owner already says out loud: `NOISE`, `ORB`, `ENGU-Q`, `BOOK`. If you invent a new
+name the owner already says out loud: `NOISE`, `ORB`, `ENGU-Q`. If you invent a new
 one it appears as its own button automatically, so pick a name the owner will recognise and
 then use exactly that name everywhere.
 
@@ -357,12 +357,20 @@ different window, a different stage, or a different date range. Write the reason
 study's `dashWhy` and let every row inherit it; use the row's own `why` when one row has a
 different reason from the rest.
 
-**Books and single strategies are never compared head to head.** A pooled book trades
-several strategies at once, so it ties up more margin than any single strategy. Its raw
-dollar profit is bigger for that reason alone and the comparison means nothing. Give every
-book study `yMode:'ratio'` so it opens on profit divided by drawdown, which is the fair
-cross-study comparison, and say so in the study's notes. Each study also gets its own tile
-and its own table for exactly this reason.
+**This board is for single strategies only. Combination studies do not belong on it.** The
+owner decided this on 2026-08-19, in his own words: *"remove the orb+noise suggestion. we
+arent comparing combining strategies."* The reason is margin. A pooled book trades several
+strategies at once, so it ties up more margin than any single strategy does, and its raw
+dollar profit is therefore bigger for that reason alone. The two can never be read as a
+like-for-like comparison, which is exactly why the owner had the book studies taken off the
+board. Do not add a pooled book, a two-leg or three-leg combination, or a weighting grid over
+several strategies as a study here. Compare whole combinations in the RUNBOARD mode, which
+exists for that job, and keep the research itself in the repository documents.
+
+The removal was a clean deletion of the study entries from the registry and nothing else. No
+rendering code was taken out, so the board could carry a combination study again unchanged if
+the owner ever reverses the decision, and every result that was removed is still written down
+in `BOOK.md`.
 
 **Drawdown is always positive.** The column heading already says drawdown, so a leading minus
 sign is wrong. Losing money figures in the profit columns do keep their minus sign.
@@ -445,12 +453,11 @@ they survive a reload and a re-render. None of them is registry data.
 
 ## 8. What is on the board today (2026-08-19)
 
-19 studies, 261 rows.
+16 studies, 215 rows.
 
 | Study | Rows | What it covers |
 | --- | --- | --- |
 | NOISE single-strategy variants | 1–27 | The twenty-six filter variants of the NOISE strategy. |
-| Pooled books | 28–46 | Two-leg and three-leg books. Read on profit divided by drawdown. |
 | Does the weak-close filter transfer? | 47–66 | The weak-close filters carried across to ORB and ENGU-Q. |
 | ORB breakeven and plateau hunt | 67–77 | Eleven exit variants of the ORB crown on identical entries. |
 | ORB grail hunt, round one | 78–83 | The six searches that rebuilt ORB on a legally fillable entry. |
@@ -466,11 +473,28 @@ they survive a reload and a re-render. None of them is registry data.
 | Do the NOISE filters carry to the ES contract? | 184–192 | The same nine NOISE configurations on a second contract, nothing re-fitted. |
 | NOISE trade-context scan | 193–198 | Six blind scans, ninety-six statistical tests. Table only, no chart. |
 | ORB hunt, the rest of the local cells | 199–235 | The rest of the August 17th ORB exit hunt, never saved as runs. |
-| Book leg weighting grid | 236–251 | All sixteen weightings of the three-leg book. |
-| Book legs measured the book way | 252–261 | Ten legs re-measured on the book's own drawdown convention. |
 
-Rows 25 and 26 sit inside the NOISE study as cross-references to a book and to the older ORB
-crown; that is why the NOISE study's row numbers are not contiguous.
+Row 26 sits inside the NOISE study as a cross-reference to the older ORB crown, which is one
+reason the NOISE study's row numbers are not contiguous. The other reason is row 25, which was
+retired on 2026-08-19 and is described immediately below.
+
+### Retired row numbers — never reuse these
+
+On 2026-08-19 the owner had every pooled-book study taken off this board, for the reason given
+in section 6. Forty-six rows were removed and their numbers are retired for good. Row numbers
+are permanent handles, so nothing that stayed was renumbered and none of these numbers may ever
+be handed to a future row. The next free row number on this board is 262, not 236 and not 25.
+
+| Retired | Count | What it was |
+| --- | --- | --- |
+| 25 | 1 | The ORB-plus-NOISE pooled book that sat inside the NOISE study as a cross-reference. This is the row the owner named directly. |
+| 28–46 | 19 | The pooled-books study: every two-leg and three-leg combination. |
+| 236–251 | 16 | The book leg weighting grid. |
+| 252–261 | 10 | The ten book legs re-measured on the book's own drawdown convention. |
+
+None of the retired rows was tagged as crowned or as running in the paper forward test, so no
+status tag moved and nothing on the board claims a book is being forward-tested. The research
+behind all forty-six rows is untouched and still recorded in `BOOK.md`.
 
 **The mismatch the board currently shows.** The crowned ORB configuration is row 67, and the
 configuration the paper forward test is actually running is rows 26, 83 and 93 — the *previous*
@@ -502,10 +526,9 @@ exists to stop somebody rediscovering the expensive way.
 **Say when a row is not one tested configuration.** Two of these studies are not straightforward
 grids of backtests, and each says so in its own description rather than letting the reader assume.
 The trade-context study is six statistical scans standing for ninety-six tests, over only two
-backtested configurations, both of which were already on the board. The book-legs study is ten
-*re-measurements* of configurations counted elsewhere, on a different drawdown convention. A
-summarised row must never be presented as if it were a single tested configuration, and a
-re-measurement must never be counted as a new thing tested.
+backtested configurations, both of which were already on the board. A summarised row must never
+be presented as if it were a single tested configuration, and a re-measurement must never be
+counted as a new thing tested.
 
 **One more practical note.** Several sessions add to this registry at the same time. Before you
 write a row number, read the highest number currently on `origin/main` rather than the highest
