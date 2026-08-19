@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.135';
+const VERSION='73.136';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.136',date:'2026-08-18',notes:['The new COMPARE mode is called STUDIES, not RESEARCH. The Backtester already has a RESEARCH tab (the backtesting stack), and two nav items one row apart with the same name was confusing. Nothing else changed.']},
 {v:'73.135',date:'2026-08-18',notes:['COMPARE has a fourth mode: RESEARCH. It holds the completed research studies as tables you can read on the site instead of in chat - the 26 NOISE variants, the pooled books, and the cross-family filter transfer tests on ORB and ENGU-Q. Every row keeps the row number you were already given, its short name, a plain-English line saying what it does, and the same verdict colour coding: blue is the champion or baseline, green beat it and held up, amber works but is fragile, red failed, grey is a reference.','Each study gets its own table on purpose. A pooled book uses more margin than a single strategy, so a book cannot be compared head to head with one strategy - the board says so and points you at profit divided by drawdown instead of raw profit.','ORDER BY toggle: DATE DISCOVERED or DATE RAN. Date ran is read live out of run history, so it is the date the real validate run actually finished. Rows that were only ever computed locally have no run, so under DATE RAN they move into their own block marked never run as a validate run and show a dash. No date is ever invented.','A row that was saved as a real run shows its run number and opens that run report when you click it. A row that was not shows the word local, the same convention the RUNBOARD uses. Where a figure genuinely does not exist - books emit no walk-forward folds, the transfer tests recorded no trade counts - the cell is a dash that tells you why on hover, never a number borrowed from a different window. Drawdown is always positive.','Adding the next study is data only: append one entry to the research registry at the top of the compare section with its rows, and the board renders it. No rendering code changes.']},
 {v:'73.123',date:'2026-08-18',notes:['ORB IS BACK ON THE BOARD, and it is live again in NinjaTrader. The old ORB strategy there was DELETED yesterday - it still ran the retired pre-#230 settings, so its fills measured a config nothing else uses. A real port of run #230 replaced it and went live this morning on NQ 5-minute: close-confirmed entry, partial at 3R, trailed runner, the same settings this leg computes. Hovering its badge says so.','ORB was archived when it was the dead one. That reason is gone, so both ORB rows return to the strip, the curve and the tables. Nothing was ever lost - the runner computed them nightly the whole time - and you can re-archive them any time.','Honest caveat kept in the hover: the new port has never traded beside its backtest, so its first fills still owe a comparison against the engine.']},
 {v:'73.134',date:'2026-08-18',notes:['RUNBOARD BOOKS rebuilt on LEGAL legs only: champion row = the live-honest baseline (legal ORB #234 + the certified ETH leg #226 - the two paper legs). RTH-leg book rows carry a new RTH-stop warning chip (run #227 measured a real 24h stop costing ~$178k vs those numbers). The 3-leg 1:1:1 stack is marked dead: more net, worse MAR - it doubles the NQ-trend factor instead of diversifying. Old leaky-ORB rows retired.','Every row parity-gated to its certified anchor to the dollar; window 2010-06-07 to 2026-08-13, LB = the #234 lockbox year. Rebuild: tools/t7_legal_book.py + t7c_board_json.py.']},
@@ -17219,7 +17220,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_cmpModeBtn('runs','PICK RUNS','manually choose which runs go into the comparison — your picks, your tabs, your saved sets')
           +_cmpModeBtn('fam','BY STRATEGY','one curve per strategy family, its top config, chosen automatically by score — no manual picking')
           +_cmpModeBtn('board','RUNBOARD','compare whole BOOKS (deployable strategy combinations) as one strategy each — sample and rank selectable')
-          +_cmpModeBtn('research','RESEARCH','the completed research studies — every variant that was tested, what it does in plain English, and whether it was ever run as a real validate run')
+          +_cmpModeBtn('research','STUDIES','the completed research studies — every variant that was tested, what it does in plain English, and whether it was ever run as a real validate run')
           +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">completed studies · one tile each · order by date discovered or date ran</span>':'')))+'</div>';
         if(_cmpMode==='research'){
         // ── RESEARCH board (owner ask 2026-08-18: "add these to the compare tab so i can see it
@@ -17313,7 +17314,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +['champ','good','frag','fail','ref'].map(k=>'<span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+_reTone[k]+';margin-right:5px"></i>'+_reToneNm[k]+'</span>').join('')+'</span>';
         body=modeToggle
           +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
-            +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">RESEARCH</span>'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">STUDIES</span>'
             +'<span style="font-size:8px;color:var(--text5)">completed studies · one tile per study · a row with a run number opens its report</span>'
             +'<span style="margin-left:auto">'+_reDateBtns+'</span></div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
