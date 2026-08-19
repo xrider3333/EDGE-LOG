@@ -73,3 +73,33 @@ break BOTH builds with CS0579 (happened 2026-08-17). So:
   measure a dead config. `EdgeLogORB230.cs` is the honest port (compiled, in the
   csproj); it needs a grid/chart row added in the NT UI once, then the bridge can
   manage it. Re-add to the roster only after its fills reconcile against the engine.
+
+## Running while nobody is signed in (2026-08-19)
+
+**NinjaTrader cannot run without a Windows session.** It is a desktop app; with nobody
+signed in there is no desktop to run on. Everything in this stack inherits that:
+
+- `StartNinjaTrader.vbs`, `EdgeLogGate.vbs`, `EdgeLogRunner.vbs` all live in the Startup
+  folder, which runs **at interactive logon only**.
+- The recover watchdog task is registered `LogonType = Interactive` -- "run only when the
+  user is logged on". Setting it to "whether logged on or not" does NOT help: that runs in
+  session 0 with no desktop, so NinjaTrader would launch invisibly and the UI-automation
+  login would have no window to drive.
+
+So the machine was ON but signed OUT on 2026-08-19 and nothing ran until the owner logged
+in, ~1h40m into the session. The fix is to remove the human from the boot path:
+
+1. **Windows auto-logon** (owner does this -- it needs the Windows password, which Claude
+   never handles): run `netplwiz`, uncheck "Users must enter a user name and password to
+   use this computer", enter the password once. The machine then boots straight into the
+   session and every Startup item runs.
+2. **Auto-lock after that logon** so an unattended boot does not leave an open desktop:
+   copy `C:\EdgeLog\lock_after_logon.vbs` into the Startup folder. The session stays
+   alive (strategies keep running); the screen requires the password.
+3. **Stop the machine sleeping.** Idle sleep was 180 min on AC, which would kill the
+   overnight ETH session: `powercfg /change standby-timeout-ac 0`.
+
+**LOCK, never SIGN OUT.** Locking (Win+L) keeps the session and everything in it alive.
+Signing out destroys the session and kills NinjaTrader, the gate and the runner -- and
+auto-logon only applies at BOOT, so it will not bring them back. Shutting down is fine;
+the next boot logs itself in.
