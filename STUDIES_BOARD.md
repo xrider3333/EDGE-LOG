@@ -16,9 +16,17 @@ owner can read them on the site instead of scrolling back through chat.
 
 **There is ONE chart.** It sits at the top of the board and it carries every row now shown,
 whatever study the row came from, and a STRATEGY rail above it steps from one strategy family
-to the next. Under it, every study renders as one tile: a heading, a one-line description, a
-scrolling table, and a short list of plain-English notes. **A study tile draws no chart of its
-own.**
+to the next. Under it, every study is **one closed heading** that opens on click into its
+description, its scrolling table and its notes. **A study tile draws no chart of its own.**
+
+**The board is short on purpose, and shortness never costs a figure.** The owner's second note
+on 2026-08-19 was blunt: *"the page still has wayyyy to much text on it and to long."* So the
+rule for anything you add here is: **print the number, hover the explanation.** Four paragraphs
+of running commentary are now four status chips whose hovers carry those paragraphs word for
+word; the reference text sits behind the `? HOW TO READ` chip; the secondary controls sit behind
+`MORE`; the sixteen tables are closed until asked for. Nothing measured is hidden by any of it —
+what is hidden is always explanation, and it is always one hover or one click away. If you find
+yourself adding a paragraph to this board, put it on a hover instead.
 
 This is a deliberate reversal, made on 2026-08-19 in the owner's words: *"this was originally
 supposed to be one scatter plot and it just got blown up with every claude session and their
@@ -83,6 +91,24 @@ free. Filters narrow the chart and the table at the same time, and the board alw
 how many rows are hidden.
 
 **CLEAR FILTERS** appears only while something is filtered and drops all of them.
+
+**MORE / LESS.** Only the STRATEGY rail, PROFIT STAGE, VERTICAL AXIS and ORDER BY are on screen by
+default. MORE reveals COMPARE ON, VALUE ZOOM, TIME SCOPE, SCOPE DATE, COLOUR and every filter chip.
+A hidden control keeps working exactly as it was set, which is why the status chips below always
+state what is in force, and the MORE button itself says `· filtered` when a filter is active.
+
+**? HOW TO READ.** Opens the reference block: what the board is, what it refuses to do, what each
+comparison basis means and which ratio survives a mismatched window. Closed by default, remembered
+once opened.
+
+**The status chips.** One line under the controls: rows shown, comparison basis, time scope, and
+the common data window. Each is a short fact, and the hover on each carries the full paragraph that
+used to be printed there. A chip warning about something wears the warning colour.
+
+**Opening a study.** Every study is a closed heading — verdict-free, just the title, its strategy,
+`shown/total` and the date discovered. Click to open, click to close, and the open set is
+remembered. Two things open a study for you: filtering down to a single study, and clicking a chart
+point whose row lives inside a closed one.
 
 **COMPARE ON — ratios as is, common window, or per year.** Raw totals measured over different
 stretches of history are not comparable, and section 4A explains why the board already knew that.
