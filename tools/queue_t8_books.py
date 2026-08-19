@@ -99,7 +99,11 @@ JOBS = [
 ids = []
 for j in JOBS:
     doc = dict(j)
+    # mult:1 - a book result is ALREADY in dollars (each leg is converted with its own
+    # contract size during pooling), so the job must not ask the save layer to convert
+    # again. Omitting this is what stored a 20x headline on runs #258/#261/#262/#263.
     doc.update({"type": "book", "status": "queued", "slices": 8, "equity_points": 400,
+                "mult": 1,
                 "createdAt": datetime.datetime.now(datetime.timezone.utc)})
     ref = u.collection("backtests").document()
     ref.set(doc)

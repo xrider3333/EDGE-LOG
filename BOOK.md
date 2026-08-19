@@ -256,3 +256,95 @@ the two-leg baseline control, and the three-leg candidate.
 - The NOISE leg used by run #238 is not one of the pinned `NOISE_1_1_*` files. If it is to
   stay in circulation it should be pinned like the others; if not, it should be retired in
   favour of the variants that beat it here.
+
+---
+
+## 9. 2026-08-18 — the headline net on a book run was 20x too large (FIXED, forward-only)
+
+### What the headline field on a book run means
+
+A book run's headline net — the field `best_pnl_usd`, which is what the Past Runs card and
+the run-report KPI row print — is **the pooled book's net dollars over the stretch BEFORE
+the lockbox**. Not the whole window, and not points. Two separate things about it were being
+misread, and only one of them was a bug.
+
+**The bug (now fixed).** A book result arrives at the save layer *already denominated in
+dollars*, because `augur_engine/book.py` converts each leg's trades with that leg's own
+contract multiplier during pooling (a book can mix instruments, so there is no single
+book-wide multiplier). The save layer in `api/runner.py::_persist_run` did
+`pnl_usd = best.total_pnl * mult` — the ordinary points-to-dollars conversion — which for a
+book multiplies a second time. The web app's "＋ RUN A BOOK" button always passed `mult:1`
+and was therefore always correct. A book queued by a script that wrote the job doc straight
+into Firestore — which is how `tools/queue_t8_books.py` did it — omitted `mult` and fell
+through to the runner's default of **20**.
+
+**The scope (by design, not a bug).** `best` deliberately carries the PRE-LOCKBOX stats,
+matching the convention a validate run uses for `best_pnl_usd`: the headline describes the
+stretch that is *not* the holdout. The whole-window total lives in `book.whole` and is what
+`tools/t8_noise_book.py` prints.
+
+### The arithmetic, on the actual saved run documents
+
+Divide each stored headline by exactly 20 and it lands on `book.pre_lockbox` to the cent:
+
+| Run | reported net | ÷ 20 | `book.pre_lockbox` net | reported max DD | ÷ 20 | `book.pre_lockbox` DD |
+|---|---|---|---|---|---|---|
+| 238 | $10,944,883.00 | $547,244.15 | $547,244.15 | $547,690.40 | $27,384.52 | $27,384.52 |
+| 258 | $10,629,181.80 | $531,459.09 | $531,459.09 | $638,890.60 | $31,944.53 | $31,944.53 |
+| 261 | $19,684,006.20 | $984,200.31 | $984,200.31 | $1,121,803.60 | $56,090.18 | $56,090.18 |
+| 262 | $12,980,663.20 | $649,033.16 | $649,033.16 | $1,163,416.80 | $58,170.84 | $58,170.84 |
+| 263 | $10,869,453.00 | $543,472.65 | $543,472.65 | $535,918.80 | $26,795.94 | $26,795.94 |
+
+The error factor is a **constant 20**, on every run, on both net and drawdown. It only looks
+like a variable "roughly 15x" when the headline is compared against the WHOLE-window book
+total this document reports, because that comparison stacks the constant 20x on top of the
+pre-lockbox scope fraction, which varies with how much of each window the lockbox covers:
+
+```
+#238  10,944,883 / 716,089   = 15.28x  = 20 x 0.7642
+#258  10,629,182 / 756,729   = 14.05x  = 20 x 0.7023
+#261  19,684,006 / 1,245,994 = 15.80x  = 20 x 0.7899
+#262  12,980,663 / 850,825   = 15.26x  = 20 x 0.7628
+#263  10,869,453 / 770,619   = 14.11x  = 20 x 0.7052
+```
+
+The harness is the correct number. `tools/t8_noise_book.py` reproduced run #238's saved book
+block to the dollar, and every one of those book blocks is intact in the run documents.
+
+### Blast radius — what was wrong and what was always right
+
+Wrong (all inflated by exactly 20): `best_pnl_usd`, `best_dd_usd`, `best_pnl_per_day`, the
+stored `multiplier` field (20, where a book has no single multiplier), and any MAR derived
+from that net-and-drawdown pair. `best_pnl_pts` is labelled "pts" but holds dollars.
+
+**Never wrong:** everything that reads the book's own pooled block — `book.whole`,
+`book.pre_lockbox`, `book.lockbox`, `book.legs[].net`, `book.slices`, the equity curve
+(stored in real dollars), `validate.lockbox`, `best_pf`, `best_trades`, `best_win_rate`, and
+the PASS / WEAK / FAIL verdict. The verdict is computed inside `book.py` from the lockbox
+P&L, the lockbox profit factor and the eight-stretch consistency count, and never touches the
+headline, so **no pass/fail gate depended on the broken field**. That is why run #261 carries
+a correct $261,794 lockbox next to a $19.7M headline in the same document.
+
+In the web app, the RUNBOARD **BOOKS** tile and the 1E matrix are book-aware — they read the
+book block directly and always showed the truth. The inflated field is what fed the **Past
+Runs** card, the run-report headline KPIs, the COMPARE tab's curve scaling
+(`equity × multiplier`), and the funnel's net and MAR ranking. Anyone reading run #261 off a
+Past Runs card saw $19.7M for a book that made $984,200 pre-lockbox.
+
+### The fix (web v73.135)
+
+`api/runner.py::_persist_run` now pins `mult = 1.0` whenever the result carries a `book`
+block, so the unit is a property of the RESULT rather than of whoever wrote the job doc.
+`tools/queue_t8_books.py` also sets `mult:1` explicitly. Regression test:
+`tests/test_book_net_units.py` — a book stays in dollars for any job `mult`, and a normal
+points-denominated run still converts.
+
+**Effective from the next book run onward.** Historical run documents were deliberately NOT
+rewritten. To read runs #238, #258, #261, #262 and #263 as saved, divide their headline net,
+drawdown and dollars-per-day by 20 — or just read the BOOKS table on the RUNBOARD, which was
+right all along.
+
+**Open recommendation, not shipped, needs an owner call:** the web app could prefer the book
+block over `best_pnl_usd` for any run carrying one, which would make those five historical
+cards read correctly everywhere without touching a stored document. It was left out on
+purpose because it changes numbers the owner has already seen on already-saved runs.

@@ -830,6 +830,18 @@ class FirestoreQueue:
         """Save a completed web grid sweep into users/{uid}/runs (Runs history),
         shaped like the app's synced runs so the Runs tab renders it identically."""
         mult = float(job.get("mult", 20) or 20)
+        # A BOOK is the one result that arrives ALREADY IN DOLLARS: augur_engine/book.py
+        # converts every leg's trades with that leg's own contract multiplier before pooling
+        # them (a book can mix instruments, so there is no single book-wide multiplier). The
+        # save layer below multiplies `best` by `mult` to turn points into dollars, which for
+        # a book would multiply a second time. The web app's "RUN A BOOK" button passes
+        # mult:1 for exactly this reason, but a book queued any other way (a script writing
+        # the job doc straight into Firestore) fell through to the default 20 and stored a
+        # headline 20x too large - runs #238/#258/#261/#262/#263 all did. Pin it here so the
+        # unit is a property of the RESULT, not of whoever wrote the job doc. Every leg's own
+        # multiplier is still recorded under `book.legs[].mult`.
+        if result.get("book"):
+            mult = 1.0
         best = result.get("best") or {}
         # gate-validate has no swept "best" config — headline off the chosen gate so the
         # Past-Runs row shows real numbers (lockbox gated if opened, else pre-lockbox).
