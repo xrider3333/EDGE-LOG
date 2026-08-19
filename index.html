@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.159';
+const VERSION='73.160';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.160',date:'2026-08-19',notes:['THE LEGS BLOCK IS NOW A TABLE. Six strategies rendered as side-by-side tiles had grown into an unreadable overlap. Each strategy is now one row, with net, trades, win rate, days live, last trade, forward and backfilled counts, NinjaTrader status, cross-engine check and gate comparison each in their own column - so legs can be read down a column instead of hunted for.','The run and parameter line is off by default and appears as its own CONFIG column when you press show config.','Clicking a row still includes or excludes that strategy from the curve and from every figure in the table.']},
 {v:'73.159',date:'2026-08-19',notes:['FIX to the leg toggling shipped earlier today, which did not work. Clicking a visible leg sent the word ALL instead of the leg name, so nothing was ever excluded and the hidden list filled with junk. Each leg now names itself, so clicking really does remove it from the curve and from every total, table and row beneath - and clicking it again brings it back.','The show all control is now wired on BOTH places it appears, the LEGS row and the rail in the header. Previously only the first one worked.','The run and parameter line under each strategy is hidden by default. With six legs on the strip it doubled the height for something you read once, not every glance. A show config button on the LEGS row brings it back for every tile at once.']},
 {v:'73.158',date:'2026-08-19',notes:['THE APP NOW OPENS IN ABOUT THREE SECONDS INSTEAD OF THIRTY. Loading the page used to download every one of your last 75 runs in full, including the parts only a run report ever shows - the gate bake-off tables, the full set of config equity curves, the per-config scatter data and the trade excursion tables. That was about 25 megabytes of saved data, which Firestore sends as roughly 387 megabytes once it wraps every number in its own tag. The first screen needs about a fifth of a megabyte of it.','Past Runs now asks the server for only the columns the list actually shows, and fetches a run report in full the moment you click that run. You will see a brief LOADING line the first time you open a report; after that it is instant, and the last eight reports you opened stay in memory.','This is also why the app used to lock up for a minute when you clicked quickly between the COMPARE modes. It was never the drawing - each redraw takes about a fifth of a second. The browser was busy unpacking that run data in the background and could not answer the clicks. With the data gone, the clicks answer straight away.','The Builder job list now reads the newest 12 jobs rather than 50. It only ever displayed 12, and the other 38 were carrying a full copy of their finished results - about 12 megabytes of it - on every single page load.','Nothing was deleted and no run lost any detail. If the faster read ever fails the app quietly falls back to the old way of loading, so the list can never come up empty.']},
 {v:'73.157',date:'2026-08-19',notes:['LEGS ARE NOW INCLUDE / EXCLUDE. Click any leg to take it out of the cumulative curve AND out of every total, table and cross-engine row beneath it, then click it again to bring it back. Several variants of the same strategy run side by side - three NOISE rows alone - so reading one of them means removing the others from the maths, not just dimming them on the chart.','Nothing is deleted when you exclude a leg. The runner still computes it every night and its history comes straight back. A show all button appears whenever anything is hidden, and the board refuses to let you switch off the last leg.','TODAY now says where its money comes from. The figure is EDGELOG own engine, and it sits next to how many fills NinjaTrader actually recorded that day. On a day NinjaTrader was down those two disagree, and that is the point: the strategy still has a result and this is where you read it.']},
@@ -19461,21 +19462,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
           gateBlock='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
             +parts.join(' · ')+cmp+'</div>';
         }
-        return '<div data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
-          +'" style="flex:1 1 170px;min-width:170px;padding:2px 14px 2px 0;cursor:pointer;opacity:'+(dim?0.42:1)+';transition:opacity .12s">'
-          +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap"><span style="font-size:10px;font-weight:700;letter-spacing:1px;color:'+color+'">'+label+'</span>'
-          +(sel?'<span style="font-size:8px;color:var(--text5)">●</span>':'')+wBadge+orbBadge+dotHtml+'</div>'
-          +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:nowrap">'
-          +'<div style="font-size:20px;font-weight:700;line-height:1.15;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</div>'
-          +'<div style="font-size:9px;color:var(--text4);line-height:1.45;text-align:right;white-space:nowrap">'+a.n+' trades · '+(a.n?Math.round(a.wr*100)+'% win':'—')+'<br>'+a.days+'d live · last '+(a.lastT?_dOnly(a.lastT):'—')+'</div></div>'
-          +(()=>{const s=legSplit(name);
-            if(name==='BLEND'||!s.nBf)return '';
-            // Loud on purpose: this is the difference between evidence and a backtest.
-            return '<div title="These trades were produced by re-running this config over history. It was not on the board when they happened, so they are a BACKTEST, not something forward-observed. Only the forward count is evidence." '
-              +'style="margin-top:4px;font-size:8px;line-height:1.6;color:var(--yellow);cursor:help">'
-              +'⧗ '+s.nBf+' of '+(s.nBf+s.nFw)+' backfilled ('+fmtUsd(s.netBf)+') — not forward-observed'
-              +'<div style="color:var(--text5)">forward since '+(s.liveFrom||'—')+': '+s.nFw+' trade'+(s.nFw===1?'':'s')+' '+fmtUsd(s.netFw)+'</div></div>';})()
-          +xHtml+(_cfgOn?cfgBlock:'')+gateBlock+'</div>';
+        // ONE ROW PER STRATEGY. Six legs rendered as side-by-side tiles overlapped into an
+        // unreadable block (owner 2026-08-19: "this is a hot mess ... make it a table format
+        // with stratgies as rows and everything else columns"). Same numbers, one column
+        // each, so legs can actually be compared down a column instead of hunted for.
+        const _sp=legSplit(name);
+        const _td=(inner,align,extra)=>'<td style="padding:5px 10px;text-align:'+(align||'right')
+          +';border-bottom:1px solid var(--border2);white-space:nowrap;'+(extra||'')+'">'+inner+'</td>';
+        const _fwd=(name==='BLEND'||!_sp.nBf)?'<span style="color:var(--text5)">—</span>'
+          :('<span style="color:var(--text2)">'+_sp.nFw+'</span> <span style="color:'
+            +(_sp.netFw>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_sp.netFw)+'</span>');
+        const _bf=(name==='BLEND'||!_sp.nBf)?'<span style="color:var(--text5)">—</span>'
+          :('<span title="Produced by re-running this config over history. It was not on the board when they happened, so these are a BACKTEST, not forward-observed evidence." style="color:var(--yellow);cursor:help">'
+            +_sp.nBf+' '+fmtUsd(_sp.netBf)+'</span>');
+        return '<tr data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
+          +'" style="cursor:pointer;opacity:'+(dim?0.4:1)+';transition:opacity .12s">'
+          +_td('<span style="font-weight:700;letter-spacing:.5px;color:'+color+'">'+label+'</span>'
+               +(dim?' <span style="font-size:8px;color:var(--text5)">excluded</span>':'')+wBadge+orbBadge,'left')
+          +_td('<b style="font-size:13px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</b>')
+          +_td(a.n)
+          +_td(a.n?Math.round(a.wr*100)+'%':'—')
+          +_td(a.days+'d')
+          +_td(a.lastT?_dOnly(a.lastT):'—')
+          +_td(_fwd)
+          +_td(_bf)
+          +_td(dotHtml||'<span style="color:var(--text5)">—</span>','left')
+          +_td(xHtml||'<span style="color:var(--text5)">—</span>','left')
+          +_td(gateBlock||'<span style="color:var(--text5)">—</span>','left','font-size:8px;white-space:normal;max-width:230px')
+          +(_cfgOn?_td(cfgBlock||'<span style="color:var(--text5)">—</span>','left','font-size:8px;white-space:normal;max-width:280px'):'')
+          +'</tr>';
       };
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
@@ -19502,8 +19517,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(_nArch?('<span data-patharch style="cursor:pointer;user-select:none;margin-left:10px;font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
           +(_showArch?'hide archived':'show archived ('+_nArch+')')+'</span>'):'')
         +'</div>'
-        +'<div style="display:flex;flex-wrap:wrap;gap:4px 0">'
-        +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('<div style="width:1px;background:var(--border2);margin-right:14px"></div>')+'</div>';
+        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">'
+        +'<thead><tr style="color:var(--text4);font-size:8px;letter-spacing:1px;text-transform:uppercase">'
+          +['STRATEGY','NET','TRADES','WIN','DAYS','LAST','FORWARD','BACKFILLED','NINJATRADER','CROSS-ENGINE','GATE / VS CONTROL']
+            .concat(window._paperShowCfg?['CONFIG']:[])
+            .map((h,i)=>'<th style="padding:4px 10px;text-align:'+(i===0||i>7?'left':'right')
+              +';border-bottom:1px solid var(--border);font-weight:700">'+h+'</th>').join('')
+        +'</tr></thead><tbody>'
+        +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('')
+        +'</tbody></table></div>';
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
       const _allDates=[...new Set(_pt.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean))].sort();
