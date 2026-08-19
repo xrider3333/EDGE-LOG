@@ -161,6 +161,19 @@ namespace NinjaTrader.NinjaScript.Strategies
                 double sSl = JsonNum(js, "sl", double.NaN);
                 if (double.IsNaN(sEp) || double.IsNaN(sRisk) || double.IsNaN(sSl) || sRisk <= 0)
                 { Print("ENGUQ resume: saved trade is incomplete - refusing"); return; }
+                // The account can hold a position that is NOT this trade. ORB230 trades the
+                // same contract on the same account, so what NinjaTrader hands over on start
+                // is the NET of every strategy. Adopting that blindly would have this strategy
+                // trailing somebody else stop. Size has to agree before the saved numbers are
+                // allowed to describe it.
+                double sQty = JsonNum(js, "qty", double.NaN);
+                if (double.IsNaN(sQty) || (int)sQty != Position.Quantity)
+                {
+                    Print("ENGUQ resume: account holds " + Position.Quantity + " but the saved trade is "
+                        + (double.IsNaN(sQty) ? "unknown" : ((int)sQty).ToString())
+                        + " - this position is not mine, refusing to manage it");
+                    return;
+                }
                 ep = sEp; risk = sRisk; sl = sSl;
                 trailActive = JsonHas(js, "trailActive", "true");
                 inPos = true;

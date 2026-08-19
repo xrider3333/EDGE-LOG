@@ -72,16 +72,35 @@ function RealtimeNames { (Roster | Where-Object { $_.state -eq 'Realtime' } | Fo
 # a ghost again, or a real fill went unrecorded. Both are real-money problems, and both
 # are invisible unless something explicitly compares the two sides.
 function SyncProblems {
+  # THE INVARIANT: for each instrument, the strategies positions must ADD UP to what the
+  # account holds. The first version compared each strategy against the account on its own,
+  # which is only right while one strategy trades an instrument. ENGU-Q and ORB230 both
+  # trade NQ on this account, so the account shows their NET -- ENGU-Q long 1 while ORB230
+  # is short 1 nets to flat, and the old check would have called both of them broken.
+  # Summing catches the real fault (a strategy holding something the account never got, or
+  # a fill nobody recorded) without inventing one every time two strategies disagree.
   $out = @()
   try {
-    $acct = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content
+    $acctJson = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content | ConvertFrom-Json
+    $acct = @{}
+    foreach ($p in @($acctJson.positions)) {
+      $q = [int]$p.qty; if ("$($p.side)" -match "Short") { $q = -$q }
+      $acct["$($p.instrument)"] = ([int]$acct["$($p.instrument)"]) + $q
+    }
+    $strat = @{}
     foreach ($st in (Roster)) {
-      $pos = "$($st.position)"
-      if ($pos -and $pos -notmatch "^Flat") {
-        $inst = "$($st.instrument)"
-        if ($acct -notmatch [regex]::Escape($inst)) {
-          $out += "$($st.name) claims [$pos $inst] but the account holds no such position"
-        }
+      $pos = "$($st.position)"; $inst = "$($st.instrument)"
+      if (-not $inst) { continue }
+      $q = 0
+      if ($pos -match "^(Long|Short)\s+(\d+)") {
+        $q = [int]$Matches[2]; if ($Matches[1] -eq "Short") { $q = -$q }
+      }
+      $strat[$inst] = ([int]$strat[$inst]) + $q
+    }
+    foreach ($inst in @($strat.Keys + $acct.Keys | Select-Object -Unique)) {
+      $sSum = [int]$strat[$inst]; $aSum = [int]$acct[$inst]
+      if ($sSum -ne $aSum) {
+        $out += "$inst : strategies add up to $sSum but the account holds $aSum"
       }
     }
   } catch { }
