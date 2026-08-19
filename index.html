@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.150';
+const VERSION='73.151';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.151',date:'2026-08-19',notes:['COMPARE > STUDIES: two new ORB studies covering the research that was measured locally and never became a run. The entry scan that re-tested the opening range against the current exit, and the nine ideas that were tested and killed.','Thirty new rows, numbers 100 to 129. None of them has a walk-forward figure, because none was ever run as a validate. They show a dash that says so and they leave the chart when the walk-forward stage is selected. Nothing is substituted.','One row carries no figures at all. The volatility-floor stop was rejected on a diagnostic before any configuration existed, so every cell is a dash with the reason written out rather than a number nobody measured.','Every row records the stretch of history it covers, so the data-window column and the common-window warning work on them the same as on everything else.']},
 {v:'73.150',date:'2026-08-19',notes:['FIX, COMPARE > STUDIES: the study charts really were colourless on the monochrome theme, and the COLOUR control shipped defaulting to the one setting that could not help. THEME means follow the app theme, and the MONO theme has no colours to follow - its blue, green, yellow and red are all greys, and two of them are almost invisible on the dark background - so every verdict came out the same grey no matter how many colours the board thought it was painting.','THEME now reads the theme at draw time and measures how much colour it actually carries. When the theme is genuinely greyscale the board falls back to the five approved colours - blue for the champion, green for held up, amber for fragile, red for failed, grey for reference - instead of five greys. On a colour theme THEME does exactly what it always did.','Your app theme is still never touched, the verdict shapes are still drawn on every mark in every setting, and SHAPES ONLY still gives the pure one-ink reading. The chart, the legend, the name column and the row tints all follow the same resolved setting, so they can never disagree.','The line under the controls now says in words which of the two things is happening, so a grey board is always a stated choice rather than something that looks broken.']},
 {v:'73.148',date:'2026-08-19',notes:['COMPARE > STUDIES: the common-window warning now reads correctly when exactly one row differs. It said "1 of them differ" and "Row 47 cover history the others never saw". Wording only, no change to which rows it names or to the day counts.']},
 {v:'73.147',date:'2026-08-19',notes:['STUDIES: four new studies. The ORB breakeven and plateau hunt, the ORB grail hunt round one, the ENGU-Q session and entry variants, and a list of what is running in paper right now.','STUDIES: every row now says whether it is CROWNED, running in PAPER, both, or neither. It is a new column, a new filter, and a ring around the chart mark.','STUDIES: the ORB configuration being forward-tested is the PREVIOUS crown, not the current one. The board now says so on the rows themselves.','STUDIES: four older rows gained the run number that produced them, so they open their report instead of reading as local research.']},
@@ -16957,7 +16958,70 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:99,fam:'NOISE',name:'Paper: NOISE + Forest Gate',what:'The same NOISE configuration with a random-forest gate at the 55 percent floor. It halves the drawdown for roughly the same risk-adjusted return, so read it as a risk reducer rather than an edge.',tone:'frag',read:'Risk reducer, not an edge',live:'paper',
          liveWhy:'This is a gate overlay running in the paper forward test right now, picked by the owner on 2026-08-16. It is not a crown.',
          runs:[231],trd:1468}
-       ]}
+       ]},
+      // ── ORB round three: the ENTRY re-opened under the new exit (2026-08-18) ────────
+      //    Rounds one and two only ever changed the EXIT. Every config in the studies above
+      //    carries run #230's entry verbatim, and that entry was chosen when the exit was a
+      //    partial at 3R plus a trailing stop. The exit has since changed completely, so the
+      //    entry that suited the old one need not suit the new one. These rows are that scan.
+      //    All local: a one-at-a-time pass then a 192-config grid. The three that were
+      //    persisted as real runs are rows 75-77 in the breakeven study, not repeated here.
+      {key:'orbentry3',title:'ORB round three, the entry re-opened',disc:'2026-08-18',isLbl:'IN-SAMPLE',fam:'ORB',
+       sub:'The opening-range entry re-tested against the current exit. NQ 5-minute bars, 2010 to 2026, one contract, all costs paid.',
+       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'raw',tip:['dd','tot','trd']},
+       win:{from:'2010-06-07',to:'2026-08-13'},
+       notes:['Every row here is LOCAL research. None was persisted as an Auto-Validate run, so none has a walk-forward figure and all of them leave the chart when the walk-forward stage is selected.',
+              'The three configurations from this scan that WERE run are rows 75, 76 and 77 in the breakeven study. They are not repeated here.',
+              'Two rows are the reason nothing was crowned off this scan. OR 3 BARS posts the best in-sample number on the whole board and loses money in the lockbox. BOTH DIRECTIONS does the same. In-sample ranking has now pointed the wrong way four times in this programme.',
+              'REGIME FILTER 0.5 shows the most money of any single change tested, and it buys that with a third more drawdown than the crown. More money is not the same as a better strategy, which is why it sits here as fragile rather than as a candidate.'],
+       dashWhy:{wf:'This configuration was measured locally and never persisted as an Auto-Validate run, so no walk-forward folds exist for it. Nothing is substituted in its place.'},
+       rows:[
+  {n:100,name:'OR 1 Bar',what:'Opening range from the first 5-minute bar instead of two.',tone:'fail',read:'Halves the money',win:{from:'2010-06-07',to:'2026-08-13'},is:151310,lb:45564,tot:196874,dd:43497,pf:1.14,trd:2827},
+  {n:101,name:'OR 3 Bars',what:'Opening range from the first fifteen minutes.',tone:'fail',read:'Best in-sample, loses the lockbox',win:{from:'2010-06-07',to:'2026-08-13'},is:324395,lb:-11175,tot:313220,dd:47655,pf:1.25,trd:2508},
+  {n:102,name:'OR 4 Bars',what:'Opening range from the first twenty minutes.',tone:'fail',read:'Worst drawdown of the scan',win:{from:'2010-06-07',to:'2026-08-13'},is:153975,lb:16878,tot:170853,dd:58433,pf:1.13,trd:2427},
+  {n:103,name:'OR 6 Bars',what:'Opening range from the first half hour.',tone:'fail',read:'Nearly all the edge gone',win:{from:'2010-06-07',to:'2026-08-13'},is:122633,lb:-22558,tot:100075,dd:35509,pf:1.09,trd:2280},
+  {n:104,name:'Both Directions',what:'Trade either side of the range instead of the opening candle direction.',tone:'fail',read:'Loses money in the lockbox',win:{from:'2010-06-07',to:'2026-08-13'},is:283409,lb:-6527,tot:276882,dd:60887,pf:1.15,trd:3497},
+  {n:105,name:'Long Only',what:'Only take upside breakouts.',tone:'fail',read:'Half the edge, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:185758,lb:7995,tot:193753,dd:44246,pf:1.17,trd:2344},
+  {n:106,name:'Short Only',what:'Only take downside breakouts.',tone:'fail',read:'Half the edge, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:123374,lb:49328,tot:172702,dd:41590,pf:1.14,trd:2202},
+  {n:107,name:'No Buffer',what:'Trigger the moment price touches the range edge.',tone:'fail',read:'Drawdown nearly doubles',win:{from:'2010-06-07',to:'2026-08-13'},is:254508,lb:42781,tot:297289,dd:55454,pf:1.18,trd:2934},
+  {n:108,name:'Buffer 0.40',what:'Require price to clear the edge by 40 percent of the range.',tone:'frag',read:'Lowest drawdown, less money',win:{from:'2010-06-07',to:'2026-08-13'},is:263114,lb:71643,tot:334757,dd:24465,pf:1.29,trd:2437},
+  {n:109,name:'Volume Gate Off',what:'Remove the pre-entry volume-pace requirement.',tone:'frag',read:'More money, much more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:269954,lb:90075,tot:360029,dd:50411,pf:1.27,trd:2751},
+  {n:110,name:'Volume Gate 1.1',what:'Only trade sessions running well above normal volume.',tone:'fail',read:'Too strict, halves the money',win:{from:'2010-06-07',to:'2026-08-13'},is:165358,lb:28191,tot:193549,dd:23534,pf:1.29,trd:1297},
+  {n:111,name:'Regime Filter Off',what:'Remove the quiet-market skip.',tone:'frag',read:'More money, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:327889,lb:94471,tot:422360,dd:38578,pf:1.32,trd:2826},
+  {n:112,name:'Regime Filter 0.5',what:'Skip only the very quietest stretches.',tone:'frag',read:'Most money of the whole scan',win:{from:'2010-06-07',to:'2026-08-13'},is:330571,lb:94471,tot:425042,dd:38578,pf:1.32,trd:2815},
+  {n:113,name:'Stop 1.5',what:'Stop at 1.5 times the range width.',tone:'frag',read:'Tighter stop, less money',win:{from:'2010-06-07',to:'2026-08-13'},is:292906,lb:68660,tot:361566,dd:27744,pf:1.31,trd:2607},
+  {n:114,name:'Stop 2.5',what:'Stop at 2.5 times the range width.',tone:'frag',read:'More money, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:326559,lb:82868,tot:409427,dd:34661,pf:1.32,trd:2607},
+  {n:115,name:'Grid Survivor',what:'Regime filter off, buffer 0.30, stop 2.50 - the survivor never validated.',tone:'frag',read:'Cleared the gate, never run',win:{from:'2010-06-07',to:'2026-08-13'},is:318507,lb:91405,tot:409912,dd:32505,pf:1.31,trd:2762},
+      ]},
+      // ── ORB ideas that were tested and killed (2026-08-17 / 18) ───────────────────
+      //    Kept because a dead end that is written down is cheaper than one rediscovered.
+      {key:'orbkilled',title:'ORB ideas tested and killed',disc:'2026-08-18',isLbl:'IN-SAMPLE',fam:'ORB',
+       sub:'Nine ideas measured against the ORB crown and rejected. NQ 5-minute bars, 2010 to 2026, one contract, all costs paid.',
+       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'raw',tip:['dd','tot','trd']},
+       win:{from:'2010-06-07',to:'2026-08-13'},
+       notes:['Every row here is LOCAL research with no walk-forward figure. The crown to read them against is row 67, at $389,874 total on $29,142 of drawdown.',
+              'THE PRIOR-DAY GATE is the one worth understanding. Splitting the crown\u2019s own trades by whether the fill sat beyond the previous day range gave the rare factor that ranked the same way in BOTH windows. Built as a real gate it still failed. Trades that run far end up beyond that level, so the split was selection after the fact rather than a condition you can require in advance.',
+              'THE TRAILING STOP rows explain where the current crown came from. On these entries a trail earns almost nothing on its own, which is what pointed at deleting both runner levers and simply riding to the target.',
+              'THE TWO-LOT rows are recorded for completeness only. Blends were ruled out by the owner on 2026-08-17 and are not being pursued.',
+              'THE ATR-FLOOR STOP was killed by a diagnostic before any configuration existed, so it carries no figures at all rather than invented ones.'],
+       dashWhy:{wf:'This configuration was measured locally and never persisted as an Auto-Validate run, so no walk-forward folds exist for it. Nothing is substituted in its place.'},
+       rows:[
+  {n:116,name:'Prior-Day Gate',what:'Only fill beyond the previous day high or low.',tone:'fail',read:'Loses a third of the money',win:{from:'2010-06-07',to:'2026-08-13'},is:199585,lb:40990,tot:240576,dd:20681,pf:1.34,trd:1582},
+  {n:117,name:'Prior-Day Gate Loose',what:'Fill anywhere except inside the previous day range.',tone:'fail',read:'Worse again on drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:216235,lb:52459,tot:268695,dd:40347,pf:1.33,trd:1796},
+  {n:118,name:'Re-entry Once',what:'Allow one more entry after a breakeven scratch.',tone:'fail',read:'More trades, worse result',win:{from:'2010-06-07',to:'2026-08-13'},is:291662,lb:80423,tot:372084,dd:35326,pf:1.28,trd:2713},
+  {n:119,name:'Re-entry Twice',what:'Allow two more entries after a breakeven scratch.',tone:'fail',read:'Same failure, more of it',win:{from:'2010-06-07',to:'2026-08-13'},is:295090,lb:80423,tot:375512,dd:35326,pf:1.28,trd:2716},
+  {n:120,name:'Cutoff 15:00',what:'Refuse new entries after 3pm.',tone:'fail',read:'No gain over trading all day',win:{from:'2010-06-07',to:'2026-08-13'},is:300421,lb:87954,tot:388375,dd:31548,pf:1.31,trd:2546},
+  {n:121,name:'Cutoff 13:00',what:'Refuse new entries after 1pm.',tone:'fail',read:'Costs money, adds drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:273363,lb:94409,tot:367772,dd:33733,pf:1.30,trd:2383},
+  {n:122,name:'Cutoff 11:00',what:'Morning entries only.',tone:'fail',read:'Cuts a fifth of the money',win:{from:'2010-06-07',to:'2026-08-13'},is:252360,lb:59550,tot:311909,dd:32947,pf:1.29,trd:2069},
+  {n:123,name:'Trail From Entry 3',what:'Replace the target with a 3-bar trailing stop.',tone:'fail',read:'The trail is dead weight',win:{from:'2010-06-07',to:'2026-08-13'},is:2822,lb:17983,tot:20804,dd:24579,pf:1.04,trd:2607},
+  {n:124,name:'Trail From Entry 5',what:'Replace the target with a 5-bar trailing stop.',tone:'fail',read:'Earns a fraction of riding',win:{from:'2010-06-07',to:'2026-08-13'},is:37527,lb:30468,tot:67994,dd:25459,pf:1.12,trd:2607},
+  {n:125,name:'Two-Lot Ride+Trail3',what:'Two contracts: one rides to target, one trails 3 bars.',tone:'fail',read:'Blends ruled out by owner',win:{from:'2010-06-07',to:'2026-08-13'},is:151877,lb:53463,tot:205339,dd:22510,pf:1.27,trd:2607},
+  {n:126,name:'Two-Lot Ride+Trail5',what:'Two contracts: one rides to target, one trails 5 bars.',tone:'fail',read:'Blends ruled out by owner',win:{from:'2010-06-07',to:'2026-08-13'},is:169229,lb:59705,tot:228934,dd:23305,pf:1.29,trd:2607},
+  {n:127,name:'Fade OR1',what:'Trade the failed breakout in reverse, 5-minute range.',tone:'fail',read:'Loses money in both windows',win:{from:'2010-06-07',to:'2026-08-13'},is:-37059,lb:-4910,tot:-41968,dd:44969,pf:0.88,trd:1813},
+  {n:128,name:'Fade OR2',what:'Trade the failed breakout in reverse, 10-minute range.',tone:'fail',read:'Loses money in both windows',win:{from:'2010-06-07',to:'2026-08-13'},is:-4869,lb:-10558,tot:-15427,dd:39250,pf:0.96,trd:1851},
+        {n:129,name:'ATR-Floor Stop',what:'Put a floor under the stop in volatility units so narrow-range mornings cannot produce a tiny stop.',tone:'fail',read:'Killed before it was built',win:{from:'2010-06-07',to:'2026-08-13'},
+         why:{is:'No configuration was ever built, so there is nothing to measure. The idea was rejected on a diagnostic: bucketing the crown trades by opening-range width against the recent daily range showed the widest bucket best in-sample and worst in the lockbox, so the factor carries no stable signal to build on.',lb:'No configuration was ever built, so there is nothing to measure.',tot:'No configuration was ever built, so there is nothing to measure.',dd:'No configuration was ever built, so there is nothing to measure.',pf:'No configuration was ever built, so there is nothing to measure.',trd:'No configuration was ever built, so there is nothing to measure.'}}
+      ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
       // (retired la:true rows removed 2026-08-18; RB_ORB_LA_TIP kept for the renderer)
