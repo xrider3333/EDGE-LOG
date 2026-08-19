@@ -348,3 +348,47 @@ right all along.
 block over `best_pnl_usd` for any run carrying one, which would make those five historical
 cards read correctly everywhere without touching a stored document. It was left out on
 purpose because it changes numbers the owner has already seen on already-saved runs.
+
+### The read-side display correction (web v73.140, 2026-08-18)
+
+The five affected documents were never rewritten. Instead the web app corrects them **as it
+reads them**, in `_bookUnitsOnRead()`, applied once in the Past-Runs Firestore listener — the
+single place run documents enter the app — so every view downstream (Past Runs card, run
+report headline, COMPARE curves and funnel ranking, the RUNBOARD strategy list) agrees
+automatically.
+
+**How a legacy run is detected — from the data, never from a run number or a date.** Every
+book run carries its own pooled block, and that block was always correct. The app asks which
+of two things the stored headline equals:
+
+* it equals `book.pre_lockbox.total_pnl` (falling back to `book.whole.total_pnl`) → saved
+  correctly, left completely alone;
+* it equals that same figure **times the stored `multiplier`** → saved before the fix, divided
+  back down by that multiplier.
+
+Anything else — no book block, no pooled net, `multiplier <= 1`, or a headline matching
+neither branch — is left untouched rather than guessed at. Tolerance is
+`max(1, |pooled x mult| x 1e-6)`. Run **#204** (saved with `mult:1`) takes the first branch and
+is a real, saved control for it; **#238 / #258 / #261 / #262 / #263** take the second. Every
+future book run saves with `mult:1` and therefore matches its own block, so it is never touched.
+
+**Adjusted:** `best_pnl_usd`, `best_dd_usd`, `best_pnl_per_day`, and `multiplier` (pinned to 1,
+which is what the engine now writes). Pinning the multiplier is what fixes the COMPARE equity
+scaling and the RUNBOARD `_mcOf`-scaled aggregates, since those multiply the already-in-dollars
+curve. Every MAR / net-per-drawdown figure in the app is derived from the net-and-drawdown pair,
+so it follows automatically.
+
+**Deliberately NOT adjusted:** the `book` block itself, `equity`, `validate.lockbox`, `best_pf`,
+`best_trades`, `best_win_rate` and the verdict. The RUNBOARD **BOOKS** tile and the 1E matrix
+read `r.book.*` directly and were always correct — correcting them here as well would make them
+20x too *small*. They are untouched because the correction only ever rewrites top-level headline
+fields.
+
+**Transparency:** a corrected run shows a small amber "⚖ units corrected" chip in the Past Runs
+row, on the RUNBOARD strategy list and in its report header, whose hover text says what was
+adjusted and what was left as saved.
+
+**Verified 2026-08-18:** the predicate was run over every run document — the five legacy books
+classify as legacy and their corrected net and drawdown reproduce their own `book.pre_lockbox`
+to the cent; #204 classifies as already-correct and is untouched; runs #226/#230/#234/#259/#260
+(no book block) are untouched. `tools/preflight_boot.py` PASS before and after.
