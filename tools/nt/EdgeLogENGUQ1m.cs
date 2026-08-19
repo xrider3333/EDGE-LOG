@@ -147,7 +147,28 @@ namespace NinjaTrader.NinjaScript.Strategies
             try
             {
                 if (inPos) return;
-                if (Position.MarketPosition != MarketPosition.Long) return;
+                if (Position.MarketPosition != MarketPosition.Long)
+                {
+                    // STARTING FLAT: throw away any saved trade. A position can be closed by
+                    // something OTHER than this strategy -- on 2026-08-19 the risk killswitch
+                    // flattened the account and disabled the roster in the same second, so the
+                    // strategy never got another bar in which to notice, and its file went on
+                    // claiming an open trade for the rest of the day. Left there, the next
+                    // restart could hand those stale numbers -- an entry price and a stop from
+                    // a trade that no longer exists -- to a position that is not the same one.
+                    try
+                    {
+                        if (System.IO.File.Exists(StateFile)
+                            && JsonHas(System.IO.File.ReadAllText(StateFile), "inPos", "true"))
+                        {
+                            inPos = false; ep = 0; risk = 0; sl = 0; trailActive = false;
+                            SaveState();
+                            Print("ENGUQ resume: starting flat, so the saved trade is stale - cleared");
+                        }
+                    }
+                    catch { }
+                    return;
+                }
                 if (!System.IO.File.Exists(StateFile))
                 { Print("ENGUQ resume: account is long but there is no saved trade - NOT managing it"); return; }
                 string js = System.IO.File.ReadAllText(StateFile);
