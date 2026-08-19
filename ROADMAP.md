@@ -11,6 +11,30 @@ app reaches parity, then is retired. Ship tab-by-tab, version-bumped 0.1 each ch
 
 ---
 
+## OPEN DECISIONS — owner call required (added 2026-08-19)
+
+These three are blocked on an owner decision, not on work. Nothing here is in progress.
+
+- [ ] **The ORB paper leg is trading the OLD crown.** The ORB crown moved on 2026-08-17 to the
+      simpler ride-to-target exit with the stop moved to breakeven (run #234, `ORB_3_6_C2.py`).
+      The live paper leg still runs the previous grail-hunt crown. Nothing about the live
+      configuration was changed — moving it is the owner's call. Visible on the STUDIES board by
+      filtering to CROWNED ONLY and then to IN PAPER ONLY. Recorded in the paper-trading doc.
+- [ ] **Two rows are both tagged as the standing ORB crown** on the STUDIES board, which breaches
+      that board's one-crown-per-family rule. Pre-dates the books removal and is almost certainly
+      the same underlying issue as the item above — decide which configuration is the crown, then
+      fix the tag. See `STUDIES_BOARD.md` for the tagging contract.
+- [ ] **Run documents are mostly research nobody reads, and are approaching the 1 MiB cap.**
+      55% of every run doc is the ML-gate bake-off block, from a family this program's own record
+      closes with nothing adopted; full-population equity curves are a further 15%. The largest run
+      doc is now 843 KB against Firestore's hard 1,048,576-byte per-document ceiling — the same
+      ceiling that wedged the ORB_3_5 grail job at status='running' on 2026-08-13. The app no
+      longer PAYS for this on every page load (v73.158 cut boot from ~30s to ~2.1s by querying only
+      the displayed columns), but the documents keep growing. The structural fix is for the runner
+      to stop packing report-only research blocks into the run document in the first place. This
+      changes what gets SAVED, so it needs an explicit decision. Deleting existing data is
+      destructive and was deliberately NOT done.
+
 ## 0. Infra / data consolidation (loose ends)
 - [x] **Single EDGE-LOG folder for runner + edits (done 2026-06-22).** There were TWO clones
       of this repo: `C:\Users\xride\EDGE-LOG` (code-only — no cred, no `augur_uploads/` masters)
