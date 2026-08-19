@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.156';
+const VERSION='73.157';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.157',date:'2026-08-19',notes:['LEGS ARE NOW INCLUDE / EXCLUDE. Click any leg to take it out of the cumulative curve AND out of every total, table and cross-engine row beneath it, then click it again to bring it back. Several variants of the same strategy run side by side - three NOISE rows alone - so reading one of them means removing the others from the maths, not just dimming them on the chart.','Nothing is deleted when you exclude a leg. The runner still computes it every night and its history comes straight back. A show all button appears whenever anything is hidden, and the board refuses to let you switch off the last leg.','TODAY now says where its money comes from. The figure is EDGELOG own engine, and it sits next to how many fills NinjaTrader actually recorded that day. On a day NinjaTrader was down those two disagree, and that is the point: the strategy still has a result and this is where you read it.']},
 {v:'73.156',date:'2026-08-19',notes:['COMPARE > STUDIES: the board now compares individual strategies only. Every study about pooled books - several strategies traded together as one account - has been taken off it, at the owner request. Forty-six rows removed: the pooled-books study, the book leg weighting grid, the book legs re-measured the book way, and the ORB plus NOISE book row that sat inside the NOISE study.','The research itself was not touched. Every one of those results is still written down in the repository book round log.','Row numbers are permanent handles, so nothing was renumbered. Rows 25, 28 to 46 and 236 to 261 are retired and will never be handed to a new row. The next free number is 262.','The explanatory notes that talked about pooled books have been reworded, because their subject is gone. The board now says plainly why a combination cannot be compared with one strategy: it ties up more margin, so the two are not like for like. Use the RUNBOARD mode to compare whole combinations.']},
 {v:'73.155',date:'2026-08-19',notes:['COMPARE > STUDIES: six new studies covering the research that was run locally in Python over the past fortnight and never became a saved run. One hundred and one new rows, numbered 161 to 261.','NOISE parameter sweep, the cells behind the headlines. The August 17th campaign reported whole families as one line - it said the volatility-conditional exits were dead across all eight settings, but only two of them ever reached the board. The missing cells are now rows of their own, re-run through the committed harness so the figures are measured rather than remembered.','Do the NOISE filters carry to the ES contract? The nine configurations re-run on a second contract with nothing re-fitted, as the outside check that the filters are not simply fitted to NQ. Every filter beats the champion and none of them clears the promotion bar.','NOISE trade-context scan. Six blind scans over sixteen market-condition measures, ninety-six statistical tests behind six rows. The study says so in its own description rather than pretending each row is a tested configuration.','ORB hunt, the rest of the local cells. The August 17th exit hunt ran fifty-eight configurations. Ten were already here as saved runs and eleven more went up in the ORB ideas study, so this is the remaining thirty-seven. Nothing appears twice.','Book leg weighting grid. All sixteen weightings, re-run so the board carries real dollars instead of the two ratios the round log printed. The rule picked a fitted weighting and it was rejected, and the shape of the grid shows why.','Book legs measured the book way. The same ten strategies re-measured on the book drawdown convention, marked plainly as re-measurements rather than as new things tested, so nobody counts them twice.','Two rows carry dashes instead of money on purpose. Both were genuinely run and both failed, but their settings and figures were never written down, and a blank that says why is better than an invented number.']},
 {v:'73.153',date:'2026-08-19',notes:['COMPARE > STUDIES: the charts resize. Every study chart carries the same slim drag bar the run report puts under its charts - drag it down to make that chart taller, up to make it shorter, double-click it to put it back. The size is remembered per study and survives a reload. It stores a drawing height rather than a pixel count, so a resized chart still fills the width of its tile at any window size and its axis captions, tick numbers and legend stay exactly the size they were - the plot area is what grows.','A VALUE ZOOM control - FIT ALL, TRIM 5%, TRIM 10%, TRIM 20%. The axes always spanned only the rows actually shown, so filtering already rescaled them and FIT ALL is that reading. The trims drop that share of the most extreme values off both axis ranges so a cluster can spread out instead of being flattened by one distant row. NOTHING IS HIDDEN: a trimmed row is still drawn, pinned to the edge it ran off, ringed with a dashed warning, and named under the chart with the figure it actually holds.','A COMPARE ON control, because raw totals over mismatched windows are misleading and this board had already proved the windows do not match. Three honest bases, and the board always states in words which one is in force and how many rows it can reach.','COMMON WINDOW is the rigorous one and it costs no re-running: where a row has a real run with a saved equity curve, that curve is sliced to the stretch every row on the tile genuinely shares and the profit and worst drawdown are recomputed on exactly that slice. Four columns appear and the chart plots the sliced figure. A row with no saved curve shows a DASH SAYING WHY and never its un-sliced number - mixing sliced and un-sliced figures in one column is the silent blending this board exists to prevent.','Three limits are printed on the figures themselves rather than buried. A cut may only be placed inside a dated stretch of at most 800 days, so a run that saved no lockbox boundary is refused outright. The sliced drawdown is read off a downsampled curve, so it is a FLOOR and it is not the same measurement as the DRAWDOWN column. And a profit factor cannot be recomputed from a curve at all, because netting trades into curve points destroys the gross winnings and gross losses it is made of - so COMMON PF is always a dash carrying that reason, never an estimate.','PER YEAR divides each row profit by the number of years its own window covers, so a longer window stops being automatically flattered. It needs only a recorded window and not a curve, which makes it the widest-coverage basis - a local research row that records its window is readable on it.','A plain-English guide under the controls saying what each basis means and when to trust it, including which ratio survives a slightly different window: profit factor is the most robust because it is a property of the whole trade population, profit divided by drawdown is the most fragile because a drawdown is one single worst event and this project measured its confidence interval to be WIDER than the drawdown itself, and Sharpe sits between the two.','PROFIT STAGE is ignored under COMMON WINDOW and the board says so out loud rather than quietly - a shared stretch is a calendar range and a stage is a different cut of the same run.','STUDIES_BOARD.md documents the new controls, how the slice works, its three limits, and every view preference this board persists.']},
@@ -19050,8 +19051,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // ALL is the default and restores today's behaviour exactly. Not persisted to
       // localStorage on purpose — it is a lens you look through, not a setting you keep.
       const PLEGS=['ALL',...LEGS_VIS.map(d=>d.k)];
+      window._paperLegKeys=LEGS_VIS.map(d=>d.k);
       const PLEG=PLEGS.indexOf(window._paperLeg)>=0?window._paperLeg:'ALL';
-      const _legShown=k=>PLEG==='ALL'||PLEG===k;
+      // INCLUDE / EXCLUDE per leg (owner 2026-08-19: "i want the ability to continue the
+      // toggling of strategies to remove them from whats calculated and shown in the cum
+      // pnl chart and data underneath"). Several variants of the same strategy run side by
+      // side -- three NOISE rows alone -- so reading one of them means taking the others
+      // out of the curve AND out of every total below it, not just dimming them.
+      // Clicking a leg tile toggles it. Excluded legs keep their history; nothing is
+      // deleted and the runner still computes them nightly.
+      const _legOff=Array.isArray(window._paperLegOff)?window._paperLegOff:[];
+      const _legShown=k=>!_legOff.includes(k);
+      const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
       // BLEND is the owner's fixed ORB+ENGUQ baseline — NOISE never joins it, even though it shares the same trade collection.
       const legRows=name=>name==='BLEND'?_pt.filter(t=>{const l=legOf(t);return l==='ORB'||l==='ENGUQ';}):_pt.filter(t=>legOf(t)===name);
@@ -19073,6 +19084,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // in Arizona it is already tomorrow in the market, and a leg's trading day has to
       // agree with the exchange, not with the PC.
       const _todayET=(()=>{try{return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});}catch(e){return '';}})();
+      // What NinjaTrader actually filled today, straight from the day's report. Shown
+      // next to the TODAY money so a quiet day reads as "the engine had no trade"
+      // rather than being confused with "NinjaTrader was not running".
+      const _ntFillsToday=(()=>{try{
+        const R=(window._paperReports||[]).find(r=>r&&(r.date===_todayET||r.id===_todayET));
+        if(!R||!R.live)return null;
+        const L=R.live;
+        return Array.isArray(L)?L.length:(L.fills!=null?L.fills:(Array.isArray(L.rows)?L.rows.length:null));
+      }catch(e){return null;}})();
       // legAgg(name) is ALL TIME; legAgg(name,'TODAY') is just today's trades.
       // BUG this fixes (owner 2026-08-17: "why do i click today and it gives me pnl.
       // there shouldnt have been any trades this AM"): the TODAY / ALL TIME tabs only ever
@@ -19196,7 +19216,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // that leg's curve and filters the matrix/trades below. data-paperleg resolves to
         // 'ALL' when this leg is already selected, so a second click clears it -- that reuses
         // the existing [data-paperleg] handler untouched rather than adding a second one.
-        const sel=PLEG===name, dim=PLEG!=='ALL'&&!sel;
+        const sel=_legShown(name), dim=!sel;
         // Live state, pinned RIGHT on the tile (owner: "need the status dot on the tile
         // (again pined right)"). Literal hex -- the theme greys out --green/--yellow/--red.
         let dotHtml='';
@@ -19360,7 +19380,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // TODAY now names the DATE it means. It silently showed all-time numbers until
         // 2026-08-17, so the label has to be unambiguous about which day is on screen.
         +(PSCOPE==='TODAY'?'<span style="font-size:8px;color:var(--text5)">'+_todayET+' (New York)</span>':'')
-        +'<span style="font-size:8px;color:var(--text5);margin-left:auto">dot = live in NinjaTrader</span>'
+        // TODAY's money comes from EDGELOG's own engine, not from NinjaTrader's fills.
+        // That distinction was invisible, and it matters most on a day NinjaTrader was
+        // down: the strategy still has a result, and this is where you read it.
+        +(PSCOPE==='TODAY'?('<span style="font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
+          +'source: EDGELOG engine'+(_ntFillsToday!=null?(' · NinjaTrader filled '+_ntFillsToday+' today'):'')+'</span>'):'')
+        +(_legOff.length?('<span data-paperlegall style="cursor:pointer;user-select:none;font-size:8px;color:var(--blue);border:1px solid var(--blue);border-radius:999px;padding:1px 8px">show all '
+          +LEGS_VIS.length+' legs</span>'):'')
+        +'<span style="font-size:8px;color:var(--text5);margin-left:auto">click a leg to include / exclude it &middot; dot = live in NinjaTrader</span>'
         +(_nArch?('<span data-patharch style="cursor:pointer;user-select:none;margin-left:10px;font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
           +(_showArch?'hide archived':'show archived ('+_nArch+')')+'</span>'):'')
         +'</div>'
@@ -19397,14 +19424,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       // Every series is always built. PLEG no longer removes a curve, it dims the others.
       const _curveSeries=_tileDefs
-        .map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0]),dim:PLEG!=='ALL'&&PLEG!==d[0]}));
+        .filter(d=>_legShown(d[0]))
+        .map(d=>({label:d[1],color:d[2],vals:_cumByDate(d[0]),dim:false}));
       // MERGED PANEL (owner 2026-08-15): the leg tiles are the chart's header row, not their
       // own card. They were describing the same four things the curve already draws -- tile
       // said "NOISE $2,154", curve drew a NOISE line, neither knew the other existed. Now the
       // tiles ARE the legend and the selector: click one to highlight its curve (and filter
       // the matrix + trades table below via PLEG), click it again to go back to ALL.
       const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
-        +(PLEG==='ALL'?'':' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+(_legLabel[PLEG]||PLEG)+' highlighted · click again for all</span>')
+        +(_legOff.length?(' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_nShown+' of '+LEGS_VIS.length+' legs included</span>'):'')
         +'</div>'+_curveSvg(_allDates,_curveSeries)
         +'<div style="height:1px;background:var(--border2);margin:12px 0 10px"></div>'
         +legStrip);
@@ -19464,7 +19492,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _psCol=_PSORTS[window._paperSortCol]?window._paperSortCol:'date';
       const _psDir=(window._paperSortDir==='asc')?'asc':'desc';
       const _psKey=_PSORTS[_psCol];
-      const _tSorted=(PLEG==='ALL'?_pt.slice():legRows(PLEG).slice())
+      const _tSorted=_pt.filter(t=>_legShown(legOf(t)))
         .sort((a,b)=>{
           const x=_psKey(a),y=_psKey(b);
           let c;
@@ -19982,9 +20010,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // header's CLASSIC / NEO control, so the whole app speaks one control vocabulary.
       const _legRail='<span style="display:inline-flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:2px;gap:2px">'
         +PLEGS.map(k=>{
-          const on=k===PLEG;
+          const on=(k==='ALL')?(_legOff.length===0):_legShown(k);
           const col=k==='ALL'?'var(--text2)':(k==='BLEND'?'var(--yellow)':(_legColor[k]||'var(--text2)'));
-          return '<span data-paperleg="'+k+'" title="'+(k==='ALL'?'show every leg':'show only '+(_legLabel[k]||k))+'" '
+          return '<span '+(k==='ALL'?'data-paperlegall':('data-paperleg="'+k+'"'))+' title="'+(k==='ALL'?'include every leg':'include / exclude '+(_legLabel[k]||k))+'" '
             +'style="cursor:pointer;font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 10px;border-radius:6px;'
             +(on?'background:var(--bg3);color:'+col+';box-shadow:inset 0 -2px 0 '+col:'color:var(--text5)')+'">'
             +(k==='ALL'?'ALL':(_legLabel[k]||k))+'</span>';
@@ -21123,7 +21151,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
     else if(augurSub==='paper'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
       // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
-      content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{window._paperLeg=el.getAttribute('data-paperleg');renderApp();};});
+      content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-paperleg');
+        const off=Array.isArray(window._paperLegOff)?window._paperLegOff.slice():[];
+        const i=off.indexOf(k);
+        if(i>=0) off.splice(i,1); else off.push(k);
+        // Never allow every leg to be switched off: an empty board looks broken rather
+        // than deliberate, and there is no way back except guessing.
+        const total=(window._paperLegKeys||[]).length;
+        if(total && off.length>=total) return;
+        window._paperLegOff=off; renderApp();};});
+      const _lgAll=content.querySelector('[data-paperlegall]');
+      if(_lgAll)_lgAll.onclick=()=>{window._paperLegOff=[];renderApp();};
       const nd=content.querySelector('[data-ntdetail]');if(nd)nd.onclick=()=>{window._paperNtDetail=!window._paperNtDetail;renderApp();};
       content.querySelectorAll('[data-recontab]').forEach(el=>{el.onclick=()=>{window._paperReconTab=el.getAttribute('data-recontab');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
