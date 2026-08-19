@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.140';
+const VERSION='73.141';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,7 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.140',date:'2026-08-18',notes:['THE FIVE OLD BOOK RUNS NOW READ CORRECTLY ON SCREEN. Runs 238, 258, 261, 262 and 263 were saved before the units fix, so their headline money was counted twice and printed 20 times too large. Nothing in Firestore was rewritten - the app now corrects those figures as it reads them. Run 261 reads $984,200 with a $56,090 drawdown instead of $19.7 million with a $1.1 million drawdown.','The correction is worked out from the run itself, never from a run number or a date. A book run always carries its own pooled block, and that block was always right. If the stored headline already matches that block the run is left completely alone; only when the headline is exactly that block times the saved contract size is it divided back down. A book run saved from today onward matches its own block, so it is never touched.','Corrected: the headline net, the max drawdown, the dollars-per-day and everything derived from them, which includes MAR and the equity scaling in COMPARE. Left exactly as saved: the profit factor, the trade count, the lockbox figures, the equity curve values and the PASS or FAIL verdict, because none of those were ever wrong.','The RUNBOARD BOOKS table and the RUNBOARD matrix read the pooled block directly and were always right. They are deliberately not corrected a second time, so their numbers are unchanged.','A corrected run carries a small amber UNITS CORRECTED tag in Past Runs, on the RUNBOARD list and at the top of its report. Hover it and it says what was adjusted and what was left alone.']},
+{v:'73.141',date:'2026-08-18',notes:['THE FIVE OLD BOOK RUNS NOW READ CORRECTLY ON SCREEN. Runs 238, 258, 261, 262 and 263 were saved before the units fix, so their headline money was counted twice and printed 20 times too large. Nothing in Firestore was rewritten - the app now corrects those figures as it reads them. Run 261 reads $984,200 with a $56,090 drawdown instead of $19.7 million with a $1.1 million drawdown.','The correction is worked out from the run itself, never from a run number or a date. A book run always carries its own pooled block, and that block was always right. If the stored headline already matches that block the run is left completely alone; only when the headline is exactly that block times the saved contract size is it divided back down. A book run saved from today onward matches its own block, so it is never touched.','Corrected: the headline net, the max drawdown, the dollars-per-day and everything derived from them, which includes MAR and the equity scaling in COMPARE. Left exactly as saved: the profit factor, the trade count, the lockbox figures, the equity curve values and the PASS or FAIL verdict, because none of those were ever wrong.','The RUNBOARD BOOKS table and the RUNBOARD matrix read the pooled block directly and were always right. They are deliberately not corrected a second time, so their numbers are unchanged.','A corrected run carries a small amber UNITS CORRECTED tag in Past Runs, on the RUNBOARD list and at the top of its report. Hover it and it says what was adjusted and what was left alone.']},
 {v:'73.139',date:'2026-08-18',notes:['COMPARE > STUDIES: every study now shows a scatter chart above its table, the same risk map you were reading in the summary file. Worst drawdown runs left to right and the champion or baseline point is drawn larger with a white outline, so you can see at a glance which variants sit up and to the left of it.','The chart is driven by the same study registry the tables read. A new study you add gets its chart automatically once it names its two axis columns and their captions, with no change to the drawing code.','A row missing either axis figure is left off its chart, and the line underneath the chart says how many were left off and why. No figure is ever substituted to fill a gap.']},
 {v:'73.138',date:'2026-08-18',notes:['COMPARE > STUDIES: a losing money figure now keeps its minus sign, matching the study table you were already reading. Drawdown stays positive, because its heading already says drawdown.']},
 {v:'73.137',date:'2026-08-18',notes:['FIX to a wrong number, not an ugly one. The big headline dollar figure on a BOOK run was 20 times too large. A book already counts its money in dollars - it converts each leg with that leg own contract size before pooling the trades - but the step that saves the run treated that figure as raw points and multiplied it by 20 a second time. Run 261 read 19,684,006 when the book actually made 984,200 over that stretch, and run 262 read 12,980,663 instead of 649,033. The max drawdown and the dollars-per-day on those cards were inflated the same 20 times.','What was always right: the BOOKS table on the RUNBOARD, the equity curve, the lockbox figure, the profit factor, the trade count and the PASS or FAIL verdict. Those read the book own pooled block and never went through the bad step. That is why one run doc could show a correct 261,794 lockbox next to a 19.7 million headline.','Books started through the RUN A BOOK button were never affected. The five that were - 238, 258, 261, 262 and 263 - were queued by script. From the next book run onward the headline is correct. The five old cards are left exactly as they were saved: divide their headline net, drawdown and per-day figures by 20 to read them.','Second thing worth knowing, and it is by design rather than a bug: a book headline covers the stretch BEFORE the lockbox, not the whole window. The whole-window total lives in the BOOKS table.']},
@@ -1142,6 +1142,58 @@ applyTheme();
 
 // State
 let db=null,auth=null,colRef=null,lessonRef=null,btRef=null,runsRef=null,metaRef=null,cmdRef=null,augurCmdId=null,unsub=null,unsubL=null,unsubBT=null,unsubRuns=null,unsubMeta=null,unsubMM=null,backtests=[],runHistory=[],metaStrats=[],metaMasters=[],metaPull={},augurSub='runs',augurRunSel=null,augurExecStrat='',augurCmpA=null,augurCmpB=null,augurLibSel=null,augurLibDel=false,augurLibMsg='',augurReviewPine='',augurReviewFor='',augurMenu='',metaEta=null,metaWorkers=null,metaStratPrefs={},unsubSP=null;
+// ── LEGACY BOOK UNITS (v73.140) ────────────────────────────────────────────────────────
+//   A BOOK is already counted in dollars when it reaches the save step - every leg is
+//   converted with its OWN contract size while the trades are pooled. Runs saved before
+//   the engine fix (web v73.137) then went through the ordinary points-to-dollars step a
+//   SECOND time, so the headline net, the max drawdown and the dollars-per-day on those
+//   documents are the true figure multiplied by the job's contract size (20).
+//   Those documents were never rewritten, so the correction happens here, on read.
+//   HOW A LEGACY RUN IS TOLD APART FROM A CORRECT ONE - from the data, never from a run
+//   number or a date. The book's own pooled block is intact on every book run and always
+//   held the truth. So we simply ask which of two things the stored headline equals:
+//     it equals the book's own pooled figure            -> saved correctly, leave it alone
+//     it equals that figure times the stored multiplier -> saved before the fix, divide
+//   Anything else is left untouched rather than guessed at. Run 204 (saved with a
+//   multiplier of 1) takes the first branch; runs 238/258/261/262/263 take the second.
+//   WHAT IS ADJUSTED: the headline net, the max drawdown, the dollars-per-day, and the
+//   stored multiplier itself (pinned to 1, which is what the engine now saves). Every
+//   risk-adjusted figure in the app is derived from net and drawdown, so it follows.
+//   WHAT IS NOT TOUCHED: the book's own pooled block, the equity curve, the lockbox
+//   figures, the profit factor, the trade count and the verdict - all of them were always
+//   right. The RUNBOARD BOOKS tile and the 1E matrix read the pooled block directly, so
+//   they keep reading the same correct numbers and are NOT corrected a second time.
+function _bookUnitsOnRead(x){
+  try{
+    const bk=x&&x.book;if(!bk)return x;
+    const pre=bk.pre_lockbox||{},who=bk.whole||{};
+    const pooled=(pre.total_pnl!=null&&isFinite(+pre.total_pnl))?+pre.total_pnl
+                :((who.total_pnl!=null&&isFinite(+who.total_pnl))?+who.total_pnl:null);
+    if(pooled==null)return x;
+    const m=+x.multiplier;if(!isFinite(m)||m<=1)return x;
+    const usd=+x.best_pnl_usd;if(!isFinite(usd))return x;
+    const tol=Math.max(1,Math.abs(pooled*m)*1e-6);
+    if(Math.abs(usd-pooled)<=tol)return x;          // already correct - do NOT divide
+    if(Math.abs(usd-pooled*m)>tol)return x;         // unrecognised shape - leave it alone
+    x._bookUnitFix=m;
+    x.best_pnl_usd=usd/m;
+    if(isFinite(+x.best_dd_usd))x.best_dd_usd=(+x.best_dd_usd)/m;
+    if(isFinite(+x.best_pnl_per_day))x.best_pnl_per_day=(+x.best_pnl_per_day)/m;
+    x.multiplier=1;
+  }catch(_){ }
+  return x;
+}
+// the quiet marker the owner sees wherever a corrected run is printed.
+function _bookFixChip(r,sz){
+  if(!r||!r._bookUnitFix)return '';
+  const t='This run was saved before the units fix, when a book’s money was counted twice. '
+    +'Its net, max drawdown and dollars-per-day are shown divided by '+r._bookUnitFix+', which is the '
+    +'figure the book itself recorded. The profit factor, trade count, equity curve, lockbox '
+    +'figures and the verdict were always correct and are shown exactly as saved.';
+  return '<span title="'+t+'" style="cursor:help;font-size:'+(sz||'8px')+';font-weight:700;letter-spacing:.3px;'
+    +'padding:1px 5px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;'
+    +'white-space:nowrap">⚖ units corrected</span>';
+}
 // v73.19 (Firestore quota): Past Runs used to pull a flat 300-doc listener on every page load
 // regardless of whether the owner ever scrolled that far. runsLimit starts at 75 and grows by
 // 75 per LOAD MORE click (below); _runsUid remembers who to re-subscribe as.
@@ -1553,58 +1605,6 @@ return true;}catch(e){console.error(e);return false;}}
 // and re-subscribes HERE ONLY — the trades/lessons/backtests/meta listeners are untouched.
 // idempotent: safe to call again with the same limit (just re-attaches the same listener).
 function _subscribeRuns(uid,lim){
-// ── LEGACY BOOK UNITS (v73.140) ────────────────────────────────────────────────────────
-//   A BOOK is already counted in dollars when it reaches the save step - every leg is
-//   converted with its OWN contract size while the trades are pooled. Runs saved before
-//   the engine fix (web v73.137) then went through the ordinary points-to-dollars step a
-//   SECOND time, so the headline net, the max drawdown and the dollars-per-day on those
-//   documents are the true figure multiplied by the job's contract size (20).
-//   Those documents were never rewritten, so the correction happens here, on read.
-//   HOW A LEGACY RUN IS TOLD APART FROM A CORRECT ONE - from the data, never from a run
-//   number or a date. The book's own pooled block is intact on every book run and always
-//   held the truth. So we simply ask which of two things the stored headline equals:
-//     it equals the book's own pooled figure            -> saved correctly, leave it alone
-//     it equals that figure times the stored multiplier -> saved before the fix, divide
-//   Anything else is left untouched rather than guessed at. Run 204 (saved with a
-//   multiplier of 1) takes the first branch; runs 238/258/261/262/263 take the second.
-//   WHAT IS ADJUSTED: the headline net, the max drawdown, the dollars-per-day, and the
-//   stored multiplier itself (pinned to 1, which is what the engine now saves). Every
-//   risk-adjusted figure in the app is derived from net and drawdown, so it follows.
-//   WHAT IS NOT TOUCHED: the book's own pooled block, the equity curve, the lockbox
-//   figures, the profit factor, the trade count and the verdict - all of them were always
-//   right. The RUNBOARD BOOKS tile and the 1E matrix read the pooled block directly, so
-//   they keep reading the same correct numbers and are NOT corrected a second time.
-function _bookUnitsOnRead(x){
-  try{
-    const bk=x&&x.book;if(!bk)return x;
-    const pre=bk.pre_lockbox||{},who=bk.whole||{};
-    const pooled=(pre.total_pnl!=null&&isFinite(+pre.total_pnl))?+pre.total_pnl
-                :((who.total_pnl!=null&&isFinite(+who.total_pnl))?+who.total_pnl:null);
-    if(pooled==null)return x;
-    const m=+x.multiplier;if(!isFinite(m)||m<=1)return x;
-    const usd=+x.best_pnl_usd;if(!isFinite(usd))return x;
-    const tol=Math.max(1,Math.abs(pooled*m)*1e-6);
-    if(Math.abs(usd-pooled)<=tol)return x;          // already correct - do NOT divide
-    if(Math.abs(usd-pooled*m)>tol)return x;         // unrecognised shape - leave it alone
-    x._bookUnitFix=m;
-    x.best_pnl_usd=usd/m;
-    if(isFinite(+x.best_dd_usd))x.best_dd_usd=(+x.best_dd_usd)/m;
-    if(isFinite(+x.best_pnl_per_day))x.best_pnl_per_day=(+x.best_pnl_per_day)/m;
-    x.multiplier=1;
-  }catch(_){ }
-  return x;
-}
-// the quiet marker the owner sees wherever a corrected run is printed.
-function _bookFixChip(r,sz){
-  if(!r||!r._bookUnitFix)return '';
-  const t='This run was saved before the units fix, when a book’s money was counted twice. '
-    +'Its net, max drawdown and dollars-per-day are shown divided by '+r._bookUnitFix+', which is the '
-    +'figure the book itself recorded. The profit factor, trade count, equity curve, lockbox '
-    +'figures and the verdict were always correct and are shown exactly as saved.';
-  return '<span title="'+t+'" style="cursor:help;font-size:'+(sz||'8px')+';font-weight:700;letter-spacing:.3px;'
-    +'padding:1px 5px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;'
-    +'white-space:nowrap">⚖ units corrected</span>';
-}
   if(!db||!uid)return;
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns)unsubRuns();
