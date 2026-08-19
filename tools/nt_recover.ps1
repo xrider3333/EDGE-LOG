@@ -87,6 +87,44 @@ function SyncProblems {
   } catch { }
   return $out
 }
+# Top-level window titles belonging to the NinjaTrader process, read from OUTSIDE the app.
+# Needed because a modal raised during startup blocks the very UI thread the bridge would
+# have to use to report it -- so the app cannot describe its own blockage.
+Add-Type @"
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+public class NtWin {
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+  [DllImport("user32.dll")] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
+  delegate bool EnumProc(IntPtr h, IntPtr l);
+  public static List<string> Titles(int wantPid) {
+    var outp = new List<string>();
+    EnumWindows((h, l) => {
+      int pid; GetWindowThreadProcessId(h, out pid);
+      if (pid == wantPid && IsWindowVisible(h)) {
+        var sb = new StringBuilder(512); GetWindowText(h, sb, 512);
+        var t = sb.ToString().Trim();
+        if (t.Length > 0) outp.Add(t);
+      }
+      return true;
+    }, IntPtr.Zero);
+    return outp;
+  }
+}
+"@ -ErrorAction SilentlyContinue
+
+function NtWindowTitles {
+  try {
+    $p = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
+    if ($p.Count -eq 0) { return @() }
+    return @([NtWin]::Titles($p[0].Id))
+  } catch { return @() }
+}
 Log "=== recover start (WhatIf=$WhatIf) ==="
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────
@@ -114,12 +152,36 @@ if ($WhatIf) { Log "WhatIf: stopping before any action"; exit 0 }
 # ── 2. log in / launch if needed ───────────────────────────────────────────────────
 if (-not (BridgeUp)) {
   if (-not (Test-Path $loginPs1)) { Log "FATAL: $loginPs1 missing"; exit 2 }
+
+  # WEDGED, not down. "Bridge unreachable" was assumed to mean NinjaTrader had exited or
+  # was sitting at its login window -- so this went straight to the login script, which
+  # waits for a login window that a RUNNING NinjaTrader never shows. On 2026-08-18 a
+  # Tradovate drop left the app alive but unresponsive (UI thread pegged, 3.4 GB), and
+  # this loop then relaunched the login every 10 minutes for an hour: no recovery, a pile
+  # of stranded processes, and a popup each time. If the process EXISTS but the bridge is
+  # dead, the app is hung -- give it one grace period to finish whatever it is doing, then
+  # end it so the launch path below starts a clean one.
+  $ntProc = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
+  if ($ntProc.Count -gt 0) {
+    Log "NinjaTrader is RUNNING but the bridge is dead - it is hung, not down. Waiting 60s..."
+    Start-Sleep -Seconds 60
+    if (BridgeUp) {
+      Log "bridge answered during the grace period - it was only busy, carrying on"
+    } else {
+      Log "still hung after 60s - ending the process so a clean instance can start"
+      foreach ($p in $ntProc) { try { Stop-Process -Id $p.Id -Force -ErrorAction Stop } catch {} }
+      Start-Sleep -Seconds 8
+    }
+  }
+
+  if (BridgeUp) { Log "bridge is up - no login needed" } else {
   Log "running unattended login..."
   & powershell -ExecutionPolicy Bypass -File $loginPs1 2>&1 | ForEach-Object { Log "  [login] $_" }
   $deadline = (Get-Date).AddSeconds(90)
   while ((Get-Date) -lt $deadline -and -not (BridgeUp)) { Start-Sleep -Seconds 5 }
   if (-not (BridgeUp)) { Log "FATAL: bridge still unreachable after login attempt"; exit 2 }
   Log "bridge is up"
+  }
 }
 
 # ── 3. dial the demo connection ────────────────────────────────────────────────────
@@ -144,13 +206,43 @@ if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
 }
 
 # ── 4. enable whatever is not already Realtime ─────────────────────────────────────
-foreach ($s in $expected) {
-  $live = @(RealtimeNames)
-  if ($live -contains $s) { Log "$s already Realtime"; continue }
-  Log "enabling $s..."
-  & $py $cli strategy enable --name $s --yes 2>&1 | ForEach-Object { Log "  [enable] $_" }
-  Start-Sleep -Seconds 4
-}
+# RETRY, because a freshly-launched NinjaTrader is not ready the moment the bridge
+# answers. The strategies live on CHARTS, and the charts take another minute or two to
+# load their history; until they exist the bridge correctly reports "no reachable
+# instance". On 2026-08-19 this ran ~20s after login, got three 404s, declared
+# INCOMPLETE and gave up -- leaving everything down until the next 10-minute pass, in
+# the middle of the session. Keep trying for a few minutes instead of failing once.
+$deadline4 = (Get-Date).AddMinutes(4)
+do {
+  $pending = @($expected | Where-Object { @(RealtimeNames) -notcontains $_ })
+  if ($pending.Count -eq 0) { break }
+  foreach ($s in $pending) {
+    Log "enabling $s..."
+    & $py $cli strategy enable --name $s --yes 2>&1 | ForEach-Object { Log "  [enable] $_" }
+    Start-Sleep -Seconds 4
+  }
+  $pending = @($expected | Where-Object { @(RealtimeNames) -notcontains $_ })
+  if ($pending.Count -gt 0) {
+    # A MODAL DIALOG blocks the workspace from loading, so the charts never appear and
+    # every enable answers "no reachable instance" forever. On 2026-08-19 a monitor-layout
+    # prompt ("windows outside the viewable range, reposition to the primary monitor?")
+    # held everything up while this logged the same 404 over and over.
+    # The bridge cannot see such a dialog -- it is raised before NinjaTraders UI is up,
+    # so the in-process window walk returns nothing. Enumerate NinjaTraders top-level
+    # windows from OUTSIDE the app instead, and say what is on screen: only a person can
+    # answer a dialog, and they need to be told rather than left guessing.
+    $titles = @(NtWindowTitles)
+    $blocking = @($titles | Where-Object { $_ -and $_ -notmatch "^(Control Center|Chart|NinjaScript Editor|Strategy Analyzer)" })
+    if ($blocking.Count -gt 0) {
+      Log "A DIALOG IS BLOCKING NINJATRADER - nobody can recover this without a click:"
+      foreach ($t in $blocking) { Log "  window: $t" }
+      Log "Answer it on screen, then this will recover on its next pass."
+      exit 5
+    }
+    Log "still waiting on: $($pending -join ', ') - charts may still be loading, retrying in 20s"
+    Start-Sleep -Seconds 20
+  }
+} while ((Get-Date) -lt $deadline4)
 Start-Sleep -Seconds 5
 
 # ── 5. verify + report ─────────────────────────────────────────────────────────────

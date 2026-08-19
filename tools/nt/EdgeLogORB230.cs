@@ -257,7 +257,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                 dir = 0;                                   // stop/target took us out
 
             // ── look for the close-confirmed break ───────────────────────────
-            if (dir == 0 && !tradedThisSession && !sessionSkipped && !lastBar
+            // REAL-MONEY RULE (2026-08-19): never OPEN on replayed history when live.
+            // On 2026-08-19 this strategy replayed the morning session at startup, took
+            // the opening-range short, and came up claiming Short 2 while the account was
+            // flat -- blocked from trading for the rest of the day. Strategy Analyzer runs
+            // are exempt: they are historical BY DEFINITION, and blocking them would dump
+            // an empty blotter and break the engine reconcile.
+            if (dir == 0 && (State == State.Realtime || IsInStrategyAnalyzer)
+                && !tradedThisSession && !sessionSkipped && !lastBar
                 && rng > 0 && !double.IsNaN(upLvl)
                 && Time[0] < sessionEnd.AddMinutes(-10))
             {

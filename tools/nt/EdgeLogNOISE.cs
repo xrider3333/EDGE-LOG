@@ -390,7 +390,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     // Historical bars (chart warm-up / backtest) never call the gate:
                     // the service only knows "now", so an answer for an old bar would be
                     // nonsense -- and the blotter must stay comparable to the engine.
-                    int q = State == State.Realtime ? GateQty() : Qty;
+                    // Live warm-up must not open a position: a ghost inherited from replay
+                    // blocks the strategy from trading (ENGU-Q 08-17, ORB230 08-19).
+                    // Strategy Analyzer stays full-size so backtests remain comparable.
+                    int q = State == State.Realtime ? GateQty()
+                          : (IsInStrategyAnalyzer ? Qty : 0);
                     if (q > 0)
                     {
                         if (longTrig) EnterLong(q, "NZ");

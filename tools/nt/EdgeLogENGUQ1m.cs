@@ -292,7 +292,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             // FLAT and in sync with the account, and takes the first REAL signal.
             // Management above is deliberately NOT gated -- a genuine live position must
             // still be trailed and stopped after a restart.
-            if (State != State.Realtime) return;
+            if (State != State.Realtime && !IsInStrategyAnalyzer) return;
 
             if (CurrentBar < TlLen + 1) return;
 
