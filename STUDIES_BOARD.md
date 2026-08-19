@@ -76,10 +76,18 @@ back. This is the same honesty the DATE RAN ordering already uses when it puts t
 their own labelled block instead of inventing a date for them.
 
 **COLOUR — theme, colour, or shapes only.** This changes this board alone and never touches the
-app theme. THEME follows the app theme, which is what the board did before the control existed.
-COLOUR forces the five approved colours whatever the theme is doing: blue for the champion,
-green for held up, amber for fragile, red for failed and grey for reference. SHAPES ONLY drops
-everything to one neutral ink.
+app theme. COLOUR forces the five approved colours whatever the theme is doing: blue for the
+champion, green for held up, amber for fragile, red for failed and grey for reference. SHAPES
+ONLY drops everything to one neutral ink.
+
+THEME follows the app theme, with one deliberate exception. The MONO theme has no colours to
+follow: its accent variables are all greys (blue #b0b0b0, green #f0f0f0, yellow #999999, red
+#4d4d4d), so following it paints all five verdicts in five near-identical greys and two of them
+are nearly invisible on the dark background. THEME therefore reads the accent variables at render
+time, measures how much colour they actually carry, and when they are genuinely greyscale it
+falls back to the five approved colours rather than five greys. On a colour theme THEME behaves
+exactly as it always did. The app theme itself is never modified in either case, and SHAPES ONLY
+is still there for anyone who wants the pure one-ink reading.
 
 **The verdict shapes are drawn in all three settings.** Colour is reinforcement laid on top of
 the shape and is never a substitute for it, so turning colour off loses no meaning and nothing
