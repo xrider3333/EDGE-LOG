@@ -47,7 +47,7 @@ is the order the owner approved. Date ran reads the real finish date out of run 
 splits the table into a block that was run and a block that never was. Result sorts best
 first on whatever stage and axis are selected.
 
-**Filters — strategy type, verdict, discovered date, run status.** These are built from the
+**Filters — strategy type, verdict, discovered date, run status, status.** These are built from the
 data. The renderer walks every row in the registry, collects the distinct values of each
 tag, and makes a button for each one. A new study that tags its rows gets its buttons for
 free. Filters narrow the chart and the table at the same time, and the board always states
@@ -139,6 +139,8 @@ are always being read on the same stretch of history in the same unit.
 | `dd` | no | The worst drawdown, **always written as a positive number**. |
 | `pf` | no | The profit factor. |
 | `trd` | no | The trade count. |
+| `live` | no | The row's **status**: `'crown'`, `'paper'`, `'both'`, or left out. See section 4B. |
+| `liveWhy` | no | One plain-English sentence explaining that status, shown when the reader hovers the status pills. Leave it out and a sensible default sentence is used. |
 | `why` | no | An object mapping a field name to the reason its dash shows, overriding `dashWhy` for this row alone. |
 | `win` | no | `{from:'YYYY-MM-DD', to:'YYYY-MM-DD'}` — the **data window** this row's figures cover. See section 4A. |
 
@@ -182,6 +184,45 @@ separate and much larger piece of work, and nothing on this board attempts it.
 
 ---
 
+## 4B. Status — crowned, forward-tested, both, or neither
+
+The owner asked for this on 2026-08-19: *"way to see whats being forward tested in addition to
+whats crowned?"* A good backtest and a thing that is actually being traded forward are two
+different claims, and the board must never let them blur together.
+
+So every row can declare a `live` value. There are four states and only the first three are
+written down; the fourth is what a row means when it says nothing.
+
+| `live` | Meaning | How it looks |
+| --- | --- | --- |
+| `'crown'` | The row is the standing champion of its family, and it is **not** one of the configurations running in the paper forward test. | A blue CROWN pill in the STATUS column, and a thin solid ring around its chart mark. |
+| `'paper'` | This exact configuration is running in the nightly paper forward test right now, and it is **not** the standing champion of its family. | A green PAPER pill, and a dashed green ring around its chart mark. |
+| `'both'` | It is the standing champion **and** the configuration running in paper. | Both pills and both rings. |
+| left out | Neither. This is the normal state of a research variant. | A dash in the STATUS column and no ring. |
+
+Four rules keep this honest.
+
+**Declare it, never infer it.** The renderer does not go looking for a run number in the paper
+configuration and guess. If a row carries no `live` value it reads as *neither*, not as *unknown*.
+That is deliberate: a wrong "this is live" claim is far worse than a missing one.
+
+**One family, one crown.** Exactly one row per strategy family should carry `'crown'` or `'both'`.
+If the crown moves, move the tag in the same commit that records the new crown.
+
+**Paper means the shadow forward test.** The authority for what is running is the paper leg list
+in `api/paper.py`. A row is tagged `'paper'` only when its configuration matches a leg there. A
+strategy compiled for NinjaTrader but not on that list is not forward-tested for this purpose;
+say so in `liveWhy` if it is worth saying.
+
+**A mismatch is the point, not an embarrassment.** When the crowned row and the paper row are
+different rows, tag them honestly, say so in each row's `liveWhy`, and put it in the study notes.
+That contrast is exactly what the owner asked the board to show.
+
+The STATUS filter is built from these values the same way every other filter is built, so a study
+that tags its rows gets its buttons for free.
+
+---
+
 ## 5. Tagging so the filters pick a row up
 
 Three of the four filters read tags you supply.
@@ -206,6 +247,9 @@ chart so the verdict survives the monochrome theme with no colour at all:
 
 **Run status** is derived: a row with a `runs` array is "ran as a run", a row without one is
 "local only". You do not tag this yourself.
+
+**Status** reads `live`, described in section 4B. Unlike run status you DO tag this yourself, and
+an untagged row reads as neither crowned nor forward-tested.
 
 ---
 
@@ -261,6 +305,7 @@ Append this to the end of the `RESEARCH_STUDIES` array:
  dashWhy:{trd:'The study recorded money and ratios only, so no trade count exists for this row.'},
  rows:[
   {n:67,name:'ORB Crown',what:'The standing ORB crown, no band.',tone:'champ',read:'The thing to beat',
+   live:'crown',liveWhy:'The standing ORB champion. It is not the configuration running in paper.',
    runs:[234],is:300932,wf:210441,lb:88943,tot:389874,dd:29142,pf:1.31,trd:2607},
   {n:68,name:'Band Wide',what:'Enter only outside a wide volatility band.',tone:'good',read:'Beats it and held up',
    runs:[271],is:311204,wf:219880,lb:94110,tot:405314,dd:27503,pf:1.34,trd:2402},
@@ -279,6 +324,8 @@ What happens with no further code change:
   `local` and shows a dash under DATE RAN.
 - Row 69 has no `trd`, so its trade cell is a dash that says the study recorded money and
   ratios only.
+- Row 67 shows a CROWN pill and a thin ring on the chart; rows 68 and 69 show a dash under STATUS
+  because they declared no `live` value, which is the correct reading for a research variant.
 - Every row has all four stages, so nothing drops off the chart at any stage setting. Had
   row 69 lacked `wf`, selecting the walk-forward stage would drop it off the chart, the line
   under the chart would say one of three rows is not plotted and why, and its walk-forward
@@ -286,3 +333,27 @@ What happens with no further code change:
 
 Finally, follow the repo's standing release rule: bump `VERSION` in `index.html` by 0.1,
 prepend a short entry to the `CHANGELOG` array, and ship from your own worktree.
+
+---
+
+## 8. What is on the board today (2026-08-19)
+
+Seven studies, ninety-nine rows.
+
+| Study | Rows | What it covers |
+| --- | --- | --- |
+| NOISE single-strategy variants | 1–24, 27 | The twenty-six filter variants of the NOISE strategy. |
+| Pooled books | 28–46 | Two-leg and three-leg books. Read on profit divided by drawdown. |
+| Does the weak-close filter transfer? | 47–66 | The weak-close filters carried across to ORB and ENGU-Q. |
+| ORB breakeven and plateau hunt | 67–77 | Eleven exit variants of the ORB crown on identical entries. |
+| ORB grail hunt, round one | 78–83 | The six searches that rebuilt ORB on a legally fillable entry. |
+| ENGU-Q session and entry variants | 84–92 | Day session against 24 hours, timeframe, and how the entry fills. |
+| What is running in paper right now | 93–99 | The seven live paper legs. Table only, no chart. |
+
+Rows 25 and 26 sit inside the NOISE study as cross-references to a book and to the older ORB
+crown; that is why the NOISE study's row numbers are not contiguous.
+
+**The mismatch the board currently shows.** The crowned ORB configuration is row 67, and the
+configuration the paper forward test is actually running is rows 26, 83 and 93 — the *previous*
+crown. Filtering STATUS to CROWNED ONLY and then to IN PAPER ONLY shows this in two clicks. Fixing
+it is a deployment decision and belongs to the owner, not to the board.

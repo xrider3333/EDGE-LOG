@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.145';
+const VERSION='73.146';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.146',date:'2026-08-19',notes:['STUDIES: four new studies. The ORB breakeven and plateau hunt, the ORB grail hunt round one, the ENGU-Q session and entry variants, and a list of what is running in paper right now.','STUDIES: every row now says whether it is CROWNED, running in PAPER, both, or neither. It is a new column, a new filter, and a ring around the chart mark.','STUDIES: the ORB configuration being forward-tested is the PREVIOUS crown, not the current one. The board now says so on the rows themselves.','STUDIES: four older rows gained the run number that produced them, so they open their report instead of reading as local research.']},
 {v:'73.145',date:'2026-08-19',notes:['COMPARE > STUDIES: a TIME SCOPE control - ALL TIME, PAST WEEK, PAST MONTH, PAST 3 MONTHS. It narrows the charts and the tables together and always says how many rows it is holding back, beside the count the filters already print.','A row carries TWO different dates, so the scope never picks one quietly. The date it was DISCOVERED in research, which every row has, and the date it RAN as a real validate run, which only rows saved as runs have at all. SCOPE DATE is its own control - FOLLOWS ORDER BY, DISCOVERED or DATE RAN - and a line under the controls states in words which date is being read and from what cut-off. ORDER BY RESULT is not a date, so FOLLOWS ORDER BY falls back to the date discovered and says so.','Scoping on the date ran cannot place a row that was never run. Those rows are held back but never dropped without a word: they are counted and named by row number under the controls and again under the study chart, with the two ways to bring them back spelled out. It is the same honesty the DATE RAN ordering already uses when it puts them in their own labelled block.','A COLOUR control for this board alone, which never touches your app theme. THEME keeps what the board always did. COLOUR forces the five approved colours whatever the theme is doing - blue champion, green held up, amber fragile, red failed, grey reference. SHAPES ONLY drops to one neutral ink. THE VERDICT SHAPES ARE DRAWN IN ALL THREE, on the chart, in the legend and beside every name, so colour is reinforcement and never the only signal. Money keeps its minus sign in every setting. The choice is saved like every other view preference here.','A DATA WINDOW column on every study table: the stretch of history that row’s figures actually cover, read from the saved run document where the row has a run number and from the studies registry where it does not. It is never guessed - a row that records no window shows a dash saying so.','THE COMMON WINDOW, printed under every study chart and once for the whole board: the stretch every visible row genuinely shares. When they do not share one the line warns you, names the rows that reach outside it and says by how much. Those rows also get a warning sign in their own window cell. This matters because some runs are older and saw less data than the backfill has since added, so their totals were never comparable - the board now says so instead of leaving you to find out.','Nothing was recomputed, re-run or refreshed. This release only surfaces the window each row already covers and warns when the windows disagree.','The studies registry gains an optional data window per study and per row, so a locally computed result can record the stretch it covers instead of showing a dash. STUDIES_BOARD.md documents the new field and both new controls.']},
 {v:'73.143',date:'2026-08-18',notes:['COMPARE > STUDIES: a PROFIT STAGE toggle (in-sample, walk-forward, lockbox, total). It sets the height of every chart point, highlights the matching money column in every table and drives the profit divided by drawdown column, so every row on screen is compared on the same stretch of history. A row with no figure for that stage shows a dash saying why and leaves the chart, and the line under the chart counts it. No figure from another stage is ever put in its place.','A VERTICAL AXIS toggle: raw profit, or profit divided by the worst drawdown. On the ratio the tick labels read as plain numbers rather than dollars. Each study keeps its own default - books open on the ratio because more legs means more margin, single strategies open on raw profit - and PER STUDY honours those defaults.','Filter chips for strategy type, verdict, discovered date and run status. They are built from the tags the rows carry rather than written into the code, so a new study tags its rows and gets its buttons for free. Filters narrow the chart and the table together and the board always says how many rows are hidden.','The dots no longer rely on colour. Every verdict has its own shape, size and outline - a filled circle for the champion, a filled square, a hollow circle, a cross and a hollow triangle - so all five read on the monochrome theme. The legend and the name column show the same marks. Colour is still applied on top for the colour themes.','The chart and the table now talk to each other both ways. Clicking a point scrolls the table to its row and lights it up; hovering a row lights up its point. The permanent row number is the link.','Each study table scrolls on its own with its headings pinned, so a long study no longer runs off the page, and the wide columns still scroll sideways without moving the page.','Ported from the summary file: a RANK column, tinted champion and winning rows, the bulleted notes under each table, the shapes in the legend and the note that the best results sit toward the top left. ORDER BY gains a RESULT option that sorts best first on the selected stage.','A new document at the repo root, STUDIES_BOARD.md, explains the whole registry for anyone adding the next study: every field, how to tag rows, what a row needs to appear on the chart, the permanent-row-number rule, the dash-with-a-reason rule and why a pooled book is never compared head to head with a single strategy.']},
 {v:'73.142',date:'2026-08-18',notes:['THE FIVE OLD BOOK RUNS NOW READ CORRECTLY ON SCREEN. Runs 238, 258, 261, 262 and 263 were saved before the units fix, so their headline money was counted twice and printed 20 times too large. Nothing in Firestore was rewritten - the app now corrects those figures as it reads them. Run 261 reads $984,200 with a $56,090 drawdown instead of $19.7 million with a $1.1 million drawdown.','The correction is worked out from the run itself, never from a run number or a date. A book run always carries its own pooled block, and that block was always right. If the stored headline already matches that block the run is left completely alone; only when the headline is exactly that block times the saved contract size is it divided back down. A book run saved from today onward matches its own block, so it is never touched.','Corrected: the headline net, the max drawdown, the dollars-per-day and everything derived from them, which includes MAR and the equity scaling in COMPARE. Left exactly as saved: the profit factor, the trade count, the lockbox figures, the equity curve values and the PASS or FAIL verdict, because none of those were ever wrong.','The RUNBOARD BOOKS table and the RUNBOARD matrix read the pooled block directly and were always right. They are deliberately not corrected a second time, so their numbers are unchanged.','A corrected run carries a small amber UNITS CORRECTED tag in Past Runs, on the RUNBOARD list and at the top of its report. Hover it and it says what was adjusted and what was left alone.']},
@@ -16759,7 +16760,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
        chart:{x:'dd',xCap:'Worst drawdown — further LEFT is better',yMode:'raw',tip:['dd','tot']},
        dashWhy:{wf:'A pooled book produces no walk-forward folds, so this stage does not exist for this row.',is:'This row was measured as a whole-run figure only, so it has no separate in-sample stage.'},
        rows:[
-        {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[242,254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
+        {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[231,242,254],live:'both',liveWhy:'This is the standing NOISE champion and it is also the raw NOISE configuration running in the paper forward test right now, where it is the matched control for the two gated NOISE legs.',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
         {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'good',read:'Best raw profit',runs:[241,253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
         {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'good',read:'Best all-round',runs:[243,252],is:16445,wf:303685,lb:40648,tot:380745,dd:22096,pf:1.39,pdd:17.23,trd:4429},
         {n:4,name:'Skip Wild 2%',what:'Skip the wildest 2% of days.',tone:'frag',read:'Tail-driven',runs:[256],is:12321,wf:296734,lb:61018,tot:384690,dd:22334,pf:1.29,pdd:17.22,trd:5347},
@@ -16774,7 +16775,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:13,name:'Wild Band Exit',what:'Exit at the band on wild days.',tone:'fail',read:'Dead',is:5490,wf:271046,lb:43837,tot:336903,dd:27129,pf:1.23,pdd:12.42,trd:5922},
         {n:14,name:'Wait2 + Wild10',what:'Wait 2 bars, and skip the wildest 10%.',tone:'fail',read:'Dead',is:12771,wf:290905,lb:15512,tot:334370,dd:21205,pf:1.36,pdd:15.77,trd:4011},
         {n:15,name:'Time Stop 36',what:'Close the trade after 36 bars.',tone:'fail',read:'Dead',is:671,wf:266191,lb:42658,tot:329452,dd:33854,pf:1.19,pdd:9.73,trd:6675},
-        {n:16,name:'Free Search',what:'Let the optimiser search with filters on.',tone:'fail',read:'Wandered off, weak',is:6634,wf:291279,lb:19468,tot:326810,dd:19757,pf:1.29,pdd:16.54,trd:5151},
+        {n:16,name:'Free Search',runs:[237],what:'Let the optimiser search with filters on.',tone:'fail',read:'Wandered off, weak',is:6634,wf:291279,lb:19468,tot:326810,dd:19757,pf:1.29,pdd:16.54,trd:5151},
         {n:17,name:'Wild EOD Exit',what:'Exit at end of day on wild days.',tone:'fail',read:'Dead',is:6380,wf:268242,lb:33873,tot:325154,dd:39301,pf:1.21,pdd:8.27,trd:5326},
         {n:18,name:'Wait3 Triple',what:'Wait 3 bars, row 2, and skip the wildest 10%.',tone:'frag',read:'Over-stacked',is:17564,wf:276566,lb:22541,tot:321560,dd:17762,pf:1.43,pdd:18.10,trd:3292},
         {n:19,name:'Wait 2',what:'Wait 2 bars before entering.',tone:'fail',read:'Worst drawdown',is:5927,wf:293172,lb:27983,tot:320914,dd:44189,pf:1.25,pdd:7.26,trd:4762},
@@ -16784,9 +16785,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:23,name:'Strong Full Veto',what:'Skip all trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9168,wf:156775,lb:35340,tot:221607,dd:33185,pf:1.20,pdd:6.68,trd:4087},
         {n:24,name:'Loss Skip',what:'Skip the trade after any loss.',tone:'fail',read:'Only losing in-sample',is:-3908,wf:120583,lb:12071,tot:135214,dd:32019,pf:1.12,pdd:4.22,trd:4057},
         {n:25,fam:'BOOK',name:'Book: ORB + NOISE',what:'The first pooled book. Two strategies as one.',tone:'ref',read:'Superseded by the pooled books study',runs:[238],lb:168845,tot:716089,dd:39809,pf:1.29,pdd:17.99,trd:7025},
-        {n:26,fam:'ORB',name:'ORB Crown (old)',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
+        {n:26,fam:'ORB',name:'ORB Crown (old)',runs:[230],live:'paper',liveWhy:'This configuration is the one actually running in the ORB paper forward test right now, even though it is no longer the crowned ORB champion. The crown moved on to row 47 and the paper leg did not follow it.',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
          why:{wf:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.',is:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.'}},
-        {n:27,name:'Champion (old data)',what:'Same as row 1, before the data backfill.',tone:'ref',read:'Superseded',is:6190,wf:270934,lb:23146,tot:322842,dd:30412,pf:1.21,pdd:10.62,trd:5616}
+        {n:27,name:'Champion (old data)',runs:[225],what:'Same as row 1, before the data backfill.',tone:'ref',read:'Superseded',is:6190,wf:270934,lb:23146,tot:322842,dd:30412,pf:1.21,pdd:10.62,trd:5616}
        ]},
       {key:'books',title:'Pooled books',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'BOOK',
        sub:'Several strategies traded together in one account, one contract each, every trade pooled and the pile scored as one strategy.',
@@ -16820,7 +16821,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
        notes:['The filter does not transfer and both crowns stand. Nothing here was adopted and nothing was queued.','The mechanism is reversed on ORB. Short trades after a weak close make money there, about $86 each across 248 trades, while the same trades lose about $118 each on NOISE. The belief that this was a program-wide pattern was wrong.','Compare each row only against its own crown. Use the STRATEGY TYPE filter to read the ORB rows and the ENGU-Q rows separately, because they were measured on different strategies and different windows.','Row 63 is worth remembering. It cuts ENGU-Q drawdown by 31% and nearly repairs its only losing year for under 7% of profit. It fails the profit test so it is not an adoption, but it is the lever if ENGU-Q is ever sized up.'],
        dashWhy:{wf:'Walk-forward was not re-run for these local filter tests, so there is no fold figure to report.',trd:'The study recorded money and ratios only, so no trade count exists for this row.'},
        rows:[
-        {n:47,name:'ORB Crown',what:'The standing ORB crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[234],is:300932,lb:88943,tot:389874,dd:29142,pf:1.31,pdd:13.38},
+        {n:47,name:'ORB Crown',what:'The standing ORB crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[234],live:'crown',liveWhy:'This is the standing ORB champion, but it is NOT the configuration running in paper. The paper leg still runs the older ORB configuration on row 26 and row 83.',is:300932,lb:88943,tot:389874,dd:29142,pf:1.31,pdd:13.38},
         {n:48,name:'ORB Short Veto .25',what:'Skip ORB shorts after a weak close, loose threshold.',tone:'fail',read:'Fails on profit',is:284840,lb:96546,tot:381385,dd:26796,pf:1.33,pdd:14.23},
         {n:49,name:'ORB Short Veto .15',what:'Same, tight threshold.',tone:'fail',read:'Fails on profit',is:284545,lb:88425,tot:372970,dd:33564,pf:1.31,pdd:11.11},
         {n:50,name:'ORB Short Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:286237,lb:82627,tot:368864,dd:33564,pf:1.31,pdd:10.99},
@@ -16833,13 +16834,127 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:57,name:'ORB Strong Veto .85',what:'Skip all ORB trades after a strong close.',tone:'fail',read:'Fails',is:207014,lb:84000,tot:291014,dd:30954,pf:1.26,pdd:9.40},
         {n:58,name:'ORB Strong Veto .75',what:'Same, tight threshold.',tone:'fail',read:'Fails',is:189399,lb:88141,tot:277540,dd:28109,pf:1.28,pdd:9.87},
         {n:59,name:'ORB Strong Veto .80',what:'Same, standard threshold.',tone:'fail',read:'Fails',is:194311,lb:77003,tot:271315,dd:35743,pf:1.26,pdd:7.59},
-        {n:60,fam:'ENGU-Q',name:'ENGU-Q Crown',what:'The ENGU-Q day-session crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[227],is:364699,lb:88852,tot:477521,dd:65635,pf:1.41,pdd:7.28},
+        {n:60,fam:'ENGU-Q',name:'ENGU-Q Crown',live:'none',liveWhy:'This row is the day-session ENGU-Q baseline. It is no longer the standing ENGU-Q champion and it is not running in paper: the certified champion is the 24-hour configuration on row 87, which is what paper trades.',what:'The ENGU-Q day-session crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[227],is:364699,lb:88852,tot:477521,dd:65635,pf:1.41,pdd:7.28},
         {n:61,fam:'ENGU-Q',name:'ENGU-Q Long Veto .85',what:'Skip ENGU-Q longs after a strong close.',tone:'frag',read:'Drawdown lever only',is:348303,lb:102496,tot:470937,dd:60559,pf:1.44,pdd:7.78},
         {n:62,fam:'ENGU-Q',name:'ENGU-Q Long Veto .80',what:'Same, standard threshold.',tone:'frag',read:'Drawdown lever only',is:340560,lb:106926,tot:465097,dd:58296,pf:1.45,pdd:7.98},
         {n:63,fam:'ENGU-Q',name:'ENGU-Q Long Veto .75',what:'Same, tight threshold. Cuts drawdown 31%.',tone:'frag',read:'Best drawdown lever',is:313675,lb:104831,tot:445955,dd:52853,pf:1.46,pdd:8.44},
         {n:64,fam:'ENGU-Q',name:'ENGU-Q Full Veto .15',what:'Skip all ENGU-Q trades after a weak close.',tone:'fail',read:'Fails on profit',is:300242,lb:96238,tot:421519,dd:50373,pf:1.35,pdd:8.37},
         {n:65,fam:'ENGU-Q',name:'ENGU-Q Full Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:279516,lb:104826,tot:407835,dd:48486,pf:1.34,pdd:8.41},
         {n:66,fam:'ENGU-Q',name:'ENGU-Q Full Veto .25',what:'Same, loose threshold.',tone:'fail',read:'Fails',is:241629,lb:74945,tot:313924,dd:65533,pf:1.25,pdd:4.79}
+       ]},
+      // ── ORB round two: the breakeven and plateau hunt (rows 67-77). Everything here shares
+      //    the crown's ENTRY rules, so the study is a clean read on exits alone, and the whole
+      //    point of it is that the neighbours land on a plateau rather than a peak.
+      {key:'orbbe',title:'ORB breakeven and plateau hunt',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'ORB',
+       sub:'Eleven exit variants of the ORB crown on the same entries. NQ 5-minute bars, June 2010 to August 2026, lockbox August 2025 to August 2026.',
+       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'raw',tip:['dd','tot','lb']},
+       notes:['The finding is the plateau. Moving the breakeven trigger, the stop width or the profit target one notch either way barely moves the money, which is what a real edge looks like rather than a lucky single setting.',
+              'Row 67 is the standing crown. It is NOT what paper is trading; the paper leg still runs the older configuration on rows 26 and 83.',
+              'None of these rows has a separate walk-forward figure. Each is a single pinned configuration graded against a sealed lockbox, so the column before the lockbox is everything that came before it.',
+              'Read this study on raw profit. Every row trades one strategy on one contract, so the dollars are directly comparable.'],
+       dashWhy:{wf:'This row is one pinned configuration graded against a sealed lockbox, so there are no walk-forward folds to report for it.'},
+       rows:[
+        {n:67,name:'ORB Crown',what:'Ride the trade to a 5.5x-risk target with the stop moved to breakeven once it is up 1x risk. No partial exit and no trailing stop.',tone:'champ',read:'The standing crown',live:'crown',
+         liveWhy:'This is the standing ORB champion, but the paper forward test is still running the older configuration on rows 26 and 83. The crown moved and the paper leg did not follow it.',
+         runs:[234],is:300931,lb:88943,tot:389874,dd:29142,pf:1.31,trd:2607},
+        {n:68,name:'Breakeven Only',what:'Keeps the old partial exit and trailing stop, and only adds the move to breakeven at 1x risk.',tone:'good',read:'Beaten by the simpler exit',runs:[233],is:291076,lb:72790,tot:363866,dd:28501,pf:1.29,trd:2607},
+        {n:69,name:'Breakeven 0.8',what:'The crown with the breakeven trigger pulled in to 0.8x risk instead of 1x.',tone:'good',read:'Best money in the hunt',runs:[239],is:300596,lb:94268,tot:394864,dd:29377,pf:1.32,trd:2607},
+        {n:70,name:'Breakeven 1.2',what:'The crown with the breakeven trigger pushed out to 1.2x risk instead of 1x.',tone:'frag',read:'Slightly behind the crown',runs:[240],is:305202,lb:79088,tot:384290,dd:28757,pf:1.30,trd:2607},
+        {n:71,name:'Stop 1.75',what:'The crown with a tighter stop, 1.75 times the opening range width instead of 2.',tone:'frag',read:'Less money, better lockbox',runs:[244],is:274426,lb:90036,tot:364462,dd:29720,pf:1.30,trd:2607},
+        {n:72,name:'Stop 2.25',what:'The crown with a wider stop, 2.25 times the opening range width instead of 2.',tone:'fail',read:'Worst drawdown of the hunt',runs:[246],is:296537,lb:82171,tot:378708,dd:34101,pf:1.29,trd:2607},
+        {n:73,name:'Target 5.0',what:'The crown with the profit target lowered from 5.5x risk to 5x.',tone:'good',read:'On the plateau, no change',runs:[250],is:302052,lb:86988,tot:389040,dd:29142,pf:1.31,trd:2607},
+        {n:74,name:'Target 4.5',what:'The crown with the profit target lowered from 5.5x risk to 4.5x.',tone:'good',read:'On the plateau, no change',runs:[255],is:301622,lb:82738,tot:384360,dd:29142,pf:1.30,trd:2607},
+        {n:75,name:'Entry Reopen A',what:'Reopens the entry rules under the new exit: a wider stop of 2.5 times the range and a bigger breakout buffer.',tone:'good',read:'Most money, worse ratio',runs:[257],is:324977,lb:91405,tot:416382,dd:32505,pf:1.32,trd:2751},
+        {n:76,name:'Entry Reopen B',what:'Reopens the entry rules with a tighter 1.75 stop and the volatility filter switched off.',tone:'frag',read:'Only 5 of 6 checks passed',runs:[259],is:274830,lb:101746,tot:376576,dd:34381,pf:1.30,trd:2762},
+        {n:77,name:'Entry Reopen C',what:'Reopens the entry rules with a tighter 1.75 stop and the volatility filter left on.',tone:'frag',read:'Smallest drawdown, least money',runs:[260],is:214161,lb:95543,tot:309704,dd:26030,pf:1.31,trd:2032}
+       ]},
+
+      // ── ORB round one: the grail hunt that produced the configuration paper still trades.
+      {key:'orbgrail',title:'ORB grail hunt, round one',disc:'2026-08-13',isLbl:'PRE-LOCKBOX',fam:'ORB',
+       sub:'Six searches run to find an ORB entry that could actually be filled live. NQ 5-minute bars, June 2010 to August 2026.',
+       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'raw',tip:['dd','tot','lb']},
+       notes:['This round exists because the previous ORB family entered by chasing price inside a bar on a volume trigger that could only be known after the bar had finished. Nothing in that family could ever have been traded, so the whole family was rebuilt to enter only when a bar CLOSES beyond the level.',
+              'Row 83 is the winner of this round and it is the configuration the paper forward test is still running today, even though row 67 has since taken the crown.',
+              'Rows 81 and 82 are the lesson of the round. The widest search won on the years it was tuned on and then gave nearly all of it back on the sealed lockbox, which is what an overfitted search looks like.',
+              'The lockbox windows are not identical across these runs, so read the pre-lockbox and lockbox columns as each row own read rather than as a strict head-to-head.'],
+       dashWhy:{wf:'This row is one search graded against a sealed lockbox, so there are no separate walk-forward folds recorded for it.'},
+       rows:[
+        {n:78,name:'Bare Baseline',what:'A deliberately narrow search with only the two exit levers open and everything else pinned, built to give the search a clean space with no illegal filter in it.',tone:'fail',read:'Weak, only 5 of 6 checks',runs:[220],is:42800,lb:23598,tot:66398,dd:36860,pf:1.08,trd:4136},
+        {n:79,name:'Free Search',what:'The same two-lot scale-out strategy with the full legal knob set open for the search to choose from.',tone:'good',read:'Won its search, all checks',runs:[221],is:287409,lb:62173,tot:349582,dd:35474,pf:1.27,trd:2594},
+        {n:80,name:'Few Knobs',what:'A six-knob version meant to be harder to overfit than the free search.',tone:'fail',read:'Failed, only 4 of 7 checks',runs:[222],is:83210,lb:21526,tot:104736,dd:34585,pf:1.13,trd:3922},
+        {n:81,name:'Kitchen Sink',what:'The widest search of the round, with twelve knobs including gap gates, range gates and an entry time cutoff.',tone:'fail',read:'Won early, died in lockbox',runs:[228],is:180636,lb:10390,tot:191026,dd:45115,pf:1.23,trd:1800},
+        {n:82,name:'Kitchen Sink Pinned',what:'The kitchen sink winner nailed shut and re-scored on the free search window so the two could be compared fairly.',tone:'fail',read:'Lockbox all but vanished',runs:[229],is:188232,lb:3792,tot:192024,dd:31676,pf:1.23,trd:1787},
+        {n:83,name:'ORB Round-One Crown',what:'The free search winner nailed shut and graded on its own: a two-bar opening range, first-candle direction, close-confirmed entry, partial exit and trailing runner. This is the same result as row 26.',tone:'ref',read:'Superseded, still in paper',live:'paper',
+         liveWhy:'This is the configuration running in the ORB paper forward test right now. It is no longer the crowned ORB champion; row 67 is. Paper is testing the previous crown.',
+         runs:[230],is:283555,lb:64575,tot:348130,dd:35474,pf:1.26,trd:2607}
+       ]},
+
+      // ── ENGU-Q: the session question and the entry question, which are the two things that
+      //    decided which ENGU-Q the project actually forward-tests.
+      {key:'enguq',title:'ENGU-Q session and entry variants',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'ENGU-Q',
+       sub:'Nine ENGU-Q variants covering day session against 24 hours, bar timeframe, and how the entry is actually filled. NQ 1-minute bars, June 2010 onward.',
+       chart:{x:'dd',xCap:'Worst drawdown \u2014 further LEFT is better',yMode:'raw',tip:['dd','tot','lb']},
+       notes:['The session question is settled. The day-session version never has to manage an overnight stop, so its backtest is flattered by roughly a hundred and eighty thousand dollars that could not be earned in real trading. The 24-hour version on row 87 is the certified champion for that reason.',
+              'Rows 85 and 88 are not results, they are a known bug. In both, the top pick stopped trading and simply held one position for over a year, so the lockbox trades on those cards only exist because the report reloads the strategy at the boundary. Do not re-propose either.',
+              'Rows 91 and 92 test placing a resting limit order below the signal price instead of needing the closing print. Profit factor rises with limit depth, and profit factor does not care about position size, so that is a genuine improvement in trade quality rather than more leverage.',
+              'The 24-hour rows and the day-session rows do not share a date window, so read each against its own control rather than straight across the table.'],
+       dashWhy:{wf:'This row is one pinned configuration graded against a sealed lockbox, so there are no walk-forward folds to report for it.'},
+       rows:[
+        {n:84,name:'ENGU-Q Day Baseline',what:'The long-standing day-session configuration, pinned and re-scored on fresher data as the reference card.',tone:'ref',read:'Blind to overnight risk',live:'none',
+         liveWhy:'This is the day-session baseline. It is not the standing ENGU-Q champion and it is not running in paper. The certified champion is the 24-hour configuration on row 87, which is what paper trades.',
+         runs:[227],is:387270,lb:66262,tot:453532,dd:65635,pf:1.39,trd:2054},
+        {n:85,name:'Day Free Search',what:'The day-session strategy searched freely again on an extended window to look for a fresh baseline.',tone:'fail',read:'Stuck-position artifact',runs:[223],is:489978,lb:47698,tot:537676,dd:75368,pf:1.82,trd:894},
+        {n:86,name:'Two-Minute Bars',what:'The same strategy run on two-minute bars instead of one, with a floor on how many trades a config had to take.',tone:'fail',read:'Fails the overfitting check',runs:[224],is:401953,lb:3795,tot:405748,dd:70042,pf:1.66,trd:556},
+        {n:87,name:'ENGU-Q 24-Hour',what:'The same strategy on the 24-hour tape with every setting frozen to the known-good day config, stretched to fit the longer tape. It manages the overnight session honestly.',tone:'champ',read:'Certified crown, in paper',live:'both',
+         liveWhy:'This is the certified ENGU-Q champion and it is running in the paper forward test right now, where it also serves as the matched control for the limit-entry leg on row 92.',
+         runs:[226],is:344384,lb:90338,tot:434722,dd:50420,pf:1.33,trd:2843},
+        {n:88,name:'Second Stream',what:'A deliberately different-looking variant meant to trade signals the main strategy misses, with a faster trend filter and a much wider stop.',tone:'fail',read:'Stuck-position artifact',runs:[232],is:401547,lb:97131,tot:498678,dd:112216,pf:1.50,trd:778},
+        {n:89,name:'Next-Bar Open',what:'The 24-hour champion with the fill moved off the signal bar closing print and onto the open of the following bar, so no closing price has to be assumed.',tone:'good',read:'Realistic fill, costs almost nothing',runs:[235],is:348207,lb:82753,tot:430960,dd:50370,pf:1.33,trd:2844},
+        {n:90,name:'Trail Width Search',what:'The 24-hour champion with everything pinned except the trailing stop width, searched over a narrow pre-declared range.',tone:'frag',read:'Within noise, not adopted',runs:[247],is:343737,lb:64967,tot:408704,dd:52544,pf:1.27,trd:3363},
+        {n:91,name:'Limit 0.20',what:'The 24-hour champion entered with a resting limit order a fifth of an average range below the signal price, waiting up to ten bars for a fill.',tone:'good',read:'Beaten by the deeper limit',runs:[248],is:369598,lb:96758,tot:466356,dd:54011,pf:1.36,trd:2866},
+        {n:92,name:'Limit 0.50',what:'The same idea with the resting limit placed half an average range below the signal price.',tone:'good',read:'Adopted, now in paper',live:'paper',
+         liveWhy:'The owner adopted this on 2026-08-18 and it was added to the paper forward test the same day, running alongside row 87 as its matched control. It is not the certified ENGU-Q champion; row 87 is.',
+         runs:[249],is:400926,lb:112088,tot:513014,dd:61666,pf:1.40,trd:2924}
+       ]},
+
+      // ── WHAT IS ACTUALLY RUNNING IN PAPER (owner ask 2026-08-19). Deliberately a TABLE with no
+      //    chart: this is a status list, not a results comparison, and three of its seven rows
+      //    are gate overlays whose money figures are not restated here.
+      {key:'paperlegs',title:'What is running in paper right now',disc:'2026-08-19',isLbl:'PRE-LOCKBOX',fam:'ORB',
+       sub:'The seven configurations the nightly paper forward test is running, read against the run each one came from. NQ, from 2026-08-11 forward.',
+       notes:['The headline is a mismatch. The ORB configuration being forward-tested is the PREVIOUS crown, not the current one. Row 93 is what paper trades and row 67 is what holds the crown.',
+              'A gate is an overlay, not a strategy. The strategy picks its trades exactly as it always has and a second model, trained only on trades that had already finished, decides which to keep and how big to trade them. Rows 94, 98 and 99 are the three gated legs.',
+              'The three gated rows show a dash in every money column on purpose. Their profit is measured inside their source run report, not on this board, and putting the ungated numbers there would be substituting a different measurement. Their trade counts are real: they are how many trades survived the gate in last night paper run over the full history.',
+              'Row 96 was added to the paper board on 2026-08-18 and the most recent nightly report ran before it, so its first forward figures are still to come.',
+              'This tile has no chart because it is a status list rather than a comparison. Three of the seven rows have no money figures to plot, and the four that do are already plotted in their own studies.'],
+       dashWhy:{is:'This row is a gate overlay. Its profit is graded inside its source run report, and no separate figure for it is restated on this board.',
+                lb:'This row is a gate overlay. Its profit is graded inside its source run report, and no separate figure for it is restated on this board.',
+                tot:'This row is a gate overlay. Its profit is graded inside its source run report, and no separate figure for it is restated on this board.',
+                dd:'This row is a gate overlay. Its drawdown is graded inside its source run report, and no separate figure for it is restated on this board.',
+                pf:'This row is a gate overlay. Its profit factor is graded inside its source run report, and no separate figure for it is restated on this board.',
+                wf:'This row is one pinned configuration graded against a sealed lockbox, so there are no walk-forward folds to report for it.'},
+       rows:[
+        {n:93,fam:'ORB',name:'Paper: ORB',what:'The opening-range strategy running in paper, pinned to the round-one crown. Same configuration as rows 26 and 83.',tone:'ref',read:'Running, but not the crown',live:'paper',
+         liveWhy:'This exact configuration is running in the paper forward test right now. It is NOT the standing ORB champion, which is row 67. This is the mismatch between what is crowned and what is being forward-tested.',
+         runs:[230],is:283555,lb:64575,tot:348130,dd:35474,pf:1.26,trd:2607},
+        {n:94,fam:'ORB',name:'Paper: ORB + Gate',what:'The same ORB configuration with its own gate switched on: trades scoring under 45 percent are skipped and the survivors are sized by score. The plain ORB leg above is its matched control.',tone:'frag',read:'Gate test, not a crown',live:'paper',
+         liveWhy:'This is a gate overlay running in the paper forward test right now. It is not a crown; it is a test of whether the gate beats the same strategy with the gate off.',
+         runs:[230],trd:2122},
+        {n:95,fam:'ENGU-Q',name:'Paper: ENGU-Q',what:'The 24-hour ENGU-Q configuration running in paper. Same configuration as row 87.',tone:'champ',read:'Crowned and running',live:'both',
+         liveWhy:'This is the certified ENGU-Q champion and it is running in the paper forward test right now.',
+         runs:[226],is:344384,lb:90338,tot:434722,dd:50420,pf:1.33,trd:2843},
+        {n:96,fam:'ENGU-Q',name:'Paper: ENGU-Q Limit',what:'The same 24-hour configuration entered with a resting limit half an average range below the signal price. Added to paper on 2026-08-18 as the pair to the row above. Same configuration as row 92.',tone:'good',read:'Adopted, first days pending',live:'paper',
+         liveWhy:'The owner adopted this on 2026-08-18 and it went onto the paper board the same day. It is not the certified ENGU-Q champion; the row above is.',
+         runs:[249],is:400926,lb:112088,tot:513014,dd:61666,pf:1.40,trd:2924},
+        {n:97,fam:'NOISE',name:'Paper: NOISE',what:'The noise-band strategy running in paper on the crowned settings, which is also the matched control for both gated NOISE legs. Same configuration as row 1.',tone:'champ',read:'Crowned and running',live:'both',
+         liveWhy:'This is the standing NOISE champion and it is running in the paper forward test right now as the raw control for the two gated NOISE legs.',
+         runs:[231,242,254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,trd:5633},
+        {n:98,fam:'NOISE',name:'Paper: NOISE + Tree Gate',what:'The same NOISE configuration with a decision-tree gate at the 55 percent floor. It is a written-down forward test of a result that only looked good in hindsight, not a crown.',tone:'frag',read:'Pre-declared test, not a crown',live:'paper',
+         liveWhy:'This is a gate overlay running in the paper forward test right now. The project states plainly that it is a test rather than a crown: the selection rule would never have picked this gate, and the claim is that it should beat the raw control from 2026-08-16 forward.',
+         runs:[225],trd:2689},
+        {n:99,fam:'NOISE',name:'Paper: NOISE + Forest Gate',what:'The same NOISE configuration with a random-forest gate at the 55 percent floor. It halves the drawdown for roughly the same risk-adjusted return, so read it as a risk reducer rather than an edge.',tone:'frag',read:'Risk reducer, not an edge',live:'paper',
+         liveWhy:'This is a gate overlay running in the paper forward test right now, picked by the owner on 2026-08-16. It is not a crown.',
+         runs:[231],trd:1468}
        ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
@@ -17406,6 +17521,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reWarnC=(_reCol==='on')?'#fbbf24':((_reCol==='off')?'var(--text3)':'var(--yellow)');
         const _reToneNm={champ:'champion or baseline',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
         const _reToneMk={champ:'large filled circle with a bright outline',good:'filled square',frag:'hollow circle',fail:'cross',ref:'hollow triangle'};
+        // -- STATUS (owner ask 2026-08-19: "way to see whats being forward tested in addition
+        //    to whats crowned?"). A good backtest and a thing actually being traded forward are
+        //    two different claims, so every row now says which it is. CROWN means the row is the
+        //    standing champion of its family. PAPER means this exact configuration is running in
+        //    the nightly paper forward test right now. A row can be both, and a row can be
+        //    neither, which is the normal state of a research variant. The tag is DECLARED on the
+        //    row, never guessed, and an untagged row reads as neither rather than as unknown.
+        const _reLiveNm={both:'CROWNED + IN PAPER',crown:'CROWNED ONLY',paper:'IN PAPER ONLY',none:'NEITHER'};
+        const _reLiveV=r=>{const v=String((r&&r.live)||'none');return (['crown','paper','both'].indexOf(v)>=0)?v:'none';};
+        const _reLiveTip={crown:'This is the standing champion of its family, but it is NOT one of the configurations running in the paper forward test right now.',
+          paper:'This exact configuration is running in the paper forward test right now, even though it is not the standing champion of its family.',
+          both:'This is the standing champion of its family AND the configuration running in the paper forward test right now.',
+          none:'Research result only. It is not the standing champion of its family and it is not running in the paper forward test.'};
         const _reEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
         const _reRunRec=id=>(runHistory||[]).find(x=>x&&String(x.id)===String(id));
         const _reRunDate=id=>{const r=_reRunRec(id);
@@ -17504,7 +17632,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {k:'disc',cap:'DISCOVERED',tip:'the date the result was found in research',
            val:(st,r)=>String(r.disc||st.disc||'undated'),lbl:v=>v},
           {k:'run',cap:'RUN STATUS',tip:'whether the row was persisted as a real validate run or only ever computed locally',
-           val:(st,r)=>((Array.isArray(r.runs)&&r.runs.length)?'ran':'local'),lbl:v=>(v==='ran'?'RAN AS A RUN':'LOCAL ONLY')}];
+           val:(st,r)=>((Array.isArray(r.runs)&&r.runs.length)?'ran':'local'),lbl:v=>(v==='ran'?'RAN AS A RUN':'LOCAL ONLY')},
+          {k:'live',cap:'STATUS',tip:'whether the row is the standing champion of its family, is actually running in the paper forward test right now, both, or neither',
+           val:(st,r)=>_reLiveV(r),lbl:v=>(_reLiveNm[v]||v)}];
         const _reOpts={};
         _reFacets.forEach(f=>{const seen={},out=[];
           RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const v=f.val(st,r);if(!seen[v]){seen[v]=1;out.push(v);}}));
@@ -17528,6 +17658,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const h=s*1.15;
           return '<path d="M'+x+' '+(cy-h).toFixed(1)+'L'+(cx+h).toFixed(1)+' '+(cy+h*0.78).toFixed(1)+'L'+(cx-h).toFixed(1)+' '+(cy+h*0.78).toFixed(1)+'Z" fill="none" stroke="'+col+'" stroke-width="1.9" stroke-opacity="'+so+'"/>';};
         const _reMk=tone=>'<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px;margin-right:5px">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
+        // the CROWN / PAPER pills. Two separate pills rather than one four-way word, because a
+        // row that is both is the interesting case and it should look like both at a glance.
+        const _rePill=(t,c)=>'<span style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.6px;padding:2px 5px;border-radius:5px;margin-right:3px;color:var(--text2);background:color-mix(in srgb,'+c+' 22%,transparent);border:1px solid color-mix(in srgb,'+c+' 48%,transparent)">'+t+'</span>';
+        const _reLiveBadge=rw=>{const v=_reLiveV(rw);let s='';
+          if(v==='crown'||v==='both')s+=_rePill('CROWN','var(--blue)');
+          if(v==='paper'||v==='both')s+=_rePill('PAPER','var(--green)');
+          if(!s)s='<span style="color:var(--text5)">&mdash;</span>';
+          return '<span title="'+_reEsc((rw&&rw.liveWhy)||_reLiveTip[v])+'" style="cursor:help;white-space:nowrap">'+s+'</span>';};
         const _reLegend=extra=>'<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
           +['champ','good','frag','fail','ref'].map(k=>'<span title="'+_reEsc('drawn as a '+_reToneMk[k]+', so the verdict reads with no colour at all')+'" style="cursor:help">'+_reMk(k)+_reToneNm[k]+'</span>').join('')
           +(extra?('<span style="color:var(--text5)">'+_reEsc(extra)+'</span>'):'')+'</span>';
@@ -17581,6 +17719,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
             +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>','left')
+            +td(_reLiveBadge(rw),'left')
             +td('<span style="color:var(--text4)">'+_reEsc(rw.what)+'</span>','left',';white-space:normal;min-width:210px')
             +td(runCell,'left')
             +td('<span style="color:var(--text4);font-size:10px">'+dCell+'</span>','left')
@@ -17639,12 +17778,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +' | '+_reStWord(st,_reStage)+(_reMode(st)==='ratio'?' profit divided by drawdown ':' profit ')+_reVal(p.y,yf);
               tipF.forEach(f=>{const v=_reNum(r,f);
                 tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':_reVal(v,_reAxFmt(f,(f===cf.x?cf.xFmt:null))));});
+              if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
               if(rank[r.n])tp+=' | rank '+rank[r.n]+' of '+pts.length;
               if(dim)tp+=' | never run as a validate run';
               tp+=' | click to jump to its row in the table below';
+              // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
+              // around it and the two never fight: a thin solid ring means crowned, a dashed
+              // green ring means it is running in paper right now, and a row that is both wears
+              // both rings at different radii.
+              const lv=_reLiveV(r);
+              let ring='';
+              if(lv==='crown'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+3.2).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="1.1" opacity="'+(dim?0.22:0.62)+'"/>';
+              if(lv==='paper'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+5.6).toFixed(1)+'" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-dasharray="3,3" opacity="'+(dim?0.25:0.9)+'"/>';
               g+='<g data-repoint="'+st.key+':'+r.n+'" style="cursor:pointer">'
-                +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+6).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
-                +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+7).toFixed(1)+'" fill="transparent"/>'
+                +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+8).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
+                +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(s+9).toFixed(1)+'" fill="transparent"/>'
+                +ring
                 +_reShape(r.tone,cx,cy,s,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
                 +'<text x="'+(cx+s+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+r.n+'</text>'
                 +'<title>'+_reEsc(tp)+'</title></g>';});
@@ -17662,7 +17811,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(scopeNote)omit+=scopeNote;
           return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px;margin-bottom:11px">'
             +'<svg viewBox="0 0 980 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
-            +'<div style="margin-top:8px">'+_reLegend('The best results sit toward the top left. Click a point to jump to its row; hover a row to light up its point.')+'</div>'
+            +'<div style="margin-top:8px">'+_reLegend('The best results sit toward the top left. A thin solid ring means the row is the crowned champion of its family; a dashed green ring means it is running in the paper forward test right now. Click a point to jump to its row; hover a row to light up its point.')+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-top:6px;max-width:960px">'+_reEsc(omit)
             +(_reDate==='ran'?' The faded points were never run as a validate run, matching the second block of the table below.':'')+'</div></div>';};
         let _reShown=0,_reHidden=0,_reFiltOut=0,_reScopeOut=0,_reNoDate=[],_reWinAll=[],_reWinNone=[];
@@ -17691,14 +17840,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const rank=_reRank(st,rows);
           let bodyRows;
           if(!rows.length){
-            bodyRows='<tr><td colspan="16" style="padding:16px 8px;color:var(--text5);font-size:10px">Every row in this study is held back by the filters or the time scope above. Clear a filter, or widen the scope, to bring them back.</td></tr>';
+            bodyRows='<tr><td colspan="17" style="padding:16px 8px;color:var(--text5);font-size:10px">Every row in this study is held back by the filters or the time scope above. Clear a filter, or widen the scope, to bring them back.</td></tr>';
           }else if(_reDate==='ran'){
             // ran-first, newest first; anything without a run drops into its own labelled block
             const withRun=rows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
             const noRun=rows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
             withRun.sort((a,b)=>{const da=_reRunDate(a.runs[0]),db=_reRunDate(b.runs[0]);
               return (da===db)?((+b.runs[0]||0)-(+a.runs[0]||0)):((db>da)?1:-1);});
-            const sep=(t,tip)=>'<tr><td colspan="16" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+            const sep=(t,tip)=>'<tr><td colspan="17" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
             bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN · '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
               +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN · '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
           }else if(_reDate==='res'){
@@ -17716,6 +17865,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
             +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
             +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour.')
+            +_hd('STATUS','left','CROWN means the row is the standing champion of its family. PAPER means this exact configuration is running in the nightly paper forward test right now. A dash means neither, which is the normal state of a research variant. A good backtest and a thing being traded forward are two different claims, so the board keeps them apart.')
             +_hd('WHAT IT DOES','left')
             +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
             +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
@@ -17806,7 +17956,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reScopeBtns+_reSBasisBtns+_reColBtns+'</div>'
             +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:7px">'+_reFiltBtns+_reClear+'</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
-            +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change.</div>'
+            +'Each study is its own table because the studies do not share a yardstick. Pooled books use more margin than a single strategy, so a book cannot be compared head to head with one strategy - compare profit divided by drawdown instead of raw profit. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change. The STATUS column keeps apart two things that are easy to confuse: CROWN means the row is the standing champion of its family, and PAPER means that exact configuration is running in the nightly paper forward test right now. A row can be one, both or neither.</div>'
             +_reCount
             +_reScopeLine
             +_reWinBoard

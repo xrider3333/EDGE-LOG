@@ -34,6 +34,23 @@ after any change to a strategy's rules, not as a nightly job.
 - **PAPER_START = 2026-08-11.** Trades before that date are never logged.
 - Sim101 note: NT's local Sim101 exists but doesn't appear in this setup's account dropdowns; the broker demo `DEMO7240108` is the chosen paper account (arguably more realistic fills). **Never** touch account `1810769` — that's real money.
 
+## CROWNED IS NOT THE SAME AS FORWARD-TESTED (recorded 2026-08-19)
+
+The website STUDIES board now tags every research row as CROWNED, IN PAPER, both, or neither,
+and the first thing it surfaces is a mismatch that had gone unstated: **the ORB leg being
+forward-tested is the PREVIOUS crown, not the current one.**
+
+- The standing ORB champion is run #234 (ride to a 5.5x-risk target with the stop moved to
+  breakeven at 1x risk, no partial exit and no trailing stop).
+- The ORB paper leg still runs run #230, the round-one grail-hunt winner, which is what the
+  crown was before #234 took it on 2026-08-17.
+- NOISE is aligned: the crowned config and the raw paper leg are the same configuration.
+- ENGU-Q is aligned on the certified champion (#226 ETH), with #249 added alongside it as an
+  adopted variant under its own matched control.
+
+This is a REPORTING note. Nothing about the live paper configuration was changed to write it;
+whether to move the ORB leg onto #234 is the owner call.
+
 ## The legs
 
 | Leg | Config | Timing verdict | State |
