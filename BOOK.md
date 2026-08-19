@@ -349,7 +349,7 @@ block over `best_pnl_usd` for any run carrying one, which would make those five 
 cards read correctly everywhere without touching a stored document. It was left out on
 purpose because it changes numbers the owner has already seen on already-saved runs.
 
-### The read-side display correction (web v73.140, 2026-08-18)
+### The read-side display correction (web v73.142, 2026-08-18)
 
 The five affected documents were never rewritten. Instead the web app corrects them **as it
 reads them**, in `_bookUnitsOnRead()`, applied once in the Past-Runs Firestore listener — the
