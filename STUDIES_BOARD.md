@@ -149,10 +149,19 @@ view while the tables scroll past it. ▤ is the stacked layout. The choice is p
 double-click restores half); the handle underneath the chart still sets its height, so in the split
 layout the chart resizes on both axes.
 
-**The tables are compressed on purpose.** Cell padding is 3px, the type is 9.5px and the two prose
-columns — WHAT IT DOES and READ — are clipped to a single line with the whole sentence on hover.
-Wrapping those two columns is what used to make every row three lines tall. If you add a column,
-add it in that spirit: a number reads at a glance, a sentence belongs on a hover.
+**The tables are compressed on purpose, and ordered on purpose.** Cell padding is 2px, the type is
+8.5px, headings are 7px, and the two prose columns — WHAT IT DOES and READ — are clipped to a single
+line with the whole sentence on hover. Column order is **rank, row, name, the four stage figures,
+drawdown, PF, profit÷DD, trades, read**, and only then the grey descriptive block — what it does,
+run, discovered, data window — at the far right, dimmer than the numbers. The money comes first
+because the money is what the table is read for.
+
+**There is no STATUS column.** It was a column of dashes for the sake of the one or two rows per
+family that carry a pill, so CROWN and PAPER ride beside the NAME of the rows that have them and a
+row with neither shows nothing. `_reLiveInline` renders them; the meaning is on the NAME heading.
+
+If you add a column, add it in that spirit: a number reads at a glance, a sentence belongs on a
+hover, and a column that is mostly empty should not be a column.
 
 **Why some rows are tinted, which is a question the board got asked.** A faint blue tint means the
 row's verdict is `champ` — the champion or baseline of that study. That is all it is: the same

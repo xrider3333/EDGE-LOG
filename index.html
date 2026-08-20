@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.174';
+const VERSION='73.175';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.175',date:'2026-08-19',notes:['THE STATUS COLUMN IS GONE. It was a full column of dashes for the sake of the one or two rows per family that carry a pill. CROWN and PAPER now sit beside the name of the rows that have them, and rows that have neither show nothing at all rather than a dash.','THE MONEY MOVED LEFT. The order is now rank, row, name, then the four stage figures, drawdown, profit factor, profit-divided-by-drawdown and trades - the numbers you came for - with the read. The grey descriptive block (what it does, run, discovered, data window) sits at the far right where it can be ignored until you want it.','EVERYTHING IS A STEP SMALLER: the table drops to 8.5px, the headings to 7px, cell padding to 2px, and the grey block is dimmer than the numbers. Twenty-five rows now fit where fifteen used to, and nothing was dropped to do it - the two clipped prose columns still carry their whole sentence on hover.']},
 {v:'73.174',date:'2026-08-19',notes:['VALUE ZOOM is gone. The axes have always spanned only the rows now shown, so the strategy rail and the filters already rescaled the chart; trimming the range was a second and blunter way of doing the same job, and it needed a pinned-to-the-edge special case to stay honest about the rows it pushed out of range. The chart now always fits every point it draws.','COLOUR had three settings and two of them were the same button for anyone on the monochrome theme. THEME already fell back to the five approved colours whenever the app theme is greyscale, which MONO is, so THEME and COLOUR painted an identical chart. There are two now: COLOUR follows the app theme where the theme carries real colour and uses the approved five where it does not, and SHAPES ONLY is unchanged. The app theme is still never touched.','The controls renumber to 1 to 15.']},
 {v:'73.173',date:'2026-08-19',notes:['ONE STRATEGY CONTROL, NOT TWO. The STRATEGY rail at the top and the STRATEGY TYPE filter chips further down were always the same setting - the rail writes that very filter - so the chips were a second copy of the same buttons. They are gone. The rail is control 1 and it is the only place a strategy is picked.','THE CONTROLS ARE TWO PER LINE and NUMBERED 1 to 16. One per line left the right-hand half of the tile empty and cost twice the height for it. The block is roughly half as tall now, and the numbers mean a control can be named in a sentence rather than described - set 4 to VS CROWN, turn 5 off. Control 16, the sixteen study titles, takes a full-width line of its own.']},
 {v:'73.172',date:'2026-08-19',notes:['THE CONTROLS ARE A GRID. Four ragged rows of chips wrapped wherever they ran out of width, so a label could end up nowhere near the buttons it named. Every control is one line now: its name on the left, its buttons on the right, and a group that runs long wraps inside its own cell instead of shoving the next control away from its label.','Two blocks. Always on screen: STRATEGY, PROFIT STAGE, VERTICAL AXIS, READ AS, FRONTIER, ORDER BY - the six that decide what the chart plots. Behind MORE: COMPARE ON, VALUE ZOOM, TIME SCOPE, SCOPE DATE, COLOUR and every filter chip, with CLEAR FILTERS on its own line.','READ AS and FRONTIER MOVED UP into that first block. They shipped on the chart tile header, where they were easy to miss: the owner went looking among the controls and did not find them. Same two controls, same behaviour, now beside the rest.']},
@@ -18069,7 +18070,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reBasis=(APREF.resBasis==='common'||APREF.resBasis==='year')?APREF.resBasis:'asis';
         const _reBasNm={asis:'RATIOS AS IS',common:'COMMON WINDOW',year:'PER YEAR'};
         // the table gains four columns under COMMON WINDOW and three under PER YEAR
-        const _reNCols=17+((_reBasis==='common')?4:((_reBasis==='year')?3:0));
+        const _reNCols=16+((_reBasis==='common')?4:((_reBasis==='year')?3:0));
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         const _reYrs=(st,rw)=>{const w=_reWinOf(st,rw);if(!w)return null;
           const d=_reDayGap(w.f,w.t);return (d&&d>0)?(d/365.25):null;};
@@ -18260,11 +18261,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // the CROWN / PAPER pills. Two separate pills rather than one four-way word, because a
         // row that is both is the interesting case and it should look like both at a glance.
         const _rePill=(t,c)=>'<span style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.6px;padding:2px 5px;border-radius:5px;margin-right:3px;color:var(--text2);background:color-mix(in srgb,'+c+' 22%,transparent);border:1px solid color-mix(in srgb,'+c+' 48%,transparent)">'+t+'</span>';
-        const _reLiveBadge=rw=>{const v=_reLiveV(rw);let s='';
+        // inline beside the name: no pill at all when the row is neither, which is the normal
+        //   state of a research variant and was costing a whole column of dashes.
+        const _reLiveInline=rw=>{const v=_reLiveV(rw);
+          if(v==='none')return '';
+          let s='';
           if(v==='crown'||v==='both')s+=_rePill('CROWN','var(--blue)');
           if(v==='paper'||v==='both')s+=_rePill('PAPER','var(--green)');
-          if(!s)s='<span style="color:var(--text5)">&mdash;</span>';
-          return '<span title="'+_reEsc((rw&&rw.liveWhy)||_reLiveTip[v])+'" style="cursor:help;white-space:nowrap">'+s+'</span>';};
+          return '<span title="'+_reEsc((rw&&rw.liveWhy)||_reLiveTip[v])+'" style="cursor:help;white-space:nowrap;margin-left:5px">'+s+'</span>';};
         const _reLegend=extra=>'<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
           +['champ','good','frag','fail','ref'].map(k=>'<span title="'+_reEsc('drawn as a '+_reToneMk[k]+', so the verdict reads with no colour at all')+'" style="cursor:help">'+_reMk(k)+_reToneNm[k]+'</span>').join('')
           +(extra?('<span style="color:var(--text5)">'+_reEsc(extra)+'</span>'):'')+'</span>';
@@ -18291,7 +18295,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           void g;void pb;
           return (tone==='champ')?('color-mix(in srgb,'+b+' '+pa+',transparent)'):'';};
         const _reRow=(st,rw,rank,com)=>{
-          const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:3px 6px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
+          const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
           // a prose cell is clamped to one line and carries its full text on hover. Wrapping
           //   these two columns was what made a row three lines tall.
           const tdw=(txt,colr,w)=>td('<span title="'+_reEsc(txt)+'" style="color:'+colr+';display:inline-block;max-width:'+w+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(txt)+'</span>','left');
@@ -18318,7 +18322,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(hd>0)tip+=': it starts '+_reDayTxt(hd)+' earlier';
               if(td>0)tip+=((hd>0)?' and':':')+' it runs '+_reDayTxt(td)+' further at the end';
               tip+='. Its totals therefore include history the other rows never saw, so do not put them side by side without saying so.';}
-            return '<span title="'+_reEsc(tip)+'" style="color:var(--text4);font-size:9px;cursor:help">'+wo.f+' \u2192 '+wo.t+'</span>'
+            return '<span title="'+_reEsc(tip)+'" style="color:var(--text5);font-size:8px;cursor:help">'+wo.f+' \u2192 '+wo.t+'</span>'
               +(off?('<span title="'+_reEsc(tip)+'" style="color:'+_reWarnC+';cursor:help"> \u26a0</span>'):'');})();
           const bg=_reBg(rw.tone);
           const em=';background:color-mix(in srgb,var(--text) 7%,transparent);font-weight:700';
@@ -18353,12 +18357,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>','left')
-            +td(_reLiveBadge(rw),'left')
-            +tdw(rw.what,'var(--text4)',_reSplit?150:230)
-            +td(runCell,'left')
-            +td('<span style="color:var(--text4);font-size:10px">'+dCell+'</span>','left')
-            +td(winCell,'left')
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reLiveInline(rw),'left')
             +td(_reCell(st,rw,'is',_reMoney),null,(_reStage==='is')?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reStage==='wf')?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reStage==='lb')?em:'')
@@ -18369,6 +18368,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +basCells
             +td(_reCell(st,rw,'trd',v=>'<span style="color:var(--text5)">'+Math.round(v).toLocaleString()+'</span>'))
             +tdw(rw.read,col,_reSplit?90:130)
+            // the grey block sits at the far right now: it is context, not the answer
+            +tdw(rw.what,'var(--text5)',_reSplit?130:210)
+            +td(runCell,'left',';color:var(--text5)')
+            +td('<span style="color:var(--text5);font-size:8px">'+dCell+'</span>','left')
+            +td(winCell,'left')
             +'</tr>';};
         // ═══ THE ONE SCATTER ═══
         //  Owner ask, 2026-08-19: "this was originally supposed to be one scatter plot and it
@@ -18666,7 +18670,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             bodyRows=rows.map(r=>_reRow(st,r,rank[r.n],com)).join('');
           }
           const _emH=sg=>(_reStage===sg)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
-          const _hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7.5px;letter-spacing:.9px;color:var(--text5);font-weight:700;padding:4px 6px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
+          const _hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
           const stg=_reStWord(st,_reStage);
 
           // -- the extra headings the comparison basis brings with it. They are highlighted the
@@ -18683,12 +18687,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               :'');
           const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
             +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
-            +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour. The one row with a faint blue TINT behind it is the champion or baseline of this study. A brighter flash over a row is not a verdict at all: that is the live link with the chart, and it fades when the pointer moves away.')
-            +_hd('STATUS','left','CROWN means the row is the standing champion of its family. PAPER means this exact configuration is running in the nightly paper forward test right now. A dash means neither, which is the normal state of a research variant. A good backtest and a thing being traded forward are two different claims, so the board keeps them apart.')
-            +_hd('WHAT IT DOES','left')
-            +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
-            +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
-            +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. Read from the saved run document where the row has a run number, and from the studies registry where it does not — never guessed. A warning sign means this row does not match the stretch every row now shown has in common, so its totals are not comparable with theirs; hover it and it says by how much.')
+            +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour. The one row with a faint blue TINT behind it is the champion or baseline of this study. A CROWN or PAPER pill after a name means that row is the standing champion of its family, or is the configuration running in the nightly paper forward test right now, or both - two different claims the board keeps apart. Most rows carry neither and show nothing, which is why there is no column for it. A brighter flash over a row is not a verdict at all: that is the live link with the chart, and it fades when the pointer moves away.')
             +_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.',_emH('is'))
             +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
@@ -18697,7 +18696,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('PF',null,'Profit factor: gross wins divided by gross losses.')
             +_hd('PROFIT÷DD',null,stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
             +basHd
-            +_hd('TRADES')+_hd('READ','left')+'</tr>';
+            +_hd('TRADES')+_hd('READ','left')
+            +_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
+            +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
+            +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
+            +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. Read from the saved run document where the row has a run number, and from the studies registry where it does not — never guessed. A warning sign means this row does not match the stretch every row now shown has in common, so its totals are not comparable with theirs; hover it and it says by how much.')
+            +'</tr>';
           const notes=Array.isArray(st.notes)?st.notes:(st.note?[st.note]:[]);
           const open=(_reSolo===st.key)||(_reOpenSet.indexOf(String(st.key))>=0);
           const hdTip=st.sub+(filtOut?(' \u2014 '+filtOut+' of its rows are hidden by the filters.'):'')
@@ -18711,7 +18715,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="margin-left:auto;font-size:8px;color:var(--text5)">'+_reEsc(st.disc||'')+'</span></div>'
             +'<div data-rebody="'+_reEsc(st.key)+'" style="'+(open?'':'display:none;')+'padding:0 0 11px">'
             +'<div style="font-size:9px;color:var(--text4);line-height:1.6;margin:0 0 7px;max-width:960px">'+_reEsc(st.sub)+'</div>'
-            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:9.5px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
+            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
             +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.75;margin:8px 0 0;padding-left:15px;max-width:960px">'
                 +notes.map(n=>'<li style="margin-bottom:4px">'+_reEsc(n)+'</li>').join('')+'</ul>'):'')
             +'</div></div>';};
