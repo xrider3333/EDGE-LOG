@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.178';
+const VERSION='73.179';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.179',date:'2026-08-20',notes:['FOUR RUNS WERE THE SAME RUN TWICE, and they have been archived. On 18 August the same four NOISE configurations were validated a second time - runs 251, 252, 253 and 254 repeat runs 245, 243, 241 and 242. Every field was checked before archiving: same strategy file, same date window, same data source, same costs, the same fifteen crowned settings and the same headline figures down to the cent. Nothing was deleted and one click un-archives any of them.','WHY IT HAPPENED: one session queued the jobs and then died. A second session looked at the queue, saw nothing waiting or running, and queued four of them again. The four originals had already FINISHED, so the check of the day could not see them.','THE SYSTEM NOTICES NOW. Every job is fingerprinted on the things that decide its numbers - the strategy file, the date window, the data source and session, the costs and the search settings - and that fingerprint is compared against jobs that have already FINISHED as well as ones still waiting. The free-text note, the provider and the worker count are ignored, because two jobs that differ only in those compute the same answer.','IT WARNS, IT DOES NOT BLOCK. Queue a repeat from the Builder and you are told which run already did it and on what date, and asked whether to go ahead - because running something again to check it reproduces, or on newer data, is a fair thing to want. Jobs queued straight in by a script have nobody to ask, so those run and get labelled as a repeat instead.','A REPEAT NOW SAYS SO. A run the guard recognised carries a REPEAT OF badge on its own report, and on the STUDIES board a row no longer counts an archived repeat in its plus-N marker - it shows a separate archived mark whose hover explains what happened.']},
 {v:'73.178',date:'2026-08-19',notes:['COMMON WINDOW IS REMOVED from COMPARE ON. It was the most rigorous option on the board and it could reach almost nothing: slicing a row needs the equity curve a real run saved, and 31 of the 216 rows here have a run behind them at all. The other 185 are local research with no curve to cut, so the basis dashed 85 percent of the board by construction - and that gap only widens, because windows naturally diverge as testing goes on.','What answers the same question instead is already on the board and needs no slicing: PROFIT FACTOR and the new $/TRD are properties of the trade population rather than of the calendar, so a longer window does not flatter either of them. PER YEAR remains for reading money against the length of the window it was earned over, and it reaches every row that records a window.','NOTHING THAT MEASURES A WINDOW WAS TOUCHED. The DATA WINDOW column still says what stretch every row covers, the WINDOW status chip still names the stretch the visible rows share, and the warning still names the rows that reach outside it. Knowing the rows do not share a stretch is the point; slicing them was only one way to act on it, and it was the way that could not reach the board.']},
 {v:'73.177',date:'2026-08-19',notes:['MONEY IS ABBREVIATED in the study tables: 400,000 reads 400k, 6,190 reads 6.2k, and a million-plus reads 1.24M. Anything under a thousand stays whole, because shortening 671 to 0.7k loses a digit and saves nothing. THE EXACT FIGURE IS ON THE HOVER of every abbreviated cell, so this costs space and not precision.','NEW $/TRD COLUMN, and $/TRADE as a chart axis. With profit factor it is the pair of figures on this board that a mismatched window barely touches, because both are properties of the trade population rather than of the calendar - a longer window does not flatter either of them. It is whole-run money divided by the trade count, so it says out loud that it cannot follow PROFIT STAGE or COMPARE ON: a trade count is recorded once per row, not per stage. 137 of the 216 rows record both figures; the rest show a dash saying which one is missing.','The PROFIT÷DD axis button now carries the warning it deserves: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so it is the most fragile reading here. PF is the most robust.']},
 {v:'73.176',date:'2026-08-19',notes:['THE STATUS COLUMN IS GONE. It was a full column of dashes for the sake of the one or two rows per family that carry a pill. CROWN and PAPER now sit beside the name of the rows that have them, and rows that have neither show nothing at all rather than a dash.','THE MONEY MOVED LEFT. The order is now rank, row, name, then the four stage figures, drawdown, profit factor, profit-divided-by-drawdown and trades - the numbers you came for - with the read. The grey descriptive block (what it does, run, discovered, data window) sits at the far right where it can be ignored until you want it.','EVERYTHING IS A STEP SMALLER: the table drops to 8.5px, the headings to 7px, cell padding to 2px, and the grey block is dimmer than the numbers. Twenty-five rows now fit where fifteen used to, and nothing was dropped to do it - the two clipped prose columns still carry their whole sentence on hover.']},
@@ -1390,6 +1391,61 @@ let pendingMerges=[],pendingApprovalCb=null; // change approval queue
 
 // Helpers
 const el=id=>document.getElementById(id);
+
+// -- DUPLICATE-WORK GUARD (web side) ---------------------------------------------
+// Mirrors api/dupe_guard.py. Two jobs with the same fingerprint compute the same
+// numbers, so queueing the second one buys nothing but a reliability check.
+// KEEP THIS FIELD LIST IN STEP WITH MATERIAL_FIELDS IN api/dupe_guard.py. It is an
+// allowlist on purpose: it names the inputs that decide the answer and leaves out the
+// ones that do not (the note text, the provider, the worker count, the chart
+// resolution). The four real duplicates carried DIFFERENT note text, so a fingerprint
+// that included the note would have missed every one of them.
+const DUPE_FIELDS=['type','strategy','kind','date_from','date_to','instrument','timeframe',
+  'source','session','mult','cost_pts','commission_usd','slippage_pts','preset','discover',
+  'n_trials','n_rounds','wf_folds','wf_mode','lockbox_months','lockbox','min_trades',
+  'transfer_to','dsr','oos','top_n','grid','params','ml_filter','ml_threshold','sizing',
+  'book_legs','run_id'];
+const _dupeNorm=v=>{
+  if(v===null||v===undefined||v==='')return null;
+  if(typeof v==='boolean')return v;
+  if(typeof v==='number')return v===0?0:v;
+  if(Array.isArray(v)){const a=v.map(_dupeNorm);return a.length?a:null;}
+  if(typeof v==='object'){const o={};Object.keys(v).sort().forEach(k=>{const n=_dupeNorm(v[k]);if(n!==null)o[k]=n;});return Object.keys(o).length?o:null;}
+  return String(v);
+};
+const dupeFingerprint=job=>{
+  const view={};
+  DUPE_FIELDS.forEach(f=>{const n=_dupeNorm((job||{})[f]);if(n!==null)view[f]=n;});
+  return JSON.stringify(view,Object.keys(view).sort());
+};
+const dupeDiff=(a,b)=>{
+  const out=[];
+  DUPE_FIELDS.forEach(f=>{
+    const x=JSON.stringify(_dupeNorm((a||{})[f])),y=JSON.stringify(_dupeNorm((b||{})[f]));
+    if(x!==y)out.push(f);
+  });
+  return out;
+};
+// The question the owner reads before deciding. It names the earlier run and its date,
+// and it always offers to go ahead, because a rerun is sometimes exactly the point.
+const dupeAsk=d=>{
+  const who=d.runId?('run #'+d.runId):('an earlier job '+String(d.job.id||'').slice(0,8));
+  const head=(d.status==='done')?('You have already run this. '+who+' finished this exact configuration on '+d.when+'.'):('This is already '+d.status+'. '+who+' has this exact configuration.');
+  const many=(d.n>1)?(' It has been queued '+d.n+' times already.'):'';
+  return head+'\n\nSame strategy file, same date window, same data source and session, the same costs and the same search settings.'+many+'\n\nRunning it again will produce the same figures. That is worth doing to confirm reproducibility, or if you meant to use newer data, in which case check the date window before continuing.'+'\n\nQueue it anyway?';
+};
+const dupeFind=(job,pool)=>{
+  const fp=dupeFingerprint(job);
+  const ok=['done','queued','running','paused'];
+  const hits=(pool||[]).filter(j=>j&&ok.indexOf(String(j.status||'').toLowerCase())>=0&&dupeFingerprint(j)===fp);
+  if(!hits.length)return null;
+  const done=hits.filter(j=>String(j.status).toLowerCase()==='done');
+  const use=(done.length?done:hits).slice().sort((a,b)=>(a.finishedAt||Infinity)-(b.finishedAt||Infinity))[0];
+  let when='an earlier date';
+  if(use.finishedAt)when=new Date(use.finishedAt*1000).toISOString().slice(0,16).replace('T',' ');
+  else if(use.createdAt&&use.createdAt.toDate)when=use.createdAt.toDate().toISOString().slice(0,16).replace('T',' ');
+  return {job:use,when:when,n:hits.length,runId:use.run_id||null,status:String(use.status).toLowerCase()};
+};
 const gc=n=>n>=0?'var(--green)':'var(--red)';
 const gch=n=>n>=0?'#00e5a0':'#ff3d5a';
 const fmt=n=>(n>=0?'+':'')+n.toFixed(2);
@@ -15250,6 +15306,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span title="'+((d.famKey&&d.famSeq!=null)?('family run id '+d.famKey+'-'+d.famSeq):'')+'" style="font-size:11px;font-weight:800;letter-spacing:0;color:var(--text);flex:0 0 auto">REPORT '+d.id+':</span>'
         +'<span style="font-size:11px;font-weight:400;line-height:1;flex:0 0 auto;padding-right:2px;display:inline-flex;align-items:center">'+stratTag(d.strategy,'11px',400).replace(/\s*&middot;\s*|\s+·\s+/g,' ')+'</span>'
         +(d._bookUnitFix?('<span style="flex:0 0 auto">'+_bookFixChip(d,'8.5px')+'</span>'):'')
+        // DUPLICATE-WORK GUARD: a run the guard recognised as a repeat says so on its own
+        // report, naming the run it repeats, so nobody has to compare two reports by eye.
+        +((d.repeat_of_run||d.repeat_of_job)?('<span title="'+String(d.repeat_note||('This run repeated a configuration that had already been computed'+(d.repeat_of_run?(', as run #'+d.repeat_of_run):'')+'. Same strategy file, same date window, same data source and the same search settings, so the figures should match. It was allowed to run and tagged rather than blocked, because confirming that a result reproduces is a legitimate reason to run it again.')).replace(/"/g,'&quot;')+'" style="flex:0 0 auto;font-size:8.5px;letter-spacing:.5px;color:var(--yellow);border:1px solid color-mix(in srgb,var(--yellow) 40%,transparent);border-radius:5px;padding:1px 5px;cursor:help">↺ REPEAT'+(d.repeat_of_run?(' OF #'+d.repeat_of_run):'')+'</span>'):'')
         // the numbered checklist "tiles" now live INLINE in the header (fill the middle, squish to fit)
         +'<span id="res-pills" title="validation checklist · green = passed · red = not met · outline = n/a · click a numbered step to jump to its section" style="display:flex;gap:4px;flex:1 1 auto;min-width:40px;overflow:hidden">'+segs+'</span>'
         +'<span style="display:flex;gap:6px;align-items:center;flex:0 0 auto;padding-left:4px">'
@@ -16855,6 +16914,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
                     hollow circle, cross, hollow triangle — so the verdict reads with no
                     colour at all on the monochrome theme. Colour is reinforcement only.
            read     the short verdict text
+           repeats  [runId, ...] of runs that REPEATED this exact configuration and have
+                    since been ARCHIVED. Keep these OUT of `runs`, so the +N marker only
+                    ever counts runs the owner can actually open. The row prints a
+                    separate archived-repeat marker instead, whose hover says a duplicate
+                    job was queued, the figures came out identical, and the repeat is
+                    hidden rather than deleted. OMIT the field when there are none.
            runs     [runId, ...] of the real Auto-Validate runs that persisted this row.
                     OMIT the field entirely for local-only research — the row then prints
                     "local" in the RUN column, exactly like the RUNBOARD does, and it
@@ -16890,13 +16955,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
        sub:'One strategy on its own. NQ 5-minute bars, 2010 to 2026. Twenty-six configurations tested against the crowned champion.',
        notes:['Row 2 is the single-strategy recommendation. Skipping short trades the day after a weak close was the only change that passed every test for fragility.','Row 26 has no walk-forward figure, because that older ORB run covered different dates from the rows above it. It leaves the chart whenever the walk-forward stage is selected.','Read this study on raw profit. Every row here trades one strategy on one contract, so they all carry the same margin and the dollars are directly comparable.'],
        rows:[
-        {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[231,242,254],live:'both',liveWhy:'This is the standing NOISE champion and it is also the raw NOISE configuration running in the paper forward test right now, where it is the matched control for the two gated NOISE legs.',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
-        {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'good',read:'Best raw profit',runs:[241,253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
-        {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'good',read:'Best all-round',runs:[243,252],is:16445,wf:303685,lb:40648,tot:380745,dd:22096,pf:1.39,pdd:17.23,trd:4429},
+        {n:1,name:'Champion',what:'No filters. The current crowned config.',tone:'champ',read:'Current champion',runs:[231,242],repeats:[254],live:'both',liveWhy:'This is the standing NOISE champion and it is also the raw NOISE configuration running in the paper forward test right now, where it is the matched control for the two gated NOISE legs.',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
+        {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'good',read:'Best raw profit',runs:[241],repeats:[253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
+        {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'good',read:'Best all-round',runs:[243],repeats:[252],is:16445,wf:303685,lb:40648,tot:380745,dd:22096,pf:1.39,pdd:17.23,trd:4429},
         {n:4,name:'Skip Wild 2%',what:'Skip the wildest 2% of days.',tone:'frag',read:'Tail-driven',runs:[256],is:12321,wf:296734,lb:61018,tot:384690,dd:22334,pf:1.29,pdd:17.22,trd:5347},
         {n:5,name:'Wait2 + Short Veto',what:'Wait 2 bars to enter, plus row 2.',tone:'frag',read:'Pre-registered pick',is:17330,wf:315369,lb:32556,tot:367959,dd:37729,pf:1.32,pdd:9.75,trd:4418},
         {n:6,name:'Skip Wild 5%',what:'Skip the wildest 5% of days.',tone:'frag',read:'Tail-driven',is:11470,wf:291493,lb:52580,tot:375262,dd:28873,pf:1.30,pdd:13.00,trd:5159},
-        {n:7,name:'Full Veto',what:'Skip all trades the day after a weak close.',tone:'good',read:'Strong lockbox',runs:[245,251],is:9033,wf:299750,lb:49470,tot:366855,dd:29041,pf:1.34,pdd:12.63,trd:4404},
+        {n:7,name:'Full Veto',what:'Skip all trades the day after a weak close.',tone:'good',read:'Strong lockbox',runs:[245],repeats:[251],is:9033,wf:299750,lb:49470,tot:366855,dd:29041,pf:1.34,pdd:12.63,trd:4404},
         {n:8,name:'Skip Wild 10%',what:'Skip the wildest 10% of days.',tone:'frag',read:'Tail-driven',is:13168,wf:297522,lb:40328,tot:372285,dd:23698,pf:1.35,pdd:15.71,trd:4732},
         {n:9,name:'Wait3 + Short Veto',what:'Wait 3 bars to enter, plus row 2.',tone:'good',read:'Holds up',is:18326,wf:297514,lb:35969,tot:365105,dd:26189,pf:1.36,pdd:13.94,trd:3865},
         {n:10,name:'Triple Stack',what:'Wait 2 bars, row 2, and skip the wildest 10%.',tone:'frag',read:'Over-stacked',is:18367,wf:298690,lb:20084,tot:349773,dd:19433,pf:1.42,pdd:18.00,trd:3757},
@@ -17047,7 +17112,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
          runs:[249],is:400926,lb:112088,tot:513014,dd:61666,pf:1.40,trd:2924},
         {n:97,fam:'NOISE',name:'Paper: NOISE',what:'The noise-band strategy running in paper on the crowned settings, which is also the matched control for both gated NOISE legs. Same configuration as row 1.',tone:'champ',read:'Crowned and running',live:'both',
          liveWhy:'This is the standing NOISE champion and it is running in the paper forward test right now as the raw control for the two gated NOISE legs.',
-         runs:[231,242,254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,trd:5633},
+         runs:[231,242],repeats:[254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,trd:5633},
         {n:98,fam:'NOISE',name:'Paper: NOISE + Tree Gate',what:'The same NOISE configuration with a decision-tree gate at the 55 percent floor. It is a written-down forward test of a result that only looked good in hindsight, not a crown.',tone:'frag',read:'Pre-declared test, not a crown',live:'paper',
          liveWhy:'This is a gate overlay running in the paper forward test right now. The project states plainly that it is a test rather than a crown: the selection rule would never have picked this gate, and the claim is that it should beat the raw control from 2026-08-16 forward.',
          runs:[225],trd:2689},
@@ -18229,9 +18294,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const tdw=(txt,colr,w)=>td('<span title="'+_reEsc(txt)+'" style="color:'+colr+';display:inline-block;max-width:'+w+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(txt)+'</span>','left');
           const col=_reTone[rw.tone]||'var(--text4)';
           const runs=Array.isArray(rw.runs)?rw.runs:[];
+          // ARCHIVED REPEATS. `runs` lists only runs you can still open, so the +N marker
+          // never advertises a run that Past Runs is hiding. But a repeat that happened
+          // is a fact, so `repeats` keeps it and prints its own marker saying plainly that
+          // it was archived. Dropping it silently would be the dishonest option.
+          const reps=Array.isArray(rw.repeats)?rw.repeats:[];
+          const repCell=reps.length?('<span title="'+_reEsc('This exact configuration was validated a second time on 18 August 2026, as run '+reps.join(' and ')+', because a duplicate job was queued by mistake. The repeat produced identical figures, so it added no new evidence. It has been ARCHIVED, which hides it from Past Runs without deleting it, and it is not counted in the run number beside this.')+'" style="color:var(--text5);font-size:9px;cursor:help"> ↺'+reps.length+' archived</span>'):'';
           const runCell=runs.length
             ?('<span title="'+_reEsc('This result was persisted as a real run. Click the row to open its report.')+'" style="color:var(--text2)">#'+runs[0]+'</span>'
-              +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):''))
+              +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):'')+repCell)
             :('<span title="'+_reEsc('Local research only. This was computed on the machine and never persisted as an Auto-Validate run, so it has no run number and no date ran.')+'" style="color:var(--text5);font-style:italic;cursor:help">local</span>');
           const dCell=(_reDate==='ran')
             ?(runs.length?(_reRunDate(runs[0])||_reDash('This run exists but its saved date could not be read from run history.')):_reDash('This row was never run as a validate run, so it has no date ran.'))
@@ -21090,7 +21161,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00');e.setFullYear(e.getFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);if(el('ex-pills'))savePref('pills',el('ex-pills').checked);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
-      :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
+      :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});const _dup=dupeFind(job,backtests);if(_dup&&!confirm(dupeAsk(_dup)))return;if(_dup){job.repeat_of=_dup.job.id;if(_dup.runId)job.repeat_of_run=_dup.runId;job.repeat_ack=true;}xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='cmp'){
       // v64.57: mirrors the renderer — a deliberately empty tab starts from EMPTY, so picking a run
       //   adds just that run instead of the "latest 3" fallback plus that run.

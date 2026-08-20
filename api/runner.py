@@ -31,6 +31,7 @@ import threading
 import augur_engine as ae
 from augur_engine import trial_cache as TC
 from .util import json_safe
+from . import dupe_guard
 try:
     from . import paper as _paper
 except Exception as _e:
@@ -826,7 +827,7 @@ class FirestoreQueue:
         except Exception:
             return None
 
-    def _persist_run(self, uid, job, result, log=print, elapsed_s=0.0):
+    def _persist_run(self, uid, job, result, log=print, elapsed_s=0.0, dup=None):
         """Save a completed web grid sweep into users/{uid}/runs (Runs history),
         shaped like the app's synced runs so the Runs tab renders it identically."""
         mult = float(job.get("mult", 20) or 20)
@@ -868,6 +869,14 @@ class FirestoreQueue:
                       .get(job.get("type"), job.get("preset", "web sweep"))),
             # carry the validate report card into run history so Results/Library can show it
             "validate": result.get("validate"),
+            # DUPLICATE-WORK GUARD: when this run repeated a configuration that had
+            # already been computed, the link travels with the run so Past Runs and the
+            # STUDIES board can say "repeat of run N" instead of leaving someone to
+            # notice four identical rows by eye.
+            "repeat_of_run": (dup or {}).get("run_id"),
+            "repeat_of_job": (dup or {}).get("job_id"),
+            "repeat_note": (dup or {}).get("note"),
+            "fingerprint": (dup or {}).get("fingerprint"),
             "data_source": job.get("source", ""),
             "source_name": (mm.get("name") if mm else "") or job.get("source", "") or "",
             "rounds": result.get("rounds"), "best_oos_pnl": result.get("best_oos_pnl"),
@@ -979,6 +988,9 @@ class FirestoreQueue:
                         f"master '{_bm.get('master')}') -> {_out}")
         except Exception as _e:
             log(f"    -> blotter skipped: {type(_e).__name__}: {_e}")
+        # hand the run number back so the caller can stamp it onto the job doc: that is
+        # what lets the NEXT duplicate name a run number instead of a raw job id.
+        return rid
 
     def _save_job_doc(self, ref, patch, log=print):
         """Write the finished-job patch to its backtests doc. `patch["result"]` has
@@ -1126,6 +1138,47 @@ class FirestoreQueue:
                         ref.update({"status": "cancelled", "finishedAt": time.time()})
                         log(f"  cancelled {snap.id} (stopped before start)")
                         continue
+                    # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
+                    # Compare this job against ALREADY-COMPLETED jobs, not just
+                    # in-flight ones. Checking only 'queued'/'running' is what let four
+                    # NOISE validates run twice on 2026-08-18: the originals had already
+                    # finished, so they were invisible to the check.
+                    #
+                    # It does NOT block. The runner is the headless path - a script or a
+                    # dead session queued this and nobody is here to answer a prompt, and
+                    # a rerun is often exactly what was wanted (reproducibility, or the
+                    # same configuration on newer data). Refusing silently would be the
+                    # surprising behaviour. So it runs the job and makes the repeat
+                    # impossible to miss: a loud log line, and a permanent link stamped on
+                    # the job doc and carried onto the run doc, so Past Runs and the
+                    # STUDIES board can say "repeat of run N" without anyone eyeballing it.
+                    # The owner-facing WARNING-BEFORE-SPENDING-20-MINUTES lives in the web
+                    # Builder, where there IS someone to ask.
+                    dup_note = None
+                    dup_match = None
+                    try:
+                        _fp = dupe_guard.job_fingerprint(job)
+                        _m, _rid = dupe_guard.find_duplicate(
+                            self.db, uid, job, exclude_ids=(snap.id,))
+                        _patch = {"fingerprint": _fp}
+                        if _m:
+                            dup_note = dupe_guard.describe(_m, _rid)
+                            dup_match = {"run_id": _m.get("run_id") or _rid,
+                                         "job_id": _m.get("job_id"),
+                                         "fingerprint": _fp,
+                                         "note": dup_note}
+                            _patch["repeat_of"] = _m["job_id"]
+                            _patch["repeat_of_at"] = _m["when"]
+                            if _rid is not None:
+                                _patch["repeat_of_run"] = _rid
+                            log("  !! DUPLICATE WORK: " + dup_note)
+                            log(f"     (this job {snap.id} runs anyway - reruns are "
+                                f"legitimate - and is tagged as a repeat)")
+                        ref.update(_patch)
+                    except Exception as _e:
+                        # A guard that can break a backtest is worse than the duplicate
+                        # it prevents, so every failure here is non-fatal.
+                        log(f"  (duplicate-guard skipped: {_e})")
                     ref.update({"status": "running", "progress": 0})
                     log(f"  running {snap.id}: {job.get('type','backtest')} "
                         f"{job.get('strategy')} {job.get('instrument')}…")
@@ -1175,7 +1228,17 @@ class FirestoreQueue:
                     # sweeps appear alongside the app's runs in users/{uid}/runs.
                     if job.get("type") in ("grid", "auto", "walkforward", "ai_optimize", "ai_evolve", "validate", "gate_validate", "book") and patch.get("status") == "done":
                         try:
-                            self._persist_run(uid, job, patch.get("result") or {}, log, elapsed_s=_elapsed)
+                            _new_rid = self._persist_run(uid, job, patch.get("result") or {},
+                                                         log, elapsed_s=_elapsed,
+                                                         dup=dup_match)
+                            # Stamp the run number back onto the job doc. A future duplicate
+                            # can then name a RUN NUMBER outright instead of falling back to
+                            # matching a job against run history by window and save time.
+                            if _new_rid is not None:
+                                try:
+                                    ref.update({"run_id": _new_rid})
+                                except Exception:
+                                    pass
                         except Exception as _e:
                             log(f"  (persist-run failed: {_e})")
                     n += 1

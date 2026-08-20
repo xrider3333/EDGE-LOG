@@ -318,6 +318,7 @@ the same thing everywhere.
 | `read` | yes | The short verdict text shown in the last column. |
 | `fam` | no | Overrides the study strategy-type tag for this row alone. |
 | `runs` | no | An array of the real Auto-Validate run ids that persisted this row. **Leave the field out entirely** for local-only research; the row then prints `local` in the RUN column, the same convention the RUNBOARD uses, and it carries no date ran. |
+| `repeats` | no | An array of run ids that repeated this row's exact configuration and have since been **archived**. Keep them OUT of `runs`. The `+N` marker beside a run number exists so the owner can go and open those runs, and an archived run is hidden from Past Runs, so counting it there would promise something the board cannot deliver. The row prints its own archived-repeat marker instead, and its hover says a duplicate job was queued by mistake, the figures came out identical, and the repeat is hidden rather than deleted. Omit the field when there are none. |
 | `disc` | no | Overrides the study discovery date for this row alone. |
 | `is` `wf` `lb` `tot` | no | The four stage profits, in dollars. Leave a field out when it does not exist. |
 | `dd` | no | The worst drawdown, **always written as a positive number**. |
@@ -664,3 +665,17 @@ number in your own checkout, and if you find that a concurrent session has alrea
 configuration you were about to add, leave theirs alone and say in your own study's notes which
 rows carry the rest of the family. Row numbers are permanent handles and a duplicate is worse
 than a gap.
+
+### Repeats and the duplicate-work guard
+
+On 18 August 2026 four pinned NOISE validates ran twice. One session queued them and died;
+a second session checked the queue, saw only jobs that were still queued or running, did not
+see the four that had already **finished**, and queued them again. The repeats produced
+identical figures, which is a real reliability check but adds no new evidence.
+
+Two things came out of that. The repeats (runs 251, 252, 253 and 254) were archived, and the
+four rows that named them moved those ids from `runs` into the new `repeats` field. And the
+system now notices: every job is fingerprinted on the fields that decide its numbers, and that
+fingerprint is compared against finished jobs as well as in-flight ones. The Builder asks
+before queueing a repeat; the runner lets it through but tags it, so a future repeat arrives on
+this board already labelled instead of waiting for somebody to spot four identical rows.
