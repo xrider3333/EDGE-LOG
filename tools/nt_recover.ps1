@@ -319,9 +319,28 @@ do {
     $titles = @(NtWindowTitles)
     $blocking = @($titles | Where-Object { $_ -and $_ -match "^(Warning|Error|Assertion|Confirm|Information|Attention)" })
     if ($blocking.Count -gt 0) {
-      Log "A DIALOG IS BLOCKING NINJATRADER - nobody can recover this without a click:"
+      Log "A DIALOG IS BLOCKING NINJATRADER:"
       foreach ($t in $blocking) { Log "  window: $t" }
-      Log "Answer it on screen, then this will recover on its next pass."
+      # A modal dialog stops the charts loading, so nothing can be enabled until it is
+      # answered -- and at 1am nobody is going to answer it. Waiting for a human turned a
+      # transient network blip into an open-ended outage on 2026-08-20. Restarting clears
+      # the dialog, so do that instead of asking.
+      # If the account is holding something, refuse: its protective stop is GTC and rests
+      # at the broker, so the position stays covered, and the open-position gate further
+      # down will alert rather than quietly re-enabling into a mismatch.
+      $posNow = ""
+      try { $posNow = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 6 -UseBasicParsing).Content } catch {}
+      if ($posNow -and $posNow -notmatch '"positions"\s*:\s*\[\s*\]') {
+        Log "a position is OPEN - not restarting to clear a dialog. This one needs a person."
+        Log "  $posNow"
+        exit 5
+      }
+      Log "account is flat (or unreachable) - restarting NinjaTrader to clear it"
+      foreach ($q in @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)) {
+        try { Stop-Process -Id $q.Id -Force -ErrorAction Stop } catch {}
+      }
+      Start-Sleep -Seconds 8
+      Log "restarted - the next pass will bring everything back up"
       exit 5
     }
     Log "still waiting on: $($pending -join ', ') - charts may still be loading, retrying in 20s"
