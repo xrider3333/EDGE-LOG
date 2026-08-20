@@ -105,11 +105,36 @@ once opened.
 the common data window. Each is a short fact, and the hover on each carries the full paragraph that
 used to be printed there. A chip warning about something wears the warning colour.
 
+**FRONTIER — on the chart header.** Draws the upper-left staircase through the variants that
+nothing now shown beats on *both* axes at once: no other point made more money and took a smaller
+worst drawdown. Those points are ringed, joined by a dashed staircase, named by row number under
+the chart, and flagged in their own hover. It is computed from the points on screen — filtering
+recomputes it — and it is a **shape, not a judgement**: a row can sit on the frontier and still
+carry a `fail` verdict, because the frontier knows nothing about how the figure was earned.
+
+**READ AS — absolute, or vs crown.** VS CROWN measures both axes *from* the crowned configuration
+of each row's own family, so the crown lands on the origin and every other variant reads as the
+money it added and the drawdown it added against the thing actually being traded. It is the same
+figures the tables print, subtracted — never new data — and it changes the **chart only**; the
+tables always show absolute numbers, and the chart says so underneath.
+
+**BASELINE — the rail that appears under VS CROWN.** It names which crowned row each family is
+read against. Today **every family has more than one row tagged crowned**, because the
+what-is-running-in-paper study restates configurations other studies already crowned, and section 6
+says one family, one crown. The board does not average that away and does not silently pick: it
+reads against the **lowest-numbered** candidate — a row number is a permanent handle handed out in
+order, so the lowest is the first time that crown was recorded and the rest restate it — states that
+on the rail in warning colour, and lets one click read against a different one. Choosing there
+changes nothing in the registry. **If you fix the duplicate tags, the rail goes quiet by itself.**
+
 **SPLIT SCREEN — the ◧ / ▤ pair on the right of the sub-tab bar.** The same control, in the same
 place, that RESULTS, LIBRARY and RESEARCH use; it only appears while STUDIES is the mode on screen.
 ◧ puts the chart on the left and the study tables on the right, with the chart pinned so it stays in
 view while the tables scroll past it. ▤ is the stacked layout. The choice is persisted as
 `resSplit`, which is deliberately NOT `resView` — that key already belongs to the RESULTS split.
+**Drag the bar between the two columns** to set how much width the chart gets (`resSplitW`, 22–78%,
+double-click restores half); the handle underneath the chart still sets its height, so in the split
+layout the chart resizes on both axes.
 
 **The tables are compressed on purpose.** Cell padding is 3px, the type is 9.5px and the two prose
 columns — WHAT IT DOES and READ — are clipped to a single line with the whole sentence on hover.
@@ -117,9 +142,11 @@ Wrapping those two columns is what used to make every row three lines tall. If y
 add it in that spirit: a number reads at a glance, a sentence belongs on a hover.
 
 **Why some rows are tinted, which is a question the board got asked.** A faint blue tint means the
-row's verdict is `champ`; a faint green tint means `good`. That is all it is — the same verdict the
-shape beside the name already carries, repeated as background so the rows worth finding stand out
-in a long table. No other verdict tints. The *brighter* flash that follows the pointer is a
+row's verdict is `champ` — the champion or baseline of that study. That is all it is: the same
+verdict the shape beside the name already carries, repeated as background so the one row worth
+finding stands out in a long table. No other verdict tints. There used to be a green tint for
+`good` as well; the owner had it removed on 2026-08-19 as noise, since the mark already said it.
+`_reBg` still keeps the second colour in place behind a `void`, so bringing it back is one line. The *brighter* flash that follows the pointer is a
 different mechanism entirely: the live two-way link between a table row and its point on the chart.
 Every tinted row carries that explanation on its own hover, and so does the NAME heading.
 

@@ -68,6 +68,9 @@ CASES = [
     ('scope-30',     {'resScope': '30'}),
     ('split-side',   {'resSplit': 'side'}),
     ('more-open',    {'resMore': True, 'resHelp': True}),
+    ('vs-crown',     {'resRel': 'crown'}),
+    ('vs-crown-orb', {'resRel': 'crown', 'resFilt': '{"fam":["ORB"]}'}),
+    ('no-frontier',  {'resFront': False}),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
