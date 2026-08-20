@@ -80,19 +80,27 @@ once per row. Coverage differs and it matters — PF places 203 of 215 rows, raw
 (There used to be a PER STUDY setting honouring a `yMode` declared by each study. With one chart it
 had nothing left to mean — a single axis cannot hold two units — so it and the field are gone.)
 
-**ORDER BY — discovered, date ran, or result** (control 14, on the STUDY TABLES heading). Discovered
-keeps the registry order, which is the order the owner approved. Date ran reads the real finish date
-out of run history and splits each table into a block that was run and a block that never was.
-Result sorts best first on whatever stage and axis are selected.
+**ORDER — date, or result** (control 12, on the STUDY TABLES heading). DATE puts the newest first on
+whichever date control 6 names; rows sharing a date keep the registry order, which is the order the
+owner approved, and a row with no date of that kind sits at the bottom. RESULT puts the best first on
+the profit stage and vertical axis selected above, with rows that have no figure for that reading at
+the bottom.
 
-**It does not change what the chart shows, and it lives with the tables for that reason.** Sorting
-cannot move a point, so no row is ever gained or lost by it. Two couplings survive on purpose and
-both are named on its hover: under DATE RAN the chart **fades** the never-run points so it matches
-the split the tables are showing, and while TIME SCOPE is on, SCOPE DATE defaults to *following* this
-control, so it decides which of a row's two dates the scope reads. Set SCOPE DATE explicitly and even
-that goes away.
+**SPLIT BY RUN — on or off** (control 13). Groups each table into rows that were persisted as a real
+Auto-Validate run and rows that were only ever computed locally, run-backed first, with ORDER still
+applying inside each block. The chart fades the never-run points to match.
 
-**Filters — verdict, discovered date, run status, status, study** (controls 9–13). These are built
+**Why those are two controls and not one.** Until 2026-08-19 there was a single ORDER BY offering
+DISCOVERED / DATE RAN / RESULT, and the owner's objection was exactly right: *"its combining dates
+with type (auto validate)"*. Three questions were riding on one rail — sort by date or by result,
+*which* date, and whether to group by run — and DATE RAN silently answered all three. They are
+separate now, and **which date** is asked once, by control 6, for the whole board.
+
+**Neither ORDER nor SPLIT BY RUN changes what the chart plots.** Sorting cannot move a point. The one
+visible link is the fade under SPLIT BY RUN, which exists so the chart matches the split the tables
+are showing.
+
+**Filters — verdict, discovered date, run status, status, study** (controls 7–11). These are built
 from the data. Strategy type is not among them: that is control 1, the rail. STUDY is the one to reach for when a family has five studies behind it and you want
 to read them one at a time on the single chart; it needs no tagging, because it is built from each
 study's own title. The renderer walks every row in the registry, collects the distinct values of each
@@ -118,10 +126,10 @@ used to be printed there. A chip warning about something wears the warning colou
 **How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
-(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS); 5–13 sit behind
-MORE (5 COMPARE ON, 6 TIME SCOPE, 7 SCOPE DATE, 8 COLOUR, then the filters 9–13), and **14 ORDER BY sits on the STUDY TABLES heading**, because the tables are the only thing it orders. FRONTIER was a control here until 2026-08-19, when the owner had it removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS); 5–11 sit behind
+MORE (5 TIME SCOPE, 6 DATE, then the filters 7–11), and **12 ORDER, 13 SPLIT BY RUN and 14 COMPARE ON sit on the STUDY TABLES heading**, because the tables are the only thing they touch. FRONTIER and COLOUR were controls here until 2026-08-19, when the owner had them removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
-control a full-width line of its own; only 13 STUDY needs it.
+control a full-width line of its own; only 11 STUDY needs it.
 
 **There is exactly one strategy control.** Control 1 IS the `fam` filter. A second row of the same
 buttons used to render with the other filter chips and the owner rightly asked why there were two;
@@ -180,10 +188,13 @@ Every tinted row carries that explanation on its own hover, and so does the NAME
 remembered. Two things open a study for you: filtering down to a single study, and clicking a chart
 point whose row lives inside a closed one.
 
-**COMPARE ON — ratios as is, or per year.** Raw totals measured over different stretches of history
-are not comparable, and section 4A explains why the board already knew that. This control decides the
-basis every figure is read on, and the board always states in words which basis is in force and how
-many of the rows now shown it can reach.
+**COMPARE ON — ratios as is, or per year** (control 14, on the STUDY TABLES heading). Raw totals
+measured over different stretches of history are not comparable, and section 4A explains why the
+board already knew that. This control decides the basis the **tables** read on, and the board always
+states in words which basis is in force and how many rows it can reach. **It changes the tables only.**
+It used to move every point on the chart as well — reach it never announced, and the same kind of
+hidden coupling that made the old ORDER BY confusing. The chart reads what VERTICAL AXIS says and
+nothing else, and PF and $/TRADE up there need no window basis at all.
 
 - **RATIOS AS IS** is what the board has always done. Every figure is exactly what its row recorded,
   over whatever window that row happens to cover. It reaches every row. The common-window warning
@@ -270,18 +281,15 @@ under the controls and again under each study chart, together with the two ways 
 back. This is the same honesty the DATE RAN ordering already uses when it puts those rows in
 their own labelled block instead of inventing a date for them.
 
-**COLOUR — colour, or shapes only.** This changes this board alone and never touches the app
-theme. COLOUR follows the app theme where the theme carries real colour, and uses the five approved
-colours — blue champion, green held up, amber fragile, red failed, grey reference — where it does
-not. SHAPES ONLY drops everything to one neutral ink.
+**COLOUR is not a control.** The board always colours: it follows the app theme where the theme
+carries real colour, and uses the five approved colours — blue champion, green held up, amber
+fragile, red failed, grey reference — where the theme is greyscale, as MONO is. There were three
+settings until 2026-08-19 (THEME / COLOUR / SHAPES ONLY); the first two were indistinguishable on a
+monochrome theme and the owner had the control removed. `_reToneSet` still holds the one-ink palette,
+so making it a control again is a one-line change. **Every mark carries its own shape**, so nothing
+on this board ever depended on colour to be readable.
 
-There used to be a third setting, THEME, and on 2026-08-19 the owner asked whether it and COLOUR
-were the same thing. For him they were. The MONO theme's accent variables are all greys (blue
-#b0b0b0, green #f0f0f0, yellow #999999, red #4d4d4d), so THEME already fell back to the approved
-five rather than paint five near-identical greys — which made it pixel-for-pixel identical to
-COLOUR. The fallback survives inside COLOUR; the duplicate button does not.
-
-**The verdict shapes are drawn in both settings.** Colour is reinforcement laid on top of
+Colour is reinforcement laid on top of
 the shape and is never a substitute for it, so turning colour off loses no meaning and nothing
 becomes unreadable. Money keeps its minus sign in every setting. The choice is persisted the
 same way every other view preference on this board is.

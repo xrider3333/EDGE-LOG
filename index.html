@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.182';
+const VERSION='73.183';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.183',date:'2026-08-19',notes:['ORDER BY WAS THREE QUESTIONS IN ONE CONTROL and is now three controls. It offered DISCOVERED, DATE RAN and RESULT, which mixed up sort-by-date with sort-by-performance and quietly threw in the auto-validate grouping on top - DATE RAN did all three at once. Now: ORDER is DATE or RESULT. SPLIT BY RUN is its own on/off switch for the grouping into rows that were persisted as a validate run and rows that never were. And DATE - one control, asked once - decides WHICH of the two dates a row carries the board means: it sets the date column, what ORDER BY DATE sorts on and what TIME SCOPE reads. Its old FOLLOWS ORDER BY setting is gone, because ORDER no longer names a date to follow.','COMPARE ON MOVED TO THE STUDY TABLES and now changes only them. It adds the per-year columns, which is a table thing - but it also used to move every point on the chart, reach it never announced. The chart reads what VERTICAL AXIS says and nothing else. Everything that belongs to the tables now sits on the tables: ORDER, SPLIT BY RUN and COMPARE ON.','THE COLOUR CONTROL IS GONE. The board always colours: it follows the app theme where the theme carries real colour and uses the five approved colours where it does not, which is what the setting resolved to anyway. Every mark still carries its own shape, so nothing here ever depended on colour to be readable.','Controls renumber: 1 to 4 decide the chart, 5 to 11 sit behind MORE, and 12 to 14 belong to the study tables.']},
 {v:'73.182',date:'2026-08-19',notes:['ORDER BY MOVED TO THE STUDY TABLES, on their own heading, because that is the only thing it orders. It is control 14 now and the chart block is down to four: STRATEGY, PROFIT STAGE, VERTICAL AXIS, READ AS.','It does NOT change what is on the chart, and the reason is worth saying plainly: sorting cannot move a point, so no row is ever gained or lost by it. Two couplings survive and both are on its hover. Under DATE RAN the chart fades the never-run points, so it matches the ran and never-run split the tables are showing underneath. And while TIME SCOPE is on, SCOPE DATE defaults to following this control, so it decides which of a row two dates the scope reads - set SCOPE DATE explicitly and even that is gone.','The controls behind MORE renumber to 5 to 13.']},
 {v:'73.181',date:'2026-08-19',notes:['PF IS A CHART AXIS NOW. Profit factor was readable in the table and nowhere else, which is backwards for the most window-robust figure on the board: it counts trades rather than calendar, so two rows covering different years can still be read against each other. It also has the widest reach of any axis here - 203 of the 215 rows plot on it, against 146 on $/TRADE. Like $/TRADE it says on the axis that it ignores PROFIT STAGE and COMPARE ON, because a profit factor is recorded once per row.','PROFIT÷DD IS CALLED MAR. It always was the same division the RUNBOARD and the 1E matrix call MAR - profit over the worst drawdown - and this board was the only place using a different name for it. Same number, same maths, one name. The per-year column reads MAR / YR. The heading still opens by saying MAR is NOT profit factor: PF counts trades, MAR rests on a single worst event, and a row can score well on one and badly on the other.']},
 {v:'73.180',date:'2026-08-19',notes:['TRADE COUNTS ARE NOW READ WHERE THEY EXIST. A row without its own count takes one off the saved run document when it has a run number - the same source rule the DATA WINDOW column already follows - and a small circle marks a figure read from the run rather than written in the registry. THAT REACHES 2 OF THE 73 MISSING ROWS. The other 71 are local research: nothing recorded their trade count and they have no run to read one from, so there is no source and a number would have to be invented. They keep a dash, and the dash now says what would fix it - record the count on the row, or persist the variant as a validate run.','FRONTIER is removed, as asked. The chart is a plain scatter again.','PF AND PROFIT÷DD ARE DIFFERENT MEASUREMENTS and both columns stay. PF is gross winnings divided by gross losses, counted trade by trade, so it says how much the winners outweigh the losers and a mismatched window barely moves it. PROFIT÷DD is net profit divided by the single worst peak-to-trough loss, so it says how much money the worst stretch cost to earn - one event, which is why it is the most fragile figure here. The column headings now spell out that difference.','The controls renumber to 1 to 14.']},
@@ -17920,7 +17921,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //                    profit. PER STUDY honours whatever default each study declares.
         //      ORDER BY      date discovered, date the real validate run finished, or result.
         //      FILTERS       built from whatever tags the registry rows carry, never hardcoded.
-        const _reDate=(APREF.resDate==='ran')?'ran':((APREF.resDate==='res')?'res':'disc');
+        // ORDER: by date, or by result. Nothing else. A saved pref from the three-way control is
+        //   read across: its RESULT setting means the same thing, its two date settings mean DATE.
+        const _reOrd=((APREF.resOrd==='res')||(APREF.resOrd==null&&APREF.resDate==='res'))?'res':'date';
+        // SPLIT BY RUN: group each table into rows that were persisted as a real validate run and
+        //   rows that never were. It used to be a hidden side effect of ordering by DATE RAN.
+        const _reSplitRun=!!APREF.resSplitRun;
         const _reStages=['is','wf','lb','tot'];
         const _reStage=(_reStages.indexOf(APREF.resStage)>=0)?APREF.resStage:'tot';
         const _reAxis=(['ratio','ppt','pf'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'raw';
@@ -17958,8 +17964,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reScope=(['all','7','30','90'].indexOf(String(APREF.resScope))>=0)?String(APREF.resScope):'all';
         const _reScopeN=(_reScope==='all')?0:+_reScope;
         const _reScopeNm=(_reScopeDefs.filter(o=>o[0]===_reScope)[0]||_reScopeDefs[0])[1];
-        const _reSBasis=(APREF.resSBasis==='disc'||APREF.resSBasis==='ran')?APREF.resSBasis:'follow';
-        const _reSOn=(_reSBasis==='follow')?((_reDate==='ran')?'ran':'disc'):_reSBasis;
+        // WHICH DATE, asked once for the whole board. A row carries the date it was DISCOVERED in
+        //   research, which every row has, and the date it RAN as a validate run, which only a
+        //   persisted row has at all. This one control decides which of the two the date column
+        //   prints, the DATE ordering sorts on, and the TIME SCOPE reads. A legacy pref that said
+        //   FOLLOWS ORDER BY reads as DISCOVERED, which is what it resolved to in every case
+        //   except the old DATE RAN ordering.
+        const _reSOn=(APREF.resSBasis==='ran')?'ran':'disc';
         const _reSOnNm=(_reSOn==='ran')?'DATE RAN':'DISCOVERED';
         const _reCut=_reScopeN?(new Date(Date.now()-_reScopeN*86400000).toISOString().slice(0,10)):'';
         const _reFT='#c084fc';
@@ -17981,7 +17992,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   are two settings now, not three - colour on, colour off - and ON keeps the smart
         //   behaviour: follow the app theme where the theme actually carries colour, use the five
         //   approved colours where it does not. 'theme' is still accepted so a saved pref works.
-        const _reCol=(APREF.resColour==='off')?'off':'on';
+
         // -- WHY THEME IS NOT SIMPLY "DO WHAT THE THEME SAYS" (owner 2026-08-19: "also dont see
         //    color in the chart ... work in monochrome"). THEME means follow the app theme, and
         //    the owner runs the MONO theme, whose whole palette is greyscale: --blue is #b0b0b0,
@@ -18004,7 +18015,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           }catch(e){return false;}})();
         // the setting the board actually PAINTS with. _reCol stays the setting the owner picked,
         // so the three buttons still highlight what he chose rather than what was resolved.
-        const _reColEff=(_reCol==='off')?'off':(_reFlatTheme?'on':'theme');
+        // 'off' is no longer reachable - the SHAPES ONLY setting was removed on 2026-08-19 - but
+        //   _reToneSet keeps its palette so turning colour back into a control is a one-line change.
+        const _reColEff=_reFlatTheme?'on':'theme';
         // -- CHART SIZE (owner ask 2026-08-19: "need to be able to scale or resize the chart").
         //    The chart carries the slim drag HANDLE ROW this app already uses under every chart
         //    in the run report: drag it down and the chart grows, drag it up and it shrinks,
@@ -18190,19 +18203,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reYv=(st,rw,com)=>{
           if(_reMode()==='pf')return _reNum(rw,'pf');
           if(_reMode()==='ppt')return _rePpt(rw);
-          if(_reBasis==='year'){const p=_reNum(rw,_reStage);if(p==null)return null;
-            const y=_reYrs(st,rw);if(!y)return null;const pv=p/y;
-            if(_reMode()!=='ratio')return pv;
-            const d=_reNum(rw,'dd');return (d==null||!d)?null:pv/Math.abs(d);}
           const p=_reNum(rw,_reStage);if(p==null)return null;
           if(_reMode()!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
         const _reYwhy=(st,rw,com)=>{
           if(_reMode()==='pf')return _reWhy(st,rw,'pf');
           if(_reMode()==='ppt')return _rePptWhy(st,rw);
-          if(_reBasis==='year'){const p=_reNum(rw,_reStage);
-            if(p==null)return _reWhy(st,rw,_reStage);
-            if(!_reYrs(st,rw))return 'This row records no data window, so there is no number of years to divide its profit by. PER YEAR cannot place it and nothing was assumed for it.';
-            return _reWhy(st,rw,'dd');}
           const p=_reNum(rw,_reStage);
           return (p==null)?_reWhy(st,rw,_reStage):_reWhy(st,rw,'dd');};
         const _reYfmt=()=>(_reMode()==='ratio'||_reMode()==='pf')?'num':'money';
@@ -18222,7 +18227,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
           if(_reMode()==='pf')return _rePfCap;
           if(_reMode()==='ppt')return _rePptCap;
-          if(_reBasis==='year')return _reStWordAll(items)+' profit per year of the row own window'+(rat?', divided by the worst drawdown':'')+' \u2014 HIGHER is better';
           return _reStWordAll(items)+(rat?' MAR, profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
         // ── FILTERS, built from the data. Each facet names a tag the registry rows carry, and
         //    its buttons are whatever distinct values actually appear, so a new study that tags
@@ -18316,7 +18320,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             ?('<span title="'+_reEsc('This result was persisted as a real run. Click the row to open its report.')+'" style="color:var(--text2)">#'+runs[0]+'</span>'
               +(runs.length>1?('<span title="'+_reEsc('The same configuration was run '+runs.length+' times: runs '+runs.join(', ')+'. The row opens the first one.')+'" style="color:var(--text5);font-size:9px;cursor:help"> +'+(runs.length-1)+'</span>'):'')+repCell)
             :('<span title="'+_reEsc('Local research only. This was computed on the machine and never persisted as an Auto-Validate run, so it has no run number and no date ran.')+'" style="color:var(--text5);font-style:italic;cursor:help">local</span>');
-          const dCell=(_reDate==='ran')
+          const dCell=(_reSOn==='ran')
             ?(runs.length?(_reRunDate(runs[0])||_reDash('This run exists but its saved date could not be read from run history.')):_reDash('This row was never run as a validate run, so it has no date ran.'))
             :(rw.disc||st.disc||_reDash('No discovery date was recorded for this row.'));
           // DATA WINDOW: the stretch of history this row's figures actually cover. Read from the
@@ -18517,7 +18521,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
               // change. Under DATE RAN the tables split into ran and never-run blocks, so the
               // chart fades the never-run points to match what is being read underneath it.
-              const dim=(_reDate==='ran'&&!runs.length);
+              const dim=(_reSplitRun&&!runs.length);
               const sz=_reSz[r.tone]||6.5,cx=px(p.x),cy=py(p.y);
               let tp=r.n+' '+r.name+' | '+_reFamOf(st,r)+' | '+st.title
                 +' | '+_reToneNm[r.tone]
@@ -18568,7 +18572,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               mixed=' PROFIT STAGE is set to IN-SAMPLE, and the rows now on the chart do not all mean the same thing by it: '
                 +k.map(q=>q+' \u2014 '+Object.keys(by[q]).join('; ')).join(' \u00b7 ')
                 +'. A study labelled PRE-LOCKBOX has no separate walk-forward stage at all, so that figure is everything before the lockbox pooled together, which is a longer stretch than a true in-sample column. Read this stage one study at a time, or read TOTAL or LOCKBOX, which mean the same thing everywhere.';}}
-          if(_reDate==='ran')omit+=' The faded points were never run as a validate run, matching the second block of each table below.';
+          if(_reSplitRun)omit+=' SPLIT BY RUN is on, so the faded points are the ones that were never run as a validate run - the same rows the tables below put in their second block.';
           // ONE LINE, not a paragraph. The counts are printed; every reason behind them is on
           //   the hover, which is where reference text belongs. Nothing was dropped to shorten
           //   it - the hover carries the same sentences the paragraph used to print.
@@ -18636,10 +18640,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // TWO CONTROLS PER LINE. The single-column version left the right half of the tile empty
         //   and cost twice the height for it.
         const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
-        const _reDateBtns=_reCtl(14,'ORDER BY','which order the STUDY TABLES list their rows in. It does not change what is on the chart: sorting cannot move a point, so no row is ever gained or lost by this. Two things it does touch, and both are deliberate - under DATE RAN the chart FADES the never-run points so it matches the ran / never-run split the tables are showing, and while TIME SCOPE is on, SCOPE DATE defaults to following this control, so it decides which of a row two dates the scope reads. Set SCOPE DATE explicitly and even that is gone',
-            _tabBtn('data-resdate="disc"','DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.heat)
-           +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.heat)
-           +_tabBtn('data-resdate="res"','RESULT',_reDate==='res','order best first on the profit stage and axis selected here - rows with no figure for that stage sit at the bottom',_TONE.heat),_TONE.heat);
+        //    how much of the value range the chart spends its height on.
+        const _reBasBtns=_reCtl(14,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
+            _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
+           +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','add three columns to every table - PER YEAR, YEARS and MAR / YR - dividing each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window, so it reaches every row the DATA WINDOW column can place',_reFT),_reFT);
+        const _reOrdBtns=_reCtl(12,'ORDER','which order the STUDY TABLES list their rows in. It cannot change what is on the chart - sorting cannot move a point, so no row is ever gained or lost by it.',
+            _tabBtn('data-resord="date"','DATE',_reOrd==='date','newest first on whichever of the two dates control 6 names. Rows sharing a date keep the order the registry has them in, which is the order the owner approved, and a row with no date of that kind sits at the bottom rather than being given one',_TONE.heat)
+           +_tabBtn('data-resord="res"','RESULT',_reOrd==='res','best first on the profit stage and the vertical axis selected above. A row with no figure for that reading sits at the bottom rather than being given a place it did not earn',_TONE.heat),_TONE.heat);
+        const _reSplitRunBtns=_reCtl(13,'SPLIT BY RUN','group each table into the rows that were persisted as a real Auto-Validate run and the rows that were only ever computed locally. It is its own switch because it is its own question - it used to be a hidden side effect of ordering by DATE RAN, which is why that control did not make sense. Inside each block the rows still follow ORDER.',
+            _tabBtn('data-ressplitrun="1"','ON',_reSplitRun,'two labelled blocks, run-backed rows first. The chart fades the never-run points to match',_TONE.heat)
+           +_tabBtn('data-ressplitrun="0"','OFF',!_reSplitRun,'one list, ordered by ORDER alone',_TONE.heat),_TONE.heat);
         // ── PASS TWO: the tables. A tile is now a heading, a line of prose, a table and its
         //    notes - the chart it used to carry is the one at the top of the board.
         const _reTile=(p,com)=>{
@@ -18648,23 +18658,34 @@ namespace NinjaTrader.NinjaScript.Strategies {
           let bodyRows;
           if(!rows.length){
             bodyRows='<tr><td colspan="'+_reNCols+'" style="padding:16px 8px;color:var(--text5);font-size:10px">Every row in this study is held back by the filters or the time scope above. Clear a filter, or widen the scope, to bring them back.</td></tr>';
-          }else if(_reDate==='ran'){
-            // ran-first, newest first; anything without a run drops into its own labelled block
-            const withRun=rows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
-            const noRun=rows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
-            withRun.sort((a,b)=>{const da=_reRunDate(a.runs[0]),db=_reRunDate(b.runs[0]);
-              return (da===db)?((+b.runs[0]||0)-(+a.runs[0]||0)):((db>da)?1:-1);});
-            const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
-            bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN \u00b7 '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a date the run finished. Newest first. Click a row to open its report.')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
-              +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+noRun.length,'These rows were computed locally during research and never persisted as a run, so no date ran exists for them. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
-          }else if(_reDate==='res'){
-            // best first on the stage and axis now selected; rows with no figure for it sit last
-            const ord=rows.slice().sort((a,b)=>{const va=_reYv(st,a,com),vb=_reYv(st,b,com);
-              if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
-            bodyRows=ord.map(r=>_reRow(st,r,rank[r.n],com)).join('');
           }else{
-            // discovered view keeps the registry order, which is the order the owner approved
-            bodyRows=rows.map(r=>_reRow(st,r,rank[r.n],com)).join('');
+            // ORDER and SPLIT BY RUN are independent now. Sort first, then group if asked - so a
+            //   split table is still ordered the way ORDER says, inside each of its two blocks.
+            const _dOf=r=>(_reSOn==='ran')
+              ?((Array.isArray(r.runs)&&r.runs.length)?_reRunDate(r.runs[0]):'')
+              :String(r.disc||st.disc||'');
+            const sorted=rows.slice();
+            if(_reOrd==='res'){
+              // best first on the stage and axis now selected; a row with no figure for it sits
+              // last rather than being given a place it did not earn
+              sorted.sort((a,b)=>{const va=_reYv(st,a,com),vb=_reYv(st,b,com);
+                if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
+            }else{
+              // newest first on whichever date DATE names; a row with no such date keeps the
+              // registry order at the bottom. Rows sharing a date keep the registry order too,
+              // which is the order the owner approved, because the sort is stable.
+              sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
+                if(da===db)return 0;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
+            }
+            if(!_reSplitRun){
+              bodyRows=sorted.map(r=>_reRow(st,r,rank[r.n],com)).join('');
+            }else{
+              const withRun=sorted.filter(r=>Array.isArray(r.runs)&&r.runs.length);
+              const noRun=sorted.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
+              const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+              bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN \u00b7 '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a run number and a date the run finished. Click a row to open its report. Inside this block they are still in whatever order ORDER is set to.')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
+                +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+noRun.length,'These rows were computed locally during research and never persisted as a run, so they have no run number and no date ran. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
+            }
           }
           const _emH=sg=>(_reStage===sg)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
           const _hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
@@ -18692,7 +18713,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('TRADES',null,'How many trades the variant took over its whole run. Taken from the row own record where it has one, and read off the saved run document where the row has a run number instead - a small circle marks a figure read from the run. A dash means the count was never recorded and the row has no run to read one from: it cannot be derived from the money, so nothing is shown.')+_hd('READ','left')
             +_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
             +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
-            +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
+            +_hd(_reSOnNm,'left',(_reSOn==='ran')?'The date the real validate run finished, read from run history. Control 6, DATE, switches this column between the two dates a row can carry.':'The date the result was found in research. Every row has one. Control 6, DATE, switches this column to the date the row ran as a validate run instead.')
             +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. Read from the saved run document where the row has a run number, and from the studies registry where it does not — never guessed. A warning sign means this row does not match the stretch every row now shown has in common, so its totals are not comparable with theirs; hover it and it says by how much.')
             +'</tr>';
           const notes=Array.isArray(st.notes)?st.notes:(st.note?[st.note]:[]);
@@ -18717,7 +18738,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="font-size:8px;color:var(--text5)">'+_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
             +(_reSolo?' \u00b7 the only study left is open':'')+'</span>'
-            +'<span style="margin-left:auto;display:inline-grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:start">'+_reDateBtns+'</span></div>'
+            +'<span style="margin-left:auto;display:inline-grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 12px;align-items:start">'+_reOrdBtns+_reSplitRunBtns+_reBasBtns+'</span></div>'
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
@@ -18768,27 +18789,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
-        const _reScopeBtns=_reCtl(6,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
+        const _reScopeBtns=_reCtl(5,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
             _reScopeDefs.map(o=>_tabBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
               (o[2]?('show only rows dated within the past '+o[2]+' days on whichever date SCOPE DATE names'):'no time scope at all - every row on the board is eligible whatever date it carries')
               +'. Read SCOPE DATE beside this: a row carries a date it was DISCOVERED and, if it was ever saved as a run, a separate date it RAN, and the two answer different questions.',_TONE.samp)).join(''),_TONE.samp);
-        const _reSBasisBtns=_reCtl(7,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
-            _tabBtn('data-ressbasis="follow"','FOLLOWS ORDER BY',_reSBasis==='follow','use whichever date ORDER BY is set to, so the scope and the ordering always agree. ORDER BY RESULT is not a date at all, so this falls back to the date discovered and the line below says so out loud',_TONE.heat)
-           +_tabBtn('data-ressbasis="disc"','DISCOVERED',_reSBasis==='disc','scope on the date the result was found in research. Every row on the board has one of these, so nothing is held back for want of a date',_TONE.heat)
-           +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSBasis==='ran','scope on the date the real validate run finished. Only rows that were persisted as runs have one at all - the rest are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
-        const _reColBtns=_reCtl(8,'COLOUR','colour for this board alone - your app theme is never touched. There used to be a third setting, THEME, and on a monochrome app theme it painted exactly the same chart as COLOUR, so the two were indistinguishable and it is gone',
-            _tabBtn('data-rescolour="on"','COLOUR',_reCol!=='off','colour the verdicts. Where the app theme carries real colour the board follows it; where the theme is greyscale, as MONO is, it uses the five approved colours instead of five near-identical greys. Blue champion, green held up, amber fragile, red failed, grey reference',_reFT)
-           +_tabBtn('data-rescolour="off"','SHAPES ONLY',_reCol==='off','one neutral ink everywhere, so the shape alone carries the verdict. It loses no meaning - the shapes were always the signal',_reFT),_reFT);
+        const _reSBasisBtns=_reCtl(6,'DATE','WHICH of the two dates a row carries the board means, asked once. It sets the date column in every table, what ORDER BY DATE sorts on, and what TIME SCOPE reads - one answer everywhere instead of the same question in two places',
+            _tabBtn('data-ressbasis="disc"','DISCOVERED',_reSOn!=='ran','the date the result was found in research. EVERY row on the board has one, so nothing is ever held back for want of it',_TONE.heat)
+           +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSOn==='ran','the date the real validate run finished, read from run history. Only a row persisted as a run has one at all - the rest show a dash, and under a time scope they are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
         // -- COMPARE ON (the fair-comparison basis) and VALUE ZOOM. The first decides what the
         //    numbers MEAN, so it sits with the stage and axis controls; the second only decides
-        //    how much of the value range the chart spends its height on.
-        const _reBasBtns=_reCtl(5,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this picks the basis every figure on the board is read on. The board always states in words which basis is in force and which rows it can reach',
-            _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the common-window warning underneath still tells you where the windows disagree',_reFT)
-           +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','divide each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window and not a saved curve, which makes it the widest-coverage option of the three',_reFT),_reFT);
         // the sixteen STUDY titles are long, so that one facet trims its labels and keeps the
         //   whole title on hover. Every cell in the grid wraps, so nothing runs off the edge.
         const _reShort=v=>{const t=String(v);return (t.length>26)?(t.slice(0,25)+'\u2026'):t;};
-        let _reFiltN=8;
+        let _reFiltN=6;
         const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
@@ -18818,20 +18831,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   board that quietly picked one would be telling the owner something it never said.
         const _reScopeTx=((_reScopeN
             ?('TIME SCOPE is set to '+_reScopeNm+' and it is reading the '+_reSOnNm+' date'
-              +((_reSBasis==='follow')
-                ?(', because SCOPE DATE is following ORDER BY'+((_reDate==='res')?', and ORDER BY is set to RESULT, which is not a date at all, so the scope has fallen back to the date discovered rather than pick one quietly':'')+'.')
-                :', because you chose that date explicitly.')
+              +', which is what control 6, DATE, is set to.'
               +' Only rows whose '+_reSOnNm+' date falls on or after '+_reCut+' are shown, on the charts and in the tables alike. '
               +_reScopeOut+' of the '+_reTotal+' rows on the board fall outside it.'
               +(_reNoDate.length?(' '+_reNoDate.length+' of those, row'+((_reNoDate.length>1)?'s ':' ')+_reNoDate.join(', ')+', carry no '+_reSOnNm+' date at all, so a scope on that date cannot place them either way. They are named here rather than dropped without a word — set SCOPE DATE to DISCOVERED, which every row has, or the scope to ALL TIME, to read them again.'):''))
-            :('TIME SCOPE is off, so every row on the board is eligible whatever date it carries. Turn it on to read only recent work; SCOPE DATE beside it decides whether that means the date a result was discovered in research or the date it ran as a real validate run, and those are different questions.')));
+            :('TIME SCOPE is off, so every row on the board is eligible whatever date it carries. Turn it on to read only recent work; DATE beside it decides whether that means the date a result was discovered in research or the date it ran as a real validate run, and those are different questions.')));
         // THE COMMON WINDOW across everything on screen. Rows were computed over different date
         //   ranges and the underlying data has since been backfilled, so two totals can look
         //   comparable and not be. This says what stretch they all genuinely share, and warns
         //   when they do not share one, naming the rows and the size of the gap.
         // WHICH BASIS IS IN FORCE, in words, every time - and what it can and cannot reach.
         const _reBasTx=((_reBasis==='year')
-              ?('COMPARE ON is set to PER YEAR. Each row profit is divided by the number of years the row OWN data window covers, so a longer window is no longer automatically flattered. Nothing is sliced and nothing is re-run. '
+              ?('COMPARE ON is set to PER YEAR, which adds three columns to every STUDY TABLE and changes nothing on the chart. Each row profit is divided by the number of years the row OWN data window covers, so a longer window is no longer automatically flattered. Nothing is sliced and nothing is re-run. '
                 +_reBasOk+' of the '+_reShown+' rows now shown record a window and can be put on that basis; the other '+_reBasNo.length+(_reBasNo.length?(' (row'+((_reBasNo.length>1)?'s ':' ')+_reBasNo.join(', ')+')'):'')+' record none, so they show a dash rather than a guessed length. '
                 +'Note what this does NOT fix: two rows can cover the same number of years and still cover different years, and a drawdown is a single worst event that cannot be annualised at all.')
               :('COMPARE ON is set to RATIOS AS IS, which is what this board has always done: every figure is exactly what its row recorded, over whatever stretch of history that row happens to cover. All '+_reShown+' rows now shown are readable on this basis, and none of them is necessarily comparable with the others - the WINDOW chip beside this one says where the windows actually disagree.'));
@@ -18872,7 +18883,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns)+'</div>'
             // BEHIND "MORE": the comparison basis, the zoom, the scope and every filter chip.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:8px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px">'
-            +_reGrid(_reBasBtns+_reScopeBtns+_reSBasisBtns+_reColBtns+_reFiltBtns
+            +_reGrid(_reScopeBtns+_reSBasisBtns+_reFiltBtns
               +(_reClear?('<div></div><div style="display:flex;gap:4px;margin-top:2px">'+_reClear+'</div>'):''))
             +'</div>'
             +_reStatus
@@ -18895,13 +18906,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
             +'ONE CHART, one table per study. The chart above every table used to be fourteen separate charts on fourteen different scales, which made a strategy whose research is spread over five studies impossible to read as one picture; the STRATEGY rail is how you move between strategies now. Each study still keeps its OWN table, because the studies do not share a yardstick. This board compares individual strategies against each other and never combinations of strategies, because a combination ties up more margin than one strategy does and the two can never be read as a like-for-like comparison. Use the RUNBOARD mode to compare whole strategy combinations. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change. The STATUS column keeps apart two things that are easy to confuse: CROWN means the row is the standing champion of its family, and PAPER means that exact configuration is running in the nightly paper forward test right now. A row can be one, both or neither.</div>'
             +_reBasHelp
-            +'<div style="margin-top:8px">'+_reLegend((_reColEff==='off')
-                ?'COLOUR is off, so every mark is drawn in one ink and the shape alone carries the verdict. Nothing is lost: the shapes were always the signal.'
-                :((_reCol==='on')
-                  ?'COLOUR is on for this board only, and your app theme is untouched. The shapes are still drawn, so colour is reinforcement rather than the only signal.'
-                  :((_reColEff==='on')
-                    ?'Your app theme is monochrome, so it has no colours for this board to follow. Rather than paint all five verdicts the same grey, the chart, the legend and the table are using the five approved colours: blue for the champion, green for held up, amber for fragile, red for failed and grey for reference. Your app theme is untouched, the shapes are still drawn on every mark, and SHAPES ONLY above gives you the pure one-ink reading whenever you want it.'
-                    :'Every verdict has its own shape as well as its own colour, so the chart still reads on the monochrome theme. The COLOUR control above can force colour on or off for this board alone.')))+'</div>'
+            +'<div style="margin-top:8px">'+_reLegend((_reColEff==='on')
+                ?'Your app theme is monochrome, so it has no colours for this board to follow. Rather than paint all five verdicts the same grey, the chart, the legend and the tables use the five approved colours: blue for the champion, green for held up, amber for fragile, red for failed and grey for reference. Your app theme is untouched, and every mark still carries its own SHAPE, so colour is reinforcement and never the only signal.'
+                :'Every verdict has its own shape as well as its own colour, so nothing here depends on colour to be readable.')+'</div>'
             ,0)+'</div>';
         }else if(_cmpMode==='board'){
         // ── RUNBOARD body (owner ask 2026-08-09: "make it like 1A and 1E - a funnel chart and a
@@ -21247,7 +21254,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.cmpmode);renderApp();};});
       // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
       // RESEARCH board: DATE DISCOVERED / DATE RAN ordering toggle (persisted like every other view pref)
-      content.querySelectorAll('[data-resdate]').forEach(b=>{b.onclick=()=>{savePref('resDate',b.dataset.resdate);renderApp();};});
+      content.querySelectorAll('[data-resord]').forEach(b=>{b.onclick=()=>{savePref('resOrd',b.dataset.resord);renderApp();};});
+      content.querySelectorAll('[data-ressplitrun]').forEach(b=>{b.onclick=()=>{savePref('resSplitRun',b.dataset.ressplitrun==='1');renderApp();};});
       // STUDIES board: profit stage, vertical axis and the data-driven filter chips
       content.querySelectorAll('[data-resstage]').forEach(b=>{b.onclick=()=>{savePref('resStage',b.dataset.resstage);renderApp();};});
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
@@ -21312,7 +21320,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   they survive a reload and a re-render.
       content.querySelectorAll('[data-resscope]').forEach(b=>{b.onclick=()=>{savePref('resScope',b.dataset.resscope);renderApp();};});
       content.querySelectorAll('[data-ressbasis]').forEach(b=>{b.onclick=()=>{savePref('resSBasis',b.dataset.ressbasis);renderApp();};});
-      content.querySelectorAll('[data-rescolour]').forEach(b=>{b.onclick=()=>{savePref('resColour',b.dataset.rescolour);renderApp();};});
       // STUDIES board: the fair-comparison basis and the value zoom, persisted like the rest.
       content.querySelectorAll('[data-resbasis]').forEach(b=>{b.onclick=()=>{savePref('resBasis',b.dataset.resbasis);renderApp();};});
       // STUDIES board: the slim HANDLE ROW under the one chart, the same drag bar the run
