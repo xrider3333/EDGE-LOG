@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.180';
+const VERSION='73.181';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.181',date:'2026-08-19',notes:['PF IS A CHART AXIS NOW. Profit factor was readable in the table and nowhere else, which is backwards for the most window-robust figure on the board: it counts trades rather than calendar, so two rows covering different years can still be read against each other. It also has the widest reach of any axis here - 203 of the 215 rows plot on it, against 146 on $/TRADE. Like $/TRADE it says on the axis that it ignores PROFIT STAGE and COMPARE ON, because a profit factor is recorded once per row.','PROFIT÷DD IS CALLED MAR. It always was the same division the RUNBOARD and the 1E matrix call MAR - profit over the worst drawdown - and this board was the only place using a different name for it. Same number, same maths, one name. The per-year column reads MAR / YR. The heading still opens by saying MAR is NOT profit factor: PF counts trades, MAR rests on a single worst event, and a row can score well on one and badly on the other.']},
 {v:'73.180',date:'2026-08-19',notes:['TRADE COUNTS ARE NOW READ WHERE THEY EXIST. A row without its own count takes one off the saved run document when it has a run number - the same source rule the DATA WINDOW column already follows - and a small circle marks a figure read from the run rather than written in the registry. THAT REACHES 2 OF THE 73 MISSING ROWS. The other 71 are local research: nothing recorded their trade count and they have no run to read one from, so there is no source and a number would have to be invented. They keep a dash, and the dash now says what would fix it - record the count on the row, or persist the variant as a validate run.','FRONTIER is removed, as asked. The chart is a plain scatter again.','PF AND PROFIT÷DD ARE DIFFERENT MEASUREMENTS and both columns stay. PF is gross winnings divided by gross losses, counted trade by trade, so it says how much the winners outweigh the losers and a mismatched window barely moves it. PROFIT÷DD is net profit divided by the single worst peak-to-trough loss, so it says how much money the worst stretch cost to earn - one event, which is why it is the most fragile figure here. The column headings now spell out that difference.','The controls renumber to 1 to 14.']},
 {v:'73.179',date:'2026-08-20',notes:['FOUR RUNS WERE THE SAME RUN TWICE, and they have been archived. On 18 August the same four NOISE configurations were validated a second time - runs 251, 252, 253 and 254 repeat runs 245, 243, 241 and 242. Every field was checked before archiving: same strategy file, same date window, same data source, same costs, the same fifteen crowned settings and the same headline figures down to the cent. Nothing was deleted and one click un-archives any of them.','WHY IT HAPPENED: one session queued the jobs and then died. A second session looked at the queue, saw nothing waiting or running, and queued four of them again. The four originals had already FINISHED, so the check of the day could not see them.','THE SYSTEM NOTICES NOW. Every job is fingerprinted on the things that decide its numbers - the strategy file, the date window, the data source and session, the costs and the search settings - and that fingerprint is compared against jobs that have already FINISHED as well as ones still waiting. The free-text note, the provider and the worker count are ignored, because two jobs that differ only in those compute the same answer.','IT WARNS, IT DOES NOT BLOCK. Queue a repeat from the Builder and you are told which run already did it and on what date, and asked whether to go ahead - because running something again to check it reproduces, or on newer data, is a fair thing to want. Jobs queued straight in by a script have nobody to ask, so those run and get labelled as a repeat instead.','A REPEAT NOW SAYS SO. A run the guard recognised carries a REPEAT OF badge on its own report, and on the STUDIES board a row no longer counts an archived repeat in its plus-N marker - it shows a separate archived mark whose hover explains what happened.']},
 {v:'73.178',date:'2026-08-19',notes:['COMMON WINDOW IS REMOVED from COMPARE ON. It was the most rigorous option on the board and it could reach almost nothing: slicing a row needs the equity curve a real run saved, and 31 of the 216 rows here have a run behind them at all. The other 185 are local research with no curve to cut, so the basis dashed 85 percent of the board by construction - and that gap only widens, because windows naturally diverge as testing goes on.','What answers the same question instead is already on the board and needs no slicing: PROFIT FACTOR and the new $/TRD are properties of the trade population rather than of the calendar, so a longer window does not flatter either of them. PER YEAR remains for reading money against the length of the window it was earned over, and it reaches every row that records a window.','NOTHING THAT MEASURES A WINDOW WAS TOUCHED. The DATA WINDOW column still says what stretch every row covers, the WINDOW status chip still names the stretch the visible rows share, and the warning still names the rows that reach outside it. Knowing the rows do not share a stretch is the point; slicing them was only one way to act on it, and it was the way that could not reach the board.']},
@@ -17921,7 +17922,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reDate=(APREF.resDate==='ran')?'ran':((APREF.resDate==='res')?'res':'disc');
         const _reStages=['is','wf','lb','tot'];
         const _reStage=(_reStages.indexOf(APREF.resStage)>=0)?APREF.resStage:'tot';
-        const _reAxis=(APREF.resAxis==='ratio'||APREF.resAxis==='ppt')?APREF.resAxis:'raw';
+        const _reAxis=(['ratio','ppt','pf'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'raw';
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -18151,7 +18152,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // that says WHY on hover. There is no third path — nothing is ever silently substituted.
         const _reCell=(st,rw,f,fmt)=>{const v=_reNum(rw,f);return (v==null)?_reDash(_reWhy(st,rw,f)):fmt(v);};
         const _reMoneyF={is:1,wf:1,lb:1,tot:1,dd:1};
-        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades',ppt:'Total profit per trade'};
+        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'MAR',trd:'Trades',ppt:'Total profit per trade'};
         // THE TRADE COUNT, with the same source rule the DATA WINDOW column uses: the row own
         //   figure first, then the saved run document where the row has a run number, and a dash
         //   where neither exists. Nothing is ever estimated from a neighbouring row or a rate.
@@ -18186,6 +18187,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   so the chart and the table are always reading the same basis. Either input missing
         //   means no value at all - never a stand-in.
         const _reYv=(st,rw,com)=>{
+          if(_reMode()==='pf')return _reNum(rw,'pf');
           if(_reMode()==='ppt')return _rePpt(rw);
           if(_reBasis==='year'){const p=_reNum(rw,_reStage);if(p==null)return null;
             const y=_reYrs(st,rw);if(!y)return null;const pv=p/y;
@@ -18194,6 +18196,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const p=_reNum(rw,_reStage);if(p==null)return null;
           if(_reMode()!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
         const _reYwhy=(st,rw,com)=>{
+          if(_reMode()==='pf')return _reWhy(st,rw,'pf');
           if(_reMode()==='ppt')return _rePptWhy(st,rw);
           if(_reBasis==='year'){const p=_reNum(rw,_reStage);
             if(p==null)return _reWhy(st,rw,_reStage);
@@ -18201,7 +18204,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             return _reWhy(st,rw,'dd');}
           const p=_reNum(rw,_reStage);
           return (p==null)?_reWhy(st,rw,_reStage):_reWhy(st,rw,'dd');};
-        const _reYfmt=()=>(_reMode()==='ratio')?'num':'money';
+        const _reYfmt=()=>(_reMode()==='ratio'||_reMode()==='pf')?'num':'money';
+        const _rePfCap='Profit factor \u2014 gross winnings over gross losses, HIGHER is better. It ignores PROFIT STAGE and COMPARE ON: a profit factor is recorded once per row, and it is already free of window length because it counts trades rather than calendar';
         const _rePptCap='Whole-run profit per trade \u2014 HIGHER is better. It ignores PROFIT STAGE and COMPARE ON, because a trade count is recorded once per row and a per-trade average is already free of window length';
         // ONE chart covering several studies cannot borrow one study's word for the in-sample
         //   column, because the studies do not all mean the same thing by it: several have no
@@ -18215,9 +18219,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const k=_reIsLbls(items);
           return (k.length===1)?(_reIsWord[k[0]]||'In-sample'):'In-sample, which does not mean the same thing on every row';};
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
+          if(_reMode()==='pf')return _rePfCap;
           if(_reMode()==='ppt')return _rePptCap;
           if(_reBasis==='year')return _reStWordAll(items)+' profit per year of the row own window'+(rat?', divided by the worst drawdown':'')+' \u2014 HIGHER is better';
-          return _reStWordAll(items)+(rat?' profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
+          return _reStWordAll(items)+(rat?' MAR, profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
         // ── FILTERS, built from the data. Each facet names a tag the registry rows carry, and
         //    its buttons are whatever distinct values actually appear, so a new study that tags
         //    its rows gets its buttons for free with no change here.
@@ -18515,7 +18520,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const sz=_reSz[r.tone]||6.5,cx=px(p.x),cy=py(p.y);
               let tp=r.n+' '+r.name+' | '+_reFamOf(st,r)+' | '+st.title
                 +' | '+_reToneNm[r.tone]
-                +' | '+_reStWordAll(items)+(_reMode()==='ratio'?' profit divided by drawdown ':' profit ')
+                +' | '+_reStWordAll(items)+(_reMode()==='ratio'?' MAR ':' profit ')
                 +(_reRel?((p.y>=0?'+':'')+_reVal(p.y,yf)+' against the crown (its own figure is '+_reVal(p.y0,yf)+')'):_reVal(p.y,yf));
               if(_reRel)tp+=' | drawdown '+((p.x>=0?'+':'')+_reVal(p.x,xf))+' against the crown (its own figure is '+_reVal(p.x0,xf)+')';
               tipF.forEach(f=>{const v=_reNum(r,f);
@@ -18657,7 +18662,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const basHd=(_reBasis==='year')
               ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers, so a longer window is no longer automatically flattered. Nothing is sliced and nothing is re-run - it is the row own figure over the row own length. It needs only a recorded data window, which is why it reaches more rows than the common-window slice does.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)')
                 +_hd('YEARS',null,'How many years the data window on this row covers. A row that records no window shows a dash here and cannot be put on a per-year basis at all.')
-                +_hd('PER YR÷DD',null,'The per-year profit divided by the worst drawdown. Remember that the drawdown is NOT annualised and cannot be - it is a single worst event, not a rate - so this ratio says how many years of typical profit it takes to cover the worst loss the row ever took.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)'))
+                +_hd('MAR / YR',null,'The per-year profit divided by the worst drawdown. Remember that the drawdown is NOT annualised and cannot be - it is a single worst event, not a rate - so this ratio says how many years of typical profit it takes to cover the worst loss the row ever took.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)'))
               :'';
           const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
             +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
@@ -18669,7 +18674,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
             +_hd('PF',null,'Profit factor: gross wins divided by gross losses. Of everything on this board it is the figure LEAST damaged by two rows covering different stretches of history, because it is a property of the whole trade population rather than of the calendar.')
             +_hd('$/TRD',null,_rePptTip)
-            +_hd('PROFIT÷DD',null,'NOT the same thing as PF beside it, and the two answer different questions. PF is gross winnings over gross losses counted trade by trade - how much the winners outweigh the losers. This is '+stg.toLowerCase()+' profit over the SINGLE worst peak-to-trough loss - how much the worst stretch cost to earn, which the rest of the trading world calls MAR or recovery factor. A profit factor can be high while this is low, and the other way round. '+stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
+            +_hd('MAR',null,'MAR is what this app calls profit divided by the worst drawdown, on the RUNBOARD and on the 1E matrix as well as here - the same division under one name. It is NOT the same thing as PF beside it, and the two answer different questions. PF is gross winnings over gross losses counted trade by trade - how much the winners outweigh the losers. This is '+stg.toLowerCase()+' profit over the SINGLE worst peak-to-trough loss - how much the worst stretch cost to earn, which the rest of the trading world calls MAR or recovery factor. A profit factor can be high while this is low, and the other way round. '+stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
             +basHd
             +_hd('TRADES',null,'How many trades the variant took over its whole run. Taken from the row own record where it has one, and read off the saved run document where the row has a run number instead - a small circle marks a figure read from the run. A dash means the count was never recorded and the row has no run to read one from: it cannot be derived from the money, so nothing is shown.')+_hd('READ','left')
             +_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
@@ -18756,7 +18761,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'. A row with no figure for this stage shows a dash that says why and leaves the chart. No other stage is ever substituted for it.',_TONE.samp)).join(''),_TONE.samp);
         const _reAxisBtns=_reCtl(3,'VERTICAL AXIS','what the height of the chart measures',
             _tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
-           +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
+           +_tabBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
+           +_tabBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
            +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
@@ -18836,7 +18842,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<b style="color:var(--text3)">RATIOS AS IS</b> is the raw reading. Trust it when the rows genuinely share a window, which the line above will tell you, and treat it as a warning sign rather than an answer when they do not.<br>'
           +'<b style="color:var(--text4);letter-spacing:.6px">WHICH RATIO SURVIVES A SLIGHTLY DIFFERENT WINDOW</b><br>'
           +'<b style="color:var(--text3)">Profit factor is the most robust of the three.</b> It is a property of the whole population of trades - gross winnings over gross losses - so adding or removing a few weeks at the end moves it only a little. If the windows differ slightly and you can read only one number, read this one.<br>'
-          +'<b style="color:var(--text3)">Profit divided by drawdown is the most fragile.</b> A drawdown is not an average of anything: it is one single worst event. One extra month can introduce a brand-new worst event and move the figure a long way with nothing else having changed. This project measured that directly - the confidence interval around a maximum drawdown came out WIDER than the drawdown itself - so a ratio built on it inherits that fragility whole.<br>'
+          +'<b style="color:var(--text3)">MAR, profit divided by drawdown, is the most fragile.</b> A drawdown is not an average of anything: it is one single worst event. One extra month can introduce a brand-new worst event and move the figure a long way with nothing else having changed. This project measured that directly - the confidence interval around a maximum drawdown came out WIDER than the drawdown itself - so a ratio built on it inherits that fragility whole.<br>'
           +'<b style="color:var(--text3)">Sharpe sits between the two.</b> It is an average and a spread over many trades, so it is steadier than a drawdown, but its denominator still moves with whichever regime the extra weeks happened to fall in. This board carries no Sharpe column today, so that guidance is for when you read Sharpe on the run reports rather than here.'
           +'</div>';
         const _reWinTx=_reWinLine(_reComAll,_reShown,'now shown across the whole board');

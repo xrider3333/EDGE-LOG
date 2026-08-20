@@ -61,6 +61,7 @@ CASES = [
     ('stage-lb',     {'resStage': 'lb'}),
     ('axis-ratio',   {'resAxis': 'ratio'}),
     ('axis-ppt',     {'resAxis': 'ppt'}),
+    ('axis-pf',      {'resAxis': 'pf'}),
     ('basis-year',   {'resBasis': 'year'}),
     ('order-result', {'resDate': 'res'}),
     ('order-ran',    {'resDate': 'ran'}),

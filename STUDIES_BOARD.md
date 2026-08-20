@@ -69,13 +69,16 @@ A row that genuinely has no figure for the selected stage shows a dash, the dash
 when you hover it, and the row drops off the chart with the omitted-count line updating.
 **A figure from a different stage is never put in its place.**
 
-**VERTICAL AXIS — raw profit, or profit divided by drawdown.** Raw profit plots the money
-itself and its tick labels read as dollars. Profit divided by drawdown plots a plain number and
-its tick labels carry no dollar sign. It opens on raw profit: every row on this board is a
-single strategy on one contract, so the dollars all carry the same margin. (There used to be a
-PER STUDY setting that honoured a `yMode` declared by each study. With one chart it had nothing
-left to mean — a single axis cannot hold two units — so it is gone, along with the `yMode`
-field.)
+**VERTICAL AXIS — raw profit, MAR, PF, or $/TRADE.** Raw profit plots the money itself with dollar
+ticks. **MAR** is profit over the worst drawdown — the same division, and now the same name, the
+RUNBOARD and the 1E matrix use. **PF** and **$/TRADE** are the two window-robust readings: both count
+trades rather than calendar, so rows covering different years can still be read against each other,
+and both state on the axis that they ignore PROFIT STAGE and COMPARE ON because each is recorded
+once per row. Coverage differs and it matters — PF places 203 of 215 rows, raw profit 203, $/TRADE
+146, and every row it cannot place is named under the chart with the reason.
+
+(There used to be a PER STUDY setting honouring a `yMode` declared by each study. With one chart it
+had nothing left to mean — a single axis cannot hold two units — so it and the field are gone.)
 
 **ORDER BY — discovered, date ran, or result.** Discovered keeps the registry order, which
 is the order the owner approved. Date ran reads the real finish date out of run history and
@@ -181,7 +184,7 @@ many of the rows now shown it can reach.
 - **PER YEAR** divides each row's own profit by the number of years its own window covers, so a longer
   window is not automatically flattered. It needs only a recorded data window, not a saved curve,
   which makes it the wider-coverage option. Three extra columns appear — PER YEAR, YEARS and
-  PER YR÷DD.
+  MAR / YR.
 
 **COMMON WINDOW was removed on 2026-08-19, and should not be added back without new data.** It sliced
 each run's saved equity curve down to the stretch every visible row shared, and recomputed profit and
@@ -197,12 +200,11 @@ registry ever becomes mostly run-backed.
 of the calendar, so a mismatched window barely moves them — those are the fair comparison. PER YEAR
 is for reading money against the length of window it was earned over.
 
-**PF and PROFIT÷DD are not the same number, and both headings now say so.** PF is gross winnings
+**PF and MAR are not the same number, and both headings now say so.** PF is gross winnings
 over gross losses, counted trade by trade — how far the winners outweigh the losers, and a property
-of the trade population, so a slightly different window barely moves it. PROFIT÷DD is net profit
-over the single worst peak-to-trough loss — what the rest of the world calls MAR or recovery factor
+of the trade population, so a slightly different window barely moves it. MAR is net profit over the single worst peak-to-trough loss — what the rest of the world calls MAR or recovery factor
 — so it answers what the worst stretch cost to earn, and it rests on **one event**, which is why it
-is the most fragile figure here. A row can have a strong PF and a weak PROFIT÷DD, or the reverse.
+is the most fragile figure here. A row can have a strong PF and a weak MAR, or the reverse.
 
 **$/TRD is the other window-robust figure**, and it is why the trade count matters. Whole-run profit
 over the trade count: the average dollars a variant made per trade it took. Like PF it is a property
