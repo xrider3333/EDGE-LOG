@@ -82,7 +82,7 @@ is the order the owner approved. Date ran reads the real finish date out of run 
 splits the table into a block that was run and a block that never was. Result sorts best
 first on whatever stage and axis are selected.
 
-**Filters — verdict, discovered date, run status, status, study** (controls 11–15). These are built
+**Filters — verdict, discovered date, run status, status, study** (controls 10–14). These are built
 from the data. Strategy type is not among them: that is control 1, the rail. STUDY is the one to reach for when a family has five studies behind it and you want
 to read them one at a time on the single chart; it needs no tagging, because it is built from each
 study's own title. The renderer walks every row in the registry, collects the distinct values of each
@@ -108,22 +108,15 @@ used to be printed there. A chip warning about something wears the warning colou
 **How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
-(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS, 5 FRONTIER, 6 ORDER BY); 7–15 sit behind
-MORE (7 COMPARE ON, 8 TIME SCOPE, 9 SCOPE DATE, 10 COLOUR, then the filters 11–15). **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS, 5 ORDER BY); 6–14 sit behind
+MORE (6 COMPARE ON, 7 TIME SCOPE, 8 SCOPE DATE, 9 COLOUR, then the filters 10–14). FRONTIER was control 5 until 2026-08-19, when the owner had it removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
-control a full-width line of its own; only 15 STUDY needs it.
+control a full-width line of its own; only 14 STUDY needs it.
 
 **There is exactly one strategy control.** Control 1 IS the `fam` filter. A second row of the same
 buttons used to render with the other filter chips and the owner rightly asked why there were two;
 the `fam` facet is now excluded from `_reFiltBtns` while staying in `_reFacets` for the filtering
 logic. Do not put it back.
-
-**FRONTIER — in the always-on control block.** Draws the upper-left staircase through the variants that
-nothing now shown beats on *both* axes at once: no other point made more money and took a smaller
-worst drawdown. Those points are ringed, joined by a dashed staircase, named by row number under
-the chart, and flagged in their own hover. It is computed from the points on screen — filtering
-recomputes it — and it is a **shape, not a judgement**: a row can sit on the frontier and still
-carry a `fail` verdict, because the frontier knows nothing about how the figure was earned.
 
 **READ AS — absolute, or vs crown.** (Also in the always-on block.) VS CROWN measures both axes *from* the crowned configuration
 of each row's own family, so the crown lands on the origin and every other variant reads as the
@@ -203,6 +196,26 @@ registry ever becomes mostly run-backed.
 **What answers the same question now.** `PF` and `$/TRD` are properties of the trade population, not
 of the calendar, so a mismatched window barely moves them — those are the fair comparison. PER YEAR
 is for reading money against the length of window it was earned over.
+
+**PF and PROFIT÷DD are not the same number, and both headings now say so.** PF is gross winnings
+over gross losses, counted trade by trade — how far the winners outweigh the losers, and a property
+of the trade population, so a slightly different window barely moves it. PROFIT÷DD is net profit
+over the single worst peak-to-trough loss — what the rest of the world calls MAR or recovery factor
+— so it answers what the worst stretch cost to earn, and it rests on **one event**, which is why it
+is the most fragile figure here. A row can have a strong PF and a weak PROFIT÷DD, or the reverse.
+
+**$/TRD is the other window-robust figure**, and it is why the trade count matters. Whole-run profit
+over the trade count: the average dollars a variant made per trade it took. Like PF it is a property
+of the trade population rather than of the calendar, so it is the fairest reading this board has
+without re-running anything. It declares that it cannot follow PROFIT STAGE or COMPARE ON — a count
+is recorded once per row, not per stage.
+
+**Where a trade count comes from**, in order: the row's own `trd`; then `validate.total_trades` on
+the saved run document where the row has a run number, marked with a small circle; then a dash. **It
+is never derived** — a count cannot be worked back out of money, and no rate from a neighbouring row
+is ever applied. As of 2026-08-19 that leaves **71 local rows with no count and no way to get one**
+short of recording it on the row or persisting the variant as a validate run. **Record `trd` on new
+rows.**
 
 **Which ratio survives a slightly mismatched window.** This is printed in the UI under the
 controls, and it reflects what this project has measured rather than a preference. Profit factor is

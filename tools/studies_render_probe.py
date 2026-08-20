@@ -70,7 +70,6 @@ CASES = [
     ('colour-off',   {'resColour': 'off'}),
     ('vs-crown',     {'resRel': 'crown'}),
     ('vs-crown-orb', {'resRel': 'crown', 'resFilt': '{"fam":["ORB"]}'}),
-    ('no-frontier',  {'resFront': False}),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>

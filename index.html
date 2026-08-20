@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.179';
+const VERSION='73.180';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.180',date:'2026-08-19',notes:['TRADE COUNTS ARE NOW READ WHERE THEY EXIST. A row without its own count takes one off the saved run document when it has a run number - the same source rule the DATA WINDOW column already follows - and a small circle marks a figure read from the run rather than written in the registry. THAT REACHES 2 OF THE 73 MISSING ROWS. The other 71 are local research: nothing recorded their trade count and they have no run to read one from, so there is no source and a number would have to be invented. They keep a dash, and the dash now says what would fix it - record the count on the row, or persist the variant as a validate run.','FRONTIER is removed, as asked. The chart is a plain scatter again.','PF AND PROFIT÷DD ARE DIFFERENT MEASUREMENTS and both columns stay. PF is gross winnings divided by gross losses, counted trade by trade, so it says how much the winners outweigh the losers and a mismatched window barely moves it. PROFIT÷DD is net profit divided by the single worst peak-to-trough loss, so it says how much money the worst stretch cost to earn - one event, which is why it is the most fragile figure here. The column headings now spell out that difference.','The controls renumber to 1 to 14.']},
 {v:'73.179',date:'2026-08-20',notes:['FOUR RUNS WERE THE SAME RUN TWICE, and they have been archived. On 18 August the same four NOISE configurations were validated a second time - runs 251, 252, 253 and 254 repeat runs 245, 243, 241 and 242. Every field was checked before archiving: same strategy file, same date window, same data source, same costs, the same fifteen crowned settings and the same headline figures down to the cent. Nothing was deleted and one click un-archives any of them.','WHY IT HAPPENED: one session queued the jobs and then died. A second session looked at the queue, saw nothing waiting or running, and queued four of them again. The four originals had already FINISHED, so the check of the day could not see them.','THE SYSTEM NOTICES NOW. Every job is fingerprinted on the things that decide its numbers - the strategy file, the date window, the data source and session, the costs and the search settings - and that fingerprint is compared against jobs that have already FINISHED as well as ones still waiting. The free-text note, the provider and the worker count are ignored, because two jobs that differ only in those compute the same answer.','IT WARNS, IT DOES NOT BLOCK. Queue a repeat from the Builder and you are told which run already did it and on what date, and asked whether to go ahead - because running something again to check it reproduces, or on newer data, is a fair thing to want. Jobs queued straight in by a script have nobody to ask, so those run and get labelled as a repeat instead.','A REPEAT NOW SAYS SO. A run the guard recognised carries a REPEAT OF badge on its own report, and on the STUDIES board a row no longer counts an archived repeat in its plus-N marker - it shows a separate archived mark whose hover explains what happened.']},
 {v:'73.178',date:'2026-08-19',notes:['COMMON WINDOW IS REMOVED from COMPARE ON. It was the most rigorous option on the board and it could reach almost nothing: slicing a row needs the equity curve a real run saved, and 31 of the 216 rows here have a run behind them at all. The other 185 are local research with no curve to cut, so the basis dashed 85 percent of the board by construction - and that gap only widens, because windows naturally diverge as testing goes on.','What answers the same question instead is already on the board and needs no slicing: PROFIT FACTOR and the new $/TRD are properties of the trade population rather than of the calendar, so a longer window does not flatter either of them. PER YEAR remains for reading money against the length of the window it was earned over, and it reaches every row that records a window.','NOTHING THAT MEASURES A WINDOW WAS TOUCHED. The DATA WINDOW column still says what stretch every row covers, the WINDOW status chip still names the stretch the visible rows share, and the warning still names the rows that reach outside it. Knowing the rows do not share a stretch is the point; slicing them was only one way to act on it, and it was the way that could not reach the board.']},
 {v:'73.177',date:'2026-08-19',notes:['MONEY IS ABBREVIATED in the study tables: 400,000 reads 400k, 6,190 reads 6.2k, and a million-plus reads 1.24M. Anything under a thousand stays whole, because shortening 671 to 0.7k loses a digit and saves nothing. THE EXACT FIGURE IS ON THE HOVER of every abbreviated cell, so this costs space and not precision.','NEW $/TRD COLUMN, and $/TRADE as a chart axis. With profit factor it is the pair of figures on this board that a mismatched window barely touches, because both are properties of the trade population rather than of the calendar - a longer window does not flatter either of them. It is whole-run money divided by the trade count, so it says out loud that it cannot follow PROFIT STAGE or COMPARE ON: a trade count is recorded once per row, not per stage. 137 of the 216 rows record both figures; the rest show a dash saying which one is missing.','The PROFIT÷DD axis button now carries the warning it deserves: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so it is the most fragile reading here. PF is the most robust.']},
@@ -17930,12 +17931,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // how much of the width the chart takes in the split layout, as a percentage. Dragged on
         //   the bar between the two columns, double-click puts it back.
         const _reSplitW=(()=>{const v=+APREF.resSplitW;return (isFinite(v)&&v>=22&&v<=78)?v:48;})();
-        // FRONTIER (owner ask, 2026-08-19). With a hundred marks on one chart the question that
-        //   matters is which of them NOTHING BEATS: no other variant made more money AND took a
-        //   smaller worst drawdown. That set is the upper-left staircase, and it is drawn rather
-        //   than left to the eye. It is a property of the points now shown, so filtering the board
-        //   recomputes it - it is never a stored verdict.
-        const _reFront=(APREF.resFront!==false);
         // READ AS (owner ask, 2026-08-19). VS CROWN subtracts the family crowned configuration
         //   from every point, so the crown sits at the origin and every other variant reads as the
         //   money and the drawdown it ADDED or GAVE UP against the thing actually being traded.
@@ -18157,12 +18152,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reCell=(st,rw,f,fmt)=>{const v=_reNum(rw,f);return (v==null)?_reDash(_reWhy(st,rw,f)):fmt(v);};
         const _reMoneyF={is:1,wf:1,lb:1,tot:1,dd:1};
         const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades',ppt:'Total profit per trade'};
-        // whole-run money per trade. Null unless the row records BOTH a total and a trade count.
-        const _rePpt=rw=>{const p=_reNum(rw,'tot'),n=_reNum(rw,'trd');
-          return (p==null||n==null||!n)?null:(p/n);};
-        const _rePptWhy=(st,rw)=>(_reNum(rw,'tot')==null)
-          ?_reWhy(st,rw,'tot')
-          :'This row records no trade count, so its money cannot be divided by one. Nothing was assumed.';
+        // THE TRADE COUNT, with the same source rule the DATA WINDOW column uses: the row own
+        //   figure first, then the saved run document where the row has a run number, and a dash
+        //   where neither exists. Nothing is ever estimated from a neighbouring row or a rate.
+        const _reTrd=rw=>{
+          const v=_reNum(rw,'trd');
+          if(v!=null)return {v:v,borrowed:false,src:'recorded in the studies registry for this row.'};
+          const runs=Array.isArray(rw.runs)?rw.runs:[];
+          if(runs.length){const r=_reRunRec(runs[0]),V=(r&&r.validate)||{};
+            const t=+((V.total_trades!=null)?V.total_trades:((r&&r.best_trades!=null)?r.best_trades:NaN));
+            if(isFinite(t)&&t>0)return {v:t,borrowed:true,
+              src:'This row records no trade count of its own, so it is read from the saved document for run #'+runs[0]+' \u2014 the whole-run trade count of the configuration that run crowned, which is the same thing the column measures. The small circle marks a figure read from the run rather than written in the studies registry.'};}
+          return null;};
+        const _reTrdWhy='No trade count exists for this row. It was computed during research and the count was never written down, and it has no run number to read one from, so there is nothing to read and nothing that could be worked out from the other figures - a count cannot be derived from money. To fill it in, record trd on the row from whatever produced it, or persist the variant as a validate run and the board will read the count off the run itself.';
+        // whole-run money per trade. Null unless BOTH a total and a trade count can be had.
+        const _rePpt=rw=>{const p=_reNum(rw,'tot'),t=_reTrd(rw);
+          return (p==null||!t||!t.v)?null:(p/t.v);};
+        const _rePptWhy=(st,rw)=>(_reNum(rw,'tot')==null)?_reWhy(st,rw,'tot'):_reTrdWhy;
         const _rePptTip='Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all.';
         const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
         const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
@@ -18359,7 +18365,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +td(pddCell)
             +basCells
-            +td(_reCell(st,rw,'trd',v=>'<span style="color:var(--text5)">'+Math.round(v).toLocaleString()+'</span>'))
+            +td((()=>{const t=_reTrd(rw);
+                return t?('<span title="'+_reEsc(t.src)+'" style="color:var(--text5);cursor:help">'+Math.round(t.v).toLocaleString()+(t.borrowed?'<span style="opacity:.7">\u00b0</span>':'')+'</span>')
+                        :_reDash(_reTrdWhy);})())
             +tdw(rw.read,col,_reSplit?90:130)
             // the grey block sits at the far right now: it is context, not the answer
             +tdw(rw.what,'var(--text5)',_reSplit?130:210)
@@ -18458,7 +18466,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const yf=_reYfmt(),xf=_reAxFmt(_reXF,null);
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
           const showN=(pts.length<=_reLblMax);
-          let g='',frontier=[];
+          let g='';
           if(pts.length){
             // the axes span ONLY the rows now shown, so the STRATEGY rail and the filters
             //   rescale them by themselves. VALUE ZOOM trims the extremes off that fit so a
@@ -18495,25 +18503,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
                   +'<text x="'+(R-4)+'" y="'+(zy+13).toFixed(1)+'" fill="var(--text4)" font-size="10" text-anchor="end">the crown itself sits on this line \u2014 above it is more money than the crown made</text>';}}
             g+='<text x="'+((L+R)/2)+'" y="'+XC+'" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(_reXCapNow())+'</text>'
               +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(_reYcapAll(items,com))+'</text>';
-            // \u2500\u2500 THE FRONTIER. A point is on it when NOTHING now shown beats it on both axes at
-            //    once - nothing made more money AND took a smaller worst drawdown. Walk the points
-            //    left to right and keep every one that sets a new best height; that set is the
-            //    upper-left staircase. It is computed from the points on screen, so filtering
-            //    recomputes it, and it is never a stored verdict about a row.
-            if(_reFront&&pts.length>2){
-              const srt=pts.slice().sort((a,b)=>(a.x-b.x)||(b.y-a.y));
-              const fr=[];let best=-Infinity;
-              srt.forEach(p=>{if(p.y>best){fr.push(p);best=p.y;}});
-              frontier=fr;
-              if(fr.length>1){
-                // a staircase, not a straight line between points: the flat run is the drawdown
-                // you would have to accept before the next variant becomes reachable.
-                let dpath='M'+px(fr[0].x).toFixed(1)+' '+py(fr[0].y).toFixed(1);
-                for(let i=1;i<fr.length;i++)dpath+='L'+px(fr[i].x).toFixed(1)+' '+py(fr[i-1].y).toFixed(1)
-                  +'L'+px(fr[i].x).toFixed(1)+' '+py(fr[i].y).toFixed(1);
-                g+='<path d="'+dpath+'" fill="none" stroke="var(--text3)" stroke-width="1.4" stroke-dasharray="7,4" opacity="0.75"/>';}
-              fr.forEach(p=>{g+='<circle cx="'+px(p.x).toFixed(1)+'" cy="'+py(p.y).toFixed(1)+'" r="'+((_reSz[p.r.tone]||6.5)+6.4).toFixed(1)+'" fill="none" stroke="var(--text3)" stroke-width="1.1" opacity="0.85"/>';});
-              g+='<text x="'+(R-4)+'" y="'+(T+13)+'" fill="var(--text3)" font-size="10" text-anchor="end">frontier \u00b7 '+fr.length+' variant'+(fr.length===1?'':'s')+' nothing beats on both axes</text>';}
             const tipF=['dd','tot','lb','trd'];
             // plot the biggest first so the smaller marks land on top and stay readable
             pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
@@ -18529,7 +18518,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +' | '+_reStWordAll(items)+(_reMode()==='ratio'?' profit divided by drawdown ':' profit ')
                 +(_reRel?((p.y>=0?'+':'')+_reVal(p.y,yf)+' against the crown (its own figure is '+_reVal(p.y0,yf)+')'):_reVal(p.y,yf));
               if(_reRel)tp+=' | drawdown '+((p.x>=0?'+':'')+_reVal(p.x,xf))+' against the crown (its own figure is '+_reVal(p.x0,xf)+')';
-              if(frontier.indexOf(p)>=0)tp+=' | ON THE FRONTIER: nothing now shown beats it on both axes at once';
               tipF.forEach(f=>{const v=_reNum(r,f);
                 tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':_reVal(v,_reAxFmt(f,null)));});
               if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
@@ -18583,8 +18571,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reHidden)brief+=' \u00b7 '+_reHidden+' held back by the controls';
           if(!showN&&pts.length)brief+=' \u00b7 row numbers hidden, hover a point';
           if(_reRel)brief+=' \u00b7 read against the crown';
-          if(_reFront&&frontier.length)brief+=' \u00b7 frontier: '+frontier.map(p=>p.r.n).join(', ');
-          if(_reFront&&frontier.length)omit+=' THE FRONTIER is the ringed, dashed staircase: rows '+frontier.map(p=>p.r.n).join(', ')+'. Nothing else now shown beats any of them on both axes at once - no other variant made more money AND took a smaller worst drawdown. It is computed from the points on screen, so filtering the board recomputes it, and it says nothing about whether a variant is safe to trade: a row can sit on the frontier and still be a failed verdict, because the frontier is a shape, not a judgement.';
           if(_reRel)omit+=' READ AS is set to VS CROWN, so both axes are measured FROM the crowned configuration of each row own family: the crown sits on the zero lines and every other point is the money it added and the drawdown it added against the thing actually being traded. The subtraction uses exactly the figures the tables below print, and those tables still show the absolute numbers.';
           const dot='<span style="color:var(--text5)">\u00b7</span>';
           return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px">'
@@ -18683,9 +18669,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
             +_hd('PF',null,'Profit factor: gross wins divided by gross losses. Of everything on this board it is the figure LEAST damaged by two rows covering different stretches of history, because it is a property of the whole trade population rather than of the calendar.')
             +_hd('$/TRD',null,_rePptTip)
-            +_hd('PROFIT÷DD',null,stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
+            +_hd('PROFIT÷DD',null,'NOT the same thing as PF beside it, and the two answer different questions. PF is gross winnings over gross losses counted trade by trade - how much the winners outweigh the losers. This is '+stg.toLowerCase()+' profit over the SINGLE worst peak-to-trough loss - how much the worst stretch cost to earn, which the rest of the trading world calls MAR or recovery factor. A profit factor can be high while this is low, and the other way round. '+stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
             +basHd
-            +_hd('TRADES')+_hd('READ','left')
+            +_hd('TRADES',null,'How many trades the variant took over its whole run. Taken from the row own record where it has one, and read off the saved run document where the row has a run number instead - a small circle marks a figure read from the run. A dash means the count was never recorded and the row has no run to read one from: it cannot be derived from the money, so nothing is shown.')+_hd('READ','left')
             +_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
             +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
             +_hd((_reDate==='ran')?'DATE RAN':'DISCOVERED','left',(_reDate==='ran')?'The date the real validate run finished, read from run history.':'The date the result was found in research.')
@@ -18729,7 +18715,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // TWO CONTROLS PER LINE. The single-column version left the right half of the tile empty
         //   and cost twice the height for it.
         const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
-        const _reDateBtns=_reCtl(6,'ORDER BY','which order the board lists the rows in',
+        const _reDateBtns=_reCtl(5,'ORDER BY','which order the board lists the rows in',
             _tabBtn('data-resdate="disc"','DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.heat)
            +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.heat)
            +_tabBtn('data-resdate="res"','RESULT',_reDate==='res','order best first on the profit stage and axis selected here - rows with no figure for that stage sit at the bottom',_TONE.heat),_TONE.heat);
@@ -18742,9 +18728,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reReadBtns=_reCtl(4,'READ AS','what the chart plots. Absolute is each variant own figures. VS CROWN measures both axes FROM the crowned configuration of that row own family, so the crown sits on the zero lines and every other point reads as the money it added and the drawdown it added against the thing actually being traded. It changes the CHART only - the tables below always print the absolute figures',
             _tabBtn('data-resrel="abs"','ABSOLUTE',!_reRel,'plot each variant own profit and own worst drawdown, exactly as its row records them',_TONE.rank)
            +_tabBtn('data-resrel="crown"','VS CROWN',_reRel,'plot the DIFFERENCE from the crowned configuration of each row own family. A point up and to the left of the origin made more money for a smaller drawdown than the crown did; down and to the right is the opposite. A family with no declared crown, or with more than one, cannot be placed and its rows are named under the chart rather than guessed at',_TONE.rank),_TONE.rank);
-        const _reFrontBtns=_reCtl(5,'FRONTIER','draw the upper-left staircase through the variants that nothing now shown beats on BOTH axes at once - nothing made more money and took a smaller worst drawdown. It is computed from the points on screen, so filtering recomputes it',
-            _tabBtn('data-resfront="1"','ON',_reFront,'ring the non-dominated variants and join them with a dashed staircase, and name their row numbers under the chart',_TONE.samp)
-           +_tabBtn('data-resfront="0"','OFF',!_reFront,'plain scatter, no frontier drawn',_TONE.samp),_TONE.samp);
         // THE BASELINE RAIL only appears under VS CROWN, and only says something when there is
         //   something to say: a family with exactly one declared crown needs no choice, and a
         //   family with two is a registry problem the owner should see rather than have averaged
@@ -18777,27 +18760,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
-        const _reScopeBtns=_reCtl(8,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
+        const _reScopeBtns=_reCtl(7,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
             _reScopeDefs.map(o=>_tabBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
               (o[2]?('show only rows dated within the past '+o[2]+' days on whichever date SCOPE DATE names'):'no time scope at all - every row on the board is eligible whatever date it carries')
               +'. Read SCOPE DATE beside this: a row carries a date it was DISCOVERED and, if it was ever saved as a run, a separate date it RAN, and the two answer different questions.',_TONE.samp)).join(''),_TONE.samp);
-        const _reSBasisBtns=_reCtl(9,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
+        const _reSBasisBtns=_reCtl(8,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
             _tabBtn('data-ressbasis="follow"','FOLLOWS ORDER BY',_reSBasis==='follow','use whichever date ORDER BY is set to, so the scope and the ordering always agree. ORDER BY RESULT is not a date at all, so this falls back to the date discovered and the line below says so out loud',_TONE.heat)
            +_tabBtn('data-ressbasis="disc"','DISCOVERED',_reSBasis==='disc','scope on the date the result was found in research. Every row on the board has one of these, so nothing is held back for want of a date',_TONE.heat)
            +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSBasis==='ran','scope on the date the real validate run finished. Only rows that were persisted as runs have one at all - the rest are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
-        const _reColBtns=_reCtl(10,'COLOUR','colour for this board alone - your app theme is never touched. There used to be a third setting, THEME, and on a monochrome app theme it painted exactly the same chart as COLOUR, so the two were indistinguishable and it is gone',
+        const _reColBtns=_reCtl(9,'COLOUR','colour for this board alone - your app theme is never touched. There used to be a third setting, THEME, and on a monochrome app theme it painted exactly the same chart as COLOUR, so the two were indistinguishable and it is gone',
             _tabBtn('data-rescolour="on"','COLOUR',_reCol!=='off','colour the verdicts. Where the app theme carries real colour the board follows it; where the theme is greyscale, as MONO is, it uses the five approved colours instead of five near-identical greys. Blue champion, green held up, amber fragile, red failed, grey reference',_reFT)
            +_tabBtn('data-rescolour="off"','SHAPES ONLY',_reCol==='off','one neutral ink everywhere, so the shape alone carries the verdict. It loses no meaning - the shapes were always the signal',_reFT),_reFT);
         // -- COMPARE ON (the fair-comparison basis) and VALUE ZOOM. The first decides what the
         //    numbers MEAN, so it sits with the stage and axis controls; the second only decides
         //    how much of the value range the chart spends its height on.
-        const _reBasBtns=_reCtl(7,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this picks the basis every figure on the board is read on. The board always states in words which basis is in force and which rows it can reach',
+        const _reBasBtns=_reCtl(6,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this picks the basis every figure on the board is read on. The board always states in words which basis is in force and which rows it can reach',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the common-window warning underneath still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','divide each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window and not a saved curve, which makes it the widest-coverage option of the three',_reFT),_reFT);
         // the sixteen STUDY titles are long, so that one facet trims its labels and keeps the
         //   whole title on hover. Every cell in the grid wraps, so nothing runs off the edge.
         const _reShort=v=>{const t=String(v);return (t.length>26)?(t.slice(0,25)+'\u2026'):t;};
-        let _reFiltN=10;
+        let _reFiltN=9;
         const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
@@ -18878,7 +18861,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   chart plots. READ AS and FRONTIER live here rather than on the chart tile - the
             //   owner went looking for them among the controls and could not find them there.
             +'<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns+_reFrontBtns+_reDateBtns)+'</div>'
+            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns+_reDateBtns)+'</div>'
             // BEHIND "MORE": the comparison basis, the zoom, the scope and every filter chip.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:8px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px">'
             +_reGrid(_reBasBtns+_reScopeBtns+_reSBasisBtns+_reColBtns+_reFiltBtns
@@ -21271,9 +21254,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   Both only change how much is on screen - no figure is hidden by either, and every
       //   sentence they hide is also on the hover of the short thing it explains.
       content.querySelectorAll('[data-remoretog]').forEach(b=>{b.onclick=()=>{savePref('resMore',!APREF.resMore);renderApp();};});
-      // STUDIES chart: the frontier, the vs-crown reading, and which crown a family with more
+      // STUDIES chart: the vs-crown reading, and which crown a family with more
       //   than one tagged crown is read against. None of them changes a stored figure.
-      content.querySelectorAll('[data-resfront]').forEach(b=>{b.onclick=()=>{savePref('resFront',b.dataset.resfront==='1');renderApp();};});
       content.querySelectorAll('[data-resrel]').forEach(b=>{b.onclick=()=>{savePref('resRel',b.dataset.resrel);renderApp();};});
       content.querySelectorAll('[data-resbase]').forEach(b=>{b.onclick=()=>{
         const o=Object.assign({},(APREF.resBase&&typeof APREF.resBase==='object')?APREF.resBase:{});
