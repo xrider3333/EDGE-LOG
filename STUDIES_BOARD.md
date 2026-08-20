@@ -222,6 +222,19 @@ could only be guessed.
 A figure whose end-of-window cut had to be placed rather than read carries a `≈` after it, and the
 hover says which dated stretch it was placed inside and how long that stretch was.
 
+**Money is abbreviated in the tables** — 400k, 6.2k, 1.24M — with the exact figure on the hover of
+every cell. Under a thousand stays whole. `_reAbbr` / `_reExact` do it; use them for any new money
+column so the tables stay one line per row.
+
+**$/TRD, and the fair-comparison question it answers.** Whole-run profit over the trade count, added
+2026-08-19 when the owner asked which 1E-style metric is genuinely apples to apples. The answer is
+that **profit factor and money per trade are the two figures a mismatched window barely touches**,
+because both are properties of the trade population rather than of the calendar. `$/TRD` therefore
+declares out loud that it cannot follow PROFIT STAGE or COMPARE ON: a `trd` count is recorded once
+per row, not per stage, and a downsampled equity curve carries no trade count at all. 137 of 216
+rows record both `tot` and `trd`; the rest dash with the reason. **Record `trd` on new rows** — it is
+what makes a row readable on the fairest axis this board has.
+
 **Which ratio survives a slightly mismatched window.** This is printed in the UI under the
 controls, and it reflects what this project has measured rather than a preference. Profit factor is
 the most robust of the three, because it is a property of the whole trade population, so a few

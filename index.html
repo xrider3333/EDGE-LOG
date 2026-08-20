@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.176';
+const VERSION='73.177';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.177',date:'2026-08-19',notes:['MONEY IS ABBREVIATED in the study tables: 400,000 reads 400k, 6,190 reads 6.2k, and a million-plus reads 1.24M. Anything under a thousand stays whole, because shortening 671 to 0.7k loses a digit and saves nothing. THE EXACT FIGURE IS ON THE HOVER of every abbreviated cell, so this costs space and not precision.','NEW $/TRD COLUMN, and $/TRADE as a chart axis. With profit factor it is the pair of figures on this board that a mismatched window barely touches, because both are properties of the trade population rather than of the calendar - a longer window does not flatter either of them. It is whole-run money divided by the trade count, so it says out loud that it cannot follow PROFIT STAGE or COMPARE ON: a trade count is recorded once per row, not per stage. 137 of the 216 rows record both figures; the rest show a dash saying which one is missing.','The PROFIT÷DD axis button now carries the warning it deserves: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so it is the most fragile reading here. PF is the most robust.']},
 {v:'73.176',date:'2026-08-19',notes:['THE STATUS COLUMN IS GONE. It was a full column of dashes for the sake of the one or two rows per family that carry a pill. CROWN and PAPER now sit beside the name of the rows that have them, and rows that have neither show nothing at all rather than a dash.','THE MONEY MOVED LEFT. The order is now rank, row, name, then the four stage figures, drawdown, profit factor, profit-divided-by-drawdown and trades - the numbers you came for - with the read. The grey descriptive block (what it does, run, discovered, data window) sits at the far right where it can be ignored until you want it.','EVERYTHING IS A STEP SMALLER: the table drops to 8.5px, the headings to 7px, cell padding to 2px, and the grey block is dimmer than the numbers. Twenty-five rows now fit where fifteen used to, and nothing was dropped to do it - the two clipped prose columns still carry their whole sentence on hover.']},
 {v:'73.174',date:'2026-08-19',notes:['VALUE ZOOM is gone. The axes have always spanned only the rows now shown, so the strategy rail and the filters already rescaled the chart; trimming the range was a second and blunter way of doing the same job, and it needed a pinned-to-the-edge special case to stay honest about the rows it pushed out of range. The chart now always fits every point it draws.','COLOUR had three settings and two of them were the same button for anyone on the monochrome theme. THEME already fell back to the five approved colours whenever the app theme is greyscale, which MONO is, so THEME and COLOUR painted an identical chart. There are two now: COLOUR follows the app theme where the theme carries real colour and uses the approved five where it does not, and SHAPES ONLY is unchanged. The app theme is still never touched.','The controls renumber to 1 to 15.']},
 {v:'73.173',date:'2026-08-19',notes:['ONE STRATEGY CONTROL, NOT TWO. The STRATEGY rail at the top and the STRATEGY TYPE filter chips further down were always the same setting - the rail writes that very filter - so the chips were a second copy of the same buttons. They are gone. The rail is control 1 and it is the only place a strategy is picked.','THE CONTROLS ARE TWO PER LINE and NUMBERED 1 to 16. One per line left the right-hand half of the tile empty and cost twice the height for it. The block is roughly half as tall now, and the numbers mean a control can be named in a sentence rather than described - set 4 to VS CROWN, turn 5 off. Control 16, the sixteen study titles, takes a full-width line of its own.']},
@@ -17853,7 +17854,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reDate=(APREF.resDate==='ran')?'ran':((APREF.resDate==='res')?'res':'disc');
         const _reStages=['is','wf','lb','tot'];
         const _reStage=(_reStages.indexOf(APREF.resStage)>=0)?APREF.resStage:'tot';
-        const _reAxis=(APREF.resAxis==='ratio')?'ratio':'raw';
+        const _reAxis=(APREF.resAxis==='ratio'||APREF.resAxis==='ppt')?APREF.resAxis:'raw';
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -18070,7 +18071,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reBasis=(APREF.resBasis==='common'||APREF.resBasis==='year')?APREF.resBasis:'asis';
         const _reBasNm={asis:'RATIOS AS IS',common:'COMMON WINDOW',year:'PER YEAR'};
         // the table gains four columns under COMMON WINDOW and three under PER YEAR
-        const _reNCols=16+((_reBasis==='common')?4:((_reBasis==='year')?3:0));
+        const _reNCols=17+((_reBasis==='common')?4:((_reBasis==='year')?3:0));
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         const _reYrs=(st,rw)=>{const w=_reWinOf(st,rw);if(!w)return null;
           const d=_reDayGap(w.f,w.t);return (d&&d>0)?(d/365.25):null;};
@@ -18161,13 +18162,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reWhy=(st,rw,f)=>((rw.why&&rw.why[f])||(st.dashWhy&&st.dashWhy[f])||'This figure was never measured for this row, so nothing is shown rather than a number from a different window.');
         // a losing money figure keeps its minus sign, the way the approved study table shows it.
         // DRAWDOWN is the one column that never takes a minus - its header already says drawdown.
-        const _reMoney=v=>(v>=0?('<span style="color:'+_reUp+'">$'):('<span style="color:'+_reDn+'">-$'))+Math.round(Math.abs(v)).toLocaleString()+'</span>';
+        // 400,000 -> 400k, 6,190 -> 6.2k, 1,240,000 -> 1.24M. Under a thousand it stays whole,
+        //   because abbreviating 671 to 0.7k loses a digit and saves nothing.
+        const _reAbbr=v=>{const a=Math.abs(v);
+          if(a>=1e6)return (a/1e6).toFixed(2).replace(/0$/,'').replace(/\.0?$/,'')+'M';
+          if(a>=1e4)return String(Math.round(a/1e3))+'k';
+          if(a>=1e3)return (a/1e3).toFixed(1)+'k';
+          return String(Math.round(a));};
+        const _reExact=v=>((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString());
+        // every abbreviated figure carries its exact value on hover, so the saving is space only
+        const _reMoney=v=>'<span title="'+_reExact(v)+'" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>';
+        const _reMoneyPlain=(v,colr)=>'<span title="'+_reExact(v)+'" style="cursor:help;color:'+(colr||'var(--text3)')+'">$'+_reAbbr(v)+'</span>';
         const _reNum=(r,f)=>{const v=r&&r[f];return (v==null||!isFinite(v))?null:+v;};
         // every cell goes through here: a real number renders, a missing one renders as a dash
         // that says WHY on hover. There is no third path — nothing is ever silently substituted.
         const _reCell=(st,rw,f,fmt)=>{const v=_reNum(rw,f);return (v==null)?_reDash(_reWhy(st,rw,f)):fmt(v);};
         const _reMoneyF={is:1,wf:1,lb:1,tot:1,dd:1};
-        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades'};
+        const _reFldNm={is:'In-sample',wf:'Walk-forward profit',lb:'Lockbox',tot:'Total profit',dd:'Worst drawdown',pf:'Profit factor',pdd:'Profit divided by drawdown',trd:'Trades',ppt:'Total profit per trade'};
+        // whole-run money per trade. Null unless the row records BOTH a total and a trade count.
+        const _rePpt=rw=>{const p=_reNum(rw,'tot'),n=_reNum(rw,'trd');
+          return (p==null||n==null||!n)?null:(p/n);};
+        const _rePptWhy=(st,rw)=>(_reNum(rw,'tot')==null)
+          ?_reWhy(st,rw,'tot')
+          :'This row records no trade count, so its money cannot be divided by one. Nothing was assumed.';
+        const _rePptTip='Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all.';
         const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
         const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
         const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
@@ -18184,6 +18202,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   so the chart and the table are always reading the same basis. Either input missing
         //   means no value at all - never a stand-in.
         const _reYv=(st,rw,com)=>{
+          if(_reMode()==='ppt')return _rePpt(rw);
           if(_reBasis==='common'){const sl=_reCom1(st,rw,com);if(sl.err)return null;
             if(_reMode()!=='ratio')return sl.pnl;
             return (sl.dd>0)?(sl.pnl/sl.dd):null;}
@@ -18194,6 +18213,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const p=_reNum(rw,_reStage);if(p==null)return null;
           if(_reMode()!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
         const _reYwhy=(st,rw,com)=>{
+          if(_reMode()==='ppt')return _rePptWhy(st,rw);
           if(_reBasis==='common'){const sl=_reCom1(st,rw,com);
             if(sl.err)return sl.err;
             return 'This row has a sliced profit over the shared stretch but never gave any of it back on the saved curve, so there is no drawdown to divide it by.';}
@@ -18204,6 +18224,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const p=_reNum(rw,_reStage);
           return (p==null)?_reWhy(st,rw,_reStage):_reWhy(st,rw,'dd');};
         const _reYfmt=()=>(_reMode()==='ratio')?'num':'money';
+        const _rePptCap='Whole-run profit per trade \u2014 HIGHER is better. It ignores PROFIT STAGE and COMPARE ON, because a trade count is recorded once per row and a per-trade average is already free of window length';
         // ONE chart covering several studies cannot borrow one study's word for the in-sample
         //   column, because the studies do not all mean the same thing by it: several have no
         //   separate walk-forward stage and call it PRE-LOCKBOX, one calls it SELECTION WINDOW.
@@ -18216,6 +18237,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const k=_reIsLbls(items);
           return (k.length===1)?(_reIsWord[k[0]]||'In-sample'):'In-sample, which does not mean the same thing on every row';};
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
+          if(_reMode()==='ppt')return _rePptCap;
           if(_reBasis==='common')return 'Profit over '+((com&&com.f)?(com.f+' to '+com.t):'the shared stretch')+', the stretch every row here shares'+(rat?', divided by the worst drawdown on that same slice':'')+' \u2014 HIGHER is better';
           if(_reBasis==='year')return _reStWordAll(items)+' profit per year of the row own window'+(rat?', divided by the worst drawdown':'')+' \u2014 HIGHER is better';
           return _reStWordAll(items)+(rat?' profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
@@ -18339,7 +18361,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const sl=_reCom1(st,rw,com),tip=_reCom1Tip(sl,com);
               if(sl.err)return td(_reDash(tip),null,emB)+td(_reDash(tip))+td(_reDash(_rePfWhy))+td(_reDash(tip),null,emB);
               return td('<span title="'+_reEsc(tip)+'" style="cursor:help">'+_reMoney(sl.pnl)+(sl.exact?'':('<span style="color:'+_reWarnC+'"> \u2248</span>'))+'</span>',null,emB)
-                +td('<span title="'+_reEsc(tip)+'" style="cursor:help;color:var(--text3)">$'+Math.round(Math.abs(sl.dd)).toLocaleString()+'</span>')
+                +td('<span title="'+_reEsc(tip)+' Exact: '+_reExact(Math.abs(sl.dd))+'." style="cursor:help;color:var(--text3)">$'+_reAbbr(Math.abs(sl.dd))+'</span>')
                 +td(_reDash(_rePfWhy))
                 +td((sl.dd>0)?('<span title="'+_reEsc(tip)+'" style="cursor:help"><b>'+(sl.pnl/sl.dd).toFixed(2)+'</b></span>'):_reDash(_reYwhy(st,rw,com)),null,emB);}
             if(_reBasis==='year'){
@@ -18362,8 +18384,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reStage==='wf')?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reStage==='lb')?em:'')
             +td(_reCell(st,rw,'tot',v=>_reMoney(v)),null,(_reStage==='tot')?em:'')
-            +td(_reCell(st,rw,'dd',v=>'$'+Math.round(Math.abs(v)).toLocaleString()))
+            +td(_reCell(st,rw,'dd',v=>_reMoneyPlain(Math.abs(v))))
             +td(_reCell(st,rw,'pf',v=>v.toFixed(2)))
+            +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +td(pddCell)
             +basCells
             +td(_reCell(st,rw,'trd',v=>'<span style="color:var(--text5)">'+Math.round(v).toLocaleString()+'</span>'))
@@ -18693,7 +18716,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
             +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
             +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
-            +_hd('PF',null,'Profit factor: gross wins divided by gross losses.')
+            +_hd('PF',null,'Profit factor: gross wins divided by gross losses. Of everything on this board it is the figure LEAST damaged by two rows covering different stretches of history, because it is a property of the whole trade population rather than of the calendar.')
+            +_hd('$/TRD',null,_rePptTip)
             +_hd('PROFIT÷DD',null,stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
             +basHd
             +_hd('TRADES')+_hd('READ','left')
@@ -18784,7 +18808,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +'. A row with no figure for this stage shows a dash that says why and leaves the chart. No other stage is ever substituted for it.',_TONE.samp)).join(''),_TONE.samp);
         const _reAxisBtns=_reCtl(3,'VERTICAL AXIS','what the height of the chart measures',
             _tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
-           +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars, and it is the fairer reading when two rows do not risk the same amount',_TONE.rank),_TONE.rank);
+           +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
+           +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
         const _reScopeBtns=_reCtl(8,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
