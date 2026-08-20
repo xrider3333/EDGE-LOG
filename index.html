@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.177';
+const VERSION='73.178';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.178',date:'2026-08-19',notes:['COMMON WINDOW IS REMOVED from COMPARE ON. It was the most rigorous option on the board and it could reach almost nothing: slicing a row needs the equity curve a real run saved, and 31 of the 216 rows here have a run behind them at all. The other 185 are local research with no curve to cut, so the basis dashed 85 percent of the board by construction - and that gap only widens, because windows naturally diverge as testing goes on.','What answers the same question instead is already on the board and needs no slicing: PROFIT FACTOR and the new $/TRD are properties of the trade population rather than of the calendar, so a longer window does not flatter either of them. PER YEAR remains for reading money against the length of the window it was earned over, and it reaches every row that records a window.','NOTHING THAT MEASURES A WINDOW WAS TOUCHED. The DATA WINDOW column still says what stretch every row covers, the WINDOW status chip still names the stretch the visible rows share, and the warning still names the rows that reach outside it. Knowing the rows do not share a stretch is the point; slicing them was only one way to act on it, and it was the way that could not reach the board.']},
 {v:'73.177',date:'2026-08-19',notes:['MONEY IS ABBREVIATED in the study tables: 400,000 reads 400k, 6,190 reads 6.2k, and a million-plus reads 1.24M. Anything under a thousand stays whole, because shortening 671 to 0.7k loses a digit and saves nothing. THE EXACT FIGURE IS ON THE HOVER of every abbreviated cell, so this costs space and not precision.','NEW $/TRD COLUMN, and $/TRADE as a chart axis. With profit factor it is the pair of figures on this board that a mismatched window barely touches, because both are properties of the trade population rather than of the calendar - a longer window does not flatter either of them. It is whole-run money divided by the trade count, so it says out loud that it cannot follow PROFIT STAGE or COMPARE ON: a trade count is recorded once per row, not per stage. 137 of the 216 rows record both figures; the rest show a dash saying which one is missing.','The PROFIT÷DD axis button now carries the warning it deserves: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so it is the most fragile reading here. PF is the most robust.']},
 {v:'73.176',date:'2026-08-19',notes:['THE STATUS COLUMN IS GONE. It was a full column of dashes for the sake of the one or two rows per family that carry a pill. CROWN and PAPER now sit beside the name of the rows that have them, and rows that have neither show nothing at all rather than a dash.','THE MONEY MOVED LEFT. The order is now rank, row, name, then the four stage figures, drawdown, profit factor, profit-divided-by-drawdown and trades - the numbers you came for - with the read. The grey descriptive block (what it does, run, discovered, data window) sits at the far right where it can be ignored until you want it.','EVERYTHING IS A STEP SMALLER: the table drops to 8.5px, the headings to 7px, cell padding to 2px, and the grey block is dimmer than the numbers. Twenty-five rows now fit where fifteen used to, and nothing was dropped to do it - the two clipped prose columns still carry their whole sentence on hover.']},
 {v:'73.174',date:'2026-08-19',notes:['VALUE ZOOM is gone. The axes have always spanned only the rows now shown, so the strategy rail and the filters already rescaled the chart; trimming the range was a second and blunter way of doing the same job, and it needed a pinned-to-the-edge special case to stay honest about the rows it pushed out of range. The chart now always fits every point it draws.','COLOUR had three settings and two of them were the same button for anyone on the monochrome theme. THEME already fell back to the five approved colours whenever the app theme is greyscale, which MONO is, so THEME and COLOUR painted an identical chart. There are two now: COLOUR follows the app theme where the theme carries real colour and uses the approved five where it does not, and SHAPES ONLY is unchanged. The app theme is still never touched.','The controls renumber to 1 to 15.']},
@@ -18057,107 +18058,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //      RATIOS AS IS  what the board has always done. Every figure is exactly what its
         //                    row recorded, over whatever window that row happens to cover, with
         //                    the common-window warning still printed underneath.
-        //      COMMON WINDOW the most rigorous option and it costs no re-running: where a row is
-        //                    backed by a real run with a saved equity curve, the curve is sliced
-        //                    to the stretch every visible row shares and the profit and the worst
-        //                    drawdown are recomputed on exactly that slice. A row with no saved
-        //                    curve shows a DASH SAYING WHY, never its un-sliced figure, because
-        //                    mixing sliced and un-sliced numbers in one column is precisely the
-        //                    silent blending this board exists to prevent.
         //      PER YEAR      divide each row own profit by the number of years its own window
         //                    covers, so a longer window is not automatically flattered. It needs
         //                    only a recorded window, not a curve, so it reaches every row the
         //                    DATA WINDOW column can place - the widest coverage of the three.
-        const _reBasis=(APREF.resBasis==='common'||APREF.resBasis==='year')?APREF.resBasis:'asis';
-        const _reBasNm={asis:'RATIOS AS IS',common:'COMMON WINDOW',year:'PER YEAR'};
-        // the table gains four columns under COMMON WINDOW and three under PER YEAR
-        const _reNCols=17+((_reBasis==='common')?4:((_reBasis==='year')?3:0));
+        const _reBasis=(APREF.resBasis==='year')?'year':'asis';
+        const _reBasNm={asis:'RATIOS AS IS',year:'PER YEAR'};
+        // the table gains three columns under PER YEAR
+        const _reNCols=17+((_reBasis==='year')?3:0);
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         const _reYrs=(st,rw)=>{const w=_reWinOf(st,rw);if(!w)return null;
           const d=_reDayGap(w.f,w.t);return (d&&d>0)?(d/365.25):null;};
-        // -- THE SAVED EQUITY CURVE, and the honest limits of slicing it.
-        //    A run saves its champion equity as a DOWNSAMPLED cumulative curve (a few hundred
-        //    points standing in for thousands of trades) plus the run from-date and to-date,
-        //    and - where the run had a lockbox - the index at which the lockbox begins together
-        //    with the lockbox own start date. Those are the only points on the curve whose
-        //    calendar date is actually recorded. Everything between two of them is trade-ordered,
-        //    not calendar-ordered, so a cut inside a long undated stretch could only be guessed.
-        //    The rule this board follows: a cut may land inside a dated stretch no longer than
-        //    _reMaxSeg days, and anything else is refused with a dash that says so.
-        const _reMaxSeg=800;
-        const _reCurve=rw=>{
-          const runs=Array.isArray(rw.runs)?rw.runs:[];
-          if(!runs.length)return {err:'This is local research with no saved run behind it, so there is no equity curve to slice to the shared stretch. Its own figures are still in the columns to the left, over its own window.'};
-          const r=_reRunRec(runs[0]);
-          if(!r)return {err:'Run #'+runs[0]+' is not in the run history this page has loaded, so its saved curve cannot be read here and nothing can be recomputed for it.'};
-          const V=r.validate||{};
-          const cum=(Array.isArray(V.equity)&&V.equity.length>2)?V.equity
-            :((r.equity&&Array.isArray(r.equity.cum)&&r.equity.cum.length>2)?r.equity.cum:null);
-          if(!cum)return {err:'Run #'+runs[0]+' saved no equity curve, so there is nothing to slice.'};
-          const f=String(r.date_from||'').slice(0,10),t=String(r.date_to||'').slice(0,10);
-          if(!f||!t)return {err:'Run #'+runs[0]+' saved no from-date and to-date, so its curve cannot be placed on a calendar at all.'};
-          const A=[{i:0,d:f}];
-          const li=(V.lb_idx==null)?null:+V.lb_idx;
-          const lbf=(V.lockbox&&V.lockbox.from)?String(V.lockbox.from).slice(0,10):null;
-          if(li!=null&&li>0&&li<cum.length-1&&lbf&&lbf>f&&lbf<t)A.push({i:li,d:lbf});
-          A.push({i:cum.length-1,d:t});
-          return {cum:cum,mult:(+r.multiplier||1),anch:A,id:runs[0],f:f,t:t,dated:A.length>2};};
-        // where on the curve a calendar date sits. Exact when the date IS one of the recorded
-        //   anchors; interpolated in calendar time inside a short dated stretch; refused outright
-        //   when the only stretch containing it is long and undated.
-        const _reIdxAt=(c,d)=>{
-          const A=c.anch,n=c.cum.length;
-          if(d<=A[0].d)return {i:0,exact:(d===A[0].d)};
-          if(d>=A[A.length-1].d)return {i:n-1,exact:(d===A[A.length-1].d)};
-          for(let k=0;k<A.length-1;k++){const a=A[k],b=A[k+1];
-            if(d>=a.d&&d<=b.d){
-              if(d===a.d)return {i:a.i,exact:true};
-              if(d===b.d)return {i:b.i,exact:true};
-              const span=_reDayGap(a.d,b.d);
-              if(!span||span>_reMaxSeg)return {err:'The shared stretch ends on '+d+', which falls between '+a.d+' and '+b.d+' on the curve saved by run #'+c.id+'. That is '+_reDayTxt(span)+' with no dated point inside it, so the cut could only be guessed. This run recorded no lockbox boundary, which is the dated point the other runs supply. A dash is shown rather than a guessed figure.'};
-              return {i:a.i+(b.i-a.i)*(_reDayGap(a.d,d)/span),exact:false,seg:span,segA:a.d,segB:b.d};}}
-          return {err:'That date could not be placed on the curve saved by run #'+c.id+' at all.'};};
-        // THE SLICE. Profit is the curve own value at the end of the shared stretch minus its
-        //   value at the start. Drawdown is the worst peak-to-trough ON THAT SLICE, read off the
-        //   saved curve - and the saved curve is downsampled, so it is a FLOOR and it is not the
-        //   same measurement as the DRAWDOWN column beside it. Both facts are said on hover.
-        const _reCom1Memo={};
-        const _reCom1=(st,rw,com)=>{
-          if(!com||!com.n||!com.f||!com.t)return {err:'Not enough rows now shown record a data window, so there is no shared stretch to slice anything to.'};
-          const k=String(st.key)+'|'+rw.n+'|'+com.f+'|'+com.t;
-          if(_reCom1Memo[k]!==undefined)return _reCom1Memo[k];
-          let out;
-          const c=_reCurve(rw);
-          if(c.err)out={err:c.err};
-          else{
-            const a=_reIdxAt(c,com.f),b=_reIdxAt(c,com.t);
-            if(a.err)out={err:a.err};
-            else if(b.err)out={err:b.err};
-            else if(!(b.i>a.i+0.5))out={err:'The shared stretch covers less than two points of the curve saved for this row, so nothing can honestly be measured on it.'};
-            else{
-              const at=x=>{const lo=Math.floor(x),hi=Math.min(c.cum.length-1,lo+1);
-                return (c.cum[lo]+(c.cum[hi]-c.cum[lo])*(x-lo))*c.mult;};
-              const v0=at(a.i),v1=at(b.i);
-              let peak=v0,dd=0;
-              for(let i=Math.ceil(a.i);i<=Math.floor(b.i);i++){const v=c.cum[i]*c.mult;
-                if(v>peak)peak=v;if(peak-v>dd)dd=peak-v;}
-              if(peak-v1>dd)dd=peak-v1;
-              out={pnl:v1-v0,dd:dd,exact:!!(a.exact&&b.exact),id:c.id,
-                   full:(c.cum[c.cum.length-1]-c.cum[0])*c.mult,
-                   pts:Math.floor(b.i)-Math.ceil(a.i)+1,n:c.cum.length,seg:(b.seg||a.seg||null)};}}
-          _reCom1Memo[k]=out;return out;};
-        const _reCom1Tip=(s,com)=>{
-          if(s.err)return s.err;
-          let t='The curve saved by run #'+s.id+', sliced to '+com.f+' to '+com.t+' - the stretch every row now shown genuinely shares. Profit over that slice is the curve value at the end minus its value at the start.';
-          t+=s.exact?' Both cut points land exactly on dates the run recorded, so no placing was needed at all.'
-                    :(' The end of the shared stretch is not itself a recorded date, so it was placed inside the '+_reDayTxt(s.seg)+' stretch the run does date, in proportion to the calendar. That placing is the one assumption in this figure, and it is why the board refuses to do it across long undated stretches.');
-          t+=' The same row un-sliced profit over its whole run is '+((s.full<0)?'-$':'$')+Math.round(Math.abs(s.full)).toLocaleString()+', so the slice removes '+(((s.full-s.pnl)<0)?'-$':'$')+Math.round(Math.abs(s.full-s.pnl)).toLocaleString()+'.';
-          t+=' The drawdown beside it is the worst peak-to-trough ON THIS SLICE, read off that saved curve. The curve is downsampled - several trades are netted into each of its '+s.n+' points - so the figure is a floor, and it is NOT the same measurement as the DRAWDOWN column, which came off the run own saved figures. Never read the two as the same number.';
-          return t;};
-        const _rePfWhy='A profit factor is gross winnings divided by gross losses, so it needs every individual trade. The saved curve is a downsampled cumulative line - several trades are netted into each point - which destroys the gross figures. A sliced profit factor could only be invented, so none is shown. Read the PF column instead, remembering that it covers the row own window and not the shared stretch. Profit factor is also the ratio that suffers least from a window that differs slightly, so reading it un-sliced is the least damaging of the three.';
         // can this basis place this row at all? drives the coverage sentence under the controls.
-        const _reBasCan=(st,rw,com)=>(_reBasis==='common')?!_reCom1(st,rw,com).err
-          :((_reBasis==='year')?(_reYrs(st,rw)!=null):true);
+        const _reBasCan=(st,rw,com)=>(_reBasis==='year')?(_reYrs(st,rw)!=null):true;
         const _reDash=why=>'<span title="'+_reEsc(why||'This figure was never measured for this row.')+'" style="color:var(--text5);cursor:help">—</span>';
         const _reWhy=(st,rw,f)=>((rw.why&&rw.why[f])||(st.dashWhy&&st.dashWhy[f])||'This figure was never measured for this row, so nothing is shown rather than a number from a different window.');
         // a losing money figure keeps its minus sign, the way the approved study table shows it.
@@ -18203,9 +18116,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   means no value at all - never a stand-in.
         const _reYv=(st,rw,com)=>{
           if(_reMode()==='ppt')return _rePpt(rw);
-          if(_reBasis==='common'){const sl=_reCom1(st,rw,com);if(sl.err)return null;
-            if(_reMode()!=='ratio')return sl.pnl;
-            return (sl.dd>0)?(sl.pnl/sl.dd):null;}
           if(_reBasis==='year'){const p=_reNum(rw,_reStage);if(p==null)return null;
             const y=_reYrs(st,rw);if(!y)return null;const pv=p/y;
             if(_reMode()!=='ratio')return pv;
@@ -18214,9 +18124,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reMode()!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
         const _reYwhy=(st,rw,com)=>{
           if(_reMode()==='ppt')return _rePptWhy(st,rw);
-          if(_reBasis==='common'){const sl=_reCom1(st,rw,com);
-            if(sl.err)return sl.err;
-            return 'This row has a sliced profit over the shared stretch but never gave any of it back on the saved curve, so there is no drawdown to divide it by.';}
           if(_reBasis==='year'){const p=_reNum(rw,_reStage);
             if(p==null)return _reWhy(st,rw,_reStage);
             if(!_reYrs(st,rw))return 'This row records no data window, so there is no number of years to divide its profit by. PER YEAR cannot place it and nothing was assumed for it.';
@@ -18238,7 +18145,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return (k.length===1)?(_reIsWord[k[0]]||'In-sample'):'In-sample, which does not mean the same thing on every row';};
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
           if(_reMode()==='ppt')return _rePptCap;
-          if(_reBasis==='common')return 'Profit over '+((com&&com.f)?(com.f+' to '+com.t):'the shared stretch')+', the stretch every row here shares'+(rat?', divided by the worst drawdown on that same slice':'')+' \u2014 HIGHER is better';
           if(_reBasis==='year')return _reStWordAll(items)+' profit per year of the row own window'+(rat?', divided by the worst drawdown':'')+' \u2014 HIGHER is better';
           return _reStWordAll(items)+(rat?' profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
         // ── FILTERS, built from the data. Each facet names a tag the registry rows carry, and
@@ -18357,13 +18263,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //    ever filled in from a different window.
           const emB=';background:color-mix(in srgb,var(--text) 7%,transparent);font-weight:700';
           const basCells=(()=>{
-            if(_reBasis==='common'){
-              const sl=_reCom1(st,rw,com),tip=_reCom1Tip(sl,com);
-              if(sl.err)return td(_reDash(tip),null,emB)+td(_reDash(tip))+td(_reDash(_rePfWhy))+td(_reDash(tip),null,emB);
-              return td('<span title="'+_reEsc(tip)+'" style="cursor:help">'+_reMoney(sl.pnl)+(sl.exact?'':('<span style="color:'+_reWarnC+'"> \u2248</span>'))+'</span>',null,emB)
-                +td('<span title="'+_reEsc(tip)+' Exact: '+_reExact(Math.abs(sl.dd))+'." style="cursor:help;color:var(--text3)">$'+_reAbbr(Math.abs(sl.dd))+'</span>')
-                +td(_reDash(_rePfWhy))
-                +td((sl.dd>0)?('<span title="'+_reEsc(tip)+'" style="cursor:help"><b>'+(sl.pnl/sl.dd).toFixed(2)+'</b></span>'):_reDash(_reYwhy(st,rw,com)),null,emB);}
             if(_reBasis==='year'){
               const y=_reYrs(st,rw),p=_reNum(rw,_reStage),d=_reNum(rw,'dd');
               const noY='This row records no data window, so there is no number of years to divide by. PER YEAR cannot place it and nothing was assumed for it.';
@@ -18698,16 +18597,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
           // -- the extra headings the comparison basis brings with it. They are highlighted the
           //    way the selected stage column is, because they are what the chart is plotting.
-          const basHd=(_reBasis==='common')
-            ?(_hd('COMMON $',null,'Profit over '+((com&&com.f)?(com.f+' to '+com.t):'the shared stretch')+' - the stretch every row now shown genuinely shares - recomputed by slicing the equity curve the run saved. It costs no re-running. A row with no saved curve shows a dash saying why, never its un-sliced figure, because putting a sliced number beside an un-sliced one in the same column is the silent blending this board refuses to do. A wavy sign after the figure means the end of the shared stretch was not itself a date the run recorded and had to be placed inside a short dated stretch; hover the figure and it says which stretch and how long it was.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)')
-              +_hd('COMMON DD',null,'The worst peak-to-trough on that same slice, read off the saved curve. The curve is downsampled, so several trades are netted into each of its points and this figure is a FLOOR - the true worst drawdown on the slice can only be deeper. It is not the same measurement as the DRAWDOWN column, which came off the run own saved figures, so the two can differ in either direction and must never be read as one number.')
-              +_hd('COMMON PF',null,_rePfWhy)
-              +_hd('COMMON ÷DD',null,'The sliced profit divided by the sliced drawdown. This is the most fragile of the three ratios: a drawdown is one worst event, so one extra month can introduce a new worst event and move the figure a long way. This project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, which is exactly why it is worth putting every row on the same stretch before reading it.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)'))
-            :((_reBasis==='year')
+        const basHd=(_reBasis==='year')
               ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers, so a longer window is no longer automatically flattered. Nothing is sliced and nothing is re-run - it is the row own figure over the row own length. It needs only a recorded data window, which is why it reaches more rows than the common-window slice does.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)')
                 +_hd('YEARS',null,'How many years the data window on this row covers. A row that records no window shows a dash here and cannot be put on a per-year basis at all.')
                 +_hd('PER YR÷DD',null,'The per-year profit divided by the worst drawdown. Remember that the drawdown is NOT annualised and cannot be - it is a single worst event, not a rate - so this ratio says how many years of typical profit it takes to cover the worst loss the row ever took.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)'))
-              :'');
+              :'';
           const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
             +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
             +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour. The one row with a faint blue TINT behind it is the champion or baseline of this study. A CROWN or PAPER pill after a name means that row is the standing champion of its family, or is the configuration running in the nightly paper forward test right now, or both - two different claims the board keeps apart. Most rows carry neither and show nothing, which is why there is no column for it. A brighter flash over a row is not a verdict at all: that is the live link with the chart, and it fades when the pointer moves away.')
@@ -18828,7 +18722,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    how much of the value range the chart spends its height on.
         const _reBasBtns=_reCtl(7,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this picks the basis every figure on the board is read on. The board always states in words which basis is in force and which rows it can reach',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the common-window warning underneath still tells you where the windows disagree',_reFT)
-           +_tabBtn('data-resbasis="common"','COMMON WINDOW',_reBasis==='common','the most rigorous option, and it costs no re-running: where a row is backed by a real run with a saved equity curve, that curve is sliced to the stretch every visible row shares and its profit and worst drawdown are recomputed on exactly that slice. A row with no saved curve shows a dash saying why rather than its un-sliced figure. Note that PROFIT STAGE has no meaning here and is ignored: the shared stretch is a calendar range, not a stage',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','divide each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window and not a saved curve, which makes it the widest-coverage option of the three',_reFT),_reFT);
         // the sixteen STUDY titles are long, so that one facet trims its labels and keeps the
         //   whole title on hover. Every cell in the grid wraps, so nothing runs off the edge.
@@ -18875,20 +18768,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   comparable and not be. This says what stretch they all genuinely share, and warns
         //   when they do not share one, naming the rows and the size of the gap.
         // WHICH BASIS IS IN FORCE, in words, every time - and what it can and cannot reach.
-        const _reBasTx=((_reBasis==='common')
-            ?('COMPARE ON is set to COMMON WINDOW. Every figure in the COMMON columns, and every height on every chart, is recomputed by slicing the equity curve the run saved down to the stretch every row now shown genuinely shares. Since the chart and the tables are one board, that shared stretch is now worked out across everything on screen rather than one study at a time - so picking a single strategy on the rail usually WIDENS it, because you have stopped intersecting families that were never run over the same years. '
-              +_reBasOk+' of the '+_reShown+' rows now shown can be put on that basis; the other '+_reBasNo.length+(_reBasNo.length?(' (row'+((_reBasNo.length>1)?'s ':' ')+_reBasNo.join(', ')+')'):'')+' show a dash that says why on hover, and their un-sliced figures were NOT put in its place. '
-              +'PROFIT STAGE is ignored under this basis and the board is not pretending otherwise: the shared stretch is a calendar range and a stage is a different cut of the same run, so mixing the two would be meaningless. Profit factor cannot be recomputed here at all, because the saved curve nets several trades into each of its points and that destroys the gross winnings and gross losses a profit factor is made of.')
-            :((_reBasis==='year')
+        const _reBasTx=((_reBasis==='year')
               ?('COMPARE ON is set to PER YEAR. Each row profit is divided by the number of years the row OWN data window covers, so a longer window is no longer automatically flattered. Nothing is sliced and nothing is re-run. '
                 +_reBasOk+' of the '+_reShown+' rows now shown record a window and can be put on that basis; the other '+_reBasNo.length+(_reBasNo.length?(' (row'+((_reBasNo.length>1)?'s ':' ')+_reBasNo.join(', ')+')'):'')+' record none, so they show a dash rather than a guessed length. '
                 +'Note what this does NOT fix: two rows can cover the same number of years and still cover different years, and a drawdown is a single worst event that cannot be annualised at all.')
-              :('COMPARE ON is set to RATIOS AS IS, which is what this board has always done: every figure is exactly what its row recorded, over whatever stretch of history that row happens to cover. All '+_reShown+' rows now shown are readable on this basis, and none of them is necessarily comparable with the others - the WINDOW chip beside this one says where the windows actually disagree.')));
+              :('COMPARE ON is set to RATIOS AS IS, which is what this board has always done: every figure is exactly what its row recorded, over whatever stretch of history that row happens to cover. All '+_reShown+' rows now shown are readable on this basis, and none of them is necessarily comparable with the others - the WINDOW chip beside this one says where the windows actually disagree.'));
         // The plain-English guide to the three bases, and which ratio survives a mismatched
         //   window best. The ordering here is measured, not opinion - see the drawdown note.
         const _reBasHelp='<div style="font-size:9px;color:var(--text5);line-height:1.8;margin-top:6px;max-width:960px;border-top:1px solid var(--border2);padding-top:7px">'
           +'<b style="color:var(--text4);letter-spacing:.6px">WHAT EACH BASIS MEANS, AND WHEN TO TRUST IT</b><br>'
-          +'<b style="color:var(--text3)">COMMON WINDOW</b> is the rigorous one and it costs nothing to run. It takes the equity curve each run already saved, cuts it down to the stretch every row now shown genuinely shares, and reads the profit and the worst drawdown off that slice. Trust it when the rows you are comparing all have run numbers. Its limits are stated on every figure: a row with no saved curve gets a dash rather than a stale number, the sliced drawdown is read off a downsampled curve so it is a floor, and profit factor cannot be recomputed from a curve at all.<br>'
+          +'<b style="color:var(--text3)">There used to be a third basis, COMMON WINDOW</b>, which sliced each run saved equity curve down to the stretch every visible row shared. It was the most rigorous option and it was removed on 2026-08-19, because slicing needs a saved curve and only 31 of the 216 rows on this board have a run behind them at all - so it dashed 85 percent of the board by construction, and that gap only widens as new research is done locally. What replaces it is above: profit factor and money per trade need no slicing, because neither is a property of the calendar.<br>'
           +'<b style="color:var(--text3)">PER YEAR</b> is the widest-reaching one, because it needs only a recorded data window. Trust it when you want to ask which row earns more per year of the history it saw, and when the rows you care about include local research with no run behind it. Do not trust it to settle a like-for-like question, because two rows can cover the same NUMBER of years and still cover different years, and one of those stretches may have been a far kinder market than the other.<br>'
           +'<b style="color:var(--text3)">RATIOS AS IS</b> is the raw reading. Trust it when the rows genuinely share a window, which the line above will tell you, and treat it as a warning sign rather than an answer when they do not.<br>'
           +'<b style="color:var(--text4);letter-spacing:.6px">WHICH RATIO SURVIVES A SLIGHTLY DIFFERENT WINDOW</b><br>'

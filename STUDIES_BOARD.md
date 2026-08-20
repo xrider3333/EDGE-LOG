@@ -177,63 +177,32 @@ Every tinted row carries that explanation on its own hover, and so does the NAME
 remembered. Two things open a study for you: filtering down to a single study, and clicking a chart
 point whose row lives inside a closed one.
 
-**COMPARE ON — ratios as is, common window, or per year.** Raw totals measured over different
-stretches of history are not comparable, and section 4A explains why the board already knew that.
-This control decides the basis every figure on the board is read on, and the board always states
-in words which basis is in force and how many of the rows now shown it can actually reach.
+**COMPARE ON — ratios as is, or per year.** Raw totals measured over different stretches of history
+are not comparable, and section 4A explains why the board already knew that. This control decides the
+basis every figure is read on, and the board always states in words which basis is in force and how
+many of the rows now shown it can reach.
 
-- **RATIOS AS IS** is what the board has always done. Every figure is exactly what its row
-  recorded, over whatever window that row happens to cover. It reaches every row. The
-  common-window warning underneath still says where the windows disagree.
-- **COMMON WINDOW** is the rigorous option and it costs no re-running. Where a row is backed by a
-  real run with a saved equity curve, the curve is sliced to the stretch every row **now shown on
-  the board** genuinely shares, and the profit and the worst drawdown are recomputed on exactly
-  that slice. The shared stretch is a board figure, not a per-study one, because the chart and the
-  tables are one board and must be read on one stretch — so picking a single strategy on the rail
-  usually *widens* it, since you stop intersecting families that were never run over the same years.
-  Four extra columns appear — COMMON $, COMMON DD, COMMON PF and COMMON ÷DD — and the chart plots
-  the sliced figure. **A row that cannot be recomputed shows a dash that says why on hover, never
-  its un-sliced figure.** PROFIT STAGE is ignored under this basis and the board says so out loud:
-  the shared stretch is a calendar range and a stage is a different cut of the same run.
-- **PER YEAR** divides each row's own profit by the number of years its own window covers, so a
-  longer window is not automatically flattered. It needs only a recorded data window and not a
-  saved curve, which makes it the widest-coverage option. Three extra columns appear — PER YEAR,
-  YEARS and PER YR÷DD.
+- **RATIOS AS IS** is what the board has always done. Every figure is exactly what its row recorded,
+  over whatever window that row happens to cover. It reaches every row. The common-window warning
+  still says where the windows disagree.
+- **PER YEAR** divides each row's own profit by the number of years its own window covers, so a longer
+  window is not automatically flattered. It needs only a recorded data window, not a saved curve,
+  which makes it the wider-coverage option. Three extra columns appear — PER YEAR, YEARS and
+  PER YR÷DD.
 
-**How the common-window slice actually works, and its three honest limits.** A run saves its
-champion equity as a *downsampled* cumulative curve plus the run's from-date and to-date and,
-where the run had a lockbox, the index at which the lockbox begins together with the lockbox's own
-start date. Those are the only points on the curve whose calendar date is recorded. Everything
-between two of them is ordered by trade, not by calendar, so a cut inside a long undated stretch
-could only be guessed.
+**COMMON WINDOW was removed on 2026-08-19, and should not be added back without new data.** It sliced
+each run's saved equity curve down to the stretch every visible row shared, and recomputed profit and
+drawdown on exactly that slice — rigorous, and it cost no re-running. It also could not reach the
+board: slicing needs a saved curve, only a row with a `runs` array has one, and **31 of 216 rows have
+a run behind them**. The other 185 are local research. So the basis dashed 85% of the board by
+construction, and the owner's objection was the right one — *"since common window only populates for
+few runs, and I'm trying to assess the broader picture"* — with the added problem that windows
+**diverge** as testing continues, so the shared stretch can only shrink. The code is in git if the
+registry ever becomes mostly run-backed.
 
-1. **A cut may only land inside a dated stretch of at most 800 days.** Anything else is refused
-   with a dash naming the stretch and its length. In practice the common window's start is every
-   run's own start date (exact, no placing at all) and its end falls inside the lockbox year, which
-   is dated. A run that saved no lockbox boundary is refused, and that is the intended outcome.
-2. **The sliced drawdown is a floor.** It is read off the downsampled curve, which nets several
-   trades into each point, so the true worst drawdown on the slice can only be deeper. It is also
-   not the same measurement as the DRAWDOWN column, which came off the run's own saved figures, so
-   the two can differ in either direction. The hover text says both things on every figure.
-3. **Profit factor cannot be recomputed at all.** Gross winnings over gross losses needs every
-   individual trade, and netting trades into curve points destroys exactly that. COMMON PF is
-   therefore always a dash carrying that explanation. It is never estimated.
-
-A figure whose end-of-window cut had to be placed rather than read carries a `≈` after it, and the
-hover says which dated stretch it was placed inside and how long that stretch was.
-
-**Money is abbreviated in the tables** — 400k, 6.2k, 1.24M — with the exact figure on the hover of
-every cell. Under a thousand stays whole. `_reAbbr` / `_reExact` do it; use them for any new money
-column so the tables stay one line per row.
-
-**$/TRD, and the fair-comparison question it answers.** Whole-run profit over the trade count, added
-2026-08-19 when the owner asked which 1E-style metric is genuinely apples to apples. The answer is
-that **profit factor and money per trade are the two figures a mismatched window barely touches**,
-because both are properties of the trade population rather than of the calendar. `$/TRD` therefore
-declares out loud that it cannot follow PROFIT STAGE or COMPARE ON: a `trd` count is recorded once
-per row, not per stage, and a downsampled equity curve carries no trade count at all. 137 of 216
-rows record both `tot` and `trd`; the rest dash with the reason. **Record `trd` on new rows** — it is
-what makes a row readable on the fairest axis this board has.
+**What answers the same question now.** `PF` and `$/TRD` are properties of the trade population, not
+of the calendar, so a mismatched window barely moves them — those are the fair comparison. PER YEAR
+is for reading money against the length of window it was earned over.
 
 **Which ratio survives a slightly mismatched window.** This is printed in the UI under the
 controls, and it reflects what this project has measured rather than a preference. Profit factor is

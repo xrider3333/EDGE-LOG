@@ -62,7 +62,6 @@ CASES = [
     ('axis-ratio',   {'resAxis': 'ratio'}),
     ('axis-ppt',     {'resAxis': 'ppt'}),
     ('basis-year',   {'resBasis': 'year'}),
-    ('basis-common', {'resBasis': 'common'}),
     ('order-result', {'resDate': 'res'}),
     ('order-ran',    {'resDate': 'ran'}),
     ('scope-30',     {'resScope': '30'}),
