@@ -144,6 +144,35 @@ function NtWindowTitles {
     return @([NtWin]::Titles($p[0].Id))
   } catch { return @() }
 }
+# ── PROACTIVE RECYCLE ──────────────────────────────────────────────────────────────
+# NinjaTrader grows through a session -- 0.8 GB fresh, 3.4 GB by the time it froze on
+# both 2026-08-18 and 08-19 -- and when it freezes it takes the bridge with it and stops
+# trading until something kills it. That growth is inside NinjaTrader; we cannot fix it.
+# What we can do is stop it becoming an outage: restart it on OUR schedule, while the
+# account is flat and nothing is at stake, instead of waiting for it to seize mid-session.
+# Only ever when FLAT -- a restart on top of an open position is survivable but is not
+# something to do for housekeeping.
+$RecycleGB = 2.5
+function MaybeRecycle {
+  try {
+    $p = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
+    if ($p.Count -eq 0) { return $false }
+    $gb = [math]::Round(($p | Measure-Object WorkingSet64 -Sum).Sum / 1GB, 2)
+    if ($gb -lt $RecycleGB) { return $false }
+    if (-not (BridgeUp)) { return $false }        # already broken; the hung path handles it
+    $pos = ""
+    try { $pos = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content } catch { return $false }
+    if ($pos -notmatch '"positions"\s*:\s*\[\s*\]') {
+      Log "NinjaTrader is at $gb GB (recycle threshold $RecycleGB) but a position is OPEN - leaving it alone"
+      return $false
+    }
+    Log "NinjaTrader is at $gb GB and the account is flat - recycling it before it seizes"
+    foreach ($q in $p) { try { Stop-Process -Id $q.Id -Force -ErrorAction Stop } catch {} }
+    Start-Sleep -Seconds 8
+    return $true
+  } catch { return $false }
+}
+
 Log "=== recover start (WhatIf=$WhatIf) ==="
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────
@@ -158,8 +187,11 @@ if (BridgeUp) {
       Log "A strategy holding a position the account does not have will not open new trades."
       exit 4
     }
-    Log "healthy: bridge up, all expected strategies Realtime ($($expected -join ', ')), in sync with the account"
-    exit 0
+    if (MaybeRecycle) { Log "recycled - continuing to bring it back up" }
+    else {
+      Log "healthy: bridge up, all expected strategies Realtime ($($expected -join ', ')), in sync with the account"
+      exit 0
+    }
   }
   Log "bridge up but not Realtime: $($missing -join ', ')"
 } else {
