@@ -82,8 +82,8 @@ is the order the owner approved. Date ran reads the real finish date out of run 
 splits the table into a block that was run and a block that never was. Result sorts best
 first on whatever stage and axis are selected.
 
-**Filters — strategy type, verdict, discovered date, run status, status, study.** These are built
-from the data. STUDY is the one to reach for when a family has five studies behind it and you want
+**Filters — verdict, discovered date, run status, status, study** (controls 12–16). These are built
+from the data. Strategy type is not among them: that is control 1, the rail. STUDY is the one to reach for when a family has five studies behind it and you want
 to read them one at a time on the single chart; it needs no tagging, because it is built from each
 study's own title. The renderer walks every row in the registry, collects the distinct values of each
 tag, and makes a button for each one. A new study that tags its rows gets its buttons for
@@ -105,12 +105,18 @@ once opened.
 the common data window. Each is a short fact, and the hover on each carries the full paragraph that
 used to be printed there. A chip warning about something wears the warning colour.
 
-**How the controls are laid out.** Every control is one line of a two-column grid: its name on
-the left, its buttons on the right, wrapping inside its own cell. Two blocks — the six that decide
-what the chart plots are always on screen (STRATEGY, PROFIT STAGE, VERTICAL AXIS, READ AS,
-FRONTIER, ORDER BY), and everything else sits behind MORE. **Add a new control as a grid line via
-`_reCtl(cap, tip, buttons, tone)`**, not as another free-floating `_ctlGrp` in a flex row — that is
-what made the old block unreadable.
+**How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
+can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
+inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS, 5 FRONTIER, 6 ORDER BY); 7–16 sit behind
+MORE. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
+free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
+control a full-width line of its own; only 16 STUDY needs it.
+
+**There is exactly one strategy control.** Control 1 IS the `fam` filter. A second row of the same
+buttons used to render with the other filter chips and the owner rightly asked why there were two;
+the `fam` facet is now excluded from `_reFiltBtns` while staying in `_reFacets` for the filtering
+logic. Do not put it back.
 
 **FRONTIER — in the always-on control block.** Draws the upper-left staircase through the variants that
 nothing now shown beats on *both* axes at once: no other point made more money and took a smaller
