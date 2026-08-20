@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.181';
+const VERSION='73.182';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.182',date:'2026-08-19',notes:['ORDER BY MOVED TO THE STUDY TABLES, on their own heading, because that is the only thing it orders. It is control 14 now and the chart block is down to four: STRATEGY, PROFIT STAGE, VERTICAL AXIS, READ AS.','It does NOT change what is on the chart, and the reason is worth saying plainly: sorting cannot move a point, so no row is ever gained or lost by it. Two couplings survive and both are on its hover. Under DATE RAN the chart fades the never-run points, so it matches the ran and never-run split the tables are showing underneath. And while TIME SCOPE is on, SCOPE DATE defaults to following this control, so it decides which of a row two dates the scope reads - set SCOPE DATE explicitly and even that is gone.','The controls behind MORE renumber to 5 to 13.']},
 {v:'73.181',date:'2026-08-19',notes:['PF IS A CHART AXIS NOW. Profit factor was readable in the table and nowhere else, which is backwards for the most window-robust figure on the board: it counts trades rather than calendar, so two rows covering different years can still be read against each other. It also has the widest reach of any axis here - 203 of the 215 rows plot on it, against 146 on $/TRADE. Like $/TRADE it says on the axis that it ignores PROFIT STAGE and COMPARE ON, because a profit factor is recorded once per row.','PROFIT÷DD IS CALLED MAR. It always was the same division the RUNBOARD and the 1E matrix call MAR - profit over the worst drawdown - and this board was the only place using a different name for it. Same number, same maths, one name. The per-year column reads MAR / YR. The heading still opens by saying MAR is NOT profit factor: PF counts trades, MAR rests on a single worst event, and a row can score well on one and badly on the other.']},
 {v:'73.180',date:'2026-08-19',notes:['TRADE COUNTS ARE NOW READ WHERE THEY EXIST. A row without its own count takes one off the saved run document when it has a run number - the same source rule the DATA WINDOW column already follows - and a small circle marks a figure read from the run rather than written in the registry. THAT REACHES 2 OF THE 73 MISSING ROWS. The other 71 are local research: nothing recorded their trade count and they have no run to read one from, so there is no source and a number would have to be invented. They keep a dash, and the dash now says what would fix it - record the count on the row, or persist the variant as a validate run.','FRONTIER is removed, as asked. The chart is a plain scatter again.','PF AND PROFIT÷DD ARE DIFFERENT MEASUREMENTS and both columns stay. PF is gross winnings divided by gross losses, counted trade by trade, so it says how much the winners outweigh the losers and a mismatched window barely moves it. PROFIT÷DD is net profit divided by the single worst peak-to-trough loss, so it says how much money the worst stretch cost to earn - one event, which is why it is the most fragile figure here. The column headings now spell out that difference.','The controls renumber to 1 to 14.']},
 {v:'73.179',date:'2026-08-20',notes:['FOUR RUNS WERE THE SAME RUN TWICE, and they have been archived. On 18 August the same four NOISE configurations were validated a second time - runs 251, 252, 253 and 254 repeat runs 245, 243, 241 and 242. Every field was checked before archiving: same strategy file, same date window, same data source, same costs, the same fifteen crowned settings and the same headline figures down to the cent. Nothing was deleted and one click un-archives any of them.','WHY IT HAPPENED: one session queued the jobs and then died. A second session looked at the queue, saw nothing waiting or running, and queued four of them again. The four originals had already FINISHED, so the check of the day could not see them.','THE SYSTEM NOTICES NOW. Every job is fingerprinted on the things that decide its numbers - the strategy file, the date window, the data source and session, the costs and the search settings - and that fingerprint is compared against jobs that have already FINISHED as well as ones still waiting. The free-text note, the provider and the worker count are ignored, because two jobs that differ only in those compute the same answer.','IT WARNS, IT DOES NOT BLOCK. Queue a repeat from the Builder and you are told which run already did it and on what date, and asked whether to go ahead - because running something again to check it reproduces, or on newer data, is a fair thing to want. Jobs queued straight in by a script have nobody to ask, so those run and get labelled as a repeat instead.','A REPEAT NOW SAYS SO. A run the guard recognised carries a REPEAT OF badge on its own report, and on the STUDIES board a row no longer counts an archived repeat in its plus-N marker - it shows a separate archived mark whose hover explains what happened.']},
@@ -18627,6 +18628,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reWithRows=_rePrep.filter(p=>p.rows.length);
         const _reSolo=(_reWithRows.length===1)?String(_reWithRows[0].st.key):'';
         const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
+        //   VS CROWN"). span=true makes the buttons run the full width, for the one control with
+        //   sixteen of them.
+        const _reCtl=(num,cap,tip,items,tone,span)=>'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;text-align:right;padding-top:5px;white-space:nowrap'+(span?';grid-column:1':'')+'">'
+          +'<span style="color:var(--text5);opacity:.65;margin-right:4px">'+num+'</span>'+cap+'</div>'
+          +'<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:0'+(span?';grid-column:2/-1':'')+'">'+items+'</div>';
+        // TWO CONTROLS PER LINE. The single-column version left the right half of the tile empty
+        //   and cost twice the height for it.
+        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
+        const _reDateBtns=_reCtl(14,'ORDER BY','which order the STUDY TABLES list their rows in. It does not change what is on the chart: sorting cannot move a point, so no row is ever gained or lost by this. Two things it does touch, and both are deliberate - under DATE RAN the chart FADES the never-run points so it matches the ran / never-run split the tables are showing, and while TIME SCOPE is on, SCOPE DATE defaults to following this control, so it decides which of a row two dates the scope reads. Set SCOPE DATE explicitly and even that is gone',
+            _tabBtn('data-resdate="disc"','DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.heat)
+           +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.heat)
+           +_tabBtn('data-resdate="res"','RESULT',_reDate==='res','order best first on the profit stage and axis selected here - rows with no figure for that stage sit at the bottom',_TONE.heat),_TONE.heat);
         // ── PASS TWO: the tables. A tile is now a heading, a line of prose, a table and its
         //    notes - the chart it used to carry is the one at the top of the board.
         const _reTile=(p,com)=>{
@@ -18703,7 +18716,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text4)">STUDY TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
-            +(_reSolo?' \u00b7 the only study left is open':'')+'</span></div>'
+            +(_reSolo?' \u00b7 the only study left is open':'')+'</span>'
+            +'<span style="margin-left:auto;display:inline-grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:start">'+_reDateBtns+'</span></div>'
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
@@ -18712,18 +18726,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   that runs out of width now wraps INSIDE its own cell instead of pushing the next
         //   control onto a new line away from its label.
         // one control = one grid cell pair, NUMBERED so it can be named in a sentence ("set 4 to
-        //   VS CROWN"). span=true makes the buttons run the full width, for the one control with
-        //   sixteen of them.
-        const _reCtl=(num,cap,tip,items,tone,span)=>'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;text-align:right;padding-top:5px;white-space:nowrap'+(span?';grid-column:1':'')+'">'
-          +'<span style="color:var(--text5);opacity:.65;margin-right:4px">'+num+'</span>'+cap+'</div>'
-          +'<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:0'+(span?';grid-column:2/-1':'')+'">'+items+'</div>';
-        // TWO CONTROLS PER LINE. The single-column version left the right half of the tile empty
-        //   and cost twice the height for it.
-        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
-        const _reDateBtns=_reCtl(5,'ORDER BY','which order the board lists the rows in',
-            _tabBtn('data-resdate="disc"','DISCOVERED',_reDate==='disc','order the rows the way the research found them - every row has this date',_TONE.heat)
-           +_tabBtn('data-resdate="ran"','DATE RAN',_reDate==='ran','order by the date the real validate run finished - rows that were never run as a run are grouped separately with a dash',_TONE.heat)
-           +_tabBtn('data-resdate="res"','RESULT',_reDate==='res','order best first on the profit stage and axis selected here - rows with no figure for that stage sit at the bottom',_TONE.heat),_TONE.heat);
         // ── TWO SWITCHES THAT ONLY CHANGE HOW MUCH IS ON SCREEN (owner, 2026-08-19: "the page
         //    still has wayyyy to much text on it and to long"). MORE hides the six secondary
         //    control rails and the filter chips; HOW TO READ hides the reference text. Neither
@@ -18766,27 +18768,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
-        const _reScopeBtns=_reCtl(7,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
+        const _reScopeBtns=_reCtl(6,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
             _reScopeDefs.map(o=>_tabBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
               (o[2]?('show only rows dated within the past '+o[2]+' days on whichever date SCOPE DATE names'):'no time scope at all - every row on the board is eligible whatever date it carries')
               +'. Read SCOPE DATE beside this: a row carries a date it was DISCOVERED and, if it was ever saved as a run, a separate date it RAN, and the two answer different questions.',_TONE.samp)).join(''),_TONE.samp);
-        const _reSBasisBtns=_reCtl(8,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
+        const _reSBasisBtns=_reCtl(7,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
             _tabBtn('data-ressbasis="follow"','FOLLOWS ORDER BY',_reSBasis==='follow','use whichever date ORDER BY is set to, so the scope and the ordering always agree. ORDER BY RESULT is not a date at all, so this falls back to the date discovered and the line below says so out loud',_TONE.heat)
            +_tabBtn('data-ressbasis="disc"','DISCOVERED',_reSBasis==='disc','scope on the date the result was found in research. Every row on the board has one of these, so nothing is held back for want of a date',_TONE.heat)
            +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSBasis==='ran','scope on the date the real validate run finished. Only rows that were persisted as runs have one at all - the rest are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
-        const _reColBtns=_reCtl(9,'COLOUR','colour for this board alone - your app theme is never touched. There used to be a third setting, THEME, and on a monochrome app theme it painted exactly the same chart as COLOUR, so the two were indistinguishable and it is gone',
+        const _reColBtns=_reCtl(8,'COLOUR','colour for this board alone - your app theme is never touched. There used to be a third setting, THEME, and on a monochrome app theme it painted exactly the same chart as COLOUR, so the two were indistinguishable and it is gone',
             _tabBtn('data-rescolour="on"','COLOUR',_reCol!=='off','colour the verdicts. Where the app theme carries real colour the board follows it; where the theme is greyscale, as MONO is, it uses the five approved colours instead of five near-identical greys. Blue champion, green held up, amber fragile, red failed, grey reference',_reFT)
            +_tabBtn('data-rescolour="off"','SHAPES ONLY',_reCol==='off','one neutral ink everywhere, so the shape alone carries the verdict. It loses no meaning - the shapes were always the signal',_reFT),_reFT);
         // -- COMPARE ON (the fair-comparison basis) and VALUE ZOOM. The first decides what the
         //    numbers MEAN, so it sits with the stage and axis controls; the second only decides
         //    how much of the value range the chart spends its height on.
-        const _reBasBtns=_reCtl(6,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this picks the basis every figure on the board is read on. The board always states in words which basis is in force and which rows it can reach',
+        const _reBasBtns=_reCtl(5,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this picks the basis every figure on the board is read on. The board always states in words which basis is in force and which rows it can reach',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the common-window warning underneath still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','divide each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window and not a saved curve, which makes it the widest-coverage option of the three',_reFT),_reFT);
         // the sixteen STUDY titles are long, so that one facet trims its labels and keeps the
         //   whole title on hover. Every cell in the grid wraps, so nothing runs off the edge.
         const _reShort=v=>{const t=String(v);return (t.length>26)?(t.slice(0,25)+'\u2026'):t;};
-        let _reFiltN=9;
+        let _reFiltN=8;
         const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
@@ -18867,7 +18869,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   chart plots. READ AS and FRONTIER live here rather than on the chart tile - the
             //   owner went looking for them among the controls and could not find them there.
             +'<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns+_reDateBtns)+'</div>'
+            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns)+'</div>'
             // BEHIND "MORE": the comparison basis, the zoom, the scope and every filter chip.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:8px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px">'
             +_reGrid(_reBasBtns+_reScopeBtns+_reSBasisBtns+_reColBtns+_reFiltBtns

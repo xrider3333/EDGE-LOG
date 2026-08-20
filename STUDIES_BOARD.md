@@ -80,12 +80,19 @@ once per row. Coverage differs and it matters — PF places 203 of 215 rows, raw
 (There used to be a PER STUDY setting honouring a `yMode` declared by each study. With one chart it
 had nothing left to mean — a single axis cannot hold two units — so it and the field are gone.)
 
-**ORDER BY — discovered, date ran, or result.** Discovered keeps the registry order, which
-is the order the owner approved. Date ran reads the real finish date out of run history and
-splits the table into a block that was run and a block that never was. Result sorts best
-first on whatever stage and axis are selected.
+**ORDER BY — discovered, date ran, or result** (control 14, on the STUDY TABLES heading). Discovered
+keeps the registry order, which is the order the owner approved. Date ran reads the real finish date
+out of run history and splits each table into a block that was run and a block that never was.
+Result sorts best first on whatever stage and axis are selected.
 
-**Filters — verdict, discovered date, run status, status, study** (controls 10–14). These are built
+**It does not change what the chart shows, and it lives with the tables for that reason.** Sorting
+cannot move a point, so no row is ever gained or lost by it. Two couplings survive on purpose and
+both are named on its hover: under DATE RAN the chart **fades** the never-run points so it matches
+the split the tables are showing, and while TIME SCOPE is on, SCOPE DATE defaults to *following* this
+control, so it decides which of a row's two dates the scope reads. Set SCOPE DATE explicitly and even
+that goes away.
+
+**Filters — verdict, discovered date, run status, status, study** (controls 9–13). These are built
 from the data. Strategy type is not among them: that is control 1, the rail. STUDY is the one to reach for when a family has five studies behind it and you want
 to read them one at a time on the single chart; it needs no tagging, because it is built from each
 study's own title. The renderer walks every row in the registry, collects the distinct values of each
@@ -111,10 +118,10 @@ used to be printed there. A chip warning about something wears the warning colou
 **How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
-(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS, 5 ORDER BY); 6–14 sit behind
-MORE (6 COMPARE ON, 7 TIME SCOPE, 8 SCOPE DATE, 9 COLOUR, then the filters 10–14). FRONTIER was control 5 until 2026-08-19, when the owner had it removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS); 5–13 sit behind
+MORE (5 COMPARE ON, 6 TIME SCOPE, 7 SCOPE DATE, 8 COLOUR, then the filters 9–13), and **14 ORDER BY sits on the STUDY TABLES heading**, because the tables are the only thing it orders. FRONTIER was a control here until 2026-08-19, when the owner had it removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
-control a full-width line of its own; only 14 STUDY needs it.
+control a full-width line of its own; only 13 STUDY needs it.
 
 **There is exactly one strategy control.** Control 1 IS the `fam` filter. A second row of the same
 buttons used to render with the other filter chips and the owner rightly asked why there were two;
