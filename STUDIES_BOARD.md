@@ -105,14 +105,21 @@ once opened.
 the common data window. Each is a short fact, and the hover on each carries the full paragraph that
 used to be printed there. A chip warning about something wears the warning colour.
 
-**FRONTIER — on the chart header.** Draws the upper-left staircase through the variants that
+**How the controls are laid out.** Every control is one line of a two-column grid: its name on
+the left, its buttons on the right, wrapping inside its own cell. Two blocks — the six that decide
+what the chart plots are always on screen (STRATEGY, PROFIT STAGE, VERTICAL AXIS, READ AS,
+FRONTIER, ORDER BY), and everything else sits behind MORE. **Add a new control as a grid line via
+`_reCtl(cap, tip, buttons, tone)`**, not as another free-floating `_ctlGrp` in a flex row — that is
+what made the old block unreadable.
+
+**FRONTIER — in the always-on control block.** Draws the upper-left staircase through the variants that
 nothing now shown beats on *both* axes at once: no other point made more money and took a smaller
 worst drawdown. Those points are ringed, joined by a dashed staircase, named by row number under
 the chart, and flagged in their own hover. It is computed from the points on screen — filtering
 recomputes it — and it is a **shape, not a judgement**: a row can sit on the frontier and still
 carry a `fail` verdict, because the frontier knows nothing about how the figure was earned.
 
-**READ AS — absolute, or vs crown.** VS CROWN measures both axes *from* the crowned configuration
+**READ AS — absolute, or vs crown.** (Also in the always-on block.) VS CROWN measures both axes *from* the crowned configuration
 of each row's own family, so the crown lands on the origin and every other variant reads as the
 money it added and the drawdown it added against the thing actually being traded. It is the same
 figures the tables print, subtracted — never new data — and it changes the **chart only**; the
