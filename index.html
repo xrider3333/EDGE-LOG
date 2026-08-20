@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.173';
+const VERSION='73.174';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.174',date:'2026-08-19',notes:['VALUE ZOOM is gone. The axes have always spanned only the rows now shown, so the strategy rail and the filters already rescaled the chart; trimming the range was a second and blunter way of doing the same job, and it needed a pinned-to-the-edge special case to stay honest about the rows it pushed out of range. The chart now always fits every point it draws.','COLOUR had three settings and two of them were the same button for anyone on the monochrome theme. THEME already fell back to the five approved colours whenever the app theme is greyscale, which MONO is, so THEME and COLOUR painted an identical chart. There are two now: COLOUR follows the app theme where the theme carries real colour and uses the approved five where it does not, and SHAPES ONLY is unchanged. The app theme is still never touched.','The controls renumber to 1 to 15.']},
 {v:'73.173',date:'2026-08-19',notes:['ONE STRATEGY CONTROL, NOT TWO. The STRATEGY rail at the top and the STRATEGY TYPE filter chips further down were always the same setting - the rail writes that very filter - so the chips were a second copy of the same buttons. They are gone. The rail is control 1 and it is the only place a strategy is picked.','THE CONTROLS ARE TWO PER LINE and NUMBERED 1 to 16. One per line left the right-hand half of the tile empty and cost twice the height for it. The block is roughly half as tall now, and the numbers mean a control can be named in a sentence rather than described - set 4 to VS CROWN, turn 5 off. Control 16, the sixteen study titles, takes a full-width line of its own.']},
 {v:'73.172',date:'2026-08-19',notes:['THE CONTROLS ARE A GRID. Four ragged rows of chips wrapped wherever they ran out of width, so a label could end up nowhere near the buttons it named. Every control is one line now: its name on the left, its buttons on the right, and a group that runs long wraps inside its own cell instead of shoving the next control away from its label.','Two blocks. Always on screen: STRATEGY, PROFIT STAGE, VERTICAL AXIS, READ AS, FRONTIER, ORDER BY - the six that decide what the chart plots. Behind MORE: COMPARE ON, VALUE ZOOM, TIME SCOPE, SCOPE DATE, COLOUR and every filter chip, with CLEAR FILTERS on its own line.','READ AS and FRONTIER MOVED UP into that first block. They shipped on the chart tile header, where they were easy to miss: the owner went looking among the controls and did not find them. Same two controls, same behaviour, now beside the rest.']},
 {v:'73.171',date:'2026-08-19',notes:['THE FRONTIER IS DRAWN. With a hundred marks on one chart the question that matters is which of them NOTHING BEATS - no other variant made more money AND took a smaller worst drawdown. That set is now ringed and joined by a dashed staircase, its row numbers are named under the chart, and a point on it says so when you hover it. It is computed from the points on screen, so filtering recomputes it, and it is a shape rather than a judgement: a row can sit on the frontier and still carry a FAILED verdict. FRONTIER ON / OFF sits on the chart header.','NEW READING: VS CROWN. It measures both axes FROM the crowned configuration of each row own family, so the crown lands on the zero lines and every other variant reads as the money it added and the drawdown it added against the thing actually being traded. That is the question these studies were really asking. It changes the CHART only - the tables underneath always print the absolute figures - and it is the same numbers subtracted, not new data.','A BASELINE RAIL appears with it, and it surfaces a real problem rather than hiding it: EVERY family currently has more than one row tagged crowned, because the what-is-running-in-paper study restates configurations other studies already crowned, and the contract says one family one crown. The chart reads against the LOWEST-numbered of them - a row number is a permanent handle handed out in order, so the lowest is the first time that crown was recorded and the rest restate it - it says so on the rail, and one click reads against a different one instead. No tag is changed by any of this.','THE SPLIT SCREEN RESIZES. Drag the bar between the chart and the study tables to give the chart more or less of the width; double-click puts it back to half. The width is remembered. The bar underneath the chart still sets its height, so the chart now resizes both ways.','THE GREEN ROW TINT IS GONE, as asked. The mark beside the name already carried that verdict. The blue tint stays on the one champion or baseline row per study, and it now explains itself on hover, as does the brighter flash that follows your pointer - which was never a verdict at all, but the live link between a table row and its point on the chart.']},
@@ -17909,7 +17910,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //      SHAPES ONLY force one neutral ink so the shape is the only thing carrying meaning.
         //    THE SHAPES ARE DRAWN IN ALL THREE SETTINGS. Colour is reinforcement laid on top of
         //    the shape and is never a replacement for it, so turning colour off loses no meaning.
-        const _reCol=(APREF.resColour==='on'||APREF.resColour==='off')?APREF.resColour:'theme';
+        // owner 2026-08-19: "theme and color are the same? if so just remove it or fix it". They
+        //   WERE the same for him: THEME falls back to the approved five whenever the app theme is
+        //   greyscale, and his theme is MONO, so both buttons painted the identical chart. There
+        //   are two settings now, not three - colour on, colour off - and ON keeps the smart
+        //   behaviour: follow the app theme where the theme actually carries colour, use the five
+        //   approved colours where it does not. 'theme' is still accepted so a saved pref works.
+        const _reCol=(APREF.resColour==='off')?'off':'on';
         // -- WHY THEME IS NOT SIMPLY "DO WHAT THE THEME SAYS" (owner 2026-08-19: "also dont see
         //    color in the chart ... work in monochrome"). THEME means follow the app theme, and
         //    the owner runs the MONO theme, whose whole palette is greyscale: --blue is #b0b0b0,
@@ -17932,7 +17939,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           }catch(e){return false;}})();
         // the setting the board actually PAINTS with. _reCol stays the setting the owner picked,
         // so the three buttons still highlight what he chose rather than what was resolved.
-        const _reColEff=(_reCol==='theme'&&_reFlatTheme)?'on':_reCol;
+        const _reColEff=(_reCol==='off')?'off':(_reFlatTheme?'on':'theme');
         // -- CHART SIZE (owner ask 2026-08-19: "need to be able to scale or resize the chart").
         //    The chart carries the slim drag HANDLE ROW this app already uses under every chart
         //    in the run report: drag it down and the chart grows, drag it up and it shrinks,
@@ -17953,10 +17960,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    axes so the cluster can spread out. Nothing is hidden by it: a row pushed outside
         //    the range is still drawn, pinned to the edge it ran off, marked, and named in the
         //    line under the chart with the figure it actually holds.
-        const _reZoomDefs=[['all','FIT ALL',0],['95','TRIM 5%',0.05],['90','TRIM 10%',0.10],['80','TRIM 20%',0.20]];
-        const _reZoom=(['all','95','90','80'].indexOf(String(APREF.resZoom))>=0)?String(APREF.resZoom):'all';
-        const _reTrim=(_reZoomDefs.filter(o=>o[0]===_reZoom)[0]||_reZoomDefs[0])[2];
-        const _reZoomNm=(_reZoomDefs.filter(o=>o[0]===_reZoom)[0]||_reZoomDefs[0])[1];
+        // VALUE ZOOM was removed on 2026-08-19 at the owner ask. The axes have always spanned only
+        //   the rows now shown, so the strategy rail and the filters already rescale the chart;
+        //   trimming the range was a second, blunter way of doing the same job, and it needed a
+        //   pinned-to-the-edge special case to stay honest about the rows it pushed out of range.
+        //   The chart now always fits every point it draws.
         const _reToneSet={
           theme:{champ:'var(--blue)',good:'var(--green)',frag:'var(--yellow)',fail:'var(--red)',ref:'var(--text5)'},
           on:{champ:'#60a5fa',good:'#4ade80',frag:'#fbbf24',fail:'#f87171',ref:'#9ca3af'},
@@ -18452,7 +18460,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           pts.slice().sort((a,b)=>b.y-a.y).forEach((p,i)=>{grank[p.st.key+':'+p.r.n]=i+1;});
           const yf=_reYfmt(),xf=_reAxFmt(_reXF,null);
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
-          const offs=[],showN=(pts.length<=_reLblMax);
+          const showN=(pts.length<=_reLblMax);
           let g='',frontier=[];
           if(pts.length){
             // the axes span ONLY the rows now shown, so the STRATEGY rail and the filters
@@ -18460,14 +18468,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   cluster can spread out instead of being flattened by one distant row.
             const ext=k=>{const vs=pts.map(p=>p[k]).slice().sort((a,b)=>a-b);
               let lo=vs[0],hi=vs[vs.length-1];
-              if(_reTrim>0&&vs.length>=4){const q=f=>{const i=(vs.length-1)*f,a=Math.floor(i);
-                  return vs[a]+(vs[Math.min(vs.length-1,a+1)]-vs[a])*(i-a);};
-                lo=q(_reTrim/2);hi=q(1-_reTrim/2);}
               if(!(hi>lo)){const pad=Math.abs(hi)*0.1||1;lo=hi-pad;hi=hi+pad;}
               const pd=(hi-lo)*0.07;return [lo-pd,hi+pd];};
             const xe=ext('x'),ye=ext('y');
             const cl=(v,e)=>Math.max(e[0],Math.min(e[1],v));
-            pts.forEach(p=>{if(p.x<xe[0]||p.x>xe[1]||p.y<ye[0]||p.y>ye[1])offs.push(p);});
             const px=v=>L+(cl(v,xe)-xe[0])/(xe[1]-xe[0])*(R-L);
             const py=v=>B-(cl(v,ye)-ye[0])/(ye[1]-ye[0])*(B-T);
             for(let i=0;i<5;i++){
@@ -18534,8 +18538,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
               if(grank[st.key+':'+r.n])tp+=' | rank '+grank[st.key+':'+r.n]+' of the '+pts.length+' points on this chart';
               if(dim)tp+=' | never run as a validate run';
-              const off=(p.x<xe[0]||p.x>xe[1]||p.y<ye[0]||p.y>ye[1]);
-              if(off)tp+=' | OFF THE AXIS RANGE - VALUE ZOOM '+_reZoomNm+' trimmed the extremes, so this row is pinned to the edge it ran off rather than dropped. Its real figures are the ones listed here.';
               tp+=' | click to jump to its row in its own study table below';
               // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
               // around it and the two never fight: a thin solid ring means crowned, a dashed
@@ -18549,7 +18551,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+8).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
                 +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+9).toFixed(1)+'" fill="transparent"/>'
                 +ring
-                +(off?('<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+7.4).toFixed(1)+'" fill="none" stroke="'+_reWarnC+'" stroke-width="1.3" stroke-dasharray="1.5,2.5" opacity="0.9"/>'):'')
                 +_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
                 +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+r.n+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
@@ -18565,12 +18566,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +' Nothing was substituted to put them on.';}
           if(_reHidden)omit+=' A further '+_reHidden+' row'+(_reHidden>1?'s are':' is')+' not on the board at all, held back by the filters or the time scope above.';
           if(!showN)omit+=' There are more than '+_reLblMax+' points on the chart, so the row numbers beside the marks are hidden to stop them overlapping into a smear - hover any point and it names its row, its strategy and its study. Narrow the STRATEGY rail or a filter to bring the numbers back. No point was dropped.';
-          // VALUE ZOOM never hides a row. Anything trimmed off the axis range is pinned to the
-          //   edge, ringed, and named here with the figure it actually holds.
-          if(_reTrim>0){omit+=' VALUE ZOOM '+_reZoomNm+' is trimming the axis range, which spans only the rows now shown either way.';
-            omit+=offs.length?(' '+offs.length+' of them fall outside it and are drawn pinned to the edge with a dashed ring rather than dropped: '
-                +offs.map(o=>'row '+o.r.n+' at '+_reVal(o.y,yf)).join(', ')+'.')
-              :' No row now shown falls outside it.';}
           // THE ONE HONESTY COST OF PUTTING EVERY STUDY ON ONE CHART: the in-sample column does
           //   not mean the same thing in every study. When the plotted rows disagree, say which
           //   study means what rather than letting one word cover all of them.
@@ -18590,7 +18585,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           let brief=skip.length?(pts.length+' of '+nOff+' rows plotted'):('all '+pts.length+' rows plotted');
           if(_reHidden)brief+=' \u00b7 '+_reHidden+' held back by the controls';
           if(!showN&&pts.length)brief+=' \u00b7 row numbers hidden, hover a point';
-          if(_reTrim>0&&offs.length)brief+=' \u00b7 '+offs.length+' pinned to the edge by VALUE ZOOM';
           if(_reRel)brief+=' \u00b7 read against the crown';
           if(_reFront&&frontier.length)brief+=' \u00b7 frontier: '+frontier.map(p=>p.r.n).join(', ');
           if(_reFront&&frontier.length)omit+=' THE FRONTIER is the ringed, dashed staircase: rows '+frontier.map(p=>p.r.n).join(', ')+'. Nothing else now shown beats any of them on both axes at once - no other variant made more money AND took a smaller worst drawdown. It is computed from the points on screen, so filtering the board recomputes it, and it says nothing about whether a variant is safe to trade: a row can sit on the frontier and still be a failed verdict, because the frontier is a shape, not a judgement.';
@@ -18789,18 +18783,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-resaxis="ratio"','PROFIT÷DD',_reAxis==='ratio','plot profit divided by the worst drawdown - the ticks read as plain numbers, not dollars, and it is the fairer reading when two rows do not risk the same amount',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
-        const _reScopeBtns=_reCtl(9,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
+        const _reScopeBtns=_reCtl(8,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
             _reScopeDefs.map(o=>_tabBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
               (o[2]?('show only rows dated within the past '+o[2]+' days on whichever date SCOPE DATE names'):'no time scope at all - every row on the board is eligible whatever date it carries')
               +'. Read SCOPE DATE beside this: a row carries a date it was DISCOVERED and, if it was ever saved as a run, a separate date it RAN, and the two answer different questions.',_TONE.samp)).join(''),_TONE.samp);
-        const _reSBasisBtns=_reCtl(10,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
+        const _reSBasisBtns=_reCtl(9,'SCOPE DATE','which of the two dates a row carries the TIME SCOPE reads. The board never picks one silently - the line under these controls says in words which one is in force',
             _tabBtn('data-ressbasis="follow"','FOLLOWS ORDER BY',_reSBasis==='follow','use whichever date ORDER BY is set to, so the scope and the ordering always agree. ORDER BY RESULT is not a date at all, so this falls back to the date discovered and the line below says so out loud',_TONE.heat)
            +_tabBtn('data-ressbasis="disc"','DISCOVERED',_reSBasis==='disc','scope on the date the result was found in research. Every row on the board has one of these, so nothing is held back for want of a date',_TONE.heat)
            +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSBasis==='ran','scope on the date the real validate run finished. Only rows that were persisted as runs have one at all - the rest are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
-        const _reColBtns=_reCtl(11,'COLOUR','turn colour on for this board alone, without changing the app theme. The verdict shapes are drawn in every setting, so nothing becomes unreadable',
-            _tabBtn('data-rescolour="theme"','THEME',_reCol==='theme','follow the app theme. When the app theme is monochrome it has no colours to follow, so rather than paint all five verdicts the same grey the board uses the five approved colours. On a colour theme it does exactly what it always did. Your app theme is never touched either way',_reFT)
-           +_tabBtn('data-rescolour="on"','COLOUR',_reCol==='on','force the five approved colours whatever the theme is doing: blue for the champion, green for held up, amber for fragile, red for failed, grey for reference. The shapes stay exactly as they are',_reFT)
-           +_tabBtn('data-rescolour="off"','SHAPES ONLY',_reCol==='off','one neutral ink everywhere, so the shape alone carries the verdict. This is the monochrome reading and it loses no meaning',_reFT),_reFT);
+        const _reColBtns=_reCtl(10,'COLOUR','colour for this board alone - your app theme is never touched. There used to be a third setting, THEME, and on a monochrome app theme it painted exactly the same chart as COLOUR, so the two were indistinguishable and it is gone',
+            _tabBtn('data-rescolour="on"','COLOUR',_reCol!=='off','colour the verdicts. Where the app theme carries real colour the board follows it; where the theme is greyscale, as MONO is, it uses the five approved colours instead of five near-identical greys. Blue champion, green held up, amber fragile, red failed, grey reference',_reFT)
+           +_tabBtn('data-rescolour="off"','SHAPES ONLY',_reCol==='off','one neutral ink everywhere, so the shape alone carries the verdict. It loses no meaning - the shapes were always the signal',_reFT),_reFT);
         // -- COMPARE ON (the fair-comparison basis) and VALUE ZOOM. The first decides what the
         //    numbers MEAN, so it sits with the stage and axis controls; the second only decides
         //    how much of the value range the chart spends its height on.
@@ -18808,14 +18801,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the common-window warning underneath still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="common"','COMMON WINDOW',_reBasis==='common','the most rigorous option, and it costs no re-running: where a row is backed by a real run with a saved equity curve, that curve is sliced to the stretch every visible row shares and its profit and worst drawdown are recomputed on exactly that slice. A row with no saved curve shows a dash saying why rather than its un-sliced figure. Note that PROFIT STAGE has no meaning here and is ignored: the shared stretch is a calendar range, not a stage',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','divide each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window and not a saved curve, which makes it the widest-coverage option of the three',_reFT),_reFT);
-        const _reZoomBtns=_reCtl(8,'VALUE ZOOM','the chart axes already span only the rows now shown, so filtering rescales them by itself. What filtering cannot fix is one distant row squashing all the others into a band, and this trims the extremes off the range so the cluster spreads out. Nothing is hidden: a trimmed row is pinned to the edge, ringed, and named under the chart',
-            _reZoomDefs.map(o=>_tabBtn('data-reszoom="'+o[0]+'"',o[1],_reZoom===o[0],
-              (o[2]?('drop the top and bottom '+Math.round(o[2]*50)+' percent of the visible values off each axis range, so the middle of the cluster fills the chart'):'let the axes span every row now shown, outliers included. This is the plain fit-to-visible-rows reading and it is the default')
-              +'. Drag the slim bar under any chart to make that chart taller or shorter; double-click the bar to put it back.',_TONE.rank)).join(''),_TONE.rank);
         // the sixteen STUDY titles are long, so that one facet trims its labels and keeps the
         //   whole title on hover. Every cell in the grid wraps, so nothing runs off the edge.
         const _reShort=v=>{const t=String(v);return (t.length>26)?(t.slice(0,25)+'\u2026'):t;};
-        let _reFiltN=11;
+        let _reFiltN=10;
         const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
@@ -18903,7 +18892,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns+_reFrontBtns+_reDateBtns)+'</div>'
             // BEHIND "MORE": the comparison basis, the zoom, the scope and every filter chip.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:8px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px">'
-            +_reGrid(_reBasBtns+_reZoomBtns+_reScopeBtns+_reSBasisBtns+_reColBtns+_reFiltBtns
+            +_reGrid(_reBasBtns+_reScopeBtns+_reSBasisBtns+_reColBtns+_reFiltBtns
               +(_reClear?('<div></div><div style="display:flex;gap:4px;margin-top:2px">'+_reClear+'</div>'):''))
             +'</div>'
             +_reStatus
@@ -21347,7 +21336,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-rescolour]').forEach(b=>{b.onclick=()=>{savePref('resColour',b.dataset.rescolour);renderApp();};});
       // STUDIES board: the fair-comparison basis and the value zoom, persisted like the rest.
       content.querySelectorAll('[data-resbasis]').forEach(b=>{b.onclick=()=>{savePref('resBasis',b.dataset.resbasis);renderApp();};});
-      content.querySelectorAll('[data-reszoom]').forEach(b=>{b.onclick=()=>{savePref('resZoom',b.dataset.reszoom);renderApp();};});
       // STUDIES board: the slim HANDLE ROW under the one chart, the same drag bar the run
       //   report puts under every chart. Dragging it grows or shrinks the chart; the size is
       //   remembered in APREF.resChH.board and survives a reload. What is stored is the

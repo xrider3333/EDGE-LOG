@@ -82,7 +82,7 @@ is the order the owner approved. Date ran reads the real finish date out of run 
 splits the table into a block that was run and a block that never was. Result sorts best
 first on whatever stage and axis are selected.
 
-**Filters — verdict, discovered date, run status, status, study** (controls 12–16). These are built
+**Filters — verdict, discovered date, run status, status, study** (controls 11–15). These are built
 from the data. Strategy type is not among them: that is control 1, the rail. STUDY is the one to reach for when a family has five studies behind it and you want
 to read them one at a time on the single chart; it needs no tagging, because it is built from each
 study's own title. The renderer walks every row in the registry, collects the distinct values of each
@@ -108,10 +108,10 @@ used to be printed there. A chip warning about something wears the warning colou
 **How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
-(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS, 5 FRONTIER, 6 ORDER BY); 7–16 sit behind
-MORE. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS, 5 FRONTIER, 6 ORDER BY); 7–15 sit behind
+MORE (7 COMPARE ON, 8 TIME SCOPE, 9 SCOPE DATE, 10 COLOUR, then the filters 11–15). **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
-control a full-width line of its own; only 16 STUDY needs it.
+control a full-width line of its own; only 15 STUDY needs it.
 
 **There is exactly one strategy control.** Control 1 IS the `fam` filter. A second row of the same
 buttons used to render with the other filter chips and the owner rightly asked why there were two;
@@ -222,13 +222,10 @@ the figure a long way — this project measured the confidence interval around a
 be wider than the drawdown itself. Sharpe sits between the two. The board carries no Sharpe column
 today, so that last point is guidance for reading Sharpe on the run reports.
 
-**VALUE ZOOM — fit all, trim 5%, trim 10%, trim 20%.** The chart axes have always spanned only the
-rows actually plotted, so filtering already rescales them; FIT ALL is that plain fit-to-visible
-reading and is the default. What filtering cannot fix is one distant row squashing all the others
-into a band, and the trim settings drop that percentage of the most extreme values off both axis
-ranges so the cluster spreads out. **Nothing is hidden by it.** A row pushed outside the range is
-still drawn, pinned to the edge it ran off, given a dashed warning ring, and named under the chart
-with the figure it actually holds.
+**VALUE ZOOM is gone** (removed 2026-08-19 at the owner's ask). The axes span only the rows now
+shown, so controls 1 and 11–15 already rescale the chart; trimming the range on top of that was a
+second, blunter version of the same job and it needed a pinned-to-the-edge special case to stay
+honest about what it pushed out of view. Do not add it back — narrow the rows instead.
 
 **Chart height — the drag handle under the chart.** The chart carries the same slim drag
 bar the run report puts under every one of its charts. Drag it down and the chart grows, drag it up
@@ -260,21 +257,18 @@ under the controls and again under each study chart, together with the two ways 
 back. This is the same honesty the DATE RAN ordering already uses when it puts those rows in
 their own labelled block instead of inventing a date for them.
 
-**COLOUR — theme, colour, or shapes only.** This changes this board alone and never touches the
-app theme. COLOUR forces the five approved colours whatever the theme is doing: blue for the
-champion, green for held up, amber for fragile, red for failed and grey for reference. SHAPES
-ONLY drops everything to one neutral ink.
+**COLOUR — colour, or shapes only.** This changes this board alone and never touches the app
+theme. COLOUR follows the app theme where the theme carries real colour, and uses the five approved
+colours — blue champion, green held up, amber fragile, red failed, grey reference — where it does
+not. SHAPES ONLY drops everything to one neutral ink.
 
-THEME follows the app theme, with one deliberate exception. The MONO theme has no colours to
-follow: its accent variables are all greys (blue #b0b0b0, green #f0f0f0, yellow #999999, red
-#4d4d4d), so following it paints all five verdicts in five near-identical greys and two of them
-are nearly invisible on the dark background. THEME therefore reads the accent variables at render
-time, measures how much colour they actually carry, and when they are genuinely greyscale it
-falls back to the five approved colours rather than five greys. On a colour theme THEME behaves
-exactly as it always did. The app theme itself is never modified in either case, and SHAPES ONLY
-is still there for anyone who wants the pure one-ink reading.
+There used to be a third setting, THEME, and on 2026-08-19 the owner asked whether it and COLOUR
+were the same thing. For him they were. The MONO theme's accent variables are all greys (blue
+#b0b0b0, green #f0f0f0, yellow #999999, red #4d4d4d), so THEME already fell back to the approved
+five rather than paint five near-identical greys — which made it pixel-for-pixel identical to
+COLOUR. The fallback survives inside COLOUR; the duplicate button does not.
 
-**The verdict shapes are drawn in all three settings.** Colour is reinforcement laid on top of
+**The verdict shapes are drawn in both settings.** Colour is reinforcement laid on top of
 the shape and is never a substitute for it, so turning colour off loses no meaning and nothing
 becomes unreadable. Money keeps its minus sign in every setting. The choice is persisted the
 same way every other view preference on this board is.
