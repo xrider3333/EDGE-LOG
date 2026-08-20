@@ -66,6 +66,8 @@ CASES = [
     ('order-ran',    {'resDate': 'ran'}),
     ('zoom-90',      {'resZoom': '90'}),
     ('scope-30',     {'resScope': '30'}),
+    ('split-side',   {'resSplit': 'side'}),
+    ('more-open',    {'resMore': True, 'resHelp': True}),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>

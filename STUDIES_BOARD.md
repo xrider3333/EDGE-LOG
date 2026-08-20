@@ -105,6 +105,24 @@ once opened.
 the common data window. Each is a short fact, and the hover on each carries the full paragraph that
 used to be printed there. A chip warning about something wears the warning colour.
 
+**SPLIT SCREEN — the ◧ / ▤ pair on the right of the sub-tab bar.** The same control, in the same
+place, that RESULTS, LIBRARY and RESEARCH use; it only appears while STUDIES is the mode on screen.
+◧ puts the chart on the left and the study tables on the right, with the chart pinned so it stays in
+view while the tables scroll past it. ▤ is the stacked layout. The choice is persisted as
+`resSplit`, which is deliberately NOT `resView` — that key already belongs to the RESULTS split.
+
+**The tables are compressed on purpose.** Cell padding is 3px, the type is 9.5px and the two prose
+columns — WHAT IT DOES and READ — are clipped to a single line with the whole sentence on hover.
+Wrapping those two columns is what used to make every row three lines tall. If you add a column,
+add it in that spirit: a number reads at a glance, a sentence belongs on a hover.
+
+**Why some rows are tinted, which is a question the board got asked.** A faint blue tint means the
+row's verdict is `champ`; a faint green tint means `good`. That is all it is — the same verdict the
+shape beside the name already carries, repeated as background so the rows worth finding stand out
+in a long table. No other verdict tints. The *brighter* flash that follows the pointer is a
+different mechanism entirely: the live two-way link between a table row and its point on the chart.
+Every tinted row carries that explanation on its own hover, and so does the NAME heading.
+
 **Opening a study.** Every study is a closed heading — verdict-free, just the title, its strategy,
 `shown/total` and the date discovered. Click to open, click to close, and the open set is
 remembered. Two things open a study for you: filtering down to a single study, and clicking a chart
