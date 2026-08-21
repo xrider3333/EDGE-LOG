@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.192';
+const VERSION='73.193';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.193',date:'2026-08-20',notes:['ENGU-Q TRADES THAT HAPPENED OVERNIGHT OR ON A SUNDAY COULD NOT DRAW A CHART AT ALL. ENGU-Q trades the 24-hour tape, but the chart was always asking for cash-session bars, so any entry outside 9:30 to 4:00 came back as trade date not found. Those charts open now.','ENGU-Q LIMIT 0.50 was drawing 5-minute candles for a 1-minute strategy. Every leg on the board now asks for its own market and session rather than only the three original ones being recognised by name.']},
 {v:'73.192',date:'2026-08-20',notes:['THE STRATEGIES YOU PICK ON THE PAPER BOARD ARE REMEMBERED NOW. Which legs you have switched off used to be forgotten the moment you reloaded, so the board kept resetting to showing all of them. It is a saved setting like every other choice on the page.','A SELECTION OF TRADES OPENS AS ONE LONG SCROLL. Picking twenty trades used to give you ten and a LOAD 10 MORE button - you already chose them, so all of them are there and you just scroll.','THERE IS A LOADING BAR ACROSS THE TOP OF THE CHART WINDOW while the charts fill in, so you can see it moving rather than reading a count. It disappears when everything has landed.','PREV and NEXT sit next to each other in the single-trade chart window. The position readout used to sit between them, which broke the pair up.']},
 {v:'73.190',date:'2026-08-20',notes:['THE DUPLICATE CROWN IS FIXED IN THE REGISTRY. ORB carried two: row 47, which is run #234 and the standing crown, and row 67, the SAME configuration restated inside the plateau-hunt study. Row 47 keeps the tag; row 67 keeps its figures and its champion verdict and now reads as that study baseline. One family, one champion - so the BASELINE SELECTOR is gone, because there is nothing left to choose between.','1 STRATEGY AND 2 PROFIT STAGE TICK instead of switching. Click NOISE and ENGU-Q and both are on the chart together. PROFIT STAGE loses its TOTAL button and is IS, WF and LB - tick the ones you want and the chart plots their sum.','ONE THING THAT HAD TO BE HANDLED HONESTLY THERE: only 46 of the 215 rows record a separate walk-forward figure. The rest have no walk-forward STAGE at all - their first money column is PRE-LOCKBOX, which already holds the tuning years pooled together. So the sum adds the ticked stages a row ACTUALLY RECORDS and only drops a row that records none of them; ticking all three on a pre-lockbox row gives pre-lockbox plus lockbox, which is its whole run. Any row that lacks a ticked stage says so on its own hover and the count is stated under the chart. Requiring all three would have emptied the chart from 203 rows to 47.','AND THE OTHER: a row TOTAL is not always the sum of its three stages - the NOISE champion records $335,981 while its stages add to $313,409. They are separate measurements. The TOTAL column prints what the row recorded and marks the gap with a sign you can hover; the chart plots the sum you ticked.','READ AS IS NOW 4 AXIS, and its two settings are ABSOLUTE and CHAMPION. The words crown and baseline are off this board - the verdict reads CHAMPION in the key too. The dashed crosshair that only CHAMPION used to draw is now drawn in ABSOLUTE as well, on the champion own position, so both settings show the same reference: right of the vertical is a deeper drawdown than the champion took, above the horizontal is more money than it made.','THE AXES ARE DRAWN: two solid lines and a tick mark at every gridline, rather than a frame implied by the gridlines alone.','HOVERING A POINT LEADS WITH THE ANSWER - row, name, rank, total and profit factor in caps above a rule, with everything else underneath. Hovering the READ cell of a table now gives the whole row: the verdict and what it means, what the variant does, the money, the ratios, the trade count and where it came from, where it ran and over what stretch of history.']},
 {v:'73.189',date:'2026-08-20',notes:['EVERY PAPER TRADE CHART SAID SHORT, INCLUDING THE LONGS. The shadow log records direction as the engine’s own +1 / -1, and the board was comparing that to the words long and short - which never match, so every chart drew and labelled the trade as a short. ENGU-Q only ever buys, so every one of its charts was wrong.','The SIDE column in the trades table said 1 for the same reason. It reads LONG or SHORT now.']},
@@ -20081,7 +20082,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // every row carries its own bar-fetch payload (_pb) rather than sharing one. And the
       // masters end well before PAPER started, so the payload asks the PC to append the
       // live 10s tail - without it a paper trade has no bars anywhere.
-      const _legTf={ORB:'5m',ENGUQ:'1m',NOISE:'5m'};
+      // Each leg's bars come from its OWN master, so the chart has to ask for the right
+      // one. Keyed on the FAMILY prefix, not the exact leg key: the board carries ORB_H,
+      // ENGUQ_L50, NOISE_225, NOISE_H and NOISE_H_RF as well, and an exact-match table
+      // silently fell through to a 5-minute RTH default for every one of them.
+      //
+      // Two bugs that came from that, both found 2026-08-20 while opening a selection:
+      //   * ENGU-Q LIMIT 0.50 charted at 5 minutes against a 1-minute strategy.
+      //   * Every ENGU-Q trade outside the cash session failed outright — it runs the 24h
+      //     ETH tape, so its Sunday-evening and overnight entries do not exist in an RTH
+      //     master at all ("trade date 2026-08-16 not found in master 'NQ 1m RTH'").
+      // Values mirror api/paper.py PAPER_LEGS, which is the authority.
+      const _legMkt=k=>{
+        const f=String(k||'').toUpperCase();
+        if(f.indexOf('ENGUQ')===0)return {timeframe:'1m',session:'eth'};
+        if(f.indexOf('NOISE')===0)return {timeframe:'5m',session:'rth'};
+        return {timeframe:'5m',session:'rth'};          // ORB and anything new
+      };
       const _etKey=sec=>{if(!sec)return '';try{
         const d=new Date(sec*1000);
         const day=d.toLocaleDateString('en-CA',{timeZone:'America/New_York'});
@@ -20172,8 +20189,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _et:_etk,_xt2:_xtk,_ep:(t.entry_px!=null?+t.entry_px:null),
           _xp:(t.exit_px!=null?+t.exit_px:null),_pts:(t.pnl_pts!=null?+t.pnl_pts:0),
           _usd:pnl,_side:_sideOf(t.side),
-          _pb:{instrument:'NQ',timeframe:(_legTf[leg]||'5m'),session:'rth',
-               include_fresh:true,cost_pts:0.533}});
+          _pb:Object.assign({instrument:'NQ'},_legMkt(leg),
+               {include_fresh:true,cost_pts:0.533})});
         const _chartCell=_etk
           ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
