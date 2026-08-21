@@ -153,6 +153,35 @@ Reproduce the §1 numbers: load `find_master('NQ','1m','eth')` from 2018-01-01,
 
 ---
 
+## §1B — THE EFFICIENCY GATE (found 2026-08-21, battery V/W) — first gate that ever survived
+
+Owner directive: higher-timeframe / momentum-quality confirmation, NOISE-style. Seven
+gates tested on both entries, pre-registered bar (PF +0.02, LB PF and LB net ≥ control,
+net ≥ 85% of control, stuck guard). Six died: session VWAP, 15m momentum, 60m momentum,
+ATR expansion, higher-lows structure, and efficiency at the stricter 0.35 floor.
+
+**The survivor: Kaufman efficiency ratio of the last 60 minutes ≥ 0.25 at the signal**
+(`ENGUQ_1M_ETH_ER_1_0.py`; pinned card `ENGUQ_1M_ETH_ER25_1_0.py`; drivers
+`tools/enguq_htf_battery.py` / `enguq_er_robust.py` / `enguq_er_final.py`). Raw entry:
+
+| | control #226 | ER-gated |
+|---|---|---|
+| trades | 2,843 | **1,336** (−53%) |
+| net | $434,721 | **$486,413** |
+| PF | 1.332 | **1.597** |
+| lockbox | $98,488 / PF 1.493 (188 tr) | **$146,231 / PF 2.645** (67 tr) |
+| top-10 share (2018+) | 0.78 | **0.70** |
+
+Robustness: PF gain holds in **all four eras** (gated 1.50–1.67 vs control 1.31–1.37) and
+wins **96.4%** of 5,000 paired block bootstraps (CI [−0.018, +0.534], just touching zero
+— stronger than the limit-entry find's 94.3%). It also REDUCES the §1.1 concentration.
+
+Caveats, recorded before anyone gets excited: only **67 lockbox trades**; the plateau is
+**one-sided** (0.30 collapses the lockbox — never raise the floor); the pairing with the
+limit-0.50 entry is weaker (84.5%), so the candidate is the RAW entry; and the §1.4
+regime-gate lesson says trend-LEVEL gates fail — this is a move-QUALITY gate, which is
+why it behaves differently (it deletes churn signals, not winners).
+
 ## §2 — Forward test
 
 Two legs run side by side on the PAPER board, as a matched pair:
@@ -170,6 +199,10 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 ---
 
 ## §3 — Changelog
+
+- **2026-08-21** — §1B added: efficiency-ratio gate (er 60 ≥ 0.25) is the first
+  confirmation gate ever to survive the pre-registered bar; validate queued on the
+  pinned card. Six sibling gates killed the same day.
 
 - **2026-08-20 (later)** — §1.4 CLOSED: regime filter 0-for-5 by the pre-registered bar
   (battery U). Every cell cuts net 29–47%; only one cell cuts drawdown at all and by half
