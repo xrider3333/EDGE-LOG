@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.199';
+const VERSION='73.200';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.200',date:'2026-08-21',notes:['ONE TABLE. New control 14, VIEW, on the TABLES block. ONE TABLE pools every surviving row from every study into a single ranked table - the consolidated read of a strategy - with a grey study tag on each row so nothing loses its provenance. BY STUDY is the old per-study list, where each study notes live. Left alone the board decides: one table while a strategy is picked, by study when everything is showing.','THIS ALSO ANSWERS WHY A NOISE-TITLED STUDY KEPT APPEARING UNDER ORB: that study holds the old ORB crown as its comparison baseline, so it contributes one ORB row. The row is ORB; only the study title said NOISE. In ONE TABLE view the row simply sits with the rest of ORB, tagged with where it was researched.']},
 {v:'73.199',date:'2026-08-21',notes:['THE REGISTRY WAS AUDITED AGAINST THE REAL RUN HISTORY. All 38 run numbers the studies board cites exist in Firestore - no row points at a run that is not there. In the other direction, 13 persisted Auto-Validate runs were cited by no row and matched no row figures. They are on the board now as one new study, RECOVERED BY THE REGISTRY AUDIT, every figure verbatim from its run doc: the July NOISE pair (202, 203), three mid-August runs that saved no verdict (214, 215, 217), the two pre-registered ML-gate tests (218, 219), the nine-trade ENGU-Q failure (216), and the five ORB_3_4 profit-target variants (209-213).','ROW 2, SHORT VETO, GAINS RUN 236. That run carries exactly row 2 figures - it is the original short-veto validate; run 241, already cited, is the SBS re-run.','WHAT WAS NOT ADDED, deliberately: the six BOOK runs (multi-strategy portfolios, which live on the RUNBOARD), the four ORB_3_1_125C runs (the closed look-ahead family), and the 151 runs from before the studies era - TTIBS, SUPERTREND, VWAP-FADE, RSIDIV, REVERT and the spring ENGU evolution, all ruled out elsewhere.']},
 {v:'73.198',date:'2026-08-20',notes:['THE TABLES OPEN ON THE FAIR-COMPARISON FIGURES ONLY. New control 13, COLUMNS. KEY - the new default - prints the row, its name, PROFIT FACTOR, DOLLARS PER TRADE, MAR, the trade count behind them and the one-line verdict. Those are the figures that survive two rows covering different stretches of history, which most of this board does: profit factor is gross winnings over gross losses across the whole trade population, dollars per trade is the same money divided by the trades that earned it, and neither is a property of the calendar. Raw totals are left OUT on purpose - side by side they invite a comparison the windows do not support. ALL brings back the three stages, the recorded total, the drawdown and the whole context block.','NOTHING IS HIDDEN BY IT. Every figure KEY leaves out is still on the READ hover of the row, which prints the entire row - all three stages, the total, the drawdown, the trade count and where it came from, the run, and the data window.','A CONTROL IS ONE LINE AGAIN: its number and name in a narrow fixed column, its buttons filling the rest. The card version put every label on its own line above its buttons, which in the narrow half of the split became twelve two-line stacks with a gap under each one. Now the labels line up down the block, the buttons all start at the same x, and a control whose buttons wrap wraps inside its own row without moving its neighbours. The grid fits as many of those rows side by side as the width allows - one column in the split pane, two or three across a full-width board.']},
 {v:'73.195',date:'2026-08-20',notes:['THE CONTROL BLOCK IS ONE TILE AND ONE GRID. It was a four-column arrangement of label, buttons, label, buttons, so any control whose buttons wrapped shoved its neighbour label away from its own buttons - which is what made the block read as scattered with holes in it. Every control is now a card of its own, its number and name over its own buttons, and the cards sit on one auto-fitting grid inside ONE box. A card that wraps can no longer move anything else. The tables controls are the same grid, in the same kind of box, directly under their own heading.','STUDY TABLES is just TABLES.','9 STUDY NOW LISTS ONLY THE STUDIES THE STRATEGY PICK LEAVES STANDING, with the number of rows each one still contributes. It was built from the whole registry, so with NOISE on the rail it still offered ORB and ENGU-Q studies - and picking one emptied the board. A study you have already picked stays listed even if the rail later excludes it, so it can be seen and cleared rather than vanishing while it is still narrowing the board.','AN EMPTY CHART NOW SAYS WHY IT IS EMPTY, in the registry own words. Pick the NOISE trade-context scan and nothing plots, because that study is six SCANS: a scan asks whether a market condition predicts profit and produces no profit and no equity curve of its own, so there is no drawdown to place it by. The chart used to answer with a sentence about the basis selected, which reads like a setting is wrong. It now prints the study own reason and points at the table, where what the scans DID measure is sitting.']},
@@ -18441,7 +18442,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   g and pb are kept so bringing the second tint back is a one-line change.
           void g;void pb;
           return (tone==='champ')?('color-mix(in srgb,'+b+' '+pa+',transparent)'):'';};
-        const _reRow=(st,rw,rank,com)=>{
+        const _reRow=(st,rw,rank,com,showSt)=>{
           const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
           // a prose cell is clamped to one line and carries its full text on hover. Wrapping
           //   these two columns was what made a row three lines tall.
@@ -18507,7 +18508,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reFamTag(st,rw)+_reLiveInline(rw),'left')
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reFamTag(st,rw)+_reLiveInline(rw)
+              +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')
             +(_reFull?(td(_reCell(st,rw,'is',_reMoney),null,(_reSegs.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegs.indexOf('wf')>=0)?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegs.indexOf('lb')>=0)?em:'')
@@ -18814,6 +18816,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reBasBtns=_reCtl(12,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','add three columns to every table - PER YEAR, YEARS and MAR / YR - dividing each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window, so it reaches every row the DATA WINDOW column can place',_reFT),_reFT);
+        // VIEW: '' = decide from the strategy pick, 'one' / 'study' = the reader's own call.
+        const _reViewPref=(APREF.resView==='one'||APREF.resView==='study')?APREF.resView:'';
+        const _reFamPicked=(()=>{try{const o=JSON.parse(APREF.resFilt||'{}')||{};return Array.isArray(o.fam)&&o.fam.length>0;}catch(e){return false;}})();
+        const _reOneTbl=(_reViewPref==='one')||(_reViewPref===''&&_reFamPicked);
+        const _reViewBtns=_reCtl(14,'VIEW','how the tables are laid out. ONE TABLE pools every surviving row from every study into a single ranked table - the consolidated read of a strategy - with a study tag on each row so nothing loses its provenance. BY STUDY is one table per study, each with its own notes. Left alone the board decides: one table while a strategy is picked, by study when everything is showing.',
+            _tabBtn('data-resview="one"','ONE TABLE',_reOneTbl,'pool the studies into one ranked table. This is the consolidated view of everything tested for the picked strategy, wherever it was researched - an ORB row that happens to sit in a NOISE-titled study is here with the rest of ORB',_TONE.heat)
+           +_tabBtn('data-resview="study"','BY STUDY',!_reOneTbl,'one table per study, with each study own notes and discovery date. This is where the reasoning behind each campaign lives',_TONE.heat),_TONE.heat);
         const _reColBtns=_reCtl(13,'COLUMNS','how much of each row the TABLES print. KEY shows only the figures that survive two rows covering different stretches of history - profit factor, dollars per trade and MAR - with the trade count behind them and the one-line verdict. ALL adds the raw money columns, the drawdown and the context block. Nothing is lost in KEY: hover the READ cell of any row and it prints the whole row, all three stages included.',
             _tabBtn('data-rescols="key"','KEY',!_reFull,'the fair-comparison view: PF, dollars per trade, MAR, trades and the verdict. Raw totals are left out on purpose - two rows measured over different stretches of history are not comparable on raw dollars, and these three figures are the ones that barely move when the windows differ',_TONE.heat)
            +_tabBtn('data-rescols="all"','ALL',_reFull,'every column: the three profit stages, the recorded total, the drawdown, then what the variant does, the run it was saved as, its date and its data window',_TONE.heat),_TONE.heat);
@@ -18825,6 +18834,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-ressplitrun="0"','OFF',!_reSplitRun,'one list, ordered by ORDER alone',_TONE.heat),_TONE.heat);
         // ── PASS TWO: the tables. A tile is now a heading, a line of prose, a table and its
         //    notes - the chart it used to carry is the one at the top of the board.
+        const _reEmH=sg=>(_reSegs.indexOf(sg)>=0)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
+        const _reHdCell=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
+        // the table header, per study - or for the merged table, with a synthetic st carrying
+        //   the one in-sample label the pooled studies share (or the plain word when they don't).
+        const _reHd=(st,merged)=>{
+          const _hd=_reHdCell,_emH=_reEmH,stg=_reSegCap;
+          const basHd=(_reBasis==='year')
+              ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers.',_reEmH('is')&&'')
+                +_hd('YEARS',null,'How many years the data window on this row covers.')
+                +_hd('MAR / YR',null,'The per-year profit divided by the worst drawdown.'))
+              :'';
+          return '<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above.'+(merged?' In ONE TABLE view the ranking runs across every study at once.':''))
+            +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
+            +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict.'+(merged?' The grey tag after a name is the study the row was researched in.':''))
+            +(_reFull?(_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together.':((merged&&!st.isLbl)?'The first money stage. The pooled studies do not all mean the same thing by it - hover each row figure for its own meaning.':'The stretch the config was tuned on.'),_emH('is'))
+            +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
+            +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
+            +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
+            +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Printed WITHOUT a minus sign - it is drawn in red for the same reason.',';color:'+_reDn)):'')
+            +_hd('PF',null,'Profit factor: gross wins divided by gross losses. The figure LEAST damaged by two rows covering different stretches of history.')
+            +_hd('$/TRD',null,_rePptTip)
+            +_hd('MAR',null,'Profit divided by the worst drawdown, same name as on the RUNBOARD and the 1E matrix.')
+            +basHd
+            +_hd('TRADES',null,'How many trades the variant took over its whole run. A small circle marks a count read from the saved run document.')
+            +_hd('READ','left','The one-line verdict. Hover it and it prints the whole row.')
+            +(_reFull?(_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
+            +_hd('RUN','left','The run number this result was persisted as. "local" means it was never saved as a run.')
+            +_hd(_reSOnNm,'left','Control 6, DATE, switches this column between the two dates a row can carry.')
+            +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. A warning sign means it does not match the stretch the visible rows share.')):'')
+            +'</tr>';};
         const _reTile=(p,com)=>{
           const st=p.st,all=p.all,rows=p.rows,filtOut=p.filtOut,outSc=p.outSc;
           const rank=_reRank(st,rows,com);
@@ -18860,8 +18899,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+noRun.length,'These rows were computed locally during research and never persisted as a run, so they have no run number and no date ran. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
             }
           }
-          const _emH=sg=>(_reSegs.indexOf(sg)>=0)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
-          const _hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
+          const _emH=_reEmH;
+          const _hd=_reHdCell;
+          const hd=_reHd(st);
+          const _unused_hd=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
           const stg=_reSegCap;
 
           // -- the extra headings the comparison basis brings with it. They are highlighted the
@@ -18871,7 +18912,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +_hd('YEARS',null,'How many years the data window on this row covers. A row that records no window shows a dash here and cannot be put on a per-year basis at all.')
                 +_hd('MAR / YR',null,'The per-year profit divided by the worst drawdown. Remember that the drawdown is NOT annualised and cannot be - it is a single worst event, not a rate - so this ratio says how many years of typical profit it takes to cover the worst loss the row ever took.',';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)'))
               :'';
-          const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
+          const hd0='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
             +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
             +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour. The one row with a faint blue TINT behind it is the champion or baseline of this study. A CROWN or PAPER pill after a name means that row is the standing champion of its family, or is the configuration running in the nightly paper forward test right now, or both - two different claims the board keeps apart. Most rows carry neither and show nothing, which is why there is no column for it. A brighter flash over a row is not a verdict at all: that is the live link with the chart, and it fades when the pointer moves away.')
             +(_reFull?(_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.',_emH('is'))
@@ -18906,17 +18947,55 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.75;margin:8px 0 0;padding-left:15px;max-width:960px">'
                 +notes.map(n=>'<li style="margin-bottom:4px">'+_reEsc(n)+'</li>').join('')+'</ul>'):'')
             +'</div></div>';};
+        // ONE TABLE: every surviving row from every study, pooled, ranked together, ordered by
+        //   ORDER, split by SPLIT BY RUN, each row tagged with its study. Left on AUTO it turns
+        //   itself on while a strategy is picked - that is the "show me everything for ORB"
+        //   reading - and off when the whole board is showing, where 200+ rows in one table
+        //   would bury the study structure the notes live in.
+        const _reMerged=(com)=>{
+          const items=[];_rePrep.forEach(p=>p.rows.forEach(r=>items.push({st:p.st,r:r})));
+          if(!items.length)return '<div style="padding:14px 6px;color:var(--text5);font-size:10px">Every row is held back by the controls above.</div>';
+          const _dOf=it=>(_reSOn==='ran')
+            ?((Array.isArray(it.r.runs)&&it.r.runs.length)?_reRunDate(it.r.runs[0]):'')
+            :String(it.r.disc||it.st.disc||'');
+          const sorted=items.slice();
+          if(_reOrd==='res'){
+            sorted.sort((a,b)=>{const va=_reYv(a.st,a.r,com),vb=_reYv(b.st,b.r,com);
+              if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
+          }else{
+            sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
+              if(da===db)return a.r.n-b.r.n;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
+          }
+          const rk={};
+          items.filter(it=>_reYv(it.st,it.r,com)!=null)
+            .sort((a,b)=>_reYv(b.st,b.r,com)-_reYv(a.st,a.r,com))
+            .forEach((it,i)=>{rk[it.st.key+':'+it.r.n]=i+1;});
+          let bodyRows;
+          if(!_reSplitRun){
+            bodyRows=sorted.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('');
+          }else{
+            const has=it=>Array.isArray(it.r.runs)&&it.r.runs.length;
+            const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+            const a=sorted.filter(has),b=sorted.filter(it=>!has(it));
+            bodyRows=(a.length?(sep('RAN AS A VALIDATE RUN \u00b7 '+a.length,'Rows persisted as real Auto-Validate runs. Click one to open its report.')+a.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')):'')
+              +(b.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+b.length,'Rows computed locally during research and never persisted as a run.')+b.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')):'');
+          }
+          const lbls=_reIsLbls(items);
+          const synth={isLbl:(lbls.length===1)?lbls[0]:''};
+          const nst=(()=>{const o={};items.forEach(it=>{o[it.st.key]=1;});return Object.keys(o).length;})();
+          return '<div style="font-size:9px;color:var(--text4);margin:2px 0 7px">'+items.length+' rows pooled from '+nst+' stud'+(nst===1?'y':'ies')+', ranked together. The grey tag on each row is the study it was researched in \u2014 switch 14 VIEW to BY STUDY to read them one study at a time, with each study\u2019s own notes.</div>'
+            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+_reHd(synth,1)+'</thead><tbody>'+bodyRows+'</tbody></table></div>';};
         const _reBody=tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
-            +'<span style="font-size:8px;color:var(--text5)">'+_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'
+            +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
-            +(_reSolo?' \u00b7 the only study left is open':'')+'</span></div>'
+            +(_reOneTbl?'':(_reSolo?' \u00b7 the only study left is open':''))+'</span></div>'
             +'<div style="margin:7px 0 11px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
+            +_reGrid(_reViewBtns+_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
-            +_reWithRows.map(p=>_reTile(p,_reComAll)).join(''),0);
+            +(_reOneTbl?_reMerged(_reComAll):_reWithRows.map(p=>_reTile(p,_reComAll)).join('')),0);
         // one control = one grid line: its name on the left, its buttons on the right. A group
         //   that runs out of width now wraps INSIDE its own cell instead of pushing the next
         //   control onto a new line away from its label.
@@ -21551,6 +21630,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   below write, so the rail and the chips are one setting rather than two that could
       //   disagree. A rail button ticks exactly that one family (never adds to a selection),
       //   and ALL clears the family filter while leaving every other filter alone.
+      content.querySelectorAll('[data-resview]').forEach(b=>{b.onclick=()=>{savePref('resView',b.dataset.resview);renderApp();};});
       content.querySelectorAll('[data-rescols]').forEach(b=>{b.onclick=()=>{savePref('resCols',b.dataset.rescols);renderApp();};});
       content.querySelectorAll('[data-restudysel]').forEach(sl=>{sl.onchange=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}

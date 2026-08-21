@@ -68,6 +68,8 @@ CASES = [
     ('axis-pf',      {'resAxis': 'pf'}),
     ('basis-year',   {'resBasis': 'year'}),
     ('cols-all',     {'resCols': 'all'}),
+    ('one-table',    {'resFilt': '{"fam":["ORB"]}', 'resView': 'one'}),
+    ('one-table-all', {'resFilt': '{"fam":["ORB"]}', 'resView': 'one', 'resCols': 'all'}),
     ('cols-all-year', {'resCols': 'all', 'resBasis': 'year'}),
     ('order-result', {'resOrd': 'res'}),
     ('split-by-run', {'resSplitRun': True}),
