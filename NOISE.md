@@ -1,6 +1,10 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-18** (TRADE CONTEXT feature scan — clean
+> Living handoff doc. **Last updated: 2026-08-21** (COMBINATION study — the "ultimate
+> crown" question. Clean NEGATIVE: nothing clears the pre-registered bar, and the BROADER
+> day-type filter combines WORSE than the narrower one. See the "2026-08-21 — combination
+> study" section, regenerable via tools/noise_combo_study.py).
+> Prior update **2026-08-18** (TRADE CONTEXT feature scan — clean
 > negative, nothing new survived — see the "2026-08-18 — TRADE CONTEXT feature→PnL scan"
 > section, regenerable via tools/noise_context_scan.py).
 > Prior update **2026-08-17** (variant campaign session — see the
@@ -788,8 +792,249 @@ test.
 
 ---
 
+## 2026-08-21 — combination study ("the ultimate crown"): CLEAN NEGATIVE, nothing is crowned
+
+> Harness: `tools/noise_combo_study.py` (committed this day). Regenerate the whole round with
+> `python tools/noise_combo_study.py`; `--gate` runs the reproduction gate only. It sits on top of
+> `tools/noise_variant_research.py`, whose parity against the real engine is already proven to the
+> cent. Source PINNED: db_noadj_rth · NQ 5m RTH · cost_pts 0.533 · multiplier 20 · 1 contract.
+> ES sibling: the ES 5m RTH no-adjust master, same knobs, nothing refitted, multiplier 50.
+> **No runner job was queued. The runner was not restarted. No data master was imported or refreshed.**
+
+**The question.** Three NOISE variants have now passed full validation on run #231's exact window
+and all three beat the crowned champion: **run #241** = skip SHORT trades the day after a weak
+close (`NOISE_1_1_SBS.py`), **run #245** = skip ALL trades the day after a weak close
+(`NOISE_1_1_SBA.py`), **run #243** = skip shorts after a weak close PLUS skip the wildest 10% of
+days (`NOISE_1_1_SBS_V90.py`). Can the features be COMBINED into something better than any of them?
+
+**The genuine gap this round attacks.** The 2026-08-17 campaign only ever combined the NARROWER
+shorts-only day-type filter, and only ever against volatility threshold 90. The BROADER day-type
+filter (`skip_bot_all`) had never been combined with anything, and thresholds 95/98 had never been
+paired with either day-type filter. That is the untested space, and it is where this round ran.
+Note that "broader combined with narrower" is not a distinct experiment: `skip_bot_all` vetoes a
+strict superset of what `skip_bot_short` vetoes on the same days, so the two are one knob with two
+settings, not two stackable knobs.
+
+### PRE-REGISTERED BAR (written before any backtest of this round; no goalpost moves)
+
+- **Selection window ONLY**: run #231's saved `validate.windows.optimize` = **2010-06-07 →
+  2025-02-10**, read from the Firestore run doc rather than assumed. The lockbox
+  (`validate.windows.lockbox` = 2025-02-11 → 2026-08-12) is **SPENT**, confirmatory only, read
+  once at the very end, and never used to rank a candidate.
+- **Reproduction gate**: the harness must first reproduce, on the selection window, to the dollar
+  and to the exact trade count — #231 champion 5,113 / $277,123.31 / DD $19,482.27 ·
+  `skip_bot_short` 4,748 / $320,530 · `skip_bot_all` 3,991 / $308,783.01 / DD $15,933.92 ·
+  `vol_skip` 90 4,309 / $310,689.59 · 95 4,697 / $302,963 · 98 4,868 / $309,055 ·
+  `skip_bot_short`+`vol_skip 90` 4,054 / $320,130. Otherwise the study stops. **ALL 7 PASS.**
+- **Rule 1 — Occam (carried from the campaign, unchanged)**: a combination must beat its BEST
+  single component on BOTH net profit and net/DD (MAR), strictly.
+- **Rule 2 — beat the standing champion** on net and MAR (implied by rule 1, stated anyway).
+- **Rule 3 — PLATEAU (new, declared this round)**: declared neighbourhood is
+  `daytype_lo` ∈ {0.15, 0.20, 0.25} × volatility threshold ∈ {90, 95, 98}. A winning cell must
+  ALSO satisfy rule 1 at both of its immediate neighbours on the day-type axis and both on the
+  volatility axis (edge cells: the one neighbour that exists). Clearing at exactly one setting is
+  declared noise.
+- **Rule 4 — era and worst-year guards (carried)**: 2010-17 net ≥ $0, worst calendar year not
+  worse than the champion's (2010, −$2,278).
+- **Rule 5 — CONCENTRATION, disqualifying**: report the best single year's share, the 10 best
+  avoided trades' share, and years positive/negative. **DISQUALIFY if the improvement over the
+  best single component goes to zero or negative once the 10 best avoided trades are removed.**
+- **Rule 6 — OVERLAP, reported always**: for every promising pair, how many sessions both filters
+  veto, how many only one vetoes, and what the champion's trades in each group were worth.
+- **Cross-contract, reported not selected on**: ES sibling, nothing refitted, against **NOISE's own
+  promotion bar of PF ≥ 1.2** — *not* the engine's generic cross-instrument sanity check of PF ≥ 1.0.
+
+### VERDICT — nothing clears. Do not crown a combination.
+
+| stage | what happened |
+|---|---|
+| Occam rule | 8 of 18 combination cells clear |
+| Plateau | 5 of those 8 die; **3 survive**, all of them the NARROW filter at volatility 98 |
+| **Concentration** | **all 3 survivors DISQUALIFIED** — 181%–320% of their improvement is 10 avoided trades |
+| Net result | **0 of 18 cells clear the full pre-registered bar** |
+
+**The broader day-type filter is the clearer failure.** Every `skip_bot_all` combination fails
+either the Occam rule or the plateau rule. It clears Occam only at volatility 98 (at `lo` 0.15 and
+0.20) and its neighbours fail in both directions, so it never plateaus. Against volatility 90 it is
+actively destructive: `skip_bot_all` + `vol_skip 90` is **$287,858 / MAR 18.22**, which is $20,925
+BELOW `skip_bot_all` alone and $22,832 below `vol_skip 90` alone.
+
+### Selection-window grid (2010-06-07 → 2025-02-10), the cells that matter
+
+| config | n | net $ | PF | MaxDD $ | net/DD (MAR) | 2010-17 $ | worst yr $ | Occam | plateau | concentration |
+|---|---|---|---|---|---|---|---|---|---|---|
+| #231 champion (baseline) | 5,113 | 277,123 | 1.241 | 19,482 | 14.22 | 11,524 | −2,278 | — | — | — |
+| SBS lo0.20 (**run 241**) | 4,748 | 320,530 | 1.315 | 18,560 | 17.27 | 19,770 | −1,934 | single | — | banked broad |
+| SBA lo0.20 (**run 245**) | 3,991 | 308,783 | 1.379 | 15,934 | 19.38 | 8,115 | −1,473 | single | — | banked |
+| SBS + vs90 (**run 243**) | 4,054 | 320,130 | 1.420 | 18,425 | 17.38 | 19,303 | −1,934 | **fails** | — | — |
+| vs90 alone | 4,309 | 310,690 | 1.375 | 19,041 | 16.32 | 17,967 | −2,278 | single | — | fragile (banked) |
+| vs95 alone | 4,697 | 302,963 | 1.314 | 19,176 | 15.80 | 16,369 | −2,278 | single | — | fragile (banked) |
+| vs98 alone | 4,868 | 309,055 | 1.304 | 19,176 | 16.12 | 18,560 | −2,278 | single | — | fragile (banked) |
+| **SBS lo0.25 + vs98** | 4,470 | **330,978** | 1.368 | 18,560 | 17.83 | 21,511 | −1,934 | clears | PASS | **DISQUALIFIED** |
+| **SBS lo0.20 + vs98** | 4,538 | 329,931 | 1.360 | 18,560 | 17.78 | 21,848 | −1,934 | clears | PASS | **DISQUALIFIED** |
+| **SBS lo0.15 + vs98** | 4,608 | 323,997 | 1.345 | 18,826 | 17.21 | 19,821 | −2,065 | clears | PASS | **DISQUALIFIED** |
+| SBA lo0.15 + vs98 | 4,085 | 328,165 | 1.408 | 17,622 | 18.62 | 13,668 | −1,630 | clears | FAIL | — |
+| SBA lo0.20 + vs98 | 3,879 | 315,517 | 1.419 | 15,934 | 19.80 | 12,151 | −1,473 | clears | FAIL | — |
+| SBA lo0.25 + vs98 | 3,638 | 306,710 | 1.437 | 13,618 | 22.52 | 10,021 | −1,635 | fails | — | — |
+| SBA lo0.20 + vs95 | 3,818 | 295,441 | 1.402 | 15,934 | 18.54 | 8,480 | −1,483 | fails | — | — |
+| SBA lo0.20 + vs90 | 3,556 | 287,858 | 1.438 | 15,798 | 18.22 | 12,748 | −1,473 | fails | — | — |
+| SBS lo0.20 + vs95 | 4,402 | 322,345 | 1.368 | 18,560 | 17.37 | 16,573 | −1,934 | clears | FAIL | — |
+| SBS lo0.20 + vs90 | 4,054 | 320,130 | 1.420 | 18,425 | 17.38 | 19,303 | −1,934 | fails | — | — |
+
+The full 28-row grid (every `lo` × every threshold, plus both day-type modes alone) prints from
+`python tools/noise_combo_study.py`.
+
+**Note on run #243.** The variant the owner counts as one of the three is itself a combination —
+skip-shorts stacked with the 10% volatility skip. Measured on the selection window it **fails the
+Occam rule**: $320,130 is $400 BELOW skip-shorts alone. It passed validation, but it does not earn
+its extra knob. That is the same −$400 the 2026-08-17 attribution already reported.
+
+### OVERLAP — the crux, and it answers the question against the broader filter
+
+Session-level veto sets on the selection window (3,770 sessions, day-type threshold 0.20). The
+day-type filter fires on **665 sessions**; the volatility filter fires on 398 / 197 / 105 sessions
+at thresholds 90 / 95 / 98. Champion trades and dollars are shown per bucket.
+
+| vol threshold | day-type sessions | vol sessions | **BOTH** | day-type only | vol only | share of the vol filter's days already covered |
+|---|---|---|---|---|---|---|
+| 90 | 665 | 398 | **158** | 507 | 240 | **40%** |
+| 95 | 665 | 197 | **94** | 571 | 103 | **48%** |
+| 98 | 665 | 105 | **49** | 616 | 56 | **47%** |
+
+| vol 90 bucket | champion trades | all-sides $ | shorts | shorts $ | **longs $ (derived)** |
+|---|---|---|---|---|---|
+| both veto | 369 | −54,491 | 109 | −33,379 | −21,112 |
+| day-type only | 753 | +22,831 | 255 | −9,441 | **+32,272** |
+| vol only | 435 | +20,925 | 160 | +27,372 | −6,447 |
+| neither | 3,556 | +287,858 | 1,040 | +132,887 | +154,971 |
+
+| vol 98 bucket | champion trades | all-sides $ | shorts | shorts $ | **longs $ (derived)** |
+|---|---|---|---|---|---|
+| both veto | 133 | −25,198 | 34 | −21,944 | −3,254 |
+| day-type only | 989 | −6,462 | 330 | −20,875 | **+14,413** |
+| vol only | 112 | −6,734 | 39 | +3,919 | −10,653 |
+| neither | 3,879 | +315,517 | 1,161 | +156,340 | +159,177 |
+
+**Read those two tables together and the whole round falls out of them.**
+
+1. **The two filters do heavily veto the same days — 40% to 48% of the volatility filter's sessions
+   are already weak-close sessions.** That is the overlap the campaign suspected, now measured at
+   session level rather than inferred from headline dollars.
+2. **The days they share are genuinely bad** — the champion loses $54,491 there at threshold 90.
+   Both filters get credit for the same money. Stacking cannot bank it twice.
+3. **The broader filter's extra reach is the problem, and it is a LONG problem.** On the 507
+   sessions only the day-type filter vetoes, the champion's shorts lose $9,441 — correctly cut —
+   but its LONGS make **+$32,272**. `skip_bot_short` keeps that. `skip_bot_all` throws it away.
+   That single number is why the broader filter finishes $11,747 behind the narrower one on net,
+   and why every combination built on it does worse still.
+4. **So the answer to the crux question is that the broader filter overlaps the volatility skip
+   MORE, not less.** It vetoes more sessions in total, it covers a slightly higher fraction of the
+   volatility filter's days at every threshold, and the sessions it uniquely adds are ones where
+   the strategy was making money on the long side. There is no complementary space for the
+   volatility filter to fill.
+
+### CONCENTRATION — what killed the three plateau survivors
+
+Improvement measured against each survivor's own best single component (skip-shorts at the same
+threshold), selection window.
+
+| combination | Δ net $ vs best component | best year | its share | 10 best avoided trades | their share | **Δ ex those 10** | years +/− | verdict |
+|---|---|---|---|---|---|---|---|---|
+| SBS lo0.15 + vs98 | +13,775 | 2024 +7,656 | 56% | +24,948 | **181%** | **−11,174** | 10 / 2 | DISQUALIFIED |
+| SBS lo0.20 + vs98 | +9,401 | 2024 +6,109 | 65% | +24,948 | **265%** | **−15,547** | 10 / 2 | DISQUALIFIED |
+| SBS lo0.25 + vs98 | +7,785 | 2024 +6,109 | 78% | +24,948 | **320%** | **−17,163** | 10 / 2 | DISQUALIFIED |
+
+The volatility leg contributes about 210 additional avoided trades. Ten of them are worth $24,948.
+The other two hundred, taken together, LOSE between $11,174 and $17,163. The combination's entire
+incremental value is a handful of days, which is exactly the fragility the 2026-08-17 round already
+banked for the whole `vol_skip` family (83%–103% top-10 shares) and exactly what rule 5 exists to
+catch. Nothing here is new evidence in the filter's favour; it is the same ten days arriving in a
+different wrapper.
+
+### CROSS-CONTRACT — ES sibling, nothing refitted, selection window
+
+**Bar named explicitly: NOISE's own promotion bar is PF ≥ 1.2.** The engine's generic
+cross-instrument sanity check is a looser PF ≥ 1.0, and the two have been confused before.
+(The champion's row reproduces the campaign's banked ES probe exactly — 645.0 pts / PF 1.036.)
+
+| config | ES trades | ES net pts | ES PF | ES MaxDD $ | ES MAR | PF ≥ 1.0 generic | **PF ≥ 1.2 NOISE bar** |
+|---|---|---|---|---|---|---|---|
+| SBS lo0.20 + vs98 | 4,664 | 1,561.5 | 1.113 | 19,196 | 4.07 | pass | **FAIL** |
+| SBS lo0.25 + vs98 | 4,584 | 1,535.7 | 1.114 | 19,712 | 3.90 | pass | **FAIL** |
+| SBS + vs90 (run 243) | 4,134 | 1,451.3 | **1.126** | 21,482 | 3.38 | pass | **FAIL** |
+| SBS lo0.20 (run 241) | 4,900 | 1,424.4 | 1.093 | 24,217 | 2.94 | pass | **FAIL** |
+| SBA lo0.20 + vs98 | 4,012 | 1,189.3 | 1.102 | 27,078 | 2.20 | pass | **FAIL** |
+| SBA lo0.15 + vs98 | 4,271 | 1,149.3 | 1.091 | 28,736 | 2.00 | pass | **FAIL** |
+| vs98 alone | 5,023 | 1,052.2 | 1.068 | 31,138 | 1.69 | pass | **FAIL** |
+| SBA lo0.20 (run 245) | 4,171 | 1,018.1 | 1.079 | 33,869 | 1.50 | pass | **FAIL** |
+| #231 champion | 5,312 | 645.0 | 1.036 | 41,480 | 0.78 | pass | **FAIL** |
+
+- **Nothing clears NOISE's own PF ≥ 1.2 bar.** The best combination reaches 1.113, which is BELOW
+  the already-existing run #243 at 1.126. No combination improves cross-contract transfer.
+- The broader day-type filter transfers WORSE than the narrower one on ES as well (1.079 vs 1.093,
+  1,018 pts vs 1,424 pts) — the same long-side amputation showing up on a second instrument.
+- NOISE still has never cleared its own ES-transfer requirement. This round does not move that.
+
+### CONFIRMATORY ONE-LOOK — read ONCE, after the decision, never used to select
+
+Full window 2010-06-07 → 2026-08-12; the LB column is the continuous-run slice from 2025-02-11.
+(The champion's $58,858 reproduces NOISE.md's banked continuous-slice figure exactly.)
+
+| config | n | TOTAL net $ | PF | MaxDD $ | net/DD | LB n | LB slice $ |
+|---|---|---|---|---|---|---|---|
+| #231 champion | 5,633 | 335,981 | 1.221 | 32,794 | 10.25 | 520 | 58,858 |
+| SBS lo0.20 (run 241) | 5,214 | 388,181 | 1.287 | 31,191 | 12.45 | 466 | 67,651 |
+| SBA lo0.20 (run 245) | 4,404 | 366,855 | 1.337 | 29,041 | 12.63 | 413 | 58,072 |
+| SBS + vs90 (run 243) | 4,429 | 380,745 | 1.387 | 22,096 | 17.23 | 375 | 60,615 |
+| SBS lo0.20 + vs98 | 4,966 | 408,067 | 1.343 | 20,731 | 19.68 | 428 | 78,136 |
+| SBS lo0.25 + vs98 | 4,874 | 406,400 | 1.350 | 21,605 | 18.81 | 404 | 75,422 |
+| SBA lo0.20 + vs98 | 4,274 | 396,107 | 1.398 | 21,985 | 18.02 | 395 | 80,589 |
+
+**⚠ THIS TABLE IS THE TRAP, AND IT IS RECORDED HERE SO THE NEXT SESSION DOES NOT FALL INTO IT.**
+The disqualified combinations look like the best rows on the page — `SBS lo0.20 + vs98` posts the
+highest total ($408,067), a MAR of 19.68 and the second-best lockbox slice, and `SBA lo0.20 + vs98`
+posts the best lockbox slice of all ($80,589). **They were still rejected**, because the lockbox is
+SPENT and the selection-window concentration test — declared before any of these numbers existed —
+disqualified them. Promoting on this table would be selecting on the lockbox, which is precisely
+the failure mode this project has caught and thrown out repeatedly. Anyone who wants to revive
+`skip_bot_short` + `vol_skip 98` must do it on FORWARD data or a fresh instrument, with a new
+pre-registration, not on these rows.
+
+### RECOMMENDATION
+
+1. **Crown no combination.** Zero of eighteen cells clear the pre-registered bar.
+2. **The best answer remains a single variant: skip SHORT trades the day after a weak close
+   (run #241).** It is the leg that carries the mechanism, it is the broad effect rather than a
+   handful of days (55% top-10 share, +$19.3k still there after stripping its 10 best avoidances,
+   positive in 13 of 16 selection-window years), it improves ES transfer most in points among the
+   validated singles, and it is the only one of the three whose extra knob count is minimal.
+3. **The broader filter (run #245) is NOT the better single**, despite its stronger lockbox. On the
+   selection window it is $11,747 behind on net, it transfers worse to ES, and the overlap table
+   above says exactly what it is giving up: $32,272 of profitable long trades on weak-close days.
+   Its better drawdown and MAR are real, so it stays a legitimate risk-reduction alternative if the
+   owner ever wants smaller drawdowns at lower net — but it is not the crown.
+4. **Run #243 should not be treated as a third independent variant.** It is skip-shorts with a
+   volatility skip stacked on top, and that stack fails the Occam rule by $400 on the selection
+   window. If it is kept, keep it knowing the extra knob is not paying for itself.
+5. **The `vol_skip` family stays a banked single and should not be stacked on anything.** Three
+   independent rounds have now reached that conclusion by three different routes.
+
+**Nothing was queued.** No candidate cleared, so no pinned strategy file was built, no
+execution-feasibility audit was needed, and no auto-validate job was created. The job queue was
+left untouched, the runner was not restarted, and no data master was imported or refreshed.
+
+
+---
+
 ## Still genuinely untested (not dead ends — nobody has run these)
 
+- ~~Combining the validated variants into an "ultimate crown"~~ — RUN 2026-08-21 (see the
+  "2026-08-21 — combination study" section): 18 combination cells over both day-type modes x
+  3 weak-close thresholds x 3 volatility thresholds. **Clean negative — nothing clears the
+  pre-registered bar.** The broader day-type filter (`skip_bot_all`) overlaps the volatility
+  skip MORE than the narrower one does (40-48% of the volatility filter's days are already
+  weak-close days) and its extra reach throws away $32,272 of profitable LONG trades. Do not
+  re-propose a NOISE filter stack without new forward data and a fresh pre-registration.
 - **NOISE in a BOOK job.** BOOK (pool N legs, score as ONE strategy) exists since v71.42
   and has never had NOISE put through it. NOISE↔ORB correlation measured **0.21–0.25**
   (twice, rounds 10 and 12) — low enough to expect real diversification — but no blended
