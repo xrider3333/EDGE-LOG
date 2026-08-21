@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.194';
+const VERSION='73.195';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.195',date:'2026-08-20',notes:['THE CONTROL BLOCK IS ONE TILE AND ONE GRID. It was a four-column arrangement of label, buttons, label, buttons, so any control whose buttons wrapped shoved its neighbour label away from its own buttons - which is what made the block read as scattered with holes in it. Every control is now a card of its own, its number and name over its own buttons, and the cards sit on one auto-fitting grid inside ONE box. A card that wraps can no longer move anything else. The tables controls are the same grid, in the same kind of box, directly under their own heading.','STUDY TABLES is just TABLES.','9 STUDY NOW LISTS ONLY THE STUDIES THE STRATEGY PICK LEAVES STANDING, with the number of rows each one still contributes. It was built from the whole registry, so with NOISE on the rail it still offered ORB and ENGU-Q studies - and picking one emptied the board. A study you have already picked stays listed even if the rail later excludes it, so it can be seen and cleared rather than vanishing while it is still narrowing the board.','AN EMPTY CHART NOW SAYS WHY IT IS EMPTY, in the registry own words. Pick the NOISE trade-context scan and nothing plots, because that study is six SCANS: a scan asks whether a market condition predicts profit and produces no profit and no equity curve of its own, so there is no drawdown to place it by. The chart used to answer with a sentence about the basis selected, which reads like a setting is wrong. It now prints the study own reason and points at the table, where what the scans DID measure is sitting.']},
 {v:'73.194',date:'2026-08-20',notes:['THE STUDY TABLES WERE SHIFTED BY ONE COLUMN AND ARE FIXED. The TOTAL cell was being wrapped in a second table cell, which is not legal HTML, so the browser lifted the inner one out and every row gained a cell: TOTAL drew empty, its money sat under DRAWDOWN, the drawdown sat under PF, and everything to the right of it was one heading out of place. No figure was ever wrong - they were printed under the wrong headings. The render gate now counts cells against headings on every table in every case, because the row COUNT was right the whole time and nothing noticed.','DRAWDOWN IS RED, heading and figures. It is the only loss on the row and it is printed without a minus sign, so the colour is what says so.','THE TOTAL COLUMN NO LONGER FLAGS ITSELF. A row recorded total is not always the sum of its three stages, and that is still stated on the hover of the cell - but the board is read on ratios and on the stage columns, neither of which uses that number, so it is a fact rather than a warning.','WHICH STRATEGY A ROW BELONGS TO, now that two of them can share the chart. The mark shape is the VERDICT and never said anything about the family, so: each mark carries its strategy beside its row number, every point hover names it in the headline, and every table row wears it as a tag after the name. All three appear ONLY when more than one strategy is on screen - with one selected they would be the same word on every line.','THE BOARD OPENS WITH THE CHART. There is no separate heading tile any more: the first tile IS the chart, it is called SCATTER PLOT, and every control that decides what it plots sits directly under that title. The old chart heading, which restated the strategy selection and the row count, is gone - the rail says the first and the line under the chart says the second.','1 STRATEGY LOSES ITS ALL BUTTON. An empty rail already means nothing is held back, so ALL was a second way of saying the same state.','9 STUDY IS A DROP-DOWN. Sixteen study titles as buttons was the tallest thing in the control block; it is one line now, and one study at a time, which is what reading them one at a time meant anyway.','10 ORDER, 11 SPLIT BY RUN AND 12 COMPARE ON now sit in a block directly under the STUDY TABLES heading. They were pinned to the far right of that heading, which on a wide screen put them the width of the page away from the tables they change.']},
 {v:'73.193',date:'2026-08-20',notes:['ENGU-Q TRADES THAT HAPPENED OVERNIGHT OR ON A SUNDAY COULD NOT DRAW A CHART AT ALL. ENGU-Q trades the 24-hour tape, but the chart was always asking for cash-session bars, so any entry outside 9:30 to 4:00 came back as trade date not found. Those charts open now.','ENGU-Q LIMIT 0.50 was drawing 5-minute candles for a 1-minute strategy. Every leg on the board now asks for its own market and session rather than only the three original ones being recognised by name.']},
 {v:'73.192',date:'2026-08-20',notes:['THE STRATEGIES YOU PICK ON THE PAPER BOARD ARE REMEMBERED NOW. Which legs you have switched off used to be forgotten the moment you reloaded, so the board kept resetting to showing all of them. It is a saved setting like every other choice on the page.','A SELECTION OF TRADES OPENS AS ONE LONG SCROLL. Picking twenty trades used to give you ten and a LOAD 10 MORE button - you already chose them, so all of them are there and you just scroll.','THERE IS A LOADING BAR ACROSS THE TOP OF THE CHART WINDOW while the charts fill in, so you can see it moving rather than reading a count. It disappears when everything has landed.','PREV and NEXT sit next to each other in the single-trade chart window. The position readout used to sit between them, which broke the pair up.']},
@@ -18678,7 +18679,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
-            g+='<text x="'+((L+R)/2)+'" y="'+((T+B)/2)+'" fill="var(--text5)" font-size="13" text-anchor="middle">Nothing to plot: no row now shown has both figures on the basis selected.</text>';}
+            const _wy=skip.length?String(skip[0].w):'';
+            const _l1='Nothing to plot'+(skip.length?(': not one of these '+skip.length+' rows carries both a profit and a drawdown figure.'):': no row is shown at all under the controls above.');
+            g+='<text x="'+((L+R)/2)+'" y="'+((T+B)/2-(_wy?10:0))+'" fill="var(--text4)" font-size="13" text-anchor="middle">'+_reEsc(_l1)+'</text>'
+              +(_wy?('<text x="'+((L+R)/2)+'" y="'+((T+B)/2+14)+'" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reEsc(_wy.length>150?(_wy.slice(0,149)+'\u2026'):_wy)+'</text>'
+                    +'<text x="'+((L+R)/2)+'" y="'+((T+B)/2+32)+'" fill="var(--text5)" font-size="10" text-anchor="middle">The rows are all in the table below \u2014 what they measured is there, it simply is not money.</text>'):'');}
           // the omitted-row line. Counts are real and every reason is the one the table gives.
           let omit;
           if(!skip.length){omit='Every one of the '+pts.length+' rows now shown is on the chart.';}
@@ -18768,17 +18773,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
         //   VS CROWN"). span=true makes the buttons run the full width, for the one control with
         //   sixteen of them.
-        const _reCtl=(num,cap,tip,items,tone,span)=>'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;text-align:left;padding-top:5px;white-space:nowrap;min-width:74px'+(span?';grid-column:1':'')+'">'
-          +'<span style="color:var(--text5);opacity:.65;margin-right:4px">'+num+'</span>'+cap+'</div>'
-          +'<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:0'+(span?';grid-column:2/-1':'')+'">'+items+'</div>';
-        // TWO CONTROLS PER LINE. The single-column version left the right half of the tile empty
-        //   and cost twice the height for it.
-        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
+        const _reCtl=(num,cap,tip,items,tone,span)=>'<div style="min-width:0">'
+          +'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.6px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
+          +'<span style="color:var(--text5);opacity:.6;margin-right:4px">'+num+'</span>'+cap+'</div>'
+          +'<div style="display:flex;flex-wrap:wrap;gap:3px;min-width:0">'+items+'</div></div>';
+        // ONE REGULAR GRID OF EQUAL CARDS. auto-fit means the row holds as many cards as the
+        //   width allows and they stay the same size when it does not.
+        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:11px 16px;align-items:start'+(extra||'')+'">'+inner+'</div>';
         //    how much of the value range the chart spends its height on.
         const _reBasBtns=_reCtl(12,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','add three columns to every table - PER YEAR, YEARS and MAR / YR - dividing each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window, so it reaches every row the DATA WINDOW column can place',_reFT),_reFT);
-        const _reOrdBtns=_reCtl(10,'ORDER','which order the STUDY TABLES list their rows in. It cannot change what is on the chart - sorting cannot move a point, so no row is ever gained or lost by it.',
+        const _reOrdBtns=_reCtl(10,'ORDER','which order the TABLES list their rows in. It cannot change what is on the chart - sorting cannot move a point, so no row is ever gained or lost by it.',
             _tabBtn('data-resord="date"','DATE',_reOrd==='date','newest first on whichever of the two dates control 6 names. Rows sharing a date keep the order the registry has them in, which is the order the owner approved, and a row with no date of that kind sits at the bottom rather than being given one',_TONE.heat)
            +_tabBtn('data-resord="res"','RESULT',_reOrd==='res','best first on the profit stage and the vertical axis selected above. A row with no figure for that reading sits at the bottom rather than being given a place it did not earn',_TONE.heat),_TONE.heat);
         const _reSplitRunBtns=_reCtl(11,'SPLIT BY RUN','group each table into the rows that were persisted as a real Auto-Validate run and the rows that were only ever computed locally. It is its own switch because it is its own question - it used to be a hidden side effect of ordering by DATE RAN, which is why that control did not make sense. Inside each block the rows still follow ORDER.',
@@ -18868,11 +18874,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +notes.map(n=>'<li style="margin-bottom:4px">'+_reEsc(n)+'</li>').join('')+'</ul>'):'')
             +'</div></div>';};
         const _reBody=tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
-            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text4)">STUDY TABLES</span>'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
             +(_reSolo?' \u00b7 the only study left is open':'')+'</span></div>'
-            +'<div style="margin:0 0 9px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+            +'<div style="margin:7px 0 11px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
             +_reGrid(_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
@@ -18955,12 +18961,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 9 STUDY as a drop-down. The value is still written into the same filter the chips
         //   used, so nothing downstream had to change; an empty value clears it.
         const _reStudyPick=((_reFilt.study||[])[0])||'';
-        const _reStudyCnt={};
-        RESEARCH_STUDIES.forEach(st=>{_reStudyCnt[String(st.title||st.key)]=(st.rows||[]).length;});
-        const _reStudySel=_reCtl(9,'STUDY','which piece of research the rows came from. One strategy can have five studies behind it, and this is how you read them one at a time on the one chart. It narrows the chart and the tables together; ALL STUDIES puts every one of them back.',
+        const _reStudyCnt={},_reStudyList=[];
+        RESEARCH_STUDIES.forEach(st=>{
+          const t=String(st.title||st.key);
+          const n=(st.rows||[]).filter(r=>!_reFamPick.length||_reFamPick.indexOf(_reFamOf(st,r))>=0).length;
+          _reStudyCnt[t]=n;
+          if(n||_reStudyPick===t)_reStudyList.push(t);});
+        const _reStudyReach=_reStudyList.reduce((a,t)=>a+(_reStudyCnt[t]||0),0);
+        const _reStudySel=_reCtl(9,'STUDY','which piece of research the rows came from. One strategy can have five studies behind it, and this is how you read them one at a time on the one chart. It lists ONLY the studies that still have a row under the strategy picked in 1 - it used to offer all sixteen, so picking an ORB study while the rail said NOISE emptied the board. The count beside each title is how many of its rows survive that pick. It narrows the chart and the tables together; ALL STUDIES puts them back.',
           '<select data-restudysel style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
-          +'<option value=""'+(_reStudyPick?'':' selected')+'>ALL STUDIES \u00b7 '+_reTotal+'</option>'
-          +_reOpts.study.map(v=>'<option value="'+_reEsc(v)+'"'+((_reStudyPick===v)?' selected':'')+'>'+_reEsc(v)+' \u00b7 '+(_reStudyCnt[v]||0)+'</option>').join('')
+          +'<option value=""'+(_reStudyPick?'':' selected')+'>ALL STUDIES \u00b7 '+_reStudyReach+'</option>'
+          +_reStudyList.map(v=>'<option value="'+_reEsc(v)+'"'+((_reStudyPick===v)?' selected':'')+'>'+_reEsc(v)+' \u00b7 '+(_reStudyCnt[v]||0)+'</option>').join('')
           +'</select>',_reFT);
         const _reClear=_reFiltOn?('<span data-reclear title="drop every filter and show all rows again" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;color:var(--text3);background:color-mix(in srgb,var(--red) 16%,transparent)">CLEAR FILTERS</span>'):'';
         const _reCountTx=(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are not shown — '+_reFiltOut+' held back by the filters and '+_reScopeOut+' by the range. '+_reShown+' are shown, on the chart and in the tables alike.')
@@ -19023,16 +19034,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+_reHelpBtn+_reMoreBtn+'</span></div>'
             // THE CHART'S OWN CONTROLS, directly under its title: the strategy rail and the
             //   three settings that decide what the two axes measure.
-            +'<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns)+'</div>'
+            +'<div style="padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow the
             //   chart and the tables together, which is why they sit with the chart rather than
             //   with the tables - a filter is not a table setting.
-            +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:8px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px">'
+            +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:11px;padding-top:11px;border-top:1px solid var(--border2)">'
             +_reGrid(_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
-              +(_reClear?('<div></div><div style="display:flex;gap:4px;margin-top:2px">'+_reClear+'</div>'):''))
-            +'</div>'
-            +'<div style="margin-top:8px">'+_reChartAll(_reItems,_reComAll)+'</div>',0)
+              +(_reClear?('<div style="min-width:0"><div style="height:11px"></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
+            +'</div></div>'
+            +'<div style="margin-top:10px">'+_reChartAll(_reItems,_reComAll)+'</div>',0)
             +(_reSplit?('</div><div data-resplitbar title="'+_reEsc('Drag left or right to give the chart more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half. The bar under the chart still sets its height.')+'" style="flex:0 0 12px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:64px;border-radius:2px;background:var(--border)"></div></div><div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
           +_reBody
             +(_reSplit?'</div></div>':'')

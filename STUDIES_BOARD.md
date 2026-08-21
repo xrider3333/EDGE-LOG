@@ -138,6 +138,19 @@ against headings on every table in every case.
 they are separate measurements. The hover says so. It is not marked as a warning, because the board is
 read on ratios and on the stage columns and neither uses `tot`.
 
+**One control = one card, on one grid, in one box.** `_reCtl` returns a self-contained card (number
+and name over its own buttons) and `_reGrid` lays them out with `repeat(auto-fit,minmax(178px,1fr))`.
+The old four-column label/buttons/label/buttons grid let a wrapping control push its neighbour's label
+away from its buttons — that, not the number of controls, was what made the block look scattered.
+
+**A filter must never offer a choice that empties the board.** 9 STUDY lists only the studies that
+still hold a row under the STRATEGY pick, with each one's surviving count; a study already picked stays
+listed so it can be cleared.
+
+**An empty chart states the registry's own reason.** A study of SCANS (`noisectx`) records no profit
+and no drawdown by nature, and its `dashWhy` says so — the chart prints that, rather than a generic
+sentence about the selected basis, which reads like a setting is wrong.
+
 **There is no baseline selector.** One family, one champion — fix a duplicate tag in the registry
 rather than making the reader choose. If two ever appear, the lowest row number wins and the rows say
 so on hover.

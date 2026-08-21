@@ -75,6 +75,9 @@ CASES = [
     ('more-open',    {'resMore': True, 'resHelp': True}),
     ('vs-crown',     {'resRel': 'crown'}),
     ('vs-crown-orb', {'resRel': 'crown', 'resFilt': '{"fam":["ORB"]}'}),
+    # a study whose rows are SCANS: they carry no profit and no drawdown, so the chart is
+    #   legitimately empty and has to say why rather than throw or draw a blank frame.
+    ('study-scan',   {'resFilt': '{"study":["NOISE trade-context scan"]}'}),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
