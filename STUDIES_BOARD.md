@@ -100,7 +100,7 @@ separate now, and **which date** is asked once, by control 6, for the whole boar
 visible link is the fade under SPLIT BY RUN, which exists so the chart matches the split the tables
 are showing.
 
-**Filters — verdict, discovered date, run status, status, study** (controls 7–11). These are built
+**Filters — verdict, run, study** (controls 7–9). These are built
 from the data. Strategy type is not among them: that is control 1, the rail. STUDY is the one to reach for when a family has five studies behind it and you want
 to read them one at a time on the single chart; it needs no tagging, because it is built from each
 study's own title. The renderer walks every row in the registry, collects the distinct values of each
@@ -109,6 +109,17 @@ free. Filters narrow the chart and the table at the same time, and the board alw
 how many rows are hidden.
 
 **CLEAR FILTERS** appears only while something is filtered and drops all of them.
+
+**5 RANGE — all, today, wk, mo, 3mo, or select.** One control for every date question the board
+narrows on. SELECT opens the browser's own calendar on a from and a to (`resSelFrom` / `resSelTo`);
+either end may be left blank for open-ended. Until 2026-08-19 this was **two** controls — a rolling
+TIME SCOPE and a DISCOVERED filter listing every distinct date in the registry — which asked the
+same question twice. Do not add a date filter back; extend this one.
+
+**7 VERDICT is drawn, not written.** The buttons are the same five marks the chart uses, with the
+name on the hover. **8 RUN is EL or .PY** — a real Auto-Validate run persisted in EDGELOG, or local
+research that never became one. **There is no STATUS filter**: crowned and in-paper are pills beside
+the name in the table already, and a filter would be a third way to say the same thing.
 
 **MORE / LESS.** Only the STRATEGY rail, PROFIT STAGE, VERTICAL AXIS and ORDER BY are on screen by
 default. MORE reveals COMPARE ON, VALUE ZOOM, TIME SCOPE, SCOPE DATE, COLOUR and every filter chip.
@@ -127,9 +138,9 @@ used to be printed there. A chip warning about something wears the warning colou
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
 (1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS); 5–11 sit behind
-MORE (5 TIME SCOPE, 6 DATE, then the filters 7–11), and **12 ORDER, 13 SPLIT BY RUN and 14 COMPARE ON sit on the STUDY TABLES heading**, because the tables are the only thing they touch. FRONTIER and COLOUR were controls here until 2026-08-19, when the owner had them removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
+MORE (5 RANGE, 6 DATE, then the filters 7–9), and **10 ORDER, 11 SPLIT BY RUN and 12 COMPARE ON sit on the STUDY TABLES heading**, because the tables are the only thing they touch. FRONTIER and COLOUR were controls here until 2026-08-19, when the owner had them removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
-control a full-width line of its own; only 11 STUDY needs it.
+control a full-width line of its own; only 9 STUDY needs it.
 
 **There is exactly one strategy control.** Control 1 IS the `fam` filter. A second row of the same
 buttons used to render with the other filter chips and the owner rightly asked why there were two;

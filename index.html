@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.185';
+const VERSION='73.186';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.186',date:'2026-08-20',notes:['CONTROL NAMES ARE LEFT ALIGNED. Right-aligning them against an auto-width column meant every row started somewhere different.','TIME SCOPE AND THE DISCOVERED FILTER WERE THE SAME QUESTION ASKED TWICE - one as a rolling window, one as a list of every distinct date in the registry. They are one control now, 5 RANGE: ALL, TODAY, WK, MO, 3MO, and SELECT, which opens the calendar on a from and a to. Either end of SELECT can be left blank for open-ended. The word past is gone from every label.','VERDICT is the marks themselves now, not five lines of words - the same shapes the chart draws, with the name on the hover.','RUN STATUS is just RUN, and its two buttons say EL and .PY: EL is a real Auto-Validate run persisted in EDGELOG with a run number and a report, .PY is local research run on the machine and never saved as a run.','THE STATUS FILTER IS GONE. Crowned and in-paper are already pills beside the name in the table, so filtering on them was a third way to say the same thing.','THE LINE OF TEXT UNDER THE CHART IS GONE. Only the verdict legend is left, with a small circled i beside it whose hover still carries every count and every reason that line used to print - the rows plotted, the rows that could not be, and why. Nothing measured was dropped; it is one hover away instead of always on screen.','THE AXES ARE READABLE. Tick numbers and axis captions were drawn in the faintest ink the theme has, at a size chosen when the chart had the whole page - in the split layout it has half that and they disappeared. Both go up in size and contrast, and the two axis lines are drawn rather than left to the gridlines.','Controls renumber 1 to 12.']},
 {v:'73.185',date:'2026-08-20',notes:['ENGU-Q LIMIT 0.50 now carries a limit entry tag on its row. Two ENGU-Q rows sitting side by side with identical columns is a puzzle unless the row says what makes them different, so hovering the tag explains it: same settings, the only change is that it rests a limit order half an ATR below the signal close and drops the trade if it never fills.','The tag also carries the honest caveat from its validate - entering lower against the same stop widens risk, so it fails the pre-registered net-per-drawdown bar. It is a candidate, not a winner.','Any leg can now carry a tag like this, rather than the board hard-coding one strategy name.']},
 {v:'73.184',date:'2026-08-20',notes:['ENGU-Q LIMIT 0.50 now has a row on the board. It has been computed every night since 18 August but was never added to the leg list, so it was running and completely invisible - it never appeared in the strip, the curve or any table.','What it is: the same 24-hour ENGU-Q settings, entered with a resting limit order half an ATR BELOW the signal close, which is dropped if it does not fill within ten bars. ENGU-Q RAW is deliberately kept beside it as the matched control, so the only difference between the two rows is the entry.','It is engine-only on purpose. It shares a contract with ENGU-Q, so the two could never be traded together in one account.']},
 {v:'73.183',date:'2026-08-19',notes:['ORDER BY WAS THREE QUESTIONS IN ONE CONTROL and is now three controls. It offered DISCOVERED, DATE RAN and RESULT, which mixed up sort-by-date with sort-by-performance and quietly threw in the auto-validate grouping on top - DATE RAN did all three at once. Now: ORDER is DATE or RESULT. SPLIT BY RUN is its own on/off switch for the grouping into rows that were persisted as a validate run and rows that never were. And DATE - one control, asked once - decides WHICH of the two dates a row carries the board means: it sets the date column, what ORDER BY DATE sorts on and what TIME SCOPE reads. Its old FOLLOWS ORDER BY setting is gone, because ORDER no longer names a date to follow.','COMPARE ON MOVED TO THE STUDY TABLES and now changes only them. It adds the per-year columns, which is a table thing - but it also used to move every point on the chart, reach it never announced. The chart reads what VERTICAL AXIS says and nothing else. Everything that belongs to the tables now sits on the tables: ORDER, SPLIT BY RUN and COMPARE ON.','THE COLOUR CONTROL IS GONE. The board always colours: it follows the app theme where the theme carries real colour and uses the five approved colours where it does not, which is what the setting resolved to anyway. Every mark still carries its own shape, so nothing here ever depended on colour to be readable.','Controls renumber: 1 to 4 decide the chart, 5 to 11 sit behind MORE, and 12 to 14 belong to the study tables.']},
@@ -17962,10 +17963,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    never quietly: it is counted and named by row number in the line under the controls
         //    and again under the study chart, the same way the DATE RAN view already puts those
         //    rows in their own labelled block instead of inventing a date for them.
-        const _reScopeDefs=[['all','ALL TIME',0],['7','PAST WEEK',7],['30','PAST MONTH',30],['90','PAST 3 MONTHS',90]];
-        const _reScope=(['all','7','30','90'].indexOf(String(APREF.resScope))>=0)?String(APREF.resScope):'all';
-        const _reScopeN=(_reScope==='all')?0:+_reScope;
+        const _reScopeDefs=[['all','ALL',0],['1','TODAY',1],['7','WK',7],['30','MO',30],['90','3MO',90],['sel','SELECT',-1]];
+        const _reScope=(_reScopeDefs.some(o=>o[0]===String(APREF.resScope)))?String(APREF.resScope):'all';
+        const _reScopeN=(_reScope==='all'||_reScope==='sel')?0:+_reScope;
         const _reScopeNm=(_reScopeDefs.filter(o=>o[0]===_reScope)[0]||_reScopeDefs[0])[1];
+        // SELECT: an explicit from and to, picked on the browser own calendar. Either end may be
+        //   left blank, which means open-ended on that side.
+        const _reSelFrom=String(APREF.resSelFrom||''),_reSelTo=String(APREF.resSelTo||'');
+        const _reSelOn=(_reScope==='sel'&&(_reSelFrom||_reSelTo));
         // WHICH DATE, asked once for the whole board. A row carries the date it was DISCOVERED in
         //   research, which every row has, and the date it RAN as a validate run, which only a
         //   persisted row has at all. This one control decides which of the two the date column
@@ -18077,11 +18082,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    fell out because it has no date of the kind being scoped on at all — the caller counts
         //    and names those separately so they are never lost without a word.
         const _reInScope=(st,rw)=>{
-          if(!_reScopeN)return {ok:true,nod:false};
+          if(!_reScopeN&&!_reSelOn)return {ok:true,nod:false};
           const d=(_reSOn==='ran')
             ?((Array.isArray(rw.runs)&&rw.runs.length)?_reRunDate(rw.runs[0]):'')
             :String(rw.disc||st.disc||'');
           if(!d)return {ok:false,nod:true};
+          if(_reSelOn)return {ok:((!_reSelFrom||d>=_reSelFrom)&&(!_reSelTo||d<=_reSelTo)),nod:false};
           return {ok:(d>=_reCut),nod:false};};
         // ── DATA WINDOW (owner ask 2026-08-19: rows are not apples to apples, because they were
         //    computed over different date ranges and the data has since been backfilled). This
@@ -18236,14 +18242,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reFacets=[
           {k:'fam',cap:'STRATEGY TYPE',tip:'which strategy family the row belongs to - this comes off the row tag in the registry, so a new family appears here on its own',
            val:(st,r)=>String(r.fam||st.fam||'UNTAGGED'),lbl:v=>v},
-          {k:'tone',cap:'VERDICT',tip:'how the row was judged when the study closed',
-           val:(st,r)=>String(r.tone||'ref'),lbl:v=>(_reToneNm[v]||v).toUpperCase()},
-          {k:'disc',cap:'DISCOVERED',tip:'the date the result was found in research',
-           val:(st,r)=>String(r.disc||st.disc||'undated'),lbl:v=>v},
-          {k:'run',cap:'RUN STATUS',tip:'whether the row was persisted as a real validate run or only ever computed locally',
-           val:(st,r)=>((Array.isArray(r.runs)&&r.runs.length)?'ran':'local'),lbl:v=>(v==='ran'?'RAN AS A RUN':'LOCAL ONLY')},
-          {k:'live',cap:'STATUS',tip:'whether the row is the standing champion of its family, is actually running in the paper forward test right now, both, or neither',
-           val:(st,r)=>_reLiveV(r),lbl:v=>(_reLiveNm[v]||v)},
+          {k:'tone',cap:'VERDICT',tip:'how the row was judged when the study closed. The buttons are the marks themselves, the same ones the chart draws - hover one for its name',
+           val:(st,r)=>String(r.tone||'ref'),lbl:v=>_reMk(v),raw:1,btip:v=>(_reToneNm[v]||v).toUpperCase()+' \u2014 drawn on the chart as a '+(_reToneMk[v]||'mark')},
+          {k:'run',cap:'RUN',tip:'where the row was computed: EL is a real Auto-Validate run persisted in EDGELOG with a run number and a report, .PY is local research run on the machine and never saved as a run',
+           val:(st,r)=>((Array.isArray(r.runs)&&r.runs.length)?'ran':'local'),lbl:v=>(v==='ran'?'EL':'.PY'),
+           btip:v=>(v==='ran')?'EL \u2014 persisted as a real Auto-Validate run in EDGELOG, so it has a run number, a saved report and a recorded data window'
+                              :'.PY \u2014 local research, computed on the machine and never saved as a run, so it has no run number and no report to open'},
           {k:'study',cap:'STUDY',tip:'which piece of research the row came from. One strategy can have five studies behind it, so this is how you read them one at a time on the single chart',
            val:(st,r)=>String(st.title||st.key),lbl:v=>v}];
         const _reOpts={};
@@ -18494,10 +18498,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             for(let i=0;i<5;i++){
               const yv=ye[0]+(ye[1]-ye[0])*i/4,yy=B-(B-T)*i/4;
               g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
-                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text5)" font-size="11" text-anchor="end">'+_reTick(yv,yf)+'</text>';
+                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="end">'+_reTick(yv,yf)+'</text>';
               const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
               g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
-                +'<text x="'+xx.toFixed(1)+'" y="'+XT+'" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reTick(xv,xf)+'</text>';}
+                +'<text x="'+xx.toFixed(1)+'" y="'+XT+'" fill="var(--text3)" font-size="12.5" text-anchor="middle">'+_reTick(xv,xf)+'</text>';}
             // BREAK-EVEN LINE. One chart now carries families whose variants include losers, so
             //   the line between making money and losing it is worth drawing rather than
             //   leaving the reader to find it among the tick labels. Drawn only when the range
@@ -18513,8 +18517,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(ye[0]<0&&ye[1]>0){const zy=py(0);
                 g+='<line x1="'+L+'" y1="'+zy.toFixed(1)+'" x2="'+R+'" y2="'+zy.toFixed(1)+'" stroke="var(--text4)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.75"/>'
                   +'<text x="'+(R-4)+'" y="'+(zy+13).toFixed(1)+'" fill="var(--text4)" font-size="10" text-anchor="end">the crown itself sits on this line \u2014 above it is more money than the crown made</text>';}}
-            g+='<text x="'+((L+R)/2)+'" y="'+XC+'" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(_reXCapNow())+'</text>'
-              +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text4)" font-size="12" text-anchor="middle">'+_reEsc(_reYcapAll(items,com))+'</text>';
+            g+='<text x="'+((L+R)/2)+'" y="'+XC+'" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'+_reEsc(_reXCapNow())+'</text>'
+              +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'+_reEsc(_reYcapAll(items,com))+'</text>'
+              +'<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--text4)" stroke-width="1.2"/>'
+              +'<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--text4)" stroke-width="1.2"/>';
             const tipF=['dd','tot','lb','trd'];
             // plot the biggest first so the smaller marks land on top and stay readable
             pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
@@ -18584,15 +18590,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(!showN&&pts.length)brief+=' \u00b7 row numbers hidden, hover a point';
           if(_reRel)brief+=' \u00b7 read against the crown';
           if(_reRel)omit+=' READ AS is set to VS CROWN, so both axes are measured FROM the crowned configuration of each row own family: the crown sits on the zero lines and every other point is the money it added and the drawdown it added against the thing actually being traded. The subtraction uses exactly the figures the tables below print, and those tables still show the absolute numbers.';
-          const dot='<span style="color:var(--text5)">\u00b7</span>';
+          const _hint='The best results sit toward the top left. A thin solid ring means the row is the crowned champion of its family; a dashed green ring means it is running in the paper forward test right now. Click a point to jump to its row in its own study table, opening that table if it is closed; hover a row down there to light its point back up. In the tables, the one row with a faint blue TINT is the champion or baseline of that study. \u2014 '+brief+'. '+omit;
           return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px">'
             +'<svg viewBox="0 0 980 '+CH+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
             +'<div data-rechh="board" title="'+_reEsc('Drag up or down to make the chart shorter or taller. The size is remembered and survives a reload. Double-click to put it back to the standard height.')+'" style="height:10px;margin:5px 0 1px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:52px;height:3px;border-radius:2px;background:var(--border)"></div></div>'
-            +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px">'
-            +_reLegend('')+dot
-            +'<span title="'+_reEsc(omit)+'" style="font-size:8px;color:var(--text5);cursor:help;border-bottom:1px dotted var(--text5)">'+_reEsc(brief)+'</span>'+dot
-            +'<span title="'+_reEsc('The best results sit toward the top left. A thin solid ring means the row is the crowned champion of its family; a dashed green ring means it is running in the paper forward test right now. Click a point to jump to its row in its own study table, opening that table if it is closed; hover a row down there to light its point back up. In the tables, the one row with a faint blue TINT is the champion or baseline of that study. The brighter flash that follows your pointer is the live link between a row and its point, and it is gone the moment you move away.')+'" style="font-size:8px;color:var(--text5);cursor:help;border-bottom:1px dotted var(--text5)">how to read it</span>'
-            +(mixed?('<span title="'+_reEsc(mixed)+'" style="font-size:8px;color:'+_reWarnC+';cursor:help;border-bottom:1px dotted '+_reWarnC+'">\u26a0 IN-SAMPLE is not one thing here</span>'):'')
+            +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:5px">'
+            +_reLegend('')
+            +'<span title="'+_reEsc(_hint)+'" style="font-size:9px;color:var(--text5);cursor:help">\u24d8</span>'
+            +(mixed?('<span title="'+_reEsc(mixed)+'" style="font-size:8px;color:'+_reWarnC+';cursor:help">\u26a0 IN-SAMPLE is not one thing here</span>'):'')
             +'</div></div>';};
         let _reShown=0,_reHidden=0,_reFiltOut=0,_reScopeOut=0,_reNoDate=[],_reWinAll=[],_reWinNone=[];
         // how many rows the SELECTED comparison basis can actually place, counted honestly so the
@@ -18636,20 +18641,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
         //   VS CROWN"). span=true makes the buttons run the full width, for the one control with
         //   sixteen of them.
-        const _reCtl=(num,cap,tip,items,tone,span)=>'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;text-align:right;padding-top:5px;white-space:nowrap'+(span?';grid-column:1':'')+'">'
+        const _reCtl=(num,cap,tip,items,tone,span)=>'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;text-align:left;padding-top:5px;white-space:nowrap;min-width:74px'+(span?';grid-column:1':'')+'">'
           +'<span style="color:var(--text5);opacity:.65;margin-right:4px">'+num+'</span>'+cap+'</div>'
           +'<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:0'+(span?';grid-column:2/-1':'')+'">'+items+'</div>';
         // TWO CONTROLS PER LINE. The single-column version left the right half of the tile empty
         //   and cost twice the height for it.
         const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
         //    how much of the value range the chart spends its height on.
-        const _reBasBtns=_reCtl(14,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
+        const _reBasBtns=_reCtl(12,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','add three columns to every table - PER YEAR, YEARS and MAR / YR - dividing each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window, so it reaches every row the DATA WINDOW column can place',_reFT),_reFT);
-        const _reOrdBtns=_reCtl(12,'ORDER','which order the STUDY TABLES list their rows in. It cannot change what is on the chart - sorting cannot move a point, so no row is ever gained or lost by it.',
+        const _reOrdBtns=_reCtl(10,'ORDER','which order the STUDY TABLES list their rows in. It cannot change what is on the chart - sorting cannot move a point, so no row is ever gained or lost by it.',
             _tabBtn('data-resord="date"','DATE',_reOrd==='date','newest first on whichever of the two dates control 6 names. Rows sharing a date keep the order the registry has them in, which is the order the owner approved, and a row with no date of that kind sits at the bottom rather than being given one',_TONE.heat)
            +_tabBtn('data-resord="res"','RESULT',_reOrd==='res','best first on the profit stage and the vertical axis selected above. A row with no figure for that reading sits at the bottom rather than being given a place it did not earn',_TONE.heat),_TONE.heat);
-        const _reSplitRunBtns=_reCtl(13,'SPLIT BY RUN','group each table into the rows that were persisted as a real Auto-Validate run and the rows that were only ever computed locally. It is its own switch because it is its own question - it used to be a hidden side effect of ordering by DATE RAN, which is why that control did not make sense. Inside each block the rows still follow ORDER.',
+        const _reSplitRunBtns=_reCtl(11,'SPLIT BY RUN','group each table into the rows that were persisted as a real Auto-Validate run and the rows that were only ever computed locally. It is its own switch because it is its own question - it used to be a hidden side effect of ordering by DATE RAN, which is why that control did not make sense. Inside each block the rows still follow ORDER.',
             _tabBtn('data-ressplitrun="1"','ON',_reSplitRun,'two labelled blocks, run-backed rows first. The chart fades the never-run points to match',_TONE.heat)
            +_tabBtn('data-ressplitrun="0"','OFF',!_reSplitRun,'one list, ordered by ORDER alone',_TONE.heat),_TONE.heat);
         // ── PASS TWO: the tables. A tile is now a heading, a line of prose, a table and its
@@ -18791,10 +18796,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
-        const _reScopeBtns=_reCtl(5,'TIME SCOPE','narrow the whole board to recent work - it applies to the charts and the tables together, and the board always states how many rows it is holding back and why',
+        const _reScopeBtns=_reCtl(5,'RANGE','narrow the whole board to a stretch of time - it applies to the chart and the tables together, and the board always states how many rows it is holding back. It reads whichever of the two dates control 6 names. This used to be two controls, a rolling TIME SCOPE and a list of every distinct discovery date; they asked the same question twice.',
             _reScopeDefs.map(o=>_tabBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
-              (o[2]?('show only rows dated within the past '+o[2]+' days on whichever date SCOPE DATE names'):'no time scope at all - every row on the board is eligible whatever date it carries')
-              +'. Read SCOPE DATE beside this: a row carries a date it was DISCOVERED and, if it was ever saved as a run, a separate date it RAN, and the two answer different questions.',_TONE.samp)).join(''),_TONE.samp);
+              (o[0]==='all')?'no range at all - every row on the board is eligible whatever date it carries'
+              :((o[0]==='sel')?'pick an explicit from and to on the calendar. Either end may be left blank, which means open-ended on that side'
+              :('show only rows dated within the last '+o[2]+' day'+(o[2]===1?'':'s'))),_TONE.samp)).join('')
+           +(_reScope==='sel'?('<span style="display:inline-flex;align-items:center;gap:4px;margin-left:6px">'
+              +'<input type="date" data-reselfrom value="'+_reEsc(_reSelFrom)+'" title="from this date onward - leave blank for no lower bound" style="font-size:8px;padding:2px 4px;border-radius:5px;border:1px solid var(--border);background:var(--bg1);color:var(--text3);width:auto;margin:0">'
+              +'<span style="font-size:8px;color:var(--text5)">\u2192</span>'
+              +'<input type="date" data-reselto value="'+_reEsc(_reSelTo)+'" title="up to and including this date - leave blank for no upper bound" style="font-size:8px;padding:2px 4px;border-radius:5px;border:1px solid var(--border);background:var(--bg1);color:var(--text3);width:auto;margin:0">'
+              +'</span>'):''),_TONE.samp);
         const _reSBasisBtns=_reCtl(6,'DATE','WHICH of the two dates a row carries the board means, asked once. It sets the date column in every table, what ORDER BY DATE sorts on, and what TIME SCOPE reads - one answer everywhere instead of the same question in two places',
             _tabBtn('data-ressbasis="disc"','DISCOVERED',_reSOn!=='ran','the date the result was found in research. EVERY row on the board has one, so nothing is ever held back for want of it',_TONE.heat)
            +_tabBtn('data-ressbasis="ran"','DATE RAN',_reSOn==='ran','the date the real validate run finished, read from run history. Only a row persisted as a run has one at all - the rest show a dash, and under a time scope they are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
@@ -18807,9 +18818,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
-            _reOpts[f.k].map(v=>_tabBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',_reEsc((f.k==='study')?_reShort(f.lbl(v)):f.lbl(v)),sel.indexOf(v)>=0,
-              (f.k==='study')?(_reEsc(v)+' \u2014 show only the rows from this study. One strategy can have five studies behind it, and this is how you read them one at a time on the single chart')
-                            :('show only rows tagged '+_reEsc(f.lbl(v))+' - this button exists because at least one row in the registry carries that tag'),_reFT)).join(''),_reFT,f.k==='study');}).join('');
+            _reOpts[f.k].map(v=>_tabBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',
+              f.raw?f.lbl(v):_reEsc((f.k==='study')?_reShort(f.lbl(v)):f.lbl(v)),sel.indexOf(v)>=0,
+              f.btip?f.btip(v)
+                :((f.k==='study')?(_reEsc(v)+' \u2014 show only the rows from this study. One strategy can have five studies behind it, and this is how you read them one at a time on the single chart')
+                                :('show only rows tagged '+_reEsc(f.lbl(v))+' - this button exists because at least one row in the registry carries that tag')),_reFT)).join(''),_reFT,f.k==='study');}).join('');
         // ── THE STRATEGY RAIL (owner ask 2026-08-19: "i could go from strategy to the next on
         //    the tabs by toggling which one on the top"). It is the front door to the one chart:
         //    click a strategy and the chart, the filter chips and every table below narrow to it
@@ -18826,18 +18839,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
            +_reOpts.fam.map(v=>_tabBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamSel===v,
               'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)+' variants tested across '+_reFamStudies(v)+' studies. This is what the strategy finders actually tried for this family, whether or not it was ever saved as a real validate run',_TONE.samp)).join(''),_TONE.samp);
         const _reClear=_reFiltOn?('<span data-reclear title="drop every filter and show all rows again" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;color:var(--text3);background:color-mix(in srgb,var(--red) 16%,transparent)">CLEAR FILTERS</span>'):'';
-        const _reCountTx=(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are not shown — '+_reFiltOut+' held back by the filters and '+_reScopeOut+' by the time scope. '+_reShown+' are shown, on the chart and in the tables alike.')
-                     :('All '+_reTotal+' rows on this board are shown. Neither the filters nor the time scope is narrowing anything.'));
+        const _reCountTx=(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are not shown — '+_reFiltOut+' held back by the filters and '+_reScopeOut+' by the range. '+_reShown+' are shown, on the chart and in the tables alike.')
+                     :('All '+_reTotal+' rows on this board are shown. Neither the filters nor the range is narrowing anything.'));
         // WHICH DATE THE SCOPE IS READING, in words, every time. This is the line that keeps the
         //   scope honest: a row carries a date discovered and, separately, a date it ran, and a
         //   board that quietly picked one would be telling the owner something it never said.
-        const _reScopeTx=((_reScopeN
-            ?('TIME SCOPE is set to '+_reScopeNm+' and it is reading the '+_reSOnNm+' date'
+        const _reScopeTx=(((_reScopeN||_reSelOn)
+            ?('RANGE is set to '+(_reSelOn?('the dates you picked'):_reScopeNm)+' and it is reading the '+_reSOnNm+' date'
               +', which is what control 6, DATE, is set to.'
-              +' Only rows whose '+_reSOnNm+' date falls on or after '+_reCut+' are shown, on the charts and in the tables alike. '
+              +(_reSelOn?(' Only rows whose '+_reSOnNm+' date falls '+(_reSelFrom?('on or after '+_reSelFrom):'any time')+(_reSelTo?(' and on or before '+_reSelTo):'')+' are shown, on the chart and in the tables alike. ')
+                        :(' Only rows whose '+_reSOnNm+' date falls on or after '+_reCut+' are shown, on the chart and in the tables alike. '))
               +_reScopeOut+' of the '+_reTotal+' rows on the board fall outside it.'
-              +(_reNoDate.length?(' '+_reNoDate.length+' of those, row'+((_reNoDate.length>1)?'s ':' ')+_reNoDate.join(', ')+', carry no '+_reSOnNm+' date at all, so a scope on that date cannot place them either way. They are named here rather than dropped without a word — set SCOPE DATE to DISCOVERED, which every row has, or the scope to ALL TIME, to read them again.'):''))
-            :('TIME SCOPE is off, so every row on the board is eligible whatever date it carries. Turn it on to read only recent work; DATE beside it decides whether that means the date a result was discovered in research or the date it ran as a real validate run, and those are different questions.')));
+              +(_reNoDate.length?(' '+_reNoDate.length+' of those, row'+((_reNoDate.length>1)?'s ':' ')+_reNoDate.join(', ')+', carry no '+_reSOnNm+' date at all, so a scope on that date cannot place them either way. They are named here rather than dropped without a word — set SCOPE DATE to DISCOVERED, which every row has, or the range to ALL, to read them again.'):''))
+            :('RANGE is set to ALL, so every row on the board is eligible whatever date it carries. Narrow it to read only recent work; DATE beside it decides whether that means the date a result was discovered in research or the date it ran as a real validate run, and those are different questions.')));
         // THE COMMON WINDOW across everything on screen. Rows were computed over different date
         //   ranges and the underlying data has since been backfilled, so two totals can look
         //   comparable and not be. This says what stretch they all genuinely share, and warns
@@ -18869,7 +18883,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reStatus='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:8px">'
           +_reChip(_reShown+' / '+_reTotal+' rows',_reCountTx,!!_reHidden)
           +_reChip(_reBasNm[_reBasis],_reBasTx,_reBasis!=='asis')
-          +_reChip(_reScopeN?('SCOPE '+_reScopeNm):'ALL TIME',_reScopeTx,!!_reScopeN)
+          +_reChip(_reSelOn?((_reSelFrom||'\u2026')+'\u2192'+(_reSelTo||'\u2026')):(_reScopeN?_reScopeNm:'ALL TIME'),_reScopeTx,!!(_reScopeN||_reSelOn))
           +_reChip('WINDOW '+_reWinChip,_reWinTx,!!(_reComAll.diff.length||_reComAll.none.length))
           +'<span data-rehelptog title="what each comparison basis means, which ratio survives a mismatched window, and what this board refuses to do" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;cursor:pointer;color:var(--text4);border:1px solid var(--border);background:var(--bg1)">? HOW TO READ</span>'
           +'</div>';
@@ -18896,7 +18910,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span title="'+_reEsc(_reFamSel
               ?('Every '+_reFamSel+' variant the research has tested, on one pair of axes: how much it lost at its worst across the bottom, how much it made up the side. Use the STRATEGY rail above to step to the next one.')
               :('Every variant on the board at once, across all '+RESEARCH_STUDIES.length+' studies and all '+_reOpts.fam.length+' strategies. Pick a single strategy on the rail above to read one family on its own \u2014 which is what this chart is for, because two different strategies rarely cover the same stretch of history.'))
-              +'" style="font-size:8px;color:var(--text5);cursor:help">'+_reShown+' of '+_reTotal+' rows \u00b7 one point per variant \u00b7 shape = verdict \u00b7 rings = crowned / in paper</span>'
+              +'" style="font-size:8px;color:var(--text5);cursor:help">'+_reShown+' / '+_reTotal+' rows</span>'
             +'</div>'
             +_reBaseRail
             +_reChartAll(_reItems,_reComAll),0)
@@ -21337,6 +21351,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   persisted through savePref exactly like every other view preference on this board, so
       //   they survive a reload and a re-render.
       content.querySelectorAll('[data-resscope]').forEach(b=>{b.onclick=()=>{savePref('resScope',b.dataset.resscope);renderApp();};});
+      // SELECT: the two date fields of the range control. The browser draws the calendar.
+      {const _f=content.querySelector('[data-reselfrom]'),_t=content.querySelector('[data-reselto]');
+       if(_f)_f.onchange=()=>{savePref('resSelFrom',_f.value||'');renderApp();};
+       if(_t)_t.onchange=()=>{savePref('resSelTo',_t.value||'');renderApp();};}
       content.querySelectorAll('[data-ressbasis]').forEach(b=>{b.onclick=()=>{savePref('resSBasis',b.dataset.ressbasis);renderApp();};});
       // STUDIES board: the fair-comparison basis and the value zoom, persisted like the rest.
       content.querySelectorAll('[data-resbasis]').forEach(b=>{b.onclick=()=>{savePref('resBasis',b.dataset.resbasis);renderApp();};});
