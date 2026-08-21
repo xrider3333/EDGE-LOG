@@ -91,7 +91,7 @@ Note the one honest caveat: at 1 contract the strategy cannot express risk equal
 all on NQ. A 233-pt stop is $4,670 minimum. Sizing DOWN would need MNQ micros; sizing UP is
 a separate, un-pre-registered question.
 
-### 1.4 OPEN WORK — the regime filter has never been tested on this config
+### 1.4 CLOSED 2026-08-20 — the regime filter FAILED, 0 of 5 cells (battery U)
 
 `regime_len` is **pinned to 0 (off)** in the deployed file, so the only trend gate is
 `close > EMA(1380)` — on 1m ETH bars that is roughly **one day** of trend. In a multi-day
@@ -100,6 +100,32 @@ strategy buys every bounce. That is exactly the 8/17–8/20 pattern.
 
 Owner 2026-08-20: *"we will ahe to try it with thte filter on."* **This is the sanctioned
 next test.** Unlike sizing, it has never been run on the #226 ETH config.
+
+**RESULT (2026-08-20, `scratchpad regime_test.py`, saved as `tools/enguq_regime_test.py`).**
+Pre-registered bar: PF ≥ control 1.332, lockbox PF ≥ 1.493, lockbox net ≥ $80k, drawdown
+must fall by a larger fraction than net, stuck guard. Mis-scaling handled as required —
+regime lengths passed ETH-rescaled (`round(days × 1091/390)`), stated per cell. Control
+parity PASS (n=2843 / $434,721.12 exact). Window pinned 2010-06-07 → 2026-06-30.
+
+| days | net | Δnet | max DD | ΔDD | PF | LB net | LB PF | verdict |
+|---|---|---|---|---|---|---|---|---|
+| 10 | $230,000 | −47% | $70,950 | **+41%** | 1.229 | $52,039 | 1.376 | fail 0/4 |
+| 20 | $249,450 | −43% | $55,150 | +9% | 1.268 | $40,235 | 1.270 | fail 0/4 |
+| 30 | $256,814 | −41% | $55,543 | +10% | 1.286 | $17,406 | 1.115 | fail 0/4 |
+| 50 | $289,291 | −34% | $42,202 | −16% | 1.325 | $65,288 | 1.427 | fail 0/4 |
+| 75 | $309,800 | −29% | $51,815 | +3% | 1.345 | $61,934 | 1.366 | fail 1/4 |
+
+**Why it fails, in one sentence: the filter removes the winners faster than the losers.**
+Net falls 29–47% in every cell while drawdown mostly RISES (only the 50-day cell cuts it,
+and by half as much as it cuts profit). The §1.1 concentration got WORSE, not better — the
+top-10 share of 2018+ net went from 0.78 to 0.91–1.03, because the filter deletes mid-size
+winners while the monsters (which fire in strong uptrends the filter lets through anyway)
+remain. The lockbox collapses in every cell. **This closes the trend-gate family on the
+ETH config: the EMA(1380) is doing the useful part of the job already.** The 8/17–8/20
+bounce-buying pattern is real but it is the cost of the trades that pay — same lesson as
+the 13 risk-tightening failures.
+
+Original pre-registration notes kept below for the record:
 
 What to do, and what to pre-register BEFORE running it:
 
@@ -145,6 +171,9 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 
 ## §3 — Changelog
 
+- **2026-08-20 (later)** — §1.4 CLOSED: regime filter 0-for-5 by the pre-registered bar
+  (battery U). Every cell cuts net 29–47%; only one cell cuts drawdown at all and by half
+  as much; concentration worsens; lockbox collapses. Trend-gate family closed on this config.
 - **2026-08-20** — File created. §1 written after the owner asked why ENGU-Q RAW was
   "hitting a lot of losses recently": the answer is §1.1, the answer is *not* a fault, and
   the sanctioned follow-up is §1.4.
