@@ -67,6 +67,8 @@ CASES = [
     ('axis-ppt',     {'resAxis': 'ppt'}),
     ('axis-pf',      {'resAxis': 'pf'}),
     ('basis-year',   {'resBasis': 'year'}),
+    ('cols-all',     {'resCols': 'all'}),
+    ('cols-all-year', {'resCols': 'all', 'resBasis': 'year'}),
     ('order-result', {'resOrd': 'res'}),
     ('split-by-run', {'resSplitRun': True}),
     ('date-ran',     {'resSBasis': 'ran'}),

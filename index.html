@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.195';
+const VERSION='73.196';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.196',date:'2026-08-20',notes:['THE TABLES OPEN ON THE FAIR-COMPARISON FIGURES ONLY. New control 13, COLUMNS. KEY - the new default - prints the row, its name, PROFIT FACTOR, DOLLARS PER TRADE, MAR, the trade count behind them and the one-line verdict. Those are the figures that survive two rows covering different stretches of history, which most of this board does: profit factor is gross winnings over gross losses across the whole trade population, dollars per trade is the same money divided by the trades that earned it, and neither is a property of the calendar. Raw totals are left OUT on purpose - side by side they invite a comparison the windows do not support. ALL brings back the three stages, the recorded total, the drawdown and the whole context block.','NOTHING IS HIDDEN BY IT. Every figure KEY leaves out is still on the READ hover of the row, which prints the entire row - all three stages, the total, the drawdown, the trade count and where it came from, the run, and the data window.','A CONTROL IS ONE LINE AGAIN: its number and name in a narrow fixed column, its buttons filling the rest. The card version put every label on its own line above its buttons, which in the narrow half of the split became twelve two-line stacks with a gap under each one. Now the labels line up down the block, the buttons all start at the same x, and a control whose buttons wrap wraps inside its own row without moving its neighbours. The grid fits as many of those rows side by side as the width allows - one column in the split pane, two or three across a full-width board.']},
 {v:'73.195',date:'2026-08-20',notes:['THE CONTROL BLOCK IS ONE TILE AND ONE GRID. It was a four-column arrangement of label, buttons, label, buttons, so any control whose buttons wrapped shoved its neighbour label away from its own buttons - which is what made the block read as scattered with holes in it. Every control is now a card of its own, its number and name over its own buttons, and the cards sit on one auto-fitting grid inside ONE box. A card that wraps can no longer move anything else. The tables controls are the same grid, in the same kind of box, directly under their own heading.','STUDY TABLES is just TABLES.','9 STUDY NOW LISTS ONLY THE STUDIES THE STRATEGY PICK LEAVES STANDING, with the number of rows each one still contributes. It was built from the whole registry, so with NOISE on the rail it still offered ORB and ENGU-Q studies - and picking one emptied the board. A study you have already picked stays listed even if the rail later excludes it, so it can be seen and cleared rather than vanishing while it is still narrowing the board.','AN EMPTY CHART NOW SAYS WHY IT IS EMPTY, in the registry own words. Pick the NOISE trade-context scan and nothing plots, because that study is six SCANS: a scan asks whether a market condition predicts profit and produces no profit and no equity curve of its own, so there is no drawdown to place it by. The chart used to answer with a sentence about the basis selected, which reads like a setting is wrong. It now prints the study own reason and points at the table, where what the scans DID measure is sitting.']},
 {v:'73.194',date:'2026-08-20',notes:['THE STUDY TABLES WERE SHIFTED BY ONE COLUMN AND ARE FIXED. The TOTAL cell was being wrapped in a second table cell, which is not legal HTML, so the browser lifted the inner one out and every row gained a cell: TOTAL drew empty, its money sat under DRAWDOWN, the drawdown sat under PF, and everything to the right of it was one heading out of place. No figure was ever wrong - they were printed under the wrong headings. The render gate now counts cells against headings on every table in every case, because the row COUNT was right the whole time and nothing noticed.','DRAWDOWN IS RED, heading and figures. It is the only loss on the row and it is printed without a minus sign, so the colour is what says so.','THE TOTAL COLUMN NO LONGER FLAGS ITSELF. A row recorded total is not always the sum of its three stages, and that is still stated on the hover of the cell - but the board is read on ratios and on the stage columns, neither of which uses that number, so it is a fact rather than a warning.','WHICH STRATEGY A ROW BELONGS TO, now that two of them can share the chart. The mark shape is the VERDICT and never said anything about the family, so: each mark carries its strategy beside its row number, every point hover names it in the headline, and every table row wears it as a tag after the name. All three appear ONLY when more than one strategy is on screen - with one selected they would be the same word on every line.','THE BOARD OPENS WITH THE CHART. There is no separate heading tile any more: the first tile IS the chart, it is called SCATTER PLOT, and every control that decides what it plots sits directly under that title. The old chart heading, which restated the strategy selection and the row count, is gone - the rail says the first and the line under the chart says the second.','1 STRATEGY LOSES ITS ALL BUTTON. An empty rail already means nothing is held back, so ALL was a second way of saying the same state.','9 STUDY IS A DROP-DOWN. Sixteen study titles as buttons was the tallest thing in the control block; it is one line now, and one study at a time, which is what reading them one at a time meant anyway.','10 ORDER, 11 SPLIT BY RUN AND 12 COMPARE ON now sit in a block directly under the STUDY TABLES heading. They were pinned to the far right of that heading, which on a wide screen put them the width of the page away from the tables they change.']},
 {v:'73.193',date:'2026-08-20',notes:['ENGU-Q TRADES THAT HAPPENED OVERNIGHT OR ON A SUNDAY COULD NOT DRAW A CHART AT ALL. ENGU-Q trades the 24-hour tape, but the chart was always asking for cash-session bars, so any entry outside 9:30 to 4:00 came back as trade date not found. Those charts open now.','ENGU-Q LIMIT 0.50 was drawing 5-minute candles for a 1-minute strategy. Every leg on the board now asks for its own market and session rather than only the three original ones being recognised by name.']},
@@ -18198,7 +18199,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reBasis=(APREF.resBasis==='year')?'year':'asis';
         const _reBasNm={asis:'RATIOS AS IS',year:'PER YEAR'};
         // the table gains three columns under PER YEAR
-        const _reNCols=17+((_reBasis==='year')?3:0);
+        const _reFull=(APREF.resCols==='all');
+        // KEY: rank, row, name, PF, $/TRD, MAR, [3 per-year], trades, read = 8 (+3)
+        // ALL: adds is, wf, lb, tot, dd (5) and what, run, date, window (4)
+        const _reNCols=(_reFull?17:8)+((_reBasis==='year')?3:0);
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         const _reYrs=(st,rw)=>{const w=_reWinOf(st,rw);if(!w)return null;
           const d=_reDayGap(w.f,w.t);return (d&&d>0)?(d/365.25):null;};
@@ -18478,11 +18482,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
             +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reFamTag(st,rw)+_reLiveInline(rw),'left')
-            +td(_reCell(st,rw,'is',_reMoney),null,(_reSegs.indexOf('is')>=0)?em:'')
+            +(_reFull?(td(_reCell(st,rw,'is',_reMoney),null,(_reSegs.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegs.indexOf('wf')>=0)?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegs.indexOf('lb')>=0)?em:'')
             +_reTotCell(st,rw)
-            +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'">'+_reMoneyPlain(Math.abs(v))+'</span>'))
+            +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'">'+_reMoneyPlain(Math.abs(v))+'</span>'))):'')
             +td(_reCell(st,rw,'pf',v=>v.toFixed(2)))
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +td(pddCell)
@@ -18492,10 +18496,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         :_reDash(_reTrdWhy);})())
             +td('<span title="'+_reEsc(_reReadTip(st,rw))+'" style="color:'+col+';display:inline-block;max-width:'+(_reSplit?90:130)+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(rw.read)+'</span>','left')
             // the grey block sits at the far right now: it is context, not the answer
-            +tdw(rw.what,'var(--text5)',_reSplit?130:210)
+            +(_reFull?(tdw(rw.what,'var(--text5)',_reSplit?130:210)
             +td(runCell,'left',';color:var(--text5)')
             +td('<span style="color:var(--text5);font-size:8px">'+dCell+'</span>','left')
-            +td(winCell,'left')
+            +td(winCell,'left')):'')
             +'</tr>';};
         // ═══ THE ONE SCATTER ═══
         //  Owner ask, 2026-08-19: "this was originally supposed to be one scatter plot and it
@@ -18773,17 +18777,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
         //   VS CROWN"). span=true makes the buttons run the full width, for the one control with
         //   sixteen of them.
-        const _reCtl=(num,cap,tip,items,tone,span)=>'<div style="min-width:0">'
-          +'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.6px;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'
-          +'<span style="color:var(--text5);opacity:.6;margin-right:4px">'+num+'</span>'+cap+'</div>'
+        const _reCtl=(num,cap,tip,items,tone,span)=>'<div style="display:grid;grid-template-columns:70px minmax(0,1fr);gap:9px;align-items:start;min-width:0">'
+          +'<div title="'+_reEsc(tip)+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;line-height:1.5;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;padding-top:4px;overflow:hidden">'
+          +'<span style="color:var(--text5);opacity:.6;margin-right:3px">'+num+'</span>'+cap+'</div>'
           +'<div style="display:flex;flex-wrap:wrap;gap:3px;min-width:0">'+items+'</div></div>';
-        // ONE REGULAR GRID OF EQUAL CARDS. auto-fit means the row holds as many cards as the
-        //   width allows and they stay the same size when it does not.
-        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:11px 16px;align-items:start'+(extra||'')+'">'+inner+'</div>';
+        // AS MANY OF THOSE ROWS SIDE BY SIDE AS THE WIDTH ALLOWS. One column in the narrow half
+        //   of the split, two or three across a full-width board, and never a ragged label.
+        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(262px,1fr));gap:7px 26px;align-items:start'+(extra||'')+'">'+inner+'</div>';
         //    how much of the value range the chart spends its height on.
         const _reBasBtns=_reCtl(12,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
             _tabBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
            +_tabBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','add three columns to every table - PER YEAR, YEARS and MAR / YR - dividing each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window, so it reaches every row the DATA WINDOW column can place',_reFT),_reFT);
+        const _reColBtns=_reCtl(13,'COLUMNS','how much of each row the TABLES print. KEY shows only the figures that survive two rows covering different stretches of history - profit factor, dollars per trade and MAR - with the trade count behind them and the one-line verdict. ALL adds the raw money columns, the drawdown and the context block. Nothing is lost in KEY: hover the READ cell of any row and it prints the whole row, all three stages included.',
+            _tabBtn('data-rescols="key"','KEY',!_reFull,'the fair-comparison view: PF, dollars per trade, MAR, trades and the verdict. Raw totals are left out on purpose - two rows measured over different stretches of history are not comparable on raw dollars, and these three figures are the ones that barely move when the windows differ',_TONE.heat)
+           +_tabBtn('data-rescols="all"','ALL',_reFull,'every column: the three profit stages, the recorded total, the drawdown, then what the variant does, the run it was saved as, its date and its data window',_TONE.heat),_TONE.heat);
         const _reOrdBtns=_reCtl(10,'ORDER','which order the TABLES list their rows in. It cannot change what is on the chart - sorting cannot move a point, so no row is ever gained or lost by it.',
             _tabBtn('data-resord="date"','DATE',_reOrd==='date','newest first on whichever of the two dates control 6 names. Rows sharing a date keep the order the registry has them in, which is the order the owner approved, and a row with no date of that kind sits at the bottom rather than being given one',_TONE.heat)
            +_tabBtn('data-resord="res"','RESULT',_reOrd==='res','best first on the profit stage and the vertical axis selected above. A row with no figure for that reading sits at the bottom rather than being given a place it did not earn',_TONE.heat),_TONE.heat);
@@ -18841,20 +18848,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const hd='<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above. Change the stage and the ranking changes with it. This is not a permanent number.')
             +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
             +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict, so the two read together with no colour. The one row with a faint blue TINT behind it is the champion or baseline of this study. A CROWN or PAPER pill after a name means that row is the standing champion of its family, or is the configuration running in the nightly paper forward test right now, or both - two different claims the board keeps apart. Most rows carry neither and show nothing, which is why there is no column for it. A brighter flash over a row is not a verdict at all: that is the live link with the chart, and it fades when the pointer moves away.')
-            +_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.',_emH('is'))
+            +(_reFull?(_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together. This study has no separate walk-forward stage.':'The stretch the config was tuned on.',_emH('is'))
             +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
             +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
-            +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Printed WITHOUT a minus sign, because the heading already says it is a loss - it is drawn in red for the same reason.',';color:'+_reDn)
+            +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Printed WITHOUT a minus sign, because the heading already says it is a loss - it is drawn in red for the same reason.',';color:'+_reDn)):'')
             +_hd('PF',null,'Profit factor: gross wins divided by gross losses. Of everything on this board it is the figure LEAST damaged by two rows covering different stretches of history, because it is a property of the whole trade population rather than of the calendar.')
             +_hd('$/TRD',null,_rePptTip)
             +_hd('MAR',null,'MAR is what this app calls profit divided by the worst drawdown, on the RUNBOARD and on the 1E matrix as well as here - the same division under one name. It is NOT the same thing as PF beside it, and the two answer different questions. PF is gross winnings over gross losses counted trade by trade - how much the winners outweigh the losers. This is '+stg.toLowerCase()+' profit over the SINGLE worst peak-to-trough loss - how much the worst stretch cost to earn, which the rest of the trading world calls MAR or recovery factor. A profit factor can be high while this is low, and the other way round. '+stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
             +basHd
             +_hd('TRADES',null,'How many trades the variant took over its whole run. Taken from the row own record where it has one, and read off the saved run document where the row has a run number instead - a small circle marks a figure read from the run. A dash means the count was never recorded and the row has no run to read one from: it cannot be derived from the money, so nothing is shown.')+_hd('READ','left')
-            +_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
+            +(_reFull?(_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
             +_hd('RUN','left','The run number this result was persisted as. "local" means it was computed during research and never saved as a run.')
             +_hd(_reSOnNm,'left',(_reSOn==='ran')?'The date the real validate run finished, read from run history. Control 6, DATE, switches this column between the two dates a row can carry.':'The date the result was found in research. Every row has one. Control 6, DATE, switches this column to the date the row ran as a validate run instead.')
-            +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. Read from the saved run document where the row has a run number, and from the studies registry where it does not — never guessed. A warning sign means this row does not match the stretch every row now shown has in common, so its totals are not comparable with theirs; hover it and it says by how much.')
+            +_hd('DATA WINDOW','left','The stretch of history the figures on this row actually cover. Read from the saved run document where the row has a run number, and from the studies registry where it does not — never guessed. A warning sign means this row does not match the stretch every row now shown has in common, so its totals are not comparable with theirs; hover it and it says by how much.')):'')
             +'</tr>';
           const notes=Array.isArray(st.notes)?st.notes:(st.note?[st.note]:[]);
           const open=(_reSolo===st.key)||(_reOpenSet.indexOf(String(st.key))>=0);
@@ -18879,7 +18886,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
             +(_reSolo?' \u00b7 the only study left is open':'')+'</span></div>'
             +'<div style="margin:7px 0 11px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
+            +_reGrid(_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
@@ -19041,7 +19048,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             //   with the tables - a filter is not a table setting.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:11px;padding-top:11px;border-top:1px solid var(--border2)">'
             +_reGrid(_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
-              +(_reClear?('<div style="min-width:0"><div style="height:11px"></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
+              +(_reClear?('<div style="display:grid;grid-template-columns:70px minmax(0,1fr);gap:9px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
             +'</div></div>'
             +'<div style="margin-top:10px">'+_reChartAll(_reItems,_reComAll)+'</div>',0)
             +(_reSplit?('</div><div data-resplitbar title="'+_reEsc('Drag left or right to give the chart more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half. The bar under the chart still sets its height.')+'" style="flex:0 0 12px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:64px;border-radius:2px;background:var(--border)"></div></div><div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
@@ -21518,6 +21525,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   below write, so the rail and the chips are one setting rather than two that could
       //   disagree. A rail button ticks exactly that one family (never adds to a selection),
       //   and ALL clears the family filter while leaving every other filter alone.
+      content.querySelectorAll('[data-rescols]').forEach(b=>{b.onclick=()=>{savePref('resCols',b.dataset.rescols);renderApp();};});
       content.querySelectorAll('[data-restudysel]').forEach(sl=>{sl.onchange=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
         if(sl.value)o.study=[sl.value];else delete o.study;

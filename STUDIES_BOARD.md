@@ -151,6 +151,19 @@ listed so it can be cleared.
 and no drawdown by nature, and its `dashWhy` says so — the chart prints that, rather than a generic
 sentence about the selected basis, which reads like a setting is wrong.
 
+**13 COLUMNS — KEY is the default, and KEY is window-robust only.** `_reFull` gates two groups of
+columns: the money group (`is`, `wf`, `lb`, `tot`, `dd`) and the context group (what it does, run,
+date, data window). KEY keeps PF, `$/TRD`, MAR, TRADES and READ, because those are the figures that
+barely move when two rows cover different stretches of history — which most of this board does. Raw
+totals are omitted on purpose: printed side by side they invite a comparison the windows do not
+support. Nothing is lost — `_reReadTip` still prints the whole row on the READ hover. If you add a
+column, decide which group it belongs to and add it to BOTH the header and the row, or the render
+probe's cells-against-headings check will fail.
+
+**A control renders as one form row**, `70px | buttons`, and `_reGrid` fits as many of those rows
+side by side as the width allows. Labels-above-buttons was tried and reverted: in the narrow half of
+the split it became a column of two-line stacks with a gap under every label.
+
 **There is no baseline selector.** One family, one champion — fix a duplicate tag in the registry
 rather than making the reader choose. If two ever appear, the lowest row number wins and the rows say
 so on hover.
