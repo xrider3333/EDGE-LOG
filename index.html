@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.190';
+const VERSION='73.191';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.191',date:'2026-08-20',notes:['THE STRATEGIES YOU PICK ON THE PAPER BOARD ARE REMEMBERED NOW. Which legs you have switched off used to be forgotten the moment you reloaded, so the board kept resetting to showing all of them. It is a saved setting like every other choice on the page.','A SELECTION OF TRADES OPENS AS ONE LONG SCROLL. Picking twenty trades used to give you ten and a LOAD 10 MORE button - you already chose them, so all of them are there and you just scroll.','THERE IS A LOADING BAR ACROSS THE TOP OF THE CHART WINDOW while the charts fill in, so you can see it moving rather than reading a count. It disappears when everything has landed.','PREV and NEXT sit next to each other in the single-trade chart window. The position readout used to sit between them, which broke the pair up.']},
 {v:'73.190',date:'2026-08-20',notes:['THE DUPLICATE CROWN IS FIXED IN THE REGISTRY. ORB carried two: row 47, which is run #234 and the standing crown, and row 67, the SAME configuration restated inside the plateau-hunt study. Row 47 keeps the tag; row 67 keeps its figures and its champion verdict and now reads as that study baseline. One family, one champion - so the BASELINE SELECTOR is gone, because there is nothing left to choose between.','1 STRATEGY AND 2 PROFIT STAGE TICK instead of switching. Click NOISE and ENGU-Q and both are on the chart together. PROFIT STAGE loses its TOTAL button and is IS, WF and LB - tick the ones you want and the chart plots their sum.','ONE THING THAT HAD TO BE HANDLED HONESTLY THERE: only 46 of the 215 rows record a separate walk-forward figure. The rest have no walk-forward STAGE at all - their first money column is PRE-LOCKBOX, which already holds the tuning years pooled together. So the sum adds the ticked stages a row ACTUALLY RECORDS and only drops a row that records none of them; ticking all three on a pre-lockbox row gives pre-lockbox plus lockbox, which is its whole run. Any row that lacks a ticked stage says so on its own hover and the count is stated under the chart. Requiring all three would have emptied the chart from 203 rows to 47.','AND THE OTHER: a row TOTAL is not always the sum of its three stages - the NOISE champion records $335,981 while its stages add to $313,409. They are separate measurements. The TOTAL column prints what the row recorded and marks the gap with a sign you can hover; the chart plots the sum you ticked.','READ AS IS NOW 4 AXIS, and its two settings are ABSOLUTE and CHAMPION. The words crown and baseline are off this board - the verdict reads CHAMPION in the key too. The dashed crosshair that only CHAMPION used to draw is now drawn in ABSOLUTE as well, on the champion own position, so both settings show the same reference: right of the vertical is a deeper drawdown than the champion took, above the horizontal is more money than it made.','THE AXES ARE DRAWN: two solid lines and a tick mark at every gridline, rather than a frame implied by the gridlines alone.','HOVERING A POINT LEADS WITH THE ANSWER - row, name, rank, total and profit factor in caps above a rule, with everything else underneath. Hovering the READ cell of a table now gives the whole row: the verdict and what it means, what the variant does, the money, the ratios, the trade count and where it came from, where it ran and over what stretch of history.']},
 {v:'73.189',date:'2026-08-20',notes:['EVERY PAPER TRADE CHART SAID SHORT, INCLUDING THE LONGS. The shadow log records direction as the engine’s own +1 / -1, and the board was comparing that to the words long and short - which never match, so every chart drew and labelled the trade as a short. ENGU-Q only ever buys, so every one of its charts was wrong.','The SIDE column in the trades table said 1 for the same reason. It reads LONG or SHORT now.']},
 {v:'73.188',date:'2026-08-20',notes:['THE VERDICT BUTTONS ARE MARK-SIZED. They were rendering at legend size, which made five of them read as a row of pictures rather than a row of controls. The legend keeps the full-size mark.','THE STATUS CHIP STRIP IS GONE - rows shown, comparison basis, range and shared window. Every one of them summarised something the board already says where it matters: the row count is on the chart heading, the basis and the range are on their own controls, and the shared window is the DATA WINDOW column with a warning sign on any row reaching outside it. HOW TO READ was the one thing on that strip worth keeping and it moves up beside MORE.','CHAMPION OR BASELINE IS JUST BASELINE in the key, which is what it is: under VS CROWN it is the row sitting on the crossing of the two zero lines, with every other point measured from it.','THE BASELINE RAIL NAMES ITS ROWS. It was printing bare row numbers - row 1 or row 97 - with no way to tell what either was. It now reads Champion (row 1) and Paper: NOISE (row 97), says which study each came from on hover, and says that the one you pick is the point on the crossing of the zero lines.']},
@@ -4068,9 +4069,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       '<button id="cndl-back" title="close this chart and go back to where you opened it from" style="'+bs+';border-color:color-mix(in srgb,var(--blue) 55%,var(--border));color:var(--blue)">&lsaquo; BACK</button>'
       +'<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
 
-      +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
-
       +'<button id="cndl-next" style="'+bs+'">NEXT &rsaquo;</button>'
+
+      +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
 
       +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:210px')+'"></select>'
 
@@ -4382,7 +4383,10 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel,opts){
   const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
   const sideOf=x=>{if(x._side)return x._side;const g=x._pts+((B.cost_pts)||0);
     return (Math.abs((x._xp-x._ep)-g)<=Math.abs((x._ep-x._xp)-g))?'long':'short';};
-  let view=initialView||'wins',shown=10,seq=0;
+  // opts.showAll: render EVERY row up front so the window is one long scroll rather
+  // than a page of ten behind a LOAD MORE button (owner 2026-08-20, for a hand-picked
+  // selection - you chose those trades, so you should not have to ask for them twice).
+  let view=initialView||'wins',shown=(opts.showAll?rowsAll.length:10),seq=0;
   const order=()=>{const a=rowsAll.slice();
     // opts.keepOrder: the caller already fixed the order (the PAPER selection is shown in
     // the table's own order, whatever the owner sorted it by), so do not re-sort it.
@@ -4401,6 +4405,10 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel,opts){
     +'<button id="gal-back" title="back to the blotter" style="background:none;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:7px;color:var(--blue);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">&lsaquo; BACK</button>'
     +'<button id="gal-close" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">CLOSE ✕</button></div>'
     +'<div id="gal-views" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0;flex:0 0 auto"></div>'
+    // owner 2026-08-20: "add a load bar so i can tell where its at when its populating".
+    // The count in the meta line only said how many were done - with a long selection you
+    // want to see it MOVING. Fills as bars land, then hides itself.
+    +'<div id="gal-prog" style="height:3px;border-radius:2px;background:var(--bg2);overflow:hidden;flex:0 0 auto;margin-bottom:9px"><div id="gal-progfill" style="height:100%;width:0%;background:var(--blue);transition:width .25s ease"></div></div>'
     +'<div id="gal-body" style="overflow:auto;flex:1 1 auto"></div></div>';
   modal.onclick=e=>{if(e.target===modal)close();};
   document.body.appendChild(modal);
@@ -4521,11 +4529,18 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel,opts){
   // a caller-supplied name (a look-alike group) beats the generic view name - opening a
   // 21-trade group under the heading MOST RECENT read as the wrong list.
   const label=()=>fixedLabel||(view==='wins'?'TOP WINNERS':(view==='losses'?'TOP LOSERS':'MOST RECENT'));
+  const prog=modal.querySelector('#gal-prog'),progFill=modal.querySelector('#gal-progfill');
   const sync=()=>{
     const list=order().slice(0,shown);
     const done=list.filter(x=>_barsCache[x._no]).length;
     meta.textContent=label()+' · '+list.length+' charts · '+done+' of '+list.length+' loaded'
       +(done<list.length?' — the rest are on the way':'');
+    if(prog&&progFill){
+      const pct=list.length?Math.round(done/list.length*100):100;
+      progFill.style.width=pct+'%';
+      // keep the track visible until it is genuinely full, then get out of the way
+      prog.style.display=(done>=list.length)?'none':'block';
+    }
   };
   const draw=()=>{
     const mySeq=++seq;
@@ -19570,7 +19585,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // out of the curve AND out of every total below it, not just dimming them.
       // Clicking a leg tile toggles it. Excluded legs keep their history; nothing is
       // deleted and the runner still computes them nightly.
-      const _legOff=Array.isArray(window._paperLegOff)?window._paperLegOff:[];
+      // owner 2026-08-20: "its not saving my strategies that i have selected. it keeps
+      // resetting to showing all". It used to live on window only, so every reload wiped
+      // it. It is a saved preference now, seeded from storage the first time the tab draws.
+      const _legOff=Array.isArray(window._paperLegOff)
+        ? window._paperLegOff
+        : (window._paperLegOff=(Array.isArray(APREF.paperLegOff)?APREF.paperLegOff.slice():[]));
       const _legShown=k=>!_legOff.includes(k);
       const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
@@ -21805,7 +21825,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
     else if(augurSub==='paper'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
-      // Leg rail — a lens, not a saved preference, so it lives on window and resets on reload.
+      // Leg rail — a SAVED preference (owner 2026-08-20): which strategies you are looking
+      // at is a standing choice, not a per-visit lens, and re-picking it every reload was
+      // pure friction. Persisted under APREF.paperLegOff.
       content.querySelectorAll('[data-paperleg]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-paperleg');
         const off=Array.isArray(window._paperLegOff)?window._paperLegOff.slice():[];
@@ -21815,12 +21837,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // than deliberate, and there is no way back except guessing.
         const total=(window._paperLegKeys||[]).length;
         if(total && off.length>=total) return;
-        window._paperLegOff=off; renderApp();};});
+        window._paperLegOff=off; savePref('paperLegOff',off); renderApp();};});
       // Two controls carry this (the LEGS row and the header rail), so wire both.
       const _cfgBtn=content.querySelector('[data-papercfg]');
       if(_cfgBtn)_cfgBtn.onclick=()=>{window._paperShowCfg=!window._paperShowCfg;renderApp();};
       content.querySelectorAll('[data-paperlegall]').forEach(el=>{
-        el.onclick=()=>{window._paperLegOff=[];renderApp();};});
+        el.onclick=()=>{window._paperLegOff=[];savePref('paperLegOff',[]);renderApp();};});
       const nd=content.querySelector('[data-ntdetail]');if(nd)nd.onclick=()=>{window._paperNtDetail=!window._paperNtDetail;renderApp();};
       content.querySelectorAll('[data-recontab]').forEach(el=>{el.onclick=()=>{window._paperReconTab=el.getAttribute('data-recontab');renderApp();};});
       const rh=content.querySelector('[data-reconhelp]');if(rh)rh.onclick=()=>{window._paperReconHelp=!window._paperReconHelp;renderApp();};
@@ -21879,7 +21901,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(!picked.length)return;
               window.openChartGallery({},picked,'recent','SELECTED TRADES',
                 {title:'CHART GALLERY &middot; '+picked.length+' SELECTED TRADE'+(picked.length>1?'S':''),
-                 filePrefix:'paper_',keepOrder:true});
+                 filePrefix:'paper_',keepOrder:true,showAll:true});
             };
             const cb=bar.querySelector('[data-ptclear]');
             if(cb)cb.onclick=()=>{sel.clear();paint();};
