@@ -25,6 +25,11 @@ USAGE
 
 `ship` run from inside a worktree needs no name.
 
+After a successful push, `ship` also FAST-FORWARDS the shared checkout to the main it
+just pushed (fast-forward only; skipped if that checkout is dirty or carries commits of
+its own). The runner executes the shared checkout, so leaving it behind meant the code
+that shipped was not the code that ran.
+
 IMPORTANT: always invoke ship via the SHARED checkout's script path, e.g.
   python C:\\...\\EDGE-LOG\\tools\\wt.py ship
 from inside (or naming) your worktree. Running the worktree's OWN tools/wt.py
@@ -211,6 +216,57 @@ def cmd_ship(name, message):
 
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
     print('pushed: ' + run(['git', '-C', wt, 'log', '--oneline', '-1']))
+    sync_shared(root)
+
+
+def sync_shared(root):
+    """Fast-forward the SHARED checkout to the main we just pushed.
+
+    WHY THIS EXISTS (owner 2026-08-20: "fix the 66 commits behind issue. this keeps
+    happening"). Every session works in its own worktree and pushes straight to
+    origin/main, so nothing ever moved the shared checkout's own `main` -- it only
+    advanced when a human remembered to pull, and nobody did. Measured that day it was
+    66 commits behind, and the drift is not cosmetic: the RUNNER executes the shared
+    checkout, so shipped code was sitting unshipped-in-practice for weeks (see memory
+    `edgelog-shipped-vs-running`). Worse, the stale files still LOOKED like local edits,
+    so a session could mistake a 147-line-behind copy for work in progress.
+
+    Deliberately conservative -- this is a shared working directory on a live trading
+    machine:
+      * fast-forward ONLY. Never rebase, never merge a divergence, never reset.
+      * skipped entirely if the shared checkout has uncommitted changes or commits of
+        its own; that is somebody's work, so this prints how to look at it instead.
+      * never fatal. A push that succeeded must not report failure because the shared
+        checkout could not be tidied afterwards.
+    """
+    try:
+        if run(['git', '-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], check=False) != 'main':
+            print('shared checkout: not on main - left alone')
+            return
+        dirty = run(['git', '-C', root, 'status', '--porcelain', '--untracked-files=no'],
+                    check=False, quiet=True)
+        if dirty:
+            print('shared checkout: %d file(s) modified - NOT fast-forwarded. '
+                  'Review with: git -C "%s" status' % (len(dirty.splitlines()), root))
+            return
+        run(['git', '-C', root, 'fetch', '-q', 'origin'], check=False)
+        counts = run(['git', '-C', root, 'rev-list', '--left-right', '--count',
+                      'origin/main...HEAD'], check=False)
+        parts = counts.split() + ['0', '0']
+        behind, ahead = parts[0], parts[1]
+        if ahead != '0':
+            print('shared checkout: %s unpushed commit(s) of its own - NOT fast-forwarded. '
+                  'Review with: git -C "%s" log origin/main..HEAD' % (ahead, root))
+            return
+        if behind == '0':
+            print('shared checkout: already current')
+            return
+        run(['git', '-C', root, 'merge', '--ff-only', '-q', 'origin/main'])
+        print('shared checkout: fast-forwarded %s commit(s) -> %s'
+              % (behind, run(['git', '-C', root, 'log', '--oneline', '-1'])))
+    except Exception as e:                                    # never fail a good push
+        print('shared checkout: could not fast-forward (%s: %s) - the push itself was fine'
+              % (type(e).__name__, e))
 
 
 def cmd_list():

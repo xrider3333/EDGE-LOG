@@ -1,21 +1,27 @@
-# EdgeLog — make it SAFE to switch the PC off.
+# EdgeLog — check whether it is safe to switch the PC off, WITHOUT closing anything.
 #
-# WHY (2026-08-19): the owner powers the machine down overnight, and the plan is to let the
-# nightly SHADOW backfill cover the hours the PC is off (it re-runs every leg on 24-hour
-# 1-minute bars, so the performance record stays complete). That works for measuring the
-# strategy. It does NOT cover one thing: a REAL position left open on the broker.
+# WHY (2026-08-19): the owner shuts the machine down overnight. The first version of this
+# script flattened any open position first. That was wrong twice over:
 #
-# NOISE and ORB230 flatten themselves at the session close, so they are never exposed.
-# ENGU-Q deliberately holds across sessions -- 6 of its last 11 trades were still open at
-# the hour the PC goes off. A position left there is real at the broker: the resting stop
-# survives, but nothing trails it, nothing takes its exit, and next morning the recover
-# script (correctly) refuses to start anything into that mismatch.
+#   1. It invents an exit the strategy never chose. The whole point of the forward test is
+#      to compare live trading against the engine's record; a forced close writes a trade
+#      outcome into the live ledger that no strategy rule produced. That is not a shutdown
+#      procedure, it is data corruption.
+#   2. It then DISABLED the strategies. NinjaTrader cancels a strategy's working orders
+#      when it is disabled -- so on any night the flatten had failed or been skipped, the
+#      sequence would have stripped the protective stop off a live position and left it
+#      naked overnight. That is the single worst thing this stack could do.
 #
-# So before shutting down: flatten, then stop the strategies. The shadow leg still records
-# what the strategy WOULD have done overnight, which is the number that matters.
+# What is actually true: the protective stops are GTC (verified in NinjaTrader's own
+# strategy records, 2026-08-19), so they rest at the broker rather than inside NinjaTrader.
+# A position left open overnight keeps its stop. What it loses is the TRAIL -- nothing
+# moves the stop up, and the strategy cannot take its own exit -- until the machine is back.
+#
+# So this script no longer closes anything. It reports whether powering off is safe, and
+# only stops the strategies when there is nothing open to protect.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File C:\EdgeLog\nt_eod_safe.ps1
-#         -WhatIf   report what it WOULD do and change nothing.
+#         -WhatIf   report only, change nothing.
 
 param([switch]$WhatIf)
 
@@ -23,7 +29,6 @@ $ErrorActionPreference = 'Stop'
 $bridge  = 'http://127.0.0.1:8391'
 $py      = 'C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\python3.13.exe'
 $cli     = 'C:\Users\xride\AppData\Local\EdgeLog-worktrees\paper\tools\nt_bridge.py'
-$acct    = 'DEMO7240108'
 $logPath = 'C:\EdgeLog\nt_recover.log'
 $roster  = @('EdgeLogNOISE', 'EdgeLogENGUQ1m', 'EdgeLogORB230')
 
@@ -38,54 +43,50 @@ function Get-Json($path) {
   catch { return $null }
 }
 
-Log "=== eod-safe start (WhatIf=$WhatIf) ==="
+Log "=== eod-safe check (WhatIf=$WhatIf) ==="
 
 $pos = Get-Json "/positions"
 if ($null -eq $pos) {
-  Log "bridge is not answering - NinjaTrader is already down. Nothing to do."
+  Log "bridge is not answering - NinjaTrader is already down. Nothing to check."
+  exit 0
+}
+$ord = Get-Json "/orders"
+$hasPosition = $pos -notmatch '"positions"\s*:\s*\[\s*\]'
+$hasOrders   = $ord -and ($ord -notmatch '"orders"\s*:\s*\[\s*\]')
+
+if (-not $hasPosition) {
+  Log "account is FLAT - nothing is exposed overnight"
+  foreach ($s in $roster) {
+    if ($WhatIf) { Log "WhatIf: would stop $s (safe: nothing open)"; continue }
+    Log "stopping $s ..."
+    & $py $cli strategy disable --name $s --yes 2>&1 | ForEach-Object { Log "  [disable] $_" }
+    Start-Sleep -Seconds 3
+  }
+  Log "SAFE TO POWER OFF. The nightly shadow run still records what every leg would have done."
   exit 0
 }
 
-$hasPosition = $pos -notmatch '"positions"\s*:\s*\[\s*\]'
-if ($hasPosition) {
-  Log "OPEN POSITION on $acct - this must not be left overnight:"
-  Log "  $pos"
-  if ($WhatIf) {
-    Log "WhatIf: would flatten $acct"
-  } else {
-    Log "flattening $acct ..."
-    & $py $cli flatten --account $acct --yes 2>&1 | ForEach-Object { Log "  [flatten] $_" }
-    Start-Sleep -Seconds 6
-    $pos2 = Get-Json "/positions"
-    if ($pos2 -notmatch '"positions"\s*:\s*\[\s*\]') {
-      Log "STILL NOT FLAT after flatten - do NOT power off, check NinjaTrader by hand:"
-      Log "  $pos2"
-      exit 1
-    }
-    Log "account is flat"
-  }
+# --- something is open ---------------------------------------------------------------
+Log "POSITION IS OPEN:"
+Log "  $pos"
+if ($hasOrders) {
+  Log "protective order(s) resting at the broker (GTC - these survive NinjaTrader closing):"
+  Log "  $ord"
 } else {
-  Log "account is already flat - nothing to close"
+  Log "WARNING: NO working protective order found next to this position."
+  Log "Powering off now would leave it completely unprotected. Deal with it before shutdown."
+  exit 1
 }
 
-# Stop the strategies so nothing half-fills as the machine goes down, and so tomorrow's
-# recover starts from a known state rather than whatever a killed process left behind.
-foreach ($s in $roster) {
-  if ($WhatIf) { Log "WhatIf: would disable $s"; continue }
-  Log "disabling $s ..."
-  & $py $cli strategy disable --name $s --yes 2>&1 | ForEach-Object { Log "  [disable] $_" }
-  Start-Sleep -Seconds 3
-}
-
-if (-not $WhatIf) {
-  $ord = Get-Json "/orders"
-  if ($ord -and $ord -notmatch '"orders"\s*:\s*\[\s*\]') {
-    Log "WARNING: working orders remain after disabling - review before powering off:"
-    Log "  $ord"
-    exit 1
-  }
-}
-
-Log "SAFE TO POWER OFF: no position, no working orders, strategies stopped."
-Log "The nightly shadow run still records what every leg would have done overnight."
-exit 0
+Log ""
+Log "NOT stopping the strategies: disabling one cancels its orders, which would strip the"
+Log "stop off this position and leave it naked overnight."
+Log "NOT closing the position either: the strategy did not choose that exit, and forcing it"
+Log "would write a trade into the live record that no rule produced."
+Log ""
+Log "Powering off now is SURVIVABLE but not free:"
+Log "  - the stop stays where it is; nothing will trail it up while the PC is off"
+Log "  - the strategy cannot take its own exit until the machine is back"
+Log "  - tomorrow, recover will refuse to start anything until this is resolved"
+Log "Leaving the PC on until this trade closes is the clean option."
+exit 2
