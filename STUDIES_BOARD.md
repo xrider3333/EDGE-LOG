@@ -62,7 +62,7 @@ disagree: a rail button ticks exactly that one family, and ALL clears the family
 leaving every other filter alone. The buttons are built from the registry, so a family appears
 on the rail the moment a row is tagged with it.
 
-**PROFIT STAGE — in-sample, walk-forward, lockbox, or total.** This picks which stretch of
+**PROFIT STAGE — IS, WF, LB, ticked in any combination.** This picks which stretch of
 history every row is read on. It sets the height of every chart point, it highlights the
 matching money column in every table, and it drives the profit-divided-by-drawdown column.
 A row that genuinely has no figure for the selected stage shows a dash, the dash says why
@@ -110,6 +110,23 @@ how many rows are hidden.
 
 **CLEAR FILTERS** appears only while something is filtered and drops all of them.
 
+**1 STRATEGY and 2 PROFIT STAGE tick.** Two families can share the chart; the profit stages add
+up. Two rules keep the sum honest and both matter:
+
+- **A ticked stage a row never recorded is skipped, not fatal.** Only 46 of 215 rows record a
+  separate walk-forward figure — the rest have no walk-forward *stage*, because their first money
+  column is `isLbl: 'PRE-LOCKBOX'`, which already holds the tuning years pooled. So the sum adds the
+  ticked stages a row *has* and voids the row only when it has none of them. Ticking all three on a
+  pre-lockbox row gives pre-lockbox + lockbox, which is its whole run. Requiring all three would cut
+  the chart from 203 rows to 47.
+- **A row's `tot` is not the sum of its stages.** The NOISE champion records $335,981 while its three
+  stages add to $313,409; they are separate measurements, not a partition. The TOTAL column prints
+  what the row recorded and flags the gap with a `≠` you can hover; the chart plots the ticked sum.
+
+**There is no baseline selector.** One family, one champion — fix a duplicate tag in the registry
+rather than making the reader choose. If two ever appear, the lowest row number wins and the rows say
+so on hover.
+
 **5 RANGE — all, today, wk, mo, 3mo, or select.** One control for every date question the board
 narrows on. SELECT opens the browser's own calendar on a from and a to (`resSelFrom` / `resSelTo`);
 either end may be left blank for open-ended. Until 2026-08-19 this was **two** controls — a rolling
@@ -137,7 +154,7 @@ used to be printed there. A chip warning about something wears the warning colou
 **How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
-(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 READ AS); 5–11 sit behind
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 AXIS); 5–11 sit behind
 MORE (5 RANGE, 6 DATE, then the filters 7–9), and **10 ORDER, 11 SPLIT BY RUN and 12 COMPARE ON sit on the STUDY TABLES heading**, because the tables are the only thing they touch. FRONTIER and COLOUR were controls here until 2026-08-19, when the owner had them removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
 control a full-width line of its own; only 9 STUDY needs it.
@@ -147,7 +164,7 @@ buttons used to render with the other filter chips and the owner rightly asked w
 the `fam` facet is now excluded from `_reFiltBtns` while staying in `_reFacets` for the filtering
 logic. Do not put it back.
 
-**READ AS — absolute, or vs crown.** (Also in the always-on block.) VS CROWN measures both axes *from* the crowned configuration
+**AXIS — absolute, or champion.** (Also in the always-on block.) VS CROWN measures both axes *from* the crowned configuration
 of each row's own family, so the crown lands on the origin and every other variant reads as the
 money it added and the drawdown it added against the thing actually being traded. It is the same
 figures the tables print, subtracted — never new data — and it changes the **chart only**; the
