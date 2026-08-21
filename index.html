@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.186';
+const VERSION='73.187';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.187',date:'2026-08-20',notes:['YOU CAN NOW SELECT SEVERAL TRADES AT ONCE IN THE PAPER TAB AND OPEN ALL THEIR CHARTS TOGETHER. Click a row to select it, hold the button down and drag across rows to take a run of them, shift-click to stretch the selection to where you clicked, and ctrl-click to add or drop a single row. The heading counts what is selected and offers OPEN N CHARTS.','The charts arrive in one scrolling window, one card per trade, instead of a modal you had to close and reopen for every trade. Each card zooms with ctrl and the wheel, pans by dragging, and can be saved on its own as a PNG or all together through SAVE ALL.','The selection survives re-sorting and re-filtering the table, and the CHART button on a row still opens that one trade on its own.','That chart window used to assume every trade came from one run of one instrument. It now reads each trade\u2019s own market and timeframe, which is what let a mixed list of paper legs open in it at all.']},
 {v:'73.186',date:'2026-08-20',notes:['CONTROL NAMES ARE LEFT ALIGNED. Right-aligning them against an auto-width column meant every row started somewhere different.','TIME SCOPE AND THE DISCOVERED FILTER WERE THE SAME QUESTION ASKED TWICE - one as a rolling window, one as a list of every distinct date in the registry. They are one control now, 5 RANGE: ALL, TODAY, WK, MO, 3MO, and SELECT, which opens the calendar on a from and a to. Either end of SELECT can be left blank for open-ended. The word past is gone from every label.','VERDICT is the marks themselves now, not five lines of words - the same shapes the chart draws, with the name on the hover.','RUN STATUS is just RUN, and its two buttons say EL and .PY: EL is a real Auto-Validate run persisted in EDGELOG with a run number and a report, .PY is local research run on the machine and never saved as a run.','THE STATUS FILTER IS GONE. Crowned and in-paper are already pills beside the name in the table, so filtering on them was a third way to say the same thing.','THE LINE OF TEXT UNDER THE CHART IS GONE. Only the verdict legend is left, with a small circled i beside it whose hover still carries every count and every reason that line used to print - the rows plotted, the rows that could not be, and why. Nothing measured was dropped; it is one hover away instead of always on screen.','THE AXES ARE READABLE. Tick numbers and axis captions were drawn in the faintest ink the theme has, at a size chosen when the chart had the whole page - in the split layout it has half that and they disappeared. Both go up in size and contrast, and the two axis lines are drawn rather than left to the gridlines.','Controls renumber 1 to 12.']},
 {v:'73.185',date:'2026-08-20',notes:['ENGU-Q LIMIT 0.50 now carries a limit entry tag on its row. Two ENGU-Q rows sitting side by side with identical columns is a puzzle unless the row says what makes them different, so hovering the tag explains it: same settings, the only change is that it rests a limit order half an ATR below the signal close and drops the trade if it never fills.','The tag also carries the honest caveat from its validate - entering lower against the same stop widens risk, so it fails the pre-registered net-per-drawdown bar. It is a candidate, not a winner.','Any leg can now carry a tag like this, rather than the board hard-coding one strategy name.']},
 {v:'73.184',date:'2026-08-20',notes:['ENGU-Q LIMIT 0.50 now has a row on the board. It has been computed every night since 18 August but was never added to the leg list, so it was running and completely invisible - it never appeared in the strip, the curve or any table.','What it is: the same 24-hour ENGU-Q settings, entered with a resting limit order half an ATR BELOW the signal close, which is dropped if it does not fill within ten bars. ENGU-Q RAW is deliberately kept beside it as the matched control, so the only difference between the two rows is the entry.','It is engine-only on purpose. It shares a contract with ENGU-Q, so the two could never be traded together in one account.']},
@@ -4365,21 +4366,33 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 //    chart per trade in one scrolling window, fetches the whole batch at once, and appends the
 //    next 10 on LOAD MORE. Shares _barsCache with the single-trade CANDLES window, so anything
 //    already viewed draws instantly and anything drawn here makes the CANDLES window instant. ──
-window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
+window.openChartGallery=function(B,rowsAll,initialView,fixedLabel,opts){
+  // opts.title replaces the "RUN #n" heading for callers that are not a run blotter (the
+  // PAPER tab's trade selection is a set of forward-test rows, not one run's blotter).
+  opts=opts||{};
+  // _no is the row's identity and is NOT always a number - the PAPER tab keys its rows
+  // 'P0','P1',... so they can never collide with a run blotter's numeric trade numbers.
+  // Every lookup below therefore compares as a STRING, and the recency sort falls back to
+  // entry time when _no is not numeric. Numeric callers behave exactly as before.
+  const _byId=id=>rowsAll.find(q=>String(q._no)===String(id));
   if(!B||!rowsAll||!rowsAll.length)return;
   const $=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
   const sideOf=x=>{if(x._side)return x._side;const g=x._pts+((B.cost_pts)||0);
     return (Math.abs((x._xp-x._ep)-g)<=Math.abs((x._ep-x._xp)-g))?'long':'short';};
   let view=initialView||'wins',shown=10,seq=0;
   const order=()=>{const a=rowsAll.slice();
+    // opts.keepOrder: the caller already fixed the order (the PAPER selection is shown in
+    // the table's own order, whatever the owner sorted it by), so do not re-sort it.
+    if(opts.keepOrder)return a;
     if(view==='wins')return a.sort((p,q)=>q._usd-p._usd);
     if(view==='losses')return a.sort((p,q)=>p._usd-q._usd);
-    return a.sort((p,q)=>q._no-p._no);};
+    const _num=v=>{const n=parseFloat(String(v).replace(/^[^0-9.-]+/,''));return isNaN(n)?0:n;};
+    return a.sort((p,q)=>(_num(q._no)-_num(p._no))||String(q._et||'').localeCompare(String(p._et||'')));};
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.93);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:22px';
   modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);width:min(1240px,96vw);max-height:94vh;display:flex;flex-direction:column;padding:16px 18px;box-sizing:border-box">'
     +'<div style="display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border);flex:0 0 auto">'
-    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">CHART GALLERY &middot; RUN #'+B.run_id+'</span>'
+    +'<span style="font-family:\'Bebas Neue\',monospace;font-size:20px;letter-spacing:3px;color:var(--text)">'+(opts.title||('CHART GALLERY &middot; RUN #'+B.run_id))+'</span>'
     +'<span id="gal-meta" style="font-size:10px;color:var(--text5);letter-spacing:.5px;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>'
     +'<button id="gal-save" title="save every chart in this list - the print dialog that opens has a Save as PDF option" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text3);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">&#10515; SAVE ALL</button>'
     +'<button id="gal-back" title="back to the blotter" style="background:none;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:7px;color:var(--blue);padding:5px 12px;cursor:pointer;font-family:inherit;letter-spacing:2px;font-size:10px;flex:0 0 auto">&lsaquo; BACK</button>'
@@ -4523,26 +4536,26 @@ window.openChartGallery=function(B,rowsAll,initialView,fixedLabel){
     const more=body.querySelector('#gal-more');
     if(more)more.onclick=()=>{shown+=10;draw();};
     body.querySelectorAll('[data-galpng]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
-      const no=+b2.dataset.galpng;
+      const no=b2.dataset.galpng;
       const sv=body.querySelector('[data-gal="'+no+'"] .galchart svg');
-      window.saveSvgAsPNG(sv,'run'+(B.run_id!=null?B.run_id:'')+'_trade'+no+'_candles.png');};});
+      window.saveSvgAsPNG(sv,(B.run_id!=null?('run'+B.run_id+'_'):(opts.filePrefix||''))+'trade'+no+'_candles.png');};});
     body.querySelectorAll('[data-galtrade]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
-      const no=+b2.dataset.galtrade,x2=rowsAll.find(q=>q._no===no),r2=_barsCache[no];
+      const no=b2.dataset.galtrade,x2=_byId(no),r2=_barsCache[no];
       if(!x2||!r2||r2.entry_idx==null)return;
       const e3=r2.entry_idx,x3=(r2.exit_idx!=null?r2.exit_idx:e3);
       galView[no]=[e3-20,x3+20];drawCard(x2,r2);};});
     body.querySelectorAll('[data-galfull]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
-      const no=+b2.dataset.galfull,x2=rowsAll.find(q=>q._no===no),r2=_barsCache[no];
+      const no=b2.dataset.galfull,x2=_byId(no),r2=_barsCache[no];
       if(!x2||!r2)return;galView[no]=null;drawCard(x2,r2);};});
     body.querySelectorAll('[data-galopen]').forEach(b2=>{b2.onclick=ev=>{ev.stopPropagation();
-      const x2=rowsAll.find(q=>q._no===+b2.dataset.galopen);
+      const x2=_byId(b2.dataset.galopen);
       if(x2)window._openTradeCandles(x2,null,{B:B,all:()=>rowsAll,order:()=>order().slice(0,shown)});};});
     sync();
     // fire the whole visible batch at once — cached trades paint immediately, the rest stream in
     list.forEach(x=>{
       const hit=_barsCache[x._no];
       if(hit){drawCard(x,hit);return;}
-      _fetchBars(x._no,Object.assign({},B,{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000)
+      _fetchBars(x._no,Object.assign({},B,(x._pb||{}),{entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000)
         .then(r=>{if(seq===mySeq){drawCard(x,r);sync();}})
         .catch(err=>{if(seq!==mySeq)return;const h=body.querySelector('[data-gal="'+x._no+'"] .galchart');
           if(h)h.innerHTML='<span style="color:var(--red)">could not load these bars — '+String(err&&err.message||err).replace(/</g,'&lt;')+'</span>';});
@@ -20052,7 +20065,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _chartCell=_etk
           ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
-        return '<tr>'+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
+        // data-ptrow makes the row a selection target (click, shift-click, or drag across
+        // several). The id is the SAME _no the candle rows carry, so a selection hands
+        // straight to the chart gallery with no second lookup table.
+        const _selNow=(window._ptSel&&window._ptSel.has('P'+_ci));
+        return '<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
           +'<td><span style="color:'+lc+';font-weight:600">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
           +'<td>'+(t.side||'—')+'</td>'
           +'<td>'+_fmtET(t.entryTime)+'</td>'
@@ -20074,11 +20091,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.75" title="running total of the rows currently shown, in date order">'+(c==null?'—':fmtUsd(c))+'</td>';})()
           +_chartCell+'</tr>';
       }).join('');
-      const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">· showing 200 of '+_tSorted.length+'</span>':'')+'</div>'
+      // SELECTION BAR - owner 2026-08-20: "allow me to select (click and drag) multiple
+      //   trades in the trades tab and open their charts". The count and the buttons are
+      //   rewritten in place by the drag handler (no re-render), so dragging stays smooth.
+      const _ptSelBar='<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
+        +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
+      const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px;display:flex;align-items:center">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">&middot; showing 200 of '+_tSorted.length+'</span>':'')+_ptSelBar+'</div>'
+        +'<style>#ptrades-body tr{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}</style>'
         +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="which engines produced this trade">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
         +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
         +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
-        +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th><th>CHART</th></tr></thead><tbody>'+_tRows+'</tbody></table></div>'
+        +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th><th>CHART</th></tr></thead><tbody id="ptrades-body">'+_tRows+'</tbody></table></div>'
           :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>'));
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
@@ -21721,6 +21744,80 @@ namespace NinjaTrader.NinjaScript.Strategies {
       content.querySelectorAll('[data-ptchart]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();
         const rows=window._paperCandleRows||[];const x=rows[+b.dataset.ptchart];
         if(x)window._openTradeCandles(x,b,{B:{},all:()=>rows,order:()=>rows});};});
+      // -- TRADES multi-select (owner 2026-08-20) -------------------------------------
+      // Click a row to select it, DRAG across rows to take a range, shift-click to extend,
+      // ctrl/cmd-click to add or drop one. OPEN N CHARTS hands the selection to the same
+      // chart gallery the run blotter uses, so the charts arrive stacked in one scrolling
+      // window instead of one modal at a time.
+      //
+      // The selection is repainted BY HAND (a class toggle plus one innerHTML on the bar)
+      // rather than through renderApp: a re-render per pointermove would rebuild the whole
+      // tab mid-drag and drop the gesture. window._ptSel outlives a real re-render and the
+      // row builder reads it back, so re-sorting or re-filtering keeps what is selected.
+      {
+        const tb=content.querySelector('#ptrades-body');
+        const bar=content.querySelector('#pt-selbar');
+        if(tb){
+          const sel=window._ptSel||(window._ptSel=new Set());
+          const trs=[].slice.call(tb.querySelectorAll('[data-ptrow]'));
+          const ids=trs.map(r=>r.dataset.ptrow);
+          const rowsAll=window._paperCandleRows||[];
+          const paint=()=>{
+            trs.forEach(r=>r.classList.toggle('ptsel',sel.has(r.dataset.ptrow)));
+            if(!bar)return;
+            const n=sel.size;
+            bar.innerHTML=n
+              ? '<span style="font-size:9px;color:var(--blue);font-weight:700">'+n+' SELECTED</span>'
+                +' <span data-ptopen style="cursor:pointer;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 9px;border-radius:6px;border:1px solid var(--blue);color:var(--blue)">OPEN '+n+' CHART'+(n>1?'S':'')+'</span>'
+                +' <span data-ptclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span>'
+              : '<span style="font-size:8px;color:var(--text5)">no rows selected</span>';
+            const ob=bar.querySelector('[data-ptopen]');
+            if(ob)ob.onclick=()=>{
+              // keep the table's own order so the gallery reads top-to-bottom like the list
+              const picked=ids.filter(id=>sel.has(id)).map(id=>rowsAll.find(x=>String(x._no)===id)).filter(Boolean);
+              if(!picked.length)return;
+              window.openChartGallery({},picked,'recent','SELECTED TRADES',
+                {title:'CHART GALLERY &middot; '+picked.length+' SELECTED TRADE'+(picked.length>1?'S':''),
+                 filePrefix:'paper_',keepOrder:true});
+            };
+            const cb=bar.querySelector('[data-ptclear]');
+            if(cb)cb.onclick=()=>{sel.clear();paint();};
+          };
+          // drop ids that no longer exist (the table was re-sorted, re-filtered or re-fetched)
+          const live=new Set(ids);
+          [].slice.call(sel).forEach(id=>{if(!live.has(id))sel.delete(id);});
+          let dragging=false,anchorIdx=-1,base=null;
+          const idxOf=el=>{const r=(el&&el.closest)?el.closest('[data-ptrow]'):null;return r?ids.indexOf(r.dataset.ptrow):-1;};
+          const range=(a,b)=>{const lo=Math.min(a,b),hi=Math.max(a,b),out=[];for(let i=lo;i<=hi;i++)out.push(ids[i]);return out;};
+          tb.addEventListener('pointerdown',ev=>{
+            if(ev.button!==0)return;
+            if(ev.target.closest('[data-ptchart]'))return;   // the CHART pill still opens one trade
+            const i=idxOf(ev.target);
+            if(i<0)return;
+            ev.preventDefault();
+            if(ev.shiftKey&&anchorIdx>=0){base=new Set(sel);range(anchorIdx,i).forEach(id=>sel.add(id));}
+            else if(ev.ctrlKey||ev.metaKey){if(sel.has(ids[i]))sel.delete(ids[i]);else sel.add(ids[i]);anchorIdx=i;base=new Set(sel);}
+            else{sel.clear();sel.add(ids[i]);anchorIdx=i;base=new Set(sel);}
+            dragging=true;tb.classList.add('ptdrag');
+            try{tb.setPointerCapture(ev.pointerId);}catch(_e){}
+            paint();
+          });
+          tb.addEventListener('pointermove',ev=>{
+            if(!dragging||anchorIdx<0)return;
+            // pointer capture routes every move to the tbody, so the row under the cursor has
+            // to be looked up by coordinate rather than read off ev.target.
+            const i=idxOf(document.elementFromPoint(ev.clientX,ev.clientY));
+            if(i<0)return;
+            sel.clear();(base||new Set()).forEach(id=>sel.add(id));
+            range(anchorIdx,i).forEach(id=>sel.add(id));
+            paint();
+          });
+          const endDrag=()=>{dragging=false;base=null;tb.classList.remove('ptdrag');};
+          tb.addEventListener('pointerup',endDrag);
+          tb.addEventListener('pointercancel',endDrag);
+          paint();
+        }
+      }
     }
     else{const vs=el('res-side'),vk=el('res-stack');if(vs)vs.onclick=()=>{savePref('resView','side');renderApp();};if(vk)vk.onclick=()=>{savePref('resView','stack');renderApp();};
       const _vg=content.querySelector('[data-resgroup]');if(_vg)_vg.onclick=()=>{savePref('resGroup',!APREF.resGroup);renderApp();};
