@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.188';
+const VERSION='73.189';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.189',date:'2026-08-20',notes:['EVERY PAPER TRADE CHART SAID SHORT, INCLUDING THE LONGS. The shadow log records direction as the engine’s own +1 / -1, and the board was comparing that to the words long and short - which never match, so every chart drew and labelled the trade as a short. ENGU-Q only ever buys, so every one of its charts was wrong.','The SIDE column in the trades table said 1 for the same reason. It reads LONG or SHORT now.']},
 {v:'73.188',date:'2026-08-20',notes:['THE VERDICT BUTTONS ARE MARK-SIZED. They were rendering at legend size, which made five of them read as a row of pictures rather than a row of controls. The legend keeps the full-size mark.','THE STATUS CHIP STRIP IS GONE - rows shown, comparison basis, range and shared window. Every one of them summarised something the board already says where it matters: the row count is on the chart heading, the basis and the range are on their own controls, and the shared window is the DATA WINDOW column with a warning sign on any row reaching outside it. HOW TO READ was the one thing on that strip worth keeping and it moves up beside MORE.','CHAMPION OR BASELINE IS JUST BASELINE in the key, which is what it is: under VS CROWN it is the row sitting on the crossing of the two zero lines, with every other point measured from it.','THE BASELINE RAIL NAMES ITS ROWS. It was printing bare row numbers - row 1 or row 97 - with no way to tell what either was. It now reads Champion (row 1) and Paper: NOISE (row 97), says which study each came from on hover, and says that the one you pick is the point on the crossing of the zero lines.']},
 {v:'73.187',date:'2026-08-20',notes:['YOU CAN NOW SELECT SEVERAL TRADES AT ONCE IN THE PAPER TAB AND OPEN ALL THEIR CHARTS TOGETHER. Click a row to select it, hold the button down and drag across rows to take a run of them, shift-click to stretch the selection to where you clicked, and ctrl-click to add or drop a single row. The heading counts what is selected and offers OPEN N CHARTS.','The charts arrive in one scrolling window, one card per trade, instead of a modal you had to close and reopen for every trade. Each card zooms with ctrl and the wheel, pans by dragging, and can be saved on its own as a PNG or all together through SAVE ALL.','The selection survives re-sorting and re-filtering the table, and the CHART button on a row still opens that one trade on its own.','That chart window used to assume every trade came from one run of one instrument. It now reads each trade\u2019s own market and timeframe, which is what let a mixed list of paper legs open in it at all.']},
 {v:'73.186',date:'2026-08-20',notes:['CONTROL NAMES ARE LEFT ALIGNED. Right-aligning them against an auto-width column meant every row started somewhere different.','TIME SCOPE AND THE DISCOVERED FILTER WERE THE SAME QUESTION ASKED TWICE - one as a rolling window, one as a list of every distinct date in the registry. They are one control now, 5 RANGE: ALL, TODAY, WK, MO, 3MO, and SELECT, which opens the calendar on a from and a to. Either end of SELECT can be left blank for open-ended. The word past is gone from every label.','VERDICT is the marks themselves now, not five lines of words - the same shapes the chart draws, with the name on the hover.','RUN STATUS is just RUN, and its two buttons say EL and .PY: EL is a real Auto-Validate run persisted in EDGELOG with a run number and a report, .PY is local research run on the machine and never saved as a run.','THE STATUS FILTER IS GONE. Crowned and in-paper are already pills beside the name in the table, so filtering on them was a third way to say the same thing.','THE LINE OF TEXT UNDER THE CHART IS GONE. Only the verdict legend is left, with a small circled i beside it whose hover still carries every count and every reason that line used to print - the rows plotted, the rows that could not be, and why. Nothing measured was dropped; it is one hover away instead of always on screen.','THE AXES ARE READABLE. Tick numbers and axis captions were drawn in the faintest ink the theme has, at a size chosen when the chart had the whole page - in the split layout it has half that and they disappeared. Both go up in size and contrast, and the two axis lines are drawn rather than left to the gridlines.','Controls renumber 1 to 12.']},
@@ -20040,6 +20041,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(mins<60)return mins+'m';
         return Math.floor(mins/60)+'h'+String(mins%60).padStart(2,'0');
       };
+      // side arrives from the shadow log as the engine's SIGNED INT (+1 long, -1 short,
+      // api/paper.py _extract_trades). Older rows and other sources may spell it out, so
+      // accept both. Anything unrecognised stays null rather than guessing a direction.
+      const _sideOf=v=>{
+        if(v==null||v==='')return null;
+        const t=String(v).trim().toLowerCase();
+        if(t==='1'||t==='+1'||t==='long'||t==='buy')return 'long';
+        if(t==='-1'||t==='short'||t==='sell')return 'short';
+        return null;
+      };
       const _engChip=(lbl,col,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="cursor:help;font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;border:1px solid '+col+';color:'+col+'">'+lbl+'</span>';
       const _engineCell=t=>{
         const iso=t.entryIso||null;
@@ -20067,7 +20078,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           _srcLbl:'paper shadow trade'+(_flagged?' (ORB engine is look-ahead - reference only)':''),
           _et:_etk,_xt2:_xtk,_ep:(t.entry_px!=null?+t.entry_px:null),
           _xp:(t.exit_px!=null?+t.exit_px:null),_pts:(t.pnl_pts!=null?+t.pnl_pts:0),
-          _usd:pnl,_side:(t.side?String(t.side).toLowerCase():null),
+          _usd:pnl,_side:_sideOf(t.side),
           _pb:{instrument:'NQ',timeframe:(_legTf[leg]||'5m'),session:'rth',
                include_fresh:true,cost_pts:0.533}});
         const _chartCell=_etk
@@ -20079,7 +20090,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _selNow=(window._ptSel&&window._ptSel.has('P'+_ci));
         return '<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
           +'<td><span style="color:'+lc+';font-weight:600">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
-          +'<td>'+(t.side||'—')+'</td>'
+          +'<td>'+((_sideOf(t.side)||'—').toUpperCase())+'</td>'
           +'<td>'+_fmtET(t.entryTime)+'</td>'
           +'<td>'+_fmtET(t.exitTime)+'</td>'
           +'<td style="text-align:right">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'—')+'</td>'
