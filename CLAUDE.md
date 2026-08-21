@@ -1,6 +1,13 @@
 # AUGUR — Strategy Optimizer (project context for Claude Code)
 
 ## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
+
+**SUPERSEDING CORRECTION (owner 2026-08-20: "stop gving tables. shorter responces. give me
+the a bulleted summary").** NO TABLES unless the owner explicitly asks for one (e.g. "give
+me the RUNBOARD", "table it"). Default reply = status header line, then a SHORT bulleted
+summary — a handful of bullets, one fact each, plain English. All older rules below about
+mandatory numbered tables are suspended; the table FORMATS (RUNBOARD columns etc.) still
+apply whenever a table IS requested. Keep replies short.
 Owner's exact instruction (2026-07-21, said multiple times): "when your internal calculations are
 complete, begin the section I need to read from you with (emoji)/model pushed/completed and
 underneath speak to me in numbered tables … number. the thing. description. done / just done / to
