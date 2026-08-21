@@ -50,8 +50,11 @@ folds and future forward data are the real judges.
 CARRIED CAVEATS: (1) NOISE has never cleared its own pre-registered ES-transfer
 promotion bar of PF >= 1.2 (the engine's generic transfer gate is a looser PF >= 1.0
 check -- do not read a generic "transfer pass" as clearing NOISE's own bar).
-(2) The production PAPER / NinjaTrader leg runs a DIFFERENT config (14 / 1.5 / 1.5 /
-k=1.0), not this champion core. (3) Run #231's headline n/net convention differs
+(2) [UPDATED 2026-08-21] The old stale-paper-leg caveat is resolved: the lookback-14
+leg was retired 2026-08-16, the raw paper control (NOISE_225) runs this same champion
+core, and THIS config was CROWNED the NOISE family champion on 2026-08-21 (run #241)
+with its own shadow paper leg (NOISE_SBS). NinjaTrader still runs the core WITHOUT
+this filter until EdgeLogNOISE's SkipBotShort knob is flipped on. (3) Run #231's headline n/net convention differs
 from the raw-engine path -- compare pinned runs to each other, and to #231 only on
 the validate pipeline's own fields.
 """

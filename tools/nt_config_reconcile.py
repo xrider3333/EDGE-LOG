@@ -41,7 +41,11 @@ BASE = os.environ.get("EDGELOG_BRIDGE_URL", "http://127.0.0.1:8391")
 # hand-built NOISE leg, which stays engine-only.
 NT_NAME = {
     "NOISE_H_RF": "EdgeLogNOISE",
-    "ORB":   "EdgeLogORBV2",
+    # 2026-08-21: EdgeLogORBV2 was deleted from NinjaTrader on 08-17 and replaced by
+    # EdgeLogORB230 (the run-#230 port that actually trades), so the mapping had been
+    # reporting UNREADABLE against a ghost. Repointed + remapped to ORB230's own
+    # property names, checked live via the bridge.
+    "ORB":   "EdgeLogORB230",
     "ENGUQ": "EdgeLogENGUQ1m",
 }
 
@@ -50,8 +54,11 @@ NT_NAME = {
 PARAM_MAP = {
     "NOISE_H_RF": {"Lookback": "lookback", "BandMultLong": "band_mult_long",
                    "BandMultShort": "band_mult_short", "StopK": "stop_k"},
-    "ORB":   {"OrBars": "or_bars", "TradeMode": "trade_mode",
-              "StopFrac": "stop_frac", "VolFilter": "vol_filter"},
+    "ORB":   {"OrBars": "or_bars", "StopFrac": "stop_frac",
+              "BreakoutBuf": "breakout_buf", "PartialExitR": "partial_exit_R",
+              "TrailBars": "trail_bars", "TargetR": "target_R",
+              "AtrFilter": "atr_filter", "VpaceFilter": "vpace_filter",
+              "SkipHolidays": "skip_holidays"},
     "ENGUQ": {"TlLen": "tl_len", "EmaLen": "ema_len", "BufAtr": "buf_atr",
               "MinBrk": "min_brk", "AtrLen": "atr_len", "VolMult": "vol_mult",
               "StopMult": "stop_mult", "ActR": "act_R", "TrailFrac": "trail_frac",
@@ -63,16 +70,37 @@ PARAM_MAP = {
 NT_ONLY = {"Qty", "UseStop",
            # the live ML-gate knobs (2026-08-16) -- NT-side plumbing for the bouncer
            # call, with no engine param counterpart by design
-           "GateEnabled", "GateUrl", "GateTimeoutMs"}
+           "GateEnabled", "GateUrl", "GateTimeoutMs",
+           # Short Veto knobs (2026-08-21): EdgeLogNOISE carries the crowned run-#241
+           # filter DEFAULT OFF, while its reconcile target NOISE_H_RF runs the plain
+           # #231 core (no daytype keys), so these stay NT-only here. The crowned
+           # NOISE_SBS leg is engine-only (no NT instance yet); if EdgeLogNOISE is
+           # ever flipped to SkipBotShort=true, repoint NT_NAME/PARAM_MAP at NOISE_SBS
+           # and map these two properly.
+           "SkipBotShort", "DaytypeLo",
+           # LimitAtr (2026-08-21): the NinjaScript ENGUQ port carries limit-entry
+           # support (written for the L50 research) while the #226 market-entry leg it
+           # reconciles against has no such engine key. 0 on the strategy = disabled =
+           # exactly that leg, so it is NT-only here; if an ENGUQ_L50 NT row ever goes
+           # live, map it properly against that leg instead.
+           "LimitAtr"}
 
 
 def _norm(v):
     """Compare 1.0 to '1' as equal, and 'Both' to 'both' as equal, without making
-    genuinely different values look the same."""
+    genuinely different values look the same. Bools are handled FIRST: Python's
+    float(True) is 1.0 while NinjaTrader reports the string 'True', so without this
+    a genuinely matching boolean knob printed engine=True / NT=True and still read
+    MISMATCH (found 2026-08-21 on ORB's skip_holidays)."""
+    if isinstance(v, bool):
+        return str(v).lower()
+    s = str(v).strip().lower()
+    if s in ("true", "false"):
+        return s
     try:
         return round(float(v), 6)
     except (TypeError, ValueError):
-        return str(v).strip().lower()
+        return s
 
 
 def fetch_live(nt_name):

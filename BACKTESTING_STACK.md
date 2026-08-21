@@ -1144,6 +1144,25 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-21** — **NOISE CROWN MOVED: family champion is now SHORT VETO (run #241).**
+  • **Owner decision** ("crown that as our past runs champion... make it the new champion in
+    the compare tables tab. then add it to paper trade"), adopting the 2026-08-21
+    combination study's recommendation (NOISE.md): the best NOISE config is the champion
+    core (run #231's dict) plus ONE filter — `daytype_mode='skip_bot_short'`, `daytype_lo`
+    0.20: skip short entries the day after the prior session closed in the bottom 20% of
+    its own range. Canonical run **#241** (`NOISE_1_1_SBS.py`, PASS 6/6; #253 = archived
+    identical repeat). Zero of eighteen stacked combinations cleared the pre-registered
+    bar, so the crown is the single filter, nothing stacked.
+  • **Recorded:** run #241 starred in Past Runs (run-doc `starred` field, pins to top with
+    the ★ BASELINE chip); STUDIES board CROWN tag moved from NOISE row 1 → row 2 (row 1
+    stays as the reference baseline, tone unchanged, not archived); paper leg `NOISE_SBS`
+    added to `api/paper.py` (params = `NOISE_225` + the filter, control = `NOISE_225`).
+  • **NT divergence, honest:** `EdgeLogNOISE` gained `SkipBotShort` + `DaytypeLo` (default
+    OFF, engine-exact semantics incl. the pre-tie-break veto); the demo leg keeps running
+    the baseline core + gate until the knob is flipped after an NT restart, so the crowned
+    config is forward-tested at the SHADOW layer only for now (PAPER_TRADING.md).
+  • **Carried caveats:** NOISE lockbox SPENT (confirmatory only); the family has never
+    cleared its own ES-transfer bar of PF ≥ 1.2.
 - **2026-08-18 (round 11)** — **LIMIT 0.50 ADOPTED to paper. Short mirror DEAD. And the
   net/DD gate itself is shown to be close to a coin flip at this sample size.**
   • **Owner adopted limit 0.50** ("lets go with the .50"). Paper leg `ENGUQ_L50` added to

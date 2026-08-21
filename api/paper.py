@@ -62,6 +62,7 @@ LEG_LIVE_FROM = {
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
+    "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241
 }
 
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
@@ -158,6 +159,19 @@ NOISE_225 = dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
                  exit_mode="vwap", side="Both", window="all_day",
                  flat_eod=True, skip_holidays=False,
                  stop_mode="bandwidth", stop_k=1.75)
+
+# The CROWNED NOISE config since 2026-08-21: run #241 (NOISE_1_1_SBS.py, "Short Veto",
+# PASS 6/6; #253 is its archived identical repeat). It is the NOISE_225 champion core
+# plus ONE causal filter -- no short entries on any day whose PRIOR session closed in
+# the bottom 20% of that session's own high-to-low range (daytype_lo 0.20, the strategy
+# file's pinned default). Crowned by the owner on the 2026-08-21 combination-study
+# recommendation: the filter is the best SINGLE change and no stacked combination
+# clears the pre-registered bar. Params are run #241's pinned dict, expressed against
+# NOISE_1_0.py (the same base file every other NOISE leg runs, which keeps the
+# reconcile tooling's one-vocabulary mapping intact). NOISE_225 above stays on the
+# board untouched as the matched RAW control -- the filter is the only difference.
+NOISE_241_SBS = dict(NOISE_225, daytype_mode="skip_bot_short",
+                     daytype_lo=0.20, daytype_hi=0.80)
 
 # ── ML gate configs (api/paper_gate.py) ──────────────────────────────────────────
 # The gate is an OVERLAY: the strategy picks its trades exactly as it always has, and a
@@ -313,6 +327,23 @@ LEG_SOURCE = {
                   "gate off. Comparing NOISE_H against the older NOISE leg instead would "
                   "confound the gate with a params change.",
     },
+    "NOISE_SBS": {
+        "run": 241, "run_label": "#241 (Short Veto)", "strategy_file": "NOISE_1_0.py",
+        "picked": "2026-08-21",
+        "note": "THE CROWNED NOISE CONFIG since 2026-08-21. The champion core (lookback 44, "
+                "asymmetric 0.75/1.5 bands, vwap exit, bandwidth stop k=1.75) plus one causal "
+                "filter: no short entries the day after the prior session closed in the bottom "
+                "20% of its own range. Run #241 (pinned file NOISE_1_1_SBS.py) validated it "
+                "PASS 6/6; the 2026-08-21 combination study then found no filter stack beats "
+                "it, which is what the crown decision cites.",
+        "caveat": "NOISE_225 is its matched RAW control -- identical settings, filter off, so "
+                  "any difference between the two rows is the filter and nothing else. The "
+                  "NOISE lockbox is SPENT (read many times), so lockbox numbers are "
+                  "confirmatory only -- this forward test and the walk-forward folds are the "
+                  "real judges. NinjaTrader does NOT carry this filter yet: EdgeLogNOISE "
+                  "still runs the baseline-plus-gate config until its new knob is flipped on "
+                  "after an NT restart.",
+    },
     "ORB_H": {
         "run": 230, "run_label": "#230 (ORB-40) + rf hybrid gate", "strategy_file": "ORB_3_4_C221.py",
         "picked": "2026-08-16",
@@ -383,6 +414,16 @@ PAPER_LEGS = [
     # as of tonight NinjaTrader runs that config too, so this leg was measuring a variant
     # nothing else in the system uses. Its provenance block stays in LEG_SOURCE so old daily
     # reports that reference it still resolve.
+
+    # ADDED 2026-08-21, the day the owner crowned run #241 ("Short Veto"). The crowned
+    # NOISE config: champion core + skip short entries the day after a weak close. Runs
+    # the same base file as every other NOISE leg; NOISE_225 below (emitted by NOISE_H)
+    # is its matched RAW control -- the daytype filter is the only difference. No gate:
+    # the crown is the RAW config. history_from matches the gated legs so all four NOISE
+    # rows are computed over the identical window.
+    {"key": "NOISE_SBS", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_241_SBS, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_SBS"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical

@@ -10,9 +10,11 @@
 //  can agree trade-for-trade; the only expected difference is real slippage on
 //  the market orders.
 //
-//  Defaults = the validated config (see the strategy file's docstring):
-//    lookback 14 · bands 1.5 / 1.5 · exit VWAP · both sides · all day ·
-//    stop_mode bandwidth, stop_k 1.0
+//  Defaults = the #231 crowned core (moved 2026-08-16): lookback 44 · bands
+//    0.75 / 1.5 · exit VWAP · both sides · all day · bandwidth stop k 1.75.
+//  SHORT VETO (2026-08-21): the crowned run-#241 filter is ported as SkipBotShort +
+//    DaytypeLo (engine daytype_mode='skip_bot_short'), DEFAULT OFF -- flipping it on
+//    via the strategy row makes this the crowned Short Veto config.
 //
 //  Chart: NQ ##-## · 5 Minute · session template "CME US Index Futures RTH".
 //  Load at least 25 days so the 14-session noise estimate is warm on enable.
@@ -56,6 +58,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         // ── session state ────────────────────────────────────────────────────
         private double        sessionOpen;
         private double        prevSessionClose = double.NaN;
+        // Short Veto (2026-08-21, the crowned run-#241 filter; knob default OFF).
+        // sessHi/sessLo accumulate THIS session's extremes bar by bar; at the next
+        // session roll they are the PRIOR session's range, and together with
+        // prevSessionClose give the prior close's position in its own range,
+        // (C-L)/(H-L) -- exactly the engine's _daytype_pos. Fully causal: everything
+        // is known before the new session's first bar.
+        private double        sessHi = double.NaN, sessLo = double.NaN;
+        private bool          blockShortToday;
         private int           barOfDay;
         private double        refHi, refLo;
         private List<double>  adCurrent;             // |close-open|/open per bar-of-day, this session
@@ -147,6 +157,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 BandMultShort  = 1.5;
                 StopK          = 1.75;
                 UseStop        = true;
+                // Short Veto (run #241, crowned 2026-08-21): default OFF so a rebuild
+                // changes nothing until the knob is deliberately flipped on the
+                // strategy row (bridge /strategy/check pre-flights it first).
+                SkipBotShort   = false;
+                DaytypeLo      = 0.20;
                 Qty            = 1;
                 GateEnabled    = true;
                 GateUrl        = "http://127.0.0.1:8392/gate/check?leg=NOISE_H_RF";
@@ -206,7 +221,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 sb.AppendLine("# trading_hours=" + hours);
                 sb.AppendLine("# lookback=" + Lookback + " bandLong=" + BandMultLong
                               + " bandShort=" + BandMultShort + " useStop=" + UseStop
-                              + " stopK=" + StopK + " qty=" + Qty);
+                              + " stopK=" + StopK + " qty=" + Qty
+                              + " skipBotShort=" + SkipBotShort + " daytypeLo=" + DaytypeLo);
                 sb.AppendLine("# times=UTC bar_stamp=close");
                 sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd");
 
@@ -239,6 +255,23 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         private void RollSession()
         {
+            // Short Veto (run #241, engine daytype_mode='skip_bot_short'): decided ONCE
+            // per session, from the session that JUST finished. If its close sat in the
+            // bottom DaytypeLo of its own high-to-low range, no short ENTRIES today
+            // (longs and all exits untouched). First session / zero range / a partial
+            // mid-session start -> filter inactive, same as the engine's NaN.
+            blockShortToday = false;
+            if (SkipBotShort && !double.IsNaN(prevSessionClose)
+                && !double.IsNaN(sessHi) && !double.IsNaN(sessLo) && sessHi > sessLo)
+            {
+                double cp = (prevSessionClose - sessLo) / (sessHi - sessLo);
+                blockShortToday = cp <= DaytypeLo;
+                if (blockShortToday)
+                    Print("EdgeLogNOISE short veto: prior close position "
+                          + cp.ToString("0.000") + " <= " + DaytypeLo + " -> no shorts today");
+            }
+            sessHi = double.NaN; sessLo = double.NaN;
+
             // bank the session that just finished, keep only the last `Lookback`
             if (adCurrent != null && adCurrent.Count > 0)
             {
@@ -303,6 +336,11 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (!sessionValid) { prevSessionClose = Close[0]; return; }   // enabled mid-session: wait for a clean open
 
             // ── this bar's own bookkeeping (all knowable at its close) ───────
+            // Session extremes for the Short Veto's prior-close-position read. Only
+            // clean sessions accumulate (the mid-session-start return above already
+            // skipped invalid bars), so a partial session can never fake a range.
+            sessHi = double.IsNaN(sessHi) ? High[0] : Math.Max(sessHi, High[0]);
+            sessLo = double.IsNaN(sessLo) ? Low[0]  : Math.Min(sessLo, Low[0]);
             double ad = sessionOpen > 0 ? Math.Abs(Close[0] - sessionOpen) / sessionOpen : double.NaN;
             while (adCurrent.Count <= barOfDay) adCurrent.Add(double.NaN);
             adCurrent[barOfDay] = ad;
@@ -381,6 +419,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 bool longTrig  = Close[0] > ub;
                 bool shortTrig = Close[0] < lb;
+                // Short Veto: applied BEFORE the both-trigger tie-break, exactly like the
+                // engine (block_short falses short_trig first, so a both-trigger bar on a
+                // vetoed day takes the LONG side rather than no trade).
+                if (blockShortToday) shortTrig = false;
                 if (longTrig && shortTrig)               // both: take the bigger excursion
                 {
                     if ((Close[0] - ub) >= (lb - Close[0])) shortTrig = false; else longTrig = false;
@@ -431,6 +473,20 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty, Range(1, 10)]
         [Display(Name = "Quantity", Order = 6, GroupName = "NOISE")]
         public int Qty { get; set; }
+
+        // ── Short Veto (run #241, the crowned NOISE filter, 2026-08-21) ──────
+        // Engine equivalent: daytype_mode='skip_bot_short' with daytype_lo. When ON,
+        // no short ENTRIES on any session whose PRIOR session closed in the bottom
+        // DaytypeLo of that prior session's own high-to-low range. Longs, exits and
+        // stops untouched. Default OFF -- enable it on the strategy row to run the
+        // crowned config.
+        [NinjaScriptProperty]
+        [Display(Name = "Short veto ON (skip shorts after a weak close)", Order = 10, GroupName = "NOISE")]
+        public bool SkipBotShort { get; set; }
+
+        [NinjaScriptProperty, Range(0.05, 0.5)]
+        [Display(Name = "Weak-close threshold (fraction of prior range)", Order = 11, GroupName = "NOISE")]
+        public double DaytypeLo { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "ML gate ON (ask the local bouncer before entering)", Order = 7, GroupName = "ML GATE")]

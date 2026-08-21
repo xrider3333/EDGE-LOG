@@ -1,9 +1,43 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-21** (COMBINATION study — the "ultimate
-> crown" question. Clean NEGATIVE: nothing clears the pre-registered bar, and the BROADER
-> day-type filter combines WORSE than the narrower one. See the "2026-08-21 — combination
-> study" section, regenerable via tools/noise_combo_study.py).
+> Living handoff doc. **Last updated: 2026-08-21** (CROWN MOVED — see the section
+> directly below — and the COMBINATION study earlier the same day).
+
+---
+
+## 👑 CROWN CHANGE 2026-08-21 — the NOISE family crown is now SHORT VETO (run #241)
+
+**Owner decision, 2026-08-21:** the NOISE family champion moved from the plain champion
+core (run #231's config, `NOISE_1_0.py`, lookback 44 / bands 0.75 & 1.5 / vwap exit /
+bandwidth stop k=1.75) to **Short Veto — the same champion core plus
+`daytype_mode='skip_bot_short'` (`daytype_lo` 0.20): skip short entries the day after the
+prior session closed in the bottom 20% of its own range.** Canonical run: **#241**
+(pinned file `augur_strategies/NOISE_1_1_SBS.py`, PASS 6/6; run #253 is its archived
+identical repeat).
+
+- **Basis:** the 2026-08-21 combination study's RECOMMENDATION (see that section below) —
+  the best answer is this single variant; zero of eighteen stacked combinations clear the
+  pre-registered bar. The 2026-08-17 variant campaign's attribution and robustness
+  sections carry the mechanism evidence.
+- **Recorded where:** run #241 is STARRED in Past Runs (the run doc's `starred` field —
+  it pins to the top with the ★ BASELINE chip); the STUDIES board moved the CROWN tag
+  from NOISE row 1 to row 2; a `NOISE_SBS` shadow paper leg was added the same day.
+- **The previous champion is NOT deleted or archived.** Run #231's config stays on the
+  board as the reference baseline (STUDIES row 1) and keeps running in paper as
+  `NOISE_225`, the matched RAW control for the gated legs AND for the new crown's leg.
+- **Carried caveats still apply:** the NOISE lockbox is SPENT (confirmatory only), and
+  NOISE has never cleared its own pre-registered ES-transfer bar of PF ≥ 1.2.
+- **NinjaTrader divergence, stated plainly:** `EdgeLogNOISE` gained the Short Veto knob
+  (`SkipBotShort` + `DaytypeLo`, default OFF) but the demo leg still runs the baseline
+  core with the live gate until the knob is flipped after an NT restart — the crowned
+  config is forward-tested by the SHADOW engine leg only for now.
+
+---
+
+> Prior update, same day: the COMBINATION study — the "ultimate crown" question. Clean
+> NEGATIVE: nothing clears the pre-registered bar, and the BROADER day-type filter
+> combines WORSE than the narrower one. See the "2026-08-21 — combination study"
+> section, regenerable via tools/noise_combo_study.py.
 > Prior update **2026-08-18** (TRADE CONTEXT feature scan — clean
 > negative, nothing new survived — see the "2026-08-18 — TRADE CONTEXT feature→PnL scan"
 > section, regenerable via tools/noise_context_scan.py).
@@ -93,25 +127,21 @@ not a contradiction.
 
 ---
 
-## ⚠ Config divergence — the crowned champion is NOT what PAPER is forward-testing
+## ⚠ Config divergence — RESOLVED in stages (2026-08-16 and 2026-08-21)
 
-| | lookback | band long | band short | stop_k |
-|---|---|---|---|---|
-| **#225 champion** | 44 | 0.75 | 1.5 (asymmetric) | **1.75** |
-| **PAPER leg, live now** | 14 | 1.5 | 1.5 (symmetric) | **1.0** |
+**HISTORICAL.** This section used to warn that PAPER was forward-testing the hand-built
+round-12 config (lookback 14, symmetric 1.5 bands, stop_k 1.0) while #225's crown was
+44 / 0.75 / 1.5 / k=1.75. That is no longer the live state:
 
-Live config appears in **both** `api/paper.py` (`NOISE_FROZEN`, ~line 67) and the
-NinjaScript `tools/nt/EdgeLogNOISE.cs` (defaults ~line 90) — engine and NT agree with
-each other, but neither matches #225's crowned config.
-
-Consequence for the "is the protective stop validated OOS?" question:
-
-- The **bandwidth-stop concept** now HAS out-of-sample support — a bandwidth stop
-  (k=1.75) is inside a config that passed a fresh 18-month lockbox.
-- The **specific production config** (14 / 1.5 / 1.5 / k=1.0) is still the pre-lockbox
-  2026-08-08 pick from the 25-variant exit sweep. #225's own search did not crown it.
-
-Resolving this divergence is probably worth more than adding any new paper leg.
+- **2026-08-16:** the stale lookback-14 leg (`NOISE_FROZEN`) was RETIRED from the paper
+  board ("remove the old noise raw"). The champion core went on as `NOISE_225` (the raw
+  matched control for the gated legs), and `EdgeLogNOISE`'s NinjaTrader defaults moved to
+  the same core.
+- **2026-08-21:** the crown moved again, to Short Veto (run #241 — see the CROWN CHANGE
+  section at the top), and a `NOISE_SBS` shadow leg was added for it the same day. The
+  ONE divergence left: **NinjaTrader still runs the baseline core + gate; the crowned
+  Short Veto config is shadow-engine only** until `EdgeLogNOISE`'s new `SkipBotShort`
+  knob is flipped on after an NT restart.
 
 Side note: the param set hardcoded at `tools/gate_lookahead_audit.py:233`
 (lookback=44, 0.75/1.5, stop_k=1.75) was previously flagged as an unexplained artifact.

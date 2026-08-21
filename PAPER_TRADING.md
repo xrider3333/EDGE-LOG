@@ -3,7 +3,8 @@
 > **Audience:** any Claude session or human picking this up cold. Everything about the
 > paper-trading system, the ORB look-ahead debacle, and current live state lives here.
 > Sister docs: `BACKTESTING_STACK.md` (validation methodology), `RUNBOARD.md` (compare view).
-> Last full update: **2026-08-11**.
+> Last full update: **2026-08-11**. Legs updated **2026-08-21** (NOISE crown → Short Veto,
+> `NOISE_SBS` shadow leg added, NT divergence recorded).
 
 ## What this is
 
@@ -44,7 +45,14 @@ forward-tested is the PREVIOUS crown, not the current one.**
   breakeven at 1x risk, no partial exit and no trailing stop).
 - The ORB paper leg still runs run #230, the round-one grail-hunt winner, which is what the
   crown was before #234 took it on 2026-08-17.
-- NOISE is aligned: the crowned config and the raw paper leg are the same configuration.
+- NOISE (updated 2026-08-21): the crown moved to the Short Veto config (run #241 — the
+  champion core plus "skip short trades the day after a weak close"). Its own shadow leg
+  `NOISE_SBS` went on the board the same day, with `NOISE_225` (the old champion core)
+  staying as its matched raw control. **The NinjaTrader demo leg does NOT carry the
+  filter yet**: `EdgeLogNOISE` gained the knob (`SkipBotShort`, default OFF) but keeps
+  running the baseline core + gate until the knob is flipped on after an NT restart. So
+  for NOISE the crowned config is forward-tested at the SHADOW layer only, and that is a
+  recorded divergence, not an accident.
 - ENGU-Q is aligned on the certified champion (#226 ETH), with #249 added alongside it as an
   adopted variant under its own matched control.
 
@@ -59,8 +67,9 @@ whether to move the ORB leg onto #234 is the owner call.
 | ENGU-Q L50 | `ENGUQ_1M_ETH_LIM50_1_0.py` #249 — #226 ETH config + resting limit 0.50 x ATR below the signal close, 10-bar gap-honest fill window | **CLEANEST entry we run.** A resting limit is the one entry type that needs no assumption about getting a bar's closing print — you place the order and wait | Shadow: **live since 2026-08-18** · control = the ENGU-Q ETH leg · NT: limit support written, **NOT deployed** |
 | ORB | `ORB_3_4_C221.py` #230 (ORB-40), NQ 5m RTH — **swapped 2026-08-16** off the retired #125 `ORB_3_0` cut | **CLEAN** — close-confirmed entry, the whole point of the grail hunt that produced it | Shadow: live · NT: V1 port retired, **V2 replaces it** |
 | ORB +GATE | #230 + its own crowned **rf hybrid gate @45%** | Same as ORB — a gate is a post-trade overlay trained only on finished trades | Shadow: live · control = the ORB leg |
-| NOISE | `NOISE_1_0.py` hand-built round-12 config, NQ 5m RTH | **CLEAN** (close signal → next-open fill) | Shadow: live · NT: `EdgeLogNOISE` enabled · **never crowned by a run** |
-| NOISE-225 | `NOISE_1_0.py` #225/#202 crowned config (lookback 44, 0.75/1.5, stop 1.75) | CLEAN | Shadow: live · emitted free as NOISE-225 +GATE's control |
+| NOISE | `NOISE_1_0.py` hand-built round-12 config, NQ 5m RTH | **CLEAN** (close signal → next-open fill) | **RETIRED 2026-08-16** ("remove the old noise raw") — never crowned by a run; superseded by NOISE-225 |
+| NOISE-225 | `NOISE_1_0.py` #225/#202/#231 crowned core (lookback 44, 0.75/1.5, stop 1.75) | CLEAN | Shadow: live · emitted free as NOISE-225 +GATE's control · also the matched control for NOISE-241 · NT: `EdgeLogNOISE` runs this core (+ live gate) |
+| NOISE-241 SHORT VETO | `NOISE_1_0.py` #241 crowned config — the NOISE-225 core + skip short entries the day after the prior session closed in the bottom 20% of its own range | CLEAN (the filter is a session-open decision from prior-session data) | **THE NOISE CROWN since 2026-08-21.** Shadow: **live since 2026-08-21** · control = NOISE-225 · NT: knob ported (`SkipBotShort`, default OFF), **NOT enabled** — flipping it waits on an NT restart and an owner call |
 | NOISE-225 +GATE | #225 config + **tree hybrid gate @55%** | CLEAN | Shadow: live · **a forward TEST, not a crown** (below) |
 | BLEND 1:1 | ORB + ENGU-Q | Suspect — the ORB leg was inflated until the 2026-08-16 swap | Rollup only, hidden in the UI |
 
