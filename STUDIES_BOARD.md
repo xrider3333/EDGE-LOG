@@ -123,6 +123,21 @@ up. Two rules keep the sum honest and both matter:
   stages add to $313,409; they are separate measurements, not a partition. The TOTAL column prints
   what the row recorded and flags the gap with a `≠` you can hover; the chart plots the ticked sum.
 
+**More than one family on screen means every row says which family it is.** The mark SHAPE is the
+verdict and carries nothing about the strategy, so when `_reFamsOn.length > 1` the family is printed
+beside the row number on the chart, in the first line of the point hover, and as a tag after the name
+in every table. With one family selected all three are suppressed — it would be the same word on
+every line.
+
+**One `<td>` per column, always.** `_reTotCell` returns a whole cell, not a cell's contents; wrapping
+it in `td()` shipped a nested `<td>` in v73.190 and the browser hoisted it, shifting every figure from
+TOTAL rightwards under the wrong heading for a day. `tools/studies_render_probe.py` now counts cells
+against headings on every table in every case.
+
+**The TOTAL / stages gap is stated, not flagged.** A row's `tot` is not the sum of `is + wf + lb`;
+they are separate measurements. The hover says so. It is not marked as a warning, because the board is
+read on ratios and on the stage columns and neither uses `tot`.
+
 **There is no baseline selector.** One family, one champion — fix a duplicate tag in the registry
 rather than making the reader choose. If two ever appear, the lowest row number wins and the rows say
 so on hover.
@@ -154,7 +169,7 @@ used to be printed there. A chip warning about something wears the warning colou
 **How the controls are laid out.** A grid, **two controls per line**, each one **numbered** so it
 can be named in a sentence rather than described: name on the left, buttons on the right, wrapping
 inside its own cell. Two blocks — 1–6 decide what the chart plots and are always on screen
-(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 AXIS); 5–11 sit behind
+(1 STRATEGY, 2 PROFIT STAGE, 3 VERTICAL AXIS, 4 AXIS) — all four sit under the SCATTER PLOT title, which is the first tile on the board; 5–11 sit behind
 MORE (5 RANGE, 6 DATE, then the filters 7–9), and **10 ORDER, 11 SPLIT BY RUN and 12 COMPARE ON sit on the STUDY TABLES heading**, because the tables are the only thing they touch. FRONTIER and COLOUR were controls here until 2026-08-19, when the owner had them removed. **Add a new control as `_reCtl(number, cap, tip, buttons, tone, span)`**, not as another
 free-floating `_ctlGrp` in a flex row — that is what made the old block unreadable. `span` gives a
 control a full-width line of its own; only 9 STUDY needs it.

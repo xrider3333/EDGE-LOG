@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.193';
+const VERSION='73.194';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.194',date:'2026-08-20',notes:['THE STUDY TABLES WERE SHIFTED BY ONE COLUMN AND ARE FIXED. The TOTAL cell was being wrapped in a second table cell, which is not legal HTML, so the browser lifted the inner one out and every row gained a cell: TOTAL drew empty, its money sat under DRAWDOWN, the drawdown sat under PF, and everything to the right of it was one heading out of place. No figure was ever wrong - they were printed under the wrong headings. The render gate now counts cells against headings on every table in every case, because the row COUNT was right the whole time and nothing noticed.','DRAWDOWN IS RED, heading and figures. It is the only loss on the row and it is printed without a minus sign, so the colour is what says so.','THE TOTAL COLUMN NO LONGER FLAGS ITSELF. A row recorded total is not always the sum of its three stages, and that is still stated on the hover of the cell - but the board is read on ratios and on the stage columns, neither of which uses that number, so it is a fact rather than a warning.','WHICH STRATEGY A ROW BELONGS TO, now that two of them can share the chart. The mark shape is the VERDICT and never said anything about the family, so: each mark carries its strategy beside its row number, every point hover names it in the headline, and every table row wears it as a tag after the name. All three appear ONLY when more than one strategy is on screen - with one selected they would be the same word on every line.','THE BOARD OPENS WITH THE CHART. There is no separate heading tile any more: the first tile IS the chart, it is called SCATTER PLOT, and every control that decides what it plots sits directly under that title. The old chart heading, which restated the strategy selection and the row count, is gone - the rail says the first and the line under the chart says the second.','1 STRATEGY LOSES ITS ALL BUTTON. An empty rail already means nothing is held back, so ALL was a second way of saying the same state.','9 STUDY IS A DROP-DOWN. Sixteen study titles as buttons was the tallest thing in the control block; it is one line now, and one study at a time, which is what reading them one at a time meant anyway.','10 ORDER, 11 SPLIT BY RUN AND 12 COMPARE ON now sit in a block directly under the STUDY TABLES heading. They were pinned to the far right of that heading, which on a wide screen put them the width of the page away from the tables they change.']},
 {v:'73.193',date:'2026-08-20',notes:['ENGU-Q TRADES THAT HAPPENED OVERNIGHT OR ON A SUNDAY COULD NOT DRAW A CHART AT ALL. ENGU-Q trades the 24-hour tape, but the chart was always asking for cash-session bars, so any entry outside 9:30 to 4:00 came back as trade date not found. Those charts open now.','ENGU-Q LIMIT 0.50 was drawing 5-minute candles for a 1-minute strategy. Every leg on the board now asks for its own market and session rather than only the three original ones being recognised by name.']},
 {v:'73.192',date:'2026-08-20',notes:['THE STRATEGIES YOU PICK ON THE PAPER BOARD ARE REMEMBERED NOW. Which legs you have switched off used to be forgotten the moment you reloaded, so the board kept resetting to showing all of them. It is a saved setting like every other choice on the page.','A SELECTION OF TRADES OPENS AS ONE LONG SCROLL. Picking twenty trades used to give you ten and a LOAD 10 MORE button - you already chose them, so all of them are there and you just scroll.','THERE IS A LOADING BAR ACROSS THE TOP OF THE CHART WINDOW while the charts fill in, so you can see it moving rather than reading a count. It disappears when everything has landed.','PREV and NEXT sit next to each other in the single-trade chart window. The position readout used to sit between them, which broke the pair up.']},
 {v:'73.190',date:'2026-08-20',notes:['THE DUPLICATE CROWN IS FIXED IN THE REGISTRY. ORB carried two: row 47, which is run #234 and the standing crown, and row 67, the SAME configuration restated inside the plateau-hunt study. Row 47 keeps the tag; row 67 keeps its figures and its champion verdict and now reads as that study baseline. One family, one champion - so the BASELINE SELECTOR is gone, because there is nothing left to choose between.','1 STRATEGY AND 2 PROFIT STAGE TICK instead of switching. Click NOISE and ENGU-Q and both are on the chart together. PROFIT STAGE loses its TOTAL button and is IS, WF and LB - tick the ones you want and the chart plots their sum.','ONE THING THAT HAD TO BE HANDLED HONESTLY THERE: only 46 of the 215 rows record a separate walk-forward figure. The rest have no walk-forward STAGE at all - their first money column is PRE-LOCKBOX, which already holds the tuning years pooled together. So the sum adds the ticked stages a row ACTUALLY RECORDS and only drops a row that records none of them; ticking all three on a pre-lockbox row gives pre-lockbox plus lockbox, which is its whole run. Any row that lacks a ticked stage says so on its own hover and the count is stated under the chart. Requiring all three would have emptied the chart from 203 rows to 47.','AND THE OTHER: a row TOTAL is not always the sum of its three stages - the NOISE champion records $335,981 while its stages add to $313,409. They are separate measurements. The TOTAL column prints what the row recorded and marks the gap with a sign you can hover; the chart plots the sum you ticked.','READ AS IS NOW 4 AXIS, and its two settings are ABSOLUTE and CHAMPION. The words crown and baseline are off this board - the verdict reads CHAMPION in the key too. The dashed crosshair that only CHAMPION used to draw is now drawn in ABSOLUTE as well, on the champion own position, so both settings show the same reference: right of the vertical is a deeper drawdown than the champion took, above the horizontal is more money than it made.','THE AXES ARE DRAWN: two solid lines and a tick mark at every gridline, rather than a frame implied by the gridlines alone.','HOVERING A POINT LEADS WITH THE ANSWER - row, name, rank, total and profit factor in caps above a rule, with everything else underneath. Hovering the READ cell of a table now gives the whole row: the verdict and what it means, what the variant does, the money, the ratios, the trade count and where it came from, where it ran and over what stretch of history.']},
@@ -18292,10 +18293,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const a=_reNum(rw,'is'),b=_reNum(rw,'wf'),c=_reNum(rw,'lb');
           const sum=(a==null||b==null||c==null)?null:(a+b+c);
           const off=(sum!=null&&Math.abs(sum-t)>Math.max(1,Math.abs(t)*0.005));
-          const tip=off?('This row records a total of '+_reExact(t)+', while its three stages add up to '+_reExact(sum)+' - a difference of '+_reExact(Math.abs(t-sum))+'. They are separate measurements rather than a partition of the run, so neither is wrong and neither is derived from the other. Ticking all three stages above plots the SUM; this column always prints what the row itself recorded.')
+          const tip=off?('The whole run, end to end, as the row recorded it: '+_reExact(t)+'. Its three stages add up to '+_reExact(sum)+' instead, a difference of '+_reExact(Math.abs(t-sum))+' - they are separate measurements rather than a partition of the run, so neither is derived from the other. It is stated rather than flagged, because this board is read on ratios and on the stage columns, and neither of those uses this number.')
                        :('The whole run, end to end, as the row recorded it. Exact: '+_reExact(t)+'.');
           return '<td title="'+_reEsc(tip)+'" style="text-align:right;padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums;cursor:help">'
-            +_reMoney(t)+(off?('<span style="color:'+_reWarnC+'"> ≠</span>'):'')+'</td>';};
+            +_reMoney(t)+'</td>';};
         const _reStWord=(st,sg)=>(sg==='is')?((((st&&st.isLbl))==='PRE-LOCKBOX')?'Pre-lockbox':'In-sample'):(sg==='wf'?'Walk-forward':(sg==='lb'?'Lockbox':'Total'));
         const _reMode=()=>_reAxis;
         // the plotted value: the chosen stage profit, or that profit divided by the worst
@@ -18475,12 +18476,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reLiveInline(rw),'left')
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reFamTag(st,rw)+_reLiveInline(rw),'left')
             +td(_reCell(st,rw,'is',_reMoney),null,(_reSegs.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegs.indexOf('wf')>=0)?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegs.indexOf('lb')>=0)?em:'')
-            +td(_reTotCell(st,rw))
-            +td(_reCell(st,rw,'dd',v=>_reMoneyPlain(Math.abs(v))))
+            +_reTotCell(st,rw)
+            +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'">'+_reMoneyPlain(Math.abs(v))+'</span>'))
             +td(_reCell(st,rw,'pf',v=>v.toFixed(2)))
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +td(pddCell)
@@ -18619,14 +18620,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
               if(fams.length!==1)return null;      // several families, several champions, no one crosshair
               const b=_reBaseOf(fams[0]);if(!b)return null;
               const bx=_reNum(b.r,_reXF),by=_reYv(b.st,b.r,com);
-              return (bx==null||by==null)?null:{x:bx,y:by,nm:b.r.name+' \u00b7 row '+b.r.n};})();
+              return (bx==null||by==null)?null:{x:bx,y:by,nm:'row '+b.r.n};})();
             if(_cx){
               if(_cx.x>xe[0]&&_cx.x<xe[1]){const zx=px(_cx.x);
                 g+='<line x1="'+zx.toFixed(1)+'" y1="'+T+'" x2="'+zx.toFixed(1)+'" y2="'+B+'" stroke="var(--text4)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.75"/>';}
               if(_cx.y>ye[0]&&_cx.y<ye[1]){const zy=py(_cx.y);
                 g+='<line x1="'+L+'" y1="'+zy.toFixed(1)+'" x2="'+R+'" y2="'+zy.toFixed(1)+'" stroke="var(--text4)" stroke-width="1.2" stroke-dasharray="5,4" opacity="0.75"/>'
                   +'<text x="'+(R-4)+'" y="'+(zy+13).toFixed(1)+'" fill="var(--text4)" font-size="10" text-anchor="end">'
-                  +_reEsc(_cx.nm?('the champion, '+_cx.nm+', sits on these lines'):'the champion sits on these lines')+'</text>';}}
+                  +_reEsc(_cx.nm?('champion \u00b7 '+_cx.nm):'champion')+'</text>';}}
             g+='<text x="'+((L+R)/2)+'" y="'+XC+'" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'+_reEsc(_reXCapNow())+'</text>'
               +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'+_reEsc(_reYcapAll(items,com))+'</text>'
               +'<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--text3)" stroke-width="1.8"/>'
@@ -18644,7 +18645,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               const sz=_reSz[r.tone]||6.5,cx=px(p.x),cy=py(p.y);
               // THE HEADLINE: rank, row, total money, profit factor. Everything else is detail.
               const _tot=_reNum(r,'tot'),_pf=_reNum(r,'pf');
-              let tp='ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()
+              let tp='ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()+'  \u00b7  '+String(_reFamOf(st,r)).toUpperCase()
                 +'\n'+(grank[st.key+':'+r.n]?('RANK '+grank[st.key+':'+r.n]+' of '+pts.length):'UNRANKED')
                 +'   TOTAL '+((_tot==null)?'not measured':_reVal(_tot,'money'))
                 +'   PF '+((_pf==null)?'not measured':_pf.toFixed(2))
@@ -18674,7 +18675,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+9).toFixed(1)+'" fill="transparent"/>'
                 +ring
                 +_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
-                +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+r.n+'</text>'):'')
+                +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
             g+='<text x="'+((L+R)/2)+'" y="'+((T+B)/2)+'" fill="var(--text5)" font-size="13" text-anchor="middle">Nothing to plot: no row now shown has both figures on the basis selected.</text>';}
@@ -18687,6 +18688,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               +order.map(w=>'Row'+(seen[w].length>1?'s ':' ')+seen[w].join(', ')+': '+w).join(' ')
               +' Nothing was substituted to put them on.';}
           if(_reHidden)omit+=' A further '+_reHidden+' row'+(_reHidden>1?'s are':' is')+' not on the board at all, held back by the filters or the time scope above.';
+          if(_reFamsOn.length>1)omit+=' More than one strategy is on the chart, so each mark carries its strategy beside its row number, every point hover names it in its headline, and every table row wears it as a tag after the name. The mark SHAPE is the verdict, not the strategy.';
           if(!showN)omit+=' There are more than '+_reLblMax+' points on the chart, so the row numbers beside the marks are hidden to stop them overlapping into a smear - hover any point and it names its row, its strategy and its study. Narrow the STRATEGY rail or a filter to bring the numbers back. No point was dropped.';
           // THE ONE HONESTY COST OF PUTTING EVERY STUDY ON ONE CHART: the in-sample column does
           //   not mean the same thing in every study. When the plotted rows disagree, say which
@@ -18752,6 +18754,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _rePrep.forEach(p=>p.rows.forEach(r=>{if(_reBasCan(p.st,r,_reComAll))_reBasOk++;else _reBasNo.push(r.n);}));
         const _reItems=[];
         _rePrep.forEach(p=>p.rows.forEach(r=>_reItems.push({st:p.st,r:r})));
+        // the distinct families now on screen. One means the family never needs restating.
+        const _reFamsOn=(()=>{const o=[];_reItems.forEach(it=>{const f=_reFamOf(it.st,it.r);if(o.indexOf(f)<0)o.push(f);});return o;})();
+        const _reFamTag=(st,rw)=>(_reFamsOn.length>1)
+          ?('<span title="'+_reEsc('This row is a '+_reFamOf(st,rw)+' variant. More than one strategy is on the board, so every row says which one it belongs to.')+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text4);border:1px solid var(--border);cursor:help">'+_reEsc(_reFamOf(st,rw))+'</span>'):'';
         // Which study tables are open. Closed is the default, because sixteen open tables were
         //   most of the page length and the chart is what the board is for. The set is
         //   remembered. One exception, and it is the obvious one: when the filters have left
@@ -18833,7 +18839,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
             +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
-            +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Always shown as a positive number.')
+            +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Printed WITHOUT a minus sign, because the heading already says it is a loss - it is drawn in red for the same reason.',';color:'+_reDn)
             +_hd('PF',null,'Profit factor: gross wins divided by gross losses. Of everything on this board it is the figure LEAST damaged by two rows covering different stretches of history, because it is a property of the whole trade population rather than of the calendar.')
             +_hd('$/TRD',null,_rePptTip)
             +_hd('MAR',null,'MAR is what this app calls profit divided by the worst drawdown, on the RUNBOARD and on the 1E matrix as well as here - the same division under one name. It is NOT the same thing as PF beside it, and the two answer different questions. PF is gross winnings over gross losses counted trade by trade - how much the winners outweigh the losers. This is '+stg.toLowerCase()+' profit over the SINGLE worst peak-to-trough loss - how much the worst stretch cost to earn, which the rest of the trading world calls MAR or recovery factor. A profit factor can be high while this is low, and the other way round. '+stg+' profit divided by the worst drawdown. This follows the stage selected above, so it changes when the stage changes. It is read over each row OWN window, so under a different comparison basis it is the basis columns beside it, not this one, that the chart is plotting.')
@@ -18865,8 +18871,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text4)">STUDY TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
-            +(_reSolo?' \u00b7 the only study left is open':'')+'</span>'
-            +'<span style="margin-left:auto;display:inline-grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:4px 12px;align-items:start">'+_reOrdBtns+_reSplitRunBtns+_reBasBtns+'</span></div>'
+            +(_reSolo?' \u00b7 the only study left is open':'')+'</span></div>'
+            +'<div style="margin:0 0 9px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+            +_reGrid(_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
@@ -18921,7 +18928,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   whole title on hover. Every cell in the grid wraps, so nothing runs off the edge.
         const _reShort=v=>{const t=String(v);return (t.length>26)?(t.slice(0,25)+'\u2026'):t;};
         let _reFiltN=6;
-        const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam').map(f=>{const sel=_reFilt[f.k]||[];
+        const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam'&&f.k!=='study').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
             _reOpts[f.k].map(v=>_tabBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',
@@ -18942,10 +18949,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reFamPick=(_reFilt.fam||[]).slice();
         const _reFamSel=_reFamPick.length?_reFamPick.join(' + '):'';
         const _reFamStudies=f=>RESEARCH_STUDIES.filter(st=>(st.rows||[]).some(r=>_reFamOf(st,r)===f)).length;
-        const _reFamRail=_reCtl(1,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both. ALL clears them. This IS the strategy-type filter; there used to be a second row of the same buttons further down and it was removed as a duplicate',
-            _tabBtn('data-refam=""','ALL \u00b7 '+_reTotal,!_reFamPick.length,'every strategy on the board at once, '+_reTotal+' rows across '+RESEARCH_STUDIES.length+' studies. Useful for seeing the whole research effort in one picture, but remember the families do not share a window, so read the common-window line below before comparing across them',_TONE.samp)
-           +_reOpts.fam.map(v=>_tabBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
+        const _reFamRail=_reCtl(1,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both, and each mark, hover and table row then says which family it belongs to. Untick everything and the whole board is shown, which is why there is no ALL button: an empty rail already means nothing is being held back.',
+            _reOpts.fam.map(v=>_tabBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
               'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)+' variants tested across '+_reFamStudies(v)+' studies. This is what the strategy finders actually tried for this family, whether or not it was ever saved as a real validate run',_TONE.samp)).join(''),_TONE.samp);
+        // 9 STUDY as a drop-down. The value is still written into the same filter the chips
+        //   used, so nothing downstream had to change; an empty value clears it.
+        const _reStudyPick=((_reFilt.study||[])[0])||'';
+        const _reStudyCnt={};
+        RESEARCH_STUDIES.forEach(st=>{_reStudyCnt[String(st.title||st.key)]=(st.rows||[]).length;});
+        const _reStudySel=_reCtl(9,'STUDY','which piece of research the rows came from. One strategy can have five studies behind it, and this is how you read them one at a time on the one chart. It narrows the chart and the tables together; ALL STUDIES puts every one of them back.',
+          '<select data-restudysel style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
+          +'<option value=""'+(_reStudyPick?'':' selected')+'>ALL STUDIES \u00b7 '+_reTotal+'</option>'
+          +_reOpts.study.map(v=>'<option value="'+_reEsc(v)+'"'+((_reStudyPick===v)?' selected':'')+'>'+_reEsc(v)+' \u00b7 '+(_reStudyCnt[v]||0)+'</option>').join('')
+          +'</select>',_reFT);
         const _reClear=_reFiltOn?('<span data-reclear title="drop every filter and show all rows again" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;color:var(--text3);background:color-mix(in srgb,var(--red) 16%,transparent)">CLEAR FILTERS</span>'):'';
         const _reCountTx=(_reHidden?(_reHidden+' of the '+_reTotal+' rows on this board are not shown — '+_reFiltOut+' held back by the filters and '+_reScopeOut+' by the range. '+_reShown+' are shown, on the chart and in the tables alike.')
                      :('All '+_reTotal+' rows on this board are shown. Neither the filters nor the range is narrowing anything.'));
@@ -19001,30 +19017,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<span data-rehelptog title="what each comparison basis means, which ratio survives a mismatched window, and what this board refuses to do" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;cursor:pointer;color:var(--text4);border:1px solid var(--border);background:var(--bg1)">? HOW TO READ</span>'
           +'</div>';
         body=modeToggle
+            +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap"><div data-resplitl style="width:'+_reSplitW+'%;min-width:300px;position:sticky;top:6px">'):'')
           +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
-            +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">STUDIES</span>'
-            +'<span title="'+_reEsc('Every completed research study on one scatter chart. Pick a strategy on the rail below to read one family on its own; open a study table underneath to read its rows, and a row with a run number opens that run report.')+'" style="font-size:8px;color:var(--text5);cursor:help">every variant tested, one chart</span>'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">SCATTER PLOT</span>'
             +'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+_reHelpBtn+_reMoreBtn+'</span></div>'
-            // ALWAYS ON SCREEN: the strategy rail, then the six controls that decide what the
-            //   chart plots. READ AS and FRONTIER live here rather than on the chart tile - the
-            //   owner went looking for them among the controls and could not find them there.
+            // THE CHART'S OWN CONTROLS, directly under its title: the strategy rail and the
+            //   three settings that decide what the two axes measure.
             +'<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
             +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns)+'</div>'
-            // BEHIND "MORE": the comparison basis, the zoom, the scope and every filter chip.
+            // BEHIND "MORE": the range, the date it reads, and the filters. These narrow the
+            //   chart and the tables together, which is why they sit with the chart rather than
+            //   with the tables - a filter is not a table setting.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:8px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px">'
-            +_reGrid(_reScopeBtns+_reSBasisBtns+_reFiltBtns
+            +_reGrid(_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
               +(_reClear?('<div></div><div style="display:flex;gap:4px;margin-top:2px">'+_reClear+'</div>'):''))
             +'</div>'
-            ,0)
-            +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap"><div data-resplitl style="width:'+_reSplitW+'%;min-width:300px;position:sticky;top:6px">'):'')
-          +tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:7px">'
-            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+_reEsc(_reFamSel?(_reFamSel+' \u2014 EVERYTHING TESTED'):'EVERY STRATEGY \u2014 EVERYTHING TESTED')+'</span>'
-            +'<span title="'+_reEsc(_reFamSel
-              ?('Every '+_reFamSel+' variant the research has tested, on one pair of axes: how much it lost at its worst across the bottom, how much it made up the side. Use the STRATEGY rail above to step to the next one.')
-              :('Every variant on the board at once, across all '+RESEARCH_STUDIES.length+' studies and all '+_reOpts.fam.length+' strategies. Pick a single strategy on the rail above to read one family on its own \u2014 which is what this chart is for, because two different strategies rarely cover the same stretch of history.'))
-              +'" style="font-size:8px;color:var(--text5);cursor:help">'+_reShown+' / '+_reTotal+' rows</span>'
-            +'</div>'
-            +_reChartAll(_reItems,_reComAll),0)
+            +'<div style="margin-top:8px">'+_reChartAll(_reItems,_reComAll)+'</div>',0)
             +(_reSplit?('</div><div data-resplitbar title="'+_reEsc('Drag left or right to give the chart more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half. The bar under the chart still sets its height.')+'" style="flex:0 0 12px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:64px;border-radius:2px;background:var(--border)"></div></div><div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
           +_reBody
             +(_reSplit?'</div></div>':'')
@@ -21499,6 +21507,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   below write, so the rail and the chips are one setting rather than two that could
       //   disagree. A rail button ticks exactly that one family (never adds to a selection),
       //   and ALL clears the family filter while leaving every other filter alone.
+      content.querySelectorAll('[data-restudysel]').forEach(sl=>{sl.onchange=()=>{
+        let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
+        if(sl.value)o.study=[sl.value];else delete o.study;
+        savePref('resFilt',JSON.stringify(o));renderApp();};});
       content.querySelectorAll('[data-refam]').forEach(b=>{b.onclick=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
         const v=b.dataset.refam;

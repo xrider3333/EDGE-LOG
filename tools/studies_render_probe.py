@@ -35,6 +35,9 @@ WHAT IT ASSERTS
   * the strategy rail exists and picking a strategy narrows both the chart and
     the tables (fewer rows AND fewer points than ALL)
   * no case silently empties the board
+  * every study-table row carries exactly as many cells as its table has headings
+    (a nested <td> shipped in v73.190 and silently shifted every figure from TOTAL
+    rightwards under the wrong heading)
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE.
 
@@ -103,6 +106,21 @@ var CASES = __CASES__;
         r.charts=d.querySelectorAll('[data-rechh]').length;
         var ap=d.getElementById('app');
         r.appLen=ap?ap.innerHTML.length:-1;
+        // EVERY STUDY TABLE ROW MUST HAVE AS MANY CELLS AS THE TABLE HAS HEADINGS.
+        //   v73.190 shipped a <td> nested inside a <td>. The browser lifted the inner one
+        //   out, every row gained a cell, and from TOTAL rightwards every figure sat under
+        //   the wrong heading. Nothing here noticed, because the row COUNT was right. So
+        //   the columns are counted now.
+        r.colBad=(function(){var out=[];
+          var tb=d.querySelectorAll('table');
+          for(var t=0;t<tb.length;t++){
+            var th=tb[t].querySelectorAll('thead th'); if(!th.length)continue;
+            var rs=tb[t].querySelectorAll('tbody tr[data-rerow]');
+            for(var k=0;k<rs.length;k++){
+              if(rs[k].cells.length!==th.length){
+                out.push(rs[k].getAttribute('data-rerow')+' has '+rs[k].cells.length+' cells against '+th.length+' headings');
+                break;}}}
+          return out;})();
         out.cases[nm]=r;
       }
     }catch(e){out.err=String(e);}
@@ -198,6 +216,8 @@ def main():
             bad.append('%s: %d charts drawn, expected exactly 1' % (nm, r['charts']))
         if r['rail'] < 2:
             bad.append('%s: strategy rail missing (%d buttons)' % (nm, r['rail']))
+        if r.get('colBad'):
+            bad.append('%s: study table column mismatch - %s' % (nm, '; '.join(r['colBad'][:3])))
         if r['rows'] < 1:
             bad.append('%s: no table rows rendered' % nm)
     a, o = cs.get('all'), cs.get('fam-ORB')
