@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.187';
+const VERSION='73.188';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.188',date:'2026-08-20',notes:['THE VERDICT BUTTONS ARE MARK-SIZED. They were rendering at legend size, which made five of them read as a row of pictures rather than a row of controls. The legend keeps the full-size mark.','THE STATUS CHIP STRIP IS GONE - rows shown, comparison basis, range and shared window. Every one of them summarised something the board already says where it matters: the row count is on the chart heading, the basis and the range are on their own controls, and the shared window is the DATA WINDOW column with a warning sign on any row reaching outside it. HOW TO READ was the one thing on that strip worth keeping and it moves up beside MORE.','CHAMPION OR BASELINE IS JUST BASELINE in the key, which is what it is: under VS CROWN it is the row sitting on the crossing of the two zero lines, with every other point measured from it.','THE BASELINE RAIL NAMES ITS ROWS. It was printing bare row numbers - row 1 or row 97 - with no way to tell what either was. It now reads Champion (row 1) and Paper: NOISE (row 97), says which study each came from on hover, and says that the one you pick is the point on the crossing of the zero lines.']},
 {v:'73.187',date:'2026-08-20',notes:['YOU CAN NOW SELECT SEVERAL TRADES AT ONCE IN THE PAPER TAB AND OPEN ALL THEIR CHARTS TOGETHER. Click a row to select it, hold the button down and drag across rows to take a run of them, shift-click to stretch the selection to where you clicked, and ctrl-click to add or drop a single row. The heading counts what is selected and offers OPEN N CHARTS.','The charts arrive in one scrolling window, one card per trade, instead of a modal you had to close and reopen for every trade. Each card zooms with ctrl and the wheel, pans by dragging, and can be saved on its own as a PNG or all together through SAVE ALL.','The selection survives re-sorting and re-filtering the table, and the CHART button on a row still opens that one trade on its own.','That chart window used to assume every trade came from one run of one instrument. It now reads each trade\u2019s own market and timeframe, which is what let a mixed list of paper legs open in it at all.']},
 {v:'73.186',date:'2026-08-20',notes:['CONTROL NAMES ARE LEFT ALIGNED. Right-aligning them against an auto-width column meant every row started somewhere different.','TIME SCOPE AND THE DISCOVERED FILTER WERE THE SAME QUESTION ASKED TWICE - one as a rolling window, one as a list of every distinct date in the registry. They are one control now, 5 RANGE: ALL, TODAY, WK, MO, 3MO, and SELECT, which opens the calendar on a from and a to. Either end of SELECT can be left blank for open-ended. The word past is gone from every label.','VERDICT is the marks themselves now, not five lines of words - the same shapes the chart draws, with the name on the hover.','RUN STATUS is just RUN, and its two buttons say EL and .PY: EL is a real Auto-Validate run persisted in EDGELOG with a run number and a report, .PY is local research run on the machine and never saved as a run.','THE STATUS FILTER IS GONE. Crowned and in-paper are already pills beside the name in the table, so filtering on them was a third way to say the same thing.','THE LINE OF TEXT UNDER THE CHART IS GONE. Only the verdict legend is left, with a small circled i beside it whose hover still carries every count and every reason that line used to print - the rows plotted, the rows that could not be, and why. Nothing measured was dropped; it is one hover away instead of always on screen.','THE AXES ARE READABLE. Tick numbers and axis captions were drawn in the faintest ink the theme has, at a size chosen when the chart had the whole page - in the split layout it has half that and they disappeared. Both go up in size and contrast, and the two axis lines are drawn rather than left to the gridlines.','Controls renumber 1 to 12.']},
 {v:'73.185',date:'2026-08-20',notes:['ENGU-Q LIMIT 0.50 now carries a limit entry tag on its row. Two ENGU-Q rows sitting side by side with identical columns is a puzzle unless the row says what makes them different, so hovering the tag explains it: same settings, the only change is that it rests a limit order half an ATR below the signal close and drops the trade if it never fills.','The tag also carries the honest caveat from its validate - entering lower against the same stop widens risk, so it fails the pre-registered net-per-drawdown bar. It is a candidate, not a winner.','Any leg can now carry a tag like this, rather than the board hard-coding one strategy name.']},
@@ -18072,7 +18073,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reUp=(_reColEff==='on')?'#4ade80':((_reColEff==='off')?'var(--text2)':'var(--green)');
         const _reDn=(_reColEff==='on')?'#f87171':((_reColEff==='off')?'var(--text3)':'var(--red)');
         const _reWarnC=(_reColEff==='on')?'#fbbf24':((_reColEff==='off')?'var(--text3)':'var(--yellow)');
-        const _reToneNm={champ:'champion or baseline',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
+        const _reToneNm={champ:'baseline',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
         const _reToneMk={champ:'large filled circle with a bright outline',good:'filled square',frag:'hollow circle',fail:'cross',ref:'hollow triangle'};
         // -- STATUS (owner ask 2026-08-19: "way to see whats being forward tested in addition
         //    to whats crowned?"). A good backtest and a thing actually being traded forward are
@@ -18256,7 +18257,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {k:'fam',cap:'STRATEGY TYPE',tip:'which strategy family the row belongs to - this comes off the row tag in the registry, so a new family appears here on its own',
            val:(st,r)=>String(r.fam||st.fam||'UNTAGGED'),lbl:v=>v},
           {k:'tone',cap:'VERDICT',tip:'how the row was judged when the study closed. The buttons are the marks themselves, the same ones the chart draws - hover one for its name',
-           val:(st,r)=>String(r.tone||'ref'),lbl:v=>_reMk(v),raw:1,btip:v=>(_reToneNm[v]||v).toUpperCase()+' \u2014 drawn on the chart as a '+(_reToneMk[v]||'mark')},
+           val:(st,r)=>String(r.tone||'ref'),lbl:v=>_reMkSm(v),raw:1,btip:v=>(_reToneNm[v]||v).toUpperCase()+' \u2014 drawn on the chart as a '+(_reToneMk[v]||'mark')},
           {k:'run',cap:'RUN',tip:'where the row was computed: EL is a real Auto-Validate run persisted in EDGELOG with a run number and a report, .PY is local research run on the machine and never saved as a run',
            val:(st,r)=>((Array.isArray(r.runs)&&r.runs.length)?'ran':'local'),lbl:v=>(v==='ran'?'EL':'.PY'),
            btip:v=>(v==='ran')?'EL \u2014 persisted as a real Auto-Validate run in EDGELOG, so it has a run number, a saved report and a recorded data window'
@@ -18286,6 +18287,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const h=s*1.15;
           return '<path d="M'+x+' '+(cy-h).toFixed(1)+'L'+(cx+h).toFixed(1)+' '+(cy+h*0.78).toFixed(1)+'L'+(cx-h).toFixed(1)+' '+(cy+h*0.78).toFixed(1)+'Z" fill="none" stroke="'+col+'" stroke-width="1.9" stroke-opacity="'+so+'"/>';};
         const _reMk=tone=>'<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px;margin-right:5px">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
+        // the same mark at button size: no gutter, and small enough that five of them read as a
+        //   row of controls rather than a row of pictures.
+        const _reMkSm=tone=>'<svg width="10" height="10" viewBox="0 0 16 16" style="vertical-align:-1px;display:block">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
         // the CROWN / PAPER pills. Two separate pills rather than one four-way word, because a
         // row that is both is the interesting case and it should look like both at a glance.
         const _rePill=(t,c)=>'<span style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.6px;padding:2px 5px;border-radius:5px;margin-right:3px;color:var(--text2);background:color-mix(in srgb,'+c+' 22%,transparent);border:1px solid color-mix(in srgb,'+c+' 48%,transparent)">'+t+'</span>';
@@ -18787,14 +18791,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const parts=fams.map(f=>{const c=_reBaseCand[f]||[];
             if(!c.length)return '<span style="font-size:8px;color:'+_reWarnC+'" title="'+_reEsc(_reBaseWhy(f))+'">'+_reEsc(f)+': no declared crown</span>';
             const pick=_reBaseOf(f);
-            if(c.length===1)return '<span style="font-size:8px;color:var(--text5)" title="'+_reEsc('The '+f+' family reads against row '+c[0].r.n+', '+c[0].r.name+', which is the one row in it tagged as the crowned configuration.')+'">'+_reEsc(f)+' \u2192 row '+c[0].r.n+'</span>';
+            if(c.length===1)return '<span style="font-size:8px;color:var(--text5)" title="'+_reEsc('The '+f+' family reads against row '+c[0].r.n+', '+c[0].r.name+', from the study "'+c[0].st.title+'" - the one row in this family tagged as the crowned configuration. It is the point sitting on the crossing of the two zero lines; every other point is measured from it.')+'">'+_reEsc(f)+' \u2192 '+_reEsc(c[0].r.name)+' (row '+c[0].r.n+')</span>';
             void pick;
             return _ctlGrp(f,'this family has more than one row tagged crowned, which the studies contract says should never happen. Pick which one the chart reads against; the tags themselves are untouched',
-              c.map(o=>_tabBtn('data-resbase="'+_reEsc(f)+'" data-resbasen="'+o.r.n+'"','row '+o.r.n,!!(pick&&pick.r.n===o.r.n),
-                _reEsc(o.r.name)+' \u2014 '+_reEsc(o.st.title),_reWarnC)).join(''),_reWarnC);});
+              c.map(o=>_tabBtn('data-resbase="'+_reEsc(f)+'" data-resbasen="'+o.r.n+'"',_reEsc(o.r.name)+' \u00b7 '+o.r.n,!!(pick&&pick.r.n===o.r.n),
+                'Row '+o.r.n+', '+_reEsc(o.r.name)+', from the study "'+_reEsc(o.st.title)+'". Pick it and it becomes the point on the crossing of the two zero lines, with every other '+_reEsc(f)+' variant measured from it. The tag itself is not changed.',_reWarnC)).join(''),_reWarnC);});
           const bad=fams.filter(f=>!_reBaseOf(f)||(_reBaseCand[f]||[]).length>1).length;
           return '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 8px;padding:5px 8px;border:1px solid '+(bad?('color-mix(in srgb,'+_reWarnC+' 40%,transparent)'):'var(--border2)')+';border-radius:8px">'
-            +'<span style="font-size:7px;font-weight:700;letter-spacing:.5px;color:var(--text5)">BASELINE</span>'+parts.join('')+'</div>';})();
+            +'<span title="'+_reEsc('The row every other point is measured from while READ AS is set to VS CROWN. It is the one sitting on the crossing of the two zero lines - zero money and zero drawdown against itself.')+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;color:var(--text5);cursor:help">BASELINE</span>'+parts.join('')+'</div>';})();
         const _reMoreBtn='<span data-remoretog title="'+_reEsc((_reMore?'hide':'show')+' the rest of the controls: the comparison basis, the value zoom, the time scope, the scope date, the colour setting and every filter chip. They keep working while hidden - the status chips below always say what is in force.')+'" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;color:'+(_reMore?'var(--text2)':'var(--text4)')+';border:1px solid var(--border);background:'+(_reMore?'var(--bg2)':'var(--bg1)')+'">'+(_reMore?'\u25b4 LESS':'\u25be MORE')+(_reFiltOn?' \u00b7 filtered':'')+'</span>';
         const _reStageBtns=_reCtl(2,'PROFIT STAGE','which stretch of history every study is read on - the chart height, the highlighted column and the profit divided by drawdown column all follow it',
             _reStages.map(sg=>_tabBtn('data-resstage="'+sg+'"',_reStageNm[sg],_reStage===sg,
@@ -18893,7 +18897,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   something wears the warning colour, so a glance still tells you to look.
         const _reChip=(txt,tip,warn)=>'<span title="'+_reEsc(tip)+'" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;cursor:help;white-space:nowrap;color:'+(warn?_reWarnC:'var(--text4)')+';border:1px solid '+(warn?('color-mix(in srgb,'+_reWarnC+' 45%,transparent)'):'var(--border)')+';background:var(--bg1)">'+_reEsc(txt)+'</span>';
         const _reWinChip=(_reComAll.f?(_reComAll.f+'\u2192'+_reComAll.t):'window unknown');
-        const _reStatus='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:8px">'
+        // the chips this used to build were removed on 2026-08-20; only the HOW TO READ toggle
+        //   survived, and it moved up beside MORE. _reCountTx, _reBasTx, _reScopeTx and _reWinTx
+        //   are still computed above and still carry the full sentences, so putting the strip back
+        //   is a matter of rendering them again.
+        const _reHelpBtn='<span data-rehelptog title="'+_reEsc('what each comparison basis means, which ratio survives a mismatched window, and what this board refuses to do')+'" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 7px;border-radius:6px;cursor:pointer;color:'+(_reHelp?'var(--text2)':'var(--text4)')+';border:1px solid var(--border);background:'+(_reHelp?'var(--bg2)':'var(--bg1)')+'">? HOW TO READ</span>';
+        const _reStatusUnused='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:8px">'
           +_reChip(_reShown+' / '+_reTotal+' rows',_reCountTx,!!_reHidden)
           +_reChip(_reBasNm[_reBasis],_reBasTx,_reBasis!=='asis')
           +_reChip(_reSelOn?((_reSelFrom||'\u2026')+'\u2192'+(_reSelTo||'\u2026')):(_reScopeN?_reScopeNm:'ALL TIME'),_reScopeTx,!!(_reScopeN||_reSelOn))
@@ -18904,7 +18913,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">STUDIES</span>'
             +'<span title="'+_reEsc('Every completed research study on one scatter chart. Pick a strategy on the rail below to read one family on its own; open a study table underneath to read its rows, and a row with a run number opens that run report.')+'" style="font-size:8px;color:var(--text5);cursor:help">every variant tested, one chart</span>'
-            +'<span style="margin-left:auto">'+_reMoreBtn+'</span></div>'
+            +'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+_reHelpBtn+_reMoreBtn+'</span></div>'
             // ALWAYS ON SCREEN: the strategy rail, then the six controls that decide what the
             //   chart plots. READ AS and FRONTIER live here rather than on the chart tile - the
             //   owner went looking for them among the controls and could not find them there.
@@ -18915,7 +18924,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +_reGrid(_reScopeBtns+_reSBasisBtns+_reFiltBtns
               +(_reClear?('<div></div><div style="display:flex;gap:4px;margin-top:2px">'+_reClear+'</div>'):''))
             +'</div>'
-            +_reStatus
             ,0)
             +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap"><div data-resplitl style="width:'+_reSplitW+'%;min-width:300px;position:sticky;top:6px">'):'')
           +tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:7px">'
