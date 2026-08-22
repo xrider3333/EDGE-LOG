@@ -141,10 +141,13 @@ deserves a fresh single-strategy re-validation before trust.*
 
 | # | Strategy | What it is | Status |
 |---|---|---|---|
-| new | **ORB 3.1** · low-DOF + scale-out *(`ORB_3_1.py`)* | ORB 3.0 base + optional partial + **bar-trailing stop** | ✅ **Current deployable** at `p0/trail5` (single-lot ride + 5-bar trail). Run #125. WF + lockbox + ES transfer all PASS. See [`ORB.md`](ORB.md). |
+| **#234** | **ORB 3.6 · C2 "ride + breakeven"** *(`ORB_3_6_C2.py`, pinned)* | #230 entry (OR 2 · first-candle dir · **close-confirmed** · buf 0.25 · stop 2.0 · v-pace 0.7 · ATR 0.7) + ride to 5.5R with breakeven at 1R; partial & trail OFF | ⭐ **ORB CROWN / BASELINE (owner, 2026-08-21).** $389,874 · PF 1.31 · DD $29,142 · net/DD 13.38 · LB $88,943 PF 1.45 · WF 7/8 · ES ✓ · PASS 6/6. Six one-knob neighbours (#239–255) all PASS = plateau. Open search of the same space (#264) could not find it and its own pick FAILED. **In paper from 2026-08-24** (ORB + ORB_H legs). See STUDIES board rows 47/67. |
+| #230 | ORB 3.4 · C221 *(`ORB_3_4_C221.py`)* | same entry, partial 3R + trail 3 | ⏸️ superseded by #234 (same 2,607 entries, worse exit). Legal; was paper 2026-08-16→08-21. |
+| #257/#266 | ORB 3.6 · E1 / G115 (entry re-opened) | buffer 0.30, stop 2.50, regime filter 0.5/off | 🟡 PASS, best walk-forward on the board (wfe 4.95 / 5.10) but **no ES edge** (1.000/1.003) and more DD — not crowned |
+| new | ~~ORB 3.1~~ · low-DOF + scale-out *(`ORB_3_1.py`)* | ORB 3.0 base + partial + bar-trailing stop | ❌ **VOIDED 2026-08-11** — touch-entry + look-ahead volume filter (#125 $360k not live-achievable). Whole touch-entry family (2.0/3.0/3.1/3.2/3.3 + forks) voided; see [`ORB.md`](ORB.md) banner. |
 | new | ORB 3.2 · trail research *(`ORB_3_2.py`)* | 3.1 + chandelier/activate/breakeven levers | 🔬 research only — the smarter trails overfit / don't beat the simple bar-trail (invariant-verified == 3.1 when off) |
 | new | ORB 3.3 · time-structure research *(`ORB_3_3.py`)* | 3.1 + entry-time cutoff + midday time-stop | 🔬 research only — time-stop ✗; entry-cutoff shows morning breakouts carry ~2× PF (a size-concentration lead, not a truncation) |
-| 20 | **ORB 3.0** · low-DOF deployable *(formerly "ORB SIMPLE")* | breakout of the opening range, stripped to **5 knobs** (no ATR/partials/trail) | ✅ **Strongest validated asset.** Auto-Validate 6yr PASS 6/6 (+$85.7k lockbox); XL 16yr PASS 6/6, WFE 176% (+$156.8k lockbox), DSR ~100%. Needs **no gate**. |
+| 20 | ~~ORB 3.0~~ · low-DOF *(formerly "ORB SIMPLE")* | breakout of the opening range, stripped to **5 knobs** (no ATR/partials/trail) | ❌ **VOIDED 2026-08-11** (same look-ahead volume filter). Historical: Auto-Validate 6yr PASS 6/6 (+$85.7k lockbox); XL 16yr PASS 6/6, WFE 176% (+$156.8k lockbox), DSR ~100%. Needs **no gate**. |
 | 18 | ORB 2.0 · trail + ATR stop + vol filter | the complex ORB (ATR-normalized stop, partial exits, trailing) | ⚠️ WEAK on screen — the extra knobs didn't earn their keep |
 | 19 | ORB 1.0 · open-momentum | the earliest, looser ORB | ⚠️ WEAK raw; became viable **only with the Random-Forest ML gate on 16yr** (see §4) |
 
@@ -1144,6 +1147,21 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-21/22** — **ORB CROWN = run #234 (`ORB_3_6_C2.py`, "ride + breakeven"); paper legs follow it.**
+  • Hunt rounds 2–3 (memory `edgelog-orb-hunt-round2`, STUDIES board rows 67–129): breakeven-after-1R
+    on the legal #230 base, with the partial exit and trailing stop DROPPED, beats #230 on every axis
+    ($389,874 vs $348,129 · DD $29,142 vs $35,474 · LB $88,943 vs $64,575 · WF 7/8 both · ES ✓). Six
+    one-knob neighbours all PASS 6/6 → a plateau, not a spike. Entry re-opened under the new exit
+    (192-config pre-registered screen): #257/#266 are WF-better but carry no ES edge and more DD.
+  • **Owner asked for an OPEN Auto-Validate before crowning (to populate the ML panels): run #264**
+    (353 configs) could not find #234 and its own pick FAILED 4/6 (lockbox −$9,752, ES 0.998). Pinned
+    runs show no ML panel because n_evaluated=1 — expected, not a bug. 234 crowned as the baseline.
+  • **Recorded:** #234 starred in Past Runs (old ORB stars #125/#112/#117 cleared — voided family);
+    STUDIES row 47 CROWN+PAPER, rows 26/83 date-stamped; `api/paper.py` ORB + ORB_H → `ORB_3_6_C2.py`
+    with ORB_H re-based on #234's own crowned rf@0.45 gate (lockbox held, hybrid PF 1.57 vs 1.45) and
+    a re-calibrated size divisor (1.172525 / 1.213687, reproducing #234's hybrid row). LEG_LIVE_FROM =
+    2026-08-24, the first forward session (the swap landed after the 08-21 close).
+    Dead this round: 2-lot blends (owner), prior-day range gate (`ORB_4_0.py`), re-entry, cutoffs, fade.
 - **2026-08-21** — **NOISE CROWN MOVED: family champion is now SHORT VETO (run #241).**
   • **Owner decision** ("crown that as our past runs champion... make it the new champion in
     the compare tables tab. then add it to paper trade"), adopting the 2026-08-21

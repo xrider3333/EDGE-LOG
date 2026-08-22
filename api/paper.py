@@ -59,8 +59,11 @@ LEG_LIVE_FROM = {
     "ENGUQ_ER":  "2026-08-21",   # #265 efficiency-gated config REPLACES the #226 raw leg
     "ENGUQ_ER_H": "2026-08-21",  # its crowned hybrid (logistic@0.55), gated overlay
     "NOISE":     "2026-08-11",   # genuinely forward since PAPER_START
-    "ORB":       "2026-08-21",   # config swapped #230 -> #234 (crown followed into paper)
-    "ORB_H":     "2026-08-21",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
+    # ORB legs were swapped #230 -> #234 on the EVENING of 2026-08-21, after that session had
+    # closed and after its nightly shadow run. A 2026-08-21 trade therefore was not watched
+    # under this config, so the first FORWARD session is the next trading day, 2026-08-24.
+    "ORB":       "2026-08-24",   # config swapped #230 -> #234 (crown followed into paper)
+    "ORB_H":     "2026-08-24",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day

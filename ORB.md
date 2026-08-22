@@ -1,9 +1,15 @@
 # ORB — Opening Range Breakout: status, results & backlog
 
 > Living handoff doc. **Last updated: 2026-08-11** (Claude Code).
-> **2026-08-18 addendum:** the standing crown is now **run #234 / `ORB_3_6_C2.py`** (ride +
-> breakeven), not #230 — see memory `edgelog-orb-hunt-round2`. Everything below still
-> describes the older record.
+> **2026-08-18 addendum, confirmed 2026-08-21:** the standing crown is **run #234 / `ORB_3_6_C2.py`**
+> ("ride + breakeven": the #230 close-confirmed entry, ride to 5.5R, breakeven at 1R, NO partial, NO
+> trail). $389,874 · PF 1.31 · DD $29,142 · LB $88,943 · WF 7/8 · ES ✓. Six one-knob neighbours all
+> PASS; an open Auto-Validate of the space (#264) could not find it and its own pick failed. Owner
+> crowned it as the ORB baseline 2026-08-21 and both paper legs run it from 2026-08-24. The full
+> record lives on the website: COMPARE ▸ STUDIES ▸ ORB rail (rows 67–129) and BACKTESTING_STACK.md
+> changelog; memory `edgelog-orb-hunt-round2`. **Everything below the 08-11 banner still describes
+> the VOIDED touch-entry record and its research program; treat those verdicts as unreliable — two
+> of them (close-confirm, regime filter) already flipped on the legal base.**
 
 ---
 
