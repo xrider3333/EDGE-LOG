@@ -57,8 +57,8 @@ LEG_LIVE_FROM = {
     "ENGUQ":     "2026-08-17",   # config swapped RTH #149 -> ETH #226
     "ENGUQ_L50": "2026-08-18",   # leg added: #226 config + shallow limit 0.50 ATR (#249)
     "NOISE":     "2026-08-11",   # genuinely forward since PAPER_START
-    "ORB":       "2026-08-16",   # config swapped #125 -> #230
-    "ORB_H":     "2026-08-16",   # gate added
+    "ORB":       "2026-08-21",   # config swapped #230 -> #234 (crown followed into paper)
+    "ORB_H":     "2026-08-21",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
@@ -88,13 +88,24 @@ _NQ_COST_PTS = 0.533
 ORB_125_RETIRED = dict(or_bars=1, trade_mode="Both", stop_frac=0.75, vol_filter=1.25,
                        breakout_buf=0.0, target_R=0.0, flat_eod=True)
 
-# The current ORB crown: run #230 (ORB-40), ORB_3_4_C221.py. CLOSE-CONFIRMED entry, so it
-# is execution-legal -- the whole point of the grail hunt that produced it. Validated PASS
-# on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).
-# Params copied verbatim from run #230's best_params.
+# RETIRED 2026-08-21: run #230 (ORB-40) was the crown from 2026-08-13 to 2026-08-21 and the
+# paper ORB config from 2026-08-16 to 2026-08-21. Kept only so old daily reports resolve.
 ORB_230 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filter=0.7,
                vpace_filter=0.7, close_confirm=True, breakout_buf=0.25, trail_bars=3,
                target_R=5.5, partial_exit_R=3.0, flat_eod=True, skip_holidays=True)
+
+# The current ORB crown: run #234 (ORB-42), ORB_3_6_C2.py. Same entry machinery as #230
+# (OR 2, first-candle direction, CLOSE-CONFIRMED, buf 0.25, stop 2.0, v-pace 0.7, ATR 0.7)
+# with the SIMPLER exit: ride to 5.5R with breakeven at 1.0R, partial and trail OFF. Two
+# fewer knobs than #230 and better on every axis ($389,874 vs $348,129; DD $29,142 vs
+# $35,474; lockbox $88,943 PF 1.45 vs $64,575 PF 1.31; WF 7/8 both). PASS 6/6, ES transfer
+# PASS. The open Auto-Validate of the same space (run #264, 353 configs) could not find it
+# and its own pick FAILED the lockbox, which is the point of pinning. Owner crowned it as
+# the baseline 2026-08-21 and asked for paper to follow. Params copied from run #234.
+ORB_234 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filter=0.7,
+               vpace_filter=0.7, close_confirm=True, breakout_buf=0.25, trail_bars=0,
+               target_R=5.5, partial_exit_R=0.0, be_after_R=1.0, flat_eod=True,
+               skip_holidays=True)
 
 # ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
 # augur_strategies/ENGUQ_1M_1_0.py — import it directly.
@@ -190,15 +201,16 @@ NOISE_241_SBS = dict(NOISE_225, daytype_mode="skip_bot_short",
 # 150 days is a different model from the one the validate crowned, and forward-testing a
 # different model than the one under test would answer a question nobody asked.
 
-# ORB — the evidence-backed one. Run #230's crowned gate is rf@0.45 (chosen by the
-# pre-registered net-dollars/80%-MAR-floor rule on PRE-lockbox data only), and it HELD its
-# one look at the lockbox: gated recovery 2.48 vs ungated 2.31. The rf HYBRID row was then
-# the best of the five hybrids on BOTH halves -- top pre-lockbox recovery (6.97) and the
-# best held-out year (PF 1.403 vs ungated 1.311, $3,982 vs $3,229, drawdown -1,219 vs
-# -1,400). Best before AND after the boundary is the pattern you want; it is the only ML
-# variant in this project that has it.
+# ORB — the evidence-backed one. Run #234 (the crown since 2026-08-21) crowned rf@0.45 by
+# the same pre-registered net-dollars/80%-MAR-floor rule on PRE-lockbox data only, exactly
+# as #230 had, and it HELD its one look at the lockbox: the rf HYBRID row posts held-out
+# PF 1.569 vs ungated 1.453, 5,393 vs 4,447 pts, drawdown -1,169 vs -1,286 pts. That is
+# best on both halves of the boundary again, the pattern the #230 gate had, reproduced on
+# the new base. size_norm / recycle_factor were RE-CALIBRATED for #234 by
+# tools/paper_gate_calibrate.py on 2026-08-21 (the divisor is specific to base params +
+# model + cut-off, so the #230 numbers could not be carried over).
 ORB_GATE = {"mode": "hybrid", "model": "rf", "threshold": 0.45,
-            "size_norm": 1.173085, "recycle_factor": 1.228558, "source_run": 230}
+            "size_norm": 1.172525, "recycle_factor": 1.213687, "source_run": 234}
 
 # NOISE — the HONEST-TEST one. Read this before trusting the leg.
 #
@@ -256,16 +268,17 @@ _GATE_HISTORY_FROM = "2010-06-07"
 # leg's numbers -- leave it None rather than inventing reassurance.
 LEG_SOURCE = {
     "ORB": {
-        "run": 230, "run_label": "#230 (ORB-40)", "strategy_file": "ORB_3_4_C221.py",
-        "picked": "2026-08-16",
-        "note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle "
-                "direction), so it is execution-legal rather than filled at a price that "
-                "needed hindsight. Validated PASS on all six checks with the lockbox HELD "
-                "(PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
-        "caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD "
-                  "volume filter, so every ORB paper number before this date measured a "
-                  "config that could never have been traded live -- compare across the "
-                  "switch with that in mind.",
+        "run": 234, "run_label": "#234 (ORB-42)", "strategy_file": "ORB_3_6_C2.py",
+        "picked": "2026-08-21",
+        "note": "The standing ORB crown, crowned as the baseline by the owner on 2026-08-21: "
+                "the #230 CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction) with the "
+                "simpler ride-to-5.5R exit protected by breakeven at 1R. PASS on all six "
+                "checks, lockbox HELD (PF 1.45 over 178 trades, 2025-08-13..2026-08-13), "
+                "ES transfer PASS, and its six one-knob neighbours all PASS too.",
+        "caveat": "Replaced the #230 leg on 2026-08-21. ORB paper numbers from 2026-08-16 "
+                  "to 2026-08-21 measured #230 (same entries, partial+trail exit); before "
+                  "2026-08-16 they measured the look-ahead #125. Compare across the "
+                  "switches with that in mind.",
     },
     "ENGUQ": {
         "run": 226, "run_label": "#226 (ENGU-Q ETH FROZEN)",
@@ -345,16 +358,16 @@ LEG_SOURCE = {
                   "after an NT restart.",
     },
     "ORB_H": {
-        "run": 230, "run_label": "#230 (ORB-40) + rf hybrid gate", "strategy_file": "ORB_3_4_C221.py",
-        "picked": "2026-08-16",
-        "note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades "
-                "scoring under 45% are skipped and the survivors are sized by score. That gate "
-                "was crowned on pre-lockbox data by the pre-registered rule and then HELD its "
-                "one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was "
-                "best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs "
-                "-1,400).",
+        "run": 234, "run_label": "#234 (ORB-42) + rf hybrid gate", "strategy_file": "ORB_3_6_C2.py",
+        "picked": "2026-08-21",
+        "note": "The ORB leg with the run #234 ML gate switched on in HYBRID mode: trades "
+                "scoring under 45% are skipped and the survivors are sized by score. Crowned "
+                "on pre-lockbox data by the pre-registered rule and then HELD its one look at "
+                "the lockbox (held-out PF 1.569 vs 1.453 ungated, drawdown -1,169 vs -1,286 "
+                "pts). Size divisor re-calibrated for this base on 2026-08-21.",
         "caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, "
-                  "gate off -- so any difference between the two rows is the gate and nothing else.",
+                  "gate off -- so any difference between the two rows is the gate and nothing else. "
+                  "Re-based from #230 on 2026-08-21; earlier ORB_H rows measured the #230 gate.",
     },
     "NOISE_H_RF": {
         "run": 231, "run_label": "#231 (NOISE-7) + rf hybrid gate", "strategy_file": "NOISE_1_0.py",
@@ -393,8 +406,8 @@ PAPER_LEGS = [
     # bit-identical trade set here, so this changes no number today -- it just stops a
     # future warm-up difference from quietly turning the control into a different
     # experiment. Costs about a second.
-    {"key": "ORB", "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": ORB_230, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+    {"key": "ORB", "strategy": "ORB_3_6_C2.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_234, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB"]},
     # ETH since 2026-08-17: the RTH leg was forward-testing the variant this project's own
     # docs had already deprecated as not live-realistic. See ENGUQ_226_ETH above.
@@ -428,8 +441,8 @@ PAPER_LEGS = [
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
     # strategy file and params with the gate off, so it IS the matched control.
-    {"key": "ORB_H", "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": ORB_230, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+    {"key": "ORB_H", "strategy": "ORB_3_6_C2.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_234, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": ORB_GATE, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["ORB_H"]},
     # NOISE_H runs DIFFERENT params from the raw NOISE leg, so it carries its own control:

@@ -724,10 +724,12 @@ None of the retired rows was tagged as crowned or as running in the paper forwar
 status tag moved and nothing on the board claims a book is being forward-tested. The research
 behind all forty-six rows is untouched and still recorded in `BOOK.md`.
 
-**The mismatch the board currently shows.** The crowned ORB configuration is row 67, and the
-configuration the paper forward test is actually running is rows 26, 83 and 93 — the *previous*
-crown. Filtering STATUS to CROWNED ONLY and then to IN PAPER ONLY shows this in two clicks. Fixing
-it is a deployment decision and belongs to the owner, not to the board.
+**The mismatch the board showed until 2026-08-21, now closed.** From 2026-08-16 to 2026-08-21 the
+crowned ORB configuration was row 47 (run 234) while the paper forward test was still running the
+previous crown (rows 26, 83 and 93, run 230). On 2026-08-21 the owner confirmed 234 as the ORB
+baseline and both ORB paper legs were moved onto it, so row 47 now reads CROWN and PAPER. Rows 26
+and 83 keep a `liveWhy` recording the dates they were in paper. The board is built to show that
+kind of gap, not hide it; when it opens again, tag it the same way.
 
 ---
 

@@ -82,16 +82,17 @@ def calibrate(name, spec, verbose=True):
 _NQ_COST = 0.533
 
 SPECS = {
-    # Run #230 (ORB-40). Its crowned gate is rf@0.45 and the rf hybrid was the best of
-    # the five hybrid rows on BOTH pre-lockbox recovery (6.97) and the held-out year.
+    # Run #234 (ORB-42), the crown since 2026-08-21. Its crowned gate is rf@0.45 (same rule
+    # as #230) and the rf hybrid HELD the lockbox (PF 1.569 vs 1.453 ungated).
     "ORB_H": {
-        "strategy": "ORB_3_4_C221.py", "instrument": "NQ", "timeframe": "5m",
+        "strategy": "ORB_3_6_C2.py", "instrument": "NQ", "timeframe": "5m",
         "session": "rth", "cost_pts": _NQ_COST,
         "params": dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0,
                        atr_filter=0.7, vpace_filter=0.7, close_confirm=True,
-                       breakout_buf=0.25, trail_bars=3, target_R=5.5,
-                       partial_exit_R=3.0, flat_eod=True, skip_holidays=True),
-        "gate": {"mode": "hybrid", "model": "rf", "threshold": 0.45, "source_run": 230},
+                       breakout_buf=0.25, trail_bars=0, target_R=5.5,
+                       partial_exit_R=0.0, be_after_R=1.0, flat_eod=True,
+                       skip_holidays=True),
+        "gate": {"mode": "hybrid", "model": "rf", "threshold": 0.45, "source_run": 234},
         "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-13",
                         "lockbox_from": "2025-08-13"},
     },

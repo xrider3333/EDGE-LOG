@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.206';
+const VERSION='73.207';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.207',date:'2026-08-21',notes:['ORB crown confirmed and paper brought in line. The open search over the same configuration space (run 264, 353 configs) could not find run 234 and the configuration it crowned instead failed its lockbox, so 234 stands as the ORB baseline. Both ORB paper legs now run it, with the gate leg re-based on run 234 own crowned gate and a freshly calibrated size divisor.','COMPARE > STUDIES: the crown-versus-paper mismatch the board was showing is closed. Row 47 now reads CROWN and PAPER, rows 26 and 83 record the dates they were in paper, and the paper-legs study points at run 234. Row 67 had two status sentences and now has one.']},
 {v:'73.206',date:'2026-08-21',notes:['THE 1A FUNNEL IS BACK ON PINNED CHAMPION RUNS. A pinned single-config Auto-Validate (run 241 and the other NOISE variants, ORB 234) stores one RAW curve plus the full gate / tilt / hybrid set, but the funnel was skipped whenever fewer than two RAW curves existed - so the family toggles, the expanded explorer and the gate overlay all vanished on exactly the runs that matter. The chart now draws whenever the run holds at least one RAW curve and any other family; normal 300-trial runs like 231 are untouched.']},
 {v:'73.205',date:'2026-08-21',notes:['THE NOISE CROWN MOVED TO SHORT VETO (run 241) at the owner decision, on the combination study recommendation: the champion core plus one filter - skip short trades the day after the prior session closed in the bottom fifth of its own range. Run 241 is now starred in Past Runs, so it pins to the top of the list. The star on run 226 (the ENGU-Q crown) stays - one star per family.','STUDIES board: the NOISE crown tag moved from row 1 to row 2. Row 1 stays on the board as the reference baseline - nothing was deleted or renumbered - and the what-is-running-in-paper study gained row 249 for the new Short Veto shadow leg.','PAPER: a new shadow leg, NOISE-241 SHORT VETO, runs the crowned config nightly with NOISE-225 as its matched control - the filter is the only difference between the two rows. NinjaTrader still runs the baseline core with the gate: the NinjaScript port gained the filter knob, default off, and flipping it on waits for a NinjaTrader restart and an owner call. That gap is recorded on the board, not hidden.']},
 {v:'73.203',date:'2026-08-21',notes:['RESULTS - Past Runs: starred runs are now PINNED to the top of the list whatever sort or filter is active, and carry a BASELINE chip, so the crowned run never has to be searched for.','Run 226 (ENGU-Q 24-hour, the paper baseline) is now the one starred run; the eight stale stars from July were cleared so exactly one crown remains.']},
@@ -17036,7 +17037,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:22,name:'Long Veto',what:'Skip long trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9745,wf:216728,lb:25507,tot:280710,dd:34882,pf:1.22,pdd:8.05,trd:4527},
         {n:23,name:'Strong Full Veto',what:'Skip all trades the day after a strong close.',tone:'fail',read:'Destroys value',is:9168,wf:156775,lb:35340,tot:221607,dd:33185,pf:1.20,pdd:6.68,trd:4087},
         {n:24,name:'Loss Skip',what:'Skip the trade after any loss.',tone:'fail',read:'Only losing in-sample',is:-3908,wf:120583,lb:12071,tot:135214,dd:32019,pf:1.12,pdd:4.22,trd:4057},
-        {n:26,fam:'ORB',name:'ORB Crown (old)',runs:[230],live:'paper',liveWhy:'This configuration is the one actually running in the ORB paper forward test right now, even though it is no longer the crowned ORB champion. The crown moved on to row 47 and the paper leg did not follow it.',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
+        {n:26,fam:'ORB',name:'ORB Crown (old)',runs:[230],liveWhy:'This configuration ran in the ORB paper forward test from 2026-08-16 to 2026-08-21. On 2026-08-21 the paper leg was moved onto the crown, row 47, so the two are back in line.',what:'Reference only. Different date windows.',tone:'ref',read:'Reference',lb:64575,tot:348129,dd:35474,pf:1.26,pdd:9.81,trd:2607,
          why:{wf:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.',is:'This older ORB run covered different date windows, so its stages are not comparable with the rows above.'}},
         {n:27,name:'Champion (old data)',runs:[225],what:'Same as row 1, before the data backfill.',tone:'ref',read:'Superseded',is:6190,wf:270934,lb:23146,tot:322842,dd:30412,pf:1.21,pdd:10.62,trd:5616}
        ]},
@@ -17045,7 +17046,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
        notes:['The filter does not transfer and both crowns stand. Nothing here was adopted and nothing was queued.','The mechanism is reversed on ORB. Short trades after a weak close make money there, about $86 each across 248 trades, while the same trades lose about $118 each on NOISE. The belief that this was a program-wide pattern was wrong.','Compare each row only against its own crown. Use the STRATEGY TYPE filter to read the ORB rows and the ENGU-Q rows separately, because they were measured on different strategies and different windows.','Row 63 is worth remembering. It cuts ENGU-Q drawdown by 31% and nearly repairs its only losing year for under 7% of profit. It fails the profit test so it is not an adoption, but it is the lever if ENGU-Q is ever sized up.'],
        dashWhy:{wf:'Walk-forward was not re-run for these local filter tests, so there is no fold figure to report.',trd:'The study recorded money and ratios only, so no trade count exists for this row.'},
        rows:[
-        {n:47,name:'ORB Crown',what:'The standing ORB crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[234],live:'crown',liveWhy:'This is the standing ORB champion, but it is NOT the configuration running in paper. The paper leg still runs the older ORB configuration on row 26 and row 83.',is:300932,lb:88943,tot:389874,dd:29142,pf:1.31,pdd:13.38},
+        {n:47,name:'ORB Crown',what:'The standing ORB crown, no filter.',tone:'champ',read:'Stands, unchanged',runs:[234],live:'both',liveWhy:'The standing ORB champion AND, since 2026-08-21, the configuration running in the paper forward test - both the plain ORB leg and the ORB + Gate leg. Before 2026-08-21 paper ran the older configuration on rows 26 and 83.',is:300932,lb:88943,tot:389874,dd:29142,pf:1.31,pdd:13.38},
         {n:48,name:'ORB Short Veto .25',what:'Skip ORB shorts after a weak close, loose threshold.',tone:'fail',read:'Fails on profit',is:284840,lb:96546,tot:381385,dd:26796,pf:1.33,pdd:14.23},
         {n:49,name:'ORB Short Veto .15',what:'Same, tight threshold.',tone:'fail',read:'Fails on profit',is:284545,lb:88425,tot:372970,dd:33564,pf:1.31,pdd:11.11},
         {n:50,name:'ORB Short Veto .20',what:'Same, standard threshold.',tone:'fail',read:'Fails on profit',is:286237,lb:82627,tot:368864,dd:33564,pf:1.31,pdd:10.99},
@@ -17078,7 +17079,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
        dashWhy:{wf:'This row is one pinned configuration graded against a sealed lockbox, so there are no walk-forward folds to report for it.'},
        rows:[
         {n:67,name:'ORB Crown',what:'Ride the trade to a 5.5x-risk target with the stop moved to breakeven once it is up 1x risk. No partial exit and no trailing stop.',tone:'champ',read:'This study baseline',liveWhy:'This is the same configuration as row 47, restated here as the baseline this study measured against. Row 47 is the one tagged as the ORB crown, because it is the one persisted as run #234. One family, one crown.',
-         liveWhy:'This is the standing ORB champion, but the paper forward test is still running the older configuration on rows 26 and 83. The crown moved and the paper leg did not follow it.',
          runs:[234],is:300931,lb:88943,tot:389874,dd:29142,pf:1.31,trd:2607},
         {n:68,name:'Breakeven Only',what:'Keeps the old partial exit and trailing stop, and only adds the move to breakeven at 1x risk.',tone:'good',read:'Beaten by the simpler exit',runs:[233],is:291076,lb:72790,tot:363866,dd:28501,pf:1.29,trd:2607},
         {n:69,name:'Breakeven 0.8',what:'The crown with the breakeven trigger pulled in to 0.8x risk instead of 1x.',tone:'good',read:'Best money in the hunt',runs:[239],is:300596,lb:94268,tot:394864,dd:29377,pf:1.32,trd:2607},
@@ -17106,8 +17106,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:80,name:'Few Knobs',what:'A six-knob version meant to be harder to overfit than the free search.',tone:'fail',read:'Failed, only 4 of 7 checks',runs:[222],is:83210,lb:21526,tot:104736,dd:34585,pf:1.13,trd:3922},
         {n:81,name:'Kitchen Sink',what:'The widest search of the round, with twelve knobs including gap gates, range gates and an entry time cutoff.',tone:'fail',read:'Won early, died in lockbox',runs:[228],is:180636,lb:10390,tot:191026,dd:45115,pf:1.23,trd:1800},
         {n:82,name:'Kitchen Sink Pinned',what:'The kitchen sink winner nailed shut and re-scored on the free search window so the two could be compared fairly.',tone:'fail',read:'Lockbox all but vanished',runs:[229],is:188232,lb:3792,tot:192024,dd:31676,pf:1.23,trd:1787},
-        {n:83,name:'ORB Round-One Crown',what:'The free search winner nailed shut and graded on its own: a two-bar opening range, first-candle direction, close-confirmed entry, partial exit and trailing runner. This is the same result as row 26.',tone:'ref',read:'Superseded, still in paper',live:'paper',
-         liveWhy:'This is the configuration running in the ORB paper forward test right now. It is no longer the crowned ORB champion; row 67 is. Paper is testing the previous crown.',
+        {n:83,name:'ORB Round-One Crown',what:'The free search winner nailed shut and graded on its own: a two-bar opening range, first-candle direction, close-confirmed entry, partial exit and trailing runner. This is the same result as row 26.',tone:'ref',read:'Superseded, left paper 2026-08-21',
+         liveWhy:'This configuration ran in the ORB paper forward test from 2026-08-16 to 2026-08-21, after which the paper leg was moved onto the crown (row 47). It is no longer in paper.',
          runs:[230],is:283555,lb:64575,tot:348130,dd:35474,pf:1.26,trd:2607}
        ]},
 
@@ -17156,12 +17156,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 pf:'This row is a gate overlay. Its profit factor is graded inside its source run report, and no separate figure for it is restated on this board.',
                 wf:'This row is one pinned configuration graded against a sealed lockbox, so there are no walk-forward folds to report for it.'},
        rows:[
-        {n:93,fam:'ORB',name:'Paper: ORB',what:'The opening-range strategy running in paper, pinned to the round-one crown. Same configuration as rows 26 and 83.',tone:'ref',read:'Running, but not the crown',live:'paper',
-         liveWhy:'This exact configuration is running in the paper forward test right now. It is NOT the standing ORB champion, which is row 67. This is the mismatch between what is crowned and what is being forward-tested.',
-         runs:[230],is:283555,lb:64575,tot:348130,dd:35474,pf:1.26,trd:2607},
-        {n:94,fam:'ORB',name:'Paper: ORB + Gate',what:'The same ORB configuration with its own gate switched on: trades scoring under 45 percent are skipped and the survivors are sized by score. The plain ORB leg above is its matched control.',tone:'frag',read:'Gate test, not a crown',live:'paper',
+        {n:93,fam:'ORB',name:'Paper: ORB',what:'The opening-range strategy running in paper since 2026-08-21: the standing crown, row 47, with the ride-to-target exit and breakeven at 1x risk. Before 2026-08-21 this leg ran the round-one crown (rows 26 and 83).',tone:'champ',read:'Running, and the crown',live:'paper',
+         liveWhy:'This is the crown configuration as it runs in paper. Row 47 carries the crown tag; this row records the paper leg itself. The mismatch the board used to show here was closed on 2026-08-21.',
+         runs:[234],is:300931,lb:88943,tot:389874,dd:29142,pf:1.31,trd:2607},
+        {n:94,fam:'ORB',name:'Paper: ORB + Gate',what:'The crown ORB configuration (row 47) with run 234 own gate switched on: trades scoring under 45 percent are skipped and the survivors are sized by score. The plain ORB leg above is its matched control.',tone:'frag',read:'Gate test, not a crown',live:'paper',
          liveWhy:'This is a gate overlay running in the paper forward test right now. It is not a crown; it is a test of whether the gate beats the same strategy with the gate off.',
-         runs:[230],trd:2122},
+         runs:[234],trd:2148},
         {n:95,fam:'ENGU-Q',name:'Paper: ENGU-Q',what:'The 24-hour ENGU-Q configuration running in paper. Same configuration as row 87.',tone:'champ',read:'Crowned and running',live:'both',
          liveWhy:'This is the certified ENGU-Q champion and it is running in the paper forward test right now.',
          runs:[226],is:344384,lb:90338,tot:434722,dd:50420,pf:1.33,trd:2843},
