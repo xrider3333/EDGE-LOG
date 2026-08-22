@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.205';
+const VERSION='73.206';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.206',date:'2026-08-21',notes:['THE 1A FUNNEL IS BACK ON PINNED CHAMPION RUNS. A pinned single-config Auto-Validate (run 241 and the other NOISE variants, ORB 234) stores one RAW curve plus the full gate / tilt / hybrid set, but the funnel was skipped whenever fewer than two RAW curves existed - so the family toggles, the expanded explorer and the gate overlay all vanished on exactly the runs that matter. The chart now draws whenever the run holds at least one RAW curve and any other family; normal 300-trial runs like 231 are untouched.']},
 {v:'73.205',date:'2026-08-21',notes:['THE NOISE CROWN MOVED TO SHORT VETO (run 241) at the owner decision, on the combination study recommendation: the champion core plus one filter - skip short trades the day after the prior session closed in the bottom fifth of its own range. Run 241 is now starred in Past Runs, so it pins to the top of the list. The star on run 226 (the ENGU-Q crown) stays - one star per family.','STUDIES board: the NOISE crown tag moved from row 1 to row 2. Row 1 stays on the board as the reference baseline - nothing was deleted or renumbered - and the what-is-running-in-paper study gained row 249 for the new Short Veto shadow leg.','PAPER: a new shadow leg, NOISE-241 SHORT VETO, runs the crowned config nightly with NOISE-225 as its matched control - the filter is the only difference between the two rows. NinjaTrader still runs the baseline core with the gate: the NinjaScript port gained the filter knob, default off, and flipping it on waits for a NinjaTrader restart and an owner call. That gap is recorded on the board, not hidden.']},
 {v:'73.203',date:'2026-08-21',notes:['RESULTS - Past Runs: starred runs are now PINNED to the top of the list whatever sort or filter is active, and carry a BASELINE chip, so the crowned run never has to be searched for.','Run 226 (ENGU-Q 24-hour, the paper baseline) is now the one starred run; the eight stale stars from July were cleared so exactly one crown remains.']},
 {v:'73.202',date:'2026-08-21',notes:['ONE TABLE. New control 14, VIEW, on the TABLES block. ONE TABLE pools every surviving row from every study into a single ranked table - the consolidated read of a strategy - with a grey study tag on each row so nothing loses its provenance. BY STUDY is the old per-study list, where each study notes live. Left alone the board decides: one table while a strategy is picked, by study when everything is showing.','THIS ALSO ANSWERS WHY A NOISE-TITLED STUDY KEPT APPEARING UNDER ORB: that study holds the old ORB crown as its comparison baseline, so it contributes one ORB row. The row is ORB; only the study title said NOISE. In ONE TABLE view the row simply sits with the rest of ORB, tagged with where it was researched.']},
@@ -10890,8 +10891,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
     //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
     //   printed title, so the card reads CHAMPION / FUNNEL and nothing else.
+    // v73.206: a PINNED single-config Auto-Validate (the standard way a researched config is
+    //   persisted as a run - ORB #234, NOISE #241-#256) stores ONE raw curve but a full
+    //   gate_validate block (20 gates / 10 tilts / 5 hybrids). The 1A funnel used to be skipped
+    //   outright whenever fewer than two RAW curves existed, which hid every family toggle and
+    //   the expanded explorer on exactly those runs. The decision now follows what the document
+    //   actually carries: at least one raw curve AND either a second raw curve or any
+    //   gate / tilt / hybrid series.
+    const _hasFamilySeries=d=>{const g=(d&&d.gate_validate)||{};const L=a=>Array.isArray(a)&&a.length>0;
+      return L(g.candidates)||L(g.tilts)||L(g.hybrids)||!!g.equity||!!(d&&d.ml_gate&&d.ml_gate.equity);};
+    const _canFunnel=d=>{const e=d&&d.equity_top;return Array.isArray(e)&&e.length>=1&&(e.length>=2||_hasFamilySeries(d));};
     const topEqOverlayHtml=(d,mult,tag,sink,noTag)=>{
-      const etop=d&&d.equity_top;if(!etop||etop.length<2)return '';
+      const etop=d&&d.equity_top;if(!_canFunnel(d))return '';
       const isL=/^L/.test(tag||'');
       // ── #88b (owner 2026-07-21, "put it ON the 2a chart"): on a validate run with a
       //    WF-checked selection, 2A stays the many-config IS overlay, but the top-3 by
@@ -15393,7 +15404,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //    4A neighbour robustness · 4B config-PnL distribution. (CLASSIC shows the same tags —
       //    they are dashboard coordinates, not classic section numbers.) ──
       const _eqSink={};
-      const _eq=((d.equity_top&&d.equity_top.length>1)?topEqOverlayHtml(d,mlt,_cfgN+'A',_eqSink,1):'');
+      const _eq=(_canFunnel(d)?topEqOverlayHtml(d,mlt,_cfgN+'A',_eqSink,1):'');
       // v64.88 (item 1/2, owner redesign): the SELECTION DETAIL crown-pool table is promoted
       //   out of the 2A card into its own 2B CONFIGS · RAW tile — built here (independent of
       //   whether 2A itself rendered) from d.selection directly; only the CONFIG # column needs
@@ -15703,7 +15714,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v64.62: the 2A chart now hosts the gate overlay in BOTH modes (funnel + top-configs),
           //   so it shows there whenever 2A can render at all (equity_top present). Only fall back
           //   to drawing the full curve here when 2A structurally can't (no equity_top).
-          const _canShow2A=Array.isArray(d.equity_top)&&d.equity_top.length>=2;
+          const _canShow2A=_canFunnel(d);
           if(_canShow2A)return '';   // 2A is hosting the pink overlay — don't duplicate
           const _cv=gateEquityHtml(_geq,mlt,'#e05fa0');
           if(!_cv)return '';
