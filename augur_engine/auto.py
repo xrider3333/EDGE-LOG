@@ -1228,6 +1228,11 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 _ds = len(_wd) / 400
                 _wd = [_wd[int(i * _ds)] for i in range(400)]
             out["win_dist"] = [round(float(x), 2) for x in _wd]
+            # v73.209: exact profit-concentration read on the FULL trade list - win_dist above is a
+            #   stride sample (400 cap), so the web top-5-share read was inflated on big runs.
+            _srt = sorted((float(x) for x in win_pnls), reverse=True)
+            out["trade_conc"] = {"n": len(win_pnls), "net": round(float(sum(win_pnls)), 2),
+                                 "top": [round(x, 2) for x in _srt[:10]]}
             try:    # MAE/MFE (rich 5-tuple trades only; None for legacy strategies)
                 _exf = {}
                 if pass_vol:

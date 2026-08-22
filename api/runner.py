@@ -902,6 +902,7 @@ class FirestoreQueue:
             "stress": result.get("stress"),   # PnL across chronological windows
             "mae_mfe": result.get("mae_mfe"),   # per-trade adverse/favorable excursion
             "win_dist": result.get("win_dist"),   # winner's per-trade PnLs for the distribution curve
+            "trade_conc": result.get("trade_conc"),   # full-list net + top-10 PnLs (exact concentration read)
             # 1G/1H scope slices + scope tag: the walk-forward and lockbox versions of the trade
             # distribution and MAE/MFE, plus which scope the base copies cover. The engine returns
             # these but they were dropped here (same bug family as wf_alt_folds) - which is why
