@@ -329,6 +329,19 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 compute_pills=bool(job.get("pills", False)),
                 compute_context=bool(job.get("context", True)))
         elif jtype == "validate":
+            # v73.214 (owner 2026-08-21: "dont pin configs on auto validate. those are full surfaces"):
+            #   a _PINNED strategy file has no search space, so a validate records ONE config and
+            #   the report ships without 2E-2I (runs 252-267 except 264). Refuse it loudly instead.
+            try:
+                import importlib.util as _ilu
+                _sp = os.path.join(ROOT, "augur_strategies", str(job["strategy"]))
+                _spec = _ilu.spec_from_file_location("_pin_chk", _sp); _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+                if getattr(_mod, "_PINNED", False):
+                    raise ValueError("PINNED strategy %s - Auto-Validate needs parameter ranges (the 2E-2I surfaces come from the searched population). Run it as SINGLE or GATE VALIDATE, or Auto-Validate the parent file." % job["strategy"])
+            except ValueError:
+                raise
+            except Exception:
+                pass
             _disc = job.get("discover", "auto")
             _prov = job.get("provider", "ollama")
             _key = _anthropic_key() if (_disc == "evolve" and _prov == "anthropic") else None

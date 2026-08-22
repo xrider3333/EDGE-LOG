@@ -865,6 +865,9 @@ not saved to the runs DB — so they carry no run id.*
 
 ## 7. Open items / next up
 
+**RULE (owner 2026-08-21): Auto-Validate = full search space only.** Pinned variant files (`_PINNED`, min = max on every knob) produce n_evaluated = 1 and a report with no 2E-2I surfaces - runs 252-267 except 264 are incomplete for this reason and need re-running on their parent files with ranges. Persist a researched config with SINGLE / GATE VALIDATE instead; the trial cache makes the re-search cheap. Enforced in the BUILDER, the runner (raises on `_PINNED`) and PAST RUNS (1-config flag). See CLAUDE.md.
+
+
 🎉 **Every research/method pill is now LIVE** (41/41). The only remaining item is operational:
 1. **fills reconciliation** (§1) — reconcile web/mobile NinjaTrader (+ Webull) fills that skip
    the local DB. *Needs your live broker data — do this one WITH the owner present.*
