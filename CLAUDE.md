@@ -2,6 +2,8 @@
 
 ## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
 
+**SUPERSEDING CORRECTION (owner 2026-08-21: "responses table you generate: one row per item. use for tracking. any explanation underneath" + "keep responses short and to the point. problem. solution. stop explaining everything. you are too chatty").** Reply = status line, then ONE table with ONE ROW PER ITEM the owner raised (columns: # · ITEM · PROBLEM · SOLUTION · STATUS), each cell a terse fragment, then at most a few one-line bullets of explanation underneath. No paragraphs, no restating what the table says, no tutorials. This supersedes the 2026-08-20 no-tables note below: the table is back because it is the tracking ledger; the brevity stays.
+
 **SUPERSEDING CORRECTION (owner 2026-08-20: "stop gving tables. shorter responces. give me
 the a bulleted summary").** NO TABLES unless the owner explicitly asks for one (e.g. "give
 me the RUNBOARD", "table it"). Default reply = status header line, then a SHORT bulleted
