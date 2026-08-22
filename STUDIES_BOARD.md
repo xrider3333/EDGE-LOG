@@ -767,7 +767,7 @@ enforces uniqueness.
 | 97 | Paper: NOISE — a copy of the NOISE baseline core | 1 (run 231) |
 | 249 | Paper: NOISE Short Veto — a copy of the NOISE crown | 2 (run 241) |
 
-These five numbers are retired for good. Row 341 (Paper: ENGU-Q + Efficiency Gate, run 265) was
+Row 1 (the old NOISE champion) was moved from the `champ` mark to `ref` the same day so NOISE carries exactly one blue mark, row 2. These five numbers are retired for good. Row 341 (Paper: ENGU-Q + Efficiency Gate, run 265) was
 added the same day because that gate overlay had no row anywhere. The next free row number is 342.
 
 **The mismatch the board showed until 2026-08-21, now closed.** From 2026-08-16 to 2026-08-21 the
