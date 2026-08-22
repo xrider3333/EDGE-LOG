@@ -123,6 +123,20 @@ SPECS = {
         "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
                         "lockbox_from": "2025-02-11"},
     },
+    # Run #265 (ENGU-Q-28), owner-adopted to paper 2026-08-21. Crowned gate logistic@0.55.
+    # The overlay did NOT beat ungated on the held-out year, so this leg is a forward TEST;
+    # see api/paper.py ENGUQ_ER_GATE. Calibrated 2026-08-21: size_norm 1.697185,
+    # recycle_factor 1.877809 (712 of 1337 trades kept).
+    "ENGUQ_ER_H": {
+        "strategy": "ENGUQ_1M_ETH_ER25_1_0.py", "instrument": "NQ", "timeframe": "1m",
+        "session": "eth", "cost_pts": _NQ_COST,
+        "params": dict(er_len=60, er_th=0.25, limit_atr=0.0, tl_len=170, vol_mult=0.8,
+                       stop_mult=1.0, act_R=2.5, trail_frac=2.5, buf_atr=0.9, min_brk=1.3,
+                       ema_len=1380, atr_len=106, regime_len=0, breakeven_R=1.5),
+        "gate": {"mode": "hybrid", "model": "logistic", "threshold": 0.55, "source_run": 265},
+        "calibration": {"date_from": "2010-06-07", "date_to": "2026-06-30",
+                        "lockbox_from": "2025-06-30"},
+    },
 }
 
 

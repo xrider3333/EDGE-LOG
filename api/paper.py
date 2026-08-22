@@ -56,6 +56,8 @@ PAPER_START = "2026-08-11"
 LEG_LIVE_FROM = {
     "ENGUQ":     "2026-08-17",   # config swapped RTH #149 -> ETH #226
     "ENGUQ_L50": "2026-08-18",   # leg added: #226 config + shallow limit 0.50 ATR (#249)
+    "ENGUQ_ER":  "2026-08-21",   # #265 efficiency-gated config REPLACES the #226 raw leg
+    "ENGUQ_ER_H": "2026-08-21",  # its crowned hybrid (logistic@0.55), gated overlay
     "NOISE":     "2026-08-11",   # genuinely forward since PAPER_START
     "ORB":       "2026-08-21",   # config swapped #230 -> #234 (crown followed into paper)
     "ORB_H":     "2026-08-21",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
@@ -153,6 +155,39 @@ ENGUQ_226_ETH = dict(ema_len=1380, tl_len=170, atr_len=106, buf_atr=0.9, vol_mul
 # A resting limit is also the most executable entry this project has tested -- you place the
 # order and wait, rather than needing a fill at a bar's closing print.
 ENGUQ_LIM50 = dict(ENGUQ_226_ETH, limit_atr=0.5)
+
+# ENGU-Q ETH + EFFICIENCY GATE -- run #265 (ENGU-Q-28), owner-adopted to paper 2026-08-21
+# ("replace the old enguq"). Identical to ENGUQ_226_ETH in every knob; the ONLY addition is
+# a momentum-quality floor: the Kaufman efficiency ratio of the last 60 one-minute closes
+# (net move divided by path length) must be at least 0.25 on the signal bar. Signals that
+# fire out of churn are skipped; nothing about stop, trail or exit changes.
+#
+# Why it replaced #226 rather than running beside it: #265 is the first confirmation gate
+# in this project's history to survive a pre-registered bar. Validate #265: checks 5/5,
+# walk-forward 8/8 (the first ENGU-Q variant ever to hold every fold), lockbox HELD at
+# $135,983 / PF 2.29 on the report basis ($146,231 / PF 2.65 continuous, entry-sliced).
+# Full window vs the #226 control: trades 2,843 -> 1,336, net $434,721 -> $486,413,
+# PF 1.332 -> 1.597, and the top-10 concentration FALLS 0.78 -> 0.70. The PF gain holds
+# in all four eras and wins 96.4% of 5,000 paired block bootstraps.
+#
+# Caveats, so the forward test is read correctly: only ~67-83 lockbox trades; the plateau
+# is ONE-SIDED (er_th 0.30 collapses the lockbox -- never raise the floor); and it pairs
+# better with the raw entry than with the limit-0.50 entry, so this leg is the RAW entry.
+ENGUQ_ER25 = dict(ENGUQ_226_ETH, er_len=60, er_th=0.25, limit_atr=0.0)
+
+# Its crowned hybrid gate. Run #265 crowned logistic@0.55 by the standing pre-registered
+# rule (net dollars within 80%-of-best MAR, pre-lockbox only). HONEST READ of the card:
+# the ML overlay did NOT beat ungated on the held-out year (gated recovery 5.69 vs ungated
+# 5.86; gated 48 trades / PF 2.69 vs ungated 67 / PF 2.65) -- the card says "LOCKBOX
+# FAILED" for that reason. So this leg is a pre-registered forward TEST of the crowned
+# hybrid, not a crown: the claim is that from 2026-08-21 ENGUQ_ER_H beats its exact
+# control ENGUQ_ER on recovery factor. If it does not, the overlay adds nothing to an
+# already-gated signal and should be dropped. The rf hybrid on the same card (LB PF 5.80
+# on 22 trades) was NOT chosen: its PRE-lockbox row is worse than ungated (PF 1.27 vs
+# 1.56), so picking it would be hindsight, exactly the NOISE_H mistake documented above.
+# size_norm / recycle_factor calibrated by tools/paper_gate_calibrate.py on 2026-08-21.
+ENGUQ_ER_GATE = {"mode": "hybrid", "model": "logistic", "threshold": 0.55,
+                 "size_norm": 1.697185, "recycle_factor": 1.877809, "source_run": 265}
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -289,10 +324,38 @@ LEG_SOURCE = {
                 "behaviour. Frozen clock-scaled #149 transfer (time lookbacks x3.54 for the "
                 "24h tape). PASS 5/5, walk-forward 7/8, full window 2,843 trades / $434,721 "
                 "/ PF 1.33.",
-        "caveat": "Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a "
+        "caveat": "RETIRED FROM PAPER 2026-08-21 -- replaced by the #265 efficiency-gated "
+                  "config (ENGUQ_ER). Still the certified standalone crown; kept here so "
+                  "older daily reports resolve. Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a "
                   "position could sit through the overnight session with no stop -- the RTH "
                   "champion gives back $178,340 once a real 24h stop is priced in. Every "
                   "ENGU-Q paper number before this date was measuring that.",
+    },
+    "ENGUQ_ER": {
+        "run": 265, "run_label": "#265 (ENGU-Q ETH EFFICIENCY 0.25)",
+        "strategy_file": "ENGUQ_1M_ETH_ER25_1_0.py",
+        "picked": "2026-08-21",
+        "note": "The #226 ETH config plus a momentum-quality floor: the last hour's Kaufman "
+                "efficiency ratio must reach 0.25 at the signal. Validate #265: checks 5/5, "
+                "walk-forward 8/8, lockbox HELD $135,983 / PF 2.29. Full window 1,336 trades "
+                "/ $486,413 / PF 1.60 vs the #226 control's 2,843 / $434,721 / PF 1.33.",
+        "caveat": "REPLACED the #226 raw leg on 2026-08-21 (owner). Few lockbox trades (67-83); "
+                  "one-sided plateau -- a 0.30 floor collapses the lockbox, so never raise it; "
+                  "pairs better with the raw entry than with the limit entry. The ENGUQ_L50 "
+                  "leg lost its matched control when #226 left the board; read it against "
+                  "this row knowing the two differ in BOTH entry and gate.",
+    },
+    "ENGUQ_ER_H": {
+        "run": 265, "run_label": "#265 hybrid (logistic@0.55)",
+        "strategy_file": "ENGUQ_1M_ETH_ER25_1_0.py",
+        "picked": "2026-08-21",
+        "note": "The same #265 config with its crowned ML hybrid overlay: logistic model, "
+                "0.55 cut-off, survivors sized by score. Pre-lockbox the hybrid beat ungated "
+                "(PF 1.65 vs 1.56).",
+        "caveat": "A forward TEST, not a crown. On the held-out year the overlay did NOT beat "
+                  "ungated (recovery 5.69 vs 5.86) and the card says LOCKBOX FAILED for that "
+                  "reason. The claim to falsify: from 2026-08-21 this row beats ENGUQ_ER on "
+                  "recovery factor. ENGUQ_ER is its exact control -- one backtest, two rows.",
     },
     "ENGUQ_L50": {
         "run": 249, "run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
@@ -411,9 +474,16 @@ PAPER_LEGS = [
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB"]},
     # ETH since 2026-08-17: the RTH leg was forward-testing the variant this project's own
     # docs had already deprecated as not live-realistic. See ENGUQ_226_ETH above.
-    {"key": "ENGUQ", "strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py", "instrument": "NQ",
-     "timeframe": "1m", "session": "eth", "params": ENGUQ_226_ETH,
-     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ"]},
+    # RETIRED FROM PAPER 2026-08-21 (owner: "replace the old enguq"): the #226 raw leg is
+    # superseded by the #265 efficiency-gated pair below. Provenance stays in LEG_SOURCE.
+    # #265 raw + its crowned hybrid: ONE backtest, two rows. ENGUQ_ER_H applies the logistic
+    # overlay; emit_ungated_as publishes the same backtest's pre-gate trades as ENGUQ_ER, so
+    # the raw row is the gated row's exact control and nothing is confounded.
+    {"key": "ENGUQ_ER_H", "strategy": "ENGUQ_1M_ETH_ER25_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_ER25,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_ER_GATE, "history_from": _GATE_HISTORY_FROM,
+     "emit_ungated_as": "ENGUQ_ER", "source": LEG_SOURCE["ENGUQ_ER_H"]},
     # ADOPTED 2026-08-18 (owner: "lets go with the .50"). Runs ALONGSIDE the #226 leg above,
     # not instead of it: that leg is the matched control -- identical config, identical tape,
     # the entry is the only difference -- so this pair forward-tests the shallow limit itself

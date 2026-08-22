@@ -184,6 +184,20 @@ why it behaves differently (it deletes churn signals, not winners).
 
 ## §2 — Forward test
 
+**2026-08-21 — the #226 raw leg is RETIRED from paper** (owner: "replace the old enguq and put
+the top hybrid on there as well"). The board now carries:
+
+- **ENGUQ_ER** — run #265, the efficiency-gated config (§1B), raw entry. Live from 2026-08-21.
+- **ENGUQ_ER_H** — the same backtest with #265's crowned logistic@0.55 hybrid overlay. A
+  forward TEST, not a crown: on the held-out year the overlay did not beat ungated (recovery
+  5.69 vs 5.86), so the pre-registered claim is simply "ENGUQ_ER_H beats ENGUQ_ER on recovery
+  from 2026-08-21 on". One backtest, two rows; ENGUQ_ER is the exact control. The rf hybrid
+  (lockbox PF 5.80 on 22 trades) was deliberately NOT chosen: its pre-lockbox row is worse
+  than ungated, so picking it would be hindsight — the NOISE_H lesson.
+- **ENGUQ_L50** — unchanged. Note it lost its matched control when #226 left the board.
+
+The original pair, for the record:
+
 Two legs run side by side on the PAPER board, as a matched pair:
 
 - **ENGU-Q RAW** — the #226 config above, live from 2026-08-17.
