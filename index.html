@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.214';
+const VERSION='73.215';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.215',date:'2026-08-22',notes:['COMPARE - STUDIES: the paper study no longer duplicates rows. What is running in paper used to restate the ORB crown, two ENGU-Q rows, the NOISE baseline and the NOISE Short Veto as second rows (93, 95, 96, 97, 249), each with its own champion mark and PAPER pill - so the pooled ONE TABLE showed two blue champion dots for NOISE and six NOISE rows tagged PAPER. Those five rows are retired; the PAPER pill on the canonical row (47, 92, 250, 1, 2) is now the single statement that a configuration is in paper. The paper study keeps only the gate overlays that have no row elsewhere (94, 98, 99 and the new 341, the ENGU-Q efficiency-gate hybrid) and lists every other paper leg as a pointer to its own row.','RUN NUMBER BESIDE THE NAME: every row that was persisted as a run now shows a small #run chip right after its name in ONE TABLE view and whenever SPLIT BY RUN is on, so the run a row refers to is readable without scrolling to the RUN column. Click it to open the run report.','PAPER PILL SAYS WHICH LAYER: PAPER means the nightly shadow engine; PAPER+NT means the NinjaTrader demo account runs that same configuration too. For NOISE only the baseline core (row 1) and the forest gate (row 99) are on the demo; the crowned Short Veto (row 2) is shadow-only until its NinjaTrader knob is switched on after a restart.']},
 {v:'73.214',date:'2026-08-21',notes:['2B SCATTER has an X-AXIS picker: TIME (trade order), REACH (MFE - did the trade bank what was available) or HEAT (MAE - how much pain it took), each with its regression line. Axis titles on 2B / 2C are bold and readable.','Wheel over a report tile scrolls the page now, not the tile; the tile still scrolls inside the double-click expanded view.','ROBUSTNESS chips, their readouts and the CAUTIONS strip keep real green / yellow / red on the MONO theme.','PINNED strategy files (every knob min = max) are labelled in the BUILDER list, refused by Auto-Validate with an explanation, and flagged 1-config in PAST RUNS. Auto-Validate is for full search spaces - run pinned files as SINGLE or GATE VALIDATE.']},
 {v:'73.213',date:'2026-08-22',notes:['COMPARE - STUDIES: new study TTM Squeeze (John Carter) across timeframes - nine mechanical variants of the Bollinger-inside-Keltner squeeze on NQ and ES from 1-minute to 60-minute bars, 90 rows (251-340), all local research from tools/ttmsqz_baselines.py. Below 15 minutes it loses to costs; the best cell (NQ 30m, Keltner 2.0) makes about a seventh of the ORB crown. New library strategy TTMSQZ_1_0.py.']},
 {v:'73.212',date:'2026-08-21',notes:['2B / 2C SCATTER: taller charts, larger axis numbers, axis titles moved clear of the ticks, and the double-click expanded view now has the crosshair readout (trade # and $ / heat and reach) on top of the per-dot tooltips.','PROFIT CONCENTRATION is a ROBUSTNESS chip now (section 3, the dashboard chips and the CAUTIONS strip all read the same chip).','Section 2 no longer goes silent on a single-config validate (run 241): the SURFACES and BARS columns show an N/A card that says the run validated ONE pinned config and how to get the surfaces.','PAST RUNS: the CHAMPIONS chip is unmistakable when ON (filled, reads CHAMPIONS ON) and a note beside it says champions only - n of N runs - click to show all.']},
@@ -17173,8 +17174,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
        sub:'One strategy on its own. NQ 5-minute bars, 2010 to 2026. Twenty-six configurations tested against the crowned champion.',
        notes:['Row 2 is the crowned NOISE champion as of 2026-08-21. The owner moved the crown from row 1 after the combination study concluded that skipping short trades the day after a weak close is the best single change and that no stacked combination clears the pre-registered bar. Row 1 stays as the reference baseline and is not archived.','Row 26 has no walk-forward figure, because that older ORB run covered different dates from the rows above it. It leaves the chart whenever the walk-forward stage is selected.','Read this study on raw profit. Every row here trades one strategy on one contract, so they all carry the same margin and the dollars are directly comparable.'],
        rows:[
-        {n:1,name:'Champion',what:'No filters. The reference baseline the crown was measured against.',tone:'champ',read:'Baseline; crown moved to row 2',runs:[231,242],repeats:[254],live:'paper',liveWhy:'This was the standing NOISE champion until 2026-08-21, when the owner moved the crown to row 2 on the combination study recommendation. It stays on the board as the reference baseline, and this exact configuration is still running in the paper forward test as the matched control for the two gated NOISE legs.',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
-        {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'champ',read:'Crowned 2026-08-21',runs:[241,236],repeats:[253],live:'both',liveWhy:'This is the standing NOISE champion, crowned by the owner on 2026-08-21 after the combination study concluded no filter stack beats this single filter. It joined the paper forward test the same day as its own shadow leg, read against the row-1 baseline.',is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
+        {n:1,name:'Champion',what:'No filters. The reference baseline the crown was measured against.',tone:'champ',read:'Baseline; crown moved to row 2',runs:[231,242],repeats:[254],live:'paper',layer:'both',liveWhy:'This was the standing NOISE champion until 2026-08-21, when the owner moved the crown to row 2 on the combination study recommendation. It stays on the board as the reference baseline. This exact configuration runs in the shadow engine as the matched raw control for rows 2, 98 and 99, and it is also the core the NinjaTrader demo account trades (with the forest gate, row 99, in front of it).',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
+        {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close.',tone:'champ',read:'Crowned 2026-08-21',runs:[241,236],repeats:[253],live:'both',layer:'shadow',liveWhy:'This is the standing NOISE champion, crowned by the owner on 2026-08-21 after the combination study concluded no filter stack beats this single filter. It joined the paper forward test the same day as its own shadow-engine leg, read against the row-1 baseline. The NinjaTrader demo does NOT run this filter yet: the knob is ported, default off, and flipping it waits on a NinjaTrader restart and an owner call.',is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
         {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'good',read:'Best all-round',runs:[243],repeats:[252],is:16445,wf:303685,lb:40648,tot:380745,dd:22096,pf:1.39,pdd:17.23,trd:4429},
         {n:4,name:'Skip Wild 2%',what:'Skip the wildest 2% of days.',tone:'frag',read:'Tail-driven',runs:[256],is:12321,wf:296734,lb:61018,tot:384690,dd:22334,pf:1.29,pdd:17.22,trd:5347},
         {n:5,name:'Wait2 + Short Veto',what:'Wait 2 bars to enter, plus row 2.',tone:'frag',read:'Pre-registered pick',is:17330,wf:315369,lb:32556,tot:367959,dd:37729,pf:1.32,pdd:9.75,trd:4418},
@@ -17294,24 +17295,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:90,name:'Trail Width Search',what:'The 24-hour champion with everything pinned except the trailing stop width, searched over a narrow pre-declared range.',tone:'frag',read:'Within noise, not adopted',runs:[247],is:343737,lb:64967,tot:408704,dd:52544,pf:1.27,trd:3363},
         {n:91,name:'Limit 0.20',what:'The 24-hour champion entered with a resting limit order a fifth of an average range below the signal price, waiting up to ten bars for a fill.',tone:'good',read:'Beaten by the deeper limit',runs:[248],is:369598,lb:96758,tot:466356,dd:54011,pf:1.36,trd:2866},
         {n:92,name:'Limit 0.50',what:'The same idea with the resting limit placed half an average range below the signal price.',tone:'good',read:'Adopted, now in paper',live:'paper',
-         liveWhy:'The owner adopted this on 2026-08-18 and it was added to the paper forward test the same day, running alongside row 87 as its matched control. It is not the certified ENGU-Q champion; row 87 is.',
+         liveWhy:'The owner adopted this on 2026-08-18 and it was added to the shadow-engine paper forward test the same day. Its original matched control, the row-87 raw leg, was retired from paper on 2026-08-21. It is not the certified ENGU-Q champion; row 87 is.',
          runs:[249],is:400926,lb:112088,tot:513014,dd:61666,pf:1.40,trd:2924},
         {n:250,name:'Efficiency 0.25',what:'The 24-hour champion taking a signal only when the last hour moved efficiently - net distance at least a quarter of the path travelled. The first confirmation gate ever to survive the pre-registered bar.',tone:'good',read:'PASS 5/5, walk-forward 8/8, in paper',live:'paper',
-         liveWhy:'Owner-adopted to paper on 2026-08-21, replacing the row 87 raw leg. Runs as ENGUQ_ER with its crowned logistic hybrid beside it as ENGUQ_ER_H, one backtest, two rows. Not the certified standalone crown; row 87 keeps that.',
+         liveWhy:'Owner-adopted to the shadow-engine paper test on 2026-08-21, replacing the row 87 raw leg. It runs as one backtest in two rows: this row is the pre-gate trades and row 341 is the same leg with its crowned hybrid gate on top. Not the certified standalone crown; row 87 keeps that.',
          runs:[265],is:182225,lb:135983,tot:318208,dd:41697,pf:1.56,trd:913}
        ]},
 
       // ── WHAT IS ACTUALLY RUNNING IN PAPER (owner ask 2026-08-19). Deliberately a TABLE with no
       //    chart: this is a status list, not a results comparison, and three of its seven rows
       //    are gate overlays whose money figures are not restated here.
-      {key:'paperlegs',title:'What is running in paper right now',disc:'2026-08-19',isLbl:'PRE-LOCKBOX',fam:'ORB',
-       sub:'The eight configurations the nightly paper forward test is running, read against the run each one came from. NQ, from 2026-08-11 forward.',
-       notes:['The headline is a mismatch. The ORB configuration being forward-tested is the PREVIOUS crown, not the current one. Row 93 is what paper trades and row 47 is what holds the crown.',
-              'NOISE has a smaller mismatch of its own since 2026-08-21: the crowned Short Veto configuration (row 249) runs in the shadow engine only, while the NinjaTrader demo leg still runs the baseline configuration with the gate. The NinjaScript port gained the filter knob, default off, but flipping it on waits for a NinjaTrader restart and an owner call.',
-              'A gate is an overlay, not a strategy. The strategy picks its trades exactly as it always has and a second model, trained only on trades that had already finished, decides which to keep and how big to trade them. Rows 94, 98 and 99 are the three gated legs.',
-              'The three gated rows show a dash in every money column on purpose. Their profit is measured inside their source run report, not on this board, and putting the ungated numbers there would be substituting a different measurement. Their trade counts are real: they are how many trades survived the gate in last night paper run over the full history.',
-              'Row 96 was added to the paper board on 2026-08-18 and the most recent nightly report ran before it, so its first forward figures are still to come.',
-              'This tile has no chart because it is a status list rather than a comparison. Three of the seven rows have no money figures to plot, and the four that do are already plotted in their own studies.'],
+      {key:'paperlegs',title:'What is running in paper right now',disc:'2026-08-19',isLbl:'PRE-LOCKBOX',fam:'ORB',liveIndex:true,
+       sub:'The paper forward test, read as one list. Every configuration in paper that already has a row on this board is pointed to below the table, not restated - the PAPER pill on its own row is the single statement that it is running. The rows here are the gate overlays, which have no row anywhere else. NQ, from 2026-08-11 forward.',
+       notes:['Until 2026-08-22 this study carried a second copy of every paper leg (rows 93, 95, 96, 97 and 249), each with its own champion mark and PAPER pill. In the pooled ONE TABLE view that put two blue champion dots on NOISE and six PAPER pills where four legs run. Those five rows are retired and never reused; the list under this table points to the canonical rows instead.',
+              'NOISE runs four legs in the shadow engine: the crowned Short Veto (row 2, run 241), its matched raw control which is the old champion core (row 1, run 231), and the two gate overlays below (rows 98 and 99). The NinjaTrader demo account runs only the core plus the forest gate - PAPER+NT on rows 1 and 99. It does not carry the Short Veto filter yet: the NinjaScript knob exists, default off, and flipping it waits on a NinjaTrader restart and an owner call. So row 2 reads PAPER, shadow only, and nothing on the board says otherwise.',
+              'ENGU-Q since 2026-08-21 runs the efficiency-gated configuration (row 250, run 265) with its crowned hybrid gate beside it as one backtest in two rows (row 341 below), plus the limit-0.50 entry (row 92, run 249). The run-226 raw leg (row 87) was retired from paper that day; it keeps the standalone crown.',
+              'ORB runs the crown (row 47, run 234) and its gate overlay (row 94). Both were moved onto run 234 on 2026-08-21.',
+              'A gate is an overlay, not a strategy. The strategy picks its trades exactly as it always has and a second model, trained only on trades that had already finished, decides which to keep and how big to trade them. The gated rows show a dash in every money column on purpose: their profit is measured inside their source run report, and putting the ungated numbers there would be substituting a different measurement. Their trade counts are real.',
+              'This tile has no chart because it is a status list rather than a comparison.'],
        dashWhy:{is:'This row is a gate overlay. Its profit is graded inside its source run report, and no separate figure for it is restated on this board.',
                 lb:'This row is a gate overlay. Its profit is graded inside its source run report, and no separate figure for it is restated on this board.',
                 tot:'This row is a gate overlay. Its profit is graded inside its source run report, and no separate figure for it is restated on this board.',
@@ -17319,119 +17320,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 pf:'This row is a gate overlay. Its profit factor is graded inside its source run report, and no separate figure for it is restated on this board.',
                 wf:'This row is one pinned configuration graded against a sealed lockbox, so there are no walk-forward folds to report for it.'},
        rows:[
-        {n:93,fam:'ORB',name:'Paper: ORB',what:'The opening-range strategy running in paper since 2026-08-21: the standing crown, row 47, with the ride-to-target exit and breakeven at 1x risk. Before 2026-08-21 this leg ran the round-one crown (rows 26 and 83).',tone:'champ',read:'Running, and the crown',live:'paper',
-         liveWhy:'This is the crown configuration as it runs in paper. Row 47 carries the crown tag; this row records the paper leg itself. The mismatch the board used to show here was closed on 2026-08-21.',
-         runs:[234],is:300931,lb:88943,tot:389874,dd:29142,pf:1.31,trd:2607},
-        {n:94,fam:'ORB',name:'Paper: ORB + Gate',what:'The crown ORB configuration (row 47) with run 234 own gate switched on: trades scoring under 45 percent are skipped and the survivors are sized by score. The plain ORB leg above is its matched control.',tone:'frag',read:'Gate test, not a crown',live:'paper',
-         liveWhy:'This is a gate overlay running in the paper forward test right now. It is not a crown; it is a test of whether the gate beats the same strategy with the gate off.',
+        {n:94,fam:'ORB',name:'Paper: ORB + Gate',what:'The crown ORB configuration (row 47, run 234) with that run own gate switched on: trades scoring under 45 percent are skipped and the survivors are sized by score. Row 47 is its matched control.',tone:'frag',read:'Gate test, not a crown',live:'paper',
+         liveWhy:'This is a gate overlay running in the shadow engine right now. It is not a crown; it is a test of whether the gate beats the same strategy with the gate off. The NinjaTrader demo does not run this gate.',
          runs:[234],trd:2148},
-        {n:95,fam:'ENGU-Q',name:'Paper: ENGU-Q',what:'The 24-hour ENGU-Q configuration running in paper. Same configuration as row 87.',tone:'champ',read:'Crowned and running',live:'both',
-         liveWhy:'This is the certified ENGU-Q champion and it is running in the paper forward test right now.',
-         runs:[226],is:344384,lb:90338,tot:434722,dd:50420,pf:1.33,trd:2843},
-        {n:96,fam:'ENGU-Q',name:'Paper: ENGU-Q Limit',what:'The same 24-hour configuration entered with a resting limit half an average range below the signal price. Added to paper on 2026-08-18 as the pair to the row above. Same configuration as row 92.',tone:'good',read:'Adopted, first days pending',live:'paper',
-         liveWhy:'The owner adopted this on 2026-08-18 and it went onto the paper board the same day. It is not the certified ENGU-Q champion; the row above is.',
-         runs:[249],is:400926,lb:112088,tot:513014,dd:61666,pf:1.40,trd:2924},
-        {n:97,fam:'NOISE',name:'Paper: NOISE',what:'The noise-band strategy running in paper on the row-1 baseline settings, which is also the matched control for both gated NOISE legs and for the Short Veto leg below. Same configuration as row 1.',tone:'ref',read:'Baseline control, running',live:'paper',
-         liveWhy:'This configuration is running in the paper forward test right now as the raw control for the two gated NOISE legs and for the Short Veto leg. It was the standing NOISE champion until 2026-08-21, when the crown moved to the Short Veto configuration on row 2.',
-         runs:[231,242],repeats:[254],is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,trd:5633},
-        {n:249,fam:'NOISE',name:'Paper: NOISE Short Veto',what:'The crowned NOISE configuration: the same settings as the leg above plus one filter, skip short trades the day after the prior session closed in the bottom fifth of its own range. Added to paper on 2026-08-21, the day it was crowned. Same configuration as row 2.',tone:'champ',read:'Crowned, first days pending',live:'paper',
-         liveWhy:'This exact configuration went onto the paper board on 2026-08-21, the day the owner crowned it. The crown tag itself sits on row 2, which is the same configuration persisted as run 241 - one family, one crown. NinjaTrader still runs the baseline configuration with the gate, so the demo-account layer does not yet carry this filter; only the shadow engine leg does.',
-         runs:[241,236],repeats:[253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,trd:5214},
-        {n:98,fam:'NOISE',name:'Paper: NOISE + Tree Gate',what:'The same NOISE configuration with a decision-tree gate at the 55 percent floor. It is a written-down forward test of a result that only looked good in hindsight, not a crown.',tone:'frag',read:'Pre-declared test, not a crown',live:'paper',
-         liveWhy:'This is a gate overlay running in the paper forward test right now. The project states plainly that it is a test rather than a crown: the selection rule would never have picked this gate, and the claim is that it should beat the raw control from 2026-08-16 forward.',
+        {n:341,fam:'ENGU-Q',name:'Paper: ENGU-Q + Efficiency Gate',what:'The efficiency-gated ENGU-Q configuration (row 250, run 265) with that run own crowned hybrid gate on top, a logistic model at the 55 percent floor. One backtest, two rows: row 250 is the pre-gate trades of this same leg.',tone:'frag',read:'Pre-declared test, not a crown',live:'paper',
+         liveWhy:'This is a gate overlay running in the shadow engine since 2026-08-21. The run-265 card says its lockbox FAILED against ungated, so this is a written-down forward test that the hybrid beats row 250 from 2026-08-21 onward, not a crown. The NinjaTrader demo does not run this gate.',
+         runs:[265]},
+        {n:98,fam:'NOISE',name:'Paper: NOISE + Tree Gate',what:'The NOISE core (row 1) with a decision-tree gate at the 55 percent floor. It is a written-down forward test of a result that only looked good in hindsight, not a crown.',tone:'frag',read:'Pre-declared test, not a crown',live:'paper',
+         liveWhy:'This is a gate overlay running in the shadow engine right now. The project states plainly that it is a test rather than a crown: the selection rule would never have picked this gate, and the claim is that it should beat the raw control (row 1) from 2026-08-16 forward. The NinjaTrader demo does not run this gate.',
          runs:[225],trd:2689},
-        {n:99,fam:'NOISE',name:'Paper: NOISE + Forest Gate',what:'The same NOISE configuration with a random-forest gate at the 55 percent floor. It halves the drawdown for roughly the same risk-adjusted return, so read it as a risk reducer rather than an edge.',tone:'frag',read:'Risk reducer, not an edge',live:'paper',
-         liveWhy:'This is a gate overlay running in the paper forward test right now, picked by the owner on 2026-08-16. It is not a crown.',
+        {n:99,fam:'NOISE',name:'Paper: NOISE + Forest Gate',what:'The NOISE core (row 1) with a random-forest gate at the 55 percent floor. It halves the drawdown for roughly the same risk-adjusted return, so read it as a risk reducer rather than an edge.',tone:'frag',read:'Risk reducer, not an edge',live:'paper',layer:'both',
+         liveWhy:'This is a gate overlay running in the shadow engine right now, picked by the owner on 2026-08-16, and it is also the gate the NinjaTrader demo account asks before every NOISE entry. It is not a crown.',
          runs:[231],trd:1468}
-       ]},
-      // ── ORB round three: the ENTRY re-opened under the new exit (2026-08-18) ────────
-      //    Rounds one and two only ever changed the EXIT. Every config in the studies above
-      //    carries run #230's entry verbatim, and that entry was chosen when the exit was a
-      //    partial at 3R plus a trailing stop. The exit has since changed completely, so the
-      //    entry that suited the old one need not suit the new one. These rows are that scan.
-      //    All local: a one-at-a-time pass then a 192-config grid. The three that were
-      //    persisted as real runs are rows 75-77 in the breakeven study, not repeated here.
-      {key:'orbentry3',title:'ORB round three, the entry re-opened',disc:'2026-08-18',isLbl:'IN-SAMPLE',fam:'ORB',
-       sub:'The opening-range entry re-tested against the current exit. NQ 5-minute bars, 2010 to 2026, one contract, all costs paid.',
-       win:{from:'2010-06-07',to:'2026-08-13'},
-       notes:['Every row here is LOCAL research. None was persisted as an Auto-Validate run, so none has a walk-forward figure and all of them leave the chart when the walk-forward stage is selected.',
-              'The three configurations from this scan that WERE run are rows 75, 76 and 77 in the breakeven study. They are not repeated here.',
-              'Two rows are the reason nothing was crowned off this scan. OR 3 BARS posts the best in-sample number on the whole board and loses money in the lockbox. BOTH DIRECTIONS does the same. In-sample ranking has now pointed the wrong way four times in this programme.',
-              'REGIME FILTER 0.5 shows the most money of any single change tested, and it buys that with a third more drawdown than the crown. More money is not the same as a better strategy, which is why it sits here as fragile rather than as a candidate.'],
-       dashWhy:{wf:'This configuration was measured locally and never persisted as an Auto-Validate run, so no walk-forward folds exist for it. Nothing is substituted in its place.'},
-       rows:[
-  {n:100,name:'OR 1 Bar',what:'Opening range from the first 5-minute bar instead of two.',tone:'fail',read:'Halves the money',win:{from:'2010-06-07',to:'2026-08-13'},is:151310,lb:45564,tot:196874,dd:43497,pf:1.14,trd:2827},
-  {n:101,name:'OR 3 Bars',what:'Opening range from the first fifteen minutes.',tone:'fail',read:'Best in-sample, loses the lockbox',win:{from:'2010-06-07',to:'2026-08-13'},is:324395,lb:-11175,tot:313220,dd:47655,pf:1.25,trd:2508},
-  {n:102,name:'OR 4 Bars',what:'Opening range from the first twenty minutes.',tone:'fail',read:'Worst drawdown of the scan',win:{from:'2010-06-07',to:'2026-08-13'},is:153975,lb:16878,tot:170853,dd:58433,pf:1.13,trd:2427},
-  {n:103,name:'OR 6 Bars',what:'Opening range from the first half hour.',tone:'fail',read:'Nearly all the edge gone',win:{from:'2010-06-07',to:'2026-08-13'},is:122633,lb:-22558,tot:100075,dd:35509,pf:1.09,trd:2280},
-  {n:104,name:'Both Directions',what:'Trade either side of the range instead of the opening candle direction.',tone:'fail',read:'Loses money in the lockbox',win:{from:'2010-06-07',to:'2026-08-13'},is:283409,lb:-6527,tot:276882,dd:60887,pf:1.15,trd:3497},
-  {n:105,name:'Long Only',what:'Only take upside breakouts.',tone:'fail',read:'Half the edge, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:185758,lb:7995,tot:193753,dd:44246,pf:1.17,trd:2344},
-  {n:106,name:'Short Only',what:'Only take downside breakouts.',tone:'fail',read:'Half the edge, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:123374,lb:49328,tot:172702,dd:41590,pf:1.14,trd:2202},
-  {n:107,name:'No Buffer',what:'Trigger the moment price touches the range edge.',tone:'fail',read:'Drawdown nearly doubles',win:{from:'2010-06-07',to:'2026-08-13'},is:254508,lb:42781,tot:297289,dd:55454,pf:1.18,trd:2934},
-  {n:108,name:'Buffer 0.40',what:'Require price to clear the edge by 40 percent of the range.',tone:'frag',read:'Lowest drawdown, less money',win:{from:'2010-06-07',to:'2026-08-13'},is:263114,lb:71643,tot:334757,dd:24465,pf:1.29,trd:2437},
-  {n:109,name:'Volume Gate Off',what:'Remove the pre-entry volume-pace requirement.',tone:'frag',read:'More money, much more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:269954,lb:90075,tot:360029,dd:50411,pf:1.27,trd:2751},
-  {n:110,name:'Volume Gate 1.1',what:'Only trade sessions running well above normal volume.',tone:'fail',read:'Too strict, halves the money',win:{from:'2010-06-07',to:'2026-08-13'},is:165358,lb:28191,tot:193549,dd:23534,pf:1.29,trd:1297},
-  {n:111,name:'Regime Filter Off',what:'Remove the quiet-market skip.',tone:'frag',read:'More money, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:327889,lb:94471,tot:422360,dd:38578,pf:1.32,trd:2826},
-  {n:112,name:'Regime Filter 0.5',what:'Skip only the very quietest stretches.',tone:'frag',read:'Most money of the whole scan',win:{from:'2010-06-07',to:'2026-08-13'},is:330571,lb:94471,tot:425042,dd:38578,pf:1.32,trd:2815},
-  {n:113,name:'Stop 1.5',what:'Stop at 1.5 times the range width.',tone:'frag',read:'Tighter stop, less money',win:{from:'2010-06-07',to:'2026-08-13'},is:292906,lb:68660,tot:361566,dd:27744,pf:1.31,trd:2607},
-  {n:114,name:'Stop 2.5',what:'Stop at 2.5 times the range width.',tone:'frag',read:'More money, more drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:326559,lb:82868,tot:409427,dd:34661,pf:1.32,trd:2607},
-  {n:115,name:'Grid Survivor',what:'Regime filter off, buffer 0.30, stop 2.50 - the survivor never validated.',tone:'frag',read:'Cleared the gate, never run',win:{from:'2010-06-07',to:'2026-08-13'},is:318507,lb:91405,tot:409912,dd:32505,pf:1.31,trd:2762},
-      ]},
-      // ── ORB ideas that were tested and killed (2026-08-17 / 18) ───────────────────
-      //    Kept because a dead end that is written down is cheaper than one rediscovered.
-      {key:'orbkilled',title:'ORB ideas tested and killed',disc:'2026-08-18',isLbl:'IN-SAMPLE',fam:'ORB',
-       sub:'Nine ideas measured against the ORB crown and rejected. NQ 5-minute bars, 2010 to 2026, one contract, all costs paid.',
-       win:{from:'2010-06-07',to:'2026-08-13'},
-       notes:['Every row here is LOCAL research with no walk-forward figure. The crown to read them against is row 67, at $389,874 total on $29,142 of drawdown.',
-              'THE PRIOR-DAY GATE is the one worth understanding. Splitting the crown\u2019s own trades by whether the fill sat beyond the previous day range gave the rare factor that ranked the same way in BOTH windows. Built as a real gate it still failed. Trades that run far end up beyond that level, so the split was selection after the fact rather than a condition you can require in advance.',
-              'THE TRAILING STOP rows explain where the current crown came from. On these entries a trail earns almost nothing on its own, which is what pointed at deleting both runner levers and simply riding to the target.',
-              'THE TWO-LOT rows are recorded for completeness only. Blends were ruled out by the owner on 2026-08-17 and are not being pursued.',
-              'THE ATR-FLOOR STOP was killed by a diagnostic before any configuration existed, so it carries no figures at all rather than invented ones.'],
-       dashWhy:{wf:'This configuration was measured locally and never persisted as an Auto-Validate run, so no walk-forward folds exist for it. Nothing is substituted in its place.'},
-       rows:[
-  {n:116,name:'Prior-Day Gate',what:'Only fill beyond the previous day high or low.',tone:'fail',read:'Loses a third of the money',win:{from:'2010-06-07',to:'2026-08-13'},is:199585,lb:40990,tot:240576,dd:20681,pf:1.34,trd:1582},
-  {n:117,name:'Prior-Day Gate Loose',what:'Fill anywhere except inside the previous day range.',tone:'fail',read:'Worse again on drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:216235,lb:52459,tot:268695,dd:40347,pf:1.33,trd:1796},
-  {n:118,name:'Re-entry Once',what:'Allow one more entry after a breakeven scratch.',tone:'fail',read:'More trades, worse result',win:{from:'2010-06-07',to:'2026-08-13'},is:291662,lb:80423,tot:372084,dd:35326,pf:1.28,trd:2713},
-  {n:119,name:'Re-entry Twice',what:'Allow two more entries after a breakeven scratch.',tone:'fail',read:'Same failure, more of it',win:{from:'2010-06-07',to:'2026-08-13'},is:295090,lb:80423,tot:375512,dd:35326,pf:1.28,trd:2716},
-  {n:120,name:'Cutoff 15:00',what:'Refuse new entries after 3pm.',tone:'fail',read:'No gain over trading all day',win:{from:'2010-06-07',to:'2026-08-13'},is:300421,lb:87954,tot:388375,dd:31548,pf:1.31,trd:2546},
-  {n:121,name:'Cutoff 13:00',what:'Refuse new entries after 1pm.',tone:'fail',read:'Costs money, adds drawdown',win:{from:'2010-06-07',to:'2026-08-13'},is:273363,lb:94409,tot:367772,dd:33733,pf:1.30,trd:2383},
-  {n:122,name:'Cutoff 11:00',what:'Morning entries only.',tone:'fail',read:'Cuts a fifth of the money',win:{from:'2010-06-07',to:'2026-08-13'},is:252360,lb:59550,tot:311909,dd:32947,pf:1.29,trd:2069},
-  {n:123,name:'Trail From Entry 3',what:'Replace the target with a 3-bar trailing stop.',tone:'fail',read:'The trail is dead weight',win:{from:'2010-06-07',to:'2026-08-13'},is:2822,lb:17983,tot:20804,dd:24579,pf:1.04,trd:2607},
-  {n:124,name:'Trail From Entry 5',what:'Replace the target with a 5-bar trailing stop.',tone:'fail',read:'Earns a fraction of riding',win:{from:'2010-06-07',to:'2026-08-13'},is:37527,lb:30468,tot:67994,dd:25459,pf:1.12,trd:2607},
-  {n:125,name:'Two-Lot Ride+Trail3',what:'Two contracts: one rides to target, one trails 3 bars.',tone:'fail',read:'Blends ruled out by owner',win:{from:'2010-06-07',to:'2026-08-13'},is:151877,lb:53463,tot:205339,dd:22510,pf:1.27,trd:2607},
-  {n:126,name:'Two-Lot Ride+Trail5',what:'Two contracts: one rides to target, one trails 5 bars.',tone:'fail',read:'Blends ruled out by owner',win:{from:'2010-06-07',to:'2026-08-13'},is:169229,lb:59705,tot:228934,dd:23305,pf:1.29,trd:2607},
-  {n:127,name:'Fade OR1',what:'Trade the failed breakout in reverse, 5-minute range.',tone:'fail',read:'Loses money in both windows',win:{from:'2010-06-07',to:'2026-08-13'},is:-37059,lb:-4910,tot:-41968,dd:44969,pf:0.88,trd:1813},
-  {n:128,name:'Fade OR2',what:'Trade the failed breakout in reverse, 10-minute range.',tone:'fail',read:'Loses money in both windows',win:{from:'2010-06-07',to:'2026-08-13'},is:-4869,lb:-10558,tot:-15427,dd:39250,pf:0.96,trd:1851},
-        {n:129,name:'ATR-Floor Stop',what:'Put a floor under the stop in volatility units so narrow-range mornings cannot produce a tiny stop.',tone:'fail',read:'Killed before it was built',win:{from:'2010-06-07',to:'2026-08-13'},
-         why:{is:'No configuration was ever built, so there is nothing to measure. The idea was rejected on a diagnostic: bucketing the crown trades by opening-range width against the recent daily range showed the widest bucket best in-sample and worst in the lockbox, so the factor carries no stable signal to build on.',lb:'No configuration was ever built, so there is nothing to measure.',tot:'No configuration was ever built, so there is nothing to measure.',dd:'No configuration was ever built, so there is nothing to measure.',pf:'No configuration was ever built, so there is nothing to measure.',trd:'No configuration was ever built, so there is nothing to measure.'}}
-      ]}
-      ,
-
-      // ── ENGU-Q LIMIT DEPTH SWEEP (2026-08-18). The board already carries the two depths
-      //    that became runs (rows 91 and 92). This is the rest of the curve, measured
-      //    locally, which is what shows the adopted depth sits on a shoulder and not a spike.
-      {key:'enguqlim',title:'ENGU-Q limit depth, the whole curve',disc:'2026-08-18',isLbl:'PRE-LOCKBOX',fam:'ENGU-Q',
-       sub:'Thirteen further limit depths between a sixth and a full average range below the signal price, filling the gaps around the two depths that became runs. NQ 1-minute, 24-hour session, June 2010 to June 2026.',
-       win:{from:'2010-06-07',to:'2026-06-30'},
-       dashWhy:{wf:'This was measured locally as one fixed configuration, not run through Auto-Validate, so it has no walk-forward folds. The stage columns show what was measured and nothing is substituted for what was not.'},
-       notes:['The point of this sweep is that the effect is broad, not a single lucky setting. Profit factor beats the control at every depth from 0.15 to 1.00, and total profit beats it at every one of them too, so the adopted 0.50 is sitting on a shoulder rather than balanced on a spike.',
-              'Rows 138 and 139 look like the best rows on the board and are deliberately marked fragile. They show the highest profit divided by drawdown of anything tested, but a five thousand sample bootstrap put their drawdown advantage over the adopted depth at minus two hundred and forty five dollars, winning barely half the time. That is a coin flip and not an edge.',
-              'Read the lockbox column rather than profit divided by drawdown on this study. Drawdown is set by one unlucky run of trades and its uncertainty range is wider than the number itself, which is exactly why rows 138 and 139 mislead.',
-              'The adopted depth of 0.50, row 92 in the study above, has the strongest lockbox of every depth tested, at a hundred and twenty six thousand dollars.'],
-       rows:[
-        {n:130,name:'Limit 0.15',what:'The certified 24-hour champion entered with a resting limit order 0.15 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'good',read:'Improved and held',is:354041,lb:106928,tot:460969,dd:54138,pf:1.353,trd:2862},
-        {n:131,name:'Limit 0.25',what:'The certified 24-hour champion entered with a resting limit order 0.25 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'good',read:'Improved and held',is:363947,lb:108799,tot:472746,dd:53450,pf:1.364,trd:2870},
-        {n:132,name:'Limit 0.30',what:'The certified 24-hour champion entered with a resting limit order 0.30 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'good',read:'Improved and held',is:363136,lb:103537,tot:466673,dd:53553,pf:1.357,trd:2912},
-        {n:133,name:'Limit 0.35',what:'The certified 24-hour champion entered with a resting limit order 0.35 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Drawdown jumps here',is:352284,lb:104442,tot:456726,dd:60981,pf:1.346,trd:2924},
-        {n:134,name:'Limit 0.40',what:'The certified 24-hour champion entered with a resting limit order 0.40 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Drawdown stays high',is:365883,lb:104882,tot:470765,dd:61229,pf:1.364,trd:2895},
-        {n:135,name:'Limit 0.45',what:'The certified 24-hour champion entered with a resting limit order 0.45 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'good',read:'Improved and held',is:383259,lb:109161,tot:492420,dd:58774,pf:1.386,trd:2902},
-        {n:136,name:'Limit 0.55',what:'The certified 24-hour champion entered with a resting limit order 0.55 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Widest drawdown band',is:385193,lb:118711,tot:503904,dd:64530,pf:1.389,trd:2939},
-        {n:137,name:'Limit 0.60',what:'The certified 24-hour champion entered with a resting limit order 0.60 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Widest drawdown band',is:396981,lb:112068,tot:509049,dd:65064,pf:1.396,trd:2949},
-        {n:138,name:'Limit 0.65',what:'The certified 24-hour champion entered with a resting limit order 0.65 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Flattered by luck',is:419395,lb:104972,tot:524367,dd:53130,pf:1.410,trd:2946},
-        {n:139,name:'Limit 0.70',what:'The certified 24-hour champion entered with a resting limit order 0.70 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Flattered by luck',is:424988,lb:103306,tot:528294,dd:51614,pf:1.415,trd:2943},
-        {n:140,name:'Limit 0.80',what:'The certified 24-hour champion entered with a resting limit order 0.80 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'frag',read:'Lockbox starts slipping',is:404487,lb:100887,tot:505374,dd:59189,pf:1.394,trd:3037},
-        {n:141,name:'Limit 0.90',what:'The certified 24-hour champion entered with a resting limit order 0.90 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'fail',read:'Lockbox below the control',is:414979,lb:83158,tot:498137,dd:56341,pf:1.388,trd:3079},
-        {n:142,name:'Limit 1.00',what:'The certified 24-hour champion entered with a resting limit order 1.00 of an average range below the signal price, waiting up to ten bars for a fill and dropping the signal if none comes.',tone:'fail',read:'Lockbox below the control',is:415069,lb:88338,tot:503407,dd:55489,pf:1.399,trd:3125}
        ]},
 
       // ── ENGU-Q SHORT MIRROR (2026-08-18). Every ENGU-Q variant in the project had been
@@ -18691,12 +18591,24 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rePill=(t,c)=>'<span style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.6px;padding:2px 5px;border-radius:5px;margin-right:3px;color:var(--text2);background:color-mix(in srgb,'+c+' 22%,transparent);border:1px solid color-mix(in srgb,'+c+' 48%,transparent)">'+t+'</span>';
         // inline beside the name: no pill at all when the row is neither, which is the normal
         //   state of a research variant and was costing a whole column of dashes.
+        // `layer` says WHICH paper layer: 'shadow' (default - the nightly shadow engine),
+        //   'both' (the NinjaTrader demo account runs the same configuration too) or 'nt'
+        //   (demo only). The pill spells it out so "in paper" is never ambiguous.
+        const _reLayerV=rw=>{const v=String((rw&&rw.layer)||'shadow');return (['shadow','nt','both'].indexOf(v)>=0)?v:'shadow';};
+        const _reLayerTip={shadow:' Layer: the nightly SHADOW engine only. The NinjaTrader demo account does not run this exact configuration.',
+          both:' Layer: the nightly shadow engine AND the NinjaTrader demo account, which trades this same configuration.',
+          nt:' Layer: the NinjaTrader demo account only; the shadow engine does not carry this leg.'};
         const _reLiveInline=rw=>{const v=_reLiveV(rw);
           if(v==='none')return '';
-          let s='';
+          let s='',lt='';
           if(v==='crown'||v==='both')s+=_rePill('CROWN','var(--blue)');
-          if(v==='paper'||v==='both')s+=_rePill('PAPER','var(--green)');
-          return '<span title="'+_reEsc((rw&&rw.liveWhy)||_reLiveTip[v])+'" style="cursor:help;white-space:nowrap;margin-left:5px">'+s+'</span>';};
+          if(v==='paper'||v==='both'){const ly=_reLayerV(rw);s+=_rePill((ly==='both')?'PAPER+NT':(ly==='nt')?'NT ONLY':'PAPER','var(--green)');lt=_reLayerTip[ly];}
+          return '<span title="'+_reEsc(((rw&&rw.liveWhy)||_reLiveTip[v])+lt)+'" style="cursor:help;white-space:nowrap;margin-left:5px">'+s+'</span>';};
+        // the run chip beside the name: the run number a row was persisted as, readable without
+        //   scrolling to the RUN column (which sits off-screen in the pooled view). Shown in ONE
+        //   TABLE view and whenever SPLIT BY RUN is on. Click opens the run report, as the row does.
+        const _reRunChip=rw=>{const runs=Array.isArray(rw&&rw.runs)?rw.runs:[];if(!runs.length)return '';
+          return '<span title="'+_reEsc('This row is run #'+runs[0]+' in PAST RUNS'+(runs.length>1?(' (also '+runs.slice(1).map(x=>'#'+x).join(', ')+')'):'')+'. Click to open the run report.')+'" style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.4px;padding:1px 5px;border-radius:5px;margin-left:5px;color:var(--text3);background:color-mix(in srgb,var(--text) 8%,transparent);border:1px solid var(--border2);cursor:pointer;font-variant-numeric:tabular-nums">#'+runs[0]+'</span>';};
         const _reLegend=extra=>'<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
           +['champ','good','frag','fail','ref'].map(k=>'<span title="'+_reEsc('drawn as a '+_reToneMk[k]+', so the verdict reads with no colour at all')+'" style="cursor:help">'+_reMk(k)+_reToneNm[k]+'</span>').join('')
           +(extra?('<span style="color:var(--text5)">'+_reEsc(extra)+'</span>'):'')+'</span>';
@@ -18788,7 +18700,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
             +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+_reFamTag(st,rw)+_reLiveInline(rw)
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)
               +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')
             +(_reFull?(td(_reCell(st,rw,'is',_reMoney),null,(_reSegs.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegs.indexOf('wf')>=0)?em:'')
@@ -19226,7 +19138,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
             +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.75;margin:8px 0 0;padding-left:15px;max-width:960px">'
                 +notes.map(n=>'<li style="margin-bottom:4px">'+_reEsc(n)+'</li>').join('')+'</ul>'):'')
+            +(st.liveIndex?_reLiveIndex(st):'')
             +'</div></div>';};
+        // `liveIndex:true` on a study prints, under its notes, every row on the WHOLE board that
+        //   is tagged as running in paper and does not belong to this study - as pointers to the
+        //   canonical rows, never as copies. This is how the paper study stays readable without
+        //   duplicating a configuration that already has a row (and a champion mark) elsewhere.
+        const _reLiveIndex=st=>{const out=[];
+          RESEARCH_STUDIES.forEach(o=>{if(!o||o.key===st.key||!Array.isArray(o.rows))return;
+            o.rows.forEach(r=>{const v=_reLiveV(r);if(v!=='paper'&&v!=='both')return;
+              const runs=Array.isArray(r.runs)?r.runs:[];
+              out.push({r:r,st:o,fam:_reFamOf(o,r),run:runs.length?runs[0]:null});});});
+          if(!out.length)return '';
+          out.sort((a,b)=>(a.fam<b.fam?-1:a.fam>b.fam?1:a.r.n-b.r.n));
+          return '<div style="font-size:9px;color:var(--text4);line-height:1.9;margin:8px 0 0;max-width:960px"><span class="lbl" style="font-size:8px;letter-spacing:1.2px;color:var(--text5)">ALSO IN PAPER, ON THEIR OWN ROWS</span> <span style="color:var(--text5)">\u00b7 pointers, not copies: the PAPER pill on each row is the single statement that it is running</span><br>'
+            +out.map(o=>'<span'+(o.run?(' data-rank-run="'+o.run+'"'):'')+' title="'+_reEsc(String(o.r.name)+' - researched in: '+o.st.title+'. '+((o.r.liveWhy)||_reLiveTip[_reLiveV(o.r)])+_reLayerTip[_reLayerV(o.r)]+(o.run?(' Click to open run #'+o.run+'.'):''))+'" style="display:inline-block;margin:0 10px 3px 0;'+(o.run?'cursor:pointer':'')+'"><b style="color:'+(_reTone[o.r.tone]||'var(--text4)')+'">'+o.r.n+'</b> <b style="color:var(--text)">'+_reEsc(o.r.name)+'</b> <span style="color:var(--text5)">'+_reEsc(o.fam)+'</span>'+(o.run?_reRunChip(o.r):'')+_reLiveInline(o.r)+'</span>').join('')+'</div>';};
         // ONE TABLE: every surviving row from every study, pooled, ranked together, ordered by
         //   ORDER, split by SPLIT BY RUN, each row tagged with its study. Left on AUTO it turns
         //   itself on while a strategy is picked - that is the "show me everything for ORB"

@@ -425,6 +425,7 @@ the same thing everywhere.
 | `trd` | no | The trade count. |
 | `live` | no | The row's **status**: `'crown'`, `'paper'`, `'both'`, or left out. See section 4B. |
 | `liveWhy` | no | One plain-English sentence explaining that status, shown when the reader hovers the status pills. Leave it out and a sensible default sentence is used. |
+| `layer` | no | Which paper **layer** a `'paper'`/`'both'` row runs on: `'shadow'` (default — the nightly shadow engine in `api/paper.py`), `'both'` (the NinjaTrader demo account trades the same configuration too) or `'nt'` (demo only). The pill reads PAPER, PAPER+NT or NT ONLY accordingly. See section 4B. |
 | `why` | no | An object mapping a field name to the reason its dash shows, overriding `dashWhy` for this row alone. |
 | `win` | no | `{from:'YYYY-MM-DD', to:'YYYY-MM-DD'}` — the **data window** this row's figures cover. See section 4A. |
 
@@ -515,6 +516,32 @@ That contrast is exactly what the owner asked the board to show.
 
 The STATUS filter is built from these values the same way every other filter is built, so a study
 that tags its rows gets its buttons for free.
+
+**One configuration, one row — the paper study never duplicates (rule added 2026-08-22).** The
+owner's complaint, verbatim: *"table shows multiple configs being tagged as paper. i doubt we have 6
+Noise configs being paper traded."* Until that day the what-is-running-in-paper study carried a
+second copy of every paper leg (rows 93, 95, 96, 97, 249), each with its own champion mark and PAPER
+pill, so the pooled ONE TABLE showed two blue champion dots for NOISE and six PAPER pills where four
+legs run. The rule now: **a row in the paper study must never be a second copy of a configuration
+that already has a row elsewhere on the board.** The PAPER pill on the canonical row is the single
+statement that a configuration is in paper. The paper study keeps only rows with no canonical
+counterpart — today, the gate overlays (94, 98, 99, 341) — and declares `liveIndex:true`, which makes
+the renderer print, under its notes, a pointer line ("ALSO IN PAPER, ON THEIR OWN ROWS") listing every
+row on the whole board tagged `'paper'`/`'both'` with its family, run chip and pill. Pointers, never
+copies. Consequence: **exactly as many PAPER pills per family as there are real legs in
+`api/paper.py`, and exactly one champion mark per family.**
+
+**Say which layer.** `layer` (section 4, above) records whether the NinjaTrader demo account runs
+the same configuration. It is declared, never inferred, from `tools/nt/*.cs` defaults and
+`PAPER_TRADING.md`. As of 2026-08-22 only NOISE rows 1 (the core) and 99 (the forest gate the demo
+asks before every entry) are `'both'`; the crowned Short Veto (row 2) is shadow-only because the
+NinjaScript knob is default-off until an NT restart and an owner call. Nothing on the board may
+claim otherwise.
+
+**The run number must be readable beside the name.** The owner's other complaint: *"studies shows
+noise champion as row 249. idk what past run its referring to."* The RUN column sits off-screen in
+the pooled view, so every row persisted as a run shows a `#run` chip right after its name in ONE
+TABLE view and whenever SPLIT BY RUN is on (click opens the run report). The RUN column stays.
 
 ---
 
@@ -690,7 +717,7 @@ they survive a reload and a re-render. None of them is registry data.
 | ORB breakeven and plateau hunt | 67–77 | Eleven exit variants of the ORB crown on identical entries. |
 | ORB grail hunt, round one | 78–83 | The six searches that rebuilt ORB on a legally fillable entry. |
 | ENGU-Q session and entry variants | 84–92 | Day session against 24 hours, timeframe, and how the entry fills. |
-| What is running in paper right now | 93–99 | The live paper legs. Table only, no chart. |
+| What is running in paper right now | 94, 98, 99, 341 | The paper gate overlays only, plus a pointer line to every other paper leg on its own row. Table only, no chart. Rows 93, 95, 96, 97, 249 retired 2026-08-22 (duplicates). |
 | ORB round three, the entry re-opened | 100–115 | The ORB entry re-tested under the current exit. |
 | ORB ideas tested and killed | 116–129 | ORB ideas measured against the crown and rejected. |
 | ENGU-Q limit depth, the whole curve | 130–142 | The rest of the ENGU-Q limit-depth curve. |
@@ -723,6 +750,25 @@ be handed to a future row. The next free row number on this board is 262, not 23
 None of the retired rows was tagged as crowned or as running in the paper forward test, so no
 status tag moved and nothing on the board claims a book is being forward-tested. The research
 behind all forty-six rows is untouched and still recorded in `BOOK.md`.
+
+**Correction recorded 2026-08-22.** Later sessions did NOT honour the 236–261 retirement: rows
+236–248 (the July full-history validates), 249 (the paper Short Veto copy), 250 (ENGU-Q Efficiency
+0.25) and 251–340 (the TTM Squeeze study) were all handed out from that range. The owner has seen
+those numbers, so they are now permanent and are not renumbered. The table above is kept as the
+historical record; the live rule is simply: **the next free number is the highest number on the
+board plus one, whatever the retired list says.** The registry check (`tools/studies_registry_check.py`)
+enforces uniqueness.
+
+| Retired 2026-08-22 | What it was | Canonical row now |
+| --- | --- | --- |
+| 93 | Paper: ORB — a copy of the ORB crown | 47 (run 234) |
+| 95 | Paper: ENGU-Q — a copy of the run-226 leg, which left paper on 2026-08-21 | 87 (crown only, not in paper) |
+| 96 | Paper: ENGU-Q Limit — a copy of Limit 0.50 | 92 (run 249) |
+| 97 | Paper: NOISE — a copy of the NOISE baseline core | 1 (run 231) |
+| 249 | Paper: NOISE Short Veto — a copy of the NOISE crown | 2 (run 241) |
+
+These five numbers are retired for good. Row 341 (Paper: ENGU-Q + Efficiency Gate, run 265) was
+added the same day because that gate overlay had no row anywhere. The next free row number is 342.
 
 **The mismatch the board showed until 2026-08-21, now closed.** From 2026-08-16 to 2026-08-21 the
 crowned ORB configuration was row 47 (run 234) while the paper forward test was still running the
