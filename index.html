@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.231';
+const VERSION='73.232';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.232',date:'2026-08-21',notes:['Double-click 2B or 2C SCATTER for a TradingView-style interactive chart: the wheel zooms the DATA around the cursor (axes rescale - hold shift for y only, ctrl for x only), drag pans the data, crosshair with axis readouts, hover a dot for the trade, double-click or FIT for everything.']},
 {v:'73.231',date:'2026-08-21',notes:['Expanded charts: drag moves the chart at any zoom level (it used to only scroll the panel once the chart overflowed it); FIT resets. 2B: axes padded so the biggest dots no longer sit under the $ labels.']},
 {v:'73.229',date:'2026-08-21',notes:['2B / 2C: the TOTAL button is gone - IS + WF + LB all on is the whole run, and that is the default.']},
 {v:'73.228',date:'2026-08-21',notes:['2B / 2C expanded view: the slice and view pills no longer leak into the modal title, the x-axis titles are short enough to read (full wording in the info icon), and the OLS label moved off the biggest winners.']},
@@ -3626,6 +3627,97 @@ window.candleSVG=function(bars,overlays,markers,opts){
 // tooltips as the report (delegated here too, since the report's listener sits on
 // #res-detail) PLUS an axis crosshair readout (date/param + $/count under the mouse)
 // when the source chart carries a data-xh domain descriptor.
+// ── INTERACTIVE SCATTER (owner 2026-08-21: "think of how a stock price chart lets you scroll
+//    around or zoom around like tradingview"): the expanded 2B / 2C scatter is re-DRAWN from data
+//    on every interaction. Wheel = zoom the DATA around the cursor (both axes rescale), drag = pan
+//    the data window, double-click or FIT = whole data, crosshair with axis readouts, hover = the
+//    trade under the cursor. Payload P rides on the chart svg as data-sc (see tradeScatterHtml /
+//    maeScatterHtml): {t,xs,ys,w,tip,fit:{a,b,r},xl,yl,xf,yf,top,guides:[{ax,v,lab,col}],quad}.
+window.expandScatter=function(P){
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;cursor:pointer';
+  modal.onclick=e=>{if(e.target===modal)close();};
+  modal.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);width:min(97vw,1600px);height:min(94vh,960px);display:flex;flex-direction:column;padding:14px 18px 10px;cursor:default;box-sizing:border-box" onclick="event.stopPropagation()">'
+    +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)"><div style="font-family:\'Bebas Neue\',monospace;font-size:22px;letter-spacing:3px;color:var(--text)">'+P.t+'</div>'
+    +'<span id="xs-read" style="font-size:11px;color:var(--text3);margin-left:6px"></span>'
+    +'<span style="margin-left:auto;display:flex;gap:6px;align-items:center"><button id="xs-fit" style="background:none;border:1px solid var(--border);color:var(--text3);padding:4px 12px;cursor:pointer;font-family:inherit;letter-spacing:1px">&#8690; FIT</button><button id="xs-close" style="background:none;border:1px solid var(--border);color:var(--text3);padding:4px 14px;cursor:pointer;font-family:inherit;letter-spacing:2px">CLOSE &#10005;</button></span></div>'
+    +'<div id="xs-host" style="flex:1;min-height:0;position:relative;cursor:grab;user-select:none;overflow:hidden"></div>'
+    +'<div style="font-size:9px;color:var(--text5);margin-top:6px">scroll = zoom the data under the cursor &middot; drag = pan &middot; double-click or FIT = everything &middot; hover a dot for the trade</div></div>';
+  document.body.appendChild(modal);
+  const host=modal.querySelector('#xs-host'),read=modal.querySelector('#xs-read');
+  const close=()=>{modal.remove();document.removeEventListener('keydown',esc);};
+  const esc=e=>{if(e.key==='Escape')close();};document.addEventListener('keydown',esc);
+  modal.querySelector('#xs-close').onclick=close;
+  const xs=P.xs,ys=P.ys,n=xs.length,w=P.w||[],tip=P.tip||[],top=new Set(P.top||[]);
+  const mxAbs=Math.max.apply(null,ys.map(Math.abs))||1;
+  const pad=(lo,hi,f)=>{const r=(hi-lo)||1;return [lo-r*f,hi+r*f];};
+  const fx=pad(Math.min(0,Math.min.apply(null,xs)),Math.max.apply(null,xs),0.05),fy=pad(Math.min(0,Math.min.apply(null,ys)),Math.max.apply(null,ys),0.07);
+  const full={x0:fx[0],x1:fx[1],y0:fy[0],y1:fy[1]};let dom=Object.assign({},full);
+  const nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
+  const kf=v=>{const a=Math.abs(v);const s=a>=1e6?(a/1e6).toFixed(1)+'M':a>=1e3?(a/1e3).toFixed(a>=1e4?0:1)+'k':Math.round(a).toString();return (v<0?'-$':'$')+s;};
+  const fmt=(t,v)=>t==='usd'?kf(v):((v>0?'+':'')+(Math.abs(v)>=100?Math.round(v):+v.toFixed(1))+'p');
+  const fmtFull=(t,v)=>t==='usd'?((v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString()):((v>0?'+':'')+(+v.toFixed(2))+'p');
+  let padL=78,padR=18,padT=18,padB=48,pw=10,ph=10;
+  const X=v=>padL+(v-dom.x0)/(dom.x1-dom.x0)*pw,Y=v=>padT+(dom.y1-v)/(dom.y1-dom.y0)*ph;
+  const dx=px=>dom.x0+(px-padL)/pw*(dom.x1-dom.x0),dy=py=>dom.y1-(py-padT)/ph*(dom.y1-dom.y0);
+  function draw(){
+    const W=host.clientWidth,H=host.clientHeight;pw=Math.max(10,W-padL-padR);ph=Math.max(10,H-padT-padB);
+    let o='<svg width="'+W+'" height="'+H+'" style="display:block;font-family:inherit"><defs><clipPath id="xs-clip"><rect x="'+padL+'" y="'+padT+'" width="'+pw+'" height="'+ph+'"/></clipPath></defs>';
+    o+='<rect x="'+padL+'" y="'+padT+'" width="'+pw+'" height="'+ph+'" fill="var(--bg2)"/>';
+    // quadrants split at zero (2B): upper-right green, lower-left red
+    if(P.quad){const zx=Math.max(padL,Math.min(padL+pw,X(0))),zy=Math.max(padT,Math.min(padT+ph,Y(0)));
+      o+='<g clip-path="url(#xs-clip)"><rect x="'+zx+'" y="'+padT+'" width="'+Math.max(0,padL+pw-zx)+'" height="'+Math.max(0,zy-padT)+'" fill="#1d9e75" opacity="0.07"/><rect x="'+padL+'" y="'+zy+'" width="'+Math.max(0,zx-padL)+'" height="'+Math.max(0,padT+ph-zy)+'" fill="#e24b4a" opacity="0.07"/></g>';}
+    // grid + ticks
+    const xst=nice((dom.x1-dom.x0)/8),yst=nice((dom.y1-dom.y0)/7);
+    for(let t=Math.ceil(dom.x0/xst)*xst;t<=dom.x1;t+=xst){const px=X(t);o+='<line x1="'+px.toFixed(1)+'" y1="'+padT+'" x2="'+px.toFixed(1)+'" y2="'+(padT+ph)+'" stroke="var(--border)" stroke-width="0.6" opacity="'+(Math.abs(t)<1e-9?0.9:0.35)+'"/><text x="'+px.toFixed(1)+'" y="'+(padT+ph+18)+'" text-anchor="middle" font-size="12" fill="'+(t<0?'#e24b4a':t>0?'#1d9e75':'var(--text3)')+'">'+fmt(P.xf,t)+'</text>';}
+    for(let t=Math.ceil(dom.y0/yst)*yst;t<=dom.y1;t+=yst){const py=Y(t);o+='<line x1="'+padL+'" y1="'+py.toFixed(1)+'" x2="'+(padL+pw)+'" y2="'+py.toFixed(1)+'" stroke="var(--border)" stroke-width="0.6" opacity="'+(Math.abs(t)<1e-9?0.9:0.35)+'"/><text x="'+(padL-8)+'" y="'+(py+4).toFixed(1)+'" text-anchor="end" font-size="12" fill="var(--text3)">'+fmt(P.yf,t)+'</text>';}
+    // zero lines (BE)
+    if(dom.y0<0&&dom.y1>0){const zy=Y(0);o+='<line x1="'+padL+'" y1="'+zy.toFixed(1)+'" x2="'+(padL+pw)+'" y2="'+zy.toFixed(1)+'" stroke="var(--text4)" stroke-width="1"/><text x="'+(padL+4)+'" y="'+(zy-4).toFixed(1)+'" font-size="10" font-weight="700" fill="var(--text4)">'+(P.yf==='usd'?'BE':'0')+'</text>';}
+    if(dom.x0<0&&dom.x1>0){const zx=X(0);o+='<line x1="'+zx.toFixed(1)+'" y1="'+padT+'" x2="'+zx.toFixed(1)+'" y2="'+(padT+ph)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="4,3"/>';}
+    // guides (2C stop / target)
+    (P.guides||[]).forEach(g=>{if(g.ax==='x'){const px=X(g.v);if(px<padL||px>padL+pw)return;o+='<line x1="'+px.toFixed(1)+'" y1="'+padT+'" x2="'+px.toFixed(1)+'" y2="'+(padT+ph)+'" stroke="'+g.col+'" stroke-width="1.6" stroke-dasharray="5,4"/><text x="'+(px+4).toFixed(1)+'" y="'+(padT+14)+'" font-size="11" font-weight="800" fill="'+g.col+'" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+g.lab+'</text>';}
+      else{const py=Y(g.v);if(py<padT||py>padT+ph)return;o+='<line x1="'+padL+'" y1="'+py.toFixed(1)+'" x2="'+(padL+pw)+'" y2="'+py.toFixed(1)+'" stroke="'+g.col+'" stroke-width="1.6" stroke-dasharray="5,4"/><text x="'+(padL+pw-4)+'" y="'+(py-5).toFixed(1)+'" text-anchor="end" font-size="11" font-weight="800" fill="'+g.col+'" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">'+g.lab+'</text>';}});
+    // OLS line across the visible window (clipped)
+    if(P.fit){o+='<g clip-path="url(#xs-clip)"><line x1="'+X(dom.x0).toFixed(1)+'" y1="'+Y(P.fit.a+P.fit.b*dom.x0).toFixed(1)+'" x2="'+X(dom.x1).toFixed(1)+'" y2="'+Y(P.fit.a+P.fit.b*dom.x1).toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7"/><line x1="'+X(dom.x0).toFixed(1)+'" y1="'+Y(P.fit.a+P.fit.b*dom.x0).toFixed(1)+'" x2="'+X(dom.x1).toFixed(1)+'" y2="'+Y(P.fit.a+P.fit.b*dom.x1).toFixed(1)+'" stroke="#f5c542" stroke-width="2.6"/></g>';
+      o+='<text x="'+(padL+8)+'" y="'+(padT+16)+'" font-size="12" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:var(--bg2);stroke-width:3px">OLS fit: y = '+fmt(P.yf,P.fit.a)+' '+(P.fit.b>=0?'+':'-')+' '+fmt(P.yf,Math.abs(P.fit.b)).replace('+','')+' per pt &middot; r&#178; '+(P.fit.r*P.fit.r).toFixed(2)+'</text>';}
+    // dots - fixed pixel size (area = |$| of the trade), small first so big ones paint on top
+    const order=ys.map((_,i)=>i).sort((a,b)=>Math.abs(ys[a])-Math.abs(ys[b]));
+    let d='',rg='';
+    order.forEach(i=>{const px=X(xs[i]),py=Y(ys[i]);if(px<padL-12||px>padL+pw+12||py<padT-12||py>padT+ph+12)return;
+      const r=2.2+7*Math.sqrt(Math.abs(ys[i])/mxAbs),col=(P.yf==='usd'?ys[i]>=0:w[i])?'#1d9e75':'#e24b4a';
+      d+='<circle data-i="'+i+'" cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+col+'" fill-opacity="0.55" stroke="'+col+'" stroke-width="0.8"/>';
+      if(top.has(i)){rg+='<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="'+(r+3).toFixed(1)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/><text x="'+px.toFixed(1)+'" y="'+(py-r-5).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="800" fill="#f5c542">'+(P.top.indexOf(i)+1)+'</text>';}});
+    o+='<g clip-path="url(#xs-clip)">'+d+rg+'</g>';
+    // axis titles
+    o+='<text x="'+(padL+pw/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text2)">'+P.xl+'</text>';
+    o+='<text x="16" y="'+(padT+ph/2).toFixed(1)+'" transform="rotate(-90 16 '+(padT+ph/2).toFixed(1)+')" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text2)">'+P.yl+'</text>';
+    // crosshair layer (updated on mousemove without a redraw)
+    o+='<g id="xs-ch" style="display:none;pointer-events:none"><line id="xs-chv" y1="'+padT+'" y2="'+(padT+ph)+'" stroke="var(--text4)" stroke-dasharray="3,3"/><line id="xs-chh" x1="'+padL+'" x2="'+(padL+pw)+'" stroke="var(--text4)" stroke-dasharray="3,3"/><rect id="xs-xbg" y="'+(padT+ph+4)+'" height="18" rx="3" fill="var(--text3)"/><text id="xs-xl" y="'+(padT+ph+17)+'" text-anchor="middle" font-size="11" font-weight="800" fill="#04130c"></text><rect id="xs-ybg" x="6" width="'+(padL-12)+'" height="18" rx="3" fill="var(--text3)"/><text id="xs-yl" x="'+(padL-8)+'" text-anchor="end" font-size="11" font-weight="800" fill="#04130c"></text></g>';
+    o+='</svg><div id="xs-tip" style="position:absolute;display:none;pointer-events:none;background:var(--bg1);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:11px;color:var(--text);box-shadow:0 4px 14px rgba(0,0,0,.5);white-space:nowrap;z-index:2"></div>';
+    host.innerHTML=o;
+    read.textContent=n+' trades · window x '+fmt(P.xf,dom.x0)+' … '+fmt(P.xf,dom.x1)+' · y '+fmt(P.yf,dom.y0)+' … '+fmt(P.yf,dom.y1)+(Math.abs((dom.x1-dom.x0)/(full.x1-full.x0)-1)<1e-6?'':' · zoom '+Math.round((full.x1-full.x0)/(dom.x1-dom.x0)*100)+'%');
+  }
+  const mouse=e=>{const r=host.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];};
+  host.addEventListener('wheel',e=>{e.preventDefault();const [mx,my]=mouse(e);const f=e.deltaY<0?1/1.25:1.25;const ax=dx(mx),ay=dy(my);
+    if(!e.shiftKey){dom.x0=ax-(ax-dom.x0)*f;dom.x1=ax+(dom.x1-ax)*f;}if(!e.ctrlKey){dom.y0=ay-(ay-dom.y0)*f;dom.y1=ay+(dom.y1-ay)*f;}draw();},{passive:false});
+  let drag=null;
+  host.addEventListener('mousedown',e=>{if(e.button!==0)return;const [mx,my]=mouse(e);drag={mx:mx,my:my,d:Object.assign({},dom)};host.style.cursor='grabbing';e.preventDefault();});
+  window.addEventListener('mousemove',e=>{if(!drag)return;const [mx,my]=mouse(e);const sx=(mx-drag.mx)/pw*(drag.d.x1-drag.d.x0),sy=(my-drag.my)/ph*(drag.d.y1-drag.d.y0);dom.x0=drag.d.x0-sx;dom.x1=drag.d.x1-sx;dom.y0=drag.d.y0+sy;dom.y1=drag.d.y1+sy;draw();});
+  window.addEventListener('mouseup',()=>{if(drag){drag=null;host.style.cursor='grab';}});
+  host.addEventListener('dblclick',()=>{dom=Object.assign({},full);draw();});
+  modal.querySelector('#xs-fit').onclick=()=>{dom=Object.assign({},full);draw();};
+  host.addEventListener('mousemove',e=>{const [mx,my]=mouse(e);const ch=host.querySelector('#xs-ch');if(!ch)return;
+    if(mx<padL||mx>padL+pw||my<padT||my>padT+ph){ch.style.display='none';const tp=host.querySelector('#xs-tip');if(tp)tp.style.display='none';return;}
+    ch.style.display='';const v=host.querySelector('#xs-chv'),h=host.querySelector('#xs-chh');v.setAttribute('x1',mx);v.setAttribute('x2',mx);h.setAttribute('y1',my);h.setAttribute('y2',my);
+    const xl=host.querySelector('#xs-xl'),yl=host.querySelector('#xs-yl');xl.textContent=fmtFull(P.xf,dx(mx));xl.setAttribute('x',mx);const xb=host.querySelector('#xs-xbg');xb.setAttribute('x',mx-34);xb.setAttribute('width',68);
+    yl.textContent=fmtFull(P.yf,dy(my));yl.setAttribute('y',my+4);host.querySelector('#xs-ybg').setAttribute('y',my-9);
+    // nearest dot within 10px
+    let best=-1,bd=100;for(let i=0;i<n;i++){const px=X(xs[i]),py=Y(ys[i]);const dd=(px-mx)*(px-mx)+(py-my)*(py-my);if(dd<bd){bd=dd;best=i;}}
+    const tp=host.querySelector('#xs-tip');if(best>=0&&tip[best]){tp.innerHTML=tip[best];tp.style.display='block';tp.style.left=(mx+14)+'px';tp.style.top=(my-10)+'px';}else tp.style.display='none';});
+  draw();
+  window.addEventListener('resize',draw);
+  return {close:close,draw:draw};
+};
 window.expandChart=function(title,svgHTML,opts){
   opts=opts||{};
   const modal=document.createElement('div');
@@ -10236,7 +10328,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const st=_nice(xspan/7)||1;for(let t=Math.ceil(xmin/st)*st;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="'+(t<0?'#e24b4a':t>0?'#1d9e75':'var(--text3)')+'">'+(t>0?'+':'')+Math.round(t)+'p</text>';}
       xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach &#8722; heat (points)</text>';
       const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:xmin,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
+      const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2B')+' · TRADE PNL SCATTER · '+(scope||''),xs:xs.map(x=>+x.toFixed(1)),ys:v.map(x=>Math.round(x)),tip:v.map((p,i)=>'reach '+sp.mfe[i]+'p - heat '+sp.mae[i]+'p = '+Math.round(xs[i])+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')),fit:fit?{a:fit.a,b:fit.b,r:fit.r}:null,xl:'reach minus heat - points the trade ran for you, less points it ran against you',yl:'net $ per trade',xf:'pts',yf:'usd',top:rankIdx.slice(0,5).filter(i=>v[i]>0),quad:true}));
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)">'
@@ -10270,7 +10363,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       for(let t=0;t<=maxMae;t+=st){xt+='<text x="'+X(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="#e24b4a">-'+Math.round(t)+'p</text>';}
       const nW=won.filter(Boolean).length;
       const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:0,x1:maxMae,yt:'num',y0:0,y1:maxMfe,px:padL,py:plotT,pw:Wp,ph:plotH}));
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'">'+g+trend+guides+dots+xt
+      const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2C')+' · HEAT vs REACH · '+(scope||''),xs:mae.map(x=>+x.toFixed(1)),ys:mfe.map(x=>+x.toFixed(1)),w:won.map(x=>x?1:0),tip:mae.map((a,i)=>'heat '+a+'p · reach '+mfe[i]+'p<br>'+(won[i]?'<b style=color:#1d9e75>won</b>':'<b style=color:#e24b4a>lost</b>')+(pn?' · '+fmtUsd(Math.round(pn[i])):'')),fit:fit?{a:fit.a,b:fit.b,r:fit.r}:null,xl:'heat - points price ran AGAINST the trade (MAE)',yl:'reach - points price ran FOR the trade (MFE)',xf:'pts',yf:'pts',top:[],quad:false,guides:[].concat(s90!=null?[{ax:'x',v:s90,lab:'stop '+s90+'p (keeps 90% of winners)',col:'#ff6b6b'}]:[],[{ax:'y',v:f75,lab:'target '+f75+'p (75% reach it)',col:'#2fd598'}])}));
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+g+trend+guides+dots+xt
         +'<text x="'+(W-6)+'" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach &#8722; MFE (points for)</text>'
         +'<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">heat &#8722; MAE (points against)'+(pn?'':' · dots not sized: per-trade $ and excursions were saved at different sample sizes')+'</text></svg>';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:8px;color:var(--text4)">'+(fit?'<span style="color:var(--yellow)">reach vs heat: slope '+fit.b.toFixed(2)+' · r '+fit.r.toFixed(2)+'</span>':'')+'<span>'+nW+' won / '+(n-nW)+' lost'+(pn?' · dot area = |$|':'')+'</span></div>';
@@ -21426,6 +21520,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // double-click anywhere on the chart to expand it — opens the existing expandChart
         // modal with a clean (undistorted) copy of the svg + crosshair.
         const openExpand=e=>{if(e&&e.stopPropagation)e.stopPropagation();
+          const _scs=box.querySelector('svg[data-sc]');if(_scs){try{window.expandScatter(JSON.parse(decodeURIComponent(_scs.dataset.sc)));return;}catch(_e){}}
           // v71.24 (owner): switching a key row off and back on is two clicks in the same spot,
           //   which the browser ALSO reports as a double-click — so the chart kept opening the
           //   expanded view when he only meant to bring a line back. A double-click that lands on
