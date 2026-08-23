@@ -249,3 +249,93 @@ there is no gain to test for fragility.
    filter off.
 6. **Neither lockbox was spent by this round.** Both were already spent before it started, the
    lockbox columns above are confirmatory only, and no selection decision consulted them.
+
+---
+
+# ROUND 2 — the two ENGU-Q day-type levers round 1 banked and did not chase (2026-08-22)
+
+> Harness: `tools/enguq_daytype_levers.py`. Same engine fork (`ENGUQ_1M_DT_1_0.py`), same
+> pinned windows, same cost model. Round opened and this section written 2026-08-22 BEFORE
+> any lever result was computed. Owner away; assignment = test the two leads §5.4 banked.
+
+## R2.0 Scope and honesty notes, written first
+
+- **Baseline: the RTH champion** (run #149 config, visible as run #227). Selection window
+  2010-06-07 → 2025-06-30 ONLY; the trailing year 2025-07-01 → 2026-06-30 is a SPENT lockbox
+  (read on #198/#223/#226/#227/#232/#235) — it gets ONE confirmatory look at the end,
+  labelled, and selects nothing.
+- **Sizing is a POST-PROCESSING OVERLAY on `return_trades` output, and here is why that is
+  honest.** The engine models exactly 1 NQ contract and cannot express per-trade size. Every
+  trade's netted dollars are `(points − 0.533) × $20`, where 0.533 pts = $5.66 round-trip
+  commission / $20 + 0.25 pt slippage — BOTH components are per contract, so a trade taken at
+  size `s` nets exactly `s ×` the 1-lot netted dollars. Sizing therefore commutes with the
+  cost model and an overlay is exact for fractional NQ multiples. What the overlay CANNOT
+  see: fills themselves (a 2-lot market order may slip more than 2 × a 1-lot; at ENGU-Q's
+  size on NQ this is negligible but it is an assumption), and micro-contract commission drag
+  (MNQ ≈ $1.98/RT per micro incl. 0.25 pt slippage at $2/pt, vs $10.66 per NQ — so 10 MNQ
+  cost ≈ $19.80 vs $10.66, an extra ≈ $9.14 per 1×-equivalent trade). The micro view below
+  charges that drag explicitly.
+- **ML-score size tilts are a DEAD family in this program (0/12 cleared, 2026-08-10).**
+  LEAD 2 is still a size tilt. The difference claimed: the trigger is a single
+  pre-registered structural day-type feature (prior session's close position, causal by
+  construction), not a fitted model score. The bar below is strict anyway, and if it fails
+  it goes in the same graveyard.
+- **ENGU-Q drawdown realities:** 27% win rate by design, 47% of 6-trade windows hold 5+
+  losers, and the maxDD statistic's 95% CI is wider than the statistic itself. Sizing up
+  multiplies EVERY future loss; equal-DD on the selection window does NOT mean equal-DD on
+  futures paths. This is stated here so the verdict language cannot soften it later.
+
+## R2.1 LEAD 1 pre-registration — equal-drawdown resize of the strong-close skip
+
+Variant = `skip_top_long` (no LONG entries the day after the prior session closed in the top
+band of its range), thresholds 0.85 / 0.80 / 0.75 — the exact round-1 grid, nothing refit.
+
+**Sizing rule (declared before any result):** `s = baseline selection-window maxDD ÷ variant
+selection-window maxDD`, capped at 1.50. Applied uniformly to every variant trade.
+Views reported: (a) fractional `s` (primary, exact under the cost model above);
+(b) nearest-integer NQ (baseline is 1 NQ, so s < 1.5 rounds to 1 = the unsized round-1
+fail — reported honestly as such); (c) micro view: `round(10·s)` MNQ, charged the extra
+micro commission drag stated in R2.0.
+
+**Adoption bar — ALL must hold on the selection window, fractional view:**
+1. Equal-DD net: `s × variant net > baseline net` ($364,699).
+2. Plateau: gate 1 holds at ALL THREE thresholds.
+3. Worst year: the sized variant's worst calendar year is not worse than the baseline's
+   worst calendar year by more than $5,000.
+4. Concentration (DISQUALIFYING): add the 10 most-lucrative avoided trades back into the
+   sized variant's trade sequence (entry order), recompute its selection-window maxDD,
+   re-derive `s'` under the same rule and cap — `s' × adjusted net` must STILL beat the
+   baseline net. If the edge lives in 10 lucky avoidances, it dies here.
+5. Tradeability: the micro view (c) must also beat baseline net after micro commission
+   drag — otherwise the result is "fractional-only" and NOT adopted.
+
+## R2.2 LEAD 2 pre-registration — the buy-weakness size tilt
+
+Variant = the UNFILTERED champion trade list, with trades entered the day after a WEAK close
+(prior session close position ≤ threshold) taken at `m ×` size, all other trades at 1×.
+No entry is added, moved or removed — overlay on the champion's own `return_trades` output.
+
+**Grid (declared before any result):** `m ∈ {1.5, 2.0}` × threshold `∈ {0.15, 0.20, 0.25}`.
+Six cells, nothing else will be tried, no refinement pass.
+
+**Adoption bar — ALL must hold on the selection window:**
+1. Net: tilt net > baseline net ($364,699).
+2. MAR: tilt net/maxDD > baseline net/maxDD.
+3. Plateau: gates 1+2 hold at ALL SIX grid cells (both tilt sizes, all three thresholds).
+4. Worst year: the tilt's worst calendar year not worse than the baseline's worst calendar
+   year by more than $5,000.
+5. Concentration (DISQUALIFYING): the net gain must survive zeroing the 10 largest
+   single-trade EXTRA contributions (the `(m−1) ×` slice of the 10 best tilted winners).
+6. Integer note reported: 2.0× = 2 NQ (clean); 1.5× = 1 NQ + 5 MNQ (micro drag charged
+   as in R2.0).
+
+## R2.3 Discipline
+
+- Champion reproduction ($477,520 / 2,048 full window) through the real engine BEFORE any
+  lever is scored; mismatch = stop.
+- Lockbox: one confirmatory paragraph at the end, clearly labelled, selects nothing.
+- If a lever clears its full bar it earns a pinned single-config path + exec audit + ONE
+  queued auto-validate pinned to run #227's window; note that a per-trade-size variant
+  cannot currently be expressed as a validate run without engine work — that limitation is
+  stated rather than worked around.
+- Every tested cell lands on COMPARE ▸ STUDIES regardless of verdict.
