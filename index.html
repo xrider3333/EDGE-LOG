@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.222';
+const VERSION='73.223';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.223',date:'2026-08-23',notes:['GATE verdict no longer reads like a strategy verdict. Run 226 showed a red LOCKBOX FAILED while its equity curve ran straight up: the stamp belonged to the ML GATE bake-off (the filter lost to the plain strategy on the held-out year), not to the strategy, whose own lockbox HELD at $90,337 / PF 1.42. The section-3 banner now says GATE LB FAILED and prints the strategy’s own lockbox verdict and dollars beside it; the GATE VALIDATE chip reads GATE FAILED · strategy LB HELD; the one-look row inside the gate table is labelled GATE and says whose verdict it is.']},
 {v:'73.222',date:'2026-08-21',notes:['Engine: the per-trade $ list is saved at the same 600-trade cap as the excursions, so the TOTAL slice of 2B / 2C can use the REACH and HEAT axes on new runs.']},
 {v:'73.221',date:'2026-08-21',notes:['2B / 2C: the least-squares line is now clipped at the plot edges instead of having its endpoints clamped - clamping bent the visible slope whenever the fit ran off the top. What you see is the exact fitted line.']},
 {v:'73.220',date:'2026-08-21',notes:['2B / 2C slice control is a multi-select: IS, WF and LB toggle on and off and pool their trades (WF + LB = all out-of-sample); TOTAL is the whole run. IS needs a run made on the current engine - older runs show it greyed.']},
@@ -13766,7 +13767,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:var(--fsxs);color:var(--text3)">'
           +'<span>ungated: <b>'+$(LB.ungated.total_pnl)+'</b> · PF '+Math.min(LB.ungated.profit_factor,99).toFixed(2)+' · rec '+LB.ungated_rec.toFixed(2)+' · '+LB.ungated.num_trades+' trd</span>'
           +'<span>gated: <b style="color:'+(LB.helped?'var(--green)':'var(--red)')+'">'+$(LB.gated.total_pnl)+'</b> · PF '+Math.min(LB.gated.profit_factor,99).toFixed(2)+' · rec '+LB.gated_rec.toFixed(2)+' · '+LB.gated.num_trades+' trd</span>'
-          +'<span style="color:'+(LB.helped?'var(--green)':'var(--red)')+';font-weight:600">'+(LB.helped?'HELD ✓':'FAILED ✕')+'</span></div>';}
+          +'<span style="color:'+(LB.helped?'var(--green)':'var(--red)')+';font-weight:600">GATE '+(LB.helped?'HELD ✓':'FAILED ✕')+'</span><span style="color:var(--text4)">(this is the ML gate’s verdict, not the strategy’s — the strategy’s own lockbox is graded in section 1)</span></div>';}
         // ── bake-off GRAPH: recovery factor (y) vs probability cut-off (x), one line per model.
         //    Makes it obvious the repeated rf/xgb/logistic rows are the SAME model swept across
         //    cut-offs — you see each model's curve and where it peaks vs the ungated baseline. ──
@@ -15772,7 +15773,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _plH=plateauCardHtml(d.plateau_pick,d.best_params,mlt);
       if(_plH&&_plH.replace(/\s/g,''))_chips.push({k:'plat',ic:'🏔',nm:'PLATEAU PICK',q:'broad high ground vs the champion spike',st:(d.plateau_pick&&d.plateau_pick.same_as_best)?'ok':'info',cc:(d.plateau_pick&&d.plateau_pick.same_as_best)?'var(--green)':'var(--text3)',chip:(d.plateau_pick&&d.plateau_pick.same_as_best)?'agrees':'differs',html:_plH});
       if(_gvD){const _gLB=_gvD.lockbox;
-        _chips.push({k:'gval',ic:'🚪',nm:'GATE VALIDATE',q:'model-and-cut-off bake-off, winner gets one lockbox look',st:_gLB?(_gLB.helped?'ok':'bad'):'info',cc:_gLB?(_gLB.helped?'var(--green)':'var(--red)'):'var(--text3)',chip:_gLB?('LB '+(_gLB.helped?'HELD':'FAILED')):'pre-LB only',html:gvTableHtml(_gvD,stratTag(d.strategy),mlt)});}
+        _chips.push({k:'gval',ic:'🚪',nm:'GATE VALIDATE',q:'model-and-cut-off bake-off, winner gets one lockbox look',st:_gLB?(_gLB.helped?'ok':'bad'):'info',cc:_gLB?(_gLB.helped?'var(--green)':'var(--red)'):'var(--text3)',chip:_gLB?('GATE '+(_gLB.helped?'HELD':'FAILED')+((d.validate&&d.validate.lockbox&&d.validate.lockbox.pnl!=null)?(' · strategy LB '+(d.validate.lockbox.pass?'HELD':'FAILED')):'')):'pre-LB only',html:gvTableHtml(_gvD,stratTag(d.strategy),mlt)});}
       if(d.ml_gate){const _gu=d.ml_gate.ungated||{},_gg=d.ml_gate.gated||{};const _gHelp=(_gg.total_pnl||0)>=(_gu.total_pnl||0);
         _chips.push({k:'mlg',ic:'🚪',nm:'ML TRADE FILTER',q:'trades the model kept vs taking everything',st:_gHelp?'ok':'warn',cc:_gHelp?'var(--green)':'var(--yellow)',chip:_gHelp?'gate helps':'no help',html:gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)});}
       // v73.32 (owner): CAUTIONS strip under the report header - concentration + non-pass chips.
@@ -15822,7 +15823,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // ── VERDICT banner (qualitative — the numbers live in the before→after cards below) ──
         let _gbc='var(--yellow)',_gbTxt='';
         if(_gvP&&_gvP.LB){const LB=_gvP.LB;_gbc=LB.helped?'var(--green)':'var(--red)';
-          _gbTxt='<b style="color:'+_gbc+'">LB '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — the gate '+(LB.helped?'beat':'lost to')+' no-gate on the held-out slice it never saw';}
+          const _sLB=d.validate&&d.validate.lockbox;_gbTxt='<b style="color:'+_gbc+'">GATE LB '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — the ML gate '+(LB.helped?'beat':'lost to')+' the plain strategy on the held-out slice it never saw'+((_sLB&&_sLB.pnl!=null)?' · the strategy’s OWN lockbox <b style="color:'+(_sLB.pass?'var(--green)':'var(--red)')+'">'+(_sLB.pass?'HELD ✓':'FAILED ✕')+'</b> ('+fmtUsd(Math.round((_sLB.pnl||0)*mlt))+' · PF '+Math.min(_sLB.pf||0,99).toFixed(2)+') — a failed gate does not touch that':'');}
         else if(_gvP){_gbc=_gvP.V.gate_earns_pre?'var(--green)':'var(--yellow)';_gbTxt='<b style="color:'+_gbc+'">PRE-LB '+(_gvP.V.gate_earns_pre?'EARNS':'DOES NOT EARN')+'</b> — no held-out lockbox look was saved for this run';}
         else{const _u2=d.ml_gate.ungated||{},_q2=d.ml_gate.gated||{};const _h2=(_q2.total_pnl||0)>=(_u2.total_pnl||0);_gbc=_h2?'var(--green)':'var(--yellow)';
           _gbTxt='<b style="color:'+_gbc+'">GATE '+(_h2?'HELPS':'DOES NOT HELP')+'</b> — the trades it kept '+(_h2?'beat':'did worse than')+' taking every trade (in-sample)';}
