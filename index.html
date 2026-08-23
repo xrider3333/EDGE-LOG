@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.226';
+const VERSION='73.227';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,7 +465,8 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.226',date:'2026-08-21',notes:['2B SCATTER x-axis is reach MINUS heat (points for you less points against you): losers land lower-left, winners upper-right, with the least-squares line through the cloud and quadrants split at zero.']},
+{v:'73.227',date:'2026-08-21',notes:['2B SCATTER x-axis is reach MINUS heat (points for you less points against you): losers land lower-left, winners upper-right, with the least-squares line through the cloud and quadrants split at zero.']},
+{v:'73.226',date:'2026-08-23',notes:['SURFACES ON PINNED RUNS. A pinned Auto-Validate (run 226) showed N/A under SURFACES and CURVES and told you to re-run the engine. It did not need to: the run searched one space already - the ML gate bake-off, every model against every cut-off with the pre-lockbox net and recovery saved per cell. That landscape now draws in the same 3-D surface and 3-D scatter the config space uses: model on one axis (legend names them), cut-off on the other, pre-lockbox net as height. The N/A card only remains for a pinned run that saved no gate sweep.']},
 {v:'73.225',date:'2026-08-23',notes:['ML VERDICT NOW MATCHES THE CHART (owner: if any ML line ends above the top raw config, do not tell me the ML failed). The GATE VALIDATE chip and the section-3 banner used to grade only the one crowned cut-gate on its lockbox look, so run 226 read FAILED while its rf HYBRID REDEPLOY line sat above raw in 1A. Both now score every ML line 1A draws - cut gates, hybrids at one lot, and hybrids REDEPLOYED at the same contracts-spent ratio the chart uses - by where the line ENDS (full window, lockbox included), and print the best one against raw: ML BEATS RAW or ML BELOW RAW, with the lockbox-year dollars, the drawdown of each, and the sizing factor when the winning line is a sized-up one. The crowned cut-gate result stays as a grey side note.']},
 {v:'73.224',date:'2026-08-21',notes:['2B SCATTER is one fixed chart: x = reach (how far the trade ran in your favour), y = net $ - winners upper-right, losers lower-left, least-squares line through the cloud, quadrants tinted. The TIME / REACH / HEAT picker is gone.','IS / WF / LB / TOTAL pills: IS is derived on every run (the champion before the lockbox cut) - no re-run needed. Dollars and excursions are paired by original trade index, so 2C dots are sized by $ on every slice; the footer says how many trades paired.']},
 {v:'73.223',date:'2026-08-23',notes:['GATE verdict no longer reads like a strategy verdict. Run 226 showed a red LOCKBOX FAILED while its equity curve ran straight up: the stamp belonged to the ML GATE bake-off (the filter lost to the plain strategy on the held-out year), not to the strategy, whose own lockbox HELD at $90,337 / PF 1.42. The section-3 banner now says GATE LB FAILED and prints the strategy’s own lockbox verdict and dollars beside it; the GATE VALIDATE chip reads GATE FAILED · strategy LB HELD; the one-look row inside the gate table is labelled GATE and says whose verdict it is.']},
@@ -16123,7 +16124,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   surfaces"): run 241 validated ONE pinned config (n_evaluated = 1), so there is no config
         //   population and the SURFACES / BARS columns used to vanish silently. Say why instead.
         const _onePop=((+d.n_evaluated||(Array.isArray(d.points)?d.points.length:0)||0)<=1);
-        const _noPop=(tag,lbl)=>_onePop?('<div style="'+_colStyle+'">'+_naTile(tag,lbl,'this run validated ONE pinned config (n_evaluated = 1) - nothing was searched, so there is no config landscape to draw. Re-run it as Auto-Validate with discovery (a grid or trials above 1) to get the 3-D surface, parallel coords, PDP, knob importance and neighbours.')+'</div>'):'';
+        // v73.226 (owner, run 226: "you already have the data"): a pinned run DID search one
+        //   space - the ML gate bake-off (every model x every cut-off, pre-lockbox net and
+        //   recovery saved per cell). Draw THAT landscape with the same 3-D surface + scatter
+        //   builders instead of an N/A card. Model sits on a numbered axis (legend below).
+        const _gateLand=(function(){const G=d.gate_validate||(d.validate&&d.validate.gate_bakeoff);const cs=G&&G.cutoff_sweep;
+          if(!_onePop||!cs||!cs.models||!Array.isArray(cs.thresholds))return '';
+          const names=Object.keys(cs.models);const pts=[];
+          names.forEach((nm,mi)=>{const m=cs.models[nm]||{};cs.thresholds.forEach((th,ti)=>{const pn=(m.pre_net||[])[ti],rc=(m.pre_rec||[])[ti];if(pn==null)return;
+            pts.push({gate_model:mi+1,cutoff:+th,pnl:+pn,dd:(rc>1e-9?Math.abs(pn/rc):0)});});});
+          if(pts.length<8)return '';
+          const sv=surface3dPanelHtml(pts,mlt,'2E',null),sc=scatter3dPanelHtml(pts,mlt,'2E',null);
+          const leg='<div style="font-size:8px;color:var(--text4);margin:4px 0 10px">gate_model axis: '+names.map((n,i)=>'<b>'+(i+1)+'</b>='+n).join(' &middot; ')+' &middot; height = PRE-LOCKBOX net $ per cut-off ('+pts.length+' cells); the strategy knobs were pinned, so this is the only space the run searched</div>';
+          return '<div class="lbl" style="margin:0 0 6px">&#9968; 2E ML GATE LANDSCAPE &mdash; model &times; cut-off</div>'+leg+sv+sc;})();
+        const _noPop=(tag,lbl)=>_onePop?('<div style="'+_colStyle+'">'+((tag==='2E-2G'&&_gateLand)?_gateLand:_naTile(tag,lbl,'this run validated ONE pinned config (n_evaluated = 1) - nothing was searched, so there is no config landscape to draw. Re-run it as Auto-Validate with discovery (a grid or trials above 1) to get the 3-D surface, parallel coords, PDP, knob importance and neighbours.'))+'</div>'):'';
         const _colsIn=[[_col1,'c2col1','1.15 1 300px','DISTRIBUTIONS','the spread &mdash; configs, trades, excursions'],
                        [_col2b||_noPop('2E-2G','SURFACES'),'c2col2','1.5 1 340px','SURFACES &amp; CURVES','the config space drawn as geometry'],
                        [_col3||_noPop('2H-2I','KNOBS &amp; NEIGHBOURS'),'c2col3','1.35 1 320px','BARS &amp; TABLES','ranked readouts and the numbers behind them']]
