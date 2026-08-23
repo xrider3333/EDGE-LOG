@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.219';
+const VERSION='73.220';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.220',date:'2026-08-21',notes:['2B / 2C slice control is a multi-select: IS, WF and LB toggle on and off and pool their trades (WF + LB = all out-of-sample); TOTAL is the whole run. IS needs a run made on the current engine - older runs show it greyed.']},
 {v:'73.219',date:'2026-08-21',notes:['2B / 2C SCATTER: the least-squares fit line is now thick, always yellow (MONO too) and carries its equation and r-squared; 2B opens on the REACH x-axis when the run allows it, which is the view that reads like a regression.']},
 {v:'73.218',date:'2026-08-22',notes:['STUDIES: the two TTM Squeeze validate rows are renumbered 343-344; 341 had been handed out to the paper study by a concurrent session at the same moment.']},
 {v:'73.217',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze study gains rows 343-344, the two Auto-Validate runs (268 NQ 15m, 269 ES 15m). Both failed their lockbox, so the family is closed as a reference.']},
@@ -15366,22 +15367,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // 1G/1H scope: three slices — WF (walk-forward out-of-sample, concatenated fold trades),
         //   LB (lockbox one-shot holdout) and ALL (whole run). Default to the strongest OOS view
         //   present so these charts show unseen-data behaviour, not the in-sample tune slice.
-        const _hasWf=!!(d.win_dist_wf||d.mae_mfe_wf),_hasLb=!!(d.win_dist_lb||d.mae_mfe_lb),_anyOOS=_hasWf||_hasLb;
-        const _scopes=[['wf','▦ WF (OOS)',_hasWf],['lb','🔒 LB (OOS)',_hasLb],['all','TOTAL',true]];
-        const _defSec=_hasWf?'wf':(_hasLb?'lb':'all');
-        let _dSec=APREF.distSec||_defSec;if(!_scopes.some(o=>o[0]===_dSec&&o[2]))_dSec=_defSec;
-        const _scLbl={wf:'walk-forward · OOS',lb:'lockbox · OOS',all:'total'}[_dSec];
-        const _pickDist=s=>s==='wf'?d.win_dist_wf:s==='lb'?d.win_dist_lb:d.win_dist;
-        const _pickMae=s=>s==='wf'?d.mae_mfe_wf:s==='lb'?d.mae_mfe_lb:d.mae_mfe;
-        // scope toggle now lives ON the 1G title (owner). ALWAYS a select — WF / LB show "· n/a" and
-        //   are disabled when that slice was not saved, folding the old "re-run to enable" note into
-        //   the toggle itself (the select tooltip explains the re-run).
-        const _anyNa=_scopes.some(o=>!o[2]);
-        // v64.22 (owner): show ONLY the active slice with a ▼ cue; clicking opens the options.
-        const _curScope=(_scopes.find(o=>o[0]===_dSec)||[])[1]||'TOTAL';
-        const _secSel='<span style="position:relative;display:inline-flex;margin-left:6px">'
-          +'<span data-scopecur title="which slice 1G / 1H show — click to switch (WF and LB are out-of-sample)" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 8px;font-size:8px;font-weight:700;color:var(--blue);white-space:nowrap">'+_curScope+' <span style="font-size:6px;color:var(--text4)">▼</span></span>'
-          +'<span data-scopeopts style="display:none;position:absolute;top:calc(100% + 3px);right:0;z-index:60;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.4)">'+_scopes.map(o=>{const on=o[0]===_dSec,ok=o[2];return '<span '+(ok?'data-distsec2="'+o[0]+'" ':'')+'title="'+(ok?'':'not saved on this run — the run saver dropped this slice before 2026-07-22; re-run the validate (same window) to record it')+'" style="display:block;'+(ok?'cursor:pointer;':'opacity:.4;')+'padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+(on?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+(on?'var(--blue)':'var(--text3)')+'">'+o[1]+'</span>';}).join('')+'</span></span>';
+        // v73.220 (owner: "add the toggle to combine wf and IS. make every section toggleable.
+        //   IS/WF/LB. ill select which"): the slice pill is a MULTI-select now. IS / WF / LB each
+        //   toggle on and off and their per-trade arrays are pooled; TOTAL is the whole run and
+        //   exclusive. IS needs win_dist_is (engine v73.220+) - older runs show it greyed.
+        const _hasWf=!!(d.win_dist_wf||d.mae_mfe_wf),_hasLb=!!(d.win_dist_lb||d.mae_mfe_lb),_hasIs=!!(d.win_dist_is||d.mae_mfe_is),_anyOOS=_hasWf||_hasLb;
+        const _scopes=[['is','IS',_hasIs],['wf','WF',_hasWf],['lb','LB',_hasLb],['all','TOTAL',true]];
+        const _defSec=_hasWf?['wf']:(_hasLb?['lb']:['all']);
+        let _dSec=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:_defSec);
+        _dSec=_dSec.filter(k=>_scopes.some(o=>o[0]===k&&o[2]));if(_dSec.includes('all')||!_dSec.length)_dSec=_dSec.includes('all')?['all']:_defSec;
+        const _scLbl=_dSec.includes('all')?'total':_dSec.map(k=>({is:'in-sample',wf:'walk-forward OOS',lb:'lockbox OOS'})[k]).join(' + ');
+        const _sl=k=>k==='is'?d.win_dist_is:k==='wf'?d.win_dist_wf:k==='lb'?d.win_dist_lb:d.win_dist;
+        const _sm=k=>k==='is'?d.mae_mfe_is:k==='wf'?d.mae_mfe_wf:k==='lb'?d.mae_mfe_lb:d.mae_mfe;
+        const _pickDist=set=>{if(set.includes('all'))return d.win_dist;const out=[];set.forEach(k=>{const a=_sl(k);if(Array.isArray(a))out.push.apply(out,a);});return out.length?out:null;};
+        const _pickMae=set=>{if(set.includes('all'))return d.mae_mfe;const o={mae:[],mfe:[],won:[]};let any=false;set.forEach(k=>{const m=_sm(k);if(m&&Array.isArray(m.mae)){any=true;o.mae.push.apply(o.mae,m.mae);o.mfe.push.apply(o.mfe,m.mfe||[]);o.won.push.apply(o.won,(m.won&&m.won.length===m.mae.length)?m.won:m.mae.map(()=>0));}});return any?o:null;};
+        const _secSel='<span style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:6px" title="which trades 2B / 2C show - IS, WF and LB can be combined; TOTAL is the whole run">'+_scopes.map(o=>{const on=_dSec.includes(o[0]),ok=o[2];return '<span '+(ok?'data-distsecm="'+o[0]+'" ':'')+'title="'+(ok?(o[0]==='all'?'the whole run':(o[0]==='is'?'in-sample - the tuned window':(o[0]==='wf'?'walk-forward folds - out-of-sample':'lockbox year - out-of-sample'))+' - click to toggle'):'not saved on this run - re-run on the current engine to record it')+'" style="cursor:'+(ok?'pointer':'not-allowed')+';user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(on?'var(--text)':(ok?'var(--text4)':'var(--text5)'))+';opacity:'+(ok?1:.45)+';background:'+(on?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 var(--blue)':'none')+'">'+o[1]+'</span>';}).join('')+'</span>';
         // v73.32 (owner): HIST / SCATTER rails on 2B and 2C. SCATTER = every trade as a dot with a
         //   linear-regression trend, dot area = |$| - to see which trades carry the result.
         const _v2b=(APREF.distView2b==='scatter')?'scatter':'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
@@ -22740,6 +22740,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _s3y=content.querySelector('[data-sc3y]');if(_s3y)_s3y.onchange=()=>{savePref('sc3Y',_s3y.value);renderApp();};
       const _dsc2=content.querySelector('[data-distsec]');if(_dsc2)_dsc2.onchange=()=>{savePref('distSec',_dsc2.value);renderApp();};
       content.querySelectorAll('[data-distsec2]').forEach(el=>{el.onclick=()=>{savePref('distSec',el.dataset.distsec2);renderApp();};});
+      content.querySelectorAll('[data-distsecm]').forEach(el=>{el.onclick=e=>{e.stopPropagation();const k=el.dataset.distsecm;let cur=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:[]);if(k==='all')cur=['all'];else{cur=cur.filter(x=>x!=='all');cur=cur.includes(k)?cur.filter(x=>x!==k):cur.concat([k]);}if(!cur.length)cur=['all'];savePref('distSecs',cur);renderApp();};});
       // collapsed pill dropdowns (1G scope + bins): click the pill to open/close its options.
       content.querySelectorAll('[data-scopecur],[data-binscur]').forEach(el=>{el.onclick=e=>{e.stopPropagation();
         const w=el.parentElement.querySelector('[data-scopeopts],[data-binsopts]');

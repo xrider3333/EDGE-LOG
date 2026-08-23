@@ -91,7 +91,7 @@ BATCH_BYTE_BUDGET = 9_000_000    # margin below the hard 10 MiB batch-commit cap
 # Field names that hold long per-bar/per-config arrays -- found anywhere in a result
 # doc, at any nesting depth -- and are safe to downsample before anything else, since
 # a big Auto-Validate/Book/grid result is almost entirely made of these.
-_CURVE_KEYS = ("equity", "equity_top", "win_dist", "win_dist_wf", "win_dist_lb",
+_CURVE_KEYS = ("equity", "equity_top", "win_dist", "win_dist_wf", "win_dist_lb", "win_dist_is",
                "wf_alt_folds")
 # Per-config population arrays: capped to the top-N configs by PnL/score (stage 2).
 _POPULATION_KEYS = ("dist", "points", "top", "top10_results", "equity_top")
@@ -921,6 +921,7 @@ class FirestoreQueue:
             # these but they were dropped here (same bug family as wf_alt_folds) - which is why
             # the 1G scope dropdown showed WF/LB greyed out on every saved run.
             "win_dist_wf": result.get("win_dist_wf"), "win_dist_lb": result.get("win_dist_lb"),
+            "win_dist_is": result.get("win_dist_is"), "mae_mfe_is": result.get("mae_mfe_is"),
             "mae_mfe_wf": result.get("mae_mfe_wf"), "mae_mfe_lb": result.get("mae_mfe_lb"),
             "champ_dist_scope": result.get("champ_dist_scope"),
             "wf_mode": job.get("wf_mode"),   # rolling | anchored (walk-forward runs)

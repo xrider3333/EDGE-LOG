@@ -609,6 +609,24 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         except Exception as _pow_e:
             power = {"error": f"{type(_pow_e).__name__}: {_pow_e}"}
 
+    # ── IN-SAMPLE slice (owner 2026-08-21: IS / WF / LB toggles on 2B / 2C): the champion run
+    #    over the optimisation window only, so the web can pool IS with WF / LB or show it alone. ──
+    win_dist_is = None
+    mae_mfe_is = None
+    if champ:
+        try:
+            _isb = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
+                                session=session, source=source, params=champ,
+                                cost_pts=cost_pts, date_from=opt_from, date_to=opt_to,
+                                return_trades=True)
+            if _isb and _isb.get("trades"):
+                win_dist_is = [round(float(t[2]), 2) for t in _isb["trades"]][:600]
+                from .analytics import mae_mfe as _mmfe2
+                _isa = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
+                mae_mfe_is = _mmfe2(_isb["trades"], _isa["high"], _isa["low"])
+        except Exception:
+            pass
+
     # ── WALK-FORWARD out-of-sample distributions (1G/1H WF scope): concatenate the
     #    per-fold OOS trades of the PRIMARY (stronger) scheme — each fold's champion tested
     #    on its unseen window, so this is genuinely out-of-sample, walk-forward flavoured.
@@ -1023,6 +1041,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "win_dist_lb": win_dist_lb, "mae_mfe_lb": mae_mfe_lb,
         # walk-forward out-of-sample versions of 1G/1H (WF scope in the dropdown)
         "win_dist_wf": win_dist_wf, "mae_mfe_wf": mae_mfe_wf,
+        "win_dist_is": win_dist_is, "mae_mfe_is": mae_mfe_is,
         # the NON-selected walk-forward scheme's folds (1C comparison toggle)
         "wf_alt_folds": _alt_folds, "wf_alt_mode": (_altw.get("mode") if _altw.get("ran") else None),
         # 1B monthly + 1F regime + §8 MC drawdown → whole-run champion when available, else in-sample.
