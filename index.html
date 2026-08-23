@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.240';
+const VERSION='73.241';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.241',date:'2026-08-23',notes:['COMPARE - STUDIES rows 466-475: the two ENGU-Q day-type levers round 1 banked - the equal-risk resize of the strong-close skip and the buy-weakness size tilt. Both beat the champion on headline money at every pre-registered cell and BOTH die on the pre-registered concentration gate (the gain rides on about ten trades). Champion #149/#227 stands. Round log: CROSSFAMILY_DAYTYPE.md ROUND 2. (Entry restored - a concurrent-session merge dropped the 73.238 note.)']},
 {v:'73.240',date:'2026-08-23',notes:['COMPARE - STUDIES: ORB band veto, rows 476-481 - the 0.6-0.8 prior-close band long veto (the one lead the 2026-08-18 day-type round left unchased), pre-registered and tested on the run 234 crown. NOT adopted: 4 of 7 gates fail, and about 84% of the apparent band damage sits inside the spent lockbox year. Crown stands; no bad short band exists. Fork ORB_3_8.py gains three default-off band modes; harness tools/orb_daytype_band.py.']},
 {v:'73.237',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 3 - the squeeze on DAILY bars with multi-day, roll-seam-guarded holds, rows 442-465 (the v73.236 note shipped the harness only; the rows are here). It fails: the one big in-sample number is bull-market riding that loses its lockbox year badly. Family verdict stands: intraday 30-60 minute bars or nothing.']},
 {v:'73.236',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 2 - sixteen mechanism changes (contrarian entries, range-edge stop entries, gates, ride/target exits) on NQ and ES 15/30/60-minute bars, rows 346-441. Two lockbox-positive pockets found (NQ 60m range-break entries, ES 30m twelve-bar squeeze filter); three Auto-Validates queued on them. New strategy TTMSQZ_2_0.py; 30m and 60m RTH masters now exist for NQ and ES.']},
