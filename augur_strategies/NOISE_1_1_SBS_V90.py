@@ -49,8 +49,15 @@ folds and future forward data are the real judges.
 CARRIED CAVEATS: (1) NOISE has never cleared its own pre-registered ES-transfer
 promotion bar of PF >= 1.2 (the engine's generic transfer gate is a looser PF >= 1.0
 check -- do not read a generic "transfer pass" as clearing NOISE's own bar).
-(2) The production PAPER / NinjaTrader leg runs a DIFFERENT config (14 / 1.5 / 1.5 /
-k=1.0), not this champion core. (3) Run #231's headline n/net convention differs
+(2) [UPDATED 2026-08-23] The old stale-paper-leg caveat is resolved: THIS config was
+CROWNED the NOISE family champion on 2026-08-23 (run #243; the owner's risk-adjusted
+call over run #241 — ~2% less profit for ~41% less drawdown, PF 1.39 vs 1.29, best ES
+transfer 1.116) and runs in paper as the NOISE_SBS_V90 shadow leg, with NOISE_225 (the
+champion core, filters off) as its matched control. Recorded caveat: the volatility
+filter's standalone gains concentrate in its ten best avoided trades, so if that
+benefit decays this config degrades toward run #241's profile — an accepted, bounded
+risk. NinjaTrader still runs the core WITHOUT either filter until EdgeLogNOISE's
+SkipBotShort and VolSkipOn knobs are flipped on. (3) Run #231's headline n/net convention differs
 from the raw-engine path -- compare pinned runs to each other, and to #231 only on
 the validate pipeline's own fields.
 """

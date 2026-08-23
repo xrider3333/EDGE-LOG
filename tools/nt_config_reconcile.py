@@ -71,13 +71,15 @@ NT_ONLY = {"Qty", "UseStop",
            # the live ML-gate knobs (2026-08-16) -- NT-side plumbing for the bouncer
            # call, with no engine param counterpart by design
            "GateEnabled", "GateUrl", "GateTimeoutMs",
-           # Short Veto knobs (2026-08-21): EdgeLogNOISE carries the crowned run-#241
-           # filter DEFAULT OFF, while its reconcile target NOISE_H_RF runs the plain
-           # #231 core (no daytype keys), so these stay NT-only here. The crowned
-           # NOISE_SBS leg is engine-only (no NT instance yet); if EdgeLogNOISE is
-           # ever flipped to SkipBotShort=true, repoint NT_NAME/PARAM_MAP at NOISE_SBS
-           # and map these two properly.
-           "SkipBotShort", "DaytypeLo",
+           # Crown-filter knobs: EdgeLogNOISE carries the Short Veto (2026-08-21,
+           # SkipBotShort + DaytypeLo = engine daytype_mode='skip_bot_short') and the
+           # volatility skip (2026-08-23, VolSkipOn + VolSkipPct = engine
+           # vol_skip_pct) DEFAULT OFF, while its reconcile target NOISE_H_RF runs
+           # the plain #231 core (no filter keys), so all four stay NT-only here.
+           # The crowned NOISE_SBS_V90 leg (run #243, both filters on) is engine-only
+           # (no NT instance yet); if EdgeLogNOISE is ever flipped on, repoint
+           # NT_NAME/PARAM_MAP at NOISE_SBS_V90 and map these four properly.
+           "SkipBotShort", "DaytypeLo", "VolSkipOn", "VolSkipPct",
            # LimitAtr (2026-08-21): the NinjaScript ENGUQ port carries limit-entry
            # support (written for the L50 research) while the #226 market-entry leg it
            # reconciles against has no such engine key. 0 on the strategy = disabled =

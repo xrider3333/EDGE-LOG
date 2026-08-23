@@ -67,7 +67,8 @@ LEG_LIVE_FROM = {
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
-    "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241
+    "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241; retired 08-23
+    "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
 }
 
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
@@ -221,6 +222,20 @@ NOISE_225 = dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
 # board untouched as the matched RAW control -- the filter is the only difference.
 NOISE_241_SBS = dict(NOISE_225, daytype_mode="skip_bot_short",
                      daytype_lo=0.20, daytype_hi=0.80)
+
+# The CROWNED NOISE config since 2026-08-23: run #243 (NOISE_1_1_SBS_V90.py, "Short
+# Veto + Wild10", PASS 6/6; #252 is its archived identical repeat). It is run #241's
+# config plus ONE more causal filter -- no entries at all on any day whose PRIOR
+# session's (high-low)/close percentile, ranked against the trailing 252 sessions,
+# is 90 or higher (vol_skip_pct=90; needs 60 reference sessions before it activates).
+# Crowned by the owner on 2026-08-23 for the RISK profile, not the money: ~2% less
+# total profit than #241 buys ~41% less drawdown ($22,096 vs $31,191), a better PF
+# (1.39 vs 1.29), an equal-or-better lockbox, and the family's best ES transfer
+# (1.116). Recorded caveat, accepted as a bounded risk: the volatility filter's
+# standalone gains concentrate in its ten best avoided trades, so if that benefit
+# decays this config degrades toward #241's profile. Params expressed against
+# NOISE_1_0.py like every other NOISE leg; NOISE_225 stays the matched RAW control.
+NOISE_243_SBS_V90 = dict(NOISE_241_SBS, vol_skip_pct=90.0)
 
 # ── ML gate configs (api/paper_gate.py) ──────────────────────────────────────────
 # The gate is an OVERLAY: the strategy picks its trades exactly as it always has, and a
@@ -409,19 +424,40 @@ LEG_SOURCE = {
     "NOISE_SBS": {
         "run": 241, "run_label": "#241 (Short Veto)", "strategy_file": "NOISE_1_0.py",
         "picked": "2026-08-21",
-        "note": "THE CROWNED NOISE CONFIG since 2026-08-21. The champion core (lookback 44, "
+        "note": "Held the NOISE crown 2026-08-21 to 2026-08-23. The champion core (lookback 44, "
                 "asymmetric 0.75/1.5 bands, vwap exit, bandwidth stop k=1.75) plus one causal "
                 "filter: no short entries the day after the prior session closed in the bottom "
                 "20% of its own range. Run #241 (pinned file NOISE_1_1_SBS.py) validated it "
                 "PASS 6/6; the 2026-08-21 combination study then found no filter stack beats "
-                "it, which is what the crown decision cites.",
-        "caveat": "NOISE_225 is its matched RAW control -- identical settings, filter off, so "
-                  "any difference between the two rows is the filter and nothing else. The "
+                "it, which is what that crown decision cited.",
+        "caveat": "RETIRED FROM PAPER 2026-08-23 -- the owner moved the crown to run #243 "
+                  "(this filter plus the wildest-days skip) and the NOISE_SBS_V90 leg "
+                  "replaced this one. Provenance stays here so its two days of nightly "
+                  "history still resolve. Historical caveats carried: NOISE_225 was its "
+                  "matched RAW control, and the "
                   "NOISE lockbox is SPENT (read many times), so lockbox numbers are "
-                  "confirmatory only -- this forward test and the walk-forward folds are the "
-                  "real judges. NinjaTrader does NOT carry this filter yet: EdgeLogNOISE "
-                  "still runs the baseline-plus-gate config until its new knob is flipped on "
-                  "after an NT restart.",
+                  "confirmatory only.",
+    },
+    "NOISE_SBS_V90": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10)", "strategy_file": "NOISE_1_0.py",
+        "picked": "2026-08-23",
+        "note": "THE CROWNED NOISE CONFIG since 2026-08-23. Run #241's config plus one more "
+                "causal filter: no entries at all on a day whose prior session's range "
+                "percentile (vs the trailing 252 sessions) is 90 or higher. Run #243 (pinned "
+                "file NOISE_1_1_SBS_V90.py) validated it PASS 6/6. The owner crowned it for "
+                "the risk profile: ~2% less total profit than #241 buys ~41% less drawdown "
+                "($22,096 vs $31,191), a better PF (1.39 vs 1.29), an equal-or-better "
+                "lockbox, and the family's best ES transfer (1.116).",
+        "caveat": "NOISE_225 is its matched RAW control -- identical settings, filters off, so "
+                  "any difference between the two rows is the filters and nothing else. "
+                  "Recorded caveat, accepted as a bounded risk: the volatility filter's "
+                  "standalone gains concentrate in its ten best avoided trades, so if that "
+                  "benefit decays this config degrades toward run #241's profile. The NOISE "
+                  "lockbox is SPENT (read many times), so lockbox numbers are confirmatory "
+                  "only -- this forward test and the walk-forward folds are the real judges. "
+                  "NinjaTrader does NOT carry either filter yet: EdgeLogNOISE has both knobs "
+                  "(default OFF) and keeps running the baseline-plus-gate config until they "
+                  "are flipped on after an NT restart.",
     },
     "ORB_H": {
         "run": 234, "run_label": "#234 (ORB-42) + rf hybrid gate", "strategy_file": "ORB_3_6_C2.py",
@@ -501,15 +537,21 @@ PAPER_LEGS = [
     # nothing else in the system uses. Its provenance block stays in LEG_SOURCE so old daily
     # reports that reference it still resolve.
 
-    # ADDED 2026-08-21, the day the owner crowned run #241 ("Short Veto"). The crowned
-    # NOISE config: champion core + skip short entries the day after a weak close. Runs
-    # the same base file as every other NOISE leg; NOISE_225 below (emitted by NOISE_H)
-    # is its matched RAW control -- the daytype filter is the only difference. No gate:
-    # the crown is the RAW config. history_from matches the gated legs so all four NOISE
-    # rows are computed over the identical window.
-    {"key": "NOISE_SBS", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
-     "session": "rth", "params": NOISE_241_SBS, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_SBS"]},
+    # RETIRED 2026-08-23: the NOISE_SBS leg (run #241, added 2026-08-21) came off the
+    # board when the owner moved the crown to run #243 -- the crown leg tracks the
+    # crown, exactly as the ENGU-Q raw leg was replaced on 2026-08-21. Its provenance
+    # block stays in LEG_SOURCE so its two days of nightly history still resolve.
+    #
+    # ADDED 2026-08-23, the day the owner crowned run #243 ("Short Veto + Wild10").
+    # The crowned NOISE config: champion core + skip short entries the day after a
+    # weak close + skip ALL entries the day after a top-decile volatility session.
+    # Runs the same base file as every other NOISE leg; NOISE_225 below (emitted by
+    # NOISE_H) is its matched RAW control -- the two filters are the only difference.
+    # No gate: the crown is the RAW config. history_from matches the gated legs so
+    # all four NOISE rows are computed over the identical window.
+    {"key": "NOISE_SBS_V90", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_243_SBS_V90, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_SBS_V90"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical

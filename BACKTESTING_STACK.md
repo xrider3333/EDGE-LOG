@@ -1150,6 +1150,28 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-23** — **NOISE CROWN MOVED AGAIN: family champion is now SHORT VETO + WILD10 (run #243).**
+  • **Owner decision**, after full discussion, moving the crown off run #241 (Short Veto alone)
+    two days after it was crowned: run #243 is run #241's config plus `vol_skip_pct=90` (skip
+    ALL entries the day after a top-decile-volatility session; pinned file
+    `NOISE_1_1_SBS_V90.py`, PASS 6/6, STUDIES row 3).
+  • **His reasoning, recorded:** ~2% less total profit for ~41% less drawdown ($22,096 vs
+    $31,191), better PF (1.39 vs 1.29), equal-or-better lockbox, best ES transfer of the
+    family (1.116). **Recorded caveat:** the volatility leg's standalone gains concentrate in
+    its ten best avoided trades, so if that benefit decays the config degrades toward run
+    #241's profile — an accepted, bounded risk.
+  • **Recorded:** star moved from run #241's doc to run #243's in Past Runs (#241 stays an
+    ordinary PASS run); STUDIES board crown tag moved NOISE row 2 → row 3 (row 2 keeps its
+    figures and points at the move); paper crown leg REPLACED — `NOISE_SBS` retired,
+    `NOISE_SBS_V90` live from 2026-08-23 in `api/paper.py`, control still `NOISE_225` (the
+    house convention: the crown leg tracks the crown, as with the ENGU-Q swap on 08-21).
+  • **NT divergence, honest:** `EdgeLogNOISE` gained `VolSkipOn` + `VolSkipPct` (default OFF,
+    engine-exact percentile semantics), compiled clean alongside the existing `SkipBotShort`
+    knob; the demo leg keeps running the baseline core + gate until both knobs are flipped
+    after an NT restart, so the crowned config is forward-tested at the SHADOW layer only
+    (PAPER_TRADING.md).
+  • **Carried caveats:** NOISE lockbox SPENT (confirmatory only); the family has never cleared
+    its own ES-transfer bar of PF ≥ 1.2 (1.116 is the best yet, still short).
 - **2026-08-21/22** — **ORB CROWN = run #234 (`ORB_3_6_C2.py`, "ride + breakeven"); paper legs follow it.**
   • Hunt rounds 2–3 (memory `edgelog-orb-hunt-round2`, STUDIES board rows 67–129): breakeven-after-1R
     on the legal #230 base, with the partial exit and trailing stop DROPPED, beats #230 on every axis

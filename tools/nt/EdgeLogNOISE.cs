@@ -12,9 +12,14 @@
 //
 //  Defaults = the #231 crowned core (moved 2026-08-16): lookback 44 · bands
 //    0.75 / 1.5 · exit VWAP · both sides · all day · bandwidth stop k 1.75.
-//  SHORT VETO (2026-08-21): the crowned run-#241 filter is ported as SkipBotShort +
-//    DaytypeLo (engine daytype_mode='skip_bot_short'), DEFAULT OFF -- flipping it on
-//    via the strategy row makes this the crowned Short Veto config.
+//  SHORT VETO (2026-08-21): the run-#241 filter is ported as SkipBotShort +
+//    DaytypeLo (engine daytype_mode='skip_bot_short'), DEFAULT OFF.
+//  VOLATILITY SKIP (2026-08-23): the run-#243 crown adds VolSkipOn + VolSkipPct
+//    (engine vol_skip_pct=90), DEFAULT OFF: skip ALL entries on any session whose
+//    PRIOR session's (H-L)/C ranks at or above the 90th percentile of the 252
+//    sessions before it (60 reference sessions minimum before it activates).
+//    Fully causal, exits and stops untouched. Flipping BOTH knobs on via the
+//    strategy row makes this the crowned run-#243 config (Short Veto + Wild10).
 //
 //  Chart: NQ ##-## · 5 Minute · session template "CME US Index Futures RTH".
 //  Load at least 25 days so the 14-session noise estimate is warm on enable.
@@ -66,6 +71,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         // is known before the new session's first bar.
         private double        sessHi = double.NaN, sessLo = double.NaN;
         private bool          blockShortToday;
+        // Volatility skip (2026-08-23, the crowned run-#243 filter; knob default OFF).
+        // volHist banks each completed session's (H-L)/C, capped at the engine's 252
+        // reference window. At a session roll the session that JUST finished is ranked
+        // against the (up to 252) sessions strictly before it -- exactly the engine's
+        // _vol_percentile: pct = 100 * count(ref < prior) / len(ref), inactive until
+        // 60 reference sessions exist. At or above VolSkipPct -> no ENTRIES today
+        // (exits and stops untouched). Fully causal: everything is known at the open.
+        private List<double>  volHist;
+        private bool          blockAllToday;
         private int           barOfDay;
         private double        refHi, refLo;
         private List<double>  adCurrent;             // |close-open|/open per bar-of-day, this session
@@ -162,6 +176,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // strategy row (bridge /strategy/check pre-flights it first).
                 SkipBotShort   = false;
                 DaytypeLo      = 0.20;
+                // Volatility skip (run #243, crowned 2026-08-23): default OFF for the
+                // same reason -- a rebuild changes nothing until the knob is
+                // deliberately flipped on the strategy row after an NT restart.
+                VolSkipOn      = false;
+                VolSkipPct     = 90.0;
                 Qty            = 1;
                 GateEnabled    = true;
                 GateUrl        = "http://127.0.0.1:8392/gate/check?leg=NOISE_H_RF";
@@ -171,6 +190,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 adCurrent = new List<double>();
                 history   = new List<double[]>();
+                volHist   = new List<double>();
             }
             else if (State == State.Terminated)
             {
@@ -222,7 +242,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 sb.AppendLine("# lookback=" + Lookback + " bandLong=" + BandMultLong
                               + " bandShort=" + BandMultShort + " useStop=" + UseStop
                               + " stopK=" + StopK + " qty=" + Qty
-                              + " skipBotShort=" + SkipBotShort + " daytypeLo=" + DaytypeLo);
+                              + " skipBotShort=" + SkipBotShort + " daytypeLo=" + DaytypeLo
+                              + " volSkipOn=" + VolSkipOn + " volSkipPct=" + VolSkipPct);
                 sb.AppendLine("# times=UTC bar_stamp=close");
                 sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd");
 
@@ -269,6 +290,29 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (blockShortToday)
                     Print("EdgeLogNOISE short veto: prior close position "
                           + cp.ToString("0.000") + " <= " + DaytypeLo + " -> no shorts today");
+            }
+            // Volatility skip (run #243, engine vol_skip_pct): decided ONCE per session.
+            // Rank the session that JUST finished against the (up to 252) sessions
+            // strictly before it, THEN bank it -- so the reference window can never
+            // contain the session being ranked, exactly like the engine. A partial
+            // mid-session start banks nothing and blocks nothing (engine NaN).
+            blockAllToday = false;
+            if (!double.IsNaN(sessHi) && !double.IsNaN(sessLo)
+                && !double.IsNaN(prevSessionClose) && prevSessionClose > 0)
+            {
+                double priorVol = (sessHi - sessLo) / prevSessionClose;
+                if (VolSkipOn && volHist.Count >= 60)
+                {
+                    int below = 0;
+                    for (int i = 0; i < volHist.Count; i++) if (volHist[i] < priorVol) below++;
+                    double pct = 100.0 * below / volHist.Count;
+                    blockAllToday = pct >= VolSkipPct;
+                    if (blockAllToday)
+                        Print("EdgeLogNOISE vol skip: prior session range percentile "
+                              + pct.ToString("0.0") + " >= " + VolSkipPct + " -> no entries today");
+                }
+                volHist.Add(priorVol);
+                while (volHist.Count > 252) volHist.RemoveAt(0);
             }
             sessHi = double.NaN; sessLo = double.NaN;
 
@@ -419,6 +463,10 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 bool longTrig  = Close[0] > ub;
                 bool shortTrig = Close[0] < lb;
+                // Volatility skip: a session-level entry gate, applied before everything
+                // else exactly like the engine's sess_block_entries (exits, stops and the
+                // EOD flattener are untouched -- it only stops NEW positions today).
+                if (blockAllToday) { longTrig = false; shortTrig = false; }
                 // Short Veto: applied BEFORE the both-trigger tie-break, exactly like the
                 // engine (block_short falses short_trig first, so a both-trigger bar on a
                 // vetoed day takes the LONG side rather than no trade).
@@ -487,6 +535,20 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty, Range(0.05, 0.5)]
         [Display(Name = "Weak-close threshold (fraction of prior range)", Order = 11, GroupName = "NOISE")]
         public double DaytypeLo { get; set; }
+
+        // ── Volatility skip (run #243, the crowned NOISE filter, 2026-08-23) ─
+        // Engine equivalent: vol_skip_pct. When ON, no ENTRIES at all on any session
+        // whose PRIOR session's (H-L)/C ranks at or above VolSkipPct among the 252
+        // sessions before it (needs 60 banked reference sessions to activate; exits,
+        // stops and the EOD flattener untouched). Default OFF -- enable BOTH this and
+        // the Short Veto on the strategy row to run the crowned run-#243 config.
+        [NinjaScriptProperty]
+        [Display(Name = "Volatility skip ON (no entries after a wildest-decile day)", Order = 12, GroupName = "NOISE")]
+        public bool VolSkipOn { get; set; }
+
+        [NinjaScriptProperty, Range(50.0, 100.0)]
+        [Display(Name = "Volatility percentile threshold (skip at/above)", Order = 13, GroupName = "NOISE")]
+        public double VolSkipPct { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "ML gate ON (ask the local bouncer before entering)", Order = 7, GroupName = "ML GATE")]

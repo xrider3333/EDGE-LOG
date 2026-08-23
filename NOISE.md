@@ -1,14 +1,48 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-22** (ES-NATIVE study — clean NEGATIVE:
-> ES-appropriate re-tune clears the selection bar and then FAILS its never-touched
-> holdout; ES-native NOISE is dead. See the "2026-08-22 — ES-native study" section.
-> Prior update 2026-08-21: CROWN MOVED to Short Veto — see the section directly below —
-> and the COMBINATION study the same day.)
+> Living handoff doc. **Last updated: 2026-08-23** (CROWN MOVED again — to Short Veto +
+> Wild10, run #243; see the section directly below. Prior updates: 2026-08-22 ES-native
+> study, clean NEGATIVE; 2026-08-21 crown → Short Veto + the COMBINATION study.)
 
 ---
 
-## 👑 CROWN CHANGE 2026-08-21 — the NOISE family crown is now SHORT VETO (run #241)
+## 👑 CROWN CHANGE 2026-08-23 — the NOISE family crown is now SHORT VETO + WILD10 (run #243)
+
+**Owner decision, 2026-08-23:** the NOISE family champion moved from Short Veto (run
+#241, crowned two days earlier) to **Short Veto + Wild10 — the same config plus
+`vol_skip_pct=90`: skip ALL entries on any day whose PRIOR session's (H-L)/C ranks at
+or above the 90th percentile of the trailing 252 sessions.** Canonical run: **#243**
+(pinned file `augur_strategies/NOISE_1_1_SBS_V90.py`, PASS 6/6, STUDIES board row 3;
+run #252 is its archived identical repeat).
+
+- **The owner's reasoning, recorded:** the case is risk-adjusted, not raw money — ~2%
+  less total profit than #241 buys **~41% less drawdown ($22,096 vs $31,191)**, a
+  **better profit factor (1.39 vs 1.29)**, an **equal-or-better lockbox**, and the
+  **best ES transfer of the family (1.116)**.
+- **The caveat, recorded honestly alongside:** the volatility leg's standalone gains
+  are concentrated (its ten best avoided trades carry them), so if that benefit decays
+  the config degrades toward run #241's profile — an accepted, bounded risk.
+- **Recorded where:** the STAR moved from run #241's doc to run #243's in Past Runs
+  (run #241 stays an ordinary PASS run, nothing special); the STUDIES board moved the
+  CROWN tag from NOISE row 2 to row 3 (row 2 keeps its figures and says where the
+  crown went); the paper board's crown leg was REPLACED — `NOISE_SBS` (run #241)
+  retired after two days, `NOISE_SBS_V90` (run #243) live from 2026-08-23, still read
+  against the `NOISE_225` matched RAW control. That follows the house convention (the
+  ENGU-Q raw leg was likewise replaced on 2026-08-21): the crown leg tracks the crown.
+- **What each paper layer now runs:** SHADOW engine — `NOISE_SBS_V90` (the crown),
+  `NOISE_225` (control), plus the two gate overlays (`NOISE_H`, `NOISE_H_RF`).
+  NinjaTrader demo — still the baseline core + live forest gate; `EdgeLogNOISE` now
+  carries BOTH filter knobs (`SkipBotShort`+`DaytypeLo` since 08-21, `VolSkipOn`+
+  `VolSkipPct` since 08-23, engine-exact semantics, compiled clean), all DEFAULT OFF —
+  flipping them on waits for an NT restart and an owner call, so the crowned config is
+  forward-tested at the SHADOW layer only.
+- **Carried caveats still apply:** the NOISE lockbox is SPENT (confirmatory only), and
+  the family has never cleared its own pre-registered ES-transfer bar of PF ≥ 1.2
+  (1.116 is the best in the family, still below that bar).
+
+---
+
+## 👑 CROWN CHANGE 2026-08-21 — SHORT VETO (run #241) *(superseded 2026-08-23, above)*
 
 **Owner decision, 2026-08-21:** the NOISE family champion moved from the plain champion
 core (run #231's config, `NOISE_1_0.py`, lookback 44 / bands 0.75 & 1.5 / vwap exit /
