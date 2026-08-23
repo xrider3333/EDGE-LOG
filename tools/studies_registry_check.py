@@ -18,7 +18,9 @@ import subprocess
 import sys
 import tempfile
 
-WT = r"C:\Users\xride\AppData\Local\EdgeLog-worktrees\enguq-lim-cards"
+# The checkout this file lives in (a hardcoded sibling-worktree path shipped here once
+# and made the check read ANOTHER session's index.html - never do that again).
+WT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(WT, "tools"))
 from preflight_boot import find_chrome  # noqa: E402
 

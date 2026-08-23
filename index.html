@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.238';
+const VERSION='73.239';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.239',date:'2026-08-23',notes:['COMPARE - STUDIES: ORB band veto, rows 476-481 - the 0.6-0.8 prior-close band long veto (the one lead the 2026-08-18 day-type round left unchased), pre-registered and tested on the run 234 crown. NOT adopted: 4 of 7 gates fail, and about 84% of the apparent band damage sits inside the spent lockbox year. Crown stands; no bad short band exists. Fork ORB_3_8.py gains three default-off band modes; harness tools/orb_daytype_band.py.']},
 {v:'73.237',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 3 - the squeeze on DAILY bars with multi-day, roll-seam-guarded holds, rows 442-465 (the v73.236 note shipped the harness only; the rows are here). It fails: the one big in-sample number is bull-market riding that loses its lockbox year badly. Family verdict stands: intraday 30-60 minute bars or nothing.']},
 {v:'73.236',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 2 - sixteen mechanism changes (contrarian entries, range-edge stop entries, gates, ride/target exits) on NQ and ES 15/30/60-minute bars, rows 346-441. Two lockbox-positive pockets found (NQ 60m range-break entries, ES 30m twelve-bar squeeze filter); three Auto-Validates queued on them. New strategy TTMSQZ_2_0.py; 30m and 60m RTH masters now exist for NQ and ES.']},
 {v:'73.233',date:'2026-08-23',notes:['STUDIES row 345: the ENGU-Q efficiency gate carried unchanged to ES as a pre-registered transfer test - PASSED (PF 1.15 to 1.56, all four eras hold). Caveat on the row: the gate kept zero ES trades in the lockbox year, so it is evidence for the NQ gate, not an ES deploy candidate.']},
@@ -17480,7 +17481,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
          runs:[265],is:182225,lb:135983,tot:318208,dd:41697,pf:1.56,trd:913},
         {n:345,name:'Efficiency Gate on ES',what:'The efficiency floor carried unchanged to ES - every knob including the gate frozen at the NQ values, on an instrument no ENGU-Q knob was ever tuned on. Pre-registered bar: gated beats ungated on full-window profit factor AND the gain holds in at least three of four eras.',tone:'good',read:'TRANSFERS - PF 1.15 to 1.56, all 4 eras',
          notes:['Both bars passed: ES full window (2010-06-07 to 2026-06-30, 0.79 pts x $50 costs) ungated 2,741 trades / $129,124 / PF 1.151 vs gated 1,021 trades / $253,539 / PF 1.560; the profit-factor gain holds in every one of the four eras (1.47/1.17/1.64/1.65 vs 1.07/1.06/1.22/1.15). A gate that helps on an instrument it never saw is structure, not curve-fit.','CAVEAT before anyone trades ES on this: the gate kept ZERO ES trades in the lockbox year - the 0.25 floor is stricter on the slower ES tape, so the last year is unsampled. Reference evidence for the NQ gate, not an ES deploy candidate.','Driver: tools/enguq_er_es_transfer.py (bar written into the file before the run).'],
-         runs:[],is:253539,lb:0,tot:253539,dd:null,pf:1.56,trd:1021}
+         is:253539,lb:0,tot:253539,dd:null,pf:1.56,trd:1021}
        ]},
 
       // ── WHAT IS ACTUALLY RUNNING IN PAPER (owner ask 2026-08-19). Deliberately a TABLE with no
@@ -18015,7 +18016,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
            is:563881,lb:93893,dd:90713,pf:1.43,trd:1964},
           {n:475,name:'Tilt 2.0x weak 0.25',what:'Double size on the 537 entries after a bottom-25% close. Biggest headline gain (+$217,761) and the second-worst concentration fail.',tone:'frag',read:'Beats net and MAR, dies on concentration',
            is:582459,lb:101215,dd:85626,pf:1.43,trd:1964}
-         ]}
+         ]},
+      // ── ORB band veto (rows 476-481). Round 2 of the day-type work: the one lead round 1
+      //    deliberately did not chase, now pre-registered and tested. CROSSFAMILY_DAYTYPE.md
+      //    round 2 is the full log; harness tools/orb_daytype_band.py reproduces the crown
+      //    to the dollar before scoring anything.
+      {key:'orbband',title:'ORB band veto',disc:'2026-08-23',isLbl:'PRE-LOCKBOX',fam:'ORB',
+       sub:'Skip ORB long entries the day after the prior session closed in the upper-middle of its own range. NQ 5-minute bars on the crowned run 234 configuration, selection pinned to its own window, 2010 to 2025.',
+       notes:['Nothing was adopted and the crown stands. The candidate veto beat the crown on total and lockbox money but failed four of the seven pre-registered gates: the band edges are not a plateau, nine years get worse against seven better, the early era turns negative, and the entire selection-window gain vanishes when its ten best avoided trades are removed.',
+        'The important finding is WHY the lead looked strong. Round 1 measured the band on the full window and saw longs losing $103 a trade. Measured only on the legitimate selection window the same population loses just $17 a trade - about 84% of the apparent damage sits inside the single already-spent lockbox year. Selecting on the full window would have adopted a mirage.',
+        'The symmetric question was asked and answered: no bad SHORT band exists anywhere. Every short bucket is profitable on the selection window, and the 0.6-0.8 shorts are the BEST short bucket. Vetoing them costs $35,175 and doubles drawdown.',
+        'The veto barely overlaps the crown’s volatility-regime filter - only 10.9% of band days are already skipped - so it was not re-labelling existing work; it is simply not robust.',
+        'The ES transfer pass was pre-registered to run only on a candidate clearing the full bar. Nothing cleared, so it was not run.',
+        'Total and lockbox columns on these rows INCLUDE the spent lockbox year and flatter every variant - read the PRE-LOCKBOX column, which is what selection used. The crown baseline is row 47.'],
+       dashWhy:{wf:'Walk-forward was not re-run for these local filter tests, so there is no fold figure to report.'},
+       win:{from:'2010-06-07',to:'2026-08-13'},
+       rows:[
+        {n:476,name:'Band Long Veto .60-.80',what:'Skip longs the day after a close in the 0.60-0.80 band of the prior range - the exact band round 1 flagged.',tone:'frag',read:'Lockbox mirage, not adopted',is:305068,lb:110697,tot:415766,dd:26796,pf:1.36,trd:2355},
+        {n:477,name:'Band Long Veto .55-.80',what:'Same veto, lower edge widened to 0.55.',tone:'frag',read:'Same mirage, looser edge',is:303024,lb:108919,tot:411943,dd:26796,pf:1.37,trd:2298},
+        {n:478,name:'Band Long Veto .60-.85',what:'Same veto, upper edge widened to 0.85.',tone:'frag',read:'Same mirage, wider band',is:302548,lb:106748,tot:409296,dd:26796,pf:1.37,trd:2271},
+        {n:479,name:'Band Long Veto .65-.85',what:'Same veto, band shifted up to 0.65-0.85.',tone:'fail',read:'Fails on profit outright',is:292936,lb:105401,tot:398337,dd:26830,pf:1.35,trd:2323},
+        {n:480,name:'Band Short Veto .60-.80',what:'The mirror: skip SHORTS in the same band. Those shorts are the best short bucket.',tone:'fail',read:'Doubles drawdown',is:265757,lb:59511,tot:325268,dd:47204,pf:1.28,trd:2374},
+        {n:481,name:'Band Full Veto .60-.80',what:'Skip both sides in the band.',tone:'fail',read:'Fails',is:269894,lb:81266,tot:351159,dd:50787,pf:1.34,trd:2122}
+       ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
       // (retired la:true rows removed 2026-08-18; RB_ORB_LA_TIP kept for the renderer)

@@ -421,3 +421,155 @@ below is from `tools/enguq_daytype_levers.py` (committed) on the pinned windows.
 3. **Nothing was queued to the runner, no lockbox was spent** (one labelled confirmatory
    look on the already-spent trailing year, which selected nothing).
 4. All 9 tested cells + baseline are on COMPARE ▸ STUDIES (rows 351-360).
+
+---
+---
+
+# ROUND 3 — the ORB 0.6-0.8-band LONG veto (the lead round 1 deliberately did not chase)
+
+> Round log opened **2026-08-23**, owner away, work delegated. Harness:
+> `tools/orb_daytype_band.py` (reuses round 1's `tools/crossfamily_daytype.py` engine calls).
+> Fork: `augur_strategies/ORB_3_8.py`, extended with three `skip_band_*` modes, default OFF.
+
+## R3.1 What is being tested
+
+Round 1's bucket table (section 4.3 above) showed that the crowned ORB's genuinely bad
+population is **LONG entries taken the day after the prior session closed in the 0.6-0.8
+band of its own range: -$103 average over 252 trades, PF 0.79, full window.** It was left
+alone at the time purely because it was not pre-registered. This round pre-registers and
+tests exactly that veto: skip LONG entries when yesterday's close position sits inside a
+declared band.
+
+**Ground truth re-confirmed before anything ran (2026-08-23):**
+- Standing crown is still run #234 / `ORB_3_6_C2.py` (ORB.md banner, confirmed 2026-08-21;
+  both paper legs run it from 2026-08-24).
+- Run #234's own Firestore doc (runs/234) read directly: date_from 2010-06-07,
+  date_to 2026-08-13, NQ 5m `db_noadj_rth`, cost 0.533 pts, mult 20, equity final
+  19,493.72 pts = $389,874. Selection window therefore **2010-06-07 → 2025-08-12**;
+  lockbox 2025-08-13 → 2026-08-13 and it is **SPENT** — read once at the end of this
+  round, confirmatory only, never used to select.
+- The crown's full-history numbers must be reproduced by the harness ($389,874 / 2,607
+  trades) before any variant is scored. If they do not match, the round stops.
+
+## R3.2 PRE-REGISTERED adoption bar (written before any backtest of the veto ran)
+
+The candidate veto is `skip_band_long` with band **0.60-0.80** (the band the round 1 bucket
+table named). Band membership is `band_lo <= prior-day close position < band_hi`, the same
+half-open convention the bucket table used. Pre-declared neighbouring band edges for the
+plateau gate: **0.55-0.80, 0.60-0.80, 0.60-0.85, 0.65-0.85.**
+
+Adopt ONLY if ALL of these hold on the SELECTION window (2010-06-07 → 2025-08-12):
+
+1. **Net dollars strictly at least the crown's** on the selection window.
+2. **net/DD (MAR) at least the crown's** on the selection window.
+3. **Plateau, not a magic band** — gates 1 and 2 must hold at ALL FOUR pre-declared band
+   edges. A veto that only works at one set of edges is noise and is rejected.
+4. **No year materially worse** — no calendar year may lose more than $5,000 against the
+   crown, and improved years must outnumber worsened years.
+5. **Concentration check, DISQUALIFYING** — the selection-window net improvement must
+   survive removing the ten best individual avoided trades: (net delta) minus (sum of the
+   10 largest single avoided losses) must remain greater than zero.
+6. **Early-era subtotal not worse** — the 2010-2017 pooled net must be at least the
+   crown's 2010-2017 pooled net (the regime caveat: ORB's money is post-2018, and the veto
+   must not quietly degrade the flat early era).
+7. **Mechanism on the predicted side** — the gain must come from REMOVED LONG trades
+   (ORB takes at most one trade per session, so the veto is purely subtractive; the
+   attribution must tie back to the dollar).
+
+Also measured, as DIAGNOSTICS (not gates), declared here so they cannot be re-scoped later:
+- **The full bucket table by prior-close band × side on the SELECTION window** — the
+  symmetric question: is there an equivalent bad SHORT population in any prior-close band?
+  A `skip_band_short` mirror is only ever tested if a short band shows PF < 1 with n >= 150
+  on the selection window, and it would then need its own pre-registered round.
+- **Overlap with the crown's existing atr_filter** (NOISE combination-study method): how
+  many of the veto's blocked entry-days does the atr_filter already remove, and how many
+  sessions does each gate veto alone.
+- **ES cross-instrument** (NOADJ_ES_5m_RTH, cost 0.363 pts, mult 50, nothing refitted),
+  only if the candidate clears the full bar. Context for honesty: no formal ES-transfer
+  bar is banked for ORB — the #230 crown was certified with ES PF 1.032 and #234's
+  recorded ES preview is PF 1.051 (memory `edgelog-orb-hunt-round2`), so the ES number is
+  reported plainly against those references, pass/fail language avoided.
+- **Lockbox read ONCE at the end, clearly labelled confirmatory** — it is spent and
+  selects nothing.
+
+## R3.3 RESULTS — the band veto FAILS the pre-registered bar (4 of 7 gates fail)
+
+**Verdict in one line: the 0.6-0.8-band LONG veto is a lockbox mirage — its improvement is
+tiny on the legitimate selection window, concentrated in ten trades, worse in 9 of 16 years,
+and most of round 1's headline band-loss turns out to sit inside the already-spent lockbox
+year.** The crown (run #234) stands unchanged. Nothing was queued and no crown moved.
+
+The control reproduced the crown exactly before anything was scored: full window 2,607
+trades / $389,874 / PF 1.307 / DD $29,142 / MAR 13.38, selection window $300,932 / MAR 10.33.
+
+### R3.3.1 The gate-by-gate reading (selection window 2010-06-07 → 2025-08-12)
+
+| gate | requirement | measured | verdict |
+|---|---|---|---|
+| 1 net | veto net >= crown net | +$4,136 at 0.60-0.80 | pass (barely — 1.4%) |
+| 2 MAR | veto MAR >= crown MAR | 10.33 → 11.38 | pass |
+| 3 plateau | gates 1+2 at ALL 4 edges | 0.65-0.85 loses $7,996 net | **FAIL** |
+| 4 years | no year worse than -$5k; up > down | 2023 -$9,780; 2018 -$6,822; 7 up / 9 down | **FAIL** |
+| 5 concentration | delta survives removing 10 best avoidances | +$4,136 − $34,297 = **-$30,160** | **FAIL (disqualifying)** |
+| 6 early era | 2010-2017 subtotal >= crown's | $484 → -$2,595 | **FAIL** |
+| 7 mechanism | gain = removed longs, tie-back | 237 removed longs, 0 added, tie-back OK | pass |
+
+Band-edge sweep, selection window: 0.55-0.80 +$2,092 / 0.60-0.80 +$4,136 / 0.60-0.85
++$1,616 / 0.65-0.85 −$7,996. The MAR gain (10.33 → ~11.3, DD $29,142 → $26,796) is real
+and plateau-stable at three edges, but the net gain is not a plateau and the concentration
+gate kills it outright: the entire selection-window improvement is ten avoided trades, and
+without them the veto is a $30k loser.
+
+### R3.3.2 Why round 1's lead looked so strong — the important honesty finding
+
+Round 1 measured the band on the FULL window: longs after a 0.6-0.8 close = −$25,891 over
+252 trades, PF 0.79. Re-bucketed on the SELECTION window only, the same population is
+**−$4,136 over 237 trades, PF 0.96 — barely negative.** The other −$21,755 sits in the 15
+band-long trades of the SPENT lockbox year. The single confirmatory lockbox read makes the
+same point from the other side: the veto adds +$21,754 in the lockbox year (crown $88,943 →
+$110,697, PF 1.45 → 1.67) versus +$4,136 across the entire 15-year selection window. **~84%
+of the full-window "bad band" was one already-read year.** This is exactly the seduction the
+spent-lockbox rule exists to catch: had selection consulted the full window, this veto would
+have looked like a +$25,892 adoption.
+
+### R3.3.3 The symmetric question — no bad SHORT band exists
+
+The full bucket table by prior-close band × side (selection window) shows every SHORT band
+profitable: worst is 0.0-0.2 at +$64/trade PF 1.11 (n=234); 0.6-0.8 shorts are the BEST
+short bucket at +$165/trade PF 1.44 (n=213). The pre-declared trigger for testing a short
+mirror (a band with PF < 1 and n >= 150) never fires. The 0.6-0.8-long cell is the ONLY
+negative bucket of the ten — one weakly-negative cell out of ten, mostly lockbox-driven, is
+a lucky bucket, not structure. Diagnostic mirrors confirm: skip_band_short 0.60-0.80 costs
+$35,175 net and doubles drawdown ($29,142 → $47,204); skip_band_all costs $31,038 and takes
+DD to $50,787.
+
+### R3.3.4 Overlap with the crown's atr_filter
+
+Session-level, selection window (3,900 sessions): atr_filter vetoes 330 whole sessions; the
+prior-close 0.60-0.80 band covers 762 sessions; overlap 83 sessions = **10.9%** of band days
+already killed by atr_filter. The two gates are nearly independent — the band veto was not
+re-labelling the ATR regime filter's work. Moot for adoption, recorded for the record.
+
+### R3.3.5 ES transfer — not run, per the pre-registration
+
+R3.2 declared ES would be run only on a candidate clearing the full bar. Nothing cleared,
+so no ES pass was made and no ES number is reported. (No formal ES-transfer bar is banked
+for ORB anyway; #230 was certified ES PF 1.032, #234's recorded preview is PF 1.051.)
+
+### R3.4 Disposition
+
+1. **Crown #234 stands. Nothing queued, nothing crowned, the runner untouched.**
+2. **`ORB_3_8.py` now carries the three `skip_band_*` modes, default OFF**, byte-identical
+   to `ORB_3_6.py` with the knob off (smoke test PASS: n 2607 / pnl to 6 decimals, all 7 ON
+   modes verified to change results), and the library-wide execution-feasibility audit
+   passes with zero findings on this file.
+3. **The residual worth remembering:** the veto's *drawdown* shape (DD −$2,346, MAR +1.0,
+   PF 1.28 → 1.31, stable at 3 of 4 edges) echoes round 1's skip-shorts finding — ORB
+   day-type filters keep buying small risk improvements with net dollars and concentration
+   risk. If a capital-matched sizing-up study is ever wanted, that is the frame; as a
+   filter adoption it is now twice-dead.
+4. **Harness committed: `tools/orb_daytype_band.py`** — control reproduces the crown to the
+   dollar; every decomposition ties back to the dollar (removed − added + altered ≡ delta).
+5. **Lockbox spend: one confirmatory read, labelled above, used to select nothing.**
+6. Board rows added under COMPARE ▸ STUDIES (ORB rail), study "ORB band veto"; row numbers
+   recorded in STUDIES_BOARD.md at ship time.

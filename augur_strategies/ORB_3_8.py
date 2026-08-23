@@ -11,8 +11,13 @@ and tested as an explicit filter on ORB - the crowned, live-in-NinjaTrader famil
 file adds it, DEFAULT OFF, so the transfer can be measured honestly.
 
     daytype_mode  off (default) | skip_bot_short | skip_bot_all | skip_top_long | skip_top_all
+                  | skip_band_long | skip_band_short | skip_band_all   (band modes added
+                  2026-08-23, CROSSFAMILY_DAYTYPE.md round 2: veto entries when yesterday's
+                  close position sits INSIDE [daytype_band_lo, daytype_band_hi) — the round 1
+                  bucket table found ORB longs after a 0.6-0.8 close lose $103/trade, PF 0.79)
     daytype_lo    bottom cutoff, default 0.20   (NOISE's researched value)
     daytype_hi    top cutoff, default 0.80      (mirror)
+    daytype_band_lo / daytype_band_hi   the band edges, defaults 0.60 / 0.80
 
 DEFINITION, identical to NOISE_1_0.py's `_daytype_pos` (deliberately - results have to be
 comparable across families): for session i, pos = (C - L) / (H - L) of session i-1, where
@@ -125,7 +130,8 @@ DEFAULT_PARAMS = {
     },
     "daytype_mode": {
         "default": "off", "type": "str",
-        "options": ["off", "skip_bot_short", "skip_bot_all", "skip_top_long", "skip_top_all"],
+        "options": ["off", "skip_bot_short", "skip_bot_all", "skip_top_long", "skip_top_all",
+                    "skip_band_long", "skip_band_short", "skip_band_all"],
         "label": "Prior-day close-position filter",
         "tooltip": "Gate today's entries on where YESTERDAY closed inside its own range "
                    "((close-low)/(high-low)) -- known before today's open, fully causal. "
@@ -133,7 +139,9 @@ DEFAULT_PARAMS = {
                    "take no SHORT entry the day after a close in the bottom 20% of the "
                    "day's range (the NOISE campaign's 2026-08-17 winner). skip_bot_all "
                    "blocks both sides on those days; the two skip_top modes mirror at the "
-                   "top of the range.",
+                   "top of the range. The three skip_band modes (2026-08-23) veto entries "
+                   "when yesterday's close sits INSIDE the [band_lo, band_hi) band — round "
+                   "1's bucket table found ORB longs after a 0.6-0.8 close lose money.",
     },
     "daytype_lo": {
         "default": 0.2, "min": 0.05, "max": 0.45, "step": 0.05, "type": "float",
@@ -148,6 +156,20 @@ DEFAULT_PARAMS = {
         "label": "Top close-position threshold",
         "tooltip": "The skip_top_* cutoff, mirror of the bottom one. Only read when "
                    "daytype_mode is a skip_top mode.",
+    },
+    "daytype_band_lo": {
+        "default": 0.6, "min": 0.4, "max": 0.75, "step": 0.05, "type": "float",
+        "label": "Band veto lower edge",
+        "tooltip": "Lower edge of the skip_band_* veto band on yesterday's close position. "
+                   "0.60 is the value round 1's bucket table named; 0.55 and 0.65 are the "
+                   "pre-declared plateau neighbours. Only read in a skip_band mode.",
+    },
+    "daytype_band_hi": {
+        "default": 0.8, "min": 0.65, "max": 0.95, "step": 0.05, "type": "float",
+        "label": "Band veto upper edge",
+        "tooltip": "Upper edge (exclusive) of the skip_band_* veto band. 0.80 is the round 1 "
+                   "value; 0.85 is the pre-declared plateau neighbour. Only read in a "
+                   "skip_band mode.",
     },
 }
 
@@ -198,6 +220,7 @@ def run_backtest(
     atr_filter: float = 0.7, target_R: float = 5.5,
     flat_eod: bool = True, skip_holidays: bool = True,
     daytype_mode: str = "off", daytype_lo: float = 0.2, daytype_hi: float = 0.8,
+    daytype_band_lo: float = 0.6, daytype_band_hi: float = 0.8,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
@@ -302,6 +325,14 @@ def run_backtest(
                         elif daytype_mode == "skip_top_long" and _dp >= daytype_hi:
                             long_ok = False
                         elif daytype_mode == "skip_top_all" and _dp >= daytype_hi:
+                            long_ok = short_ok = False
+                        # band modes (round 2, 2026-08-23): half-open [lo, hi), the same
+                        # convention the round 1 bucket table used.
+                        elif daytype_mode == "skip_band_long" and daytype_band_lo <= _dp < daytype_band_hi:
+                            long_ok = False
+                        elif daytype_mode == "skip_band_short" and daytype_band_lo <= _dp < daytype_band_hi:
+                            short_ok = False
+                        elif daytype_mode == "skip_band_all" and daytype_band_lo <= _dp < daytype_band_hi:
                             long_ok = short_ok = False
 
                 pos = 0; entry = 0.0; stop = 0.0; tgt = 0.0; risk = 0.0
@@ -473,7 +504,8 @@ if __name__ == "__main__":
         r0["total_pnl"], r1["total_pnl"]))
 
     ok = True
-    for mode in ("skip_bot_short", "skip_bot_all", "skip_top_long", "skip_top_all"):
+    for mode in ("skip_bot_short", "skip_bot_all", "skip_top_long", "skip_top_all",
+                 "skip_band_long", "skip_band_short", "skip_band_all"):
         r = run_backtest(*args, **kw, **C2, daytype_mode=mode)
         chg = (r["num_trades"] != r1["num_trades"]
                or abs(r["total_pnl"] - r1["total_pnl"]) > 1e-9)

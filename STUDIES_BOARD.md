@@ -770,6 +770,15 @@ enforces uniqueness.
 Row 1 (the old NOISE champion) was moved from the `champ` mark to `ref` the same day so NOISE carries exactly one blue mark, row 2. These five numbers are retired for good. Row 341 (Paper: ENGU-Q + Efficiency Gate, run 265) was
 added the same day because that gate overlay had no row anywhere. The next free row number is 342.
 
+**Block ledger since 2026-08-22** (read the highest number on origin/main before taking a block —
+several sessions add concurrently): 342-344 ENGU-Q efficiency, 345 Efficiency Gate on ES,
+346-441 TTM Squeeze round 2, 442-465 TTM Squeeze round 3, 466-475 ENGU-Q day-type levers round 2
+(equal-risk resize + buy-weakness tilt), **476-481 ORB band veto (2026-08-23,
+CROSSFAMILY_DAYTYPE.md round 3 — the 0.6-0.8 prior-close band long veto, tested and NOT adopted;
+~84% of the apparent band damage sat inside the spent lockbox year).**
+The next free row number is **482**. `tools/studies_registry_check.py` now reads the checkout
+it lives in (it used to hardcode one session's worktree path — fixed 2026-08-23).
+
 **The mismatch the board showed until 2026-08-21, now closed.** From 2026-08-16 to 2026-08-21 the
 crowned ORB configuration was row 47 (run 234) while the paper forward test was still running the
 previous crown (rows 26, 83 and 93, run 230). On 2026-08-21 the owner confirmed 234 as the ORB
