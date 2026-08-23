@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.243';
+const VERSION='73.244';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.244',date:'2026-08-21',notes:['2B gained a third view: PTS - x = the trade net points, y = the trade net $ (every dot on the multiplier diagonal; reads the size structure - the stop cluster and how far out the carriers sit). Uses every saved trade and opens in the interactive zoom view on double-click.','Expanded 1A equity: clicking a trade CIRCLE on the curve now opens the OHLC candle viewer for that trade (it used to only highlight the blotter row); double-clicking a blotter row does the same, single click still flies to the trade on the curve.']},
 {v:'73.243',date:'2026-08-23',notes:['THE $ / TRADE ROW IS CALLED EV NOW (owner named it 2026-08-23: expected value). Same number, same maths - net dollars over the ticked SAMPLE stretches divided by that same stretch trade count - one name everywhere it appears: the 1E matrix RAW, GATE, TILT, HYBRID and both sizing tabs, the champion KPI table, and the RUNBOARD 1E matrix. Every EV cell keeps the exact scope rules the scope audit enforces: it follows the SAMPLE tick, and an old run that cannot honour the tick dashes with the reason on hover, never a whole-window number under a scoped label.','The COMPARE - STUDIES board keeps its own $/TRD label because renaming board fields breaks saved study references - its hover now says it is the same figure the 1E matrix calls EV.','tools/matrix_scope_audit.py re-pointed at the EV label so the shipped scope gate keeps covering the renamed row.']},
 {v:'73.242',date:'2026-08-23',notes:['COMPARE - STUDIES rows 482-486: the ES-native NOISE study - the first re-TUNE of the mechanism on the ES contract (every earlier ES row was a transfer test with nothing refitted). 625 core cells plus the two proven filters: zero bare cells reach the 1.2 bar, the filtered winner clears every selection leg with a real plateau, then LOSES the never-touched 18-month holdout on its single pre-registered read. ES-native NOISE is dead; no run was queued. Round log in NOISE.md.']},
 {v:'73.241',date:'2026-08-23',notes:['COMPARE - STUDIES rows 466-475: the two ENGU-Q day-type levers round 1 banked - the equal-risk resize of the strong-close skip and the buy-weakness size tilt. Both beat the champion on headline money at every pre-registered cell and BOTH die on the pre-registered concentration gate (the gain rides on about ten trades). Champion #149/#227 stands. Round log: CROSSFAMILY_DAYTYPE.md ROUND 2. (Entry restored - a concurrent-session merge dropped the 73.238 note.)']},
@@ -5145,10 +5146,13 @@ window.expandEquity=function(host){
   });
   chartEl.addEventListener('mouseleave',()=>{vln.style.display=hln.style.display=xchip.style.display=ychip.style.display=dot.style.display='none';read.textContent='';});
   // trade-marker click → highlight its blotter row
+  // v73.233 (owner: "clicking on circle or trade in blotter doesnt take me to ohlc values"): a
+  //   trade marker click opens the OHLC candle viewer for that trade (and still highlights the row).
   svgEl.addEventListener('click',e=>{if(drag&&drag.moved)return;const c=e.target.closest('[data-tr]');if(!c)return;
     selTrade=+c.dataset.tr;render();
     const row=modal.querySelector('[data-blrow="'+selTrade+'"]');
-    if(row){row.scrollIntoView({block:'center'});modal.querySelectorAll('[data-blrow]').forEach(x=>x.style.background='');row.style.background='color-mix(in srgb,var(--blue) 16%,transparent)';}});
+    if(row){row.scrollIntoView({block:'center'});modal.querySelectorAll('[data-blrow]').forEach(x=>x.style.background='');row.style.background='color-mix(in srgb,var(--blue) 16%,transparent)';}
+    const _bx=(blotRows||[]).find(q=>q._no===selTrade);if(_bx)_openCandles(_bx,c);});
   // ── blotter: load off the PC runner, list under/beside the chart, click-to-fly.
   //    Header click opens a Past-Runs-style menu (sort ↑/↓ + winners/losers filter on the
   //    $ columns). DEFAULT sort = newest trade first. HOLD shows a real duration.
@@ -5194,7 +5198,7 @@ window.expandEquity=function(host){
       +'</span>';
     const arrow=c=>c===k?(dir>0?' ▲':' ▼'):'';
     const th='<tr style="position:sticky;top:0;background:var(--bg1);color:var(--text5);font-size:9px;letter-spacing:1px;z-index:2"><th style="padding:6px 6px;text-align:center;white-space:nowrap" title="open that trade session candles in a price chart">CHART</th>'+COLS.map(c=>'<th data-bh="'+c[0]+'" style="padding:6px 10px;text-align:'+c[2]+';cursor:pointer;white-space:nowrap;user-select:none"'+(c[3]?' title="'+c[3]+'"':' title="click to sort / filter"')+'>'+c[1]+(c[3]?' ⓘ':'')+arrow(c[0])+'</th>').join('')+'</tr>';
-    const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(selTrade===x._no?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click to fly to this trade on the chart"><td style="padding:4px 6px;text-align:center"><span data-blcandle="'+x._no+'" title="open this trade session candles in a price chart" style="cursor:pointer;display:inline-block;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 6px;font-size:8px;letter-spacing:1px;color:var(--blue);font-variant-emoji:text">🕯 CHART</span></td><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+(blFee!=null?('-'+fmt$(blFee)):'—')+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
+    const trs=rows.map(x=>'<tr data-blrow="'+x._no+'" style="cursor:pointer;border-top:1px solid var(--border2)'+(selTrade===x._no?';background:color-mix(in srgb,var(--blue) 16%,transparent)':'')+'" title="click = fly to this trade on the chart · double-click = OHLC candles"><td style="padding:4px 6px;text-align:center"><span data-blcandle="'+x._no+'" title="open this trade session candles in a price chart" style="cursor:pointer;display:inline-block;border:1px solid color-mix(in srgb,var(--blue) 55%,var(--border));border-radius:5px;padding:1px 6px;font-size:8px;letter-spacing:1px;color:var(--blue);font-variant-emoji:text">🕯 CHART</span></td><td style="padding:5px 10px;color:var(--text5)">'+x._no+'</td><td style="padding:5px 10px;font-size:10px">'+x._et+'</td><td style="padding:5px 10px;font-size:10px">'+x._xt2+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4);white-space:nowrap">'+_dur(x._hold)+'</td><td style="padding:5px 10px;text-align:right">'+x._ep+'</td><td style="padding:5px 10px;text-align:right">'+x._xp+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._pts>=0?'var(--green)':'var(--red)')+'">'+x._pts+'</td><td style="padding:5px 10px;text-align:right;color:var(--text4)">'+(blFee!=null?('-'+fmt$(blFee)):'—')+'</td><td style="padding:5px 10px;text-align:right;font-weight:700;color:'+(x._usd>=0?'var(--green)':'var(--red)')+'">'+fmt$(x._usd)+'</td><td style="padding:5px 10px;text-align:right;color:'+(x._cum>=0?'var(--text2)':'var(--red)')+'">'+fmt$(x._cum)+'</td></tr>').join('');
     wrap.innerHTML='<div style="padding:8px 12px 2px;font-size:9px;color:var(--text5);letter-spacing:1px;display:flex;align-items:center;flex-wrap:wrap;gap:4px">'+viewsHtml+'<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">'+blMeta
       +(blView==='recent'?' · <span style="color:var(--blue)">'+Math.min(blShown,blotRows.length)+' most recent shown</span>':'')
       +(blView==='wins'?' · <span style="color:var(--green)">10 biggest winners</span>':'')
@@ -5232,7 +5236,8 @@ window.expandEquity=function(host){
       const span=Math.max(0.02,(vb-va)*0.999>0.999?0.02:Math.min(vb-va,0.02));
       va=c-span/2;vb=c+span/2;clampView();render();
       wrap.querySelectorAll('[data-blrow]').forEach(q=>q.style.background='');
-      tr.style.background='color-mix(in srgb,var(--blue) 16%,transparent)';};});
+      tr.style.background='color-mix(in srgb,var(--blue) 16%,transparent)';};
+      tr.ondblclick=e=>{e.stopPropagation();const no=+tr.dataset.blrow,x=blotRows.find(q=>q._no===no);if(x)_openCandles(x,tr);};});
     wrap.querySelectorAll('[data-blcandle]').forEach(sp=>{sp.onclick=e=>{
       e.stopPropagation();
       const no=+sp.dataset.blcandle,x=blotRows.find(q=>q._no===no);if(!x)return;
@@ -10345,6 +10350,43 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(sp.note?'<span style="color:var(--text5)" title="'+sp.note+'">'+sp.nPair+' of '+sp.nAll+' paired &#9432;</span>':'<span>'+n+' trades</span>')
         +'</div>';
       return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = reach MINUS heat (points price ran in your favour minus points it ran against you while the trade was open), y = what the trade banked (net $). Dot AREA = size of the win or loss. Winners sit upper-right (ran for you, banked it), losers lower-left (ran against you, stopped out). The yellow line is the ordinary-least-squares fit of $ on reach - the steeper, the more of each point of reach the exits capture; r² = how much of the spread the line explains. Green / red tints mark the quadrants either side of break-even and the median reach. Top-5 winners ringed and numbered. Double-click for the big view with a crosshair.','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')+'. IS = the champion before the lockbox cut (whole-run list minus its lockbox tail), WF = walk-forward fold trades, LB = lockbox; all three on = the whole run.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
+        +'<div data-fixh style="background:var(--bg1);border-radius:8px;padding:10px 10px 8px">'+svg+'</div>'+foot;
+    };
+    // v73.233 (owner: "make another version. x axis is pt of the trade. y axis is pnl" - option 1):
+    //   x = the trade net POINTS, y = the trade net $. Because $ = points x multiplier this cloud
+    //   sits exactly on one diagonal (r2 = 1) - it reads as the SIZE line of the strategy: how the
+    //   trades distribute along it, where the stop cluster is, and how far out the carriers sit.
+    //   Uses EVERY saved trade (no excursion pairing needed). Same interactive expand (data-sc).
+    const ptsScatterHtml=(sp,mult,tag,scope,ctl)=>{
+      if(!sp||sp.nAll<8)return '';
+      const xs=sp.pnlPts.map(x=>+x),v=xs.map(x=>x*mult),n=v.length,C=concStats(sp.pnlPts,mult);
+      const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),_yr=(Math.max(rmx,0)-Math.min(rmn,0))||1,mn=Math.min(rmn,0)-_yr*0.04,mx=Math.max(rmx,0)+_yr*0.08,span=(mx-mn)||1;
+      const _xrr=(Math.max.apply(null,xs)-Math.min(0,Math.min.apply(null,xs)))||1;
+      const xmax=Math.max.apply(null,xs)+_xrr*0.04,xmin=Math.min(0,Math.min.apply(null,xs))-_xrr*0.03,xspan=(xmax-xmin)||1;
+      const padL=10,padR=66,tickH=34,plotTop=20,H=236,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
+      const Xv=val=>padL+((val-xmin)/xspan)*Wp,Y=p=>B-((p-mn)/span)*plotH;
+      const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);
+      const y0=Y(0);
+      const quad='<rect x="'+Xv(0).toFixed(1)+'" y="'+plotTop+'" width="'+Math.max(0,padL+Wp-Xv(0)).toFixed(1)+'" height="'+Math.max(0,y0-plotTop).toFixed(1)+'" fill="#1d9e75" opacity="0.07"/><rect x="'+padL+'" y="'+y0.toFixed(1)+'" width="'+Math.max(0,Xv(0)-padL).toFixed(1)+'" height="'+Math.max(0,B-y0).toFixed(1)+'" fill="#e24b4a" opacity="0.07"/>';
+      let g='';[0.25,0.5,0.75,1].forEach(fr=>{const gy=B-fr*plotH,cv=mn+span*fr;g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL+Wp+5)+'" y="'+(gy+4).toFixed(1)+'" font-size="12" fill="var(--text3)">'+_kfmt(cv)+'</text>';});
+      const zero=(mn<0&&mx>0)?'<line x1="'+padL+'" y1="'+y0.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text4)" stroke-width="0.8"/><text x="'+(padL+3)+'" y="'+(y0-3).toFixed(1)+'" font-size="9" font-weight="700" fill="var(--text4)">BE</text>':'';
+      const _sg=_clipSeg(Xv(xmin),Y(xmin*mult),Xv(xmax),Y(xmax*mult),padL,plotTop,padL+Wp,B);
+      const trend=_sg?('<line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+6)+'" y="'+(plotTop+12)+'" text-anchor="start" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">$ = points x '+mult+' (the contract multiplier) - every dot sits on this line</text>'):'';
+      const rankIdx=v.map((_,i)=>i).sort((a,b)=>v[b]-v[a]),top5=new Set(rankIdx.slice(0,5).filter(i=>v[i]>0));
+      const order=v.map((_,i)=>i).sort((a,b)=>Math.abs(v[a])-Math.abs(v[b]));
+      let dots='',rings='';
+      order.forEach(i=>{const p=v[i],cx=Xv(xs[i]).toFixed(1),cy=Y(p).toFixed(1),r=R(p).toFixed(1),col=p>=0?'#1d9e75':'#e24b4a';
+        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+col+'" fill-opacity="0.55" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="'+(+xs[i].toFixed(1))+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')+'"/>';
+        if(top5.has(i)){const rk=rankIdx.indexOf(i)+1;rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(+r+2.5).toFixed(1)+'" fill="none" stroke="#f5c542" stroke-width="1.2"/><text x="'+cx+'" y="'+(+cy-(+r)-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="800" fill="#f5c542">'+rk+'</text>';}});
+      let xt='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>';
+      const st=_nice(xspan/7)||1;for(let t=Math.ceil(xmin/st)*st;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="'+(t<0?'#e24b4a':t>0?'#1d9e75':'var(--text3)')+'">'+(t>0?'+':'')+Math.round(t)+'p</text>';}
+      xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net points of the trade</text>';
+      const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2B')+' · POINTS vs $ · '+(scope||''),xs:xs.map(x=>+x.toFixed(1)),ys:v.map(x=>Math.round(x)),tip:v.map((p,i)=>(+xs[i].toFixed(1))+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')),fit:{a:0,b:mult,r:1},xl:'net points of the trade',yl:'net $ per trade',xf:'pts',yf:'usd',top:rankIdx.slice(0,5).filter(i=>v[i]>0),quad:true}));
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-sc="'+_sc+'">'+quad+g+zero+trend+dots+rings+xt
+        +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
+      const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
+      const foot=C?('<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)"><span style="color:'+cc+';font-weight:700">'+(C.net>0?('TOP 5 = '+Math.round(C.s5*100)+'% OF NET'):'NET NEGATIVE')+'</span>'+(C.net>0?'<span>top 1 '+Math.round(C.s1*100)+'% · top 10 '+Math.round(C.s10*100)+'%</span><span>without top 5: <b style="color:'+(C.wo5>0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(C.wo5))+'</b></span>':'')+'<span>'+n+' trades</span></div>'):'';
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = the trade net POINTS, y = the trade net $. Since $ is points times the contract multiplier, every dot sits exactly on the yellow diagonal - this view reads the SIZE structure of the strategy: the loser cluster at the stop distance, the spread of winners along the line, and how far out the ringed top-5 carriers sit. Double-click for the interactive view (zoom the data, crosshair, hover).','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')))+' POINTS vs $ <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
         +'<div data-fixh style="background:var(--bg1);border-radius:8px;padding:10px 10px 8px">'+svg+'</div>'+foot;
     };
     const maeScatterHtml=(mm,win,mult,tag,scope,ctl)=>{
@@ -15530,12 +15572,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _secSel='<span data-sccmp-rm style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:6px" title="which trades 2B / 2C show - IS, WF and LB combine; all three on = the whole run">'+_scopes.map(o=>{const on=_dSec.includes(o[0]),ok=o[2];return '<span '+(ok?'data-distsecm="'+o[0]+'" ':'')+'title="'+(ok?((o[0]==='is'?'in-sample - the champion before the lockbox cut':(o[0]==='wf'?'walk-forward folds - out-of-sample':'lockbox year - out-of-sample'))+' - click to toggle'):'not saved on this run - re-run on the current engine to record it')+'" style="cursor:'+(ok?'pointer':'not-allowed')+';user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(on?'var(--text)':(ok?'var(--text4)':'var(--text5)'))+';opacity:'+(ok?1:.45)+';background:'+(on?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 var(--blue)':'none')+'">'+o[1]+'</span>';}).join('')+'</span>';
         // v73.32 (owner): HIST / SCATTER rails on 2B and 2C. SCATTER = every trade as a dot with a
         //   linear-regression trend, dot area = |$| - to see which trades carry the result.
-        const _v2b=(APREF.distView2b==='scatter')?'scatter':'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
-        const _r2b=_distViewRail('distView2b',_v2b,[['hist','HIST'],['scatter','SCATTER']]),_r2c=_distViewRail('distView2c',_v2c,[['dist','DIST'],['scatter','SCATTER']]);
+        const _v2b=(APREF.distView2b==='scatter'||APREF.distView2b==='pts')?APREF.distView2b:'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
+        const _r2b=_distViewRail('distView2b',_v2b,[['hist','HIST'],['scatter','SCATTER'],['pts','PTS']]),_r2c=_distViewRail('distView2c',_v2c,[['dist','DIST'],['scatter','SCATTER']]);
         const _sp=_slicePairs(d,_dSec,mlt);
         const _wdS=_sp.pnlPts.length?_sp.pnlPts:(_pickDist(_dSec)||d.win_dist),_mmS=_sp.allMae.length?{mae:_sp.allMae,mfe:_sp.allMfe,won:_sp.allWon}:(_pickMae(_dSec)||d.mae_mfe);
         const _mae=(_v2c==='scatter'?maeScatterHtml({mae:_sp.mae,mfe:_sp.mfe,won:_sp.won},_sp.pairPts,mlt,_dT('1H','2C'),_scLbl,_r2c):'')||maeMfePanelHtml(_mmS,mlt,_dT('1H','2C'),_scLbl,_r2c),
-              _td=(_v2b==='scatter'?tradeScatterHtml(_sp,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b):'')||tradeDistPanelHtml(_wdS,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b);
+              _td=(_v2b==='scatter'?tradeScatterHtml(_sp,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b):(_v2b==='pts'?ptsScatterHtml(_sp,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b):''))||tradeDistPanelHtml(_wdS,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b);
         // ── ACTIONABLE MAE/MFE: a button that queues a focused GRID re-run — the champion config pinned,
         //    stop_mult × tp_mult swept around the winners' reach:heat ratio (scale-free, so no ATR needed).
         //    Only for a champion that exposes ATR stop/target mults (ENGU family). Wired in the handler below.
@@ -15591,10 +15633,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<div style="margin-top:14px;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)">'+((regHtml&&regHtml.replace(/\s/g,''))?regHtml:_naTile('1F','REGIME REPORT CARD','no regime / volatility breakdown saved for this run'))+'</div>'
           +'</div>';
         // Col C — 1D trade-PnL distribution · 1G MAE/MFE · 1H deflated Sharpe
-        const _v2b=(APREF.distView2b==='scatter')?'scatter':'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
-        const _r2b=_distViewRail('distView2b',_v2b,[['hist','HIST'],['scatter','SCATTER']]),_r2c=_distViewRail('distView2c',_v2c,[['dist','DIST'],['scatter','SCATTER']]);
+        const _v2b=(APREF.distView2b==='scatter'||APREF.distView2b==='pts')?APREF.distView2b:'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
+        const _r2b=_distViewRail('distView2b',_v2b,[['hist','HIST'],['scatter','SCATTER'],['pts','PTS']]),_r2c=_distViewRail('distView2c',_v2c,[['dist','DIST'],['scatter','SCATTER']]);
         const _sp0=_slicePairs(d,['all'],mlt);
-        const _td=(_v2b==='scatter'?tradeScatterHtml(_sp0,mlt,'1G',_sc,_r2b):'')||tradeDistPanelHtml(d.win_dist,mlt,'1G',_sc,_r2b),_mae=(_v2c==='scatter'?maeScatterHtml({mae:_sp0.mae,mfe:_sp0.mfe,won:_sp0.won},_sp0.pairPts,mlt,'1H',_sc,_r2c):'')||maeMfePanelHtml(d.mae_mfe,mlt,'1H',_sc,_r2c);
+        const _td=(_v2b==='scatter'?tradeScatterHtml(_sp0,mlt,'1G',_sc,_r2b):(_v2b==='pts'?ptsScatterHtml(_sp0,mlt,'1G',_sc,_r2b):''))||tradeDistPanelHtml(d.win_dist,mlt,'1G',_sc,_r2b),_mae=(_v2c==='scatter'?maeScatterHtml({mae:_sp0.mae,mfe:_sp0.mfe,won:_sp0.won},_sp0.pairPts,mlt,'1H',_sc,_r2c):'')||maeMfePanelHtml(d.mae_mfe,mlt,'1H',_sc,_r2c);
         const _dsrBlk=(dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):_naTile('1I','DEFLATED SHARPE','no deflated-Sharpe computed (needs a multi-config search)');
         const _div='<div style="height:12px"></div>';
         // 1J TRADE CONTEXT — same panel as the validate layout, for grid / auto runs.
