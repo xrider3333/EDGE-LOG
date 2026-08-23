@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.224';
+const VERSION='73.225';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.225',date:'2026-08-23',notes:['ML VERDICT NOW MATCHES THE CHART (owner: if any ML line ends above the top raw config, do not tell me the ML failed). The GATE VALIDATE chip and the section-3 banner used to grade only the one crowned cut-gate on its lockbox look, so run 226 read FAILED while its rf HYBRID REDEPLOY line sat above raw in 1A. Both now score every ML line 1A draws - cut gates, hybrids at one lot, and hybrids REDEPLOYED at the same contracts-spent ratio the chart uses - by where the line ENDS (full window, lockbox included), and print the best one against raw: ML BEATS RAW or ML BELOW RAW, with the lockbox-year dollars, the drawdown of each, and the sizing factor when the winning line is a sized-up one. The crowned cut-gate result stays as a grey side note.']},
 {v:'73.224',date:'2026-08-21',notes:['2B SCATTER is one fixed chart: x = reach (how far the trade ran in your favour), y = net $ - winners upper-right, losers lower-left, least-squares line through the cloud, quadrants tinted. The TIME / REACH / HEAT picker is gone.','IS / WF / LB / TOTAL pills: IS is derived on every run (the champion before the lockbox cut) - no re-run needed. Dollars and excursions are paired by original trade index, so 2C dots are sized by $ on every slice; the footer says how many trades paired.']},
 {v:'73.223',date:'2026-08-23',notes:['GATE verdict no longer reads like a strategy verdict. Run 226 showed a red LOCKBOX FAILED while its equity curve ran straight up: the stamp belonged to the ML GATE bake-off (the filter lost to the plain strategy on the held-out year), not to the strategy, whose own lockbox HELD at $90,337 / PF 1.42. The section-3 banner now says GATE LB FAILED and prints the strategy’s own lockbox verdict and dollars beside it; the GATE VALIDATE chip reads GATE FAILED · strategy LB HELD; the one-look row inside the gate table is labelled GATE and says whose verdict it is.']},
 {v:'73.222',date:'2026-08-21',notes:['Engine: the per-trade $ list is saved at the same 600-trade cap as the excursions, so the TOTAL slice of 2B / 2C can use the REACH and HEAT axes on new runs.']},
@@ -15795,8 +15796,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_ensH&&_ensH.replace(/\s/g,''))_chips.push({k:'ens',ic:'🧩',nm:'ENSEMBLE',q:'blend of top-K vs the single best config',st:(d.ensemble&&d.ensemble.improved)?'ok':'info',cc:(d.ensemble&&d.ensemble.improved)?'var(--green)':'var(--text3)',chip:(d.ensemble&&d.ensemble.improved)?'blend wins':'single best',html:_ensH});
       const _plH=plateauCardHtml(d.plateau_pick,d.best_params,mlt);
       if(_plH&&_plH.replace(/\s/g,''))_chips.push({k:'plat',ic:'🏔',nm:'PLATEAU PICK',q:'broad high ground vs the champion spike',st:(d.plateau_pick&&d.plateau_pick.same_as_best)?'ok':'info',cc:(d.plateau_pick&&d.plateau_pick.same_as_best)?'var(--green)':'var(--text3)',chip:(d.plateau_pick&&d.plateau_pick.same_as_best)?'agrees':'differs',html:_plH});
+      // v73.225 (owner: if any ML line ends above the top raw config in total PnL, do not say the ML failed):
+      //   score every ML family 1A draws by where its line ENDS (full window, lockbox included): cut gates at
+      //   one lot, hybrids at one lot, hybrids REDEPLOYED (sized so they spend the same contracts as raw, the
+      //   ratio 1A uses). Best line vs raw decides the chip and the banner.
+      const _mlBest=(function(G){if(!G)return null;const U=G.ungated_full,UL=G.ungated_lockbox;if(!U)return null;
+        const out=[];const add=(nm,x,f,sz)=>{if(!x||x.total_pnl==null)return;out.push({nm:nm,pnl:x.total_pnl*f,dd:Math.abs(x.max_drawdown||0)*f,lb:(sz&&sz.total_pnl!=null)?sz.total_pnl*f:null,f:f});};
+        (G.candidates||[]).forEach(c=>add(c.model+'@'+c.threshold+' cut',c.full,1,c.lockbox));
+        (G.hybrids||[]).forEach(h=>{add(h.model+' hybrid',h.full,1,h.lockbox);
+          const a=+U.num_trades||0,b=+(h.full&&h.full.num_trades)||0;if(a>0&&b>0)add(h.model+' hybrid REDEPLOY',h.full,a/b,h.lockbox);});
+        if(!out.length)return null;out.sort((x,y)=>y.pnl-x.pnl);const b=out[0];
+        return {best:b,raw:U.total_pnl,rawDd:Math.abs(U.max_drawdown||0),rawLb:UL?UL.total_pnl:null,beats:b.pnl>U.total_pnl};})(_gvD);
       if(_gvD){const _gLB=_gvD.lockbox;
-        _chips.push({k:'gval',ic:'🚪',nm:'GATE VALIDATE',q:'model-and-cut-off bake-off, winner gets one lockbox look',st:_gLB?(_gLB.helped?'ok':'bad'):'info',cc:_gLB?(_gLB.helped?'var(--green)':'var(--red)'):'var(--text3)',chip:_gLB?('GATE '+(_gLB.helped?'HELD':'FAILED')+((d.validate&&d.validate.lockbox&&d.validate.lockbox.pnl!=null)?(' · strategy LB '+(d.validate.lockbox.pass?'HELD':'FAILED')):'')):'pre-LB only',html:gvTableHtml(_gvD,stratTag(d.strategy),mlt)});}
+        _chips.push({k:'gval',ic:'🚪',nm:'GATE VALIDATE',q:'model-and-cut-off bake-off, winner gets one lockbox look',st:_mlBest?(_mlBest.beats?'ok':'bad'):(_gLB?(_gLB.helped?'ok':'bad'):'info'),cc:_mlBest?(_mlBest.beats?'var(--green)':'var(--red)'):(_gLB?(_gLB.helped?'var(--green)':'var(--red)'):'var(--text3)'),chip:_mlBest?('ML '+(_mlBest.beats?'BEATS RAW':'BELOW RAW')+' · '+_mlBest.best.nm):_gLB?('GATE '+(_gLB.helped?'HELD':'FAILED')+((d.validate&&d.validate.lockbox&&d.validate.lockbox.pnl!=null)?(' · strategy LB '+(d.validate.lockbox.pass?'HELD':'FAILED')):'')):'pre-LB only',html:gvTableHtml(_gvD,stratTag(d.strategy),mlt)});}
       if(d.ml_gate){const _gu=d.ml_gate.ungated||{},_gg=d.ml_gate.gated||{};const _gHelp=(_gg.total_pnl||0)>=(_gu.total_pnl||0);
         _chips.push({k:'mlg',ic:'🚪',nm:'ML TRADE FILTER',q:'trades the model kept vs taking everything',st:_gHelp?'ok':'warn',cc:_gHelp?'var(--green)':'var(--yellow)',chip:_gHelp?'gate helps':'no help',html:gateCardHtml(d.ml_gate,stratTag(d.strategy),mlt)});}
       // v73.32 (owner): CAUTIONS strip under the report header - concentration + non-pass chips.
@@ -15845,7 +15857,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _g$=v=>fmtAx((v||0)*mlt,1);const _pff=v=>Math.min(v||0,99).toFixed(2);
         // ── VERDICT banner (qualitative — the numbers live in the before→after cards below) ──
         let _gbc='var(--yellow)',_gbTxt='';
-        if(_gvP&&_gvP.LB){const LB=_gvP.LB;_gbc=LB.helped?'var(--green)':'var(--red)';
+        if(_mlBest){const B=_mlBest.best;_gbc=_mlBest.beats?'var(--green)':'var(--red)';
+          _gbTxt='<b style="color:'+_gbc+'">ML '+(_mlBest.beats?'BEATS RAW ✓':'BELOW RAW ✕')+'</b> — best ML line at the end of the curve: <b>'+B.nm+'</b> '+fmtUsd(Math.round(B.pnl*mlt))+' vs raw '+fmtUsd(Math.round(_mlBest.raw*mlt))+(B.lb!=null&&_mlBest.rawLb!=null?' · lockbox year '+fmtUsd(Math.round(B.lb*mlt))+' vs '+fmtUsd(Math.round(_mlBest.rawLb*mlt)):'')+' · drawdown '+fmtUsd(Math.round(B.dd*mlt))+' vs '+fmtUsd(Math.round(_mlBest.rawDd*mlt))+(B.f>1.0001?' · <span style="color:var(--text4)">sized '+B.f.toFixed(2)+'× (survivors spend the contracts the gate freed up)</span>':'')+(_gvP&&_gvP.LB?' · <span style="color:var(--text4)">crowned cut-gate alone: '+(_gvP.LB.helped?'held':'lost to raw')+' on its one lockbox look</span>':'');}
+        else if(_gvP&&_gvP.LB){const LB=_gvP.LB;_gbc=LB.helped?'var(--green)':'var(--red)';
           const _sLB=d.validate&&d.validate.lockbox;_gbTxt='<b style="color:'+_gbc+'">GATE LB '+(LB.helped?'HELD ✓':'FAILED ✕')+'</b> — the ML gate '+(LB.helped?'beat':'lost to')+' the plain strategy on the held-out slice it never saw'+((_sLB&&_sLB.pnl!=null)?' · the strategy’s OWN lockbox <b style="color:'+(_sLB.pass?'var(--green)':'var(--red)')+'">'+(_sLB.pass?'HELD ✓':'FAILED ✕')+'</b> ('+fmtUsd(Math.round((_sLB.pnl||0)*mlt))+' · PF '+Math.min(_sLB.pf||0,99).toFixed(2)+') — a failed gate does not touch that':'');}
         else if(_gvP){_gbc=_gvP.V.gate_earns_pre?'var(--green)':'var(--yellow)';_gbTxt='<b style="color:'+_gbc+'">PRE-LB '+(_gvP.V.gate_earns_pre?'EARNS':'DOES NOT EARN')+'</b> — no held-out lockbox look was saved for this run';}
         else{const _u2=d.ml_gate.ungated||{},_q2=d.ml_gate.gated||{};const _h2=(_q2.total_pnl||0)>=(_u2.total_pnl||0);_gbc=_h2?'var(--green)':'var(--yellow)';
