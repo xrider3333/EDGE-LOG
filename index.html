@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.228';
+const VERSION='73.229';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.229',date:'2026-08-21',notes:['2B / 2C: the TOTAL button is gone - IS + WF + LB all on is the whole run, and that is the default.']},
 {v:'73.228',date:'2026-08-21',notes:['2B / 2C expanded view: the slice and view pills no longer leak into the modal title, the x-axis titles are short enough to read (full wording in the info icon), and the OLS label moved off the biggest winners.']},
 {v:'73.227',date:'2026-08-21',notes:['2B SCATTER x-axis is reach MINUS heat (points for you less points against you): losers land lower-left, winners upper-right, with the least-squares line through the cloud and quadrants split at zero.']},
 {v:'73.226',date:'2026-08-23',notes:['SURFACES ON PINNED RUNS. A pinned Auto-Validate (run 226) showed N/A under SURFACES and CURVES and told you to re-run the engine. It did not need to: the run searched one space already - the ML gate bake-off, every model against every cut-off with the pre-lockbox net and recovery saved per cell. That landscape now draws in the same 3-D surface and 3-D scatter the config space uses: model on one axis (legend names them), cut-off on the other, pre-lockbox net as height. The N/A card only remains for a pinned run that saved no gate sweep.']},
@@ -10187,10 +10188,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         wd.forEach((p,i)=>{if(!keep(i))return;const j=map.get(wi?wi[i]:i);if(j==null)return;o.mae.push(Math.abs(mm.mae[j]));o.mfe.push(Math.abs(mm.mfe[j]));o.won.push(+p>0?1:0);o.pairPts.push(+p);});
       };
       const baseIS=(d.champ_dist_scope==='in-sample');
-      const S=set.includes('all')?['all']:set;
+      const S=set.includes('all')?['is','wf','lb']:set;
       S.forEach(k=>{
-        if(k==='all'){add(d.win_dist,d.mae_mfe,'stride',false);if(baseIS)add(d.win_dist_lb,d.mae_mfe_lb,'trunc',false);}
-        else if(k==='is')add(d.win_dist,d.mae_mfe,'stride',!baseIS);
+        if(k==='is')add(d.win_dist,d.mae_mfe,'stride',!baseIS);
         else if(k==='wf')add(d.win_dist_wf,d.mae_mfe_wf,'trunc',false);
         else if(k==='lb')add(d.win_dist_lb,d.mae_mfe_lb,'trunc',false);
       });
@@ -10239,7 +10239,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(fit?'<span style="color:#f5c542">slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per net point · r '+fit.r.toFixed(2)+'</span>':'')
         +(sp.note?'<span style="color:var(--text5)" title="'+sp.note+'">'+sp.nPair+' of '+sp.nAll+' paired &#9432;</span>':'<span>'+n+' trades</span>')
         +'</div>';
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = reach MINUS heat (points price ran in your favour minus points it ran against you while the trade was open), y = what the trade banked (net $). Dot AREA = size of the win or loss. Winners sit upper-right (ran for you, banked it), losers lower-left (ran against you, stopped out). The yellow line is the ordinary-least-squares fit of $ on reach - the steeper, the more of each point of reach the exits capture; r² = how much of the spread the line explains. Green / red tints mark the quadrants either side of break-even and the median reach. Top-5 winners ringed and numbered. Double-click for the big view with a crosshair.','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')+'. IS = the champion before the lockbox cut (whole-run list minus its lockbox tail), WF = walk-forward fold trades, LB = lockbox, TOTAL = the whole run.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = reach MINUS heat (points price ran in your favour minus points it ran against you while the trade was open), y = what the trade banked (net $). Dot AREA = size of the win or loss. Winners sit upper-right (ran for you, banked it), losers lower-left (ran against you, stopped out). The yellow line is the ordinary-least-squares fit of $ on reach - the steeper, the more of each point of reach the exits capture; r² = how much of the spread the line explains. Green / red tints mark the quadrants either side of break-even and the median reach. Top-5 winners ringed and numbered. Double-click for the big view with a crosshair.','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')+'. IS = the champion before the lockbox cut (whole-run list minus its lockbox tail), WF = walk-forward fold trades, LB = lockbox; all three on = the whole run.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
         +'<div data-fixh style="background:var(--bg1);border-radius:8px;padding:10px 10px 8px">'+svg+'</div>'+foot;
     };
     const maeScatterHtml=(mm,win,mult,tag,scope,ctl)=>{
@@ -15410,16 +15410,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   toggle on and off and their per-trade arrays are pooled; TOTAL is the whole run and
         //   exclusive. IS needs win_dist_is (engine v73.220+) - older runs show it greyed.
         const _hasWf=!!(d.win_dist_wf||d.mae_mfe_wf),_hasLb=!!(d.win_dist_lb||d.mae_mfe_lb),_hasIs=!!(d.win_dist),_anyOOS=_hasWf||_hasLb;
-        const _scopes=[['is','IS',_hasIs],['wf','WF',_hasWf],['lb','LB',_hasLb],['all','TOTAL',true]];
-        const _defSec=_hasWf?['wf']:(_hasLb?['lb']:['all']);
+        // v73.229 (owner: "did i ask for a total selection? selecting IS/WF/LB would equal the total"):
+        //   no TOTAL button. IS + WF + LB all on = the whole run, and that is the default.
+        const _scopes=[['is','IS',_hasIs],['wf','WF',_hasWf],['lb','LB',_hasLb]];
+        const _defSec=_scopes.filter(o=>o[2]).map(o=>o[0]);
         let _dSec=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:_defSec);
-        _dSec=_dSec.filter(k=>_scopes.some(o=>o[0]===k&&o[2]));if(_dSec.includes('all')||!_dSec.length)_dSec=_dSec.includes('all')?['all']:_defSec;
-        const _scLbl=_dSec.includes('all')?'total':_dSec.map(k=>({is:'in-sample',wf:'walk-forward OOS',lb:'lockbox OOS'})[k]).join(' + ');
+        if(_dSec.includes('all'))_dSec=_defSec.slice();_dSec=_dSec.filter(k=>_scopes.some(o=>o[0]===k&&o[2]));if(!_dSec.length)_dSec=_defSec.slice();
+        const _scLbl=_dSec.map(k=>({is:'in-sample',wf:'walk-forward OOS',lb:'lockbox OOS'})[k]).join(' + ');
         const _sl=k=>k==='is'?d.win_dist_is:k==='wf'?d.win_dist_wf:k==='lb'?d.win_dist_lb:d.win_dist;
         const _sm=k=>k==='is'?d.mae_mfe_is:k==='wf'?d.mae_mfe_wf:k==='lb'?d.mae_mfe_lb:d.mae_mfe;
-        const _pickDist=set=>{if(set.includes('all'))return d.win_dist;const out=[];set.forEach(k=>{const a=_sl(k);if(Array.isArray(a))out.push.apply(out,a);});return out.length?out:null;};
-        const _pickMae=set=>{if(set.includes('all'))return d.mae_mfe;const o={mae:[],mfe:[],won:[]};let any=false;set.forEach(k=>{const m=_sm(k);if(m&&Array.isArray(m.mae)){any=true;o.mae.push.apply(o.mae,m.mae);o.mfe.push.apply(o.mfe,m.mfe||[]);o.won.push.apply(o.won,(m.won&&m.won.length===m.mae.length)?m.won:m.mae.map(()=>0));}});return any?o:null;};
-        const _secSel='<span data-sccmp-rm style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:6px" title="which trades 2B / 2C show - IS, WF and LB can be combined; TOTAL is the whole run">'+_scopes.map(o=>{const on=_dSec.includes(o[0]),ok=o[2];return '<span '+(ok?'data-distsecm="'+o[0]+'" ':'')+'title="'+(ok?(o[0]==='all'?'the whole run':(o[0]==='is'?'in-sample - the champion before the lockbox cut':(o[0]==='wf'?'walk-forward folds - out-of-sample':'lockbox year - out-of-sample'))+' - click to toggle'):'not saved on this run - re-run on the current engine to record it')+'" style="cursor:'+(ok?'pointer':'not-allowed')+';user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(on?'var(--text)':(ok?'var(--text4)':'var(--text5)'))+';opacity:'+(ok?1:.45)+';background:'+(on?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 var(--blue)':'none')+'">'+o[1]+'</span>';}).join('')+'</span>';
+        const _pickDist=set=>{if(set.includes('all'))set=['is','wf','lb'];const out=[];set.forEach(k=>{const a=_sl(k);if(Array.isArray(a))out.push.apply(out,a);});return out.length?out:null;};
+        const _pickMae=set=>{if(set.includes('all'))set=['is','wf','lb'];const o={mae:[],mfe:[],won:[]};let any=false;set.forEach(k=>{const m=_sm(k);if(m&&Array.isArray(m.mae)){any=true;o.mae.push.apply(o.mae,m.mae);o.mfe.push.apply(o.mfe,m.mfe||[]);o.won.push.apply(o.won,(m.won&&m.won.length===m.mae.length)?m.won:m.mae.map(()=>0));}});return any?o:null;};
+        const _secSel='<span data-sccmp-rm style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:6px" title="which trades 2B / 2C show - IS, WF and LB combine; all three on = the whole run">'+_scopes.map(o=>{const on=_dSec.includes(o[0]),ok=o[2];return '<span '+(ok?'data-distsecm="'+o[0]+'" ':'')+'title="'+(ok?((o[0]==='is'?'in-sample - the champion before the lockbox cut':(o[0]==='wf'?'walk-forward folds - out-of-sample':'lockbox year - out-of-sample')+' - click to toggle'):'not saved on this run - re-run on the current engine to record it')+'" style="cursor:'+(ok?'pointer':'not-allowed')+';user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(on?'var(--text)':(ok?'var(--text4)':'var(--text5)'))+';opacity:'+(ok?1:.45)+';background:'+(on?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 var(--blue)':'none')+'">'+o[1]+'</span>';}).join('')+'</span>';
         // v73.32 (owner): HIST / SCATTER rails on 2B and 2C. SCATTER = every trade as a dot with a
         //   linear-regression trend, dot area = |$| - to see which trades carry the result.
         const _v2b=(APREF.distView2b==='scatter')?'scatter':'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
@@ -22806,7 +22808,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _s3y=content.querySelector('[data-sc3y]');if(_s3y)_s3y.onchange=()=>{savePref('sc3Y',_s3y.value);renderApp();};
       const _dsc2=content.querySelector('[data-distsec]');if(_dsc2)_dsc2.onchange=()=>{savePref('distSec',_dsc2.value);renderApp();};
       content.querySelectorAll('[data-distsec2]').forEach(el=>{el.onclick=()=>{savePref('distSec',el.dataset.distsec2);renderApp();};});
-      content.querySelectorAll('[data-distsecm]').forEach(el=>{el.onclick=e=>{e.stopPropagation();const k=el.dataset.distsecm;let cur=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:[]);if(k==='all')cur=['all'];else{cur=cur.filter(x=>x!=='all');cur=cur.includes(k)?cur.filter(x=>x!==k):cur.concat([k]);}if(!cur.length)cur=['all'];savePref('distSecs',cur);renderApp();};});
+      content.querySelectorAll('[data-distsecm]').forEach(el=>{el.onclick=e=>{e.stopPropagation();const k=el.dataset.distsecm;let cur=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:[]);cur=cur.filter(x=>x!=='all');cur=cur.includes(k)?cur.filter(x=>x!==k):cur.concat([k]);savePref('distSecs',cur);renderApp();};});
       // collapsed pill dropdowns (1G scope + bins): click the pill to open/close its options.
       content.querySelectorAll('[data-scopecur],[data-binscur]').forEach(el=>{el.onclick=e=>{e.stopPropagation();
         const w=el.parentElement.querySelector('[data-scopeopts],[data-binsopts]');
