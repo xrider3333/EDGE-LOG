@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.234';
+const VERSION='73.235';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,7 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.234',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 2 - sixteen mechanism changes (contrarian entries, range-edge stop entries, gates, ride/target exits) on NQ and ES 15/30/60-minute bars, rows 346-441. Two lockbox-positive pockets found (NQ 60m range-break entries, ES 30m twelve-bar squeeze filter); three Auto-Validates queued on them. New strategy TTMSQZ_2_0.py; 30m and 60m RTH masters now exist for NQ and ES.']},
+{v:'73.235',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 2 - sixteen mechanism changes (contrarian entries, range-edge stop entries, gates, ride/target exits) on NQ and ES 15/30/60-minute bars, rows 346-441. Two lockbox-positive pockets found (NQ 60m range-break entries, ES 30m twelve-bar squeeze filter); three Auto-Validates queued on them. New strategy TTMSQZ_2_0.py; 30m and 60m RTH masters now exist for NQ and ES.']},
 {v:'73.233',date:'2026-08-23',notes:['STUDIES row 345: the ENGU-Q efficiency gate carried unchanged to ES as a pre-registered transfer test - PASSED (PF 1.15 to 1.56, all four eras hold). Caveat on the row: the gate kept zero ES trades in the lockbox year, so it is evidence for the NQ gate, not an ES deploy candidate.']},
 {v:'73.232',date:'2026-08-21',notes:['Double-click 2B or 2C SCATTER for a TradingView-style interactive chart: the wheel zooms the DATA around the cursor (axes rescale - hold shift for y only, ctrl for x only), drag pans the data, crosshair with axis readouts, hover a dot for the trade, double-click or FIT for everything.']},
 {v:'73.231',date:'2026-08-21',notes:['Expanded charts: drag moves the chart at any zoom level (it used to only scroll the panel once the chart overflowed it); FIT resets. 2B: axes padded so the biggest dots no longer sit under the $ labels.']},
