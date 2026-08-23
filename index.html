@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.237';
+const VERSION='73.238';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -17973,7 +17973,49 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:463,name:'ES daily Long only + ride',what:'Daily ES bars, multi-day holds (avg 27 days), roll-seam guarded. Long-only fires held with only the stop.',tone:'fail',read:'In-sample only, lockbox lost',is:44495,lb:-17234,tot:27262,dd:36963,pf:1.27,trd:40},
         {n:464,name:'ES daily Short only',what:'Daily ES bars, multi-day holds (avg 4 days), roll-seam guarded. Daily fires, short side only.',tone:'fail',read:'Loses money',is:-10381,lb:-3981,tot:-14362,dd:23109,pf:0.65,trd:32},
         {n:465,name:'ES daily Length 14',what:'Daily ES bars, multi-day holds (avg 4 days), roll-seam guarded. A faster 14-day squeeze instead of 20.',tone:'fail',read:'Loses money',is:-79649,lb:-22768,tot:-102417,dd:105011,pf:0.57,trd:193}
-       ]}
+       ]},
+        {key:'eqddresize',title:'ENGU-Q equal-risk resize of the strong-close skip',disc:'2026-08-22',isLbl:'PRE-LOCKBOX',fam:'ENGU-Q',
+         sub:'The round-1 drawdown lever taken the second step: skip long entries the day after a strong close, then size up so the worst selection-window drawdown returns to the unfiltered champion level, judged on net profit at equal risk. NQ 1-minute day-session bars, selection 2010 to mid-2025, sizing rule and cap pre-registered before any result.',
+         notes:['Every sized cell beats the champion by $106k to $126k at equal selection-window drawdown, improves the worst year by about $30k, and still wins after honest micro-contract commission drag - a real plateau across all three thresholds.',
+                'All three cells die on the pre-registered concentration gate: put the ten luckiest avoided trades back and re-derive the sizing, and the equal-risk net collapses below the unfiltered champion. Ten trades in fifteen years is luck, not a mechanism.',
+                'The confirmatory look at the already-spent trailing year showed the equal-drawdown promise breaking immediately: the sized variants drew down $79k-$84k in that one year against the champion $65,635 - sizing was set on the selection window and the worst drawdown does not travel.',
+                'Sizing is a post-processing overlay on the engine trade list: the engine models one NQ contract, and both cost components are per contract, so fractional sizing is exact; micro views charge MNQ commission explicitly. The derived sizes 1.37x-1.50x cannot be traded in whole NQ contracts at this base size - only micros or the capped 2-lot cell express them.',
+                'The drawdown column on the sized rows is the selection-window drawdown at size; the baseline row shows its run 227 full-window figures.'],
+         dashWhy:{tot:'The full-window total was not recomputed at size; the selection and lockbox stages are the measured figures.',wf:'No separate walk-forward stage - the pre-lockbox figure pools the tuning years.'},
+         win:{from:'2010-06-07',to:'2026-06-30'},
+         rows:[
+          {n:466,name:'RTH champion 1 NQ',what:'The unfiltered #149-config champion at one contract - the baseline every sized row is judged against.',tone:'ref',read:'The baseline to beat',
+           runs:[227],is:364699,lb:88852,tot:477521,dd:65635,pf:1.41,trd:2048},
+          {n:467,name:'Skip strong 0.85 sized 1.37x',what:'No long entries the day after the prior session closed in the top 15% of its range, every remaining trade sized 1.375x so the selection-window drawdown matches the champion.',tone:'frag',read:'Beats net at equal risk, dies on concentration',
+           is:478842,lb:140910,dd:61426,pf:1.40,trd:1658},
+          {n:468,name:'Skip strong 0.80 sized 1.44x',what:'Same skip at the 0.80 cutoff, sized 1.440x to equal selection-window drawdown. The best cell: +$125,681 over the champion at equal risk.',tone:'frag',read:'Beats net at equal risk, dies on concentration',
+           is:490380,lb:153965,dd:61426,pf:1.41,trd:1572},
+          {n:469,name:'Skip strong 0.75 sized 1.50x',what:'Same skip at the 0.75 cutoff, sizing hit the pre-registered 1.5x cap, so its drawdown lands slightly under the champion.',tone:'frag',read:'Beats net at equal risk, dies on concentration',
+           is:470512,lb:157246,dd:59576,pf:1.41,trd:1455}
+         ]},
+        {key:'buyweaktilt',title:'ENGU-Q buy-weakness size tilt',disc:'2026-08-22',isLbl:'PRE-LOCKBOX',fam:'ENGU-Q',
+         sub:'Bigger size on entries taken the day after a WEAK close - the +$462-a-trade population round 1 surfaced against +$31 after strong closes. A pure size overlay on the champion trade list (no entry added, moved or removed), NQ 1-minute day-session bars, selection 2010 to mid-2025, six-cell grid pre-registered before any result.',
+         notes:['All six cells beat the champion on both net and net-over-drawdown, across both tilt sizes and all three thresholds - the buy-weakness population is real and tilting it is mechanically profitable in-sample.',
+                'All six cells die on the pre-registered concentration gate: subtract the ten largest single-trade extra contributions and the gain goes negative everywhere. ENGU-Q top-10 winners carry about 83% of its net by design, so any proportional size-up is a bet on catching the next monster trade, not on the broad population.',
+                'Honesty note carried from the round log: machine-learning-score size tilts are 0-for-12 dead in this program. This was a single causal structural feature, not a fitted score - and it still failed, on the same concentration axis.',
+                'Sizing arithmetic is a post-processing overlay: both cost components are per contract, so a size-m trade nets exactly m times the one-lot dollars. A 2.0x tilt is a clean 2 NQ; 1.5x needs micros.',
+                'Read these rows against row 466, the champion baseline in the study above. The drawdown column is the selection-window drawdown of the tilted sequence.'],
+         dashWhy:{tot:'The full-window total was not recomputed for the tilt; the selection and lockbox stages are the measured figures.',wf:'No separate walk-forward stage - the pre-lockbox figure pools the tuning years.'},
+         win:{from:'2010-06-07',to:'2026-06-30'},
+         rows:[
+          {n:470,name:'Tilt 1.5x weak 0.15',what:'1.5x size on the 322 entries taken the day after the prior session closed in the bottom 15% of its range; 1x otherwise.',tone:'frag',read:'Beats net and MAR, dies on concentration',
+           is:446718,lb:95667,dd:68860,pf:1.40,trd:1964},
+          {n:471,name:'Tilt 1.5x weak 0.20',what:'1.5x size on the 432 entries after a bottom-20% close.',tone:'frag',read:'Beats net and MAR, dies on concentration',
+           is:464290,lb:91373,dd:76070,pf:1.40,trd:1964},
+          {n:472,name:'Tilt 1.5x weak 0.25',what:'1.5x size on the 537 entries after a bottom-25% close.',tone:'frag',read:'Beats net and MAR, dies on concentration',
+           is:473579,lb:95034,dd:73526,pf:1.40,trd:1964},
+          {n:473,name:'Tilt 2.0x weak 0.15',what:'Double size on the 322 entries after a bottom-15% close.',tone:'frag',read:'Beats net and MAR, dies on concentration',
+           is:528736,lb:102481,dd:78333,pf:1.43,trd:1964},
+          {n:474,name:'Tilt 2.0x weak 0.20',what:'Double size on the 432 entries after a bottom-20% close.',tone:'frag',read:'Beats net and MAR, dies on concentration',
+           is:563881,lb:93893,dd:90713,pf:1.43,trd:1964},
+          {n:475,name:'Tilt 2.0x weak 0.25',what:'Double size on the 537 entries after a bottom-25% close. Biggest headline gain (+$217,761) and the second-worst concentration fail.',tone:'frag',read:'Beats net and MAR, dies on concentration',
+           is:582459,lb:101215,dd:85626,pf:1.43,trd:1964}
+         ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
       // (retired la:true rows removed 2026-08-18; RB_ORB_LA_TIP kept for the renderer)
