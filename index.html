@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.223';
+const VERSION='73.224';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.224',date:'2026-08-21',notes:['2B SCATTER is one fixed chart: x = reach (how far the trade ran in your favour), y = net $ - winners upper-right, losers lower-left, least-squares line through the cloud, quadrants tinted. The TIME / REACH / HEAT picker is gone.','IS / WF / LB / TOTAL pills: IS is derived on every run (the champion before the lockbox cut) - no re-run needed. Dollars and excursions are paired by original trade index, so 2C dots are sized by $ on every slice; the footer says how many trades paired.']},
 {v:'73.223',date:'2026-08-23',notes:['GATE verdict no longer reads like a strategy verdict. Run 226 showed a red LOCKBOX FAILED while its equity curve ran straight up: the stamp belonged to the ML GATE bake-off (the filter lost to the plain strategy on the held-out year), not to the strategy, whose own lockbox HELD at $90,337 / PF 1.42. The section-3 banner now says GATE LB FAILED and prints the strategy’s own lockbox verdict and dollars beside it; the GATE VALIDATE chip reads GATE FAILED · strategy LB HELD; the one-look row inside the gate table is labelled GATE and says whose verdict it is.']},
 {v:'73.222',date:'2026-08-21',notes:['Engine: the per-trade $ list is saved at the same 600-trade cap as the excursions, so the TOTAL slice of 2B / 2C can use the REACH and HEAT axes on new runs.']},
 {v:'73.221',date:'2026-08-21',notes:['2B / 2C: the least-squares line is now clipped at the plot edges instead of having its endpoints clamped - clamping bent the visible slope whenever the fit ran off the top. What you see is the exact fitted line.']},
@@ -10157,61 +10158,81 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _distViewRail=(key,cur,opts)=>'<span style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--purple) 8%,transparent);margin-left:6px">'+opts.map(o=>'<span data-distview="'+key+':'+o[0]+'" title="'+(o[0]==='scatter'?'every trade as a dot with a linear-regression trend line - see where the trades land and which ones carry the result':'the distribution view')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(cur===o[0]?'var(--text)':'var(--text4)')+';background:'+(cur===o[0]?'color-mix(in srgb,var(--purple) 22%,transparent)':'transparent')+';box-shadow:'+(cur===o[0]?'inset 0 -2px 0 var(--purple)':'none')+'">'+o[1]+'</span>').join('')+'</span>';
     const _kfmt=v=>{const a=Math.abs(v);const s=a>=1e6?(a/1e6).toFixed(1)+'M':a>=1e3?(a/1e3).toFixed(a>=1e4?0:1)+'k':Math.round(a).toString();return (v<0?'-$':'$')+s;};
     const _nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
-    const tradeScatterHtml=(win,mult,tag,scope,ctl,mm)=>{
-      if(!Array.isArray(win)||win.length<12)return '';
-      const v=win.map(x=>x*mult),n=v.length,C=concStats(win,mult);
+    // v73.223 (owner: "i want a LINEAR REGRESSION showing positive trades in the upper right quadrant
+    //   and losing trades in the lower left quadrant"): 2B SCATTER is ONE fixed chart now - x = reach
+    //   (how far the trade ran in favour, MFE points), y = net $. Winners land upper-right, losers
+    //   lower-left, the OLS line runs through the cloud. No axis picker.
+    //   _slicePairs pairs every saved $ with its excursion by ORIGINAL trade index (the engine
+    //   stride-samples the $ list to 400 and the excursions to 600 on big runs, so the saved indexes
+    //   differ) and derives the IN-SAMPLE slice as everything before the lockbox cut - the whole-run
+    //   list is chronological and the lockbox is its tail - so IS needs no engine re-run.
+    const _slicePairs=(d,set,mult)=>{
+      const N=+((d.equity&&d.equity.n)||(d.validate&&d.validate.total_trades)||0)||0;
+      const lbN=+((d.validate&&d.validate.lockbox&&(d.validate.lockbox.num_trades||d.validate.lockbox.trades))||(Array.isArray(d.win_dist_lb)?d.win_dist_lb.length:0))||0;
+      const o={pnlPts:[],allMae:[],allMfe:[],allWon:[],mae:[],mfe:[],won:[],pairPts:[],nAll:0,nPair:0,note:''};
+      const orig=(len,mode)=>{if(mode==='trunc'||!N||N<=len)return null;const ds=N/len;const a=new Array(len);for(let i=0;i<len;i++)a[i]=Math.floor(i*ds);return a;};
+      const add=(wd,mm,mode,isOnly)=>{
+        if(!Array.isArray(wd)||!wd.length)return;
+        const wi=orig(wd.length,mode),cut=(N&&lbN)?(N-lbN):Infinity;
+        const keep=i=>!isOnly||((wi?wi[i]:i)<cut);
+        wd.forEach((p,i)=>{if(keep(i))o.pnlPts.push(+p);});
+        if(!mm||!Array.isArray(mm.mae)||!Array.isArray(mm.mfe))return;
+        const mi=orig(mm.mae.length,mode),won=mm.won||[];
+        mm.mae.forEach((a,j)=>{const oj=mi?mi[j]:j;if(isOnly&&oj>=cut)return;o.allMae.push(Math.abs(a));o.allMfe.push(Math.abs(mm.mfe[j]));o.allWon.push(won[j]?1:0);});
+        const map=new Map();mm.mae.forEach((_,j)=>{const oj=mi?mi[j]:j;if(!map.has(oj))map.set(oj,j);});
+        wd.forEach((p,i)=>{if(!keep(i))return;const j=map.get(wi?wi[i]:i);if(j==null)return;o.mae.push(Math.abs(mm.mae[j]));o.mfe.push(Math.abs(mm.mfe[j]));o.won.push(+p>0?1:0);o.pairPts.push(+p);});
+      };
+      const baseIS=(d.champ_dist_scope==='in-sample');
+      const S=set.includes('all')?['all']:set;
+      S.forEach(k=>{
+        if(k==='all'){add(d.win_dist,d.mae_mfe,'stride',false);if(baseIS)add(d.win_dist_lb,d.mae_mfe_lb,'trunc',false);}
+        else if(k==='is')add(d.win_dist,d.mae_mfe,'stride',!baseIS);
+        else if(k==='wf')add(d.win_dist_wf,d.mae_mfe_wf,'trunc',false);
+        else if(k==='lb')add(d.win_dist_lb,d.mae_mfe_lb,'trunc',false);
+      });
+      o.nAll=o.pnlPts.length;o.nPair=o.pairPts.length;
+      if(o.nPair<o.nAll)o.note=o.nPair+' of '+o.nAll+' saved trades carry an excursion - the rest were sampled out by the engine';
+      return o;
+    };
+    const tradeScatterHtml=(sp,mult,tag,scope,ctl)=>{
+      if(!sp||sp.nPair<8)return '';
+      const v=sp.pairPts.map(x=>x*mult),xs=sp.mfe,n=v.length,C=concStats(sp.pnlPts,mult);
       const mean=v.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
       const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),mn=Math.min(rmn,0),mx=Math.max(rmx,0),span=(mx-mn)||1;
-      // v73.214 (owner: "i was thinking the 2b chart would be more like the picture - but idk what
-      //   the axis would be"): X-AXIS picker. TIME = trade number (is the edge fading?). REACH = how
-      //   far the trade ran in favour (MFE) vs what it banked - dots on the diagonal captured the
-      //   move, dots far below gave it back. HEAT = how much pain it took (MAE) vs what it banked.
-      //   REACH / HEAT need the per-trade $ and excursion arrays at the same sample size.
-      const _al=!!(mm&&Array.isArray(mm.mfe)&&mm.mfe.length===n&&Array.isArray(mm.mae)&&mm.mae.length===n);
-      // v73.215 (owner: "its not a linear regression tho"): the fit IS ordinary least squares, but on
-      //   the TIME axis it comes out flat and yellow renders grey on MONO, so it vanished into the mean
-      //   line. Default to REACH when the arrays line up (the view that reads like a regression), draw
-      //   the fit thick in a fixed colour, and print its equation + r2 on the line.
-      const _xp=(APREF.distX2b==='reach'||APREF.distX2b==='heat'||APREF.distX2b==='time')?APREF.distX2b:'reach';
-      const xmode=(_xp!=='time'&&_al)?_xp:'time';
-      const xs=xmode==='reach'?mm.mfe.map(Math.abs):xmode==='heat'?mm.mae.map(Math.abs):v.map((_,i)=>i);
-      const xmax=xmode==='time'?Math.max(1,n-1):(Math.max.apply(null,xs)||1);
+      const xmax=Math.max.apply(null,xs)||1;
       const padL=10,padR=66,tickH=34,plotTop=20,H=236,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
-      const Xv=val=>padL+(val/xmax)*Wp,X=i=>Xv(xs[i]),Y=p=>B-((p-mn)/span)*plotH;
-      const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);   // AREA tracks |$|
+      const Xv=val=>padL+(val/xmax)*Wp,Y=p=>B-((p-mn)/span)*plotH;
+      const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);
       const fit=_ols(xs,v);
-      const top5=new Set((C?C.rank:[]).slice(0,5).filter(i=>v[i]>0));
+      // quadrants: above break-even tinted green, below tinted red; the vertical split is the median reach
+      const xsS=xs.slice().sort((a,b)=>a-b),xmed=xsS[Math.floor(xsS.length/2)]||0,y0=Y(0);
+      const quad='<rect x="'+Xv(xmed).toFixed(1)+'" y="'+plotTop+'" width="'+(padL+Wp-Xv(xmed)).toFixed(1)+'" height="'+(Math.max(0,y0-plotTop)).toFixed(1)+'" fill="#1d9e75" opacity="0.07"/><rect x="'+padL+'" y="'+y0.toFixed(1)+'" width="'+(Xv(xmed)-padL).toFixed(1)+'" height="'+(Math.max(0,B-y0)).toFixed(1)+'" fill="#e24b4a" opacity="0.07"/>';
       let g='';[0.25,0.5,0.75,1].forEach(fr=>{const gy=B-fr*plotH,cv=mn+span*fr;g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL+Wp+5)+'" y="'+(gy+4).toFixed(1)+'" font-size="12" fill="var(--text3)">'+_kfmt(cv)+'</text>';});
-      const zero=(mn<0&&mx>0)?'<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--text4)" stroke-width="0.8"/><text x="'+(padL+3)+'" y="'+(Y(0)-3).toFixed(1)+'" font-size="9" font-weight="700" fill="var(--text4)">BE</text>':'';
-      const meanL='<line x1="'+padL+'" y1="'+Y(mean).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(mean).toFixed(1)+'" stroke="var(--blue)" stroke-width="1" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>';
-      const sdL=[mean-sd,mean+sd].filter(p=>p>mn&&p<mx).map(p=>'<line x1="'+padL+'" y1="'+Y(p).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(p).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" opacity="0.7"/>').join('');
-      const _cl=y=>Math.max(plotTop,Math.min(B,y));
-      const _eq=fit?('y = '+_kfmt(fit.a)+' '+(fit.b>=0?'+':'-')+' '+_kfmt(Math.abs(fit.b))+(xmode==='time'?' per trade':' per pt')+' · r² '+(fit.r*fit.r).toFixed(2)):'';
+      const zero=(mn<0&&mx>0)?'<line x1="'+padL+'" y1="'+y0.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text4)" stroke-width="0.8"/><text x="'+(padL+3)+'" y="'+(y0-3).toFixed(1)+'" font-size="9" font-weight="700" fill="var(--text4)">BE</text>':'';
+      const medL='<line x1="'+Xv(xmed).toFixed(1)+'" y1="'+plotTop+'" x2="'+Xv(xmed).toFixed(1)+'" y2="'+B+'" stroke="var(--text4)" stroke-width="0.8" stroke-dasharray="3,3"/><text x="'+(Xv(xmed)+3).toFixed(1)+'" y="'+(B-4)+'" font-size="9" fill="var(--text5)">median reach '+Math.round(xmed)+'p</text>';
+      const sdL=[mean-sd,mean+sd].filter(p=>p>mn&&p<mx).map(p=>'<line x1="'+padL+'" y1="'+Y(p).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(p).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" opacity="0.5"/>').join('');
+      const _eq=fit?('y = '+_kfmt(fit.a)+' '+(fit.b>=0?'+':'-')+' '+_kfmt(Math.abs(fit.b))+' per pt · r² '+(fit.r*fit.r).toFixed(2)):'';
       const _sg=fit?_clipSeg(Xv(0),Y(fit.a),Xv(xmax),Y(fit.a+fit.b*xmax),padL,plotTop,padL+Wp,B):null;
-      const trend=_sg?('<line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(Math.max(plotTop+12,Math.min(B-6,_sg[3]-8))).toFixed(1)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: '+_eq+'</text>'):'';
-      // small dots first so the big winners paint on top; the top-5 carriers are ringed + ranked
+      const trend=_sg?('<line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(plotTop+12)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: '+_eq+'</text>'):'';
+      const rankIdx=v.map((_,i)=>i).sort((a,b)=>v[b]-v[a]),top5=new Set(rankIdx.slice(0,5).filter(i=>v[i]>0));
       const order=v.map((_,i)=>i).sort((a,b)=>Math.abs(v[a])-Math.abs(v[b]));
       let dots='',rings='';
-      order.forEach(i=>{const p=v[i],cx=X(i).toFixed(1),cy=Y(p).toFixed(1),r=R(p).toFixed(1),col=p>=0?'#1d9e75':'#e24b4a';
-        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+col+'" fill-opacity="0.55" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="trade #'+(i+1)+' of '+n+'<br><b>'+fmtUsd(Math.round(p))+'</b>'+(xmode!=='time'?'<br>'+xmode+' '+xs[i]+'p':'')+(top5.has(i)?'<br>top-5 carrier':'')+'"/>';
-        if(top5.has(i)){const rk=(C.rank.indexOf(i)+1);rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(+r+2.5).toFixed(1)+'" fill="none" stroke="var(--yellow)" stroke-width="1.2"/><text x="'+cx+'" y="'+(+cy-(+r)-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="800" fill="var(--yellow)">'+rk+'</text>';}});
+      order.forEach(i=>{const p=v[i],cx=Xv(xs[i]).toFixed(1),cy=Y(p).toFixed(1),r=R(p).toFixed(1),col=p>=0?'#1d9e75':'#e24b4a';
+        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+col+'" fill-opacity="0.55" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="reach '+xs[i]+'p · heat '+sp.mae[i]+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')+'"/>';
+        if(top5.has(i)){const rk=rankIdx.indexOf(i)+1;rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(+r+2.5).toFixed(1)+'" fill="none" stroke="#f5c542" stroke-width="1.2"/><text x="'+cx+'" y="'+(+cy-(+r)-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="800" fill="#f5c542">'+rk+'</text>';}});
       let xt='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>';
-      if(xmode==='time'){const st=Math.max(1,Math.round(_nice(n/6)));for(let t=0;t<n;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="var(--text3)">'+(t+1)+'</text>';}}
-      else{const st=_nice(xmax/6)||1;for(let t=0;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="var(--text3)">'+Math.round(t)+'p</text>';}}
-      const xTitle=xmode==='time'?'trade # (time order)':(xmode==='reach'?'reach - MFE, points in favour':'heat - MAE, points against');
-      xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">'+xTitle+'</text>';
-      const slopeTxt=fit?(xmode==='time'?('OLS trend '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)*100))+' per 100 trades'+(Math.abs(fit.r)<0.1?' (flat - edge steady)':(fit.b<0?' (fading)':' (improving)'))):('slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per point of '+xmode+' · r '+fit.r.toFixed(2))):'';
-      const _xh=encodeURIComponent(JSON.stringify(xmode==='time'?{xt:'int',x0:1,x1:n,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}:{xt:'num',x0:0,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'">'+g+zero+sdL+meanL+trend+dots+rings+xt
+      const st=_nice(xmax/6)||1;for(let t=0;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="var(--text3)">'+Math.round(t)+'p</text>';}
+      xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach - how far the trade ran in your favour (MFE, points)</text>';
+      const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:0,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
-      const foot=C?('<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)">'
-        +'<span style="color:'+cc+';font-weight:700">'+(C.net>0?('TOP 5 = '+Math.round(C.s5*100)+'% OF NET'):'NET NEGATIVE')+'</span>'
-        +(C.net>0?'<span>top 1 '+Math.round(C.s1*100)+'% · top 10 '+Math.round(C.s10*100)+'%</span><span>without top 5: <b style="color:'+(C.wo5>0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(C.wo5))+'</b></span>':'')
-        +(slopeTxt?'<span style="color:var(--yellow)">'+slopeTxt+'</span>':'')
-        +'</div>'):'';
-      const xRail=_al?_distViewRail('distX2b',xmode,[['time','TIME'],['reach','REACH'],['heat','HEAT']]):'<span title="REACH / HEAT x-axes need the per-trade $ and excursion arrays saved at the same sample size - this run saved '+n+' $ values and '+((mm&&mm.mae)?mm.mae.length:0)+' excursions. Re-run to line them up." style="font-size:8px;color:var(--text5);margin-left:6px;cursor:help">x: time only &#9432;</span>';
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every champion trade as a dot; height = net $, dot AREA = size of the win or loss, green = win, red = loss. X-AXIS picker: TIME = trade number in time order (the yellow regression line tilting down = the edge is fading, flat = steady); REACH = how far price ran in favour before exit - dots on the rising line captured the move, dots far below it gave it back; HEAT = how far price ran against the trade before exit - winners that sit far right survived deep heat. Blue dashed = mean; grey dotted = one standard deviation either side; BE = break-even. The five biggest winners are ringed and numbered - if they sit far above everything else, a handful of trades is carrying the result. Double-click the chart for the big view with a crosshair.','CONCENTRATION: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))+', without the top 10 = '+fmtUsd(Math.round(C.wo10))):'net is not positive on this slice')+'. Rule of thumb: over 50% of net in 5 trades = warning; net going negative without them = the strategy IS those trades.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+xRail+(ctl||'')+'</span></div>':'')
+      const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)">'
+        +(C?('<span style="color:'+cc+';font-weight:700">'+(C.net>0?('TOP 5 = '+Math.round(C.s5*100)+'% OF NET'):'NET NEGATIVE')+'</span>'+(C.net>0?'<span>top 1 '+Math.round(C.s1*100)+'% · top 10 '+Math.round(C.s10*100)+'%</span><span>without top 5: <b style="color:'+(C.wo5>0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(C.wo5))+'</b></span>':'')):'')
+        +(fit?'<span style="color:#f5c542">slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per point of reach · r '+fit.r.toFixed(2)+'</span>':'')
+        +(sp.note?'<span style="color:var(--text5)" title="'+sp.note+'">'+sp.nPair+' of '+sp.nAll+' paired &#9432;</span>':'<span>'+n+' trades</span>')
+        +'</div>';
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = how far price ran IN YOUR FAVOUR while the trade was open (reach / MFE, points), y = what the trade actually banked (net $). Dot AREA = size of the win or loss. Winners sit upper-right (big reach, banked it), losers lower-left (never ran, stopped out). The yellow line is the ordinary-least-squares fit of $ on reach - the steeper, the more of each point of reach the exits capture; r² = how much of the spread the line explains. Green / red tints mark the quadrants either side of break-even and the median reach. Top-5 winners ringed and numbered. Double-click for the big view with a crosshair.','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')+'. IS = the champion before the lockbox cut (whole-run list minus its lockbox tail), WF = walk-forward fold trades, LB = lockbox, TOTAL = the whole run.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
         +'<div data-fixh style="background:var(--bg1);border-radius:8px;padding:10px 10px 8px">'+svg+'</div>'+foot;
     };
     const maeScatterHtml=(mm,win,mult,tag,scope,ctl)=>{
@@ -15381,7 +15402,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   IS/WF/LB. ill select which"): the slice pill is a MULTI-select now. IS / WF / LB each
         //   toggle on and off and their per-trade arrays are pooled; TOTAL is the whole run and
         //   exclusive. IS needs win_dist_is (engine v73.220+) - older runs show it greyed.
-        const _hasWf=!!(d.win_dist_wf||d.mae_mfe_wf),_hasLb=!!(d.win_dist_lb||d.mae_mfe_lb),_hasIs=!!(d.win_dist_is||d.mae_mfe_is),_anyOOS=_hasWf||_hasLb;
+        const _hasWf=!!(d.win_dist_wf||d.mae_mfe_wf),_hasLb=!!(d.win_dist_lb||d.mae_mfe_lb),_hasIs=!!(d.win_dist),_anyOOS=_hasWf||_hasLb;
         const _scopes=[['is','IS',_hasIs],['wf','WF',_hasWf],['lb','LB',_hasLb],['all','TOTAL',true]];
         const _defSec=_hasWf?['wf']:(_hasLb?['lb']:['all']);
         let _dSec=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:_defSec);
@@ -15391,14 +15412,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _sm=k=>k==='is'?d.mae_mfe_is:k==='wf'?d.mae_mfe_wf:k==='lb'?d.mae_mfe_lb:d.mae_mfe;
         const _pickDist=set=>{if(set.includes('all'))return d.win_dist;const out=[];set.forEach(k=>{const a=_sl(k);if(Array.isArray(a))out.push.apply(out,a);});return out.length?out:null;};
         const _pickMae=set=>{if(set.includes('all'))return d.mae_mfe;const o={mae:[],mfe:[],won:[]};let any=false;set.forEach(k=>{const m=_sm(k);if(m&&Array.isArray(m.mae)){any=true;o.mae.push.apply(o.mae,m.mae);o.mfe.push.apply(o.mfe,m.mfe||[]);o.won.push.apply(o.won,(m.won&&m.won.length===m.mae.length)?m.won:m.mae.map(()=>0));}});return any?o:null;};
-        const _secSel='<span style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:6px" title="which trades 2B / 2C show - IS, WF and LB can be combined; TOTAL is the whole run">'+_scopes.map(o=>{const on=_dSec.includes(o[0]),ok=o[2];return '<span '+(ok?'data-distsecm="'+o[0]+'" ':'')+'title="'+(ok?(o[0]==='all'?'the whole run':(o[0]==='is'?'in-sample - the tuned window':(o[0]==='wf'?'walk-forward folds - out-of-sample':'lockbox year - out-of-sample'))+' - click to toggle'):'not saved on this run - re-run on the current engine to record it')+'" style="cursor:'+(ok?'pointer':'not-allowed')+';user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(on?'var(--text)':(ok?'var(--text4)':'var(--text5)'))+';opacity:'+(ok?1:.45)+';background:'+(on?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 var(--blue)':'none')+'">'+o[1]+'</span>';}).join('')+'</span>';
+        const _secSel='<span style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:6px" title="which trades 2B / 2C show - IS, WF and LB can be combined; TOTAL is the whole run">'+_scopes.map(o=>{const on=_dSec.includes(o[0]),ok=o[2];return '<span '+(ok?'data-distsecm="'+o[0]+'" ':'')+'title="'+(ok?(o[0]==='all'?'the whole run':(o[0]==='is'?'in-sample - the champion before the lockbox cut':(o[0]==='wf'?'walk-forward folds - out-of-sample':'lockbox year - out-of-sample'))+' - click to toggle'):'not saved on this run - re-run on the current engine to record it')+'" style="cursor:'+(ok?'pointer':'not-allowed')+';user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(on?'var(--text)':(ok?'var(--text4)':'var(--text5)'))+';opacity:'+(ok?1:.45)+';background:'+(on?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+';box-shadow:'+(on?'inset 0 -2px 0 var(--blue)':'none')+'">'+o[1]+'</span>';}).join('')+'</span>';
         // v73.32 (owner): HIST / SCATTER rails on 2B and 2C. SCATTER = every trade as a dot with a
         //   linear-regression trend, dot area = |$| - to see which trades carry the result.
         const _v2b=(APREF.distView2b==='scatter')?'scatter':'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
         const _r2b=_distViewRail('distView2b',_v2b,[['hist','HIST'],['scatter','SCATTER']]),_r2c=_distViewRail('distView2c',_v2c,[['dist','DIST'],['scatter','SCATTER']]);
-        const _wdS=_pickDist(_dSec)||d.win_dist,_mmS=_pickMae(_dSec)||d.mae_mfe;
-        const _mae=(_v2c==='scatter'?maeScatterHtml(_mmS,_wdS,mlt,_dT('1H','2C'),_scLbl,_r2c):'')||maeMfePanelHtml(_mmS,mlt,_dT('1H','2C'),_scLbl,_r2c),
-              _td=(_v2b==='scatter'?tradeScatterHtml(_wdS,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b,_mmS):'')||tradeDistPanelHtml(_wdS,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b);
+        const _sp=_slicePairs(d,_dSec,mlt);
+        const _wdS=_sp.pnlPts.length?_sp.pnlPts:(_pickDist(_dSec)||d.win_dist),_mmS=_sp.allMae.length?{mae:_sp.allMae,mfe:_sp.allMfe,won:_sp.allWon}:(_pickMae(_dSec)||d.mae_mfe);
+        const _mae=(_v2c==='scatter'?maeScatterHtml({mae:_sp.mae,mfe:_sp.mfe,won:_sp.won},_sp.pairPts,mlt,_dT('1H','2C'),_scLbl,_r2c):'')||maeMfePanelHtml(_mmS,mlt,_dT('1H','2C'),_scLbl,_r2c),
+              _td=(_v2b==='scatter'?tradeScatterHtml(_sp,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b):'')||tradeDistPanelHtml(_wdS,mlt,_dT('1G','2B'),_scLbl,_secSel+_r2b);
         // ── ACTIONABLE MAE/MFE: a button that queues a focused GRID re-run — the champion config pinned,
         //    stop_mult × tp_mult swept around the winners' reach:heat ratio (scale-free, so no ATR needed).
         //    Only for a champion that exposes ATR stop/target mults (ENGU family). Wired in the handler below.
@@ -15456,7 +15478,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // Col C — 1D trade-PnL distribution · 1G MAE/MFE · 1H deflated Sharpe
         const _v2b=(APREF.distView2b==='scatter')?'scatter':'hist',_v2c=(APREF.distView2c==='scatter')?'scatter':'dist';
         const _r2b=_distViewRail('distView2b',_v2b,[['hist','HIST'],['scatter','SCATTER']]),_r2c=_distViewRail('distView2c',_v2c,[['dist','DIST'],['scatter','SCATTER']]);
-        const _td=(_v2b==='scatter'?tradeScatterHtml(d.win_dist,mlt,'1G',_sc,_r2b,d.mae_mfe):'')||tradeDistPanelHtml(d.win_dist,mlt,'1G',_sc,_r2b),_mae=(_v2c==='scatter'?maeScatterHtml(d.mae_mfe,d.win_dist,mlt,'1H',_sc,_r2c):'')||maeMfePanelHtml(d.mae_mfe,mlt,'1H',_sc,_r2c);
+        const _sp0=_slicePairs(d,['all'],mlt);
+        const _td=(_v2b==='scatter'?tradeScatterHtml(_sp0,mlt,'1G',_sc,_r2b):'')||tradeDistPanelHtml(d.win_dist,mlt,'1G',_sc,_r2b),_mae=(_v2c==='scatter'?maeScatterHtml({mae:_sp0.mae,mfe:_sp0.mfe,won:_sp0.won},_sp0.pairPts,mlt,'1H',_sc,_r2c):'')||maeMfePanelHtml(d.mae_mfe,mlt,'1H',_sc,_r2c);
         const _dsrBlk=(dsrHtml&&dsrHtml.replace(/\s/g,''))?('<div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 6px"><span title="'+dsrTip+'" style="cursor:help;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px">1I · DEFLATED SHARPE <span style="font-weight:400;color:var(--text5)">ⓘ</span></span><span style="margin-left:auto;font-size:8px;color:var(--text4)">'+dsrStats+'</span></div>'+dsrHtml):_naTile('1I','DEFLATED SHARPE','no deflated-Sharpe computed (needs a multi-config search)');
         const _div='<div style="height:12px"></div>';
         // 1J TRADE CONTEXT — same panel as the validate layout, for grid / auto runs.
