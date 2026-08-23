@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.220';
+const VERSION='73.221';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.221',date:'2026-08-21',notes:['2B / 2C: the least-squares line is now clipped at the plot edges instead of having its endpoints clamped - clamping bent the visible slope whenever the fit ran off the top. What you see is the exact fitted line.']},
 {v:'73.220',date:'2026-08-21',notes:['2B / 2C slice control is a multi-select: IS, WF and LB toggle on and off and pool their trades (WF + LB = all out-of-sample); TOTAL is the whole run. IS needs a run made on the current engine - older runs show it greyed.']},
 {v:'73.219',date:'2026-08-21',notes:['2B / 2C SCATTER: the least-squares fit line is now thick, always yellow (MONO too) and carries its equation and r-squared; 2B opens on the REACH x-axis when the run allows it, which is the view that reads like a regression.']},
 {v:'73.218',date:'2026-08-22',notes:['STUDIES: the two TTM Squeeze validate rows are renumbered 343-344; 341 had been handed out to the paper study by a concurrent session at the same moment.']},
@@ -10129,6 +10130,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    tradeWarnStrip = the CAUTIONS strip under the report header in EVERY layout: the
     //    concentration read plus every diagnostic chip that is not a pass, read BEFORE the charts.
     const _ols=(xs,ys)=>{const n=xs.length;if(n<3)return null;let sx=0,sy=0;for(let i=0;i<n;i++){sx+=xs[i];sy+=ys[i];}const mx=sx/n,my=sy/n;let sxy=0,sxx=0,syy=0;for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sxx+=dx*dx;syy+=dy*dy;}if(sxx<=0)return null;const b=sxy/sxx,a=my-b*mx,r=(syy>0)?sxy/Math.sqrt(sxx*syy):0;return {a:a,b:b,r:r,mx:mx,my:my};};
+    // v73.221 (owner: "its not linear regression is it"): it is OLS - but the drawn line used to have
+    //   its ENDPOINTS clamped to the plot box, which changes the visible slope whenever the fit runs off
+    //   the top or bottom. Clip the true line against the box instead (Liang-Barsky), so what is drawn
+    //   is exactly the fitted line, just cut at the edges.
+    const _clipSeg=(x0,y0,x1,y1,L,T,R,Bm)=>{let t0=0,t1=1;const dx=x1-x0,dy=y1-y0;const P=[-dx,dx,-dy,dy],Q=[x0-L,R-x0,y0-T,Bm-y0];for(let i=0;i<4;i++){if(P[i]===0){if(Q[i]<0)return null;}else{const t=Q[i]/P[i];if(P[i]<0){if(t>t1)return null;if(t>t0)t0=t;}else{if(t<t0)return null;if(t<t1)t1=t;}}}return [x0+t0*dx,y0+t0*dy,x0+t1*dx,y0+t1*dy];};
     const concStats=(win,mult,conc)=>{
       if(!Array.isArray(win)||win.length<8)return null;
       const v=win.map(x=>x*mult);let n=v.length,net=v.reduce((a,b)=>a+b,0);
@@ -10179,7 +10185,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const sdL=[mean-sd,mean+sd].filter(p=>p>mn&&p<mx).map(p=>'<line x1="'+padL+'" y1="'+Y(p).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(p).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" opacity="0.7"/>').join('');
       const _cl=y=>Math.max(plotTop,Math.min(B,y));
       const _eq=fit?('y = '+_kfmt(fit.a)+' '+(fit.b>=0?'+':'-')+' '+_kfmt(Math.abs(fit.b))+(xmode==='time'?' per trade':' per pt')+' · r² '+(fit.r*fit.r).toFixed(2)):'';
-      const trend=fit?('<line x1="'+Xv(0).toFixed(1)+'" y1="'+_cl(Y(fit.a)).toFixed(1)+'" x2="'+Xv(xmax).toFixed(1)+'" y2="'+_cl(Y(fit.a+fit.b*xmax)).toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+Xv(0).toFixed(1)+'" y1="'+_cl(Y(fit.a)).toFixed(1)+'" x2="'+Xv(xmax).toFixed(1)+'" y2="'+_cl(Y(fit.a+fit.b*xmax)).toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(Math.max(plotTop+12,Math.min(B-6,_cl(Y(fit.a+fit.b*xmax))-8))).toFixed(1)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: '+_eq+'</text>'):'';
+      const _sg=fit?_clipSeg(Xv(0),Y(fit.a),Xv(xmax),Y(fit.a+fit.b*xmax),padL,plotTop,padL+Wp,B):null;
+      const trend=_sg?('<line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(Math.max(plotTop+12,Math.min(B-6,_sg[3]-8))).toFixed(1)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: '+_eq+'</text>'):'';
       // small dots first so the big winners paint on top; the top-5 carriers are ringed + ranked
       const order=v.map((_,i)=>i).sort((a,b)=>Math.abs(v[a])-Math.abs(v[b]));
       let dots='',rings='';
@@ -10220,7 +10227,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const sx=(s90!=null)?X(Math.min(s90,maxMae)):null;
       const guides=(sx!=null?'<line x1="'+sx.toFixed(1)+'" y1="'+plotT+'" x2="'+sx.toFixed(1)+'" y2="'+B+'" stroke="#ff6b6b" stroke-width="1.6" stroke-dasharray="4,3"/><text x="'+(sx+3).toFixed(1)+'" y="'+(plotT+10)+'" font-size="9.5" font-weight="800" fill="#ff6b6b" style="paint-order:stroke;stroke:var(--bg1);stroke-width:3px">stop '+s90+'p</text>':'')
         +'<line x1="'+padL+'" y1="'+Y(f75).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(f75).toFixed(1)+'" stroke="#2fd598" stroke-width="1.6" stroke-dasharray="4,3"/><text x="'+(padL+Wp-3).toFixed(1)+'" y="'+(Y(f75)-3).toFixed(1)+'" text-anchor="end" font-size="9.5" font-weight="800" fill="#2fd598" style="paint-order:stroke;stroke:var(--bg1);stroke-width:3px">target '+f75+'p</text>';
-      const trend=fit?('<line x1="'+X(0).toFixed(1)+'" y1="'+Y(Math.max(0,Math.min(maxMfe,fit.a))).toFixed(1)+'" x2="'+X(maxMae).toFixed(1)+'" y2="'+Y(Math.max(0,Math.min(maxMfe,fit.a+fit.b*maxMae))).toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/>'+'<line x1="'+X(0).toFixed(1)+'" y1="'+Y(Math.max(0,Math.min(maxMfe,fit.a))).toFixed(1)+'" x2="'+X(maxMae).toFixed(1)+'" y2="'+Y(Math.max(0,Math.min(maxMfe,fit.a+fit.b*maxMae))).toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(plotT+12)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: reach = '+fit.a.toFixed(1)+' '+(fit.b>=0?'+':'-')+' '+Math.abs(fit.b).toFixed(2)+' x heat · r² '+(fit.r*fit.r).toFixed(2)+'</text>'):'';
+      const _sg=fit?_clipSeg(X(0),Y(fit.a),X(maxMae),Y(fit.a+fit.b*maxMae),padL,plotT,padL+Wp,B):null;
+      const trend=_sg?('<line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(plotT+12)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: reach = '+fit.a.toFixed(1)+' '+(fit.b>=0?'+':'-')+' '+Math.abs(fit.b).toFixed(2)+' x heat · r² '+(fit.r*fit.r).toFixed(2)+'</text>'):'';
       const order=mae.map((_,i)=>i).sort((a,b)=>(pn?Math.abs(pn[a])-Math.abs(pn[b]):0));
       let dots='';order.forEach(i=>{const col=won[i]?'#1d9e75':'#e24b4a';dots+='<circle cx="'+X(mae[i]).toFixed(1)+'" cy="'+Y(mfe[i]).toFixed(1)+'" r="'+R(i).toFixed(1)+'" fill="'+col+'" fill-opacity="0.5" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="heat '+mae[i]+'p · reach '+mfe[i]+'p<br>'+(won[i]?'<b style=color:#1d9e75>won</b>':'<b style=color:#e24b4a>lost</b>')+(pn?' · '+fmtUsd(Math.round(pn[i])):'')+'"/>';});
       const st=_nice(maxMae/6)||1;let xt='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>';
