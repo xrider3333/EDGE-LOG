@@ -776,7 +776,10 @@ several sessions add concurrently): 342-344 ENGU-Q efficiency, 345 Efficiency Ga
 (equal-risk resize + buy-weakness tilt), **476-481 ORB band veto (2026-08-23,
 CROSSFAMILY_DAYTYPE.md round 3 — the 0.6-0.8 prior-close band long veto, tested and NOT adopted;
 ~84% of the apparent band damage sat inside the spent lockbox year).**
-The next free row number is **482**. `tools/studies_registry_check.py` now reads the checkout
+**482-486 ES-native NOISE (2026-08-22/23, NOISE.md "2026-08-22 — ES-native study" — the first
+re-TUNE of NOISE on ES, distinct from every transfer row; selection bar cleared, single
+pre-registered holdout read FAILED, family dead on ES).**
+The next free row number is **487**. `tools/studies_registry_check.py` now reads the checkout
 it lives in (it used to hardcode one session's worktree path — fixed 2026-08-23).
 
 **The mismatch the board showed until 2026-08-21, now closed.** From 2026-08-16 to 2026-08-21 the

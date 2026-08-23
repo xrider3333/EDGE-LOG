@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.241';
+const VERSION='73.242';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.242',date:'2026-08-23',notes:['COMPARE - STUDIES rows 482-486: the ES-native NOISE study - the first re-TUNE of the mechanism on the ES contract (every earlier ES row was a transfer test with nothing refitted). 625 core cells plus the two proven filters: zero bare cells reach the 1.2 bar, the filtered winner clears every selection leg with a real plateau, then LOSES the never-touched 18-month holdout on its single pre-registered read. ES-native NOISE is dead; no run was queued. Round log in NOISE.md.']},
 {v:'73.241',date:'2026-08-23',notes:['COMPARE - STUDIES rows 466-475: the two ENGU-Q day-type levers round 1 banked - the equal-risk resize of the strong-close skip and the buy-weakness size tilt. Both beat the champion on headline money at every pre-registered cell and BOTH die on the pre-registered concentration gate (the gain rides on about ten trades). Champion #149/#227 stands. Round log: CROSSFAMILY_DAYTYPE.md ROUND 2. (Entry restored - a concurrent-session merge dropped the 73.238 note.)']},
 {v:'73.240',date:'2026-08-23',notes:['COMPARE - STUDIES: ORB band veto, rows 476-481 - the 0.6-0.8 prior-close band long veto (the one lead the 2026-08-18 day-type round left unchased), pre-registered and tested on the run 234 crown. NOT adopted: 4 of 7 gates fail, and about 84% of the apparent band damage sits inside the spent lockbox year. Crown stands; no bad short band exists. Fork ORB_3_8.py gains three default-off band modes; harness tools/orb_daytype_band.py.']},
 {v:'73.237',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 3 - the squeeze on DAILY bars with multi-day, roll-seam-guarded holds, rows 442-465 (the v73.236 note shipped the harness only; the rows are here). It fails: the one big in-sample number is bull-market riding that loses its lockbox year badly. Family verdict stands: intraday 30-60 minute bars or nothing.']},
@@ -18039,6 +18040,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:479,name:'Band Long Veto .65-.85',what:'Same veto, band shifted up to 0.65-0.85.',tone:'fail',read:'Fails on profit outright',is:292936,lb:105401,tot:398337,dd:26830,pf:1.35,trd:2323},
         {n:480,name:'Band Short Veto .60-.80',what:'The mirror: skip SHORTS in the same band. Those shorts are the best short bucket.',tone:'fail',read:'Doubles drawdown',is:265757,lb:59511,tot:325268,dd:47204,pf:1.28,trd:2374},
         {n:481,name:'Band Full Veto .60-.80',what:'Skip both sides in the band.',tone:'fail',read:'Fails',is:269894,lb:81266,tot:351159,dd:50787,pf:1.34,trd:2122}
+       ]},
+      // -- 2026-08-22 ES-NATIVE study: the first re-TUNE of NOISE on the ES contract (every
+      //    earlier ES row on this board is a TRANSFER test - NQ parameters, nothing refitted).
+      //    Pre-registration and full round log in NOISE.md, "2026-08-22 - ES-native study".
+      //    625-cell core grid + the two proven filters; selection on the window ending
+      //    2025-02-10; a genuinely never-touched holdout 2025-02-11 to 2026-08-21 read ONCE.
+      {key:'esnative',title:'ES-native NOISE: re-tuned, then failed forward',disc:'2026-08-22',isLbl:'SELECTION WINDOW',fam:'NOISE',
+       sub:'The first ES re-tune of the NOISE mechanism: 625 parameter cells plus the two proven filters, tuned on ES itself through February 2025, judged once on a never-touched holdout to August 2026. Local research, no run numbers.',
+       win:{from:'2010-06-07',to:'2025-02-10'},
+       notes:['This is a different question from the ES transfer study above it. Transfer asks whether the NQ settings travel unchanged; this study asks whether ANY nearby settings work on ES at all. Clearing here would never have cleared the transfer bar, and its figures must never be quoted as transfer results.',
+              'The grid behind these rows: 625 core cells (five values each of lookback, both band widths and the stop), all filters off - ZERO of the 625 reached the pre-registered profit factor of 1.2, and only 5 reached 1.15. The filter stage then ran the weak-close short veto and the wild-day skips over the best region: the filters are what created every bar-clearing cell.',
+              'The winner cleared every selection-window leg of the pre-registered bar - profit factor 1.35, a genuine plateau (all five neighbouring settings at 1.21 to 1.34), thirteen of sixteen years positive, the early era positive, and the gain broad rather than ten lucky trades.',
+              'Then the single holdout read: eighteen months of ES the study had never touched, read exactly once as pre-registered. The winner LOST money there (profit factor 0.99), and its unfiltered core lost more. Every in-sample guard passed and the config still failed forward - only the untouched holdout caught it. ES-native NOISE is dead.',
+              'The one structural finding: ES only shows anything at much wider entry bands than NQ (1.25 and 1.75 times noise versus 0.75 and 1.5), so the NQ parameterization genuinely does not describe ES.',
+              'Dollar figures are ES dollars at 50 dollars a point with the same 0.533-point cost the transfer tests charge, so they may be compared with the ES transfer study above but never with an NQ row.'],
+       dashWhy:{wf:'A plain grid study on one window - there was never a walk-forward stage.',
+                lb:'The holdout was read once, on the winner and its own filter-off core only. Every other row never touched it, and the harness refuses a second read.',
+                tot:'No full-window pass was run - selection and holdout were computed separately so the holdout stayed sealed until its single read.'},
+       rows:[
+        {n:482,name:'ES-native winner + filters',what:'Lookback 28, bands 1.25 and 1.75, stop 1.25, plus the weak-close short veto and the wild-10-percent day skip - the best ES-fitted configuration.',tone:'fail',read:'Cleared selection, lost the holdout',is:118535,lb:-1085,dd:7895,pf:1.35,trd:2341,
+         why:{lb:'The single pre-registered holdout read, 2025-02-11 to 2026-08-21: 237 trades, profit factor 0.99, drawdown 24,678 dollars.'}},
+        {n:483,name:'ES-native winner core, no filters',what:'The same lookback-28 wide-band core with every filter off, read on the holdout alongside the winner for attribution.',tone:'fail',read:'Never cleared, lost the holdout worse',is:87715,lb:-4889,dd:15614,pf:1.15,trd:3127,
+         why:{lb:'Read in the same single holdout event as the winner: 282 trades, profit factor 0.96, drawdown 28,121 dollars.'}},
+        {n:484,name:'ES best core cell of 625',what:'The best of all 625 unfiltered core cells: lookback 36, bands 1.25 and 1.75, stop 1.25. Zero of the 625 reached the 1.2 bar.',tone:'fail',read:'Best bare core, still short of the bar',is:88847,dd:17799,pf:1.16,trd:3068},
+        {n:485,name:'ES best core + Short Veto only',what:'The weak-close short veto alone on the best core - the single-filter cell, one knob past the core.',tone:'frag',read:'Cleared selection; holdout never read on it',is:120071,dd:14646,pf:1.26,trd:2735},
+        {n:486,name:'ES best core + Short Veto + Wild 2%',what:'The short veto stacked with the wild-2-percent day skip on the best core - the biggest selection-window money in the study.',tone:'frag',read:'Cleared selection; holdout never read on it',is:120485,dd:9025,pf:1.29,trd:2583}
        ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
