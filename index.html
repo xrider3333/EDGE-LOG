@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.230';
+const VERSION='73.231';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,7 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.230',date:'2026-08-21',notes:['Expanded charts: drag moves the chart at any zoom level (it used to only scroll the panel once the chart overflowed it); FIT resets. 2B: axes padded so the biggest dots no longer sit under the $ labels.']},
+{v:'73.231',date:'2026-08-21',notes:['Expanded charts: drag moves the chart at any zoom level (it used to only scroll the panel once the chart overflowed it); FIT resets. 2B: axes padded so the biggest dots no longer sit under the $ labels.']},
 {v:'73.229',date:'2026-08-21',notes:['2B / 2C: the TOTAL button is gone - IS + WF + LB all on is the whole run, and that is the default.']},
 {v:'73.228',date:'2026-08-21',notes:['2B / 2C expanded view: the slice and view pills no longer leak into the modal title, the x-axis titles are short enough to read (full wording in the info icon), and the OLS label moved off the biggest winners.']},
 {v:'73.227',date:'2026-08-21',notes:['2B SCATTER x-axis is reach MINUS heat (points for you less points against you): losers land lower-left, winners upper-right, with the least-squares line through the cloud and quadrants split at zero.']},

@@ -352,3 +352,6 @@ Iterative, version-bumped releases (`__version__`), each targeting specific bugs
 Validate before shipping. Explain what changed and any honest caveats. Confirm before
 destructive actions. Don't over-format. The user is sharp at reproducing and describing
 bugs precisely — trust their repro steps.
+
+## Report completeness (owner rule 2026-08-23)
+- A pinned card file (FROZEN / LIM50 / ER25 / C221 / SBS) is for reproduction and gate bake-offs only. Every crowned, paper-traded or owner-facing strategy gets a FULL-discovery Auto-Validate on a ranged file, window pinned to the certified run, so section 2 (parallel coords + PDP, neighbours, plateau, surrogate, DSR/PBO) exists. Card-only validates must say "pinned - section 2 n/a" in their note. Audit + gap list: REPORT_COMPLETENESS.md.
