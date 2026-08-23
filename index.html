@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.229';
+const VERSION='73.230';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.230',date:'2026-08-21',notes:['Expanded charts: drag moves the chart at any zoom level (it used to only scroll the panel once the chart overflowed it); FIT resets. 2B: axes padded so the biggest dots no longer sit under the $ labels.']},
 {v:'73.229',date:'2026-08-21',notes:['2B / 2C: the TOTAL button is gone - IS + WF + LB all on is the whole run, and that is the default.']},
 {v:'73.228',date:'2026-08-21',notes:['2B / 2C expanded view: the slice and view pills no longer leak into the modal title, the x-axis titles are short enough to read (full wording in the info icon), and the OLS label moved off the biggest winners.']},
 {v:'73.227',date:'2026-08-21',notes:['2B SCATTER x-axis is reach MINUS heat (points for you less points against you): losers land lower-left, winners upper-right, with the least-squares line through the cloud and quadrants split at zero.']},
@@ -3657,7 +3658,10 @@ window.expandChart=function(title,svgHTML,opts){
   xlab.style.cssText=_axCss;ylab.style.cssText=_axCss;
   body.appendChild(xlab);body.appendChild(ylab);
   // pan/zoom state (wired below) — while dragging to pan, the crosshair/tooltip suppress.
-  let panning=false,zoom=1,baseW=0,baseH=0,zlab=null;
+  // v73.230 (owner: "zoom around chart... means scroll around the chart... drag to just see the red
+  //   corner"): drag moves the chart itself (CSS translate) at ANY zoom - the old drag only
+  //   scrolled the panel, which does nothing until the chart overflows it.
+  let panning=false,zoom=1,baseW=0,baseH=0,zlab=null,panX=0,panY=0;
   // shared floating tooltip element (same one the report uses)
   let tip=document.getElementById('chart-tip');
   if(!tip){tip=document.createElement('div');tip.id='chart-tip';tip.style.cssText='position:fixed;z-index:9999;pointer-events:none;display:none;max-width:280px;padding:6px 9px;border-radius:8px;background:var(--bg1);border:1px solid var(--border);color:var(--text2);font-size:10px;line-height:1.55;box-shadow:0 6px 22px rgba(0,0,0,.45)';document.body.appendChild(tip);}
@@ -3718,7 +3722,7 @@ window.expandChart=function(title,svgHTML,opts){
     zoom=z;el.style.width=(baseW*z).toFixed(1)+'px';el.style.height=(baseH*z).toFixed(1)+'px';
     const r2=el.getBoundingClientRect();scroller.scrollLeft+=(r2.left+fx*r2.width)-ax;scroller.scrollTop+=(r2.top+fy*r2.height)-ay;
     if(zlab)zlab.textContent=Math.round(zoom*100)+'%';};
-  const _fit=()=>{zoom=1;baseW=baseH=0;
+  const _fit=()=>{zoom=1;baseW=baseH=0;panX=panY=0;{const _e=_zt();if(_e)_e.style.transform='';}
     // v64.33: pre-boxed ROW clones keep their own flex layout — never restyle their inner svg.
     if(svg&&!svg.closest('.rschart-box')){const d=svg.getAttribute('data-distscroll');const _vb2=(svg.getAttribute('viewBox')||'0 0 1 1').split(/\s+/),_ar2=(+_vb2[2]||1)/((+_vb2[3])||1);
       svg.style.cssText=(d?'height:60vh;width:auto':(_ar2>2.2?'width:96%;height:auto;margin:0 auto':'height:64vh;width:auto'))+';max-width:none;display:block';}
@@ -3727,8 +3731,8 @@ window.expandChart=function(title,svgHTML,opts){
   scroller.addEventListener('wheel',(e)=>{if(!svg||!body.contains(e.target))return;e.preventDefault();_applyZoom(zoom*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY);},{passive:false});
   scroller.addEventListener('mousedown',(e)=>{if(e.button!==0)return;if(!body.contains(e.target))return;if(e.target.closest&&(e.target.closest('#chart-ctl')||e.target.closest('.xzbar')))return;
     panning=true;const psx=e.clientX,psy=e.clientY,psl=scroller.scrollLeft,pst=scroller.scrollTop;scroller.style.cursor='grabbing';
-    const mv=(ev)=>{if(!panning)return;scroller.scrollLeft=psl-(ev.clientX-psx);scroller.scrollTop=pst-(ev.clientY-psy);};
-    const up=()=>{panning=false;scroller.style.cursor='grab';window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
+    const _pel=_zt();const mv=(ev)=>{if(!panning||!_pel)return;_pel.style.transform='translate('+(panX+ev.clientX-psx)+'px,'+(panY+ev.clientY-psy)+'px)';_pel.style.willChange='transform';};
+    const up=(ev)=>{if(panning&&_pel){panX+=ev.clientX-psx;panY+=ev.clientY-psy;}panning=false;scroller.style.cursor='grab';window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
     window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);e.preventDefault();});
   // floating zoom toolbar — appended to the modal (outside the scroll content, so it stays put).
   const zbar=document.createElement('div');zbar.className='xzbar';
@@ -3739,7 +3743,7 @@ window.expandChart=function(title,svgHTML,opts){
   zlab=document.createElement('span');zlab.textContent='100%';zlab.style.cssText='font-size:10px;color:var(--text3);min-width:36px;text-align:center;font-family:monospace';zbar.appendChild(zlab);
   zbar.appendChild(_mkb('+',()=>{const c=_cxy();_applyZoom(zoom*1.25,c[0],c[1]);}));
   zbar.appendChild(_mkb('⤢ fit',()=>_fit(),9));
-  const zhint=document.createElement('span');zhint.textContent='scroll = zoom · drag = pan';zhint.style.cssText='font-size:9px;color:var(--text5);margin-left:5px';zbar.appendChild(zhint);
+  const zhint=document.createElement('span');zhint.textContent='scroll = zoom · drag = move the chart · fit = reset';zhint.style.cssText='font-size:9px;color:var(--text5);margin-left:5px';zbar.appendChild(zhint);
   modal.appendChild(zbar);
   const _rm=modal.remove.bind(modal);modal.remove=()=>{tip.style.display='none';tip.style.zIndex='9999';document.removeEventListener('keydown',_esc);_rm();};
   // API for callers that keep the modal LIVE (filters re-render the report, then push
@@ -10205,8 +10209,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   lower-left. Winners: positive both -> upper-right. The classic diagonal cloud.
       const v=sp.pairPts.map(x=>x*mult),xs=sp.mfe.map((f,i)=>f-sp.mae[i]),n=v.length,C=concStats(sp.pnlPts,mult);
       const mean=v.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
-      const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),mn=Math.min(rmn,0),mx=Math.max(rmx,0),span=(mx-mn)||1;
-      const xmax=Math.max(1,Math.max.apply(null,xs)),xmin=Math.min(0,Math.min.apply(null,xs)),xspan=(xmax-xmin)||1;
+      const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),_yr=(Math.max(rmx,0)-Math.min(rmn,0))||1,mn=Math.min(rmn,0)-_yr*0.04,mx=Math.max(rmx,0)+_yr*0.08,span=(mx-mn)||1;
+      const _xr=Math.max.apply(null,xs)-Math.min(0,Math.min.apply(null,xs))||1;
+      const xmax=Math.max(1,Math.max.apply(null,xs))+_xr*0.04,xmin=Math.min(0,Math.min.apply(null,xs))-_xr*0.03,xspan=(xmax-xmin)||1;
       const padL=10,padR=66,tickH=34,plotTop=20,H=236,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
       const Xv=val=>padL+((val-xmin)/xspan)*Wp,Y=p=>B-((p-mn)/span)*plotH;
       const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);
