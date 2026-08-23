@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.218';
+const VERSION='73.219';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.219',date:'2026-08-21',notes:['2B / 2C SCATTER: the least-squares fit line is now thick, always yellow (MONO too) and carries its equation and r-squared; 2B opens on the REACH x-axis when the run allows it, which is the view that reads like a regression.']},
 {v:'73.218',date:'2026-08-22',notes:['STUDIES: the two TTM Squeeze validate rows are renumbered 343-344; 341 had been handed out to the paper study by a concurrent session at the same moment.']},
 {v:'73.217',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze study gains rows 343-344, the two Auto-Validate runs (268 NQ 15m, 269 ES 15m). Both failed their lockbox, so the family is closed as a reference.']},
 {v:'73.216',date:'2026-08-22',notes:['ONE CHAMPION MARK PER FAMILY: NOISE row 1 (the old champion, now the reference baseline) drops from the filled blue circle to the hollow reference triangle, so the only blue NOISE mark is the crown, row 2.','COMPARE - STUDIES: the paper study no longer duplicates rows. What is running in paper used to restate the ORB crown, two ENGU-Q rows, the NOISE baseline and the NOISE Short Veto as second rows (93, 95, 96, 97, 249), each with its own champion mark and PAPER pill - so the pooled ONE TABLE showed two blue champion dots for NOISE and six NOISE rows tagged PAPER. Those five rows are retired; the PAPER pill on the canonical row (47, 92, 250, 1, 2) is now the single statement that a configuration is in paper. The paper study keeps only the gate overlays that have no row elsewhere (94, 98, 99 and the new 341, the ENGU-Q efficiency-gate hybrid) and lists every other paper leg as a pointer to its own row.','RUN NUMBER BESIDE THE NAME: every row that was persisted as a run now shows a small #run chip right after its name in ONE TABLE view and whenever SPLIT BY RUN is on, so the run a row refers to is readable without scrolling to the RUN column. Click it to open the run report.','PAPER PILL SAYS WHICH LAYER: PAPER means the nightly shadow engine; PAPER+NT means the NinjaTrader demo account runs that same configuration too. For NOISE only the baseline core (row 1) and the forest gate (row 99) are on the demo; the crowned Short Veto (row 2) is shadow-only until its NinjaTrader knob is switched on after a restart.']},
@@ -10158,7 +10159,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   move, dots far below gave it back. HEAT = how much pain it took (MAE) vs what it banked.
       //   REACH / HEAT need the per-trade $ and excursion arrays at the same sample size.
       const _al=!!(mm&&Array.isArray(mm.mfe)&&mm.mfe.length===n&&Array.isArray(mm.mae)&&mm.mae.length===n);
-      const _xp=(APREF.distX2b==='reach'||APREF.distX2b==='heat')?APREF.distX2b:'time';
+      // v73.215 (owner: "its not a linear regression tho"): the fit IS ordinary least squares, but on
+      //   the TIME axis it comes out flat and yellow renders grey on MONO, so it vanished into the mean
+      //   line. Default to REACH when the arrays line up (the view that reads like a regression), draw
+      //   the fit thick in a fixed colour, and print its equation + r2 on the line.
+      const _xp=(APREF.distX2b==='reach'||APREF.distX2b==='heat'||APREF.distX2b==='time')?APREF.distX2b:'reach';
       const xmode=(_xp!=='time'&&_al)?_xp:'time';
       const xs=xmode==='reach'?mm.mfe.map(Math.abs):xmode==='heat'?mm.mae.map(Math.abs):v.map((_,i)=>i);
       const xmax=xmode==='time'?Math.max(1,n-1):(Math.max.apply(null,xs)||1);
@@ -10172,7 +10177,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const meanL='<line x1="'+padL+'" y1="'+Y(mean).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(mean).toFixed(1)+'" stroke="var(--blue)" stroke-width="1" stroke-dasharray="3,2" vector-effect="non-scaling-stroke"/>';
       const sdL=[mean-sd,mean+sd].filter(p=>p>mn&&p<mx).map(p=>'<line x1="'+padL+'" y1="'+Y(p).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(p).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" opacity="0.7"/>').join('');
       const _cl=y=>Math.max(plotTop,Math.min(B,y));
-      const trend=fit?('<line x1="'+Xv(0).toFixed(1)+'" y1="'+_cl(Y(fit.a)).toFixed(1)+'" x2="'+Xv(xmax).toFixed(1)+'" y2="'+_cl(Y(fit.a+fit.b*xmax)).toFixed(1)+'" stroke="var(--yellow)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>'):'';
+      const _eq=fit?('y = '+_kfmt(fit.a)+' '+(fit.b>=0?'+':'-')+' '+_kfmt(Math.abs(fit.b))+(xmode==='time'?' per trade':' per pt')+' · r² '+(fit.r*fit.r).toFixed(2)):'';
+      const trend=fit?('<line x1="'+Xv(0).toFixed(1)+'" y1="'+_cl(Y(fit.a)).toFixed(1)+'" x2="'+Xv(xmax).toFixed(1)+'" y2="'+_cl(Y(fit.a+fit.b*xmax)).toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+Xv(0).toFixed(1)+'" y1="'+_cl(Y(fit.a)).toFixed(1)+'" x2="'+Xv(xmax).toFixed(1)+'" y2="'+_cl(Y(fit.a+fit.b*xmax)).toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(Math.max(plotTop+12,Math.min(B-6,_cl(Y(fit.a+fit.b*xmax))-8))).toFixed(1)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: '+_eq+'</text>'):'';
       // small dots first so the big winners paint on top; the top-5 carriers are ringed + ranked
       const order=v.map((_,i)=>i).sort((a,b)=>Math.abs(v[a])-Math.abs(v[b]));
       let dots='',rings='';
@@ -10184,7 +10190,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       else{const st=_nice(xmax/6)||1;for(let t=0;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="var(--text3)">'+Math.round(t)+'p</text>';}}
       const xTitle=xmode==='time'?'trade # (time order)':(xmode==='reach'?'reach - MFE, points in favour':'heat - MAE, points against');
       xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">'+xTitle+'</text>';
-      const slopeTxt=fit?(xmode==='time'?('trend '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)*100))+' per 100 trades'+(Math.abs(fit.r)<0.1?' (flat - edge steady)':(fit.b<0?' (fading)':' (improving)'))):('slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per point of '+xmode+' · r '+fit.r.toFixed(2))):'';
+      const slopeTxt=fit?(xmode==='time'?('OLS trend '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)*100))+' per 100 trades'+(Math.abs(fit.r)<0.1?' (flat - edge steady)':(fit.b<0?' (fading)':' (improving)'))):('slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per point of '+xmode+' · r '+fit.r.toFixed(2))):'';
       const _xh=encodeURIComponent(JSON.stringify(xmode==='time'?{xt:'int',x0:1,x1:n,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}:{xt:'num',x0:0,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
       const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'">'+g+zero+sdL+meanL+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
@@ -10213,7 +10219,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const sx=(s90!=null)?X(Math.min(s90,maxMae)):null;
       const guides=(sx!=null?'<line x1="'+sx.toFixed(1)+'" y1="'+plotT+'" x2="'+sx.toFixed(1)+'" y2="'+B+'" stroke="#ff6b6b" stroke-width="1.6" stroke-dasharray="4,3"/><text x="'+(sx+3).toFixed(1)+'" y="'+(plotT+10)+'" font-size="9.5" font-weight="800" fill="#ff6b6b" style="paint-order:stroke;stroke:var(--bg1);stroke-width:3px">stop '+s90+'p</text>':'')
         +'<line x1="'+padL+'" y1="'+Y(f75).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(f75).toFixed(1)+'" stroke="#2fd598" stroke-width="1.6" stroke-dasharray="4,3"/><text x="'+(padL+Wp-3).toFixed(1)+'" y="'+(Y(f75)-3).toFixed(1)+'" text-anchor="end" font-size="9.5" font-weight="800" fill="#2fd598" style="paint-order:stroke;stroke:var(--bg1);stroke-width:3px">target '+f75+'p</text>';
-      const trend=fit?('<line x1="'+X(0).toFixed(1)+'" y1="'+Y(Math.max(0,Math.min(maxMfe,fit.a))).toFixed(1)+'" x2="'+X(maxMae).toFixed(1)+'" y2="'+Y(Math.max(0,Math.min(maxMfe,fit.a+fit.b*maxMae))).toFixed(1)+'" stroke="var(--yellow)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>'):'';
+      const trend=fit?('<line x1="'+X(0).toFixed(1)+'" y1="'+Y(Math.max(0,Math.min(maxMfe,fit.a))).toFixed(1)+'" x2="'+X(maxMae).toFixed(1)+'" y2="'+Y(Math.max(0,Math.min(maxMfe,fit.a+fit.b*maxMae))).toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/>'+'<line x1="'+X(0).toFixed(1)+'" y1="'+Y(Math.max(0,Math.min(maxMfe,fit.a))).toFixed(1)+'" x2="'+X(maxMae).toFixed(1)+'" y2="'+Y(Math.max(0,Math.min(maxMfe,fit.a+fit.b*maxMae))).toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(plotT+12)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: reach = '+fit.a.toFixed(1)+' '+(fit.b>=0?'+':'-')+' '+Math.abs(fit.b).toFixed(2)+' x heat · r² '+(fit.r*fit.r).toFixed(2)+'</text>'):'';
       const order=mae.map((_,i)=>i).sort((a,b)=>(pn?Math.abs(pn[a])-Math.abs(pn[b]):0));
       let dots='';order.forEach(i=>{const col=won[i]?'#1d9e75':'#e24b4a';dots+='<circle cx="'+X(mae[i]).toFixed(1)+'" cy="'+Y(mfe[i]).toFixed(1)+'" r="'+R(i).toFixed(1)+'" fill="'+col+'" fill-opacity="0.5" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="heat '+mae[i]+'p · reach '+mfe[i]+'p<br>'+(won[i]?'<b style=color:#1d9e75>won</b>':'<b style=color:#e24b4a>lost</b>')+(pn?' · '+fmtUsd(Math.round(pn[i])):'')+'"/>';});
       const st=_nice(maxMae/6)||1;let xt='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>';
