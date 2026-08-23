@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.232';
+const VERSION='73.233';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.233',date:'2026-08-23',notes:['STUDIES row 345: the ENGU-Q efficiency gate carried unchanged to ES as a pre-registered transfer test - PASSED (PF 1.15 to 1.56, all four eras hold). Caveat on the row: the gate kept zero ES trades in the lockbox year, so it is evidence for the NQ gate, not an ES deploy candidate.']},
 {v:'73.232',date:'2026-08-21',notes:['Double-click 2B or 2C SCATTER for a TradingView-style interactive chart: the wheel zooms the DATA around the cursor (axes rescale - hold shift for y only, ctrl for x only), drag pans the data, crosshair with axis readouts, hover a dot for the trade, double-click or FIT for everything.']},
 {v:'73.231',date:'2026-08-21',notes:['Expanded charts: drag moves the chart at any zoom level (it used to only scroll the panel once the chart overflowed it); FIT resets. 2B: axes padded so the biggest dots no longer sit under the $ labels.']},
 {v:'73.229',date:'2026-08-21',notes:['2B / 2C: the TOTAL button is gone - IS + WF + LB all on is the whole run, and that is the default.']},
@@ -17474,7 +17475,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
          runs:[249],is:400926,lb:112088,tot:513014,dd:61666,pf:1.40,trd:2924},
         {n:250,name:'Efficiency 0.25',what:'The 24-hour champion taking a signal only when the last hour moved efficiently - net distance at least a quarter of the path travelled. The first confirmation gate ever to survive the pre-registered bar.',tone:'good',read:'PASS 5/5, walk-forward 8/8, in paper',live:'paper',
          liveWhy:'Owner-adopted to the shadow-engine paper test on 2026-08-21, replacing the row 87 raw leg. It runs as one backtest in two rows: this row is the pre-gate trades and row 341 is the same leg with its crowned hybrid gate on top. Not the certified standalone crown; row 87 keeps that.',
-         runs:[265],is:182225,lb:135983,tot:318208,dd:41697,pf:1.56,trd:913}
+         runs:[265],is:182225,lb:135983,tot:318208,dd:41697,pf:1.56,trd:913},
+        {n:345,name:'Efficiency Gate on ES',what:'The efficiency floor carried unchanged to ES - every knob including the gate frozen at the NQ values, on an instrument no ENGU-Q knob was ever tuned on. Pre-registered bar: gated beats ungated on full-window profit factor AND the gain holds in at least three of four eras.',tone:'good',read:'TRANSFERS - PF 1.15 to 1.56, all 4 eras',
+         notes:['Both bars passed: ES full window (2010-06-07 to 2026-06-30, 0.79 pts x $50 costs) ungated 2,741 trades / $129,124 / PF 1.151 vs gated 1,021 trades / $253,539 / PF 1.560; the profit-factor gain holds in every one of the four eras (1.47/1.17/1.64/1.65 vs 1.07/1.06/1.22/1.15). A gate that helps on an instrument it never saw is structure, not curve-fit.','CAVEAT before anyone trades ES on this: the gate kept ZERO ES trades in the lockbox year - the 0.25 floor is stricter on the slower ES tape, so the last year is unsampled. Reference evidence for the NQ gate, not an ES deploy candidate.','Driver: tools/enguq_er_es_transfer.py (bar written into the file before the run).'],
+         runs:[],is:253539,lb:0,tot:253539,dd:null,pf:1.56,trd:1021}
        ]},
 
       // ── WHAT IS ACTUALLY RUNNING IN PAPER (owner ask 2026-08-19). Deliberately a TABLE with no
