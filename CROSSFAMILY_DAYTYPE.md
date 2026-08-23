@@ -339,3 +339,85 @@ Six cells, nothing else will be tried, no refinement pass.
   cannot currently be expressed as a validate run without engine work — that limitation is
   stated rather than worked around.
 - Every tested cell lands on COMPARE ▸ STUDIES regardless of verdict.
+
+## R2.4 RESULTS — both levers die on the pre-registered concentration gate
+
+**Verdict in one line: both levers beat the champion on headline money at every cell of
+their pre-declared grids — and BOTH are disqualified by the concentration check, which was
+pre-registered as disqualifying. Nothing is adopted, nothing was queued.** The champion was
+reproduced through the real engine first: full window n=2,048 / $477,521, selection window
+n=1,964 / $364,699 / maxDD $61,426 / MAR 5.94 — parity PASS to the dollar. Every figure
+below is from `tools/enguq_daytype_levers.py` (committed) on the pinned windows.
+
+### LEAD 1 — equal-drawdown resize of the strong-close skip
+
+| # | Run | Type | sized net (SEL) | vs base | PF | SEL DD | MAR | worst yr | conc gate | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 21 | 227 | baseline, 1 NQ | $364,699 | — | 1.36 | $61,426 | 5.94 | 2022 −$44,796 | — | baseline |
+| 22 | local | skip strong close ≥0.85, sized 1.375x | $478,842 | +$114,143 | 1.40 | $61,426 | 7.80 | 2022 −$18,561 | **FAIL** | dead |
+| 23 | local | skip strong close ≥0.80, sized 1.440x | $490,380 | +$125,681 | 1.41 | $61,426 | 7.98 | 2022 −$16,059 | **FAIL** | dead |
+| 24 | local | skip strong close ≥0.75, sized 1.500x (cap) | $470,512 | +$105,813 | 1.41 | $59,576 | 7.90 | 2022 −$12,816 | **FAIL** | dead |
+
+- **Gates 1/2/3/5 all PASS at all three thresholds** — a genuine plateau: at equal
+  selection-window drawdown the filtered strategy makes $106k-$126k MORE than the baseline,
+  its worst year improves by ~$30k, and even the honest micro implementation (14-15 MNQ,
+  charged $1.98/RT per micro) still beats the baseline net at every threshold
+  ($450,564-$466,409 vs $364,699).
+- **Gate 4 (concentration) FAILS at all three thresholds, and it is not close.** Put the 10
+  luckiest avoided trades back (worth −$45,097 / −$45,667 / −$48,652 at 1x), recompute the
+  drawdown, re-derive the sizing under the same rule: the equal-DD net collapses to
+  $278,866 / $295,160 / $278,619 — WORSE than the unfiltered baseline. The whole equal-risk
+  gain rests on ten avoided losers out of ~500 skipped trades. Ten trades in fifteen years
+  is luck, not a mechanism, and the gate was pre-registered as disqualifying.
+- **The integer reality is also brutal at 1 NQ base size:** the derived sizes are 1.37x-1.50x,
+  and the nearest whole NQ is 1 — which is the unsized round-1 fail. Only micros (or 2 lots
+  at the capped 0.75 cell) can express the size, with the stated commission drag.
+- **Confirmatory lockbox look (SPENT window, selected nothing):** sized variants earned
+  $140,910-$157,246 vs baseline $88,852 — but their within-lockbox drawdown was
+  $79,260-$83,870 vs the baseline's $65,635. **The equal-drawdown promise broke in the very
+  first out-of-selection year** — exactly the fragility the "maxDD CI is wider than the
+  statistic" memo predicts, and independent support for non-adoption.
+
+### LEAD 2 — buy-weakness size tilt
+
+| # | Run | Type | net (SEL) | vs base | PF | SEL DD | MAR | worst yr | conc gate | Verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 25 | local | 1.5x on entries after weak close ≤0.15 (322 trades) | $446,718 | +$82,019 | 1.40 | $68,860 | 6.49 | −$42,803 | **FAIL** | dead |
+| 26 | local | 1.5x after weak close ≤0.20 (432) | $464,290 | +$99,591 | 1.40 | $76,070 | 6.10 | −$46,172 | **FAIL** | dead |
+| 27 | local | 1.5x after weak close ≤0.25 (537) | $473,579 | +$108,880 | 1.40 | $73,526 | 6.44 | −$46,995 | **FAIL** | dead |
+| 28 | local | 2.0x after weak close ≤0.15 (322) | $528,736 | +$164,037 | 1.43 | $78,333 | 6.75 | −$40,811 | **FAIL** | dead |
+| 29 | local | 2.0x after weak close ≤0.20 (432) | $563,881 | +$199,182 | 1.43 | $90,713 | 6.22 | −$47,547 | **FAIL** | dead |
+| 30 | local | 2.0x after weak close ≤0.25 (537) | $582,459 | +$217,761 | 1.43 | $85,626 | 6.80 | −$49,194 | **FAIL** | dead |
+
+- **Gates 1-4 PASS at ALL SIX cells** — net up, MAR up, a full plateau across both tilt
+  sizes and all three thresholds, worst year within the $5k band everywhere. The
+  buy-weakness population is real (round 1 measured it at +$462/trade vs +$31 after strong
+  closes) and tilting it is mechanically profitable in-sample.
+- **Gate 5 (concentration) FAILS at ALL SIX cells.** The gain minus the 10 largest
+  single-trade extra contributions is negative in every cell (−$3,319 to −$20,166). This is
+  structural: ENGU-Q's top-10 winners carry ~83% of its net BY DESIGN, so any proportional
+  size-up of a population containing monster winners is a bet on catching the next monster,
+  not on the broad population. The pre-registered gate treats that as disqualifying, and it
+  was written down before the sweep ran — no goalposts moved.
+- **Honest family note:** ML-score size tilts are 0/12 dead in this program. This was a
+  single causal structural feature, not a fitted score — and it still failed, on the same
+  concentration axis. The tilt graveyard now holds both kinds.
+- Confirmatory lockbox look: tilt nets $91,373-$102,481 vs baseline $88,852, with lockbox
+  drawdowns $73,085-$94,296 vs $65,635 — modest extra money, every dollar of it bought with
+  extra drawdown.
+
+### R2.5 What is banked
+
+1. **Both round-1 leads are now CLOSED with a clean negative.** The drawdown lever's
+   equal-risk upgrade and the buy-weakness tilt both clear every profit gate and both fail
+   concentration — the improvements ride on ~10 trades out of 15 years. Champion #149/#227
+   stands untouched at 1 NQ.
+2. **The sizing machinery is an overlay, stated plainly:** the engine models 1 NQ; sizing
+   was applied to `return_trades` output, exact for fractional NQ multiples because both
+   cost components are per contract; micro views charged MNQ commission drag explicitly.
+   No engine fork gained a sizing knob, so nothing needed a byte-identity proof; the
+   existing `ENGUQ_1M_DT_1_0.py` filter fork is unchanged and the exec-feasibility audit
+   still passes (0 failures).
+3. **Nothing was queued to the runner, no lockbox was spent** (one labelled confirmatory
+   look on the already-spent trailing year, which selected nothing).
+4. All 9 tested cells + baseline are on COMPARE ▸ STUDIES (rows 351-360).
