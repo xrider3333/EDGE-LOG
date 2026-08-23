@@ -1,7 +1,10 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-21** (CROWN MOVED — see the section
-> directly below — and the COMBINATION study earlier the same day).
+> Living handoff doc. **Last updated: 2026-08-22** (ES-NATIVE study — clean NEGATIVE:
+> ES-appropriate re-tune clears the selection bar and then FAILS its never-touched
+> holdout; ES-native NOISE is dead. See the "2026-08-22 — ES-native study" section.
+> Prior update 2026-08-21: CROWN MOVED to Short Veto — see the section directly below —
+> and the COMBINATION study the same day.)
 
 ---
 
@@ -1119,7 +1122,60 @@ happens here.
 
 ### RESULTS — filled in after the pre-registration above was committed
 
-*(see below — this subsection is written strictly after the grid ran)*
+**Reproduction gate: PASS, exact.** Champion 5,312 / 645.0 pts / PF 1.036 and SBS 4,900 /
+1,424.4 pts / PF 1.093, both to the decimal against the banked ES-transfer tables.
+
+**Stage 1 (625 core cells, filters OFF): ZERO cells reach PF ≥ 1.2.** Best PF 1.157
+(lookback 36 / bands 1.25 & 1.75 / stop k 1.25 — n=3,068 · $88,847 · DD $17,799 · MAR 4.99).
+5 cells ≥ 1.15, 307 of 625 ≥ 1.0. The whole top-20 sits at the WIDE-band corner
+(band_mult_long 1.25–1.5, band_mult_short 1.75) — ES wants far wider entry bands than NQ's
+0.75/1.5, i.e. fewer, more-extreme breakouts. Every top-20 cell still has a NEGATIVE
+2010-17 era, and the NQ-champion cell reproduces the transfer number exactly (PF 1.036,
+2010-17 −$34,299). **The bare mechanism does not clear the bar anywhere on ES.**
+
+**Stage 2 (filters on): the bar-clearing region exists, and the filters are what create it.**
+`skip_bot_short` alone lifts the best core from PF 1.157 → 1.255 ($120,071, 12/16 years
+positive, 2010-17 +$9,301); the sbs+vs90 stack lifts it to PF 1.34–1.35. Declared winner
+(best PF passing every selection leg): **lookback 28 / bands 1.25 & 1.75 / stop k 1.25 +
+skip_bot_short (lo 0.20) + vol_skip 90 — n=2,341 · $118,535 · PF 1.353 · DD $7,895 ·
+MAR 15.01 · 13/16 years positive · 2010-17 +$10,576 · net ex-top-10-trades +$75,676.**
+Plateau leg: all five existing ±1-step neighbours hold PF 1.209–1.342 (bar asked ≥ ~1.15).
+Selection bar legs 1–5: **ALL PASS.**
+
+**THE SINGLE HOLDOUT READ (2025-02-11 → 2026-08-21, read once, then sealed): FAIL.**
+
+| config | n | net $ | PF | MaxDD $ | by year |
+|---|---|---|---|---|---|
+| WINNER (28/1.25/1.75/k1.25 + sbs + vs90) | 237 | **−1,085** | **0.989** | 24,678 | 2025 +11,316 · 2026 −12,401 |
+| same core, filters OFF (attribution) | 282 | −4,889 | 0.959 | 28,121 | — |
+
+Bar leg 6 asked PF ≥ 1.1 with positive net; the winner delivers PF 0.989 and negative net.
+The holdout flag file (`tools/noise_es_native_holdout_READ.json`) records the read; the
+harness refuses a second one.
+
+### VERDICT — ES-native NOISE is DEAD, and the round upgrades the transfer evidence
+
+1. **The NOISE mechanism has no demonstrated ES edge, tuned or transferred.** Transfer
+   (nothing refitted): best PF 1.126, fails the family's own ≥ 1.2 bar. Native re-tune
+   (this study): a full 625-cell neighbourhood plus the two proven filters can be pushed to
+   PF 1.353 in selection with a genuine plateau and broad (non-top-10) dollars — and it
+   still loses money on an 18-month never-touched holdout. Selection-window polish was not
+   edge.
+2. **The filters carry everything in-sample.** The bare core never reaches 1.2 anywhere
+   (0/625); `skip_bot_short` alone crosses the bar (1.255), the vol-skip stack decorates it
+   further. That mirrors the NQ finding that `skip_bot_short` is the load-bearing leg — but
+   on ES even the filtered edge evaporates out of sample.
+3. **The wide-band preference is the one structural finding**: ES's best region is
+   band 1.25/1.75 vs NQ's 0.75/1.5 — the mechanism must be far more selective on ES to show
+   anything at all, which is itself evidence the NQ parameterization does not describe ES.
+4. **A cautionary reading, worth banking:** every selection-leg guard this program uses
+   (plateau, era, majority-years, own-trade concentration) passed, and the config still
+   failed forward. Only the untouched holdout caught it. This is the cleanest in-house
+   demonstration to date of why the holdout discipline exists.
+5. **Nothing was queued.** No runner job (the full bar did not clear), the runner was not
+   restarted, the queue was not touched, no master imported or refreshed. The "more
+   instruments" edge direction should look past ES for NOISE — or wait for genuinely new
+   forward data.
 
 ---
 

@@ -201,19 +201,24 @@ def stage2():
     return out
 
 
-def holdout(params, label):
-    """THE single pre-registered holdout read. Refuses to run twice."""
+def holdout(params, label, core_params=None):
+    """THE single pre-registered holdout read (winner, plus optionally the same
+    config's filter-off core for attribution — both in this ONE read event, as
+    the pre-registration allows). Refuses to run twice."""
     if os.path.exists(HOLDOUT_FLAG):
         raise SystemExit("HOLDOUT ALREADY READ (%s exists) — it is spent. Refusing." % HOLDOUT_FLAG)
-    m = run_cfg(params, date_from=HOLD_FROM, date_to=HOLD_TO)
-    print("HOLDOUT %s -> %s (%s -> %s)" % (label, fmt(label, m), HOLD_FROM, HOLD_TO))
-    rec = {"label": label, "params": {k: v for k, v in params.items()},
-           "window": [HOLD_FROM, HOLD_TO],
-           "result": {k: v for k, v in (m or {}).items() if k != "pyear"},
-           "pyear": (m or {}).get("pyear")}
+    rec = {"window": [HOLD_FROM, HOLD_TO], "reads": []}
+    out = []
+    for lab, p in [(label, params)] + ([("filter-off core", core_params)] if core_params else []):
+        m = run_cfg(p, date_from=HOLD_FROM, date_to=HOLD_TO)
+        print("HOLDOUT %s (%s -> %s)" % (fmt(lab, m), HOLD_FROM, HOLD_TO))
+        rec["reads"].append({"label": lab, "params": dict(p),
+                             "result": {k: v for k, v in (m or {}).items() if k != "pyear"},
+                             "pyear": (m or {}).get("pyear")})
+        out.append(m)
     with open(HOLDOUT_FLAG, "w") as f:
         json.dump(rec, f, indent=1)
-    return m
+    return out
 
 
 if __name__ == "__main__":

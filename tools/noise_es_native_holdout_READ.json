@@ -1,0 +1,74 @@
+{
+ "window": [
+  "2025-02-11",
+  "2026-08-21"
+ ],
+ "reads": [
+  {
+   "label": "WINNER 28/1.25/1.75/1.25 sbs+vs90",
+   "params": {
+    "lookback": 28,
+    "band_mult_long": 1.25,
+    "band_mult_short": 1.75,
+    "exit_mode": "vwap",
+    "side": "Both",
+    "window": "all_day",
+    "stop_mode": "bandwidth",
+    "stop_k": 1.25,
+    "daytype_mode": "skip_bot_short",
+    "daytype_lo": 0.2,
+    "rv_mode": "skip_hi",
+    "rv_pct": 90.0
+   },
+   "result": {
+    "n": 237,
+    "net": -1085.0814147635851,
+    "pf": 0.988972725354039,
+    "dd": -24677.594999127774,
+    "mar": -0.043970306458224036,
+    "win_rate": 34.59915611814346,
+    "era_2010_17": 0,
+    "worst_year": 2026,
+    "worst_year_net": -12400.937722042658,
+    "net_ex_top10": -50656.08141476357,
+    "years_pos": 1,
+    "years_neg": 1
+   },
+   "pyear": {
+    "2025": 11316.0,
+    "2026": -12401.0
+   }
+  },
+  {
+   "label": "filter-off core",
+   "params": {
+    "lookback": 28,
+    "band_mult_long": 1.25,
+    "band_mult_short": 1.75,
+    "exit_mode": "vwap",
+    "side": "Both",
+    "window": "all_day",
+    "stop_mode": "bandwidth",
+    "stop_k": 1.25
+   },
+   "result": {
+    "n": 282,
+    "net": -4888.864877163688,
+    "pf": 0.9588838685940094,
+    "dd": -28121.35864878445,
+    "mar": -0.17384881499582203,
+    "win_rate": 34.39716312056738,
+    "era_2010_17": 0,
+    "worst_year": 2026,
+    "worst_year_net": -14698.304680636902,
+    "net_ex_top10": -57334.86487716367,
+    "years_pos": 1,
+    "years_neg": 1
+   },
+   "pyear": {
+    "2025": 9809.0,
+    "2026": -14698.0
+   }
+  }
+ ]
+}
