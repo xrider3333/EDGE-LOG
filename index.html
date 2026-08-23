@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.236';
+const VERSION='73.237';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.237',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 3 - the squeeze on DAILY bars with multi-day, roll-seam-guarded holds, rows 442-465 (the v73.236 note shipped the harness only; the rows are here). It fails: the one big in-sample number is bull-market riding that loses its lockbox year badly. Family verdict stands: intraday 30-60 minute bars or nothing.']},
 {v:'73.236',date:'2026-08-22',notes:['COMPARE - STUDIES: TTM Squeeze round 2 - sixteen mechanism changes (contrarian entries, range-edge stop entries, gates, ride/target exits) on NQ and ES 15/30/60-minute bars, rows 346-441. Two lockbox-positive pockets found (NQ 60m range-break entries, ES 30m twelve-bar squeeze filter); three Auto-Validates queued on them. New strategy TTMSQZ_2_0.py; 30m and 60m RTH masters now exist for NQ and ES.']},
 {v:'73.233',date:'2026-08-23',notes:['STUDIES row 345: the ENGU-Q efficiency gate carried unchanged to ES as a pre-registered transfer test - PASSED (PF 1.15 to 1.56, all four eras hold). Caveat on the row: the gate kept zero ES trades in the lockbox year, so it is evidence for the NQ gate, not an ES deploy candidate.']},
 {v:'73.232',date:'2026-08-21',notes:['Double-click 2B or 2C SCATTER for a TradingView-style interactive chart: the wheel zooms the DATA around the cursor (axes rescale - hold shift for y only, ctrl for x only), drag pans the data, crosshair with axis readouts, hover a dot for the trade, double-click or FIT for everything.']},
@@ -17939,6 +17940,39 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {n:439,name:'ES 60m Ride exit',what:'60-minute ES bars. Carter entry, but hold with only the protective stop until the close.',tone:'fail',read:'Loses money',is:4263,lb:-6209,tot:-1946,dd:14155,pf:0.98,trd:336},
         {n:440,name:'ES 60m Min 12-bar squeeze',what:'60-minute ES bars. Only fires that follow at least twelve bars of squeeze are traded.',tone:'frag',read:'Thin edge',is:-298,lb:583,tot:286,dd:5533,pf:1.02,trd:53},
         {n:441,name:'ES 60m Min 12 + ride',what:'60-minute ES bars. The twelve-bar squeeze filter with the hold-to-close exit.',tone:'fail',read:'Loses money',is:-3173,lb:683,tot:-2489,dd:6395,pf:0.83,trd:53}
+       ]},
+      {key:'ttmsqz3',title:'TTM Squeeze round 3, the daily chart',disc:'2026-08-22',isLbl:'PRE-LOCKBOX',fam:'TTM',
+       sub:'The Carter squeeze in its original habitat: DAILY bars with multi-day holds, twelve variants on NQ and ES. Positions are force-flattened before each quarterly roll seam (same guard as the other multi-day library strategies). Window pinned 2010-06-07 to 2026-06-30, lockbox = last 12 months, house costs, one contract.',
+       win:{from:'2010-06-07',to:'2026-06-30'},
+       notes:['The daily chart FAILS here. The only big number (NQ, hold-with-stop, 3 ATR stop: 155 thousand dollars, profit factor 1.74) comes from month-long holds riding the bull market, and its lockbox year loses 57 thousand at profit factor 0.21. Nothing on the daily chart clears the pre-registered bar.',
+        'The momentum-fade and zero-cross exits - the published reads - lose on both contracts. Whatever daily-chart edge the book era had, it is not in this data.',
+        'Conclusion for the family: the squeeze only survives as an INTRADAY pattern at 30 to 60 minutes (see the round-2 study). Figures from the committed harness tools/ttmsqz_round3_daily.py, logged in tools/data/ttmsqz_round3_daily.txt.'],
+       dashWhy:{wf:'The harness measures in-sample and lockbox only; there is no walk-forward stage.'},
+       rows:[
+        {n:442,name:'NQ daily Published daily',what:'Daily NQ bars, multi-day holds (avg 5 days), roll-seam guarded. Carter rules on daily bars: enter next open on the fire, exit on the first fading momentum day, 2 ATR stop, held across days.',tone:'fail',read:'Loses money',is:-58871,lb:-40279,tot:-99150,dd:101622,pf:0.45,trd:84},
+        {n:443,name:'NQ daily Zero-cross exit',what:'Daily NQ bars, multi-day holds (avg 12 days), roll-seam guarded. Daily entry, exit when the momentum histogram crosses zero.',tone:'fail',read:'Loses money',is:-81834,lb:-85921,tot:-167755,dd:185878,pf:0.43,trd:76},
+        {n:444,name:'NQ daily Ride',what:'Daily NQ bars, multi-day holds (avg 19 days), roll-seam guarded. Daily entry, held with only the protective stop - no momentum exit.',tone:'fail',read:'In-sample only, lockbox lost',is:111422,lb:-74061,tot:37361,dd:100324,pf:1.15,trd:64},
+        {n:445,name:'NQ daily Ride, 3 ATR stop',what:'Daily NQ bars, multi-day holds (avg 32 days), roll-seam guarded. The hold-with-stop exit with a 3 ATR stop, which stretches holds to about a month.',tone:'fail',read:'In-sample only, lockbox lost',is:211744,lb:-56784,tot:154961,dd:92518,pf:1.74,trd:52},
+        {n:446,name:'NQ daily Min 6-day squeeze',what:'Daily NQ bars, multi-day holds (avg 5 days), roll-seam guarded. Only fires after at least six days of squeeze are traded.',tone:'fail',read:'Loses money',is:3261,lb:-24217,tot:-20956,dd:35620,pf:0.59,trd:29},
+        {n:447,name:'NQ daily Min 6-day + ride',what:'Daily NQ bars, multi-day holds (avg 14 days), roll-seam guarded. The six-day squeeze filter with the hold-with-stop exit.',tone:'fail',read:'Loses money',is:-40121,lb:-58697,tot:-98818,dd:97628,pf:0.30,trd:28},
+        {n:448,name:'NQ daily Keltner 2.0',what:'Daily NQ bars, multi-day holds (avg 5 days), roll-seam guarded. The tighter squeeze definition (Keltner 2.0) on daily bars.',tone:'fail',read:'Loses money',is:-107637,lb:-53493,tot:-161130,dd:168510,pf:0.44,trd:133},
+        {n:449,name:'NQ daily Keltner 2.0 + ride',what:'Daily NQ bars, multi-day holds (avg 22 days), roll-seam guarded. The tighter squeeze definition held with only the stop.',tone:'fail',read:'Loses money',is:-62376,lb:6532,tot:-55845,dd:124721,pf:0.85,trd:91},
+        {n:450,name:'NQ daily Long only',what:'Daily NQ bars, multi-day holds (avg 6 days), roll-seam guarded. Daily fires, long side only.',tone:'fail',read:'Loses money',is:-25768,lb:-25758,tot:-51526,dd:77449,pf:0.51,trd:48},
+        {n:451,name:'NQ daily Long only + ride',what:'Daily NQ bars, multi-day holds (avg 20 days), roll-seam guarded. Long-only fires held with only the stop.',tone:'fail',read:'In-sample only, lockbox lost',is:56112,lb:-50390,tot:5723,dd:70154,pf:1.03,trd:40},
+        {n:452,name:'NQ daily Short only',what:'Daily NQ bars, multi-day holds (avg 3 days), roll-seam guarded. Daily fires, short side only.',tone:'fail',read:'Loses money',is:-33103,lb:-14521,tot:-47624,dd:49712,pf:0.35,trd:36},
+        {n:453,name:'NQ daily Length 14',what:'Daily NQ bars, multi-day holds (avg 4 days), roll-seam guarded. A faster 14-day squeeze instead of 20.',tone:'fail',read:'Loses money',is:-98381,lb:-41417,tot:-139797,dd:142427,pf:0.54,trd:186},
+        {n:454,name:'ES daily Published daily',what:'Daily ES bars, multi-day holds (avg 5 days), roll-seam guarded. Carter rules on daily bars: enter next open on the fire, exit on the first fading momentum day, 2 ATR stop, held across days.',tone:'fail',read:'Loses money',is:674,lb:-11138,tot:-10464,dd:30499,pf:0.90,trd:92},
+        {n:455,name:'ES daily Zero-cross exit',what:'Daily ES bars, multi-day holds (avg 12 days), roll-seam guarded. Daily entry, exit when the momentum histogram crosses zero.',tone:'fail',read:'Loses money',is:-10404,lb:-19903,tot:-30306,dd:39264,pf:0.79,trd:83},
+        {n:456,name:'ES daily Ride',what:'Daily ES bars, multi-day holds (avg 22 days), roll-seam guarded. Daily entry, held with only the protective stop - no momentum exit.',tone:'fail',read:'In-sample only, lockbox lost',is:32897,lb:-17234,tot:15663,dd:36595,pf:1.11,trd:61},
+        {n:457,name:'ES daily Ride, 3 ATR stop',what:'Daily ES bars, multi-day holds (avg 29 days), roll-seam guarded. The hold-with-stop exit with a 3 ATR stop, which stretches holds to about a month.',tone:'fail',read:'In-sample only, lockbox lost',is:53236,lb:-7749,tot:45487,dd:38055,pf:1.34,trd:54},
+        {n:458,name:'ES daily Min 6-day squeeze',what:'Daily ES bars, multi-day holds (avg 7 days), roll-seam guarded. Only fires after at least six days of squeeze are traded.',tone:'fail',read:'In-sample only, lockbox lost',is:12562,lb:-6381,tot:6181,dd:6381,pf:1.30,trd:23},
+        {n:459,name:'ES daily Min 6-day + ride',what:'Daily ES bars, multi-day holds (avg 20 days), roll-seam guarded. The six-day squeeze filter with the hold-with-stop exit.',tone:'fail',read:'In-sample only, lockbox lost',is:11745,lb:-7753,tot:3991,dd:10348,pf:1.12,trd:21},
+        {n:460,name:'ES daily Keltner 2.0',what:'Daily ES bars, multi-day holds (avg 5 days), roll-seam guarded. The tighter squeeze definition (Keltner 2.0) on daily bars.',tone:'fail',read:'Loses money',is:-51168,lb:-1462,tot:-52630,dd:68620,pf:0.73,trd:156},
+        {n:461,name:'ES daily Keltner 2.0 + ride',what:'Daily ES bars, multi-day holds (avg 26 days), roll-seam guarded. The tighter squeeze definition held with only the stop.',tone:'frag',read:'Thin edge',is:30070,lb:26746,tot:56816,dd:31611,pf:1.26,trd:92},
+        {n:462,name:'ES daily Long only',what:'Daily ES bars, multi-day holds (avg 6 days), roll-seam guarded. Daily fires, long side only.',tone:'fail',read:'In-sample only, lockbox lost',is:11055,lb:-7157,tot:3899,dd:31501,pf:1.06,trd:60},
+        {n:463,name:'ES daily Long only + ride',what:'Daily ES bars, multi-day holds (avg 27 days), roll-seam guarded. Long-only fires held with only the stop.',tone:'fail',read:'In-sample only, lockbox lost',is:44495,lb:-17234,tot:27262,dd:36963,pf:1.27,trd:40},
+        {n:464,name:'ES daily Short only',what:'Daily ES bars, multi-day holds (avg 4 days), roll-seam guarded. Daily fires, short side only.',tone:'fail',read:'Loses money',is:-10381,lb:-3981,tot:-14362,dd:23109,pf:0.65,trd:32},
+        {n:465,name:'ES daily Length 14',what:'Daily ES bars, multi-day holds (avg 4 days), roll-seam guarded. A faster 14-day squeeze instead of 20.',tone:'fail',read:'Loses money',is:-79649,lb:-22768,tot:-102417,dd:105011,pf:0.57,trd:193}
        ]}
       ];
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
