@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.225';
+const VERSION='73.226';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.226',date:'2026-08-21',notes:['2B SCATTER x-axis is reach MINUS heat (points for you less points against you): losers land lower-left, winners upper-right, with the least-squares line through the cloud and quadrants split at zero.']},
 {v:'73.225',date:'2026-08-23',notes:['ML VERDICT NOW MATCHES THE CHART (owner: if any ML line ends above the top raw config, do not tell me the ML failed). The GATE VALIDATE chip and the section-3 banner used to grade only the one crowned cut-gate on its lockbox look, so run 226 read FAILED while its rf HYBRID REDEPLOY line sat above raw in 1A. Both now score every ML line 1A draws - cut gates, hybrids at one lot, and hybrids REDEPLOYED at the same contracts-spent ratio the chart uses - by where the line ENDS (full window, lockbox included), and print the best one against raw: ML BEATS RAW or ML BELOW RAW, with the lockbox-year dollars, the drawdown of each, and the sizing factor when the winning line is a sized-up one. The crowned cut-gate result stays as a grey side note.']},
 {v:'73.224',date:'2026-08-21',notes:['2B SCATTER is one fixed chart: x = reach (how far the trade ran in your favour), y = net $ - winners upper-right, losers lower-left, least-squares line through the cloud, quadrants tinted. The TIME / REACH / HEAT picker is gone.','IS / WF / LB / TOTAL pills: IS is derived on every run (the champion before the lockbox cut) - no re-run needed. Dollars and excursions are paired by original trade index, so 2C dots are sized by $ on every slice; the footer says how many trades paired.']},
 {v:'73.223',date:'2026-08-23',notes:['GATE verdict no longer reads like a strategy verdict. Run 226 showed a red LOCKBOX FAILED while its equity curve ran straight up: the stamp belonged to the ML GATE bake-off (the filter lost to the plain strategy on the held-out year), not to the strategy, whose own lockbox HELD at $90,337 / PF 1.42. The section-3 banner now says GATE LB FAILED and prints the strategy’s own lockbox verdict and dollars beside it; the GATE VALIDATE chip reads GATE FAILED · strategy LB HELD; the one-look row inside the gate table is labelled GATE and says whose verdict it is.']},
@@ -10197,43 +10198,46 @@ namespace NinjaTrader.NinjaScript.Strategies {
     };
     const tradeScatterHtml=(sp,mult,tag,scope,ctl)=>{
       if(!sp||sp.nPair<8)return '';
-      const v=sp.pairPts.map(x=>x*mult),xs=sp.mfe,n=v.length,C=concStats(sp.pnlPts,mult);
+      // v73.225 (owner: "losses arent in the lower left quadrant"): x = reach MINUS heat (favourable
+      //   excursion minus adverse, points). Losers: small reach, big heat -> negative x, negative $ ->
+      //   lower-left. Winners: positive both -> upper-right. The classic diagonal cloud.
+      const v=sp.pairPts.map(x=>x*mult),xs=sp.mfe.map((f,i)=>f-sp.mae[i]),n=v.length,C=concStats(sp.pnlPts,mult);
       const mean=v.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n)||1;
       const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),mn=Math.min(rmn,0),mx=Math.max(rmx,0),span=(mx-mn)||1;
-      const xmax=Math.max.apply(null,xs)||1;
+      const xmax=Math.max(1,Math.max.apply(null,xs)),xmin=Math.min(0,Math.min.apply(null,xs)),xspan=(xmax-xmin)||1;
       const padL=10,padR=66,tickH=34,plotTop=20,H=236,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
-      const Xv=val=>padL+(val/xmax)*Wp,Y=p=>B-((p-mn)/span)*plotH;
+      const Xv=val=>padL+((val-xmin)/xspan)*Wp,Y=p=>B-((p-mn)/span)*plotH;
       const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);
       const fit=_ols(xs,v);
       // quadrants: above break-even tinted green, below tinted red; the vertical split is the median reach
-      const xsS=xs.slice().sort((a,b)=>a-b),xmed=xsS[Math.floor(xsS.length/2)]||0,y0=Y(0);
+      const xmed=0,y0=Y(0);   // quadrants split at zero on both axes
       const quad='<rect x="'+Xv(xmed).toFixed(1)+'" y="'+plotTop+'" width="'+(padL+Wp-Xv(xmed)).toFixed(1)+'" height="'+(Math.max(0,y0-plotTop)).toFixed(1)+'" fill="#1d9e75" opacity="0.07"/><rect x="'+padL+'" y="'+y0.toFixed(1)+'" width="'+(Xv(xmed)-padL).toFixed(1)+'" height="'+(Math.max(0,B-y0)).toFixed(1)+'" fill="#e24b4a" opacity="0.07"/>';
       let g='';[0.25,0.5,0.75,1].forEach(fr=>{const gy=B-fr*plotH,cv=mn+span*fr;g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/><text x="'+(padL+Wp+5)+'" y="'+(gy+4).toFixed(1)+'" font-size="12" fill="var(--text3)">'+_kfmt(cv)+'</text>';});
       const zero=(mn<0&&mx>0)?'<line x1="'+padL+'" y1="'+y0.toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text4)" stroke-width="0.8"/><text x="'+(padL+3)+'" y="'+(y0-3).toFixed(1)+'" font-size="9" font-weight="700" fill="var(--text4)">BE</text>':'';
-      const medL='<line x1="'+Xv(xmed).toFixed(1)+'" y1="'+plotTop+'" x2="'+Xv(xmed).toFixed(1)+'" y2="'+B+'" stroke="var(--text4)" stroke-width="0.8" stroke-dasharray="3,3"/><text x="'+(Xv(xmed)+3).toFixed(1)+'" y="'+(B-4)+'" font-size="9" fill="var(--text5)">median reach '+Math.round(xmed)+'p</text>';
+      const medL='<line x1="'+Xv(xmed).toFixed(1)+'" y1="'+plotTop+'" x2="'+Xv(xmed).toFixed(1)+'" y2="'+B+'" stroke="var(--text4)" stroke-width="0.8" stroke-dasharray="3,3"/><text x="'+(Xv(xmed)+3).toFixed(1)+'" y="'+(B-4)+'" font-size="9" fill="var(--text5)">0</text>';
       const sdL=[mean-sd,mean+sd].filter(p=>p>mn&&p<mx).map(p=>'<line x1="'+padL+'" y1="'+Y(p).toFixed(1)+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+Y(p).toFixed(1)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke" opacity="0.5"/>').join('');
       const _eq=fit?('y = '+_kfmt(fit.a)+' '+(fit.b>=0?'+':'-')+' '+_kfmt(Math.abs(fit.b))+' per pt · r² '+(fit.r*fit.r).toFixed(2)):'';
-      const _sg=fit?_clipSeg(Xv(0),Y(fit.a),Xv(xmax),Y(fit.a+fit.b*xmax),padL,plotTop,padL+Wp,B):null;
+      const _sg=fit?_clipSeg(Xv(xmin),Y(fit.a+fit.b*xmin),Xv(xmax),Y(fit.a+fit.b*xmax),padL,plotTop,padL+Wp,B):null;
       const trend=_sg?('<line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#0b0f12" stroke-width="5" opacity="0.7" vector-effect="non-scaling-stroke"/><line x1="'+_sg[0].toFixed(1)+'" y1="'+_sg[1].toFixed(1)+'" x2="'+_sg[2].toFixed(1)+'" y2="'+_sg[3].toFixed(1)+'" stroke="#f5c542" stroke-width="2.6" vector-effect="non-scaling-stroke"/><text x="'+(padL+Wp-4).toFixed(1)+'" y="'+(plotTop+12)+'" text-anchor="end" font-size="11" font-weight="800" fill="#f5c542" style="paint-order:stroke;stroke:#0b0f12;stroke-width:3px">OLS fit: '+_eq+'</text>'):'';
       const rankIdx=v.map((_,i)=>i).sort((a,b)=>v[b]-v[a]),top5=new Set(rankIdx.slice(0,5).filter(i=>v[i]>0));
       const order=v.map((_,i)=>i).sort((a,b)=>Math.abs(v[a])-Math.abs(v[b]));
       let dots='',rings='';
       order.forEach(i=>{const p=v[i],cx=Xv(xs[i]).toFixed(1),cy=Y(p).toFixed(1),r=R(p).toFixed(1),col=p>=0?'#1d9e75':'#e24b4a';
-        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+col+'" fill-opacity="0.55" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="reach '+xs[i]+'p · heat '+sp.mae[i]+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')+'"/>';
+        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+col+'" fill-opacity="0.55" stroke="'+col+'" stroke-width="0.6" style="cursor:pointer" data-tip="reach '+sp.mfe[i]+'p - heat '+sp.mae[i]+'p = '+Math.round(xs[i])+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')+'"/>';
         if(top5.has(i)){const rk=rankIdx.indexOf(i)+1;rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(+r+2.5).toFixed(1)+'" fill="none" stroke="#f5c542" stroke-width="1.2"/><text x="'+cx+'" y="'+(+cy-(+r)-4).toFixed(1)+'" text-anchor="middle" font-size="9" font-weight="800" fill="#f5c542">'+rk+'</text>';}});
       let xt='<line x1="'+padL+'" y1="'+B+'" x2="'+(padL+Wp).toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="0.6"/>';
-      const st=_nice(xmax/6)||1;for(let t=0;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="var(--text3)">'+Math.round(t)+'p</text>';}
-      xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach - how far the trade ran in your favour (MFE, points)</text>';
-      const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:0,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
+      const st=_nice(xspan/7)||1;for(let t=Math.ceil(xmin/st)*st;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="'+(t<0?'#e24b4a':t>0?'#1d9e75':'var(--text3)')+'">'+(t>0?'+':'')+Math.round(t)+'p</text>';}
+      xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach minus heat - points the trade ran for you, less points it ran against you</text>';
+      const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:xmin,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
       const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)">'
         +(C?('<span style="color:'+cc+';font-weight:700">'+(C.net>0?('TOP 5 = '+Math.round(C.s5*100)+'% OF NET'):'NET NEGATIVE')+'</span>'+(C.net>0?'<span>top 1 '+Math.round(C.s1*100)+'% · top 10 '+Math.round(C.s10*100)+'%</span><span>without top 5: <b style="color:'+(C.wo5>0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(C.wo5))+'</b></span>':'')):'')
-        +(fit?'<span style="color:#f5c542">slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per point of reach · r '+fit.r.toFixed(2)+'</span>':'')
+        +(fit?'<span style="color:#f5c542">slope '+(fit.b>=0?'+':'-')+fmtUsd(Math.round(Math.abs(fit.b)))+' per net point · r '+fit.r.toFixed(2)+'</span>':'')
         +(sp.note?'<span style="color:var(--text5)" title="'+sp.note+'">'+sp.nPair+' of '+sp.nAll+' paired &#9432;</span>':'<span>'+n+' trades</span>')
         +'</div>';
-      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = how far price ran IN YOUR FAVOUR while the trade was open (reach / MFE, points), y = what the trade actually banked (net $). Dot AREA = size of the win or loss. Winners sit upper-right (big reach, banked it), losers lower-left (never ran, stopped out). The yellow line is the ordinary-least-squares fit of $ on reach - the steeper, the more of each point of reach the exits capture; r² = how much of the spread the line explains. Green / red tints mark the quadrants either side of break-even and the median reach. Top-5 winners ringed and numbered. Double-click for the big view with a crosshair.','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')+'. IS = the champion before the lockbox cut (whole-run list minus its lockbox tail), WF = walk-forward fold trades, LB = lockbox, TOTAL = the whole run.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
+      return (tag?'<div style="margin:8px 0 6px;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+tag+' '+_infoIc(_ipAB('Every trade as a dot: x = reach MINUS heat (points price ran in your favour minus points it ran against you while the trade was open), y = what the trade banked (net $). Dot AREA = size of the win or loss. Winners sit upper-right (ran for you, banked it), losers lower-left (ran against you, stopped out). The yellow line is the ordinary-least-squares fit of $ on reach - the steeper, the more of each point of reach the exits capture; r² = how much of the spread the line explains. Green / red tints mark the quadrants either side of break-even and the median reach. Top-5 winners ringed and numbered. Double-click for the big view with a crosshair.','CONCENTRATION on this slice: '+(C&&C.net>0?('top 1 trade = '+Math.round(C.s1*100)+'% of net, top 5 = '+Math.round(C.s5*100)+'%, top 10 = '+Math.round(C.s10*100)+'%; net without the top 5 = '+fmtUsd(Math.round(C.wo5))):'net is not positive')+'. IS = the champion before the lockbox cut (whole-run list minus its lockbox tail), WF = walk-forward fold trades, LB = lockbox, TOTAL = the whole run.'))+' TRADE PNL SCATTER <span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(ctl||'')+'</span></div>':'')
         +'<div data-fixh style="background:var(--bg1);border-radius:8px;padding:10px 10px 8px">'+svg+'</div>'+foot;
     };
     const maeScatterHtml=(mm,win,mult,tag,scope,ctl)=>{
