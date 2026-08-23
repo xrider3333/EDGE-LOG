@@ -1056,6 +1056,73 @@ left untouched, the runner was not restarted, and no data master was imported or
 
 ---
 
+## 2026-08-22 — ES-native study: does the NOISE mechanism work on ES with ES-appropriate parameters?
+
+> Harness: `tools/noise_es_native_study.py` (committed this day, sits on top of
+> `tools/noise_variant_research.py`'s `run_variant`, whose parity against the real engine is
+> proven to the cent). Regenerate: `python tools/noise_es_native_study.py` (`--parity` for the
+> reproduction gate only). **No runner job queued unless the FULL pre-registered bar including
+> the holdout read clears. The runner was not restarted. No data master was imported or refreshed.**
+
+### THIS IS NOT A TRANSFER TEST — the line, drawn explicitly
+
+Every prior ES number in this document is a **TRANSFER** test: NQ-tuned parameters run on ES
+with **nothing refitted**. The value of those numbers (best: PF 1.126, `skip_bot_short`+`vs90`)
+is precisely that nothing was refitted, and they stand unchanged. This study answers a
+DIFFERENT question — **is there an ES edge in the NOISE mechanism at all, when the parameters
+are allowed to fit ES?** A re-tuned ES result must NEVER be quoted as a transfer result, and
+clearing this study's bar would NOT clear the family's pre-registered ES-transfer promotion
+bar (PF ≥ 1.2 with nothing refitted) — that bar stays failed at 1.126 regardless of what
+happens here.
+
+### PRE-REGISTRATION (written before any grid cell was run)
+
+- **Data**: the ES 5m RTH no-adjust master (`NOADJ_ES_5m_RTH.csv`, db_noadj_rth), actual
+  coverage checked in the masters DB = **2010-06-07 → 2026-08-21**. Nothing imported or
+  refreshed. Costs = the campaign's own ES-probe convention, **0.533 pts/round-trip at
+  multiplier 50** ($26.65/trade — ~2.5× the NQ convention's $10.66 in dollars, i.e. the
+  conservative side), 1 contract.
+- **Windows**: ALL tuning and selection on **2010-06-07 → 2025-02-10** (mirroring the NQ
+  family's spent-lockbox boundary). The stretch **2025-02-11 → 2026-08-21** is a genuinely
+  NEVER-TOUCHED ES holdout — no prior NOISE work has ever selected on it. It will be read
+  **EXACTLY ONCE**, at the very end, on at most the single winning config (plus the same
+  config's filter-off core for attribution), and never ranked on. If nothing clears the
+  selection bar, the holdout is not read at all and stays sealed.
+- **Reproduction gate** (must pass before any new cell is trusted): the harness must
+  reproduce the banked ES-transfer numbers on the selection window to the cent — champion
+  5,312 trades / 645.0 pts / PF 1.036, and SBS 4,900 trades / 1,424.4 pts / PF 1.093.
+- **Search space, declared in full** (disciplined neighbourhood, not a kitchen sink):
+  - Stage 1 — core grid, all filters OFF: lookback ∈ {28, 36, 44, 52, 64} ×
+    band_mult_long ∈ {0.5, 0.75, 1.0, 1.25, 1.5} × band_mult_short ∈ {0.75, 1.0, 1.25,
+    1.5, 1.75} × stop_k ∈ {1.25, 1.5, 1.75, 2.0, 2.5}; exit vwap, bandwidth stop —
+    **625 cells** bracketing the NQ champion (44 / 0.75 / 1.5 / k1.75).
+  - Stage 2 — the two proven causal filters as on/off overlays: daytype_mode ∈ {off,
+    skip_bot_short (lo 0.20)} × vol_skip ∈ {off, 90, 98} (`rv_mode='skip_hi'`) — the 5
+    non-trivial combinations applied to (a) the NQ champion core and (b) the best Stage-1
+    core and its ±1-step neighbours on each axis.
+  - Nothing else. No exit variants, no new filter families, no threshold sweeps beyond the
+    values above.
+- **Success bar, all legs pre-registered**: the best ES config must
+  1. reach **PF ≥ 1.2 on the SELECTION window**;
+  2. sit on a **plateau** — every existing ±1-step neighbour on the four core axes ≥ ~1.15 PF;
+  3. post **positive net in a majority of calendar years** (selection window);
+  4. hold **2010-17 subtotal ≥ $0**;
+  5. survive the **concentration check** — net still positive after removing the ten best
+     trades (disqualifying);
+  6. and THEN hold **PF ≥ 1.1 with positive net on the single holdout read**.
+  If the mechanism clears only with the filters ON, that is a legitimate finding — the round
+  log must say which ingredient carries it.
+- **Runner**: a job is queued ONLY if the full bar including the holdout clears — pinned
+  single-config file (NOISE_1_1 pattern, ES instrument), parity-check, exec-feasibility
+  audit, ONE auto-validate with windows pinned to this split, queue checked first, runner
+  never restarted.
+
+### RESULTS — filled in after the pre-registration above was committed
+
+*(see below — this subsection is written strictly after the grid ran)*
+
+---
+
 ## Still genuinely untested (not dead ends — nobody has run these)
 
 - ~~Combining the validated variants into an "ultimate crown"~~ — RUN 2026-08-21 (see the
