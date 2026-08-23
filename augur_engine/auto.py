@@ -1224,9 +1224,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                              "final": round(float(s), 1), "n": len(win_pnls)}
             # Winner's per-trade PnL sample (downsampled) for the trade-PnL distribution curve.
             _wd = win_pnls
-            if len(_wd) > 400:
-                _ds = len(_wd) / 400
-                _wd = [_wd[int(i * _ds)] for i in range(400)]
+            if len(_wd) > 600:
+                _ds = len(_wd) / 600
+                _wd = [_wd[int(i * _ds)] for i in range(600)]
+            # v73.222: cap raised 400 -> 600 to match mae_mfe, so the TOTAL slice of 2B/2C can pair $ with excursions.
             out["win_dist"] = [round(float(x), 2) for x in _wd]
             # v73.209: exact profit-concentration read on the FULL trade list - win_dist above is a
             #   stride sample (400 cap), so the web top-5-share read was inflated on big runs.

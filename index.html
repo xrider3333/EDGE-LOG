@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.221';
+const VERSION='73.222';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.222',date:'2026-08-21',notes:['Engine: the per-trade $ list is saved at the same 600-trade cap as the excursions, so the TOTAL slice of 2B / 2C can use the REACH and HEAT axes on new runs.']},
 {v:'73.221',date:'2026-08-21',notes:['2B / 2C: the least-squares line is now clipped at the plot edges instead of having its endpoints clamped - clamping bent the visible slope whenever the fit ran off the top. What you see is the exact fitted line.']},
 {v:'73.220',date:'2026-08-21',notes:['2B / 2C slice control is a multi-select: IS, WF and LB toggle on and off and pool their trades (WF + LB = all out-of-sample); TOTAL is the whole run. IS needs a run made on the current engine - older runs show it greyed.']},
 {v:'73.219',date:'2026-08-21',notes:['2B / 2C SCATTER: the least-squares fit line is now thick, always yellow (MONO too) and carries its equation and r-squared; 2B opens on the REACH x-axis when the run allows it, which is the view that reads like a regression.']},
