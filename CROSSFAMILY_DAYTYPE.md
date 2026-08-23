@@ -420,7 +420,7 @@ below is from `tools/enguq_daytype_levers.py` (committed) on the pinned windows.
    still passes (0 failures).
 3. **Nothing was queued to the runner, no lockbox was spent** (one labelled confirmatory
    look on the already-spent trailing year, which selected nothing).
-4. All 9 tested cells + baseline are on COMPARE ▸ STUDIES (rows 351-360).
+4. All 9 tested cells + baseline are on COMPARE ▸ STUDIES (rows 466-475).
 
 ---
 ---
