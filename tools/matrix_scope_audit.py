@@ -571,7 +571,7 @@ class Auditor(object):
                 if not scoped and 'IS+WF' not in r['lbl']:
                     self.bad(w, 'pinned-fallback DD row must name its IS+WF window (%r)' % r['lbl'])
             for lbl, key in (('MAR', 'mar'), ('SHARPE', 'sharpe'), ('PF', 'pf'),
-                             ('WIN %', 'wr'), ('$ / TRADE', 'apt')):
+                             ('WIN %', 'wr'), ('EV', 'apt')):
                 r = self.row(tab, lbl)
                 self.cmp(w + ' ' + lbl, r['cells'][ci] if r else None, exp[key])
                 if r is not None and ci == 0 and lbl in ('MAR', 'SHARPE'):
@@ -748,7 +748,7 @@ class Auditor(object):
             self.cmp(w + ' PF', r['cells'][ci] if r else None, p.get('pf'))
             r = self.row(tab, 'WIN %')
             self.cmp(w + ' WIN%', r['cells'][ci] if r else None, p.get('wr'))
-            r = self.row(tab, '$ / TRADE')
+            r = self.row(tab, 'EV')
             self.cmp(w + ' $/T', r['cells'][ci] if r else None,
                      p.get('apt') * m3 if p.get('apt') is not None else None)
             r = self.row(tab, 'TRADES')
@@ -877,7 +877,7 @@ class Auditor(object):
             self.cmp(w + ' PF', r['cells'][ci] if r else None, p.get('pf'))
             r = self.row(tab, 'WIN %')
             self.cmp(w + ' WIN%', r['cells'][ci] if r else None, p.get('wr'))
-            r = self.row(tab, '$ / TRADE')
+            r = self.row(tab, 'EV')
             self.cmp(w + ' $/T', r['cells'][ci] if r else None,
                      p.get('apt') * m3 if p.get('apt') is not None else None)
             r = self.row(tab, 'TRADES')

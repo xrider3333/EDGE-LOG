@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.242';
+const VERSION='73.243';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.243',date:'2026-08-23',notes:['THE $ / TRADE ROW IS CALLED EV NOW (owner named it 2026-08-23: expected value). Same number, same maths - net dollars over the ticked SAMPLE stretches divided by that same stretch trade count - one name everywhere it appears: the 1E matrix RAW, GATE, TILT, HYBRID and both sizing tabs, the champion KPI table, and the RUNBOARD 1E matrix. Every EV cell keeps the exact scope rules the scope audit enforces: it follows the SAMPLE tick, and an old run that cannot honour the tick dashes with the reason on hover, never a whole-window number under a scoped label.','The COMPARE - STUDIES board keeps its own $/TRD label because renaming board fields breaks saved study references - its hover now says it is the same figure the 1E matrix calls EV.','tools/matrix_scope_audit.py re-pointed at the EV label so the shipped scope gate keeps covering the renamed row.']},
 {v:'73.242',date:'2026-08-23',notes:['COMPARE - STUDIES rows 482-486: the ES-native NOISE study - the first re-TUNE of the mechanism on the ES contract (every earlier ES row was a transfer test with nothing refitted). 625 core cells plus the two proven filters: zero bare cells reach the 1.2 bar, the filtered winner clears every selection leg with a real plateau, then LOSES the never-touched 18-month holdout on its single pre-registered read. ES-native NOISE is dead; no run was queued. Round log in NOISE.md.']},
 {v:'73.241',date:'2026-08-23',notes:['COMPARE - STUDIES rows 466-475: the two ENGU-Q day-type levers round 1 banked - the equal-risk resize of the strong-close skip and the buy-weakness size tilt. Both beat the champion on headline money at every pre-registered cell and BOTH die on the pre-registered concentration gate (the gain rides on about ten trades). Champion #149/#227 stands. Round log: CROSSFAMILY_DAYTYPE.md ROUND 2. (Entry restored - a concurrent-session merge dropped the 73.238 note.)']},
 {v:'73.240',date:'2026-08-23',notes:['COMPARE - STUDIES: ORB band veto, rows 476-481 - the 0.6-0.8 prior-close band long veto (the one lead the 2026-08-18 day-type round left unchased), pre-registered and tested on the run 234 crown. NOT adopted: 4 of 7 gates fail, and about 84% of the apparent band damage sits inside the spent lockbox year. Crown stands; no bad short band exists. Fork ORB_3_8.py gains three default-off band modes; harness tools/orb_daytype_band.py.']},
@@ -11036,7 +11037,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!_rawBOK)return _pfDash;
         const v=_rawHasNew?_rawWr(col):col.mmWr;
         return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_b2Dash;}});
-      _rrRows.push({lbl:'<span title="average net dollars per trade'+(_rawHasNew?' over the ticked SAMPLE stretches':' over the optimize window')+' -- says whether a config makes its money from bigger trades or just more of them" style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>'+_pfTag,cell:col=>{
+      _rrRows.push({lbl:'<span title="EV = expected value: average net dollars per trade'+(_rawHasNew?' over the ticked SAMPLE stretches':' over the optimize window')+' -- says whether a config makes its money from bigger trades or just more of them. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>'+_pfTag,cell:col=>{
         if(!_rawBOK)return _pfDash;
         const v=_rawHasNew?_rawApt(col):col.mmApt;
         return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_b2Dash;}});
@@ -11080,7 +11081,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v73.67: the caption must not claim the whole group follows the tick when only part of it
         //   can. Three states: everything scoped (new run, or an old run with IS+WF ticked), MAR /
         //   SHARPE scoped while PF / WIN % / $-per-trade dash, or the old all-pinned wording.
-        {name:'reward ÷ risk'+_scopeTag(_rawScopedA?(_rawBOK?_rawSampLbl:(_rawSampLbl+' &mdash; PF / WIN % / $ per trade need a newer run, shown as &mdash;')):'mixed slices — hover each row'),rows:_rrRows},
+        {name:'reward ÷ risk'+_scopeTag(_rawScopedA?(_rawBOK?_rawSampLbl:(_rawSampLbl+' &mdash; PF / WIN % / EV need a newer run, shown as &mdash;')):'mixed slices — hover each row'),rows:_rrRows},
         {name:'sample',rows:_b2Sample},
         {name:'config',rows:knobKeys.map(k2=>({lbl:_pp(k2),cell:col=>'<b style="color:var(--text2)">'+String((col.params||{})[k2])+'</b>'}))}
       ];
@@ -11100,7 +11101,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v73.67: a dashed Group B row must not be heat-shaded off a number it is not showing.
           'PF':_rawBOK?(_rawHasNew?_rawPf:(c=>c.mmPf)):(()=>null),
           'WIN %':_rawBOK?(_rawHasNew?_rawWr:(c=>c.mmWr)):(()=>null),
-          '$ / TRADE':_rawBOK?(_rawHasNew?_rawApt:(c=>c.mmApt)):(()=>null),'TRADES':c=>c.mmN};
+          'EV':_rawBOK?(_rawHasNew?_rawApt:(c=>c.mmApt)):(()=>null),'TRADES':c=>c.mmN};
         groups.forEach(g=>g.rows.forEach(r=>{
           // v71.30: split on the middle dot so a label carrying a "· IS+WF" window tag still matches
           const key=String(r.lbl).replace(/<[^>]*>/g,'').replace(/&middot;/g,'·').replace(/&divide;/g,'÷').split('·')[0].trim();
@@ -13280,7 +13281,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'SHARPE', cell:p=>'<span style="color:var(--text2)">'+_sh(p.sh)+'</span>'},
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},
-        {lbl:'$ / TRADE', cell:p=>{const v=(p.net!=null&&p.tr)?p.net/p.tr:null;return '<span style="font-weight:700;color:'+((v||0)>=0?'#1d9e75':'#e24b4a')+'">'+(v!=null?fmtUsd(Math.round(v)):'&mdash;')+'</span>';}},
+        {lbl:'<span title="EV = expected value: average net dollars per trade in this section - net P&amp;L divided by the trade count directly measured on the same stretch. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>', cell:p=>{const v=(p.net!=null&&p.tr)?p.net/p.tr:null;return '<span style="font-weight:700;color:'+((v||0)>=0?'#1d9e75':'#e24b4a')+'">'+(v!=null?fmtUsd(Math.round(v)):'&mdash;')+'</span>';}},
         {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
         {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
         {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
@@ -14364,7 +14365,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hRow({lbl:'<span title="derived the same way 2B derives its SHARPE: period-to-period change in this variant saved cumulative curve, annualised by the length of the toggled stretches. Not stored by the engine." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',cell:col=>{const v=_shp(col);return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):_dash;}},_shp,true),
             _hRow({lbl:'PF',cell:col=>{const v=_P(col).pf;return v!=null?('<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+Math.min(v,99).toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).pf,true),
             _hRow({lbl:'WIN %',cell:col=>{const v=_P(col).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).wr,true),
-            _hRow({lbl:'<span title="average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will." style="border-bottom:1px dotted var(--text5);cursor:help">$ / TRADE</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
+            _hRow({lbl:'<span title="EV = expected value: average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
           {name:_hd('sample'),rows:[
             // v71.42 (owner: same rows across the tabs): this is the same metric every other tab
             //   calls TRADES - what this column actually took over the ticked stretches - so it
@@ -14668,7 +14669,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   column wins the same trades and the row reads the same number all the way across.
               //   When that happens the hover says so, instead of looking like a broken heat map.
               {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.'+((function(){const ws=cols.map(c=>_szP(c).wr).filter(v=>v!=null);return (ws.length>1&&(Math.max.apply(null,ws)-Math.min.apply(null,ws))<0.05)?' EVERY COLUMN HERE READS THE SAME because a tilt refuses no trades - the whole tab wins the same trades and only the size differs, so the heat map has no spread to shade.':'';})())+'">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
-              {lbl:'<span title="average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab.">$ / TRADE</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
+              {lbl:'<span title="EV = expected value: average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab. This row used to be called $ / TRADE; same number, one name now.">EV</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
             // v71.37 (owner: "why does TILT have an AVG CONTRACTS row if it is always 1, and a NOT
             //   TAKEN row if it is always 0"): a row every column agrees on and that says nothing
             //   is dropped. AVG CONTRACTS only shows when some column is NOT one lot (the REDEPLOY
@@ -14729,7 +14730,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               'TOTAL':[c=>_szP(c).net,true],
               'MAR':[_szMar,true],'DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
               'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
-              'WIN %':[c=>_szP(c).wr,true],'$ / TRADE':[c=>_szP(c).apt,true],
+              'WIN %':[c=>_szP(c).wr,true],'EV':[c=>_szP(c).apt,true],
               'TRADES':[c=>{const n=_szP(c).n;return n!=null?+n:null;},true],
               'AVG CONTRACTS':[_szFac,true],
               'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_szFac(c)):null,true]};
@@ -18899,7 +18900,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rePpt=rw=>{const p=_reNum(rw,'tot'),t=_reTrd(rw);
           return (p==null||!t||!t.v)?null:(p/t.v);};
         const _rePptWhy=(st,rw)=>(_reNum(rw,'tot')==null)?_reWhy(st,rw,'tot'):_reTrdWhy;
-        const _rePptTip='Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all.';
+        const _rePptTip='Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all. The 1E matrix in a run report calls this same figure EV (expected value); this board keeps its own $/TRD label.';
         const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
         const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
         const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
@@ -19647,7 +19648,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
            +_tabBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
            +_tabBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
-           +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row',_TONE.rank),_TONE.rank);
+           +_tabBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row. The 1E matrix calls this same figure EV (expected value)',_TONE.rank),_TONE.rank);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
         const _reScopeBtns=_reCtl(5,'RANGE','narrow the whole board to a stretch of time - it applies to the chart and the tables together, and the board always states how many rows it is holding back. It reads whichever of the two dates control 6 names. This used to be two controls, a rolling TIME SCOPE and a list of every distinct discovery date; they asked the same question twice.',
@@ -20003,7 +20004,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _mk('SHARPE',_shOf,v=>'<span style="color:var(--text2)">'+v.toFixed(2)+'</span>','max'),
             _mk('PF',_pfOf,v=>'<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+v.toFixed(2)+'</span>','max'),
             _mk('WIN %',_wrOf,v=>'<span style="color:var(--text2)">'+Math.round(v)+'%</span>','max'),
-            _mk('$ / TRADE',r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
+            _mk('<span title="EV = expected value: average net dollars per trade over the window this band names - net and trade count both read on that same window. The run-report 1E card carries the same row under the same name; it used to be called $ / TRADE." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>',r=>{const n=_netOf(r),t=_trOf(r);return (n!=null&&t)?n/t:null;},v=>'<span style="color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>','max'),
             // scoreRun can come back NaN for a run type it was never written for (a book) — show a
             // dash instead of printing NaN into the table.
             _mk('ROBUSTNESS · whole run',r=>{const s=scoreRun(r);return (s!=null&&isFinite(s))?+s:null;},v=>'<span style="color:'+(v>=70?'var(--green)':v>=45?'var(--yellow)':'var(--red)')+';font-weight:700">'+Math.round(v)+'</span>','max')]},
