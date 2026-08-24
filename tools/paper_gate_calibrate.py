@@ -123,6 +123,26 @@ SPECS = {
         "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
                         "lockbox_from": "2025-02-11"},
     },
+    # Run #243 (Short Veto + Wild10), the NOISE crown since 2026-08-23, with run #243's
+    # own chosen gate. The run doc's gate_validate.chosen is et@0.50 (extra-trees), picked
+    # by the standing net-dollars/80%-MAR-floor rule on PRE-lockbox data -- NOT the xgb
+    # hybrid the report page also shows; xgb's pre-lockbox recovery (12.16) does not even
+    # clear ungated (17.38), and its lockbox is the worst of the five (PF 1.016). The run's
+    # verdict is "LOCKBOX FAILED - gate lost to ungated out-of-sample", so the leg this
+    # calibrates is a FORWARD TEST, never a backtest adoption -- see api/paper.py.
+    "NOISE_SBS_V90_H": {
+        "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+        "session": "rth", "cost_pts": _NQ_COST,
+        "params": dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
+                       exit_mode="vwap", side="Both", window="all_day",
+                       flat_eod=True, skip_holidays=False,
+                       stop_mode="bandwidth", stop_k=1.75,
+                       daytype_mode="skip_bot_short", daytype_lo=0.20, daytype_hi=0.80,
+                       vol_skip_pct=90.0),
+        "gate": {"mode": "hybrid", "model": "et", "threshold": 0.50, "source_run": 243},
+        "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
+                        "lockbox_from": "2025-02-11"},
+    },
     # Run #265 (ENGU-Q-28), owner-adopted to paper 2026-08-21. Crowned gate logistic@0.55.
     # The overlay did NOT beat ungated on the held-out year, so this leg is a forward TEST;
     # see api/paper.py ENGUQ_ER_GATE. Calibrated 2026-08-21: size_norm 1.697185,

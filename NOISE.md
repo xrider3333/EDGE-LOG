@@ -218,6 +218,14 @@ It is not — **it is #225's champion.**
 conclusion. The gate/size-tilt family on NOISE stays closed unless something structural
 changes.
 
+**2026-08-24 addendum — closed for BACKTEST adoption; one forward leg now runs.** Run #243's
+card carries the same verdict again (chosen `et@50%`, "LOCKBOX FAILED — gate lost to ungated
+out-of-sample"). At the owner's ask the crowned #243 config + that chosen et hybrid was added
+to the PAPER shadow engine as leg `NOISE_SBS_V90_H` — FORWARD EVIDENCE ONLY, never adoptable
+from backtest numbers; the raw crown leg is its exact control. Note: the run's chosen model is
+**et**, not the xgb tab the owner read (xgb fails the pre-lockbox bar and has the worst lockbox
+slice of the five). Full provenance in `PAPER_TRADING.md` and `api/paper.py`.
+
 ---
 
 ## 2026-08-17 — variant campaign: entry-quality filters CLEAR the pre-registered bar

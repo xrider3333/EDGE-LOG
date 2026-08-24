@@ -69,6 +69,7 @@ LEG_LIVE_FROM = {
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
     "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241; retired 08-23
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
+    "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
 }
 
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
@@ -307,6 +308,40 @@ NOISE_GATE = {"mode": "hybrid", "model": "tree", "threshold": 0.55,
 NOISE_GATE_RF = {"mode": "hybrid", "model": "rf", "threshold": 0.55,
                  "size_norm": 1.338251, "recycle_factor": 3.850308, "source_run": 231}
 
+# NOISE crown (#243) + its own gate — FORWARD EVIDENCE ONLY. Read this before citing it.
+#
+# The owner asked (2026-08-24) for the run-#243 HYBRID added to paper: on the report its
+# risk/reward beats RAW (the xgb tab he read: MAR 22.6 vs 15.03, Sharpe 1.42 vs 1.34,
+# PF 1.44 vs 1.37, REDEPLOY WF+LB $488k vs $349k). Two honesty notes on that:
+#
+#   1. THE MODEL IS et, NOT xgb. Run #243's own gate_validate.chosen — the model the
+#      standing pre-registered net-dollars/80%-MAR-floor rule picked on PRE-lockbox data
+#      only — is `et` (extra-trees) at the 0.50 floor. The xgb tab the owner read is a
+#      different hybrid on the same card, and on the years the rule is allowed to see
+#      xgb does not even clear ungated (recovery 12.16 vs 17.38); its lockbox slice is
+#      the worst of the five (PF 1.016, $130). Cherry-picking it by eye would be exactly
+#      the hindsight selection this project bans, so this leg runs the doc's choice: et.
+#
+#   2. THE GATE FAMILY IS CLOSED FOR BACKTEST ADOPTION. Run #243's card itself says
+#      "LOCKBOX FAILED — gate lost to ungated out-of-sample (pre-lockbox win was likely
+#      fit)", the same verdict as #225/#231, and the pre-registered #219 test before
+#      them. In-sample hybrid outperformance is precisely the pattern that has already
+#      failed its lockbox twice. Forward paper testing is the ONE legitimate new-evidence
+#      path left for a gated NOISE, so this leg exists to gather that evidence — it must
+#      never be adopted, crowned, or reported as validated off backtest numbers.
+#
+# THE CLAIM, stated so it can fail: from 2026-08-24 forward, NOISE_SBS_V90_H should beat
+# its matched raw control NOISE_SBS_V90 on recovery factor. If it does not, the lockbox
+# verdict was right and the in-sample hybrid shine was fit.
+#
+# size_norm / recycle_factor frozen by tools/paper_gate_calibrate.py on 2026-08-24
+# against run #243's own window (2010-06-07..2026-08-12, lockbox from 2025-02-11).
+# The calibration reproduced the run's stored et hybrid row exactly: 2,613 pre-lockbox
+# survivors vs chosen.pre num_trades 2613; 2,983 kept over the full window vs the et
+# hybrid row's n_trades 2983; max size after norm 1.38 vs the row's max_size 1.38.
+NOISE_243_GATE = {"mode": "hybrid", "model": "et", "threshold": 0.50,
+                  "size_norm": 1.232698, "recycle_factor": 1.484747, "source_run": 243}
+
 # Full-history load date for the gated legs (the masters begin here).
 _GATE_HISTORY_FROM = "2010-06-07"
 
@@ -459,6 +494,25 @@ LEG_SOURCE = {
                   "(default OFF) and keeps running the baseline-plus-gate config until they "
                   "are flipped on after an NT restart.",
     },
+    "NOISE_SBS_V90_H": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + et hybrid gate",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-08-24",
+        "note": "The crowned #243 config (champion core + short veto + wildest-10% skip) "
+                "with run #243's OWN chosen gate in HYBRID mode: an extra-trees model at "
+                "the 0.50 floor, trades under it skipped, survivors sized by score. The "
+                "model is the one run #243's gate_validate.chosen records — picked by the "
+                "pre-registered net-dollars/80%-MAR-floor rule on pre-lockbox data — NOT "
+                "the xgb tab the owner read on the report; on the years the rule may see, "
+                "xgb does not clear ungated and its lockbox slice is the worst of five. "
+                "Added at owner ask 2026-08-24.",
+        "caveat": "THE GATE FAMILY IS CLOSED FOR BACKTEST ADOPTION — two lockbox failures "
+                  "(#219, and the #225/#231 verdict), and run #243's own card says "
+                  "LOCKBOX FAILED (gate lost to ungated out-of-sample). This leg exists "
+                  "to gather FORWARD evidence only and must never be crowned or adopted "
+                  "off backtest numbers. The claim to falsify: from 2026-08-24 it beats "
+                  "its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 "
+                  "is its exact control — identical file and params, gate off.",
+    },
     "ORB_H": {
         "run": 234, "run_label": "#234 (ORB-42) + rf hybrid gate", "strategy_file": "ORB_3_6_C2.py",
         "picked": "2026-08-21",
@@ -552,6 +606,18 @@ PAPER_LEGS = [
     {"key": "NOISE_SBS_V90", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": NOISE_243_SBS_V90, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_SBS_V90"]},
+
+    # ADDED 2026-08-24 (owner: add the run-243 hybrid to paper). The crown config above
+    # with run #243's own chosen gate (et@0.50, hybrid) as an overlay. The raw
+    # NOISE_SBS_V90 leg above is its matched control -- identical file and params, gate
+    # off, same full-history window -- so any difference between the two rows is the
+    # gate and nothing else. FORWARD EVIDENCE ONLY: the gate family is closed for
+    # backtest adoption (see NOISE_243_GATE's block).
+    {"key": "NOISE_SBS_V90_H", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_GATE, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_H"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical

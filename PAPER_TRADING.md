@@ -3,8 +3,10 @@
 > **Audience:** any Claude session or human picking this up cold. Everything about the
 > paper-trading system, the ORB look-ahead debacle, and current live state lives here.
 > Sister docs: `BACKTESTING_STACK.md` (validation methodology), `RUNBOARD.md` (compare view).
-> Last full update: **2026-08-11**. Legs updated **2026-08-23** (NOISE crown → Short Veto
-> + Wild10 run #243, `NOISE_SBS` leg replaced by `NOISE_SBS_V90`, NT divergence recorded).
+> Last full update: **2026-08-11**. Legs updated **2026-08-24** (`NOISE_SBS_V90_H` added —
+> the run-#243 crown with its own chosen et@0.50 hybrid gate, FORWARD EVIDENCE ONLY; the
+> gate family stays closed for backtest adoption. Prior update 2026-08-23: NOISE crown →
+> Short Veto + Wild10 run #243, `NOISE_SBS` leg replaced by `NOISE_SBS_V90`).
 
 ## What this is
 
@@ -75,6 +77,7 @@ whether to move the ORB leg onto #234 is the owner call.
 | NOISE-225 | `NOISE_1_0.py` #225/#202/#231 crowned core (lookback 44, 0.75/1.5, stop 1.75) | CLEAN | Shadow: live · emitted free as NOISE-225 +GATE's control · also the matched control for NOISE-241 · NT: `EdgeLogNOISE` runs this core (+ live gate) |
 | NOISE-241 SHORT VETO | `NOISE_1_0.py` #241 config — the NOISE-225 core + skip short entries the day after the prior session closed in the bottom 20% of its own range | CLEAN (the filter is a session-open decision from prior-session data) | **RETIRED 2026-08-23** — held the crown 08-21→08-23, replaced by NOISE-243 below when the owner moved the crown; provenance kept |
 | NOISE-243 VETO+WILD10 | `NOISE_1_0.py` #243 crowned config — the #241 config + skip ALL entries the day after a session whose (H-L)/C ranked in the top 10% of the trailing 252 sessions | CLEAN (both filters are session-open decisions from prior-session data) | **THE NOISE CROWN since 2026-08-23** (owner call: ~2% less profit for ~41% less DD, PF 1.39 vs 1.29, best ES transfer 1.116; caveat — the vol leg's gains sit in its 10 best avoided trades). Shadow: **live since 2026-08-23** · control = NOISE-225 · NT: both knobs ported (`SkipBotShort`, `VolSkipOn`, default OFF), **NOT enabled** — flipping them waits on an NT restart and an owner call |
+| NOISE-243 +GATE | `NOISE_1_0.py` #243 crowned config + **run #243's own chosen hybrid gate (et @50%)** | CLEAN (the gate is a post-trade overlay trained only on finished trades; both base filters are session-open decisions) | Shadow: **live since 2026-08-24** · control = NOISE-243 (identical params, gate off) · **FORWARD EVIDENCE ONLY — the gate family is CLOSED for backtest adoption** (below) · NT: not run |
 | NOISE-225 +GATE | #225 config + **tree hybrid gate @55%** | CLEAN | Shadow: live · **a forward TEST, not a crown** (below) |
 | BLEND 1:1 | ORB + ENGU-Q | Suspect — the ORB leg was inflated until the 2026-08-16 swap | Rollup only, hidden in the UI |
 
@@ -140,6 +143,34 @@ down *before* the data exists, and paper trading costs nothing but compute.
 on recent trades its "size dial" has been a near-constant ~0.85× haircut rather than a real
 per-trade dial. That is honest tree behaviour, not a bug — but it means this leg may end up
 testing *"trade ~15% smaller and skip a few"* more than *"size by conviction"*.
+
+### NOISE-243 +GATE — the crown's own hybrid, forward evidence ONLY (added 2026-08-24)
+
+Added at the owner's ask: on run #243's report the HYBRID tab's risk/reward beats RAW
+(the xgb tab he read: MAR 22.6 vs 15.03, Sharpe 1.42 vs 1.34, PF 1.44 vs 1.37, REDEPLOY
+WF+LB $488k vs $349k), a pattern he sees across strategies. Two honesty notes, recorded
+before a single forward trade exists:
+
+1. **The leg runs `et`, not `xgb`.** Run #243's own `gate_validate.chosen` — the model the
+   standing pre-registered net-dollars/80%-MAR-floor rule picked on PRE-lockbox data only —
+   is **extra-trees at the 0.50 floor**, not the xgb tab the owner read. On the years the
+   rule is allowed to see, xgb does not even clear ungated (recovery 12.16 vs 17.38) and its
+   lockbox slice is the worst of the five (PF 1.016, $130). Picking xgb by eye off its
+   report tab would be hindsight selection; the leg runs the doc's choice.
+2. **The gate family is CLOSED for backtest adoption.** It failed its lockbox twice (#219,
+   and the #225/#231 verdict), and run #243's own card carries the same verdict: "LOCKBOX
+   FAILED — gate lost to ungated out-of-sample (pre-lockbox win was likely fit)". In-sample
+   hybrid outperformance is exactly the pattern that failed before. Forward paper testing is
+   the one legitimate new-evidence path left for gated NOISE — which is why this leg exists,
+   and why it must never be crowned, adopted, or cited as validated off backtest numbers.
+
+> **THE CLAIM, stated so it can fail:** from **2026-08-24** forward, NOISE-243 +GATE should
+> beat its matched raw control NOISE-243 on recovery factor. If it does not, the lockbox
+> verdict was right and the in-sample shine was fit.
+
+Its control is exact: the NOISE-243 raw leg runs the identical file, params and full-history
+window with the gate off. `size_norm`/`recycle_factor` frozen by
+`tools/paper_gate_calibrate.py` on 2026-08-24 against run #243's own window.
 
 **Cost:** the gated legs load full history so the gate is the model the validate crowned rather
 than a 150-day cousin. ORB_H's rf walk is ~110s, NOISE_H's tree ~6s — about two minutes added to
