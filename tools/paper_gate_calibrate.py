@@ -65,7 +65,8 @@ def calibrate(name, spec, verbose=True):
     norm, detail = paper_gate.calibrate_size_norm(arrays, trades, spec["gate"],
                                                   upto_index=lb_idx)
     out = {"leg": name, "model": spec["gate"]["model"], "mode": spec["gate"]["mode"],
-           "threshold": spec["gate"]["threshold"], "source_run": spec["gate"].get("source_run"),
+           "threshold": spec["gate"].get("threshold"),
+           "scheme": spec["gate"].get("scheme"), "source_run": spec["gate"].get("source_run"),
            "lockbox_from": cal["lockbox_from"], "lockbox_bar_index": lb_idx,
            "size_norm": (round(norm, 6) if norm else None),
            "gate_seconds": round(time.time() - t1, 1),
@@ -140,6 +141,27 @@ SPECS = {
                        daytype_mode="skip_bot_short", daytype_lo=0.20, daytype_hi=0.80,
                        vol_skip_pct=90.0),
         "gate": {"mode": "hybrid", "model": "et", "threshold": 0.50, "source_run": 243},
+        "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
+                        "lockbox_from": "2025-02-11"},
+    },
+    # The TILT companion (2026-08-24): same #243 base, but the SIZE-TILT construct --
+    # keep every trade, size it by score (tier rule: 0.5x under 45%, 1x 45-55%, 2x over
+    # 55%). Model/scheme picked by the family's STANDING pre-registered selection metric
+    # for tilts, pre-lockbox recovery: xgb/tier ranks first (18.82) among the ten tilt
+    # rows on run #243's card. NOT et/tier -- that row leads only on raw pre-lockbox PnL
+    # and also happens to win the lockbox, so choosing it would read as lockbox-informed
+    # selection. The tilt mechanism was pre-registered DEAD for backtest adoption on
+    # 2026-08-10 (0/12 tilts cleared the bar on causal scores); forward evidence only.
+    "NOISE_SBS_V90_T": {
+        "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
+        "session": "rth", "cost_pts": _NQ_COST,
+        "params": dict(lookback=44, band_mult_long=0.75, band_mult_short=1.5,
+                       exit_mode="vwap", side="Both", window="all_day",
+                       flat_eod=True, skip_holidays=False,
+                       stop_mode="bandwidth", stop_k=1.75,
+                       daytype_mode="skip_bot_short", daytype_lo=0.20, daytype_hi=0.80,
+                       vol_skip_pct=90.0),
+        "gate": {"mode": "tilt", "model": "xgb", "scheme": "tier", "source_run": 243},
         "calibration": {"date_from": "2010-06-07", "date_to": "2026-08-12",
                         "lockbox_from": "2025-02-11"},
     },

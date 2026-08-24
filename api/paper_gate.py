@@ -12,7 +12,16 @@ money from conditions that were already known at that instant, and either:
 
   • CUT mode    — refuses trades scoring under the cut-off ("the bouncer"); or
   • HYBRID mode — refuses trades under the cut-off AND sizes the survivors by score:
-                  low scores trade smaller, high scores trade bigger ("the size dial").
+                  low scores trade smaller, high scores trade bigger ("the size dial"); or
+  • TILT mode   — refuses NOTHING. Every trade is taken, only the SIZE moves with the
+                  score ("the size tilt", added 2026-08-24). Two a-priori schemes, lifted
+                  verbatim from ml_gate.gate_validate's tilt rows: "tier" (0.5x under 45%,
+                  1x from 45 to 55%, 2x over 55%) and "linear" (slides 0.25x to 3x, 1x at
+                  50%). Warm-up trades size 1.0. Normalised by the frozen size_norm (the
+                  mean weight over the source run's pre-lockbox trades) and capped at 3x,
+                  exactly the report's mean_weight_matched_pre_lockbox_cap3 rule. A tilt
+                  has no cut-off and never uses the recycle factor -- it skips nothing, so
+                  there is no freed capital to respend.
 
 The base strategy file is never touched, which is the whole appeal: a gate is an overlay
 you can switch off.
@@ -51,6 +60,18 @@ GATE_DEFAULTS = {"min_history": 30, "refit_every": 25, "seed": 42, "size_norm": 
 _TILT_SLOPE = 4.0
 _TILT_LO, _TILT_HI = 0.25, 3.0
 _SIZE_CAP = 3.0
+
+
+def _tilt_weights(prob, warm, scheme):
+    """Raw (pre-normalisation) tilt weights for TILT mode, matching ml_gate.gate_validate's
+    _tilt_schemes byte-for-byte: tier = 0.5x under 45% / 1x 45-55% / 2x over 55%; linear =
+    the same slide the hybrid uses. Warm-up (NaN score) trades weigh 1.0."""
+    p = np.where(warm, 0.5, prob)
+    if str(scheme) == "tier":
+        w = np.where(p >= 0.55, 2.0, np.where(p >= 0.45, 1.0, 0.5))
+    else:
+        w = np.clip(1.0 + _TILT_SLOPE * (p - 0.50), _TILT_LO, _TILT_HI)
+    return np.where(warm, 1.0, w)
 
 
 def _cfg(gate, key):
@@ -109,7 +130,9 @@ def apply_gate(arrays, trades, gate):
     order = _sorted_order(raw)
     ordered = [raw[i] for i in order]
     info = {"model": str(gate.get("model")), "mode": str(gate.get("mode") or "cut"),
-            "threshold": float(gate.get("threshold")),
+            "threshold": (None if gate.get("threshold") is None
+                          else float(gate.get("threshold"))),
+            "scheme": (str(gate["scheme"]) if gate.get("scheme") else None),
             "size_norm": float(_cfg(gate, "size_norm")),
             "min_history": int(_cfg(gate, "min_history")),
             "refit_every": int(_cfg(gate, "refit_every")),
@@ -131,13 +154,33 @@ def apply_gate(arrays, trades, gate):
         info["warnings"].append("gate did not run - leg fell back to UNGATED")
         return [(t, 1.0) for t in ordered], info
 
-    thr = float(gate["threshold"])
+    mode = str(gate.get("mode") or "cut").lower()
     warm = np.isnan(prob)
+    if mode == "tilt":
+        # TILT: no cut-off, every trade is taken; only the size moves with the score.
+        # Normalised by the frozen size_norm and capped at 3x, matching the report's
+        # mean_weight_matched_pre_lockbox_cap3 rule. No recycle: nothing is skipped, so
+        # there is no freed capital to respend.
+        keep = np.ones(len(ordered), bool)
+        w = _tilt_weights(prob, warm, gate.get("scheme") or "tier")
+        norm = float(_cfg(gate, "size_norm")) or 1.0
+        w = np.minimum(w / norm, _SIZE_CAP)
+        kept = [(ordered[i], float(w[i])) for i in range(len(ordered))]
+        kept_w = np.array([s for _, s in kept], float) if kept else np.array([], float)
+        info.update({
+            "ok": True, "n_kept": len(kept), "n_skipped": 0,
+            "n_warmup": int(warm.sum()), "skipped_pnl_pts": 0.0,
+            "avg_size": (round(float(kept_w.mean()), 3) if len(kept_w) else None),
+            "max_size": (round(float(kept_w.max()), 3) if len(kept_w) else None),
+        })
+        return kept, info
+
+    thr = float(gate["threshold"])
     # NaN = the bouncer was still off duty (warm-up). Those trades pass, exactly as
     # gate_trades lets them pass, so a short window reads as honest rather than filtered.
     keep = ~(prob < thr)
 
-    if str(gate.get("mode") or "cut").lower() == "hybrid":
+    if mode == "hybrid":
         pf = np.where(warm, 0.5, prob)
         w = np.clip(1.0 + _TILT_SLOPE * (pf - 0.50), _TILT_LO, _TILT_HI)
         w = np.where(warm, 1.0, w)
@@ -191,12 +234,18 @@ def calibrate_size_norm(arrays, trades, gate, upto_index=None):
     prob = score_trades(arrays, ordered, gate)
     if prob is None:
         return None, {"error": "gate scoring failed"}
-    thr = float(gate["threshold"])
     warm = np.isnan(prob)
-    keep = ~(prob < thr)
-    pf = np.where(warm, 0.5, prob)
-    w = np.clip(1.0 + _TILT_SLOPE * (pf - 0.50), _TILT_LO, _TILT_HI)
-    w = np.where(warm, 1.0, w)
+    if str(gate.get("mode") or "cut").lower() == "tilt":
+        # TILT keeps everything; the divisor is the mean raw tilt weight over ALL
+        # pre-lockbox trades, exactly ml_gate's `w[_pre_m].mean()`. No recycle.
+        keep = np.ones(len(ordered), bool)
+        w = _tilt_weights(prob, warm, gate.get("scheme") or "tier")
+    else:
+        thr = float(gate["threshold"])
+        keep = ~(prob < thr)
+        pf = np.where(warm, 0.5, prob)
+        w = np.clip(1.0 + _TILT_SLOPE * (pf - 0.50), _TILT_LO, _TILT_HI)
+        w = np.where(warm, 1.0, w)
 
     span = np.ones(len(ordered), bool)
     if upto_index is not None:

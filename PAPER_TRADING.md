@@ -3,10 +3,12 @@
 > **Audience:** any Claude session or human picking this up cold. Everything about the
 > paper-trading system, the ORB look-ahead debacle, and current live state lives here.
 > Sister docs: `BACKTESTING_STACK.md` (validation methodology), `RUNBOARD.md` (compare view).
-> Last full update: **2026-08-11**. Legs updated **2026-08-24** (`NOISE_SBS_V90_H` added —
-> the run-#243 crown with its own chosen et@0.50 hybrid gate, FORWARD EVIDENCE ONLY; the
-> gate family stays closed for backtest adoption. Prior update 2026-08-23: NOISE crown →
-> Short Veto + Wild10 run #243, `NOISE_SBS` leg replaced by `NOISE_SBS_V90`).
+> Last full update: **2026-08-11**. Legs updated **2026-08-24** (`NOISE_SBS_V90_H` and
+> `NOISE_SBS_V90_T` added — the run-#243 crown with its own chosen et@0.50 hybrid gate,
+> and with the run's xgb/tier size tilt; both FORWARD EVIDENCE ONLY: the gate family
+> stays closed for backtest adoption and the tilt mechanism is pre-registered dead.
+> Prior update 2026-08-23: NOISE crown → Short Veto + Wild10 run #243, `NOISE_SBS` leg
+> replaced by `NOISE_SBS_V90`).
 
 ## What this is
 
@@ -78,6 +80,7 @@ whether to move the ORB leg onto #234 is the owner call.
 | NOISE-241 SHORT VETO | `NOISE_1_0.py` #241 config — the NOISE-225 core + skip short entries the day after the prior session closed in the bottom 20% of its own range | CLEAN (the filter is a session-open decision from prior-session data) | **RETIRED 2026-08-23** — held the crown 08-21→08-23, replaced by NOISE-243 below when the owner moved the crown; provenance kept |
 | NOISE-243 VETO+WILD10 | `NOISE_1_0.py` #243 crowned config — the #241 config + skip ALL entries the day after a session whose (H-L)/C ranked in the top 10% of the trailing 252 sessions | CLEAN (both filters are session-open decisions from prior-session data) | **THE NOISE CROWN since 2026-08-23** (owner call: ~2% less profit for ~41% less DD, PF 1.39 vs 1.29, best ES transfer 1.116; caveat — the vol leg's gains sit in its 10 best avoided trades). Shadow: **live since 2026-08-23** · control = NOISE-225 · NT: both knobs ported (`SkipBotShort`, `VolSkipOn`, default OFF), **NOT enabled** — flipping them waits on an NT restart and an owner call |
 | NOISE-243 +GATE | `NOISE_1_0.py` #243 crowned config + **run #243's own chosen hybrid gate (et @50%)** | CLEAN (the gate is a post-trade overlay trained only on finished trades; both base filters are session-open decisions) | Shadow: **live since 2026-08-24** · control = NOISE-243 (identical params, gate off) · **FORWARD EVIDENCE ONLY — the gate family is CLOSED for backtest adoption** (below) · NT: not run |
+| NOISE-243 +TILT | `NOISE_1_0.py` #243 crowned config + **run #243's xgb/tier size TILT** (every trade taken, size 0.5x/1x/2x by score at 45/55% break-points, mean-1 normalised, cap 3x) | CLEAN (same overlay discipline; skips nothing, only resizes) | Shadow: **live since 2026-08-24** · control = NOISE-243 (identical trade list, tilt off) · **FORWARD EVIDENCE ONLY — the tilt mechanism was pre-registered DEAD 2026-08-10 (0/12)** (below) · NT: not run |
 | NOISE-225 +GATE | #225 config + **tree hybrid gate @55%** | CLEAN | Shadow: live · **a forward TEST, not a crown** (below) |
 | BLEND 1:1 | ORB + ENGU-Q | Suspect — the ORB leg was inflated until the 2026-08-16 swap | Rollup only, hidden in the UI |
 
@@ -171,6 +174,31 @@ before a single forward trade exists:
 Its control is exact: the NOISE-243 raw leg runs the identical file, params and full-history
 window with the gate off. `size_norm`/`recycle_factor` frozen by
 `tools/paper_gate_calibrate.py` on 2026-08-24 against run #243's own window.
+
+### NOISE-243 +TILT — the size-tilt companion, forward evidence ONLY (added 2026-08-24)
+
+Added in the same shipment at the owner's ask. A **tilt** skips nothing: every trade the
+crown takes is taken, and the model's score only sets the SIZE — run #243's tier rule,
+0.5x under a 45% score, 1x from 45 to 55%, 2x over 55%, normalised to mean 1 over the
+run's pre-lockbox trades and capped at 3x (the report's
+`mean_weight_matched_pre_lockbox_cap3` rule). `api/paper_gate.py` gained a TILT mode for
+it on 2026-08-24, reusing the same leak-safe scoring pass as the hybrids.
+
+- **Model/scheme = xgb/tier, by the standing rule.** The family's pre-registered selection
+  metric for tilts is PRE-lockbox recovery, on which run #243's ten tilt rows rank
+  **xgb/tier first (18.82)**. NOT et/tier — that row leads only on raw pre-lockbox PnL and
+  also happens to win the lockbox, so picking it would read as lockbox-informed selection.
+- **The mechanism is pre-registered DEAD for backtest adoption**: the 2026-08-10
+  gate-as-size-tilt test ran **0/12** clear of the pre-registered bar on causal scores
+  (the earlier "beats the cut" result was leak-driven). This leg exists to gather forward
+  evidence only and must never be crowned or adopted off backtest numbers.
+- **Calibration reproduced the run's stored xgb/tier row exactly**: 4,054 pre-lockbox
+  trades vs `kept_pre` 4054, max size after norm 1.885 vs the row's 1.89; `size_norm`
+  1.060804 frozen; no recycle factor (nothing is skipped, nothing is respent).
+
+> **THE CLAIM, stated so it can fail:** from **2026-08-24** forward, NOISE-243 +TILT should
+> beat its matched raw control NOISE-243 on recovery factor. If it does not, the 0/12
+> verdict stands and the tilt stays dead.
 
 **Cost:** the gated legs load full history so the gate is the model the validate crowned rather
 than a 150-day cousin. ORB_H's rf walk is ~110s, NOISE_H's tree ~6s — about two minutes added to

@@ -70,6 +70,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241; retired 08-23
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
+    "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
 }
 
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
@@ -342,6 +343,36 @@ NOISE_GATE_RF = {"mode": "hybrid", "model": "rf", "threshold": 0.55,
 NOISE_243_GATE = {"mode": "hybrid", "model": "et", "threshold": 0.50,
                   "size_norm": 1.232698, "recycle_factor": 1.484747, "source_run": 243}
 
+# NOISE crown (#243) + size TILT — FORWARD EVIDENCE ONLY, same discipline as the hybrid.
+#
+# A TILT skips nothing: every trade the crown takes is taken, and only the SIZE moves
+# with the model's score (tier rule: 0.5x under a 45% score, 1x from 45 to 55%, 2x over
+# 55%; normalised to mean 1 over the source run's pre-lockbox trades, capped 3x — the
+# report's mean_weight_matched_pre_lockbox_cap3 rule, reimplemented in api/paper_gate.py's
+# TILT mode 2026-08-24).
+#
+# MODEL/SCHEME CHOICE, stated so nobody re-litigates it: picked by the family's STANDING
+# pre-registered selection metric for tilts — PRE-lockbox recovery — on which run #243's
+# ten tilt rows rank xgb/tier first (18.82). NOT et/tier: that row is first only on raw
+# pre-lockbox PnL, and it also happens to be the lockbox winner, so choosing it would
+# read as lockbox-informed selection.
+#
+# THE MECHANISM IS PRE-REGISTERED DEAD FOR BACKTEST ADOPTION: the 2026-08-10 gate-as-
+# size-tilt test ran 0/12 clear of the pre-registered bar on causal scores, and the
+# earlier "beats the cut" result was leak-driven. This leg exists to gather FORWARD
+# evidence only, and must never be crowned or adopted off backtest numbers.
+#
+# THE CLAIM, stated so it can fail: from 2026-08-24 forward, NOISE_SBS_V90_T should beat
+# its matched raw control NOISE_SBS_V90 on recovery factor. If it does not, the 0/12
+# verdict stands and the tilt stays dead.
+#
+# size_norm frozen by tools/paper_gate_calibrate.py on 2026-08-24 against run #243's own
+# window. A tilt has no recycle factor: nothing is skipped, so nothing is respent.
+# The calibration reproduced the run's stored xgb/tier tilt row: 4,054 pre-lockbox
+# trades vs the row's kept_pre 4054, max size after norm 1.885 vs the row's 1.89.
+NOISE_243_TILT = {"mode": "tilt", "model": "xgb", "scheme": "tier",
+                  "size_norm": 1.060804, "source_run": 243}
+
 # Full-history load date for the gated legs (the masters begin here).
 _GATE_HISTORY_FROM = "2010-06-07"
 
@@ -513,6 +544,25 @@ LEG_SOURCE = {
                   "its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 "
                   "is its exact control — identical file and params, gate off.",
     },
+    "NOISE_SBS_V90_T": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + xgb/tier size tilt",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-08-24",
+        "note": "The crowned #243 config with run #243's size-TILT construct: every trade "
+                "is taken, and an xgb model's score only sets the SIZE (0.5x under 45%, 1x "
+                "45-55%, 2x over 55%, mean-1 normalised, capped 3x). xgb/tier was picked by "
+                "the standing pre-registered tilt selection metric — pre-lockbox recovery, "
+                "where it ranks first of the ten tilt rows (18.82) — NOT et/tier, which "
+                "leads only on raw pre-lockbox PnL and also wins the lockbox, so choosing "
+                "it would read as lockbox-informed selection. Added at owner ask 2026-08-24 "
+                "beside the hybrid leg.",
+        "caveat": "THE TILT MECHANISM IS PRE-REGISTERED DEAD FOR BACKTEST ADOPTION — the "
+                  "2026-08-10 test ran 0/12 clear of the bar on causal scores. This leg "
+                  "exists to gather FORWARD evidence only and must never be crowned or "
+                  "adopted off backtest numbers. The claim to falsify: from 2026-08-24 it "
+                  "beats its matched raw control NOISE_SBS_V90 on recovery factor. "
+                  "NOISE_SBS_V90 is its exact control — identical file and params, tilt "
+                  "off; the tilt takes the identical trade list at different sizes.",
+    },
     "ORB_H": {
         "run": 234, "run_label": "#234 (ORB-42) + rf hybrid gate", "strategy_file": "ORB_3_6_C2.py",
         "picked": "2026-08-21",
@@ -618,6 +668,16 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_GATE, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_H"]},
+    # ADDED 2026-08-24 beside the hybrid: the same crown with run #243's size TILT
+    # (xgb/tier -- picked by the standing pre-registered tilt metric, pre-lockbox
+    # recovery). A tilt takes EVERY trade the raw crown takes and only resizes it, so
+    # NOISE_SBS_V90 is again the exact control. FORWARD EVIDENCE ONLY: the tilt
+    # mechanism was pre-registered dead for backtest adoption on 2026-08-10 (0/12).
+    {"key": "NOISE_SBS_V90_T", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_TILT, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_T"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
