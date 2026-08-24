@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.255';
+const VERSION='73.256';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.256',date:'2026-08-24',notes:['A ONE-COLUMN RAW MATRIX NOW SAYS WHY (owner: run 243 RAW showed one config). Reconciled against the saved run data: a pinned single-config validate holds exactly ONE configuration by design (every knob fixed), and every such run since 220 saved 1 of 1 evaluated - nothing was skipped. The screen just never said so. Now: the 1E RAW tab carries a PINNED SINGLE-CONFIG RUN line (1 of 1 evaluated, with a pointer to the family latest full sweep), the 1A funnel key reads RAW (1 of 1) with the same explanation on hover, and the funnel header swaps the useless one-curve slider for a PINNED - 1 OF 1 EVALUATED chip.','SWEEP RUNS SAY HOW MUCH IS SHOWN: the RAW tab on a real sweep now prints, e.g., showing the top 10 of 300 evaluated configs - so the crown-pool column count is never mistaken for the evaluated count.','IF THE DATABASE SIZE-GUARD EVER TRIMS A RUN, THE RAW TAB SAYS SO in amber, naming what was dropped (audit found exactly one affected run: 228 lost its per-config scatter points; champion and WF / LB numbers are never trimmed).','HOW TO READ A PINNED VALIDATE is now written up in BACKTESTING_STACK.md.']},
 {v:'73.255',date:'2026-08-24',notes:['THE CALENDAR SHOWS REAL RED AND GREEN AGAIN. It was using the theme’s own up and down colours, and on the monochrome theme both of those are grey - so a winning day and a losing day looked identical. The squares now use fixed red and green, the same ones the money figures on this tab already use, so they read the same on every theme.','EVERY STRATEGY ON THE LIST NOW CARRIES ITS RUN NUMBER. NOISE always did; ORB and ENGU-Q did not, so the rail was showing two different naming schemes side by side. They read ORB-234, ENGU-Q-226 and ENGU-Q-249 now.','FIXED A WRONG NUMBER while doing it: the rf hybrid NOISE row was labelled 225 but actually runs 231. It says NOISE-231 now.']},
 {v:'73.254',date:'2026-08-24',notes:['THE PAPER TAB HAS A CALENDAR NOW, SITTING BESIDE THE PROFIT CURVE - the same month grid the TRADING LOG home page uses, one square per day, green for a day that made money and red for a day that lost it, with that day’s total printed in the square.','It follows the strategies you have switched on, exactly like the curve does, so the two always describe the same trades. The month heading adds up that month’s money, its trade count and how many won.','CLICKING A DAY SELECTS THAT DAY’S TRADES in the table underneath, so you can click a red square and go straight to OPEN CHARTS to see what happened.','It opens on the month of your most recent trade rather than today, and the arrows stop at the first and last month that actually hold trades.']},
 {v:'73.252',date:'2026-08-24',notes:['STUDIES BOARD: ROUND 19 (owner: both directions), rows 547 to 585, tag MISC. 19a = six graveyard ideas as day-skip filters on the legal ORB crown: ZERO adopt - not one improves the crown, and the counter-prior-day overlay candidate from the August hunt is formally dead. 19b = the hold-for-days classics on gold, bonds, small caps, oil and QQQ via free daily data: 0 of 33 (best: 7-day-low gold buy at profit factor 2.33, QQQ dip buy MAR 7.67 vs 8; pooled five-ticker dip book PF 1.58 MAR 6.1). Dip-buying is real but under-powered in every market tested.','Intraday ETF testing (ORB/ENGU mechanisms on stock 1-minute bars) waits on a free Alpaca data key - owner action.']},
@@ -10672,7 +10673,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const L=[36,50,64][Math.max(0,Math.min(2,li==null?1:li))];
       return 'hsl('+hue+','+(sat||56)+'%,'+L+'%)';
     };
-    const selectionTableHtml=(sel,mlt,cfgNoMap,valBlock)=>{
+    // v73.256 (owner: "noise run 243 raw 1e matrix only shows one config. ive seen this on other
+    //   runs as well. reconcile"): reconciled - a PINNED single-config validate holds exactly ONE
+    //   configuration by design (every knob fixed), so one RAW column IS the whole search space,
+    //   not missing data. Audit of every run doc >= 220 confirmed each pinned run saved 1 of 1
+    //   evaluated configs (nothing skipped). But nothing on screen SAID so - fixed below. This
+    //   helper finds the newest run in history from the SAME family whose search actually swept
+    //   (n_evaluated > 1) so the pinned-run note can point at the full sweep; returns an empty
+    //   string when history holds none.
+    const _famSweepRef=(d)=>{try{
+      if(!d||!d.famKey)return '';
+      let best=null;
+      (runHistory||[]).forEach(r=>{if(r&&r.famKey===d.famKey&&String(r.id)!==String(d.id)&&r.n_evaluated!=null&&+r.n_evaluated>1&&(!best||+r.id>+best.id))best=r;});
+      return best?(' See run #'+best.id+' for the latest full sweep of this family ('+(+best.n_evaluated).toLocaleString()+' configs).'):'';
+    }catch(_e){return '';}};
+    const selectionTableHtml=(sel,mlt,cfgNoMap,valBlock,runDoc)=>{
       if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return null;
       // v68.1 (owner: "for 2b why do i only see 5 configs when 2c shows 10 or so?"). The engine has
       //   always evaluated ~10 configs and split them into the crown pool (eligible to win) and
@@ -11189,9 +11204,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   beside the title, both live in the ⓘ now — the tile shows the matrix and nothing else.
       const _fullNote='FULL RUN is the end of this config equity curve — the same figure chart 1A and the crowned line in 2A show. IS / WF / LB are measured on OVERLAPPING windows, so they do not add up to it.'
         +(_anyStar?' A star means that config was not carried through the lockbox, so its FULL RUN ends at the optimize-window close.':'');
-      const _poolNote=sorted.length+' crown-pool config'+(sorted.length===1?'':'s')+', sorted by walk-forward rank.';
+      // v73.256 (owner: "noise run 243 raw 1e matrix only shows one config"): the RAW tab now
+      //   SAYS why it holds the columns it holds. Three honest cases, all display-only:
+      //   1) a pinned single-config run - 1 column is the ENTIRE search space, by design;
+      //   2) a real sweep - "top K of N evaluated shown" so the crown-pool count is never
+      //      mistaken for the evaluated count;
+      //   3) the Firestore size-guard genuinely trimmed something (trimmed_keys /
+      //      population_truncated / fields_dropped on the doc) - named in amber. Champion and
+      //      WF/LB numbers are never trimmed, only bulk per-config detail.
+      const _nEvalR=(runDoc&&runDoc.n_evaluated!=null&&isFinite(+runDoc.n_evaluated))?+runDoc.n_evaluated:null;
+      const _pinned1=(_nEvalR===1&&cand.length===1);
+      const _famRefTxt=_pinned1?_famSweepRef(runDoc):'';
+      const _pinLine=_pinned1?('<span style="color:var(--yellow);font-weight:700">&#9888; PINNED SINGLE-CONFIG RUN</span> <span style="color:var(--text3)">- the search space held exactly 1 configuration by design (every knob was fixed), so RAW shows 1 column: 1 of 1 evaluated, nothing was skipped. The full validate (walk-forward, lockbox, gate bake-off) still ran on that one config.'+_famRefTxt+'</span>'):'';
+      const _dispLine=(!_pinned1&&_nEvalR!=null&&_nEvalR>sorted.length)?('<span style="color:var(--text3)">showing the top '+sorted.length+' of '+_nEvalR.toLocaleString()+' evaluated configs (the crown pool + context extras) - the full population lives in the 2A funnel cloud and the section 2 charts.</span>'):'';
+      const _trimKeys=[].concat((runDoc&&Array.isArray(runDoc.trimmed_keys))?runDoc.trimmed_keys:[],(runDoc&&Array.isArray(runDoc.fields_dropped))?runDoc.fields_dropped:[]);
+      const _trimLine=((_trimKeys.length||(runDoc&&runDoc.population_truncated))?('<span style="color:var(--yellow)">&#9888; size-guard: this run doc was too big for its database slot, so bulk per-config detail was trimmed to fit'+(_trimKeys.length?(' (dropped: '+_trimKeys.join(', ')+')'):'')+'. Champion stats and WF / LB numbers are never trimmed.</span>'):'');
+      const _poolNote=sorted.length+' crown-pool config'+(sorted.length===1?'':'s')+', sorted by walk-forward rank.'
+        +(_pinned1?' This run is a PINNED single-config validate: its 1 column is the entire search space (1 of 1 evaluated), by design.':((_nEvalR!=null&&_nEvalR>sorted.length)?(' Showing the top '+sorted.length+' of '+_nEvalR.toLocaleString()+' configs the search evaluated.'):''));
       const tip='<div style="color:var(--text2)">'+_poolNote+'<br><br>'+_fullNote+'<br><br>'+crownNote+'<br><br>'+cloudNote+'<br><br>'+lbNote+'<br><br>'+rankNote+'</div>';
-      const sub='';
+      const sub=[_pinLine,_dispLine,_trimLine].filter(Boolean).join('<br>');
       // v65.6 (owner: "make sure these recent UI changes are applying to 2B"): same control kit
       //   as 2C, sharing the same prefs — one tick moves both matrices.
       const _b2open=String(APREF.g2open||'');
@@ -12097,7 +12128,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   chart should be number one on the key, 2nd pnl should be second"): the rows are
         //   ordered by where each line actually FINISHES, best first, instead of the old fixed
         //   RAW / GATE / TILT / HYBRID order - so the key reads top to bottom like the chart does.
-        const _kOrder=[['raw','👑 RAW',(_crV!=null?_crV:null),'#1d9e75','',0]];
+        // v73.256 (owner: "noise run 243 raw 1e matrix only shows one config"): on a pinned
+        //   single-config run the key row says RAW (1 of 1) with a hover explaining that one
+        //   line is the whole search space by design - it used to read as data gone missing.
+        const _pin1Key=(d.n_evaluated!=null&&+d.n_evaluated===1);
+        const _kOrder=[['raw','👑 RAW'+(_pin1Key?' <span style="opacity:.75">(1 of 1)</span>':''),(_crV!=null?_crV:null),'#1d9e75',(_pin1Key?'PINNED SINGLE-CONFIG RUN - the search space held exactly 1 configuration by design, so this one line is the entire population':''),0]];
         if(_hasGate)_kOrder.push(['gate','GATE',_gateEndV,'#e24b4a',
           (_a2gate?'the crowned book with the trade filter applied':'the filtered book - currently HIDDEN, click to draw it'),(_a2gate?0:1)]);
         // v73.34: LB MAR appended to each family's tooltip — the lockbox recovery factor
@@ -12155,7 +12190,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v64.31: honest counts — n_evaluated (unique configs the search actually ran, saved by
       //   the v64.30 engine) beats n_combos (a trials×2 planning ESTIMATE that over-counted).
       const _nEval=(d.n_evaluated!=null?+d.n_evaluated:(d.n_combos!=null?+d.n_combos:null));
-      const cfgSlider='<span title="how many of the stored curves to draw. This run stores '+etop.length+' equity curves'+(_nEval?' of the '+_nEval.toLocaleString()+' configs the search evaluated':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(_nEval?' · '+_nEval.toLocaleString()+' evaluated':'')+'</b></span>';
+      // v73.256 (owner: "noise run 243 raw 1e matrix only shows one config"): a pinned
+      //   single-config run swaps the configs slider (which cannot even render for one curve -
+      //   its minimum is 2) for a plain honesty chip: one line IS the entire population, by
+      //   design, and the hover points at the family latest full sweep when history has one.
+      const _pin1Hdr=(d.n_evaluated!=null&&+d.n_evaluated===1);
+      const _pinChip='<span title="PINNED SINGLE-CONFIG RUN - the search space held exactly 1 configuration by design (every knob was fixed), so this one line is the ENTIRE population: 1 of 1 evaluated, nothing was skipped or lost. The full validate (walk-forward, lockbox, gate bake-off) still ran on that config.'+String(_famSweepRef(d)).replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;flex-shrink:0;font-size:8px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);cursor:help;white-space:nowrap">&#9888; PINNED &middot; 1 OF 1 EVALUATED</span>';
+      const cfgSlider0='<span title="how many of the stored curves to draw. This run stores '+etop.length+' equity curves'+(_nEval?' of the '+_nEval.toLocaleString()+' configs the search evaluated':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(_nEval?' · '+_nEval.toLocaleString()+' evaluated':'')+'</b></span>';
+      const cfgSlider=_pin1Hdr?_pinChip:cfgSlider0;
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
       const _selTip='WF-CHECKED SELECTION (#88 / #88b) ON THE 2A CHART — a funnel with two doors. The grey CLOUD is every top config, drawn only to the IN-SAMPLE door (the first walk-forward test start — the same date 1A marks with its first blue band). From there only the top-K by walk-forward continue to the LOCKBOX door (optimize end). From there only the top-3 continue THROUGH the lockbox to the right edge. LINE PROCEDURE: the in-sample stretch of every line is SOLID, the walk-forward stretch is DASHED, and the lockbox continuation is DOTTED. Green = WF-crowned, blue = in-sample MAX, each other top-K survivor gets its own colour, light grey = the configs that did not survive the in-sample door. The lockbox tail is shown AFTER the crown was set, never used to pick the champion.';
       // v64.25 (owner): ⓘ right after the tag (1A pattern), the funnel-path caption lives in the
@@ -15756,7 +15798,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   whether 2A itself rendered) from d.selection directly; only the CONFIG # column needs
       //   the funnel's own chart-legend match (_eqSink.cfgNoMap), so it alone falls back to a
       //   dash when 2A did not run.
-      const _selParts=selectionTableHtml(d.selection,mlt,_eqSink.cfgNoMap,d.validate);
+      const _selParts=selectionTableHtml(d.selection,mlt,_eqSink.cfgNoMap,d.validate,d);
       // v64.90 (item 1, owner-reported bug): 2B now gets its OWN bordered tile — the exact same
       //   chrome _colStyle gives 2C below it (background / border / radius / padding / resize
       //   handle) — instead of rendering as a bare header + table hanging under 2A's card. The
