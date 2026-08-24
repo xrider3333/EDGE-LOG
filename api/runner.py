@@ -50,6 +50,49 @@ LISTENER_BACKSTOP_SEC = 600.0
 HEALTH_SEC = 3600.0
 # How often the NinjaTrader bridge watchdog republishes meta/nt_bridge (api/nt_bridge_pub.py).
 BRIDGE_SEC = 300.0
+
+
+def _bridge_watchdog_thread(db, uids, stop=None):
+    """Publish meta/nt_bridge + its dead-man's-switch on a THREAD of their own.
+
+    WHY (owner 2026-08-24: "says system is down" -- it was not). Both publishers used
+    to sit in the runner's main poll loop, and that same loop EXECUTES backtest jobs
+    inline. So a long validate pinned the loop for as long as it ran, nothing
+    republished, and after 15 minutes the dead-man's switch fired CRITICAL: "NinjaTrader
+    /bridge/PC may be down while a strategy is supposed to be trading live." Measured
+    that morning: heartbeat 60 minutes stale while NinjaTrader was up, connected, and all
+    three strategies were Realtime and flat. Nothing was wrong.
+
+    The flaw is structural, not a tuning problem. A watchdog hosted inside the process it
+    watches cannot tell "the runner died" from "the runner is busy" -- and a CRITICAL that
+    fires on every long backtest is one the owner learns to ignore, which costs us the
+    real alarm too. On its own thread the distinction is restored: the heartbeat only goes
+    stale if the runner is genuinely dead or wedged.
+
+    Deliberately defensive -- this must never take the runner down with it:
+      * every pass is wrapped; a publish failure is printed and the loop continues.
+      * daemon thread, so it can never hold up shutdown.
+      * Firestore's client is thread-safe, and both publishers only write their own
+        single doc, so this shares `db` with the main loop without coordination.
+    """
+    while stop is None or not stop.is_set():
+        try:
+            from api import nt_bridge_pub
+            for u in uids:
+                nt_bridge_pub.publish(db, u)
+        except Exception as e:
+            print(f"[nt-bridge] skipped: {type(e).__name__}: {e}", flush=True)
+        try:
+            from api import nt_heartbeat
+            for u in uids:
+                nt_heartbeat.publish(db, u)
+        except Exception as e:
+            print(f"[nt-heartbeat] skipped: {type(e).__name__}: {e}", flush=True)
+        if stop is not None:
+            if stop.wait(BRIDGE_SEC):
+                return
+        else:
+            time.sleep(BRIDGE_SEC)
 # How often the execution reviewer polls /executions for new fills (api/nt_exec_review.py).
 # Much tighter than BRIDGE_SEC -- fills need to feel "immediate," not once-per-5-minutes.
 EXEC_REVIEW_SEC = 45.0
@@ -1528,7 +1571,15 @@ def main(argv=None):
                 print(f"queue listener: FAILED -> polling every {a.interval:g}s")
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
-        next_bridge = 0.0   # first pass runs immediately, then every BRIDGE_SEC
+        # The NT bridge watchdog runs on its OWN thread now -- see
+        # _bridge_watchdog_thread for why. Nothing in the main loop republishes it.
+        if a.firestore:
+            _bw_uids = [u.strip() for u in (a.allow_uid or []) if u and u.strip()]
+            if _bw_uids:
+                threading.Thread(target=_bridge_watchdog_thread,
+                                 args=(q.db, _bw_uids), daemon=True,
+                                 name='nt-bridge-watchdog').start()
+                print(f"nt bridge watchdog: ON (own thread, every {BRIDGE_SEC:g}s)")
         next_exec_review = 0.0  # first pass runs immediately, then every EXEC_REVIEW_SEC
         preflight_done_date = None  # last local date the 9am ET roster preflight ran
         backup_done_date = None     # last local date the nightly NT backup ran
@@ -1618,31 +1669,6 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[data-health] skipped: {type(e).__name__}: {e}")
                 next_health = time.time() + HEALTH_SEC
-            # NinjaTrader bridge watchdog. NT's own auto-update silently deleted every
-            # strategy instance on 2026-08-14 and nobody could see it without alt-tabbing
-            # into NT and looking. See api/nt_bridge_pub.py.
-            if a.firestore and time.time() >= next_bridge:
-                try:
-                    from api import nt_bridge_pub
-                    # a.allow_uid is already a list (argparse action="append"), not a
-                    # comma string -- unlike the data_health block above, do not .split() it.
-                    for _uid in (a.allow_uid or []):
-                        if _uid and _uid.strip():
-                            nt_bridge_pub.publish(q.db, _uid.strip())
-                except Exception as e:
-                    print(f"[nt-bridge] skipped: {type(e).__name__}: {e}")
-                # Dead-man's-switch: does meta/nt_bridge's own heartbeat stay fresh? Runs
-                # right after the publish above, on the same BRIDGE_SEC cadence, but reads
-                # ONLY the Firestore doc -- never the bridge itself -- so it still fires an
-                # alarm even if the bridge/NT/PC/runner died outright. See api/nt_heartbeat.py.
-                try:
-                    from api import nt_heartbeat
-                    for _uid in (a.allow_uid or []):
-                        if _uid and _uid.strip():
-                            nt_heartbeat.publish(q.db, _uid.strip())
-                except Exception as e:
-                    print(f"[nt-heartbeat] skipped: {type(e).__name__}: {e}")
-                next_bridge = time.time() + BRIDGE_SEC
             # Tier-1 execution reviewer. Notifies on every new fill (push, not Firestore --
             # no uid/db needed), separately flags fills that don't match the small static
             # per-strategy fingerprint (instrument/account/max qty). Notify-only by design;
