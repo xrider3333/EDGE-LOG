@@ -144,3 +144,33 @@ MAR 4.55. Nothing recovers.
 - Lesson for every future harness: NEVER filter a trade using a quantity that is
   only known after the trade's own holding window (here: the overnight jump the
   trade itself rides). The engine + house detector is the parity gate that caught it.
+
+---
+
+# Round 19 — owner: "both" (2026-08-24, same session)
+
+## 19a — graveyard ideas as day-skip filters on the ORB crown: 0/6 adopt
+
+Applied to the true #234 crown (parity $389,874 / PF 1.307 / MAR 13.38 exact), full
+window, adopt bar pre-registered (MAR +15%, net -10% max). Filters (all knowable
+before the open): prior-day up / prior-day down / NR7 / inside day / gap-against /
+gap-with. NOT ONE improves the crown at all (best: skip-after-inside-day, MAR 13.21 <
+13.38). The counter-prior-day overlay candidate from the August ORB hunt is formally
+DEAD. Agrees with the TRADE CONTEXT scan (nothing survives FDR on ORB).
+
+## 19b — the classics on new instruments via free daily data: 0/33
+
+GLD / TLT / IWM / USO + QQQ control, Yahoo daily total-return bars 2006 -> 2025-06-29,
+$100k/trade, 2 bps RT. Round-17 shapes FROZEN (RSI2, DBL7, DONCH, PB20). Best cells:
+GLD DBL7/long **PF 2.33** MAR 4.9 (highest PF of the whole hunt), QQQ RSI2/long
+**MAR 7.67 vs 8** (nearest miss). Pre-registered pooled read (same cell x 5 tickers,
+one book): dip-buy PF 1.53 MAR 5.2, 7-day-low PF 1.58 MAR 6.1, pullback 1.16/2.6 —
+diversification helps, still under. Turtle fails everywhere.
+
+Standing: dip-buying-in-uptrend = real but under-powered in every market tested
+(3 markets deep). Possible OWNER decision someday: a lower-bar Webull stocks sleeve
+on the pooled dip book — a sizing decision, not a validation pass.
+
+OPEN (owner action): free Alpaca key -> 1m ETF bars since 2016 -> test ORB/ENGU
+mechanisms intraday on stocks. Harness: tools/r19_etf_classics.py (re-downloads its
+own data). Board rows 547-585 (v73.252).
