@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.252';
+const VERSION='73.253';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.253',date:'2026-08-24',notes:['THE PAPER TAB HAS A CALENDAR NOW, SITTING BESIDE THE PROFIT CURVE - the same month grid the TRADING LOG home page uses, one square per day, green for a day that made money and red for a day that lost it, with that day’s total printed in the square.','It follows the strategies you have switched on, exactly like the curve does, so the two always describe the same trades. The month heading adds up that month’s money, its trade count and how many won.','CLICKING A DAY SELECTS THAT DAY’S TRADES in the table underneath, so you can click a red square and go straight to OPEN CHARTS to see what happened.','It opens on the month of your most recent trade rather than today, and the arrows stop at the first and last month that actually hold trades.']},
 {v:'73.252',date:'2026-08-24',notes:['STUDIES BOARD: ROUND 19 (owner: both directions), rows 547 to 585, tag MISC. 19a = six graveyard ideas as day-skip filters on the legal ORB crown: ZERO adopt - not one improves the crown, and the counter-prior-day overlay candidate from the August hunt is formally dead. 19b = the hold-for-days classics on gold, bonds, small caps, oil and QQQ via free daily data: 0 of 33 (best: 7-day-low gold buy at profit factor 2.33, QQQ dip buy MAR 7.67 vs 8; pooled five-ticker dip book PF 1.58 MAR 6.1). Dip-buying is real but under-powered in every market tested.','Intraday ETF testing (ORB/ENGU mechanisms on stock 1-minute bars) waits on a free Alpaca data key - owner action.']},
 {v:'73.251',date:'2026-08-24',notes:['STUDIES BOARD CORRECTION: the round-18 overnight-drift PASS is RETRACTED (rows 535/543 retoned, correction notes added to both round-18 studies). The triage harness skipped roll nights using the night&#39;s own jump size - information only available the next morning - which quietly removed 441 of the worst nights. Honest engine rebuild: PF 1.21 / MAR 5.2, under the bar. A pre-registered legal volatility filter does not recover it. The strategy file ONDRIFT_1_0.py stays in the library as the honest reference implementation, marked dead.','No validate was queued - the leak was caught at the parity gate, before any run number was burned. The MISC hunt stands at 0 passes across 58 cells.']},
 {v:'73.250',date:'2026-08-24',notes:['STUDIES BOARD: ROUND 18b, rows 543 to 546 - the overnight-drift candidate re-tested WITH a real resting stop, monitored on every 1-minute Globex bar with gap-honest fills, at owner ask.','VERDICT: every stop level makes it worse. Tight stops shred it (510 stop-outs, profit down 88 percent), wide stops still cost money, the worst losing stretch improves by zero at any level, and the widest stop makes the single worst night WORSE via a gap fill. Overnight scares mean-revert by morning; a resting stop systematically sells the low of the night. No-stop is now the MEASURED best form, not a data limitation. Risk control = the 200-day filter plus position size.']},
@@ -21005,9 +21006,85 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // said "NOISE $2,154", curve drew a NOISE line, neither knew the other existed. Now the
       // tiles ARE the legend and the selector: click one to highlight its curve (and filter
       // the matrix + trades table below via PLEG), click it again to go back to ALL.
+      // ── MONTH CALENDAR (owner 2026-08-24: "give me a calendar view in addition to the
+      //    pnl chart (or have it sit beside it) like in the trading log homepage").
+      //
+      //    Same reading as the TRADING LOG home calendar - a day per cell, coloured by that
+      //    day's money, green up / red down - but built from the PAPER shadow trades rather
+      //    than the real journal. It obeys the leg filter, so switching a strategy off
+      //    removes it from the squares exactly as it removes it from the curve; the two
+      //    always describe the same set of trades.
+      //
+      //    Clicking a day SELECTS that day's trades in the TRADES table below rather than
+      //    navigating away, which pairs with the multi-select added in v73.187: click a red
+      //    day, hit OPEN N CHARTS, and you are looking at what went wrong that day.
+      const _calPnlByDate=(()=>{
+        const m={};
+        _pt.filter(t=>_legShown(legOf(t))).forEach(t=>{
+          const d=t.run_date||_dOnly(t.exitTime||t.entryTime);
+          if(!d)return;
+          if(!m[d])m[d]={pnl:0,n:0,w:0};
+          const v=+t.pnl_usd||0;
+          m[d].pnl+=v; m[d].n++; if(v>0)m[d].w++;
+        });
+        return m;
+      })();
+      const _calHtml=(()=>{
+        const keys=Object.keys(_calPnlByDate).sort();
+        // default to the month of the newest trade, not today - the board is a forward test
+        // and landing on an empty future month would read as "no data".
+        const dflt=keys.length?keys[keys.length-1].slice(0,7):new Date().toISOString().slice(0,7);
+        const cm=window._paperCalMonth||dflt;
+        const [cy,cmo]=cm.split('-').map(Number);
+        const first=new Date(cy,cmo-1,1), nDays=new Date(cy,cmo,0).getDate(), startDow=first.getDay();
+        const moPfx=cy+'-'+String(cmo).padStart(2,'0');
+        const moDays=keys.filter(k=>k.indexOf(moPfx)===0);
+        const moPnl=moDays.reduce((a,k)=>a+_calPnlByDate[k].pnl,0);
+        const moN=moDays.reduce((a,k)=>a+_calPnlByDate[k].n,0);
+        const moW=moDays.reduce((a,k)=>a+_calPnlByDate[k].w,0);
+        // which months actually hold trades - so the arrows can stop at the edges
+        const months=[...new Set(keys.map(k=>k.slice(0,7)))].sort();
+        const atFirst=months.length&&cm<=months[0], atLast=months.length&&cm>=months[months.length-1];
+        const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+        let cells=['SUN','MON','TUE','WED','THU','FRI','SAT']
+          .map(d=>'<div style="text-align:center;font-size:8px;color:var(--text5);padding:2px 0;letter-spacing:1px">'+d+'</div>').join('');
+        for(let i=0;i<startDow;i++)cells+='<div></div>';
+        for(let day=1;day<=nDays;day++){
+          const ds=moPfx+'-'+String(day).padStart(2,'0');
+          const c=_calPnlByDate[ds];
+          const up=c&&c.pnl>=0;
+          const isToday=ds===today;
+          const bg=c?(up?'color-mix(in srgb,var(--green) 16%,transparent)':'color-mix(in srgb,var(--red) 16%,transparent)'):'transparent';
+          const bd=isToday?'1px solid var(--yellow)'
+                 :c?('1px solid color-mix(in srgb,'+(up?'var(--green)':'var(--red)')+' 45%,transparent)')
+                 :'1px solid transparent';
+          const tip=c?(ds+' \u00b7 '+fmtUsd(c.pnl)+' \u00b7 '+c.n+' trade'+(c.n>1?'s':'')+' \u00b7 '+Math.round(c.w/c.n*100)+'% won \u2014 click to select them below')
+                    :(ds+' \u00b7 no paper trades');
+          cells+='<div'+(c?' data-pcalday="'+ds+'"':'')+' title="'+tip+'" style="text-align:center;padding:3px 2px;background:'+bg+';border:'+bd+';border-radius:4px;min-height:38px;display:flex;flex-direction:column;justify-content:center;'+(c?'cursor:pointer':'')+'">'
+            +'<div style="font-family:\'Bebas Neue\',monospace;font-size:11px;color:'+(isToday?'var(--yellow)':c?(up?'var(--green)':'var(--red)'):'var(--text5)')+'">'+day+'</div>'
+            +(c?'<div style="font-family:\'Bebas Neue\',monospace;font-size:10px;margin-top:1px;color:'+(up?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(c.pnl))+'</div>':'')
+            +'</div>';
+        }
+        const nav=(dir,lbl,dis)=>'<span'+(dis?'':' data-pcalmo="'+dir+'"')+' style="'+(dis?'opacity:.25;':'cursor:pointer;')
+          +'font-size:9px;padding:1px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text3)">'+lbl+'</span>';
+        return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap">'
+          +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
+          +nav('-1','\u25c0',atFirst)+nav('1','\u25b6',atLast)
+          +'<span style="margin-left:auto;font-size:9px;color:'+(moPnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(Math.round(moPnl))
+          +'<span style="color:var(--text5)"> \u00b7 '+moN+' trade'+(moN===1?'':'s')+(moN?' \u00b7 '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
+          +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">'+cells+'</div>'
+          +'<div style="margin-top:7px;font-size:8px;color:var(--text5)">Each square is one day of paper trading, coloured by that day\u2019s money. It follows the same strategies the curve shows. Click a day to select its trades in the table below.</div>';
+      })();
       const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
         +(_legOff.length?(' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_nShown+' of '+LEGS_VIS.length+' legs included</span>'):'')
-        +'</div>'+_curveSvg(_allDates,_curveSeries)
+        +'</div>'
+        // curve and calendar sit SIDE BY SIDE on a wide screen and stack on a narrow one.
+        // The curve keeps the larger share: it is the one that has to be read across time,
+        // while the calendar is a fixed 7-column grid that stops improving past ~330px.
+        +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div style="flex:2 1 420px;min-width:300px">'+_curveSvg(_allDates,_curveSeries)+'</div>'
+        +'<div style="flex:1 1 300px;min-width:270px;max-width:430px">'+_calHtml+'</div>'
+        +'</div>'
         +'<div style="height:1px;background:var(--border2);margin:12px 0 10px"></div>'
         +legStrip);
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
@@ -22856,6 +22933,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
     else if(augurSub==='paper'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
+      // Calendar: month arrows, and clicking a day selects that day's rows in TRADES.
+      content.querySelectorAll('[data-pcalmo]').forEach(el=>{el.onclick=()=>{
+        const cur=content.querySelector('[data-pcalcur]');
+        const now=window._paperCalMonth||(cur?cur.getAttribute('data-pcalcur'):null)
+          ||new Date().toISOString().slice(0,7);
+        const [y,m]=now.split('-').map(Number);
+        const d=new Date(y,m-1+(+el.getAttribute('data-pcalmo')),1);
+        window._paperCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+        renderApp();};});
+      content.querySelectorAll('[data-pcalday]').forEach(el=>{el.onclick=()=>{
+        // reuse the TRADES selection rather than inventing a second highlight: the rows the
+        // gallery reads are the rows this marks, so OPEN N CHARTS works straight after.
+        const ds=el.getAttribute('data-pcalday');
+        const rows=window._paperCandleRows||[];
+        const sel=window._ptSel||(window._ptSel=new Set());
+        sel.clear();
+        rows.forEach(x=>{if(String(x._et||'').slice(0,10)===ds)sel.add(String(x._no));});
+        renderApp();
+        setTimeout(()=>{const b=document.querySelector('#ptrades-body [data-ptrow].ptsel');
+          if(b)b.scrollIntoView({block:'center',behavior:'smooth'});},60);};});
       // Leg rail — a SAVED preference (owner 2026-08-20): which strategies you are looking
       // at is a standing choice, not a per-visit lens, and re-picking it every reload was
       // pure friction. Persisted under APREF.paperLegOff.
