@@ -85,3 +85,39 @@ cost), and no overnight stop is pretended (the ENGU-Q $178k lesson).
 - Buying weakness in an uptrend (dip/pullback/7-day-low) is the one shape that keeps
   showing a real edge fingerprint (PF 1.4–1.9, 70%+ winners) — it just doesn't earn
   enough per unit of its worst stretch to clear a futures bar built for MAR 8.
+
+---
+
+# Round 18 — the overnight session (2026-08-24, same session)
+
+Harness: `tools/r18_misc_triage.py`. Results: `tools/r16_results/r18_triage.csv`.
+Board rows **534–542, fam MISC** (web v73.249). Same window, same bar; overnight
+cost 0.783 pts/RT; roll nights skipped.
+
+## Verdict: **1 of 9 passes — the first pass of the entire hunt (55 dead cells before it).**
+
+| Concept | Cell | n | Net$ | PF | DD$ | MAR | Gate |
+|---|---|---|---|---|---|---|---|
+| **Overnight drift** | **uptrend (close>200d SMA)** | **2,541** | **282,478** | **1.498** | **19,366** | **14.59** | **PASS** |
+| Overnight drift | always | 3,054 | 249,189 | 1.303 | 59,772 | 4.17 | fail |
+| Overnight drift | after-down / after-up / short | — | — | ≤1.42 | — | ≤5.0 | fail |
+| VWAP trend pullback | long / both | 3,183+ | ≈0 | 1.01 | — | 0.2 | fail |
+| Afternoon breakout | buf 0 / 0.25 ATR | 2,802+ | 83,801 | 1.09 | — | 2.4 | fail |
+
+**The pass — ONDRIFT/uptrend:** buy the RTH close when close>200-day SMA, sell the next
+RTH open. Kill-checks all survived: post-2021 share 28%; years 2017–2024 = 7/8 positive
+(only 2022 negative, −$2.7k on 11 nights — the filter kept it out of the bear); SMA150/250
+neighbors PF 1.46/1.47 (not knife-edge); bootstrap p ≈ 0; **corr to C2 −0.013, to ENGU-Q
+ETH −0.006** — a true third factor (long-overnight), orthogonal to both live legs.
+Avg win 29.7 pts vs avg loss 25.6 pts at 56.4% win rate; worst night −$5,151.
+
+Honesty: the signal uses the close itself (live = MOC armed a minute early); the effect is
+widely published (overnight risk premium), which is both validation and crowding risk;
+2011–2016 contributed little (~$12k over 6 years) — the effect strengthened as overnight
+liquidity grew.
+
+Families closed this round: VWAP (fade AND trend now both dead), level-breaks (afternoon
+breakout = a worse ORB), overnight short side (earns nothing).
+
+**Next steps (in order): plugin file → frozen WF → formal Auto-Validate. Lockbox sealed
+until owner sign-off.**
