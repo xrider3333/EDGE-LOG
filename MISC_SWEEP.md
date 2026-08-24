@@ -121,3 +121,26 @@ breakout = a worse ORB), overnight short side (earns nothing).
 
 **Next steps (in order): plugin file → frozen WF → formal Auto-Validate. Lockbox sealed
 until owner sign-off.**
+
+---
+
+# Round 18 CORRECTION — the pass is RETRACTED (2026-08-24, same day)
+
+Caught at the parity gate, before any validate run was queued. The r18 harness's
+roll-night skip flagged nights by their OWN jump size (>=15 pts and >=2.5x trailing
+median) — knowable only the next morning = accidental foresight. It removed 441 of
+the worst nights. Honest engine rebuild (`ONDRIFT_1_0.py`, house calendar-anchored
+detector): **n=2982 / $218,592 / PF 1.205 / DD $41,696 / MAR 5.24 — UNDER the bar.**
+
+Pre-registered causal follow-up (one look): skip the night after a big-range day
+(range > k x ATR20, knowable at the close), k in {1.0, 1.5, 2.0}: best cell
+MAR 4.55. Nothing recovers.
+
+- ONDRIFT_1_0.py stays in the library as the honest reference, marked DEAD.
+- The 18b stop finding (every resting overnight stop level strictly worse, measured
+  on the 1m Globex tape) stands on its own.
+- Board rows 535/543 retoned + correction notes on both studies (web v73.251).
+- **The MISC hunt stands at 0 passes across 58 cells.**
+- Lesson for every future harness: NEVER filter a trade using a quantity that is
+  only known after the trade's own holding window (here: the overnight jump the
+  trade itself rides). The engine + house detector is the parity gate that caught it.
