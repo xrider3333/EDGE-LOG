@@ -1150,6 +1150,7 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 ---
 
 ## Changelog
+- **2026-08-24** — **ROUND 16 (MISC hunt): six classic mechanism families the library had never tested — ALL DEAD, 0/30 pre-registered cells pass triage.** OOPS gap-reversal, NR7/NR4/inside-day volatility-contraction breakout, floor-trader pivots (fade + breakout), last-hour MOC drift, Asia/London session-range breakout on the NQ 1m ETH tape, and ES/NQ log-ratio spread mean-reversion (both legs costed). Grid fixed before any cell ran; window 2010-06-07→2025-06-29, lockbox never loaded. Best cells: pivot-breakout $209k/PF 1.156/MAR 6.0, MOC momentum PF 1.246 (nearest miss vs the 1.25 bar, banked dead — overlaps DRIVE), NR4 PF 1.225/MAR 3.2; every fade-direction cell negative; PAIRS edge fully consumed by the doubled cost. Harness `tools/r16_misc_triage.py` + `tools/r16_results/r16_triage.csv` committed; STUDIES board rows 487–517 (fam MISC), web v73.246. Full doc: `MISC_SWEEP.md`.
 - **2026-08-23** — **NOISE CROWN MOVED AGAIN: family champion is now SHORT VETO + WILD10 (run #243).**
   • **Owner decision**, after full discussion, moving the crown off run #241 (Short Veto alone)
     two days after it was crowned: run #243 is run #241's config plus `vol_skip_pct=90` (skip
