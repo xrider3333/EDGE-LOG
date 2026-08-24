@@ -51,3 +51,37 @@ Readings:
 Round tally now: rounds 13 (TV 0/12), 14/15 (web, empty), 16 (classics 0/30). The
 next genuinely new edge still looks like it comes from new instruments/order-flow
 data or an owner idea — not from public mechanism recipes.
+
+---
+
+# Round 17 — the hold-for-days playbook (2026-08-24, same session)
+
+Harness: `tools/r17_misc_triage.py`. Results: `tools/r16_results/r17_triage.csv`.
+Board rows **518–533, fam MISC** (web v73.247). Same window, same costs, same bar
+(multi-day cells: 150-trade floor instead of 300, pre-registered in the harness).
+
+Six more never-tested families, on daily bars built from the 5m day session. Multi-day
+holds are honest: contract-roll days book no fake jump (seam detector + 0.25-pt roll
+cost), and no overnight stop is pretended (the ENGU-Q $178k lesson).
+
+## Verdict: 0 of 16 pass.
+
+| Concept | Best cell | n | Net$ | PF | DD$ | MAR |
+|---|---|---|---|---|---|---|
+| Pullback to 20-day avg (long) | ema20/long | 168 | 150,654 | **1.879** | 32,856 | 4.59 |
+| 7-day low buy (long) | 7d/long | 132 | 119,768 | 1.703 | 31,611 | 3.79 |
+| Turtle breakout | 20/10 | 97 | 99,516 | 1.362 | 31,488 | 3.16 |
+| 2-day dip buy (long) | thr10/long | 109 | 47,708 | 1.402 | 33,286 | 1.43 |
+| Gap continuation | gap0.5% | 758 | −27,990 | 0.957 | 78,484 | neg |
+| 10 o'clock fade | best of 4 | 1,067 | −110,254 | 0.775 | 118,204 | neg |
+
+- **PB20 long = best cell of the whole hunt.** Independently rebuilt, reproduces to the
+  dollar; post-2021 share only 26%. Still fails: MAR 4.59 vs 8, profit concentrated in
+  2020/2021/2024, and one 2022 trade lost $23,361 (10-day hold, no stop). Banked dead.
+- **MOC recheck (owner ask):** the round-16 near miss (PF 1.246) reproduces exactly in an
+  independent clock-time rebuild — but 2010–2017 is eight flat years and 73% of profit is
+  post-2021, which fails the year-concentration check. Dead twice over. Row 503 updated.
+- **Gap pair complete:** fading gaps failed (round 13-era), riding them fails too.
+- Buying weakness in an uptrend (dip/pullback/7-day-low) is the one shape that keeps
+  showing a real edge fingerprint (PF 1.4–1.9, 70%+ winners) — it just doesn't earn
+  enough per unit of its worst stretch to clear a futures bar built for MAR 8.
