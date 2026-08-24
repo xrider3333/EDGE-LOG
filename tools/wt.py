@@ -39,6 +39,7 @@ checkout", and refuses to ship.
 Stdlib only. Safe to re-run: `new` on an existing name just prints its path.
 """
 import argparse
+import io
 import os
 import re
 import subprocess
@@ -261,12 +262,86 @@ def sync_shared(root):
         if behind == '0':
             print('shared checkout: already current')
             return
+        _clear_identical_untracked(root)
         run(['git', '-C', root, 'merge', '--ff-only', '-q', 'origin/main'])
         print('shared checkout: fast-forwarded %s commit(s) -> %s'
               % (behind, run(['git', '-C', root, 'log', '--oneline', '-1'])))
     except Exception as e:                                    # never fail a good push
         print('shared checkout: could not fast-forward (%s: %s) - the push itself was fine'
               % (type(e).__name__, e))
+
+
+def _clear_identical_untracked(root):
+    """Remove untracked files that are BYTE-IDENTICAL to the incoming commit.
+
+    WHY (hit three times in four days, 2026-08-20 / 24). A session researching in the
+    shared checkout drops a new strategy or tool file there, then ships the same file
+    properly from a worktree. Now the shared checkout holds an untracked copy of a file
+    that main tracks, and `merge --ff-only` refuses outright:
+
+        error: The following untracked working tree files would be overwritten by merge
+
+    So the whole auto-fast-forward stalls on files whose content is already what the
+    merge wants to write. Every collision found so far has been an exact duplicate:
+    ONDRIFT_1_0.py, r18/r18b/r19 triage tools, the TTM squeeze files, eleven more on
+    2026-08-20 -- 0 differing lines in every case.
+
+    STRICTLY identical-only. The comparison ignores line endings (this repo mixes CRLF
+    and LF and the same file legitimately differs that way), but nothing else. A file
+    that differs by even one real line is somebody's unshipped work: it is left alone,
+    named, and the merge is allowed to fail so a human decides. Silently deleting that
+    is the one outcome worth more than the convenience.
+    """
+    # run() returns stdout only, and git prints this refusal on STDERR - so call the
+    # dry merge directly rather than widening run()'s contract for one caller.
+    try:
+        pr = subprocess.run(['git', '-C', root, 'merge', '--ff-only', 'origin/main'],
+                            capture_output=True, text=True, encoding='utf-8',
+                            errors='replace')
+        out = (pr.stdout or '') + (pr.stderr or '')
+    except Exception:
+        return
+    if 'untracked working tree files' not in out:
+        return
+    names, grabbing = [], False
+    for line in (out or '').splitlines():
+        if 'untracked working tree files' in line:
+            grabbing = True
+            continue
+        if grabbing:
+            t = line.strip()
+            if not t or t.startswith(('Please ', 'Aborting', 'error:', 'Updating')):
+                if t.startswith(('Please ', 'Aborting')):
+                    break
+                continue
+            names.append(t)
+    removed, kept = [], []
+    for rel in names:
+        full = os.path.join(root, rel.replace('/', os.sep))
+        try:
+            incoming = run(['git', '-C', root, 'show', 'origin/main:' + rel],
+                           check=False, quiet=True)
+            with io.open(full, encoding='utf-8', errors='replace') as fh:
+                local = fh.read()
+            # run() already strips its side, so strip both the same way: a leading
+            # blank line must not read as a real difference. CRLF vs LF is normalised
+            # too - this repo legitimately holds the same file both ways.
+            norm = lambda t: t.replace('\r\n', '\n').strip()
+            if norm(local) == norm(incoming):
+                os.remove(full)
+                removed.append(rel)
+            else:
+                kept.append(rel)
+        except Exception:
+            kept.append(rel)
+    if removed:
+        print('shared checkout: cleared %d untracked duplicate(s) of files main already '
+              'tracks (%s)' % (len(removed), ', '.join(removed[:4])
+                               + (', ...' if len(removed) > 4 else '')))
+    if kept:
+        print('shared checkout: %d untracked file(s) DIFFER from main and were left alone '
+              '- fast-forward will stop here on purpose: %s'
+              % (len(kept), ', '.join(kept)))
 
 
 def cmd_list():
