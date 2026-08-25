@@ -1,8 +1,91 @@
 # NOISE — wide-band intraday momentum envelope: lockbox findings & open questions
 
-> Living handoff doc. **Last updated: 2026-08-23** (CROWN MOVED again — to Short Veto +
-> Wild10, run #243; see the section directly below. Prior updates: 2026-08-22 ES-native
-> study, clean NEGATIVE; 2026-08-21 crown → Short Veto + the COMBINATION study.)
+> Living handoff doc. **Last updated: 2026-08-24** (CROWN PARITY vs NinjaTrader — PASS,
+> no leak; see the new section directly below. Prior updates: 2026-08-23 crown → Short
+> Veto + Wild10 run #243; 2026-08-22 ES-native study, clean NEGATIVE; 2026-08-21 crown →
+> Short Veto + the COMBINATION study.)
+
+---
+
+## ✅ 2026-08-24 — CROWN PARITY: engine vs NinjaTrader backtest of run #243 — PASS, NO LEAK
+
+**The owner's ask, verbatim: "backtest the strategy on NT8 and compare against edgelog's
+engine to compare results. hopefully they are the same and no leaks."** Done as a
+cross-engine, trade-for-trade reconcile of the crowned run-#243 config (44 / 0.75 / 1.5 /
+vwap / bandwidth k1.75 + `daytype_mode='skip_bot_short'` 0.20 + `vol_skip_pct=90`), gate
+OFF on both sides, commissions off on both sides. STUDIES board rows **588–589**.
+
+**How it ran.** The NinjaScript port cannot take historical fills on a chart since the
+2026-08-19 ghost-position fix and the Strategy Analyzer cannot be driven headlessly, so a
+new default-OFF knob `HistFills` was added to `tools/nt/EdgeLogNOISE.cs` (Analyzer-style
+full-size historical fills on a chart; NEVER for a live leg), and a second, bridge-managed
+grid row **`EdgeLogNOISEPAR`** (Sim101, crown config, gate off, Qty 10 micros = $20/pt =
+one NQ) was created offline by `tools/nt_noise_parity_setup.py` and hosted on the live
+NOISE chart — **525 days of MNQ 5m, the longest window the NT feed serves** (28.5k bars,
+2025-03-17 → today; tradeable overlap after the 44-session warm-up: **2025-05-22 →
+2026-08-13**, master `NOADJ_NQ_5m_RTH` ends 08-19). Enable → historical pass → disable →
+self-dumped blotter in `C:\EdgeLog\nt_backtest`; engine side + matching + day-level filter
+comparison in `tools/nt_noise_parity_analyze.py`.
+
+**Headline (final round, both sides on non-back-adjusted data, port fix in):**
+
+| | engine | NinjaTrader | matched | identical exit bar |
+|---|---|---|---|---|
+| CROWN (filters ON) | 337 tr · $52,192 · PF 1.28 · DD $21,914 | 340 tr · $47,675 · PF 1.25 · DD $21,385 | **322** | **296** (PnL gap $-1,367 ≈ $4.6/tr, NT rounds stops to tick) |
+| BASE (filters OFF, control) | 431 tr | 432 tr | 409 | 379 |
+
+- **The leak question — CLEAN.** Both filters are computed from the PRIOR completed
+  session only, in both implementations (code-audited both sides: the engine's
+  `_vol_percentile` / `_daytype_pos` rank strictly-before with min 60 obs; the C# decides
+  once per session at the roll from `sessHi/sessLo/prevSessionClose` banked before the
+  roll, ranks before banking). Trade-level: the two engines vetoed the SAME days —
+  short-veto days agree 2/2 (2026-06-24, 2026-07-02), volatility-veto days agree 32/33.
+- **The single veto-day disagreement is calendar, not logic: 2026-07-06.** The NT chart
+  carries the July-3 half session (CME holiday calendar), so NT's "prior session" is that
+  quiet half day → no veto; the engine master has NO July-3 rows, so its prior is the wild
+  July-2 ((H−L)/C = 0.0327 = 98th pctile) → veto. Both are causal and correct on their own
+  data. Cost: one NT-only trade (−$290).
+- **Residual mismatches are data, not rules.** The BASE control run mismatches at the same
+  rate as CROWN, so nothing residual is filter-related: it is MNQ chart bars vs NQ master
+  bars flipping marginal band breaks and VWAP crossings (all 26 matched-but-different-exit
+  trades are the VWAP exit, 16 earlier / 10 later — two-sided, median 15 min), plus entry
+  prints 0.28 pts apart on average. Same signature and similar rate as the 2026-08-13
+  NT reconcile (184/191) and the TV reconcile.
+- **Hand-audited boundary days (≥3, raw-OHLC arithmetic):** 2026-07-06 (above);
+  2026-03-31 — vol veto at pct **90.87**, barely over the 90 bar, 229/252 sessions below,
+  BOTH engines vetoed (NT base 5 trades → crown 0); 2026-06-24 and 2026-07-02 — prior
+  close positions **0.157** and **0.090** vs the 0.20 threshold, BOTH engines removed
+  exactly the shorts and kept the longs.
+- **One real port gap FOUND AND FIXED:** the port refused entry signals inside the last
+  10 minutes of the session while the engine allows them through the second-to-last bar
+  (`1 <= k <= m-2`); every engine-only late-day unmatched trade in round one was this
+  rule. `EdgeLogNOISE.cs` now uses exactly `barOfDay>=1 && !lastBar`. The old behaviour
+  was conservative (port skipped trades, never invented them), so no recorded demo
+  results are inflated.
+- **Two NT data/config fixes shipped alongside:** (1) **MNQ merge policy was still
+  back-adjusted** — the 2026-08-13 "Merge Non Back Adjusted" fix had only been applied to
+  NQ; round one showed the decaying +1,027-pt price gap fingerprint until
+  `MasterInstruments.MergePolicy` was set to 2 for MNQ (this also puts the LIVE demo
+  NOISE chart on non-adjusted history, matching the house convention). (2) the demo
+  NOISE row's saved XML predated the four filter knobs and would have deserialized
+  DaytypeLo/VolSkipPct to out-of-[Range] zeros after the recompile (the silent-finalize
+  trap) — it was re-saved with explicit values that keep behaviour identical
+  (SkipBotShort=false, VolSkipOn=false).
+- **NT state after the study:** demo `EdgeLogNOISE` restored exactly as found (baseline
+  core + live gate ON, Qty 3, MNQ) and verified via the bridge, now exposing all four
+  knobs (OFF); `EdgeLogNOISEPAR` left DISABLED on Sim101 in the crown config for cheap
+  re-runs (it is NOT in the recover roster); watchdog re-armed. The recompile means the
+  running platform finally carries the filter knobs, so flipping the demo leg to the
+  crown config is now a pure owner call via the bridge.
+- **Caveat, carried honestly:** the comparison is engine-on-NQ vs NT-on-MNQ (the demo leg
+  trades micros, and the 525-day chart already existed). Prices track to ~a tick, but
+  MNQ volume ≠ NQ volume, so the session VWAP — the exit — differs at the margin; that is
+  the bulk of the 26 exit-bar flips. A future NQ-chart rerun would tighten the exit match
+  but cannot change the leak verdict.
+
+Regenerate: `tools/nt_noise_parity_setup.py` (offline row surgery, one-time),
+`tools/nt_noise_parity_analyze.py` (blotter matching + filter-day comparison; needs
+`EDGELOG_ROOT` pointed at a checkout with the master registry).
 
 ---
 

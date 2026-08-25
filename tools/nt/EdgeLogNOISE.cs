@@ -181,6 +181,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // deliberately flipped on the strategy row after an NT restart.
                 VolSkipOn      = false;
                 VolSkipPct     = 90.0;
+                HistFills      = false;
                 Qty            = 1;
                 GateEnabled    = true;
                 GateUrl        = "http://127.0.0.1:8392/gate/check?leg=NOISE_H_RF";
@@ -454,11 +455,15 @@ namespace NinjaTrader.NinjaScript.Strategies
             stopPlaced = false; stopLevel = double.NaN;
 
             // ── flat: look for a band-break entry at this bar's close ────────
-            // Skipped on the session's first bar, and inside the last two bars
-            // (the engine's k <= m-2 rule; session length is calendar knowledge,
-            // not look-ahead).
+            // Skipped on the session's first bar and on the session's LAST bar —
+            // exactly the engine's `1 <= k <= m-2` rule (barOfDay>=1 covers the
+            // low end, !lastBar the high end; session length is calendar
+            // knowledge, not look-ahead). The old extra `Time[0] < sessionEnd
+            // - 10min` guard blocked the final TWO signal bars the engine
+            // allows (fills at 15:50/15:55): the 2026-08-24 crown parity run
+            // showed every one of the engine's 5 unmatched late-day entries was
+            // this guard, a systematic one-sided divergence — removed.
             if (warm && barOfDay >= 1 && !lastBar
-                && Time[0] < sessionEnd.AddMinutes(-10)
                 && !double.IsNaN(ub) && !double.IsNaN(lb))
             {
                 bool longTrig  = Close[0] > ub;
@@ -483,8 +488,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                     // Live warm-up must not open a position: a ghost inherited from replay
                     // blocks the strategy from trading (ENGU-Q 08-17, ORB230 08-19).
                     // Strategy Analyzer stays full-size so backtests remain comparable.
+                    // HistFills (2026-08-24, parity tooling): a chart-hosted instance
+                    // normally takes NO historical fills (the ghost-position rule above),
+                    // which also means DumpBlotter has nothing to write. The engine-vs-NT
+                    // parity run needs a full historical blotter WITHOUT the Strategy
+                    // Analyzer (which cannot be driven headlessly), so this knob — default
+                    // OFF, never enabled on a live leg — restores Analyzer-style full-size
+                    // historical fills on a chart. Realtime behaviour is untouched.
                     int q = State == State.Realtime ? GateQty()
-                          : (IsInStrategyAnalyzer ? Qty : 0);
+                          : ((IsInStrategyAnalyzer || HistFills) ? Qty : 0);
                     if (q > 0)
                     {
                         if (longTrig) EnterLong(q, "NZ");
@@ -549,6 +561,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty, Range(50.0, 100.0)]
         [Display(Name = "Volatility percentile threshold (skip at/above)", Order = 13, GroupName = "NOISE")]
         public double VolSkipPct { get; set; }
+
+        // Parity tooling only (2026-08-24): full-size HISTORICAL fills on a chart, so a
+        // chart-hosted instance can produce a complete backtest blotter for reconcile.
+        // NEVER turn this on for a live leg — historical fills recreate the ghost-position
+        // problem the q=0 rule exists to prevent. Default OFF.
+        [NinjaScriptProperty]
+        [Display(Name = "Historical fills ON (parity backtest only)", Order = 14, GroupName = "NOISE")]
+        public bool HistFills { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "ML gate ON (ask the local bouncer before entering)", Order = 7, GroupName = "ML GATE")]
