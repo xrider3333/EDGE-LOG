@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.259';
+const VERSION='73.260';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.260',date:'2026-08-25',notes:['THE PAPER LOG NOW RECORDS TODAY’S NINJATRADER BACKTESTS of ENGU-Q and ORB, next to the NOISE check that already passed. Neither matches yet, and the panel says exactly how far off each one is and why - ENGU-Q matched 1 of 13 because one early fill difference let NinjaTrader ride a single trade for twelve days across a stretch where the engine took eleven; ORB took zero trades against the engine’s two and is still being investigated.','A CROSS-ENGINE VERDICT THAT IS NOT A PASS NOW RENDERS RED. Before this, anything that had ever been run rendered green, so a failed check would have worn the colour of a passed one.']},
 {v:'73.259',date:'2026-08-24',notes:['NOISE CROWN PARITY, ENGINE VS NINJATRADER (STUDIES rows 588-589): the crowned run-243 config ran as one backtest in BOTH engines over the longest window NinjaTrader serves (525 days) and matched 322/340 trades, 296 on the identical exit bar. VERDICT: no look-ahead leak - both new filters decide from the prior completed session on both sides; the single veto-day disagreement is the July-3 half-session calendar difference, not logic. One real port gap fixed (the NinjaScript port refused the last two entry bars of each session); MNQ merge policy aligned to non-back-adjusted. Full write-up in NOISE.md.']},
 {v:'73.257',date:'2026-08-24',notes:['PAPER: TWO NEW SHADOW LEGS ON THE NOISE CROWN (owner ask) - the run-243 configuration with its own hybrid gate, and the same configuration with the run-243 size tilt.','THE TILT LEG: every trade the crown takes is taken, and an xgb model score only sets the size (half under 45 percent, normal 45 to 55, double above 55, average size matched to the raw leg). The model was picked by the standing pre-registered tilt metric - recovery on the years the rule may legally see, where xgb/tier is first of ten - not the extra-trees tilt that happens to win the lockbox. The tilt mechanism itself was pre-registered dead for backtest adoption on 2026-08-10 (zero of twelve cleared the bar), so this leg gathers forward evidence only. The nightly shadow engine gained a proper TILT mode for it, with a frozen size normalisation calibrated against run 243 own window (it reproduces the run stored tilt row exactly). Studies board row 587.','THE HYBRID LEG - THE NOISE CROWN WITH ITS OWN GATE (owner ask). The crowned run-243 configuration now also runs with run 243 own chosen hybrid gate on top: a second model, trained only on finished trades, skips entries scoring under 50 percent and sizes the survivors by score. The raw crown leg is its exact control - same settings, gate off - so any gap between the two rows is the gate and nothing else.','HONESTY NOTES, recorded before any forward trade exists: the model is EXTRA-TREES, the one run 243 own selection rule chose on the years it may legally see - NOT the xgb tab on the report, which does not clear the ungated baseline on those years and has the worst lockbox slice of the five. And the gate family is CLOSED for backtest adoption after two lockbox failures; run 243 own card says LOCKBOX FAILED for its gate. This leg gathers forward evidence only and can never be crowned from backtest numbers.','STUDIES board: the paper study gains row 586 for this leg, PAPER pill, shadow layer. PAPER_TRADING.md carries the full provenance and the written-down claim: from 2026-08-24 the gated row beats the raw crown on recovery factor, or the in-sample shine was fit.','The runner picks the new leg up on its next restart - no restart was done in this push.']},{v:'73.256',date:'2026-08-24',notes:['A ONE-COLUMN RAW MATRIX NOW SAYS WHY (owner: run 243 RAW showed one config). Reconciled against the saved run data: a pinned single-config validate holds exactly ONE configuration by design (every knob fixed), and every such run since 220 saved 1 of 1 evaluated - nothing was skipped. The screen just never said so. Now: the 1E RAW tab carries a PINNED SINGLE-CONFIG RUN line (1 of 1 evaluated, with a pointer to the family latest full sweep), the 1A funnel key reads RAW (1 of 1) with the same explanation on hover, and the funnel header swaps the useless one-curve slider for a PINNED - 1 OF 1 EVALUATED chip.','SWEEP RUNS SAY HOW MUCH IS SHOWN: the RAW tab on a real sweep now prints, e.g., showing the top 10 of 300 evaluated configs - so the crown-pool column count is never mistaken for the evaluated count.','IF THE DATABASE SIZE-GUARD EVER TRIMS A RUN, THE RAW TAB SAYS SO in amber, naming what was dropped (audit found exactly one affected run: 228 lost its per-config scatter points; champion and WF / LB numbers are never trimmed).','HOW TO READ A PINNED VALIDATE is now written up in BACKTESTING_STACK.md.']},
 {v:'73.255',date:'2026-08-24',notes:['THE CALENDAR SHOWS REAL RED AND GREEN AGAIN. It was using the theme’s own up and down colours, and on the monochrome theme both of those are grey - so a winning day and a losing day looked identical. The squares now use fixed red and green, the same ones the money figures on this tab already use, so they read the same on every theme.','EVERY STRATEGY ON THE LIST NOW CARRIES ITS RUN NUMBER. NOISE always did; ORB and ENGU-Q did not, so the rail was showing two different naming schemes side by side. They read ORB-234, ENGU-Q-226 and ENGU-Q-249 now.','FIXED A WRONG NUMBER while doing it: the rf hybrid NOISE row was labelled 225 but actually runs 231. It says NOISE-231 now.']},
@@ -20797,12 +20798,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const XENGINE=[
         {leg:'NOISE',date:'2026-08-13',eng:191,tv:189,nt:192,
          tvIdent:'157/159',ntIdent:'184/184',tvUsd:191,ntUsd:0,verdict:'PASS'},
-        {leg:'ENGUQ',date:null,eng:null,tv:null,nt:null,
-         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
-         note:'TradingView has no 1-minute history this far back; the NinjaTrader backtest has not been run.'},
-        {leg:'ORB',date:null,eng:null,tv:null,nt:null,
-         tvIdent:null,ntIdent:null,tvUsd:null,ntUsd:null,verdict:'NEVER RUN',
-         note:'Not reconciled against any second engine.'},
+        {leg:'ENGUQ',date:'2026-08-25',eng:13,tv:null,nt:2,
+         tvIdent:null,ntIdent:'1/13',tvUsd:null,ntUsd:null,verdict:'DIVERGES',
+         note:'First NinjaTrader backtest of the #226 config (EdgeLogENGUQPAR, 30 days of 1m ETH). '
+             +'Over the shared window the engine took 13 trades and NinjaTrader 2, with 1 matched. '
+             +'Root cause is STRUCTURAL, not a wrong number: NT fills a close signal at the NEXT bar open '
+             +'(honest, the engine fills at the signal close), and on a strategy whose trail can hold for days '
+             +'a one-bar entry difference decides whether the trail activates at all. NT rode ONE breakeven '
+             +'trade from 08-06 to 08-18 across the stretch where the engine took 11. The two do not disagree '
+             +'about the rules; they disagree about one early fill and then compound. TradingView cannot check '
+             +'this leg (no 1m history that far back).'},
+        {leg:'ORB',date:'2026-08-25',eng:2,tv:null,nt:0,
+         tvIdent:null,ntIdent:'0/2',tvUsd:null,ntUsd:null,verdict:'DIVERGES',
+         note:'First NinjaTrader backtest of the #234 exit (EdgeLogORBPAR, 20 days of 5m RTH). '
+             +'NinjaTrader took ZERO trades where the engine recorded 2 (08-11, 08-12). Under investigation - '
+             +'the engine itself has taken nothing since 08-13, so the window is thin; a longer chart window '
+             +'is the next step before calling it.'},
       ];
       // Newest report that actually carries a reconcile block. Reports written before
       // 2026-08-13 have none, and falling back to an older one would silently show
@@ -20903,7 +20914,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             xHtml='<div style="margin-top:6px;padding-top:5px;border-top:1px solid var(--border2);font-size:8px;color:var(--text4);line-height:1.7">'
               +'<span style="color:var(--text5)">TV</span> '+(x.tv!=null?(x.tv+' tr'+(x.tvIdent?' ('+x.tvIdent+')':'')):'never run')
               +' · <span style="color:var(--text5)">NT</span> '+(x.nt!=null?(x.nt+' tr'+(x.ntIdent?' ('+x.ntIdent+')':'')):'never run')
-              +'<br>'+_mp2(x.verdict||'—',never?'#e24b4a':'#1d9e75')+' <span style="color:var(--text5)">'+(x.date?('checked '+x.date):'never checked')+'</span></div>';
+              +'<br>'+_mp2(x.verdict||'—',(x.verdict==='PASS')?'#1d9e75':'#e24b4a')+' <span style="color:var(--text5)">'+(x.date?('checked '+x.date):'never checked')+'</span></div>';
           }
         }
         // The config the leg is RUNNING lives in the tile itself (owner: "place the config

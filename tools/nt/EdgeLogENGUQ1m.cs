@@ -203,7 +203,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     + ", risk " + risk.ToString("F2") + ", stop " + sl.ToString("F2")
                     + ", trailing=" + trailActive);
                 ExitLongStopMarket(0, true, Position.Quantity,
-                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "");   // "" = any entry: an ADOPTED position has no entry signal, and NT silently ignores exits tied to one (live 2026-08-25)
             }
             catch (Exception ex) { Print("ENGUQ resume failed: " + ex.Message); }
         }
@@ -380,7 +380,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         // un-stoppable position. Cannot happen with a BUY limit BELOW
                         // the signal close (a lower fill can only widen risk), but a
                         // partial or out-of-band fill must not be left unguarded.
-                        ExitLong(Qty, "EQx", "EQ");
+                        ExitLong(Qty, "EQx", "");   // "" = any entry: an ADOPTED position has no entry signal, and NT silently ignores exits tied to one (live 2026-08-25)
                         limitPending = false; inPos = false;
                         return;
                     }
@@ -388,7 +388,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     trailActive = false; inPos = true; limitPending = false;
                     SaveState();
                     ExitLongStopMarket(0, true, Qty,
-                        Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+                        Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "");   // "" = any entry: an ADOPTED position has no entry signal, and NT silently ignores exits tied to one (live 2026-08-25)
                     return;   // engine never management-checks the ENTRY bar itself;
                               // trailing/breakeven start on the bar AFTER the fill.
                 }
@@ -418,7 +418,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (trailActive) sl = Math.Max(sl, High[0] - TrailFrac * risk);
                 if (BreakevenR > 0 && High[0] - ep >= BreakevenR * risk) sl = Math.Max(sl, ep);
                 ExitLongStopMarket(0, true, Qty,
-                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "");   // "" = any entry: an ADOPTED position has no entry signal, and NT silently ignores exits tied to one (live 2026-08-25)
                 SaveState();
                 return;                                     // engine: no new signal while in a trade
             }
@@ -514,7 +514,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 SaveState();
                 EnterLong(Qty, "EQ");
                 ExitLongStopMarket(0, true, Qty,
-                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "EQ");
+                    Instrument.MasterInstrument.RoundToTickSize(sl), "EQx", "");   // "" = any entry: an ADOPTED position has no entry signal, and NT silently ignores exits tied to one (live 2026-08-25)
             }
         }
 
