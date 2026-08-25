@@ -638,6 +638,129 @@ def relaunch_and_verify():
     return ok
 
 
+
+def add_parity_rows(dry):
+    """Insert the two PARITY strategy rows (2026-08-25) -- disabled clones of the live
+    ENGU-Q and ORB rows with HistFills=true, so enabling them via the bridge runs a full
+    historical backtest on their own chart and DumpBlotter writes the trade list to
+    C:\\EdgeLog\\nt_backtest for the engine reconcile. Same owner-granted offline-surgery
+    capability as --add-orb230, same four records per row, and the identical pattern the
+    2026-08-24 NOISE parity work used (EdgeLogNOISEPAR, id 386606476).
+
+      EdgeLogENGUQPAR (id 386606477): the run #265 config the paper board runs since
+        2026-08-21 -- the live row's #226 knobs plus ErLen=60 / ErTh=0.25 -- on
+        Sim101 / NQ 09-26, hosted on the live ENGU-Q 1m chart. For the ENGUQ_L50 (#249)
+        leg the SAME row is re-run later with ErTh=0 / LimitAtr=0.5 via setparam.
+      EdgeLogORBPAR (id 386606478): the run #234 exit the paper leg runs since
+        2026-08-21 -- PartialExitR=0, TrailBars=0, TargetR=5.5, BreakevenR=1.0 -- on the
+        live ORB 5m chart. The live ORB230 row is left EXACTLY as it is (still the #230
+        partial+trail exit; moving it to #234 is an owner call, now measurable).
+
+    Every injected element is written at its .cs DECLARATION position (XmlSerializer
+    element order), and the new knobs were declared so that a LIVE row's missing element
+    deserializes in-range (no [Range] on ErLen -- the silent-finalize trap).
+    NT must be STOPPED. Both stores are backed up by the caller's runbook step.
+    """
+    import re
+    import sqlite3
+    CRLF2 = "\r\n  "
+    jobs = [
+        dict(name="EdgeLogENGUQPAR", src=ENGUQ_STRATEGY_ID, new_id=386606477, edits=[
+            ("&lt;Name&gt;EdgeLogENGUQ1m&lt;/Name&gt;",
+             "&lt;Name&gt;EdgeLogENGUQPAR&lt;/Name&gt;"),
+            ("&lt;LimitAtr&gt;0&lt;/LimitAtr&gt;" + CRLF2 + "&lt;Qty&gt;1&lt;/Qty&gt;",
+             "&lt;LimitAtr&gt;0&lt;/LimitAtr&gt;" + CRLF2
+             + "&lt;ErLen&gt;60&lt;/ErLen&gt;" + CRLF2
+             + "&lt;ErTh&gt;0.25&lt;/ErTh&gt;" + CRLF2
+             + "&lt;HistFills&gt;true&lt;/HistFills&gt;" + CRLF2
+             + "&lt;Qty&gt;1&lt;/Qty&gt;"),
+        ]),
+        dict(name="EdgeLogORBPAR", src=ORB230_STRATEGY_ID, new_id=386606478, edits=[
+            ("&lt;Name&gt;EdgeLogORB230&lt;/Name&gt;",
+             "&lt;Name&gt;EdgeLogORBPAR&lt;/Name&gt;"),
+            ("&lt;PartialExitR&gt;3&lt;/PartialExitR&gt;",
+             "&lt;PartialExitR&gt;0&lt;/PartialExitR&gt;"),
+            ("&lt;TrailBars&gt;3&lt;/TrailBars&gt;",
+             "&lt;TrailBars&gt;0&lt;/TrailBars&gt;"),
+            ("&lt;SkipHolidays&gt;true&lt;/SkipHolidays&gt;" + CRLF2 + "&lt;Qty&gt;1&lt;/Qty&gt;",
+             "&lt;SkipHolidays&gt;true&lt;/SkipHolidays&gt;" + CRLF2
+             + "&lt;BreakevenR&gt;1&lt;/BreakevenR&gt;" + CRLF2
+             + "&lt;HistFills&gt;true&lt;/HistFills&gt;" + CRLF2
+             + "&lt;Qty&gt;1&lt;/Qty&gt;"),
+        ]),
+    ]
+    SIM101 = 2
+    NQ_0926 = 699839150764672
+
+    con = sqlite3.connect(f"file:{NT_DB}?mode=ro", uri=True)
+    con.text_factory = bytes
+    plans = []
+    try:
+        for j in jobs:
+            if con.execute("SELECT COUNT(*) FROM Strategies WHERE Id=? OR Name=?",
+                           (j["new_id"], j["name"].encode())).fetchone()[0]:
+                log(f"{j['name']} already exists - skipped")
+                continue
+            row = con.execute("SELECT Category, Classname, IsReplay, IsResetOnNewTradingDay, "
+                              "IsTerminal, ServerId, Template, Userdata, Workspace "
+                              "FROM Strategies WHERE Id=?", (j["src"],)).fetchone()
+            if row is None:
+                raise SystemExit(f"{j['name']}: source row {j['src']} not found")
+            ud = row[7].decode("utf-16-le")
+            for old, new in j["edits"]:
+                if ud.count(old) != 1:
+                    raise SystemExit(f"{j['name']}: token not found exactly once: {old[:70]}")
+                ud = ud.replace(old, new, 1)
+            plans.append((j, row, ud))
+    finally:
+        con.close()
+    if not plans:
+        return
+
+    w = open(WORKSPACE, encoding="utf-8", newline="").read()
+    ws_edits = []
+    for j, row, ud in plans:
+        anchor = f'<Strategy0 BarsIndex="0">{j["src"]}</Strategy0>'
+        if f'>{j["new_id"]}</Strategy1>' in w:
+            continue
+        if w.count(anchor) != 1:
+            raise SystemExit(f"{j['name']}: workspace chart anchor not found exactly once")
+        ws_edits.append((anchor, anchor
+                         + f'\r\n            <Strategy1 BarsIndex="0">{j["new_id"]}</Strategy1>'))
+
+    if dry:
+        for j, row, ud in plans:
+            log(f"DRY RUN: would insert {j['name']} as id {j['new_id']} "
+                f"(Sim101, NQ 09-26, HistFills ON, disabled)")
+        log(f"DRY RUN: {len(ws_edits)} workspace edit(s)")
+        return
+
+    con = sqlite3.connect(NT_DB)
+    con.text_factory = bytes
+    try:
+        for j, row, ud in plans:
+            con.execute("INSERT INTO Strategies (Id, Category, Classname, IsReplay, "
+                        "IsResetOnNewTradingDay, IsTerminal, Name, ServerId, Template, "
+                        "Userdata, Workspace) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        (j["new_id"], row[0], row[1], row[2], row[3], row[4],
+                         j["name"].encode(), row[5], row[6],
+                         ud.encode("utf-16-le"), row[8]))
+            con.execute("INSERT INTO Strategy2Account (Account, Strategy, Nr) VALUES (?,?,0)",
+                        (SIM101, j["new_id"]))
+            con.execute("INSERT INTO Strategy2Instrument (Instrument, Strategy, Nr) VALUES (?,?,0)",
+                        (NQ_0926, j["new_id"]))
+            log(f"db: {j['name']} inserted as id {j['new_id']} (Sim101, NQ 09-26, disabled)")
+        con.commit()
+    finally:
+        con.close()
+
+    for anchor, ins in ws_edits:
+        w = w.replace(anchor, ins, 1)
+    if ws_edits:
+        open(WORKSPACE, "w", encoding="utf-8", newline="").write(w)
+        log(f"workspace: {len(ws_edits)} parity row(s) hosted on their live charts")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--noise-micros", action="store_true")
@@ -645,6 +768,8 @@ def main():
                     help="move ENGU-Q to the 24h session + run #226's clock-scaled lookbacks")
     ap.add_argument("--recycle-rails", action="store_true",
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
+    ap.add_argument("--add-parity-rows", action="store_true",
+                    help="insert the disabled EdgeLogENGUQPAR + EdgeLogORBPAR backtest rows")
     ap.add_argument("--add-orb230", action="store_true",
                     help="create the EdgeLogORB230 strategy row (run #230 port) on ORBV2's chart")
     ap.add_argument("--daily-loss", type=int, default=None,
@@ -759,6 +884,16 @@ def main():
         log("RESULT: " + ("PASS - ORBV2 gone, all three legs Realtime"
                           if ok else "INCOMPLETE - read the lines above"))
         return 0 if ok else 1
+    if a.add_parity_rows:
+        # NT must be stopped for real surgery; the function itself only touches the
+        # stores, so refuse here the same way --add-orb230 does below.
+        _up = subprocess.run(["powershell", "-NoProfile", "-Command",
+                              "(Get-Process NinjaTrader -ErrorAction SilentlyContinue) -ne $null"],
+                             capture_output=True, text=True).stdout.strip() == "True"
+        if not a.dry_run and _up:
+            raise SystemExit('NinjaTrader is RUNNING - stop it first (it rewrites both stores on exit)')
+        add_parity_rows(a.dry_run)
+        return 0
     if a.add_orb230:
         if a.dry_run:
             add_orb230(True)

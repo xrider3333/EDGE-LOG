@@ -74,6 +74,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         // ── position state ───────────────────────────────────────────────────
         private double entryPx, stopPx, tgtPx, ptgtPx, riskPts;
         private bool   partialDone;
+        private bool   beArmed;             // breakeven armed on a finished close (ORB_3_6)
         private int    entryBar = -1;
         private int    dir;                 // +1 long / -1 short, 0 flat
 
@@ -230,6 +231,27 @@ namespace NinjaTrader.NinjaScript.Strategies
             // ── manage an open position ──────────────────────────────────────
             if (dir != 0 && Position.MarketPosition != MarketPosition.Flat)
             {
+                // BREAKEVEN (engine ORB_3_6 semantics, the run #234 exit): once a
+                // FINISHED bar closes BreakevenR x risk in favor of the trade, the stop
+                // moves to ENTRY and never back. Armed on the close and submitted now,
+                // so it can only act from the NEXT bar - identical to the engine's
+                // "armed on close, acts next bar" rule, which is what makes it
+                // live-legal. Arms off the ORIGINAL entry/risk, independent of the
+                // partial; the trail (when active) still ratchets on top. 0 = off,
+                // which is also what an older saved row's missing XML element
+                // deserializes to, so adding this knob changes nothing until set.
+                bool beNow = false;
+                if (BreakevenR > 0)
+                {
+                    if (!beArmed && (dir > 0 ? Close[0] >= entryPx + BreakevenR * riskPts
+                                             : Close[0] <= entryPx - BreakevenR * riskPts))
+                        beArmed = true;
+                    if (beArmed)
+                    {
+                        if (dir > 0 && entryPx > stopPx) { stopPx = entryPx; beNow = true; }
+                        else if (dir < 0 && entryPx < stopPx) { stopPx = entryPx; beNow = true; }
+                    }
+                }
                 // Trail the runner AFTER the partial has filled, off the PRIOR bars'
                 // extremes (never this bar) -- the engine's sl[ts:k] / sh[ts:k].
                 if (TrailBars > 0 && (PartialExitR == 0 || partialDone))
@@ -251,6 +273,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (dir > 0) ExitLongStopMarket (0, true, Position.Quantity, sp, "ORBstop", "ORB");
                     else         ExitShortStopMarket(0, true, Position.Quantity, sp, "ORBstop", "ORB");
                 }
+                else if (beNow)
+                {
+                    // no trail active - the breakeven move still has to reach the broker
+                    double sp = Instrument.MasterInstrument.RoundToTickSize(stopPx);
+                    if (dir > 0) ExitLongStopMarket (0, true, Position.Quantity, sp, "ORBstop", "ORB");
+                    else         ExitShortStopMarket(0, true, Position.Quantity, sp, "ORBstop", "ORB");
+                }
                 if (!lastBar) { barOfDay++; return; }
             }
             if (dir != 0 && Position.MarketPosition == MarketPosition.Flat)
@@ -263,7 +292,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             // flat -- blocked from trading for the rest of the day. Strategy Analyzer runs
             // are exempt: they are historical BY DEFINITION, and blocking them would dump
             // an empty blotter and break the engine reconcile.
-            if (dir == 0 && (State == State.Realtime || IsInStrategyAnalyzer)
+            if (dir == 0 && (State == State.Realtime || IsInStrategyAnalyzer || HistFills)
                 && !tradedThisSession && !sessionSkipped && !lastBar
                 && rng > 0 && !double.IsNaN(upLvl)
                 && Time[0] < sessionEnd.AddMinutes(-10))
@@ -299,6 +328,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     tgtPx    = TargetR      > 0 ? (dir > 0 ? entryPx + TargetR      * riskPts : entryPx - TargetR      * riskPts) : double.NaN;
                     ptgtPx   = PartialExitR > 0 ? (dir > 0 ? entryPx + PartialExitR * riskPts : entryPx - PartialExitR * riskPts) : double.NaN;
                     partialDone = false;
+                    beArmed  = false;
                     entryBar = CurrentBar;
                     tradedThisSession = true;              // engine takes one entry per session
 
@@ -319,8 +349,13 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (TargetR > 0)
                     {
                         double tp = Instrument.MasterInstrument.RoundToTickSize(tgtPx);
-                        if (dir > 0) ExitLongLimit (0, true, Qty, tp, "ORBtarget", "ORB");
-                        else         ExitShortLimit(0, true, Qty, tp, "ORBtarget", "ORB");
+                        // With the partial OFF the engine exits the WHOLE position at the
+                        // target; the one-lot limit only makes sense as half of the
+                        // partial+trail scale-out. The live row runs PartialExitR=3, so
+                        // its behaviour is untouched by this branch.
+                        int tq = PartialExitR > 0 ? Qty : total;
+                        if (dir > 0) ExitLongLimit (0, true, tq, tp, "ORBtarget", "ORB");
+                        else         ExitShortLimit(0, true, tq, tp, "ORBtarget", "ORB");
                     }
                     Print(String.Format("EdgeLogORB230 {0} entry {1} @ {2} risk {3:0.00} stop {4:0.00} partial {5:0.00} target {6:0.00}",
                         Time[0], dir > 0 ? "LONG" : "SHORT", entryPx, riskPts, stopPx, ptgtPx, tgtPx));
@@ -377,6 +412,18 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Skip half-days / holidays", Order = 9, GroupName = "ORB 230")]
         public bool SkipHolidays { get; set; }
+
+        // Both declared LAST on purpose: XmlSerializer writes elements in declaration
+        // order, and the live row's saved XML predates them - a missing element
+        // deserializes to the CLR default (0.0 / false), both in range, so the live
+        // row keeps trading exactly as before until somebody sets them.
+        [NinjaScriptProperty, Range(0.0, 10.0)]
+        [Display(Name = "Breakeven (R, 0=off) - the run #234 exit lever", Order = 98, GroupName = "ORB")]
+        public double BreakevenR { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Historical fills ON (parity backtest only)", Order = 99, GroupName = "ORB")]
+        public bool HistFills { get; set; }
 
         [NinjaScriptProperty, Range(1, 10)]
         [Display(Name = "Quantity PER LOT (2x is entered)", Order = 10, GroupName = "ORB 230")]

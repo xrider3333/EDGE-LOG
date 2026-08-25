@@ -237,7 +237,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 StopMult   = 1.0;
                 ActR       = 2.5;
                 TrailFrac  = 2.5;
-                BreakevenR = 1.5;
+                BreakevenR = 1.5;
+                ErLen      = 60;
+                ErTh       = 0.0;   // OFF = the #226 behaviour the live row runs
                 LimitAtr   = 0.0;
                 Qty        = 1;
             }
@@ -435,7 +437,15 @@ namespace NinjaTrader.NinjaScript.Strategies
             // FLAT and in sync with the account, and takes the first REAL signal.
             // Management above is deliberately NOT gated -- a genuine live position must
             // still be trailed and stopped after a restart.
-            if (State != State.Realtime && !IsInStrategyAnalyzer) return;
+            // HistFills (2026-08-25, parity tooling - same knob EdgeLogNOISE grew a day
+            // earlier): a chart-hosted instance normally takes NO historical fills (the
+            // ghost-position rule), which also means DumpBlotter has nothing to write.
+            // The engine-vs-NT parity run needs a full historical blotter WITHOUT the
+            // Strategy Analyzer (which cannot be driven headlessly), so this knob -
+            // default OFF, never enabled on the live leg - restores Analyzer-style
+            // historical fills on a chart. Realtime behaviour is untouched, and the
+            // SaveState guard already refuses to persist non-Realtime trades.
+            if (State != State.Realtime && !IsInStrategyAnalyzer && !HistFills) return;
 
             if (CurrentBar < TlLen + 1) return;
 
@@ -446,6 +456,23 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 if (CurrentBar < 19) return;
                 if (!(Volume[0] >= VolMult * volAvg[0])) return;        // volume spike
+            }
+
+            // ── efficiency-ratio gate (engine ENGUQ_1M_ETH_ER_1_0, the #265 leg) ──
+            // Kaufman ER of the last ErLen closes: |net move| / sum(|bar-to-bar moves|),
+            // evaluated on the signal bar's own close - 1.0 is a straight line, 0 is
+            // churn. Enter only when er >= ErTh. ErTh=0 = gate OFF = the #226 parity
+            // anchor, and 0 is also what the live row's older XML deserializes to, so
+            // this knob changes nothing until somebody sets it after an NT restart.
+            if (ErTh > 0)
+            {
+                int erL = Math.Max(2, ErLen);
+                if (CurrentBar < erL) return;
+                double chg = Math.Abs(Close[0] - Close[erL]);
+                double path = 0;
+                for (int b = 0; b < erL; b++) path += Math.Abs(Close[b] - Close[b + 1]);
+                double er = path > 0 ? chg / path : 0.0;   // engine: no path = fail
+                if (er < ErTh) return;
             }
 
             // descending trendline: linear fit of the PRIOR TlLen highs (excl. current)
@@ -547,6 +574,26 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty, Range(0.0, 1.0)]
         [Display(Name = "Shallow limit depth (x ATR, 0=market at close)", Order = 11, GroupName = "ENGU-Q")]
         public double LimitAtr { get; set; }
+
+        // Declared LAST on purpose: XmlSerializer writes elements in declaration
+        // order, and every existing saved row predates these knobs - a missing element
+        // deserializes to the CLR default, so old rows keep trading unchanged.
+        //
+        // ErLen carries NO [Range] attribute DELIBERATELY: a missing int deserializes
+        // to 0, and NinjaTrader enforces [Range] at STARTUP with only a popup (the
+        // silent-finalize trap this project already paid for once, NT_RUNBOOK.md).
+        // The entry code clamps it to >= 2 instead.
+        [NinjaScriptProperty]
+        [Display(Name = "Efficiency-ratio window (bars)", Order = 97, GroupName = "ENGU-Q")]
+        public int ErLen { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Efficiency-ratio floor (0=off) - the run #265 gate", Order = 98, GroupName = "ENGU-Q")]
+        public double ErTh { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Historical fills ON (parity backtest only)", Order = 99, GroupName = "ENGU-Q")]
+        public bool HistFills { get; set; }
 
         [NinjaScriptProperty, Range(1, 10)]
         [Display(Name = "Quantity", Order = 12, GroupName = "ENGU-Q")]
