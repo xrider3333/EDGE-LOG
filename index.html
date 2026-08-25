@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.260';
+const VERSION='73.261';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.261',date:'2026-08-25',notes:['THE CANDLE CHART LOADS MORE BARS WHEN YOU RUN OUT (owner: scrolling just moved the axes and never loaded more). Pan or zoom past the edge of what is loaded and the chart fetches a wider stretch of sessions from your PC, keeping what you were looking at anchored in place. A + MORE BARS button does the same on demand.','RTH / ETH TOGGLE ON THE CHART (owner ask). A chip in the chart toolbar shows which session you are on and flips to the other - the same trade redrawn on 24-hour bars or back to regular hours. Works on paper trades and run-report trades alike.','ALL CHARTS BUTTON ON THE PAPER TRADES TABLE - opens every trade shown as its own live chart in one scrollable window, without selecting rows first. (Selecting a few rows and OPEN N CHARTS still works as before.)']},
 {v:'73.260',date:'2026-08-25',notes:['THE PAPER LOG NOW RECORDS TODAY’S NINJATRADER BACKTESTS of ENGU-Q and ORB, next to the NOISE check that already passed. Neither matches yet, and the panel says exactly how far off each one is and why - ENGU-Q matched 1 of 13 because one early fill difference let NinjaTrader ride a single trade for twelve days across a stretch where the engine took eleven; ORB took zero trades against the engine’s two and is still being investigated.','A CROSS-ENGINE VERDICT THAT IS NOT A PASS NOW RENDERS RED. Before this, anything that had ever been run rendered green, so a failed check would have worn the colour of a passed one.']},
 {v:'73.259',date:'2026-08-24',notes:['NOISE CROWN PARITY, ENGINE VS NINJATRADER (STUDIES rows 588-589): the crowned run-243 config ran as one backtest in BOTH engines over the longest window NinjaTrader serves (525 days) and matched 322/340 trades, 296 on the identical exit bar. VERDICT: no look-ahead leak - both new filters decide from the prior completed session on both sides; the single veto-day disagreement is the July-3 half-session calendar difference, not logic. One real port gap fixed (the NinjaScript port refused the last two entry bars of each session); MNQ merge policy aligned to non-back-adjusted. Full write-up in NOISE.md.']},
 {v:'73.257',date:'2026-08-24',notes:['PAPER: TWO NEW SHADOW LEGS ON THE NOISE CROWN (owner ask) - the run-243 configuration with its own hybrid gate, and the same configuration with the run-243 size tilt.','THE TILT LEG: every trade the crown takes is taken, and an xgb model score only sets the size (half under 45 percent, normal 45 to 55, double above 55, average size matched to the raw leg). The model was picked by the standing pre-registered tilt metric - recovery on the years the rule may legally see, where xgb/tier is first of ten - not the extra-trees tilt that happens to win the lockbox. The tilt mechanism itself was pre-registered dead for backtest adoption on 2026-08-10 (zero of twelve cleared the bar), so this leg gathers forward evidence only. The nightly shadow engine gained a proper TILT mode for it, with a frozen size normalisation calibrated against run 243 own window (it reproduces the run stored tilt row exactly). Studies board row 587.','THE HYBRID LEG - THE NOISE CROWN WITH ITS OWN GATE (owner ask). The crowned run-243 configuration now also runs with run 243 own chosen hybrid gate on top: a second model, trained only on finished trades, skips entries scoring under 50 percent and sizes the survivors by score. The raw crown leg is its exact control - same settings, gate off - so any gap between the two rows is the gate and nothing else.','HONESTY NOTES, recorded before any forward trade exists: the model is EXTRA-TREES, the one run 243 own selection rule chose on the years it may legally see - NOT the xgb tab on the report, which does not clear the ungated baseline on those years and has the worst lockbox slice of the five. And the gate family is CLOSED for backtest adoption after two lockbox failures; run 243 own card says LOCKBOX FAILED for its gate. This leg gathers forward evidence only and can never be crowned from backtest numbers.','STUDIES board: the paper study gains row 586 for this leg, PAPER pill, shadow layer. PAPER_TRADING.md carries the full provenance and the written-down claim: from 2026-08-24 the gated row beats the raw crown on recovery factor, or the in-sample shine was fit.','The runner picks the new leg up on its next restart - no restart was done in this push.']},{v:'73.256',date:'2026-08-24',notes:['A ONE-COLUMN RAW MATRIX NOW SAYS WHY (owner: run 243 RAW showed one config). Reconciled against the saved run data: a pinned single-config validate holds exactly ONE configuration by design (every knob fixed), and every such run since 220 saved 1 of 1 evaluated - nothing was skipped. The screen just never said so. Now: the 1E RAW tab carries a PINNED SINGLE-CONFIG RUN line (1 of 1 evaluated, with a pointer to the family latest full sweep), the 1A funnel key reads RAW (1 of 1) with the same explanation on hover, and the funnel header swaps the useless one-curve slider for a PINNED - 1 OF 1 EVALUATED chip.','SWEEP RUNS SAY HOW MUCH IS SHOWN: the RAW tab on a real sweep now prints, e.g., showing the top 10 of 300 evaluated configs - so the crown-pool column count is never mistaken for the evaluated count.','IF THE DATABASE SIZE-GUARD EVER TRIMS A RUN, THE RAW TAB SAYS SO in amber, naming what was dropped (audit found exactly one affected run: 228 lost its per-config scatter points; champion and WF / LB numbers are never trimmed).','HOW TO READ A PINNED VALIDATE is now written up in BACKTESTING_STACK.md.']},
@@ -4041,6 +4042,61 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   // render the CURRENT view slice of the cached bars — pure client-side, instant.
 
+  // v73.261 (owner: "if i try to scroll around it moves the entire x/y axis, doesnt
+  // load more bar values"): the viewer only ever held the sessions the first fetch
+  // brought back, so pan and zoom just slid inside that little window and CLAMPED at
+  // its edge. Now hitting the edge (or the MORE button) refetches a WIDER window from
+  // the PC and keeps whatever was on screen anchored in place.
+  const _cndlRefetch=async(patch,label,keepView)=>{
+    if(_cndl.busy2||!_cndl.x||!_cndl.r)return;
+    const x=_cndl.x,seq=_cndl.seq;
+    _cndl.busy2=true;
+    const t0=Date.now();
+    const tick=setInterval(()=>{if(!_cndlAlive()||_cndl.seq!==seq){clearInterval(tick);return;}
+      _cndl.api.setSub('<b style="color:var(--blue)">'+label+'&hellip; '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; fetching from your PC');},400);
+    try{
+      const pay=Object.assign({},_cB(x),{entry_time:x._et,exit_time:x._xt2,pad_sessions:_cndl.pad||1},patch);
+      if(pay.session==null)delete pay.session;   // null = back to the payload default
+      const r=await _runCmd('get_bars',pay,300000);
+      clearInterval(tick);
+      if(!_cndlAlive()||_cndl.seq!==seq){_cndl.busy2=false;return;}
+      if(!r||!(r.bars||[]).length)throw new Error((r&&r.error)||'no bars came back');
+      // keep the screen anchored: find the first VISIBLE old bar inside the new array
+      let v=null;
+      if(keepView&&_cndl.view){
+        const old=(_cndl.r.bars||[]),v0=_cndl.view,t1=String((old[v0[0]]||{}).t||'');
+        const nb=r.bars||[];
+        for(let i=0;i<nb.length;i++){if(String(nb[i].t)===t1){v=[i,i+(v0[1]-v0[0])];break;}}
+      }
+      if(patch.pad_sessions)_cndl.pad=patch.pad_sessions;
+      if(Object.prototype.hasOwnProperty.call(patch,'session'))_cndl.sess=patch.session||null;
+      _cndl.r=r;_cndl.view=v;
+      // the shared cache keeps only the DEFAULT session (a wider window strictly
+      // supersedes a narrower one; an ETH copy must not leak into other entry points)
+      if(!_cndl.sess)_barsCache[x._no]=r;
+      _renderCandle();_syncCndlCtl();
+    }catch(err){
+      clearInterval(tick);
+      if(_cndlAlive()&&_cndl.seq===seq){
+        _renderCandle();
+        _cndl.api.setSub('<span style="color:var(--red)">could not fetch: '+String((err&&err.message)||err).replace(/</g,'&lt;')+'</span>');
+      }
+    }
+    _cndl.busy2=false;
+  };
+  const _loadMoreBars=()=>{
+    const pad=_cndl.pad||1;
+    if(pad>=41)return;
+    _cndlRefetch({pad_sessions:Math.min(41,pad+4)},'LOADING MORE SESSIONS',true);
+  };
+  const _toggleSess=()=>{
+    if(!_cndl.x)return;
+    const base=String(_cB(_cndl.x).session||'rth').toLowerCase();
+    const cur=_cndl.sess||base;
+    const next=(cur==='rth')?'eth':'rth';
+    _cndlRefetch({session:(next===base)?null:next,pad_sessions:_cndl.pad||1},
+      'SWITCHING TO '+next.toUpperCase()+' BARS',false);
+  };
   const _renderCandle=()=>{
 
     if(!_cndlAlive()||!_cndl.r)return;
@@ -4138,6 +4194,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const n3=((_cndl.r||{}).bars||[]).length;if(!n3)return;
       let v3=_cndl.view||[0,n3-1];const span=v3[1]-v3[0]+1;
       const i2=_barAt(ev);const anchor=(i2==null)?(v3[0]+span/2):(lo3+i2);
+      // zooming OUT with every fetched bar already on screen = ask for more history
+      if(ev.deltaY>0&&span>=n3){_loadMoreBars();return;}
       let ns=Math.round(span*((ev.deltaY<0)?0.75:1.35));ns=Math.max(8,Math.min(n3,ns));
       if(ns===span)return;
       const frac=(anchor-v3[0])/span;
@@ -4182,13 +4240,16 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const n3=((_cndl.r||{}).bars||[]).length;
       const v0=_cndl.view.slice(),span=v0[1]-v0[0]+1,x0=ev.clientX;
       const rc0=svgEl2.getBoundingClientRect();
-      let raf=0,lastShift=0;
+      let raf=0,lastShift=0,edged=false;
       const mv=e2=>{
         const dxBars=Math.round((x0-e2.clientX)/rc0.width*(W2-mL2-14)/xStep2);
         if(dxBars===lastShift||raf)return;
         raf=requestAnimationFrame(()=>{raf=0;
           lastShift=dxBars;
           let lo4=v0[0]+dxBars,hi4=v0[1]+dxBars;
+          // dragging past either end of what is loaded = fetch a wider window once
+          // per gesture; the anchor logic keeps the screen where you left it.
+          if(!edged&&(lo4<0||hi4>n3-1)){edged=true;_loadMoreBars();}
           [lo4,hi4]=_clampView(lo4,hi4,span,n3);
           _cndl.view=[lo4,hi4];_renderCandle();
         });
@@ -4225,6 +4286,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
 
       +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
+      +'<button id="cndl-more" title="fetch more sessions of bars around this trade from your PC (panning or zooming past the edge does this too)" style="'+bs+'">+ MORE BARS</button>'
+      +'<button id="cndl-sess" title="switch between regular hours (RTH) and the 24-hour session (ETH) - refetches this trade + its context on the other session" style="'+bs+'"></button>'
 
       +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
 
@@ -4232,7 +4295,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // the readout swaps a short hint for a long OHLC line on every hover, and BOTH its width
       // and its line box fed back into the auto-sized modal — measured 39px of chart resize and
       // a 20px shift per hover. Pinned here; the window also gets a definite width below.
-      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0;letter-spacing:.3px;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan &middot; drag the $ scale = stretch prices &middot; double-click = reset</span></div>');
+      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0;letter-spacing:.3px;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (past the edge = more bars) &middot; drag the $ scale = stretch prices &middot; double-click = reset</span></div>');
     // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
     // A definite width stops that dead — and keeps the chart the same size trade to trade.
     try{const _bd=_cndl.api.modal.querySelector('#chart-body');
@@ -4263,6 +4326,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       _cndl.view=[e3-20,x3+20];_renderCandle();};
 
     g('cndl-zfull').onclick=()=>{_cndl.view=null;_renderCandle();};
+    g('cndl-more').onclick=()=>_loadMoreBars();
+    g('cndl-sess').onclick=()=>_toggleSess();
 
     g('cndl-save').onclick=()=>_saveCandlePNG();
 
@@ -4296,6 +4361,13 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       :'');
 
     if(g('cndl-prev'))g('cndl-prev').disabled=!(i3>0);
+    const sb2=g('cndl-sess');
+    if(sb2&&_cndl.x){
+      const base2=String(_cB(_cndl.x).session||'rth').toLowerCase();
+      const cur2=(_cndl.sess||base2).toUpperCase();
+      const oth2=(cur2==='RTH')?'ETH':'RTH';
+      sb2.innerHTML='<b style="color:var(--blue)">'+cur2+'</b><span style="color:var(--text5)"> &rarr; '+oth2+'</span>';
+    }
 
     if(g('cndl-next'))g('cndl-next').disabled=!(i3>=0&&i3<rows.length-1);
 
@@ -4398,7 +4470,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const seq=++_cndl.seq;
 
-    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;
+    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;_cndl.pad=1;_cndl.sess=null;_cndl.busy2=false;
 
     _cndlTitle(_cTitleOf(x));
 
@@ -21394,7 +21466,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // SELECTION BAR - owner 2026-08-20: "allow me to select (click and drag) multiple
       //   trades in the trades tab and open their charts". The count and the buttons are
       //   rewritten in place by the drag handler (no re-render), so dragging stays smooth.
-      const _ptSelBar='<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
+      const _ptSelBar='<span data-ptallcharts style="cursor:pointer;margin-left:10px;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);color:var(--text3)" title="open every trade shown below as its own live chart in one scrollable window - no need to select rows first">&#9638; ALL CHARTS</span>'
+        +'<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px;display:flex;align-items:center">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">&middot; showing 200 of '+_tSorted.length+'</span>':'')+_ptSelBar+'</div>'
         +'<style>#ptrades-body tr{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}</style>'
@@ -23103,6 +23176,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // row builder reads it back, so re-sorting or re-filtering keeps what is selected.
       {
         const tb=content.querySelector('#ptrades-body');
+        const _acb=content.querySelector('[data-ptallcharts]');
+        if(_acb)_acb.onclick=()=>{
+          const rows2=window._paperCandleRows||[];
+          if(!rows2.length)return;
+          window.openChartGallery({},rows2,'recent','ALL PAPER TRADES',
+            {title:'CHART GALLERY &middot; ALL '+rows2.length+' PAPER TRADES',
+             filePrefix:'paper_',keepOrder:true});
+        };
         const bar=content.querySelector('#pt-selbar');
         if(tb){
           const sel=window._ptSel||(window._ptSel=new Set());
