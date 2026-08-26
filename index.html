@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.281';
+const VERSION='73.282';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.282',date:'2026-08-26',notes:['Charts lift their own limit on how much history they will ask for as soon as the PC is running the build that can send big replies, so no setting has to be changed by hand after the next runner restart.']},
 {v:'73.281',date:'2026-08-26',notes:['Candle charts now size each request for more bars to what the database will actually accept, so asking for a wider window works on every timeframe instead of failing silently on the 24-hour session. The button reads MAX BARS once a timeframe has no more room.']},
 {v:'73.280',date:'2026-08-26',notes:['Asking a candle chart for a wider stretch of bars used to fail outright once the window got big: the reply is stored as a single record on the database, and a few thousand candles exceeded a hard limit on that record, so nothing came back and the chart just sat there. Large replies now travel packed as one block and are unpacked in the page, which also covers long trade lists. This needs the PC runner restarted to take effect.']},
 {v:'73.279',date:'2026-08-26',notes:['Candle charts: scrolling, zooming and loading more bars now work with a real mouse. The controls used to be attached to the drawing itself, which this window redraws constantly - a drag that redrew was a drag whose target had vanished - and anything the chart did not catch fell through to the pop-up window underneath, which slides the whole picture instead of scrolling the bars. The controls now live on the chart panel and hold on to the gesture from press to release, and the pop-up window no longer competes for it (its floating zoom toolbar is gone inside candle windows).']},
@@ -1981,6 +1982,9 @@ function _runCmd(action,payload,toMs){return new Promise((resolve,reject)=>{
         (r.packed_z?_gunzipB64(r.packed_z):Promise.resolve(r.packed))
           .then(t=>{let o=null;try{o=JSON.parse(t);}catch(_pe){}
             if(!o){rej2(new Error('could not read the reply from your PC'));return;}
+            // a packed reply proves the PC is running the build that can send big replies,
+            // so the chart may stop budgeting its requests so conservatively
+            window._packedRunner=1;
             res2(Object.assign({},r,o));})
           .catch(e2=>rej2(e2));
         return;
@@ -4120,13 +4124,14 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   // in the database, and that record has a hard ceiling - 41 sessions of 24-hour 5-minute bars
   // is 11,800 candles and is rejected outright, which is why a wide window used to come back
   // empty. Budget the request by bars instead of guessing in sessions.
-  const _BAR_BUDGET=4000;
+  const _BAR_BUDGET=4000;   // raised automatically once the PC proves it can pack big replies
   const _maxPad=sess=>{
     const x=_cndl.x;if(!x)return 4;
     const B=_cB(x),m=String(B.timeframe||'5m').match(/^(\d+)\s*m/i),tf=m?+m[1]:5;
     const ss=String(sess||_cndl.sess||B.session||'rth').toLowerCase();
     const perDay=Math.max(1,Math.round((ss==='eth'?1380:390)/tf));
-    return Math.max(1,Math.min(41,Math.floor((_BAR_BUDGET/perDay-1)/2)));
+    const budget=window._packedRunner?40000:_BAR_BUDGET;
+    return Math.max(1,Math.min(41,Math.floor((budget/perDay-1)/2)));
   };
   const _loadMoreBars=()=>{
     const pad=_cndl.pad||1,cap=_maxPad();
