@@ -18,7 +18,9 @@ Everything else is the round-2 scaffolding unchanged: decisions on bar t's close
 at t+1 open or a resting stop at the squeeze-range edge (gap-throughs pay the open),
 intrabar ATR stop, flat at every session close, PNL in points, costs downstream.
 
-Needs day_id AND index (session boundaries + HTF resample); returns None without.
+Needs day_id. The verification frame comes from bar timestamps when `index` is supplied,
+or from `gate_bars` (base bars per verification bar) when it is not — the grid/sweep code
+path does NOT hand strategies their timestamps, so a grid job must set gate_bars.
 """
 import numpy as np
 import pandas as pd
@@ -99,6 +101,14 @@ DEFAULT_PARAMS = {
                    "rising = its momentum agrees / agrees and strengthens. fired = it "
                    "fired in the trade direction within gate_fired_k bars. none = no gate.",
     },
+    "gate_bars": {
+        "default": 0, "min": 0, "max": 16, "step": 1, "type": "int",
+        "label": "Base bars per verification bar (0 = derive from the clock)",
+        "tooltip": "0 asks the strategy to work the verification timeframe out from bar "
+                   "timestamps. Set it explicitly (ES 30m with a 60-minute check = 2, NQ 15m "
+                   "= 4) so the strategy also runs on the GRID path, which does not hand "
+                   "strategies their bar timestamps.",
+    },
     "gate_len": {
         "default": 20, "min": 12, "max": 32, "step": 2, "type": "int",
         "label": "Verification squeeze length",
@@ -145,7 +155,7 @@ def _session_last_bar(did, n):
     return last
 
 
-def _htf_gate(h, l, c, did, index, base_minutes, gate_tf_min, gate_len, bb_mult, kc_mult,
+def _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len, bb_mult, kc_mult,
               gate_mode, gate_fired_k):
     """(gate_long, gate_short) on the base grid, from the last COMPLETED higher-TF bar.
 
@@ -154,17 +164,34 @@ def _htf_gate(h, l, c, did, index, base_minutes, gate_tf_min, gate_len, bb_mult,
     so RTH and ETH masters both work). A HTF bar's end index = its last base bar; its
     state becomes usable from that base bar's close onward (same information time)."""
     n = len(c)
-    idx = pd.DatetimeIndex(index)
-    mins = idx.hour.values * 60 + idx.minute.values
-    first_of_day = np.zeros(n, int)
-    a = 0
-    while a < n:
-        b = a
-        while b < n and did[b] == did[a]:
-            b += 1
-        first_of_day[a:b] = mins[a]
-        a = b
-    bucket = (mins - first_of_day) // int(gate_tf_min)
+    if int(gate_bars) > 0:
+        # BAR-COUNT bucketing: ordinal within the session // gate_bars. Needs no
+        # timestamps, so this path also works on the grid/sweep code path, which does
+        # not hand strategies their bar index. Identical to the clock bucketing below
+        # whenever bars are evenly spaced (verified for ES 30m and NQ 15m).
+        ordinal = np.zeros(n, int)
+        a = 0
+        while a < n:
+            b = a
+            while b < n and did[b] == did[a]:
+                b += 1
+            ordinal[a:b] = np.arange(b - a)
+            a = b
+        bucket = ordinal // int(gate_bars)
+    else:
+        if index is None:
+            return np.zeros(n, bool), np.zeros(n, bool)   # no clock, no gate: trade nothing
+        idx = pd.DatetimeIndex(index)
+        mins = idx.hour.values * 60 + idx.minute.values
+        first_of_day = np.zeros(n, int)
+        a = 0
+        while a < n:
+            b = a
+            while b < n and did[b] == did[a]:
+                b += 1
+            first_of_day[a:b] = mins[a]
+            a = b
+        bucket = (mins - first_of_day) // int(gate_tf_min)
     grp = did.astype(np.int64) * 10000 + bucket.astype(np.int64)
     # group boundaries (grp is non-decreasing within a day; days ascend)
     change = np.empty(n, bool)
@@ -224,7 +251,7 @@ def run_backtest(
     entry_fill: str = "open", exit_mode: str = "fade", fade_bars: int = 1,
     stop_atr: float = 2.0, eod_cutoff: int = 3,
     gate_tf_min: int = 60, gate_mode: str = "sq_on", gate_len: int = 20,
-    gate_fired_k: int = 3, direction: str = "both",
+    gate_bars: int = 0, gate_fired_k: int = 3, direction: str = "both",
     return_trades: bool = False, _stop_event=None, _pause_event=None,
     **_ignore,
 ):
@@ -234,8 +261,10 @@ def run_backtest(
     if n < 300:
         return None
     did = np.asarray(day_id) if (day_id is not None and len(day_id) == n) else None
-    if did is None or index is None:
+    if did is None:
         return None
+    if index is None and int(gate_bars) <= 0 and gate_mode != "none":
+        return None      # no clock and no explicit bar count: cannot build the check
     length = int(length); min_sq_bars = int(min_sq_bars); fade_bars = int(fade_bars)
     eod_cutoff = int(eod_cutoff)
     bb_mult = float(bb_mult); kc_mult = float(kc_mult); stop_atr = float(stop_atr)
@@ -254,7 +283,7 @@ def run_backtest(
         a = max(0, i - k)
         rng_hi[i] = h[a:i].max(); rng_lo[i] = l[a:i].min()
 
-    gate_long, gate_short = _htf_gate(h, l, c, did, index, None, gate_tf_min, gate_len,
+    gate_long, gate_short = _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len,
                                       bb_mult, kc_mult, gate_mode, gate_fired_k)
     if direction != "both":
         if direction == "long":

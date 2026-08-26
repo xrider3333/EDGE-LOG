@@ -17,6 +17,7 @@ WHY THIS EXISTS (owner question 2026-08-23: "why are these all pinned?")
   space to measure overfit against, and the trades-per-knob arithmetic becomes honest.
 
 Engine = TTMSQZ_3_0.py, imported unchanged (conservative same-bar stop, audit 2026-08-23).
+Verification frame pinned to 4 base bars per hourly check (the grid code path does not hand strategies bar timestamps; the bar-count frame is bit-identical to the clock frame here).
 Frozen at: length 20, Bollinger 2.0, minimum squeeze 1 bar, stop entry at the squeeze range edge, ride exit, verification timeframe 60 minutes, verification rule squeeze-on, direction both.
 """
 import os
@@ -25,7 +26,7 @@ _sp = _u.spec_from_file_location(
     "TTMSQZ_3_0", os.path.join(os.path.dirname(os.path.abspath(__file__)), "TTMSQZ_3_0.py"))
 _t3 = _u.module_from_spec(_sp); _sp.loader.exec_module(_t3)
 
-_FROZEN = {'length': 20, 'bb_mult': 2.0, 'min_sq_bars': 1, 'entry_fill': 'range_break', 'exit_mode': 'ride', 'fade_bars': 1, 'gate_tf_min': 60, 'gate_mode': 'sq_on', 'gate_fired_k': 3, 'direction': 'both'}
+_FROZEN = {'length': 20, 'bb_mult': 2.0, 'min_sq_bars': 1, 'entry_fill': 'range_break', 'exit_mode': 'ride', 'fade_bars': 1, 'gate_tf_min': 60, 'gate_mode': 'sq_on', 'gate_fired_k': 3, 'gate_bars': 4, 'direction': 'both'}
 
 
 def run_backtest(*a, **kw):
