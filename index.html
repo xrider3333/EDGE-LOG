@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.284';
+const VERSION='73.285';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.285',date:'2026-08-26',notes:['Candle windows get a bar-size selector in the toolbar, offering only the sizes that actually have price files for that instrument and session, and the choice sticks when you then ask for more bars. Tidied the window as a whole: the toolbar is grouped with separators, the trade picker is narrower, the heading no longer wraps onto a second line, and the bar count moved down to the strip under the chart. Also fixed: after switching to the 24-hour session, asking for more bars quietly snapped back to the original session.']},
 {v:'73.284',date:'2026-08-26',notes:['THE NT COLUMN IN THE TRADE LIST ACTUALLY ANSWERS NOW. It could only ever read the nightly reconcile, which compares against LIVE NinjaTrader fills - so on almost every historical row it showed a question mark and looked broken. It now also reads NinjaTrader\u2019s own backtest blotters, which is the same configuration run over the same history.','FOUR STATES, and they mean different things. A green tick means NinjaTrader FILLED that trade on the demo account, which is the strongest agreement there is. A blue wave means NinjaTrader\u2019s backtest produced the same trade - hover it for the exact time and price it entered, and by how many minutes it trailed the engine. An amber cross means NinjaTrader looked at that date and did NOT produce the trade, which is a real disagreement. Grey means nothing has checked it yet.','A LIVE FILL ALWAYS WINS over a backtest match, so the weaker evidence can never quietly overwrite the stronger. Hover the ENGINES heading for the whole key.']},
 {v:'73.283',date:'2026-08-26',notes:['Charts lift their own limit on how much history they will ask for as soon as the PC is running the build that can send big replies, so no setting has to be changed by hand after the next runner restart.']},
 {v:'73.281',date:'2026-08-26',notes:['Candle charts now size each request for more bars to what the database will actually accept, so asking for a wider window works on every timeframe instead of failing silently on the 24-hour session. The button reads MAX BARS once a timeframe has no more room.']},
@@ -4097,7 +4098,11 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const tick=setInterval(()=>{if(!_cndlAlive()||_cndl.seq!==seq){clearInterval(tick);return;}
       _cndl.api.setSub('<b style="color:var(--blue)">'+label+'&hellip; '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; fetching from your PC');},400);
     try{
-      const pay=Object.assign({},_cB(x),{entry_time:x._et,exit_time:x._xt2,pad_sessions:_cndl.pad||1},patch);
+      // the session / timeframe the owner picked are STICKY - without this, asking for
+      // more bars after switching to the 24-hour session quietly snapped back to the
+      // trade's own session, because only the one-off request carried the override.
+      const pay=Object.assign({},_cB(x),{entry_time:x._et,exit_time:x._xt2,pad_sessions:_cndl.pad||1},
+        (_cndl.sess?{session:_cndl.sess}:{}),(_cndl.tf?{timeframe:_cndl.tf}:{}),patch);
       if(pay.session==null)delete pay.session;   // null = back to the payload default
       const r=await _runCmd('get_bars',pay,300000);
       clearInterval(tick);
@@ -4112,10 +4117,14 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       }
       if(patch.pad_sessions)_cndl.pad=patch.pad_sessions;
       if(Object.prototype.hasOwnProperty.call(patch,'session'))_cndl.sess=patch.session||null;
+      if(Object.prototype.hasOwnProperty.call(patch,'timeframe')){
+        const _b0=String(_cB(x).timeframe||'');
+        _cndl.tf=(String(patch.timeframe)===_b0)?null:String(patch.timeframe);
+      }
       _cndl.r=r;_cndl.view=v;
       // the shared cache keeps only the DEFAULT session (a wider window strictly
       // supersedes a narrower one; an ETH copy must not leak into other entry points)
-      if(!_cndl.sess)_barsCache[x._no]=r;
+      if(!_cndl.sess&&!_cndl.tf)_barsCache[x._no]=r;
       _renderCandle();_syncCndlCtl();
     }catch(err){
       clearInterval(tick);
@@ -4131,11 +4140,14 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   // is 11,800 candles and is rejected outright, which is why a wide window used to come back
   // empty. Budget the request by bars instead of guessing in sessions.
   const _BAR_BUDGET=4000;   // raised automatically once the PC proves it can pack big replies
-  const _maxPad=sess=>{
+  const _tfMin=v=>{const m=String(v||'5m').match(/^(\d+)\s*m/i);return m?+m[1]:5;};
+  const _curTf=()=>String(_cndl.tf||(_cndl.x?_cB(_cndl.x).timeframe:'')||'5m');
+  const _curSess=()=>String(_cndl.sess||(_cndl.x?_cB(_cndl.x).session:'')||'rth').toLowerCase();
+  const _maxPad=(sess,tf)=>{
     const x=_cndl.x;if(!x)return 4;
-    const B=_cB(x),m=String(B.timeframe||'5m').match(/^(\d+)\s*m/i),tf=m?+m[1]:5;
+    const B=_cB(x),tfm=_tfMin(tf||_cndl.tf||B.timeframe);
     const ss=String(sess||_cndl.sess||B.session||'rth').toLowerCase();
-    const perDay=Math.max(1,Math.round((ss==='eth'?1380:390)/tf));
+    const perDay=Math.max(1,Math.round((ss==='eth'?1380:390)/tfm));
     const budget=window._packedRunner?40000:_BAR_BUDGET;
     return Math.max(1,Math.min(41,Math.floor((budget/perDay-1)/2)));
   };
@@ -4143,6 +4155,25 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const pad=_cndl.pad||1,cap=_maxPad();
     if(pad>=cap){_syncCndlCtl();return;}
     _cndlRefetch({pad_sessions:Math.min(cap,pad+4)},'LOADING MORE SESSIONS',true);
+  };
+  // which timeframes can this trade actually be drawn on? Only the ones whose price file
+  // exists for this instrument AND the session on screen (the 24-hour NQ files are 1m and 5m;
+  // the day session also has 2m, 15m, 30m and 60m).
+  const _tfOpts=()=>{
+    const x=_cndl.x;if(!x)return [];
+    const B=_cB(x),inst=String(B.instrument||'NQ'),ss=_curSess(),seen={};
+    try{(typeof metaMasters!=='undefined'?(metaMasters||[]):[]).forEach(m=>{
+      if(String(m.instrument)!==inst)return;
+      if(String(m.session||'').toLowerCase()!==ss)return;
+      const tf=String(m.timeframe||'');
+      if(/^\d+\s*m$/i.test(tf))seen[tf]=1;});}catch(_tm){}
+    seen[_curTf()]=1;
+    return Object.keys(seen).sort((a,b)=>_tfMin(a)-_tfMin(b));
+  };
+  const _setTf=tf=>{
+    if(!_cndl.x||!tf||tf===_curTf())return;
+    _cndlRefetch({timeframe:tf,pad_sessions:Math.min(_cndl.pad||1,_maxPad(null,tf))},
+      'SWITCHING TO '+String(tf).toUpperCase()+' BARS',false);
   };
   const _toggleSess=()=>{
     if(!_cndl.x)return;
@@ -4195,11 +4226,14 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       +(meta.master?' &middot; master: '+meta.master:'')
 
-      +(zoomed?' &middot; <span style="color:var(--blue)">zoomed '+bars.length+' of '+all.length+' bars — double-click for all</span>':'')
+
 
       +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>'));
 
     _wireCandleSvg();
+    try{const _zl=_cndl.api.modal.querySelector('#cndl-zoom');
+      if(_zl)_zl.textContent=zoomed?(bars.length+' / '+all.length+' bars · double-click for all')
+                                   :(all.length+' bars');}catch(_zz){}
 
     _syncCndlCtl();
 
@@ -4335,7 +4369,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     // readout on its own quiet line underneath instead of shouting in the same strip.
     const bs='background:transparent;border:1px solid var(--border);color:var(--text3);padding:4px 9px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:7px';
     // the quiet chips that live in the status strip under the chart (TradingView's bottom bar)
-    const bq='background:transparent;border:0;color:var(--text5);padding:2px 7px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:5px;flex:0 0 auto;white-space:nowrap';
+    const bq='background:transparent;border:0;color:var(--text4);padding:2px 7px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:5px;flex:0 0 auto;white-space:nowrap';
+    const _sepH='<span style="width:1px;height:15px;background:var(--border);flex:0 0 auto;margin:0 3px"></span>';
 
     ctl.insertAdjacentHTML('beforeend',
 
@@ -4345,8 +4380,11 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       +'<button id="cndl-next" style="'+bs+'">NEXT &rsaquo;</button>'
 
       +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
+      +_sepH
+      +'<span id="cndl-tfs" style="display:inline-flex;align-items:center;gap:2px;flex:0 0 auto" title="draw this trade on a different bar size"></span>'
+      +_sepH
 
-      +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:210px')+'"></select>'
+      +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:128px')+'"></select>'
 
       +'<button id="cndl-grpmore" title="extend this top-10 set by another 10 trades" style="'+bs+';display:none">+10 MORE</button>'
       +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
@@ -4364,12 +4402,15 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // UNDER the chart, hard right, below the price axis - not in the top toolbar.
       +'<div id="cndl-status" style="display:flex;align-items:center;gap:6px;flex:1 1 100%;min-width:0;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px">'
       +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0;letter-spacing:.3px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (past the edge loads more) &middot; drag the $ scale = lock prices &middot; double-click = reset</span></div>'
+      +'<span id="cndl-zoom" style="font-size:9px;color:var(--text5);letter-spacing:.4px;flex:0 0 auto;white-space:nowrap"></span>'
       +'<button id="cndl-more" title="fetch more sessions of bars around this trade from your PC (dragging or zooming past the edge of the chart does this on its own)" style="'+bq+'">+ BARS</button>'
       +'<button id="cndl-sess" title="switch between regular hours (RTH) and the 24-hour session (ETH) - refetches this trade and its context on the other session" style="'+bq+'"></button>'
       +'<button id="cndl-auto" title="price scale" style="'+bq+'">AUTO</button>'
       +'</div>');
     // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
     // A definite width stops that dead — and keeps the chart the same size trade to trade.
+    try{const _sb=_cndl.api.modal.querySelector('#chart-sub');
+      if(_sb){_sb.style.whiteSpace='nowrap';_sb.style.overflow='hidden';_sb.style.textOverflow='ellipsis';}}catch(_e3){}
     try{const _bd=_cndl.api.modal.querySelector('#chart-body');
       if(_bd){_bd.style.minWidth='0';_bd.style.width='100%';
         if(_bd.parentElement){_bd.parentElement.style.width='min(1180px,95vw)';_bd.parentElement.style.boxSizing='border-box';}}}catch(_e){}
@@ -4447,6 +4488,17 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const cur2=(_cndl.sess||base2).toUpperCase();
       const oth2=(cur2==='RTH')?'ETH':'RTH';
       sb2.innerHTML='<b style="color:var(--blue)">'+cur2+'</b><span style="color:var(--text5)"> &rarr; '+oth2+'</span>';
+    }
+    const tfs2=g('cndl-tfs');
+    if(tfs2&&_cndl.x){
+      const cur3=_curTf(),opts3=_tfOpts();
+      const html3=opts3.map(t=>'<span data-cndltf="'+t+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:3px 7px;border-radius:6px;'
+        +((t===cur3)?'color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent)':'color:var(--text5)')
+        +'">'+String(t).toUpperCase()+'</span>').join('');
+      if(tfs2.innerHTML!==html3){
+        tfs2.innerHTML=html3;
+        tfs2.querySelectorAll('[data-cndltf]').forEach(el=>{el.onclick=()=>_setTf(el.getAttribute('data-cndltf'));});
+      }
     }
     const mb2=g('cndl-more');
     if(mb2&&_cndl.x){
@@ -4565,7 +4617,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const seq=++_cndl.seq;
 
-    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_cndl.yView=null;_cndl.pad=1;_cndl.sess=null;_cndl.busy2=false;
+    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_cndl.yView=null;_cndl.pad=1;_cndl.sess=null;_cndl.tf=null;_cndl.busy2=false;
 
     _cndlTitle(_cTitleOf(x));
 
