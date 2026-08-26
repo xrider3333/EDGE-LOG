@@ -79,6 +79,33 @@ Strategies currently in the gap (card-only): ORB #230 (`ORB_3_4_C221`), NOISE #2
 (`NOISE_1_1_SBS`), ENGU-Q limit-0.50 #249, ENGU-Q efficiency #265. ENGU-Q ETH #226 is the one
 being closed now; the other four follow once this run's result is in and the owner has seen it.
 
+## 4b. Status of the sweep (updated 2026-08-26)
+
+| gap | full-discovery run | result |
+|---|---|---|
+| ORB #230 | **#274**, 647 configs | DONE. Section 2 complete. Its own champion is weak and the verdict is FAIL (transfer + luck); **#230 keeps the crown** — this run exists for the geometry around it. STUDIES row 590. |
+| ENGU-Q ETH #226 | job `2vBZ…` | RUNNING (restarted 2026-08-26, see below). |
+| ENGU-Q efficiency #265 | job `Lsvv…` | QUEUED. |
+| ENGU-Q limit #249 | job `syX8…` | QUEUED. |
+| NOISE #241 | none needed | #225 and the 2026-08-17 filter run are already 300-config populations on the same window; #241 is a pinned variant of those. |
+
+**Three days were lost to a runner trap, and it is now fixed in code.** The first three
+jobs were queued 2026-08-23 and were still showing `running` on 2026-08-26 — frozen at
+20 / 48 / 79%. They were not slow; they were dead. A runner restart (another session's)
+leaves a mid-flight job's doc on `status='running'` forever: the worker is gone and nothing
+ever finishes it. This was the THIRD occurrence (see the 2026-08-05 note in the transfer-sweep
+memory) and every previous fix was manual.
+
+`api/runner.py` now sweeps for this at startup: any job on `status='running'` whose Firestore
+doc has not been written in 60 minutes had its worker die, so it goes back on the queue with
+the reason recorded on the doc. A live job rewrites its own doc every ~1.5s through the
+progress callback, so no new bookkeeping was needed — the doc's own update time is the
+liveness signal. Deliberately conservative (startup only, never in the poll loop; a full hour;
+loudly logged) because a false positive means a job runs twice. Verified against live data
+before shipping: the running job (doc age 1 min) was correctly left alone while a genuinely
+stranded one (doc age 524 min) was correctly identified.
+
 ## 5. Changelog
 
 - 2026-08-23 — file created; audit of ten validates; full-discovery ENGU-Q ETH run queued.
+- 2026-08-26 — ORB gap CLOSED (run #274). Found the three ENGU-Q jobs had been dead for three days on a restart-orphaned `running` status; requeued them and fixed the cause in `api/runner.py` (startup orphan sweep).
