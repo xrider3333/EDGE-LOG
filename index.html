@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.268';
+const VERSION='73.269';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.269',date:'2026-08-26',notes:['CANDLE CHARTS NOW BEHAVE LIKE TRADINGVIEW. Dragging a chart that was showing every bar used to grab the whole picture and slide it around - both axes together - because the chart handed the drag off to the pop-up window underneath it; that also meant the drag never asked your PC for more bars. Dragging now always scrolls the bars, and running off either end fetches more history. The price scale no longer re-fits itself to whatever bars scroll into view once you have set it: dragging the price scale on the right pins the prices, and a new AUTO / LOCK chip says which mode you are in and puts it back. The session switch (RTH / ETH), the extra-bars button and that scale chip moved out of the top toolbar into the thin strip under the chart, hard right - where TradingView keeps them.']},
 {v:'73.268',date:'2026-08-23',notes:['COMPARE - STUDIES: TTM Squeeze round 4 - higher-timeframe verification of shorter-timeframe entries (owner directive), rows 596-691. The 60-minute squeeze-ON gate is net-positive in all 12 cells (best: ES 30m Carter, PF 2.06, MAR 11.8, 14 of 17 years). Adversarially audited by a 5-agent workflow: zero defects, exact independent reproduction; conservative same-bar-stop fills applied. Three pinned validates queued. Also: validate rows 591-595 added to round 2 (all free-discovery validates overfit and failed; pinned row 425 = family-best WEAK), and rows 343/344 now show an honest dash for TOTAL. New strategy TTMSQZ_3_0.py.']},
 {v:'73.267',date:'2026-08-25',notes:['TWO NEW ORB STUDIES ON THE COMPARE - STUDIES BOARD (rows 592-616). DOES THE CROWN TRAVEL (592-598): run 234 verbatim on ES, on 15/2/1-minute bars and on the 24-hour session - it does not travel; the edge is specifically NQ day-session 5-minute (finer bars keep about 70 percent, everything else fails). EXIT MANAGEMENT ROUND 2 (599-616): re-entry after stop-outs, clock-armed breakeven and a breakeven lock on the crown - the 50 and 60-minute timed breakeven cleared the pre-registered gate and was Auto-Validated as runs 273 and 271: 8 of 8 folds held and lockbox passed on both, but both fail the ES transfer the crown passes, so both finished WEAK. Recorded as a risk-shape lever (about half the drawdown for a third less money); the crown stands unchanged.']},
 {v:'73.266',date:'2026-08-23',notes:['STUDIES row 591: the efficiency floor tried on the ORB crown - pre-registered primary cell PASSED (PF 1.26 to 1.39, lockbox slice $64.6k/1.31 to $88.2k/1.74, drawdown down 24 percent, broad plateau). A formal Auto-Validate searching only the two gate knobs is queued; nothing is adopted until it is read.']},
@@ -3486,12 +3487,17 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const _mid=(lo+hi)/2,_half=(hi-lo)/2/_yz;
     lo=_mid-_half;hi=_mid+_half;
   }
+  // v73.268 (owner: "see how when i move the chart around it moves the y axis around?"):
+  // an explicit price range WINS over auto-fit, exactly like TradingView - once the price
+  // scale is dragged the axis stops re-fitting to whatever bars scroll into view.
+  const _yr=opts.yRange;
+  if(_yr&&isFinite(+_yr[0])&&isFinite(+_yr[1])&&+_yr[1]>+_yr[0]){lo=+_yr[0];hi=+_yr[1];}
 
   const xStep=plotW/n;
   const xCenter=i=>margin.l+i*xStep+xStep/2;
   const yScale=scaleLinear(lo,hi,margin.t+plotH,margin.t);
 
-  try{window.CANDLE_GEO={W:W,H:H,mL:margin.l,mR:margin.r,plotW:plotW};}catch(_g){}
+  try{window.CANDLE_GEO={W:W,H:H,mL:margin.l,mR:margin.r,plotW:plotW,lo:lo,hi:hi};}catch(_g){}
   let out='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg">';
 
   // y gridlines + tick labels
@@ -4128,7 +4134,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     if(eIn&&xIn){markers.shadeFrom=r.entry_idx-lo3;markers.shadeTo=r.exit_idx-lo3;}
 
-    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{yZoom:_cndl.yZoom||1}));
+    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{yZoom:_cndl.yZoom||1,yRange:_cndl.yLock||null}));
+    // remember the price range on screen so a scale-drag can start from exactly there
+    try{const _g4=window.CANDLE_GEO||{};if(isFinite(_g4.lo)&&isFinite(_g4.hi))_cndl.yView=[_g4.lo,_g4.hi];}catch(_e4){}
 
     const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
 
@@ -4223,25 +4231,36 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // is useful whether or not you have zoomed the time axis.
       if(_onAxis(ev)){
         ev.stopPropagation();ev.preventDefault();
-        const y0=ev.clientY,z0=+(_cndl.yZoom||1);
+        const y0=ev.clientY;
+        const _base=_cndl.yLock||_cndl.yView||null;
+        const lo0=_base?+_base[0]:NaN,hi0=_base?+_base[1]:NaN;
+        if(!isFinite(lo0)||!isFinite(hi0)||!(hi0>lo0))return;
+        const _mid0=(lo0+hi0)/2,_half0=(hi0-lo0)/2;
         const rcH=svgEl2.getBoundingClientRect().height||400;
         let raf=0;
         const mv=e2=>{
           if(raf)return;
           raf=requestAnimationFrame(()=>{raf=0;
-            let z=z0*Math.exp((y0-e2.clientY)/rcH*2.4);
-            z=Math.max(0.25,Math.min(14,z));
-            if(Math.abs(z-(_cndl.yZoom||1))<1e-3)return;
-            _cndl.yZoom=z;_renderCandle();
+            let z=Math.exp((y0-e2.clientY)/rcH*2.4);
+            z=Math.max(0.12,Math.min(14,z));
+            const h2=_half0/z;
+            // dragging the scale LOCKS it (TradingView does the same) - the axis then holds
+            // still while you pan, until AUTO or a double-click puts it back.
+            _cndl.yZoom=1;_cndl.yLock=[_mid0-h2,_mid0+h2];_renderCandle();
           });
         };
         const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
         window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
         return;
       }
-      if(!_cndl.view)return;   // full view — nothing to pan; modal shell may pan/scroll itself
+      // v73.268 (owner: "when i move the chart around it moves the entire x/y axis, and it
+      // does[nt] load more ohlc"): at FULL view this used to bail, so the drag fell through to
+      // the modal's own pan/zoom shell, which drags the whole picture - both axes - around.
+      // Worse, the chart's own pan never ran, so the past-the-edge fetch never fired either.
+      // The full view is now materialised into a real bar window and every drag scrolls bars.
       ev.stopPropagation();ev.preventDefault();
-      const n3=((_cndl.r||{}).bars||[]).length;
+      const n3=((_cndl.r||{}).bars||[]).length;if(!n3)return;
+      if(!_cndl.view)_cndl.view=[0,n3-1];
       const v0=_cndl.view.slice(),span=v0[1]-v0[0]+1,x0=ev.clientX;
       const rc0=svgEl2.getBoundingClientRect();
       let raf=0,lastShift=0,edged=false;
@@ -4252,16 +4271,17 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
           lastShift=dxBars;
           let lo4=v0[0]+dxBars,hi4=v0[1]+dxBars;
           // dragging past either end of what is loaded = fetch a wider window once
-          // per gesture; the anchor logic keeps the screen where you left it.
-          if(!edged&&(lo4<0||hi4>n3-1)){edged=true;_loadMoreBars();}
+          // per gesture; the anchor logic keeps the screen where you left it. A THREE-BAR
+          // margin keeps an accidental nudge from kicking off a 10-30 second fetch.
+          if(!edged&&(lo4<-2||hi4>n3+1)){edged=true;_loadMoreBars();}
           [lo4,hi4]=_clampView(lo4,hi4,span,n3);
-          _cndl.view=[lo4,hi4];_renderCandle();
+          _cndl.view=(span>=n3)?null:[lo4,hi4];_renderCandle();
         });
       };
       const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
       window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
     });
-    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_cndl.yZoom=1;_renderCandle();});
+    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_renderCandle();});
 
   };
 
@@ -4274,6 +4294,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     // v71.96 (owner: "modernize this. messy") - flatter chips, tighter row, the price
     // readout on its own quiet line underneath instead of shouting in the same strip.
     const bs='background:transparent;border:1px solid var(--border);color:var(--text3);padding:4px 9px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:7px';
+    // the quiet chips that live in the status strip under the chart (TradingView's bottom bar)
+    const bq='background:transparent;border:0;color:var(--text5);padding:2px 7px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:5px;flex:0 0 auto;white-space:nowrap';
 
     ctl.insertAdjacentHTML('beforeend',
 
@@ -4290,8 +4312,6 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
 
       +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
-      +'<button id="cndl-more" title="fetch more sessions of bars around this trade from your PC (panning or zooming past the edge does this too)" style="'+bs+'">+ MORE BARS</button>'
-      +'<button id="cndl-sess" title="switch between regular hours (RTH) and the 24-hour session (ETH) - refetches this trade + its context on the other session" style="'+bs+'"></button>'
 
       +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
 
@@ -4299,7 +4319,15 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // the readout swaps a short hint for a long OHLC line on every hover, and BOTH its width
       // and its line box fed back into the auto-sized modal — measured 39px of chart resize and
       // a 20px shift per hover. Pinned here; the window also gets a definite width below.
-      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 100%;min-width:0;letter-spacing:.3px;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (past the edge = more bars) &middot; drag the $ scale = stretch prices &middot; double-click = reset</span></div>');
+      // v73.268 (owner: "button placment doesnt match TV for things like etch/rtch
+      // selection"): TradingView keeps the session and price-scale controls in the strip
+      // UNDER the chart, hard right, below the price axis - not in the top toolbar.
+      +'<div id="cndl-status" style="display:flex;align-items:center;gap:6px;flex:1 1 100%;min-width:0;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px">'
+      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0;letter-spacing:.3px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (past the edge loads more) &middot; drag the $ scale = lock prices &middot; double-click = reset</span></div>'
+      +'<button id="cndl-more" title="fetch more sessions of bars around this trade from your PC (dragging or zooming past the edge of the chart does this on its own)" style="'+bq+'">+ BARS</button>'
+      +'<button id="cndl-sess" title="switch between regular hours (RTH) and the 24-hour session (ETH) - refetches this trade and its context on the other session" style="'+bq+'"></button>'
+      +'<button id="cndl-auto" title="price scale" style="'+bq+'">AUTO</button>'
+      +'</div>');
     // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
     // A definite width stops that dead — and keeps the chart the same size trade to trade.
     try{const _bd=_cndl.api.modal.querySelector('#chart-body');
@@ -4332,6 +4360,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     g('cndl-zfull').onclick=()=>{_cndl.view=null;_renderCandle();};
     g('cndl-more').onclick=()=>_loadMoreBars();
     g('cndl-sess').onclick=()=>_toggleSess();
+    g('cndl-auto').onclick=()=>{_cndl.yLock=null;_cndl.yZoom=1;_renderCandle();};
 
     g('cndl-save').onclick=()=>_saveCandlePNG();
 
@@ -4371,6 +4400,13 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const cur2=(_cndl.sess||base2).toUpperCase();
       const oth2=(cur2==='RTH')?'ETH':'RTH';
       sb2.innerHTML='<b style="color:var(--blue)">'+cur2+'</b><span style="color:var(--text5)"> &rarr; '+oth2+'</span>';
+    }
+    const ab2=g('cndl-auto');
+    if(ab2){
+      const lk2=!!_cndl.yLock;
+      ab2.innerHTML=lk2?'<b style="color:var(--blue)">LOCK</b>':'AUTO';
+      ab2.title=lk2?'the price scale is LOCKED - prices hold still while you scroll. Click to go back to auto-fit.'
+                   :'the price scale auto-fits to the bars on screen. Drag the price scale (right edge) to lock it.';
     }
 
     if(g('cndl-next'))g('cndl-next').disabled=!(i3>=0&&i3<rows.length-1);
@@ -4474,7 +4510,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     const seq=++_cndl.seq;
 
-    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;_cndl.pad=1;_cndl.sess=null;_cndl.busy2=false;
+    _cndl.x=x;_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_cndl.yView=null;_cndl.pad=1;_cndl.sess=null;_cndl.busy2=false;
 
     _cndlTitle(_cTitleOf(x));
 
