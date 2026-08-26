@@ -135,8 +135,12 @@ def build_artifact(leg):
 
     os.makedirs(ARTIFACT_DIR, exist_ok=True)
     path = os.path.join(ARTIFACT_DIR, f"{key}.pkl")
+    mode = str(g.get("mode", "cut")).lower()
+    # TILT takes every trade, so a threshold is meaningless for it; 0.0 records "nothing
+    # is ever refused" rather than inventing a cut-off the paper leg does not apply.
     art = {"leg": key, "model": g["model"], "mode": g.get("mode", "cut"),
-           "threshold": float(g["threshold"]),
+           "threshold": (0.0 if mode == "tilt" else float(g["threshold"])),
+           "scheme": (str(g.get("scheme") or "tier") if mode == "tilt" else None),
            "size_norm": float(g.get("size_norm") or 1.0),
            "recycle_factor": float(g.get("recycle_factor") or 1.0),
            "feature_names": list(names),
@@ -344,10 +348,21 @@ def decide(leg_key):
         x = F[-1:].astype(float)
         prob = float(art["pipe"].predict_proba(x)[0, 1])
 
-        thr = float(art["threshold"])
-        take = not (prob < thr)
+        _mode = str(art.get("mode") or "cut").lower()
+        thr = float(art.get("threshold") or 0.0)
+        # TILT never refuses a trade; every other mode refuses below its threshold.
+        take = True if _mode == "tilt" else not (prob < thr)
         rec = 1.0            # defined on every path: a SKIP never reaches the sizing branch
-        if str(art.get("mode")) == "hybrid" and take:
+        if _mode == "tilt":
+            # Same tier rule as api/paper_gate._tilt_weights, byte for byte: 0.5x under
+            # 45%, 1x from 45 to 55%, 2x over 55% -- then the frozen normaliser and the
+            # same 3x cap the hybrid uses.
+            if str(art.get("scheme") or "tier") == "tier":
+                w = 0.5 if prob < 0.45 else (1.0 if prob <= 0.55 else 2.0)
+            else:
+                w = float(np.clip(0.5 + 2.0 * prob, 0.25, 3.0))
+            size = float(min(w / (float(art.get("size_norm") or 1.0)), 3.0))
+        elif str(art.get("mode")) == "hybrid" and take:
             w = float(np.clip(1.0 + 4.0 * (prob - 0.50), 0.25, 3.0))
             # Same order as the backtest: normalise, cap the per-trade stretch at 3x, THEN
             # apply the book-level recycle factor (spend the capital the gate freed up).
