@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.283';
+const VERSION='73.284';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.284',date:'2026-08-26',notes:['THE NT COLUMN IN THE TRADE LIST ACTUALLY ANSWERS NOW. It could only ever read the nightly reconcile, which compares against LIVE NinjaTrader fills - so on almost every historical row it showed a question mark and looked broken. It now also reads NinjaTrader\u2019s own backtest blotters, which is the same configuration run over the same history.','FOUR STATES, and they mean different things. A green tick means NinjaTrader FILLED that trade on the demo account, which is the strongest agreement there is. A blue wave means NinjaTrader\u2019s backtest produced the same trade - hover it for the exact time and price it entered, and by how many minutes it trailed the engine. An amber cross means NinjaTrader looked at that date and did NOT produce the trade, which is a real disagreement. Grey means nothing has checked it yet.','A LIVE FILL ALWAYS WINS over a backtest match, so the weaker evidence can never quietly overwrite the stronger. Hover the ENGINES heading for the whole key.']},
 {v:'73.283',date:'2026-08-26',notes:['Charts lift their own limit on how much history they will ask for as soon as the PC is running the build that can send big replies, so no setting has to be changed by hand after the next runner restart.']},
 {v:'73.281',date:'2026-08-26',notes:['Candle charts now size each request for more bars to what the database will actually accept, so asking for a wider window works on every timeframe instead of failing silently on the 24-hour session. The button reads MAX BARS once a timeframe has no more room.']},
 {v:'73.280',date:'2026-08-26',notes:['Asking a candle chart for a wider stretch of bars used to fail outright once the window got big: the reply is stored as a single record on the database, and a few thousand candles exceeded a hard limit on that record, so nothing came back and the chart just sat there. Large replies now travel packed as one block and are unpacked in the page, which also covers long trade lists. This needs the PC runner restarted to take effect.']},
@@ -1941,13 +1942,18 @@ function loadPaper(uidArg,force){
     base.collection('paper_reports').where(firebase.firestore.FieldPath.documentId(),'>=',new Date(Date.now()-60*86400000).toLocaleDateString('en-CA')).limit(90).get(),
     base.collection('meta').doc('nt_bridge').get(),
     base.collection('meta').doc('nt_preflight').get(),
-    base.collection('meta').doc('nt_alert').get()
-  ]).then(([ts,rs,nb,np,na])=>{
+    base.collection('meta').doc('nt_alert').get(),
+    // NinjaTrader's own BACKTEST blotters, matched to these trades by
+    // tools/nt_backtest_match.py. A second, independent answer to "did NinjaTrader see
+    // this trade" for every row the live reconcile can say nothing about.
+    base.collection('meta').doc('nt_backtest_match').get()
+  ]).then(([ts,rs,nb,np,na,nbm])=>{
     window._paperTrades=ts.docs.map(d=>({id:d.id,...d.data()}));
     window._paperReports=rs.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.id.localeCompare(a.id)).slice(0,30);
     window._ntBridge=nb.exists?nb.data():null;
     window._ntPreflight=np.exists?np.data():null;
     window._ntAlert=na.exists?na.data():null; // api/nt_heartbeat.py dead-man's-switch: critical/warning/ok
+    window._ntBtMatch=nbm.exists?nbm.data():null;
     window._paperLoaded=true;window._paperLoading=false;
     if(activeTab==='augur'&&augurSub==='paper')renderApp();
   }).catch(e=>{
@@ -21692,6 +21698,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // TradingView: always reads "no feed", never a dash that could be mistaken for
       // "checked and missing". TV has no API to poll; it is verified by hand, in bulk, and
       // that lives in the MATRIX's ALL TIME scope.
+      // NinjaTrader BACKTEST matches (tools/nt_backtest_match.py). Deliberately a
+      // WEAKER claim than a live fill and kept in its own map so it can never overwrite
+      // one: a demo fill is NinjaTrader actually trading, a backtest match is
+      // NinjaTrader agreeing the signal existed. The live reconcile always wins.
+      const _ntBt=((window._ntBtMatch||{}).rows)||{};
       const _ntSeen={};
       _pr.forEach(r=>{
         const legs=(r&&r.reconcile&&r.reconcile.legs)?r.reconcile.legs:null;
@@ -21741,6 +21752,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const iso=t.entryIso||null;
         const known=iso!=null&&Object.prototype.hasOwnProperty.call(_ntSeen,iso);
         const nt=known?_ntSeen[iso]:null;
+        const bt=(!known&&iso!=null)?_ntBt[iso]:null;   // only consulted when no live fill answer
         // GLYPH FIRST, colour second. On the monochrome theme var(--green)/var(--red)
         // both resolve to greys -- one of them near-invisible on the dark ground (the same
         // legibility complaint the owner raised about the bridge status dot) -- so the
@@ -21749,9 +21761,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // both resolve to greys, so a matched trade and a missed one looked identical.
         return '<td style="white-space:nowrap">'
           +_engChip('EL ✓',PNL_POS,'EDGELOG engine produced this trade - every row in this table is an engine trade')
-          +' '+(nt===true?_engChip('NT ✓',PNL_POS,'NinjaTrader filled this trade too - matched by the daily reconcile on entry time')
-                :nt===false?_engChip('NT ✗',PNL_NEG,'The engine signalled it and NinjaTrader never took it - engine-only in the daily reconcile')
-                :_engChip('NT ?','#8a8a8a','No reconcile block covers this date, so whether NinjaTrader took it is unknown'))
+          +' '+(nt===true?_engChip('NT ✓',PNL_POS,'NinjaTrader FILLED this trade on the demo account - matched by the nightly reconcile on entry time. The strongest agreement there is.')
+                :nt===false?_engChip('NT ✗',PNL_NEG,'The engine signalled it and NinjaTrader never took it - engine-only in the nightly reconcile')
+                :(bt&&bt.matched)?_engChip('NT ≈','#4a9edb',
+                    'NinjaTrader\u2019s own BACKTEST produced this trade too'
+                    +(bt.nt_entry?(' - it entered at '+bt.nt_entry+' UTC'):'')
+                    +(bt.nt_entry_px!=null?(' at '+bt.nt_entry_px):'')
+                    +(bt.drift_min!=null?(', '+bt.drift_min+' min after the engine'):'')
+                    +'. That is the same config over the same history, not a live fill: the engine enters at the signal close and NinjaTrader on the next bar open, so one bar of drift is expected.')
+                :(bt&&bt.matched===false)?_engChip('NT ✗','#e0a33a',
+                    'NinjaTrader\u2019s backtest covered this date and did NOT produce this trade. Not a live-fill miss - a genuine disagreement between the two engines about whether the signal existed.')
+                :_engChip('NT ?','#8a8a8a','Nothing has checked this trade against NinjaTrader: no reconcile block covers the date, and no backtest dump spans it.'))
           +' '+_engChip('TV –','#8a8a8a','TradingView has no API to poll - it is only ever checked by hand, in bulk. See CROSS-ENGINE, ALL TIME.')
           +'</td>';
       };
@@ -21805,7 +21825,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px;display:flex;align-items:center">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">&middot; showing 200 of '+_tSorted.length+'</span>':'')+_ptSelBar+'</div>'
         +'<style>#ptrades-body tr{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}</style>'
-        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="which engines produced this trade">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
+        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="Which engines produced this trade. EL = the EDGELOG engine, true of every row here by definition. NT = NinjaTrader: a tick means it FILLED the trade on the demo account, a wave means its own backtest produced the same trade, a cross means it did not, a question mark means nothing has checked. TV = TradingView, which has no API to poll.">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
         +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
         +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
         +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th><th>CHART</th></tr></thead><tbody id="ptrades-body">'+_tRows+'</tbody></table></div>'
