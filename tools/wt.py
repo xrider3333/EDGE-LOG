@@ -215,6 +215,34 @@ def cmd_ship(name, message):
             sys.stderr.write(out)
             raise SystemExit('studies render gate FAILED - not pushing')
 
+    # THIRD GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
+    # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
+    # at the same time silently produced 27 collisions, and a row number is the board's permanent
+    # identifier - docs and memory refer to studies by number, so a duplicate makes those
+    # references ambiguous forever. studies_registry_check.py already asserted uniqueness; it was
+    # simply never wired into a gate.
+    #
+    # KNOWN_DUP_ROWS is the mess that already exists on main (the TTM Squeeze rounds and the ORB
+    # travel/exits rounds landed on the same numbers). Renumbering those is an OWNER call, not a
+    # side effect of someone else's push, so they are baselined: this gate blocks a push that adds
+    # a NEW collision and lets the existing ones through. Shrink this set as they get resolved;
+    # never grow it to get a push through.
+    KNOWN_DUP_ROWS = set(range(592, 617))
+    rc = os.path.join(wt, 'tools', 'studies_registry_check.py')
+    if touched_index.strip() and os.path.isfile(rc):
+        r = subprocess.run([sys.executable, rc], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        dups = set(int(m) for m in re.findall(r'row (\d+) duplicated', out))
+        fresh = sorted(dups - KNOWN_DUP_ROWS)
+        if fresh:
+            sys.stderr.write(out)
+            raise SystemExit('STUDIES row-number gate FAILED - not pushing. New duplicate row '
+                             'number(s): ' + ', '.join(str(x) for x in fresh) +
+                             '. Pick numbers above the current maximum and re-run.')
+        print('STUDIES ROW NUMBERS: OK' +
+              (' (%d known duplicate row(s) baselined)' % len(dups & KNOWN_DUP_ROWS) if dups else ''))
+
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
     print('pushed: ' + run(['git', '-C', wt, 'log', '--oneline', '-1']))
     sync_shared(root)
