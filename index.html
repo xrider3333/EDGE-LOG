@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.274';
+const VERSION='73.275';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.275',date:'2026-08-26',notes:['THE TWO ENGU-Q ROWS YOU DID NOT RECOGNISE ARE NOW ON THE STRATEGY LIST. ENGU-Q-265 RAW and its logistic hybrid replaced the #226 baseline on 21 August, but nobody added them here - so they ran nightly, filled the trade log, and had no name, no colour and no toggle. They have all three now.','ENGU-Q-226 RAW IS MARKED RETIRED and moved to archived. It stopped producing trades on 21 August, yet it was still the row you had switched on - which is why your ENGU-Q line looked frozen. Its history is kept so the curve and the totals stay honest.','THREE NEW FILTERS ABOVE THE STRATEGY TABLE. A family toggle (ALL / ORB / ENGU-Q / NOISE) like the one in PAST RUNS, a RAW versus ML toggle, and a BASELINES ONLY switch that hides every variant and leaves one row per family. Five NOISE rows becomes one. All three are remembered.','THE STRATEGY TABLE IS COMPACT. Columns reordered to live dot, strategy, then the three money columns, and the row height cut to match the trades table underneath.','NET, FORWARD and BACKFILLED now explain themselves on hover: NET is every trade; FORWARD is what happened while the strategy was on the board with nobody knowing the outcome; BACKFILLED is history re-run after it joined, which is a backtest and not evidence.','THE EL / NT / TV PILLS IN THE TRADE LIST READ ON THE MONOCHROME THEME. They used the theme\u2019s own up and down colours, which are both grey there, so a trade NinjaTrader matched looked exactly like one it missed.']},
 {v:'73.274',date:'2026-08-26',notes:['Follow-up to the chart work below: the strip holding the hover readout and the session / scale chips now sits UNDER the chart, below the price axis, instead of up in the button row - where TradingView keeps it.']},
 {v:'73.273',date:'2026-08-26',notes:['STUDIES row 695: the ENGU-Q efficiency floor carried to ORB - FAILED. It looked strong on the bench (profit factor 1.26 to 1.39, three of four eras) but the validate, given the floor as a free knob, crowned a floor so high the strategy takes ZERO trades in the held-out year. Same starvation the ES transfer showed. Not adopted; the ORB crown (run 230) is untouched.']},
 {v:'73.270',date:'2026-08-23',notes:['COMPARE - STUDIES: the three round-4 pinned validates are in, rows 692-694. ALL THREE LOCKBOXES PASSED - a first for this family. ES 30m Carter (run 279) and NQ 15m range-break (run 280) came back WEAK with trade count the only failing gate; NQ 15m Carter (run 281) also failed consistency, matching its ridge robustness read. The study now explains why the pocket cells are validated pinned and what pinning costs, and two NEIGHBOURHOOD validates (four robust knobs varying, mechanism frozen in code) are queued so the multi-configuration surfaces populate and the trades-per-knob arithmetic is honest.']},
@@ -20871,12 +20872,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'ORB',       label:'ORB-234 · RAW',              color:'#5b8def', nt:'ORB230',
          ntNote:'EdgeLogORB230 went live 2026-08-18 on NQ 5-min -- a real port of run #230 (close-confirmed entry, partial at 3R, trailed runner) running the same params as this leg. Its first fills still owe a reconcile against the engine blotter.'},
         {k:'ORB_H',     label:'ORB-234 · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB'},
-        {k:'ENGUQ',     label:'ENGU-Q-226 · RAW',           color:'#c090ff', nt:'ENGUQ'},
+        // RETIRED 2026-08-21: replaced on the board by the #265 efficiency config below
+        // (owner's call). It is kept, archived, so its 13 trades still draw and still
+        // total -- deleting it would silently rewrite the record it already produced.
+        {k:'ENGUQ',     label:'ENGU-Q-226 · RAW',           color:'#c090ff', archived:true,
+         chip:'retired 08-21',
+         chipTip:'This was the ENGU-Q baseline until 2026-08-21, when run #265 (the efficiency floor) replaced it. It stopped producing trades that day. Its history is kept so the curve and the totals stay honest.'},
+        // The CURRENT ENGU-Q baseline. Runs nightly as ENGUQ_ER and is what NinjaTrader's
+        // EdgeLogENGUQ1m is pointed at.
+        {k:'ENGUQ_ER',  label:'ENGU-Q-265 · RAW',           color:'#c090ff', nt:'ENGUQ',
+         chip:'efficiency 0.25',
+         chipTip:'The #226 config plus a momentum-quality floor: the last hour\u2019s efficiency ratio must reach 0.25 at the signal. Validate #265 held its lockbox ($135,983, PF 2.29). Replaced the #226 raw leg on 2026-08-21.'},
+        {k:'ENGUQ_ER_H',label:'ENGU-Q-265 · logistic HYBRID♻ 55', color:'#b57edc', ctrl:'ENGUQ_ER',
+         chip:'forward test only',
+         chipTip:'The same #265 config with its ML overlay (logistic, 55% cut-off, survivors sized by score). On the held-out year the overlay did NOT beat ungated, so this is forward evidence only and must never be crowned off backtest numbers. ENGU-Q-265 RAW is its exact control.'},
         // ADDED to the board 2026-08-20. The leg itself has been computed nightly since
         // 08-18 (run #249) but was never listed here, so it had no tile and no row -- it was
         // running and invisible, which is the worst of both. Same #226 ETH config as the leg
         // above; the ONLY difference is the entry, so ENGU-Q RAW is its matched control.
-        {k:'ENGUQ_L50',  label:'ENGU-Q-249 · LIMIT 0.50',    color:'#8ad4ff', ctrl:'ENGUQ',
+        {k:'ENGUQ_L50',  label:'ENGU-Q-249 · LIMIT 0.50',    color:'#8ad4ff', ctrl:'ENGUQ_ER',
          chip:'limit entry',
          chipTip:'Same 24-hour ENGU-Q settings as ENGU-Q RAW. The ONLY difference is the entry: instead of buying at the signal close, it rests a limit order half an ATR BELOW it and drops the trade entirely if that never fills within ten bars. RAW is its matched control, so any difference between the two rows is the entry and nothing else. Caveat from validate #249: entering lower against the same stop widens risk, so it FAILS the pre-registered net-per-drawdown bar (8.32 vs the control 8.62). Candidate, not a winner.',
          ntNote:'Engine-only by design. It tests a resting limit entry half an ATR below the signal close, so it can only be compared against ENGU-Q RAW, never traded alongside it.'},
@@ -20961,7 +20975,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _legOff=Array.isArray(window._paperLegOff)
         ? window._paperLegOff
         : (window._paperLegOff=(Array.isArray(APREF.paperLegOff)?APREF.paperLegOff.slice():[]));
-      const _legShown=k=>!_legOff.includes(k);
+      // A leg is shown when it is neither switched off by hand NOR filtered out by the
+      // family / kind / baseline controls. One predicate, so the table, the curve, the
+      // calendar and the trades table can never disagree about what is on screen.
+      const _legShown=k=>!_legOff.includes(k)&&(typeof _passFilter!=='function'||_passFilter(k));
       const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
       // BLEND is the owner's fixed ORB+ENGUQ baseline — NOISE never joins it, even though it shares the same trade collection.
@@ -21182,7 +21199,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               :(st?(st.name+' · '+st.state+' · '+st.account+(st.instrument?' · '+st.instrument:''))
                   :('not attached in NinjaTrader'+(_def.ntNote?' — '+_def.ntNote:'')));
           }
-          dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5);cursor:help">'
+          dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5);cursor:help">'
             +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dc+'"></span>'+txt+'</span>';
         }
         // The cross-engine block -- the only part of the old MATRIX that was not already
@@ -21293,8 +21310,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // The wordy things -- gate summary, run and parameters -- wrap, and wrapping in a
         // cell is what made every row tall. They now live in one full-width row beneath
         // the strategy, so the numbers stay one scannable line each.
-        const _td=(inner,align,extra)=>'<td style="padding:2px 9px;text-align:'+(align||'right')
-          +';border-bottom:1px solid var(--border2);white-space:nowrap;line-height:1.35;'+(extra||'')+'">'+inner+'</td>';
+        const _td=(inner,align,extra)=>'<td style="padding:1px 7px;text-align:'+(align||'right')
+          +';border-bottom:1px solid var(--border2);white-space:nowrap;line-height:1.3;'+(extra||'')+'">'+inner+'</td>';
         const _fwd=(name==='BLEND'||!_sp.nBf)?'<span style="color:var(--text5)">—</span>'
           :('<span style="color:var(--text2)">'+_sp.nFw+'</span> <span style="color:'
             +(_sp.netFw>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_sp.netFw)+'</span>');
@@ -21304,21 +21321,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _detail=(gateBlock||'')+(cfgBlock||'');
         const _mainRow='<tr data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
           +'" style="cursor:pointer;opacity:'+(dim?0.4:1)+';transition:opacity .12s">'
+          // Owner's column order 2026-08-26: live dot, name, then the three money columns.
+          +_td(dotHtml||'<span style="color:var(--text5)">—</span>','left','width:1%')
           +_td('<span style="font-weight:700;letter-spacing:.5px;color:'+color+'">'+label+'</span>'
                +(dim?' <span style="font-size:8px;color:var(--text5)">excluded</span>':'')+wBadge+orbBadge+noteBadge,'left')
-          +_td('<b style="font-size:12px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</b>')
+          +_td('<b style="font-size:11px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</b>')
+          +_td(_fwd)
+          +_td(_bf)
           +_td(a.n)
           +_td(a.n?Math.round(a.wr*100)+'%':'—')
           +_td(a.days+'d')
           +_td(a.lastT?_dOnly(a.lastT):'—')
-          +_td(_fwd)
-          +_td(_bf)
-          +_td(dotHtml||'<span style="color:var(--text5)">—</span>','left')
           +_td(xHtml||'<span style="color:var(--text5)">—</span>','left')
           +'</tr>';
         // Detail row: only when asked for, and only when there is something to say.
         const _detailRow=(_cfgOn&&_detail)
-          ? '<tr style="opacity:'+(dim?0.4:1)+'"><td colspan="10" style="padding:1px 9px 6px 9px;border-bottom:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.55">'
+          ? '<tr style="opacity:'+(dim?0.4:1)+'"><td colspan="10" style="padding:0 7px 5px 7px;border-bottom:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.55">'
             +_detail+'</td></tr>'
           : '';
         return _mainRow+_detailRow;
@@ -21326,7 +21344,35 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
       // curve is hardcoded #e0c341 -- the tile said grey, the line drew yellow.
-      const _tileDefs=LEGS_VIS.map(d=>[d.k,d.label,d.color]);
+      // ── leg taxonomy: family / RAW-vs-ML / is-it-a-baseline ────────────────────
+      const _rootOf=k=>{let cur=k,hop=0;
+        while(hop++<8){const d=PAPER_LEG_DEFS.find(x=>x.k===cur);if(!d||!d.ctrl)break;cur=d.ctrl;}
+        return cur;};
+      const _famOf=k=>{const r=String(_rootOf(k)||k);
+        if(r.indexOf('ORB')===0)return 'ORB';
+        if(r.indexOf('ENGUQ')===0)return 'ENGU-Q';
+        if(r.indexOf('NOISE')===0)return 'NOISE';
+        return r;};
+      // ML = an ML overlay sits on top (hybrid gate or size tilt). _legGate is the truth
+      // where a report carries one; the key suffix covers legs before their first report.
+      const _isML=k=>{
+        if(/_H$|_RF$|_T$/.test(k))return true;
+        try{const g=_legGate(k);return !!(g&&g.model);}catch(e){return false;}
+      };
+      const _isBaseline=k=>_rootOf(k)===k;
+      if(window._paperFam==null)window._paperFam=APREF.paperFam||'ALL';
+      if(window._paperKind==null)window._paperKind=APREF.paperKind||'ALL';
+      if(window._paperBaseOnly==null)window._paperBaseOnly=!!APREF.paperBaseOnly;
+      const PFAM=window._paperFam||'ALL';
+      const PKIND=window._paperKind||'ALL';
+      const PBASE=!!window._paperBaseOnly;
+      const _famList=[...new Set(LEGS_VIS.map(d=>_famOf(d.k)))];
+      const _passFilter=k=>(PFAM==='ALL'||_famOf(k)===PFAM)
+        &&(PKIND==='ALL'||(PKIND==='ML'?_isML(k):!_isML(k)))
+        &&(!PBASE||_isBaseline(k));
+      const LEGS_F=LEGS_VIS.filter(d=>_passFilter(d.k));
+      const _nFiltered=LEGS_VIS.length-LEGS_F.length;
+      const _tileDefs=LEGS_F.map(d=>[d.k,d.label,d.color]);
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
@@ -21348,11 +21394,37 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +(_nArch?('<span data-patharch style="cursor:pointer;user-select:none;margin-left:10px;font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
           +(_showArch?'hide archived':'show archived ('+_nArch+')')+'</span>'):'')
         +'</div>'
-        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:10px">'
-        +'<thead><tr style="color:var(--text4);font-size:8px;letter-spacing:1px;text-transform:uppercase">'
-          +['STRATEGY','NET','TRADES','WIN','DAYS','LAST','FORWARD','BACKFILLED','NINJATRADER','CROSS-ENGINE']
-            .map((h,i)=>'<th style="padding:3px 9px;text-align:'+(i===0||i>7?'left':'right')
-              +';border-bottom:1px solid var(--border);font-weight:700">'+h+'</th>').join('')
+        // FAMILY / KIND / BASELINE rail - same tinted-tray language as the leg rail and
+        // the report's CLASSIC/NEO control, so every segmented control on the page matches.
+        +(()=>{
+          const seg=(attr,val,cur,lbl,tip)=>{const on=String(val)===String(cur);
+            return '<span data-'+attr+'="'+val+'" title="'+String(tip||'').replace(/"/g,'&quot;')+'" '
+              +'style="cursor:pointer;user-select:none;font-size:8px;font-weight:700;letter-spacing:.6px;'
+              +'padding:2px 8px;border-radius:5px;'
+              +(on?'background:var(--bg3);color:var(--text);box-shadow:inset 0 -2px 0 var(--blue)':'color:var(--text5)')+'">'+lbl+'</span>';};
+          const tray=inner=>'<span style="display:inline-flex;align-items:center;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px">'+inner+'</span>';
+          return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
+            +tray(seg('pfam','ALL',PFAM,'ALL','every strategy family')
+                 +_famList.map(f=>seg('pfam',f,PFAM,f,'show only the '+f+' family')).join(''))
+            +tray(seg('pkind','ALL',PKIND,'ALL','raw configs and ML overlays together')
+                 +seg('pkind','RAW',PKIND,'RAW','only plain configs, no ML overlay')
+                 +seg('pkind','ML',PKIND,'ML','only the ML overlays (hybrid gates and size tilts)'))
+            +'<span data-pbase style="cursor:pointer;user-select:none;font-size:8px;font-weight:700;letter-spacing:.6px;padding:3px 9px;border-radius:999px;border:1px solid '
+              +(PBASE?'var(--blue);color:var(--blue)':'var(--border);color:var(--text5)')+'">BASELINES ONLY</span>'
+            +(_nFiltered?('<span style="font-size:8px;color:var(--text5)">'+_nFiltered+' hidden by these filters</span>'):'')
+            +'</div>';
+        })()
+        // COMPACT: 9px text, 1px vertical padding, no per-cell borders - the trades table
+        // underneath reads well because its rows are one tight line each, and this one was
+        // three times the height for the same amount of information.
+        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:9px">'
+        +'<thead><tr style="color:var(--text4);font-size:8px;letter-spacing:.8px;text-transform:uppercase">'
+          +['','STRATEGY','NET','FORWARD','BACKFILLED','TRADES','WIN','DAYS','LAST','CROSS-ENGINE']
+            .map((h,i)=>'<th title="'+({NET:'Every trade this leg has, forward-observed and backfilled together. The headline number.',
+                FORWARD:'Trades that happened while this leg was ON the board - genuinely observed forward, nobody knew the outcome.',
+                BACKFILLED:'Trades produced by re-running this config over history AFTER it joined the board. A backtest, not evidence.'}[h]||'').replace(/"/g,'&quot;')
+              +'" style="padding:2px 7px;text-align:'+(i<=1||i>8?'left':'right')
+              +';border-bottom:1px solid var(--border);font-weight:700;'+(h?'cursor:help':'')+'">'+h+'</th>').join('')
         +'</tr></thead><tbody>'
         +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('')
         +'</tbody></table></div>';
@@ -21636,12 +21708,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // both resolve to greys -- one of them near-invisible on the dark ground (the same
         // legibility complaint the owner raised about the bridge status dot) -- so the
         // symbol has to carry the meaning on its own and the colour is only reinforcement.
+        // FIXED HEX, never theme vars: on the monochrome theme var(--green) and var(--red)
+        // both resolve to greys, so a matched trade and a missed one looked identical.
         return '<td style="white-space:nowrap">'
-          +_engChip('EL ✓','var(--green)','EDGELOG engine produced this trade - every row in this table is an engine trade')
-          +' '+(nt===true?_engChip('NT ✓','var(--green)','NinjaTrader demo filled this trade too - matched by the daily reconcile')
-                :nt===false?_engChip('NT ✗','var(--red)','The engine signalled it and the NinjaTrader demo never took it - engine-only in the daily reconcile')
-                :_engChip('NT ?','var(--text5)','No reconcile block covers this date, so whether NinjaTrader took it is unknown'))
-          +' '+_engChip('TV –','var(--text5)','TradingView has no API to poll - it is only ever checked by hand, in bulk. See MATRIX, ALL TIME.')
+          +_engChip('EL ✓',PNL_POS,'EDGELOG engine produced this trade - every row in this table is an engine trade')
+          +' '+(nt===true?_engChip('NT ✓',PNL_POS,'NinjaTrader filled this trade too - matched by the daily reconcile on entry time')
+                :nt===false?_engChip('NT ✗',PNL_NEG,'The engine signalled it and NinjaTrader never took it - engine-only in the daily reconcile')
+                :_engChip('NT ?','#8a8a8a','No reconcile block covers this date, so whether NinjaTrader took it is unknown'))
+          +' '+_engChip('TV –','#8a8a8a','TradingView has no API to poll - it is only ever checked by hand, in bulk. See CROSS-ENGINE, ALL TIME.')
           +'</td>';
       };
       const _tRows=_tSorted.slice(0,200).map(t=>{
@@ -23325,6 +23399,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
     else if(augurSub==='paper'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
+      // Family / kind / baseline filters, saved like every other view choice on this tab.
+      content.querySelectorAll('[data-pfam]').forEach(el=>{el.onclick=()=>{
+        window._paperFam=el.getAttribute('data-pfam');savePref('paperFam',window._paperFam);renderApp();};});
+      content.querySelectorAll('[data-pkind]').forEach(el=>{el.onclick=()=>{
+        window._paperKind=el.getAttribute('data-pkind');savePref('paperKind',window._paperKind);renderApp();};});
+      {const b=content.querySelector('[data-pbase]');
+       if(b)b.onclick=()=>{window._paperBaseOnly=!window._paperBaseOnly;
+         savePref('paperBaseOnly',!!window._paperBaseOnly);renderApp();};}
       // Calendar: month arrows, and clicking a day selects that day's rows in TRADES.
       content.querySelectorAll('[data-pcalmo]').forEach(el=>{el.onclick=()=>{
         const cur=content.querySelector('[data-pcalcur]');
