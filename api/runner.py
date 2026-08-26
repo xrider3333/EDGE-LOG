@@ -1606,6 +1606,59 @@ def main(argv=None):
                     q.sync_meta()
             except Exception as e:
                 print(f"[auto-pine] skipped: {type(e).__name__}: {e}")
+        # ── ORPHAN SWEEP (2026-08-26) ────────────────────────────────────────────
+        # A runner restart while a job is mid-flight leaves that job's doc on
+        # status='running' forever: the worker is gone, nothing ever finishes it, and
+        # the web shows a job frozen at whatever progress it last wrote. It has now bitten
+        # three times (2026-08-05 one job at 85% for ~12h; 2026-08-23 three ENGU-Q
+        # validates sat "running" for THREE DAYS before anyone noticed). Every previous
+        # fix was manual: flip the doc back to 'queued' by hand.
+        #
+        # Liveness signal, with no new bookkeeping: a live job rewrites its own doc every
+        # ~1.5s through the progress callback, so Firestore's server-side update_time is
+        # fresh. An orphan's doc goes cold the moment its worker dies. Anything that has
+        # not touched its doc in ORPHAN_STALE_MIN minutes is dead, so it is requeued.
+        #
+        # Deliberately conservative, because the cost of a false positive is a job running
+        # TWICE: it runs ONCE at startup only (never in the poll loop, where a second
+        # runner could be racing), the threshold is a full hour, every requeue is logged
+        # loudly, and the reason is written onto the doc so the history is not silent.
+        ORPHAN_STALE_MIN = 60.0
+        if a.firestore:
+            try:
+                from google.cloud.firestore_v1.base_query import FieldFilter as _FF
+                import datetime as _dt
+                _now = _dt.datetime.now(_dt.timezone.utc)
+                _n = 0
+                for _uid in (a.allow_uid or []):
+                    _col = q.db.collection("users").document(_uid).collection(a.collection)
+                    for _snap in _col.where(filter=_FF("status", "==", "running")).stream():
+                        _ut = getattr(_snap, "update_time", None)
+                        _age = None
+                        if _ut is not None:
+                            try:
+                                _age = (_now - _ut.replace(tzinfo=_dt.timezone.utc)).total_seconds() / 60.0
+                            except Exception:
+                                _age = (_now - _dt.datetime.fromtimestamp(
+                                    _ut.timestamp(), _dt.timezone.utc)).total_seconds() / 60.0
+                        if _age is None or _age < ORPHAN_STALE_MIN:
+                            continue
+                        _j = _snap.to_dict() or {}
+                        _snap.reference.update({
+                            "status": "queued", "progress": 0,
+                            "orphan_requeued_at": _now,
+                            "orphan_note": (f"requeued on runner start: doc had been on "
+                                            f"status='running' with no write for "
+                                            f"{_age:.0f} min, so its worker was gone")})
+                        _n += 1
+                        print(f"[orphan] requeued {_snap.id}: {_j.get('type','backtest')} "
+                              f"{_j.get('strategy')} (dead {_age:.0f} min, "
+                              f"was {_j.get('progress')}%)", flush=True)
+                if _n:
+                    print(f"[orphan] {_n} stranded job(s) put back on the queue", flush=True)
+            except Exception as _e:
+                # Never let the sweep stop the runner coming up.
+                print(f"[orphan] sweep skipped: {type(_e).__name__}: {_e}", flush=True)
         print("watching… (Ctrl+C to stop)")
         while True:
             # Decide WHY (if at all) we should hit the queued-docs query this tick:
