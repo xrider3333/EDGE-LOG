@@ -30,7 +30,7 @@ import threading
 
 import augur_engine as ae
 from augur_engine import trial_cache as TC
-from .util import json_safe
+from .util import json_safe, pack_command_result
 from . import dupe_guard
 try:
     from . import paper as _paper
@@ -1123,7 +1123,7 @@ class FirestoreQueue:
                     else:
                         res = {"ok": False, "error": "runner has no --nt-fills path configured"}
                     ref.update({"status": "done" if res.get("ok") else "error",
-                                "result": json_safe(res), "finishedAt": time.time()})
+                                "result": pack_command_result(res), "finishedAt": time.time()})
                     n += 1
                     continue
                 # On-demand Webull pull (the "Sync Webull now" button) — force=True bypasses
@@ -1139,7 +1139,7 @@ class FirestoreQueue:
                     else:
                         res = {"ok": False, "error": "runner has no --webull-keys path configured"}
                     ref.update({"status": "done" if res.get("ok") else "error",
-                                "result": json_safe(res), "finishedAt": time.time()})
+                                "result": pack_command_result(res), "finishedAt": time.time()})
                     n += 1
                     continue
                 # Blotter reconciliation (compute, not a file-op) — run the engine on the
@@ -1160,7 +1160,7 @@ class FirestoreQueue:
                     except Exception as e:
                         res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
                     ref.update({"status": "done" if res.get("ok") else "error",
-                                "result": json_safe(res), "finishedAt": time.time()})
+                                "result": pack_command_result(res), "finishedAt": time.time()})
                     n += 1
                     continue
                 # get_blotter / get_bars (compute/file-read, not a Library file-op) used to
@@ -1168,7 +1168,7 @@ class FirestoreQueue:
                 # parallel with running jobs (see READONLY_ACTIONS skip above).
                 res = process_command(action, doc.get("payload") or doc, log)
                 ref.update({"status": "done" if res.get("ok") else "error",
-                            "result": json_safe(res), "finishedAt": time.time()})
+                            "result": pack_command_result(res), "finishedAt": time.time()})
                 if res.get("ok") and action in ("delete", "add", "make_pine", "write_pine"):
                     try:
                         self.sync_meta(log)
@@ -1376,7 +1376,7 @@ class CommandThread:
         else:
             res = {"ok": False, "error": f"unsupported readonly action {action!r}"}
         ref.update({"status": "done" if res.get("ok") else "error",
-                    "result": json_safe(res), "finishedAt": time.time()})
+                    "result": pack_command_result(res), "finishedAt": time.time()})
 
     def _poll_uid(self, uid) -> int:
         from google.cloud.firestore_v1.base_query import FieldFilter

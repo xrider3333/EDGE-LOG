@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.279';
+const VERSION='73.280';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.280',date:'2026-08-26',notes:['Asking a candle chart for a wider stretch of bars used to fail outright once the window got big: the reply is stored as a single record on the database, and a few thousand candles exceeded a hard limit on that record, so nothing came back and the chart just sat there. Large replies now travel packed as one block and are unpacked in the page, which also covers long trade lists. This needs the PC runner restarted to take effect.']},
 {v:'73.279',date:'2026-08-26',notes:['Candle charts: scrolling, zooming and loading more bars now work with a real mouse. The controls used to be attached to the drawing itself, which this window redraws constantly - a drag that redrew was a drag whose target had vanished - and anything the chart did not catch fell through to the pop-up window underneath, which slides the whole picture instead of scrolling the bars. The controls now live on the chart panel and hold on to the gesture from press to release, and the pop-up window no longer competes for it (its floating zoom toolbar is gone inside candle windows).']},
 {v:'73.278',date:'2026-08-26',notes:['The ORB efficiency-floor study is ONE row again (now row 696) and it carries its ending. It had been written twice - row 591 while the bench looked promising, row 695 once the validate came back - and both numbers had meanwhile been taken by another session running in parallel. The surviving row tells the whole story: strong on the bench (profit factor 1.263 to 1.385, three of four eras, a plateau not a spike), then FAILED its validate because the search crowned a floor so high the strategy takes ZERO trades in the held-out year. Not adopted; the ORB crown (run 230) is untouched.','KNOWN AND NOT YET FIXED: rows 591 to 616 still carry TWO different studies each, because two sessions numbered rows at the same time and the board has no way to hand out a number. Those rows belong to other work and are referenced elsewhere by number, so they are deliberately NOT renumbered here - that is an owner call. The pre-push check now FAILS on a duplicate row number so no new ones can land.']},
 {v:'73.277',date:'2026-08-26',notes:['HOTFIX: the PAPER tab would not open on v73.275 - it showed LOAD ERROR instead. The new strategy filters were declared further down the file than the code that used them, which in JavaScript is an error rather than a blank value. Moved them above it. The tab opens again and every filter works.']},
@@ -1971,7 +1972,19 @@ function _runCmd(action,payload,toMs){return new Promise((resolve,reject)=>{
     let done=false;
     const unsub=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;done=true;try{unsub();}catch(_){}
       const r=x.result||{};
-      if(x.status==='error'||!r.ok){rej2(new Error(r.error||x.error||'failed'));return;}res2(r);});
+      if(x.status==='error'||!r.ok){rej2(new Error(r.error||x.error||'failed'));return;}
+      // A big reply (a wide candle window, a long blotter) arrives as ONE packed string -
+      // Firestore rejects the document outright if the bars land as a real array, so the PC
+      // folds them into a string and this puts them back.
+      if(r.packed||r.packed_z){
+        (r.packed_z?_gunzipB64(r.packed_z):Promise.resolve(r.packed))
+          .then(t=>{let o=null;try{o=JSON.parse(t);}catch(_pe){}
+            if(!o){rej2(new Error('could not read the reply from your PC'));return;}
+            res2(Object.assign({},r,o));})
+          .catch(e2=>rej2(e2));
+        return;
+      }
+      res2(r);});
     // callers that show live progress (candle/blotter fetch) pass a longer patience — a
     // command queued behind a RUNNING backtest job can legitimately take minutes.
     const _to=(+toMs>0)?+toMs:90000;
