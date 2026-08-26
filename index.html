@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.285';
+const VERSION='73.286';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.286',date:'2026-08-26',notes:['NEW TAB: PAPER ✦, sitting next to PAPER. It is the same forward test - the same numbers, the same filters, the same trade rows - laid out much shorter, so you can flip between the two and keep whichever you prefer. The original PAPER tab is completely unchanged.','WHAT IS DIFFERENT. The whole NinjaTrader card becomes one status line across the top: how many strategies are live, whether anything is open, whether the ML gate is answering, and the four headline numbers. The chart, the calendar, the strategy table and the trades all stay exactly where they were.','THE THREE REFERENCE PANELS FOLD AWAY - NinjaTrader detail, the cross-engine comparison, and the nightly reports. Those are things you look up, not things you watch, and having all three open at all times was most of the scrolling. Click a heading to open one; it stays open until you close it.','NOTHING WAS DELETED. Every number on the old page is still reachable on the new one. A shorter page that hides something you rely on would be worse than a long one.']},
 {v:'73.285',date:'2026-08-26',notes:['Candle windows get a bar-size selector in the toolbar, offering only the sizes that actually have price files for that instrument and session, and the choice sticks when you then ask for more bars. Tidied the window as a whole: the toolbar is grouped with separators, the trade picker is narrower, the heading no longer wraps onto a second line, and the bar count moved down to the strip under the chart. Also fixed: after switching to the 24-hour session, asking for more bars quietly snapped back to the original session.']},
 {v:'73.284',date:'2026-08-26',notes:['THE NT COLUMN IN THE TRADE LIST ACTUALLY ANSWERS NOW. It could only ever read the nightly reconcile, which compares against LIVE NinjaTrader fills - so on almost every historical row it showed a question mark and looked broken. It now also reads NinjaTrader\u2019s own backtest blotters, which is the same configuration run over the same history.','FOUR STATES, and they mean different things. A green tick means NinjaTrader FILLED that trade on the demo account, which is the strongest agreement there is. A blue wave means NinjaTrader\u2019s backtest produced the same trade - hover it for the exact time and price it entered, and by how many minutes it trailed the engine. An amber cross means NinjaTrader looked at that date and did NOT produce the trade, which is a real disagreement. Grey means nothing has checked it yet.','A LIVE FILL ALWAYS WINS over a backtest match, so the weaker evidence can never quietly overwrite the stronger. Hover the ENGINES heading for the whole key.']},
 {v:'73.283',date:'2026-08-26',notes:['Charts lift their own limit on how much history they will ask for as soon as the PC is running the build that can send big replies, so no setting has to be changed by hand after the next runner restart.']},
@@ -1218,8 +1219,8 @@ const TABS=['overview','trades','analytics','import_export','journal','augur'];
 // v73.20 (owner: "tired of having two settings spots"): SETTINGS is no longer a subtab on
 //   either side. Both panels live in ONE master modal behind the topbar gear (openSettings).
 const LOG_TABS=['overview','trades','analytics','import_export','journal'];
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['rank','RANKINGS'],['paper','PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
-const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',paper:'◷',ref:'◈',research:'◎',set:'◆'};
+const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['rank','RANKINGS'],['paper','PAPER'],['paper2','PAPER ✦'],['ref','REFERENCE'],['research','RESEARCH']];
+const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',paper:'◷',paper2:'◑',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
   'WIN RATE':{info:'% of trades that are profitable. Must be paired with good R:R — a 40% WR can be profitable with 2R+.',warn:v=>v<0.4?'danger':v<0.5?'warn':null,msg:v=>v<0.4?'Win rate below 40% — review entries':'Below 50% — ensure R:R compensates'},
@@ -1956,10 +1957,10 @@ function loadPaper(uidArg,force){
     window._ntAlert=na.exists?na.data():null; // api/nt_heartbeat.py dead-man's-switch: critical/warning/ok
     window._ntBtMatch=nbm.exists?nbm.data():null;
     window._paperLoaded=true;window._paperLoading=false;
-    if(activeTab==='augur'&&augurSub==='paper')renderApp();
+    if(activeTab==='augur'&&(augurSub==='paper'||augurSub==='paper2'))renderApp();
   }).catch(e=>{
     window._paperErr=String((e&&e.message)||e);window._paperLoading=false;window._paperLoaded=true;
-    if(activeTab==='augur'&&augurSub==='paper')renderApp();
+    if(activeTab==='augur'&&(augurSub==='paper'||augurSub==='paper2'))renderApp();
   });
 }
 function _libDownload(name,content){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download=name||'strategy.txt';document.body.appendChild(a);a.click();a.remove();}catch(e){}}
@@ -20918,7 +20919,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
         +'<div class="lbl" style="margin:22px 0 6px">WALK-FORWARD STUDIES</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Saved walk-forward studies will render here once the runner syncs the <code>augur_research/</code> folder. The validation-methodology reference now lives in the REFERENCE tab.</div>';
-    }else if(augurSub==='paper'){
+    }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
       // data daily and logs the trades it would have taken (no real money). Fields drift
       // slightly on the runner side, so every read here is defensive (optional chaining /
@@ -21083,6 +21084,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         try{const g=_legGate(k);return !!(g&&g.model);}catch(e){return false;}
       };
       const _isBaseline=k=>_rootOf(k)===k;
+      if(window._p2Open==null&&APREF.p2Open&&typeof APREF.p2Open==='object')window._p2Open=Object.assign({},APREF.p2Open);
       if(window._paperFam==null)window._paperFam=APREF.paperFam||'ALL';
       if(window._paperKind==null)window._paperKind=APREF.paperKind||'ALL';
       if(window._paperBaseOnly==null)window._paperBaseOnly=!!APREF.paperBaseOnly;
@@ -22303,8 +22305,83 @@ namespace NinjaTrader.NinjaScript.Strategies {
         : '';
       // curveHtml now CARRIES the leg tiles, so it takes the tiles' old slot at the top:
       // summary + curve read as one block, then the detail panels below it.
-      body=headerHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+reportsHtml
-        +(window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'');
+      const _errHtml=window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'';
+      if(augurSub!=='paper2'){
+        body=headerHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+reportsHtml+_errHtml;
+      }else{
+        // ── PAPER ✦ · the concise layout (owner 2026-08-26: "clean up the page as a
+        //    whole and make it more concise ... maybe make it a separate tab so i can
+        //    compare the differences").
+        //
+        //    Same numbers, same filters, same trade rows - the ORIGINAL tab is still
+        //    there, unchanged, one click away. What changes is how much of it is on
+        //    screen at once. The old page put six full-width cards in a column and every
+        //    one of them was always open, so the thing you came to read was never the
+        //    thing you were looking at.
+        //
+        //    Three rules:
+        //      1. ONE status line replaces the whole NinjaTrader card. Everything that
+        //         card said is still reachable - it is one click, not one scroll.
+        //      2. The three reference panels (NinjaTrader detail, cross-engine, daily
+        //         reports) collapse. They are things you consult, not things you watch.
+        //      3. Nothing is deleted. A concise view that hides a number you rely on is
+        //         worse than a long one, so every panel is still here behind its own
+        //         toggle and the toggles remember their state.
+        const _p2 = (window._p2Open||(window._p2Open={}));
+        const _p2Card=(key,title,inner,sub)=>{
+          const on=!!_p2[key];
+          return '<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">'
+            +'<div data-p2card="'+key+'" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;padding:6px 11px;background:var(--bg2)">'
+              +'<span style="font-size:9px;color:var(--text5);width:9px">'+(on?'▾':'▸')+'</span>'
+              +'<span class="lbl" style="margin:0;font-size:10px">'+title+'</span>'
+              +(sub?('<span style="font-size:9px;color:var(--text5);margin-left:auto">'+sub+'</span>'):'')
+            +'</div>'
+            +(on?('<div style="padding:9px 11px">'+inner+'</div>'):'')
+            +'</div>';
+        };
+        // ONE-LINE STATUS. Reads the same bridge snapshot the big card does.
+        const _p2Status=(()=>{
+          // Board-wide totals over exactly the rows on screen (_tSorted already carries
+          // the leg filter), so this line can never disagree with the table under it.
+          const _A=(()=>{const rows=_tSorted;
+            const days=new Set(rows.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean));
+            const net=rows.reduce((a,t)=>a+(+t.pnl_usd||0),0);
+            const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
+            return {n:rows.length,days:days.size,net:net,wr:rows.length?wins/rows.length:0};})();
+          const B=window._ntBridge;
+          const rt=(B&&B.up)?(B.strategies||[]).filter(x=>String(x.state)==='Realtime'):[];
+          const nStrat=(B&&B.up)?(B.strategies||[]).length:0;
+          const held=(B&&B.up)?(B.positions||[]).length:0;
+          const G=(B&&B.gate)||{};
+          const chip=(txt,col,tip)=>'<span title="'+String(tip||'').replace(/"/g,'&quot;')+'" style="cursor:help;display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 9px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'
+            +'<span style="width:6px;height:6px;border-radius:50%;background:'+col+'"></span>'+txt+'</span>';
+          const ntCol=!B?'#8a8a8a':(rt.length&&rt.length===nStrat?PNL_POS:'#e0a33a');
+          const gCol=!G.up?PNL_NEG:(G.error?'#e0a33a':PNL_POS);
+          return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 11px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">'
+            +chip(!B?'NO SNAPSHOT':(rt.length+'/'+nStrat+' LIVE'),ntCol,
+                  !B?'The runner has not published a NinjaTrader snapshot yet.'
+                    :(rt.length+' of '+nStrat+' strategies are Realtime on the demo account.'))
+            +chip(held?(held+' OPEN'):'FLAT',held?'#e0a33a':'#8a8a8a',
+                  held?'NinjaTrader is holding a position right now.':'Nothing open on the demo account.')
+            +chip(!G.up?'GATE DOWN':(G.error?'GATE PARTIAL':'GATE UP'),gCol,
+                  (G.error||'The ML gate service is answering and every model loaded.'))
+            +'<span style="margin-left:auto;display:flex;align-items:center;gap:14px;font-size:10px">'
+              +'<span><span style="color:var(--text5)">NET </span><b style="color:'+(_A.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_A.net)+'</b></span>'
+              +'<span><span style="color:var(--text5)">TRADES </span><b>'+_A.n+'</b></span>'
+              +'<span><span style="color:var(--text5)">WIN </span><b>'+(_A.n?Math.round(_A.wr*100)+'%':'—')+'</b></span>'
+              +'<span><span style="color:var(--text5)">DAYS </span><b>'+_A.days+'</b></span>'
+            +'</span></div>';
+        })();
+        const _p2Head='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
+          +'<span class="lbl" style="font-size:13px">◑ PAPER ✦</span>'
+          +'<span style="font-size:9px;color:var(--text5)">the same forward test, laid out shorter &middot; the original PAPER tab is unchanged, one click left</span>'
+          +_reloadBtn+'</div>';
+        body=_p2Head+_p2Status+dataHtml+curveHtml+tradesHtml
+          +_p2Card('nt','NINJATRADER · DETAIL',bridgeHtml,'live state, fills, orders')
+          +_p2Card('recon','CROSS-ENGINE · DO THEY AGREE?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
+          +_p2Card('reports','DAILY REPORTS',reportsHtml,'one row per night')
+          +_errHtml;
+      }
     }else{
       const allRuns=runHistory.slice();
       if(!allRuns.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
@@ -23506,8 +23583,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       };
       document.addEventListener('keydown',window._libKeyH);
     }
-    else if(augurSub==='paper'){
+    else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
+      // PAPER ✦ collapsible reference panels. State lives on window and persists, so a
+      // panel you opened stays open while you work.
+      content.querySelectorAll('[data-p2card]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-p2card');
+        const m=window._p2Open||(window._p2Open={});
+        m[k]=!m[k]; savePref('p2Open',m); renderApp();};});
       // Family / kind / baseline filters, saved like every other view choice on this tab.
       content.querySelectorAll('[data-pfam]').forEach(el=>{el.onclick=()=>{
         window._paperFam=el.getAttribute('data-pfam');savePref('paperFam',window._paperFam);renderApp();};});
