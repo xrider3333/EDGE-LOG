@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.276';
+const VERSION='73.277';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.277',date:'2026-08-26',notes:['HOTFIX: the PAPER tab would not open on v73.275 - it showed LOAD ERROR instead. The new strategy filters were declared further down the file than the code that used them, which in JavaScript is an error rather than a blank value. Moved them above it. The tab opens again and every filter works.']},
 {v:'73.276',date:'2026-08-23',notes:['ENGINE BUG FOUND AND EVIDENCED: the grid code path never passes bar timestamps to strategies, while the single-backtest path does. Seventeen library strategies need them and silently return zero valid configurations in any sweep - which reads as a dead strategy. Proved with the BBRSI TradingView port: grid path 0 valid configs, single backtest 235 trades, same config and window. The engine was deliberately NOT changed (it would switch on an ENGU-Q overnight-freeze option mid-run - owner call). COMPARE - STUDIES: round-4 study records the void run 282 as row 695 and explains the bug; the ES and NQ neighbourhood validates were requeued with a bar-count verification frame, proved bit-identical to the clock version.']},
 {v:'73.275',date:'2026-08-26',notes:['THE TWO ENGU-Q ROWS YOU DID NOT RECOGNISE ARE NOW ON THE STRATEGY LIST. ENGU-Q-265 RAW and its logistic hybrid replaced the #226 baseline on 21 August, but nobody added them here - so they ran nightly, filled the trade log, and had no name, no colour and no toggle. They have all three now.','ENGU-Q-226 RAW IS MARKED RETIRED and moved to archived. It stopped producing trades on 21 August, yet it was still the row you had switched on - which is why your ENGU-Q line looked frozen. Its history is kept so the curve and the totals stay honest.','THREE NEW FILTERS ABOVE THE STRATEGY TABLE. A family toggle (ALL / ORB / ENGU-Q / NOISE) like the one in PAST RUNS, a RAW versus ML toggle, and a BASELINES ONLY switch that hides every variant and leaves one row per family. Five NOISE rows becomes one. All three are remembered.','THE STRATEGY TABLE IS COMPACT. Columns reordered to live dot, strategy, then the three money columns, and the row height cut to match the trades table underneath.','NET, FORWARD and BACKFILLED now explain themselves on hover: NET is every trade; FORWARD is what happened while the strategy was on the board with nobody knowing the outcome; BACKFILLED is history re-run after it joined, which is a backtest and not evidence.','THE EL / NT / TV PILLS IN THE TRADE LIST READ ON THE MONOCHROME THEME. They used the theme\u2019s own up and down colours, which are both grey there, so a trade NinjaTrader matched looked exactly like one it missed.']},
 {v:'73.274',date:'2026-08-26',notes:['Follow-up to the chart work below: the strip holding the hover readout and the session / scale chips now sits UNDER the chart, below the price axis, instead of up in the button row - where TradingView keeps it.']},
@@ -20975,13 +20976,41 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // owner 2026-08-20: "its not saving my strategies that i have selected. it keeps
       // resetting to showing all". It used to live on window only, so every reload wiped
       // it. It is a saved preference now, seeded from storage the first time the tab draws.
+      // ── leg taxonomy: family / RAW-vs-ML / is-it-a-baseline ────────────────────
+      const _rootOf=k=>{let cur=k,hop=0;
+        while(hop++<8){const d=PAPER_LEG_DEFS.find(x=>x.k===cur);if(!d||!d.ctrl)break;cur=d.ctrl;}
+        return cur;};
+      const _famOf=k=>{const r=String(_rootOf(k)||k);
+        if(r.indexOf('ORB')===0)return 'ORB';
+        if(r.indexOf('ENGUQ')===0)return 'ENGU-Q';
+        if(r.indexOf('NOISE')===0)return 'NOISE';
+        return r;};
+      // ML = an ML overlay sits on top (hybrid gate or size tilt). _legGate is the truth
+      // where a report carries one; the key suffix covers legs before their first report.
+      const _isML=k=>{
+        if(/_H$|_RF$|_T$/.test(k))return true;
+        try{const g=_legGate(k);return !!(g&&g.model);}catch(e){return false;}
+      };
+      const _isBaseline=k=>_rootOf(k)===k;
+      if(window._paperFam==null)window._paperFam=APREF.paperFam||'ALL';
+      if(window._paperKind==null)window._paperKind=APREF.paperKind||'ALL';
+      if(window._paperBaseOnly==null)window._paperBaseOnly=!!APREF.paperBaseOnly;
+      const PFAM=window._paperFam||'ALL';
+      const PKIND=window._paperKind||'ALL';
+      const PBASE=!!window._paperBaseOnly;
+      const _famList=[...new Set(LEGS_VIS.map(d=>_famOf(d.k)))];
+      const _passFilter=k=>(PFAM==='ALL'||_famOf(k)===PFAM)
+        &&(PKIND==='ALL'||(PKIND==='ML'?_isML(k):!_isML(k)))
+        &&(!PBASE||_isBaseline(k));
+      const LEGS_F=LEGS_VIS.filter(d=>_passFilter(d.k));
+      const _nFiltered=LEGS_VIS.length-LEGS_F.length;
       const _legOff=Array.isArray(window._paperLegOff)
         ? window._paperLegOff
         : (window._paperLegOff=(Array.isArray(APREF.paperLegOff)?APREF.paperLegOff.slice():[]));
       // A leg is shown when it is neither switched off by hand NOR filtered out by the
       // family / kind / baseline controls. One predicate, so the table, the curve, the
       // calendar and the trades table can never disagree about what is on screen.
-      const _legShown=k=>!_legOff.includes(k)&&(typeof _passFilter!=='function'||_passFilter(k));
+      const _legShown=k=>!_legOff.includes(k)&&_passFilter(k);
       const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
       // BLEND is the owner's fixed ORB+ENGUQ baseline — NOISE never joins it, even though it shares the same trade collection.
@@ -21347,34 +21376,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // Colours are hex, NOT theme vars: these four must match _curveSeries exactly, and
       // var(--yellow) resolves to #999999 grey on the monochrome theme while the BLEND
       // curve is hardcoded #e0c341 -- the tile said grey, the line drew yellow.
-      // ── leg taxonomy: family / RAW-vs-ML / is-it-a-baseline ────────────────────
-      const _rootOf=k=>{let cur=k,hop=0;
-        while(hop++<8){const d=PAPER_LEG_DEFS.find(x=>x.k===cur);if(!d||!d.ctrl)break;cur=d.ctrl;}
-        return cur;};
-      const _famOf=k=>{const r=String(_rootOf(k)||k);
-        if(r.indexOf('ORB')===0)return 'ORB';
-        if(r.indexOf('ENGUQ')===0)return 'ENGU-Q';
-        if(r.indexOf('NOISE')===0)return 'NOISE';
-        return r;};
-      // ML = an ML overlay sits on top (hybrid gate or size tilt). _legGate is the truth
-      // where a report carries one; the key suffix covers legs before their first report.
-      const _isML=k=>{
-        if(/_H$|_RF$|_T$/.test(k))return true;
-        try{const g=_legGate(k);return !!(g&&g.model);}catch(e){return false;}
-      };
-      const _isBaseline=k=>_rootOf(k)===k;
-      if(window._paperFam==null)window._paperFam=APREF.paperFam||'ALL';
-      if(window._paperKind==null)window._paperKind=APREF.paperKind||'ALL';
-      if(window._paperBaseOnly==null)window._paperBaseOnly=!!APREF.paperBaseOnly;
-      const PFAM=window._paperFam||'ALL';
-      const PKIND=window._paperKind||'ALL';
-      const PBASE=!!window._paperBaseOnly;
-      const _famList=[...new Set(LEGS_VIS.map(d=>_famOf(d.k)))];
-      const _passFilter=k=>(PFAM==='ALL'||_famOf(k)===PFAM)
-        &&(PKIND==='ALL'||(PKIND==='ML'?_isML(k):!_isML(k)))
-        &&(!PBASE||_isBaseline(k));
-      const LEGS_F=LEGS_VIS.filter(d=>_passFilter(d.k));
-      const _nFiltered=LEGS_VIS.length-LEGS_F.length;
       const _tileDefs=LEGS_F.map(d=>[d.k,d.label,d.color]);
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
