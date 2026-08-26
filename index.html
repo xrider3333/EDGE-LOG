@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.288';
+const VERSION='73.289';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.289',date:'2026-08-26',notes:['A LOCKBOX HELD NOW SAYS WHEN IT PROVES NOTHING. The held-out year is the one honest test in the whole report, and it printed a green HELD whether it rested on five trades or five hundred. Three runs on this board say HELD on 5, 7 and 15 trades - at those counts the test can only detect an edge many times larger than the one being claimed, so the pass is the absence of evidence rather than evidence. The engine already worked this out and saved it (the verdict-power line, #94); the verdict itself just never mentioned it.','Everywhere a lockbox verdict is printed - the equity-curve tooltip, the section-1 lockbox line and the LOCKBOX chip - a thin holdout now reads HELD (underpowered) in amber instead of a plain green HELD, and hovering says how many trades and how much power. A FAIL is labelled the same way but keeps its red, since a fail already reads as bad news.','Nothing about what passed, what got crowned or what is on the paper board changes. This only changes what the screen claims.']},
 {v:'73.288',date:'2026-08-23',notes:['COMPARE - STUDIES: FAILED ROWS ARE NO LONGER PLOTTED BY DEFAULT (owner ask). Ten failed rows carry drawdowns between 300 and 694 thousand dollars and were setting the width of the drawdown axis for all 618 rows, so the 74 percent that draw down under 50 thousand were squashed into a single column at the left edge. New control 5, PLOT FAILURES, switches them back on. Nothing is deleted and no figure changes: every failed row keeps its table row and all of its numbers, and the line under the chart names how many were left off and the deepest drawdown among them. Controls 5 to 14 renumber to 6 to 15.']},
 {v:'73.286',date:'2026-08-26',notes:['NEW TAB: PAPER ✦, sitting next to PAPER. It is the same forward test - the same numbers, the same filters, the same trade rows - laid out much shorter, so you can flip between the two and keep whichever you prefer. The original PAPER tab is completely unchanged.','WHAT IS DIFFERENT. The whole NinjaTrader card becomes one status line across the top: how many strategies are live, whether anything is open, whether the ML gate is answering, and the four headline numbers. The chart, the calendar, the strategy table and the trades all stay exactly where they were.','THE THREE REFERENCE PANELS FOLD AWAY - NinjaTrader detail, the cross-engine comparison, and the nightly reports. Those are things you look up, not things you watch, and having all three open at all times was most of the scrolling. Click a heading to open one; it stays open until you close it.','NOTHING WAS DELETED. Every number on the old page is still reachable on the new one. A shorter page that hides something you rely on would be worse than a long one.']},
 {v:'73.285',date:'2026-08-26',notes:['Candle windows get a bar-size selector in the toolbar, offering only the sizes that actually have price files for that instrument and session, and the choice sticks when you then ask for more bars. Tidied the window as a whole: the toolbar is grouped with separators, the trade picker is narrower, the heading no longer wraps onto a second line, and the bar count moved down to the strip under the chart. Also fixed: after switching to the 24-hour session, asking for more bars quietly snapped back to the original session.']},
@@ -13844,7 +13845,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _tip='<b>WF fold f'+f.fold+'</b>'+(optS?(' · '+_dAt(_f0)+'→'+_dAt(_f1)):'')+'<br>out-of-sample <b>'+fmtUsd(Math.round((+f.oos_pnl||0)*mlt))+'</b> · PF <b>'+(+f.oos_pf||0).toFixed(2)+'</b>';
           return '<rect x="'+_x0.toFixed(1)+'" y="0" width="'+Math.max(0,_x1-_x0).toFixed(1)+'" height="'+EH+'" fill="'+((i%2===0)?'rgba(96,165,250,.16)':'rgba(96,165,250,.30)')+'" style="cursor:pointer" data-tip="'+_tip+'"/>';}).join('');
           wfNote='<span style="color:#60a5fa">▦ '+_fs.length+' walk-forward test windows</span>';}}
-      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+(lb.pass?'HELD ✓':'FAILED ✕');
+      const _lbTip='<b>Lockbox · out-of-sample, never optimized</b>'+(_lf?(' · '+_mdy(lbS)+'→'+_mdy(lbE)):'')+'<br>'+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+(lb.pf||0).toFixed(2)+' · '+(lb.trades||0)+' trades · '+lbVerdict(lb,V,1).word+lbVerdictTip(lb,V);
       // date ticks (M/D/YY) evenly spaced in TIME across [optS,lbE] — x is linear in time so they
       //   read chronologically and visibly compress the lockbox into the right end.
       let ticks='';
@@ -13961,6 +13962,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // ── #94 verdict POWER line (shared): could this lockbox even DETECT the claimed edge?
     //    Engine saves V.power (per-trade values in POINTS, same units as lb.pnl → ×mlt here).
     //    Old runs have no V.power → renders ''. Used by the Builder card AND the 1E matrix panel.
+    // v73.289: a lockbox HELD is only as good as the sample behind it. The engine has always
+    //   saved V.power.powered (#94) and the report has always printed a MEASURE line, but the
+    //   VERDICT itself said a bare "HELD" no matter how thin the slice - so a holdout of FIVE
+    //   trades read exactly like a holdout of two hundred. Real examples on this board: run 272
+    //   HELD on 5 trades (achieved power 12%), run 275 HELD on 7 (7%), run 224 HELD on 15 (7%).
+    //   At those counts the test cannot detect the edge being claimed, so "HELD" is the ABSENCE
+    //   of evidence, not evidence. lbVerdict() is the one place a lockbox becomes words. It
+    //   never changes what passed or what got crowned - only what the screen claims.
+    const lbUnder=(V)=>{const p=(V&&V.power)||null;
+      return !!(p&&!p.error&&p.mde_per_trade!=null&&p.powered===false);};
+    const lbVerdict=(lb,V,long)=>{
+      const held=!!(lb&&lb.pass), und=lbUnder(V);
+      const word=held?(long?'HELD OK':'HELD'):(long?'FAILED':'FAIL');
+      // An underpowered PASS is the misleading case (a green tick resting on nothing). An
+      // underpowered FAIL is labelled too but keeps red - a fail already reads as bad news.
+      const col=(!held)?'var(--red)':(und?'var(--yellow)':'var(--green)');
+      return {word:word+(und?' (underpowered)':''),col:col,und:und,held:held};};
+    const lbVerdictTip=(lb,V)=>{const p=(V&&V.power)||null;
+      if(!lbUnder(V))return '';
+      return ' - UNDERPOWERED: '+((lb&&lb.trades)||(p&&p.n)||0)+' lockbox trades give about '
+        +Math.round(((p&&p.achieved_power)||0)*100)+'% power, so this verdict is weak evidence '
+        +'either way, not proof.';};
     const verdictPowerHtml=(V,mlt)=>{
       const p=(V&&V.power)||null;
       if(!p||p.error||p.mde_per_trade==null)return '';
@@ -13997,7 +14020,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'</div>'+(_evNote?'<div>'+_evNote+'</div>':'')+'</div>'
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
         +eqSvg
-        +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+(lb.pass?'var(--green)':'var(--red)')+'">'+(lb.pass?'HELD':'FAILED')+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
+        +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+lbVerdict(lb,V,0).col+'" title="'+lbVerdictTip(lb,V).replace(/"/g,'&quot;')+'">'+lbVerdict(lb,V,1).word+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
         +_pwrLine;
     };
     const masterOptsHtml=(inst,tf,sess)=>{const ms=(metaMasters||[]).map((m,i)=>({m:m,i:i})).filter(o=>String(o.m.instrument)===String(inst)&&String(o.m.timeframe)===String(tf)&&(!o.m.session||!sess||String(o.m.session).toLowerCase()===String(sess).toLowerCase()));return '<option value="">'+(ms.length?('Auto — best match ('+ms.length+')'):'— no matching CSV —')+'</option>'+ms.map(o=>'<option value="'+o.i+'">'+((o.m.name||(o.m.instrument+' '+o.m.timeframe))+' · '+(o.m.source||'')+' · '+(o.m.rows||0).toLocaleString()+'r')+'</option>').join('');};
@@ -16743,7 +16766,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {k:'dsr',cat:'r',lb:'DEFLATED SHARPE',ok:_ggDsr!=null,pos:_ggDsr==null?0:_ggC(_ggDsr,0,1),zn:_hbz(0.8,0.95),val:_ggDsr==null?'—':(Math.round(_ggDsr*100)+'%'),sub:'luck-adjusted — best of many configs',tip:'Deflated Sharpe — the chance the edge is real rather than the luckiest of all configs searched. Same zones as the 1I card: red under 80%, yellow 80-95%, green 95% plus.',det:(d.validate?_distTile:_dsrInner),wrap:(d.validate?0:1)},
           {k:'wfe',cat:'r',lb:'WALK-FWD EFF',ok:_ggWfe!=null,pos:_ggWfe==null?0:_ggC(_ggWfe/1.2,0,1),zn:_hbz(0.3/1.2,0.5/1.2),val:_ggWfe==null?'—':(Math.round(_ggWfe*100)+'%'),sub:'OOS ÷ IS, per bar',tip:'Walk-forward efficiency — out-of-sample PnL rate as a share of the in-sample rate. Red under 30%, yellow 30-50%, green 50% plus (100% = held up perfectly on unseen data).',det:_panelEquity},
           {k:'folds',cat:'r',lb:'WF FOLDS HELD',ok:_fldIds.length>=2,pos:_fldIds.length?(_fldHeld/_fldIds.length):0,zn:_hbz(0.5,0.75),val:_fldIds.length>=2?(_fldHeld+'/'+_fldIds.length):'—',sub:'folds profitable out-of-sample',tip:'Of the walk-forward folds, how many made money on their unseen test slice. Red under half, yellow to 75%, green above.',det:_panelEquity},
-          {k:'lbx',cat:'r',lb:'LOCKBOX',ok:!!(_lbx&&_lbx.pnl!=null),pos:(_lbx&&_lbx.pass)?0.85:0.12,zn:[[0.5,RED],[1,GRN]],val:(_lbx&&_lbx.pnl!=null)?(_lbx.pass?'HELD':'FAIL'):'—',sub:(_lbx&&_lbx.pnl!=null)?(fmtUsd(Math.round(_lbx.pnl*mlt))+' on the reserved slice'):'',tip:'The one-look holdout: data reserved before any optimization, tested once. Binary — it held or it did not.',det:_panelEquity},
+          {k:'lbx',cat:'r',lb:'LOCKBOX',ok:!!(_lbx&&_lbx.pnl!=null),pos:(_lbx&&_lbx.pass)?0.85:0.12,zn:[[0.5,RED],[1,GRN]],val:(_lbx&&_lbx.pnl!=null)?lbVerdict(_lbx,_pillSrc,0).word:'—',sub:(_lbx&&_lbx.pnl!=null)?(fmtUsd(Math.round(_lbx.pnl*mlt))+' on the reserved slice'):'',tip:'The one-look holdout: data reserved before any optimization, tested once. Binary — it held or it did not.'+lbVerdictTip(_lbx,_pillSrc),det:_panelEquity},
           {k:'mc',cat:'r',lb:'MC P95 DD',ok:_ggMcUsd!=null,pos:(_ggMcR==null)?0.5:_ggC(_ggMcR/3,0,1),zn:_lbz(1.4/3,2/3),val:_ggMcUsd==null?'—':fmtUsd(Math.round(_ggMcUsd)),sub:(_ggMcR!=null?(_ggMcR.toFixed(1)+'× the seen max DD'):'simulated worst case'),tip:'Monte-Carlo 95th-percentile drawdown — the worst case to size the account for. Judged as a multiple of the realized max DD: green to 1.4×, yellow to 2×, red beyond (path luck is hiding risk).',det:_panelEquity},
           {k:'reg',cat:'r',lb:'REGIME SPREAD',ok:_rgTot>=3,pos:_rgTot?(_rgPos/_rgTot):0,zn:_hbz(0.4,0.7),val:_rgTot>=3?(Math.round(_rgPos/_rgTot*100)+'%'):'—',sub:_rgTot>=3?(_rgPos+'/'+_rgTot+' slices profitable'):'',tip:'Share of regime buckets (volatility, trend, day-of-week, time-of-day) that end profitable. Red under 40%, yellow 40-70%, green 70% plus — a real edge should not live in one regime only.',det:_panelMatrix},
           {k:'knobs',cat:'i',lb:'SIGNAL KNOBS',ok:_ksK.length>0,pos:_ksK.length?(_ksSig/_ksK.length):0,zn:_hbz(0.25,0.5),val:_ksK.length?(_ksSig+'/'+_ksK.length):'—',sub:'beat the noise probe',tip:'How many tuned knobs carry real signal — they beat a pure-noise probe in the surrogate screen. Red under a quarter, yellow to half, green above half.',det:_corr,wrap:1},
