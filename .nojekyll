@@ -1,0 +1,22 @@
+Serve this repo as plain static files. Do not run Jekyll.
+
+WHY (2026-08-26). GitHub Pages runs Jekyll over the whole repo unless this file exists.
+Nothing here needs it — index.html is a single static page with no front matter, so Jekyll
+was only ever copying files while adding a build step that can queue, throttle or fail.
+
+Two things it was actually costing us:
+
+  1. BUILD TIME AND FRAGILITY. Every push made Pages walk 467 tracked files through Jekyll
+     before publishing. With several sessions shipping in the same hour that is a lot of
+     avoidable work in front of the thing we care about, which is one HTML file.
+
+  2. UNDERSCORE FILES WERE SILENTLY UNPUBLISHED. Jekyll ignores anything starting with "_",
+     so _edgelog_live.html returned 404 on the live site while sitting happily in the repo.
+     Nothing links to it today, but the next file named that way would vanish with no error
+     anywhere.
+
+Note what this does NOT fix: GitHub's soft limit of ~10 Pages builds per hour on a
+branch-sourced site. On 2026-08-26 main took 15 pushes inside the 07:00 hour and the site
+stopped updating at v73.284 while main was on v73.287. `tools/wt.py ship` now counts recent
+pushes and warns before you cross that line. The permanent fix is to move Pages onto a
+GitHub Actions source; that is a repository setting, not something in this tree.

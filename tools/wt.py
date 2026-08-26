@@ -245,7 +245,42 @@ def cmd_ship(name, message):
 
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
     print('pushed: ' + run(['git', '-C', wt, 'log', '--oneline', '-1']))
+    warn_pages_budget(wt)
     sync_shared(root)
+
+
+def warn_pages_budget(wt):
+    """Say something when we are about to out-run GitHub Pages' build limit.
+
+    WHY (2026-08-26). A branch-sourced Pages site builds on every push to main and
+    GitHub soft-limits that to roughly TEN BUILDS PER HOUR. Several Claude sessions ship
+    independently, and none of them can see the others' pace, so nobody notices the line
+    being crossed. That day main took 15 pushes inside the 07:00 hour; the site stopped
+    publishing at v73.284 and sat there while main went to v73.287. Everything looked
+    fine from every session's point of view - each push succeeded, the gates passed, git
+    was clean - and the owner was the one who found out, by not being able to see his own
+    feature.
+
+    Nothing here can raise the limit. What it can do is make the invisible thing visible
+    at the only moment anyone is looking: right after a push. Purely advisory - it never
+    fails a push and never blocks one.
+    """
+    try:
+        out = run(['git', '-C', wt, 'log', 'origin/main', '--since=1 hour ago',
+                   '--format=%H'], check=False, quiet=True)
+        n = len([l for l in (out or '').splitlines() if l.strip()])
+        if n >= 10:
+            print('  \u26a0 %d pushes to main in the last hour. GitHub Pages builds a '
+                  'branch-sourced site about 10 times an hour, so the LIVE SITE MAY NOW '
+                  'LAG BEHIND main.' % n)
+            print('    Check: curl -s https://xrider3333.github.io/EDGE-LOG/index.html '
+                  '| grep -o "const VERSION=.[0-9.]*."')
+            print('    If it is behind, one more push once the hour rolls over '
+                  'republishes it.')
+        elif n >= 7:
+            print('  note: %d pushes to main in the last hour (Pages builds ~10/hour).' % n)
+    except Exception:
+        pass          # advisory only - never let this affect a push that worked
 
 
 def sync_shared(root):
