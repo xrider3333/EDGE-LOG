@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.278';
+const VERSION='73.279';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.279',date:'2026-08-26',notes:['Candle charts: scrolling, zooming and loading more bars now work with a real mouse. The controls used to be attached to the drawing itself, which this window redraws constantly - a drag that redrew was a drag whose target had vanished - and anything the chart did not catch fell through to the pop-up window underneath, which slides the whole picture instead of scrolling the bars. The controls now live on the chart panel and hold on to the gesture from press to release, and the pop-up window no longer competes for it (its floating zoom toolbar is gone inside candle windows).']},
 {v:'73.278',date:'2026-08-26',notes:['The ORB efficiency-floor study is ONE row again (now row 696) and it carries its ending. It had been written twice - row 591 while the bench looked promising, row 695 once the validate came back - and both numbers had meanwhile been taken by another session running in parallel. The surviving row tells the whole story: strong on the bench (profit factor 1.263 to 1.385, three of four eras, a plateau not a spike), then FAILED its validate because the search crowned a floor so high the strategy takes ZERO trades in the held-out year. Not adopted; the ORB crown (run 230) is untouched.','KNOWN AND NOT YET FIXED: rows 591 to 616 still carry TWO different studies each, because two sessions numbered rows at the same time and the board has no way to hand out a number. Those rows belong to other work and are referenced elsewhere by number, so they are deliberately NOT renumbered here - that is an owner call. The pre-push check now FAILS on a duplicate row number so no new ones can land.']},
 {v:'73.277',date:'2026-08-26',notes:['HOTFIX: the PAPER tab would not open on v73.275 - it showed LOAD ERROR instead. The new strategy filters were declared further down the file than the code that used them, which in JavaScript is an error rather than a blank value. Moved them above it. The tab opens again and every filter works.']},
 {v:'73.276',date:'2026-08-23',notes:['ENGINE BUG FOUND AND EVIDENCED: the grid code path never passes bar timestamps to strategies, while the single-backtest path does. Seventeen library strategies need them and silently return zero valid configurations in any sweep - which reads as a dead strategy. Proved with the BBRSI TradingView port: grid path 0 valid configs, single backtest 235 trades, same config and window. The engine was deliberately NOT changed (it would switch on an ENGU-Q overnight-freeze option mid-run - owner call). COMPARE - STUDIES: round-4 study records the void run 282 as row 695 and explains the bug; the ES and NQ neighbourhood validates were requeued with a bar-count verification frame, proved bit-identical to the clock version.']},
@@ -4143,7 +4144,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{yZoom:_cndl.yZoom||1,yRange:_cndl.yLock||null}));
     // remember the price range on screen so a scale-drag can start from exactly there
-    try{const _g4=window.CANDLE_GEO||{};if(isFinite(_g4.lo)&&isFinite(_g4.hi))_cndl.yView=[_g4.lo,_g4.hi];}catch(_e4){}
+    try{const _g4=window.CANDLE_GEO||{};if(isFinite(_g4.lo)&&isFinite(_g4.hi))_cndl.yView=[_g4.lo,_g4.hi];
+      if(_g4.W)_cndl.geo=_g4;}catch(_e4){}
+    _cndl.bars=bars;_cndl.ovs=ovs;
 
     const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
 
@@ -4159,7 +4162,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       +(x._side?'':' &middot; <span style="color:var(--amber,#f5c842)">saved blotter — exit price is the exit bar close; Shift+click TRADES to regenerate for the true fill</span>'));
 
-    _wireCandleSvg(bars,ovs,lo3);
+    _wireCandleSvg();
 
     _syncCndlCtl();
 
@@ -4167,129 +4170,122 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   // hover OHLC readout + drag-zoom live on the svg node, so they re-wire on every render.
 
-  const _wireCandleSvg=(bars,ovs,lo3)=>{
+  // v73.279 (owner: "still cant populate or navigate the ohlc values like in tv"). Two
+  // structural reasons a real mouse lost the gesture: every handler hung off the SVG NODE,
+  // which this viewer REPLACES on every redraw - so a drag that redraws is a drag whose
+  // element vanished - and the pop-up window underneath keeps its own drag-the-picture pan
+  // and wheel zoom on the scroll panel, which is what slid both axes at once. Everything now
+  // hangs off the CONTAINER, in the capture phase, with POINTER CAPTURE pinning the gesture
+  // to it for its whole life (the same fix the chart gallery needed), and the pop-up's
+  // competing pan/zoom is retired inside candle windows.
+  const _cGeo=()=>_cndl.geo||window.CANDLE_GEO||{W:1080,mL:14,mR:64,plotW:1002};
+  const _cSvg=()=>_cndlAlive()?_cndl.api.modal.querySelector('#chart-body svg'):null;
+  const _cHost=()=>_cndlAlive()?_cndl.api.modal.querySelector('#chart-body'):null;
+  // the visible bar window, derived the same way _renderCandle derives it
+  const _visRange=()=>{const all=((_cndl.r||{}).bars)||[],n=all.length;
+    let a=0,b=n-1;
+    if(_cndl.view){a=Math.max(0,_cndl.view[0]);b=Math.min(n-1,_cndl.view[1]);}
+    if(b-a<3){a=0;b=n-1;}
+    return [a,b,n];};
+  const _cRect=()=>{const sv=_cSvg();return sv?sv.getBoundingClientRect():null;};
+  const _barAtEv=ev=>{const rc=_cRect();if(!rc||!(rc.width>0))return null;
+    const G=_cGeo(),ab=_visRange(),cnt=ab[1]-ab[0]+1;
+    const i=Math.floor(((ev.clientX-rc.left)/rc.width*G.W-G.mL)/(G.plotW/cnt));
+    return (i<0||i>=cnt)?null:i;};
+  const _onAxisEv=ev=>{const rc=_cRect();if(!rc||!rc.width)return false;
+    const G=_cGeo();
+    return ((ev.clientX-rc.left)/rc.width*G.W)>=(G.mL+(G.plotW||(G.W-G.mL-64)))-2;};
+  const _clampView=(nlo,nhi,ns,n3)=>{if(nlo<0){nlo=0;nhi=ns-1;}if(nhi>n3-1){nhi=n3-1;nlo=nhi-ns+1;}return [Math.max(0,nlo),Math.min(n3-1,nhi)];};
 
-    const svgEl2=_cndl.api.modal.querySelector('#chart-body svg');if(!svgEl2)return;
-
-    const _G=window.CANDLE_GEO||{W:1080,mL:14,mR:64,plotW:1002};
-    const W2=_G.W,mL2=_G.mL,xStep2=_G.plotW/bars.length;
+  const _wireCandleSvg=()=>{
+    const host=_cHost();if(!host||host._cndlWired)return;
+    host._cndlWired=1;
+    host.style.touchAction='none';
+    host.style.cursor='crosshair';
+    // retire the pop-up window's own pan/zoom for candle charts: its drag translates the
+    // whole picture and its wheel CSS-scales it, which is the "moves the entire x/y axis"
+    // the owner kept hitting. Its floating zoom toolbar goes too - it no longer applies.
+    try{const sc=host.parentElement;if(sc)sc.style.cursor='default';
+      const zb=_cndl.api.modal.querySelector('.xzbar');if(zb)zb.remove();}catch(_z){}
 
     const _f2=v2=>(+v2).toLocaleString('en-US');
-
-    const ro=_cndl.api.modal.querySelector('#cndl-ro');
-
-    svgEl2.style.cursor='crosshair';
-
-    const _barAt=ev=>{const rc=svgEl2.getBoundingClientRect();if(!(rc.width>0))return null;
-
-      const i2=Math.floor(((ev.clientX-rc.left)/rc.width*W2-mL2)/xStep2);return (i2<0||i2>=bars.length)?null:i2;};
-
-    svgEl2.addEventListener('mousemove',ev=>{
-
-      const i2=_barAt(ev);if(i2==null||!ro)return;
-
-      const b2=bars[i2],up2=b2.c>=b2.o;
-
+    // hover readout - plain pointermove, deliberately NOT swallowed so the crosshair still runs
+    host.addEventListener('pointermove',ev=>{
+      const sv=_cSvg();if(sv)sv.style.cursor=_onAxisEv(ev)?'ns-resize':'crosshair';
+      const ro=_cndl.api.modal.querySelector('#cndl-ro');if(!ro)return;
+      const i2=_barAtEv(ev);if(i2==null)return;
+      const b2=(_cndl.bars||[])[i2];if(!b2)return;
+      const ovs=_cndl.ovs||{},up2=b2.c>=b2.o;
       let ov2='';
-
       Object.keys(ovs).forEach(k2=>{const v2=(ovs[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
-
       ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
-
         +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
-
         +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
-
     });
 
-    // TradingView conventions (owner: "moving the mouse around changes the chart" — the old
-    // drag-SELECT zoom fired on the pan gesture every chart trains you to make):
-    //   wheel over the candles = zoom the BAR RANGE about the cursor (not a CSS scale)
-    //   drag                   = pan the zoomed window (nothing to pan at full view)
-    //   double-click           = back to every fetched bar
-    const _clampView=(nlo,nhi,ns,n3)=>{if(nlo<0){nlo=0;nhi=ns-1;}if(nhi>n3-1){nhi=n3-1;nlo=nhi-ns+1;}return [Math.max(0,nlo),Math.min(n3-1,nhi)];};
-    svgEl2.addEventListener('wheel',ev=>{
+    // wheel = zoom the BAR RANGE about the cursor; wheeling out with everything already on
+    // screen asks the PC for more history instead of doing nothing.
+    host.addEventListener('wheel',ev=>{
       ev.stopPropagation();ev.preventDefault();
-      const n3=((_cndl.r||{}).bars||[]).length;if(!n3)return;
-      let v3=_cndl.view||[0,n3-1];const span=v3[1]-v3[0]+1;
-      const i2=_barAt(ev);const anchor=(i2==null)?(v3[0]+span/2):(lo3+i2);
-      // zooming OUT with every fetched bar already on screen = ask for more history
+      const ab=_visRange(),n3=ab[2];if(!n3)return;
+      const span=ab[1]-ab[0]+1;
       if(ev.deltaY>0&&span>=n3){_loadMoreBars();return;}
+      const i2=_barAtEv(ev),anchor=(i2==null)?(ab[0]+span/2):(ab[0]+i2);
       let ns=Math.round(span*((ev.deltaY<0)?0.75:1.35));ns=Math.max(8,Math.min(n3,ns));
       if(ns===span)return;
-      const frac=(anchor-v3[0])/span;
+      const frac=(anchor-ab[0])/span;
       let lo4=Math.round(anchor-frac*ns),hi4=lo4+ns-1;
-      [lo4,hi4]=_clampView(lo4,hi4,ns,n3);
-      _cndl.view=(ns>=n3)?null:[lo4,hi4];_renderCandle();
-    },{passive:false});
-    // v73.20: is the pointer over the price scale (the gutter right of the plot)?
-    const _onAxis=ev2=>{
-      const rc=svgEl2.getBoundingClientRect();
-      if(!rc.width)return false;
-      const vx=(ev2.clientX-rc.left)/rc.width*W2;
-      return vx>=(mL2+(_G.plotW||(W2-mL2-64)))-2;   // plot right edge onwards = the $ labels
-    };
-    svgEl2.addEventListener('mousemove',ev=>{
-      svgEl2.style.cursor=_onAxis(ev)?'ns-resize':'crosshair';
-    });
-    svgEl2.addEventListener('mousedown',ev=>{
-      if(ev.button!==0)return;
-      // PRICE-SCALE DRAG: works in full view too, unlike panning - stretching the prices
-      // is useful whether or not you have zoomed the time axis.
-      if(_onAxis(ev)){
-        ev.stopPropagation();ev.preventDefault();
-        const y0=ev.clientY;
-        const _base=_cndl.yLock||_cndl.yView||null;
-        const lo0=_base?+_base[0]:NaN,hi0=_base?+_base[1]:NaN;
-        if(!isFinite(lo0)||!isFinite(hi0)||!(hi0>lo0))return;
-        const _mid0=(lo0+hi0)/2,_half0=(hi0-lo0)/2;
-        const rcH=svgEl2.getBoundingClientRect().height||400;
-        let raf=0;
-        const mv=e2=>{
-          if(raf)return;
-          raf=requestAnimationFrame(()=>{raf=0;
-            let z=Math.exp((y0-e2.clientY)/rcH*2.4);
-            z=Math.max(0.12,Math.min(14,z));
-            const h2=_half0/z;
-            // dragging the scale LOCKS it (TradingView does the same) - the axis then holds
-            // still while you pan, until AUTO or a double-click puts it back.
-            _cndl.yZoom=1;_cndl.yLock=[_mid0-h2,_mid0+h2];_renderCandle();
-          });
-        };
-        const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
-        window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
-        return;
-      }
-      // v73.268 (owner: "when i move the chart around it moves the entire x/y axis, and it
-      // does[nt] load more ohlc"): at FULL view this used to bail, so the drag fell through to
-      // the modal's own pan/zoom shell, which drags the whole picture - both axes - around.
-      // Worse, the chart's own pan never ran, so the past-the-edge fetch never fired either.
-      // The full view is now materialised into a real bar window and every drag scrolls bars.
-      ev.stopPropagation();ev.preventDefault();
-      const n3=((_cndl.r||{}).bars||[]).length;if(!n3)return;
-      if(!_cndl.view)_cndl.view=[0,n3-1];
-      const v0=_cndl.view.slice(),span=v0[1]-v0[0]+1,x0=ev.clientX;
-      const rc0=svgEl2.getBoundingClientRect();
-      let raf=0,lastShift=0,edged=false;
-      const mv=e2=>{
-        const dxBars=Math.round((x0-e2.clientX)/rc0.width*(W2-mL2-14)/xStep2);
-        if(dxBars===lastShift||raf)return;
-        raf=requestAnimationFrame(()=>{raf=0;
-          lastShift=dxBars;
-          let lo4=v0[0]+dxBars,hi4=v0[1]+dxBars;
-          // dragging past either end of what is loaded = fetch a wider window once
-          // per gesture; the anchor logic keeps the screen where you left it. A THREE-BAR
-          // margin keeps an accidental nudge from kicking off a 10-30 second fetch.
-          if(!edged&&(lo4<-2||hi4>n3+1)){edged=true;_loadMoreBars();}
-          [lo4,hi4]=_clampView(lo4,hi4,span,n3);
-          _cndl.view=(span>=n3)?null:[lo4,hi4];_renderCandle();
-        });
-      };
-      const up=()=>{window.removeEventListener('mousemove',mv);window.removeEventListener('mouseup',up);};
-      window.addEventListener('mousemove',mv);window.addEventListener('mouseup',up);
-    });
-    svgEl2.addEventListener('dblclick',ev=>{ev.stopPropagation();_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_renderCandle();});
+      const cl=_clampView(lo4,hi4,ns,n3);
+      _cndl.view=(ns>=n3)?null:[cl[0],cl[1]];_renderCandle();
+    },{passive:false,capture:true});
 
+    host.addEventListener('dblclick',ev=>{ev.stopPropagation();ev.preventDefault();
+      _cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_renderCandle();},{capture:true});
+
+    host.addEventListener('pointerdown',ev=>{
+      if(ev.button!==0||ev.pointerType==='touch'&&ev.isPrimary===false)return;
+      ev.stopPropagation();ev.preventDefault();
+      try{host.setPointerCapture(ev.pointerId);}catch(_p){}
+      const rc0=_cRect()||host.getBoundingClientRect();
+      const done=()=>{try{host.releasePointerCapture(ev.pointerId);}catch(_p){}
+        host.removeEventListener('pointermove',mv);
+        host.removeEventListener('pointerup',done);
+        host.removeEventListener('pointercancel',done);};
+      let mv;
+      if(_onAxisEv(ev)){
+        // PRICE-SCALE DRAG: pins the price range (TradingView locks the scale the same way),
+        // so panning afterwards no longer re-fits the prices under you.
+        const y0=ev.clientY,base=_cndl.yLock||_cndl.yView||null;
+        const lo0=base?+base[0]:NaN,hi0=base?+base[1]:NaN;
+        if(!isFinite(lo0)||!isFinite(hi0)||!(hi0>lo0)){done();return;}
+        const mid0=(lo0+hi0)/2,half0=(hi0-lo0)/2,rcH=rc0.height||400;
+        let raf=0;
+        mv=e2=>{if(raf)return;
+          raf=requestAnimationFrame(()=>{raf=0;
+            let z=Math.exp((y0-e2.clientY)/rcH*2.4);z=Math.max(0.12,Math.min(14,z));
+            const h2=half0/z;
+            _cndl.yZoom=1;_cndl.yLock=[mid0-h2,mid0+h2];_renderCandle();});};
+      }else{
+        const ab=_visRange(),n3=ab[2];if(!n3){done();return;}
+        if(!_cndl.view)_cndl.view=[ab[0],ab[1]];
+        const v0=[ab[0],ab[1]],span=v0[1]-v0[0]+1,x0=ev.clientX;
+        const G=_cGeo(),step=G.plotW/span;
+        let raf=0,lastShift=0,edged=false;
+        mv=e2=>{
+          const dxBars=Math.round((x0-e2.clientX)/rc0.width*(G.W-G.mL-14)/step);
+          if(dxBars===lastShift||raf)return;
+          raf=requestAnimationFrame(()=>{raf=0;lastShift=dxBars;
+            let lo4=v0[0]+dxBars,hi4=v0[1]+dxBars;
+            // running past either end fetches a wider window, once per gesture; the
+            // three-bar margin stops an accidental nudge kicking off a 10-30 second fetch.
+            if(!edged&&(lo4<-2||hi4>n3+1)){edged=true;_loadMoreBars();}
+            const cl=_clampView(lo4,hi4,span,n3);
+            _cndl.view=(span>=n3)?null:[cl[0],cl[1]];_renderCandle();});};
+      }
+      host.addEventListener('pointermove',mv);
+      host.addEventListener('pointerup',done);
+      host.addEventListener('pointercancel',done);
+    },{capture:true});
   };
 
   // control row: built ONCE per modal, then kept in sync per trade/view.
