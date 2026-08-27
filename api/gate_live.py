@@ -62,8 +62,34 @@ _LIVE_WINDOW_DAYS = 45
 
 _lock = threading.Lock()          # one live-decision at a time (state is shared)
 _artifacts = {}                   # leg -> loaded artifact dict (with file mtime)
-_live_cache = {"arrays": None, "loaded_day": None, "tick_offset": 0, "tick_df": None,
-               "tick_path": None}
+# ONE CACHE PER BAR SERIES, NOT ONE CACHE (fixed 2026-08-26).
+# This was a single dict keyed only on the calendar day. The gated legs do NOT share a
+# bar series -- ENGU-Q runs NQ 1-minute on the 24-hour tape, every NOISE and ORB leg runs
+# NQ 5-minute regular hours -- but _refresh_live_arrays only consulted `leg` on the FIRST
+# call of the day, so whichever leg happened to warm first owned the array for all of them.
+# serve() primes with _gated_legs()[0], which is ENGUQ_ER_H, so in practice every NOISE and
+# ORB decision of the day was scored on ENGU-Q's overnight 1-minute bars: 20,381 bars at a
+# 1-minute step instead of 2,573 at 5 minutes, with a last-closed-bar of 22:15 ET on a leg
+# whose session ends at 16:00. 307 such decisions are already in gate_live.log across
+# 08-17, 08-24 and 08-26, each one identifiable by a bar stamp outside regular hours.
+# Keyed on (instrument, timeframe, session) now -- the three things that pick the master --
+# so a leg can only ever be handed its own series.
+_live_caches = {}                 # (instrument, timeframe, session) -> cache dict
+
+
+def _series_key(leg):
+    return (str(leg.get("instrument")), str(leg.get("timeframe")),
+            str(leg.get("session", "rth")))
+
+
+def _cache_for(leg):
+    k = _series_key(leg)
+    c = _live_caches.get(k)
+    if c is None:
+        c = {"arrays": None, "loaded_day": None, "tick_offset": 0, "tick_df": None,
+             "tick_path": None}
+        _live_caches[k] = c
+    return c
 
 
 def _log(msg):
@@ -190,6 +216,7 @@ def _refresh_live_arrays(leg):
     from augur_engine.data import find_master, load_master_arrays
     from api import paper
 
+    _live_cache = _cache_for(leg)
     today = datetime.now().strftime("%Y-%m-%d")
     if _live_cache["loaded_day"] != today or _live_cache["arrays"] is None:
         master = find_master(leg["instrument"], leg["timeframe"], leg.get("session", "rth"))
@@ -201,7 +228,8 @@ def _refresh_live_arrays(leg):
         _live_cache["tick_offset"] = 0
         _live_cache["tick_df"] = None
         _live_cache["tick_path"] = paper._ticks_path()
-        _log(f"live window reloaded ({date_from} .. master end)")
+        _log(f"live window reloaded for {'/'.join(_series_key(leg))} "
+             f"({date_from} .. master end, {len(_live_cache['arrays']['index'])} bars)")
 
     # incremental tick read -- append only the new bytes
     path = paper._ticks_path()
@@ -316,10 +344,12 @@ def decide(leg_key):
         leg = legs.get(leg_key)
         if leg is None:
             base["error"] = f"unknown leg {leg_key}"
+            _log(f"decide {leg_key} FAIL-OPEN: {base['error']}")
             return base
         art = _load_artifact(leg_key)
         if art is None:
             base["error"] = "no artifact - run --build"
+            _log(f"decide {leg_key} FAIL-OPEN: {base['error']}")
             return base
 
         from augur_engine.ml_gate import entry_features_causal
@@ -328,6 +358,7 @@ def decide(leg_key):
         idx = arrays["index"]
         if len(idx) < 200:
             base["error"] = "too little data"
+            _log(f"decide {leg_key} FAIL-OPEN: {base['error']}")
             return base
 
         # one placeholder bar = the entry bar about to open
@@ -344,6 +375,7 @@ def decide(leg_key):
         F, names = entry_features_causal(arr2)
         if list(names) != list(art["feature_names"]):
             base["error"] = "feature names changed - rebuild artifact"
+            _log(f"decide {leg_key} FAIL-OPEN: {base['error']}")
             return base
         x = F[-1:].astype(float)
         prob = float(art["pipe"].predict_proba(x)[0, 1])
@@ -373,8 +405,17 @@ def decide(leg_key):
                 base["recycle_note"] = rec_note
         else:
             size = 1.0 if take else 0.0
+        _step = None
+        try:
+            _step = int(round((idx[-1] - idx[-2]).total_seconds() / 60.0))
+        except Exception:
+            pass
         out = {"leg": leg_key, "take": bool(take), "size": round(size, 3),
                "prob": round(prob, 4), "threshold": thr,
+               # WHICH SERIES DID THIS SCORE? Recorded because for three days every NOISE
+               # and ORB decision was scored on ENGU-Q's 1-minute overnight bars and
+               # nothing said so -- the probability looked perfectly plausible.
+               "bars": int(len(idx)), "bar_minutes": _step,
                "model": art.get("model"), "mode": art.get("mode"),
                "trained_through": art.get("trained_through"),
                "last_closed_bar": str(idx[-1]), "entry_bar": str(nxt),
@@ -384,7 +425,7 @@ def decide(leg_key):
                "recycle_note": base.get("recycle_note"),
                "elapsed_ms": int((time.time() - t0) * 1000)}
         _log(f"decide {leg_key}: prob={prob:.3f} take={take} size={size:.2f} "
-             f"({out['elapsed_ms']}ms, bar {idx[-1]})")
+             f"({out['elapsed_ms']}ms, bar {idx[-1]}, {len(idx)} bars @ {_step}m)")
         return out
     except Exception as e:
         base["error"] = f"{type(e).__name__}: {e}"

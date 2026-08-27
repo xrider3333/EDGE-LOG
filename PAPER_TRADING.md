@@ -10,6 +10,78 @@
 > Prior update 2026-08-23: NOISE crown → Short Veto + Wild10 run #243, `NOISE_SBS` leg
 > replaced by `NOISE_SBS_V90`).
 
+## 2026-08-26 — THE LIVE ML GATE HAS BEEN SCORING ON THE WRONG BARS (read this first)
+
+Found while answering the owner's question "when we take it live, how do we know a ML will
+take filter the yes/no for a trade and proper sizing?". Four defects, all confirmed by
+direct reproduction, listed worst first. **Only the first is fixed in this commit.**
+
+### 1. FIXED — every NOISE and ORB gate decision was scored on ENGU-Q's 1-minute overnight bars
+
+`api/gate_live.py` cached the live bar window in ONE module-level dict keyed only on the
+calendar day. `_refresh_live_arrays(leg)` consulted `leg` only on the first call of the day,
+so whichever leg warmed first owned the array for every other leg. `serve()` primes with
+`_gated_legs()[0]`, which is `ENGUQ_ER_H` — **NQ 1-minute on the 24-hour tape**. Every NOISE
+and ORB leg is 5-minute regular hours.
+
+Reproduced by calling the service's own `decide()` in its own order:
+
+| | bars | median step | last closed bar |
+|---|---|---|---|
+| NOISE_H_RF as served | 20,381 | **1 minute** | **22:15 ET** |
+| NOISE_H_RF clean | 2,573 | 5 minutes | 15:55 ET |
+
+A 5-minute RTH leg cannot have a 22:15 bar. The contamination is **already visible in
+`C:\EdgeLog\gate_live.log`**: 307 NOISE/ORB decisions across 08-17, 08-24 and 08-26 carry a
+bar stamp outside regular hours. Probabilities move by a few points and the take/skip call
+flips on a meaningful fraction of bars; two independent measurements put the flip rate at
+22% and 32% of sampled bar-ends, neither of which I reproduced myself — treat the rate as
+unquantified and the contamination as certain.
+
+Fix: `_live_caches` keyed on `(instrument, timeframe, session)`. Verified: two distinct
+caches now exist where there was one. Every `decide` line and JSON response now carries
+`bars` and `bar_minutes`, so this class of bug is one glance away instead of invisible.
+**Every forward-test gate number produced before this fix was computed on the wrong series.**
+
+### 2. NOT FIXED — the gate sizes the ENTRY but not the STOP or the EXIT
+
+`tools/nt/EdgeLogNOISE.cs:502-503` enters with the gated quantity `q`. The protective stop
+(`:425-426`) and the VWAP exit (`:437-438`) both pass the literal `Qty`. `Position.Quantity`
+appears nowhere in the file. A 9-contract entry therefore gets a 3-contract stop, and the
+remainder peels off 3 per bar or waits for the session-close flattener. Has never fired —
+`fills.csv` contains zero `NZ` fills — but it fires on the first gated entry. Needs a
+NinjaScript change and a recompile; owner's call.
+
+### 3. NOT FIXED — the size dial is dead at the current live setting
+
+`EdgeLogNOISE.cs:138-140`: `q = round(size*Qty)`, floored at 1, capped at `Qty*3`. Every
+accepted `NOISE_H_RF` decision in the log emits a size between **3.52 and 3.75** (the hybrid
+weight times the 3.85 recycle factor). At the live `Qty=3` that is `round(3.6*3)=11`, capped
+to **9 — for every single accepted trade, whatever the model score**. The dial has zero
+resolution live, and the cap also lands ~17% BELOW the mean size the normaliser was
+calibrated to, so the "average size equals the ungated book" property does not hold either.
+Note the cap is also applied at the wrong point: the engine caps at 3x BEFORE the recycle
+factor (`api/paper_gate.py:188` then `:202-204`), NinjaTrader re-caps AFTER it.
+
+### 4. NOT FIXED — the gate service runs whatever code it started with
+
+The service is a long-lived process; Python caches both `api.gate_live` and `api.paper` for
+its lifetime, and `_gated_legs()` re-reads `PAPER_LEGS` from the **cached** module. PID 8772
+started 05:35 today; commit `bd8a5ab` fixed the tilt build at 07:56; at 13:17 the service
+still logged `artifact NOISE_SBS_V90_T FAILED: KeyError: 'threshold'`, which the shipped code
+cannot raise. So the tilt leg under forward test is being served untilted (a flat 1.00 where
+the shipped code serves 0.47), and any recalibration in `api/paper.py` is inert until someone
+restarts the service. **Restart the gate service after any gate-related push**, the same rule
+that already applies to the runner.
+
+### Also corrected: 2026-08-25 was NOT a gate failure
+
+The earlier note here said the 08-24 and 08-25 missed trades were both "enabled, gate never
+consulted". Only 08-24 is that. On 08-25 the machine was down: `gate_live.log` has no line at
+all between 22:51 on 08-24 and 07:43 on 08-25, `nt_recover.log` (a 3-minute scheduled task)
+has no entry across the same nine hours, and the 09:50 ET signal falls inside that hole.
+Nothing was running to miss it.
+
 ## 2026-08-26 — NinjaTrader now runs the NOISE crown filters, and three board defects closed
 
 **NT CONFIG CHANGED (owner: "update the config on noise").** `EdgeLogNOISE` on `DEMO7240108`
