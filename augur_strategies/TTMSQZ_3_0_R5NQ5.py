@@ -41,9 +41,36 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     `index` is named explicitly because the engine only hands bar timestamps to a strategy
     that declares them, and the verification frame is built on the wall clock whenever they
     are available."""
+    if not _in_neighbourhood(kw):
+        return None          # outside the pre-registered neighbourhood - refused, not clamped
     kw.update(_FROZEN)
     return _t3.run_backtest(opens, highs, lows, closes, volumes=volumes, day_id=day_id,
                             index=index, **kw)
+
+
+# ── THE NEIGHBOURHOOD IS BINDING (added 2026-08-23 after run 290) ─────────────
+# Auto-Validate widens a strategy's declared min/max when the optimum sits near an edge
+# (its #26/#30 range-widening feature). That is helpful for an open search and fatal for a
+# PRE-REGISTERED one: run 290 was handed this neighbourhood, the ranges were widened under
+# it, and the search rode them out to base length 8 and a threshold of 1.45 - well outside
+# what was declared - landing on an overfit configuration (overfit probability 0.82) that
+# lost 51,596 dollars in the lockbox.
+#
+# So admissibility is enforced HERE, where nothing can widen it: a configuration outside the
+# declared set is not silently clamped (that would misreport what ran) - it is REFUSED, the
+# same way a strategy refuses a window with too little history. The search sees it as an
+# invalid configuration and cannot crown it.
+_ADMISSIBLE = {'gate_len': [14, 16, 20], 'gate_ratio': [1.0, 1.15, 1.3], 'length': [16, 20, 24], 'kc_mult': [1.5, 1.75]}
+
+
+def _in_neighbourhood(kw):
+    for k, allowed in _ADMISSIBLE.items():
+        if k not in kw:
+            continue
+        v = kw[k]
+        if not any(abs(float(v) - float(a)) < 1e-9 for a in allowed):
+            return False
+    return True
 
 
 squeeze_indicators = _t3.squeeze_indicators
