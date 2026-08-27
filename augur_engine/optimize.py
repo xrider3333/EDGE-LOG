@@ -123,6 +123,17 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         extras["volumes"] = V
     if did is not None and (has_kw or "day_id" in sp):
         extras["day_id"] = did
+    # Bar timestamps. The sweep path never passed these, so the 19 strategies that
+    # DECLARE `index` (BBRSI, TTIBS, the TV ports, the classics, TTMSQZ 3.x ...) got
+    # index=None on every trial, bailed, and reported 0 valid configs -- they read as
+    # dead strategies rather than as a plumbing gap. Measured over 39,390 real NQ 5m
+    # bars before wiring this up: 19 go from 0 trades to a full trade list, the other
+    # 12 index-declaring strategies (incl. every ENGU-Q ETH variant) come out
+    # trade-for-trade identical, and none change their numbers.
+    # Same DECLARED-ONLY rule engine.py uses -- a **kw catch-all does not qualify.
+    _idx = arrays.get("index") if ("index" in sp) else None
+    if _idx is not None:
+        extras["index"] = _idx
 
     results = []   # (params, metrics)
 
@@ -146,7 +157,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
         done = 0
         with ProcessPoolExecutor(max_workers=workers, initializer=W.init_worker,
                                  initargs=(path, O, H, L, C, V, did, cost_pts,
-                                          cache_ctx)) as ex:
+                                          cache_ctx, _idx)) as ex:
             try:
                 for out in ex.map(W.eval_chunk, chunks):
                     for idx, m, _err in out:

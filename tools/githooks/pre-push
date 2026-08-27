@@ -72,26 +72,51 @@ fi
 # in under two seconds, and neither was ever run before pushing. Nothing in the
 # repo asked for them. This is that missing check.
 #
-# Scope + cost: the whole battery is 557 tests across every strategy and takes
-# ~5 SECONDS, so it runs on any push that touches Python at all rather than
-# trying to guess which strategies a change can reach. Pushes that touch only
-# index.html -- the large majority -- are unaffected and pay nothing.
+# Scope + cost, MEASURED rather than guessed -- the suite is TIERED so the common
+# case stays cheap and the risky case is still covered:
 #
-# Deliberately NOT the full suite: that is ~4 minutes locally, which is a real
-# tax on every Python push across concurrent sessions. The contract battery is
-# the part that has actually caught the breaks; CI still runs everything.
+#   tier 1  any *.py touched         tests/test_strategy_contract.py   557 tests    ~6s
+#   tier 2  engine/api/worker/tests  everything bar contract+surrogate 299 tests   ~34s
+#   tier 3  surrogate.py touched     tests/test_surrogate.py            17 tests  ~4min
+#
+# A typical engine push pays ~40 SECONDS and gets 856 of the 873 tests. The 17
+# surrogate tests are the entire reason the full suite takes four minutes -- they
+# fit gaussian-process / lasso / GAM models, and the 8 slowest are ~143s between
+# them -- so they are gated on the one file that can break them rather than taxing
+# every push. Pushes touching only index.html still pay nothing.
+#
+# A gate people route around is not a gate. The tiering exists so nobody has a
+# standing reason to reach for --no-verify.
 # ---------------------------------------------------------------------------
 base_ref="$(git merge-base HEAD origin/main 2>/dev/null || echo origin/main)"
-if git diff --name-only "$base_ref" -- 2>/dev/null | grep -qE '\.py$'; then
-  python -m pytest "$repo_root/tests/test_strategy_contract.py" -q
-  contract=$?
-  if [ "$contract" -ne 0 ]; then
+changed="$(git diff --name-only "$base_ref" -- 2>/dev/null)"
+
+run_tier() {          # $1 = human name for the failure message; rest = pytest args
+  tier_name="$1"
+  shift
+  python -m pytest "$@" -q
+  if [ $? -ne 0 ]; then
     echo ""
-    echo "Strategy-contract gate FAILED -- this push would turn main red and start"
-    echo "a failure email for every push after it. Fix it, or override with:"
+    echo "$tier_name gate FAILED -- this push would turn main red and start a"
+    echo "failure email for every push after it. Fix it, or override with:"
     echo "  git push --no-verify"
     echo ""
     exit 1
+  fi
+}
+
+if printf '%s\n' "$changed" | grep -qE '\.py$'; then
+  run_tier "Strategy-contract" "$repo_root/tests/test_strategy_contract.py"
+
+  if printf '%s\n' "$changed" | grep -qE '^(augur_engine/|api/|augur_mp_worker\.py|tests/)'; then
+    run_tier "Engine" "$repo_root/tests" \
+      --ignore="$repo_root/tests/test_strategy_contract.py" \
+      --ignore="$repo_root/tests/test_surrogate.py"
+  fi
+
+  if printf '%s\n' "$changed" | grep -qE '^augur_engine/surrogate\.py$'; then
+    echo "surrogate.py changed -- running the slow surrogate battery (~4 min)"
+    run_tier "Surrogate" "$repo_root/tests/test_surrogate.py"
   fi
 fi
 

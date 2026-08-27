@@ -64,7 +64,8 @@ def _apply_costs(m, cost_pts):
     return out
 
 
-def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts, cache_ctx=None):
+def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts, cache_ctx=None,
+                index=None):
     """Pool initializer — runs once per worker process. `cache_ctx` is a new,
     OPTIONAL trailing initarg (docs/INCREMENTAL_BACKTEST_REUSE.md, PR1) — existing
     8-positional-arg callers (optimizer.py's Streamlit app, tools/test_mp_worker.py)
@@ -84,6 +85,13 @@ def init_worker(strategy_path, O, H, L, C, volumes, day_id, cost_pts, cache_ctx=
         extras["volumes"] = volumes
     if day_id is not None and (has_kw or "day_id" in sp):
         extras["day_id"] = day_id
+    # `index` is another OPTIONAL trailing initarg, added the same way cache_ctx was:
+    # existing 8- and 9-positional-arg callers keep working and simply get index=None.
+    # The parent only sends it when this strategy DECLARES index (same rule as
+    # engine.py / optimize.py), so a sweep of any other strategy pickles no timestamps
+    # to its workers and pays nothing.
+    if index is not None and "index" in sp:
+        extras["index"] = index
 
     _G["fn"] = fn
     _G["extras"] = extras
