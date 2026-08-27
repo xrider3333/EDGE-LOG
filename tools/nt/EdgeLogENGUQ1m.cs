@@ -228,18 +228,29 @@ namespace NinjaTrader.NinjaScript.Strategies
                 StartBehavior = StartBehavior.AdoptAccountPosition;
                 BarsRequiredToTrade = 60;
 
-                TlLen      = 48;
-                EmaLen     = 390;
+                // v2026-08-26 (owner: "adjust ENGUq on paper trade and any subsequent gates").
+                // These defaults were the RTH-scaled #149 numbers with the efficiency gate OFF,
+                // while the PAPER leg this strategy is mapped to (ENGUQ_ER) is run #265 on the
+                // 24-hour ETH tape. An ETH day is ~1380 one-minute bars against RTH's ~390, so
+                // every bar-count lookback is ~3.54x longer; the old defaults ran hour-scale
+                // windows on a 24-hour tape with no efficiency filter. Measured on the same tape
+                // and window (tools/enguq_nt_default_gap.py): the old defaults trade 9,276 times
+                // for $227,670 at PF 1.09, against run #265's 1,336 trades for $486,413 at
+                // PF 1.60 - twice the money on a seventh of the trades. Nobody ever attached the
+                // strategy, so this never cost anything; it is fixed so attaching it just works.
+                TlLen      = 170;   // was 48  (RTH)
+                EmaLen     = 1380;  // was 390 (RTH)
                 BufAtr     = 0.9;
                 MinBrk     = 1.3;
-                AtrLen     = 30;
+                AtrLen     = 106;   // was 30  (RTH)
                 VolMult    = 0.8;
                 StopMult   = 1.0;
                 ActR       = 2.5;
                 TrailFrac  = 2.5;
                 BreakevenR = 1.5;
                 ErLen      = 60;
-                ErTh       = 0.0;   // OFF = the #226 behaviour the live row runs
+                ErTh       = 0.25;  // was 0.0 (gate OFF). 0.25 = the run #265 efficiency floor,
+                                    // the ONLY thing separating #265 from the retired #226 leg.
                 LimitAtr   = 0.0;
                 Qty        = 1;
             }
@@ -447,7 +458,17 @@ namespace NinjaTrader.NinjaScript.Strategies
             // SaveState guard already refuses to persist non-Realtime trades.
             if (State != State.Realtime && !IsInStrategyAnalyzer && !HistFills) return;
 
-            if (CurrentBar < TlLen + 1) return;
+            // WARM-UP (fixed 2026-08-26 alongside the ETH defaults). The old guard was
+            // TlLen+1 only -- fine when EmaLen was 390, wrong now it is 1380. NinjaTrader's
+            // EMA() seeds from the FIRST bar on the chart and converges exponentially, so a
+            // 1380-period EMA is badly wrong for thousands of bars after load, while the
+            // engine computes it over the whole history. Trading before it settles is not a
+            // small difference: the uptrend test (Close > ema) is this strategy's primary
+            // filter, so a wrong EMA means entries the engine would never take.
+            // EmaLen+TlLen is the MINIMUM for the maths to be defined. Convergence wants
+            // several multiples of EmaLen, so LOAD PLENTY OF HISTORY: on NQ 1-minute ETH,
+            // 1380 bars is one 24-hour day, so give the chart weeks, not days.
+            if (CurrentBar < EmaLen + TlLen + 1) return;
 
             // ── entry signal (all conditions on the just-closed bar) ─────────────
             if (Close[0] <= Open[0]) return;                            // green candle
