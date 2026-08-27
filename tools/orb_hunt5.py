@@ -12,7 +12,7 @@ A. THE TWO FILTERS (`filters`). The crown carries atr_filter=0.7 and vpace_filte
    silent strategy and reasonably asking whether the threshold is doing work or just
    sitting out good days. The grid measures both knobs together, including OFF.
 
-B. THE ENTRY WINDOW (`window`, needs ORB_4_0.py). The crown scans every bar from the end
+B. THE ENTRY WINDOW (`window`, needs ORB_4_1.py). The crown scans every bar from the end
    of the opening range to the close, so a 15:30 breakout is taken on the same terms as
    a 10:05 one. Two new knobs ask whether that is wise: entry_from_bar (ignore early
    breaks) and entry_to_bar (stop taking NEW breaks late in the day; an open trade is
@@ -194,17 +194,17 @@ def sweep_window():
     print("\n-- stop taking NEW breakouts from bar N (open trades still managed) --")
     tos = [12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72]
     cells = [("no new entry from %s (bar %d)" % (clock(k), k), dict(entry_to_bar=k)) for k in tos]
-    hits = sweep(cells, strategy="ORB_4_0.py")
+    hits = sweep(cells, strategy="ORB_4_1.py")
 
     print("\n-- ignore breakouts before bar N --")
     froms = [3, 4, 5, 6, 8, 10, 12, 18, 24]
     cells = [("no entry before %s (bar %d)" % (clock(k), k), dict(entry_from_bar=k)) for k in froms]
-    hits += sweep(cells, strategy="ORB_4_0.py")
+    hits += sweep(cells, strategy="ORB_4_1.py")
 
     print("\n-- both ends together (the best few of each, crossed) --")
     both = [("%s..%s" % (clock(a), clock(b)), dict(entry_from_bar=a, entry_to_bar=b))
             for a, b in itertools.product([3, 4, 6, 8], [36, 48, 54, 60, 66])]
-    hits += sweep(both, strategy="ORB_4_0.py")
+    hits += sweep(both, strategy="ORB_4_1.py")
     return hits
 
 
