@@ -7,6 +7,319 @@
 
 ---
 
+## ✅ 2026-08-27 — ROUND 5: does the crown TRAVEL (Study A), and is #243 a PLATEAU or a SPIKE (Study B)?
+
+**VERDICT, one line: the NOISE BAND MECHANISM travels across the whole regular-session bar ladder — 8 of 8 cells from 1m to 60m clear a four-leg bar written before any cell ran, with nothing re-fitted — run #243 sits on a genuine PLATEAU on all 7 of its own knobs, the 24-hour session FAILS, and NOTHING here is promotable or worth a runner job.**
+
+> Owner ask while away, verbatim: *"do more testing while im away. new / better params / versions
+> of this."* — "this" = the live NOISE configuration, run #243, on the NinjaTrader demo since
+> 2026-08-26. Harnesses: `tools/noise_hunt5.py` (Study A) and `tools/noise_hunt5_plateau.py`
+> (Study B), both sitting on `tools/noise_variant_research.py`'s `run_variant` (parity against
+> the real engine proven to the cent) and using `tools/orb_hunt4.py`'s ETH session idiom.
+> Regenerate: `python tools/noise_hunt5.py travel` · `python tools/noise_hunt5.py eth` ·
+> `python tools/noise_hunt5_plateau.py` (`--gate` on either = reproduction gates only).
+> **No runner job was queued by either study under any outcome. The runner was not restarted.
+> No data master was imported, refreshed or registered. Study B never opened the spent lockbox
+> at all.** STUDIES board rows **737–787**. Both studies were then re-run cell-for-cell by an
+> independent adversarial pass, whose corrections are applied below and named as corrections.
+
+### ⚠ READ FIRST — the bar-size trap this round was commissioned for DOES NOT EXIST
+
+The round was set up on the premise that *"`lookback=44` is 44 BARS, so its meaning in clock time
+changes with the bar size."* **It does not.** `lookback` counts **SESSIONS**:
+`augur_strategies/NOISE_1_0.py:141` labels it verbatim `"Noise lookback (sessions)"`, and
+`_sigma_matrix` (`NOISE_1_0.py:341-353`) averages `AD[si-lookback:si, :]` over the previous 44
+**sessions at the same bar ordinal**. 44 sessions is 44 sessions at 1m and at 30m. The
+"clock-matched" second reading (lookback 220/110/73/44/22/15/7) would have been a **fabricated
+axis** and was not run. Every other knob in #243 is session-counted or scale-free; `window='all_day'`,
+`confirm_bars=1` and `time_stop_bars=0` make the three genuinely bar-counted knobs inert.
+
+The **real** bar-size confound is that `sigma` is indexed by **bar ordinal within the session**, so
+bar size changes the resolution of the intraday volatility profile, and ordinal alignment degrades
+on sessions with ragged bar counts. That was pre-registered as a gate rather than discovered in the
+results — and the gate turned out to be badly specified (see the corrections).
+
+---
+
+## STUDY A — DOES THE CROWN TRAVEL?
+
+### PRE-REGISTRATION, verbatim (written and committed BEFORE any cell ran)
+
+> **THE CLAIM.** Run #243's edge is a property of the NOISE mechanism rather than of the NQ 5m RTH
+> bar grid, so the same configuration — nothing re-fitted, not one knob touched — keeps a
+> recognisable edge on other bar sizes and on the 24-hour session.
+>
+> **THE BAR** (judged on the SELECTION WINDOW ONLY, 2010-06-07 → 2025-02-10, all four legs):
+>
+> * **L1 profit factor — PF ≥ 1.20.** NOISE's standing promotion bar (also leg 1 of the 2026-08-22
+>   ES-native pre-registration). Base cell measures 1.420.
+> * **L2 risk-adjusted return — MAR ≥ 8.69.** Exactly HALF the base cell's own measured
+>   selection-window MAR of 17.38.
+> * **L3 edge above the costs — $/trade ≥ 2× the cell's own round-turn cost** = **$21.32** on RTH
+>   cells (0.533 pts × $20) = **$31.32** on ETH cells (0.783 pts × $20). Base cell measures $78.97.
+> * **L4 breadth — ≥ 9 of 16 selection-window calendar years net positive** (leg 3 of the
+>   2026-08-22 ES-native pre-registration).
+>
+> A cell TRAVELS only if ALL FOUR legs pass. **NET DOLLARS ARE REPORTED AND ARE NOT A LEG** — trade
+> counts fall structurally with bar size (a session offers ~11 candidate entry bars at 30m against
+> 78 at 5m), so ranking cells on total dollars would measure the bar grid, not the mechanism.
+>
+> **NOT MEASURABLE** (printed as a dash with a reason — never a zero, never a failure): fewer than
+> 200 selection-window trades; **RAGGEDNESS GATE:** fewer than 90% of the cell's sessions at the
+> modal bar count (early-close sessions excluded from the denominator). A flagged cell prints its
+> numbers, is flagged, and **CANNOT ALONE CARRY A MECHANISM VERDICT**.
+>
+> **RESCUE DIAGNOSTIC (declared now, NON-PROMOTING).** Any cell that FAILS the bar is re-run at
+> lookback ∈ {22, 88} purely to separate "the mechanism does not work at this bar size" from "44
+> sessions is the wrong reference depth at this bar size". **A rescue cell can never produce a
+> TRAVELS verdict.**
+>
+> **ATTRIBUTION CONTROL on every cell:** the same cell with BOTH FILTERS OFF (the `NOISE_225` core),
+> exactly as the 2026-08-24 NT parity study ran its BASE control. Never a candidate.
+>
+> **WINDOWS.** SELECTION 2010-06-07 → 2025-02-10 (run #231's saved `validate.windows.optimize`) —
+> every leg of the bar is judged here and nowhere else. IS/WF = one continuous backtest cut at the
+> calendar instant 2016-04-29 13:50 ET so every cell is cut at the same point in time. LB
+> 2025-02-11 → 2026-08-12, **SPENT, CONFIRMATORY ONLY**, read once after every verdict is written,
+> never used to rank — and treated as spent for the non-5m cells too, because a different bar size
+> is a different VIEW OF THE SAME TAPE ON THE SAME MARKET DAYS, not new data.
+>
+> **REPRODUCTION GATES — nothing prints unless all pass.** G1 base cell filters ON 4,054 /
+> $320,130 / DD $18,425 · G2 filters OFF 5,113 / $277,123.31 / DD $19,482.27 · G3 continuous-run
+> equivalence · G4 resampler parity against the registered 5m master.
+
+*(The master pre-registration handed to the executing session was truncated mid-table; the text
+above is the driver's own printed copy, which is the document that was binding on the numbers.
+Study B's section never arrived at all — see its provenance note below.)*
+
+### Reproduction gates — 4 of 4 PASS
+
+G1 crown 4,054 / **$320,130.25** / DD $18,424.69 · G2 core 5,113 / $277,123.31 / DD $19,482.27 ·
+G3 continuous-slice equivalence exact · G4 resampler parity **318,254 of 319,384 registered 5m bars
+to the tick = 99.646%**. Adversarial extension: 5m→15m **99.989%**, 5m→30m and 5m→60m **100.000%**
+bar-identical, and the crown's trades/net/PF on harness bars equal the registered masters exactly.
+
+### RESULTS — run #243 verbatim, selection window, nothing re-fitted
+
+| cell | n | net $ | PF | maxDD $ | net/DD | win % | $/trade | yrs + | verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| NQ 1m RTH *(native)* | 9,390 | 271,362 | 1.263 | 15,408 | 17.61 | 29.7 | 28.90 | 11/16 | **TRAVELS** ⁽ᵃ⁾ |
+| NQ 2m RTH *(registered resample)* | 6,329 | 316,571 | 1.354 | 11,569 | 27.36 | 32.8 | 50.02 | 13/16 | **TRAVELS** |
+| NQ 3m RTH *(harness resample)* | 5,149 | 325,271 | 1.390 | 12,323 | 26.40 | 33.9 | 63.17 | 12/16 | **TRAVELS** |
+| **NQ 5m RTH — BASE** | 4,054 | **320,130** | 1.420 | 18,425 | 17.38 | 36.4 | 78.97 | 14/16 | **TRAVELS** |
+| NQ 10m RTH *(harness resample)* | 3,050 | 305,805 | 1.471 | 12,211 | 25.04 | 39.7 | 100.26 | 13/16 | **TRAVELS** |
+| NQ 15m RTH *(registered)* | 2,536 | 306,987 | **1.533** | **10,524** | **29.17** | 41.2 | 121.05 | 13/16 | **TRAVELS** |
+| NQ 30m RTH *(registered)* | 1,899 | 226,634 | 1.465 | 10,317 | 21.97 | 44.8 | 119.34 | 12/16 | **TRAVELS** ⁽ᵇ⁾ |
+| NQ 60m RTH *(registered)* | 1,425 | 169,359 | 1.485 | 11,349 | 14.92 | 49.8 | 118.85 | 10/16 | **TRAVELS** ⁽ᵇ⁾ |
+| NQ 1m ETH | 54,352 | **−374,233** | 0.875 | 474,679 | −0.79 | 19.1 | −6.89 | 4/16 | **FAILS** |
+| NQ 5m ETH | 17,996 | 113,271 | 1.054 | 92,689 | 1.22 | 25.1 | 6.29 | 9/16 | **FAILS** |
+| NQ 15m ETH *(harness resample)* | 9,735 | 251,968 | 1.146 | 41,857 | 6.02 | 28.2 | 25.88 | 10/16 | **FAILS** |
+| NQ 30m ETH *(harness resample)* | 6,986 | 261,824 | 1.169 | 49,896 | 5.25 | 31.1 | 37.48 | 10/16 | **FAILS** |
+
+⁽ᵃ⁾ passes the bar but carries an asterisk — see the corrections. ⁽ᵇ⁾ fails L2 once its best twenty
+trades are removed. No cell was dropped; every NQ master the round needed existed.
+
+**IS/WF split inside the selection window** (cut at the same instant on every cell). 5m base:
+IS $16,445 / PF 1.156 vs WF $303,685 / PF 1.462 — which reproduces NOISE.md's campaign row 6 to the
+dollar and is an independent confirmation of the harness. Every cell is near-flat in-sample and
+1m is negative (IS −$1,715 / PF 0.988). **This is a pre-existing property of the crown, not
+something travel introduced.**
+
+**Attribution control (`NOISE_225` core, both filters off, selection window):** 1m PF 1.140 /
+$18.07 per trade · 2m 1.205 / $34.32 · 3m 1.225 / $43.42 · 5m 1.241 / $54.20 · 10m 1.285 / $73.33 ·
+15m 1.350 / $94.88 · 30m 1.353 / $105.62 · 60m 1.362 / $105.80.
+
+**Rescue diagnostic on the four failing ETH cells (non-promoting, cannot produce a TRAVELS verdict):**
+lookback 22 and 88 move nothing toward the bar. Best rescue cell anywhere is 30m ETH at PF 1.155.
+"44 sessions is the wrong reference depth" is ruled out.
+
+**Lockbox — read ONCE, after every verdict above was written, confirmatorily, never used to rank.**
+RTH fresh pass / continuous slice: 1m $21,407/$38,438 · 2m $45,607/$61,438 · 3m $38,611/$50,910 ·
+5m $40,648/$60,615 · 10m $9,532/$21,755 · 15m $25,484/$32,980 · 30m $22,167/$26,775 ·
+60m $24,388/$33,331. Coverage is truncated on some cells (2m ends 2026-07-16; 15m/30m/60m end
+2026-06-30). The ETH cells' lockbox slices are strongly positive (PF 1.13–1.28) while their
+selection windows fail — recorded as an oddity, **not** usable to rescue them.
+
+### WHAT THE ADVERSARIAL REVIEW CORRECTED
+
+Every number in the tables above reproduced to the cent on an independent re-run, the bar was
+applied exactly as written (`noise_hunt5.py:151-153`: `BAR_PF=1.20`, `BAR_MAR=8.69`,
+`BAR_DPT_MULT=2.0`, `BAR_YEARS=9`), the windows are identical across all eight RTH cells (3,770
+sessions each), and a causality probe — randomising the entire post-2018 tape — changed **0 of
+2,075** trades that closed before the cut. What did **not** survive:
+
+1. **STRIKE "the ETH arm is VOID as mechanism evidence — the 24-hour session cannot be judged on
+   these masters."** Restricting each ETH cell to its clean *at-modal* sessions still fails
+   everywhere: 1m PF 1.050 / MAR 0.79 · 5m PF 1.115 / MAR 3.32 · 15m PF 1.158 / MAR 4.08 · 30m
+   PF 1.210 but MAR 5.89 (L2 fail). **Raggedness is not what killed them.** The correct statement
+   is the ORB one: **#243 fails on the 24-hour session.** The raggedness gate as written was a
+   tautology — a 1,380-bar Globex session can essentially never sit 90% *at* a modal bar count, so
+   the ETH arm was unfalsifiable in either direction by construction. That is a design flaw in the
+   pre-registration, recorded as such; the gate was not moved after the fact.
+2. **DOWNGRADE "the crown travels" to "the NOISE band mechanism travels."** The filters-off core
+   clears all four legs on **7 of 8** RTH cells on its own. #243's two filters change the verdict on
+   exactly **one** cell — 1m, where the core fails L1 and L3. The bar tested whether NOISE works at
+   a bar size, not whether *this configuration* is what travels.
+3. **"8 of 8" is ONE observation, not eight independent tests.** Mean annual-PnL correlation across
+   the ladder is **0.970**, and 63–100% of the base cell's sessions are shared with each other cell.
+4. **L4 breadth is inflated.** Years counted positive include +$182 (5m, 2011), +$583 (2012) and
+   +$732 (2017). Years clearing $5k: **6–10 of 16**, against the 10–14 the leg counts.
+5. **Era concentration.** 2018–2025 is **92–102% of every cell's net**; 1m RTH is **−$5,275 across
+   2010–2017**.
+6. **Robustness beyond the bar.** Removing each cell's best 5 trades leaves all eight clearing
+   L1–L3. Removing the best 10 drops **1m to PF 1.185 / $20.34 per trade — failing L1 and L3**. At
+   −best 20, **30m (MAR 5.45) and 60m (MAR 6.60) fail L2**.
+7. **One objection of the reviewer's own was refuted:** daily-resolution maxDD is identical for 7 of
+   8 cells, so the 6.6× spread in trade count does **not** bias MAR against the fine-bar cells.
+
+**1m RTH is the one cell not to report as TRAVELS without an asterisk** — it clears the bar on 9,390
+trades but dies on removal of its ten best, is negative across 2010–2017, and needs both filters to
+pass at all.
+
+**15m looks better than the crowned 5m on PF (1.533 vs 1.420), MAR (29.17 vs 17.38) and maxDD
+($10,524 vs $18,425) — and it is explicitly NOT recommended.** This study tested travel, not
+ranking; promoting 15m on numbers seen after the fact is precisely the invented-after-the-numbers
+bar the house rules forbid. It is a candidate for its own pre-registered round with its own window
+discipline, nothing more. Note also that 5m carries the worst drawdown on the entire RTH ladder.
+
+---
+
+## STUDY B — IS #243 A PLATEAU OR A SPIKE?
+
+**Provenance, stated so it cannot be mistaken for a goalpost move:** the round's master
+pre-registration reached the executing session truncated inside Study A's cell table, and Study B's
+section never arrived. Study B's pre-registration was therefore written in the driver's module
+docstring **before the first cell ran**, following the 2026-08-21 NOISE pre-registration pattern
+and the neighbourhood convention already banked in `NOISE_1_0.py`'s docstring. It is committed in
+`tools/noise_hunt5_plateau.py` and is the document that was binding. **It is self-certified — no
+independent copy exists to attest it against.** The adversarial pass confirmed the verdict is
+insensitive to its thresholds (see below), so this does not change the result, but it is not
+attested the way Study A's bar is.
+
+### PRE-REGISTRATION, verbatim (B3 — the bar)
+
+> All on the SELECTION window only (2010-06-07 → 2025-02-10). Let the crown's own measured figures
+> be net\*, MAR\* and PF\*. For each ORDINAL axis, judged on its two IMMEDIATE neighbours (the one
+> neighbour that exists, for an edge cell, which is then flagged):
+>
+> * **PLATEAU** every immediate neighbour keeps net ≥ 0.80 × net\* AND MAR ≥ 0.80 × MAR\* AND PF ≥ 1.20
+> * **SPIKE** any immediate neighbour falls to net < 0.60 × net\*, or MAR < 0.60 × MAR\*, or PF < 1.20
+> * **SLOPE** anything in between (declared NOW so the study is not forced into a binary it cannot
+>   honestly make after seeing the numbers)
+>
+> 0.80 is the house floor already in use for gate crowning ("NET $ within 80%-of-best MAR"); 1.20 is
+> NOISE's standing promotion bar. Neither number was invented for this round.
+>
+> **OVERALL VERDICT ON THE CROWN: PLATEAU** if no ordinal axis is SPIKE and at least 5 of the 7 are
+> PLATEAU; **RIDGE** otherwise, with the offending axes named.
+>
+> **NOTHING HERE IS CROWNED.** Study B is a stability read, not a search. A cell that beats the
+> crown is named as a candidate for a FUTURE pre-registered head-to-head with its own window
+> discipline. **The lockbox is SPENT and is NOT OPENED AT ALL in this study** — no cell is proposed
+> for adoption, so there is nothing to confirm, and reading it to break a tie would be lockbox
+> shopping.
+
+### RESULT — 7 of 7 ordinal axes PLATEAU. Zero SLOPE. Zero SPIKE.
+
+Crown baseline: 4,054 trades · $320,130 · PF 1.420 · maxDD $18,425 · net/DD 17.38 · $78.97/trade.
+
+| axis | knob | verdict | worst immediate neighbour keeps | crown is the local best? |
+|---|---|---|---|---|
+| A1 | lookback (sessions) | **PLATEAU** | 98.5% net / 94.4% MAR | no — net at 36, MAR at 40 |
+| A2 | band_mult_long | **PLATEAU** | 93.4% net / 93.4% MAR | net yes, MAR no (1.25) |
+| A3 | band_mult_short | **PLATEAU** | 93.6% net / 108.5% MAR | net yes, MAR no (1.75) |
+| A4 | stop_k | **PLATEAU** | 99.5% net / 100.2% MAR | no — net at 1.25, MAR at 2.25 |
+| A5 | daytype_lo | **PLATEAU** | 96.5% net / 95.1% MAR | no — net at 0.25, MAR at 0.30 |
+| A6 | vol_skip_pct | **PLATEAU** | 98.7% net / 100.0% MAR | no — net at 98, MAR at 85 |
+| A7 | confirm_bars | **PLATEAU** (edge, 1 neighbour) | 99.0% net / 161.5% MAR | net yes, MAR no (2) |
+
+The crown is **not** the local best on 5 of 7 axes. That is not a finding — the argmax of a 7-point
+axis beats the middle by construction most of the time, and "beats the crown" was pre-registered as
+reported, never crowned. The full per-cell curves are the STUDIES rows 749–787.
+
+**A4 `stop_k` is the flattest axis in the study:** the whole range *including no stop at all* spans
+$312k–$328k. **A7 `confirm_bars` is CLOSED GROUND for adoption** — any value above 1 makes #243 a
+three-filter stack, and filter stacking on NOISE was closed 2026-08-21; it was run and is reported
+as a stability curve only, whatever its numbers say.
+
+**Not measurable — dashes with reasons, never zeros:** `exit_mode='boundary'` (an intrabar
+touch-fill model `run_variant` does not implement — a different fill convention, not a knob step);
+`stop_mode='atr'` and `skip_holidays=True` (not implemented); `stop_mode='fixed'` (implemented, but
+`k` is in 100-point units there, so k=1.75 means a 175-point stop — a category error to compare).
+
+### THE SHARPEST THING IN THE ROUND, and it is the least flattering
+
+Because both filters gate entries and nothing downstream, a trade present in two runs is the
+**identical** trade with the identical exit, so on the two filter axes `net(cell) − net(crown)` is
+*exactly* the dollars of the days that differ. The pre-registered decomposition therefore reports
+the $/trade of the removed set, and rule 5 of the 2026-08-21 pre-registration (net still positive
+after removing the ten best) is carried in verbatim and applied at **every** threshold:
+
+| vol_skip_pct | Δ trades vs crown | Δ net $ | $ per removed trade | Δ net ex the 10 best avoided |
+|---|---|---|---|---|
+| 80 | −481 | −18,628 | **+39** | −47,999 |
+| 85 | −245 | −4,091 | **+17** | −33,462 |
+| **90 (live)** | — | — | — | **−28,811** |
+| 95 | +348 | +2,215 | +$6/ea added | −24,064 |
+| 98 | +484 | +9,801 | +$20/ea added | −15,547 |
+| OFF (= #241) | +694 | **+400** | +$0.58/ea added | — |
+
+**Inside the live configuration the volatility skip is worth −$400 across 694 trades, and it is
+DISQUALIFIED on rule 5 at every threshold tested.** Tightening it below 90 removes trades that were
+making money (+$39/trade at 80, +$17 at 85); those cells buy their lower drawdown with profit. The
+weak-close short veto fares better on raw dollars (+$9,441 inside the crown) but is also
+rule-5 disqualified at every threshold (−$9,763 ex its ten best avoided trades).
+
+**Correction from the review: this is NOT a new finding.** NOISE.md already banked "adds nothing to
+`skip_bot_short` alone (−$400)" (line 563), "86% from 10 trades" (1052) and "should not be treated
+as a third independent variant" (1179) on 2026-08-21/23. Study B re-derives them independently and
+sharpens them; the genuinely novel part is the **in-crown rule-5 reading at every threshold**, which
+is the table above.
+
+### What the review confirmed and strengthened
+
+Every one of the 38 cells reproduced exactly; both drivers were grepped and contain no Firestore,
+job, network, subprocess or master-registration call; the lockbox is not merely unranked in Study B
+but **never loaded** (the driver reads data only to 2025-02-10). And the verdict **survives
+tightening its own bar from 0.80 to 0.90**: the worst immediate neighbour anywhere in the study is
+93.4% net / 93.4% MAR / PF 1.311, so 7/7 PLATEAU holds at the tighter floor.
+
+---
+
+### RECOMMENDATION — nothing changes, and nothing is queued
+
+1. **Leave the demo alone.** No cell in either study is proposed for adoption. Both studies were
+   designed to characterise #243, not to replace it, and every cell that looks better than the
+   crown looks better *after* the numbers were seen, on a spent window, with no walk-forward and no
+   holdout. Changing the live leg on any of it would be exactly the invented-after-the-numbers move
+   the house rules exist to stop.
+2. **What the round genuinely buys:** the crown is a plateau, not a spike, so small drift in any
+   knob is not a cliff; the band mechanism is scale-free in dollars over a 15× bar range on the day
+   session (net stays in a $271k–$325k band from 1m to 15m while trade count falls 3.7× and $/trade
+   rises 4.2×); and the 24-hour session is dead for this configuration, same as ORB round 4.
+3. **What it costs the crown's story:** the mechanism travels, but *the filters* barely earn their
+   place, the volatility skip is worth −$400 in situ, and the whole edge on every bar size sits in
+   2018–2025. Nothing here justifies a change to the demo **without a fresh forward window**.
+4. **Closed by this round, do not re-run:** #243 on other NQ bar sizes (RTH and ETH); #243's own
+   single-knob neighbourhood; the "wrong lookback depth on ETH" rescue. Add these to the closed
+   list beside the filter stack, the exit sweep and the ES work.
+5. **Two open items that are NOT results:** 15m RTH deserves its own pre-registered head-to-head if
+   the owner ever wants it, and the raggedness gate needs rewriting as a *within-tolerance* statistic
+   before any future ETH round uses it.
+
+**Housekeeping, flagged honestly.** Both drivers were committed to the **shared checkout's `main`**
+(`7752202`, `6080470`, `273c030`) rather than through `tools/wt.py`, against the standing rule; HEAD
+is **ahead 3, behind 11** of `origin/main`, so the stack must be rebased and checked with
+`git show --stat` before shipping. A concurrent Study B session's commit landed inside Study A's
+`--amend` mid-round; it was detected and repaired, and `6080470` is restored to its own single file.
+`_noise_plateau_243.json` at the repo root is Study B's raw output and was rewritten byte-equivalently
+by the review's re-run.
+
+---
+
+> **Board numbering note.** These rows were written as 737-787 and renumbered to **1090-1140** before shipping: other sessions added rows while this round ran and the board's highest number moved from 736 to 1089. Row numbers are permanent handles, so a collision is never resolved by reusing one.
+
+
 ## ✅ 2026-08-24 — CROWN PARITY: engine vs NinjaTrader backtest of run #243 — PASS, NO LEAK
 
 **The owner's ask, verbatim: "backtest the strategy on NT8 and compare against edgelog's
