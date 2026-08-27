@@ -19,6 +19,7 @@
 //    GET  /positions     per-account open positions
 //    GET  /orders        per-account orders (working by default; ?all=1 for all)
 //    GET  /strategies    per-account strategy instances: name, state, position
+//    GET  /backtest      replay ORB #234's rules over NT's own bars, dump a blotter
 //    GET  /executions    today's fills
 //    POST /flatten?account=NAME          close everything on ONE allowed account
 //    POST /killswitch                    flatten + disable every ALLOWED account/strategy
@@ -280,6 +281,8 @@ namespace NinjaTrader.NinjaScript.AddOns
                     Respond(s, 200, ReflectGridFields()); return;
                 case "/reflect/gridrows":
                     Respond(s, 200, ReflectGridRows()); return;
+                case "/backtest":
+                    Respond(s, 200, RunBacktest(q));               return;
                 case "/reflect/types":
                     Respond(s, 200, ReflectTypes(q.ContainsKey("contains") ? q["contains"] : "")); return;
                 case "/reflect/members":
@@ -1373,6 +1376,372 @@ namespace NinjaTrader.NinjaScript.AddOns
         // signatures — live over HTTP, so each reflection experiment in a future
         // version is designed from facts instead of one blind recompile per guess.
         // They only ever READ metadata: no Invoke, no field writes, no instances.
+        // ────────────────────────────────────────────────────────────────────────────
+        //  /backtest — run the ORB crown (run #234) over NinjaTrader's OWN historical
+        //  data and dump a blotter, WITHOUT the Strategy Analyzer window.
+        //
+        //  WHY THIS EXISTS (2026-08-26, owner: "run the nt8 backtest through the bridge").
+        //  The Strategy Analyzer is GUI-only and the assistant is policy-blocked from
+        //  clicking inside NinjaTrader, so the parity question — does NinjaTrader's data
+        //  produce the same trades as the AUGUR engine? — had no path that did not end on
+        //  the owner. NinjaTrader.Data.BarsRequest is public and documented: an AddOn can
+        //  pull the same bars a chart would build, with the same trading-hours template,
+        //  and replay rules over them.
+        //
+        //  WHAT THIS PROVES AND WHAT IT DOES NOT. It runs the ENGINE's rules (a direct
+        //  port of augur_strategies/ORB_3_6.py, the file run #234 executed) over
+        //  NINJATRADER's bars. So it answers "do NT's data and bar building agree with the
+        //  master CSV", which is where every reconcile mismatch this project has had came
+        //  from. It does NOT exercise NinjaTrader's order simulator — a Strategy Analyzer
+        //  run still owns that question, and EdgeLogORB230 self-dumps for it.
+        //
+        //  Deliberately matched to the ENGINE, not to EdgeLogORB230's live code, wherever
+        //  the two differ: the holiday filter uses the WHOLE-SAMPLE median session length
+        //  (what ORB_3_6.py does) rather than a trailing one, because the point is to
+        //  reproduce the engine's number, not the live strategy's.
+        //
+        //  GET /backtest?inst=NQ+09-26 and tf / hours / from / to / cost / mult, plus the
+        //  knobs or_bars, stop_frac, buf, target_R, be_R, partial_R, trail_bars, atr,
+        //  vpace, holidays. Every one defaults to run #234's pinned value.
+        //  Read-only: it places no orders and touches no account. Blocks up to 180s while
+        //  NinjaTrader serves the bars, then writes C:\EdgeLog\nt_backtest\ORBBT_<stamp>.csv
+        //  in the same shape EdgeLogNOISE / EdgeLogORB230 dump, so tools/reconcile_nt_dump.py
+        //  reads it unchanged.
+        // ────────────────────────────────────────────────────────────────────────────
+        private static double QD(Dictionary<string, string> q, string k, double dflt)
+        {
+            string v; if (!q.TryGetValue(k, out v) || v == null) return dflt;
+            double d; return double.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out d) ? d : dflt;
+        }
+
+        private static int QI(Dictionary<string, string> q, string k, int dflt)
+        {
+            return (int)Math.Round(QD(q, k, dflt));
+        }
+
+        private static double MedianOf(List<double> xs)
+        {
+            if (xs == null || xs.Count == 0) return double.NaN;
+            var a = new List<double>(xs); a.Sort();
+            int n = a.Count;
+            return (n % 2 == 1) ? a[n / 2] : 0.5 * (a[n / 2 - 1] + a[n / 2]);
+        }
+
+        private string RunBacktest(Dictionary<string, string> q)
+        {
+            string instName = q.ContainsKey("inst") ? q["inst"] : "NQ 09-26";
+            string hoursName = q.ContainsKey("hours") ? q["hours"] : "EDGELOG RTH 0930-1600";
+            int tf = QI(q, "tf", 5);
+            double cost = QD(q, "cost", 0.533), mult = QD(q, "mult", 20.0);
+            int orBars = QI(q, "or_bars", 2), trailBars = QI(q, "trail_bars", 0);
+            double stopFrac = QD(q, "stop_frac", 2.0), buf = QD(q, "buf", 0.25);
+            double targetR = QD(q, "target_R", 5.5), beR = QD(q, "be_R", 1.0);
+            double partialR = QD(q, "partial_R", 0.0);
+            double atrF = QD(q, "atr", 0.7), vpaceF = QD(q, "vpace", 0.7);
+            bool skipHol = QI(q, "holidays", 1) != 0;
+
+            DateTime from, to;
+            if (!DateTime.TryParse(q.ContainsKey("from") ? q["from"] : "", CultureInfo.InvariantCulture,
+                                   DateTimeStyles.None, out from)) from = DateTime.Today.AddYears(-1);
+            if (!DateTime.TryParse(q.ContainsKey("to") ? q["to"] : "", CultureInfo.InvariantCulture,
+                                   DateTimeStyles.None, out to)) to = DateTime.Today;
+
+            Instrument inst = null;
+            try { inst = Instrument.GetInstrument(instName); } catch { }
+            if (inst == null) return "{\"error\":\"unknown instrument\",\"inst\":" + J(instName) + "}";
+
+            NinjaTrader.Data.TradingHours th = null;
+            try { th = NinjaTrader.Data.TradingHours.Get(hoursName); } catch { }
+            if (th == null) return "{\"error\":\"unknown trading hours template\",\"hours\":" + J(hoursName) + "}";
+
+            // ── pull the bars. Request() is callback-based; block the HTTP thread on an
+            //    event so the caller gets one synchronous answer.
+            NinjaTrader.Data.Bars bars = null; string reqErr = null;
+            var done = new ManualResetEvent(false);
+            try
+            {
+                var br = new NinjaTrader.Data.BarsRequest(inst, from, to.AddDays(1));
+                br.BarsPeriod = new NinjaTrader.Data.BarsPeriod
+                {
+                    BarsPeriodType = NinjaTrader.Data.BarsPeriodType.Minute,
+                    Value = tf
+                };
+                br.TradingHours = th;
+                br.MergePolicy = NinjaTrader.Cbi.MergePolicy.MergeNonBackAdjusted;
+                // Repository = whatever is already in NinjaTrader's local database. Provider would
+                // let it pull missing history from the data feed, which on a 15-month 5-minute
+                // request is a long download and a moving target between runs; ?lookup=provider
+                // asks for it deliberately.
+                br.LookupPolicy = (q.ContainsKey("lookup") && q["lookup"] == "provider")
+                                ? NinjaTrader.Cbi.LookupPolicies.Provider
+                                : NinjaTrader.Cbi.LookupPolicies.Repository;
+                br.Request((req, err, msg) =>
+                {
+                    try
+                    {
+                        if (err != NinjaTrader.Cbi.ErrorCode.NoError) reqErr = err + (string.IsNullOrEmpty(msg) ? "" : (": " + msg));
+                        else bars = req.Bars;
+                    }
+                    catch (Exception ex2) { reqErr = ex2.Message; }
+                    finally { done.Set(); }
+                });
+            }
+            catch (Exception ex) { return "{\"error\":\"bars request failed\",\"detail\":" + J(ex.Message) + "}"; }
+
+            if (!done.WaitOne(180000)) return "{\"error\":\"timed out waiting for historical data (180s)\"}";
+            if (reqErr != null) return "{\"error\":\"data error\",\"detail\":" + J(reqErr) + "}";
+            if (bars == null || bars.Count < 50)
+                return "{\"error\":\"no bars returned\",\"count\":" + (bars == null ? 0 : bars.Count) + "}";
+
+            int n = bars.Count;
+            var O = new double[n]; var H = new double[n]; var L = new double[n];
+            var C = new double[n]; var V = new double[n]; var T = new DateTime[n];
+            // NinjaTrader marks the session break itself (IsFirstBarOfSessionByIndex), which is
+            // the trading-hours template's own answer -- safer than re-deriving a trading day from
+            // a local timestamp, since that is exactly the kind of re-derivation that produced the
+            // timezone bugs tools/reconcile.py exists to diagnose.
+            var firstOfSession = new bool[n];
+            for (int i = 0; i < n; i++)
+            {
+                O[i] = bars.GetOpen(i); H[i] = bars.GetHigh(i); L[i] = bars.GetLow(i);
+                C[i] = bars.GetClose(i); V[i] = bars.GetVolume(i); T[i] = bars.GetTime(i);
+                try { firstOfSession[i] = bars.IsFirstBarOfSessionByIndex(i); } catch { firstOfSession[i] = false; }
+            }
+            firstOfSession[0] = true;
+
+            // ── session boundaries, exactly as the engine walks them
+            var sb = new List<int[]>();
+            for (int a = 0; a < n; )
+            {
+                int b2 = a + 1; while (b2 < n && !firstOfSession[b2]) b2++;
+                sb.Add(new int[] { a, b2 }); a = b2;
+            }
+            int S = sb.Count;
+
+            var lens = new List<double>(); var srng = new List<double>();
+            for (int si = 0; si < S; si++)
+            {
+                int a = sb[si][0], b2 = sb[si][1];
+                lens.Add(b2 - a);
+                double hi = double.MinValue, lo = double.MaxValue;
+                for (int i = a; i < b2; i++) { if (H[i] > hi) hi = H[i]; if (L[i] < lo) lo = L[i]; }
+                srng.Add(hi - lo);
+            }
+            double halfLen = 0.70 * MedianOf(lens);
+
+            // v-pace reference: per-session prefix means, averaged over the prior 20 sessions
+            int K = 0; for (int si = 0; si < S; si++) K = Math.Max(K, sb[si][1] - sb[si][0]);
+            var pref = new double[S][];
+            for (int si = 0; si < S; si++)
+            {
+                int a = sb[si][0], m = sb[si][1] - a;
+                var row = new double[K + 2]; for (int i = 0; i < row.Length; i++) row[i] = double.NaN;
+                double cs = 0; for (int i = 0; i < m; i++) { cs += V[a + i]; row[i + 1] = cs / (i + 1); }
+                pref[si] = row;
+            }
+
+            var rows = new List<string>();
+            var pnls = new List<double>();
+            int skHol = 0, skVol = 0;
+            var inv = CultureInfo.InvariantCulture;
+
+            for (int si = 0; si < S; si++)
+            {
+                int a = sb[si][0], b2 = sb[si][1], m = b2 - a;
+                if (skipHol && S > 4 && m < halfLen) { skHol++; continue; }
+                if (atrF > 0 && S > 6 && si >= 6)
+                {
+                    double rec = 0; int c1 = 0;
+                    for (int x = Math.Max(0, si - 5); x < si; x++) { rec += srng[x]; c1++; }
+                    rec = c1 > 0 ? rec / c1 : double.NaN;
+                    var win = new List<double>();
+                    for (int x = Math.Max(0, si - 60); x < si; x++) win.Add(srng[x]);
+                    double refMed = MedianOf(win);
+                    if (refMed > 0 && rec < atrF * refMed) { skVol++; continue; }
+                }
+                if (m <= orBars + 1 || orBars < 1) continue;
+
+                double orHi = double.MinValue, orLo = double.MaxValue;
+                for (int i = 0; i < orBars; i++)
+                {
+                    if (H[a + i] > orHi) orHi = H[a + i];
+                    if (L[a + i] < orLo) orLo = L[a + i];
+                }
+                double rng = orHi - orLo; if (!(rng > 0)) continue;
+                int orDir = (C[a + orBars - 1] >= O[a]) ? 1 : -1;
+                double upLvl = orHi + buf * rng, dnLvl = orLo - buf * rng;
+
+                int pos = 0, ek = -1; double entry = 0, stop = 0, tgt = 0, ptgt = 0, risk = 0, pPnl = 0;
+                bool pDone = false, beArmed = false; double beLvl = double.NaN;
+
+                for (int k = orBars; k < m; k++)
+                {
+                    int i = a + k;
+                    if (pos == 0)
+                    {
+                        bool up = C[i] >= upLvl, dn = C[i] <= dnLvl;
+                        if (!(up || dn)) continue;
+                        if (vpaceF > 0 && S > 21 && si >= 20 && k > 0 && k < pref[si].Length)
+                        {
+                            double rf = 0; int cnt = 0;
+                            for (int x = si - 20; x < si; x++)
+                            {
+                                double p2 = pref[x][k];
+                                if (!double.IsNaN(p2)) { rf += p2; cnt++; }
+                            }
+                            if (cnt > 0)
+                            {
+                                rf /= cnt;
+                                double mv = 0; for (int x = 0; x < k; x++) mv += V[a + x]; mv /= k;
+                                if (rf > 0 && mv < vpaceF * rf) continue;
+                            }
+                        }
+                        if (up && orDir > 0)
+                        {
+                            entry = C[i]; risk = stopFrac * rng; stop = entry - risk;
+                            tgt = targetR > 0 ? entry + targetR * risk : double.MaxValue;
+                            ptgt = partialR > 0 ? entry + partialR * risk : double.MaxValue;
+                            beLvl = beR > 0 ? entry + beR * risk : double.NaN;
+                            pos = 1; ek = k; pDone = false; pPnl = 0; beArmed = false; continue;
+                        }
+                        if (dn && orDir < 0)
+                        {
+                            entry = C[i]; risk = stopFrac * rng; stop = entry + risk;
+                            tgt = targetR > 0 ? entry - targetR * risk : double.MinValue;
+                            ptgt = partialR > 0 ? entry - partialR * risk : double.MinValue;
+                            beLvl = beR > 0 ? entry - beR * risk : double.NaN;
+                            pos = -1; ek = k; pDone = false; pPnl = 0; beArmed = false; continue;
+                        }
+                        continue;
+                    }
+
+                    if (beArmed) stop = pos > 0 ? Math.Max(stop, entry) : Math.Min(stop, entry);
+                    if (trailBars > 0 && (partialR == 0 || pDone))
+                    {
+                        int ts = Math.Max(ek, k - trailBars);
+                        if (pos > 0)
+                        {
+                            double tl = L[a + ek];
+                            if (k > ts) { tl = double.MaxValue; for (int x = ts; x < k; x++) tl = Math.Min(tl, L[a + x]); }
+                            stop = Math.Max(stop, tl);
+                        }
+                        else
+                        {
+                            double thg = H[a + ek];
+                            if (k > ts) { thg = double.MinValue; for (int x = ts; x < k; x++) thg = Math.Max(thg, H[a + x]); }
+                            stop = Math.Min(stop, thg);
+                        }
+                    }
+
+                    double raw, pnl;
+                    if (pos > 0)
+                    {
+                        if (L[i] <= stop)
+                        {
+                            double ex = O[i] < stop ? O[i] : stop;
+                            raw = ex - entry; pnl = pDone ? (pPnl * 0.5 + raw * 0.5) : raw;
+                            EmitTrade(rows, pnls, ek, k, a, T, 1, entry, ex, pnl, cost, mult, inv, "stop");
+                            pos = 0; break;
+                        }
+                        if (beR > 0 && !beArmed && C[i] >= beLvl) beArmed = true;
+                        if (!pDone && partialR > 0 && H[i] >= ptgt) { pPnl = ptgt - entry; pDone = true; continue; }
+                        if (targetR > 0 && H[i] >= tgt)
+                        {
+                            raw = tgt - entry; pnl = pDone ? (pPnl * 0.5 + raw * 0.5) : raw;
+                            EmitTrade(rows, pnls, ek, k, a, T, 1, entry, tgt, pnl, cost, mult, inv, "target");
+                            pos = 0; break;
+                        }
+                    }
+                    else
+                    {
+                        if (H[i] >= stop)
+                        {
+                            double ex = O[i] > stop ? O[i] : stop;
+                            raw = entry - ex; pnl = pDone ? (pPnl * 0.5 + raw * 0.5) : raw;
+                            EmitTrade(rows, pnls, ek, k, a, T, -1, entry, ex, pnl, cost, mult, inv, "stop");
+                            pos = 0; break;
+                        }
+                        if (beR > 0 && !beArmed && C[i] <= beLvl) beArmed = true;
+                        if (!pDone && partialR > 0 && L[i] <= ptgt) { pPnl = entry - ptgt; pDone = true; continue; }
+                        if (targetR > 0 && L[i] <= tgt)
+                        {
+                            raw = entry - tgt; pnl = pDone ? (pPnl * 0.5 + raw * 0.5) : raw;
+                            EmitTrade(rows, pnls, ek, k, a, T, -1, entry, tgt, pnl, cost, mult, inv, "target");
+                            pos = 0; break;
+                        }
+                    }
+                }
+
+                if (pos != 0)
+                {
+                    double last = C[b2 - 1];
+                    double raw = pos > 0 ? (last - entry) : (entry - last);
+                    double pnl = pDone ? (pPnl * 0.5 + raw * 0.5) : raw;
+                    EmitTrade(rows, pnls, ek, m - 1, a, T, pos, entry, last, pnl, cost, mult, inv, "eod");
+                }
+            }
+
+            // ── write the blotter in the same shape the strategies self-dump
+            string path = "";
+            try
+            {
+                string dir = @"C:\EdgeLog\nt_backtest";
+                if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                path = Path.Combine(dir, "ORBBT_" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".csv");
+                var sb2 = new StringBuilder();
+                sb2.AppendLine("# strategy=ORB_3_6_C2.py (engine rules, replayed on NinjaTrader bars via /backtest)");
+                sb2.AppendLine("# instrument=" + inst.FullName);
+                sb2.AppendLine("# bars=Minute-" + tf);
+                sb2.AppendLine("# trading_hours=" + th.Name);
+                sb2.AppendLine("# span=" + from.ToString("yyyy-MM-dd") + ".." + to.ToString("yyyy-MM-dd")
+                               + " bars=" + n + " sessions=" + S + " skipped_holiday=" + skHol + " skipped_vol=" + skVol);
+                sb2.AppendLine("# orBars=" + orBars + " stopFrac=" + stopFrac.ToString(inv) + " breakoutBuf=" + buf.ToString(inv)
+                               + " partialExitR=" + partialR.ToString(inv) + " trailBars=" + trailBars
+                               + " targetR=" + targetR.ToString(inv) + " atrFilter=" + atrF.ToString(inv)
+                               + " vpaceFilter=" + vpaceF.ToString(inv) + " breakevenR=" + beR.ToString(inv)
+                               + " skipHolidays=" + skipHol + " cost_pts=" + cost.ToString(inv) + " mult=" + mult.ToString(inv));
+                sb2.AppendLine("# times=UTC bar_stamp=close");
+                sb2.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd");
+                for (int i = 0; i < rows.Count; i++) sb2.AppendLine((i + 1).ToString(inv) + "," + rows[i]);
+                File.WriteAllText(path, sb2.ToString());
+            }
+            catch (Exception ex) { Log("backtest dump failed: " + ex.Message); }
+
+            double net = 0, gw = 0, gl = 0; int wins = 0;
+            foreach (double p in pnls) { net += p; if (p > 0) { gw += p; wins++; } else gl += -p; }
+            double pf = gl > 1e-9 ? gw / gl : 0;
+            double cum = 0, peak = 0, dd = 0;
+            foreach (double p in pnls) { cum += p; if (cum > peak) peak = cum; if (cum - peak < dd) dd = cum - peak; }
+
+            return "{\"ok\":true,\"instrument\":" + J(inst.FullName) + ",\"trading_hours\":" + J(th.Name)
+                 + ",\"bars\":" + n + ",\"sessions\":" + S
+                 + ",\"first_bar\":" + J(T[0].ToString("yyyy-MM-dd HH:mm", inv))
+                 + ",\"last_bar\":" + J(T[n - 1].ToString("yyyy-MM-dd HH:mm", inv))
+                 + ",\"skipped_holiday\":" + skHol + ",\"skipped_vol\":" + skVol
+                 + ",\"trades\":" + pnls.Count + ",\"wins\":" + wins
+                 + ",\"net_usd\":" + Math.Round(net * mult, 2).ToString(inv)
+                 + ",\"profit_factor\":" + Math.Round(pf, 4).ToString(inv)
+                 + ",\"max_drawdown_usd\":" + Math.Round(dd * mult, 2).ToString(inv)
+                 + ",\"dump\":" + J(path) + "}";
+        }
+
+        /// <summary>One finished trade to a CSV row plus its net points. Cost is charged
+        /// once per round turn, the same way the engine's harness charges it.</summary>
+        private static void EmitTrade(List<string> rows, List<double> pnls, int ek, int xk, int a,
+                                      DateTime[] T, int side, double entry, double exit, double pnlPts,
+                                      double cost, double mult, CultureInfo inv, string why)
+        {
+            double net = pnlPts - cost;
+            pnls.Add(net);
+            rows.Add(string.Join(",", new string[] {
+                side > 0 ? "1" : "-1", "1",
+                T[a + ek].ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", inv),
+                T[a + xk].ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", inv),
+                entry.ToString(inv), exit.ToString(inv), "ORB", why,
+                Math.Round(net * mult, 2).ToString(inv)
+            }));
+        }
+
         private string ReflectTypes(string contains)
         {
             var rows = new List<string>();
