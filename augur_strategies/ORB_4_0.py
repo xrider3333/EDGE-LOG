@@ -1,68 +1,23 @@
 """
-ORB 4.0 — PRIOR-DAY RANGE GATE on the run #234 machinery.
+ORB 4.0 — THE ENTRY WINDOW, on the run #234 crown (2026-08-26 hunt, round 5).
 
-Owner 2026-08-18: "try new things". This is the first ORB variant in the program whose
-entry LEVELS are informed by anything outside today's opening range.
+One new question the legal base has never been asked: does it matter WHEN in the
+session the breakout happens? The crown scans every bar from the end of the opening
+range to the close, so a 15:30 break is taken on the same terms as a 10:05 one.
 
-WHY. A diagnostic on run #234's own 2,607 trades split them by where the fill sat
-relative to YESTERDAY's high/low:
+  * entry_from_bar — ignore breakouts before this bar index (0 = off, the crown).
+  * entry_to_bar   — take no NEW entry at or after this bar index (0 = off). A position
+                     already open is managed to its normal exit; only the SCAN stops.
 
-    bucket             n     IS avg   IS PF     LB avg   LB PF
-    beyond PD range  1049      $159    1.40       $633    1.67
-    inside PD range  1337       $99    1.21       $271    1.21
+Both default OFF, and with both off this file is asserted bit-identical to ORB_3_6 —
+same assertion ORB_3_9 carries, run by the smoke test at the bottom.
 
-"Beyond" beats "inside" on average AND on profit factor in BOTH windows — the rare
-factor in this program that ranks the same way twice (compare X15-X19, which never did).
-The prior session's high/low is complete at 09:30, so gating on it is fully legal.
-
-THE MECHANISM THAT MAKES THIS MORE THAN A FILTER. Screening those trades post-hoc
-(just deleting the "inside" half) LOWERS MAR 13.38 -> 11.56: it halves the money to buy
-a smaller drawdown, which is the amputation ORB.md has rejected since items B and M.
-But a gate INSIDE the strategy is a different animal. When an early breakout is rejected
-for sitting inside yesterday's range, the scan CONTINUES — so if price later clears the
-prior-day level, that session still trades, just at a better location. The gate converts
-"bad early entry" into "later, better entry" rather than into "no trade". Whether that
-conversion actually pays is exactly what this file exists to measure.
-
-    pdr_gate 0 = off  (bit-identical to ORB_3_6 — asserted in the smoke test)
-    pdr_gate 1 = require the fill to be beyond the prior session's high (long) / low (short)
-    pdr_gate 2 = require it to be beyond prior high/low OR beyond the OPPOSITE extreme
-                 (i.e. anything except sitting inside yesterday's range)
-
-VERDICT 2026-08-18: DEAD. Measured on run #230's window, ride+BE exit, gate off/1/2:
-
-    gate  n      IS net      LB net   LB PF    full net    maxDD    MAR   roll12 win / worst
-    0     2607   $300,931    $88,942  1.453    $389,874    $29,142  13.38   72.7%  -$22,050
-    1     1582   $199,585    $40,990  1.342    $240,575    $20,681  11.63   70.5%   -$9,204
-    2     1796   $216,235    $52,459  1.394    $268,694    $40,346   6.66   68.9%  -$32,172
-
-The gate buys a smaller drawdown and a much softer worst-year, and pays for it with well
-over a third of the money, a worse lockbox, worse PF and worse rolling-window consistency.
-MAR falls in both live settings. Not adoptable.
-
-WHY IT FAILED, AND THE LESSON WORTH KEEPING. Gate 1 takes 1,582 trades where the post-hoc
-screen of the same factor kept only 1,049 — the extra ~530 are sessions where an early
-signal was rejected and a LATER bar cleared yesterday's level. Those deferred trades are
-bad enough to drag the whole config below even the screened subset. So the mechanism this
-file was built to test — "convert a bad early entry into a later, better one" — is real
-but runs the WRONG WAY: by the time price has cleared yesterday's level, the move is
-extended and the R-geometry is spent. That is the same failure ORB.md section 4.18 found
-for close-confirm on the old base: the damage is the confirmation DELAY, not the level.
-
-It also reframes the diagnostic that motivated the file. "Beyond the prior-day range" looked
-predictive because trades that RUN far tend to end up beyond that level — the split was
-mostly selection after the fact, not a condition you can profitably require in advance.
-
-Kept in the library as a working, parity-asserted implementation so nobody rebuilds it.
-
-LIVE-LEGAL BY CONSTRUCTION: the prior session's high and low are fixed before this
-session's first bar. Entry is still a finished-bar-close decision; BE still arms on a
-finished close and acts next bar; stop-first + gap-through fills unchanged. Nothing on
-any fill bar is read before it exists.
+LIVE-LEGAL: a bar index inside the session is knowable in advance (it is the clock), so
+nothing here reads the future. This is a schedule, not a signal.
 """
 import numpy as np
 
-STRATEGY_NAME = 'ORB 4.0 · prior-day range gate'
+STRATEGY_NAME = 'ORB 4.0 · legal base + breakeven'
 DESCRIPTION   = ("The legal ORB base (close-confirm capable, v-pace/ATR-regime gates, "
                  "partial+trail scale-out) plus ONE new lever: move the stop to entry "
                  "once a bar CLOSES beyond be_after_R x risk. Armed on a finished bar, "
@@ -153,19 +108,23 @@ DEFAULT_PARAMS = {
         "label": "Flat by session close",
         "tooltip": "Always exit at each session's last bar (no overnight). Keep ON.",
     },
-    "pdr_gate": {
-        "default": 0, "min": 0, "max": 2, "step": 1, "type": "int",
-        "label": "Prior-day range gate (0=off)",
-        "tooltip": "0 = off. 1 = only fill beyond YESTERDAY's high (long) / low (short). "
-                   "2 = fill anywhere except inside yesterday's range. A rejected bar does "
-                   "not end the session - the scan continues, so a later bar that clears "
-                   "the level can still trade. Yesterday's range is complete at 09:30, so "
-                   "this is live-legal.",
-    },
     "skip_holidays": {
         "default": True, "type": "bool",
         "label": "Skip holiday half-days",
         "tooltip": "Skip early-close sessions, detected by session LENGTH. Calendar-known.",
+    },
+    "entry_from_bar": {
+        "default": 0, "min": 0, "max": 60, "step": 1, "type": "int",
+        "label": "No entries before bar",
+        "tooltip": "Ignore breakouts before this bar index inside the session (0 = off). "
+                   "Bar 6 on 5-minute data is 10:00 ET.",
+    },
+    "entry_to_bar": {
+        "default": 0, "min": 0, "max": 90, "step": 1, "type": "int",
+        "label": "No new entries from bar",
+        "tooltip": "Stop scanning for NEW breakouts at this bar index (0 = off). A trade "
+                   "already open is still managed to its normal exit. Bar 54 on 5-minute "
+                   "data is 14:00 ET.",
     },
 }
 
@@ -198,8 +157,8 @@ def run_backtest(
     breakout_buf: float = 0.25, close_confirm: bool = True,
     partial_exit_R: float = 3.0, trail_bars: int = 3, be_after_R: float = 0.0,
     atr_filter: float = 0.7, target_R: float = 5.5,
-    pdr_gate: int = 0,
     flat_eod: bool = True, skip_holidays: bool = True,
+    entry_from_bar: int = 0, entry_to_bar: int = 0,
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
 ):
@@ -259,17 +218,6 @@ def run_backtest(
         for _si in range(20, len(_sess_bounds)):
             _pace_ref[_si, :] = np.nanmean(_pref[_si - 20:_si, :], axis=0)
 
-    # ── PRIOR-DAY RANGE (pdr_gate > 0): yesterday's high/low, complete before this
-    #    session opens, so gating a fill on it reads nothing that does not yet exist.
-    _pd_hi, _pd_lo = {}, {}
-    if pdr_gate > 0:
-        for _si, (a, b) in enumerate(_sess_bounds):
-            if _si == 0:
-                continue
-            _pa, _pb = _sess_bounds[_si - 1]
-            _pd_hi[a] = float(h[_pa:_pb].max())
-            _pd_lo[a] = float(l[_pa:_pb].min())
-
     pnl_list, trade_log = [], []
     i = 0
     while i < n:
@@ -302,6 +250,15 @@ def run_backtest(
                 be_armed = False; be_lvl = np.nan
                 for k in range(or_bars, m):
                     if pos == 0:
+                        # ── ENTRY WINDOW (the 4.0 lever) ───────────────────────────
+                        #    A schedule, not a signal: the bar index inside a session is
+                        #    the clock, knowable before the bar exists. Once the scan is
+                        #    past entry_to_bar and we are flat, no entry can happen for
+                        #    the rest of this session, so stop walking it.
+                        if entry_from_bar > 0 and k < entry_from_bar:
+                            continue
+                        if entry_to_bar > 0 and k >= entry_to_bar:
+                            break
                         if close_confirm:
                             up = sc[k] >= up_lvl
                             dn = sc[k] <= dn_lvl
@@ -324,14 +281,6 @@ def run_backtest(
                                 continue
                         if long_ok and up:
                             entry = sc[k] if close_confirm else (max(up_lvl, so[k]) if so[k] > up_lvl else up_lvl)
-                            # PRIOR-DAY GATE: reject this bar but KEEP SCANNING, so a later
-                            #   bar that does clear yesterday's level can still take the trade.
-                            if pdr_gate > 0 and i in _pd_hi:
-                                _ph, _pl = _pd_hi[i], _pd_lo[i]
-                                if pdr_gate == 1 and not (entry > _ph):
-                                    continue
-                                if pdr_gate == 2 and (_pl < entry < _ph):
-                                    continue
                             risk  = stop_frac * rng
                             stop  = entry - risk
                             tgt   = entry + target_R * risk if target_R > 0 else np.inf
@@ -340,12 +289,6 @@ def run_backtest(
                             pos = 1; ek = k; p_done = False; p_pnl = 0.0; be_armed = False; continue
                         elif short_ok and dn:
                             entry = sc[k] if close_confirm else (min(dn_lvl, so[k]) if so[k] < dn_lvl else dn_lvl)
-                            if pdr_gate > 0 and i in _pd_lo:
-                                _ph, _pl = _pd_hi[i], _pd_lo[i]
-                                if pdr_gate == 1 and not (entry < _pl):
-                                    continue
-                                if pdr_gate == 2 and (_pl < entry < _ph):
-                                    continue
                             risk  = stop_frac * rng
                             stop  = entry + risk
                             tgt   = entry - target_R * risk if target_R > 0 else -np.inf
@@ -433,44 +376,52 @@ def run_backtest(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Smoke test: (1) be_after_R=0 must be BIT-IDENTICAL to ORB_3_4.py on the #230
-# champion params; (2) be_after_R>0 must actually change results.
-# Run:  python augur_strategies/ORB_3_6.py
+# Smoke test: with both new knobs OFF this file must be BIT-IDENTICAL to ORB_3_6 on
+# the run #234 crown params, and switching a knob ON must actually change the result.
+# Run:  python augur_strategies/ORB_4_0.py
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import os, sys
-    import importlib.util as ilu
+    import os
+    import sys
+    import importlib.util
+
     import pandas as pd
 
-    ROOT    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    MASTER  = os.path.join(ROOT, "augur_uploads", "NOADJ_NQ_5m_RTH.csv")
-    if not os.path.exists(MASTER):
-        print("NQ master not found at", MASTER); sys.exit(1)
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # masters live in the primary checkout; a worktree has none of its own.
+    CSV = os.path.join(ROOT, "augur_uploads", "NOADJ_NQ_5m_RTH.csv")
+    if not os.path.exists(CSV):
+        CSV = os.path.join(r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG",
+                           "augur_uploads", "NOADJ_NQ_5m_RTH.csv")
 
-    df  = pd.read_csv(MASTER)
-    dt  = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
-    df["day_id"] = pd.factorize(dt.dt.date)[0]
-    df = df.sort_values("time").reset_index(drop=True)
+    def _load(path):
+        spec = importlib.util.spec_from_file_location(os.path.basename(path)[:-3], path)
+        m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(m)
+        return m
 
-    spec = ilu.spec_from_file_location("_orb34", os.path.join(ROOT, "augur_strategies", "ORB_3_4.py"))
-    base = ilu.module_from_spec(spec); spec.loader.exec_module(base)
+    base = _load(os.path.join(ROOT, "augur_strategies", "ORB_3_6.py"))
+    df = pd.read_csv(CSV)
+    dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
+    df = df.assign(_dt=dt).sort_values("time").reset_index(drop=True)
+    day_id = pd.factorize(df["_dt"].dt.date)[0]
+    args = dict(volumes=df["volume"].values.astype(float), day_id=day_id, return_trades=True)
+    P = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, breakout_buf=0.25,
+             close_confirm=True, partial_exit_R=0.0, trail_bars=0, target_R=5.5,
+             atr_filter=0.7, vpace_filter=0.7, flat_eod=True, skip_holidays=True,
+             be_after_R=1.0)
+    O, H, L, C = (df[c].values.astype(float) for c in ("open", "high", "low", "close"))
 
-    C230 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, breakout_buf=0.25,
-                close_confirm=True, partial_exit_R=3.0, trail_bars=3, target_R=5.5,
-                atr_filter=0.7, vpace_filter=0.7, flat_eod=True, skip_holidays=True)
-    args = (df["open"].values, df["high"].values, df["low"].values, df["close"].values)
-    kw = dict(volumes=df["volume"].values, day_id=df["day_id"].values, return_trades=True)
+    a = base.run_backtest(O, H, L, C, **args, **P)
+    b = run_backtest(O, H, L, C, **args, **P)
+    same = (len(a["trades"]) == len(b["trades"])
+            and all(x == y for x, y in zip(a["trades"], b["trades"])))
+    print("knobs OFF vs ORB_3_6: %d/%d trades identical -> %s"
+          % (len(b["trades"]), len(a["trades"]), "PASS" if same else "FAIL"))
+    assert same, "ORB_4_0 with both knobs off must reproduce ORB_3_6 exactly"
 
-    r0 = base.run_backtest(*args, **kw, **C230)
-    r1 = run_backtest(*args, **kw, **C230, be_after_R=0.0)
-    same = (r0["num_trades"] == r1["num_trades"]
-            and abs(r0["total_pnl"] - r1["total_pnl"]) < 1e-9)
-    print("be=0 parity vs ORB_3_4: %s  (n %d vs %d, pnl %.4f vs %.4f)" % (
-        "PASS" if same else "FAIL", r0["num_trades"], r1["num_trades"],
-        r0["total_pnl"], r1["total_pnl"]))
-
-    r2 = run_backtest(*args, **kw, **C230, be_after_R=1.0)
-    print("be=1.0 changes results: %s  (pnl %.1f -> %.1f, DD %.1f -> %.1f)" % (
-        "PASS" if abs(r2["total_pnl"] - r1["total_pnl"]) > 1e-9 else "FAIL",
-        r1["total_pnl"], r2["total_pnl"], r1["max_drawdown"], r2["max_drawdown"]))
-    sys.exit(0 if same else 1)
+    c = run_backtest(O, H, L, C, **args, **dict(P, entry_to_bar=54))
+    print("entry_to_bar=54: %d trades, $%.0f (base %d trades, $%.0f)"
+          % (c["num_trades"], c["total_pnl"] * 20, a["num_trades"], a["total_pnl"] * 20))
+    assert c["num_trades"] != a["num_trades"], "the entry window must change something"
+    print("ORB_4_0 smoke: PASS")
