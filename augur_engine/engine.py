@@ -87,11 +87,29 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
         extras["volumes"] = V
     if did is not None and (has_kw or "day_id" in sp):
         extras["day_id"] = did
-    # Bar timestamps — only handed to strategies that ask for `index` (e.g. REPLAY_1_0,
-    # which matches discretionary entry times to bars). Existing strategies don't declare
-    # it, so this is a no-op for them.
+    # Bar timestamps — handed ONLY to strategies that explicitly declare `index`
+    # (e.g. REPLAY_1_0, which matches discretionary entry times to bars).
+    #
+    # v73.x: the `has_kw or` that used to be in this condition is deliberately gone.
+    # A **kw catch-all means "I tolerate extra keywords", NOT "I understand timestamps",
+    # and treating the two as the same thing shipped a real break: ORB_3_4_ER_1_0 wraps an
+    # older engine and forwarded its **kw straight through, so the index it never asked for
+    # reached a function that had never heard of it -->
+    #   TypeError: run_backtest() got an unexpected keyword argument 'index'
+    # CI went red on 2026-08-26 and stayed red, mailing a failure for every push after it.
+    # Nothing but the contract tests supplies an index, so it passed every local backtest.
+    #
+    # Measured before changing this, not assumed: tools/index_extra_audit.py ran all 27
+    # affected strategies (**kw, no declared `index`) twice over 39,390 real NQ 5m bars,
+    # with the extra and without. All 27 took trades and all 27 matched trade-for-trade,
+    # so no strategy was reading a timestamp it never declared. Re-run that tool before
+    # touching this line again.
+    #
+    # NOTE this is the OPPOSITE direction to the known grid-path gap (sweeps never pass an
+    # index at all, so strategies that DECLARE it see 0 valid configs). That gap is
+    # untouched here: declared-index strategies are unaffected by this condition either way.
     _idx = arrays.get("index")
-    if _idx is not None and (has_kw or "index" in sp):
+    if _idx is not None and "index" in sp:
         extras["index"] = _idx
 
     _gate_on = bool(ml_filter) and str(ml_filter).lower() not in ("", "none")
