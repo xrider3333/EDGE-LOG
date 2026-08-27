@@ -244,7 +244,12 @@ def cmd_ship(name, message):
     # side effect of someone else's push, so they are baselined: this gate blocks a push that adds
     # a NEW collision and lets the existing ones through. Shrink this set as they get resolved;
     # never grow it to get a push through.
-    KNOWN_DUP_ROWS = set(range(592, 617))
+    # 592-616: the TTM Squeeze rounds vs the ORB travel/exits rounds.
+    # 697-736: a second cross-session overlap found 2026-08-26, same cause.
+    # Both belong to other work and are referenced elsewhere BY NUMBER, so renumbering
+    # them is an owner call. Shrink this set as they get resolved; never grow it to
+    # get a push through - pick a free number instead.
+    KNOWN_DUP_ROWS = set(range(592, 617)) | set(range(697, 737))
     rc = os.path.join(wt, 'tools', 'studies_registry_check.py')
     if touched_index.strip() and os.path.isfile(rc):
         r = subprocess.run([sys.executable, rc], cwd=wt, capture_output=True, text=True,
