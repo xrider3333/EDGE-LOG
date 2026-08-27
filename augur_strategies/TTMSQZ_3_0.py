@@ -104,15 +104,25 @@ DEFAULT_PARAMS = {
     "gate_bars": {
         "default": 0, "min": 0, "max": 16, "step": 1, "type": "int",
         "label": "Base bars per verification bar (0 = derive from the clock)",
-        "tooltip": "0 asks the strategy to work the verification timeframe out from bar "
-                   "timestamps. Set it explicitly (ES 30m with a 60-minute check = 2, NQ 15m "
-                   "= 4) so the strategy also runs on the GRID path, which does not hand "
-                   "strategies their bar timestamps.",
+        "tooltip": "A FALLBACK, used only when the caller supplies no bar timestamps - the "
+                   "grid/sweep code path does not. Set it to the number of base bars in one "
+                   "verification bar (ES 30m with a 60-minute check = 2, NQ 15m = 4). When "
+                   "timestamps ARE available the wall clock is always used instead, because "
+                   "bar-counting drifts on any session with a data hole.",
     },
     "gate_len": {
         "default": 20, "min": 12, "max": 32, "step": 2, "type": "int",
         "label": "Verification squeeze length",
         "tooltip": "Length of the squeeze computed on the verification timeframe.",
+    },
+    "gate_ratio": {
+        "default": 1.0, "min": 0.80, "max": 1.60, "step": 0.05, "type": "float",
+        "label": "Compression threshold on the verification timeframe",
+        "tooltip": "Carter's squeeze is the Bollinger width over the Keltner width crossing "
+                   "1.0 - band inside channel. This exposes that ratio as a dial: 1.0 is the "
+                   "published squeeze exactly, below it demands a tighter coil, above it "
+                   "admits nearly-coiled bars. Round 5 found that loosening it is how the "
+                   "pocket reaches a tradeable sample. Only used by gate_mode = sq_on.",
     },
     "gate_fired_k": {
         "default": 3, "min": 1, "max": 6, "step": 1, "type": "int",
@@ -156,7 +166,7 @@ def _session_last_bar(did, n):
 
 
 def _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len, bb_mult, kc_mult,
-              gate_mode, gate_fired_k):
+              gate_mode, gate_fired_k, gate_ratio=1.0):
     """(gate_long, gate_short) on the base grid, from the last COMPLETED higher-TF bar.
 
     HTF bars are session-anchored: within each session, base bars are grouped by
@@ -164,7 +174,12 @@ def _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len, bb_mult, kc
     so RTH and ETH masters both work). A HTF bar's end index = its last base bar; its
     state becomes usable from that base bar's close onward (same information time)."""
     n = len(c)
-    if int(gate_bars) > 0:
+    # PREFER THE CLOCK whenever the caller supplied bar timestamps. Bar-counting assumes
+    #   every session has its full complement of bars, so on a day with a data hole the
+    #   buckets drift out of step with the wall clock - measured as a 1.7% difference on
+    #   NQ 5-minute bars (2026-08-23). gate_bars exists only for the grid/sweep code path,
+    #   which does not hand strategies their timestamps at all.
+    if int(gate_bars) > 0 and index is None:
         # BAR-COUNT bucketing: ordinal within the session // gate_bars. Needs no
         # timestamps, so this path also works on the grid/sweep code path, which does
         # not hand strategies their bar index. Identical to the clock bucketing below
@@ -202,7 +217,7 @@ def _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len, bb_mult, kc
     nh = len(gstart)
     hh = np.array([h[s:e + 1].max() for s, e in zip(gstart, gend)])
     ll = np.array([l[s:e + 1].min() for s, e in zip(gstart, gend)])
-    cc = c[gend]
+    cc = c[gend]   # also feeds the compression-ratio dial below
     sq, mom, _ = squeeze_indicators(hh, ll, cc, int(gate_len), float(bb_mult), float(kc_mult))
     warm_h = int(gate_len) * 2 + 5
     run = np.zeros(nh, int)
@@ -227,7 +242,21 @@ def _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len, bb_mult, kc
     if gate_mode == "none":
         return np.ones(n, bool), np.ones(n, bool)
     if gate_mode == "sq_on":
-        g = np.where(valid, sq[jj], False).astype(bool)
+        if abs(float(gate_ratio) - 1.0) < 1e-9:
+            g = np.where(valid, sq[jj], False).astype(bool)   # published squeeze, bit-exact
+        else:
+            # Same quantity the squeeze is defined on, read as a dial: Bollinger half-width
+            # over Keltner half-width. Below 1 the band sits inside the channel, which IS
+            # Carter's squeeze; above 1 admits bars that are nearly coiled.
+            _s = pd.Series(cc)
+            _dev = _s.rolling(int(gate_len)).std(ddof=0)
+            _prev = np.concatenate([[np.nan], cc[:-1]])
+            _tr = np.maximum.reduce([hh - ll, np.abs(hh - _prev), np.abs(ll - _prev)])
+            _atr = pd.Series(_tr).rolling(int(gate_len)).mean()
+            with np.errstate(invalid="ignore", divide="ignore"):
+                _ratio = ((float(bb_mult) * _dev) / (float(kc_mult) * _atr)).to_numpy()
+            _rr = np.where(valid, _ratio[jj], np.nan)
+            g = np.isfinite(_rr) & (_rr <= float(gate_ratio))
         return g, g.copy()
     if gate_mode == "sign":
         with np.errstate(invalid="ignore"):
@@ -251,7 +280,8 @@ def run_backtest(
     entry_fill: str = "open", exit_mode: str = "fade", fade_bars: int = 1,
     stop_atr: float = 2.0, eod_cutoff: int = 3,
     gate_tf_min: int = 60, gate_mode: str = "sq_on", gate_len: int = 20,
-    gate_bars: int = 0, gate_fired_k: int = 3, direction: str = "both",
+    gate_bars: int = 0, gate_ratio: float = 1.0, gate_fired_k: int = 3,
+    direction: str = "both",
     return_trades: bool = False, _stop_event=None, _pause_event=None,
     **_ignore,
 ):
@@ -284,7 +314,8 @@ def run_backtest(
         rng_hi[i] = h[a:i].max(); rng_lo[i] = l[a:i].min()
 
     gate_long, gate_short = _htf_gate(h, l, c, did, index, gate_bars, gate_tf_min, gate_len,
-                                      bb_mult, kc_mult, gate_mode, gate_fired_k)
+                                      bb_mult, kc_mult, gate_mode, gate_fired_k,
+                                      float(gate_ratio))
     if direction != "both":
         if direction == "long":
             gate_short = np.zeros(n, bool)
