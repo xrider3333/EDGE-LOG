@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.296';
+const VERSION='73.297';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.297',date:'2026-08-23',notes:['A QUEUE CHIP NOW SITS ON THE TOP BAR beside TRADING LOG and BACKTESTER (owner ask), so what the runner is doing is visible from every screen instead of three clicks away in BUILDER. It names the job that is running, its percentage and a small progress bar, and counts how many are waiting behind it. Click it to land in BUILDER for the full list with stop and pause. It turns amber once a job has been on the runner for three hours or more, because that is what an orphan looks like: restarting the runner kills the job it was on but leaves the job marked running, and a fresh runner only ever claims queued work, so it sits there for ever behind a frozen progress bar. That happened on 2026-08-23 and cost about twelve hours of an idle machine.']},
 {v:'73.296',date:'2026-08-26',notes:['The crown reached the strategy table in 73.293 but not the trade rows. It is on both now, which is what was asked for.']},
 {v:'73.293',date:'2026-08-26',notes:['A CROWN NOW SITS BESIDE THE CHAMPION CONFIGURATION on both paper boards (owner ask) - in the strategy table and on every trade row. It means one thing only: this configuration is the standing champion of its family. ORB-234 and NOISE-243 wear it. No visible ENGU-Q row does, and rather than leave that silence to be read as no champion, a line under the table says why - the ENGU-Q crown is run #226, which was retired from the forward test on 21 August and is not being paper traded at all. The mark is declared on each leg, never guessed from its name.','ENGU-Q TRADES WERE APPEARING UNDER STRATEGIES YOU HAD SWITCHED OFF, and no control on the page could remove them (owner: "i still see ENGU-Q trades populating undernath"). ENGU-Q-226 was retired on 21 August, which dropped its ROW from the strategy table - but not its trades. Thirteen of them stayed in the trades table, the profit curve, the calendar and every total, with no row left to click. Archived now means archived everywhere. SHOW ARCHIVED brings the row and its trades back together and says how many trades it is holding back. Nothing was deleted; the board totals simply now describe the same strategies the table above them lists. On the selection that raised this, the board read $13,481 across 48 trades and now reads $17,150 across 35 - the difference is that retired leg, which was never meant to be in there.','THE RED NINJATRADER CROSSES WERE MOSTLY NOT ABOUT NINJATRADER (owner: "why are so many of noise trades cmonig up with red NT marks, i thought we had those matching"). Two faults, both fixed. First, NinjaTrader runs ONE NOISE strategy while the engine computes six NOISE variants, and the board was marking all six as refused - a leg NinjaTrader has never run cannot be refused by it, so those now read n/a, in grey, with the sibling it does trade named on hover. Second, every agreement mark was filed by ENTRY TIME with the strategy thrown away, so six legs taking the same signal at the same second all inherited whichever verdict was written last - one leg fill showed as a green tick on five legs, one leg backtest miss as a cross on the other five. Every mark is now filed against its own leg. Of the twenty-three red crosses on the board, three survive; the two on NOISE are real - NinjaTrader was running and did not take the 24 and 25 August trades.','NEXT NINJATRADER NOISE FILL WOULD HAVE BEEN SCORED A MISS. The nightly reconcile matches a fill to a strategy by the signal name NinjaTrader stamps on it, and that lookup still pointed at leg names retired in August. A fill naming a leg the report no longer carries matches nothing, so the fill would have gone unattributed AND the strategy would have been marked never taken - a red cross on the exact trade NinjaTrader had just filled. No fill has landed since the rename, so nothing recorded is wrong; the next one would have been. Takes effect on the next runner restart.','THREE NEW COLUMNS ON THE STRATEGY TABLE, AND IT OPENS SHORTER (owner ask). PROFIT FACTOR - winning dollars over losing dollars, above 1 makes money. EV - the average dollars a trade makes. $/DAY - and this one reads FORWARD TRADES ONLY, over calendar days since the configuration joined the board, weekends counted. That last choice matters: dividing all-time money by days-that-had-a-trade would have printed NOISE-231 at plus $2,215 a day, when every forward trade it has ever taken has lost money. Every column explains its own basis on hover, and each ratio carries its forward-only value there too.','COLUMNS: KEY or ALL. The table opens on six columns - live status, strategy, net, forward, profit factor, trades - and ALL brings back the other seven. Forward and trades stay in the short view deliberately: without them a leg reads "+$6,646, profit factor 2.10" while every dollar it has been watched make was a loss, and a ratio would be printed with no sample size beside it. Nothing is lost either way - every hidden figure is still on the row hovers, and a line under the table says how many columns are folded away. The choice is saved.','EVERY STRATEGY-TABLE COLUMN SORTS. Click a heading; click it again to flip. A strategy with no figure for what you asked to sort by goes to the bottom in both directions rather than being given a place it did not earn. The default is board order, which keeps each gated leg next to the control it has to be read against.','THE TRADES TABLE IS ABOUT A THIRD SHORTER per row, with nothing dropped - the padding around the engine chips and the CHART button was setting the row height, not the text.','A leg with no trades now shows a dash that says why, instead of a green $0.','NEW PRE-PUSH GATE, tools/paper_render_probe.py: it renders both paper boards headlessly against a real captured board under 28 control combinations and fails on any that throws, on a row whose cells do not line up with its headings, on an archived leg leaking trades, or on a red NinjaTrader cross against a leg NinjaTrader does not run. The boot gate only ever proved the app starts - and it reported PASS on a version of this very change that white-screened.']},
 {v:'73.292',date:'2026-08-26',notes:['The candle window now keeps a view it has already fetched for half an hour when the trade finished on an earlier day - those bars can never change again - instead of throwing it away after ninety seconds. Flipping between bar sizes and sessions on any trade older than today is now instant. Charts that reach into today still refresh quickly, because those do have a live tail.']},
@@ -8254,6 +8255,42 @@ function renderApp(){
       const on=(m[0]==='backtester')===(activeTab==='augur');
       return `<button class="btn-ghost master-tab${on?' active':''}" data-master="${m[0]}" style="font-size:13px;letter-spacing:1px"><span style="margin-right:7px;font-size:14px;opacity:.8">${m[2]}</span>${m[1]}</button>`;
     }).join('')}
+    ${(()=>{
+      // QUEUE chip (owner ask 2026-08-23). One glance: what the runner is doing and how
+      //   many jobs are behind it. Amber when the top job has not moved in a while, which
+      //   is what an orphaned job looks like - a runner restart kills the job but leaves
+      //   its doc on 'running', and a fresh runner only ever claims 'queued', so it sits
+      //   there for ever showing a frozen progress bar.
+      try{
+        const live=(backtests||[]).filter(b=>b&&(b.status==='queued'||b.status==='running'));
+        if(!live.length)return '';
+        const run=live.filter(b=>b.status==='running')[0]||null;
+        const wait=live.filter(b=>b.status!=='running').length;
+        const _ms=x=>{try{return x&&x.toDate?x.toDate().getTime():(x?new Date(x).getTime():0);}catch(e){return 0;}};
+        const age=run?Math.round((Date.now()-_ms(run.createdAt))/60000):0;
+        // A validate on 1-minute data legitimately runs for hours, so age alone is not a
+        //   fault. Amber only once it is long enough that a silent orphan is the likelier
+        //   explanation - the owner lost half a day to exactly that on 2026-08-23.
+        const stale=!!run&&age>=180;
+        const col=stale?'var(--yellow)':(run?'var(--green)':'var(--text4)');
+        const pct=run?Math.max(0,Math.min(100,run.progress||0)):0;
+        const nm=run?String(run.strategy||'job').replace(/\.py$/,''):'';
+        const txt=run?(nm+' '+pct+'%'):(wait+' waiting');
+        const tail=(run&&wait)?(' +'+wait):'';
+        const tip=(run?('RUNNING: '+nm+' at '+pct+'%, queued '+(age>=120?(Math.round(age/60)+'h'):(age+' min'))+' ago.'
+                        +(wait?(' '+wait+' job'+(wait>1?'s':'')+' waiting behind it.'):' Nothing waiting behind it.')
+                        +(stale?' IT HAS BEEN ON THIS JOB A LONG TIME - if the progress figure is also frozen, the runner was probably restarted underneath it, which leaves the job stuck on running for ever. Open BUILDER and requeue it.':''))
+                     :(wait+' job'+(wait>1?'s':'')+' waiting and nothing running. If this does not start within a few minutes the runner is not picking work up.'))
+                 +' Click for the full list, with stop and pause.';
+        return '<button class="btn-ghost master-tab" data-queuechip title="'+String(tip).replace(/"/g,'&quot;')+'"'
+          +' style="font-size:11px;letter-spacing:.6px;color:'+col+'">'
+          +'<span style="margin-right:6px;font-size:13px;opacity:.85">'+(stale?'\u26a0':'\u25f7')+'</span>'
+          +'QUEUE \u00b7 '+String(txt).toUpperCase()+tail
+          +(run?('<span style="display:inline-block;width:34px;height:3px;margin-left:7px;vertical-align:middle;background:var(--bg1);border-radius:2px;overflow:hidden">'
+                 +'<span style="display:block;height:100%;width:'+pct+'%;background:'+col+'"></span></span>'):'')
+          +'</button>';
+      }catch(e){return '';}
+    })()}
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px">
       <!-- Gross/Net toggle -->
       <div class="toggle-pill" title="Switch KPIs between Gross (before fees) and Net (after fees) P&L">
@@ -8266,6 +8303,8 @@ function renderApp(){
       <button class="btn-d" style="font-size:var(--fsxs);padding:5px 10px" id="so-btn">OUT</button>
     </div>`;
   wrap.appendChild(tb);
+  { const _qc=tb.querySelector('[data-queuechip]');
+    if(_qc)_qc.onclick=()=>{activeTab='augur';augurSub='exec';savePref('augurSub','exec');renderApp();}; }
   // ── second-level subtab bar (subtabs for the active master section) ──
   const _master=(activeTab==='augur')?'backtester':'log';
   const sub=document.createElement('div');
