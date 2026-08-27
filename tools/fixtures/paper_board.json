@@ -1,0 +1,5374 @@
+{
+"ntBridge": {
+"addon_accounts": {
+"1810769": {
+"cash": 1666.96,
+"realized": 0
+},
+"Backtest": {
+"cash": 100000,
+"realized": 0
+},
+"DEMO7240108": {
+"cash": 51738.59,
+"realized": 0
+},
+"Playback101": {
+"cash": 0,
+"realized": 0
+},
+"Sim101": {
+"cash": 101375,
+"realized": 0
+}
+},
+"addon_alive_secs": 19,
+"addon_version": "2.1",
+"file_present": true,
+"fills": 20,
+"fills_path": "C:\\EdgeLog\\fills.csv",
+"last_added": 0,
+"last_sync": 1787752715.5123386,
+"last_updated": 0,
+"open_positions": 0,
+"total_trades": 10
+},
+"ntBt": {
+"built_at": "2026-08-26 14:58:17",
+"legs": {
+"ENGUQ": {
+"dump": "EdgeLogENGUQ1m_20260825-093902.csv",
+"engine_only": 12,
+"from": "2026-07-28",
+"matched": 1,
+"nt_only": 7,
+"to": "2026-08-25"
+},
+"NOISE_225": {
+"dump": "EdgeLogNOISE_20260824-165809.csv",
+"engine_only": 3,
+"from": "2025-05-22",
+"matched": 3,
+"nt_only": 430,
+"to": "2026-08-24"
+},
+"NOISE_SBS_V90": {
+"dump": "EdgeLogNOISE_20260824-165852.csv",
+"engine_only": 3,
+"from": "2025-05-22",
+"matched": 3,
+"nt_only": 338,
+"to": "2026-08-24"
+}
+},
+"rows": {
+"2026-08-12T01:31:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-12T12:08:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-12T16:05:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-12T20:00:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-13T05:43:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-13T08:52:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-13T09:40:00-04:00": {
+"drift_min": 0,
+"leg": "NOISE_SBS_V90",
+"matched": true,
+"nt_entry": "2026-08-13 13:40",
+"nt_entry_px": 30037.75,
+"nt_pnl_usd": 1645.0
+},
+"2026-08-13T11:40:00-04:00": {
+"leg": "NOISE_SBS_V90",
+"matched": false
+},
+"2026-08-13T11:55:00-04:00": {
+"drift_min": 5,
+"leg": "NOISE_SBS_V90",
+"matched": true,
+"nt_entry": "2026-08-13 16:00",
+"nt_entry_px": 30115.25,
+"nt_pnl_usd": 1590.0
+},
+"2026-08-13T12:05:00-04:00": {
+"leg": "NOISE_SBS_V90",
+"matched": false
+},
+"2026-08-13T12:20:00-04:00": {
+"leg": "NOISE_SBS_V90",
+"matched": false
+},
+"2026-08-13T12:42:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-16T22:21:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-17T09:25:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-17T09:51:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-17T10:51:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-19T10:56:00-04:00": {
+"leg": "ENGUQ",
+"matched": false
+},
+"2026-08-21T11:36:00-04:00": {
+"drift_min": 1,
+"leg": "ENGUQ",
+"matched": true,
+"nt_entry": "2026-08-21 15:37",
+"nt_entry_px": 29410.0,
+"nt_pnl_usd": -3800.0
+},
+"2026-08-24T09:40:00-04:00": {
+"drift_min": 0,
+"leg": "NOISE_SBS_V90",
+"matched": true,
+"nt_entry": "2026-08-24 13:40",
+"nt_entry_px": 29079.75,
+"nt_pnl_usd": 60.0
+}
+}
+},
+"reports": [
+{
+"date": "2026-08-25",
+"id": "2026-08-25",
+"legs": {
+"ENGUQ_ER": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"er_len": 60,
+"er_th": 0.25,
+"limit_atr": 0.0,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "REPLACED the #226 raw leg on 2026-08-21 (owner). Few lockbox trades (67-83); one-sided plateau -- a 0.30 floor collapses the lockbox, so never raise it; pairs better with the raw entry than with the limit entry. The ENGUQ_L50 leg lost its matched control when #226 left the board; read it against this row knowing the two differ in BOTH entry and gate.",
+"note": "The #226 ETH config plus a momentum-quality floor: the last hour's Kaufman efficiency ratio must reach 0.25 at the signal. Validate #265: checks 5/5, walk-forward 8/8, lockbox HELD $135,983 / PF 2.29. Full window 1,336 trades / $486,413 / PF 1.60 vs the #226 control's 2,843 / $434,721 / PF 1.33.",
+"picked": "2026-08-21",
+"run": 265,
+"run_label": "#265 (ENGU-Q ETH EFFICIENCY 0.25)",
+"strategy_file": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+"warnings": []
+},
+"ENGUQ_ER_H": {
+"gate": {
+"avg_size": 1.867,
+"max_size": 3.319,
+"min_history": 30,
+"mode": "hybrid",
+"model": "logistic",
+"n_in": 1344,
+"n_kept": 719,
+"n_skipped": 625,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 17.3,
+"size_norm": 1.697185,
+"skipped_pnl_pts": 5728.25,
+"source_run": 265,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"er_len": 60,
+"er_th": 0.25,
+"limit_atr": 0.0,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "A forward TEST, not a crown. On the held-out year the overlay did NOT beat ungated (recovery 5.69 vs 5.86) and the card says LOCKBOX FAILED for that reason. The claim to falsify: from 2026-08-21 this row beats ENGUQ_ER on recovery factor. ENGUQ_ER is its exact control -- one backtest, two rows.",
+"note": "The same #265 config with its crowned ML hybrid overlay: logistic model, 0.55 cut-off, survivors sized by score. Pre-lockbox the hybrid beat ungated (PF 1.65 vs 1.56).",
+"picked": "2026-08-21",
+"run": 265,
+"run_label": "#265 hybrid (logistic@0.55)",
+"strategy_file": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+"warnings": []
+},
+"ENGUQ_L50": {
+"n_signals": 3,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"limit_atr": 0.5,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "ADDED alongside the #226 leg, which is deliberately kept as the matched control -- same config, same tape, only the entry differs, so the forward test isolates the limit entry. Two caveats on the numbers: entering lower against the same stop widens risk, so net/DD is 8.32 vs the control's 8.62 and this FAILS the pre-registered net/DD >= 9.50 bar; and the validate's lockbox comes from a warm-start reload that takes trades continuous operation had blocked (222 vs 198), so the report understates it.",
+"note": "The #226 ETH config with a resting limit entry 0.5 x ATR below the signal close (10-bar gap-honest fill window, no fill = no trade). Auto-validate #249: checks 5/5, lockbox HELD, ML gate LOCKBOX HELD, adversarial mild drift PASS. Full window 2,924 trades / $513,008 / PF 1.401; lockbox $112,088 / PF 1.554 on the report basis, $126,069 / PF 1.674 continuous.",
+"picked": "2026-08-18",
+"run": 249,
+"run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
+"strategy_file": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+"warnings": []
+},
+"NOISE_225": {
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5640,
+"n_kept": 2691,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 11.4,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5640,
+"n_kept": 1470,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 359.2,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_SBS_V90": {
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"daytype_hi": 0.8,
+"daytype_lo": 0.2,
+"daytype_mode": "skip_bot_short",
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"vol_skip_pct": 90.0,
+"window": "all_day"
+},
+"source": {
+"caveat": "NOISE_225 is its matched RAW control -- identical settings, filters off, so any difference between the two rows is the filters and nothing else. Recorded caveat, accepted as a bounded risk: the volatility filter's standalone gains concentrate in its ten best avoided trades, so if that benefit decays this config degrades toward run #241's profile. The NOISE lockbox is SPENT (read many times), so lockbox numbers are confirmatory only -- this forward test and the walk-forward folds are the real judges. NinjaTrader does NOT carry either filter yet: EdgeLogNOISE has both knobs (default OFF) and keeps running the baseline-plus-gate config until they are flipped on after an NT restart.",
+"note": "THE CROWNED NOISE CONFIG since 2026-08-23. Run #241's config plus one more causal filter: no entries at all on a day whose prior session's range percentile (vs the trailing 252 sessions) is 90 or higher. Run #243 (pinned file NOISE_1_1_SBS_V90.py) validated it PASS 6/6. The owner crowned it for the risk profile: ~2% less total profit than #241 buys ~41% less drawdown ($22,096 vs $31,191), a better PF (1.39 vs 1.29), an equal-or-better lockbox, and the family's best ES transfer (1.116).",
+"picked": "2026-08-23",
+"run": 243,
+"run_label": "#243 (Short Veto + Wild10)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_SBS_V90_H": {
+"gate": {
+"avg_size": 1.497,
+"max_size": 2.049,
+"min_history": 30,
+"mode": "hybrid",
+"model": "et",
+"n_in": 4436,
+"n_kept": 2990,
+"n_skipped": 1446,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 402.6,
+"size_norm": 1.232698,
+"skipped_pnl_pts": -271.4548,
+"source_run": 243,
+"threshold": 0.5,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"daytype_hi": 0.8,
+"daytype_lo": 0.2,
+"daytype_mode": "skip_bot_short",
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"vol_skip_pct": 90.0,
+"window": "all_day"
+},
+"source": {
+"caveat": "THE GATE FAMILY IS CLOSED FOR BACKTEST ADOPTION \u2014 two lockbox failures (#219, and the #225/#231 verdict), and run #243's own card says LOCKBOX FAILED (gate lost to ungated out-of-sample). This leg exists to gather FORWARD evidence only and must never be crowned or adopted off backtest numbers. The claim to falsify: from 2026-08-24 it beats its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 is its exact control \u2014 identical file and params, gate off.",
+"note": "The crowned #243 config (champion core + short veto + wildest-10% skip) with run #243's OWN chosen gate in HYBRID mode: an extra-trees model at the 0.50 floor, trades under it skipped, survivors sized by score. The model is the one run #243's gate_validate.chosen records \u2014 picked by the pre-registered net-dollars/80%-MAR-floor rule on pre-lockbox data \u2014 NOT the xgb tab the owner read on the report; on the years the rule may see, xgb does not clear ungated and its lockbox slice is the worst of five. Added at owner ask 2026-08-24.",
+"picked": "2026-08-24",
+"run": 243,
+"run_label": "#243 (Short Veto + Wild10) + et hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_SBS_V90_T": {
+"gate": {
+"avg_size": 1.024,
+"max_size": 1.885,
+"min_history": 30,
+"mode": "tilt",
+"model": "xgb",
+"n_in": 4436,
+"n_kept": 4436,
+"n_skipped": 0,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": "tier",
+"seconds": 25.2,
+"size_norm": 1.060804,
+"skipped_pnl_pts": 0.0,
+"source_run": 243,
+"threshold": null,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"daytype_hi": 0.8,
+"daytype_lo": 0.2,
+"daytype_mode": "skip_bot_short",
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"vol_skip_pct": 90.0,
+"window": "all_day"
+},
+"source": {
+"caveat": "THE TILT MECHANISM IS PRE-REGISTERED DEAD FOR BACKTEST ADOPTION \u2014 the 2026-08-10 test ran 0/12 clear of the bar on causal scores. This leg exists to gather FORWARD evidence only and must never be crowned or adopted off backtest numbers. The claim to falsify: from 2026-08-24 it beats its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 is its exact control \u2014 identical file and params, tilt off; the tilt takes the identical trade list at different sizes.",
+"note": "The crowned #243 config with run #243's size-TILT construct: every trade is taken, and an xgb model's score only sets the SIZE (0.5x under 45%, 1x 45-55%, 2x over 55%, mean-1 normalised, capped 3x). xgb/tier was picked by the standing pre-registered tilt selection metric \u2014 pre-lockbox recovery, where it ranks first of the ten tilt rows (18.82) \u2014 NOT et/tier, which leads only on raw pre-lockbox PnL and also wins the lockbox, so choosing it would read as lockbox-informed selection. Added at owner ask 2026-08-24 beside the hybrid leg.",
+"picked": "2026-08-24",
+"run": 243,
+"run_label": "#243 (Short Veto + Wild10) + xgb/tier size tilt",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"be_after_R": 1.0,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 0.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 0,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the #230 leg on 2026-08-21. ORB paper numbers from 2026-08-16 to 2026-08-21 measured #230 (same entries, partial+trail exit); before 2026-08-16 they measured the look-ahead #125. Compare across the switches with that in mind.",
+"note": "The standing ORB crown, crowned as the baseline by the owner on 2026-08-21: the #230 CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction) with the simpler ride-to-5.5R exit protected by breakeven at 1R. PASS on all six checks, lockbox HELD (PF 1.45 over 178 trades, 2025-08-13..2026-08-13), ES transfer PASS, and its six one-knob neighbours all PASS too.",
+"picked": "2026-08-21",
+"run": 234,
+"run_label": "#234 (ORB-42)",
+"strategy_file": "ORB_3_6_C2.py"
+},
+"warnings": []
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.217,
+"max_size": 2.171,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2148,
+"n_skipped": 459,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 161.4,
+"size_norm": 1.172525,
+"skipped_pnl_pts": -583.897,
+"source_run": 234,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"be_after_R": 1.0,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 0.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 0,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else. Re-based from #230 on 2026-08-21; earlier ORB_H rows measured the #230 gate.",
+"note": "The ORB leg with the run #234 ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. Crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (held-out PF 1.569 vs 1.453 ungated, drawdown -1,169 vs -1,286 pts). Size divisor re-calibrated for this base on 2026-08-21.",
+"picked": "2026-08-21",
+"run": 234,
+"run_label": "#234 (ORB-42) + rf hybrid gate",
+"strategy_file": "ORB_3_6_C2.py"
+},
+"warnings": []
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": 0,
+"fills": [
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 29254.25,
+"qty": 1.0,
+"time": "2026-08-25 15:21:00"
+}
+],
+"flat_eod": false,
+"n_fills": 1,
+"warnings": [
+"position still open in NQ - day net excludes it"
+]
+},
+"reconcile": {
+"legs": {
+"ENGUQ_ER": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T08:16:00-04:00",
+"pnl_usd": -1655.66,
+"side": 1
+}
+]
+},
+"ENGUQ_ER_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T08:16:00-04:00",
+"pnl_usd": -2979.6551413457046,
+"side": 1
+}
+]
+},
+"ENGUQ_L50": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T08:09:00-04:00",
+"pnl_usd": -1410.3769811320783,
+"side": 1
+},
+{
+"entry": "2026-08-25T09:34:00-04:00",
+"pnl_usd": -1625.4949056603912,
+"side": 1
+},
+{
+"entry": "2026-08-25T11:23:00-04:00",
+"pnl_usd": 591.5098113207821,
+"side": 1
+}
+]
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T09:50:00-04:00",
+"pnl_usd": -1010.6600000000001,
+"side": 1
+}
+]
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T09:50:00-04:00",
+"pnl_usd": -1787.0395217185217,
+"side": 1
+}
+]
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T09:50:00-04:00",
+"pnl_usd": -4195.403412320184,
+"side": 1
+}
+]
+},
+"NOISE_SBS_V90": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T09:50:00-04:00",
+"pnl_usd": -1010.6600000000001,
+"side": 1
+}
+]
+},
+"NOISE_SBS_V90_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T09:50:00-04:00",
+"pnl_usd": -1622.8946235056942,
+"side": 1
+}
+]
+},
+"NOISE_SBS_V90_T": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-25T09:50:00-04:00",
+"pnl_usd": -1905.4603866501259,
+"side": 1
+}
+]
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ_ER": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"ENGUQ_ER_H": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"ENGUQ_L50": "0 matched (avg entry slip +0.00 pts), 3 SHADOW-ONLY",
+"NOISE_225": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_H": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_H_RF": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_SBS_V90": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_SBS_V90_H": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_SBS_V90_T": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": false,
+"problems": [
+"ENGUQ_ER: 1 expected trade(s) the demo never took",
+"ENGUQ_ER_H: 1 expected trade(s) the demo never took",
+"ENGUQ_L50: 3 expected trade(s) the demo never took",
+"NOISE_SBS_V90: 1 expected trade(s) the demo never took",
+"NOISE_SBS_V90_H: 1 expected trade(s) the demo never took",
+"NOISE_SBS_V90_T: 1 expected trade(s) the demo never took",
+"NOISE_225: 1 expected trade(s) the demo never took",
+"NOISE_H: 1 expected trade(s) the demo never took",
+"NOISE_H_RF: 1 expected trade(s) the demo never took"
+]
+}
+}
+},
+{
+"date": "2026-08-24",
+"id": "2026-08-24",
+"legs": {
+"ENGUQ_ER": {
+"n_signals": 0,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"er_len": 60,
+"er_th": 0.25,
+"limit_atr": 0.0,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "REPLACED the #226 raw leg on 2026-08-21 (owner). Few lockbox trades (67-83); one-sided plateau -- a 0.30 floor collapses the lockbox, so never raise it; pairs better with the raw entry than with the limit entry. The ENGUQ_L50 leg lost its matched control when #226 left the board; read it against this row knowing the two differ in BOTH entry and gate.",
+"note": "The #226 ETH config plus a momentum-quality floor: the last hour's Kaufman efficiency ratio must reach 0.25 at the signal. Validate #265: checks 5/5, walk-forward 8/8, lockbox HELD $135,983 / PF 2.29. Full window 1,336 trades / $486,413 / PF 1.60 vs the #226 control's 2,843 / $434,721 / PF 1.33.",
+"picked": "2026-08-21",
+"run": 265,
+"run_label": "#265 (ENGU-Q ETH EFFICIENCY 0.25)",
+"strategy_file": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+"warnings": []
+},
+"ENGUQ_ER_H": {
+"gate": {
+"avg_size": 1.867,
+"max_size": 3.319,
+"min_history": 30,
+"mode": "hybrid",
+"model": "logistic",
+"n_in": 1344,
+"n_kept": 719,
+"n_skipped": 625,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 16.4,
+"size_norm": 1.697185,
+"skipped_pnl_pts": 5728.25,
+"source_run": 265,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"er_len": 60,
+"er_th": 0.25,
+"limit_atr": 0.0,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "A forward TEST, not a crown. On the held-out year the overlay did NOT beat ungated (recovery 5.69 vs 5.86) and the card says LOCKBOX FAILED for that reason. The claim to falsify: from 2026-08-21 this row beats ENGUQ_ER on recovery factor. ENGUQ_ER is its exact control -- one backtest, two rows.",
+"note": "The same #265 config with its crowned ML hybrid overlay: logistic model, 0.55 cut-off, survivors sized by score. Pre-lockbox the hybrid beat ungated (PF 1.65 vs 1.56).",
+"picked": "2026-08-21",
+"run": 265,
+"run_label": "#265 hybrid (logistic@0.55)",
+"strategy_file": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+"warnings": []
+},
+"ENGUQ_L50": {
+"n_signals": 0,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"limit_atr": 0.5,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "ADDED alongside the #226 leg, which is deliberately kept as the matched control -- same config, same tape, only the entry differs, so the forward test isolates the limit entry. Two caveats on the numbers: entering lower against the same stop widens risk, so net/DD is 8.32 vs the control's 8.62 and this FAILS the pre-registered net/DD >= 9.50 bar; and the validate's lockbox comes from a warm-start reload that takes trades continuous operation had blocked (222 vs 198), so the report understates it.",
+"note": "The #226 ETH config with a resting limit entry 0.5 x ATR below the signal close (10-bar gap-honest fill window, no fill = no trade). Auto-validate #249: checks 5/5, lockbox HELD, ML gate LOCKBOX HELD, adversarial mild drift PASS. Full window 2,924 trades / $513,008 / PF 1.401; lockbox $112,088 / PF 1.554 on the report basis, $126,069 / PF 1.674 continuous.",
+"picked": "2026-08-18",
+"run": 249,
+"run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
+"strategy_file": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+"warnings": []
+},
+"NOISE_225": {
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5640,
+"n_kept": 2691,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 7.3,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5640,
+"n_kept": 1470,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 277.7,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_SBS_V90": {
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"daytype_hi": 0.8,
+"daytype_lo": 0.2,
+"daytype_mode": "skip_bot_short",
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"vol_skip_pct": 90.0,
+"window": "all_day"
+},
+"source": {
+"caveat": "NOISE_225 is its matched RAW control -- identical settings, filters off, so any difference between the two rows is the filters and nothing else. Recorded caveat, accepted as a bounded risk: the volatility filter's standalone gains concentrate in its ten best avoided trades, so if that benefit decays this config degrades toward run #241's profile. The NOISE lockbox is SPENT (read many times), so lockbox numbers are confirmatory only -- this forward test and the walk-forward folds are the real judges. NinjaTrader does NOT carry either filter yet: EdgeLogNOISE has both knobs (default OFF) and keeps running the baseline-plus-gate config until they are flipped on after an NT restart.",
+"note": "THE CROWNED NOISE CONFIG since 2026-08-23. Run #241's config plus one more causal filter: no entries at all on a day whose prior session's range percentile (vs the trailing 252 sessions) is 90 or higher. Run #243 (pinned file NOISE_1_1_SBS_V90.py) validated it PASS 6/6. The owner crowned it for the risk profile: ~2% less total profit than #241 buys ~41% less drawdown ($22,096 vs $31,191), a better PF (1.39 vs 1.29), an equal-or-better lockbox, and the family's best ES transfer (1.116).",
+"picked": "2026-08-23",
+"run": 243,
+"run_label": "#243 (Short Veto + Wild10)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_SBS_V90_H": {
+"gate": {
+"avg_size": 1.497,
+"max_size": 2.049,
+"min_history": 30,
+"mode": "hybrid",
+"model": "et",
+"n_in": 4436,
+"n_kept": 2990,
+"n_skipped": 1446,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 324.0,
+"size_norm": 1.232698,
+"skipped_pnl_pts": -271.4548,
+"source_run": 243,
+"threshold": 0.5,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"daytype_hi": 0.8,
+"daytype_lo": 0.2,
+"daytype_mode": "skip_bot_short",
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"vol_skip_pct": 90.0,
+"window": "all_day"
+},
+"source": {
+"caveat": "THE GATE FAMILY IS CLOSED FOR BACKTEST ADOPTION \u2014 two lockbox failures (#219, and the #225/#231 verdict), and run #243's own card says LOCKBOX FAILED (gate lost to ungated out-of-sample). This leg exists to gather FORWARD evidence only and must never be crowned or adopted off backtest numbers. The claim to falsify: from 2026-08-24 it beats its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 is its exact control \u2014 identical file and params, gate off.",
+"note": "The crowned #243 config (champion core + short veto + wildest-10% skip) with run #243's OWN chosen gate in HYBRID mode: an extra-trees model at the 0.50 floor, trades under it skipped, survivors sized by score. The model is the one run #243's gate_validate.chosen records \u2014 picked by the pre-registered net-dollars/80%-MAR-floor rule on pre-lockbox data \u2014 NOT the xgb tab the owner read on the report; on the years the rule may see, xgb does not clear ungated and its lockbox slice is the worst of five. Added at owner ask 2026-08-24.",
+"picked": "2026-08-24",
+"run": 243,
+"run_label": "#243 (Short Veto + Wild10) + et hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_SBS_V90_T": {
+"gate": {
+"avg_size": 1.024,
+"max_size": 1.885,
+"min_history": 30,
+"mode": "tilt",
+"model": "xgb",
+"n_in": 4436,
+"n_kept": 4436,
+"n_skipped": 0,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": "tier",
+"seconds": 33.2,
+"size_norm": 1.060804,
+"skipped_pnl_pts": 0.0,
+"source_run": 243,
+"threshold": null,
+"warnings": []
+},
+"n_signals": 1,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"daytype_hi": 0.8,
+"daytype_lo": 0.2,
+"daytype_mode": "skip_bot_short",
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"vol_skip_pct": 90.0,
+"window": "all_day"
+},
+"source": {
+"caveat": "THE TILT MECHANISM IS PRE-REGISTERED DEAD FOR BACKTEST ADOPTION \u2014 the 2026-08-10 test ran 0/12 clear of the bar on causal scores. This leg exists to gather FORWARD evidence only and must never be crowned or adopted off backtest numbers. The claim to falsify: from 2026-08-24 it beats its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 is its exact control \u2014 identical file and params, tilt off; the tilt takes the identical trade list at different sizes.",
+"note": "The crowned #243 config with run #243's size-TILT construct: every trade is taken, and an xgb model's score only sets the SIZE (0.5x under 45%, 1x 45-55%, 2x over 55%, mean-1 normalised, capped 3x). xgb/tier was picked by the standing pre-registered tilt selection metric \u2014 pre-lockbox recovery, where it ranks first of the ten tilt rows (18.82) \u2014 NOT et/tier, which leads only on raw pre-lockbox PnL and also wins the lockbox, so choosing it would read as lockbox-informed selection. Added at owner ask 2026-08-24 beside the hybrid leg.",
+"picked": "2026-08-24",
+"run": 243,
+"run_label": "#243 (Short Veto + Wild10) + xgb/tier size tilt",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"be_after_R": 1.0,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 0.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 0,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the #230 leg on 2026-08-21. ORB paper numbers from 2026-08-16 to 2026-08-21 measured #230 (same entries, partial+trail exit); before 2026-08-16 they measured the look-ahead #125. Compare across the switches with that in mind.",
+"note": "The standing ORB crown, crowned as the baseline by the owner on 2026-08-21: the #230 CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction) with the simpler ride-to-5.5R exit protected by breakeven at 1R. PASS on all six checks, lockbox HELD (PF 1.45 over 178 trades, 2025-08-13..2026-08-13), ES transfer PASS, and its six one-knob neighbours all PASS too.",
+"picked": "2026-08-21",
+"run": 234,
+"run_label": "#234 (ORB-42)",
+"strategy_file": "ORB_3_6_C2.py"
+},
+"warnings": []
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.217,
+"max_size": 2.171,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2148,
+"n_skipped": 459,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"scheme": null,
+"seconds": 132.3,
+"size_norm": 1.172525,
+"skipped_pnl_pts": -583.897,
+"source_run": 234,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"be_after_R": 1.0,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 0.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 0,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else. Re-based from #230 on 2026-08-21; earlier ORB_H rows measured the #230 gate.",
+"note": "The ORB leg with the run #234 ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. Crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (held-out PF 1.569 vs 1.453 ungated, drawdown -1,169 vs -1,286 pts). Size divisor re-calibrated for this base on 2026-08-21.",
+"picked": "2026-08-21",
+"run": 234,
+"run_label": "#234 (ORB-42) + rf hybrid gate",
+"strategy_file": "ORB_3_6_C2.py"
+},
+"warnings": []
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ_ER": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ENGUQ_ER_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ENGUQ_L50": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-24T09:40:00-04:00",
+"pnl_usd": 54.34,
+"side": -1
+}
+]
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-24T09:40:00-04:00",
+"pnl_usd": 96.08347773750268,
+"side": -1
+}
+]
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-24T09:40:00-04:00",
+"pnl_usd": 190.78816901010924,
+"side": -1
+}
+]
+},
+"NOISE_SBS_V90": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-24T09:40:00-04:00",
+"pnl_usd": 54.34,
+"side": -1
+}
+]
+},
+"NOISE_SBS_V90_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-24T09:40:00-04:00",
+"pnl_usd": 85.69998416929482,
+"side": -1
+}
+]
+},
+"NOISE_SBS_V90_T": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-24T09:40:00-04:00",
+"pnl_usd": 25.61264851942489,
+"side": -1
+}
+]
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ_ER": "no signals",
+"ENGUQ_ER_H": "no signals",
+"ENGUQ_L50": "no signals",
+"NOISE_225": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_H": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_H_RF": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_SBS_V90": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_SBS_V90_H": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_SBS_V90_T": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": false,
+"problems": [
+"NOISE_SBS_V90: 1 expected trade(s) the demo never took",
+"NOISE_SBS_V90_H: 1 expected trade(s) the demo never took",
+"NOISE_SBS_V90_T: 1 expected trade(s) the demo never took",
+"NOISE_225: 1 expected trade(s) the demo never took",
+"NOISE_H: 1 expected trade(s) the demo never took",
+"NOISE_H_RF: 1 expected trade(s) the demo never took"
+]
+}
+}
+},
+{
+"date": "2026-08-21",
+"id": "2026-08-21",
+"legs": {
+"ENGUQ": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a position could sit through the overnight session with no stop -- the RTH champion gives back $178,340 once a real 24h stop is priced in. Every ENGU-Q paper number before this date was measuring that.",
+"note": "The 24-hour (ETH) config, certified 2026-08-13 as the PRIMARY DEPLOYMENT CANDIDATE and the only ENGU-Q variant whose backtest matches live behaviour. Frozen clock-scaled #149 transfer (time lookbacks x3.54 for the 24h tape). PASS 5/5, walk-forward 7/8, full window 2,843 trades / $434,721 / PF 1.33.",
+"picked": "2026-08-17",
+"run": 226,
+"run_label": "#226 (ENGU-Q ETH FROZEN)",
+"strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-21 07:49:40-04:00 (more than 30m before 2026-08-21 16:00:00-04:00 close)",
+"zero fresh bars appended"
+]
+},
+"ENGUQ_L50": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"limit_atr": 0.5,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "ADDED alongside the #226 leg, which is deliberately kept as the matched control -- same config, same tape, only the entry differs, so the forward test isolates the limit entry. Two caveats on the numbers: entering lower against the same stop widens risk, so net/DD is 8.32 vs the control's 8.62 and this FAILS the pre-registered net/DD >= 9.50 bar; and the validate's lockbox comes from a warm-start reload that takes trades continuous operation had blocked (222 vs 198), so the report understates it.",
+"note": "The #226 ETH config with a resting limit entry 0.5 x ATR below the signal close (10-bar gap-honest fill window, no fill = no trade). Auto-validate #249: checks 5/5, lockbox HELD, ML gate LOCKBOX HELD, adversarial mild drift PASS. Full window 2,924 trades / $513,008 / PF 1.401; lockbox $112,088 / PF 1.554 on the report basis, $126,069 / PF 1.674 continuous.",
+"picked": "2026-08-18",
+"run": 249,
+"run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
+"strategy_file": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-21 07:49:40-04:00 (more than 30m before 2026-08-21 16:00:00-04:00 close)",
+"zero fresh bars appended"
+]
+},
+"NOISE_225": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5638,
+"n_kept": 2689,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 11.2,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-21 07:49:40-04:00 (more than 30m before 2026-08-21 16:00:00-04:00 close)",
+"zero fresh bars appended"
+]
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5638,
+"n_kept": 1468,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 346.5,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-21 07:49:40-04:00 (more than 30m before 2026-08-21 16:00:00-04:00 close)",
+"zero fresh bars appended"
+]
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD volume filter, so every ORB paper number before this date measured a config that could never have been traded live -- compare across the switch with that in mind.",
+"note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction), so it is execution-legal rather than filled at a price that needed hindsight. Validated PASS on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40)",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-21 07:49:40-04:00 (more than 30m before 2026-08-21 16:00:00-04:00 close)",
+"zero fresh bars appended"
+]
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.231,
+"max_size": 2.189,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2122,
+"n_skipped": 485,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 158.3,
+"size_norm": 1.173085,
+"skipped_pnl_pts": -813.505,
+"source_run": 230,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else.",
+"note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. That gate was crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs -1,400).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40) + rf hybrid gate",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-21 07:49:40-04:00 (more than 30m before 2026-08-21 16:00:00-04:00 close)",
+"zero fresh bars appended"
+]
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-21T11:36:00-04:00",
+"pnl_usd": -395.66,
+"side": 1
+}
+]
+},
+"ENGUQ_L50": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-21T11:48:00-04:00",
+"pnl_usd": -844.2920754716872,
+"side": 1
+}
+]
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"ENGUQ_L50": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_225": "no signals",
+"NOISE_H": "no signals",
+"NOISE_H_RF": "no signals",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": false,
+"problems": [
+"ENGUQ: 1 expected trade(s) the demo never took",
+"ENGUQ_L50: 1 expected trade(s) the demo never took"
+]
+}
+}
+},
+{
+"date": "2026-08-20",
+"id": "2026-08-20",
+"legs": {
+"ENGUQ": {
+"n_signals": 0,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a position could sit through the overnight session with no stop -- the RTH champion gives back $178,340 once a real 24h stop is priced in. Every ENGU-Q paper number before this date was measuring that.",
+"note": "The 24-hour (ETH) config, certified 2026-08-13 as the PRIMARY DEPLOYMENT CANDIDATE and the only ENGU-Q variant whose backtest matches live behaviour. Frozen clock-scaled #149 transfer (time lookbacks x3.54 for the 24h tape). PASS 5/5, walk-forward 7/8, full window 2,843 trades / $434,721 / PF 1.33.",
+"picked": "2026-08-17",
+"run": 226,
+"run_label": "#226 (ENGU-Q ETH FROZEN)",
+"strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-20 14:16:20-04:00 (more than 30m before 2026-08-20 16:00:00-04:00 close)"
+]
+},
+"ENGUQ_L50": {
+"n_signals": 0,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"limit_atr": 0.5,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "ADDED alongside the #226 leg, which is deliberately kept as the matched control -- same config, same tape, only the entry differs, so the forward test isolates the limit entry. Two caveats on the numbers: entering lower against the same stop widens risk, so net/DD is 8.32 vs the control's 8.62 and this FAILS the pre-registered net/DD >= 9.50 bar; and the validate's lockbox comes from a warm-start reload that takes trades continuous operation had blocked (222 vs 198), so the report understates it.",
+"note": "The #226 ETH config with a resting limit entry 0.5 x ATR below the signal close (10-bar gap-honest fill window, no fill = no trade). Auto-validate #249: checks 5/5, lockbox HELD, ML gate LOCKBOX HELD, adversarial mild drift PASS. Full window 2,924 trades / $513,008 / PF 1.401; lockbox $112,088 / PF 1.554 on the report basis, $126,069 / PF 1.674 continuous.",
+"picked": "2026-08-18",
+"run": 249,
+"run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
+"strategy_file": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-20 14:16:20-04:00 (more than 30m before 2026-08-20 16:00:00-04:00 close)"
+]
+},
+"NOISE_225": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5638,
+"n_kept": 2689,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 11.3,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-20 14:16:20-04:00 (more than 30m before 2026-08-20 16:00:00-04:00 close)"
+]
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5638,
+"n_kept": 1468,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 349.7,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-20 14:16:20-04:00 (more than 30m before 2026-08-20 16:00:00-04:00 close)"
+]
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD volume filter, so every ORB paper number before this date measured a config that could never have been traded live -- compare across the switch with that in mind.",
+"note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction), so it is execution-legal rather than filled at a price that needed hindsight. Validated PASS on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40)",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-20 14:16:20-04:00 (more than 30m before 2026-08-20 16:00:00-04:00 close)"
+]
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.231,
+"max_size": 2.189,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2122,
+"n_skipped": 485,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 158.4,
+"size_norm": 1.173085,
+"skipped_pnl_pts": -813.505,
+"source_run": 230,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else.",
+"note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. That gate was crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs -1,400).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40) + rf hybrid gate",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-20 14:16:20-04:00 (more than 30m before 2026-08-20 16:00:00-04:00 close)"
+]
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ENGUQ_L50": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ": "no signals",
+"ENGUQ_L50": "no signals",
+"NOISE_225": "no signals",
+"NOISE_H": "no signals",
+"NOISE_H_RF": "no signals",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": true,
+"problems": []
+}
+}
+},
+{
+"date": "2026-08-19",
+"id": "2026-08-19",
+"legs": {
+"ENGUQ": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a position could sit through the overnight session with no stop -- the RTH champion gives back $178,340 once a real 24h stop is priced in. Every ENGU-Q paper number before this date was measuring that.",
+"note": "The 24-hour (ETH) config, certified 2026-08-13 as the PRIMARY DEPLOYMENT CANDIDATE and the only ENGU-Q variant whose backtest matches live behaviour. Frozen clock-scaled #149 transfer (time lookbacks x3.54 for the 24h tape). PASS 5/5, walk-forward 7/8, full window 2,843 trades / $434,721 / PF 1.33.",
+"picked": "2026-08-17",
+"run": 226,
+"run_label": "#226 (ENGU-Q ETH FROZEN)",
+"strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+"warnings": []
+},
+"ENGUQ_L50": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"limit_atr": 0.5,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "ADDED alongside the #226 leg, which is deliberately kept as the matched control -- same config, same tape, only the entry differs, so the forward test isolates the limit entry. Two caveats on the numbers: entering lower against the same stop widens risk, so net/DD is 8.32 vs the control's 8.62 and this FAILS the pre-registered net/DD >= 9.50 bar; and the validate's lockbox comes from a warm-start reload that takes trades continuous operation had blocked (222 vs 198), so the report understates it.",
+"note": "The #226 ETH config with a resting limit entry 0.5 x ATR below the signal close (10-bar gap-honest fill window, no fill = no trade). Auto-validate #249: checks 5/5, lockbox HELD, ML gate LOCKBOX HELD, adversarial mild drift PASS. Full window 2,924 trades / $513,008 / PF 1.401; lockbox $112,088 / PF 1.554 on the report basis, $126,069 / PF 1.674 continuous.",
+"picked": "2026-08-18",
+"run": 249,
+"run_label": "#249 (ENGU-Q ETH LIMIT 0.50)",
+"strategy_file": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+"warnings": []
+},
+"NOISE_225": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5638,
+"n_kept": 2689,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 9.7,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5638,
+"n_kept": 1468,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 326.0,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD volume filter, so every ORB paper number before this date measured a config that could never have been traded live -- compare across the switch with that in mind.",
+"note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction), so it is execution-legal rather than filled at a price that needed hindsight. Validated PASS on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40)",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": []
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.231,
+"max_size": 2.189,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2122,
+"n_skipped": 485,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 149.4,
+"size_norm": 1.173085,
+"skipped_pnl_pts": -813.505,
+"source_run": 230,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else.",
+"note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. That gate was crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs -1,400).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40) + rf hybrid gate",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": []
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": -1725.0,
+"fills": [
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 29625.25,
+"qty": 1.0,
+"time": "2026-08-19 16:02:00"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 29542.75,
+"qty": 2.0,
+"time": "2026-08-19 17:10:00"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 29546.5,
+"qty": 1.0,
+"time": "2026-08-19 17:10:11"
+}
+],
+"flat_eod": true,
+"n_fills": 3,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-19T10:56:00-04:00",
+"pnl_usd": -1440.66,
+"side": 1
+}
+]
+},
+"ENGUQ_L50": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-19T11:03:00-04:00",
+"pnl_usd": -1138.4194339622738,
+"side": 1
+}
+]
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [
+{
+"account": "DEMO7240108",
+"assetType": "futures",
+"broker": "NinjaTrader",
+"chartUrl": "",
+"date": "2026-08-19",
+"doc_id": "nt_459311891522_1",
+"durationMins": 0,
+"durationSecs": 11,
+"entry": 29542.75,
+"entryTime": "13:10",
+"exit": 29546.5,
+"exitTime": "13:10",
+"fees": 0.0,
+"grade": "\u2014",
+"grossPnl": -75.0,
+"notes": "",
+"ntExecId": "459311891522_1",
+"orderId": "459311891508",
+"pnl": -75.0,
+"setup": "\u2014",
+"signal": "ORB",
+"size": 1,
+"source": "NinjaTrader",
+"symbol": "NQ",
+"timeframe": "\u2014",
+"type": "SHORT"
+}
+],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 2,
+"tol_min": 3,
+"unattributed": [
+{
+"kind": "live_only",
+"live": {
+"account": "DEMO7240108",
+"assetType": "futures",
+"broker": "NinjaTrader",
+"chartUrl": "",
+"date": "2026-08-19",
+"doc_id": "nt_459311891508_1",
+"durationMins": 68,
+"durationSecs": 4080,
+"entry": 29625.25,
+"entryTime": "12:02",
+"exit": 29542.75,
+"exitTime": "13:10",
+"fees": 0.0,
+"grade": "\u2014",
+"grossPnl": -1650.0,
+"notes": "",
+"ntExecId": "459311891508_1",
+"orderId": "459311891494",
+"pnl": -1650.0,
+"setup": "\u2014",
+"signal": "",
+"size": 1,
+"source": "NinjaTrader",
+"symbol": "NQ",
+"timeframe": "\u2014",
+"type": "LONG"
+},
+"reason": "no shadow signal within tolerance"
+}
+],
+"verdict": {
+"legs": {
+"ENGUQ": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"ENGUQ_L50": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_225": "no signals",
+"NOISE_H": "no signals",
+"NOISE_H_RF": "no signals",
+"ORB": "0 matched (avg entry slip +0.00 pts), 1 LIVE-ONLY",
+"ORB_H": "no signals"
+},
+"ok": false,
+"problems": [
+"ORB: 1 demo trade(s) the engine never signalled",
+"ENGUQ: 1 expected trade(s) the demo never took",
+"ENGUQ_L50: 1 expected trade(s) the demo never took",
+"1 live trade(s) could not be attributed to a leg"
+]
+}
+}
+},
+{
+"date": "2026-08-18",
+"id": "2026-08-18",
+"legs": {
+"ENGUQ": {
+"n_signals": 0,
+"params": {
+"act_R": 2.5,
+"atr_len": 106,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 1380,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 170,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": "Replaced the RTH #149 leg on 2026-08-17. That leg's numbers assumed a position could sit through the overnight session with no stop -- the RTH champion gives back $178,340 once a real 24h stop is priced in. Every ENGU-Q paper number before this date was measuring that.",
+"note": "The 24-hour (ETH) config, certified 2026-08-13 as the PRIMARY DEPLOYMENT CANDIDATE and the only ENGU-Q variant whose backtest matches live behaviour. Frozen clock-scaled #149 transfer (time lookbacks x3.54 for the 24h tape). PASS 5/5, walk-forward 7/8, full window 2,843 trades / $434,721 / PF 1.33.",
+"picked": "2026-08-17",
+"run": 226,
+"run_label": "#226 (ENGU-Q ETH FROZEN)",
+"strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-18 15:07:00-04:00 (more than 30m before 2026-08-18 16:00:00-04:00 close)"
+]
+},
+"NOISE_225": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5638,
+"n_kept": 2689,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 10.6,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-18 15:07:00-04:00 (more than 30m before 2026-08-18 16:00:00-04:00 close)"
+]
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5638,
+"n_kept": 1468,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 385.2,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-18 15:07:00-04:00 (more than 30m before 2026-08-18 16:00:00-04:00 close)"
+]
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD volume filter, so every ORB paper number before this date measured a config that could never have been traded live -- compare across the switch with that in mind.",
+"note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction), so it is execution-legal rather than filled at a price that needed hindsight. Validated PASS on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40)",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-18 15:07:00-04:00 (more than 30m before 2026-08-18 16:00:00-04:00 close)"
+]
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.231,
+"max_size": 2.189,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2122,
+"n_skipped": 485,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 170.1,
+"size_norm": 1.173085,
+"skipped_pnl_pts": -813.505,
+"source_run": 230,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else.",
+"note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. That gate was crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs -1,400).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40) + rf hybrid gate",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"10s data looks stale: last bar 2026-08-18 15:07:00-04:00 (more than 30m before 2026-08-18 16:00:00-04:00 close)"
+]
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ": "no signals",
+"NOISE_225": "no signals",
+"NOISE_H": "no signals",
+"NOISE_H_RF": "no signals",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": true,
+"problems": []
+}
+}
+},
+{
+"date": "2026-08-17",
+"id": "2026-08-17",
+"legs": {
+"ENGUQ": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 30,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 390,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 48,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": null,
+"note": "NQ_DEPLOY_PARAMS_149 imported directly from the strategy file, plus the later breakeven_R=1.5 addition. Pine port reconciled against TradingView 2026-07-14 (84.5% of matched trades exact).",
+"picked": "2026-07-14",
+"run": 149,
+"run_label": "#149 (ENGU-Q)",
+"strategy_file": "ENGUQ_1M_1_0.py"
+},
+"warnings": []
+},
+"NOISE_225": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5638,
+"n_kept": 2689,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 8.8,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5638,
+"n_kept": 1468,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 328.6,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD volume filter, so every ORB paper number before this date measured a config that could never have been traded live -- compare across the switch with that in mind.",
+"note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction), so it is execution-legal rather than filled at a price that needed hindsight. Validated PASS on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40)",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": []
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.231,
+"max_size": 2.189,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2122,
+"n_skipped": 485,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 133.2,
+"size_norm": 1.173085,
+"skipped_pnl_pts": -813.505,
+"source_run": 230,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else.",
+"note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. That gate was crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs -1,400).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40) + rf hybrid gate",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": []
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-17T10:47:00-04:00",
+"pnl_usd": -1325.66,
+"side": 1
+}
+]
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE_225": "no signals",
+"NOISE_H": "no signals",
+"NOISE_H_RF": "no signals",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": false,
+"problems": [
+"ENGUQ: 1 expected trade(s) the demo never took"
+]
+}
+}
+},
+{
+"date": "2026-08-14",
+"id": "2026-08-14",
+"legs": {
+"ENGUQ": {
+"n_signals": 1,
+"params": {
+"act_R": 2.5,
+"atr_len": 30,
+"breakeven_R": 1.5,
+"buf_atr": 0.9,
+"ema_len": 390,
+"min_brk": 1.3,
+"regime_len": 0,
+"stop_mult": 1.0,
+"tl_len": 48,
+"trail_frac": 2.5,
+"vol_mult": 0.8
+},
+"source": {
+"caveat": null,
+"note": "NQ_DEPLOY_PARAMS_149 imported directly from the strategy file, plus the later breakeven_R=1.5 addition. Pine port reconciled against TradingView 2026-07-14 (84.5% of matched trades exact).",
+"picked": "2026-07-14",
+"run": 149,
+"run_label": "#149 (ENGU-Q)",
+"strategy_file": "ENGUQ_1M_1_0.py"
+},
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"NOISE": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 1.5,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 14,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.0,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Auto-validate #225 (NOISE-6) later crowned a DIFFERENT config -- lookback 44, asymmetric 0.75/1.5 bands, stop_k 1.75 -- on a fresh 18-month lockbox. This leg is not that config. It is now on the board as its own leg, NOISE_225.",
+"note": "Round-12 frozen defaults (lookback 14, symmetric 1.5 bands, vwap exit) plus the bandwidth stop k=1.0 that won the 25-variant exit sweep. Assembled by hand from research, never crowned by an auto-validate run.",
+"picked": "2026-08-08",
+"run": null,
+"run_label": "no crowned run",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"NOISE_225": {
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "Added as the matched RAW control for NOISE_H -- same params, same backtest, gate off. Comparing NOISE_H against the older NOISE leg instead would confound the gate with a params change.",
+"note": "The config two consecutive auto-validates crowned (#202 NOISE-1 and #225 NOISE-6 landed on the identical dict): lookback 44, asymmetric 0.75/1.5 bands, bandwidth stop k=1.75. Lockbox PASS, PF 1.08 over 424 trades.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6)",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": []
+},
+"NOISE_H": {
+"gate": {
+"avg_size": 2.045,
+"max_size": 3.77,
+"min_history": 30,
+"mode": "hybrid",
+"model": "tree",
+"n_in": 5638,
+"n_kept": 2689,
+"n_skipped": 2949,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 7.6,
+"size_norm": 1.468647,
+"skipped_pnl_pts": 5946.3079,
+"source_run": 225,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "NOT A CROWN, and it must not be reported as one. Its PRE-lockbox recovery (5.96) was the WORST of the five hybrids, so the selection rule -- which only sees pre-lockbox data -- would never have picked it; the lockbox win is hindsight. #225's actual crowned gate (logistic@0.55) FAILED its lockbox. This leg is a pre-registered forward test: it should beat NOISE_225 on recovery from 2026-08-16 on, and if it does not, the lockbox row was noise.",
+"note": "Run #225's crowned config with a tree hybrid gate at the crowned 0.55 floor. In that run's held-out year this row was the standout: PF 1.240 vs 1.128 ungated, $3,117 vs $2,286, drawdown -1,079 vs -1,521.",
+"picked": "2026-08-16",
+"run": 225,
+"run_label": "#225 (NOISE-6) + tree hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"NOISE_H_RF": {
+"gate": {
+"avg_size": 3.837,
+"max_size": 5.751,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 5638,
+"n_kept": 1468,
+"n_skipped": 4170,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 368.0,
+"size_norm": 1.338251,
+"skipped_pnl_pts": 5070.4936,
+"source_run": 231,
+"threshold": 0.55,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"band_mult_long": 0.75,
+"band_mult_short": 1.5,
+"exit_mode": "vwap",
+"flat_eod": true,
+"lookback": 44,
+"side": "Both",
+"skip_holidays": false,
+"stop_k": 1.75,
+"stop_mode": "bandwidth",
+"window": "all_day"
+},
+"source": {
+"caveat": "It does NOT beat ungated out of sample -- recovery 1.69 vs 1.79, on less than half the money (1,405 vs 2,943 pts). What it does is HALVE the drawdown (831 vs 1,640) at about the same risk-adjusted return. Read it as a risk reducer and a sizing-up lever, not as an edge.",
+"note": "The owner's pick, and the better-grounded of the two NOISE gates. On the years the selection rule is ALLOWED to see, rf recovery 19.72 beats ungated 14.23 -- one of only two hybrids that clear that bar, and tree is not one of them. It is also 2nd of five on BOTH sides of the lockbox boundary: the only variant that is neither a pre-lockbox darling that collapsed nor a hindsight favourite.",
+"picked": "2026-08-16",
+"run": 231,
+"run_label": "#231 (NOISE-7) + rf hybrid gate",
+"strategy_file": "NOISE_1_0.py"
+},
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"ORB": {
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Replaced the old #125 leg on 2026-08-16. That one used the LOOK-AHEAD volume filter, so every ORB paper number before this date measured a config that could never have been traded live -- compare across the switch with that in mind.",
+"note": "The grail-hunt winner: CLOSE-CONFIRMED entry (OR 2 bars, first-candle direction), so it is execution-legal rather than filled at a price that needed hindsight. Validated PASS on all six checks with the lockbox HELD (PF 1.31 over 178 trades, 2025-08-13..2026-08-13).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40)",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"ORB_H": {
+"gate": {
+"avg_size": 1.231,
+"max_size": 2.189,
+"min_history": 30,
+"mode": "hybrid",
+"model": "rf",
+"n_in": 2607,
+"n_kept": 2122,
+"n_skipped": 485,
+"n_warmup": 30,
+"ok": true,
+"refit_every": 25,
+"seconds": 158.8,
+"size_norm": 1.173085,
+"skipped_pnl_pts": -813.505,
+"source_run": 230,
+"threshold": 0.45,
+"warnings": []
+},
+"n_signals": 0,
+"params": {
+"atr_filter": 0.7,
+"breakout_buf": 0.25,
+"close_confirm": true,
+"flat_eod": true,
+"or_bars": 2,
+"partial_exit_R": 3.0,
+"skip_holidays": true,
+"stop_frac": 2.0,
+"target_R": 5.5,
+"trade_mode": "First-candle dir",
+"trail_bars": 3,
+"vpace_filter": 0.7
+},
+"source": {
+"caveat": "Its matched RAW control is the ORB leg -- identical strategy file and params, gate off -- so any difference between the two rows is the gate and nothing else.",
+"note": "The ORB leg with run #230's own ML gate switched on in HYBRID mode: trades scoring under 45% are skipped and the survivors are sized by score. That gate was crowned on pre-lockbox data by the pre-registered rule and then HELD its one look at the lockbox (recovery 2.48 vs 2.31 ungated); the rf hybrid row was best of five on both halves (held-out PF 1.403 vs 1.311, drawdown -1,219 vs -1,400).",
+"picked": "2026-08-16",
+"run": 230,
+"run_label": "#230 (ORB-40) + rf hybrid gate",
+"strategy_file": "ORB_3_4_C221.py"
+},
+"warnings": [
+"zero fresh bars appended"
+]
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-14T15:28:00-04:00",
+"pnl_usd": 859.3399999999999,
+"side": 1
+}
+]
+},
+"NOISE": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_225": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"NOISE_H_RF": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+},
+"ORB_H": {
+"live_only": [],
+"matched": [],
+"shadow_only": []
+}
+},
+"n_live_trades": 0,
+"tol_min": 3,
+"unattributed": [],
+"verdict": {
+"legs": {
+"ENGUQ": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE": "no signals",
+"NOISE_225": "no signals",
+"NOISE_H": "no signals",
+"NOISE_H_RF": "no signals",
+"ORB": "no signals",
+"ORB_H": "no signals"
+},
+"ok": false,
+"problems": [
+"ENGUQ: 1 expected trade(s) the demo never took"
+]
+}
+}
+},
+{
+"date": "2026-08-13",
+"id": "2026-08-13",
+"legs": {
+"ENGUQ": {
+"n_signals": 1,
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"NOISE": {
+"n_signals": 1,
+"warnings": [
+"zero fresh bars appended"
+]
+},
+"ORB": {
+"n_signals": 1,
+"warnings": [
+"zero fresh bars appended"
+]
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": 3560.0,
+"fills": [
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 30036.0,
+"qty": 1.0,
+"time": "2026-08-13 13:40:00"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 30144.0,
+"qty": 1.0,
+"time": "2026-08-13 15:35:00"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 30149.0,
+"qty": 1.0,
+"time": "2026-08-13 15:40:00"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 30139.5,
+"qty": 1.0,
+"time": "2026-08-13 15:50:00"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 30117.75,
+"qty": 1.0,
+"time": "2026-08-13 15:55:00"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 30115.75,
+"qty": 1.0,
+"time": "2026-08-13 16:00:00"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 30150.75,
+"qty": 1.0,
+"time": "2026-08-13 16:05:00"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 30141.25,
+"qty": 1.0,
+"time": "2026-08-13 16:15:00"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 30144.25,
+"qty": 1.0,
+"time": "2026-08-13 16:20:00"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 30195.25,
+"qty": 1.0,
+"time": "2026-08-13 19:54:22"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 30216.75,
+"qty": 1.0,
+"time": "2026-08-13 20:59:30"
+},
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 30213.75,
+"qty": 1.0,
+"time": "2026-08-13 20:59:50"
+}
+],
+"flat_eod": true,
+"n_fills": 12,
+"warnings": []
+},
+"reconcile": {
+"legs": {
+"ENGUQ": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-13T09:33:00-04:00",
+"pnl_usd": 5844.34,
+"side": 1
+}
+]
+},
+"NOISE": {
+"live_only": [],
+"matched": [
+{
+"drift_min": 0.0,
+"entry_slip_pts": -2.0,
+"live_entry": "09:40",
+"live_pnl_usd": 2160.0,
+"pnl_diff_usd": 5.66,
+"shadow_entry": "2026-08-13T09:40:00-04:00",
+"shadow_pnl_usd": 2154.34
+}
+],
+"shadow_only": []
+},
+"ORB": {
+"live_only": [],
+"matched": [],
+"shadow_only": [
+{
+"entry": "2026-08-13T15:50:00-04:00",
+"pnl_usd": -155.66,
+"side": 1
+}
+]
+}
+},
+"n_live_trades": 5,
+"tol_min": 3,
+"unattributed": [
+{
+"kind": "live_only",
+"live": {
+"account": "DEMO7240108",
+"assetType": "futures",
+"broker": "NinjaTrader",
+"chartUrl": "",
+"date": "2026-08-13",
+"doc_id": "nt_459311891311_1",
+"durationMins": 10,
+"durationSecs": 600,
+"entry": 30149.0,
+"entryTime": "11:40",
+"exit": 30139.5,
+"exitTime": "11:50",
+"fees": 0.0,
+"grade": "\u2014",
+"grossPnl": -190.0,
+"notes": "",
+"ntExecId": "459311891311_1",
+"orderId": "459311891299",
+"pnl": -190.0,
+"setup": "\u2014",
+"signal": "",
+"size": 1,
+"source": "NinjaTrader",
+"symbol": "NQ",
+"timeframe": "\u2014",
+"type": "LONG"
+},
+"reason": "no shadow signal within tolerance"
+},
+{
+"kind": "live_only",
+"live": {
+"account": "DEMO7240108",
+"assetType": "futures",
+"broker": "NinjaTrader",
+"chartUrl": "",
+"date": "2026-08-13",
+"doc_id": "nt_459311891337_1",
+"durationMins": 5,
+"durationSecs": 300,
+"entry": 30117.75,
+"entryTime": "11:55",
+"exit": 30115.75,
+"exitTime": "12:00",
+"fees": 0.0,
+"grade": "\u2014",
+"grossPnl": -40.0,
+"notes": "",
+"ntExecId": "459311891337_1",
+"orderId": "459311891325",
+"pnl": -40.0,
+"setup": "\u2014",
+"signal": "",
+"size": 1,
+"source": "NinjaTrader",
+"symbol": "NQ",
+"timeframe": "\u2014",
+"type": "LONG"
+},
+"reason": "no shadow signal within tolerance"
+},
+{
+"kind": "live_only",
+"live": {
+"account": "DEMO7240108",
+"assetType": "futures",
+"broker": "NinjaTrader",
+"chartUrl": "",
+"date": "2026-08-13",
+"doc_id": "nt_459311891363_1",
+"durationMins": 10,
+"durationSecs": 600,
+"entry": 30150.75,
+"entryTime": "12:05",
+"exit": 30141.25,
+"exitTime": "12:15",
+"fees": 0.0,
+"grade": "\u2014",
+"grossPnl": -190.0,
+"notes": "",
+"ntExecId": "459311891363_1",
+"orderId": "459311891351",
+"pnl": -190.0,
+"setup": "\u2014",
+"signal": "",
+"size": 1,
+"source": "NinjaTrader",
+"symbol": "NQ",
+"timeframe": "\u2014",
+"type": "LONG"
+},
+"reason": "no shadow signal within tolerance"
+},
+{
+"kind": "live_only",
+"live": {
+"account": "DEMO7240108",
+"assetType": "futures",
+"broker": "NinjaTrader",
+"chartUrl": "",
+"date": "2026-08-13",
+"doc_id": "nt_459311891418_1",
+"durationMins": 279,
+"durationSecs": 16790,
+"entry": 30169.75,
+"entryTime": "12:20",
+"exit": 30215.25,
+"exitTime": "16:59",
+"fees": 0.0,
+"grade": "\u2014",
+"grossPnl": 1820.0,
+"notes": "",
+"ntExecId": "459311891418_1",
+"orderId": "459311891377",
+"pnl": 1820.0,
+"setup": "\u2014",
+"signal": "",
+"size": 2,
+"source": "NinjaTrader",
+"symbol": "NQ",
+"timeframe": "\u2014",
+"type": "LONG"
+},
+"reason": "no shadow signal within tolerance"
+}
+],
+"verdict": {
+"legs": {
+"ENGUQ": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY",
+"NOISE": "1 matched (avg entry slip -2.00 pts)",
+"ORB": "0 matched (avg entry slip +0.00 pts), 1 SHADOW-ONLY"
+},
+"ok": false,
+"problems": [
+"ORB: 1 expected trade(s) the demo never took",
+"ENGUQ: 1 expected trade(s) the demo never took",
+"4 live trade(s) could not be attributed to a leg"
+]
+}
+}
+},
+{
+"date": "2026-08-12",
+"id": "2026-08-12",
+"legs": {
+"ENGUQ": {
+"n_signals": 2,
+"warnings": [
+"10s data looks stale: last bar 2026-08-12 12:02:40-04:00 (more than 30m before 2026-08-12 16:00:00-04:00 close)"
+]
+},
+"NOISE": {
+"n_signals": 0,
+"warnings": [
+"10s data looks stale: last bar 2026-08-12 12:02:40-04:00 (more than 30m before 2026-08-12 16:00:00-04:00 close)"
+]
+},
+"ORB": {
+"n_signals": 0,
+"warnings": [
+"10s data looks stale: last bar 2026-08-12 12:02:40-04:00 (more than 30m before 2026-08-12 16:00:00-04:00 close)"
+]
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": null,
+"fills": [],
+"flat_eod": true,
+"n_fills": 0,
+"warnings": []
+},
+"reconcile": null
+},
+{
+"date": "2026-08-11",
+"id": "2026-08-11",
+"legs": {
+"ENGUQ": {
+"n_signals": 0,
+"warnings": []
+},
+"NOISE": {
+"n_signals": 0,
+"warnings": []
+},
+"ORB": {
+"n_signals": 1,
+"warnings": []
+}
+},
+"live": {
+"account": "DEMO7240108",
+"day_net_usd": -650.0,
+"fills": [
+{
+"action": "SELL",
+"instrument": "NQ 09-26",
+"price": 29624.5,
+"qty": 1.0,
+"time": "2026-08-11 19:54:25"
+},
+{
+"action": "BUY",
+"instrument": "NQ 09-26",
+"price": 29657.0,
+"qty": 1.0,
+"time": "2026-08-11 20:55:00"
+}
+],
+"flat_eod": true,
+"n_fills": 2,
+"warnings": []
+},
+"reconcile": null
+},
+{
+"date": "2026-08-10",
+"id": "2026-08-10",
+"legs": {
+"ENGUQ": {
+"n_signals": 0,
+"warnings": []
+},
+"ORB": {
+"n_signals": 0,
+"warnings": []
+}
+},
+"live": null,
+"reconcile": null
+},
+{
+"date": "2026-08-07",
+"id": "2026-08-07",
+"legs": {
+"ENGUQ": {
+"n_signals": 0,
+"warnings": []
+},
+"ORB": {
+"n_signals": 0,
+"warnings": []
+}
+},
+"live": null,
+"reconcile": null
+}
+],
+"trades": [
+{
+"backfill": true,
+"entryIso": "2026-08-12T01:31:00-04:00",
+"entryTime": 1786512660,
+"entry_px": 29704.75,
+"exitIso": "2026-08-12T08:30:00-04:00",
+"exitTime": 1786537800,
+"exit_px": 29868.217,
+"flags": [],
+"id": "pt_ENGUQ_1786512660",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": 163.467,
+"pnl_usd": 3269.34,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T12:08:00-04:00",
+"entryTime": 1786550880,
+"entry_px": 29863.5,
+"exitIso": "2026-08-12T15:24:00-04:00",
+"exitTime": 1786562640,
+"exit_px": 29862.967,
+"flags": [],
+"id": "pt_ENGUQ_1786550880",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -0.533,
+"pnl_usd": -10.66,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T16:05:00-04:00",
+"entryTime": 1786565100,
+"entry_px": 29893.5,
+"exitIso": "2026-08-12T16:22:00-04:00",
+"exitTime": 1786566120,
+"exit_px": 29825.217,
+"flags": [],
+"id": "pt_ENGUQ_1786565100",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -68.283,
+"pnl_usd": -1365.66,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T20:00:00-04:00",
+"entryTime": 1786579200,
+"entry_px": 29822.75,
+"exitIso": "2026-08-13T05:15:00-04:00",
+"exitTime": 1786612500,
+"exit_px": 29822.217,
+"flags": [],
+"id": "pt_ENGUQ_1786579200",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -0.533,
+"pnl_usd": -10.66,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T05:43:00-04:00",
+"entryTime": 1786614180,
+"entry_px": 29859.5,
+"exitIso": "2026-08-13T08:18:00-04:00",
+"exitTime": 1786623480,
+"exit_px": 29820.467,
+"flags": [],
+"id": "pt_ENGUQ_1786614180",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -39.033,
+"pnl_usd": -780.6600000000001,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T08:52:00-04:00",
+"entryTime": 1786625520,
+"entry_px": 29872.0,
+"exitIso": "2026-08-13T11:51:00-04:00",
+"exitTime": 1786636260,
+"exit_px": 30117.592,
+"flags": [],
+"id": "pt_ENGUQ_1786625520",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": 245.592,
+"pnl_usd": 4911.84,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:42:00-04:00",
+"entryTime": 1786639320,
+"entry_px": 30186.75,
+"exitIso": "2026-08-14T11:09:00-04:00",
+"exitTime": 1786720140,
+"exit_px": 30103.467,
+"flags": [],
+"id": "pt_ENGUQ_1786639320",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -83.283,
+"pnl_usd": -1665.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-16T22:21:00-04:00",
+"entryTime": 1786933260,
+"entry_px": 30214.5,
+"exitIso": "2026-08-17T08:04:00-04:00",
+"exitTime": 1786968240,
+"exit_px": 30269.342,
+"flags": [],
+"id": "pt_ENGUQ_1786933260",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": 54.842,
+"pnl_usd": 1096.84,
+"run_date": "2026-08-16",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-17T09:25:00-04:00",
+"entryTime": 1786973100,
+"entry_px": 30227.75,
+"exitIso": "2026-08-17T09:38:00-04:00",
+"exitTime": 1786973880,
+"exit_px": 30179.467,
+"flags": [],
+"id": "pt_ENGUQ_1786973100",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -48.283,
+"pnl_usd": -965.6600000000001,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-17T09:51:00-04:00",
+"entryTime": 1786974660,
+"entry_px": 30245.0,
+"exitIso": "2026-08-17T10:08:00-04:00",
+"exitTime": 1786975680,
+"exit_px": 30164.967,
+"flags": [],
+"id": "pt_ENGUQ_1786974660",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -80.033,
+"pnl_usd": -1600.66,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-17T10:51:00-04:00",
+"entryTime": 1786978260,
+"entry_px": 30228.25,
+"exitIso": "2026-08-17T13:08:00-04:00",
+"exitTime": 1786986480,
+"exit_px": 30154.717,
+"flags": [],
+"id": "pt_ENGUQ_1786978260",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -73.533,
+"pnl_usd": -1470.66,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-19T10:56:00-04:00",
+"entryTime": 1787151360,
+"entry_px": 29609.25,
+"exitIso": "2026-08-20T07:48:00-04:00",
+"exitTime": 1787226480,
+"exit_px": 29375.217,
+"flags": [],
+"id": "pt_ENGUQ_1787151360",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -234.033,
+"pnl_usd": -4680.66,
+"run_date": "2026-08-19",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-21T11:36:00-04:00",
+"entryTime": 1787326560,
+"entry_px": 29410.25,
+"exitIso": "2026-08-21T15:56:00-04:00",
+"exitTime": 1787342160,
+"exit_px": 29390.467,
+"flags": [],
+"id": "pt_ENGUQ_1787326560",
+"layer": "shadow",
+"leg": "ENGUQ",
+"live_from": "2026-08-17",
+"pnl_pts": -19.783,
+"pnl_usd": -395.66,
+"run_date": "2026-08-21",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_FROZEN_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T20:05:00-04:00",
+"entryTime": 1786579500,
+"entry_px": 29852.25,
+"exitIso": "2026-08-14T11:09:00-04:00",
+"exitTime": 1786720140,
+"exit_px": 30103.092,
+"flags": [],
+"id": "pt_ENGUQ_ER_1786579500",
+"layer": "shadow",
+"leg": "ENGUQ_ER",
+"live_from": "2026-08-21",
+"pnl_pts": 250.842,
+"pnl_usd": 5016.84,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T06:29:00-04:00",
+"entryTime": 1786962540,
+"entry_px": 30338.0,
+"exitIso": "2026-08-17T08:04:00-04:00",
+"exitTime": 1786968240,
+"exit_px": 30267.217,
+"flags": [],
+"id": "pt_ENGUQ_ER_1786962540",
+"layer": "shadow",
+"leg": "ENGUQ_ER",
+"live_from": "2026-08-21",
+"pnl_pts": -70.783,
+"pnl_usd": -1415.66,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T11:06:00-04:00",
+"entryTime": 1786979160,
+"entry_px": 30282.25,
+"exitIso": "2026-08-17T13:08:00-04:00",
+"exitTime": 1786986480,
+"exit_px": 30154.717,
+"flags": [],
+"id": "pt_ENGUQ_ER_1786979160",
+"layer": "shadow",
+"leg": "ENGUQ_ER",
+"live_from": "2026-08-21",
+"pnl_pts": -127.533,
+"pnl_usd": -2550.66,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-19T11:28:00-04:00",
+"entryTime": 1787153280,
+"entry_px": 29613.5,
+"exitIso": "2026-08-20T07:48:00-04:00",
+"exitTime": 1787226480,
+"exit_px": 29375.217,
+"flags": [],
+"id": "pt_ENGUQ_ER_1787153280",
+"layer": "shadow",
+"leg": "ENGUQ_ER",
+"live_from": "2026-08-21",
+"pnl_pts": -238.283,
+"pnl_usd": -4765.66,
+"run_date": "2026-08-19",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-21T11:36:00-04:00",
+"entryTime": 1787326560,
+"entry_px": 29410.25,
+"exitIso": "2026-08-24T01:34:00-04:00",
+"exitTime": 1787549640,
+"exit_px": 29219.467,
+"flags": [],
+"id": "pt_ENGUQ_ER_1787326560",
+"layer": "shadow",
+"leg": "ENGUQ_ER",
+"live_from": "2026-08-21",
+"pnl_pts": -190.783,
+"pnl_usd": -3815.66,
+"run_date": "2026-08-21",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T08:16:00-04:00",
+"entryTime": 1787660160,
+"entry_px": 29386.25,
+"exitIso": "2026-08-25T09:29:00-04:00",
+"exitTime": 1787664540,
+"exit_px": 29303.467,
+"flags": [],
+"id": "pt_ENGUQ_ER_1787660160",
+"layer": "shadow",
+"leg": "ENGUQ_ER",
+"live_from": "2026-08-21",
+"pnl_pts": -82.783,
+"pnl_usd": -1655.66,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T20:05:00-04:00",
+"entryTime": 1786579500,
+"entry_px": 29852.25,
+"exitIso": "2026-08-14T11:09:00-04:00",
+"exitTime": 1786720140,
+"exit_px": 30103.092,
+"flags": [],
+"id": "pt_ENGUQ_ER_H_1786579500",
+"layer": "shadow",
+"leg": "ENGUQ_ER_H",
+"live_from": "2026-08-21",
+"pnl_pts": 250.842,
+"pnl_usd": 9850.89982982965,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.9635666734098853,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T06:29:00-04:00",
+"entryTime": 1786962540,
+"entry_px": 30338.0,
+"exitIso": "2026-08-17T08:04:00-04:00",
+"exitTime": 1786968240,
+"exit_px": 30267.217,
+"flags": [],
+"id": "pt_ENGUQ_ER_H_1786962540",
+"layer": "shadow",
+"leg": "ENGUQ_ER_H",
+"live_from": "2026-08-21",
+"pnl_pts": -70.783,
+"pnl_usd": -2629.778182790991,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.857634024265001,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T11:06:00-04:00",
+"entryTime": 1786979160,
+"entry_px": 30282.25,
+"exitIso": "2026-08-17T13:08:00-04:00",
+"exitTime": 1786986480,
+"exit_px": 30154.717,
+"flags": [],
+"id": "pt_ENGUQ_ER_H_1786979160",
+"layer": "shadow",
+"leg": "ENGUQ_ER_H",
+"live_from": "2026-08-21",
+"pnl_pts": -127.533,
+"pnl_usd": -3603.5473761678,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.4127901704530592,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-19T11:28:00-04:00",
+"entryTime": 1787153280,
+"entry_px": 29613.5,
+"exitIso": "2026-08-20T07:48:00-04:00",
+"exitTime": 1787226480,
+"exit_px": 29375.217,
+"flags": [],
+"id": "pt_ENGUQ_ER_H_1787153280",
+"layer": "shadow",
+"leg": "ENGUQ_ER_H",
+"live_from": "2026-08-21",
+"pnl_pts": -238.283,
+"pnl_usd": -9751.725602709615,
+"run_date": "2026-08-19",
+"side": 1,
+"size": 2.0462487048403823,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-21T11:36:00-04:00",
+"entryTime": 1787326560,
+"entry_px": 29410.25,
+"exitIso": "2026-08-24T01:34:00-04:00",
+"exitTime": 1787549640,
+"exit_px": 29219.467,
+"flags": [],
+"id": "pt_ENGUQ_ER_H_1787326560",
+"layer": "shadow",
+"leg": "ENGUQ_ER_H",
+"live_from": "2026-08-21",
+"pnl_pts": -190.783,
+"pnl_usd": -8175.563164517018,
+"run_date": "2026-08-21",
+"side": 1,
+"size": 2.142634082836788,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T08:16:00-04:00",
+"entryTime": 1787660160,
+"entry_px": 29386.25,
+"exitIso": "2026-08-25T09:29:00-04:00",
+"exitTime": 1787664540,
+"exit_px": 29303.467,
+"flags": [],
+"id": "pt_ENGUQ_ER_H_1787660160",
+"layer": "shadow",
+"leg": "ENGUQ_ER_H",
+"live_from": "2026-08-21",
+"pnl_pts": -82.783,
+"pnl_usd": -2979.6551413457046,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.7996781593719147,
+"strategy": "ENGUQ_1M_ETH_ER25_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T01:32:00-04:00",
+"entryTime": 1786512720,
+"entry_px": 29702.548349056604,
+"exitIso": "2026-08-12T08:30:00-04:00",
+"exitTime": 1786537800,
+"exit_px": 29873.72112735849,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786512720",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": 171.17277830188632,
+"pnl_usd": 3423.4555660377264,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T12:10:00-04:00",
+"entryTime": 1786551000,
+"entry_px": 29862.87853773585,
+"exitIso": "2026-08-12T15:25:00-04:00",
+"exitTime": 1786562700,
+"exit_px": 29862.34553773585,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786551000",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -0.533,
+"pnl_usd": -10.66,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T16:06:00-04:00",
+"entryTime": 1786565160,
+"entry_px": 29888.86438679245,
+"exitIso": "2026-08-12T16:22:00-04:00",
+"exitTime": 1786566120,
+"exit_px": 29825.217,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786565160",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -63.647386792451115,
+"pnl_usd": -1272.9477358490224,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T20:01:00-04:00",
+"entryTime": 1786579260,
+"entry_px": 29820.16863207547,
+"exitIso": "2026-08-13T05:15:00-04:00",
+"exitTime": 1786612500,
+"exit_px": 29824.295419811326,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786579260",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": 4.126787735854479,
+"pnl_usd": 82.53575471708957,
+"run_date": "2026-08-12",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T05:47:00-04:00",
+"entryTime": 1786614420,
+"entry_px": 29858.791273584906,
+"exitIso": "2026-08-13T08:18:00-04:00",
+"exitTime": 1786623480,
+"exit_px": 29820.467,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786614420",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -38.32427358490587,
+"pnl_usd": -766.4854716981174,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T08:53:00-04:00",
+"entryTime": 1786625580,
+"entry_px": 29867.656839622643,
+"exitIso": "2026-08-13T11:37:00-04:00",
+"exitTime": 1786635420,
+"exit_px": 30128.449900943393,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786625580",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": 260.7930613207494,
+"pnl_usd": 5215.861226414989,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:52:00-04:00",
+"entryTime": 1786639920,
+"entry_px": 30190.978773584906,
+"exitIso": "2026-08-14T11:09:00-04:00",
+"exitTime": 1786720140,
+"exit_px": 30103.467,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786639920",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -87.51177358490587,
+"pnl_usd": -1750.2354716981174,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-16T22:24:00-04:00",
+"entryTime": 1786933440,
+"entry_px": 30218.571933962263,
+"exitIso": "2026-08-17T08:04:00-04:00",
+"exitTime": 1786968240,
+"exit_px": 30259.162165094345,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786933440",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": 40.590231132081854,
+"pnl_usd": 811.804622641637,
+"run_date": "2026-08-16",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T09:27:00-04:00",
+"entryTime": 1786973220,
+"entry_px": 30223.30896226415,
+"exitIso": "2026-08-17T09:38:00-04:00",
+"exitTime": 1786973880,
+"exit_px": 30179.467,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786973220",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -43.84196226414916,
+"pnl_usd": -876.8392452829833,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T09:52:00-04:00",
+"entryTime": 1786974720,
+"entry_px": 30237.708726415094,
+"exitIso": "2026-08-17T10:08:00-04:00",
+"exitTime": 1786975680,
+"exit_px": 30164.967,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786974720",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -72.74172641509413,
+"pnl_usd": -1454.8345283018828,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-17T10:52:00-04:00",
+"entryTime": 1786978320,
+"entry_px": 30219.51650943396,
+"exitIso": "2026-08-17T13:08:00-04:00",
+"exitTime": 1786986480,
+"exit_px": 30154.717,
+"flags": [],
+"id": "pt_ENGUQ_L50_1786978320",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -64.79950943396089,
+"pnl_usd": -1295.990188679218,
+"run_date": "2026-08-17",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-19T11:03:00-04:00",
+"entryTime": 1787151780,
+"entry_px": 29594.13325471698,
+"exitIso": "2026-08-20T07:48:00-04:00",
+"exitTime": 1787226480,
+"exit_px": 29375.217,
+"flags": [],
+"id": "pt_ENGUQ_L50_1787151780",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -218.91625471698043,
+"pnl_usd": -4378.325094339609,
+"run_date": "2026-08-19",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-21T11:48:00-04:00",
+"entryTime": 1787327280,
+"entry_px": 29432.432783018867,
+"exitIso": "2026-08-24T01:34:00-04:00",
+"exitTime": 1787549640,
+"exit_px": 29219.467,
+"flags": [],
+"id": "pt_ENGUQ_L50_1787327280",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -212.96578301886674,
+"pnl_usd": -4259.315660377335,
+"run_date": "2026-08-21",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T08:09:00-04:00",
+"entryTime": 1787659740,
+"entry_px": 29373.985849056604,
+"exitIso": "2026-08-25T09:29:00-04:00",
+"exitTime": 1787664540,
+"exit_px": 29303.467,
+"flags": [],
+"id": "pt_ENGUQ_L50_1787659740",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -70.51884905660391,
+"pnl_usd": -1410.3769811320783,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:34:00-04:00",
+"entryTime": 1787664840,
+"entry_px": 29359.99174528302,
+"exitIso": "2026-08-25T10:01:00-04:00",
+"exitTime": 1787666460,
+"exit_px": 29278.717,
+"flags": [],
+"id": "pt_ENGUQ_L50_1787664840",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": -81.27474528301956,
+"pnl_usd": -1625.4949056603912,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T11:23:00-04:00",
+"entryTime": 1787671380,
+"entry_px": 29243.14150943396,
+"exitIso": "2026-08-25T16:03:00-04:00",
+"exitTime": 1787688180,
+"exit_px": 29272.717,
+"flags": [],
+"id": "pt_ENGUQ_L50_1787671380",
+"layer": "shadow",
+"leg": "ENGUQ_L50",
+"live_from": "2026-08-18",
+"pnl_pts": 29.575490566039107,
+"pnl_usd": 591.5098113207821,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.0,
+"strategy": "ENGUQ_1M_ETH_LIM50_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T09:40:00-04:00",
+"entryTime": 1786628400,
+"entry_px": 30038.0,
+"exitIso": "2026-08-13T11:35:00-04:00",
+"exitTime": 1786635300,
+"exit_px": 30145.717,
+"flags": [],
+"id": "pt_NOISE_225_1786628400",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": 107.717,
+"pnl_usd": 2154.34,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:40:00-04:00",
+"entryTime": 1786635600,
+"entry_px": 30151.0,
+"exitIso": "2026-08-13T11:50:00-04:00",
+"exitTime": 1786636200,
+"exit_px": 30139.467,
+"flags": [],
+"id": "pt_NOISE_225_1786635600",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": -11.533,
+"pnl_usd": -230.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:55:00-04:00",
+"entryTime": 1786636500,
+"entry_px": 30119.25,
+"exitIso": "2026-08-13T12:00:00-04:00",
+"exitTime": 1786636800,
+"exit_px": 30116.717,
+"flags": [],
+"id": "pt_NOISE_225_1786636500",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": -2.533,
+"pnl_usd": -50.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:05:00-04:00",
+"entryTime": 1786637100,
+"entry_px": 30150.5,
+"exitIso": "2026-08-13T12:15:00-04:00",
+"exitTime": 1786637700,
+"exit_px": 30140.217,
+"flags": [],
+"id": "pt_NOISE_225_1786637100",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": -10.283,
+"pnl_usd": -205.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:20:00-04:00",
+"entryTime": 1786638000,
+"entry_px": 30144.0,
+"exitIso": "2026-08-13T15:55:00-04:00",
+"exitTime": 1786650900,
+"exit_px": 30193.467,
+"flags": [],
+"id": "pt_NOISE_225_1786638000",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": 49.467,
+"pnl_usd": 989.3399999999999,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-24T09:40:00-04:00",
+"entryTime": 1787578800,
+"entry_px": 29080.25,
+"exitIso": "2026-08-24T10:35:00-04:00",
+"exitTime": 1787582100,
+"exit_px": 29077.533,
+"flags": [],
+"id": "pt_NOISE_225_1787578800",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": 2.717,
+"pnl_usd": 54.34,
+"run_date": "2026-08-24",
+"side": -1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:50:00-04:00",
+"entryTime": 1787665800,
+"entry_px": 29392.5,
+"exitIso": "2026-08-25T09:55:00-04:00",
+"exitTime": 1787666100,
+"exit_px": 29341.967,
+"flags": [],
+"id": "pt_NOISE_225_1787665800",
+"layer": "shadow",
+"leg": "NOISE_225",
+"live_from": "2026-08-16",
+"pnl_pts": -50.533,
+"pnl_usd": -1010.6600000000001,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T09:40:00-04:00",
+"entryTime": 1786628400,
+"entry_px": 30038.0,
+"exitIso": "2026-08-13T11:35:00-04:00",
+"exitTime": 1786635300,
+"exit_px": 30145.717,
+"flags": [],
+"id": "pt_NOISE_H_1786628400",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": 107.717,
+"pnl_usd": 3809.2837583550154,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:40:00-04:00",
+"entryTime": 1786635600,
+"entry_px": 30151.0,
+"exitIso": "2026-08-13T11:50:00-04:00",
+"exitTime": 1786636200,
+"exit_px": 30139.467,
+"flags": [],
+"id": "pt_NOISE_H_1786635600",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": -11.533,
+"pnl_usd": -407.85084606058825,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:55:00-04:00",
+"entryTime": 1786636500,
+"entry_px": 30119.25,
+"exitIso": "2026-08-13T12:00:00-04:00",
+"exitTime": 1786636800,
+"exit_px": 30116.717,
+"flags": [],
+"id": "pt_NOISE_H_1786636500",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": -2.533,
+"pnl_usd": -89.57653629337294,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:05:00-04:00",
+"entryTime": 1786637100,
+"entry_px": 30150.5,
+"exitIso": "2026-08-13T12:15:00-04:00",
+"exitTime": 1786637700,
+"exit_px": 30140.217,
+"flags": [],
+"id": "pt_NOISE_H_1786637100",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": -10.283,
+"pnl_usd": -363.6460808151417,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:20:00-04:00",
+"entryTime": 1786638000,
+"entry_px": 30144.0,
+"exitIso": "2026-08-13T15:55:00-04:00",
+"exitTime": 1786650900,
+"exit_px": 30193.467,
+"flags": [],
+"id": "pt_NOISE_H_1786638000",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": 49.467,
+"pnl_usd": 1749.3416979172046,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-24T09:40:00-04:00",
+"entryTime": 1787578800,
+"entry_px": 29080.25,
+"exitIso": "2026-08-24T10:35:00-04:00",
+"exitTime": 1787582100,
+"exit_px": 29077.533,
+"flags": [],
+"id": "pt_NOISE_H_1787578800",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": 2.717,
+"pnl_usd": 96.08347773750268,
+"run_date": "2026-08-24",
+"side": -1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:50:00-04:00",
+"entryTime": 1787665800,
+"entry_px": 29392.5,
+"exitIso": "2026-08-25T09:55:00-04:00",
+"exitTime": 1787666100,
+"exit_px": 29341.967,
+"flags": [],
+"id": "pt_NOISE_H_1787665800",
+"layer": "shadow",
+"leg": "NOISE_H",
+"live_from": "2026-08-16",
+"pnl_pts": -50.533,
+"pnl_usd": -1787.0395217185217,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.768190609817863,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T09:40:00-04:00",
+"entryTime": 1786628400,
+"entry_px": 30038.0,
+"exitIso": "2026-08-13T11:35:00-04:00",
+"exitTime": 1786635300,
+"exit_px": 30145.717,
+"flags": [],
+"id": "pt_NOISE_H_RF_1786628400",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": 107.717,
+"pnl_usd": 8777.283019162993,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 4.074232952627251,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:40:00-04:00",
+"entryTime": 1786635600,
+"entry_px": 30151.0,
+"exitIso": "2026-08-13T11:50:00-04:00",
+"exitTime": 1786636200,
+"exit_px": 30139.467,
+"flags": [],
+"id": "pt_NOISE_H_RF_1786635600",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": -11.533,
+"pnl_usd": -877.5532061720983,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 3.804531371594981,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:55:00-04:00",
+"entryTime": 1786636500,
+"entry_px": 30119.25,
+"exitIso": "2026-08-13T12:00:00-04:00",
+"exitTime": 1786636800,
+"exit_px": 30116.717,
+"flags": [],
+"id": "pt_NOISE_H_RF_1786636500",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": -2.533,
+"pnl_usd": -188.2028748502233,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 3.7150192429969073,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:05:00-04:00",
+"entryTime": 1786637100,
+"entry_px": 30150.5,
+"exitIso": "2026-08-13T12:15:00-04:00",
+"exitTime": 1786637700,
+"exit_px": 30140.217,
+"flags": [],
+"id": "pt_NOISE_H_RF_1786637100",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": -10.283,
+"pnl_usd": -772.1315927002016,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 3.7544082111261385,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:20:00-04:00",
+"entryTime": 1786638000,
+"entry_px": 30144.0,
+"exitIso": "2026-08-13T15:55:00-04:00",
+"exitTime": 1786650900,
+"exit_px": 30193.467,
+"flags": [],
+"id": "pt_NOISE_H_RF_1786638000",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": 49.467,
+"pnl_usd": 3710.816462285843,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 3.7507999901811746,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-24T09:40:00-04:00",
+"entryTime": 1787578800,
+"entry_px": 29080.25,
+"exitIso": "2026-08-24T10:35:00-04:00",
+"exitTime": 1787582100,
+"exit_px": 29077.533,
+"flags": [],
+"id": "pt_NOISE_H_RF_1787578800",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": 2.717,
+"pnl_usd": 190.78816901010924,
+"run_date": "2026-08-24",
+"side": -1,
+"size": 3.5110078949228787,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:50:00-04:00",
+"entryTime": 1787665800,
+"entry_px": 29392.5,
+"exitIso": "2026-08-25T09:55:00-04:00",
+"exitTime": 1787666100,
+"exit_px": 29341.967,
+"flags": [],
+"id": "pt_NOISE_H_RF_1787665800",
+"layer": "shadow",
+"leg": "NOISE_H_RF",
+"live_from": "2026-08-16",
+"pnl_pts": -50.533,
+"pnl_usd": -4195.403412320184,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 4.151152130607903,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T09:40:00-04:00",
+"entryTime": 1786628400,
+"entry_px": 30038.0,
+"exitIso": "2026-08-13T11:35:00-04:00",
+"exitTime": 1786635300,
+"exit_px": 30145.717,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1786628400",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": 107.717,
+"pnl_usd": 2154.34,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:40:00-04:00",
+"entryTime": 1786635600,
+"entry_px": 30151.0,
+"exitIso": "2026-08-13T11:50:00-04:00",
+"exitTime": 1786636200,
+"exit_px": 30139.467,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1786635600",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": -11.533,
+"pnl_usd": -230.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:55:00-04:00",
+"entryTime": 1786636500,
+"entry_px": 30119.25,
+"exitIso": "2026-08-13T12:00:00-04:00",
+"exitTime": 1786636800,
+"exit_px": 30116.717,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1786636500",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": -2.533,
+"pnl_usd": -50.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:05:00-04:00",
+"entryTime": 1786637100,
+"entry_px": 30150.5,
+"exitIso": "2026-08-13T12:15:00-04:00",
+"exitTime": 1786637700,
+"exit_px": 30140.217,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1786637100",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": -10.283,
+"pnl_usd": -205.66,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:20:00-04:00",
+"entryTime": 1786638000,
+"entry_px": 30144.0,
+"exitIso": "2026-08-13T15:55:00-04:00",
+"exitTime": 1786650900,
+"exit_px": 30193.467,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1786638000",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": 49.467,
+"pnl_usd": 989.3399999999999,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-24T09:40:00-04:00",
+"entryTime": 1787578800,
+"entry_px": 29080.25,
+"exitIso": "2026-08-24T10:35:00-04:00",
+"exitTime": 1787582100,
+"exit_px": 29077.533,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1787578800",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": 2.717,
+"pnl_usd": 54.34,
+"run_date": "2026-08-24",
+"side": -1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:50:00-04:00",
+"entryTime": 1787665800,
+"entry_px": 29392.5,
+"exitIso": "2026-08-25T09:55:00-04:00",
+"exitTime": 1787666100,
+"exit_px": 29341.967,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_1787665800",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90",
+"live_from": "2026-08-23",
+"pnl_pts": -50.533,
+"pnl_usd": -1010.6600000000001,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.0,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T09:40:00-04:00",
+"entryTime": 1786628400,
+"entry_px": 30038.0,
+"exitIso": "2026-08-13T11:35:00-04:00",
+"exitTime": 1786635300,
+"exit_px": 30145.717,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1786628400",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": 107.717,
+"pnl_usd": 3397.977554255073,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.5772707902443777,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:40:00-04:00",
+"entryTime": 1786635600,
+"entry_px": 30151.0,
+"exitIso": "2026-08-13T11:50:00-04:00",
+"exitTime": 1786636200,
+"exit_px": 30139.467,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1786635600",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": -11.533,
+"pnl_usd": -367.43335908734986,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.5929652262522755,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:55:00-04:00",
+"entryTime": 1786636500,
+"entry_px": 30119.25,
+"exitIso": "2026-08-13T12:00:00-04:00",
+"exitTime": 1786636800,
+"exit_px": 30116.717,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1786636500",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": -2.533,
+"pnl_usd": -82.68224181479243,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.632101101752713,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:05:00-04:00",
+"entryTime": 1786637100,
+"entry_px": 30150.5,
+"exitIso": "2026-08-13T12:15:00-04:00",
+"exitTime": 1786637700,
+"exit_px": 30140.217,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1786637100",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": -10.283,
+"pnl_usd": -318.69638284661215,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.5496274571944577,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:20:00-04:00",
+"entryTime": 1786638000,
+"entry_px": 30144.0,
+"exitIso": "2026-08-13T15:55:00-04:00",
+"exitTime": 1786650900,
+"exit_px": 30193.467,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1786638000",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": 49.467,
+"pnl_usd": 1528.638929233002,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.5451097996977805,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-24T09:40:00-04:00",
+"entryTime": 1787578800,
+"entry_px": 29080.25,
+"exitIso": "2026-08-24T10:35:00-04:00",
+"exitTime": 1787582100,
+"exit_px": 29077.533,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1787578800",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": 2.717,
+"pnl_usd": 85.69998416929484,
+"run_date": "2026-08-24",
+"side": -1,
+"size": 1.5771068120959666,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:50:00-04:00",
+"entryTime": 1787665800,
+"entry_px": 29392.5,
+"exitIso": "2026-08-25T09:55:00-04:00",
+"exitTime": 1787666100,
+"exit_px": 29341.967,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_H_1787665800",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_H",
+"live_from": "2026-08-24",
+"pnl_pts": -50.533,
+"pnl_usd": -1622.8946235056942,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.6057770402565592,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T09:40:00-04:00",
+"entryTime": 1786628400,
+"entry_px": 30038.0,
+"exitIso": "2026-08-13T11:35:00-04:00",
+"exitTime": 1786635300,
+"exit_px": 30145.717,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1786628400",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": 107.717,
+"pnl_usd": 4061.7116828367916,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.8853624232186152,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:40:00-04:00",
+"entryTime": 1786635600,
+"entry_px": 30151.0,
+"exitIso": "2026-08-13T11:50:00-04:00",
+"exitTime": 1786636200,
+"exit_px": 30139.467,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1786635600",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": -11.533,
+"pnl_usd": -434.8776965396058,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.8853624232186152,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T11:55:00-04:00",
+"entryTime": 1786636500,
+"entry_px": 30119.25,
+"exitIso": "2026-08-13T12:00:00-04:00",
+"exitTime": 1786636800,
+"exit_px": 30116.717,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1786636500",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": -2.533,
+"pnl_usd": -47.756230180127524,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 0.9426812116093076,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:05:00-04:00",
+"entryTime": 1786637100,
+"entry_px": 30150.5,
+"exitIso": "2026-08-13T12:15:00-04:00",
+"exitTime": 1786637700,
+"exit_px": 30140.217,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1786637100",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": -10.283,
+"pnl_usd": -387.7436359591404,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.8853624232186152,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-13T12:20:00-04:00",
+"entryTime": 1786638000,
+"entry_px": 30144.0,
+"exitIso": "2026-08-13T15:55:00-04:00",
+"exitTime": 1786650900,
+"exit_px": 30193.467,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1786638000",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": 49.467,
+"pnl_usd": 1865.2644597871047,
+"run_date": "2026-08-13",
+"side": 1,
+"size": 1.8853624232186152,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-24T09:40:00-04:00",
+"entryTime": 1787578800,
+"entry_px": 29080.25,
+"exitIso": "2026-08-24T10:35:00-04:00",
+"exitTime": 1787582100,
+"exit_px": 29077.533,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1787578800",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": 2.717,
+"pnl_usd": 25.61264851942489,
+"run_date": "2026-08-24",
+"side": -1,
+"size": 0.4713406058046538,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": false,
+"entryIso": "2026-08-25T09:50:00-04:00",
+"entryTime": 1787665800,
+"entry_px": 29392.5,
+"exitIso": "2026-08-25T09:55:00-04:00",
+"exitTime": 1787666100,
+"exit_px": 29341.967,
+"flags": [],
+"id": "pt_NOISE_SBS_V90_T_1787665800",
+"layer": "shadow",
+"leg": "NOISE_SBS_V90_T",
+"live_from": "2026-08-24",
+"pnl_pts": -50.533,
+"pnl_usd": -1905.4603866501259,
+"run_date": "2026-08-25",
+"side": 1,
+"size": 1.8853624232186152,
+"strategy": "NOISE_1_0.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-11T12:30:00-04:00",
+"entryTime": 1786465800,
+"entry_px": 29633.25,
+"exitIso": "2026-08-11T15:55:00-04:00",
+"exitTime": 1786478100,
+"exit_px": 29635.783,
+"flags": [],
+"id": "pt_ORB_1786465800",
+"layer": "shadow",
+"leg": "ORB",
+"live_from": "2026-08-24",
+"pnl_pts": -2.533,
+"pnl_usd": -50.66,
+"run_date": "2026-08-11",
+"side": -1,
+"size": 1.0,
+"strategy": "ORB_3_6_C2.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T11:30:00-04:00",
+"entryTime": 1786548600,
+"entry_px": 29832.25,
+"exitIso": "2026-08-12T15:55:00-04:00",
+"exitTime": 1786564500,
+"exit_px": 29853.283,
+"flags": [],
+"id": "pt_ORB_1786548600",
+"layer": "shadow",
+"leg": "ORB",
+"live_from": "2026-08-24",
+"pnl_pts": -21.033,
+"pnl_usd": -420.66,
+"run_date": "2026-08-12",
+"side": -1,
+"size": 1.0,
+"strategy": "ORB_3_6_C2.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-11T12:30:00-04:00",
+"entryTime": 1786465800,
+"entry_px": 29633.25,
+"exitIso": "2026-08-11T15:55:00-04:00",
+"exitTime": 1786478100,
+"exit_px": 29635.783,
+"flags": [],
+"id": "pt_ORB_H_1786465800",
+"layer": "shadow",
+"leg": "ORB_H",
+"live_from": "2026-08-24",
+"pnl_pts": -2.533,
+"pnl_usd": -66.63549752831486,
+"run_date": "2026-08-11",
+"side": -1,
+"size": 1.3153473653437597,
+"strategy": "ORB_3_6_C2.py"
+},
+{
+"backfill": true,
+"entryIso": "2026-08-12T11:30:00-04:00",
+"entryTime": 1786548600,
+"entry_px": 29832.25,
+"exitIso": "2026-08-12T15:55:00-04:00",
+"exitTime": 1786564500,
+"exit_px": 29853.283,
+"flags": [],
+"id": "pt_ORB_H_1786548600",
+"layer": "shadow",
+"leg": "ORB_H",
+"live_from": "2026-08-24",
+"pnl_pts": -21.033,
+"pnl_usd": -623.6122128163839,
+"run_date": "2026-08-12",
+"side": -1,
+"size": 1.4824614006950598,
+"strategy": "ORB_3_6_C2.py"
+}
+]
+}

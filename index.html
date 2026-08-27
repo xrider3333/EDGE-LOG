@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.292';
+const VERSION='73.293';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.293',date:'2026-08-26',notes:['A CROWN NOW SITS BESIDE THE CHAMPION CONFIGURATION on both paper boards (owner ask) - in the strategy table and on every trade row. It means one thing only: this configuration is the standing champion of its family. ORB-234 and NOISE-243 wear it. No visible ENGU-Q row does, and rather than leave that silence to be read as no champion, a line under the table says why - the ENGU-Q crown is run #226, which was retired from the forward test on 21 August and is not being paper traded at all. The mark is declared on each leg, never guessed from its name.','ENGU-Q TRADES WERE APPEARING UNDER STRATEGIES YOU HAD SWITCHED OFF, and no control on the page could remove them (owner: "i still see ENGU-Q trades populating undernath"). ENGU-Q-226 was retired on 21 August, which dropped its ROW from the strategy table - but not its trades. Thirteen of them stayed in the trades table, the profit curve, the calendar and every total, with no row left to click. Archived now means archived everywhere. SHOW ARCHIVED brings the row and its trades back together and says how many trades it is holding back. Nothing was deleted; the board totals simply now describe the same strategies the table above them lists. On the selection that raised this, the board read $13,481 across 48 trades and now reads $17,150 across 35 - the difference is that retired leg, which was never meant to be in there.','THE RED NINJATRADER CROSSES WERE MOSTLY NOT ABOUT NINJATRADER (owner: "why are so many of noise trades cmonig up with red NT marks, i thought we had those matching"). Two faults, both fixed. First, NinjaTrader runs ONE NOISE strategy while the engine computes six NOISE variants, and the board was marking all six as refused - a leg NinjaTrader has never run cannot be refused by it, so those now read n/a, in grey, with the sibling it does trade named on hover. Second, every agreement mark was filed by ENTRY TIME with the strategy thrown away, so six legs taking the same signal at the same second all inherited whichever verdict was written last - one leg fill showed as a green tick on five legs, one leg backtest miss as a cross on the other five. Every mark is now filed against its own leg. Of the twenty-three red crosses on the board, three survive; the two on NOISE are real - NinjaTrader was running and did not take the 24 and 25 August trades.','NEXT NINJATRADER NOISE FILL WOULD HAVE BEEN SCORED A MISS. The nightly reconcile matches a fill to a strategy by the signal name NinjaTrader stamps on it, and that lookup still pointed at leg names retired in August. A fill naming a leg the report no longer carries matches nothing, so the fill would have gone unattributed AND the strategy would have been marked never taken - a red cross on the exact trade NinjaTrader had just filled. No fill has landed since the rename, so nothing recorded is wrong; the next one would have been. Takes effect on the next runner restart.','THREE NEW COLUMNS ON THE STRATEGY TABLE, AND IT OPENS SHORTER (owner ask). PROFIT FACTOR - winning dollars over losing dollars, above 1 makes money. EV - the average dollars a trade makes. $/DAY - and this one reads FORWARD TRADES ONLY, over calendar days since the configuration joined the board, weekends counted. That last choice matters: dividing all-time money by days-that-had-a-trade would have printed NOISE-231 at plus $2,215 a day, when every forward trade it has ever taken has lost money. Every column explains its own basis on hover, and each ratio carries its forward-only value there too.','COLUMNS: KEY or ALL. The table opens on six columns - live status, strategy, net, forward, profit factor, trades - and ALL brings back the other seven. Forward and trades stay in the short view deliberately: without them a leg reads "+$6,646, profit factor 2.10" while every dollar it has been watched make was a loss, and a ratio would be printed with no sample size beside it. Nothing is lost either way - every hidden figure is still on the row hovers, and a line under the table says how many columns are folded away. The choice is saved.','EVERY STRATEGY-TABLE COLUMN SORTS. Click a heading; click it again to flip. A strategy with no figure for what you asked to sort by goes to the bottom in both directions rather than being given a place it did not earn. The default is board order, which keeps each gated leg next to the control it has to be read against.','THE TRADES TABLE IS ABOUT A THIRD SHORTER per row, with nothing dropped - the padding around the engine chips and the CHART button was setting the row height, not the text.','A leg with no trades now shows a dash that says why, instead of a green $0.','NEW PRE-PUSH GATE, tools/paper_render_probe.py: it renders both paper boards headlessly against a real captured board under 28 control combinations and fails on any that throws, on a row whose cells do not line up with its headings, on an archived leg leaking trades, or on a red NinjaTrader cross against a leg NinjaTrader does not run. The boot gate only ever proved the app starts - and it reported PASS on a version of this very change that white-screened.']},
 {v:'73.292',date:'2026-08-26',notes:['The candle window now keeps a view it has already fetched for half an hour when the trade finished on an earlier day - those bars can never change again - instead of throwing it away after ninety seconds. Flipping between bar sizes and sessions on any trade older than today is now instant. Charts that reach into today still refresh quickly, because those do have a live tail.']},
 {v:'73.291',date:'2026-08-26',notes:['CANDLE CHARTS LOAD FAR FASTER. The biggest cost was self-inflicted: to work out where the live price tail should start, your PC was reading the ENTIRE 1-minute 24-hour file - 5.5 million rows - on every single paper-trade chart, about six seconds of pure waste. It now reads the last line of that file instead. On top of that, the window remembers every view it has already fetched, so flipping back to a session, bar size or width you have already looked at is instant, and your PC checks for new chart requests every three-quarters of a second while you are actively clicking instead of every five seconds. The two PC-side halves need the runner restarted before they take effect.']},
 {v:'73.290',date:'2026-08-26',notes:['FIX to the underpowered lockbox label shipped minutes earlier in 73.289: it looked for the power figures in the wrong half of the run record, so every verdict still printed a plain green HELD and nothing actually changed on screen. Run 224 - a lockbox that HELD on 15 trades at about 7% power - now correctly reads HELD (underpowered) in amber. Caught by opening the real report instead of trusting the boot check.']},
@@ -21030,12 +21031,23 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         // the identical params this leg computes. What NinjaTrader actually trades has to be
         // visible here. (Re-archive freely -- the runner computes both legs nightly either way.)
         {k:'ORB',       label:'ORB-234 · RAW',              color:'#5b8def', nt:'ORB230',
+         crown:true,
+         crownTip:'The standing ORB champion: run #234, crowned 2026-08-17 and confirmed 2026-08-21 when an open re-search over the same settings could not find anything better that survived its lockbox. This leg runs that exact configuration, and so does the NinjaTrader strategy beside it.',
          ntNote:'EdgeLogORB230 went live 2026-08-18 on NQ 5-min -- a real port of run #230 (close-confirmed entry, partial at 3R, trailed runner) running the same params as this leg. Its first fills still owe a reconcile against the engine blotter.'},
         {k:'ORB_H',     label:'ORB-234 · rf HYBRID♻ 45',     color:'#9dc0fb', ctrl:'ORB'},
         // RETIRED 2026-08-21: replaced on the board by the #265 efficiency config below
-        // (owner's call). It is kept, archived, so its 13 trades still draw and still
-        // total -- deleting it would silently rewrite the record it already produced.
+        // (owner's call). It is kept rather than deleted, so nothing about the record it
+        // already produced is rewritten.
+        // CHANGED 2026-08-26: until today its 13 trades kept drawing in the trades table,
+        // the curve, the calendar and the board totals even though LEGS_VIS had dropped its
+        // ROW -- so there was no control anywhere on the page able to switch them off, and
+        // the owner hit exactly that ("i still see ENGU-Q trades populating undernath"). An
+        // archived leg is now archived everywhere and SHOW ARCHIVED brings the row and its
+        // trades back together. Its cross-engine record is the one exception and stays
+        // visible: that is a ledger of checks, not a live board.
         {k:'ENGUQ',     label:'ENGU-Q-226 · RAW',           color:'#c090ff', archived:true,
+         crown:true,
+         crownTip:'The standing ENGU-Q champion is run #226 - this configuration. It was RETIRED from the forward test on 2026-08-21 and replaced by run #265, so the crown of this family is not being paper traded at all. That is why no visible ENGU-Q row wears a crown.',
          chip:'retired 08-21',
          chipTip:'This was the ENGU-Q baseline until 2026-08-21, when run #265 (the efficiency floor) replaced it. It stopped producing trades that day. Its history is kept so the curve and the totals stay honest.'},
         // The CURRENT ENGU-Q baseline. Runs nightly as ENGUQ_ER and is what NinjaTrader's
@@ -21071,9 +21083,11 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         // on a day whose PRIOR session's range percentile (vs the trailing 252 sessions)
         // is 90 or higher. NOISE-225 is its matched control.
         {k:'NOISE_SBS_V90', label:'NOISE-243 · VETO+WILD10', color:'#7fe8a8', ctrl:'NOISE_225',
+         crown:true,
+         crownTip:'The standing NOISE champion: run #243, crowned 2026-08-23 - the NOISE-225 core plus two filters (no short entries after a bottom-fifth close, no entries at all after a wildest-10-percent session). Since 2026-08-26 the NinjaTrader demo runs both of those filters too, so the demo and this leg finally share the same rules.',
          chip:'crowned',
          chipTip:'The crowned NOISE configuration since 2026-08-23: the NOISE-225 settings plus two filters - skip short trades the day after the prior session closed in the bottom fifth of its own range, and skip ALL trades on a day whose prior session was among the wildest 10 percent of the last year. The owner crowned it for the risk profile: about 2 percent less profit than the single filter for about 41 percent less drawdown, a better profit factor and the best ES transfer in the family (run #243, PASS 6/6). NOISE-225 RAW is its matched control, so any difference between the two rows is the filters and nothing else.',
-         ntNote:'Engine-only for now. The NinjaScript port (EdgeLogNOISE) carries both filter knobs, default OFF (short veto since 2026-08-21, volatility skip since 2026-08-23) - NinjaTrader keeps running the baseline-plus-gate config until the knobs are flipped on after an NT restart.'},
+         ntNote:'The two crown filters were switched ON in NinjaTrader on 2026-08-26 at the owner ask, through the bridge - no restart needed, both knobs read back True on the live strategy and the range pre-flight passed. So the NinjaTrader demo now applies the same short veto and the same wildest-10-percent skip this leg does. It is still not an exact twin: NinjaTrader also runs the rf gate on top (see NOISE-231), which this leg does not, so the closest NinjaTrader row remains that one.'},
         // ADDED 2026-08-24 at owner ask: the crowned run #243 config with that run's OWN
         // chosen gate on top (an extra-trees model at the 50 percent floor, hybrid mode).
         // NOISE-243 RAW above is its matched control. FORWARD EVIDENCE ONLY -- the gate
@@ -21097,7 +21111,8 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         // THIS is what NinjaTrader runs: EdgeLogNOISE carries the #225 params and its gate
         // call points at leg=NOISE_H_RF. (It trades MNQ micros at base 3 while the paper leg
         // computes one lot -- proportional, so the curves compare shape for shape.)
-        {k:'NOISE_H_RF',label:'NOISE-231 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE'},
+        {k:'NOISE_H_RF',label:'NOISE-231 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE',
+         ntNote:'EdgeLogNOISE on the demo account, MNQ, base size 3. CHANGED 2026-08-26: the two crown filters (short veto, wildest-10-percent skip) were switched ON there at the owner ask, so NinjaTrader now runs CROWN CONFIG + rf GATE - a combination no leg on this board computes. This row is still the nearest match, because it is the only one carrying the same gate, but from 2026-08-26 the nightly reconcile is comparing two configurations that differ by those two filters. Expect the difference to show on days a filter vetoes.'},
       ];
       // Archived legs stay in PAPER_LEG_DEFS so their colours, labels and history keep
       // resolving -- only the VISIBLE lists below drop them.
@@ -21111,6 +21126,22 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       // nearly invisible on the dark ground. The owner asked for green/red on the money
       // column specifically, so this is one of the few deliberate theme overrides.
       const PNL_POS='#1d9e75', PNL_NEG='#e24b4a';
+      // ── CROWN (owner ask 2026-08-26: "just put a crown icon to the left of whatever is
+      // the champion config"). It marks the leg whose CONFIGURATION is the standing
+      // champion of its family and nothing else -- not "is it doing well", not "is it in
+      // NinjaTrader". DECLARED on the leg definition, never inferred from the label or the
+      // chip: `chip` is a free-text pill that already carries 'crowned', 'retired 08-21',
+      // 'efficiency 0.25', 'limit entry' and 'forward test', so sniffing it would crown the
+      // wrong rows the day one of those is reworded. A family whose crown is not on the
+      // board shows NO crown -- the board never claims a champion it is not running.
+      // FIXED HEX, never var(--yellow): the monochrome theme resolves that to grey.
+      const _legCrown=Object.fromEntries(PAPER_LEG_DEFS.filter(d=>d.crown).map(d=>[d.k,String(d.crownTip||'')]));
+      const _crownIc=k=>(k in _legCrown)
+        ? '<span title="'+_legCrown[k].replace(/"/g,'&quot;')+'" style="color:#e0c341;cursor:help;margin-right:4px;font-size:10px;line-height:1">\uD83D\uDC51</span>'
+        : '';
+      // A dash that says WHY, the same convention the rest of the board uses. Never a
+      // fabricated zero: a leg with no trades has no profit factor, not a profit factor of 0.
+      const _dashR=why=>'<span title="'+String(why).replace(/"/g,'&quot;')+'" style="color:var(--text5);cursor:help">\u2014</span>';
       const _legLabel=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,d.label]));
       // ── LEG FILTER (owner ask 2026-08-13) — same idea as the report's CLASSIC/NEO rail:
       // one control that narrows the WHOLE board to a single strategy. With three legs
@@ -21167,7 +21198,19 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       // A leg is shown when it is neither switched off by hand NOR filtered out by the
       // family / kind / baseline controls. One predicate, so the table, the curve, the
       // calendar and the trades table can never disagree about what is on screen.
-      const _legShown=k=>!_legOff.includes(k)&&_passFilter(k);
+      // ARCHIVED LEGS WERE GHOSTS WITHOUT THE LAST CLAUSE (owner 2026-08-26: "when selecting
+      // the noise family group to asses trades, i still see ENGU-Q trades populating
+      // undernath"). LEGS_VIS drops an archived leg from the STRATEGY table, so there is no
+      // row left to click -- but its trades still passed this predicate, so ENGU-Q-226
+      // (archived 2026-08-21) kept putting 13 rows into the trades table, the cumulative
+      // curve, the calendar and the board totals with NO WAY AT ALL to switch them off. The
+      // owner had switched off every leg the table offered and was still looking at ENGU-Q.
+      // Trades follow the table now: archived means archived everywhere, and SHOW ARCHIVED
+      // brings the row and its trades back together.
+      const _isArchivedLeg=k=>{const d=PAPER_LEG_DEFS.find(x=>x.k===k);return !!(d&&d.archived);};
+      const _legShown=k=>!_legOff.includes(k)&&_passFilter(k)&&(_showArch||!_isArchivedLeg(k));
+      // What the archive is holding back right now, so nothing disappears silently.
+      const _nArchTrades=_showArch?0:_pt.filter(t=>_isArchivedLeg(legOf(t))).length;
       const _nShown=LEGS_VIS.filter(d=>_legShown(d.k)).length;
       const ORB_LA_TIP='The ORB engine\'s volume filter is look-ahead (see PAPER_TRADING.md) — these shadow numbers are NOT live-achievable. The live candidate is ORB V2 on NinjaTrader.';
       // BLEND is the owner's fixed ORB+ENGUQ baseline — NOISE never joins it, even though it shares the same trade collection.
@@ -21326,6 +21369,93 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         :'<span style="color:'+(n>14?'var(--yellow)':'var(--text5)')+'">'+(n===0?'today':n+'d ago')+'</span>';};
       const _pill=(txt,col)=>'<span style="font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'+txt+'</span>';
 
+      // ── PROFIT FACTOR, EV AND DOLLARS PER DAY (owner ask 2026-08-26) ─────────────
+      // TWO DIFFERENT BASES, and every hover says which it is on.
+      //   PF and EV describe the TRADE POPULATION, so they read every trade the leg has -
+      //   forward-observed and backfilled together - the same basis as the NET column they
+      //   sit beside.
+      //   $/DAY is the only new figure that is a RATE OVER CALENDAR TIME, so it reads
+      //   FORWARD ONLY. A backfilled trade never happened on a day anyone lived through,
+      //   and the obvious shortcut - all-time money over days-that-had-a-trade - FLIPS THE
+      //   SIGN on every NOISE row: NOISE-231 would read +$2,215 a day out of a leg that has
+      //   lost $4,005 in every forward trade it has ever taken. That is precisely the
+      //   misreading the FORWARD / BACKFILLED split was built to kill.
+      // Calendar days, weekends counted - the same convention as the run report's $ / DAY
+      // and the engine's pnl_per_day, so one number does not mean two things in one app.
+      const _lastSessionET=(()=>{const ids=_pr.map(r=>r&&(r.date||r.id)).filter(Boolean)
+          .filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+        return ids.length?ids[ids.length-1]:_todayET;})();
+      const _daySpan=(a,b)=>{if(!a||!b)return null;
+        const d=Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5);
+        return isFinite(d)?d:null;};
+      const legStats=(name,scope)=>{
+        const a=legAgg(name,scope), sp=legSplit(name);
+        let rows=legRows(name);
+        if(scope==='TODAY')rows=rows.filter(t=>(t.run_date||_dOnly(t.exitTime||t.entryTime))===_todayET);
+        let gw=0,gl=0,fw=0,fl=0;
+        rows.forEach(t=>{const p=+t.pnl_usd||0;
+          if(p>0)gw+=p;else if(p<0)gl+=-p;
+          if(!_isBackfill(t)){if(p>0)fw+=p;else if(p<0)fl+=-p;}});
+        // A leg with no losers has NO profit factor - it is undefined, not infinite money.
+        // A leg with no winners has a real PF of 0, which is a fact worth printing.
+        const pf=rows.length?(gl>0?gw/gl:(gw>0?Infinity:0)):null;
+        const pfFw=(sp.nFw)?(fl>0?fw/fl:(fw>0?Infinity:0)):null;
+        const ev=a.n?a.net/a.n:null;
+        const from=(sp.liveFrom&&sp.liveFrom>PAPER_START)?sp.liveFrom:PAPER_START;
+        const D=sp.liveFrom?_daySpan(from,_lastSessionET):null;
+        // A leg added today has genuinely observed ZERO sessions, so it dashes rather than
+        // claiming a one-day rate. Zero forward dollars over real days IS a rate, and prints.
+        const perDay=(scope==='TODAY'||name==='BLEND')?null:((D!=null&&D>=1)?(sp.netFw/D):null);
+        return {a:a,sp:sp,pf:pf,pfFw:pfFw,ev:ev,perDay:perDay,dFrom:from,dDays:D};
+      };
+      const _fmtPf=v=>(v==null)?null:(v===Infinity?'\u221e':v.toFixed(2));
+      // ── COLUMN SET (owner: "make default few just PF and NET and then expand column to
+      // show more - need to clean up the page"). ONE descriptor array drives the header,
+      // the alignment, the hover, the sort key and what COMPACT keeps. The header used to
+      // derive its alignment from the column INDEX, so adding a column here would have
+      // silently right-aligned the wrong cell.
+      // COMPACT deliberately keeps FORWARD and TRADES alongside NET and PF. Dropping them
+      // would show "+$6,646, PF 2.10" on a leg whose every forward-observed dollar was a
+      // loss, and would print a ratio with no sample size beside it - the 1E matrix carries
+      // a TRADES row for exactly that reason. Nothing is lost either way: every hidden
+      // figure is still on the row's own hovers.
+      const PCOLMODE=(APREF.paperCols==='all')?'all':'key';
+      const PLEG_COLS=[
+        {k:'dot',   h:'',            al:'left',  keep:true,  w:'width:1%',
+         tip:'Is this configuration running in NinjaTrader right now - LIVE, OFF, or ENGINE for a leg that is computed here only.'},
+        {k:'leg',   h:'STRATEGY',    al:'left',  keep:true,  sort:true,
+         tip:'The strategy and the exact overlay it runs. A crown means this configuration is the standing champion of its family.'},
+        {k:'net',   h:'NET',         al:'right', keep:true,  sort:true,
+         tip:'Every trade this leg has, forward-observed and backfilled together. The headline number.'},
+        {k:'fwd',   h:'FORWARD',     al:'right', keep:true,  sort:true,
+         tip:'Trades that happened while this leg was ON the board - genuinely observed forward, nobody knew the outcome. This is the only column that is evidence.'},
+        {k:'bf',    h:'BACKFILLED',  al:'right', keep:false, sort:true,
+         tip:'Trades produced by re-running this config over history AFTER it joined the board. A backtest, not evidence.'},
+        {k:'pf',    h:'PF',          al:'right', keep:true,  sort:true,
+         tip:'Profit factor - gross winning dollars divided by gross losing dollars, across every trade the leg has. Above 1 makes money, below 1 loses it. An infinity sign means it has not lost yet, so the number does not exist.'},
+        {k:'ev',    h:'EV',          al:'right', keep:false, sort:true,
+         tip:'Expected value - average net dollars per trade, net divided by the trade count. The same figure the run report 1E matrix calls EV.'},
+        {k:'perday',h:'$/DAY',       al:'right', keep:false, sort:true,
+         tip:'Forward dollars per CALENDAR day since this configuration joined the board, weekends counted. Backfilled trades are excluded - they never happened on a day anyone lived through.'},
+        {k:'n',     h:'TRADES',      al:'right', keep:true,  sort:true,
+         tip:'How many trades are behind the PF, EV and WIN figures. A profit factor on seven trades is not a profit factor on seven hundred.'},
+        {k:'win',   h:'WIN',         al:'right', keep:false, sort:true,
+         tip:'Share of this leg trades that made money.'},
+        {k:'days',  h:'DAYS',        al:'right', keep:false, sort:true,
+         tip:'How many distinct days this leg actually took a trade on. Not days live - quiet days are not counted here.'},
+        {k:'last',  h:'LAST',        al:'right', keep:false, sort:true,
+         tip:'The date of this leg most recent trade.'},
+        {k:'xeng',  h:'CROSS-ENGINE',al:'left',  keep:false,
+         tip:'How this leg has checked out against NinjaTrader and TradingView.'},
+      ];
+      const PCOLS_ON=PLEG_COLS.filter(c=>PCOLMODE==='all'||c.keep);
+      // Sort state for THIS table, separate from the trades table below it. Not persisted,
+      // same reasoning as the trades sort: it is a lens you look through, not a setting.
+      // The default is 'board' - PAPER_LEG_DEFS order deliberately puts every gated leg
+      // next to the control it must be read against, and sorting by money scatters those
+      // pairs. Ranking by NET has to be something you ask for.
+      const _lsCol=(window._legSortCol&&PLEG_COLS.some(c=>c.k===window._legSortCol&&c.sort))?window._legSortCol:'board';
+      const _lsDir=(window._legSortDir==='asc')?'asc':'desc';
       const legTile=(name,label,color)=>{
         const a=legAgg(name,PSCOPE);        // TODAY tab now really means today
         // No warning badge here any more: every warning these legs produce is about the
@@ -21508,24 +21638,59 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           :('<span title="Produced by re-running this config over history. It was not on the board when they happened, so these are a BACKTEST, not forward-observed evidence." style="color:var(--yellow);cursor:help">'
             +_sp.nBf+' '+fmtUsd(_sp.netBf)+'</span>');
         const _detail=(gateBlock||'')+(cfgBlock||'');
+        // ONE CELL PER COLUMN DESCRIPTOR. The row used to be a hand-ordered chain of
+        // _td() calls, which meant the COMPACT / ALL switch and the sortable headers would
+        // each have needed their own copy of the ordering to stay in step. Now the header,
+        // the sort and the row all read PCOLS_ON, so they cannot disagree.
+        const _S=legStats(name,PSCOPE);
+        const _pfTxt=_fmtPf(_S.pf), _pfFwTxt=_fmtPf(_S.pfFw);
+        // Hover text hoisted OUT of the cell concatenation on purpose: built inline, the
+        // .replace() that escapes quotes inside the tip also ate the quote that opens the
+        // title attribute itself.
+        const _pfTip=(_S.pf==null)?''
+          :(_S.pf===Infinity)
+            ?('No losing trade yet, so profit factor does not exist - it is not a very large number, it is undefined. '+a.n+' trade'+(a.n===1?'':'s')+', none of them a loss.')
+          :(_S.pf===0)
+            ?('No winning trade yet - all '+a.n+' of this leg\u2019s trades lost, so gross winnings are zero.')
+            :('Gross winning dollars divided by gross losing dollars, across all '+a.n+' trade'+(a.n===1?'':'s')+' - forward-observed and backfilled together, the same basis as NET beside it. Above 1 makes money, below 1 loses it.'
+               +(_pfFwTxt!=null?(' Forward-observed trades only: '+_pfFwTxt+'.'):' It has no forward-observed trades yet.'));
+        const _num=(v,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="cursor:help;color:'
+          +((v>=0)?PNL_POS:PNL_NEG)+'">'+fmtUsd(v)+'</span>';
+        const _cells={
+          dot:_td(dotHtml||'<span style="color:var(--text5)">—</span>','left','width:1%'),
+          leg:_td(_crownIc(name)+'<span style="font-weight:700;letter-spacing:.5px;color:'+color+'">'+label+'</span>'
+               +(dim?' <span style="font-size:8px;color:var(--text5)">excluded</span>':'')+wBadge+orbBadge+noteBadge,'left'),
+          net:_td(a.n
+               ?('<b style="font-size:11px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</b>')
+               :_dashR('No trades on the board for this leg at all - so there is no money to total. This is not zero dollars made; it is nothing to add up.')),
+          fwd:_td(_fwd),
+          bf:_td(_bf),
+          pf:_td(_pfTxt==null
+               ?_dashR('Profit factor is gross winning dollars divided by gross losing dollars, and this leg has taken no trades to divide.')
+               :('<span title="'+_pfTip.replace(/"/g,'&quot;')+'" style="cursor:help;color:'
+                 +((_S.pf===Infinity||_S.pf>=1)?PNL_POS:PNL_NEG)+'">'+_pfTxt+'</span>')),
+          ev:_td(_S.ev==null
+               ?_dashR('EV is net dollars divided by the trade count, and this leg has no trades to divide by.')
+               :_num(_S.ev,'EV - expected value, the average net dollars this leg makes per trade. Net divided by '+a.n+' trade'+(a.n===1?'':'s')+', forward and backfilled together. The same figure the run report 1E matrix calls EV.'
+                 +(_S.sp.nFw?(' Forward-observed trades only: '+fmtUsd(_S.sp.netFw/_S.sp.nFw)+' over '+_S.sp.nFw+'.'):''))),
+          perday:_td(_S.perDay==null
+               ?_dashR(PSCOPE==='TODAY'
+                  ?'TODAY is a single session, so its dollars-per-day IS the NET column. Switch to ALL TIME.'
+                  :'This leg has not recorded the day its configuration joined the board, so there is no calendar to measure a rate over.')
+               :_num(_S.perDay,'Forward dollars per CALENDAR day: the '+_S.sp.nFw+' trade'+(_S.sp.nFw===1?'':'s')+' observed since this configuration joined the board on '+_S.dFrom+', divided by the '+_S.dDays+' calendar day'+(_S.dDays===1?'':'s')+' from then to the last completed session ('+_lastSessionET+'). Weekends are counted, exactly like every other dollars-per-day figure in this app. The '+_S.sp.nBf+' BACKFILLED trade'+(_S.sp.nBf===1?'':'s')+' are excluded - a backtest has no calendar to spread over. With this few trades, read it as a direction and not a forecast.')),
+          n:_td(a.n),
+          win:_td(a.n?Math.round(a.wr*100)+'%':_dashR('No trades, so there is no win rate.')),
+          days:_td(a.n?(a.days+'d'):_dashR('No trades, so no trading days.')),
+          last:_td(a.lastT?_dOnly(a.lastT):_dashR('No trades, so there is no last one.')),
+          xeng:_td(xHtml||'<span style="color:var(--text5)">—</span>','left')
+        };
         const _mainRow='<tr data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
           +'" style="cursor:pointer;opacity:'+(dim?0.4:1)+';transition:opacity .12s">'
-          // Owner's column order 2026-08-26: live dot, name, then the three money columns.
-          +_td(dotHtml||'<span style="color:var(--text5)">—</span>','left','width:1%')
-          +_td('<span style="font-weight:700;letter-spacing:.5px;color:'+color+'">'+label+'</span>'
-               +(dim?' <span style="font-size:8px;color:var(--text5)">excluded</span>':'')+wBadge+orbBadge+noteBadge,'left')
-          +_td('<b style="font-size:11px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</b>')
-          +_td(_fwd)
-          +_td(_bf)
-          +_td(a.n)
-          +_td(a.n?Math.round(a.wr*100)+'%':'—')
-          +_td(a.days+'d')
-          +_td(a.lastT?_dOnly(a.lastT):'—')
-          +_td(xHtml||'<span style="color:var(--text5)">—</span>','left')
+          +PCOLS_ON.map(c=>_cells[c.k]||_td('')).join('')
           +'</tr>';
         // Detail row: only when asked for, and only when there is something to say.
         const _detailRow=(_cfgOn&&_detail)
-          ? '<tr style="opacity:'+(dim?0.4:1)+'"><td colspan="10" style="padding:0 7px 5px 7px;border-bottom:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.55">'
+          ? '<tr style="opacity:'+(dim?0.4:1)+'"><td colspan="'+PCOLS_ON.length+'" style="padding:0 7px 5px 7px;border-bottom:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.55">'
             +_detail+'</td></tr>'
           : '';
         return _mainRow+_detailRow;
@@ -21537,6 +21702,40 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       // ALL FOUR always render -- they are the chart legend, so filtering them away would
       // remove the only way to click back to another leg. Selection shows as emphasis, not
       // as absence.
+      // ── ROW ORDER (owner: "bake columns sortable") ────────────────────────────────
+      // NULLS SIT LAST IN BOTH DIRECTIONS. The board\u2019s standing rule is that a row with no
+      // figure for the reading you asked for goes to the bottom rather than being handed a
+      // place it did not earn - sorting a dashed profit factor as minus-infinity would float
+      // it to the top of an ascending sort and read as "worst of all", which it is not.
+      // Ties keep board order, so a gated leg never drifts away from its control by accident.
+      const _LSORTS={
+        leg:k=>String(_legLabel[k]||k),
+        net:k=>legAgg(k,PSCOPE).net,
+        fwd:k=>legSplit(k).netFw,
+        bf:k=>legSplit(k).netBf,
+        pf:k=>{const v=legStats(k,PSCOPE).pf;return v===Infinity?Number.MAX_VALUE:v;},
+        ev:k=>legStats(k,PSCOPE).ev,
+        perday:k=>legStats(k,PSCOPE).perDay,
+        n:k=>legAgg(k,PSCOPE).n,
+        win:k=>{const a=legAgg(k,PSCOPE);return a.n?a.wr:null;},
+        days:k=>{const a=legAgg(k,PSCOPE);return a.n?a.days:null;},
+        last:k=>legAgg(k,PSCOPE).lastT||null
+      };
+      const _legOrder=(()=>{
+        const f=_LSORTS[_lsCol];
+        if(!f)return _tileDefs;                       // 'board' = the definition order
+        const nul=v=>v==null||(typeof v==='number'&&!isFinite(v));
+        return _tileDefs.map((d,i)=>({d:d,i:i,v:f(d[0])})).sort((x,y)=>{
+          const xn=nul(x.v), yn=nul(y.v);
+          if(xn&&yn)return x.i-y.i;
+          if(xn)return 1;
+          if(yn)return -1;
+          let c=(typeof x.v==='string'||typeof y.v==='string')
+            ?String(x.v).localeCompare(String(y.v)):(x.v-y.v);
+          if(!c)return x.i-y.i;
+          return _lsDir==='asc'?c:-c;
+        }).map(o=>o.d);
+      })();
       const legStrip='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="lbl" style="font-size:10px;color:var(--text3)">LEGS</div>'
         +'<span style="display:flex;gap:5px">'+_psScopeTab('TODAY','TODAY')+_psScopeTab('ALL','ALL TIME')+'</span>'
         // TODAY now names the DATE it means. It silently showed all-time numbers until
@@ -21553,7 +21752,8 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           +LEGS_VIS.length+' legs</span>'):'')
         +'<span style="font-size:8px;color:var(--text5);margin-left:auto">click a leg to include / exclude it &middot; dot = live in NinjaTrader</span>'
         +(_nArch?('<span data-patharch style="cursor:pointer;user-select:none;margin-left:10px;font-size:8px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'
-          +(_showArch?'hide archived':'show archived ('+_nArch+')')+'</span>'):'')
+          +(_showArch?'hide archived':'show archived ('+_nArch+' leg'+(_nArch===1?'':'s')
+            +(_nArchTrades?(' · '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+')')+'</span>'):'')
         +'</div>'
         // FAMILY / KIND / BASELINE rail - same tinted-tray language as the leg rail and
         // the report's CLASSIC/NEO control, so every segmented control on the page matches.
@@ -21572,6 +21772,12 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                  +seg('pkind','ML',PKIND,'ML','only the ML overlays (hybrid gates and size tilts)'))
             +'<span data-pbase style="cursor:pointer;user-select:none;font-size:8px;font-weight:700;letter-spacing:.6px;padding:3px 9px;border-radius:999px;border:1px solid '
               +(PBASE?'var(--blue);color:var(--blue)':'var(--border);color:var(--text5)')+'">BASELINES ONLY</span>'
+            // COLUMNS is a pick-a-MODE control, so it is a segmented tray like the two
+            // beside it rather than a pill - pills on this page show and hide extra content.
+            // Same language as the STUDIES board\u2019s own COLUMNS: KEY / ALL.
+            +tray('<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;margin:0 3px 0 5px">COLUMNS</span>'
+                 +seg('papercols','key',PCOLMODE,'KEY','The columns you scan: what the leg made, the forward-observed half of that, its profit factor, and the trade count behind the ratio. Nothing is lost - every hidden figure is still on the row hovers.')
+                 +seg('papercols','all',PCOLMODE,'ALL','Every column: the backfill split, EV, dollars per calendar day, win rate, trading days, last trade and the cross-engine check.'))
             +(_nFiltered?('<span style="font-size:8px;color:var(--text5)">'+_nFiltered+' hidden by these filters</span>'):'')
             +'</div>';
         })()
@@ -21580,15 +21786,34 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         // three times the height for the same amount of information.
         +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:9px">'
         +'<thead><tr style="color:var(--text4);font-size:8px;letter-spacing:.8px;text-transform:uppercase">'
-          +['','STRATEGY','NET','FORWARD','BACKFILLED','TRADES','WIN','DAYS','LAST','CROSS-ENGINE']
-            .map((h,i)=>'<th title="'+({NET:'Every trade this leg has, forward-observed and backfilled together. The headline number.',
-                FORWARD:'Trades that happened while this leg was ON the board - genuinely observed forward, nobody knew the outcome.',
-                BACKFILLED:'Trades produced by re-running this config over history AFTER it joined the board. A backtest, not evidence.'}[h]||'').replace(/"/g,'&quot;')
-              +'" style="padding:2px 7px;text-align:'+(i<=1||i>8?'left':'right')
-              +';border-bottom:1px solid var(--border);font-weight:700;'+(h?'cursor:help':'')+'">'+h+'</th>').join('')
+          +PCOLS_ON.map(c=>{
+            const on=!!c.sort&&_lsCol===c.k;
+            const arrow=c.sort?('<span style="margin-left:3px;color:'+(on?'var(--blue)':'var(--text5)')
+              +';opacity:'+(on?'1':'.45')+'">'+(on?(_lsDir==='asc'?'\u25b2':'\u25bc'):'\u25be')+'</span>'):'';
+            const tip=(c.tip||'')+(c.sort?(' \u00b7 Click to sort by this column'
+              +(on?(_lsDir==='asc'?' (showing lowest first - click to flip)':' (showing highest first - click to flip)'):'')):'');
+            return '<th'+(c.sort?(' data-lsort="'+c.k+'"'):'')
+              +' title="'+String(tip).replace(/"/g,'&quot;')
+              +'" style="padding:2px 7px;text-align:'+c.al
+              +';border-bottom:1px solid var(--border);font-weight:700;'
+              +(c.sort?'cursor:pointer;user-select:none':(c.tip?'cursor:help':''))+'">'+c.h+arrow+'</th>';}).join('')
         +'</tr></thead><tbody>'
-        +_tileDefs.map(d=>legTile(d[0],d[1],d[2])).join('')
-        +'</tbody></table></div>';
+        +_legOrder.map(d=>legTile(d[0],d[1],d[2])).join('')
+        +'</tbody></table></div>'
+        // The board never hides a figure without saying where it went.
+        +(PCOLMODE==='key'?('<div style="font-size:8px;color:var(--text5);margin-top:3px">'
+          +(PLEG_COLS.length-PCOLS_ON.length)+' more columns \u2014 backfill split, EV, $ per day, win rate, days, last trade, cross-engine \u2014 are on COLUMNS \u203a ALL. Every one of them is also on this row\u2019s hovers.</div>'):'')
+        // A crown marks the leg whose configuration is its family\u2019s standing champion.
+        // When a family\u2019s crown is NOT among the legs on screen, that silence would read
+        // as "this family has no champion", so the board says so out loud instead.
+        +(()=>{const shown=new Set(_legOrder.map(d=>d[0]));
+          const missing=PAPER_LEG_DEFS.filter(d=>d.crown&&!shown.has(d.k));
+          if(!missing.length)return '';
+          return '<div style="font-size:8px;color:var(--text5);margin-top:3px">\uD83D\uDC51 marks the standing champion of its family. '
+            +missing.map(d=>'<span title="'+String(d.crownTip||'').replace(/"/g,'&quot;')+'" style="cursor:help;border-bottom:1px dotted var(--text5)">'
+              +d.label+'</span>').join(', ')
+            +(missing.length===1?' is a crown that is NOT on this board':' are crowns that are NOT on this board')
+            +' \u2014 so no row above wears it.</div>';})();
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
       const _allDates=[...new Set(_pt.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean))].sort();
@@ -21820,23 +22045,37 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       // WEAKER claim than a live fill and kept in its own map so it can never overwrite
       // one: a demo fill is NinjaTrader actually trading, a backtest match is
       // NinjaTrader agreeing the signal existed. The live reconcile always wins.
-      const _ntBt=((window._ntBtMatch||{}).rows)||{};
-      const _ntSeen={};
+      // AGREEMENT IS A PER-LEG FACT (owner 2026-08-26: "why are so many of noise trades
+      // cmonig up with red NT marks, i thought we had those matching").
+      // Until this change all three maps below were keyed on the ENTRY TIME ALONE and the
+      // leg was thrown away -- even though the reconcile stores a block PER LEG and the
+      // backtest dump stamps every row with the leg it came from. Five NOISE legs take the
+      // same trade at the same second, so whichever leg was written last had its verdict
+      // painted onto all five: one leg's live fill showed as a green tick on four legs
+      // NinjaTrader has never run, and one leg's backtest miss showed as a cross on the
+      // other four. Everything is keyed leg|entry now, so a mark only describes its own row.
+      const _ntKey=(leg,iso)=>String(leg||'').toUpperCase()+'|'+String(iso||'');
+      // Which legs NinjaTrader ACTUALLY runs -- the `nt` field on the leg definition. A leg
+      // without one is engine-only BY DESIGN (a matched control, or an ML overlay that only
+      // ever ran here), so the nightly reconcile listing it as "engine-only" is not a miss:
+      // NinjaTrader was never going to take it. Painting that red read as NinjaTrader
+      // refusing the crowned trade when nothing of the sort had happened.
+      const _ntRuns=k=>!!(PAPER_LEG_DEFS.find(d=>d.k===k)||{}).nt;
+      const _ntBt={};      // leg|entryIso -> the NT BACKTEST row (a weaker claim than a fill)
+      {const _btRows=((window._ntBtMatch||{}).rows)||{};
+       Object.keys(_btRows).forEach(iso=>{const row=_btRows[iso]||{};
+         if(row.leg)_ntBt[_ntKey(row.leg,iso)]=row;});}
+      const _ntSeen={};    // leg|entryIso -> true = filled, false = engine-only  (NT legs only)
+      const _ntMatch={};   // leg|entryIso -> the reconcile's matched record (slip + live delta)
       _pr.forEach(r=>{
         const legs=(r&&r.reconcile&&r.reconcile.legs)?r.reconcile.legs:null;
         if(!legs)return;
         Object.keys(legs).forEach(k=>{
+          if(!_ntRuns(k))return;   // engine-only leg: the reconcile has nothing to claim here
           const L=legs[k]||{};
-          (L.matched||[]).forEach(m=>{if(m&&m.shadow_entry)_ntSeen[m.shadow_entry]=true;});
-          (L.shadow_only||[]).forEach(s=>{if(s&&s.entry)_ntSeen[s.entry]=false;});
-        });
-      });
-      const _ntMatch={};   // entryIso -> the reconcile's matched record (slip + live delta)
-      _pr.forEach(r=>{
-        const legs=(r&&r.reconcile&&r.reconcile.legs)?r.reconcile.legs:null;
-        if(!legs)return;
-        Object.keys(legs).forEach(k=>{
-          (legs[k].matched||[]).forEach(m=>{if(m&&m.shadow_entry)_ntMatch[m.shadow_entry]=m;});
+          (L.matched||[]).forEach(m=>{if(m&&m.shadow_entry){
+            _ntSeen[_ntKey(k,m.shadow_entry)]=true;_ntMatch[_ntKey(k,m.shadow_entry)]=m;}});
+          (L.shadow_only||[]).forEach(x=>{if(x&&x.entry)_ntSeen[_ntKey(k,x.entry)]=false;});
         });
       });
       // Running cumulative, computed over the CURRENTLY SORTED+FILTERED rows in
@@ -21865,12 +22104,18 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         if(t==='-1'||t==='short'||t==='sell')return 'short';
         return null;
       };
-      const _engChip=(lbl,col,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="cursor:help;font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;border:1px solid '+col+';color:'+col+'">'+lbl+'</span>';
+      const _engChip=(lbl,col,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'" style="cursor:help;display:inline-block;font-size:8px;font-weight:700;letter-spacing:.5px;line-height:1.4;padding:0 4px;border-radius:4px;border:1px solid '+col+';color:'+col+'">'+lbl+'</span>';
       const _engineCell=t=>{
-        const iso=t.entryIso||null;
-        const known=iso!=null&&Object.prototype.hasOwnProperty.call(_ntSeen,iso);
-        const nt=known?_ntSeen[iso]:null;
-        const bt=(!known&&iso!=null)?_ntBt[iso]:null;   // only consulted when no live fill answer
+        const iso=t.entryIso||null, _lg=legOf(t), _k=_ntKey(_lg,iso);
+        const runs=_ntRuns(_lg);
+        const known=iso!=null&&Object.prototype.hasOwnProperty.call(_ntSeen,_k);
+        const nt=known?_ntSeen[_k]:null;
+        const bt=(!known&&iso!=null)?_ntBt[_k]:null;   // only consulted when no live fill answer
+        // For an engine-only leg, name the sibling NinjaTrader trades instead -- the same
+        // sentence the STRATEGY table's grey ENGINE dot already gives, so the two agree.
+        const _sib=runs?null:(()=>{const fam=x=>x.ctrl||x.k;
+          const me=PAPER_LEG_DEFS.find(d=>d.k===_lg)||{k:_lg};
+          return PAPER_LEG_DEFS.find(d=>d.nt&&d.k!==_lg&&fam(d)===fam(me));})();
         // GLYPH FIRST, colour second. On the monochrome theme var(--green)/var(--red)
         // both resolve to greys -- one of them near-invisible on the dark ground (the same
         // legibility complaint the owner raised about the bridge status dot) -- so the
@@ -21888,8 +22133,12 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                     +(bt.drift_min!=null?(', '+bt.drift_min+' min after the engine'):'')
                     +'. That is the same config over the same history, not a live fill: the engine enters at the signal close and NinjaTrader on the next bar open, so one bar of drift is expected.')
                 :(bt&&bt.matched===false)?_engChip('NT ✗','#e0a33a',
-                    'NinjaTrader\u2019s backtest covered this date and did NOT produce this trade. Not a live-fill miss - a genuine disagreement between the two engines about whether the signal existed.')
-                :_engChip('NT ?','#8a8a8a','Nothing has checked this trade against NinjaTrader: no reconcile block covers the date, and no backtest dump spans it.'))
+                    'NinjaTrader\u2019s backtest OF THIS LEG covered this date and did NOT produce this trade. Not a live-fill miss - a genuine disagreement between the two engines about whether the signal existed.')
+                :!runs?_engChip('NT n/a','#8a8a8a',
+                    'NinjaTrader does not run this configuration, so there is nothing here for it to agree or disagree with - this leg is engine-only by design.'
+                    +(_sib?(' NinjaTrader trades '+(_legLabel[_sib.k]||_sib.k)+' instead.'):'')
+                    +' Until 2026-08-26 this showed a red cross, which read as NinjaTrader refusing the trade.')
+                :_engChip('NT ?','#8a8a8a','Nothing has checked this trade against NinjaTrader: no reconcile block covers this date for this leg, and no backtest dump spans it.'))
           +' '+_engChip('TV –','#8a8a8a','TradingView has no API to poll - it is only ever checked by hand, in bulk. See CROSS-ENGINE, ALL TIME.')
           +'</td>';
       };
@@ -21907,7 +22156,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           _pb:Object.assign({instrument:'NQ'},_legMkt(leg),
                {include_fresh:true,cost_pts:0.533})});
         const _chartCell=_etk
-          ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
+          ? '<td><span data-ptchart="'+_ci+'" title="open this trade session candles" style="cursor:pointer;display:inline-block;font-size:8px;font-weight:700;letter-spacing:.5px;line-height:1.4;padding:0 6px;border-radius:5px;border:1px solid var(--border);color:var(--text4)">CHART</span></td>'
           : '<td><span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span></td>';
         // data-ptrow makes the row a selection target (click, shift-click, or drag across
         // several). The id is the SAME _no the candle rows carry, so a selection hands
@@ -21922,7 +22171,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           +'<td style="text-align:right">'+(t.exit_px!=null?(+t.exit_px).toFixed(2):'—')+'</td>'
           +'<td style="text-align:right">'+_durTxt(t)+'</td>'
           +'<td style="text-align:right">'+(t.pnl_pts!=null?(+t.pnl_pts).toFixed(2):'—')+'</td>'
-          +(()=>{const m=t.entryIso?_ntMatch[t.entryIso]:null;
+          +(()=>{const m=t.entryIso?_ntMatch[_ntKey(leg,t.entryIso)]:null;
             if(!m)return '<td style="text-align:right;color:var(--text5)" title="no matched NinjaTrader fill for this trade, so there is nothing to compare">—</td>'
                         +'<td style="text-align:right;color:var(--text5)">—</td>';
             const sl=(m.entry_slip_pts!=null)?+m.entry_slip_pts:null;
@@ -21942,8 +22191,21 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         +'<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
       const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px;display:flex;align-items:center">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">&middot; showing 200 of '+_tSorted.length+'</span>':'')+_ptSelBar+'</div>'
-        +'<style>#ptrades-body tr{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}</style>'
-        +(_tSorted.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th title="Which engines produced this trade. EL = the EDGELOG engine, true of every row here by definition. NT = NinjaTrader: a tick means it FILLED the trade on the demo account, a wave means its own backtest produced the same trade, a cross means it did not, a question mark means nothing has checked. TV = TradingView, which has no API to poll.">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
+        // COMPACT ROWS (owner 2026-08-26: "make the attached table smaller (vertically)").
+        // The app-wide td/th padding is shared by every table in the app, so this is SCOPED
+        // to #ptrades-wrap - tightening the global rule would have shrunk the run blotter,
+        // the library list and the trading log along with it. Vertical padding 6px -> 2px,
+        // type 11px -> 9.5px, and the three ENGINES chips and the CHART pill lose the
+        // padding that was making them, not the text, set the row height. Rows stay a
+        // comfortable click and drag target, and the selection bar down the left is
+        // untouched. Nothing is dropped - every column is still there.
+        +'<style>#ptrades-body tr{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}'
+          +'#ptrades-wrap table{font-size:9.5px}'
+          +'#ptrades-wrap th{padding:3px 7px;letter-spacing:1px}'
+          +'#ptrades-wrap td{padding:2px 7px;line-height:1.35}'
+          +'#ptrades-wrap td>span{line-height:1.25}'
+          +'</style>'
+        +(_tSorted.length?'<div id="ptrades-wrap" style="overflow-x:auto"><table class="table"><thead><tr><th title="Which engines produced this trade. EL = the EDGELOG engine, true of every row here by definition. NT = NinjaTrader, and every mark is about THIS leg only: a green tick means NinjaTrader FILLED it on the demo account, a red cross means NinjaTrader runs this leg and did not take it, a blue wave means NinjaTrader own backtest of this leg produced the same trade, an amber cross means that backtest covered the date and disagreed, n/a means NinjaTrader does not run this configuration at all, and a question mark means nothing has checked it yet. TV = TradingView, which has no API to poll.">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
         +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
         +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
         +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th><th>CHART</th></tr></thead><tbody id="ptrades-body">'+_tRows+'</tbody></table></div>'
@@ -22294,7 +22556,13 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             +'<tbody>'+(rows||'<tr><td colspan="9" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'+unNote+probs;
         }
         // ---- HISTORY: full-backtest cross-engine, manual ----
-        const xrows=XENGINE.filter(x=>_legShown(x.leg)).map(x=>{
+        // AN ARCHIVED LEG KEEPS ITS CROSS-ENGINE RECORD. This is a ledger of checks that
+        // were actually run, not a live board, and ENGU-Q-226 carries the most recent
+        // NinjaTrader-versus-engine finding on the page (2026-08-25, four days after that
+        // leg was retired). Hiding it with the leg would quietly delete current evidence,
+        // so the archived clause is dropped here and the row says it is a retired leg
+        // instead. Everything else on the board still follows _legShown exactly.
+        const xrows=XENGINE.filter(x=>!_legOff.includes(x.leg)&&_passFilter(x.leg)).map(x=>{
           const never=x.verdict==='NEVER RUN';
           return '<tr>'
             +'<td><span style="color:'+(_legColor[x.leg]||'var(--text2)')+';font-weight:600">'+(_legLabel[x.leg]||x.leg)+'</span></td>'
@@ -23661,6 +23929,17 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         window._paperFam=el.getAttribute('data-pfam');savePref('paperFam',window._paperFam);renderApp();};});
       content.querySelectorAll('[data-pkind]').forEach(el=>{el.onclick=()=>{
         window._paperKind=el.getAttribute('data-pkind');savePref('paperKind',window._paperKind);renderApp();};});
+      // How many columns the LEGS table shows. A standing choice, so it is saved like the
+      // filters beside it (the STUDIES board saves its own COLUMNS pick the same way).
+      content.querySelectorAll('[data-papercols]').forEach(el=>{el.onclick=()=>{
+        savePref('paperCols',el.getAttribute('data-papercols'));renderApp();};});
+      // LEGS table sort. Same mechanism as the trades table below, its own state, and
+      // deliberately NOT saved - re-ordering the strategy list is a lens you look through.
+      content.querySelectorAll('[data-lsort]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-lsort');
+        if(window._legSortCol===k)window._legSortDir=(window._legSortDir==='asc')?'desc':'asc';
+        else {window._legSortCol=k;window._legSortDir='desc';}
+        renderApp();};});
       {const b=content.querySelector('[data-pbase]');
        if(b)b.onclick=()=>{window._paperBaseOnly=!window._paperBaseOnly;
          savePref('paperBaseOnly',!!window._paperBaseOnly);renderApp();};}

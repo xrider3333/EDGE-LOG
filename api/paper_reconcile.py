@@ -44,7 +44,15 @@ NY = "America/New_York"
 # before that carry an empty signal, and so do manual/discretionary fills, so an empty
 # value means "unknown" and falls back to the timing matcher - it never silently picks
 # a leg. Keep these in step with the NinjaScripts' EnterLong/ExitLong signal names.
-SIGNAL_PREFIX = {"NZ": "NOISE", "EQ": "ENGUQ", "ORB": "ORB"}
+# 2026-08-26: NZ and EQ pointed at "NOISE" and "ENGUQ", leg keys that stopped producing
+# shadow trades when those legs were retired (NOISE on 08-16, ENGUQ on 08-21). A fill whose
+# signal maps to a leg that is not in today's report matches NOTHING -- the candidate filter
+# below requires c["leg"] == known_leg -- so it lands in `ambiguous` while EVERY leg of that
+# family is left in shadow_only, i.e. the board would paint a red "NinjaTrader never took it"
+# cross on the very leg NinjaTrader had just filled. No NZ fill has landed since the rename,
+# so nothing recorded is wrong; the next one would have been. These now name the legs whose
+# `nt` field claims those NinjaScripts: EdgeLogNOISE -> NOISE_H_RF, EdgeLogENGUQ1m -> ENGUQ_ER.
+SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "EQ": "ENGUQ_ER", "ORB": "ORB"}
 
 
 def leg_from_signal(sig):

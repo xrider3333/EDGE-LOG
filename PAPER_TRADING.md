@@ -10,6 +10,77 @@
 > Prior update 2026-08-23: NOISE crown → Short Veto + Wild10 run #243, `NOISE_SBS` leg
 > replaced by `NOISE_SBS_V90`).
 
+## 2026-08-26 — NinjaTrader now runs the NOISE crown filters, and three board defects closed
+
+**NT CONFIG CHANGED (owner: "update the config on noise").** `EdgeLogNOISE` on `DEMO7240108`
+had both crown filters OFF. They are ON as of 2026-08-26, set through the bridge
+(`POST /strategy/setparam`, query-string args, disable -> set -> enable) with no NinjaTrader
+restart: `SkipBotShort=True` (DaytypeLo 0.20) and `VolSkipOn=True` (VolSkipPct 90). Both read
+back True on the live strategy, the `[Range]` pre-flight passed, no dialogs, no orphan orders,
+state Realtime on MNQ 09-26 at Qty 3 with the rf gate still on.
+
+**What that means for the reconcile.** NinjaTrader is now running CROWN CONFIG + rf GATE, a
+combination NO shadow leg computes. `NOISE_H_RF` remains the nearest match (same gate) and is
+still what the `nt` field points at, but from 2026-08-26 the nightly reconcile compares two
+configurations that differ by those two filters. Expect a divergence on any day a filter
+vetoes. The honest fix is a shadow leg for crown + rf gate; not added yet, owner's call.
+
+**A correction to what was said on 2026-08-25.** The claim that the demo leg had been sitting
+disabled since the restart was wrong. `bridge.log` records `ENABLE EdgeLogNOISE` on 08-24
+(23:47Z, 23:56Z) and 08-25 (05:08Z, 05:59Z, 14:51Z, 16:34Z, 16:37Z). It was enabled on both
+days it missed a trade. It went down between 17:11Z and 17:28Z on 08-26 when the account
+disconnected (two `enable REFUSED ... connection=Disconnected` lines), which is the state it
+was found in, and it was re-enabled at 19:41Z.
+
+**Still unexplained, and the next thing to look at.** On 2026-08-24 09:40 ET and 2026-08-25
+09:50 ET the engine signalled, NinjaTrader was enabled, and no fill happened. `gate_live.log`
+has NO `decide NOISE_H_RF` entry at either bar — only the 10-minute keep-warm pings on a
+stale bar — so the strategy never reached its entry check and the ML gate was never consulted
+(it is exonerated for both days). `fills.csv` confirms zero `NZ`-signed fills, ever, and no
+`DEMO7240108` MNQ fill at all. Leading suspects, in order: not enough chart history for the
+44-bar lookback plus the 60-session volatility window (the standing `chart days >= 70` gotcha),
+and the session template on the MNQ chart. A "bar processed" heartbeat export from the
+strategy would settle it in one look; still not built.
+
+## 2026-08-26 — three board defects found and fixed (v73.293)
+
+1. **An archived leg kept its trades on the board with no way to remove them.** ENGU-Q-226 was
+   retired 2026-08-21, which dropped its ROW (`LEGS_VIS` filters `archived`) but not its
+   trades: `_legShown` had no archived clause, so 13 trades stayed in the trades table, the
+   curve, the calendar and every board total. The owner switched off every leg the table
+   offered and was still looking at ENGU-Q. Fixed: archived is archived everywhere, SHOW
+   ARCHIVED restores both together and names the trade count it is holding back. The one
+   deliberate exception is the CROSS-ENGINE history table, which is a ledger of checks that
+   were run rather than a live board — ENGU-Q-226 carries the most recent NT-vs-engine finding
+   on the page (2026-08-25) and hiding it would delete current evidence.
+2. **NinjaTrader agreement marks were leg-blind.** `_ntSeen` / `_ntBt` / `_ntMatch` were keyed
+   on `entryIso` alone. Six NOISE legs emit the same `entryIso` for the same signal, so one
+   leg's verdict was painted on all six. Separately, the board marked legs NinjaTrader has
+   never run as REFUSED. Both fixed: every map is keyed `leg|entryIso`, the live-fill verdict
+   is only read for legs carrying an `nt` field, and a leg NinjaTrader does not run shows a
+   neutral `NT n/a`. Board reds went 23 -> 3; the two NOISE reds that survive are the genuine
+   08-24 and 08-25 misses.
+3. **The reconcile's signal->leg map was stale.** `SIGNAL_PREFIX` still mapped `NZ -> NOISE`
+   and `EQ -> ENGUQ`, leg keys that stopped producing trades in August. A fill naming a leg
+   that is not in today's report matches nothing, so it would have gone to `unattributed`
+   while every leg of the family stayed in `shadow_only` — a red "never taken" cross on the
+   exact trade NinjaTrader had just filled. Repointed to `NOISE_H_RF` and `ENGUQ_ER`. No fill
+   has landed since the rename so nothing recorded is wrong. **Needs a runner restart.**
+
+**Why the 2026-08-25 parity PASS never contradicted those red marks.** Different question
+entirely. Parity was a NinjaTrader *Strategy Analyzer backtest* of `EdgeLogNOISEPAR` on
+Sim101, the run-#243 crown config, MNQ 5m, 2025-03-17 to 2026-08-19 — it asked whether the two
+implementations produce the same signals over history. The board's marks are *live demo fills*
+on `DEMO7240108` from a different strategy running a different configuration, on two days that
+fall after the parity window ends.
+
+**New pre-push gate: `tools/paper_render_probe.py`.** Renders PAPER and PAPER * headlessly
+against a real captured board (`tools/fixtures/paper_board.json`) under 28 control
+combinations. Fails on any case that throws, on a row whose cells do not match its headings,
+on an archived leg leaking trades, or on a red NinjaTrader cross against a leg NinjaTrader
+does not run. Wired into `wt.py ship` as the third gate. It was written because a change to
+this view shipped a mismatched paren that `preflight_boot.py` reported as PASS.
+
 ## What this is
 
 Forward-testing the crowned strategies on live data with no real money, to answer:

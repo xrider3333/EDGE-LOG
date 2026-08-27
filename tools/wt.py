@@ -215,7 +215,24 @@ def cmd_ship(name, message):
             sys.stderr.write(out)
             raise SystemExit('studies render gate FAILED - not pushing')
 
-    # THIRD GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
+    # THIRD GATE: the PAPER boards (2026-08-26). Same argument as the studies gate, and the
+    # same lesson learned the same way: a change to the PAPER branch of renderApp shipped a
+    # mismatched paren that preflight_boot.py reported as PASS. paper_render_probe.py seeds a
+    # real captured board and renders PAPER and PAPER * under 28 control combinations, and
+    # asserts the two honesty rules that view has to keep - an archived leg must not leave
+    # trades behind it, and NinjaTrader must never be shown refusing a trade on a leg it does
+    # not run. Only runs when index.html changed. INCONCLUSIVE never blocks.
+    pp = os.path.join(wt, 'tools', 'paper_render_probe.py')
+    if touched_index.strip() and os.path.isfile(pp):
+        r = subprocess.run([sys.executable, pp], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        print(out.strip().splitlines()[0] if out.strip() else '(paper probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('paper render gate FAILED - not pushing')
+
+    # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
     # at the same time silently produced 27 collisions, and a row number is the board's permanent
     # identifier - docs and memory refer to studies by number, so a duplicate makes those
