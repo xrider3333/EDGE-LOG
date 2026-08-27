@@ -1330,6 +1330,12 @@ class CommandThread:
     """
 
     POLL_SEC = 5.0
+    # While the owner is actually clicking around a chart, a five-second look-round is
+    # dead time on EVERY request. After serving anything, drop to a fast cadence for a
+    # short while; an idle runner goes straight back to the slow one, so the daily
+    # Firestore read budget is untouched except during a burst of real use.
+    BUSY_POLL_SEC = 0.75
+    BUSY_WINDOW_SEC = 45.0
 
     def __init__(self, db, allow_uids, root, log=print):
         self.db = db
@@ -1426,12 +1432,15 @@ class CommandThread:
         thread, so it never blocks shutdown). A crash anywhere in poll_once is swallowed
         here too, belt-and-suspenders on top of poll_once's own per-uid guard."""
         self._log("command thread: ON (get_bars/get_blotter/similar_setups/config_trades served in parallel with jobs)")
+        last_served = 0.0
         while not self._stop:
             try:
-                self.poll_once()
+                if self.poll_once():
+                    last_served = time.time()
             except Exception as e:
                 self._log(f"loop error (continuing): {type(e).__name__}: {e}")
-            time.sleep(self.POLL_SEC)
+            busy = (time.time() - last_served) < self.BUSY_WINDOW_SEC
+            time.sleep(self.BUSY_POLL_SEC if busy else self.POLL_SEC)
 
 
 def auto_pine(log=print, limit=25, provider=None):

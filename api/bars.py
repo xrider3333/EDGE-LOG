@@ -1,6 +1,8 @@
 """Per-trade session candles — serve one trade's OHLCV bars + a VWAP overlay for the
 web's candle modal (docs/VISUAL_TRADE_REPORT.md §3, Phase A). No Firestore dependency
 here; the caller passes the payload. Kept dependency-light like api/blotter.py."""
+import os
+
 import pandas as pd
 
 from augur_engine.data import find_master, load_master_arrays
@@ -71,6 +73,40 @@ def _fresh_tail(timeframe, session, last_master_ts, log):
     return bars
 
 
+def _master_last_ts(m, log=print):
+    """The master's LAST bar time, read from the TAIL of its CSV.
+
+    The candle window asks for this only to know where the live-feed tail should start,
+    but the obvious way to get it - loading the whole master - parses 5.5 million rows
+    for the 1-minute 24-hour NQ file and cost about SIX SECONDS on every PAPER candle
+    fetch (the owner's "it just says loading bars"). The file is time-ascending, so the
+    last data line is the answer; seek to the end and read only that. Returns None if
+    anything at all looks off, and the caller falls back to the old full load.
+    """
+    try:
+        from augur_engine.data import UPLOADS
+        path = os.path.join(UPLOADS, m["filename"])
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            header = f.readline().strip().split(",")
+        ti = header.index("time")
+        size = os.path.getsize(path)
+        with open(path, "rb") as f:
+            f.seek(max(0, size - 65536))
+            tail = f.read()
+        for line in reversed(tail.decode("utf-8", "replace").splitlines()):
+            parts = line.strip().split(",")
+            if len(parts) <= ti:
+                continue
+            try:
+                unix = int(float(parts[ti]))
+            except ValueError:
+                continue                      # header row, or a half-written last line
+            return pd.Timestamp(unix, unit="s", tz="UTC").tz_convert("US/Eastern")
+    except Exception as e:
+        log(f"    -> tail read failed ({type(e).__name__}: {e}); reading the whole master")
+    return None
+
+
 def load_session_bars(root, payload, log=print) -> dict:
     """Serve one trade's session candles to the web (get_bars runner command).
 
@@ -121,7 +157,9 @@ def load_session_bars(root, payload, log=print) -> dict:
     n_fresh = 0
     if payload.get("include_fresh"):
         # the whole master decides where the tail starts, not the windowed slice
-        full_last = load_master_arrays(m)["index"][-1]
+        full_last = _master_last_ts(m, log)
+        if full_last is None:
+            full_last = load_master_arrays(m)["index"][-1]
         tail = _fresh_tail(timeframe, session, full_last, log)
         if tail is not None:
             tail_et = pd.to_datetime(tail["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
