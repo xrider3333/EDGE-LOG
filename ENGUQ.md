@@ -91,6 +91,50 @@ Note the one honest caveat: at 1 contract the strategy cannot express risk equal
 all on NQ. A 233-pt stop is $4,670 minimum. Sizing DOWN would need MNQ micros; sizing UP is
 a separate, un-pre-registered question.
 
+### 1.5 ADOPT-CANDIDATE 2026-08-26 — the re-entry cooldown PASSED 5 of 5 (battery V)
+
+**Owner item 896:** *"no strategy should be messing up by taking 5 trades in a row like
+that."* First ENGU-Q filter of any kind to clear the bar. Pre-registered in
+`tools/enguq_cooldown_test.py` before any result was read; control parity PASS
+(n=2843 / $434,721.12 exact); window pinned 2010-06-07 → 2026-06-30.
+
+New knob `cooldown_bars` in `ENGUQ_1M_ETH_1_0.py`, **default 0 = deployed behaviour**:
+after a trade closes, ignore entry signals for N 1-minute bars. Causal — it reads only the
+bar index of an exit that already happened.
+
+| bars | n | net | Δnet | maxDD | PF | LB net | LB PF | score |
+|---|---|---|---|---|---|---|---|---|
+| **5** | 2812 | **$452,984** | **+4%** | $50,420 | **1.352** | **$112,591** | **1.608** | **5/5** |
+| 15 | 2770 | $431,442 | −1% | $50,420 | 1.332 | $90,412 | 1.451 | 3/5 |
+| 30 | 2726 | $432,608 | −0% | $53,212 | 1.335 | $90,606 | 1.443 | 3/5 |
+| 60 | 2648 | $471,095 | +8% | $52,911 | 1.382 | $96,538 | 1.474 | 4/5 |
+| 120 | 2690 | $498,912 | +15% | $47,331 | 1.440 | $81,611 | 1.423 | 4/5 |
+| 240 | 2900 | $325,224 | −25% | $48,864 | 1.294 | $78,284 | 1.436 | 1/5 |
+
+**A single 5/5 cell in a jumpy sweep is the shape of noise, so it was checked before being
+believed** (`scratchpad/cooldown_robust.py`, 2026-08-26):
+
+- **It is a PLATEAU, not a spike.** Every value from **3 to 8 bars** lands in the same
+  place: net +$16.7k…+$21.9k, PF 1.350–1.355, lockbox PF 1.604–1.612. Bars 1–2 are too
+  short to bind (≈ control); 9–12 fall back to ≈ control. Six contiguous cells agreeing is
+  not a lucky draw.
+- **It does NOT depend on a monster trade.** Given §1.1, the obvious failure mode is
+  "kept one more top-10 winner". It did not: the improvement is **exactly +$18,263 whether
+  you drop the best 1 or the best 3 trades from both sides** — i.e. the top trades are
+  *identical* in both runs. Lockbox likewise, **+$14,102 flat**. The entire gain comes from
+  deleting ~31 clustered trades that were net-negative.
+- **This is the opposite of every prior result.** Battery U, the 13 risk-tightening
+  variants and risk-parity sizing all cut the winners faster than the losers. This cuts
+  only losers, because clustering is a distinct, observable defect rather than a general
+  attempt to be safer.
+- Clustering (re-entry within 5 min of the prior exit) falls **2.1% → 0.7%**, which is the
+  behaviour the owner actually complained about.
+
+**NOT YET DEPLOYED — this is a crowning decision, owner's call.** The frozen config still
+has no cooldown. Before adopting: run it through the normal validate/lockbox job rather
+than this standalone script, and pick within the 3–8 plateau (6 has the best lockbox at
+$112,986 / 1.610; 5 was the pre-registered cell).
+
 ### 1.4 CLOSED 2026-08-20 — the regime filter FAILED, 0 of 5 cells (battery U)
 
 `regime_len` is **pinned to 0 (off)** in the deployed file, so the only trend gate is
@@ -129,8 +173,12 @@ Original pre-registration notes kept below for the record:
 
 What to do, and what to pre-register BEFORE running it:
 
-- **FIRST, fix a mis-scaling — verified 2026-08-20.** `run_backtest` computes the regime
-  window as `rb = regime_len * 390`, commented *"390 RTH bars/day"*
+- **FIXED IN THE ENGINE 2026-08-26 — this step is done, do not redo it.** The constant is
+  now `ETH_BARS_PER_DAY = 1091`, so `regime_len` means true days on this ETH file and
+  `tools/enguq_regime_test.py` passes days unscaled. Re-running battery U reproduces the
+  same windows; the compensation simply moved from the caller into the engine. Original
+  finding kept below. **FIRST, fix a mis-scaling — verified 2026-08-20.** `run_backtest`
+  computed the regime window as `rb = regime_len * 390`, commented *"390 RTH bars/day"*
   (`ENGUQ_1M_ETH_1_0.py`, in the `if int(regime_len) > 0:` block). This ETH file scaled
   `ema_len` / `tl_len` / `atr_len` by ~×3.54 for the 24h tape but **left this 390 alone**,
   so on ETH bars `regime_len=20` is really ~5.7 days, not 20. Any regime sweep run as-is

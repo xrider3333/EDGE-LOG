@@ -106,10 +106,17 @@ DEFAULT_PARAMS = {'tl_len': {'default': 170,
               'type': 'int',
               'label': 'Regime SMA (days, 0=off)',
               'tooltip': 'Only go long when close is above its N-DAY simple average — a longer-term trend gate on '
-                         'top of the EMA. 0=off. NOTE: unchanged from the RTH file — this gate is hardcoded to 390 '
-                         'bars/day internally, so on ETH data a nonzero value covers fewer calendar days than '
-                         'intended; left as-is (engine untouched) and off by default.'},
-'freeze_overnight': {'default': False, 'type': 'bool',
+                         'top of the EMA. 0=off. Days are TRUE calendar days on this ETH file (~1091 1m bars/day); '
+                         'the inherited RTH 390 bars/day constant was corrected 2026-08-26, so a value here now '
+                         'means what it says. Pinned off in the deployed frozen config — battery U closed the '
+                         'trend-gate family (ENGUQ.md §1.4).'},
+'cooldown_bars': {'default': 0, 'min': 0, 'max': 240, 'step': 5, 'type': 'int',
+              'label': 'Re-entry cooldown (bars, 0=off)',
+              'tooltip': 'After a trade closes, ignore new entry signals for this many 1m bars. '
+                         'Added 2026-08-26 for owner item 896 (clusters of back-to-back trades). '
+                         '0 = off = deployed behaviour. Causal: it only looks at when the previous '
+                         'trade ENDED.'},
+    'freeze_overnight': {'default': False, 'type': 'bool',
         'label': 'Freeze stop updates overnight (18:00-09:30 ET)',
         'tooltip': 'ON = trail/breakeven levels do not UPDATE during overnight bars; the existing stop stays live. Round-6 R6d flagged overnight exits as a net drag. OFF = certified triage behaviour.'},
 'breakeven_R': {'default': 1.5,
@@ -152,6 +159,7 @@ def _ema(a, n):
 
 
 def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
+                 cooldown_bars=0,
                  tl_len=20, vol_mult=1.5, stop_mult=1.0, act_R=1.0, trail_frac=2.0,
                  buf_atr=0.1, min_brk=0.5, ema_len=200, atr_len=14, regime_len=0,
                  breakeven_R=0.0, freeze_overnight=False,
@@ -163,11 +171,24 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         return None
     tl_len = int(tl_len)
     ema = _ema(c, int(ema_len))
-    # optional longer-term REGIME gate: close must be above its N-day simple average
-    #   (390 RTH bars/day). 0 = off. Long lengths skip bears/chop; short lengths whipsaw.
+    # optional longer-term REGIME gate: close must be above its N-day simple average.
+    # 0 = off. Long lengths skip bears/chop; short lengths whipsaw.
+    #
+    # BARS PER DAY IS SESSION-SPECIFIC. This file is the ETH (24h) variant, where a
+    # trading day carries ~1091 one-minute bars, not RTH's 390. It was forked from the
+    # RTH file and every other time-lookback (ema_len / tl_len / atr_len) was rescaled
+    # for the 24h tape -- but this constant was left at 390, so `regime_len` silently
+    # meant ~0.28 of a day each instead of one. regime_len=20 was really ~5.7 days.
+    #
+    # Nothing was ever DEPLOYED wrong: regime_len is pinned 0 (off) in the frozen config
+    # (ENGUQ_1M_ETH_FROZEN_1_0.py), and battery U (ENGUQ.md 1.4) knew about this and
+    # compensated by passing pre-scaled values. But a correct-looking sweep run by anyone
+    # who had not read that footnote would have swept the wrong lengths entirely, which
+    # is the kind of bug that produces a confident wrong answer.
+    ETH_BARS_PER_DAY = 1091      # measured on the NQ 1m ETH master, not assumed
     reg = None
     if int(regime_len) > 0:
-        rb = int(regime_len) * 390
+        rb = int(regime_len) * ETH_BARS_PER_DAY
         if rb < n:
             reg = np.full(n, np.nan)
             rc = np.cumsum(c)
@@ -204,6 +225,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
 
     x = np.arange(tl_len); xm = x.mean(); xd = x - xm; xss = (xd ** 2).sum()
     pnl_list, trade_log = [], []
+    # RE-ENTRY COOLDOWN (owner item 896, 2026-08-26): "no strategy should be messing up by
+    # taking 5 trades in a row like that". After an exit, refuse new entries for this many
+    # bars. Strictly causal -- it reads only the index of an exit that has already
+    # happened, never anything about the trade it is about to skip. 0 = off, which is the
+    # deployed behaviour, so this knob changes nothing until it is swept.
+    cooldown_bars = int(cooldown_bars or 0)
+    last_exit = -10 ** 9
     pos = None
     for i in range(tl_len + 1, n):
         if _stop_event is not None and _stop_event.is_set():
@@ -225,6 +253,9 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
                 pnl_list.append(pnl)
                 if return_trades: trade_log.append((pos["bar"], i, pnl, 1, pos["ep"]))
                 pos = None
+                last_exit = i
+            continue
+        if cooldown_bars > 0 and (i - last_exit) < cooldown_bars:
             continue
         if c[i] <= o[i] or not c[i] > ema[i]:
             continue

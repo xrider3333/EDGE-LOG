@@ -2,7 +2,13 @@
 
 PRE-REGISTERED 2026-08-20, before any result was read.
 
-Mis-scaling handled as the doc requires: the engine computes the regime window as
+SUPERSEDED 2026-08-26: the engine constant was FIXED (390 -> 1091 ETH bars/day) in
+augur_strategies/ENGUQ_1M_ETH_1_0.py, so regime_len now means days directly and this
+script passes the intended days unscaled. Re-running it reproduces the same windows as
+the original battery U -- the compensation moved from the caller into the engine, it did
+not change what was tested. The original note is kept below for the record.
+
+ORIGINAL: the engine computed the regime window as
 regime_len * 390 bars ("390 RTH bars/day"), but the ETH tape has ~1091 one-minute bars
 per day. To test a filter of D CALENDAR-ish trading days, we pass
 regime_len = round(D * 1091 / 390), and we say so. Grid of intended days: 10/20/30/50/75.
@@ -77,7 +83,7 @@ if not ok:
 rows = {"control": ctl}
 print("\nREGIME SWEEP (intended days -> passed regime_len after ETH rescale)")
 for D in DAYS:
-    rl = round(D * 1091 / 390)
+    rl = D          # engine is ETH-aware since 2026-08-26; days are days
     s = run(regime_len=rl)
     rows["d%d" % D] = dict(s, regime_len_passed=rl)
     dd_cut = 1 - s["dd"] / ctl["dd"]
