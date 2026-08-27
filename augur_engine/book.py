@@ -79,6 +79,36 @@ def _leg_trades(leg, date_from, date_to):
     arr = load_master_arrays(master, date_from=date_from, date_to=date_to)
     res = run_backtest(leg["strategy"], arrays=arr, params=leg.get("params") or {},
                        cost_pts=float(leg.get("cost_pts", 0) or 0), return_trades=True)
+    raw_trades = list(res.get("trades") or [])
+
+    # ── OPTIONAL ML GATE (2026-08-27, owner: "also need a ML version with top ML's of ea") ──
+    # A book leg may carry the same `gate` block a PAPER leg carries. The strategy still
+    # picks its own trades; the gate scores each one from what was known at that instant
+    # and either refuses it or resizes it.
+    #
+    # WHY IT CALLS api.paper_gate INSTEAD OF REIMPLEMENTING. api/paper_gate.py already
+    # applies these gates for the live forward test, and its own docstring says it
+    # deliberately does not reimplement augur_engine.ml_gate's leak rule. Writing a second
+    # copy here would give the book and the paper board two things that merely RESEMBLE
+    # each other, and the whole point of a gated book is to be comparable to the gated
+    # paper legs. So: one implementation, imported lazily (engine -> api is the wrong
+    # direction for a module-level import, and a book with no gate must not pay for it).
+    #
+    # A gate that cannot run degrades to the UNGATED leg, never to an empty one. An empty
+    # leg would silently look like "this strategy had a quiet decade" instead of "the
+    # overlay broke", so the failure is recorded in the leg info where the report shows it.
+    gate_cfg = leg.get("gate")
+    sized = [(t, 1.0) for t in raw_trades]
+    gate_info = None
+    if gate_cfg and raw_trades:
+        try:
+            from api import paper_gate as _pg
+            sized, gate_info = _pg.apply_gate(arr, raw_trades, gate_cfg)
+        except Exception as _e:
+            sized = [(t, 1.0) for t in raw_trades]
+            gate_info = {"ok": False, "error": "%s: %s" % (type(_e).__name__, _e),
+                         "note": "gate failed - this leg ran UNGATED"}
+
     mult = _leg_mult(leg)
     weight = float(leg.get("weight", 1) or 1)
     idx = arr["index"]
@@ -87,9 +117,12 @@ def _leg_trades(leg, date_from, date_to):
     # both faster and warning-free (np.datetime64(x, "D") on a tz-aware stamp warns per call).
     days_idx = np.asarray(idx, dtype="datetime64[D]")
     last = len(days_idx) - 1
-    for t in (res.get("trades") or []):
+    # `size` is the gate's per-trade size multiplier (1.0 everywhere when ungated), so the
+    # ungated path is bit-identical to before this feature existed.
+    for t, size in sized:
         try:
-            out.append((days_idx[min(int(t[1]), last)], float(t[2]) * mult * weight))
+            out.append((days_idx[min(int(t[1]), last)],
+                        float(t[2]) * mult * weight * float(size)))
         except Exception:
             continue
     info = {"strategy": leg.get("strategy"), "instrument": inst, "timeframe": tf,
@@ -97,6 +130,16 @@ def _leg_trades(leg, date_from, date_to):
             "trades": len(out), "net": round(sum(p for _, p in out), 2),
             "master": (arr.get("meta") or {}).get("name"),
             "cost_pts": float(leg.get("cost_pts", 0) or 0)}
+    if gate_cfg:
+        # Report what the overlay actually did, not just that one was configured -- a gate
+        # that quietly fell back to ungated must be visible in the run report.
+        info["gate"] = {"mode": gate_cfg.get("mode"), "model": gate_cfg.get("model"),
+                        "threshold": gate_cfg.get("threshold"),
+                        "raw_trades": len(raw_trades), "kept": len(out)}
+        if gate_info:
+            for k in ("ok", "error", "note", "n_skipped", "warnings", "size_norm"):
+                if gate_info.get(k) is not None:
+                    info["gate"][k] = gate_info[k]
     return out, info
 
 
@@ -165,6 +208,9 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     """Run a BOOK: every leg over one window with fixed params, pooled and scored as one.
 
     legs: [{strategy, params, instrument, timeframe, session, source, cost_pts, mult, weight}]
+           plus an optional `gate` block per leg (same shape api/paper.py's PAPER_LEGS use:
+           {mode, model, threshold, size_norm, recycle_factor, ...}). With no `gate` the leg
+           runs exactly as it always has.
 
     The result is shaped like the other engine results so the runner can persist it as an
     ordinary run: `best` carries the PRE-LOCKBOX metrics (the same convention a validate run
