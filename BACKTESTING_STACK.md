@@ -1160,6 +1160,40 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
 **What the truncation flags mean.** Firestore caps a run doc at 1 MiB. When a doc would blow that, the runner's size-guard (shrink_to_fit in api/runner.py) trims in stages: downsample curves, cap per-config bulk arrays to the top-N (sets `population_truncated`), and as a last resort drop whole non-protected fields (sets `fields_dropped`; the older guard used `trimmed_keys`). Champion stats and WF/lockbox numbers are NEVER trimmed. If any flag is set, the RAW tab shows an amber size-guard line naming what was dropped. Audit of every run >= 220 (2026-08-24): exactly ONE genuinely trimmed run - #228 (1,199-config kitchen-sink sweep) lost its per-config scatter `points` via `trimmed_keys`, so its 2C param scatter is empty; its dist, top-10, equity curves and all champion/WF/LB numbers are intact. Every pinned run saved 1 of 1 evaluated - nothing was ever skipped.
 
 ## Changelog
+- **2026-08-27** — **THE AUTO-VALIDATE SEARCH CAN CROWN A DOCUMENTED LOOK-AHEAD, AND DID — TEN TIMES (TTIBS).**
+  `TTIBS_1_0.py` offers `fill_mode` = {`close`, `next_open`}. Its own docstring calls `close` "a KNOWN,
+  documented look-ahead ... never the gate-deciding mode": it fills at the SIGNAL DAY'S OWN CLOSE, but the
+  signal (IBS = where that close sits in the day's range) is only knowable once the close has printed, so the
+  fill is untradeable. Nothing in the pipeline stopped the free search from SELECTING it, and it wins every
+  time because it is free money. **All ten TTIBS Auto-Validates crowned `fill_mode='close'`** — #161, #162,
+  #164, #165, #167, #168, #169, #170, #174, #201 — including the four that verdicted **PASS**.
+  Measured on the #201 champion (trigger ibs / ibs_entry 0.4 / ibs_exit / hold_cap 8), NQ 5m `db_noadj_rth`,
+  0.533 pts/RT, $20/pt:
+
+  | window | look-ahead `close` | honest `next_open` |
+  |---|---|---|
+  | pre-lockbox 2010-06-07..2025-07-16 | $392,423 · PF 1.63 · net/DD 8.32 | $342,862 · PF 1.61 · net/DD 7.20 |
+  | **LOCKBOX last 12 months (38 trades both)** | **+$26,865 · PF 1.23** | **−$37,870 · PF 0.74** |
+  | full 2010-06-07..2026-07-16 | $419,288 · PF 1.57 · net/DD 8.89 | $304,992 · PF 1.43 · net/DD 5.53 |
+
+  Pre-lockbox the leak is worth only ~13% of net, which is why it never looked alarming. **In the lockbox year
+  it is the entire result**: the same 38 trades swing $64.7k and PF 1.23 -> 0.74, flipping "LOCKBOX HELD" into a
+  losing year. This independently reproduces the round-7 pre-registered triage, which used honest fills and
+  killed the family at its sealed lockbox (−$44,320, PF 0.44) — the app-validate runs only looked alive because
+  they were crowning the leak.
+  **CONSEQUENCE — everything measured on those runs is measured on untradeable trades**, including the
+  2026-08-27 ML gate/tilt/hybrid read on #201 (that analysis stands as a description of the pipeline, not as
+  evidence about TTIBS).
+  **THE GENERAL LESSON (this is not a TTIBS bug):** a warning in a docstring or tooltip is not a guard. If a
+  strategy file OFFERS an optimistic option, a free search will eventually crown it, and every downstream gate
+  — walk-forward, PBO, lockbox — will faithfully validate the leak. The fix is to remove the option from the
+  strategy file so it cannot be selected. `augur_strategies/TTIBS_1_1.py` (shipped 2026-08-27) is that fix:
+  `close` is gone from the options and the presets, plus a runtime guard forces the honest fill if a caller
+  asks for it; verified byte-identical to `TTIBS_1_0(next_open)` on the pre-lockbox slice (pnl 17,488.5,
+  n 648, PF 1.6222, DD −2,366.25). A library-wide audit for the same trap class is under way.
+  **Stop-loss probe (`TTIBS_1_2`, honest fill + `stop_pct`):** TTIBS 1.0 never had a stop; on the pre-lockbox
+  slice at the champion params a stop HURTS at every level tested — net/DD 7.20 (off) vs 2.81 / 1.76 / 3.34 /
+  3.51 at 1 / 2 / 3 / 4 %. Stops whipsaw a mean-reversion book out of trades right before they revert. Not adopted.
 - **2026-08-25 (rounds 20-23, autonomous)** — **0/40 more cells (hunt 0/144), map sharpened:** ORB mechanism decisively negative at Asia/London opens (the 9:30 open is the edge); no overnight segment holds anything (confirms the r18 retraction); turtle soup completes the every-fade-dies record; ES-ETH frozen ENGU-Q transfers at PF 1.125 (under bar) -> **full ES-ETH Auto-Validate with own param search QUEUED (job ktTjVhb2PRo9Ckg3rBFv, ES 1m eth, cost 0.613, 8 folds, 12mo lockbox)**; the crown risk engine is NOT portable (kills dips' multi-day edge, makes turtle worse than no-stop); ENGU-Q needs 1m granularity (5m port PF 1.11). STUDIES rows 1027-1051; web v73.313. NOTE: origin/main carries 25 duplicate STUDIES row numbers (592-616) from a concurrent session - not touched here.
 - **2026-08-24** - **Pinned-run clarity shipped (v73.256)** - owner flagged run #243's one-column RAW matrix as possible missing data; reconciled: every pinned run >= 220 saved 1 of 1 evaluated configs (only genuine trim = #228 scatter points, see new section 8). UI now labels pinned runs (1E RAW line + 1A funnel key/chip), prints 'top K of N evaluated' on sweeps, and surfaces size-guard trims in amber. New section 8 above documents how to read all of it.
 - **2026-08-24 (round 19, owner: both)** — **19a filters-on-crown 0/6** (six prior-day day-skip filters on the true #234 crown, parity exact; best cell still below doing nothing; counter-prior-day overlay candidate formally DEAD, agrees with the TRADE CONTEXT FDR scan) + **19b classics-on-new-instruments 0/33** (GLD/TLT/IWM/USO/QQQ free Yahoo daily total-return bars 2006-2025-06; frozen r17 shapes; GLD DBL7 PF 2.33 = highest of hunt, QQQ RSI2 MAR 7.67 vs 8 = nearest miss; pooled same-cell 5-ticker books best MAR 6.1 — diversification helps, still under). Hunt tally: 0 passes / 97 cells. OPEN owner actions: free Alpaca key for 1m stock bars (intraday ORB/ENGU on ETFs), or Databento buy for new futures. Harnesses tools/r19_etf_classics.py + inline filter probe; STUDIES rows 547-585; web v73.252.

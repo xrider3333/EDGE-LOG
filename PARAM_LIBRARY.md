@@ -177,6 +177,20 @@ means it closed right on the high (strong). TTIBS buys weak closes and waits for
 recovery. **Family status: CLOSED** — it passed pre-registered triage, walk-forward
 (6/6 folds), and an ES transfer with no re-fit, but **failed its sealed 12-month
 lockbox** (net −$44,320, PF 0.44, 2026-07-15) and is no longer a deploy candidate.
+
+> ⚠️ **READ THIS BEFORE TRUSTING ANY TTIBS APP-VALIDATE NUMBER (added 2026-08-27).**
+> Every one of the ten TTIBS Auto-Validate runs (#161, #162, #164, #165, #167, #168,
+> #169, #170, #174, #201 — the four PASS verdicts included) crowned `fill_mode='close'`,
+> the fill this strategy's own docstring flags as a known look-ahead: it buys at the
+> signal day's own close, which cannot be known until that close has printed. The free
+> search picks it every time because it is free money. On the sealed lockbox year the
+> SAME 38 trades score **+$26,865 / PF 1.23 with the look-ahead vs −$37,870 / PF 0.74
+> honest** — the leak is the whole result, and it is what made those runs look alive
+> when the honest triage had already killed the family. Pre-lockbox the leak is milder
+> (~13% of net, net/DD 8.32 vs 7.20), which is why it went unnoticed for ten runs.
+> **Use `TTIBS_1_1.py` for any future TTIBS work** — same logic, look-ahead fill removed
+> at the source so no search can select it. Full detail in BACKTESTING_STACK.md (2026-08-27).
+> **Transferable lesson (see idea 14 below): a warning in a tooltip is not a guard.**
 It remains useful precisely as **parameter evidence** — a rare case where a family
 died at the very last gate instead of an early one, so its param sensitivities are
 trustworthy up to that point.
@@ -451,6 +465,21 @@ reason, and any known reason it might NOT transfer).
     ENTRY (an ensemble) appears to beat adding size LATER (a pyramid) — worth
     defaulting to the ensemble shape rather than the pyramid shape when designing
     a new multi-lot idea.
+
+14. **Never leave an optimistic option selectable — a docstring warning is not a
+    guard** (learned on **TTIBS**, 2026-08-27, and it applies to every family). TTIBS
+    1.0 shipped a `fill_mode` choice between an honest next-open fill and a
+    same-close fill its own docstring labelled a known look-ahead "never [to be] the
+    gate-deciding mode". Nothing enforced that, so all ten Auto-Validate runs crowned
+    the leak, four of them verdicting PASS, and every downstream gate — walk-forward,
+    PBO, the sealed lockbox — faithfully validated an untradeable config. **The
+    pattern to copy is `TTIBS_1_1.py`:** delete the option from `DEFAULT_PARAMS` and
+    from every grid preset, and add a runtime guard that forces the honest branch even
+    if a caller passes the old value; then prove the fork is byte-identical to the
+    parent on the honest setting before trusting it. **When designing any new
+    strategy, an entry/exit mode that reads same-bar information should never be a
+    selectable param at all** — put it behind a separate research-only file if it is
+    needed as a comparison baseline.
 
 13. **Post-loss cooldown** — **VWAP FADE 2.0** ships a `cooldown_bars` knob
     (untested in isolation in the docs read). Directly relevant counter-evidence
