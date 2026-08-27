@@ -24,6 +24,7 @@ import os
 import sys
 import json
 import time
+import datetime
 import glob
 import argparse
 import threading
@@ -500,6 +501,14 @@ def process_job(job: dict, progress_cb=None) -> dict:
         except Exception:
             pass
     return {"status": "done", "result": json_safe(r), "finishedAt": time.time()}
+
+
+def _now_utc():
+    """Wall-clock stamp for job claims. The UI needs to tell a job that is legitimately
+    long-running from one that was orphaned by a runner restart - without a start time
+    the only age available is how long the job sat in the QUEUE, which cried wolf on a
+    healthy job (observed 2026-08-23)."""
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 class LocalQueue:
@@ -1110,7 +1119,7 @@ class FirestoreQueue:
                 # never race to serve the same doc.
                 if action in READONLY_ACTIONS:
                     continue
-                ref.update({"status": "running"})
+                ref.update({"status": "running", "startedAt": _now_utc()})
                 # NinjaTrader trade refresh is a Firestore-write op (db+uid), so it's
                 # handled here rather than in lib_commands (which is file-ops only).
                 if action == "sync_trades":
@@ -1237,7 +1246,7 @@ class FirestoreQueue:
                         # A guard that can break a backtest is worse than the duplicate
                         # it prevents, so every failure here is non-fatal.
                         log(f"  (duplicate-guard skipped: {_e})")
-                    ref.update({"status": "running", "progress": 0})
+                    ref.update({"status": "running", "progress": 0, "startedAt": _now_utc()})
                     log(f"  running {snap.id}: {job.get('type','backtest')} "
                         f"{job.get('strategy')} {job.get('instrument')}…")
                     last = [0.0]
@@ -1305,7 +1314,7 @@ class FirestoreQueue:
             # COLLECTION_GROUP index; Firestore prints a create-link on first run).
             for snap in self.db.collection_group(self.col).where(filter=qf).stream():
                 ref = snap.reference
-                ref.update({"status": "running"})
+                ref.update({"status": "running", "startedAt": _now_utc()})
                 ref.update(process_job(snap.to_dict() or {}))
                 n += 1
         return n
