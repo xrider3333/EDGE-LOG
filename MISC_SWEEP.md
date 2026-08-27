@@ -173,7 +173,7 @@ on the pooled dip book — a sizing decision, not a validation pass.
 
 OPEN (owner action): free Alpaca key -> 1m ETF bars since 2016 -> test ORB/ENGU
 mechanisms intraday on stocks. Harness: tools/r19_etf_classics.py (re-downloads its
-own data). Board rows 547-585 (v73.252).
+own data). Board rows 1027-1051 (v73.313).
 
 ---
 

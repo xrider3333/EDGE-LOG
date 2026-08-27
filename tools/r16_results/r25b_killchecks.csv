@@ -1,0 +1,8 @@
+book,n,net,pf,dd,mar
+"K1 all 20 legs, equal notional, no selection",2925,1293184,1.535,179056,7.22
+"K1 all 20 legs, causal equal risk",2925,1220386,1.522,118321,10.31
+K2 OOS book 2018-2025 (12 legs picked on 2010-17),757,414869,1.412,132522,3.13
+"K2 OOS book, causal equal risk",757,292889,1.337,86442,3.39
+"K3 r25 selection (11 legs), CAUSAL equal risk",1662,1034431,1.719,107886,9.59
+CHAMPION BOOK alone (reference),3190,605877,1.349,71773,8.44
+K5 CHAMPION + K3 weak-edge (causal risk match),3344,1113611,1.508,117899,9.45
