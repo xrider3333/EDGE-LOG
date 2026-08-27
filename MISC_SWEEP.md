@@ -174,3 +174,26 @@ on the pooled dip book — a sizing decision, not a validation pass.
 OPEN (owner action): free Alpaca key -> 1m ETF bars since 2016 -> test ORB/ENGU
 mechanisms intraday on stocks. Harness: tools/r19_etf_classics.py (re-downloads its
 own data). Board rows 547-585 (v73.252).
+
+---
+
+# Rounds 20-23 — the autonomous grind (2026-08-24/25, owner: "keep trying until you find something")
+
+Harnesses: tools/r20..r23_misc_triage.py; CSVs beside them. Board rows 697-736
+(v73.309). All pre-registered, lockbox never loaded, house roll detector.
+
+## Verdict: 0 of 40 more cells (hunt total: 0/144). The map got much sharper:
+
+- **The 9:30 open is special, not the ORB mechanism** (r20): the crown mechanism is
+  decisively NEGATIVE at the Asia and London opens (PF 0.82-0.86).
+- **No slice of the overnight holds an edge** (r20): all 10 segment cells ~PF 1.0 -
+  independently confirms the r18 ONDRIFT retraction.
+- **Every fade is now dead** (r21 turtle soup completes it): 2010-2025 NQ pays
+  breakout-followers and punishes top-callers at every timescale tested.
+- **ES-ETH frozen transfer of ENGU-Q = PF 1.125** (r21) - under the 1.15 transfer
+  bar; a full Auto-Validate with ES-fit params is QUEUED (job ktTjVhb2PRo9Ckg3rBFv).
+- **The crown risk engine is not portable** (r22+r23): transplanted onto dips it
+  deletes their multi-day edge; rebuilt into the turtle it is WORSE than no-stop.
+  It works only where the edge realizes within its own session.
+- **ENGU-Q needs 1-minute granularity** (r22): the 5m port drops PF 1.33 -> 1.11.
+- **Capitulation-buying = the dip fingerprint again** (r20): PF 1.81, MAR 4.0.
