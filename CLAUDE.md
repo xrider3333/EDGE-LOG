@@ -2,6 +2,12 @@
 
 ## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
 
+**HARD CAP (owner 2026-08-26: "from here on out keep your responces to 10 bullit points or less").**
+Every reply is AT MOST 10 bullet points. Not 10 bullets plus paragraphs -- 10 bullets total,
+after a one-line status header. If it does not fit, cut content, do not reflow it into prose.
+Long findings go in the repo docs and are POINTED AT from a bullet, never pasted into the reply.
+
+
 **SUPERSEDING CORRECTION (owner 2026-08-21: "responses table you generate: one row per item. use for tracking. any explanation underneath" + "keep responses short and to the point. problem. solution. stop explaining everything. you are too chatty").** Reply = status line, then ONE table with ONE ROW PER ITEM the owner raised (columns: # · ITEM · PROBLEM · SOLUTION · STATUS), each cell a terse fragment, then at most a few one-line bullets of explanation underneath. No paragraphs, no restating what the table says, no tutorials. This supersedes the 2026-08-20 no-tables note below: the table is back because it is the tracking ledger; the brevity stays.
 
 **SUPERSEDING CORRECTION (owner 2026-08-20: "stop gving tables. shorter responces. give me
