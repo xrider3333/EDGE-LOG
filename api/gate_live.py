@@ -31,9 +31,19 @@ DESIGN RULES, each load-bearing:
     All existing rails (kill switch, circuit breaker, the hard-locked real account)
     are untouched because the order path is untouched.
 
+  * THE CALLER SAYS WHICH BAR IT IS ACTING ON. NinjaTrader appends its own last closed
+    bar to the request; more than one bar step from ours and we refuse to score and fail
+    open loudly (see the bar interlock below). For three days every NOISE and ORB
+    decision was scored on ENGU-Q's overnight 1-minute bars and nobody could tell,
+    because the two sides of the conversation never compared notes.
+
 Endpoints (127.0.0.1:8392, GET, JSON):
-    /gate/health                 service + per-leg artifact status
-    /gate/check?leg=NOISE_H_RF   the live decision: {take, size, prob, ...}
+    /gate/health                    service + per-leg artifact status, the git SHA of
+                                    the code THIS PROCESS loaded, and per leg when it
+                                    last built and last answered
+    /gate/check?leg=NOISE_H_RF      the live decision: {take, size, prob, max_contracts, ...}
+    /gate/check?leg=X&bar=<ISO8601> the same, with the bar interlock armed. Optional --
+                                    a NinjaScript that does not send it still works.
 
 Run:  python -m api.gate_live --serve          (the always-on service)
       python -m api.gate_live --build          (rebuild all artifacts now)
@@ -42,6 +52,8 @@ Run:  python -m api.gate_live --serve          (the always-on service)
 import argparse
 import json
 import os
+import re
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -52,6 +64,15 @@ import pandas as pd
 ARTIFACT_DIR = r"C:\EdgeLog\gate_models"
 PORT = 8392
 LOG_PATH = r"C:\EdgeLog\gate_live.log"
+RAILS_PATH = r"C:\EdgeLog\bridge.json"
+
+# Which checkout is this, and since when. A long-lived process caches every module it
+# imported, so "the fix is pushed" and "the running bouncer has the fix" are two different
+# claims -- the bar-cache defect below sat in a running process for days. Health answers
+# both without anyone having to guess from a restart time.
+_REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROC_STARTED = datetime.now().isoformat(timespec="seconds")
+_git_sha_memo = []                # one-slot memo; [] = never looked up
 
 # How much history the live feature window needs. Features reach back at most ~100 bars
 # (slow ATR) plus one prior session's levels; the slow ATR is an exponential average whose
@@ -75,6 +96,40 @@ _artifacts = {}                   # leg -> loaded artifact dict (with file mtime
 # Keyed on (instrument, timeframe, session) now -- the three things that pick the master --
 # so a leg can only ever be handed its own series.
 _live_caches = {}                 # (instrument, timeframe, session) -> cache dict
+
+# What this PROCESS has done for each leg. Not persisted anywhere on purpose: the question
+# it answers is "what has the currently-running service done", which is exactly the
+# question a restart resets.
+_leg_state = {}                   # leg -> {last_build_ok, last_build_ts, last_build_error,
+                                  #         last_decide_ts, last_decide_source}
+
+
+def _state_for(key):
+    s = _leg_state.get(key)
+    if s is None:
+        s = {"last_build_ok": None, "last_build_ts": None, "last_build_error": None,
+             "last_decide_ts": None, "last_decide_source": None}
+        _leg_state[key] = s
+    return s
+
+
+def _git_sha():
+    """The commit this process's code came from, or None. Never raises.
+
+    Resolved once and memoized -- the answer cannot change without restarting the process,
+    which is the whole point of asking. None (a missing git, a copied folder, a slow disk)
+    is reported as null rather than as a guess."""
+    if not _git_sha_memo:
+        sha = None
+        try:
+            r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=_REPO_DIR,
+                               capture_output=True, text=True, timeout=5)
+            if r.returncode == 0:
+                sha = (r.stdout or "").strip() or None
+        except Exception:
+            sha = None
+        _git_sha_memo.append(sha)
+    return _git_sha_memo[0]
 
 
 def _series_key(leg):
@@ -110,6 +165,27 @@ def _gated_legs():
 
 # ── nightly artifact ──────────────────────────────────────────────────────────────
 def build_artifact(leg):
+    """Fit one leg's artifact, recording the outcome where /gate/health can see it.
+
+    A failed nightly rebuild used to leave no trace except a line in a log nobody reads,
+    while the service went on serving yesterday's artifact and reporting "ready" -- true,
+    but not the truth anyone wanted. The outcome is recorded whichever way it goes, and
+    the exception still propagates so every existing caller behaves as before."""
+    st = _state_for(leg["key"])
+    try:
+        art = _build_artifact(leg)
+    except Exception as e:
+        st.update({"last_build_ok": False,
+                   "last_build_ts": datetime.now().isoformat(timespec="seconds"),
+                   "last_build_error": f"{type(e).__name__}: {e}"})
+        raise
+    st.update({"last_build_ok": True,
+               "last_build_ts": datetime.now().isoformat(timespec="seconds"),
+               "last_build_error": None})
+    return art
+
+
+def _build_artifact(leg):
     """Fit the as-of-now gate model for one leg and save it to disk.
 
     Mirrors the paper leg exactly: same base backtest (master + today's fresh bars),
@@ -196,6 +272,13 @@ def _load_artifact(key):
     import joblib
     path = os.path.join(ARTIFACT_DIR, f"{key}.pkl")
     if not os.path.exists(path):
+        # EVICT, don't merely answer None (fixed 2026-08-26). The decision path fails open
+        # either way, but /gate/health and the status page read _artifacts directly, so a
+        # deleted or renamed artifact went on reporting "ready" off the copy still in
+        # memory: the one screen whose entire job is saying whether the bouncer is armed
+        # was the one screen that could not say it had been disarmed.
+        if _artifacts.pop(key, None) is not None:
+            _log(f"artifact {key} GONE from disk - evicted (health now says NOT LOADED)")
         return None
     mtime = os.path.getmtime(path)
     cur = _artifacts.get(key)
@@ -293,6 +376,137 @@ def _refresh_live_arrays(leg):
 LIVE_QTY = int(os.environ.get("EDGELOG_LIVE_QTY", "3"))
 
 
+def _rails():
+    """(limit, error) -- the contract ceiling the human set in bridge.json, or (None, why).
+
+    Read on every request and deliberately NOT cached: the bridge monitor re-reads the
+    same file every 10 seconds, and _recycle_allowance below promises that raising the
+    rails switches recycle on within one request. It is a 1 KB read against a ~60 ms
+    decision. Never raises."""
+    try:
+        with open(RAILS_PATH, encoding="utf-8") as f:
+            cfg = json.load(f)
+        return min(int(cfg.get("max_position_contracts") or 0),
+                   int(cfg.get("max_qty") or 0)), None
+    except Exception as e:
+        return None, f"cannot read the risk rails ({type(e).__name__})"
+
+
+def _max_contracts():
+    """The hard contract ceiling this service authorises for ONE entry, right now.
+
+    The NinjaScript used to clamp itself at `Qty * 3`, which at the live Qty=3 made every
+    accepted trade exactly 9 micros no matter what the model said -- the size dial was
+    dead. That 3x cap was never NinjaTrader's to apply. It belongs to the engine, it is
+    ALREADY inside the `size` served below (min(w / size_norm, 3.0), applied BEFORE the
+    recycle factor, same order as the backtest), and applying it a second time downstream
+    only truncates the recycled sizes this service deliberately served.
+
+    So this is a DIFFERENT limit, not a second copy of that one: the account rail the
+    human set in bridge.json (max_position_contracts / max_qty), which is what the
+    bridge's circuit breaker actually enforces -- and tripping it FLATTENS AND DISABLES
+    every strategy on the account, ENGU-Q included. At LIVE_QTY=3 with rf=3.85 the largest
+    size this service can serve is 3.0 * 3.85 = 11.55, i.e. 35 contracts, under the
+    current rail of 40, so the clamp normally never binds. It binds when NinjaTrader runs
+    a larger Qty than this service assumes, which is the one case nothing else catches.
+
+    Account-level, not book-level: the gated legs share one NinjaTrader account, so this
+    bounds a single entry rather than the sum of them. The bridge's own L5 position check
+    is what covers the book.
+
+    None means UNKNOWN -- the NinjaScript falls back to its own MaxContracts parameter.
+    Never 0: a missing key in bridge.json would otherwise clamp every live order to zero
+    contracts, quietly turning a fail-open service into a fail-closed one."""
+    limit, _err = _rails()
+    if limit is None or limit < 1:
+        return None
+    return int(limit)
+
+
+# ── bar interlock ─────────────────────────────────────────────────────────────────
+# WHY (2026-08-26): for three days every NOISE and ORB decision was scored on ENGU-Q's
+# overnight 1-minute bars because the bar cache was keyed only on the calendar day. The
+# probabilities that came back looked entirely ordinary. What let it run for three days is
+# that NOTHING COMPARED NOTES -- NinjaTrader knew precisely which bar it was acting on and
+# never said so, and this service never asked.
+#
+# Now it asks. More than one step apart and we refuse to score: fail-open, because a
+# silent skip and a market with no signals look identical on the board, but LOUD in the
+# log, because a stale or wrong-series score is a plausible number with nothing behind it
+# and that is worse than no score at all. One step of tolerance because the two sides may
+# stamp a bar at opposite ends of itself; a genuine series mix-up misses by hours.
+_ET = "US/Eastern"
+
+
+def _parse_nt_bar(s):
+    """A caller's bar stamp -> Timestamp, or None if it is not one.
+
+    Tolerant and non-raising by design: a caller that sends a stamp we cannot read must
+    still get its trade decision. Unreadable is treated as "sent nothing", and the answer
+    says so (bar_check=unparseable) so it shows up instead of passing for armed."""
+    if s is None:
+        return None
+    txt = str(s).strip()
+    if not txt:
+        return None
+    # REPAIR A '+' THAT ARRIVED AS A SPACE, and do it BEFORE parsing rather than after.
+    # A query string decodes '+' to a space, so an un-escaped UTC offset reaches us as
+    # "...T13:35:00 00:00" -- and pandas does not reject that, it quietly returns
+    # MIDNIGHT. A silently wrong bar reads as a mismatch on every single request, which
+    # is the interlock crying wolf until someone switches it off. The pattern fires only
+    # on a full HH:MM:SS followed by a space and an offset-shaped tail, so an ordinary
+    # space-separated stamp ("2026-08-26 09:35") is left alone, and the raw text is still
+    # tried if the repair turns out not to parse.
+    cands = [txt]
+    fixed = re.sub(r"^(.*\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s(\d{2}:?\d{2})$", r"\1+\2", txt)
+    if fixed != txt:
+        cands.insert(0, fixed)
+    for cand in cands:
+        try:
+            ts = pd.Timestamp(cand)
+        except Exception:
+            continue
+        if ts is not pd.NaT and not pd.isna(ts):
+            return ts
+    return None
+
+
+def _bar_interlock(nt_bar, svc_bar, step):
+    """Compare the caller's last-closed bar against ours.
+
+    Returns (state, delta_seconds); state is absent | unparseable | ok | mismatch, and
+    delta_seconds is None unless a comparison actually happened. Pure -- no I/O, no module
+    state -- so the comparison is testable without a master CSV in front of it."""
+    txt = "" if nt_bar is None else str(nt_bar).strip()
+    if not txt:
+        return "absent", None
+    ts = _parse_nt_bar(txt)
+    if ts is None:
+        return "unparseable", None
+    try:
+        if ts.tzinfo is None and svc_bar.tzinfo is not None:
+            # No offset = New York wall clock, because that is what every bar index in
+            # this repo is and what the NinjaTrader charts are set to.
+            ts = ts.tz_localize(_ET)
+        elif ts.tzinfo is not None and svc_bar.tzinfo is None:
+            ts = ts.tz_convert(_ET).tz_localize(None)
+        delta = abs((ts - svc_bar).total_seconds())
+    except Exception:
+        # A DST-ambiguous wall clock, a mixed type, anything else: unreadable, which is
+        # not the same claim as "the two disagree". Say unreadable.
+        return "unparseable", None
+    return ("ok" if delta <= step.total_seconds() else "mismatch"), int(delta)
+
+
+def _measured_step(idx):
+    """Minutes between the last two bars -- the OBSERVED series step, which is how a
+    5-minute leg being scored on 1-minute bars gives itself away."""
+    try:
+        return int(round((idx[-1] - idx[-2]).total_seconds() / 60.0))
+    except Exception:
+        return None
+
+
 def _recycle_allowance(art):
     """How much of the recycle factor this service is ALLOWED to serve right now.
 
@@ -311,13 +525,9 @@ def _recycle_allowance(art):
     rec = float(art.get("recycle_factor") or 1.0)
     if rec == 1.0:
         return 1.0, None
-    try:
-        with open(r"C:\EdgeLog\bridge.json", encoding="utf-8") as f:
-            cfg = json.load(f)
-        limit = min(int(cfg.get("max_position_contracts") or 0),
-                    int(cfg.get("max_qty") or 0))
-    except Exception as e:
-        return 1.0, f"recycle held back: cannot read the risk rails ({type(e).__name__})"
+    limit, err = _rails()                 # same reader max_contracts serves from
+    if limit is None:
+        return 1.0, f"recycle held back: {err}"
     worst = 3.0 * rec * LIVE_QTY          # the per-trade cap is 3x before recycle
     if limit >= worst:
         return rec, None
@@ -327,7 +537,7 @@ def _recycle_allowance(art):
     return 1.0, note
 
 
-def decide(leg_key):
+def decide(leg_key, nt_bar=None, *, source="internal"):
     """The live decision. NinjaTrader calls this at a bar's CLOSE, about to enter at the
     NEXT bar's open -- the same timing the backtest gate scores at. Features for that
     entry bar are, by the causal rule, the just-closed bar's market state plus the entry
@@ -335,10 +545,30 @@ def decide(leg_key):
     that row, and the placeholder's own prices are never read (the causal shift replaces
     them with the closed bar's).
 
+    nt_bar (optional) is the ISO-8601 stamp of the bar the CALLER believes it is acting
+    on. If it disagrees with ours by more than one step we refuse to score at all -- see
+    _bar_interlock. Absent is fine and means "no interlock", so an older NinjaScript keeps
+    working unchanged.
+
+    source is for /gate/health only: it separates "NinjaTrader asked" from the keep-warm
+    loop asking, which otherwise make a dead integration look alive.
+
     Never raises: any failure returns take=True/size=1.0 with the reason attached."""
     t0 = time.time()
+    st = _state_for(leg_key)
+    # Stamped on ENTRY, not on the way out: decide() never raises, so the moment it was
+    # asked and the moment it answered are the same millisecond, and stamping here means
+    # even a path that returns early still records that somebody asked.
+    st["last_decide_ts"] = datetime.now().isoformat(timespec="seconds")
+    st["last_decide_source"] = source
     base = {"leg": leg_key, "take": True, "size": 1.0, "prob": None,
-            "ungated_fallback": True}
+            "ungated_fallback": True,
+            # Served even on the fail-open paths: the rail is a property of the account,
+            # not of whether this particular decision worked, and the caller clamps to it
+            # either way.
+            "max_contracts": _max_contracts(),
+            "nt_bar": (str(nt_bar).strip() or None) if nt_bar is not None else None,
+            "bar_check": None}
     try:
         legs = {l["key"]: l for l in _gated_legs()}
         leg = legs.get(leg_key)
@@ -361,8 +591,27 @@ def decide(leg_key):
             _log(f"decide {leg_key} FAIL-OPEN: {base['error']}")
             return base
 
-        # one placeholder bar = the entry bar about to open
+        # The leg's CONFIGURED step, not the measured one: a session gap makes the
+        # measured step look like 17 hours, and the tolerance would swallow anything.
         step = pd.Timedelta(minutes=5 if str(leg["timeframe"]).startswith("5") else 1)
+        bar_state, bar_delta = _bar_interlock(nt_bar, idx[-1], step)
+        base["bar_check"] = bar_state
+        if bar_state == "unparseable":
+            _log(f"decide {leg_key}: could not read bar={str(nt_bar).strip()!r} "
+                 f"- interlock NOT armed for this request")
+        if bar_state == "mismatch":
+            out = dict(base)
+            out.update({
+                "error": f"bar mismatch: nt={str(nt_bar).strip()} svc={idx[-1].isoformat()}",
+                "bars": int(len(idx)), "bar_minutes": _measured_step(idx),
+                "last_closed_bar": str(idx[-1]), "bar_delta_s": bar_delta,
+                "elapsed_ms": int((time.time() - t0) * 1000)})
+            _log(f"decide {leg_key} FAIL-OPEN (BAR MISMATCH): {out['error']} "
+                 f"off by {bar_delta}s, step {int(step.total_seconds())}s, "
+                 f"{len(idx)} bars @ {out['bar_minutes']}m")
+            return out
+
+        # one placeholder bar = the entry bar about to open
         nxt = idx[-1] + step
         arr2 = dict(arrays)
         arr2["index"] = idx.append(pd.DatetimeIndex([nxt]))
@@ -405,13 +654,13 @@ def decide(leg_key):
                 base["recycle_note"] = rec_note
         else:
             size = 1.0 if take else 0.0
-        _step = None
-        try:
-            _step = int(round((idx[-1] - idx[-2]).total_seconds() / 60.0))
-        except Exception:
-            pass
+        _step = _measured_step(idx)
         out = {"leg": leg_key, "take": bool(take), "size": round(size, 3),
                "prob": round(prob, 4), "threshold": thr,
+               # The caller clamps its rounded quantity to this instead of to Qty*3 --
+               # the 3x cap is already inside `size` above. See _max_contracts.
+               "max_contracts": base["max_contracts"],
+               "nt_bar": base["nt_bar"], "bar_check": base["bar_check"],
                # WHICH SERIES DID THIS SCORE? Recorded because for three days every NOISE
                # and ORB decision was scored on ENGU-Q's 1-minute overnight bars and
                # nothing said so -- the probability looked perfectly plausible.
@@ -470,6 +719,8 @@ def serve():
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     from urllib.parse import urlparse, parse_qs
 
+    _git_sha()          # resolve once here so the first /gate/health is a pure lookup
+
     # warm everything BEFORE the first real request so trade-time latency is pure lookup
     for leg in _gated_legs():
         try:
@@ -519,7 +770,10 @@ td,th{{padding:6px 16px 6px 0;text-align:left;border-bottom:1px solid #333}}
 This page re-checks itself every 15 seconds.</div>
 <table><tr><th>strategy</th><th>brain</th><th>state</th><th>taught through</th></tr>
 {rows}</table>
-<div class=s style="margin-top:20px">If this page ever fails to load, the service is
+<div class=s style="margin-top:20px">code {(_git_sha() or 'unknown')[:7]} &middot;
+running since {_PROC_STARTED.replace('T', ' ')} &middot; ceiling
+{_max_contracts() if _max_contracts() is not None else '&mdash;'} contracts<br>
+If this page ever fails to load, the service is
 down &mdash; NinjaTrader keeps trading but takes every signal at normal size.<br>
 Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
             data = body.encode("utf-8")
@@ -537,14 +791,34 @@ Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
                 legs = {}
                 for leg in _gated_legs():
                     a = _artifacts.get(leg["key"]) or {}
+                    s = _leg_state.get(leg["key"]) or {}
                     legs[leg["key"]] = {"loaded": bool(a),
                                         "trained_through": a.get("trained_through"),
-                                        "model": a.get("model")}
-                self._json({"ok": True, "legs": legs})
+                                        "model": a.get("model"),
+                                        # last_build_ok null = this PROCESS never tried;
+                                        # a loaded artifact then came off disk from an
+                                        # earlier run. "Loaded" and "built cleanly" are
+                                        # different questions, so both get answered.
+                                        "last_build_ok": s.get("last_build_ok"),
+                                        "last_build_ts": s.get("last_build_ts"),
+                                        "last_build_error": s.get("last_build_error"),
+                                        "last_decide_ts": s.get("last_decide_ts"),
+                                        "last_decide_source": s.get("last_decide_source")}
+                self._json({"ok": True,
+                            # Which code is actually running, answerable without guessing
+                            # from a restart time -- this process cached its modules at
+                            # import and will not notice a push until it is restarted.
+                            "git_sha": _git_sha(), "code_path": _REPO_DIR,
+                            "started_at": _PROC_STARTED,
+                            "live_qty": LIVE_QTY, "max_contracts": _max_contracts(),
+                            "legs": legs})
             elif u.path == "/gate/check":
                 q = parse_qs(u.query)
                 key = (q.get("leg") or [""])[0]
-                self._json(decide(key))
+                # &bar is OPTIONAL on purpose: a NinjaScript that predates the interlock
+                # still gets a normal answer, it just gets no interlock.
+                bar = (q.get("bar") or [""])[0]
+                self._json(decide(key, bar or None, source="http"))
             else:
                 self._json({"error": "unknown path"}, 404)
 
@@ -561,13 +835,16 @@ def main():
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--build-leg")
     ap.add_argument("--check", help="one live decision for a leg, printed")
+    ap.add_argument("--bar", help="ISO-8601 last-closed bar to send with --check, "
+                                  "the way NinjaTrader does -- lets the bar interlock "
+                                  "be exercised by hand without NinjaTrader")
     a = ap.parse_args()
     if a.build:
         build_all()
     if a.build_leg:
         build_artifact({l["key"]: l for l in _gated_legs()}[a.build_leg])
     if a.check:
-        print(json.dumps(decide(a.check), indent=2))
+        print(json.dumps(decide(a.check, a.bar), indent=2))
     if a.serve:
         serve()
 

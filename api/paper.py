@@ -1149,6 +1149,12 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
                     "side": t["side"], "entryIso": t["entry_dt"].isoformat(),
                     "entry_px": t["entry_px"], "exit_px": t["exit_px"],
                     "pnl_usd": t["pnl_usd"],
+                    # SIZE RIDES ALONG (2026-08-26). It was being dropped here, so the
+                    # reconcile could never answer "did the contracts that reached the
+                    # broker match the size the strategy intended" -- the one question
+                    # that catches a gate whose sizing dies somewhere in the handoff.
+                    # _extract_trades already carries it; only this projection lost it.
+                    "size": t.get("size"),
                 })
                 leg_pnl += t["pnl_usd"]
             if not dry_run:
@@ -1298,6 +1304,20 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             _log(f"uid={uid} RECONCILE {target_date.isoformat()}: {_p}")
     except Exception as e:
         report["reconcile"] = {"ok": None, "error": f"{type(e).__name__}: {e}"}
+
+    # Layer 4: did the LIVE ML gate do its job today? (api/gate_audit.py). The reconcile
+    # above asks whether the DEMO took the trades the engine expected; this asks the
+    # question nobody could answer on 2026-08-24 - was the gate even consulted, and did
+    # its answer survive the trip into the order. Same containment as the reconcile: a
+    # reader that breaks must cost the report nothing. `report` is passed only so the
+    # audit can set the live gate beside the shadow gate's own numbers for the day.
+    try:
+        from . import gate_audit
+        report["gate_live"] = gate_audit.audit(target_date.isoformat(), report=report)
+        for _p in (report["gate_live"].get("complaints") or []):
+            _log(f"uid={uid} GATE {target_date.isoformat()}: {_p}")
+    except Exception as e:
+        report["gate_live"] = {"ok": None, "error": f"{type(e).__name__}: {e}"}
 
     # _trades was only ever a hand-off to the reconcile; it is redundant with trade_ids
     # and would bloat every report doc against the 1 MiB cap.

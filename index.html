@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.304';
+const VERSION='73.305';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,8 +465,9 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.301',date:'2026-08-26',notes:['A NEW PANEL ON BOTH PAPER BOARDS ANSWERS "DID THE GATE DO ITS JOB". Until now the page could tell you the ML gate service was breathing, never whether it was ASKED. That gap cost a whole session: on 24 August the strategy was enabled, the engine signalled at 09:40 ET, no fill happened, and nothing anywhere recorded whether the bouncer was consulted at all. The panel reads the new nightly audit and says, for the session it covers: how many entry checks there were, how many reached the gate and how many did not and why, how many it approved, refused and fell open on, whether the contracts that reached the broker matched the size the gate asked for, whether every approved trade came out the SAME size (the dead-dial signal, said in words), whether the NinjaScript record and the service log agree, and the newest bar mismatch if there is one. It sits under RECONCILE on PAPER and folds away with the reference panels on PAPER ✦, where the collapsed heading carries the headline so it reads at a glance without opening.','IT SHOWS ITS OWN ABSENCE HONESTLY. The decision ledger it reads does not exist yet, so today the panel says exactly that, names the file and the tool that will produce it, and spells out what stays unanswerable until then. Every figure behaves the same way: one the audit did not report is a dash that says why on hover, never a zero. A zero here would read as "the gate was never asked", which is the one wrong answer this panel exists to prevent.']},
 {v:'73.296',date:'2026-08-26',notes:['2B CONFIGS RAW MATRIX: the TRADES row now FOLLOWS THE SAMPLE TICK (owner: "selecting IS/WF/LB for 1e matrix only shows trades count for IS / WF even though LB is selected. fix"). It was pinned to the optimize window and admitted so in its own tooltip - a leftover from when a config record saved only one whole-window count. Runs from engine v73.47 on carry a per-stretch block for every candidate (is_rng / wf_rng / lockbox), each with its own trade count, so ticking LB now reads the lockbox count and ticking all three sums to the whole-run total. An older run still knows only the optimize window: it prints under an IS+WF label when that is what is ticked and dashes otherwise, with the reason on hover - the same rule PF, WIN % and EV already follow, so no IS+WF number is ever printed under an LB label.','FOR THE RECORD, the ORB crown (run 234) was reading correctly: 975 in-sample + 1,454 walk-forward = 2,429 trades over the optimize window, plus 178 in the lockbox = 2,607 for the whole run. The 2,429 was the honest IS+WF figure; what was missing was the ability to see the other two.']},
-{v:'73.304',date:'2026-08-23',notes:['QUEUE CHIP no longer cries wolf. It was reading the time a job was QUEUED and calling a healthy job stale - the first thing it did on the live page was flag a job that had started normally half an hour earlier, which is exactly how a warning becomes invisible. The runner now records WHEN IT CLAIMED a job, the chip measures from that, and where there is no start time it makes no staleness claim at all and says so on the hover. It still warns outright on the one case that needs no timestamp: jobs waiting and nothing running.']},
+{v:'73.305',date:'2026-08-23',notes:['QUEUE CHIP no longer cries wolf. It was reading the time a job was QUEUED and calling a healthy job stale - the first thing it did on the live page was flag a job that had started normally half an hour earlier, which is exactly how a warning becomes invisible. The runner now records WHEN IT CLAIMED a job, the chip measures from that, and where there is no start time it makes no staleness claim at all and says so on the hover. It still warns outright on the one case that needs no timestamp: jobs waiting and nothing running.']},
 {v:'73.297',date:'2026-08-23',notes:['A QUEUE CHIP NOW SITS ON THE TOP BAR beside TRADING LOG and BACKTESTER (owner ask), so what the runner is doing is visible from every screen instead of three clicks away in BUILDER. It names the job that is running, its percentage and a small progress bar, and counts how many are waiting behind it. Click it to land in BUILDER for the full list with stop and pause. It turns amber once a job has been on the runner for three hours or more, because that is what an orphan looks like: restarting the runner kills the job it was on but leaves the job marked running, and a fresh runner only ever claims queued work, so it sits there for ever behind a frozen progress bar. That happened on 2026-08-23 and cost about twelve hours of an idle machine.']},
 {v:'73.296',date:'2026-08-26',notes:['The crown reached the strategy table in 73.293 but not the trade rows. It is on both now, which is what was asked for.']},
 {v:'73.293',date:'2026-08-26',notes:['A CROWN NOW SITS BESIDE THE CHAMPION CONFIGURATION on both paper boards (owner ask) - in the strategy table and on every trade row. It means one thing only: this configuration is the standing champion of its family. ORB-234 and NOISE-243 wear it. No visible ENGU-Q row does, and rather than leave that silence to be read as no champion, a line under the table says why - the ENGU-Q crown is run #226, which was retired from the forward test on 21 August and is not being paper traded at all. The mark is declared on each leg, never guessed from its name.','ENGU-Q TRADES WERE APPEARING UNDER STRATEGIES YOU HAD SWITCHED OFF, and no control on the page could remove them (owner: "i still see ENGU-Q trades populating undernath"). ENGU-Q-226 was retired on 21 August, which dropped its ROW from the strategy table - but not its trades. Thirteen of them stayed in the trades table, the profit curve, the calendar and every total, with no row left to click. Archived now means archived everywhere. SHOW ARCHIVED brings the row and its trades back together and says how many trades it is holding back. Nothing was deleted; the board totals simply now describe the same strategies the table above them lists. On the selection that raised this, the board read $13,481 across 48 trades and now reads $17,150 across 35 - the difference is that retired leg, which was never meant to be in there.','THE RED NINJATRADER CROSSES WERE MOSTLY NOT ABOUT NINJATRADER (owner: "why are so many of noise trades cmonig up with red NT marks, i thought we had those matching"). Two faults, both fixed. First, NinjaTrader runs ONE NOISE strategy while the engine computes six NOISE variants, and the board was marking all six as refused - a leg NinjaTrader has never run cannot be refused by it, so those now read n/a, in grey, with the sibling it does trade named on hover. Second, every agreement mark was filed by ENTRY TIME with the strategy thrown away, so six legs taking the same signal at the same second all inherited whichever verdict was written last - one leg fill showed as a green tick on five legs, one leg backtest miss as a cross on the other five. Every mark is now filed against its own leg. Of the twenty-three red crosses on the board, three survive; the two on NOISE are real - NinjaTrader was running and did not take the 24 and 25 August trades.','NEXT NINJATRADER NOISE FILL WOULD HAVE BEEN SCORED A MISS. The nightly reconcile matches a fill to a strategy by the signal name NinjaTrader stamps on it, and that lookup still pointed at leg names retired in August. A fill naming a leg the report no longer carries matches nothing, so the fill would have gone unattributed AND the strategy would have been marked never taken - a red cross on the exact trade NinjaTrader had just filled. No fill has landed since the rename, so nothing recorded is wrong; the next one would have been. Takes effect on the next runner restart.','THREE NEW COLUMNS ON THE STRATEGY TABLE, AND IT OPENS SHORTER (owner ask). PROFIT FACTOR - winning dollars over losing dollars, above 1 makes money. EV - the average dollars a trade makes. $/DAY - and this one reads FORWARD TRADES ONLY, over calendar days since the configuration joined the board, weekends counted. That last choice matters: dividing all-time money by days-that-had-a-trade would have printed NOISE-231 at plus $2,215 a day, when every forward trade it has ever taken has lost money. Every column explains its own basis on hover, and each ratio carries its forward-only value there too.','COLUMNS: KEY or ALL. The table opens on six columns - live status, strategy, net, forward, profit factor, trades - and ALL brings back the other seven. Forward and trades stay in the short view deliberately: without them a leg reads "+$6,646, profit factor 2.10" while every dollar it has been watched make was a loss, and a ratio would be printed with no sample size beside it. Nothing is lost either way - every hidden figure is still on the row hovers, and a line under the table says how many columns are folded away. The choice is saved.','EVERY STRATEGY-TABLE COLUMN SORTS. Click a heading; click it again to flip. A strategy with no figure for what you asked to sort by goes to the bottom in both directions rather than being given a place it did not earn. The default is board order, which keeps each gated leg next to the control it has to be read against.','THE TRADES TABLE IS ABOUT A THIRD SHORTER per row, with nothing dropped - the padding around the engine chips and the CHART button was setting the row height, not the text.','A leg with no trades now shows a dash that says why, instead of a green $0.','NEW PRE-PUSH GATE, tools/paper_render_probe.py: it renders both paper boards headlessly against a real captured board under 28 control combinations and fails on any that throws, on a row whose cells do not line up with its headings, on an archived leg leaking trades, or on a red NinjaTrader cross against a leg NinjaTrader does not run. The boot gate only ever proved the app starts - and it reported PASS on a version of this very change that white-screened.']},
@@ -22669,6 +22670,249 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           +'<th>LAST RUN</th><th>VERDICT</th></tr></thead><tbody>'+(xrows||'<tr><td colspan="8" style="color:var(--text5)">no legs shown</td></tr>')+'</tbody></table></div>'):'')
           );
       }
+      // ── DID THE GATE DO ITS JOB? ──────────────────────────────────────────────
+      // The ML GATE line inside the NinjaTrader card answers "is the bouncer breathing".
+      // It cannot answer the question that matters, and that gap cost a whole session: on
+      // 2026-08-24 the strategy was enabled, the engine signalled at 09:40 ET, no fill
+      // happened, and gate_live.log carried no decide line at that bar — so the entry
+      // check was never reached, the gate was never asked, and NOTHING ON THIS PAGE
+      // RECORDED IT. A gate that is UP and a gate that is being ASKED are two different
+      // facts, and only the first was ever on screen.
+      //
+      // api/gate_audit.py joins the NinjaScript's per-opportunity ledger
+      // (C:\EdgeLog\gate_decisions.csv), the service's own gate_live.log and the broker's
+      // fills for one session, and hands the result to the nightly report as gate_live.
+      // This panel only READS that block: it decides nothing and recomputes nothing. Every
+      // figure the audit could not produce is a dash carrying the AUDIT'S OWN reason on
+      // hover — a zero here would read as "the gate was never asked", which is the one
+      // wrong answer this panel exists to prevent.
+      let gateAuditHtml='', gateAuditInner='', _gaSub='';
+      {
+        const _e=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const _q=s=>_e(s).replace(/"/g,'&quot;');
+        // Newest report that carries the audit block. Falling back to an older one would
+        // print a stale session's answer under today's heading, so the session date and
+        // its age ride on the panel instead.
+        const _gRep=_pr.find(r=>r&&r.gate_live&&typeof r.gate_live==='object');
+        const G=_gRep?_gRep.gate_live:null;
+        const LG=(G&&G.legs&&typeof G.legs==='object')?G.legs:{};
+        const LK=Object.keys(LG);
+        const T=(G&&G.totals&&typeof G.totals==='object')?G.totals:null;
+        const SRC=(G&&G.sources&&typeof G.sources==='object')?G.sources:{};
+        const DEF=(G&&G.defects&&typeof G.defects==='object')?G.defects:{};
+        const CMP=(G&&Array.isArray(G.complaints))?G.complaints.map(String):[];
+        const _v=v=>(v!=null&&v!==''&&isFinite(+v))?+v:null;
+        const _t=k=>T?_v(T[k]):null;
+        // Sum a per-leg figure only over the legs that actually reported it. A leg whose
+        // field came back as a dash must never be folded in as a zero — that is the same
+        // mistake in miniature as drawing a missing count as 0.
+        const _sum=f=>{let any=false,n=0;LK.forEach(k=>{const v=f(LG[k]||{});if(v!=null){any=true;n+=v;}});return any?n:null;};
+        // The audit files its own reason for every value it could not produce, per leg and
+        // per block. Prefer those words to a generic apology.
+        const NOFIELD='The nightly audit did not report this figure. It is UNKNOWN, not zero.';
+        const _why=(fld,fb)=>{for(let i=0;i<LK.length;i++){const d=(LG[LK[i]]||{}).dashes;if(d&&d[fld])return String(d[fld]);}
+          const gd=(G&&G.dashes)?G.dashes:null;if(gd&&gd[fld])return String(gd[fld]);return fb||NOFIELD;};
+        const _dash=why=>'<span title="'+_q(why)+'" style="color:var(--text5);cursor:help">—</span>';
+        const _leg=k=>_e((typeof _legLabel!=='undefined'&&_legLabel[k])?_legLabel[k]:k);
+        const nOpp=_t('opportunities'),nAsk=_t('asked'),nOrd=_t('ordered'),
+              nSkp=_t('skipped_by_gate'),nFo=_t('fail_open'),nNot=_t('not_asked'),
+              nBar=_t('bar_mismatch'),nParse=_t('parse_fail');
+        // WHY the gate was not consulted, pooled over every leg. A NOT_ASKED row is not
+        // automatically a fault — most of these are the strategy correctly never reaching
+        // an entry check — so the reasons are shown rather than summed into a verdict.
+        const RTXT={gate_disabled:'the gate was switched OFF in the strategy — the leg stood ready to trade with the experiment off',
+          not_realtime:'the strategy was not in Realtime, so it was not trading',
+          not_warm:'not enough bars loaded yet for the lookback',
+          vetoed_daytype:'the day-type filter vetoed the trade before the gate was reached',
+          vetoed_volskip:'the volatility filter vetoed the trade before the gate was reached',
+          in_position:'already holding a position',
+          entry_cutoff:'past the entry cut-off for the session',
+          no_signal_side:'no signal on either side at that bar',
+          http_error:'the gate service answered with an error',
+          timeout:'the gate service did not answer in time',
+          parse_fail:'the answer came back unreadable — treated as FAIL OPEN, never as a refusal',
+          bar_mismatch:'NinjaTrader and the service were looking at different bars'};
+        const RSN={};
+        LK.forEach(k=>{const m=(LG[k]||{}).not_asked_by_reason;
+          if(m&&typeof m==='object')Object.keys(m).forEach(r=>{const v=_v(m[r]);if(v)RSN[r]=(RSN[r]||0)+v;});});
+        const rKeys=Object.keys(RSN).sort((a,b)=>RSN[b]-RSN[a]);
+        const rChips=rKeys.map(k=>'<span title="'+_q(RTXT[k]||('a reason the ledger wrote as "'+k+'" — not one the contract defines'))+'" style="cursor:help;font-size:8px;padding:1px 6px;border-radius:999px;border:1px solid var(--border);color:var(--text4);white-space:nowrap">'+_e(k)+' ×'+RSN[k]+'</span>').join(' ');
+        // gate_disabled is the 2026-08-24 shape and the only NOT_ASKED reason that is a
+        // fault on its face: the leg was armed and the experiment was not running.
+        const nLoud=_v(RSN.gate_disabled)||0;
+        // SIZE. clamped = the ledger's own q_intended != q_ordered, so the model's number
+        // did not reach the broker intact; over_max_contracts = an order that went out
+        // ABOVE what the service authorised, which is the clamp not being applied at all.
+        const nClamp=_sum(b=>_v(b.clamped)), nOver=_sum(b=>_v(b.over_max_contracts));
+        // THE DEAD DIAL, in the audit's own verdict. At the live Qty=3 every accepted score
+        // rounds past NinjaTrader's cap onto the same contract count, so the model's number
+        // changes nothing about how much is traded.
+        const G3=DEF.G3_size_dial_dead||null;
+        const dead=(G3&&typeof G3.seen==='boolean')?G3.seen:null;
+        const deadLegs=LK.filter(k=>{const b=LG[k]||{},d=b.contracts_ordered_distinct;
+            return Array.isArray(d)&&d.length===1&&(_v(b.ordered)||0)>=3;})
+          .map(k=>{const b=LG[k]||{},si=_v(b.size_intended_mean);
+            return '<b>'+_leg(k)+'</b> — all '+_v(b.ordered)+' orders at '+_e((b.contracts_ordered_distinct||[])[0])+' contracts'
+              +(si!=null?(', where the model asked for '+si+'× base'):'');});
+        // TWO INDEPENDENT RECORDINGS OF ONE EVENT: the NinjaScript ledger and the service
+        // log. A disagreement needs no assumption about what should have happened, which
+        // makes it the strongest thing on this panel.
+        const agCmp=_sum(b=>b.agreement?_v(b.agreement.compared):null),
+              agNo =_sum(b=>b.agreement?_v(b.agreement.disagree):null),
+              agLO =_sum(b=>b.agreement?_v(b.agreement.ledger_without_service_line):null),
+              agSO =_sum(b=>b.agreement?_v(b.agreement.service_without_ledger_row):null);
+        const agEx=(()=>{for(let i=0;i<LK.length;i++){const a=(LG[LK[i]]||{}).agreement;
+          if(a&&Array.isArray(a.mismatches)&&a.mismatches.length){const m=a.mismatches[0]||{};
+            return (m.bar?(m.bar+': '):'')+(m.why||'');}}return '';})();
+        // THE BAR INTERLOCK plus its older cousin, the wrong-series defect it was built to
+        // catch. gate_live.log carries the service's distinct error texts for the day, not
+        // a time order, so an example is quoted as an example and never as "the last one".
+        const G2=DEF.G2_wrong_bar_series||null;
+        const wrong=(G2&&typeof G2.seen==='boolean')?G2.seen:null;
+        const wrongNote=G2?String(G2.note||''):'';
+        const barEx=(()=>{for(let i=0;i<LK.length;i++){const es=((LG[LK[i]]||{}).service||{}).errors;
+          if(Array.isArray(es))for(let j=0;j<es.length;j++)if(/bar mismatch/i.test(String(es[j])))return {leg:LK[i],txt:String(es[j])};}
+          return null;})();
+        const gErr=G?String(G.error||''):'';
+        const gDate=G?String(G.date||(_gRep&&_gRep.id)||''):'';
+        const haveAny=(T!=null&&nOpp!=null);
+        const _sess=gDate?('session '+_e(gDate)+(/^\d{4}-\d{2}-\d{2}$/.test(gDate)?(' · '+_stale(gDate)):''))
+                         :'no session audited yet';
+        let vTxt='◦ NOT AUDITED', vCol='#8a8a8a', inner='';
+        if(!G||gErr||!haveAny){
+          // THE HONEST EMPTY STATE. On this panel "no data" IS the finding, so it has to
+          // name what is missing, what would fill it, and what stays unanswerable until then.
+          const why=!G?'No nightly report carries a <code>gate_live</code> block yet.'
+            :(gErr?('The audit itself failed: <b style="color:#e0a33a">'+_e(gErr)+'</b>')
+                  :(CMP.length?('<b style="color:#e0a33a">'+_e(CMP[0])+'</b>')
+                              :'The audit ran but reported no session totals.'));
+          inner='<div style="font-size:10px;line-height:1.7;color:var(--text3)">'+why
+            +' The block is built by <code>api/gate_audit.py</code> from <code>C:\\EdgeLog\\gate_decisions.csv</code> — the ledger the NinjaScript appends to on every entry check, including the branches where the gate is never consulted.'
+            +'<div style="color:var(--text5);margin-top:4px">Until that ledger exists, <b>"was the gate even asked for this trade?"</b> has no answer anywhere. That silence is the defect: on 2026-08-24 NinjaTrader was enabled, the engine signalled at 09:40 ET, no fill happened, and nothing recorded whether the bouncer was consulted at all.</div></div>';
+          _gaSub=!G?'no ledger yet':(gErr?'audit failed':'no totals reported');
+        }else{
+          const _cell=(lbl,v,tip,col,why)=>'<span title="'+_q(tip)+'" style="display:inline-flex;align-items:baseline;gap:5px;cursor:help">'
+            +'<span style="font-size:8px;letter-spacing:.5px;color:var(--text5)">'+lbl+'</span>'
+            +(v==null?_dash(why||NOFIELD):('<b style="font-size:12px;color:'+(col||'var(--text2)')+'">'+v+'</b>'))+'</span>';
+          const _line=(g,col,html)=>'<div style="display:flex;gap:7px;align-items:flex-start;margin-top:5px;font-size:10px;line-height:1.55">'
+            +'<span style="flex:0 0 9px;text-align:center;color:'+col+'">'+g+'</span>'
+            +'<span style="color:var(--text3)">'+html+'</span></div>';
+          const strip='<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;padding-bottom:6px;border-bottom:1px solid var(--border2)">'
+            +_cell('ENTRY CHECKS',nOpp,'Rows in the decision ledger for this session, across every gated leg — one per moment a strategy reached an entry check.',null,_why('opportunities'))
+            +_cell('ASKED',nAsk,'Of those, the ones where the gate service actually answered: ordered, skipped or fell open.',null,_why('asked'))
+            +_cell('NEVER ASKED',nNot,'Entry checks where the gate was never consulted. Not automatically a fault — the reasons are on the line below.',nNot?'#e0a33a':null,_why('not_asked'))
+            +_cell('APPROVED',nOrd,'Gate answers that became an order.',null,_why('ordered'))
+            +_cell('SKIPPED',nSkp,'Trades the gate refused.',null,_why('skipped_by_gate'))
+            +_cell('FELL OPEN',nFo,'The gate could not answer, so NinjaTrader traded ungated. Fail-open is by design; a run of these means the experiment quietly paused.',nFo?'#e0a33a':null,_why('fail_open'))
+            +'</div>';
+          const _ofOpp=(nOpp!=null?(' of '+nOpp):'');
+          // NOTHING RECORDED IS NOT A PASS. With no entry check in the ledger there is no
+          // evidence for any of the five readings below, and every one of them was rendering
+          // a green tick over a count of zero -- "all 0 of them reached the gate", "0 orders
+          // compared". That is the 2026-08-24 shape exactly: the strategy was armed, never
+          // reached an entry check, and nothing said so. One stated line, no ticks.
+          const _nothing=(nOpp===0);
+          // 2. did the broker get the size the gate asked for
+          let lA;
+          if(nNot==null)lA=_line('—','#8a8a8a','Whether every entry check reached the gate: '+_dash(_why('not_asked')));
+          else if(nNot===0)lA=_line('✓',PNL_POS,'Every entry check'+(nOpp!=null?(' — all '+nOpp+' of them —'):'')+' reached the gate.');
+          else lA=_line(nLoud?'✕':'⚠',nLoud?PNL_NEG:'#e0a33a',
+            '<b>'+nNot+'</b>'+_ofOpp+' entry checks never reached the gate.'
+            +(nLoud?(' <b style="color:'+PNL_NEG+'">'+nLoud+'</b> of those had the gate switched off in the strategy — armed leg, experiment off.'):'')
+            +(rChips?('<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">'+rChips+'</div>'):''));
+          // 2. did the broker get the size the gate asked for
+          let lB;
+          if(nClamp==null&&nOver==null)lB=_line('—','#8a8a8a','Whether orders reached the broker at the size the gate asked for: '+_dash(_why('clamped')));
+          else if(nOver)lB=_line('✕',PNL_NEG,'<b>'+nOver+'</b> order'+(nOver===1?'':'s')+' went out ABOVE the contract ceiling the service served — the clamp is not being applied.');
+          else if(nClamp===0&&(G3&&G3.contracts_ordered_distinct!=null&&G3.contracts_intended_distinct!=null))
+            lB=_line('✓',PNL_POS,'Every order reached the broker at exactly the size the gate asked for'+(nOrd!=null?(' (of '+nOrd+' ordered)'):'')+'.');
+          // clamped===0 with both quantity columns blank is not a pass, it is no evidence:
+          // the audit counts clamps only over rows that carry BOTH numbers and returns 0,
+          // not null, when none do. A tick there is a fabricated result.
+          else if(nClamp===0)lB=_line('—','#8a8a8a','Whether orders reached the broker at the size the gate asked for: '
+            +_dash(_why('contracts_ordered_distinct')));
+          else lB=_line('⚠','#e0a33a','<b>'+nClamp+'</b>'+(nOrd!=null?(' of '+nOrd):'')+' orders were clamped away from the size the gate asked for — the ceiling doing its job, but the model number did not reach the broker intact.');
+          // 3. the dial
+          let lC;
+          if(dead===true)lC=_line('⚠','#e0a33a','<b>The size dial is dead.</b> Every approved trade came out the SAME size'
+            +(deadLegs.length?('<div style="color:var(--text5);margin-top:2px">'+deadLegs.join('<br>')+'</div>'):'')
+            +'<div style="color:var(--text5);margin-top:2px">Whatever the model scored, the quantity did not move — the score is decorating an order it does not change.</div>');
+          else if(dead===false)lC=_line('✓',PNL_POS,'Approved trades did not all come out at one size'
+            +(G3&&G3.note?(' <span style="color:var(--text5)">('+_e(G3.note)+')</span>'):'')+'.');
+          else lC=_line('—','#8a8a8a','Whether every approved trade came out the same size: '
+            +_dash((G3&&G3.note)?String(G3.note):_why('contracts_ordered_distinct')));
+          // 4. do the two independent records agree
+          let lD;
+          if(agCmp==null)lD=_line('—','#8a8a8a','Whether the NinjaScript ledger and the service log agree: '+_dash(_why('agreement')));
+          else if(!agNo&&!agLO)lD=_line('✓',PNL_POS,'Both records tell the same story on all <b>'+agCmp+'</b> answers compared.'
+            +(agSO?('<span title="'+_q('The service scores on a keep-warm ping too, and those land here as well, so this figure is not by itself a fault.')+'" style="cursor:help;color:var(--text5)"> '+agSO+' service line'+(agSO===1?'':'s')+' had no ledger row.</span>'):''));
+          else lD=_line('✕',PNL_NEG,'The two records DISAGREE.'
+            +(agNo?(' <b>'+agNo+'</b> of '+agCmp+' compared answers differ'+(agEx?(' (e.g. '+_e(agEx)+')'):'')+'.'):'')
+            +(agLO?(' <b>'+agLO+'</b> ledger row'+(agLO===1?'':'s')+' claim the gate answered where the service log has no line for that bar.'):''));
+          // 5. the bar interlock and the wrong-series defect it exists to catch
+          // TWO SEPARATE FACTS, NOT A CHAIN. These were if/else-if, so a day that hit the
+          // interlock never reported the wrong-series finding underneath it -- and the wrong
+          // series IS the defect the interlock was built for (v73.300). The pill said WRONG
+          // BAR SERIES while the body talked only about the interlock. Both lines now emit.
+          let lE='';
+          if(nBar!=null&&nBar>0)lE+=_line('⚠','#e0a33a','<b>'+nBar+'</b> decision'+(nBar===1?'':'s')+' hit the bar interlock — NinjaTrader and the service were on different bars, so those fell open on purpose.'
+            +(barEx?('<div title="'+_q('The audit reports the distinct error texts the service logged for the day, not a time order, so this is one of them rather than provably the last.')+'" style="cursor:help;color:var(--text5);margin-top:2px">reported on '+_leg(barEx.leg)+': '+_e(barEx.txt)+'</div>'):''));
+          if(wrong===true)lE+=_line('⚠','#e0a33a','A leg was scored off a bar series that is not its own. '+_e(wrongNote));
+          if(!lE){
+            if(nBar===0&&wrong===false)lE=_line('✓',PNL_POS,'NinjaTrader and the service were on the same bar every time, and every scored decision used its own bar size.');
+            else if(nBar===0)lE=_line('✓',PNL_POS,'No decision hit the bar interlock.');
+          }
+          // 6. rule 5 of the contract: an unreadable answer must fail OPEN, never closed
+          if(_nothing){lA=_line('✕',PNL_NEG,'<b>Nothing was recorded.</b> The ledger holds no entry check at all for this session, so none of the readings below have any evidence behind them. Either no strategy reached an entry check, or nothing was running to write one — and those two look identical from here until the session heartbeat lands.');
+            lB=''; lC=''; lD=''; lE='';}
+          const lF=(nParse!=null&&nParse>0)?_line('⚠','#e0a33a','<b>'+nParse+'</b> answer'+(nParse===1?'':'s')+' came back unreadable and were treated as FAIL OPEN — never as a refusal. Fail-open is correct here; a parser that cannot read its own service is still a bug.'):'';
+          // The audit's own findings, in its words. Capped, because this panel is meant to
+          // be read at a glance; the full list is one hover away.
+          // Anything the five lines above already said, in the audit's words as well as
+          // mine, is two lines of screen for one fact. The rest is kept verbatim -- those
+          // are findings this panel has no line of its own for.
+          const _said=['never reached the gate','hit the bar interlock','the size dial is dead',
+            'disagree about their own answer','claim the gate answered','a parser that cannot read',
+            'the clamp is not being applied','unusable:','no decision ledger:'];
+          // NOT filtered, deliberately: 'wrong bar series' and 'recorded nothing' were both
+          // suppressed here on the promise that the lines above restate them. Neither did --
+          // the wrong-series line was unreachable behind the interlock, and the zero-ledger
+          // day printed ticks. Their own sentence is the only one that names the defect.
+          const CMP2=CMP.filter(c=>!_said.some(x=>c.indexOf(x)>=0));
+          const cHtml=CMP2.length?('<div style="margin-top:7px;padding-top:6px;border-top:1px solid var(--border2);font-size:9px;color:var(--text4);line-height:1.7">'
+            +CMP2.slice(0,3).map(c=>'· '+_e(c)).join('<br>')
+            +(CMP2.length>3?('<div title="'+_q(CMP2.join('\n'))+'" style="cursor:help;color:var(--text5);margin-top:2px">+ '+(CMP2.length-3)+' more — hover</div>'):'')
+            +'</div>'):'';
+          // Which of the three sources the audit could actually read. Only shown when one
+          // of them was not: a panel that says nothing about its inputs invites the reader
+          // to assume all three were there.
+          const srcBad=[];
+          [['decision ledger','decisions_csv'],['service log','gate_live_log'],['broker fills','fills_csv']].forEach(p=>{
+            const m=SRC[p[1]];if(!m||typeof m!=='object')return;
+            if(!m.found||m.note)srcBad.push(p[0]+': '+_e(m.note||'missing'));});
+          const sHtml=srcBad.length?('<div style="margin-top:5px;font-size:9px;color:var(--text5);line-height:1.6">⚑ '+srcBad.join(' · ')+'</div>'):'';
+          // Verdict, worst first. Grey means unknown and never passes for a pass.
+          if(!nOpp){vTxt='◦ NOTHING RECORDED';vCol='#8a8a8a';}
+          else if(nLoud>0){vTxt='✕ GATE BYPASSED ×'+nLoud;vCol=PNL_NEG;}
+          else if(nOver){vTxt='✕ OVER THE CEILING ×'+nOver;vCol=PNL_NEG;}
+          else if(agNo||agLO){vTxt='✕ RECORDS DISAGREE';vCol=PNL_NEG;}
+          else if(dead===true){vTxt='⚠ DIAL DEAD';vCol='#e0a33a';}
+          else if(wrong===true){vTxt='⚠ WRONG BAR SERIES';vCol='#e0a33a';}
+          else if(nBar){vTxt='⚠ BAR MISMATCH ×'+nBar;vCol='#e0a33a';}
+          else if(nFo){vTxt='⚠ FELL OPEN ×'+nFo;vCol='#e0a33a';}
+          else if(nNot){vTxt='⚠ '+nNot+' NEVER ASKED';vCol='#e0a33a';}
+          else if(nNot===0){vTxt='✓ ASKED EVERY TIME';vCol=PNL_POS;}
+          inner=strip+lA+lB+lC+lD+lE+lF+cHtml+sHtml;
+          _gaSub=[(nOpp!=null?(nOpp+' checks'):''),(nNot?(nNot+' never asked'):''),(nOrd!=null?(nOrd+' approved'):''),
+                  (nSkp?(nSkp+' skipped'):''),(dead===true?'dial dead':''),(nFo?(nFo+' fell open'):''),
+                  ((agNo||agLO)?'records disagree':'')].filter(Boolean).join(' · ')||'audited';
+        }
+        // The verdict pill rides INSIDE the body, not in the tile heading, so the PAPER ✦
+        // card — which supplies its own heading — does not lose it.
+        gateAuditInner='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px">'+_pill(vTxt,vCol)
+          +'<span style="font-size:9px;color:var(--text5)">'+_sess+'</span></div>'+inner;
+        gateAuditHtml=tile('<div class="lbl" style="margin-bottom:7px">DID THE GATE DO ITS JOB?</div>'+gateAuditInner);
+      }
       const _reloadLbl=window._paperLoading?'LOADING…':'⟳ REFRESH';
       const _reloadBtn='<button data-paperrefresh style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:7px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'+_reloadLbl+'</button>';
       // Leg rail — same tinted-tray-with-filled-active-segment language as the report
@@ -22708,7 +22952,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       // summary + curve read as one block, then the detail panels below it.
       const _errHtml=window._paperErr?'<div style="color:var(--red);font-size:10px;margin-top:10px">load error: '+String(window._paperErr).replace(/</g,'&lt;')+'</div>':'';
       if(augurSub!=='paper2'){
-        body=headerHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+reportsHtml+_errHtml;
+        body=headerHtml+bridgeHtml+curveHtml+tradesHtml+reconcileHtml+gateAuditHtml+reportsHtml+_errHtml;
       }else{
         // ── PAPER ✦ · the concise layout (owner 2026-08-26: "clean up the page as a
         //    whole and make it more concise ... maybe make it a separate tab so i can
@@ -22780,6 +23024,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         body=_p2Head+_p2Status+dataHtml+curveHtml+tradesHtml
           +_p2Card('nt','NINJATRADER · DETAIL',bridgeHtml,'live state, fills, orders')
           +_p2Card('recon','CROSS-ENGINE · DO THEY AGREE?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
+          +_p2Card('gate','DID THE GATE DO ITS JOB?',gateAuditInner,_gaSub)
           +_p2Card('reports','DAILY REPORTS',reportsHtml,'one row per night')
           +_errHtml;
       }
