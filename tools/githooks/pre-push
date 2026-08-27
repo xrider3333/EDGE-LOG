@@ -58,4 +58,41 @@ if [ -f "$repo_root/tools/exec_feasibility_audit.py" ]; then
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# STRATEGY-CONTRACT GATE (added 2026-08-27)
+#
+# WHY: CI (.github/workflows/tests.yml) runs the suite on every push to main,
+# and a red main emails the owner once PER PUSH. Twice now a broken strategy
+# file has sat on main for a day while unrelated pushes piled up notifications:
+#   - the quarantined-stub break (fixed 047b427)
+#   - ORB_3_4_ER_1_0 forwarding **kw into a base engine that has no **kw, so the
+#     engine-supplied `index` blew up with a TypeError (landed 56960d9,
+#     2026-08-25; 8 failure emails before anyone looked)
+# BOTH were caught by tests/test_strategy_contract.py, BOTH reproduced locally
+# in under two seconds, and neither was ever run before pushing. Nothing in the
+# repo asked for them. This is that missing check.
+#
+# Scope + cost: the whole battery is 557 tests across every strategy and takes
+# ~5 SECONDS, so it runs on any push that touches Python at all rather than
+# trying to guess which strategies a change can reach. Pushes that touch only
+# index.html -- the large majority -- are unaffected and pay nothing.
+#
+# Deliberately NOT the full suite: that is ~4 minutes locally, which is a real
+# tax on every Python push across concurrent sessions. The contract battery is
+# the part that has actually caught the breaks; CI still runs everything.
+# ---------------------------------------------------------------------------
+base_ref="$(git merge-base HEAD origin/main 2>/dev/null || echo origin/main)"
+if git diff --name-only "$base_ref" -- 2>/dev/null | grep -qE '\.py$'; then
+  python -m pytest "$repo_root/tests/test_strategy_contract.py" -q
+  contract=$?
+  if [ "$contract" -ne 0 ]; then
+    echo ""
+    echo "Strategy-contract gate FAILED -- this push would turn main red and start"
+    echo "a failure email for every push after it. Fix it, or override with:"
+    echo "  git push --no-verify"
+    echo ""
+    exit 1
+  fi
+fi
+
 exit 0

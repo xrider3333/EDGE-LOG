@@ -18,6 +18,7 @@ $64,575/PF 1.31 → $88,246/PF 1.74 on 123 trades. Broad plateau on er_len 6-12.
 """
 import numpy as np
 import importlib.util as _ilu
+import inspect as _inspect
 import os as _os
 
 _SRC = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "ORB_3_4_C221.py")
@@ -46,11 +47,35 @@ DEFAULT_PARAMS["er_th"] = {"default": 0.25, "min": 0.0, "max": 0.5, "step": 0.05
                                       "ratio is below this. 0 disables the gate (= exact #230)."}
 
 
+# The base engine takes a FIXED keyword list -- it has no **kw of its own (ORB_3_4.run_backtest,
+# which ORB_3_4_C221 re-exports unchanged). This wrapper DOES have **kw, and augur_engine picks
+# which "extras" to hand a strategy by inspecting its signature: a **kw catch-all reads as
+# "accepts anything", so the engine passes `index` (the bar timestamps) to every such strategy.
+# Forwarding **kw straight through therefore died with
+#   TypeError: run_backtest() got an unexpected keyword argument 'index'
+# on every CI run from 2026-08-26 on. It never showed up locally because the contract tests are
+# the only caller that supplies an index -- a normal backtest or sweep passes none.
+#
+# Filter to what the base actually accepts, read off the base's OWN signature rather than a
+# hand-kept list, so a new base parameter needs no edit here and a removed one cannot resurrect
+# this bug. Deliberately general rather than a one-off `kw.pop('index')`: the next extra the
+# engine learns to pass would otherwise land in exactly the same trap.
+_BASE_SIG = _inspect.signature(_c221.run_backtest).parameters
+_BASE_TAKES_KW = any(p.kind == p.VAR_KEYWORD for p in _BASE_SIG.values())
+
+
+def _base_kw(kw):
+    """Only the keywords the base engine can actually receive."""
+    if _BASE_TAKES_KW:
+        return kw
+    return {k: v for k, v in kw.items() if k in _BASE_SIG}
+
+
 def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
                  er_len: int = 12, er_th: float = 0.25,
                  return_trades: bool = False, **kw):
     res = _c221.run_backtest(opens, highs, lows, closes, volumes=volumes, day_id=day_id,
-                             return_trades=True, **kw)
+                             return_trades=True, **_base_kw(kw))
     if res is None:
         return None
     trades = res["trades"]
