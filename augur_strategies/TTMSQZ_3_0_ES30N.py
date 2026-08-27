@@ -29,11 +29,41 @@ _t3 = _u.module_from_spec(_sp); _sp.loader.exec_module(_t3)
 _FROZEN = {'length': 20, 'bb_mult': 2.0, 'min_sq_bars': 1, 'entry_fill': 'open', 'exit_mode': 'fade', 'fade_bars': 1, 'gate_tf_min': 60, 'gate_mode': 'sq_on', 'gate_fired_k': 3, 'gate_bars': 2, 'direction': 'both'}
 
 
-def run_backtest(*a, **kw):
-    """Neighbourhood wrapper: the searched knobs arrive in kw, everything else is frozen
-    at the pocket configuration (kw never overrides _FROZEN)."""
+def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None, **kw):
+    """Neighbourhood wrapper: the searched knobs arrive in kw, everything else is frozen at
+    the pocket configuration (kw never overrides _FROZEN), and anything outside the declared
+    set is refused.
+
+    `index` is named explicitly because the engine only hands bar timestamps to a strategy
+    that declares them by name, and the verification frame prefers the wall clock."""
+    if not _in_neighbourhood(kw):
+        return None          # outside the pre-registered neighbourhood - refused, not clamped
     kw.update(_FROZEN)
-    return _t3.run_backtest(*a, **kw)
+    return _t3.run_backtest(opens, highs, lows, closes, volumes=volumes, day_id=day_id,
+                            index=index, **kw)
+
+
+# ── THE NEIGHBOURHOOD IS BINDING (added 2026-08-23 after runs 290 and 293) ────
+# Auto-Validate widens a strategy's declared min/max when the optimum sits near an edge (its
+# #26/#30 range-widening feature). That is right for an open search and fatal for a fenced
+# one. Run 293 was handed this neighbourhood and left it: gate length 8 against a declared
+# floor of 16, Keltner 2.25 against a declared ceiling of 1.75, and an entry cutoff of MINUS
+# ONE - a value with no meaning at all, and below the floor of zero the engine strategy
+# itself declares. It crowned that and lost 60,094 dollars in the lockbox.
+#
+# Admissibility is therefore enforced HERE, where nothing can widen it. An out-of-set
+# configuration is REFUSED, not clamped: clamping would run one thing and report another.
+_ADMISSIBLE = {'kc_mult': [1.25, 1.5, 1.75], 'stop_atr': [1.5, 2.0, 2.5], 'eod_cutoff': [1, 3, 5], 'gate_len': [16, 20, 24]}
+
+
+def _in_neighbourhood(kw):
+    for k, allowed in _ADMISSIBLE.items():
+        if k not in kw:
+            continue
+        v = kw[k]
+        if not any(abs(float(v) - float(a)) < 1e-9 for a in allowed):
+            return False
+    return True
 
 
 squeeze_indicators = _t3.squeeze_indicators
