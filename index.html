@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.291';
+const VERSION='73.292';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.292',date:'2026-08-26',notes:['The candle window now keeps a view it has already fetched for half an hour when the trade finished on an earlier day - those bars can never change again - instead of throwing it away after ninety seconds. Flipping between bar sizes and sessions on any trade older than today is now instant. Charts that reach into today still refresh quickly, because those do have a live tail.']},
 {v:'73.291',date:'2026-08-26',notes:['CANDLE CHARTS LOAD FAR FASTER. The biggest cost was self-inflicted: to work out where the live price tail should start, your PC was reading the ENTIRE 1-minute 24-hour file - 5.5 million rows - on every single paper-trade chart, about six seconds of pure waste. It now reads the last line of that file instead. On top of that, the window remembers every view it has already fetched, so flipping back to a session, bar size or width you have already looked at is instant, and your PC checks for new chart requests every three-quarters of a second while you are actively clicking instead of every five seconds. The two PC-side halves need the runner restarted before they take effect.']},
 {v:'73.290',date:'2026-08-26',notes:['FIX to the underpowered lockbox label shipped minutes earlier in 73.289: it looked for the power figures in the wrong half of the run record, so every verdict still printed a plain green HELD and nothing actually changed on screen. Run 224 - a lockbox that HELD on 15 trades at about 7% power - now correctly reads HELD (underpowered) in amber. Caught by opening the real report instead of trusting the boot check.']},
 {v:'73.289',date:'2026-08-26',notes:['A LOCKBOX HELD NOW SAYS WHEN IT PROVES NOTHING. The held-out year is the one honest test in the whole report, and it printed a green HELD whether it rested on five trades or five hundred. Three runs on this board say HELD on 5, 7 and 15 trades - at those counts the test can only detect an edge many times larger than the one being claimed, so the pass is the absence of evidence rather than evidence. The engine already worked this out and saved it (the verdict-power line, #94); the verdict itself just never mentioned it.','Everywhere a lockbox verdict is printed - the equity-curve tooltip, the section-1 lockbox line and the LOCKBOX chip - a thin holdout now reads HELD (underpowered) in amber instead of a plain green HELD, and hovering says how many trades and how much power. A FAIL is labelled the same way but keeps its red, since a fail already reads as bad news.','Nothing about what passed, what got crowned or what is on the paper board changes. This only changes what the screen claims.']},
@@ -4100,6 +4101,10 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   // at redraws instantly instead of making the PC read the price file again. Views that
   // include the live tail expire quickly, since new bars land every few seconds.
   const _cndlSeen={};
+  // Today's date in New York, so a trade that has already finished on an earlier day can
+  // be kept much longer - the bars around a closed trade never change again. Only a chart
+  // that reaches into TODAY has a live tail worth re-fetching.
+  const _etToday=()=>{try{return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});}catch(_e){return '';}};
   const _cndlSeenGet=k=>{const e=_cndlSeen[k];if(!e)return null;
     const ttl=e.fresh?90000:1800000;
     if(Date.now()-e.at>ttl){delete _cndlSeen[k];return null;}
@@ -4123,7 +4128,8 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
         tick=setInterval(()=>{if(!_cndlAlive()||_cndl.seq!==seq){clearInterval(tick);return;}
           _cndl.api.setSub('<b style="color:var(--blue)">'+label+'&hellip; '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; fetching from your PC');},400);
         r=await _runCmd('get_bars',pay,300000);
-        _cndlSeen[_pk]={r:r,at:Date.now(),fresh:!!pay.include_fresh};
+        const _day=String(x._xt2||x._et||'').slice(0,10);
+        _cndlSeen[_pk]={r:r,at:Date.now(),fresh:(!!pay.include_fresh)&&!!_day&&_day>=_etToday()};
       }
       clearInterval(tick);
       if(!_cndlAlive()||_cndl.seq!==seq){_cndl.busy2=false;return;}
