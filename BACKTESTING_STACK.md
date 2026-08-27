@@ -1191,6 +1191,26 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   `close` is gone from the options and the presets, plus a runtime guard forces the honest fill if a caller
   asks for it; verified byte-identical to `TTIBS_1_0(next_open)` on the pre-lockbox slice (pnl 17,488.5,
   n 648, PF 1.6222, DD −2,366.25). A library-wide audit for the same trap class is under way.
+  **THE LEAK ALSO STEERED THE PARAMETERS — and honest TTIBS still dies (2026-08-27, same day).**
+  A 660-config honest-fill scan on PRE-LOCKBOX data only (2010-06-07..2025-07-16) shows the
+  leak-crowned champion (ibs_entry 0.40 / hold_cap 8) is near the BOTTOM of the honest surface:
+  net/DD 7.20, PF 1.61, DD $47.6k. The honest optimum is deep-weakness, few-trades: **ibs_entry
+  0.10 / hold_cap 5-7 / ibs_exit -> net/DD 20.2-20.5, PF 2.7-2.9, DD $16.7k, net ~$340k on 284
+  trades**, a genuine plateau (0.05-0.15 x hold 5-7 all sit 13-20). Free money at every entry made
+  the search want MORE entries (loose 0.40 threshold, 651 trades); paying an honest fill, only the
+  deepest weakness is worth buying. Lesson: a fill leak does not just inflate the score, it moves
+  the champion to the wrong part of the surface, so re-searching after a leak fix is mandatory.
+  **But the pre-registered honest pick FAILS the lockbox too:** ibs 0.10 / hold 6 reads
+  **-$41,717 / PF 0.42 on 11 trades**. That is now THREE independent parameter choices failing the
+  same sealed year on honest fills - round-7 triage -$44,320 / PF 0.44, leak-crowned 0.40/8
+  -$37,870 / PF 0.74, honest-optimal 0.10/6 -$41,717 / PF 0.42. **TTIBS is dead honestly, at every
+  parameter choice tested, not merely at one.** The library's CLOSED status is correct and is now
+  confirmed across the parameter surface rather than at a single point.
+  **Late same-day entry (`TTIBS_1_3.py`) is param-specific, not a rescue:** at the contaminated
+  0.40/8 params it flips the lockbox positive (+$30.9k at cut_bars=2), but at the honest optimum
+  (0.10/hold 6) it is far WORSE than a plain next-open fill pre-lockbox (net/DD 5.98 vs 20.46,
+  net $229k vs $341k) - deciding before the close means buying ahead of the final flush on exactly
+  the deep-weakness days that carry the edge. Auto-Validate queued to judge it under full gates.
   **Stop-loss probe (`TTIBS_1_2`, honest fill + `stop_pct`):** TTIBS 1.0 never had a stop; on the pre-lockbox
   slice at the champion params a stop HURTS at every level tested — net/DD 7.20 (off) vs 2.81 / 1.76 / 3.34 /
   3.51 at 1 / 2 / 3 / 4 %. Stops whipsaw a mean-reversion book out of trades right before they revert. Not adopted.
