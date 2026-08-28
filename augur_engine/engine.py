@@ -12,7 +12,11 @@ import inspect
 
 from .strategies import load_strategy
 from .data import find_master, load_master_arrays
-from .analytics import monte_carlo_drawdown
+from .analytics import (monte_carlo_drawdown,
+                        sharpe_from_trades as _sharpe_shared,
+                        sortino_from_trades as _sortino_shared,
+                        avg_win_loss as _avg_win_loss,
+                        expectancy_r as _expectancy_r)
 from . import trial_cache as TC
 from . import window_delta as WD
 
@@ -48,6 +52,67 @@ def _apply_costs(m, cost_pts):
                 "avg_pnl": (total / n) if n else 0.0,
                 "wins": wins, "losses": losses, "trades": net})
     return out
+
+
+# Stamped on every result the risk enrichment has been through, and required on a
+#   cache hit. Bump only if the risk arithmetic itself changes.
+_RISK_V = 1
+
+
+def _enrich_risk(m, years=None):
+    """Attach the risk figures every local sweep was missing, from the trade list.
+
+    WHY THIS LIVES HERE and not in 153 sweep drivers: every one of them reaches the
+    engine through run_backtest(), and not one was recording a Sharpe, a Sortino or an
+    average loss. That is why the STUDIES board could fill those axes for a real
+    Auto-Validate run and show nothing at all for a local .py sweep. One place, every
+    caller, and the SAME arithmetic a validate uses - both now call analytics.py.
+
+    PURELY ADDITIVE: a key the strategy already set is never overwritten, and a result
+    with no trade list comes back untouched.
+
+    Sharpe and Sortino are annualized, so they need the window length. Without one they
+    are simply absent rather than filled with a number measured on another basis.
+    """
+    if not isinstance(m, dict):
+        return m
+    trades = m.get("trades")
+    if not trades:
+        return m
+    aw, al = _avg_win_loss(trades)
+    add = {}
+    if aw is not None:
+        add["avg_win"] = aw
+    if al is not None:
+        add["avg_loss"] = al          # POSITIVE magnitude, as validate has always stored it
+    er = _expectancy_r(trades)
+    if er is not None:
+        add["expectancy_r"] = er
+    if years and years > 0:
+        sh = _sharpe_shared(trades, years)
+        so = _sortino_shared(trades, years)
+        if sh is not None:
+            add["sharpe"] = sh
+        if so is not None:
+            add["sortino"] = so
+        n = len(trades)
+        add["trades_per_year"] = n / float(years)
+        add["window_years"] = float(years)
+    for k, val in add.items():
+        if m.get(k) is None:
+            m[k] = float(val)
+    return m
+
+def _window_years(arrays):
+    """Calendar years the loaded bars span, or None when the index cannot say."""
+    try:
+        idx = arrays.get("index")
+        if idx is None or len(idx) < 2:
+            return None
+        days = (idx[-1] - idx[0]).total_seconds() / 86400.0
+        return (days / 365.25) if days > 0 else None
+    except Exception:
+        return None
 
 
 def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
@@ -141,7 +206,15 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                 _hit = TC.get(_cache_key)
             except Exception:
                 _cache_key, _hit = None, None
-            if _hit is not None:
+            # A CACHED ROW WRITTEN BEFORE THE RISK FIGURES EXISTED has no sharpe /
+            #   sortino / avg_loss in it, and the trade list needed to derive them was
+            #   never stored - so returning it would hand back a result that silently
+            #   lacks the very keys this engine now promises. Rather than invalidate an
+            #   80MB cache wholesale on an epoch bump, every row written from now on
+            #   carries _risk_v and an unmarked row is simply treated as a miss: it is
+            #   recomputed once, on demand, and re-cached with the marker. No permanent
+            #   misses, and no config ever shows a Sharpe that depends on cache state.
+            if _hit is not None and _hit.get("_risk_v"):
                 TC.record_hit()
                 return _hit
             if _cache_key is not None:
@@ -250,6 +323,12 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
             pass
 
     if isinstance(res, dict):
+        # RISK FIGURES BEFORE THE TRADE LIST IS DROPPED. Every sweep driver in tools/
+        #   calls this function, so this one line is what gives a local .py sweep the
+        #   same win rate / Sharpe / Sortino / average-loss vocabulary an Auto-Validate
+        #   run has always had. Additive only - nothing already set is overwritten.
+        _enrich_risk(res, _window_years(arrays))
+        res["_risk_v"] = _RISK_V
         if mc_sims and res.get("trades"):
             res["mc"] = monte_carlo_drawdown([t[2] for t in res["trades"]],
                                              n_sims=int(mc_sims), block=int(mc_block))

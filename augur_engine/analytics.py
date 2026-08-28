@@ -110,6 +110,71 @@ def equity_curve_from_pnls(pnls, cap=160, times=None):
     return out
 
 
+# ── THE PER-TRADE RISK FIGURES, defined ONCE ────────────────────────────────────
+#    Sharpe, Sortino and the average win / average loss pair were written out twice:
+#    validate.py had its own copy, and nothing else had any, which is why a local .py
+#    sweep could never show a Sharpe on the STUDIES board. They live here now, validate
+#    calls them, and run_backtest attaches them to EVERY result - so a sweep and an
+#    Auto-Validate now put the SAME arithmetic on the same axis. That is the whole point:
+#    two definitions of Sharpe sharing one axis is precisely the silent blending this
+#    project keeps guarding against.
+#
+#    Trades arrive NET (run_backtest already subtracted cost_pts) - never re-subtract.
+#    Dispersion uses the POPULATION deviation, matching what validate has always saved.
+def trade_pnls(trades):
+    """The per-trade NET PnL series from a trade list, or [] when there is none."""
+    return [float(t[2]) for t in (trades or []) if len(t) >= 3]
+
+
+def sharpe_from_trades(trades, years):
+    """Annualized Sharpe of a per-trade NET-PnL series. None when too few trades, no
+    span, or no dispersion - never a number standing in for a missing one."""
+    p = trade_pnls(trades)
+    n = len(p)
+    if n < 3 or not years or years <= 0:
+        return None
+    mean = sum(p) / n
+    sd = (sum((x - mean) ** 2 for x in p) / n) ** 0.5
+    if sd <= 0:
+        return None
+    return (mean / sd) * ((n / years) ** 0.5)
+
+
+def sortino_from_trades(trades, years):
+    """Annualized Sortino - Sharpe with only DOWNSIDE dispersion in the denominator.
+    It is here beside MAR on purpose: a max drawdown is ONE worst event, and this
+    project measured its confidence interval to be wider than the statistic itself."""
+    p = trade_pnls(trades)
+    n = len(p)
+    if n < 3 or not years or years <= 0:
+        return None
+    mean = sum(p) / n
+    dd = (sum(min(0.0, x) ** 2 for x in p) / n) ** 0.5
+    if dd <= 0:
+        return None
+    return (mean / dd) * ((n / years) ** 0.5)
+
+
+def avg_win_loss(trades):
+    """(avg win, avg loss) in POINTS, net of cost. avg_loss is a POSITIVE magnitude.
+    (None, None) sides where there were no wins / no losses to average."""
+    p = trade_pnls(trades)
+    wins = [x for x in p if x > 0]
+    losses = [-x for x in p if x < 0]
+    return ((sum(wins) / len(wins)) if wins else None,
+            (sum(losses) / len(losses)) if losses else None)
+
+
+def expectancy_r(trades):
+    """Expectancy in R, where R is the AVERAGE LOSING TRADE - the only risk unit this
+    project actually stores. It is LEVERAGE-BLIND, which raw dollar expectancy is not:
+    a config trading one contract and one trading ten land on the same number."""
+    p = trade_pnls(trades)
+    if not p:
+        return None
+    _, al = avg_win_loss(trades)
+    return (sum(p) / len(p)) / al if (al and al > 1e-12) else None
+
 def annualized_sr(pnls, years):
     """{sr, n, tpy, skew, kurt} annualized Sharpe of a per-trade PnL series (None if
     too few trades / zero variance). Same formula as optimizer._ann_sr."""

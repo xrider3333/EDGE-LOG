@@ -102,10 +102,11 @@ NET sits last because it is the one axis that does **not** compare across window
   title. Before that guard it produced a NaN scale whose labels landed at y=0 and were sliced
   in half by the top edge.
 
-**WIN %, SHARPE, SORTINO and EV IN R.** None has ever existed as a registry field. On the parallel chart they are
+**WIN %, SHARPE, SORTINO and EV IN R.** None of these was ever a registry field until
+2026-08-27; a row can now carry `wr`, `sh`, `so` and `avl` (or `evr`) directly. On the parallel chart they are
 read off the **run document** behind a row (`validate.total_win_rate`, `validate.total_sharpe`,
 both already carried by the projected run list) and off the candidate record itself for a config
-row. A sweep row shows neither, because the local sweeps have never printed them — a blank there
+row. A sweep row shows nothing there until its driver records them - which every driver now can, because `run_backtest` attaches `win_rate`, `sharpe`, `sortino`, `avg_loss` and `expectancy_r` to every result it returns (see `augur_engine/analytics.py`, one definition shared with validate). Older sweeps whose numbers were written down without them — a blank there
 is the truth, not an oversight. If a sweep driver starts recording them, they fill in with no
 change to the board.
 
@@ -478,6 +479,11 @@ the same thing everywhere.
 | `dd` | no | The worst drawdown, **always written as a positive number**. |
 | `pf` | no | The profit factor. |
 | `trd` | no | The trade count. |
+| `wr` | no | The **win rate**, as a percentage. |
+| `sh` | no | The **annualized Sharpe**. |
+| `so` | no | The **annualized Sortino** — downside dispersion only. |
+| `avl` | no | The **average losing trade** in dollars, a positive magnitude. The board divides expectancy by it to get EV IN R. |
+| `evr` | no | **Expectancy in R** outright, if the sweep recorded it rather than the average loss. |
 | `live` | no | The row's **status**: `'crown'`, `'paper'`, `'both'`, or left out. See section 4B. |
 | `liveWhy` | no | One plain-English sentence explaining that status, shown when the reader hovers the status pills. Leave it out and a sensible default sentence is used. |
 | `layer` | no | Which paper **layer** a `'paper'`/`'both'` row runs on: `'shadow'` (default — the nightly shadow engine in `api/paper.py`), `'both'` (the NinjaTrader demo account trades the same configuration too) or `'nt'` (demo only). The pill reads PAPER, PAPER+NT or NT ONLY accordingly. See section 4B. |

@@ -19,6 +19,9 @@ from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METR
                    make_slice_evaluator, score_candidates_on_folds)
 from .optimize import run_grid
 from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
+from .analytics import (sharpe_from_trades as _sharpe_shared,
+                        sortino_from_trades as _sortino_shared,
+                        avg_win_loss as _avg_wl_shared)
 # RAW-tab per-slice metrics (v72, owner ask: RAW's MAR/PF/WIN%/SHARPE/$-per-trade should be
 #   SAMPLE-toggle-aware like GATE/TILT/HYBRID already are). Reuse GATE's exact stats shape
 #   (total_pnl/num_trades/win_rate/profit_factor/max_drawdown/avg_pnl/wins/losses) so the web
@@ -33,46 +36,23 @@ def _parse(d):
         return None
 
 
+# These three were defined here and nowhere else, which is why only an Auto-Validate run
+#   could show a Sharpe, a Sortino or an average loss. They now delegate to the single
+#   definition in analytics.py, which run_backtest also uses - so a local .py sweep and a
+#   validate put the SAME arithmetic on the same axis. Names kept; behaviour unchanged.
 def _sharpe_from_trades(trades, years):
-    """Annualized Sharpe from a per-trade NET-PnL series. The trades come from run_backtest,
-    which has ALREADY subtracted cost_pts (t[2] is net) — do NOT subtract cost again here, or
-    Sharpe double-counts fees. Returns None when there aren't enough trades / no span."""
-    pnls = [float(t[2]) for t in (trades or [])]
-    n = len(pnls)
-    if n < 3 or not years or years <= 0:
-        return None
-    mean = sum(pnls) / n
-    sd = (sum((p - mean) ** 2 for p in pnls) / n) ** 0.5
-    if sd <= 0:
-        return None
-    return (mean / sd) * ((n / years) ** 0.5)
+    """Annualized Sharpe from a per-trade NET-PnL series (see analytics.sharpe_from_trades)."""
+    return _sharpe_shared(trades, years)
 
 
 def _sortino_from_trades(trades, years):
-    """Annualized Sortino — like Sharpe but the denominator counts only DOWNSIDE (below-zero)
-    dispersion. Trades are already net of cost (run_backtest applied cost_pts) — no re-subtract."""
-    pnls = [float(t[2]) for t in (trades or [])]
-    n = len(pnls)
-    if n < 3 or not years or years <= 0:
-        return None
-    mean = sum(pnls) / n
-    dd = (sum(min(0.0, p) ** 2 for p in pnls) / n) ** 0.5
-    if dd <= 0:
-        return None
-    return (mean / dd) * ((n / years) ** 0.5)
+    """Annualized Sortino, downside dispersion only (see analytics.sortino_from_trades)."""
+    return _sortino_shared(trades, years)
 
 
 def _avg_wl(trades):
-    """Avg win / avg loss in POINTS (net of cost) from a per-trade NET-PnL series. Trades are
-    already net (run_backtest applied cost_pts) — do NOT subtract cost again. avg_loss is a
-    POSITIVE magnitude. Returns (None, None) when there are no wins / losses."""
-    pnls = [float(t[2]) for t in (trades or [])]
-    wins = [p for p in pnls if p > 0]
-    losses = [-p for p in pnls if p < 0]
-    aw = (sum(wins) / len(wins)) if wins else None
-    al = (sum(losses) / len(losses)) if losses else None
-    return aw, al
-
+    """Avg win / avg loss in POINTS, net of cost; avg_loss is a POSITIVE magnitude."""
+    return _avg_wl_shared(trades)
 
 def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.0, k=5):
     """#88 OOS-checked champion selection (owner-approved 2026-07-20). Motivating
