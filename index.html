@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.338';
+const VERSION='73.339';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.339',date:'2026-08-23',notes:['The all-configs PARALLEL chart now carries the RATIOS from the 1E table, not just net and drawdown: MAR, PF, SHARPE, WIN %, EV and TRADES each get their own axis whenever most of the configs carry that column, plus the run PBO axis.','A config with no value for an axis breaks its line there instead of drawing a chord straight past it, and hovering a line now reads out PF, win rate and trade count alongside net and drawdown.']},
 {v:'73.338',date:'2026-08-27',notes:['SWEEPS CAN NOW CARRY THE FOUR RISK FIGURES THEY NEVER HAD. Until today a local .py sweep recorded money, drawdown, profit factor and a trade count and nothing else, which is why WIN percent, SHARPE, SORTINO and EV IN R were blank for every stage-1 row on the STUDIES board. The fix is one place, not 153 driver files: every sweep reaches the engine through run_backtest, so run_backtest now attaches win rate, Sharpe, Sortino, average win, average loss and expectancy in R to EVERY result it returns, derived from the trade list it already had in hand.','AND IT IS THE SAME ARITHMETIC A VALIDATE USES. Sharpe, Sortino and the average win / loss pair were written out inside validate.py and nowhere else. They now live once in analytics.py and validate calls them, so a sweep and an Auto-Validate put the SAME definition on the same axis - two definitions of Sharpe sharing one axis is exactly the silent blending this project keeps guarding against. Verified bit-identical on a 1,825-trade run.','A STUDIES ROW CAN NOW RECORD THEM: wr, sh, so and avl (or evr outright) are registry fields, documented in STUDIES_BOARD.md. Paste what the sweep prints and the axes fill.','CACHE HONESTY: a trial cached before today has no risk figures in it and no trade list to derive them from, so returning it would hand back a result silently missing the keys the engine now promises. Rather than throw away an 80MB cache on an epoch bump, every row written from now on carries a marker and an unmarked row is treated as a miss - recomputed once, on demand, then re-cached. Nothing shows a Sharpe that depends on cache state. The first sweep over old ground will be slower once.']},
 {v:'73.337',date:'2026-08-23',notes:['PARALLEL on a candidate tab now draws EVERY config from EVERY pool on ONE chart - RAW, GATE, TILT and the three HYBRID sizings together - one line each across NET $ / MAX DD / MAR plus the run PBO axis, coloured by family so you can see whether the ML pools really sit above the raw ones.','The crowned config rides a gold underlay, each family brightest line is its best net, and the family legend is the same clickable control the 1A RISK MAP uses - hiding a family here hides it there and every axis re-fits.']},
 {v:'73.336',date:'2026-08-23',notes:['The TABLE / PARALLEL rail is on EVERY 1E tab now, not just KPI - that is why it looked missing on a card sitting on RAW or GATE.','PARALLEL on a candidate tab (RAW / GATE / TILT / HYBRID) draws that pool as parallel coordinates: one line per config across NET $ / MAX DD / MAR plus the run PBO axis, green = profitable, red = not, gold = the crowned config. Hover a line for its name and numbers.']},
@@ -11597,7 +11598,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   drawdown; any other tick drops the dot instead of mixing a scoped $ with a wider DD.
         const pnl=_b2tot(col),dd=_rawScopedA?_rawPA(col).dd:(_rawBScope?col.mdd:null);
         if(pnl==null||dd==null||!isFinite(pnl)||!isFinite(dd))return null;
-        return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned};
+        // v73.338 (owner: "the cords dont show the ratios from the 1e table"): carry the same
+        //   ratio columns the table prints, so the parallel view can draw them as axes.
+        const _n1=v=>(v!=null&&isFinite(+v))?+v:null;
+        const _tr1=_n1(col.trades!=null?col.trades:col.n_trades),_wr1=_n1(col.win_rate!=null?col.win_rate:col.wr);
+        return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,
+          pf:_n1(col.pf!=null?col.pf:col.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),sh:_n1(col.sharpe),tr:_tr1,ev:(_tr1?(pnl/_tr1):null)};
       }).filter(Boolean);
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
@@ -13622,17 +13628,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const poolParallelHtml=(allPts,pboV)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
       if(P.length<2)return '';
+      // v73.338 (owner: "the cords dont show the ratios from the 1e table"): the same ratio
+      //   columns the 1E tables print - MAR, PF, SHARPE, WIN %, EV, TRADES - each drawn only when
+      //   most of the configs actually carry it (an axis two thirds of the pool cannot fill would
+      //   be more misleading than missing), and a config with no value for an axis breaks its line
+      //   there instead of drawing a chord straight past it.
+      const _num=v=>(v!=null&&isFinite(+v))?+v:null;
       const axes=[
         {nm:'NET $',  inv:false, get:x=>+x.pnl, fmt:v=>_kfmt(v)},
         {nm:'MAX DD', inv:true,  get:x=>Math.abs(+x.dd), fmt:v=>'-'+_kfmt(Math.abs(v))},
-        {nm:'MAR',    inv:false, get:x=>(+x.pnl>0&&Math.abs(+x.dd)>0)?(+x.pnl/Math.abs(+x.dd)):null, fmt:v=>v.toFixed(2)}
+        {nm:'MAR',    inv:false, get:x=>(+x.pnl>0&&Math.abs(+x.dd)>0)?(+x.pnl/Math.abs(+x.dd)):null, fmt:v=>v.toFixed(2)},
+        {nm:'PF',     inv:false, get:x=>_num(x.pf), fmt:v=>v.toFixed(2)},
+        {nm:'SHARPE', inv:false, get:x=>_num(x.sh), fmt:v=>v.toFixed(2)},
+        {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
+        {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
+        {nm:'TRADES', inv:false, get:x=>_num(x.tr), fmt:v=>Math.round(v).toLocaleString()}
       ];
       if(pboV!=null&&isFinite(pboV))axes.push({nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
-      const A=axes.filter(a=>P.some(x=>{const v=a.get(x);return v!=null&&isFinite(v);}));
+      const A=axes.filter(a=>{const n=P.filter(x=>{const v=a.get(x);return v!=null&&isFinite(v);}).length;return n>=Math.max(2,Math.ceil(P.length*0.6));});
       if(A.length<2)return '';
       A.forEach(a=>{const vs=P.map(x=>a.get(x)).filter(v=>v!=null&&isFinite(v));
         a.lo=Math.min.apply(null,vs);a.hi=Math.max.apply(null,vs);if(a.hi===a.lo){a.hi=a.lo+(Math.abs(a.lo)||1)*0.5;a.lo=a.lo-(Math.abs(a.lo)||1)*0.5;a.flat=true;}});
-      const W=560,H=224,padL=14,padR=14,padT=30,padB=40,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
+      const W=560,H=232,padL=16,padR=16,padT=30,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
       const X=i=>padL+(A.length>1?i/(A.length-1):0.5)*Wp;
       const Y=(a,v)=>{let f=(v-a.lo)/((a.hi-a.lo)||1);if(a.inv)f=1-f;return plotB-Math.max(0,Math.min(1,f))*plotH;};
       let ax='';
@@ -13640,22 +13657,27 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ax+='<line x1="'+x.toFixed(1)+'" y1="'+plotT+'" x2="'+x.toFixed(1)+'" y2="'+plotB+'" stroke="'+(a.run?'var(--purple)':'var(--border)')+'" stroke-width="'+(a.run?1.4:1)+'"'+(a.run?' stroke-dasharray="4,3"':'')+'/>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
-          +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="10" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
+          +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
       // best NET $ per pool draws on top of its family, so each pool best line stays findable in the bundle
       const bestOf={};P.forEach((x,i)=>{const k=String(x.pool||'');if(!(k in bestOf)||+x.pnl>+P[bestOf[k]].pnl)bestOf[k]=i;});
       const topIdx={};Object.keys(bestOf).forEach(k=>{topIdx[bestOf[k]]=1;});
       let base='',lead='',crown='';
       P.forEach((x,i)=>{
-        const pts2=[];
-        A.forEach((a,j)=>{const v=a.get(x);if(v==null||!isFinite(v))return;pts2.push([X(j),Y(a,v)]);});
-        if(pts2.length<2)return;
+        const segs=[];let cur=[];
+        A.forEach((a,j)=>{const v=a.get(x);
+          if(v==null||!isFinite(v)){if(cur.length>1)segs.push(cur);cur=[];return;}
+          cur.push([X(j),Y(a,v)]);});
+        if(cur.length>1)segs.push(cur);
+        if(!segs.length)return;
+        const pts2=segs[0];
         const isC=!!x.crowned,pool=String(x.pool||''),col=_mtxPoolCol[pool]||'var(--text3)';
-        const pt='points="'+pts2.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')+'"';
-        const tip='<b>'+pool+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+'<br><b>'+_kfmt(+x.pnl)+'</b> &middot; DD -'+_kfmt(Math.abs(+x.dd))+(isC?'<br>&#128081; crowned':'');
-        const seg=fillW=>'<polyline '+pt+' fill="none" stroke="'+col+'" stroke-width="'+fillW+'" opacity="'+(isC?0.98:(topIdx[i]?0.9:0.32))+'" style="cursor:pointer" data-tip="'+tip+'"/>';
-        if(isC)crown+='<polyline '+pt+' fill="none" stroke="#f5c542" stroke-width="5" opacity="0.55"/>'+seg(2.4);
-        else if(topIdx[i])lead+=seg(1.8);
-        else base+=seg(0.9);
+        const tip='<b>'+pool+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+'<br><b>'+_kfmt(+x.pnl)+'</b> &middot; DD -'+_kfmt(Math.abs(+x.dd))+(_num(x.pf)!=null?' &middot; PF '+(+x.pf).toFixed(2):'')+(_num(x.wr)!=null?' &middot; '+Math.round(+x.wr)+'% win':'')+(_num(x.tr)!=null?' &middot; '+Math.round(+x.tr)+'T':'')+(isC?'<br>&#128081; crowned':'');
+        const _pl=(sg,st,w,op)=>'<polyline points="'+sg.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')+'" fill="none" stroke="'+st+'" stroke-width="'+w+'" opacity="'+op+'"'+(st==='#f5c542'?'':' style="cursor:pointer" data-tip="'+tip+'"')+'/>';
+        const op=isC?0.98:(topIdx[i]?0.9:0.32);
+        segs.forEach(function(sg){
+          if(isC){crown+=_pl(sg,'#f5c542',5,0.55)+_pl(sg,col,2.4,op);}
+          else if(topIdx[i])lead+=_pl(sg,col,1.8,op);
+          else base+=_pl(sg,col,0.9,op);});
       });
       const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+base+lead+crown+'</svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
@@ -14858,7 +14880,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
           const p=_P(c);
           if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
-            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false});
+            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.avg_pnl!=null&&isFinite(p.avg_pnl))?(p.avg_pnl*mlt3):null});
         });
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
@@ -15216,7 +15238,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false});
+                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.avg_pnl!=null&&isFinite(p.avg_pnl))?(p.avg_pnl*mlt3):null});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
