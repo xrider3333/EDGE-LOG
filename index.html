@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.317';
+const VERSION='73.318';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.318',date:'2026-08-24',notes:['STUDIES has a second drawing: PARALLEL COORDINATES, on a CHART toggle beside the profit stage. The scatter answers one question - what a variant cost in drawdown for what it paid - and answers it well. It cannot show whether the row that wins on money ALSO wins on efficiency, edge and sample, which is the question the moment you line up strategies that traded different instruments over different window lengths.','Six axes, one line per row: profit factor, money per dollar of drawdown, money per trade, money per year, trades per year, and NET last. Everything left of NET is scale-free on purpose, so two rows read against each other whatever they traded and however long for. NET is the one axis that does not compare - a longer window earns more by simply lasting longer - so it sits at the end as the outcome those ratios produced, and the chart says so.','A line BREAKS where a row records no figure. Nothing is bridged and no number is borrowed from a neighbouring measure.','WIN RATE and SHARPE are not recorded in the studies registry at all. They are named under the chart as the two gaps rather than guessed, and each becomes an axis the day a study carries it.']},
 {v:'73.317',date:'2026-08-23',notes:['FENCING THE SEARCH IS WORTH 63,000 DOLLARS, measured on the same neighbourhood twice: the NQ 5-minute compression-dial job scored a MINUS 51,596 dollar lockbox when Auto-Validate could widen its declared ranges (run 290) and a PLUS 11,464 dollar one when the strategy refused anything outside them (run 292). Run 293 made the same point on 15-minute NQ and added a sharper one - the widening crowned an entry cutoff of MINUS ONE, below the floor the strategy itself declares and meaningless as a rule, for a 60,094 dollar lockbox loss. Every TTM neighbourhood file now enforces its own set; the ES 30-minute PASS is being re-run fenced to confirm it. Studies rows 1028 and 1029.']},
 {v:'73.316',date:'2026-08-23',notes:['A PRE-REGISTERED NEIGHBOURHOOD IS NOT BINDING ON AUTO-VALIDATE, and run 290 is the proof: it widens a declared range whenever the best value sits near its edge, so the 5-minute compression-dial job settled on a base length of 8 and a threshold of 1.45 - neither of which the study proposed - and crowned an overfit configuration that lost 51,596 dollars in the lockbox. The fence is now enforced inside the strategy itself, which refuses an out-of-set configuration instead of clamping it (clamping would misreport what ran); 11 of 30 proposals were refused in a check before requeueing. The ES 30-minute PASS at run 289 is unaffected - its chosen settings sit in the interior of what was declared. Recorded as studies row 1027.']},
 {v:'73.315',date:'2026-08-27',notes:['NOISE ROUND 5 ON THE STUDIES BOARD (rows 1090-1140, owner: "do more testing while im away. new / better params / versions of this"). Two pre-registered studies on the configuration NinjaTrader is trading right now, with the bar written down before a single cell ran.','DOES THE CROWN TRAVEL? Run 243 moved verbatim onto seven other bar sizes and onto the 24-hour session - nothing re-fitted, not one knob touched. On the day session it travels: all eight bar sizes from one minute to one hour clear all four legs, and the money stays inside a 271k-325k band while the trade count falls almost fourfold. On the 24-hour session it FAILS outright, the same shape ORB showed. Two honest reductions the review pass forced: the eight day-session cells share most of their sessions and correlate at 0.97, so they are one observation rather than eight, and the configuration with BOTH crown filters switched OFF clears the same bar on seven of the eight - so what travels is the NOISE band mechanism, not specifically run 243.','IS THE CROWN A PLATEAU OR A SPIKE? Every one of its seven knobs nudged one step each way, everything else pinned: seven of seven sit on a plateau, no slope and no spike anywhere, and the verdict survives tightening the test from keeping 80 percent of the crown to keeping 90. Run 243 is not a lucky cell.','THE LEAST FLATTERING NUMBER IS THE MOST IMPORTANT ONE. Inside the live configuration the wildest-10-percent volatility skip is worth MINUS 400 dollars across 694 trades, and it fails the concentration rule at every threshold tested. It is the second of the two filters the crown was chosen for. Recorded, not acted on - the selection window is spent and this needs fresh forward evidence, not a re-read of the same years.','EVERY CELL EARNS 92 TO 102 PERCENT OF ITS MONEY AFTER 2018. That is a property of the strategy, not of this round, and it is now on the board in writing.','NOTHING WAS QUEUED TO AUTO-VALIDATE AND NOTHING WAS CROWNED. Fifteen-minute bars look better than the crowned five on profit factor, drawdown and return-per-drawdown - and that is exactly the shape of result these pre-registrations exist to refuse, because it was seen after the fact on a window that is already spent. The demo is unchanged.']},
@@ -20649,6 +20650,94 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reBaseWhy=fam=>{const c=_reBaseCand[fam]||[];
           if(!c.length)return 'No row in the '+fam+' family is tagged as the champion, so there is nothing to read this row against. The CHAMPION axis needs a declared champion and never falls back to a row that was not tagged one.';
           return 'The '+fam+' family has '+c.length+' rows tagged as its champion (row'+(c.length>1?'s ':' ')+c.map(o=>o.r.n).join(', ')+'), which the studies contract says should never happen \u2014 one family, one champion. The chart is reading against row '+_reBaseOf(fam).r.n+', the lowest-numbered of them. Fix the tag in the registry rather than leaving the board to pick.';};
+        // ── PARALLEL COORDINATES (owner ask 2026-08-24) ────────────────────────────────────
+        //    The scatter answers ONE question - drawdown against profit - and answers it well.
+        //    What it cannot show is whether a row that wins on money ALSO wins on efficiency,
+        //    edge and sample, which is the question the moment you line up strategies that
+        //    traded different instruments over different windows. So the same rows can be drawn
+        //    as parallel coordinates instead: one vertical axis per measure, one line per row
+        //    crossing all of them.
+        //
+        //    EVERY AXIS LEFT OF NET IS SCALE-FREE ON PURPOSE. A ratio compares across runs; a
+        //    raw dollar total does not, because a 16-year NQ run and a 2-year ES run are not the
+        //    same bet. So the axes are profit factor, money per dollar of drawdown, money per
+        //    trade, money per year and trades per year - and NET $ sits LAST as the outcome
+        //    those ratios produced. Net is the one axis that does not compare, and it says so.
+        //
+        //    NOT RECORDED YET: win rate and Sharpe. The registry carries no field for either, so
+        //    rather than invent them the chart NAMES them underneath as the two gaps to fill.
+        //    Adding one later is a row field plus one entry in _rePAxes - nothing else changes.
+        const _reParOn=(APREF.resChart==='par');
+        const _rePAxes=[
+          {k:'pf',  t:'PF',
+           v:(st,r)=>{const v=_reNum(r,'pf');return (v!=null&&isFinite(v)&&v>0)?Math.min(v,6):null;},
+           f:v=>v.toFixed(2)},
+          {k:'mar', t:'$ / $ DD',
+           v:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p!=null&&d&&d>0)?p/d:null;},
+           f:v=>v.toFixed(2)},
+          {k:'ev',  t:'EV / TRADE',
+           v:(st,r)=>{const p=_reSegVal(r),n=_reNum(r,'trd');return (p!=null&&n&&n>0)?p/n:null;},
+           f:v=>((v<0?'-$':'$')+_reAbbr(v))},
+          {k:'ppy', t:'$ / YEAR',
+           v:(st,r)=>{const p=_reSegVal(r),y=_reYrs(st,r);return (p!=null&&y&&y>0)?p/y:null;},
+           f:v=>((v<0?'-$':'$')+_reAbbr(v))},
+          {k:'tpy', t:'TRADES / YR',
+           v:(st,r)=>{const n=_reNum(r,'trd'),y=_reYrs(st,r);return (n&&y&&y>0)?n/y:null;},
+           f:v=>Math.round(v).toLocaleString()},
+          {k:'net', t:'NET $', last:true,
+           v:(st,r)=>_reSegVal(r),
+           f:v=>((v<0?'-$':'$')+_reAbbr(v))}];
+        const _reParAll=function(items){
+          const AX=_rePAxes,rows=[],skip=[];
+          items.forEach(function(o){
+            if(!_reFailOn&&o.r&&o.r.tone==='fail')return;
+            const vals=AX.map(function(a){return a.v(o.st,o.r);});
+            // a row draws when it carries at least two axes. Gaps BREAK the line rather than
+            // being bridged, so a missing figure can never read as a measured one.
+            if(vals.filter(function(v){return v!=null&&isFinite(v);}).length<2){skip.push(o);return;}
+            rows.push({o:o,st:o.st,r:o.r,v:vals});});
+          const CH=_reChH(),L=64,R=956,T=30,B=CH-58;
+          if(!rows.length)return '<div style="padding:26px;text-align:center;color:var(--text5);font-size:11px">No row on screen records two or more of these measures.</div>';
+          const E=AX.map(function(a,i){
+            const vs=rows.map(function(r){return r.v[i];}).filter(function(v){return v!=null&&isFinite(v);}).sort(function(a2,b2){return a2-b2;});
+            let lo=vs[0],hi=vs[vs.length-1];
+            if(!(hi>lo)){const p=Math.abs(hi)*0.1||1;lo=hi-p;hi=hi+p;}
+            const pd=(hi-lo)*0.06;return [lo-pd,hi+pd];});
+          const ax=function(i){return L+(R-L)*((AX.length===1)?0:(i/(AX.length-1)));};
+          const py=function(i,v){const e=E[i];return B-(Math.max(e[0],Math.min(e[1],v))-e[0])/((e[1]-e[0])||1)*(B-T);};
+          let g='';
+          // each axis prints ITS OWN numbers - the whole point is that they are different units
+          AX.forEach(function(a,i){const x=ax(i),lastAx=(i===AX.length-1);
+            g+='<line x1="'+x.toFixed(1)+'" y1="'+T+'" x2="'+x.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="1"/>'
+              +'<text x="'+x.toFixed(1)+'" y="'+(T-11)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="'+(a.last?'var(--text3)':'var(--text2)')+'">'+a.t+'</text>';
+            for(let k2=0;k2<4;k2++){const vv=E[i][0]+(E[i][1]-E[i][0])*k2/3,yy=py(i,vv);
+              g+='<line x1="'+(x-3).toFixed(1)+'" y1="'+yy.toFixed(1)+'" x2="'+(x+3).toFixed(1)+'" y2="'+yy.toFixed(1)+'" stroke="var(--text5)"/>'
+                +'<text x="'+(lastAx?(x+7):(x-7)).toFixed(1)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="'+(lastAx?'start':'end')+'" font-size="9" fill="var(--text5)">'+a.f(vv)+'</text>';}});
+          let lines='';
+          rows.forEach(function(rw){
+            const col=_reTone[rw.r.tone]||'var(--text4)',champ=(rw.r.tone==='champ');
+            const segs=[];let cur=[];
+            rw.v.forEach(function(v,i){
+              if(v==null||!isFinite(v)){if(cur.length>1)segs.push(cur);cur=[];return;}
+              cur.push(ax(i).toFixed(1)+','+py(i,v).toFixed(1));});
+            if(cur.length>1)segs.push(cur);
+            const miss=rw.v.map(function(v,i){return (v==null||!isFinite(v))?AX[i].t:null;}).filter(Boolean);
+            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+String(rw.r.name||'').replace(/"/g,'')+' ('+_reFamOf(rw.st,rw.r)+')';
+            rw.v.forEach(function(v,i){if(v!=null&&isFinite(v))tip+=String.fromCharCode(10)+AX[i].t+'  '+AX[i].f(v);});
+            if(miss.length)tip+=String.fromCharCode(10)+'not recorded: '+miss.join(', ');
+            segs.forEach(function(sg){
+              lines+='<polyline points="'+sg.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(champ?'2.4':'1.15')+'" opacity="'+(champ?'0.95':'0.5')+'" style="cursor:pointer"><title>'+tip+'</title></polyline>';});
+            rw.v.forEach(function(v,i){if(v==null||!isFinite(v))return;
+              lines+='<circle cx="'+ax(i).toFixed(1)+'" cy="'+py(i,v).toFixed(1)+'" r="'+(champ?'3.1':'1.9')+'" fill="'+col+'" opacity="'+(champ?'0.95':'0.55')+'"><title>'+tip+'</title></circle>';});});
+          const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
+            +'Every axis left of NET is <b style="color:var(--text4)">scale-free</b>, so two rows read against each other however different their instrument or window. '
+            +'<b style="color:var(--text4)">NET is not</b> - a longer window earns more by simply lasting longer - so it sits last, as the outcome those ratios produced. '
+            +'A line breaks where that row records no figure; nothing is bridged or substituted. '
+            +'<b style="color:var(--text4)">Not recorded anywhere yet: WIN % and SHARPE</b> - named here rather than guessed, and each becomes an axis the day a study carries it.'
+            +(skip.length?(' '+skip.length+' row'+((skip.length===1)?'':'s')+' carried fewer than two of these measures and could not be drawn.'):'')
+            +'</div>';
+          return '<div style="overflow-x:auto"><svg viewBox="0 0 1000 '+CH+'" width="100%" style="display:block;min-width:640px">'+g+lines+'</svg></div>'+note;
+        };
         const _reChartAll=(items,com)=>{
           const pts=[],skip=[],failOut=[];
           items.forEach(o=>{
@@ -21104,6 +21193,14 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                (sg==='wf'?'data held back while tuning and then tested forward - a row that never ran this stage shows a dash and drops off the chart':
                (sg==='lb'?'the stretch never touched until the very end, the honest forward read':'the whole run end to end')))
               +'. A row with no figure for this stage shows a dash that says why and leaves the chart. No other stage is ever substituted for it.',_TONE.samp)).join(''),_TONE.samp);
+        // CHART TYPE (owner ask 2026-08-24). SCATTER answers drawdown-against-profit; PARALLEL
+        //   lays every scale-free measure side by side so a row that wins on money can be checked
+        //   against whether it also wins on efficiency, edge and sample. Same rows, same filters,
+        //   same ticked stage — only the drawing changes.
+        const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
+            _tabBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
+           +_tabBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, money per dollar of drawdown, money per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
+          _TONE.samp);
         const _reAxisBtns=_reCtl(3,'VERTICAL AXIS','what the height of the chart measures',
             _tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
            +_tabBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
@@ -21234,7 +21331,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             // THE CHART'S OWN CONTROLS, directly under its title: the strategy rail and the
             //   three settings that decide what the two axes measure.
             +'<div style="padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reFamRail+_reStageBtns+_reAxisBtns+_reReadBtns)
+            +_reGrid(_reFamRail+_reChartBtns+_reStageBtns+(_reParOn?'':_reAxisBtns)+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow the
             //   chart and the tables together, which is why they sit with the chart rather than
             //   with the tables - a filter is not a table setting.
@@ -21242,7 +21339,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             +_reGrid(_reFailBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
               +(_reClear?('<div style="display:grid;grid-template-columns:70px minmax(0,1fr);gap:9px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
             +'</div></div>'
-            +'<div style="margin-top:10px">'+_reChartAll(_reItems,_reComAll)+'</div>',0)
+            +'<div style="margin-top:10px">'+(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll))+'</div>',0)
             +(_reSplit?('</div><div data-resplitbar title="'+_reEsc('Drag left or right to give the chart more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half. The bar under the chart still sets its height.')+'" style="flex:0 0 12px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:64px;border-radius:2px;background:var(--border)"></div></div><div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
           +_reBody
             +(_reSplit?'</div></div>':'')
@@ -24486,6 +24583,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         if(i>=0){if(cur.length===1)return;cur.splice(i,1);}else cur.push(v);
         savePref('resSegs',all.filter(x=>cur.indexOf(x)>=0));renderApp();};});
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
+      content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
         const k=b.dataset.refilt,v=b.dataset.refiltv,cur=Array.isArray(o[k])?o[k].slice():[];
