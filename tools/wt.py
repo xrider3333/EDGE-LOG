@@ -332,6 +332,13 @@ def sync_shared(root):
         dirty = run(['git', '-C', root, 'status', '--porcelain', '--untracked-files=no'],
                     check=False, quiet=True)
         if dirty:
+            # Most of what stalls this is not somebody's work at all - see
+            #   _clear_lossless_modified. Try to clear it, then re-read.
+            run(['git', '-C', root, 'fetch', '-q', 'origin'], check=False)
+            _clear_lossless_modified(root)
+            dirty = run(['git', '-C', root, 'status', '--porcelain',
+                         '--untracked-files=no'], check=False, quiet=True)
+        if dirty:
             print('shared checkout: %d file(s) modified - NOT fast-forwarded. '
                   'Review with: git -C "%s" status' % (len(dirty.splitlines()), root))
             return
@@ -354,6 +361,69 @@ def sync_shared(root):
     except Exception as e:                                    # never fail a good push
         print('shared checkout: could not fast-forward (%s: %s) - the push itself was fine'
               % (type(e).__name__, e))
+
+
+def _clear_lossless_modified(root):
+    """Discard TRACKED modifications that provably carry no unshipped work.
+
+    WHY. _clear_identical_untracked (below) already solves this for UNTRACKED files:
+    a session drops a file in the shared checkout, ships the same file properly from a
+    worktree, and the fast-forward then stalls on a duplicate of what it was about to
+    write. The identical thing happens to TRACKED files and was not covered, so the
+    shared checkout sat 25 commits behind for days on five files that held nothing.
+    Measured 2026-08-28: four TTM strategy files whose working copies were BYTE-
+    IDENTICAL to origin/main, and an index.html whose entire uncommitted delta was a
+    CRLF/LF flip on two lines. Nothing to lose in any of the five, and the runner was
+    meanwhile executing engine code 25 commits old.
+
+    TWO conditions, either of which proves the discard is lossless:
+      (a) the working copy already equals the INCOMING version, so the merge was going
+          to write exactly these bytes anyway; or
+      (b) the working copy equals its own HEAD version once line endings are
+          normalised, so the uncommitted delta is whitespace and nothing else.
+
+    Anything failing BOTH is somebody's unshipped work. It is left alone and named,
+    and the caller then declines to fast-forward exactly as before - a human decides.
+    That asymmetry is deliberate: the cost of a stalled fast-forward is a stale runner,
+    and the cost of a wrong discard is lost work. Only the provable case is automated.
+    """
+    norm = lambda t: (t or "").replace("\r\n", "\n").strip()
+    try:
+        rows = run(["git", "-C", root, "status", "--porcelain",
+                    "--untracked-files=no"], check=False, quiet=True)
+    except Exception:
+        return
+    cleared, kept = [], []
+    for line in (rows or "").splitlines():
+        code, _, rel = line.partition(" ")[0], None, line[3:].strip().strip('"')
+        if not rel or "->" in rel:          # a rename is never auto-discarded
+            kept.append(rel or line.strip())
+            continue
+        full = os.path.join(root, rel.replace("/", os.sep))
+        try:
+            with io.open(full, encoding="utf-8", errors="replace") as fh:
+                local = fh.read()
+            incoming = run(["git", "-C", root, "show", "origin/main:" + rel],
+                           check=False, quiet=True)
+            head = run(["git", "-C", root, "show", "HEAD:" + rel],
+                       check=False, quiet=True)
+            n = norm(local)
+            if n == norm(incoming) or n == norm(head):
+                run(["git", "-C", root, "checkout", "--", rel], check=False, quiet=True)
+                cleared.append(rel)
+            else:
+                kept.append(rel)
+        except Exception:
+            kept.append(rel)
+    if cleared:
+        print("shared checkout: discarded %d modification(s) that carried no unshipped "
+              "work - already identical to what was incoming, or whitespace only (%s)"
+              % (len(cleared), ", ".join(cleared[:4])
+                 + (", ..." if len(cleared) > 4 else "")))
+    if kept:
+        print("shared checkout: left %d modified file(s) alone - they hold real "
+              "unshipped changes (%s)" % (len(kept), ", ".join(kept[:4])
+                                          + (", ..." if len(kept) > 4 else "")))
 
 
 def _clear_identical_untracked(root):
