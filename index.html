@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.333';
+const VERSION='73.334';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.334',date:'2026-08-27',notes:['BUG THE OWNER SPOTTED: axis labels sliced in half at the top of the parallel chart. An axis that NO row on screen records - $ / YEAR and TRADES / YR at the CONFIGS level, where no row carries a dated window - had no scale, so every tick value came out NaN and a NaN position put those labels at the very top edge where they were cut. Such an axis now draws no ticks at all and says under its own title that nothing on screen records it. The chart also gained a little headroom so a title can never crowd the top tick.','TWO NEW AXES, both from the owner metric review. EV IN R divides expectancy by the average losing trade, so it is LEVERAGE-BLIND - dollar EV scales with size, which is the thing that flattered the wrong rows. SORTINO sits beside MAR because a max drawdown is ONE worst event and this project already measured its confidence interval to be wider than the statistic itself; Sortino reads downside volatility across the whole run instead.','The third suggestion, EV times trades per year, is ALREADY the $ / YEAR axis - the same number by a different route - so it was not duplicated. The line under the chart says so.','Both new axes are run-document figures (total_sortino, total_avg_loss), so they fill on an Auto-Validate row and on a configuration row and stay blank on a local sweep, like WIN percent and SHARPE.']},
 {v:'73.333',date:'2026-08-23',notes:['The PBO row in the 1E matrix keeps its green / amber / red reading on the MONO theme (it was rendering grey like every other accent).']},
 {v:'73.332',date:'2026-08-23',notes:['1E MATRIX has a TABLE / PARALLEL rail. PARALLEL draws the same numbers as a parallel-coordinates chart - one vertical axis per metric, one line per phase (IS / WF / LB / TOTAL), every axis normalised min to max and oriented so up = better (MAX DD and PBO inverted). Four parallel lines = the champion holds its shape out-of-sample; a fan = it decays.','PBO (Probability of Backtest Overfitting, CSCV) is now IN the 1E matrix: a colour-coded row in the table (whole-run number, printed in the TOTAL column) and its own dashed axis on the parallel view.']},
 {v:'73.324',date:'2026-08-23',notes:['ROUND 5 IS OVERTURNED BY ITS OWN VALIDATES, and the study now says so at the top. The scan had found 74 loosened configurations clearing profit factor 1.15 with a positive lockbox and 200-plus trades, and it was written up as the trade-count problem being solved. Auto-Validate disagrees: ES 15-minute lost 23,225 dollars in the lockbox (run 301), NQ 15-minute lost 2,690 (run 296), and NQ 5-minute reached only WEAK on an overfit reading of 0.87 (run 292). Run 301 is the cleanest refutation - fence held, every structural check passed, overfit reading a healthy 0.28, and the chosen configuration still lost on the untouched year. Loosening the compression gate buys trades that do not survive out of sample: the strict gate IS the edge. The family verdict is unchanged and narrow - one configuration, ES 30-minute, about twenty trades a year. Studies row 1032.']},
@@ -20573,6 +20574,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reOneSeg==='is')return (d.best_win_rate!=null)?+d.best_win_rate:null;
           if(_reOneSeg==='lb'){const lb=V&&V.lockbox;return (lb&&lb.win_rate!=null)?+lb.win_rate:null;}
           return (V&&V.total_win_rate!=null)?+V.total_win_rate:null;};
+        // SORTINO, asked for by the owner 2026-08-27 to sit beside MAR. The reason is
+        //   recorded in this project already: a max drawdown is ONE worst event and its
+        //   confidence interval was measured WIDER than the statistic itself, so MAR alone
+        //   is a thin read. Sortino punishes downside volatility across the whole run
+        //   instead of resting on a single day. Same source as SHARPE - the run document.
+        const _reSoOf=(st,r)=>{
+          if(r&&r._so!=null&&isFinite(r._so))return +r._so;
+          const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;if(!V)return null;
+          return (V.total_sortino!=null)?+V.total_sortino:null;};
+        // EV IN R (owner 2026-08-27: EV in dollars scales with size, which is exactly what
+        //   fooled him). R here is the AVERAGE LOSING TRADE - the only risk unit this
+        //   project actually stores - so expectancy divided by it is leverage-blind and a
+        //   row trading one contract lands beside a row trading ten. It needs an average
+        //   loss, which lives on the run document (total_avg_loss, in points) or on a
+        //   configuration record, and never on a registry row - so a sweep shows nothing.
+        const _reEvR=(st,r)=>{
+          const p2=_reSegVal(r),n=_reNum(r,'trd');
+          if(p2==null||!n||n<=0)return null;
+          let R=null;
+          if(r&&r._avl!=null&&isFinite(r._avl))R=Math.abs(+r._avl);
+          else{const d=_reRunDoc(r);const V=d&&d.validate;
+            if(V&&V.total_avg_loss!=null)R=Math.abs(+V.total_avg_loss)*(+d.multiplier||20);}
+          return (R&&R>1e-9)?((p2/n)/R):null;};
         const _reShOf=(st,r)=>{
           if(r&&r._sh!=null&&isFinite(r._sh))return +r._sh;
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;if(!V)return null;
@@ -20840,6 +20864,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {k:'sh',  t:'SHARPE',
            v:(st,r)=>{const v=_reShOf(st,r);return (v!=null&&isFinite(v))?v:null;},
            f:v=>v.toFixed(2)},
+          {k:'sor', t:'SORTINO',
+           v:(st,r)=>{const v=_reSoOf(st,r);return (v!=null&&isFinite(v))?v:null;},
+           f:v=>v.toFixed(2)},
+          {k:'evr', t:'EV IN R',
+           v:(st,r)=>{const v=_reEvR(st,r);return (v!=null&&isFinite(v))?v:null;},
+           f:v=>v.toFixed(2)+'R'},
           {k:'ppy', t:'$ / YEAR',
            v:(st,r)=>{const p=_reSegVal(r),y=_reYrs(st,r);return (p!=null&&y&&y>0)?p/y:null;},
            f:v=>((v<0?'-$':'$')+_reAbbr(v))},
@@ -20874,10 +20904,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   screen together. The RUN filter still narrows to one when that is what is
           //   wanted. Dashed carries no stage meaning here; this chart has no stages.
           const nEL=rows.filter(function(r){return r.src==='el';}).length,nPY=rows.filter(function(r){return r.src==='py';}).length,nCF=rows.filter(function(r){return r.src==='cfg';}).length;
-          const CH=_reChH(),L=64,R=956,T=30,B=CH-58;
+          const CH=_reChH(),L=64,R=956,T=36,B=CH-58;
           if(!rows.length)return '<div style="padding:26px;text-align:center;color:var(--text5);font-size:11px">No row on screen records two or more of these measures.</div>';
-          const E=AX.map(function(a,i){
+          // AN AXIS NO ROW ON SCREEN RECORDS has no scale at all. It used to fall through
+          //   here with lo and hi undefined, which made every tick value NaN, and a NaN y
+          //   put those labels at the very top of the drawing where the edge sliced them in
+          //   half (owner-reported 2026-08-27, seen on $ / YEAR and TRADES / YR at the
+          //   CONFIGS level, where no row carries a dated window). Such an axis now draws no
+          //   ticks at all and says under its own title that nothing on screen records it.
+          const EN=[],E=AX.map(function(a,i){
             const vs=rows.map(function(r){return r.v[i];}).filter(function(v){return v!=null&&isFinite(v);}).sort(function(a2,b2){return a2-b2;});
+            EN.push(!vs.length);
+            if(!vs.length)return [0,1];
             let lo=vs[0],hi=vs[vs.length-1];
             if(!(hi>lo)){const p=Math.abs(hi)*0.1||1;lo=hi-p;hi=hi+p;}
             const pd=(hi-lo)*0.06;return [lo-pd,hi+pd];});
@@ -20888,6 +20926,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           AX.forEach(function(a,i){const x=ax(i),lastAx=(i===AX.length-1);
             g+='<line x1="'+x.toFixed(1)+'" y1="'+T+'" x2="'+x.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-width="1"/>'
               +'<text x="'+x.toFixed(1)+'" y="'+(T-11)+'" text-anchor="middle" font-size="11.5" font-weight="700" fill="'+(a.last?'var(--text3)':'var(--text2)')+'">'+a.t+'</text>';
+            if(EN[i]){g+='<text x="'+x.toFixed(1)+'" y="'+(T+14)+'" text-anchor="middle" font-size="8" fill="var(--text5)">not recorded</text>';return;}
             for(let k2=0;k2<4;k2++){const vv=E[i][0]+(E[i][1]-E[i][0])*k2/3,yy=py(i,vv);
               g+='<line x1="'+(x-3).toFixed(1)+'" y1="'+yy.toFixed(1)+'" x2="'+(x+3).toFixed(1)+'" y2="'+yy.toFixed(1)+'" stroke="var(--text5)"/>'
                 +'<text x="'+(lastAx?(x+7):(x-7)).toFixed(1)+'" y="'+(yy+3.5).toFixed(1)+'" text-anchor="'+(lastAx?'start':'end')+'" font-size="9" fill="var(--text5)">'+a.f(vv)+'</text>';}});
@@ -20913,7 +20952,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<b style="color:var(--text4)">NET is not</b> - a longer window earns more by simply lasting longer - so it sits last, as the outcome those ratios produced. '
             +'A line breaks where that row records no figure; nothing is bridged or substituted - which is why the four axes only some rows can fill sit on the LEFT, so a line starts late instead of being chopped in the middle. '
             +'<b style="color:var(--text4)">SOLID</b> is a row backed by a real EDGELOG Auto-Validate run ('+nEL+'); <b style="color:var(--text4)">DASHED</b> is a local .py sweep that was never persisted as a run ('+nPY+')'+(nCF?('; <b style="color:var(--text4)">DOTTED</b> is a configuration read out of one run ('+nCF+'), scored on the optimize window only and picked as the best of many'):'')+' - different grades of evidence, on screen together so they can be read against each other. Hover any line for its source. '
-            +'<b style="color:var(--text4)">WIN % and SHARPE come off the run itself</b>, not the registry, which has never held either - so they are filled on an AUTO-VALIDATE row and on a CONFIG row, and BLANK on a sweep, because my local sweeps have never printed them. A blank there is the truth and not an oversight.'
+            +'<b style="color:var(--text4)">WIN %, SHARPE, SORTINO and EV IN R come off the run itself</b>, not the registry, which has never held any of them - so they are filled on an AUTO-VALIDATE row and on a CONFIG row, and BLANK on a sweep, because the local sweeps have never printed them. A blank there is the truth and not an oversight. '
+            +'<b style="color:var(--text4)">EV IN R</b> divides expectancy by the average losing trade, so it is leverage-blind - a row trading one contract and a row trading ten land in the same place, which raw dollar EV cannot do. '
+            +'<b style="color:var(--text4)">SORTINO sits beside MAR on purpose</b>: a max drawdown is one worst event, and this project measured its confidence interval to be WIDER than the statistic, so MAR alone is a thin read. '
+            +'And note that <b style="color:var(--text4)">$ / YEAR already IS expectancy times trades per year</b> - the same number by a different route - so there is no separate axis for it.'
             +(skip.length?(' '+skip.length+' row'+((skip.length===1)?'':'s')+' carried fewer than two of these measures and could not be drawn.'):'')
             +'</div>';
           return '<div style="overflow-x:auto"><svg viewBox="0 0 1000 '+CH+'" width="100%" style="display:block;min-width:640px">'+g+lines+'</svg></div>'+note;
@@ -21224,6 +21266,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                       pf:((st2.profit_factor!=null)?Math.min(+st2.profit_factor,99):null),
                       trd:((x.n_trades!=null)?+x.n_trades:((st2.num_trades!=null)?+st2.num_trades:null)),
                       _wr:((st2.win_rate!=null)?+st2.win_rate:null),_sh:null,_cfg:1,_tab:tabNm,
+                      _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult:null),
                       why:{wf:'A sizing variant is measured over one window - it has no walk-forward split of its own.',lb:'This figure is the variant own window, which is not a lockbox slice.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
                 szRow(t,'TILT','TILT '+String(t.model||'')+' \u00b7 '+String(t.scheme||''));});
