@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.320';
+const VERSION='73.321';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.321',date:'2026-08-24',notes:['PARALLEL COORDINATES axes carry their real names: $ / $ DD is MAR and EV / TRADE is EV. Both were spelled out as their arithmetic when the owner already had a word for each, which made the chart read as if it held five unfamiliar measures instead of the ones he uses.']},
 {v:'73.320',date:'2026-08-24',notes:['PARALLEL COORDINATES now SHOWS where each row came from instead of only letting you filter to it. A row backed by a real EDGELOG Auto-Validate run draws SOLID; a row that was only ever a local .py sweep draws DASHED. Both are on screen at once, which is the comparison that was asked for - formal engine research read against local sweeps rather than one at a time. The RUN filter still narrows to one when that is what is wanted.','Every line hover now names its source, and a run-backed line names its run number so the report can be opened.','The line under the chart counts both grades of evidence and states that DASHED here carries no stage meaning - this chart has no stages.']},
 {v:'73.319',date:'2026-08-24',notes:['The chart heading follows the CHART toggle - it read SCATTER PLOT even with parallel coordinates on screen.']},
 {v:'73.318',date:'2026-08-24',notes:['STUDIES has a second drawing: PARALLEL COORDINATES, on a CHART toggle beside the profit stage. The scatter answers one question - what a variant cost in drawdown for what it paid - and answers it well. It cannot show whether the row that wins on money ALSO wins on efficiency, edge and sample, which is the question the moment you line up strategies that traded different instruments over different window lengths.','Six axes, one line per row: profit factor, money per dollar of drawdown, money per trade, money per year, trades per year, and NET last. Everything left of NET is scale-free on purpose, so two rows read against each other whatever they traded and however long for. NET is the one axis that does not compare - a longer window earns more by simply lasting longer - so it sits at the end as the outcome those ratios produced, and the chart says so.','A line BREAKS where a row records no figure. Nothing is bridged and no number is borrowed from a neighbouring measure.','WIN RATE and SHARPE are not recorded in the studies registry at all. They are named under the chart as the two gaps rather than guessed, and each becomes an axis the day a study carries it.']},
@@ -20674,10 +20675,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {k:'pf',  t:'PF',
            v:(st,r)=>{const v=_reNum(r,'pf');return (v!=null&&isFinite(v)&&v>0)?Math.min(v,6):null;},
            f:v=>v.toFixed(2)},
-          {k:'mar', t:'$ / $ DD',
+          {k:'mar', t:'MAR',
            v:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p!=null&&d&&d>0)?p/d:null;},
            f:v=>v.toFixed(2)},
-          {k:'ev',  t:'EV / TRADE',
+          {k:'ev',  t:'EV',
            v:(st,r)=>{const p=_reSegVal(r),n=_reNum(r,'trd');return (p!=null&&n&&n>0)?p/n:null;},
            f:v=>((v<0?'-$':'$')+_reAbbr(v))},
           {k:'ppy', t:'$ / YEAR',
@@ -21210,7 +21211,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //   same ticked stage — only the drawing changes.
         const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _tabBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
-           +_tabBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, money per dollar of drawdown, money per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
+           +_tabBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
           _TONE.samp);
         const _reAxisBtns=_reCtl(3,'VERTICAL AXIS','what the height of the chart measures',
             _tabBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
