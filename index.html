@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.346';
+const VERSION='73.347';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.347',date:'2026-08-28',notes:['HOVERING A CHART LINE NOW LIGHTS ITS TABLE ROW as well, and brings that row into view inside its own scroller - never by scrolling the page, which would move the line out from under the cursor.','THE HIGHLIGHT LETS GO. A mouse-over only fires when the cursor lands ON something, so sliding off a line into empty plot left the last row lit. Every mouse-over that is not on a row now clears it.','THE CONTROL CHIPS ARE THE BOARD OWN NOW. An unselected option is FILLED rather than transparent, so a row reads as a segmented control with one segment lit instead of one chip floating in space; the letter-spacing and padding came in, which is most of the width the row was spending on air.','AND THAT FIXES THE VERDICT CHIPS HANGING BELOW THEIR ROW. Each carries a 10-pixel mark set to display:block, and a block child inside an inline chip opens its own line box - measured 41 pixels tall against 14 for every other chip. The chips are inline-flex at line-height 1 now and the mark is inline.','WHY AUTO VAL LOOKS EMPTY, answered on the board rather than left to be wondered about: only a small share of the rows here were ever persisted as a real run - the level now prints that share against the whole board. It is the state of the research, not a filter and not a drawing bug. Most of what was tried was tried locally and never saved as a run.','AND WHY THE LINES ARE DIFFERENT COLOURS: a line is coloured by its VERDICT and never changes colour along its length - blue champion, green held up, amber fragile, red failed, grey reference, the same five the marks use. What looks like a colour change is two rows crossing. It says so under the chart.']},
 {v:'73.346',date:'2026-08-28',notes:['BACKFILL GROUNDWORK: the shared NOISE research helper now computes the win rate, Sharpe, Sortino, average loss and expectancy in R for every cell it measures. Seven NOISE drivers call that one function, so they all gained the figures at once rather than being edited seven times. Same definitions augur_engine/analytics.py gives run_backtest and a validate, so a sweep row and an Auto-Validate row can share an axis honestly.','What is still needed per study is a machine-readable results dump and a name-to-cell mapping - 39 of 1,143 rows carry the figures so far.']},
 {v:'73.345',date:'2026-08-28',notes:['HOVER ISOLATION NOW ACTUALLY WORKS. The first pass did it in CSS and the CSS did nothing: every line and dot on that chart carries its opacity as an SVG presentation attribute, and measured on the live page neither a group-level nor an element-level rule moved the computed value, while an inline style did. It is written inline now, and each mark stashes its resting opacity so leaving restores exactly what was there.']},
 {v:'73.344',date:'2026-08-28',notes:['THE STUDIES CONTROL BLOCK IS ABOUT A THIRD SHORTER. The label column, the gutters and the row leading were all sized for a page with far fewer controls on it. Nothing is hidden and no control moved - the same block is simply denser.','AN UNSELECTED OPTION NOW READS AS OFF. Every option in a section was rendered a shade apart from its neighbour, so five live-looking buttons sat where one was actually in force. The unselected ones are greyed now, still legible. Only this board changed; every other tab strip on the site is untouched.','HOVER A LINE AND THE REST FADE. A row is drawn as several segments plus its dots, so hovering any part of it now isolates the whole row and thickens it - its path across ten axes can be followed end to end. Hovering a STUDY TABLE ROW does the same thing from the other side: the matching line lights up and the rest fade.','LEVEL reads in the owner order and in his words: SWEEPS, CONFIGS, AUTO VAL, CROWN, then ALL last as the escape hatch rather than first as the default-looking option. Saved picks are unaffected.','THE CHART AXES ARE ORDERED THE WAY THE QUESTION IS ASKED: what the edge COST to earn (Sharpe, Sortino, money per dollar of drawdown), then how RELIABLE it is (win rate, profit factor), then what it PAID (expectancy in R, expectancy, money per year, trades per year), ending on NET. The earlier arrangement put the sparsely-recorded axes on the left to stop lines fragmenting; hover isolation and the backfill make that unnecessary.']},
@@ -20234,8 +20235,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   another live choice. This board wraps it and pushes the unselected ones down
         //   to text5 at 55% - still legible, clearly off. Only this board is affected;
         //   _tabBtn itself is used by every other tab strip on the site and is untouched.
-        const _reBtn=(attr,txt,on,tip,tone)=>on?_tabBtn(attr,txt,on,tip,tone)
-          :('<span style="display:inline-block;opacity:.55">'+_tabBtn(attr,txt,false,tip,tone)+'</span>');
+        // THE BOARD DRAWS ITS OWN CHIP rather than dimming the shared _tabBtn (owner
+        //   2026-08-28: "the tab selectors are still having text too far apart and the
+        //   background isnt filled for non selected items", and "verdict tabs have a
+        //   protruding part to the bottom"). Three things the wrapper could not fix:
+        //     - AN UNSELECTED OPTION IS FILLED, not transparent. A row of chips now reads
+        //       as a segmented control where one segment is lit, instead of one chip
+        //       floating in empty space.
+        //     - TIGHTER TEXT: letter-spacing .4 -> .15 and padding 3x7 -> 2x6, which is
+        //       most of the width the row was spending on air.
+        //     - inline-flex with line-height 1, which is what fixes the VERDICT chips.
+        //       Those carry a 10px SVG mark set display:block, and a block child inside an
+        //       inline chip opened its own line box - measured 41px tall against 14px for
+        //       every other chip, which is the piece that was hanging below the row.
+        const _reBtn=(attr,txt,on,tip,tone)=>{const t=tone||'var(--yellow)';
+          return '<span '+attr+(tip?(' title="'+String(tip).replace(/"/g,'&quot;')+'"'):'')
+            +' style="display:inline-flex;align-items:center;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;font-size:7.5px;font-weight:700;letter-spacing:.15px;padding:3px 6px;border-radius:5px'
+            +';color:'+(on?'var(--text)':'var(--text5)')
+            +';background:'+(on?('color-mix(in srgb,'+t+' 22%,transparent)')
+                              :'color-mix(in srgb,var(--text) 7%,transparent)')
+            +(on?(';box-shadow:inset 0 -2px 0 '+t):'')
+            +'">'+txt+'</span>';};
+
         // The owner's own names and his own order (2026-08-28): the pipeline reads
         //   SWEEPS -> CONFIGS -> AUTO VAL -> CROWN, so the buttons read that way too,
         //   with ALL last as the escape hatch rather than first as the default-looking
@@ -20751,7 +20772,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reMk=tone=>'<svg width="16" height="16" viewBox="0 0 16 16" style="vertical-align:-3px;margin-right:5px">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
         // the same mark at button size: no gutter, and small enough that five of them read as a
         //   row of controls rather than a row of pictures.
-        const _reMkSm=tone=>'<svg width="10" height="10" viewBox="0 0 16 16" style="vertical-align:-1px;display:block">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
+        const _reMkSm=tone=>'<svg width="10" height="10" viewBox="0 0 16 16" style="display:inline-block;vertical-align:middle">'+_reShape(tone,8,8,(tone==='champ')?5.6:4.6,_reTone[tone],1,1)+'</svg>';
         // the CROWN / PAPER pills. Two separate pills rather than one four-way word, because a
         // row that is both is the interesting case and it should look like both at a glance.
         const _rePill=(t,c)=>'<span style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.6px;padding:2px 5px;border-radius:5px;margin-right:3px;color:var(--text2);background:color-mix(in srgb,'+c+' 22%,transparent);border:1px solid color-mix(in srgb,'+c+' 48%,transparent)">'+t+'</span>';
@@ -21079,6 +21100,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
             +'Every axis left of NET is <b style="color:var(--text4)">scale-free</b>, so two rows read against each other however different their instrument or window. '
             +'<b style="color:var(--text4)">NET is not</b> - a longer window earns more by simply lasting longer - so it sits last, as the outcome those ratios produced. '
+            +'<b style="color:var(--text4)">A line is coloured by its VERDICT</b> and never changes colour along its length - blue is the champion, green held up, amber fragile, red failed, grey reference, the same five the marks use. What looks like a colour change is two rows crossing; hover either one to separate them. '
             +'A line breaks where that row records no figure; nothing is bridged or substituted - which is why the four axes only some rows can fill sit on the LEFT, so a line starts late instead of being chopped in the middle. '
             +'<b style="color:var(--text4)">SOLID</b> is a row backed by a real EDGELOG Auto-Validate run ('+nEL+'); <b style="color:var(--text4)">DASHED</b> is a local .py sweep that was never persisted as a run ('+nPY+')'+(nCF?('; <b style="color:var(--text4)">DOTTED</b> is a configuration read out of one run ('+nCF+'), scored on the optimize window only and picked as the best of many'):'')+' - different grades of evidence, on screen together so they can be read against each other. Hover any line for its source. '
             +'<b style="color:var(--text4)">WIN %, SHARPE, SORTINO and EV IN R come off the run itself</b>, not the registry, which has never held any of them - so they are filled on an AUTO-VALIDATE row and on a CONFIG row, and BLANK on a sweep, because the local sweeps have never printed them. A blank there is the truth and not an oversight. '
@@ -21821,12 +21843,20 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         // THE LEVEL, said in words under the chart every time - the whole point of the
         //   control is that these four things are not comparable, and a button caption is
         //   too small a place to say why.
+        // HOW MUCH OF THE BOARD IS EVEN ELIGIBLE FOR EACH LEVEL, counted live. The owner
+        //   asked why AUTO VAL looked so empty for NOISE; it is not a filter and not a
+        //   drawing bug, it is the actual state of the research - most of what was tried was
+        //   tried locally and never persisted as a run. Saying the number is the only honest
+        //   answer, so every level now prints its own share.
+        const _reLvlCnt=(()=>{let all=0,el=0,ch=0;RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{
+          all++;if(_reIsEL(r))el++;if(String(r.tone)==='champ')ch++;}));
+          return {all:all,el:el,py:all-el,ch:ch};})();
         const _reLvlTx={
           all:'LEVEL: ALL - every stage of the pipeline at once. A sweep and a validated run are on the same axes here, so read the line style before the ranking: <b style="color:var(--text4)">solid</b> is a real Auto-Validate run and <b style="color:var(--text4)">dashed</b> is a local .py sweep that was never persisted, never walk-forwarded and never shown a lockbox.',
-          sweep:'LEVEL: SWEEPS - stage 1 only. These are local .py theory tests. <b style="color:var(--text4)">Nothing here has survived anything</b> - no walk-forward, no lockbox, no run number. They are ideas with numbers on them, and they are on the board because a dead end is worth being able to see. WIN % and SHARPE are blank at this level because my sweeps have never printed either one.',
-          valid:'LEVEL: AUTO-VALIDATES - stage 2 only. Every row is a real EDGELOG run split into in-sample, walk-forward and lockbox, so these figures have been tested on years the search never saw. <b style="color:var(--text4)">WIN % and SHARPE are read live off each run document</b>, which is the only place either has ever been recorded.',
+          sweep:'LEVEL: SWEEPS - stage 1 only ('+_reLvlCnt.py+' of the '+_reLvlCnt.all+' rows on this board). These are local .py theory tests. <b style="color:var(--text4)">Nothing here has survived anything</b> - no walk-forward, no lockbox, no run number. They are ideas with numbers on them, and they are on the board because a dead end is worth being able to see. WIN % and SHARPE are blank at this level because my sweeps have never printed either one.',
+          valid:'LEVEL: AUTO VAL - stage 2 only. <b style=\"color:var(--text4)\">Only '+_reLvlCnt.el+' of the '+_reLvlCnt.all+' rows on this board were ever persisted as a real run</b>, so this level is SMALL by nature - that is the state of the research, not a filter. Most of what was tried was tried locally and never saved as a run. Every row is a real EDGELOG run split into in-sample, walk-forward and lockbox, so these figures have been tested on years the search never saw. <b style="color:var(--text4)">WIN % and SHARPE are read live off each run document</b>, which is the only place either has ever been recorded.',
           cfg:'LEVEL: CONFIGS OF ONE RUN - stage 3. These are the RAW, GATE, TILT and HYBRID candidates inside a single run. Two things make them a different animal from every board row: they are scored on the <b style="color:var(--text4)">optimize window only</b>, so no lockbox has judged any of them, and they are the <b style="color:var(--text4)">best of hundreds</b> the search tried, so the leader is flattered by the picking itself. Read them as candidates, never as survivors, and never against a board row.',
-          crown:'LEVEL: CROWN - stage 4. One row per family: its standing champion. This is the shortlist that decides what goes to paper, so it is the only level where a straight ranking is the question being asked.',
+          crown:'LEVEL: CROWN - stage 4 ('+_reLvlCnt.ch+' rows). One row per family: its standing champion. This is the shortlist that decides what goes to paper, so it is the only level where a straight ranking is the question being asked.',
           _x:0};
         const _reLvlNote='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:9px;padding-top:8px;border-top:1px solid var(--border2)">'+(_reLvlTx[_reLvl]||'')+'</div>';
         // CONFIGS: what stands in for the chart while the run document is in flight, or
@@ -25096,37 +25126,53 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
-      // ISOLATE ONE ROW ON HOVER (owner 2026-08-28: "when highlighting over a line, or
-      //   conversely a table row, grey out the other lines so i can see its path more
-      //   clearly"). A row is drawn as several line segments plus its dots, so isolating it
-      //   means dimming every OTHER row's marks at once - which is why each row's marks sit
-      //   in one group tagged with its row number.
+      // ISOLATE ONE ROW ON HOVER, BOTH DIRECTIONS (owner 2026-08-28: "hover of a line in
+      //   the chart doesnt show its corresponding row in the table", and "the line doesnt
+      //   remove the highlight when the mouse comes off it").
+      //   A row is drawn as several line segments plus its dots, so isolating it means
+      //   dimming every OTHER row's marks at once - which is why each row's marks sit in
+      //   one group tagged with its row number. Row numbers are permanent handles and
+      //   unique across the whole registry, so the number is the key in both directions.
       //   Written inline rather than through a CSS class because the marks carry their
       //   opacity as SVG presentation attributes and no CSS rule tried moved the computed
-      //   value on this page; an inline style does. Each mark's resting opacity is stashed
-      //   on first dim, so leaving restores exactly what was there rather than a guess.
+      //   value on this page; an inline style does.
       (function(){
         const wrap=content.querySelector('.repar-wrap');if(!wrap)return;
         const marks=[...wrap.querySelectorAll('.repar-row polyline,.repar-row circle')];
         if(!marks.length)return;
-        marks.forEach(function(el){if(el.dataset.op==null)el.dataset.op=(el.getAttribute('opacity')||'1');});
+        const trOf=n=>content.querySelector('[data-rerow$=":'+n+'"]');
         let on=null;
-        const clear=function(){if(on===null)return;on=null;
+        const clear=function(){if(on===null)return;
+          const tr=trOf(on);if(tr){tr.style.background='';tr.style.boxShadow='';}
+          on=null;
           marks.forEach(function(el){el.style.opacity='';el.style.strokeWidth='';});};
-        const focus=function(n){if(on===String(n))return;on=String(n);
+        const focus=function(n,fromTable){n=String(n);if(on===n)return;
+          clear();on=n;
           marks.forEach(function(el){
-            const g=el.parentNode,mine=(g&&g.getAttribute('data-prow')===String(n));
+            const g=el.parentNode,mine=(g&&g.getAttribute('data-prow')===n);
             el.style.opacity=mine?'1':'0.07';
-            if(el.tagName==='polyline')el.style.strokeWidth=mine?'2.6':'';});};
+            if(el.tagName==='polyline')el.style.strokeWidth=mine?'2.6':'';});
+          // the other half of the ask: light the table row up too, and bring it into view
+          //   inside its OWN scroller only - never scroll the page out from under the
+          //   cursor, which would move the very line being hovered.
+          const tr=trOf(n);if(!tr)return;
+          tr.style.background='color-mix(in srgb,var(--text) 12%,transparent)';
+          tr.style.boxShadow='inset 2px 0 0 var(--text3)';
+          if(!fromTable){const sc=tr.closest('[style*="overflow"]');
+            if(sc&&sc.scrollHeight>sc.clientHeight){
+              const a=tr.offsetTop,b=a+tr.offsetHeight;
+              if(a<sc.scrollTop||b>sc.scrollTop+sc.clientHeight)
+                sc.scrollTop=Math.max(0,a-sc.clientHeight/2);}}};
+        // LETTING GO. mouseover only fires when the cursor lands ON something, so moving
+        //   from a line into empty plot left the last row lit. Every mouseover that is not
+        //   on a row now clears, and so does leaving the chart or the tables entirely.
         wrap.addEventListener('mouseover',function(e){
           const g=e.target.closest?e.target.closest('.repar-row'):null;
-          if(g)focus(g.getAttribute('data-prow'));});
+          if(g)focus(g.getAttribute('data-prow'));else clear();});
         wrap.addEventListener('mouseleave',clear);
-        // and from the tables: row numbers are permanent handles and unique across the whole
-        //   registry, so the number in data-rerow IS the key into the chart.
         content.querySelectorAll('[data-rerow]').forEach(function(tr){
           const n=String(tr.getAttribute('data-rerow')||'').split(':')[1];if(!n)return;
-          tr.addEventListener('mouseenter',function(){focus(n);});
+          tr.addEventListener('mouseenter',function(){focus(n,true);});
           tr.addEventListener('mouseleave',clear);});
       })();
       content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onchange=()=>{savePref('resCfgRun',b.value);renderApp();};});
