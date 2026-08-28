@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.344';
+const VERSION='73.345';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.345',date:'2026-08-28',notes:['HOVER ISOLATION NOW ACTUALLY WORKS. The first pass did it in CSS and the CSS did nothing: every line and dot on that chart carries its opacity as an SVG presentation attribute, and measured on the live page neither a group-level nor an element-level rule moved the computed value, while an inline style did. It is written inline now, and each mark stashes its resting opacity so leaving restores exactly what was there.']},
 {v:'73.344',date:'2026-08-28',notes:['THE STUDIES CONTROL BLOCK IS ABOUT A THIRD SHORTER. The label column, the gutters and the row leading were all sized for a page with far fewer controls on it. Nothing is hidden and no control moved - the same block is simply denser.','AN UNSELECTED OPTION NOW READS AS OFF. Every option in a section was rendered a shade apart from its neighbour, so five live-looking buttons sat where one was actually in force. The unselected ones are greyed now, still legible. Only this board changed; every other tab strip on the site is untouched.','HOVER A LINE AND THE REST FADE. A row is drawn as several segments plus its dots, so hovering any part of it now isolates the whole row and thickens it - its path across ten axes can be followed end to end. Hovering a STUDY TABLE ROW does the same thing from the other side: the matching line lights up and the rest fade.','LEVEL reads in the owner order and in his words: SWEEPS, CONFIGS, AUTO VAL, CROWN, then ALL last as the escape hatch rather than first as the default-looking option. Saved picks are unaffected.','THE CHART AXES ARE ORDERED THE WAY THE QUESTION IS ASKED: what the edge COST to earn (Sharpe, Sortino, money per dollar of drawdown), then how RELIABLE it is (win rate, profit factor), then what it PAID (expectancy in R, expectancy, money per year, trades per year), ending on NET. The earlier arrangement put the sparsely-recorded axes on the left to stop lines fragmenting; hover isolation and the backfill make that unnecessary.']},
 {v:'73.343',date:'2026-08-28',notes:['THE FIRST STUDY IS BACKFILLED. All 39 rows of the NOISE plateau sweep now carry a WIN percent, a SHARPE, a SORTINO and an average losing trade, so four axes that read not recorded on the SWEEPS level are filled for that study. Nothing was looked up - no sweep ever recorded those figures - the study was RE-RUN and they were recomputed from its own trades, using the same definitions augur_engine/analytics.py gives run_backtest and a validate. The plateau verdict is unchanged: still 7 of 7 axes on a plateau.','THE MAPPING IS VERIFIED, NOT ASSUMED. Every row is matched to its re-run cell on figures the registry ALREADY held - the trade count must agree exactly and the profit factor to a hundredth - before a single figure is written. A cell that does not line up is refused and named, because putting one configuration Sharpe under another configuration name is worse than leaving a blank. 39 of 39 matched, 0 refused.','tools/backfill_risk_rows.py does the mapping and the writing; adding the next study is one function plus one line. 39 of 1,143 rows are done - the other 43 studies each need their driver re-run first.']},
 {v:'73.342',date:'2026-08-23',notes:['RAW configs now carry PF, WIN % and TRADES onto the PARALLEL chart - they were being read from the wrong fields, so the raw family had no vertex on those axes and its lines broke there. Every pool now fills the same axes, and EV is derived from each config own net and trade count so it always matches the NET $ axis.']},
@@ -21085,21 +21086,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'And note that <b style="color:var(--text4)">$ / YEAR already IS expectancy times trades per year</b> - the same number by a different route - so there is no separate axis for it.'
             +(skip.length?(' '+skip.length+' row'+((skip.length===1)?'':'s')+' carried fewer than two of these measures and could not be drawn.'):'')
             +'</div>';
-          // ISOLATE-ON-HOVER, in CSS so it costs nothing and survives a re-render. Hovering
-          //   anywhere in the plot fades every row; the one under the cursor stays at full
-          //   strength and thickens. `.repar-hi` is the same state driven from a table row.
-          //   pointer-events on the group only, so the fade tracks the ROW and not a segment.
-          const css='<style>'
-            +'.repar-wrap svg:hover .repar-row{opacity:.10;transition:opacity .08s}'
-            +'.repar-wrap.repar-focus svg .repar-row{opacity:.10;transition:opacity .08s}'
-            +'.repar-wrap svg .repar-row:hover,.repar-wrap svg .repar-row.repar-hi{opacity:1}'
-            +'.repar-wrap svg .repar-row:hover polyline,.repar-wrap svg .repar-row.repar-hi polyline'
-            +'{stroke-width:2.6;opacity:1}'
-            +'.repar-wrap svg .repar-row:hover circle,.repar-wrap svg .repar-row.repar-hi circle'
-            +'{opacity:1}'
-            +'.repar-wrap svg .repar-row{opacity:1}'
-            +'</style>';
-          return '<div class="repar-wrap" style="overflow-x:auto">'+css
+          // ISOLATE-ON-HOVER is done in SCRIPT, not CSS, and that is deliberate. Measured
+          //   on the live page 2026-08-28: every line and dot carries its opacity as an SVG
+          //   PRESENTATION ATTRIBUTE, and neither a group-level nor an element-level CSS
+          //   rule moved the computed value, while an inline style did. So the wiring below
+          //   (see the data-prow handler) writes inline opacity and restores it on leave.
+          //   Each row keeps its resting opacity on the group, so restoring is exact rather
+          //   than a guess at what it used to be.
+          return '<div class="repar-wrap" style="overflow-x:auto">'
             +'<svg viewBox="0 0 1000 '+CH+'" width="100%" style="display:block;min-width:640px">'
             +g+lines+'</svg></div>'+note;
 
@@ -25101,21 +25095,38 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
-      // TABLE ROW -> CHART LINE (owner 2026-08-28: "or conversely a table row"). Hovering a
-      //   study table row lights up the same row's line in the parallel chart and fades the
-      //   rest, which is the same isolation hovering the line itself gives. Row numbers are
-      //   permanent handles and unique across the whole registry, so the number IS the key.
-      //   Chart-side isolation is pure CSS; only this direction needs script, because CSS
-      //   cannot reach from a table on one side of the page to an SVG on the other.
+      // ISOLATE ONE ROW ON HOVER (owner 2026-08-28: "when highlighting over a line, or
+      //   conversely a table row, grey out the other lines so i can see its path more
+      //   clearly"). A row is drawn as several line segments plus its dots, so isolating it
+      //   means dimming every OTHER row's marks at once - which is why each row's marks sit
+      //   in one group tagged with its row number.
+      //   Written inline rather than through a CSS class because the marks carry their
+      //   opacity as SVG presentation attributes and no CSS rule tried moved the computed
+      //   value on this page; an inline style does. Each mark's resting opacity is stashed
+      //   on first dim, so leaving restores exactly what was there rather than a guess.
       (function(){
         const wrap=content.querySelector('.repar-wrap');if(!wrap)return;
-        const clear=()=>wrap.querySelectorAll('.repar-hi').forEach(g=>g.classList.remove('repar-hi'));
-        content.querySelectorAll('[data-rerow]').forEach(tr=>{
+        const marks=[...wrap.querySelectorAll('.repar-row polyline,.repar-row circle')];
+        if(!marks.length)return;
+        marks.forEach(function(el){if(el.dataset.op==null)el.dataset.op=(el.getAttribute('opacity')||'1');});
+        let on=null;
+        const clear=function(){if(on===null)return;on=null;
+          marks.forEach(function(el){el.style.opacity='';el.style.strokeWidth='';});};
+        const focus=function(n){if(on===String(n))return;on=String(n);
+          marks.forEach(function(el){
+            const g=el.parentNode,mine=(g&&g.getAttribute('data-prow')===String(n));
+            el.style.opacity=mine?'1':'0.07';
+            if(el.tagName==='polyline')el.style.strokeWidth=mine?'2.6':'';});};
+        wrap.addEventListener('mouseover',function(e){
+          const g=e.target.closest?e.target.closest('.repar-row'):null;
+          if(g)focus(g.getAttribute('data-prow'));});
+        wrap.addEventListener('mouseleave',clear);
+        // and from the tables: row numbers are permanent handles and unique across the whole
+        //   registry, so the number in data-rerow IS the key into the chart.
+        content.querySelectorAll('[data-rerow]').forEach(function(tr){
           const n=String(tr.getAttribute('data-rerow')||'').split(':')[1];if(!n)return;
-          tr.addEventListener('mouseenter',()=>{clear();
-            const g=wrap.querySelector('.repar-row[data-prow="'+n+'"]');
-            if(g){g.classList.add('repar-hi');wrap.classList.add('repar-focus');}});
-          tr.addEventListener('mouseleave',()=>{clear();wrap.classList.remove('repar-focus');});});
+          tr.addEventListener('mouseenter',function(){focus(n);});
+          tr.addEventListener('mouseleave',clear);});
       })();
       content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onchange=()=>{savePref('resCfgRun',b.value);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
