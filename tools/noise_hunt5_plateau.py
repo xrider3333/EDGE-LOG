@@ -173,6 +173,8 @@ whatever the numbers say.
 ===============================================================================
 """
 import os, sys, json, time
+import datetime as _dt
+_dtp = lambda t: _dt.datetime.strptime(t, '%Y-%m-%d')
 
 # The master-CSV registry lives only in the shared checkout, not in a worktree.
 EDGELOG_ROOT = os.environ.get("EDGELOG_DATA_ROOT") or os.path.dirname(
@@ -186,6 +188,8 @@ import numpy as np                                                    # noqa: E4
 from noise_variant_research import (CHAMPION, SEL_DATE_TO, FEE, MULT,  # noqa: E402
                                     run_variant, metrics, load_arrays)
 from augur_engine.engine import _apply_costs                          # noqa: E402
+from augur_engine.analytics import (sharpe_from_trades, sortino_from_trades,  # noqa: E402
+                                    avg_win_loss, expectancy_r)               # noqa: E402
 
 # ---------------------------------------------------------------- the crown --
 CROWN = dict(CHAMPION, daytype_mode="skip_bot_short", daytype_lo=0.20,
@@ -321,10 +325,47 @@ def categorical():
 
 
 # ------------------------------------------------------- verdict machinery ---
-def row_of(m):
-    return {"n": m["n"], "net": m["net"], "pf": m["pf"], "dd": abs(m["dd"]),
-            "mar": m["mar"], "era_2010_17": m["era_2010_17"],
-            "worst_year": m["worst_year"], "worst_year_net": m["worst_year_net"]}
+SEL_YEARS = (_dtp(SEL_DATE_TO) - _dtp("2010-06-07")).days / 365.25
+
+
+def row_of(m, trades=None):
+    """The cell's figures for the JSON. `trades` is the RAW (pre-cost) trade list.
+
+    THE FOUR EXTRA FIGURES (added 2026-08-28, owner: "can you backfill this info").
+    Nothing ever recorded a win rate, a Sharpe, a Sortino or an average loss for a
+    local sweep, which is why those four axes on COMPARE > STUDIES read `not
+    recorded` for every stage-1 row. They are not looked up - nothing stored them -
+    they are recomputed here from the cell's own trades, net of cost, using the SAME
+    functions augur_engine/analytics.py gives run_backtest and validate. One
+    definition of Sharpe across the whole project, so a sweep row and an
+    Auto-Validate row can sit on one axis honestly.
+
+    Money figures stay in DOLLARS (x MULT) as the rest of this file reports them;
+    avg_loss is therefore dollars too, and positive, as validate has always stored it.
+    """
+    r = {"n": m["n"], "net": m["net"], "pf": m["pf"], "dd": abs(m["dd"]),
+         "mar": m["mar"], "era_2010_17": m["era_2010_17"],
+         "worst_year": m["worst_year"], "worst_year_net": m["worst_year_net"]}
+    if trades:
+        nt = net_trades(trades)
+        pnls = [t[2] for t in nt if len(t) >= 3]
+        if pnls:
+            r["win"] = 100.0 * sum(1 for x in pnls if x > 0) / len(pnls)
+        sh = sharpe_from_trades(nt, SEL_YEARS)
+        so = sortino_from_trades(nt, SEL_YEARS)
+        aw, al = avg_win_loss(nt)
+        er = expectancy_r(nt)
+        if sh is not None:
+            r["sharpe"] = sh
+        if so is not None:
+            r["sortino"] = so
+        if aw is not None:
+            r["avg_win"] = aw * MULT
+        if al is not None:
+            r["avg_loss"] = al * MULT
+        if er is not None:
+            r["evr"] = er
+    return r
 
 
 def judge_axis(ax, rows, crown_row):
@@ -419,7 +460,7 @@ def main():
         return
 
     crown = run_cell(dict(CROWN))
-    crown_row = row_of(crown["m"])
+    crown_row = row_of(crown["m"], crown["trades"])
     print("[CROWN] net $%s | PF %.3f | maxDD $%s | net/DD %.2f | %d trades | "
           "$%.2f per trade" % (
               format(crown_row["net"], ",.0f"), crown_row["pf"],
@@ -448,14 +489,14 @@ def main():
         traces = {}
         for v in ax["grid"]:
             d = run_cell(ax["mk"](v))
-            rows[v] = row_of(d["m"])
+            rows[v] = row_of(d["m"], d["trades"])
             traces[v] = d["trades"]
             mark = "<-- CROWN" if v == ax["crown_at"] else (
                 "  (immediate neighbour)" if v in ax["immediate"] else "")
             print(prow(ax["disp"](v), rows[v], mark))
         for lab, params in ax.get("endpoints", []):
             d = run_cell(params)
-            r = row_of(d["m"])
+            r = row_of(d["m"], d["trades"])
             traces[lab] = d["trades"]
             rows[lab] = r
             print(prow("OFF", r, "  [%s -- endpoint, not a neighbour]" % lab))
@@ -569,7 +610,7 @@ def main():
         print(HDR)
         crows = {}
         for v in cx["grid"]:
-            r = row_of(run_cell(cx["mk"](v))["m"])
+            _c = run_cell(cx["mk"](v)); r = row_of(_c["m"], _c["trades"])
             crows[v] = r
             print(prow(cx["disp"](v), r, "<-- CROWN" if v == cx["crown_at"] else ""))
         out["categorical"][cx["key"]] = {"knob": cx["knob"], "rows": crows}
