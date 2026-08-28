@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.332';
+const VERSION='73.333';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.333',date:'2026-08-23',notes:['The PBO row in the 1E matrix keeps its green / amber / red reading on the MONO theme (it was rendering grey like every other accent).']},
 {v:'73.332',date:'2026-08-23',notes:['1E MATRIX has a TABLE / PARALLEL rail. PARALLEL draws the same numbers as a parallel-coordinates chart - one vertical axis per metric, one line per phase (IS / WF / LB / TOTAL), every axis normalised min to max and oriented so up = better (MAX DD and PBO inverted). Four parallel lines = the champion holds its shape out-of-sample; a fan = it decays.','PBO (Probability of Backtest Overfitting, CSCV) is now IN the 1E matrix: a colour-coded row in the table (whole-run number, printed in the TOTAL column) and its own dashed axis on the parallel view.']},
 {v:'73.324',date:'2026-08-23',notes:['ROUND 5 IS OVERTURNED BY ITS OWN VALIDATES, and the study now says so at the top. The scan had found 74 loosened configurations clearing profit factor 1.15 with a positive lockbox and 200-plus trades, and it was written up as the trade-count problem being solved. Auto-Validate disagrees: ES 15-minute lost 23,225 dollars in the lockbox (run 301), NQ 15-minute lost 2,690 (run 296), and NQ 5-minute reached only WEAK on an overfit reading of 0.87 (run 292). Run 301 is the cleanest refutation - fence held, every structural check passed, overfit reading a healthy 0.28, and the chosen configuration still lost on the untouched year. Loosening the compression gate buys trades that do not survive out of sample: the strict gate IS the edge. The family verdict is unchanged and narrow - one configuration, ES 30-minute, about twenty trades a year. Studies row 1032.']},
 {v:'73.323',date:'2026-08-23',notes:['THE TTM PASS IS CONFIRMED. Run 289 was produced while Auto-Validate could still widen the declared search ranges - the same behaviour that wrecked three sibling jobs - so it was re-run with the set enforced in code instead of being assumed safe. Run 299 came back identical to the dollar: same four settings, 29,253 dollars, profit factor 2.17, worst drawdown 3,740, lockbox plus 5,073 at profit factor 2.27, overfit probability 0.24, every gate green. The ES 30-minute hourly-compression configuration is the only one in five rounds of this family to pass, and it has now passed twice. Studies row 1031, and the crown pill moves to the confirmed row.']},
@@ -13781,7 +13782,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   It is a WHOLE-RUN number, not a per-phase one, so it prints in the TOTAL column only; the
       //   parallel view draws it as its own dashed axis.
       const _pboV=(V.pbo&&V.pbo.pbo!=null&&isFinite(+V.pbo.pbo))?+V.pbo.pbo:null;
-      if(_pboV!=null){const _pc=_pboV<=0.3?'var(--green)':_pboV<=0.5?'var(--yellow)':'var(--red)';
+      if(_pboV!=null){const _pc=_pboV<=0.3?'#2fd598':_pboV<=0.5?'#f5c542':'#ff5c5c';
         const _ptip=('Probability of Backtest Overfitting (CSCV): across every way of splitting the timeline into in-sample / out-of-sample halves, how often the config that looked BEST in-sample landed BELOW the median out-of-sample. Low = the search picked a real edge, high = it picked luck. Whole-run number - it describes the SELECTION, not one phase.'+(V.pbo.verdict?' Verdict: '+String(V.pbo.verdict).replace(/["<>]/g,''):'')+(V.pbo.n_configs?' Measured over '+V.pbo.n_configs+' configs and '+(V.pbo.n_splits||'?')+' CSCV splits.':''));
         const _ix=metrics.map(function(m){return m.lbl;}).indexOf('TRADES');
         metrics.splice(_ix<0?metrics.length:_ix,0,{lbl:'PBO',cell:function(p){return p.total?('<span title="'+_ptip+'" style="color:'+_pc+';cursor:help">'+Math.round(_pboV*100)+'%</span>'):'<span style="color:var(--text5)" title="PBO is a whole-run number - it prints in the TOTAL column">&mdash;</span>';}});}
