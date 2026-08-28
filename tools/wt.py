@@ -382,6 +382,12 @@ def _clear_lossless_modified(root):
       (b) the working copy equals its own HEAD version once line endings are
           normalised, so the uncommitted delta is whitespace and nothing else.
 
+    A file can be dirty with NOTHING uncommitted in it at all: if the blob at HEAD
+    carries a stray CR that .gitattributes normalisation strips on the way back in,
+    every checkout of that file is instantly dirty again and no amount of
+    `git checkout --` clears it. That is why the discard writes the origin/main
+    version rather than re-materialising the index one.
+
     Anything failing BOTH is somebody's unshipped work. It is left alone and named,
     and the caller then declines to fast-forward exactly as before - a human decides.
     That asymmetry is deliberate: the cost of a stalled fast-forward is a stale runner,
@@ -409,7 +415,13 @@ def _clear_lossless_modified(root):
                        check=False, quiet=True)
             n = norm(local)
             if n == norm(incoming) or n == norm(head):
-                run(["git", "-C", root, "checkout", "--", rel], check=False, quiet=True)
+                # CHECK OUT FROM origin/main, NOT from the index. Measured 2026-08-28:
+                #   the blob at the stale HEAD held two stray CR bytes, so `checkout --`
+                #   re-materialised the same dirt and the guard would have looped for
+                #   ever. origin/main is what the fast-forward is about to write anyway,
+                #   so writing it now is the same outcome one step early.
+                run(["git", "-C", root, "checkout", "origin/main", "--", rel],
+                    check=False, quiet=True)
                 cleared.append(rel)
             else:
                 kept.append(rel)
