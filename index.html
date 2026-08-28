@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.318';
+const VERSION='73.319';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.319',date:'2026-08-24',notes:['The chart heading follows the CHART toggle - it read SCATTER PLOT even with parallel coordinates on screen.']},
 {v:'73.318',date:'2026-08-24',notes:['STUDIES has a second drawing: PARALLEL COORDINATES, on a CHART toggle beside the profit stage. The scatter answers one question - what a variant cost in drawdown for what it paid - and answers it well. It cannot show whether the row that wins on money ALSO wins on efficiency, edge and sample, which is the question the moment you line up strategies that traded different instruments over different window lengths.','Six axes, one line per row: profit factor, money per dollar of drawdown, money per trade, money per year, trades per year, and NET last. Everything left of NET is scale-free on purpose, so two rows read against each other whatever they traded and however long for. NET is the one axis that does not compare - a longer window earns more by simply lasting longer - so it sits at the end as the outcome those ratios produced, and the chart says so.','A line BREAKS where a row records no figure. Nothing is bridged and no number is borrowed from a neighbouring measure.','WIN RATE and SHARPE are not recorded in the studies registry at all. They are named under the chart as the two gaps rather than guessed, and each becomes an axis the day a study carries it.']},
 {v:'73.317',date:'2026-08-23',notes:['FENCING THE SEARCH IS WORTH 63,000 DOLLARS, measured on the same neighbourhood twice: the NQ 5-minute compression-dial job scored a MINUS 51,596 dollar lockbox when Auto-Validate could widen its declared ranges (run 290) and a PLUS 11,464 dollar one when the strategy refused anything outside them (run 292). Run 293 made the same point on 15-minute NQ and added a sharper one - the widening crowned an entry cutoff of MINUS ONE, below the floor the strategy itself declares and meaningless as a rule, for a 60,094 dollar lockbox loss. Every TTM neighbourhood file now enforces its own set; the ES 30-minute PASS is being re-run fenced to confirm it. Studies rows 1028 and 1029.']},
 {v:'73.316',date:'2026-08-23',notes:['A PRE-REGISTERED NEIGHBOURHOOD IS NOT BINDING ON AUTO-VALIDATE, and run 290 is the proof: it widens a declared range whenever the best value sits near its edge, so the 5-minute compression-dial job settled on a base length of 8 and a threshold of 1.45 - neither of which the study proposed - and crowned an overfit configuration that lost 51,596 dollars in the lockbox. The fence is now enforced inside the strategy itself, which refuses an out-of-set configuration instead of clamping it (clamping would misreport what ran); 11 of 30 proposals were refused in a check before requeueing. The ES 30-minute PASS at run 289 is unaffected - its chosen settings sit in the interior of what was declared. Recorded as studies row 1027.']},
@@ -21326,7 +21327,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         body=modeToggle
             +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap"><div data-resplitl style="width:'+_reSplitW+'%;min-width:300px;position:sticky;top:6px">'):'')
           +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
-            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">SCATTER PLOT</span>'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')+'</span>'
             +'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+_reHelpBtn+_reMoreBtn+'</span></div>'
             // THE CHART'S OWN CONTROLS, directly under its title: the strategy rail and the
             //   three settings that decide what the two axes measure.
