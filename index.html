@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.339';
+const VERSION='73.340';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.340',date:'2026-08-23',notes:['RAW configs now carry PF, WIN % and TRADES onto the PARALLEL chart - they were being read from the wrong fields, so the raw family had no vertex on those axes and its lines broke there. Every pool now fills the same axes, and EV is derived from each config own net and trade count so it always matches the NET $ axis.']},
 {v:'73.339',date:'2026-08-23',notes:['The all-configs PARALLEL chart now carries the RATIOS from the 1E table, not just net and drawdown: MAR, PF, SHARPE, WIN %, EV and TRADES each get their own axis whenever most of the configs carry that column, plus the run PBO axis.','A config with no value for an axis breaks its line there instead of drawing a chord straight past it, and hovering a line now reads out PF, win rate and trade count alongside net and drawdown.']},
 {v:'73.338',date:'2026-08-27',notes:['SWEEPS CAN NOW CARRY THE FOUR RISK FIGURES THEY NEVER HAD. Until today a local .py sweep recorded money, drawdown, profit factor and a trade count and nothing else, which is why WIN percent, SHARPE, SORTINO and EV IN R were blank for every stage-1 row on the STUDIES board. The fix is one place, not 153 driver files: every sweep reaches the engine through run_backtest, so run_backtest now attaches win rate, Sharpe, Sortino, average win, average loss and expectancy in R to EVERY result it returns, derived from the trade list it already had in hand.','AND IT IS THE SAME ARITHMETIC A VALIDATE USES. Sharpe, Sortino and the average win / loss pair were written out inside validate.py and nowhere else. They now live once in analytics.py and validate calls them, so a sweep and an Auto-Validate put the SAME definition on the same axis - two definitions of Sharpe sharing one axis is exactly the silent blending this project keeps guarding against. Verified bit-identical on a 1,825-trade run.','A STUDIES ROW CAN NOW RECORD THEM: wr, sh, so and avl (or evr outright) are registry fields, documented in STUDIES_BOARD.md. Paste what the sweep prints and the axes fill.','CACHE HONESTY: a trial cached before today has no risk figures in it and no trade list to derive them from, so returning it would hand back a result silently missing the keys the engine now promises. Rather than throw away an 80MB cache on an epoch bump, every row written from now on carries a marker and an unmarked row is treated as a miss - recomputed once, on demand, then re-cached. Nothing shows a Sharpe that depends on cache state. The first sweep over old ground will be slower once.']},
 {v:'73.337',date:'2026-08-23',notes:['PARALLEL on a candidate tab now draws EVERY config from EVERY pool on ONE chart - RAW, GATE, TILT and the three HYBRID sizings together - one line each across NET $ / MAX DD / MAR plus the run PBO axis, coloured by family so you can see whether the ML pools really sit above the raw ones.','The crowned config rides a gold underlay, each family brightest line is its best net, and the family legend is the same clickable control the 1A RISK MAP uses - hiding a family here hides it there and every axis re-fits.']},
@@ -11601,9 +11602,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v73.338 (owner: "the cords dont show the ratios from the 1e table"): carry the same
         //   ratio columns the table prints, so the parallel view can draw them as axes.
         const _n1=v=>(v!=null&&isFinite(+v))?+v:null;
-        const _tr1=_n1(col.trades!=null?col.trades:col.n_trades),_wr1=_n1(col.win_rate!=null?col.win_rate:col.wr);
+        // v73.340: read the SCOPED per-config block the RAW table itself prints (_rawP follows the
+        //   ticked IS / WF / LB sample), falling back to the whole-run metrics block on older docs -
+        //   guessing col.pf / col.win_rate found nothing, so RAW lines had no PF or WIN % vertex.
+        const _rp=(typeof _rawP==='function'?(_rawP(col)||{}):{}),_cm=(col&&col.metrics)||{};
+        const _tr1=_n1(_rp.kept!=null?_rp.kept:_cm.num_trades),_wr1=_n1(_rp.wr!=null?_rp.wr:_cm.win_rate);
         return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,
-          pf:_n1(col.pf!=null?col.pf:col.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),sh:_n1(col.sharpe),tr:_tr1,ev:(_tr1?(pnl/_tr1):null)};
+          pf:_n1(_rp.pf!=null?_rp.pf:_cm.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),sh:_n1(col.sharpe),tr:_tr1,ev:(_tr1?(pnl/_tr1):null)};
       }).filter(Boolean);
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
@@ -14880,7 +14885,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
           const p=_P(c);
           if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
-            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.avg_pnl!=null&&isFinite(p.avg_pnl))?(p.avg_pnl*mlt3):null});
+            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.kept!=null&&isFinite(p.kept)&&p.kept>0)?((p.net*mlt3)/p.kept):null});
         });
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
@@ -15238,7 +15243,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.avg_pnl!=null&&isFinite(p.avg_pnl))?(p.avg_pnl*mlt3):null});
+                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.kept!=null&&isFinite(p.kept)&&p.kept>0)?((p.net*mlt3)/p.kept):null});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
