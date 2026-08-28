@@ -29,7 +29,9 @@ if EDGELOG_ROOT not in sys.path:
     sys.path.insert(0, EDGELOG_ROOT)
 
 from augur_engine.data import find_master, load_master_arrays   # noqa: E402
-from augur_engine.engine import _apply_costs                    # noqa: E402
+from augur_engine.engine import _apply_costs
+from augur_engine.analytics import (sharpe_from_trades, sortino_from_trades,
+                                    avg_win_loss, expectancy_r)                    # noqa: E402
 
 FEE, MULT = 0.533, 20.0
 SEL_DATE_TO = "2025-02-10"          # run #231 optimize-window end (selection window)
@@ -312,12 +314,43 @@ def metrics(trades, index, cost_pts=FEE, mult=MULT):
         pyear[yr] = pyear.get(yr, 0.0) + pnl * mult
     era_2010_17 = sum(vv for yy, vv in pyear.items() if 2010 <= yy <= 2017)
     worst_yr = min(pyear.items(), key=lambda kv: kv[1]) if pyear else (None, 0.0)
-    return {
+    # THE FOUR RISK FIGURES EVERY LOCAL SWEEP WAS MISSING (2026-08-28, owner: "can you
+    #   backfill this info"). Seven NOISE drivers call this one function, so adding them
+    #   here fills them for all seven at once rather than seven times over. They use the
+    #   SAME definitions augur_engine/analytics.py gives run_backtest and a validate, so a
+    #   sweep row and an Auto-Validate row can share an axis honestly.
+    #   Annualised on the window the trades actually span; avg_loss is DOLLARS and positive,
+    #   matching what validate has always stored.
+    yrs = None
+    if len(net_trades) >= 2:
+        try:
+            d = (index[net_trades[-1][0]] - index[net_trades[0][0]]).days / 365.25
+            yrs = d if d > 0 else None
+        except Exception:
+            yrs = None
+    aw, al = avg_win_loss(net_trades)
+    out = {
         "n": res["num_trades"], "net": net_usd, "pf": res["profit_factor"],
         "dd": dd_usd, "mar": mar, "win_rate": res["win_rate"],
+        "win": res["win_rate"],          # the name the studies backfill reads
         "pyear": pyear, "era_2010_17": era_2010_17,
         "worst_year": worst_yr[0], "worst_year_net": worst_yr[1],
     }
+    if aw is not None:
+        out["avg_win"] = aw * mult
+    if al is not None:
+        out["avg_loss"] = al * mult
+    er = expectancy_r(net_trades)
+    if er is not None:
+        out["evr"] = er
+    if yrs:
+        sh = sharpe_from_trades(net_trades, yrs)
+        so = sortino_from_trades(net_trades, yrs)
+        if sh is not None:
+            out["sharpe"] = sh
+        if so is not None:
+            out["sortino"] = so
+    return out
 
 
 _ARR_CACHE = {}
