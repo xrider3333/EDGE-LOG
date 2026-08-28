@@ -87,7 +87,22 @@ and the buttons say so on hover. Offering three ticks there was offering a choic
 exist — and before it was pinned, a WF tick silently emptied the money, MAR, EV and NET of every
 gate, tilt and hybrid row.
 
-**WIN % and SHARPE.** Neither has ever existed as a registry field. On the parallel chart they are
+**The parallel chart's ten axes, and why they are in that order.** WIN % · SHARPE · SORTINO ·
+EV IN R · $ / YEAR · TRADES / YR · PF · MAR · EV · NET $. A line breaks wherever a row records
+nothing, so the four axes only *some* rows can fill are parked on the LEFT — a row without them
+starts late and then runs unbroken, instead of being chopped into fragments too short to draw.
+NET sits last because it is the one axis that does **not** compare across windows.
+
+- **EV IN R** divides expectancy by the average losing trade. It is leverage-blind, which raw
+  dollar EV is not — a row trading one contract lands beside a row trading ten.
+- **SORTINO** sits beside MAR deliberately: a max drawdown is one worst event, and this project
+  measured its confidence interval to be *wider than the statistic itself*, so MAR alone is thin.
+- **There is no separate EV × trades/year axis** — that is exactly what `$ / YEAR` already is.
+- **An axis no row on screen records draws no ticks at all** and says `not recorded` under its
+  title. Before that guard it produced a NaN scale whose labels landed at y=0 and were sliced
+  in half by the top edge.
+
+**WIN %, SHARPE, SORTINO and EV IN R.** None has ever existed as a registry field. On the parallel chart they are
 read off the **run document** behind a row (`validate.total_win_rate`, `validate.total_sharpe`,
 both already carried by the projected run list) and off the candidate record itself for a config
 row. A sweep row shows neither, because the local sweeps have never printed them — a blank there
