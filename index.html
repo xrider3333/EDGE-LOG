@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.336';
+const VERSION='73.337';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.337',date:'2026-08-23',notes:['PARALLEL on a candidate tab now draws EVERY config from EVERY pool on ONE chart - RAW, GATE, TILT and the three HYBRID sizings together - one line each across NET $ / MAX DD / MAR plus the run PBO axis, coloured by family so you can see whether the ML pools really sit above the raw ones.','The crowned config rides a gold underlay, each family brightest line is its best net, and the family legend is the same clickable control the 1A RISK MAP uses - hiding a family here hides it there and every axis re-fits.']},
 {v:'73.336',date:'2026-08-23',notes:['The TABLE / PARALLEL rail is on EVERY 1E tab now, not just KPI - that is why it looked missing on a card sitting on RAW or GATE.','PARALLEL on a candidate tab (RAW / GATE / TILT / HYBRID) draws that pool as parallel coordinates: one line per config across NET $ / MAX DD / MAR plus the run PBO axis, green = profitable, red = not, gold = the crowned config. Hover a line for its name and numbers.']},
 {v:'73.335',date:'2026-08-27',notes:['BUG THE OWNER SPOTTED: axis labels sliced in half at the top of the parallel chart. An axis that NO row on screen records - $ / YEAR and TRADES / YR at the CONFIGS level, where no row carries a dated window - had no scale, so every tick value came out NaN and a NaN position put those labels at the very top edge where they were cut. Such an axis now draws no ticks at all and says under its own title that nothing on screen records it. The chart also gained a little headroom so a title can never crowd the top tick.','TWO NEW AXES, both from the owner metric review. EV IN R divides expectancy by the average losing trade, so it is LEVERAGE-BLIND - dollar EV scales with size, which is the thing that flattered the wrong rows. SORTINO sits beside MAR because a max drawdown is ONE worst event and this project already measured its confidence interval to be wider than the statistic itself; Sortino reads downside volatility across the whole run instead.','The third suggestion, EV times trades per year, is ALREADY the $ / YEAR axis - the same number by a different route - so it was not duplicated. The line under the chart says so.','Both new axes are run-document figures (total_sortino, total_avg_loss), so they fill on an Auto-Validate row and on a configuration row and stay blank on a local sweep, like WIN percent and SHARPE.']},
 {v:'73.333',date:'2026-08-23',notes:['The PBO row in the 1E matrix keeps its green / amber / red reading on the MONO theme (it was rendering grey like every other accent).']},
@@ -13610,14 +13611,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    raw value), so a champion that holds up out-of-sample draws four roughly parallel lines and
     //    one that decays draws a fan. PBO is a whole-run number, so every line meets on that axis -
     //    it is there to sit the selection-overfit odds beside the phase-by-phase read. ──
-    // ── PARALLEL COORDINATES for a CANDIDATE POOL (owner 2026-08-21: "i dont see the parallal
-    //    cords" - the rail only lived on the KPI tab, so a card sitting on RAW / GATE / TILT /
-    //    HYBRID showed nothing). Each candidate config in that pool becomes one line across
-    //    NET $ / MAX DD / MAR, plus the run-level PBO axis when the run measured it. Green = the
-    //    candidate made money, red = it did not, gold = the crowned one. Same orientation rule as
-    //    the KPI view: every axis is normalised min-to-max and drawn so UP = BETTER. ──
-    const poolParallelHtml=(pts,pboV,poolLbl)=>{
-      const P=(pts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
+    // ── ALL CONFIGS ON ONE PARALLEL CHART (owner 2026-08-21: "what i was looking for was all of
+    //    the configs on one parallel chart. raw, gate, tilt, hybrid, etc"). Every candidate the run
+    //    produced, from EVERY pool, as one line each across NET $ / MAX DD / MAR (+ the run-level
+    //    PBO axis). Line colour = its pool, so you can see whether the ML pools actually sit above
+    //    the raw ones or just alongside them; the crowned config rides a gold underlay. The family
+    //    legend is the SAME clickable control the 1A RISK MAP uses (mtxOff), so hiding a family
+    //    here hides it there too and every axis re-fits to what is left. ──
+    const poolParallelHtml=(allPts,pboV)=>{
+      const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
       if(P.length<2)return '';
       const axes=[
         {nm:'NET $',  inv:false, get:x=>+x.pnl, fmt:v=>_kfmt(v)},
@@ -13629,7 +13631,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(A.length<2)return '';
       A.forEach(a=>{const vs=P.map(x=>a.get(x)).filter(v=>v!=null&&isFinite(v));
         a.lo=Math.min.apply(null,vs);a.hi=Math.max.apply(null,vs);if(a.hi===a.lo){a.hi=a.lo+(Math.abs(a.lo)||1)*0.5;a.lo=a.lo-(Math.abs(a.lo)||1)*0.5;a.flat=true;}});
-      const W=560,H=214,padL=14,padR=14,padT=30,padB=40,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
+      const W=560,H=224,padL=14,padR=14,padT=30,padB=40,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
       const X=i=>padL+(A.length>1?i/(A.length-1):0.5)*Wp;
       const Y=(a,v)=>{let f=(v-a.lo)/((a.hi-a.lo)||1);if(a.inv)f=1-f;return plotB-Math.max(0,Math.min(1,f))*plotH;};
       let ax='';
@@ -13638,24 +13640,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="10" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
-      let lines='',crown='';
-      P.forEach(x=>{
+      // best NET $ per pool draws on top of its family, so each pool best line stays findable in the bundle
+      const bestOf={};P.forEach((x,i)=>{const k=String(x.pool||'');if(!(k in bestOf)||+x.pnl>+P[bestOf[k]].pnl)bestOf[k]=i;});
+      const topIdx={};Object.keys(bestOf).forEach(k=>{topIdx[bestOf[k]]=1;});
+      let base='',lead='',crown='';
+      P.forEach((x,i)=>{
         const pts2=[];
-        A.forEach((a,i)=>{const v=a.get(x);if(v==null||!isFinite(v))return;pts2.push([X(i),Y(a,v)]);});
+        A.forEach((a,j)=>{const v=a.get(x);if(v==null||!isFinite(v))return;pts2.push([X(j),Y(a,v)]);});
         if(pts2.length<2)return;
-        const isC=!!x.crowned,col=isC?'#f5c542':(+x.pnl>=0?'#1d9e75':'#e24b4a');
-        const tip=String(x.label||'').replace(/"/g,'')+'<br><b>'+_kfmt(+x.pnl)+'</b> &middot; DD -'+_kfmt(Math.abs(+x.dd))+(isC?'<br>&#128081; crowned':'');
-        const seg='<polyline points="'+pts2.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(isC?2.6:1)+'" opacity="'+(isC?0.98:0.4)+'" style="cursor:pointer" data-tip="'+tip+'"/>';
-        if(isC)crown+=seg;else lines+=seg;
+        const isC=!!x.crowned,pool=String(x.pool||''),col=_mtxPoolCol[pool]||'var(--text3)';
+        const pt='points="'+pts2.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')+'"';
+        const tip='<b>'+pool+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+'<br><b>'+_kfmt(+x.pnl)+'</b> &middot; DD -'+_kfmt(Math.abs(+x.dd))+(isC?'<br>&#128081; crowned':'');
+        const seg=fillW=>'<polyline '+pt+' fill="none" stroke="'+col+'" stroke-width="'+fillW+'" opacity="'+(isC?0.98:(topIdx[i]?0.9:0.32))+'" style="cursor:pointer" data-tip="'+tip+'"/>';
+        if(isC)crown+='<polyline '+pt+' fill="none" stroke="#f5c542" stroke-width="5" opacity="0.55"/>'+seg(2.4);
+        else if(topIdx[i])lead+=seg(1.8);
+        else base+=seg(0.9);
       });
-      const nW=P.filter(x=>+x.pnl>=0).length;
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+lines+crown+'</svg>';
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+base+lead+crown+'</svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
-        +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'
-        +'<span style="font-weight:700;color:var(--text2)">'+(poolLbl||'CANDIDATES')+' &middot; '+P.length+' configs</span>'
-        +'<span style="color:#1d9e75">'+nW+' profitable</span><span style="color:#e24b4a">'+(P.length-nW)+' not</span>'
-        +'<span style="color:#f5c542">gold = crowned</span>'
-        +'<span style="margin-left:auto">every axis min &rarr; max across the pool &middot; up = better (&#8595; = axis inverted)</span></div>'
+        +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'
+        +'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span>'
+        +'<span>'+_mtxLegend(allPts)+'</span>'
+        +'<span style="margin-left:auto">gold = crowned &middot; brightest line per family = its best net &middot; up = better (&#8595; = axis inverted)</span></div>'
         +svg+'</div>';
     };
     const mtxParallelHtml=(phases,pboV,mult)=>{
@@ -16750,10 +16756,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   no way to reach it. Every tab carries the rail now; on a candidate tab PARALLEL draws
           //   that pool as one line per config (NET $ / MAX DD / MAR + the PBO axis).
           const _mV=(APREF.mtxView==='parallel')?'parallel':'table';
-          const _poolRe={raw:/RAW/i,gate:/GATE/i,tilt:/TILT/i,hyb:/HYBRID/i,hyb2:/HYBRID/i,hyb3:/HYBRID/i}[tb];
-          const _poolPts=_poolRe?_mtxScatterPts.filter(function(x){return x&&_poolRe.test(String(x.pool||''));}):[];
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
-          const _poolPar=(!isK&&_mV==='parallel')?poolParallelHtml(_poolPts,_pboRun,(_tabDefs.filter(function(t){return t[0]===tb;})[0]||[])[1]||''):'';
+          const _poolPar=(!isK&&_mV==='parallel')?poolParallelHtml(_mtxScatterPts,_pboRun):'';
           const _tabRail=isK?'':_distViewRail('mtxView',_mV,[['table','TABLE'],['parallel','PARALLEL']]);
           // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
           //   amber pill next to the tab strip whenever an ML tab (GATE / TILT / HYBRID family) is
