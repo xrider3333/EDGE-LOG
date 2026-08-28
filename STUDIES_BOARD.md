@@ -54,6 +54,46 @@ edit the renderer to add data.
 These controls apply to every study on the board at once, and each one changes the chart
 and the table together, so the two can never disagree.
 
+**LEVEL — ALL, SWEEPS, AUTO-VALIDATES, CONFIGS OF ONE RUN, CROWN.** This is the first control
+on the rail because it decides *which grade of evidence* is on screen, and every other control
+is a narrowing inside that. Research here runs through four stages and they are **not**
+comparable, so ranking them in one list is exactly the mistake this control exists to prevent:
+
+| Level | What it is | What it has survived |
+| --- | --- | --- |
+| **SWEEPS** | a local `.py` theory test | nothing — no run number, no walk-forward, no lockbox |
+| **AUTO-VALIDATES** | a real EDGELOG run | in-sample → walk-forward → lockbox |
+| **CONFIGS OF ONE RUN** | the RAW / GATE / TILT / HYBRID candidates inside one such run | nothing — optimize window only, and best-of-hundreds |
+| **CROWN** | one row per family: its standing champion | it is the shortlist that decides what goes to paper |
+
+`ALL` stays the default so nothing already on screen changes, and it states out loud that it is
+mixing stages. The chart marks the three sources apart by line style — **solid** is a run-backed
+row, **dashed** is a local sweep, **dotted** is a configuration read out of a run — and every
+line hover names its source and, where one exists, its run number.
+
+**CONFIGS OF ONE RUN is the only level that is not registry data.** It reads a run document live:
+`selection.candidates` + `selection.robust` for RAW, and `gate_validate.candidates` / `.tilts` /
+`.hybrids` for the other three. Those blocks are exactly the bulk the fast page load leaves
+behind, so the full document is fetched on demand through the same loader a run report uses and
+the board shows LOADING while that is in flight. Two honesty rules ride with that level, both
+printed under the chart rather than buried:
+
+- those rows are scored on the **optimize window only** — no lockbox has judged any of them;
+- they are the **best of hundreds** the search tried, so the leader is flattered by the picking
+  itself. They are candidates, never survivors.
+
+Because a configuration record holds exactly one window, **PROFIT STAGE is pinned on that level**
+and the buttons say so on hover. Offering three ticks there was offering a choice that does not
+exist — and before it was pinned, a WF tick silently emptied the money, MAR, EV and NET of every
+gate, tilt and hybrid row.
+
+**WIN % and SHARPE.** Neither has ever existed as a registry field. On the parallel chart they are
+read off the **run document** behind a row (`validate.total_win_rate`, `validate.total_sharpe`,
+both already carried by the projected run list) and off the candidate record itself for a config
+row. A sweep row shows neither, because the local sweeps have never printed them — a blank there
+is the truth, not an oversight. If a sweep driver starts recording them, they fill in with no
+change to the board.
+
 **STRATEGY — ALL, or one family.** This is the rail the board is built around and it sits
 directly under the top row of controls, with the row count beside each name. Picking a strategy
 narrows the chart *and* every table below it together. It writes the **same** strategy-type
@@ -702,6 +742,9 @@ they survive a reload and a re-render. None of them is registry data.
 | `resColour` | `theme` `on` `off` | the board-only colour setting |
 | `resBasis` | `asis` `common` `year` | **new** — the fair-comparison basis |
 | `resZoom` | `all` `95` `90` `80` | **new** — how much of the value range the axes trim |
+| `resLvl` | `all` `sweep` `valid` `cfg` `crown` | **new** — the pipeline level |
+| `resCfgRun` | a run id | **new** — which run the CONFIGS level reads |
+| `resChart` | `scatter` `par` | **new** — scatter or parallel coordinates |
 | `resChH` | object, study `key` to a number | **new** — the dragged chart height per study, in the chart's own drawing units, clamped to 260–1400. A study absent from the object is at the standard 440. |
 
 ---
