@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.362';
+const VERSION='73.363';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.363',date:'2026-08-28',notes:['THE BLANK CHIP IN THE VERDICT ROW, chased down: ELEVEN rows carry a verdict this board has never had a shape for - ten written as warn (TTM round 5, rows 1056 to 1082) and one with no verdict at all. Each of them drew an EMPTY mark on the chart as well as producing that blank sixth segment. The board has five verdicts and the owner named them, so rather than invent a sixth an unrecognised one is read as FRAGILE, which is what a warning is. The row keeps what it actually recorded, so nothing is lost.','THE MORE / LESS TOGGLE IS GONE and every control is always shown. It existed when the controls were a wide block above the chart and half of them were pushing it off the screen; they are a sidebar now, so hiding half of them only hid them.','THE PARAGRAPH ABOVE THE POOLED TABLE IS GONE - the row count, what the grey study tag means, how to read one study at a time. The count is on the TABLES heading already and the VIEW control is two inches away.']},
 {v:'73.362',date:'2026-08-28',notes:['A CONTROL TRACK IS NOW AS WIDE AS ITS BUTTONS. The grey track behind each group was being stretched to the full width of the sidebar column, so a two-button control drew a bar running off to the right with nothing in most of it. It shrinks to its contents.','AND THERE IS ONE DIVIDER INSTEAD OF A LINE THAT GIVES UP HALF WAY DOWN. The sidebar carried its own right-hand border, which stopped where its content stopped; the drag bar beside it runs the full height of the page. The border lives on the drag bar now, so the divider and the handle are the same edge, top to bottom.']},
 {v:'73.361',date:'2026-08-29',notes:['THE AUTO-RECOVER SWITCH IS NOW ON THE PAPER PLUS STATUS LINE TOO. It shipped only inside the NINJATRADER card, which on PAPER PLUS is folded away behind NINJATRADER DETAIL - so on that tab you had to open an accordion to reach a switch whose whole purpose is a five-second decision. It now sits on the top status strip, next to the live and gate lights, on both tabs.']},
 {v:'73.360',date:'2026-08-28',notes:['THE SIDEBAR IS A SIDEBAR NOW, not a card in a column: full height, flush to the left edge, a hairline dividing it from the panels, and no tile background of its own - the panels are the cards, the sidebar is the frame. DRAG ITS EDGE to set how wide it is; the width is remembered and a double-click puts it back.','AND THE GREY BAR UNDER CLEAR FILTERS IS GONE. It was a horizontal scrollbar: the sidebar scrolled on both axes, so any control a pixel wider than the column produced one. It scrolls vertically only.','A CONTROL IS ONE SEGMENTED SWITCH instead of a row of separate bubbles. The group carries the fill and the selected option lights up inside it, so you can see where a section starts and ends.','EVERY CONTROL IS IN ONE PLACE. The COMPARE view picker (PICK RUNS through STUDIES) and the table settings (VIEW, COLUMNS, ORDER, SPLIT BY RUN, COMPARE ON) moved into the sidebar, each under its own heading.','THE STACKED SPLIT RESIZES TOO. Side-by-side has always had a drag bar; stacked had none, so the tables ran as long as they ran. There is a horizontal bar under them now - drag down for more table, up for more chart.','THE NOVELS ARE BEHIND THE INFO ICON. Nothing was deleted - every caveat is still there on the hover, because each one exists to stop a specific misreading - but the chart gets one line instead of fourteen.','HOVERING THE TABLE NO LONGER REPAINTS ROWS AS YOU MOVE THROUGH IT. Coming from a table row there is nothing to point at, since the cursor is already on it, so that direction only isolates the chart line. Hovering a CHART line still lights its table row.','EV R REPLACES PF IN THE KEY COLUMNS: the average trade divided by the average LOSING trade, which is leverage-blind where dollar expectancy is not. PF is still on the chart and still in the READ hover, and the $/TRD column beside it is the same expectancy in dollars.']},
@@ -20480,6 +20481,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reDn=(_reColEff==='on')?'#f87171':((_reColEff==='off')?'var(--text3)':'var(--red)');
         const _reWarnC=(_reColEff==='on')?'#fbbf24':((_reColEff==='off')?'var(--text3)':'var(--yellow)');
         const _reToneNm={champ:'champion',good:'beat it and held up',frag:'works but fragile',fail:'failed',ref:'reference or superseded'};
+        // THE BLANK CHIP IN THE VERDICT ROW, chased down 2026-08-28: ELEVEN rows carry a
+        //   verdict this board has never had a shape for - ten written as 'warn' (TTM round 5,
+        //   rows 1056-1082) and one with no verdict at all. Every one of them drew an EMPTY
+        //   mark on the chart and produced that blank sixth segment in the filter row.
+        //   The board has FIVE verdicts and the owner named them; rather than invent a sixth,
+        //   an unrecognised one is read as FRAGILE - which is what a warning is - and the row
+        //   keeps what it actually recorded on _toneRaw so nothing is lost and the hover can
+        //   say so. Fixed at the source, so every reader of r.tone is fixed at once.
+        RESEARCH_STUDIES.forEach(function(st){(st.rows||[]).forEach(function(r){
+          if(r&&_reToneNm[r.tone]==null){r._toneRaw=(r.tone||'(none recorded)');r.tone='frag';}});});
         const _reToneMk={champ:'large filled circle with a bright outline',good:'filled square',frag:'hollow circle',fail:'cross',ref:'hollow triangle'};
         // -- STATUS (owner ask 2026-08-19: "way to see whats being forward tested in addition
         //    to whats crowned?"). A good backtest and a thing actually being traded forward are
@@ -21791,15 +21802,20 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           const lbls=_reIsLbls(items);
           const synth={isLbl:(lbls.length===1)?lbls[0]:''};
           const nst=(()=>{const o={};items.forEach(it=>{o[it.st.key]=1;});return Object.keys(o).length;})();
-          return '<div style="font-size:9px;color:var(--text4);margin:2px 0 7px">'+items.length+' rows pooled from '+nst+' stud'+(nst===1?'y':'ies')+', ranked together. The grey tag on each row is the study it was researched in \u2014 switch 14 VIEW to BY STUDY to read them one study at a time, with each study\u2019s own notes.</div>'
+          // The paragraph that sat above the pooled table - the row count, what the grey
+          //   study tag means, and how to read one study at a time - is gone (owner
+          //   2026-08-28: "remove text after the tables"). The count is already on the
+          //   TABLES heading and the VIEW control is two inches away in the sidebar.
+          return ''
             +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+_reHd(synth,1)+'</thead><tbody>'+bodyRows+'</tbody></table></div>';};
         const _reBody=tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
             +(_reOneTbl?'':(_reSolo?' \u00b7 the only study left is open':''))+'</span></div>'
-            // the table's own settings moved into the sidebar with everything else.
-
+            // The paragraph that used to sit here - what the grey tag means, how to read
+            //   one study at a time - is gone (owner 2026-08-28: "remove text after the
+            //   tables"). The tag is self-evident and the VIEW control is two inches away.
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
@@ -21813,7 +21829,11 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //    control rails and the filter chips; HOW TO READ hides the reference text. Neither
         //    hides a NUMBER and neither changes what is measured - what they hide is explanation,
         //    and every sentence they hide is also on the hover of the short thing it explains.
-        const _reMore=!!APREF.resMore, _reHelp=!!APREF.resHelp;
+        // EVERY CONTROL IS ALWAYS SHOWN (owner 2026-08-28: "remove less filter"). The
+        //   MORE / LESS toggle existed when the controls were a wide block above the chart
+        //   and half of them were pushing it off the screen. They are a sidebar now, so
+        //   hiding half of them only hides them.
+        const _reMore=true, _reHelp=!!APREF.resHelp;
         const _reReadBtns=_reCtl('','AXIS','what the two axes measure. ABSOLUTE is each variant own figures, with the champion of its family marked by the dashed crosshair. CHAMPION re-centres both axes on that champion, so it lands on the crossing and every other point reads as the money and the drawdown it added against it. It changes the CHART only - the tables always print the absolute figures',
             _reBtn('data-resrel="abs"','ABSOLUTE',!_reRel,'plot each variant own profit and own worst drawdown, exactly as its row records them. The dashed crosshair marks where the champion of the family sits, so you can still read everything against it at a glance',_TONE.rank)
            +_reBtn('data-resrel="crown"','CHAMPION',_reRel,'plot the DIFFERENCE from the champion of each row own family, which puts the champion itself on the crossing. A point up and to the left made more money for a smaller drawdown than the champion did; down and to the right is the opposite. A family with no declared champion cannot be placed and its rows are named under the chart rather than guessed at',_TONE.rank),_TONE.rank);
@@ -22060,7 +22080,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             '<div data-residel style="flex:0 0 '+_reSideW+'px;min-width:'+_reSideW+'px;position:sticky;top:0;max-height:100vh;overflow-y:auto;overflow-x:hidden;padding:8px 12px 24px 2px;">'
             +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:9px">'
             +'<span class="lbl" style="font-size:10px;letter-spacing:1.4px;color:var(--text3)">CONTROLS</span>'
-            +'<span style="margin-left:auto;display:inline-flex;gap:4px">'+_reHelpBtn+_reMoreBtn+'</span></div>'
+            +'<span style="margin-left:auto;display:inline-flex;gap:4px">'+_reHelpBtn+'</span></div>'
             // the COMPARE mode picker lives here too - it decides what the whole page is,
             //   so it belongs above the settings that decide how that thing is drawn.
             +_reSideHd('VIEW',1)+modeToggle
