@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.359';
+const VERSION='73.360';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.360',date:'2026-08-28',notes:['THE SIDEBAR IS A SIDEBAR NOW, not a card in a column: full height, flush to the left edge, a hairline dividing it from the panels, and no tile background of its own - the panels are the cards, the sidebar is the frame. DRAG ITS EDGE to set how wide it is; the width is remembered and a double-click puts it back.','AND THE GREY BAR UNDER CLEAR FILTERS IS GONE. It was a horizontal scrollbar: the sidebar scrolled on both axes, so any control a pixel wider than the column produced one. It scrolls vertically only.','A CONTROL IS ONE SEGMENTED SWITCH instead of a row of separate bubbles. The group carries the fill and the selected option lights up inside it, so you can see where a section starts and ends.','EVERY CONTROL IS IN ONE PLACE. The COMPARE view picker (PICK RUNS through STUDIES) and the table settings (VIEW, COLUMNS, ORDER, SPLIT BY RUN, COMPARE ON) moved into the sidebar, each under its own heading.','THE STACKED SPLIT RESIZES TOO. Side-by-side has always had a drag bar; stacked had none, so the tables ran as long as they ran. There is a horizontal bar under them now - drag down for more table, up for more chart.','THE NOVELS ARE BEHIND THE INFO ICON. Nothing was deleted - every caveat is still there on the hover, because each one exists to stop a specific misreading - but the chart gets one line instead of fourteen.','HOVERING THE TABLE NO LONGER REPAINTS ROWS AS YOU MOVE THROUGH IT. Coming from a table row there is nothing to point at, since the cursor is already on it, so that direction only isolates the chart line. Hovering a CHART line still lights its table row.','EV R REPLACES PF IN THE KEY COLUMNS: the average trade divided by the average LOSING trade, which is leverage-blind where dollar expectancy is not. PF is still on the chart and still in the READ hover, and the $/TRD column beside it is the same expectancy in dollars.']},
 {v:'73.359',date:'2026-08-29',notes:['AUTO-RECOVER now has a button, on the NINJATRADER card in both paper tabs. It switches off the scheduled job on your PC that restarts NinjaTrader, logs it in, reconnects the Simulation account and re-enables the strategies. Useful on a weekday morning, pointless on a Saturday when the only thing it can do is reconnect a platform nobody is trading.','IT SHOWS THE PC’S REAL STATE, not what you last clicked - the status arrives in the same snapshot the NinjaTrader card already reads, so a change made on the machine itself shows up here too. If it cannot read the PC it says UNKNOWN rather than a confident OFF.','TURNING IT OFF DOES NOT STOP NINJATRADER. Anything already running keeps running and any enabled strategy keeps trading. All that stops is the automatic repair - so if NinjaTrader does die while it is off, nothing puts it back until you switch it on again. The button says so before it does anything.']},
 {v:'73.358',date:'2026-08-28',notes:['Two controls in the new sidebar wore the same number as their neighbour - AXIS shared 4 with STRATEGY, and VERTICAL AXIS and the run picker both shared 3 with LEVEL. The sidebar puts every control in a fixed vertical order now, so those three simply lost their ordinal rather than renumber ten controls whose numbers the help text cites by name.','A run row on AUTO VAL printed its family ordinal as well as its run number - #252 - 12 - NOISE. The run number is the identity there, so the family ordinal is dropped: it reads #252 - NOISE.']},
 {v:'73.356',date:'2026-08-28',notes:['THE STUDIES BOARD IS THREE COLUMNS NOW: a LOCKED SIDEBAR holding every control, then the TABLES, then the CHART. The controls used to sit inside the chart tile, so scrolling down to read a table scrolled the settings off the screen; the sidebar stays put while both panels scroll past it.','The drag bar still governs the split, and it now divides the TABLES from the CHART rather than the chart from the tables. Double-click puts it back to half.','HOW TO READ and MORE moved to the top of the sidebar, beside the CONTROLS heading, so every setting is in one place.']},
@@ -20301,8 +20302,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<span '+attr+(tip?(' title="'+String(tip).replace(/"/g,'&quot;')+'"'):'')
             +' style="display:inline-flex;align-items:center;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;font-size:7.5px;font-weight:700;letter-spacing:.15px;padding:3px 6px;border-radius:5px'
             +';color:'+(on?'var(--text)':'var(--text5)')
-            +';background:'+(on?('color-mix(in srgb,'+t+' 22%,transparent)')
-                              :'color-mix(in srgb,var(--text) 7%,transparent)')
+            // The GROUP carries the fill now (owner 2026-08-28: "connect selectors so i
+            //   can see the entire section it pertains to - right now each is its own
+            //   bubble"). An unselected chip is transparent ON that track, so a control
+            //   reads as one segmented switch with one segment lit, which is also what
+            //   makes the extent of the group visible at a glance.
+            +';background:'+(on?('color-mix(in srgb,'+t+' 26%,transparent)'):'transparent')
             +(on?(';box-shadow:inset 0 -2px 0 '+t):'')
             +'">'+txt+'</span>';};
 
@@ -20943,7 +20948,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegsEff.indexOf('lb')>=0)?em:'')
             +_reTotCell(st,rw)
             +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'">'+_reMoneyPlain(Math.abs(v))+'</span>'))):'')
-            +td(_reCell(st,rw,'pf',v=>v.toFixed(2)))
+            // EV IN R sits where PF was (owner 2026-08-28). PF is still on the chart and
+            //   still in the READ hover; this column is the leverage-blind one.
+            +td((function(){const v=_reEvR(st,rw);
+              return (v==null||!isFinite(v))?_reDash('This row records no average losing trade, so expectancy cannot be put in R. Only a run, or a study that has been re-run since 2026-08-28, carries one.'):(v.toFixed(2)+'R');})())
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +td(pddCell)
             +basCells
@@ -21146,7 +21154,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             rw.v.forEach(function(v,i){if(v==null||!isFinite(v))return;
               lines+='<circle cx="'+ax(i).toFixed(1)+'" cy="'+py(i,v).toFixed(1)+'" r="'+(champ?'3.1':'1.9')+'" fill="'+col+'" opacity="'+(champ?'0.95':'0.55')+'"><title>'+tip+'</title></circle>';});
             lines+='</g>';});
-          const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
+          // THE LONG READ IS ON THE ICON (owner 2026-08-28: "whats with the novels?").
+          //   Nothing is deleted - every caveat that used to sit under the chart is still
+          //   here, on the hover, because each one exists to stop a specific misreading.
+          //   What changed is that it costs one line of the chart instead of fourteen.
+          const noteFull='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
             +'Every axis left of NET is <b style="color:var(--text4)">scale-free</b>, so two rows read against each other however different their instrument or window. '
             +'<b style="color:var(--text4)">NET is not</b> - a longer window earns more by simply lasting longer - so it sits last, as the outcome those ratios produced. '
             +'<b style="color:var(--text4)">A line is coloured by its VERDICT</b> and never changes colour along its length - blue is the champion, green held up, amber fragile, red failed, grey reference, the same five the marks use. What looks like a colour change is two rows crossing; hover either one to separate them. '
@@ -21158,6 +21170,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'And note that <b style="color:var(--text4)">$ / YEAR already IS expectancy times trades per year</b> - the same number by a different route - so there is no separate axis for it.'
             +(skip.length?(' '+skip.length+' row'+((skip.length===1)?'':'s')+' carried fewer than two of these measures and could not be drawn.'):'')
             +'</div>';
+          const _plain=String(noteFull).replace(/<[^>]*>/g,'');
+          const note='<div style="font-size:8.5px;color:var(--text5);margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+            +'<span>Every axis left of NET is <b style="color:var(--text4)">scale-free</b>; NET is not. A line is coloured by its <b style="color:var(--text4)">verdict</b> and breaks where the row records nothing.</span>'
+            +'<span title="'+_reEsc(_plain)+'" style="cursor:help;color:var(--text4)">ⓘ the full read</span></div>';
           // ISOLATE-ON-HOVER is done in SCRIPT, not CSS, and that is deliberate. Measured
           //   on the live page 2026-08-28: every line and dot carries its opacity as an SVG
           //   PRESENTATION ATTRIBUTE, and neither a group-level nor an element-level CSS
@@ -21584,7 +21600,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         const _reCtl=(num,cap,tip,items,tone,span)=>'<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px;align-items:start;min-width:0">'
           +'<div title="'+_reEsc(tip)+'" style="font-size:6.5px;font-weight:700;letter-spacing:.3px;line-height:1.35;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;padding-top:3px;overflow:hidden">'
           +'<span style="color:var(--text5);opacity:.6;margin-right:3px">'+num+'</span>'+cap+'</div>'
-          +'<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:0">'+items+'</div></div>';
+          +'<div style="display:inline-flex;flex-wrap:wrap;gap:1px;min-width:0;padding:1px;border-radius:6px;background:color-mix(in srgb,var(--text) 6%,transparent)">'+items+'</div></div>';
         // AS MANY OF THOSE ROWS SIDE BY SIDE AS THE WIDTH ALLOWS. One column in the narrow half
         //   of the split, two or three across a full-width board, and never a ragged label.
         const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
@@ -21629,7 +21645,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
             +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
             +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Printed WITHOUT a minus sign - it is drawn in red for the same reason.',';color:'+_reDn)):'')
-            +_hd('PF',null,'Profit factor: gross wins divided by gross losses. The figure LEAST damaged by two rows covering different stretches of history.')
+            +_hd('EV R',null,'Expectancy in R: the average trade divided by the average LOSING trade. It is leverage-blind, so a row trading one contract and a row trading ten land on the same number, which raw dollar expectancy cannot do. A dash means the row records no average loss - only a run or a re-run study carries one. The $/TRD column beside it is the same expectancy in dollars.')
             +_hd('$/TRD',null,_rePptTip)
             +_hd('MAR',null,'Profit divided by the worst drawdown, same name as on the RUNBOARD and the 1E matrix.')
             +basHd
@@ -21780,8 +21796,8 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
             +(_reOneTbl?'':(_reSolo?' \u00b7 the only study left is open':''))+'</span></div>'
-            +'<div style="margin:7px 0 11px;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reViewBtns+_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns)+'</div>'
+            // the table's own settings moved into the sidebar with everything else.
+
             // A study the controls have emptied is not listed at all. A header reading 0 of 9
             //   is a line of text that answers nothing, and the count above already says how
             //   many were dropped.
@@ -21980,7 +21996,21 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           cfg:'LEVEL: CONFIGS OF ONE RUN - stage 3. These are the RAW, GATE, TILT and HYBRID candidates inside a single run. Two things make them a different animal from every board row: they are scored on the <b style="color:var(--text4)">optimize window only</b>, so no lockbox has judged any of them, and they are the <b style="color:var(--text4)">best of hundreds</b> the search tried, so the leader is flattered by the picking itself. Read them as candidates, never as survivors, and never against a board row.',
           crown:'LEVEL: CROWN - stage 4 ('+_reLvlCnt.ch+' rows). One row per family: its standing champion. This is the shortlist that decides what goes to paper, so it is the only level where a straight ranking is the question being asked.',
           _x:0};
-        const _reLvlNote='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:9px;padding-top:8px;border-top:1px solid var(--border2)">'+(_reLvlTx[_reLvl]||'')+'</div>';
+        // ONE LINE, THE REST BEHIND THE ICON (owner 2026-08-28: "whats with the novels?").
+        //   Every level still explains itself in full - it has to, because the whole point
+        //   of the control is that these four things are not comparable - but it explains
+        //   itself on demand instead of taking six lines of the chart's height every time.
+        const _reLvlShort={all:'every stage at once - read the line style before the ranking',
+          sweep:'local .py theory tests - nothing here has survived anything',
+          valid:'one row per Auto-Validate run in Past Runs',
+          cfg:'the candidates inside one run - optimize window only, best of hundreds',
+          crown:'the standing champion of each family'};
+        const _reLvlNote='<div style="font-size:8.5px;color:var(--text5);margin-top:8px;display:flex;align-items:center;gap:5px">'
+          +'<b style="color:var(--text4)">'+((_reLvls.filter(function(x){return x[0]===_reLvl;})[0]||['',''])[1])+'</b>'
+          +'<span>'+(_reLvlShort[_reLvl]||'')+'</span>'
+          +'<span title="'+_reEsc(String(_reLvlTx[_reLvl]||'').replace(/<[^>]*>/g,''))
+          +'" style="cursor:help;color:var(--text4)">\u24d8</span></div>';
+
         // CONFIGS: what stands in for the chart while the run document is in flight, or
         //   when the picked run turns out to hold no configuration records at all.
         const _reCfgState='<div style="border:1px dashed var(--border);padding:44px 20px;text-align:center;color:var(--text5);font-size:10px;line-height:1.9">'
@@ -21995,7 +22025,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //    The remaining width is the split the drag bar has always governed: TABLES on
         //    the left of it, the CHART on the right.
         const _reCtlPanel=
-            '<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+            '<div>'
             // CONTROL ORDER, owner 2026-08-28: which drawing, then which stretch of history,
             //   then which grade of evidence, then which strategy - each answer narrowing
             //   the one before it.
@@ -22013,26 +22043,55 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             +(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')+'</span></div>'
             +_reLvlNote
             +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))+'</div>',0);
+        // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
+        //    height, sits flush against the left edge with a hairline dividing it from the
+        //    panels, and carries NO tile background of its own - the panels are the cards,
+        //    the sidebar is the frame. It also scrolls on Y ONLY: overflow:auto put a grey
+        //    horizontal scrollbar under CLEAR FILTERS whenever a control was a pixel wider
+        //    than the column.
+        const _reSideHd=(t,first)=>'<div style="font-size:8px;font-weight:700;letter-spacing:1.2px;color:var(--text5);margin:'+(first?'0':'13px')+' 0 5px;padding-bottom:4px;border-bottom:1px solid var(--border2)">'+t+'</div>';
+        // WIDTH IS THE READER'S (owner 2026-08-28: "let me resize the sidebar too").
+        //   Same drag bar the panels use, same remembered-preference behaviour,
+        //   double-click to put it back.
+        const _reSideW=(()=>{const v=+APREF.resSideW;return (isFinite(v)&&v>=150&&v<=420)?v:208;})();
         const _reSideBar=
-            '<div style="flex:0 0 214px;min-width:214px;position:sticky;top:6px;max-height:calc(100vh - 24px);overflow:auto">'
-            +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-            +'<span class="lbl" style="font-size:10px;letter-spacing:1.4px;color:var(--text4)">CONTROLS</span>'
+            '<div data-residel style="flex:0 0 '+_reSideW+'px;min-width:'+_reSideW+'px;position:sticky;top:0;max-height:100vh;overflow-y:auto;overflow-x:hidden;padding:8px 12px 24px 2px;border-right:1px solid var(--border2)">'
+            +'<div style="display:flex;align-items:center;gap:5px;margin-bottom:9px">'
+            +'<span class="lbl" style="font-size:10px;letter-spacing:1.4px;color:var(--text3)">CONTROLS</span>'
             +'<span style="margin-left:auto;display:inline-flex;gap:4px">'+_reHelpBtn+_reMoreBtn+'</span></div>'
-            +_reCtlPanel+'</div>';
+            // the COMPARE mode picker lives here too - it decides what the whole page is,
+            //   so it belongs above the settings that decide how that thing is drawn.
+            +_reSideHd('VIEW',1)+modeToggle
+            +_reSideHd('CHART')+_reCtlPanel
+            // and the table's own settings, delineated, so every control on the page is in
+            //   one place instead of split across two panels.
+            +_reSideHd('TABLES')
+            +_reGrid(_reViewBtns+_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns)
+            +'</div>';
+
         // TABLES on the left of the drag bar, CHART on its right. With the split off they
         //   simply stack, which is what a narrow window gets.
         const _reSplitBar='<div data-resplitbar title="'+_reEsc('Drag left or right to give the tables more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half.')+'" style="flex:0 0 14px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:flex-start;justify-content:center;touch-action:none"><div style="position:sticky;top:46vh;width:5px;height:72px;border-radius:3px;background:var(--border2)"></div></div>';
-        body=modeToggle
-          +'<div style="display:flex;align-items:flex-start;gap:10px">'+_reSideBar
+        const _reSideBarDrag='<div data-residebar title="'+_reEsc('Drag left or right to set how wide the controls are. The width is remembered and survives a reload. Double-click to put it back.')+'" style="flex:0 0 10px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:flex-start;justify-content:center;touch-action:none"><div style="position:sticky;top:46vh;width:3px;height:56px;border-radius:2px;background:var(--border2)"></div></div>';
+        // STACKED IS DRAGGABLE TOO (owner 2026-08-28: "need to be able to resize stuff when
+        //   im in both horizontal and vertical split"). Side-by-side has always had a bar;
+        //   stacked had none at all, so the tables simply ran as long as they ran. Stacked
+        //   now caps the TABLES at a remembered height with its own horizontal bar under
+        //   them - drag down for more table, up for more chart, double-click to reset.
+        const _reStackH=(()=>{const v=+APREF.resStackH;return (isFinite(v)&&v>=180&&v<=1400)?v:420;})();
+        const _reStackBar='<div data-restackbar title="'+_reEsc('Drag up or down to set how much height the tables get before they scroll. The size is remembered and survives a reload. Double-click to put it back.')+'" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;touch-action:none;margin:2px 0 8px"><div style="height:3px;width:78px;border-radius:2px;background:var(--border2)"></div></div>';
+        body='<div style="display:flex;align-items:flex-start;gap:2px">'+_reSideBar+_reSideBarDrag
           +'<div style="flex:1 1 0;min-width:0">'
             +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap">'
-                +'<div data-resplitl style="width:'+_reSplitW+'%;min-width:280px">'):'')
+                +'<div data-resplitl style="width:'+_reSplitW+'%;min-width:280px">')
+                :('<div data-restackl style="max-height:'+_reStackH+'px;overflow:auto">'))
             +_reBody
             +(_reSplit?('</div>'+_reSplitBar
-                +'<div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
+                +'<div style="flex:1 1 0;min-width:280px;overflow:hidden">'):('</div>'+_reStackBar))
             +_reChartTile
             +(_reSplit?'</div></div>':'')
           +'</div></div>'
+
           +'<div data-rehelp style="'+(_reHelp?'':'display:none;')+'">'+tile(
             '<div class="lbl" style="font-size:11px;letter-spacing:1.6px;color:var(--text4);margin-bottom:7px">HOW TO READ THIS BOARD</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
@@ -25326,7 +25385,11 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           // the other half of the ask: light the table row up too, and bring it into view
           //   inside its OWN scroller only - never scroll the page out from under the
           //   cursor, which would move the very line being hovered.
-          const tr=trOf(n);if(!tr)return;
+          // ONLY THE CHART LIGHTS A TABLE ROW (owner 2026-08-28: "why is it
+          //   highlighting rows on the table when im just moving my mouse around").
+          //   Coming FROM a table row there is nothing to point at - the cursor is
+          //   already on it - so that direction only isolates the chart line.
+          const tr=trOf(n);if(!tr||fromTable)return;
           tr.style.background='color-mix(in srgb,var(--text) 12%,transparent)';
           tr.style.boxShadow='inset 2px 0 0 var(--text3)';
           if(!fromTable){const sc=tr.closest('[style*="overflow"]');
@@ -25363,6 +25426,26 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-resrel]').forEach(b=>{b.onclick=()=>{savePref('resRel',b.dataset.resrel);renderApp();};});
       // STUDIES split: drag the bar between the chart and the tables to set the chart width.
       //   Live while dragging, persisted on release, double-click restores half.
+      content.querySelectorAll('[data-restackbar]').forEach(bar=>{
+        const box=content.querySelector('[data-restackl]');if(!box)return;
+        bar.addEventListener('pointerdown',e=>{e.preventDefault();
+          const y0=e.clientY,h0=box.getBoundingClientRect().height;let h=h0;
+          const mv=ev=>{h=Math.max(180,Math.min(1400,h0+(ev.clientY-y0)));box.style.maxHeight=h+'px';};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            savePref('resStackH',Math.round(h));};
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        bar.addEventListener('dblclick',()=>{box.style.maxHeight='420px';savePref('resStackH',420);});});
+      content.querySelectorAll('[data-residebar]').forEach(bar=>{
+        const side=content.querySelector('[data-residel]');if(!side)return;
+        bar.addEventListener('pointerdown',e=>{e.preventDefault();
+          const x0=e.clientX,w0=side.getBoundingClientRect().width;let w=w0;
+          const mv=ev=>{w=Math.max(150,Math.min(420,w0+(ev.clientX-x0)));
+            side.style.flex='0 0 '+w+'px';side.style.minWidth=w+'px';};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            savePref('resSideW',Math.round(w));};
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        bar.addEventListener('dblclick',()=>{side.style.flex='0 0 208px';side.style.minWidth='208px';
+          savePref('resSideW',208);});});
       content.querySelectorAll('[data-resplitbar]').forEach(bar=>{
         const row=bar.parentElement,left=content.querySelector('[data-resplitl]');
         if(!row||!left)return;
