@@ -865,7 +865,7 @@ not saved to the runs DB — so they carry no run id.*
 
 ## 7. Open items / next up
 
-**RULE (owner 2026-08-21): Auto-Validate = full search space only.** Pinned variant files (`_PINNED`, min = max on every knob) produce n_evaluated = 1 and a report with no 2E-2I surfaces - runs 252-267 except 264 are incomplete for this reason and need re-running on their parent files with ranges. Persist a researched config with SINGLE / GATE VALIDATE instead; the trial cache makes the re-search cheap. Enforced in the BUILDER, the runner (raises on `_PINNED`) and PAST RUNS (1-config flag). See CLAUDE.md.
+**RULE (owner 2026-08-21): Auto-Validate = full search space only.** Confirmed 2026-08-23: validate runs `run_auto(method="single")`, so the param-landscape block always executes - a pinned file simply gives it one config, which is why the CONFIG-PARAMS parallel coordinates, the PDP finder, the 2E-2G surfaces and knob importance are all missing on runs 252-267 (except 264) and on any champion persisted that way. Re-run on the parent file with ranges to restore them. Pinned variant files (`_PINNED`, min = max on every knob) produce n_evaluated = 1 and a report with no 2E-2I surfaces - runs 252-267 except 264 are incomplete for this reason and need re-running on their parent files with ranges. Persist a researched config with SINGLE / GATE VALIDATE instead; the trial cache makes the re-search cheap. Enforced in the BUILDER, the runner (raises on `_PINNED`) and PAST RUNS (1-config flag). See CLAUDE.md.
 
 
 🎉 **Every research/method pill is now LIVE** (41/41). The only remaining item is operational:

@@ -169,6 +169,8 @@ runner (observed 2026-07-20: a stacked pair double-executed one job → identica
 
 ## Auto-Validate = FULL search space, never a pinned file (owner 2026-08-21, hard rule)
 
+**What a pinned run actually costs you (owner 2026-08-23: "i dont see the original parallel coords that showed the configs params and the 2d pdp finder underneath"):** `augur_engine/validate.py` calls `run_auto(method="single")`, so `is_wf` is False and the landscape block in `auto.py` DOES run - `out["points"]` (per-config params + PnL), `relationship`, `pdp_plateau`, `neighborhood`, `surrogate`. It produces ONE record on a `_PINNED` file, and the web needs >= 6 points, so these panels vanish: the CONFIG-PARAMS parallel coordinates, the PDP finder under it, the 3-D surfaces (2E-2G) and knob importance. Nothing is broken - there was nothing to search. Re-run the champion on its PARENT file with real ranges to get them back.
+
 Owner: "dont pin configs on auto validate. those are full surfaces... i hate seeing unfinished auto validates missing data."
 - Auto-Validate exists to SEARCH a parameter space and save the whole population (2E-2I surfaces, knob importance, neighbours, PBO). A `_PINNED` variant file (every knob min = max) records ONE config -> n_evaluated 1 -> a report with no surfaces. Runs 252-267 (all but 264) are this mistake; the v73.206 "pinned single-config Auto-Validate is the standard way" note is REVOKED.
 - To persist a researched config: run it as SINGLE (or GATE VALIDATE). To validate a variant idea: Auto-Validate the PARENT file with ranges, or give the variant real ranges.

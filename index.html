@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.347';
+const VERSION='73.348';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.348',date:'2026-08-23',notes:['The second 1E card is an expander now: it is closed by default and the COMPARE chip on the first card opens it, so the third column goes back to the distributions stack unless you actually want two 1E views at once.','New NUMBERS / RATIOS / BOTH selector next to the 1E view rail - it filters the table rows AND the parallel axes together, so you can read just the unit-free ratios (MAR, PF, SHARPE, SORTINO, WIN %, PBO) or just the dollars and counts.','The KPI parallel view carries every 1E row it can draw - NET $, MAX DD, MAR, SHARPE, SORTINO, PF, WIN %, EV, AVG WIN, AVG LOSS, $ / DAY, TRADES, DAYS and PBO - and the all-configs view no longer drops an axis just because some pools lack it: two configs are enough, and a partial axis is marked with a degree sign.']},
 {v:'73.347',date:'2026-08-28',notes:['HOVERING A CHART LINE NOW LIGHTS ITS TABLE ROW as well, and brings that row into view inside its own scroller - never by scrolling the page, which would move the line out from under the cursor.','THE HIGHLIGHT LETS GO. A mouse-over only fires when the cursor lands ON something, so sliding off a line into empty plot left the last row lit. Every mouse-over that is not on a row now clears it.','THE CONTROL CHIPS ARE THE BOARD OWN NOW. An unselected option is FILLED rather than transparent, so a row reads as a segmented control with one segment lit instead of one chip floating in space; the letter-spacing and padding came in, which is most of the width the row was spending on air.','AND THAT FIXES THE VERDICT CHIPS HANGING BELOW THEIR ROW. Each carries a 10-pixel mark set to display:block, and a block child inside an inline chip opens its own line box - measured 41 pixels tall against 14 for every other chip. The chips are inline-flex at line-height 1 now and the mark is inline.','WHY AUTO VAL LOOKS EMPTY, answered on the board rather than left to be wondered about: only a small share of the rows here were ever persisted as a real run - the level now prints that share against the whole board. It is the state of the research, not a filter and not a drawing bug. Most of what was tried was tried locally and never saved as a run.','AND WHY THE LINES ARE DIFFERENT COLOURS: a line is coloured by its VERDICT and never changes colour along its length - blue champion, green held up, amber fragile, red failed, grey reference, the same five the marks use. What looks like a colour change is two rows crossing. It says so under the chart.']},
 {v:'73.346',date:'2026-08-28',notes:['BACKFILL GROUNDWORK: the shared NOISE research helper now computes the win rate, Sharpe, Sortino, average loss and expectancy in R for every cell it measures. Seven NOISE drivers call that one function, so they all gained the figures at once rather than being edited seven times. Same definitions augur_engine/analytics.py gives run_backtest and a validate, so a sweep row and an Auto-Validate row can share an axis honestly.','What is still needed per study is a machine-readable results dump and a name-to-cell mapping - 39 of 1,143 rows carry the figures so far.']},
 {v:'73.345',date:'2026-08-28',notes:['HOVER ISOLATION NOW ACTUALLY WORKS. The first pass did it in CSS and the CSS did nothing: every line and dot on that chart carries its opacity as an SVG presentation attribute, and measured on the live page neither a group-level nor an element-level rule moved the computed value, while an inline style did. It is written inline now, and each mark stashes its resting opacity so leaving restores exactly what was there.']},
@@ -13653,9 +13654,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
         {nm:'TRADES', inv:false, get:x=>_num(x.tr), fmt:v=>Math.round(v).toLocaleString()}
-      ];
-      if(pboV!=null&&isFinite(pboV))axes.push({nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
-      const A=axes.filter(a=>{const n=P.filter(x=>{const v=a.get(x);return v!=null&&isFinite(v);}).length;return n>=Math.max(2,Math.ceil(P.length*0.6));});
+      ].filter(a=>_mtxColsKeep(a.nm));
+      if(pboV!=null&&isFinite(pboV)&&_mtxColsKeep('PBO'))axes.push({nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
+      // v73.341 (owner: "i dont see all the data from the 1e table to the parallel cords"): an axis is
+      //   kept as soon as TWO configs carry it - nothing is dropped silently any more. One that fewer
+      //   than 60% of them can fill is marked with a degree sign and says so on hover.
+      const A=axes.filter(a=>P.filter(x=>{const v=a.get(x);return v!=null&&isFinite(v);}).length>=2);
+      A.forEach(a=>{const n=P.filter(x=>{const v=a.get(x);return v!=null&&isFinite(v);}).length;a.part=(n<Math.ceil(P.length*0.6))?n:0;});
       if(A.length<2)return '';
       A.forEach(a=>{const vs=P.map(x=>a.get(x)).filter(v=>v!=null&&isFinite(v));
         a.lo=Math.min.apply(null,vs);a.hi=Math.max.apply(null,vs);if(a.hi===a.lo){a.hi=a.lo+(Math.abs(a.lo)||1)*0.5;a.lo=a.lo-(Math.abs(a.lo)||1)*0.5;a.flat=true;}});
@@ -13667,7 +13672,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ax+='<line x1="'+x.toFixed(1)+'" y1="'+plotT+'" x2="'+x.toFixed(1)+'" y2="'+plotB+'" stroke="'+(a.run?'var(--purple)':'var(--border)')+'" stroke-width="'+(a.run?1.4:1)+'"'+(a.run?' stroke-dasharray="4,3"':'')+'/>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
-          +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
+          +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
       // best NET $ per pool draws on top of its family, so each pool best line stays findable in the bundle
       const bestOf={};P.forEach((x,i)=>{const k=String(x.pool||'');if(!(k in bestOf)||+x.pnl>+P[bestOf[k]].pnl)bestOf[k]=i;});
       const topIdx={};Object.keys(bestOf).forEach(k=>{topIdx[bestOf[k]]=1;});
@@ -13694,23 +13699,38 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'
         +'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span>'
         +'<span>'+_mtxLegend(allPts)+'</span>'
-        +'<span style="margin-left:auto">gold = crowned &middot; brightest line per family = its best net &middot; up = better (&#8595; = axis inverted)</span></div>'
+        +(A.some(a=>a.part)?('<span style="color:var(--text5)" title="'+A.filter(a=>a.part).map(a=>a.nm+': only '+a.part+' of '+P.length+' configs saved it').join(' &#183; ')+'">&#176; = only some configs carry that column</span>'):'')
+        +'<span style="margin-left:auto">gold = crowned &middot; brightest = family best &middot; up = better (&#8595; inverted)</span></div>'
         +svg+'</div>';
     };
+    // v73.341 (owner: "have selector to show numbers, or ratios, or i toggle both"): ONE pref drives
+    //   the 1E table rows AND both parallel views. RATIOS = the unit-free reads (MAR, PF, SHARPE,
+    //   WIN %, SORTINO, PBO, CALMAR); NUMBERS = the dollars and counts; BOTH = everything.
+    const _mtxColsMode=()=>{const v=String(APREF.mtxCols||'both');return (v==='num'||v==='ratio')?v:'both';};
+    const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
+    const _mtxColsKeep=lbl=>{const m=_mtxColsMode();return m==='both'||(m==='ratio')===_isRatioLbl(lbl);};
+    const _mtxColsRail=()=>_distViewRail('mtxCols',_mtxColsMode(),[['num','NUMBERS'],['ratio','RATIOS'],['both','BOTH']]);
     const mtxParallelHtml=(phases,pboV,mult)=>{
       if(!Array.isArray(phases)||phases.length<2)return '';
       const _mar=p=>(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;
       const _ev=p=>(p.net!=null&&p.tr)?p.net/p.tr:null;
+      const _f=v=>(v!=null&&isFinite(+v))?+v:null;
       const axes=[
         {k:'net',  nm:'NET $',   inv:false, get:p=>p.net,  fmt:v=>_kfmt(v)},
         {k:'dd',   nm:'MAX DD',  inv:true,  get:p=>(p.dd!=null&&isFinite(p.dd))?Math.abs(p.dd):null, fmt:v=>'-'+_kfmt(Math.abs(v))},
         {k:'mar',  nm:'MAR',     inv:false, get:_mar,      fmt:v=>v.toFixed(2)},
-        {k:'sh',   nm:'SHARPE',  inv:false, get:p=>(p.sh!=null&&isFinite(p.sh))?+p.sh:null, fmt:v=>v.toFixed(2)},
-        {k:'pf',   nm:'PF',      inv:false, get:p=>(p.pf!=null&&isFinite(p.pf))?+p.pf:null, fmt:v=>v.toFixed(2)},
-        {k:'wr',   nm:'WIN %',   inv:false, get:p=>(p.wr!=null&&isFinite(p.wr))?+p.wr:null, fmt:v=>Math.round(v*(v<=1?100:1))+'%'},
-        {k:'ev',   nm:'EV / TRD',inv:false, get:_ev,       fmt:v=>_kfmt(v)}
-      ];
-      if(pboV!=null&&isFinite(pboV))axes.push({k:'pbo',nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
+        {k:'sh',   nm:'SHARPE',  inv:false, get:p=>_f(p.sh), fmt:v=>v.toFixed(2)},
+        {k:'so',   nm:'SORTINO', inv:false, get:p=>_f(p.so!=null?p.so:p.sortino), fmt:v=>v.toFixed(2)},
+        {k:'pf',   nm:'PF',      inv:false, get:p=>_f(p.pf), fmt:v=>v.toFixed(2)},
+        {k:'wr',   nm:'WIN %',   inv:false, get:p=>_f(p.wr), fmt:v=>Math.round(v*(v<=1?100:1))+'%'},
+        {k:'ev',   nm:'EV',      inv:false, get:_ev,       fmt:v=>_kfmt(v)},
+        {k:'aw',   nm:'AVG WIN', inv:false, get:p=>_f(p.aw), fmt:v=>_kfmt(v)},
+        {k:'al',   nm:'AVG LOSS',inv:true,  get:p=>_f(p.al)!=null?Math.abs(+p.al):null, fmt:v=>'-'+_kfmt(Math.abs(v))},
+        {k:'pd',   nm:'$ / DAY', inv:false, get:p=>(p.net!=null&&p.days)?p.net/p.days:null, fmt:v=>_kfmt(v)},
+        {k:'tr',   nm:'TRADES',  inv:false, get:p=>_f(p.tr), fmt:v=>Math.round(v).toLocaleString()},
+        {k:'days', nm:'DAYS',    inv:false, get:p=>_f(p.days), fmt:v=>Math.round(v).toLocaleString()}
+      ].filter(a=>_mtxColsKeep(a.nm));
+      if(pboV!=null&&isFinite(pboV)&&_mtxColsKeep('PBO'))axes.push({k:'pbo',nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
       // an axis with no numbers on any phase is dropped rather than drawn empty
       const A=axes.filter(a=>phases.some(p=>{const v=a.get(p);return v!=null&&isFinite(v);}));
       if(A.length<2)return '';
@@ -13884,7 +13904,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
       const _grpAt={'NET P&L':'return','MAR':'reward ÷ risk','MAR (ann.)':'other','TRADES':'sample'},_ncol=phases.length+1;
-      const body=metrics.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
+      const _mRows=metrics.filter(m=>_mtxColsKeep(m.lbl));
+      const body=_mRows.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
         +'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
         +'<td style="padding:3px 4px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
         +phases.map(p=>'<td style="padding:3px 4px;text-align:right;white-space:nowrap'+_ovl(p)+'">'+m.cell(p)+'</td>').join('')+'</tr>').join('');
@@ -13899,7 +13920,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v73.331 (owner: "make an option to turn the 1e matrix into a parallel coordinate chart"):
       //   TABLE / PARALLEL rail on the card header - the same numbers drawn as shape across phases.
       const _mView=(APREF.mtxView==='parallel')?'parallel':'table';
-      const _mtxRail=_distViewRail('mtxView',_mView,[['table','TABLE'],['parallel','PARALLEL']]);
+      const _mtxRail=_distViewRail('mtxView',_mView,[['table','TABLE'],['parallel','PARALLEL']])+_mtxColsRail();
       const _mtxPar=(_mView==='parallel')?mtxParallelHtml(phases,_pboV,mult):'';
       return '<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:hidden;margin:0 0 6px;min-height:20px">'
         +(hdr||'')
@@ -16791,7 +16812,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const _mV=(APREF.mtxView==='parallel')?'parallel':'table';
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
           const _poolPar=(!isK&&_mV==='parallel')?poolParallelHtml(_mtxScatterPts,_pboRun):'';
-          const _tabRail=isK?'':_distViewRail('mtxView',_mV,[['table','TABLE'],['parallel','PARALLEL']]);
+          const _tabRail=(isK?'':_distViewRail('mtxView',_mV,[['table','TABLE'],['parallel','PARALLEL']])+_mtxColsRail())
+            +(showScatter?('<span data-mtxtwin title="'+(APREF.mtxTwin?'close the second 1E card and give the column back to the distributions':'open a SECOND 1E card beside this one, on its own tab, to compare two views side by side')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;margin-left:6px;border:1px solid '+(APREF.mtxTwin?'var(--text)':'var(--border)')+';color:'+(APREF.mtxTwin?'var(--bg)':'var(--text4)')+';'+(APREF.mtxTwin?'background:var(--text);':'')+'">&#8862; COMPARE'+(APREF.mtxTwin?' ON':'')+'</span>'):'');
           // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
           //   amber pill next to the tab strip whenever an ML tab (GATE / TILT / HYBRID family) is
           //   the active one — never on RAW or KPI, and it never touches any number.
@@ -16808,7 +16830,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +'<div style="margin-top:9px">'+(_poolPar||body)+'</div>'
             +(_poolPar?'':note);};
         _cfgInner=_mkCfg('cfgTab','data-cfgtab','kpi',true);
-        _cfgInnerB=_kpiInner?_mkCfg('cfgTabB','data-cfgtabb','raw',false):'';
+        // v73.341 (owner: "for the second 1e chart, just make it an expander off the first ... dont
+        //   necessarily need both shown at the same time but nice to have occasionally"): the twin is
+        //   OFF by default and the COMPARE chip on the first card opens it; with it closed the third
+        //   column goes back to the distributions stack.
+        _cfgInnerB=(_kpiInner&&APREF.mtxTwin)?_mkCfg('cfgTabB','data-cfgtabb','raw',false):'';
         // Only stands alone in §2 when there is no 1E card to live inside.
         _cfgSec=_kpiInner?'':('<div style="'+_colStyle+';margin-bottom:0;resize:vertical;min-height:52px;max-height:900px">'+_cfgInner+'</div>');
       }
@@ -26128,6 +26154,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       const _cb=content.querySelector('[data-cfgpts]');if(_cb)_cb.onchange=()=>{savePref('cfgPts',+_cb.value);renderApp();};
       content.querySelectorAll('[data-distbins]').forEach(b=>{b.onclick=()=>{savePref('distBins',+b.dataset.distbins);renderApp();};});
       content.querySelectorAll('[data-distview]').forEach(b=>{b.onclick=()=>{const p=b.dataset.distview.split(':');savePref(p[0],p[1]);renderApp();};});
+      content.querySelectorAll('[data-mtxtwin]').forEach(b=>{b.onclick=e=>{e.stopPropagation();savePref('mtxTwin',!APREF.mtxTwin);renderApp();};});
       // v73.214 (owner: "trying to scroll down and it scrolls on the tile"): report tiles are
       //   overflow:auto so a wheel over one scrolled the TILE. Redirect vertical wheel to the page;
       //   the tile scrollbar still drags, and the double-click expanded view scrolls normally.
