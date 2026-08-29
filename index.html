@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.354';
+const VERSION='73.355';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.355',date:'2026-08-28',notes:['CONTROL ORDER, as the owner reads it: which drawing, then which stretch of history, then which grade of evidence, then which strategy - each answer narrowing the one before it. Renumbered to match.','THE STRATEGY RAIL COUNTS WHAT THE LEVEL ACTUALLY HOLDS. On AUTO VAL the rows are runs, so the rail now counts runs - it was offering NOISE 130 when there are a dozen NOISE runs to compare. Every other level counts registry rows as before.']},
 {v:'73.354',date:'2026-08-28',notes:['FIX on the new AUTO VAL level: it drew nothing. The run rows were being put through the same test as registry rows, and that test now asks the LEVEL gate first - which on this level correctly says no to every registry row, and was refusing the runs along with them. Only the filter chips apply to a run row.']},
 {v:'73.353',date:'2026-08-28',notes:['AUTO VAL NOW READS PAST RUNS INSTEAD OF THE WRITE-UPS. It used to list study rows that happened to cite a run number, so a real Auto-Validate nobody had documented simply was not there - measured: the registry cites 66 run numbers between 202 and 301, and 34 runs inside that range are cited by no row at all, plus everything below 202. Picking NOISE showed the NOISE runs somebody wrote up rather than the NOISE runs that exist.','It is one row per RUN now, off the same Past Runs list the RUNBOARD reads, so it is complete by construction and cannot go stale. Pick a strategy on the rail and every run of it is on the parallel chart, compared on the same ten axes.','AND RUN ROWS FILL EVERY AXIS. A run records its own date window and its own validate block, so win rate, Sharpe, Sortino and expectancy in R are all there - the four a local sweep still cannot fill. Each row carries its verdict, its window and its run number, and the run number opens the report.']},
 {v:'73.352',date:'2026-08-23',notes:['2B / 2C are back in the SECTION 2 DISTRIBUTIONS column. Closing the second 1E card (v73.348) had let the third column of section 1 fall back to that stack, which pulled the two charts up out of section 2 - on a validate run the column is simply absent now when the twin is closed.','1E has an ALL tab: every tab this run carries - KPI, RAW, GATE, TILT and the hybrid sizings - stacked in one card under its own caption, so you can read the whole matrix in one scroll instead of clicking seven tabs.']},
@@ -21810,7 +21811,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //   same ticked stage — only the drawing changes.
         // THE LEVEL CONTROL leads the rail, because it decides WHICH GRADE OF EVIDENCE is on
         //   screen and every other control is a narrowing inside that.
-        const _reLvlBtns=_reCtl(0,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
+        const _reLvlBtns=_reCtl(3,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
            _reBtn('data-relvl="sweep"','SWEEPS',_reLvl==='sweep','stage 1. My local .py theory tests. They were never persisted as a run, never walk-forwarded and never shown a lockbox, so nothing here has survived anything - these are ideas with numbers on them.',_TONE.rank)
            +_reBtn('data-relvl="cfg"','CONFIGS',_reLvl==='cfg','stage 3. The raw, gate, tilt and hybrid candidates INSIDE one Auto-Validate run - pick the run and they load. They are scored on the OPTIMIZE WINDOW ONLY and they are the best of hundreds the search tried, so they are candidates and not survivors. Kept on their own level for exactly that reason.',_TONE.rank)
            +_reBtn('data-relvl="valid"','AUTO VAL',_reLvl==='valid','stage 2. Real EDGELOG Auto-Validate runs, each split into in-sample, walk-forward and lockbox. This is the level where a figure has actually been tested on years the search never saw. WIN percent and SHARPE only exist at this level and above.',_TONE.rank)
@@ -21819,11 +21820,11 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           ,_TONE.rank);
         // WHICH RUN the CONFIGS level reads. Only rendered on that level - on every other
         //   level there is no run to pick, and an inert control is worse than no control.
-        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl(0,'RUN','which Auto-Validate run the configurations are read out of. The full run document is fetched on demand, so the first pick of a run shows LOADING for a moment; after that it is instant.',
+        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl(3,'RUN','which Auto-Validate run the configurations are read out of. The full run document is fetched on demand, so the first pick of a run shows LOADING for a moment; after that it is instant.',
           '<select data-recfgrun style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
           +_reCfgPick.map(function(r){return '<option value="'+_reEsc(String(r.id))+'"'+((String(r.id)===_reCfgRunId)?' selected':'')+'>#'+_reEsc(String(r.id))+' \u00b7 '+_reEsc(String(r.strategy||'').replace(/\.py$/,''))+'</option>';}).join('')
           +'</select>',_TONE.rank);
-        const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
+        const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
           _TONE.samp);
@@ -21871,15 +21872,21 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //    is one setting and not two that can disagree - clicking a rail button ticks exactly
         //    that one family, and ALL clears it. The buttons are built from the registry, so a
         //    new family appears here the moment a row is tagged with it.
+        // THE RAIL COUNTS WHAT THIS LEVEL ACTUALLY HOLDS. On AUTO VAL the rows are RUNS,
+        //   not registry write-ups, so counting registry rows there would offer NOISE 130
+        //   when there are a dozen NOISE runs to compare. Every other level counts registry
+        //   rows as it always did.
         const _reFamCnt={};
-        RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
+        if(_reLvl==='valid'){rs.forEach(x=>{const f=_canonFam(x.strategy)||'UNTAGGED';
+          _reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
+        else RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
         // one family ticked names itself; several name themselves together; none reads as ALL.
         const _reFamPick=(_reFilt.fam||[]).slice();
         const _reFamSel=_reFamPick.length?_reFamPick.join(' + '):'';
         const _reFamStudies=f=>RESEARCH_STUDIES.filter(st=>(st.rows||[]).some(r=>_reFamOf(st,r)===f)).length;
-        const _reFamRail=_reCtl(1,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both, and each mark, hover and table row then says which family it belongs to. Untick everything and the whole board is shown, which is why there is no ALL button: an empty rail already means nothing is being held back.',
-            _reOpts.fam.map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
-              'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)+' variants tested across '+_reFamStudies(v)+' studies. This is what the strategy finders actually tried for this family, whether or not it was ever saved as a real validate run',_TONE.samp)).join(''),_TONE.samp);
+        const _reFamRail=_reCtl(4,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both, and each mark, hover and table row then says which family it belongs to. Untick everything and the whole board is shown, which is why there is no ALL button: an empty rail already means nothing is being held back.',
+            (_reLvl==='valid'?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
+              'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)+(_reLvl==='valid'?' Auto-Validate runs in Past Runs.':(' variants tested across '+_reFamStudies(v)+' studies.'))+'  This is what the strategy finders actually tried for this family, whether or not it was ever saved as a real validate run',_TONE.samp)).join(''),_TONE.samp);
         // 9 STUDY as a drop-down. The value is still written into the same filter the chips
         //   used, so nothing downstream had to change; an empty value clears it.
         const _reStudyPick=((_reFilt.study||[])[0])||'';
@@ -21981,7 +21988,10 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             // THE CHART'S OWN CONTROLS, directly under its title: the strategy rail and the
             //   three settings that decide what the two axes measure.
             +'<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-            +_reGrid(_reLvlBtns+_reCfgSel+_reFamRail+_reChartBtns+_reStageBtns+(_reParOn?'':_reAxisBtns)+_reReadBtns)
+            // CONTROL ORDER, owner 2026-08-28: which drawing, then which stretch of history,
+            //   then which grade of evidence, then which strategy - each answer narrowing the
+            //   one before it.
+            +_reGrid(_reChartBtns+_reStageBtns+_reLvlBtns+_reCfgSel+_reFamRail+(_reParOn?'':_reAxisBtns)+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow the
             //   chart and the tables together, which is why they sit with the chart rather than
             //   with the tables - a filter is not a table setting.
