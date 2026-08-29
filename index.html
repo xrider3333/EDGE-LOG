@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.363';
+const VERSION='73.364';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.364',date:'2026-08-28',notes:['THE DUPLICATE NOISE MARKS, chased down: NO run is listed twice. FIVE GROUPS of NOISE runs record byte-identical figures because the same configuration was validated more than once - 287 and 285, 254 and 242 and 231, 253 and 241, 252 and 243, 251 and 245. Nineteen NOISE runs, about twelve distinct results. They are different runs landing on exactly the same spot, so both marks and both numbers were drawn on top of each other.','Each extra mark at a point is nudged a few pixels now and its number stacked under the last, so every run stays readable and clickable rather than one hiding the other. The figures are not wrong and nothing is being double counted - it is a genuine repeat, and the board now shows it as one.','AND THE RAIL RUNS THE WHOLE PAGE. The divider is only as tall as the row it sits in, and the row is only as tall as its panels - so on a short board it stopped part way down. There is a viewport floor on the row now, so it reaches the bottom of the screen whatever the panels hold.']},
 {v:'73.363',date:'2026-08-28',notes:['THE BLANK CHIP IN THE VERDICT ROW, chased down: ELEVEN rows carry a verdict this board has never had a shape for - ten written as warn (TTM round 5, rows 1056 to 1082) and one with no verdict at all. Each of them drew an EMPTY mark on the chart as well as producing that blank sixth segment. The board has five verdicts and the owner named them, so rather than invent a sixth an unrecognised one is read as FRAGILE, which is what a warning is. The row keeps what it actually recorded, so nothing is lost.','THE MORE / LESS TOGGLE IS GONE and every control is always shown. It existed when the controls were a wide block above the chart and half of them were pushing it off the screen; they are a sidebar now, so hiding half of them only hid them.','THE PARAGRAPH ABOVE THE POOLED TABLE IS GONE - the row count, what the grey study tag means, how to read one study at a time. The count is on the TABLES heading already and the VIEW control is two inches away.']},
 {v:'73.362',date:'2026-08-28',notes:['A CONTROL TRACK IS NOW AS WIDE AS ITS BUTTONS. The grey track behind each group was being stretched to the full width of the sidebar column, so a two-button control drew a bar running off to the right with nothing in most of it. It shrinks to its contents.','AND THERE IS ONE DIVIDER INSTEAD OF A LINE THAT GIVES UP HALF WAY DOWN. The sidebar carried its own right-hand border, which stopped where its content stopped; the drag bar beside it runs the full height of the page. The border lives on the drag bar now, so the divider and the handle are the same edge, top to bottom.']},
 {v:'73.361',date:'2026-08-29',notes:['THE AUTO-RECOVER SWITCH IS NOW ON THE PAPER PLUS STATUS LINE TOO. It shipped only inside the NINJATRADER card, which on PAPER PLUS is folded away behind NINJATRADER DETAIL - so on that tab you had to open an accordion to reach a switch whose whole purpose is a five-second decision. It now sits on the top status strip, next to the live and gate lights, on both tabs.']},
@@ -21201,6 +21202,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         };
         const _reChartAll=(items,com)=>{
           const pts=[],skip=[],failOut=[];
+          const _reDupAt={};   // how many marks have already landed on each pixel
           items.forEach(o=>{
             // control 5: a failed row leaves the CHART so the axis can fit the rest. It
             //   keeps its table row and its figures; nothing is recomputed or hidden.
@@ -21291,7 +21293,19 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
               // change. Under DATE RAN the tables split into ran and never-run blocks, so the
               // chart fades the never-run points to match what is being read underneath it.
               const dim=(_reSplitRun&&!runs.length);
-              const sz=_reSz[r.tone]||6.5,cx=px(p.x),cy=py(p.y);
+              const sz=_reSz[r.tone]||6.5;
+              // COINCIDENT POINTS (owner 2026-08-28: "whats with the duplicate of noise?
+              //   numbers are over themselves"). Chased down: NO run is listed twice - five
+              //   groups of NOISE runs record BYTE-IDENTICAL figures, because the same
+              //   configuration was validated more than once (287/285, 254/242/231,
+              //   253/241, 252/243, 251/245). Those are different runs that land on exactly
+              //   the same spot, so both marks and both numbers were drawn on top of each
+              //   other. Each extra one at a point is nudged a few pixels and its number
+              //   stacked below the last, so every run stays readable and clickable.
+              const _dk=Math.round(px(p.x))+','+Math.round(py(p.y));
+              const _di=(_reDupAt[_dk]=(_reDupAt[_dk]||0)+1)-1;
+              const cx=px(p.x)+_di*2.2,cy=py(p.y)-_di*1.4;
+
               // THE HEADLINE: rank, row, total money, profit factor. Everything else is detail.
               const _tot=_reNum(r,'tot'),_pf=_reNum(r,'pf');
               let tp='ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()+'  \u00b7  '+String(_reFamOf(st,r)).toUpperCase()
@@ -21324,7 +21338,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                 +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+9).toFixed(1)+'" fill="transparent"/>'
                 +ring
                 +_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
-                +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
+                +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4+_di*10).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
             const _wy=skip.length?String(skip[0].w):'';
@@ -22102,7 +22116,11 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //   them - drag down for more table, up for more chart, double-click to reset.
         const _reStackH=(()=>{const v=+APREF.resStackH;return (isFinite(v)&&v>=180&&v<=1400)?v:420;})();
         const _reStackBar='<div data-restackbar title="'+_reEsc('Drag up or down to set how much height the tables get before they scroll. The size is remembered and survives a reload. Double-click to put it back.')+'" style="height:12px;cursor:row-resize;display:flex;align-items:center;justify-content:center;touch-action:none;margin:2px 0 8px"><div style="height:3px;width:78px;border-radius:2px;background:var(--border2)"></div></div>';
-        body='<div style="display:flex;align-items:flex-start;gap:2px">'+_reSideBar+_reSideBarDrag
+        // The divider is only as tall as the flex row, and the row is only as tall as its
+        //   panels - so on a short board it stopped part way down the page (owner
+        //   2026-08-28, twice). A viewport floor on the row keeps it running to the
+        //   bottom of the screen whatever the panels hold.
+        body='<div style="display:flex;align-items:stretch;gap:2px;min-height:calc(100vh - 96px)">'+_reSideBar+_reSideBarDrag
           +'<div style="flex:1 1 0;min-width:0">'
             +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap">'
                 +'<div data-resplitl style="width:'+_reSplitW+'%;min-width:280px">')
