@@ -395,13 +395,19 @@ def process_job(job: dict, progress_cb=None) -> dict:
                     _space_n = len(_open)
                 except Exception:
                     _space_n = None
-                if _space_n == 0 and not job.get("grid"):
+                # NOTE: no grid escape here. run_validate() has NO grid parameter - the space always
+                #   comes from the strategy file DEFAULT_PARAMS via _auto_space_from_params, so a grid
+                #   attached to a validate job is silently ignored. Letting a pinned file through on the
+                #   strength of a grid it cannot use is exactly the failure this guard exists to stop.
+                if _space_n == 0:
                     raise ValueError(
                         "NO SEARCH SPACE in %s - every numeric knob has min == max, so Auto-Validate "
                         "would record ONE config and the report would ship without the config-params "
                         "parallel coordinates, the PDP finder, the 2E-2G surfaces, knob importance and "
                         "neighbour robustness. Run it as SINGLE or GATE VALIDATE, or Auto-Validate the "
-                        "parent file with real ranges." % job["strategy"])
+                        "parent file with real ranges.%s" % (job["strategy"],
+                             ((" This file declares its parent as %s." % getattr(_mod, "_AUGUR_PARENT", ""))
+                              if getattr(_mod, "_AUGUR_PARENT", None) else "")))
                 if getattr(_mod, "_PINNED", False):
                     raise ValueError("PINNED strategy %s - Auto-Validate needs parameter ranges (the 2E-2I surfaces come from the searched population). Run it as SINGLE or GATE VALIDATE, or Auto-Validate the parent file." % job["strategy"])
             except ValueError:
