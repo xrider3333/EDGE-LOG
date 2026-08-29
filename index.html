@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.366';
+const VERSION='73.367';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.367',date:'2026-08-28',notes:['BOTH SCATTER AXES ARE YOURS NOW. A new HORIZONTAL AXIS control: DRAWDOWN, SORTINO, SHARPE, EV R or PF. Drawdown answers the original question well, but it is dollars - so it flatters a row that traded small and punishes one that ran long.','THE APPLES-TO-APPLES PAIR IS SORTINO ACROSS THE BOTTOM AGAINST EV IN R UP THE SIDE. EV in R is the edge on each bet with size and instrument divided out; Sortino is what a year of those bets delivered after the downside is charged for. Neither can be flattered by trading bigger or by running longer. It says so on the control.','VERTICAL AXIS gained EV R, SHARPE and SORTINO, and the old dollars-per-trade option is named EV, which is what it always was.','The Y numbers moved to the right - the side a price scale lives on.','LEVEL now leads the sidebar: which grade of evidence first, then which drawing, then which stretch of history, then which strategy.']},
 {v:'73.366',date:'2026-08-29',notes:['THE SCREEN NO LONGER JUMPS when you click a strategy on or off. Every re-render rebuilt the page from scratch and threw away where you were scrolled, so toggling a leg near the bottom snapped you back to the top. In-place updates - leg toggles, filters, sorting, opening a panel - now hold your position. Switching tabs still takes you to the top, as it should.','THE CALENDAR HAS A WEEK COLUMN. Each row ends with that week\u2019s total, coloured like the days. Hover it for the trade count, how many days traded and the win rate. A week with no trades stays blank rather than showing a green zero - a week the board never traded is not a flat week.']},
 {v:'73.365',date:'2026-08-28',notes:['The sidebar has its own faint tint, so it reads as a surface rather than as empty page beside the cards. It follows the theme colour, so it lands right on light, dark and monochrome.']},
 {v:'73.364',date:'2026-08-28',notes:['THE DUPLICATE NOISE MARKS, chased down: NO run is listed twice. FIVE GROUPS of NOISE runs record byte-identical figures because the same configuration was validated more than once - 287 and 285, 254 and 242 and 231, 253 and 241, 252 and 243, 251 and 245. Nineteen NOISE runs, about twelve distinct results. They are different runs landing on exactly the same spot, so both marks and both numbers were drawn on top of each other.','Each extra mark at a point is nudged a few pixels now and its number stacked under the last, so every run stays readable and clickable rather than one hiding the other. The figures are not wrong and nothing is being double counted - it is a genuine repeat, and the board now shows it as one.','AND THE RAIL RUNS THE WHOLE PAGE. The divider is only as tall as the row it sits in, and the row is only as tall as its panels - so on a short board it stopped part way down. There is a viewport floor on the row now, so it reaches the bottom of the screen whatever the panels hold.']},
@@ -12857,7 +12858,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<text x="'+gx.toFixed(1)+'" y="'+(y1+13)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+fmtAx(L,1)+'</text>';}}
       const axes='<line x1="'+x0+'" y1="'+y0+'" x2="'+x0+'" y2="'+y1+'" stroke="var(--text3)" stroke-width="1" opacity="0.9"/>'
                 +'<line x1="'+x0+'" y1="'+y1+'" x2="'+x1+'" y2="'+y1+'" stroke="var(--text3)" stroke-width="1" opacity="0.9"/>';
-      const xTitle='<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">DD &middot; MAX DRAWDOWN ($) &mdash; deeper to the right</text>';
+      const xTitle='<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">'+(_reXNm[_reXAxis]||'MAX DRAWDOWN ($)')+' &mdash; '+(_reXBetter[_reXAxis]||'')+'</text>';
       const yTitle='<text x="9" y="'+((y0+y1)/2).toFixed(1)+'" transform="rotate(-90 9 '+((y0+y1)/2).toFixed(1)+')" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">NET PNL ($)</text>';
       // ── TREND (owner: "a regression line or trend line if there are any that are applicable") ──
       //   Ordinary least-squares fit of net $ on |DD| over EVERY VISIBLE dot on the chart, all
@@ -20351,7 +20352,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   a PRE-LOCKBOX row has no separate walk-forward because its first column already holds
         //   the tuning years pooled - but it changes what the sum covers, so it is always said.
         const _reSegMiss=rw=>_reSegsEff.filter(sg=>_reNum(rw,sg)==null);
-        const _reAxis=(['ratio','ppt','pf'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'raw';
+        const _reAxis=(['ratio','ppt','pf','evr','sh','so'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'raw';
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -20695,14 +20696,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reYv=(st,rw,com)=>{
           if(_reMode()==='pf')return _reNum(rw,'pf');
           if(_reMode()==='ppt')return _rePpt(rw);
+          if(_reMode()==='evr')return _reEvR(st,rw);
+          if(_reMode()==='sh')return _reShOf(st,rw);
+          if(_reMode()==='so')return _reSoOf(st,rw);
           const p=_reSegVal(rw);if(p==null)return null;
           if(_reMode()!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
         const _reYwhy=(st,rw,com)=>{
           if(_reMode()==='pf')return _reWhy(st,rw,'pf');
           if(_reMode()==='ppt')return _rePptWhy(st,rw);
+          if(_reMode()==='evr')return 'This row records no average losing trade, so expectancy cannot be put in R.';
+          if(_reMode()==='sh')return 'This row records no Sharpe.';
+          if(_reMode()==='so')return 'This row records no Sortino.';
           const miss=_reSegMiss(rw);
           return (miss.length===_reSegsEff.length)?_reWhy(st,rw,miss[0]):_reWhy(st,rw,'dd');};
-        const _reYfmt=()=>(_reMode()==='ratio'||_reMode()==='pf')?'num':'money';
+        const _reYfmt=()=>(['ratio','pf','evr','sh','so'].indexOf(_reMode())>=0)?'num':'money';
         const _rePfCap='Profit factor \u2014 gross winnings over gross losses, HIGHER is better. It ignores PROFIT STAGE and COMPARE ON: a profit factor is recorded once per row, and it is already free of window length because it counts trades rather than calendar';
         const _rePptCap='Whole-run profit per trade \u2014 HIGHER is better. It ignores PROFIT STAGE and COMPARE ON, because a trade count is recorded once per row and a per-trade average is already free of window length';
         // ONE chart covering several studies cannot borrow one study's word for the in-sample
@@ -21008,6 +21015,32 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //  tile at a time, so the chart and every table beneath it are read on the same shared
         //  stretch rather than each tile quietly using a different one.
         const _reXF='dd';
+        // ── BOTH AXES ARE CHOSEN NOW (owner 2026-08-28) ──────────────────────────────
+        //    The scatter has always been drawdown across the bottom against profit up the
+        //    side, which answers one question well and is useless for comparing rows that
+        //    traded different instruments over different windows - drawdown is dollars, and
+        //    dollars scale with size and with how long the row ran.
+        //    The apples-to-apples pair is SORTINO across the bottom against EV IN R up the
+        //    side: EV in R is the edge on each bet with size and instrument divided out,
+        //    Sortino is what a year of those bets delivered after the downside is charged
+        //    for. Neither can be flattered by trading bigger or by running longer.
+        const _reXAxis=(['dd','sh','so','evr','pf'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'dd';
+        const _reXv=(st,rw)=>{
+          if(_reXAxis==='sh')return _reShOf(st,rw);
+          if(_reXAxis==='so')return _reSoOf(st,rw);
+          if(_reXAxis==='evr')return _reEvR(st,rw);
+          if(_reXAxis==='pf')return _reNum(rw,'pf');
+          return _reNum(rw,'dd');};
+        const _reXwhy=(st,rw)=>{
+          if(_reXAxis==='sh')return 'This row records no Sharpe. Only a run, or a study re-run since 2026-08-28, carries one.';
+          if(_reXAxis==='so')return 'This row records no Sortino. Only a run, or a study re-run since 2026-08-28, carries one.';
+          if(_reXAxis==='evr')return 'This row records no average losing trade, so expectancy cannot be put in R.';
+          if(_reXAxis==='pf')return _reWhy(st,rw,'pf');
+          return _reWhy(st,rw,'dd');};
+        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF'};
+        const _reXBetter={dd:'deeper to the right',sh:'higher to the right',so:'higher to the right',
+          evr:'higher to the right',pf:'higher to the right'};
+
         const _reXCap='Worst drawdown \u2014 further LEFT is better';
         const _reFamOf=(st,r)=>String((r&&r.fam)||(st&&st.fam)||'UNTAGGED');
         // the horizontal caption follows the reading: under VS CROWN the axis is no longer a
@@ -21209,8 +21242,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             // control 5: a failed row leaves the CHART so the axis can fit the rest. It
             //   keeps its table row and its figures; nothing is recomputed or hidden.
             if(!_reFailOn&&o.r&&o.r.tone==='fail'){failOut.push(o);return;}
-const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
-            if(x0==null){skip.push({o:o,w:_reWhy(o.st,o.r,_reXF)});return;}
+const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
+            if(x0==null){skip.push({o:o,w:_reXwhy(o.st,o.r)});return;}
             if(y0==null){skip.push({o:o,w:_reYwhy(o.st,o.r,com)});return;}
             let x=x0,y=y0;
             if(_reRel){
@@ -21220,7 +21253,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
               //   very same figures the tables print - it is a reading, not new data.
               const b=_reBaseOf(_reFamOf(o.st,o.r));
               if(!b){skip.push({o:o,w:_reBaseWhy(_reFamOf(o.st,o.r))});return;}
-              const bx=_reNum(b.r,_reXF),by=_reYv(b.st,b.r,com);
+              const bx=_reXv(b.st,b.r),by=_reYv(b.st,b.r,com);
               if(bx==null||by==null){skip.push({o:o,w:'The row this family reads against, row '+b.r.n+', has no figure of its own on the stage and basis now selected, so there is nothing to measure the difference from. Nothing was substituted for it.'});return;}
               x=x0-bx;y=y0-by;}
             pts.push({o:o,st:o.st,r:o.r,x:x,y:y,x0:x0,y0:y0});});
@@ -21250,7 +21283,8 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
               const yv=ye[0]+(ye[1]-ye[0])*i/4,yy=B-(B-T)*i/4;
               _ticks+='<line x1="'+(L-5)+'" y1="'+yy.toFixed(1)+'" x2="'+L+'" y2="'+yy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
-                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="end">'+_reTick(yv,yf)+'</text>';
+                // Y NUMBERS ON THE RIGHT (owner 2026-08-28), the side a price scale lives on.
+                +'<text x="'+(R+9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="start">'+_reTick(yv,yf)+'</text>';
               const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
               _ticks+='<line x1="'+xx.toFixed(1)+'" y1="'+B+'" x2="'+xx.toFixed(1)+'" y2="'+(B+5)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
@@ -21272,7 +21306,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
               const fams=[];pts.forEach(p=>{const f=_reFamOf(p.st,p.r);if(fams.indexOf(f)<0)fams.push(f);});
               if(fams.length!==1)return null;      // several families, several champions, no one crosshair
               const b=_reBaseOf(fams[0]);if(!b)return null;
-              const bx=_reNum(b.r,_reXF),by=_reYv(b.st,b.r,com);
+              const bx=_reXv(b.st,b.r),by=_reYv(b.st,b.r,com);
               return (bx==null||by==null)?null:{x:bx,y:by,nm:'row '+b.r.n};})();
             if(_cx){
               if(_cx.x>xe[0]&&_cx.x<xe[1]){const zx=px(_cx.x);
@@ -21858,7 +21892,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //   family with two is a registry problem the owner should see rather than have averaged
         //   away. Nothing here changes a tag - it only picks which crown the CHART reads against.
         const _reMoreBtn='<span data-remoretog title="'+_reEsc((_reMore?'hide':'show')+' the rest of the controls: the comparison basis, the value zoom, the time scope, the scope date, the colour setting and every filter chip. They keep working while hidden - the status chips below always say what is in force.')+'" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;color:'+(_reMore?'var(--text2)':'var(--text4)')+';border:1px solid var(--border);background:'+(_reMore?'var(--bg2)':'var(--bg1)')+'">'+(_reMore?'\u25b4 LESS':'\u25be MORE')+(_reFiltOn?' \u00b7 filtered':'')+'</span>';
-        const _reStageBtns=_reCtl(2,'PROFIT STAGE','which stretch of history every study is read on - the chart height, the highlighted column and the profit divided by drawdown column all follow it',
+        const _reStageBtns=_reCtl(3,'PROFIT STAGE','which stretch of history every study is read on - the chart height, the highlighted column and the profit divided by drawdown column all follow it',
             _reStages.map(sg=>_reBtn(_reSegPin?'data-restagepin':('data-resstage="'+sg+'"'),_reStageNm[sg],_reSegsEff.indexOf(sg)>=0,
               (_reSegPin?'PINNED on the CONFIGS level: a configuration record is scored on the optimize window and holds no walk-forward or lockbox figure of its own, so there is no other stage to pick. Leave this level and the tick is yours again. ':'')+
               (sg==='is'?'the stretch the config was tuned on - a study whose rows had no separate walk-forward stage calls this column everything before the lockbox instead':
@@ -21871,7 +21905,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //   same ticked stage — only the drawing changes.
         // THE LEVEL CONTROL leads the rail, because it decides WHICH GRADE OF EVIDENCE is on
         //   screen and every other control is a narrowing inside that.
-        const _reLvlBtns=_reCtl(3,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
+        const _reLvlBtns=_reCtl(1,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
            _reBtn('data-relvl="sweep"','SWEEPS',_reLvl==='sweep','stage 1. My local .py theory tests. They were never persisted as a run, never walk-forwarded and never shown a lockbox, so nothing here has survived anything - these are ideas with numbers on them.',_TONE.rank)
            +_reBtn('data-relvl="cfg"','CONFIGS',_reLvl==='cfg','stage 3. The raw, gate, tilt and hybrid candidates INSIDE one Auto-Validate run - pick the run and they load. They are scored on the OPTIMIZE WINDOW ONLY and they are the best of hundreds the search tried, so they are candidates and not survivors. Kept on their own level for exactly that reason.',_TONE.rank)
            +_reBtn('data-relvl="valid"','AUTO VAL',_reLvl==='valid','stage 2. Real EDGELOG Auto-Validate runs, each split into in-sample, walk-forward and lockbox. This is the level where a figure has actually been tested on years the search never saw. WIN percent and SHARPE only exist at this level and above.',_TONE.rank)
@@ -21884,15 +21918,29 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           '<select data-recfgrun style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
           +_reCfgPick.map(function(r){return '<option value="'+_reEsc(String(r.id))+'"'+((String(r.id)===_reCfgRunId)?' selected':'')+'>#'+_reEsc(String(r.id))+' \u00b7 '+_reEsc(String(r.strategy||'').replace(/\.py$/,''))+'</option>';}).join('')
           +'</select>',_TONE.rank);
-        const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
+        const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
           _TONE.samp);
+        // THE APPLES-TO-APPLES PAIR, said once where it is chosen: SORTINO across the
+        //   bottom against EV IN R up the side. Everything else on this chart can be
+        //   flattered by trading bigger or by running longer; those two cannot.
+        const _reXAxisBtns=_reCtl('','HORIZONTAL AXIS','what the width of the chart measures. DRAWDOWN is the original question - what a variant cost in pain for what it paid - but it is measured in DOLLARS, so it flatters a row that traded small and punishes one that ran long. The other three are size-blind and window-blind. For a straight comparison across everything, put SORTINO here and EV IN R up the side.',
+            _reBtn('data-resxaxis="dd"','DRAWDOWN',_reXAxis==='dd','the worst peak-to-trough loss, in dollars. Deeper to the right.',_TONE.samp)
+           +_reBtn('data-resxaxis="so"','SORTINO',_reXAxis==='so','annualised return charged for its DOWNSIDE only. Size-blind and frequency-fair, which makes it the best single across-everything measure this board holds.',_TONE.samp)
+           +_reBtn('data-resxaxis="sh"','SHARPE',_reXAxis==='sh','annualised return over its own dispersion. Same idea as Sortino but it charges for upside swings as well, which a trader is not actually hurt by.',_TONE.samp)
+           +_reBtn('data-resxaxis="evr"','EV R',_reXAxis==='evr','expectancy in R - the leverage-blind edge per bet.',_TONE.samp)
+           +_reBtn('data-resxaxis="pf"','PF',_reXAxis==='pf','profit factor - gross winnings over gross losses.',_TONE.samp)
+          ,_TONE.samp);
         const _reAxisBtns=_reCtl('','VERTICAL AXIS','what the height of the chart measures',
             _reBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
            +_reBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
-           +_reBtn('data-resaxis="ppt"','$/TRADE',_reAxis==='ppt','plot whole-run money per trade. With profit factor it is the most window-robust reading on this board - both are properties of the trade population rather than of the calendar - so it is the fairest way to compare rows that do not cover the same years. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a trade count is recorded once per row. The 1E matrix calls this same figure EV (expected value)',_TONE.rank),_TONE.rank);
+           +_reBtn('data-resaxis="ppt"','EV',_reAxis==='ppt','plot expectancy in DOLLARS - whole-run money per trade. With profit factor it is among the most window-robust readings here, because both are properties of the trade population rather than of the calendar.',_TONE.samp)
+           +_reBtn('data-resaxis="evr"','EV R',_reAxis==='evr','plot expectancy in R - the average trade divided by the average LOSING trade. This is the leverage-blind one: a row trading one contract and a row trading ten land on the same number, which dollar expectancy cannot do.',_TONE.samp)
+           +_reBtn('data-resaxis="sh"','SHARPE',_reAxis==='sh','plot the annualised Sharpe.',_TONE.samp)
+           +_reBtn('data-resaxis="so"','SORTINO',_reAxis==='so','plot the annualised Sortino - Sharpe with only the DOWNSIDE charged for. A max drawdown is one worst event and this project measured its confidence interval to be wider than the statistic, so Sortino is the sturdier read of the same idea.',_TONE.samp),
+          _TONE.samp);
         // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
         //   because the scope means nothing until you know which date it is reading.
         const _reFailBtns=_reCtl(5,'PLOT FAILURES','whether rows judged a failure are drawn on the chart. They are always in the tables either way - this only decides whether they are plotted. OFF is the default because a few very deep drawdowns were setting the width of the axis for every other row, which flattened everything else into the left edge',
@@ -22067,7 +22115,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             // CONTROL ORDER, owner 2026-08-28: which drawing, then which stretch of history,
             //   then which grade of evidence, then which strategy - each answer narrowing
             //   the one before it.
-            +_reGrid(_reChartBtns+_reStageBtns+_reLvlBtns+_reCfgSel+_reFamRail+(_reParOn?'':_reAxisBtns)+_reReadBtns)
+            +_reGrid(_reLvlBtns+_reCfgSel+_reChartBtns+_reStageBtns+_reFamRail+(_reParOn?'':(_reXAxisBtns+_reAxisBtns))+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
@@ -25426,6 +25474,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         const v=b.dataset.resstage,i=cur.indexOf(v);
         if(i>=0){if(cur.length===1)return;cur.splice(i,1);}else cur.push(v);
         savePref('resSegs',all.filter(x=>cur.indexOf(x)>=0));renderApp();};});
+      content.querySelectorAll('[data-resxaxis]').forEach(b=>{b.onclick=()=>{savePref('resXAxis',b.getAttribute('data-resxaxis'));renderApp();};});
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
