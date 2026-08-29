@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.355';
+const VERSION='73.356';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.356',date:'2026-08-28',notes:['THE STUDIES BOARD IS THREE COLUMNS NOW: a LOCKED SIDEBAR holding every control, then the TABLES, then the CHART. The controls used to sit inside the chart tile, so scrolling down to read a table scrolled the settings off the screen; the sidebar stays put while both panels scroll past it.','The drag bar still governs the split, and it now divides the TABLES from the CHART rather than the chart from the tables. Double-click puts it back to half.','HOW TO READ and MORE moved to the top of the sidebar, beside the CONTROLS heading, so every setting is in one place.']},
 {v:'73.355',date:'2026-08-28',notes:['CONTROL ORDER, as the owner reads it: which drawing, then which stretch of history, then which grade of evidence, then which strategy - each answer narrowing the one before it. Renumbered to match.','THE STRATEGY RAIL COUNTS WHAT THE LEVEL ACTUALLY HOLDS. On AUTO VAL the rows are runs, so the rail now counts runs - it was offering NOISE 130 when there are a dozen NOISE runs to compare. Every other level counts registry rows as before.']},
 {v:'73.354',date:'2026-08-28',notes:['FIX on the new AUTO VAL level: it drew nothing. The run rows were being put through the same test as registry rows, and that test now asks the LEVEL gate first - which on this level correctly says no to every registry row, and was refusing the runs along with them. Only the filter chips apply to a run row.']},
 {v:'73.353',date:'2026-08-28',notes:['AUTO VAL NOW READS PAST RUNS INSTEAD OF THE WRITE-UPS. It used to list study rows that happened to cite a run number, so a real Auto-Validate nobody had documented simply was not there - measured: the registry cites 66 run numbers between 202 and 301, and 34 runs inside that range are cited by no row at all, plus everything below 202. Picking NOISE showed the NOISE runs somebody wrote up rather than the NOISE runs that exist.','It is one row per RUN now, off the same Past Runs list the RUNBOARD reads, so it is complete by construction and cannot go stale. Pick a strategy on the rail and every run of it is on the parallel chart, compared on the same ten axes.','AND RUN ROWS FILL EVERY AXIS. A run records its own date window and its own validate block, so win rate, Sharpe, Sortino and expectancy in R are all there - the four a local sweep still cannot fill. Each row carries its verdict, its window and its run number, and the run number opens the report.']},
@@ -21980,29 +21981,53 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         const _reCfgState='<div style="border:1px dashed var(--border);padding:44px 20px;text-align:center;color:var(--text5);font-size:10px;line-height:1.9">'
           +(_reCfgLoad?('LOADING RUN #'+_reEsc(_reCfgRunId)+'<br><span style="font-size:8.5px">Configuration records are not part of the fast page load, so the full run document is being fetched. This happens once per run.</span>')
                       :_reEsc(_reCfgMsg))+'</div>';
-        body=modeToggle
-            +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap"><div data-resplitl style="width:'+_reSplitW+'%;min-width:300px;position:sticky;top:6px">'):'')
-          +tile('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
-            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'+(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')+'</span>'
-            +'<span style="margin-left:auto;display:inline-flex;gap:5px;align-items:center">'+_reHelpBtn+_reMoreBtn+'</span></div>'
-            // THE CHART'S OWN CONTROLS, directly under its title: the strategy rail and the
-            //   three settings that decide what the two axes measure.
-            +'<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+        // ── THREE COLUMNS (owner 2026-08-28: "locked sidebar is all the tabs, then the
+        //    tables, then the parallel chart - those last two can split"). ───────────────
+        //    Every control moves into a STICKY sidebar on the left, so the settings stay
+        //    put while the tables and the chart scroll past them. Before this the controls
+        //    sat inside the chart tile, which meant scrolling down to read a table scrolled
+        //    the controls off screen.
+        //    The remaining width is the split the drag bar has always governed: TABLES on
+        //    the left of it, the CHART on the right.
+        const _reCtlPanel=
+            '<div style="padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
             // CONTROL ORDER, owner 2026-08-28: which drawing, then which stretch of history,
-            //   then which grade of evidence, then which strategy - each answer narrowing the
-            //   one before it.
+            //   then which grade of evidence, then which strategy - each answer narrowing
+            //   the one before it.
             +_reGrid(_reChartBtns+_reStageBtns+_reLvlBtns+_reCfgSel+_reFamRail+(_reParOn?'':_reAxisBtns)+_reReadBtns)
-            // BEHIND "MORE": the range, the date it reads, and the filters. These narrow the
-            //   chart and the tables together, which is why they sit with the chart rather than
-            //   with the tables - a filter is not a table setting.
-            +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:11px;padding-top:11px;border-top:1px solid var(--border2)">'
+            // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
+            //   the chart and the tables together, which is why they live with the other
+            //   controls rather than with either panel.
+            +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:9px;padding-top:9px;border-top:1px solid var(--border2)">'
             +_reGrid(_reFailBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
-              +(_reClear?('<div style="display:grid;grid-template-columns:70px minmax(0,1fr);gap:9px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
-            +'</div></div>'
-            +_reLvlNote            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))+'</div>',0)
-            +(_reSplit?('</div><div data-resplitbar title="'+_reEsc('Drag left or right to give the chart more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half. The bar under the chart still sets its height.')+'" style="flex:0 0 14px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:flex-start;justify-content:center;touch-action:none"><div style="position:sticky;top:46vh;width:5px;height:72px;border-radius:3px;background:var(--border2);transition:background .12s"></div></div><div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
-          +_reBody
+              +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
+            +'</div></div>';
+        const _reChartTile=tile(
+            '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
+            +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
+            +(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')+'</span></div>'
+            +_reLvlNote
+            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))+'</div>',0);
+        const _reSideBar=
+            '<div style="flex:0 0 214px;min-width:214px;position:sticky;top:6px;max-height:calc(100vh - 24px);overflow:auto">'
+            +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
+            +'<span class="lbl" style="font-size:10px;letter-spacing:1.4px;color:var(--text4)">CONTROLS</span>'
+            +'<span style="margin-left:auto;display:inline-flex;gap:4px">'+_reHelpBtn+_reMoreBtn+'</span></div>'
+            +_reCtlPanel+'</div>';
+        // TABLES on the left of the drag bar, CHART on its right. With the split off they
+        //   simply stack, which is what a narrow window gets.
+        const _reSplitBar='<div data-resplitbar title="'+_reEsc('Drag left or right to give the tables more or less of the width. The size is remembered and survives a reload. Double-click to put it back to half.')+'" style="flex:0 0 14px;align-self:stretch;min-height:180px;cursor:col-resize;display:flex;align-items:flex-start;justify-content:center;touch-action:none"><div style="position:sticky;top:46vh;width:5px;height:72px;border-radius:3px;background:var(--border2)"></div></div>';
+        body=modeToggle
+          +'<div style="display:flex;align-items:flex-start;gap:10px">'+_reSideBar
+          +'<div style="flex:1 1 0;min-width:0">'
+            +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap">'
+                +'<div data-resplitl style="width:'+_reSplitW+'%;min-width:280px">'):'')
+            +_reBody
+            +(_reSplit?('</div>'+_reSplitBar
+                +'<div style="flex:1 1 0;min-width:280px;overflow:hidden">'):'')
+            +_reChartTile
             +(_reSplit?'</div></div>':'')
+          +'</div></div>'
           +'<div data-rehelp style="'+(_reHelp?'':'display:none;')+'">'+tile(
             '<div class="lbl" style="font-size:11px;letter-spacing:1.6px;color:var(--text4);margin-bottom:7px">HOW TO READ THIS BOARD</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
