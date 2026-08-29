@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.360';
+const VERSION='73.361';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.361',date:'2026-08-29',notes:['THE AUTO-RECOVER SWITCH IS NOW ON THE PAPER PLUS STATUS LINE TOO. It shipped only inside the NINJATRADER card, which on PAPER PLUS is folded away behind NINJATRADER DETAIL - so on that tab you had to open an accordion to reach a switch whose whole purpose is a five-second decision. It now sits on the top status strip, next to the live and gate lights, on both tabs.']},
 {v:'73.360',date:'2026-08-28',notes:['THE SIDEBAR IS A SIDEBAR NOW, not a card in a column: full height, flush to the left edge, a hairline dividing it from the panels, and no tile background of its own - the panels are the cards, the sidebar is the frame. DRAG ITS EDGE to set how wide it is; the width is remembered and a double-click puts it back.','AND THE GREY BAR UNDER CLEAR FILTERS IS GONE. It was a horizontal scrollbar: the sidebar scrolled on both axes, so any control a pixel wider than the column produced one. It scrolls vertically only.','A CONTROL IS ONE SEGMENTED SWITCH instead of a row of separate bubbles. The group carries the fill and the selected option lights up inside it, so you can see where a section starts and ends.','EVERY CONTROL IS IN ONE PLACE. The COMPARE view picker (PICK RUNS through STUDIES) and the table settings (VIEW, COLUMNS, ORDER, SPLIT BY RUN, COMPARE ON) moved into the sidebar, each under its own heading.','THE STACKED SPLIT RESIZES TOO. Side-by-side has always had a drag bar; stacked had none, so the tables ran as long as they ran. There is a horizontal bar under them now - drag down for more table, up for more chart.','THE NOVELS ARE BEHIND THE INFO ICON. Nothing was deleted - every caveat is still there on the hover, because each one exists to stop a specific misreading - but the chart gets one line instead of fourteen.','HOVERING THE TABLE NO LONGER REPAINTS ROWS AS YOU MOVE THROUGH IT. Coming from a table row there is nothing to point at, since the cursor is already on it, so that direction only isolates the chart line. Hovering a CHART line still lights its table row.','EV R REPLACES PF IN THE KEY COLUMNS: the average trade divided by the average LOSING trade, which is leverage-blind where dollar expectancy is not. PF is still on the chart and still in the READ hover, and the $/TRD column beside it is the same expectancy in dollars.']},
 {v:'73.359',date:'2026-08-29',notes:['AUTO-RECOVER now has a button, on the NINJATRADER card in both paper tabs. It switches off the scheduled job on your PC that restarts NinjaTrader, logs it in, reconnects the Simulation account and re-enables the strategies. Useful on a weekday morning, pointless on a Saturday when the only thing it can do is reconnect a platform nobody is trading.','IT SHOWS THE PC’S REAL STATE, not what you last clicked - the status arrives in the same snapshot the NinjaTrader card already reads, so a change made on the machine itself shows up here too. If it cannot read the PC it says UNKNOWN rather than a confident OFF.','TURNING IT OFF DOES NOT STOP NINJATRADER. Anything already running keeps running and any enabled strategy keeps trading. All that stops is the automatic repair - so if NinjaTrader does die while it is off, nothing puts it back until you switch it on again. The button says so before it does anything.']},
 {v:'73.358',date:'2026-08-28',notes:['Two controls in the new sidebar wore the same number as their neighbour - AXIS shared 4 with STRATEGY, and VERTICAL AXIS and the run picker both shared 3 with LEVEL. The sidebar puts every control in a fixed vertical order now, so those three simply lost their ordinal rather than renumber ten controls whose numbers the help text cites by name.','A run row on AUTO VAL printed its family ordinal as well as its run number - #252 - 12 - NOISE. The run number is the identity there, so the family ordinal is dropped: it reads #252 - NOISE.']},
@@ -23821,6 +23822,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
       // publishing meta/nt_bridge (+ the 9am ET roster check in meta/nt_preflight).
       // Before this existed, "are the strategies even running?" took a screenshot.
       let bridgeHtml='';
+      let _wdBtn='';   // the AUTO-RECOVER pill, built below; hoisted so PAPER plus can reuse it
       {
         const B=window._ntBridge, P=window._ntPreflight;
         const _age=ts=>{if(!ts)return null;const m=Math.floor((Date.now()-Date.parse(String(ts).replace(' ','T')+'Z'))/60000);return m;};
@@ -23985,7 +23987,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           : (_wdOn
              ? 'ON: if NinjaTrader dies, the PC restarts it, logs in, reconnects the Simulation account and re-enables the strategies. Click to switch OFF for the weekend - already-running strategies keep running, only the automatic repair stops.'
              : 'OFF: nothing will restart NinjaTrader if it dies. Anything already running keeps running. Click to switch back ON before the session opens.');
-        const _wdBtn=(_wdOn===null&&!_WD)?'':('<span data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="margin-left:auto;cursor:'+(_wdBusy?'wait':'pointer')+';user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;color:'+_wdCol+';border:1px solid '+_wdCol+';border-radius:999px;padding:1px 8px;opacity:'+(_wdBusy?'.55':'1')+'">'+_wdTxt+'</span>');
+        _wdBtn=(_wdOn===null&&!_WD)?'':('<span data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="margin-left:auto;cursor:'+(_wdBusy?'wait':'pointer')+';user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;color:'+_wdCol+';border:1px solid '+_wdCol+';border-radius:999px;padding:1px 8px;opacity:'+(_wdBusy?'.55':'1')+'">'+_wdTxt+'</span>');
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
@@ -24535,7 +24537,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
               +'<span><span style="color:var(--text5)">TRADES </span><b>'+_A.n+'</b></span>'
               +'<span><span style="color:var(--text5)">WIN </span><b>'+(_A.n?Math.round(_A.wr*100)+'%':'—')+'</b></span>'
               +'<span><span style="color:var(--text5)">DAYS </span><b>'+_A.days+'</b></span>'
-            +'</span></div>';
+            +'</span>'+(_wdBtn?('<span style="margin-left:10px">'+_wdBtn.replace('margin-left:auto;','')+'</span>'):'')+'</div>';
         })();
         const _p2Head='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
           +'<span class="lbl" style="font-size:13px">◑ PAPER ✦</span>'
