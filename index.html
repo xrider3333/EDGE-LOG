@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.368';
+const VERSION='73.369';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.369',date:'2026-08-28',notes:['RADAR, the third drawing. The same ten measures as the parallel chart, drawn as a closed loop. Read a radar for SHAPE - whether two rows are the same KIND of thing - and the parallel chart for VALUES.','ITS HONEST COST, said on the chart: ten measures in ten units cannot share one radius, so every spoke is scaled to the ROWS ON SCREEN - lowest near the middle, highest on the rim. A position there is relative, and changing the filter changes the shape. The figures are on the hover; the parallel chart prints them on its axes. A row that records fewer than three measures makes no shape and is counted underneath rather than faked.','THE RECOMMENDED MEASURE LEADS EACH AXIS LIST now - EV in R up the side, Sortino across the bottom.','VERTICAL AXIS and HORIZONTAL AXIS sit on one line instead of two.']},
 {v:'73.368',date:'2026-08-28',notes:['The Y numbers are back on the left. They moved right for one version and the owner moved them back - correctly: the best rows sit toward the TOP RIGHT, so a scale over there sits on top of the answer.','THE TWO AXIS PICKERS SIT ON THE SCATTER ITSELF now, not in the sidebar. They are the chart own questions and nothing else on the page reads them.','AND THE BOARD OPENS ON THE COMPARABLE PAIR: Sortino across the bottom, EV in R up the side. It used to open on dollars, which do not survive different instruments, sizes or windows.']},
 {v:'73.367',date:'2026-08-28',notes:['BOTH SCATTER AXES ARE YOURS NOW. A new HORIZONTAL AXIS control: DRAWDOWN, SORTINO, SHARPE, EV R or PF. Drawdown answers the original question well, but it is dollars - so it flatters a row that traded small and punishes one that ran long.','THE APPLES-TO-APPLES PAIR IS SORTINO ACROSS THE BOTTOM AGAINST EV IN R UP THE SIDE. EV in R is the edge on each bet with size and instrument divided out; Sortino is what a year of those bets delivered after the downside is charged for. Neither can be flattered by trading bigger or by running longer. It says so on the control.','VERTICAL AXIS gained EV R, SHARPE and SORTINO, and the old dollars-per-trade option is named EV, which is what it always was.','The Y numbers moved to the right - the side a price scale lives on.','LEVEL now leads the sidebar: which grade of evidence first, then which drawing, then which stretch of history, then which strategy.']},
 {v:'73.366',date:'2026-08-29',notes:['THE SCREEN NO LONGER JUMPS when you click a strategy on or off. Every re-render rebuilt the page from scratch and threw away where you were scrolled, so toggling a leg near the bottom snapped you back to the top. In-place updates - leg toggles, filters, sorting, opening a panel - now hold your position. Switching tabs still takes you to the top, as it should.','THE CALENDAR HAS A WEEK COLUMN. Each row ends with that week\u2019s total, coloured like the days. Hover it for the trade count, how many days traded and the win rate. A week with no trades stays blank rather than showing a green zero - a week the board never traded is not a flat week.']},
@@ -21093,7 +21094,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    NOT RECORDED YET: win rate and Sharpe. The registry carries no field for either, so
         //    rather than invent them the chart NAMES them underneath as the two gaps to fill.
         //    Adding one later is a row field plus one entry in _rePAxes - nothing else changes.
-        const _reParOn=(APREF.resChart==='par');
+        const _reChartK=(['scatter','par','radar'].indexOf(APREF.resChart)>=0)?APREF.resChart:'scatter';
+        const _reParOn=(_reChartK==='par');
+        const _reRadOn=(_reChartK==='radar');
         // AXIS ORDER IS DELIBERATE and it is about line breaks, not about importance.
         //   A line breaks wherever the row records nothing, so a SPARSE measure sitting in
         //   the middle chops an otherwise readable line into fragments too short to draw.
@@ -21141,6 +21144,88 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {k:'net', t:'NET $', last:true,
            v:(st,r)=>_reSegVal(r),
            f:v=>((v<0?'-$':'$')+_reAbbr(v))}];
+        // ── RADAR (owner ask 2026-08-28) ─────────────────────────────────────────────
+        //    The same ten measures as the parallel chart, drawn as a closed loop instead of
+        //    a line. It answers a different question: parallel coordinates show a row's PATH
+        //    and let you follow it axis by axis, a radar shows its SHAPE, and shape is what
+        //    the eye compares when you want to know whether two rows are the same KIND of
+        //    thing rather than which one is bigger.
+        //
+        //    A RADAR MUST NORMALISE, and that is its honest cost. Ten measures in ten
+        //    different units cannot share one radius, so each spoke is scaled to the rows
+        //    ON SCREEN: the lowest lands near the middle, the highest on the rim. That makes
+        //    every position RELATIVE - change the filter and the same row changes shape -
+        //    so the figures themselves are on the hover and the note says this out loud.
+        //    The parallel chart prints real numbers on every axis; this one cannot.
+        //
+        //    A row draws only through the axes it records. Fewer than three and there is no
+        //    polygon to draw at all, so it is counted underneath instead of faked.
+        const _reRadAll=function(items){
+          const AX=_rePAxes,rows=[],skip=[];
+          items.forEach(function(o){
+            if(!_reFailOn&&o.r&&o.r.tone==='fail')return;
+            const vals=AX.map(function(a){return a.v(o.st,o.r);});
+            if(vals.filter(function(v){return v!=null&&isFinite(v);}).length<3){skip.push(o);return;}
+            rows.push({o:o,st:o.st,r:o.r,v:vals,
+              src:(o.r._cfg?'cfg':((Array.isArray(o.r.runs)&&o.r.runs.length)?'el':'py'))});});
+          const CH=_reChH();
+          if(!rows.length)return '<div style="padding:26px;text-align:center;color:var(--text5);font-size:11px">No row on screen records three or more of these measures.</div>';
+          const cx=500,cy=CH/2,R=Math.max(70,Math.min(CH/2-46,210));
+          // each spoke scaled to the rows on screen - see the note above
+          const E=AX.map(function(a,i){
+            const vs=rows.map(function(r){return r.v[i];}).filter(function(v){return v!=null&&isFinite(v);});
+            let lo=Math.min.apply(null,vs),hi=Math.max.apply(null,vs);
+            if(!(hi>lo)){const p2=Math.abs(hi)*0.1||1;lo=hi-p2;hi=hi+p2;}
+            return [lo,hi];});
+          const ang=function(i){return (i/AX.length)*Math.PI*2-Math.PI/2;};
+          const rad=function(i,v){const e=E[i];
+            const t=(Math.max(e[0],Math.min(e[1],v))-e[0])/((e[1]-e[0])||1);
+            return R*(0.14+0.86*t);};
+          const pt=function(i,v){const a=ang(i),r2=rad(i,v);
+            return [(cx+Math.cos(a)*r2),(cy+Math.sin(a)*r2)];};
+          let g='';
+          [0.25,0.5,0.75,1].forEach(function(f){
+            const p3=AX.map(function(a,i){const an=ang(i),r2=R*(0.14+0.86*f);
+              return (cx+Math.cos(an)*r2).toFixed(1)+','+(cy+Math.sin(an)*r2).toFixed(1);});
+            g+='<polygon points="'+p3.join(' ')+'" fill="none" stroke="var(--border)" stroke-width="'+((f===1)?'1':'0.6')+'"/>';});
+          AX.forEach(function(a,i){const an=ang(i);
+            const ex=cx+Math.cos(an)*R,ey=cy+Math.sin(an)*R;
+            g+='<line x1="'+cx+'" y1="'+cy.toFixed(1)+'" x2="'+ex.toFixed(1)+'" y2="'+ey.toFixed(1)
+              +'" stroke="var(--border)" stroke-width="0.6"/>';
+            const lx=cx+Math.cos(an)*(R+22),ly=cy+Math.sin(an)*(R+22);
+            const anch=(Math.abs(Math.cos(an))<0.25)?'middle':((Math.cos(an)>0)?'start':'end');
+            g+='<text x="'+lx.toFixed(1)+'" y="'+(ly+3.5).toFixed(1)+'" text-anchor="'+anch
+              +'" font-size="10.5" font-weight="700" fill="'+(a.last?'var(--text3)':'var(--text2)')+'">'
+              +a.t+'</text>';});
+          let lines='';
+          rows.forEach(function(rw){
+            const col=_reTone[rw.r.tone]||'var(--text4)',champ=(rw.r.tone==='champ');
+            const pts2=[];rw.v.forEach(function(v,i){if(v==null||!isFinite(v))return;
+              const q=pt(i,v);pts2.push(q[0].toFixed(1)+','+q[1].toFixed(1));});
+            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+String(rw.r.name||'').replace(/"/g,'')
+              +' ('+_reFamOf(rw.st,rw.r)+')';
+            rw.v.forEach(function(v,i){if(v!=null&&isFinite(v))tip+=String.fromCharCode(10)+AX[i].t+'  '+AX[i].f(v);});
+            const miss=rw.v.map(function(v,i){return (v==null||!isFinite(v))?AX[i].t:null;}).filter(Boolean);
+            if(miss.length)tip+=String.fromCharCode(10)+'not recorded: '+miss.join(', ');
+            lines+='<g class="repar-row" data-prow="'+String(rw.r.n)+'">'
+              +'<polygon points="'+pts2.join(' ')+'" fill="'+col+'" fill-opacity="'+(champ?'0.14':'0.05')
+              +'" stroke="'+col+'" stroke-width="'+(champ?'2.2':'1.1')+'" opacity="'+(champ?'0.95':'0.5')
+              +'"'+((rw.src==='el')?'':((rw.src==='cfg')?' stroke-dasharray="1 3"':' stroke-dasharray="4 3"'))
+              +' style="cursor:pointer"><title>'+tip+'</title></polygon>';
+            rw.v.forEach(function(v,i){if(v==null||!isFinite(v))return;const q=pt(i,v);
+              lines+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+(champ?'3':'1.9')
+                +'" fill="'+col+'" opacity="'+(champ?'0.95':'0.55')+'"><title>'+tip+'</title></circle>';});
+            lines+='</g>';});
+          const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
+            +'<b style="color:var(--text4)">Every spoke is scaled to the rows on screen</b> - lowest near the middle, highest on the rim - because ten measures in ten units cannot share one radius. So a position here is RELATIVE: change the filter and the same row changes shape. The figures themselves are on the hover, and the PARALLEL chart prints them on its axes. Read a radar for SHAPE - whether two rows are the same kind of thing - and the parallel chart for VALUES. '
+            +rows.length+' row'+((rows.length===1)?'':'s')+' drawn'
+            +((rows.length>8)?(' - a radar is easiest to read under about eight, so hover one to isolate it'):'')
+            +(skip.length?('. '+skip.length+' row'+((skip.length===1)?'':'s')+' record fewer than three of these measures and cannot make a shape.'):'.')
+            +'</div>';
+          return '<div class="repar-wrap" style="overflow-x:auto">'
+            +'<svg viewBox="0 0 1000 '+CH+'" width="100%" style="display:block;min-width:520px">'
+            +g+lines+'</svg></div>'+note;
+        };
         const _reParAll=function(items){
           const AX=_rePAxes,rows=[],skip=[];
           items.forEach(function(o){
@@ -21926,32 +22011,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</select>',_TONE.rank);
         const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
-           +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
+           +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp)
+           +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same ten measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because ten measures in ten units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp),
           _TONE.samp);
         // THE APPLES-TO-APPLES PAIR, said once where it is chosen: SORTINO across the
         //   bottom against EV IN R up the side. Everything else on this chart can be
         //   flattered by trading bigger or by running longer; those two cannot.
         const _reXAxisBtns=_reCtl('','HORIZONTAL AXIS','what the width of the chart measures. DRAWDOWN is the original question - what a variant cost in pain for what it paid - but it is measured in DOLLARS, so it flatters a row that traded small and punishes one that ran long. The other three are size-blind and window-blind. For a straight comparison across everything, put SORTINO here and EV IN R up the side.',
-            _reBtn('data-resxaxis="dd"','DRAWDOWN',_reXAxis==='dd','the worst peak-to-trough loss, in dollars. Deeper to the right.',_TONE.samp)
-           +_reBtn('data-resxaxis="so"','SORTINO',_reXAxis==='so','annualised return charged for its DOWNSIDE only. Size-blind and frequency-fair, which makes it the best single across-everything measure this board holds.',_TONE.samp)
+            _reBtn('data-resxaxis="so"','SORTINO',_reXAxis==='so','annualised return charged for its DOWNSIDE only. Size-blind and frequency-fair, which makes it the best single across-everything measure this board holds.',_TONE.samp)
            +_reBtn('data-resxaxis="sh"','SHARPE',_reXAxis==='sh','annualised return over its own dispersion. Same idea as Sortino but it charges for upside swings as well, which a trader is not actually hurt by.',_TONE.samp)
            +_reBtn('data-resxaxis="evr"','EV R',_reXAxis==='evr','expectancy in R - the leverage-blind edge per bet.',_TONE.samp)
            +_reBtn('data-resxaxis="pf"','PF',_reXAxis==='pf','profit factor - gross winnings over gross losses.',_TONE.samp)
+           +_reBtn('data-resxaxis="dd"','DRAWDOWN',_reXAxis==='dd','the worst peak-to-trough loss, in dollars. Deeper to the right.',_TONE.samp)
           ,_TONE.samp);
         const _reAxisBtns=_reCtl('','VERTICAL AXIS','what the height of the chart measures',
-            _reBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
+            _reBtn('data-resaxis="evr"','EV R',_reAxis==='evr','plot expectancy in R - the average trade divided by the average LOSING trade. This is the leverage-blind one: a row trading one contract and a row trading ten land on the same number, which dollar expectancy cannot do.',_TONE.samp)
+           +_reBtn('data-resaxis="so"','SORTINO',_reAxis==='so','plot the annualised Sortino - Sharpe with only the DOWNSIDE charged for. A max drawdown is one worst event and this project measured its confidence interval to be wider than the statistic, so Sortino is the sturdier read of the same idea.',_TONE.samp)
+           +_reBtn('data-resaxis="sh"','SHARPE',_reAxis==='sh','plot the annualised Sharpe.',_TONE.samp)
+           +_reBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
            +_reBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
            +_reBtn('data-resaxis="ppt"','EV',_reAxis==='ppt','plot expectancy in DOLLARS - whole-run money per trade. With profit factor it is among the most window-robust readings here, because both are properties of the trade population rather than of the calendar.',_TONE.samp)
-           +_reBtn('data-resaxis="evr"','EV R',_reAxis==='evr','plot expectancy in R - the average trade divided by the average LOSING trade. This is the leverage-blind one: a row trading one contract and a row trading ten land on the same number, which dollar expectancy cannot do.',_TONE.samp)
-           +_reBtn('data-resaxis="sh"','SHARPE',_reAxis==='sh','plot the annualised Sharpe.',_TONE.samp)
-           +_reBtn('data-resaxis="so"','SORTINO',_reAxis==='so','plot the annualised Sortino - Sharpe with only the DOWNSIDE charged for. A max drawdown is one worst event and this project measured its confidence interval to be wider than the statistic, so Sortino is the sturdier read of the same idea.',_TONE.samp),
-          _TONE.samp);
-        // TIME SCOPE and its companion SCOPE DATE. The two are always rendered side by side,
-        //   because the scope means nothing until you know which date it is reading.
-        const _reFailBtns=_reCtl(5,'PLOT FAILURES','whether rows judged a failure are drawn on the chart. They are always in the tables either way - this only decides whether they are plotted. OFF is the default because a few very deep drawdowns were setting the width of the axis for every other row, which flattened everything else into the left edge',
-            _reBtn('data-resfail="1"','ON',_reFailOn,'draw every row, failures included. The axis then has to reach the deepest drawdown on the board',_TONE.samp)
-           +_reBtn('data-resfail="0"','OFF',!_reFailOn,'leave failed rows off the chart so the axis fits the rows that worked. Nothing is deleted - the count and the deepest drawdown left off are named under the chart, and every row keeps its place in the tables',_TONE.samp),_TONE.samp);
+          ,_TONE.samp);
         const _reScopeBtns=_reCtl(6,'RANGE','narrow the whole board to a stretch of time - it applies to the chart and the tables together, and the board always states how many rows it is holding back. It reads whichever of the two dates control 6 names. This used to be two controls, a rolling TIME SCOPE and a list of every distinct discovery date; they asked the same question twice.',
             _reScopeDefs.map(o=>_reBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
               (o[0]==='all')?'no range at all - every row on the board is eligible whatever date it carries'
@@ -22132,13 +22213,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reChartTile=tile(
             '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
-            +(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')+'</span></div>'
+            +(_reRadOn?'RADAR':(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT'))+'</span></div>'
             // the two axis pickers sit ON the chart: they are its own questions, and nothing
             //   else on the page reads them.
-            +(_reParOn?'':('<div style="margin-top:7px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
-               +_reGrid(_reAxisBtns+_reXAxisBtns)+'</div>'))
+            +((_reParOn||_reRadOn)?'':('<div style="margin-top:7px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+               // ONE LINE, SIDE BY SIDE (owner 2026-08-28: "why does vertical axis and
+               //   horizontal axis take up two lines?"). _reGrid gives each control its own
+               //   row because that is what a stacked sidebar wants; these two are a pair and
+               //   belong beside each other.
+               +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
+               +_reAxisBtns+_reXAxisBtns+'</div>'+'</div>'))
             +_reLvlNote
-            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))+'</div>',0);
+            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll))))+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
