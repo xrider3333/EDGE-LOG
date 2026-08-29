@@ -380,6 +380,28 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 import importlib.util as _ilu
                 _sp = os.path.join(ROOT, "augur_strategies", str(job["strategy"]))
                 _spec = _ilu.spec_from_file_location("_pin_chk", _sp); _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+                # v73.350 (owner: "make sure an auto validate never does that again"): the _PINNED
+                #   flag was not enough - ORB_3_6_C2 (run #234) and NOISE_1_1_SBS_V90 (#243) carry no
+                #   such flag, they simply have min == max on every knob, so validate searched ONE
+                #   config and the champion lost its whole param landscape. Refuse on the SPACE now:
+                #   a file whose numeric knobs cannot produce at least two configs is not searchable.
+                _space_n = None
+                try:
+                    _dp = ae.strategy_params(_mod) or {}
+                    _open = [pn for pn, pm in _dp.items()
+                             if isinstance(pm, dict) and pm.get("type", "float") in ("int", "float")
+                             and pm.get("min") is not None and pm.get("max") is not None
+                             and float(pm["max"]) > float(pm["min"])]
+                    _space_n = len(_open)
+                except Exception:
+                    _space_n = None
+                if _space_n == 0 and not job.get("grid"):
+                    raise ValueError(
+                        "NO SEARCH SPACE in %s - every numeric knob has min == max, so Auto-Validate "
+                        "would record ONE config and the report would ship without the config-params "
+                        "parallel coordinates, the PDP finder, the 2E-2G surfaces, knob importance and "
+                        "neighbour robustness. Run it as SINGLE or GATE VALIDATE, or Auto-Validate the "
+                        "parent file with real ranges." % job["strategy"])
                 if getattr(_mod, "_PINNED", False):
                     raise ValueError("PINNED strategy %s - Auto-Validate needs parameter ranges (the 2E-2I surfaces come from the searched population). Run it as SINGLE or GATE VALIDATE, or Auto-Validate the parent file." % job["strategy"])
             except ValueError:

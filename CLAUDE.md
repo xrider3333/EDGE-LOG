@@ -175,7 +175,7 @@ Owner: "dont pin configs on auto validate. those are full surfaces... i hate see
 - Auto-Validate exists to SEARCH a parameter space and save the whole population (2E-2I surfaces, knob importance, neighbours, PBO). A `_PINNED` variant file (every knob min = max) records ONE config -> n_evaluated 1 -> a report with no surfaces. Runs 252-267 (all but 264) are this mistake; the v73.206 "pinned single-config Auto-Validate is the standard way" note is REVOKED.
 - To persist a researched config: run it as SINGLE (or GATE VALIDATE). To validate a variant idea: Auto-Validate the PARENT file with ranges, or give the variant real ranges.
 - Speed is not a reason to pin: the trial cache (#26, AUGUR_TRIAL_CACHE=1) reuses every config already evaluated on the same data, so a re-search of a known region is mostly cache hits.
-- Enforced: BUILDER labels PINNED files and refuses Auto-Validate on them; api/runner.py raises on `_PINNED`; PAST RUNS flags "1-config".
+- Enforced (v73.350): BUILDER labels PINNED files and refuses Auto-Validate on them; `api/runner.py` raises on `_PINNED` AND on a file whose numeric knobs all have `min == max` (the flag alone missed ORB_3_6_C2 / NOISE_1_1_SBS_V90, which is how champions #234 and #243 lost their landscape); PAST RUNS flags "1-config". A `grid` supplied on the job still overrides, so a deliberate custom-grid validate is unaffected.
 
 ## Comparison reruns PIN the data window AND the master (hard rule — owner burned 2026-07-18, twice)
 A rerun meant to be compared against an earlier run MUST use that run's exact

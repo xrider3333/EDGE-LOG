@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.351';
+const VERSION='73.352';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.352',date:'2026-08-23',notes:['2B / 2C are back in the SECTION 2 DISTRIBUTIONS column. Closing the second 1E card (v73.348) had let the third column of section 1 fall back to that stack, which pulled the two charts up out of section 2 - on a validate run the column is simply absent now when the twin is closed.','1E has an ALL tab: every tab this run carries - KPI, RAW, GATE, TILT and the hybrid sizings - stacked in one card under its own caption, so you can read the whole matrix in one scroll instead of clicking seven tabs.']},
 {v:'73.351',date:'2026-08-28',notes:['THE SPLIT BETWEEN THE CHART AND THE TABLES CAN BE GRABBED AGAIN. The drag always worked - what was missing was anything to aim at. The bar is as tall as the whole page (2,783 pixels on the owner screen) and its 64-pixel handle was centred in it, which put the grip about 1,400 pixels down and usually off-screen. The grip is sticky now, so it rides at eye level however far down the page you are, and it is a little wider and lighter.']},
 {v:'73.348',date:'2026-08-23',notes:['The second 1E card is an expander now: it is closed by default and the COMPARE chip on the first card opens it, so the third column goes back to the distributions stack unless you actually want two 1E views at once.','New NUMBERS / RATIOS / BOTH selector next to the 1E view rail - it filters the table rows AND the parallel axes together, so you can read just the unit-free ratios (MAR, PF, SHARPE, SORTINO, WIN %, PBO) or just the dollars and counts.','The KPI parallel view carries every 1E row it can draw - NET $, MAX DD, MAR, SHARPE, SORTINO, PF, WIN %, EV, AVG WIN, AVG LOSS, $ / DAY, TRADES, DAYS and PBO - and the all-configs view no longer drops an axis just because some pools lack it: two configs are enough, and a partial axis is marked with a degree sign.']},
 {v:'73.347',date:'2026-08-28',notes:['HOVERING A CHART LINE NOW LIGHTS ITS TABLE ROW as well, and brings that row into view inside its own scroller - never by scrolling the page, which would move the line out from under the cursor.','THE HIGHLIGHT LETS GO. A mouse-over only fires when the cursor lands ON something, so sliding off a line into empty plot left the last row lit. Every mouse-over that is not on a row now clears it.','THE CONTROL CHIPS ARE THE BOARD OWN NOW. An unselected option is FILLED rather than transparent, so a row reads as a segmented control with one segment lit instead of one chip floating in space; the letter-spacing and padding came in, which is most of the width the row was spending on air.','AND THAT FIXES THE VERDICT CHIPS HANGING BELOW THEIR ROW. Each carries a 10-pixel mark set to display:block, and a block child inside an inline chip opens its own line box - measured 41 pixels tall against 14 for every other chip. The chips are inline-flex at line-height 1 now and the mark is inline.','WHY AUTO VAL LOOKS EMPTY, answered on the board rather than left to be wondered about: only a small share of the rows here were ever persisted as a real run - the level now prints that share against the whole board. It is the state of the research, not a filter and not a drawing bug. Most of what was tried was tried locally and never saved as a run.','AND WHY THE LINES ARE DIFFERENT COLOURS: a line is coloured by its VERDICT and never changes colour along its length - blue champion, green held up, amber fragile, red failed, grey reference, the same five the marks use. What looks like a colour change is two rows crossing. It says so under the chart.']},
@@ -16770,6 +16771,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         ['hyb2','HYBRID &#9851;',_hasH,'the same hybrid, REDEPLOYED: sized up until the column spends the same total contracts as the no-gate book - what the freed capacity buys if you put it back to work.'],
                         ['hyb3','HYBRID &#128201;',_hasH,'the same hybrid at EQUAL DRAWDOWN: sized until the column drawdown matches the no-gate book - the most money for the same pain.']]
                        .filter(function(t){return t[2];});
+        // v73.349 (owner: "make an option on the 1e matrix to combine all the tabs"): ALL stacks
+        //   every tab this run has, in tab order, each under its own caption - one scroll instead
+        //   of seven clicks. Only offered when there are at least two tabs to combine.
+        if(_tabDefs.length>1)_tabDefs.push(['all','ALL',true,'every tab above, stacked in this one card - KPI, RAW, GATE, TILT and the hybrid sizings']);
         const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.<br><br><b>ST (steps)</b> = 3 discrete size buckets - 2x on the most confident trades, 1x in the middle, 0.5x on the doubtful ones.<br><b>SL (sliding)</b> = size scales continuously with confidence, from 0.25x up to 3x.<br><br>Both differ from GATE, which skips trades below a cutoff rather than resizing them. Same ST/SL tag as the §1A funnel chart legend\'s tilt lines.</div>';
         const _gateInfo=('<div style="color:var(--text2)">'+_gVerdictTxt+'DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
@@ -16791,7 +16796,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _mkCfg=function(prefKey,attr,fallback,showScatter){
           let tb=String(APREF[prefKey]||'');
           if(!_tabDefs.some(function(t){return t[0]===tb;}))tb=(_tabDefs.some(function(t){return t[0]===fallback;})?fallback:(_tabDefs.length?_tabDefs[0][0]:'raw'));
-          const isHyb=(tb==='hyb'||tb==='hyb2'||tb==='hyb3'),isK=(tb==='kpi'),isG=(tb==='gate'),isSz=(tb==='tilt'||isHyb);
+          const isAll=(tb==='all');
+          const isHyb=(!isAll&&(tb==='hyb'||tb==='hyb2'||tb==='hyb3')),isK=(!isAll&&tb==='kpi'),isG=(!isAll&&tb==='gate'),isSz=(!isAll&&(tb==='tilt'||isHyb));
           const info=isK?_infoIc('<div style="color:var(--text2)">'+_mtipRef+'</div>')
                    :isG?_infoIc(_gateInfo)
                    :isSz?_infoIc(_szInfo)
@@ -16800,8 +16806,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v73.13 (owner: TILT killed by the pre-registered 0/12 test on causal scores) — a
           //   permanent muted-warning line leads the TILT tab body, every run, any date.
           const _tiltDeadWarn=(tb==='tilt')?'<div style="color:var(--yellow);font-weight:700;margin-bottom:8px">&#9888; TILT is retired: 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10). Shown for reference only - do not adopt.</div>':'';
-          const body=isK?_kpiInner:(isG?_gateCard:(tb==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(isHyb?(((_gvP&&_gvP.hybBy)||{})[_hybOf(tb)]||''):((_selParts&&_selParts.table)||''))));
-          const note=isK?'':isG?''
+          const _bodyOf=function(k){const _isK2=(k==='kpi'),_isG2=(k==='gate'),_isH2=(k==='hyb'||k==='hyb2'||k==='hyb3');
+            return _isK2?_kpiInner:(_isG2?_gateCard:(k==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(_isH2?(((_gvP&&_gvP.hybBy)||{})[_hybOf(k)]||''):((_selParts&&_selParts.table)||''))));};
+          const _capOf=function(k){const t=_tabDefs.filter(function(z){return z[0]===k;})[0];return t?t[1]:k.toUpperCase();};
+          const body=(tb==='all')
+            ?_tabDefs.filter(function(t){return t[0]!=='all';}).map(function(t){const b=_bodyOf(t[0]);
+               return (b&&b.replace(/\s/g,''))?('<div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"><div style="font-size:8px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">'+_capOf(t[0])+'</div>'+b+'</div>'):'';}).join('')
+            :_bodyOf(tb);
+          const note=isAll?'':isK?'':isG?''
                    :(tb==='tilt'?((_gvP&&_gvP.tiltNote)||'')
                    :(isHyb?(((_gvP&&_gvP.hybNoteBy)||{})[_hybOf(tb)]||'')
                    :_nRow((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">'+_selParts.sub+'</span>'):'')));
@@ -17326,7 +17338,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   moved down to §2.
           return '<div data-colskey="s1cols" style="display:flex;gap:2px;align-items:flex-start;flex-wrap:wrap">'+_w(0,'1.7 1 360px')+_panelEquity+_th(0)+'</div>'
             +_sp+_w(1,'1 1 280px')+_panelMatrix+_panelRegime+_th(1)+'</div>'
-            +_sp+_w(2,'1 1 280px')+(_panelMatrixB||_distTile)+_th(2)+'</div></div>';})())
+            // v73.349 (owner: "put the 2b 2c back to where it was"): with the twin closed the third
+            //   column must NOT fall back to the distributions tile on a validate run - that stack
+            //   already lives in the SECTION 2 DISTRIBUTIONS column as 2B / 2C. Only a non-validate
+            //   run (no 1E KPI card at all) still hosts it here, exactly as it did before.
+            +((_panelMatrixB||(_kpiInner?'':_distTile))?(_sp+_w(2,'1 1 280px')+(_panelMatrixB||(_kpiInner?'':_distTile))+_th(2)+'</div>'):'')+'</div>';})())
         +_sec('2','In-sample','the candidate config & how it performed',_sec2)
         // §3 is a fixed slot too (universal layout): show an n/a card when the run swept no config grid.
         +_sec('3','Configuration Analysis',(_s2Verd||'robust params — a cluster, not a lonely spike'),((_sec3&&_sec3.replace(/\s/g,''))?_sec3:('<div style="'+_card2+';margin-bottom:14px">'+_naTile('2A','CONFIG SEARCH','this run type did not sweep a parameter grid — no config landscape, top-configs table or robustness map to show')+'</div>')),_cfgN)
