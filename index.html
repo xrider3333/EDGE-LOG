@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.353';
+const VERSION='73.354';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.354',date:'2026-08-28',notes:['FIX on the new AUTO VAL level: it drew nothing. The run rows were being put through the same test as registry rows, and that test now asks the LEVEL gate first - which on this level correctly says no to every registry row, and was refusing the runs along with them. Only the filter chips apply to a run row.']},
 {v:'73.353',date:'2026-08-28',notes:['AUTO VAL NOW READS PAST RUNS INSTEAD OF THE WRITE-UPS. It used to list study rows that happened to cite a run number, so a real Auto-Validate nobody had documented simply was not there - measured: the registry cites 66 run numbers between 202 and 301, and 34 runs inside that range are cited by no row at all, plus everything below 202. Picking NOISE showed the NOISE runs somebody wrote up rather than the NOISE runs that exist.','It is one row per RUN now, off the same Past Runs list the RUNBOARD reads, so it is complete by construction and cannot go stale. Pick a strategy on the rail and every run of it is on the parallel chart, compared on the same ten axes.','AND RUN ROWS FILL EVERY AXIS. A run records its own date window and its own validate block, so win rate, Sharpe, Sortino and expectancy in R are all there - the four a local sweep still cannot fill. Each row carries its verdict, its window and its run number, and the run number opens the report.']},
 {v:'73.352',date:'2026-08-23',notes:['2B / 2C are back in the SECTION 2 DISTRIBUTIONS column. Closing the second 1E card (v73.348) had let the third column of section 1 fall back to that stack, which pulled the two charts up out of section 2 - on a validate run the column is simply absent now when the twin is closed.','1E has an ALL tab: every tab this run carries - KPI, RAW, GATE, TILT and the hybrid sizings - stacked in one card under its own caption, so you can read the whole matrix in one scroll instead of clicking seven tabs.']},
 {v:'73.351',date:'2026-08-28',notes:['THE SPLIT BETWEEN THE CHART AND THE TABLES CAN BE GRABBED AGAIN. The drag always worked - what was missing was anything to aim at. The bar is as tall as the whole page (2,783 pixels on the owner screen) and its 64-pixel handle was centred in it, which put the grip about 1,400 pixels down and usually off-screen. The grip is sticky now, so it rides at eye level however far down the page you are, and it is a little wider and lighter.']},
@@ -21426,8 +21427,13 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
               _avl:((V&&V.total_avg_loss!=null)?Math.abs(+V.total_avg_loss)*mc:null),
               win:((x.date_from&&x.date_to)?{from:String(x.date_from).slice(0,10),to:String(x.date_to).slice(0,10)}:null),
               why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.'}});});
-          // the STRATEGY rail and the filter chips narrow runs exactly as they narrow rows
-          const keep=RR.filter(function(r){return _rePass({fam:r.fam,key:'runs'},r);});
+          // the STRATEGY rail and the filter chips narrow runs exactly as they narrow rows.
+          //   NOT _rePass: that now asks the LEVEL gate first, and the level gate says no to
+          //   every registry row on this level - which would refuse these too. Only the facet
+          //   filters apply here.
+          const keep=RR.filter(function(r){const st={fam:r.fam,key:'runs',title:'AUTO-VALIDATE RUNS'};
+            return _reFacets.every(function(f){const sel=_reFilt[f.k];
+              return !(sel&&sel.length)||sel.indexOf(f.val(st,r))>=0;});});
           const runSt={key:'runs',title:'AUTO-VALIDATE RUNS',fam:'RUN',isLbl:'IN-SAMPLE',
             sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
                +'A run records its own window and its own validate block, so these rows fill every axis.',
