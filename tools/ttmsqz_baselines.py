@@ -73,8 +73,36 @@ def stats(trades, idx, mult, cost):
         u = x["usd"].values
         cum = np.cumsum(u); dd = float((cum - np.maximum.accumulate(cum)).min())
         gw = u[u > 0].sum(); gl = -u[u < 0].sum()
-        return dict(net=float(u.sum()), pf=float(gw / gl) if gl > 0 else 99.0, dd=-dd, n=int(len(u)),
-                    wr=float(100 * (u > 0).mean()))
+        out = dict(net=float(u.sum()), pf=float(gw / gl) if gl > 0 else 99.0, dd=-dd, n=int(len(u)),
+                   wr=float(100 * (u > 0).mean()))
+        # THE FOUR RISK FIGURES the STUDIES board could never show for a local sweep
+        #   (2026-08-28, owner: "can you backfill this info"). Three TTM drivers call this one
+        #   function, so they all gain them at once. Same arithmetic augur_engine/analytics.py
+        #   gives run_backtest and a validate - population dispersion, downside-only for
+        #   Sortino - so a sweep row and an Auto-Validate row can share an axis honestly.
+        #   `u` is already net of cost and in DOLLARS, so avg_loss comes out in dollars and is
+        #   reported positive, matching what validate has always stored.
+        losses = u[u < 0]
+        if len(losses):
+            al = float(-losses.mean())
+            out["avg_loss"] = al
+            if al > 1e-9:
+                out["evr"] = float(u.mean() / al)
+        wins = u[u > 0]
+        if len(wins):
+            out["avg_win"] = float(wins.mean())
+        try:
+            d = (x["date"].max() - x["date"].min()).days / 365.25
+        except Exception:
+            d = None
+        if d and d > 0 and len(u) >= 3:
+            sd = float(u.std(ddof=0))
+            if sd > 1e-12:
+                out["sharpe"] = float(u.mean() / sd * (len(u) / d) ** 0.5)
+            dn = float((np.minimum(u, 0.0) ** 2).mean() ** 0.5)
+            if dn > 1e-12:
+                out["sortino"] = float(u.mean() / dn * (len(u) / d) ** 0.5)
+        return out
     lb = t[t["date"] >= pd.Timestamp(LB_FROM).date()]
     is_ = t[t["date"] < pd.Timestamp(LB_FROM).date()]
     yr = t.groupby("year")["usd"].sum()
