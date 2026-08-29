@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.365';
+const VERSION='73.366';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.366',date:'2026-08-29',notes:['THE SCREEN NO LONGER JUMPS when you click a strategy on or off. Every re-render rebuilt the page from scratch and threw away where you were scrolled, so toggling a leg near the bottom snapped you back to the top. In-place updates - leg toggles, filters, sorting, opening a panel - now hold your position. Switching tabs still takes you to the top, as it should.','THE CALENDAR HAS A WEEK COLUMN. Each row ends with that week\u2019s total, coloured like the days. Hover it for the trade count, how many days traded and the win rate. A week with no trades stays blank rather than showing a green zero - a week the board never traded is not a flat week.']},
 {v:'73.365',date:'2026-08-28',notes:['The sidebar has its own faint tint, so it reads as a surface rather than as empty page beside the cards. It follows the theme colour, so it lands right on light, dark and monochrome.']},
 {v:'73.364',date:'2026-08-28',notes:['THE DUPLICATE NOISE MARKS, chased down: NO run is listed twice. FIVE GROUPS of NOISE runs record byte-identical figures because the same configuration was validated more than once - 287 and 285, 254 and 242 and 231, 253 and 241, 252 and 243, 251 and 245. Nineteen NOISE runs, about twelve distinct results. They are different runs landing on exactly the same spot, so both marks and both numbers were drawn on top of each other.','Each extra mark at a point is nudged a few pixels now and its number stacked under the last, so every run stays readable and clickable rather than one hiding the other. The figures are not wrong and nothing is being double counted - it is a genuine repeat, and the board now shows it as one.','AND THE RAIL RUNS THE WHOLE PAGE. The divider is only as tall as the row it sits in, and the row is only as tall as its panels - so on a short board it stopped part way down. There is a viewport floor on the row now, so it reaches the bottom of the screen whatever the panels hold.']},
 {v:'73.363',date:'2026-08-28',notes:['THE BLANK CHIP IN THE VERDICT ROW, chased down: ELEVEN rows carry a verdict this board has never had a shape for - ten written as warn (TTM round 5, rows 1056 to 1082) and one with no verdict at all. Each of them drew an EMPTY mark on the chart as well as producing that blank sixth segment. The board has five verdicts and the owner named them, so rather than invent a sixth an unrecognised one is read as FRAGILE, which is what a warning is. The row keeps what it actually recorded, so nothing is lost.','THE MORE / LESS TOGGLE IS GONE and every control is always shown. It existed when the controls were a wide block above the chart and half of them were pushing it off the screen; they are a sidebar now, so hiding half of them only hid them.','THE PARAGRAPH ABOVE THE POOLED TABLE IS GONE - the row count, what the grey study tag means, how to read one study at a time. The count is on the TABLES heading already and the VIEW control is two inches away.']},
@@ -23501,10 +23502,19 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         const months=[...new Set(keys.map(k=>k.slice(0,7)))].sort();
         const atFirst=months.length&&cm<=months[0], atLast=months.length&&cm>=months[months.length-1];
         const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+        // WEEK COLUMN. Build the month as a flat list of SLOTS - leading blanks, the
+        // days, then trailing blanks - so it divides exactly into rows of seven, and
+        // give each row an eighth cell with that week's money. By slot rather than by
+        // date is what keeps a summary aligned with its own row when a month starts or
+        // ends mid-week.
+        const _slots=[];
+        for(let i=0;i<startDow;i++)_slots.push(null);
+        for(let d2=1;d2<=nDays;d2++)_slots.push(d2);
+        while(_slots.length%7)_slots.push(null);
         let cells=['SUN','MON','TUE','WED','THU','FRI','SAT']
-          .map(d=>'<div style="text-align:center;font-size:8px;color:var(--text5);padding:2px 0;letter-spacing:1px">'+d+'</div>').join('');
-        for(let i=0;i<startDow;i++)cells+='<div></div>';
-        for(let day=1;day<=nDays;day++){
+          .map(d=>'<div style="text-align:center;font-size:8px;color:var(--text5);padding:2px 0;letter-spacing:1px">'+d+'</div>').join('')
+          +'<div style="text-align:center;font-size:8px;color:var(--text3);padding:2px 0;letter-spacing:1px;border-left:1px solid var(--border)">WK</div>';
+        const _dayCell=(day)=>{
           const ds=moPfx+'-'+String(day).padStart(2,'0');
           const c=_calPnlByDate[ds];
           const up=c&&c.pnl>=0;
@@ -23518,9 +23528,30 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                  :'1px solid transparent';
           const tip=c?(ds+' \u00b7 '+fmtUsd(c.pnl)+' \u00b7 '+c.n+' trade'+(c.n>1?'s':'')+' \u00b7 '+Math.round(c.w/c.n*100)+'% won \u2014 click to select them below')
                     :(ds+' \u00b7 no paper trades');
-          cells+='<div'+(c?' data-pcalday="'+ds+'"':'')+' title="'+tip+'" style="text-align:center;padding:3px 2px;background:'+bg+';border:'+bd+';border-radius:4px;min-height:38px;display:flex;flex-direction:column;justify-content:center;'+(c?'cursor:pointer':'')+'">'
+          return '<div'+(c?' data-pcalday="'+ds+'"':'')+' title="'+tip+'" style="text-align:center;padding:3px 2px;background:'+bg+';border:'+bd+';border-radius:4px;min-height:38px;display:flex;flex-direction:column;justify-content:center;'+(c?'cursor:pointer':'')+'">'
             +'<div style="font-family:\'Bebas Neue\',monospace;font-size:11px;color:'+(isToday?'var(--yellow)':c?dc:'var(--text5)')+'">'+day+'</div>'
             +(c?'<div style="font-family:\'Bebas Neue\',monospace;font-size:10px;margin-top:1px;color:'+dc+'">'+fmtUsd(Math.round(c.pnl))+'</div>':'')
+            +'</div>';
+        };
+        for(let w=0;w<_slots.length;w+=7){
+          const wk=_slots.slice(w,w+7);
+          let wPnl=0,wN=0,wW=0,wD=0;
+          wk.forEach(day=>{
+            if(day==null){cells+='<div></div>';return;}
+            const ds2=moPfx+'-'+String(day).padStart(2,'0');
+            const c2=_calPnlByDate[ds2];
+            if(c2){wPnl+=c2.pnl;wN+=c2.n;wW+=c2.w;wD++;}
+            cells+=_dayCell(day);
+          });
+          // A week the board never traded stays EMPTY rather than printing a green $0
+          // - no trades is not a flat week.
+          if(!wD){cells+='<div style="border-left:1px solid var(--border)"></div>';continue;}
+          const wc=wPnl>=0?PNL_POS:PNL_NEG;
+          const wtip=wN+' trade'+(wN===1?'':'s')+' over '+wD+' day'+(wD===1?'':'s')
+            +' \u00b7 '+Math.round(wW/wN*100)+'% won \u00b7 week total '+fmtUsd(Math.round(wPnl));
+          cells+='<div title="'+wtip+'" style="text-align:center;padding:3px 2px;min-height:38px;display:flex;flex-direction:column;justify-content:center;border-left:1px solid var(--border);border-radius:4px;background:color-mix(in srgb,'+wc+' 10%,transparent)">'
+            +'<div style="font-size:8px;color:var(--text5);letter-spacing:.5px">WK</div>'
+            +'<div style="font-family:\'Bebas Neue\',monospace;font-size:11px;margin-top:1px;color:'+wc+'">'+fmtUsd(Math.round(wPnl))+'</div>'
             +'</div>';
         }
         const nav=(dir,lbl,dis)=>'<span'+(dis?'':' data-pcalmo="'+dir+'"')+' style="'+(dis?'opacity:.25;':'cursor:pointer;')
@@ -23530,7 +23561,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           +nav('-1','\u25c0',atFirst)+nav('1','\u25b6',atLast)
           +'<span style="margin-left:auto;font-size:9px;color:'+(moPnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(Math.round(moPnl))
           +'<span style="color:var(--text5)"> \u00b7 '+moN+' trade'+(moN===1?'':'s')+(moN?' \u00b7 '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
-          +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">'+cells+'</div>'
+          +'<div style="display:grid;grid-template-columns:repeat(7,1fr) 1.15fr;gap:2px">'+cells+'</div>'
           +'<div style="margin-top:7px;font-size:8px;color:var(--text5)">Each square is one day of paper trading, coloured by that day\u2019s money. It follows the same strategies the curve shows. Click a day to select its trades in the table below.</div>';
       })();
       const curveHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
@@ -26901,7 +26932,16 @@ function _setWire(pane){
 
 // A settings control that calls renderApp() (theme, add a setup, save a balance…) must also
 // refresh the modal, otherwise the pane behind the overlay shows the pre-edit state.
-(function(){const _raw=renderApp;renderApp=function(){const r=_raw.apply(this,arguments);
+(function(){const _raw=renderApp;renderApp=function(){
+  const _tabB=activeTab, _subB=(typeof augurSub!=='undefined'?augurSub:null);
+  const _sy=window.scrollY||document.documentElement.scrollTop||0;
+  const r=_raw.apply(this,arguments);
+  // Same view as before => an in-place update, so keep the reader where they were.
+  // A genuine tab / sub-tab change still lands at the top.
+  if(_sy>0&&_tabB===activeTab&&_subB===(typeof augurSub!=='undefined'?augurSub:null)){
+    try{window.scrollTo(0,_sy);}catch(_e1){}
+    try{requestAnimationFrame(function(){try{window.scrollTo(0,_sy);}catch(_e2){}});}catch(_e3){}
+  }
   try{if(!window._setBuilding&&document.getElementById('set-overlay'))openSettings();}catch(e){}
   return r;};window.renderApp=renderApp;})();
 
