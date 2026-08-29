@@ -1165,6 +1165,33 @@ class FirestoreQueue:
                     continue
                 # On-demand Webull pull (the "Sync Webull now" button) — force=True bypasses
                 # the once-per-NY-day gate so the user can see today's trades immediately.
+                # The weekend switch (owner 2026-08-29: "i just want a button on el to
+                # turn it off dawg"). Arms or parks the scheduled task that relaunches
+                # NinjaTrader and re-enables the roster. Handled here rather than in
+                # lib_commands because that module is file-ops only.
+                if action == "nt_watchdog":
+                    from api import nt_watchdog
+                    pl = doc.get("payload") or {}
+                    try:
+                        if "enable" in pl:
+                            res = nt_watchdog.set_enabled(bool(pl.get("enable")))
+                        else:
+                            res = nt_watchdog.state()
+                    except Exception as e:
+                        res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": pack_command_result(res),
+                                "finishedAt": time.time()})
+                    # Republish the bridge snapshot so the button's own state line
+                    # updates immediately instead of waiting out the 5-minute cycle.
+                    try:
+                        from api import nt_bridge_pub
+                        nt_bridge_pub.publish(self.db, uid)
+                    except Exception:
+                        pass
+                    log(f"  nt_watchdog -> {res.get('state')} (ok={res.get('ok')})")
+                    n += 1
+                    continue
                 if action == "sync_webull":
                     if self.webull_keys:
                         from api import webull_sync

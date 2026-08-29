@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.358';
+const VERSION='73.359';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.359',date:'2026-08-29',notes:['AUTO-RECOVER now has a button, on the NINJATRADER card in both paper tabs. It switches off the scheduled job on your PC that restarts NinjaTrader, logs it in, reconnects the Simulation account and re-enables the strategies. Useful on a weekday morning, pointless on a Saturday when the only thing it can do is reconnect a platform nobody is trading.','IT SHOWS THE PC’S REAL STATE, not what you last clicked - the status arrives in the same snapshot the NinjaTrader card already reads, so a change made on the machine itself shows up here too. If it cannot read the PC it says UNKNOWN rather than a confident OFF.','TURNING IT OFF DOES NOT STOP NINJATRADER. Anything already running keeps running and any enabled strategy keeps trading. All that stops is the automatic repair - so if NinjaTrader does die while it is off, nothing puts it back until you switch it on again. The button says so before it does anything.']},
 {v:'73.358',date:'2026-08-28',notes:['Two controls in the new sidebar wore the same number as their neighbour - AXIS shared 4 with STRATEGY, and VERTICAL AXIS and the run picker both shared 3 with LEVEL. The sidebar puts every control in a fixed vertical order now, so those three simply lost their ordinal rather than renumber ten controls whose numbers the help text cites by name.','A run row on AUTO VAL printed its family ordinal as well as its run number - #252 - 12 - NOISE. The run number is the identity there, so the family ordinal is dropped: it reads #252 - NOISE.']},
 {v:'73.356',date:'2026-08-28',notes:['THE STUDIES BOARD IS THREE COLUMNS NOW: a LOCKED SIDEBAR holding every control, then the TABLES, then the CHART. The controls used to sit inside the chart tile, so scrolling down to read a table scrolled the settings off the screen; the sidebar stays put while both panels scroll past it.','The drag bar still governs the split, and it now divides the TABLES from the CHART rather than the chart from the tables. Double-click puts it back to half.','HOW TO READ and MORE moved to the top of the sidebar, beside the CONTROLS heading, so every setting is in one place.']},
 {v:'73.355',date:'2026-08-28',notes:['CONTROL ORDER, as the owner reads it: which drawing, then which stretch of history, then which grade of evidence, then which strategy - each answer narrowing the one before it. Renumbered to match.','THE STRATEGY RAIL COUNTS WHAT THE LEVEL ACTUALLY HOLDS. On AUTO VAL the rows are runs, so the rail now counts runs - it was offering NOISE 130 when there are a dozen NOISE runs to compare. Every other level counts registry rows as before.']},
@@ -23905,11 +23906,33 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             +'<span class="lbl" style="font-size:9px;color:var(--text3)">ML GATE</span>'
             +'<span>'+txt+'</span></div>';
         }
+        // AUTO-RECOVER SWITCH (owner 2026-08-29: "i just want a button on el to turn it
+        // off dawg"). The scheduled task behind this relaunches NinjaTrader, logs it in,
+        // dials the Simulation connection and re-enables the roster on a repeating
+        // trigger. Right on a weekday morning; pointless on a Saturday, when the only
+        // thing it can achieve is reconnecting a platform nobody is trading.
+        //
+        // It reads its state from the PC (the bridge snapshot carries it) rather than
+        // remembering what was last clicked, so a change made in PowerShell shows up here
+        // too. When the state cannot be read it says UNKNOWN and refuses to pretend --
+        // showing a confident OFF would invite a click that silently does nothing.
+        const _WD=(B&&B.watchdog)||null;
+        const _wdOn=_WD?_WD.enabled:null;
+        const _wdBusy=(window._wdBusy===true);
+        const _wdCol=(_wdOn===null)?'var(--text5)':(_wdOn?PNL_POS:'#e0a33a');
+        const _wdTxt=_wdBusy?'…':((_wdOn===null)?'AUTO-RECOVER ?':(_wdOn?'AUTO-RECOVER ON':'AUTO-RECOVER OFF'));
+        const _wdTip=(_wdOn===null)
+          ? ('Cannot read the recover watchdog on the PC'+((_WD&&_WD.error)?(' - '+_WD.error):'')+'. Nothing was changed.')
+          : (_wdOn
+             ? 'ON: if NinjaTrader dies, the PC restarts it, logs in, reconnects the Simulation account and re-enables the strategies. Click to switch OFF for the weekend - already-running strategies keep running, only the automatic repair stops.'
+             : 'OFF: nothing will restart NinjaTrader if it dies. Anything already running keeps running. Click to switch back ON before the session opens.');
+        const _wdBtn=(_wdOn===null&&!_WD)?'':('<span data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="margin-left:auto;cursor:'+(_wdBusy?'wait':'pointer')+';user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;color:'+_wdCol+';border:1px solid '+_wdCol+';border-radius:999px;padding:1px 8px;opacity:'+(_wdBusy?'.55':'1')+'">'+_wdTxt+'</span>');
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
           +'<span style="font-size:9px;color:var(--text5)">'+statusTxt+(B&&B.version?' · v'+B.version:'')+'</span>'
-          +'<span data-ntdetail style="margin-left:auto;cursor:pointer;user-select:none;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(window._paperNtDetail?'hide detail':'detail')+'</span></div>'
+          +_wdBtn
+          +'<span data-ntdetail style="cursor:pointer;user-select:none;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(window._paperNtDetail?'hide detail':'detail')+'</span></div>'
           +alertBanner
           +(window._paperNtDetail?(body+liveInner+mcpSection):_ntOneLine)
           +_gateLine);
@@ -25722,6 +25745,34 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
+      // AUTO-RECOVER toggle. Queues an nt_watchdog command for the runner, which flips the
+      // scheduled task on the PC and republishes the bridge snapshot, so the pill settles
+      // on the machine's real state rather than on what we optimistically drew.
+      content.querySelectorAll('[data-wdtoggle]').forEach(el=>{el.onclick=async()=>{
+        if(window._wdBusy)return;
+        const want=(el.getAttribute('data-wdtoggle')==='on');
+        if(!want&&!confirm('Turn the NinjaTrader auto-recover OFF? Nothing will restart NinjaTrader if it stops. Anything already running keeps running. Turn it back on before the session opens.'))return;
+        if(!cmdRef){alert('not signed in - cannot reach the runner');return;}
+        window._wdBusy=true;renderApp();
+        try{
+          const ref=await cmdRef.add({action:'nt_watchdog',payload:{enable:want},status:'queued',
+            createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+          const t0=Date.now();
+          const unsub=ref.onSnapshot(d=>{
+            const x=d.data()||{};
+            if(x.status!=='done'&&x.status!=='error')return;
+            unsub();window._wdBusy=false;
+            const r=x.result||{};
+            if(!r.ok)alert('auto-recover switch failed: '+(r.error||x.error||'unknown'));
+            loadPaper(null,true);renderApp();
+          });
+          // The runner polls; if it is down or busy nothing ever answers, and a pill stuck
+          // on '…' forever reads as a hung app rather than an unreachable PC.
+          setTimeout(()=>{if(window._wdBusy){window._wdBusy=false;
+            alert('No answer from the PC after 60s - the runner may be down. Nothing was changed.');
+            renderApp();}},60000);
+        }catch(e){window._wdBusy=false;alert('could not queue the switch: '+e.message);renderApp();}
+      };});
       // PAPER ✦ collapsible reference panels. State lives on window and persists, so a
       // panel you opened stays open while you work.
       content.querySelectorAll('[data-p2card]').forEach(el=>{el.onclick=()=>{

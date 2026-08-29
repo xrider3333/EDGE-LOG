@@ -164,6 +164,16 @@ def publish(db, uid):
     except Exception as e:
         print(f"[nt-bridge] snapshot failed: {type(e).__name__}: {e}")
         return
+    # The recover watchdog's armed/parked state rides along in the same doc the web
+    # already reads for NinjaTrader status, so the button can show the truth from the PC
+    # instead of remembering what it last clicked. Never fatal: a snapshot that reaches
+    # the owner without this field is still worth publishing.
+    try:
+        from api import nt_watchdog
+        rep["watchdog"] = nt_watchdog.state()
+    except Exception as e:
+        rep["watchdog"] = {"ok": False, "enabled": None, "state": "unknown",
+                           "error": f"{type(e).__name__}: {e}"}
     try:
         db.collection("users").document(uid).collection("meta").document(
             "nt_bridge").set(rep)
