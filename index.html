@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.357';
+const VERSION='73.358';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.358',date:'2026-08-28',notes:['Two controls in the new sidebar wore the same number as their neighbour - AXIS shared 4 with STRATEGY, and VERTICAL AXIS and the run picker both shared 3 with LEVEL. The sidebar puts every control in a fixed vertical order now, so those three simply lost their ordinal rather than renumber ten controls whose numbers the help text cites by name.','A run row on AUTO VAL printed its family ordinal as well as its run number - #252 - 12 - NOISE. The run number is the identity there, so the family ordinal is dropped: it reads #252 - NOISE.']},
 {v:'73.356',date:'2026-08-28',notes:['THE STUDIES BOARD IS THREE COLUMNS NOW: a LOCKED SIDEBAR holding every control, then the TABLES, then the CHART. The controls used to sit inside the chart tile, so scrolling down to read a table scrolled the settings off the screen; the sidebar stays put while both panels scroll past it.','The drag bar still governs the split, and it now divides the TABLES from the CHART rather than the chart from the tables. Double-click puts it back to half.','HOW TO READ and MORE moved to the top of the sidebar, beside the CONTROLS heading, so every setting is in one place.']},
 {v:'73.355',date:'2026-08-28',notes:['CONTROL ORDER, as the owner reads it: which drawing, then which stretch of history, then which grade of evidence, then which strategy - each answer narrowing the one before it. Renumbered to match.','THE STRATEGY RAIL COUNTS WHAT THE LEVEL ACTUALLY HOLDS. On AUTO VAL the rows are runs, so the rail now counts runs - it was offering NOISE 130 when there are a dozen NOISE runs to compare. Every other level counts registry rows as before.']},
 {v:'73.354',date:'2026-08-28',notes:['FIX on the new AUTO VAL level: it drew nothing. The run rows were being put through the same test as registry rows, and that test now asks the LEVEL gate first - which on this level correctly says no to every registry row, and was refusing the runs along with them. Only the filter chips apply to a run row.']},
@@ -21415,7 +21416,10 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
                      :((+x.best_trades||0)+((wf&&wf.tr)||0)+((lb&&lb.tr)||0))||null;
             const vd=String((V&&V.verdict)||'').toUpperCase();
             const tone=x.starred?'champ':(/PASS/.test(vd)?'good':(/FAIL/.test(vd)?'fail':'ref'));
-            const lbl=(typeof _labOf==='function')?_labOf(x):String(x.strategy||'');
+            // _labOf prefixes the family ORDINAL ('12 - NOISE'), which read as a second
+            //   number beside the run number. The run number is the identity here, so drop it.
+            const lbl=String(((typeof _labOf==='function')?_labOf(x):(x.strategy||''))||'')
+              .replace(/^\s*\d+\s*·\s*/,'');
             RR.push({n:+x.id,name:'#'+x.id+' \u00b7 '+String(lbl||x.strategy||'').replace(/\.py$/,''),
               fam:(_canonFam(x.strategy)||'UNTAGGED'),tone:tone,
               read:(vd?vd.slice(0,22):'no verdict recorded'),
@@ -21791,7 +21795,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         //    hides a NUMBER and neither changes what is measured - what they hide is explanation,
         //    and every sentence they hide is also on the hover of the short thing it explains.
         const _reMore=!!APREF.resMore, _reHelp=!!APREF.resHelp;
-        const _reReadBtns=_reCtl(4,'AXIS','what the two axes measure. ABSOLUTE is each variant own figures, with the champion of its family marked by the dashed crosshair. CHAMPION re-centres both axes on that champion, so it lands on the crossing and every other point reads as the money and the drawdown it added against it. It changes the CHART only - the tables always print the absolute figures',
+        const _reReadBtns=_reCtl('','AXIS','what the two axes measure. ABSOLUTE is each variant own figures, with the champion of its family marked by the dashed crosshair. CHAMPION re-centres both axes on that champion, so it lands on the crossing and every other point reads as the money and the drawdown it added against it. It changes the CHART only - the tables always print the absolute figures',
             _reBtn('data-resrel="abs"','ABSOLUTE',!_reRel,'plot each variant own profit and own worst drawdown, exactly as its row records them. The dashed crosshair marks where the champion of the family sits, so you can still read everything against it at a glance',_TONE.rank)
            +_reBtn('data-resrel="crown"','CHAMPION',_reRel,'plot the DIFFERENCE from the champion of each row own family, which puts the champion itself on the crossing. A point up and to the left made more money for a smaller drawdown than the champion did; down and to the right is the opposite. A family with no declared champion cannot be placed and its rows are named under the chart rather than guessed at',_TONE.rank),_TONE.rank);
         // THE BASELINE RAIL only appears under VS CROWN, and only says something when there is
@@ -21821,7 +21825,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
           ,_TONE.rank);
         // WHICH RUN the CONFIGS level reads. Only rendered on that level - on every other
         //   level there is no run to pick, and an inert control is worse than no control.
-        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl(3,'RUN','which Auto-Validate run the configurations are read out of. The full run document is fetched on demand, so the first pick of a run shows LOADING for a moment; after that it is instant.',
+        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl('','RUN','which Auto-Validate run the configurations are read out of. The full run document is fetched on demand, so the first pick of a run shows LOADING for a moment; after that it is instant.',
           '<select data-recfgrun style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
           +_reCfgPick.map(function(r){return '<option value="'+_reEsc(String(r.id))+'"'+((String(r.id)===_reCfgRunId)?' selected':'')+'>#'+_reEsc(String(r.id))+' \u00b7 '+_reEsc(String(r.strategy||'').replace(/\.py$/,''))+'</option>';}).join('')
           +'</select>',_TONE.rank);
@@ -21829,7 +21833,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
             _reBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp),
           _TONE.samp);
-        const _reAxisBtns=_reCtl(3,'VERTICAL AXIS','what the height of the chart measures',
+        const _reAxisBtns=_reCtl('','VERTICAL AXIS','what the height of the chart measures',
             _reBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
            +_reBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
