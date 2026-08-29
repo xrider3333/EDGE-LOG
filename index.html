@@ -21050,9 +21050,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reFamOf=(st,r)=>String((r&&r.fam)||(st&&st.fam)||'UNTAGGED');
         // the horizontal caption follows the reading: under VS CROWN the axis is no longer a
         //   drawdown, it is the difference between two drawdowns, and it has to say so.
-        const _reXCapNow=()=>_reRel
-          ?'Worst drawdown AGAINST THE CHAMPION \u2014 further LEFT is a smaller drawdown than the champion took'
-          :_reXCap;
+        // The caption and the tick format follow the HORIZONTAL AXIS pick, not just the
+        //   reading. Owner-reported 2026-08-28: picking SORTINO plotted Sortino correctly but
+        //   left the axis captioned 'worst drawdown' with its ticks formatted as money, so
+        //   every tick read $0k. Only drawdown is money, and only drawdown is better LEFT.
+        const _reXCapNow=()=>{
+          if(_reXAxis!=='dd')return (_reXNm[_reXAxis]||'')+' \u2014 further RIGHT is better';
+          return _reRel
+            ?'Worst drawdown AGAINST THE CHAMPION \u2014 further LEFT is a smaller drawdown than the champion took'
+            :_reXCap;};
         // Row numbers are printed beside their marks only while the chart stays legible. Past
         //   this many points the labels overlap into a smear, so they drop to the hover instead
         //   and the line under the chart says so. THE POINTS THEMSELVES NEVER DROP.
@@ -21351,7 +21357,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   the hover says which of the two it is quoting so they can never be confused.
           const grank={};
           pts.slice().sort((a,b)=>b.y-a.y).forEach((p,i)=>{grank[p.st.key+':'+p.r.n]=i+1;});
-          const yf=_reYfmt(),xf=_reAxFmt(_reXF,null);
+          const yf=_reYfmt(),xf=(_reXAxis==='dd')?_reAxFmt(_reXF,null):'num';
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
           const showN=(pts.length<=_reLblMax);
           let g='';
@@ -22033,6 +22039,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
            +_reBtn('data-resaxis="ppt"','EV',_reAxis==='ppt','plot expectancy in DOLLARS - whole-run money per trade. With profit factor it is among the most window-robust readings here, because both are properties of the trade population rather than of the calendar.',_TONE.samp)
           ,_TONE.samp);
+        const _reFailBtns=_reCtl(5,'PLOT FAILURES','whether rows judged a failure are drawn on the chart. They are always in the tables either way - this only decides whether they are plotted. OFF is the default because a few very deep drawdowns were setting the width of the axis for every other row, which flattened everything else into the left edge',
+            _reBtn('data-resfail="1"','ON',_reFailOn,'draw every row, failures included. The axis then has to reach the deepest drawdown on the board',_TONE.samp)
+           +_reBtn('data-resfail="0"','OFF',!_reFailOn,'leave failed rows off the chart so the axis fits the rows that worked. Nothing is deleted - the count and the deepest drawdown left off are named under the chart, and every row keeps its place in the tables',_TONE.samp),_TONE.samp);
         const _reScopeBtns=_reCtl(6,'RANGE','narrow the whole board to a stretch of time - it applies to the chart and the tables together, and the board always states how many rows it is holding back. It reads whichever of the two dates control 6 names. This used to be two controls, a rolling TIME SCOPE and a list of every distinct discovery date; they asked the same question twice.',
             _reScopeDefs.map(o=>_reBtn('data-resscope="'+o[0]+'"',o[1],_reScope===o[0],
               (o[0]==='all')?'no range at all - every row on the board is eligible whatever date it carries'
