@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.367';
+const VERSION='73.368';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.368',date:'2026-08-28',notes:['The Y numbers are back on the left. They moved right for one version and the owner moved them back - correctly: the best rows sit toward the TOP RIGHT, so a scale over there sits on top of the answer.','THE TWO AXIS PICKERS SIT ON THE SCATTER ITSELF now, not in the sidebar. They are the chart own questions and nothing else on the page reads them.','AND THE BOARD OPENS ON THE COMPARABLE PAIR: Sortino across the bottom, EV in R up the side. It used to open on dollars, which do not survive different instruments, sizes or windows.']},
 {v:'73.367',date:'2026-08-28',notes:['BOTH SCATTER AXES ARE YOURS NOW. A new HORIZONTAL AXIS control: DRAWDOWN, SORTINO, SHARPE, EV R or PF. Drawdown answers the original question well, but it is dollars - so it flatters a row that traded small and punishes one that ran long.','THE APPLES-TO-APPLES PAIR IS SORTINO ACROSS THE BOTTOM AGAINST EV IN R UP THE SIDE. EV in R is the edge on each bet with size and instrument divided out; Sortino is what a year of those bets delivered after the downside is charged for. Neither can be flattered by trading bigger or by running longer. It says so on the control.','VERTICAL AXIS gained EV R, SHARPE and SORTINO, and the old dollars-per-trade option is named EV, which is what it always was.','The Y numbers moved to the right - the side a price scale lives on.','LEVEL now leads the sidebar: which grade of evidence first, then which drawing, then which stretch of history, then which strategy.']},
 {v:'73.366',date:'2026-08-29',notes:['THE SCREEN NO LONGER JUMPS when you click a strategy on or off. Every re-render rebuilt the page from scratch and threw away where you were scrolled, so toggling a leg near the bottom snapped you back to the top. In-place updates - leg toggles, filters, sorting, opening a panel - now hold your position. Switching tabs still takes you to the top, as it should.','THE CALENDAR HAS A WEEK COLUMN. Each row ends with that week\u2019s total, coloured like the days. Hover it for the trade count, how many days traded and the win rate. A week with no trades stays blank rather than showing a green zero - a week the board never traded is not a flat week.']},
 {v:'73.365',date:'2026-08-28',notes:['The sidebar has its own faint tint, so it reads as a surface rather than as empty page beside the cards. It follows the theme colour, so it lands right on light, dark and monochrome.']},
@@ -20352,7 +20353,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   a PRE-LOCKBOX row has no separate walk-forward because its first column already holds
         //   the tuning years pooled - but it changes what the sum covers, so it is always said.
         const _reSegMiss=rw=>_reSegsEff.filter(sg=>_reNum(rw,sg)==null);
-        const _reAxis=(['ratio','ppt','pf','evr','sh','so'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'raw';
+        const _reAxis=(['raw','ratio','ppt','pf','evr','sh','so'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'evr';
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -21024,7 +21025,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    side: EV in R is the edge on each bet with size and instrument divided out,
         //    Sortino is what a year of those bets delivered after the downside is charged
         //    for. Neither can be flattered by trading bigger or by running longer.
-        const _reXAxis=(['dd','sh','so','evr','pf'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'dd';
+        // DEFAULTS ARE THE COMPARABLE PAIR (owner 2026-08-28): Sortino across, EV in R up. The
+        //   board opens on the reading that survives different instruments, sizes and windows,
+        //   rather than on dollars, which do not.
+        const _reXAxis=(['dd','sh','so','evr','pf'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so';
         const _reXv=(st,rw)=>{
           if(_reXAxis==='sh')return _reShOf(st,rw);
           if(_reXAxis==='so')return _reSoOf(st,rw);
@@ -21283,8 +21287,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const yv=ye[0]+(ye[1]-ye[0])*i/4,yy=B-(B-T)*i/4;
               _ticks+='<line x1="'+(L-5)+'" y1="'+yy.toFixed(1)+'" x2="'+L+'" y2="'+yy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
-                // Y NUMBERS ON THE RIGHT (owner 2026-08-28), the side a price scale lives on.
-                +'<text x="'+(R+9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="start">'+_reTick(yv,yf)+'</text>';
+                // Y NUMBERS ON THE LEFT. They moved right for one version; the owner moved
+                //   them back, and he is right: the best rows sit toward the TOP RIGHT, so a
+                //   scale over there sits on top of the answer.
+                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="end">'+_reTick(yv,yf)+'</text>';
               const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
               _ticks+='<line x1="'+xx.toFixed(1)+'" y1="'+B+'" x2="'+xx.toFixed(1)+'" y2="'+(B+5)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
@@ -22115,7 +22121,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // CONTROL ORDER, owner 2026-08-28: which drawing, then which stretch of history,
             //   then which grade of evidence, then which strategy - each answer narrowing
             //   the one before it.
-            +_reGrid(_reLvlBtns+_reCfgSel+_reChartBtns+_reStageBtns+_reFamRail+(_reParOn?'':(_reXAxisBtns+_reAxisBtns))+_reReadBtns)
+            +_reGrid(_reLvlBtns+_reCfgSel+_reChartBtns+_reStageBtns+_reFamRail+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
@@ -22127,6 +22133,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
             +(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')+'</span></div>'
+            // the two axis pickers sit ON the chart: they are its own questions, and nothing
+            //   else on the page reads them.
+            +(_reParOn?'':('<div style="margin-top:7px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+               +_reGrid(_reAxisBtns+_reXAxisBtns)+'</div>'))
             +_reLvlNote
             +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
