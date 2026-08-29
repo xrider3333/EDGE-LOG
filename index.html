@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.352';
+const VERSION='73.353';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.353',date:'2026-08-28',notes:['AUTO VAL NOW READS PAST RUNS INSTEAD OF THE WRITE-UPS. It used to list study rows that happened to cite a run number, so a real Auto-Validate nobody had documented simply was not there - measured: the registry cites 66 run numbers between 202 and 301, and 34 runs inside that range are cited by no row at all, plus everything below 202. Picking NOISE showed the NOISE runs somebody wrote up rather than the NOISE runs that exist.','It is one row per RUN now, off the same Past Runs list the RUNBOARD reads, so it is complete by construction and cannot go stale. Pick a strategy on the rail and every run of it is on the parallel chart, compared on the same ten axes.','AND RUN ROWS FILL EVERY AXIS. A run records its own date window and its own validate block, so win rate, Sharpe, Sortino and expectancy in R are all there - the four a local sweep still cannot fill. Each row carries its verdict, its window and its run number, and the run number opens the report.']},
 {v:'73.352',date:'2026-08-23',notes:['2B / 2C are back in the SECTION 2 DISTRIBUTIONS column. Closing the second 1E card (v73.348) had let the third column of section 1 fall back to that stack, which pulled the two charts up out of section 2 - on a validate run the column is simply absent now when the twin is closed.','1E has an ALL tab: every tab this run carries - KPI, RAW, GATE, TILT and the hybrid sizings - stacked in one card under its own caption, so you can read the whole matrix in one scroll instead of clicking seven tabs.']},
 {v:'73.351',date:'2026-08-28',notes:['THE SPLIT BETWEEN THE CHART AND THE TABLES CAN BE GRABBED AGAIN. The drag always worked - what was missing was anything to aim at. The bar is as tall as the whole page (2,783 pixels on the owner screen) and its 64-pixel handle was centred in it, which put the grip about 1,400 pixels down and usually off-screen. The grip is sticky now, so it rides at eye level however far down the page you are, and it is a little wider and lighter.']},
 {v:'73.348',date:'2026-08-23',notes:['The second 1E card is an expander now: it is closed by default and the COMPARE chip on the first card opens it, so the third column goes back to the distributions stack unless you actually want two 1E views at once.','New NUMBERS / RATIOS / BOTH selector next to the 1E view rail - it filters the table rows AND the parallel axes together, so you can read just the unit-free ratios (MAR, PF, SHARPE, SORTINO, WIN %, PBO) or just the dollars and counts.','The KPI parallel view carries every 1E row it can draw - NET $, MAX DD, MAR, SHARPE, SORTINO, PF, WIN %, EV, AVG WIN, AVG LOSS, $ / DAY, TRADES, DAYS and PBO - and the all-configs view no longer drops an axis just because some pools lack it: two configs are enough, and a partial axis is marked with a degree sign.']},
@@ -20724,7 +20725,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reLvlPass=(st,r)=>{
           if(_reLvl==='all')return true;
           if(_reLvl==='sweep')return !_reIsEL(r);
-          if(_reLvl==='valid')return _reIsEL(r);
+          if(_reLvl==='valid')return false;   // AUTO VAL draws RUNS, not registry rows
           if(_reLvl==='crown')return String(r&&r.tone)==='champ';
           return false;};   // CONFIGS draws no registry row - its rows come off one run
         // ── WIN % and SHARPE (owner ask 2026-08-27) ──────────────────────
@@ -21376,6 +21377,65 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         _rePrep.forEach(p=>p.rows.forEach(r=>{if(_reBasCan(p.st,r,_reComAll))_reBasOk++;else _reBasNo.push(r.n);}));
         const _reItems=[];
         _rePrep.forEach(p=>p.rows.forEach(r=>_reItems.push({st:p.st,r:r})));
+        // ── AUTO VAL READS PAST RUNS, NOT THE REGISTRY (owner 2026-08-28: "this is the
+        //    compare tab, we are comparing things... i want to compare noise in a parallel
+        //    coordinate chart"). ─────────────────────────────────────────────────────────
+        //    It used to list registry ROWS that happened to cite a run number, which meant
+        //    a real Auto-Validate nobody had written up simply was not there. Measured on
+        //    2026-08-28: the registry cites 66 run numbers between #202 and #301 and 34
+        //    runs inside that range are cited by no row at all, plus everything below #202.
+        //    Picking NOISE therefore showed the NOISE runs somebody documented rather than
+        //    the NOISE runs that exist - which is not what the level is for.
+        //
+        //    Now it builds one row per RUN, straight off the same Past Runs list the
+        //    RUNBOARD reads, so it is complete by construction and cannot go stale. And
+        //    because a run records its own date window and its own validate block, a run
+        //    row fills ALL TEN axes - including the four the sweeps still cannot.
+        if(_reLvl==='valid'){
+          const RR=[];
+          // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
+          //   gross loss from its net and its PF, sum the grosses. A true pooled figure,
+          //   never an average of ratios.
+          const poolPF=items=>{let gw=0,gl=0;items.forEach(f=>{const pf=+f.pf||0,net=+f.net||0;
+              if(pf>0&&isFinite(pf)&&Math.abs(pf-1)>1e-4){const g=Math.abs(net/(pf-1));gw+=pf*g;gl+=g;}});
+            return gl>0?gw/gl:null;};
+          rs.forEach(function(x){
+            const V=x.validate||null,mc=_mcOf(x);
+            const wf=_wfA(x),lb=_lbA(x),t=_totA(x);
+            const tot=t?t.net:(+x.best_pnl_usd||null);
+            if(tot==null||!isFinite(tot))return;
+            const dd=(V&&V.total_dd!=null)?Math.abs(+V.total_dd)*mc:Math.abs(+x.best_dd_usd||0);
+            const pf=poolPF([{net:(t?t.is:(+x.best_pnl_usd||0)),pf:+x.best_pf||0},
+                             {net:(wf?wf.net:0),pf:(wf&&wf.pfm!=null)?wf.pfm:0},
+                             {net:(lb?lb.net:0),pf:(lb?lb.pf:0)}]);
+            const trd=(V&&V.total_trades!=null)?+V.total_trades
+                     :((+x.best_trades||0)+((wf&&wf.tr)||0)+((lb&&lb.tr)||0))||null;
+            const vd=String((V&&V.verdict)||'').toUpperCase();
+            const tone=x.starred?'champ':(/PASS/.test(vd)?'good':(/FAIL/.test(vd)?'fail':'ref'));
+            const lbl=(typeof _labOf==='function')?_labOf(x):String(x.strategy||'');
+            RR.push({n:+x.id,name:'#'+x.id+' \u00b7 '+String(lbl||x.strategy||'').replace(/\.py$/,''),
+              fam:(_canonFam(x.strategy)||'UNTAGGED'),tone:tone,
+              read:(vd?vd.slice(0,22):'no verdict recorded'),
+              what:'Auto-Validate run #'+x.id+' on '+String(x.instrument||'')+' '+String(x.timeframe||'')+'.',
+              runs:[+x.id],
+              is:(t?t.is:(+x.best_pnl_usd||null)),wf:(wf?wf.net:null),lb:(lb?lb.net:null),tot:tot,
+              dd:(dd||null),pf:pf,trd:trd,
+              _wr:((V&&V.total_win_rate!=null)?+V.total_win_rate:null),
+              _sh:((V&&V.total_sharpe!=null)?+V.total_sharpe:null),
+              _so:((V&&V.total_sortino!=null)?+V.total_sortino:null),
+              _avl:((V&&V.total_avg_loss!=null)?Math.abs(+V.total_avg_loss)*mc:null),
+              win:((x.date_from&&x.date_to)?{from:String(x.date_from).slice(0,10),to:String(x.date_to).slice(0,10)}:null),
+              why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.'}});});
+          // the STRATEGY rail and the filter chips narrow runs exactly as they narrow rows
+          const keep=RR.filter(function(r){return _rePass({fam:r.fam,key:'runs'},r);});
+          const runSt={key:'runs',title:'AUTO-VALIDATE RUNS',fam:'RUN',isLbl:'IN-SAMPLE',
+            sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
+               +'A run records its own window and its own validate block, so these rows fill every axis.',
+            dashWhy:{},rows:keep};
+          keep.forEach(function(r){_reItems.push({st:runSt,r:r});});
+          if(keep.length){_rePrep.push({st:runSt,all:RR,kept:keep,rows:keep,filtOut:RR.length-keep.length,outSc:[]});
+            _reShown+=keep.length;}
+        }
         // -- LEVEL 3: THE CONFIGS INSIDE ONE AUTO-VALIDATE RUN (owner ask 2026-08-27) -----
         //    Everything above this line is registry data. These rows are not: they are read
         //    live out of one run document - its RAW candidates, its GATE candidates, its TILT
@@ -21897,7 +21957,7 @@ const x0=_reNum(o.r,_reXF),y0=_reYv(o.st,o.r,com);
         const _reLvlTx={
           all:'LEVEL: ALL - every stage of the pipeline at once. A sweep and a validated run are on the same axes here, so read the line style before the ranking: <b style="color:var(--text4)">solid</b> is a real Auto-Validate run and <b style="color:var(--text4)">dashed</b> is a local .py sweep that was never persisted, never walk-forwarded and never shown a lockbox.',
           sweep:'LEVEL: SWEEPS - stage 1 only ('+_reLvlCnt.py+' of the '+_reLvlCnt.all+' rows on this board). These are local .py theory tests. <b style="color:var(--text4)">Nothing here has survived anything</b> - no walk-forward, no lockbox, no run number. They are ideas with numbers on them, and they are on the board because a dead end is worth being able to see. WIN % and SHARPE are blank at this level because my sweeps have never printed either one.',
-          valid:'LEVEL: AUTO VAL - stage 2 only. <b style=\"color:var(--text4)\">Only '+_reLvlCnt.el+' of the '+_reLvlCnt.all+' rows on this board were ever persisted as a real run</b>, so this level is SMALL by nature - that is the state of the research, not a filter. Most of what was tried was tried locally and never saved as a run. Every row is a real EDGELOG run split into in-sample, walk-forward and lockbox, so these figures have been tested on years the search never saw. <b style="color:var(--text4)">WIN % and SHARPE are read live off each run document</b>, which is the only place either has ever been recorded.',
+          valid:'LEVEL: AUTO VAL - <b style=\"color:var(--text4)\">one row per Auto-Validate run in Past Runs</b>, not a registry write-up. Pick a strategy on the rail and every run of it is on the chart, compared on the same ten axes. A run records its own date window and its own validate block, so these rows fill EVERY axis - including the four a local sweep still cannot. This is the level where a figure has actually been tested on years the search never saw.',
           cfg:'LEVEL: CONFIGS OF ONE RUN - stage 3. These are the RAW, GATE, TILT and HYBRID candidates inside a single run. Two things make them a different animal from every board row: they are scored on the <b style="color:var(--text4)">optimize window only</b>, so no lockbox has judged any of them, and they are the <b style="color:var(--text4)">best of hundreds</b> the search tried, so the leader is flattered by the picking itself. Read them as candidates, never as survivors, and never against a board row.',
           crown:'LEVEL: CROWN - stage 4 ('+_reLvlCnt.ch+' rows). One row per family: its standing champion. This is the shortlist that decides what goes to paper, so it is the only level where a straight ranking is the question being asked.',
           _x:0};
