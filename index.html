@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.370';
+const VERSION='73.371';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.371',date:'2026-08-28',notes:['CROWN READS PAST RUNS NOW, like AUTO VAL. It listed registry rows tagged as champion, so a crowned run nobody had written up was absent, and a stale write-up outlived the crown it described. It is one row per CROWNED RUN, off the same Past Runs list, so it cannot go stale.','WHAT MAKES A RUN CROWNED IS YOUR OWN MARK, never a computed maximum. Two marks count: a starred run, and a run cited by a studies row you tagged as the champion of its family. A family with neither is simply absent - naming the biggest number would be inventing a crown nobody awarded, which is the one thing this level must not do.','Crowned rows fill every axis, like every other run row, and the strategy rail counts runs on this level too.']},
 {v:'73.370',date:'2026-08-28',notes:['THE RADAR IS CAPPED AT TWELVE ROWS, and that is a fix rather than a limit. It draws a FILLED shape per row; at the ALL level that is a thousand semi-transparent ten-sided polygons stacked on each other, and compositing them froze the tab outright. It draws the strongest by NET and says how many it left off, instead of pretending to draw everything and delivering a locked page. Narrow the strategy or the level to see different ones.']},
 {v:'73.369',date:'2026-08-28',notes:['RADAR, the third drawing. The same ten measures as the parallel chart, drawn as a closed loop. Read a radar for SHAPE - whether two rows are the same KIND of thing - and the parallel chart for VALUES.','ITS HONEST COST, said on the chart: ten measures in ten units cannot share one radius, so every spoke is scaled to the ROWS ON SCREEN - lowest near the middle, highest on the rim. A position there is relative, and changing the filter changes the shape. The figures are on the hover; the parallel chart prints them on its axes. A row that records fewer than three measures makes no shape and is counted underneath rather than faked.','THE RECOMMENDED MEASURE LEADS EACH AXIS LIST now - EV in R up the side, Sortino across the bottom.','VERTICAL AXIS and HORIZONTAL AXIS sit on one line instead of two.']},
 {v:'73.368',date:'2026-08-28',notes:['The Y numbers are back on the left. They moved right for one version and the owner moved them back - correctly: the best rows sit toward the TOP RIGHT, so a scale over there sits on top of the answer.','THE TWO AXIS PICKERS SIT ON THE SCATTER ITSELF now, not in the sidebar. They are the chart own questions and nothing else on the page reads them.','AND THE BOARD OPENS ON THE COMPARABLE PAIR: Sortino across the bottom, EV in R up the side. It used to open on dollars, which do not survive different instruments, sizes or windows.']},
@@ -20762,7 +20763,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reLvl==='all')return true;
           if(_reLvl==='sweep')return !_reIsEL(r);
           if(_reLvl==='valid')return false;   // AUTO VAL draws RUNS, not registry rows
-          if(_reLvl==='crown')return String(r&&r.tone)==='champ';
+          if(_reLvl==='crown')return false;   // CROWN draws RUNS, not registry rows
           return false;};   // CONFIGS draws no registry row - its rows come off one run
         // ── WIN % and SHARPE (owner ask 2026-08-27) ──────────────────────
         //    Neither figure has ever been written on a registry row, so the parallel chart used
@@ -21588,7 +21589,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    RUNBOARD reads, so it is complete by construction and cannot go stale. And
         //    because a run records its own date window and its own validate block, a run
         //    row fills ALL TEN axes - including the four the sweeps still cannot.
-        if(_reLvl==='valid'){
+        // CROWN IS RUN-BACKED TOO (owner ask 2026-08-28). It used to list registry rows
+        //   tagged as champion, so a crowned run nobody had written up was absent and a stale
+        //   write-up outlived the crown. Both run levels build the same rows from Past Runs;
+        //   CROWN then keeps only the ones the OWNER has crowned.
+        if(_reLvl==='valid'||_reLvl==='crown'){
           const RR=[];
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
           //   gross loss from its net and its PF, sum the grosses. A true pooled figure,
@@ -21626,6 +21631,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               _avl:((V&&V.total_avg_loss!=null)?Math.abs(+V.total_avg_loss)*mc:null),
               win:((x.date_from&&x.date_to)?{from:String(x.date_from).slice(0,10),to:String(x.date_to).slice(0,10)}:null),
               why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.'}});});
+          // WHAT MAKES A RUN CROWNED is the owner's own mark, never a computed maximum.
+          //   Two marks count: a STARRED run, and a run cited by a studies row tagged as the
+          //   champion of its family. A family with neither is simply absent - naming the
+          //   biggest number would be inventing a crown nobody awarded, which is the one
+          //   thing this level must not do.
+          if(_reLvl==='crown'){
+            const crowned={};
+            RESEARCH_STUDIES.forEach(function(st){(st.rows||[]).forEach(function(r){
+              if(String(r.tone)==='champ')(r.runs||[]).forEach(function(id){crowned[String(id)]=1;});});});
+            for(let i2=RR.length-1;i2>=0;i2--){const x=RR[i2];
+              const doc=_reRunDoc(x)||{};
+              if(!(doc.starred||crowned[String(x.n)]))RR.splice(i2,1);else x.tone='champ';}
+          }
           // the STRATEGY rail and the filter chips narrow runs exactly as they narrow rows.
           //   NOT _rePass: that now asks the LEVEL gate first, and the level gate says no to
           //   every registry row on this level - which would refuse these too. Only the facet
@@ -21633,7 +21651,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const keep=RR.filter(function(r){const st={fam:r.fam,key:'runs',title:'AUTO-VALIDATE RUNS'};
             return _reFacets.every(function(f){const sel=_reFilt[f.k];
               return !(sel&&sel.length)||sel.indexOf(f.val(st,r))>=0;});});
-          const runSt={key:'runs',title:'AUTO-VALIDATE RUNS',fam:'RUN',isLbl:'IN-SAMPLE',
+          const runSt={key:'runs',title:(_reLvl==='crown'?'CROWNED RUNS':'AUTO-VALIDATE RUNS'),fam:'RUN',isLbl:'IN-SAMPLE',
             sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
                +'A run records its own window and its own validate block, so these rows fill every axis.',
             dashWhy:{},rows:keep};
@@ -22097,7 +22115,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   when there are a dozen NOISE runs to compare. Every other level counts registry
         //   rows as it always did.
         const _reFamCnt={};
-        if(_reLvl==='valid'){rs.forEach(x=>{const f=_canonFam(x.strategy)||'UNTAGGED';
+        if(_reLvl==='valid'||_reLvl==='crown'){rs.forEach(x=>{const f=_canonFam(x.strategy)||'UNTAGGED';
           _reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
         else RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
         // one family ticked names itself; several name themselves together; none reads as ALL.
@@ -22192,7 +22210,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           sweep:'LEVEL: SWEEPS - stage 1 only ('+_reLvlCnt.py+' of the '+_reLvlCnt.all+' rows on this board). These are local .py theory tests. <b style="color:var(--text4)">Nothing here has survived anything</b> - no walk-forward, no lockbox, no run number. They are ideas with numbers on them, and they are on the board because a dead end is worth being able to see. WIN % and SHARPE are blank at this level because my sweeps have never printed either one.',
           valid:'LEVEL: AUTO VAL - <b style=\"color:var(--text4)\">one row per Auto-Validate run in Past Runs</b>, not a registry write-up. Pick a strategy on the rail and every run of it is on the chart, compared on the same ten axes. A run records its own date window and its own validate block, so these rows fill EVERY axis - including the four a local sweep still cannot. This is the level where a figure has actually been tested on years the search never saw.',
           cfg:'LEVEL: CONFIGS OF ONE RUN - stage 3. These are the RAW, GATE, TILT and HYBRID candidates inside a single run. Two things make them a different animal from every board row: they are scored on the <b style="color:var(--text4)">optimize window only</b>, so no lockbox has judged any of them, and they are the <b style="color:var(--text4)">best of hundreds</b> the search tried, so the leader is flattered by the picking itself. Read them as candidates, never as survivors, and never against a board row.',
-          crown:'LEVEL: CROWN - stage 4 ('+_reLvlCnt.ch+' rows). One row per family: its standing champion. This is the shortlist that decides what goes to paper, so it is the only level where a straight ranking is the question being asked.',
+          crown:'LEVEL: CROWN - stage 4. <b style=\"color:var(--text4)\">One row per CROWNED RUN</b>, read straight off Past Runs the way AUTO VAL is. A run is crowned because YOU marked it: it is starred, or a studies row you tagged as the champion of its family cites it. Never because it holds the biggest number - naming a winner nobody awarded is the one thing this level must not do - so a family with neither mark is simply absent. This is the shortlist that decides what goes to paper.',
           _x:0};
         // ONE LINE, THE REST BEHIND THE ICON (owner 2026-08-28: "whats with the novels?").
         //   Every level still explains itself in full - it has to, because the whole point
