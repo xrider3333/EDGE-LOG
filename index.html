@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.371';
+const VERSION='73.372';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.372',date:'2026-08-28',notes:['TTM HAD NO FAMILY RULE, so every TTM Squeeze run read UNTAGGED and the strategy rail counted TTM as zero while three crowned TTM runs sat on the chart. It has one now.','AND THE RAIL COUNTS WHAT THE LEVEL ACTUALLY BUILT - crowned runs on CROWN, every run on AUTO VAL - instead of counting every run either way.']},
 {v:'73.371',date:'2026-08-28',notes:['CROWN READS PAST RUNS NOW, like AUTO VAL. It listed registry rows tagged as champion, so a crowned run nobody had written up was absent, and a stale write-up outlived the crown it described. It is one row per CROWNED RUN, off the same Past Runs list, so it cannot go stale.','WHAT MAKES A RUN CROWNED IS YOUR OWN MARK, never a computed maximum. Two marks count: a starred run, and a run cited by a studies row you tagged as the champion of its family. A family with neither is simply absent - naming the biggest number would be inventing a crown nobody awarded, which is the one thing this level must not do.','Crowned rows fill every axis, like every other run row, and the strategy rail counts runs on this level too.']},
 {v:'73.370',date:'2026-08-28',notes:['THE RADAR IS CAPPED AT TWELVE ROWS, and that is a fix rather than a limit. It draws a FILLED shape per row; at the ALL level that is a thousand semi-transparent ten-sided polygons stacked on each other, and compositing them froze the tab outright. It draws the strongest by NET and says how many it left off, instead of pretending to draw everything and delivering a locked page. Narrow the strategy or the level to see different ones.']},
 {v:'73.369',date:'2026-08-28',notes:['RADAR, the third drawing. The same ten measures as the parallel chart, drawn as a closed loop. Read a radar for SHAPE - whether two rows are the same KIND of thing - and the parallel chart for VALUES.','ITS HONEST COST, said on the chart: ten measures in ten units cannot share one radius, so every spoke is scaled to the ROWS ON SCREEN - lowest near the middle, highest on the rim. A position there is relative, and changing the filter changes the shape. The figures are on the hover; the parallel chart prints them on its axes. A row that records fewer than three measures makes no shape and is counted underneath rather than faked.','THE RECOMMENDED MEASURE LEADS EACH AXIS LIST now - EV in R up the side, Sortino across the bottom.','VERTICAL AXIS and HORIZONTAL AXIS sit on one line instead of two.']},
@@ -10294,7 +10295,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
     // Family keyword, searched ANYWHERE in the string (legacy run names often led with
     // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
-    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE']];
+    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM']];
     const _famKey=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');for(const fr of _FAMRE)if(fr[0].test(x))return fr[1];return '';};
     // ── FAMILY IDENTITY (owner 2026-07-11): a stable FAMILY number (birth order of the family,
     //    NOT the per-file creation rowid that scattered ORB across #18/#19/#20/None) + a fixed
@@ -21593,6 +21594,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   tagged as champion, so a crowned run nobody had written up was absent and a stale
         //   write-up outlived the crown. Both run levels build the same rows from Past Runs;
         //   CROWN then keeps only the ones the OWNER has crowned.
+        const _reRunFam={};
         if(_reLvl==='valid'||_reLvl==='crown'){
           const RR=[];
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
@@ -21655,6 +21657,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
                +'A run records its own window and its own validate block, so these rows fill every axis.',
             dashWhy:{},rows:keep};
+          // the rail counts what this level built - crowned runs on CROWN, every run on
+          //   AUTO VAL - rather than every run either way.
+          RR.forEach(function(r){_reRunFam[r.fam]=(_reRunFam[r.fam]||0)+1;});
           keep.forEach(function(r){_reItems.push({st:runSt,r:r});});
           if(keep.length){_rePrep.push({st:runSt,all:RR,kept:keep,rows:keep,filtOut:RR.length-keep.length,outSc:[]});
             _reShown+=keep.length;}
@@ -22115,8 +22120,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   when there are a dozen NOISE runs to compare. Every other level counts registry
         //   rows as it always did.
         const _reFamCnt={};
-        if(_reLvl==='valid'||_reLvl==='crown'){rs.forEach(x=>{const f=_canonFam(x.strategy)||'UNTAGGED';
-          _reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
+        if(_reLvl==='valid'||_reLvl==='crown'){Object.keys(_reRunFam).forEach(function(f){_reFamCnt[f]=_reRunFam[f];});}
         else RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
         // one family ticked names itself; several name themselves together; none reads as ALL.
         const _reFamPick=(_reFilt.fam||[]).slice();
