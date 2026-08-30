@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.369';
+const VERSION='73.370';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.370',date:'2026-08-28',notes:['THE RADAR IS CAPPED AT TWELVE ROWS, and that is a fix rather than a limit. It draws a FILLED shape per row; at the ALL level that is a thousand semi-transparent ten-sided polygons stacked on each other, and compositing them froze the tab outright. It draws the strongest by NET and says how many it left off, instead of pretending to draw everything and delivering a locked page. Narrow the strategy or the level to see different ones.']},
 {v:'73.369',date:'2026-08-28',notes:['RADAR, the third drawing. The same ten measures as the parallel chart, drawn as a closed loop. Read a radar for SHAPE - whether two rows are the same KIND of thing - and the parallel chart for VALUES.','ITS HONEST COST, said on the chart: ten measures in ten units cannot share one radius, so every spoke is scaled to the ROWS ON SCREEN - lowest near the middle, highest on the rim. A position there is relative, and changing the filter changes the shape. The figures are on the hover; the parallel chart prints them on its axes. A row that records fewer than three measures makes no shape and is counted underneath rather than faked.','THE RECOMMENDED MEASURE LEADS EACH AXIS LIST now - EV in R up the side, Sortino across the bottom.','VERTICAL AXIS and HORIZONTAL AXIS sit on one line instead of two.']},
 {v:'73.368',date:'2026-08-28',notes:['The Y numbers are back on the left. They moved right for one version and the owner moved them back - correctly: the best rows sit toward the TOP RIGHT, so a scale over there sits on top of the answer.','THE TWO AXIS PICKERS SIT ON THE SCATTER ITSELF now, not in the sidebar. They are the chart own questions and nothing else on the page reads them.','AND THE BOARD OPENS ON THE COMPARABLE PAIR: Sortino across the bottom, EV in R up the side. It used to open on dollars, which do not survive different instruments, sizes or windows.']},
 {v:'73.367',date:'2026-08-28',notes:['BOTH SCATTER AXES ARE YOURS NOW. A new HORIZONTAL AXIS control: DRAWDOWN, SORTINO, SHARPE, EV R or PF. Drawdown answers the original question well, but it is dollars - so it flatters a row that traded small and punishes one that ran long.','THE APPLES-TO-APPLES PAIR IS SORTINO ACROSS THE BOTTOM AGAINST EV IN R UP THE SIDE. EV in R is the edge on each bet with size and instrument divided out; Sortino is what a year of those bets delivered after the downside is charged for. Neither can be flattered by trading bigger or by running longer. It says so on the control.','VERTICAL AXIS gained EV R, SHARPE and SORTINO, and the old dollars-per-trade option is named EV, which is what it always was.','The Y numbers moved to the right - the side a price scale lives on.','LEVEL now leads the sidebar: which grade of evidence first, then which drawing, then which stretch of history, then which strategy.']},
@@ -21174,6 +21175,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
             if(vals.filter(function(v){return v!=null&&isFinite(v);}).length<3){skip.push(o);return;}
             rows.push({o:o,st:o.st,r:o.r,v:vals,
               src:(o.r._cfg?'cfg':((Array.isArray(o.r.runs)&&o.r.runs.length)?'el':'py'))});});
+          // A HARD CAP, and it is not cosmetic. A radar draws a FILLED polygon per row; at
+          //   the ALL level that is a thousand semi-transparent ten-sided shapes stacked on
+          //   each other, and compositing them froze the tab outright (measured 2026-08-28 -
+          //   the page stopped answering at all). It is also unreadable long before that: the
+          //   note under this chart already said a radar wants fewer than about eight rows.
+          //   So it draws the strongest few and SAYS how many it left off, rather than
+          //   pretending to draw everything and delivering a locked page.
+          const RAD_CAP=12;
+          let capped=0;
+          if(rows.length>RAD_CAP){
+            // strongest first on the LAST axis, which is the outcome the others produced
+            rows.sort(function(a2,b2){const la=a2.v[AX.length-1],lb=b2.v[AX.length-1];
+              return ((lb==null||!isFinite(lb))?-Infinity:lb)-((la==null||!isFinite(la))?-Infinity:la);});
+            capped=rows.length-RAD_CAP;rows.length=RAD_CAP;}
           const CH=_reChH();
           if(!rows.length)return '<div style="padding:26px;text-align:center;color:var(--text5);font-size:11px">No row on screen records three or more of these measures.</div>';
           const cx=500,cy=CH/2,R=Math.max(70,Math.min(CH/2-46,210));
@@ -21225,7 +21240,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
             +'<b style="color:var(--text4)">Every spoke is scaled to the rows on screen</b> - lowest near the middle, highest on the rim - because ten measures in ten units cannot share one radius. So a position here is RELATIVE: change the filter and the same row changes shape. The figures themselves are on the hover, and the PARALLEL chart prints them on its axes. Read a radar for SHAPE - whether two rows are the same kind of thing - and the parallel chart for VALUES. '
             +rows.length+' row'+((rows.length===1)?'':'s')+' drawn'
-            +((rows.length>8)?(' - a radar is easiest to read under about eight, so hover one to isolate it'):'')
+            +(capped?(', the strongest by NET of '+(rows.length+capped)+' - a radar draws a filled shape per row and a thousand of them stacked will lock the page, so the other '+capped+' are left off rather than drawn badly. Narrow the strategy or the level to see different ones'):'')
+            +((rows.length>8&&!capped)?(' - a radar is easiest to read under about eight, so hover one to isolate it'):'')
             +(skip.length?('. '+skip.length+' row'+((skip.length===1)?'':'s')+' record fewer than three of these measures and cannot make a shape.'):'.')
             +'</div>';
           return '<div class="repar-wrap" style="overflow-x:auto">'
