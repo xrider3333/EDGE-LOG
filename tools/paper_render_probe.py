@@ -160,6 +160,16 @@ var CASES=__CASES__, FIX=__FIX__;
                             +' cells against '+th.length+' headings');
               break;}}
         }
+        // PAPER plus sidebar: the legacy LEGS panel lives in a sticky left column.
+        // Counting it here so a future refactor cannot silently drop the panel while
+        // the tab still renders - which is exactly how it was missing in the first
+        // place, and no gate noticed.
+        r.sideBar=d.querySelectorAll('[data-p2side]').length;
+        r.legsInSide=0;
+        try{var _lr=d.querySelector('tr[data-paperleg]');
+            var _sb=d.querySelector('[data-p2side]');
+            if(_lr&&_sb&&_sb.parentElement&&_sb.parentElement.firstElementChild)
+              r.legsInSide=_sb.parentElement.firstElementChild.contains(_lr)?1:0;}catch(_e){}
         r.sortable=d.querySelectorAll('[data-lsort]').length;
         r.colsCtl=d.querySelectorAll('[data-papercols]').length;
         // ---- the TRADES table
@@ -336,6 +346,12 @@ def main():
             fails.append('%s: no sortable LEGS headers rendered' % nm)
         if not r.get('colsCtl'):
             fails.append('%s: the COLUMNS control did not render' % nm)
+        if nm.startswith('paper2'):
+            if not r.get('sideBar'):
+                fails.append('%s: PAPER plus lost its strategy sidebar' % nm)
+            elif not r.get('legsInSide'):
+                fails.append('%s: the LEGS panel is no longer inside the sidebar '
+                             'column' % nm)
         # ARCHIVED LEGS MUST NOT LEAK unless SHOW ARCHIVED asked for them
         def _is(lbl, pool):
             return any(lbl.startswith(x) for x in pool)

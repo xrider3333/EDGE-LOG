@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.376';
+const VERSION='73.377';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.377',date:'2026-08-29',notes:['THE PAPER PLUS SIDEBAR NOW HOLDS THE STRATEGY TABLE ITSELF, not just the leg buttons. The previous version moved the wrong block: the table lives inside the chart tile, so the sidebar came up with only the pill rail in it while the table stayed down beside the chart. The chart tile is now split, and the original PAPER tab is unchanged - the strip still sits under the chart there.','The render gate now fails if the sidebar is missing OR if the strategy rows are not inside it. That check is what caught this: the tab rendered perfectly well with the wrong content in the column, and every existing gate passed.']},
 {v:'73.376',date:'2026-08-29',notes:['PAPER PLUS NOW CARRIES THE LEGACY STRATEGY PANEL, and it lives in a SIDEBAR. The LEGS panel - TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and the strategy table - was the one part of the old PAPER tab that never came across. It is now a sticky left column, so what you have selected stays on screen while the chart, calendar, trades and panels scroll past it.','DRAG THE DIVIDER to set how wide it is; double-click it to reset. The width is remembered, and clamped on load so a width saved on a big monitor cannot squeeze the board on a laptop. Under about 1080 pixels wide it stacks instead, exactly as the old tab laid out.']},
 {v:'73.375',date:'2026-08-28',notes:['STUDIES LEADS THE COMPARE RAIL now - it is the view that answers what has been tried, so it is the one to land on.','AND RANKINGS IS ONE OF THE VIEWS. It sat on its own top-level tab even though it is a comparison like the other four. The same rail now appears on it, so clicking any other view takes you straight back into COMPARE on that mode, and clicking RANKINGS from COMPARE goes the other way. Five views of one thing.']},
 {v:'73.374',date:'2026-08-28',notes:['LATTICE, the fourth drawing: every measure against every other in small panes. It answers the one question the other three cannot - WHICH OF THESE MEASURES ARE SAYING THE SAME THING. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging a strategy on.','FIVE MEASURES, NOT TEN: Sharpe, Sortino, MAR, EV in R and profit factor. Ten would be a hundred panes at forty pixels each, which is a texture rather than a chart. All five are scale-free, so every pane is a fair comparison whatever the instrument, size or window.','Capped at 250 rows, strongest by MAR, with the number left off said out loud - twenty-five panes of every row would be tens of thousands of dots. Same rule the radar learned the hard way.']},
@@ -23873,6 +23874,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'</div>'
         +'<div style="height:1px;background:var(--border2);margin:12px 0 10px"></div>'
         +legStrip);
+      // PAPER plus puts the strategy strip in its sidebar instead of under the chart,
+      // so it needs the same tile WITHOUT the strip. Built from the same pieces rather
+      // than a second copy, so the two layouts cannot drift apart.
+      const curveHtmlNoLegs=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
+        +(_legOff.length?(' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_nShown+' of '+LEGS_VIS.length+' legs included</span>'):'')
+        +'</div>'
+        +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div style="flex:2 1 420px;min-width:300px">'+_curveSvg(_allDates,_curveSeries)+'</div>'
+        +'<div style="flex:1 1 300px;min-width:270px;max-width:430px">'+_calHtml+'</div>'
+        +'</div>');
+      const legsCard=tile(legStrip);
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
       // below). Every read here is defensive: old reports simply lack `live` and roll up to zero.
@@ -24915,7 +24927,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // strategy table. Sticky, so the selection stays readable while everything
         // else scrolls; scrollable in itself, because the table in ALL-columns mode is
         // taller and wider than a viewport.
-        const _p2Main=_p2Status+dataHtml+curveHtml+tradesHtml
+        const _p2Main=_p2Status+dataHtml+curveHtmlNoLegs+tradesHtml
           +_p2Card('nt','NINJATRADER · DETAIL',bridgeHtml,'live state, fills, orders')
           +_p2Card('recon','CROSS-ENGINE · DO THEY AGREE?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
           +_p2Card('gate','DID THE GATE DO ITS JOB?',gateAuditInner,_gaSub)
@@ -24930,11 +24942,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // panel simply sits on top - the legacy tab's own layout.
         const _p2Narrow=(window.innerWidth||1400)<1080;
         if(_p2Narrow){
-          body=_p2Head+headerHtml+_p2Main;
+          body=_p2Head+headerHtml+legsCard+_p2Main;
         }else{
           body=_p2Head
             +'<div style="display:grid;grid-template-columns:'+_p2W+'px 7px minmax(0,1fr);align-items:start">'
-              +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+headerHtml+'</div>'
+              +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+headerHtml+legsCard+'</div>'
               +'<div data-p2side title="Drag to set how wide the strategy panel is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:center;justify-content:center">'
                 +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
               +'<div style="min-width:0">'+_p2Main+'</div>'
