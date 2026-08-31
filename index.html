@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.385';
+const VERSION='73.386';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.386',date:'2026-08-30',notes:['1E has a third view: SCATTER, on the same rail as TABLE and PARALLEL. It plots the SAME measures the parallel view uses - two pickers choose which goes across and which goes up, defaulting to MAX DD against NET $ - so the three views can never disagree, and the NUMBERS / RATIOS / BOTH selector filters the axis choices too.','On the KPI tab one point is a phase (IS / WF / LB / TOTAL); on a candidate tab one point is a config, coloured by family with the crowned one ringed in gold. Unlike the parallel view nothing is inverted - each axis runs in its natural direction and its caption says which end is good.']},
 {v:'73.385',date:'2026-08-30',notes:['A run that validated ONE configuration now says which sibling run does carry the param curves, the PDP finder and the surfaces - it names the same-family run that searched a real population instead of just showing N/A. (A one-config run cannot draw them: there is no population to draw them from.)','The TABLE / PARALLEL switch leads the 1E control row now instead of trailing the tab strip.']},
 {v:'73.384',date:'2026-08-28',notes:['THE CONFIGS LEVEL NOW CARRIES ALL SIX 1E FAMILIES, not four: RAW, GATE, TILT and the THREE hybrid sizings - one lot, redeploy and equal drawdown. A hybrid record is one configuration measured three ways, and the two sized-up views were missing.','THE SIZING FACTOR IS THE RUN OWN, the same arithmetic the 1E matrix uses: REDEPLOY spends the same total contracts as the no-gate book, EQUAL DD sizes until the worst drawdown matches it. Money scales; PF, WIN percent and EV in R are scale-free and do NOT move, which is exactly why they are the axes worth reading. Where the ungated twin is missing the factor is one and the column repeats the one-lot column rather than inventing a number.']},
 {v:'73.383',date:'2026-08-30',notes:['The 1A funnel no longer picks its TILT and HYBRID line by LOCKBOX recovery factor. It now uses the same ticked SAMPLE slices and RANK rule as the 1E table - default pre-lockbox (IS+WF) ranked by NET $ with an 80% MAR floor - so the two panels cannot disagree and nothing is selected on the held-out year.','Measured before changing it across runs 234 / 243 / 302 / 303: the old lockbox rule disagreed with this one on 6 of 8 pools and picked xgb 4 times out of 5 - the model with the weakest walk-forward-to-lockbox relationship (on run 243 xgb reads lockbox MAR 0.09 against walk-forward MAR 11.57). The lockbox is now confirmation only.']},
@@ -13761,6 +13762,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
+      if(String(APREF.mtxView||'')==='scatter'){
+        const rows=P.map(x=>({get:a=>a.get(x),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,
+          tip:'<b>'+String(x.pool||'')+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+(x.crowned?' &#128081;':'')}));
+        return _mtxScatFromAxes(A,rows,'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span><span>'+_mtxLegend(allPts)+'</span><span style="color:#f5c542">gold ring = crowned</span>');}
       // best NET $ per pool draws on top of its family, so each pool best line stays findable in the bundle
       const bestOf={};P.forEach((x,i)=>{const k=String(x.pool||'');if(!(k in bestOf)||+x.pnl>+P[bestOf[k]].pnl)bestOf[k]=i;});
       const topIdx={};Object.keys(bestOf).forEach(k=>{topIdx[bestOf[k]]=1;});
@@ -13798,6 +13803,59 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
     const _mtxColsKeep=lbl=>{const m=_mtxColsMode();return m==='both'||(m==='ratio')===_isRatioLbl(lbl);};
     const _mtxColsRail=()=>_distViewRail('mtxCols',_mtxColsMode(),[['num','NUMBERS'],['ratio','RATIOS'],['both','BOTH']]);
+    // ── 1E SCATTER (owner 2026-08-30: "make scatter plot. put it here.") ────────────────────
+    //    A third view on the same rail as TABLE and PARALLEL, fed by the SAME axis set the
+    //    parallel view builds - so the three views can never disagree about a number, and the
+    //    NUMBERS / RATIOS / BOTH selector filters the axis choices here too. Two pickers choose
+    //    which measure goes across and which goes up; the defaults are the risk map everyone
+    //    reads first, MAX DD across against NET $ up. Points keep the colour of whatever they
+    //    are (phase on the KPI tab, family on a candidate tab), the crowned one wears a gold
+    //    ring, and hovering a point gives its full label and both values.
+    //    A NOTE ON THE INVERTED AXES: the parallel view flips MAX DD and PBO so that up is
+    //    always better. A scatter has no such convention - here every axis is drawn in its own
+    //    natural direction and the axis caption says which end is good, because silently
+    //    flipping a dollar axis is how people misread a chart.
+    const _mtxAxPick=(key,cur,A)=>'<span data-sccmp-rm style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:5px">'
+      +'<span style="font-size:7.5px;font-weight:700;color:var(--text5);padding:0 3px">'+(key==='mtxSX'?'X':'Y')+'</span>'
+      +A.map(a=>'<span data-distview="'+key+':'+a.nm+'" title="put '+a.nm+' on this axis" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 5px;border-radius:5px;color:'+(cur===a.nm?'var(--text)':'var(--text4)')+';background:'+(cur===a.nm?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+'">'+a.nm.replace(' &#8595;','')+'</span>').join('')
+      +'</span>';
+    const _mtxScatFromAxes=(A,rows,head)=>{
+      if(!A||A.length<2||!rows||!rows.length)return '';
+      const nmOf=a=>a.nm;
+      const want=(k,def)=>{const v=String(APREF[k]||'');const hit=A.filter(a=>nmOf(a)===v)[0];return hit||A.filter(a=>nmOf(a)===def)[0]||null;};
+      let ax=want('mtxSX','MAX DD &#8595;')||want('mtxSX','MAX DD')||A[1],ay=want('mtxSY','NET $')||A[0];
+      if(ax===ay)ay=A.filter(a=>a!==ax)[0]||ay;
+      const val=(a,r)=>{const v=r.get(a);return (v!=null&&isFinite(v))?+v:null;};
+      const pts=rows.map(r=>({x:val(ax,r),y:val(ay,r),r:r})).filter(p=>p.x!=null&&p.y!=null);
+      if(pts.length<2)return '';
+      const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+      const pad=(lo,hi,f)=>{const rg=(hi-lo)||Math.abs(hi)||1;return [lo-rg*f,hi+rg*f];};
+      const xr=pad(Math.min.apply(null,xs),Math.max.apply(null,xs),0.08),yr=pad(Math.min.apply(null,ys),Math.max.apply(null,ys),0.10);
+      const W=560,H=236,padL=16,padR=16,padT=18,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
+      const X=v=>padL+((v-xr[0])/((xr[1]-xr[0])||1))*Wp,Y=v=>plotB-((v-yr[0])/((yr[1]-yr[0])||1))*plotH;
+      let g='';
+      [0,0.25,0.5,0.75,1].forEach(f=>{const gy=plotB-f*plotH,cv=yr[0]+(yr[1]-yr[0])*f;
+        g+='<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(padL+Wp)+'" y2="'+gy.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.4"/>'
+          +'<text x="'+(padL+2)+'" y="'+(gy-2).toFixed(1)+'" font-size="9" fill="var(--text4)">'+ay.fmt(cv)+'</text>';
+        const gx=padL+f*Wp,cx=xr[0]+(xr[1]-xr[0])*f;
+        g+='<line x1="'+gx.toFixed(1)+'" y1="'+plotT+'" x2="'+gx.toFixed(1)+'" y2="'+plotB+'" stroke="var(--border)" stroke-width="0.5" opacity="0.25"/>'
+          +'<text x="'+gx.toFixed(1)+'" y="'+(plotB+13)+'" text-anchor="middle" font-size="10" fill="var(--text3)">'+ax.fmt(cx)+'</text>';});
+      const zx=(xr[0]<0&&xr[1]>0)?('<line x1="'+X(0).toFixed(1)+'" y1="'+plotT+'" x2="'+X(0).toFixed(1)+'" y2="'+plotB+'" stroke="var(--text4)" stroke-width="0.9"/>'):'';
+      const zy=(yr[0]<0&&yr[1]>0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(padL+Wp)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--text4)" stroke-width="0.9"/>'):'';
+      let dots='',rings='';
+      pts.forEach(p=>{const col=p.r.col||'var(--text3)',cx=X(p.x).toFixed(1),cy=Y(p.y).toFixed(1),rad=p.r.crowned?6:4.4;
+        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rad+'" fill="'+col+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="1" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
+        if(p.r.crowned)rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
+        if(p.r.big)rings+='<text x="'+cx+'" y="'+(+cy-rad-4).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="800" fill="'+col+'">'+p.r.big+'</text>';});
+      const _good=a=>a.inv?'lower is better':'higher is better';
+      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+zx+zy+dots+rings
+        +'<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ax.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ax)+'</tspan></text>'
+        +'<text x="10" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 10 '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ay.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ay)+'</tspan></text></svg>';
+      return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
+        +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'+(head||'')
+        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick('mtxSX',ax.nm,A)+_mtxAxPick('mtxSY',ay.nm,A)+'</span></div>'
+        +svg+'</div>';
+    };
     const mtxParallelHtml=(phases,pboV,mult)=>{
       if(!Array.isArray(phases)||phases.length<2)return '';
       const _mar=p=>(p.net!=null&&p.net>0&&p.dd&&p.dd>0)?p.net/p.dd:null;
@@ -13834,6 +13892,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>';
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>';
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="10" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
+      if(String(APREF.mtxView||'')==='scatter'){
+        const rows=phases.map(p=>({get:a=>a.get(p),col:p.col||'var(--text3)',tip:'<b>'+(p.sh_||'')+'</b>',crowned:!!p.total}));
+        const head=phases.map(p=>'<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:'+(p.col||'var(--text3)')+'"><span style="width:7px;height:7px;border-radius:50%;background:'+(p.col||'var(--text3)')+';display:inline-block"></span>'+(p.sh_||'')+'</span>').join('');
+        return _mtxScatFromAxes(A,rows,head);}
       let lines='',dots='';
       phases.forEach(p=>{
         const pts=[];
@@ -14007,9 +14069,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pill=(lbl,val,col,tip)=>'<span'+(tip?' title="'+tip+'"':'')+' style="font-size:8px;padding:1px 5px;border-radius:6px;background:var(--bg1);color:var(--text2);white-space:nowrap'+(tip?';cursor:help':'')+'">'+lbl+' <b style="color:'+(col||'var(--text)')+'">'+val+'</b></span>';
       // v73.331 (owner: "make an option to turn the 1e matrix into a parallel coordinate chart"):
       //   TABLE / PARALLEL rail on the card header - the same numbers drawn as shape across phases.
-      const _mView=(APREF.mtxView==='parallel')?'parallel':'table';
-      const _mtxRail=_distViewRail('mtxView',_mView,[['table','TABLE'],['parallel','PARALLEL']])+_mtxColsRail();
-      const _mtxPar=(_mView==='parallel')?mtxParallelHtml(phases,_pboV,mult):'';
+      const _mView=(APREF.mtxView==='parallel'||APREF.mtxView==='scatter')?APREF.mtxView:'table';
+      const _mtxRail=_distViewRail('mtxView',_mView,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+_mtxColsRail();
+      const _mtxPar=(_mView==='parallel'||_mView==='scatter')?mtxParallelHtml(phases,_pboV,mult):'';
       // v73.385 (owner: "make the table/parallel tab switch the first option"): the view rail
       //   leads the control row instead of trailing it.
       return '<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:hidden;margin:0 0 6px;min-height:20px">'
@@ -16909,10 +16971,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   drawn inside the KPI matrix only, so a card sitting on RAW / GATE / TILT / HYBRID had
           //   no way to reach it. Every tab carries the rail now; on a candidate tab PARALLEL draws
           //   that pool as one line per config (NET $ / MAX DD / MAR + the PBO axis).
-          const _mV=(APREF.mtxView==='parallel')?'parallel':'table';
+          const _mV=(APREF.mtxView==='parallel'||APREF.mtxView==='scatter')?APREF.mtxView:'table';
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
-          const _poolPar=(!isK&&_mV==='parallel')?poolParallelHtml(_mtxScatterPts,_pboRun):'';
-          const _tabRail=(isK?'':_distViewRail('mtxView',_mV,[['table','TABLE'],['parallel','PARALLEL']])+_mtxColsRail())
+          const _poolPar=(!isK&&(_mV==='parallel'||_mV==='scatter'))?poolParallelHtml(_mtxScatterPts,_pboRun):'';
+          const _tabRail=(isK?'':_distViewRail('mtxView',_mV,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+_mtxColsRail())
             +(showScatter?('<span data-mtxtwin title="'+(APREF.mtxTwin?'close the second 1E card and give the column back to the distributions':'open a SECOND 1E card beside this one, on its own tab, to compare two views side by side')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;margin-left:6px;border:1px solid '+(APREF.mtxTwin?'var(--text)':'var(--border)')+';color:'+(APREF.mtxTwin?'var(--bg)':'var(--text4)')+';'+(APREF.mtxTwin?'background:var(--text);':'')+'">&#8862; COMPARE'+(APREF.mtxTwin?' ON':'')+'</span>'):'');
           // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
           //   amber pill next to the tab strip whenever an ML tab (GATE / TILT / HYBRID family) is
