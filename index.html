@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.380';
+const VERSION='73.381';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,7 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.380',date:'2026-08-29',notes:['ONE PAPER TAB. The two paper tabs are merged: the tab bar now has a single PAPER, showing the sidebar layout. A browser that saved the old tab as its view is routed to the merged one.','THE SIDEBAR IS ONLY THE SELECTION PANEL now - the strategy table with TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and archived. The duplicate pill rail and its title strip are gone from the page; they were the legacy top strip crushed into a narrow column, saying the same thing as the table under them. Everything on the right - status, chart, calendar, trades, the folded panels - follows the sidebar selection.']},
+{v:'73.381',date:'2026-08-29',notes:['ONE PAPER TAB. The two paper tabs are merged: the tab bar now has a single PAPER, showing the sidebar layout. A browser that saved the old tab as its view is routed to the merged one.','THE SIDEBAR IS ONLY THE SELECTION PANEL now - the strategy table with TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and archived. The duplicate pill rail and its title strip are gone from the page; they were the legacy top strip crushed into a narrow column, saying the same thing as the table under them. Everything on the right - status, chart, calendar, trades, the folded panels - follows the sidebar selection.']},
 {v:'73.379',date:'2026-08-28',notes:['RANKINGS IS OFF THE TOP-LEVEL NAV. It became one of the COMPARE views yesterday and was being offered in two places at once. The view itself is unchanged and still renders - the compare rail navigates to it - it just is not a primary tab as well.']},
 {v:'73.378',date:'2026-08-28',notes:['SCATTER AND LATTICE COULD BOTH LOOK SELECTED. The SCATTER chip lit whenever the chart was not PARALLEL, so it stayed lit under RADAR and LATTICE too - two chips on at once in a control where exactly one can be true. It now lights only for its own drawing.','CHART IS THE FIRST CONTROL, above LEVEL. It decides which drawing everything under it is describing, so it leads.']},
 {v:'73.377',date:'2026-08-29',notes:['THE PAPER PLUS SIDEBAR NOW HOLDS THE STRATEGY TABLE ITSELF, not just the leg buttons. The previous version moved the wrong block: the table lives inside the chart tile, so the sidebar came up with only the pill rail in it while the table stayed down beside the chart. The chart tile is now split, and the original PAPER tab is unchanged - the strip still sits under the chart there.','The render gate now fails if the sidebar is missing OR if the strategy rows are not inside it. That check is what caught this: the tab rendered perfectly well with the wrong content in the column, and every existing gate passed.']},
