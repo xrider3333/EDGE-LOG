@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.379';
+const VERSION='73.380';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.380',date:'2026-08-29',notes:['ONE PAPER TAB. The two paper tabs are merged: the tab bar now has a single PAPER, showing the sidebar layout. A browser that saved the old tab as its view is routed to the merged one.','THE SIDEBAR IS ONLY THE SELECTION PANEL now - the strategy table with TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and archived. The duplicate pill rail and its title strip are gone from the page; they were the legacy top strip crushed into a narrow column, saying the same thing as the table under them. Everything on the right - status, chart, calendar, trades, the folded panels - follows the sidebar selection.']},
 {v:'73.379',date:'2026-08-28',notes:['RANKINGS IS OFF THE TOP-LEVEL NAV. It became one of the COMPARE views yesterday and was being offered in two places at once. The view itself is unchanged and still renders - the compare rail navigates to it - it just is not a primary tab as well.']},
 {v:'73.378',date:'2026-08-28',notes:['SCATTER AND LATTICE COULD BOTH LOOK SELECTED. The SCATTER chip lit whenever the chart was not PARALLEL, so it stayed lit under RADAR and LATTICE too - two chips on at once in a control where exactly one can be true. It now lights only for its own drawing.','CHART IS THE FIRST CONTROL, above LEVEL. It decides which drawing everything under it is describing, so it leads.']},
 {v:'73.377',date:'2026-08-29',notes:['THE PAPER PLUS SIDEBAR NOW HOLDS THE STRATEGY TABLE ITSELF, not just the leg buttons. The previous version moved the wrong block: the table lives inside the chart tile, so the sidebar came up with only the pill rail in it while the table stayed down beside the chart. The chart tile is now split, and the original PAPER tab is unchanged - the strip still sits under the chart there.','The render gate now fails if the sidebar is missing OR if the strategy rows are not inside it. That check is what caught this: the tab rendered perfectly well with the wrong content in the column, and every existing gate passed.']},
@@ -1296,7 +1297,7 @@ const LOG_TABS=['overview','trades','analytics','import_export','journal'];
 // RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
 //   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
 //   rail navigates to it - it is simply not offered as a top-level tab as well.
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['paper2','PAPER ✦'],['ref','REFERENCE'],['research','RESEARCH']];
+const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper2','PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
 const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',paper:'◷',paper2:'◑',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
@@ -8268,6 +8269,10 @@ function renderApp(){
   //   back to a real tab so the user never lands on a tab that no longer has a button.
   if(activeTab==='settings')activeTab=(window._lastLogTab&&window._lastLogTab!=='settings')?window._lastLogTab:'overview';
   if(augurSub==='set')augurSub='lib';
+  // v73.378: the two paper tabs merged (owner: "there are still two paper tabs. redo
+  // this"). 'paper' no longer has a button, so a browser restoring the old saved view
+  // is routed to the merged tab instead of landing somewhere unreachable.
+  if(augurSub==='paper')augurSub='paper2';
   try{window._setStage('RENDER: '+activeTab);}catch(e){}
   _saveView();
 
@@ -24927,8 +24932,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'</span>'+(_wdBtn?('<span style="margin-left:10px">'+_wdBtn.replace('margin-left:auto;','')+'</span>'):'')+'</div>';
         })();
         const _p2Head='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
-          +'<span class="lbl" style="font-size:13px">◑ PAPER ✦</span>'
-          +'<span style="font-size:9px;color:var(--text5)">the same forward test, laid out shorter &middot; the original PAPER tab is unchanged, one click left</span>'
+          +'<span class="lbl" style="font-size:13px">◑ PAPER · LIVE FORWARD TEST</span>'
+          +'<span style="font-size:9px;color:var(--text5)">select strategies in the left panel &middot; everything on the right follows that selection</span>'
           +_reloadBtn+'</div>';
         // THE SIDEBAR. headerHtml is the legacy LEGS panel - the filters AND the
         // strategy table. Sticky, so the selection stays readable while everything
@@ -24949,11 +24954,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // panel simply sits on top - the legacy tab's own layout.
         const _p2Narrow=(window.innerWidth||1400)<1080;
         if(_p2Narrow){
-          body=_p2Head+headerHtml+legsCard+_p2Main;
+          body=_p2Head+legsCard+_p2Main;
         }else{
           body=_p2Head
             +'<div style="display:grid;grid-template-columns:'+_p2W+'px 7px minmax(0,1fr);align-items:start">'
-              +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+headerHtml+legsCard+'</div>'
+              +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+legsCard+'</div>'
               +'<div data-p2side title="Drag to set how wide the strategy panel is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:center;justify-content:center">'
                 +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
               +'<div style="min-width:0">'+_p2Main+'</div>'
