@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.375';
+const VERSION='73.376';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.376',date:'2026-08-29',notes:['PAPER PLUS NOW CARRIES THE LEGACY STRATEGY PANEL, and it lives in a SIDEBAR. The LEGS panel - TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and the strategy table - was the one part of the old PAPER tab that never came across. It is now a sticky left column, so what you have selected stays on screen while the chart, calendar, trades and panels scroll past it.','DRAG THE DIVIDER to set how wide it is; double-click it to reset. The width is remembered, and clamped on load so a width saved on a big monitor cannot squeeze the board on a laptop. Under about 1080 pixels wide it stacks instead, exactly as the old tab laid out.']},
 {v:'73.375',date:'2026-08-28',notes:['STUDIES LEADS THE COMPARE RAIL now - it is the view that answers what has been tried, so it is the one to land on.','AND RANKINGS IS ONE OF THE VIEWS. It sat on its own top-level tab even though it is a comparison like the other four. The same rail now appears on it, so clicking any other view takes you straight back into COMPARE on that mode, and clicking RANKINGS from COMPARE goes the other way. Five views of one thing.']},
 {v:'73.374',date:'2026-08-28',notes:['LATTICE, the fourth drawing: every measure against every other in small panes. It answers the one question the other three cannot - WHICH OF THESE MEASURES ARE SAYING THE SAME THING. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging a strategy on.','FIVE MEASURES, NOT TEN: Sharpe, Sortino, MAR, EV in R and profit factor. Ten would be a hundred panes at forty pixels each, which is a texture rather than a chart. All five are scale-free, so every pane is a fair comparison whatever the instrument, size or window.','Capped at 250 rows, strongest by MAR, with the number left off said out loud - twenty-five panes of every row would be tens of thousands of dots. Same rule the radar learned the hard way.']},
 {v:'73.373',date:'2026-08-28',notes:['CRITICAL FIX: every run report has been failing to open since 73.367 with THIS RUN DETAIL COULDN-T RENDER (ReferenceError: _reXNm is not defined). The 1A RISK MAP x-axis caption had been pointed at the RANKINGS scatter axis-picker variables, which live in a different function. The RISK MAP x is always max drawdown, so its caption says that again.']},
@@ -24910,12 +24911,35 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<span class="lbl" style="font-size:13px">◑ PAPER ✦</span>'
           +'<span style="font-size:9px;color:var(--text5)">the same forward test, laid out shorter &middot; the original PAPER tab is unchanged, one click left</span>'
           +_reloadBtn+'</div>';
-        body=_p2Head+_p2Status+dataHtml+curveHtml+tradesHtml
+        // THE SIDEBAR. headerHtml is the legacy LEGS panel - the filters AND the
+        // strategy table. Sticky, so the selection stays readable while everything
+        // else scrolls; scrollable in itself, because the table in ALL-columns mode is
+        // taller and wider than a viewport.
+        const _p2Main=_p2Status+dataHtml+curveHtml+tradesHtml
           +_p2Card('nt','NINJATRADER · DETAIL',bridgeHtml,'live state, fills, orders')
           +_p2Card('recon','CROSS-ENGINE · DO THEY AGREE?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
           +_p2Card('gate','DID THE GATE DO ITS JOB?',gateAuditInner,_gaSub)
           +_p2Card('reports','DAILY REPORTS',reportsHtml,'one row per night')
           +_errHtml;
+        // WIDTH IS THE READER'S, and remembered. Clamped on read as well as on drag:
+        // a stored width from a wider monitor must not push the main column off a
+        // laptop screen.
+        const _p2Wmax=Math.max(320,Math.round((window.innerWidth||1400)*0.55));
+        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||440)));
+        // Below ~1080px there is not enough room for two columns, so it stacks and the
+        // panel simply sits on top - the legacy tab's own layout.
+        const _p2Narrow=(window.innerWidth||1400)<1080;
+        if(_p2Narrow){
+          body=_p2Head+headerHtml+_p2Main;
+        }else{
+          body=_p2Head
+            +'<div style="display:grid;grid-template-columns:'+_p2W+'px 7px minmax(0,1fr);align-items:start">'
+              +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+headerHtml+'</div>'
+              +'<div data-p2side title="Drag to set how wide the strategy panel is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:center;justify-content:center">'
+                +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
+              +'<div style="min-width:0">'+_p2Main+'</div>'
+            +'</div>';
+        }
       }
     }else{
       const allRuns=runHistory.slice();
@@ -26235,6 +26259,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       };});
       // PAPER ✦ collapsible reference panels. State lives on window and persists, so a
       // panel you opened stays open while you work.
+      // Sidebar resize. Width is written straight onto the grid during the drag so it
+      // tracks the pointer, and only persisted on release - re-rendering on every
+      // pointermove would rebuild the whole board dozens of times a second.
+      content.querySelectorAll('[data-p2side]').forEach(bar=>{
+        const grid=bar.parentElement; if(!grid)return;
+        bar.onpointerdown=(e)=>{
+          e.preventDefault();
+          const x0=e.clientX, w0=grid.firstElementChild.getBoundingClientRect().width;
+          const lim=Math.max(320,Math.round((window.innerWidth||1400)*0.55));
+          let w=w0;
+          const mv=(ev)=>{
+            w=Math.min(lim,Math.max(300,w0+(ev.clientX-x0)));
+            grid.style.gridTemplateColumns=w+'px 7px minmax(0,1fr)';
+          };
+          const up=()=>{
+            window.removeEventListener('pointermove',mv);
+            window.removeEventListener('pointerup',up);
+            savePref('p2SideW',Math.round(w));
+          };
+          window.addEventListener('pointermove',mv);
+          window.addEventListener('pointerup',up);
+        };
+        bar.ondblclick=()=>{savePref('p2SideW',440);renderApp();};
+      });
       content.querySelectorAll('[data-p2card]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-p2card');
         const m=window._p2Open||(window._p2Open={});
