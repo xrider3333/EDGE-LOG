@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.407';
+const VERSION='73.408';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.408',date:'2026-08-30',notes:['CONFIGS IS NO LONGER A SEPARATE LEVEL - it is a VIEW of the runs you have already ticked, which is what was asked for in the first place. Pick a strategy, tick one or more of its Auto-Validates, then SHOW decides whether the chart plots the RUNS themselves or every 1E candidate inside them, overlaid on the same axes.','THE STRATEGY PICK IS NO LONGER THROWN AWAY. Switching to configs used to repoint the rail at RAW / GATE / TILT, so the NOISE you had picked simply vanished and there was no way to tell what you were looking at. The rail always means the strategy; the six 1E families have their own control.','AND THE RUN CHIPS OFFER ONLY THAT STRATEGY RUNS. Seventy-five chips while the rail said NOISE was most of what made this confusing - the pick looked ignored. Untick the rail and every run is offered again.','The profit stage still pins itself while the configs view is on, because a candidate record holds exactly one window - but you only meet that pin when you ask for candidates, not the moment you arrive.']},
 {v:'73.407',date:'2026-08-30',notes:['The zoom handle on the scatter and parallel charts now actually zooms. It was pinning the chart to the tile width, so dragging past the fit height only added blank space; the chart is sized off its height instead, so dragging down magnifies the whole drawing - dots, labels and trend line together - and the tile scrolls sideways.','These charts open at their exact fit height, and they remember a dragged height under their own name so a height you set back when they were being stretched cannot reopen them wildly zoomed.']},
 {v:'73.406',date:'2026-08-30',notes:['Aspect-locked charts (the scatters and parallel-coordinate views) have a drag handle again, and dragging it ZOOMS them: the whole drawing scales, text included, instead of the chart sitting at one size while the tile grows empty space underneath it. Nothing is stretched - the shape is kept at every size.','NUMBERS / RATIOS / BOTH no longer applies to the SCATTER, and the control is hidden while the scatter is up. The scatter names its own two measures, so the filter was pulling the axes out from under you whenever you switched it.']},
 {v:'73.405',date:'2026-08-30',notes:['Scatters and parallel-coordinate charts keep their shape again. Report charts are stretched to fill their resizable tile, which is right for a line chart but wrong for these - a squashed scatter turns dots into ellipses and, worse, makes the fitted line look like a slope it was never fitted at.','The 1E scatter axis picker now shows how many configs actually record each measure, so picking one only the raw pool carries (SHARPE, on most runs) is an informed choice instead of a chart that empties out.']},
@@ -20621,8 +20622,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   SWEEPS -> CONFIGS -> AUTO VAL -> CROWN, so the buttons read that way too,
         //   with ALL last as the escape hatch rather than first as the default-looking
         //   option. The stored values are unchanged, so nobody's saved pick moves.
-        const _reLvls=[['sweep','SWEEPS'],['cfg','CONFIGS'],['valid','AUTO VAL'],['crown','CROWN'],['all','ALL']];
-        const _reLvl=(_reLvls.some(function(x){return x[0]===String(APREF.resLvl||'');}))?String(APREF.resLvl):'all';
+        // ── ONE FLOW, NOT TWO LEVELS (owner 2026-08-30: "auto validate and configs show
+        //    the same thing but in more detail... my original intent was to choose auto
+        //    validate, pick multiple auto validates of the same strategy, and populate the
+        //    1E matrix on top of those"). ──────────────────────────────────────────────
+        //    CONFIGS was a separate LEVEL, so switching to it threw away the strategy you
+        //    had picked and changed what the rail meant. It is a VIEW of the runs you have
+        //    already ticked now: pick NOISE, tick its runs, then choose whether the chart
+        //    plots THE RUNS or every 1E CANDIDATE inside them. The strategy pick never
+        //    changes meaning and never gets dropped.
+        const _reLvls=[['sweep','SWEEPS'],['valid','AUTO VAL'],['crown','CROWN'],['all','ALL']];
+        const _reShowCfg=(_reLvlRaw()==='valid'&&(String(APREF.resShow||'runs')==='configs'||String(APREF.resLvl||'')==='cfg'));
+        // a legacy 'cfg' pick lands on AUTO VAL with the CONFIGS view already on, so an
+        //   owner who left the board on that level finds the same rows where he left them.
+        function _reLvlRaw(){const v=String(APREF.resLvl||'');
+          if(v==='cfg')return 'valid';
+          return _reLvls.some(function(x){return x[0]===v;})?v:'all';}
+        const _reLvl=_reLvlRaw();
         const _reStages=['is','wf','lb'];
         // the ticked set. A legacy single-value pref reads across; 'tot' becomes all three, which
         //   is the nearest honest reading of what it used to mean.
@@ -20639,7 +20655,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   chart quietly went half empty for a reason sitting two controls away. Offering
         //   three ticks there was offering a choice that does not exist, so that level pins
         //   the tick to the one window those rows actually have and says so.
-        const _reSegPin=(_reLvl==='cfg');
+        const _reSegPin=_reShowCfg;   // only the CONFIGS view has one window per row
 
         // the value of the ticked set for one row: the sum of the ticked stages it RECORDS, and
         //   null only when it records none of them.
@@ -21996,7 +22012,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(!(sel&&sel.length))return true;
             const here=rows.some(function(x){return sel.indexOf(f.val(st,x))>=0;});
             return here?(sel.indexOf(f.val(st,r))>=0):true;});};
-        if(_reLvl==='valid'||_reLvl==='crown'){
+        if((_reLvl==='valid'&&!_reShowCfg)||_reLvl==='crown'){
           const RR=[];
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
           //   gross loss from its net and its PF, sum the grosses. A true pooled figure,
@@ -22096,7 +22112,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(!a.length&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
           return a;})();
         _reCfgRunId=_reCfgIds.join(', #');
-        if(_reLvl==='cfg'){
+        if(_reShowCfg){
           const CROWS=[];let _cn=0;
           if(!_reCfgIds.length){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
           _reCfgIds.forEach(function(RID){
@@ -22222,7 +22238,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 // the rail narrows these the same way it narrows every other row. NOT via
                 //   _rePass - that asks the LEVEL gate first, which refuses every registry
                 //   row on this level and would refuse these with them.
-                const cfgKeep=CROWS.filter(_reFacetKeep(cfgSt,CROWS));
+                // narrowed by the 1E FAMILY control, never by the STRATEGY rail - the rail
+                //   picked which RUNS these came out of and has already done its job.
+                const cfgKeep=CROWS.filter(function(r){
+                  return !_reCfgFam.length||_reCfgFam.indexOf(String(r.fam))>=0;});
                 cfgKeep.forEach(function(r){_reItems.push({st:cfgSt,r:r});});
                 // and into the table list, so the tables below the chart hold the same rows
                 //   the chart draws. A configuration record carries no date window, so every
@@ -22495,9 +22514,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   same ticked stage — only the drawing changes.
         // THE LEVEL CONTROL leads the rail, because it decides WHICH GRADE OF EVIDENCE is on
         //   screen and every other control is a narrowing inside that.
+        // WHAT THE CHART PLOTS for the runs you have ticked: the runs themselves, one dot
+        //   each, or every 1E candidate inside them. Only meaningful on AUTO VAL.
+        // WHICH 1E FAMILIES the configs view draws. Its own control, so the STRATEGY rail
+        //   can go on meaning the strategy. Nothing ticked means all six.
+        const _reCfgFam=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        const _reCfgFamBtns=(!_reShowCfg)?'':_reCtl('','1E FAMILY','which of the six 1E families the chart draws. Nothing ticked shows all of them.',
+           _reBtn('data-recfgfam="RAW"','RAW',_reCfgFam.indexOf('RAW')>=0,'the crown pool plus the robustness extras - the top configurations the search itself ranked',_TONE.heat)
+           +_reBtn('data-recfgfam="GATE"','GATE',_reCfgFam.indexOf('GATE')>=0,'skip-gate variants: a model refuses the weakest trades',_TONE.heat)
+           +_reBtn('data-recfgfam="TILT"','TILT',_reCfgFam.indexOf('TILT')>=0,'size tilts: every trade is taken, a model only sets the size',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID"','HYBRID',_reCfgFam.indexOf('HYBRID')>=0,'gate first, then size the survivors - at one lot per trade',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID \u267b"','HYBRID \u267b',_reCfgFam.indexOf('HYBRID \u267b')>=0,'the same hybrid, sized up until it spends the contracts the no-gate book would have',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',_reCfgFam.indexOf('HYBRID \u2193DD')>=0,'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
+          ,_TONE.heat);
+        const _reShowBtns=(_reLvl!=='valid')?'':_reCtl('','SHOW','what the chart plots for the runs ticked below: one dot per RUN, or every candidate from their 1E matrix.',
+            _reBtn('data-reshow="runs"','RUNS',!_reShowCfg,'one dot per Auto-Validate run - its crowned configuration, the figures the run report headlines.',_TONE.rank)
+           +_reBtn('data-reshow="configs"','1E CONFIGS',_reShowCfg,'every candidate inside the ticked runs - RAW, GATE, TILT and the three hybrid sizings, the same six families the 1E matrix shows. Scored on the optimize window only, and the best of hundreds the search tried, so read them as candidates rather than survivors.',_TONE.rank)
+          ,_TONE.rank);
         const _reLvlBtns=_reCtl(2,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
            _reBtn('data-relvl="sweep"','SWEEPS',_reLvl==='sweep','stage 1. My local .py theory tests. They were never persisted as a run, never walk-forwarded and never shown a lockbox, so nothing here has survived anything - these are ideas with numbers on them.',_TONE.rank)
-           +_reBtn('data-relvl="cfg"','CONFIGS',_reLvl==='cfg','stage 3. The raw, gate, tilt and hybrid candidates INSIDE one Auto-Validate run - pick the run and they load. They are scored on the OPTIMIZE WINDOW ONLY and they are the best of hundreds the search tried, so they are candidates and not survivors. Kept on their own level for exactly that reason.',_TONE.rank)
            +_reBtn('data-relvl="valid"','AUTO VAL',_reLvl==='valid','stage 2. Real EDGELOG Auto-Validate runs, each split into in-sample, walk-forward and lockbox. This is the level where a figure has actually been tested on years the search never saw. WIN percent and SHARPE only exist at this level and above.',_TONE.rank)
            +_reBtn('data-relvl="crown"','CROWN',_reLvl==='crown','stage 4. One row per family - its standing champion. This is the shortlist that decides what goes to paper, so it is the shortest list and the one worth reading last.',_TONE.rank)
            +_reBtn('data-relvl="all"','ALL',_reLvl==='all','every stage at once. Honest only because the chart marks them apart - stage 1 draws dashed and stage 2 solid - but two rows here can still be two different grades of evidence, so read the line style before you read the ranking.',_TONE.rank)
@@ -22508,8 +22543,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   chips answer 'which runs', which is the question once you want to know whether
         //   two Auto-Validates found the same thing. Newest first, and every row on the chart
         //   carries its run number so a point is always traceable.
-        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
-          _reCfgPick.slice(0,40).map(function(r){const id=String(r.id);
+        const _reCfgSel=(_reLvl!=='valid')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
+          // ONLY THE PICKED STRATEGY'S RUNS. Offering all seventy-five while the rail
+          //   says NOISE was most of what made this confusing - the strategy pick looked
+          //   ignored. Untick the rail and every run is offered again.
+          _reCfgPick.filter(function(r){const sel=_reFilt.fam;
+            return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;})
+          .slice(0,40).map(function(r){const id=String(r.id);
             return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,
               'run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||''),_TONE.rank);}).join('')
           ,_TONE.rank);
@@ -22580,13 +22620,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   when there are a dozen NOISE runs to compare. Every other level counts registry
         //   rows as it always did.
         const _reFamCnt={};
-        if(_reLvl==='valid'||_reLvl==='crown'){Object.keys(_reRunFam).forEach(function(f){_reFamCnt[f]=_reRunFam[f];});}
-        // On CONFIGS the rows are a run's own candidates, so the rail lists the SIX 1E
-        //   families - RAW, GATE, TILT and the three hybrid sizings - with a count each.
-        //   Clicking one shows only that family; clicking none shows them all. It is the
-        //   toggle the owner asked for, on the control that was already there.
-        else if(_reLvl==='cfg'){_reItems.forEach(function(it){
-          const f=_reFamOf(it.st,it.r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
+        // THE STRATEGY RAIL ALWAYS MEANS THE SAME THING ON AUTO VAL: which strategy's runs.
+        //   It used to switch to counting RAW / GATE / TILT the moment the configs view came
+        //   on, which is what threw the strategy pick away and left the owner unable to tell
+        //   what he was looking at. The 1E families have their own control now.
+        if(_reLvl==='valid'||_reLvl==='crown'){
+          rs.forEach(function(x){const f=_canonFam(x.strategy)||'UNTAGGED';
+            if(_reCfgPick.indexOf(x)>=0||_reRunFam[f])_reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
         else RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
         // one family ticked names itself; several name themselves together; none reads as ALL.
         const _reFamPick=(_reFilt.fam||[]).slice();
@@ -22678,8 +22718,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reLvlTx={
           all:'LEVEL: ALL - every stage of the pipeline at once. A sweep and a validated run are on the same axes here, so read the line style before the ranking: <b style="color:var(--text4)">solid</b> is a real Auto-Validate run and <b style="color:var(--text4)">dashed</b> is a local .py sweep that was never persisted, never walk-forwarded and never shown a lockbox.',
           sweep:'LEVEL: SWEEPS - stage 1 only ('+_reLvlCnt.py+' of the '+_reLvlCnt.all+' rows on this board). These are local .py theory tests. <b style="color:var(--text4)">Nothing here has survived anything</b> - no walk-forward, no lockbox, no run number. They are ideas with numbers on them, and they are on the board because a dead end is worth being able to see. WIN % and SHARPE are blank at this level because my sweeps have never printed either one.',
-          valid:'LEVEL: AUTO VAL - <b style=\"color:var(--text4)\">one row per Auto-Validate run in Past Runs</b>, not a registry write-up. Pick a strategy on the rail and every run of it is on the chart, compared on the same ten axes. A run records its own date window and its own validate block, so these rows fill EVERY axis - including the four a local sweep still cannot. This is the level where a figure has actually been tested on years the search never saw.',
-          cfg:'LEVEL: CONFIGS OF ONE RUN - stage 3. These are the RAW, GATE, TILT and HYBRID candidates inside a single run. Two things make them a different animal from every board row: they are scored on the <b style="color:var(--text4)">optimize window only</b>, so no lockbox has judged any of them, and they are the <b style="color:var(--text4)">best of hundreds</b> the search tried, so the leader is flattered by the picking itself. Read them as candidates, never as survivors, and never against a board row.',
+          valid:'LEVEL: AUTO VAL - <b style=\"color:var(--text4)\">one row per Auto-Validate run in Past Runs</b>. Pick a strategy on the rail, tick the runs you want, then let SHOW decide what the chart plots: the RUNS themselves, one dot each, or every candidate from their 1E matrix overlaid on the same axes. A run records its own window and its own validate block, so a run row fills every axis. A 1E candidate is scored on the optimize window only and is the best of hundreds the search tried, so it is a candidate rather than a survivor - which is why the profit stage pins itself while that view is on.',
           crown:'LEVEL: CROWN - stage 4. <b style=\"color:var(--text4)\">One row per CROWNED RUN</b>, read straight off Past Runs the way AUTO VAL is. A run is crowned because YOU marked it: it is starred, or a studies row you tagged as the champion of its family cites it. Never because it holds the biggest number - naming a winner nobody awarded is the one thing this level must not do - so a family with neither mark is simply absent. This is the shortlist that decides what goes to paper.',
           _x:0};
         // ONE LINE, THE REST BEHIND THE ICON (owner 2026-08-28: "whats with the novels?").
@@ -22688,8 +22727,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   itself on demand instead of taking six lines of the chart's height every time.
         const _reLvlShort={all:'every stage at once - read the line style before the ranking',
           sweep:'local .py theory tests - nothing here has survived anything',
-          valid:'one row per Auto-Validate run in Past Runs',
-          cfg:'the candidates inside one run - optimize window only, best of hundreds',
+          valid:'the runs themselves, or every 1E candidate inside them',
           crown:'the standing champion of each family'};
         const _reLvlNote='<div style="font-size:8.5px;color:var(--text5);margin-top:8px;display:flex;align-items:center;gap:5px">'
           +'<b style="color:var(--text4)">'+((_reLvls.filter(function(x){return x[0]===_reLvl;})[0]||['',''])[1])+'</b>'
@@ -22717,7 +22755,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   the one before it.
             // CHART FIRST (owner 2026-08-28: "put the chart selector tab first, above level").
             //   It decides which drawing everything under it is describing.
-            +_reGrid(_reChartBtns+_reLvlBtns+_reCfgSel+_reStageBtns+_reFamRail+_reReadBtns)
+            +_reGrid(_reChartBtns+_reLvlBtns+_reShowBtns+_reFamRail+_reCfgSel+_reCfgFamBtns+_reStageBtns+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
@@ -22739,7 +22777,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
                +_reAxisBtns+_reXAxisBtns+'</div>'+'</div>'))
             +_reLvlNote
-            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))))+'</div>',0);
+            +'<div style="margin-top:10px">'+((_reShowCfg&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))))+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
@@ -26206,6 +26244,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);renderApp();};});
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
+      content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{
+        const v=b.getAttribute('data-recfgfam');
+        const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
+        savePref('resCfgFam',cur);renderApp();};});
+      content.querySelectorAll('[data-reshow]').forEach(b=>{b.onclick=()=>{
+        // leaving the legacy 'cfg' level behind the first time the view is chosen by hand
+        if(String(APREF.resLvl||'')==='cfg')savePref('resLvl','valid');
+        savePref('resShow',b.getAttribute('data-reshow'));renderApp();};});
       // ISOLATE ONE ROW ON HOVER, BOTH DIRECTIONS (owner 2026-08-28: "hover of a line in
       //   the chart doesnt show its corresponding row in the table", and "the line doesnt
       //   remove the highlight when the mouse comes off it").
