@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.404';
+const VERSION='73.405';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.405',date:'2026-08-30',notes:['Scatters and parallel-coordinate charts keep their shape again. Report charts are stretched to fill their resizable tile, which is right for a line chart but wrong for these - a squashed scatter turns dots into ellipses and, worse, makes the fitted line look like a slope it was never fitted at.','The 1E scatter axis picker now shows how many configs actually record each measure, so picking one only the raw pool carries (SHARPE, on most runs) is an informed choice instead of a chart that empties out.']},
 {v:'73.404',date:'2026-08-30',notes:['1E dropdown menus now open directly beneath the control that was clicked. They are fixed-position, and a fixed element is placed against the nearest transformed ancestor rather than the window - the report cards are one, so the menu was landing far from its button.']},
 {v:'73.403',date:'2026-08-30',notes:['Follow-up: each 1E dropdown now finds its OWN menu by name. A wrapper can hold more than one popover, and the plain lookup was handing back whichever sat first in the page - so the menu skipped its anchoring step and opened at a stale position, well away from the button that was clicked.']},
 {v:'73.402',date:'2026-08-30',notes:['THE CONFIGS SCATTER DREW NOTHING, and here is why: the board opens on SORTINO across the bottom and NOT ONE configuration row carried a Sortino, so every point was dropped for want of an x value. The rows themselves were fine - the table beside the chart was listing all 211 of them the whole time.','EVERY RECORD THAT SAVED AN EQUITY CURVE NOW CARRIES BOTH A SHARPE AND A SORTINO, derived from that curve the same honest way the run report derives them for its own candidates. A record that saved no curve stays blank, which is the truth rather than a fabricated number.','AND THE EMPTY-CHART MESSAGE NAMES THE AXES THAT ARE ACTUALLY EMPTY. It said a profit and a drawdown whatever the axes were set to, so picking SORTINO against EV IN R and getting nothing pointed at the wrong two figures entirely.']},
@@ -10753,7 +10754,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach &#8722; heat (points)</text>';
       const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:xmin,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
       const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2B')+' · TRADE PNL SCATTER · '+(scope||''),xs:xs.map(x=>+x.toFixed(1)),ys:v.map(x=>Math.round(x)),tip:v.map((p,i)=>'reach '+sp.mfe[i]+'p - heat '+sp.mae[i]+'p = '+Math.round(xs[i])+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')),fit:fit?{a:fit.a,b:fit.b,r:fit.r}:null,xl:'reach minus heat - points the trade ran for you, less points it ran against you',yl:'net $ per trade',xf:'pts',yf:'usd',top:rankIdx.slice(0,5).filter(i=>v[i]>0),quad:true}));
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
+      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)">'
@@ -10794,7 +10795,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const st=_nice(xspan/7)||1;for(let t=Math.ceil(xmin/st)*st;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="'+(t<0?'#e24b4a':t>0?'#1d9e75':'var(--text3)')+'">'+(t>0?'+':'')+Math.round(t)+'p</text>';}
       xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net points of the trade</text>';
       const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2B')+' · POINTS vs $ · '+(scope||''),xs:xs.map(x=>+x.toFixed(1)),ys:v.map(x=>Math.round(x)),tip:v.map((p,i)=>(+xs[i].toFixed(1))+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')),fit:{a:0,b:mult,r:1},xl:'net points of the trade',yl:'net $ per trade',xf:'pts',yf:'usd',top:rankIdx.slice(0,5).filter(i=>v[i]>0),quad:true}));
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-sc="'+_sc+'">'+quad+g+zero+trend+dots+rings+xt
+      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-sc="'+_sc+'">'+quad+g+zero+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
       const foot=C?('<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)"><span style="color:'+cc+';font-weight:700">'+(C.net>0?('TOP 5 = '+Math.round(C.s5*100)+'% OF NET'):'NET NEGATIVE')+'</span>'+(C.net>0?'<span>top 1 '+Math.round(C.s1*100)+'% · top 10 '+Math.round(C.s10*100)+'%</span><span>without top 5: <b style="color:'+(C.wo5>0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(C.wo5))+'</b></span>':'')+'<span>'+n+' trades</span></div>'):'';
@@ -10825,7 +10826,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const nW=won.filter(Boolean).length;
       const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:0,x1:maxMae,yt:'num',y0:0,y1:maxMfe,px:padL,py:plotT,pw:Wp,ph:plotH}));
       const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2C')+' · HEAT vs REACH · '+(scope||''),xs:mae.map(x=>+x.toFixed(1)),ys:mfe.map(x=>+x.toFixed(1)),w:won.map(x=>x?1:0),tip:mae.map((a,i)=>'heat '+a+'p · reach '+mfe[i]+'p<br>'+(won[i]?'<b style=color:#1d9e75>won</b>':'<b style=color:#e24b4a>lost</b>')+(pn?' · '+fmtUsd(Math.round(pn[i])):'')),fit:fit?{a:fit.a,b:fit.b,r:fit.r}:null,xl:'heat - points price ran AGAINST the trade (MAE)',yl:'reach - points price ran FOR the trade (MFE)',xf:'pts',yf:'pts',top:[],quad:false,guides:[].concat(s90!=null?[{ax:'x',v:s90,lab:'stop '+s90+'p (keeps 90% of winners)',col:'#ff6b6b'}]:[],[{ax:'y',v:f75,lab:'target '+f75+'p (75% reach it)',col:'#2fd598'}])}));
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+g+trend+guides+dots+xt
+      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+g+trend+guides+dots+xt
         +'<text x="'+(W-6)+'" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach &#8722; MFE (points for)</text>'
         +'<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">heat &#8722; MAE (points against)'+(pn?'':' · dots not sized: per-trade $ and excursions were saved at different sample sizes')+'</text></svg>';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:8px;color:var(--text4)">'+(fit?'<span style="color:var(--yellow)">reach vs heat: slope '+fit.b.toFixed(2)+' · r '+fit.r.toFixed(2)+'</span>':'')+'<span>'+nW+' won / '+(n-nW)+' lost'+(pn?' · dot area = |$|':'')+'</span></div>';
@@ -13910,7 +13911,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           else if(topIdx[i])lead+=_pl(sg,col,1.8,op);
           else base+=_pl(sg,col,0.9,op);});
       });
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+base+lead+crown+'</svg>';
+      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+base+lead+crown+'</svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'
         +'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span>'
@@ -13943,7 +13944,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    always better. A scatter has no such convention - here every axis is drawn in its own
     //    natural direction and the axis caption says which end is good, because silently
     //    flipping a dollar axis is how people misread a chart.
-    const _mtxAxPick=(key,cur,A)=>_distViewRail(key,cur,A.map(a=>[a.nm,a.nm.replace(' &#8595;',''),'put '+a.nm.replace(' &#8595;','')+' on this axis']),(key==='mtxSX'?'X':'Y'));
+    const _mtxAxPick=(key,cur,A,rows)=>_distViewRail(key,cur,A.map(function(a){
+      const n=rows?rows.filter(function(r){const v=r.get(a);return v!=null&&isFinite(v);}).length:null;
+      const thin=(n!=null&&rows.length&&n<rows.length);
+      return [a.nm,a.nm.replace(' &#8595;','')+(thin?(' <span style="opacity:.55;font-weight:400">'+n+'</span>'):''),
+        'put '+a.nm.replace(' &#8595;','')+' on this axis'+(thin?(' - only '+n+' of '+rows.length+' carry it, the rest cannot be plotted against it'):'')];
+      }),(key==='mtxSX'?'X':'Y'));
     const _mtxScatFromAxes=(A,rows,head)=>{
       if(!A||A.length<2||!rows||!rows.length)return '';
       const nmOf=a=>a.nm;
@@ -13979,13 +13985,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(p.r.crowned)rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
         if(p.r.big)rings+='<text x="'+cx+'" y="'+(+cy-rad-4).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="800" fill="'+col+'">'+p.r.big+'</text>';});
       const _good=a=>a.inv?'lower is better':'higher is better';
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+zx+zy+dots+rings
+      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+zx+zy+dots+rings
         +'<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ax.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ax)+'</tspan></text>'
         +'<text x="10" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 10 '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ay.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ay)+'</tspan></text></svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'+(head||'')
         +(_miss?('<span style="color:var(--yellow);font-weight:700" title="These rows record no '+_missWhy.replace(' &#8595;','')+', so they cannot be placed on this pair of axes. Pick an axis they all carry - NET $ and MAX DD are recorded by every family - or read them in the TABLE or PARALLEL view.">&#9888; '+_miss+' of '+all.length+' not plotted - no '+_missWhy.replace(' &#8595;','')+'</span>'):'')
-        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick('mtxSX',ax.nm,A)+_mtxAxPick('mtxSY',ay.nm,A)+'</span></div>'
+        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick('mtxSX',ax.nm,A,rows)+_mtxAxPick('mtxSY',ay.nm,A,rows)+'</span></div>'
         +svg+'</div>';
     };
     const mtxParallelHtml=(phases,pboV,mult)=>{
@@ -14038,7 +14044,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         pts.forEach(q=>{dots+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3" fill="'+col+'" stroke="var(--bg2)" stroke-width="1" style="cursor:pointer" data-tip="<b>'+nm+'</b> &middot; '+q[2].nm+'<br><b>'+q[2].fmt(q[3])+'</b>'+(q[2].run?'<br>whole-run number - every phase shares it':'')+'"/>';});
       });
       const leg=phases.map(p=>'<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:700;color:'+(p.col||'var(--text3)')+'"><span style="width:12px;height:2px;background:'+(p.col||'var(--text3)')+';display:inline-block"></span>'+(p.sh_||'')+'</span>').join('');
-      const svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+lines+dots+'</svg>';
+      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+lines+dots+'</svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'+leg
         +'<span style="margin-left:auto;font-size:8px;color:var(--text5)">every axis min &rarr; max across the phases &middot; up = better (&#8595; = axis inverted)</span></div>'
