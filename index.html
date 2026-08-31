@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.408';
+const VERSION='73.409';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.409',date:'2026-08-31',notes:['TWO NEW AXES ON THE 1E CHARTS: EV R and SORTINO (owner: "scatter plot options need ev in r and soritno since those seem to be the fairir yardstick"). Both are on the parallel view, the scatter and the axis pickers, on the all-configurations chart and on the phase chart, so one name means one thing on both.','EV R is expectancy measured in units of the average LOSING trade - the edge per bet with the contract size, the instrument and the account divided out, which is what makes two configurations on different markets readable against each other. The average loss is not recorded per configuration, so it is DERIVED rather than read - and exactly, not approximately: expectancy over average loss equals one minus the win rate, times profit factor minus one. That identity was checked against ten real runs using each one own stored average win, average loss and win rate, and matched to nine decimal places on every one. A configuration that has never lost has no R to measure by and draws no point rather than an infinity.','SORTINO charges a strategy for its DOWNSIDE only, so a run that simply moves a lot is no longer punished for moving upward. It is computed from each configuration own saved equity curve, using the same series, the same denominator and the same annualisation as the SHARPE axis beside it - one function, one flag - because two ratios drawn side by side have to be comparable or the comparison is the thing that misleads.','HONESTY NOTE ON THE CHART ITSELF: the curve-derived Sortino here reads HIGHER than the per-trade Sortino the phase chart and a STUDIES run row print, because a sampled curve hides intra-trade dips. The axis says so on hover. Compare configurations against each other on this chart; do not read one against the other chart number.','FIXED WHILE IN THERE: the Sharpe axis was pinned to the whole optimize window while profit factor, win rate and EV beside it followed the IS / WF / LOCKBOX tick - so a lockbox tick drew one whole-window number in a row of lockbox ones. Both risk ratios now follow the tick, and fall back to the whole-window figure only when the tick IS the whole window.','ALSO FIXED: the fallback that fills profit factor, win rate, trades and EV R for a configuration was reading a block that never exists, so those axes silently vanished on many runs - not only old ones, since the pooled profit factor is dropped whenever any ticked slice sits at or below 1. Some existing reports will now show axes that were previously missing.','NEW PRE-PUSH GATE, tools/matrix_axes_render_probe.py: renders both 1E charts headlessly over fourteen cases and checks the drawn numbers, including that EV R equals the hand calculation, that a configuration with no losing trade draws nothing, and that an axis only some configurations record still draws with its degree mark.']},
 {v:'73.408',date:'2026-08-30',notes:['CONFIGS IS NO LONGER A SEPARATE LEVEL - it is a VIEW of the runs you have already ticked, which is what was asked for in the first place. Pick a strategy, tick one or more of its Auto-Validates, then SHOW decides whether the chart plots the RUNS themselves or every 1E candidate inside them, overlaid on the same axes.','THE STRATEGY PICK IS NO LONGER THROWN AWAY. Switching to configs used to repoint the rail at RAW / GATE / TILT, so the NOISE you had picked simply vanished and there was no way to tell what you were looking at. The rail always means the strategy; the six 1E families have their own control.','AND THE RUN CHIPS OFFER ONLY THAT STRATEGY RUNS. Seventy-five chips while the rail said NOISE was most of what made this confusing - the pick looked ignored. Untick the rail and every run is offered again.','The profit stage still pins itself while the configs view is on, because a candidate record holds exactly one window - but you only meet that pin when you ask for candidates, not the moment you arrive.']},
 {v:'73.407',date:'2026-08-30',notes:['The zoom handle on the scatter and parallel charts now actually zooms. It was pinning the chart to the tile width, so dragging past the fit height only added blank space; the chart is sized off its height instead, so dragging down magnifies the whole drawing - dots, labels and trend line together - and the tile scrolls sideways.','These charts open at their exact fit height, and they remember a dragged height under their own name so a height you set back when they were being stretched cannot reopen them wildly zoomed.']},
 {v:'73.406',date:'2026-08-30',notes:['Aspect-locked charts (the scatters and parallel-coordinate views) have a drag handle again, and dragging it ZOOMS them: the whole drawing scales, text included, instead of the chart sitting at one size while the tile grows empty space underneath it. Nothing is stretched - the shape is kept at every size.','NUMBERS / RATIOS / BOTH no longer applies to the SCATTER, and the control is hidden while the scatter is up. The scatter names its own two measures, so the filter was pulling the axes out from under you whenever you switched it.']},
@@ -11252,13 +11253,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   the RUN optimize-window length (every candidate is scored on that same window, so one
       //   shared length is correct for all of them) rather than an assumed trades/year. Too few
       //   points, a flat curve, or a missing/zero-length window all honestly return null (dash).
-      const _sharpeFromCum=(cum,yrs)=>{
+      const _riskAdjFromCum=(cum,yrs,downOnly)=>{
         if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
         const diffs=[];for(let i=1;i<cum.length;i++)diffs.push(cum[i]-cum[i-1]);
         const n=diffs.length,mean=diffs.reduce((a,b)=>a+b,0)/n;
-        const varc=diffs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/Math.max(1,n-1),sd=Math.sqrt(varc);
+        let sd;
+        if(downOnly){
+          // DOWNSIDE ONLY: an up move is not risk. Squared over the SAME n-1 as the Sharpe
+          // beside it -- see the note above on why this deviates from the textbook n.
+          let ss=0;for(let i=0;i<n;i++){const v=diffs[i]-mean;if(diffs[i]<0)ss+=v*v;}
+          sd=Math.sqrt(ss/Math.max(1,n-1));
+        }else{
+          sd=Math.sqrt(diffs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/Math.max(1,n-1));
+        }
+        // No dispersion at all (a monotone curve has no downside) -> the ratio does not
+        // exist. Null, never Infinity: an axis point that cannot be computed is absent.
         if(!(sd>1e-9))return null;
         return (mean/sd)*Math.sqrt(n/yrs);};
+      const _sharpeFromCum=(cum,yrs)=>_riskAdjFromCum(cum,yrs,false);
+      const _sortinoFromCum=(cum,yrs)=>_riskAdjFromCum(cum,yrs,true);
       const _optW=(valBlock&&valBlock.windows&&valBlock.windows.optimize)||null;
       const _yrsWindow=(_optW&&_optW[0]&&_optW[1])?Math.max(0,(new Date(_optW[1])-new Date(_optW[0]))/(365.25*86400000)):null;
       const _nFolds=(valBlock&&valBlock.n_folds!=null)?valBlock.n_folds:null;
@@ -11293,6 +11306,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   mattered, not the in-sample score.
         const mar=(mdd!=null&&mdd>1e-9&&wfV!=null&&isFinite(wfV))?(wfV/mdd):null;
         const sharpe=_sharpeFromCum(c.equity&&c.equity.cum,_yrsWindow);
+        const sortino=_sortinoFromCum(c.equity&&c.equity.cum,_yrsWindow);
         const foldsHeld=(c.folds_held!=null)?c.folds_held:null;
         // PF / win rate: only ever shown if the candidate itself genuinely carries a metrics
         //   block with that field (see hasPf/hasWr below) — never fabricated.
@@ -11314,7 +11328,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const fullRun=lbOk?lbV:optEnd;
         const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(_robSet.has(c)?' - NOT ELIGIBLE: kept for context only; this config was never in the pool the crown is picked from, its rank is informational':'')+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,foldsHeld,mmPf,mmWr,mmApt,mmN,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c),
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,sortino,foldsHeld,mmPf,mmWr,mmApt,mmN,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c),
           // v72 (owner ask: RAW's reward/risk rows should follow the SAMPLE toggle like GATE/
           //   TILT/HYBRID): raw candidate reference so _rawP below can read its is_rng/wf_rng/
           //   lockbox blocks (engine validate.py v72 — absent on runs saved before that change).
@@ -11468,13 +11482,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(has('wf')){if(frac==null||!_yrsWindow)return null;y+=_yrsWindow*(1-frac);got=true;}
         if(has('lb')){if(!_rawYrsLB)return null;y+=_rawYrsLB;got=true;}
         return (got&&y>0)?y:null;};
-      const _rawSharpe=col=>{const sp=_rawSpanIdx(col);if(!sp||sp.i1-sp.i0<3)return null;
+      const _rawRiskAdj=(col,downOnly)=>{const sp=_rawSpanIdx(col);if(!sp||sp.i1-sp.i0<3)return null;
         const yrs=_rawYrsFor(col);if(!yrs)return null;
         const d=[];for(let i=sp.i0+1;i<=sp.i1;i++)d.push((+sp.cum[i]||0)-(+sp.cum[i-1]||0));
         const n=d.length,mean=d.reduce((x,y2)=>x+y2,0)/n;
-        const varc=d.reduce((x,y2)=>x+(y2-mean)*(y2-mean),0)/Math.max(1,n-1),sd=Math.sqrt(varc);
+        let sd;
+        if(downOnly){let ss=0;for(let i=0;i<n;i++){const v=d[i]-mean;if(d[i]<0)ss+=v*v;}
+          sd=Math.sqrt(ss/Math.max(1,n-1));}
+        else sd=Math.sqrt(d.reduce((x,y2)=>x+(y2-mean)*(y2-mean),0)/Math.max(1,n-1));
         if(!(sd>1e-9))return null;
         return (mean/sd)*Math.sqrt(n/yrs);};
+      const _rawSharpe=col=>_rawRiskAdj(col,false);
+      const _rawSortino=col=>_rawRiskAdj(col,true);
       // v73.67: the drawdown the ENGINE measured trade-by-trade for exactly the ticked span, when
       //   one exists — cal.is / cal.wf for a single stretch, cal.pre (or the whole-window metrics
       //   block) for IS+WF, which together are the whole optimize window. Preferred over reading
@@ -11806,10 +11825,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v73.340: read the SCOPED per-config block the RAW table itself prints (_rawP follows the
         //   ticked IS / WF / LB sample), falling back to the whole-run metrics block on older docs -
         //   guessing col.pf / col.win_rate found nothing, so RAW lines had no PF or WIN % vertex.
-        const _rp=(typeof _rawP==='function'?(_rawP(col)||{}):{}),_cm=(col&&col.metrics)||{};
+        // THE FALLBACK WAS READING A BLOCK THAT NEVER EXISTS. A column is the derived
+        // record with the candidate hung off .raw (see raw:c above), so col.metrics is
+        // always undefined and PF / WIN % / TRADES / EV R had nothing to fall back to
+        // whenever _rawP returned none - which is not only old runs: _rawP's pooled PF
+        // is null whenever any ticked slice has PF <= 1, which is common. Gated on
+        // _rawBScope, the same test the drawdown fallback below uses, so a whole-window
+        // figure is never printed under a LOCKBOX or IS-only tick.
+        const _rp=(typeof _rawP==='function'?(_rawP(col)||{}):{}),
+              _cm=(_rawBScope&&col&&col.raw&&col.raw.metrics)?col.raw.metrics:{};
         const _tr1=_n1(_rp.kept!=null?_rp.kept:_cm.num_trades),_wr1=_n1(_rp.wr!=null?_rp.wr:_cm.win_rate);
         return {pool:'RAW',label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,
-          pf:_n1(_rp.pf!=null?_rp.pf:_cm.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),sh:_n1(col.sharpe),tr:_tr1,ev:(_tr1?(pnl/_tr1):null)};
+          pf:_n1(_rp.pf!=null?_rp.pf:_cm.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),
+          // SAME RULE THE TABLES USE. Prefer the value measured over the ticked slice;
+          // fall back to the whole-window figure ONLY when the tick IS the whole window,
+          // so an LB or IS-only tick never prints an optimize-window number under it.
+          // Otherwise the point simply has no value and the axis breaks there.
+          sh:_n1(_rawScopedA?(_rawSharpe(col)!=null?_rawSharpe(col):(_rawBScope?col.sharpe:null)):col.sharpe),
+          so:_n1(_rawScopedA?(_rawSortino(col)!=null?_rawSortino(col):(_rawBScope?col.sortino:null)):col.sortino),
+          tr:_tr1,ev:(_tr1?(pnl/_tr1):null)};
       }).filter(Boolean);
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
@@ -13867,8 +13901,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {nm:'MAR',    inv:false, get:x=>(+x.pnl>0&&Math.abs(+x.dd)>0)?(+x.pnl/Math.abs(+x.dd)):null, fmt:v=>v.toFixed(2)},
         {nm:'PF',     inv:false, get:x=>_num(x.pf), fmt:v=>v.toFixed(2)},
         {nm:'SHARPE', inv:false, get:x=>_num(x.sh), fmt:v=>v.toFixed(2)},
+        {nm:'SORTINO',inv:false, get:x=>_num(x.so), fmt:v=>v.toFixed(2),
+         tip:'Return over its DOWNSIDE deviation only - the same curve, window and annualisation as the SHARPE axis beside it, with upside swings no longer charged as risk. Derived from each configuration own saved equity curve, so it reads higher than the per-trade Sortino the KPI chart and a STUDIES run row print; compare it across configurations here, not against those.'},
         {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
+        {nm:'EV R',   inv:false, get:x=>_evInR(x.wr,x.pf), fmt:v=>v.toFixed(2),
+         tip:'Expectancy in R - the average trade divided by the average LOSING trade. Leverage-blind and instrument-blind, so two configurations on different contracts read against each other honestly. Computed exactly from this configuration own win rate and profit factor; a configuration with no losing trade has no R and draws no point.'},
         {nm:'TRADES', inv:false, get:x=>_num(x.tr), fmt:v=>Math.round(v).toLocaleString()}
       ].filter(a=>_mtxAxKeep(a.nm,_MTXK.cols,_mtxViewOf(_MTXK.view)));
       if(pboV!=null&&isFinite(pboV)&&_mtxAxKeep('PBO',_MTXK.cols,_mtxViewOf(_MTXK.view)))axes.push({nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
@@ -13888,7 +13926,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ax+='<line x1="'+x.toFixed(1)+'" y1="'+plotT+'" x2="'+x.toFixed(1)+'" y2="'+plotB+'" stroke="'+(a.run?'var(--purple)':'var(--border)')+'" stroke-width="'+(a.run?1.4:1)+'"'+(a.run?' stroke-dasharray="4,3"':'')+'/>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
-          +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
+          +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+(a.tip?('<title>'+String(a.tip).replace(/</g,'&lt;')+'</title>'):'')+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
       if(_mtxViewOf(_MTXK.view)==='scatter'){
         const rows=P.map(x=>({get:a=>a.get(x),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,
           tip:'<b>'+String(x.pool||'')+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+(x.crowned?' &#128081;':'')}));
@@ -13927,9 +13965,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   the 1E table rows AND both parallel views. RATIOS = the unit-free reads (MAR, PF, SHARPE,
     //   WIN %, SORTINO, PBO, CALMAR); NUMBERS = the dollars and counts; BOTH = everything.
     const _mtxColsMode=(k)=>{const v=String(APREF[k||'mtxCols']||'both');return (v==='num'||v==='ratio')?v:'both';};
-    const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
+    const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|EV R|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
     const _mtxColsKeep=(lbl,k)=>{const m=_mtxColsMode(k);return m==='both'||(m==='ratio')===_isRatioLbl(lbl);};
     // the scatter names its own axes, so it ignores the column filter entirely
+    // EV IN R (owner 2026-08-31: "ev in r and soritno since those seem to be the fairir
+    // yardstick"). Expectancy measured in units of the AVERAGE LOSING TRADE - the same
+    // edge-per-bet a discretionary trader means by R, with the contract size, the
+    // instrument and the account all divided out.
+    // The average loss is NOT recorded per configuration (a candidate's metrics block
+    // holds only avg_pnl, max_drawdown, num_trades, profit_factor, total_pnl, win_rate),
+    // so this is derived rather than read - and it is EXACT, not an approximation:
+    //     EV  = wr*avgW - (1-wr)*avgL          PF = wr*avgW / ((1-wr)*avgL)
+    //     =>  avgW/avgL = PF*(1-wr)/wr   =>   EV/avgL = (1-wr)*(PF-1)
+    // Checked against ten real runs (#243 #304 #302 #234 #226 #225 #274 #303 #291 #300)
+    // using each one's own stored avg_win / avg_loss / win_rate: matches to 1e-9 on all.
+    // wr arrives 0-100 on these points, so it is divided down here and nowhere else.
+    const _evInR=(wrIn,pfIn)=>{
+      if(wrIn==null||pfIn==null||!isFinite(+wrIn)||!isFinite(+pfIn))return null;
+      const wr=(+wrIn>1)?(+wrIn/100):+wrIn;
+      // A config with no losers has no R to measure against - undefined, not infinite.
+      if(!(wr>=0)||wr>=1)return null;
+      // PF 0 is a real reading (a config that never won) and gives EV R = -1; only a
+      // negative or missing PF is nonsense.
+      if(+pfIn<0)return null;
+      return (1-wr)*(+pfIn-1);};
     const _mtxAxKeep=(lbl,k,view)=>(view==='scatter')?true:_mtxColsKeep(lbl,k);
     const _mtxColsRail=(k)=>_distViewRail(k||'mtxCols',_mtxColsMode(k),[['num','NUMBERS'],['ratio','RATIOS'],['both','BOTH']]);
     // Which card is asking. The primary keeps the original pref names so nobody loses a saved
@@ -13953,7 +14012,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const n=rows?rows.filter(function(r){const v=r.get(a);return v!=null&&isFinite(v);}).length:null;
       const thin=(n!=null&&rows.length&&n<rows.length);
       return [a.nm,a.nm.replace(' &#8595;','')+(thin?(' <span style="opacity:.55;font-weight:400">'+n+'</span>'):''),
-        'put '+a.nm.replace(' &#8595;','')+' on this axis'+(thin?(' - only '+n+' of '+rows.length+' carry it, the rest cannot be plotted against it'):'')];
+        // An axis may carry its own explanation. EV R and SORTINO are the two measures on
+        // this chart nobody can be expected to read off the name alone, so they say what
+        // they are here rather than leaving the reader to guess.
+        (a.tip?(a.tip+' '):'')+'Put '+a.nm.replace(' &#8595;','')+' on this axis'+(thin?(' - only '+n+' of '+rows.length+' carry it, the rest cannot be plotted against it'):'')+'.'];
       }),(key==='mtxSX'?'X':'Y'));
     const _mtxScatFromAxes=(A,rows,head)=>{
       if(!A||A.length<2||!rows||!rows.length)return '';
@@ -14013,6 +14075,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'pf',   nm:'PF',      inv:false, get:p=>_f(p.pf), fmt:v=>v.toFixed(2)},
         {k:'wr',   nm:'WIN %',   inv:false, get:p=>_f(p.wr), fmt:v=>Math.round(v*(v<=1?100:1))+'%'},
         {k:'ev',   nm:'EV',      inv:false, get:_ev,       fmt:v=>_kfmt(v)},
+        // Same closed form as the all-configs chart, so one name means one thing on both.
+        {k:'evr',  nm:'EV R',    inv:false, get:p=>_evInR(_f(p.wr),_f(p.pf)), fmt:v=>v.toFixed(2)},
         {k:'aw',   nm:'AVG WIN', inv:false, get:p=>_f(p.aw), fmt:v=>_kfmt(v)},
         {k:'al',   nm:'AVG LOSS',inv:true,  get:p=>_f(p.al)!=null?Math.abs(+p.al):null, fmt:v=>'-'+_kfmt(Math.abs(v))},
         {k:'pd',   nm:'$ / DAY', inv:false, get:p=>(p.net!=null&&p.days)?p.net/p.days:null, fmt:v=>_kfmt(v)},
