@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.398';
+const VERSION='73.399';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.399',date:'2026-08-31',notes:['THE AUTO-RECOVER SWITCH NOW LOOKS LIKE A SWITCH. It was a bordered pill in the exact costume of the read-only status lights beside it, so nothing said it was clickable. It now follows the page rule: a checkbox toggles. Checked box when on; hollow box plus OFF in amber when off; the only checkbox on the status strip - the one thing there you can click.']},
 {v:'73.398',date:'2026-08-29',notes:['THE SIDEBAR IS A PICKER NOW, NOT A DATA TABLE. The COLUMNS switch is gone and the strategy table is locked to the four key readings - thirteen columns could never fit a sidebar, which is where the cropped numbers came from. Everything beyond the key four is on the row hovers, where it always was.','TWO SHAPES, USED CONSISTENTLY, so you can tell what is clickable and how. A choice is a labelled tray - VIEW, FAMILY, TYPE, with the label inside the tray and the active cell solid - which also ends the two-ALLs confusion, because one now reads FAMILY-ALL and the other TYPE-ALL. A toggle is a checkbox line: baselines only, detail, archived. If it has a checkbox it toggles; if it is a tray you pick one.','THE FOOTNOTES UNDER THE TABLE ARE GONE - both wrapped into grey noise at sidebar width. The crown note is a tooltip on the STRATEGIES heading; INCLUDE ALL appears beside that heading only when something is excluded.']},
 {v:'73.397',date:'2026-08-30',notes:['FIX: LOAD ERROR - _reCfgRunId is not defined. Making the CONFIGS level read several runs renamed a variable inside the per-run loop, and the rename swept up the DECLARATION as well, so the panel that says LOADING RUN read a name that no longer existed. Declared again; the loop keeps its own name.']},
 {v:'73.396',date:'2026-08-30',notes:['The 1E control rails are one-word dropdowns now instead of rows of pills - view, columns and both scatter axis pickers. The axis pickers alone were nine pills each, which is what pushed the header off the edge of the card.','2B and 2C inherit the same compact control, so the whole report has one dropdown behaviour: click to open, one menu at a time, click anywhere else to close.']},
@@ -24685,7 +24686,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           : (_wdOn
              ? 'ON: if NinjaTrader dies, the PC restarts it, logs in, reconnects the Simulation account and re-enables the strategies. Click to switch OFF for the weekend - already-running strategies keep running, only the automatic repair stops.'
              : 'OFF: nothing will restart NinjaTrader if it dies. Anything already running keeps running. Click to switch back ON before the session opens.');
-        _wdBtn=(_wdOn===null&&!_WD)?'':('<span data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="margin-left:auto;cursor:'+(_wdBusy?'wait':'pointer')+';user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;color:'+_wdCol+';border:1px solid '+_wdCol+';border-radius:999px;padding:1px 8px;opacity:'+(_wdBusy?'.55':'1')+'">'+_wdTxt+'</span>');
+        // Owner 2026-08-31: "why is auto recover button the same as the live status
+        // indicator? how do i know its a button". Fair - it wore the exact costume of
+        // the read-only chips beside it. Page rule since v73.398: a CHECKBOX toggles.
+        // So the switch is a checkbox line - the only one on the strip.
+        _wdBtn=(_wdOn===null&&!_WD)?'':('<span data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="margin-left:auto;cursor:'+(_wdBusy?'wait':'pointer')+';user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;color:'+_wdCol+';opacity:'+(_wdBusy?'.55':'1')+'"><span style="font-size:12px;vertical-align:-1px">'+(_wdBusy?'…':(_wdOn===null?'?':(_wdOn?'\u2611':'\u2610')))+'</span> AUTO-RECOVER'+(_wdOn===false?' OFF':'')+'</span>');
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
