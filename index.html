@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.413';
+const VERSION='73.414';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.414',date:'2026-08-30',notes:['THE CHART SAT ON LOADING FOR EVER WHILE THE TABLE UNDER IT FILLED UP, and the reason is dull: the run-document cache holds EIGHT runs. Tick ten and it evicts one to load the next, so the test for everything-has-arrived could never come true. The cache now holds as many as are ticked.','AND THE CHART DRAWS WHAT IT HAS instead of being replaced wholesale by a LOADING panel. Ticking one more run used to blank everything already on screen; now the runs that have arrived stay drawn and a line underneath names the ones still coming.']},
 {v:'73.413',date:'2026-08-31',notes:['Scatter and parallel charts fill their column again. They were remembering an absolute pixel height, so a height recorded while the tile was narrow pinned the chart small once the tile grew - it sat at two-thirds scale with dead margin down both sides and the re-fit could not override it.','What the handle remembers is now the share of the fit height, not a pixel count, so a chart you deliberately made small stays small and one left at full size keeps filling whatever width its column ends up.']},
 {v:'73.412',date:'2026-08-31',notes:['Scatter and parallel charts now re-fit whenever their tile changes width, so they fill the column instead of sitting small with dead margin down both sides. The fit was being measured one frame after the build, before the report had settled its column widths.']},
 {v:'73.411',date:'2026-08-31',notes:['Scatter and parallel charts FIT at every size now - the whole drawing is always on screen, centred, never clipped and never stretched. v73.407 sized them off their height so the handle could magnify them, which pushed the right-hand edge (dots and the x-axis title) off the side behind a sideways scrollbar.','The drag handle shrinks the chart and grows it back only as far as the point where it exactly fills the column width, so there is no empty space to drag into and no cropped edge to scroll to. Resizing the window or the tile re-fits them.']},
@@ -1942,7 +1943,12 @@ function _hydrateRun(id){
     if(!snap.exists)return;
     window._runFull[id]=_bookUnitsOnRead(_isoTs(Object.assign({id:id},snap.data())));
     window._runFullOrder.push(id);
-    while(window._runFullOrder.length>8){const old=window._runFullOrder.shift();if(old!==id)delete window._runFull[old];}
+    // THE CAP IS A FLOOR OF EIGHT, RAISED BY WHOEVER NEEDS MORE. The studies board can
+    //   ask for a dozen runs at once; with a fixed eight it evicted one to load the next,
+    //   the 'all loaded' test never came true, and the chart sat on LOADING for ever while
+    //   the table underneath filled up. Owner-reported 2026-08-30.
+    const _cap=Math.max(8,+window._runFullCap||0);
+    while(window._runFullOrder.length>_cap){const old=window._runFullOrder.shift();if(old!==id)delete window._runFull[old];}
     renderApp();
   }).catch(e=>{delete window._runHydrating[id];console.warn('[run] full document fetch failed for',id,(e&&e.message)||e);});
 }
@@ -22170,7 +22176,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    Tick as many as you like: every one of their RAW / GATE / TILT / HYBRID
         //    candidates lands on the same axes, and each row carries its run number so a
         //    point is always traceable to the run it came out of.
-        let _reCfgLoad=false,_reCfgMsg='',_reCfgRunId='';
+        let _reCfgMsg='',_reCfgRunId='';
+        const _reCfgWait=[];   // ticked runs still being fetched
         const _reCfgCounts={raw:0,gate:0,tilt:0,hyb:0};
         // Declared HERE, above the config row builder that reads it. It used to sit with
         //   its own buttons hundreds of lines below, and a const is hoisted but not
@@ -22179,10 +22186,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reCfgFam=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
         const _reCfgPick=rs.filter(function(r){return r&&(String(r.scope||'').indexOf('valid')>=0||r.validate);}).slice(0,80);
         // the pref holds a LIST now; a single id from before still reads correctly.
+        // tell the run-document cache how many we are about to need, so it stops
+        //   evicting the ones we already have to make room for the next.
         const _reCfgIds=(function(){const raw=APREF.resCfgRun;
           let a=Array.isArray(raw)?raw.map(String):(raw!=null&&raw!==''?[String(raw)]:[]);
           a=a.filter(function(id){return _reCfgPick.some(function(r){return String(r.id)===id;});});
           if(!a.length&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
+          try{window._runFullCap=Math.max(8,a.length+2);}catch(e){}
           return a;})();
         _reCfgRunId=_reCfgIds.join(', #');
         if(_reShowCfg){
@@ -22190,7 +22200,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(!_reCfgIds.length){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
           _reCfgIds.forEach(function(RID){
             const full=(window._runFull||{})[RID];
-            if(!full){if(typeof _hydrateRun==='function')_hydrateRun(RID);_reCfgLoad=true;return;}
+            if(!full){if(typeof _hydrateRun==='function')_hydrateRun(RID);
+              _reCfgWait.push(RID);return;}
             {
               const mult=(+full.multiplier||20);
               const V=full.validate||null;
@@ -22302,7 +22313,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 szRow(h,'HYBRID \u267b','HYBRID \u267b '+String(h.model||''),'redeploy');
                 szRow(h,'HYBRID \u2193DD','HYBRID \u2193DD '+String(h.model||''),'equaldd');});
             }});
-          if(_reCfgIds.length&&!_reCfgLoad&&!CROWS.length)_reCfgMsg='None of the picked runs saved configuration records - a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
+          if(_reCfgIds.length&&!_reCfgWait.length&&!CROWS.length)_reCfgMsg='None of the picked runs saved configuration records - a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
           if(CROWS.length){
                 const cfgSt={key:'cfg-'+_reCfgIds.join('-'),title:'CONFIGS OF RUN #'+_reCfgIds.join(' + #'),fam:'CONFIG',
                   isLbl:'OPTIMIZE WINDOW',sub:'Read live out of run #'+_reCfgIds.join(', #')+'. Optimize window only - no lockbox has judged any of these'+((_reCfgIds.length>1)?', and the runs may cover different windows - the ratio axes stay fair, NET does not.':'.'),
@@ -22810,7 +22821,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // CONFIGS: what stands in for the chart while the run document is in flight, or
         //   when the picked run turns out to hold no configuration records at all.
         const _reCfgState='<div style="border:1px dashed var(--border);padding:44px 20px;text-align:center;color:var(--text5);font-size:10px;line-height:1.9">'
-          +(_reCfgLoad?('LOADING RUN #'+_reEsc(_reCfgRunId)+'<br><span style="font-size:8.5px">Configuration records are not part of the fast page load, so the full run document is being fetched. This happens once per run.</span>')
+          +(_reCfgWait.length?('LOADING RUN #'+_reEsc(_reCfgWait.join(', #'))+'<br><span style="font-size:8.5px">Configuration records are not part of the fast page load, so the full run document is being fetched. This happens once per run.</span>')
                       :_reEsc(_reCfgMsg))+'</div>';
         // ── THREE COLUMNS (owner 2026-08-28: "locked sidebar is all the tabs, then the
         //    tables, then the parallel chart - those last two can split"). ───────────────
@@ -22848,8 +22859,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                //   belong beside each other.
                +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
                +_reAxisBtns+_reXAxisBtns+'</div>'+'</div>'))
+            +((_reShowCfg&&_reCfgWait.length&&_reItems.length)
+              ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">Still fetching '
+                +_reCfgWait.length+' run'+((_reCfgWait.length===1)?'':'s')+' (#'+_reCfgWait.join(', #')
+                +') - what has arrived is already drawn.</div>'):'')
             +_reLvlNote
-            +'<div style="margin-top:10px">'+((_reShowCfg&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))))+'</div>',0);
+            +'<div style="margin-top:10px">'+((_reShowCfg&&((_reCfgWait.length&&!_reItems.length)||_reCfgMsg))?_reCfgState:(_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))))+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
