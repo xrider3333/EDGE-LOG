@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.417';
+const VERSION='73.418';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.418',date:'2026-08-31',notes:['1E SCATTER, driven end to end: the not-plotted warning now names WHICH families are missing the measure (e.g. no SORTINO - GATE 20 / TILT 10 / HYBRID 5 / HYBRID-R 5). An all-green chart on the ALL tab was the truth, not a bug: SORTINO and SHARPE come off a stored equity curve and only the RAW top-10 keep one - the ML columns record no curve, so those two axes can never plot them.','PBO is gone from the scatter axis pickers - it is one number for the whole run, so every dot landed on a single vertical line. It stays on the table and parallel views. And the second 1E card now picks its OWN scatter axes instead of being chained to the first cards X / Y.']},
 {v:'73.417',date:'2026-08-30',notes:['A MONEY AXIS ROUNDED TO THOUSANDS IS USELESS WHEN THE NUMBERS ARE IN THE HUNDREDS. With EXPECTANCY PER TRADE up the side every tick read $0k and the axis carried no information at all. It prints whole dollars below a thousand, thousands above it, millions above that.']},
 {v:'73.416',date:'2026-08-30',notes:['THE CONFIGS VIEW STOPS DOWNLOADING WHOLE RUN DOCUMENTS. Reading a run 1E candidates meant fetching its ENTIRE document - equity curves, trade excursions, gate bake-offs, megabytes of it - to get at two fields, which is the very thing the fast page load exists to avoid. It asks Firestore for only the parts it reads now, using the same field mask the runs list already uses. Kilobytes instead of megabytes.','It keeps its own small cache, so it never evicts a run report you have open, and if the projected read is refused it falls back to the whole document rather than leaving the view stuck on LOADING.']},
 {v:'73.415',date:'2026-08-30',notes:['AND THE TAB NO LONGER LOCKS UP WHEN SEVERAL RUNS ARE TICKED. A run document is large - the fast page load exists precisely because fetching them all is about 25 megabytes - so asking for ten at once wedged the renderer while they landed. Three are fetched at a time now and the rest queue, so the board fills in progressively instead of freezing and then arriving all at once.']},
@@ -13987,7 +13988,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+(a.tip?('<title>'+String(a.tip).replace(/</g,'&lt;')+'</title>'):'')+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
       if(_mtxViewOf(_MTXK.view)==='scatter'){
-        const rows=P.map(x=>({get:a=>a.get(x),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,
+        const rows=P.map(x=>({get:a=>a.get(x),pool:String(x.pool||''),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,
           tip:'<b>'+String(x.pool||'')+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+(x.crowned?' &#128081;':'')}));
         return _mtxScatFromAxes(A,rows,'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span><span>'+_mtxLegend(allPts)+'</span><span style="color:#f5c542">gold ring = crowned</span>');}
       // best NET $ per pool draws on top of its family, so each pool best line stays findable in the bundle
@@ -14053,7 +14054,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // Which card is asking. The primary keeps the original pref names so nobody loses a saved
     //   setting; the twin gets its own, so one card can sit on SCATTER while the other holds
     //   the TABLE (owner 2026-08-30: "maybe i just want one on scatter and one on bar?").
-    let _MTXK={view:'mtxView',cols:'mtxCols'};
+    let _MTXK={view:'mtxView',cols:'mtxCols',sx:'mtxSX',sy:'mtxSY'};
     const _mtxViewOf=k=>{const v=String(APREF[k||'mtxView']||'');return (v==='parallel'||v==='scatter')?v:'table';};
     // ── 1E SCATTER (owner 2026-08-30: "make scatter plot. put it here.") ────────────────────
     //    A third view on the same rail as TABLE and PARALLEL, fed by the SAME axis set the
@@ -14075,12 +14076,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // this chart nobody can be expected to read off the name alone, so they say what
         // they are here rather than leaving the reader to guess.
         (a.tip?(a.tip+' '):'')+'Put '+a.nm.replace(' &#8595;','')+' on this axis'+(thin?(' - only '+n+' of '+rows.length+' carry it, the rest cannot be plotted against it'):'')+'.'];
-      }),(key==='mtxSX'?'X':'Y'));
+      }),(/SX/.test(key)?'X':'Y'));
     const _mtxScatFromAxes=(A,rows,head)=>{
+      // a run-level axis (PBO) is one value for every dot - a vertical line, not a scatter
+      A=(A||[]).filter(a=>!a.run);
       if(!A||A.length<2||!rows||!rows.length)return '';
       const nmOf=a=>a.nm;
       const want=(k,def)=>{const v=String(APREF[k]||'');const hit=A.filter(a=>nmOf(a)===v)[0];return hit||A.filter(a=>nmOf(a)===def)[0]||null;};
-      let ax=want('mtxSX','MAX DD &#8595;')||want('mtxSX','MAX DD')||A[1],ay=want('mtxSY','NET $')||A[0];
+      const _kx=_MTXK.sx||'mtxSX',_ky=_MTXK.sy||'mtxSY';
+      let ax=want(_kx,'MAX DD &#8595;')||want(_kx,'MAX DD')||A[1],ay=want(_ky,'NET $')||A[0];
       if(ax===ay)ay=A.filter(a=>a!==ax)[0]||ay;
       const val=(a,r)=>{const v=r.get(a);return (v!=null&&isFinite(v))?+v:null;};
       const all=rows.map(r=>({x:val(ax,r),y:val(ay,r),r:r}));
@@ -14091,6 +14095,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   EV was picked, leaving a chart of GATE dots that looked like the whole population.
       const _miss=all.length-pts.length;
       const _missWhy=_miss?(all.filter(p=>p.x==null).length>=all.filter(p=>p.y==null).length?ax.nm:ay.nm):'';
+      // name the families that cannot sit on this axis, so a chart of one colour reads as
+      //   explained rather than broken (owner: "only populating raw configs even though im
+      //   on all" - the ML columns record no curve, so no SORTINO / SHARPE to plot).
+      let _missBy='';
+      if(_miss){const _mb={};all.forEach(p=>{if(p.x==null||p.y==null){const k=String(p.r.pool||'')||'?';_mb[k]=(_mb[k]||0)+1;}});
+        _missBy=Object.keys(_mb).map(k=>k+' '+_mb[k]).join(' &middot; ');}
       const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
       const pad=(lo,hi,f)=>{const rg=(hi-lo)||Math.abs(hi)||1;return [lo-rg*f,hi+rg*f];};
       const xr=pad(Math.min.apply(null,xs),Math.max.apply(null,xs),0.08),yr=pad(Math.min.apply(null,ys),Math.max.apply(null,ys),0.10);
@@ -14116,8 +14126,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<text x="10" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 10 '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ay.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ay)+'</tspan></text></svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'+(head||'')
-        +(_miss?('<span style="color:var(--yellow);font-weight:700" title="These rows record no '+_missWhy.replace(' &#8595;','')+', so they cannot be placed on this pair of axes. Pick an axis they all carry - NET $ and MAX DD are recorded by every family - or read them in the TABLE or PARALLEL view.">&#9888; '+_miss+' of '+all.length+' not plotted - no '+_missWhy.replace(' &#8595;','')+'</span>'):'')
-        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick('mtxSX',ax.nm,A,rows)+_mtxAxPick('mtxSY',ay.nm,A,rows)+'</span></div>'
+        +(_miss?('<span style="color:var(--yellow);font-weight:700" title="These rows record no '+_missWhy.replace(' &#8595;','')+', so they cannot be placed on this pair of axes. Missing it: '+_missBy.replace(/&middot;/g,'/')+'. Pick an axis they all carry - NET $ and MAX DD are recorded by every family - or read them in the TABLE or PARALLEL view.">&#9888; '+_miss+' of '+all.length+' not plotted - no '+_missWhy.replace(' &#8595;','')+' <span style="font-weight:400;opacity:.75">('+_missBy+')</span></span>'):'')
+        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick(_kx,ax.nm,A,rows)+_mtxAxPick(_ky,ay.nm,A,rows)+'</span></div>'
         +svg+'</div>';
     };
     const mtxParallelHtml=(phases,pboV,mult)=>{
@@ -14159,7 +14169,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>';
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="10" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
       if(_mtxViewOf(_MTXK.view)==='scatter'){
-        const rows=phases.map(p=>({get:a=>a.get(p),col:p.col||'var(--text3)',tip:'<b>'+(p.sh_||'')+'</b>',crowned:!!p.total}));
+        const rows=phases.map(p=>({get:a=>a.get(p),pool:String(p.sh_||''),col:p.col||'var(--text3)',tip:'<b>'+(p.sh_||'')+'</b>',crowned:!!p.total}));
         const head=phases.map(p=>'<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:'+(p.col||'var(--text3)')+'"><span style="width:7px;height:7px;border-radius:50%;background:'+(p.col||'var(--text3)')+';display:inline-block"></span>'+(p.sh_||'')+'</span>').join('');
         return _mtxScatFromAxes(A,rows,head);}
       let lines='',dots='';
@@ -17213,7 +17223,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   is built below, so this has to be in place before any of it runs. Setting it
           //   further down left the twin card rendering with the primary card's view pref,
           //   which is exactly the coupling this change exists to remove.
-          _MTXK=showScatter?{view:'mtxView',cols:'mtxCols'}:{view:'mtxViewB',cols:'mtxColsB'};
+          _MTXK=showScatter?{view:'mtxView',cols:'mtxCols',sx:'mtxSX',sy:'mtxSY'}
+                           :{view:'mtxViewB',cols:'mtxColsB',sx:'mtxSXB',sy:'mtxSYB'};
           let tb=String(APREF[prefKey]||'');
           if(!_tabDefs.some(function(t){return t[0]===tb;}))tb=(_tabDefs.some(function(t){return t[0]===fallback;})?fallback:(_tabDefs.length?_tabDefs[0][0]:'raw'));
           const isAll=(tb==='all');
