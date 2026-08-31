@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.395';
+const VERSION='73.396';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.396',date:'2026-08-30',notes:['The 1E control rails are one-word dropdowns now instead of rows of pills - view, columns and both scatter axis pickers. The axis pickers alone were nine pills each, which is what pushed the header off the edge of the card.','2B and 2C inherit the same compact control, so the whole report has one dropdown behaviour: click to open, one menu at a time, click anywhere else to close.']},
 {v:'73.395',date:'2026-08-31',notes:['A RUN THAT VALIDATED ONE CONFIGURATION NOW POINTS AT THE RIGHT SIBLING, not merely the newest one. It prefers a run that says in its own note that it searched AROUND this configuration, then one measured over the same window and the same data, and it tells you which of the two it found. When all it can offer is a same-window sweep it says plainly that the population may not contain this exact configuration - because it searched the space, it did not aim at this point.','WHY THAT MATTERED, on the NOISE crown (owner: "check auto validate 243. its missing quite a lot of info"). Run 243 evaluated ONE configuration, so it has no plateau pick, no surrogate, no overfit probability and no deflated Sharpe - none of which can be back-filled, because one configuration has no landscape. Re-running it would change nothing: its strategy file is pinned, so it would evaluate one configuration again. The landscape already exists in run 304, a restricted re-search around the crown on the same window that holds the crowned configuration itself plus 69 of its immediate neighbours. The family full sweeps, runs 237 and 302, do NOT contain it - not exactly and not within one knob - so pointing there would have answered a different question in silence.','REPORT_COMPLETENESS.md carries the audit, and corrects its own earlier note that the NOISE crown needed no full-discovery run.']},
 {v:'73.394',date:'2026-08-30',notes:['THE 1E MATRIX GOES ON THE SCATTER FOR SEVERAL AUTO-VALIDATES AT ONCE. The CONFIGS level read one run, which answered what a run found but never whether two runs found the same thing. The RUN control is a row of tickable chips now - tick as many as you like and every one of their RAW, GATE, TILT and three HYBRID candidates lands on the same axes.','EVERY POINT SAYS WHICH RUN IT CAME FROM. A row is named #304 GATE logistic at 50 percent, so a point is always traceable back to the run that produced it, and the family rail still narrows to RAW or GATE or any one hybrid sizing across all of them at once.','THE HONEST CAVEAT IS PRINTED when more than one run is ticked: the runs may cover different windows, so the ratio axes stay fair and NET does not.']},
 {v:'73.393',date:'2026-08-29',notes:['YOU CAN NOW TELL WHAT IS ON. Every active filter is inverted - solid fill, dark text - instead of the faint tint that was near-invisible on the monochrome theme, where the blue accent renders grey. Active toggle chips carry a check mark.','EVERY STRATEGY ROW HAS A CHECKBOX. Filled means included, hollow means excluded, and an excluded strategy is struck through as well as dimmed - three signals instead of a 40% opacity change.','THE SIDEBAR IS LABELLED. VIEW, FILTER, COLUMNS, then STRATEGIES with a live count - so each block says what it is instead of being anonymous rows of chips. The BASELINES tooltip now warns that it hides every ML overlay.']},
@@ -10663,7 +10664,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const st=(net<=0)?'info':(wo5<=0?'bad':((s5>0.5||s1>0.25)?'warn':'ok'));
       return {n:n,net:net,t1:t1,t5:t5,t10:t10,s1:s1,s5:s5,s10:s10,g5:t5/gross,wo5:wo5,wo10:wo10,st:st,rank:idx,exact:exact};
     };
-    const _distViewRail=(key,cur,opts)=>'<span data-sccmp-rm style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--purple) 8%,transparent);margin-left:6px">'+opts.map(o=>'<span data-distview="'+key+':'+o[0]+'" title="'+(o[0]==='scatter'?'every trade as a dot with a linear-regression trend line - see where the trades land and which ones carry the result':'the distribution view')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;color:'+(cur===o[0]?'var(--text)':'var(--text4)')+';background:'+(cur===o[0]?'color-mix(in srgb,var(--purple) 22%,transparent)':'transparent')+';box-shadow:'+(cur===o[0]?'inset 0 -2px 0 var(--purple)':'none')+'">'+o[1]+'</span>').join('')+'</span>';
+    const _distViewRail=(key,cur,opts,lbl)=>{
+      const on=opts.filter(o=>o[0]===cur)[0]||opts[0]||['',''];
+      const tip=(o)=>String(o[2]||('show '+String(o[1]).replace(/<[^>]*>/g,''))).replace(/"/g,'&quot;');
+      return '<span data-sccmp-rm style="position:relative;display:inline-flex;align-items:center;margin-left:6px">'
+        +(lbl?('<span style="font-size:7.5px;font-weight:700;color:var(--text5);margin-right:3px">'+lbl+'</span>'):'')
+        +'<span data-dvcur="'+key+'" title="'+tip(on)+'" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 7px;font-size:8px;font-weight:700;letter-spacing:.4px;color:var(--text);white-space:nowrap">'+on[1]+' <span style="font-size:6px;color:var(--text4)">&#9660;</span></span>'
+        +'<span data-dvopts style="display:none;position:absolute;top:calc(100% + 3px);left:0;z-index:60;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.45)">'
+        +opts.map(o=>'<span data-distview="'+key+':'+o[0]+'" title="'+tip(o)+'" style="display:block;cursor:pointer;padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+((cur===o[0])?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+((cur===o[0])?'var(--text)':'var(--text3)')+'">'+o[1]+'</span>').join('')
+        +'</span></span>';};
     const _kfmt=v=>{const a=Math.abs(v);const s=a>=1e6?(a/1e6).toFixed(1)+'M':a>=1e3?(a/1e3).toFixed(a>=1e4?0:1)+'k':Math.round(a).toString();return (v<0?'-$':'$')+s;};
     const _nice=x=>{x=Math.abs(x)||1;const e=Math.pow(10,Math.floor(Math.log10(x)));const f=x/e;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*e;};
     // v73.223 (owner: "i want a LINEAR REGRESSION showing positive trades in the upper right quadrant
@@ -13866,10 +13875,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    always better. A scatter has no such convention - here every axis is drawn in its own
     //    natural direction and the axis caption says which end is good, because silently
     //    flipping a dollar axis is how people misread a chart.
-    const _mtxAxPick=(key,cur,A)=>'<span data-sccmp-rm style="display:inline-flex;align-items:center;gap:1px;padding:1px;border-radius:7px;background:color-mix(in srgb,var(--blue) 8%,transparent);margin-left:5px">'
-      +'<span style="font-size:7.5px;font-weight:700;color:var(--text5);padding:0 3px">'+(key==='mtxSX'?'X':'Y')+'</span>'
-      +A.map(a=>'<span data-distview="'+key+':'+a.nm+'" title="put '+a.nm+' on this axis" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 5px;border-radius:5px;color:'+(cur===a.nm?'var(--text)':'var(--text4)')+';background:'+(cur===a.nm?'color-mix(in srgb,var(--blue) 22%,transparent)':'transparent')+'">'+a.nm.replace(' &#8595;','')+'</span>').join('')
-      +'</span>';
+    const _mtxAxPick=(key,cur,A)=>_distViewRail(key,cur,A.map(a=>[a.nm,a.nm.replace(' &#8595;',''),'put '+a.nm.replace(' &#8595;','')+' on this axis']),(key==='mtxSX'?'X':'Y'));
     const _mtxScatFromAxes=(A,rows,head)=>{
       if(!A||A.length<2||!rows||!rows.length)return '';
       const nmOf=a=>a.nm;
@@ -27196,9 +27202,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-distsec2]').forEach(el=>{el.onclick=()=>{savePref('distSec',el.dataset.distsec2);renderApp();};});
       content.querySelectorAll('[data-distsecm]').forEach(el=>{el.onclick=e=>{e.stopPropagation();const k=el.dataset.distsecm;let cur=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:[]);cur=cur.filter(x=>x!=='all');cur=cur.includes(k)?cur.filter(x=>x!==k):cur.concat([k]);savePref('distSecs',cur);renderApp();};});
       // collapsed pill dropdowns (1G scope + bins): click the pill to open/close its options.
-      content.querySelectorAll('[data-scopecur],[data-binscur]').forEach(el=>{el.onclick=e=>{e.stopPropagation();
-        const w=el.parentElement.querySelector('[data-scopeopts],[data-binsopts]');
-        if(w)w.style.display=(w.style.display==='none'?'block':'none');};});
+      content.querySelectorAll('[data-scopecur],[data-binscur],[data-dvcur]').forEach(el=>{el.onclick=e=>{e.stopPropagation();
+        const w=el.parentElement.querySelector('[data-scopeopts],[data-binsopts],[data-dvopts]');
+        // only one of these menus open at a time - two overlapping popovers in a card this
+        //   dense is worse than the pills we just replaced.
+        if(w){const wasOpen=(w.style.display!=='none');
+          content.querySelectorAll('[data-scopeopts],[data-binsopts],[data-dvopts]').forEach(o=>{o.style.display='none';});
+          w.style.display=wasOpen?'none':'block';}};});
+      // click anywhere else closes them
+      if(!window._dvDocClose){window._dvDocClose=1;document.addEventListener('click',function(){
+        document.querySelectorAll('[data-dvopts]').forEach(o=>{o.style.display='none';});});}
       // §4 verdict chips (redesign #27): click toggles that check's full readout open/closed
       content.querySelectorAll('[data-diagchip]').forEach(b=>{b.onclick=()=>{window._diagOpenKey=(window._diagOpenKey===b.dataset.diagchip)?null:b.dataset.diagchip;renderApp();};});
       // §2 3-D explorer chips (redesign #24): pick which 3-D view the single tile renders
