@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.373';
+const VERSION='73.374';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.374',date:'2026-08-28',notes:['LATTICE, the fourth drawing: every measure against every other in small panes. It answers the one question the other three cannot - WHICH OF THESE MEASURES ARE SAYING THE SAME THING. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging a strategy on.','FIVE MEASURES, NOT TEN: Sharpe, Sortino, MAR, EV in R and profit factor. Ten would be a hundred panes at forty pixels each, which is a texture rather than a chart. All five are scale-free, so every pane is a fair comparison whatever the instrument, size or window.','Capped at 250 rows, strongest by MAR, with the number left off said out loud - twenty-five panes of every row would be tens of thousands of dots. Same rule the radar learned the hard way.']},
 {v:'73.373',date:'2026-08-28',notes:['CRITICAL FIX: every run report has been failing to open since 73.367 with THIS RUN DETAIL COULDN-T RENDER (ReferenceError: _reXNm is not defined). The 1A RISK MAP x-axis caption had been pointed at the RANKINGS scatter axis-picker variables, which live in a different function. The RISK MAP x is always max drawdown, so its caption says that again.']},
 {v:'73.372',date:'2026-08-28',notes:['TTM HAD NO FAMILY RULE, so every TTM Squeeze run read UNTAGGED and the strategy rail counted TTM as zero while three crowned TTM runs sat on the chart. It has one now.','AND THE RAIL COUNTS WHAT THE LEVEL ACTUALLY BUILT - crowned runs on CROWN, every run on AUTO VAL - instead of counting every run either way.']},
 {v:'73.371',date:'2026-08-28',notes:['CROWN READS PAST RUNS NOW, like AUTO VAL. It listed registry rows tagged as champion, so a crowned run nobody had written up was absent, and a stale write-up outlived the crown it described. It is one row per CROWNED RUN, off the same Past Runs list, so it cannot go stale.','WHAT MAKES A RUN CROWNED IS YOUR OWN MARK, never a computed maximum. Two marks count: a starred run, and a run cited by a studies row you tagged as the champion of its family. A family with neither is simply absent - naming the biggest number would be inventing a crown nobody awarded, which is the one thing this level must not do.','Crowned rows fill every axis, like every other run row, and the strategy rail counts runs on this level too.']},
@@ -21109,7 +21110,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    NOT RECORDED YET: win rate and Sharpe. The registry carries no field for either, so
         //    rather than invent them the chart NAMES them underneath as the two gaps to fill.
         //    Adding one later is a row field plus one entry in _rePAxes - nothing else changes.
-        const _reChartK=(['scatter','par','radar'].indexOf(APREF.resChart)>=0)?APREF.resChart:'scatter';
+        const _reChartK=(['scatter','par','radar','lattice'].indexOf(APREF.resChart)>=0)?APREF.resChart:'scatter';
+        const _reLatOn=(_reChartK==='lattice');
         const _reParOn=(_reChartK==='par');
         const _reRadOn=(_reChartK==='radar');
         // AXIS ORDER IS DELIBERATE and it is about line breaks, not about importance.
@@ -21175,6 +21177,82 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //
         //    A row draws only through the axes it records. Fewer than three and there is no
         //    polygon to draw at all, so it is counted underneath instead of faked.
+        // ── LATTICE (owner ask 2026-08-28) ───────────────────────────────────────────
+        //    Every measure plotted against every other, in small panes. It answers the one
+        //    question neither of the other charts can: WHICH OF THESE MEASURES ARE SAYING
+        //    THE SAME THING. A pane whose cloud lies on a line is two measures that move
+        //    together, so reading both is reading one twice; a pane that is a shapeless
+        //    cloud is two measures that genuinely disagree, and those are the pairs worth
+        //    judging a strategy on.
+        //
+        //    FIVE MEASURES, NOT TEN. Ten would be a hundred panes at forty pixels each,
+        //    which is a texture rather than a chart. These five are the scale-free ones -
+        //    every one survives a different instrument, a different size and a different
+        //    window - so a pane here is always a fair comparison.
+        const _reLatKeys=['sh','sor','mar','evr','pf'];
+        const _reLatAll=function(items){
+          const AX=_reLatKeys.map(function(k){
+            return _rePAxes.filter(function(a){return a.k===k;})[0];}).filter(Boolean);
+          const rows=[],skip=[];
+          items.forEach(function(o){
+            if(!_reFailOn&&o.r&&o.r.tone==='fail')return;
+            const vals=AX.map(function(a){return a.v(o.st,o.r);});
+            if(vals.filter(function(v){return v!=null&&isFinite(v);}).length<2){skip.push(o);return;}
+            rows.push({o:o,st:o.st,r:o.r,v:vals});});
+          if(!rows.length)return '<div style="padding:26px;text-align:center;color:var(--text5);font-size:11px">No row on screen records two or more of these five measures.</div>';
+          // A DOT IS CHEAP but twenty-five panes of them is not: the ALL level would draw
+          //   nearly thirty thousand. Capped, strongest first, with the number left off said
+          //   out loud - the same rule the radar learned.
+          const LAT_CAP=250;let capped=0;
+          if(rows.length>LAT_CAP){
+            rows.sort(function(a2,b2){const x=a2.v[2],y=b2.v[2];
+              return ((y==null||!isFinite(y))?-Infinity:y)-((x==null||!isFinite(x))?-Infinity:x);});
+            capped=rows.length-LAT_CAP;rows.length=LAT_CAP;}
+          const n=AX.length,W=1000,PAD=52,GAP=7;
+          const cell=Math.floor((W-PAD-GAP*(n-1)-14)/n),CH=PAD+n*cell+GAP*(n-1)+18;
+          const E=AX.map(function(a,i){
+            const vs=rows.map(function(r){return r.v[i];}).filter(function(v){return v!=null&&isFinite(v);});
+            if(!vs.length)return null;
+            let lo=Math.min.apply(null,vs),hi=Math.max.apply(null,vs);
+            if(!(hi>lo)){const p2=Math.abs(hi)*0.1||1;lo=hi-p2;hi=hi+p2;}
+            const pd=(hi-lo)*0.08;return [lo-pd,hi+pd];});
+          const x0=function(c){return PAD+c*(cell+GAP);};
+          const y0=function(r2){return PAD+r2*(cell+GAP);};
+          let g='',dots='';
+          for(let r2=0;r2<n;r2++){for(let c=0;c<n;c++){
+            const X=x0(c),Y=y0(r2);
+            g+='<rect x="'+X+'" y="'+Y+'" width="'+cell+'" height="'+cell+'" fill="none" stroke="var(--border)" stroke-width="0.6"/>';
+            if(r2===c){
+              g+='<text x="'+(X+cell/2)+'" y="'+(Y+cell/2+4)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+AX[c].t+'</text>';
+              continue;}
+            const ex=E[c],ey=E[r2];if(!ex||!ey)continue;
+            rows.forEach(function(rw){
+              const vx=rw.v[c],vy=rw.v[r2];
+              if(vx==null||!isFinite(vx)||vy==null||!isFinite(vy))return;
+              const px2=X+6+((vx-ex[0])/((ex[1]-ex[0])||1))*(cell-12);
+              const py2=Y+cell-6-((vy-ey[0])/((ey[1]-ey[0])||1))*(cell-12);
+              const col=_reTone[rw.r.tone]||'var(--text4)',champ=(rw.r.tone==='champ');
+              dots+='<g class="repar-row" data-prow="'+String(rw.r.n)+'">'
+                +'<circle cx="'+px2.toFixed(1)+'" cy="'+py2.toFixed(1)+'" r="'+(champ?'3':'1.8')
+                +'" fill="'+col+'" opacity="'+(champ?'0.95':'0.5')+'"><title>'
+                +_reEsc(((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+String(rw.r.name||'')
+                  +'  |  '+AX[c].t+' '+AX[c].f(vx)+'  |  '+AX[r2].t+' '+AX[r2].f(vy))
+                +'</title></circle></g>';});
+          }}
+          // the axis names once down the left and once along the bottom
+          AX.forEach(function(a,i){
+            g+='<text transform="translate(16,'+(y0(i)+cell/2)+') rotate(-90)" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text4)">'+a.t+'</text>'
+              +'<text x="'+(x0(i)+cell/2)+'" y="'+(PAD+n*cell+GAP*(n-1)+13)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text4)">'+a.t+'</text>';});
+          const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
+            +'Each pane is one measure against another. <b style="color:var(--text4)">A cloud lying on a line means those two measures are saying the same thing</b>, so reading both is reading one twice; a shapeless cloud means they genuinely disagree, and those are the pairs worth judging a strategy on. All five are scale-free, so every pane is a fair comparison whatever the instrument, size or window. '
+            +rows.length+' row'+((rows.length===1)?'':'s')+' drawn'
+            +(capped?(', the strongest by MAR of '+(rows.length+capped)+' - twenty-five panes of every row would be tens of thousands of dots, so the other '+capped+' are left off rather than drawn as a texture'):'')
+            +(skip.length?('. '+skip.length+' row'+((skip.length===1)?'':'s')+' record fewer than two of these five.'):'.')
+            +'</div>';
+          return '<div class="repar-wrap" style="overflow-x:auto">'
+            +'<svg viewBox="0 0 1000 '+CH+'" width="100%" style="display:block;min-width:560px">'
+            +g+dots+'</svg></div>'+note;
+        };
         const _reRadAll=function(items){
           const AX=_rePAxes,rows=[],skip=[];
           items.forEach(function(o){
@@ -22063,7 +22141,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp)
-           +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same ten measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because ten measures in ten units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp),
+           +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same ten measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because ten measures in ten units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp)
+           +_reBtn('data-reschart="lattice"','LATTICE',_reLatOn,'every measure against every other in small panes. It answers what the other charts cannot: which of these measures are saying the same thing. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging on. Five scale-free measures, so every pane is a fair comparison.',_TONE.samp),
           _TONE.samp);
         // THE APPLES-TO-APPLES PAIR, said once where it is chosen: SORTINO across the
         //   bottom against EV IN R up the side. Everything else on this chart can be
@@ -22266,10 +22345,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reChartTile=tile(
             '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
-            +(_reRadOn?'RADAR':(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT'))+'</span></div>'
+            +(_reLatOn?'LATTICE':(_reRadOn?'RADAR':(_reParOn?'PARALLEL COORDINATES':'SCATTER PLOT')))+'</span></div>'
             // the two axis pickers sit ON the chart: they are its own questions, and nothing
             //   else on the page reads them.
-            +((_reParOn||_reRadOn)?'':('<div style="margin-top:7px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
+            +((_reParOn||_reRadOn||_reLatOn)?'':('<div style="margin-top:7px;padding:7px 9px;border:1px solid var(--border2);border-radius:8px;background:color-mix(in srgb,var(--text) 3%,transparent)">'
                // ONE LINE, SIDE BY SIDE (owner 2026-08-28: "why does vertical axis and
                //   horizontal axis take up two lines?"). _reGrid gives each control its own
                //   row because that is what a stacked sidebar wants; these two are a pair and
@@ -22277,7 +22356,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
                +_reAxisBtns+_reXAxisBtns+'</div>'+'</div>'))
             +_reLvlNote
-            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll))))+'</div>',0);
+            +'<div style="margin-top:10px">'+((_reLvl==='cfg'&&(_reCfgLoad||_reCfgMsg))?_reCfgState:(_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))))+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
