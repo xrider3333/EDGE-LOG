@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.394';
+const VERSION='73.395';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.395',date:'2026-08-31',notes:['A RUN THAT VALIDATED ONE CONFIGURATION NOW POINTS AT THE RIGHT SIBLING, not merely the newest one. It prefers a run that says in its own note that it searched AROUND this configuration, then one measured over the same window and the same data, and it tells you which of the two it found. When all it can offer is a same-window sweep it says plainly that the population may not contain this exact configuration - because it searched the space, it did not aim at this point.','WHY THAT MATTERED, on the NOISE crown (owner: "check auto validate 243. its missing quite a lot of info"). Run 243 evaluated ONE configuration, so it has no plateau pick, no surrogate, no overfit probability and no deflated Sharpe - none of which can be back-filled, because one configuration has no landscape. Re-running it would change nothing: its strategy file is pinned, so it would evaluate one configuration again. The landscape already exists in run 304, a restricted re-search around the crown on the same window that holds the crowned configuration itself plus 69 of its immediate neighbours. The family full sweeps, runs 237 and 302, do NOT contain it - not exactly and not within one knob - so pointing there would have answered a different question in silence.','REPORT_COMPLETENESS.md carries the audit, and corrects its own earlier note that the NOISE crown needed no full-discovery run.']},
 {v:'73.394',date:'2026-08-30',notes:['THE 1E MATRIX GOES ON THE SCATTER FOR SEVERAL AUTO-VALIDATES AT ONCE. The CONFIGS level read one run, which answered what a run found but never whether two runs found the same thing. The RUN control is a row of tickable chips now - tick as many as you like and every one of their RAW, GATE, TILT and three HYBRID candidates lands on the same axes.','EVERY POINT SAYS WHICH RUN IT CAME FROM. A row is named #304 GATE logistic at 50 percent, so a point is always traceable back to the run that produced it, and the family rail still narrows to RAW or GATE or any one hybrid sizing across all of them at once.','THE HONEST CAVEAT IS PRINTED when more than one run is ticked: the runs may cover different windows, so the ratio axes stay fair and NET does not.']},
 {v:'73.393',date:'2026-08-29',notes:['YOU CAN NOW TELL WHAT IS ON. Every active filter is inverted - solid fill, dark text - instead of the faint tint that was near-invisible on the monochrome theme, where the blue accent renders grey. Active toggle chips carry a check mark.','EVERY STRATEGY ROW HAS A CHECKBOX. Filled means included, hollow means excluded, and an excluded strategy is struck through as well as dimmed - three signals instead of a 40% opacity change.','THE SIDEBAR IS LABELLED. VIEW, FILTER, COLUMNS, then STRATEGIES with a live count - so each block says what it is instead of being anonymous rows of chips. The BASELINES tooltip now warns that it hides every ML overlay.']},
 {v:'73.392',date:'2026-08-30',notes:['Follow-up to 73.391: the second 1E card was still borrowing the first card view setting. The per-card context is set before the card body is built now, so KPI on one card and SCATTER on the other really do hold at the same time.']},
@@ -11101,11 +11102,48 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   helper finds the newest run in history from the SAME family whose search actually swept
     //   (n_evaluated > 1) so the pinned-run note can point at the full sweep; returns an empty
     //   string when history holds none.
+    // WHICH SIBLING RUN HOLDS THE LANDSCAPE THIS ONE CANNOT DRAW.
+    // A pinned single-config validate has a one-point population, so it can never draw the
+    // param curves, the PDP finder, the surfaces, the plateau pick or PBO -- and it cannot be
+    // back-filled, because one config has no landscape. The report therefore points at a
+    // sibling that DID search a population.
+    //
+    // Picking the NEWEST such sibling was the first version, and it is luck rather than
+    // design: for NOISE it happens to land on the restricted re-search around the crown, but
+    // the family's other full sweeps (runs 237 and 302, 292 configs each over all 15 knobs)
+    // do NOT contain the crowned configuration at all -- not exactly, and not within one knob.
+    // Sending someone to a population their config is absent from answers a different
+    // question than the one they asked, without ever saying so.
+    //
+    // So the pick is DECLARATIVE first: a run whose own note names this run is a neighbourhood
+    // search around it and is the right answer by construction. Then same window and master,
+    // because a population measured over different years is not this run's landscape either.
+    // Newest is the last resort, and when that is what happened the sentence says the sweep is
+    // the family's latest rather than claiming it holds this configuration.
     const _famSweepRef=(d)=>{try{
       if(!d||!d.famKey)return '';
-      let best=null;
-      (runHistory||[]).forEach(r=>{if(r&&r.famKey===d.famKey&&String(r.id)!==String(d.id)&&r.n_evaluated!=null&&+r.n_evaluated>1&&(!best||+r.id>+best.id))best=r;});
-      return best?(' See run #'+best.id+' for the latest full sweep of this family ('+(+best.n_evaluated).toLocaleString()+' configs).'):'';
+      const me=String(d.id);
+      const pool=(runHistory||[]).filter(r=>r&&r.famKey===d.famKey&&String(r.id)!==me
+        &&r.n_evaluated!=null&&+r.n_evaluated>1);
+      if(!pool.length)return '';
+      const newest=(a,b)=>(+b.id)-(+a.id);
+      // 1. a sibling that DECLARES it searched around this run
+      const named=pool.filter(r=>{const n=String(r.note||'');
+        return n.indexOf('#'+me)>=0||new RegExp('\\b'+me+'\\b').test(n);}).sort(newest);
+      // 2. failing that, one measured on the same window and the same master
+      const sameWin=pool.filter(r=>String(r.date_from||'')===String(d.date_from||'')
+        &&String(r.date_to||'')===String(d.date_to||'')
+        &&String(r.source_name||'')===String(d.source_name||'')).sort(newest);
+      const best=named[0]||sameWin[0]||pool.slice().sort(newest)[0];
+      const n=(+best.n_evaluated).toLocaleString();
+      if(named[0])return ' Run #'+best.id+' searched a population AROUND this configuration ('
+        +n+' configs, same window) - that is where the param curves, the PDP finder and the surfaces live.';
+      if(sameWin[0])return ' Run #'+best.id+' searched this family over the SAME window ('+n
+        +' configs) and carries the param curves, the PDP finder and the surfaces. It may not hold'
+        +' this exact configuration - it searched the space, it did not aim at this point.';
+      return ' Run #'+best.id+' is the family latest full sweep ('+n+' configs) and carries the'
+        +' param curves, the PDP finder and the surfaces - but it was measured over a DIFFERENT'
+        +' window than this run, so read the two side by side rather than as one picture.';
     }catch(_e){return '';}};
     const selectionTableHtml=(sel,mlt,cfgNoMap,valBlock,runDoc)=>{
       if(!sel||!Array.isArray(sel.candidates)||!sel.candidates.length)return null;

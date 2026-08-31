@@ -79,6 +79,47 @@ Strategies currently in the gap (card-only): ORB #230 (`ORB_3_4_C221`), NOISE #2
 (`NOISE_1_1_SBS`), ENGU-Q limit-0.50 #249, ENGU-Q efficiency #265. ENGU-Q ETH #226 is the one
 being closed now; the other four follow once this run's result is in and the owner has seen it.
 
+## 4c. NOISE crown #243 — audited 2026-08-31 (owner: "its missing quite a lot of info")
+
+Read straight off the run docs, not inferred:
+
+| run | file | n_evaluated | n_valid | plateau | PBO | DSR | holds the crown config? |
+|---|---|---|---|---|---|---|---|
+| **#243** | `NOISE_1_1_SBS_V90.py` | **1** | **1** | – | – | – | it IS the crown |
+| #237 | `NOISE_1_0.py` | 570 | 292 | yes | yes | yes | **no** — not exactly, not within one knob |
+| #302 | `NOISE_1_0.py` | 570 | 292 | yes | yes | yes | **no** — identical population to #237 |
+| **#304** | `NOISE_1_1_NBHD.py` | 495 | 233 | yes | yes | yes | **yes** — exact, plus 69 within one knob |
+
+**What #243 is missing:** the plateau pick, the surrogate, `relationship`, PBO and DSR — every
+section-2 block that needs a population. Section 1 is complete: equity, 8 walk-forward folds,
+lockbox, gate bake-off, regime, context all ran.
+
+**RE-RUNNING #243 CANNOT FIX IT.** `NOISE_1_1_SBS_V90.py` is a pinned card file — every knob has
+`min == max` — so a fresh Auto-Validate of it evaluates exactly one configuration again and
+produces exactly the same gap. This is the standing rule in §4, applied to the crown.
+
+**The landscape already exists, and §4b was wrong about which run supplies it.** §4b recorded
+"NOISE #241 — none needed, #225 and the 2026-08-17 filter run are already 300-config populations
+on the same window". That reasoning does not survive the check: #237 and #302 search all 15 knobs
+over the right window, but neither population contains the crowned configuration — nor anything
+within one knob of it — and their own champion is a different animal (lookback 64, band 0.50,
+day-type filter off). They show what the NOISE space looks like; they do not show where the crown
+sits in it. **Run #304 does** — a restricted re-search around #243 on the same window and master,
+233 valid configs, the crown itself in the population and 69 of its immediate neighbours, with the
+plateau pick, PBO and DSR all present.
+
+**Shipped with this audit:** a one-config run used to point at the family's NEWEST sweep. That
+landed on #304 for NOISE by luck, and would have sent the reader to #302 the moment another
+`NOISE_1_0.py` sweep finished — a population the crown is absent from, with nothing saying so. The
+pointer now prefers a sibling that DECLARES it searched around this run, then one on the same
+window and master, and it states which of those it used. When it can only offer a same-window
+sweep it says outright that the population may not hold this exact configuration.
+
+**Still open (owner's call, not done here):** the job note that says "restricted re-search around
+champion #243" lives on the JOB document and is not copied onto the RUN document, so the
+declarative branch of that pointer cannot fire yet. Copying it across at save time would make the
+link exact rather than merely same-window.
+
 ## 4b. Status of the sweep (updated 2026-08-26)
 
 | gap | full-discovery run | result |
