@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.403';
+const VERSION='73.404';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.404',date:'2026-08-30',notes:['1E dropdown menus now open directly beneath the control that was clicked. They are fixed-position, and a fixed element is placed against the nearest transformed ancestor rather than the window - the report cards are one, so the menu was landing far from its button.']},
 {v:'73.403',date:'2026-08-30',notes:['Follow-up: each 1E dropdown now finds its OWN menu by name. A wrapper can hold more than one popover, and the plain lookup was handing back whichever sat first in the page - so the menu skipped its anchoring step and opened at a stale position, well away from the button that was clicked.']},
 {v:'73.402',date:'2026-08-30',notes:['THE CONFIGS SCATTER DREW NOTHING, and here is why: the board opens on SORTINO across the bottom and NOT ONE configuration row carried a Sortino, so every point was dropped for want of an x value. The rows themselves were fine - the table beside the chart was listing all 211 of them the whole time.','EVERY RECORD THAT SAVED AN EQUITY CURVE NOW CARRIES BOTH A SHARPE AND A SORTINO, derived from that curve the same honest way the run report derives them for its own candidates. A record that saved no curve stays blank, which is the truth rather than a fabricated number.','AND THE EMPTY-CHART MESSAGE NAMES THE AXES THAT ARE ACTUALLY EMPTY. It said a profit and a drawdown whatever the axes were set to, so picking SORTINO against EV IN R and getting nothing pointed at the wrong two figures entirely.']},
 {v:'73.400',date:'2026-08-31',notes:['THE ANSWER WAS THERE AND YOU COULD NOT SEE IT (owner, looking at run 243 on PAST RUNS: "i dont see it"). A run that validated ONE configuration already named the sibling run holding its parameter landscape - but only inside a hover on a small chip, and only in the report. On the runs list there was nothing at all: no pointer, and no sign the run was one-configuration in the first place.','PAST RUNS now shows it on the row, next to PASS and BASELINE: a chip reading 1 OF 1 and, when a sibling exists, an arrow to it - 1 OF 1 - 304 on the NOISE crown. Clicking the chip opens THAT run, not the row it sits in. Hovering says why in full: this run holds one configuration so it has no parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability; that cannot be back-filled; and re-running it would change nothing, because its strategy file is pinned and would evaluate one configuration again.','A one-configuration run in a family where NOTHING has searched a population still shows the 1 OF 1 half, with no arrow and a hover saying there is nowhere to point. That half is the fact that was invisible.','The report says it out loud too: beside the PINNED chip there is now a LANDSCAPE: #N button that opens the run carrying the curves, instead of leaving that sentence inside a tooltip.','A run that searched a real population gains nothing - no new chip, no extra row height.','Verified by rendering, not by reading: run 243 draws 1 OF 1 - 304 and opens 304; runs 225 and 304 draw nothing; a one-config run with no sibling draws 1 OF 1 with no arrow.']},
@@ -27299,6 +27300,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // a fixed menu carries no layout of its own until it is shown, so anchor it to the
         //   button every time it opens - the card it lives in may have been scrolled since.
         if(_dk&&w){const r=el.getBoundingClientRect();
+          // position:fixed resolves against the nearest TRANSFORMED ancestor, not the viewport,
+          //   and the report cards sit inside one - which is why the menu kept landing hundreds
+          //   of pixels from its button. Re-home it on the page root so the coordinates below
+          //   mean what they say. Strays are swept at wiring time.
+          if(w.parentElement!==document.body)document.body.appendChild(w);
           w.style.left=Math.round(Math.min(r.left,Math.max(4,innerWidth-190)))+'px';
           w.style.top=Math.round(r.bottom+3)+'px';}
         // only one of these menus open at a time - two overlapping popovers in a card this
@@ -27307,6 +27313,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           content.querySelectorAll('[data-scopeopts],[data-binsopts],[data-dvopts]').forEach(o=>{o.style.display='none';});
           w.style.display=wasOpen?'none':'block';}};});
       // click anywhere else closes them
+      // a menu re-homed on the body outlives the re-render that replaced its card, so clear any
+      //   left over from the previous render before wiring this one.
+      document.querySelectorAll('body > [data-dvopts]').forEach(o=>{o.remove();});
       if(!window._dvDocClose){window._dvDocClose=1;document.addEventListener('click',function(){
         document.querySelectorAll('[data-dvopts]').forEach(o=>{o.style.display='none';});});}
       // §4 verdict chips (redesign #27): click toggles that check's full readout open/closed
