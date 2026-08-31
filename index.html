@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.377';
+const VERSION='73.378';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.378',date:'2026-08-28',notes:['SCATTER AND LATTICE COULD BOTH LOOK SELECTED. The SCATTER chip lit whenever the chart was not PARALLEL, so it stayed lit under RADAR and LATTICE too - two chips on at once in a control where exactly one can be true. It now lights only for its own drawing.','CHART IS THE FIRST CONTROL, above LEVEL. It decides which drawing everything under it is describing, so it leads.']},
 {v:'73.377',date:'2026-08-29',notes:['THE PAPER PLUS SIDEBAR NOW HOLDS THE STRATEGY TABLE ITSELF, not just the leg buttons. The previous version moved the wrong block: the table lives inside the chart tile, so the sidebar came up with only the pill rail in it while the table stayed down beside the chart. The chart tile is now split, and the original PAPER tab is unchanged - the strip still sits under the chart there.','The render gate now fails if the sidebar is missing OR if the strategy rows are not inside it. That check is what caught this: the tab rendered perfectly well with the wrong content in the column, and every existing gate passed.']},
 {v:'73.376',date:'2026-08-29',notes:['PAPER PLUS NOW CARRIES THE LEGACY STRATEGY PANEL, and it lives in a SIDEBAR. The LEGS panel - TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and the strategy table - was the one part of the old PAPER tab that never came across. It is now a sticky left column, so what you have selected stays on screen while the chart, calendar, trades and panels scroll past it.','DRAG THE DIVIDER to set how wide it is; double-click it to reset. The width is remembered, and clamped on load so a width saved on a big monitor cannot squeeze the board on a laptop. Under about 1080 pixels wide it stacks instead, exactly as the old tab laid out.']},
 {v:'73.375',date:'2026-08-28',notes:['STUDIES LEADS THE COMPARE RAIL now - it is the view that answers what has been tried, so it is the one to land on.','AND RANKINGS IS ONE OF THE VIEWS. It sat on its own top-level tab even though it is a comparison like the other four. The same rail now appears on it, so clicking any other view takes you straight back into COMPARE on that mode, and clicking RANKINGS from COMPARE goes the other way. Five views of one thing.']},
@@ -22132,7 +22133,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   same ticked stage — only the drawing changes.
         // THE LEVEL CONTROL leads the rail, because it decides WHICH GRADE OF EVIDENCE is on
         //   screen and every other control is a narrowing inside that.
-        const _reLvlBtns=_reCtl(1,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
+        const _reLvlBtns=_reCtl(2,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
            _reBtn('data-relvl="sweep"','SWEEPS',_reLvl==='sweep','stage 1. My local .py theory tests. They were never persisted as a run, never walk-forwarded and never shown a lockbox, so nothing here has survived anything - these are ideas with numbers on them.',_TONE.rank)
            +_reBtn('data-relvl="cfg"','CONFIGS',_reLvl==='cfg','stage 3. The raw, gate, tilt and hybrid candidates INSIDE one Auto-Validate run - pick the run and they load. They are scored on the OPTIMIZE WINDOW ONLY and they are the best of hundreds the search tried, so they are candidates and not survivors. Kept on their own level for exactly that reason.',_TONE.rank)
            +_reBtn('data-relvl="valid"','AUTO VAL',_reLvl==='valid','stage 2. Real EDGELOG Auto-Validate runs, each split into in-sample, walk-forward and lockbox. This is the level where a figure has actually been tested on years the search never saw. WIN percent and SHARPE only exist at this level and above.',_TONE.rank)
@@ -22145,8 +22146,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           '<select data-recfgrun style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
           +_reCfgPick.map(function(r){return '<option value="'+_reEsc(String(r.id))+'"'+((String(r.id)===_reCfgRunId)?' selected':'')+'>#'+_reEsc(String(r.id))+' \u00b7 '+_reEsc(String(r.strategy||'').replace(/\.py$/,''))+'</option>';}).join('')
           +'</select>',_TONE.rank);
-        const _reChartBtns=_reCtl(2,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
-            _reBtn('data-reschart="scatter"','SCATTER',!_reParOn,'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
+        const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
+            _reBtn('data-reschart="scatter"','SCATTER',(_reChartK==='scatter'),'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp)
            +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same ten measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because ten measures in ten units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp)
            +_reBtn('data-reschart="lattice"','LATTICE',_reLatOn,'every measure against every other in small panes. It answers what the other charts cannot: which of these measures are saying the same thing. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging on. Five scale-free measures, so every pane is a fair comparison.',_TONE.samp),
@@ -22341,7 +22342,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // CONTROL ORDER, owner 2026-08-28: which drawing, then which stretch of history,
             //   then which grade of evidence, then which strategy - each answer narrowing
             //   the one before it.
-            +_reGrid(_reLvlBtns+_reCfgSel+_reChartBtns+_reStageBtns+_reFamRail+_reReadBtns)
+            // CHART FIRST (owner 2026-08-28: "put the chart selector tab first, above level").
+            //   It decides which drawing everything under it is describing.
+            +_reGrid(_reChartBtns+_reLvlBtns+_reCfgSel+_reStageBtns+_reFamRail+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
