@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.389';
+const VERSION='73.390';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.390',date:'2026-08-29',notes:['WHERE THE MLs WENT, ANSWERED ON THE BOARD. The ML legs were hidden by the RAW switch and by BASELINES ONLY - an ML overlay is never a baseline, so BASELINES ONLY hides every one of them, and picking ML with it still on showed a completely empty table with no explanation. The empty table now names the switch that is hiding everything and says what to click.','THE PARAM DUMP IS OFF THE DETAIL ROW. It printed every knob of the configuration inline; the row now shows only where the leg came from, and the knobs ride in the same hover tooltip as the run note - one hover away instead of three wrapped lines on screen.']},
 {v:'73.389',date:'2026-08-28',notes:['SWITCHING LEVEL WITH A STRATEGY STILL PICKED NO LONGER EMPTIES THE BOARD IN SILENCE. A configuration row is tagged RAW or GATE or TILT, never NOISE, so arriving on CONFIGS with NOISE held on the rail filtered every row away and left a blank chart with no explanation. A filter that cannot match anything on the level you are looking at is now ignored; one that CAN match still applies exactly as before.']},
 {v:'73.388',date:'2026-08-30',notes:['FIXED: the TILT and HYBRID families were missing from the 1E SCATTER on the EV and TRADES axes. Their per-config block records the trade count as n, not kept, so both measures came out empty and every one of those points was dropped - leaving a chart of GATE dots that looked like the whole population.','The scatter never drops a point in silence now: an amber note says how many were not plotted and which measure they lack, so a thinned chart can never read as a complete one.']},
 {v:'73.387',date:'2026-08-28',notes:['THE VERTICAL CAPTION WAS BEING SLICED BY THE TOP OF THE CHART. It is drawn rotated, so its length is bounded by the chart HEIGHT and nothing warned - EV read ...ores PROFIT STAGE and COMPARE ON. Every axis mode has a short caption now, and anything still too long is trimmed with the full sentence kept on the hover.','AND EV IN R, SHARPE AND SORTINO HAD NO CAPTION OF THEIR OWN - they fell through to the profit wording, which described a different axis entirely.','RAW / GATE / TILT / the three HYBRIDS are now one click each. On the CONFIGS level the strategy rail lists the six 1E families with a count each, and clicking one shows only that family - the toggle asked for, on the control that was already there.']},
@@ -23675,12 +23676,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const noRun=!P.src.run_label||P.src.run_label==='no crowned run';
             const pTxt=P.params?Object.keys(P.params).map(p=>p+' '+P.params[p]).join(' · '):'';
             const tip=((P.src.note||'')+(P.src.caveat?'\n\n⚠ '+P.src.caveat:'')
-              +'\n\n'+(P.fromReport?'from the daily report':'from the board built-in map; the next report carries its own')).trim();
+              +'\n\n'+(P.fromReport?'from the daily report':'from the board built-in map; the next report carries its own')+(pTxt?('\n\nCONFIG · '+pTxt):'')).trim();
             cfgBlock='<div title="'+tip.replace(/"/g,'&quot;')+'" style="margin-top:7px;padding-top:6px;border-top:1px solid var(--border2);font-size:8px;line-height:1.6;cursor:help">'
               +'<span style="color:var(--text5)">from </span><b style="color:'+(noRun?'var(--yellow)':'var(--text2)')+'">'+P.src.run_label+'</b>'
               +'<span style="color:var(--text5)"> · '+(P.src.strategy_file||'')+'</span>'
               +(P.src.caveat?'<span title="'+String(P.src.caveat).replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow)">⚠</span>':'')
-              +(pTxt?'<div style="color:var(--text4);margin-top:2px;word-break:break-word">'+pTxt+'</div>':'')
               +'</div>';
           }
         }
@@ -23906,7 +23906,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +';border-bottom:1px solid var(--border);font-weight:700;'
               +(c.sort?'cursor:pointer;user-select:none':(c.tip?'cursor:help':''))+'">'+c.h+arrow+'</th>';}).join('')
         +'</tr></thead><tbody>'
-        +_legOrder.map(d=>legTile(d[0],d[1],d[2])).join('')
+        +(_legOrder.length?_legOrder.map(d=>legTile(d[0],d[1],d[2])).join('')
+          // An empty table must say WHY (owner 2026-08-29: "where are the ML's?" -
+          // they were behind RAW + BASELINES ONLY, and clicking ML with BASELINES
+          // ONLY still on yields zero rows, because an ML overlay is never its own
+          // baseline). Name the switch, not just the absence.
+          :('<tr><td colspan="'+PCOLS_ON.length+'" style="padding:14px 8px;text-align:center;font-size:9px;color:var(--text5)">'
+            +(PKIND==='ML'&&PBASE?'BASELINES ONLY hides every ML overlay — switch it off to see the ML legs.'
+              :'No strategy matches these filters — set the family and RAW / ML switches to ALL.')
+            +'</td></tr>'))
         +'</tbody></table></div>'
         // The board never hides a figure without saying where it went.
         +(PCOLMODE==='key'?('<div style="font-size:8px;color:var(--text5);margin-top:3px">'
