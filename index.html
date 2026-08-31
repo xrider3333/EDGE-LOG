@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.388';
+const VERSION='73.389';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.389',date:'2026-08-28',notes:['SWITCHING LEVEL WITH A STRATEGY STILL PICKED NO LONGER EMPTIES THE BOARD IN SILENCE. A configuration row is tagged RAW or GATE or TILT, never NOISE, so arriving on CONFIGS with NOISE held on the rail filtered every row away and left a blank chart with no explanation. A filter that cannot match anything on the level you are looking at is now ignored; one that CAN match still applies exactly as before.']},
 {v:'73.388',date:'2026-08-30',notes:['FIXED: the TILT and HYBRID families were missing from the 1E SCATTER on the EV and TRADES axes. Their per-config block records the trade count as n, not kept, so both measures came out empty and every one of those points was dropped - leaving a chart of GATE dots that looked like the whole population.','The scatter never drops a point in silence now: an amber note says how many were not plotted and which measure they lack, so a thinned chart can never read as a complete one.']},
 {v:'73.387',date:'2026-08-28',notes:['THE VERTICAL CAPTION WAS BEING SLICED BY THE TOP OF THE CHART. It is drawn rotated, so its length is bounded by the chart HEIGHT and nothing warned - EV read ...ores PROFIT STAGE and COMPARE ON. Every axis mode has a short caption now, and anything still too long is trimmed with the full sentence kept on the hover.','AND EV IN R, SHARPE AND SORTINO HAD NO CAPTION OF THEIR OWN - they fell through to the profit wording, which described a different axis entirely.','RAW / GATE / TILT / the three HYBRIDS are now one click each. On the CONFIGS level the strategy rail lists the six 1E families with a count each, and clicking one shows only that family - the toggle asked for, on the control that was already there.']},
 {v:'73.386',date:'2026-08-30',notes:['1E has a third view: SCATTER, on the same rail as TABLE and PARALLEL. It plots the SAME measures the parallel view uses - two pickers choose which goes across and which goes up, defaulting to MAX DD against NET $ - so the three views can never disagree, and the NUMBERS / RATIOS / BOTH selector filters the axis choices too.','On the KPI tab one point is a phase (IS / WF / LB / TOTAL); on a candidate tab one point is a config, coloured by family with the crowned one ringed in gold. Unlike the parallel view nothing is inverted - each axis runs in its natural direction and its caption says which end is good.']},
@@ -21840,6 +21841,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   write-up outlived the crown. Both run levels build the same rows from Past Runs;
         //   CROWN then keeps only the ones the OWNER has crowned.
         const _reRunFam={};
+        // A FILTER THAT CANNOT MATCH ANYTHING ON THIS LEVEL IS IGNORED rather than obeyed
+        //   into a blank chart. Switching to CONFIGS with NOISE still picked on the rail
+        //   emptied the board silently - a config row is tagged RAW or GATE or TILT, never
+        //   NOISE - and a study pick does the same on a run level. A filter that CAN match
+        //   still applies exactly as before, so nothing is loosened.
+        const _reFacetKeep=(st,rows)=>function(r){
+          return _reFacets.every(function(f){const sel=_reFilt[f.k];
+            if(!(sel&&sel.length))return true;
+            const here=rows.some(function(x){return sel.indexOf(f.val(st,x))>=0;});
+            return here?(sel.indexOf(f.val(st,r))>=0):true;});};
         if(_reLvl==='valid'||_reLvl==='crown'){
           const RR=[];
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
@@ -21895,9 +21906,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   NOT _rePass: that now asks the LEVEL gate first, and the level gate says no to
           //   every registry row on this level - which would refuse these too. Only the facet
           //   filters apply here.
-          const keep=RR.filter(function(r){const st={fam:r.fam,key:'runs',title:'AUTO-VALIDATE RUNS'};
-            return _reFacets.every(function(f){const sel=_reFilt[f.k];
-              return !(sel&&sel.length)||sel.indexOf(f.val(st,r))>=0;});});
+          const _runSt0={fam:'RUN',key:'runs',title:'AUTO-VALIDATE RUNS'};
+          const keep=RR.filter(_reFacetKeep(_runSt0,RR));
           const runSt={key:'runs',title:(_reLvl==='crown'?'CROWNED RUNS':'AUTO-VALIDATE RUNS'),fam:'RUN',isLbl:'IN-SAMPLE',
             sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
                +'A run records its own window and its own validate block, so these rows fill every axis.',
@@ -22042,9 +22052,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 // the rail narrows these the same way it narrows every other row. NOT via
                 //   _rePass - that asks the LEVEL gate first, which refuses every registry
                 //   row on this level and would refuse these with them.
-                const cfgKeep=CROWS.filter(function(r){
-                  return _reFacets.every(function(f){const sel=_reFilt[f.k];
-                    return !(sel&&sel.length)||sel.indexOf(f.val(cfgSt,r))>=0;});});
+                const cfgKeep=CROWS.filter(_reFacetKeep(cfgSt,CROWS));
                 cfgKeep.forEach(function(r){_reItems.push({st:cfgSt,r:r});});
                 // and into the table list, so the tables below the chart hold the same rows
                 //   the chart draws. A configuration record carries no date window, so every
