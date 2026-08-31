@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.387';
+const VERSION='73.388';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.388',date:'2026-08-30',notes:['FIXED: the TILT and HYBRID families were missing from the 1E SCATTER on the EV and TRADES axes. Their per-config block records the trade count as n, not kept, so both measures came out empty and every one of those points was dropped - leaving a chart of GATE dots that looked like the whole population.','The scatter never drops a point in silence now: an amber note says how many were not plotted and which measure they lack, so a thinned chart can never read as a complete one.']},
 {v:'73.387',date:'2026-08-28',notes:['THE VERTICAL CAPTION WAS BEING SLICED BY THE TOP OF THE CHART. It is drawn rotated, so its length is bounded by the chart HEIGHT and nothing warned - EV read ...ores PROFIT STAGE and COMPARE ON. Every axis mode has a short caption now, and anything still too long is trimmed with the full sentence kept on the hover.','AND EV IN R, SHARPE AND SORTINO HAD NO CAPTION OF THEIR OWN - they fell through to the profit wording, which described a different axis entirely.','RAW / GATE / TILT / the three HYBRIDS are now one click each. On the CONFIGS level the strategy rail lists the six 1E families with a count each, and clicking one shows only that family - the toggle asked for, on the control that was already there.']},
 {v:'73.386',date:'2026-08-30',notes:['1E has a third view: SCATTER, on the same rail as TABLE and PARALLEL. It plots the SAME measures the parallel view uses - two pickers choose which goes across and which goes up, defaulting to MAX DD against NET $ - so the three views can never disagree, and the NUMBERS / RATIOS / BOTH selector filters the axis choices too.','On the KPI tab one point is a phase (IS / WF / LB / TOTAL); on a candidate tab one point is a config, coloured by family with the crowned one ringed in gold. Unlike the parallel view nothing is inverted - each axis runs in its natural direction and its caption says which end is good.']},
 {v:'73.385',date:'2026-08-30',notes:['A run that validated ONE configuration now says which sibling run does carry the param curves, the PDP finder and the surfaces - it names the same-family run that searched a real population instead of just showing N/A. (A one-config run cannot draw them: there is no population to draw them from.)','The TABLE / PARALLEL switch leads the 1E control row now instead of trailing the tab strip.']},
@@ -13827,8 +13828,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       let ax=want('mtxSX','MAX DD &#8595;')||want('mtxSX','MAX DD')||A[1],ay=want('mtxSY','NET $')||A[0];
       if(ax===ay)ay=A.filter(a=>a!==ax)[0]||ay;
       const val=(a,r)=>{const v=r.get(a);return (v!=null&&isFinite(v))?+v:null;};
-      const pts=rows.map(r=>({x:val(ax,r),y:val(ay,r),r:r})).filter(p=>p.x!=null&&p.y!=null);
+      const all=rows.map(r=>({x:val(ax,r),y:val(ay,r),r:r}));
+      const pts=all.filter(p=>p.x!=null&&p.y!=null);
       if(pts.length<2)return '';
+      // v73.387 (owner: "why only red dots"): a point with no value for the chosen axis used to
+      //   disappear without a word - on run 243 that hid TILT and both HYBRID families the moment
+      //   EV was picked, leaving a chart of GATE dots that looked like the whole population.
+      const _miss=all.length-pts.length;
+      const _missWhy=_miss?(all.filter(p=>p.x==null).length>=all.filter(p=>p.y==null).length?ax.nm:ay.nm):'';
       const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
       const pad=(lo,hi,f)=>{const rg=(hi-lo)||Math.abs(hi)||1;return [lo-rg*f,hi+rg*f];};
       const xr=pad(Math.min.apply(null,xs),Math.max.apply(null,xs),0.08),yr=pad(Math.min.apply(null,ys),Math.max.apply(null,ys),0.10);
@@ -13854,6 +13861,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<text x="10" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 10 '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ay.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ay)+'</tspan></text></svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'+(head||'')
+        +(_miss?('<span style="color:var(--yellow);font-weight:700" title="These rows record no '+_missWhy.replace(' &#8595;','')+', so they cannot be placed on this pair of axes. Pick an axis they all carry - NET $ and MAX DD are recorded by every family - or read them in the TABLE or PARALLEL view.">&#9888; '+_miss+' of '+all.length+' not plotted - no '+_missWhy.replace(' &#8595;','')+'</span>'):'')
         +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick('mtxSX',ax.nm,A)+_mtxAxPick('mtxSY',ay.nm,A)+'</span></div>'
         +svg+'</div>';
     };
@@ -15063,7 +15071,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
           const p=_P(c);
           if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
-            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.kept!=null&&isFinite(p.kept)&&p.kept>0)?((p.net*mlt3)/p.kept):null});
+            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
         });
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
@@ -15421,7 +15429,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(p.kept!=null&&isFinite(p.kept))?+p.kept:null,ev:(p.kept!=null&&isFinite(p.kept)&&p.kept>0)?((p.net*mlt3)/p.kept):null});
+                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
