@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.378';
+const VERSION='73.379';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.379',date:'2026-08-28',notes:['RANKINGS IS OFF THE TOP-LEVEL NAV. It became one of the COMPARE views yesterday and was being offered in two places at once. The view itself is unchanged and still renders - the compare rail navigates to it - it just is not a primary tab as well.']},
 {v:'73.378',date:'2026-08-28',notes:['SCATTER AND LATTICE COULD BOTH LOOK SELECTED. The SCATTER chip lit whenever the chart was not PARALLEL, so it stayed lit under RADAR and LATTICE too - two chips on at once in a control where exactly one can be true. It now lights only for its own drawing.','CHART IS THE FIRST CONTROL, above LEVEL. It decides which drawing everything under it is describing, so it leads.']},
 {v:'73.377',date:'2026-08-29',notes:['THE PAPER PLUS SIDEBAR NOW HOLDS THE STRATEGY TABLE ITSELF, not just the leg buttons. The previous version moved the wrong block: the table lives inside the chart tile, so the sidebar came up with only the pill rail in it while the table stayed down beside the chart. The chart tile is now split, and the original PAPER tab is unchanged - the strip still sits under the chart there.','The render gate now fails if the sidebar is missing OR if the strategy rows are not inside it. That check is what caught this: the tab rendered perfectly well with the wrong content in the column, and every existing gate passed.']},
 {v:'73.376',date:'2026-08-29',notes:['PAPER PLUS NOW CARRIES THE LEGACY STRATEGY PANEL, and it lives in a SIDEBAR. The LEGS panel - TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and the strategy table - was the one part of the old PAPER tab that never came across. It is now a sticky left column, so what you have selected stays on screen while the chart, calendar, trades and panels scroll past it.','DRAG THE DIVIDER to set how wide it is; double-click it to reset. The width is remembered, and clamped on load so a width saved on a big monitor cannot squeeze the board on a laptop. Under about 1080 pixels wide it stacks instead, exactly as the old tab laid out.']},
@@ -1292,7 +1293,10 @@ const TABS=['overview','trades','analytics','import_export','journal','augur'];
 // v73.20 (owner: "tired of having two settings spots"): SETTINGS is no longer a subtab on
 //   either side. Both panels live in ONE master modal behind the topbar gear (openSettings).
 const LOG_TABS=['overview','trades','analytics','import_export','journal'];
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['rank','RANKINGS'],['paper','PAPER'],['paper2','PAPER ✦'],['ref','REFERENCE'],['research','RESEARCH']];
+// RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
+//   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
+//   rail navigates to it - it is simply not offered as a top-level tab as well.
+const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['paper2','PAPER ✦'],['ref','REFERENCE'],['research','RESEARCH']];
 const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',paper:'◷',paper2:'◑',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
@@ -14369,7 +14373,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',rank:'▤',paper:'◷',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['rank','RANKINGS'],['paper','PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
     // 0–100 robustness score: blends OOS strength (DSR, walk-forward, lockbox), PF, sample.
     const scoreRun=(r)=>{
       if(r.validate){const V=r.validate;let s=(V.n_pass/(V.n_gates||5))*60;if(V.lockbox&&V.lockbox.pass)s+=20;s+=Math.max(0,Math.min(1,V.wfe||0))*10;if(V.dsr!=null)s+=Math.max(0,Math.min(1,V.dsr))*10;return Math.round(Math.max(0,Math.min(100,s)));}
