@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.393';
+const VERSION='73.394';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.394',date:'2026-08-30',notes:['THE 1E MATRIX GOES ON THE SCATTER FOR SEVERAL AUTO-VALIDATES AT ONCE. The CONFIGS level read one run, which answered what a run found but never whether two runs found the same thing. The RUN control is a row of tickable chips now - tick as many as you like and every one of their RAW, GATE, TILT and three HYBRID candidates lands on the same axes.','EVERY POINT SAYS WHICH RUN IT CAME FROM. A row is named #304 GATE logistic at 50 percent, so a point is always traceable back to the run that produced it, and the family rail still narrows to RAW or GATE or any one hybrid sizing across all of them at once.','THE HONEST CAVEAT IS PRINTED when more than one run is ticked: the runs may cover different windows, so the ratio axes stay fair and NET does not.']},
 {v:'73.393',date:'2026-08-29',notes:['YOU CAN NOW TELL WHAT IS ON. Every active filter is inverted - solid fill, dark text - instead of the faint tint that was near-invisible on the monochrome theme, where the blue accent renders grey. Active toggle chips carry a check mark.','EVERY STRATEGY ROW HAS A CHECKBOX. Filled means included, hollow means excluded, and an excluded strategy is struck through as well as dimmed - three signals instead of a 40% opacity change.','THE SIDEBAR IS LABELLED. VIEW, FILTER, COLUMNS, then STRATEGIES with a live count - so each block says what it is instead of being anonymous rows of chips. The BASELINES tooltip now warns that it hides every ML overlay.']},
 {v:'73.392',date:'2026-08-30',notes:['Follow-up to 73.391: the second 1E card was still borrowing the first card view setting. The per-card context is set before the card body is built now, so KPI on one card and SCATTER on the other really do hold at the same time.']},
 {v:'73.391',date:'2026-08-30',notes:['The two 1E cards are independent now. Each keeps its own TABLE / PARALLEL / SCATTER and NUMBERS / RATIOS / BOTH setting, so COMPARE can hold one card on the scatter and the other on the table instead of forcing both to show the same drawing.','1E header laid out properly: the tab strip keeps the title row and the drawing controls drop to their own row underneath. They were all competing for one line, which pushed the last tabs off the edge of the card.']},
@@ -21951,17 +21952,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    exactly the bulk the fast page load leaves behind - so the full document is
         //    fetched on demand through the same loader a run report uses, and the board says
         //    LOADING while that is in flight.
-        let _reCfgLoad=false,_reCfgMsg='',_reCfgRunId='';
+        // ── SEVERAL RUNS AT ONCE (owner 2026-08-28: "populate the 1E matrix as a scatter
+        //    plot for DIFFERENT auto validates"). The level used to read one run, which
+        //    answered what a run found but never whether two runs found the same thing.
+        //    Tick as many as you like: every one of their RAW / GATE / TILT / HYBRID
+        //    candidates lands on the same axes, and each row carries its run number so a
+        //    point is always traceable to the run it came out of.
+        let _reCfgLoad=false,_reCfgMsg='',RID='';
         const _reCfgCounts={raw:0,gate:0,tilt:0,hyb:0};
         const _reCfgPick=rs.filter(function(r){return r&&(String(r.scope||'').indexOf('valid')>=0||r.validate);}).slice(0,80);
+        // the pref holds a LIST now; a single id from before still reads correctly.
+        const _reCfgIds=(function(){const raw=APREF.resCfgRun;
+          let a=Array.isArray(raw)?raw.map(String):(raw!=null&&raw!==''?[String(raw)]:[]);
+          a=a.filter(function(id){return _reCfgPick.some(function(r){return String(r.id)===id;});});
+          if(!a.length&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
+          return a;})();
+        RID=_reCfgIds.join(', #');
         if(_reLvl==='cfg'){
-          const want=String(APREF.resCfgRun||'');
-          _reCfgRunId=(want&&_reCfgPick.some(function(r){return String(r.id)===want;}))?want:(_reCfgPick.length?String(_reCfgPick[0].id):'');
-          if(!_reCfgRunId){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
-          else{
-            const full=(window._runFull||{})[_reCfgRunId];
-            if(!full){if(typeof _hydrateRun==='function')_hydrateRun(_reCfgRunId);_reCfgLoad=true;}
-            else{
+          const CROWS=[];let _cn=0;
+          if(!_reCfgIds.length){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
+          _reCfgIds.forEach(function(RID){
+            const full=(window._runFull||{})[RID];
+            if(!full){if(typeof _hydrateRun==='function')_hydrateRun(RID);_reCfgLoad=true;return;}
+            {
               const mult=(+full.multiplier||20);
               const V=full.validate||null;
               const optW=(V&&V.windows&&V.windows.optimize)||null;
@@ -21976,7 +21989,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
                 const vr=d.reduce(function(a,b){return a+(b-m)*(b-m);},0)/Math.max(1,n-1),sd=Math.sqrt(vr);
                 return (sd>1e-9)?((m/sd)*Math.sqrt(n/yrs)):null;};
-              const CROWS=[];let _cn=0;
               // ---- RAW: the crown pool plus the display-only robustness extras ----
               const sel=full.selection||null;
               const raws=(sel&&Array.isArray(sel.candidates))?sel.candidates.concat(Array.isArray(sel.robust)?sel.robust:[]):[];
@@ -21991,15 +22003,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const ddRaw=(mm.max_drawdown!=null&&isFinite(+mm.max_drawdown))?Math.abs(+mm.max_drawdown)
                            :((c.equity&&Array.isArray(c.equity.cum))?ddCum(c.equity.cum):null);
                 _cn++;_reCfgCounts.raw++;
-                CROWS.push({n:_cn,name:'RAW '+(c.crowned?'crowned':('#'+(i+1))),fam:'RAW',
-                      what:'A raw configuration from run #'+_reCfgRunId+'. Scored on the optimize window; the lockbox never judged it.',
+                CROWS.push({n:_cn,name:'#'+RID+' RAW '+(c.crowned?'crowned':('#'+(i+1))),fam:'RAW',
+                      what:'A raw configuration from run #'+RID+'. Scored on the optimize window; the lockbox never judged it.',
                       tone:(c.crowned?'champ':'ref'),read:(c.crowned?'Crowned in this run':'Candidate'),
                       is:isV,wf:wfV,lb:lbSlice,tot:((lbEnd!=null)?lbEnd:((isV||0)+(wfV||0))),
                       dd:((ddRaw!=null)?ddRaw*mult:null),
                       pf:((mm.profit_factor!=null&&isFinite(+mm.profit_factor))?+mm.profit_factor:null),
                       trd:((mm.num_trades!=null&&isFinite(+mm.num_trades))?+mm.num_trades:null),
                       _wr:((mm.win_rate!=null&&isFinite(+mm.win_rate))?+mm.win_rate:null),
-                      _sh:shCum(c.equity&&c.equity.cum,yrsW),_cfg:1,_tab:'RAW'});});
+                      _sh:shCum(c.equity&&c.equity.cum,yrsW),_cfg:1,_tab:'RAW',_run:RID});});
               // ---- GATE / TILT / HYBRID: the ML side of the same run ----
               const GV=full.gate_validate||full.ml_gate||null;
               const gch=(GV&&GV.chosen)||null;
@@ -22009,13 +22021,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const dd=(c.pre_rec&&c.pre_pnl!=null)?Math.abs(c.pre_pnl/c.pre_rec)*mult:null;
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
-                  CROWS.push({n:_cn,name:'GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',
-                        what:'A skip-gate variant from run #'+_reCfgRunId+', measured before the lockbox.',
+                  CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',
+                        what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
                         tone:(isCh?'champ':'ref'),read:(isCh?'Chosen gate':'Gate variant'),
                         is:net,wf:null,lb:null,tot:net,dd:dd,
                         pf:((c.pre_pf!=null&&isFinite(+c.pre_pf))?Math.min(+c.pre_pf,99):null),
                         trd:((c.kept_pre!=null)?+c.kept_pre:null),
-                        _wr:((c.pre_wr!=null)?+c.pre_wr:null),_sh:null,_cfg:1,_tab:'GATE',
+                        _wr:((c.pre_wr!=null)?+c.pre_wr:null),_sh:null,_cfg:1,_tab:'GATE',_run:RID,
                         why:{wf:'A gate variant is measured on the pre-lockbox window as one block - it has no walk-forward split of its own.',lb:'A gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
               // THE THREE HYBRID SIZINGS, exactly as the 1E matrix builds its three tabs
               //   (owner 2026-08-28: "raw top ten all the way to the three hybrids - i want
@@ -22044,13 +22056,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const net=(st2.total_pnl!=null)?st2.total_pnl*mult*f:null;
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':'hyb']++;
-                CROWS.push({n:_cn,name:label,fam:tabNm,
-                      what:'A '+tabNm.toLowerCase()+' variant from run #'+_reCfgRunId+'.',
+                CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,
+                      what:'A '+tabNm.toLowerCase()+' variant from run #'+RID+'.',
                       tone:'ref',read:tabNm+' variant',
                       is:net,wf:null,lb:null,tot:net,dd:dd,
                       pf:((st2.profit_factor!=null)?Math.min(+st2.profit_factor,99):null),
                       trd:((x.n_trades!=null)?+x.n_trades:((st2.num_trades!=null)?+st2.num_trades:null)),
-                      _wr:((st2.win_rate!=null)?+st2.win_rate:null),_sh:null,_cfg:1,_tab:tabNm,
+                      _wr:((st2.win_rate!=null)?+st2.win_rate:null),_sh:null,_cfg:1,_tab:tabNm,_run:RID,
                       _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult*f:null),
                       why:{wf:'A sizing variant is measured over one window - it has no walk-forward split of its own.',lb:'This figure is the variant own window, which is not a lockbox slice.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
@@ -22059,10 +22071,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 szRow(h,'HYBRID','HYBRID '+String(h.model||''),'one');
                 szRow(h,'HYBRID \u267b','HYBRID \u267b '+String(h.model||''),'redeploy');
                 szRow(h,'HYBRID \u2193DD','HYBRID \u2193DD '+String(h.model||''),'equaldd');});
-              if(!CROWS.length)_reCfgMsg='Run #'+_reCfgRunId+' saved no configuration records - either a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
-              else{
-                const cfgSt={key:'cfg-'+_reCfgRunId,title:'CONFIGS OF RUN #'+_reCfgRunId,fam:'CONFIG',
-                  isLbl:'OPTIMIZE WINDOW',sub:'Read live out of run #'+_reCfgRunId+'. Optimize window only - no lockbox has judged any of these.',
+            }});
+          if(_reCfgIds.length&&!_reCfgLoad&&!CROWS.length)_reCfgMsg='None of the picked runs saved configuration records - a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
+          if(CROWS.length){
+                const cfgSt={key:'cfg-'+_reCfgIds.join('-'),title:'CONFIGS OF RUN #'+_reCfgIds.join(' + #'),fam:'CONFIG',
+                  isLbl:'OPTIMIZE WINDOW',sub:'Read live out of run #'+_reCfgIds.join(', #')+'. Optimize window only - no lockbox has judged any of these'+((_reCfgIds.length>1)?', and the runs may cover different windows - the ratio axes stay fair, NET does not.':'.'),
                   dashWhy:{wf:'Configuration records are scored on the optimize window as one block, so no separate walk-forward figure exists.',lb:'The lockbox never judged an individual configuration - it judges the run.'},
                   rows:CROWS};
                 // the rail narrows these the same way it narrows every other row. NOT via
@@ -22076,7 +22089,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   inheriting the run own dates.
                 _rePrep.push({st:cfgSt,all:CROWS,kept:cfgKeep,rows:cfgKeep,filtOut:CROWS.length-cfgKeep.length,outSc:[]});
                 _reShown+=cfgKeep.length;
-                CROWS.forEach(function(r){_reWinNone.push(r.n);});}}}}
+                CROWS.forEach(function(r){_reWinNone.push(r.n);});}
+        }
         // the distinct families now on screen. One means the family never needs restating.
         const _reFamsOn=(()=>{const o=[];_reItems.forEach(it=>{const f=_reFamOf(it.st,it.r);if(o.indexOf(f)<0)o.push(f);});return o;})();
         const _reFamTag=(st,rw)=>(_reFamsOn.length>1)
@@ -22349,10 +22363,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ,_TONE.rank);
         // WHICH RUN the CONFIGS level reads. Only rendered on that level - on every other
         //   level there is no run to pick, and an inert control is worse than no control.
-        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl('','RUN','which Auto-Validate run the configurations are read out of. The full run document is fetched on demand, so the first pick of a run shows LOADING for a moment; after that it is instant.',
-          '<select data-recfgrun style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 6px;border-radius:6px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);max-width:100%">'
-          +_reCfgPick.map(function(r){return '<option value="'+_reEsc(String(r.id))+'"'+((String(r.id)===_reCfgRunId)?' selected':'')+'>#'+_reEsc(String(r.id))+' \u00b7 '+_reEsc(String(r.strategy||'').replace(/\.py$/,''))+'</option>';}).join('')
-          +'</select>',_TONE.rank);
+        // TICK AS MANY RUNS AS YOU LIKE. A dropdown can only ever answer 'which run';
+        //   chips answer 'which runs', which is the question once you want to know whether
+        //   two Auto-Validates found the same thing. Newest first, and every row on the chart
+        //   carries its run number so a point is always traceable.
+        const _reCfgSel=(_reLvl!=='cfg')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
+          _reCfgPick.slice(0,40).map(function(r){const id=String(r.id);
+            return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,
+              'run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||''),_TONE.rank);}).join('')
+          ,_TONE.rank);
         const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',(_reChartK==='scatter'),'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp)
@@ -26081,7 +26100,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           tr.addEventListener('mouseenter',function(){focus(n,true);});
           tr.addEventListener('mouseleave',clear);});
       })();
-      content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onchange=()=>{savePref('resCfgRun',b.value);renderApp();};});
+      // ticking a run adds or removes it; the last one cannot be untucked, because an
+      //   empty pick would leave the level with nothing to read and no way back.
+      content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onclick=()=>{
+        const id=b.getAttribute('data-recfgrun');
+        const cur=Array.isArray(APREF.resCfgRun)?APREF.resCfgRun.map(String)
+          :((APREF.resCfgRun!=null&&APREF.resCfgRun!=='')?[String(APREF.resCfgRun)]:[]);
+        const i2=cur.indexOf(id);
+        if(i2>=0){if(cur.length>1)cur.splice(i2,1);}else cur.push(id);
+        savePref('resCfgRun',cur);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
         const k=b.dataset.refilt,v=b.dataset.refiltv,cur=Array.isArray(o[k])?o[k].slice():[];
