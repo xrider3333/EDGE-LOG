@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.384';
+const VERSION='73.385';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.385',date:'2026-08-30',notes:['A run that validated ONE configuration now says which sibling run does carry the param curves, the PDP finder and the surfaces - it names the same-family run that searched a real population instead of just showing N/A. (A one-config run cannot draw them: there is no population to draw them from.)','The TABLE / PARALLEL switch leads the 1E control row now instead of trailing the tab strip.']},
 {v:'73.384',date:'2026-08-28',notes:['THE CONFIGS LEVEL NOW CARRIES ALL SIX 1E FAMILIES, not four: RAW, GATE, TILT and the THREE hybrid sizings - one lot, redeploy and equal drawdown. A hybrid record is one configuration measured three ways, and the two sized-up views were missing.','THE SIZING FACTOR IS THE RUN OWN, the same arithmetic the 1E matrix uses: REDEPLOY spends the same total contracts as the no-gate book, EQUAL DD sizes until the worst drawdown matches it. Money scales; PF, WIN percent and EV in R are scale-free and do NOT move, which is exactly why they are the axes worth reading. Where the ungated twin is missing the factor is one and the column repeats the one-lot column rather than inventing a number.']},
 {v:'73.383',date:'2026-08-30',notes:['The 1A funnel no longer picks its TILT and HYBRID line by LOCKBOX recovery factor. It now uses the same ticked SAMPLE slices and RANK rule as the 1E table - default pre-lockbox (IS+WF) ranked by NET $ with an 80% MAR floor - so the two panels cannot disagree and nothing is selected on the held-out year.','Measured before changing it across runs 234 / 243 / 302 / 303: the old lockbox rule disagreed with this one on 6 of 8 pools and picked xgb 4 times out of 5 - the model with the weakest walk-forward-to-lockbox relationship (on run 243 xgb reads lockbox MAR 0.09 against walk-forward MAR 11.57). The lockbox is now confirmation only.']},
 {v:'73.382',date:'2026-08-29',notes:['THE PAPER SIDEBAR IS STARTED OVER. The old one crammed the wide-screen control strip into a narrow column, where its pills and hint sentences wrapped into a wall of blobs. The new one is built for a column: full-width rows for TODAY / ALL TIME, the families and RAW / ML, one row of equal chips for BASELINES, DETAIL and ARCHIVED, a labelled COLUMNS switch, then the strategy table - which was never the problem.','EVERY EXPLANATORY SENTENCE MOVED INTO HOVER TOOLTIPS. The how-to-click hint, the today-source note, the archived clause - hover the control that owns them. The panel shows controls and numbers, nothing else.']},
@@ -14009,14 +14010,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _mView=(APREF.mtxView==='parallel')?'parallel':'table';
       const _mtxRail=_distViewRail('mtxView',_mView,[['table','TABLE'],['parallel','PARALLEL']])+_mtxColsRail();
       const _mtxPar=(_mView==='parallel')?mtxParallelHtml(phases,_pboV,mult):'';
+      // v73.385 (owner: "make the table/parallel tab switch the first option"): the view rail
+      //   leads the control row instead of trailing it.
       return '<div style="display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:hidden;margin:0 0 6px;min-height:20px">'
-        +(hdr||'')
+        +(hdr||'')+_mtxRail
         +(V.verdict?'<span style="font-size:8px;font-weight:800;letter-spacing:.5px;padding:1px 6px;border-radius:6px;background:color-mix(in srgb,'+_vc+' 18%,transparent);color:'+_vc+';white-space:nowrap">'+V.verdict+'</span>':'')
         +(V.n_pass!=null?_pill('GATES',V.n_pass+'/'+_ng,(V.n_pass>=_ng?'var(--green)':'var(--yellow)')):'')
         +(V.dsr!=null?_pill('DSR',(+V.dsr).toFixed(2),((+V.dsr)>=0.95?'var(--green)':(+V.dsr)>=0.8?'var(--yellow)':'var(--red)'),'deflated Sharpe (selection-luck haircut) — ≥0.95 solid'):'')
         +(_calmar!=null&&isFinite(_calmar)?_pill('CALMAR',_calmar.toFixed(2),'var(--text)','Calmar = CAGR ÷ max-drawdown-%, last 3 years, on a $100k account. Like MAR (ann.) but recent-only — flags a strategy decaying lately.'):'')
         +((_exact&&_wfProc!=null)?_pill('WF OOS',fmtAx(_wfProc,1),C_WF,'The walk-forward PROCEDURE result: eight folds, each re-picking its OWN best config for its own test slice. This is the out-of-sample evidence and it matches the 1C chart. The WF column in the table is a different question — the crowned config held constant across the same years.'):'')
-        +'<span style="margin-left:auto;flex-shrink:0">'+_mtxRail+'</span>'
         +'</div>'
         +(_mtxPar||('<div style="background:var(--bg2);border-radius:8px;padding:4px 4px 4px;overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs)"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>'));
     };
@@ -16921,7 +16923,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const title=_kpiInner?'1E MATRIX':(_cfgN+'B CONFIGS');
           return '<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
             +title+' '+info
-            +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'+_preFixBadge+tabs+_tabRail+'</span></div>'
+            +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'+_preFixBadge+_tabRail+tabs+'</span></div>'
             +(ctrls?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+ctrls+'</div>'):'')
             // v73.6x (owner ask): the cross-pool scatter moved to 1A as its own tab (see the 1A
             //   tab switcher below) - it no longer lives inside this card.
@@ -16999,7 +17001,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const sv=surface3dPanelHtml(pts,mlt,'2E',null),sc=scatter3dPanelHtml(pts,mlt,'2E',null);
           const leg='<div style="font-size:8px;color:var(--text4);margin:4px 0 10px">gate_model axis: '+names.map((n,i)=>'<b>'+(i+1)+'</b>='+n).join(' &middot; ')+' &middot; height = PRE-LOCKBOX net $ per cut-off ('+pts.length+' cells); the strategy knobs were pinned, so this is the only space the run searched</div>';
           return '<div class="lbl" style="margin:0 0 6px">&#9968; 2E ML GATE LANDSCAPE &mdash; model &times; cut-off</div>'+leg+sv+sc;})();
-        const _noPop=(tag,lbl)=>_onePop?('<div style="'+_colStyle+'">'+((tag==='2E-2G'&&_gateLand)?_gateLand:_naTile(tag,lbl,'this run validated ONE pinned config (n_evaluated = 1) - nothing was searched, so there is no config landscape to draw. Re-run it as Auto-Validate with discovery (a grid or trials above 1) to get the 3-D surface, parallel coords, PDP, knob importance and neighbours.'))+'</div>'):'';
+        // v73.385 (owner: "why doesnt 243 have the p2p param curve and parallel lines?"): a run
+        //   that validated ONE configuration has a one-point landscape, so the param curves, the
+        //   PDP finder and the surfaces genuinely cannot be drawn - there is nothing to draw them
+        //   FROM. Rather than leave the owner guessing, name the sibling run of the SAME family
+        //   that did search a population, so the missing panel points at where it does exist.
+        const _sibLand=(function(){try{
+          const fam=_canonFam(d.strategy);if(!fam)return null;
+          const sib=(runHistory||[]).filter(function(r){return r&&+r.id!==+d.id&&_canonFam(r.strategy)===fam&&(+r.n_evaluated||0)>5;})
+                     .sort(function(a,b){return (+b.n_evaluated||0)-(+a.n_evaluated||0);})[0];
+          return sib?{id:sib.id,n:+sib.n_evaluated}:null;}catch(_e){return null;}})();
+        const _sibNote=_sibLand?(' Run #'+_sibLand.id+' searched '+_sibLand.n.toLocaleString()+' configs on the same family and carries the full landscape - open that one to read it.'):'';
+        const _noPop=(tag,lbl)=>_onePop?('<div style="'+_colStyle+'">'+((tag==='2E-2G'&&_gateLand)?_gateLand:_naTile(tag,lbl,'this run validated ONE pinned config (n_evaluated = 1) - nothing was searched, so there is no config landscape to draw. Re-run it as Auto-Validate with discovery (a grid or trials above 1) to get the 3-D surface, parallel coords, PDP, knob importance and neighbours.'+_sibNote))+'</div>'):'';
         const _colsIn=[[_col1,'c2col1','1.15 1 300px','DISTRIBUTIONS','the spread &mdash; configs, trades, excursions'],
                        [_col2b||_noPop('2E-2G','SURFACES'),'c2col2','1.5 1 340px','SURFACES &amp; CURVES','the config space drawn as geometry'],
                        [_col3||_noPop('2H-2I','KNOBS &amp; NEIGHBOURS'),'c2col3','1.35 1 320px','BARS &amp; TABLES','ranked readouts and the numbers behind them']]
