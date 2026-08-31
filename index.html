@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.402';
+const VERSION='73.403';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.403',date:'2026-08-30',notes:['Follow-up: each 1E dropdown now finds its OWN menu by name. A wrapper can hold more than one popover, and the plain lookup was handing back whichever sat first in the page - so the menu skipped its anchoring step and opened at a stale position, well away from the button that was clicked.']},
 {v:'73.402',date:'2026-08-30',notes:['THE CONFIGS SCATTER DREW NOTHING, and here is why: the board opens on SORTINO across the bottom and NOT ONE configuration row carried a Sortino, so every point was dropped for want of an x value. The rows themselves were fine - the table beside the chart was listing all 211 of them the whole time.','EVERY RECORD THAT SAVED AN EQUITY CURVE NOW CARRIES BOTH A SHARPE AND A SORTINO, derived from that curve the same honest way the run report derives them for its own candidates. A record that saved no curve stays blank, which is the truth rather than a fabricated number.','AND THE EMPTY-CHART MESSAGE NAMES THE AXES THAT ARE ACTUALLY EMPTY. It said a profit and a drawdown whatever the axes were set to, so picking SORTINO against EV IN R and getting nothing pointed at the wrong two figures entirely.']},
 {v:'73.400',date:'2026-08-31',notes:['THE ANSWER WAS THERE AND YOU COULD NOT SEE IT (owner, looking at run 243 on PAST RUNS: "i dont see it"). A run that validated ONE configuration already named the sibling run holding its parameter landscape - but only inside a hover on a small chip, and only in the report. On the runs list there was nothing at all: no pointer, and no sign the run was one-configuration in the first place.','PAST RUNS now shows it on the row, next to PASS and BASELINE: a chip reading 1 OF 1 and, when a sibling exists, an arrow to it - 1 OF 1 - 304 on the NOISE crown. Clicking the chip opens THAT run, not the row it sits in. Hovering says why in full: this run holds one configuration so it has no parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability; that cannot be back-filled; and re-running it would change nothing, because its strategy file is pinned and would evaluate one configuration again.','A one-configuration run in a family where NOTHING has searched a population still shows the 1 OF 1 half, with no arrow and a hover saying there is nowhere to point. That half is the fact that was invisible.','The report says it out loud too: beside the PINNED chip there is now a LANDSCAPE: #N button that opens the run carrying the curves, instead of leaving that sentence inside a tooltip.','A run that searched a real population gains nothing - no new chip, no extra row height.','Verified by rendering, not by reading: run 243 draws 1 OF 1 - 304 and opens 304; runs 225 and 304 draw nothing; a one-config run with no sibling draws 1 OF 1 with no arrow.']},
 {v:'73.401',date:'2026-08-31',notes:['THE ANSWER WAS THERE AND YOU COULD NOT SEE IT (owner, looking at run 243 on PAST RUNS: "i dont see it"). A run that validated ONE configuration already named the sibling run holding its parameter landscape - but only inside a hover on a small chip, and only in the report. On the runs list there was nothing at all: no pointer, and no sign the run was one-configuration in the first place.','PAST RUNS now shows it on the row, next to PASS and BASELINE: a chip reading 1 OF 1 and, when a sibling exists, an arrow to it - 1 OF 1 - 304 on the NOISE crown. Clicking the chip opens THAT run, not the row it sits in. Hovering says why in full: this run holds one configuration so it has no parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability; that cannot be back-filled; and re-running it would change nothing, because its strategy file is pinned and would evaluate one configuration again.','A one-configuration run in a family where NOTHING has searched a population still shows the 1 OF 1 half, with no arrow and a hover saying there is nowhere to point. That half is the fact that was invisible.','The report says it out loud too: beside the PINNED chip there is now a LANDSCAPE: #N button that opens the run carrying the curves, instead of leaving that sentence inside a tooltip.','A run that searched a real population gains nothing - no new chip, no extra row height.','Verified by rendering, not by reading: run 243 draws 1 OF 1 - 304 and opens 304; runs 225 and 304 draw nothing; a one-config run with no sibling draws 1 OF 1 with no arrow.']},
@@ -10676,7 +10677,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       return '<span data-sccmp-rm style="position:relative;display:inline-flex;align-items:center;margin-left:6px">'
         +(lbl?('<span style="font-size:7.5px;font-weight:700;color:var(--text5);margin-right:3px">'+lbl+'</span>'):'')
         +'<span data-dvcur="'+key+'" title="'+tip(on)+'" style="cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:7px;background:var(--bg1);padding:2px 7px;font-size:8px;font-weight:700;letter-spacing:.4px;color:var(--text);white-space:nowrap">'+on[1]+' <span style="font-size:6px;color:var(--text4)">&#9660;</span></span>'
-        +'<span data-dvopts style="display:none;position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.45)">'
+        +'<span data-dvopts="'+key+'" style="display:none;position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.45)">'
         +opts.map(o=>'<span data-distview="'+key+':'+o[0]+'" title="'+tip(o)+'" style="display:block;cursor:pointer;padding:4px 12px;font-size:8px;font-weight:700;white-space:nowrap;background:'+((cur===o[0])?'color-mix(in srgb,var(--blue) 16%,transparent)':'transparent')+';color:'+((cur===o[0])?'var(--text)':'var(--text3)')+'">'+o[1]+'</span>').join('')
         +'</span></span>';};
     const _kfmt=v=>{const a=Math.abs(v);const s=a>=1e6?(a/1e6).toFixed(1)+'M':a>=1e3?(a/1e3).toFixed(a>=1e4?0:1)+'k':Math.round(a).toString();return (v<0?'-$':'$')+s;};
@@ -27290,10 +27291,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-distsecm]').forEach(el=>{el.onclick=e=>{e.stopPropagation();const k=el.dataset.distsecm;let cur=Array.isArray(APREF.distSecs)?APREF.distSecs.slice():(APREF.distSec?[APREF.distSec]:[]);cur=cur.filter(x=>x!=='all');cur=cur.includes(k)?cur.filter(x=>x!==k):cur.concat([k]);savePref('distSecs',cur);renderApp();};});
       // collapsed pill dropdowns (1G scope + bins): click the pill to open/close its options.
       content.querySelectorAll('[data-scopecur],[data-binscur],[data-dvcur]').forEach(el=>{el.onclick=e=>{e.stopPropagation();
-        const w=el.parentElement.querySelector('[data-scopeopts],[data-binsopts],[data-dvopts]');
+        // resolve THIS control's own menu by name; a wrapper can hold more than one popover
+        //   and a bare selector was handing back whichever came first in the DOM.
+        const _dk=el.getAttribute('data-dvcur');
+        const w=_dk?el.parentElement.querySelector('[data-dvopts="'+_dk+'"]')
+                  :el.parentElement.querySelector('[data-scopeopts],[data-binsopts]');
         // a fixed menu carries no layout of its own until it is shown, so anchor it to the
         //   button every time it opens - the card it lives in may have been scrolled since.
-        if(w&&w.hasAttribute('data-dvopts')){const r=el.getBoundingClientRect();
+        if(_dk&&w){const r=el.getBoundingClientRect();
           w.style.left=Math.round(Math.min(r.left,Math.max(4,innerWidth-190)))+'px';
           w.style.top=Math.round(r.bottom+3)+'px';}
         // only one of these menus open at a time - two overlapping popovers in a card this
