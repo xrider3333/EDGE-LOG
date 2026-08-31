@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.382';
+const VERSION='73.383';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.383',date:'2026-08-30',notes:['The 1A funnel no longer picks its TILT and HYBRID line by LOCKBOX recovery factor. It now uses the same ticked SAMPLE slices and RANK rule as the 1E table - default pre-lockbox (IS+WF) ranked by NET $ with an 80% MAR floor - so the two panels cannot disagree and nothing is selected on the held-out year.','Measured before changing it across runs 234 / 243 / 302 / 303: the old lockbox rule disagreed with this one on 6 of 8 pools and picked xgb 4 times out of 5 - the model with the weakest walk-forward-to-lockbox relationship (on run 243 xgb reads lockbox MAR 0.09 against walk-forward MAR 11.57). The lockbox is now confirmation only.']},
 {v:'73.382',date:'2026-08-29',notes:['THE PAPER SIDEBAR IS STARTED OVER. The old one crammed the wide-screen control strip into a narrow column, where its pills and hint sentences wrapped into a wall of blobs. The new one is built for a column: full-width rows for TODAY / ALL TIME, the families and RAW / ML, one row of equal chips for BASELINES, DETAIL and ARCHIVED, a labelled COLUMNS switch, then the strategy table - which was never the problem.','EVERY EXPLANATORY SENTENCE MOVED INTO HOVER TOOLTIPS. The how-to-click hint, the today-source note, the archived clause - hover the control that owns them. The panel shows controls and numbers, nothing else.']},
 {v:'73.381',date:'2026-08-29',notes:['ONE PAPER TAB. The two paper tabs are merged: the tab bar now has a single PAPER, showing the sidebar layout. A browser that saved the old tab as its view is routed to the merged one.','THE SIDEBAR IS ONLY THE SELECTION PANEL now - the strategy table with TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and archived. The duplicate pill rail and its title strip are gone from the page; they were the legacy top strip crushed into a narrow column, saying the same thing as the table under them. Everything on the right - status, chart, calendar, trades, the folded panels - follows the sidebar selection.']},
 {v:'73.379',date:'2026-08-28',notes:['RANKINGS IS OFF THE TOP-LEVEL NAV. It became one of the COMPARE views yesterday and was being offered in two places at once. The view itself is unchanged and still renders - the compare rail navigates to it - it just is not a primary tab as well.']},
@@ -10961,6 +10962,42 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _SCOPE_COL={IS:'var(--text4)',WF:'#60a5fa',LB:'#a78bfa','PRE-LB':'#60a5fa'};
     const _scopeCols=w=>String(w).replace(/PRE-LB|\bIS\b|\bWF\b|\bLB\b/g,m=>'<span style="color:'+(_SCOPE_COL[m]||'var(--text5)')+'">'+m+'</span>');
     const _scopeTag=w=>' <span style="font-weight:400;color:var(--text5);letter-spacing:0;text-transform:none">&middot; '+_scopeCols(w)+'</span>';
+    // ── ML FAMILY REPRESENTATIVE (owner-approved 2026-08-30) ────────────────────────────
+    //    The 1A funnel draws ONE line per ML family (GATE / TILT / HYBRID) and has to choose
+    //    which model that line is. It used to choose by LOCKBOX recovery factor, hard-coded:
+    //    lockbox net / lockbox max drawdown, ignoring the 1E RANK and SAMPLE controls entirely.
+    //    Two things were wrong with that. (1) It SELECTS ON THE LOCKBOX - the one stretch that
+    //    exists to give a single untouched read. Choosing the best of five models there spends
+    //    that read: the winner wins partly because it suited that particular year, and the
+    //    number then quoted as out-of-sample proof is the max of five tries, not one honest
+    //    look. (2) It could contradict the 1E table sitting beside it, because that table ranks
+    //    by whatever RANK / SAMPLE the owner picked.
+    //    MEASURED before changing it (runs 234 / 243 / 302 / 303, HYBRID and TILT pools): the
+    //    lockbox rule disagreed with this one on 6 of 8 pools, and picked xgb 4 times out of 5 -
+    //    the model with the weakest walk-forward-to-lockbox relationship (on #243 xgb reads LB
+    //    MAR 0.09 against WF MAR 11.57). That is lockbox-fitting, not model quality.
+    //    NOW: the same ticked SAMPLE slices the 1E tables use (default is+wf, i.e. pre-lockbox -
+    //    so nothing is selected on the lockbox unless the owner deliberately ticks LB), ranked
+    //    by the RANK control, defaulting to NET $ + 80% MAR FLOOR - most dollars among the
+    //    candidates at least 80% as MAR-efficient as the best. The lockbox is left to confirm.
+    //    CAVEAT, stated because the pill surfaces the number: pooling slices sums their net but
+    //    takes the WORST slice drawdown rather than re-deriving the drawdown of the joined
+    //    curve, so a multi-slice MAR here is an approximation. It is used as a relative filter
+    //    and a label, never as a published statistic.
+    const _mlSum=(t,segs)=>{const K={is:'is_rng',wf:'wf_rng',lb:'lockbox'};let net=0,dd=0,any=false;
+      segs.forEach(k=>{const sl=t&&t[K[k]];if(!sl)return;any=true;net+=(+sl.total_pnl||0);dd=Math.max(dd,Math.abs(+sl.max_drawdown||0));});
+      return any?{net:net,dd:dd,mar:(dd>1e-9?net/dd:null)}:null;};
+    const _mlPick=(arr)=>{
+      const segs=_segsOf(['is','wf','lb']);
+      const rule=(['rec','pnl','floor'].indexOf(String(APREF.g2rank||''))>=0)?String(APREF.g2rank):'floor';
+      const rows=(arr||[]).map(t=>({t:t,m:_mlSum(t,segs)})).filter(x=>x.m);
+      if(!rows.length)return null;
+      let pool=rows;
+      if(rule==='floor'){const ms=rows.map(x=>x.m.mar).filter(v=>v!=null&&isFinite(v));
+        if(ms.length){const best=Math.max.apply(null,ms);const keep=rows.filter(x=>x.m.mar!=null&&x.m.mar>=0.8*best);if(keep.length)pool=keep;}}
+      const key=(rule==='rec')?(x=>x.m.mar):(x=>x.m.net);
+      let b=null;pool.forEach(x=>{const v=key(x);if(v!=null&&isFinite(v)&&(b===null||v>key(b)))b=x;});
+      return b?{cfg:b.t,mar:b.m.mar,net:b.m.net,rule:rule,segs:segs.join('+')}:null;};
     const _rkNmAll={rec:'MAR',pnl:'NET $',floor:'NET $ + FLOOR'};
     const _rkOptsAll=[['rec','MAR','most $ per $ of drawdown - the engine own rule, the one that crowned the winner'],
                       ['pnl','NET $','most dollars, no safety check'],
@@ -11708,28 +11745,30 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(_hasGateO&&_a2gateO)_gEqO.cum_gated.forEach(v=>extYs.push(v*mult));
       // v68.4 (owner: "the top tilt gets pushed off the graph"): find the best 2D size tilt ONCE,
       //   up front, and feed its values into the y-scale so its line fits on the plot.
-      let _bestTiltC=null,_bestTiltMar=null;
+      let _bestTiltC=null,_bestTiltMar=null,_bestTiltRule=null;
       try{
         const _tlA0=(d.gate_validate&&Array.isArray(d.gate_validate.tilts))?d.gate_validate.tilts:[];
-        const _tRc0=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
-        _bestTiltC=_tlA0.slice().sort((a,b)=>_tRc0(b)-_tRc0(a))[0]||null;
-        if(_bestTiltC){const _m0=_tRc0(_bestTiltC);_bestTiltMar=(_m0>-99)?_m0:null;}
+        const _tP0=_mlPick(_tlA0);
+        _bestTiltC=_tP0?_tP0.cfg:null;
+        _bestTiltMar=_tP0?_tP0.mar:null;
+        if(_tP0)_bestTiltRule=_tP0;
         if(_bestTiltC&&_bestTiltC.equity&&Array.isArray(_bestTiltC.equity.cum))
           _bestTiltC.equity.cum.forEach(v=>extYs.push(v*mult));
-      }catch(_bt0){_bestTiltC=null;_bestTiltMar=null;}
+      }catch(_bt0){_bestTiltC=null;_bestTiltMar=null;_bestTiltRule=null;}
       // v68.6: same pre-pass for the best HYBRID (2E) — engine >= v68.5 runs only.
-      let _bestHybC=null,_bestHybMar=null;
+      let _bestHybC=null,_bestHybMar=null,_bestHybRule=null;
       try{
         const _hyA0=(d.gate_validate&&Array.isArray(d.gate_validate.hybrids))?d.gate_validate.hybrids:[];
-        const _hRc0=t=>{const c=t&&t.lockbox;if(!c)return -99;const dd0=Math.abs(c.max_drawdown||0);return dd0>1e-9?(c.total_pnl/dd0):-99;};
-        _bestHybC=_hyA0.slice().sort((a,b)=>_hRc0(b)-_hRc0(a))[0]||null;
+        const _hP0=_mlPick(_hyA0);
+        _bestHybC=_hP0?_hP0.cfg:null;
+        if(_hP0)_bestHybRule=_hP0;
         // v73.34: capture the lockbox MAR (recovery factor) that PICKED this hybrid, so the key
         //   row / pill can surface the same selection metric _bestHybC/_hRc0 decide by — it was
         //   computed here but thrown away, leaving the pick invisible anywhere in the UI.
-        if(_bestHybC){const _m0=_hRc0(_bestHybC);_bestHybMar=(_m0>-99)?_m0:null;}
+        _bestHybMar=_hP0?_hP0.mar:null;
         if(_bestHybC&&_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
           _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult));
-      }catch(_bh0){_bestHybC=null;_bestHybMar=null;}
+      }catch(_bh0){_bestHybC=null;_bestHybMar=null;_bestHybRule=null;}
       // v71.6 (owner: "its putting $ back in the system vs the normal hybrid, so pnl blotter and
       //   trade pnl will be different"). Right - REDEPLOY spends the contracts the filter freed up,
       //   so the same trades carry more size and the dollars, the drawdown and where the book
@@ -12537,12 +12576,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v73.34: LB MAR appended to each family's tooltip — the lockbox recovery factor
         //   (_tRc0/_hRc0) that ACTUALLY picked this member out of its siblings, previously
         //   invisible anywhere in the UI. Same one-decimal convention _szMar's cells use.
-        const _marSuf=m=>(m!=null&&isFinite(m))?(' · LB MAR '+m.toFixed(1)+'×'):'';
-        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','best of the size-tilt models by lockbox MAR'+_marSuf(_bestTiltMar),0]);
-        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','best of the hybrid models by lockbox MAR'+_marSuf(_bestHybMar),0]);
+        // v73.383: the suffix names the rule and slices that ACTUALLY picked this member -
+        //   _mlPick follows the 1E SAMPLE ticks and RANK control now, so hard-coding LB MAR
+        //   here would print a number nothing selects by.
+        const _rkTxt={rec:'MAR',pnl:'NET $',floor:'NET $ + 80% MAR floor'};
+        const _marSuf=(m,R)=>{const sl=R&&R.segs?R.segs.toUpperCase():'',rk=R?(_rkTxt[R.rule]||R.rule):'';
+          return (R?(' · picked on '+sl+' by '+rk):'')+((m!=null&&isFinite(m))?(' · MAR '+m.toFixed(1)+'×'):'');};
+        if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','best of the size-tilt models'+_marSuf(_bestTiltMar,_bestTiltRule),0]);
+        if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','best of the hybrid models'+_marSuf(_bestHybMar,_bestHybRule),0]);
         if(_hyb2KeyV!=null)_kOrder.push([(_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
-              (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work'+_marSuf(_bestHybMar))
-                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'+_marSuf(_bestHybMar)),0]);
+              (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work'+_marSuf(_bestHybMar,_bestHybRule))
+                            :'the top hybrid refuses no trades on this run, so recycling frees nothing - same book, same size as HYBRID'+_marSuf(_bestHybMar,_bestHybRule)),0]);
         _kOrder.sort(function(a,b){return ((b[2]!=null?b[2]:-Infinity)-(a[2]!=null?a[2]:-Infinity));});
         _keyBox='<div data-a2krow style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kOrder.map(function(r){return _kr(r[0],r[1],r[2],r[3],r[4],r[5]);}).join('')
