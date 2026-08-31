@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.411';
+const VERSION='73.412';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.412',date:'2026-08-31',notes:['Scatter and parallel charts now re-fit whenever their tile changes width, so they fill the column instead of sitting small with dead margin down both sides. The fit was being measured one frame after the build, before the report had settled its column widths.']},
 {v:'73.411',date:'2026-08-31',notes:['Scatter and parallel charts FIT at every size now - the whole drawing is always on screen, centred, never clipped and never stretched. v73.407 sized them off their height so the handle could magnify them, which pushed the right-hand edge (dots and the x-axis title) off the side behind a sideways scrollbar.','The drag handle shrinks the chart and grows it back only as far as the point where it exactly fills the column width, so there is no empty space to drag into and no cropped edge to scroll to. Resizing the window or the tile re-fits them.']},
 {v:'73.410',date:'2026-08-30',notes:['FIX: LOAD ERROR - cannot access _reCfgFam before initialization. The new 1E FAMILY setting was declared next to its own buttons, hundreds of lines below the code that READS it, and a const is hoisted but not initialised - so the first read threw and took the tab down. It is declared above its first use now. Anyone whose board was left on the old CONFIGS level hit this immediately, because that pick is what switches the reading code on.']},
 {v:'73.409',date:'2026-08-31',notes:['TWO NEW AXES ON THE 1E CHARTS: EV R and SORTINO (owner: "scatter plot options need ev in r and soritno since those seem to be the fairir yardstick"). Both are on the parallel view, the scatter and the axis pickers, on the all-configurations chart and on the phase chart, so one name means one thing on both.','EV R is expectancy measured in units of the average LOSING trade - the edge per bet with the contract size, the instrument and the account divided out, which is what makes two configurations on different markets readable against each other. The average loss is not recorded per configuration, so it is DERIVED rather than read - and exactly, not approximately: expectancy over average loss equals one minus the win rate, times profit factor minus one. That identity was checked against ten real runs using each one own stored average win, average loss and win rate, and matched to nine decimal places on every one. A configuration that has never lost has no R to measure by and draws no point rather than an infinity.','SORTINO charges a strategy for its DOWNSIDE only, so a run that simply moves a lot is no longer punished for moving upward. It is computed from each configuration own saved equity curve, using the same series, the same denominator and the same annualisation as the SHARPE axis beside it - one function, one flag - because two ratios drawn side by side have to be comparable or the comparison is the thing that misleads.','HONESTY NOTE ON THE CHART ITSELF: the curve-derived Sortino here reads HIGHER than the per-trade Sortino the phase chart and a STUDIES run row print, because a sampled curve hides intra-trade dips. The axis says so on hover. Compare configurations against each other on this chart; do not read one against the other chart number.','FIXED WHILE IN THERE: the Sharpe axis was pinned to the whole optimize window while profit factor, win rate and EV beside it followed the IS / WF / LOCKBOX tick - so a lockbox tick drew one whole-window number in a row of lockbox ones. Both risk ratios now follow the tick, and fall back to the whole-window figure only when the tick IS the whole window.','ALSO FIXED: the fallback that fills profit factor, win rate, trades and EV R for a configuration was reading a block that never exists, so those axes silently vanished on many runs - not only old ones, since the pooled profit factor is dropped whenever any ticked slice sits at or below 1. Some existing reports will now show axes that were previously missing.','NEW PRE-PUSH GATE, tools/matrix_axes_render_probe.py: renders both 1E charts headlessly over fourteen cases and checks the drawn numbers, including that EV R equals the hand calculation, that a configuration with no losing trade draws nothing, and that an axis only some configurations record still draws with its degree mark.']},
@@ -25737,6 +25738,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // the fit height for this box at its CURRENT column width: the height at which the chart
       //   exactly fills the width. It is both the resting height and the ceiling the grip stops
       //   at - taller than this and the chart could only grow by going off the side.
+      // Re-fit whenever the tile's width changes (first layout, splitter drag, window resize).
+      //   The observer watches the PARENT, not the box, so our own height writes cannot feed
+      //   back into it, and a repeat of the same width is ignored.
+      const _kaWatch=(box,want)=>{let lw=-1;
+        const go=()=>{const w=box.clientWidth||0;if(w<60||Math.abs(w-lw)<2)return;lw=w;_kaFit(box,want);};
+        requestAnimationFrame(go);setTimeout(go,120);setTimeout(go,600);
+        try{const ro=new ResizeObserver(go);ro.observe(box.parentElement||box);}catch(_e){}};
       const _kaFit=(box,want)=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0;
         if(w<60||!vw||!vh)return;
         const fit=Math.max(100,Math.round(w*vh/vw));
@@ -25814,7 +25822,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // own key namespace: a height dragged back when these charts were STRETCHED to fill
           //   the tile means something else now, and reusing it would open them wildly zoomed.
           {const _k0=_dK(_keyOf(box)),_rkA=_k0?('ka'+_k0):null,_svA=_savedH(_rkA);
-           requestAnimationFrame(()=>{_kaFit(box,_svA);});
+           _kaWatch(box,_svA);
            _persistResize(box,_rkA);}
         }else{
           svg.setAttribute('preserveAspectRatio','none');
