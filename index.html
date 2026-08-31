@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.415';
+const VERSION='73.416';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.416',date:'2026-08-30',notes:['THE CONFIGS VIEW STOPS DOWNLOADING WHOLE RUN DOCUMENTS. Reading a run 1E candidates meant fetching its ENTIRE document - equity curves, trade excursions, gate bake-offs, megabytes of it - to get at two fields, which is the very thing the fast page load exists to avoid. It asks Firestore for only the parts it reads now, using the same field mask the runs list already uses. Kilobytes instead of megabytes.','It keeps its own small cache, so it never evicts a run report you have open, and if the projected read is refused it falls back to the whole document rather than leaving the view stuck on LOADING.']},
 {v:'73.415',date:'2026-08-30',notes:['AND THE TAB NO LONGER LOCKS UP WHEN SEVERAL RUNS ARE TICKED. A run document is large - the fast page load exists precisely because fetching them all is about 25 megabytes - so asking for ten at once wedged the renderer while they landed. Three are fetched at a time now and the rest queue, so the board fills in progressively instead of freezing and then arriving all at once.']},
 {v:'73.414',date:'2026-08-30',notes:['THE CHART SAT ON LOADING FOR EVER WHILE THE TABLE UNDER IT FILLED UP, and the reason is dull: the run-document cache holds EIGHT runs. Tick ten and it evicts one to load the next, so the test for everything-has-arrived could never come true. The cache now holds as many as are ticked.','AND THE CHART DRAWS WHAT IT HAS instead of being replaced wholesale by a LOADING panel. Ticking one more run used to blank everything already on screen; now the runs that have arrived stay drawn and a line underneath names the ones still coming.']},
 {v:'73.413',date:'2026-08-31',notes:['Scatter and parallel charts fill their column again. They were remembering an absolute pixel height, so a height recorded while the tile was narrow pinned the chart small once the tile grew - it sat at two-thirds scale with dead margin down both sides and the re-fit could not override it.','What the handle remembers is now the share of the fit height, not a pixel count, so a chart you deliberately made small stays small and one left at full size keeps filling whatever width its column ends up.']},
@@ -1940,6 +1941,43 @@ window._runFull=window._runFull||{};window._runHydrating=window._runHydrating||{
 //   at once, which the studies board will happily do when ten runs are ticked, wedges the
 //   renderer while they land. The rest queue and start as slots free up, so the board fills
 //   in progressively instead of freezing and then arriving all at once.
+// ── THE CONFIGS-ONLY READ (owner 2026-08-30: "i'm simply asking for the configs data") ──
+//    Reading a run's 1E candidates used to mean fetching its WHOLE document, which is the
+//    very thing the fast page load exists to avoid - megabytes of equity curves, trade
+//    excursions and gate bake-offs, to get at two fields. Ten runs of that wedged the tab.
+//    This asks Firestore for ONLY the parts the configs view reads, using the same REST
+//    field-mask the runs list already uses. Kilobytes instead of megabytes, and it never
+//    evicts the report cache, because it keeps its own.
+const RUN_CFG_FIELDS=['selection','gate_validate','ml_gate','multiplier','strategy',
+  'instrument','timeframe','date_from','date_to','validate.windows'];
+window._runCfg=window._runCfg||{};window._runCfgBusy=window._runCfgBusy||{};window._runCfgQ=window._runCfgQ||[];
+function _runCfgNext(){const n=window._runCfgQ.shift();if(n)_hydrateCfg(n);}
+function _hydrateCfg(id){
+  id=String(id);
+  if(window._runCfg[id]||window._runCfgBusy[id])return;
+  // the whole document may already be in hand from opening the report - use it and skip
+  //   the network entirely.
+  if(window._runFull&&window._runFull[id]){window._runCfg[id]=window._runFull[id];return;}
+  if(!auth||!auth.currentUser||!_runsUid)return;
+  if(window._runCfgQ.indexOf(id)>=0)return;
+  if(Object.keys(window._runCfgBusy).length>=3){window._runCfgQ.push(id);return;}
+  window._runCfgBusy[id]=1;
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'
+    +_runsUid+'/runs/'+id+'?'+RUN_CFG_FIELDS.map(f=>'mask.fieldPaths='+encodeURIComponent(f)).join('&');
+  auth.currentUser.getIdToken()
+    .then(tok=>fetch(url,{headers:{'Authorization':'Bearer '+tok}}))
+    .then(r=>{if(!r.ok)throw new Error('cfg REST '+r.status);return r.json();})
+    .then(doc=>{
+      delete window._runCfgBusy[id];_runCfgNext();
+      window._runCfg[id]=Object.assign({id:id},_fsFields((doc||{}).fields||{}));
+      renderApp();})
+    .catch(e=>{delete window._runCfgBusy[id];_runCfgNext();
+      // a mask the rules refuse, or an old document without these fields: fall back to the
+      //   whole-document path rather than leaving the view stuck on LOADING for ever.
+      console.warn('[cfg] projected fetch failed for',id,(e&&e.message)||e);
+      if(typeof _hydrateRun==='function')_hydrateRun(id);});
+}
 window._runHydrateQ=window._runHydrateQ||[];
 function _runHydrateNext(){const n=window._runHydrateQ.shift();if(n)_hydrateRun(n);}
 function _hydrateRun(id){
@@ -22209,8 +22247,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const CROWS=[];let _cn=0;
           if(!_reCfgIds.length){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
           _reCfgIds.forEach(function(RID){
-            const full=(window._runFull||{})[RID];
-            if(!full){if(typeof _hydrateRun==='function')_hydrateRun(RID);
+            // the CONFIGS-ONLY document, not the whole run - see _hydrateCfg
+            const full=(window._runCfg||{})[RID]||(window._runFull||{})[RID];
+            if(!full){if(typeof _hydrateCfg==='function')_hydrateCfg(RID);
               _reCfgWait.push(RID);return;}
             {
               const mult=(+full.multiplier||20);
