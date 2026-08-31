@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.414';
+const VERSION='73.415';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.415',date:'2026-08-30',notes:['AND THE TAB NO LONGER LOCKS UP WHEN SEVERAL RUNS ARE TICKED. A run document is large - the fast page load exists precisely because fetching them all is about 25 megabytes - so asking for ten at once wedged the renderer while they landed. Three are fetched at a time now and the rest queue, so the board fills in progressively instead of freezing and then arriving all at once.']},
 {v:'73.414',date:'2026-08-30',notes:['THE CHART SAT ON LOADING FOR EVER WHILE THE TABLE UNDER IT FILLED UP, and the reason is dull: the run-document cache holds EIGHT runs. Tick ten and it evicts one to load the next, so the test for everything-has-arrived could never come true. The cache now holds as many as are ticked.','AND THE CHART DRAWS WHAT IT HAS instead of being replaced wholesale by a LOADING panel. Ticking one more run used to blank everything already on screen; now the runs that have arrived stay drawn and a line underneath names the ones still coming.']},
 {v:'73.413',date:'2026-08-31',notes:['Scatter and parallel charts fill their column again. They were remembering an absolute pixel height, so a height recorded while the tile was narrow pinned the chart small once the tile grew - it sat at two-thirds scale with dead margin down both sides and the re-fit could not override it.','What the handle remembers is now the share of the fit height, not a pixel count, so a chart you deliberately made small stays small and one left at full size keeps filling whatever width its column ends up.']},
 {v:'73.412',date:'2026-08-31',notes:['Scatter and parallel charts now re-fit whenever their tile changes width, so they fill the column instead of sitting small with dead margin down both sides. The fit was being measured one frame after the build, before the report had settled its column widths.']},
@@ -1934,12 +1935,21 @@ function _runsLiteFetch(uid,lim){
 // a small cache. Bounded to the 8 most recently opened so a long browsing session cannot
 // accumulate the same hundreds of megabytes the boot used to pull in one go.
 window._runFull=window._runFull||{};window._runHydrating=window._runHydrating||{};window._runFullOrder=window._runFullOrder||[];
+// AT MOST THREE FULL RUN DOCUMENTS IN FLIGHT AT ONCE. A run document is large - the fast
+//   page load exists precisely because fetching them all is about 25MB - so asking for ten
+//   at once, which the studies board will happily do when ten runs are ticked, wedges the
+//   renderer while they land. The rest queue and start as slots free up, so the board fills
+//   in progressively instead of freezing and then arriving all at once.
+window._runHydrateQ=window._runHydrateQ||[];
+function _runHydrateNext(){const n=window._runHydrateQ.shift();if(n)_hydrateRun(n);}
 function _hydrateRun(id){
   id=String(id);
   if(!runsRef||window._runFull[id]||window._runHydrating[id])return;
+  if(window._runHydrateQ.indexOf(id)>=0)return;
+  if(Object.keys(window._runHydrating).length>=3){window._runHydrateQ.push(id);return;}
   window._runHydrating[id]=1;
   runsRef.doc(id).get().then(snap=>{
-    delete window._runHydrating[id];
+    delete window._runHydrating[id];_runHydrateNext();
     if(!snap.exists)return;
     window._runFull[id]=_bookUnitsOnRead(_isoTs(Object.assign({id:id},snap.data())));
     window._runFullOrder.push(id);
@@ -1950,7 +1960,7 @@ function _hydrateRun(id){
     const _cap=Math.max(8,+window._runFullCap||0);
     while(window._runFullOrder.length>_cap){const old=window._runFullOrder.shift();if(old!==id)delete window._runFull[old];}
     renderApp();
-  }).catch(e=>{delete window._runHydrating[id];console.warn('[run] full document fetch failed for',id,(e&&e.message)||e);});
+  }).catch(e=>{delete window._runHydrating[id];_runHydrateNext();console.warn('[run] full document fetch failed for',id,(e&&e.message)||e);});
 }
 // Re-read the projected list after the runner finishes a job (a new run doc appears). The
 // listen channel used to do this for free; a debounce keeps it to one read burst per job.
