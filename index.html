@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.397';
+const VERSION='73.398';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.398',date:'2026-08-29',notes:['THE SIDEBAR IS A PICKER NOW, NOT A DATA TABLE. The COLUMNS switch is gone and the strategy table is locked to the four key readings - thirteen columns could never fit a sidebar, which is where the cropped numbers came from. Everything beyond the key four is on the row hovers, where it always was.','TWO SHAPES, USED CONSISTENTLY, so you can tell what is clickable and how. A choice is a labelled tray - VIEW, FAMILY, TYPE, with the label inside the tray and the active cell solid - which also ends the two-ALLs confusion, because one now reads FAMILY-ALL and the other TYPE-ALL. A toggle is a checkbox line: baselines only, detail, archived. If it has a checkbox it toggles; if it is a tray you pick one.','THE FOOTNOTES UNDER THE TABLE ARE GONE - both wrapped into grey noise at sidebar width. The crown note is a tooltip on the STRATEGIES heading; INCLUDE ALL appears beside that heading only when something is excluded.']},
 {v:'73.397',date:'2026-08-30',notes:['FIX: LOAD ERROR - _reCfgRunId is not defined. Making the CONFIGS level read several runs renamed a variable inside the per-run loop, and the rename swept up the DECLARATION as well, so the panel that says LOADING RUN read a name that no longer existed. Declared again; the loop keeps its own name.']},
 {v:'73.396',date:'2026-08-30',notes:['The 1E control rails are one-word dropdowns now instead of rows of pills - view, columns and both scatter axis pickers. The axis pickers alone were nine pills each, which is what pushed the header off the edge of the card.','2B and 2C inherit the same compact control, so the whole report has one dropdown behaviour: click to open, one menu at a time, click anywhere else to close.']},
 {v:'73.395',date:'2026-08-31',notes:['A RUN THAT VALIDATED ONE CONFIGURATION NOW POINTS AT THE RIGHT SIBLING, not merely the newest one. It prefers a run that says in its own note that it searched AROUND this configuration, then one measured over the same window and the same data, and it tells you which of the two it found. When all it can offer is a same-window sweep it says plainly that the population may not contain this exact configuration - because it searched the space, it did not aim at this point.','WHY THAT MATTERED, on the NOISE crown (owner: "check auto validate 243. its missing quite a lot of info"). Run 243 evaluated ONE configuration, so it has no plateau pick, no surrogate, no overfit probability and no deflated Sharpe - none of which can be back-filled, because one configuration has no landscape. Re-running it would change nothing: its strategy file is pinned, so it would evaluate one configuration again. The landscape already exists in run 304, a restricted re-search around the crown on the same window that holds the crowned configuration itself plus 69 of its immediate neighbours. The family full sweeps, runs 237 and 302, do NOT contain it - not exactly and not within one knob - so pointing there would have answered a different question in silence.','REPORT_COMPLETENESS.md carries the audit, and corrects its own earlier note that the NOISE crown needed no full-discovery run.']},
@@ -23607,7 +23608,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // loss, and would print a ratio with no sample size beside it - the 1E matrix carries
       // a TRADES row for exactly that reason. Nothing is lost either way: every hidden
       // figure is still on the row's own hovers.
-      const PCOLMODE=(APREF.paperCols==='all')?'all':'key';
+      // LOCKED to KEY (owner 2026-08-29: "info is cropped"). Thirteen columns cannot
+      // fit a 500px sidebar; ALL mode was a horizontal scrollbar and amputated numbers.
+      // Every reading beyond KEY is on the row hovers, where it always was.
+      const PCOLMODE='key';
       const PLEG_COLS=[
         {k:'dot',   h:'',            al:'left',  keep:true,  w:'width:1%',
          tip:'Is this configuration running in NinjaTrader right now - LIVE, OFF, or ENGINE for a leg that is computed here only.'},
@@ -23998,20 +24002,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               :'No strategy matches these filters — set the family and RAW / ML switches to ALL.')
             +'</td></tr>'))
         +'</tbody></table></div>'
-        // The board never hides a figure without saying where it went.
-        +(PCOLMODE==='key'?('<div style="font-size:8px;color:var(--text5);margin-top:3px">'
-          +(PLEG_COLS.length-PCOLS_ON.length)+' more columns \u2014 backfill split, EV, $ per day, win rate, days, last trade, cross-engine \u2014 are on COLUMNS \u203a ALL. Every one of them is also on this row\u2019s hovers.</div>'):'')
-        // A crown marks the leg whose configuration is its family\u2019s standing champion.
-        // When a family\u2019s crown is NOT among the legs on screen, that silence would read
-        // as "this family has no champion", so the board says so out loud instead.
-        +(()=>{const shown=new Set(_legOrder.map(d=>d[0]));
-          const missing=PAPER_LEG_DEFS.filter(d=>d.crown&&!shown.has(d.k));
-          if(!missing.length)return '';
-          return '<div style="font-size:8px;color:var(--text5);margin-top:3px">\uD83D\uDC51 marks the standing champion of its family. '
-            +missing.map(d=>'<span title="'+String(d.crownTip||'').replace(/"/g,'&quot;')+'" style="cursor:help;border-bottom:1px dotted var(--text5)">'
-              +d.label+'</span>').join(', ')
-            +(missing.length===1?' is a crown that is NOT on this board':' are crowns that are NOT on this board')
-            +' \u2014 so no row above wears it.</div>';})();
+        // Footnotes removed 2026-08-29 ("info is cropped" / "simpler"): the
+        // more-columns sentence and the crown note both wrapped into grey noise at
+        // sidebar width. The crown note now rides as a tooltip on the STRATEGIES
+        // heading; the extra columns were already on the row hovers.
+        ;
       const legStrip=legStripCtl+legTable;
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
@@ -24175,37 +24170,37 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<div style="flex:2 1 420px;min-width:300px">'+_curveSvg(_allDates,_curveSeries)+'</div>'
         +'<div style="flex:1 1 300px;min-width:270px;max-width:430px">'+_calHtml+'</div>'
         +'</div>');
-      // THE SIDEBAR, take three (owner 2026-08-29: "cant tell whats on or were things
-      // are"). The ON-state is INVERTED VIDEO - the theme's own text colour as the fill,
-      // the page background as the text - because the previous tint-plus-blue-underline
-      // was near-invisible on the monochrome theme, where var(--blue) is grey. Sections
-      // are labelled (VIEW / FILTER / COLUMNS / STRATEGIES) so each block says what it
-      // is. Same data-* attributes throughout; the handlers are untouched.
+      // THE SIDEBAR, v4 - a PICKER, not a data table (owner 2026-08-29: cropped info,
+      // unclear affordances, two ALLs side by side). Two shapes only: a CHOICE is a
+      // labelled tray (label in the tray, active cell inverted); a TOGGLE is a checkbox
+      // line, same glyph convention as the strategy rows. If it has a checkbox it
+      // toggles; if it is a tray you pick one.
       const legsCard=(()=>{
         const esc=t=>String(t||'').replace(/"/g,'&quot;');
-        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:4px 2px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(on?'background:var(--text);color:var(--bg1)':'color:var(--text5)')+'">'+lbl+'</span>';
-        const tray=(cells,mb)=>'<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;margin-bottom:'+(mb==null?5:mb)+'px">'+cells+'</div>';
-        const chip=(attr,on,lbl,tip)=>'<span data-'+attr+' title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;padding:4px 2px;border-radius:999px;border:1px solid '+(on?'var(--text);background:var(--text);color:var(--bg1)':'var(--border);color:var(--text5)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(on?'\u2713 ':'')+lbl+'</span>';
-        const lab=t=>'<div style="font-size:8px;letter-spacing:1.4px;color:var(--text5);margin:9px 0 4px;font-weight:700">'+t+'</div>';
-        let h=lab('VIEW');
-        h+=tray(seg('mscope','TODAY',PSCOPE==='TODAY','TODAY','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
-               +seg('mscope','ALL',PSCOPE==='ALL','ALL TIME','The whole forward test.'));
-        h+=lab('FILTER');
-        h+=tray(seg('pfam','ALL',PFAM==='ALL','ALL','every strategy family')
-               +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''));
-        h+=tray(seg('pkind','ALL',PKIND==='ALL','ALL','raw configs and ML overlays together')
+        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:5px 2px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(on?'background:var(--text);color:var(--bg1)':'color:var(--text5)')+'">'+lbl+'</span>';
+        const tray=(lbl,cells,n)=>'<div data-ptray style="display:grid;grid-template-columns:52px repeat('+n+',1fr);align-items:stretch;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;margin-bottom:5px">'
+          +'<span style="align-self:center;text-align:left;padding-left:6px;font-size:7.5px;letter-spacing:1.2px;color:var(--text5);font-weight:700">'+lbl+'</span>'+cells+'</div>';
+        const ck=(attr,on,lbl,tip)=>'<span data-'+attr+' title="'+esc(tip)+'" style="cursor:pointer;user-select:none;font-size:9px;color:'+(on?'var(--text2)':'var(--text5)')+'">'
+          +'<span style="font-size:11px">'+(on?'\u2611':'\u2610')+'</span> '+lbl+'</span>';
+        let h=tray('VIEW',seg('mscope','TODAY',PSCOPE==='TODAY','TODAY','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
+               +seg('mscope','ALL',PSCOPE==='ALL','ALL TIME','The whole forward test.'),2);
+        h+=tray('FAMILY',seg('pfam','ALL',PFAM==='ALL','ALL','every strategy family')
+               +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''),1+_famList.length);
+        h+=tray('TYPE',seg('pkind','ALL',PKIND==='ALL','ALL','raw configs and ML overlays together')
                +seg('pkind','RAW',PKIND==='RAW','RAW','only plain configs, no ML overlay')
-               +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'));
-        h+='<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-bottom:5px">'
-          +chip('pbase',PBASE,'BASELINES','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. NOTE: an ML overlay is never a baseline, so this hides every ML leg.')
-          +chip('papercfg',!!window._paperShowCfg,'DETAIL','Show which run and configuration each leg came from, under its row.')
-          +(_nArch?chip('patharch',_showArch,'ARCHIVED '+String.fromCharCode(183)+' '+_nArch,'Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Toggling brings their rows AND their trades back everywhere.'):'')
+               +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'),3);
+        h+='<div style="display:flex;gap:14px;flex-wrap:wrap;margin:7px 2px 2px">'
+          +ck('pbase',PBASE,'baselines only','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.')
+          +ck('papercfg',!!window._paperShowCfg,'detail','Show which run and configuration each leg came from, under its row.')
+          +(_nArch?ck('patharch',_showArch,'archived · '+_nArch,'Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Toggling brings their rows AND their trades back everywhere.'):'')
           +'</div>';
-        h+=lab('COLUMNS');
-        h+=tray(seg('papercols','key',PCOLMODE==='key','KEY','Net, forward, profit factor and trades. Everything else stays on the row hovers.')
-               +seg('papercols','all',PCOLMODE==='all','ALL','Every column - backfill split, EV, $ per day, win rate, days, last trade, cross-engine.'),0);
-        h+=lab('STRATEGIES '+String.fromCharCode(183)+' '+LEGS_F.length+' OF '+LEGS_VIS.length+' SHOWN');
-        if(_legOff.length)h+='<div data-paperlegall style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;background:var(--text);color:var(--bg1);border-radius:999px;padding:4px 2px;margin-bottom:5px">INCLUDE ALL '+LEGS_VIS.length+' LEGS</div>';
+        // The crown footnote lives here as a tooltip now, instead of wrapping under the table.
+        const _crownGone=PAPER_LEG_DEFS.filter(d=>d.crown&&!LEGS_F.some(x=>x.k===d.k));
+        h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">'
+          +'<span title="'+esc('Click a row to include or exclude it. \ud83d\udc51 marks the standing champion of its family.'
+            +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help;font-size:8px;letter-spacing:1.4px;color:var(--text5);font-weight:700">STRATEGIES · '+LEGS_F.length+' OF '+LEGS_VIS.length+'</span>'
+          +(_legOff.length?('<span data-paperlegall style="cursor:pointer;user-select:none;margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.5px;background:var(--text);color:var(--bg1);border-radius:999px;padding:2px 9px">INCLUDE ALL</span>'):'')
+          +'</div>';
         return tile(h+legTable);
       })();
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged

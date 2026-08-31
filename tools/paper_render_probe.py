@@ -177,7 +177,7 @@ var CASES=__CASES__, FIX=__FIX__;
         r.sideTrayMax=0;
         try{var _sb2=d.querySelector('[data-p2side]');
             var _col=_sb2&&_sb2.parentElement?_sb2.parentElement.firstElementChild:null;
-            if(_col){var _trays=_col.querySelectorAll("div[style*='grid-auto-flow:column']");
+            if(_col){var _trays=_col.querySelectorAll('[data-ptray]');
               for(var _ti=0;_ti<_trays.length;_ti++)
                 r.sideTrayMax=Math.max(r.sideTrayMax,_trays[_ti].clientHeight);}}catch(_e2){}
         r.sortable=d.querySelectorAll('[data-lsort]').length;
@@ -354,8 +354,8 @@ def main():
             fails.append('%s: LEGS table drew no rows' % nm)
         if not r.get('sortable'):
             fails.append('%s: no sortable LEGS headers rendered' % nm)
-        if not r.get('colsCtl'):
-            fails.append('%s: the COLUMNS control did not render' % nm)
+        # COLUMNS control removed by design in v73.396 - the sidebar table is locked
+        # to KEY because thirteen columns cannot fit a sidebar. No assertion on it.
         if nm.startswith('paper2'):
             if not r.get('sideBar'):
                 fails.append('%s: PAPER plus lost its strategy sidebar' % nm)
@@ -388,11 +388,11 @@ def main():
             fails.append('%s: crown drawn on %s, declared %s'
                          % (nm, sorted(drawn) or '(none)', sorted(want) or '(none)'))
 
-    # COLUMNS: KEY must genuinely be fewer columns than ALL
-    b, a = cases.get('base') or {}, cases.get('cols-all') or {}
-    if b.get('legHead') and a.get('legHead') and not (b['legHead'] < a['legHead']):
-        fails.append('COLUMNS KEY (%s cols) is not shorter than ALL (%s cols)'
-                     % (b.get('legHead'), a.get('legHead')))
+    # COLUMNS: retired in v73.396 - the sidebar table is locked to KEY (thirteen
+    # columns cannot fit a sidebar; everything else is on the row hovers), so KEY and
+    # ALL now render identically and comparing them asserts a control that no longer
+    # exists. What still matters is covered above: the table renders, its rows match
+    # its headings, and the sidebar holds it.
     # sorting must never lose or gain a row
     base_rows = (cases.get('cols-all') or {}).get('legRows')
     for nm, r in cases.items():
@@ -406,7 +406,8 @@ def main():
         return FAIL
 
     print('PAPERPROBE: PASS (VERSION=%s, %d cases, LEGS %s cols KEY / %s cols ALL, %s trade rows)'
-          % (data.get('VERSION'), len(cases), b.get('legHead'), a.get('legHead'),
+          % (data.get('VERSION'), len(cases), (cases.get('base') or {}).get('legHead'),
+             (cases.get('cols-all') or {}).get('legHead'),
              (cases.get('base') or {}).get('tradeRows')))
     return PASS
 
