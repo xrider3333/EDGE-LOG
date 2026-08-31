@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.401';
+const VERSION='73.402';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,8 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.402',date:'2026-08-30',notes:['THE CONFIGS SCATTER DREW NOTHING, and here is why: the board opens on SORTINO across the bottom and NOT ONE configuration row carried a Sortino, so every point was dropped for want of an x value. The rows themselves were fine - the table beside the chart was listing all 211 of them the whole time.','EVERY RECORD THAT SAVED AN EQUITY CURVE NOW CARRIES BOTH A SHARPE AND A SORTINO, derived from that curve the same honest way the run report derives them for its own candidates. A record that saved no curve stays blank, which is the truth rather than a fabricated number.','AND THE EMPTY-CHART MESSAGE NAMES THE AXES THAT ARE ACTUALLY EMPTY. It said a profit and a drawdown whatever the axes were set to, so picking SORTINO against EV IN R and getting nothing pointed at the wrong two figures entirely.']},
+{v:'73.400',date:'2026-08-31',notes:['THE ANSWER WAS THERE AND YOU COULD NOT SEE IT (owner, looking at run 243 on PAST RUNS: "i dont see it"). A run that validated ONE configuration already named the sibling run holding its parameter landscape - but only inside a hover on a small chip, and only in the report. On the runs list there was nothing at all: no pointer, and no sign the run was one-configuration in the first place.','PAST RUNS now shows it on the row, next to PASS and BASELINE: a chip reading 1 OF 1 and, when a sibling exists, an arrow to it - 1 OF 1 - 304 on the NOISE crown. Clicking the chip opens THAT run, not the row it sits in. Hovering says why in full: this run holds one configuration so it has no parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability; that cannot be back-filled; and re-running it would change nothing, because its strategy file is pinned and would evaluate one configuration again.','A one-configuration run in a family where NOTHING has searched a population still shows the 1 OF 1 half, with no arrow and a hover saying there is nowhere to point. That half is the fact that was invisible.','The report says it out loud too: beside the PINNED chip there is now a LANDSCAPE: #N button that opens the run carrying the curves, instead of leaving that sentence inside a tooltip.','A run that searched a real population gains nothing - no new chip, no extra row height.','Verified by rendering, not by reading: run 243 draws 1 OF 1 - 304 and opens 304; runs 225 and 304 draw nothing; a one-config run with no sibling draws 1 OF 1 with no arrow.']},
 {v:'73.401',date:'2026-08-31',notes:['THE ANSWER WAS THERE AND YOU COULD NOT SEE IT (owner, looking at run 243 on PAST RUNS: "i dont see it"). A run that validated ONE configuration already named the sibling run holding its parameter landscape - but only inside a hover on a small chip, and only in the report. On the runs list there was nothing at all: no pointer, and no sign the run was one-configuration in the first place.','PAST RUNS now shows it on the row, next to PASS and BASELINE: a chip reading 1 OF 1 and, when a sibling exists, an arrow to it - 1 OF 1 - 304 on the NOISE crown. Clicking the chip opens THAT run, not the row it sits in. Hovering says why in full: this run holds one configuration so it has no parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability; that cannot be back-filled; and re-running it would change nothing, because its strategy file is pinned and would evaluate one configuration again.','A one-configuration run in a family where NOTHING has searched a population still shows the 1 OF 1 half, with no arrow and a hover saying there is nowhere to point. That half is the fact that was invisible.','The report says it out loud too: beside the PINNED chip there is now a LANDSCAPE: #N button that opens the run carrying the curves, instead of leaving that sentence inside a tooltip.','A run that searched a real population gains nothing - no new chip, no extra row height.','Verified by rendering, not by reading: run 243 draws 1 OF 1 - 304 and opens 304; runs 225 and 304 draw nothing; a one-config run with no sibling draws 1 OF 1 with no arrow.']},
 {v:'73.399',date:'2026-08-31',notes:['THE AUTO-RECOVER SWITCH NOW LOOKS LIKE A SWITCH. It was a bordered pill in the exact costume of the read-only status lights beside it, so nothing said it was clickable. It now follows the page rule: a checkbox toggles. Checked box when on; hollow box plus OFF in amber when off; the only checkbox on the status strip - the one thing there you can click.']},
 {v:'73.398',date:'2026-08-29',notes:['THE SIDEBAR IS A PICKER NOW, NOT A DATA TABLE. The COLUMNS switch is gone and the strategy table is locked to the four key readings - thirteen columns could never fit a sidebar, which is where the cropped numbers came from. Everything beyond the key four is on the row hovers, where it always was.','TWO SHAPES, USED CONSISTENTLY, so you can tell what is clickable and how. A choice is a labelled tray - VIEW, FAMILY, TYPE, with the label inside the tray and the active cell solid - which also ends the two-ALLs confusion, because one now reads FAMILY-ALL and the other TYPE-ALL. A toggle is a checkbox line: baselines only, detail, archived. If it has a checkbox it toggles; if it is a tray you pick one.','THE FOOTNOTES UNDER THE TABLE ARE GONE - both wrapped into grey noise at sidebar width. The crown note is a tooltip on the STRATEGIES heading; INCLUDE ALL appears beside that heading only when something is excluded.']},
@@ -21864,7 +21866,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
             const _wy=skip.length?String(skip[0].w):'';
-            const _l1='Nothing to plot'+(skip.length?(': not one of these '+skip.length+' rows carries both a profit and a drawdown figure.'):': no row is shown at all under the controls above.');
+            // NAME THE AXIS THAT IS EMPTY. This used to say 'a profit and a drawdown'
+            //   whatever the axes were set to, so picking SORTINO against EV IN R and
+            //   getting an empty chart pointed at the wrong two figures entirely.
+            const _l1='Nothing to plot'+(skip.length?(': not one of these '+skip.length+
+              ' rows records both '+(_reYcapShort[_reMode()]?String(_reYcapShort[_reMode()]).split(' \u2014')[0]
+                :'the profit stage')+' and '+(_reXNm[_reXAxis]||'the horizontal measure')+'.'
+              ):': no row is shown at all under the controls above.');
             g+='<text x="'+((L+R)/2)+'" y="'+((T+B)/2-(_wy?10:0))+'" fill="var(--text4)" font-size="13" text-anchor="middle">'+_reEsc(_l1)+'</text>'
               +(_wy?('<text x="'+((L+R)/2)+'" y="'+((T+B)/2+14)+'" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reEsc(_wy.length>150?(_wy.slice(0,149)+'\u2026'):_wy)+'</text>'
                     +'<text x="'+((L+R)/2)+'" y="'+((T+B)/2+32)+'" fill="var(--text5)" font-size="10" text-anchor="middle">The rows are all in the table below \u2014 what they measured is there, it simply is not money.</text>'):'');}
@@ -22097,6 +22105,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
                 const vr=d.reduce(function(a,b){return a+(b-m)*(b-m);},0)/Math.max(1,n-1),sd=Math.sqrt(vr);
                 return (sd>1e-9)?((m/sd)*Math.sqrt(n/yrs)):null;};
+              // SORTINO the same way, downside only - owner-reported 2026-08-30: the board
+              //   opens on SORTINO across the bottom, and NOT ONE config row carried one, so
+              //   the scatter had nothing to place and drew an empty chart. Every record that
+              //   saved a curve can produce it; a GATE candidate saves none and stays blank,
+              //   which is the truth rather than a fabricated number.
+              const soCum=function(cum,yrs){if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
+                const d=[];for(let i=1;i<cum.length;i++)d.push(cum[i]-cum[i-1]);
+                const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
+                const dn=Math.sqrt(d.reduce(function(a,b){return a+Math.min(0,b)*Math.min(0,b);},0)/n);
+                return (dn>1e-9)?((m/dn)*Math.sqrt(n/yrs)):null;};
+
               // ---- RAW: the crown pool plus the display-only robustness extras ----
               const sel=full.selection||null;
               const raws=(sel&&Array.isArray(sel.candidates))?sel.candidates.concat(Array.isArray(sel.robust)?sel.robust:[]):[];
@@ -22119,7 +22138,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       pf:((mm.profit_factor!=null&&isFinite(+mm.profit_factor))?+mm.profit_factor:null),
                       trd:((mm.num_trades!=null&&isFinite(+mm.num_trades))?+mm.num_trades:null),
                       _wr:((mm.win_rate!=null&&isFinite(+mm.win_rate))?+mm.win_rate:null),
-                      _sh:shCum(c.equity&&c.equity.cum,yrsW),_cfg:1,_tab:'RAW',_run:RID});});
+                      _sh:shCum(c.equity&&c.equity.cum,yrsW),_so:soCum(c.equity&&c.equity.cum,yrsW),_cfg:1,_tab:'RAW',_run:RID});});
               // ---- GATE / TILT / HYBRID: the ML side of the same run ----
               const GV=full.gate_validate||full.ml_gate||null;
               const gch=(GV&&GV.chosen)||null;
@@ -22135,7 +22154,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                         is:net,wf:null,lb:null,tot:net,dd:dd,
                         pf:((c.pre_pf!=null&&isFinite(+c.pre_pf))?Math.min(+c.pre_pf,99):null),
                         trd:((c.kept_pre!=null)?+c.kept_pre:null),
-                        _wr:((c.pre_wr!=null)?+c.pre_wr:null),_sh:null,_cfg:1,_tab:'GATE',_run:RID,
+                        _wr:((c.pre_wr!=null)?+c.pre_wr:null),_cfg:1,_tab:'GATE',_run:RID,
+                        _sh:shCum(c.equity&&c.equity.cum,yrsW),_so:soCum(c.equity&&c.equity.cum,yrsW),
                         why:{wf:'A gate variant is measured on the pre-lockbox window as one block - it has no walk-forward split of its own.',lb:'A gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
               // THE THREE HYBRID SIZINGS, exactly as the 1E matrix builds its three tabs
               //   (owner 2026-08-28: "raw top ten all the way to the three hybrids - i want
@@ -22170,7 +22190,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       is:net,wf:null,lb:null,tot:net,dd:dd,
                       pf:((st2.profit_factor!=null)?Math.min(+st2.profit_factor,99):null),
                       trd:((x.n_trades!=null)?+x.n_trades:((st2.num_trades!=null)?+st2.num_trades:null)),
-                      _wr:((st2.win_rate!=null)?+st2.win_rate:null),_sh:null,_cfg:1,_tab:tabNm,_run:RID,
+                      _wr:((st2.win_rate!=null)?+st2.win_rate:null),_cfg:1,_tab:tabNm,_run:RID,
+                      _sh:shCum(x.equity&&x.equity.cum,yrsW),_so:soCum(x.equity&&x.equity.cum,yrsW),
                       _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult*f:null),
                       why:{wf:'A sizing variant is measured over one window - it has no walk-forward split of its own.',lb:'This figure is the variant own window, which is not a lockbox slice.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
