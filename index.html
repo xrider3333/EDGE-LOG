@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.392';
+const VERSION='73.393';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.393',date:'2026-08-29',notes:['YOU CAN NOW TELL WHAT IS ON. Every active filter is inverted - solid fill, dark text - instead of the faint tint that was near-invisible on the monochrome theme, where the blue accent renders grey. Active toggle chips carry a check mark.','EVERY STRATEGY ROW HAS A CHECKBOX. Filled means included, hollow means excluded, and an excluded strategy is struck through as well as dimmed - three signals instead of a 40% opacity change.','THE SIDEBAR IS LABELLED. VIEW, FILTER, COLUMNS, then STRATEGIES with a live count - so each block says what it is instead of being anonymous rows of chips. The BASELINES tooltip now warns that it hides every ML overlay.']},
 {v:'73.392',date:'2026-08-30',notes:['Follow-up to 73.391: the second 1E card was still borrowing the first card view setting. The per-card context is set before the card body is built now, so KPI on one card and SCATTER on the other really do hold at the same time.']},
 {v:'73.391',date:'2026-08-30',notes:['The two 1E cards are independent now. Each keeps its own TABLE / PARALLEL / SCATTER and NUMBERS / RATIOS / BOTH setting, so COMPARE can hold one card on the scatter and the other on the table instead of forcing both to show the same drawing.','1E header laid out properly: the tab strip keeps the title row and the drawing controls drop to their own row underneath. They were all competing for one line, which pushed the last tabs off the edge of the card.']},
 {v:'73.390',date:'2026-08-29',notes:['WHERE THE MLs WENT, ANSWERED ON THE BOARD. The ML legs were hidden by the RAW switch and by BASELINES ONLY - an ML overlay is never a baseline, so BASELINES ONLY hides every one of them, and picking ML with it still on showed a completely empty table with no explanation. The empty table now names the switch that is hiding everything and says what to click.','THE PARAM DUMP IS OFF THE DETAIL ROW. It printed every knob of the configuration inline; the row now shows only where the leg came from, and the knobs ride in the same hover tooltip as the run note - one hover away instead of three wrapped lines on screen.']},
@@ -23780,7 +23781,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +((v>=0)?PNL_POS:PNL_NEG)+'">'+fmtUsd(v)+'</span>';
         const _cells={
           dot:_td(dotHtml||'<span style="color:var(--text5)">—</span>','left','width:1%'),
-          leg:_td(_crownIc(name)+'<span style="font-weight:700;letter-spacing:.5px;color:'+color+'">'+label+'</span>'
+          // A literal checkbox, because opacity alone cannot say OFF on a dark theme
+          // (owner 2026-08-29: "cant tell whats on"). Text glyphs survive every theme.
+          leg:_td('<span style="font-size:11px;margin-right:5px;color:'+(dim?'var(--text5)':'var(--text2)')+'">'+(dim?'\u2610':'\u2611')+'</span>'
+               +_crownIc(name)+'<span style="font-weight:700;letter-spacing:.5px;color:'+color+(dim?';text-decoration:line-through':'')+'">'+label+'</span>'
                +(dim?' <span style="font-size:8px;color:var(--text5)">excluded</span>':'')+wBadge+orbBadge+noteBadge,'left'),
           net:_td(a.n
                ?('<b style="font-size:11px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</b>')
@@ -23807,7 +23811,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           xeng:_td(xHtml||'<span style="color:var(--text5)">—</span>','left')
         };
         const _mainRow='<tr data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
-          +'" style="cursor:pointer;opacity:'+(dim?0.4:1)+';transition:opacity .12s">'
+          +'" style="cursor:pointer;opacity:'+(dim?0.55:1)+';transition:opacity .12s">'
           +PCOLS_ON.map(c=>_cells[c.k]||_td('')).join('')
           +'</tr>';
         // Detail row: only when asked for, and only when there is something to say.
@@ -24107,36 +24111,37 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<div style="flex:2 1 420px;min-width:300px">'+_curveSvg(_allDates,_curveSeries)+'</div>'
         +'<div style="flex:1 1 300px;min-width:270px;max-width:430px">'+_calHtml+'</div>'
         +'</div>');
-      // THE SIDEBAR, built FOR a column (owner 2026-08-29: "start over bc this side
-      // bar is absoluty atrocious"). The first two versions transplanted the legacy
-      // horizontal strip into a 440px column, where its wrap-happy pills and inline
-      // hint sentences turned into a wall of blobs. This one is vertical by design:
-      // full-width segmented rows, one row of equal toggle chips, the table - which
-      // was never the problem - and every explanatory sentence moved into tooltips.
-      // Same data-* attributes as the strip, so every existing handler works as-is.
+      // THE SIDEBAR, take three (owner 2026-08-29: "cant tell whats on or were things
+      // are"). The ON-state is INVERTED VIDEO - the theme's own text colour as the fill,
+      // the page background as the text - because the previous tint-plus-blue-underline
+      // was near-invisible on the monochrome theme, where var(--blue) is grey. Sections
+      // are labelled (VIEW / FILTER / COLUMNS / STRATEGIES) so each block says what it
+      // is. Same data-* attributes throughout; the handlers are untouched.
       const legsCard=(()=>{
         const esc=t=>String(t||'').replace(/"/g,'&quot;');
-        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:4px 2px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(on?'background:var(--bg3);color:var(--text);box-shadow:inset 0 -2px 0 var(--blue)':'color:var(--text5)')+'">'+lbl+'</span>';
-        const tray=(cells,mb)=>'<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;margin-bottom:'+(mb==null?6:mb)+'px">'+cells+'</div>';
-        const chip=(attr,on,lbl,tip)=>'<span data-'+attr+' title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;padding:4px 2px;border-radius:999px;border:1px solid '+(on?'var(--blue);color:var(--blue)':'var(--border);color:var(--text5)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lbl+'</span>';
-        let h='<div class="lbl" style="font-size:10px;color:var(--text3);margin-bottom:6px" title="Click a strategy row to include or exclude it. The dot means it is live in NinjaTrader. Everything on the right - chart, calendar, trades, totals - follows this selection.">STRATEGIES</div>';
+        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:4px 2px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(on?'background:var(--text);color:var(--bg1)':'color:var(--text5)')+'">'+lbl+'</span>';
+        const tray=(cells,mb)=>'<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;margin-bottom:'+(mb==null?5:mb)+'px">'+cells+'</div>';
+        const chip=(attr,on,lbl,tip)=>'<span data-'+attr+' title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;padding:4px 2px;border-radius:999px;border:1px solid '+(on?'var(--text);background:var(--text);color:var(--bg1)':'var(--border);color:var(--text5)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(on?'\u2713 ':'')+lbl+'</span>';
+        const lab=t=>'<div style="font-size:8px;letter-spacing:1.4px;color:var(--text5);margin:9px 0 4px;font-weight:700">'+t+'</div>';
+        let h=lab('VIEW');
         h+=tray(seg('mscope','TODAY',PSCOPE==='TODAY','TODAY','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
                +seg('mscope','ALL',PSCOPE==='ALL','ALL TIME','The whole forward test.'));
+        h+=lab('FILTER');
         h+=tray(seg('pfam','ALL',PFAM==='ALL','ALL','every strategy family')
                +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''));
         h+=tray(seg('pkind','ALL',PKIND==='ALL','ALL','raw configs and ML overlays together')
                +seg('pkind','RAW',PKIND==='RAW','RAW','only plain configs, no ML overlay')
                +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'));
-        h+='<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-bottom:6px">'
-          +chip('pbase',PBASE,'BASELINES','Show only each family'+String.fromCharCode(8217)+'s baseline configuration.')
+        h+='<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-bottom:5px">'
+          +chip('pbase',PBASE,'BASELINES','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. NOTE: an ML overlay is never a baseline, so this hides every ML leg.')
           +chip('papercfg',!!window._paperShowCfg,'DETAIL','Show which run and configuration each leg came from, under its row.')
           +(_nArch?chip('patharch',_showArch,'ARCHIVED '+String.fromCharCode(183)+' '+_nArch,'Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Toggling brings their rows AND their trades back everywhere.'):'')
           +'</div>';
-        h+=tray('<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;align-self:center;text-align:center">COLUMNS</span>'
-               +seg('papercols','key',PCOLMODE==='key','KEY','Net, forward, profit factor and trades. Everything else stays on the row hovers.')
-               +seg('papercols','all',PCOLMODE==='all','ALL','Every column - backfill split, EV, $ per day, win rate, days, last trade, cross-engine.'),8);
-        if(_legOff.length)h+='<div data-paperlegall style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--blue);border:1px solid var(--blue);border-radius:999px;padding:4px 2px;margin-bottom:8px">SHOW ALL '+LEGS_VIS.length+' LEGS</div>';
-        if(_nFiltered)h+='<div style="font-size:8px;color:var(--text5);margin-bottom:4px">'+_nFiltered+' hidden by these filters</div>';
+        h+=lab('COLUMNS');
+        h+=tray(seg('papercols','key',PCOLMODE==='key','KEY','Net, forward, profit factor and trades. Everything else stays on the row hovers.')
+               +seg('papercols','all',PCOLMODE==='all','ALL','Every column - backfill split, EV, $ per day, win rate, days, last trade, cross-engine.'),0);
+        h+=lab('STRATEGIES '+String.fromCharCode(183)+' '+LEGS_F.length+' OF '+LEGS_VIS.length+' SHOWN');
+        if(_legOff.length)h+='<div data-paperlegall style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;background:var(--text);color:var(--bg1);border-radius:999px;padding:4px 2px;margin-bottom:5px">INCLUDE ALL '+LEGS_VIS.length+' LEGS</div>';
         return tile(h+legTable);
       })();
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
