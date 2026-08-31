@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.410';
+const VERSION='73.411';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.411',date:'2026-08-31',notes:['Scatter and parallel charts FIT at every size now - the whole drawing is always on screen, centred, never clipped and never stretched. v73.407 sized them off their height so the handle could magnify them, which pushed the right-hand edge (dots and the x-axis title) off the side behind a sideways scrollbar.','The drag handle shrinks the chart and grows it back only as far as the point where it exactly fills the column width, so there is no empty space to drag into and no cropped edge to scroll to. Resizing the window or the tile re-fits them.']},
 {v:'73.410',date:'2026-08-30',notes:['FIX: LOAD ERROR - cannot access _reCfgFam before initialization. The new 1E FAMILY setting was declared next to its own buttons, hundreds of lines below the code that READS it, and a const is hoisted but not initialised - so the first read threw and took the tab down. It is declared above its first use now. Anyone whose board was left on the old CONFIGS level hit this immediately, because that pick is what switches the reading code on.']},
 {v:'73.409',date:'2026-08-31',notes:['TWO NEW AXES ON THE 1E CHARTS: EV R and SORTINO (owner: "scatter plot options need ev in r and soritno since those seem to be the fairir yardstick"). Both are on the parallel view, the scatter and the axis pickers, on the all-configurations chart and on the phase chart, so one name means one thing on both.','EV R is expectancy measured in units of the average LOSING trade - the edge per bet with the contract size, the instrument and the account divided out, which is what makes two configurations on different markets readable against each other. The average loss is not recorded per configuration, so it is DERIVED rather than read - and exactly, not approximately: expectancy over average loss equals one minus the win rate, times profit factor minus one. That identity was checked against ten real runs using each one own stored average win, average loss and win rate, and matched to nine decimal places on every one. A configuration that has never lost has no R to measure by and draws no point rather than an infinity.','SORTINO charges a strategy for its DOWNSIDE only, so a run that simply moves a lot is no longer punished for moving upward. It is computed from each configuration own saved equity curve, using the same series, the same denominator and the same annualisation as the SHARPE axis beside it - one function, one flag - because two ratios drawn side by side have to be comparable or the comparison is the thing that misleads.','HONESTY NOTE ON THE CHART ITSELF: the curve-derived Sortino here reads HIGHER than the per-trade Sortino the phase chart and a STUDIES run row print, because a sampled curve hides intra-trade dips. The axis says so on hover. Compare configurations against each other on this chart; do not read one against the other chart number.','FIXED WHILE IN THERE: the Sharpe axis was pinned to the whole optimize window while profit factor, win rate and EV beside it followed the IS / WF / LOCKBOX tick - so a lockbox tick drew one whole-window number in a row of lockbox ones. Both risk ratios now follow the tick, and fall back to the whole-window figure only when the tick IS the whole window.','ALSO FIXED: the fallback that fills profit factor, win rate, trades and EV R for a configuration was reading a block that never exists, so those axes silently vanished on many runs - not only old ones, since the pooled profit factor is dropped whenever any ticked slice sits at or below 1. Some existing reports will now show axes that were previously missing.','NEW PRE-PUSH GATE, tools/matrix_axes_render_probe.py: renders both 1E charts headlessly over fourteen cases and checks the drawn numbers, including that EV R equals the hand calculation, that a configuration with no losing trade draws nothing, and that an axis only some configurations record still draws with its degree mark.']},
 {v:'73.408',date:'2026-08-30',notes:['CONFIGS IS NO LONGER A SEPARATE LEVEL - it is a VIEW of the runs you have already ticked, which is what was asked for in the first place. Pick a strategy, tick one or more of its Auto-Validates, then SHOW decides whether the chart plots the RUNS themselves or every 1E candidate inside them, overlaid on the same axes.','THE STRATEGY PICK IS NO LONGER THROWN AWAY. Switching to configs used to repoint the rail at RAW / GATE / TILT, so the NOISE you had picked simply vanished and there was no way to tell what you were looking at. The rail always means the strategy; the six 1E families have their own control.','AND THE RUN CHIPS OFFER ONLY THAT STRATEGY RUNS. Seventy-five chips while the rail said NOISE was most of what made this confusing - the pick looked ignored. Untick the rail and every run is offered again.','The profit stage still pins itself while the configs view is on, because a candidate record holds exactly one window - but you only meet that pin when you ask for candidates, not the moment you arrive.']},
@@ -25733,6 +25734,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         n=n.parentElement;}return null;};
       let _rszT=null;
       const _saveRszH=(rk,h)=>{if(!rk||!(h>50))return;clearTimeout(_rszT);_rszT=setTimeout(()=>{const m=Object.assign({},APREF.rszH||{});if(m[rk]!==h){m[rk]=h;savePref('rszH',m);}},180);};
+      // the fit height for this box at its CURRENT column width: the height at which the chart
+      //   exactly fills the width. It is both the resting height and the ceiling the grip stops
+      //   at - taller than this and the chart could only grow by going off the side.
+      const _kaFit=(box,want)=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0;
+        if(w<60||!vw||!vh)return;
+        const fit=Math.max(100,Math.round(w*vh/vw));
+        box.style.maxHeight=fit+'px';
+        box.style.height=Math.max(100,Math.min(fit,want||fit))+'px';};
+      // the column can change width without a re-render (tile splitter, window resize) - refit
+      //   then too, else the chart is left floating in whitespace or pinned over its ceiling.
+      if(!window._kaFitWired){window._kaFitWired=1;let _kt=null;
+        window.addEventListener('resize',()=>{clearTimeout(_kt);_kt=setTimeout(()=>{
+          document.querySelectorAll('.rschart-box[data-kaw]').forEach(b=>_kaFit(b,b.offsetHeight));},120);});}
       const _savedH=rk=>{const v=rk&&APREF.rszH&&APREF.rszH[rk];return (typeof v==='number'&&v>50&&v<1200)?v:null;};
       const _persistResize=(box,rk)=>{if(!rk)return;let skip=true;
         try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}_saveRszH(rk,box.offsetHeight);});ro.observe(box);}
@@ -25776,16 +25790,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   the data, so the fitted trend line's apparent slope stops matching the slope it was
           //   actually fitted at, and a dot's position can no longer be read honestly against the
           //   two axes. These charts keep their authored aspect and take the full column width,
-          //   with the height following. The grip IS offered, and it is a ZOOM: the svg is sized
-          //   off its HEIGHT (width:auto), so dragging the handle down magnifies the whole
-          //   drawing - dots, labels, trend line together - and the box scrolls sideways once
-          //   the chart is wider than the column. Dragging up shrinks it. At rest the height is
-          //   the exact fit height, so nothing scrolls until you ask for it. Never a stretch.
-          svg.style.width='auto';svg.style.height='100%';svg.style.display='block';svg.style.margin='0 auto';
+          //   with the height following. The grip IS offered and it FITS the chart at every size:
+          //   the drawing scales to whichever of width / height binds first and is centred, so it
+          //   is never clipped and never stretched. Dragging up shrinks the whole drawing; dragging
+          //   down grows it only as far as the fit height, where it exactly fills the column width.
+          //   That ceiling lives in maxHeight, which the [data-rsrow] drag handler already honours,
+          //   so there is no dead letterbox below the chart and no cropped edge to go hunting for.
+          svg.style.width='100%';svg.style.height='100%';svg.style.display='block';
           box=document.createElement('div');box.className='rschart-box';
           // first guess only - the rAF below replaces it with the real fit height for this column.
           const _ha=Math.max(110,Math.min(700,Math.round((vh||200)*0.68)));
-          box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:100px;max-height:1000px;border-radius:6px;margin-bottom:2px;overflow-x:auto;overflow-y:hidden';
+          box.dataset.kaw=vw;box.dataset.kah=vh;
+          box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:100px;max-height:'+_ha+'px;border-radius:6px;margin-bottom:2px;overflow:hidden';
           svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
           const _gripA=document.createElement('div');_gripA.setAttribute('data-rsrow','');_gripA.title='drag up / down to zoom this chart - it keeps its shape, so the whole drawing scales';
           _gripA.style.cssText='height:8px;margin:3px 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
@@ -25798,9 +25814,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // own key namespace: a height dragged back when these charts were STRETCHED to fill
           //   the tile means something else now, and reusing it would open them wildly zoomed.
           {const _k0=_dK(_keyOf(box)),_rkA=_k0?('ka'+_k0):null,_svA=_savedH(_rkA);
-           if(_svA)box.style.height=_svA+'px';
-           else requestAnimationFrame(()=>{const w=box.clientWidth||0;
-             if(w>60)box.style.height=Math.max(100,Math.min(1000,Math.round(w*vh/vw)))+'px';});
+           requestAnimationFrame(()=>{_kaFit(box,_svA);});
            _persistResize(box,_rkA);}
         }else{
           svg.setAttribute('preserveAspectRatio','none');
