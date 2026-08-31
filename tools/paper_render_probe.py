@@ -170,6 +170,16 @@ var CASES=__CASES__, FIX=__FIX__;
             var _sb=d.querySelector('[data-p2side]');
             if(_lr&&_sb&&_sb.parentElement&&_sb.parentElement.firstElementChild)
               r.legsInSide=_sb.parentElement.firstElementChild.contains(_lr)?1:0;}catch(_e){}
+        // GEOMETRY, not just existence: the owner rejected two sidebars whose controls
+        // wrapped into multi-line blobs, and every structural gate passed on both. A
+        // segmented tray is one line of chips - if any tray in the sidebar renders
+        // taller than ~2 lines, the layout has collapsed into wrapping again.
+        r.sideTrayMax=0;
+        try{var _sb2=d.querySelector('[data-p2side]');
+            var _col=_sb2&&_sb2.parentElement?_sb2.parentElement.firstElementChild:null;
+            if(_col){var _trays=_col.querySelectorAll("div[style*='grid-auto-flow:column']");
+              for(var _ti=0;_ti<_trays.length;_ti++)
+                r.sideTrayMax=Math.max(r.sideTrayMax,_trays[_ti].clientHeight);}}catch(_e2){}
         r.sortable=d.querySelectorAll('[data-lsort]').length;
         r.colsCtl=d.querySelectorAll('[data-papercols]').length;
         // ---- the TRADES table
@@ -352,6 +362,9 @@ def main():
             elif not r.get('legsInSide'):
                 fails.append('%s: the LEGS panel is no longer inside the sidebar '
                              'column' % nm)
+            elif (r.get('sideTrayMax') or 0) > 40:
+                fails.append('%s: a sidebar control tray is %spx tall - its chips are '
+                             'wrapping into a blob again' % (nm, r.get('sideTrayMax')))
         # ARCHIVED LEGS MUST NOT LEAK unless SHOW ARCHIVED asked for them
         def _is(lbl, pool):
             return any(lbl.startswith(x) for x in pool)

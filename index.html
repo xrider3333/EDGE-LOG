@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.381';
+const VERSION='73.382';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.382',date:'2026-08-29',notes:['THE PAPER SIDEBAR IS STARTED OVER. The old one crammed the wide-screen control strip into a narrow column, where its pills and hint sentences wrapped into a wall of blobs. The new one is built for a column: full-width rows for TODAY / ALL TIME, the families and RAW / ML, one row of equal chips for BASELINES, DETAIL and ARCHIVED, a labelled COLUMNS switch, then the strategy table - which was never the problem.','EVERY EXPLANATORY SENTENCE MOVED INTO HOVER TOOLTIPS. The how-to-click hint, the today-source note, the archived clause - hover the control that owns them. The panel shows controls and numbers, nothing else.']},
 {v:'73.381',date:'2026-08-29',notes:['ONE PAPER TAB. The two paper tabs are merged: the tab bar now has a single PAPER, showing the sidebar layout. A browser that saved the old tab as its view is routed to the merged one.','THE SIDEBAR IS ONLY THE SELECTION PANEL now - the strategy table with TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and archived. The duplicate pill rail and its title strip are gone from the page; they were the legacy top strip crushed into a narrow column, saying the same thing as the table under them. Everything on the right - status, chart, calendar, trades, the folded panels - follows the sidebar selection.']},
 {v:'73.379',date:'2026-08-28',notes:['RANKINGS IS OFF THE TOP-LEVEL NAV. It became one of the COMPARE views yesterday and was being offered in two places at once. The view itself is unchanged and still renders - the compare rail navigates to it - it just is not a primary tab as well.']},
 {v:'73.378',date:'2026-08-28',notes:['SCATTER AND LATTICE COULD BOTH LOOK SELECTED. The SCATTER chip lit whenever the chart was not PARALLEL, so it stayed lit under RADAR and LATTICE too - two chips on at once in a control where exactly one can be true. It now lights only for its own drawing.','CHART IS THE FIRST CONTROL, above LEVEL. It decides which drawing everything under it is describing, so it leads.']},
@@ -23656,7 +23657,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return _lsDir==='asc'?c:-c;
         }).map(o=>o.d);
       })();
-      const legStrip='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="lbl" style="font-size:10px;color:var(--text3)">LEGS</div>'
+      const legStripCtl='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="lbl" style="font-size:10px;color:var(--text3)">LEGS</div>'
         +'<span style="display:flex;gap:5px">'+_psScopeTab('TODAY','TODAY')+_psScopeTab('ALL','ALL TIME')+'</span>'
         // TODAY now names the DATE it means. It silently showed all-time numbers until
         // 2026-08-17, so the label has to be unambiguous about which day is on screen.
@@ -23700,11 +23701,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                  +seg('papercols','all',PCOLMODE,'ALL','Every column: the backfill split, EV, dollars per calendar day, win rate, trading days, last trade and the cross-engine check.'))
             +(_nFiltered?('<span style="font-size:8px;color:var(--text5)">'+_nFiltered+' hidden by these filters</span>'):'')
             +'</div>';
-        })()
-        // COMPACT: 9px text, 1px vertical padding, no per-cell borders - the trades table
-        // underneath reads well because its rows are one tight line each, and this one was
-        // three times the height for the same amount of information.
-        +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:9px">'
+        })();
+      // COMPACT: 9px text, 1px vertical padding, no per-cell borders - the trades table
+      // underneath reads well because its rows are one tight line each, and this one was
+      // three times the height for the same amount of information.
+      const legTable='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:9px">'
         +'<thead><tr style="color:var(--text4);font-size:8px;letter-spacing:.8px;text-transform:uppercase">'
           +PCOLS_ON.map(c=>{
             const on=!!c.sort&&_lsCol===c.k;
@@ -23734,6 +23735,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +d.label+'</span>').join(', ')
             +(missing.length===1?' is a crown that is NOT on this board':' are crowns that are NOT on this board')
             +' \u2014 so no row above wears it.</div>';})();
+      const legStrip=legStripCtl+legTable;
       // cumulative curve — one merged date axis (all distinct run/exit dates), stepwise
       // cumulative $ per leg so the three lines share one x-axis even if a leg skipped a day.
       const _allDates=[...new Set(_pt.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean))].sort();
@@ -23896,7 +23898,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<div style="flex:2 1 420px;min-width:300px">'+_curveSvg(_allDates,_curveSeries)+'</div>'
         +'<div style="flex:1 1 300px;min-width:270px;max-width:430px">'+_calHtml+'</div>'
         +'</div>');
-      const legsCard=tile(legStrip);
+      // THE SIDEBAR, built FOR a column (owner 2026-08-29: "start over bc this side
+      // bar is absoluty atrocious"). The first two versions transplanted the legacy
+      // horizontal strip into a 440px column, where its wrap-happy pills and inline
+      // hint sentences turned into a wall of blobs. This one is vertical by design:
+      // full-width segmented rows, one row of equal toggle chips, the table - which
+      // was never the problem - and every explanatory sentence moved into tooltips.
+      // Same data-* attributes as the strip, so every existing handler works as-is.
+      const legsCard=(()=>{
+        const esc=t=>String(t||'').replace(/"/g,'&quot;');
+        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:4px 2px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(on?'background:var(--bg3);color:var(--text);box-shadow:inset 0 -2px 0 var(--blue)':'color:var(--text5)')+'">'+lbl+'</span>';
+        const tray=(cells,mb)=>'<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;margin-bottom:'+(mb==null?6:mb)+'px">'+cells+'</div>';
+        const chip=(attr,on,lbl,tip)=>'<span data-'+attr+' title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;padding:4px 2px;border-radius:999px;border:1px solid '+(on?'var(--blue);color:var(--blue)':'var(--border);color:var(--text5)')+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+lbl+'</span>';
+        let h='<div class="lbl" style="font-size:10px;color:var(--text3);margin-bottom:6px" title="Click a strategy row to include or exclude it. The dot means it is live in NinjaTrader. Everything on the right - chart, calendar, trades, totals - follows this selection.">STRATEGIES</div>';
+        h+=tray(seg('mscope','TODAY',PSCOPE==='TODAY','TODAY','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
+               +seg('mscope','ALL',PSCOPE==='ALL','ALL TIME','The whole forward test.'));
+        h+=tray(seg('pfam','ALL',PFAM==='ALL','ALL','every strategy family')
+               +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''));
+        h+=tray(seg('pkind','ALL',PKIND==='ALL','ALL','raw configs and ML overlays together')
+               +seg('pkind','RAW',PKIND==='RAW','RAW','only plain configs, no ML overlay')
+               +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'));
+        h+='<div style="display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-bottom:6px">'
+          +chip('pbase',PBASE,'BASELINES','Show only each family'+String.fromCharCode(8217)+'s baseline configuration.')
+          +chip('papercfg',!!window._paperShowCfg,'DETAIL','Show which run and configuration each leg came from, under its row.')
+          +(_nArch?chip('patharch',_showArch,'ARCHIVED '+String.fromCharCode(183)+' '+_nArch,'Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Toggling brings their rows AND their trades back everywhere.'):'')
+          +'</div>';
+        h+=tray('<span style="font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700;align-self:center;text-align:center">COLUMNS</span>'
+               +seg('papercols','key',PCOLMODE==='key','KEY','Net, forward, profit factor and trades. Everything else stays on the row hovers.')
+               +seg('papercols','all',PCOLMODE==='all','ALL','Every column - backfill split, EV, $ per day, win rate, days, last trade, cross-engine.'),8);
+        if(_legOff.length)h+='<div data-paperlegall style="cursor:pointer;user-select:none;text-align:center;font-size:8px;font-weight:700;letter-spacing:.5px;color:var(--blue);border:1px solid var(--blue);border-radius:999px;padding:4px 2px;margin-bottom:8px">SHOW ALL '+LEGS_VIS.length+' LEGS</div>';
+        if(_nFiltered)h+='<div style="font-size:8px;color:var(--text5);margin-bottom:4px">'+_nFiltered+' hidden by these filters</div>';
+        return tile(h+legTable);
+      })();
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
       // below). Every read here is defensive: old reports simply lack `live` and roll up to zero.
