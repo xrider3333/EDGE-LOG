@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.372';
+const VERSION='73.373';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.373',date:'2026-08-28',notes:['CRITICAL FIX: every run report has been failing to open since 73.367 with THIS RUN DETAIL COULDN-T RENDER (ReferenceError: _reXNm is not defined). The 1A RISK MAP x-axis caption had been pointed at the RANKINGS scatter axis-picker variables, which live in a different function. The RISK MAP x is always max drawdown, so its caption says that again.']},
 {v:'73.372',date:'2026-08-28',notes:['TTM HAD NO FAMILY RULE, so every TTM Squeeze run read UNTAGGED and the strategy rail counted TTM as zero while three crowned TTM runs sat on the chart. It has one now.','AND THE RAIL COUNTS WHAT THE LEVEL ACTUALLY BUILT - crowned runs on CROWN, every run on AUTO VAL - instead of counting every run either way.']},
 {v:'73.371',date:'2026-08-28',notes:['CROWN READS PAST RUNS NOW, like AUTO VAL. It listed registry rows tagged as champion, so a crowned run nobody had written up was absent, and a stale write-up outlived the crown it described. It is one row per CROWNED RUN, off the same Past Runs list, so it cannot go stale.','WHAT MAKES A RUN CROWNED IS YOUR OWN MARK, never a computed maximum. Two marks count: a starred run, and a run cited by a studies row you tagged as the champion of its family. A family with neither is simply absent - naming the biggest number would be inventing a crown nobody awarded, which is the one thing this level must not do.','Crowned rows fill every axis, like every other run row, and the strategy rail counts runs on this level too.']},
 {v:'73.370',date:'2026-08-28',notes:['THE RADAR IS CAPPED AT TWELVE ROWS, and that is a fix rather than a limit. It draws a FILLED shape per row; at the ALL level that is a thousand semi-transparent ten-sided polygons stacked on each other, and compositing them froze the tab outright. It draws the strongest by NET and says how many it left off, instead of pretending to draw everything and delivering a locked page. Narrow the strategy or the level to see different ones.']},
@@ -12863,7 +12864,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 +'<text x="'+gx.toFixed(1)+'" y="'+(y1+13)+'" text-anchor="middle" font-size="8" fill="var(--text4)">'+fmtAx(L,1)+'</text>';}}
       const axes='<line x1="'+x0+'" y1="'+y0+'" x2="'+x0+'" y2="'+y1+'" stroke="var(--text3)" stroke-width="1" opacity="0.9"/>'
                 +'<line x1="'+x0+'" y1="'+y1+'" x2="'+x1+'" y2="'+y1+'" stroke="var(--text3)" stroke-width="1" opacity="0.9"/>';
-      const xTitle='<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">'+(_reXNm[_reXAxis]||'MAX DRAWDOWN ($)')+' &mdash; '+(_reXBetter[_reXAxis]||'')+'</text>';
+      // v73.373 FIX: this is the 1A RISK MAP, whose x is ALWAYS |max drawdown| (see X() above).
+      //   v73.367 pointed its title at _reXNm / _reXAxis / _reXBetter - consts that live in the
+      //   RANKINGS scatter, a different function - so every report threw ReferenceError: _reXNm is
+      //   not defined and rendered THIS RUN DETAIL COULDN'T RENDER. The selectable-axis pick belongs
+      //   to that other chart; this one states what it actually plots.
+      const xTitle='<text x="'+((x0+x1)/2).toFixed(1)+'" y="'+(H-4)+'" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">MAX DRAWDOWN ($) &mdash; further LEFT is better</text>';
       const yTitle='<text x="9" y="'+((y0+y1)/2).toFixed(1)+'" transform="rotate(-90 9 '+((y0+y1)/2).toFixed(1)+')" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--text3)">NET PNL ($)</text>';
       // ── TREND (owner: "a regression line or trend line if there are any that are applicable") ──
       //   Ordinary least-squares fit of net $ on |DD| over EVERY VISIBLE dot on the chart, all
