@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.416';
+const VERSION='73.417';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.417',date:'2026-08-30',notes:['A MONEY AXIS ROUNDED TO THOUSANDS IS USELESS WHEN THE NUMBERS ARE IN THE HUNDREDS. With EXPECTANCY PER TRADE up the side every tick read $0k and the axis carried no information at all. It prints whole dollars below a thousand, thousands above it, millions above that.']},
 {v:'73.416',date:'2026-08-30',notes:['THE CONFIGS VIEW STOPS DOWNLOADING WHOLE RUN DOCUMENTS. Reading a run 1E candidates meant fetching its ENTIRE document - equity curves, trade excursions, gate bake-offs, megabytes of it - to get at two fields, which is the very thing the fast page load exists to avoid. It asks Firestore for only the parts it reads now, using the same field mask the runs list already uses. Kilobytes instead of megabytes.','It keeps its own small cache, so it never evicts a run report you have open, and if the projected read is refused it falls back to the whole document rather than leaving the view stuck on LOADING.']},
 {v:'73.415',date:'2026-08-30',notes:['AND THE TAB NO LONGER LOCKS UP WHEN SEVERAL RUNS ARE TICKED. A run document is large - the fast page load exists precisely because fetching them all is about 25 megabytes - so asking for ten at once wedged the renderer while they landed. Three are fetched at a time now and the rest queue, so the board fills in progressively instead of freezing and then arriving all at once.']},
 {v:'73.414',date:'2026-08-30',notes:['THE CHART SAT ON LOADING FOR EVER WHILE THE TABLE UNDER IT FILLED UP, and the reason is dull: the run-document cache holds EIGHT runs. Tick ten and it evicts one to load the next, so the test for everything-has-arrived could never come true. The cache now holds as many as are ticked.','AND THE CHART DRAWS WHAT IT HAS instead of being replaced wholesale by a LOADING panel. Ticking one more run used to blank everything already on screen; now the runs that have arrived stay drawn and a line underneath names the ones still coming.']},
@@ -21098,7 +21099,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _rePptWhy=(st,rw)=>(_reNum(rw,'tot')==null)?_reWhy(st,rw,'tot'):_reTrdWhy;
         const _rePptTip='Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all. The 1E matrix in a run report calls this same figure EV (expected value); this board keeps its own $/TRD label.';
         const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
-        const _reTick=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)/1000).toLocaleString()+'k'):(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
+        // A MONEY TICK ROUNDED TO THOUSANDS IS USELESS ON A SMALL AXIS. Owner-reported
+        //   2026-08-30: with EXPECTANCY PER TRADE up the side - figures in the hundreds -
+        //   every tick read $0k and the axis carried no information at all. Thousands only
+        //   once the number is actually in the thousands.
+        const _reTick=(v,fm)=>{
+          if(fm!=='money')return (Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(1));
+          const a=Math.abs(v),sg=(v<0?'-$':'$');
+          if(a>=1e6)return sg+(a/1e6).toFixed(1).replace(/\.0$/,'')+'M';
+          if(a>=1000)return sg+Math.round(a/1000).toLocaleString()+'k';
+          return sg+Math.round(a).toLocaleString();};
         const _reVal=(v,fm)=>(fm==='money')?((v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString()):((Math.abs(v)>=1000)?Math.round(v).toLocaleString():v.toFixed(2));
         // ── STAGE. One selected stage drives the chart height, the emphasised table column and
         //    the profit-divided-by-drawdown column, so every row on screen is read on the same
