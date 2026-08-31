@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.390';
+const VERSION='73.391';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.391',date:'2026-08-30',notes:['The two 1E cards are independent now. Each keeps its own TABLE / PARALLEL / SCATTER and NUMBERS / RATIOS / BOTH setting, so COMPARE can hold one card on the scatter and the other on the table instead of forcing both to show the same drawing.','1E header laid out properly: the tab strip keeps the title row and the drawing controls drop to their own row underneath. They were all competing for one line, which pushed the last tabs off the edge of the card.']},
 {v:'73.390',date:'2026-08-29',notes:['WHERE THE MLs WENT, ANSWERED ON THE BOARD. The ML legs were hidden by the RAW switch and by BASELINES ONLY - an ML overlay is never a baseline, so BASELINES ONLY hides every one of them, and picking ML with it still on showed a completely empty table with no explanation. The empty table now names the switch that is hiding everything and says what to click.','THE PARAM DUMP IS OFF THE DETAIL ROW. It printed every knob of the configuration inline; the row now shows only where the leg came from, and the knobs ride in the same hover tooltip as the run note - one hover away instead of three wrapped lines on screen.']},
 {v:'73.389',date:'2026-08-28',notes:['SWITCHING LEVEL WITH A STRATEGY STILL PICKED NO LONGER EMPTIES THE BOARD IN SILENCE. A configuration row is tagged RAW or GATE or TILT, never NOISE, so arriving on CONFIGS with NOISE held on the rail filtered every row away and left a blank chart with no explanation. A filter that cannot match anything on the level you are looking at is now ignored; one that CAN match still applies exactly as before.']},
 {v:'73.388',date:'2026-08-30',notes:['FIXED: the TILT and HYBRID families were missing from the 1E SCATTER on the EV and TRADES axes. Their per-config block records the trade count as n, not kept, so both measures came out empty and every one of those points was dropped - leaving a chart of GATE dots that looked like the whole population.','The scatter never drops a point in silence now: an amber note says how many were not plotted and which measure they lack, so a thinned chart can never read as a complete one.']},
@@ -13747,8 +13748,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
         {nm:'TRADES', inv:false, get:x=>_num(x.tr), fmt:v=>Math.round(v).toLocaleString()}
-      ].filter(a=>_mtxColsKeep(a.nm));
-      if(pboV!=null&&isFinite(pboV)&&_mtxColsKeep('PBO'))axes.push({nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
+      ].filter(a=>_mtxColsKeep(a.nm,_MTXK.cols));
+      if(pboV!=null&&isFinite(pboV)&&_mtxColsKeep('PBO',_MTXK.cols))axes.push({nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
       // v73.341 (owner: "i dont see all the data from the 1e table to the parallel cords"): an axis is
       //   kept as soon as TWO configs carry it - nothing is dropped silently any more. One that fewer
       //   than 60% of them can fill is marked with a degree sign and says so on hover.
@@ -13766,7 +13767,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
-      if(String(APREF.mtxView||'')==='scatter'){
+      if(_mtxViewOf(_MTXK.view)==='scatter'){
         const rows=P.map(x=>({get:a=>a.get(x),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,
           tip:'<b>'+String(x.pool||'')+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+(x.crowned?' &#128081;':'')}));
         return _mtxScatFromAxes(A,rows,'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span><span>'+_mtxLegend(allPts)+'</span><span style="color:#f5c542">gold ring = crowned</span>');}
@@ -13803,10 +13804,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // v73.341 (owner: "have selector to show numbers, or ratios, or i toggle both"): ONE pref drives
     //   the 1E table rows AND both parallel views. RATIOS = the unit-free reads (MAR, PF, SHARPE,
     //   WIN %, SORTINO, PBO, CALMAR); NUMBERS = the dollars and counts; BOTH = everything.
-    const _mtxColsMode=()=>{const v=String(APREF.mtxCols||'both');return (v==='num'||v==='ratio')?v:'both';};
+    const _mtxColsMode=(k)=>{const v=String(APREF[k||'mtxCols']||'both');return (v==='num'||v==='ratio')?v:'both';};
     const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
-    const _mtxColsKeep=lbl=>{const m=_mtxColsMode();return m==='both'||(m==='ratio')===_isRatioLbl(lbl);};
-    const _mtxColsRail=()=>_distViewRail('mtxCols',_mtxColsMode(),[['num','NUMBERS'],['ratio','RATIOS'],['both','BOTH']]);
+    const _mtxColsKeep=(lbl,k)=>{const m=_mtxColsMode(k);return m==='both'||(m==='ratio')===_isRatioLbl(lbl);};
+    const _mtxColsRail=(k)=>_distViewRail(k||'mtxCols',_mtxColsMode(k),[['num','NUMBERS'],['ratio','RATIOS'],['both','BOTH']]);
+    // Which card is asking. The primary keeps the original pref names so nobody loses a saved
+    //   setting; the twin gets its own, so one card can sit on SCATTER while the other holds
+    //   the TABLE (owner 2026-08-30: "maybe i just want one on scatter and one on bar?").
+    let _MTXK={view:'mtxView',cols:'mtxCols'};
+    const _mtxViewOf=k=>{const v=String(APREF[k||'mtxView']||'');return (v==='parallel'||v==='scatter')?v:'table';};
     // ── 1E SCATTER (owner 2026-08-30: "make scatter plot. put it here.") ────────────────────
     //    A third view on the same rail as TABLE and PARALLEL, fed by the SAME axis set the
     //    parallel view builds - so the three views can never disagree about a number, and the
@@ -13886,8 +13892,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'pd',   nm:'$ / DAY', inv:false, get:p=>(p.net!=null&&p.days)?p.net/p.days:null, fmt:v=>_kfmt(v)},
         {k:'tr',   nm:'TRADES',  inv:false, get:p=>_f(p.tr), fmt:v=>Math.round(v).toLocaleString()},
         {k:'days', nm:'DAYS',    inv:false, get:p=>_f(p.days), fmt:v=>Math.round(v).toLocaleString()}
-      ].filter(a=>_mtxColsKeep(a.nm));
-      if(pboV!=null&&isFinite(pboV)&&_mtxColsKeep('PBO'))axes.push({k:'pbo',nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
+      ].filter(a=>_mtxColsKeep(a.nm,_MTXK.cols));
+      if(pboV!=null&&isFinite(pboV)&&_mtxColsKeep('PBO',_MTXK.cols))axes.push({k:'pbo',nm:'PBO',inv:true,run:true,get:()=>+pboV,fmt:v=>Math.round(v*100)+'%'});
       // an axis with no numbers on any phase is dropped rather than drawn empty
       const A=axes.filter(a=>phases.some(p=>{const v=a.get(p);return v!=null&&isFinite(v);}));
       if(A.length<2)return '';
@@ -13903,7 +13909,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotT-6)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text4)">'+(a.flat?'':a.fmt(a.inv?a.lo:a.hi))+'</text>';
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>';
         ax+='<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="10" font-weight="700" fill="'+(a.run?'var(--purple)':'var(--text2)')+'">'+a.nm+(a.inv?' &#8595;':'')+'</text>';});
-      if(String(APREF.mtxView||'')==='scatter'){
+      if(_mtxViewOf(_MTXK.view)==='scatter'){
         const rows=phases.map(p=>({get:a=>a.get(p),col:p.col||'var(--text3)',tip:'<b>'+(p.sh_||'')+'</b>',crowned:!!p.total}));
         const head=phases.map(p=>'<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:'+(p.col||'var(--text3)')+'"><span style="width:7px;height:7px;border-radius:50%;background:'+(p.col||'var(--text3)')+';display:inline-block"></span>'+(p.sh_||'')+'</span>').join('');
         return _mtxScatFromAxes(A,rows,head);}
@@ -14065,7 +14071,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // group the rows into sections (return / drawdown / reward÷risk / edge / sample) — a small
       //   uppercase header row precedes the first metric of each group so the eye reads them as blocks.
       const _grpAt={'NET P&L':'return','MAR':'reward ÷ risk','MAR (ann.)':'other','TRADES':'sample'},_ncol=phases.length+1;
-      const _mRows=metrics.filter(m=>_mtxColsKeep(m.lbl));
+      const _mRows=metrics.filter(m=>_mtxColsKeep(m.lbl,_MTXK.cols));
       const body=_mRows.map(m=>(_grpAt[m.lbl]?'<tr><td colspan="'+_ncol+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;text-transform:uppercase">'+_grpAt[m.lbl]+'</td></tr>':'')
         +'<tr style="border-top:1px solid color-mix(in srgb,var(--border) '+(m.top?'70%':'40%')+',transparent)'+(m.top?';background:color-mix(in srgb,var(--border) 10%,transparent)':'')+'">'
         +'<td style="padding:3px 4px;font-size:var(--fsxs);color:var(--text2);font-weight:'+(m.top?'700':'400')+';white-space:nowrap">'+m.lbl+'</td>'
@@ -14080,8 +14086,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _pill=(lbl,val,col,tip)=>'<span'+(tip?' title="'+tip+'"':'')+' style="font-size:8px;padding:1px 5px;border-radius:6px;background:var(--bg1);color:var(--text2);white-space:nowrap'+(tip?';cursor:help':'')+'">'+lbl+' <b style="color:'+(col||'var(--text)')+'">'+val+'</b></span>';
       // v73.331 (owner: "make an option to turn the 1e matrix into a parallel coordinate chart"):
       //   TABLE / PARALLEL rail on the card header - the same numbers drawn as shape across phases.
-      const _mView=(APREF.mtxView==='parallel'||APREF.mtxView==='scatter')?APREF.mtxView:'table';
-      const _mtxRail=_distViewRail('mtxView',_mView,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+_mtxColsRail();
+      const _mView=_mtxViewOf(_MTXK.view);
+      const _mtxRail=_distViewRail(_MTXK.view,_mView,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+_mtxColsRail(_MTXK.cols);
       const _mtxPar=(_mView==='parallel'||_mView==='scatter')?mtxParallelHtml(phases,_pboV,mult):'';
       // v73.385 (owner: "make the table/parallel tab switch the first option"): the view rail
       //   leads the control row instead of trailing it.
@@ -16967,8 +16973,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   permanent muted-warning line leads the TILT tab body, every run, any date.
           const _tiltDeadWarn=(tb==='tilt')?'<div style="color:var(--yellow);font-weight:700;margin-bottom:8px">&#9888; TILT is retired: 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10). Shown for reference only - do not adopt.</div>':'';
           const _bodyOf=function(k){const _isK2=(k==='kpi'),_isG2=(k==='gate'),_isH2=(k==='hyb'||k==='hyb2'||k==='hyb3');
-            return _isK2?_kpiInner:(_isG2?_gateCard:(k==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(_isH2?(((_gvP&&_gvP.hybBy)||{})[_hybOf(k)]||''):((_selParts&&_selParts.table)||''))));};
+            return _isK2?kpiMatrixHtml(d,mult0,1,''):(_isG2?_gateCard:(k==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(_isH2?(((_gvP&&_gvP.hybBy)||{})[_hybOf(k)]||''):((_selParts&&_selParts.table)||''))));};
           const _capOf=function(k){const t=_tabDefs.filter(function(z){return z[0]===k;})[0];return t?t[1]:k.toUpperCase();};
+          const mult0=mlt;
           const body=(tb==='all')
             ?_tabDefs.filter(function(t){return t[0]!=='all';}).map(function(t){const b=_bodyOf(t[0]);
                return (b&&b.replace(/\s/g,''))?('<div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"><div style="font-size:8px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">'+_capOf(t[0])+'</div>'+b+'</div>'):'';}).join('')
@@ -16982,10 +16989,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   drawn inside the KPI matrix only, so a card sitting on RAW / GATE / TILT / HYBRID had
           //   no way to reach it. Every tab carries the rail now; on a candidate tab PARALLEL draws
           //   that pool as one line per config (NET $ / MAX DD / MAR + the PBO axis).
-          const _mV=(APREF.mtxView==='parallel'||APREF.mtxView==='scatter')?APREF.mtxView:'table';
+          // v73.389: this card owns its own view / columns pref from here on.
+          _MTXK=showScatter?{view:'mtxView',cols:'mtxCols'}:{view:'mtxViewB',cols:'mtxColsB'};
+          const _mV=_mtxViewOf(_MTXK.view);
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
           const _poolPar=(!isK&&(_mV==='parallel'||_mV==='scatter'))?poolParallelHtml(_mtxScatterPts,_pboRun):'';
-          const _tabRail=(isK?'':_distViewRail('mtxView',_mV,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+_mtxColsRail())
+          const _tabRail=(isK?'':_distViewRail(_MTXK.view,_mV,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+_mtxColsRail(_MTXK.cols))
             +(showScatter?('<span data-mtxtwin title="'+(APREF.mtxTwin?'close the second 1E card and give the column back to the distributions':'open a SECOND 1E card beside this one, on its own tab, to compare two views side by side')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;margin-left:6px;border:1px solid '+(APREF.mtxTwin?'var(--text)':'var(--border)')+';color:'+(APREF.mtxTwin?'var(--bg)':'var(--text4)')+';'+(APREF.mtxTwin?'background:var(--text);':'')+'">&#8862; COMPARE'+(APREF.mtxTwin?' ON':'')+'</span>'):'');
           // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
           //   amber pill next to the tab strip whenever an ML tab (GATE / TILT / HYBRID family) is
@@ -16996,7 +17005,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const title=_kpiInner?'1E MATRIX':(_cfgN+'B CONFIGS');
           return '<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
             +title+' '+info
-            +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px">'+_preFixBadge+_tabRail+tabs+'</span></div>'
+            +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+_preFixBadge+tabs+'</span></div>'
+            +(_tabRail?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px">'+_tabRail+'</div>'):'')
             +(ctrls?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+ctrls+'</div>'):'')
             // v73.6x (owner ask): the cross-pool scatter moved to 1A as its own tab (see the 1A
             //   tab switcher below) - it no longer lives inside this card.
