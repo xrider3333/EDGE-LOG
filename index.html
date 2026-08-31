@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.406';
+const VERSION='73.407';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.407',date:'2026-08-30',notes:['The zoom handle on the scatter and parallel charts now actually zooms. It was pinning the chart to the tile width, so dragging past the fit height only added blank space; the chart is sized off its height instead, so dragging down magnifies the whole drawing - dots, labels and trend line together - and the tile scrolls sideways.','These charts open at their exact fit height, and they remember a dragged height under their own name so a height you set back when they were being stretched cannot reopen them wildly zoomed.']},
 {v:'73.406',date:'2026-08-30',notes:['Aspect-locked charts (the scatters and parallel-coordinate views) have a drag handle again, and dragging it ZOOMS them: the whole drawing scales, text included, instead of the chart sitting at one size while the tile grows empty space underneath it. Nothing is stretched - the shape is kept at every size.','NUMBERS / RATIOS / BOTH no longer applies to the SCATTER, and the control is hidden while the scatter is up. The scatter names its own two measures, so the filter was pulling the axes out from under you whenever you switched it.']},
 {v:'73.405',date:'2026-08-30',notes:['Scatters and parallel-coordinate charts keep their shape again. Report charts are stretched to fill their resizable tile, which is right for a line chart but wrong for these - a squashed scatter turns dots into ellipses and, worse, makes the fitted line look like a slope it was never fitted at.','The 1E scatter axis picker now shows how many configs actually record each measure, so picking one only the raw pool carries (SHARPE, on most runs) is an informed choice instead of a chart that empties out.']},
 {v:'73.404',date:'2026-08-30',notes:['1E dropdown menus now open directly beneath the control that was clicked. They are fixed-position, and a fixed element is placed against the nearest transformed ancestor rather than the window - the report cards are one, so the menu was landing far from its button.']},
@@ -25668,15 +25669,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   the data, so the fitted trend line's apparent slope stops matching the slope it was
           //   actually fitted at, and a dot's position can no longer be read honestly against the
           //   two axes. These charts keep their authored aspect and take the full column width,
-          //   with the height following. The grip IS offered: with the aspect pinned the chart
-          //   fits itself to whatever box height you drag to and letterboxes the rest, so the
-          //   handle works as a ZOOM - the whole drawing scales, text and dots together, until
-          //   the column width caps it. Never a stretch.
-          svg.style.width='100%';svg.style.height='100%';svg.style.display='block';
+          //   with the height following. The grip IS offered, and it is a ZOOM: the svg is sized
+          //   off its HEIGHT (width:auto), so dragging the handle down magnifies the whole
+          //   drawing - dots, labels, trend line together - and the box scrolls sideways once
+          //   the chart is wider than the column. Dragging up shrinks it. At rest the height is
+          //   the exact fit height, so nothing scrolls until you ask for it. Never a stretch.
+          svg.style.width='auto';svg.style.height='100%';svg.style.display='block';svg.style.margin='0 auto';
           box=document.createElement('div');box.className='rschart-box';
-          // natural height for this viewBox at the column width; the rAF pass refines it.
-          const _ha=Math.max(120,Math.min(700,Math.round(vh||200)));
-          box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:110px;max-height:900px;border-radius:6px;margin-bottom:2px;overflow:hidden';
+          // first guess only - the rAF below replaces it with the real fit height for this column.
+          const _ha=Math.max(110,Math.min(700,Math.round((vh||200)*0.68)));
+          box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:100px;max-height:1000px;border-radius:6px;margin-bottom:2px;overflow-x:auto;overflow-y:hidden';
           svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
           const _gripA=document.createElement('div');_gripA.setAttribute('data-rsrow','');_gripA.title='drag up / down to zoom this chart - it keeps its shape, so the whole drawing scales';
           _gripA.style.cssText='height:8px;margin:3px 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
@@ -25686,7 +25688,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(_p3&&_p3!==root&&/background:var\(--bg1\)/.test(_p3.getAttribute('style')||''))_hostA=_p3;else break;}
           _gripA._rsTarget=box;
           _hostA.parentNode.insertBefore(_gripA,_hostA.nextSibling);
-          {const _rkA=_dK(_keyOf(box)),_svA=_savedH(_rkA);if(_svA)box.style.height=_svA+'px';_persistResize(box,_rkA);}
+          // own key namespace: a height dragged back when these charts were STRETCHED to fill
+          //   the tile means something else now, and reusing it would open them wildly zoomed.
+          {const _k0=_dK(_keyOf(box)),_rkA=_k0?('ka'+_k0):null,_svA=_savedH(_rkA);
+           if(_svA)box.style.height=_svA+'px';
+           else requestAnimationFrame(()=>{const w=box.clientWidth||0;
+             if(w>60)box.style.height=Math.max(100,Math.min(1000,Math.round(w*vh/vw)))+'px';});
+           _persistResize(box,_rkA);}
         }else{
           svg.setAttribute('preserveAspectRatio','none');
           svg.style.height='100%';svg.style.width='100%';svg.style.display='block';
