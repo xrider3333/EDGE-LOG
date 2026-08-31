@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.374';
+const VERSION='73.375';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.375',date:'2026-08-28',notes:['STUDIES LEADS THE COMPARE RAIL now - it is the view that answers what has been tried, so it is the one to land on.','AND RANKINGS IS ONE OF THE VIEWS. It sat on its own top-level tab even though it is a comparison like the other four. The same rail now appears on it, so clicking any other view takes you straight back into COMPARE on that mode, and clicking RANKINGS from COMPARE goes the other way. Five views of one thing.']},
 {v:'73.374',date:'2026-08-28',notes:['LATTICE, the fourth drawing: every measure against every other in small panes. It answers the one question the other three cannot - WHICH OF THESE MEASURES ARE SAYING THE SAME THING. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging a strategy on.','FIVE MEASURES, NOT TEN: Sharpe, Sortino, MAR, EV in R and profit factor. Ten would be a hundred panes at forty pixels each, which is a texture rather than a chart. All five are scale-free, so every pane is a fair comparison whatever the instrument, size or window.','Capped at 250 rows, strongest by MAR, with the number left off said out loud - twenty-five panes of every row would be tens of thousands of dots. Same rule the radar learned the hard way.']},
 {v:'73.373',date:'2026-08-28',notes:['CRITICAL FIX: every run report has been failing to open since 73.367 with THIS RUN DETAIL COULDN-T RENDER (ReferenceError: _reXNm is not defined). The 1A RISK MAP x-axis caption had been pointed at the RANKINGS scatter axis-picker variables, which live in a different function. The RISK MAP x is always max drawdown, so its caption says that again.']},
 {v:'73.372',date:'2026-08-28',notes:['TTM HAD NO FAMILY RULE, so every TTM Squeeze run read UNTAGGED and the strategy rail counted TTM as zero while three crowned TTM runs sat on the chart. It has one now.','AND THE RAIL COUNTS WHAT THE LEVEL ACTUALLY BUILT - crowned runs on CROWN, every run on AUTO VAL - instead of counting every run either way.']},
@@ -20272,10 +20273,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    (_scBtn2), rendered above everything else so switching modes is always one click away.
         const _cmpModeBtn=(k2,lab,tip)=>'<button data-cmpmode="'+k2+'" title="'+tip+'" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid '+(_cmpMode===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cmpMode===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cmpMode===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
         const modeToggle='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap"><span style="display:inline-flex;gap:3px">'
-          +_cmpModeBtn('runs','PICK RUNS','manually choose which runs go into the comparison — your picks, your tabs, your saved sets')
-          +_cmpModeBtn('fam','BY STRATEGY','one curve per strategy family, its top config, chosen automatically by score — no manual picking')
-          +_cmpModeBtn('board','RUNBOARD','compare whole BOOKS (deployable strategy combinations) as one strategy each — sample and rank selectable')
-          +_cmpModeBtn('research','STUDIES','the completed research studies on ONE scatter chart — every variant that was tested, plotted by what it made against what it lost at its worst, with a strategy rail on top to step from one strategy to the next')
+          // ORDER AND MEMBERSHIP, owner 2026-08-28: STUDIES leads because it is the view
+          //   that answers what has been tried, and RANKINGS joins the rail as a peer
+          //   rather than living off on its own top-level tab - it is a comparison too.
+          +_cmpModeBtn('research','STUDIES','every variant ever tested, on one chart, at four grades of evidence: local sweeps, real Auto-Validate runs, the configs inside one run, and the crowned few')
+          +_cmpModeBtn('runs','PICK RUNS','manually choose which runs go into the comparison - your picks, your tabs, your saved sets')
+          +_cmpModeBtn('fam','BY STRATEGY','one curve per strategy family, its top config, chosen automatically by score - no manual picking')
+          +_cmpModeBtn('board','RUNBOARD','compare whole BOOKS (deployable strategy combinations) as one strategy each - sample and rank selectable')
+          +_cmpModeBtn('rank','RANKINGS','every run scored and ranked against every other, newest data, one row each')
           +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">every variant tested, on ONE chart · pick a strategy on the rail · one table per study underneath</span>':'')))+'</div>';
         if(_cmpMode==='research'){
         // ── STUDIES board (owner asks 2026-08-18). Every row comes from the RESEARCH_STUDIES
@@ -22805,8 +22810,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div>'))+'</div>';
       }
     }else if(augurSub==='rank'){
+      // THE SAME VIEW RAIL AS COMPARE (owner 2026-08-28: rankings is one of the views).
+      //   Rankings renders here rather than inside the compare renderer, so the rail is
+      //   rebuilt with the same button markup and the same handler - clicking any other
+      //   view takes you straight back into COMPARE on that mode.
+      const _rkBtn=(k2,lab,tip)=>'<button data-cmpmode="'+k2+'" title="'+tip+'" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid '
+        +((k2==='rank')?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'
+        +((k2==='rank')?'var(--bg2)':'var(--bg1)')+';color:'+((k2==='rank')?'var(--text)':'var(--text4)')
+        +';cursor:pointer">'+lab+'</button>';
+      const _rkRail='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap"><span style="display:inline-flex;gap:3px">'
+        +_rkBtn('research','STUDIES','every variant ever tested, on one chart')
+        +_rkBtn('runs','PICK RUNS','manually choose which runs go into the comparison')
+        +_rkBtn('fam','BY STRATEGY','one curve per strategy family, its top config')
+        +_rkBtn('board','RUNBOARD','compare whole books as one strategy each')
+        +_rkBtn('rank','RANKINGS','every run scored and ranked against every other')
+        +'</span></div>';
       const scored=(runHistory||[]).map(r=>({r:r,s:scoreRun(r)})).sort((a,b)=>b.s-a.s);
-      if(!scored.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS YET — RUN SOME BACKTESTS</div>';}
+      if(!scored.length){body=_rkRail+'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS YET — RUN SOME BACKTESTS</div>';}
       else{const _rrow=(o,i)=>{const r=o.r,sc=o.s,col=sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)';const vv=r.validate?r.validate.verdict:'';return '<tr class="arow" data-rank-run="'+r.id+'" style="cursor:pointer">'
           +'<td style="color:var(--text5)">'+(i+1)+'</td>'
           +'<td><div style="display:flex;align-items:center;gap:8px"><span style="width:26px;text-align:right;font-weight:800;color:'+col+'">'+_scTxt(sc)+'</span><span style="flex:1;height:5px;background:var(--bg1);border-radius:3px;overflow:hidden;min-width:54px;display:inline-block"><span style="display:block;height:100%;width:'+((sc!=null&&isFinite(sc))?sc:0)+'%;background:'+col+'"></span></span></div></td>'
@@ -22839,7 +22859,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(open?g.xs.map(x=>_rrow(x.o,x.gi)).join(''):'');}).join('');
         }else rows=scored.map((o,i)=>_rrow(o,i)).join('');
         const _rgBtn='<button data-rankgroupbtn title="'+(_rg?'grouped by strategy — click for the flat ranking':'flat ranking — click to group by strategy')+'" style="height:21px;padding:0 8px;font-size:9px;border-radius:7px;border:1px solid '+(_rg?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_rg?'var(--bg2)':'var(--bg1)')+';color:'+(_rg?'var(--text)':'var(--text4)')+';cursor:pointer;font-variant-emoji:text">▦ GROUP</button>';
-        body=tile('<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span class="lbl">▤ RANKINGS · '+scored.length+' runs by robustness score</span><span style="margin-left:auto">'+_rgBtn+'</span></div>'
+        body=_rkRail+tile('<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span class="lbl">▤ RANKINGS · '+scored.length+' runs by robustness score</span><span style="margin-left:auto">'+_rgBtn+'</span></div>'
           +'<div style="font-size:8px;color:var(--text5);margin-bottom:9px;max-width:680px">0–100 blends out-of-sample strength (Deflated Sharpe, walk-forward folds held, lockbox), profit factor and sample size. Auto-Validate runs use their gate results. Click a row to open the run in Results.</div>'
           +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th><th style="min-width:90px">SCORE</th><th>STRATEGY</th><th>MARKET</th><th>SCOPE</th><th style="text-align:right">PF</th><th style="text-align:right" title="Net PnL ÷ max drawdown of the OPTIMIZE (in-sample) window — the tuned stretch, so this reads big. Same formula as the LB MAR in the run report, but that one uses ONLY the held-out lockbox slice — always compare like with like.">MAR</th><th style="text-align:right">DSR</th><th style="text-align:right">TRD</th><th style="text-align:right">$PNL</th><th>DATE</th></tr></thead><tbody>'+rows+'</tbody></table></div>');}
     }else if(augurSub==='ref'){
@@ -25687,7 +25707,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-cmpgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.cmpgrp);if(window._cmpGrpOpen.has(k))window._cmpGrpOpen.delete(k);else window._cmpGrpOpen.add(k);renderApp();};});
       content.querySelectorAll('[data-cmp-rm]').forEach(x=>{x.onclick=()=>{const ids=_cur().filter(id=>id!==String(x.dataset.cmpRm));if(ids.length>=1){savePref('cmpIds',ids);renderApp();}};});
       // PICK RUNS ⇄ BY STRATEGY mode toggle (top of the Compare body)
-      content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.cmpmode);renderApp();};});
+      // RANKINGS lives on its own sub-tab rather than inside the compare renderer, so its
+      //   rail button navigates there. Every other button just sets the mode. Both put the
+      //   SAME rail on screen, so the five read as five views of one thing.
+      content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{
+        const k=b.dataset.cmpmode;
+        if(k==='rank'){augurSub='rank';renderApp();return;}
+        if(augurSub!=='cmp')augurSub='cmp';
+        savePref('cmpMode',k);renderApp();};});
       // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
       // RESEARCH board: DATE DISCOVERED / DATE RAN ordering toggle (persisted like every other view pref)
       content.querySelectorAll('[data-resord]').forEach(b=>{b.onclick=()=>{savePref('resOrd',b.dataset.resord);renderApp();};});
