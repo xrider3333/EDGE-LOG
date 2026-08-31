@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.396';
+const VERSION='73.397';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.397',date:'2026-08-30',notes:['FIX: LOAD ERROR - _reCfgRunId is not defined. Making the CONFIGS level read several runs renamed a variable inside the per-run loop, and the rename swept up the DECLARATION as well, so the panel that says LOADING RUN read a name that no longer existed. Declared again; the loop keeps its own name.']},
 {v:'73.396',date:'2026-08-30',notes:['The 1E control rails are one-word dropdowns now instead of rows of pills - view, columns and both scatter axis pickers. The axis pickers alone were nine pills each, which is what pushed the header off the edge of the card.','2B and 2C inherit the same compact control, so the whole report has one dropdown behaviour: click to open, one menu at a time, click anywhere else to close.']},
 {v:'73.395',date:'2026-08-31',notes:['A RUN THAT VALIDATED ONE CONFIGURATION NOW POINTS AT THE RIGHT SIBLING, not merely the newest one. It prefers a run that says in its own note that it searched AROUND this configuration, then one measured over the same window and the same data, and it tells you which of the two it found. When all it can offer is a same-window sweep it says plainly that the population may not contain this exact configuration - because it searched the space, it did not aim at this point.','WHY THAT MATTERED, on the NOISE crown (owner: "check auto validate 243. its missing quite a lot of info"). Run 243 evaluated ONE configuration, so it has no plateau pick, no surrogate, no overfit probability and no deflated Sharpe - none of which can be back-filled, because one configuration has no landscape. Re-running it would change nothing: its strategy file is pinned, so it would evaluate one configuration again. The landscape already exists in run 304, a restricted re-search around the crown on the same window that holds the crowned configuration itself plus 69 of its immediate neighbours. The family full sweeps, runs 237 and 302, do NOT contain it - not exactly and not within one knob - so pointing there would have answered a different question in silence.','REPORT_COMPLETENESS.md carries the audit, and corrects its own earlier note that the NOISE crown needed no full-discovery run.']},
 {v:'73.394',date:'2026-08-30',notes:['THE 1E MATRIX GOES ON THE SCATTER FOR SEVERAL AUTO-VALIDATES AT ONCE. The CONFIGS level read one run, which answered what a run found but never whether two runs found the same thing. The RUN control is a row of tickable chips now - tick as many as you like and every one of their RAW, GATE, TILT and three HYBRID candidates lands on the same axes.','EVERY POINT SAYS WHICH RUN IT CAME FROM. A row is named #304 GATE logistic at 50 percent, so a point is always traceable back to the run that produced it, and the family rail still narrows to RAW or GATE or any one hybrid sizing across all of them at once.','THE HONEST CAVEAT IS PRINTED when more than one run is ticked: the runs may cover different windows, so the ratio axes stay fair and NET does not.']},
@@ -22002,7 +22003,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    Tick as many as you like: every one of their RAW / GATE / TILT / HYBRID
         //    candidates lands on the same axes, and each row carries its run number so a
         //    point is always traceable to the run it came out of.
-        let _reCfgLoad=false,_reCfgMsg='',RID='';
+        let _reCfgLoad=false,_reCfgMsg='',_reCfgRunId='';
         const _reCfgCounts={raw:0,gate:0,tilt:0,hyb:0};
         const _reCfgPick=rs.filter(function(r){return r&&(String(r.scope||'').indexOf('valid')>=0||r.validate);}).slice(0,80);
         // the pref holds a LIST now; a single id from before still reads correctly.
@@ -22011,7 +22012,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           a=a.filter(function(id){return _reCfgPick.some(function(r){return String(r.id)===id;});});
           if(!a.length&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
           return a;})();
-        RID=_reCfgIds.join(', #');
+        _reCfgRunId=_reCfgIds.join(', #');
         if(_reLvl==='cfg'){
           const CROWS=[];let _cn=0;
           if(!_reCfgIds.length){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
