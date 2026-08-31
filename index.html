@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.391';
+const VERSION='73.392';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.392',date:'2026-08-30',notes:['Follow-up to 73.391: the second 1E card was still borrowing the first card view setting. The per-card context is set before the card body is built now, so KPI on one card and SCATTER on the other really do hold at the same time.']},
 {v:'73.391',date:'2026-08-30',notes:['The two 1E cards are independent now. Each keeps its own TABLE / PARALLEL / SCATTER and NUMBERS / RATIOS / BOTH setting, so COMPARE can hold one card on the scatter and the other on the table instead of forcing both to show the same drawing.','1E header laid out properly: the tab strip keeps the title row and the drawing controls drop to their own row underneath. They were all competing for one line, which pushed the last tabs off the edge of the card.']},
 {v:'73.390',date:'2026-08-29',notes:['WHERE THE MLs WENT, ANSWERED ON THE BOARD. The ML legs were hidden by the RAW switch and by BASELINES ONLY - an ML overlay is never a baseline, so BASELINES ONLY hides every one of them, and picking ML with it still on showed a completely empty table with no explanation. The empty table now names the switch that is hiding everything and says what to click.','THE PARAM DUMP IS OFF THE DETAIL ROW. It printed every knob of the configuration inline; the row now shows only where the leg came from, and the knobs ride in the same hover tooltip as the run note - one hover away instead of three wrapped lines on screen.']},
 {v:'73.389',date:'2026-08-28',notes:['SWITCHING LEVEL WITH A STRATEGY STILL PICKED NO LONGER EMPTIES THE BOARD IN SILENCE. A configuration row is tagged RAW or GATE or TILT, never NOISE, so arriving on CONFIGS with NOISE held on the rail filtered every row away and left a blank chart with no explanation. A filter that cannot match anything on the level you are looking at is now ignored; one that CAN match still applies exactly as before.']},
@@ -16960,6 +16961,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
         //   tabs"): one builder, two cards, each with its own remembered tab.
         const _mkCfg=function(prefKey,attr,fallback,showScatter){
+          // v73.392: FIRST statement on purpose - the tab body (and the KPI matrix it calls)
+          //   is built below, so this has to be in place before any of it runs. Setting it
+          //   further down left the twin card rendering with the primary card's view pref,
+          //   which is exactly the coupling this change exists to remove.
+          _MTXK=showScatter?{view:'mtxView',cols:'mtxCols'}:{view:'mtxViewB',cols:'mtxColsB'};
           let tb=String(APREF[prefKey]||'');
           if(!_tabDefs.some(function(t){return t[0]===tb;}))tb=(_tabDefs.some(function(t){return t[0]===fallback;})?fallback:(_tabDefs.length?_tabDefs[0][0]:'raw'));
           const isAll=(tb==='all');
@@ -16989,8 +16995,6 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   drawn inside the KPI matrix only, so a card sitting on RAW / GATE / TILT / HYBRID had
           //   no way to reach it. Every tab carries the rail now; on a candidate tab PARALLEL draws
           //   that pool as one line per config (NET $ / MAX DD / MAR + the PBO axis).
-          // v73.389: this card owns its own view / columns pref from here on.
-          _MTXK=showScatter?{view:'mtxView',cols:'mtxCols'}:{view:'mtxViewB',cols:'mtxColsB'};
           const _mV=_mtxViewOf(_MTXK.view);
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
           const _poolPar=(!isK&&(_mV==='parallel'||_mV==='scatter'))?poolParallelHtml(_mtxScatterPts,_pboRun):'';
