@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.412';
+const VERSION='73.413';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.413',date:'2026-08-31',notes:['Scatter and parallel charts fill their column again. They were remembering an absolute pixel height, so a height recorded while the tile was narrow pinned the chart small once the tile grew - it sat at two-thirds scale with dead margin down both sides and the re-fit could not override it.','What the handle remembers is now the share of the fit height, not a pixel count, so a chart you deliberately made small stays small and one left at full size keeps filling whatever width its column ends up.']},
 {v:'73.412',date:'2026-08-31',notes:['Scatter and parallel charts now re-fit whenever their tile changes width, so they fill the column instead of sitting small with dead margin down both sides. The fit was being measured one frame after the build, before the report had settled its column widths.']},
 {v:'73.411',date:'2026-08-31',notes:['Scatter and parallel charts FIT at every size now - the whole drawing is always on screen, centred, never clipped and never stretched. v73.407 sized them off their height so the handle could magnify them, which pushed the right-hand edge (dots and the x-axis title) off the side behind a sideways scrollbar.','The drag handle shrinks the chart and grows it back only as far as the point where it exactly fills the column width, so there is no empty space to drag into and no cropped edge to scroll to. Resizing the window or the tile re-fits them.']},
 {v:'73.410',date:'2026-08-30',notes:['FIX: LOAD ERROR - cannot access _reCfgFam before initialization. The new 1E FAMILY setting was declared next to its own buttons, hundreds of lines below the code that READS it, and a const is hoisted but not initialised - so the first read threw and took the tab down. It is declared above its first use now. Anyone whose board was left on the old CONFIGS level hit this immediately, because that pick is what switches the reading code on.']},
@@ -25745,16 +25746,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const go=()=>{const w=box.clientWidth||0;if(w<60||Math.abs(w-lw)<2)return;lw=w;_kaFit(box,want);};
         requestAnimationFrame(go);setTimeout(go,120);setTimeout(go,600);
         try{const ro=new ResizeObserver(go);ro.observe(box.parentElement||box);}catch(_e){}};
-      const _kaFit=(box,want)=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0;
-        if(w<60||!vw||!vh)return;
-        const fit=Math.max(100,Math.round(w*vh/vw));
+      const _kaFitOf=box=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0;
+        return (w<60||!vw||!vh)?0:Math.max(100,Math.round(w*vh/vw));};
+      const _kaFit=(box,frac)=>{const fit=_kaFitOf(box);if(!fit)return;
         box.style.maxHeight=fit+'px';
-        box.style.height=Math.max(100,Math.min(fit,want||fit))+'px';};
+        const f=(typeof frac==='number'&&frac>=0.2&&frac<=1)?frac:1;
+        box.style.height=Math.max(100,Math.round(fit*f))+'px';};
+      // stored as fraction-of-fit x1000 so it stays meaningful at any column width
+      const _kaPersist=(box,rk)=>{if(!rk)return;let skip=true;
+        const save=()=>{const fit=_kaFitOf(box);if(!fit)return;
+          _saveRszH(rk,Math.max(200,Math.min(1000,Math.round(box.offsetHeight/fit*1000))));};
+        try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}save();});ro.observe(box);}
+        catch(_e){box.addEventListener('pointerup',save);}};
       // the column can change width without a re-render (tile splitter, window resize) - refit
       //   then too, else the chart is left floating in whitespace or pinned over its ceiling.
       if(!window._kaFitWired){window._kaFitWired=1;let _kt=null;
         window.addEventListener('resize',()=>{clearTimeout(_kt);_kt=setTimeout(()=>{
-          document.querySelectorAll('.rschart-box[data-kaw]').forEach(b=>_kaFit(b,b.offsetHeight));},120);});}
+          document.querySelectorAll('.rschart-box[data-kaw]').forEach(b=>{const f=_kaFitOf(b);
+          if(f)_kaFit(b,Math.min(1,b.offsetHeight/f));});},120);});}
       const _savedH=rk=>{const v=rk&&APREF.rszH&&APREF.rszH[rk];return (typeof v==='number'&&v>50&&v<1200)?v:null;};
       const _persistResize=(box,rk)=>{if(!rk)return;let skip=true;
         try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}_saveRszH(rk,box.offsetHeight);});ro.observe(box);}
@@ -25821,9 +25830,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           _hostA.parentNode.insertBefore(_gripA,_hostA.nextSibling);
           // own key namespace: a height dragged back when these charts were STRETCHED to fill
           //   the tile means something else now, and reusing it would open them wildly zoomed.
-          {const _k0=_dK(_keyOf(box)),_rkA=_k0?('ka'+_k0):null,_svA=_savedH(_rkA);
-           _kaWatch(box,_svA);
-           _persistResize(box,_rkA);}
+          {const _k0=_dK(_keyOf(box)),_rkA=_k0?('kf'+_k0):null,_svA=_savedH(_rkA);
+           _kaWatch(box,_svA?(_svA/1000):null);
+           _kaPersist(box,_rkA);}
         }else{
           svg.setAttribute('preserveAspectRatio','none');
           svg.style.height='100%';svg.style.width='100%';svg.style.display='block';
