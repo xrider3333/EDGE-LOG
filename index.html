@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.386';
+const VERSION='73.387';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.387',date:'2026-08-28',notes:['THE VERTICAL CAPTION WAS BEING SLICED BY THE TOP OF THE CHART. It is drawn rotated, so its length is bounded by the chart HEIGHT and nothing warned - EV read ...ores PROFIT STAGE and COMPARE ON. Every axis mode has a short caption now, and anything still too long is trimmed with the full sentence kept on the hover.','AND EV IN R, SHARPE AND SORTINO HAD NO CAPTION OF THEIR OWN - they fell through to the profit wording, which described a different axis entirely.','RAW / GATE / TILT / the three HYBRIDS are now one click each. On the CONFIGS level the strategy rail lists the six 1E families with a count each, and clicking one shows only that family - the toggle asked for, on the control that was already there.']},
 {v:'73.386',date:'2026-08-30',notes:['1E has a third view: SCATTER, on the same rail as TABLE and PARALLEL. It plots the SAME measures the parallel view uses - two pickers choose which goes across and which goes up, defaulting to MAX DD against NET $ - so the three views can never disagree, and the NUMBERS / RATIOS / BOTH selector filters the axis choices too.','On the KPI tab one point is a phase (IS / WF / LB / TOTAL); on a candidate tab one point is a config, coloured by family with the crowned one ringed in gold. Unlike the parallel view nothing is inverted - each axis runs in its natural direction and its caption says which end is good.']},
 {v:'73.385',date:'2026-08-30',notes:['A run that validated ONE configuration now says which sibling run does carry the param curves, the PDP finder and the surfaces - it names the same-family run that searched a real population instead of just showing N/A. (A one-config run cannot draw them: there is no population to draw them from.)','The TABLE / PARALLEL switch leads the 1E control row now instead of trailing the tab strip.']},
 {v:'73.384',date:'2026-08-28',notes:['THE CONFIGS LEVEL NOW CARRIES ALL SIX 1E FAMILIES, not four: RAW, GATE, TILT and the THREE hybrid sizings - one lot, redeploy and equal drawdown. A hybrid record is one configuration measured three ways, and the two sized-up views were missing.','THE SIZING FACTOR IS THE RUN OWN, the same arithmetic the 1E matrix uses: REDEPLOY spends the same total contracts as the no-gate book, EQUAL DD sizes until the worst drawdown matches it. Money scales; PF, WIN percent and EV in R are scale-free and do NOT move, which is exactly why they are the axes worth reading. Where the ungated twin is missing the factor is one and the column repeats the one-lot column rather than inventing a number.']},
@@ -20875,9 +20876,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
             :_reSegLong[sg]);
           return (named.length===3)?'In-sample + walk-forward + lockbox'
             :(named.join(' + ').charAt(0).toUpperCase()+named.join(' + ').slice(1));};
+        // THE VERTICAL CAPTION IS CUT OFF WHEN IT IS LONGER THAN THE PLOT IS TALL
+        //   (owner-reported 2026-08-28: it read '...ores PROFIT STAGE and COMPARE ON'). It is
+        //   drawn rotated, so its length is bounded by the chart HEIGHT and nothing warned.
+        //   Short captions for every mode, and anything still too long is trimmed with the
+        //   full sentence kept on the hover rather than silently sliced by the edge.
+        const _reYcapShort={pf:'Profit factor — HIGHER is better',
+          ppt:'Expectancy per trade — HIGHER is better',
+          evr:'Expectancy in R — HIGHER is better',
+          sh:'Sharpe — HIGHER is better',
+          so:'Sortino — HIGHER is better'};
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
-          if(_reMode()==='pf')return _rePfCap;
-          if(_reMode()==='ppt')return _rePptCap;
+          if(_reYcapShort[_reMode()])return _reYcapShort[_reMode()];
           return _reStWordAll(items)+(rat?' MAR, profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
         // ── FILTERS, built from the data. Each facet names a tag the registry rows carry, and
         //    its buttons are whatever distinct values actually appear, so a new study that tags
@@ -21653,7 +21663,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   +'<text x="'+(R-4)+'" y="'+(zy+13).toFixed(1)+'" fill="var(--text4)" font-size="10" text-anchor="end">'
                   +_reEsc(_cx.nm?('champion \u00b7 '+_cx.nm):'champion')+'</text>';}}
             g+='<text x="'+((L+R)/2)+'" y="'+XC+'" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'+_reEsc(_reXCapNow())+'</text>'
-              +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'+_reEsc(_reYcapAll(items,com))+'</text>'
+              +'<text transform="translate(20,'+((T+B)/2).toFixed(1)+') rotate(-90)" fill="var(--text2)" font-size="13" font-weight="600" text-anchor="middle">'
+                +'<title>'+_reEsc(_reYcapAll(items,com))+'</title>'
+                // one character is about 7px rotated at this size; anything past the plot
+                //   height is trimmed rather than sliced off by the edge.
+                +_reEsc((function(t){const cap=Math.max(18,Math.floor((B-T)/7));
+                  return (t.length>cap)?(t.slice(0,cap-1)+'…'):t;})(_reYcapAll(items,com)))+'</text>'
               +'<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--text3)" stroke-width="1.8"/>'
               +'<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--text3)" stroke-width="1.8"/>'
               +_ticks;
@@ -22016,13 +22031,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   isLbl:'OPTIMIZE WINDOW',sub:'Read live out of run #'+_reCfgRunId+'. Optimize window only - no lockbox has judged any of these.',
                   dashWhy:{wf:'Configuration records are scored on the optimize window as one block, so no separate walk-forward figure exists.',lb:'The lockbox never judged an individual configuration - it judges the run.'},
                   rows:CROWS};
-                CROWS.forEach(function(r){_reItems.push({st:cfgSt,r:r});});
+                // the rail narrows these the same way it narrows every other row. NOT via
+                //   _rePass - that asks the LEVEL gate first, which refuses every registry
+                //   row on this level and would refuse these with them.
+                const cfgKeep=CROWS.filter(function(r){
+                  return _reFacets.every(function(f){const sel=_reFilt[f.k];
+                    return !(sel&&sel.length)||sel.indexOf(f.val(cfgSt,r))>=0;});});
+                cfgKeep.forEach(function(r){_reItems.push({st:cfgSt,r:r});});
                 // and into the table list, so the tables below the chart hold the same rows
                 //   the chart draws. A configuration record carries no date window, so every
                 //   one is named under the WINDOW chip as recording none rather than quietly
                 //   inheriting the run own dates.
-                _rePrep.push({st:cfgSt,all:CROWS,kept:CROWS,rows:CROWS,filtOut:0,outSc:[]});
-                _reShown+=CROWS.length;
+                _rePrep.push({st:cfgSt,all:CROWS,kept:cfgKeep,rows:cfgKeep,filtOut:CROWS.length-cfgKeep.length,outSc:[]});
+                _reShown+=cfgKeep.length;
                 CROWS.forEach(function(r){_reWinNone.push(r.n);});}}}}
         // the distinct families now on screen. One means the family never needs restating.
         const _reFamsOn=(()=>{const o=[];_reItems.forEach(it=>{const f=_reFamOf(it.st,it.r);if(o.indexOf(f)<0)o.push(f);});return o;})();
@@ -22368,14 +22389,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   rows as it always did.
         const _reFamCnt={};
         if(_reLvl==='valid'||_reLvl==='crown'){Object.keys(_reRunFam).forEach(function(f){_reFamCnt[f]=_reRunFam[f];});}
+        // On CONFIGS the rows are a run's own candidates, so the rail lists the SIX 1E
+        //   families - RAW, GATE, TILT and the three hybrid sizings - with a count each.
+        //   Clicking one shows only that family; clicking none shows them all. It is the
+        //   toggle the owner asked for, on the control that was already there.
+        else if(_reLvl==='cfg'){_reItems.forEach(function(it){
+          const f=_reFamOf(it.st,it.r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
         else RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
         // one family ticked names itself; several name themselves together; none reads as ALL.
         const _reFamPick=(_reFilt.fam||[]).slice();
         const _reFamSel=_reFamPick.length?_reFamPick.join(' + '):'';
         const _reFamStudies=f=>RESEARCH_STUDIES.filter(st=>(st.rows||[]).some(r=>_reFamOf(st,r)===f)).length;
         const _reFamRail=_reCtl(4,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both, and each mark, hover and table row then says which family it belongs to. Untick everything and the whole board is shown, which is why there is no ALL button: an empty rail already means nothing is being held back.',
-            (_reLvl==='valid'?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
-              'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)+(_reLvl==='valid'?' Auto-Validate runs in Past Runs.':(' variants tested across '+_reFamStudies(v)+' studies.'))+'  This is what the strategy finders actually tried for this family, whether or not it was ever saved as a real validate run',_TONE.samp)).join(''),_TONE.samp);
+            ((_reLvl==='valid'||_reLvl==='crown'||_reLvl==='cfg')?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
+              'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)+((_reLvl==='valid'||_reLvl==='crown')?' Auto-Validate runs in Past Runs.':(_reLvl==='cfg'?' configurations of this kind inside the run.':(' variants tested across '+_reFamStudies(v)+' studies.')))+'  This is what the strategy finders actually tried for this family, whether or not it was ever saved as a real validate run',_TONE.samp)).join(''),_TONE.samp);
         // 9 STUDY as a drop-down. The value is still written into the same filter the chips
         //   used, so nothing downstream had to change; an empty value clears it.
         const _reStudyPick=((_reFilt.study||[])[0])||'';
