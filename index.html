@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.399';
+const VERSION='73.400';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.400',date:'2026-08-31',notes:['THE ANSWER WAS THERE AND YOU COULD NOT SEE IT (owner, looking at run 243 on PAST RUNS: "i dont see it"). A run that validated ONE configuration already named the sibling run holding its parameter landscape - but only inside a hover on a small chip, and only in the report. On the runs list there was nothing at all: no pointer, and no sign the run was one-configuration in the first place.','PAST RUNS now shows it on the row, next to PASS and BASELINE: a chip reading 1 OF 1 and, when a sibling exists, an arrow to it - 1 OF 1 - 304 on the NOISE crown. Clicking the chip opens THAT run, not the row it sits in. Hovering says why in full: this run holds one configuration so it has no parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability; that cannot be back-filled; and re-running it would change nothing, because its strategy file is pinned and would evaluate one configuration again.','A one-configuration run in a family where NOTHING has searched a population still shows the 1 OF 1 half, with no arrow and a hover saying there is nowhere to point. That half is the fact that was invisible.','The report says it out loud too: beside the PINNED chip there is now a LANDSCAPE: #N button that opens the run carrying the curves, instead of leaving that sentence inside a tooltip.','A run that searched a real population gains nothing - no new chip, no extra row height.','Verified by rendering, not by reading: run 243 draws 1 OF 1 - 304 and opens 304; runs 225 and 304 draw nothing; a one-config run with no sibling draws 1 OF 1 with no arrow.']},
 {v:'73.399',date:'2026-08-31',notes:['THE AUTO-RECOVER SWITCH NOW LOOKS LIKE A SWITCH. It was a bordered pill in the exact costume of the read-only status lights beside it, so nothing said it was clickable. It now follows the page rule: a checkbox toggles. Checked box when on; hollow box plus OFF in amber when off; the only checkbox on the status strip - the one thing there you can click.']},
 {v:'73.398',date:'2026-08-29',notes:['THE SIDEBAR IS A PICKER NOW, NOT A DATA TABLE. The COLUMNS switch is gone and the strategy table is locked to the four key readings - thirteen columns could never fit a sidebar, which is where the cropped numbers came from. Everything beyond the key four is on the row hovers, where it always was.','TWO SHAPES, USED CONSISTENTLY, so you can tell what is clickable and how. A choice is a labelled tray - VIEW, FAMILY, TYPE, with the label inside the tray and the active cell solid - which also ends the two-ALLs confusion, because one now reads FAMILY-ALL and the other TYPE-ALL. A toggle is a checkbox line: baselines only, detail, archived. If it has a checkbox it toggles; if it is a tray you pick one.','THE FOOTNOTES UNDER THE TABLE ARE GONE - both wrapped into grey noise at sidebar width. The crown note is a tooltip on the STRATEGIES heading; INCLUDE ALL appears beside that heading only when something is excluded.']},
 {v:'73.397',date:'2026-08-30',notes:['FIX: LOAD ERROR - _reCfgRunId is not defined. Making the CONFIGS level read several runs renamed a variable inside the per-run loop, and the rename swept up the DECLARATION as well, so the panel that says LOADING RUN read a name that no longer existed. Declared again; the loop keeps its own name.']},
@@ -11132,6 +11133,57 @@ namespace NinjaTrader.NinjaScript.Strategies {
     // because a population measured over different years is not this run's landscape either.
     // Newest is the last resort, and when that is what happened the sentence says the sweep is
     // the family's latest rather than claiming it holds this configuration.
+    // Split out of _famSweepRef so the SENTENCE and the CHIP can never name different runs.
+    // Returns {id, n, basis} or null. basis: 'around' (a sibling whose note names this run),
+    // 'window' (same window and master), 'newest' (last resort, different window).
+    const _famSweepPick=(d)=>{try{
+      if(!d||!d.famKey)return null;
+      const me=String(d.id);
+      const pool=(runHistory||[]).filter(r=>r&&r.famKey===d.famKey&&String(r.id)!==me
+        &&r.n_evaluated!=null&&+r.n_evaluated>1);
+      if(!pool.length)return null;
+      const newest=(a,b)=>(+b.id)-(+a.id);
+      const named=pool.filter(r=>{const n=String(r.note||'');
+        return n.indexOf('#'+me)>=0||new RegExp('\\b'+me+'\\b').test(n);}).sort(newest);
+      const sameWin=pool.filter(r=>String(r.date_from||'')===String(d.date_from||'')
+        &&String(r.date_to||'')===String(d.date_to||'')
+        &&String(r.source_name||'')===String(d.source_name||'')).sort(newest);
+      const best=named[0]||sameWin[0]||pool.slice().sort(newest)[0];
+      return {id:best.id, n:+best.n_evaluated,
+              basis:(named[0]?'around':(sameWin[0]?'window':'newest'))};
+    }catch(_e){return null;}};
+    // IS THIS RUN A ONE-CONFIG RUN? The single fact the owner could not see anywhere on the
+    // PAST RUNS list (2026-08-31: "check auto validate 243 ... i dont see it"). n_evaluated
+    // is on the lite projection, so the list can answer it without opening anything.
+    const _isPin1Run=(r)=>!!(r&&r.n_evaluated!=null&&+r.n_evaluated===1);
+    // THE VISIBLE POINTER. Until now this lived only in a hover on a small chip and in one
+    // line inside the 1E RAW tab, so a reader on the runs list had no way to learn either
+    // that the run holds one configuration or where the landscape for it lives. The run
+    // number is clickable and stops the row's own open-this-run handler.
+    const _pin1Chip=(r,big)=>{try{
+      if(!_isPin1Run(r))return '';
+      const p=_famSweepPick(r);
+      const sz=big?'font-size:8px;padding:2px 7px':'font-size:7.5px;padding:1px 5px';
+      const tip=(p
+        ? ('This run validated ONE configuration, so it has no parameter landscape at all - no '
+          +'parallel coordinates, no PDP finder, no surfaces, no plateau pick and no overfit '
+          +'probability. That cannot be back-filled and re-running it would not change it: its '
+          +'strategy file is pinned, every knob fixed, so it would evaluate one configuration '
+          +'again. Run #'+p.id+' ('+p.n.toLocaleString()+' configs) is where those live'
+          +(p.basis==='around'?' - it searched a population AROUND this configuration.'
+            :p.basis==='window'?', measured over the same window and the same data. It may not '
+             +'hold this exact configuration - it searched the space, it did not aim at this point.'
+            :', but over a DIFFERENT window than this run, so read the two side by side.')
+          +' Click to open it.')
+        : ('This run validated ONE configuration, so it has no parameter landscape - no parallel '
+          +'coordinates, no PDP finder, no surfaces, no plateau pick and no overfit probability. '
+          +'Re-running it would not change that: its strategy file is pinned. No run in this '
+          +'family has searched a population yet, so there is nowhere to point.'));
+      return ' <span'+(p?(' data-sibrun="'+p.id+'"'):'')+' title="'+tip.replace(/"/g,'&quot;')
+        +'" style="'+sz+';font-weight:700;border-radius:999px;border:1px solid var(--yellow);'
+        +'color:var(--yellow);white-space:nowrap;cursor:'+(p?'pointer':'help')+'">1 OF 1'
+        +(p?(' &middot; &#9656; #'+p.id):'')+'</span>';
+    }catch(_e){return '';}};
     const _famSweepRef=(d)=>{try{
       if(!d||!d.famKey)return '';
       const me=String(d.id);
@@ -12699,7 +12751,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   its minimum is 2) for a plain honesty chip: one line IS the entire population, by
       //   design, and the hover points at the family latest full sweep when history has one.
       const _pin1Hdr=(d.n_evaluated!=null&&+d.n_evaluated===1);
-      const _pinChip='<span title="PINNED SINGLE-CONFIG RUN - the search space held exactly 1 configuration by design (every knob was fixed), so this one line is the ENTIRE population: 1 of 1 evaluated, nothing was skipped or lost. The full validate (walk-forward, lockbox, gate bake-off) still ran on that config.'+String(_famSweepRef(d)).replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;flex-shrink:0;font-size:8px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);cursor:help;white-space:nowrap">&#9888; PINNED &middot; 1 OF 1 EVALUATED</span>';
+      const _pinChip='<span title="PINNED SINGLE-CONFIG RUN - the search space held exactly 1 configuration by design (every knob was fixed), so this one line is the ENTIRE population: 1 of 1 evaluated, nothing was skipped or lost. The full validate (walk-forward, lockbox, gate bake-off) still ran on that config.'+String(_famSweepRef(d)).replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;flex-shrink:0;font-size:8px;font-weight:700;padding:2px 7px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);cursor:help;white-space:nowrap">&#9888; PINNED &middot; 1 OF 1 EVALUATED</span>'
+        // and the pointer BESIDE it rather than only inside its hover -- the whole complaint
+        // was that the answer existed and could not be seen.
+        +(()=>{const p=_famSweepPick(d);return p?(' <span data-sibrun="'+p.id+'" title="Open run #'
+          +p.id+' - it searched '+p.n.toLocaleString()+' configurations'
+          +(p.basis==='around'?' around this one':p.basis==='window'?' over the same window and data'
+            :' but over a different window')+', and carries the parameter landscape this run cannot draw."'
+          +' style="display:inline-flex;align-items:center;flex-shrink:0;font-size:8px;font-weight:700;'
+          +'padding:2px 7px;border-radius:999px;border:1px solid var(--blue);color:var(--blue);'
+          +'cursor:pointer;white-space:nowrap;margin-left:5px">&#9656; LANDSCAPE: #'+p.id+'</span>'):'';})();
       const cfgSlider0='<span title="how many of the stored curves to draw. This run stores '+etop.length+' equity curves'+(_nEval?' of the '+_nEval.toLocaleString()+' configs the search evaluated':'')+'; the slider spans all of them." style="display:inline-flex;align-items:center;gap:6px;font-weight:400;color:var(--text4);font-size:9px;cursor:help">configs <input type="range" class="fillrng" data-cfgpts min="2" max="'+etop.length+'" step="1" value="'+_cfgPts+'" oninput="this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-this.min)/Math.max(1,this.max-this.min)*100)+\'%,var(--bg1) 0)\'" style="width:120px;cursor:pointer;vertical-align:middle;background:linear-gradient(90deg,var(--blue) '+((_cfgPts-2)/Math.max(1,etop.length-2)*100).toFixed(1)+'%,var(--bg1) 0)"><b style="color:var(--text3)">'+_cfgShow+'/'+etop.length+' saved'+(_nEval?' · '+_nEval.toLocaleString()+' evaluated':'')+'</b></span>';
       const cfgSlider=_pin1Hdr?_pinChip:cfgSlider0;
       const _eqTip='Equity curves ($, 1 contract) of the best configs overlaid on one axis — top '+etop.length+((_xd0&&_xd1)?' · '+_dnice(_xd0)+' → '+_dnice(_xd1):'')+' · '+((d.best_trades||0)).toLocaleString()+' trades. If they all climb alike the edge is robust; if only the winner climbs it\'s a fragile outlier. RANKING: locked to the pre-registered IN-SAMPLE slice (the first ~75% of this window) — a lower-ranked curve can END higher because the tail is out-of-sample for selection, and peeking at it to pick the winner would be look-ahead bias. Colour: '+(mode==='rank'?'brighter green = higher rank':'colour = '+mode.replace(/_/g,' '))+' — switch with the dropdown.';
@@ -25350,7 +25411,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<td class="prstar"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'+r.id+((r.famKey&&r.famSeq!=null)?'<div title="family run id — chronological within '+r.famKey+', stable (never renumbers)" style="margin-top:1px;font-size:7.5px;color:var(--text4);font-weight:700;letter-spacing:.2px">'+r.famKey+'-'+r.famSeq+'</div>':'')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+_dtmini(r.timestamp)+'</td>'
-            +'<td style="white-space:nowrap">'+runTag(r)+(r.starred?' <span title="starred - pinned to the top as the crowned baseline" style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow)">★ BASELINE</span>':'')+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+(r._bookUnitFix?(' '+_bookFixChip(r)):'')+'</td>'
+            +'<td style="white-space:nowrap">'+runTag(r)+(r.starred?' <span title="starred - pinned to the top as the crowned baseline" style="font-size:8px;font-weight:700;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow)">★ BASELINE</span>':'')+_pin1Chip(r,false)+(vd?' <span style="font-size:8px;color:'+(vd==='PASS'?'var(--green)':vd==='WEAK'?'var(--yellow)':'var(--red)')+'">'+vd+'</span>':'')+(r._bookUnitFix?(' '+_bookFixChip(r)):'')+'</td>'
             +'<td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--text2)" title="total trades in this run">'+(T.trades||0).toLocaleString()+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="mode '+_modeNum(r)+' · '+(_modeName[_modeNum(r)]||'')+' — '+String(r.scope||'').replace(/"/g,'')+'"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(r.scope||'')+((_modeNum(r)===7&&r.n_evaluated!=null&&+r.n_evaluated<=1)?' <span title="this Auto-Validate recorded ONE config (pinned file) - no surfaces. Re-run on the parent file." style="color:var(--yellow);cursor:help">&#9888; 1-config</span>':'')+'</td>'
             +'<td style="white-space:nowrap">'+(ik?instTag(ik):'—')+'</td>'
@@ -26807,6 +26868,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // keep the list scroll position when selecting a run (don't jump to top)
       const _rls=el('res-listscroll');if(_rls){if(window._resScrollTop!=null)_rls.scrollTop=window._resScrollTop;_rls.addEventListener('scroll',()=>{window._resScrollTop=_rls.scrollTop;},{passive:true});}
       content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
+      // The one-config pointer sits INSIDE a row that opens its own run, so it has to stop the
+      // click travelling - a chip that says #304 and opens #243 is worse than no chip at all.
+      content.querySelectorAll('[data-sibrun]').forEach(el=>{el.onclick=(ev)=>{
+        ev.stopPropagation();augurRunSel=el.getAttribute('data-sibrun');renderApp();};});
       // filters / sort (persist + re-render)
       content.querySelectorAll('[data-rf]').forEach(s=>{s.onchange=()=>{savePref(s.dataset.rf,s.value);renderApp();};});
       // STRATEGY multi-select panel — stays open across picks (window._stratMenuOpen)
