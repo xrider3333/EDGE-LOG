@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.383';
+const VERSION='73.384';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.384',date:'2026-08-28',notes:['THE CONFIGS LEVEL NOW CARRIES ALL SIX 1E FAMILIES, not four: RAW, GATE, TILT and the THREE hybrid sizings - one lot, redeploy and equal drawdown. A hybrid record is one configuration measured three ways, and the two sized-up views were missing.','THE SIZING FACTOR IS THE RUN OWN, the same arithmetic the 1E matrix uses: REDEPLOY spends the same total contracts as the no-gate book, EQUAL DD sizes until the worst drawdown matches it. Money scales; PF, WIN percent and EV in R are scale-free and do NOT move, which is exactly why they are the axes worth reading. Where the ungated twin is missing the factor is one and the column repeats the one-lot column rather than inventing a number.']},
 {v:'73.383',date:'2026-08-30',notes:['The 1A funnel no longer picks its TILT and HYBRID line by LOCKBOX recovery factor. It now uses the same ticked SAMPLE slices and RANK rule as the 1E table - default pre-lockbox (IS+WF) ranked by NET $ with an 80% MAR floor - so the two panels cannot disagree and nothing is selected on the held-out year.','Measured before changing it across runs 234 / 243 / 302 / 303: the old lockbox rule disagreed with this one on 6 of 8 pools and picked xgb 4 times out of 5 - the model with the weakest walk-forward-to-lockbox relationship (on run 243 xgb reads lockbox MAR 0.09 against walk-forward MAR 11.57). The lockbox is now confirmation only.']},
 {v:'73.382',date:'2026-08-29',notes:['THE PAPER SIDEBAR IS STARTED OVER. The old one crammed the wide-screen control strip into a narrow column, where its pills and hint sentences wrapped into a wall of blobs. The new one is built for a column: full-width rows for TODAY / ALL TIME, the families and RAW / ML, one row of equal chips for BASELINES, DETAIL and ARCHIVED, a labelled COLUMNS switch, then the strategy table - which was never the problem.','EVERY EXPLANATORY SENTENCE MOVED INTO HOVER TOOLTIPS. The how-to-click hint, the today-source note, the archived clause - hover the control that owns them. The panel shows controls and numbers, nothing else.']},
 {v:'73.381',date:'2026-08-29',notes:['ONE PAPER TAB. The two paper tabs are merged: the tab bar now has a single PAPER, showing the sidebar layout. A browser that saved the old tab as its view is routed to the merged one.','THE SIDEBAR IS ONLY THE SELECTION PANEL now - the strategy table with TODAY / ALL TIME, the family buttons, RAW / ML, BASELINES ONLY, the column switch and archived. The duplicate pill rail and its title strip are gone from the page; they were the legacy top strip crushed into a narrow column, saying the same thing as the table under them. Everything on the right - status, chart, calendar, trades, the folded panels - follows the sidebar selection.']},
@@ -21892,10 +21893,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                         trd:((c.kept_pre!=null)?+c.kept_pre:null),
                         _wr:((c.pre_wr!=null)?+c.pre_wr:null),_sh:null,_cfg:1,_tab:'GATE',
                         why:{wf:'A gate variant is measured on the pre-lockbox window as one block - it has no walk-forward split of its own.',lb:'A gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
-              const szRow=function(x,tabNm,label){
+              // THE THREE HYBRID SIZINGS, exactly as the 1E matrix builds its three tabs
+              //   (owner 2026-08-28: "raw top ten all the way to the three hybrids - i want
+              //   those configs"). One record, three columns:
+              //     ONE LOT   the record as saved - one contract per trade.
+              //     REDEPLOY  sized up until it spends the same total contracts as the
+              //               no-gate book. A gate that refuses trades leaves capacity idle;
+              //               this is what putting that capacity back to work buys.
+              //     EQUAL DD  sized until its worst drawdown matches the no-gate book -
+              //               the most money for the SAME pain.
+              //   The factor comes from the run's own ungated twin for this slice, the same
+              //   arithmetic the matrix uses. MONEY scales; PF, WIN % and EV IN R are
+              //   scale-free and do NOT move, which is exactly why they are the axes worth
+              //   reading. Where the twin is missing the factor is 1 and the column is the
+              //   one-lot column again rather than an invented number.
+              const UNG=(GV&&(GV.ungated_full||GV.ungated_pre))||null;
+              const szFac=function(st2,mode){
+                if(!UNG||!st2||mode==='one')return 1;
+                if(mode==='redeploy'){const a=+UNG.num_trades||0,b=+st2.num_trades||0;
+                  return (a>0&&b>0)?(a/b):1;}
+                const a2=Math.abs(+UNG.max_drawdown||0),b2=Math.abs(+st2.max_drawdown||0);
+                return (a2>1e-9&&b2>1e-9)?(a2/b2):1;};
+              const szRow=function(x,tabNm,label,mode){
                 const st2=x.full||x.pre||null;if(!st2)return;
-                const net=(st2.total_pnl!=null)?st2.total_pnl*mult:null;
-                const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult:null;
+                const f=szFac(st2,mode||'one');
+                const net=(st2.total_pnl!=null)?st2.total_pnl*mult*f:null;
+                const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':'hyb']++;
                 CROWS.push({n:_cn,name:label,fam:tabNm,
                       what:'A '+tabNm.toLowerCase()+' variant from run #'+_reCfgRunId+'.',
@@ -21904,12 +21927,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       pf:((st2.profit_factor!=null)?Math.min(+st2.profit_factor,99):null),
                       trd:((x.n_trades!=null)?+x.n_trades:((st2.num_trades!=null)?+st2.num_trades:null)),
                       _wr:((st2.win_rate!=null)?+st2.win_rate:null),_sh:null,_cfg:1,_tab:tabNm,
-                      _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult:null),
+                      _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult*f:null),
                       why:{wf:'A sizing variant is measured over one window - it has no walk-forward split of its own.',lb:'This figure is the variant own window, which is not a lockbox slice.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
                 szRow(t,'TILT','TILT '+String(t.model||'')+' \u00b7 '+String(t.scheme||''));});
               ((GV&&Array.isArray(GV.hybrids))?GV.hybrids:[]).forEach(function(h){
-                szRow(h,'HYBRID','HYBRID '+String(h.model||''));});
+                szRow(h,'HYBRID','HYBRID '+String(h.model||''),'one');
+                szRow(h,'HYBRID \u267b','HYBRID \u267b '+String(h.model||''),'redeploy');
+                szRow(h,'HYBRID \u2193DD','HYBRID \u2193DD '+String(h.model||''),'equaldd');});
               if(!CROWS.length)_reCfgMsg='Run #'+_reCfgRunId+' saved no configuration records - either a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
               else{
                 const cfgSt={key:'cfg-'+_reCfgRunId,title:'CONFIGS OF RUN #'+_reCfgRunId,fam:'CONFIG',
