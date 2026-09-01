@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.428';
+const VERSION='73.429';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,8 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.429',date:'2026-08-30',notes:['THE 1E FAMILY COLOURS NOW MATCH THE RUN REPORT OWN KEY - RAW green, GATE red, TILT amber, HYBRID violet, recycle pink, exactly as the 1A/1E key paints them. Equal-DD takes teal, the one colour that key does not use. They were an invented palette before, which is why RAW read blue here and green everywhere else.','MARKS SHRINK ON A DENSE CHART - past 250 points everything scales down together, so 850 candidates stop being a wall of icons.','THE STRAY MARK SITTING ON THE AXIS WAS NOT A DATA POINT. Stacked duplicates fan out a few pixels each so they stay clickable; unbounded, the 30th duplicate of one busy pixel walked clean off the plot. The fan is capped at six and the result clamped inside the axes, labels included.','THE SIDEBAR IS ONE COLUMN ALWAYS. The auto-fitting grid re-solved its column count whenever a label width changed, so picking a study re-wrapped the controls under your cursor.','The RAN AS A VALIDATE RUN section row hugs the column headers instead of floating below them.','Reviewed by a second set of eyes before shipping; its two findings - labels stacking past the cap, and a stale comment - are folded in.']},
+{v:'73.426',date:'2026-08-31',notes:['Turning ALL CONFIGS off returns the 1A funnel to one line per family, as the row promises - the raw survivors were staying on screen because ALL had flipped their key state on the way in.']},
 {v:'73.428',date:'2026-08-31',notes:['Turning ALL CONFIGS off returns the 1A funnel to one line per family, as the row promises - the raw survivors were staying on screen because ALL had flipped their key state on the way in.']},
 {v:'73.425',date:'2026-08-31',notes:['The ALL CONFIGS key row counts its ML candidate lines from the current run at draw time - the +N ML tag was missing on the first draw and would have gone stale when switching runs.']},
 {v:'73.424',date:'2026-08-31',notes:['FIX on 73.423: ALL CONFIGS now actually reveals the raw survivors and the IS-max line - both groups were baked hidden on every render regardless of the saved key state, so the reveal only survived until the next redraw.']},
@@ -21366,8 +21368,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    theme still reads correctly, but it is reinforcement and never the only signal.
         // one fixed colour per 1E family, matching the report's own conventions where one
         //   exists: gates draw red there, tilts amber, hybrids violet, recycle pink.
-        const _reCfgPal={'RAW':'#60a5fa','GATE':'#e24b4a','TILT':'#f0b429',
-          'HYBRID':'#a78bfa','HYBRID \u267b':'#ec4899','HYBRID \u2193DD':'#2dd4bf'};
+        // THE SAME COLOURS THE RUN REPORT'S OWN 1E KEY USES (owner 2026-08-30: "why arent
+        //   raw green? why different from past runs 1e scatter") - RAW green, GATE red,
+        //   TILT amber, HYBRID violet, recycle pink, exactly as _kOrder paints them there.
+        //   Equal-DD has no key colour of its own there (it is not plotted on the funnel),
+        //   so it takes teal, the one colour the key does not already use.
+        const _reCfgPal={'RAW':'#1d9e75','GATE':'#e24b4a','TILT':'#f0b429',
+          'HYBRID':'#c084fc','HYBRID \u267b':'#f0abfc','HYBRID \u2193DD':'#2dd4bf'};
         const _reSz={champ:9,good:6.6,frag:6.6,fail:6.2,ref:6.4};
         const _reShape=(tone,cx,cy,s,col,fo,so)=>{
           const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
@@ -22060,7 +22067,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // change. Under DATE RAN the tables split into ran and never-run blocks, so the
               // chart fades the never-run points to match what is being read underneath it.
               const dim=(_reSplitRun&&!runs.length);
-              const sz=_reSz[r.tone]||6.5;
+              // 850 marks at report size is a wall of icons (owner: "icons too big,
+              //   convoluted"). Past ~250 points everything scales down together -
+              //   marks, rings and halos all key off sz, so nothing gets out of step.
+              const sz=(_reSz[r.tone]||6.5)*((pts.length>250)?0.6:1);
               // COINCIDENT POINTS (owner 2026-08-28: "whats with the duplicate of noise?
               //   numbers are over themselves"). Chased down: NO run is listed twice - five
               //   groups of NOISE runs record BYTE-IDENTICAL figures, because the same
@@ -22071,7 +22081,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   stacked below the last, so every run stays readable and clickable.
               const _dk=Math.round(px(p.x))+','+Math.round(py(p.y));
               const _di=(_reDupAt[_dk]=(_reDupAt[_dk]||0)+1)-1;
-              const cx=px(p.x)+_di*2.2,cy=py(p.y)-_di*1.4;
+              // the coincident-point fan is CAPPED and the result CLAMPED. Unbounded, a
+              //   deep stack walked its later marks clean off the plot - the stray
+              //   triangle sitting on the axis was the 30th duplicate of one busy pixel,
+              //   not a data point (owner: "why the random y axis data point marks").
+              const _dio=Math.min(_di,6);
+              const cx=Math.max(L+sz,Math.min(R-sz,px(p.x)+_dio*2.2)),
+                    cy=Math.max(T+sz,Math.min(B-sz,py(p.y)-_dio*1.4));
 
               // THE HEADLINE: rank, row, total money, profit factor. Everything else is detail.
               const _tot=_reNum(r,'tot'),_pf=_reNum(r,'pf');
@@ -22105,7 +22121,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+9).toFixed(1)+'" fill="transparent"/>'
                 +ring
                 +_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
-                +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4+_di*10).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
+                +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4+Math.min(_di,6)*10).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
             const _wy=skip.length?String(skip[0].w):'';
@@ -22520,9 +22536,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div title="'+_reEsc(tip)+'" style="font-size:6.5px;font-weight:700;letter-spacing:.3px;line-height:1.35;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;padding-top:3px;overflow:hidden">'
           +'<span style="color:var(--text5);opacity:.6;margin-right:3px">'+num+'</span>'+cap+'</div>'
           +'<div style="display:inline-flex;justify-self:start;flex-wrap:wrap;gap:1px;min-width:0;padding:1px;border-radius:6px;background:color-mix(in srgb,var(--text) 6%,transparent)">'+items+'</div></div>';
-        // AS MANY OF THOSE ROWS SIDE BY SIDE AS THE WIDTH ALLOWS. One column in the narrow half
-        //   of the split, two or three across a full-width board, and never a ragged label.
-        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
+        // ONE COLUMN, ALWAYS (owner 2026-08-30: "clicking the sub tabs like study changes
+        //   the layout of the subtabs"). auto-fit re-solved the column count whenever a
+        //   label's width changed - picking a study changed a count, the count changed a
+        //   width, and the whole block re-wrapped. A sidebar is a list; it gets one column.
+        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:100%;gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
         //    how much of the value range the chart spends its height on.
         const _reBasBtns=_reCtl(13,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
             _reBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
@@ -22605,7 +22623,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             }else{
               const withRun=sorted.filter(r=>Array.isArray(r.runs)&&r.runs.length);
               const noRun=sorted.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
-              const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
+              const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:4px 8px 3px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
               bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN \u00b7 '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a run number and a date the run finished. Click a row to open its report. Inside this block they are still in whatever order ORDER is set to.')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
                 +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+noRun.length,'These rows were computed locally during research and never persisted as a run, so they have no run number and no date ran. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
             }
