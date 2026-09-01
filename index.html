@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.421';
+const VERSION='73.422';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.422',date:'2026-08-30',notes:['FIX on 73.421: the per-run accounting was declared inside the configs branch and read by the chart note outside it, so the CONFIGS view threw before drawing. Declared at the scope it is read from.']},
 {v:'73.421',date:'2026-08-30',notes:['THE 1E CONFIGS SCATTER IS READABLE NOW, four fixes from one deep dive. First: every point was a washed-out grey triangle because config rows never declared their run number in the field SPLIT BY RUN reads - so the chart faded them all as never-run and their hovers said so. They are run-backed rows now, undimmed, and the run tag opens the report.','SECOND: ON THIS VIEW COLOUR IS THE 1E FAMILY, not the verdict - RAW blue, GATE red, TILT amber, HYBRID violet, recycle pink, equal-drawdown teal, with the legend swapped to match. A verdict colour is meaningless for candidates no lockbox has judged; which family a point belongs to is the thing worth seeing.','THIRD: IS / WF / LB SWITCH ON THIS VIEW NOW. The pin claimed a config record holds one window; wrong - the records carry per-stage slices (RAW its calendar split and lockbox end, GATE its own lockbox block, TILT and HYBRID is/wf/lockbox), so the stages are wired and the pin is gone. A record genuinely missing a stage shows the dash with the reason, as everywhere else.','FOURTH: EVERY TICKED RUN IS ACCOUNTED FOR under the chart - its point count, or STILL LOADING, or NO CONFIGURATION RECORDS with why on the hover. Eleven of the twenty-one NOISE runs are the last kind: validated before the engine saved per-config records, or pinned single-config runs. An empty contribution is never silent again.']},
 {v:'73.420',date:'2026-08-31',notes:['FIX: LOAD ERROR - ResizeObserver loop completed with undelivered notifications. The chart-refit watcher added in v73.412 wrote the tile height from inside its own resize callback, which is the loop the browser flags; the write now waits one frame. The error overlay also stops treating that browser notice as a failure - nothing threw and no state was wrong, so the app must not block over it.']},
 {v:'73.419',date:'2026-08-31',notes:['1E SCATTER CAN NOW PLOT EVERY FAMILY ON SHARPE AND SORTINO - on runs validated from this build on. The engine now writes those two scalars onto every GATE / TILT / HYBRID column at validate time, computed from each column real trade list over the same window and annualisation the RAW configs use, and the scatter and parallel views read them. Runs saved before this build never recorded them, so their ML columns still sit those axes out and the not-plotted warning keeps naming them - re-validate to fill them in.']},
@@ -22301,6 +22302,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    point is always traceable to the run it came out of.
         let _reCfgMsg='',_reCfgRunId='';
         const _reCfgWait=[];   // ticked runs still being fetched
+        const _reCfgBy={},_reCfgEmpty=[];   // per-run point counts / ticked-but-empty
         const _reCfgCounts={raw:0,gate:0,tilt:0,hyb:0};
         // Declared HERE, above the config row builder that reads it. It used to sit with
         //   its own buttons hundreds of lines below, and a const is hoisted but not
@@ -22450,8 +22452,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   contributed nothing?"). A run can be on the chart, still loading, or hold no
           //   configuration records at all - and which is which was invisible. Counted per
           //   run and said under the chart, so an empty contribution is never silent.
-          const _reCfgBy={};CROWS.forEach(function(r){_reCfgBy[r._run]=(_reCfgBy[r._run]||0)+1;});
-          const _reCfgEmpty=_reCfgIds.filter(function(id){return !_reCfgBy[id]&&_reCfgWait.indexOf(id)<0;});
+          CROWS.forEach(function(r){_reCfgBy[r._run]=(_reCfgBy[r._run]||0)+1;});
+          _reCfgIds.forEach(function(id){if(!_reCfgBy[id]&&_reCfgWait.indexOf(id)<0)_reCfgEmpty.push(id);});
           if(_reCfgIds.length&&!_reCfgWait.length&&!CROWS.length)_reCfgMsg='None of the picked runs saved configuration records - a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
           if(CROWS.length){
                 const cfgSt={key:'cfg-'+_reCfgIds.join('-'),title:'CONFIGS OF RUN #'+_reCfgIds.join(' + #'),fam:'CONFIG',
