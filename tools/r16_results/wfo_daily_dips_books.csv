@@ -1,0 +1,7 @@
+book,n,net,pf,dd,mar,yrs_pos,post2021,gate
+ALL 36 series (no selection),4309,1270919,1.379,417164,3.05,11/14,33,fail
+"EQIDX (QQQ,SPY,IWM,EEM)",1941,636072,1.398,351559,1.81,11/14,29,fail
+ETF (7),3202,757959,1.287,323822,2.34,11/14,31,fail
+"FUT (NQ,ES) const-notional",1107,457434,1.679,105082,4.35,10/12,36,fail
+QQQ only (POST-HOC),539,336942,1.869,41778,8.07,11/14,30,PASS
+NQ+QQQ (the Nasdaq pair),1105,593860,1.765,81347,7.3,12/14,34,fail

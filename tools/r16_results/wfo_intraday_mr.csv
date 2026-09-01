@@ -1,0 +1,14 @@
+inst,mech,n,net,pf,dd,mar,folds_pos,wfe,cfg_last
+NQ-30m,RSIMR,632,-10477,0.979,62728,-0.17,3,-0.2,"{'len': 3, 'thr': 30, 'trend': 200, 'exit_thr': 70, 'max_bars': 8, 'flat': False}"
+NQ-30m,BBMR,417,-52175,0.802,80860,-0.65,3,-2.02,"{'len': 10, 'k': 2.5, 'trend': 200, 'max_bars': 24, 'flat': True}"
+NQ-30m,JOINT,624,-11257,0.977,62728,-0.18,2,0,"('RSIMR', 133)"
+NQ-60m,RSIMR,396,5434,1.029,21323,0.25,4,0.06,"{'len': 5, 'thr': 10, 'trend': 200, 'exit_thr': 50, 'max_bars': 24, 'flat': False}"
+NQ-60m,BBMR,251,53634,1.301,32914,1.63,6,0.88,"{'len': 20, 'k': 2.0, 'trend': 100, 'max_bars': 24, 'flat': False}"
+NQ-60m,JOINT,280,48530,1.464,20840,2.33,6,0,"('RSIMR', 155)"
+ES-30m,RSIMR,477,-27445,0.87,47234,-0.58,1,-1.09,"{'len': 3, 'thr': 30, 'trend': 100, 'exit_thr': 70, 'max_bars': 24, 'flat': False}"
+ES-30m,BBMR,467,-7739,0.96,45193,-0.17,5,-0.22,"{'len': 20, 'k': 2.5, 'trend': 400, 'max_bars': 24, 'flat': False}"
+ES-30m,JOINT,518,-51152,0.777,79844,-0.64,3,0,"('RSIMR', 127)"
+ES-60m,RSIMR,438,10925,1.055,42236,0.26,4,0.16,"{'len': 5, 'thr': 10, 'trend': 200, 'exit_thr': 70, 'max_bars': 24, 'flat': False}"
+ES-60m,BBMR,248,34374,1.667,11383,3.02,6,0.82,"{'len': 20, 'k': 2.5, 'trend': 100, 'max_bars': 24, 'flat': False}"
+ES-60m,JOINT,253,24033,1.39,18127,1.33,4,0,"('RSIMR', 159)"
+ALL,POOLED-OOS,3326,6531,1.004,225307,0.03,-1,0,

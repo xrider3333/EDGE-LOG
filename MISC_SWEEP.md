@@ -197,3 +197,57 @@ Harnesses: tools/r20..r23_misc_triage.py; CSVs beside them. Board rows 697-736
   It works only where the edge realizes within its own session.
 - **ENGU-Q needs 1-minute granularity** (r22): the 5m port drops PF 1.33 -> 1.11.
 - **Capitulation-buying = the dip fingerprint again** (r20): PF 1.81, MAR 4.0.
+
+---
+
+# Round 26 — oversample the IS, judge by WF: THE NASDAQ BOOK (2026-08-25)
+
+Owner: "continue searching for better parameters or strategies that beat anything
+we've found thus far. oversample the crap out of the IS section if you have to until
+you find something that excels at the WF section. idk what time frame or instrument."
+
+Method = walk-forward optimization (tools/wfo_daily_dips.py, wfo_daily_dips_books.py,
+wfo_nasdaq_fine.py, wfo_nasdaq_prewindow.py, wfo_intraday_mr.py, qqq_prewindow_check.py):
+per fold, search the WHOLE grid on the anchored IS, trade the IS winner on the OOS
+slice, score ONLY the concatenated OOS. Board rows 1141-1158 (v73.437).
+
+## Screen 1 — 9 instruments x 4 dip mechanisms, 8 folds (OOS only)
+QQQ is the standout on every mechanism (DBL MAR 9.19 / CAP 7.88 / RSI PF 2.41);
+NQ/ES carry the edge in PF terms (NQ RSI PF 1.84 WFE 1.64; ES CAP PF 1.62 WFE 1.68);
+GLD/TLT/IWM/EEM/USO are weak-to-dead out of sample. **Broad 36-series book with
+per-fold re-optimization = MAR 3.05 (FAIL) — the fixed-parameter r25 book (10.31)
+beats it. Re-tuning chases noise on weak legs.**
+
+## Screen 2 — hourly intraday mean reversion (NQ/ES 30m+60m, RSI + Bollinger): DEAD
+Pooled OOS PF 1.00 / MAR 0.03. Best cell ES-60m BB PF 1.67 / MAR 3.0.
+
+## The result — Nasdaq fine grid (1,254 configs, 12 folds, OOS only)
+| leg / book | n | net | PF | DD | MAR | folds+ |
+|---|---|---|---|---|---|---|
+| QQQ DBL (7-day-low buy) | 134 | $113,336 | 2.54 | $9,304 | **12.18** | **12/12** |
+| QQQ RSI / PB / CAP | 158 / 225 / 141 | 73k / 133k / 81k | 2.10 / 1.78 / 1.75 | — | 6.6 / 4.1 / 4.9 | 7 / 12 / 8 of 12 |
+| NQ DBL / RSI / PB / CAP (const $100k) | 123 / 174 / 171 / 124 | 87k / 85k / 73k / 72k | 2.37 / 2.18 / 1.52 / 1.89 | — | 7.9 / 5.6 / 3.5 / 6.5 | 8-9 of 12 |
+| BOOK QQQ 4 mech | 658 | $403,633 | 1.98 | $47,204 | **8.55** | 11/14 yrs |
+| BOOK NQ 4 mech (const notional) | 592 | $318,905 | 1.92 | $34,736 | **9.18** | 11/13 yrs |
+| BOOK NQ 4 mech, whole MNQ contracts | 544 | $263,886 | 1.83 | $32,248 | **8.18** | — |
+| **BOOK NASDAQ 8 legs (QQQ + NQ)** | **1250** | **$706,799** | **1.95** | **$69,877** | **10.11** | **12/14 yrs** |
+
+Kill-checks on the 8-leg book: post-2021 share 18%; bootstrap p = 0.0000; halves
+2012-17 MAR 7.10 / 2018-25 MAR 4.26; **corr to champion book 0.041**;
+**STACK on champion (same window): MAR 8.31 -> 11.20 = +35% (bar +15%), net +85%
+=> ADOPT BAR CLEARED** (the first candidate to clear it).
+
+## The regime caveat (a window the hunt never touched: 1999-03 -> 2010-06)
+QQQ fixed params: PF 1.26 / MAR 1.32 / 5-of-11 yrs. QQQ walk-forward: PF 1.35 /
+MAR 2.28. SPY WFO control: MAR 5.78. => a bull-regime buy-the-dip edge behind a
+trend filter; profitable in the bear decade, nowhere near the bar there.
+
+## Config drift of the star leg (QQQ DBL, chosen per fold)
+2012-17: n=4-7 / sma 300 -> 2017-21: n=15 / sma 150 -> 2021-24: n=6 / sma 250 ->
+2024-25: n=15 / sma 300. The process adapts; no single setting is "the" setting.
+
+## Next gates
+1. Strategy plugin files for the 4 mechanisms (parametrized, ranged - NOT pinned).
+2. QQQ daily master in the library; NQ daily from the 5m RTH master.
+3. Formal BOOK validate with the sealed lockbox (post-2025-06-29).
+4. NQ half can paper-trade in MNQ now; QQQ half needs the Webull stocks account.
