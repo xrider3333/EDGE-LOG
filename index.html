@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.422';
+const VERSION='73.423';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.423',date:'2026-08-31',notes:['1A CONFIG FUNNEL (collapsed): every RAW line is GREEN now - survivors, the cloud, and their lockbox tails - the same colour as the RAW key row, so a raw line can no longer be mistaken for another family. IS MAX keeps its blue (one labelled line, blue everywhere it appears). The fullscreen explorer and 2C headers keep per-config colours, where telling configs apart is the point.','New ALL CONFIGS row at the bottom of the 1A key: one click draws every line the fullscreen explorer shows right in the tile - full raw cloud, survivors, IS max, gate curve, and every gate / tilt / hybrid candidate thin in its family colour, from the same series the explorer reads. Click again for one line per family.']},
 {v:'73.422',date:'2026-08-30',notes:['FIX on 73.421: the per-run accounting was declared inside the configs branch and read by the chart note outside it, so the CONFIGS view threw before drawing. Declared at the scope it is read from.']},
 {v:'73.421',date:'2026-08-30',notes:['THE 1E CONFIGS SCATTER IS READABLE NOW, four fixes from one deep dive. First: every point was a washed-out grey triangle because config rows never declared their run number in the field SPLIT BY RUN reads - so the chart faded them all as never-run and their hovers said so. They are run-backed rows now, undimmed, and the run tag opens the report.','SECOND: ON THIS VIEW COLOUR IS THE 1E FAMILY, not the verdict - RAW blue, GATE red, TILT amber, HYBRID violet, recycle pink, equal-drawdown teal, with the legend swapped to match. A verdict colour is meaningless for candidates no lockbox has judged; which family a point belongs to is the thing worth seeing.','THIRD: IS / WF / LB SWITCH ON THIS VIEW NOW. The pin claimed a config record holds one window; wrong - the records carry per-stage slices (RAW its calendar split and lockbox end, GATE its own lockbox block, TILT and HYBRID is/wf/lockbox), so the stages are wired and the pin is gone. A record genuinely missing a stage shows the dash with the reason, as everywhere else.','FOURTH: EVERY TICKED RUN IS ACCOUNTED FOR under the chart - its point count, or STILL LOADING, or NO CONFIGURATION RECORDS with why on the hover. Eleven of the twenty-one NOISE runs are the last kind: validated before the engine saved per-config records, or pinned single-config runs. An empty contribution is never silent again.']},
 {v:'73.420',date:'2026-08-31',notes:['FIX: LOAD ERROR - ResizeObserver loop completed with undelivered notifications. The chart-refit watcher added in v73.412 wrote the tile height from inside its own resize callback, which is the loop the browser flags; the write now waits one frame. The error overlay also stops treating that browser notice as a failure - nothing threw and no state was wrong, so the app must not block over it.']},
@@ -12101,7 +12102,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // CHANGE 4 (v64.78, owner: the cloud "is missing" at the old 0.5/0.16): raised so ~73 grey
       //   lines clearly read as a cloud without outweighing the coloured survivor lines on top.
       const lines=selMode
-        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="var(--text5)" stroke-width="0.6" opacity="0.30"/>').join('')
+        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="#1d9e75" stroke-width="0.6" opacity="0.22"/>').join('')
         : order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join('');
       const zeroY=Yv(0);
       // v64.62 (owner): the pink gated curve for the NON-funnel path (selMode builds its own in
@@ -12174,7 +12175,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         let wf='';let _hueI=0;const _cfgHue=new Map();
         poolAll.forEach(c=>{if(c===crownedC||c===isMaxC)return;
           const _hc=_huePal[(_hueI++)%_huePal.length];_cfgHue.set(c,_hc);
-          wf+=_proc(c.equity.cum.map(v=>v*mult),_hc,0.6,0.85);});
+          // v73.42x (owner): drawn GREEN - the RAW family colour, same as its key row - not
+          //   the per-config hue (_hc still feeds the explorer + 2C headers, where configs
+          //   must stay tellable apart; here it made RAW lines read as other families).
+          wf+=_proc(c.equity.cum.map(v=>v*mult),'#1d9e75',0.6,0.7);});
         let ov='';
         if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax" style="display:none">'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
         if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
@@ -12203,8 +12207,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _lbCol=function(c,cr){
           if(cr)return '#1d9e75';
           if(isMaxC&&c===isMaxC)return '#3a9bdc';
-          const h=_cfgHue.get(c)||((c&&c.equity&&c.equity.final!=null)?_hueByFin.get(+c.equity.final):null);
-          return h||LBALT[(alt++)%2];};
+          // v73.42x: raw survivors draw green in the tile now, so their lockbox tails do too
+          //   - a line must not change colour at the lockbox door.
+          return '#1d9e75';};
         // v64.70 (owner): the crowned line used to be reconciled to "the champion's TRUE total",
         //   which this code took to be _champTot — but _champTot is d.equity's last value, which is
         //   ALL TRADES (byte-identical to gate_validate.ungated_full.total_pnl), not the crowned
@@ -12813,6 +12818,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _kOrder.sort(function(a,b){return ((b[2]!=null?b[2]:-Infinity)-(a[2]!=null?a[2]:-Infinity));});
         _keyBox='<div data-a2krow style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kOrder.map(function(r){return _kr(r[0],r[1],r[2],r[3],r[4],r[5]);}).join('')
+          +'<div data-a2call title="draw EVERY line the fullscreen explorer shows, right here: the full raw cloud + survivors, the gate curve, and every gate / tilt / hybrid candidate in its family colour. Click again for one line per family." style="cursor:pointer;white-space:nowrap;font-size:7.5px;font-weight:700;letter-spacing:.4px;color:'+((+(APREF.a2cfgAll||0))?'var(--text2)':'var(--text5)')+';padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">'
+          +((+(APREF.a2cfgAll||0))?'&#9635;':'&#9634;')+' ALL CONFIGS'+(window._a2AllCandN?(' <span style="opacity:.6;font-weight:400">+'+window._a2AllCandN+' ML</span>'):'')+'</div>'
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
@@ -12828,7 +12835,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v68.6 (owner): the dashed IS/LB door lines are gone — the stripe colours already mark
         //   the sections. Default view = the TOP line of each family only (crowned raw, gate,
         //   tilt, hybrid); the rest of the raw family starts hidden and the key reveals it.
+        // ALL CONFIGS: the ML candidates the tile normally leaves to the explorer, drawn
+        //   thin UNDER everything else from the very series payload the explorer reads -
+        //   so the tile and the fullscreen view can never disagree about a line.
+        let _acOv='',_acN=0;
+        try{(window._a2EqSeries||[]).forEach(function(sr){
+          if(!sr||sr.famTop||sr.dim)return;
+          if(!(sr.gateCand||sr.tiltCand||sr.hybCand||sr.hybRcy))return;
+          if(!Array.isArray(sr.eq)||sr.eq.length<2)return;
+          _acN++;_acOv+=_proc(sr.eq,sr.color||'var(--text4)',0.5,0.5);});}catch(_ace){}
+        window._a2AllCandN=_acN;
+        const _acOn=+(APREF.a2cfgAll||0);
         selSvg=_ddStrip+_hwOv
+          +(_acOv?('<g data-kg="allcfg"'+(_acOn?'':' style="display:none"')+'>'+_acOv+'</g>'):'')
           +'<g data-kg="wf" style="display:none">'+wf+'</g>'
           +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
@@ -27352,6 +27371,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         (!_a2All?['ismax','wf','cloud']:[]).concat(_a2Gt?[]:['gate']).forEach(k2=>{
           svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>{g.style.display='none';});
           kroot.querySelectorAll('[data-pg="'+k2+'"]').forEach(p=>{p.style.display='none';});});
+        kroot.querySelectorAll('[data-a2call]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+          const on=!(+(APREF.a2cfgAll||0));
+          savePref('a2cfgAll',on?1:0);
+          // ALL means all: coming ON also reveals the hidden raw groups and the gate curve
+          if(on){savePref('a2kAll',1);savePref('a2gate',1);}
+          renderApp();};});
         kroot.querySelectorAll('[data-a2k]').forEach(row=>{
           const k=row.dataset.a2k;if(!k)return;
           row.style.pointerEvents='auto';
