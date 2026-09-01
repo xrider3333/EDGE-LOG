@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.420';
+const VERSION='73.421';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.421',date:'2026-08-30',notes:['THE 1E CONFIGS SCATTER IS READABLE NOW, four fixes from one deep dive. First: every point was a washed-out grey triangle because config rows never declared their run number in the field SPLIT BY RUN reads - so the chart faded them all as never-run and their hovers said so. They are run-backed rows now, undimmed, and the run tag opens the report.','SECOND: ON THIS VIEW COLOUR IS THE 1E FAMILY, not the verdict - RAW blue, GATE red, TILT amber, HYBRID violet, recycle pink, equal-drawdown teal, with the legend swapped to match. A verdict colour is meaningless for candidates no lockbox has judged; which family a point belongs to is the thing worth seeing.','THIRD: IS / WF / LB SWITCH ON THIS VIEW NOW. The pin claimed a config record holds one window; wrong - the records carry per-stage slices (RAW its calendar split and lockbox end, GATE its own lockbox block, TILT and HYBRID is/wf/lockbox), so the stages are wired and the pin is gone. A record genuinely missing a stage shows the dash with the reason, as everywhere else.','FOURTH: EVERY TICKED RUN IS ACCOUNTED FOR under the chart - its point count, or STILL LOADING, or NO CONFIGURATION RECORDS with why on the hover. Eleven of the twenty-one NOISE runs are the last kind: validated before the engine saved per-config records, or pinned single-config runs. An empty contribution is never silent again.']},
 {v:'73.420',date:'2026-08-31',notes:['FIX: LOAD ERROR - ResizeObserver loop completed with undelivered notifications. The chart-refit watcher added in v73.412 wrote the tile height from inside its own resize callback, which is the loop the browser flags; the write now waits one frame. The error overlay also stops treating that browser notice as a failure - nothing threw and no state was wrong, so the app must not block over it.']},
 {v:'73.419',date:'2026-08-31',notes:['1E SCATTER CAN NOW PLOT EVERY FAMILY ON SHARPE AND SORTINO - on runs validated from this build on. The engine now writes those two scalars onto every GATE / TILT / HYBRID column at validate time, computed from each column real trade list over the same window and annualisation the RAW configs use, and the scatter and parallel views read them. Runs saved before this build never recorded them, so their ML columns still sit those axes out and the not-plotted warning keeps naming them - re-validate to fill them in.']},
 {v:'73.418',date:'2026-08-31',notes:['1E SCATTER, driven end to end: the not-plotted warning now names WHICH families are missing the measure (e.g. no SORTINO - GATE 20 / TILT 10 / HYBRID 5 / HYBRID-R 5). An all-green chart on the ALL tab was the truth, not a bug: SORTINO and SHARPE come off a stored equity curve and only the RAW top-10 keep one - the ML columns record no curve, so those two axes can never plot them.','PBO is gone from the scatter axis pickers - it is one number for the whole run, so every dot landed on a single vertical line. It stays on the table and parallel views. And the second 1E card now picks its OWN scatter axes instead of being chained to the first cards X / Y.']},
@@ -20822,7 +20823,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   chart quietly went half empty for a reason sitting two controls away. Offering
         //   three ticks there was offering a choice that does not exist, so that level pins
         //   the tick to the one window those rows actually have and says so.
-        const _reSegPin=_reShowCfg;   // only the CONFIGS view has one window per row
+        // v73.418: the stage pin is GONE. Config records carry per-stage slices after all
+        //   (RAW cal.is/cal.wf + lockbox end, GATE its own lockbox block, TILT and HYBRID
+        //   is_rng / wf_rng / lockbox), so IS / WF / LB switch here like everywhere else.
+        //   A record genuinely missing a stage shows the dash-with-a-reason, as always.
+        const _reSegPin=false;
 
         // the value of the ticked set for one row: the sum of the ticked stages it RECORDS, and
         //   null only when it records none of them.
@@ -21336,6 +21341,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    its own. Every verdict now has its OWN SHAPE, its own size and its own outline, and
         //    the legend shows the shapes. The theme colour is still applied on top, so a colour
         //    theme still reads correctly, but it is reinforcement and never the only signal.
+        // one fixed colour per 1E family, matching the report's own conventions where one
+        //   exists: gates draw red there, tilts amber, hybrids violet, recycle pink.
+        const _reCfgPal={'RAW':'#60a5fa','GATE':'#e24b4a','TILT':'#f0b429',
+          'HYBRID':'#a78bfa','HYBRID \u267b':'#ec4899','HYBRID \u2193DD':'#2dd4bf'};
         const _reSz={champ:9,good:6.6,frag:6.6,fail:6.2,ref:6.4};
         const _reShape=(tone,cx,cy,s,col,fo,so)=>{
           const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
@@ -22015,7 +22024,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const tipF=['dd','tot','lb','trd'];
             // plot the biggest first so the smaller marks land on top and stay readable
             pts.slice().sort((a,b)=>b.y-a.y).forEach(p=>{
-              const r=p.r,st=p.st,col=_reTone[r.tone]||'var(--text4)',champ=(r.tone==='champ');
+              // ON THE 1E CONFIGS VIEW THE COLOUR IS THE FAMILY, not the verdict
+              //   (owner 2026-08-30: "i dont know whats a raw from a gate to a hybrid").
+              //   Verdict colours are meaningless there - every candidate is a reference
+              //   until a lockbox judges it - so the one thing worth telling apart is
+              //   WHICH of the six 1E families a point belongs to.
+              const r=p.r,st=p.st,champ=(r.tone==='champ');
+              const col=(r._cfg&&_reCfgPal[r.fam])||_reTone[r.tone]||'var(--text4)';
+
               const runs=Array.isArray(r.runs)?r.runs:[];
               // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
               // change. Under DATE RAN the tables split into ran and never-run blocks, so the
@@ -22123,7 +22139,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<svg viewBox="0 0 980 '+CH+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
             +'<div data-rechh="board" title="'+_reEsc('Drag up or down to make the chart shorter or taller. The size is remembered and survives a reload. Double-click to put it back to the standard height.')+'" style="height:10px;margin:5px 0 1px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:52px;height:3px;border-radius:2px;background:var(--border)"></div></div>'
             +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:5px">'
-            +_reLegend('')
+            +(_reShowCfg
+              ?('<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
+                +Object.keys(_reCfgPal).map(function(k){return '<span style="display:inline-flex;align-items:center;gap:4px">'
+                  +'<span style="width:8px;height:8px;border-radius:50%;background:'+_reCfgPal[k]+'"></span>'+_reEsc(k)+'</span>';}).join('')
+                +'<span title="the blue ring still marks the configuration this run CROWNED or CHOSE" style="cursor:help">\u24d8 colour = 1E family</span></span>')
+              :_reLegend(''))
             +'<span title="'+_reEsc(_hint)+'" style="font-size:9px;color:var(--text5);cursor:help">\u24d8</span>'
             +(mixed?('<span title="'+_reEsc(mixed)+'" style="font-size:8px;color:'+_reWarnC+';cursor:help">\u26a0 IN-SAMPLE is not one thing here</span>'):'')
             +'</div></div>';};
@@ -22353,7 +22374,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       pf:((mm.profit_factor!=null&&isFinite(+mm.profit_factor))?+mm.profit_factor:null),
                       trd:((mm.num_trades!=null&&isFinite(+mm.num_trades))?+mm.num_trades:null),
                       _wr:((mm.win_rate!=null&&isFinite(+mm.win_rate))?+mm.win_rate:null),
-                      _sh:shCum(c.equity&&c.equity.cum,yrsW),_so:soCum(c.equity&&c.equity.cum,yrsW),_cfg:1,_tab:'RAW',_run:RID});});
+                      _sh:shCum(c.equity&&c.equity.cum,yrsW),_so:soCum(c.equity&&c.equity.cum,yrsW),_cfg:1,_tab:'RAW',_run:RID,runs:[+RID]});});
               // ---- GATE / TILT / HYBRID: the ML side of the same run ----
               const GV=full.gate_validate||full.ml_gate||null;
               const gch=(GV&&GV.chosen)||null;
@@ -22366,12 +22387,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
                         tone:(isCh?'champ':'ref'),read:(isCh?'Chosen gate':'Gate variant'),
-                        is:net,wf:null,lb:null,tot:net,dd:dd,
+                        // pre_pnl is the PRE-LOCKBOX pool (tuning years); the gate also
+                        //   saves its own lockbox slice, so LB is real where it exists.
+                        is:net,wf:null,
+                        lb:((c.lockbox&&c.lockbox.total_pnl!=null)?c.lockbox.total_pnl*mult:null),
+                        tot:net+((c.lockbox&&c.lockbox.total_pnl!=null)?c.lockbox.total_pnl*mult:0),dd:dd,
                         pf:((c.pre_pf!=null&&isFinite(+c.pre_pf))?Math.min(+c.pre_pf,99):null),
                         trd:((c.kept_pre!=null)?+c.kept_pre:null),
-                        _wr:((c.pre_wr!=null)?+c.pre_wr:null),_cfg:1,_tab:'GATE',_run:RID,
+                        _wr:((c.pre_wr!=null)?+c.pre_wr:null),_cfg:1,_tab:'GATE',_run:RID,runs:[+RID],
                         _sh:shCum(c.equity&&c.equity.cum,yrsW),_so:soCum(c.equity&&c.equity.cum,yrsW),
-                        why:{wf:'A gate variant is measured on the pre-lockbox window as one block - it has no walk-forward split of its own.',lb:'A gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
+                        why:{wf:'A gate variant pools its tuning years into the pre-lockbox figure - no separate walk-forward slice is saved.',lb:'This run saved no lockbox slice for this gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
               // THE THREE HYBRID SIZINGS, exactly as the 1E matrix builds its three tabs
               //   (owner 2026-08-28: "raw top ten all the way to the three hybrids - i want
               //   those configs"). One record, three columns:
@@ -22402,13 +22427,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,
                       what:'A '+tabNm.toLowerCase()+' variant from run #'+RID+'.',
                       tone:'ref',read:tabNm+' variant',
-                      is:net,wf:null,lb:null,tot:net,dd:dd,
+                      // the record saves per-stage slices; each scales by the same sizing
+                      //   factor as the whole, so the stages always sum to the total.
+                      is:((x.is_rng&&x.is_rng.total_pnl!=null)?x.is_rng.total_pnl*mult*f:null),
+                      wf:((x.wf_rng&&x.wf_rng.total_pnl!=null)?x.wf_rng.total_pnl*mult*f:null),
+                      lb:((x.lockbox&&x.lockbox.total_pnl!=null)?x.lockbox.total_pnl*mult*f:null),
+                      tot:net,dd:dd,
                       pf:((st2.profit_factor!=null)?Math.min(+st2.profit_factor,99):null),
                       trd:((x.n_trades!=null)?+x.n_trades:((st2.num_trades!=null)?+st2.num_trades:null)),
-                      _wr:((st2.win_rate!=null)?+st2.win_rate:null),_cfg:1,_tab:tabNm,_run:RID,
+                      _wr:((st2.win_rate!=null)?+st2.win_rate:null),_cfg:1,_tab:tabNm,_run:RID,runs:[+RID],
                       _sh:shCum(x.equity&&x.equity.cum,yrsW),_so:soCum(x.equity&&x.equity.cum,yrsW),
                       _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult*f:null),
-                      why:{wf:'A sizing variant is measured over one window - it has no walk-forward split of its own.',lb:'This figure is the variant own window, which is not a lockbox slice.'}});};
+                      why:{wf:'This run saved no walk-forward slice for this variant.',lb:'This run saved no lockbox slice for this variant. The window, which is not a lockbox slice.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
                 szRow(t,'TILT','TILT '+String(t.model||'')+' \u00b7 '+String(t.scheme||''));});
               ((GV&&Array.isArray(GV.hybrids))?GV.hybrids:[]).forEach(function(h){
@@ -22416,6 +22446,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 szRow(h,'HYBRID \u267b','HYBRID \u267b '+String(h.model||''),'redeploy');
                 szRow(h,'HYBRID \u2193DD','HYBRID \u2193DD '+String(h.model||''),'equaldd');});
             }});
+          // EVERY TICKED RUN ACCOUNTED FOR (owner 2026-08-30: "what do you mean 11 of 21
+          //   contributed nothing?"). A run can be on the chart, still loading, or hold no
+          //   configuration records at all - and which is which was invisible. Counted per
+          //   run and said under the chart, so an empty contribution is never silent.
+          const _reCfgBy={};CROWS.forEach(function(r){_reCfgBy[r._run]=(_reCfgBy[r._run]||0)+1;});
+          const _reCfgEmpty=_reCfgIds.filter(function(id){return !_reCfgBy[id]&&_reCfgWait.indexOf(id)<0;});
           if(_reCfgIds.length&&!_reCfgWait.length&&!CROWS.length)_reCfgMsg='None of the picked runs saved configuration records - a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
           if(CROWS.length){
                 const cfgSt={key:'cfg-'+_reCfgIds.join('-'),title:'CONFIGS OF RUN #'+_reCfgIds.join(' + #'),fam:'CONFIG',
@@ -22962,6 +22998,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                //   belong beside each other.
                +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
                +_reAxisBtns+_reXAxisBtns+'</div>'+'</div>'))
+            +((_reShowCfg&&(_reCfgEmpty.length||Object.keys(_reCfgBy).length))
+              ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
+                +Object.keys(_reCfgBy).sort(function(a,b){return b-a;}).map(function(id){return '#'+id+' \u00b7 '+_reCfgBy[id];}).join('&nbsp;&nbsp;')
+                +(_reCfgEmpty.length?('&nbsp;&nbsp;<b style="color:var(--text4)">no configuration records:</b> #'+_reCfgEmpty.join(', #')
+                  +' <span title="These runs were validated before the engine saved per-configuration records, or are pinned single-config runs whose one configuration IS the run. There is nothing in the document to draw - re-running them through Auto-Validate is the only way to fill this in." style="cursor:help">\u24d8</span>'):'')
+                +'</div>'):'')
             +((_reShowCfg&&_reCfgWait.length&&_reItems.length)
               ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">Still fetching '
                 +_reCfgWait.length+' run'+((_reCfgWait.length===1)?'':'s')+' (#'+_reCfgWait.join(', #')
