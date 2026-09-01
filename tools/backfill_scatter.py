@@ -1,18 +1,36 @@
-"""Backfill engine-written SHARPE/SORTINO onto the GATE / TILT / HYBRID blocks of
-runs that predate v73.419 -- IN PLACE, on their own run numbers.
+"""Backfill engine-written SHARPE / SORTINO onto the GATE / TILT / HYBRID blocks of runs
+saved before v73.419 -- IN PLACE, on their own run numbers.
 
-Discipline: reproduce the run's gate bake-off exactly (same pinned config, window,
-master, costs, lockbox boundary and walk-forward split), then VERIFY every block's
-net + trade count against what is already stored. Only blocks that reproduce
-EXACTLY get their two scalars written. A block that does not reproduce is left
-alone -- writing a ratio computed on a different trade set than the dollars beside
-it would be silently wrong.
+Those two measures come off a stored equity curve, and only the RAW top-10 keep one, so on
+an older run every ML column sits the SORTINO / SHARPE axes out and the 1E scatter warns
+"N of M not plotted". The engine writes them at validate time now; this fills in the past.
 
-Usage:  python backfill_scatter.py 234 243          (dry run, verifies only)
-        python backfill_scatter.py 234 243 --write  (writes verified blocks)
+DISCIPLINE -- the whole point of this tool:
+  * reproduce the run's bake-off exactly: its own pinned/crowned config, window, master,
+    costs, lockbox boundary and walk-forward split;
+  * VERIFY every recomputed block against the net AND trade count already stored;
+  * write the two scalars ONLY onto blocks that reproduce. A ratio computed from a
+    different trade set than the dollars beside it is silently wrong, and silently wrong
+    is worse than missing.
+
+CONFIG RESOLUTION (this one bit hard -- keep it):
+  A PINNED card carries its configuration in DEFAULT_PARAMS *only*, and several cards reuse
+  the parent's function outright (ORB_3_6_C2.py ends `run_backtest = _base.run_backtest`).
+  engine.run_backtest does NOT fill defaults, so params={} runs the PARENT's signature
+  defaults -- for ORB_3_6_C2 that is breakeven OFF / partial 3.0 / trail 3, i.e. the
+  pre-breakeven #230 book, which replayed #230's $348,129 instead of the crown's $389,874.
+  So: try the run's saved champion params first, fall back to DEFAULT_PARAMS, and keep
+  whichever actually reproduces.
+
+Usage:
+  python tools/backfill_scatter.py 234 243           verify only (dry run)
+  python tools/backfill_scatter.py 234 --write       write verified blocks
+  python tools/backfill_scatter.py --all             verify every unfilled run
+  python tools/backfill_scatter.py --all --write     fill everything that reproduces
+  python tools/backfill_scatter.py --all --write --limit 10
 """
-import sys, json, math
-sys.path.insert(0, r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG")
+import sys, os, json, math, time, traceback
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import pandas as pd
 import firebase_admin
@@ -22,11 +40,20 @@ import augur_engine as ae
 from augur_engine.engine import load_master_arrays, find_master, load_strategy, run_backtest
 from augur_engine.ml_gate import gate_validate as GV
 
-ROOT = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 BLOCKS = ("pre", "lockbox", "full", "is_rng", "wf_rng", "wf_lb")
+DOC_CEILING = 1_000_000          # Firestore hard cap is 1 MiB; leave room for the additions
 
-cred = credentials.Certificate(ROOT + r"\serviceAccount.json")
+# the admin key is gitignored, so it lives in the shared checkout even when this runs
+# from a worktree -- look there too rather than dying on a missing file.
+_CRED = next((p for p in (
+    os.path.join(ROOT, "serviceAccount.json"),
+    os.path.expanduser(r"~\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"),
+) if os.path.isfile(p)), None)
+if not _CRED:
+    raise SystemExit("serviceAccount.json not found (checked this repo and the shared checkout)")
+cred = credentials.Certificate(_CRED)
 try:
     firebase_admin.get_app()
 except ValueError:
@@ -35,7 +62,11 @@ db = firestore.client()
 runs = db.collection("users").document(UID).collection("runs")
 
 WRITE = "--write" in sys.argv
-RIDS = [a for a in sys.argv[1:] if not a.startswith("--")]
+ALL = "--all" in sys.argv
+LIMIT = None
+if "--limit" in sys.argv:
+    LIMIT = int(sys.argv[sys.argv.index("--limit") + 1])
+RIDS = [a for a in sys.argv[1:] if not a.startswith("--") and a.isdigit()]
 
 
 def close(a, b, tol=1e-6):
@@ -48,7 +79,6 @@ def close(a, b, tol=1e-6):
 
 
 def blk_matches(new, old):
-    """A block reproduces when its dollars AND its trade count both match."""
     if not isinstance(new, dict) or not isinstance(old, dict):
         return False
     if int(new.get("num_trades") or -1) != int(old.get("num_trades") or -2):
@@ -56,155 +86,183 @@ def blk_matches(new, old):
     return close(new.get("total_pnl"), old.get("total_pnl"))
 
 
-def add_scalars(dst, src, stats):
-    """Copy sharpe/sortino from a reproduced block onto the stored block."""
-    n = 0
-    for k in ("sharpe", "sortino"):
-        v = src.get(k)
-        if v is not None and k not in dst:
-            dst[k] = float(v)
-            n += 1
-    stats[0] += n
-    return n
+def is_filled(gv):
+    cands = gv.get("candidates") or []
+    tilts = gv.get("tilts") or []
+    return (any(c.get("pre_sharpe") is not None for c in cands)
+            or any((t.get("full") or {}).get("sharpe") is not None for t in tilts))
 
 
-for rid in RIDS:
-    print("=" * 74)
-    ref = runs.document(rid)
+def candidate_configs(doc, mod):
+    """The configs worth trying, best guess first. Verification decides which wins."""
+    out = []
+    bp = doc.get("best_params")
+    if isinstance(bp, dict) and bp:
+        out.append(("saved champion params", dict(bp)))
+    dp = ae.strategy_params(mod) or {}
+    pin = {k: v.get("default") for k, v in dp.items()
+           if isinstance(v, dict) and v.get("default") is not None}
+    if pin:
+        out.append(("DEFAULT_PARAMS", pin))
+    return out
+
+
+def backfill(rid, write=False):
+    """-> (status, note, scalars_written)"""
+    ref = runs.document(str(rid))
     doc = ref.get().to_dict() or {}
     gv_old = doc.get("gate_validate")
-    if not gv_old:
-        print(f"RUN {rid}: no gate bake-off stored - nothing to fill."); continue
+    if not isinstance(gv_old, dict):
+        return "skip", "no gate bake-off stored", 0
+    if is_filled(gv_old):
+        return "skip", "already filled", 0
 
-    strat = doc["strategy"]
+    strat = doc.get("strategy")
+    if not strat or not os.path.isfile(os.path.join(ROOT, "augur_strategies", str(strat))):
+        return "skip", f"strategy file missing: {strat}", 0
+
     inst, tf = doc.get("instrument"), doc.get("timeframe", "5m")
-    src_key = doc.get("data_source")
+    src = doc.get("data_source") or None
+    sess = "eth" if (src and "eth" in str(src).lower()) else "rth"
     dfrom, dto = doc.get("date_from"), doc.get("date_to")
     cost = float(doc.get("cost_pts") or 0)
     lb_from = gv_old.get("lockbox_from")
     lbm = int(gv_old.get("lockbox_months") or 12)
     gates = tuple(gv_old.get("gates") or ())
     thr = tuple(gv_old.get("thresholds") or ())
-    print(f"RUN {rid}: {strat} | {inst} {tf} | {src_key} | {dfrom}..{dto} | cost {cost}")
-    print(f"   lockbox_from {lb_from} | lockbox_months {lbm} | gates {len(gates)} x thr {len(thr)}")
+    if not gates or not thr:
+        return "skip", "bake-off records no gate/threshold set", 0
 
-    master = find_master(inst, tf, "rth", src_key)
+    master = find_master(inst, tf, sess, src)
     if master is None:
-        print("   ! no master found - skipping"); continue
+        return "skip", f"no master for {inst} {tf} {sess} {src}", 0
     arrays = load_master_arrays(master, date_from=dfrom, date_to=dto)
-    mod = load_strategy(ROOT + r"\augur_strategies\\" + strat)
-    # A pinned card carries its config in DEFAULT_PARAMS ONLY -- several of them reuse a
-    # PARENT's run_backtest (ORB_3_6_C2 does: `run_backtest = _base.run_backtest`), whose
-    # signature defaults are the parent's, not the pin. Passing {} therefore silently runs
-    # the WRONG config: ORB_3_6_C2 with {} replays be_after_R=0 / partial 3.0 / trail 3,
-    # i.e. the pre-breakeven #230 book. Always build the config from DEFAULT_PARAMS.
-    _dp = ae.strategy_params(mod) or {}
-    pin = {k: v.get("default") for k, v in _dp.items()
-           if isinstance(v, dict) and v.get("default") is not None}
-    print(f"   config from DEFAULT_PARAMS: {len(pin)} knobs")
-    base = run_backtest(mod, arrays=arrays, params=pin, cost_pts=cost, return_trades=True)
-    trades = base.get("trades") or []
-    print(f"   re-ran pinned config: {len(trades)} trades, net {base.get('total_pnl'):.2f}")
+    mod = load_strategy(os.path.join(ROOT, "augur_strategies", str(strat)))
 
-    # ---- faithfulness gate #1: the whole book must reproduce -------------------
     uf = gv_old.get("ungated_full") or {}
-    if int(uf.get("num_trades") or -1) != len(trades) or not close(uf.get("total_pnl"), base.get("total_pnl")):
-        print(f"   ! ABORT - book does not reproduce (stored {uf.get('num_trades')} trades /"
-              f" {uf.get('total_pnl')}). Data or engine drifted; refusing to write.")
-        continue
+    want_n, want_p = uf.get("num_trades"), uf.get("total_pnl")
 
-    # ---- recover the EXACT walk-forward boundary ------------------------------
-    # The doc keeps wf_range only as dates, but the original split was made on a bar
-    # timestamp. The stored ungated IS trade count pins it exactly: the boundary is the
-    # entry of the first walk-forward trade. wf_to was clamped to the lockbox start.
+    trades = used = None
+    for label, cfg in candidate_configs(doc, mod):
+        try:
+            base = run_backtest(mod, arrays=arrays, params=cfg, cost_pts=cost,
+                                return_trades=True)
+        except Exception:
+            continue
+        t = base.get("trades") or []
+        if int(want_n or -1) == len(t) and close(want_p, base.get("total_pnl")):
+            trades, used = t, label
+            break
+    if trades is None:
+        return "nomatch", ("book does not reproduce under any saved config "
+                           f"(stored {want_n} trades / {want_p})"), 0
+
     idx = arrays["index"]; nb = len(idx)
-    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades if len(t) >= 3], key=lambda x: x[0])
+    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades if len(t) >= 3],
+               key=lambda x: x[0])
     ets = np.array([idx[min(t[0], nb - 1)] for t in T])
-    uis = gv_old.get("ungated_is") or {}
-    n_is = int(uis.get("num_trades") or 0)
-    if not n_is or n_is >= len(T):
-        print("   ! no usable stored IS split - IS/WF blocks will be skipped")
-        wf0 = None
-    else:
-        wf0 = pd.Timestamp(ets[n_is])
-        print(f"   recovered walk-forward start {wf0} (from stored IS count {n_is})")
+    # the doc keeps wf_range only as DATES, but the stored IS trade count pins the real
+    # boundary exactly: it is the entry of the first walk-forward trade.
+    n_is = int((gv_old.get("ungated_is") or {}).get("num_trades") or 0)
+    wf0 = pd.Timestamp(ets[n_is]) if (n_is and n_is < len(T)) else None
 
     gv_new = GV(arrays, trades, gates=gates, thresholds=thr, lockbox_months=lbm,
                 wf_from=(str(wf0) if wf0 is not None else None),
                 wf_to=(lb_from if wf0 is not None else None), lb_from=lb_from)
     if not gv_new:
-        print("   ! recompute produced nothing - skipping"); continue
+        return "nomatch", "recompute produced no bake-off", 0
 
-    stats = [0]           # scalars written
-    filled, skipped = {}, {}
+    n_written = [0]
+    skipped = {}
 
-    def do_group(name, olds, news, keyf):
-        newmap = {keyf(c): c for c in news}
+    def add(dst, src_blk):
+        for k in ("sharpe", "sortino"):
+            v = src_blk.get(k)
+            if v is not None and k not in dst:
+                dst[k] = float(v); n_written[0] += 1
+
+    def group(name, olds, news, keyf):
+        nmap = {keyf(c): c for c in news}
         for o in olds:
-            n = newmap.get(keyf(o))
+            n = nmap.get(keyf(o))
             if n is None:
-                skipped[name + ":missing"] = skipped.get(name + ":missing", 0) + 1
+                skipped[name] = skipped.get(name, 0) + 1
                 continue
             for b in BLOCKS:
-                ob, nb2 = o.get(b), n.get(b)
-                if not isinstance(ob, dict) or not isinstance(nb2, dict):
-                    continue
-                if blk_matches(nb2, ob):
-                    if add_scalars(ob, nb2, stats):
-                        filled[name + "." + b] = filled.get(name + "." + b, 0) + 1
-                else:
-                    skipped[name + "." + b] = skipped.get(name + "." + b, 0) + 1
-            # gate cards also carry the flattened pre_* pair
-            if name == "gate" and isinstance(o.get("pre"), dict):
-                pass
+                ob, nbk = o.get(b), n.get(b)
+                if isinstance(ob, dict) and isinstance(nbk, dict):
+                    if blk_matches(nbk, ob):
+                        add(ob, nbk)
+                    else:
+                        skipped[f"{name}.{b}"] = skipped.get(f"{name}.{b}", 0) + 1
 
-    # GATE candidates: stored cards keep block dicts under the same names
-    do_group("gate", gv_old.get("candidates") or [], gv_new.get("candidates") or [],
-             lambda c: (str(c.get("model")), round(float(c.get("threshold") or 0), 4)))
-    do_group("tilt", gv_old.get("tilts") or [], gv_new.get("tilts") or [],
-             lambda c: (str(c.get("model")), str(c.get("scheme"))))
-    do_group("hybrid", gv_old.get("hybrids") or [], gv_new.get("hybrids") or [],
-             lambda c: (str(c.get("model")), str(c.get("scheme")), round(float(c.get("floor") or 0), 4)))
+    group("gate", gv_old.get("candidates") or [], gv_new.get("candidates") or [],
+          lambda c: (str(c.get("model")), round(float(c.get("threshold") or 0), 4)))
+    group("tilt", gv_old.get("tilts") or [], gv_new.get("tilts") or [],
+          lambda c: (str(c.get("model")), str(c.get("scheme"))))
+    group("hybrid", gv_old.get("hybrids") or [], gv_new.get("hybrids") or [],
+          lambda c: (str(c.get("model")), str(c.get("scheme")),
+                     round(float(c.get("floor") or 0), 4)))
 
-    # the flattened pre_sharpe / pre_sortino the gate card carries alongside pre_pnl
-    # A gate card does not store its pre-lockbox block as a dict -- it keeps those stats
-    # flattened (pre_pnl / kept_pre), so verify against those two instead.
+    # a gate card keeps its pre-lockbox stats FLATTENED (pre_pnl / kept_pre), not as a
+    # nested block -- so both the check and the two scalars come off the pre_* fields.
     nmap = {(str(c.get("model")), round(float(c.get("threshold") or 0), 4)): c
             for c in (gv_new.get("candidates") or [])}
     for o in (gv_old.get("candidates") or []):
         n = nmap.get((str(o.get("model")), round(float(o.get("threshold") or 0), 4)))
-        # the recomputed card is flattened the same way the stored one is, so both the
-        # verification and the two scalars come off the pre_* fields, not a nested block
-        ok = bool(n) and int((n or {}).get("kept_pre") or -1) == int(o.get("kept_pre") or -2) \
-            and close((n or {}).get("pre_pnl"), o.get("pre_pnl"))
-        if ok:
+        if not n:
+            continue
+        if int(n.get("kept_pre") or -1) == int(o.get("kept_pre") or -2) \
+           and close(n.get("pre_pnl"), o.get("pre_pnl")):
             for a, b in (("pre_sharpe", "pre_sharpe"), ("pre_sortino", "pre_sortino")):
                 v = n.get(b)
                 if v is not None and a not in o:
-                    o[a] = float(v); stats[0] += 1
-                    filled["gate.pre(flat)"] = filled.get("gate.pre(flat)", 0) + 1
-        elif n:
-            skipped["gate.pre(flat)"] = skipped.get("gate.pre(flat)", 0) + 1
+                    o[a] = float(v); n_written[0] += 1
+        else:
+            skipped["gate.pre"] = skipped.get("gate.pre", 0) + 1
 
-    # the ungated reference blocks the matrix reads beside the variants
     for k in ("ungated_pre", "ungated_lockbox", "ungated_full", "ungated_is",
               "ungated_wf", "ungated_wf_lb"):
-        ob, nb2 = gv_old.get(k), gv_new.get(k)
-        if isinstance(ob, dict) and isinstance(nb2, dict):
-            if blk_matches(nb2, ob):
-                if add_scalars(ob, nb2, stats):
-                    filled[k] = 1
-            else:
-                skipped[k] = 1
+        ob, nbk = gv_old.get(k), gv_new.get(k)
+        if isinstance(ob, dict) and isinstance(nbk, dict) and blk_matches(nbk, ob):
+            add(ob, nbk)
 
-    print(f"   FILLED blocks: {json.dumps(filled, sort_keys=True)}")
-    print(f"   SKIPPED (did not reproduce): {json.dumps(skipped, sort_keys=True) or '{}'}")
-    print(f"   scalars written into the doc structure: {stats[0]}")
+    if not n_written[0]:
+        return "nomatch", f"nothing verified (skips: {skipped})", 0
 
-    if WRITE and stats[0]:
+    note = f"via {used}" + (f" | PARTIAL, skips: {skipped}" if skipped else "")
+    if write:
+        size = len(json.dumps(doc, default=str))
+        if size > DOC_CEILING:
+            return "toobig", f"doc {round(size/1024)} KB is at the Firestore cap", 0
         ref.update({"gate_validate": gv_old})
-        print(f"   >> WROTE run {rid} (gate bake-off updated in place)")
-    elif WRITE:
-        print("   >> nothing verified - doc left untouched")
-    else:
-        print("   (dry run - no write)")
+    return ("wrote" if write else "ok"), note, n_written[0]
+
+
+targets = RIDS
+if ALL:
+    targets = []
+    for d in runs.select(["gate_validate"]).stream():
+        gv = (d.to_dict() or {}).get("gate_validate")
+        if isinstance(gv, dict) and not is_filled(gv):
+            targets.append(d.id)
+    targets.sort(key=lambda x: int(x) if str(x).isdigit() else 0, reverse=True)
+    if LIMIT:
+        targets = targets[:LIMIT]
+
+print(f"backfill_scatter: {len(targets)} run(s) | write={WRITE}", flush=True)
+tally, total, t0 = {}, 0, time.time()
+for i, rid in enumerate(targets, 1):
+    ts = time.time()
+    try:
+        status, note, n = backfill(rid, write=WRITE)
+    except Exception as e:
+        status, note, n = "error", f"{type(e).__name__}: {e}", 0
+        traceback.print_exc()
+    tally[status] = tally.get(status, 0) + 1
+    total += n
+    print(f"[{i}/{len(targets)}] run {rid}: {status} (+{n}) {note} "
+          f"[{time.time()-ts:.0f}s]", flush=True)
+
+print(f"\nDONE in {(time.time()-t0)/60:.1f} min | scalars written: {total} | {tally}",
+      flush=True)
