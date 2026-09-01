@@ -444,9 +444,13 @@ window._loadError=function(err,stage){
 };
 // Catch all uncaught errors
 window.addEventListener('error',function(e){
+  // "ResizeObserver loop ..." is a browser NOTICE, not a failure: it means one observer
+  //   pass was deferred a frame. Nothing threw and no state is wrong - never block the app
+  //   over it (the render that triggered it has already settled by the next frame).
+  if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.419';
+const VERSION='73.420';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.420',date:'2026-08-31',notes:['FIX: LOAD ERROR - ResizeObserver loop completed with undelivered notifications. The chart-refit watcher added in v73.412 wrote the tile height from inside its own resize callback, which is the loop the browser flags; the write now waits one frame. The error overlay also stops treating that browser notice as a failure - nothing threw and no state was wrong, so the app must not block over it.']},
 {v:'73.419',date:'2026-08-31',notes:['1E SCATTER CAN NOW PLOT EVERY FAMILY ON SHARPE AND SORTINO - on runs validated from this build on. The engine now writes those two scalars onto every GATE / TILT / HYBRID column at validate time, computed from each column real trade list over the same window and annualisation the RAW configs use, and the scatter and parallel views read them. Runs saved before this build never recorded them, so their ML columns still sit those axes out and the not-plotted warning keeps naming them - re-validate to fill them in.']},
 {v:'73.418',date:'2026-08-31',notes:['1E SCATTER, driven end to end: the not-plotted warning now names WHICH families are missing the measure (e.g. no SORTINO - GATE 20 / TILT 10 / HYBRID 5 / HYBRID-R 5). An all-green chart on the ALL tab was the truth, not a bug: SORTINO and SHARPE come off a stored equity curve and only the RAW top-10 keep one - the ML columns record no curve, so those two axes can never plot them.','PBO is gone from the scatter axis pickers - it is one number for the whole run, so every dot landed on a single vertical line. It stays on the table and parallel views. And the second 1E card now picks its OWN scatter axes instead of being chained to the first cards X / Y.']},
 {v:'73.417',date:'2026-08-30',notes:['A MONEY AXIS ROUNDED TO THOUSANDS IS USELESS WHEN THE NUMBERS ARE IN THE HUNDREDS. With EXPECTANCY PER TRADE up the side every tick read $0k and the axis carried no information at all. It prints whole dollars below a thousand, thousands above it, millions above that.']},
@@ -25858,7 +25863,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _kaWatch=(box,want)=>{let lw=-1;
         const go=()=>{const w=box.clientWidth||0;if(w<60||Math.abs(w-lw)<2)return;lw=w;_kaFit(box,want);};
         requestAnimationFrame(go);setTimeout(go,120);setTimeout(go,600);
-        try{const ro=new ResizeObserver(go);ro.observe(box.parentElement||box);}catch(_e){}};
+        // the observer must NOT write layout inside its own delivery - _kaFit sets the box
+        //   height, and a resize observed during resize delivery is the exact loop the
+        //   browser flags as an undelivered-notifications error. One frame later is safe.
+        try{const ro=new ResizeObserver(()=>requestAnimationFrame(go));ro.observe(box.parentElement||box);}catch(_e){}};
       const _kaFitOf=box=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0;
         return (w<60||!vw||!vh)?0:Math.max(100,Math.round(w*vh/vw));};
       const _kaFit=(box,frac)=>{const fit=_kaFitOf(box);if(!fit)return;
