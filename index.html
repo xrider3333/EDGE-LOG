@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.424';
+const VERSION='73.425';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.425',date:'2026-08-31',notes:['The ALL CONFIGS key row counts its ML candidate lines from the current run at draw time - the +N ML tag was missing on the first draw and would have gone stale when switching runs.']},
 {v:'73.424',date:'2026-08-31',notes:['FIX on 73.423: ALL CONFIGS now actually reveals the raw survivors and the IS-max line - both groups were baked hidden on every render regardless of the saved key state, so the reveal only survived until the next redraw.']},
 {v:'73.423',date:'2026-08-31',notes:['1A CONFIG FUNNEL (collapsed): every RAW line is GREEN now - survivors, the cloud, and their lockbox tails - the same colour as the RAW key row, so a raw line can no longer be mistaken for another family. IS MAX keeps its blue (one labelled line, blue everywhere it appears). The fullscreen explorer and 2C headers keep per-config colours, where telling configs apart is the point.','New ALL CONFIGS row at the bottom of the 1A key: one click draws every line the fullscreen explorer shows right in the tile - full raw cloud, survivors, IS max, gate curve, and every gate / tilt / hybrid candidate thin in its family colour, from the same series the explorer reads. Click again for one line per family.']},
 {v:'73.422',date:'2026-08-30',notes:['FIX on 73.421: the per-run accounting was declared inside the configs branch and read by the chart note outside it, so the CONFIGS view threw before drawing. Declared at the scope it is read from.']},
@@ -12820,7 +12821,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _keyBox='<div data-a2krow style="position:absolute;top:9px;left:8px;background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-size:7.5px;line-height:1.6;z-index:3">'
           +_kOrder.map(function(r){return _kr(r[0],r[1],r[2],r[3],r[4],r[5]);}).join('')
           +'<div data-a2call title="draw EVERY line the fullscreen explorer shows, right here: the full raw cloud + survivors, the gate curve, and every gate / tilt / hybrid candidate in its family colour. Click again for one line per family." style="cursor:pointer;white-space:nowrap;font-size:7.5px;font-weight:700;letter-spacing:.4px;color:'+((+(APREF.a2cfgAll||0))?'var(--text2)':'var(--text5)')+';padding-top:2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:2px">'
-          +((+(APREF.a2cfgAll||0))?'&#9635;':'&#9634;')+' ALL CONFIGS'+(window._a2AllCandN?(' <span style="opacity:.6;font-weight:400">+'+window._a2AllCandN+' ML</span>'):'')+'</div>'
+          +((+(APREF.a2cfgAll||0))?'&#9635;':'&#9634;')+' ALL CONFIGS'+(function(){let n=0;try{(window._a2EqSeries||[]).forEach(function(sr){if(sr&&!sr.famTop&&!sr.dim&&(sr.gateCand||sr.tiltCand||sr.hybCand||sr.hybRcy)&&Array.isArray(sr.eq)&&sr.eq.length>1)n++;});}catch(_e){}return n?(' <span style="opacity:.6;font-weight:400">+'+n+' ML</span>'):'';})()+'</div>'
           +'</div>';
         // v64.98 (owner: "add these to 2A as well"): the SAMPLE control is SHARED with the 2C
         //   matrix — one setting, both tiles agree — and here it dims the stretch you are not
