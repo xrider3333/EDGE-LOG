@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.423';
+const VERSION='73.424';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.424',date:'2026-08-31',notes:['FIX on 73.423: ALL CONFIGS now actually reveals the raw survivors and the IS-max line - both groups were baked hidden on every render regardless of the saved key state, so the reveal only survived until the next redraw.']},
 {v:'73.423',date:'2026-08-31',notes:['1A CONFIG FUNNEL (collapsed): every RAW line is GREEN now - survivors, the cloud, and their lockbox tails - the same colour as the RAW key row, so a raw line can no longer be mistaken for another family. IS MAX keeps its blue (one labelled line, blue everywhere it appears). The fullscreen explorer and 2C headers keep per-config colours, where telling configs apart is the point.','New ALL CONFIGS row at the bottom of the 1A key: one click draws every line the fullscreen explorer shows right in the tile - full raw cloud, survivors, IS max, gate curve, and every gate / tilt / hybrid candidate thin in its family colour, from the same series the explorer reads. Click again for one line per family.']},
 {v:'73.422',date:'2026-08-30',notes:['FIX on 73.421: the per-run accounting was declared inside the configs branch and read by the chart note outside it, so the CONFIGS view threw before drawing. Declared at the scope it is read from.']},
 {v:'73.421',date:'2026-08-30',notes:['THE 1E CONFIGS SCATTER IS READABLE NOW, four fixes from one deep dive. First: every point was a washed-out grey triangle because config rows never declared their run number in the field SPLIT BY RUN reads - so the chart faded them all as never-run and their hovers said so. They are run-backed rows now, undimmed, and the run tag opens the report.','SECOND: ON THIS VIEW COLOUR IS THE 1E FAMILY, not the verdict - RAW blue, GATE red, TILT amber, HYBRID violet, recycle pink, equal-drawdown teal, with the legend swapped to match. A verdict colour is meaningless for candidates no lockbox has judged; which family a point belongs to is the thing worth seeing.','THIRD: IS / WF / LB SWITCH ON THIS VIEW NOW. The pin claimed a config record holds one window; wrong - the records carry per-stage slices (RAW its calendar split and lockbox end, GATE its own lockbox block, TILT and HYBRID is/wf/lockbox), so the stages are wired and the pin is gone. A record genuinely missing a stage shows the dash with the reason, as everywhere else.','FOURTH: EVERY TICKED RUN IS ACCOUNTED FOR under the chart - its point count, or STILL LOADING, or NO CONFIGURATION RECORDS with why on the hover. Eleven of the twenty-one NOISE runs are the last kind: validated before the engine saved per-config records, or pinned single-config runs. An empty contribution is never silent again.']},
@@ -12180,7 +12181,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   must stay tellable apart; here it made RAW lines read as other families).
           wf+=_proc(c.equity.cum.map(v=>v*mult),'#1d9e75',0.6,0.7);});
         let ov='';
-        if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax" style="display:none">'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
+        if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
         if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
         // top-3 lockbox continuation [lockbox door → right edge] — DOTTED per the procedure
         // v71.0 (owner: "2a gutter pils not alined"). The alignment was not the gutter box this
@@ -12848,7 +12849,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _acOn=+(APREF.a2cfgAll||0);
         selSvg=_ddStrip+_hwOv
           +(_acOv?('<g data-kg="allcfg"'+(_acOn?'':' style="display:none"')+'>'+_acOv+'</g>'):'')
-          +'<g data-kg="wf" style="display:none">'+wf+'</g>'
+          +'<g data-kg="wf"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+wf+'</g>'
           +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
