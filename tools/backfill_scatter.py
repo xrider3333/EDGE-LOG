@@ -93,7 +93,16 @@ for rid in RIDS:
         print("   ! no master found - skipping"); continue
     arrays = load_master_arrays(master, date_from=dfrom, date_to=dto)
     mod = load_strategy(ROOT + r"\augur_strategies\\" + strat)
-    base = run_backtest(mod, arrays=arrays, params={}, cost_pts=cost, return_trades=True)
+    # A pinned card carries its config in DEFAULT_PARAMS ONLY -- several of them reuse a
+    # PARENT's run_backtest (ORB_3_6_C2 does: `run_backtest = _base.run_backtest`), whose
+    # signature defaults are the parent's, not the pin. Passing {} therefore silently runs
+    # the WRONG config: ORB_3_6_C2 with {} replays be_after_R=0 / partial 3.0 / trail 3,
+    # i.e. the pre-breakeven #230 book. Always build the config from DEFAULT_PARAMS.
+    _dp = ae.strategy_params(mod) or {}
+    pin = {k: v.get("default") for k, v in _dp.items()
+           if isinstance(v, dict) and v.get("default") is not None}
+    print(f"   config from DEFAULT_PARAMS: {len(pin)} knobs")
+    base = run_backtest(mod, arrays=arrays, params=pin, cost_pts=cost, return_trades=True)
     trades = base.get("trades") or []
     print(f"   re-ran pinned config: {len(trades)} trades, net {base.get('total_pnl'):.2f}")
 
