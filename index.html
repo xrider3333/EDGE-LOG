@@ -446,7 +446,7 @@ window._loadError=function(err,stage){
 window.addEventListener('error',function(e){
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.418';
+const VERSION='73.419';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -465,6 +465,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.419',date:'2026-08-31',notes:['1E SCATTER CAN NOW PLOT EVERY FAMILY ON SHARPE AND SORTINO - on runs validated from this build on. The engine now writes those two scalars onto every GATE / TILT / HYBRID column at validate time, computed from each column real trade list over the same window and annualisation the RAW configs use, and the scatter and parallel views read them. Runs saved before this build never recorded them, so their ML columns still sit those axes out and the not-plotted warning keeps naming them - re-validate to fill them in.']},
 {v:'73.418',date:'2026-08-31',notes:['1E SCATTER, driven end to end: the not-plotted warning now names WHICH families are missing the measure (e.g. no SORTINO - GATE 20 / TILT 10 / HYBRID 5 / HYBRID-R 5). An all-green chart on the ALL tab was the truth, not a bug: SORTINO and SHARPE come off a stored equity curve and only the RAW top-10 keep one - the ML columns record no curve, so those two axes can never plot them.','PBO is gone from the scatter axis pickers - it is one number for the whole run, so every dot landed on a single vertical line. It stays on the table and parallel views. And the second 1E card now picks its OWN scatter axes instead of being chained to the first cards X / Y.']},
 {v:'73.417',date:'2026-08-30',notes:['A MONEY AXIS ROUNDED TO THOUSANDS IS USELESS WHEN THE NUMBERS ARE IN THE HUNDREDS. With EXPECTANCY PER TRADE up the side every tick read $0k and the axis carried no information at all. It prints whole dollars below a thousand, thousands above it, millions above that.']},
 {v:'73.416',date:'2026-08-30',notes:['THE CONFIGS VIEW STOPS DOWNLOADING WHOLE RUN DOCUMENTS. Reading a run 1E candidates meant fetching its ENTIRE document - equity curves, trade excursions, gate bake-offs, megabytes of it - to get at two fields, which is the very thing the fast page load exists to avoid. It asks Firestore for only the parts it reads now, using the same field mask the runs list already uses. Kilobytes instead of megabytes.','It keeps its own small cache, so it never evicts a run report you have open, and if the projected read is refused it falls back to the whole document rather than leaving the view stuck on LOADING.']},
@@ -13962,7 +13963,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {nm:'PF',     inv:false, get:x=>_num(x.pf), fmt:v=>v.toFixed(2)},
         {nm:'SHARPE', inv:false, get:x=>_num(x.sh), fmt:v=>v.toFixed(2)},
         {nm:'SORTINO',inv:false, get:x=>_num(x.so), fmt:v=>v.toFixed(2),
-         tip:'Return over its DOWNSIDE deviation only - the same curve, window and annualisation as the SHARPE axis beside it, with upside swings no longer charged as risk. Derived from each configuration own saved equity curve, so it reads higher than the per-trade Sortino the KPI chart and a STUDIES run row print; compare it across configurations here, not against those.'},
+         tip:'Return over its DOWNSIDE deviation only - the same window and annualisation as the SHARPE axis beside it, with upside swings no longer charged as risk. RAW configs derive it from their saved equity curve; GATE / TILT / HYBRID columns carry the same measure written by the engine from each column real trade list at validate time (runs saved before that build never recorded it, so those columns sit this axis out). Compare it across configurations here, not against the per-trade Sortino the KPI chart and a STUDIES run row print.'},
         {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
         {nm:'EV R',   inv:false, get:x=>_evInR(x.wr,x.pf), fmt:v=>v.toFixed(2),
@@ -15162,7 +15163,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           dd:(b.max_drawdown!=null?Math.abs(b.max_drawdown):null),
           rec:(b.rec!=null?b.rec:((b.total_pnl!=null&&b.max_drawdown)?(b.total_pnl/Math.abs(b.max_drawdown)):null)),
           pf:(b.profit_factor!=null?b.profit_factor:null),wr:(b.win_rate!=null?b.win_rate:null),
-          kept:(b.num_trades!=null?b.num_trades:null),avg_pnl:(b.avg_pnl!=null?b.avg_pnl:null)}:null;
+          kept:(b.num_trades!=null?b.num_trades:null),avg_pnl:(b.avg_pnl!=null?b.avg_pnl:null),
+          // v73.x (1E scatter): engine-computed per-block SHARPE / SORTINO scalars — the
+          //   overlay columns store no full equity curve, so these are written at validate
+          //   time from each column's real trade list. Absent on runs before this build.
+          sh:(b.sharpe!=null?+b.sharpe:null),so:(b.sortino!=null?+b.sortino:null)}:null;
         const _rec2=(n,d)=>(n!=null&&d!=null&&Math.abs(d)>1e-9)?(n/Math.abs(d)):null;
         const _ungCum=(V.equity&&Array.isArray(V.equity.cum_ungated))?V.equity.cum_ungated:null;
         const _ungFull=(_ungPre!=null&&_ungLb!=null)?(_ungPre+_ungLb):_ungPre;
@@ -15218,17 +15223,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
             per:{
               pre:{net:cd.pre_pnl!=null?cd.pre_pnl:null,dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
                    rec:cd.pre_rec,pf:cd.pre_pf,wr:cd.pre_wr,kept:cd.kept_pre,
-                   avg_pnl:(cd.pre_pnl!=null&&cd.kept_pre)?(cd.pre_pnl/cd.kept_pre):null},
+                   avg_pnl:(cd.pre_pnl!=null&&cd.kept_pre)?(cd.pre_pnl/cd.kept_pre):null,
+                   sh:(cd.pre_sharpe!=null?+cd.pre_sharpe:null),so:(cd.pre_sortino!=null?+cd.pre_sortino:null)},
               lb:{net:_lbNet,dd:_lbDd,ddDer:(_lbDdEx==null&&_lbDd!=null),
                   rec:(_mLb&&_mLb.rec!=null)?_mLb.rec:_rec2(_lbNet,_lbDd),
                   pf:_mLb?_mLb.profit_factor:((isCh&&LB&&LB.gated)?LB.gated.profit_factor:null),
                   wr:_mLb?_mLb.win_rate:((isCh&&LB&&LB.gated)?LB.gated.win_rate:null),
                   kept:_mLb?_mLb.num_trades:((isCh&&LB&&LB.gated)?LB.gated.num_trades:null),
-                  avg_pnl:_mLb?_mLb.avg_pnl:((isCh&&LB&&LB.gated)?LB.gated.avg_pnl:null)},
+                  avg_pnl:_mLb?_mLb.avg_pnl:((isCh&&LB&&LB.gated)?LB.gated.avg_pnl:null),
+                  sh:(_mLb&&_mLb.sharpe!=null)?+_mLb.sharpe:null,so:(_mLb&&_mLb.sortino!=null)?+_mLb.sortino:null},
               full:{net:_fuNet,dd:_fullDd,ddDer:(_fuDdEx==null&&_fullDd!=null),
                     rec:(_mFu&&_mFu.rec!=null)?_mFu.rec:_rec2(_fuNet,_fullDd),
                     pf:_mFu?_mFu.profit_factor:null,wr:_mFu?_mFu.win_rate:null,
-                    kept:_mFu?_mFu.num_trades:null,avg_pnl:_mFu?_mFu.avg_pnl:null},
+                    kept:_mFu?_mFu.num_trades:null,avg_pnl:_mFu?_mFu.avg_pnl:null,
+                    sh:(_mFu&&_mFu.sharpe!=null)?+_mFu.sharpe:null,so:(_mFu&&_mFu.sortino!=null)?+_mFu.sortino:null},
               is:_blk(cd.is_rng),wf:_blk(cd.wf_rng),wf_lb:_blk(cd.wf_lb)
             }};}));
         // B4 (compact): dollars abbreviated ($450k), recovery to 1dp, PF/WIN% already at target
@@ -15338,7 +15346,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
           c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
           const p=_P(c);
           if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
-            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
+            _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+              // v73.x: engine-written per-block SHARPE / SORTINO (scale-free, so no mlt3) —
+              //   fills the scatter/parallel ratio axes for GATE columns on new runs; older
+              //   runs never saved them, so those stay honestly absent (the chart's ⚠ says so).
+              sh:(p.sh!=null&&isFinite(p.sh))?+p.sh:null,so:(p.so!=null&&isFinite(p.so))?+p.so:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
         });
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
@@ -15541,6 +15553,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
             sub:'',
             col:_gateColor(String(t.model||''),1,60),
             _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,full:t.full,eq:t.equity,
+                // v73.x (1E scatter): the engine's pre-lockbox and WF-through-LB blocks ride
+                //   along so multi-stretch ticks (IS+WF, WF+LB) can read their engine-written
+                //   SHARPE / SORTINO scalars — those two ratios cannot be summed from parts.
+                pre:t.pre||null,wf_lb:t.wf_lb||null,
                 n:t.n_trades,mx:t.max_size,mix:t.sizes||null,
                 rule:t.rule||null,cut:(t.cutoff!=null?t.cutoff:(kind==='hyb'&&ch?ch.threshold:null))}}));
         const _cmpRec=x=>{if(!x)return null;const dd0=Math.abs(x.max_drawdown||0);return dd0>1e-9?(x.total_pnl/dd0):null;};
@@ -15628,7 +15644,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
                         pf:(x.profit_factor!=null&&isFinite(+x.profit_factor))?+x.profit_factor:null,
                         wr:(x.win_rate!=null&&isFinite(+x.win_rate))?+x.win_rate:null,
                         apt:(x.avg_pnl!=null?+x.avg_pnl*f:null),
-                        n:(x.num_trades!=null?+x.num_trades:null)};}
+                        n:(x.num_trades!=null?+x.num_trades:null),
+                        // v73.x (1E scatter): engine-written scalars; scale-free, no factor.
+                        sh:(x.sharpe!=null?+x.sharpe:null),so:(x.sortino!=null?+x.sortino:null)};}
             else{
               const parts=_szSegs.map(sg=>({x:_colOf(c,sg),f:_sc(c,sg)})).filter(p=>p.x);
               if(parts.length){
@@ -15647,11 +15665,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 const dd0=(ok&&a0!=null&&Array.isArray(cum)&&cum.length>1)
                   ?_ddSlice(cum,Math.round(a0*(cum.length-1)),Math.round(a1*(cum.length-1))):null;
                 const dd=(dd0!=null)?Math.abs(dd0)*_szFac(c):null;
+                // v73.x (1E scatter): SHARPE / SORTINO cannot be summed across stretches,
+                //   but the engine saved an exact block for the two contiguous combos the
+                //   summing path handles (IS+WF = its pre block, WF+LB = wf_lb) — read the
+                //   scalars off that block; any other combo honestly stays blank.
+                const _exSS=(_szKey==='is,wf')?(c._s.pre||null):((_szKey==='wf,lb')?(c._s.wf_lb||null):null);
                 out={net:net,dd:dd,ddDer:(dd!=null),
                      pf:(pfOK&&gl>1e-9)?(gw/gl):null,
                      wr:(wrOK&&kept)?((wins/kept)*100):null,
                      apt:(keptOK&&kept)?(net/kept):null,
-                     n:(keptOK?kept:null)};}
+                     n:(keptOK?kept:null),
+                     sh:(_exSS&&_exSS.sharpe!=null)?+_exSS.sharpe:null,
+                     so:(_exSS&&_exSS.sortino!=null)?+_exSS.sortino:null};}
             }
             _szPc.set(c,out);return out;};
           const _szMar=c=>{const p=_szP(c);return (p.net!=null&&p.dd!=null&&Math.abs(p.dd)>1e-9)?(p.net/Math.abs(p.dd)):null;};
@@ -15696,7 +15721,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 //   - every HYBRID dot fell through to the grey default colour AND failed the
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
-                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
+                _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
+                  // v73.x: engine-written per-block SHARPE / SORTINO (scale-free — sizing
+                  //   tabs never move them); absent on runs saved before this build.
+                  sh:(p.sh!=null&&isFinite(p.sh))?+p.sh:null,so:(p.so!=null&&isFinite(p.so))?+p.so:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $

@@ -161,6 +161,30 @@ def _stats(pnls):
     }
 
 
+def _risk_adj(pnls, yrs):
+    """Per-block SHARPE / SORTINO scalars for the GATE / TILT / HYBRID columns (1E
+    MATRIX scatter): same read the web derives for RAW configs off their saved curve
+    (_riskAdjFromCum in index.html) — per-trade PnL mean over its deviation,
+    annualised by sqrt(trades / years) on the block's own calendar window. The
+    downside deviation deliberately shares the Sharpe's n-1 denominator (matching
+    the web's derivation, noted there) rather than the textbook count-of-negatives.
+    Returns (sharpe, sortino); each is None — never 0 or inf — when there is
+    nothing honest to measure (too few trades, no window, no dispersion)."""
+    p = np.asarray(pnls, float)
+    n = len(p)
+    if n < 3 or not yrs or yrs <= 0:
+        return None, None
+    mean = float(p.mean())
+    d = p - mean
+    sd = float(np.sqrt(float((d * d).sum()) / max(1, n - 1)))
+    dn = d[p < 0]
+    sdn = float(np.sqrt(float((dn * dn).sum()) / max(1, n - 1)))
+    ann = float(np.sqrt(n / yrs))
+    sh = (mean / sd) * ann if sd > 1e-9 else None
+    so = (mean / sdn) * ann if sdn > 1e-9 else None
+    return sh, so
+
+
 def _make_model(name, seed):
     """Gate-model zoo. All shallow/regularized on purpose: training sets are a few
     hundred trades, and an expressive model would memorize them. Uniform Pipeline
@@ -342,6 +366,12 @@ def _cand_out(c):
         "pre_wr": c["pre"]["win_rate"],
         "pre_rec": round(_rec(c["pre"]), 2),
         "eligible": c["eligible"]}
+    # v73.x (1E scatter): the pre block's risk-adjusted scalars ride along flattened,
+    # like the other pre_* fields this card shape already carries.
+    if c["pre"].get("sharpe") is not None:
+        d["pre_sharpe"] = c["pre"]["sharpe"]
+    if c["pre"].get("sortino") is not None:
+        d["pre_sortino"] = c["pre"]["sortino"]
     if "equity" in c:
         d["equity"] = c["equity"]
     # v64.98 (owner ask): every candidate's LOCKBOX and FULL-RUN stat blocks, so the 2C
@@ -361,7 +391,11 @@ def _cand_out(c):
             d[_k] = {"total_pnl": s.get("total_pnl"), "num_trades": s.get("num_trades"),
                      "profit_factor": s.get("profit_factor"), "win_rate": s.get("win_rate"),
                      "max_drawdown": s.get("max_drawdown"), "avg_pnl": s.get("avg_pnl"),
-                     "rec": round(_rec(s), 2)}
+                     "rec": round(_rec(s), 2),
+                     # v73.x (1E scatter): risk-adjusted scalars per block — absent, not
+                     # null, when the block could not honestly measure them.
+                     **({"sharpe": s["sharpe"]} if s.get("sharpe") is not None else {}),
+                     **({"sortino": s["sortino"]} if s.get("sortino") is not None else {})}
     return d
 
 
@@ -407,6 +441,35 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         lb_start = idx[-1] - pd.DateOffset(months=int(lockbox_months))
     t_first = entry_ts.min()
 
+    # v73.x (1E MATRIX scatter): every stat block below also carries "sharpe" and
+    # "sortino" scalars so the ALL-tab scatter/parallel views can place GATE / TILT /
+    # HYBRID columns on those axes (only RAW configs save an equity curve to derive
+    # them from client-side). Annualised on each block's own calendar window — the
+    # same window the block's dollars are measured over.
+    def _blk_yrs(t0, t1):
+        a = pd.Timestamp(t0 if t0 is not None else t_first)
+        b = pd.Timestamp(t1 if t1 is not None else idx[-1])
+        try:
+            sec = (b - a).total_seconds()
+        except Exception:
+            return None
+        return (sec / (365.25 * 86400.0)) if sec > 0 else None
+
+    def _sl(ts, ps, t0=None, t1=None):
+        m = np.ones(len(ps), bool)
+        if t0 is not None:
+            m &= ts >= t0
+        if t1 is not None:
+            m &= ts < t1
+        sub = np.asarray(ps, float)[m]
+        s = _stats(sub)
+        sh, so = _risk_adj(sub, _blk_yrs(t0, t1))
+        if sh is not None:
+            s["sharpe"] = round(sh, 3)
+        if so is not None:
+            s["sortino"] = round(so, 3)
+        return s
+
     # v65.0 (owner): the pre-lockbox stretch also gets split at the WALK-FORWARD boundary the
     #   1C/2B folds use, so 2C can be read over the SAME DATE RANGES as the config matrix. This
     #   is a calendar split, not a claim that the filter has an in-sample phase — the filter is
@@ -434,14 +497,14 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
     #   almost nothing is not evidence. A variant must now keep at least `min_kept` AND at least
     #   `min_keep_frac` of the ungated pre-lockbox trades to be crownable.
     feats = entry_features_causal(arrays)[0]                # compute once, reuse 9x
-    ung_pre = _slice_stats(entry_ts, pnls_all, None, lb_start)
+    ung_pre = _sl(entry_ts, pnls_all, None, lb_start)
     ung_pre_n = int(ung_pre.get("num_trades") or 0)
     _min_keep = max(int(min_kept),
                     int(round(float(min_keep_frac) * max(1, int(ung_pre_n)))))
-    ung_lb = _slice_stats(entry_ts, pnls_all, lb_start, None)
-    ung_full = _slice_stats(entry_ts, pnls_all, None, None)
-    ung_is = _slice_stats(entry_ts, pnls_all, None, wf0) if _rng else None
-    ung_wf = _slice_stats(entry_ts, pnls_all, wf0, wf1) if _rng else None
+    ung_lb = _sl(entry_ts, pnls_all, lb_start, None)
+    ung_full = _sl(entry_ts, pnls_all, None, None)
+    ung_is = _sl(entry_ts, pnls_all, None, wf0) if _rng else None
+    ung_wf = _sl(entry_ts, pnls_all, wf0, wf1) if _rng else None
     from .analytics import downsample_curve                # shared w/ gate_trades' own curve
 
     cands = []
@@ -467,9 +530,9 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
             cand_keep = ~(_prob < float(th))       # NaN (warm-up) passes through, as the gate does
             k_ts = _T_ts[cand_keep]
             k_p = _T_p[cand_keep]
-            pre = _slice_stats(k_ts, k_p, None, lb_start)
+            pre = _sl(k_ts, k_p, None, lb_start)
             key = f"{m}@{th:.2f}"
-            lb_secret[key] = (_slice_stats(k_ts, k_p, lb_start, None), k_ts, k_p, cand_keep)
+            lb_secret[key] = (_sl(k_ts, k_p, lb_start, None), k_ts, k_p, cand_keep)
             cand = {"model": str(m), "threshold": float(th),
                     "impl": _impl,
                     "kept_pre": int(pre["num_trades"]),
@@ -478,16 +541,16 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                     #   the report. Computed from the trades already gated above — no extra
                     #   backtest — and attached AFTER selection, which reads only "pre".
                     "lockbox": lb_secret[key][0],
-                    "full": _slice_stats(k_ts, k_p, None, None),
-                    "is_rng": (_slice_stats(k_ts, k_p, None, wf0) if _rng else None),
-                    "wf_rng": (_slice_stats(k_ts, k_p, wf0, wf1) if _rng else None),
+                    "full": _sl(k_ts, k_p, None, None),
+                    "is_rng": (_sl(k_ts, k_p, None, wf0) if _rng else None),
+                    "wf_rng": (_sl(k_ts, k_p, wf0, wf1) if _rng else None),
                     # v65.5 (owner: "is there a way to fix this so its accurate?"): the
                     #   walk-forward years THROUGH the held-out year is the one span the UI
                     #   could not measure exactly -- contiguous, but matching no saved block,
                     #   so its drawdown had to be read off ~18 points of a downsampled curve,
                     #   which understates. Measured here instead; every contiguous combination
                     #   the SAMPLE toggles can produce now has a real drawdown behind it.
-                    "wf_lb": (_slice_stats(k_ts, k_p, wf0, None) if _rng else None)}
+                    "wf_lb": (_sl(k_ts, k_p, wf0, None) if _rng else None)}
             # v64.81 (owner): downsampled gated equity curve for EVERY candidate (not just
             #   the chosen one), full pre+lockbox span, same trade-order grid as the chosen
             #   candidate's out["equity"] below — so the UI can overlay all 9. Additive only:
@@ -557,12 +620,12 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                      "rule": ("0.5x under 45% | 1x 45-55% | 2x over 55%" if _sn == "tier"
                               else "slides 0.25x to 3x, 1x at 50%"),
                      "cutoff": None,
-                     "pre": _slice_stats(entry_ts, tp, None, lb_start),
-                     "lockbox": _slice_stats(entry_ts, tp, lb_start, None),
-                     "full": _slice_stats(entry_ts, tp, None, None),
-                     "is_rng": (_slice_stats(entry_ts, tp, None, wf0) if _rng else None),
-                     "wf_rng": (_slice_stats(entry_ts, tp, wf0, wf1) if _rng else None),
-                     "wf_lb": (_slice_stats(entry_ts, tp, wf0, None) if _rng else None)}
+                     "pre": _sl(entry_ts, tp, None, lb_start),
+                     "lockbox": _sl(entry_ts, tp, lb_start, None),
+                     "full": _sl(entry_ts, tp, None, None),
+                     "is_rng": (_sl(entry_ts, tp, None, wf0) if _rng else None),
+                     "wf_rng": (_sl(entry_ts, tp, wf0, wf1) if _rng else None),
+                     "wf_lb": (_sl(entry_ts, tp, wf0, None) if _rng else None)}
                 t["pre_rec"] = round(_rec(t["pre"]), 2)
                 try:
                     t["equity"] = {"cum": downsample_curve(np.cumsum(tp), cap=300, ndp=None),
@@ -624,12 +687,12 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                                   "dropped": int((~keep).sum())},
                         "rule": "slides 0.25x to 3x on survivors",
                         "cutoff": float(_hth),
-                        "pre": _slice_stats(h_ts, h_p, None, lb_start),
-                        "lockbox": _slice_stats(h_ts, h_p, lb_start, None),
-                        "full": _slice_stats(h_ts, h_p, None, None),
-                        "is_rng": (_slice_stats(h_ts, h_p, None, wf0) if _rng else None),
-                        "wf_rng": (_slice_stats(h_ts, h_p, wf0, wf1) if _rng else None),
-                        "wf_lb": (_slice_stats(h_ts, h_p, wf0, None) if _rng else None)}
+                        "pre": _sl(h_ts, h_p, None, lb_start),
+                        "lockbox": _sl(h_ts, h_p, lb_start, None),
+                        "full": _sl(h_ts, h_p, None, None),
+                        "is_rng": (_sl(h_ts, h_p, None, wf0) if _rng else None),
+                        "wf_rng": (_sl(h_ts, h_p, wf0, wf1) if _rng else None),
+                        "wf_lb": (_sl(h_ts, h_p, wf0, None) if _rng else None)}
                 hrow["pre_rec"] = round(_rec(hrow["pre"]), 2)
                 try:
                     hrow["equity"] = {"cum": downsample_curve(np.cumsum(np.where(keep, hp, 0.0)),
@@ -650,7 +713,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         "lockbox_from": str(pd.Timestamp(lb_start).date()),
         "ungated_pre": ung_pre, "ungated_lockbox": ung_lb,
         "ungated_full": ung_full, "ungated_is": ung_is, "ungated_wf": ung_wf,
-        "ungated_wf_lb": (_slice_stats(entry_ts, pnls_all, wf0, None) if _rng else None),
+        "ungated_wf_lb": (_sl(entry_ts, pnls_all, wf0, None) if _rng else None),
         "wf_range": ([str(pd.Timestamp(wf0).date()), str(pd.Timestamp(wf1).date())] if _rng else None),
         "candidates": [_cand_out(c) for c in cands],
         # v67.2 — comparison-only size-tilt rows (see the block above). Never crownable.
