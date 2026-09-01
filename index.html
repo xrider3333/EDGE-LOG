@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.434';
+const VERSION='73.435';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,8 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.435',date:'2026-08-31',notes:['The ALL CONFIGS draw records its own failure instead of swallowing it - the candidate lines vanished on 73.433 and the silent catch hid why.']},
+{v:'73.433',date:'2026-08-31',notes:['ALL CONFIGS candidate lines draw as one SOLID stroke each now, thinner and fainter - the in-sample/walk-forward dash split the family top lines use was making 37 background lines unreadable.']},
 {v:'73.434',date:'2026-08-31',notes:['ALL CONFIGS candidate lines draw as one SOLID stroke each now, thinner and fainter - the in-sample/walk-forward dash split the family top lines use was making 37 background lines unreadable.']},
 {v:'73.432',date:'2026-08-30',notes:['A GATE ROW COUNTED ITS PRE-LOCKBOX TRADES BUT ITS WHOLE-RUN MONEY, so every per-trade figure on a gate read a shade rich. The lockbox trades count now, matching the stretch the total covers.']},
 {v:'73.430',date:'2026-08-30',notes:['FOUND ON THE DRIVE-THROUGH: the view rail on RANKINGS rendered but did nothing - its buttons were only ever wired inside the COMPARE branch, so rankings was a room you could enter and not leave. The rail works from there now.']},
@@ -12851,7 +12853,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(!sr||sr.famTop||sr.dim)return;
           if(!(sr.gateCand||sr.tiltCand||sr.hybCand||sr.hybRcy))return;
           if(!Array.isArray(sr.eq)||sr.eq.length<2)return;
-          _acN++;_acOv+='<polyline points="'+_seg(sr.eq,0,1)+'" fill="none" stroke="'+(sr.color||'var(--text4)')+'" stroke-width="0.4" opacity="0.35"/>';});}catch(_ace){}
+          _acN++;_acOv+='<polyline points="'+_seg(sr.eq,0,1)+'" fill="none" stroke="'+(sr.color||'var(--text4)')+'" stroke-width="0.4" opacity="0.35"/>';});window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_ace)};}
         window._a2AllCandN=_acN;
         const _acOn=+(APREF.a2cfgAll||0);
         selSvg=_ddStrip+_hwOv
