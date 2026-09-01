@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.429';
+const VERSION='73.430';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.430',date:'2026-08-30',notes:['FOUND ON THE DRIVE-THROUGH: the view rail on RANKINGS rendered but did nothing - its buttons were only ever wired inside the COMPARE branch, so rankings was a room you could enter and not leave. The rail works from there now.']},
 {v:'73.429',date:'2026-08-30',notes:['THE 1E FAMILY COLOURS NOW MATCH THE RUN REPORT OWN KEY - RAW green, GATE red, TILT amber, HYBRID violet, recycle pink, exactly as the 1A/1E key paints them. Equal-DD takes teal, the one colour that key does not use. They were an invented palette before, which is why RAW read blue here and green everywhere else.','MARKS SHRINK ON A DENSE CHART - past 250 points everything scales down together, so 850 candidates stop being a wall of icons.','THE STRAY MARK SITTING ON THE AXIS WAS NOT A DATA POINT. Stacked duplicates fan out a few pixels each so they stay clickable; unbounded, the 30th duplicate of one busy pixel walked clean off the plot. The fan is capped at six and the result clamped inside the axes, labels included.','THE SIDEBAR IS ONE COLUMN ALWAYS. The auto-fitting grid re-solved its column count whenever a label width changed, so picking a study re-wrapped the controls under your cursor.','The RAN AS A VALIDATE RUN section row hugs the column headers instead of floating below them.','Reviewed by a second set of eyes before shipping; its two findings - labels stacking past the cap, and a stale comment - are folded in.']},
 {v:'73.426',date:'2026-08-31',notes:['Turning ALL CONFIGS off returns the 1A funnel to one line per family, as the row promises - the raw survivors were staying on screen because ALL had flipped their key state on the way in.']},
 {v:'73.428',date:'2026-08-31',notes:['Turning ALL CONFIGS off returns the 1A funnel to one line per family, as the row promises - the raw survivors were staying on screen because ALL had flipped their key state on the way in.']},
@@ -26952,7 +26953,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // v68.0: mount the live inline equity-overlay chart (crosshair, wheel zoom, drag pan,
       //   dbl-click reset, 2B-style key box) into the host the render just emitted.
       if(typeof window.cmpOvlMount==='function')window.cmpOvlMount('cmp-ovl-host');}
-    else if(augurSub==='rank'){content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
+    else if(augurSub==='rank'){
+      // THE VIEW RAIL WORKS FROM RANKINGS TOO. Its buttons were only ever wired inside the
+      //   COMPARE branch, so from this sub-tab they rendered but did nothing - rankings was
+      //   a room you could enter and not leave (owner-reported 2026-08-30, drive-through).
+      content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{
+        const k=b.dataset.cmpmode;
+        if(k==='rank')return;
+        augurSub='cmp';savePref('cmpMode',k);renderApp();};});
+      content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
       const _rgb2=content.querySelector('[data-rankgroupbtn]');if(_rgb2)_rgb2.onclick=()=>{savePref('rankGroup',!APREF.rankGroup);renderApp();};
       content.querySelectorAll('[data-rankgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.rankgrp);if(window._rankGrpOpen.has(k))window._rankGrpOpen.delete(k);else window._rankGrpOpen.add(k);renderApp();};});}
     else if(augurSub==='lib'){
