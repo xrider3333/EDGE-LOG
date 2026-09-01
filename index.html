@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.435';
+const VERSION='73.436';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.436',date:'2026-08-30',notes:['DENSE CHARTS DRAW SMALL DOTS (owner: the triangles and circles make things hard to read because there are so many of them). Past 250 points every mark becomes a small dot in its family colour, the crowned or chosen one a slightly larger dot with a white ring, and the status rings stand down - at that count a verdict shape carries nothing a colour does not. Under 250 points the shapes draw exactly as before. Reviewed pre-push; the review two notes - the hover ring scaling with the dot, and a dimmed champion ring fading with its fill - are folded in.']},
 {v:'73.435',date:'2026-08-31',notes:['The ALL CONFIGS draw records its own failure instead of swallowing it - the candidate lines vanished on 73.433 and the silent catch hid why.']},
 {v:'73.433',date:'2026-08-31',notes:['ALL CONFIGS candidate lines draw as one SOLID stroke each now, thinner and fainter - the in-sample/walk-forward dash split the family top lines use was making 37 background lines unreadable.']},
 {v:'73.434',date:'2026-08-31',notes:['ALL CONFIGS candidate lines draw as one SOLID stroke each now, thinner and fainter - the in-sample/walk-forward dash split the family top lines use was making 37 background lines unreadable.']},
@@ -22117,15 +22118,27 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // around it and the two never fight: a thin solid ring means crowned, a dashed
               // green ring means it is running in paper right now, and a row that is both wears
               // both rings at different radii.
-              const lv=_reLiveV(r);
+              // status rings only at report size - on a dense dot chart they are noise
+              const lv=(pts.length>250)?null:_reLiveV(r);
               let ring='';
               if(lv==='crown'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+3.2).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="1.1" opacity="'+(dim?0.22:0.62)+'"/>';
               if(lv==='paper'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+5.6).toFixed(1)+'" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-dasharray="3,3" opacity="'+(dim?0.25:0.9)+'"/>';
               g+='<g data-repoint="'+st.key+':'+r.n+'" style="cursor:pointer">'
-                +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+8).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
-                +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+9).toFixed(1)+'" fill="transparent"/>'
+                +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+((pts.length>250)?7:(sz+8)).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
+                +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+((pts.length>250)?6:(sz+9)).toFixed(1)+'" fill="transparent"/>'
                 +ring
-                +_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)
+                // PLAIN SMALL DOTS ON A DENSE CHART (owner 2026-08-30: "make them small dots,
+                //   the triangles and circles make things hard to read bc theyre so many of
+                //   them"). Past 250 points the verdict SHAPES stop carrying information -
+                //   at that count every candidate is a reference triangle anyway - so each
+                //   point is a small dot in its family colour, and the crowned or chosen one
+                //   is a slightly larger dot with a white ring. Under 250 points the shape
+                //   system draws exactly as before.
+                +((pts.length>250)
+                  ?('<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(champ?'3.4':'2')
+                    +'" fill="'+col+'" fill-opacity="'+(dim?'0.16':(champ?'1':'0.7'))
+                    +(champ?('" stroke="var(--text)" stroke-opacity="'+(dim?'0.3':'1')+'" stroke-width="1.2'):'')+'"/>')
+                  :_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1))
                 +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4+Math.min(_di,6)*10).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
