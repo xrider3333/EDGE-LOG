@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.438';
+const VERSION='73.439';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.439',date:'2026-09-01',notes:['QQQ PAPER BLOTTER FIX: the TIME (ET) column showed clock time only, so rows from different days looked identical once the blotter spanned more than one session. It now shows date + time (e.g. Aug 28 11:00) and the entry column is joined by its own EXIT (ET) column, so entry and exit day/time both read straight off the table for every trade.']},
 {v:'73.438',date:'2026-09-01',notes:['NEW TAB: QQQ PAPER, next to PAPER (BACKTESTER nav). Shows the QQQ shares forward test (tools/qqq_paper.py - ORB, ENGU-Q and NOISE replayed on QQQ using free Yahoo data, no broker, no real money) that the PC runner now syncs on its own roughly every 2 minutes during market hours plus one run after close. Header shows the last sync time and a market-open indicator; one card per leg shows its position (or FLAT), gate model/threshold/last probability and whether it would take the next signal, ORB own opening-range levels, trade counts and total P&L; a cumulative P&L line chart, one line per leg; and a blotter table of the last 200 trades.']},
 {v:'73.437',date:'2026-08-25',notes:['STUDIES BOARD: ROUND 26 - oversample the in-sample, judge by walk-forward (owner direction). THE NASDAQ BOOK: four dip-buying mechanisms on QQQ plus the same four on NQ micros, re-tuned each year on past data only and scored purely out-of-sample - 1,250 trades, profit factor 1.95, profit 10.1 times the worst stretch, 12 of 14 years positive, correlation 0.04 to the live book. Stacked onto the live champion book it lifts risk-adjusted return +35 percent (bar +15) and nearly doubles the money - the first candidate to clear the adopt bar. Weaknesses stated on the study: recent-half MAR 4.3, and the 1999-2010 holdout shows it is a bull-regime edge. Rows 1141 to 1158.','Also on the study: the broad nine-instrument book gets WORSE when re-optimized (fixed simple settings win), and hourly intraday mean reversion is dead on NQ and ES.']},
 {v:'73.436',date:'2026-08-30',notes:['DENSE CHARTS DRAW SMALL DOTS (owner: the triangles and circles make things hard to read because there are so many of them). Past 250 points every mark becomes a small dot in its family colour, the crowned or chosen one a slightly larger dot with a white ring, and the status rings stand down - at that count a verdict shape carries nothing a colour does not. Under 250 points the shapes draw exactly as before. Reviewed pre-push; the review two notes - the hover ring scaling with the dot, and a dimmed champion ring fading with its fill - are folded in.']},
@@ -23667,7 +23668,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const qpLoading=window._qqqPaperLoading;
       const naS=v=>(v===null||v===undefined||v==='')?'n/a':v;
       const qpFmtET=(iso)=>{if(!iso)return 'n/a';try{return new Date(iso).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' ET';}catch(e){return String(iso);}};
-      const qpFmtETTime=(iso)=>{if(!iso)return 'n/a';try{return new Date(iso).toLocaleString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}catch(e){return String(iso);}};
+      // date + time ET (e.g. "Aug 28 11:00") — blotter rows span many days, so clock
+      // time alone made every day's rows look identical (owner catch, live UI review).
+      const qpFmtETTime=(iso)=>{if(!iso)return 'n/a';try{return new Date(iso).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});}catch(e){return String(iso);}};
       const qpMoney=v=>(v===null||v===undefined||isNaN(v))?'n/a':('$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
       const qpNum=(v,d)=>(v===null||v===undefined||isNaN(v))?'n/a':Number(v).toFixed(d===undefined?0:d);
       // market-open indicator, read off the browser clock projected to US/Eastern (RTH 09:30-16:00 Mon-Fri)
@@ -23798,6 +23801,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const legRow=LEGS_QP.find(l=>l[0]===t.leg);
             return '<tr>'
               +'<td>'+qpFmtETTime(t.entry_time)+'</td>'
+              +'<td>'+(t.still_open_at_data_end?'open':qpFmtETTime(t.exit_time))+'</td>'
               +'<td style="color:'+legColor(t.leg)+'">'+naS(legRow?legRow[1]:t.leg)+'</td>'
               +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
               +'<td style="text-align:right">'+naS(t.shares)+'</td>'
@@ -23808,7 +23812,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'</tr>';
           }).join('');
           blotterHtml=tile('<div class="lbl" style="margin-bottom:8px">BLOTTER — newest first ('+blotter.length+' rows'+(blotter.length>=200?', capped at 200':'')+')</div>'
-            +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">GATE P</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+            +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">GATE P</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
         }
 
         body=headerStrip+cardsHtml+chartHtml+blotterHtml;
