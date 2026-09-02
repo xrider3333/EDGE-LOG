@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.450';
+const VERSION='73.451';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.451',date:'2026-09-01',notes:['COMPARE / STUDIES tables read like the 1E ALL table now: a FAMILY column (dot + name in the family colour), the config with its row handle beside it, then MAR / SHARPE / SORTINO / PF / WIN % / EV R in the 1E order. Click a ratio heading to sort every table on it; click again to release.','Zero lines: the 1E scatter and the STUDIES scatter both reach zero on each axis now and draw the zero line - a 0.3 ratio is seen against nothing instead of floating in a cropped range. Under CHAMPION the crosshair is still the champion.']},
 {v:'73.450',date:'2026-09-01',notes:['COMPARE / STUDIES: EV R on 1E configuration rows (gate / tilt / hybrid / recycled hybrid) is the leverage-blind closed form (1 - win%) x (PF - 1) - the same number the run report prints. It was dividing a sized row per-trade dollars by the run one-contract average loss, so a recycled hybrid sized 4.6x read 1.20R on the board against 0.26 in its own report.']},
 {v:'73.448',date:'2026-09-01',notes:['Re-projecting drag: the rebuild now fires straight from the handle release instead of waiting on a resize observer, so it is immediate and deterministic.']},
 {v:'73.447',date:'2026-09-01',notes:['COMPARE / STUDIES: GATE variants now plot on the EV R axis (and print EV R in the tables). A gate row records no per-stage dollars to divide, so EV R was blank and every red dot vanished from that axis; it now falls back to the exact closed form from PF and WIN % - (1 - win%) x (PF - 1) - the same number the 1E matrix prints.']},
@@ -14215,7 +14216,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _missBy=Object.keys(_mb).map(k=>k+' '+_mb[k]).join(' &middot; ');}
       const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
       const pad=(lo,hi,f)=>{const rg=(hi-lo)||Math.abs(hi)||1;return [lo-rg*f,hi+rg*f];};
-      const xr=pad(Math.min.apply(null,xs),Math.max.apply(null,xs),0.08),yr=pad(Math.min.apply(null,ys),Math.max.apply(null,ys),0.10);
+      // both axes always reach ZERO (owner 2026-09-01: "show the zero line for the x/y axis"),
+      //   so a ratio that sits at 0.3 is seen against nothing, not floating in a cropped range.
+      const xr=pad(Math.min(0,Math.min.apply(null,xs)),Math.max(0,Math.max.apply(null,xs)),0.08),yr=pad(Math.min(0,Math.min.apply(null,ys)),Math.max(0,Math.max.apply(null,ys)),0.10);
       const W=560,H=_kaH('1e',236),padL=16,padR=16,padT=18,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
       const X=v=>padL+((v-xr[0])/((xr[1]-xr[0])||1))*Wp,Y=v=>plotB-((v-yr[0])/((yr[1]-yr[0])||1))*plotH;
       let g='';
@@ -14225,8 +14228,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const gx=padL+f*Wp,cx=xr[0]+(xr[1]-xr[0])*f;
         g+='<line x1="'+gx.toFixed(1)+'" y1="'+plotT+'" x2="'+gx.toFixed(1)+'" y2="'+plotB+'" stroke="var(--border)" stroke-width="0.5" opacity="0.25"/>'
           +'<text x="'+gx.toFixed(1)+'" y="'+(plotB+13)+'" text-anchor="middle" font-size="10" fill="var(--text3)">'+ax.fmt(cx)+'</text>';});
-      const zx=(xr[0]<0&&xr[1]>0)?('<line x1="'+X(0).toFixed(1)+'" y1="'+plotT+'" x2="'+X(0).toFixed(1)+'" y2="'+plotB+'" stroke="var(--text4)" stroke-width="0.9"/>'):'';
-      const zy=(yr[0]<0&&yr[1]>0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(padL+Wp)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--text4)" stroke-width="0.9"/>'):'';
+      const zx=(xr[0]<=0&&xr[1]>=0)?('<line x1="'+X(0).toFixed(1)+'" y1="'+plotT+'" x2="'+X(0).toFixed(1)+'" y2="'+plotB+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/>'):'';
+      const zy=(yr[0]<=0&&yr[1]>=0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(padL+Wp)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/>'
+        +'<text x="'+(padL+Wp-2)+'" y="'+(Y(0)-3).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--text4)">0</text>'):'';
       let dots='',rings='';
       pts.forEach(p=>{const col=p.r.col||'var(--text3)',cx=X(p.x).toFixed(1),cy=Y(p.y).toFixed(1),rad=p.r.crowned?6:4.4;
         dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rad+'" fill="'+col+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="1" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
@@ -21216,7 +21220,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reFull=(APREF.resCols==='all');
         // KEY: rank, row, name, PF, $/TRD, MAR, [3 per-year], trades, read = 8 (+3)
         // ALL: adds is, wf, lb, tot, dd (5) and what, run, date, window (4)
-        const _reNCols=(_reFull?17:8)+((_reBasis==='year')?3:0);
+        const _reNCols=(_reFull?21:12)+((_reBasis==='year')?3:0);
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         const _reYrs=(st,rw)=>{const w=_reWinOf(st,rw);if(!w)return null;
           const d=_reDayGap(w.f,w.t);return (d&&d>0)?(d/365.25):null;};
@@ -21633,20 +21637,26 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +(bg?(' title="'+_reEsc(_reBgWhy[rw.tone]||'')+'"'):'')
             +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash('This row has no figure for the stage now selected, so it cannot be ranked on it.'))+'</span>','left')
-            +td('<b style="color:'+col+'">'+rw.n+'</b>','left')
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)
+            +td((function(){const fam=String((rw._cfg&&rw.fam)||'RAW'),fc=_reCfgPal[fam]||'var(--text3)';
+                return '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+fc+';margin-right:5px"></span><span style="color:'+fc+';font-weight:700">'+_reEsc(fam)+'</span>';})(),'left')
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)
               +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')
             +(_reFull?(td(_reCell(st,rw,'is',_reMoney),null,(_reSegsEff.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegsEff.indexOf('wf')>=0)?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegsEff.indexOf('lb')>=0)?em:'')
             +_reTotCell(st,rw)
             +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'">'+_reMoneyPlain(Math.abs(v))+'</span>'))):'')
+            // the ratio block, in the 1E ALL table order: MAR SHARPE SORTINO PF WIN % EV R
+            +td(pddCell)
+            +td((function(){const v=_reShOf(st,rw);return (v==null||!isFinite(v))?_reDash('This row records no Sharpe.'):v.toFixed(2);})())
+            +td((function(){const v=_reSoOf(st,rw);return (v==null||!isFinite(v))?_reDash('This row records no Sortino.'):v.toFixed(2);})())
+            +td((function(){const v=_reNum(rw,'pf');return (v==null||!isFinite(v))?_reDash('This row records no profit factor.'):Math.min(v,99).toFixed(2);})())
+            +td((function(){const v=_reWrOf(st,rw);if(v==null||!isFinite(v))return _reDash('This row records no win rate.');return Math.round((v>1)?v:(v*100))+'%';})())
             // EV IN R sits where PF was (owner 2026-08-28). PF is still on the chart and
             //   still in the READ hover; this column is the leverage-blind one.
             +td((function(){const v=_reEvR(st,rw);
               return (v==null||!isFinite(v))?_reDash('This row records no average losing trade, so expectancy cannot be put in R. Only a run, or a study that has been re-run since 2026-08-28, carries one.'):(v.toFixed(2)+'R');})())
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
-            +td(pddCell)
             +basCells
             +td((()=>{const t=_reTrd(rw);
                 return t?('<span title="'+_reEsc(t.src)+'" style="color:var(--text5);cursor:help">'+Math.round(t.v).toLocaleString()+(t.borrowed?'<span style="opacity:.7">\u00b0</span>':'')+'</span>')
@@ -22127,6 +22137,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   cluster can spread out instead of being flattened by one distant row.
             const ext=k=>{const vs=pts.map(p=>p[k]).slice().sort((a,b)=>a-b);
               let lo=vs[0],hi=vs[vs.length-1];
+              // ABSOLUTE axes always reach zero (owner: "show the zero line for the x/y axis").
+              //   CHAMPION re-centres on the champion, whose zero is the crosshair below.
+              if(!_reRel){lo=Math.min(lo,0);hi=Math.max(hi,0);}
               if(!(hi>lo)){const pad=Math.abs(hi)*0.1||1;lo=hi-pad;hi=hi+pad;}
               const pd=(hi-lo)*0.07;return [lo-pd,hi+pd];};
             const xe=ext('x'),ye=ext('y');
@@ -22153,6 +22166,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(!_reRel&&ye[0]<0&&ye[1]>0){const zy=py(0);
               g+='<line x1="'+L+'" y1="'+zy.toFixed(1)+'" x2="'+R+'" y2="'+zy.toFixed(1)+'" stroke="var(--text5)" stroke-width="1.2" stroke-dasharray="6,4" opacity="0.8"/>'
                 +'<text x="'+(R-4)+'" y="'+(zy-5).toFixed(1)+'" fill="var(--text5)" font-size="10" text-anchor="end">break even</text>';}
+            if(!_reRel&&xe[0]<0&&xe[1]>0){const zx=px(0);
+              g+='<line x1="'+zx.toFixed(1)+'" y1="'+T+'" x2="'+zx.toFixed(1)+'" y2="'+B+'" stroke="var(--text5)" stroke-width="1.2" stroke-dasharray="6,4" opacity="0.8"/>'
+                +'<text x="'+(zx+4).toFixed(1)+'" y="'+(T+10)+'" fill="var(--text5)" font-size="10">zero</text>';}
             // THE CHAMPION CROSSHAIR. Under CHAMPION the champion is at the origin by construction,
             //   so the lines are the two zeros. Under ABSOLUTE nothing is re-centred, so the same
             //   two lines are drawn where the champion actually sits. Either way they mean one
@@ -22718,22 +22734,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   the one in-sample label the pooled studies share (or the plain word when they don't).
         const _reHd=(st,merged)=>{
           const _hd=_reHdCell,_emH=_reEmH,stg=_reSegCap;
+          // a sortable ratio heading: click it to order every table on that column (RESULT order)
+          const _sk=String(APREF.reSortK||'');
+          const _hs=(k,t,tip)=>'<th data-resort="'+k+'" title="'+_reEsc(tip)+'" style="text-align:right;font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+'</th>';
           const basHd=(_reBasis==='year')
               ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers.',_reEmH('is')&&'')
                 +_hd('YEARS',null,'How many years the data window on this row covers.')
                 +_hd('MAR / YR',null,'The per-year profit divided by the worst drawdown.'))
               :'';
           return '<tr>'+_hd('RANK','left','Where this row places among the rows now shown, on the stage and axis selected above.'+(merged?' In ONE TABLE view the ranking runs across every study at once.':''))
-            +_hd('ROW','left','A permanent handle. Row numbers never change and are never reused.')
-            +_hd('NAME','left','The mark beside each name is the same mark the chart uses for that verdict.'+(merged?' The grey tag after a name is the study the row was researched in.':''))
+            +_hd('FAMILY','left','Which 1E family the row belongs to - RAW, GATE, TILT, HYBRID, recycled hybrid or equal-DD hybrid - in the same colour the run report key and the chart use.')
+            +_hd('CONFIG','left','The configuration. The mark beside it is the same mark the chart uses for its verdict; the small grey number is its permanent row handle.'+(merged?' The grey tag after a name is the study the row was researched in.':''))
             +(_reFull?(_hd(st.isLbl||'IN-SAMPLE',null,(st.isLbl==='PRE-LOCKBOX')?'Everything before the lockbox, pooled together.':((merged&&!st.isLbl)?'The first money stage. The pooled studies do not all mean the same thing by it - hover each row figure for its own meaning.':'The stretch the config was tuned on.'),_emH('is'))
             +_hd('WALK-FWD',null,'Data held back while tuning and then tested forward.',_emH('wf'))
             +_hd('LOCKBOX',null,'Never touched until the end. The honest forward read.',_emH('lb'))
             +_hd('TOTAL',null,'The whole run, end to end.',_emH('tot'))
             +_hd('DRAWDOWN',null,'The worst peak-to-trough loss. Printed WITHOUT a minus sign - it is drawn in red for the same reason.',';color:'+_reDn)):'')
+            +_hs('mar','MAR','Profit divided by the worst drawdown, same name as on the RUNBOARD and the 1E matrix. Click to sort.')
+            +_hs('sh','SHARPE','Return over its full volatility. Click to sort.')
+            +_hs('so','SORTINO','Return over its DOWNSIDE deviation only. Click to sort.')
+            +_hs('pf','PF','Profit factor: gross wins divided by gross losses. Click to sort.')
+            +_hs('wr','WIN %','Winning trades as a share of all trades. Click to sort.')
             +_hd('EV R',null,'Expectancy in R: the average trade divided by the average LOSING trade. It is leverage-blind, so a row trading one contract and a row trading ten land on the same number, which raw dollar expectancy cannot do. A dash means the row records no average loss - only a run or a re-run study carries one. The $/TRD column beside it is the same expectancy in dollars.')
             +_hd('$/TRD',null,_rePptTip)
-            +_hd('MAR',null,'Profit divided by the worst drawdown, same name as on the RUNBOARD and the 1E matrix.')
             +basHd
             +_hd('TRADES',null,'How many trades the variant took over its whole run. A small circle marks a count read from the saved run document.')
             +_hd('READ','left','The one-line verdict. Hover it and it prints the whole row.')
@@ -22758,7 +22781,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(_reOrd==='res'){
               // best first on the stage and axis now selected; a row with no figure for it sits
               // last rather than being given a place it did not earn
-              sorted.sort((a,b)=>{const va=_reYv(st,a,com),vb=_reYv(st,b,com);
+              const _skK=String(APREF.reSortK||'');
+              const _skGet={mar:r=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:r=>_reShOf(st,r),so:r=>_reSoOf(st,r),pf:r=>_reNum(r,'pf'),wr:r=>_reWrOf(st,r)}[_skK];
+              sorted.sort((a,b)=>{const va=_skGet?_skGet(a):_reYv(st,a,com),vb=_skGet?_skGet(b):_reYv(st,b,com);
                 if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
             }else{
               // newest first on whichever date DATE names; a row with no such date keeps the
@@ -26908,6 +26933,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
       // RESEARCH board: DATE DISCOVERED / DATE RAN ordering toggle (persisted like every other view pref)
       content.querySelectorAll('[data-resord]').forEach(b=>{b.onclick=()=>{savePref('resOrd',b.dataset.resord);renderApp();};});
+      // a ratio heading click = RESULT order on that column; clicking it again releases it
+      content.querySelectorAll('[data-resort]').forEach(b=>{b.onclick=e=>{e.stopPropagation();const k=b.dataset.resort;
+        savePref('reSortK',(String(APREF.reSortK||'')===k)?'':k);savePref('resOrd','res');renderApp();};});
       content.querySelectorAll('[data-ressplitrun]').forEach(b=>{b.onclick=()=>{savePref('resSplitRun',b.dataset.ressplitrun==='1');renderApp();};});
       // STUDIES board: profit stage, vertical axis and the data-driven filter chips
       // PROFIT STAGE is a set of ticks: click one to add or drop it. The board refuses to
