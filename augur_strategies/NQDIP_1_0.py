@@ -255,7 +255,7 @@ def run_backtest(
         return raw * dollars_per_pt - cost
 
     legs = [("RSI", use_rsi), ("DBL", use_dbl), ("PB", use_pb), ("CAP", use_cap)]
-    pnl_list = []; trade_log = []
+    trade_log = []
     for mech, on in legs:
         if not on:
             continue
@@ -290,19 +290,17 @@ def run_backtest(
                 if d >= de and ex and (d + 1) not in seams:
                     entry_px = float(do[de]); exit_px = float(do[d + 1])
                     pnl = chain(de, d + 1, entry_px)
-                    pnl_list.append(pnl)
-                    if return_trades:
-                        trade_log.append((int(open_bar[de]), int(open_bar[d + 1]), float(pnl), 1,
-                                          entry_px, exit_px))
+                    # always keep the full log: the equity curve (and so the drawdown)
+                    # must be built in EXIT-time order across the four legs, never in
+                    # per-mechanism order.
+                    trade_log.append((int(open_bar[de]), int(open_bar[d + 1]), float(pnl), 1,
+                                      entry_px, exit_px))
                     pos = 0
             d += 1
-    if not pnl_list:
+    if not trade_log:
         return None
-    if return_trades:
-        trade_log.sort(key=lambda t: t[0])
-        pnls = np.array([t[2] for t in trade_log], float)
-    else:
-        pnls = np.array(pnl_list, float)
+    trade_log.sort(key=lambda t: (t[1], t[0]))          # realization (exit) order
+    pnls = np.array([t[2] for t in trade_log], float)
     wins = pnls[pnls > 0]; losses = pnls[pnls < 0]
     gw = float(wins.sum()); gl = float(-losses.sum())
     cum = np.cumsum(pnls); peak = np.maximum.accumulate(cum)
