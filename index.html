@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.445';
+const VERSION='73.446';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.446',date:'2026-09-01',notes:['Aspect-locked charts (1A risk map, 1E scatter and both parallel views, 2B, 2C) RE-PROJECT on drag: pull the handle past the fit height and, when you let go, the chart is rebuilt with a taller plot - same width, every dot and label re-laid at the same size, nothing stretched or cropped. Drag shorter for the reverse. Each chart remembers its shape.','COMPARE / STUDIES: GATE variants show on the SHARPE and SORTINO axes now. Gate records store no equity curve, so the board derived nothing for them and dropped every red dot; it falls back to the SHARPE / SORTINO scalars the engine writes on each gate record (pre-lockbox stretch, the same window as its PF and WIN %).']},
 {v:'73.445',date:'2026-09-01',notes:['EV R row on the TILT and HYBRID tables too (they build their rows separately from GATE, so 73.442 missed them). Heat-shaded like the other ratio rows.']},
 {v:'73.444',date:'2026-09-01',notes:['HOTFIX 2 on 73.442: run reports still failed to draw (_matrixTbl: cannot read map of undefined). The EV R row had been inserted one line past the end of the reward-risk row list, so it sat in the table as a group with no rows. It is inside the list now.']},
 {v:'73.443',date:'2026-09-01',notes:['HOTFIX on 73.442: every run report failed to draw (runDetail: undefined is not a function). The new EV R row on the GATE / TILT / HYBRID tables was built without the heat-map getter every row in those tables must carry; it has one now.']},
@@ -10832,6 +10833,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(o.nPair<o.nAll)o.note=o.nPair+' of '+o.nAll+' saved trades carry an excursion - the rest were sampled out by the engine';
       return o;
     };
+    // A chart that keeps its aspect can still be TALLER: its authored viewBox height is read
+    //   through here, so a height the owner dragged to (APREF.kaH[tag], saved by the chart box
+    //   below) rebuilds the chart re-projected into that shape instead of stretching it.
+    const _kaH=(tag,def)=>{try{const m=APREF.kaH||{};const v=+m[tag];return (v>=110&&v<=1400)?Math.round(v):def;}catch(_e){return def;}};
     const tradeScatterHtml=(sp,mult,tag,scope,ctl)=>{
       if(!sp||sp.nPair<8)return '';
       // v73.225 (owner: "losses arent in the lower left quadrant"): x = reach MINUS heat (favourable
@@ -10842,7 +10847,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),_yr=(Math.max(rmx,0)-Math.min(rmn,0))||1,mn=Math.min(rmn,0)-_yr*0.04,mx=Math.max(rmx,0)+_yr*0.08,span=(mx-mn)||1;
       const _xr=Math.max.apply(null,xs)-Math.min(0,Math.min.apply(null,xs))||1;
       const xmax=Math.max(1,Math.max.apply(null,xs))+_xr*0.04,xmin=Math.min(0,Math.min.apply(null,xs))-_xr*0.03,xspan=(xmax-xmin)||1;
-      const padL=10,padR=66,tickH=34,plotTop=20,H=236,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
+      const padL=10,padR=66,tickH=34,plotTop=20,H=_kaH('2b',236),B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
       const Xv=val=>padL+((val-xmin)/xspan)*Wp,Y=p=>B-((p-mn)/span)*plotH;
       const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);
       const fit=_ols(xs,v);
@@ -10867,7 +10872,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach &#8722; heat (points)</text>';
       const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:xmin,x1:xmax,yt:'usd',y0:mn,y1:mx,px:padL,py:plotTop,pw:Wp,ph:plotH}));
       const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2B')+' · TRADE PNL SCATTER · '+(scope||''),xs:xs.map(x=>+x.toFixed(1)),ys:v.map(x=>Math.round(x)),tip:v.map((p,i)=>'reach '+sp.mfe[i]+'p - heat '+sp.mae[i]+'p = '+Math.round(xs[i])+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')),fit:fit?{a:fit.a,b:fit.b,r:fit.r}:null,xl:'reach minus heat - points the trade ran for you, less points it ran against you',yl:'net $ per trade',xf:'pts',yf:'usd',top:rankIdx.slice(0,5).filter(i=>v[i]>0),quad:true}));
-      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
+      const svg='<svg data-keepaspect data-katag="2b" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+quad+g+zero+medL+sdL+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)">'
@@ -10889,7 +10894,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const rmn=Math.min.apply(null,v),rmx=Math.max.apply(null,v),_yr=(Math.max(rmx,0)-Math.min(rmn,0))||1,mn=Math.min(rmn,0)-_yr*0.04,mx=Math.max(rmx,0)+_yr*0.08,span=(mx-mn)||1;
       const _xrr=(Math.max.apply(null,xs)-Math.min(0,Math.min.apply(null,xs)))||1;
       const xmax=Math.max.apply(null,xs)+_xrr*0.04,xmin=Math.min(0,Math.min.apply(null,xs))-_xrr*0.03,xspan=(xmax-xmin)||1;
-      const padL=10,padR=66,tickH=34,plotTop=20,H=236,B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
+      const padL=10,padR=66,tickH=34,plotTop=20,H=_kaH('2bp',236),B=H-tickH,plotH=B-plotTop,W=560,Wp=W-padL-padR;
       const Xv=val=>padL+((val-xmin)/xspan)*Wp,Y=p=>B-((p-mn)/span)*plotH;
       const maxA=Math.max(Math.abs(rmn),Math.abs(rmx))||1,R=p=>1.5+5.5*Math.sqrt(Math.abs(p)/maxA);
       const y0=Y(0);
@@ -10908,7 +10913,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const st=_nice(xspan/7)||1;for(let t=Math.ceil(xmin/st)*st;t<=xmax;t+=st){xt+='<text x="'+Xv(t).toFixed(1)+'" y="'+(B+14)+'" text-anchor="middle" font-size="12" fill="'+(t<0?'#e24b4a':t>0?'#1d9e75':'var(--text3)')+'">'+(t>0?'+':'')+Math.round(t)+'p</text>';}
       xt+='<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net points of the trade</text>';
       const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2B')+' · POINTS vs $ · '+(scope||''),xs:xs.map(x=>+x.toFixed(1)),ys:v.map(x=>Math.round(x)),tip:v.map((p,i)=>(+xs[i].toFixed(1))+'p<br><b>'+fmtUsd(Math.round(p))+'</b>'+(top5.has(i)?'<br>top-5 carrier':'')),fit:{a:0,b:mult,r:1},xl:'net points of the trade',yl:'net $ per trade',xf:'pts',yf:'usd',top:rankIdx.slice(0,5).filter(i=>v[i]>0),quad:true}));
-      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-sc="'+_sc+'">'+quad+g+zero+trend+dots+rings+xt
+      const svg='<svg data-keepaspect data-katag="2bp" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-sc="'+_sc+'">'+quad+g+zero+trend+dots+rings+xt
         +'<text x="'+(W-6)+'" y="'+(plotTop+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotTop+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">net $ / trade</text></svg>';
       const cc=C?(C.st==='bad'?'var(--red)':C.st==='warn'?'var(--yellow)':C.st==='ok'?'var(--green)':'var(--text4)'):'var(--text4)';
       const foot=C?('<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:8px;color:var(--text4)"><span style="color:'+cc+';font-weight:700">'+(C.net>0?('TOP 5 = '+Math.round(C.s5*100)+'% OF NET'):'NET NEGATIVE')+'</span>'+(C.net>0?'<span>top 1 '+Math.round(C.s1*100)+'% · top 10 '+Math.round(C.s10*100)+'%</span><span>without top 5: <b style="color:'+(C.wo5>0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(C.wo5))+'</b></span>':'')+'<span>'+n+' trades</span></div>'):'';
@@ -10920,7 +10925,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const mae=mm.mae.map(Math.abs),mfe=mm.mfe.map(Math.abs),won=mm.won||[],n=mae.length;
       const aligned=Array.isArray(win)&&win.length===n;const pn=aligned?win.map(x=>x*mult):null;
       const maxMae=Math.max.apply(null,mae)||1,maxMfe=Math.max.apply(null,mfe)||1;
-      const W=560,H=236,padL=10,padR=66,plotT=14,tickRow=34,B=H-tickRow,plotH=B-plotT,Wp=W-padL-padR;
+      const W=560,H=_kaH('2c',236),padL=10,padR=66,plotT=14,tickRow=34,B=H-tickRow,plotH=B-plotT,Wp=W-padL-padR;
       const X=a=>padL+(a/maxMae)*Wp,Y=f=>B-(f/maxMfe)*plotH;
       const maxA=pn?(Math.max.apply(null,pn.map(Math.abs))||1):1,R=i=>pn?(1.5+5.5*Math.sqrt(Math.abs(pn[i])/maxA)):2.6;
       const pct=(arr,p)=>{const s=arr.slice().sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.floor(p*s.length))];};
@@ -10939,7 +10944,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const nW=won.filter(Boolean).length;
       const _xh=encodeURIComponent(JSON.stringify({xt:'num',x0:0,x1:maxMae,yt:'num',y0:0,y1:maxMfe,px:padL,py:plotT,pw:Wp,ph:plotH}));
       const _sc=encodeURIComponent(JSON.stringify({t:(tag||'2C')+' · HEAT vs REACH · '+(scope||''),xs:mae.map(x=>+x.toFixed(1)),ys:mfe.map(x=>+x.toFixed(1)),w:won.map(x=>x?1:0),tip:mae.map((a,i)=>'heat '+a+'p · reach '+mfe[i]+'p<br>'+(won[i]?'<b style=color:#1d9e75>won</b>':'<b style=color:#e24b4a>lost</b>')+(pn?' · '+fmtUsd(Math.round(pn[i])):'')),fit:fit?{a:fit.a,b:fit.b,r:fit.r}:null,xl:'heat - points price ran AGAINST the trade (MAE)',yl:'reach - points price ran FOR the trade (MFE)',xf:'pts',yf:'pts',top:[],quad:false,guides:[].concat(s90!=null?[{ax:'x',v:s90,lab:'stop '+s90+'p (keeps 90% of winners)',col:'#ff6b6b'}]:[],[{ax:'y',v:f75,lab:'target '+f75+'p (75% reach it)',col:'#2fd598'}])}));
-      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+g+trend+guides+dots+xt
+      const svg='<svg data-keepaspect data-katag="2c" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto;cursor:zoom-in" data-xh="'+_xh+'" data-sc="'+_sc+'">'+g+trend+guides+dots+xt
         +'<text x="'+(W-6)+'" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 '+(W-6)+' '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">reach &#8722; MFE (points for)</text>'
         +'<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(B+29)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text2)">heat &#8722; MAE (points against)'+(pn?'':' · dots not sized: per-trade $ and excursions were saved at different sample sizes')+'</text></svg>';
       const foot='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:8px;color:var(--text4)">'+(fit?'<span style="color:var(--yellow)">reach vs heat: slope '+fit.b.toFixed(2)+' · r '+fit.r.toFixed(2)+'</span>':'')+'<span>'+nW+' won / '+(n-nW)+' lost'+(pn?' · dot area = |$|':'')+'</span></div>';
@@ -13187,7 +13192,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // H is authored against W for a ~2:1 plot. This chart carries data-keepaspect (see
       //   _rsCharts), so that ratio is what actually renders instead of being stretched to fill
       //   the tile - which means the height here IS the on-screen shape, not just a viewBox unit.
-      const W=C2W,H=286;
+      const W=C2W,H=_kaH('1a',286);
       const padL=34,padR=10,padT=10,padB=30;
       const x0=padL,x1=W-padR,y0=padT,y1=H-padB;
       const yTxt=(y,s)=>'<text x="'+(x0-6)+'" y="'+y+'" text-anchor="end" font-size="8" fill="var(--text4)">'+s+'</text>';
@@ -13286,7 +13291,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +_mtxInfoIc(_tip)+trendTxt+'<span>'+_mtxLegend(_allPts)+'</span>'
           +'<span style="margin-left:auto;display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;min-width:0">'+_mtxSampBar()+'</span></div>'
         +'<div style="background:var(--bg1);border-radius:8px;padding:10px;margin-bottom:6px">'
-        +'<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
+        +'<svg data-keepaspect data-katag="1a" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'
         +gridY+gridX+axes+tickY+tickX+trendSvg+dots+xTitle+yTitle+'</svg>'
         +'</div>';
     };
@@ -14082,7 +14087,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(A.length<2)return '';
       A.forEach(a=>{const vs=P.map(x=>a.get(x)).filter(v=>v!=null&&isFinite(v));
         a.lo=Math.min.apply(null,vs);a.hi=Math.max.apply(null,vs);if(a.hi===a.lo){a.hi=a.lo+(Math.abs(a.lo)||1)*0.5;a.lo=a.lo-(Math.abs(a.lo)||1)*0.5;a.flat=true;}});
-      const W=560,H=232,padL=16,padR=16,padT=30,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
+      const W=560,H=_kaH('1ep',232),padL=16,padR=16,padT=30,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
       const X=i=>padL+(A.length>1?i/(A.length-1):0.5)*Wp;
       const Y=(a,v)=>{let f=(v-a.lo)/((a.hi-a.lo)||1);if(a.inv)f=1-f;return plotB-Math.max(0,Math.min(1,f))*plotH;};
       let ax='';
@@ -14116,7 +14121,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           else if(topIdx[i])lead+=_pl(sg,col,1.8,op);
           else base+=_pl(sg,col,0.9,op);});
       });
-      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+base+lead+crown+'</svg>';
+      const svg='<svg data-keepaspect data-katag="1ep" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+base+lead+crown+'</svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'
         +'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span>'
@@ -14208,7 +14213,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
       const pad=(lo,hi,f)=>{const rg=(hi-lo)||Math.abs(hi)||1;return [lo-rg*f,hi+rg*f];};
       const xr=pad(Math.min.apply(null,xs),Math.max.apply(null,xs),0.08),yr=pad(Math.min.apply(null,ys),Math.max.apply(null,ys),0.10);
-      const W=560,H=236,padL=16,padR=16,padT=18,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
+      const W=560,H=_kaH('1e',236),padL=16,padR=16,padT=18,padB=42,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
       const X=v=>padL+((v-xr[0])/((xr[1]-xr[0])||1))*Wp,Y=v=>plotB-((v-yr[0])/((yr[1]-yr[0])||1))*plotH;
       let g='';
       [0,0.25,0.5,0.75,1].forEach(f=>{const gy=plotB-f*plotH,cv=yr[0]+(yr[1]-yr[0])*f;
@@ -14225,7 +14230,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(p.r.crowned)rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
         if(p.r.big)rings+='<text x="'+cx+'" y="'+(+cy-rad-4).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="800" fill="'+col+'">'+p.r.big+'</text>';});
       const _good=a=>a.inv?'lower is better':'higher is better';
-      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+zx+zy+dots+rings
+      const svg='<svg data-keepaspect data-katag="1e" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+zx+zy+dots+rings
         +'<text x="'+(padL+Wp/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ax.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ax)+'</tspan></text>'
         +'<text x="10" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 10 '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ay.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ay)+'</tspan></text></svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
@@ -14262,7 +14267,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       if(A.length<2)return '';
       A.forEach(a=>{const vs=phases.map(p=>a.get(p)).filter(v=>v!=null&&isFinite(v));
         a.lo=Math.min.apply(null,vs);a.hi=Math.max.apply(null,vs);if(a.hi===a.lo){a.hi=a.lo+(Math.abs(a.lo)||1)*0.5;a.lo=a.lo-(Math.abs(a.lo)||1)*0.5;a.flat=true;}});
-      const W=560,H=214,padL=14,padR=14,padT=30,padB=40,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
+      const W=560,H=_kaH('1eall',214),padL=14,padR=14,padT=30,padB=40,Wp=W-padL-padR,plotT=padT,plotB=H-padB,plotH=plotB-plotT;
       const X=i=>padL+(A.length>1?i/(A.length-1):0.5)*Wp;
       const Y=(a,v)=>{let f=(v-a.lo)/((a.hi-a.lo)||1);if(a.inv)f=1-f;return plotB-Math.max(0,Math.min(1,f))*plotH;};
       let ax='';
@@ -14286,7 +14291,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         pts.forEach(q=>{dots+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="3" fill="'+col+'" stroke="var(--bg2)" stroke-width="1" style="cursor:pointer" data-tip="<b>'+nm+'</b> &middot; '+q[2].nm+'<br><b>'+q[2].fmt(q[3])+'</b>'+(q[2].run?'<br>whole-run number - every phase shares it':'')+'"/>';});
       });
       const leg=phases.map(p=>'<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:700;color:'+(p.col||'var(--text3)')+'"><span style="width:12px;height:2px;background:'+(p.col||'var(--text3)')+';display:inline-block"></span>'+(p.sh_||'')+'</span>').join('');
-      const svg='<svg data-keepaspect viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+lines+dots+'</svg>';
+      const svg='<svg data-keepaspect data-katag="1eall" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+ax+lines+dots+'</svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px">'+leg
         +'<span style="margin-left:auto;font-size:8px;color:var(--text5)">every axis min &rarr; max across the phases &middot; up = better (&#8595; = axis inverted)</span></div>'
@@ -22560,7 +22565,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                         //   or every per-trade figure on a gate would read a shade rich.
                         trd:((c.kept_pre!=null)?(+c.kept_pre+((c.lockbox&&c.lockbox.num_trades)?+c.lockbox.num_trades:0)):null),
                         _wr:((c.pre_wr!=null)?+c.pre_wr:null),_cfg:1,_tab:'GATE',_run:RID,runs:[+RID],
-                        _sh:shCum(c.equity&&c.equity.cum,yrsW),_so:soCum(c.equity&&c.equity.cum,yrsW),
+                        // gates store no curve: the engine scalars (pre-lockbox stretch, the same
+                        //   window as pf / wr above) are the honest fallback, not a blank.
+                        _sh:(function(){const v=shCum(c.equity&&c.equity.cum,yrsW);return v!=null?v:((c.pre_sharpe!=null&&isFinite(+c.pre_sharpe))?+c.pre_sharpe:null);})(),
+                        _so:(function(){const v=soCum(c.equity&&c.equity.cum,yrsW);return v!=null?v:((c.pre_sortino!=null&&isFinite(+c.pre_sortino))?+c.pre_sortino:null);})(),
                         why:{wf:'A gate variant pools its tuning years into the pre-lockbox figure - no separate walk-forward slice is saved.',lb:'This run saved no lockbox slice for this gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
               // THE THREE HYBRID SIZINGS, exactly as the 1E matrix builds its three tabs
               //   (owner 2026-08-28: "raw top ten all the way to the three hybrids - i want
@@ -26292,22 +26300,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         try{const ro=new ResizeObserver(()=>requestAnimationFrame(go));ro.observe(box.parentElement||box);}catch(_e){}};
       const _kaFitOf=box=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0;
         return (w<60||!vw||!vh)?0:Math.max(100,Math.round(w*vh/vw));};
-      const _kaFit=(box,frac)=>{const fit=_kaFitOf(box);if(!fit)return;
-        box.style.maxHeight=fit+'px';
-        const f=(typeof frac==='number'&&frac>=0.2&&frac<=1)?frac:1;
-        box.style.height=Math.max(100,Math.round(fit*f))+'px';};
-      // stored as fraction-of-fit x1000 so it stays meaningful at any column width
-      const _kaPersist=(box,rk)=>{if(!rk)return;let skip=true;
-        const save=()=>{const fit=_kaFitOf(box);if(!fit)return;
-          _saveRszH(rk,Math.max(200,Math.min(1000,Math.round(box.offsetHeight/fit*1000))));};
-        try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}save();});ro.observe(box);}
-        catch(_e){box.addEventListener('pointerup',save);}};
+      // v73.44x: the fit is the RESTING height for the chart AS AUTHORED (its viewBox already
+      //   carries any re-projected height the owner dragged to) - there is no ceiling any more.
+      const _kaFit=(box)=>{const fit=_kaFitOf(box);if(!fit)return;
+        box.style.height=Math.max(100,fit)+'px';};
+      // A drag that leaves the box taller or shorter than the chart fits is a request for a
+      //   DIFFERENT SHAPE: once the box has been still for a moment, the height it landed at is
+      //   turned into a viewBox height for this chart tag (kaH) and the report is rebuilt, so
+      //   the chart is re-projected into that shape - taller plot, same width, nothing
+      //   stretched, nothing cropped. A width change alone re-fits without rebuilding (the
+      //   implied height equals the current one, so nothing is saved).
+      const _kaPersist=(box)=>{let skip=true,_kt=null;
+        const commit=()=>{const w=box.clientWidth||0,vw=+box.dataset.kaw||0,vh=+box.dataset.kah||0,tag=box.dataset.katag||'';
+          if(w<60||!vw||!vh||!tag)return;
+          const Hn=Math.max(110,Math.min(1400,Math.round(vw*box.offsetHeight/w)));
+          if(Math.abs(Hn-vh)<=3)return;
+          const m=Object.assign({},APREF.kaH||{});m[tag]=Hn;savePref('kaH',m);renderApp();};
+        try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}clearTimeout(_kt);_kt=setTimeout(commit,260);});ro.observe(box);}
+        catch(_e){box.addEventListener('pointerup',()=>{clearTimeout(_kt);_kt=setTimeout(commit,260);});}};
       // the column can change width without a re-render (tile splitter, window resize) - refit
       //   then too, else the chart is left floating in whitespace or pinned over its ceiling.
       if(!window._kaFitWired){window._kaFitWired=1;let _kt=null;
         window.addEventListener('resize',()=>{clearTimeout(_kt);_kt=setTimeout(()=>{
-          document.querySelectorAll('.rschart-box[data-kaw]').forEach(b=>{const f=_kaFitOf(b);
-          if(f)_kaFit(b,Math.min(1,b.offsetHeight/f));});},120);});}
+          document.querySelectorAll('.rschart-box[data-kaw]').forEach(b=>_kaFit(b));},120);});}
       const _savedH=rk=>{const v=rk&&APREF.rszH&&APREF.rszH[rk];return (typeof v==='number'&&v>50&&v<1200)?v:null;};
       const _persistResize=(box,rk)=>{if(!rk)return;let skip=true;
         try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}_saveRszH(rk,box.offsetHeight);});ro.observe(box);}
@@ -26361,10 +26376,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           box=document.createElement('div');box.className='rschart-box';
           // first guess only - the rAF below replaces it with the real fit height for this column.
           const _ha=Math.max(110,Math.min(700,Math.round((vh||200)*0.68)));
-          box.dataset.kaw=vw;box.dataset.kah=vh;
-          box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:100px;max-height:'+_ha+'px;border-radius:6px;margin-bottom:2px;overflow:hidden';
+          box.dataset.kaw=vw;box.dataset.kah=vh;box.dataset.katag=svg.getAttribute('data-katag')||'';
+          box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:100px;max-height:1400px;border-radius:6px;margin-bottom:2px;overflow:hidden';
           svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
-          const _gripA=document.createElement('div');_gripA.setAttribute('data-rsrow','');_gripA.title='drag up / down to zoom this chart - it keeps its shape, so the whole drawing scales';
+          const _gripA=document.createElement('div');_gripA.setAttribute('data-rsrow','');_gripA.title='drag up / down: the chart is rebuilt taller or shorter in that shape when you let go - re-projected, never stretched';
           _gripA.style.cssText='height:8px;margin:3px 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
           _gripA.innerHTML='<div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div>';
           let _hostA=box;
@@ -26374,9 +26389,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           _hostA.parentNode.insertBefore(_gripA,_hostA.nextSibling);
           // own key namespace: a height dragged back when these charts were STRETCHED to fill
           //   the tile means something else now, and reusing it would open them wildly zoomed.
-          {const _k0=_dK(_keyOf(box)),_rkA=_k0?('kf'+_k0):null,_svA=_savedH(_rkA);
-           _kaWatch(box,_svA?(_svA/1000):null);
-           _kaPersist(box,_rkA);}
+          _kaWatch(box,null);
+          _kaPersist(box);
         }else{
           svg.setAttribute('preserveAspectRatio','none');
           svg.style.height='100%';svg.style.width='100%';svg.style.display='block';
