@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.437';
+const VERSION='73.438';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.438',date:'2026-09-01',notes:['NEW TAB: QQQ PAPER, next to PAPER (BACKTESTER nav). Shows the QQQ shares forward test (tools/qqq_paper.py - ORB, ENGU-Q and NOISE replayed on QQQ using free Yahoo data, no broker, no real money) that the PC runner now syncs on its own roughly every 2 minutes during market hours plus one run after close. Header shows the last sync time and a market-open indicator; one card per leg shows its position (or FLAT), gate model/threshold/last probability and whether it would take the next signal, ORB own opening-range levels, trade counts and total P&L; a cumulative P&L line chart, one line per leg; and a blotter table of the last 200 trades.']},
 {v:'73.437',date:'2026-08-25',notes:['STUDIES BOARD: ROUND 26 - oversample the in-sample, judge by walk-forward (owner direction). THE NASDAQ BOOK: four dip-buying mechanisms on QQQ plus the same four on NQ micros, re-tuned each year on past data only and scored purely out-of-sample - 1,250 trades, profit factor 1.95, profit 10.1 times the worst stretch, 12 of 14 years positive, correlation 0.04 to the live book. Stacked onto the live champion book it lifts risk-adjusted return +35 percent (bar +15) and nearly doubles the money - the first candidate to clear the adopt bar. Weaknesses stated on the study: recent-half MAR 4.3, and the 1999-2010 holdout shows it is a bull-regime edge. Rows 1141 to 1158.','Also on the study: the broad nine-instrument book gets WORSE when re-optimized (fixed simple settings win), and hourly intraday mean reversion is dead on NQ and ES.']},
 {v:'73.436',date:'2026-08-30',notes:['DENSE CHARTS DRAW SMALL DOTS (owner: the triangles and circles make things hard to read because there are so many of them). Past 250 points every mark becomes a small dot in its family colour, the crowned or chosen one a slightly larger dot with a white ring, and the status rings stand down - at that count a verdict shape carries nothing a colour does not. Under 250 points the shapes draw exactly as before. Reviewed pre-push; the review two notes - the hover ring scaling with the dot, and a dimmed champion ring fading with its fill - are folded in.']},
 {v:'73.435',date:'2026-08-31',notes:['The ALL CONFIGS draw records its own failure instead of swallowing it - the candidate lines vanished on 73.433 and the silent catch hid why.']},
@@ -1355,8 +1356,8 @@ const LOG_TABS=['overview','trades','analytics','import_export','journal'];
 // RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
 //   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
 //   rail navigates to it - it is simply not offered as a top-level tab as well.
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper2','PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
-const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',paper:'◷',paper2:'◑',ref:'◈',research:'◎',set:'◆'};
+const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper2','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
+const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',paper:'◷',paper2:'◑',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
   'WIN RATE':{info:'% of trades that are profitable. Must be paired with good R:R — a 40% WR can be profitable with 2R+.',warn:v=>v<0.4?'danger':v<0.5?'warn':null,msg:v=>v<0.4?'Win rate below 40% — review entries':'Below 50% — ensure R:R compensates'},
@@ -2148,6 +2149,27 @@ function loadPaper(uidArg,force){
   }).catch(e=>{
     window._paperErr=String((e&&e.message)||e);window._paperLoading=false;window._paperLoaded=true;
     if(activeTab==='augur'&&(augurSub==='paper'||augurSub==='paper2'))renderApp();
+  });
+}
+// ── QQQ PAPER — one-shot fetch of the single doc the runner publishes (see
+//    api/qqq_paper_publish.py), NOT a listener (same Spark-quota reasoning as
+//    loadPaper above). Cached in window._qqqPaper; the tab REFRESH button forces
+//    a re-fetch. The runner republishes this doc roughly every 2 minutes during
+//    market hours, so a manual refresh is the only way to see a fresher read
+//    between polls.
+function loadQqqPaper(uidArg,force){
+  if(!force&&window._qqqPaperLoaded)return;
+  if(window._qqqPaperLoading)return;
+  const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
+  if(!db||!u)return;
+  window._qqqPaperLoading=true;window._qqqPaperErr=null;
+  db.collection('users').doc(u).collection('meta').doc('qqq_paper').get().then(d=>{
+    window._qqqPaper=d.exists?d.data():null;
+    window._qqqPaperLoaded=true;window._qqqPaperLoading=false;
+    if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
+  }).catch(e=>{
+    window._qqqPaperErr=String((e&&e.message)||e);window._qqqPaperLoading=false;window._qqqPaperLoaded=true;
+    if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
   });
 }
 function _libDownload(name,content){try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));a.download=name||'strategy.txt';document.body.appendChild(a);a.click();a.remove();}catch(e){}}
@@ -14802,8 +14824,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=_exExpert||EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.display=on?'':'none';});};
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
-    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',rank:'▤',paper:'◷',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
+    const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',rank:'▤',paper:'◷',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
     // 0–100 robustness score: blends OOS strength (DSR, walk-forward, lockbox), PF, sample.
     const scoreRun=(r)=>{
       if(r.validate){const V=r.validate;let s=(V.n_pass/(V.n_gates||5))*60;if(V.lockbox&&V.lockbox.pass)s+=20;s+=Math.max(0,Math.min(1,V.wfe||0))*10;if(V.dsr!=null)s+=Math.max(0,Math.min(1,V.dsr))*10;return Math.round(Math.max(0,Math.min(100,s)));}
@@ -23634,6 +23656,163 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
         +'<div class="lbl" style="margin:22px 0 6px">WALK-FORWARD STUDIES</div>'
         +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Saved walk-forward studies will render here once the runner syncs the <code>augur_research/</code> folder. The validation-methodology reference now lives in the REFERENCE tab.</div>';
+    }else if(augurSub==='qqqpaper'){
+      // ── QQQ PAPER — monitors tools/qqq_paper.py (three crowned NQ strategies replayed
+      // on QQQ shares via free yfinance data), published by api/qqq_paper_publish.py to
+      // ONE doc: users/{uid}/meta/qqq_paper. Same guarantee as the NQ PAPER tab — signals
+      // only, nothing here ever touches a broker or real money.
+      if(!window._qqqPaperLoaded&&!window._qqqPaperLoading)loadQqqPaper();
+      const QP=window._qqqPaper||null;
+      const qpErr=window._qqqPaperErr;
+      const qpLoading=window._qqqPaperLoading;
+      const naS=v=>(v===null||v===undefined||v==='')?'n/a':v;
+      const qpFmtET=(iso)=>{if(!iso)return 'n/a';try{return new Date(iso).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false})+' ET';}catch(e){return String(iso);}};
+      const qpFmtETTime=(iso)=>{if(!iso)return 'n/a';try{return new Date(iso).toLocaleString('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}catch(e){return String(iso);}};
+      const qpMoney=v=>(v===null||v===undefined||isNaN(v))?'n/a':('$'+Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+      const qpNum=(v,d)=>(v===null||v===undefined||isNaN(v))?'n/a':Number(v).toFixed(d===undefined?0:d);
+      // market-open indicator, read off the browser clock projected to US/Eastern (RTH 09:30-16:00 Mon-Fri)
+      let mOpen=false,mLabel='CLOSED';
+      try{
+        const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour12:false,weekday:'short',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date());
+        const g=t=>{const p=parts.find(x=>x.type===t);return p?p.value:'';};
+        const wd=g('weekday'),hh=+g('hour'),mm=+g('minute');
+        const wdOk=['Mon','Tue','Wed','Thu','Fri'].indexOf(wd)>=0;
+        const mins=hh*60+mm;
+        mOpen=wdOk&&mins>=(9*60+30)&&mins<(16*60);
+        mLabel=mOpen?'MARKET OPEN':'MARKET CLOSED';
+      }catch(e){}
+      const LEGS_QP=[['ORB_234','ORB'],['ENGUQ_149','ENGU-Q'],['NOISE_243','NOISE']];
+      const legColor=k=>({ORB_234:'var(--blue)',ENGUQ_149:'var(--purple)',NOISE_243:'var(--green)'}[k]||'var(--text3)');
+
+      const headerStrip=tile(
+        '<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">'
+        +'<div><div class="lbl" style="margin-bottom:4px">QQQ PAPER — LIVE FORWARD TEST</div>'
+        +'<div style="font-size:var(--fsxs);color:var(--text3)">Three crowned NQ strategies (ORB, ENGU-Q, NOISE) replayed on QQQ shares. No broker, no real money — signals only.</div></div>'
+        +'<span style="flex:1"></span>'
+        +'<span style="display:flex;align-items:center;gap:6px;font-size:var(--fsxs);color:'+(mOpen?'var(--green)':'var(--text4)')+'"><span style="width:8px;height:8px;border-radius:50%;background:'+(mOpen?'var(--green)':'var(--text5)')+'"></span>'+mLabel+'</span>'
+        +'<span style="font-size:var(--fsxs);color:var(--text4)">last sync: '+(QP?qpFmtET(QP.generated_at):'n/a')+'</span>'
+        +'<button class="btn-ghost" data-qqqrefresh style="border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:var(--fsxs)">'+(qpLoading?'LOADING…':'⟳ REFRESH')+'</button>'
+        +'</div>',10);
+
+      if(qpErr){
+        body=headerStrip+tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qpErr).replace(/</g,'&lt;')+'</div>');
+      }else if(!QP){
+        body=headerStrip+tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:20px">'+(qpLoading?'loading…':'no QQQ paper doc yet — the runner publishes users/{uid}/meta/qqq_paper on its first market-hours sync (roughly every 2 minutes, Mon-Fri 09:28-16:05 ET, plus a final run just after close)')+'</div>');
+      }else{
+        const legs=QP.legs||{};
+        const cum=QP.cum_pnl||{};
+        const blotter=QP.blotter||[];
+
+        // per-leg cards
+        let cardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
+        LEGS_QP.forEach(([key,label])=>{
+          const L=legs[key];
+          const col=legColor(key);
+          if(!L){cardsHtml+='<div style="flex:1 1 300px;min-width:260px;background:var(--bg2);border-radius:10px;padding:12px 14px"><div style="font-size:13px;font-weight:700;color:'+col+'">'+label+'</div><div style="font-size:var(--fsxs);color:var(--text5);margin-top:6px">no data</div></div>';return;}
+          if(L.error){cardsHtml+='<div style="flex:1 1 300px;min-width:260px;background:var(--bg2);border-radius:10px;padding:12px 14px"><div style="font-size:13px;font-weight:700;color:'+col+'">'+label+'</div><div style="font-size:var(--fsxs);color:var(--red);margin-top:6px">'+String(L.error).replace(/</g,'&lt;')+'</div></div>';return;}
+          const legTrades=blotter.filter(t=>t.leg===key);
+          const totalPnl=(cum[key]&&cum[key].length)?cum[key][cum[key].length-1].cum_pnl:legTrades.reduce((s,t)=>s+(t.pnl_usd||0),0);
+          let posHtml;
+          if(L.open_trade){
+            const ot=L.open_trade;
+            posHtml='<div style="color:var(--yellow)">OPEN — '+String(ot.side||'').toUpperCase()+' '+naS(ot.shares)+'sh @ '+qpMoney(ot.entry_px)+'<br>entered '+qpFmtET(ot.entry_time)+'<br>stop n/a · target n/a (engine tracks fills only, not resting stop/target levels)</div>';
+          }else{
+            posHtml='<div style="color:var(--text4)">FLAT</div>';
+          }
+          let gateHtml='';
+          if(L.gate){
+            const g=L.gate;
+            gateHtml='<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text3);line-height:1.6">'
+              +'<b>GATE</b> '+naS(g.model)+' @ '+naS(g.threshold)+'<br>'
+              +'last-bar prob '+qpNum(g.last_bar_prob,3)+' · would allow next entry: '+(g.would_allow_next_entry?'<span style="color:var(--green)">YES</span>':'<span style="color:var(--red)">NO</span>')
+              +(g.size_mult_if_taken!=null?' · size×'+qpNum(g.size_mult_if_taken,2):'')
+              +'</div>';
+          }else if(L.gate_note){
+            gateHtml='<div style="margin-top:8px;font-size:var(--fsxs);color:var(--yellow)">'+String(L.gate_note).replace(/</g,'&lt;')+'</div>';
+          }else{
+            gateHtml='<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">RAW — no gate on this leg</div>';
+          }
+          let orbHtml='';
+          if(key==='ORB_234'&&L.today_orb){
+            const o=L.today_orb;
+            orbHtml='<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text3);line-height:1.6"><b>TODAY’S ORB</b> '+naS(o.session_date)
+              +(o.or_high!=null?('<br>OR '+qpMoney(o.or_low)+' – '+qpMoney(o.or_high)+' (width '+qpMoney(o.range_width)+')'
+                +'<br>breakout up '+qpMoney(o.breakout_up_level)+' · down '+qpMoney(o.breakout_down_level)
+                +'<br>first-candle dir: '+naS(o.first_candle_dir)):(o.note?'<br>'+String(o.note).replace(/</g,'&lt;'):''))
+              +'</div>';
+          }
+          cardsHtml+='<div style="flex:1 1 300px;min-width:260px;background:var(--bg2);border-radius:10px;padding:12px 14px;border-left:3px solid '+col+'">'
+            +'<div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13px;font-weight:700;color:'+col+'">'+label+'</div>'
+            +'<div style="font-size:14px;font-weight:700;color:'+(totalPnl>=0?'var(--green)':'var(--red)')+'">'+qpMoney(totalPnl)+'</div></div>'
+            +'<div style="font-size:var(--fsxs);color:var(--text4);margin-top:2px">as of '+qpFmtET(L.asof)+' · '+naS(L.bars_loaded)+' bars</div>'
+            +'<div style="margin-top:8px;font-size:var(--fsxs)">'+posHtml+'</div>'
+            +'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text3)">trades: '+naS(L.closed_trades)+' closed'
+              +(L.raw_trades!=null?' / '+L.raw_trades+' raw':'')
+              +(L.gap_skipped?(' · '+L.gap_skipped+' gap-skipped'):'')
+              +(L.gate_skipped?(' · '+L.gate_skipped+' gate-skipped'):'')
+              +'</div>'
+            +orbHtml+gateHtml
+            +'</div>';
+        });
+        cardsHtml+='</div>';
+
+        // cumulative P&L chart — simple inline SVG, one polyline per leg
+        let chartHtml='';
+        {
+          const allDates=[...new Set(LEGS_QP.flatMap(([k])=>(cum[k]||[]).map(p=>p.date)))].sort();
+          if(allDates.length){
+            const W=760,H=220,padL=54,padR=14,padT=10,padB=22;
+            const plotW=W-padL-padR,plotH=H-padT-padB;
+            let ymin=0,ymax=0;
+            LEGS_QP.forEach(([k])=>{(cum[k]||[]).forEach(p=>{ymin=Math.min(ymin,p.cum_pnl);ymax=Math.max(ymax,p.cum_pnl);});});
+            if(ymin===ymax){ymin-=10;ymax+=10;}
+            const x=i=>padL+(allDates.length<=1?0:(i/(allDates.length-1))*plotW);
+            const y=v=>padT+plotH-((v-ymin)/(ymax-ymin))*plotH;
+            let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:'+W+'px">';
+            svg+='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="var(--border)" stroke-dasharray="3,3"/>';
+            [ymin,0,ymax].forEach(v=>{svg+='<text x="4" y="'+(y(v)+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+qpMoney(v)+'</text>';});
+            LEGS_QP.forEach(([k,label])=>{
+              const series=cum[k]||[];if(!series.length)return;
+              const dMap={};series.forEach(p=>{dMap[p.date]=p.cum_pnl;});
+              let last=0,pts=[];
+              allDates.forEach((d,i)=>{if(dMap[d]!==undefined)last=dMap[d];if(dMap[d]!==undefined||i===allDates.length-1)pts.push(x(i).toFixed(1)+','+y(last).toFixed(1));});
+              svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+legColor(k)+'" stroke-width="2"/>';
+            });
+            svg+='<text x="'+padL+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)">'+allDates[0]+'</text>';
+            svg+='<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="end">'+allDates[allDates.length-1]+'</text>';
+            svg+='</svg>';
+            const legend=LEGS_QP.map(([k,label])=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+legColor(k)+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>').join('');
+            chartHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE P&amp;L BY LEG</div>'+svg+'<div style="margin-top:6px">'+legend+'</div>');
+          }else{
+            chartHtml=tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no closed trades yet</div>');
+          }
+        }
+
+        // blotter — newest first (doc already ships newest-first)
+        let blotterHtml;
+        if(!blotter.length){
+          blotterHtml=tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>');
+        }else{
+          const rows=blotter.map(t=>{
+            const pnl=t.pnl_usd;
+            const legRow=LEGS_QP.find(l=>l[0]===t.leg);
+            return '<tr>'
+              +'<td>'+qpFmtETTime(t.entry_time)+'</td>'
+              +'<td style="color:'+legColor(t.leg)+'">'+naS(legRow?legRow[1]:t.leg)+'</td>'
+              +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
+              +'<td style="text-align:right">'+naS(t.shares)+'</td>'
+              +'<td style="text-align:right">'+qpMoney(t.entry_px)+'</td>'
+              +'<td style="text-align:right">'+(t.still_open_at_data_end?'open':qpMoney(t.exit_px))+'</td>'
+              +'<td style="text-align:right;color:'+((pnl||0)>=0?'var(--green)':'var(--red)')+'">'+qpMoney(pnl)+'</td>'
+              +'<td style="text-align:right">'+(t.gate_prob!=null?qpNum(t.gate_prob,3):'n/a')+'</td>'
+              +'</tr>';
+          }).join('');
+          blotterHtml=tile('<div class="lbl" style="margin-bottom:8px">BLOTTER — newest first ('+blotter.length+' rows'+(blotter.length>=200?', capped at 200':'')+')</div>'
+            +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">GATE P</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+        }
+
+        body=headerStrip+cardsHtml+chartHtml+blotterHtml;
+      }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
       // data daily and logs the trades it would have taken (no real money). Fields drift
@@ -27097,6 +27276,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         augurLibSel=files[i];augurLibMsg='';augurLibDel=false;augurMenu='';window._libFocusList=true;renderApp();
       };
       document.addEventListener('keydown',window._libKeyH);
+    }
+    else if(augurSub==='qqqpaper'){
+      const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqPaper(null,true);renderApp();};
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};

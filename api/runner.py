@@ -38,6 +38,11 @@ try:
 except Exception as _e:
     _paper = None
     print(f"[paper] import skipped: {type(_e).__name__}: {_e}")
+try:
+    from . import qqq_paper_publish as _qqq_paper
+except Exception as _e:
+    _qqq_paper = None
+    print(f"[qqq_paper] import skipped: {type(_e).__name__}: {_e}")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
@@ -1592,6 +1597,10 @@ def main(argv=None):
             print(f"Webull trade sync: {a.webull_keys} "
                   f"({'keys found' if _wb_ok else 'not configured yet — paste App Key/Secret into the file'}), "
                   f"once per NY day")
+        if _qqq_paper is not None:
+            print("QQQ paper (tools/qqq_paper.py): re-syncs ~every 2min during market "
+                  "hours (Mon-Fri 09:28-16:05 ET) + one final post-close run, "
+                  "publishes users/{uid}/meta/qqq_paper")
         if a.sync_runs or a.watch:
             print("syncing run history + meta…")
             try:
@@ -1781,6 +1790,17 @@ def main(argv=None):
                     _paper.maybe_run_eod(q)
                 except Exception as e:
                     print(f"[paper] hook error: {type(e).__name__}: {e}")
+            # QQQ paper (tools/qqq_paper.py) — re-syncs the three crowned legs on QQQ
+            # shares roughly every 2 minutes during market hours, plus one final run
+            # just after close, and publishes ONE Firestore doc per uid
+            # (users/{uid}/meta/qqq_paper) for the QQQ PAPER web tab to read.
+            # Self-throttled and market-hours-gated inside maybe_run(); this call is a
+            # cheap no-op the rest of the day. See api/qqq_paper_publish.py.
+            if a.firestore and _qqq_paper is not None:
+                try:
+                    _qqq_paper.maybe_run(q)
+                except Exception as e:
+                    print(f"[qqq_paper] hook error: {type(e).__name__}: {e}")
             # Data-freshness watchdog. Hourly, one tiny doc per uid — the NQ 10s capture
             # died 2026-08-11 and the Yahoo top-up had been off for six weeks, and neither
             # surfaced anywhere the owner looks. See api/data_health.py.
