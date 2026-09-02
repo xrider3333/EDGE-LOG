@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.449';
+const VERSION='73.450';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,7 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.449',date:'2026-09-01',notes:['COMPARE / STUDIES: EV R on 1E configuration rows (gate / tilt / hybrid / recycled hybrid) is the leverage-blind closed form (1 - win%) x (PF - 1) - the same number the run report prints. It was dividing a sized row per-trade dollars by the run one-contract average loss, so a recycled hybrid sized 4.6x read 1.20R on the board against 0.26 in its own report.']},
+{v:'73.450',date:'2026-09-01',notes:['COMPARE / STUDIES: EV R on 1E configuration rows (gate / tilt / hybrid / recycled hybrid) is the leverage-blind closed form (1 - win%) x (PF - 1) - the same number the run report prints. It was dividing a sized row per-trade dollars by the run one-contract average loss, so a recycled hybrid sized 4.6x read 1.20R on the board against 0.26 in its own report.']},
 {v:'73.448',date:'2026-09-01',notes:['Re-projecting drag: the rebuild now fires straight from the handle release instead of waiting on a resize observer, so it is immediate and deterministic.']},
 {v:'73.447',date:'2026-09-01',notes:['COMPARE / STUDIES: GATE variants now plot on the EV R axis (and print EV R in the tables). A gate row records no per-stage dollars to divide, so EV R was blank and every red dot vanished from that axis; it now falls back to the exact closed form from PF and WIN % - (1 - win%) x (PF - 1) - the same number the 1E matrix prints.']},
 {v:'73.446',date:'2026-09-01',notes:['Aspect-locked charts (1A risk map, 1E scatter and both parallel views, 2B, 2C) RE-PROJECT on drag: pull the handle past the fit height and, when you let go, the chart is rebuilt with a taller plot - same width, every dot and label re-laid at the same size, nothing stretched or cropped. Drag shorter for the reverse. Each chart remembers its shape.','COMPARE / STUDIES: GATE variants show on the SHARPE and SORTINO axes now. Gate records store no equity curve, so the board derived nothing for them and dropped every red dot; it falls back to the SHARPE / SORTINO scalars the engine writes on each gate record (pre-lockbox stretch, the same window as its PF and WIN %).']},

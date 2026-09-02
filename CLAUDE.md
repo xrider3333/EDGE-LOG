@@ -355,6 +355,15 @@ shipped in v53.3 (an opening HTML tag missing its closing `>` immediately follow
 - Exit 2 (INCONCLUSIVE) is a non-blocking tooling warning (e.g. Chrome not found, or the
   headless dump timed out) — the push is allowed through with a warning printed.
 - Emergency override (only if the owner explicitly asks for it): `git push --no-verify`.
+- `wt.py ship` runs FOUR MORE gates after the boot gate whenever `index.html` changed, because a
+  view can crash behind a green boot gate (it has, repeatedly): `tools/studies_render_probe.py`
+  (COMPARE > STUDIES), `tools/paper_render_probe.py` (PAPER / PAPER *),
+  `tools/report_render_probe.py` (the RESULTS run report, rendered from the captured run in
+  `tools/fixtures/run_report.json` - fails on any `runDetail failed` console.error or uncaught
+  exception; added 2026-09-02 after v73.367 / v73.442 / v73.443 each blanked every run report on
+  the live site), and `tools/studies_registry_check.py` (row-number uniqueness). Same exit
+  codes: 1 blocks, 2 warns. Touched the run report? Run `python tools/report_render_probe.py`
+  by hand before shipping.
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.

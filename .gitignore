@@ -79,3 +79,5 @@ tools/_allpools_probe.html
 
 # paper_render_probe.py debug dump (PAPERPROBE_DUMP=1)
 _paperprobe_dump.json
+# report_render_probe.py debug dump (REPORTPROBE_DUMP=1)
+_reportprobe_dump.json

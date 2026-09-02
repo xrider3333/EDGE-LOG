@@ -20,6 +20,7 @@ USAGE
 -----
   python tools/wt.py new  <name>     create + print the worktree path to cd into
   python tools/wt.py ship [name]     rebase onto origin/main, fix VERSION, preflight, push
+                                     (gates: boot, STUDIES, PAPER, run REPORT, row numbers)
   python tools/wt.py list            show every session worktree
   python tools/wt.py drop <name>     remove a worktree (refuses if it has uncommitted work)
 
@@ -231,6 +232,25 @@ def cmd_ship(name, message):
         if r.returncode == 1:
             sys.stderr.write(out)
             raise SystemExit('paper render gate FAILED - not pushing')
+
+    # REPORT GATE (2026-09-02): the RESULTS run report. The boot gate never opens a report,
+    # and the report has shipped broken behind a green boot gate THREE times in a week
+    # (v73.367 _reXNm undefined; v73.442 an _hRow without its heat getter; v73.443 the hotfix's
+    # own EV R row outside the row list). Each blanked every run report on the live site until
+    # a hotfix. report_render_probe.py injects one real captured validate run
+    # (tools/fixtures/run_report.json, gate_validate with candidates / tilts / hybrids) into
+    # runHistory, renders the report through renderApp exactly as a PAST RUNS click does, and
+    # fails on any "runDetail failed" console.error, any uncaught exception, or the "couldn't
+    # render" fallback card. Only runs when index.html changed. INCONCLUSIVE never blocks.
+    rp = os.path.join(wt, 'tools', 'report_render_probe.py')
+    if touched_index.strip() and os.path.isfile(rp):
+        r = subprocess.run([sys.executable, rp], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        print(out.strip().splitlines()[0] if out.strip() else '(report probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('run-report render gate FAILED - not pushing')
 
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
