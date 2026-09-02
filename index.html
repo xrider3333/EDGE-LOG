@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.451';
+const VERSION='73.452';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.452',date:'2026-09-01',notes:['FIX on 73.451: clicking a ratio heading now reorders the pooled ONE TABLE as well - it sorts through a second path that the first cut missed, so the arrow lit up and nothing moved.']},
 {v:'73.451',date:'2026-09-01',notes:['COMPARE / STUDIES tables read like the 1E ALL table now: a FAMILY column (dot + name in the family colour), the config with its row handle beside it, then MAR / SHARPE / SORTINO / PF / WIN % / EV R in the 1E order. Click a ratio heading to sort every table on it; click again to release.','Zero lines: the 1E scatter and the STUDIES scatter both reach zero on each axis now and draw the zero line - a 0.3 ratio is seen against nothing instead of floating in a cropped range. Under CHAMPION the crosshair is still the champion.']},
 {v:'73.450',date:'2026-09-01',notes:['COMPARE / STUDIES: EV R on 1E configuration rows (gate / tilt / hybrid / recycled hybrid) is the leverage-blind closed form (1 - win%) x (PF - 1) - the same number the run report prints. It was dividing a sized row per-trade dollars by the run one-contract average loss, so a recycled hybrid sized 4.6x read 1.20R on the board against 0.26 in its own report.']},
 {v:'73.448',date:'2026-09-01',notes:['Re-projecting drag: the rebuild now fires straight from the handle release instead of waiting on a resize observer, so it is immediate and deterministic.']},
@@ -22877,7 +22878,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             :String(it.r.disc||it.st.disc||'');
           const sorted=items.slice();
           if(_reOrd==='res'){
-            sorted.sort((a,b)=>{const va=_reYv(a.st,a.r,com),vb=_reYv(b.st,b.r,com);
+            const _skK2=String(APREF.reSortK||'');
+            const _skGet2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r)}[_skK2];
+            sorted.sort((a,b)=>{const va=_skGet2?_skGet2(a.st,a.r):_reYv(a.st,a.r,com),vb=_skGet2?_skGet2(b.st,b.r):_reYv(b.st,b.r,com);
               if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
           }else{
             sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
