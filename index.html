@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.446';
+const VERSION='73.447';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.447',date:'2026-09-01',notes:['COMPARE / STUDIES: GATE variants now plot on the EV R axis (and print EV R in the tables). A gate row records no per-stage dollars to divide, so EV R was blank and every red dot vanished from that axis; it now falls back to the exact closed form from PF and WIN % - (1 - win%) x (PF - 1) - the same number the 1E matrix prints.']},
 {v:'73.446',date:'2026-09-01',notes:['Aspect-locked charts (1A risk map, 1E scatter and both parallel views, 2B, 2C) RE-PROJECT on drag: pull the handle past the fit height and, when you let go, the chart is rebuilt with a taller plot - same width, every dot and label re-laid at the same size, nothing stretched or cropped. Drag shorter for the reverse. Each chart remembers its shape.','COMPARE / STUDIES: GATE variants show on the SHARPE and SORTINO axes now. Gate records store no equity curve, so the board derived nothing for them and dropped every red dot; it falls back to the SHARPE / SORTINO scalars the engine writes on each gate record (pre-lockbox stretch, the same window as its PF and WIN %).']},
 {v:'73.445',date:'2026-09-01',notes:['EV R row on the TILT and HYBRID tables too (they build their rows separately from GATE, so 73.442 missed them). Heat-shaded like the other ratio rows.']},
 {v:'73.444',date:'2026-09-01',notes:['HOTFIX 2 on 73.442: run reports still failed to draw (_matrixTbl: cannot read map of undefined). The EV R row had been inserted one line past the end of the reward-risk row list, so it sat in the table as a group with no rows. It is inside the list now.']},
@@ -21340,7 +21341,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reYwhy=(st,rw,com)=>{
           if(_reMode()==='pf')return _reWhy(st,rw,'pf');
           if(_reMode()==='ppt')return _rePptWhy(st,rw);
-          if(_reMode()==='evr')return 'This row records no average losing trade, so expectancy cannot be put in R.';
+          if(_reMode()==='evr')return 'This row records neither an average losing trade nor a PF with a WIN %, so expectancy cannot be put in R.';
           if(_reMode()==='sh')return 'This row records no Sharpe.';
           if(_reMode()==='so')return 'This row records no Sortino.';
           const miss=_reSegMiss(rw);
@@ -21443,14 +21444,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   configuration record, and never on a registry row - so a sweep shows nothing.
         const _reEvR=(st,r)=>{
           if(r&&r.evr!=null&&isFinite(r.evr))return +r.evr;   // a sweep that recorded it outright
+          // closed form from PF and WIN % - exact, not an estimate: EV/avgLoss = (1-wr)(PF-1).
+          //   The same number the 1E matrix EV R row prints; it rescues every row (gate
+          //   variants above all) that records no per-stage dollars to divide.
+          const _cf=(function(){const w0=_reWrOf(st,r),pf0=_reNum(r,'pf');
+            if(w0==null||pf0==null||!isFinite(w0)||!isFinite(pf0)||pf0<0)return null;
+            const w=(w0>1)?(w0/100):w0;return (w>=0&&w<1)?((1-w)*(pf0-1)):null;})();
           const p2=_reSegVal(r),n=_reNum(r,'trd');
-          if(p2==null||!n||n<=0)return null;
+          if(p2==null||!n||n<=0)return _cf;
           let R=null;
           if(r&&r.avl!=null&&isFinite(r.avl))R=Math.abs(+r.avl);
           else if(r&&r._avl!=null&&isFinite(r._avl))R=Math.abs(+r._avl);
           else{const d=_reRunDoc(r);const V=d&&d.validate;
             if(V&&V.total_avg_loss!=null)R=Math.abs(+V.total_avg_loss)*(+d.multiplier||20);}
-          return (R&&R>1e-9)?((p2/n)/R):null;};
+          return (R&&R>1e-9)?((p2/n)/R):_cf;};
         const _reShOf=(st,r)=>{
           if(r&&r.sh!=null&&isFinite(r.sh))return +r.sh;
           if(r&&r._sh!=null&&isFinite(r._sh))return +r._sh;
