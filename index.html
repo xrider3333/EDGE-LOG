@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.441';
+const VERSION='73.442';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.442',date:'2026-09-01',notes:['1E MATRIX ALL tab is ONE table now: every config from every family as a ROW, the measures as COLUMNS (NET $, MAX DD, MAR, SHARPE, SORTINO, PF, WIN %, EV, EV R, TRADES), family colour on each row, crown highlighted, click a column header to sort. It reads the same points the parallel and scatter views draw, so the three can never disagree.','EV R (expectancy in R) is a row on every 1E table now - KPI, RAW, GATE, TILT, HYBRID - not only an axis on the charts. Same closed form everywhere: (1 - win%) x (PF - 1).','1E cards: the view dropdowns and the SAMPLE / RANK / HEAT controls share one row instead of two half-empty ones. And the TILT banner now says it is the standing verdict of the 2026-08-10 pre-registered study, not a reading of the run on screen.']},
 {v:'73.441',date:'2026-09-01',notes:['QQQ PAPER: added an OPEN WEBULL PAPER button in the header, next to REFRESH.','QQQ PAPER REPLAY vs LIVE PAPER: the blotter mixed the history replay (roughly the last 30 to 60 days, showing how the three configs would have done) with the real forward test that only started Sep 2, and it looked like fills that predated the setup. Every blotter row now shows a SOURCE tag - REPLAY (dimmed) or PAPER - based on its own entry time. Each leg card and the header now split the totals into REPLAY history P&L and LIVE PAPER since Sep 2 P&L, and the cumulative chart draws a dashed LIVE PAPER marker at Sep 2 once the data reaches it. A one-line note under the header states the cutoff in plain terms.']},
 {v:'73.440',date:'2026-09-01',notes:['QQQ PAPER BLOTTER FIX: the TIME (ET) column showed clock time only, so rows from different days looked identical once the blotter spanned more than one session. It now shows date + time (e.g. Aug 28 11:00) and the entry column is joined by its own EXIT (ET) column, so entry and exit day/time both read straight off the table for every trade.']},
 {v:'73.438',date:'2026-09-01',notes:['NEW TAB: QQQ PAPER, next to PAPER (BACKTESTER nav). Shows the QQQ shares forward test (tools/qqq_paper.py - ORB, ENGU-Q and NOISE replayed on QQQ using free Yahoo data, no broker, no real money) that the PC runner now syncs on its own roughly every 2 minutes during market hours plus one run after close. Header shows the last sync time and a market-open indicator; one card per leg shows its position (or FLAT), gate model/threshold/last probability and whether it would take the next signal, ORB own opening-range levels, trade counts and total P&L; a cumulative P&L line chart, one line per leg; and a blotter table of the last 200 trades.']},
@@ -11766,6 +11767,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!_rawBOK)return _pfDash;
         const v=_rawHasNew?_rawApt(col):col.mmApt;
         return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_b2Dash;}});
+      // EV R (owner 2026-08-31: "we need EVinR on the 1e matrix"): the same closed form the
+      //   scatter and parallel axes use - expectancy in units of the average losing trade.
+      _rrRows.push({lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade. Leverage-blind and instrument-blind. Derived exactly from this column win rate and profit factor: (1 - win%) x (PF - 1).">EV R</span>'+_pfTag,cell:col=>{
+        if(!_rawBOK)return _pfDash;
+        const v=_evInR(_rawHasNew?_rawWr(col):col.mmWr,_rawHasNew?_rawPf(col):col.mmPf);
+        return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):_b2Dash;}});
       // v73.296 (owner: "selecting IS/WF/LB for 1e matrix only shows trades count for IS / WF
       //   even though LB is selected. fix"): TRADES was PINNED to IS+WF and said so in its own
       //   tooltip - a leftover from when a config record only ever saved one whole-window count.
@@ -14009,6 +14016,37 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    the raw ones or just alongside them; the crowned config rides a gold underlay. The family
     //    legend is the SAME clickable control the 1A RISK MAP uses (mtxOff), so hiding a family
     //    here hides it there too and every axis re-fits to what is left. ──
+    const _mtxAllTableHtml=(allPts,pboV)=>{
+      const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl));
+      if(!P.length)return '';
+      const _num=v=>(v!=null&&isFinite(+v))?+v:null;
+      const cols=[
+        {k:'net',nm:'NET $',get:x=>+x.pnl,fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'dd',nm:'MAX DD',get:x=>-Math.abs(+x.dd),fmt:v=>'-'+_kfmt(Math.abs(v)),col:()=>'#e24b4a'},
+        {k:'mar',nm:'MAR',get:x=>(+x.pnl>0&&Math.abs(+x.dd)>0)?(+x.pnl/Math.abs(+x.dd)):null,fmt:v=>v.toFixed(1)},
+        {k:'sh',nm:'SHARPE',get:x=>_num(x.sh),fmt:v=>v.toFixed(2)},
+        {k:'so',nm:'SORTINO',get:x=>_num(x.so),fmt:v=>v.toFixed(2)},
+        {k:'pf',nm:'PF',get:x=>_num(x.pf),fmt:v=>Math.min(v,99).toFixed(2)},
+        {k:'wr',nm:'WIN %',get:x=>_num(x.wr),fmt:v=>Math.round(v)+'%'},
+        {k:'ev',nm:'EV',get:x=>_num(x.ev),fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'tr',nm:'TRADES',get:x=>_num(x.tr),fmt:v=>Math.round(v).toLocaleString()}
+      ].filter(c=>_mtxColsKeep(c.nm,_MTXK.cols));
+      if(!cols.length)return '';
+      const sv=String(APREF.mtxAllSort||'net:d'),sk=sv.split(':')[0],sd=(sv.split(':')[1]==='a')?1:-1;
+      const sc=cols.filter(c=>c.k===sk)[0]||cols[0];
+      const rows=P.slice().sort((a,b)=>{const va=sc.get(a),vb=sc.get(b);
+        if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return (va-vb)*sd;});
+      const th=cols.map(c=>'<th data-mtxallsort="'+c.k+'" title="click to sort by '+c.nm+'" style="text-align:right;padding:4px 6px;cursor:pointer;white-space:nowrap;color:'+(c===sc?'var(--text)':'var(--text5)')+'">'+c.nm+(c===sc?(sd<0?' &#8595;':' &#8593;'):'')+'</th>').join('');
+      const trs=rows.map(x=>{const pc=_mtxPoolCol[String(x.pool||'')]||'var(--text3)';
+        return '<tr style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)'+(x.crowned?';background:color-mix(in srgb,#f5c542 10%,transparent)':'')+'">'
+          +'<td style="padding:3px 6px;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+pc+';margin-right:5px"></span><span style="color:'+pc+';font-weight:700">'+String(x.pool||'')+'</span></td>'
+          +'<td style="padding:3px 6px;white-space:nowrap;color:var(--text2)">'+(x.crowned?'&#128081; ':'')+String(x.label||'').replace(/"/g,'')+'</td>'
+          +cols.map(c=>{const v=c.get(x);const ok=(v!=null&&isFinite(v));
+            return '<td style="text-align:right;padding:3px 6px;white-space:nowrap;color:'+((ok&&c.col)?c.col(v):'var(--text2)')+'">'+(ok?c.fmt(v):'<span style="color:var(--text5)">&mdash;</span>')+'</td>';}).join('')
+          +'</tr>';}).join('');
+      return '<div style="font-size:8px;color:var(--text4);margin-bottom:4px">ALL CONFIGS &middot; '+rows.length+' &middot; one row per config, every family, the same points the parallel and scatter views draw &middot; click a column to sort'+((pboV!=null&&isFinite(pboV))?(' &middot; PBO '+Math.round(pboV*100)+'%'):'')+'</div>'
+        +'<div style="overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
     const poolParallelHtml=(allPts,pboV)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
       if(P.length<2)return '';
@@ -14367,6 +14405,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},
         {lbl:'<span title="EV = expected value: average net dollars per trade in this section - net P&amp;L divided by the trade count directly measured on the same stretch. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>', cell:p=>{const v=(p.net!=null&&p.tr)?p.net/p.tr:null;return '<span style="font-weight:700;color:'+((v||0)>=0?'#1d9e75':'#e24b4a')+'">'+(v!=null?fmtUsd(Math.round(v)):'&mdash;')+'</span>';}},
+        {lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade - (1 - win%) x (PF - 1). The same number the 1E scatter and parallel axes plot.">EV R</span>', cell:p=>{const v=_evInR(p.wr,p.pf);return '<span style="font-weight:700;color:'+((v!=null&&v>=0)?'#1d9e75':'#e24b4a')+'">'+(v!=null?v.toFixed(2):'&mdash;')+'</span>';}},
         {lbl:'MAR (ann.)', cell:p=>{const A=100000,yr=p.days?p.days/365.25:null;if(p.net==null||!yr||yr<=0||!p.dd||p.dd<=0||(A+p.net)<=0)return '<span style="color:var(--text2)">—</span>';const cagr=Math.pow((A+p.net)/A,1/yr)-1,ddp=p.dd/(A+Math.max(0,p.net)),mar=(ddp>0)?cagr/ddp:null;return '<span title="True MAR = CAGR ÷ max-drawdown-%, on an assumed $100k account. Annualized, so it is fair across strategies of any length. (The RECOVERY row above is the same idea in raw dollars, not annualized.)" style="color:var(--text2)">'+(mar!=null&&isFinite(mar)?mar.toFixed(2):'—')+'</span>';}},
         {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
         {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
@@ -15509,6 +15548,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             _hRow({lbl:'PF',cell:col=>{const v=_P(col).pf;return v!=null?('<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+Math.min(v,99).toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).pf,true),
             _hRow({lbl:'WIN %',cell:col=>{const v=_P(col).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).wr,true),
             _hRow({lbl:'<span title="EV = expected value: average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true)]},
+            _hRow({lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade, derived exactly from this column win rate and profit factor: (1 - win%) x (PF - 1). Leverage-blind, so a filter that trades less is judged on edge per bet, not on dollars.">EV R</span>',cell:col=>{const b=_P(col);const v=_evInR(b.wr,b.pf);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5)">&mdash;</span>';}}),
           {name:_hd('sample'),rows:[
             // v71.42 (owner: same rows across the tabs): this is the same metric every other tab
             //   calls TRADES - what this column actually took over the ticked stretches - so it
@@ -17326,14 +17366,17 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const ctrls=isK?'':(isG?((_gvP&&_gvP.ctrls)||''):(isSz?((_gvP&&_gvP.szCtrls)||''):((_selParts&&_selParts.ctrls)||'')));
           // v73.13 (owner: TILT killed by the pre-registered 0/12 test on causal scores) — a
           //   permanent muted-warning line leads the TILT tab body, every run, any date.
-          const _tiltDeadWarn=(tb==='tilt')?'<div style="color:var(--yellow);font-weight:700;margin-bottom:8px">&#9888; TILT is retired: 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10). Shown for reference only - do not adopt.</div>':'';
+          const _tiltDeadWarn=(tb==='tilt')?'<div style="color:var(--yellow);font-weight:700;margin-bottom:8px">&#9888; TILT is retired: 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10). Shown for reference only - do not adopt. <span style="font-weight:400;opacity:.8">Standing verdict of the pre-registered study across every champion - not a reading of this run. The columns below are this run, measured normally.</span></div>':'';
           const _bodyOf=function(k){const _isK2=(k==='kpi'),_isG2=(k==='gate'),_isH2=(k==='hyb'||k==='hyb2'||k==='hyb3');
             return _isK2?kpiMatrixHtml(d,mult0,1,''):(_isG2?_gateCard:(k==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(_isH2?(((_gvP&&_gvP.hybBy)||{})[_hybOf(k)]||''):((_selParts&&_selParts.table)||''))));};
           const _capOf=function(k){const t=_tabDefs.filter(function(z){return z[0]===k;})[0];return t?t[1]:k.toUpperCase();};
           const mult0=mlt;
+          // v73.44x (owner): ALL on the TABLE view is ONE table - configs as rows, measures as
+          //   columns - instead of every tab body stacked. PARALLEL / SCATTER already pool them.
+          const _pboAll=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
           const body=(tb==='all')
-            ?_tabDefs.filter(function(t){return t[0]!=='all';}).map(function(t){const b=_bodyOf(t[0]);
-               return (b&&b.replace(/\s/g,''))?('<div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"><div style="font-size:8px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">'+_capOf(t[0])+'</div>'+b+'</div>'):'';}).join('')
+            ?(_mtxAllTableHtml(_mtxScatterPts,_pboAll)||_tabDefs.filter(function(t){return t[0]!=='all';}).map(function(t){const b=_bodyOf(t[0]);
+               return (b&&b.replace(/\s/g,''))?('<div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"><div style="font-size:8px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">'+_capOf(t[0])+'</div>'+b+'</div>'):'';}).join(''))
             :_bodyOf(tb);
           const note=isAll?'':isK?'':isG?''
                    :(tb==='tilt'?((_gvP&&_gvP.tiltNote)||'')
@@ -17359,8 +17402,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return '<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
             +title+' '+info
             +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+_preFixBadge+tabs+'</span></div>'
-            +(_tabRail?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px">'+_tabRail+'</div>'):'')
-            +(ctrls?('<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-top:6px">'+ctrls+'</div>'):'')
+            +((_tabRail||ctrls)?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px">'+_tabRail+ctrls+'</div>'):'')
             // v73.6x (owner ask): the cross-pool scatter moved to 1A as its own tab (see the 1A
             //   tab switcher below) - it no longer lives inside this card.
             +'<div style="margin-top:9px">'+(_poolPar||body)+'</div>'
@@ -27772,6 +27814,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // v64.52 (owner): the collapsible 2C CONFIGS · ML GATE FILTER pill under 2A/2B.
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
+      content.querySelectorAll('[data-mtxallsort]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+        const k=b.getAttribute('data-mtxallsort'),cur=String(APREF.mtxAllSort||'net:d');
+        savePref('mtxAllSort',(cur===k+':d')?(k+':a'):(k+':d'));renderApp();};});
       content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
       // 1E MATRIX SCATTER dot click → jump to that candidate's own column in its pool's matrix
       //   table below. The pool (raw/gate/tilt/hyb) may not be the tab currently open, so this
