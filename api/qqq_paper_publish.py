@@ -159,6 +159,7 @@ def _build_doc():
         "state_generated_at": state.get("generated_at"),
         "notional_per_leg": state.get("notional_per_leg"),
         "slippage_per_share": state.get("slippage_per_share"),
+        "live_from": state.get("live_from"),
         "legs": legs,
         "blotter": blotter_rows,
         "cum_pnl": cum_series,

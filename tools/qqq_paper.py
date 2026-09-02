@@ -177,6 +177,18 @@ NOTIONAL_PER_LEG = 100_000.0     # fixed notional per leg; shares = floor(notion
 SLIPPAGE_PER_SHARE = 0.01        # $/share PER SIDE (entry and exit each pay this)
 COMMISSION_PER_SHARE = 0.0
 
+# The date (ET) the Webull paper forward test actually began. Every replayed
+# session BEFORE this date is a REPLAY: the engine re-runs each leg over ~30-60
+# days of Yahoo history so the owner can see how the configs would have done —
+# nothing was watched happen and nothing was ever going to be an order. Every
+# session ON OR AFTER this date is the live forward test: rows the owner set
+# out to place in Webull paper as they occur. Owner asked (2026-09-01) "why
+# does ORB have trades, we set this up a day or two ago" — the blotter mixing
+# the two looked like real fills that predated the setup. LIVE_FROM makes the
+# boundary a fact carried in the data (state.json + the Firestore doc), not a
+# hardcoded count anywhere downstream.
+LIVE_FROM = "2026-09-02"
+
 CACHE_DIR = r"C:\EdgeLog\ohlc"
 OUT_DIR = r"C:\EdgeLog\qqq_paper"
 BLOTTER_PATH = os.path.join(OUT_DIR, "blotter.csv")
@@ -591,6 +603,7 @@ def cmd_sync():
     state = {"generated_at": _dt.datetime.now().isoformat(timespec="seconds"),
             "notional_per_leg": NOTIONAL_PER_LEG,
             "slippage_per_share": SLIPPAGE_PER_SHARE,
+            "live_from": LIVE_FROM,
             "legs": {}}
     for key, cfg in LEGS.items():
         arrays = bars_by_tf.get(cfg["timeframe"])

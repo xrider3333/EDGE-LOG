@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.440';
+const VERSION='73.441';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.441',date:'2026-09-01',notes:['QQQ PAPER: added an OPEN WEBULL PAPER button in the header, next to REFRESH.','QQQ PAPER REPLAY vs LIVE PAPER: the blotter mixed the history replay (roughly the last 30 to 60 days, showing how the three configs would have done) with the real forward test that only started Sep 2, and it looked like fills that predated the setup. Every blotter row now shows a SOURCE tag - REPLAY (dimmed) or PAPER - based on its own entry time. Each leg card and the header now split the totals into REPLAY history P&L and LIVE PAPER since Sep 2 P&L, and the cumulative chart draws a dashed LIVE PAPER marker at Sep 2 once the data reaches it. A one-line note under the header states the cutoff in plain terms.']},
 {v:'73.440',date:'2026-09-01',notes:['QQQ PAPER BLOTTER FIX: the TIME (ET) column showed clock time only, so rows from different days looked identical once the blotter spanned more than one session. It now shows date + time (e.g. Aug 28 11:00) and the entry column is joined by its own EXIT (ET) column, so entry and exit day/time both read straight off the table for every trade.']},
 {v:'73.438',date:'2026-09-01',notes:['NEW TAB: QQQ PAPER, next to PAPER (BACKTESTER nav). Shows the QQQ shares forward test (tools/qqq_paper.py - ORB, ENGU-Q and NOISE replayed on QQQ using free Yahoo data, no broker, no real money) that the PC runner now syncs on its own roughly every 2 minutes during market hours plus one run after close. Header shows the last sync time and a market-open indicator; one card per leg shows its position (or FLAT), gate model/threshold/last probability and whether it would take the next signal, ORB own opening-range levels, trade counts and total P&L; a cumulative P&L line chart, one line per leg; and a blotter table of the last 200 trades.']},
 {v:'73.437',date:'2026-08-25',notes:['STUDIES BOARD: ROUND 26 - oversample the in-sample, judge by walk-forward (owner direction). THE NASDAQ BOOK: four dip-buying mechanisms on QQQ plus the same four on NQ micros, re-tuned each year on past data only and scored purely out-of-sample - 1,250 trades, profit factor 1.95, profit 10.1 times the worst stretch, 12 of 14 years positive, correlation 0.04 to the live book. Stacked onto the live champion book it lifts risk-adjusted return +35 percent (bar +15) and nearly doubles the money - the first candidate to clear the adopt bar. Weaknesses stated on the study: recent-half MAR 4.3, and the 1999-2010 holdout shows it is a bull-regime edge. Rows 1141 to 1158.','Also on the study: the broad nine-instrument book gets WORSE when re-optimized (fixed simple settings win), and hourly intraday mean reversion is dead on NQ and ES.']},
@@ -23686,6 +23687,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       }catch(e){}
       const LEGS_QP=[['ORB_234','ORB'],['ENGUQ_149','ENGU-Q'],['NOISE_243','NOISE']];
       const legColor=k=>({ORB_234:'var(--blue)',ENGUQ_149:'var(--purple)',NOISE_243:'var(--green)'}[k]||'var(--text3)');
+      // LIVE_FROM — the ET date the Webull paper forward test actually began (tools/qqq_paper.py
+      // LIVE_FROM, exported into state.json + this doc by api/qqq_paper_publish.py). Every row
+      // dated before it is a REPLAY of history (nothing was watched happen, nothing was ever an
+      // order); every row on/after it is the live forward test. Falls back to the known launch
+      // date if an older doc hasn't been re-synced since this field was added.
+      const qpLiveFrom=(QP&&QP.live_from)||'2026-09-02';
+      const qpIsLive=iso=>!!iso&&String(iso).slice(0,10)>=qpLiveFrom;
 
       const headerStrip=tile(
         '<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">'
@@ -23695,7 +23703,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<span style="display:flex;align-items:center;gap:6px;font-size:var(--fsxs);color:'+(mOpen?'var(--green)':'var(--text4)')+'"><span style="width:8px;height:8px;border-radius:50%;background:'+(mOpen?'var(--green)':'var(--text5)')+'"></span>'+mLabel+'</span>'
         +'<span style="font-size:var(--fsxs);color:var(--text4)">last sync: '+(QP?qpFmtET(QP.generated_at):'n/a')+'</span>'
         +'<button class="btn-ghost" data-qqqrefresh style="border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:var(--fsxs)">'+(qpLoading?'LOADING…':'⟳ REFRESH')+'</button>'
-        +'</div>',10);
+        +'<a href="https://app.webull.com/paper" target="_blank" rel="noopener" class="btn-ghost" style="border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:var(--fsxs);font-weight:700;color:var(--blue);text-decoration:none;white-space:nowrap">OPEN WEBULL PAPER ↗</a>'
+        +'</div>'
+        +'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text4)">Rows before Sep 2 are a replay of history, not orders placed. Live paper fills start Sep 2.</div>'
+        ,10);
 
       if(qpErr){
         body=headerStrip+tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qpErr).replace(/</g,'&lt;')+'</div>');
@@ -23706,6 +23717,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const cum=QP.cum_pnl||{};
         const blotter=QP.blotter||[];
 
+        // REPLAY vs LIVE PAPER split (owner ask 2026-09-01: "why does ORB have trades, we
+        // set this up a day or two ago" — the blotter mixes the historical replay with the
+        // real forward test and reads as fills that predate the setup). The split comes
+        // straight from each row's entry_time vs LIVE_FROM, never a hardcoded count, so it
+        // stays correct as both piles grow.
+        const qpSplitStats=rows=>{
+          const rep=rows.filter(t=>!qpIsLive(t.entry_time));
+          const live=rows.filter(t=>qpIsLive(t.entry_time));
+          return {
+            repPnl:rep.reduce((s,t)=>s+(t.pnl_usd||0),0), repN:rep.length,
+            livePnl:live.reduce((s,t)=>s+(t.pnl_usd||0),0), liveN:live.length,
+          };
+        };
+        const qpSplitLine=st=>'<div style="margin-top:6px;font-size:var(--fsxs);line-height:1.6">'
+          +'<span style="color:var(--text4)">REPLAY (history) P&amp;L:</span> '
+          +'<span style="color:'+(st.repPnl>=0?'var(--green)':'var(--red)')+'">'+qpMoney(st.repPnl)+'</span> over '+st.repN+' trade'+(st.repN===1?'':'s')+'<br>'
+          +'<span style="color:var(--text3)">LIVE PAPER since Sep 2:</span> '
+          +(st.liveN?('<span style="color:'+(st.livePnl>=0?'var(--green)':'var(--red)')+'">'+qpMoney(st.livePnl)+'</span> over '+st.liveN+' trade'+(st.liveN===1?'':'s')):'<span style="color:var(--text5)">0 trades yet</span>')
+          +'</div>';
+        const qpAllSplit=qpSplitStats(blotter);
+        const headerSplitTile=tile('<div class="lbl" style="margin-bottom:4px">TOTALS — ALL LEGS</div>'+qpSplitLine(qpAllSplit));
+
         // per-leg cards
         let cardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
         LEGS_QP.forEach(([key,label])=>{
@@ -23715,6 +23748,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(L.error){cardsHtml+='<div style="flex:1 1 300px;min-width:260px;background:var(--bg2);border-radius:10px;padding:12px 14px"><div style="font-size:13px;font-weight:700;color:'+col+'">'+label+'</div><div style="font-size:var(--fsxs);color:var(--red);margin-top:6px">'+String(L.error).replace(/</g,'&lt;')+'</div></div>';return;}
           const legTrades=blotter.filter(t=>t.leg===key);
           const totalPnl=(cum[key]&&cum[key].length)?cum[key][cum[key].length-1].cum_pnl:legTrades.reduce((s,t)=>s+(t.pnl_usd||0),0);
+          const legSplit=qpSplitStats(legTrades);
           let posHtml;
           if(L.open_trade){
             const ot=L.open_trade;
@@ -23754,6 +23788,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(L.gap_skipped?(' · '+L.gap_skipped+' gap-skipped'):'')
               +(L.gate_skipped?(' · '+L.gate_skipped+' gate-skipped'):'')
               +'</div>'
+            +qpSplitLine(legSplit)
             +orbHtml+gateHtml
             +'</div>';
         });
@@ -23783,6 +23818,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             });
             svg+='<text x="'+padL+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)">'+allDates[0]+'</text>';
             svg+='<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="end">'+allDates[allDates.length-1]+'</text>';
+            // LIVE PAPER marker (owner ask 2026-09-01) — a dashed vertical line at LIVE_FROM,
+            // the ET date the Webull forward test began, so the chart itself shows where the
+            // history replay ends and real forward evidence starts. Only drawn once the plotted
+            // range actually reaches that date (no trade day on/after LIVE_FROM yet = no line to
+            // draw); it appears on its own the first day a leg posts a trade on/after Sep 2.
+            if(allDates[allDates.length-1]>=qpLiveFrom){
+              let liveIdx=allDates.findIndex(d=>d>=qpLiveFrom);
+              if(liveIdx<0)liveIdx=allDates.length-1;
+              const lx=x(liveIdx).toFixed(1);
+              svg+='<line x1="'+lx+'" y1="'+padT+'" x2="'+lx+'" y2="'+(padT+plotH)+'" stroke="var(--yellow)" stroke-width="1.5" stroke-dasharray="4,3"/>';
+              svg+='<text x="'+lx+'" y="'+(padT+10)+'" font-size="9" fill="var(--yellow)" text-anchor="'+(liveIdx>allDates.length/2?'end':'start')+'">LIVE PAPER →</text>';
+            }
             svg+='</svg>';
             const legend=LEGS_QP.map(([k,label])=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+legColor(k)+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>').join('');
             chartHtml=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE P&amp;L BY LEG</div>'+svg+'<div style="margin-top:6px">'+legend+'</div>');
@@ -23799,23 +23846,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const rows=blotter.map(t=>{
             const pnl=t.pnl_usd;
             const legRow=LEGS_QP.find(l=>l[0]===t.leg);
-            return '<tr>'
+            // SOURCE — REPLAY (history, before LIVE_FROM) vs PAPER (real forward test, on/after
+            // LIVE_FROM), derived from this row's own entry_time, never a hardcoded count. REPLAY
+            // rows are dimmed (muted text, no colour) so the eye separates "engine showing what
+            // WOULD have happened" from "the Webull forward test actually running".
+            const isLive=qpIsLive(t.entry_time);
+            const rowOpacity=isLive?'':'opacity:0.55;';
+            const pnlCol=isLive?((pnl||0)>=0?'var(--green)':'var(--red)'):'var(--text4)';
+            return '<tr style="'+rowOpacity+'">'
               +'<td>'+qpFmtETTime(t.entry_time)+'</td>'
               +'<td>'+(t.still_open_at_data_end?'open':qpFmtETTime(t.exit_time))+'</td>'
-              +'<td style="color:'+legColor(t.leg)+'">'+naS(legRow?legRow[1]:t.leg)+'</td>'
+              +'<td><span style="font-size:9px;font-weight:700;letter-spacing:.03em;color:'+(isLive?'var(--green)':'var(--text5)')+'">'+(isLive?'PAPER':'REPLAY')+'</span></td>'
+              +'<td style="color:'+(isLive?legColor(t.leg):'var(--text5)')+'">'+naS(legRow?legRow[1]:t.leg)+'</td>'
               +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
               +'<td style="text-align:right">'+naS(t.shares)+'</td>'
               +'<td style="text-align:right">'+qpMoney(t.entry_px)+'</td>'
               +'<td style="text-align:right">'+(t.still_open_at_data_end?'open':qpMoney(t.exit_px))+'</td>'
-              +'<td style="text-align:right;color:'+((pnl||0)>=0?'var(--green)':'var(--red)')+'">'+qpMoney(pnl)+'</td>'
+              +'<td style="text-align:right;color:'+pnlCol+'">'+qpMoney(pnl)+'</td>'
               +'<td style="text-align:right">'+(t.gate_prob!=null?qpNum(t.gate_prob,3):'n/a')+'</td>'
               +'</tr>';
           }).join('');
           blotterHtml=tile('<div class="lbl" style="margin-bottom:8px">BLOTTER — newest first ('+blotter.length+' rows'+(blotter.length>=200?', capped at 200':'')+')</div>'
-            +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">GATE P</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+            +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>SOURCE</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">GATE P</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
         }
 
-        body=headerStrip+cardsHtml+chartHtml+blotterHtml;
+        body=headerStrip+headerSplitTile+cardsHtml+chartHtml+blotterHtml;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
