@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.447';
+const VERSION='73.448';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.448',date:'2026-09-01',notes:['Re-projecting drag: the rebuild now fires straight from the handle release instead of waiting on a resize observer, so it is immediate and deterministic.']},
 {v:'73.447',date:'2026-09-01',notes:['COMPARE / STUDIES: GATE variants now plot on the EV R axis (and print EV R in the tables). A gate row records no per-stage dollars to divide, so EV R was blank and every red dot vanished from that axis; it now falls back to the exact closed form from PF and WIN % - (1 - win%) x (PF - 1) - the same number the 1E matrix prints.']},
 {v:'73.446',date:'2026-09-01',notes:['Aspect-locked charts (1A risk map, 1E scatter and both parallel views, 2B, 2C) RE-PROJECT on drag: pull the handle past the fit height and, when you let go, the chart is rebuilt with a taller plot - same width, every dot and label re-laid at the same size, nothing stretched or cropped. Drag shorter for the reverse. Each chart remembers its shape.','COMPARE / STUDIES: GATE variants show on the SHARPE and SORTINO axes now. Gate records store no equity curve, so the board derived nothing for them and dropped every red dot; it falls back to the SHARPE / SORTINO scalars the engine writes on each gate record (pre-lockbox stretch, the same window as its PF and WIN %).']},
 {v:'73.445',date:'2026-09-01',notes:['EV R row on the TILT and HYBRID tables too (they build their rows separately from GATE, so 73.442 missed them). Heat-shaded like the other ratio rows.']},
@@ -26323,6 +26324,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const Hn=Math.max(110,Math.min(1400,Math.round(vw*box.offsetHeight/w)));
           if(Math.abs(Hn-vh)<=3)return;
           const m=Object.assign({},APREF.kaH||{});m[tag]=Hn;savePref('kaH',m);renderApp();};
+        // the grip calls this straight from its pointer-up (deterministic - no observer
+        //   timing); the observer below only catches a resize that came some other way.
+        box._kaCommit=()=>{clearTimeout(_kt);commit();};
         try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}clearTimeout(_kt);_kt=setTimeout(commit,260);});ro.observe(box);}
         catch(_e){box.addEventListener('pointerup',()=>{clearTimeout(_kt);_kt=setTimeout(commit,260);});}};
       // the column can change width without a re-render (tile splitter, window resize) - refit
@@ -26534,7 +26538,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const y0=e.clientY,h0=row.offsetHeight;
           const mn=px(row.style.minHeight)||34,mx=px(row.style.maxHeight)||1400;
           const mv=ev=>{row.style.height=Math.max(mn,Math.min(mx,h0+(ev.clientY-y0)))+'px';};
-          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            // an aspect-locked chart rebuilds itself in the dragged shape the moment the drag ends
+            if(row&&typeof row._kaCommit==='function')row._kaCommit();};
           window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});});
       // v64.16 (owner): [data-vsplit] vertical splitter bars between the S1 tiles — dragging
       //   trades width between the two neighbouring tiles (both move, no gap). On first drag all
