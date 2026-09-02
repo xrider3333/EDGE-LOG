@@ -1181,7 +1181,7 @@ class FirestoreQueue:
                         if "enable" in pl:
                             res = nt_watchdog.set_enabled(bool(pl.get("enable")))
                         else:
-                            res = nt_watchdog.state()
+                            res = nt_watchdog.state(max_age_sec=0)
                     except Exception as e:
                         res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
                     ref.update({"status": "done" if res.get("ok") else "error",
