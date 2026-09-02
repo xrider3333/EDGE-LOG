@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.444';
+const VERSION='73.445';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.445',date:'2026-09-01',notes:['EV R row on the TILT and HYBRID tables too (they build their rows separately from GATE, so 73.442 missed them). Heat-shaded like the other ratio rows.']},
 {v:'73.444',date:'2026-09-01',notes:['HOTFIX 2 on 73.442: run reports still failed to draw (_matrixTbl: cannot read map of undefined). The EV R row had been inserted one line past the end of the reward-risk row list, so it sat in the table as a group with no rows. It is inside the list now.']},
 {v:'73.443',date:'2026-09-01',notes:['HOTFIX on 73.442: every run report failed to draw (runDetail: undefined is not a function). The new EV R row on the GATE / TILT / HYBRID tables was built without the heat-map getter every row in those tables must carry; it has one now.']},
 {v:'73.442',date:'2026-09-01',notes:['1E MATRIX ALL tab is ONE table now: every config from every family as a ROW, the measures as COLUMNS (NET $, MAX DD, MAR, SHARPE, SORTINO, PF, WIN %, EV, EV R, TRADES), family colour on each row, crown highlighted, click a column header to sort. It reads the same points the parallel and scatter views draw, so the three can never disagree.','EV R (expectancy in R) is a row on every 1E table now - KPI, RAW, GATE, TILT, HYBRID - not only an axis on the charts. Same closed form everywhere: (1 - win%) x (PF - 1).','1E cards: the view dropdowns and the SAMPLE / RANK / HEAT controls share one row instead of two half-empty ones. And the TILT banner now says it is the standing verdict of the 2026-08-10 pre-registered study, not a reading of the run on screen.']},
@@ -15870,7 +15871,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   column wins the same trades and the row reads the same number all the way across.
               //   When that happens the hover says so, instead of looking like a broken heat map.
               {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.'+((function(){const ws=cols.map(c=>_szP(c).wr).filter(v=>v!=null);return (ws.length>1&&(Math.max.apply(null,ws)-Math.min.apply(null,ws))<0.05)?' EVERY COLUMN HERE READS THE SAME because a tilt refuses no trades - the whole tab wins the same trades and only the size differs, so the heat map has no spread to shade.':'';})())+'">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
-              {lbl:'<span title="EV = expected value: average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab. This row used to be called $ / TRADE; same number, one name now.">EV</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}}]},
+              {lbl:'<span title="EV = expected value: average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab. This row used to be called $ / TRADE; same number, one name now.">EV</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade - (1 - win%) x (PF - 1), from this column own win rate and profit factor over the ticked SAMPLE. Scale-free, so re-sizing cannot move it: it reads the edge per bet the tilt is spending.">EV R</span>',cell:c=>{const b=_szP(c);const v=_evInR(b.wr,b.pf);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):_cmpDash;}}]},
             // v71.37 (owner: "why does TILT have an AVG CONTRACTS row if it is always 1, and a NOT
             //   TAKEN row if it is always 0"): a row every column agrees on and that says nothing
             //   is dropped. AVG CONTRACTS only shows when some column is NOT one lot (the REDEPLOY
@@ -15932,6 +15934,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               'MAR':[_szMar,true],'DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
               'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
               'WIN %':[c=>_szP(c).wr,true],'EV':[c=>_szP(c).apt,true],
+              'EV R':[c=>{const b=_szP(c);return _evInR(b.wr,b.pf);},true],
               'TRADES':[c=>{const n=_szP(c).n;return n!=null?+n:null;},true],
               'AVG CONTRACTS':[_szFac,true],
               'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_szFac(c)):null,true]};
