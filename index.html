@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.452';
+const VERSION='73.453';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.453',date:'2026-09-01',notes:['The sub-tab strip (LIBRARY / BUILDER / RESULTS / COMPARE ...) is pinned to the top of the window as you scroll, and is about a third shorter.','1E scatter dots are the size the STUDIES board uses (radius 2.4, crowned 3.6) - they were nearly twice that and covered each other in the dense middle.']},
 {v:'73.452',date:'2026-09-01',notes:['FIX on 73.451: clicking a ratio heading now reorders the pooled ONE TABLE as well - it sorts through a second path that the first cut missed, so the arrow lit up and nothing moved.']},
 {v:'73.451',date:'2026-09-01',notes:['COMPARE / STUDIES tables read like the 1E ALL table now: a FAMILY column (dot + name in the family colour), the config with its row handle beside it, then MAR / SHARPE / SORTINO / PF / WIN % / EV R in the 1E order. Click a ratio heading to sort every table on it; click again to release.','Zero lines: the 1E scatter and the STUDIES scatter both reach zero on each axis now and draw the zero line - a 0.3 ratio is seen against nothing instead of floating in a cropped range. Under CHAMPION the crosshair is still the champion.']},
 {v:'73.450',date:'2026-09-01',notes:['COMPARE / STUDIES: EV R on 1E configuration rows (gate / tilt / hybrid / recycled hybrid) is the leverage-blind closed form (1 - win%) x (PF - 1) - the same number the run report prints. It was dividing a sized row per-trade dollars by the run one-contract average loss, so a recycled hybrid sized 4.6x read 1.20R on the board against 0.26 in its own report.']},
@@ -8534,7 +8535,7 @@ function renderApp(){
   // ── second-level subtab bar (subtabs for the active master section) ──
   const _master=(activeTab==='augur')?'backtester':'log';
   const sub=document.createElement('div');
-  sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:3px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center';
+  sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:1px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center;position:sticky;top:0;z-index:40';
   const _logIc={overview:'◎',trades:'≡',analytics:'⌬',import_export:'⇅',journal:'✎',settings:'⚙'};
   const _logLbl=t=>t==='import_export'?'IMPORT / EXPORT':t.toUpperCase();
   // Split-screen layout toggle lives in the tab bar (right-aligned), shown for the
@@ -8556,8 +8557,8 @@ function renderApp(){
     _acctTog=`<span style="margin-left:auto;display:flex;gap:3px;align-items:center"><span class="lbl" style="font-size:8px;margin-right:3px">ACCOUNT</span>${_pill('','ALL')}${_brokers.map(b=>_pill(b,b)).join('')}</span>`;
   }
   sub.innerHTML=((_master==='log')
-    ? LOG_TABS.map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
-    : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs)"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_acctTog+_splitTog;
+    ? LOG_TABS.map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs);padding:2px 8px;line-height:1.15"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
+    : ASUBS.map(s=>`<button class="btn-ghost${augurSub===s[0]?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs);padding:2px 8px;line-height:1.15"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_acctTog+_splitTog;
   wrap.appendChild(sub);
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
@@ -14233,7 +14234,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const zy=(yr[0]<=0&&yr[1]>=0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(padL+Wp)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/>'
         +'<text x="'+(padL+Wp-2)+'" y="'+(Y(0)-3).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--text4)">0</text>'):'';
       let dots='',rings='';
-      pts.forEach(p=>{const col=p.r.col||'var(--text3)',cx=X(p.x).toFixed(1),cy=Y(p.y).toFixed(1),rad=p.r.crowned?6:4.4;
+      pts.forEach(p=>{const col=p.r.col||'var(--text3)',cx=X(p.x).toFixed(1),cy=Y(p.y).toFixed(1),rad=p.r.crowned?3.6:2.4;
         dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rad+'" fill="'+col+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="1" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
         if(p.r.crowned)rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
         if(p.r.big)rings+='<text x="'+cx+'" y="'+(+cy-rad-4).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="800" fill="'+col+'">'+p.r.big+'</text>';});
