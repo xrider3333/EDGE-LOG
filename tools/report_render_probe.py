@@ -46,6 +46,14 @@ Cases cover the three REPORT COLUMNS layouts, since each is a different template
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
+RETRY-ONCE. A non-PASS attempt is rendered a second time before it blocks a push.
+On 2026-09-03 a ship was blocked by "cols-3: no #res-detail card rendered at all" on
+a file that then passed 3/3 standalone and passed the very next ship: a ship runs
+several headless-Chrome probes back to back, and this one lost the race. A genuine
+break fails the retry identically, so the retry cannot hide one -- it only costs one
+extra render on a build that was going to fail anyway. A retry that turns into a PASS
+is printed as a FLAKE line rather than swallowed. --no-retry turns it off.
+
 Usage:
   python tools/report_render_probe.py                # gates this repo's index.html
   python tools/report_render_probe.py --file X.html  # gates X as if it were index.html
@@ -248,7 +256,8 @@ def selftest(fixture=None):
             with open(path, 'wb') as f:
                 f.write(r.stdout)
             print('-- known-bad build v%s (%s): expect FAIL' % (ver, commit))
-            code = main(['--file', path] + (['--fixture', fixture] if fixture else []))
+            code = main(['--file', path, '--no-retry'] +
+                        (['--fixture', fixture] if fixture else []))
             results.append((ver, code))
             if code != FAIL:
                 bad.append('v%s (%s) was NOT caught (exit %d) -- the gate has gone blind to: %s'
@@ -279,6 +288,9 @@ def main(argv=None):
     ap.add_argument('--file', default=None,
                     help='gate this file as if it were index.html (self-test use)')
     ap.add_argument('--fixture', default=None, help='override the run fixture path')
+    ap.add_argument('--no-retry', action='store_true',
+                    help='do not re-render a failed attempt (the self-test uses this on '
+                         'builds that are MEANT to fail, so they are not rendered twice)')
     ap.add_argument('--selftest', action='store_true',
                     help='assert FAIL on every KNOWN_BAD build from git history, then PASS on '
                          'the current index.html')
@@ -307,6 +319,17 @@ def main(argv=None):
         print('REPORTPROBE: INCONCLUSIVE -- fixture unreadable: %s' % e)
         return INCONCLUSIVE
 
+    return _report(t0, *(_attempt(chrome, root, alt_index, fixture) +
+                         (fixture, not args.no_retry, chrome, root, alt_index)))
+
+
+def _attempt(chrome, root, alt_index, fixture):
+    """Render every case once in a fresh headless Chrome.
+
+    Returns (verdict, msgs, notes, data, flaky). `flaky` marks a non-PASS verdict worth
+    exactly one retry: anything a live browser can lose a race on. It is False only for
+    "the app did not boot", which is deterministic and belongs to the boot gate.
+    """
     pdir = os.path.join(root, '_reportprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
@@ -329,8 +352,7 @@ def main(argv=None):
             capture_output=True, text=True, encoding='utf-8', errors='replace',
             timeout=120).stdout
     except Exception as e:
-        print('REPORTPROBE: INCONCLUSIVE -- chrome failed: %s' % e)
-        return INCONCLUSIVE
+        return INCONCLUSIVE, ['chrome failed: %s' % e], [], None, True
     finally:
         srv.shutdown()
         try:
@@ -342,27 +364,23 @@ def main(argv=None):
 
     m = re.search(r'REPORTPROBE: (\{.*?\})</pre>', out, re.S)
     if not m:
-        print('REPORTPROBE: INCONCLUSIVE -- probe produced no readout')
-        return INCONCLUSIVE
+        return INCONCLUSIVE, ['probe produced no readout'], [], None, True
     try:
         data = json.loads(m.group(1).replace('&quot;', '"').replace('&amp;', '&')
                           .replace('&lt;', '<').replace('&gt;', '>'))
     except Exception as e:
-        print('REPORTPROBE: INCONCLUSIVE -- unreadable readout: %s' % e)
-        return INCONCLUSIVE
+        return INCONCLUSIVE, ['unreadable readout: %s' % e], [], None, True
     if os.environ.get('REPORTPROBE_DUMP'):
         io.open(os.path.join(root, '_reportprobe_dump.json'), 'w', encoding='utf-8').write(
             json.dumps(data, indent=1, ensure_ascii=False))
 
-    elapsed = time.time() - t0
     if data.get('why') == 'noboot':
-        # the boot gate owns this verdict; do not double-report it
-        print('REPORTPROBE: INCONCLUSIVE -- app did not boot (renderApp=%s); see preflight_boot'
-              % data.get('renderApp'))
-        return INCONCLUSIVE
+        # the boot gate owns this verdict; do not double-report it, and do not retry it
+        return (INCONCLUSIVE,
+                ['app did not boot (renderApp=%s); see preflight_boot' % data.get('renderApp')],
+                [], data, False)
     if data.get('err'):
-        print('REPORTPROBE: FAIL -- probe threw: %s' % data['err'])
-        return FAIL
+        return FAIL, ['probe threw: %s' % data['err']], [], data, True
 
     fails, notes, cases = [], [], data.get('cases') or {}
     if len(cases) != len(CASES):
@@ -392,18 +410,54 @@ def main(argv=None):
             fails.append('%s: report never names run %s' % (nm, fixture.get('id')))
 
     if fails:
-        print('REPORTPROBE: FAIL (VERSION=%s, %.1fs)' % (data.get('VERSION'), elapsed))
+        return FAIL, fails, notes, data, True
+    return PASS, [], notes, data, False
+
+
+def _report(t0, verdict, msgs, notes, data, flaky, fixture, may_retry,
+            chrome, root, alt_index):
+    """Print one verdict, rendering a flaky non-PASS attempt a second time first.
+
+    A genuine break fails the retry identically, so the retry cannot hide one; it only
+    costs one more render on a build that was going to fail anyway. A retry that turns
+    into a PASS is PRINTED as a flake rather than swallowed, because a probe that starts
+    needing its retry often is a probe that is degrading, and that should stay visible.
+    """
+    first = None
+    if verdict != PASS and flaky and may_retry:
+        first = (verdict, msgs)
+        print('REPORTPROBE: attempt 1 did not pass, retrying once before blocking -- %s'
+              % ('; '.join(msgs[:2]) or 'no detail'))
+        verdict, msgs, notes, data, flaky = _attempt(chrome, root, alt_index, fixture)
+
+    elapsed = time.time() - t0
+    data = data or {}
+    if verdict == INCONCLUSIVE:
+        print('REPORTPROBE: INCONCLUSIVE -- %s' % (msgs[0] if msgs else 'no detail'))
+        return INCONCLUSIVE
+    if verdict == FAIL:
+        print('REPORTPROBE: FAIL (VERSION=%s, %.1fs%s)'
+              % (data.get('VERSION'), elapsed, ', both attempts' if first else ''))
         seen = set()
-        for f in fails:
+        for f in msgs:
             if f not in seen:
                 seen.add(f)
                 print('  - ' + f)
         for n in notes[:8]:
             print('  note: ' + n)
         return FAIL
+
+    cases = data.get('cases') or {}
     print('REPORTPROBE: PASS (VERSION=%s, run %s, %d cases, report %s chars, %.1fs)'
           % (data.get('VERSION'), fixture.get('id'), len(cases),
              (cases.get('cols-3') or {}).get('detailLen'), elapsed))
+    if first:
+        print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
+        for f in first[1][:4]:
+            print('    - ' + f)
+        print('  A real break fails BOTH attempts, so this is the probe losing a race, not a '
+              'bug that fixed itself. If it recurs often, give the probe a longer settle '
+              'rather than a second retry.')
     for n in notes[:8]:
         print('  note: ' + n)
     return PASS
