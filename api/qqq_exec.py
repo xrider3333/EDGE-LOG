@@ -89,13 +89,19 @@ WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.jso
 _WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 
 LEGS = ("ORB", "ENGUQ", "NOISE")
+# The ET calendar date shadow trading actually began (first tick of api/qqq_exec.py in
+# production). Published in every doc as `live_from` so the web tab can show a
+# "since start" figure without hardcoding the date client-side.
+LIVE_FROM = "2026-09-03"
 TICK_SEC = 5.0
 FEED_STALE_SEC = 90.0
 FEED_ALERT_COOLDOWN_SEC = 30 * 60
 QUOTE_MAX_AGE_SEC = 60.0
 CALIB_REFRESH_SEC = 30 * 60
 ORDERS_KEEP = 100
-TRADES_KEEP = 200
+# 500: matches the `trades_all` cap in the published doc, so the on-disk trades.csv
+# never trims history the web tab is still allowed to show.
+TRADES_KEEP = 500
 
 DEFAULT_CONFIG = {
     "mode": "SHADOW",
@@ -672,16 +678,24 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
 
 # -- mark-to-market + breaker ------------------------------------------------------------
 def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
+    # stashes the per-leg breakdown on state["_unrl_by_leg"] (leg -> unrealized $) so
+    # _build_doc can show each leg card its own unrealized figure, not just the total --
+    # cheap, since the marks are already computed here for the breaker check.
     if not state.get("legs"):
+        state["_unrl_by_leg"] = {}
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
+    unrl_by_leg = {}
     for leg, lot in state["legs"].items():
         qqq_px, src = resolve_price(cfg, state, lot.get("last_nq_px") or lot["nq_entry_px"],
                                     quote_fn, ratio_fn, log=log)
         if qqq_px is None:
             continue
         side_mult = 1 if lot["side"] == "long" else -1
-        unrl += (qqq_px - lot["entry_px"]) * side_mult * lot["shares_remaining"]
+        leg_unrl = (qqq_px - lot["entry_px"]) * side_mult * lot["shares_remaining"]
+        unrl_by_leg[leg] = round(leg_unrl, 2)
+        unrl += leg_unrl
+    state["_unrl_by_leg"] = unrl_by_leg
     total = state.get("realized_pnl_today", 0.0) + unrl
     limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
@@ -711,33 +725,98 @@ def _check_feed(state, fills_path, log=print):
 
 
 # -- Firestore publish ----------------------------------------------------------------------
+def _all_trades_from_csv(cap=500):
+    """Every closed shadow trade recorded since inception, oldest-first as the CSV
+    stores them (trades.csv is append-only, trimmed to TRADES_KEEP by _append_csv).
+    Returns at most `cap` rows -- the newest `cap`, so a long history never silently
+    drops recent trades in favour of old ones."""
+    try:
+        with open(TRADES_CSV, encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except Exception:
+        return []
+    return rows[-cap:]
+
+
+def _cum_pnl_by_leg(all_trades):
+    """{leg: [[date, cum_pnl], ...], total: [[date, cum_pnl], ...]} -- one point per
+    calendar date (ET, off exit_ts) a leg had at least one close, cumulative sum of
+    `pnl` in chronological order. Powers the equity-curve chart and the per-leg
+    since-start KPI without the client re-deriving it from trades_all."""
+    out = {leg: [] for leg in LEGS}
+    running = {leg: 0.0 for leg in LEGS}
+    by_leg_date = {leg: {} for leg in LEGS}
+    for t in sorted(all_trades, key=lambda r: (r.get("exit_ts") or r.get("entry_ts") or "")):
+        leg = t.get("leg")
+        if leg not in by_leg_date:
+            continue
+        date = str(t.get("exit_ts") or t.get("entry_ts") or "")[:10]
+        if not date:
+            continue
+        try:
+            pnl = float(t.get("pnl") or 0)
+        except Exception:
+            pnl = 0.0
+        running[leg] = round(running[leg] + pnl, 2)
+        by_leg_date[leg][date] = running[leg]  # last value wins for that date
+    for leg in LEGS:
+        out[leg] = [[d, v] for d, v in sorted(by_leg_date[leg].items())]
+    # total: merge all legs onto the union of dates, carrying each leg's last-known value
+    all_dates = sorted({d for leg in LEGS for d, _ in out[leg]})
+    last = {leg: 0.0 for leg in LEGS}
+    idx = {leg: 0 for leg in LEGS}
+    total_pts = []
+    for d in all_dates:
+        for leg in LEGS:
+            series = out[leg]
+            while idx[leg] < len(series) and series[idx[leg]][0] <= d:
+                last[leg] = series[idx[leg]][1]
+                idx[leg] += 1
+        total_pts.append([d, round(sum(last.values()), 2)])
+    out["total"] = total_pts
+    return out
+
+
 def _build_doc(cfg, state, feed_stale, unrealized):
-    orders = trades = []
+    orders = []
     try:
         with open(ORDERS_CSV, encoding="utf-8", newline="") as f:
             orders = list(csv.DictReader(f))[-100:]
     except Exception:
         orders = []
+    trades = []
     try:
         with open(TRADES_CSV, encoding="utf-8", newline="") as f:
             trades = list(csv.DictReader(f))[-100:]
     except Exception:
         trades = []
+    # trades_all / cum_pnl: the full (capped) history, independent of the `today`
+    # block above -- the equity curve and since-start KPIs need every closed trade
+    # since LIVE_FROM, not just the last 100 kept for the TODAY'S ORDERS panel.
+    all_trades = _all_trades_from_csv(cap=500)
+    trades_all = list(reversed(all_trades))  # newest first, per the web tab's table convention
+    cum_pnl = _cum_pnl_by_leg(all_trades)
+    unrl_by_leg = state.get("_unrl_by_leg") or {}
     positions = {}
     for leg, lot in state.get("legs", {}).items():
         positions[leg] = {"side": lot["side"], "shares": lot["shares_remaining"],
-                          "entry_px": lot["entry_px"], "entry_ts": lot["entry_ts"]}
+                          "entry_px": lot["entry_px"], "entry_ts": lot["entry_ts"],
+                          "unrealized": unrl_by_leg.get(leg, 0.0)}
     return {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
+        "live_from": LIVE_FROM,
         "feed_stale": bool(feed_stale), "breaker_tripped": bool(state.get("breaker_tripped")),
         "kill": bool(state.get("kill_done")), "calib": state.get("calib"),
         "positions": positions,
         "today": {"orders": orders, "trades": trades,
                   "realized_pnl": state.get("realized_pnl_today", 0.0),
                   "unrealized_pnl": round(unrealized, 2)},
+        "trades_all": trades_all,
+        "cum_pnl": cum_pnl,
         "rails": {"shares": cfg.get("shares"), "max_shares_per_leg": cfg.get("max_shares_per_leg"),
                   "daily_loss_limit_usd": cfg.get("daily_loss_limit_usd"),
-                  "session": cfg.get("session"), "slippage_per_share": cfg.get("slippage_per_share")},
+                  "session": cfg.get("session"), "slippage_per_share": cfg.get("slippage_per_share"),
+                  "kill_file": cfg.get("kill_file")},
     }
 
 
