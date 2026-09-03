@@ -137,6 +137,18 @@ def studies_gate_verdict(out, returncode, known_dup_rows):
 
 
 
+def changelog_entry_is_ours(diff, ver):
+    """True when this ship's own diff ADDS the CHANGELOG entry tagged `ver`.
+
+    The realign may only relabel an entry the shipping session wrote. `diff` is
+    `git diff origin/main -- index.html`; an entry that is merely present on both sides
+    belongs to somebody else and keeps the version it shipped under.
+    """
+    tag = "{v:'%s'," % ver
+    return any(ln.startswith('+') and not ln.startswith('+++') and tag in ln
+               for ln in (diff or '').splitlines())
+
+
 def cmd_ship(name, message):
     root = repo_root()
     wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
@@ -182,7 +194,21 @@ def cmd_ship(name, message):
                 want = bump(theirs)
                 new_txt = mine_txt.replace("const VERSION='%s'" % mine,
                                            "const VERSION='%s'" % want, 1)
-                new_txt = new_txt.replace("{v:'%s'," % mine, "{v:'%s'," % want, 1)
+                # Only re-tag a CHANGELOG entry this ship actually wrote. Retagging the top
+                # entry unconditionally quietly relabels other people's work: a ship that
+                # changes no index.html content (tools, docs) still bumps VERSION, and the
+                # blind replace then moved the previous session's entry forward with it.
+                # Observed twice on 2026-09-03 - it walked the STUDIES registry entry from
+                # 73.461 to 73.462 to 73.463, so the changelog credited the wrong build.
+                # A gap in the numbers is correct and already normal here: a ship with
+                # nothing user-facing to say should leave the changelog alone.
+                entry_diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', 'index.html'],
+                                 check=False, quiet=True)
+                if changelog_entry_is_ours(entry_diff, mine):
+                    new_txt = new_txt.replace("{v:'%s'," % mine, "{v:'%s'," % want, 1)
+                    retagged = True
+                else:
+                    retagged = False
                 # Flush to DISK, not just to the OS buffer. The boot gate below reads this
                 # same file back from a SEPARATE process moments later; on a busy Windows box
                 # (OneDrive/AV filter drivers in the path) that reader has been observed
@@ -211,7 +237,10 @@ def cmd_ship(name, message):
                                      'partial file (re-run ship; nothing was pushed)')
                 run(['git', '-C', wt, 'add', 'index.html'])
                 run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
-                print('version realigned %s -> %s (origin/main was on %s)' % (mine, want, theirs))
+                print('version realigned %s -> %s (origin/main was on %s)%s'
+                      % (mine, want, theirs,
+                         '' if retagged else "; CHANGELOG untouched - this ship added "
+                         "no entry of its own"))
 
     # The boot gate must test the WORKTREE's index.html. preflight_boot.py resolves its
     # target from its own __file__ location (not cwd), so running the shared checkout's
