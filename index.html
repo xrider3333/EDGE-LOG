@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.463';
+const VERSION='73.464';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.464',date:'2026-09-01',notes:['FIX: the pinned sub-tab strip (LIBRARY / BUILDER / RESULTS ...) now sticks just below the topbar instead of sliding underneath it - the topbar is sticky too, so both were fighting for the same top edge and the strip vanished as soon as you scrolled.']},
 {v:'73.463',date:'2026-09-03',notes:['STUDIES registry repaired: a stray comma after the NinjaTrader-parity study left an empty slot in the studies list, which had been crashing the registry checker since 2026-08-27.','The Efficiency Floor row (1052) had fallen outside its own study and is back inside it.','Ten ORB round-5 rows recorded a verdict of "warn", which is not one of the five board verdicts - they now read as "works but fragile", which is how the board was already drawing them.','Six TTM Squeeze rows moved from 1027-1032 to 1159-1164: MISC round 24 already owned those numbers.','The push gate now blocks on a crashed or failing registry check instead of reading the crash as a pass.']},
 {v:'73.460',date:'2026-09-02',notes:['MAR IS ANNUALISED NOW - same label, new meaning, everywhere it appears (1E every tab, KPI, Past Runs, STUDIES, COMPARE, RUNBOARD): net over the ticked stretch PER YEAR of that stretch, divided by its max drawdown. The old net-over-drawdown grew with the length of the window - measured on the ORB crown with every knob pinned, an 8-year and a 4-year window with the SAME worst drawdown read 6.91 and 4.37, and the 16-year figure beat the 4-year one while PF, EV R, Sharpe and Sortino all said the recent years were better. Inside one run nothing re-ranks: every column shares the years, so the crown floor and every RANK order are unchanged. Only cross-run reads change, which is the point.','NEW ROW ON EVERY 1E TAB AND KPI, NEW AXIS ON THE CHARTS AND STUDIES: R / YR = EV R times trades per year on the ticked stretch - the edge, in units of the average losing trade, a config earns in a year. Leverage-blind and window-length-blind, so it is the number to rank strategies on across families. What Gemini calls opportunity-adjusted expectancy or daily R velocity, under ONE name, per year, beside the $ / YEAR axis it is the size-blind twin of.','NEW ROW: DD (R) = the drawdown over the ticked stretch divided by the average losing trade - how many typical losses deep the worst stretch went. Scale-free, so it reads across instruments and contract sizes. Lower is better.','THE ENGINE NOW WRITES, on every validate, the calendar date the optimize window splits into in-sample and walk-forward, plus the dates, years, average loss and per-trade Sharpe / Sortino of every IS / WF / lockbox block a config carries. So an IS-only or WF-only tick annualises exactly on a new run; on an older run those two ticks dash rather than guess, while IS+WF, LB and the full run annualise off the windows every run already stores.','ONE SORTINO. The GATE / TILT / HYBRID blocks used to carry their own Sortino arithmetic (sample deviation, downside about the mean) while sweeps and validates used another, and the RAW tab read a third off a sampled curve. Every block now comes through the single definition in analytics.py; RAW reads the stored per-stretch figure when a run has one and only falls back to the curve on older runs.','The KPI tab $100k-account MAR (ann.) row is gone: with MAR itself annualised there is one MAR, not two, and that one needs no account-size assumption.']},
 {v:'73.459',date:'2026-09-02',notes:['NEW: QQQ SHADOW execution adapter (api/qqq_exec.py) - Stage 1 of trading the crowned NQ strategies as QQQ shares on Webull. SHADOW ONLY, no order is ever sent anywhere: it mirrors NinjaTrader\'s live NQ fills (fills.csv, the same feed the real-money journal sync reads) into paper QQQ share lots, one per leg (ORB / ENGU-Q / NOISE). Priced off a real Webull quote when fresh, else an NQ:QQQ ratio calibrated daily from Yahoo data. Rails: per-leg share cap, a daily shadow-loss breaker that flattens everything, an entry window with a forced flat-by, a kill file, and a feed-staleness guard - every trip pushed to the phone. Runs on its own runner thread, ticking every ~5s during market hours. QQQ PAPER tab gets a new SHADOW EXECUTION section above the existing content: status strip, one tile per leg, today\'s shadow orders, closed shadow trades with running P&L, and the rails in force.','tools/qqq_exec_smoke.py: synthetic-fills unit test covering a partial+full exit round-trip, an EOD-flattened leg, a refused late entry, and a breaker trip - all passing.']},
@@ -8559,7 +8560,7 @@ function renderApp(){
   // ── second-level subtab bar (subtabs for the active master section) ──
   const _master=(activeTab==='augur')?'backtester':'log';
   const sub=document.createElement('div');
-  sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:1px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center;position:sticky;top:0;z-index:40';
+  sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:1px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center;position:sticky;top:46px;z-index:99';
   const _logIc={overview:'◎',trades:'≡',analytics:'⌬',import_export:'⇅',journal:'✎',settings:'⚙'};
   const _logLbl=t=>t==='import_export'?'IMPORT / EXPORT':t.toUpperCase();
   // Split-screen layout toggle lives in the tab bar (right-aligned), shown for the
@@ -8586,6 +8587,10 @@ function renderApp(){
   wrap.appendChild(sub);
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
+  // pin the sub-tab strip directly under the topbar, whatever height the topbar renders
+  {const _pinSub=()=>{const tb=wrap.querySelector('.topbar');if(tb&&sub)sub.style.top=tb.offsetHeight+'px';};
+   requestAnimationFrame(_pinSub);
+   if(!window._subPinWired){window._subPinWired=1;window.addEventListener('resize',()=>{const w=document.getElementById('app');const tb=w&&w.querySelector('.topbar'),sb=w&&w.querySelector('[data-asubtop],[data-tab]');if(tb&&sb&&sb.parentElement)sb.parentElement.style.top=tb.offsetHeight+'px';});}}
 
   wrap.querySelectorAll('[data-master]').forEach(b=>{b.onclick=()=>{const m=b.dataset.master;if(m==='backtester'){activeTab='augur';if(!ASUBS.some(s=>s[0]===augurSub))augurSub='lib';}else{if(activeTab==='augur')activeTab=window._lastLogTab||'overview';}renderApp();};});
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;window._lastLogTab=b.dataset.tab;renderApp();};});
