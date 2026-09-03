@@ -186,6 +186,10 @@ CASES = [
                                   'mtxSX': 'EV R', 'mtxSY': 'SORTINO'}),
     ('main-scatter-so-evr', 901, {'cfgTab': 'raw', 'mtxView': 'scatter', 'mtxCols': 'both',
                                   'mtxSX': 'SORTINO', 'mtxSY': 'EV R'}),
+    # v73.7x: MAR is annualised and R / YR is new -- plot them so their dot values can be
+    #   hand-checked (a scatter tooltip carries only the two axes it draws).
+    ('main-scatter-mar-rpy', 901, {'cfgTab': 'raw', 'mtxView': 'scatter', 'mtxCols': 'both',
+                                   'mtxSX': 'MAR', 'mtxSY': 'R / YR'}),
     ('main-ratios-only', 901, {'cfgTab': 'raw', 'mtxView': 'parallel', 'mtxCols': 'ratio'}),
     ('main-numbers-only', 901, {'cfgTab': 'raw', 'mtxView': 'parallel', 'mtxCols': 'num'}),
     ('partial-parallel', 902, {'cfgTab': 'raw', 'mtxView': 'parallel', 'mtxCols': 'both'}),
@@ -513,10 +517,38 @@ def main():
     else:
         print('  sortino    smooth=%s  choppy=%s  (smooth must sit higher)' % (smooth, choppy))
 
+    # -- 4b. MAR is ANNUALISED and R / YR is EV R x trades / years (v73.7x) ------
+    #    The fixture run spans OPT_WIN; the RAW points read that window's years. Config A
+    #    has net = is_pnl + wf_pnl = 7000 (points), DD 400 (the whole-window metrics
+    #    block, the fallback a fixture without per-stretch cal blocks lands on), 500
+    #    trades, EV R 0.48. Both figures are checked to the display precision.
+    import datetime as _dt
+    _d0 = _dt.date.fromisoformat(OPT_WIN[0]); _d1 = _dt.date.fromisoformat(OPT_WIN[1])
+    _yrs = (_d1 - _d0).days / 365.25
+    mar_got = None; rpy_got = None
+    msm = cs.get('main-scatter-mar-rpy') or {}
+    for t in msm.get('dots') or []:
+        if which_cfg(tip_label(t), names) == 'A':
+            mar_got = tip_val(t, 'MAR'); rpy_got = tip_val(t, 'R / YR')
+    exp_mar = (7000.0 / _yrs) / 400.0
+    exp_rpy = 0.48 * 500 / _yrs
+    if not isinstance(mar_got, float) or abs(mar_got - exp_mar) > 0.005 + 1e-9:
+        bad.append('MAR: config A rendered %s, annualised hand calculation (7000/%.3f yrs)/400 = %.4f'
+                   % (mar_got, _yrs, exp_mar))
+    else:
+        print('  hand-check MAR  (7000 / %.2f yr) / 400 = %.4f  rendered %.2f   OK' % (_yrs, exp_mar, mar_got))
+    if not isinstance(rpy_got, float) or abs(rpy_got - exp_rpy) > 0.05 + 1e-9:
+        bad.append('R / YR: config A rendered %s, hand calculation 0.48 * 500 / %.3f = %.4f'
+                   % (rpy_got, _yrs, exp_rpy))
+    else:
+        print('  hand-check R/YR 0.48 * 500 / %.2f yr = %.4f  rendered %.1f   OK' % (_yrs, exp_rpy, rpy_got))
+
     # -- 5. NUMBERS / RATIOS / BOTH governs both new axes ---------------------
-    ra = (cs.get('main-ratios-only') or {}).get('axes') or []
-    nu = (cs.get('main-numbers-only') or {}).get('axes') or []
-    for want in ('EV R', 'SORTINO'):
+    # an inverted axis wears a ' ↓' and a sparse one a ' °' -- match the measure NAME.
+    _bare = lambda a: str(a).replace(' ↓', '').replace(' °', '').strip()
+    ra = [_bare(a) for a in ((cs.get('main-ratios-only') or {}).get('axes') or [])]
+    nu = [_bare(a) for a in ((cs.get('main-numbers-only') or {}).get('axes') or [])]
+    for want in ('EV R', 'SORTINO', 'R / YR', 'DD (R)'):
         if want not in ra:
             bad.append('RATIOS: %s should be a ratio but was filtered out (%s)' % (want, ra))
         if want in nu:

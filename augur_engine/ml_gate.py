@@ -158,31 +158,28 @@ def _stats(pnls):
         "max_drawdown": float((cum - peak).min()) if n else 0.0,
         "avg_pnl": float(pnls.mean()) if n else 0.0,
         "wins": int(len(wins)), "losses": int(len(losses)),
+        # v73.7x: the R unit. avg_loss is a POSITIVE magnitude, as validate has always
+        #   stored it on the lockbox block. Every per-stretch block (RAW is_rng / wf_rng /
+        #   lockbox and the GATE / TILT / HYBRID blocks) now carries it, so DD (R) - the
+        #   drawdown in units of the average losing trade - can be read instead of derived.
+        "avg_win": (float(wins.mean()) if len(wins) else None),
+        "avg_loss": (float(-losses.mean()) if len(losses) else None),
     }
 
 
 def _risk_adj(pnls, yrs):
-    """Per-block SHARPE / SORTINO scalars for the GATE / TILT / HYBRID columns (1E
-    MATRIX scatter): same read the web derives for RAW configs off their saved curve
-    (_riskAdjFromCum in index.html) — per-trade PnL mean over its deviation,
-    annualised by sqrt(trades / years) on the block's own calendar window. The
-    downside deviation deliberately shares the Sharpe's n-1 denominator (matching
-    the web's derivation, noted there) rather than the textbook count-of-negatives.
-    Returns (sharpe, sortino); each is None — never 0 or inf — when there is
-    nothing honest to measure (too few trades, no window, no dispersion)."""
-    p = np.asarray(pnls, float)
-    n = len(p)
-    if n < 3 or not yrs or yrs <= 0:
-        return None, None
-    mean = float(p.mean())
-    d = p - mean
-    sd = float(np.sqrt(float((d * d).sum()) / max(1, n - 1)))
-    dn = d[p < 0]
-    sdn = float(np.sqrt(float((dn * dn).sum()) / max(1, n - 1)))
-    ann = float(np.sqrt(n / yrs))
-    sh = (mean / sd) * ann if sd > 1e-9 else None
-    so = (mean / sdn) * ann if sdn > 1e-9 else None
-    return sh, so
+    """Per-block SHARPE / SORTINO scalars for the GATE / TILT / HYBRID columns.
+
+    v73.7x: delegates to analytics.sharpe_from_pnls / sortino_from_pnls - the SAME
+    arithmetic run_backtest and a validate use - instead of the private copy that
+    lived here (sample n-1 deviation, downside from deviations about the mean). With
+    three Sortinos on the site (this one, the engine per-trade one, and the web curve
+    read) the same row label meant three different things across the 1E tabs. Now
+    one. Returns (sharpe, sortino); each None - never 0 or inf - when there is nothing
+    honest to measure (too few trades, no window, no dispersion)."""
+    from .analytics import sharpe_from_pnls as _shp, sortino_from_pnls as _sop
+    p = list(np.asarray(pnls, float))
+    return _shp(p, yrs), _sop(p, yrs)
 
 
 def _make_model(name, seed):

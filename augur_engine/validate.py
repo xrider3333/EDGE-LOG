@@ -27,6 +27,12 @@ from .analytics import (sharpe_from_trades as _sharpe_shared,
 #   (total_pnl/num_trades/win_rate/profit_factor/max_drawdown/avg_pnl/wins/losses) so the web
 #   layer's existing `_blk()`/`_P()` machinery works unmodified on RAW candidates too.
 from .ml_gate import _stats as _gate_stats
+import pandas as _pd
+
+
+def sel_as_trades(pnls):
+    """A bare PnL list dressed as (entry, exit, pnl) tuples for the analytics helpers."""
+    return [(0, 0, float(x)) for x in pnls]
 
 
 def _parse(d):
@@ -199,6 +205,25 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
         s = _gate_stats(sel)
         s["total_pnl"] = round(s["total_pnl"], 4)
         s["max_drawdown"] = round(s["max_drawdown"], 4)
+        # v73.7x: the block says WHEN it was measured and for how long, so the web can
+        #   annualise MAR and R / YR on exactly this stretch instead of guessing the
+        #   IS / WF split from trade counts - and carries the same per-trade SHARPE /
+        #   SORTINO the GATE / TILT / HYBRID blocks carry, off the ONE definition in
+        #   analytics.py, so the RAW tab stops reading them off a 160-point curve.
+        try:
+            _ix = arrays.get("index")
+            if _ix is not None and len(_ix):
+                _a = _ix[0 if lo is None else max(0, min(int(lo), len(_ix) - 1))]
+                _b = _ix[len(_ix) - 1 if hi is None else max(0, min(int(hi), len(_ix) - 1))]
+                _yrs = (_pd.Timestamp(_b) - _pd.Timestamp(_a)).total_seconds() / (365.25 * 86400.0)
+                if _yrs > 0:
+                    s["from"] = str(_pd.Timestamp(_a).date()); s["to"] = str(_pd.Timestamp(_b).date())
+                    s["years"] = round(float(_yrs), 4)
+                    _sh, _so = _sharpe_shared(sel_as_trades(sel), _yrs), _sortino_shared(sel_as_trades(sel), _yrs)
+                    if _sh is not None: s["sharpe"] = round(float(_sh), 3)
+                    if _so is not None: s["sortino"] = round(float(_so), 3)
+        except Exception:
+            pass
         return s
 
     for c in cands:
@@ -527,6 +552,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     _lbs = _gate_stats(_ctr_pnls)
                     _lbs["total_pnl"] = round(_lbs["total_pnl"], 4)
                     _lbs["max_drawdown"] = round(_lbs["max_drawdown"], 4)
+                    # v73.7x: window + per-trade risk scalars, same as is_rng / wf_rng.
+                    try:
+                        _lyr = (_parse(date_to) - _parse(lb_from)).days / 365.25
+                        if _lyr > 0:
+                            _lbs["from"] = str(lb_from)[:10]; _lbs["to"] = str(date_to)[:10]
+                            _lbs["years"] = round(float(_lyr), 4)
+                            _lsh = _sharpe_shared(sel_as_trades(_ctr_pnls), _lyr)
+                            _lso = _sortino_shared(sel_as_trades(_ctr_pnls), _lyr)
+                            if _lsh is not None: _lbs["sharpe"] = round(float(_lsh), 3)
+                            if _lso is not None: _lbs["sortino"] = round(float(_lso), 3)
+                    except Exception:
+                        pass
                     c["lockbox"] = _lbs
                 else:
                     c["lockbox"] = None
@@ -984,7 +1021,13 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     "avg_win": lb_aw, "avg_loss": lb_al,   # measured from lockbox trades (points)
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
-                    "lockbox_months": lockbox_months},
+                    "lockbox_months": lockbox_months,
+                    # v73.7x: the calendar date the optimize window splits into IS | WF -
+                    #   the first anchored fold test start, the SAME bar the RAW candidate
+                    #   is_rng / wf_rng blocks and the gate wf_range are cut at. Lets the
+                    #   web annualise an IS-only or WF-only tick on this run. None when no
+                    #   fold ran (the web then dashes those two ticks rather than guess).
+                    "wf_split": (str(_pd.Timestamp(_wfA).date()) if _wfA is not None else None)},
         "adversarial": adversarial,   # §4: is the lockbox a different regime? (context)
         "conformal": conformal,       # §4: distribution-free per-trade PnL band + coverage
         "causal": causal,             # §7: does entry timing beat random-entry nulls?

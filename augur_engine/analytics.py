@@ -126,10 +126,17 @@ def trade_pnls(trades):
     return [float(t[2]) for t in (trades or []) if len(t) >= 3]
 
 
-def sharpe_from_trades(trades, years):
-    """Annualized Sharpe of a per-trade NET-PnL series. None when too few trades, no
-    span, or no dispersion - never a number standing in for a missing one."""
-    p = trade_pnls(trades)
+def sharpe_from_pnls(pnls, years):
+    """Annualized Sharpe of a per-trade NET-PnL list. None when too few trades, no
+    span, or no dispersion - never a number standing in for a missing one.
+
+    THE ONE DEFINITION (v73.7x). ml_gate._risk_adj used to carry its own copy for the
+    GATE / TILT / HYBRID blocks - sample (n-1) deviation, and a downside term built from
+    deviations-about-the-mean of the losing trades - so the same SORTINO row meant one
+    thing on the RAW tab and another on the GATE tab. Both now come through here:
+    population deviation, downside = squared shortfall below ZERO, annualised by
+    sqrt(trades per year). Runs scored before this keep the scalars they saved."""
+    p = [float(x) for x in (pnls or [])]
     n = len(p)
     if n < 3 or not years or years <= 0:
         return None
@@ -140,11 +147,10 @@ def sharpe_from_trades(trades, years):
     return (mean / sd) * ((n / years) ** 0.5)
 
 
-def sortino_from_trades(trades, years):
-    """Annualized Sortino - Sharpe with only DOWNSIDE dispersion in the denominator.
-    It is here beside MAR on purpose: a max drawdown is ONE worst event, and this
-    project measured its confidence interval to be wider than the statistic itself."""
-    p = trade_pnls(trades)
+def sortino_from_pnls(pnls, years):
+    """Annualized Sortino - Sharpe with only DOWNSIDE dispersion in the denominator
+    (squared shortfall below zero, over ALL n trades). See sharpe_from_pnls."""
+    p = [float(x) for x in (pnls or [])]
     n = len(p)
     if n < 3 or not years or years <= 0:
         return None
@@ -153,6 +159,18 @@ def sortino_from_trades(trades, years):
     if dd <= 0:
         return None
     return (mean / dd) * ((n / years) ** 0.5)
+
+
+def sharpe_from_trades(trades, years):
+    """Annualized Sharpe of a trade list - see sharpe_from_pnls."""
+    return sharpe_from_pnls(trade_pnls(trades), years)
+
+
+def sortino_from_trades(trades, years):
+    """Annualized Sortino of a trade list - see sortino_from_pnls. It is here beside
+    MAR on purpose: a max drawdown is ONE worst event, and this project measured its
+    confidence interval to be wider than the statistic itself."""
+    return sortino_from_pnls(trade_pnls(trades), years)
 
 
 def avg_win_loss(trades):
