@@ -77,18 +77,19 @@ def main():
 
         fills_path = os.path.join(tmp, "fills.csv")
         # RATIO = 30 (NQ points per QQQ dollar), so an NQ price of 30000 -> QQQ $1000.
-        # Times are NY-local naive, matching the real AddOn's fills.csv.
+        # Times are UTC naive (EdgeLogExport.cs writes ToUniversalTime); the adapter converts to ET.
+        # Signal tags are the real NinjaTrader ones: ORB / EQ (ENGU-Q) / NZ (NOISE).
         rows = [
             # ORB entry: BUY 2 @ 30000 (long)
-            ["e1", "2026-09-02 09:35:00", "Sim101", "NQ 12-26", "BUY", "2", "30000", "0", "o1", "ORB"],
+            ["e1", "2026-09-02 13:35:00", "Sim101", "NQ 12-26", "BUY", "2", "30000", "0", "o1", "ORB"],
             # ORB partial exit: SELL 1 @ 30030 (signal blank == generic reduce)
-            ["e2", "2026-09-02 10:00:00", "Sim101", "NQ 12-26", "SELL", "1", "30030", "0", "o2", ""],
+            ["e2", "2026-09-02 14:00:00", "Sim101", "NQ 12-26", "SELL", "1", "30030", "0", "o2", ""],
             # ORB final exit: SELL 1 @ 30060, tagged Close
-            ["e3", "2026-09-02 10:15:00", "Sim101", "NQ 12-26", "SELL", "1", "30060", "0", "o3", "Close"],
+            ["e3", "2026-09-02 14:15:00", "Sim101", "NQ 12-26", "SELL", "1", "30060", "0", "o3", "Close"],
             # ENGUQ entry, left open (no exit fill in this file at all)
-            ["e4", "2026-09-02 10:30:00", "DEMO7240108", "NQ 12-26", "BUY", "1", "30000", "0", "o4", "ENGUQ"],
+            ["e4", "2026-09-02 14:30:00", "DEMO7240108", "NQ 12-26", "BUY", "1", "30000", "0", "o4", "EQ"],
             # NOISE entry AFTER last_entry (15:55) -- must be refused
-            ["e5", "2026-09-02 15:57:00", "DEMO7240108", "MNQ 12-26", "BUY", "1", "30000", "0", "o5", "NOISE"],
+            ["e5", "2026-09-02 19:57:00", "DEMO7240108", "MNQ 12-26", "BUY", "1", "30000", "0", "o5", "NZ"],
         ]
         write_fills(fills_path, rows)
 
@@ -143,7 +144,7 @@ def main():
         print("\nTest 5: breaker trips on a big adverse mark, further entries ignored")
         # Fresh scenario: open a new ORB lot, then mark it deep underwater via quote_fn.
         rows2 = [
-            ["b1", "2026-09-03 09:35:00", "Sim101", "NQ 12-26", "BUY", "2", "30000", "0", "b1", "ORB"],
+            ["b1", "2026-09-03 13:35:00", "Sim101", "NQ 12-26", "BUY", "2", "30000", "0", "b1", "ORB"],
         ]
         fills_path2 = os.path.join(tmp, "fills2.csv")
         write_fills(fills_path2, rows2)
@@ -172,7 +173,7 @@ def main():
 
         # A same-day entry after the trip must be ignored.
         rows2b = rows2 + [
-            ["b2", "2026-09-03 09:45:00", "Sim101", "MNQ 12-26", "BUY", "1", "30000", "0", "b2", "ORB"],
+            ["b2", "2026-09-03 13:45:00", "Sim101", "MNQ 12-26", "BUY", "1", "30000", "0", "b2", "ORB"],
         ]
         write_fills(fills_path2, rows2b)
         now5 = datetime(2026, 9, 3, 9, 46)

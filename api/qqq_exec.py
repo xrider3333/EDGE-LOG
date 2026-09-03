@@ -58,6 +58,7 @@ CLI: `python -m api.qqq_exec --once [--uid UID]` runs a single tick and exits --
 like the nt-bridge watchdog thread) and by hand for verification.
 """
 import argparse
+import re
 import csv
 import json
 import os
@@ -247,10 +248,20 @@ def _notify(msg, title, log=print):
 
 
 # -- leg attribution -----------------------------------------------------------------
+# NinjaTrader stamps the ENTRY signal name per strategy (see bin/Custom/Strategies):
+#   EdgeLogORB230.cs -> "ORB", EdgeLogENGUQ1m.cs -> "EQ", EdgeLogNOISE.cs -> "NZ".
+#   EdgeLogORBV2.cs -> "V2" is NOT a crowned leg and is deliberately left unmapped.
+SIGNAL_TO_LEG = {"ORB": "ORB", "EQ": "ENGUQ", "ENGUQ": "ENGUQ", "NZ": "NOISE", "NOISE": "NOISE"}
+
+
 def _leg_from_signal(sig):
-    s = str(sig or "").upper()
-    for leg in LEGS:
-        if leg in s:
+    s = str(sig or "").strip().upper()
+    if not s:
+        return None
+    if s in SIGNAL_TO_LEG:
+        return SIGNAL_TO_LEG[s]
+    for tag, leg in SIGNAL_TO_LEG.items():
+        if re.fullmatch(r"[A-Z0-9]*" + tag + r"[A-Z0-9]*", s) and tag in ("ORB", "ENGUQ", "NOISE"):
             return leg
     return None
 
@@ -730,9 +741,22 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     if active and not kill_present:
         fills = nt_sync.parse_fills(fills_path)
+        # fills.csv "Time" is UTC (EdgeLogExport.cs: ex.Time.ToUniversalTime()). Convert to
+        # New York once here so every rail below judges the fill on ET wall-clock time.
+        for f in fills:
+            f["dt"] = nt_sync._to_ny(f["dt"])
         base_ok = lambda inst: nt_sync.get_base(inst) in ("NQ", "MNQ")
         processed = set(state.get("processed_ids") or [])
-        new_fills = [f for f in fills if base_ok(f["instrument"]) and f["exec_id"] not in processed]
+        candidates = [f for f in fills if base_ok(f["instrument"]) and f["exec_id"] not in processed]
+        # Never replay history: anything from before today's ET trading day is marked as
+        # processed without routing (first boot would otherwise re-trade weeks of fills).
+        stale_hist = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") < today]
+        if stale_hist:
+            for f in stale_hist:
+                processed.add(f["exec_id"])
+            state["processed_ids"] = list(processed)[-5000:]
+            log(f"[qqq-exec] skipped {len(stale_hist)} fill(s) from before {today} (history, not replayed)")
+        new_fills = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") >= today]
         new_fills.sort(key=lambda f: (f["dt"], f["_i"]))
 
         entries_blocked = (state.get("breaker_tripped") or feed_stale or kill_present)
