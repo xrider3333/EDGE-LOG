@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.453';
+const VERSION='73.454';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.454',date:'2026-09-01',notes:['Double-click the drag handle under a scatter or parallel chart to forget its dragged shape - the chart rebuilds at its default height and fits the column again.']},
 {v:'73.453',date:'2026-09-01',notes:['The sub-tab strip (LIBRARY / BUILDER / RESULTS / COMPARE ...) is pinned to the top of the window as you scroll, and is about a third shorter.','1E scatter dots are the size the STUDIES board uses (radius 2.4, crowned 3.6) - they were nearly twice that and covered each other in the dense middle.']},
 {v:'73.452',date:'2026-09-01',notes:['FIX on 73.451: clicking a ratio heading now reorders the pooled ONE TABLE as well - it sorts through a second path that the first cut missed, so the arrow lit up and nothing moved.']},
 {v:'73.451',date:'2026-09-01',notes:['COMPARE / STUDIES tables read like the 1E ALL table now: a FAMILY column (dot + name in the family colour), the config with its row handle beside it, then MAR / SHARPE / SORTINO / PF / WIN % / EV R in the 1E order. Click a ratio heading to sort every table on it; click again to release.','Zero lines: the 1E scatter and the STUDIES scatter both reach zero on each axis now and draw the zero line - a 0.3 ratio is seen against nothing instead of floating in a cropped range. Under CHAMPION the crosshair is still the champion.']},
@@ -26364,6 +26365,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the grip calls this straight from its pointer-up (deterministic - no observer
         //   timing); the observer below only catches a resize that came some other way.
         box._kaCommit=()=>{clearTimeout(_kt);commit();};
+        // forget the dragged shape for this chart and rebuild at its authored height, which
+        //   then fits the column width again
+        box._kaReset=()=>{clearTimeout(_kt);const tag=box.dataset.katag||'';const m=Object.assign({},APREF.kaH||{});
+          if(!tag||!(tag in m))return;delete m[tag];savePref('kaH',m);renderApp();};
         try{const ro=new ResizeObserver(()=>{if(skip){skip=false;return;}clearTimeout(_kt);_kt=setTimeout(commit,260);});ro.observe(box);}
         catch(_e){box.addEventListener('pointerup',()=>{clearTimeout(_kt);_kt=setTimeout(commit,260);});}};
       // the column can change width without a re-render (tile splitter, window resize) - refit
@@ -26427,7 +26432,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           box.dataset.kaw=vw;box.dataset.kah=vh;box.dataset.katag=svg.getAttribute('data-katag')||'';
           box.style.cssText='position:relative;max-width:100%;height:'+_ha+'px;min-height:100px;max-height:1400px;border-radius:6px;margin-bottom:2px;overflow:hidden';
           svg.parentNode.insertBefore(box,svg);box.appendChild(svg);
-          const _gripA=document.createElement('div');_gripA.setAttribute('data-rsrow','');_gripA.title='drag up / down: the chart is rebuilt taller or shorter in that shape when you let go - re-projected, never stretched';
+          const _gripA=document.createElement('div');_gripA.setAttribute('data-rsrow','');_gripA.title='drag up / down: the chart is rebuilt taller or shorter in that shape when you let go - re-projected, never stretched. Double-click: back to the default fit';
+          // the drag wiring calls preventDefault on pointerdown, which cancels the browser's own
+          //   dblclick - so a double-tap is detected here from two pointerdowns inside 350ms.
+          _gripA.addEventListener('pointerdown',function(){const now=Date.now();
+            if(now-(_gripA._lastDn||0)<350){_gripA._lastDn=0;if(box._kaReset)box._kaReset();return;}
+            _gripA._lastDn=now;});
           _gripA.style.cssText='height:8px;margin:3px 0 4px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none';
           _gripA.innerHTML='<div style="width:44px;height:3px;border-radius:2px;background:var(--border)"></div>';
           let _hostA=box;
