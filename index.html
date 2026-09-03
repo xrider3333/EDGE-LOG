@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.465';
+const VERSION='73.466';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.466',date:'2026-09-01',notes:['1A funnel with ALL CONFIGS on is readable again: the raw cloud draws as a faint haze (it was fusing into a solid green wedge), survivors sit a step quieter than the family top line, and the gutter no longer stacks a lock pill for every survivor - crown and family tops only.']},
 {v:'73.465',date:'2026-09-01',notes:['The pinned sub-tab strip re-measures the topbar after the web fonts load, so it sits flush under it (it was 2px short before the fonts arrived).']},
 {v:'73.464',date:'2026-09-01',notes:['FIX: the pinned sub-tab strip (LIBRARY / BUILDER / RESULTS ...) now sticks just below the topbar instead of sliding underneath it - the topbar is sticky too, so both were fighting for the same top edge and the strip vanished as soon as you scrolled.']},
 {v:'73.463',date:'2026-09-03',notes:['STUDIES registry repaired: a stray comma after the NinjaTrader-parity study left an empty slot in the studies list, which had been crashing the registry checker since 2026-08-27.','The Efficiency Floor row (1052) had fallen outside its own study and is back inside it.','Ten ORB round-5 rows recorded a verdict of "warn", which is not one of the five board verdicts - they now read as "works but fragile", which is how the board was already drawing them.','Six TTM Squeeze rows moved from 1027-1032 to 1159-1164: MISC round 24 already owned those numbers.','The push gate now blocks on a crashed or failing registry check instead of reading the crash as a pass.']},
@@ -12217,7 +12218,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // CHANGE 4 (v64.78, owner: the cloud "is missing" at the old 0.5/0.16): raised so ~73 grey
       //   lines clearly read as a cloud without outweighing the coloured survivor lines on top.
       const lines=selMode
-        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="#1d9e75" stroke-width="0.6" opacity="0.22"/>').join('')
+        ? series.slice(0,_cfgShow).map(s=>'<polyline points="'+_seg(s,0,fIS)+'" fill="none" stroke="#1d9e75" stroke-width="0.45" opacity="0.08"/>').join('')
         : order.map(i=>(i<_cfgShow?path(series[i],colOf(i),i===0?1.4:0.8,i===0?1:0.72):path(series[i],'var(--text5)',0.55,0.15))).join('');
       const zeroY=Yv(0);
       // v64.62 (owner): the pink gated curve for the NON-funnel path (selMode builds its own in
@@ -12293,7 +12294,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v73.42x (owner): drawn GREEN - the RAW family colour, same as its key row - not
           //   the per-config hue (_hc still feeds the explorer + 2C headers, where configs
           //   must stay tellable apart; here it made RAW lines read as other families).
-          wf+=_proc(c.equity.cum.map(v=>v*mult),'#1d9e75',0.6,0.7);});
+          wf+=_proc(c.equity.cum.map(v=>v*mult),'#1d9e75',0.55,0.55);});
         let ov='';
         if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,0.95)+'</g>';
         if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
@@ -12344,7 +12345,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
           // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
           const fv=anchor+_rawEnd*_sc;
-          if(cr||_a2kAll)labs.push({y:Yv(fv*mult),col,kg:(cr?'crown':'lb'),txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
+          if(cr||(_a2kAll&&!(+(APREF.a2cfgAll||0))))labs.push({y:Yv(fv*mult),col,kg:(cr?'crown':'lb'),txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
         // v64.71 (owner): build the SERIES for the fullscreen explorer — double-clicking 2A now
         //   opens the same TradingView-style zoom/pan viewer the Compare tab uses, with each top
         //   config as its OWN coloured, separable line PLUS the gate curve (they overlap badly in
