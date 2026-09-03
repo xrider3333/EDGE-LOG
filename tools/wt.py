@@ -105,6 +105,38 @@ def bump(v):
     return '%s.%d' % (a, int(b) + 1)
 
 
+def studies_gate_verdict(out, returncode, known_dup_rows):
+    """Judge one studies_registry_check.py run. Returns '' when the push may proceed, else
+    the reason it may not. The check exits 1 whenever it has ANY complaint, including the
+    baselined duplicates, so the exit code alone cannot be the verdict - but a non-zero
+    exit with no PASS/FAIL report at all is a crash or an inconclusive run, and that must
+    block too: before 2026-09-02 this gate only grepped for duplicates, so a traceback
+    read as "no duplicates" and let a null slot plus six fresh collisions through."""
+    m = re.search(r'^FAIL:\n((?:  .*\n?)*)', out, re.M)
+    if m is None:
+        if returncode == 0 and 'PASS' in out:
+            return ''
+        return ('studies_registry_check.py exited %d without a PASS/FAIL report (crashed '
+                'or inconclusive); its output is above.' % returncode)
+    fails = [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+    fresh = []
+    for ln in fails:
+        d = re.match(r'row (\d+) duplicated', ln)
+        if d and int(d.group(1)) in known_dup_rows:
+            continue
+        fresh.append(ln)
+    if not fresh:
+        return ''
+    dup_nums = sorted({int(re.match(r'row (\d+)', ln).group(1)) for ln in fresh
+                       if re.match(r'row (\d+) duplicated', ln)})
+    reason = '%d registry contract failure(s) beyond the baselined duplicates' % len(fresh)
+    if dup_nums:
+        reason += ('. New duplicate row number(s): ' + ', '.join(str(x) for x in dup_nums) +
+                   ' - pick numbers above the current maximum')
+    return reason + '. Fix the registry (or the check) and re-run.'
+
+
+
 def cmd_ship(name, message):
     root = repo_root()
     wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
@@ -294,14 +326,12 @@ def cmd_ship(name, message):
         r = subprocess.run([sys.executable, rc], cwd=wt, capture_output=True, text=True,
                            encoding='utf-8', errors='replace')
         out = (r.stdout or '') + (r.stderr or '')
-        dups = set(int(m) for m in re.findall(r'row (\d+) duplicated', out))
-        fresh = sorted(dups - KNOWN_DUP_ROWS)
-        if fresh:
+        verdict = studies_gate_verdict(out, r.returncode, KNOWN_DUP_ROWS)
+        if verdict:
             sys.stderr.write(out)
-            raise SystemExit('STUDIES row-number gate FAILED - not pushing. New duplicate row '
-                             'number(s): ' + ', '.join(str(x) for x in fresh) +
-                             '. Pick numbers above the current maximum and re-run.')
-        print('STUDIES ROW NUMBERS: OK' +
+            raise SystemExit('STUDIES registry gate FAILED - not pushing. ' + verdict)
+        dups = set(int(m) for m in re.findall(r'row (\d+) duplicated', out))
+        print('STUDIES REGISTRY: OK' +
               (' (%d known duplicate row(s) baselined)' % len(dups & KNOWN_DUP_ROWS) if dups else ''))
 
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])

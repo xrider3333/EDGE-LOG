@@ -67,7 +67,12 @@ print("studies:", len(studies))
 
 fails, seen, tones = [], {}, {"champ", "good", "frag", "fail", "ref"}
 total_rows = 0
-for st in studies:
+for idx, st in enumerate(studies):
+    if not isinstance(st, dict):
+        # A hole in the array literal (",," or a trailing expression that evaluates to
+        # undefined) stringifies to null. Report the slot instead of crashing on it.
+        fails.append("RESEARCH_STUDIES[%d] is %r, not a study object (stray comma?)" % (idx, st))
+        continue
     for f in ("key", "title", "sub", "disc", "fam", "isLbl", "rows"):
         if f not in st:
             fails.append("study %s missing %s" % (st.get("key"), f))
