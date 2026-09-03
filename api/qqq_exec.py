@@ -329,7 +329,55 @@ def _record_trade(lot, exit_px, exit_reason):
 
 
 # -- pricing ---------------------------------------------------------------------------
+# -- quote time-box + circuit breaker ------------------------------------------------------
+# 2026-09-03: the runner's shadow thread hung for 10 hours inside get_snapshot's SSL
+# handshake (py-spy: ssl_wrap_socket <- webull get_snapshot <- default_webull_quote).
+# The SDK's connect/read timeouts are not honoured on that path, so the call is now run in
+# a throw-away worker thread with a hard wall-clock limit, and any failure (timeout, 401,
+# stale quote) disables the quote path for QUOTE_BACKOFF_SEC. Between calls the last good
+# quote is reused for QUOTE_CACHE_SEC so a 5 s tick never does a network call per tick.
+QUOTE_HARD_TIMEOUT_SEC = 6.0
+QUOTE_BACKOFF_SEC = 1800.0
+QUOTE_CACHE_SEC = 20.0
+_quote_state = {"disabled_until": 0.0, "last": None, "last_at": 0.0, "warned": False}
+
+
 def default_webull_quote(symbol="QQQ", log=print):
+    """Time-boxed, circuit-broken wrapper around _webull_quote_raw. Never raises, never
+    blocks longer than QUOTE_HARD_TIMEOUT_SEC. Returns (price, age_secs) or None."""
+    now = time.time()
+    qs = _quote_state
+    if qs["last"] is not None and now - qs["last_at"] < QUOTE_CACHE_SEC:
+        return qs["last"]
+    if now < qs["disabled_until"]:
+        return None
+    import concurrent.futures
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                               thread_name_prefix="qqq-quote")
+    fut = ex.submit(_webull_quote_raw, symbol, log)
+    ex.shutdown(wait=False)
+    try:
+        res = fut.result(timeout=QUOTE_HARD_TIMEOUT_SEC)
+    except concurrent.futures.TimeoutError:
+        res = None
+        log(f"[qqq-exec] Webull quote timed out after {QUOTE_HARD_TIMEOUT_SEC:g}s -- "
+            f"quote path disabled for {QUOTE_BACKOFF_SEC/60:g} min (nq_ratio pricing)")
+    except Exception as e:
+        res = None
+        log(f"[qqq-exec] Webull quote failed: {type(e).__name__}: {e} -- disabled "
+            f"{QUOTE_BACKOFF_SEC/60:g} min")
+    if res is None:
+        qs["disabled_until"] = now + QUOTE_BACKOFF_SEC
+        if not qs["warned"]:
+            log("[qqq-exec] Webull quote unavailable (no entitlement / timeout) -- pricing "
+                "shadow fills from the NQ ratio; will retry the quote every 30 min")
+            qs["warned"] = True
+        return None
+    qs["last"], qs["last_at"] = res, now
+    return res
+
+
+def _webull_quote_raw(symbol="QQQ", log=print):
     """Try the official Webull OpenAPI market-data snapshot. Returns (price, age_secs)
     or None on any failure/unavailability (missing SDK, missing keys, no subscription,
     a quote timestamp too old to trust). Never raises -- read-only, no order call of
@@ -624,6 +672,8 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
 
 # -- mark-to-market + breaker ------------------------------------------------------------
 def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
+    if not state.get("legs"):
+        return  # nothing open: no quote/ratio work, nothing to mark
     unrl = 0.0
     for leg, lot in state["legs"].items():
         qqq_px, src = resolve_price(cfg, state, lot.get("last_nq_px") or lot["nq_entry_px"],
