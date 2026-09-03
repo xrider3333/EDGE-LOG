@@ -85,6 +85,7 @@ DEFAULT_FILLS = nt_sync.DEFAULT_FILLS
 NQ_10S_PRIMARY = r"C:\EdgeLog\ohlc_addon\NQ_10s.csv"
 NQ_10S_FALLBACK = r"C:\EdgeLog\ohlc\NQ_10s.csv"
 WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")
+_WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 
 LEGS = ("ORB", "ENGUQ", "NOISE")
 TICK_SEC = 5.0
@@ -337,6 +338,17 @@ def default_webull_quote(symbol="QQQ", log=print):
         api = ApiClient(ak, sk, (keys.get("region") or "us").strip().lower(),
                         token_check_duration_seconds=10, token_check_interval_seconds=3,
                         connect_timeout=8, timeout=15)
+        # Reuse the SDK's persisted 2FA/access token, same directory api.webull_sync's
+        # TradeClient uses -- an ApiClient built without this errors 401 INVALID_TOKEN
+        # on every call even with a valid app key/secret (confirmed 2026-09-02: still
+        # 401 after this fix too, which is the SDK's own signal that this account has
+        # no market-data subscription entitlement -- see module docstring's px_source
+        # fallback, this is exactly the "refused" case it is designed to detect).
+        try:
+            os.makedirs(_WEBULL_TOKEN_DIR, exist_ok=True)
+            api.set_token_dir(_WEBULL_TOKEN_DIR)
+        except Exception:
+            pass
         md = MarketData(api)
         for cat in (Category.US_ETF, Category.US_STOCK):
             try:
