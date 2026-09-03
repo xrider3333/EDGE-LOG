@@ -43,6 +43,11 @@ try:
 except Exception as _e:
     _qqq_paper = None
     print(f"[qqq_paper] import skipped: {type(_e).__name__}: {_e}")
+try:
+    from . import qqq_exec as _qqq_exec
+except Exception as _e:
+    _qqq_exec = None
+    print(f"[qqq_exec] import skipped: {type(_e).__name__}: {_e}")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
@@ -1662,6 +1667,18 @@ def main(argv=None):
                                  args=(q.db, _bw_uids), daemon=True,
                                  name='nt-bridge-watchdog').start()
                 print(f"nt bridge watchdog: ON (own thread, every {BRIDGE_SEC:g}s)")
+        # QQQ SHADOW execution adapter (api/qqq_exec.py) -- own thread, same pattern as
+        # the nt-bridge watchdog above: it must keep ticking every ~5s during the market
+        # session regardless of how long a backtest job is holding the main loop.
+        # SHADOW ONLY -- see that module's docstring; no order is ever sent anywhere.
+        if a.firestore and _qqq_exec is not None:
+            _qe_uids = [u.strip() for u in (a.allow_uid or []) if u and u.strip()]
+            if _qe_uids:
+                threading.Thread(target=_qqq_exec.qqq_exec_thread,
+                                 args=(q.db, _qe_uids), daemon=True,
+                                 name='qqq-exec').start()
+                print(f"QQQ SHADOW execution (api/qqq_exec.py): ON (own thread, every "
+                     f"{_qqq_exec.TICK_SEC:g}s during 09:25-16:05 ET Mon-Fri)")
         next_exec_review = 0.0  # first pass runs immediately, then every EXEC_REVIEW_SEC
         preflight_done_date = None  # last local date the 9am ET roster preflight ran
         backup_done_date = None     # last local date the nightly NT backup ran

@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.456';
+const VERSION='73.457';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.457',date:'2026-09-02',notes:['NEW: QQQ SHADOW execution adapter (api/qqq_exec.py) - Stage 1 of trading the crowned NQ strategies as QQQ shares on Webull. SHADOW ONLY, no order is ever sent anywhere: it mirrors NinjaTrader\'s live NQ fills (fills.csv, the same feed the real-money journal sync reads) into paper QQQ share lots, one per leg (ORB / ENGU-Q / NOISE). Priced off a real Webull quote when fresh, else an NQ:QQQ ratio calibrated daily from Yahoo data. Rails: per-leg share cap, a daily shadow-loss breaker that flattens everything, an entry window with a forced flat-by, a kill file, and a feed-staleness guard - every trip pushed to the phone. Runs on its own runner thread, ticking every ~5s during market hours. QQQ PAPER tab gets a new SHADOW EXECUTION section above the existing content: status strip, one tile per leg, today\'s shadow orders, closed shadow trades with running P&L, and the rails in force.','tools/qqq_exec_smoke.py: synthetic-fills unit test covering a partial+full exit round-trip, an EOD-flattened leg, a refused late entry, and a breaker trip - all passing.']},
 {v:'73.456',date:'2026-09-01',notes:['Double-click-to-fit on chart handles accepts a slightly slower double-click (450ms) and also honours the browser own double-click event.']},
 {v:'73.455',date:'2026-09-01',notes:['Double-click the drag handle under a scatter or parallel chart to forget its dragged shape - the chart rebuilds at its default height and fits the column again.']},
 {v:'73.453',date:'2026-09-01',notes:['The sub-tab strip (LIBRARY / BUILDER / RESULTS / COMPARE ...) is pinned to the top of the window as you scroll, and is about a third shorter.','1E scatter dots are the size the STUDIES board uses (radius 2.4, crowned 3.6) - they were nearly twice that and covered each other in the dense middle.']},
@@ -2184,6 +2185,25 @@ function loadQqqPaper(uidArg,force){
     if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
   }).catch(e=>{
     window._qqqPaperErr=String((e&&e.message)||e);window._qqqPaperLoading=false;window._qqqPaperLoaded=true;
+    if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
+  });
+}
+// ── QQQ SHADOW EXECUTION — one-shot fetch of users/{uid}/meta/qqq_exec (api/qqq_exec.py,
+//    the PC runner's own thread, ticking every ~5s during 09:25-16:05 ET Mon-Fri). SHADOW
+//    ONLY — no order is ever sent anywhere; this mirrors NinjaTrader's live NQ fills into
+//    paper QQQ share lots. Same one-shot-not-listener pattern as loadQqqPaper above.
+function loadQqqExec(uidArg,force){
+  if(!force&&window._qqqExecLoaded)return;
+  if(window._qqqExecLoading)return;
+  const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
+  if(!db||!u)return;
+  window._qqqExecLoading=true;window._qqqExecErr=null;
+  db.collection('users').doc(u).collection('meta').doc('qqq_exec').get().then(d=>{
+    window._qqqExec=d.exists?d.data():null;
+    window._qqqExecLoaded=true;window._qqqExecLoading=false;
+    if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
+  }).catch(e=>{
+    window._qqqExecErr=String((e&&e.message)||e);window._qqqExecLoading=false;window._qqqExecLoaded=true;
     if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
   });
 }
@@ -10050,7 +10070,7 @@ function renderApp(){
             <div style="margin-bottom:4px"><b style="color:var(--blue)">3.</b> Press <b>F5</b> to compile, then restart NinjaTrader 8. It runs in the background — nothing to add to a chart.</div>
             <div style="margin-bottom:4px"><b style="color:var(--blue)">4.</b> Make sure <code style="color:var(--green)">EdgeLog.bat</code> is running (it watches the fills file and pushes trades here).</div>
             <div style="margin-bottom:4px"><b style="color:var(--blue)">5.</b> Place &amp; close a trade — it appears in your journal within ~20s. Captures manual <i>and</i> automated trades.</div>
-            <div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">Fills are logged to <code>C:\\EdgeLog\\fills.csv</code>. Re-syncing never duplicates trades (each fill has a unique id).</div>
+            <div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">Fills are logged to <code>C:\EdgeLog\fills.csv</code>. Re-syncing never duplicates trades (each fill has a unique id).</div>
           </div>
         </div>
       </div>
@@ -23766,6 +23786,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // ONE doc: users/{uid}/meta/qqq_paper. Same guarantee as the NQ PAPER tab — signals
       // only, nothing here ever touches a broker or real money.
       if(!window._qqqPaperLoaded&&!window._qqqPaperLoading)loadQqqPaper();
+      if(!window._qqqExecLoaded&&!window._qqqExecLoading)loadQqqExec();
       const QP=window._qqqPaper||null;
       const qpErr=window._qqqPaperErr;
       const qpLoading=window._qqqPaperLoading;
@@ -23972,7 +23993,101 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>SOURCE</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">GATE P</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
         }
 
-        body=headerStrip+headerSplitTile+cardsHtml+chartHtml+blotterHtml;
+        // -- SHADOW EXECUTION (api/qqq_exec.py) -- mirrors NinjaTrader live NQ fills into
+        // paper QQQ share lots. SHADOW ONLY: no order is ever sent anywhere. Reads
+        // users/{uid}/meta/qqq_exec, a SEPARATE doc from qqq_paper (that one is a pure
+        // yfinance-replayed signal engine; this one follows the strategies' REAL live
+        // fills from C:\EdgeLogills.csv). Rendered ABOVE the existing QQQ PAPER content
+        // so both are visible on one tab without losing either.
+        let shadowHtml='';
+        {
+          const QE=window._qqqExec||null;
+          const qeErr=window._qqqExecErr;
+          const qeLoading=window._qqqExecLoading;
+          const QE_LEGS=[['ORB','ORB'],['ENGUQ','ENGU-Q'],['NOISE','NOISE']];
+          const qeLegColor=k=>({ORB:'var(--blue)',ENGUQ:'var(--purple)',NOISE:'var(--green)'}[k]||'var(--text3)');
+          if(qeErr){
+            shadowHtml=tile('<div class="lbl" style="margin-bottom:4px">SHADOW EXECUTION</div><div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qeErr).replace(/</g,'&lt;')+'</div>');
+          }else if(!QE){
+            shadowHtml=tile('<div class="lbl" style="margin-bottom:4px">SHADOW EXECUTION</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">'+(qeLoading?'loading…':'no qqq_exec doc yet -- the runner publishes users/{uid}/meta/qqq_exec once its own thread ticks (every ~5s, 09:25-16:05 ET Mon-Fri)')+'</div>');
+          }else{
+            const today=QE.today||{};
+            const rails=QE.rails||{};
+            const positions=QE.positions||{};
+            const qeOrders=today.orders||[];
+            const qeTrades=today.trades||[];
+            const feedOk=!QE.feed_stale;
+            const statusStrip='<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+              +'<span style="font-size:9px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:4px;background:var(--bg3);color:var(--blue)">'+naS(QE.mode)+'</span>'
+              +'<span style="display:flex;align-items:center;gap:6px;font-size:var(--fsxs);color:'+(feedOk?'var(--green)':'var(--red)')+'"><span style="width:8px;height:8px;border-radius:50%;background:'+(feedOk?'var(--green)':'var(--red)')+'"></span>FEED '+(feedOk?'OK':'STALE')+'</span>'
+              +'<span style="font-size:var(--fsxs);color:'+(QE.breaker_tripped?'var(--red)':'var(--text4)')+'">BREAKER '+(QE.breaker_tripped?'TRIPPED':'clear')+'</span>'
+              +'<span style="font-size:var(--fsxs);color:'+(QE.kill?'var(--red)':'var(--text4)')+'">KILL '+(QE.kill?'ACTIVE':'clear')+'</span>'
+              +'<span style="font-size:var(--fsxs);color:var(--text4)">calib: '+(QE.calib?(qpNum(QE.calib.ratio,3)+' ('+naS(QE.calib.source)+') @ '+naS(QE.calib.at)):'none yet')+'</span>'
+              +'<span style="flex:1"></span>'
+              +'<span style="font-size:var(--fsxs);color:var(--text5)">updated '+naS(QE.updated_at)+' ET</span>'
+              +'</div>'
+              +'<div style="margin-top:8px;font-size:var(--fsxs)">realized: <span style="color:'+((today.realized_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+qpMoney(today.realized_pnl)+'</span> &middot; unrealized: <span style="color:'+((today.unrealized_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+qpMoney(today.unrealized_pnl)+'</span></div>';
+            const statusTile=tile('<div class="lbl" style="margin-bottom:6px">SHADOW EXECUTION -- mirrors NinjaTrader live NQ fills into paper QQQ shares. No order is ever sent anywhere.</div>'+statusStrip);
+
+            let qeCards='<div style="display:flex;gap:14px;flex-wrap:wrap;margin:14px 0">';
+            QE_LEGS.forEach(([key,label])=>{
+              const col=qeLegColor(key);
+              const p=positions[key];
+              let posHtml;
+              if(p){
+                posHtml='<div style="color:var(--yellow)">OPEN &mdash; '+String(p.side||'').toUpperCase()+' '+naS(p.shares)+'sh @ '+qpMoney(p.entry_px)+'<br>entered '+naS(p.entry_ts)+' ET</div>';
+              }else{
+                posHtml='<div style="color:var(--text4)">FLAT</div>';
+              }
+              qeCards+='<div style="flex:1 1 220px;min-width:200px;background:var(--bg2);border-radius:10px;padding:12px 14px;border-left:3px solid '+col+'">'
+                +'<div style="font-size:13px;font-weight:700;color:'+col+'">'+label+'</div>'
+                +'<div style="margin-top:8px;font-size:var(--fsxs)">'+posHtml+'</div>'
+                +'</div>';
+            });
+            qeCards+='</div>';
+
+            let qeOrdersHtml;
+            if(!qeOrders.length){
+              qeOrdersHtml=tile('<div class="lbl" style="margin-bottom:6px">TODAY&rsquo;S SHADOW ORDERS</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px">none yet today</div>');
+            }else{
+              const rows=qeOrders.slice().reverse().map(o=>'<tr>'
+                +'<td>'+naS(o.ts_et)+'</td><td style="color:'+qeLegColor(o.leg)+'">'+naS(o.leg)+'</td>'
+                +'<td>'+naS(o.action)+'</td><td>'+naS(o.side)+'</td><td style="text-align:right">'+naS(o.shares)+'</td>'
+                +'<td style="text-align:right">'+qpMoney(o.qqq_px)+'</td><td style="text-align:right">'+qpMoney(o.nq_px)+'</td>'
+                +'<td>'+naS(o.px_source)+'</td><td style="color:var(--text4)">'+naS(o.reason)+'</td></tr>').join('');
+              qeOrdersHtml=tile('<div class="lbl" style="margin-bottom:6px">TODAY&rsquo;S SHADOW ORDERS ('+qeOrders.length+')</div>'
+                +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">QQQ PX</th><th style="text-align:right">NQ PX</th><th>SOURCE</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+            }
+
+            let qeTradesHtml;
+            if(!qeTrades.length){
+              qeTradesHtml=tile('<div class="lbl" style="margin-bottom:6px">CLOSED SHADOW TRADES</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px">none closed yet</div>');
+            }else{
+              let running=0;
+              const rows=qeTrades.map(t=>{running+=Number(t.pnl)||0;return {t,running};}).map(({t,running})=>'<tr>'
+                +'<td style="color:'+qeLegColor(t.leg)+'">'+naS(t.leg)+'</td><td>'+naS(t.entry_ts)+'</td><td>'+naS(t.exit_ts)+'</td>'
+                +'<td>'+naS(t.side)+'</td><td style="text-align:right">'+naS(t.shares)+'</td>'
+                +'<td style="text-align:right">'+qpMoney(t.entry_px)+'</td><td style="text-align:right">'+qpMoney(t.exit_px)+'</td>'
+                +'<td style="text-align:right;color:'+((Number(t.pnl)||0)>=0?'var(--green)':'var(--red)')+'">'+qpMoney(t.pnl)+'</td>'
+                +'<td style="text-align:right;color:var(--text3)">'+qpMoney(running)+'</td>'
+                +'<td>'+naS(t.exit_reason)+'</td></tr>').join('');
+              qeTradesHtml=tile('<div class="lbl" style="margin-bottom:6px">CLOSED SHADOW TRADES ('+qeTrades.length+')</div>'
+                +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>LEG</th><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+            }
+
+            const sess=rails.session||{};
+            const railsHtml=tile('<div class="lbl" style="margin-bottom:6px">RAILS</div>'
+              +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.8">'
+              +'shares/leg: ORB '+naS(rails.shares&&rails.shares.ORB)+' &middot; ENGU-Q '+naS(rails.shares&&rails.shares.ENGUQ)+' &middot; NOISE '+naS(rails.shares&&rails.shares.NOISE)+'<br>'
+              +'max shares/leg: '+naS(rails.max_shares_per_leg)+' &middot; daily loss limit: '+qpMoney(rails.daily_loss_limit_usd)+'<br>'
+              +'session (ET): open '+naS(sess.open)+' &middot; last entry '+naS(sess.last_entry)+' &middot; flat by '+naS(sess.flat_by)+'<br>'
+              +'slippage: '+qpMoney(rails.slippage_per_share)+'/share'
+              +'</div>');
+
+            shadowHtml=statusTile+qeCards+qeOrdersHtml+qeTradesHtml+railsHtml;
+          }
+        }
+        body=shadowHtml+headerStrip+headerSplitTile+cardsHtml+chartHtml+blotterHtml;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
@@ -27464,7 +27579,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       document.addEventListener('keydown',window._libKeyH);
     }
     else if(augurSub==='qqqpaper'){
-      const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqPaper(null,true);renderApp();};
+      const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqPaper(null,true);loadQqqExec(null,true);renderApp();};
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
