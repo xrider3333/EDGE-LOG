@@ -673,7 +673,7 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
 # -- mark-to-market + breaker ------------------------------------------------------------
 def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
     if not state.get("legs"):
-        return  # nothing open: no quote/ratio work, nothing to mark
+        return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
     for leg, lot in state["legs"].items():
         qqq_px, src = resolve_price(cfg, state, lot.get("last_nq_px") or lot["nq_entry_px"],
