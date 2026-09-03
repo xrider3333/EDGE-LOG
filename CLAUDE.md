@@ -363,7 +363,10 @@ shipped in v53.3 (an opening HTML tag missing its closing `>` immediately follow
   exception; added 2026-09-02 after v73.367 / v73.442 / v73.443 each blanked every run report on
   the live site), and `tools/studies_registry_check.py` (row-number uniqueness). Same exit
   codes: 1 blocks, 2 warns. Touched the run report? Run `python tools/report_render_probe.py`
-  by hand before shipping.
+  by hand before shipping. Touched the probe or its fixture? Ship also runs
+  `report_render_probe.py --selftest`, which pulls the v73.367 / v73.442 / v73.443 builds out of
+  git history and refuses the push unless the gate still FAILS all three and PASSES the current
+  index.html - a gate that has gone blind must not keep printing PASS.
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.

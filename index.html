@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.454';
+const VERSION='73.455';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,7 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
-{v:'73.454',date:'2026-09-01',notes:['Double-click the drag handle under a scatter or parallel chart to forget its dragged shape - the chart rebuilds at its default height and fits the column again.']},
+{v:'73.455',date:'2026-09-01',notes:['Double-click the drag handle under a scatter or parallel chart to forget its dragged shape - the chart rebuilds at its default height and fits the column again.']},
 {v:'73.453',date:'2026-09-01',notes:['The sub-tab strip (LIBRARY / BUILDER / RESULTS / COMPARE ...) is pinned to the top of the window as you scroll, and is about a third shorter.','1E scatter dots are the size the STUDIES board uses (radius 2.4, crowned 3.6) - they were nearly twice that and covered each other in the dense middle.']},
 {v:'73.452',date:'2026-09-01',notes:['FIX on 73.451: clicking a ratio heading now reorders the pooled ONE TABLE as well - it sorts through a second path that the first cut missed, so the arrow lit up and nothing moved.']},
 {v:'73.451',date:'2026-09-01',notes:['COMPARE / STUDIES tables read like the 1E ALL table now: a FAMILY column (dot + name in the family colour), the config with its row handle beside it, then MAR / SHARPE / SORTINO / PF / WIN % / EV R in the 1E order. Click a ratio heading to sort every table on it; click again to release.','Zero lines: the 1E scatter and the STUDIES scatter both reach zero on each axis now and draw the zero line - a 0.3 ratio is seen against nothing instead of floating in a cropped range. Under CHAMPION the crosshair is still the champion.']},

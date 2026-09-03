@@ -252,6 +252,25 @@ def cmd_ship(name, message):
             sys.stderr.write(out)
             raise SystemExit('run-report render gate FAILED - not pushing')
 
+    # REPORT GATE SELF-TEST (2026-09-02): a gate that watches for one log line can go blind
+    # without anyone noticing and keep printing PASS. Whenever the report probe or its fixture
+    # changes, prove the gate still catches every build it was written for (KNOWN_BAD inside
+    # report_render_probe.py: v73.367, v73.442, v73.443, each pulled from git history) and still
+    # passes the current index.html. ~10 s, and only when the gate itself moved.
+    touched_gate = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
+                        'tools/report_render_probe.py', 'tools/fixtures/run_report.json'],
+                       check=False)
+    if touched_gate.strip() and os.path.isfile(rp):
+        r = subprocess.run([sys.executable, rp, '--selftest'], cwd=wt, capture_output=True,
+                           text=True, encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
+        print(last[-1] if last else '(report probe self-test produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('run-report gate SELF-TEST FAILED - the gate no longer catches a '
+                             'known-bad build - not pushing')
+
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
     # at the same time silently produced 27 collisions, and a row number is the board's permanent

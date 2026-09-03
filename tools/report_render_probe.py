@@ -49,7 +49,16 @@ Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks
 Usage:
   python tools/report_render_probe.py                # gates this repo's index.html
   python tools/report_render_probe.py --file X.html  # gates X as if it were index.html
-                                                     # (self-test against a known-bad build)
+  python tools/report_render_probe.py --selftest     # proves the gate itself still works:
+                                                     # pulls every KNOWN_BAD build out of git
+                                                     # history and asserts FAIL on each, then
+                                                     # asserts PASS on the current index.html
+
+THE SELF-TEST. A gate that watches for one string can go blind without anyone noticing --
+a renamed log line, a fixture that no longer reaches the tables, a hook that stopped
+firing -- and it would keep printing PASS. So the gate carries the builds it was written
+to catch and re-catches them on demand. wt.py ship runs --selftest whenever this file or
+the fixture changes.
 
 Stdlib only, plus a subprocess call to local Chrome. Runs in well under 20s.
 """
@@ -74,6 +83,21 @@ CASES = [
     ('cols-3', {'prefs': {'repCols': '3'}, 'win': {}}),
     ('cols-2', {'prefs': {'repCols': '2'}, 'win': {}}),
     ('cols-1', {'prefs': {'repCols': '1'}, 'win': {}}),
+]
+
+# Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
+# run report on the live site; --selftest asserts the gate still FAILS on all of them.
+# (commit, VERSION, what was wrong)
+KNOWN_BAD = [
+    ('aa7537e2c39f6ebeb42f23fadb83dfbccb0c1790', '73.367',
+     "ReferenceError: _reXNm is not defined -- the RISK MAP x caption pointed at the RANKINGS "
+     "scatter's axis consts, which live in a different function"),
+    ('db1f5e9ec010da8a4d26fcbaaeccebbf9557e81e', '73.442',
+     "TypeError: undefined is not a function -- the EV R row on the GATE / TILT / HYBRID tables "
+     "was built without the heat getter every row there must carry"),
+    ('19e4fc86e4ce174402689b5bf817b54eef2ab031', '73.443',
+     "TypeError: cannot read map of undefined -- the hotfix's own EV R row sat one line past the "
+     "end of the reward-risk row list, a group with no rows"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -197,6 +221,55 @@ def make_handler(root, alt_index):
     return H
 
 
+def selftest(fixture=None):
+    """Exit 0 when the gate FAILS every KNOWN_BAD build and PASSES the current index.html;
+    1 when any expectation breaks; 2 when git or a commit is unavailable (shallow clone)."""
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    t0 = time.time()
+    tmpdir = tempfile.mkdtemp(prefix='reportprobe-selftest-')
+    bad, results = [], []
+    try:
+        for commit, ver, why in KNOWN_BAD:
+            path = os.path.join(tmpdir, 'index_%s.html' % ver.replace('.', '_'))
+            try:
+                r = subprocess.run(['git', '-C', root, 'show', commit + ':index.html'],
+                                   capture_output=True, timeout=60)
+            except Exception as e:
+                print('SELFTEST: INCONCLUSIVE -- git unavailable: %s' % e)
+                return INCONCLUSIVE
+            if r.returncode != 0 or len(r.stdout) < 100000:
+                print('SELFTEST: INCONCLUSIVE -- could not read %s:index.html from history '
+                      '(%s)' % (commit, (r.stderr or b'').decode('utf-8', 'replace').strip()[:200]))
+                return INCONCLUSIVE
+            with open(path, 'wb') as f:
+                f.write(r.stdout)
+            print('-- known-bad build v%s (%s): expect FAIL' % (ver, commit))
+            code = main(['--file', path] + (['--fixture', fixture] if fixture else []))
+            results.append((ver, code))
+            if code != FAIL:
+                bad.append('v%s (%s) was NOT caught (exit %d) -- the gate has gone blind to: %s'
+                           % (ver, commit, code, why))
+        print('-- current index.html: expect PASS')
+        code = main(['--fixture', fixture] if fixture else [])
+        results.append(('current', code))
+        if code != PASS:
+            bad.append('current index.html did not PASS (exit %d)' % code)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+    if bad:
+        print('SELFTEST: FAIL (%.1fs)' % (time.time() - t0))
+        for b in bad:
+            print('  - ' + b)
+        return FAIL
+    print('SELFTEST: PASS -- gate caught %d/%d known-bad builds and passed the current one (%.1fs)'
+          % (len(KNOWN_BAD), len(KNOWN_BAD), time.time() - t0))
+    return PASS
+
+
 def main(argv=None):
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -206,7 +279,12 @@ def main(argv=None):
     ap.add_argument('--file', default=None,
                     help='gate this file as if it were index.html (self-test use)')
     ap.add_argument('--fixture', default=None, help='override the run fixture path')
+    ap.add_argument('--selftest', action='store_true',
+                    help='assert FAIL on every KNOWN_BAD build from git history, then PASS on '
+                         'the current index.html')
     args = ap.parse_args(argv)
+    if args.selftest:
+        return selftest(args.fixture)
     t0 = time.time()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
