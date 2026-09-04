@@ -795,7 +795,7 @@ def _all_trades_from_csv(cap=500):
 
 
 def _cum_pnl_by_leg(all_trades):
-    """{leg: [[date, cum_pnl], ...], total: [[date, cum_pnl], ...]} -- one point per
+    """{leg: [{"date","cum_pnl"}, ...], total: [...]} -- one point per
     calendar date (ET, off exit_ts) a leg had at least one close, cumulative sum of
     `pnl` in chronological order. Powers the equity-curve chart and the per-leg
     since-start KPI without the client re-deriving it from trades_all."""
@@ -816,19 +816,19 @@ def _cum_pnl_by_leg(all_trades):
         running[leg] = round(running[leg] + pnl, 2)
         by_leg_date[leg][date] = running[leg]  # last value wins for that date
     for leg in LEGS:
-        out[leg] = [[d, v] for d, v in sorted(by_leg_date[leg].items())]
+        out[leg] = [{"date": d, "cum_pnl": v} for d, v in sorted(by_leg_date[leg].items())]
     # total: merge all legs onto the union of dates, carrying each leg's last-known value
-    all_dates = sorted({d for leg in LEGS for d, _ in out[leg]})
+    all_dates = sorted({p["date"] for leg in LEGS for p in out[leg]})
     last = {leg: 0.0 for leg in LEGS}
     idx = {leg: 0 for leg in LEGS}
     total_pts = []
     for d in all_dates:
         for leg in LEGS:
             series = out[leg]
-            while idx[leg] < len(series) and series[idx[leg]][0] <= d:
-                last[leg] = series[idx[leg]][1]
+            while idx[leg] < len(series) and series[idx[leg]]["date"] <= d:
+                last[leg] = series[idx[leg]]["cum_pnl"]
                 idx[leg] += 1
-        total_pts.append([d, round(sum(last.values()), 2)])
+        total_pts.append({"date": d, "cum_pnl": round(sum(last.values()), 2)})
     out["total"] = total_pts
     return out
 
