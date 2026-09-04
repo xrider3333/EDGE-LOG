@@ -1647,6 +1647,19 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   tilt variants clear the bar** — every tilt now loses to flat sizing on pre-lockbox MAR
   (flat 27.6; best tilt rf·linear 27.3), so the "beats flat in BOTH windows" leg fails across
   the board. The v67.1-era ORB #195 tilt result ("9 of 10 beat the cut on LB") was leak-driven.
+  **CORRECTED 2026-09-02 (owner challenged the generalisation and was substantially right):**
+  this test was run on ORB ONLY, and was then written into the docs as a family-wide "tilts are
+  DEAD in this program". NOISE was never tested - and the very entry above records NOISE moving
+  the OPPOSITE way to ORB when the look-ahead was fixed. Re-run on the NOISE crown 2026-09-02
+  (`tools/noise_gate_tilt.py`, 18 cells incl. et and the avg5 consensus): still 0 adopted, but
+  for a different reason - ALL 18 beat flat on pre-lockbox profit ($15k-$109k, surviving a
+  top-10 concentration check) and 8 of 18 beat pre-lockbox MAR; every one fails only on the
+  lockbox drawdown leg, whose best cell misses by 0.017 MAR with a bootstrap CI of [-0.57,+0.53]
+  and P(better)=0.49 - a coin flip, decided by one 17-trade episode in the last six weeks.
+  Two method faults in the NOISE re-run, recorded rather than buried: its bar was NOT identical
+  to this one (it loosened the lockbox leg > to >= and dropped the "beat cut@50 on lockbox"
+  leg), and it silently omitted the `et` model; the verifier re-ran the missing cells and the
+  0-adopted verdict holds under BOTH bars. Verification harness: `tools/noise_gate_tilt_verify.py`.
   Verdict: on ORB, neither the gate CUT nor the gate TILT earns its keep once scores are causal
   — flat size-1 (plus the unaffected sizing.py overlay) is the honest champion configuration.
 - **2026-08-08** — **🚨 ENGINE DEFECT: the LB verdict is computed on an INDEPENDENT WARM-START RELOAD,

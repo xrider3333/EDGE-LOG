@@ -625,7 +625,9 @@ slice of the five). Full provenance in `PAPER_TRADING.md` and `api/paper.py`.
 Same date, same discipline: leg `NOISE_SBS_V90_T` adds run #243's size TILT (xgb/tier — first
 of ten on the pre-registered tilt metric, pre-lockbox recovery 18.82; NOT the lockbox-winning
 et/tier, which would be hindsight). The tilt mechanism was pre-registered dead for backtest
-adoption 2026-08-10 (0/12); this leg too is forward evidence only.
+adoption 2026-08-10 (0/12 on ORB) and re-tested on NOISE itself 2026-09-02 (0/18, but every
+cell raised pre-lockbox profit and the deciding lockbox leg is a coin flip - see the round-6
+section); this leg too is forward evidence only.
 
 ---
 

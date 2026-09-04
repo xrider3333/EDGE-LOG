@@ -275,7 +275,7 @@ there is no gain to test for fragility.
   (MNQ ≈ $1.98/RT per micro incl. 0.25 pt slippage at $2/pt, vs $10.66 per NQ — so 10 MNQ
   cost ≈ $19.80 vs $10.66, an extra ≈ $9.14 per 1×-equivalent trade). The micro view below
   charges that drag explicitly.
-- **ML-score size tilts are a DEAD family in this program (0/12 cleared, 2026-08-10).**
+- **ML-score size tilts are UNADOPTED in this program - 0 of 18 on NOISE (2026-09-02) and 0 of 12 tilt variants on ORB (2026-08-10). Read that as an ADOPTION verdict, not as "the score carries no size information": on NOISE all 18 cells RAISE pre-lockbox profit by $15k-$109k, 8 of 18 also beat flat on pre-lockbox MAR, and the gain survives removing the 10 best trades. What stops them is drawdown on the lockbox leg - and that leg is a coin flip (best cell -0.017 MAR, bootstrap CI [-0.57,+0.53], P(better)=0.49) decided by a single 17-trade episode in the last six weeks of the sample, on a slice whose own MAR CI spans zero. See the maxDD-CI caveat two bullets below: this test rejects on nothing but a maxDD ratio.**
   LEAD 2 is still a size tilt. The difference claimed: the trigger is a single
   pre-registered structural day-type feature (prior session's close position, causal by
   construction), not a fitted model score. The bar below is strict anyway, and if it fails
@@ -399,7 +399,8 @@ below is from `tools/enguq_daytype_levers.py` (committed) on the pinned windows.
   size-up of a population containing monster winners is a bet on catching the next monster,
   not on the broad population. The pre-registered gate treats that as disqualifying, and it
   was written down before the sweep ran — no goalposts moved.
-- **Honest family note:** ML-score size tilts are 0/12 dead in this program. This was a
+- **Honest family note:** ML-score size tilts are 0/12 UNADOPTED on ORB and 0/18 unadopted
+  on NOISE - unadopted, not shown to be information-free; see the corrected note above. This was a
   single causal structural feature, not a fitted score — and it still failed, on the same
   concentration axis. The tilt graveyard now holds both kinds.
 - Confirmatory lockbox look: tilt nets $91,373-$102,481 vs baseline $88,852, with lockbox
