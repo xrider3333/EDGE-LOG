@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.469';
+const VERSION='73.470';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.470',date:'2026-09-01',notes:['1E SCATTER: a point that lands exactly where another already sits is drawn as an open RING around it instead of painting over it, and the header says how many did. HYBRID looked missing because all five of its dots sat under the recycled hybrids - on ratio axes a recycled hybrid IS its parent, since recycling scales the money and the drawdown by the same factor.']},
 {v:'73.468',date:'2026-09-03',notes:['QQQ PAPER tab redesigned as QQQ SHADOW BOOK, the shadow-fills book (api/qqq_exec.py) leads the tab now instead of being tacked above the old content. New layout top to bottom: a hero strip with the plain-English meaning of the book plus status pills (SHADOW mode, market open/closed, feed OK/stale, breaker, kill, last tick, calibration ratio); a six-tile KPI row (today P&L, since-start P&L, open exposure, trades, win rate, avg $/trade); one card per leg (ORB/ENGU-Q/NOISE) with its position, unrealized, today and since-start P&L and a small sparkline of its own cumulative curve; a total+per-leg equity curve with a dashed zero line and an honest empty state; TODAY’S ORDERS and CLOSED TRADES tables (closed trades paginate 50 at a time with a SHOW MORE button, and refused/EOD/BREAKER/KILL rows carry a small tag); and a RAILS panel listing the live config values plus where to edit them. The older Yahoo-bar re-run engine (tools/qqq_paper.py) is now a MODEL section at the bottom, collapsed by default (remembers open/closed per browser) and relabeled MODEL everywhere it used to say PAPER or LIVE PAPER, so it reads as reference data, not the shadow fills. One REFRESH control now reloads both Firestore docs together.','api/qqq_exec.py now publishes trades_all (every closed shadow trade since inception, capped at 500) and cum_pnl (per-leg and total cumulative P&L by date) on every tick, plus live_from and a per-leg unrealized figure on open positions, so the new equity curve and since-start KPIs have real data instead of only the last 100 rows. tools/qqq_exec_smoke.py: ALL PASS.']},
 {v:'73.467',date:'2026-09-01',notes:['1A funnel with ALL CONFIGS on is readable again: the raw cloud draws as a faint haze (it was fusing into a solid green wedge), survivors sit a step quieter than the family top line, and the gutter no longer stacks a lock pill for every survivor - crown and family tops only.']},
 {v:'73.465',date:'2026-09-01',notes:['The pinned sub-tab strip re-measures the topbar after the web fonts load, so it sits flush under it (it was 2px short before the fonts arrived).']},
@@ -14337,8 +14338,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const zy=(yr[0]<=0&&yr[1]>=0)?('<line x1="'+padL+'" y1="'+Y(0).toFixed(1)+'" x2="'+(padL+Wp)+'" y2="'+Y(0).toFixed(1)+'" stroke="var(--text3)" stroke-width="1" stroke-dasharray="3 2"/>'
         +'<text x="'+(padL+Wp-2)+'" y="'+(Y(0)-3).toFixed(1)+'" text-anchor="end" font-size="8" fill="var(--text4)">0</text>'):'';
       let dots='',rings='';
+      // how many points already sit on this exact spot - see the note above
+      const _seenAt={};let _stacked=0;
       pts.forEach(p=>{const col=p.r.col||'var(--text3)',cx=X(p.x).toFixed(1),cy=Y(p.y).toFixed(1),rad=p.r.crowned?3.6:2.4;
-        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+rad+'" fill="'+col+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="1" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
+        const _k=cx+','+cy,_dup=(_seenAt[_k]=(_seenAt[_k]||0)+1)-1;if(_dup)_stacked++;
+        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+(_dup?(1.7*_dup):0))+'" fill="'+(_dup?'none':col)+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="'+(_dup?1.3:1)+'" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
         if(p.r.crowned)rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
         if(p.r.big)rings+='<text x="'+cx+'" y="'+(+cy-rad-4).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="800" fill="'+col+'">'+p.r.big+'</text>';});
       const _good=a=>a.inv?'lower is better':'higher is better';
@@ -14347,6 +14351,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<text x="10" y="'+(plotT+plotH/2).toFixed(1)+'" transform="rotate(-90 10 '+(plotT+plotH/2).toFixed(1)+')" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">'+ay.nm.replace(' &#8595;','')+' <tspan font-weight="400" fill="var(--text5)">&middot; '+_good(ay)+'</tspan></text></svg>';
       return '<div style="background:var(--bg2);border-radius:8px;padding:8px 8px 6px">'
         +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'+(head||'')
+        +(_stacked?('<span style="color:var(--text4)" title="'+_stacked+' point'+(_stacked>1?'s':'')+' land on a spot another point already occupies, so they are drawn as open rings around it instead of hiding underneath it. On ratio axes this is usually a recycled hybrid sitting on its parent: recycling scales the money and the drawdown by the same factor, so every ratio comes out identical.">&#9678; '+_stacked+' on the same spot</span>'):'')
         +(_miss?('<span style="color:var(--yellow);font-weight:700" title="These rows record no '+_missWhy.replace(' &#8595;','')+', so they cannot be placed on this pair of axes. Missing it: '+_missBy.replace(/&middot;/g,'/')+'. Pick an axis they all carry - NET $ and MAX DD are recorded by every family - or read them in the TABLE or PARALLEL view.">&#9888; '+_miss+' of '+all.length+' not plotted - no '+_missWhy.replace(' &#8595;','')+' <span style="font-weight:400;opacity:.75">('+_missBy+')</span></span>'):'')
         +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick(_kx,ax.nm,A,rows)+_mtxAxPick(_ky,ay.nm,A,rows)+'</span></div>'
         +svg+'</div>';
