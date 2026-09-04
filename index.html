@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.471';
+const VERSION='73.472';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.472',date:'2026-09-01',notes:['NEW 1E MEASURES: ROC % and DD % - net profit and worst drawdown as a percentage of a FIXED account you set with the ACCT chip (25k to 1M). They are the only readings on the board that recycling can move: every ratio beside them divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. Available on the scatter, both parallel views and the ALL table.','ROC % ranks in the same order as NET $ by construction - it is a constant divided into it. It is there to make a sizing decision concrete against a real account, and it sits beside DD % on purpose: recycling multiplies the drawdown by exactly the factor it multiplies the profit by.']},
 {v:'73.470',date:'2026-09-01',notes:['1E SCATTER: a point that lands exactly where another already sits is drawn as an open RING around it instead of painting over it, and the header says how many did. HYBRID looked missing because all five of its dots sat under the recycled hybrids - on ratio axes a recycled hybrid IS its parent, since recycling scales the money and the drawdown by the same factor.']},
 {v:'73.468',date:'2026-09-03',notes:['QQQ PAPER tab redesigned as QQQ SHADOW BOOK, the shadow-fills book (api/qqq_exec.py) leads the tab now instead of being tacked above the old content. New layout top to bottom: a hero strip with the plain-English meaning of the book plus status pills (SHADOW mode, market open/closed, feed OK/stale, breaker, kill, last tick, calibration ratio); a six-tile KPI row (today P&L, since-start P&L, open exposure, trades, win rate, avg $/trade); one card per leg (ORB/ENGU-Q/NOISE) with its position, unrealized, today and since-start P&L and a small sparkline of its own cumulative curve; a total+per-leg equity curve with a dashed zero line and an honest empty state; TODAY’S ORDERS and CLOSED TRADES tables (closed trades paginate 50 at a time with a SHOW MORE button, and refused/EOD/BREAKER/KILL rows carry a small tag); and a RAILS panel listing the live config values plus where to edit them. The older Yahoo-bar re-run engine (tools/qqq_paper.py) is now a MODEL section at the bottom, collapsed by default (remembers open/closed per browser) and relabeled MODEL everywhere it used to say PAPER or LIVE PAPER, so it reads as reference data, not the shadow fills. One REFRESH control now reloads both Firestore docs together.','api/qqq_exec.py now publishes trades_all (every closed shadow trade since inception, capped at 500) and cum_pnl (per-leg and total cumulative P&L by date) on every tick, plus live_from and a per-leg unrealized figure on open positions, so the new equity curve and since-start KPIs have real data instead of only the last 100 rows. tools/qqq_exec_smoke.py: ALL PASS.']},
 {v:'73.467',date:'2026-09-01',notes:['1A funnel with ALL CONFIGS on is readable again: the raw cloud draws as a faint haze (it was fusing into a solid green wedge), survivors sit a step quieter than the family top line, and the gutter no longer stacks a lock pill for every survivor - crown and family tops only.']},
@@ -14104,6 +14105,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'pf',nm:'PF',get:x=>_num(x.pf),fmt:v=>Math.min(v,99).toFixed(2)},
         {k:'wr',nm:'WIN %',get:x=>_num(x.wr),fmt:v=>Math.round(v)+'%'},
         {k:'ev',nm:'EV',get:x=>_num(x.ev),fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'roc',nm:'ROC %',get:x=>(+x.pnl/_rocAcct()*100),fmt:v=>Math.round(v)+'%',col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'ddp',nm:'DD %',get:x=>(Math.abs(+x.dd)/_rocAcct()*100),fmt:v=>'-'+Math.round(v)+'%',col:()=>'#e24b4a'},
         {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'rpy',nm:'R / YR',get:x=>_rPerYr(_evInR(x.wr,x.pf),_num(x.tr),x.yrs),fmt:v=>v.toFixed(1),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'ddr',nm:'DD (R)',get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf)),fmt:v=>v.toFixed(1),col:()=>'#e24b4a'},
@@ -14122,7 +14125,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +cols.map(c=>{const v=c.get(x);const ok=(v!=null&&isFinite(v));
             return '<td style="text-align:right;padding:3px 6px;white-space:nowrap;color:'+((ok&&c.col)?c.col(v):'var(--text2)')+'">'+(ok?c.fmt(v):'<span style="color:var(--text5)">&mdash;</span>')+'</td>';}).join('')
           +'</tr>';}).join('');
-      return '<div style="font-size:8px;color:var(--text4);margin-bottom:4px">ALL CONFIGS &middot; '+rows.length+' &middot; one row per config, every family, the same points the parallel and scatter views draw &middot; click a column to sort'+((pboV!=null&&isFinite(pboV))?(' &middot; PBO '+Math.round(pboV*100)+'%'):'')+'</div>'
+      return '<div style="font-size:8px;color:var(--text4);margin-bottom:4px">ALL CONFIGS &middot; '+rows.length+' &middot; one row per config, every family, the same points the parallel and scatter views draw &middot; click a column to sort'+((_mtxColsMode(_MTXK.cols)!=='ratio')?(' &middot; ROC % / DD % vs '+_rocChip()):'')+((pboV!=null&&isFinite(pboV))?(' &middot; PBO '+Math.round(pboV*100)+'%'):'')+'</div>'
         +'<div style="overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
     const poolParallelHtml=(allPts,pboV)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
@@ -14144,6 +14147,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
          tip:'Return over its DOWNSIDE deviation only - the same window and annualisation as the SHARPE axis beside it, with upside swings no longer charged as risk. RAW configs derive it from their saved equity curve; GATE / TILT / HYBRID columns carry the same measure written by the engine from each column real trade list at validate time (runs saved before that build never recorded it, so those columns sit this axis out). Compare it across configurations here, not against the per-trade Sortino the KPI chart and a STUDIES run row print.'},
         {nm:'WIN %',  inv:false, get:x=>_num(x.wr), fmt:v=>Math.round(v)+'%'},
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
+        {nm:'ROC %',  inv:false, get:x=>(+x.pnl/_rocAcct()*100), fmt:v=>Math.round(v)+'%', tip:'Net profit as a percentage of a FIXED account - the one measure on this board that recycling can move. Every ratio beside it (MAR, PF, SHARPE, SORTINO, EV R, R / YR) divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. This one divides by an account you set, which does NOT scale, so sizing up finally shows. It therefore ranks configurations in the same order as NET $ - it is here to make the size decision concrete against a real account, not to add a new ordering. Read it beside DD % or the drawdown will surprise you: recycling multiplies both.'},
+        {nm:'DD %',   inv:true,  get:x=>(Math.abs(+x.dd)/_rocAcct()*100), fmt:v=>Math.round(v)+'%', tip:'The worst drawdown as a percentage of the same fixed account - what the config actually asks you to sit through. This is the half of the recycling decision that the ratios hide: sizing up multiplies the drawdown by exactly the factor it multiplies the profit by.'},
         {nm:'EV R',   inv:false, get:x=>_evInR(x.wr,x.pf), fmt:v=>v.toFixed(2),
          tip:'Expectancy in R - the average trade divided by the average LOSING trade. Leverage-blind and instrument-blind, so two configurations on different contracts read against each other honestly. Computed exactly from this configuration own win rate and profit factor; a configuration with no losing trade has no R and draws no point.'},
         {nm:'R / YR', inv:false, get:x=>_rPerYr(_evInR(x.wr,x.pf),_num(x.tr),x.yrs), fmt:v=>v.toFixed(1),
@@ -14259,6 +14264,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const m=(w&&w.lockbox_months)||(x&&x.validate&&x.validate.lockbox_months)||null;return m?(+m/12):null;};
     const _runMarAnn=x=>_marAnn(+x.best_pnl_usd||0,_runYrs(x),+x.best_dd_usd||0);
     const _runRPerYr=x=>_rPerYr(_evInR(x.best_win_rate,x.best_pf),(+x.best_trades||0),_runYrs(x));
+    // ── RETURN ON CAPITAL (owner 2026-09-01). Every other ratio on this board is scale-free:
+    //    numerator and denominator both scale with position size, so leverage cancels. That is
+    //    why HYBRID RECYCLE - which is pure leverage, the capacity the gate freed spent on the
+    //    trades that are taken - reads identically to its parent on MAR, PF, SHARPE, SORTINO,
+    //    EV R and R / YR. Dividing by an account the owner sets breaks that symmetry, because
+    //    the account does not scale. Being honest about what that buys: ROC % is NET $ over a
+    //    constant, so it ranks configurations in the same order as NET $. Its job is to make the
+    //    size decision concrete against a real account, and to sit beside DD % so the drawdown
+    //    that comes with the leverage is never out of shot.
+    const _ROC_STEPS=[25000,50000,100000,250000,500000,1000000];
+    const _rocAcct=()=>{const v=+(APREF.rocAcct||0);return (isFinite(v)&&v>0)?v:100000;};
+    const _rocChip=()=>'<span data-rocacct title="The account ROC % and DD % are measured against. Click to step through 25k / 50k / 100k / 250k / 500k / 1M. It is a constant, the same for every configuration on the chart - that is the whole point of it." style="cursor:pointer;user-select:none;border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-size:7.5px;font-weight:700;letter-spacing:.4px;color:var(--text3);margin-left:6px">ACCT '+_kfmt(_rocAcct())+'</span>';
     const _evInR=(wrIn,pfIn)=>{
       if(wrIn==null||pfIn==null||!isFinite(+wrIn)||!isFinite(+pfIn))return null;
       const wr=(+wrIn>1)?(+wrIn/100):+wrIn;
@@ -14353,7 +14370,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'+(head||'')
         +(_stacked?('<span style="color:var(--text4)" title="'+_stacked+' point'+(_stacked>1?'s':'')+' land on a spot another point already occupies, so they are drawn as open rings around it instead of hiding underneath it. On ratio axes this is usually a recycled hybrid sitting on its parent: recycling scales the money and the drawdown by the same factor, so every ratio comes out identical.">&#9678; '+_stacked+' on the same spot</span>'):'')
         +(_miss?('<span style="color:var(--yellow);font-weight:700" title="These rows record no '+_missWhy.replace(' &#8595;','')+', so they cannot be placed on this pair of axes. Missing it: '+_missBy.replace(/&middot;/g,'/')+'. Pick an axis they all carry - NET $ and MAX DD are recorded by every family - or read them in the TABLE or PARALLEL view.">&#9888; '+_miss+' of '+all.length+' not plotted - no '+_missWhy.replace(' &#8595;','')+' <span style="font-weight:400;opacity:.75">('+_missBy+')</span></span>'):'')
-        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick(_kx,ax.nm,A,rows)+_mtxAxPick(_ky,ay.nm,A,rows)+'</span></div>'
+        +'<span style="margin-left:auto;display:inline-flex;align-items:center;flex-wrap:wrap">'+_mtxAxPick(_kx,ax.nm,A,rows)+_mtxAxPick(_ky,ay.nm,A,rows)
+        +((/ROC %|DD %/.test(ax.nm)||/ROC %|DD %/.test(ay.nm))?_rocChip():'')+'</span></div>'
         +svg+'</div>';
     };
     const mtxParallelHtml=(phases,pboV,mult)=>{
@@ -14370,6 +14388,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'pf',   nm:'PF',      inv:false, get:p=>_f(p.pf), fmt:v=>v.toFixed(2)},
         {k:'wr',   nm:'WIN %',   inv:false, get:p=>_f(p.wr), fmt:v=>Math.round(v*(v<=1?100:1))+'%'},
         {k:'ev',   nm:'EV',      inv:false, get:_ev,       fmt:v=>_kfmt(v)},
+        {k:'roc',  nm:'ROC %',   inv:false, get:p=>(p.net!=null&&isFinite(p.net))?(p.net/_rocAcct()*100):null, fmt:v=>Math.round(v)+'%', tip:'Net profit as a percentage of a FIXED account - the one measure on this board that recycling can move. Every ratio beside it (MAR, PF, SHARPE, SORTINO, EV R, R / YR) divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. This one divides by an account you set, which does NOT scale, so sizing up finally shows. It therefore ranks configurations in the same order as NET $ - it is here to make the size decision concrete against a real account, not to add a new ordering. Read it beside DD % or the drawdown will surprise you: recycling multiplies both.'},
+        {k:'ddp',  nm:'DD %',    inv:true,  get:p=>(p.dd!=null&&isFinite(p.dd))?(Math.abs(p.dd)/_rocAcct()*100):null, fmt:v=>Math.round(v)+'%', tip:'The worst drawdown as a percentage of the same fixed account - what the config actually asks you to sit through. This is the half of the recycling decision that the ratios hide: sizing up multiplies the drawdown by exactly the factor it multiplies the profit by.'},
         // Same closed form as the all-configs chart, so one name means one thing on both.
         {k:'evr',  nm:'EV R',    inv:false, get:p=>_evInR(_f(p.wr),_f(p.pf)), fmt:v=>v.toFixed(2)},
         {k:'rpy',  nm:'R / YR',  inv:false, get:p=>_rPerYr(_evInR(_f(p.wr),_f(p.pf)),_f(p.tr),(p.days?p.days/365.25:null)), fmt:v=>v.toFixed(1)},
@@ -28229,6 +28249,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // v64.52 (owner): the collapsible 2C CONFIGS · ML GATE FILTER pill under 2A/2B.
       // v64.98: the SAMPLE / RANK BY / HEAT strip now lives ON this header row, so a click that
       //   lands inside it must NOT also collapse the tile.
+      content.querySelectorAll('[data-rocacct]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+        const cur=+(APREF.rocAcct||100000),i=_ROC_STEPS.indexOf(cur);
+        savePref('rocAcct',_ROC_STEPS[(i<0?2:i+1)%_ROC_STEPS.length]);renderApp();};});
       content.querySelectorAll('[data-mtxallsort]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
         const k=b.getAttribute('data-mtxallsort'),cur=String(APREF.mtxAllSort||'net:d');
         savePref('mtxAllSort',(cur===k+':d')?(k+':a'):(k+':d'));renderApp();};});
