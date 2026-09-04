@@ -473,6 +473,53 @@ def _last_nq_close(before_ts=None):
     return None, None
 
 
+_nq_latest_cache = {"px": None, "ts": 0.0, "read_at": 0.0}
+
+
+def _latest_nq_px(max_age_sec=180.0, cache_sec=10.0):
+    """Most recent NQ 10s close from the live addon feed, read from the file TAIL (the
+    file is weeks of 10s bars; a full scan per 5s tick is not acceptable). Cached for
+    cache_sec. Returns (price, bar_ts) or (None, None) when the newest bar is older
+    than max_age_sec -- callers then fall back to the lot's last known NQ price, so a
+    dead feed can never mark a position at a stale-but-plausible number silently."""
+    now = time.time()
+    c = _nq_latest_cache
+    if now - c["read_at"] < cache_sec:
+        px, ts = c["px"], c["ts"]
+    else:
+        px, ts = None, 0.0
+        for path in (NQ_10S_PRIMARY, NQ_10S_FALLBACK):
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, "rb") as f:
+                    f.seek(0, os.SEEK_END)
+                    size = f.tell()
+                    f.seek(max(0, size - 65536))
+                    chunk = f.read().decode("utf-8", "replace")
+                lines = [ln for ln in chunk.splitlines() if ln.strip()]
+                with open(path, encoding="utf-8", newline="") as f:
+                    header = f.readline().strip().split(",")
+                ti = header.index("time") if "time" in header else 0
+                ci = header.index("close") if "close" in header else 4
+                for ln in reversed(lines):
+                    parts = ln.split(",")
+                    try:
+                        t = float(parts[ti]); cpx = float(parts[ci])
+                    except Exception:
+                        continue
+                    px, ts = cpx, t
+                    break
+            except Exception:
+                continue
+            if px is not None:
+                break
+        c.update({"px": px, "ts": ts, "read_at": now})
+    if px is None or (now - ts) > max_age_sec:
+        return None, None
+    return px, ts
+
+
 def default_ratio_calibration(log=print):
     """QQQ:NQ ratio at 09:30 ET today, from yfinance's last QQQ 1m close and the NQ
     close at the same minute in the 10s master. Returns {"ratio","source","at"} or
@@ -598,16 +645,18 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
 
 
 def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
+    nq_now, _ts = _latest_nq_px()
     for leg in list(state["legs"].keys()):
         lot = state["legs"][leg]
-        qqq_px, src = resolve_price(cfg, state, lot.get("last_nq_px") or lot["nq_entry_px"],
-                                    quote_fn, ratio_fn, log=log)
+        # flatten at the LIVE NQ price (fallback: last known) -- never at the entry price
+        exit_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
+        qqq_px, src = resolve_price(cfg, state, exit_nq, quote_fn, ratio_fn, log=log)
         state["_px_source"] = src
         if qqq_px is None:
             log(f"[qqq-exec] cannot price {leg} for {reason} close -- no quote/ratio "
                 f"available, lot left open")
             continue
-        _reduce_lot(state, cfg, leg, lot["nq_qty_remaining"], lot.get("last_nq_px"),
+        _reduce_lot(state, cfg, leg, lot["nq_qty_remaining"], exit_nq,
                    qqq_px, cfg.get("slippage_per_share", 0.0), reason, log=log)
 
 
@@ -686,11 +735,18 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
     unrl_by_leg = {}
+    nq_now, nq_ts = _latest_nq_px()
     for leg, lot in state["legs"].items():
-        qqq_px, src = resolve_price(cfg, state, lot.get("last_nq_px") or lot["nq_entry_px"],
-                                    quote_fn, ratio_fn, log=log)
+        # Mark at the LIVE NQ price (2026-09-03 fix: marking at the entry price left
+        # unrealized pinned at $0 and blinded the daily-loss breaker). Fall back to the
+        # last known NQ price only when the feed is stale.
+        mark_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
+        lot["mark_nq_px"] = mark_nq
+        lot["mark_fresh"] = nq_now is not None
+        qqq_px, src = resolve_price(cfg, state, mark_nq, quote_fn, ratio_fn, log=log)
         if qqq_px is None:
             continue
+        lot["mark_px"] = round(qqq_px, 4)
         side_mult = 1 if lot["side"] == "long" else -1
         leg_unrl = (qqq_px - lot["entry_px"]) * side_mult * lot["shares_remaining"]
         unrl_by_leg[leg] = round(leg_unrl, 2)
