@@ -141,6 +141,11 @@ def backfill(rid, write=False):
 
     uf = gv_old.get("ungated_full") or {}
     want_n, want_p = uf.get("num_trades"), uf.get("total_pnl")
+    if want_n is None or want_p is None:
+        pre_b, lb_b = gv_old.get("ungated_pre"), gv_old.get("ungated_lockbox")
+        if isinstance(pre_b, dict) and isinstance(lb_b, dict)            and pre_b.get("num_trades") is not None and lb_b.get("num_trades") is not None:
+            want_n = int(pre_b["num_trades"]) + int(lb_b["num_trades"])
+            want_p = float(pre_b.get("total_pnl") or 0) + float(lb_b.get("total_pnl") or 0)
 
     trades = used = None
     for label, cfg in candidate_configs(doc, mod):
@@ -148,6 +153,11 @@ def backfill(rid, write=False):
             base = run_backtest(mod, arrays=arrays, params=cfg, cost_pts=cost,
                                 return_trades=True)
         except Exception:
+            continue
+        # run_backtest returns None when a config produces no usable book (and some
+        # plugins bail that way too) -- treat it as "this config is not it" and try the
+        # next one, rather than dying on None.get and losing the whole run.
+        if not isinstance(base, dict):
             continue
         t = base.get("trades") or []
         if int(want_n or -1) == len(t) and close(want_p, base.get("total_pnl")):
