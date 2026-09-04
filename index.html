@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.474';
+const VERSION='73.475';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -11414,13 +11414,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const diffs=[];for(let i=1;i<cum.length;i++)diffs.push(cum[i]-cum[i-1]);
         const n=diffs.length,mean=diffs.reduce((a,b)=>a+b,0)/n;
         let sd;
+        // ONE DEFINITION, the engine's (augur_engine/analytics.py sharpe_from_pnls /
+        // sortino_from_pnls). These fallbacks carried the RETIRED one - sample n-1 deviation,
+        // and a downside term built from deviations ABOUT THE MEAN over losing periods only.
+        // On run 306's crowned curve, same 159 deltas, that read SORTINO 1.790 where the
+        // engine reads 2.403: a 34% gap from the formula alone, on a row whose degree mark
+        // claims the only difference is coarser sampling. Population deviation now, downside
+        // = squared shortfall below ZERO over ALL n, so the mark tells the truth.
         if(downOnly){
-          // DOWNSIDE ONLY: an up move is not risk. Squared over the SAME n-1 as the Sharpe
-          // beside it -- see the note above on why this deviates from the textbook n.
-          let ss=0;for(let i=0;i<n;i++){const v=diffs[i]-mean;if(diffs[i]<0)ss+=v*v;}
-          sd=Math.sqrt(ss/Math.max(1,n-1));
+          let ss=0;for(let i=0;i<n;i++){const v=Math.min(0,diffs[i]);ss+=v*v;}
+          sd=Math.sqrt(ss/n);
         }else{
-          sd=Math.sqrt(diffs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/Math.max(1,n-1));
+          sd=Math.sqrt(diffs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/n);
         }
         // No dispersion at all (a monotone curve has no downside) -> the ratio does not
         // exist. Null, never Infinity: an axis point that cannot be computed is absent.
@@ -11550,10 +11555,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   (MAR, PF) are unaffected by the scale; the DD row and the $ / TRADE row are — before
       //   this they printed point counts under a dollar-formatted label whenever the contract
       //   multiplier was not 1.
-      const _rawBlk=b=>(b&&typeof b==='object')?{net:(b.total_pnl!=null?b.total_pnl*mlt:null),
+      // same zero-trade guard the GATE tab's _z0 applies: a stretch a config never traded has
+      //   no PF / win rate / EV / drawdown, and printing the engine's placeholder zeros as
+      //   measurements is the fabrication the house rule forbids.
+      const _rawZ0=o=>{if(!o||!(o.kept!=null&&+o.kept===0))return o;
+        o.pf=null;o.wr=null;o.avg_pnl=null;o.dd=null;o.sh=null;o.so=null;o.al=null;return o;};
+      const _rawBlk=b=>(b&&typeof b==='object')?_rawZ0({net:(b.total_pnl!=null?b.total_pnl*mlt:null),
         dd:(b.max_drawdown!=null?Math.abs(b.max_drawdown)*mlt:null),
         pf:(b.profit_factor!=null?b.profit_factor:null),wr:(b.win_rate!=null?b.win_rate:null),
-        kept:(b.num_trades!=null?b.num_trades:null),avg_pnl:(b.avg_pnl!=null?b.avg_pnl*mlt:null),sh:(b.sharpe!=null?+b.sharpe:null),so:(b.sortino!=null?+b.sortino:null),al:(b.avg_loss!=null?Math.abs(+b.avg_loss)*mlt:null),yrsBlk:(b.years!=null?+b.years:null)}:null;
+        kept:(b.num_trades!=null?b.num_trades:null),avg_pnl:(b.avg_pnl!=null?b.avg_pnl*mlt:null),sh:(b.sharpe!=null?+b.sharpe:null),so:(b.sortino!=null?+b.sortino:null),al:(b.avg_loss!=null?Math.abs(+b.avg_loss)*mlt:null),yrsBlk:(b.years!=null?+b.years:null)}):null;
       const _rawRec2=(n,d)=>(n!=null&&d!=null&&Math.abs(d)>1e-9)?(n/Math.abs(d)):null;
       const _rawSegs=_b2segs;   // same SAMPLE prefs already read for _b2segs above — one tick moves both
       const _rawSegNm={is:'IS',wf:'WF',lb:'LB'};
@@ -11649,14 +11659,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         }
         if(has('lb')){if(!_rawYrsLB)return null;y+=_rawYrsLB;got=true;}
         return (got&&y>0)?y:null;};
-      const _rawRiskAdj=(col,downOnly)=>{const sp=_rawSpanIdx(col);if(!sp||sp.i1-sp.i0<3)return null;
+      const _rawRiskAdj=(col,downOnly)=>{
+        // no trades in the ticked stretch means no risk-adjusted return to derive - the same
+        //   rule _rawZ0 applies to PF / WIN % / EV above.
+        const _k0=(_rawP(col)||{}).kept;if(_k0!=null&&+_k0===0)return null;
+        const sp=_rawSpanIdx(col);if(!sp||sp.i1-sp.i0<3)return null;
         const yrs=_rawYrsFor(col);if(!yrs)return null;
         const d=[];for(let i=sp.i0+1;i<=sp.i1;i++)d.push((+sp.cum[i]||0)-(+sp.cum[i-1]||0));
         const n=d.length,mean=d.reduce((x,y2)=>x+y2,0)/n;
         let sd;
-        if(downOnly){let ss=0;for(let i=0;i<n;i++){const v=d[i]-mean;if(d[i]<0)ss+=v*v;}
-          sd=Math.sqrt(ss/Math.max(1,n-1));}
-        else sd=Math.sqrt(d.reduce((x,y2)=>x+(y2-mean)*(y2-mean),0)/Math.max(1,n-1));
+        // engine definition -- see the note on _riskAdjFromCum
+        if(downOnly){let ss=0;for(let i=0;i<n;i++){const v=Math.min(0,d[i]);ss+=v*v;}
+          sd=Math.sqrt(ss/n);}
+        else sd=Math.sqrt(d.reduce((x,y2)=>x+(y2-mean)*(y2-mean),0)/n);
         if(!(sd>1e-9))return null;
         return (mean/sd)*Math.sqrt(n/yrs);};
       // v73.7x: the engine now writes per-stretch SHARPE / SORTINO on the RAW blocks (one definition,
@@ -11664,6 +11679,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   back to the 160-point curve derivation on older runs.
       const _rawSharpe=col=>{const p=_rawP(col)||{};return (p.sh!=null&&isFinite(+p.sh))?+p.sh:_rawRiskAdj(col,false);};
       const _rawSortino=col=>{const p=_rawP(col)||{};return (p.so!=null&&isFinite(+p.so))?+p.so:_rawRiskAdj(col,true);};
+      // ...except that engine-first branch is, today, dead: no RAW block on any run through #310
+      //   carries sharpe / sortino (augur_engine/validate.py writes them inside a bare
+      //   `except: pass`, and run 310 - saved 2h31m after the commit that added it - still has
+      //   none). So RAW is 100% curve-derived while the GATE / TILT / HYBRID tabs print the
+      //   engine's per-trade figure, and the curve figure reads HIGHER: run 306 IS+WF crowned
+      //   RAW SORTINO 2.75 off the curve against 3.004 measured per trade for the same book and
+      //   window. Two definitions on one axis is exactly what this row was added to avoid, so
+      //   every curve-derived cell wears a degree sign that names the difference out loud.
+      //   The real repair is engine-side (log instead of swallowing; confirm the runner is
+      //   actually running the shipped module) - until then the mark is the honest statement.
+      const _rawRaDegT='derived from this config saved equity curve (capped at ~160 sampled points), NOT measured trade by trade. The formula is now the engine own - population deviation, downside measured as the shortfall below zero - so the only difference left is the sampling, which can read either way rather than always high. It is still a coarser measurement of the same thing: do not rank RAW against the GATE / TILT / HYBRID tabs on this row. It fills in properly once the engine saves sharpe / sortino on the per-stretch config blocks.';
+      const _rawRaDeg=(col,k)=>{const p=_rawP(col)||{},e=p[k];
+        return (e!=null&&isFinite(+e))?'':('<span style="color:var(--text5)" title="'+_rawRaDegT+'">&deg;</span>');};
       // v73.67: the drawdown the ENGINE measured trade-by-trade for exactly the ticked span, when
       //   one exists — cal.is / cal.wf for a single stretch, cal.pre (or the whole-window metrics
       //   block) for IS+WF, which together are the whole optimize window. Preferred over reading
@@ -11754,9 +11782,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   (mixed-vintage doc, a display-only extra whose lockbox backtest failed, or a
       //   non-contiguous IS+LB pick) dashes rather than quietly printing a different window.
       const _rawMar=col=>{const p=_rawPA(col);return _marAnn(p.net,_rawYrsFor(col),p.dd);};
-      const _rawPf=col=>{const p=_rawP(col);return p.pf!=null?p.pf:col.mmPf;};
-      const _rawWr=col=>{const p=_rawP(col);return p.wr!=null?p.wr:col.mmWr;};
-      const _rawApt=col=>{const p=_rawP(col);return p.avg_pnl!=null?p.avg_pnl:col.mmApt;};
+      const _rawPf=col=>{const p=_rawP(col);return p.pf!=null?p.pf:(_rawBScope?col.mmPf:null);};
+      const _rawWr=col=>{const p=_rawP(col);return p.wr!=null?p.wr:(_rawBScope?col.mmWr:null);};
+      const _rawApt=col=>{const p=_rawP(col);return p.avg_pnl!=null?p.avg_pnl:(_rawBScope?col.mmApt:null);};
       // v73.296 (owner: "selecting IS/WF/LB for 1e matrix only shows trades count for IS / WF
       //   even though LB is selected"): the per-slice blocks carry num_trades for each stretch,
       //   so the TRADES row can follow the SAMPLE tick like every other row in this matrix.
@@ -11794,7 +11822,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
           ?('<span title="period-to-period change in cumulative PnL, restricted to the ticked SAMPLE stretches only (stitching the optimize-window curve to the lockbox continuation curve when LB is ticked alongside IS/WF), annualised on that same span. A pick that skips a stretch (IS+LB with WF unticked) has no single span to read and dashes rather than measuring the wrong window." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>')
           :('<span title="Derived from the equity curve each candidate carries (period-to-period change in cumulative PnL) over the WHOLE optimize window, annualised using that window length -- not stored directly by the engine, and it cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>'+_win('IS+WF')),
          cell:col=>{const v=_rawScopedA?_rawSharpe(col):col.sharpe;
-           return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):'<span style="color:var(--text5)">—</span>';}},
+           return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+_rawRaDeg(col,'sh')+'</span>'):'<span style="color:var(--text5)">—</span>';}},
+        {lbl:_rawScopedA
+          ?('<span title="SORTINO = the same return as SHARPE above, over the DOWNSIDE deviation only - an upside swing is no longer charged as risk, which is why it reads higher. Restricted to the ticked SAMPLE stretches and annualised on that same span; a pick that skips a stretch has no single span to read and dashes." style="border-bottom:1px dotted var(--text5);cursor:help">SORTINO</span>')
+          :('<span title="SORTINO = return over the DOWNSIDE deviation only, from the equity curve each candidate carries, over the WHOLE optimize window. It cannot follow the SAMPLE tick on this tab." style="border-bottom:1px dotted var(--text5);cursor:help">SORTINO</span>'+_win('IS+WF')),
+         cell:col=>{const v=_rawScopedA?_rawSortino(col):col.sortino;
+           return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+_rawRaDeg(col,'so')+'</span>'):'<span style="color:var(--text5)">—</span>';}},
       ];
       // v71.42 (owner: "make REWARD / RISK the same across all tabs on 1E - anything that does not
       //   apply or is unique goes in its own section below, e.g. FOLDS HELD"): this group is now
@@ -11842,13 +11875,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(!_rawBOK)return _pfDash;
         const p=_rawP(col)||{};const wr=_rawHasNew?_rawWr(col):col.mmWr,pf=_rawHasNew?_rawPf(col):col.mmPf;
         const tr=(p.kept!=null)?p.kept:((_rawBScope&&col.raw&&col.raw.metrics&&col.raw.metrics.num_trades!=null)?+col.raw.metrics.num_trades:null);
-        const v=_rPerYr(_evInR(wr,pf),tr,_rawYrsFor(col));
+        const v=_rPerYr(_evInR(wr,pf,tr),tr,_rawYrsFor(col));
         return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'</span>'):_b2Dash;}});
       _rrRows.push({lbl:'<span title="DD (R) = the drawdown over the ticked SAMPLE divided by the average LOSING trade: how many typical losses deep the worst stretch went. Scale-free, so it reads across instruments and contract sizes. Lower is better.">DD (R)</span>'+_pfTag,cell:col=>{
         if(!_rawBOK)return _pfDash;
         const p=_rawP(col)||{},pa=_rawPA(col)||{};const wr=_rawHasNew?_rawWr(col):col.mmWr,pf=_rawHasNew?_rawPf(col):col.mmPf;
         const ev=(p.avg_pnl!=null)?p.avg_pnl:(_rawHasNew?null:col.mmApt);
-        const v=_ddInR(pa.dd,ev,_evInR(wr,pf),p.al);
+        // `tr` is a local of the R / YR row above and is NOT in scope here; derive the
+        // count the same way that row does rather than reaching for a name that is not.
+        const _trD=(p.kept!=null)?p.kept:((_rawBScope&&col.raw&&col.raw.metrics&&col.raw.metrics.num_trades!=null)?+col.raw.metrics.num_trades:null);
+        const v=_ddInR(pa.dd,ev,_evInR(wr,pf,_trD),p.al);
         return v!=null?('<span style="color:#e24b4a">'+v.toFixed(1)+'</span>'):_b2Dash;}});
       // v73.296 (owner: "selecting IS/WF/LB for 1e matrix only shows trades count for IS / WF
       //   even though LB is selected. fix"): TRADES was PINNED to IS+WF and said so in its own
@@ -11919,6 +11955,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _pick={'IS $':c=>c.isV,'WF $':c=>c.wfV,'LB $':c=>c.lbSlice,'TOTAL':_b2tot,
           'DD':_rawScopedA?(c=>{const v=_rawPA(c).dd;return v!=null?-Math.abs(v):null;}):(c=>c.mdd!=null?-Math.abs(c.mdd):null),
           'MAR':_rawScopedA?_rawMar:(c=>c.mar),'SHARPE':_rawScopedA?_rawSharpe:(c=>c.sharpe),
+          'SORTINO':_rawScopedA?_rawSortino:(c=>c.sortino),
           'FOLDS HELD':c=>c.foldsHeld,
           // v73.67: a dashed Group B row must not be heat-shaded off a number it is not showing.
           'PF':_rawBOK?(_rawHasNew?_rawPf:(c=>c.mmPf)):(()=>null),
@@ -12032,9 +12069,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // Otherwise the point simply has no value and the axis breaks there.
           sh:_n1(_rawScopedA?(_rawSharpe(col)!=null?_rawSharpe(col):(_rawBScope?col.sharpe:null)):col.sharpe),
           so:_n1(_rawScopedA?(_rawSortino(col)!=null?_rawSortino(col):(_rawBScope?col.sortino:null)):col.sortino),
+          // RAW has no engine-written scalar on any run to date (see _rawRaDeg): its SHARPE /
+          //   SORTINO are derived from the saved curve, while the ML pools carry the engine's
+          //   per-trade figure. Flag it so a pooled axis can say it is holding both.
+          shDer:true,soDer:true,
           tr:_tr1,ev:(_tr1?(pnl/_tr1):null)};
       }).filter(Boolean);
-      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw};};
+      // A config with no drawdown for the ticked SAMPLE is refused a point above - honestly, but
+      //   until now silently: run 307 LOCKBOX showed 10 RAW columns in the table and 6 rows in
+      //   the pooled ALL table with nothing on screen accounting for the other 4. Carry the
+      //   refusal count out so the pooled views can say it.
+      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw,
+              scatterDrop:Math.max(0,cols.length-_scatterPtsRaw.length)};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
     //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
     //   printed title, so the card reads CHAMPION / FUNNEL and nothing else.
@@ -12132,6 +12178,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   feature. The row now renders at the same figure and SAYS nothing was freed.
           else _hyRdSame=true;}
       }catch(_hr0){_hyRdF=null;}
+      // (owner: "configs pnl lines are going over the top of the chart"). ALL CONFIGS draws
+      //   every gate / tilt / hybrid / hybrid-recycle candidate off the explorer payload, which
+      //   is not built until ~350 lines BELOW this y-scale - so none of those curves ever
+      //   reached extYs and the axis was fitted without them. On run 305 the recycle line of the
+      //   xgb hybrid peaks at $552,085 against a $507,280 axis max and lands at svg y = -2.4, off
+      //   the top of the 0..140 viewBox. It escapes because the recycle factor is PER hybrid
+      //   (ungated trades / that hybrid's kept trades) - a hybrid that refuses MORE than the
+      //   crowned one gets a bigger multiplier, and the pre-pass just above only ever knew
+      //   _bestHybC's. Fold the drawn population in here, on the same pref that reveals it, so
+      //   ALL CONFIGS fits exactly what it shows and the default view's scale is untouched.
+      if(+(APREF.a2cfgAll||0)){try{
+        const _gv9=d.gate_validate||{},_uF9=+((((_gv9.ungated_full)||{}).num_trades))||0;
+        const _fold9=(a,f)=>{(Array.isArray(a)?a:[]).forEach(c=>{
+          if(c&&c.equity&&Array.isArray(c.equity.cum))
+            c.equity.cum.forEach(v=>extYs.push(v*mult*(f?f(c):1)));});};
+        _fold9(_gv9.candidates||((d.ml_gate||{}).candidates));
+        _fold9(_gv9.tilts);
+        _fold9(_gv9.hybrids);
+        // mirrors _fq2 at the draw site line for line, so the fold and the draw agree by
+        //   construction; a factor at or below 1.005 draws no recycle line at all.
+        _fold9(_gv9.hybrids,c=>{const n=+(((c.full||{}).num_trades))||0;
+          const q=(c===_bestHybC&&_hyRdF)?_hyRdF:((_uF9>0&&n>0)?(_uF9/n):1);return q>1.005?q:1;});
+      }catch(_ac9){}}
       // draw ALL stored curves; the slider picks how many get COLOUR — the rest stay as faint
       //   grey context lines (owner request) instead of disappearing. Slider max = stored curves.
       // v64.27 (owner): DEFAULT = every stored curve (the slider already spans them all).
@@ -12684,7 +12753,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
               : (xFull+(xR-xFull)*((f-_fSplit)/(1-_fSplit)));      // lockbox     -> xFull..xR
           };
           const gp=gc.map((v,i)=>_gx(i).toFixed(1)+' '+Yv(v*mult).toFixed(1)).join(' ');
-          gateOv='<polyline points="'+gp+'" fill="none" stroke="#e24b4a" stroke-width="1" opacity="0.95" stroke-dasharray="2.4 1.5" stroke-linecap="round"/>';
+          // (owner). SOLID. The GATE / TILT / HYBRID-recycle top lines were dashed edge to
+          //   edge, which under this chart's OWN published line procedure (see _selTip: in-
+          //   sample solid, walk-forward dashed, lockbox dotted) claimed the whole line was
+          //   walk-forward. It is not. The key swatch was a solid bar for every family anyway,
+          //   HYBRID's own top line was already solid, and all four of these lines ALREADY
+          //   drew solid in the expanded explorer (their payload sets li/wfi null). One line,
+          //   one look, in both views. Family identity still carries on the key word + $, the
+          //   gutter pill glyph and the literal-hex stroke - which do not collapse on MONO.
+          //   The RAW IS/WF/LB dash split below stays: there the dash means something.
+          gateOv='<polyline points="'+gp+'" fill="none" stroke="#e24b4a" stroke-width="1" opacity="0.95" stroke-linecap="round"/>';
           _famDD.push({a:gc.map(v=>v*mult),x:_gx,col:'#e24b4a',kg:'gate',nm:'GATE'});
           labs.push({y:Yv(_gf),col:'#e24b4a',kg:'gate',txt:_kUsd(_gf)+' 🚪'});}
         // IS-max total into the gutter (its in-chart door label is removed). Crowned already has a
@@ -12753,7 +12831,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             for(let j=0;j<_tn;j++){const f=_tn<=1?1:j/(_tn-1);
               const x=(f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));
               _tp.push(x.toFixed(1)+' '+Yv(_ta[j]).toFixed(1));}
-            _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.75" opacity="0.9" stroke-dasharray="3 1.6"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+(_TILT_SCHEME_NM[_bt.scheme]||String(_bt.scheme||''))+' ('+(_TILT_SCHEME_AB[_bt.scheme]||String(_bt.scheme||'?').slice(0,2).toUpperCase())+')</title></polyline></g>';
+            _tiltOv='<g data-kg="tilt"><polyline points="'+_tp.join(' ')+'" fill="none" stroke="#f0b429" stroke-width="0.75" opacity="0.9"><title>best size tilt (2D): '+String(_bt.model||'')+' · '+(_TILT_SCHEME_NM[_bt.scheme]||String(_bt.scheme||''))+' ('+(_TILT_SCHEME_AB[_bt.scheme]||String(_bt.scheme||'?').slice(0,2).toUpperCase())+')</title></polyline></g>';
             _famDD.push({a:_ta,x:function(j){const f=_tn<=1?1:j/(_tn-1);return (f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));},col:'#f0b429',kg:'tilt',nm:'TILT'});
             _tiltEnd=_ta[_tn-1];}
         }catch(_te){}
@@ -12784,7 +12862,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             for(let j=0;j<_hn3;j++){const f=_hn3<=1?1:j/(_hn3-1);
               const x=(f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));
               _hp3.push(x.toFixed(1)+' '+Yv(_ha3[j]).toFixed(1));}
-            _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.8" opacity="0.92" stroke-dasharray="2.4 1.2"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line</title></polyline></g>';
+            _hyb2Ov='<g data-kg="hyb2"><polyline points="'+_hp3.join(' ')+'" fill="none" stroke="#f0abfc" stroke-width="0.8" opacity="0.92"><title>hybrid with contracts redeployed - '+_hyRdF.toFixed(2)+'x the size of the plain hybrid line</title></polyline></g>';
             _famDD.push({a:_ha3,x:function(j){const f=_hn3<=1?1:j/(_hn3-1);return (f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));},col:'#f0abfc',kg:'hyb2',nm:'HYBRID recycle'});
             _hyb2End=_ha3[_hn3-1];}
         }catch(_he3){}
@@ -14093,7 +14171,36 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //    the raw ones or just alongside them; the crowned config rides a gold underlay. The family
     //    legend is the SAME clickable control the 1A RISK MAP uses (mtxOff), so hiding a family
     //    here hides it there too and every axis re-fits to what is left. ──
-    const _mtxAllTableHtml=(allPts,pboV)=>{
+    // How many configs a pooled view could not place, and why - so a thinned TABLE or PARALLEL
+    //   can never read as the whole population. The SCATTER has said this since v73.388; the
+    //   other two views dropped configs in silence. Run 307 LOCKBOX: the RAW tab shows 10
+    //   columns and the ALL table showed 6 rows, with nothing on screen accounting for the 4.
+    const _mtxDropT='These configs record no drawdown for the ticked SAMPLE, so there is no risk figure to place them on. The usual cause is a pick that skips a stretch (IS + LB with WF unticked) - there is no single span to read a drawdown across - or a stretch the engine measured as zero trades. They are still in their own family tab, where the dollar rows are measured.';
+    const _mtxDrop=(allPts,kept,dropN)=>{const vis=_mtxVisible(allPts||[]).length;
+      const n=Math.max(0,vis-kept)+Math.max(0,+dropN||0);
+      return n>0?('<span style="color:var(--yellow);font-weight:700" title="'+_mtxDropT+'">&#9888; '+n+' of '+(vis+Math.max(0,+dropN||0))+' not shown - no drawdown for this SAMPLE</span>'):'';};
+    // SHARPE / SORTINO reach these views from two different measurements: the engine's per-trade
+    //   scalar (GATE / TILT / HYBRID) and a config's saved equity curve (RAW, on every run to
+    //   date). The curve version reads higher. Never silently rank one against the other.
+    const _mtxMixT='This column holds TWO measurements. GATE / TILT / HYBRID carry the figure the engine measured trade by trade at validate time; RAW is derived from its saved equity curve. Both now use the SAME formula - the engine one - so the gap is only how finely the stretch is sampled, roughly 160 curve points against every trade, and it can fall either side. Compare within a family here, and treat a RAW-versus-ML gap on this column as unproven until the engine saves the scalar on the RAW blocks too.';
+    const _mtxMixed=(P,k)=>{let a=0,b=0;(P||[]).forEach(x=>{const v=x&&x[k];if(v==null||!isFinite(+v))return;
+        if(x[(k==='so')?'soDer':'shDer'])a++;else b++;});return (a>0&&b>0);};
+    // When EVERY pooled point is dropped, the ALL tab used to fall through its `||` to the old
+    //   stacked per-family tables while the view rail still said SCATTER, and the PARALLEL /
+    //   SCATTER views fell back to the one family table underneath - so the same run showed
+    //   families in one view and not in another with nothing on screen saying why. Rendered on
+    //   every one of runs 302 / 306 / 307 / 310 with IS + LB ticked. Say it instead.
+    const _mtxPoolTile=(allPts,dropN)=>{const V0=_mtxVisible(allPts||[]),vis=V0.length;
+      const ok=V0.filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd)).length;
+      const lost=Math.max(0,vis-ok)+Math.max(0,+dropN||0);
+      if(!lost&&!vis)return '';   // no pooled families at all - the old per-family fallback is right
+      const why=lost
+        ?(lost+' of '+(vis+Math.max(0,+dropN||0))+' configs record no drawdown for the stretches you ticked, so none of them can be placed on a risk axis. A pick that SKIPS a stretch - IS + LB with WF unticked - has no single span to read a drawdown across, and a stretch the engine measured as zero trades has no risk to state.')
+        :('the NUMBERS / RATIOS filter above is hiding every measure this view can draw.');
+      return '<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:var(--fsxs);color:var(--text3);line-height:1.5">'
+        +'<span style="color:var(--yellow);font-weight:700">&#9888; nothing to pool on this SAMPLE</span> &middot; '+why
+        +' <span style="color:var(--text4)">Tick a contiguous run of stretches, or read the families in their own tabs - the dollar rows there are still measured.</span></div>';};
+    const _mtxAllTableHtml=(allPts,pboV,dropN)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl));
       if(!P.length)return '';
       const _num=v=>(v!=null&&isFinite(+v))?+v:null;
@@ -14101,16 +14208,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'net',nm:'NET $',get:x=>+x.pnl,fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'dd',nm:'MAX DD',get:x=>-Math.abs(+x.dd),fmt:v=>'-'+_kfmt(Math.abs(v)),col:()=>'#e24b4a'},
         {k:'mar',nm:'MAR',get:x=>_marAnn(+x.pnl,x.yrs,+x.dd),fmt:v=>v.toFixed(2)},
-        {k:'sh',nm:'SHARPE',get:x=>_num(x.sh),fmt:v=>v.toFixed(2)},
-        {k:'so',nm:'SORTINO',get:x=>_num(x.so),fmt:v=>v.toFixed(2)},
+        {k:'sh',nm:'SHARPE',get:x=>_num(x.sh),fmt:v=>v.toFixed(2),der:x=>!!x.shDer},
+        {k:'so',nm:'SORTINO',get:x=>_num(x.so),fmt:v=>v.toFixed(2),der:x=>!!x.soDer},
         {k:'pf',nm:'PF',get:x=>_num(x.pf),fmt:v=>Math.min(v,99).toFixed(2)},
         {k:'wr',nm:'WIN %',get:x=>_num(x.wr),fmt:v=>Math.round(v)+'%'},
         {k:'ev',nm:'EV',get:x=>_num(x.ev),fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'roc',nm:'ROC %',get:x=>(+x.pnl/_rocAcct()*100),fmt:v=>Math.round(v)+'%',col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'ddp',nm:'DD %',get:x=>(Math.abs(+x.dd)/_rocAcct()*100),fmt:v=>'-'+Math.round(v)+'%',col:()=>'#e24b4a'},
-        {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
-        {k:'rpy',nm:'R / YR',get:x=>_rPerYr(_evInR(x.wr,x.pf),_num(x.tr),x.yrs),fmt:v=>v.toFixed(1),col:v=>v>=0?'#1d9e75':'#e24b4a'},
-        {k:'ddr',nm:'DD (R)',get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf)),fmt:v=>v.toFixed(1),col:()=>'#e24b4a'},
+        {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf,_num(x.tr)),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'rpy',nm:'R / YR',get:x=>_rPerYr(_evInR(x.wr,x.pf,_num(x.tr)),_num(x.tr),x.yrs),fmt:v=>v.toFixed(1),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        {k:'ddr',nm:'DD (R)',get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf,_num(x.tr))),fmt:v=>v.toFixed(1),col:()=>'#e24b4a'},
         {k:'tr',nm:'TRADES',get:x=>_num(x.tr),fmt:v=>Math.round(v).toLocaleString()}
       ].filter(c=>_mtxColsKeep(c.nm,_MTXK.cols));
       if(!cols.length)return '';
@@ -14124,11 +14231,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
           +'<td style="padding:3px 6px;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+pc+';margin-right:5px"></span><span style="color:'+pc+';font-weight:700">'+String(x.pool||'')+'</span></td>'
           +'<td style="padding:3px 6px;white-space:nowrap;color:var(--text2)">'+(x.crowned?'&#128081; ':'')+String(x.label||'').replace(/"/g,'')+'</td>'
           +cols.map(c=>{const v=c.get(x);const ok=(v!=null&&isFinite(v));
-            return '<td style="text-align:right;padding:3px 6px;white-space:nowrap;color:'+((ok&&c.col)?c.col(v):'var(--text2)')+'">'+(ok?c.fmt(v):'<span style="color:var(--text5)">&mdash;</span>')+'</td>';}).join('')
+            const der=(ok&&c.der&&c.der(x))?('<span style="color:var(--text5)" title="'+_mtxMixT+'">&deg;</span>'):'';
+            return '<td style="text-align:right;padding:3px 6px;white-space:nowrap;color:'+((ok&&c.col)?c.col(v):'var(--text2)')+'">'+(ok?(c.fmt(v)+der):'<span style="color:var(--text5)">&mdash;</span>')+'</td>';}).join('')
           +'</tr>';}).join('');
-      return '<div style="font-size:8px;color:var(--text4);margin-bottom:4px">ALL CONFIGS &middot; '+rows.length+' &middot; one row per config, every family, the same points the parallel and scatter views draw &middot; click a column to sort'+((_mtxColsMode(_MTXK.cols)!=='ratio')?(' &middot; ROC % / DD % vs '+_rocChip()):'')+((pboV!=null&&isFinite(pboV))?(' &middot; PBO '+Math.round(pboV*100)+'%'):'')+'</div>'
+      const _drp=_mtxDrop(allPts,P.length,dropN);
+      const _mixN=(cols.some(c=>c.k==='sh')&&_mtxMixed(P,'sh'))||(cols.some(c=>c.k==='so')&&_mtxMixed(P,'so'));
+      return '<div style="font-size:8px;color:var(--text4);margin-bottom:4px">ALL CONFIGS &middot; '+rows.length+' &middot; one row per config, every family, the same points the parallel and scatter views draw &middot; click a column to sort'+((_mtxColsMode(_MTXK.cols)!=='ratio')?(' &middot; ROC % / DD % vs '+_rocChip()):'')+((pboV!=null&&isFinite(pboV))?(' &middot; PBO '+Math.round(pboV*100)+'%'):'')
+        +(_drp?(' &middot; '+_drp):'')
+        +(_mixN?(' &middot; <span style="color:var(--text5)" title="'+_mtxMixT+'">&deg; = derived from the saved curve, not measured trade by trade</span>'):'')+'</div>'
         +'<div style="overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
-    const poolParallelHtml=(allPts,pboV)=>{
+    const poolParallelHtml=(allPts,pboV,dropN)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
       if(P.length<2)return '';
       // v73.338 (owner: "the cords dont show the ratios from the 1e table"): the same ratio
@@ -14150,11 +14262,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {nm:'EV',     inv:false, get:x=>_num(x.ev), fmt:v=>_kfmt(v)},
         {nm:'ROC %',  inv:false, get:x=>(+x.pnl/_rocAcct()*100), fmt:v=>Math.round(v)+'%', tip:'Net profit as a percentage of a FIXED account - the one measure on this board that recycling can move. Every ratio beside it (MAR, PF, SHARPE, SORTINO, EV R, R / YR) divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. This one divides by an account you set, which does NOT scale, so sizing up finally shows. It therefore ranks configurations in the same order as NET $ - it is here to make the size decision concrete against a real account, not to add a new ordering. Read it beside DD % or the drawdown will surprise you: recycling multiplies both.'},
         {nm:'DD %',   inv:true,  get:x=>(Math.abs(+x.dd)/_rocAcct()*100), fmt:v=>Math.round(v)+'%', tip:'The worst drawdown as a percentage of the same fixed account - what the config actually asks you to sit through. This is the half of the recycling decision that the ratios hide: sizing up multiplies the drawdown by exactly the factor it multiplies the profit by.'},
-        {nm:'EV R',   inv:false, get:x=>_evInR(x.wr,x.pf), fmt:v=>v.toFixed(2),
+        {nm:'EV R',   inv:false, get:x=>_evInR(x.wr,x.pf,_num(x.tr)), fmt:v=>v.toFixed(2),
          tip:'Expectancy in R - the average trade divided by the average LOSING trade. Leverage-blind and instrument-blind, so two configurations on different contracts read against each other honestly. Computed exactly from this configuration own win rate and profit factor; a configuration with no losing trade has no R and draws no point.'},
-        {nm:'R / YR', inv:false, get:x=>_rPerYr(_evInR(x.wr,x.pf),_num(x.tr),x.yrs), fmt:v=>v.toFixed(1),
+        {nm:'R / YR', inv:false, get:x=>_rPerYr(_evInR(x.wr,x.pf,_num(x.tr)),_num(x.tr),x.yrs), fmt:v=>v.toFixed(1),
          tip:'EV R times trades per year on the ticked stretch - the edge, in units of the average losing trade, earned in a year. Leverage-blind and window-length-blind.'},
-        {nm:'DD (R)', inv:true,  get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf)), fmt:v=>v.toFixed(1),
+        {nm:'DD (R)', inv:true,  get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf,_num(x.tr))), fmt:v=>v.toFixed(1),
          tip:'Max drawdown divided by the average losing trade - how many typical losses deep the worst stretch went. Scale-free. Lower is better.'},
         {nm:'TRADES', inv:false, get:x=>_num(x.tr), fmt:v=>Math.round(v).toLocaleString()}
       ].filter(a=>_mtxAxKeep(a.nm,_MTXK.cols,_mtxViewOf(_MTXK.view)));
@@ -14206,6 +14318,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px;font-size:8px;color:var(--text4)">'
         +'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span>'
         +'<span>'+_mtxLegend(allPts)+'</span>'
+        +(function(){const w=_mtxDrop(allPts,P.length,dropN);return w?('<span>'+w+'</span>'):'';})()
+        +((_mtxMixed(P,'sh')||_mtxMixed(P,'so'))?('<span style="color:var(--text5)" title="'+_mtxMixT+'">&deg; SHARPE / SORTINO mix two measurements</span>'):'')
         +(A.some(a=>a.part)?('<span style="color:var(--text5)" title="'+A.filter(a=>a.part).map(a=>a.nm+': only '+a.part+' of '+P.length+' configs saved it').join(' &#183; ')+'">&#176; = only some configs carry that column</span>'):'')
         +'<span style="margin-left:auto">gold = crowned &middot; brightest = family best &middot; up = better (&#8595; inverted)</span></div>'
         +svg+'</div>';
@@ -14264,7 +14378,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _runLbYrs=x=>{const w=x&&x.validate&&x.validate.windows;if(w&&w.lockbox&&w.lockbox[0]&&w.lockbox[1]){const y=_yrsBetween(w.lockbox[0],w.lockbox[1]);if(y)return y;}
       const m=(w&&w.lockbox_months)||(x&&x.validate&&x.validate.lockbox_months)||null;return m?(+m/12):null;};
     const _runMarAnn=x=>_marAnn(+x.best_pnl_usd||0,_runYrs(x),+x.best_dd_usd||0);
-    const _runRPerYr=x=>_rPerYr(_evInR(x.best_win_rate,x.best_pf),(+x.best_trades||0),_runYrs(x));
+    const _runRPerYr=x=>_rPerYr(_evInR(x.best_win_rate,x.best_pf,(+x.best_trades||0)),(+x.best_trades||0),_runYrs(x));
     // ── RETURN ON CAPITAL (owner 2026-09-01). Every other ratio on this board is scale-free:
     //    numerator and denominator both scale with position size, so leverage cancels. That is
     //    why HYBRID RECYCLE - which is pure leverage, the capacity the gate freed spent on the
@@ -14277,7 +14391,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _ROC_STEPS=[25000,50000,100000,250000,500000,1000000];
     const _rocAcct=()=>{const v=+(APREF.rocAcct||0);return (isFinite(v)&&v>0)?v:100000;};
     const _rocChip=()=>'<span data-rocacct title="The account ROC % and DD % are measured against. Click to step through 25k / 50k / 100k / 250k / 500k / 1M. It is a constant, the same for every configuration on the chart - that is the whole point of it." style="cursor:pointer;user-select:none;border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-size:7.5px;font-weight:700;letter-spacing:.4px;color:var(--text3);margin-left:6px">ACCT '+_kfmt(_rocAcct())+'</span>';
-    const _evInR=(wrIn,pfIn)=>{
+    const _evInR=(wrIn,pfIn,trIn)=>{
+      // a block that took NO trades has no expectancy at all. Without this, PF 0 + WIN % 0 (the
+      //   engine's zero-trade placeholder) came out as EV R -1.00 - a confident claim that the
+      //   variant lost every trade it took. Callers that have the count on hand pass it.
+      if(trIn!=null&&isFinite(+trIn)&&+trIn<=0)return null;
       if(wrIn==null||pfIn==null||!isFinite(+wrIn)||!isFinite(+pfIn))return null;
       const wr=(+wrIn>1)?(+wrIn/100):+wrIn;
       // A config with no losers has no R to measure against - undefined, not infinite.
@@ -14392,8 +14510,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {k:'roc',  nm:'ROC %',   inv:false, get:p=>(p.net!=null&&isFinite(p.net))?(p.net/_rocAcct()*100):null, fmt:v=>Math.round(v)+'%', tip:'Net profit as a percentage of a FIXED account - the one measure on this board that recycling can move. Every ratio beside it (MAR, PF, SHARPE, SORTINO, EV R, R / YR) divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. This one divides by an account you set, which does NOT scale, so sizing up finally shows. It therefore ranks configurations in the same order as NET $ - it is here to make the size decision concrete against a real account, not to add a new ordering. Read it beside DD % or the drawdown will surprise you: recycling multiplies both.'},
         {k:'ddp',  nm:'DD %',    inv:true,  get:p=>(p.dd!=null&&isFinite(p.dd))?(Math.abs(p.dd)/_rocAcct()*100):null, fmt:v=>Math.round(v)+'%', tip:'The worst drawdown as a percentage of the same fixed account - what the config actually asks you to sit through. This is the half of the recycling decision that the ratios hide: sizing up multiplies the drawdown by exactly the factor it multiplies the profit by.'},
         // Same closed form as the all-configs chart, so one name means one thing on both.
-        {k:'evr',  nm:'EV R',    inv:false, get:p=>_evInR(_f(p.wr),_f(p.pf)), fmt:v=>v.toFixed(2)},
-        {k:'rpy',  nm:'R / YR',  inv:false, get:p=>_rPerYr(_evInR(_f(p.wr),_f(p.pf)),_f(p.tr),(p.days?p.days/365.25:null)), fmt:v=>v.toFixed(1)},
+        {k:'evr',  nm:'EV R',    inv:false, get:p=>_evInR(_f(p.wr),_f(p.pf),_f(p.tr)), fmt:v=>v.toFixed(2)},
+        {k:'rpy',  nm:'R / YR',  inv:false, get:p=>_rPerYr(_evInR(_f(p.wr),_f(p.pf),_f(p.tr)),_f(p.tr),(p.days?p.days/365.25:null)), fmt:v=>v.toFixed(1)},
         {k:'ddr',  nm:'DD (R)',  inv:true,  get:p=>_ddInR(p.dd,null,null,_f(p.al)), fmt:v=>v.toFixed(1)},
         {k:'aw',   nm:'AVG WIN', inv:false, get:p=>_f(p.aw), fmt:v=>_kfmt(v)},
         {k:'al',   nm:'AVG LOSS',inv:true,  get:p=>_f(p.al)!=null?Math.abs(+p.al):null, fmt:v=>'-'+_kfmt(Math.abs(v))},
@@ -14553,8 +14671,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         {lbl:'PF', cell:p=>'<span style="color:'+((p.pf!=null&&p.pf>=1)?'var(--text)':'var(--red)')+'">'+_pf(p.pf)+'</span>'},
         {lbl:'WIN %', cell:p=>'<span style="color:var(--text2)">'+_wr(p.wr)+'</span>'},
         {lbl:'<span title="EV = expected value: average net dollars per trade in this section - net P&amp;L divided by the trade count directly measured on the same stretch. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>', cell:p=>{const v=(p.net!=null&&p.tr)?p.net/p.tr:null;return '<span style="font-weight:700;color:'+((v||0)>=0?'#1d9e75':'#e24b4a')+'">'+(v!=null?fmtUsd(Math.round(v)):'&mdash;')+'</span>';}},
-        {lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade - (1 - win%) x (PF - 1). The same number the 1E scatter and parallel axes plot.">EV R</span>', cell:p=>{const v=_evInR(p.wr,p.pf);return '<span style="font-weight:700;color:'+((v!=null&&v>=0)?'#1d9e75':'#e24b4a')+'">'+(v!=null?v.toFixed(2):'&mdash;')+'</span>';}},
-        {lbl:'<span title="R / YR = EV R x trades per year in this section: the edge, in units of the average losing trade, earned in a year. Leverage-blind and window-length-blind - the cross-strategy ranking number.">R / YR</span>', cell:p=>{const yr=p.days?p.days/365.25:null;const v=_rPerYr(_evInR(p.wr,p.pf),p.tr,yr);return '<span style="font-weight:700;color:'+((v!=null&&v>=0)?'#1d9e75':'#e24b4a')+'">'+(v!=null?v.toFixed(1):'&mdash;')+'</span>';}},
+        {lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade - (1 - win%) x (PF - 1). The same number the 1E scatter and parallel axes plot.">EV R</span>', cell:p=>{const v=_evInR(p.wr,p.pf,p.tr);return '<span style="font-weight:700;color:'+((v!=null&&v>=0)?'#1d9e75':'#e24b4a')+'">'+(v!=null?v.toFixed(2):'&mdash;')+'</span>';}},
+        {lbl:'<span title="R / YR = EV R x trades per year in this section: the edge, in units of the average losing trade, earned in a year. Leverage-blind and window-length-blind - the cross-strategy ranking number.">R / YR</span>', cell:p=>{const yr=p.days?p.days/365.25:null;const v=_rPerYr(_evInR(p.wr,p.pf,p.tr),p.tr,yr);return '<span style="font-weight:700;color:'+((v!=null&&v>=0)?'#1d9e75':'#e24b4a')+'">'+(v!=null?v.toFixed(1):'&mdash;')+'</span>';}},
         {lbl:'<span title="DD (R) = this section max drawdown divided by its average losing trade: how many typical losses deep the worst stretch went. Scale-free. Lower is better.">DD (R)</span>', cell:p=>{const v=_ddInR(p.dd,null,null,p.al);return '<span style="color:#e24b4a">'+(v!=null?v.toFixed(1):'&mdash;')+'</span>';}},
         {lbl:'SORTINO', cell:p=>'<span title="Like Sharpe but only DOWNSIDE volatility in the denominator — it does not penalise big winners, so it reads higher than Sharpe for fat-tailed strategies like this one. (Lockbox + total only; sections with no saved trade series show —.)" style="color:var(--text2)">'+_sh(p.sortino)+'</span>'},
         {lbl:'AVG WIN', cell:p=>'<span style="color:#1d9e75">'+(p.aw!=null&&isFinite(p.aw)?fmtUsd(Math.round(p.aw)):'—')+'</span>'},
@@ -15195,6 +15313,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   SAMPLE tick each matrix just measured — then handed back on scatterPts and combined
         //   with the RAW pool (selectionTableHtml) into one cross-pool sanity chart.
         const _scatterAcc=[];
+        // how many columns were refused a pooled point (no drawdown for the ticked SAMPLE, or a
+        //   stretch the engine measured as zero trades). Reported, never swallowed.
+        let _scatterDrop=0;
         const $=v=>fmtUsd(Math.round((v||0)*mlt3));
         // $k (owner redesign item B4): the compact "$450k" style used across the redesigned
         //   matrix + lockbox block, so 11 columns fit without horizontal scroll. The legacy
@@ -15409,7 +15530,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _nPreT=(V.ungated_pre&&V.ungated_pre.num_trades)||0,_nLbT=(V.ungated_lockbox&&V.ungated_lockbox.num_trades)||0;
         const _fSplitG=(_nPreT+_nLbT)>0?(_nPreT/(_nPreT+_nLbT)):1;
         const _bIdx=len=>Math.max(0,Math.min(len-1,Math.round(_fSplitG*(len-1))));
-        const _blk=b=>(b&&typeof b==='object')?{net:(b.total_pnl!=null?b.total_pnl:null),
+        // (owner-visible defect, run 310 LOCKBOX): when a variant took NO trades in a stretch the
+        //   engine still saves a block - num_trades 0, total_pnl 0, profit_factor 0, win_rate 0,
+        //   max_drawdown 0 - and every one of those zeros used to render as a MEASUREMENT:
+        //   PF 0.00, WIN % 0%, DD -$0, and through EV R a confident -1.00, which states the
+        //   variant lost every trade it took. It took none. Net $ and the trade count are real
+        //   zeros and stay; everything that needs at least one trade to exist goes null, which
+        //   every row in this matrix already knows how to dash.
+        const _z0=o=>{if(!o||!(o.kept!=null&&+o.kept===0))return o;
+          o.pf=null;o.wr=null;o.avg_pnl=null;o.dd=null;o.ddDer=false;o.rec=null;o.sh=null;o.so=null;return o;};
+        const _blk=b=>(b&&typeof b==='object')?_z0({net:(b.total_pnl!=null?b.total_pnl:null),
           dd:(b.max_drawdown!=null?Math.abs(b.max_drawdown):null),
           rec:(b.rec!=null?b.rec:((b.total_pnl!=null&&b.max_drawdown)?(b.total_pnl/Math.abs(b.max_drawdown)):null)),
           pf:(b.profit_factor!=null?b.profit_factor:null),wr:(b.win_rate!=null?b.win_rate:null),
@@ -15417,7 +15547,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           // v73.x (1E scatter): engine-computed per-block SHARPE / SORTINO scalars — the
           //   overlay columns store no full equity curve, so these are written at validate
           //   time from each column's real trade list. Absent on runs before this build.
-          sh:(b.sharpe!=null?+b.sharpe:null),so:(b.sortino!=null?+b.sortino:null)}:null;
+          sh:(b.sharpe!=null?+b.sharpe:null),so:(b.sortino!=null?+b.sortino:null)}):null;
         const _rec2=(n,d)=>(n!=null&&d!=null&&Math.abs(d)>1e-9)?(n/Math.abs(d)):null;
         const _ungCum=(V.equity&&Array.isArray(V.equity.cum_ungated))?V.equity.cum_ungated:null;
         const _ungFull=(_ungPre!=null&&_ungLb!=null)?(_ungPre+_ungLb):_ungPre;
@@ -15426,18 +15556,18 @@ namespace NinjaTrader.NinjaScript.Strategies {
           tip:'every trade, no ML filter — the baseline the gate has to beat',
           net:_ungPre,lb:_ungLb,lbDer:false,full:_ungFull,
           per:{
-            pre:{net:_ungPre,dd:_ungDD!=null?Math.abs(_ungDD):null,rec:V.ungated_pre_rec!=null?V.ungated_pre_rec:null,
+            pre:_z0({net:_ungPre,dd:_ungDD!=null?Math.abs(_ungDD):null,rec:V.ungated_pre_rec!=null?V.ungated_pre_rec:null,
                  pf:(V.ungated_pre&&V.ungated_pre.profit_factor!=null)?V.ungated_pre.profit_factor:null,
                  wr:(V.ungated_pre&&V.ungated_pre.win_rate!=null)?V.ungated_pre.win_rate:null,
                  kept:(V.ungated_pre&&V.ungated_pre.num_trades!=null)?V.ungated_pre.num_trades:null,
-                 avg_pnl:(V.ungated_pre&&V.ungated_pre.avg_pnl!=null)?V.ungated_pre.avg_pnl:null},
-            lb:{net:_ungLb,dd:(V.ungated_lockbox&&V.ungated_lockbox.max_drawdown!=null)?Math.abs(V.ungated_lockbox.max_drawdown):null,
+                 avg_pnl:(V.ungated_pre&&V.ungated_pre.avg_pnl!=null)?V.ungated_pre.avg_pnl:null}),
+            lb:_z0({net:_ungLb,dd:(V.ungated_lockbox&&V.ungated_lockbox.max_drawdown!=null)?Math.abs(V.ungated_lockbox.max_drawdown):null,
                 rec:(LB&&LB.ungated_rec!=null)?LB.ungated_rec:_rec2(_ungLb,(V.ungated_lockbox&&V.ungated_lockbox.max_drawdown)),
                 pf:(V.ungated_lockbox&&V.ungated_lockbox.profit_factor!=null)?V.ungated_lockbox.profit_factor:null,
                 wr:(V.ungated_lockbox&&V.ungated_lockbox.win_rate!=null)?V.ungated_lockbox.win_rate:null,
                 kept:(V.ungated_lockbox&&V.ungated_lockbox.num_trades!=null)?V.ungated_lockbox.num_trades:null,
-                avg_pnl:(V.ungated_lockbox&&V.ungated_lockbox.avg_pnl!=null)?V.ungated_lockbox.avg_pnl:null},
-            full:(_blk(V.ungated_full)||(function(){const dd=_ungCum?_ddSlice(_ungCum,0,_ungCum.length-1):null;
+                avg_pnl:(V.ungated_lockbox&&V.ungated_lockbox.avg_pnl!=null)?V.ungated_lockbox.avg_pnl:null}),
+            full:_z0(_blk(V.ungated_full)||(function(){const dd=_ungCum?_ddSlice(_ungCum,0,_ungCum.length-1):null;
                 return {net:_ungFull,dd:dd,ddDer:dd!=null,rec:_rec2(_ungFull,dd),pf:null,wr:null,
                         kept:(_nPreT&&_nLbT)?(_nPreT+_nLbT):null};})()),
             is:_blk(V.ungated_is),wf:_blk(V.ungated_wf),wf_lb:_blk(V.ungated_wf_lb)
@@ -15471,22 +15601,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
             net:cd.pre_pnl!=null?cd.pre_pnl:null,
             lb:_lbNet,lbDer:(_mLb==null&&_lbEx==null&&_lbS!=null),full:_fuNet,
             per:{
-              pre:{net:cd.pre_pnl!=null?cd.pre_pnl:null,dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
+              pre:_z0({net:cd.pre_pnl!=null?cd.pre_pnl:null,dd:cd.pre_rec?Math.abs(cd.pre_pnl/cd.pre_rec):null,
                    rec:cd.pre_rec,pf:cd.pre_pf,wr:cd.pre_wr,kept:cd.kept_pre,
                    avg_pnl:(cd.pre_pnl!=null&&cd.kept_pre)?(cd.pre_pnl/cd.kept_pre):null,
-                   sh:(cd.pre_sharpe!=null?+cd.pre_sharpe:null),so:(cd.pre_sortino!=null?+cd.pre_sortino:null)},
-              lb:{net:_lbNet,dd:_lbDd,ddDer:(_lbDdEx==null&&_lbDd!=null),
+                   sh:(cd.pre_sharpe!=null?+cd.pre_sharpe:null),so:(cd.pre_sortino!=null?+cd.pre_sortino:null)}),
+              lb:_z0({net:_lbNet,dd:_lbDd,ddDer:(_lbDdEx==null&&_lbDd!=null),
                   rec:(_mLb&&_mLb.rec!=null)?_mLb.rec:_rec2(_lbNet,_lbDd),
                   pf:_mLb?_mLb.profit_factor:((isCh&&LB&&LB.gated)?LB.gated.profit_factor:null),
                   wr:_mLb?_mLb.win_rate:((isCh&&LB&&LB.gated)?LB.gated.win_rate:null),
                   kept:_mLb?_mLb.num_trades:((isCh&&LB&&LB.gated)?LB.gated.num_trades:null),
                   avg_pnl:_mLb?_mLb.avg_pnl:((isCh&&LB&&LB.gated)?LB.gated.avg_pnl:null),
-                  sh:(_mLb&&_mLb.sharpe!=null)?+_mLb.sharpe:null,so:(_mLb&&_mLb.sortino!=null)?+_mLb.sortino:null},
-              full:{net:_fuNet,dd:_fullDd,ddDer:(_fuDdEx==null&&_fullDd!=null),
+                  sh:(_mLb&&_mLb.sharpe!=null)?+_mLb.sharpe:null,so:(_mLb&&_mLb.sortino!=null)?+_mLb.sortino:null}),
+              full:_z0({net:_fuNet,dd:_fullDd,ddDer:(_fuDdEx==null&&_fullDd!=null),
                     rec:(_mFu&&_mFu.rec!=null)?_mFu.rec:_rec2(_fuNet,_fullDd),
                     pf:_mFu?_mFu.profit_factor:null,wr:_mFu?_mFu.win_rate:null,
                     kept:_mFu?_mFu.num_trades:null,avg_pnl:_mFu?_mFu.avg_pnl:null,
-                    sh:(_mFu&&_mFu.sharpe!=null)?+_mFu.sharpe:null,so:(_mFu&&_mFu.sortino!=null)?+_mFu.sortino:null},
+                    sh:(_mFu&&_mFu.sharpe!=null)?+_mFu.sharpe:null,so:(_mFu&&_mFu.sortino!=null)?+_mFu.sortino:null}),
               is:_blk(cd.is_rng),wf:_blk(cd.wf_rng),wf_lb:_blk(cd.wf_lb)
             }};}));
         // B4 (compact): dollars abbreviated ($450k), recovery to 1dp, PF/WIN% already at target
@@ -15567,7 +15697,66 @@ namespace NinjaTrader.NinjaScript.Strategies {
                    dd:dd,ddDer:(dd!=null),rec:_marAnn(net,_Y,dd)};
             }
           }
-          _Pc.set(col,out);return out;};
+          _Pc.set(col,_z0(out));return out;};
+        // ── SHARPE / SORTINO for 2C, hoisted ABOVE the _gColsV scatter push below. They used to
+        //   be declared ~90 lines further down, AFTER the forEach that pushes the GATE points -
+        //   so the moment that push started reading them it would throw "cannot access before
+        //   initialization", which runDetail's try/catch swallows into a blank run report: the
+        //   exact v73.367 / 442 / 443 failure mode tools/report_render_probe.py exists to catch.
+        //   _apt stays where it was, further down: it closes over _P.
+        // v73.48 fixed the WINDOW these read (the same contiguous _contig span the DD row uses,
+        //   real calendar years for exactly that span, and an honest dash on a pick that skips a
+        //   stretch). This fixes the SOURCE. The saved curve is capped at ~160 sampled points,
+        //   and a one-year lockbox slice of it is ~18 points: run 307's LOGIT 60% read SHARPE
+        //   2.51 off the curve while the engine's own per-trade figure, over the very same
+        //   trades, was 1.84 - and the ALL table, the scatter and the parallel chart all printed
+        //   the engine one. One metric name must not carry two numbers on one screen. Engine
+        //   scalar FIRST; the curve only as the fallback for runs saved before the engine wrote
+        //   them, and marked with a degree sign so a derived figure never reads as a measured one.
+        const _spanY=(a,b)=>{const t0=Date.parse(a),t1=Date.parse(b);return (isFinite(t0)&&isFinite(t1)&&t1>t0)?((t1-t0)/(365.25*86400000)):null;};
+        const _sp=(V.span||[]),_lbFrom=V.lockbox_from||null,_wfR0=(V.wf_range||[])[0]||null;
+        // date span of each named stretch, keyed the same as _segSpan above - used to compute the
+        //   real elapsed years of whatever contiguous run of stretches is ticked, instead of only
+        //   ever recognising the two hardcoded 'pre' / 'lb' cases.
+        const _segDateSpan={is:[_sp[0]||null,_wfR0],wf:[_wfR0,_lbFrom],lb:[_lbFrom,_sp[1]||null],
+                             pre:[_sp[0]||null,_lbFrom]};
+        const _yrsFor=segs=>{const o=_segAll.filter(x=>segs.indexOf(x)>=0);
+          if(!o.length)return null;
+          const first=_segDateSpan[o[0]],last=_segDateSpan[o[o.length-1]];
+          if(!first||!last||!first[0]||!last[1])return null;
+          return _spanY(first[0],last[1]);};
+        // downOnly = SORTINO: charge only the DOWNSIDE deviations as risk. Same n-1 denominator
+        //   as the RAW tab's _rawRiskAdj, so the two tabs share one definition of the word.
+        const _shpFrom=(cum,i0,i1,yrs,downOnly)=>{
+          if(!Array.isArray(cum)||!yrs||yrs<=0)return null;
+          const a=Math.max(0,Math.min(cum.length-1,i0)),b=Math.max(a,Math.min(cum.length-1,i1));
+          if(b-a<3)return null;
+          const d=[];for(let i=a+1;i<=b;i++)d.push((+cum[i]||0)-(+cum[i-1]||0));
+          const n=d.length,mean=d.reduce((x,y)=>x+y,0)/n;
+          let sd;
+          // engine definition -- see the note on _riskAdjFromCum
+          if(downOnly){let ss=0;for(let i=0;i<n;i++){const v=Math.min(0,d[i]);ss+=v*v;}
+            sd=Math.sqrt(ss/n);}
+          else sd=Math.sqrt(d.reduce((x,y)=>x+(y-mean)*(y-mean),0)/n);
+          if(!(sd>1e-9))return null;
+          return (mean/sd)*Math.sqrt(n/yrs);};
+        const _curveRA=(col,downOnly)=>{
+          // a stretch with NO trades has no risk-adjusted return either. _z0 nulls the engine
+          //   scalar there; without this the curve fallback quietly put a number back - run 310's
+          //   zero-trade lockbox columns read a Sharpe off a curve they never traded.
+          const _k0=(_P(col)||{}).kept;if(_k0!=null&&+_k0===0)return null;
+          const cum=col.base?_ungCum:((col.raw&&col.raw.equity&&col.raw.equity.cum)||null);
+          if(!Array.isArray(cum)||!_contig)return null;
+          const L=cum.length,i0=Math.round(_contig[0]*(L-1)),i1=Math.round(_contig[1]*(L-1));
+          return _shpFrom(cum,i0,i1,_yrsFor(_g2segs),downOnly);};
+        const _engRA=(col,k)=>{const p=_P(col)||{},v=p[k];return (v!=null&&isFinite(+v))?+v:null;};
+        const _shp=col=>{const e=_engRA(col,'sh');return (e!=null)?e:_curveRA(col,false);};
+        const _srt=col=>{const e=_engRA(col,'so');return (e!=null)?e:_curveRA(col,true);};
+        // true = this cell had to come off the sampled curve because the engine saved no scalar
+        //   for this block. Marked, never hidden - it is a different measurement, not a worse one.
+        const _raDer=(col,k)=>(_engRA(col,k)==null)&&(_curveRA(col,k==='so')!=null);
+        const _raDegT='read off this variant saved equity curve (capped at ~160 sampled points), not measured trade by trade - this run was saved before the engine wrote a per-block figure. The GATE / TILT / HYBRID columns that DO carry one print the engine number, so a curve-derived cell is marked to keep the two apart.';
+        const _raDeg=(col,k)=>_raDer(col,k)?('<span style="color:var(--text5)" title="'+_raDegT+'">&deg;</span>'):'';
         // RANK BY. The floor rule is the one worth explaining: it keeps only variants whose
         //   recovery is within 80% of the best on that period (so nothing reckless can win),
         //   then ranks those by raw dollars. It is the middle ground between "most efficient"
@@ -15593,15 +15782,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // v73.5x (1E MATRIX SCATTER): stamp each column so a scatter dot click can scroll to its
         //   header, and capture its net $ / DD (same _P() the matrix below reads, so the point is
         //   scoped to whatever SAMPLE is ticked) into the shared cross-pool array.
+        const _ra1=v=>(v!=null&&isFinite(v))?+v:null;
         _gColsV.forEach((c,_gi)=>{
           c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
           const p=_P(c);
-          if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
+          if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
+          else
             _scatterAcc.push({pool:'GATE',label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:'gate:'+_gi,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
-              // v73.x: engine-written per-block SHARPE / SORTINO (scale-free, so no mlt3) —
-              //   fills the scatter/parallel ratio axes for GATE columns on new runs; older
-              //   runs never saved them, so those stay honestly absent (the chart's ⚠ says so).
-              sh:(p.sh!=null&&isFinite(p.sh))?+p.sh:null,so:(p.so!=null&&isFinite(p.so))?+p.so:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
+              // SHARPE / SORTINO come from the SAME _shp / _srt the 2C table prints (engine
+              //   per-block scalar first, sampled curve only as the older-run fallback), so a
+              //   dot and its table cell can never disagree the way they did before: run 307
+              //   LOCKBOX, GATE LOGIT 60% read 2.51 in the table and 1.84 here. Scale-free, so
+              //   no mlt3. shDer/soDer say which of the two a value came from.
+              sh:_ra1(_shp(c)),so:_ra1(_srt(c)),shDer:_raDer(c,'sh'),soDer:_raDer(c,'so'),tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
         });
         // HEAT MAP: red (worst in the row) through to green (best), alpha strongest at the two
         //   ends so the middle of the pack stays quiet. hiGood=false flips it for drawdown.
@@ -15623,45 +15816,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _ddTip=(_g2samp==='pre')
           ?'derived: net $ divided by recovery factor -- older runs do not store a per-candidate drawdown, so it is backed out from the two numbers they do store. Measured on the tuning years.'
           :'measured over the '+(_sampNm[_g2samp]||_sampLbl)+' slice. A degree sign means it was read off this variant saved equity curve rather than measured trade by trade.';
-        // SHARPE for 2C, derived exactly the way 2B derives its own — period-to-period change in
-        //   the saved cumulative curve, annualised by that period length in years. Same method,
-        //   same caveats, so the two matrices can be read side by side.
-        // v73.48 (owner: "GATE's SHARPE row confusingly says LB in the reward/risk section" — it
-        //   was genuinely LB-scoped ONLY for the two exact cases 'pre' and 'lb'; every other tick
-        //   combo (IS alone, WF alone, IS+WF, WF+LB) silently fell through to the WHOLE saved
-        //   curve while the row header still named the ticked stretch. Fixed to read off the SAME
-        //   contiguous index span (_contig, below) the DD row already uses, and a real date-based
-        //   year count for exactly that span — so Sharpe now genuinely follows every tick combo the
-        //   DD row can, and honestly dashes (null) on the one combo DD also can't span (a
-        //   non-contiguous pick like IS+LB with WF unticked), instead of quietly widening the window.
-        const _spanY=(a,b)=>{const t0=Date.parse(a),t1=Date.parse(b);return (isFinite(t0)&&isFinite(t1)&&t1>t0)?((t1-t0)/(365.25*86400000)):null;};
-        const _sp=(V.span||[]),_lbFrom=V.lockbox_from||null,_wfR0=(V.wf_range||[])[0]||null;
-        // date span of each named stretch, keyed the same as _segSpan above — used to compute the
-        //   real elapsed years of whatever contiguous run of stretches is ticked, instead of only
-        //   ever recognising the two hardcoded 'pre' / 'lb' cases.
-        const _segDateSpan={is:[_sp[0]||null,_wfR0],wf:[_wfR0,_lbFrom],lb:[_lbFrom,_sp[1]||null],
-                             pre:[_sp[0]||null,_lbFrom]};
-        const _yrsFor=segs=>{const o=_segAll.filter(x=>segs.indexOf(x)>=0);
-          if(!o.length)return null;
-          const first=_segDateSpan[o[0]],last=_segDateSpan[o[o.length-1]];
-          if(!first||!last||!first[0]||!last[1])return null;
-          return _spanY(first[0],last[1]);};
-        const _shpFrom=(cum,i0,i1,yrs)=>{
-          if(!Array.isArray(cum)||!yrs||yrs<=0)return null;
-          const a=Math.max(0,Math.min(cum.length-1,i0)),b=Math.max(a,Math.min(cum.length-1,i1));
-          if(b-a<3)return null;
-          const d=[];for(let i=a+1;i<=b;i++)d.push((+cum[i]||0)-(+cum[i-1]||0));
-          const n=d.length,mean=d.reduce((x,y)=>x+y,0)/n;
-          const varc=d.reduce((x,y)=>x+(y-mean)*(y-mean),0)/Math.max(1,n-1),sd=Math.sqrt(varc);
-          if(!(sd>1e-9))return null;
-          return (mean/sd)*Math.sqrt(n/yrs);};
         const _apt=col=>{const p=_P(col);
           if(p.avg_pnl!=null&&isFinite(p.avg_pnl))return p.avg_pnl*mlt3;
           return (p.net!=null&&p.kept)?((p.net/p.kept)*mlt3):null;};
-        const _shp=col=>{const cum=col.base?_ungCum:((col.raw&&col.raw.equity&&col.raw.equity.cum)||null);
-          if(!Array.isArray(cum)||!_contig)return null;
-          const L=cum.length,i0=Math.round(_contig[0]*(L-1)),i1=Math.round(_contig[1]*(L-1));
-          return _shpFrom(cum,i0,i1,_yrsFor(_g2segs));};
         // Which row the RANK BY control is actually reading — badged in the METRIC column so the
         //   ordering is never a mystery (owner: "make it delineatable on the metric column").
         // v65.0 (owner): the ranked row is OUTLINED in yellow across its full width instead of wearing
@@ -15694,13 +15851,20 @@ namespace NinjaTrader.NinjaScript.Strategies {
           {name:_hd('return'),rows:_retRows},
           {name:_hd('reward &divide; risk'),rows:[
             _hRow({lbl:'<span title="MAR = net $ per YEAR over the toggled stretches, divided by the max drawdown of those same stretches. Annualised (v73.7x), so runs of different lengths read against each other; inside one run every column shares the years, so nothing re-ranks. The same number the RAW tab, STUDIES and Past Runs print." style="border-bottom:1px dotted var(--text5);cursor:help">MAR</span>',rowSty:(_g2rank==='rec'?_rkRowSty:(_g2rank==='floor'?_rkFloorSty:'')),cell:col=>{const v=_P(col).rec;return v!=null?('<span style="color:var(--text2)">'+v.toFixed(1)+'</span>'):_dash;}},col=>_P(col).rec,true),
-            _hRow({lbl:'<span title="derived the same way 2B derives its SHARPE: period-to-period change in this variant saved cumulative curve, annualised by the length of the toggled stretches. Not stored by the engine." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',cell:col=>{const v=_shp(col);return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+'</span>'):_dash;}},_shp,true),
+            _hRow({lbl:'<span title="return per unit of TOTAL swing, over the toggled stretches. Read off the engine per-block figure, measured trade by trade at validate time - the same number the ALL table, the scatter and the parallel chart plot, so one name is one number everywhere. A run saved before the engine wrote it falls back to the saved equity curve and is marked with a degree sign." style="border-bottom:1px dotted var(--text5);cursor:help">SHARPE</span>',cell:col=>{const v=_shp(col);return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+_raDeg(col,'sh')+'</span>'):_dash;}},_shp,true),
+            // SORTINO (owner 2026-08-31: "ev in r and sortino since those seem to be the fairer
+            //   yardstick"). The engine has written it onto every gate / tilt / hybrid block
+            //   since v73.419 and the ALL table and the parallel chart have plotted it since -
+            //   but the tab the owner actually reads never got the row. Same window, same
+            //   annualisation and the same engine-first source as SHARPE directly above; the
+            //   only difference is that an upside swing is no longer charged as risk.
+            _hRow({lbl:'<span title="SORTINO = the same return, over the DOWNSIDE deviation only - upside swings are no longer counted as risk, which is why it reads higher than SHARPE above it. Engine per-block figure where the run carries one, otherwise derived from the saved equity curve and marked with a degree sign. Compare it between configurations here, not against the per-trade Sortino the KPI chart prints." style="border-bottom:1px dotted var(--text5);cursor:help">SORTINO</span>',cell:col=>{const v=_srt(col);return v!=null?('<span style="color:var(--text2)">'+v.toFixed(2)+_raDeg(col,'so')+'</span>'):_dash;}},_srt,true),
             _hRow({lbl:'PF',cell:col=>{const v=_P(col).pf;return v!=null?('<span style="color:'+(v>=1?'var(--text)':'var(--red)')+'">'+Math.min(v,99).toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).pf,true),
             _hRow({lbl:'WIN %',cell:col=>{const v=_P(col).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):'<span title="'+_needRerun+'" style="color:var(--text5);cursor:help">&mdash;</span>';}},col=>_P(col).wr,true),
             _hRow({lbl:'<span title="EV = expected value: average net dollars per trade over the toggled stretches. A filter that merely trades less will not move this; a filter that genuinely picks better will. This row used to be called $ / TRADE; same number, one name now." style="border-bottom:1px dotted var(--text5);cursor:help">EV</span>',cell:col=>{const v=_apt(col);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+fmtUsd(Math.round(v))+'</span>'):_dash;}},_apt,true),
-            _hRow({lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade, derived exactly from this column win rate and profit factor: (1 - win%) x (PF - 1). Leverage-blind, so a filter that trades less is judged on edge per bet, not on dollars.">EV R</span>',cell:col=>{const b=_P(col);const v=_evInR(b.wr,b.pf);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5)">&mdash;</span>';}},col=>{const b=_P(col);return _evInR(b.wr,b.pf);}),
-            _hRow({lbl:'<span title="R / YR = EV R x trades kept per year over the toggled stretches: the edge, in units of the average losing trade, this variant earns in a year. Leverage-blind and window-length-blind.">R / YR</span>',cell:col=>{const b=_P(col);const v=_rPerYr(_evInR(b.wr,b.pf),b.kept,b.yrs);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5)">&mdash;</span>';}},col=>{const b=_P(col);return _rPerYr(_evInR(b.wr,b.pf),b.kept,b.yrs);},true),
-            _hRow({lbl:'<span title="DD (R) = the drawdown over the toggled stretches divided by the average LOSING trade: how many typical losses deep the worst stretch went. Scale-free. Lower is better.">DD (R)</span>',cell:col=>{const b=_P(col);const v=_ddInR(b.dd,b.avg_pnl,_evInR(b.wr,b.pf));return v!=null?('<span style="color:#e24b4a">'+v.toFixed(1)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},col=>{const b=_P(col);return _ddInR(b.dd,b.avg_pnl,_evInR(b.wr,b.pf));},false)]},
+            _hRow({lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade, derived exactly from this column win rate and profit factor: (1 - win%) x (PF - 1). Leverage-blind, so a filter that trades less is judged on edge per bet, not on dollars.">EV R</span>',cell:col=>{const b=_P(col);const v=_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5)">&mdash;</span>';}},col=>{const b=_P(col);return _evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades);}),
+            _hRow({lbl:'<span title="R / YR = EV R x trades kept per year over the toggled stretches: the edge, in units of the average losing trade, this variant earns in a year. Leverage-blind and window-length-blind.">R / YR</span>',cell:col=>{const b=_P(col);const v=_rPerYr(_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades),b.kept,b.yrs);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'</span>'):'<span title="'+_needRerun+'" style="color:var(--text5)">&mdash;</span>';}},col=>{const b=_P(col);return _rPerYr(_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades),b.kept,b.yrs);},true),
+            _hRow({lbl:'<span title="DD (R) = the drawdown over the toggled stretches divided by the average LOSING trade: how many typical losses deep the worst stretch went. Scale-free. Lower is better.">DD (R)</span>',cell:col=>{const b=_P(col);const v=_ddInR(b.dd,b.avg_pnl,_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades));return v!=null?('<span style="color:#e24b4a">'+v.toFixed(1)+'</span>'):'<span style="color:var(--text5)">&mdash;</span>';}},col=>{const b=_P(col);return _ddInR(b.dd,b.avg_pnl,_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades));},false)]},
           {name:_hd('sample'),rows:[
             // v71.42 (owner: same rows across the tabs): this is the same metric every other tab
             //   calls TRADES - what this column actually took over the ticked stretches - so it
@@ -15841,7 +16005,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   SHARPE used to be measured over the whole run no matter what was ticked. It now cuts
         //   the saved curve to the ticked stretches and annualises on that span only. A pick that
         //   skips a stretch has no single span to read, so it prints a dash.
-        const _shrp=c=>{const cum=c._s.eq&&c._s.eq.cum;
+        const _shrpC=(c,downOnly)=>{const cum=c._s.eq&&c._s.eq.cum;
           if(!Array.isArray(cum)||cum.length<3||!_spanYrs||_spanYrs<=0)return null;
           let a=0,b=1;
           // same trade-count span split _szSpanOf uses, inlined so this helper stays self-contained
@@ -15854,7 +16018,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(i1-i0<2)return null;
           const d=[];for(let i=i0+1;i<=i1;i++)d.push((+cum[i]||0)-(+cum[i-1]||0));
           const n=d.length,mn=d.reduce((a2,b2)=>a2+b2,0)/n;
-          const vr=d.reduce((a2,b2)=>a2+(b2-mn)*(b2-mn),0)/Math.max(1,n-1),sd=Math.sqrt(vr);
+          // downOnly = SORTINO. The engine definition (augur_engine/analytics.py): downside
+          //   is the squared SHORTFALL BELOW ZERO over all n, not the deviation about the
+          //   mean of the losing periods -- the retired formula read 34% low on run 306.
+          let sd;
+          if(downOnly){let ss=0;for(let i=0;i<n;i++){const v=Math.min(0,d[i]);ss+=v*v;}
+            sd=Math.sqrt(ss/n);}
+          else sd=Math.sqrt(d.reduce((a2,b2)=>a2+(b2-mn)*(b2-mn),0)/n);
           const yrs=_spanYrs*Math.max(1e-6,(b-a));
           return (sd>1e-9)?((mn/sd)*Math.sqrt(n/yrs)):null;};
         const _rkYel2=';box-shadow:inset 0 1px 0 color-mix(in srgb,var(--yellow) 50%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--yellow) 50%,transparent);';
@@ -15932,8 +16102,29 @@ namespace NinjaTrader.NinjaScript.Strategies {
                      sh:(_exSS&&_exSS.sharpe!=null)?+_exSS.sharpe:null,
                      so:(_exSS&&_exSS.sortino!=null)?+_exSS.sortino:null};}
             }
+            // same zero-trade guard as _z0 on the GATE side, in this tab's field names: a
+            //   column that took no trades over the ticked stretches has no PF, no win rate, no
+            //   EV and no drawdown to state - run 310's LOCKBOX printed all four as measured
+            //   zeros beside a RAW tab showing a real $34k / 91-trade lockbox.
+            if(out&&out.n!=null&&+out.n===0){out.pf=null;out.wr=null;out.apt=null;out.dd=null;out.ddDer=false;out.sh=null;out.so=null;}
             _szPc.set(c,out);return out;};
           const _szMar=c=>{const p=_szP(c);return _marAnn(p.net,p.yrs,p.dd);};
+          // SHARPE / SORTINO, engine-first. _shrpC reads the SAVED CURVE, which is capped at
+          //   ~160 sampled points - a one-year lockbox slice of it is ~18, and run 306's LB
+          //   HYBRID 'et' came out 1.60 from the curve against the engine's own 0.41 over the
+          //   very same trades, which is what the scatter and the ALL table were plotting. The
+          //   engine writes both scalars onto every tilt / hybrid block (v73.419), so read that
+          //   first and keep the curve only for runs saved before it, marked with a degree sign.
+          //   Scale-free either way: the REDEPLOY / EQUAL-DD re-sizings never move them.
+          const _ra2=v=>(v!=null&&isFinite(v))?+v:null;
+          const _szRA=(c,k)=>{const p=_szP(c)||{},v=p[k];return (v!=null&&isFinite(+v))?+v:null;};
+          // same zero-trade rule as the GATE tab: no trades, no risk-adjusted return, so the
+          //   curve fallback must not put a number back where the engine measured nothing.
+          const _szCv=(c,d0)=>{const n0=(_szP(c)||{}).n;return (n0!=null&&+n0===0)?null:_shrpC(c,d0);};
+          const _shrpE=c=>{const e=_szRA(c,'sh');return (e!=null)?e:_szCv(c,false);};
+          const _srtE=c=>{const e=_szRA(c,'so');return (e!=null)?e:_szCv(c,true);};
+          const _szDer=(c,k)=>(_szRA(c,k)==null)&&(_szCv(c,k==='so')!=null);
+          const _szDeg=(c,k)=>_szDer(c,k)?('<span style="color:var(--text5)" title="read off this column saved equity curve (capped at ~160 sampled points), not measured trade by trade - this run was saved before the engine wrote a per-block figure. Columns that DO carry one print the engine number, so a curve-derived cell is marked to keep the two apart.">&deg;</span>'):'';
           // v71.38 (owner, run 203: "taken 2,222 plus not taken 2,657 does not add up"): NOT TAKEN
           //   was the WHOLE-RUN refused count parked next to a TRADES row that follows the SAMPLE
           //   tick, so the two could never reconcile. Refused is now measured stretch by stretch -
@@ -15967,7 +16158,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
             cols.forEach((c,_ci2)=>{
               c.dataAttr=' data-mtxcol="'+poolName+':'+_ci2+'"';
               const p=_szP(c);
-              if(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd))
+              if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
+              else
                 // v73.6x FIX (owner-flagged): poolName is the SHORT key ('hyb','tilt') used for
                 //   dataAttr/key above, but the colour table (_mtxPoolCol) and the click-to-jump
                 //   tabOf map are both keyed on the LONG name. 'tilt'.toUpperCase() happens to
@@ -15976,9 +16168,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 //   tabOf lookup (click never switched 1E to the HYBRID tab before scrolling).
                 // v73.7x: 'hyb2' (HYBRID RECYCLE) joins them, mapped the same way.
                 _scatterAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:p.net*mlt3,dd:Math.abs(p.dd)*mlt3,key:poolName+':'+_ci2,crowned:false,yrs:p.yrs,pf:(p.pf!=null&&isFinite(p.pf))?+p.pf:null,wr:(p.wr!=null&&isFinite(p.wr))?+p.wr:null,
-                  // v73.x: engine-written per-block SHARPE / SORTINO (scale-free — sizing
-                  //   tabs never move them); absent on runs saved before this build.
-                  sh:(p.sh!=null&&isFinite(p.sh))?+p.sh:null,so:(p.so!=null&&isFinite(p.so))?+p.so:null,tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
+                  // SHARPE / SORTINO from the SAME _shrpE / _srtE the table above prints, so a
+                  //   dot and its cell can never disagree. Scale-free - the sizing tabs never
+                  //   move them. shDer/soDer flag the older-run curve fallback.
+                  sh:_ra2(_shrpE(c)),so:_ra2(_srtE(c)),shDer:_szDer(c,'sh'),soDer:_szDer(c,'so'),tr:(function(){const t=(p.kept!=null?p.kept:p.n);return (t!=null&&isFinite(t))?+t:null;})(),ev:(function(){if(p.apt!=null&&isFinite(p.apt))return p.apt*mlt3;const t=(p.kept!=null?p.kept:p.n);return (t&&isFinite(t)&&t>0)?((p.net*mlt3)/t):null;})()});
             });
           }
           // RETURN — IS and WF follow the shared SAMPLE tick, exactly as in 2B. LB $ and FULL $
@@ -16013,7 +16206,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
               // v71.30 (owner): FULL MAR is gone with it. Every row in this matrix measures the
               //   ticked SAMPLE and nothing else - tick IS, WF and LB and MAR above IS the full-run
               //   number, so a second whole-run copy was the same duplication as the two DD rows.
-              {lbl:'<span title="derived the same way 2B derives it: period-to-period change on the equity curve the engine saved, over the whole run, annualised by the span length. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrp(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="return per unit of TOTAL swing over the ticked SAMPLE. Read off the engine per-block figure, measured trade by trade at validate time - the same number the ALL table, the scatter and the parallel chart plot, so one name is one number everywhere. A run saved before the engine wrote it falls back to the saved equity curve and is marked with a degree sign. Scale-free - the sizing tabs do not move it.">SHARPE</span>',cell:c=>{const s=_shrpE(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+_szDeg(c,'sh')+'</span>'):_cmpDash;}},
+              // SORTINO (owner: "ev in r and sortino since those seem to be the fairer
+              //   yardstick"). The engine has written it onto every tilt and hybrid block since
+              //   v73.419 and the pooled views have plotted it since - this tab never got the
+              //   row. Same window, same annualisation, same engine-first source as SHARPE.
+              {lbl:'<span title="SORTINO = the same return over the DOWNSIDE deviation only - upside swings are no longer charged as risk, which is why it reads higher than SHARPE above it. Engine per-block figure where the run carries one, otherwise derived from the saved equity curve and marked with a degree sign. Scale-free - the sizing tabs do not move it.">SORTINO</span>',cell:c=>{const s=_srtE(c);return s!=null?('<span style="color:var(--text2)">'+s.toFixed(2)+_szDeg(c,'so')+'</span>'):_cmpDash;}},
               {lbl:'<span title="profit factor over the ticked SAMPLE - gross winning dollars divided by gross losing dollars. Across several stretches it is rebuilt from each stretch own gross totals. Scale-free.">PF</span>',cell:c=>{const v=_szP(c).pf;return v!=null?('<span style="color:var(--text2)">'+Math.min(v,99).toFixed(2)+'</span>'):_cmpDash;}},
               // v71.28 (owner: "WIN % is not heat-mapped on the TILT tab?"): it IS — there is just
               //   nothing to shade. A tilt takes EVERY trade and only re-sizes it, so every tilt
@@ -16021,9 +16219,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
               //   When that happens the hover says so, instead of looking like a broken heat map.
               {lbl:'<span title="share of trades in the ticked SAMPLE that finished green, weighted by trade count across stretches. Scale-free - re-sizing changes how much each trade is worth, never whether it won.'+((function(){const ws=cols.map(c=>_szP(c).wr).filter(v=>v!=null);return (ws.length>1&&(Math.max.apply(null,ws)-Math.min.apply(null,ws))<0.05)?' EVERY COLUMN HERE READS THE SAME because a tilt refuses no trades - the whole tab wins the same trades and only the size differs, so the heat map has no spread to shade.':'';})())+'">WIN %</span>',cell:c=>{const v=_szP(c).wr;return v!=null?('<span style="color:var(--text2)">'+Math.round(v)+'%</span>'):_cmpDash;}},
               {lbl:'<span title="EV = expected value: average net dollars per trade over the ticked SAMPLE - says whether a column makes its money from bigger trades or just more of them. Follows the sizing tab. This row used to be called $ / TRADE; same number, one name now.">EV</span>',cell:c=>{const v=_szP(c).apt;return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+$k(v)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade - (1 - win%) x (PF - 1), from this column own win rate and profit factor over the ticked SAMPLE. Scale-free, so re-sizing cannot move it: it reads the edge per bet the tilt is spending.">EV R</span>',cell:c=>{const b=_szP(c);const v=_evInR(b.wr,b.pf);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="R / YR = EV R x trades per year over the ticked SAMPLE: the edge, in units of the average losing trade, this column earns in a year. Scale-free, so re-sizing cannot move it.">R / YR</span>',cell:c=>{const b=_szP(c);const v=_rPerYr(_evInR(b.wr,b.pf),b.n,b.yrs);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'</span>'):_cmpDash;}},
-              {lbl:'<span title="DD (R) = the drawdown over the ticked SAMPLE divided by the average LOSING trade: how many typical losses deep the worst stretch went. Scale-free. Lower is better.">DD (R)</span>',cell:c=>{const b=_szP(c);const v=_ddInR(b.dd,b.apt,_evInR(b.wr,b.pf));return v!=null?('<span style="color:#e24b4a">'+v.toFixed(1)+'</span>'):_cmpDash;}}]},
+              {lbl:'<span title="EV R = expectancy in R: the average trade divided by the average LOSING trade - (1 - win%) x (PF - 1), from this column own win rate and profit factor over the ticked SAMPLE. Scale-free, so re-sizing cannot move it: it reads the edge per bet the tilt is spending.">EV R</span>',cell:c=>{const b=_szP(c);const v=_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(2)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="R / YR = EV R x trades per year over the ticked SAMPLE: the edge, in units of the average losing trade, this column earns in a year. Scale-free, so re-sizing cannot move it.">R / YR</span>',cell:c=>{const b=_szP(c);const v=_rPerYr(_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades),b.n,b.yrs);return v!=null?('<span style="font-weight:700;color:'+(v>=0?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'</span>'):_cmpDash;}},
+              {lbl:'<span title="DD (R) = the drawdown over the ticked SAMPLE divided by the average LOSING trade: how many typical losses deep the worst stretch went. Scale-free. Lower is better.">DD (R)</span>',cell:c=>{const b=_szP(c);const v=_ddInR(b.dd,b.apt,_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades));return v!=null?('<span style="color:#e24b4a">'+v.toFixed(1)+'</span>'):_cmpDash;}}]},
             // v71.37 (owner: "why does TILT have an AVG CONTRACTS row if it is always 1, and a NOT
             //   TAKEN row if it is always 0"): a row every column agrees on and that says nothing
             //   is dropped. AVG CONTRACTS only shows when some column is NOT one lot (the REDEPLOY
@@ -16083,9 +16281,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
             const _pick={'IS $':[c=>_sl$(c,'is'),true],'WF $':[c=>_sl$(c,'wf'),true],'LB $':[c=>_sl$(c,'lb'),true],
               'TOTAL':[c=>_szP(c).net,true],
               'MAR':[_szMar,true],'DD':[c=>{const v=_szP(c).dd;return v!=null?-v:null;},true],
-              'SHARPE':[_shrp,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
+              'SHARPE':[_shrpE,true],'SORTINO':[_srtE,true],'PF':[c=>{const v=_szP(c).pf;return v!=null?Math.min(v,99):null;},true],
               'WIN %':[c=>_szP(c).wr,true],'EV':[c=>_szP(c).apt,true],
-              'EV R':[c=>{const b=_szP(c);return _evInR(b.wr,b.pf);},true],'R / YR':[c=>{const b=_szP(c);return _rPerYr(_evInR(b.wr,b.pf),b.n,b.yrs);},true],'DD (R)':[c=>{const b=_szP(c);return _ddInR(b.dd,b.apt,_evInR(b.wr,b.pf));},false],
+              'EV R':[c=>{const b=_szP(c);return _evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades);},true],'R / YR':[c=>{const b=_szP(c);return _rPerYr(_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades),b.n,b.yrs);},true],'DD (R)':[c=>{const b=_szP(c);return _ddInR(b.dd,b.apt,_evInR(b.wr,b.pf,b.kept!=null?b.kept:b.num_trades));},false],
               'TRADES':[c=>{const n=_szP(c).n;return n!=null?+n:null;},true],
               'AVG CONTRACTS':[_szFac,true],
               'BIGGEST SIZE':[c=>c._s.mx!=null?(+c._s.mx*_szFac(c)):null,true]};
@@ -16153,7 +16351,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const hybNote=hybNoteBy.one||'';
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:_ctrls,menus:'',
           szCtrls:_szCtrls,tiltNote:tiltNote,hybNote:hybNote,hybModes:hybModes,hybBy:hybBy,hybNoteBy:hybNoteBy,
-          scatterPts:_scatterAcc,
+          scatterPts:_scatterAcc,scatterDrop:_scatterDrop,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -17463,7 +17661,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   threw "_mtxScatterPts is not defined" and broke the whole report for every run that hit
       //   this branch (i.e. every Auto-Validate run). Same fix shape _cfgInner/_cfgInnerB/_cfgSec
       //   already use on this exact line — pre-declare here, just ASSIGN inside the if-block.
-      let _cfgSec='',_cfgInner='',_cfgInnerB='',_mtxScatterPts=[],_mtxScatter='',_mtxBars='';
+      let _cfgSec='',_cfgInner='',_cfgInnerB='',_mtxScatterPts=[],_mtxScatter='',_mtxBars='',_mtxDropN=0;
       if(_selParts||_gateSec||_kpiInner){
         const _hasG=!!(_gateSec&&_gvP);
         const _hasT=!!(_gvP&&_gvP.tilts),_hasH=!!(_gvP&&_gvP.hyb);
@@ -17500,6 +17698,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   all families at once, so duplicating it on the side-by-side comparison card (1E's
         //   "B" twin) would just be the same picture twice.
         _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
+        // configs every pool refused a point (no drawdown for the ticked SAMPLE). Threaded into
+        //   the pooled views so a thinned TABLE / PARALLEL can never read as the whole population.
+        _mtxDropN=(+((_selParts&&_selParts.scatterDrop)||0))+(+((_gvP&&_gvP.scatterDrop)||0));
         _mtxScatter=mtxScatterHtml(_mtxScatterPts);
         _mtxBars=mtxBarsHtml(_mtxScatterPts);
         // v70.6 (owner: "duplicate 1E and place its duplicate next to it... so i can compare two
@@ -17531,7 +17732,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   columns - instead of every tab body stacked. PARALLEL / SCATTER already pool them.
           const _pboAll=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
           const body=(tb==='all')
-            ?(_mtxAllTableHtml(_mtxScatterPts,_pboAll)||_tabDefs.filter(function(t){return t[0]!=='all';}).map(function(t){const b=_bodyOf(t[0]);
+            ?(_mtxAllTableHtml(_mtxScatterPts,_pboAll,_mtxDropN)||_mtxPoolTile(_mtxScatterPts,_mtxDropN)||_tabDefs.filter(function(t){return t[0]!=='all';}).map(function(t){const b=_bodyOf(t[0]);
                return (b&&b.replace(/\s/g,''))?('<div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"><div style="font-size:8px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">'+_capOf(t[0])+'</div>'+b+'</div>'):'';}).join(''))
             :_bodyOf(tb);
           const note=isAll?'':isK?'':isG?''
@@ -17545,7 +17746,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           //   that pool as one line per config (NET $ / MAX DD / MAR + the PBO axis).
           const _mV=_mtxViewOf(_MTXK.view);
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
-          const _poolPar=(!isK&&(_mV==='parallel'||_mV==='scatter'))?poolParallelHtml(_mtxScatterPts,_pboRun):'';
+          const _poolPar=(!isK&&(_mV==='parallel'||_mV==='scatter'))?poolParallelHtml(_mtxScatterPts,_pboRun,_mtxDropN):'';
           const _tabRail=(isK?'':_distViewRail(_MTXK.view,_mV,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+((_mV==='scatter')?'':_mtxColsRail(_MTXK.cols)))
             +(showScatter?('<span data-mtxtwin title="'+(APREF.mtxTwin?'close the second 1E card and give the column back to the distributions':'open a SECOND 1E card beside this one, on its own tab, to compare two views side by side')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;margin-left:6px;border:1px solid '+(APREF.mtxTwin?'var(--text)':'var(--border)')+';color:'+(APREF.mtxTwin?'var(--bg)':'var(--text4)')+';'+(APREF.mtxTwin?'background:var(--text);':'')+'">&#8862; COMPARE'+(APREF.mtxTwin?' ON':'')+'</span>'):'');
           // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
@@ -17561,7 +17762,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
             +((_tabRail||ctrls)?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px">'+_tabRail+ctrls+'</div>'):'')
             // v73.6x (owner ask): the cross-pool scatter moved to 1A as its own tab (see the 1A
             //   tab switcher below) - it no longer lives inside this card.
-            +'<div style="margin-top:9px">'+(_poolPar||body)+'</div>'
+            +'<div style="margin-top:9px">'+(_poolPar||((!isK&&(_mV==='parallel'||_mV==='scatter'))?(_mtxPoolTile(_mtxScatterPts,_mtxDropN)||body):body))+'</div>'
             +(_poolPar?'':note);};
         _cfgInner=_mkCfg('cfgTab','data-cfgtab','kpi',true);
         // v73.341 (owner: "for the second 1e chart, just make it an expander off the first ... dont
@@ -22756,7 +22957,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const shCum=function(cum,yrs){if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
                 const d=[];for(let i=1;i<cum.length;i++)d.push(cum[i]-cum[i-1]);
                 const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
-                const vr=d.reduce(function(a,b){return a+(b-m)*(b-m);},0)/Math.max(1,n-1),sd=Math.sqrt(vr);
+                const vr=d.reduce(function(a,b){return a+(b-m)*(b-m);},0)/n,sd=Math.sqrt(vr);
                 return (sd>1e-9)?((m/sd)*Math.sqrt(n/yrs)):null;};
               // SORTINO the same way, downside only - owner-reported 2026-08-30: the board
               //   opens on SORTINO across the bottom, and NOT ONE config row carried one, so

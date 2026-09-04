@@ -28,6 +28,23 @@ WHAT IT ASSERTS
   * an axis fewer than 60% of the configs can fill still draws, marked with the
     degree sign
   * a run whose configs carry none of it still draws the chart on what is left
+  * SORTINO is a ROW on every 1E family table -- GATE, TILT, HYBRID and RAW --
+    and not only on the pooled ALL table (it was on neither family table before,
+    which is the whole reason the owner's v73.409 ask never reached the tab he
+    reads)
+  * the family table and the pooled ALL table print the SAME SHARPE and SORTINO
+    for the same config. They used to differ by up to 4x: the family tables
+    derived them from a ~160-point saved curve while the pooled views plotted the
+    engine's per-trade scalar, so ONE metric name carried TWO numbers on screen
+  * a stretch the engine measured as ZERO TRADES dashes its PF / WIN % / EV R /
+    DD instead of printing 0.00 / 0% / -1.00 / -$0 as measurements
+  * a pooled view that had to drop configs says how many, and one that can place
+    none of them says so instead of quietly reverting to a different view
+  * ON THE 1A CONFIG FUNNEL: no candidate line is drawn above the plot top. The
+    ALL CONFIGS overlay is built ~350 lines below the y-scale, so its 37 curves
+    never reached the extent pass and the tallest was clipped off the frame
+  * the GATE / TILT / HYBRID-recycle top lines are SOLID. A full-length dash read
+    as "walk-forward" under the funnel's own published line procedure
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE.
 Stdlib only, plus a subprocess call to local Chrome.
@@ -107,6 +124,91 @@ SMOOTH_CFGS = ('A', 'C')
 CHOPPY_CFGS = ('B', 'E')
 
 
+# -- ML-family fixtures (GATE / TILT / HYBRID) ---------------------------------
+#    These carry the engine-written per-block SHARPE / SORTINO scalars that the
+#    v73.419 engine saves, so the family tables and the pooled views can be checked
+#    against each other AND against the seeded number.
+GATE_SPAN = ['2010-01-01', '2025-01-01']      # 15 years: IS 7 + WF 7 + LB 1
+GATE_WF0 = '2017-01-01'
+GATE_LB0 = '2024-01-01'
+
+# NOT a straight line on purpose: a perfectly linear curve has zero deviation, so the
+#   OLD curve-derived SHARPE came back null and a gate watching for the wrong number
+#   would have had nothing to compare. These wobble, so a curve-derived reading is a
+#   real (and different) number from the engine scalar seeded on the blocks below.
+FLAT = _cum(([12.0] * 9 + [-3.0]) * 6)         # ends 630
+TALL = _cum(([120.0] * 9 + [-30.0]) * 6)       # ends 6300 -- 10x anything else in the run
+
+
+def blk(net, n, pf, wr, dd, sh=None, so=None):
+    b = {'total_pnl': net, 'num_trades': n, 'profit_factor': pf, 'win_rate': wr,
+         'max_drawdown': dd, 'avg_pnl': (net / float(n) if n else 0.0)}
+    if sh is not None:
+        b['sharpe'] = sh
+    if so is not None:
+        b['sortino'] = so
+    return b
+
+
+ZERO_BLK = blk(0, 0, 0.0, 0.0, 0.0)            # the engine's zero-trade placeholder, verbatim
+
+
+def gcand(model, th, cum, zerolb=False, so_lb=1.42):
+    """One ML-gate candidate as the engine saves it."""
+    return {
+        'model': model, 'threshold': th,
+        'pre_pnl': 120000, 'pre_rec': 10.0, 'pre_pf': 1.50, 'pre_wr': 45.0,
+        'kept_pre': 1000, 'pre_sharpe': 1.11, 'pre_sortino': 1.77,
+        'equity': {'cum': cum},
+        'is_rng': blk(65000, 550, 1.55, 46.0, 8000, 1.21, 1.91),
+        'wf_rng': blk(55000, 450, 1.45, 44.0, 9000, 1.02, 1.61),
+        'lockbox': (ZERO_BLK if zerolb else blk(9000, 90, 1.35, 43.0, 2500, 0.87, so_lb)),
+        'full': blk(129000, 1090, 1.48, 44.6, 11000, 1.09, 1.72),
+    }
+
+
+def szcand(model, cum, ntr, full_n, so_lb, scheme=None, zerolb=False):
+    """One TILT (scheme set) or HYBRID (scheme None) column."""
+    c = {'model': model, 'n_trades': ntr, 'max_size': 1,
+         'equity': {'cum': cum},
+         'is_rng': blk(66000, 560, 1.56, 46.0, 8100, 1.22, 1.92),
+         'wf_rng': blk(56000, 460, 1.46, 44.0, 9100, 1.03, 1.62),
+         'lockbox': (ZERO_BLK if zerolb else blk(9500, 95, 1.36, 43.0, 2600, 0.88, so_lb)),
+         'full': blk(131500, full_n, 1.49, 44.7, 11100, 1.10, 1.73),
+         'pre': blk(122000, 1020, 1.51, 45.0, 10200, 1.12, 1.78)}
+    if scheme:
+        c['scheme'] = scheme
+    return c
+
+
+def gate_validate(tall_gate, hyb_recycle_tall):
+    """The ML block. `tall_gate` gives one gate CANDIDATE a curve ten times the rest
+       (the old y-scale never saw candidate curves at all). `hyb_recycle_tall` gives
+       the NON-picked hybrid a tiny trade count, so its recycle factor - which is per
+       hybrid - lifts it above the picked one, which is the only hybrid the old
+       pre-pass ever measured."""
+    return {
+        'span': GATE_SPAN, 'wf_range': [GATE_WF0, GATE_LB0], 'lockbox_from': GATE_LB0,
+        'thresholds': [0.5, 0.6], 'chosen': {'model': 'rf', 'threshold': 0.5},
+        'selection_rule': 'net_dollars_mar_floor_80_minkeep',
+        'equity': {'cum_ungated': FLAT, 'cum_gated': FLAT},
+        'ungated_is': blk(70000, 700, 1.50, 45.0, 9000),
+        'ungated_wf': blk(60000, 600, 1.40, 43.0, 10000),
+        'ungated_lockbox': blk(10000, 100, 1.30, 42.0, 3000),
+        'ungated_pre': blk(130000, 1300, 1.45, 44.0, 12000),
+        'ungated_full': blk(140000, 1400, 1.44, 44.0, 12000),
+        'candidates': [gcand('rf', 0.5, FLAT, so_lb=1.42),
+                       gcand('logit', 0.6, (TALL if tall_gate else FLAT), so_lb=2.31),
+                       gcand('xgb', 0.7, FLAT, zerolb=True)],
+        'tilts': [szcand('rf', FLAT, 1400, 1400, 1.55, scheme='tier'),
+                  szcand('xgb', FLAT, 1400, 1400, 1.66, scheme='linear')],
+        # rf keeps 1200 of the 1400 ungated trades -> recycle 1.17x (this one is picked,
+        #   on net dollars); xgb keeps only 400 -> recycle 3.50x, which is what escapes.
+        'hybrids': [szcand('rf', FLAT, 1200, 1200, 1.44),
+                    szcand('xgb', (_cum(([9.6] * 9 + [-2.4]) * 6) if hyb_recycle_tall else FLAT), 400, 400, 1.88)],
+    }
+
+
 def run_doc(rid, cands):
     return {
         'id': rid, '_lite': False, 'strategy': 'PROBE_1_0.py', 'instrument': 'NQ',
@@ -175,8 +277,26 @@ def build_runs():
                     'sharpe': 1.1, 'sortino': 1.9, 'dd': 250,
                     'avg_win': 240.0, 'avg_loss': 150.0, 'bars': 2000},
     }
+    # 906 / 907: the same raw pool with a real ML block hung off it. 906 has a gate
+    #   CANDIDATE curve ten times the rest; 907 has none, so the tallest thing on its
+    #   funnel is the RECYCLE line of the hybrid that was NOT picked. Both were drawn
+    #   off the top of the plot before the y-scale learned to fold them in.
+    ml = [cfg(n, i, w, cu, wr, pf, ntr, crowned=(n == 'A'), rng=True)
+          for (n, wr, pf), (i, w, cu, ntr) in zip(
+              MAIN_WR_PF,
+              [(4000, 3000, SMOOTH, 500), (3500, 2600, CHOPPY, 400),
+               (3000, 2200, SMOOTH, 620), (2500, 1800, SMOOTH, 90),
+               (2000, 1400, CHOPPY, 300)])]
+    r906 = run_doc(906, ml)
+    r906['gate_validate'] = gate_validate(tall_gate=True, hyb_recycle_tall=False)
+    r906['equity_top'] = [{'cum': SMOOTH}, {'cum': CHOPPY}]
+    r906['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
+    r907 = run_doc(907, ml)
+    r907['gate_validate'] = gate_validate(tall_gate=False, hyb_recycle_tall=True)
+    r907['equity_top'] = [{'cum': SMOOTH}, {'cum': CHOPPY}]
+    r907['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
     return [run_doc(901, main), run_doc(902, partial), run_doc(903, bare),
-            run_doc(904, modern), kpi]
+            run_doc(904, modern), kpi, r906, r907]
 
 
 CASES = [
@@ -204,6 +324,19 @@ CASES = [
     ('kpi-parallel', 905, {'cfgTab': 'kpi', 'mtxView': 'parallel', 'mtxCols': 'both'}),
     ('kpi-scatter', 905, {'cfgTab': 'kpi', 'mtxView': 'scatter', 'mtxCols': 'both',
                           'mtxSX': 'EV R', 'mtxSY': 'SORTINO'}),
+    # -- the ML family TABLES. SORTINO must be a row on each, filled from the engine
+    #    block, and equal to what the pooled ALL table prints for the same config.
+    ('ml-gate-lb', 906, {'cfgTab': 'gate', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'lb'}),
+    ('ml-tilt-lb', 906, {'cfgTab': 'tilt', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'lb'}),
+    ('ml-hyb-lb', 906, {'cfgTab': 'hyb', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'lb'}),
+    ('ml-raw-lb', 906, {'cfgTab': 'raw', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'lb'}),
+    ('ml-all-lb', 906, {'cfgTab': 'all', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'lb'}),
+    # a pick that SKIPS a stretch can pool nothing - it must say so, not silently
+    #   fall through to a different view.
+    ('ml-all-islb', 906, {'cfgTab': 'all', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,lb'}),
+    # -- the 1A CONFIG FUNNEL, ALL CONFIGS on.
+    ('funnel-gatecand', 906, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
+    ('funnel-hybrcy', 907, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
 ]
 
 PROBE_HTML = r"""<!DOCTYPE html>
@@ -274,11 +407,84 @@ var CASES = __CASES__;
             var key=sc[pz].getAttribute('data-distview')||'';
             if(key.indexOf('mtxS')===0)r.pickers.push(key.split(':')[0]+'='+sc[pz].textContent.trim());}
         }
+        // ---- 1E FAMILY TABLES: every [data-mtxcol] cell, keyed column -> row label.
+        //      A family table row and the pooled ALL table row for the same config must
+        //      print the same number; they did not, for SHARPE, by up to 4x.
+        r.cells={}; r.hdr={};
+        (function(){
+          var trs=d.querySelectorAll('tr');
+          for(var a=0;a<trs.length;a++){
+            var tds=trs[a].querySelectorAll('td');
+            if(tds.length<2)continue;
+            var lbl=(tds[0].innerText||tds[0].textContent||'').trim();
+            if(!lbl)continue;
+            for(var b=1;b<tds.length;b++){
+              var k=tds[b].getAttribute('data-mtxcol');
+              if(!k)continue;
+              (r.cells[k]=r.cells[k]||{})[lbl]=(tds[b].innerText||tds[b].textContent||'').trim();}}
+          var ths=d.querySelectorAll('th[data-mtxcol]');
+          for(var c3=0;c3<ths.length;c3++)r.hdr[ths[c3].getAttribute('data-mtxcol')]=(ths[c3].innerText||'').trim();
+          // the pooled ALL table: the one table whose first header cell is FAMILY
+          var tbs=d.querySelectorAll('table');
+          for(var t2=0;t2<tbs.length;t2++){
+            var hs=tbs[t2].querySelectorAll('thead th');
+            if(!hs.length||(hs[0].innerText||'').trim().toUpperCase().indexOf('FAMILY')!==0)continue;
+            var hd=[];for(var t3=0;t3<hs.length;t3++)hd.push((hs[t3].innerText||'').trim());
+            var rr=tbs[t2].querySelectorAll('tbody tr'),outR=[];
+            for(var t4=0;t4<rr.length;t4++){var cc=rr[t4].querySelectorAll('td'),row={};
+              for(var t5=0;t5<cc.length&&t5<hd.length;t5++)row[hd[t5]]=(cc[t5].innerText||'').trim();
+              outR.push(row);}
+            r.allTable={head:hd,rows:outR};break;}
+        })();
+        // ---- 1A CONFIG FUNNEL geometry, in SVG user units.
+        //      The plot top edge is py, straight off the chart's own axis header, so a
+        //      point with y < py is a value drawn ABOVE the axis maximum.
+        r.funnel=null;
+        (function(){
+          var box=d.querySelector('div[data-a2eqx]');
+          if(!box)return;
+          var sv=box.querySelector('svg'); if(!sv)return;
+          var xh=null;
+          try{var a2=sv.getAttribute('data-xh'); if(a2)xh=JSON.parse(decodeURIComponent(a2));}catch(e){}
+          var pt=(xh&&xh.py!=null)?+xh.py:6;
+          var f={pt:pt,axisMax:(xh&&xh.y1!=null)?+xh.y1:null,groups:{}};
+          var els=sv.querySelectorAll('polyline,path');
+          for(var i2=0;i2<els.length;i2++){
+            var el=els[i2],kg=null,p=el,hidden=false;
+            while(p&&p!==sv){if(p.getAttribute&&p.getAttribute('data-kg')){kg=p.getAttribute('data-kg');break;}p=p.parentNode;}
+            var q3=el; while(q3&&q3!==sv){if(q3.getAttribute&&/display:\s*none/.test(q3.getAttribute('style')||'')){hidden=true;break;}q3=q3.parentNode;}
+            var key=(kg||'(untagged)')+(hidden?' [HIDDEN]':'');
+            var nums;
+            if(el.tagName.toLowerCase()==='polyline')nums=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
+            else nums=(el.getAttribute('d')||'').replace(/[MLC]/g,' ').trim().split(/[\s,]+/).map(Number);
+            var g=f.groups[key]||(f.groups[key]={n:0,minY:null,over:0,dash:''});
+            for(var j2=0;j2+1<nums.length;j2+=2){var yv=nums[j2+1];
+              if(!isFinite(yv))continue;
+              g.n++; if(g.minY===null||yv<g.minY)g.minY=yv;
+              if(yv<pt-0.05)g.over++;}
+            var ds=el.getAttribute('stroke-dasharray')||'(solid)';
+            g.dash=g.dash?(g.dash.indexOf(ds)>=0?g.dash:(g.dash+' | '+ds)):ds;}
+          // what the fullscreen explorer payload says each ALL CONFIGS line ends at -
+          //   the population the tile draws, measured against the axis it drew them on.
+          try{var ser=w._a2EqSeries||[],lim=f.axisMax,over=[],peak=-1e18,peakId=null;
+            ser.forEach(function(s){if(!s||!s.eq||!s.eq.length)return;
+              if(s.famTop||s.dim)return;
+              if(!(s.gateCand||s.tiltCand||s.hybCand||s.hybRcy))return;
+              var e=Math.max.apply(null,s.eq);
+              if(e>peak){peak=e;peakId=s.id;}
+              if(lim!=null&&e>lim+0.5)over.push({id:s.id,peak:Math.round(e)});});
+            f.drawnMax=(peak>-1e17)?peak:null; f.drawnMaxId=peakId; f.overSeries=over;
+          }catch(e){f.serErr=String(e);}
+          r.funnel=f;
+        })();
         var ap=d.getElementById('app'); r.appLen=ap?ap.innerHTML.length:-1;
         r.nMtxCol=d.querySelectorAll('[data-mtxcol]').length;
         r.nSvg=d.querySelectorAll('svg').length;
         r.nCirc=d.querySelectorAll('circle').length;
-        r.body=(ap?ap.textContent:'').replace(/[^ -~]/g,'.').slice(0,300);
+        var _bt=(ap?ap.textContent:'');
+        r.hasDrop=_bt.indexOf('not shown - no drawdown')>=0;
+        r.hasTile=_bt.indexOf('nothing to pool on this SAMPLE')>=0;
+        r.body=_bt.replace(/[^ -~]/g,'.').slice(0,300);
         r.tabs=(function(){var o=[];var e=d.querySelectorAll('[data-cfgtab]');for(var z=0;z<e.length;z++)o.push(e[z].textContent.trim());return o;})();
         r.err=(d.body.textContent.indexOf("couldn't render")>=0)?'runDetail threw':'';
         out.cases[nm]=r;
@@ -376,6 +582,35 @@ def tip_label(tip):
     """The dot's printed label, e.g. '<b>RAW</b> &middot; R2 &middot; -'."""
     m = re.search(r'</b>\s*(?:&middot;|·)\s*(.*?)<br>', tip or '')
     return (m.group(1).strip() if m else (tip or '')[:60])
+
+
+def _plain(t):
+    """A rendered column header or CONFIG cell, stripped to its comparable name."""
+    return re.sub(r'\s+', ' ', re.sub(r'[^A-Za-z0-9%() /.]+', ' ', t or '')).strip().upper()
+
+
+def _row(rows, label):
+    """One metric row out of a scraped [data-mtxcol] column, by its printed label."""
+    for k, v in (rows or {}).items():
+        if _plain(k).split('\u00b7')[0].strip() == label.upper():
+            return v
+    return None
+
+
+def _num(t):
+    if t is None:
+        return None
+    t = str(t).replace('\u00b0', '').replace(',', '').replace('%', '').replace('$', '').strip()
+    if t in ('', '-', '\u2014', '\u2013'):
+        return None
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def _rnd(v):
+    return ('%.0f' % v) if isinstance(v, (int, float)) else v
 
 
 def which_cfg(label, names):
@@ -619,6 +854,153 @@ def main():
         else:
             print('  hand-check LB   (1 - 0.38) * (1.45 - 1) = %-8.4f  rendered %.2f   OK'
                   % (exact, gotv))
+
+    # -- 9. SORTINO is a ROW on every 1E family table, filled from the engine block
+    #       and equal to what the pooled ALL table prints for the same config.
+    #       Before this gate existed the row was on NO family table at all, and the
+    #       SHARPE that WAS there disagreed with the pooled views by up to 4x.
+    SEED_SO = {'GATE': {'RF 50%': 1.42, 'LOGIT 60%': 2.31},
+               'TILT': {'RF (ST)': 1.55, 'XGB (SL)': 1.66},
+               'HYBRID': {'RF': 1.44, 'XGB': 1.88}}
+    # every seeded lockbox block carries this SHARPE. A table reading it off the saved
+    #   ~160-point curve instead lands somewhere else entirely - which is exactly what
+    #   run 307's LOGIT 60% did: 2.51 in the table against the engine's 1.84.
+    SEED_SH = {'GATE': 0.87, 'TILT': 0.88, 'HYBRID': 0.88}
+    fam_cells = {}          # (FAMILY, normalised config label) -> {row label: text}
+    for cnm, fam in (('ml-gate-lb', 'GATE'), ('ml-tilt-lb', 'TILT'),
+                     ('ml-hyb-lb', 'HYBRID'), ('ml-raw-lb', 'RAW')):
+        r = cs.get(cnm) or {}
+        cells, hdr = (r.get('cells') or {}), (r.get('hdr') or {})
+        if not cells:
+            bad.append('%s: the family table rendered no [data-mtxcol] cells' % cnm)
+            continue
+        n_so = 0
+        for key, rows in cells.items():
+            lbl = _plain(hdr.get(key, ''))
+            fam_cells[(fam, lbl)] = rows
+            # SHARPE is checked on EVERY column, whether or not a SORTINO row exists -
+            #   before this gate the row did not exist and the check would have skipped
+            #   the very defect it is here for.
+            wsh, gsh = SEED_SH.get(fam), _num(_row(rows, 'SHARPE'))
+            if wsh is not None and gsh is not None and abs(gsh - wsh) > 0.005:
+                bad.append('%s: %s SHARPE rendered %s, the engine block says %.2f - the table '
+                           'is deriving it from the sampled curve instead of reading the '
+                           'measured scalar the pooled views plot' % (cnm, lbl, gsh, wsh))
+            got = _row(rows, 'SORTINO')
+            if got is None:
+                continue
+            n_so += 1
+            want = SEED_SO.get(fam, {}).get(lbl)
+            if want is not None and _num(got) is not None and abs(_num(got) - want) > 0.005:
+                bad.append('%s: %s SORTINO rendered %s, the engine block says %.2f'
+                           % (cnm, lbl, got, want))
+        if not n_so:
+            bad.append('%s: no SORTINO row on the family table (rows: %s)'
+                       % (cnm, sorted({k for v in cells.values() for k in v})))
+        else:
+            print('  %-16s SORTINO on %d columns' % (cnm, n_so))
+
+    # -- 9b. a stretch the engine measured as ZERO TRADES must dash, not print zeros
+    zg = (cs.get('ml-gate-lb') or {})
+    zcells, zhdr = (zg.get('cells') or {}), (zg.get('hdr') or {})
+    zfound = False
+    for key, rows in zcells.items():
+        if _row(rows, 'TRADES') not in ('0', '0.0'):
+            continue
+        zfound = True
+        for rl in ('PF', 'WIN %', 'EV R', 'DD'):
+            v = _row(rows, rl)
+            if v is not None and _num(v) is not None:
+                bad.append('ml-gate-lb: %s took ZERO trades in the lockbox yet %s rendered %r '
+                           '- the engine saved a placeholder, not a measurement'
+                           % (_plain(zhdr.get(key, key)), rl, v))
+        print('  zero-trade col   %-12s PF/WIN %%/EV R/DD = %s'
+              % (_plain(zhdr.get(key, key)),
+                 [_row(rows, x) for x in ('PF', 'WIN %', 'EV R', 'DD')]))
+    if not zfound:
+        bad.append('ml-gate-lb: the seeded zero-trade lockbox column never rendered')
+
+    # -- 9c. one metric name, one number: the family table and the pooled ALL table
+    at = (cs.get('ml-all-lb') or {}).get('allTable')
+    if not at:
+        bad.append('ml-all-lb: the pooled ALL table did not render')
+    else:
+        if 'SORTINO' not in at['head']:
+            bad.append('ml-all-lb: the pooled ALL table has no SORTINO column (%s)' % at['head'])
+        joined = 0
+        for row in at['rows']:
+            k = (row.get('FAMILY', '').strip(), _plain(row.get('CONFIG', '')))
+            fc = fam_cells.get(k)
+            if not fc:
+                continue
+            for m in ('SHARPE', 'SORTINO'):
+                a, b = _num(_row(fc, m)), _num(row.get(m))
+                if a is None or b is None:
+                    continue
+                joined += 1
+                if abs(a - b) > 0.02:
+                    bad.append('%s %s: the %s tab prints %s and the pooled ALL table prints %s '
+                               '- one metric name, two numbers' % (k[0], k[1], m, a, b))
+        if joined < 8:
+            bad.append('ml-all-lb: only %d family/pooled cells could be joined - the check '
+                       'did not actually run' % joined)
+        else:
+            print('  %-16s %d family cells match the pooled ALL table exactly' % ('ml-all-lb', joined))
+        if not (cs.get('ml-all-lb') or {}).get('hasDrop'):
+            bad.append('ml-all-lb: a config was dropped from the pool (the zero-trade column) '
+                       'and nothing on screen said so')
+        else:
+            print('  %-16s says how many configs it could not place' % 'ml-all-lb')
+
+    # -- 9d. a pick that skips a stretch pools nothing: say so, do not quietly
+    #        revert to a different view
+    il = cs.get('ml-all-islb') or {}
+    if not il.get('hasTile'):
+        bad.append('ml-all-islb: IS+LB can pool nothing, and the ALL tab said nothing about it')
+    elif il.get('nMtxCol'):
+        bad.append('ml-all-islb: the ALL tab fell back to the stacked family tables '
+                   '(%d [data-mtxcol] cells) under a rail that says otherwise' % il['nMtxCol'])
+    else:
+        print('  %-16s renders the honest empty-pool tile, not another view' % 'ml-all-islb')
+
+    # -- 10. THE 1A CONFIG FUNNEL: no candidate line drawn above the plot top -----
+    for fnm, what in (('funnel-gatecand', 'a gate candidate curve'),
+                      ('funnel-hybrcy', 'the recycle line of the hybrid that was NOT picked')):
+        fr = (cs.get(fnm) or {}).get('funnel')
+        if not fr:
+            bad.append('%s: the 1A funnel did not render (no [data-a2eqx] chart)' % fnm)
+            continue
+        ac = (fr.get('groups') or {}).get('allcfg')
+        if not ac or not ac.get('n'):
+            bad.append('%s: ALL CONFIGS drew no lines, so nothing was tested' % fnm)
+            continue
+        print('  %-16s axis max %s / drawn max %s (%s)  allcfg minY %s, plot top %s'
+              % (fnm, _rnd(fr.get('axisMax')), _rnd(fr.get('drawnMax')),
+                 fr.get('drawnMaxId'), ac.get('minY'), fr.get('pt')))
+        for kg, g in (fr.get('groups') or {}).items():
+            if g.get('over'):
+                bad.append('%s: %d points of the %r line are drawn above the plot top '
+                           '(minY %s, top %s) - %s is off the chart'
+                           % (fnm, g['over'], kg, g.get('minY'), fr.get('pt'), what))
+        for o in (fr.get('overSeries') or []):
+            bad.append('%s: %r peaks at %s against an axis max of %s'
+                       % (fnm, o.get('id'), o.get('peak'), _rnd(fr.get('axisMax'))))
+        # -- 10b. and the family top lines are SOLID; only the lines whose dash MEANS
+        #         something (RAW's in-sample / walk-forward split, the lockbox tail) keep one
+        for kg in ('gate', 'tilt', 'hyb2', 'hyb', 'allcfg'):
+            g = (fr.get('groups') or {}).get(kg)
+            if g and g.get('dash') and g['dash'] != '(solid)':
+                bad.append('%s: the %r line is dashed (%s). A full-length dash reads as '
+                           '"walk-forward" under this chart own published line procedure'
+                           % (fnm, kg, g['dash']))
+        for kg, want in (('crown', '2.2 1.6'), ('lb', '0.5 1.6')):
+            g = (fr.get('groups') or {}).get(kg)
+            if g and want not in (g.get('dash') or ''):
+                bad.append('%s: the %r line lost its %s dash - that one carries meaning '
+                           '(walk-forward / lockbox) and must stay' % (fnm, kg, want))
+        print('  %-16s dashes: %s' % (fnm, {k: v.get('dash') for k, v in
+                                            (fr.get('groups') or {}).items()
+                                            if k in ('crown', 'lb', 'gate', 'tilt', 'hyb', 'hyb2', 'allcfg')}))
 
     if bad:
         print('1E AXES PROBE: FAIL')
