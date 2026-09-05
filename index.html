@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.481';
+const VERSION='73.482';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.482',date:'2026-09-04',notes:['ALL and NONE on the RUNS row: tick every run the picked strategy is offering in one click, instead of fourteen clicks to see one strategy whole 1E landscape. ALL means every run LISTED - the strategy pick still decides what is listed - and NONE falls back to the newest run, because an empty pick draws nothing.','THOSE DIAGONAL STREAKS ARE NOT DUPLICATES. Counted: 789 points, 789 distinct configurations, none repeated. They were drawn by the board itself - marks that share a pixel get fanned a few pixels apart so each stays clickable, which at 800 dots draws straight lines that read as a trend. The fan is off above 250 points; the dots now sit where the data puts them.','AND THE POINTS THAT ARE NOT ON THE CHART ARE NAMED, per run, under it. A configuration with nothing recorded for one of the two ticked axes cannot be placed, and until now it vanished silently - almost always a run validated before the engine wrote Sharpe and Sortino onto every candidate block. The line says how many and from which runs, so it is clear which runs need re-validating.','Reviewed before shipping, and the review stopped it: that count was assembled BEFORE the chart that produces it, so it showed the previous render figures under a tooltip promising it followed the axes ticked now, and it stayed on screen on the parallel, radar and lattice charts, which do not place rows that way. The chart is drawn first and the line reports on what actually happened.']},
 {v:'73.480',date:'2026-09-04',notes:['THE QQQ SHADOW BOOK EQUITY CURVE DREW NOTHING AND LABELLED ITS AXIS undefined. The chart and the per-leg sparklines still read the cumulative P&L series as pairs, but that series had to become a list of records when the backend started publishing it (Firestore refuses a list of lists outright, which was silently killing every update). They read records now, and they also accept the old pair form so a stale cached copy still draws.','A BOOK ONE DAY OLD NOW SHOWS ITS ONE POINT. A single day plotted as a line is invisible, so the curve draws a dot at the centre with that day underneath it, and a leg with exactly one closed trade says so instead of claiming it has none.','TODAY NOW MEANS TODAY. The TODAY-S ORDERS panel and every leg card-s TODAY figure were fed the tail of the record rather than the current session, so on Friday morning they were still showing Wednesday-s four orders, and the leg cards read 2.89 dollars TODAY beside a TODAY total of zero. Both are filtered to the open trading day; the whole history stays in CLOSED TRADES and the curve.']},
 {v:'73.479',date:'2026-09-04',notes:['STUDIES BOARD: ROUND 27 - the EV R and R / YR hunt, rows 1165 to 1177. THE MINE: every saved Auto-Validate population was read for its best EV R and R / YR; the single-strategy R / YR leader is an UNCROWNED configuration inside run #309 (ENGU-Q 24h efficiency variant): EV R 0.60 at 155 trades a year = R / YR 93, versus 32 for the crown that run picked and 77 for the NOISE crown; 7 of 8 walk-forward folds held and its lockbox year was positive. It now has its own card (queued). NQDIP 1.1 (three added dip legs) lifts the dip book R / YR from 9.4 to 23.5 at PF 1.64 / MAR 10.2, 8 of 8 slices - its Auto-Validate is queued. A new 1-minute EMA-pullback continuation family is dead in all 27 cells.','Also: the family rail now tags NQDIP and EMAPB runs (they read UNTAGGED before), and run #311 - the three paper-honest legs pooled - is on the board at R / YR 82.']},
 {v:'73.474',date:'2026-09-04',notes:['THE BOARD AND THE RUN REPORT DISAGREED ON THE SAME CONFIGURATION, and the board was wrong. Ticking WF on COMPARE > STUDIES re-sliced the DOLLARS and left every ratio alone - PF, WIN %, SHARPE, SORTINO, EV R, drawdown and the trade count stayed frozen at whatever the row was built from. So the board relabelled itself WF without changing a single ratio, and run #306 read PF 1.98 here against PF 1.58 in its own report.','A CONFIGURATION ROW NOW READS THE SAVED BLOCK FOR THE TICKED STRETCH, the same one the 1E matrix reads - is_rng, wf_rng, lockbox, and the pre / full / wf_lb combinations, each carrying its own profit factor, win rate, Sharpe, Sortino, trade count and drawdown, written by the engine from that stretch real trades. Gate, tilt and hybrid candidates re-slice on every combination. RAW candidates save only the three single stretches, so those re-slice on a single tick and keep their whole-window figure otherwise.','AND ITS YEARS ARE THE TICKED STRETCH TOO - anything divided by years (PER YEAR, MAR, R / YR) was dividing a walk-forward slice by the whole run length.','R / YR IS ON THE BOARD: a column beside EV R, and an option on both scatter axes. EV R multiplied by trades per year over the ticked stretch - the cross-strategy rank read, leverage-blind like EV R but rewarding a strategy for trading often enough to compound its edge.','Reviewed before shipping, and the review stopped it: RAW rows would have blanked their whole ratio block on the default view, the trade count would have quietly borrowed the run whole-run number, the stretch marks were read from a path that does not exist so the years fix never ran, and R / YR up the side rendered as dollars. All four fixed before the push.']},
@@ -22540,14 +22541,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
         };
         const _reChartAll=(items,com)=>{
           const pts=[],skip=[],failOut=[];
+          window._reSkipBy={};   // run number -> points the ticked axes could not place
           const _reDupAt={};   // how many marks have already landed on each pixel
           items.forEach(o=>{
             // control 5: a failed row leaves the CHART so the axis can fit the rest. It
             //   keeps its table row and its figures; nothing is recomputed or hidden.
             if(!_reFailOn&&o.r&&o.r.tone==='fail'){failOut.push(o);return;}
 const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
-            if(x0==null){skip.push({o:o,w:_reXwhy(o.st,o.r)});return;}
-            if(y0==null){skip.push({o:o,w:_reYwhy(o.st,o.r,com)});return;}
+            if(x0==null){skip.push({o:o,w:_reXwhy(o.st,o.r)});
+              if(o.r&&o.r._run)window._reSkipBy[o.r._run]=(window._reSkipBy[o.r._run]||0)+1;
+              return;}
+            if(y0==null){skip.push({o:o,w:_reYwhy(o.st,o.r,com)});
+              if(o.r&&o.r._run)window._reSkipBy[o.r._run]=(window._reSkipBy[o.r._run]||0)+1;
+              return;}
             let x=x0,y=y0;
             if(_reRel){
               // VS CROWN. Both axes are measured FROM the family crowned configuration, so the
@@ -22670,7 +22676,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   deep stack walked its later marks clean off the plot - the stray
               //   triangle sitting on the axis was the 30th duplicate of one busy pixel,
               //   not a data point (owner: "why the random y axis data point marks").
-              const _dio=Math.min(_di,6);
+              // NO FAN ON A DENSE CHART. Spreading marks that share a pixel along a
+              //   diagonal keeps each clickable at report size, but at 800 dots it draws
+              //   straight streaks that read as a trend - the owner asked whether they were
+              //   duplicates (2026-09-04). They are not: 789 points, 789 distinct configs.
+              //   Small dots hardly overlap, so they sit where the data puts them.
+              const _dio=(pts.length>250)?0:Math.min(_di,6);
               const cx=Math.max(L+sz,Math.min(R-sz,px(p.x)+_dio*2.2)),
                     cy=Math.max(T+sz,Math.min(B-sz,py(p.y)-_dio*1.4));
 
@@ -23448,7 +23459,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // ONLY THE PICKED STRATEGY'S RUNS. Offering all seventy-five while the rail
           //   says NOISE was most of what made this confusing - the strategy pick looked
           //   ignored. Untick the rail and every run is offered again.
-          _reCfgPick.filter(function(r){const sel=_reFilt.fam;
+          // ALL / NONE, because ticking fourteen runs one at a time to see a strategy's
+          //   whole 1E landscape is a chore (owner 2026-09-04: "add an option for check all
+          //   when im looking at a strategy and want all the runs populated"). ALL takes
+          //   every run the STRATEGY pick is offering; NONE clears back to the newest one,
+          //   because an empty pick has nothing to draw.
+          (function(){const _av=_reCfgPick.filter(function(r){const sel=_reFilt.fam;
+              return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;}).slice(0,40);
+            const _on=_av.filter(function(r){return _reCfgIds.indexOf(String(r.id))>=0;}).length;
+            return _reBtn('data-recfgall="1"','ALL · '+_av.length,(_on===_av.length&&_av.length>0),
+                'tick every run listed here - the whole 1E landscape for this strategy on one chart. '
+               +'Each run is a separate fetch, so a big strategy fills in over a few seconds.',_TONE.rank)
+              +_reBtn('data-recfgnone="1"','NONE',false,
+                'clear back to the newest run on its own.',_TONE.rank);})()
+          +_reCfgPick.filter(function(r){const sel=_reFilt.fam;
             return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;})
           .slice(0,40).map(function(r){const id=String(r.id);
             return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,
@@ -23666,6 +23690,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_reGrid(_reFailBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
               +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
             +'</div></div>';
+        // the drawing runs BEFORE anything reports on it - see _reSkipNote
+        const _reChartBody=((_reShowCfg&&((_reCfgWait.length&&!_reItems.length)||_reCfgMsg))?_reCfgState:
+          (_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))));
+        // only the scatter places rows by these two axes, so only the scatter reports on them
+        const _reSkipNote=(function(){
+          if(!_reShowCfg||_reParOn||_reRadOn||_reLatOn)return '';
+          const sk=window._reSkipBy||{};
+          const ks=Object.keys(sk).filter(function(k){return _reCfgIds.indexOf(k)>=0;});
+          if(!ks.length)return '';
+          const n=ks.reduce(function(a,k){return a+sk[k];},0);
+          return '&nbsp;&nbsp;<b style="color:var(--text4)">'+n+' not on this chart:</b> '
+            +ks.sort(function(a,b){return b-a;}).map(function(k){return '#'+k+'×'+sk[k];}).join(' ')
+            +' <span title="These configurations are in the table but record nothing for one of the two ticked axes, so they cannot be placed. Almost always a run validated before the engine started writing Sharpe and Sortino onto every candidate block - re-validating that run fills them in. The count follows the axes you pick." style="cursor:help">ⓘ</span>';})();
         const _reChartTile=tile(
             '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
@@ -23682,6 +23719,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +((_reShowCfg&&(_reCfgEmpty.length||Object.keys(_reCfgBy).length))
               ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
                 +Object.keys(_reCfgBy).sort(function(a,b){return b-a;}).map(function(id){return '#'+id+' \u00b7 '+_reCfgBy[id];}).join('&nbsp;&nbsp;')
+                +_reSkipNote
                 +(_reCfgEmpty.length?('&nbsp;&nbsp;<b style="color:var(--text4)">no configuration records:</b> #'+_reCfgEmpty.join(', #')
                   +' <span title="These runs were validated before the engine saved per-configuration records, or are pinned single-config runs whose one configuration IS the run. There is nothing in the document to draw - re-running them through Auto-Validate is the only way to fill this in." style="cursor:help">\u24d8</span>'):'')
                 +'</div>'):'')
@@ -23690,7 +23728,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +_reCfgWait.length+' run'+((_reCfgWait.length===1)?'':'s')+' (#'+_reCfgWait.join(', #')
                 +') - what has arrived is already drawn.</div>'):'')
             +_reLvlNote
-            +'<div style="margin-top:10px">'+((_reShowCfg&&((_reCfgWait.length&&!_reItems.length)||_reCfgMsg))?_reCfgState:(_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))))+'</div>',0);
+            +'<div style="margin-top:10px">'+_reChartBody+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
@@ -27711,6 +27749,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const i2=cur.indexOf(id);
         if(i2>=0){if(cur.length>1)cur.splice(i2,1);}else cur.push(id);
         savePref('resCfgRun',cur);renderApp();};});
+      // ALL / NONE read the SAME list the chips are built from, so ALL means
+      //   "every run this strategy is offering", never every run in the app.
+      const _reAvailRuns=()=>[...content.querySelectorAll('[data-recfgrun]')]
+        .map(b=>b.getAttribute('data-recfgrun'));
+      content.querySelectorAll('[data-recfgall]').forEach(b=>{b.onclick=()=>{
+        const all=_reAvailRuns();if(all.length)savePref('resCfgRun',all);renderApp();};});
+      content.querySelectorAll('[data-recfgnone]').forEach(b=>{b.onclick=()=>{
+        const all=_reAvailRuns();
+        // an empty pick draws nothing, so NONE keeps the newest run rather than blanking
+        if(all.length)savePref('resCfgRun',[all[0]]);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
         let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
         const k=b.dataset.refilt,v=b.dataset.refiltv,cur=Array.isArray(o[k])?o[k].slice():[];
