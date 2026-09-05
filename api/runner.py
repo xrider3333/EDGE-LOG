@@ -27,6 +27,8 @@ import time
 import datetime
 import glob
 import argparse
+import random
+import uuid
 import threading
 
 import augur_engine as ae
@@ -319,7 +321,11 @@ class _JobStopped(BaseException):
     (and the engine's per-combo `except Exception`) won't swallow it."""
 
 
+# identifies THIS runner process in claimedBy, so a shared queue stays auditable
+_WORKER_ID = f"runner-{os.getpid()}-{uuid.uuid4().hex[:6]}"
+
 def process_job(job: dict, progress_cb=None) -> dict:
+
     """Run one job through the engine; return a result patch to merge back.
     job['type']: 'backtest' (default, single config) or 'grid' (param sweep)."""
     jtype = job.get("type", "backtest")
@@ -826,6 +832,45 @@ class FirestoreQueue:
         return 1
 
     def _next_run_id(self, uid) -> int:
+        """TRANSACTIONAL sequential run id. Workers can now finish at the same moment
+        (see the precondition claim in the drain loop), and the old max+1 read-then-write
+        would hand both the same number. Falls back to the legacy scan if the counter is
+        unavailable for any reason - a run must never fail over its id."""
+        try:
+            from google.cloud.firestore_v1 import Query
+            from firebase_admin import firestore as _fs
+            root = self.db.collection("users").document(uid)
+            ctr = root.collection("meta").document("run_counter")
+            runs = root.collection("runs")
+
+            @_fs.transactional
+            def _bump(t):
+                snap = ctr.get(transaction=t)
+                cur = (snap.to_dict() or {}).get("next") if getattr(snap, "exists", False) else None
+                if not isinstance(cur, (int, float)):
+                    # first use: seed past the highest id already in history
+                    top = list(runs.order_by("id", direction=Query.DESCENDING).limit(1).stream())
+                    seed = (top[0].to_dict() or {}).get("id") if top else 0
+                    cur = (int(seed) + 1) if isinstance(seed, (int, float)) else 1
+                nxt = int(cur)
+                t.set(ctr, {"next": nxt + 1}, merge=True)
+                return nxt
+
+            for _att in range(6):
+                try:
+                    rid = _bump(self.db.transaction())
+                    if isinstance(rid, int) and rid > 0:
+                        return rid
+                except Exception:
+                    if _att == 5:
+                        raise
+                    time.sleep(0.15 * (2 ** _att) + random.random() * 0.1)
+        except Exception as _e:
+            print(f"  (transactional run id unavailable, using legacy scan: {type(_e).__name__}: {_e})")
+        return self._next_run_id_legacy(uid)
+
+    def _next_run_id_legacy(self, uid) -> int:
+
         """Sequential run id = (max existing id in users/{uid}/runs) + 1, so web sweeps get
         a clean number instead of a 10-digit epoch. Falls back to an epoch id (still unique)
         only if the lookup fails."""
@@ -1288,6 +1333,7 @@ class FirestoreQueue:
                     # Builder, where there IS someone to ask.
                     dup_note = None
                     dup_match = None
+                    _dup_patch = None
                     try:
                         _fp = dupe_guard.job_fingerprint(job)
                         _m, _rid = dupe_guard.find_duplicate(
@@ -1306,12 +1352,29 @@ class FirestoreQueue:
                             log("  !! DUPLICATE WORK: " + dup_note)
                             log(f"     (this job {snap.id} runs anyway - reruns are "
                                 f"legitimate - and is tagged as a repeat)")
-                        ref.update(_patch)
+                        _dup_patch = _patch      # applied just after the claim
                     except Exception as _e:
                         # A guard that can break a backtest is worse than the duplicate
                         # it prevents, so every failure here is non-fatal.
                         log(f"  (duplicate-guard skipped: {_e})")
-                    ref.update({"status": "running", "progress": 0, "startedAt": _now_utc()})
+                    # CLAIM WITH A PRECONDITION so N runner processes can share this queue: if
+                    #   another worker moved this doc since we read it the write is rejected and
+                    #   we skip, rather than executing the same job twice.
+                    try:
+                        _opt = self.db.write_option(last_update_time=snap.update_time)
+                        ref.update({"status": "running", "progress": 0,
+                                    "startedAt": _now_utc(), "claimedBy": _WORKER_ID},
+                                   option=_opt)
+                    except Exception as _ce:
+                        log(f"  skip {snap.id} - claimed by another worker ({type(_ce).__name__})")
+                        continue
+                    if _dup_patch:
+                        # stamped AFTER the claim on purpose - writing it before would bump
+                        #   update_time and invalidate our own precondition.
+                        try:
+                            ref.update(_dup_patch)
+                        except Exception as _e:
+                            log(f"  (duplicate-guard stamp skipped: {_e})")
                     log(f"  running {snap.id}: {job.get('type','backtest')} "
                         f"{job.get('strategy')} {job.get('instrument')}…")
                     last = [0.0]
