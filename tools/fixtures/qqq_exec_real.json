@@ -1,0 +1,83 @@
+{
+ "updated_at": "2026-09-05 17:43:22",
+ "live_from": "2026-09-03",
+ "kill": false,
+ "rails": {
+  "slippage_per_share": 0.01,
+  "kill_file": "C:\\EdgeLog\\qqq_exec\\KILL",
+  "max_shares_per_leg": 10,
+  "daily_loss_limit_usd": 150,
+  "session": {
+   "open": "09:31",
+   "flat_by": "16:00",
+   "last_entry": "15:55"
+  },
+  "shares": {
+   "ORB": 5,
+   "NOISE": 5,
+   "ENGUQ": 5
+  }
+ },
+ "cum_pnl": {
+  "ENGUQ": [],
+  "NOISE": [
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 2.89
+   }
+  ],
+  "total": [
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 5.78
+   }
+  ],
+  "ORB": [
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 2.89
+   }
+  ]
+ },
+ "calib": {
+  "ratio": 41.06415072870862,
+  "at": "2026-09-04 12:55:04",
+  "source": "yfinance+NQ_10s"
+ },
+ "positions": {},
+ "mode": "SHADOW",
+ "today": {
+  "trades": [],
+  "orders": [],
+  "realized_pnl": 0.0,
+  "unrealized_pnl": 0.0
+ },
+ "trades_all": [
+  {
+   "entry_ts": "2026-09-03 12:30:18",
+   "side": "long",
+   "shares": "5",
+   "exit_ts": "2026-09-03 15:58:05",
+   "nq_pnl_points": "24.5",
+   "entry_px": "719.2731",
+   "exit_px": "719.8505",
+   "pnl": "2.89",
+   "leg": "ORB",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-09-03 12:30:16",
+   "side": "long",
+   "shares": "5",
+   "exit_ts": "2026-09-03 15:58:05",
+   "nq_pnl_points": "24.5",
+   "entry_px": "719.2731",
+   "exit_px": "719.8505",
+   "pnl": "2.89",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  }
+ ],
+ "feed_stale": false,
+ "breaker_tripped": false
+}

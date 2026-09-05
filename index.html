@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.498';
+const VERSION='73.499';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.499',date:'2026-09-05',notes:['QQQ SHADOW BOOK: the top of the tab now reads like the TRADING LOG overview - a left sidebar of ratios (win rate, profit factor, expectancy, payoff), performance and risk figures, a month calendar coloured by that days shadow P and L, and the cumulative P and L chart sitting beside it, instead of the old flat KPI strip.','No monthly or symbol filter pills on this overview, on the owner ask - the sidebar already carries the ratios the pills would have repeated.','The calendar has its own month state (separate from the PAPER tabs calendar) and defaults to the month of the newest closed trade so an empty current month never reads as no data.','Stats are computed locally over the shadow books own closed trades, not the broker journal helpers, so they cannot be silently mis-scoped.','Everything else on the tab is unchanged - hero status pills, per-leg cards, todays orders, closed trades, RAILS panel, and the collapsed MODEL section, just repositioned under the new overview.']},
 {v:'73.495',date:'2026-09-05',notes:['THE NOISE CROWN MOVES FROM RUN #243 TO RUN #304, on the owner call. #243 was a PINNED single-config validate - one configuration, so no landscape, no PBO, no parallel plot and no neighbourhood to check. #304 is the open re-run of the same idea over the same window (495 configurations, PASS 8 of 8, PBO 0.135) and it is simply the better book: total $413,255 against $380,745, and a LOCKBOX of $82,123 against $40,648 - more than double, on the years the search never saw.','THE LOCKBOX AGREES INDEPENDENTLY. Across 634 NOISE configurations from 13 runs, #304 takes 15 of the top 30 places on expectancy in R and R per year, and its RAW, GATE, TILT and both HYBRID sizings all land within 0.01R of each other out of sample - a plateau, not a peak. Not one of the top 15 on the all-stage view survives into the lockbox top 15, and the rank correlation between the two is 0.29.','THE ROW CARRIES #304 OWN FIGURES. It was holding #243 dollars; leaving those under a #304 citation would have made one row half one run and half another.','SWITCHING STRATEGY NOW SWITCHES THE RUNS. Picking ENGU-Q while NOISE runs were ticked kept drawing NOISE configurations under an ENGU-Q heading. The ticked runs are narrowed to the picked strategy, falling back to its newest run - and a strategy with no configuration records says so instead of quietly showing another one.','THREE MEASURES FROM THE 1E MATRIX JOIN BOTH SCATTER AXES: ROC % / YR, DD %, and DD (R) - the drawdown in average losing trades, the same unit EV R uses, so risk and reward finally speak one language on the two axes.','Reviewed before shipping and held back three times: the crown row would have mixed two runs figures, it would have labelled the former crown an archived duplicate, and DD as a vertical axis would have ranked the WORST drawdown first while the caption called it the good end. Ranking follows the axis direction now.']},
 {v:'73.493',date:'2026-09-05',notes:['STUDIES BOARD: ROUND 30 - the R / YR CEILING OF EVERY FAMILY, rows 1253 to 1257, all measured with the identical objective search so they read against each other. NOISE is the frequency family (ceiling R / YR 103 at 368 trades a year). The ENGU-Q efficiency variant is the edge family (ceiling EV R 1.40, the library record, at 55 trades a year). The BASE ENGU-Q family - the one on paper - tops out at EV R 0.45, so the efficiency variant is a better family and not one lucky configuration. ORB is the floor: 400 configurations, nothing past R / YR 21. TTM Squeeze confirms closed at 12.','WHY IT MATTERS: the two ceilings sit in DIFFERENT families, which is exactly why pooling them beat every book measured - and why pooling two legs from the same family would not have.']},
 {v:'73.492',date:'2026-09-05',notes:['ROC % is now ROC % / YR - net per YEAR against the fixed account, annualised the same way MAR and R / YR already are, so a 16-year run and a 3-year run can sit on the same axis. A configuration with no year count prints a dash rather than a whole-run figure wearing a per-year label.','DD % stays absolute on purpose and its hover now says why: a drawdown is a single worst event, not a rate, so it cannot be annualised. It is the half of a leverage decision the ratios hide.']},
@@ -24758,20 +24759,128 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const openExposure=Object.values(positions).reduce((s,p)=>s+(Number(p.shares)||0)*(Number(p.entry_px)||0),0);
         const todayPnl=(Number(QE.today&&QE.today.realized_pnl)||0)+(Number(QE.today&&QE.today.unrealized_pnl)||0);
         const sinceStartPnl=closedSum+(Number(QE.today&&QE.today.unrealized_pnl)||0);
+        const rails=QE.rails||{};
 
-        const kpiCell=(label,val,sub,col)=>'<div style="flex:1 1 140px;min-width:120px;padding:10px 6px">'
-          +'<div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:.05em">'+label+'</div>'
-          +'<div style="font-size:17px;font-weight:700;margin-top:4px;color:'+(col||'var(--text)')+'">'+val+'</div>'
-          +(sub?('<div style="font-size:var(--fsxs);color:var(--text5);margin-top:2px">'+sub+'</div>'):'')
-          +'</div>';
-        const kpiTileHtml=tile('<div style="display:flex;flex-wrap:wrap">'
-          +kpiCell('TODAY P&amp;L',qeMoney(todayPnl),null,pnlCol(todayPnl))
-          +kpiCell('SINCE START P&amp;L',qeMoney(sinceStartPnl),'since '+naS(QE.live_from),pnlCol(sinceStartPnl))
-          +kpiCell('OPEN EXPOSURE',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):'flat',null)
-          +kpiCell('TRADES',closedN?qeInt(closedN):'—',closedN?null:'no trades yet',null)
-          +kpiCell('WIN RATE',closedN?(qeNum(winRate,0)+'%'):'—',closedN?null:'no trades yet',null)
-          +kpiCell('AVG $/TRADE',closedN?qeMoney(avgTrade):'—',closedN?null:'no trades yet',closedN?pnlCol(avgTrade):null)
-          +'</div>',14);
+        // ── Local stats over QE.trades_all — deliberately NOT calcStats()/bScope(), which
+        // are scoped to the broker journal and would silently drop or mis-scope shadow
+        // trades. Numbers in the doc arrive as strings, so every field is Number()-coerced.
+        // trades_all is newest-first; a running/streak read needs chronological order.
+        const qeTradeDate=t=>{const raw=(t&&(t.exit_ts||t.entry_ts))||'';const m=String(raw).match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:null;};
+        const qqqStats=rows=>{
+          const nums=rows.map(t=>({date:qeTradeDate(t),leg:t.leg,pnl:Number(t.pnl)||0}));
+          const n=nums.length;
+          const winsA=nums.filter(t=>t.pnl>0), lossA=nums.filter(t=>t.pnl<0);
+          const grossWin=winsA.reduce((s,t)=>s+t.pnl,0);
+          const grossLoss=Math.abs(lossA.reduce((s,t)=>s+t.pnl,0));
+          const net=nums.reduce((s,t)=>s+t.pnl,0);
+          const wr=n?winsA.length/n:0;
+          const pf=grossLoss>0?grossWin/grossLoss:(grossWin>0?99:0);
+          const ev=n?net/n:0;
+          const avgW=winsA.length?grossWin/winsA.length:0;
+          const avgL=lossA.length?grossLoss/lossA.length:0;
+          const payoff=avgL>0?avgW/avgL:(avgW>0?99:0);
+          const best=n?Math.max(...nums.map(t=>t.pnl)):0;
+          const worst=n?Math.min(...nums.map(t=>t.pnl)):0;
+          const chrono=nums.slice().reverse(); // oldest-first
+          let streak=0,sdir=0;
+          for(let i=chrono.length-1;i>=0;i--){
+            const dir=chrono[i].pnl>0?1:(chrono[i].pnl<0?-1:0);
+            if(dir===0)break;
+            if(streak===0){streak=1;sdir=dir;}else if(dir===sdir)streak++;else break;
+          }
+          let run=0,peak=0,maxDD=0;
+          chrono.forEach(t=>{run+=t.pnl;if(run>peak)peak=run;const dd=peak-run;if(dd>maxDD)maxDD=dd;});
+          const recovery=maxDD>0?net/maxDD:(net>0?99:0);
+          return {n,wins:winsA.length,losses:lossA.length,wr,pf,ev,avgW,avgL,payoff,best,worst,streak,sdir,net,maxDD,recovery};
+        };
+        const QST=qqqStats(trades);
+
+        // ── SIDEBAR RAIL — mirrors the TRADING LOG overview's .ov-rail (net up top, then
+        // grouped RATIOS / PERFORMANCE / RISK rows). Every figure has an honest empty state:
+        // this book usually holds only a couple of closed trades, so "—" is the normal case.
+        const railBar=(pct,col)=>'<div class="rail-bar"><div style="width:'+Math.max(0,Math.min(100,pct))+'%;background:'+col+'"></div></div>';
+        const railRow=(label,val,col)=>'<div class="rail-row"><span style="color:var(--text4)">'+label+'</span><span style="font-family:\'Bebas Neue\',monospace;color:'+(col||'var(--text)')+'">'+val+'</span></div>';
+        const railHtml='<aside class="ov-rail">'
+          +'<div class="rail-grp" style="margin-top:0">NET P&amp;L · since '+naS(QE.live_from)+'</div>'
+          +'<div class="rail-net" style="color:'+pnlCol(sinceStartPnl)+'">'+qeMoney(sinceStartPnl)+'</div>'
+          +'<div style="font-size:var(--fss);color:var(--text3);margin-top:4px">'+(QST.n?QST.n+' closed trade'+(QST.n===1?'':'s'):'no closed trades yet')+'</div>'
+
+          +'<div class="rail-grp">RATIOS</div>'
+          +railRow('WIN RATE',QST.n?Math.round(QST.wr*100)+'%':'—',QST.n?(QST.wr>=0.5?'var(--green)':'var(--red)'):null)
+          +(QST.n?railBar(QST.wr*100,QST.wr>=0.5?'var(--green)':'var(--red)'):'')
+          +railRow('PROFIT FACTOR',QST.n?(QST.pf>=99?'∞':QST.pf.toFixed(2)):'—',QST.n?(QST.pf>=1?'var(--green)':'var(--red)'):null)
+          +(QST.n?railBar(QST.pf/3*100,QST.pf>=1?'var(--green)':'var(--red)'):'')
+          +railRow('EXPECTANCY',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
+          +(QST.n?railBar(QST.ev>0?QST.ev/50*100:0,QST.ev>0?'var(--green)':'var(--red)'):'')
+          +railRow('PAYOFF',QST.n&&QST.losses?(QST.payoff>=99?'∞':QST.payoff.toFixed(2)):'—')
+
+          +'<div class="rail-grp">PERFORMANCE</div>'
+          +railRow('TRADES',QST.n||'—')
+          +railRow('AVG $/TRADE',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
+          +railRow('AVG WIN',QST.wins?'+'+qeMoney(QST.avgW):'—','var(--green)')
+          +railRow('AVG LOSS',QST.losses?qeMoney(-QST.avgL):'—','var(--red)')
+          +railRow('BEST',QST.n?qeMoney(QST.best):'—','var(--green)')
+          +railRow('WORST',QST.n?qeMoney(QST.worst):'—','var(--red)')
+          +railRow('CURRENT STREAK',QST.n?((QST.sdir>0?'+':'-')+QST.streak+(QST.sdir>0?'W':'L')):'—',QST.n?(QST.sdir>0?'var(--green)':'var(--red)'):null)
+
+          +'<div class="rail-grp">RISK</div>'
+          +railRow('MAX DRAWDOWN',QST.n?qeMoney(-QST.maxDD):'—','var(--red)')
+          +railRow('RECOVERY FACTOR',(QST.n&&QST.maxDD>0)?QST.recovery.toFixed(2)+'×':'—',(QST.n&&QST.maxDD>0)?(QST.recovery>=1?'var(--green)':'var(--red)'):null)
+          +railRow('OPEN EXPOSURE',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):null)
+          +railRow('DAILY LOSS LIMIT',rails.daily_loss_limit_usd!=null?qeMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'—')
+          +'</aside>';
+
+        // ── MONTH CALENDAR — same reading as the TRADING LOG/PAPER calendars: one day per
+        // cell, coloured green/red by that day's shadow P&L, defaulting to the month of the
+        // NEWEST closed trade (not today) so an empty current month never reads as "no data".
+        // Its own month-state var (window._qqqCalMonth) so it cannot collide with the PAPER
+        // tab's window._paperCalMonth.
+        const qeCalHtml=(()=>{
+          const byDate={};
+          trades.forEach(t=>{
+            const d=qeTradeDate(t);
+            if(!d)return;
+            const v=Number(t.pnl)||0;
+            if(!byDate[d])byDate[d]={pnl:0,n:0,w:0};
+            byDate[d].pnl+=v;byDate[d].n++;if(v>0)byDate[d].w++;
+          });
+          const keys=Object.keys(byDate).sort();
+          const dflt=keys.length?keys[keys.length-1].slice(0,7):new Date().toISOString().slice(0,7);
+          const cm=window._qqqCalMonth||dflt;
+          const [cy,cmo]=cm.split('-').map(Number);
+          const first=new Date(cy,cmo-1,1), nDays=new Date(cy,cmo,0).getDate(), startDow=first.getDay();
+          const moPfx=cy+'-'+String(cmo).padStart(2,'0');
+          const moDays=keys.filter(k=>k.indexOf(moPfx)===0);
+          const moPnl=moDays.reduce((a,k)=>a+byDate[k].pnl,0);
+          const moN=moDays.reduce((a,k)=>a+byDate[k].n,0);
+          const moW=moDays.reduce((a,k)=>a+byDate[k].w,0);
+          const months=[...new Set(keys.map(k=>k.slice(0,7)))].sort();
+          const atFirst=months.length&&cm<=months[0], atLast=months.length&&cm>=months[months.length-1];
+          const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+          let cells=['S','M','T','W','T','F','S'].map(d=>'<div style="text-align:center;font-size:8px;color:var(--text5);padding:2px 0;letter-spacing:1px">'+d+'</div>').join('');
+          for(let i=0;i<startDow;i++)cells+='<div></div>';
+          for(let day=1;day<=nDays;day++){
+            const ds=moPfx+'-'+String(day).padStart(2,'0');
+            const c=byDate[ds];
+            const isToday=ds===today;
+            const dc=(c&&c.pnl>=0)?'var(--green)':'var(--red)';
+            const bg=c?('color-mix(in srgb,'+dc+' 18%,transparent)'):'transparent';
+            const bd=isToday?'1px solid var(--yellow)':c?('1px solid color-mix(in srgb,'+dc+' 55%,transparent)'):'1px solid transparent';
+            const tip=c?(ds+' · '+qeMoney(c.pnl)+' · '+c.n+' trade'+(c.n>1?'s':'')):(ds+' · no shadow trades');
+            cells+='<div'+(c?' data-qcalday="'+ds+'"':'')+' title="'+tip+'" style="text-align:center;padding:4px 2px;background:'+bg+';border:'+bd+';border-radius:5px;min-height:42px;display:flex;flex-direction:column;justify-content:center;'+(c?'cursor:pointer':'')+'">'
+              +'<div style="font-family:\'Bebas Neue\',monospace;font-size:12px;color:'+(isToday?'var(--yellow)':c?dc:'var(--text5)')+'">'+day+'</div>'
+              +(c?'<div style="font-size:10px;margin-top:1px;color:'+dc+'">'+qeMoney(Math.round(c.pnl))+'</div>':'')
+              +'</div>';
+          }
+          const nav=(dir,lbl,dis)=>'<span'+(dis?'':' data-qcalmo="'+dir+'"')+' style="'+(dis?'opacity:.25;':'cursor:pointer;')+'font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--border);color:var(--text3)">'+lbl+'</span>';
+          return tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'
+            +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
+            +nav('-1','◀',atFirst)+nav('1','▶',atLast)
+            +'<span style="margin-left:auto;font-size:10px;color:'+(moPnl>=0?'var(--green)':'var(--red)')+'">'+qeMoney(Math.round(moPnl))
+            +'<span style="color:var(--text5)"> · '+moN+' trade'+(moN===1?'':'s')+(moN?' · '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
+            +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">'+cells+'</div>'
+            +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed shadow trades yet</div>':''),10);
+        })();
 
         let legCardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
         QE_LEGS.forEach(([key,label,color])=>{
@@ -24915,7 +25024,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
         }
 
-        const rails=QE.rails||{};
         const sess=rails.session||{};
         const railsHtml=tile('<div class="lbl" style="margin-bottom:8px">RAILS</div>'
           +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:var(--fsxs);color:var(--text3)">'
@@ -24928,7 +25036,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div>'
           +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text5)">edit C:\\EdgeLog\\qqq_exec\\config.json — reloaded every tick</div>');
 
-        body=heroTile+kpiTileHtml+legCardsHtml+equityHtml+ordersHtml+tradesHtml+railsHtml+modelSection;
+        // ── OVERVIEW SHELL — sidebar rail + calendar/chart row, same skeleton as the
+        // TRADING LOG overview (.ov-shell / .ov-rail / .ov-cc-grid). No monthly/symbol
+        // filter pills here on owner's ask — the rail already carries the ratios.
+        const overviewHtml='<div class="ov-shell">'
+          +railHtml
+          +'<div class="ov-work">'
+          +'<div class="ov-cc-grid">'
+          +'<div class="section" style="border:none;background:transparent;padding:0">'+equityHtml+'</div>'
+          +'<div class="section ov-cal" style="border:none;background:transparent;padding:0">'+qeCalHtml+'</div>'
+          +'</div>'
+          +legCardsHtml
+          +'</div>'
+          +'</div>';
+
+        body=heroTile+overviewHtml+'<div id="qe-trades-section"></div>'+ordersHtml+tradesHtml+railsHtml+modelSection;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
@@ -28433,6 +28555,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqExec(null,true);loadQqqPaper(null,true);renderApp();};
       const mt=content.querySelector('[data-qqqmodeltoggle]');if(mt)mt.onclick=()=>{savePref('qqqModelOpen',(APREF.qqqModelOpen==null?0:+APREF.qqqModelOpen)?0:1);renderApp();};
       const smore=content.querySelector('[data-qeshowmore]');if(smore)smore.onclick=()=>{window._qeTradesShown=(window._qeTradesShown||50)+50;renderApp();};
+      // Overview calendar — its own month state (window._qqqCalMonth), independent of the
+      // PAPER tab's window._paperCalMonth.
+      content.querySelectorAll('[data-qcalmo]').forEach(el=>{el.onclick=()=>{
+        const cur=window._qqqCalMonth||new Date().toISOString().slice(0,7);
+        const [y,m]=cur.split('-').map(Number);
+        const d=new Date(y,m-1+(+el.getAttribute('data-qcalmo')),1);
+        window._qqqCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+        renderApp();};});
+      content.querySelectorAll('[data-qcalday]').forEach(el=>{el.onclick=()=>{
+        const t=content.querySelector('#qe-trades-section');
+        if(t)t.scrollIntoView({block:'start',behavior:'smooth'});};});
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};

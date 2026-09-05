@@ -1,0 +1,1135 @@
+{
+ "updated_at": "2026-09-04 15:59:50",
+ "live_from": "2026-07-06",
+ "kill": false,
+ "feed_stale": false,
+ "breaker_tripped": false,
+ "mode": "SHADOW",
+ "calib": {
+  "ratio": 4.02,
+  "source": "nq_qqq_ratio.json",
+  "at": "2026-09-04 09:31:00"
+ },
+ "rails": {
+  "slippage_per_share": 0.01,
+  "kill_file": "C:\\EdgeLog\\qqq_exec\\KILL",
+  "max_shares_per_leg": 10,
+  "daily_loss_limit_usd": 150,
+  "session": {
+   "open": "09:31",
+   "flat_by": "16:00",
+   "last_entry": "15:55"
+  },
+  "shares": {
+   "ORB": 5,
+   "NOISE": 5,
+   "ENGUQ": 5
+  }
+ },
+ "positions": {
+  "ORB": {
+   "side": "long",
+   "shares": "5",
+   "entry_px": "498.32",
+   "entry_ts": "2026-09-14 15:41:20",
+   "unrealized": "18.40"
+  },
+  "ENGUQ": {
+   "side": "short",
+   "shares": "5",
+   "entry_px": "505.10",
+   "entry_ts": "2026-09-04 11:15:00",
+   "unrealized": "-6.75"
+  }
+ },
+ "today": {
+  "trades": [],
+  "orders": [],
+  "realized_pnl": 0.0,
+  "unrealized_pnl": 11.65
+ },
+ "trades_all": [
+  {
+   "entry_ts": "2026-09-14 15:37:38",
+   "exit_ts": "2026-09-14 15:41:20",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "500.047",
+   "exit_px": "497.971",
+   "pnl": "20.76",
+   "nq_pnl_points": "8.3",
+   "leg": "ORB",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-09-11 12:42:24",
+   "exit_ts": "2026-09-11 13:43:47",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "448.288",
+   "exit_px": "445.378",
+   "pnl": "14.55",
+   "nq_pnl_points": "11.64",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-09-10 14:54:07",
+   "exit_ts": "2026-09-10 15:46:57",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "513.8649",
+   "exit_px": "521.7189",
+   "pnl": "-39.27",
+   "nq_pnl_points": "-31.42",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-09-09 13:43:46",
+   "exit_ts": "2026-09-09 14:47:47",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "485.0542",
+   "exit_px": "470.1702",
+   "pnl": "74.42",
+   "nq_pnl_points": "59.54",
+   "leg": "ORB",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-09-07 12:22:46",
+   "exit_ts": "2026-09-07 13:50:20",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "515.5041",
+   "exit_px": "516.8171",
+   "pnl": "13.13",
+   "nq_pnl_points": "5.25",
+   "leg": "NOISE",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-09-03 11:41:32",
+   "exit_ts": "2026-09-03 12:25:43",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "433.4324",
+   "exit_px": "420.8324",
+   "pnl": "63.0",
+   "nq_pnl_points": "50.4",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-09-03 15:55:14",
+   "exit_ts": "2026-09-03 15:14:01",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "497.9904",
+   "exit_px": "503.5684",
+   "pnl": "27.89",
+   "nq_pnl_points": "22.31",
+   "leg": "ORB",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-09-02 15:44:06",
+   "exit_ts": "2026-09-02 15:24:55",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "503.6877",
+   "exit_px": "505.6547",
+   "pnl": "-19.67",
+   "nq_pnl_points": "-7.87",
+   "leg": "NOISE",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-09-02 12:01:11",
+   "exit_ts": "2026-09-02 13:47:59",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "503.7527",
+   "exit_px": "493.8347",
+   "pnl": "-49.59",
+   "nq_pnl_points": "-39.67",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-08-31 15:02:57",
+   "exit_ts": "2026-08-31 15:22:13",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "405.0195",
+   "exit_px": "390.0235",
+   "pnl": "74.98",
+   "nq_pnl_points": "59.98",
+   "leg": "ORB",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-08-27 09:07:04",
+   "exit_ts": "2026-08-27 10:56:44",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "488.9477",
+   "exit_px": "494.6517",
+   "pnl": "-28.52",
+   "nq_pnl_points": "-22.82",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-08-25 09:40:27",
+   "exit_ts": "2026-08-25 10:53:17",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "458.6238",
+   "exit_px": "463.7778",
+   "pnl": "-51.54",
+   "nq_pnl_points": "-20.62",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-08-24 10:17:18",
+   "exit_ts": "2026-08-24 11:38:13",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "431.7359",
+   "exit_px": "422.5699",
+   "pnl": "-45.83",
+   "nq_pnl_points": "-36.66",
+   "leg": "ORB",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-08-20 11:18:10",
+   "exit_ts": "2026-08-20 12:28:53",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "511.9911",
+   "exit_px": "522.6631",
+   "pnl": "-53.36",
+   "nq_pnl_points": "-42.69",
+   "leg": "NOISE",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-08-17 14:41:19",
+   "exit_ts": "2026-08-17 15:29:20",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "485.943",
+   "exit_px": "489.411",
+   "pnl": "34.68",
+   "nq_pnl_points": "13.87",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-08-14 12:42:37",
+   "exit_ts": "2026-08-14 13:36:33",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "429.5458",
+   "exit_px": "425.6388",
+   "pnl": "-39.07",
+   "nq_pnl_points": "-15.63",
+   "leg": "ORB",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-08-14 13:04:43",
+   "exit_ts": "2026-08-14 14:55:15",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "515.2935",
+   "exit_px": "519.0815",
+   "pnl": "18.94",
+   "nq_pnl_points": "15.15",
+   "leg": "NOISE",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-08-10 14:31:09",
+   "exit_ts": "2026-08-10 15:12:18",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "514.8781",
+   "exit_px": "518.4351",
+   "pnl": "-35.57",
+   "nq_pnl_points": "-14.23",
+   "leg": "ENGUQ",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-08-07 10:24:00",
+   "exit_ts": "2026-08-07 11:24:16",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "457.763",
+   "exit_px": "468.689",
+   "pnl": "-54.63",
+   "nq_pnl_points": "-43.7",
+   "leg": "ORB",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-08-07 09:59:48",
+   "exit_ts": "2026-08-07 10:54:15",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "478.2574",
+   "exit_px": "479.4794",
+   "pnl": "6.11",
+   "nq_pnl_points": "4.89",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-08-06 10:17:29",
+   "exit_ts": "2026-08-06 11:15:55",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "422.9908",
+   "exit_px": "426.0928",
+   "pnl": "15.51",
+   "nq_pnl_points": "12.41",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-08-04 15:46:03",
+   "exit_ts": "2026-08-04 15:43:41",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "479.0779",
+   "exit_px": "486.2439",
+   "pnl": "35.83",
+   "nq_pnl_points": "28.66",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-08-03 13:30:15",
+   "exit_ts": "2026-08-03 14:50:30",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "464.7081",
+   "exit_px": "475.4141",
+   "pnl": "-53.53",
+   "nq_pnl_points": "-42.82",
+   "leg": "NOISE",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-07-31 09:55:21",
+   "exit_ts": "2026-07-31 10:04:32",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "408.5192",
+   "exit_px": "405.0012",
+   "pnl": "-17.59",
+   "nq_pnl_points": "-14.07",
+   "leg": "ENGUQ",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-07-30 09:15:14",
+   "exit_ts": "2026-07-30 10:04:21",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "477.9854",
+   "exit_px": "473.6034",
+   "pnl": "43.82",
+   "nq_pnl_points": "17.53",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-07-29 10:59:34",
+   "exit_ts": "2026-07-29 11:48:46",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "419.8152",
+   "exit_px": "414.7662",
+   "pnl": "50.49",
+   "nq_pnl_points": "20.2",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-07-28 09:46:31",
+   "exit_ts": "2026-07-28 10:52:04",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "406.951",
+   "exit_px": "418.367",
+   "pnl": "-57.08",
+   "nq_pnl_points": "-45.66",
+   "leg": "ENGUQ",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-07-24 13:58:00",
+   "exit_ts": "2026-07-24 14:38:20",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "444.8697",
+   "exit_px": "460.1717",
+   "pnl": "76.51",
+   "nq_pnl_points": "61.21",
+   "leg": "ORB",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-07-22 09:46:56",
+   "exit_ts": "2026-07-22 10:46:16",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "440.8211",
+   "exit_px": "439.1351",
+   "pnl": "16.86",
+   "nq_pnl_points": "6.74",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-07-22 13:55:00",
+   "exit_ts": "2026-07-22 14:43:46",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "445.7943",
+   "exit_px": "438.9743",
+   "pnl": "-34.1",
+   "nq_pnl_points": "-27.28",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-07-21 15:03:55",
+   "exit_ts": "2026-07-21 15:07:09",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "519.6791",
+   "exit_px": "511.2771",
+   "pnl": "42.01",
+   "nq_pnl_points": "33.61",
+   "leg": "ORB",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-07-21 11:47:37",
+   "exit_ts": "2026-07-21 12:27:57",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "431.7856",
+   "exit_px": "422.3656",
+   "pnl": "47.1",
+   "nq_pnl_points": "37.68",
+   "leg": "NOISE",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-07-20 13:56:45",
+   "exit_ts": "2026-07-20 14:20:13",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "448.1398",
+   "exit_px": "462.8378",
+   "pnl": "73.49",
+   "nq_pnl_points": "58.79",
+   "leg": "ENGUQ",
+   "exit_reason": "TARGET"
+  },
+  {
+   "entry_ts": "2026-07-17 10:43:20",
+   "exit_ts": "2026-07-17 11:53:49",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "432.3937",
+   "exit_px": "440.9637",
+   "pnl": "-42.85",
+   "nq_pnl_points": "-34.28",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-07-16 14:04:38",
+   "exit_ts": "2026-07-16 15:40:10",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "425.1408",
+   "exit_px": "410.0908",
+   "pnl": "75.25",
+   "nq_pnl_points": "60.2",
+   "leg": "NOISE",
+   "exit_reason": "EOD"
+  },
+  {
+   "entry_ts": "2026-07-15 12:17:29",
+   "exit_ts": "2026-07-15 13:40:53",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "518.2266",
+   "exit_px": "507.6946",
+   "pnl": "-52.66",
+   "nq_pnl_points": "-42.13",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-07-15 11:36:12",
+   "exit_ts": "2026-07-15 12:45:04",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "435.1814",
+   "exit_px": "429.8114",
+   "pnl": "-53.7",
+   "nq_pnl_points": "-21.48",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL"
+  },
+  {
+   "entry_ts": "2026-07-10 09:22:54",
+   "exit_ts": "2026-07-10 10:22:38",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "514.8656",
+   "exit_px": "517.2576",
+   "pnl": "11.96",
+   "nq_pnl_points": "9.57",
+   "leg": "NOISE",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-07-10 15:10:44",
+   "exit_ts": "2026-07-10 15:27:21",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "470.7119",
+   "exit_px": "469.6399",
+   "pnl": "-5.36",
+   "nq_pnl_points": "-4.29",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP"
+  },
+  {
+   "entry_ts": "2026-07-07 13:05:37",
+   "exit_ts": "2026-07-07 14:27:02",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "416.7446",
+   "exit_px": "428.8546",
+   "pnl": "60.55",
+   "nq_pnl_points": "48.44",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL"
+  }
+ ],
+ "cum_pnl": {
+  "ORB": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": 6.85
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 6.85
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -36.0
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": -36.0
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 6.01
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 6.01
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 162.17
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 162.17
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 97.62
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": 97.62
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 220.69
+   }
+  ],
+  "ENGUQ": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": -5.36
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 15.47
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 15.47
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": -77.79
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": -77.79
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": -179.81
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": -156.08
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": -156.08
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": -156.08
+   }
+  ],
+  "NOISE": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 11.96
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": 11.96
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 134.31
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": 91.3
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 91.3
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 99.31
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 99.31
+   }
+  ],
+  "total": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 67.15
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": -39.21
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 36.04
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -6.81
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 66.68
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 155.79
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 138.55
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 215.06
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 215.06
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 157.98
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 208.47
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 252.29
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 234.7
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 181.17
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 217.0
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 232.51
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 183.99
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 148.42
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 148.42
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 128.29
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 162.97
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 162.97
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 109.61
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 63.78
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 12.24
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": -16.28
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 58.7
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": -10.56
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 80.33
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 80.33
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 93.46
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 167.88
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 128.61
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 143.16
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 163.92
+   }
+  ]
+ }
+}
