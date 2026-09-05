@@ -4,7 +4,22 @@
 > **Created 2026-08-20** (Claude Code). Background: memory `engu-q-project`,
 > forward-test wiring in `PAPER_TRADING.md`.
 
-The deployed config is the **frozen clock-scaled #149 transfer, ETH-scaled (#226)** —
+**The family CROWN, as of 2026-09-05, is run #309** — see the CROWN CHANGE section
+directly below for the full evidence. It runs `augur_strategies/ENGUQ_1M_ETH_ER_1_0.py`
+(the same file as the efficiency-gated #265 leg, but a different cell of its search
+space — the efficiency gate is OFF, `er_th=0.0`), every knob pinned:
+
+```
+buf_atr 0.3 · tl_len 206 · trail_frac 2.5 · ema_len 220 · atr_len 52 · act_R 1.5
+breakeven_R 3.0 · limit_atr 0.55 · er_len 100 · stop_mult 1.3 · regime_len 10
+min_brk 1.6 · vol_mult 1.1 · er_th 0.0 (efficiency gate OFF)
+```
+
+It is **long only** (`DIRECTION = "LONG"`): a green candle breaking a descending trendline
+of recent lower highs, above the trend EMA, on a volume spike; stop at the swing low;
+trailing exit; resting limit entry 0.55 ATR below the signal close.
+
+The prior crown was the **frozen clock-scaled #149 transfer, ETH-scaled (#226)** —
 `augur_strategies/ENGUQ_1M_ETH_FROZEN_1_0.py`, every knob pinned:
 
 ```
@@ -13,9 +28,69 @@ stop_mult 1.0 · act_R 2.5 · trail_frac 2.5 · min_brk 1.3 · breakeven_R 1.5
 regime_len 0 (OFF)
 ```
 
-It is **long only** (`DIRECTION = "LONG"`): a green candle breaking a descending trendline
-of recent lower highs, above the trend EMA, on a volume spike; stop at the swing low;
-trailing exit.
+#226 is not deleted or reinstated as a running leg over this — it stays the documented
+control everywhere it is cited (its own run doc, `LEG_SOURCE["ENGUQ"]` in
+`api/paper.py`), even though it has not actually been an active nightly PAPER leg since
+2026-08-21 (superseded there by the #265 efficiency-gated pair, unrelated to today's
+change). The PAPER board's shadow engine now runs, side by side: `ENGUQ_309` (the new
+crown, live from 2026-09-05), `ENGUQ_ER` / `ENGUQ_ER_H` (the #265 pair — the outgoing
+paper control, deliberately left running), and `ENGUQ_L50` (its own active
+pre-registered hybrid test, unrelated to this change). See `PAPER_TRADING.md`.
+
+---
+
+## 👑 CROWN CHANGE 2026-09-05 — the ENGU-Q family crown moves to run #309
+
+**Owner decision, 2026-09-05:** *"crown #309 and swap the paper leg to it."* The ENGU-Q
+family champion moves from the frozen clock-scaled #149 transfer (run #226) to **run
+#309** — `augur_strategies/ENGUQ_1M_ETH_ER_1_0.py` with `er_th=0.0` (efficiency gate
+off), a different cell of the same file's search space as the #265 efficiency-gated
+leg. Canonical run: **#309**, verdict **PASS** (checks 6/6: plateau, wfe, sample,
+consistency, pbo, luck; walk-forward folds held 6 of 8; lockbox pass=true).
+
+Measured today with `tools/continuous_lb_check.py` (one continuous backtest,
+2010-06-07 → 2026-06-30, NQ 1m ETH, `db_noadj_eth`, cost 0.533, mult 20, trades sliced
+by ENTRY time):
+
+| | run #309 (new crown) | run #226 (outgoing crown) |
+|---|---|---|
+| selection (→2025-06-30) | n=1,505 · PF 1.661 · net $505,756 · DD $44,403 · EV R 0.439 · R/YR 43.9 | n=2,655 · PF 1.303 · EV R 0.227 · R/YR 40.0 |
+| held-out year | n=99 · PF 1.620 · net $85,511 · EV R 0.407 · R/YR 40.4 | n=188 · PF 1.493 · EV R 0.364 · R/YR 68.5 |
+| top-10 share of selection net | 53% | 80% |
+| ex-top-10 selection net | $235,741 | $67,297 |
+| longest hold | 282 days | 105 days |
+| reload-vs-continuous lockbox | 112 vs 99 | 212 vs 188 |
+
+Whole-window parity (confirms the params dict below matches the run doc, not a typo):
+n=1,604 · PF 1.655 · net $591,267, against the run doc's own `validate.total_trades`
+of 1,604.
+
+- **Why the owner crowned it — the family's own EV R / R-YR yardstick (memory
+  `edgelog-round6-evr-ryr`):** #309 wins selection EV R (0.439 vs 0.227), selection
+  R/YR (43.9 vs 40.0) and held-out EV R (0.407 vs 0.364), and it is far less
+  tail-dependent than #226 — only 53% of its selection net sits in its best ten trades,
+  against 80% for #226; take those ten away and #309 still nets $235,741 versus #226's
+  $67,297.
+- **The one honest mark against it, said plainly:** #309 LOSES on held-out R/YR (40.4
+  vs #226's 68.5), because it trades about half as often — 99 lockbox entries against
+  188. That is the single number in this whole comparison that argues against the
+  swap, which is presumably why the owner said "swap the paper leg" rather than
+  "retire #226" — see the next bullet.
+- **#226 stays on the board as the control.** Nothing about this change deletes or
+  archives run #226: its run doc is untouched, and `LEG_SOURCE["ENGUQ"]` in
+  `api/paper.py` keeps it as the permanent documented reference every #309 number above
+  is measured against. It simply has not been a running PAPER leg since 2026-08-21
+  (see §2), which predates and is unrelated to today's crown move.
+- **Recorded where:** `api/paper.py` gets a new `ENGUQ_309` params dict, a
+  `LEG_LIVE_FROM["ENGUQ_309"] = "2026-09-05"` entry, a `LEG_SOURCE["ENGUQ_309"]`
+  provenance block, and a new `PAPER_LEGS` row — no ML gate on this leg (the run doc's
+  own `flags.gate` says "UNGATED WINS PRE-LOCKBOX — no gate earns its keep"). The
+  `ENGUQ_ER` / `ENGUQ_ER_H` legs (run #265) and `ENGUQ_L50` (run #249) are **untouched**
+  — they stay on the board as the outgoing control and as their own, unrelated, active
+  pre-registered hybrid test respectively. The owner can retire either on request.
+- **Background:** section 1.0 below (added earlier the same day) is the research
+  finding that surfaced #309 as "the ENGU-Q configuration the EV R / R/YR question
+  actually points at" — this section is the crowning decision that followed from it.
 
 ---
 
@@ -279,6 +354,17 @@ why it behaves differently (it deletes churn signals, not winners).
 
 ## §2 — Forward test
 
+**2026-09-05 — the ENGU-Q family crown moves to run #309** (owner: "crown #309 and
+swap the paper leg to it"; full evidence in the CROWN CHANGE section above). The board
+adds one leg and touches nothing else:
+
+- **ENGUQ_309** — run #309, the new family crown. Live from 2026-09-05. No ML gate (the
+  run doc's own gate check says ungated wins pre-lockbox).
+- **ENGUQ_ER / ENGUQ_ER_H** — unchanged, run #265's pair. This IS the outgoing paper
+  control (what #309 is replacing as the crown), deliberately left running so the
+  switch itself is observable.
+- **ENGUQ_L50** — unchanged. Its own, unrelated, active pre-registered hybrid test.
+
 **2026-08-21 — the #226 raw leg is RETIRED from paper** (owner: "replace the old enguq and put
 the top hybrid on there as well"). The board now carries:
 
@@ -308,6 +394,11 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 ---
 
 ## §3 — Changelog
+
+- **2026-09-05** — CROWN CHANGE: family crown moves from #226 to run #309 (owner:
+  "crown #309 and swap the paper leg to it"). New `ENGUQ_309` PAPER leg added
+  (`api/paper.py`), live from 2026-09-05; ENGUQ_ER/ENGUQ_ER_H and ENGUQ_L50 untouched.
+  See the CROWN CHANGE section above for the full evidence.
 
 - **2026-08-21** — §1B added: efficiency-ratio gate (er 60 ≥ 0.25) is the first
   confirmation gate ever to survive the pre-registered bar; validate queued on the

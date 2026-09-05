@@ -71,6 +71,9 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
+    "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
+    # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
+    # this is an addition, not a swap-in-place.
 }
 
 # NQ contract multiplier ($/point) — same value augur_engine/book.py's _MULT table and
@@ -194,6 +197,54 @@ ENGUQ_ER25 = dict(ENGUQ_226_ETH, er_len=60, er_th=0.25, limit_atr=0.0)
 # size_norm / recycle_factor calibrated by tools/paper_gate_calibrate.py on 2026-08-21.
 ENGUQ_ER_GATE = {"mode": "hybrid", "model": "logistic", "threshold": 0.55,
                  "size_norm": 1.697185, "recycle_factor": 1.877809, "source_run": 265}
+
+# ENGU-Q ETH -- run #309, the NEW FAMILY CROWN (owner, 2026-09-05: "crown #309 and swap
+# the paper leg to it"). Same strategy file as the efficiency-gated leg above
+# (ENGUQ_1M_ETH_ER_1_0.py) but a DIFFERENT cell in that file's search space -- er_th=0.0,
+# i.e. the efficiency gate is OFF here. This is not the #265 config with one knob
+# changed; it is a distinct champion out of the same file's parameter space, picked by
+# the family's EV R / R-YR yardstick (memory `edgelog-round6-evr-ryr`).
+#
+# Params are run #309's own best_params, read straight from its Firestore run doc
+# (users/{uid}/runs/309) and independently re-derived, not copied on faith: run through
+# augur_engine.engine.run_backtest over 2010-06-07..2026-06-30 (NQ 1m ETH,
+# db_noadj_eth, cost 0.533, mult 20) this exact dict returns n=1,604 / PF 1.655 /
+# net $591,267 -- matching the run doc's own validate.total_trades=1604. The run doc's
+# validate.verdict is PASS: checks 6/6 (plateau, wfe, sample, consistency, pbo, luck),
+# WF folds_held 6 of 8, lockbox pass=true (reload 112 trades, PF 1.541). flags.gate says
+# "UNGATED WINS PRE-LOCKBOX -- no gate earns its keep" -- consistent with running this
+# leg with no ML gate.
+#
+# THE EVIDENCE the crown decision was made on (tools/continuous_lb_check.py, ONE
+# continuous backtest over the same window/costs, trades sliced by ENTRY time --
+# reproduced here 2026-09-05, do not substitute other numbers):
+#   selection (->2025-06-30): n=1,505 / PF 1.661 / net $505,756 / DD $44,403 /
+#     EV R 0.439 / R per YR 43.9
+#   held-out year (2025-06-30->2026-06-30): n=99 / PF 1.620 / net $85,511 /
+#     EV R 0.407 / R per YR 40.4
+#   top-10 share of selection net: 53% (ex-top-10 it still nets $235,741); longest
+#     hold 282 days; reload-vs-continuous lockbox trade count 112 vs 99 (a real but
+#     modest divergence -- every ENGU-Q config on this engine shows some of this, see
+#     ENGUQ.md section 1.0).
+# Against the outgoing crown, run #226 (frozen ETH, identical window/costs): selection
+# n=2,655 / PF 1.303 / EV R 0.227 / R per YR 40.0; held-out n=188 / PF 1.493 /
+# EV R 0.364 / R per YR 68.5; top-10 share 80%; ex-top-10 nets only $67,297.
+#
+# WHY THE OWNER CROWNED IT: #309 wins selection EV R, selection R/YR and held-out EV R,
+# and it is far less tail-dependent than #226 (53% vs 80% of net sitting in its best ten
+# trades).
+#
+# THE HONEST MARK AGAINST IT -- stated plainly, not buried: #309 LOSES on held-out
+# R/YR (40.4 vs #226's 68.5) because it trades about half as often (99 lockbox entries
+# vs 188). That is the one number in this comparison that argues against the swap.
+# #226 is not deleted or reinstated as a running leg over this -- it stays the
+# documented control everywhere it is cited (its own run doc, LEG_SOURCE["ENGUQ"]
+# below) even though it has not been an active nightly paper leg since 2026-08-21 (see
+# that entry's caveat). See ENGUQ.md's CROWN CHANGE 2026-09-05 section for the full
+# writeup.
+ENGUQ_309 = dict(buf_atr=0.3, tl_len=206, trail_frac=2.5, ema_len=220, atr_len=52,
+                 act_R=1.5, breakeven_R=3.0, limit_atr=0.55, er_len=100, stop_mult=1.3,
+                 regime_len=10, min_brk=1.6, vol_mult=1.1, er_th=0.0)
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -601,6 +652,34 @@ LEG_SOURCE = {
                   "leg is a pre-registered forward test: it should beat NOISE_225 on recovery "
                   "from 2026-08-16 on, and if it does not, the lockbox row was noise.",
     },
+    "ENGUQ_309": {
+        "run": 309, "run_label": "#309 (ENGU-Q ETH, EV R / R-YR crown)",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py",
+        "picked": "2026-09-05",
+        "note": "THE NEW FAMILY CROWN, replacing #226 (owner, 2026-09-05: \"crown #309 and "
+                "swap the paper leg to it\"). Same strategy file as ENGUQ_ER but a different "
+                "cell of its search space (er_th=0.0, gate off). Measured continuously over "
+                "2010-06-07..2026-06-30, NQ 1m ETH, cost 0.533, mult 20 (tools/"
+                "continuous_lb_check.py): selection n=1,505 / PF 1.661 / net $505,756 / "
+                "DD $44,403 / EV R 0.439 / R per YR 43.9; held-out year n=99 / PF 1.620 / "
+                "net $85,511 / EV R 0.407 / R per YR 40.4; top-10 share of selection net "
+                "53% (ex-top-10 still nets $235,741); longest hold 282 days. Whole-window "
+                "parity: n=1,604 / PF 1.655 / net $591,267, matching the run doc's own "
+                "validate.total_trades=1604. Run doc verdict PASS (checks 6/6: plateau, "
+                "wfe, sample, consistency, pbo, luck; WF folds_held 6 of 8; lockbox "
+                "pass=true, reload 112 trades / PF 1.541). flags.gate: \"UNGATED WINS "
+                "PRE-LOCKBOX -- no gate earns its keep\", so this leg runs with no ML gate.",
+        "caveat": "THE HONEST MARK AGAINST IT: #309 loses to #226 on held-out R per YR "
+                  "(40.4 vs 68.5) because it trades about half as often (99 lockbox "
+                  "entries vs 188) -- say this plainly whenever the swap is cited. #226 "
+                  "is the outgoing family crown, not deleted or reinstated as a running "
+                  "leg -- see LEG_SOURCE[\"ENGUQ\"]. The #265 pair (ENGUQ_ER/ENGUQ_ER_H) "
+                  "and ENGUQ_L50 are UNTOUCHED by this crown move: ENGUQ_ER/ENGUQ_ER_H is "
+                  "the outgoing paper control and ENGUQ_L50 is its own active "
+                  "pre-registered hybrid test, deliberately left running; the owner can "
+                  "retire either on request. See ENGUQ.md's CROWN CHANGE 2026-09-05 "
+                  "section for the full writeup.",
+    },
 }
 
 PAPER_LEGS = [
@@ -615,6 +694,18 @@ PAPER_LEGS = [
     {"key": "ORB", "strategy": "ORB_3_6_C2.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_234, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB"]},
+    # ADDED 2026-09-05 (owner: "crown #309 and swap the paper leg to it"). The NEW
+    # ENGU-Q family crown -- see ENGUQ_309's own comment block above for the full
+    # evidence and ENGUQ.md's CROWN CHANGE 2026-09-05 section for the writeup. This is
+    # an ADDITION, not a swap-in-place: the #265 efficiency-gated pair immediately below
+    # (ENGUQ_ER_H, which emits its own control as ENGUQ_ER) and the ENGUQ_L50 leg further
+    # down are DELIBERATELY left untouched -- ENGUQ_ER/ENGUQ_ER_H is the outgoing paper
+    # control (the config #309 is replacing as the crown) and ENGUQ_L50 is its own,
+    # unrelated, active pre-registered hybrid test. The owner can retire either on
+    # request; nothing here does it automatically. No ML gate on this leg.
+    {"key": "ENGUQ_309", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_309"]},
     # ETH since 2026-08-17: the RTH leg was forward-testing the variant this project's own
     # docs had already deprecated as not live-realistic. See ENGUQ_226_ETH above.
     # RETIRED FROM PAPER 2026-08-21 (owner: "replace the old enguq"): the #226 raw leg is

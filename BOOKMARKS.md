@@ -10,7 +10,7 @@ whether or not it clears the full house bar (PF >= 1.25, MAR >= 8, n >= 300).
 | # | What | Numbers | Where / reproduce | Caveat |
 |---|---|---|---|---|
 | B1 | **Weak-edge book** — 4 dip-buy mechanisms (RSI2 long/both, 7-day low, pullback-to-20d, NQ capitulation) x {NQ, GLD, TLT, IWM, QQQ}, ALL 20 legs, causal equal-risk, scored as ONE strategy | n=2925 · $1,220,386 · PF 1.52 · DD $118,321 · **MAR 10.31** · **WF 8/8** · bootstrap p~0 · corr 0.055 to champion book | `tools/r25_weak_edge_book.py`, kill-checks `tools/r25b_book_killchecks.py`; STUDIES rows 1027-1051 | STOCKS-account book (ETF legs alone MAR 10.33, NQ legs alone 4.19); recent half MAR 7.20; stack on champion +12% vs +15% bar; no stops on multi-day holds |
-| B2 | ENGU-Q ETH (the certified champion leg, sibling session) | run **#226** PASS 5/5; $434,721 / PF 1.33 / DD $50,420 / MAR 8.62; LB $98,488 / PF 1.49 | `augur_strategies/ENGUQ_1M_ETH_FROZEN_1_0.py`; paper-forward live since 2026-08-17 | the only ENGU-Q variant whose backtest matches live behaviour |
+| B2 | ENGU-Q ETH — **family CROWN since 2026-09-05** (was #226; owner: "crown #309 and swap the paper leg to it") | run **#309** PASS 6/6; selection n=1,505 · PF 1.661 · $505,756 · DD $44,403 · EV R 0.439 · R/YR 43.9; LB n=99 · PF 1.620 · $85,511 · EV R 0.407 · R/YR 40.4 | `augur_strategies/ENGUQ_1M_ETH_ER_1_0.py` (er_th=0.0, gate off); PAPER leg `ENGUQ_309` live since 2026-09-05 (`api/paper.py`) | beats #226 on selection/lockbox EV R and tail dependence (top-10 share 53% vs 80%); LOSES lockbox R/YR (40.4 vs 68.5, trades ~half as often); #226 kept as the documented control (TIER 3 lesson below, ENGUQ.md CROWN CHANGE 2026-09-05) |
 | B3 | Legal ORB crown | run **#234** `ORB_3_6_C2.py`: $389,874 / PF 1.307 / DD $29,142 / MAR 13.38; LB $88,942 / PF 1.45 | pinned card | NQ 5m RTH only — does not travel |
 
 ## TIER 2 — real edge fingerprint, fails the bar (revisit only as a BOOK leg or a lower-bar sleeve)
@@ -38,8 +38,8 @@ whether or not it clears the full house bar (PF >= 1.25, MAR >= 8, n >= 300).
   **EV R 0.407 / R / YR 40.4**; **top-10 share 53%** — the lowest measured, and ex-top-10 it still
   nets $235,741. Beats the DEPLOYED #226 leg on selection EV R and R / YR, on lockbox EV R, and on
   tail dependence (53% vs 80%); loses only on lockbox R / YR (40.4 vs 68.5) because it trades about
-  half as often. Verified with `tools/continuous_lb_check.py`. **No new search needed — this is a
-  crowning decision.** See ENGUQ.md §1.0.
+  half as often. Verified with `tools/continuous_lb_check.py`. **CROWNED 2026-09-05 (owner) — see
+  B2 above and ENGUQ.md's CROWN CHANGE 2026-09-05 section.**
 - **EV R is a tail detector on ENGU-Q ETH (measured 2026-09-05).** Every config found at EV R ≥ 0.9
   had a top-10 share ≥ 90% — two of them LOSE money without their ten best trades, and one (run
   #310, verdict PASS) takes zero lockbox trades because it holds one position 449 days. The cause is

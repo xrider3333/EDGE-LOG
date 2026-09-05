@@ -3,7 +3,10 @@
 > **Audience:** any Claude session or human picking this up cold. Everything about the
 > paper-trading system, the ORB look-ahead debacle, and current live state lives here.
 > Sister docs: `BACKTESTING_STACK.md` (validation methodology), `RUNBOARD.md` (compare view).
-> Last full update: **2026-08-11**. Legs updated **2026-08-24** (`NOISE_SBS_V90_H` and
+> Last full update: **2026-08-11**. Legs updated **2026-09-05** (`ENGUQ_309` added — the
+> ENGU-Q family crown moves from #226 to run #309, owner: "crown #309 and swap the
+> paper leg to it"; `ENGUQ_ER`/`ENGUQ_ER_H` and `ENGUQ_L50` untouched — see ENGUQ.md's
+> CROWN CHANGE 2026-09-05 section). Prior update **2026-08-24** (`NOISE_SBS_V90_H` and
 > `NOISE_SBS_V90_T` added — the run-#243 crown with its own chosen et@0.50 hybrid gate,
 > and with the run's xgb/tier size tilt; both FORWARD EVIDENCE ONLY: the gate family
 > stays closed for backtest adoption and the tilt mechanism is pre-registered dead.
@@ -204,8 +207,13 @@ forward-tested is the PREVIOUS crown, not the current one.**
   until they are flipped on after an NT restart. So for NOISE the crowned config is
   forward-tested at the SHADOW layer only, and that is a recorded divergence, not an
   accident.
-- ENGU-Q is aligned on the certified champion (#226 ETH), with #249 added alongside it as an
-  adopted variant under its own matched control.
+- ENGU-Q (updated 2026-09-05): the family crown moved from #226 ETH to **run #309**
+  (`ENGUQ_1M_ETH_ER_1_0.py`, er_th=0.0/gate off) — owner: "crown #309 and swap the paper
+  leg to it". A new `ENGUQ_309` leg was ADDED, live since 2026-09-05; the existing
+  #265 pair (`ENGUQ_ER`/`ENGUQ_ER_H`) and `ENGUQ_L50` (#249) are untouched, staying as
+  the outgoing control and as their own unrelated forward test respectively. #226 is
+  not re-added as a leg — it stays the documented control only. Full evidence in
+  ENGUQ.md's CROWN CHANGE 2026-09-05 section.
 
 This is a REPORTING note. Nothing about the live paper configuration was changed to write it;
 whether to move the ORB leg onto #234 is the owner call.
@@ -216,6 +224,7 @@ whether to move the ORB leg onto #234 is the owner call.
 |---|---|---|---|
 | ENGU-Q | `ENGUQ_1M_1_0.py` #149 + breakeven 1.5, NQ 1m RTH | **CLEAN** (all conditions at bar close, entry at that close). Its one MILD trail assumption is *conservative* — live-realistic lagged trail earns **more** (+$31k/16.1y, `tools/enguq_trail_lag.py`) | Shadow: live · NT: `EdgeLogENGUQ1m` compiled, awaiting enable |
 | ENGU-Q L50 | `ENGUQ_1M_ETH_LIM50_1_0.py` #249 — #226 ETH config + resting limit 0.50 x ATR below the signal close, 10-bar gap-honest fill window | **CLEANEST entry we run.** A resting limit is the one entry type that needs no assumption about getting a bar's closing print — you place the order and wait | Shadow: **live since 2026-08-18** · control = the ENGU-Q ETH leg · NT: limit support written, **NOT deployed** |
+| ENGU-Q 309 (CROWN) | `ENGUQ_1M_ETH_ER_1_0.py` #309 — buf_atr 0.3 / tl_len 206 / ema_len 220 / limit_atr 0.55 / er_len 100 (er_th 0.0, gate off) / regime_len 10 / stop_mult 1.3 / breakeven_R 3.0 / act_R 1.5 / trail_frac 2.5 / min_brk 1.6 / vol_mult 1.1 / atr_len 52, NQ 1m ETH | Resting-limit entry, same execution profile as ENGU-Q L50 (10-bar gap-honest fill window) | **THE ENGU-Q FAMILY CROWN since 2026-09-05** (owner: "crown #309 and swap the paper leg to it"; beats #226 on selection/lockbox EV R and tail dependence 53% vs 80%, loses on lockbox R/YR 40.4 vs 68.5 — see ENGUQ.md CROWN CHANGE 2026-09-05). Shadow: **live since 2026-09-05** · no ML gate · NT: not ported |
 | ORB | `ORB_3_4_C221.py` #230 (ORB-40), NQ 5m RTH — **swapped 2026-08-16** off the retired #125 `ORB_3_0` cut | **CLEAN** — close-confirmed entry, the whole point of the grail hunt that produced it | Shadow: live · NT: V1 port retired, **V2 replaces it** |
 | ORB +GATE | #230 + its own crowned **rf hybrid gate @45%** | Same as ORB — a gate is a post-trade overlay trained only on finished trades | Shadow: live · control = the ORB leg |
 | NOISE | `NOISE_1_0.py` hand-built round-12 config, NQ 5m RTH | **CLEAN** (close signal → next-open fill) | **RETIRED 2026-08-16** ("remove the old noise raw") — never crowned by a run; superseded by NOISE-225 |
