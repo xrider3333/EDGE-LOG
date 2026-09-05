@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.507';
+const VERSION='73.508';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.508',date:'2026-09-05',notes:['MIN TRADES (control 8) - the fewest trades a row must have before any chart will draw it: OFF, 30, 100 or 250. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox today: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart weighed them the same.','It follows the PLOT FAILURES rule exactly - the row keeps its table line and every figure it holds, it just stops setting the scale of a chart it cannot support - and it bites on all four charts, not only the scatter.','AND IT SAYS WHAT IT JUDGED EACH ROW ON. Only a configuration row, and a run row on the lockbox, saves a per-stage trade count; every other row carries one whole-run figure. The note under the chart counts how many were judged that way instead of on the ticked stretch, and names the rows that record no count at all - those are DRAWN rather than guessed at.','Reviewed before shipping, and the review stopped it twice: the control was numbered 6, which RANGE already uses, and the floor claimed to measure the ticked stage while reading a whole-run number for the registry rows that make up most of the board.']},
 {v:'73.506',date:'2026-09-05',notes:['ROC %% / YR NOW SITS BESIDE R / YR ON THE TABLES YOU READ A CONFIGURATION OFF. It was added as an axis on the charts two versions ago but never reached the ROW lists, so the 1E matrix, the champion section, the gate/tilt/hybrid comparison and both sizing tabs still had R / YR with no account-relative twin. All four have it now, on the same ticked stretch and the same years the R / YR beside them uses - so where one dashes, the other dashes.','AND IT READS TO A TENTH OF A PERCENT INSTEAD OF A WHOLE ONE. When ROC was a whole-run figure it was hundreds of percent and rounding was harmless; annualised it is single digits, where whole-number rounding put a configuration earning 0.5%% a year and one earning 1.4%% in the same bucket, both printed as 1%%.','THE SIZING TABS SAY WHAT MAKES THIS ROW DIFFERENT: it is the only figure there that re-sizing moves. Every other number on those tabs is scale-free by construction, so a doubled position reads identically - which is exactly why the sizing decision needed one that does not.','THE AXES PROBE NOW HAND-CHECKS THE ARITHMETIC, not just the render: seven thousand dollars over fourteen years against the hundred-thousand account has to draw 0.5%% a year. Writing that check found a second fault - the probe could not read ANY percentage tooltip, because its parser stopped at the digits and choked on the %% sign, and reported the dot as missing rather than as unreadable. DD %% was in the same blind spot.']},
 {v:'73.505',date:'2026-09-05',notes:['COMPARE FOR - one click sets BOTH scatter axes to the pair that answers one question, because the PAIRING is the part that is easy to get wrong. EDGE = expectancy in R against R per year, the ranking pair. RISK = expectancy in R against DRAWDOWN IN R, reward and risk in the SAME unit so size cannot flatter either, and upper LEFT is the good corner. QUALITY = Sortino against expectancy in R, which asks whether the edge arrived smoothly or in a few lucky jumps. MONEY = profit against drawdown percent, the reporting pair rather than the picking pair. Both pickers still work on their own underneath.']},
 {v:'73.503',date:'2026-09-05',notes:['QQQ SHADOW BOOK: three new checks for whether this book is safe to ever trade with real money. NT PARITY compares every shadow trade against the real NinjaTrader fill it is supposed to mirror - a loud red panel and a MATCHED count on the rail the moment even one trade misses tolerance, with the closed-trades table now showing the NinjaTrader points, the expected dollar figure, and the tracking error per trade, plus a quiet RECONSTRUCTED tag on back-filled rows.','FEED UPTIME marks any day the price feed was actually down - the month calendar hatches that day in grey with a warning dot and the reason in its tooltip, and a new ten-day strip under the calendar colours each day green, amber, or red by uptime percent, because a day the feed was dead proves nothing either way.','RATIO HEALTH opens from the calibration text in the header (it turns red with a warning triangle the moment the ratio drifts) into a small panel: current ratio, its age, a sparkline against its normal band, and the drift in plain English - every shadow price is an NQ price divided by this one number, so a stale ratio quietly mis-sizes every fill.','All three degrade cleanly on a doc published before this shipped: dashes instead of blanks, never "undefined" or "NaN".','FIXED: the WORST figure on the rail was hardcoded red even on a book with no losing trade yet; BEST and WORST now colour by their actual sign.','FIXED: the WEBULL PAPER ACCOUNT button linked to an always-empty $100,000 paper account the owner had already opened twice expecting real numbers. It is now a plain sentence: not used, nothing is ever sent there, this book is the paper record.']},
@@ -21592,6 +21593,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   axis width for all 618, so everything else stacked into the left edge. The
         //   tables are untouched and the line under the chart says what was left off.
         const _reFailOn=(APREF.resFail==='1');
+        const _reMinTrd=(function(){const v=+APREF.resMinTrd;
+          return ([0,30,100,250].indexOf(v)>=0)?v:0;})();
         const _reFilt=(()=>{try{const o=JSON.parse(APREF.resFilt||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
         // ── TIME SCOPE (owner ask 2026-08-19: "add a scope to add whats been run past week,
         //    month etc"). It narrows the WHOLE board — charts and tables together — to a recent
@@ -22560,6 +22563,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const rows=[],skip=[];
           items.forEach(function(o){
             if(!_reFailOn&&o.r&&o.r.tone==='fail')return;
+            // the same trade floor the scatter applies - see _reMinTrd
+            if(_reMinTrd>0){const _t=_reTrd(o.r);if(_t&&_t.v<_reMinTrd)return;}
             const vals=AX.map(function(a){return a.v(o.st,o.r);});
             if(vals.filter(function(v){return v!=null&&isFinite(v);}).length<2){skip.push(o);return;}
             rows.push({o:o,st:o.st,r:o.r,v:vals});});
@@ -22621,6 +22626,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const AX=_rePAxes,rows=[],skip=[];
           items.forEach(function(o){
             if(!_reFailOn&&o.r&&o.r.tone==='fail')return;
+            // the same trade floor the scatter applies - see _reMinTrd
+            if(_reMinTrd>0){const _t=_reTrd(o.r);if(_t&&_t.v<_reMinTrd)return;}
             const vals=AX.map(function(a){return a.v(o.st,o.r);});
             if(vals.filter(function(v){return v!=null&&isFinite(v);}).length<3){skip.push(o);return;}
             rows.push({o:o,st:o.st,r:o.r,v:vals,
@@ -22702,6 +22709,8 @@ namespace NinjaTrader.NinjaScript.Strategies {
           const AX=_rePAxes,rows=[],skip=[];
           items.forEach(function(o){
             if(!_reFailOn&&o.r&&o.r.tone==='fail')return;
+            // the same trade floor the scatter applies - see _reMinTrd
+            if(_reMinTrd>0){const _t=_reTrd(o.r);if(_t&&_t.v<_reMinTrd)return;}
             const vals=AX.map(function(a){return a.v(o.st,o.r);});
             // a row draws when it carries at least two axes. Gaps BREAK the line rather than
             // being bridged, so a missing figure can never read as a measured one.
@@ -22797,13 +22806,22 @@ namespace NinjaTrader.NinjaScript.Strategies {
 
         };
         const _reChartAll=(items,com)=>{
-          const pts=[],skip=[],failOut=[];
+          const pts=[],skip=[],failOut=[],thinOut=[],thinNoCt=[];
           window._reSkipBy={};   // run number -> points the ticked axes could not place
           const _reDupAt={};   // how many marks have already landed on each pixel
           items.forEach(o=>{
             // control 5: a failed row leaves the CHART so the axis can fit the rest. It
             //   keeps its table row and its figures; nothing is recomputed or hidden.
             if(!_reFailOn&&o.r&&o.r.tone==='fail'){failOut.push(o);return;}
+            // too few trades to mean anything - see _reMinTrd. Reads the same figure the
+            //   TRADES column prints, borrowed run counts included, so a row cannot show 25
+            //   in the table and slip past a floor of 100.
+            if(_reMinTrd>0){const _t=_reTrd(o.r);
+              if(_t==null){thinNoCt.push(o);}
+              else if(_t.v<_reMinTrd){
+                // stage-specific only where the row saves a per-stage block; everything
+                //   else is judged on its whole-run count, and the note below says so.
+                thinOut.push({o:o,n:_t.v,whole:!_reCfgBlk(o.r)});return;}}
 const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(x0==null){skip.push({o:o,w:_reXwhy(o.st,o.r)});
               if(o.r&&o.r._run)window._reSkipBy[o.r._run]=(window._reSkipBy[o.r._run]||0)+1;
@@ -23012,6 +23030,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             omit+=' '+failOut.length+' failed row'+(failOut.length>1?'s are':' is')+' left off the chart on purpose (control 5, PLOT FAILURES)'
               +(_fdd.length?(', the worst of them drawing down '+_reMoney(Math.max.apply(null,_fdd))):'')
               +'. They are all still in the tables with every figure they hold - this only stops a handful of very deep drawdowns setting the width of the axis for everything else. Switch control 5 to ON to draw them.';}
+          if(thinOut.length||thinNoCt.length){
+            const _mx=thinOut.length?Math.max.apply(null,thinOut.map(t=>t.n)):null;
+            const _wh=thinOut.filter(t=>t.whole).length;
+            if(thinOut.length)omit+=' '+thinOut.length+' row'+(thinOut.length>1?'s are':' is')+' left off the chart for a thin sample - fewer than '+_reMinTrd+' trades, the largest of them '+_mx+'. A ratio read off a handful of trades is an anecdote with two decimal places, and on one chart it sets the scale for everything else. They keep their table rows and every figure they hold; set MIN TRADES to OFF to draw them again.';
+            if(_wh)omit+=' Of those, '+_wh+' were judged on a WHOLE-RUN count rather than the ticked stretch, because only a configuration row - and a run row on the lockbox - saves a per-stage trade count. The floor is stricter on those rows than it looks.';
+            if(thinNoCt.length)omit+=' A further '+thinNoCt.length+' row'+(thinNoCt.length>1?'s record':' records')+' no trade count at all, so the floor could not judge them. They were DRAWN rather than guessed at.';}
           if(_reHidden)omit+=' A further '+_reHidden+' row'+(_reHidden>1?'s are':' is')+' not on the board at all, held back by the filters or the time scope above.';
           if(_reFamsOn.length>1)omit+=' More than one strategy is on the chart, so each mark carries its strategy beside its row number, every point hover names it in its headline, and every table row wears it as a tag after the name. The mark SHAPE is the verdict, not the strategy.';
           if(!showN)omit+=' There are more than '+_reLblMax+' points on the chart, so the row numbers beside the marks are hidden to stop them overlapping into a smear - hover any point and it names its row, its strategy and its study. Narrow the STRATEGY rail or a filter to bring the numbers back. No point was dropped.';
@@ -23030,7 +23054,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // ONE LINE, not a paragraph. The counts are printed; every reason behind them is on
           //   the hover, which is where reference text belongs. Nothing was dropped to shorten
           //   it - the hover carries the same sentences the paragraph used to print.
-          const nOff=pts.length+skip.length;
+          const nOff=pts.length+skip.length+failOut.length+thinOut.length+thinNoCt.length;
           let brief=skip.length?(pts.length+' of '+nOff+' rows plotted'):('all '+pts.length+' rows plotted');
           if(_reHidden)brief+=' \u00b7 '+_reHidden+' held back by the controls';
           if(!showN&&pts.length)brief+=' \u00b7 row numbers hidden, hover a point';
@@ -23819,6 +23843,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
            +_reBtn('data-resaxis="ppt"','EV',_reAxis==='ppt','plot expectancy in DOLLARS - whole-run money per trade. With profit factor it is among the most window-robust readings here, because both are properties of the trade population rather than of the calendar.',_TONE.samp)
           ,_TONE.samp);
+        // MIN TRADES (control 8). Sits beside PLOT FAILURES because it does the same job:
+        //   keep a row out of the CHART without touching its table line or its figures.
+        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row - and a run row on the lockbox - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 100 is a reasonable floor for a lockbox; 250 is strict.',
+            _reBtn('data-remintrd="0"','OFF',_reMinTrd===0,'draw every row, however few trades it took.',_TONE.samp)
+            +_reBtn('data-remintrd="30"','30',_reMinTrd===30,'need at least 30 trades on the ticked stage to be drawn.',_TONE.samp)
+            +_reBtn('data-remintrd="100"','100',_reMinTrd===100,'need at least 100 trades on the ticked stage to be drawn.',_TONE.samp)
+            +_reBtn('data-remintrd="250"','250',_reMinTrd===250,'need at least 250 trades on the ticked stage to be drawn.',_TONE.samp)
+          ,_TONE.samp);
         const _reFailBtns=_reCtl(5,'PLOT FAILURES','whether rows judged a failure are drawn on the chart. They are always in the tables either way - this only decides whether they are plotted. OFF is the default because a few very deep drawdowns were setting the width of the axis for every other row, which flattened everything else into the left edge',
             _reBtn('data-resfail="1"','ON',_reFailOn,'draw every row, failures included. The axis then has to reach the deepest drawdown on the board',_TONE.samp)
            +_reBtn('data-resfail="0"','OFF',!_reFailOn,'leave failed rows off the chart so the axis fits the rows that worked. Nothing is deleted - the count and the deepest drawdown left off are named under the chart, and every row keeps its place in the tables',_TONE.samp),_TONE.samp);
@@ -24001,7 +24033,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:9px;padding-top:9px;border-top:1px solid var(--border2)">'
-            +_reGrid(_reFailBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
+            +_reGrid(_reFailBtns+_reMinTrdBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
               +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
             +'</div></div>';
         // the drawing runs BEFORE anything reports on it - see _reSkipNote
@@ -28272,6 +28304,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const v=b.dataset.resstage,i=cur.indexOf(v);
         if(i>=0){if(cur.length===1)return;cur.splice(i,1);}else cur.push(v);
         savePref('resSegs',all.filter(x=>cur.indexOf(x)>=0));renderApp();};});
+      content.querySelectorAll('[data-remintrd]').forEach(b=>{b.onclick=()=>{
+        savePref('resMinTrd',+b.getAttribute('data-remintrd'));renderApp();};});
       // one click, both axes - the pairing is the part worth naming
       content.querySelectorAll('[data-respreset]').forEach(b=>{b.onclick=()=>{
         const P={edge:['evr','rpy'],risk:['evr','ddr'],qual:['so','evr'],money:['raw','ddp']}
