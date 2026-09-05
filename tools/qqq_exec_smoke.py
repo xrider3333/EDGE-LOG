@@ -182,6 +182,93 @@ def main():
         check("post-breaker entry ignored (breaker still tripped)",
              state2.get("breaker_tripped") is True and "ORB" not in state2["legs"])
 
+        print("\nTest 7: NT PARITY -- a normal round-trip parity-checks OK")
+        # Test 1's ORB round-trip already went through real routed entry+exit fills
+        # (e1 entry, e2 partial exit, e3 final exit) with a FIXED ratio (30.0) the
+        # whole way through, so it should reconcile cleanly.
+        doc7 = qe._build_doc(cfg, state, False, 0.0)
+        orb_trade = next((t for t in doc7["trades_all"]
+                          if t["leg"] == "ORB" and t.get("nt_entry_exec_id") == "e1"),
+                         None)
+        check("ORB trade present in trades_all", orb_trade is not None)
+        if orb_trade:
+            check("ORB trade carries nt_entry_exec_id", orb_trade.get("nt_entry_exec_id") == "e1",
+                 orb_trade.get("nt_entry_exec_id"))
+            check("ORB trade carries nt_exit_exec_id", orb_trade.get("nt_exit_exec_id") == "e3",
+                 orb_trade.get("nt_exit_exec_id"))
+            check("ORB trade parity_ok is True", orb_trade.get("parity_ok") is True,
+                 orb_trade)
+        check("doc parity summary sees >=1 checked trade", doc7["parity"]["checked"] >= 1,
+             doc7["parity"])
+
+        print("\nTest 8: NT PARITY -- a ratio jump between entry and exit FAILS parity")
+        fills_path3 = os.path.join(tmp, "fills3.csv")
+        write_fills(fills_path3, [
+            ["p1", "2026-09-04 13:35:00", "Sim101", "NQ 12-26", "BUY", "1", "30000", "0", "p1", "ORB"],
+        ])
+        with open(os.path.join(tmp, "addon_heartbeat.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "accounts": 1, "seen": 1, "version": "2.1", "accts": {}}, f)
+        cfg3 = qe.load_config()
+        state3 = qe._default_state()
+        now_p1 = datetime(2026, 9, 4, 9, 40)
+        cfg3, state3, doc3 = qe.tick(fills_path=fills_path3, now=now_p1, quote_fn=no_quote,
+                                     ratio_fn=fixed_ratio(30.0), cfg=cfg3, state=state3)
+        check("ORB lot opened for parity-fail test", "ORB" in state3["legs"])
+        # ratio jumps hard (30 -> 45) before the exit fill lands -- expected_usd derived
+        # from ratio_at_entry (30) will diverge sharply from the pnl actually realized
+        # (priced off the post-jump ratio), which is exactly what should trip parity.
+        write_fills(fills_path3, [
+            ["p1", "2026-09-04 13:35:00", "Sim101", "NQ 12-26", "BUY", "1", "30000", "0", "p1", "ORB"],
+            ["p2", "2026-09-04 13:50:00", "Sim101", "NQ 12-26", "SELL", "1", "30030", "0", "p2", "Close"],
+        ])
+        now_p2 = datetime(2026, 9, 4, 9, 41)
+        cfg3, state3, doc3 = qe.tick(fills_path=fills_path3, now=now_p2, quote_fn=no_quote,
+                                     ratio_fn=fixed_ratio(45.0), cfg=cfg3, state=state3)
+        check("ORB lot closed for parity-fail test", "ORB" not in state3["legs"])
+        orb_trade8 = next((t for t in doc3["trades_all"] if t["leg"] == "ORB"), None)
+        check("parity-fail trade found", orb_trade8 is not None)
+        if orb_trade8:
+            check("ratio jump trade parity_ok is False", orb_trade8.get("parity_ok") is False,
+                 orb_trade8)
+            check("ratio jump trade has a parity_note", bool(orb_trade8.get("parity_note")),
+                 orb_trade8)
+        check("doc parity summary sees a failed trade", doc3["parity"]["failed"] >= 1, doc3["parity"])
+
+        print("\nTest 9: FEED UPTIME -- injected stale ticks make a day invalid")
+        state_feed = qe._default_state()
+        # 09:25-09:59 open, mostly healthy...
+        for m in range(0, 35, 5):
+            qe._accumulate_feed_uptime(state_feed, datetime(2026, 9, 4, 9, 25 + m), stale=False)
+        # ...then a long stale stretch (feed down) before recovering, well past 12:00.
+        for total_min in range(0, 185, 5):
+            hh = 10 + total_min // 60
+            mm = total_min % 60
+            qe._accumulate_feed_uptime(state_feed, datetime(2026, 9, 4, hh, mm), stale=True)
+        feed_days9 = qe._build_feed_days(state_feed)
+        d9 = next((d for d in feed_days9 if d["date"] == "2026-09-04"), None)
+        check("2026-09-04 present in feed_days", d9 is not None)
+        if d9:
+            check("stale-heavy day marked invalid", d9["valid"] is False, d9)
+            check("stale_min > 0 on the stale-heavy day", d9["stale_min"] > 0, d9)
+            check("uptime_pct < 0.95 on the stale-heavy day", d9["uptime_pct"] < 0.95, d9)
+
+        print("\nTest 10: RATIO HEALTH -- a stale calibration raises warn")
+        state_ratio = qe._default_state()
+        state_ratio["calib"] = {"ratio": 41.0, "source": "test", "at": "2026-09-04 09:00:00"}
+        state_ratio["ratio_hist"] = [{"at": "2026-09-04 09:00:00", "ratio": 41.0, "source": "test"}]
+        now10 = datetime(2026, 9, 4, 10, 0, 0)  # 60 min after calib, inside market window
+        health10 = qe._build_ratio_health(state_ratio, now10)
+        check("stale ratio (60 min old, in-window) raises warn", health10["warn"] is True, health10)
+        check("stale ratio note is non-empty", bool(health10.get("note")), health10)
+
+        fresh_state = qe._default_state()
+        fresh_state["calib"] = {"ratio": 41.0, "source": "test", "at": "2026-09-04 09:55:00"}
+        fresh_state["ratio_hist"] = [{"at": "2026-09-04 09:55:00", "ratio": 41.0, "source": "test"}]
+        health_fresh = qe._build_ratio_health(fresh_state, now10)
+        check("fresh ratio (5 min old) does not warn on age alone", health_fresh["warn"] is False,
+             health_fresh)
+
         print("\nTest 6: mode refusal -- a non-SHADOW mode is forced back to SHADOW")
         bad_cfg_path = os.path.join(tmp, "config_bad.json")
         import json as _json

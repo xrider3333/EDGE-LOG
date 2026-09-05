@@ -203,6 +203,12 @@ def _default_state():
         "calib": None,             # {"ratio","source","at"}
         "last_publish": 0.0,
         "last_doc_hash": None,
+        # feature (2) FEED UPTIME PER DAY: {"YYYY-MM-DD": {"ticks","stale_ticks",
+        # "first_tick_et","last_tick_et","note"}} -- rolling 60 days, see _build_feed_days.
+        "feed_days": {},
+        # feature (3) RATIO HEALTH: capped rolling history of every successful
+        # calibration, [{"at","ratio","source"}], see _maybe_calibrate / _build_ratio_health.
+        "ratio_hist": [],
     }
 
 
@@ -277,11 +283,38 @@ def _group_key(account, instrument):
 
 
 # -- CSV writers ---------------------------------------------------------------------
+def _migrate_csv_header(path, cols, log=print):
+    """If `path` already exists with an OLDER/different header than `cols`, rewrite the
+    file under the new header, padding every row's missing fields with "" so old data
+    keeps parsing (DictReader-safe) once new columns are appended going forward. A
+    no-op when the header already matches. Never raises -- called defensively before
+    every append so a code upgrade that adds columns (e.g. the NT-parity fields) can't
+    desync the on-disk header from what _append_csv is about to write."""
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            header_line = f.readline().rstrip("\r\n")
+        if not header_line or header_line == ",".join(cols):
+            return
+        with open(path, encoding="utf-8", newline="") as f:
+            old_rows = list(csv.DictReader(f))
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=cols)
+            w.writeheader()
+            for r in old_rows:
+                w.writerow({c: r.get(c, "") for c in cols})
+        log(f"[qqq-exec] migrated {path} header -> {len(cols)} columns "
+            f"({len(old_rows)} existing row(s) preserved)")
+    except Exception as e:
+        log(f"[qqq-exec] CSV header migration failed for {path}: {type(e).__name__}: {e}")
+
+
 def _append_csv(path, cols, row, keep):
     """Append one row; keep the file trimmed to the last `keep` data rows so it never
     grows without bound. Cheap: rewritten only when the cap is exceeded."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     is_new = not os.path.exists(path)
+    if not is_new:
+        _migrate_csv_header(path, cols)
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         if is_new:
@@ -302,8 +335,17 @@ def _append_csv(path, cols, row, keep):
 
 ORDER_COLS = ["ts_et", "leg", "action", "side", "shares", "nq_px", "qqq_px",
               "px_source", "reason"]
+# NT PARITY (feature 1): columns appended to the END so pre-existing trades.csv rows
+# (written before this feature shipped) still parse -- missing values read back as "".
+# ratio_at_entry/ratio_at_exit and nt_reconstructed are this adapter's own bookkeeping
+# (not literally NT fill fields) but travel with the trade for the same reason: they're
+# what _trade_parity needs to reproduce the parity numbers from the CSV alone, without
+# re-deriving them from live state. See module docstring feature (1) and _trade_parity.
+NT_PARITY_COLS = ["nt_entry_exec_id", "nt_entry_ts", "nt_entry_px",
+                  "nt_exit_exec_id", "nt_exit_ts", "nt_exit_px", "nt_qty",
+                  "ratio_at_entry", "ratio_at_exit", "nt_reconstructed"]
 TRADE_COLS = ["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px",
-              "pnl", "nq_pnl_points", "exit_reason"]
+              "pnl", "nq_pnl_points", "exit_reason"] + NT_PARITY_COLS
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print):
@@ -317,7 +359,7 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
         f"({px_source}) -- {reason}")
 
 
-def _record_trade(lot, exit_px, exit_reason):
+def _record_trade(lot, exit_px, exit_reason, log=print):
     entry_px = lot["entry_px"]
     side_mult = 1 if lot["side"] == "long" else -1
     pnl = round((exit_px - entry_px) * side_mult * lot["shares_total"], 2)
@@ -330,6 +372,24 @@ def _record_trade(lot, exit_px, exit_reason):
            "exit_px": round(exit_px, 4), "pnl": pnl,
            "nq_pnl_points": nq_pts if nq_pts is not None else "",
            "exit_reason": exit_reason}
+    # NT PARITY (feature 1): identity fields captured on the lot at open (_open_lot) and
+    # on every reduce (_reduce_lot) -- non-fatal, a lot missing this bookkeeping (should
+    # never happen going forward) just publishes as "insufficient NT fill data".
+    try:
+        row.update({
+            "nt_entry_exec_id": lot.get("nt_entry_exec_id") or "",
+            "nt_entry_ts": lot.get("nt_entry_ts") or "",
+            "nt_entry_px": lot.get("nt_entry_px") if lot.get("nt_entry_px") is not None else "",
+            "nt_exit_exec_id": lot.get("_nt_exit_exec_id") or "",
+            "nt_exit_ts": lot.get("_nt_exit_ts") or "",
+            "nt_exit_px": lot.get("_nt_exit_px") if lot.get("_nt_exit_px") is not None else "",
+            "nt_qty": lot.get("_nt_exit_qty") if lot.get("_nt_exit_qty") is not None else "",
+            "ratio_at_entry": lot.get("ratio_at_entry") if lot.get("ratio_at_entry") else "",
+            "ratio_at_exit": lot.get("_ratio_at_exit") if lot.get("_ratio_at_exit") else "",
+            "nt_reconstructed": "",
+        })
+    except Exception as e:
+        log(f"[qqq-exec] NT parity fields dropped from trade row: {type(e).__name__}: {e}")
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -568,10 +628,72 @@ def _maybe_calibrate(state, ratio_fn, log=print):
         if fresh:
             state["calib"] = fresh
             log(f"[qqq-exec] ratio calibrated: {fresh['ratio']:.3f} ({fresh['source']})")
+            # RATIO HEALTH (feature 3): every successful calibration joins a rolling,
+            # capped history -- this is what lets the web tab (and _build_ratio_health)
+            # show drift over time instead of just the single current value.
+            try:
+                hist = state.setdefault("ratio_hist", [])
+                hist.append({"at": fresh.get("at"), "ratio": fresh.get("ratio"),
+                            "source": fresh.get("source")})
+                state["ratio_hist"] = hist[-500:]
+            except Exception as e:
+                log(f"[qqq-exec] ratio_hist append failed: {type(e).__name__}: {e}")
         elif calib is None:
             log("[qqq-exec] no ratio calibration available yet -- nq_ratio pricing "
                 "unavailable until one succeeds")
     return state.get("calib")
+
+
+def _build_ratio_health(state, nowdt, log=print):
+    """{current,at,source,age_min,mean_20,drift_pct,band_lo,band_hi,warn,note} -- see
+    module docstring feature (3). Every shadow fill priced off the nq_ratio path is
+    biased by however stale/drifted this ratio is, so this block is what lets the owner
+    (and the web tab) tell a healthy calibration from one quietly going bad."""
+    try:
+        calib = state.get("calib") or {}
+        hist = state.get("ratio_hist") or []
+        current = calib.get("ratio")
+        at = calib.get("at")
+        source = calib.get("source")
+        age_min = None
+        if at:
+            try:
+                at_dt = datetime.strptime(at, "%Y-%m-%d %H:%M:%S")
+                age_min = round((nowdt.replace(tzinfo=None) - at_dt).total_seconds() / 60.0, 1)
+            except Exception:
+                age_min = None
+        last20 = [h for h in hist[-20:] if h.get("ratio")]
+        vals = [float(h["ratio"]) for h in last20]
+        mean_20 = round(sum(vals) / len(vals), 5) if vals else (round(current, 5) if current else None)
+        drift_pct = None
+        if current and mean_20:
+            drift_pct = round((float(current) - mean_20) / mean_20 * 100.0, 3)
+        band_lo = round(mean_20 * 0.99, 5) if mean_20 else None
+        band_hi = round(mean_20 * 1.01, 5) if mean_20 else None
+        active = _in_market_window(nowdt)
+        warn = False
+        notes = []
+        if current is None:
+            notes.append("no ratio calibrated yet -- nq_ratio pricing is unavailable")
+        else:
+            if active and age_min is not None and age_min > 45:
+                warn = True
+                notes.append(f"ratio hasn't refreshed in {age_min:.0f} min -- fills may be "
+                            f"priced off a stale QQQ:NQ ratio")
+            if drift_pct is not None and abs(drift_pct) > 1.0:
+                warn = True
+                notes.append(f"ratio has drifted {drift_pct:.2f}% from its last-20 average -- "
+                            f"fills may be biased")
+        if not notes:
+            notes.append("ratio looks healthy -- fills should track NT closely")
+        return {"current": current, "at": at, "source": source, "age_min": age_min,
+               "mean_20": mean_20, "drift_pct": drift_pct, "band_lo": band_lo,
+               "band_hi": band_hi, "warn": bool(warn), "note": "; ".join(notes)}
+    except Exception as e:
+        log(f"[qqq-exec] ratio_health build failed: {type(e).__name__}: {e}")
+        return {"current": None, "at": None, "source": None, "age_min": None,
+               "mean_20": None, "drift_pct": None, "band_lo": None, "band_hi": None,
+               "warn": False, "note": f"ratio_health unavailable: {type(e).__name__}"}
 
 
 def resolve_price(cfg, state, nq_px, quote_fn, ratio_fn, log=print):
@@ -593,7 +715,7 @@ def _apply_slippage(px, side, entering, slip):
 
 
 # -- lot lifecycle ---------------------------------------------------------------------
-def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, log=print):
+def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print):
     shares = int(cfg["shares"].get(leg, 0))
     max_shares = int(cfg.get("max_shares_per_leg", shares))
     if shares > max_shares:
@@ -609,12 +731,26 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, log=print)
         "entry_px": fill_px, "nq_entry_px": nq_px, "last_nq_px": nq_px,
         "entry_ts": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
     }
+    # NT PARITY (feature 1): the fill that opened this lot IS the NT trade being
+    # mirrored -- persist its identity + the ratio in force right now so a closed trade
+    # can later prove/disprove it tracked that exact NT round-trip. Best-effort: a
+    # missing `f` or calib (should not happen -- every open comes from a routed fill)
+    # just leaves these blank rather than raising.
+    try:
+        lot = state["legs"][leg]
+        lot["nt_entry_exec_id"] = f.get("exec_id") if f else ""
+        lot["nt_entry_ts"] = f["dt"].strftime("%Y-%m-%d %H:%M:%S") if f and f.get("dt") else ""
+        lot["nt_entry_px"] = f.get("price") if f else nq_px
+        calib = state.get("calib") or {}
+        lot["ratio_at_entry"] = calib.get("ratio") or ""
+    except Exception as e:
+        log(f"[qqq-exec] NT parity entry fields not captured for {leg}: {type(e).__name__}: {e}")
     _record_order(leg, "ENTER", side, shares, nq_px, fill_px, state["_px_source"],
                  "signal entry", log)
     _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
 
 
-def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, log=print):
+def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print):
     lot = state["legs"].get(leg)
     if not lot:
         log(f"[qqq-exec] WARN exit fill for {leg} with no open shadow lot -- skipped")
@@ -630,6 +766,27 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
         return None
     fill_px = _apply_slippage(qqq_px_raw, lot["side"], False, slip)
     lot["shares_remaining"] -= shares_close
+    # NT PARITY (feature 1): remember the identity of the LAST reduce call -- that is
+    # what "closed" the round-trip. When `f` is None (this reduce came from a RAIL --
+    # _close_all's BREAKER/EOD/KILL flatten -- not a routed NT fill), deliberately CLEAR
+    # the exit identity rather than leaving a stale earlier partial-exit's exec id
+    # attached to a close it didn't actually cause; _trade_parity then reports "no NT
+    # exit fill matched" instead of a misleading match.
+    try:
+        if f is not None:
+            lot["_nt_exit_exec_id"] = f.get("exec_id") or ""
+            lot["_nt_exit_ts"] = f["dt"].strftime("%Y-%m-%d %H:%M:%S") if f.get("dt") else ""
+            lot["_nt_exit_px"] = f.get("price")
+            lot["_nt_exit_qty"] = nq_qty_closed
+        else:
+            lot["_nt_exit_exec_id"] = ""
+            lot["_nt_exit_ts"] = ""
+            lot["_nt_exit_px"] = ""
+            lot["_nt_exit_qty"] = ""
+        calib = state.get("calib") or {}
+        lot["_ratio_at_exit"] = calib.get("ratio") or ""
+    except Exception as e:
+        log(f"[qqq-exec] NT parity exit fields not captured for {leg}: {type(e).__name__}: {e}")
     _record_order(leg, "EXIT", lot["side"], shares_close, nq_px, fill_px,
                  state["_px_source"], reason, log)
     _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
@@ -638,7 +795,7 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     if lot["shares_remaining"] <= 0:
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
         # for a single-entry lot -- see module docstring: entries are treated single-shot)
-        pnl = _record_trade(lot, fill_px, reason)
+        pnl = _record_trade(lot, fill_px, reason, log=log)
         state["realized_pnl_today"] = round(state.get("realized_pnl_today", 0.0) + pnl, 2)
         del state["legs"][leg]
     return pnl
@@ -708,7 +865,7 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                         f"fill skipped")
                     continue
                 _open_lot(state, cfg, leg, side_of_fill, abs(delta), f["price"], qqq_px,
-                         cfg.get("slippage_per_share", 0.0), log=log)
+                         cfg.get("slippage_per_share", 0.0), f=f, log=log)
                 state["group_leg"][gk] = leg
             else:
                 leg = leg_open
@@ -720,7 +877,7 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     continue
                 reason = "signal exit" if str(f.get("signal") or "").strip() else "close"
                 _reduce_lot(state, cfg, leg, abs(delta), f["price"], qqq_px,
-                           cfg.get("slippage_per_share", 0.0), reason, log=log)
+                           cfg.get("slippage_per_share", 0.0), reason, f=f, log=log)
                 if leg not in state["legs"]:
                     state["group_leg"].pop(gk, None)
 
@@ -764,6 +921,63 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
     return unrl
 
 
+# -- feed uptime per day (feature 2) --------------------------------------------------------
+def _accumulate_feed_uptime(state, nowdt, stale, log=print):
+    """Called once per tick while inside the market window. Accumulates raw tick/stale
+    counts per ET calendar date so a dead-feed morning (2026-09-03) can never again go
+    unrecorded. Rolling 60-day cap. Never raises -- a failure here must not affect
+    trading logic, only the historical uptime record."""
+    try:
+        day = nowdt.strftime("%Y-%m-%d")
+        hhmm = nowdt.strftime("%H:%M")
+        days = state.setdefault("feed_days", {})
+        d = days.setdefault(day, {"ticks": 0, "stale_ticks": 0,
+                                  "first_tick_et": hhmm, "last_tick_et": hhmm})
+        d["ticks"] = int(d.get("ticks", 0)) + 1
+        if stale:
+            d["stale_ticks"] = int(d.get("stale_ticks", 0)) + 1
+        if not d.get("first_tick_et") or hhmm < d["first_tick_et"]:
+            d["first_tick_et"] = hhmm
+        if not d.get("last_tick_et") or hhmm > d["last_tick_et"]:
+            d["last_tick_et"] = hhmm
+        if len(days) > 60:
+            for k in sorted(days.keys())[:-60]:
+                days.pop(k, None)
+    except Exception as e:
+        log(f"[qqq-exec] feed uptime accumulate failed: {type(e).__name__}: {e}")
+
+
+def _build_feed_days(state):
+    """[{date,uptime_pct,stale_min,first_tick,last_tick,valid,note}, ...] oldest-first,
+    derived from the raw per-day tick/stale counts in state['feed_days']. A day is
+    `valid` evidence only if the feed was up >=95% of its ticks AND we were watching
+    from (or before) 09:35 ET -- see module docstring feature (2)."""
+    out = []
+    days = state.get("feed_days") or {}
+    for day in sorted(days.keys()):
+        try:
+            d = days[day] or {}
+            ticks = int(d.get("ticks") or 0)
+            stale_ticks = int(d.get("stale_ticks") or 0)
+            uptime_pct = round(1.0 - (stale_ticks / ticks if ticks else 1.0), 4)
+            stale_min = round(stale_ticks * TICK_SEC / 60.0, 1)
+            first_tick = d.get("first_tick_et")
+            last_tick = d.get("last_tick_et")
+            valid = bool(ticks > 0 and uptime_pct >= 0.95 and first_tick and first_tick <= "09:35")
+            note = d.get("note") or ""
+            if not valid and not note:
+                if stale_min > 0:
+                    note = f"feed down ~{int(round(stale_min))} min -- NinjaTrader was restarting"
+                elif first_tick and first_tick > "09:35":
+                    note = f"adapter wasn't watching until {first_tick} ET"
+            out.append({"date": day, "uptime_pct": uptime_pct, "stale_min": stale_min,
+                       "first_tick": first_tick, "last_tick": last_tick,
+                       "valid": valid, "note": note})
+        except Exception:
+            continue
+    return out[-60:]
+
+
 # -- feed staleness ------------------------------------------------------------------------
 def _check_feed(state, fills_path, log=print):
     age, _version, _accts = nt_sync._addon_heartbeat(fills_path)
@@ -778,6 +992,93 @@ def _check_feed(state, fills_path, log=print):
     elif not stale and was:
         log("[qqq-exec] feed heartbeat recovered")
     return stale
+
+
+# -- NT parity (feature 1) -------------------------------------------------------------------
+def _f_or_none(v):
+    try:
+        return float(v) if v not in (None, "") else None
+    except Exception:
+        return None
+
+
+def _trade_parity(row, log=print):
+    """Compute the NT-mirror parity block for one trades.csv row (a dict of strings, as
+    read back by csv.DictReader). Returns a dict with nt_points/expected_usd/
+    track_err_usd/parity_ok/parity_note -- parity_ok is None ("not checked") when the
+    row doesn't carry enough NT fill data (pre-feature rows not yet backfilled, or a
+    lot whose parity fields failed to capture). Never raises."""
+    try:
+        entry_px = _f_or_none(row.get("nt_entry_px"))
+        exit_px = _f_or_none(row.get("nt_exit_px"))
+        ratio = _f_or_none(row.get("ratio_at_entry"))
+        side = row.get("side")
+        shares = _f_or_none(row.get("shares")) or 0.0
+        pnl = _f_or_none(row.get("pnl")) or 0.0
+        exit_matched = bool(str(row.get("nt_exit_exec_id") or "").strip())
+        reconstructed = str(row.get("nt_reconstructed") or "").strip() not in ("", "0", "False", "false")
+
+        if entry_px is None or exit_px is None or not ratio:
+            return {"nt_points": None, "expected_usd": None, "track_err_usd": None,
+                   "parity_ok": None,
+                   "parity_note": "reconstructed" if reconstructed else
+                                  "insufficient NT fill data to check parity"}
+
+        dir_mult = 1 if side == "long" else -1
+        nt_points = round((exit_px - entry_px) * dir_mult, 4)
+        expected_usd = round((nt_points / ratio) * shares, 2)
+        track_err = round(pnl - expected_usd, 2)
+        tol = max(0.05, 0.02 * abs(expected_usd))
+        ok = abs(track_err) <= tol
+        note = ""
+        if not ok:
+            if not exit_matched:
+                note = "no NT exit fill matched -- closed by the EOD rail"
+            else:
+                ratio_exit = _f_or_none(row.get("ratio_at_exit"))
+                if ratio_exit and ratio:
+                    drift = (ratio_exit - ratio) / ratio * 100.0
+                    if abs(drift) > 0.3:
+                        note = f"ratio drifted {drift:.2f}% between entry and exit"
+                if not note:
+                    note = f"tracking error ${track_err:.2f} exceeds tolerance ${tol:.2f}"
+        if reconstructed:
+            note = "reconstructed"
+        return {"nt_points": nt_points, "expected_usd": expected_usd,
+               "track_err_usd": track_err, "parity_ok": bool(ok), "parity_note": note}
+    except Exception as e:
+        log(f"[qqq-exec] parity calc failed for a trade row: {type(e).__name__}: {e}")
+        return {"nt_points": None, "expected_usd": None, "track_err_usd": None,
+               "parity_ok": None, "parity_note": f"parity calc failed: {type(e).__name__}"}
+
+
+def _parity_summary(trades_all):
+    checked = ok = failed = 0
+    worst = 0.0
+    worst_note = ""
+    for t in trades_all:
+        pok = t.get("parity_ok")
+        if pok is None:
+            continue
+        checked += 1
+        if pok:
+            ok += 1
+        else:
+            failed += 1
+        te = t.get("track_err_usd")
+        if te is not None and abs(te) > abs(worst):
+            worst = te
+            worst_note = t.get("parity_note") or ""
+    if checked == 0:
+        note = "no trades have enough NT fill data to check parity yet"
+    elif failed == 0:
+        note = "every checked trade reconciles with its NinjaTrader fill"
+    else:
+        note = f"{failed} of {checked} trade(s) show tracking error beyond tolerance"
+        if worst_note:
+            note += f" -- worst: {worst_note}"
+    return {"checked": checked, "ok": ok, "failed": failed,
+           "worst_err_usd": round(worst, 2), "note": note}
 
 
 # -- Firestore publish ----------------------------------------------------------------------
@@ -833,7 +1134,7 @@ def _cum_pnl_by_leg(all_trades):
     return out
 
 
-def _build_doc(cfg, state, feed_stale, unrealized):
+def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     orders = []
     try:
         with open(ORDERS_CSV, encoding="utf-8", newline="") as f:
@@ -859,8 +1160,23 @@ def _build_doc(cfg, state, feed_stale, unrealized):
     # block above -- the equity curve and since-start KPIs need every closed trade
     # since LIVE_FROM, not just the last 100 kept for the TODAY'S ORDERS panel.
     all_trades = _all_trades_from_csv(cap=500)
-    trades_all = list(reversed(all_trades))  # newest first, per the web tab's table convention
+    trades_all_raw = list(reversed(all_trades))  # newest first, per the web tab's table convention
     cum_pnl = _cum_pnl_by_leg(all_trades)
+
+    # NT PARITY (feature 1): every row of trades_all carries the parity fields computed
+    # fresh from its own CSV columns (works identically for a trade just closed this
+    # tick and for the two 2026-09-03 rows the backfill script rewrote) -- non-fatal,
+    # a row that fails to price just publishes as "not checked".
+    trades_all = []
+    for r in trades_all_raw:
+        row = dict(r)
+        row.update(_trade_parity(r, log=log))
+        trades_all.append(row)
+    parity = _parity_summary(trades_all)
+
+    feed_days = _build_feed_days(state)
+    ratio_hist = (state.get("ratio_hist") or [])[-500:]
+    ratio_health = _build_ratio_health(state, _now_et(), log=log)
     unrl_by_leg = state.get("_unrl_by_leg") or {}
     positions = {}
     for leg, lot in state.get("legs", {}).items():
@@ -877,6 +1193,10 @@ def _build_doc(cfg, state, feed_stale, unrealized):
                   "realized_pnl": state.get("realized_pnl_today", 0.0),
                   "unrealized_pnl": round(unrealized, 2)},
         "trades_all": trades_all,
+        "parity": parity,
+        "feed_days": feed_days,
+        "ratio_hist": ratio_hist,
+        "ratio_health": ratio_health,
         "cum_pnl": cum_pnl,
         "rails": {"shares": cfg.get("shares"), "max_shares_per_leg": cfg.get("max_shares_per_leg"),
                   "daily_loss_limit_usd": cfg.get("daily_loss_limit_usd"),
@@ -929,6 +1249,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     active = _in_market_window(nowdt)
     feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
+    if active:
+        _accumulate_feed_uptime(state, nowdt, feed_stale, log=log)
 
     if (active or force_calib) and not kill_present:
         _maybe_calibrate(state, ratio_fn, log=log)
@@ -971,7 +1293,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     if not kill_present:
         unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log)
 
-    doc = _build_doc(cfg, state, feed_stale, unrealized)
+    doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
     save_state(state)
     return cfg, state, doc
 
