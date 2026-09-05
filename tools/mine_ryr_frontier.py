@@ -20,8 +20,14 @@ os.chdir(ROOT)
 import firebase_admin
 from firebase_admin import credentials, firestore
 
+# serviceAccount.json is gitignored, so it exists only in the shared checkout -- run this from
+# a worktree and the bare filename raises FileNotFoundError. Fall back to the shared checkout's
+# copy (the credential never moves and is never copied into a worktree).
+_CRED = "serviceAccount.json"
+if not os.path.exists(_CRED):
+    _CRED = os.path.join(r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG", "serviceAccount.json")
 if not firebase_admin._apps:
-    firebase_admin.initialize_app(credentials.Certificate("serviceAccount.json"))
+    firebase_admin.initialize_app(credentials.Certificate(_CRED))
 db = firestore.client()
 u = db.collection("users").document("IO0K35JpLIcH9YK4C0pMNYUzZOM2")
 
@@ -63,13 +69,35 @@ for d in u.collection("runs").stream():
         continue
     base = dict(run=r.get("id"), famKey=r.get("famKey"), strategy=str(r.get("strategy")),
                 instrument=r.get("instrument"), timeframe=r.get("timeframe"), verdict=v.get("verdict"))
-    pf = r.get("best_pf"); wr = r.get("best_win_rate"); n = r.get("best_trades")
+    # THE CHAMPION ROW (corrected 2026-09-05). It used to be built from best_pf / best_trades /
+    # best_win_rate -- which are NOT the optimize window: validate.py Stage A scores the search's
+    # champion on a 75/25 IN-SAMPLE SPLIT (the first ~75% of the optimize window; the run report
+    # labels that column "IN-SAMPLE - first 75% - tuned"). Dividing that trade count by the FULL
+    # optimize-window years understated every champion's R / YR twice over, and the candidate rows
+    # below -- which read the saved per-stretch blocks -- were never comparable to it. Measured:
+    # #234 read 6.5 against a true 23.7, #305 46.7 against 76.7, #309 32.4 against 43.8. Round 27's
+    # "uncrowned candidate 93 vs crown 32" was really 93 vs 44.
+    # The honest champion figure over the optimize window is the engine's own continuous re-run,
+    # gate_validate.ungated_pre. Fall back to the split score only when a run has no gate block,
+    # and say so in wf_years_src so no reader mistakes the two.
+    gvp = ((r.get("gate_validate") or {}).get("ungated_pre") or {}) if isinstance(r.get("gate_validate"), dict) else {}
+    mult = float(r.get("multiplier") or 1)
+    if gvp.get("num_trades") and gvp.get("profit_factor"):
+        n = int(gvp["num_trades"]); pf = float(gvp["profit_factor"]); wr = float(gvp.get("win_rate") or 0)
+        net_usd = float(gvp.get("total_pnl") or 0) * mult
+        dd_usd = abs(float(gvp.get("max_drawdown") or 0)) * mult
+        src_note = "optimize window (gate_validate.ungated_pre)"
+    else:
+        pf = r.get("best_pf"); wr = r.get("best_win_rate"); n = r.get("best_trades")
+        net_usd = float(r.get("best_pnl_usd") or 0)
+        dd_usd = abs(float(r.get("best_dd_usd") or 0))
+        src_note = "75/25 IS SPLIT - NOT the optimize window"
     if pf and wr is not None and n and 0 < pf < 50:
         e = evr(wr, pf)
         rows.append(dict(base, source="champion", stretch="pre", n=n, years=round(oy, 2), pf=round(pf, 3),
                          win_pct=round(wr if wr > 1 else wr * 100, 1), evr=round(e, 3), ryr=round(e * n / oy, 1),
-                         net=round(r.get("best_pnl_usd") or 0), dd=round(abs(r.get("best_dd_usd") or 0)),
-                         wf_years_src="optimize window", params=json.dumps(r.get("best_params") or {})))
+                         net=round(net_usd), dd=round(dd_usd),
+                         wf_years_src=src_note, params=json.dumps(r.get("best_params") or {})))
     sel = r.get("selection") or {}
     for src_name in ("candidates", "robust"):
         for c in (sel.get(src_name) or []):

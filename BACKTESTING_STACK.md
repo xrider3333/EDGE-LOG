@@ -1680,11 +1680,43 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
     2025-08-20). Engine graded 9 trades / $57,439 / PF 2.19 → **verdict PASS 6/6**. Honest continuous
     LB = **38 trades / $41,130 / PF 1.34 / net-DD 0.89** — the PASS was scored on the last 2.7 months.
     Continuous full run is otherwise clean (550 tr, $436,417, DD $46,417, trades through 2026-06-29).
-  **GUARD (proposed, not built):** run the champion continuously over the full window, slice the LB by
-  ENTRY time, report BOTH counts, flag material divergence. Also warm-start the reload (load
-  pre-boundary history, count only post-boundary entries) so long-lookback configs aren't graded on a
-  truncated window. Until built, **no validate PASS is trustworthy without the continuous cross-check**
-  — applies retroactively to every strategy, not just ENGU-Q.
+  **GUARD — BUILT 2026-09-05, `tools/continuous_lb_check.py`:** runs the config continuously over the
+  full window, slices the lockbox by ENTRY time, prints reload-vs-continuous trade counts side by side
+  with a DIVERGENCE flag, and adds the two reads that catch this failure mode early — the longest hold
+  in calendar days (a runaway buy-and-hold shows up here) and the top-10 share of net. Its self-test is
+  the frozen #226 control, which reproduces to the cent (n=2,843 / $434,721.12 / PF 1.332 / DD $50,420,
+  re-verified 2026-09-05). Still NOT built: warm-starting the reload itself, so a long-lookback config
+  is still graded by the engine on a truncated window.
+  **HOW BIG IS THE DIVERGENCE, MEASURED (2026-09-05, reload trades vs continuous, lockbox window):**
+  ORB #234 178 vs 178 and ORB R6 #314 168 vs 168 — **exact**; NOISE #243 375 vs 349 and #305 337 vs
+  289 — **+7% to +17%**; ENGU-Q ETH #226 212 vs 188, #309 83 vs 67, the B14 candidate 211 vs 184 —
+  **+13% to +24%, every one of them**. The pattern is mechanical: a strategy that is flat at the
+  close and carries no multi-session state (ORB) cannot diverge, while anything holding overnight or
+  reading a long session lookback (ENGU-Q on the 24h tape, NOISE's 44-session sigma) gets extra
+  lockbox trades from the reload that continuous operation would never have taken. **So the engine's
+  lockbox trade count is systematically OPTIMISTIC for every overnight family — treat a lockbox verdict
+  on one as provisional until this tool has re-graded it.** **No validate PASS is trustworthy without the
+  continuous cross-check** — applies retroactively to every strategy, not just ENGU-Q.
+  **🚨 IT HAS HAPPENED AGAIN, AND THIS ONE IS LIVE: RUN #310 (`ENGUQ_1M_ETH_LIM_1_0.py`, limit_atr 0.7
+  / trail_frac 4.0 / regime_len 5, verdict PASS).** Continuous, entry-sliced, 2010-06-07 → 2026-06-30:
+  749 trades, EV R 0.942, R / YR 46.8 pre-lockbox — and **ZERO lockbox trades**, because its last entry
+  is held **449 days** to the final bar. Exactly #198's fingerprint, same duration, on today's fixed
+  file. The engine graded it on a reload that invents **91** lockbox trades (PF 1.24) and stamped the
+  run PASS. **90% of its pre-lockbox net is its 10 best trades** (ex-top-10: $667,719 → $64,399,
+  EV R 0.942 → 0.092). Two BOOK jobs queued 2026-09-05 (`H0fOaarMU413IWNMXhRG`,
+  `JCdJlmmUr2azH24RL6wM`) carry this leg at those exact params and report the program's highest-ever
+  R / YR (148 and 152) — that headline is the leg's buy-and-hold, not tradeable frequency. Both job
+  docs were annotated in place with this warning before they ran; neither has been cancelled — that
+  is the owner's call. **Do not promote #310 or anything pooled with it until the leg is re-graded.**
+  **⚠ THE #198 CASE ABOVE IS PRE-FIX AND NO LONGER REPRODUCES (2026-09-05).** #198's champion carries
+  `regime_len 5`, and commit 6da54db (2026-08-26) fixed an ETH mis-scaling in `ENGUQ_1M_ETH_1_0.py`:
+  the regime lookback multiplied by RTH's 390 bars/day on a 24h tape that carries 1,091, so
+  `regime_len 5` meant ~1.8 days and now means 5. Same params, same window, today's file: **1,795
+  trades (doc: 1,304), PF 1.76 (2.24), net $467,775 ($657,334), longest hold 156 days (449), and 100
+  continuous lockbox entries (0)** — the runaway hold was in part the scaling bug, not the config. The
+  DELETES case is untouched (different file). **Rule: any run older than 2026-08-26 whose params set
+  `regime_len > 0` no longer reproduces from its own file — re-run it before quoting its metrics.**
+  The #226 control is unaffected (`regime_len 0`), which is why parity still holds.
   **2m verdict after the honest check:** real edge, but LB $41,130 / PF 1.34 / net-DD 0.89 on 38 trades
   is BELOW champion #149 (LB $68,322 / PF 1.44 / net-DD 1.04 on 84) — parked, not a replacement. The
   sample-floor fix itself worked as designed (IS trades-per-knob 25.5→34.7, WF folds 5/8→7/8,
