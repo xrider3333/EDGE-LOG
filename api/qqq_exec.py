@@ -846,6 +846,15 @@ def _build_doc(cfg, state, feed_stale, unrealized):
             trades = list(csv.DictReader(f))[-100:]
     except Exception:
         trades = []
+
+    # TODAY means today. Both lists above are only the CSV tails, so before this filter
+    # the tab's "TODAY'S ORDERS" panel and every leg card's TODAY figure kept showing the
+    # previous session (2026-09-05: Sep 3's four orders labelled as today's, and leg cards
+    # reading $2.89 TODAY against a $0.00 TODAY KPI). Full history still ships in
+    # trades_all / cum_pnl, which is what the closed-trades table and the curve read.
+    day = state.get("trading_day") or _now_et().strftime("%Y-%m-%d")
+    orders = [o for o in orders if str(o.get("ts_et") or "")[:10] == day]
+    trades = [t for t in trades if str(t.get("exit_ts") or "")[:10] == day]
     # trades_all / cum_pnl: the full (capped) history, independent of the `today`
     # block above -- the equity curve and since-start KPIs need every closed trade
     # since LIVE_FROM, not just the last 100 kept for the TODAY'S ORDERS panel.

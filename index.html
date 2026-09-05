@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.480',date:'2026-09-04',notes:['THE QQQ SHADOW BOOK EQUITY CURVE DREW NOTHING AND LABELLED ITS AXIS undefined. The chart and the per-leg sparklines still read the cumulative P&L series as pairs, but that series had to become a list of records when the backend started publishing it (Firestore refuses a list of lists outright, which was silently killing every update). They read records now, and they also accept the old pair form so a stale cached copy still draws.','A BOOK ONE DAY OLD NOW SHOWS ITS ONE POINT. A single day plotted as a line is invisible, so the curve draws a dot at the centre with that day underneath it, and a leg with exactly one closed trade says so instead of claiming it has none.','TODAY NOW MEANS TODAY. The TODAY-S ORDERS panel and every leg card-s TODAY figure were fed the tail of the record rather than the current session, so on Friday morning they were still showing Wednesday-s four orders, and the leg cards read 2.89 dollars TODAY beside a TODAY total of zero. Both are filtered to the open trading day; the whole history stays in CLOSED TRADES and the curve.']},
 {v:'73.479',date:'2026-09-04',notes:['STUDIES BOARD: ROUND 27 - the EV R and R / YR hunt, rows 1165 to 1177. THE MINE: every saved Auto-Validate population was read for its best EV R and R / YR; the single-strategy R / YR leader is an UNCROWNED configuration inside run #309 (ENGU-Q 24h efficiency variant): EV R 0.60 at 155 trades a year = R / YR 93, versus 32 for the crown that run picked and 77 for the NOISE crown; 7 of 8 walk-forward folds held and its lockbox year was positive. It now has its own card (queued). NQDIP 1.1 (three added dip legs) lifts the dip book R / YR from 9.4 to 23.5 at PF 1.64 / MAR 10.2, 8 of 8 slices - its Auto-Validate is queued. A new 1-minute EMA-pullback continuation family is dead in all 27 cells.','Also: the family rail now tags NQDIP and EMAPB runs (they read UNTAGGED before), and run #311 - the three paper-honest legs pooled - is on the board at R / YR 82.']},
 {v:'73.474',date:'2026-09-04',notes:['THE BOARD AND THE RUN REPORT DISAGREED ON THE SAME CONFIGURATION, and the board was wrong. Ticking WF on COMPARE > STUDIES re-sliced the DOLLARS and left every ratio alone - PF, WIN %, SHARPE, SORTINO, EV R, drawdown and the trade count stayed frozen at whatever the row was built from. So the board relabelled itself WF without changing a single ratio, and run #306 read PF 1.98 here against PF 1.58 in its own report.','A CONFIGURATION ROW NOW READS THE SAVED BLOCK FOR THE TICKED STRETCH, the same one the 1E matrix reads - is_rng, wf_rng, lockbox, and the pre / full / wf_lb combinations, each carrying its own profit factor, win rate, Sharpe, Sortino, trade count and drawdown, written by the engine from that stretch real trades. Gate, tilt and hybrid candidates re-slice on every combination. RAW candidates save only the three single stretches, so those re-slice on a single tick and keep their whole-window figure otherwise.','AND ITS YEARS ARE THE TICKED STRETCH TOO - anything divided by years (PER YEAR, MAR, R / YR) was dividing a walk-forward slice by the whole run length.','R / YR IS ON THE BOARD: a column beside EV R, and an option on both scatter axes. EV R multiplied by trades per year over the ticked stretch - the cross-strategy rank read, leverage-blind like EV R but rewarding a strategy for trading often enough to compound its edge.','Reviewed before shipping, and the review stopped it: RAW rows would have blanked their whole ratio block on the default view, the trade count would have quietly borrowed the run whole-run number, the stretch marks were read from a path that does not exist so the years fix never ran, and R / YR up the side rendered as dollars. All four fixed before the push.']},
 {v:'73.472',date:'2026-09-01',notes:['NEW 1E MEASURES: ROC % and DD % - net profit and worst drawdown as a percentage of a FIXED account you set with the ACCT chip (25k to 1M). They are the only readings on the board that recycling can move: every ratio beside them divides money by something that scales with position size, so the leverage cancels and a recycled hybrid reads exactly like its parent. Available on the scatter, both parallel views and the ALL table.','ROC % ranks in the same order as NET $ by construction - it is a constant divided into it. It is there to make a sizing decision concrete against a real account, and it sits beside DD % on purpose: recycling multiplies the drawdown by exactly the factor it multiplies the profit by.']},
@@ -24499,7 +24500,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const legTodayRealized=todayTradesArr.reduce((s,t)=>s+(Number(t.pnl)||0),0);
           const legUnreal=p?(Number(p.unrealized)||0):0;
           const cumSeries=(QE.cum_pnl&&QE.cum_pnl[key])||[];
-          const sparkData=cumSeries.map(pt=>pt[1]);
+          const sparkData=cumSeries.map(pt=>Number((pt&&pt.cum_pnl!==undefined)?pt.cum_pnl:((pt||[])[1]))||0);
           legCardsHtml+='<div style="flex:1 1 260px;min-width:230px;background:var(--bg2);border-radius:10px;padding:12px 14px;border-left:3px solid '+color+'">'
             +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
             +'<div style="font-size:13px;font-weight:700;color:'+color+'">'+label+'</div>'
@@ -24511,7 +24512,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div><div style="color:var(--text5)">TODAY</div><div style="color:'+pnlCol(legTodayRealized)+';font-weight:700">'+qeMoney(legTodayRealized)+'</div></div>'
             +'<div><div style="color:var(--text5)">SINCE START</div><div style="color:'+pnlCol(legClosedSum)+';font-weight:700">'+qeMoney(legClosedSum)+'</div></div>'
             +'</div>'
-            +'<div style="margin-top:8px">'+(sparkData.length>=2?sparkline(sparkData,color,220,32,false):'<div style="font-size:var(--fsxs);color:var(--text5);padding:6px 0">no closed trades yet</div>')+'</div>'
+            +'<div style="margin-top:8px">'+(sparkData.length>=2?sparkline(sparkData,color,220,32,false):sparkData.length===1?'<div style="font-size:var(--fsxs);color:var(--text4);padding:6px 0">one closed trade — the curve needs a second day</div>':'<div style="font-size:var(--fsxs);color:var(--text5);padding:6px 0">no closed trades yet</div>')+'</div>'
             +'</div>';
         });
         legCardsHtml+='</div>';
@@ -24519,6 +24520,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let equityHtml;
         {
           const cum=QE.cum_pnl||{};
+          const cD=p=>(p&&p.date!==undefined)?p.date:((p||[])[0]);
+          const cV=p=>Number((p&&p.cum_pnl!==undefined)?p.cum_pnl:((p||[])[1]))||0;
           const totalSeries=cum.total||[];
           if(!totalSeries.length){
             equityHtml=tile('<div class="lbl" style="margin-bottom:6px">EQUITY CURVE — cumulative shadow P&amp;L</div>'
@@ -24528,27 +24531,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const W=760,H=240,padL=54,padR=14,padT=10,padB=22;
             const plotW=W-padL-padR,plotH=H-padT-padB;
             let ymin=0,ymax=0;
-            ['ORB','ENGUQ','NOISE','total'].forEach(k=>{(cum[k]||[]).forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});});
+            ['ORB','ENGUQ','NOISE','total'].forEach(k=>{(cum[k]||[]).forEach(p=>{ymin=Math.min(ymin,cV(p));ymax=Math.max(ymax,cV(p));});});
             if(ymin===ymax){ymin-=10;ymax+=10;}
-            const allDates=totalSeries.map(p=>p[0]);
-            const x=i=>padL+(allDates.length<=1?0:(i/(allDates.length-1))*plotW);
+            const allDates=totalSeries.map(cD);
+            // a one-day-old book has a single point: centre it rather than pinning it
+            // to the y-axis, and draw it as a dot (a 1-point polyline renders nothing).
+            const x=i=>padL+(allDates.length<=1?plotW/2:(i/(allDates.length-1))*plotW);
             const y=v=>padT+plotH-((v-ymin)/(ymax-ymin))*plotH;
             let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:'+W+'px">';
             svg+='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="var(--border)" stroke-dasharray="3,3"/>';
             [ymin,0,ymax].forEach(v=>{svg+='<text x="4" y="'+(y(v)+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+qeMoney(v)+'</text>';});
             const drawSeries=(key,color,w)=>{
               const series=cum[key]||[];if(!series.length)return;
-              const dMap={};series.forEach(p=>{dMap[p[0]]=p[1];});
+              const dMap={};series.forEach(p=>{dMap[cD(p)]=cV(p);});
               let last=0,pts=[];
               allDates.forEach((d,i)=>{if(dMap[d]!==undefined)last=dMap[d];if(dMap[d]!==undefined||i===allDates.length-1)pts.push(x(i).toFixed(1)+','+y(last).toFixed(1));});
-              svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"/>';
+              if(pts.length===1){const xy=pts[0].split(',');svg+='<circle cx="'+xy[0]+'" cy="'+xy[1]+'" r="'+(w>2?3.4:2.6)+'" fill="'+color+'"/>';}
+              else svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"/>';
             };
             drawSeries('ORB','var(--blue)',1.4);
             drawSeries('ENGUQ','var(--purple)',1.4);
             drawSeries('NOISE','var(--green)',1.4);
             drawSeries('total','var(--text)',2.4);
-            svg+='<text x="'+padL+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)">'+allDates[0]+'</text>';
-            svg+='<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="end">'+allDates[allDates.length-1]+'</text>';
+            if(allDates.length<=1){svg+='<text x="'+x(0).toFixed(1)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="middle">'+naS(allDates[0])+'</text>';}
+            else{svg+='<text x="'+padL+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)">'+naS(allDates[0])+'</text>';
+            svg+='<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="end">'+naS(allDates[allDates.length-1])+'</text>';}
             svg+='</svg>';
             const legend='<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:var(--text)"></span><span style="font-size:var(--fsxs);color:var(--text3)">TOTAL</span></span>'
               +QE_LEGS.map(([k,label,color])=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+color+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>').join('');
