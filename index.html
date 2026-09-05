@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.502';
+const VERSION='73.503';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.503',date:'2026-09-05',notes:['QQQ SHADOW BOOK: three new checks for whether this book is safe to ever trade with real money. NT PARITY compares every shadow trade against the real NinjaTrader fill it is supposed to mirror - a loud red panel and a MATCHED count on the rail the moment even one trade misses tolerance, with the closed-trades table now showing the NinjaTrader points, the expected dollar figure, and the tracking error per trade, plus a quiet RECONSTRUCTED tag on back-filled rows.','FEED UPTIME marks any day the price feed was actually down - the month calendar hatches that day in grey with a warning dot and the reason in its tooltip, and a new ten-day strip under the calendar colours each day green, amber, or red by uptime percent, because a day the feed was dead proves nothing either way.','RATIO HEALTH opens from the calibration text in the header (it turns red with a warning triangle the moment the ratio drifts) into a small panel: current ratio, its age, a sparkline against its normal band, and the drift in plain English - every shadow price is an NQ price divided by this one number, so a stale ratio quietly mis-sizes every fill.','All three degrade cleanly on a doc published before this shipped: dashes instead of blanks, never "undefined" or "NaN".','FIXED: the WORST figure on the rail was hardcoded red even on a book with no losing trade yet; BEST and WORST now colour by their actual sign.','FIXED: the WEBULL PAPER ACCOUNT button linked to an always-empty $100,000 paper account the owner had already opened twice expecting real numbers. It is now a plain sentence: not used, nothing is ever sent there, this book is the paper record.']},
 {v:'73.502',date:'2026-09-05',notes:['A RUN ROW NOW READS ITS REAL LOCKBOX. Ticking LB moved a run MONEY but left PF, WIN %, SHARPE, SORTINO and the trade count at whole-run values - so EV R and R / YR came out as lockbox dollars divided by the WHOLE RUN trades and average loss. A hybrid of two stretches printed as one number, and it was the number being used to decide what to trade. Run #304 read PF 1.43 / SORTINO 2.95 / 4,833 trades on every stage; its saved lockbox block says PF 1.45 / SORTINO 3.20 / 409 trades.','IS and WF are left alone deliberately: a run saves no equivalent block for either (validate.is_* is the Stage-A 75% split, a different stretch, and walk-forward saves only its net), so they keep reading whole-run rather than being guessed at. The CONFIGS view has had real per-stage blocks since 73.474.','DD (R) confirmed on both scatter axes, and its caption reads further LEFT is better - the first measure on this board where lower wins.']},
 {v:'73.500',date:'2026-09-05',notes:['THE ENGU-Q CROWN MOVES TO RUN #309, AND IT IS ON THE PAPER BOARD FROM TODAY (owner: "crown #309 and swap the paper leg to it"). Both boards carry a new ENGU-Q-309 RAW row wearing the crown. Measured on one CONTINUOUS run sliced by entry time, so the held-out year is what it would really have traded rather than a fresh-start reload: the selection window is 1,505 trades at profit factor 1.66, EV R 0.44, R / YR 43.9; the held-out year is 99 trades at profit factor 1.62, EV R 0.41, R / YR 40.4. Against the crown it replaces it wins expectancy per trade both before and inside the held-out year (0.44 against 0.23, then 0.41 against 0.36), and only 53% of its profit sits in its ten best trades against 80% for the old one. It loses on exactly one read, and the row says so: it trades about half as often, so its held-out R / YR is 40 against 68. The #265 pair stays on the board on purpose - it is the outgoing control and it carries a pre-registered claim that is still running.','THE OLD CROWN SAYS WHAT IT IS. The archived #226 row read "retired 08-21" and still carried the crown, with a tooltip explaining that the champion of this family was not being paper traded at all. It reads EX-CROWN - RETIRED 08-21 now, and that sentence is gone because it is no longer true.','NOISE WAS DESCRIBED AS A NO-EDGE CONTROL STRATEGY (owner: "i dont see noise in the results noise family tree"). The family table still carried the ORIGINAL meaning of the word in this project - a deliberate no-edge yardstick for false positives - years after NOISE became a real, crowned, paper-traded family. Every NOISE row in the Library read that way. It now reads Noise-Band Momentum: a session band scaled by recent realized noise, a close outside it enters, a VWAP cross exits.','AND SIX FAMILIES WERE MISSING FROM THE FAMILY LIST ENTIRELY. It stopped being maintained in mid-July, so NOISE, TTM Squeeze, TTIBS, RSI-divergence, the Nasdaq dip book and the EMA pullback had no entry at all and fell back to whatever the older table said - which for NOISE was wrong and for TTM Squeeze was nothing, leaving twenty-one runs with no number, no colour and no name. All six have their own line now, at the same granularity ENGU-Q already had. Two more collisions fixed while in there: NOISE and the dip book both claimed family number 12, and TTM Squeeze mapped to a family key that did not exist.']},
 {v:'73.499',date:'2026-09-05',notes:['QQQ SHADOW BOOK: the top of the tab now reads like the TRADING LOG overview - a left sidebar of ratios (win rate, profit factor, expectancy, payoff), performance and risk figures, a month calendar coloured by that days shadow P and L, and the cumulative P and L chart sitting beside it, instead of the old flat KPI strip.','No monthly or symbol filter pills on this overview, on the owner ask - the sidebar already carries the ratios the pills would have repeated.','The calendar has its own month state (separate from the PAPER tabs calendar) and defaults to the month of the newest closed trade so an empty current month never reads as no data.','Stats are computed locally over the shadow books own closed trades, not the broker journal helpers, so they cannot be silently mis-scoped.','Everything else on the tab is unchanged - hero status pills, per-leg cards, todays orders, closed trades, RAILS panel, and the collapsed MODEL section, just repositioned under the new overview.']},
@@ -24596,6 +24597,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const legColorQE=k=>({ORB:'var(--blue)',ENGUQ:'var(--purple)',NOISE:'var(--green)'}[k]||'var(--text3)');
       const qePill=(txt,col,filled)=>'<span style="font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid '+col+';color:'+(filled?'var(--bg)':col)+(filled?';background:'+col:'')+'">'+txt+'</span>';
 
+      // ── NT PARITY / FEED UPTIME / RATIO HEALTH — 2026-09-05 additions. Every field below
+      // may be ABSENT (older doc, or before the backend ships these) so every read degrades
+      // to an honest "—"/n-a state rather than "undefined"/"NaN".
+      const QPAR=QE&&QE.parity?QE.parity:null;
+      const QFEED=(QE&&Array.isArray(QE.feed_days))?QE.feed_days:null;
+      const QRHIST=(QE&&Array.isArray(QE.ratio_hist))?QE.ratio_hist:null;
+      const QRHEALTH=QE&&QE.ratio_health?QE.ratio_health:null;
+      const feedByDate={};
+      if(QFEED)QFEED.forEach(f=>{if(f&&f.date)feedByDate[f.date]=f;});
+      const ratioOpen=APREF.qqqRatioOpen==null?0:+APREF.qqqRatioOpen; // collapsed by default
+
       const heroTile=tile(
         '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">'
         +'<div style="min-width:260px;max-width:560px">'
@@ -24612,13 +24624,66 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'</div>'
         +'<div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:var(--fsxs);color:var(--text4)">'
         +'<span>last tick: '+(QE?qeFmtETTime(QE.updated_at)+' ET':'—')+'</span>'
-        +'<span>calibration: '+(QE&&QE.calib?qeNum(QE.calib.ratio,3)+' ('+naS(QE.calib.source)+')':'—')+'</span>'
+        +'<span data-qqqratiotoggle title="click to open the ratio-health panel" style="cursor:pointer;border-bottom:1px dashed '+(QRHEALTH&&QRHEALTH.warn?'var(--red)':'var(--text5)')+';color:'+(QRHEALTH&&QRHEALTH.warn?'var(--red)':'var(--text4)')+'">calibration: '+(QE&&QE.calib?qeNum(QE.calib.ratio,3)+' ('+naS(QE.calib.source)+')':'—')+(QRHEALTH&&QRHEALTH.warn?' ⚠':'')+'</span>'
         +'<span style="flex:1"></span>'
         +'<button class="btn-ghost" data-qqqrefresh style="border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:var(--fsxs)">'+(qeLoading?'LOADING…':'⟳ REFRESH')+'</button>'
-        +'<a href="https://app.webull.com/paper" target="_blank" rel="noopener" class="btn-ghost" style="border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:var(--fsxs);font-weight:700;color:var(--blue);text-decoration:none;white-space:nowrap">WEBULL PAPER ACCOUNT ↗</a>'
         +'</div>'
-        +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text5)">not connected — Webull has no paper API; this shadow book is the paper record</div>'
+        +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text5)">WEBULL PAPER — not used. Webull has no paper API, so nothing is ever sent there. This book is the paper record.</div>'
         ,10);
+
+      // ── RATIO HEALTH panel — every shadow price is an NQ price divided by the calibration
+      // ratio, so a stale/drifting ratio quietly mis-sizes every fill. Collapsed by default,
+      // opened via the hero "calibration:" text (data-qqqratiotoggle). Degrades cleanly when
+      // ratio_hist/ratio_health are absent (pre-backend doc).
+      let ratioBody;
+      if(!QRHEALTH&&!QRHIST){
+        ratioBody=tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">ratio history not published yet</div>');
+      }else{
+        const rNum=(v,d)=>(v===null||v===undefined||isNaN(v))?'—':Number(v).toFixed(d===undefined?3:d);
+        let sparkSvg='';
+        if(QRHIST&&QRHIST.length>=2){
+          const W=520,H=90,padL=6,padR=6,padT=8,padB=8;
+          const plotW=W-padL-padR,plotH=H-padT-padB;
+          const vals=QRHIST.map(p=>Number(p.ratio)).filter(v=>!isNaN(v));
+          let lo=QRHEALTH?Number(QRHEALTH.band_lo):null, hi=QRHEALTH?Number(QRHEALTH.band_hi):null;
+          let ymin=Math.min(...vals,isNaN(lo)?Infinity:lo), ymax=Math.max(...vals,isNaN(hi)?-Infinity:hi);
+          if(ymin===ymax){ymin-=0.5;ymax+=0.5;}
+          const pad=(ymax-ymin)*0.1||0.1; ymin-=pad; ymax+=pad;
+          const x=i=>padL+(vals.length<=1?0:(i/(vals.length-1))*plotW);
+          const y=v=>padT+plotH-((v-ymin)/(ymax-ymin))*plotH;
+          let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:'+W+'px">';
+          if(lo!=null&&hi!=null&&!isNaN(lo)&&!isNaN(hi)){
+            svg+='<rect x="'+padL+'" y="'+y(hi).toFixed(1)+'" width="'+plotW+'" height="'+(y(lo)-y(hi)).toFixed(1)+'" fill="var(--green)" opacity="0.10"/>';
+            svg+='<line x1="'+padL+'" y1="'+y(hi).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(hi).toFixed(1)+'" stroke="var(--green)" stroke-dasharray="3,3" opacity="0.5"/>';
+            svg+='<line x1="'+padL+'" y1="'+y(lo).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(lo).toFixed(1)+'" stroke="var(--green)" stroke-dasharray="3,3" opacity="0.5"/>';
+          }
+          const pts=vals.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ');
+          const lineCol=(QRHEALTH&&QRHEALTH.warn)?'var(--red)':'var(--blue)';
+          svg+='<polyline points="'+pts+'" fill="none" stroke="'+lineCol+'" stroke-width="1.8"/>';
+          const lastXY=pts.split(' ').slice(-1)[0].split(',');
+          svg+='<circle cx="'+lastXY[0]+'" cy="'+lastXY[1]+'" r="3" fill="'+lineCol+'"/>';
+          svg+='</svg>';
+          sparkSvg=svg;
+        }else{
+          sparkSvg='<div style="color:var(--text5);font-size:var(--fsxs);padding:10px 0">not enough ratio history for a sparkline yet</div>';
+        }
+        const warnBox=QRHEALTH&&QRHEALTH.warn
+          ?('<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--red) 12%,transparent);border:1px solid var(--red);color:var(--red);font-size:var(--fsxs);line-height:1.5">'+String((QRHEALTH.note)||'the ratio has drifted outside its normal band.').replace(/</g,'&lt;')+'</div>')
+          :(QRHEALTH?('<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text4)">ratio is inside its normal band.</div>'):'');
+        ratioBody=tile('<div class="lbl" style="margin-bottom:8px">RATIO HEALTH — NQ ÷ this number = the shadow QQQ price</div>'
+          +'<div style="display:flex;gap:22px;flex-wrap:wrap;font-size:var(--fsxs)">'
+          +'<div><div style="color:var(--text5)">CURRENT</div><div style="font-size:15px;font-weight:700;color:'+(QRHEALTH&&QRHEALTH.warn?'var(--red)':'var(--text)')+'">'+(QRHEALTH?rNum(QRHEALTH.current):'—')+'</div></div>'
+          +'<div><div style="color:var(--text5)">AGE</div><div>'+(QRHEALTH&&QRHEALTH.age_min!=null?QRHEALTH.age_min+' min':'—')+'</div></div>'
+          +'<div><div style="color:var(--text5)">20-TICK MEAN</div><div>'+(QRHEALTH?rNum(QRHEALTH.mean_20):'—')+'</div></div>'
+          +'<div><div style="color:var(--text5)">DRIFT</div><div style="color:'+(QRHEALTH&&QRHEALTH.warn?'var(--red)':'var(--text3)')+'">'+(QRHEALTH&&QRHEALTH.drift_pct!=null?(QRHEALTH.drift_pct>0?'+':'')+rNum(QRHEALTH.drift_pct,2)+'%':'—')+'</div></div>'
+          +'<div><div style="color:var(--text5)">SOURCE</div><div>'+(QRHEALTH?naS(QRHEALTH.source):(QE&&QE.calib?naS(QE.calib.source):'—'))+'</div></div>'
+          +'</div>'
+          +'<div style="margin-top:10px">'+sparkSvg+'</div>'
+          +warnBox);
+      }
+      const ratioSection='<div style="margin-top:10px">'
+        +(ratioOpen?ratioBody:'')
+        +'</div>';
 
       // ── MODEL section (collapsed by default, remembers open/closed in localStorage) —
       // built up-front so it is available regardless of whether QE (the shadow book)
@@ -24793,9 +24858,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'</div>';
 
       if(qeErr){
-        body=heroTile+tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qeErr).replace(/</g,'&lt;')+'</div>')+modelSection;
+        body=heroTile+ratioSection+tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qeErr).replace(/</g,'&lt;')+'</div>')+modelSection;
       }else if(!QE){
-        body=heroTile+tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:20px;min-height:140px;display:flex;align-items:center;justify-content:center">'+(qeLoading?'loading…':'no qqq_exec doc yet — the runner publishes users/{uid}/meta/qqq_exec once its own thread ticks (every ~5s, 09:25-16:05 ET Mon-Fri)')+'</div>')+modelSection;
+        body=heroTile+ratioSection+tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:20px;min-height:140px;display:flex;align-items:center;justify-content:center">'+(qeLoading?'loading…':'no qqq_exec doc yet — the runner publishes users/{uid}/meta/qqq_exec once its own thread ticks (every ~5s, 09:25-16:05 ET Mon-Fri)')+'</div>')+modelSection;
       }else{
         const positions=QE.positions||{};
         const trades=QE.trades_all||[];  // newest-first, per api/qqq_exec.py _build_doc
@@ -24849,6 +24914,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // this book usually holds only a couple of closed trades, so "—" is the normal case.
         const railBar=(pct,col)=>'<div class="rail-bar"><div style="width:'+Math.max(0,Math.min(100,pct))+'%;background:'+col+'"></div></div>';
         const railRow=(label,val,col)=>'<div class="rail-row"><span style="color:var(--text4)">'+label+'</span><span style="font-family:\'Bebas Neue\',monospace;color:'+(col||'var(--text)')+'">'+val+'</span></div>';
+
+        // NT PARITY rail figure — prefer the published QE.parity summary; fall back to
+        // counting parity_ok across trades_all when only per-trade flags are present.
+        let parMatched=null,parTotal=null;
+        if(QPAR){parMatched=Number(QPAR.ok);parTotal=Number(QPAR.checked);}
+        else{
+          const withParity=trades.filter(t=>t.parity_ok!==undefined&&t.parity_ok!==null);
+          if(withParity.length){parTotal=withParity.length;parMatched=withParity.filter(t=>t.parity_ok).length;}
+        }
+        const parFailed=(parTotal!=null&&parMatched!=null)?(parTotal-parMatched):0;
+
+        // FEED UPTIME rail figure — mean uptime over the last 10 published feed_days.
+        let feedMean=null,feedN=0;
+        if(QFEED&&QFEED.length){
+          const last10=QFEED.slice(-10);
+          feedN=last10.length;
+          feedMean=last10.reduce((s,f)=>s+(Number(f.uptime_pct)||0),0)/feedN;
+        }
         const railHtml='<aside class="ov-rail">'
           +'<div class="rail-grp" style="margin-top:0">NET P&amp;L · since '+naS(QE.live_from)+'</div>'
           +'<div class="rail-net" style="color:'+pnlCol(sinceStartPnl)+'">'+qeMoney(sinceStartPnl)+'</div>'
@@ -24868,8 +24951,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +railRow('AVG $/TRADE',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
           +railRow('AVG WIN',QST.wins?'+'+qeMoney(QST.avgW):'—','var(--green)')
           +railRow('AVG LOSS',QST.losses?qeMoney(-QST.avgL):'—','var(--red)')
-          +railRow('BEST',QST.n?qeMoney(QST.best):'—','var(--green)')
-          +railRow('WORST',QST.n?qeMoney(QST.worst):'—','var(--red)')
+          +railRow('BEST',QST.n?qeMoney(QST.best):'—',QST.n?pnlCol(QST.best):null)
+          +railRow('WORST',QST.n?qeMoney(QST.worst):'—',QST.n?pnlCol(QST.worst):null)
           +railRow('CURRENT STREAK',QST.n?((QST.sdir>0?'+':'-')+QST.streak+(QST.sdir>0?'W':'L')):'—',QST.n?(QST.sdir>0?'var(--green)':'var(--red)'):null)
 
           +'<div class="rail-grp">RISK</div>'
@@ -24877,6 +24960,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +railRow('RECOVERY FACTOR',(QST.n&&QST.maxDD>0)?QST.recovery.toFixed(2)+'×':'—',(QST.n&&QST.maxDD>0)?(QST.recovery>=1?'var(--green)':'var(--red)'):null)
           +railRow('OPEN EXPOSURE',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):null)
           +railRow('DAILY LOSS LIMIT',rails.daily_loss_limit_usd!=null?qeMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'—')
+
+          +'<div class="rail-grp">PARITY</div>'
+          +railRow('MATCHED',(parTotal!=null)?(parMatched+' / '+parTotal):'—',(parTotal!=null)?(parFailed>0?'var(--red)':'var(--green)'):null)
+          +(parTotal!=null?railBar(parTotal?parMatched/parTotal*100:0,parFailed>0?'var(--red)':'var(--green)'):'')
+          +railRow('WORST TRACK ERR',QPAR&&QPAR.worst_err_usd!=null?qeMoney(QPAR.worst_err_usd):'—',QPAR&&QPAR.worst_err_usd?(QPAR.failed>0?'var(--red)':'var(--text3)'):null)
+
+          +'<div class="rail-grp">FEED UPTIME</div>'
+          +railRow('LAST '+(feedN||10)+' DAYS, MEAN',feedMean!=null?feedMean.toFixed(1)+'%':'—',feedMean!=null?(feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):null)
+          +(feedMean!=null?railBar(feedMean,feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):'')
           +'</aside>';
 
         // ── MONTH CALENDAR — same reading as the TRADING LOG/PAPER calendars: one day per
@@ -24912,23 +25004,43 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const ds=moPfx+'-'+String(day).padStart(2,'0');
             const c=byDate[ds];
             const isToday=ds===today;
+            const fd=feedByDate[ds];
+            const feedBad=!!(fd&&fd.valid===false);
             const dc=(c&&c.pnl>=0)?'var(--green)':'var(--red)';
-            const bg=c?('color-mix(in srgb,'+dc+' 18%,transparent)'):'transparent';
-            const bd=isToday?'1px solid var(--yellow)':c?('1px solid color-mix(in srgb,'+dc+' 55%,transparent)'):'1px solid transparent';
-            const tip=c?(ds+' · '+qeMoney(c.pnl)+' · '+c.n+' trade'+(c.n>1?'s':'')):(ds+' · no shadow trades');
-            cells+='<div'+(c?' data-qcalday="'+ds+'"':'')+' title="'+tip+'" style="text-align:center;padding:4px 2px;background:'+bg+';border:'+bd+';border-radius:5px;min-height:42px;display:flex;flex-direction:column;justify-content:center;'+(c?'cursor:pointer':'')+'">'
+            const bg=feedBad?'repeating-linear-gradient(135deg,color-mix(in srgb,var(--yellow) 14%,transparent),color-mix(in srgb,var(--yellow) 14%,transparent) 3px,transparent 3px,transparent 7px)':(c?('color-mix(in srgb,'+dc+' 18%,transparent)'):'transparent');
+            const bd=isToday?'1px solid var(--yellow)':feedBad?'1px solid var(--yellow)':c?('1px solid color-mix(in srgb,'+dc+' 55%,transparent)'):'1px solid transparent';
+            let tip=c?(ds+' · '+qeMoney(c.pnl)+' · '+c.n+' trade'+(c.n>1?'s':'')):(ds+' · no shadow trades');
+            if(feedBad)tip+=' · FEED INVALID'+(fd.note?(': '+fd.note):'');
+            cells+='<div'+(c?' data-qcalday="'+ds+'"':'')+' title="'+String(tip).replace(/"/g,'&quot;')+'" style="position:relative;text-align:center;padding:4px 2px;background:'+bg+';border:'+bd+';border-radius:5px;min-height:42px;display:flex;flex-direction:column;justify-content:center;opacity:'+(feedBad?'0.65':'1')+';'+(c?'cursor:pointer':'')+'">'
+              +(feedBad?'<span style="position:absolute;top:2px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--yellow)"></span>':'')
               +'<div style="font-family:\'Bebas Neue\',monospace;font-size:12px;color:'+(isToday?'var(--yellow)':c?dc:'var(--text5)')+'">'+day+'</div>'
               +(c?'<div style="font-size:10px;margin-top:1px;color:'+dc+'">'+qeMoney(Math.round(c.pnl))+'</div>':'')
               +'</div>';
           }
           const nav=(dir,lbl,dis)=>'<span'+(dis?'':' data-qcalmo="'+dir+'"')+' style="'+(dis?'opacity:.25;':'cursor:pointer;')+'font-size:10px;padding:2px 8px;border-radius:5px;border:1px solid var(--border);color:var(--text3)">'+lbl+'</span>';
+          // FEED UPTIME strip — last 10 published feed_days, oldest to newest.
+          let feedStripHtml='';
+          if(QFEED&&QFEED.length){
+            const last10=QFEED.slice(-10);
+            const barCol=up=>up>=99?'var(--green)':up>=95?'var(--yellow)':'var(--red)';
+            const bars=last10.map(f=>{
+              const up=Number(f.uptime_pct)||0;
+              const col=barCol(up);
+              const h=Math.max(3,Math.round(up/100*22));
+              const tip=f.date+' — '+up.toFixed(0)+'% uptime, '+(f.stale_min||0)+' min stale'+(f.note?(' — '+f.note):'');
+              return '<div title="'+String(tip).replace(/"/g,'&quot;')+'" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:22px;flex:1"><div style="width:100%;max-width:14px;height:'+h+'px;background:'+col+';border-radius:2px 2px 0 0"></div></div>';
+            }).join('');
+            feedStripHtml='<div style="margin-top:10px"><div style="font-size:9px;letter-spacing:.05em;color:var(--text5);margin-bottom:4px">FEED UPTIME — LAST '+last10.length+' TRADING DAYS</div>'
+              +'<div style="display:flex;gap:3px;align-items:flex-end">'+bars+'</div></div>';
+          }
           return tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'
             +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
             +nav('-1','◀',atFirst)+nav('1','▶',atLast)
             +'<span style="margin-left:auto;font-size:10px;color:'+(moPnl>=0?'var(--green)':'var(--red)')+'">'+qeMoney(Math.round(moPnl))
             +'<span style="color:var(--text5)"> · '+moN+' trade'+(moN===1?'':'s')+(moN?' · '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
             +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">'+cells+'</div>'
-            +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed shadow trades yet</div>':''),10);
+            +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed shadow trades yet</div>':'')
+            +feedStripHtml,10);
         })();
 
         let legCardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
@@ -25052,25 +25164,58 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(/EOD/i.test(r))return ' '+qePill('EOD','var(--text4)');
               return '';
             };
+            // NT parity is per-trade and optional -- absent on any given row (or the whole
+            // doc) reads as "—", never "undefined"/"NaN".
+            const parityChip=t=>{
+              if(!t.parity_note)return '';
+              const note=String(t.parity_note);
+              if(/^reconstructed$/i.test(note.trim()))return ' '+qePill('RECONSTRUCTED','var(--text4)');
+              return ' <span title="'+note.replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('PARITY NOTE','var(--red)')+'</span>';
+            };
             const rows=visible.map((t,i)=>{
               const pnl=Number(t.pnl)||0;
+              const hasParity=t.parity_ok!==undefined&&t.parity_ok!==null;
+              const parCol=hasParity?(t.parity_ok?pnlCol(pnl):'var(--red)'):'var(--text5)';
               return '<tr>'
                 +'<td>'+qeFmtET(t.entry_ts)+'</td><td>'+qeFmtET(t.exit_ts)+'</td>'
-                +'<td style="color:'+legColorQE(t.leg)+'">'+naS(t.leg)+'</td>'
+                +'<td style="color:'+legColorQE(t.leg)+'">'+naS(t.leg)+parityChip(t)+'</td>'
                 +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
                 +'<td style="text-align:right">'+qeInt(t.shares)+'</td>'
                 +'<td style="text-align:right">'+qeMoney(t.entry_px)+'</td>'
                 +'<td style="text-align:right">'+qeMoney(t.exit_px)+'</td>'
                 +'<td style="text-align:right;color:'+pnlCol(pnl)+'">'+qeMoney(pnl)+'</td>'
                 +'<td style="text-align:right;color:var(--text3)">'+qeMoney(runningFor(i))+'</td>'
+                +'<td style="text-align:right;color:var(--text3)">'+(t.nt_points!=null?qeNum(t.nt_points,2):'—')+'</td>'
+                +'<td style="text-align:right;color:var(--text3)">'+(t.expected_usd!=null?qeMoney(t.expected_usd):'—')+'</td>'
+                +'<td style="text-align:right;color:'+parCol+'">'+(t.track_err_usd!=null?qeMoney(t.track_err_usd):'—')+'</td>'
                 +'<td>'+naS(t.exit_reason)+tagFor(t.exit_reason)+'</td>'
                 +'</tr>';
             }).join('');
             const showMoreBtn=shown<closedN?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(closedN-shown)+' more)</button></div>'):'';
             tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">CLOSED TRADES ('+closedN+')</div>'
-              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th style="text-align:right">NT POINTS</th><th style="text-align:right">EXPECTED $</th><th style="text-align:right">TRACK ERR</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
               +showMoreBtn);
           }
+        }
+
+        // ── NT PARITY panel — is the shadow book actually mirroring NinjaTrader's real
+        // fills? Loud (red border, red numbers) the moment even one trade fails tolerance --
+        // that is the signal that going live with this book would be unsafe. Degrades to a
+        // quiet "not published yet" tile when the backend has not shipped parity data.
+        let parityPanelHtml;
+        if(parTotal==null){
+          parityPanelHtml=tile('<div class="lbl" style="margin-bottom:6px">NT PARITY</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px">NinjaTrader parity checks not published yet</div>');
+        }else{
+          const loud=parFailed>0;
+          parityPanelHtml='<div class="hero-card" style="background:'+(loud?'color-mix(in srgb,var(--red) 8%,var(--bg2))':'var(--bg2)')+';border:1px solid '+(loud?'var(--red)':'color-mix(in srgb,var(--border) 45%,transparent)')+';border-radius:13px;padding:13px 15px;margin-bottom:14px">'
+            +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            +'<div class="lbl" style="margin:0">NT PARITY — does this book mirror NinjaTrader'+"'"+'s real fills?</div>'
+            +(loud?qePill(parFailed+' MISMATCH'+(parFailed===1?'':'ES'),'var(--red)',true):qePill('ALL MATCHED','var(--green)',true))
+            +'</div>'
+            +'<div style="margin-top:8px;font-size:13px;font-weight:700;color:'+(loud?'var(--red)':'var(--green)')+'">'+parMatched+' of '+parTotal+' trades matched NinjaTrader within tolerance</div>'
+            +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text3)">worst tracking error: '+(QPAR&&QPAR.worst_err_usd!=null?qeMoney(QPAR.worst_err_usd):'—')+'</div>'
+            +(QPAR&&QPAR.note?('<div style="margin-top:6px;font-size:var(--fsxs);color:'+(loud?'var(--red)':'var(--text4)')+'">'+String(QPAR.note).replace(/</g,'&lt;')+'</div>'):'')
+            +'</div>';
         }
 
         const sess=rails.session||{};
@@ -25099,7 +25244,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div>'
           +'</div>';
 
-        body=heroTile+overviewHtml+'<div id="qe-trades-section"></div>'+ordersHtml+tradesHtml+railsHtml+modelSection;
+        body=heroTile+ratioSection+overviewHtml+parityPanelHtml+'<div id="qe-trades-section"></div>'+ordersHtml+tradesHtml+railsHtml+modelSection;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
@@ -28619,6 +28764,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     else if(augurSub==='qqqpaper'){
       const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqExec(null,true);loadQqqPaper(null,true);renderApp();};
       const mt=content.querySelector('[data-qqqmodeltoggle]');if(mt)mt.onclick=()=>{savePref('qqqModelOpen',(APREF.qqqModelOpen==null?0:+APREF.qqqModelOpen)?0:1);renderApp();};
+      const rt=content.querySelector('[data-qqqratiotoggle]');if(rt)rt.onclick=()=>{savePref('qqqRatioOpen',(APREF.qqqRatioOpen==null?0:+APREF.qqqRatioOpen)?0:1);renderApp();};
       const smore=content.querySelector('[data-qeshowmore]');if(smore)smore.onclick=()=>{window._qeTradesShown=(window._qeTradesShown||50)+50;renderApp();};
       // Overview calendar — its own month state (window._qqqCalMonth), independent of the
       // PAPER tab's window._paperCalMonth.

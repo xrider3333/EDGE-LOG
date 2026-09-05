@@ -59,17 +59,7 @@
    "pnl": "20.76",
    "nq_pnl_points": "8.3",
    "leg": "ORB",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-09-14 15:37:38",
-   "nt_exit_ts": "2026-09-14 15:41:20",
-   "nt_entry_px": 20501.93,
-   "nt_exit_px": 20416.81,
-   "nt_qty": 2,
-   "nt_points": 85.12,
-   "expected_usd": 20.62,
-   "track_err_usd": 0.14,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-09-11 12:42:24",
@@ -81,17 +71,7 @@
    "pnl": "14.55",
    "nq_pnl_points": "11.64",
    "leg": "NOISE",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-09-11 12:42:24",
-   "nt_exit_ts": "2026-09-11 13:43:47",
-   "nt_entry_px": 18379.81,
-   "nt_exit_px": 18260.5,
-   "nt_qty": 1,
-   "nt_points": 119.31,
-   "expected_usd": 14.27,
-   "track_err_usd": 0.28,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-09-10 14:54:07",
@@ -103,17 +83,7 @@
    "pnl": "-39.27",
    "nq_pnl_points": "-31.42",
    "leg": "ENGUQ",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-09-10 14:54:07",
-   "nt_exit_ts": "2026-09-10 15:46:57",
-   "nt_entry_px": 21068.46,
-   "nt_exit_px": 21390.47,
-   "nt_qty": 1,
-   "nt_points": -322.01,
-   "expected_usd": -39.15,
-   "track_err_usd": 0.12,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-09-09 13:43:46",
@@ -125,17 +95,7 @@
    "pnl": "74.42",
    "nq_pnl_points": "59.54",
    "leg": "ORB",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-09-09 13:43:46",
-   "nt_exit_ts": "2026-09-09 14:47:47",
-   "nt_entry_px": 19887.22,
-   "nt_exit_px": 19276.98,
-   "nt_qty": 1,
-   "nt_points": 610.24,
-   "expected_usd": 92.84,
-   "track_err_usd": 18.42,
-   "parity_ok": false,
-   "parity_note": "shadow fill 18.42 outside 2.00 tolerance -- NT order id 88213911 filled at a different price during a fast market"
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-09-07 12:22:46",
@@ -147,17 +107,7 @@
    "pnl": "13.13",
    "nq_pnl_points": "5.25",
    "leg": "NOISE",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-09-07 12:22:46",
-   "nt_exit_ts": "2026-09-07 13:50:20",
-   "nt_entry_px": 21135.67,
-   "nt_exit_px": 21189.5,
-   "nt_qty": 2,
-   "nt_points": 53.83,
-   "expected_usd": 13.16,
-   "track_err_usd": 0.03,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-09-03 11:41:32",
@@ -169,17 +119,7 @@
    "pnl": "63.0",
    "nq_pnl_points": "50.4",
    "leg": "ENGUQ",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-09-03 11:41:32",
-   "nt_exit_ts": "2026-09-03 12:25:43",
-   "nt_entry_px": 17770.73,
-   "nt_exit_px": 17254.13,
-   "nt_qty": 1,
-   "nt_points": 516.6,
-   "expected_usd": 62.89,
-   "track_err_usd": 0.11,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-09-03 15:55:14",
@@ -191,17 +131,7 @@
    "pnl": "27.89",
    "nq_pnl_points": "22.31",
    "leg": "ORB",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-09-03 15:55:14",
-   "nt_exit_ts": "2026-09-03 15:14:01",
-   "nt_entry_px": 20417.61,
-   "nt_exit_px": 20646.3,
-   "nt_qty": 1,
-   "nt_points": 228.69,
-   "expected_usd": 27.54,
-   "track_err_usd": 0.35,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-09-02 15:44:06",
@@ -213,17 +143,7 @@
    "pnl": "-19.67",
    "nq_pnl_points": "-7.87",
    "leg": "NOISE",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-09-02 15:44:06",
-   "nt_exit_ts": "2026-09-02 15:24:55",
-   "nt_entry_px": 20651.2,
-   "nt_exit_px": 20731.84,
-   "nt_qty": 2,
-   "nt_points": -80.64,
-   "expected_usd": -19.66,
-   "track_err_usd": 0.01,
-   "parity_ok": true,
-   "parity_note": "reconstructed"
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-09-02 12:01:11",
@@ -235,17 +155,7 @@
    "pnl": "-49.59",
    "nq_pnl_points": "-39.67",
    "leg": "ENGUQ",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-09-02 12:01:11",
-   "nt_exit_ts": "2026-09-02 13:47:59",
-   "nt_entry_px": 20653.86,
-   "nt_exit_px": 20247.22,
-   "nt_qty": 1,
-   "nt_points": -406.64,
-   "expected_usd": -49.96,
-   "track_err_usd": 0.37,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-08-31 15:02:57",
@@ -257,17 +167,7 @@
    "pnl": "74.98",
    "nq_pnl_points": "59.98",
    "leg": "ORB",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-08-31 15:02:57",
-   "nt_exit_ts": "2026-08-31 15:22:13",
-   "nt_entry_px": 16605.8,
-   "nt_exit_px": 15990.96,
-   "nt_qty": 1,
-   "nt_points": 614.84,
-   "expected_usd": 74.93,
-   "track_err_usd": 0.05,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-08-27 09:07:04",
@@ -279,17 +179,7 @@
    "pnl": "-28.52",
    "nq_pnl_points": "-22.82",
    "leg": "NOISE",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-08-27 09:07:04",
-   "nt_exit_ts": "2026-08-27 10:56:44",
-   "nt_entry_px": 20046.86,
-   "nt_exit_px": 20280.72,
-   "nt_qty": 1,
-   "nt_points": -233.86,
-   "expected_usd": -28.86,
-   "track_err_usd": 0.34,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-08-25 09:40:27",
@@ -301,17 +191,7 @@
    "pnl": "-51.54",
    "nq_pnl_points": "-20.62",
    "leg": "ENGUQ",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-08-25 09:40:27",
-   "nt_exit_ts": "2026-08-25 10:53:17",
-   "nt_entry_px": 18803.58,
-   "nt_exit_px": 19014.89,
-   "nt_qty": 2,
-   "nt_points": -211.31,
-   "expected_usd": -51.87,
-   "track_err_usd": 0.33,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-08-24 10:17:18",
@@ -323,17 +203,7 @@
    "pnl": "-45.83",
    "nq_pnl_points": "-36.66",
    "leg": "ORB",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-08-24 10:17:18",
-   "nt_exit_ts": "2026-08-24 11:38:13",
-   "nt_entry_px": 17701.17,
-   "nt_exit_px": 17325.37,
-   "nt_qty": 1,
-   "nt_points": -375.8,
-   "expected_usd": -45.89,
-   "track_err_usd": 0.06,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-08-20 11:18:10",
@@ -345,17 +215,7 @@
    "pnl": "-53.36",
    "nq_pnl_points": "-42.69",
    "leg": "NOISE",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-08-20 11:18:10",
-   "nt_exit_ts": "2026-08-20 12:28:53",
-   "nt_entry_px": 20991.64,
-   "nt_exit_px": 21429.19,
-   "nt_qty": 1,
-   "nt_points": -437.55,
-   "expected_usd": -53.1,
-   "track_err_usd": 0.26,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-08-17 14:41:19",
@@ -367,17 +227,7 @@
    "pnl": "34.68",
    "nq_pnl_points": "13.87",
    "leg": "ENGUQ",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-08-17 14:41:19",
-   "nt_exit_ts": "2026-08-17 15:29:20",
-   "nt_entry_px": 19923.66,
-   "nt_exit_px": 20065.85,
-   "nt_qty": 2,
-   "nt_points": 142.19,
-   "expected_usd": 34.38,
-   "track_err_usd": 0.3,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-08-14 12:42:37",
@@ -389,17 +239,7 @@
    "pnl": "-39.07",
    "nq_pnl_points": "-15.63",
    "leg": "ORB",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-08-14 12:42:37",
-   "nt_exit_ts": "2026-08-14 13:36:33",
-   "nt_entry_px": 17611.38,
-   "nt_exit_px": 17451.19,
-   "nt_qty": 2,
-   "nt_points": -160.19,
-   "expected_usd": -39.29,
-   "track_err_usd": 0.22,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-08-14 13:04:43",
@@ -411,17 +251,7 @@
    "pnl": "18.94",
    "nq_pnl_points": "15.15",
    "leg": "NOISE",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-08-14 13:04:43",
-   "nt_exit_ts": "2026-08-14 14:55:15",
-   "nt_entry_px": 21127.03,
-   "nt_exit_px": 21282.34,
-   "nt_qty": 1,
-   "nt_points": 155.31,
-   "expected_usd": 19.04,
-   "track_err_usd": 0.1,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-08-10 14:31:09",
@@ -433,17 +263,7 @@
    "pnl": "-35.57",
    "nq_pnl_points": "-14.23",
    "leg": "ENGUQ",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-08-10 14:31:09",
-   "nt_exit_ts": "2026-08-10 15:12:18",
-   "nt_entry_px": 21110.0,
-   "nt_exit_px": 21255.84,
-   "nt_qty": 2,
-   "nt_points": -145.84,
-   "expected_usd": -35.21,
-   "track_err_usd": 0.36,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-08-07 10:24:00",
@@ -455,17 +275,7 @@
    "pnl": "-54.63",
    "nq_pnl_points": "-43.7",
    "leg": "ORB",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-08-07 10:24:00",
-   "nt_exit_ts": "2026-08-07 11:24:16",
-   "nt_entry_px": 18768.28,
-   "nt_exit_px": 19216.25,
-   "nt_qty": 1,
-   "nt_points": -447.97,
-   "expected_usd": -54.57,
-   "track_err_usd": 0.06,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-08-07 09:59:48",
@@ -477,17 +287,7 @@
    "pnl": "6.11",
    "nq_pnl_points": "4.89",
    "leg": "NOISE",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-08-07 09:59:48",
-   "nt_exit_ts": "2026-08-07 10:54:15",
-   "nt_entry_px": 19608.55,
-   "nt_exit_px": 19658.66,
-   "nt_qty": 1,
-   "nt_points": 50.11,
-   "expected_usd": 6.03,
-   "track_err_usd": 0.08,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-08-06 10:17:29",
@@ -499,17 +299,7 @@
    "pnl": "15.51",
    "nq_pnl_points": "12.41",
    "leg": "ENGUQ",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-08-06 10:17:29",
-   "nt_exit_ts": "2026-08-06 11:15:55",
-   "nt_entry_px": 17342.62,
-   "nt_exit_px": 17469.8,
-   "nt_qty": 1,
-   "nt_points": 127.18,
-   "expected_usd": 15.89,
-   "track_err_usd": 0.38,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-08-04 15:46:03",
@@ -521,17 +311,7 @@
    "pnl": "35.83",
    "nq_pnl_points": "28.66",
    "leg": "ORB",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-08-04 15:46:03",
-   "nt_exit_ts": "2026-08-04 15:43:41",
-   "nt_entry_px": 19642.19,
-   "nt_exit_px": 19936.0,
-   "nt_qty": 1,
-   "nt_points": 293.81,
-   "expected_usd": 35.47,
-   "track_err_usd": 0.36,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-08-03 13:30:15",
@@ -543,17 +323,7 @@
    "pnl": "-53.53",
    "nq_pnl_points": "-42.82",
    "leg": "NOISE",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-08-03 13:30:15",
-   "nt_exit_ts": "2026-08-03 14:50:30",
-   "nt_entry_px": 19053.03,
-   "nt_exit_px": 19491.98,
-   "nt_qty": 1,
-   "nt_points": -438.95,
-   "expected_usd": -53.24,
-   "track_err_usd": 0.29,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-07-31 09:55:21",
@@ -565,17 +335,7 @@
    "pnl": "-17.59",
    "nq_pnl_points": "-14.07",
    "leg": "ENGUQ",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-07-31 09:55:21",
-   "nt_exit_ts": "2026-07-31 10:04:32",
-   "nt_entry_px": 16749.29,
-   "nt_exit_px": 16605.05,
-   "nt_qty": 1,
-   "nt_points": -144.24,
-   "expected_usd": -17.76,
-   "track_err_usd": 0.17,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-07-30 09:15:14",
@@ -587,17 +347,7 @@
    "pnl": "43.82",
    "nq_pnl_points": "17.53",
    "leg": "ORB",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-07-30 09:15:14",
-   "nt_exit_ts": "2026-07-30 10:04:21",
-   "nt_entry_px": 19597.4,
-   "nt_exit_px": 19417.74,
-   "nt_qty": 2,
-   "nt_points": 179.66,
-   "expected_usd": 43.54,
-   "track_err_usd": 0.28,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-07-29 10:59:34",
@@ -609,17 +359,7 @@
    "pnl": "50.49",
    "nq_pnl_points": "20.2",
    "leg": "NOISE",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-07-29 10:59:34",
-   "nt_exit_ts": "2026-07-29 11:48:46",
-   "nt_entry_px": 17212.42,
-   "nt_exit_px": 17005.41,
-   "nt_qty": 2,
-   "nt_points": 207.01,
-   "expected_usd": 50.18,
-   "track_err_usd": 0.31,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-07-28 09:46:31",
@@ -631,17 +371,7 @@
    "pnl": "-57.08",
    "nq_pnl_points": "-45.66",
    "leg": "ENGUQ",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-07-28 09:46:31",
-   "nt_exit_ts": "2026-07-28 10:52:04",
-   "nt_entry_px": 16684.99,
-   "nt_exit_px": 17153.05,
-   "nt_qty": 1,
-   "nt_points": -468.06,
-   "expected_usd": -57.23,
-   "track_err_usd": 0.15,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-07-24 13:58:00",
@@ -653,17 +383,7 @@
    "pnl": "76.51",
    "nq_pnl_points": "61.21",
    "leg": "ORB",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-07-24 13:58:00",
-   "nt_exit_ts": "2026-07-24 14:38:20",
-   "nt_entry_px": 18239.66,
-   "nt_exit_px": 18867.04,
-   "nt_qty": 1,
-   "nt_points": 627.38,
-   "expected_usd": 76.76,
-   "track_err_usd": 0.25,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-07-22 09:46:56",
@@ -675,17 +395,7 @@
    "pnl": "16.86",
    "nq_pnl_points": "6.74",
    "leg": "NOISE",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-07-22 09:46:56",
-   "nt_exit_ts": "2026-07-22 10:46:16",
-   "nt_entry_px": 18073.67,
-   "nt_exit_px": 18004.54,
-   "nt_qty": 2,
-   "nt_points": 69.13,
-   "expected_usd": 16.6,
-   "track_err_usd": 0.26,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-07-22 13:55:00",
@@ -697,17 +407,7 @@
    "pnl": "-34.1",
    "nq_pnl_points": "-27.28",
    "leg": "ENGUQ",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-07-22 13:55:00",
-   "nt_exit_ts": "2026-07-22 14:43:46",
-   "nt_entry_px": 18277.57,
-   "nt_exit_px": 17997.95,
-   "nt_qty": 1,
-   "nt_points": -279.62,
-   "expected_usd": -34.03,
-   "track_err_usd": 0.07,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-07-21 15:03:55",
@@ -719,17 +419,7 @@
    "pnl": "42.01",
    "nq_pnl_points": "33.61",
    "leg": "ORB",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-07-21 15:03:55",
-   "nt_exit_ts": "2026-07-21 15:07:09",
-   "nt_entry_px": 21306.84,
-   "nt_exit_px": 20962.36,
-   "nt_qty": 1,
-   "nt_points": 344.48,
-   "expected_usd": 42.12,
-   "track_err_usd": 0.11,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-07-21 11:47:37",
@@ -741,17 +431,7 @@
    "pnl": "47.1",
    "nq_pnl_points": "37.68",
    "leg": "NOISE",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-07-21 11:47:37",
-   "nt_exit_ts": "2026-07-21 12:27:57",
-   "nt_entry_px": 17703.21,
-   "nt_exit_px": 17316.99,
-   "nt_qty": 1,
-   "nt_points": 386.22,
-   "expected_usd": 47.0,
-   "track_err_usd": 0.1,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-07-20 13:56:45",
@@ -763,17 +443,7 @@
    "pnl": "73.49",
    "nq_pnl_points": "58.79",
    "leg": "ENGUQ",
-   "exit_reason": "TARGET",
-   "nt_entry_ts": "2026-07-20 13:56:45",
-   "nt_exit_ts": "2026-07-20 14:20:13",
-   "nt_entry_px": 18373.73,
-   "nt_exit_px": 18976.35,
-   "nt_qty": 1,
-   "nt_points": 602.62,
-   "expected_usd": 73.53,
-   "track_err_usd": 0.04,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "TARGET"
   },
   {
    "entry_ts": "2026-07-17 10:43:20",
@@ -785,17 +455,7 @@
    "pnl": "-42.85",
    "nq_pnl_points": "-34.28",
    "leg": "ORB",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-07-17 10:43:20",
-   "nt_exit_ts": "2026-07-17 11:53:49",
-   "nt_entry_px": 17728.14,
-   "nt_exit_px": 18079.51,
-   "nt_qty": 1,
-   "nt_points": -351.37,
-   "expected_usd": -43.2,
-   "track_err_usd": 0.35,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-07-16 14:04:38",
@@ -807,17 +467,7 @@
    "pnl": "75.25",
    "nq_pnl_points": "60.2",
    "leg": "NOISE",
-   "exit_reason": "EOD",
-   "nt_entry_ts": "2026-07-16 14:04:38",
-   "nt_exit_ts": "2026-07-16 15:40:10",
-   "nt_entry_px": 17430.77,
-   "nt_exit_px": 16813.72,
-   "nt_qty": 1,
-   "nt_points": 617.05,
-   "expected_usd": 74.9,
-   "track_err_usd": 0.35,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "EOD"
   },
   {
    "entry_ts": "2026-07-15 12:17:29",
@@ -829,17 +479,7 @@
    "pnl": "-52.66",
    "nq_pnl_points": "-42.13",
    "leg": "ENGUQ",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-07-15 12:17:29",
-   "nt_exit_ts": "2026-07-15 13:40:53",
-   "nt_entry_px": 21247.29,
-   "nt_exit_px": 20815.48,
-   "nt_qty": 1,
-   "nt_points": -431.81,
-   "expected_usd": -52.9,
-   "track_err_usd": 0.24,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-07-15 11:36:12",
@@ -851,17 +491,7 @@
    "pnl": "-53.7",
    "nq_pnl_points": "-21.48",
    "leg": "ORB",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-07-15 11:36:12",
-   "nt_exit_ts": "2026-07-15 12:45:04",
-   "nt_entry_px": 17842.44,
-   "nt_exit_px": 17622.27,
-   "nt_qty": 2,
-   "nt_points": -220.17,
-   "expected_usd": -53.56,
-   "track_err_usd": 0.14,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   },
   {
    "entry_ts": "2026-07-10 09:22:54",
@@ -873,17 +503,7 @@
    "pnl": "11.96",
    "nq_pnl_points": "9.57",
    "leg": "NOISE",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-07-10 09:22:54",
-   "nt_exit_ts": "2026-07-10 10:22:38",
-   "nt_entry_px": 21109.49,
-   "nt_exit_px": 21207.56,
-   "nt_qty": 1,
-   "nt_points": 98.07,
-   "expected_usd": 11.9,
-   "track_err_usd": 0.06,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-07-10 15:10:44",
@@ -895,17 +515,7 @@
    "pnl": "-5.36",
    "nq_pnl_points": "-4.29",
    "leg": "ENGUQ",
-   "exit_reason": "STOP",
-   "nt_entry_ts": "2026-07-10 15:10:44",
-   "nt_exit_ts": "2026-07-10 15:27:21",
-   "nt_entry_px": 19299.19,
-   "nt_exit_px": 19255.24,
-   "nt_qty": 1,
-   "nt_points": -43.95,
-   "expected_usd": -5.51,
-   "track_err_usd": 0.15,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "STOP"
   },
   {
    "entry_ts": "2026-07-07 13:05:37",
@@ -917,17 +527,7 @@
    "pnl": "60.55",
    "nq_pnl_points": "48.44",
    "leg": "ORB",
-   "exit_reason": "SIGNAL",
-   "nt_entry_ts": "2026-07-07 13:05:37",
-   "nt_exit_ts": "2026-07-07 14:27:02",
-   "nt_entry_px": 17086.53,
-   "nt_exit_px": 17583.04,
-   "nt_qty": 1,
-   "nt_points": 496.51,
-   "expected_usd": 60.62,
-   "track_err_usd": 0.07,
-   "parity_ok": true,
-   "parity_note": ""
+   "exit_reason": "SIGNAL"
   }
  ],
  "cum_pnl": {
@@ -1531,204 +1131,5 @@
     "cum_pnl": 163.92
    }
   ]
- },
- "parity": {
-  "checked": 40,
-  "ok": 39,
-  "failed": 1,
-  "worst_err_usd": 18.42,
-  "note": "1 trade missed its NinjaTrader fill by more than the 2 dollar tolerance -- investigate before trusting this book with real money."
- },
- "feed_days": [
-  {
-   "date": "2026-08-24",
-   "uptime_pct": 99.2,
-   "stale_min": 2,
-   "first_tick": "2026-08-24 09:31:00",
-   "last_tick": "2026-08-24 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-08-25",
-   "uptime_pct": 98.9,
-   "stale_min": 1,
-   "first_tick": "2026-08-25 09:31:00",
-   "last_tick": "2026-08-25 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-08-26",
-   "uptime_pct": 99.5,
-   "stale_min": 1,
-   "first_tick": "2026-08-26 09:31:00",
-   "last_tick": "2026-08-26 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-08-27",
-   "uptime_pct": 98.6,
-   "stale_min": 2,
-   "first_tick": "2026-08-27 09:31:00",
-   "last_tick": "2026-08-27 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-08-28",
-   "uptime_pct": 99.3,
-   "stale_min": 2,
-   "first_tick": "2026-08-28 09:31:00",
-   "last_tick": "2026-08-28 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-08-31",
-   "uptime_pct": 99.6,
-   "stale_min": 2,
-   "first_tick": "2026-08-31 09:31:00",
-   "last_tick": "2026-08-31 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-09-01",
-   "uptime_pct": 99.4,
-   "stale_min": 0,
-   "first_tick": "2026-09-01 09:31:00",
-   "last_tick": "2026-09-01 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-09-02",
-   "uptime_pct": 98.7,
-   "stale_min": 3,
-   "first_tick": "2026-09-02 09:31:00",
-   "last_tick": "2026-09-02 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-09-03",
-   "uptime_pct": 61.8,
-   "stale_min": 182,
-   "first_tick": "2026-09-03 09:31:00",
-   "last_tick": "2026-09-03 12:29:00",
-   "valid": false,
-   "note": "feed dropped at 12:29 ET and did not recover -- reconstructed from the recovery log"
-  },
-  {
-   "date": "2026-09-04",
-   "uptime_pct": 98.7,
-   "stale_min": 2,
-   "first_tick": "2026-09-04 09:31:00",
-   "last_tick": "2026-09-04 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-09-07",
-   "uptime_pct": 98.7,
-   "stale_min": 3,
-   "first_tick": "2026-09-07 09:31:00",
-   "last_tick": "2026-09-07 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-09-08",
-   "uptime_pct": 99.1,
-   "stale_min": 0,
-   "first_tick": "2026-09-08 09:31:00",
-   "last_tick": "2026-09-08 16:00:00",
-   "valid": true,
-   "note": ""
-  },
-  {
-   "date": "2026-09-09",
-   "uptime_pct": 0.0,
-   "stale_min": 390,
-   "first_tick": null,
-   "last_tick": null,
-   "valid": false,
-   "note": "no ticks all session -- NinjaTrader connection was down (Tradovate token renewal bug)"
-  },
-  {
-   "date": "2026-09-10",
-   "uptime_pct": 99.6,
-   "stale_min": 4,
-   "first_tick": "2026-09-10 09:31:00",
-   "last_tick": "2026-09-10 16:00:00",
-   "valid": true,
-   "note": ""
-  }
- ],
- "ratio_hist": [
-  {
-   "at": "2026-09-01 09:31:00",
-   "ratio": 41.02,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-01 12:31:00",
-   "ratio": 41.13,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-02 09:31:00",
-   "ratio": 41.24,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-02 12:31:00",
-   "ratio": 41.35,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-03 09:31:00",
-   "ratio": 41.46,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-03 12:31:00",
-   "ratio": 41.57,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-04 09:31:00",
-   "ratio": 41.68,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-04 12:31:00",
-   "ratio": 41.79,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-05 09:31:00",
-   "ratio": 41.9,
-   "source": "yfinance+NQ_10s"
-  },
-  {
-   "at": "2026-09-05 12:31:00",
-   "ratio": 42.01,
-   "source": "yfinance+NQ_10s"
-  }
- ],
- "ratio_health": {
-  "current": 42.01,
-  "at": "2026-09-05 12:31:00",
-  "source": "yfinance+NQ_10s",
-  "age_min": 6,
-  "mean_20": 41.515,
-  "drift_pct": 1.19,
-  "band_lo": 41.165,
-  "band_hi": 41.865,
-  "warn": true,
-  "note": "the NQ-to-QQQ ratio has drifted 1.19% above its 20-tick average -- every shadow price is an NQ price divided by this number, so a stale ratio quietly mis-sizes every fill until the next yfinance refresh."
  }
 }
