@@ -84,10 +84,23 @@ CASES = [
         "act_R": 1.5, "breakeven_R": 0.5, "limit_atr": 0.4, "er_len": 50, "stop_mult": 1.8,
         "regime_len": 5, "min_brk": 1.3, "vol_mult": 1.1, "er_th": 0.1}),
     # #309's own crowned config (the MAR rule's pick out of the same search).
-    ("#309 crown (ER)", "ENGUQ_1M_ETH_ER_1_0.py", {
+    # RELABELLED 2026-09-05. This row said "#309 crown" and carried run #265's params -- they
+    # were lifted from the wrong run doc, the same best_params-not-defaults trap this file
+    # warns about below. The numbers it produced were right FOR #265 (selection EV R 0.342 /
+    # R-YR 28.8, lockbox 67 trades at PF 2.645, top-10 share 61%); only the name was wrong.
+    ("#265 ER25 (NOT #309)", "ENGUQ_1M_ETH_ER25_1_0.py", {
         "buf_atr": 0.9, "tl_len": 170, "trail_frac": 2.5, "ema_len": 1380, "atr_len": 106,
         "act_R": 2.5, "breakeven_R": 1.5, "limit_atr": 0.0, "er_len": 60, "stop_mult": 1.0,
         "regime_len": 0, "min_brk": 1.3, "vol_mult": 0.8, "er_th": 0.25}),
+    # THE ACTUAL #309 CROWN -- the ENGU-Q champion since 2026-09-05. Its own run doc's
+    # best_params. Measured here: selection n=1,505 / PF 1.661 / EV R 0.439 / R-YR 43.9;
+    # lockbox n=99 / PF 1.620 / EV R 0.407 / R-YR 40.4; top-10 share 53%, the least
+    # tail-dependent ENGU-Q configuration measured; longest hold 282 days across 99 held-out
+    # entries, so it is a slow exit inside a working config, not a runaway buy-and-hold.
+    ("#309 crown (DEPLOYED)", "ENGUQ_1M_ETH_ER_1_0.py", {
+        "buf_atr": 0.3, "tl_len": 206, "trail_frac": 2.5, "ema_len": 220, "atr_len": 52,
+        "act_R": 1.5, "breakeven_R": 3.0, "limit_atr": 0.55, "er_len": 100, "stop_mult": 1.3,
+        "regime_len": 10, "min_brk": 1.6, "vol_mult": 1.1, "er_th": 0.0}),
     # the DEPLOYED leg, for scale.
     ("#226 frozen (deployed)", "ENGUQ_1M_ETH_1_0.py", {
         "buf_atr": 0.9, "vol_mult": 0.8, "ema_len": 1380, "tl_len": 170, "stop_mult": 1.0,
