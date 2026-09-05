@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.493';
+const VERSION='73.495';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.495',date:'2026-09-05',notes:['THE NOISE CROWN MOVES FROM RUN #243 TO RUN #304, on the owner call. #243 was a PINNED single-config validate - one configuration, so no landscape, no PBO, no parallel plot and no neighbourhood to check. #304 is the open re-run of the same idea over the same window (495 configurations, PASS 8 of 8, PBO 0.135) and it is simply the better book: total $413,255 against $380,745, and a LOCKBOX of $82,123 against $40,648 - more than double, on the years the search never saw.','THE LOCKBOX AGREES INDEPENDENTLY. Across 634 NOISE configurations from 13 runs, #304 takes 15 of the top 30 places on expectancy in R and R per year, and its RAW, GATE, TILT and both HYBRID sizings all land within 0.01R of each other out of sample - a plateau, not a peak. Not one of the top 15 on the all-stage view survives into the lockbox top 15, and the rank correlation between the two is 0.29.','THE ROW CARRIES #304 OWN FIGURES. It was holding #243 dollars; leaving those under a #304 citation would have made one row half one run and half another.','SWITCHING STRATEGY NOW SWITCHES THE RUNS. Picking ENGU-Q while NOISE runs were ticked kept drawing NOISE configurations under an ENGU-Q heading. The ticked runs are narrowed to the picked strategy, falling back to its newest run - and a strategy with no configuration records says so instead of quietly showing another one.','THREE MEASURES FROM THE 1E MATRIX JOIN BOTH SCATTER AXES: ROC % / YR, DD %, and DD (R) - the drawdown in average losing trades, the same unit EV R uses, so risk and reward finally speak one language on the two axes.','Reviewed before shipping and held back three times: the crown row would have mixed two runs figures, it would have labelled the former crown an archived duplicate, and DD as a vertical axis would have ranked the WORST drawdown first while the caption called it the good end. Ranking follows the axis direction now.']},
 {v:'73.493',date:'2026-09-05',notes:['STUDIES BOARD: ROUND 30 - the R / YR CEILING OF EVERY FAMILY, rows 1253 to 1257, all measured with the identical objective search so they read against each other. NOISE is the frequency family (ceiling R / YR 103 at 368 trades a year). The ENGU-Q efficiency variant is the edge family (ceiling EV R 1.40, the library record, at 55 trades a year). The BASE ENGU-Q family - the one on paper - tops out at EV R 0.45, so the efficiency variant is a better family and not one lucky configuration. ORB is the floor: 400 configurations, nothing past R / YR 21. TTM Squeeze confirms closed at 12.','WHY IT MATTERS: the two ceilings sit in DIFFERENT families, which is exactly why pooling them beat every book measured - and why pooling two legs from the same family would not have.']},
 {v:'73.492',date:'2026-09-05',notes:['ROC % is now ROC % / YR - net per YEAR against the fixed account, annualised the same way MAR and R / YR already are, so a 16-year run and a 3-year run can sit on the same axis. A configuration with no year count prints a dash rather than a whole-run figure wearing a per-year label.','DD % stays absolute on purpose and its hover now says why: a drawdown is a single worst event, not a rate, so it cannot be annualised. It is the half of a leverage decision the ratios hide.']},
 {v:'73.487',date:'2026-09-05',notes:['STUDIES BOARD: ROUND 29 - the frontier legs go into the book, rows 1246 to 1252. Pooled on ONE common window with the real engine: the round-28 FRONTIER pair (NOISE R / YR config + ENGU-Q EV R 1.40 config) scores R / YR 240, EV R 0.57, profit factor 1.66 and a 17,900 dollar drawdown, against the CROWNED pair of the same two families at 94, 0.23, 1.34 and 64,540. Profit per unit of risk 22.6 against 9.8, on legs that are effectively independent (correlation 0.02). Both books queued as their own cards.','AND THE LIMITS: adding the ORB crown DILUTES it (R / YR 240 to 189, EV R 0.57 to 0.32) because ORB has the lowest edge per trade in the library - an R / YR search over 400 ORB configurations could not pass 21. All five legs together give the biggest raw R / YR (275) and hand back the drawdown. A book cannot beat its best leg on EV R; it can only add R / YR.']},
@@ -19014,7 +19015,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
        rows:[
         {n:1,name:'Champion',what:'No filters. The reference baseline the crown was measured against.',tone:'ref',read:'Baseline; crown now row 3',runs:[231,242],repeats:[254],live:'paper',layer:'both',liveWhy:'This was the standing NOISE champion until 2026-08-21. It stays on the board as the reference baseline. This exact configuration runs in the shadow engine as the matched raw control for rows 3, 98 and 99, and it is also the core the NinjaTrader demo account trades (with the forest gate, row 99, in front of it).',is:6190,wf:270934,lb:36285,tot:335981,dd:32794,pf:1.22,pdd:10.25,trd:5633},
         {n:2,name:'Short Veto',what:'Skip short trades the day after a weak close. Held the crown 2026-08-21 to 2026-08-23 as the combination study research recommendation; the owner then moved the crown to row 3 for the risk-adjusted profile (2 percent less profit, 41 percent less drawdown, better profit factor, best ES transfer). Its shadow paper leg was replaced by the row-3 leg the same day.',tone:'good',read:'Crown moved to row 3, 2026-08-23',runs:[241,236],repeats:[253],is:16654,wf:303876,lb:40120,tot:388181,dd:31191,pf:1.29,pdd:12.45,trd:5214},
-        {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'champ',read:'Crowned 2026-08-23',runs:[243],repeats:[252],live:'both',layer:'shadow',liveWhy:'This is the standing NOISE champion, crowned by the owner on 2026-08-23. His case is risk-adjusted: against row 2 it gives up about 2 percent of total profit for about 41 percent less drawdown, a better profit factor, an equal-or-better lockbox and the best ES transfer in the family. The recorded caveat: the volatility leg standalone gains sit in its ten best avoided trades, so if that benefit decays this config degrades toward row 2 profile - an accepted, bounded risk. Its shadow-engine paper leg went live 2026-08-23, read against the row-1 baseline control. The NinjaTrader demo does NOT run either filter yet: both knobs are ported, default off, and flipping them waits on a NinjaTrader restart and an owner call.',is:16445,wf:303685,lb:40648,tot:380745,dd:22096,pf:1.39,pdd:17.23,trd:4429},
+        {n:3,name:'Short Veto + Wild10',what:'Row 2, and also skip the wildest 10% of days.',tone:'champ',read:'Crowned 2026-08-23 · re-pointed to #304 on 2026-09-05',runs:[304],repeats:[252],live:'both',layer:'shadow',liveWhy:'This is the standing NOISE champion, crowned by the owner on 2026-08-23. His case is risk-adjusted: against row 2 it gives up about 2 percent of total profit for about 41 percent less drawdown, a better profit factor, an equal-or-better lockbox and the best ES transfer in the family. The recorded caveat: the volatility leg standalone gains sit in its ten best avoided trades, so if that benefit decays this config degrades toward row 2 profile - an accepted, bounded risk. Its shadow-engine paper leg went live 2026-08-23, read against the row-1 baseline control. The NinjaTrader demo does NOT run either filter yet: both knobs are ported, default off, and flipping them waits on a NinjaTrader restart and an owner call. RE-POINTED 2026-09-05 from run #243 to run #304 on the owner call. #243 was a PINNED single-config validate - one configuration, no landscape, so no PBO, no parallel plot and no neighbourhood to check. #304 is the open neighbourhood re-run of the same idea over the same window (495 configurations, PASS 8 of 8, PBO 0.135). The lockbox agrees: across 634 NOISE configurations from 13 runs, #304 takes 15 of the top 30 places on expectancy in R and R per year, and its RAW, GATE, TILT and both HYBRID sizings all land within 0.01R of each other out of sample - a plateau, not a peak. #243 stays listed as a repeat.',is:14637,wf:316495,lb:82123,tot:413255,dd:24510,pf:1.37,pdd:16.86,trd:4833},
         {n:4,name:'Skip Wild 2%',what:'Skip the wildest 2% of days.',tone:'frag',read:'Tail-driven',runs:[256],is:12321,wf:296734,lb:61018,tot:384690,dd:22334,pf:1.29,pdd:17.22,trd:5347},
         {n:5,name:'Wait2 + Short Veto',what:'Wait 2 bars to enter, plus row 2.',tone:'frag',read:'Pre-registered pick',is:17330,wf:315369,lb:32556,tot:367959,dd:37729,pf:1.32,pdd:9.75,trd:4418},
         {n:6,name:'Skip Wild 5%',what:'Skip the wildest 5% of days.',tone:'frag',read:'Tail-driven',is:11470,wf:291493,lb:52580,tot:375262,dd:28873,pf:1.30,pdd:13.00,trd:5159},
@@ -21536,7 +21537,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   a PRE-LOCKBOX row has no separate walk-forward because its first column already holds
         //   the tuning years pooled - but it changes what the sum covers, so it is always said.
         const _reSegMiss=rw=>_reSegsEff.filter(sg=>_reNum(rw,sg)==null);
-        const _reAxis=(['raw','ratio','ppt','pf','evr','sh','so','rpy'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'evr';
+        const _reAxis=(['raw','ratio','ppt','pf','evr','sh','so','rpy','roc','ddp','ddr'].indexOf(APREF.resAxis)>=0)?APREF.resAxis:'evr';
         // SPLIT LAYOUT. SIDE puts the chart beside the study tables, STACK keeps it above them.
         //   The toggle lives in the sub-tab bar beside the other split toggles this app already
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
@@ -21912,6 +21913,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   "we need the R/Year in studies tab"). The cross-strategy rank read: the edge,
         //   in units of the average losing trade, that a strategy actually collects in a
         //   year. Same three inputs and the same arithmetic the run report uses.
+        // ROC % - the ticked stretch's profit as a percentage of the account it is measured
+        //   against, ANNUALISED. Same account the 1E matrix uses (the ROC chip on the report
+        //   sets it), so a number read there means the same thing here.
+        const _reRoc=(st,rw)=>{const p=_reSegVal(rw),y=_reYrs(st,rw),a=_rocAcct();
+          return (p!=null&&y!=null&&y>0&&a>0)?((p/y)/a*100):null;};
+        // DD % - the worst peak-to-trough loss as a percentage of that same account.
+        const _reDdp=(st,rw)=>{const d=_reNum(rw,'dd'),a=_rocAcct();
+          return (d!=null&&a>0)?(Math.abs(d)/a*100):null;};
+        // DD (R) - the drawdown measured in average LOSING TRADES, the same unit EV R uses.
+        //   Leverage-blind, so it compares across strategies that trade different sizes:
+        //   how many losing trades in a row the worst stretch was worth.
+        const _reDdr=(st,rw)=>{const d=_reNum(rw,'dd');if(d==null)return null;
+          let R=null;
+          if(rw&&rw.avl!=null&&isFinite(rw.avl))R=Math.abs(+rw.avl);
+          else if(rw&&rw._avl!=null&&isFinite(rw._avl))R=Math.abs(+rw._avl);
+          else{const e=_reEvR(st,rw),p=_reSegVal(rw),n=_reNum(rw,'trd');
+            if(e!=null&&Math.abs(e)>1e-12&&p!=null&&n&&n>0)R=Math.abs((p/n)/e);}
+          return (R&&R>1e-9)?(Math.abs(d)/R):null;};
+        // -1 when the ticked vertical axis is one where LOWER is better, so every ranking
+        //   below flips with it instead of crowning the worst row.
+        const _reYLow=()=>(['ddp','ddr'].indexOf(_reMode())>=0);
+        const _reYSgn=()=>(_reYLow()?-1:1);
         const _reRpy=(st,rw)=>{const e=_reEvR(st,rw),n=_reNum(rw,'trd'),y=_reYrs(st,rw);
           return (e!=null&&n!=null&&y!=null&&y>0&&isFinite(e)&&isFinite(n))?(e*n/y):null;};
         const _reYv=(st,rw,com)=>{
@@ -21921,6 +21944,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reMode()==='sh')return _reShOf(st,rw);
           if(_reMode()==='so')return _reSoOf(st,rw);
           if(_reMode()==='rpy')return _reRpy(st,rw);
+          if(_reMode()==='roc')return _reRoc(st,rw);
+          if(_reMode()==='ddp')return _reDdp(st,rw);
+          if(_reMode()==='ddr')return _reDdr(st,rw);
           const p=_reSegVal(rw);if(p==null)return null;
           if(_reMode()!=='ratio')return p;const d=_reNum(rw,'dd');return (d==null||!d)?null:p/Math.abs(d);};
         const _reYwhy=(st,rw,com)=>{
@@ -21930,9 +21956,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reMode()==='sh')return 'This row records no Sharpe.';
           if(_reMode()==='so')return 'This row records no Sortino.';
           if(_reMode()==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window. This row is missing at least one.';
+          if(_reMode()==='roc')return 'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.';
+          if(_reMode()==='ddp'||_reMode()==='ddr')return _reWhy(st,rw,'dd');
           const miss=_reSegMiss(rw);
           return (miss.length===_reSegsEff.length)?_reWhy(st,rw,miss[0]):_reWhy(st,rw,'dd');};
-        const _reYfmt=()=>(['ratio','pf','evr','sh','so','rpy'].indexOf(_reMode())>=0)?'num':'money';
+        // roc and ddp are percentages - _reTick prints them bare, so they carry their own
+        //   suffix through _reYSuf rather than reading as an unlabelled number beside the
+        //   run report's own '381%'.
+        const _reYSuf=()=>((['roc','ddp'].indexOf(_reMode())>=0)?'%':((_reMode()==='ddr')?'R':''));
+        const _reYfmt=()=>(['ratio','pf','evr','sh','so','rpy','roc','ddp','ddr'].indexOf(_reMode())>=0)?'num':'money';
         const _rePfCap='Profit factor \u2014 gross winnings over gross losses, HIGHER is better. It ignores PROFIT STAGE and COMPARE ON: a profit factor is recorded once per row, and it is already free of window length because it counts trades rather than calendar';
         const _rePptCap='Whole-run profit per trade \u2014 HIGHER is better. It ignores PROFIT STAGE and COMPARE ON, because a trade count is recorded once per row and a per-trade average is already free of window length';
         // ONE chart covering several studies cannot borrow one study's word for the in-sample
@@ -21958,7 +21990,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           evr:'Expectancy in R — HIGHER is better',
           sh:'Sharpe — HIGHER is better',
           so:'Sortino — HIGHER is better',
-          rpy:'R per year — HIGHER is better'};
+          rpy:'R per year — HIGHER is better',
+          roc:'Return on the account, per year — HIGHER is better',
+          ddp:'Drawdown, percent of the account — LOWER is better',
+          ddr:'Drawdown in losing trades — LOWER is better'};
         const _reYcapAll=(items,com)=>{const rat=(_reMode()==='ratio');
           if(_reYcapShort[_reMode()])return _reYcapShort[_reMode()];
           return _reStWordAll(items)+(rat?' MAR, profit divided by the worst drawdown \u2014 HIGHER is better':' profit \u2014 HIGHER is better');};
@@ -22164,7 +22199,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //    a different stage re-ranks it honestly. The permanent ROW number sits beside it and
         //    never moves. A row with no figure for the stage gets a dash, not a made-up place.
         const _reRank=(st,rows,com)=>{const m={};
-          rows.map(r=>({r:r,v:_reYv(st,r,com)})).filter(o=>o.v!=null).sort((a,b)=>b.v-a.v)
+          rows.map(r=>({r:r,v:_reYv(st,r,com)})).filter(o=>o.v!=null).sort((a,b)=>(b.v-a.v)*_reYSgn())
             .forEach((o,i)=>{m[o.r.n]=i+1;});return m;};
         // row accents follow the COLOUR setting as well, so SHAPES ONLY really is monochrome and
         //   COLOUR really does tint on a monochrome theme. The shapes are unaffected either way.
@@ -22321,13 +22356,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // DEFAULTS ARE THE COMPARABLE PAIR (owner 2026-08-28): Sortino across, EV in R up. The
         //   board opens on the reading that survives different instruments, sizes and windows,
         //   rather than on dollars, which do not.
-        const _reXAxis=(['dd','sh','so','evr','pf','rpy'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so';
+        const _reXAxis=(['dd','sh','so','evr','pf','rpy','roc','ddp','ddr'].indexOf(APREF.resXAxis)>=0)?APREF.resXAxis:'so';
         const _reXv=(st,rw)=>{
           if(_reXAxis==='sh')return _reShOf(st,rw);
           if(_reXAxis==='so')return _reSoOf(st,rw);
           if(_reXAxis==='evr')return _reEvR(st,rw);
           if(_reXAxis==='pf')return _reNum(rw,'pf');
           if(_reXAxis==='rpy')return _reRpy(st,rw);
+          if(_reXAxis==='roc')return _reRoc(st,rw);
+          if(_reXAxis==='ddp')return _reDdp(st,rw);
+          if(_reXAxis==='ddr')return _reDdr(st,rw);
           return _reNum(rw,'dd');};
         const _reXwhy=(st,rw)=>{
           if(_reXAxis==='sh')return 'This row records no Sharpe. Only a run, or a study re-run since 2026-08-28, carries one.';
@@ -22335,10 +22373,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(_reXAxis==='evr')return 'This row records no average losing trade, so expectancy cannot be put in R.';
           if(_reXAxis==='pf')return _reWhy(st,rw,'pf');
           if(_reXAxis==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window.';
+          if(_reXAxis==='roc')return 'ROC needs a profit for the ticked stretch and a window to annualise it over.';
+          if(_reXAxis==='ddp'||_reXAxis==='ddr')return _reWhy(st,rw,'dd');
           return _reWhy(st,rw,'dd');};
-        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF',rpy:'R / YR'};
+        const _reXNm={dd:'MAX DRAWDOWN ($)',sh:'SHARPE',so:'SORTINO',evr:'EV IN R',pf:'PF',rpy:'R / YR',roc:'ROC % / YR',ddp:'DD %',ddr:'DD (R)'};
         const _reXBetter={dd:'deeper to the right',sh:'higher to the right',so:'higher to the right',
-          evr:'higher to the right',pf:'higher to the right',rpy:'higher to the right'};
+          evr:'higher to the right',pf:'higher to the right',rpy:'higher to the right',
+          roc:'higher to the right',ddp:'deeper to the right',ddr:'deeper to the right'};
 
         const _reXCap='Worst drawdown \u2014 further LEFT is better';
         const _reFamOf=(st,r)=>String((r&&r.fam)||(st&&st.fam)||'UNTAGGED');
@@ -22349,6 +22390,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   left the axis captioned 'worst drawdown' with its ticks formatted as money, so
         //   every tick read $0k. Only drawdown is money, and only drawdown is better LEFT.
         const _reXCapNow=()=>{
+          if(['ddp','ddr'].indexOf(_reXAxis)>=0)return (_reXNm[_reXAxis]||'')+' — further LEFT is better';
           if(_reXAxis!=='dd')return (_reXNm[_reXAxis]||'')+' \u2014 further RIGHT is better';
           return _reRel
             ?'Worst drawdown AGAINST THE CHAMPION \u2014 further LEFT is a smaller drawdown than the champion took'
@@ -22750,7 +22792,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   board-wide. The RANK column in each table below is still a within-study rank, and
           //   the hover says which of the two it is quoting so they can never be confused.
           const grank={};
-          pts.slice().sort((a,b)=>b.y-a.y).forEach((p,i)=>{grank[p.st.key+':'+p.r.n]=i+1;});
+          pts.slice().sort((a,b)=>(b.y-a.y)*_reYSgn()).forEach((p,i)=>{grank[p.st.key+':'+p.r.n]=i+1;});
           const yf=_reYfmt(),xf=(_reXAxis==='dd')?_reAxFmt(_reXF,null):'num';
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
           const showN=(pts.length<=_reLblMax);
@@ -22778,7 +22820,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 // Y NUMBERS ON THE LEFT. They moved right for one version; the owner moved
                 //   them back, and he is right: the best rows sit toward the TOP RIGHT, so a
                 //   scale over there sits on top of the answer.
-                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="end">'+_reTick(yv,yf)+'</text>';
+                +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="12.5" text-anchor="end">'+_reTick(yv,yf)+_reYSuf()+'</text>';
               const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
               _ticks+='<line x1="'+xx.toFixed(1)+'" y1="'+B+'" x2="'+xx.toFixed(1)+'" y2="'+(B+5)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
@@ -23142,13 +23184,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reCfgIds=(function(){const raw=APREF.resCfgRun;
           let a=Array.isArray(raw)?raw.map(String):(raw!=null&&raw!==''?[String(raw)]:[]);
           a=a.filter(function(id){return _reCfgPick.some(function(r){return String(r.id)===id;});});
-          if(!a.length&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
+          // THE STRATEGY PICK OWNS THE RUN PICK (owner 2026-09-05: "if i switch from noise
+          //   to enguq the noise family still stays populated"). A run ticked under one
+          //   strategy kept drawing its configurations under the next strategy heading.
+          const _fam=_reFilt.fam;
+          const _inFam=function(id){if(!(_fam&&_fam.length))return true;
+            const r=_reCfgPick.filter(function(x){return String(x.id)===id;})[0];
+            return !!r&&_fam.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;};
+          const _kept=a.filter(_inFam);
+          // nothing of this strategy was ticked - take its newest run, so switching
+          //   strategy shows THAT strategy instead of an empty board or the old one.
+          a=_kept.length?_kept:_reCfgPick.filter(function(r){return _inFam(String(r.id));})
+                            .slice(0,1).map(function(r){return String(r.id);});
+          // only fall back to the newest run of ANY family when no strategy is picked -
+          //   with one picked, an empty pick must stay empty and say so, or the board draws
+          //   another strategy's configurations with no lit chip to explain them.
+          if(!a.length&&!(_fam&&_fam.length)&&_reCfgPick.length)a=[String(_reCfgPick[0].id)];
           try{window._runFullCap=Math.max(8,a.length+2);}catch(e){}
           return a;})();
         _reCfgRunId=_reCfgIds.join(', #');
         if(_reShowCfg){
           const CROWS=[];let _cn=0;
-          if(!_reCfgIds.length){_reCfgMsg='No Auto-Validate run is in the list to read configurations from.';}
+          if(!_reCfgIds.length){_reCfgMsg=(_reFilt.fam&&_reFilt.fam.length)
+            ?('No Auto-Validate run of '+_reFilt.fam.join(' or ')+' has configuration records to read. '
+              +'Pick another strategy on the rail, or untick it to see every run.')
+            :'No Auto-Validate run is in the list to read configurations from.';}
           _reCfgIds.forEach(function(RID){
             // the CONFIGS-ONLY document, not the whole run - see _hydrateCfg
             const full=(window._runCfg||{})[RID]||(window._runFull||{})[RID];
@@ -23436,7 +23496,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const _skK=String(APREF.reSortK||'');
               const _skGet={mar:r=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:r=>_reShOf(st,r),so:r=>_reSoOf(st,r),pf:r=>_reNum(r,'pf'),wr:r=>_reWrOf(st,r)}[_skK];
               sorted.sort((a,b)=>{const va=_skGet?_skGet(a):_reYv(st,a,com),vb=_skGet?_skGet(b):_reYv(st,b,com);
-                if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
+                if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_reYSgn();});
             }else{
               // newest first on whichever date DATE names; a row with no such date keeps the
               // registry order at the bottom. Rows sharing a date keep the registry order too,
@@ -23532,7 +23592,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _skK2=String(APREF.reSortK||'');
             const _skGet2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r)}[_skK2];
             sorted.sort((a,b)=>{const va=_skGet2?_skGet2(a.st,a.r):_reYv(a.st,a.r,com),vb=_skGet2?_skGet2(b.st,b.r):_reYv(b.st,b.r,com);
-              if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return vb-va;});
+              if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_reYSgn();});
           }else{
             sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
               if(da===db)return a.r.n-b.r.n;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
@@ -23673,6 +23733,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resxaxis="evr"','EV R',_reXAxis==='evr','expectancy in R - the leverage-blind edge per bet.',_TONE.samp)
            +_reBtn('data-resxaxis="pf"','PF',_reXAxis==='pf','profit factor - gross winnings over gross losses.',_TONE.samp)
            +_reBtn('data-resxaxis="rpy"','R / YR',_reXAxis==='rpy','R / YR is EV R multiplied by trades per year over the ticked stretch: the edge, in units of the average losing trade, that the strategy actually collects in a year. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. The same figure the run report 1E matrix prints.',_TONE.samp)
+           +_reBtn('data-resxaxis="roc"','ROC % / YR',_reXAxis==='roc','return on the account per year - the ticked stretch profit annualised, as a percent of the account ROC is measured against (the chip on the run report sets it). Comparable across strategies only if they would be traded at the same size.',_TONE.samp)
+           +_reBtn('data-resxaxis="ddp"','DD %',_reXAxis==='ddp','the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
+           +_reBtn('data-resxaxis="ddr"','DD (R)',_reXAxis==='ddr','the worst peak-to-trough loss measured in AVERAGE LOSING TRADES - the same unit EV R uses. Leverage-blind: it says how many losing trades in a row the worst stretch was worth, so a one-contract row and a ten-contract row compare honestly. LOWER is better.',_TONE.samp)
            +_reBtn('data-resxaxis="dd"','DRAWDOWN',_reXAxis==='dd','the worst peak-to-trough loss, in dollars. Deeper to the right.',_TONE.samp)
           ,_TONE.samp);
         const _reAxisBtns=_reCtl('','VERTICAL AXIS','what the height of the chart measures',
@@ -23680,6 +23743,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resaxis="so"','SORTINO',_reAxis==='so','plot the annualised Sortino - Sharpe with only the DOWNSIDE charged for. A max drawdown is one worst event and this project measured its confidence interval to be wider than the statistic, so Sortino is the sturdier read of the same idea.',_TONE.samp)
            +_reBtn('data-resaxis="sh"','SHARPE',_reAxis==='sh','plot the annualised Sharpe.',_TONE.samp)
            +_reBtn('data-resaxis="rpy"','R / YR',_reAxis==='rpy','EV R multiplied by trades per year over the ticked stretch: the edge, in units of the average losing trade, that the strategy actually collects in a year. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. The same figure the run report 1E matrix prints.',_TONE.samp)
+           +_reBtn('data-resaxis="roc"','ROC % / YR',_reAxis==='roc','plot return on the account per year - the ticked stretch profit annualised, as a percent of the account ROC is measured against (the chip on the run report sets it). Comparable across strategies only if they would be traded at the same size.',_TONE.samp)
+           +_reBtn('data-resaxis="ddp"','DD %',_reAxis==='ddp','plot the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
+           +_reBtn('data-resaxis="ddr"','DD (R)',_reAxis==='ddr','plot the worst peak-to-trough loss measured in AVERAGE LOSING TRADES - the same unit EV R uses. Leverage-blind: it says how many losing trades in a row the worst stretch was worth, so a one-contract row and a ten-contract row compare honestly. LOWER is better.',_TONE.samp)
            +_reBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Every row on this board is a single strategy on one contract, so the dollars carry the same margin and are comparable on that count',_TONE.rank)
            +_reBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit divided by the worst drawdown, the same name the RUNBOARD and the 1E matrix use for it. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
