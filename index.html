@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.499';
+const VERSION='73.500';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.500',date:'2026-09-05',notes:['THE ENGU-Q CROWN MOVES TO RUN #309, AND IT IS ON THE PAPER BOARD FROM TODAY (owner: "crown #309 and swap the paper leg to it"). Both boards carry a new ENGU-Q-309 RAW row wearing the crown. Measured on one CONTINUOUS run sliced by entry time, so the held-out year is what it would really have traded rather than a fresh-start reload: the selection window is 1,505 trades at profit factor 1.66, EV R 0.44, R / YR 43.9; the held-out year is 99 trades at profit factor 1.62, EV R 0.41, R / YR 40.4. Against the crown it replaces it wins expectancy per trade both before and inside the held-out year (0.44 against 0.23, then 0.41 against 0.36), and only 53% of its profit sits in its ten best trades against 80% for the old one. It loses on exactly one read, and the row says so: it trades about half as often, so its held-out R / YR is 40 against 68. The #265 pair stays on the board on purpose - it is the outgoing control and it carries a pre-registered claim that is still running.','THE OLD CROWN SAYS WHAT IT IS. The archived #226 row read "retired 08-21" and still carried the crown, with a tooltip explaining that the champion of this family was not being paper traded at all. It reads EX-CROWN - RETIRED 08-21 now, and that sentence is gone because it is no longer true.','NOISE WAS DESCRIBED AS A NO-EDGE CONTROL STRATEGY (owner: "i dont see noise in the results noise family tree"). The family table still carried the ORIGINAL meaning of the word in this project - a deliberate no-edge yardstick for false positives - years after NOISE became a real, crowned, paper-traded family. Every NOISE row in the Library read that way. It now reads Noise-Band Momentum: a session band scaled by recent realized noise, a close outside it enters, a VWAP cross exits.','AND SIX FAMILIES WERE MISSING FROM THE FAMILY LIST ENTIRELY. It stopped being maintained in mid-July, so NOISE, TTM Squeeze, TTIBS, RSI-divergence, the Nasdaq dip book and the EMA pullback had no entry at all and fell back to whatever the older table said - which for NOISE was wrong and for TTM Squeeze was nothing, leaving twenty-one runs with no number, no colour and no name. All six have their own line now, at the same granularity ENGU-Q already had. Two more collisions fixed while in there: NOISE and the dip book both claimed family number 12, and TTM Squeeze mapped to a family key that did not exist.']},
 {v:'73.499',date:'2026-09-05',notes:['QQQ SHADOW BOOK: the top of the tab now reads like the TRADING LOG overview - a left sidebar of ratios (win rate, profit factor, expectancy, payoff), performance and risk figures, a month calendar coloured by that days shadow P and L, and the cumulative P and L chart sitting beside it, instead of the old flat KPI strip.','No monthly or symbol filter pills on this overview, on the owner ask - the sidebar already carries the ratios the pills would have repeated.','The calendar has its own month state (separate from the PAPER tabs calendar) and defaults to the month of the newest closed trade so an empty current month never reads as no data.','Stats are computed locally over the shadow books own closed trades, not the broker journal helpers, so they cannot be silently mis-scoped.','Everything else on the tab is unchanged - hero status pills, per-leg cards, todays orders, closed trades, RAILS panel, and the collapsed MODEL section, just repositioned under the new overview.']},
 {v:'73.495',date:'2026-09-05',notes:['THE NOISE CROWN MOVES FROM RUN #243 TO RUN #304, on the owner call. #243 was a PINNED single-config validate - one configuration, so no landscape, no PBO, no parallel plot and no neighbourhood to check. #304 is the open re-run of the same idea over the same window (495 configurations, PASS 8 of 8, PBO 0.135) and it is simply the better book: total $413,255 against $380,745, and a LOCKBOX of $82,123 against $40,648 - more than double, on the years the search never saw.','THE LOCKBOX AGREES INDEPENDENTLY. Across 634 NOISE configurations from 13 runs, #304 takes 15 of the top 30 places on expectancy in R and R per year, and its RAW, GATE, TILT and both HYBRID sizings all land within 0.01R of each other out of sample - a plateau, not a peak. Not one of the top 15 on the all-stage view survives into the lockbox top 15, and the rank correlation between the two is 0.29.','THE ROW CARRIES #304 OWN FIGURES. It was holding #243 dollars; leaving those under a #304 citation would have made one row half one run and half another.','SWITCHING STRATEGY NOW SWITCHES THE RUNS. Picking ENGU-Q while NOISE runs were ticked kept drawing NOISE configurations under an ENGU-Q heading. The ticked runs are narrowed to the picked strategy, falling back to its newest run - and a strategy with no configuration records says so instead of quietly showing another one.','THREE MEASURES FROM THE 1E MATRIX JOIN BOTH SCATTER AXES: ROC % / YR, DD %, and DD (R) - the drawdown in average losing trades, the same unit EV R uses, so risk and reward finally speak one language on the two axes.','Reviewed before shipping and held back three times: the crown row would have mixed two runs figures, it would have labelled the former crown an archived duplicate, and DD as a vertical axis would have ranked the WORST drawdown first while the caption called it the good end. Ranking follows the axis direction now.']},
 {v:'73.493',date:'2026-09-05',notes:['STUDIES BOARD: ROUND 30 - the R / YR CEILING OF EVERY FAMILY, rows 1253 to 1257, all measured with the identical objective search so they read against each other. NOISE is the frequency family (ceiling R / YR 103 at 368 trades a year). The ENGU-Q efficiency variant is the edge family (ceiling EV R 1.40, the library record, at 55 trades a year). The BASE ENGU-Q family - the one on paper - tops out at EV R 0.45, so the efficiency variant is a better family and not one lucky configuration. ORB is the floor: 400 configurations, nothing past R / YR 21. TTM Squeeze confirms closed at 12.','WHY IT MATTERS: the two ceilings sit in DIFFERENT families, which is exactly why pooling them beat every book measured - and why pooling two legs from the same family would not have.']},
@@ -10495,6 +10496,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       {re:/^supertrend/i,abbr:'ST',full:'SuperTrend',desc:'ATR SuperTrend trend follower'},
       {re:/^revert/i,abbr:'RVT',full:'Mean Revert',desc:'Reverts to session mean / value'},
       {re:/^vwap/i,abbr:'VWAP',full:'VWAP Fade',desc:'Fades extreme stretches from session VWAP'},
+      // ADDED 2026-09-05. This list stopped being maintained in mid-July, so six families
+      // that have run, been crowned or been paper traded since then had NO entry here at all:
+      // NOISE, TTM Squeeze, TTIBS, RSI-divergence, the Nasdaq dip book and the EMA pullback.
+      // A file with no entry falls through to the FAM table for its name and description, and
+      // where FAM was stale (NOISE) or absent (TTM) the row read wrong or read blank. These
+      // give each one its own line, at the same granularity ENGU-Q already had.
+      {re:/^noise/i,abbr:'NOISE',full:'Noise-Band Momentum',desc:'Wide session band scaled by recent realized noise - close outside it enters, a VWAP cross exits. Crowned and paper-traded.'},
+      {re:/^ttmsqz/i,abbr:'TTM',full:'TTM Squeeze',desc:'Bollinger-inside-Keltner squeeze release, entered in the momentum direction (family closed - loses below 15m)'},
+      {re:/^ttibs/i,abbr:'TTIBS',full:'Turnaround-Tuesday / IBS',desc:'Turnaround-Tuesday plus internal-bar-strength mean reversion, long only'},
+      {re:/^rsidiv/i,abbr:'RSIDIV',full:'RSI Divergence',desc:'RSI pivot-divergence long entries (TradingView round-13 port)'},
+      {re:/^nqdip/i,abbr:'NQDIP',full:'Nasdaq Dip Book',desc:'Four long-only daily dip mechanisms on NQ micros and QQQ, held for days at constant notional'},
+      {re:/^emapb/i,abbr:'EMAPB',full:'EMA Pullback',desc:'1-minute EMA-pullback continuation - dead, 0 of 27 cells cleared'},
+      {re:/^replay/i,abbr:'REPLAY',full:'Discretionary Replay',desc:'Replays the owner discretionary trades so they can be scored the same way as a strategy'},
       {re:/^rf/i,abbr:'RFML',full:'Random-Forest ML',desc:'Random-forest indicator-based signals'}];
     const stratFam=base=>{const b=String(base||'').replace(/\.py$/,'');for(const f of STRAT_FAM)if(f.re.test(b))return f;return null;};
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
@@ -10513,15 +10527,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
       VWAP:{abbr:'VWAP',n:3,hue:190,full:'VWAP Fade',desc:'Fades extreme stretches from session VWAP'},
       RFML:{abbr:'RFML',n:4,hue:150,full:'Random-Forest ML',desc:'Random-forest signals on RSI / trend / momentum'},
       ST:{abbr:'ST',n:5,hue:45,full:'SuperTrend',desc:'ATR SuperTrend trend follower'},
-      NQDIP:{abbr:'NQDIP',n:12,hue:330,full:'Nasdaq Dip Book',desc:'Long-only daily dip mechanisms on NQ / QQQ, hold for days, constant notional'},
-      EMAPB:{abbr:'EMAPB',n:13,hue:20,full:'EMA Pullback',desc:'1-minute EMA-pullback continuation (dead)'},
+      NQDIP:{abbr:'NQDIP',n:14,hue:100,full:'Nasdaq Dip Book',desc:'Long-only daily dip mechanisms on NQ / QQQ, hold for days, constant notional'},
+      EMAPB:{abbr:'EMAPB',n:15,hue:20,full:'EMA Pullback',desc:'1-minute EMA-pullback continuation (dead)'},
+      // TTM squeeze runs were UNTAGGED - no number, no colour, no name - because the family
+      // matcher maps them to 'TTM' and this table had no such key. Twenty-one runs read as
+      // family-less because of one missing line.
+      TTM:{abbr:'TTM',n:13,hue:240,full:'TTM Squeeze',desc:'Bollinger-inside-Keltner squeeze release, breakout in the momentum direction'},
       OVN:{abbr:'OVN',n:6,hue:330,full:'Overnight Hold',desc:'Close-to-open trend-gated overnight risk premium'},
       ORB:{abbr:'ORB',n:7,hue:25,full:'Opening Range Breakout',desc:'Breaks the session opening range with a volume filter'},
       'ENGU-Q':{abbr:'ENGU-Q',n:8,hue:165,full:'Engulfing-Quant',desc:'Data-derived ENGU rebuild: descending-trendline break, long-only'},
       REPLAY:{abbr:'REPLAY',n:9,hue:0,full:'Discretionary Replay',desc:'Replays your discretionary trades for quant conversion'},
       TTIBS:{abbr:'TTIBS',n:10,hue:255,full:'Turnaround-Tuesday / IBS',desc:'Turnaround-Tuesday plus IBS mean-reversion (long)'},
       RSIDIV:{abbr:'RSIDIV',n:11,hue:120,full:'RSI Divergence',desc:'RSI pivot-divergence long entries (TV round-13 port)'},
-      NOISE:{abbr:'NOISE',n:12,hue:300,full:'Noise Control',desc:'Deliberate no-edge control strategy - the false-positive yardstick'}};
+      // CORRECTED 2026-09-05 (owner: "i dont see noise in the results noise family tree").
+      // This entry still described the ORIGINAL meaning of the word in this project - a
+      // deliberate no-edge control used as a false-positive yardstick - years after NOISE
+      // became a real, crowned, paper-traded momentum family. So every NOISE row in the
+      // Library read "Noise Control - deliberate no-edge control strategy", which is the
+      // opposite of what it is. It also shared family number 12 with NQDIP (moved to 14).
+      NOISE:{abbr:'NOISE',n:12,hue:300,full:'Noise-Band Momentum',desc:'Session band scaled by recent realized noise: a close outside it is the entry, a VWAP cross the exit'}};
     const _canonFam=s=>{const x=String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');
       if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; return _famKey(s)||'';};
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
@@ -25114,10 +25138,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // trades back together. Its cross-engine record is the one exception and stays
         // visible: that is a ledger of checks, not a live board.
         {k:'ENGUQ',     label:'ENGU-Q-226 · RAW',           color:'#c090ff', archived:true,
-         crown:true,
-         crownTip:'The standing ENGU-Q champion is run #226 - this configuration. It was RETIRED from the forward test on 2026-08-21 and replaced by run #265, so the crown of this family is not being paper traded at all. That is why no visible ENGU-Q row wears a crown.',
-         chip:'retired 08-21',
-         chipTip:'This was the ENGU-Q baseline until 2026-08-21, when run #265 (the efficiency floor) replaced it. It stopped producing trades that day. Its history is kept so the curve and the totals stay honest.'},
+         chip:'ex-crown · retired 08-21',
+         chipTip:'It was the ENGU-Q CHAMPION until 2026-09-05, when the crown moved to run #309, and the board baseline until 2026-08-21, when run #265 (the efficiency floor) replaced it. It stopped producing trades that day. Its history is kept so the curve and the totals stay honest.'},
         // The CURRENT ENGU-Q baseline. Runs nightly as ENGUQ_ER and is what NinjaTrader's
         // EdgeLogENGUQ1m is pointed at.
         {k:'ENGUQ_ER',  label:'ENGU-Q-265 · RAW',           color:'#c090ff', nt:'ENGUQ',
@@ -25130,6 +25152,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // 08-18 (run #249) but was never listed here, so it had no tile and no row -- it was
         // running and invisible, which is the worst of both. Same #226 ETH config as the leg
         // above; the ONLY difference is the entry, so ENGU-Q RAW is its matched control.
+        // THE ENGU-Q CROWN, MOVED HERE 2026-09-05 (owner: "crown #309 and swap the paper leg
+        // to it"). Run #309 is a full Auto-Validate of the efficiency variant, verdict PASS.
+        // Measured continuously and sliced by ENTRY time (tools/continuous_lb_check.py) so the
+        // held-out year is what it would actually have traded, not a warm-start reload:
+        //   selection 2010-06-07..2025-06-30  n=1,505  PF 1.661  $505,756  EV R 0.439  R/YR 43.9
+        //   held-out year                     n=   99  PF 1.620  $ 85,511  EV R 0.407  R/YR 40.4
+        // Against the previous crown #226: selection EV R 0.439 vs 0.227, selection R / YR 43.9
+        // vs 40.0, held-out EV R 0.407 vs 0.364. It LOSES on held-out R / YR (40.4 vs 68.5)
+        // because it trades about half as often - the one honest mark against the change.
+        // Least tail-dependent ENGU-Q configuration measured: top-10 share 53% against the
+        // deployed leg's 80%, and it still nets $235,741 with its ten best trades deleted.
+        // The #265 pair below stays on the board deliberately: it is the outgoing control and
+        // carries an active pre-registered hybrid claim. Retire it only on the owner's word.
+        {k:'ENGUQ_309', label:'ENGU-Q-309 · RAW',           color:'#8f6fd8',
+         crown:true,
+         crownTip:'The standing ENGU-Q champion since 2026-09-05: run #309, the efficiency variant with a shallow limit entry. Measured on one continuous run sliced by entry time - selection window 1,505 trades, profit factor 1.66, EV R 0.44, R / YR 43.9; held-out year 99 trades, profit factor 1.62, EV R 0.41, R / YR 40.4. It beats the old crown (#226) on expectancy per trade both before and inside the held-out year, and only 53% of its profit sits in its ten best trades against 80% for the leg it replaces. It loses on one read: it trades about half as often, so its held-out R / YR is lower.',
+         chip:'crown 09-05',
+         chipTip:'Added to the board the day it was crowned, so every trade from here is forward evidence. Anything dated before 2026-09-05 on this row is a backtest.'},
         {k:'ENGUQ_L50',  label:'ENGU-Q-249 · LIMIT 0.50',    color:'#8ad4ff', ctrl:'ENGUQ_ER',
          chip:'limit entry',
          chipTip:'Same 24-hour ENGU-Q settings as ENGU-Q RAW. The ONLY difference is the entry: instead of buying at the signal close, it rests a limit order half an ATR BELOW it and drops the trade entirely if that never fills within ten bars. RAW is its matched control, so any difference between the two rows is the entry and nothing else. Caveat from validate #249: entering lower against the same stop widens risk, so it FAILS the pre-registered net-per-drawdown bar (8.32 vs the control 8.62). Candidate, not a winner.',
