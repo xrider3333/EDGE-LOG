@@ -26,6 +26,39 @@ trailing exit.
 **This is the section to point a session at.** Measured on the deployed #226 config over
 NQ 1m ETH, 2018-01-01 → 2026-08-20, n = 1,515 trades, cost 0.533 pts, 1 contract.
 
+### 1.0 ⚠ EV R IS A TAIL DETECTOR ON THIS FAMILY — added 2026-09-05, read before any EV R / R-YR hunt
+
+The owner's cross-strategy reads (EV R = (1−win%)(PF−1); R / YR = EV R × trades per year) are
+leverage-blind and instrument-blind, which is why they were adopted. On THIS family they are also
+**tail detectors**: every configuration a search has crowned on high EV R turned out to be ten
+trades. Measured the same way on the same window (continuous run, 2010-06-07 → 2025-06-30,
+`tools/continuous_lb_check.py`, top-10 share = the fraction of net that disappears when the ten
+best trades are deleted):
+
+| config | EV R | R / YR | **top-10 share** | longest hold | continuous lockbox trades |
+|---|---|---|---|---|---|
+| `ER_RYR` (queued R/YR-frontier books) | 1.64 | 91 | **101%** — ex-top-10 it LOSES $3,821 | 179 d | 54 (reload said 84) |
+| `ERW` @ trail_frac 5.0 (queued book) | 0.97 | 42 | **104%** — ex-top-10 it LOSES $19,281 | 408 d | 24 (reload said 65) |
+| run **#310** LIM (verdict PASS) | 0.94 | 47 | **90%** | **449 d** | **0** (reload said 91) |
+| B14 (round-27 R/YR leader) | 0.60 | 93 | 81% | 164 d | 184 (reload said 211) |
+| **#226 frozen — DEPLOYED** | 0.23 | 40 | 80% | 105 d | 188 (reload said 212) |
+| #309 crown (ER gate) | 0.34 | 29 | **61%** | 104 d | 67 (reload said 83) |
+
+**The rule the numbers give:** on the 24-hour tape, **EV R ≥ 0.9 has meant a top-10 share ≥ 90%**
+in every case tested, and the mechanism is always the same — a wide trailing exit (`trail_frac`
+4.0–5.0) with no end-of-day flat never triggers, so one winner becomes a months-long hold and the
+"average trade" is that hold. The configs in the 0.23–0.44 band sit at 61–81% instead. Note the
+deployed leg is itself at 80%: **concentration alone is not a disqualifier here — it is the house
+condition.** What separates an artifact from an edge is whether the config still makes money
+without its ten best trades, and whether it goes on trading in the held-out year.
+
+**Therefore, for any EV R / R / YR search on ENGU-Q:** report the top-10 share and the longest hold
+beside every EV R, and run the winner through `tools/continuous_lb_check.py` BEFORE queuing a
+validate or putting it in a book. A search that ranks on EV R alone will find the buy-and-hold
+every time, and the engine's reload-graded lockbox will not catch it (see BACKTESTING_STACK
+2026-08-08 / 2026-09-05). Five queued book jobs were annotated in place on 2026-09-05 for exactly
+this reason.
+
 ### 1.1 The concentration
 
 | measure | value |
