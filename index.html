@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.501';
+const VERSION='73.502';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.502',date:'2026-09-05',notes:['A RUN ROW NOW READS ITS REAL LOCKBOX. Ticking LB moved a run MONEY but left PF, WIN %, SHARPE, SORTINO and the trade count at whole-run values - so EV R and R / YR came out as lockbox dollars divided by the WHOLE RUN trades and average loss. A hybrid of two stretches printed as one number, and it was the number being used to decide what to trade. Run #304 read PF 1.43 / SORTINO 2.95 / 4,833 trades on every stage; its saved lockbox block says PF 1.45 / SORTINO 3.20 / 409 trades.','IS and WF are left alone deliberately: a run saves no equivalent block for either (validate.is_* is the Stage-A 75% split, a different stretch, and walk-forward saves only its net), so they keep reading whole-run rather than being guessed at. The CONFIGS view has had real per-stage blocks since 73.474.','DD (R) confirmed on both scatter axes, and its caption reads further LEFT is better - the first measure on this board where lower wins.']},
 {v:'73.500',date:'2026-09-05',notes:['THE ENGU-Q CROWN MOVES TO RUN #309, AND IT IS ON THE PAPER BOARD FROM TODAY (owner: "crown #309 and swap the paper leg to it"). Both boards carry a new ENGU-Q-309 RAW row wearing the crown. Measured on one CONTINUOUS run sliced by entry time, so the held-out year is what it would really have traded rather than a fresh-start reload: the selection window is 1,505 trades at profit factor 1.66, EV R 0.44, R / YR 43.9; the held-out year is 99 trades at profit factor 1.62, EV R 0.41, R / YR 40.4. Against the crown it replaces it wins expectancy per trade both before and inside the held-out year (0.44 against 0.23, then 0.41 against 0.36), and only 53% of its profit sits in its ten best trades against 80% for the old one. It loses on exactly one read, and the row says so: it trades about half as often, so its held-out R / YR is 40 against 68. The #265 pair stays on the board on purpose - it is the outgoing control and it carries a pre-registered claim that is still running.','THE OLD CROWN SAYS WHAT IT IS. The archived #226 row read "retired 08-21" and still carried the crown, with a tooltip explaining that the champion of this family was not being paper traded at all. It reads EX-CROWN - RETIRED 08-21 now, and that sentence is gone because it is no longer true.','NOISE WAS DESCRIBED AS A NO-EDGE CONTROL STRATEGY (owner: "i dont see noise in the results noise family tree"). The family table still carried the ORIGINAL meaning of the word in this project - a deliberate no-edge yardstick for false positives - years after NOISE became a real, crowned, paper-traded family. Every NOISE row in the Library read that way. It now reads Noise-Band Momentum: a session band scaled by recent realized noise, a close outside it enters, a VWAP cross exits.','AND SIX FAMILIES WERE MISSING FROM THE FAMILY LIST ENTIRELY. It stopped being maintained in mid-July, so NOISE, TTM Squeeze, TTIBS, RSI-divergence, the Nasdaq dip book and the EMA pullback had no entry at all and fell back to whatever the older table said - which for NOISE was wrong and for TTM Squeeze was nothing, leaving twenty-one runs with no number, no colour and no name. All six have their own line now, at the same granularity ENGU-Q already had. Two more collisions fixed while in there: NOISE and the dip book both claimed family number 12, and TTM Squeeze mapped to a family key that did not exist.']},
 {v:'73.499',date:'2026-09-05',notes:['QQQ SHADOW BOOK: the top of the tab now reads like the TRADING LOG overview - a left sidebar of ratios (win rate, profit factor, expectancy, payoff), performance and risk figures, a month calendar coloured by that days shadow P and L, and the cumulative P and L chart sitting beside it, instead of the old flat KPI strip.','No monthly or symbol filter pills on this overview, on the owner ask - the sidebar already carries the ratios the pills would have repeated.','The calendar has its own month state (separate from the PAPER tabs calendar) and defaults to the month of the newest closed trade so an empty current month never reads as no data.','Stats are computed locally over the shadow books own closed trades, not the broker journal helpers, so they cannot be silently mis-scoped.','Everything else on the tab is unchanged - hero status pills, per-leg cards, todays orders, closed trades, RAILS panel, and the collapsed MODEL section, just repositioned under the new overview.']},
 {v:'73.495',date:'2026-09-05',notes:['THE NOISE CROWN MOVES FROM RUN #243 TO RUN #304, on the owner call. #243 was a PINNED single-config validate - one configuration, so no landscape, no PBO, no parallel plot and no neighbourhood to check. #304 is the open re-run of the same idea over the same window (495 configurations, PASS 8 of 8, PBO 0.135) and it is simply the better book: total $413,255 against $380,745, and a LOCKBOX of $82,123 against $40,648 - more than double, on the years the search never saw.','THE LOCKBOX AGREES INDEPENDENTLY. Across 634 NOISE configurations from 13 runs, #304 takes 15 of the top 30 places on expectancy in R and R per year, and its RAW, GATE, TILT and both HYBRID sizings all land within 0.01R of each other out of sample - a plateau, not a peak. Not one of the top 15 on the all-stage view survives into the lockbox top 15, and the rank correlation between the two is 0.29.','THE ROW CARRIES #304 OWN FIGURES. It was holding #243 dollars; leaving those under a #304 citation would have made one row half one run and half another.','SWITCHING STRATEGY NOW SWITCHES THE RUNS. Picking ENGU-Q while NOISE runs were ticked kept drawing NOISE configurations under an ENGU-Q heading. The ticked runs are narrowed to the picked strategy, falling back to its newest run - and a strategy with no configuration records says so instead of quietly showing another one.','THREE MEASURES FROM THE 1E MATRIX JOIN BOTH SCATTER AXES: ROC % / YR, DD %, and DD (R) - the drawdown in average losing trades, the same unit EV R uses, so risk and reward finally speak one language on the two axes.','Reviewed before shipping and held back three times: the crown row would have mixed two runs figures, it would have labelled the former crown an archived duplicate, and DD as a vertical axis would have ranked the WORST drawdown first while the caption called it the good end. Ranking follows the axis direction now.']},
@@ -21832,7 +21833,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         //   and axis, so a config row's stage-aware reads are intercepted in ONE place.
         //   Money scales with the sizing factor; a ratio never does.
         const _reNum=(r,f)=>{
-          if(r&&r._cfg&&r._st){
+          if(r&&r._st){
             const m={pf:['profit_factor',0],dd:['max_drawdown',1],trd:['num_trades',0]}[f];
             // no saved block for this combination - RAW candidates only ever save the
             //   three single stretches - so keep the figure the row was built with
@@ -22084,7 +22085,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const _reBlkKey=(function(){const k=_reSegsEff.slice().sort().join(',');
           return ({'is':'is','wf':'wf','lb':'lb','is,wf':'pre','is,lb':null,
                    'lb,wf':'wf_lb','is,lb,wf':'full'})[k]||null;})();
-        const _reCfgBlk=r=>{if(!r||!r._cfg||!r._st)return null;
+        const _reCfgBlk=r=>{if(!r||!r._st)return null;   // config OR run row
           return (_reBlkKey&&r._st[_reBlkKey])||null;};
         // one number off that block, scaled where the family is sized (a tilt or a
         //   recycled hybrid trades several contracts, so money scales and ratios do not).
@@ -23135,6 +23136,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               runs:[+x.id],
               is:(t?t.is:(+x.best_pnl_usd||null)),wf:(wf?wf.net:null),lb:(lb?lb.net:null),tot:tot,
               dd:(dd||null),pf:pf,trd:trd,
+              _st:(function(){const L=V&&V.lockbox;if(!L)return null;
+
+                const num=function(v){return (v!=null&&isFinite(+v))?+v:null;};
+
+                return {lb:{profit_factor:num(L.pf!=null?L.pf:L.profit_factor),
+
+                  win_rate:num(L.win_rate),sharpe:num(L.sharpe),sortino:num(L.sortino),
+
+                  num_trades:num(L.trades!=null?L.trades:L.num_trades),
+
+                  max_drawdown:(L.dd!=null?Math.abs(+L.dd)*mc:null),
+
+                  avg_loss:(L.avg_loss!=null?Math.abs(+L.avg_loss)*mc:null),
+
+                  total_pnl:(L.pnl!=null?+L.pnl*mc:null)}};})(),
+
+              _sp:{a:(x.date_from||null),w:null,
+
+                   l:((V&&V.lockbox&&V.lockbox.from)?String(V.lockbox.from).slice(0,10):null),
+
+                   b:(x.date_to||null)},
+
+              _mu:1,_sf:1,   // the block above is already in dollars
+
               _wr:((V&&V.total_win_rate!=null)?+V.total_win_rate:null),
               _sh:((V&&V.total_sharpe!=null)?+V.total_sharpe:null),
               _so:((V&&V.total_sortino!=null)?+V.total_sortino:null),
