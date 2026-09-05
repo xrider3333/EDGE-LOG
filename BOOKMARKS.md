@@ -123,3 +123,20 @@ lowest-EV-R leg in the library (0.150); an R / YR search over 400 ORB configs co
 
 **Caveat carried on every card:** both frontier legs were selected by a search on this same
 window, so the book inherits that selection. Their own fenced validates are queued (B17/B18).
+
+## Round 30 (2026-09-05) — the R / YR ceiling of every family (rows 1253-1257, v73.493)
+
+Identical objective search (`tools/ryr_search.py`) on each family's own file and ranges,
+same seed/window/gates, so the ceilings read against each other:
+
+| Family | configs | ceiling | what it is |
+|---|---|---|---|
+| **NOISE** | 600 | **R / YR 103** (368 tr/yr, EV R 0.28) | the FREQUENCY family |
+| **ENGU-Q 24h efficiency variant** | 200 | **EV R 1.40** (55 tr/yr, R / YR 77) | the EDGE family — library record |
+| ENGU-Q 24h base (the paper leg) | 180 | EV R 0.45 / R / YR 82 | the ER variant is genuinely better, not luck |
+| ORB | 400 | R / YR 21 (EV R 0.13–0.17) | the FLOOR — earns money, almost no edge per trade |
+| TTM Squeeze | 250 | R / YR 12 | confirms closed |
+
+**Why it matters:** the frequency ceiling and the edge ceiling sit in DIFFERENT families —
+that is exactly why pooling them (B19) beat every book measured, and why pooling two legs
+from the same family would not have.
