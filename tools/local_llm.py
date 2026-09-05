@@ -56,15 +56,26 @@ Stdlib + pandas only. No new dependency: Ollama is already installed and serving
 """
 from __future__ import annotations
 import argparse
+import io
 import json
 import sys
 import time
+import os
 import urllib.error
 import urllib.request
 
 HOST = "http://127.0.0.1:11434"
 MODEL = "qwen3.6:latest"
 KEEP_ALIVE = "30m"          # hold the weights in RAM so the next call is warm
+
+# WHERE YOU SEE THIS BEING USED (owner 2026-09-05: "where do i see the ollama being
+# used?"). It has no screen in the app and it should not have one - it is a tool the
+# supervising model runs, not a feature. So it writes a plain-text LOG instead, next to
+# runner.log in the same operational folder, and every single call appends one block:
+# when, what was asked, how long it took, how fast it ran, and the answer verbatim.
+# That is the audit trail - if a number ever traces back to this model rather than to
+# pandas, this file is where you catch it.
+LOG_PATH = os.environ.get("AUGUR_LOCAL_LLM_LOG") or r"C:\EdgeLog\local_llm.log"
 
 SYSTEM = (
     "You are a research assistant for a quantitative trading log. You are given numbers "
@@ -102,7 +113,25 @@ def ask(prompt, system=SYSTEM, num_predict=400, timeout=600, model=MODEL, think=
     if not txt:
         txt = ("[empty response -- num_predict %d was consumed before any answer. Raise it, "
                "or check think=False.]" % num_predict)
-    return (txt, time.time() - t0, (ec / ed) if ed else 0.0)
+    secs, tps = time.time() - t0, ((ec / ed) if ed else 0.0)
+    _log(prompt, txt, secs, tps, model)
+    return (txt, secs, tps)
+
+
+def _log(prompt, answer, secs, tps, model):
+    """Append one block to LOG_PATH. Never raises: a logging failure must not lose an answer."""
+    try:
+        d = os.path.dirname(LOG_PATH)
+        if d and not os.path.isdir(d):
+            os.makedirs(d, exist_ok=True)
+        with io.open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write("\n%s  %s  %.1fs  %.1f tok/s\n"
+                    % (time.strftime("%Y-%m-%d %H:%M:%S"), model, secs, tps))
+            f.write("  ASKED : %s\n" % " ".join(str(prompt).split())[:600])
+            for line in str(answer).splitlines():
+                f.write("  MODEL : %s\n" % line[:300])
+    except Exception:
+        pass
 
 
 def triage_csv(path, metric, top=12, group=None, question=None, floor_col=None, floor=None):

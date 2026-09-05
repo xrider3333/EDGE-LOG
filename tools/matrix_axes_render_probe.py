@@ -310,6 +310,10 @@ CASES = [
     #   hand-checked (a scatter tooltip carries only the two axes it draws).
     ('main-scatter-mar-rpy', 901, {'cfgTab': 'raw', 'mtxView': 'scatter', 'mtxCols': 'both',
                                    'mtxSX': 'MAR', 'mtxSY': 'R / YR'}),
+    # v73.50x: ROC % / YR is the one axis that is NOT leverage-blind, so its arithmetic is
+    #   worth gating too -- net per year over the ACCT account, default $100,000.
+    ('main-scatter-roc', 901, {'cfgTab': 'raw', 'mtxView': 'scatter', 'mtxCols': 'both',
+                               'mtxSX': 'MAR', 'mtxSY': 'ROC % / YR'}),
     ('main-ratios-only', 901, {'cfgTab': 'raw', 'mtxView': 'parallel', 'mtxCols': 'ratio'}),
     ('main-numbers-only', 901, {'cfgTab': 'raw', 'mtxView': 'parallel', 'mtxCols': 'num'}),
     ('partial-parallel', 902, {'cfgTab': 'raw', 'mtxView': 'parallel', 'mtxCols': 'both'}),
@@ -569,7 +573,10 @@ _TIPNUM = r'([-+]?[0-9]*\.?[0-9]+|Infinity|-Infinity|NaN)'
 
 
 def tip_val(tip, axis):
-    m = re.search(re.escape(axis) + r' <b>' + _TIPNUM + r'</b>', tip or '')
+    # the trailing '%' matters: a percentage axis renders <b>3%</b>, and without this the
+    # parser silently returned None -- which reads as "the dot did not draw" rather than
+    # "the probe cannot read it". ROC % / YR and DD % are both this shape.
+    m = re.search(re.escape(axis) + r' <b>' + _TIPNUM + r'%?</b>', tip or '')
     if not m:
         return None
     try:
@@ -777,6 +784,24 @@ def main():
                    % (rpy_got, _yrs, exp_rpy))
     else:
         print('  hand-check R/YR 0.48 * 500 / %.2f yr = %.4f  rendered %.1f   OK' % (_yrs, exp_rpy, rpy_got))
+
+    # -- 4c. ROC % / YR = (net / years) / account x 100 -------------------------
+    #    Same config A, same 7,000 over the same window, against the default $100,000
+    #    account: (7000 / yrs) / 100000 * 100. At a ~14-year window that is ~0.5 %/yr.
+    #    This one is deliberately NOT leverage-blind -- it is the only measure on the
+    #    board that re-sizing moves -- so a silent change of basis would be invisible
+    #    everywhere else. Hence a gate.
+    roc_got = None
+    for t in ((cs.get('main-scatter-roc') or {}).get('dots') or []):
+        if which_cfg(tip_label(t), names) == 'A':
+            roc_got = tip_val(t, 'ROC % / YR')
+    exp_roc = (7000.0 / _yrs) / 100000.0 * 100.0
+    if not isinstance(roc_got, float) or abs(roc_got - exp_roc) > 0.5 + 1e-9:
+        bad.append('ROC %% / YR: config A rendered %s, hand calculation (7000/%.3f yrs)/100000*100 = %.4f'
+                   % (roc_got, _yrs, exp_roc))
+    else:
+        print('  hand-check ROC  (7000 / %.2f yr) / 100000 = %.4f %%/yr  rendered %s   OK'
+              % (_yrs, exp_roc, roc_got))
 
     # -- 5. NUMBERS / RATIOS / BOTH governs both new axes ---------------------
     # an inverted axis wears a ' ↓' and a sparse one a ' °' -- match the measure NAME.
