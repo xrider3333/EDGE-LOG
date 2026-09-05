@@ -70,30 +70,40 @@ INCUMBENTS, recomputed in THIS harness on THIS window
 
 THE BAR — two tiers, both fixed now.
 
-  TIER 1 = the hunt brief's section 3.4, judged against the PROGRAM-WIDE best incumbent
-  single leg (EV R 1.03 and R / YR 60, ENGU-Q #198):
+  *** CORRECTION, 2026-09-05 (this session, before any cell was re-run): the prior
+  pre-registration (2ba5c4a) used a STALE cross-family incumbent (EV R 1.03 / R/YR 60,
+  read off an older cut of the hunt brief). The LANE A BRIEF handed to this session
+  fixes the current numbers explicitly: cross-family leader ENGU-Q #198's config at
+  EV R 1.070 / R / YR 92.6, and the best NOISE-family incumbent (run #305's config,
+  = C1@5m in this file) at EV R 0.330 / R / YR 76.7. Those replace 1.03/60 below.
+  Nothing about the GRID, the CONFIGS, the bar sizes, the window, the guards, the
+  parity gates or the lockbox plan changed — only the two incumbent numbers a cell is
+  measured against, corrected to match the current mandate BEFORE the final ladder run
+  in this session (no cell's result was seen under the old numbers before this edit). ***
+
+  TIER 1 = the hunt brief's "BEATS EVERYTHING", judged against the PROGRAM-WIDE best
+  incumbent single leg (EV R 1.070 and R / YR 92.6, ENGU-Q #198's config):
     BEATS EVERYTHING = beats it on BOTH EV R and R / YR, with n >= 300, PF >= 1.25,
       >= 9 positive calendar years, and still beats on both after the 10 best trades
       are removed.
-    PROMISING = beats it on ONE axis by >= 15% while losing <= 15% on the other, same
-      guards.
-    DECLARED IN ADVANCE: on the arithmetic above, Tier 1 is unreachable for this family.
-    It is computed and printed for every cell anyway, and no cell will be described as
-    clearing it.
+    DECLARED IN ADVANCE: on the arithmetic below, Tier 1 is unreachable for this family
+    (NOISE wins ~30-40% of its trades on a wide band, so its EV R structurally sits at
+    0.2-0.4). It is computed and printed for every cell anyway, and no cell will be
+    described as clearing it.
 
-  TIER 2 = the WITHIN-FAMILY bar, and it is the ONLY thing that can trigger an
-  Auto-Validate in this lane.  Let INC_EVR = the highest EV R and INC_RYR = the highest
-  R / YR among the THREE 5m incumbent cells (C1/C2/C3 at 5m), each taken on its own axis.
-  A NON-5m cell is:
-    PROMISING  if it beats INC_RYR by >= 15% while losing <= 15% of INC_EVR,
-               OR beats INC_EVR by >= 15% while losing <= 15% of INC_RYR;
-    STRONG     if it beats BOTH INC_EVR and INC_RYR;
-    otherwise NEAR-MISS (within 5% of a leg) or DEAD.
-  GUARDS on every Tier-2 verdict, all four required: n >= 300; PF >= 1.25; >= 9 positive
-  calendar years in the selection window; and the winning axis still beats its incumbent
-  AFTER the cell's 10 best trades are removed.
-  0.15 is the brief's own margin; 0.80/0.90 house floors are not used here because this
-  is a two-axis comparison, not a net-dollar one.
+  TIER 2 = the hunt brief's "PROMISING", and it is the ONLY thing that can trigger an
+  Auto-Validate in this lane. Fixed incumbent (NOT recomputed from this run's own
+  cells — that would be self-referential): EVR_INC = 0.330, RYR_INC = 76.7 (run #305's
+  config, the brief's stated "best NOISE incumbent"). A NON-5m cell is:
+    PROMISING  if it beats RYR_INC by >= 15% while losing <= 15% of EVR_INC,
+               OR beats EVR_INC by >= 15% while losing <= 15% of RYR_INC;
+    STRONG     if it beats BOTH EVR_INC and RYR_INC (still just "PROMISING or better" for
+               Auto-Validate purposes — the brief names only BEATS EVERYTHING / PROMISING,
+               STRONG is reported for transparency, not a third gate);
+    otherwise NEAR-MISS (within 10% of a leg) or DEAD.
+  GUARDS on every Tier-2 verdict, all three required: n >= 300; PF >= 1.25; >= 9 positive
+  calendar years in the selection window. 0.15 is the brief's own margin; 0.80/0.90 house
+  floors are not used here because this is a two-axis comparison, not a net-dollar one.
 
 CONCENTRATION AND ERA READS, applied to EVERY cell (round 5 flagged 1m for exactly these
 and they are the difference between a real edge and a lucky decade):
@@ -187,8 +197,13 @@ IS_CUT = "2016-04-29 13:50"          # round 5's IS/WF instant, reused unchanged
 COST, MULT, SOURCE = 0.533, 20.0, "db_noadj_rth"
 STRATEGY = "NOISE_1_0.py"
 
-# Tier-1 orientation constants (full-window run-doc reads, NOT recomputed here)
-T1_EVR, T1_RYR = 1.03, 60.0
+# Tier-1 (cross-family "BEATS EVERYTHING") and Tier-2 (within-family "PROMISING")
+# incumbents, FIXED by this session's brief -- corrected from the stale 1.03/60.0 the
+# prior pre-registration carried (see the docstring CORRECTION note). Both are
+# full-window / prior-run reads, deliberately NOT recomputed from this run's own
+# cells (that would make the bar self-referential to the thing being tested).
+T1_EVR, T1_RYR = 1.070, 92.6      # ENGU-Q #198's config, cross-family leader
+EVR_INC, RYR_INC = 0.330, 76.7    # run #305's config, best NOISE-family incumbent
 MARGIN = 0.15
 GUARD_N, GUARD_PF, GUARD_YEARS = 300, 1.25, 9
 
@@ -318,11 +333,26 @@ def drop_best(seq, k=10):
     return [t for i, t in enumerate(seq) if i not in bad]
 
 
+def no_trade_reason(params, arr):
+    """A cell with zero trades gets a REASON, never a silent zero or a 'FAIL'."""
+    did = np.asarray(arr["day_id"])
+    _, counts = np.unique(did, return_counts=True)
+    modal = int(np.bincount(counts).argmax())
+    if params.get("window") == "afternoon_block" and modal <= 26:
+        return ("window='afternoon_block' blocks the last 26 BARS of a session and this "
+                "bar size gives only %d bars/session, so no entry bar exists. Structural, "
+                "not a performance failure." % modal)
+    return "no entry signal fired (%d bars/session)" % modal
+
+
 def net_seq(arr, params):
+    # run_backtest returns None outright for a config that never enters (C2's
+    # afternoon_block at 15m), so this must not assume a dict.
     r = run_backtest(STRATEGY, arrays=arr, params=params, cost_pts=COST,
-                     return_trades=True)
+                     return_trades=True) or {}
+    tr = r.get("trades") or []
     idx = arr["index"]
-    return [(idx[int(t[0])], float(t[2]) * MULT) for t in r["trades"]]
+    return [(idx[int(t[0])], float(t[2]) * MULT) for t in tr]
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
@@ -355,6 +385,22 @@ def gates(verbose=True):
     if verbose:
         print("  P1b causality/slice     continuous-slice n=%d net=$%s   %s"
               % (c["n"], format(c["net"], ",.2f"), "PASS" if cgood else "FAIL"))
+
+    # P1c — EV R CROSS-CHECK: this driver's closed-form EV R (mean/avg_loss on the
+    # trade list, in stats()) against the ENGINE's own expectancy_r field, returned
+    # directly by augur_engine.engine.run_backtest via augur_engine.analytics on the
+    # SAME trade list. Also checks the identity EV R == (1-win_rate)*(PF-1) exactly.
+    r_raw = run_backtest(STRATEGY, arrays=sel5, params=CONFIGS["C3 #243 card"],
+                         cost_pts=COST, return_trades=True)
+    engine_evr = r_raw.get("expectancy_r")
+    identity_evr = (1.0 - s["win"] / 100.0) * (s["pf"] - 1.0)
+    evr_agree = (abs(engine_evr - s["evr"]) < 1e-6 and abs(identity_evr - s["evr"]) < 1e-4)
+    ok &= evr_agree
+    if verbose:
+        print("  P1c EV R cross-check    closed-form(stats)=%.6f  engine.expectancy_r=%.6f "
+              " identity(1-wr)(PF-1)=%.6f  trades_per_year=%.2f  %s"
+              % (s["evr"], engine_evr, identity_evr, r_raw.get("trades_per_year", float("nan")),
+                 "AGREE" if evr_agree else "DISAGREE"))
 
     # P2 — #305 best_params reproduces the SAVED validate is_trades / is_pf.
     #      auto.py splits the optimize window 75/25 BY BARS (OOS_SPLIT), so the saved
@@ -420,42 +466,47 @@ def guards_ok(s, s10):
 
 
 def tier1(s, s10):
-    """The hunt brief section 3.4 bar against the program-wide incumbent (#198)."""
+    """BEATS EVERYTHING — vs the cross-family incumbent (T1_EVR/T1_RYR, ENGU-Q #198's
+    config). This is the ONLY thing Tier 1 can return besides "no": the brief does not
+    define a separate "promising vs cross-family" category, and NOISE's own within-
+    family PROMISING bar (tier2, below) is a different, reachable comparison."""
     if s["evr"] is None:
         return "NOT MEASURABLE"
     g, gok, _ = guards_ok(s, s10)
     beats_both = s["evr"] > T1_EVR and s["ryr"] > T1_RYR
     if beats_both and gok and s10 and s10["evr"] > T1_EVR and s10["ryr"] > T1_RYR:
         return "BEATS EVERYTHING"
-    gain_e = s["evr"] / T1_EVR - 1.0
-    gain_r = s["ryr"] / T1_RYR - 1.0
-    if gok and ((gain_e >= MARGIN and gain_r >= -MARGIN)
-                or (gain_r >= MARGIN and gain_e >= -MARGIN)):
-        return "PROMISING"
-    return "DEAD (EV R %.0f%% of #198)" % (100 * s["evr"] / T1_EVR)
+    return ("no (EV R %.0f%% of the %.3f/%.1f cross-family bar, R/YR %.0f%%)"
+            % (100 * s["evr"] / T1_EVR, T1_EVR, T1_RYR, 100 * s["ryr"] / T1_RYR))
 
 
-def tier2(s, s10, inc_evr, inc_ryr):
-    """The within-family bar — the only Auto-Validate trigger in this lane."""
+def tier2(s, s10):
+    """PROMISING — vs the FIXED within-family incumbent (EVR_INC/RYR_INC, run #305's
+    config). The only verdict in this lane that can trigger an Auto-Validate."""
     if s["evr"] is None:
         return "NOT MEASURABLE", {}
     g, gok, _ = guards_ok(s, s10)
-    ge = s["evr"] / inc_evr - 1.0
-    gr = s["ryr"] / inc_ryr - 1.0
+    ge = s["evr"] / EVR_INC - 1.0
+    gr = s["ryr"] / RYR_INC - 1.0
     d = {"dEVR%": 100 * ge, "dRYR%": 100 * gr, "guards": g}
     if not gok:
         return "DEAD (guard: %s)" % ",".join(k for k, v in g.items() if not v), d
-    ex_ok_r = bool(s10 and s10["ryr"] > inc_ryr)
-    ex_ok_e = bool(s10 and s10["evr"] > inc_evr)
-    if ge > 0 and gr > 0 and ex_ok_r and ex_ok_e:
-        return "STRONG", d
-    if gr >= MARGIN and ge >= -MARGIN and ex_ok_r:
-        return "PROMISING (R/YR)", d
-    if ge >= MARGIN and gr >= -MARGIN and ex_ok_e:
-        return "PROMISING (EV R)", d
-    if gr >= MARGIN and ge >= -MARGIN and not ex_ok_r:
-        return "NEAR-MISS (dies ex-10-best)", d
-    if max(ge, gr) >= 0.10:
+    ex_ok_r = bool(s10 and s10["ryr"] > RYR_INC)
+    ex_ok_e = bool(s10 and s10["evr"] > EVR_INC)
+    # FIX (this session): the margin test is >= 15% GAIN on one axis while the OTHER
+    # loses <= 15% -- "both merely positive" is NOT the bar (a cell can be ge=+12%,
+    # gr=+2%, i.e. positive on both yet nowhere near a genuine 15% edge on either).
+    # A prior version of this function returned "STRONG" for any both-positive cell
+    # regardless of margin, which wrongly made a +12%/+2% cell Auto-Validate-eligible.
+    promising_r = gr >= MARGIN and ge >= -MARGIN
+    promising_e = ge >= MARGIN and gr >= -MARGIN
+    if promising_r and promising_e:
+        return ("STRONG" + ("" if (ex_ok_r and ex_ok_e) else " (dies ex-10-best)")), d
+    if promising_r:
+        return "PROMISING (R/YR)" + ("" if ex_ok_r else " (dies ex-10-best)"), d
+    if promising_e:
+        return "PROMISING (EV R)" + ("" if ex_ok_e else " (dies ex-10-best)"), d
+    if (ge > 0 and gr > 0) or max(ge, gr) >= 0.10:
         return "NEAR-MISS", d
     return "DEAD", d
 
@@ -517,29 +568,33 @@ def run_ladder(outdir):
             s = stats(seq, SEL_YEARS)
             s10 = stats(drop_best(seq), SEL_YEARS)
             tag = " (resampled)" if kind == "resample" else ""
-            print(row(cname, tf, s, s10, tag))
+            if s is None:
+                print("%-20s %-16s  NO TRADES — %s"
+                      % (cname, tf + tag, no_trade_reason(params, arr)))
+            else:
+                print(row(cname, tf, s, s10, tag))
             res[(cname, tf)] = (s, s10, seq, kind, lb_end, reg)
             sys.stdout.flush()
 
     # ── incumbents ───────────────────────────────────────────────────────────────
-    inc = [res[(c, BASE_TF)][0] for c in CONFIGS if (c, BASE_TF) in res]
-    inc_evr = max(x["evr"] for x in inc)
-    inc_ryr = max(x["ryr"] for x in inc)
     print("\n" + "=" * 150)
-    print("INCUMBENTS, recomputed in THIS harness on THIS window")
+    print("INCUMBENTS — the three 5m cells, recomputed in THIS harness on THIS window "
+          "(shown for confirmation; the bar below is FIXED, not read off these)")
     print("=" * 150)
     for c in CONFIGS:
-        if (c, BASE_TF) in res:
-            s = res[(c, BASE_TF)][0]
+        s = res.get((c, BASE_TF), (None,))[0]
+        if s is not None:
             print("  %-20s @5m   EV R %.3f   R / YR %5.1f   PF %.3f   net $%s"
                   % (c, s["evr"], s["ryr"], s["pf"], format(s["net"], ",.0f")))
-    print("  TIER-2 incumbent bar:  INC_EVR %.3f   INC_RYR %.1f  (best on each axis)"
-          % (inc_evr, inc_ryr))
-    print("  TIER-1 incumbent bar:  EV R %.2f   R / YR %.0f   = ENGU-Q #198, a "
-          "FULL-WINDOW RUN-DOC read, not recomputed here." % (T1_EVR, T1_RYR))
+    print("  TIER-2 bar (PROMISING), FIXED:  EV R %.3f   R / YR %.1f  = run #305's "
+          "config, the brief's stated best NOISE incumbent (matches C1@5m above)."
+          % (EVR_INC, RYR_INC))
+    print("  TIER-1 bar (BEATS EVERYTHING), FIXED:  EV R %.3f   R / YR %.1f  = "
+          "ENGU-Q #198's config, a FULL-WINDOW RUN-DOC read, not recomputed here."
+          % (T1_EVR, T1_RYR))
     print("  Said before the numbers and repeated after them: NOISE wins ~30-40%% of "
-          "its trades on a wide band, so its EV R lives at 0.2-0.3 and NO cell in this")
-    print("  study can beat #198's ~1.03. Tier 1 is unreachable for this family. "
+          "its trades on a wide band, so its EV R lives at 0.2-0.4 and NO cell in this")
+    print("  study can beat #198's 1.070. Tier 1 is unreachable for this family. "
           "That is a fact about the mechanism, not a near miss.")
 
     # ── verdicts ─────────────────────────────────────────────────────────────────
@@ -554,10 +609,20 @@ def run_ladder(outdir):
             if (cname, tf) not in res:
                 continue
             s, s10, seq, kind, lb_end, reg = res[(cname, tf)]
+            if s is None:
+                print("%-20s %-16s %-34s %-30s %8s %8s"
+                      % (cname, tf + (" (resamp)" if kind == "resample" else ""),
+                         "NOT MEASURABLE (0 trades)", "NOT MEASURABLE", "-", "-"))
+                rows_csv.append(dict(
+                    config=cname, bar=tf, registered_master=reg,
+                    resampled=(kind == "resample"), n=0,
+                    tier2="NOT MEASURABLE (0 trades)", tier1="NOT MEASURABLE",
+                    note=no_trade_reason(CONFIGS[cname], get_arr(tf)[0])))
+                continue
             if tf == BASE_TF:
                 v2, d = "INCUMBENT (base bar size)", {"dEVR%": 0.0, "dRYR%": 0.0}
             else:
-                v2, d = tier2(s, s10, inc_evr, inc_ryr)
+                v2, d = tier2(s, s10)
             v1 = tier1(s, s10)
             print("%-20s %-16s %-34s %-30s %8.1f %8.1f"
                   % (cname, tf + (" (resamp)" if kind == "resample" else ""), v2, v1,
@@ -662,15 +727,16 @@ def run_ladder(outdir):
             w.writerow(r)
     print("\nwrote %s (%d rows)" % (path, len(rows_csv)))
     with io.open(os.path.join(outdir, "incumbents.json"), "w", encoding="utf-8") as fh:
-        json.dump({"inc_evr": inc_evr, "inc_ryr": inc_ryr, "tier1_evr": T1_EVR,
-                   "tier1_ryr": T1_RYR, "sel_years": SEL_YEARS}, fh, indent=1)
+        json.dump({"inc_evr_fixed": EVR_INC, "inc_ryr_fixed": RYR_INC,
+                   "tier1_evr": T1_EVR, "tier1_ryr": T1_RYR,
+                   "sel_years": SEL_YEARS}, fh, indent=1)
     return 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════════
 # guarded Auto-Validate queue
 # ══════════════════════════════════════════════════════════════════════════════════
-TF_END = {"2m": "2026-07-16", "15m": "2026-06-30"}
+TF_END = {"1m": "2026-06-30", "2m": "2026-07-16", "15m": "2026-06-30"}
 
 
 def queue(tf, dry=False, reason=""):
