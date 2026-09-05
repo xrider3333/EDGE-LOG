@@ -42,7 +42,21 @@ best trades are deleted):
 | run **#310** LIM (verdict PASS) | 0.94 | 47 | **90%** | **449 d** | **0** (reload said 91) |
 | B14 (round-27 R/YR leader) | 0.60 | 93 | 81% | 164 d | 184 (reload said 211) |
 | **#226 frozen — DEPLOYED** | 0.23 | 40 | 80% | 105 d | 188 (reload said 212) |
-| #309 crown (ER gate) | 0.34 | 29 | **61%** | 104 d | 67 (reload said 83) |
+| #265 ER25 (= `ERW` @ trail 2.5) | 0.34 | 29 | 61% | 104 d | 67 (reload said 83) |
+| **run #309 crown** — the one that holds up | **0.44** | 44 | **53%** | 282 d | 99 (reload said 112) |
+
+*(The #265 row was labelled "#309 crown" in this table's first version, shipped v73.489 — the params
+were lifted from the wrong run doc. Corrected 2026-09-05 and #309's real crown added; the same
+`best_params`-not-defaults trap this file warns about elsewhere.)*
+
+**Run #309's crown is the standout, and it is the opposite shape to the artifacts.** Against the
+DEPLOYED leg it wins on selection EV R (0.439 vs 0.227) and R / YR (43.9 vs 40.0), wins on lockbox
+EV R (0.407 vs 0.364), and is far less tail-dependent (53% vs 80%) — ex-top-10 it still nets
+$235,741 against the deployed leg's $67,297. It loses on one read only, lockbox R / YR (40.4 vs
+68.5), and for an honest reason: it trades about half as often. Its 282-day longest hold is long,
+but it took 99 lockbox entries, so it is a slow exit inside a working config, not a buy-and-hold
+masquerading as one. **This is the ENGU-Q configuration the EV R / R / YR question actually points
+at — and it is already a validated PASS run, not a new candidate needing a search.**
 
 **The rule the numbers give:** on the 24-hour tape, **EV R ≥ 0.9 has meant a top-10 share ≥ 90%**
 in every case tested, and the mechanism is always the same — a wide trailing exit (`trail_frac`

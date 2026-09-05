@@ -1687,15 +1687,19 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   the frozen #226 control, which reproduces to the cent (n=2,843 / $434,721.12 / PF 1.332 / DD $50,420,
   re-verified 2026-09-05). Still NOT built: warm-starting the reload itself, so a long-lookback config
   is still graded by the engine on a truncated window.
-  **HOW BIG IS THE DIVERGENCE, MEASURED (2026-09-05, reload trades vs continuous, lockbox window):**
-  ORB #234 178 vs 178 and ORB R6 #314 168 vs 168 — **exact**; NOISE #243 375 vs 349 and #305 337 vs
-  289 — **+7% to +17%**; ENGU-Q ETH #226 212 vs 188, #309 83 vs 67, the B14 candidate 211 vs 184 —
-  **+13% to +24%, every one of them**. The pattern is mechanical: a strategy that is flat at the
-  close and carries no multi-session state (ORB) cannot diverge, while anything holding overnight or
-  reading a long session lookback (ENGU-Q on the 24h tape, NOISE's 44-session sigma) gets extra
-  lockbox trades from the reload that continuous operation would never have taken. **So the engine's
-  lockbox trade count is systematically OPTIMISTIC for every overnight family — treat a lockbox verdict
-  on one as provisional until this tool has re-graded it.** **No validate PASS is trustworthy without the
+  **HOW BIG IS THE DIVERGENCE, AND IN WHICH DIRECTION (measured 2026-09-05; reload = what the engine
+  grades, continuous = entry-sliced truth):**
+  * **ORB — exact, both ways.** #234 178 vs 178, R6 #314 168 vs 168. Flat at the close, no
+    multi-session state, so there is nothing for a warm start to get wrong.
+  * **ENGU-Q ETH — the reload INVENTS trades:** #226 212 vs 188, #265 83 vs 67, #309 112 vs 99,
+    B14 211 vs 184, and #310 **91 vs 0**. Optimistic by +13% to +24%, and unbounded in the #310 case.
+  * **NOISE — the reload DELETES trades:** #243 349 vs 375, #305 289 vs 337. Pessimistic by 7-14%,
+    because the 44-session sigma needs warm-up the reload does not have.
+  Both directions were in the original 2026-08-08 entry ("INVENTS" / "DELETES") and both are real —
+  **an earlier draft of this paragraph claimed the reload always over-counts, which was wrong for
+  NOISE and is corrected here.** The rule that survives: **on any family that holds overnight or
+  reads a long lookback, the engine's lockbox is not the config's own lockbox** — re-grade before
+  quoting it. Only intraday flat-at-the-close strategies are safe to take at face value. **No validate PASS is trustworthy without the
   continuous cross-check** — applies retroactively to every strategy, not just ENGU-Q.
   **🚨 IT HAS HAPPENED AGAIN, AND THIS ONE IS LIVE: RUN #310 (`ENGUQ_1M_ETH_LIM_1_0.py`, limit_atr 0.7
   / trail_frac 4.0 / regime_len 5, verdict PASS).** Continuous, entry-sliced, 2010-06-07 → 2026-06-30:

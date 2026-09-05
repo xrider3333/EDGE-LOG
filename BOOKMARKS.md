@@ -30,6 +30,16 @@ whether or not it clears the full house bar (PF >= 1.25, MAR >= 8, n >= 300).
 - Leg-level performance does NOT persist; diversification does (r25b K2: selecting legs on 2010-17 -> MAR 3.45 vs 7.20 taking all).
 - Every fade dies (rounds 13-21). The 9:30 NY open is the only tradeable open for ORB (r20). The crown risk engine is not portable (r22/23). ENGU-Q needs 1m granularity (r22). Resting overnight stops only hurt a close->open hold (r18b).
 - Never filter trades on a quantity known only after the trade's own window (r18 retraction).
+- **The EV R / R-YR answer on ENGU-Q is run #309's crown, and it was already in the library
+  (2026-09-05).** `ENGUQ_1M_ETH_ER_1_0.py` @ buf_atr 0.3 / tl_len 206 / ema_len 220 / limit_atr 0.55 /
+  er_len 100 / er_th 0.0 / regime_len 10 / stop_mult 1.3 / breakeven_R 3.0 / act_R 1.5 / trail_frac 2.5
+  / min_brk 1.6 / vol_mult 1.1 / atr_len 52. Continuous, entry-sliced: selection n=1,505 / PF 1.661 /
+  $505,756 / DD $44,403 / **EV R 0.439 / R / YR 43.9**; lockbox n=99 / PF 1.620 / $85,511 /
+  **EV R 0.407 / R / YR 40.4**; **top-10 share 53%** — the lowest measured, and ex-top-10 it still
+  nets $235,741. Beats the DEPLOYED #226 leg on selection EV R and R / YR, on lockbox EV R, and on
+  tail dependence (53% vs 80%); loses only on lockbox R / YR (40.4 vs 68.5) because it trades about
+  half as often. Verified with `tools/continuous_lb_check.py`. **No new search needed — this is a
+  crowning decision.** See ENGUQ.md §1.0.
 - **EV R is a tail detector on ENGU-Q ETH (measured 2026-09-05).** Every config found at EV R ≥ 0.9
   had a top-10 share ≥ 90% — two of them LOSE money without their ten best trades, and one (run
   #310, verdict PASS) takes zero lockbox trades because it holds one position 449 days. The cause is
