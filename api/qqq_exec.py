@@ -685,7 +685,13 @@ def _build_ratio_health(state, nowdt, log=print):
                 notes.append(f"ratio has drifted {drift_pct:.2f}% from its last-20 average -- "
                             f"fills may be biased")
         if not notes:
-            notes.append("ratio looks healthy -- fills should track NT closely")
+            # Outside the session a day-old ratio is expected, not healthy -- saying
+            # "healthy" beside an age of 1775 min read as a contradiction.
+            if not active and age_min is not None and age_min > 120:
+                notes.append("market is closed -- this ratio is from the last session and "
+                            "recalibrates at the next open")
+            else:
+                notes.append("ratio looks healthy -- fills should track NT closely")
         return {"current": current, "at": at, "source": source, "age_min": age_min,
                "mean_20": mean_20, "drift_pct": drift_pct, "band_lo": band_lo,
                "band_hi": band_hi, "warn": bool(warn), "note": "; ".join(notes)}
@@ -1053,35 +1059,56 @@ def _trade_parity(row, log=print):
 
 
 def _parity_summary(trades_all):
-    checked = ok = failed = 0
+    """Headline parity read.
+
+    RECONSTRUCTED rows are counted SEPARATELY and never fail the headline. They were
+    back-filled from the fill log after the fact (tools/qqq_exec_backfill_parity.py),
+    so their tracking error is an estimate, not a measurement -- and the two seeded on
+    2026-09-03 miss by design, because the shadow flattened at its old 15:58 rail while
+    NinjaTrader exited at 15:59:31/15:59:51, i.e. at a different NQ price. Counting them
+    as live failures painted the board red and read as "the mirror is broken" when no
+    live-captured trade had been checked at all.
+    """
+    checked = ok = failed = reconstructed = 0
     worst = 0.0
     worst_note = ""
+    recon_worst = 0.0
     for t in trades_all:
         pok = t.get("parity_ok")
         if pok is None:
+            continue
+        te = t.get("track_err_usd")
+        if str(t.get("parity_note") or "").strip().lower() == "reconstructed":
+            reconstructed += 1
+            if te is not None and abs(te) > abs(recon_worst):
+                recon_worst = te
             continue
         checked += 1
         if pok:
             ok += 1
         else:
             failed += 1
-        te = t.get("track_err_usd")
         if te is not None and abs(te) > abs(worst):
             worst = te
             worst_note = t.get("parity_note") or ""
     if checked == 0:
-        note = "no trades have enough NT fill data to check parity yet"
+        if reconstructed:
+            note = (f"no live-captured trade has been checked yet -- the {reconstructed} row(s) "
+                    f"on the board were reconstructed from the fill log after the fact and are "
+                    f"reference only")
+        else:
+            note = "no trades have enough NT fill data to check parity yet"
     elif failed == 0:
         note = "every checked trade reconciles with its NinjaTrader fill"
     else:
-        note = f"{failed} of {checked} trade(s) show tracking error beyond tolerance"
-        if worst_note:
+        note = f"{failed} of {checked} live-captured trade(s) miss their NinjaTrader fill"
+        if worst_note and worst_note.lower() != "reconstructed":
             note += f" -- worst: {worst_note}"
     return {"checked": checked, "ok": ok, "failed": failed,
+           "reconstructed": reconstructed,
+           "reconstructed_worst_err_usd": round(recon_worst, 2),
            "worst_err_usd": round(worst, 2), "note": note}
 
-
-# -- Firestore publish ----------------------------------------------------------------------
 def _all_trades_from_csv(cap=500):
     """Every closed shadow trade recorded since inception, oldest-first as the CSV
     stores them (trades.csv is append-only, trimmed to TRADES_KEEP by _append_csv).

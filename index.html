@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.509';
+const VERSION='73.510';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -24982,7 +24982,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(QFEED&&QFEED.length){
           const last10=QFEED.slice(-10);
           feedN=last10.length;
-          feedMean=last10.reduce((s,f)=>s+(Number(f.uptime_pct)||0),0)/feedN;
+          const _upPct=f=>{const v=Number(f&&f.uptime_pct);return !isFinite(v)?0:(v<=1?v*100:v);};
+          feedMean=last10.reduce((s,f)=>s+_upPct(f),0)/feedN;
         }
         const railHtml='<aside class="ov-rail">'
           +'<div class="rail-grp" style="margin-top:0">NET P&amp;L · since '+naS(QE.live_from)+'</div>'
@@ -25019,7 +25020,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +railRow('WORST TRACK ERR',QPAR&&QPAR.worst_err_usd!=null?qeMoney(QPAR.worst_err_usd):'—',QPAR&&QPAR.worst_err_usd?(QPAR.failed>0?'var(--red)':'var(--text3)'):null)
 
           +'<div class="rail-grp">FEED UPTIME</div>'
-          +railRow('LAST '+(feedN||10)+' DAYS, MEAN',feedMean!=null?feedMean.toFixed(1)+'%':'—',feedMean!=null?(feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):null)
+          +railRow('MEAN, LAST '+(feedN||10)+' DAY'+((feedN||10)===1?'':'S'),feedMean!=null?feedMean.toFixed(1)+'%':'—',feedMean!=null?(feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):null)
           +(feedMean!=null?railBar(feedMean,feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):'')
           +'</aside>';
 
@@ -25076,7 +25077,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const last10=QFEED.slice(-10);
             const barCol=up=>up>=99?'var(--green)':up>=95?'var(--yellow)':'var(--red)';
             const bars=last10.map(f=>{
-              const up=Number(f.uptime_pct)||0;
+              const up=(()=>{const v=Number(f.uptime_pct);return !isFinite(v)?0:(v<=1?v*100:v);})();
               const col=barCol(up);
               const h=Math.max(3,Math.round(up/100*22));
               const tip=f.date+' — '+up.toFixed(0)+'% uptime, '+(f.stale_min||0)+' min stale'+(f.note?(' — '+f.note):'');
@@ -25257,6 +25258,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let parityPanelHtml;
         if(parTotal==null){
           parityPanelHtml=tile('<div class="lbl" style="margin-bottom:6px">NT PARITY</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px">NinjaTrader parity checks not published yet</div>');
+        }else if(QPAR&&Number(QPAR.checked||0)===0&&Number(QPAR.reconstructed||0)>0){
+          // only back-filled rows so far - report it plainly instead of a red 0-of-N
+          parityPanelHtml='<div class="hero-card" style="background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 70%,transparent);border-radius:10px;padding:12px 14px;margin-bottom:12px">'
+            +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+            +'<div class="lbl" style="margin:0">NT PARITY &mdash; does this book mirror NinjaTrader'+"'"+'s real fills?</div>'
+            +qePill('NOT CHECKED YET','var(--text4)')
+            +'</div>'
+            +'<div style="margin-top:8px;font-size:13px;font-weight:700;color:var(--text3)">no live-captured trade has been checked yet</div>'
+            +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text4)">'+Number(QPAR.reconstructed)+' earlier row(s) were reconstructed from the fill log after the fact &mdash; reference only, worst estimate '+qeMoney(QPAR.reconstructed_worst_err_usd)+'</div>'
+            +(QPAR.note?('<div style="margin-top:6px;font-size:var(--fsxs);color:var(--text4)">'+String(QPAR.note).replace(/</g,'&lt;')+'</div>'):'')
+            +'</div>';
         }else{
           const loud=parFailed>0;
           parityPanelHtml='<div class="hero-card" style="background:'+(loud?'color-mix(in srgb,var(--red) 8%,var(--bg2))':'var(--bg2)')+';border:1px solid '+(loud?'var(--red)':'color-mix(in srgb,var(--border) 45%,transparent)')+';border-radius:13px;padding:13px 15px;margin-bottom:14px">'
