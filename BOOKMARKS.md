@@ -84,3 +84,26 @@ and 6+/8 slices, median neighbour R / YR 77.3 vs centre 77.4; NOISE 29/30 keep P
 **Honest negative: NQDIP 1.1 FAILED its Auto-Validate (run #315)** — wfe 0.154, consistency fail.
 The sweep's R / YR 23.5 / 8-of-8 did not survive the app's own walk-forward. NQDIP 1.0 (#307,
 PASS 6/6) stands; 1.1 parked. A sweep is never the last step.
+
+## Round 29 (2026-09-05) — the frontier legs pooled: **the best book measured** (rows 1246-1252, v73.487)
+
+One common pre-lockbox window (2010-06-07..2025-06-29), real engine, pooled by exit time,
+scored as ONE strategy (`tools/book_ryr_frontier.py`).
+
+| # | Book | n | Net | PF | MaxDD | MAR | EV R | tr/yr | **R / YR** | slices |
+|---|---|---|---|---|---|---|---|---|---|---|
+| — | CROWNED pair (NOISE crown #305 + ENGU-Q LIM #310) — baseline | 6,128 | $630,450 | 1.344 | $64,540 | 9.77 | 0.231 | 407 | 94.1 | 8/8 |
+| **B19** | **FRONTIER pair (NOISE R/YR + ENGU-Q EV R 1.40)** | 6,381 | $403,949 | **1.656** | **$17,900** | **22.57** | **0.566** | 424 | **239.7** | 7/8 |
+| B20 | FRONTIER trio (+ legal ORB #234) | 8,792 | $704,728 | 1.421 | $30,956 | 22.77 | 0.324 | 584 | 189.4 | 7/8 |
+| — | All five legs | 14,920 | $1,335,177 | 1.380 | $75,417 | 17.70 | 0.278 | 991 | 275.4 | 8/8 |
+
+**B19 beats the crowned baseline on EV R, R / YR, PF, drawdown AND MAR simultaneously**, on
+legs that are effectively independent (daily correlation +0.022). Book cards queued:
+`UQI8tV4YPyZh7DqCCdSv` (2-leg), `w60azTVlKDptxfCwfJRS` (3-leg).
+
+Limits measured, not assumed: **a book cannot beat its best leg on EV R** (trade-weighted
+average) — it can only add R / YR. Adding ORB dilutes (EV R 0.57 -> 0.32) because ORB is the
+lowest-EV-R leg in the library (0.150); an R / YR search over 400 ORB configs could not pass 21.
+
+**Caveat carried on every card:** both frontier legs were selected by a search on this same
+window, so the book inherits that selection. Their own fenced validates are queued (B17/B18).
