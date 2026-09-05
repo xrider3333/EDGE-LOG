@@ -64,3 +64,23 @@ Definitions (v73.460): EV R = (1 - win%) x (PF - 1); R / YR = EV R x trades per 
 
 Dead this round: `EMAPB_1_0.py` (1m EMA-pullback continuation, 27/27 cells lose, PF 0.86-0.94); ENGU-Q NQ+ES pooled (#312) R / YR 48 vs 43 alone - the WEAK ES leg dilutes.
 Lesson: the crowning rule (MAR floor) and the owner metric (R / YR) pick DIFFERENT configs from the same search - mine populations before building anything new.
+
+## Round 28 (2026-09-05) — the R / YR OBJECTIVE SEARCH (board rows 1241-1245, v73.484)
+
+The app crowns on its MAR rule; the owner ranks on EV R / R / YR. Different objectives -> the
+R / YR frontier sits uncrowned inside passed runs. Method: `tools/ryr_search.py` (objective
+random search over a file's OWN declared ranges) -> `tools/ryr_neighbourhood.py` (one-step
+plateau check) -> only if the plateau holds, a fenced neighbourhood file -> full Auto-Validate.
+
+| # | What | Numbers (pre-lockbox, 2010-06..2025-06) | Where | Status |
+|---|---|---|---|---|
+| **B17** | **EV R RECORD — ENGU-Q 24h ER frontier config** | n=833 · $257,557 · PF 2.553 · win 9.8% · DD $17,583 · MAR 14.65 · **EV R 1.40** · 55 tr/yr · R / YR 77.4 · 7/8 slices | `augur_strategies/ENGUQ_1M_ETH_ER_RYR.py` (fenced 243-cell nbhd, parity-verified); search `tools/r16_results/ryr_search_enguq_er.csv` | **Auto-Validate queued `B88YSrSDg9KtupQXjJdI`** |
+| **B18** | **R / YR RECORD for NOISE** | n=5,548 · $146,392 · PF 1.325 · win 14.3% · DD $16,345 · MAR 8.96 · EV R 0.279 · **368 tr/yr · R / YR 102.6** · 7/8 slices | `augur_strategies/NOISE_1_2_RYR.py`; search `ryr_search_noise.csv` | **Auto-Validate queued `Sl7Gxvj6cktTeQnOPRmZ`** |
+
+Plateau evidence (before any validate was spent): ENGU-Q 26/26 one-step neighbours keep PF>=1.25
+and 6+/8 slices, median neighbour R / YR 77.3 vs centre 77.4; NOISE 29/30 keep PF>=1.25, median
+100.9 vs 102.6. Files `ryr_nb_*.csv`.
+
+**Honest negative: NQDIP 1.1 FAILED its Auto-Validate (run #315)** — wfe 0.154, consistency fail.
+The sweep's R / YR 23.5 / 8-of-8 did not survive the app's own walk-forward. NQDIP 1.0 (#307,
+PASS 6/6) stands; 1.1 parked. A sweep is never the last step.
