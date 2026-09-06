@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.515';
+const VERSION='73.516';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12313,7 +12313,11 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _mdy2=ms=>{const t=new Date(ms);return (t.getUTCMonth()+1)+'/'+t.getUTCDate()+'/'+String(t.getUTCFullYear()).slice(2);};
       const _oS=_msP(Wopt&&Wopt[0]),_oE=_msP(Wopt&&Wopt[1]),_lS=_msP(Wlb&&Wlb[0]),_lE=_msP(Wlb&&Wlb[1]);
       const _timeOk=!!(selMode&&hasLB&&_oS!=null&&_oE!=null&&_lS!=null&&_lE!=null&&_lE>_oS&&_oE>_oS);
-      const _lbFrac=_timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
+      // lockbox START in ms - lets ALL CONFIGS place each candidate own door (see below)
+      const _lbStartMs=(function(){try{const d=(Wlb&&Wlb[0])?Date.parse(Wlb[0]):NaN;
+        return isFinite(d)?d:null;}catch(_e){return null;}})();
+      const _lbFrac=
+_timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
       // v71.13 (owner: "hover over bands"): the fold stripes carried a bare browser tooltip that
       //   said nothing but the fold number, and the lockbox stripe carried none at all. Both now
       //   open the same rich box 1A gives - dates, out-of-sample dollars, PF, and the verdict.
@@ -13087,7 +13091,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
           if(!sr||sr.famTop||sr.dim)return;
           if(!(sr.gateCand||sr.tiltCand||sr.hybCand||sr.hybRcy))return;
           if(!Array.isArray(sr.eq)||sr.eq.length<2)return;
-          _acN++;_acOv+='<polyline points="'+_seg(sr.eq,0,1)+'" fill="none" stroke="'+(sr.color||'var(--text4)')+'" stroke-width="0.4" opacity="0.35"/>';});window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_ace)};}
+          _acN++;
+          // place the lockbox door for THIS series from its own timestamps, then draw
+          //   pre-door into xL..xFull and post-door into xFull..xR, like the family tops.
+          const _aq=Array.isArray(sr.ts)?sr.ts:null;
+          let _pts='';
+          if(hasLB&&_aq&&_aq.length===sr.eq.length&&_lbStartMs){
+            let _sp=-1;
+            for(let _k=0;_k<_aq.length;_k++){if(+_aq[_k]>=_lbStartMs){_sp=_k;break;}}
+            const _n2=sr.eq.length;
+            const _fS=(_sp<0)?1:(_sp/Math.max(1,_n2-1));
+            const _xa=[];
+            for(let _k=0;_k<_n2;_k++){
+              const _f=(_n2<=1)?1:_k/(_n2-1);
+              const _x=(_fS>=1||_f<=_fS)?(xL+(xFull-xL)*(_fS>0?_f/_fS:1))
+                                        :(xFull+(xR-xFull)*((_f-_fS)/(1-_fS)));
+              _xa.push(_x.toFixed(1)+' '+Yv(sr.eq[_k]).toFixed(1));}
+            _pts=_xa.join(' ');
+          }else{
+            _pts=_seg(sr.eq,0,1);   // no lockbox or no timestamps - optimize window only
+          }
+          _acOv+='<polyline points="'+_pts+'" fill="none" stroke="'+(sr.color||'var(--text4)')+'" stroke-width="0.4" opacity="0.35"/>';});
+window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_ace)};}
         window._a2AllCandN=_acN;
         const _acOn=+(APREF.a2cfgAll||0);
         selSvg=_ddStrip+_hwOv
