@@ -226,13 +226,51 @@ def load_state(path=None):
     return base
 
 
-def save_state(state, path=None):
+def save_state(state, path=None, _retries=12, _sleep=0.05, log=None):
+    """Atomically replace the state file, surviving a Windows reader lock.
+
+    THE BUG THIS FIXES (2026-09-05): this function had thrown
+    `PermissionError [WinError 32] ... state.json.tmp -> state.json` **100,570 times**
+    into runner.log. Two causes, both Windows-specific:
+
+      * `os.replace` fails outright if ANOTHER PROCESS has the destination open, even
+        just for reading. `qqq_paper_publish.py` reads this exact file, and so does
+        anything the owner has open; on POSIX the rename would simply succeed.
+      * the temp file had a FIXED name, so two writers -- the tick loop and a `run_once`,
+        or two ticks overlapping -- raced on the same `state.json.tmp`.
+
+    The failure was not cosmetic: the tick loop catches the exception and logs it, so
+    every failed save DROPPED the state write for that tick, and state.json is the
+    source of truth for the cursor, the open lots and the rail state.
+
+    So: a unique temp name per writer, fsync before the swap, and retry the swap for
+    about a second, because a reader lock lasts milliseconds. If it still cannot swap,
+    the temp file is LEFT ON DISK rather than deleted -- losing the write silently is
+    worse than leaving a recoverable copy -- and the caller is told.
+    """
     path = path if path is not None else STATE_PATH
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
+    tmp = "%s.%d.%d.tmp" % (path, os.getpid(), int(time.time() * 1000) % 100000)
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, default=str)
-    os.replace(tmp, path)
+        f.flush()
+        os.fsync(f.fileno())
+    last = None
+    for i in range(_retries):
+        try:
+            os.replace(tmp, path)
+            return True
+        except PermissionError as e:          # WinError 32: someone has it open
+            last = e
+            time.sleep(_sleep * (i + 1))
+        except OSError as e:
+            last = e
+            break
+    if log:
+        log("[qqq-exec] state write could not swap into place after %d tries (%s); the new "
+            "state is kept at %s -- rename it over %s once whatever holds it lets go."
+            % (_retries, last, tmp, path))
+    return False
 
 
 def _roll_day(state, today):
@@ -1321,7 +1359,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log)
 
     doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
-    save_state(state)
+    save_state(state, log=log)
     return cfg, state, doc
 
 
@@ -1349,7 +1387,7 @@ def qqq_exec_thread(db, uids, stop=None, log=print):
             cfg2, state, doc = tick(cfg=cfg, state=state, log=log)
             for uid in uids:
                 _publish(db, uid, doc, state, log=log)
-            save_state(state)
+            save_state(state, log=log)
         except Exception as e:
             log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
