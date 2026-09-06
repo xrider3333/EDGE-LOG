@@ -1313,7 +1313,10 @@ class FirestoreQueue:
             # uid is inherently the allowed one, so this is also the auth gate.)
             for uid in self.allow:
                 col = self.db.collection("users").document(uid).collection(self.col)
-                for snap in col.where(filter=qf).stream():
+                # oldest FIRST - see the note above on why this is not an order_by
+                _queued = sorted(col.where(filter=qf).stream(),
+                                 key=lambda sn: (sn.create_time is None, sn.create_time))
+                for snap in _queued:
                     ref = snap.reference
                     job = snap.to_dict() or {}
                     # web STOP before the job even started -> cancel without running.
