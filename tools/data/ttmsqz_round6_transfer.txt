@@ -1,0 +1,52 @@
+TTM SQUEEZE ROUND 6 - the compression check as a cross-family signal, and the 24h tape
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01, house costs, one contract
+
+========================================================================================================
+PART B - TTM on the 24-HOUR tape (every previous round was regular hours only)
+========================================================================================================
+
+== NQ 5m ETH   bars=1127297  sessions=4139
+  config                            n    WR%      PF       net $   maxDD $    EV R     R/YR
+  published (fade, 2 ATR)       34279   32.7    0.96    -111,858   241,575  -0.024    -51.2
+  kc 2.0 (round-1 best shape)   37960   32.3    0.95    -179,801   287,749  -0.034    -80.6
+  min 6-bar squeeze             16303   33.3    0.95     -77,638   100,645  -0.033    -33.0
+  zero-cross exit               28741   31.0    0.96    -187,572   196,500  -0.028    -50.6
+  flip exit                     20593   25.7    0.97    -147,746   167,318  -0.026    -33.1
+  long only                     18033   34.1    1.00       6,434    90,929   0.003      3.1
+
+== ES 5m ETH   bars=1129126  sessions=4139
+  config                            n    WR%      PF       net $   maxDD $    EV R     R/YR
+  published (fade, 2 ATR)       37011   28.7    0.73    -647,847   652,815  -0.190   -437.8
+  kc 2.0 (round-1 best shape)   36402   29.4    0.75    -677,266   678,290  -0.179   -406.6
+  min 6-bar squeeze             19199   28.4    0.73    -348,083   362,238  -0.196   -234.7
+  zero-cross exit               30804   29.0    0.82    -617,383   621,443  -0.131   -251.3
+  flip exit                     21715   25.1    0.84    -485,080   487,862  -0.118   -158.9
+  long only                     19337   30.1    0.76    -288,595   317,070  -0.169   -203.7
+
+========================================================================================================
+PART C - COMPRESSION AS A SIZE TILT, not a filter (every trade kept)
+  A pure risk multiplier on the compressed slice: no trade is added, removed or
+  re-timed, so this cannot smuggle in a look-ahead. Read maxDD, not just net -
+  a tilt raises both.
+========================================================================================================
+
+NOISE short-veto (paper leg)
+  sizing                           net $      PF   maxDD $    EV R |    LB net $   LB PF  LB EVR
+  flat 1x (as traded)            395,169    1.41    18,425   0.259 |      60,001    1.36   0.220
+  2x on compressed               519,613    1.49    18,377   0.309 |      81,475    1.43   0.260
+  3x on compressed               644,057    1.55    21,032   0.350 |     102,948    1.48   0.291
+  compressed ONLY (filter)       124,444    2.23    12,565   0.709 |      21,474    1.87   0.541
+
+NOISE R/YR record (B18)
+  sizing                           net $      PF   maxDD $    EV R |    LB net $   LB PF  LB EVR
+  flat 1x (as traded)            173,763    1.31    16,345   0.270 |      27,371    1.27   0.228
+  2x on compressed               222,855    1.35    16,959   0.301 |      35,535    1.31   0.258
+  3x on compressed               271,947    1.38    23,831   0.326 |      43,699    1.33   0.282
+  compressed ONLY (filter)        49,092    1.61    10,773   0.502 |       8,164    1.55   0.459
+
+ORB #234 crown
+  sizing                           net $      PF   maxDD $    EV R |    LB net $   LB PF  LB EVR
+  flat 1x (as traded)            373,305    1.30    29,142   0.157 |      72,526    1.38   0.186
+  2x on compressed               490,394    1.35    42,357   0.184 |     106,085    1.50   0.244
+  3x on compressed               607,484    1.39    55,571   0.207 |     139,644    1.60   0.292
+  compressed ONLY (filter)       117,090    1.79    14,075   0.416 |      33,559    2.58   0.723
