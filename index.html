@@ -406,6 +406,32 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .stackbar-legend{display:flex;flex-wrap:wrap;gap:7px 14px;padding:12px 14px 14px}
 .stackbar-legend .li{display:flex;align-items:center;gap:6px}
 .stackbar-legend .sw{width:8px;height:8px;border-radius:2px;flex-shrink:0}.ov-cc-grid{display:grid;grid-template-columns:320px 1fr;gap:12px;margin-bottom:12px;align-items:stretch}.ov-cc-grid .ov-cal{order:-1}.ov-cc-grid>.section{min-width:0;display:flex;flex-direction:column;margin-bottom:0!important}.ov-cc-grid .cum-pl-chart{flex:1;display:flex;flex-direction:column;justify-content:center}.ov-cc-grid .cum-pl-chart svg{height:auto}.ov-rail .rail-kpi{cursor:pointer;border-radius:6px;transition:background .12s}.ov-rail .rail-kpi:hover{background:rgba(255,255,255,0.05)}
+/* ── QQQ shadow book round-3 additions (readiness / events / drawer / sticky rail) ── */
+.ov-rail.qqq-sticky-rail{position:sticky;top:54px;align-self:start;max-height:calc(100vh - 70px);overflow-y:auto}
+.qe-ready-banner{border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.qe-ready-banner.ready{background:color-mix(in srgb,var(--green) 14%,var(--bg2));border:1px solid var(--green)}
+.qe-ready-banner.notready{background:var(--bg2);border:1px solid color-mix(in srgb,var(--yellow) 55%,var(--border))}
+.qe-check-row{display:flex;align-items:baseline;gap:8px;font-size:var(--fsxs);color:var(--text3);padding:3px 0}
+.qe-evt-row{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border2);font-size:var(--fsxs)}
+.qe-evt-row:last-child{border-bottom:none}
+.qe-evt-chip{font-size:8px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;white-space:nowrap;flex:0 0 auto}
+.qe-sig-bar{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+.qe-sig-stack{width:100%;max-width:16px;display:flex;flex-direction:column-reverse;border-radius:2px 2px 0 0;overflow:hidden}
+.qe-drawer{background:color-mix(in srgb,var(--text) 4%,var(--bg1));border-top:1px solid var(--border2);border-bottom:2px solid var(--blue);padding:12px 16px}
+.qe-drawer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.qe-drawer-col{background:var(--bg2);border-radius:8px;padding:10px 12px}
+.qe-drawer-lbl{font-size:8px;letter-spacing:.08em;color:var(--text5);margin-bottom:6px;text-transform:uppercase}
+.qe-legend-item{cursor:pointer;user-select:none;transition:opacity .12s}
+.qe-legend-item.off{opacity:.32}
+@media (max-width:900px){
+  .ov-shell.qqq-ov-shell{display:block;margin:calc(var(--pad)*-1) calc(var(--pad)*-1) 0}
+  .ov-shell.qqq-ov-shell .ov-rail.qqq-sticky-rail{position:static;max-height:none;display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;border-right:none;border-bottom:1px solid var(--border)}
+  .ov-shell.qqq-ov-shell .ov-rail.qqq-sticky-rail .rail-net{grid-column:1/-1}
+  .ov-shell.qqq-ov-shell .ov-rail.qqq-sticky-rail .rail-grp{grid-column:1/-1;margin:10px 0 4px}
+  .ov-shell.qqq-ov-shell .ov-work{padding:14px 12px 20px}
+  .ov-shell.qqq-ov-shell .ov-cc-grid{display:block}
+  .ov-shell.qqq-ov-shell .ov-cc-grid .ov-cal{order:0;margin-bottom:12px}
+}
 </style>
 </head>
 <body>
@@ -450,7 +476,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.530';
+const VERSION='73.531';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +495,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.531',date:'2026-09-06',notes:['QQQ PAPER, round 3 of the shadow-book UI (items 48, 50, 51, 52, 53, 54, 55), all built against mock data since the backend has not shipped these fields to production yet -- everything degrades to a clean dash when a field is missing.','READINESS GATE at the top of the tab: a loud READY or NOT READY headline plus six plain-English checks (enough trading days, a live parity check has run, that check did not fail, feed uptime at least 99 percent, zero unexplained rail trips, reprice coverage at least 95 percent), with a Still Needed list under it when the book is not ready.','EVENT TIMELINE: a new section listing boot, feed, breaker, kill, refused, out-of-session, reprice, and end-of-day events newest first, colour-chipped by severity, with a show-more button past the first 30.','CLICK A CLOSED TRADES ROW to open an inline drawer under it comparing the shadow fill against the real NinjaTrader fill side by side -- timing, size and notional, ratio-priced price against the real re-priced price, and the resulting tracking error. Escape or a second click closes it.','TWO NEW COLUMNS ON CLOSED TRADES, REAL P&L and SLIP PER SHARE, plus a REPRICE tile on the sidebar showing what percentage of trades have been checked against real QQQ one-minute bars.','A SIGNALS STRIP under the feed-uptime bars shows the last 10 days of fired, taken, refused and not-mirrored-overnight signal counts, and each ORB, ENGU-Q and NOISE card now names its most recent trade NT notional against its shadow notional. A LATENCY pill sits in the header, turning red when the 95th-percentile order latency passes 10 seconds.','POLISH: the equity-chart legend is clickable to hide or show a line, the sidebar stays in view while the tab scrolls, an EXPORT CSV button downloads every closed trade with the new columns, and the whole tab now stacks cleanly on a narrow screen instead of squeezing sideways.']},
 {v:'73.524',date:'2026-09-05',notes:['FIX on the line added a moment ago: it was nested inside the block that only draws on the 1E CONFIGS view, so the one place that needed it most never showed it - SWEEPS, where 646 of 732 rows cannot be placed on EV R against SORTINO. It stands on its own now and appears on any chart missing more than one row in ten.']},
 {v:'73.523',date:'2026-09-05',notes:['A CHART MISSING MOST OF ITS ROWS NOW SAYS SO IN PLAIN SIGHT. Stress-testing the board today: SWEEPS listed 1,166 rows and drew 86 of them on EV R against SORTINO. It was not hiding it - the count sat 530 characters into a 5,575-character hover tooltip - but nobody reads that, and a chart showing a fourteenth of what is on screen must never look complete. A line under the chart names the number and the axis that could not place them whenever more than one row in ten is missing.','The gap itself is real and not a bug: the studies registry never recorded a Sharpe, a Sortino or an average losing trade for the local sweep rows. Measured across 1,166 of them - PF places 714, DRAWDOWN 711, ROC 698, but EV R and R / YR only 111 and SORTINO only 86. Pick PF or DRAWDOWN to see the whole population, or re-run a study to fill its figures in.']},
 {v:'73.522',date:'2026-09-05',notes:['TTM ROUND 6 closes the last untested ground and finds something better than what it was looking for. The 24-hour tape is dead for this strategy - eleven of twelve overnight configurations lose, ES worst at minus 647,847 dollars. But the compression check the family discovered is worth MORE to other families than to the squeeze: split any crowned strategy own trades by whether the hourly chart was coiled and the coiled ones earn two to three times the expectancy per unit of risk, on NOISE and ORB alike, and the lockbox year repeats it. Used as a size tilt rather than a filter it is worth 124,000 dollars on the NOISE paper leg for no extra drawdown at all. A scan, not a crownable backtest - studies rows 1262-1282.']},
@@ -24786,6 +24813,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const QRHEALTH=QE&&QE.ratio_health?QE.ratio_health:null;
       const feedByDate={};
       if(QFEED)QFEED.forEach(f=>{if(f&&f.date)feedByDate[f.date]=f;});
+
+      // ── round-3 additions (2026-09-06): readiness gate, event timeline, per-day signals,
+      // latency and reprice summaries. Same rule as above -- every one of these may be
+      // ABSENT on an older doc, so every read below degrades to a clean empty state.
+      const QREADY=QE&&QE.readiness?QE.readiness:null;
+      const QLAT=QE&&QE.latency?QE.latency:null;
+      const QSIG=(QE&&Array.isArray(QE.signals_day))?QE.signals_day:null;
+      const QEVT=(QE&&Array.isArray(QE.events))?QE.events:null;
+      const QREPRICE=QE&&QE.reprice?QE.reprice:null;
+      const qeNumOr=(v,d)=>(v===null||v===undefined||isNaN(v))?null:Number(v);
       const ratioOpen=APREF.qqqRatioOpen==null?0:+APREF.qqqRatioOpen; // collapsed by default
 
       const heroTile=tile(
@@ -24800,6 +24837,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +(QE?qePill(QE.feed_stale?'FEED STALE':'FEED OK',QE.feed_stale?'var(--yellow)':'var(--green)'):'')
         +(QE?qePill(QE.breaker_tripped?'BREAKER TRIPPED':'BREAKER CLEAR',QE.breaker_tripped?'var(--red)':'var(--text4)'):'')
         +(QE?qePill(QE.kill?'KILL ACTIVE':'KILL CLEAR',QE.kill?'var(--red)':'var(--text4)'):'')
+        +(QLAT?qePill('LATENCY '+qeNum(QLAT.median_s,1)+'s med',(qeNumOr(QLAT.p95_s)!=null&&QLAT.p95_s>10)?'var(--red)':'var(--text4)'):'')
         +'</div>'
         +'</div>'
         +'<div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:var(--fsxs);color:var(--text4)">'
@@ -24864,6 +24902,39 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const ratioSection='<div style="margin-top:10px">'
         +(ratioOpen?ratioBody:'')
         +'</div>';
+
+      // ── A. READINESS PANEL — sits above the calendar/chart row inside .ov-work. Six
+      // plain-English checks, each with the number behind it, plus the backend's own
+      // "missing" list. Renders nothing when the backend has not published readiness yet
+      // (older doc) so it never shows a false NOT READY.
+      let readinessHtml='';
+      if(QREADY){
+        const checks=[
+          ['enough trading days',(QREADY.days_valid!=null&&QREADY.days_required!=null)?(QREADY.days_valid>=QREADY.days_required):null,
+            naS(QREADY.days_valid)+' of '+naS(QREADY.days_required)+' valid trading days needed'],
+          ['live parity checked',QREADY.live_parity_checked===true,
+            QREADY.live_parity_checked?'at least one live-captured trade has been checked against NinjaTrader':'no live-captured trade has been checked against NinjaTrader yet'],
+          ['no live parity mismatches',QREADY.live_parity_failed!=null?(Number(QREADY.live_parity_failed)===0):null,
+            (QREADY.live_parity_failed!=null?Number(QREADY.live_parity_failed):'—')+' mismatch'+(Number(QREADY.live_parity_failed)===1?'':'es')+' outstanding'],
+          ['feed uptime healthy',QREADY.uptime_mean_10!=null?(Number(QREADY.uptime_mean_10)>=99):null,
+            'mean feed uptime, last 10 days: '+(QREADY.uptime_mean_10!=null?qeNum(QREADY.uptime_mean_10,1)+'%':'—')+' (needs 99%)'],
+          ['no unexplained rail trips',QREADY.rail_trips_unexplained!=null?(Number(QREADY.rail_trips_unexplained)===0):null,
+            (QREADY.rail_trips_unexplained!=null?Number(QREADY.rail_trips_unexplained):'—')+' unexplained rail trip'+(Number(QREADY.rail_trips_unexplained)===1?'':'s')+' in the last 10 days'],
+          ['nightly reprice coverage',QREADY.reprice_coverage_pct!=null?(Number(QREADY.reprice_coverage_pct)>=95):null,
+            'reprice coverage: '+(QREADY.reprice_coverage_pct!=null?qeNum(QREADY.reprice_coverage_pct,1)+'%':'—')+' (needs 95%)'],
+        ];
+        const rows=checks.map(([label,pass,detail])=>'<div class="qe-check-row"><span style="font-weight:700;color:'+(pass===true?'var(--green)':pass===false?'var(--red)':'var(--text5)')+'">'+(pass===true?'✓':pass===false?'✗':'—')+'</span><b style="color:var(--text2);font-weight:600">'+label+'</b><span style="color:var(--text4)">— '+detail+'</span></div>').join('');
+        const missing=(Array.isArray(QREADY.missing)?QREADY.missing:[]);
+        readinessHtml=tile(
+          '<div class="qe-ready-banner '+(QREADY.ready?'ready':'notready')+'">'
+          +'<div style="font-size:20px;font-weight:800;letter-spacing:.02em;color:'+(QREADY.ready?'var(--green)':'var(--yellow)')+'">'+(QREADY.ready?'✓ READY':'○ NOT READY')+'</div>'
+          +'<div style="font-size:var(--fsxs);color:var(--text3);max-width:480px">'+(QREADY.ready?'Every readiness gate is clear. This book can be trusted as a faithful mirror of the real NinjaTrader fills.':'This book is not yet trusted enough to size real money against. See the checks and the missing items below.')+'</div>'
+          +'</div>'
+          +rows
+          +(missing.length?('<div style="margin-top:10px;padding:9px 12px;border-radius:8px;background:color-mix(in srgb,var(--yellow) 10%,transparent);border:1px solid color-mix(in srgb,var(--yellow) 45%,var(--border))"><div style="font-size:8px;letter-spacing:.08em;color:var(--yellow);text-transform:uppercase;margin-bottom:5px">still missing</div>'+missing.map(m=>'<div style="font-size:var(--fsxs);color:var(--text3);padding:2px 0">• '+String(m).replace(/</g,'&lt;')+'</div>').join('')+'</div>'):'')
+          +(QREADY.note?('<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text4)">'+String(QREADY.note).replace(/</g,'&lt;')+'</div>'):'')
+          ,10);
+      }
 
       // ── MODEL section (collapsed by default, remembers open/closed in localStorage) —
       // built up-front so it is available regardless of whether QE (the shadow book)
@@ -25044,6 +25115,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       }else{
         const positions=QE.positions||{};
         const trades=QE.trades_all||[];  // newest-first, per api/qqq_exec.py _build_doc
+        window._qeTradesForExport=trades; // G. EXPORT CSV button reads this at click time
         const closedN=trades.length;
         const closedSum=trades.reduce((s,t)=>s+(Number(t.pnl)||0),0);
         const wins=trades.filter(t=>(Number(t.pnl)||0)>0).length;
@@ -25113,7 +25185,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _upPct=f=>{const v=Number(f&&f.uptime_pct);return !isFinite(v)?0:(v<=1?v*100:v);};
           feedMean=last10.reduce((s,f)=>s+_upPct(f),0)/feedN;
         }
-        const railHtml='<aside class="ov-rail">'
+        // TAKEN n/m over the last 10 published signal days, and reprice coverage --
+        // both optional (absent on an older doc) so both degrade to "—".
+        let sigTaken=null,sigFired=null;
+        if(QSIG&&QSIG.length){
+          const last10sig=QSIG.slice(-10);
+          sigTaken=last10sig.reduce((s,d)=>s+(Number(d.taken)||0),0);
+          sigFired=last10sig.reduce((s,d)=>s+(Number(d.fired)||0),0);
+        }
+        const railHtml='<aside class="ov-rail qqq-sticky-rail">'
           +'<div class="rail-grp" style="margin-top:0">NET P&amp;L · since '+naS(QE.live_from)+'</div>'
           +'<div class="rail-net" style="color:'+pnlCol(sinceStartPnl)+'">'+qeMoney(sinceStartPnl)+'</div>'
           +'<div style="font-size:var(--fss);color:var(--text3);margin-top:4px">'+(QST.n?QST.n+' closed trade'+(QST.n===1?'':'s'):'no closed trades yet')+'</div>'
@@ -25150,6 +25230,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div class="rail-grp">FEED UPTIME</div>'
           +railRow('MEAN, LAST '+(feedN||10)+' DAY'+((feedN||10)===1?'':'S'),feedMean!=null?feedMean.toFixed(1)+'%':'—',feedMean!=null?(feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):null)
           +(feedMean!=null?railBar(feedMean,feedMean>=99?'var(--green)':feedMean>=95?'var(--yellow)':'var(--red)'):'')
+
+          +'<div class="rail-grp">SIGNALS</div>'
+          +railRow('TAKEN, LAST 10 DAYS',(sigTaken!=null)?(sigTaken+' / '+sigFired):'—')
+
+          +'<div class="rail-grp">REPRICE</div>'
+          +railRow('COVERAGE',QREPRICE?qeNum(QREPRICE.coverage_pct,1)+'%':'—',QREPRICE?(Number(QREPRICE.coverage_pct)>=95?'var(--green)':'var(--yellow)'):null)
+          +(QREPRICE?railBar(Number(QREPRICE.coverage_pct)||0,Number(QREPRICE.coverage_pct)>=95?'var(--green)':'var(--yellow)'):'')
+          +railRow('MEAN SLIP/SH',QREPRICE&&QREPRICE.mean_slip_ps!=null?qeMoney(QREPRICE.mean_slip_ps):'—')
+          +'<div style="font-size:9px;color:var(--text5);margin-top:2px;line-height:1.4">re-priced nightly from real QQQ 1-minute bars</div>'
           +'</aside>';
 
         // ── MONTH CALENDAR — same reading as the TRADING LOG/PAPER calendars: one day per
@@ -25214,6 +25303,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             feedStripHtml='<div style="margin-top:10px"><div style="font-size:9px;letter-spacing:.05em;color:var(--text5);margin-bottom:4px">FEED UPTIME — LAST '+last10.length+' TRADING DAYS</div>'
               +'<div style="display:flex;gap:3px;align-items:flex-end">'+bars+'</div></div>';
           }
+          // ── E. SIGNALS STRIP — last 10 published signal days, stacked taken/refused/oos
+          // bars under the feed-uptime strip. Degrades to nothing when signals_day is absent.
+          let signalsStripHtml='';
+          if(QSIG&&QSIG.length){
+            const last10sig=QSIG.slice(-10);
+            const bars2=last10sig.map(s=>{
+              const total=Math.max(1,Number(s.fired)||0);
+              const taken=Number(s.taken)||0,refused=Number(s.refused)||0,oos=Number(s.oos)||0;
+              const seg=(n,col)=>n>0?'<div style="width:100%;height:'+Math.max(2,Math.round(n/total*26))+'px;background:'+col+'"></div>':'';
+              const tip=s.date+' — fired '+(Number(s.fired)||0)+', taken '+taken+', refused '+refused+', not mirrored (overnight) '+oos;
+              return '<div class="qe-sig-bar" title="'+String(tip).replace(/"/g,'&quot;')+'">'
+                +'<div class="qe-sig-stack" style="height:26px">'+seg(taken,'var(--green)')+seg(refused,'var(--yellow)')+seg(oos,'var(--text5)')+'</div>'
+                +'<div style="font-size:7px;color:var(--text5)">'+s.date.slice(5)+'</div>'
+                +'</div>';
+            }).join('');
+            signalsStripHtml='<div style="margin-top:12px"><div style="font-size:9px;letter-spacing:.05em;color:var(--text5);margin-bottom:4px">SIGNALS — LAST '+last10sig.length+' DAYS <span style="color:var(--green)">■</span> taken <span style="color:var(--yellow)">■</span> refused <span style="color:var(--text5)">■</span> not mirrored (overnight)</div>'
+              +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars2+'</div></div>';
+          }
           return tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'
             +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
             +nav('-1','◀',atFirst)+nav('1','▶',atLast)
@@ -25221,7 +25328,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span style="color:var(--text5)"> · '+moN+' trade'+(moN===1?'':'s')+(moN?' · '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
             +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">'+cells+'</div>'
             +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed shadow trades yet</div>':'')
-            +feedStripHtml,10);
+            +feedStripHtml+signalsStripHtml,10);
         })();
 
         let legCardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
@@ -25236,6 +25343,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const legUnreal=p?(Number(p.unrealized)||0):0;
           const cumSeries=(QE.cum_pnl&&QE.cum_pnl[key])||[];
           const sparkData=cumSeries.map(pt=>Number((pt&&pt.cum_pnl!==undefined)?pt.cum_pnl:((pt||[])[1]))||0);
+          // ── F. NOTIONAL — NT notional vs shadow notional for the leg's latest closed
+          // trade. Absent on any given trade (or the whole leg) reads as "—".
+          const legLatest=legTradesArr[0];
+          const ntNot=legLatest&&legLatest.nt_notional_usd!=null?Number(legLatest.nt_notional_usd):null;
+          const shNot=legLatest&&legLatest.shadow_notional_usd!=null?Number(legLatest.shadow_notional_usd):null;
+          const notRatio=legLatest&&legLatest.notional_ratio!=null?Number(legLatest.notional_ratio):null;
+          const notionalHtml=(ntNot!=null&&shNot!=null)
+            ?('<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text4)">NOTIONAL &mdash; NT '+qeMoney(ntNot)+' vs shadow '+qeMoney(shNot)+' (&times;'+(notRatio!=null?notRatio.toFixed(3):'—')+')</div>')
+            :'';
           legCardsHtml+='<div style="flex:1 1 260px;min-width:230px;background:var(--bg2);border-radius:10px;padding:12px 14px;border-left:3px solid '+color+'">'
             +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
             +'<div style="font-size:13px;font-weight:700;color:'+color+'">'+label+'</div>'
@@ -25248,6 +25364,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div><div style="color:var(--text5)">SINCE START</div><div style="color:'+pnlCol(legClosedSum)+';font-weight:700">'+qeMoney(legClosedSum)+'</div></div>'
             +'</div>'
             +'<div style="margin-top:8px">'+(sparkData.length>=2?sparkline(sparkData,color,220,32,false):sparkData.length===1?'<div style="font-size:var(--fsxs);color:var(--text4);padding:6px 0">one closed trade — the curve needs a second day</div>':'<div style="font-size:var(--fsxs);color:var(--text5);padding:6px 0">no closed trades yet</div>')+'</div>'
+            +notionalHtml
             +'</div>';
         });
         legCardsHtml+='</div>';
@@ -25276,7 +25393,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:'+W+'px">';
             svg+='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="var(--border)" stroke-dasharray="3,3"/>';
             [ymin,0,ymax].forEach(v=>{svg+='<text x="4" y="'+(y(v)+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+qeMoney(v)+'</text>';});
+            // ── G. legend toggle — window._qeChartHidden{key:true} hides a series; the
+            // legend swatch itself is the click target (data-qelegend).
+            const hiddenSet=window._qeChartHidden||{};
             const drawSeries=(key,color,w)=>{
+              if(hiddenSet[key])return;
               const series=cum[key]||[];if(!series.length)return;
               const dMap={};series.forEach(p=>{dMap[cD(p)]=cV(p);});
               let last=0,pts=[];
@@ -25292,8 +25413,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             else{svg+='<text x="'+padL+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)">'+naS(allDates[0])+'</text>';
             svg+='<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="end">'+naS(allDates[allDates.length-1])+'</text>';}
             svg+='</svg>';
-            const legend='<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:var(--text)"></span><span style="font-size:var(--fsxs);color:var(--text3)">TOTAL</span></span>'
-              +QE_LEGS.map(([k,label,color])=>'<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+color+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>').join('');
+            const legItem=(key,label,color)=>'<span class="qe-legend-item'+(hiddenSet[key]?' off':'')+'" data-qelegend="'+key+'" title="click to show/hide this line" style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+color+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>';
+            const legend=legItem('total','TOTAL','var(--text)')
+              +QE_LEGS.map(([k,label,color])=>legItem(k,label,color)).join('');
             equityHtml=tile('<div class="lbl" style="margin-bottom:8px">EQUITY CURVE — cumulative shadow P&amp;L since '+naS(QE.live_from)+'</div>'+svg+'<div style="margin-top:6px">'+legend+'</div>');
           }
         }
@@ -25306,6 +25428,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }else{
             const tagFor=reason=>{
               const r=String(reason||'');
+              if(/^OOS\s*--/i.test(r))return ' '+qePill('NOT MIRRORED','var(--yellow)');
               if(/REFUSED/i.test(r))return ' '+qePill('REFUSED','var(--yellow)');
               if(/BREAKER/i.test(r))return ' '+qePill('BREAKER','var(--red)');
               if(/KILL/i.test(r))return ' '+qePill('KILL','var(--red)');
@@ -25320,10 +25443,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<td style="text-align:right">'+qeMoney(o.nq_px)+'</td>'
               +'<td style="text-align:right">'+qeMoney(o.qqq_px)+'</td>'
               +'<td>'+naS(o.px_source)+'</td>'
+              +'<td style="text-align:right;color:'+((o.latency_s!=null&&o.latency_s>10)?'var(--red)':'var(--text3)')+'">'+(o.latency_s!=null?qeNum(o.latency_s,2)+'s':'—')+'</td>'
               +'<td style="color:var(--text4)">'+String(naS(o.reason)).replace(/</g,'&lt;')+tagFor(o.reason)+'</td>'
               +'</tr>').join('');
             ordersHtml=tile('<div class="lbl" style="margin-bottom:8px">TODAY&rsquo;S ORDERS ('+orders.length+')</div>'
-              +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+              +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th style="text-align:right">LATENCY</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
           }
         }
 
@@ -25353,11 +25477,57 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(/^reconstructed$/i.test(note.trim()))return ' '+qePill('RECONSTRUCTED','var(--text4)');
               return ' <span title="'+note.replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('PARITY NOTE','var(--red)')+'</span>';
             };
+            // ── C. TRADE DRAWER — one open at a time (window._qeDrawerIdx, a GLOBAL index
+            // into trades[]). D. REAL-PRICE COLUMNS -- REAL P&L / SLIP per SH, "—" until
+            // tools/qqq_reprice.py has repriced that trade (real_entry_px/real_exit_px absent).
+            const drawerIdx=(window._qeDrawerIdx!=null)?window._qeDrawerIdx:null;
+            const avgSlip=t=>{
+              const a=(t.slip_entry_ps!=null)?Math.abs(Number(t.slip_entry_ps)):null;
+              const b=(t.slip_exit_ps!=null)?Math.abs(Number(t.slip_exit_ps)):null;
+              if(a==null&&b==null)return null;
+              if(a==null)return b; if(b==null)return a;
+              return (a+b)/2;
+            };
+            const buildDrawer=t=>{
+              const repriced=t.real_entry_px!=null||t.real_exit_px!=null;
+              const shares=Number(t.shares)||0;
+              const nq2=(v)=>v!=null?qeNum(v,2):'—';
+              const ratioPnl=Number(t.pnl)||0;
+              const realPnl=t.real_pnl!=null?Number(t.real_pnl):null;
+              const trackErrDrawer=t.track_err_usd!=null?Number(t.track_err_usd):(realPnl!=null?(realPnl-ratioPnl):null);
+              return '<div class="qe-drawer"><div class="qe-drawer-grid">'
+                +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">TIMING — shadow vs NT</div>'
+                +'<div style="font-size:var(--fsxs);line-height:1.7"><b>shadow</b> '+qeFmtET(t.entry_ts)+' &rarr; '+qeFmtET(t.exit_ts)+'<br>'
+                +'<b>NT</b> '+(t.nt_entry_ts?qeFmtET(t.nt_entry_ts):'—')+' &rarr; '+(t.nt_exit_ts?qeFmtET(t.nt_exit_ts):'—')+'<br>'
+                +'<span style="color:var(--text4)">latency</span> '+(t.latency_s!=null?qeNum(t.latency_s,2)+'s':'—')+'</div></div>'
+                +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">SIZE &amp; NOTIONAL</div>'
+                +'<div style="font-size:var(--fsxs);line-height:1.7">NT '+(t.nt_qty!=null?qeInt(t.nt_qty):'—')+' &times; '+(t.nt_mult!=null?qeInt(t.nt_mult):'—')+' mult = '+(t.nt_notional_usd!=null?qeMoney(t.nt_notional_usd):'—')+'<br>'
+                +'shadow '+qeInt(shares)+' sh = '+(t.shadow_notional_usd!=null?qeMoney(t.shadow_notional_usd):'—')+'<br>'
+                +'<span style="color:var(--text4)">ratio</span> '+(t.notional_ratio!=null?Number(t.notional_ratio).toFixed(3):'—')+'</div></div>'
+                +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">RATIO-PRICED vs REAL QQQ</div>'
+                +(repriced?('<div style="font-size:var(--fsxs);line-height:1.7">entry '+qeMoney(t.entry_px)+' &rarr; '+qeMoney(t.real_entry_px)+' <span style="color:var(--text4)">('+(t.slip_entry_ps!=null?(Number(t.slip_entry_ps)>=0?'+':'')+qeNum(t.slip_entry_ps,3):'—')+'/sh)</span><br>'
+                  +'exit '+qeMoney(t.exit_px)+' &rarr; '+qeMoney(t.real_exit_px)+' <span style="color:var(--text4)">('+(t.slip_exit_ps!=null?(Number(t.slip_exit_ps)>=0?'+':'')+qeNum(t.slip_exit_ps,3):'—')+'/sh)</span><br>'
+                  +'<span style="color:var(--text4)">avg slip</span> '+(avgSlip(t)!=null?qeNum(avgSlip(t),3)+'/sh':'—')+'</div>')
+                  :'<div style="font-size:var(--fsxs);color:var(--text5)">not re-priced yet — re-priced nightly from real QQQ 1-minute bars</div>')
+                +'</div>'
+                +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">P&amp;L &amp; TRACKING</div>'
+                +'<div style="font-size:var(--fsxs);line-height:1.7">ratio-priced P&amp;L <b style="color:'+pnlCol(ratioPnl)+'">'+qeMoney(ratioPnl)+'</b><br>'
+                +'real P&amp;L <b style="color:'+(realPnl!=null?pnlCol(realPnl):'var(--text5)')+'">'+(realPnl!=null?qeMoney(realPnl):'—')+'</b><br>'
+                +'<span style="color:var(--text4)">tracking error</span> '+(trackErrDrawer!=null?qeMoney(trackErrDrawer):'—')+'</div></div>'
+                +'</div>'
+                +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text4)">exit reason: <span style="color:var(--text3)">'+naS(t.exit_reason)+'</span>'
+                +(t.parity_note?(' &middot; parity note: <span style="color:var(--text3)">'+String(t.parity_note).replace(/</g,'&lt;')+'</span>'):'')
+                +(t.note?(' &middot; <span style="color:var(--text3)">'+String(t.note).replace(/</g,'&lt;')+'</span>'):'')
+                +'</div>'
+                +'</div>';
+            };
             const rows=visible.map((t,i)=>{
               const pnl=Number(t.pnl)||0;
               const hasParity=t.parity_ok!==undefined&&t.parity_ok!==null;
               const parCol=hasParity?(t.parity_ok?pnlCol(pnl):'var(--red)'):'var(--text5)';
-              return '<tr>'
+              const realPnl=t.real_pnl!=null?Number(t.real_pnl):null;
+              const slip=avgSlip(t);
+              const rowHtml='<tr data-qetraderow="'+i+'" style="cursor:pointer'+(drawerIdx===i?';background:color-mix(in srgb,var(--blue) 8%,transparent)':'')+'">'
                 +'<td>'+qeFmtET(t.entry_ts)+'</td><td>'+qeFmtET(t.exit_ts)+'</td>'
                 +'<td style="color:'+legColorQE(t.leg)+'">'+naS(t.leg)+parityChip(t)+'</td>'
                 +'<td>'+naS(t.side?String(t.side).toUpperCase():null)+'</td>'
@@ -25369,13 +25539,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<td style="text-align:right;color:var(--text3)">'+(t.nt_points!=null?qeNum(t.nt_points,2):'—')+'</td>'
                 +'<td style="text-align:right;color:var(--text3)">'+(t.expected_usd!=null?qeMoney(t.expected_usd):'—')+'</td>'
                 +'<td style="text-align:right;color:'+parCol+'">'+(t.track_err_usd!=null?qeMoney(t.track_err_usd):'—')+'</td>'
+                +'<td style="text-align:right;color:'+(realPnl!=null?pnlCol(realPnl):'var(--text5)')+'">'+(realPnl!=null?qeMoney(realPnl):'—')+'</td>'
+                +'<td style="text-align:right;color:var(--text3)">'+(slip!=null?qeNum(slip,3):'—')+'</td>'
                 +'<td>'+naS(t.exit_reason)+tagFor(t.exit_reason)+'</td>'
                 +'</tr>';
+              return rowHtml+(drawerIdx===i?('<tr><td colspan="15" style="padding:0">'+buildDrawer(t)+'</td></tr>'):'');
             }).join('');
             const showMoreBtn=shown<closedN?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(closedN-shown)+' more)</button></div>'):'';
-            tradesHtml=tile('<div class="lbl" style="margin-bottom:8px">CLOSED TRADES ('+closedN+')</div>'
-              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th style="text-align:right">NT POINTS</th><th style="text-align:right">EXPECTED $</th><th style="text-align:right">TRACK ERR</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
-              +showMoreBtn);
+            tradesHtml=tile('<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">'
+              +'<div class="lbl" style="margin:0">CLOSED TRADES ('+closedN+')</div>'
+              +'<button class="btn-ghost" data-qeexportcsv style="margin-left:auto;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:var(--fsxs)">EXPORT CSV</button>'
+              +'</div>'
+              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th style="text-align:right">NT POINTS</th><th style="text-align:right">EXPECTED $</th><th style="text-align:right">TRACK ERR</th><th style="text-align:right">REAL P&amp;L</th><th style="text-align:right">SLIP/SH</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+              +showMoreBtn
+              +'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">click a row to see the full shadow-vs-NT breakdown &middot; REAL P&amp;L / SLIP re-priced nightly from real QQQ 1-minute bars</div>');
           }
         }
 
@@ -25425,9 +25602,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // ── OVERVIEW SHELL — sidebar rail + calendar/chart row, same skeleton as the
         // TRADING LOG overview (.ov-shell / .ov-rail / .ov-cc-grid). No monthly/symbol
         // filter pills here on owner's ask — the rail already carries the ratios.
-        const overviewHtml='<div class="ov-shell">'
+        const overviewHtml='<div class="ov-shell qqq-ov-shell">'
           +railHtml
           +'<div class="ov-work">'
+          +readinessHtml
           +'<div class="ov-cc-grid">'
           +'<div class="section" style="border:none;background:transparent;padding:0">'+equityHtml+'</div>'
           +'<div class="section ov-cal" style="border:none;background:transparent;padding:0">'+qeCalHtml+'</div>'
@@ -25436,7 +25614,27 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div>'
           +'</div>';
 
-        body=heroTile+ratioSection+overviewHtml+parityPanelHtml+'<div id="qe-trades-section"></div>'+ordersHtml+tradesHtml+railsHtml+modelSection;
+        // ── B. EVENT TIMELINE — newest-first, chip-coded by severity, "show more" past 30.
+        // Renders nothing when the backend has not published events yet.
+        let eventsHtml='';
+        if(QEVT&&QEVT.length){
+          const RED_K=['feed_down','breaker','kill'],AMBER_K=['refused','oos'];
+          const chipCol=k=>RED_K.indexOf(k)>=0?'var(--red)':(AMBER_K.indexOf(k)>=0?'var(--yellow)':'var(--text4)');
+          const evtShown=window._qeEventsShown||30;
+          const visibleEvt=QEVT.slice(0,evtShown);
+          const rows=visibleEvt.map(e=>{
+            const col=chipCol(e.kind);
+            return '<div class="qe-evt-row">'
+              +'<span class="qe-evt-chip" style="border:1px solid '+col+';color:'+col+'">'+String(e.kind||'').toUpperCase()+'</span>'
+              +'<span style="color:var(--text5);white-space:nowrap">'+qeFmtETTime(e.ts_et)+'</span>'
+              +'<span style="color:var(--text3)">'+String(e.text||'').replace(/</g,'&lt;')+'</span>'
+              +'</div>';
+          }).join('');
+          const showMoreEvt=evtShown<QEVT.length?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeeventsmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(QEVT.length-evtShown)+' more)</button></div>'):'';
+          eventsHtml=tile('<div class="lbl" style="margin-bottom:8px">EVENT TIMELINE — newest first</div>'+rows+showMoreEvt,10);
+        }
+
+        body=heroTile+ratioSection+overviewHtml+parityPanelHtml+'<div id="qe-trades-section"></div>'+ordersHtml+tradesHtml+railsHtml+eventsHtml+modelSection;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
@@ -29020,6 +29218,40 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-qcalday]').forEach(el=>{el.onclick=()=>{
         const t=content.querySelector('#qe-trades-section');
         if(t)t.scrollIntoView({block:'start',behavior:'smooth'});};});
+      // B. event timeline "show more"
+      const emore=content.querySelector('[data-qeeventsmore]');if(emore)emore.onclick=()=>{window._qeEventsShown=(window._qeEventsShown||30)+30;renderApp();};
+      // C. trade drawer -- click a CLOSED TRADES row to open/close its breakdown, one at a time
+      content.querySelectorAll('[data-qetraderow]').forEach(el=>{el.onclick=()=>{
+        const idx=+el.getAttribute('data-qetraderow');
+        window._qeDrawerIdx=(window._qeDrawerIdx===idx)?null:idx;
+        renderApp();};});
+      // Escape closes an open drawer too. Wired once (window._qeDrawerEscWired) so a
+      // re-render never stacks a second listener on document.
+      if(!window._qeDrawerEscWired){
+        window._qeDrawerEscWired=true;
+        document.addEventListener('keydown',e=>{
+          if(e.key==='Escape'&&window._qeDrawerIdx!=null&&activeTab==='augur'&&augurSub==='qqqpaper'){
+            window._qeDrawerIdx=null;renderApp();
+          }
+        });
+      }
+      // D + G. EXPORT CSV -- client-side, built from the trades held for export at render time
+      const xcsv=content.querySelector('[data-qeexportcsv]');if(xcsv)xcsv.onclick=()=>{
+        const rows=window._qeTradesForExport||[];
+        const cols=['entry_ts','exit_ts','leg','side','shares','entry_px','exit_px','pnl','exit_reason',
+          'nt_entry_ts','nt_exit_ts','nt_qty','nt_mult','nt_notional_usd','shadow_notional_usd','notional_ratio',
+          'latency_s','real_entry_px','real_exit_px','real_pnl','slip_entry_ps','slip_exit_ps','repriced_at',
+          'nt_points','expected_usd','track_err_usd','parity_ok','parity_note','note'];
+        const esc=v=>{if(v===null||v===undefined)return '';const s=String(v);return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;};
+        const csv=[cols.join(',')].concat(rows.map(t=>cols.map(c=>esc(t[c])).join(','))).join('\r\n');
+        _libDownload('qqq_shadow_book_closed_trades.csv',csv);
+      };
+      // G. equity-chart legend toggle
+      content.querySelectorAll('[data-qelegend]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-qelegend');
+        const h=window._qeChartHidden||(window._qeChartHidden={});
+        h[k]=!h[k];
+        renderApp();};});
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};

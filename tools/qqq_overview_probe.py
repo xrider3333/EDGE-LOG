@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """
-tools/qqq_overview_probe.py -- one-off verification probe for the QQQ SHADOW BOOK
-overview rebuild (v73.498), extended 2026-09-05 for the NT-parity / feed-uptime /
-ratio-health additions. Renders augurSub='qqqpaper' against three fixtures --
-the real 2-trade doc, a synthetic ~40-trade / 3-leg mock carrying every new field
-(a parity failure, a "reconstructed" row, invalid feed days, a drifting ratio),
-and a "degrade" doc that is the same book with every new field stripped out --
-and saves a screenshot of each plus a text report of what it found.
+tools/qqq_overview_probe.py -- verification probe for the QQQ SHADOW BOOK overview,
+extended 2026-09-06 (round 3) for the readiness gate / event timeline / trade drawer /
+real-price columns / signals strip / notional+latency / legend toggle / CSV export /
+sticky rail / narrow-layout additions.
+
+Renders augurSub='qqqpaper' against four fixtures --
+  real    : the real ~2-trade doc (older shape, exercises the oldest degrade path)
+  mock    : a synthetic ~40-trade / 3-leg doc carrying every new field, readiness
+            NOT ready (3 missing items), events of every kind, 12 days of signals,
+            3 repriced trades, latency p95 > 10s
+  ready   : the same book with every readiness gate passing
+  degrade : the same book with every new field stripped out
+at two widths (1400px and 800px), and drives the trade-drawer click and the
+equity-chart legend-toggle click inside the iframe before reading the DOM back out.
 
 Not wired into wt.py ship (ad hoc verification tool), but written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
@@ -51,7 +58,7 @@ def make_handler(root):
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>qqq overview probe</title></head>
 <body style="margin:0;background:#0a0a12">
-<iframe id="f" src="../index.html" style="width:1600px;height:1400px;border:0"></iframe>
+<iframe id="f" src="../index.html" style="width:__IW__px;height:__IH__px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
 var FIX=__FIX__;
@@ -63,6 +70,7 @@ var FIX=__FIX__;
     try{
       var fr=document.getElementById('f'), w=fr.contentWindow, d=fr.contentDocument;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
+      var consoleErrors=[];
       out.call=w.eval("(function(){try{"
         // the app's own auth.onAuthStateChanged(user=>{...else renderAuth();}) fires
         // asynchronously (real Firebase, no signed-in session in this probe) and would
@@ -70,13 +78,35 @@ var FIX=__FIX__;
         // after our call returns, once the virtual-time budget runs long enough for it
         // to resolve. Neutralise it FIRST so no later firing can undo our render.
         +"window.renderAuth=function(){};"
+        +"window._qeProbeErrors=[];"
+        +"window.onerror=function(m,s,l,c,e){window._qeProbeErrors.push(String(m));};"
         +"currentUser=currentUser||{uid:'probe-uid'};"
         +"window._qqqExec="+JSON.stringify(FIX)+";"
         +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
         +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
-        +"window._qqqCalMonth=null;"
+        +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
         +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+
+      // ── drive the trade-drawer click (row 0) then read the DOM, then close it again ──
+      out.drawerClick=w.eval("(function(){try{"
+        +"var el=document.querySelector('[data-qetraderow=\\"0\\"]');"
+        +"if(!el)return 'NO_ROW';el.click();return 'OK';"
+        +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+      out.hasDrawerAfterClick=!!d.querySelector('.qe-drawer');
+
+      // ── drive the equity-chart legend toggle (hide the ORB line) ──
+      out.legendClick=w.eval("(function(){try{"
+        +"var el=document.querySelector('[data-qelegend=\\"ORB\\"]');"
+        +"if(!el)return 'NO_LEGEND';el.click();return 'OK';"
+        +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+      out.hasLegendOffClass=!!d.querySelector('.qe-legend-item.off');
+
+      // put the drawer back closed + legend back on for a clean readout
+      w.eval("(function(){try{window._qeDrawerIdx=null;window._qeChartHidden={};renderApp();}catch(e){}})()");
+
+      out.consoleErrors=w.eval('window._qeProbeErrors||[]');
+
       var ap=d.getElementById('app')||d.body;
       out.appLen=ap?ap.innerHTML.length:-1;
       out.html=ap?ap.innerHTML:'';
@@ -91,30 +121,49 @@ var FIX=__FIX__;
       var undef=(out.html.match(/undefined/g)||[]).length;
       var nan=(out.html.match(/NaN/g)||[]).length;
       out.undefCount=undef; out.nanCount=nan;
-      // grab month label text
       var lbl=d.querySelector('.ov-cal .lbl');
       out.calMonthLabel=lbl?lbl.textContent:null;
-      // rail net figure
       var net=d.querySelector('.ov-rail .rail-net');
       out.railNet=net?net.textContent:null;
 
-      // ── NT PARITY / FEED UPTIME / RATIO HEALTH probes (2026-09-05 additions) ──
+      // ── NT PARITY / FEED UPTIME / RATIO HEALTH (2026-09-05) ──
       var railGrps=[].slice.call(d.querySelectorAll('.ov-rail .rail-grp')).map(function(e){return e.textContent;});
       out.hasParityRailGrp=railGrps.indexOf('PARITY')>=0;
       out.hasFeedRailGrp=railGrps.indexOf('FEED UPTIME')>=0;
+      out.hasSignalsRailGrp=railGrps.indexOf('SIGNALS')>=0;
+      out.hasRepriceRailGrp=railGrps.indexOf('REPRICE')>=0;
       var headerRows=[].slice.call(d.querySelectorAll('table.table thead tr')).map(function(tr){
         return [].slice.call(tr.querySelectorAll('th')).map(function(th){return th.textContent;});
       });
       out.hasNtPointsCol=headerRows.some(function(cols){return cols.indexOf('NT POINTS')>=0;});
       out.hasExpectedCol=headerRows.some(function(cols){return cols.indexOf('EXPECTED $')>=0;});
       out.hasTrackErrCol=headerRows.some(function(cols){return cols.indexOf('TRACK ERR')>=0;});
+      out.hasRealPnlCol=headerRows.some(function(cols){return cols.indexOf('REAL P&L')>=0;});
+      out.hasSlipCol=headerRows.some(function(cols){return cols.indexOf('SLIP/SH')>=0;});
+      out.hasLatencyCol=headerRows.some(function(cols){return cols.indexOf('LATENCY')>=0;});
       out.hasParityChip=out.html.indexOf('PARITY NOTE')>=0||out.html.indexOf('RECONSTRUCTED')>=0;
       out.hasFeedInvalidTag=out.html.indexOf('FEED INVALID')>=0;
       out.hasFeedStrip=out.html.indexOf('FEED UPTIME \u2014 LAST')>=0;
+      out.hasSignalsStrip=out.html.indexOf('SIGNALS \u2014 LAST')>=0;
       out.hasRatioToggle=!!d.querySelector('[data-qqqratiotoggle]');
       out.hasWebullLink=out.html.indexOf('app.webull.com')>=0;
       out.hasWebullNote=out.html.indexOf('WEBULL PAPER \u2014 not used')>=0;
       out.hasParityPanel=out.html.indexOf('NT PARITY') >= 0;
+
+      // ── round-3 additions ──
+      out.hasReadinessBanner=!!d.querySelector('.qe-ready-banner');
+      out.readinessIsReady=!!d.querySelector('.qe-ready-banner.ready');
+      out.readinessIsNotReady=!!d.querySelector('.qe-ready-banner.notready');
+      out.hasEventsPanel=out.html.indexOf('EVENT TIMELINE')>=0;
+      out.eventRowCount=d.querySelectorAll('.qe-evt-row').length;
+      out.hasEventsShowMore=!!d.querySelector('[data-qeeventsmore]');
+      out.hasNotionalLine=out.html.indexOf('NOTIONAL \u2014')>=0;
+      out.hasLatencyPill=out.html.indexOf('LATENCY')>=0;
+      out.hasExportBtn=!!d.querySelector('[data-qeexportcsv]');
+      out.hasOosTag=out.html.indexOf('NOT MIRRORED')>=0;
+      out.hasRepriceNote=out.html.indexOf('re-priced nightly from real QQQ')>=0;
+      var ovShellCS=d.querySelector('.ov-shell')?w.getComputedStyle(d.querySelector('.ov-shell')):null;
+      out.ovShellDisplay=ovShellCS?ovShellCS.display:null;
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='QQQOVPROBE: '+JSON.stringify(out);
   }
@@ -126,12 +175,13 @@ var FIX=__FIX__;
 """
 
 
-def run_case(chrome, root, fixture, name, shot_path):
+def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400):
     pdir = os.path.join(root, '_qqqovprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
     ppath = os.path.join(pdir, 'probe_%s.html' % name)
-    html = PROBE_HTML.replace('__FIX__', json.dumps(fixture))
+    html = (PROBE_HTML.replace('__FIX__', json.dumps(fixture))
+            .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(root))
@@ -140,10 +190,12 @@ def run_case(chrome, root, fixture, name, shot_path):
 
     prof = tempfile.mkdtemp(prefix='qqqovprobe-')
     url = 'http://127.0.0.1:%d/_qqqovprobe/probe_%s.html' % (port, name)
+    win_w, win_h = width + 40, height + 80
     try:
         out = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
              '--user-data-dir=' + prof, '--virtual-time-budget=50000',
+             '--window-size=%d,%d' % (win_w, win_h),
              '--dump-dom', url],
             capture_output=True, text=True, encoding='utf-8', errors='replace',
             timeout=180).stdout
@@ -152,7 +204,7 @@ def run_case(chrome, root, fixture, name, shot_path):
         subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
              '--user-data-dir=' + prof, '--virtual-time-budget=50000',
-             '--window-size=1600,1400', '--screenshot=' + shot_path, url],
+             '--window-size=%d,%d' % (win_w, win_h), '--screenshot=' + shot_path, url],
             capture_output=True, text=True, encoding='utf-8', errors='replace',
             timeout=180)
     finally:
@@ -184,29 +236,36 @@ def main():
         print('INCONCLUSIVE -- chrome not found')
         return 2
 
-    real_path = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_real.json')
-    mock_path = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_mock.json')
-    degrade_path = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_degrade.json')
-    real = json.load(io.open(real_path, encoding='utf-8'))
-    mock = json.load(io.open(mock_path, encoding='utf-8'))
-    degrade = json.load(io.open(degrade_path, encoding='utf-8'))
+    fx = {}
+    fixture_files = {'real': 'qqq_exec_real.json', 'mock': 'qqq_exec_mock.json',
+                      'ready': 'qqq_exec_mock_ready.json', 'degrade': 'qqq_exec_degrade.json'}
+    for nm, fname in fixture_files.items():
+        p = os.path.join(ROOT, 'tools', 'fixtures', fname)
+        fx[nm] = json.load(io.open(p, encoding='utf-8'))
 
     out_dir = sys.argv[1] if len(sys.argv) > 1 else ROOT
-    real_shot = os.path.join(out_dir, 'qqq_overview_real.png')
-    mock_shot = os.path.join(out_dir, 'qqq_overview_mock.png')
-    degrade_shot = os.path.join(out_dir, 'qqq_overview_degrade.png')
 
-    r1 = run_case(chrome, ROOT, real, 'real', real_shot)
-    r2 = run_case(chrome, ROOT, mock, 'mock', mock_shot)
-    r3 = run_case(chrome, ROOT, degrade, 'degrade', degrade_shot)
+    results = {}
+    # 1400px width: real, mock, ready, degrade. 800px width: mock only (plus a
+    # degrade pass to prove the narrow layout doesn't break the emptiest doc).
+    plan = [
+        ('mock_1400', 'mock', 1400, 900),
+        ('ready_1400', 'ready', 1400, 900),
+        ('real_1400', 'real', 1400, 900),
+        ('degrade_1400', 'degrade', 1400, 900),
+        ('mock_800', 'mock', 800, 1000),
+        ('degrade_800', 'degrade', 800, 1000),
+    ]
+    for case_name, fixture_name, w, h in plan:
+        shot = os.path.join(out_dir, 'qqq_overview_%s.png' % case_name)
+        results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, shot, width=w, height=h)
+        print('%s shot -> %s' % (case_name, shot))
 
-    print('REAL   :', json.dumps({k: v for k, v in r1.items() if k != 'html'}, indent=1))
-    print('MOCK   :', json.dumps({k: v for k, v in r2.items() if k != 'html'}, indent=1))
-    print('DEGRADE:', json.dumps({k: v for k, v in r3.items() if k != 'html'}, indent=1))
-    print('Screenshots:', real_shot, mock_shot, degrade_shot)
+    for nm, r in results.items():
+        print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k != 'html'}, indent=1))
 
     fails = []
-    for nm, r in [('real', r1), ('mock', r2), ('degrade', r3)]:
+    for nm, r in results.items():
         if r.get('err'):
             fails.append('%s: %s' % (nm, r['err']))
             continue
@@ -226,6 +285,8 @@ def main():
             fails.append('%s: literal "undefined" appears %d times' % (nm, r['undefCount']))
         if r.get('nanCount'):
             fails.append('%s: literal "NaN" appears %d times' % (nm, r['nanCount']))
+        if r.get('consoleErrors'):
+            fails.append('%s: console errors -- %s' % (nm, r['consoleErrors']))
         if r.get('hasWebullLink'):
             fails.append('%s: WEBULL PAPER trap link still present' % nm)
         if not r.get('hasWebullNote'):
@@ -234,21 +295,56 @@ def main():
             fails.append('%s: rail is missing the PARITY group' % nm)
         if not r.get('hasFeedRailGrp'):
             fails.append('%s: rail is missing the FEED UPTIME group' % nm)
+        if not r.get('hasRepriceRailGrp'):
+            fails.append('%s: rail is missing the REPRICE group' % nm)
         if not r.get('hasNtPointsCol') or not r.get('hasExpectedCol') or not r.get('hasTrackErrCol'):
             fails.append('%s: CLOSED TRADES is missing an NT-parity column' % nm)
+        if not r.get('hasRealPnlCol') or not r.get('hasSlipCol'):
+            fails.append('%s: CLOSED TRADES is missing REAL P&L / SLIP/SH column' % nm)
         if not r.get('hasParityPanel'):
             fails.append('%s: no NT PARITY panel rendered' % nm)
+        if not r.get('hasExportBtn'):
+            fails.append('%s: no EXPORT CSV button' % nm)
 
     # mock-only: fields that only exist when the mock's real values are present.
-    if not r2.get('err'):
-        if not r2.get('hasParityChip'):
-            fails.append('mock: no parity chip (RECONSTRUCTED/PARITY NOTE) rendered on any trade row')
-        if not r2.get('hasFeedInvalidTag'):
-            fails.append('mock: no invalid-feed-day tooltip (FEED INVALID) found on the calendar')
-        if not r2.get('hasFeedStrip'):
-            fails.append('mock: FEED UPTIME strip under the calendar missing')
-        if not r2.get('hasRatioToggle'):
-            fails.append('mock: hero calibration text has no ratio-health click target')
+    for nm in ('mock_1400', 'mock_800'):
+        r = results.get(nm, {})
+        if r.get('err'):
+            continue
+        if not r.get('hasParityChip'):
+            fails.append('%s: no parity chip (RECONSTRUCTED/PARITY NOTE) rendered on any trade row' % nm)
+        if not r.get('hasFeedInvalidTag'):
+            fails.append('%s: no invalid-feed-day tooltip (FEED INVALID) found on the calendar' % nm)
+        if not r.get('hasFeedStrip'):
+            fails.append('%s: FEED UPTIME strip under the calendar missing' % nm)
+        if not r.get('hasSignalsStrip'):
+            fails.append('%s: SIGNALS strip under the calendar missing' % nm)
+        if not r.get('hasRatioToggle'):
+            fails.append('%s: hero calibration text has no ratio-health click target' % nm)
+        if not r.get('hasReadinessBanner') or not r.get('readinessIsNotReady'):
+            fails.append('%s: readiness banner missing or not showing NOT READY' % nm)
+        if not r.get('hasEventsPanel') or not r.get('eventRowCount'):
+            fails.append('%s: event timeline missing or empty' % nm)
+        if not r.get('hasNotionalLine'):
+            fails.append('%s: no NOTIONAL line on a leg card' % nm)
+        if not r.get('hasOosTag'):
+            fails.append("%s: no NOT MIRRORED (OOS) tag on today's orders" % nm)
+        if not r.get('hasRepriceNote'):
+            fails.append('%s: no nightly-reprice note under CLOSED TRADES' % nm)
+        if r.get('drawerClick') != 'OK' or not r.get('hasDrawerAfterClick'):
+            fails.append('%s: trade drawer did not open on row click' % nm)
+        if r.get('legendClick') != 'OK' or not r.get('hasLegendOffClass'):
+            fails.append('%s: chart legend toggle did not mark the line off' % nm)
+
+    r_ready = results.get('ready_1400', {})
+    if not r_ready.get('err'):
+        if not r_ready.get('readinessIsReady'):
+            fails.append('ready_1400: readiness banner is not showing READY on the ready fixture')
+
+    r800 = results.get('mock_800', {})
+    if not r800.get('err'):
+        if r800.get('ovShellDisplay') != 'block':
+            fails.append('mock_800: .ov-shell did not switch to the stacked (display:block) narrow layout at 800px')
 
     if fails:
         print('QQQOVPROBE: FAIL')
