@@ -1,0 +1,201 @@
+{
+ "enguq_309_full": {
+  "n": 1604,
+  "net": 591267,
+  "pf": 1.6548,
+  "wr": 33.7,
+  "dd": 48900,
+  "mar": 0.753,
+  "evr": 0.4343,
+  "ryr": 43.37
+ },
+ "bars": {
+  "evr": 0.429,
+  "ryr": 202.1,
+  "pf": 1.526,
+  "lb_trades": 400,
+  "top10_share_max": 60.0
+ },
+ "results": [
+  {
+   "label": "rank37 (EVR .42/n3155)",
+   "params": {
+    "lookback": 46,
+    "band_mult_long": 0.75,
+    "band_mult_short": 1.5,
+    "exit_mode": "boundary",
+    "side": "Both",
+    "window": "all_day",
+    "flat_eod": true,
+    "skip_holidays": true,
+    "stop_mode": "atr",
+    "confirm_bars": 4,
+    "daytype_mode": "skip_top_long",
+    "daytype_lo": 0.25,
+    "daytype_hi": 0.85,
+    "vol_skip_pct": 78.0,
+    "stop_k": 3.5
+   },
+   "noise_full": {
+    "n": 3373,
+    "net": 209004,
+    "pf": 1.4855,
+    "wr": 21.4,
+    "dd": 14043,
+    "mar": 0.927,
+    "evr": 0.3815,
+    "ryr": 80.12
+   },
+   "top10_share": 37.761817109037565,
+   "ex10_net": 130080.29176942712,
+   "pooled_full": {
+    "n": 4977,
+    "net": 800270,
+    "pf": 1.6001,
+    "wr": 25.4,
+    "dd": 46345,
+    "mar": 1.075,
+    "evr": 0.4479,
+    "ryr": 138.79
+   },
+   "pooled_lb": {
+    "n": 317,
+    "net": 106390,
+    "pf": 1.4921,
+    "wr": 25.6,
+    "dd": 46345,
+    "mar": 2.297,
+    "evr": 0.3664,
+    "ryr": 116.22
+   },
+   "pass_bars": {
+    "b1": true,
+    "b2": false,
+    "b3": true,
+    "b4": false,
+    "b5": true
+   },
+   "all_pass": false
+  },
+  {
+   "label": "search-gated rank (EVR 0.291)",
+   "params": {
+    "lookback": 9,
+    "band_mult_long": 0.5,
+    "band_mult_short": 2.0,
+    "exit_mode": "boundary",
+    "side": "Long Only",
+    "window": "afternoon_block",
+    "flat_eod": true,
+    "skip_holidays": false,
+    "stop_mode": "off",
+    "confirm_bars": 2,
+    "daytype_mode": "off",
+    "daytype_lo": 0.1,
+    "daytype_hi": 0.7,
+    "vol_skip_pct": 78.0,
+    "stop_k": 2.75
+   },
+   "noise_full": {
+    "n": 4670,
+    "net": 168771,
+    "pf": 1.3396,
+    "wr": 15.3,
+    "dd": 18444,
+    "mar": 0.57,
+    "evr": 0.2878,
+    "ryr": 83.66
+   },
+   "top10_share": 32.78327920308964,
+   "ex10_net": 113442.33185615359,
+   "pooled_full": {
+    "n": 6274,
+    "net": 760037,
+    "pf": 1.5429,
+    "wr": 20.0,
+    "dd": 54778,
+    "mar": 0.864,
+    "evr": 0.4345,
+    "ryr": 169.7
+   },
+   "pooled_lb": {
+    "n": 350,
+    "net": 107738,
+    "pf": 1.5197,
+    "wr": 22.0,
+    "dd": 54778,
+    "mar": 1.968,
+    "evr": 0.4054,
+    "ryr": 141.97
+   },
+   "pass_bars": {
+    "b1": true,
+    "b2": false,
+    "b3": true,
+    "b4": false,
+    "b5": true
+   },
+   "all_pass": false
+  },
+  {
+   "label": "search-gated rank (EVR 0.279)",
+   "params": {
+    "lookback": 24,
+    "band_mult_long": 0.75,
+    "band_mult_short": 1.5,
+    "exit_mode": "boundary",
+    "side": "Both",
+    "window": "morning",
+    "flat_eod": true,
+    "skip_holidays": true,
+    "stop_mode": "bandwidth",
+    "confirm_bars": 1,
+    "daytype_mode": "off",
+    "daytype_lo": 0.25,
+    "daytype_hi": 0.7,
+    "vol_skip_pct": 82.0,
+    "stop_k": 1.0
+   },
+   "noise_full": {
+    "n": 5969,
+    "net": 173763,
+    "pf": 1.3149,
+    "wr": 14.4,
+    "dd": 16345,
+    "mar": 0.662,
+    "evr": 0.2696,
+    "ryr": 100.18
+   },
+   "top10_share": 47.14947495811577,
+   "ex10_net": 91834.65782852929,
+   "pooled_full": {
+    "n": 7573,
+    "net": 765030,
+    "pf": 1.5259,
+    "wr": 18.5,
+    "dd": 40129,
+    "mar": 1.187,
+    "evr": 0.4287,
+    "ryr": 202.13
+   },
+   "pooled_lb": {
+    "n": 520,
+    "net": 112882,
+    "pf": 1.4718,
+    "wr": 19.0,
+    "dd": 34583,
+    "mar": 3.266,
+    "evr": 0.382,
+    "ryr": 198.76
+   },
+   "pass_bars": {
+    "b1": false,
+    "b2": true,
+    "b3": false,
+    "b4": true,
+    "b5": true
+   },
+   "all_pass": false
+  }
+ ]
+}

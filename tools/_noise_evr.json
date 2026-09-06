@@ -1,0 +1,232 @@
+{
+ "tag": "evr_noise",
+ "fn": "NOISE_1_0.py",
+ "inst": "NQ",
+ "tf": "5m",
+ "sess": "rth",
+ "src": "db_noadj_rth",
+ "cost": 0.533,
+ "mult": 20.0,
+ "search_window": {
+  "date_from": "2010-06-07",
+  "date_to": "2025-06-29"
+ },
+ "full_window": {
+  "date_from": "2010-06-07",
+  "date_to": "2026-06-30"
+ },
+ "split": "2025-06-30",
+ "n_floor": 3750,
+ "pf_floor": 1.25,
+ "folds_floor": 6,
+ "n_configs": 250,
+ "n_passing_gates": 2,
+ "top15": [
+  {
+   "n": 4419,
+   "net": 146543,
+   "pf": 1.343,
+   "dd": 18444,
+   "mar": 7.95,
+   "win": 15.2,
+   "evr": 0.291,
+   "ryr": 85.4,
+   "tpy": 293.5,
+   "sh": 1.0,
+   "so": 2.98,
+   "avl": 114,
+   "folds8": 7,
+   "secs": 2,
+   "params": {
+    "lookback": 9,
+    "band_mult_long": 0.5,
+    "band_mult_short": 2.0,
+    "exit_mode": "boundary",
+    "side": "Long Only",
+    "window": "afternoon_block",
+    "flat_eod": true,
+    "skip_holidays": false,
+    "stop_mode": "off",
+    "confirm_bars": 2,
+    "daytype_mode": "off",
+    "daytype_lo": 0.1,
+    "daytype_hi": 0.7,
+    "vol_skip_pct": 78.0,
+    "stop_k": 2.75
+   }
+  },
+  {
+   "n": 5548,
+   "net": 146392,
+   "pf": 1.325,
+   "dd": 16345,
+   "mar": 8.96,
+   "win": 14.3,
+   "evr": 0.279,
+   "ryr": 102.6,
+   "tpy": 368.5,
+   "sh": 0.93,
+   "so": 3.17,
+   "avl": 95,
+   "folds8": 7,
+   "secs": 1,
+   "params": {
+    "lookback": 24,
+    "band_mult_long": 0.75,
+    "band_mult_short": 1.5,
+    "exit_mode": "boundary",
+    "side": "Both",
+    "window": "morning",
+    "flat_eod": true,
+    "skip_holidays": true,
+    "stop_mode": "bandwidth",
+    "confirm_bars": 1,
+    "daytype_mode": "off",
+    "daytype_lo": 0.25,
+    "daytype_hi": 0.7,
+    "vol_skip_pct": 82.0,
+    "stop_k": 1.0
+   }
+  }
+ ],
+ "finalists": [
+  {
+   "search": {
+    "n": 4419,
+    "net": 146543,
+    "pf": 1.343,
+    "dd": 18444,
+    "mar": 7.95,
+    "win": 15.2,
+    "evr": 0.291,
+    "ryr": 85.4,
+    "tpy": 293.5,
+    "sh": 1.0,
+    "so": 2.98,
+    "avl": 114,
+    "folds8": 7,
+    "secs": 2,
+    "params": {
+     "lookback": 9,
+     "band_mult_long": 0.5,
+     "band_mult_short": 2.0,
+     "exit_mode": "boundary",
+     "side": "Long Only",
+     "window": "afternoon_block",
+     "flat_eod": true,
+     "skip_holidays": false,
+     "stop_mode": "off",
+     "confirm_bars": 2,
+     "daytype_mode": "off",
+     "daytype_lo": 0.1,
+     "daytype_hi": 0.7,
+     "vol_skip_pct": 78.0,
+     "stop_k": 2.75
+    }
+   },
+   "full_window": {
+    "full": {
+     "n": 4670,
+     "net": 168771,
+     "pf": 1.3396,
+     "wr": 15.3,
+     "dd": 18444,
+     "mar": 0.57,
+     "evr": 0.2878,
+     "ryr": 83.66
+    },
+    "lockbox": {
+     "n": 251,
+     "net": 22228,
+     "pf": 1.3199,
+     "wr": 17.1,
+     "dd": 10379,
+     "mar": 2.143,
+     "evr": 0.2651,
+     "ryr": 66.59
+    },
+    "ex_top10": {
+     "n": 4660,
+     "net": 113442,
+     "pf": 1.2283,
+     "wr": 15.1,
+     "dd": 18444,
+     "mar": 0.383,
+     "evr": 0.1938,
+     "ryr": 56.23
+    },
+    "top10_share_pct": 32.8,
+    "profitable_ex_top10": true
+   }
+  },
+  {
+   "search": {
+    "n": 5548,
+    "net": 146392,
+    "pf": 1.325,
+    "dd": 16345,
+    "mar": 8.96,
+    "win": 14.3,
+    "evr": 0.279,
+    "ryr": 102.6,
+    "tpy": 368.5,
+    "sh": 0.93,
+    "so": 3.17,
+    "avl": 95,
+    "folds8": 7,
+    "secs": 1,
+    "params": {
+     "lookback": 24,
+     "band_mult_long": 0.75,
+     "band_mult_short": 1.5,
+     "exit_mode": "boundary",
+     "side": "Both",
+     "window": "morning",
+     "flat_eod": true,
+     "skip_holidays": true,
+     "stop_mode": "bandwidth",
+     "confirm_bars": 1,
+     "daytype_mode": "off",
+     "daytype_lo": 0.25,
+     "daytype_hi": 0.7,
+     "vol_skip_pct": 82.0,
+     "stop_k": 1.0
+    }
+   },
+   "full_window": {
+    "full": {
+     "n": 5969,
+     "net": 173763,
+     "pf": 1.3149,
+     "wr": 14.4,
+     "dd": 16345,
+     "mar": 0.662,
+     "evr": 0.2696,
+     "ryr": 100.18
+    },
+    "lockbox": {
+     "n": 421,
+     "net": 27371,
+     "pf": 1.2699,
+     "wr": 15.4,
+     "dd": 14500,
+     "mar": 1.889,
+     "evr": 0.2282,
+     "ryr": 96.15
+    },
+    "ex_top10": {
+     "n": 5959,
+     "net": 91835,
+     "pf": 1.1664,
+     "wr": 14.2,
+     "dd": 29080,
+     "mar": 0.197,
+     "evr": 0.1427,
+     "ryr": 52.95
+    },
+    "top10_share_pct": 47.1,
+    "profitable_ex_top10": true
+   }
+  }
+ ]
+}
