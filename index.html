@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.519';
+const VERSION='73.520';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12350,7 +12350,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
       if(_hasGateO){
         if(_a2gateO){const gc=_gEqO.cum_gated,gn=gc.length,_gf=gc[gn-1]*mult,_gy=Yv(_gf);
           const gp=gc.map((v,i)=>((xL+(xR-xL)*(gn<=1?1:i/(gn-1))).toFixed(1))+' '+Yv(v*mult).toFixed(1)).join(' ');
-          _gateOvNS='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-dasharray="1.6 1.3" stroke-linecap="round"/>'
+          _gateOvNS='<polyline points="'+gp+'" fill="none" stroke="#e05fa0" stroke-width="0.9" opacity="0.95" stroke-linecap="round"/>'
             +'<circle cx="'+xR.toFixed(1)+'" cy="'+_gy.toFixed(1)+'" r="1.5" fill="#e05fa0"/>'
             +'<text x="'+(xR-1).toFixed(1)+'" y="'+(_gy-2).toFixed(1)+'" text-anchor="end" font-size="4.6" font-weight="700" fill="#e05fa0" paint-order="stroke" stroke="var(--bg1)" stroke-width="1.3">'+fmtAx(_gf,1)+' 🚪 gate-kept</text>';}
         _gateChipNS='<span data-a2gate="'+(_a2gateO?0:1)+'" title="overlay the CONFIGS · ML GATE FILTER (2C) gated equity on this chart — the same trades with the filter skipping the ones it scores low. Pink = the trades the gate kept." style="cursor:pointer;font-size:8px;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap;border:1px solid '+(_a2gateO?'#e05fa0':'var(--border)')+';background:'+(_a2gateO?'color-mix(in srgb,#e05fa0 16%,transparent)':'var(--bg2)')+';color:'+(_a2gateO?'#e05fa0':'var(--text3)')+'">GATE</span>';
@@ -12404,8 +12404,11 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
         //   lockbox continuation DOTTED. Survivors are COLOURED (one hue each — the lines we
         //   care about), the cloud stays light grey, every stroke as thin as legible.
         const _huePal=['#e0a04b','#a879e6','#4bc0c0','#e06b9a','#8fbf4d','#5b8dee','#d9c34a','#c86b4b'];
-        const _proc=(vals,col,wd,op)=>'<polyline points="'+_seg(vals,0,fIS)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>'
-          +'<polyline points="'+_seg(vals,fIS,1)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'" stroke-dasharray="2.2 1.6"/>';
+        // ONE SOLID polyline end to end. It used to be two - solid to the in-sample door,
+        //   dashed after it - but the door already has its own vertical marker and the
+        //   stripes behind the chart already shade the stages, so the dash was a third
+        //   telling of the same thing and made every line look broken.
+        const _proc=(vals,col,wd,op)=>'<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';
         // v71.66 (owner: "when expanding 1A the config colours change"): the tile paints the
         //   survivors from this 8-hue palette while the expanded explorer was painting the SAME
         //   configs from a teal ramp - two palettes for one set of lines. The tile's choice is
@@ -12465,7 +12468,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
           const _sc=1;
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
-          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
+          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-linecap="round"/>';
           // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
           const fv=anchor+_rawEnd*_sc;
           if(cr||(_a2kAll&&!(+(APREF.a2cfgAll||0))))labs.push({y:Yv(fv*mult),col,kg:(cr?'crown':'lb'),txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
