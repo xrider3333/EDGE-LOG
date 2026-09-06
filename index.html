@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.514';
+const VERSION='73.515';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.515',date:'2026-09-05',notes:['DRAG A COLUMN HEADING EDGE TO RESIZE IT, the way a spreadsheet does. Every heading has a grip on its right edge, the sortable metric headings included - those are the columns that were being pushed off the screen in the first place. Widths are remembered per column name and survive a reload; double-click a grip to hand that column back.','AND THE CONFIG COLUMN STOPS REPEATING ITSELF. In ONE TABLE view each row names the study it came from, which is worth having when several studies are pooled - but on the configs view every row came from the same pick, so it printed CONFIGS OF RUN #316 + # five hundred and fifty-one times and ate the width the metrics needed. It now appears only when the rows genuinely come from more than one study.','Reviewed before shipping, and the review measured it in a real browser rather than reading it: the first drag moved nothing at all, because the widths only bite once the table re-lays out; storing one width flattened the other twenty-one columns to 48 pixels with the text painting over its neighbours; a stray click on the seven-pixel strip silently committed the whole table to that layout; and the metric headings had no grips. All four fixed before the push.']},
 {v:'73.513',date:'2026-09-06',notes:['THE NOISE CROWN IS ON THE PAPER BOARD NOW. The app moved the NOISE crown from run #243 to run #304 yesterday, but the board did not follow - so the crown mark sat on a configuration that was no longer the champion, which is the same split that had just been fixed on ENGU-Q. A NOISE-304 row joins both boards wearing the crown, and #243 stays right under it as its matched control: the two are one step apart in exactly two settings (volatility skip 90 to 95, lookback 44 to 40 sessions), so any gap between those two rows is those two settings and nothing else.','WHY #304 EARNED IT, on one continuous run sliced by entry time rather than a fresh-start reload of the held-out year: in that held-out year it beats #243 on every read - 409 trades at profit factor 1.33 and $82,123, against 375 trades at 1.27 and $60,615, expectancy per trade 0.21 R against 0.17, and 56 R a year against 43 - and it does that on MORE trades with a SMALLER drawdown. It is also the first NOISE crown found by a real neighbourhood search (495 configurations, 6 of 6 checks, 8 of 8 walk-forward folds) rather than a pinned card.','AND WHAT #243 KEEPS, said out loud on the row rather than buried: better per-trade quality before the lockbox, profit factor 1.42 against 1.38. #304 takes 370 more trades at slightly lower quality and ends up with more total edge. Both are broad rather than lucky - deleting the ten best trades costs 22% of #304 selection profit and 23% of #243 - and both are flat at every close, so neither can produce the runaway hold that the 24-hour configurations can.']},
 {v:'73.508',date:'2026-09-05',notes:['MIN TRADES (control 8) - the fewest trades a row must have before any chart will draw it: OFF, 30, 100 or 250. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox today: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart weighed them the same.','It follows the PLOT FAILURES rule exactly - the row keeps its table line and every figure it holds, it just stops setting the scale of a chart it cannot support - and it bites on all four charts, not only the scatter.','AND IT SAYS WHAT IT JUDGED EACH ROW ON. Only a configuration row, and a run row on the lockbox, saves a per-stage trade count; every other row carries one whole-run figure. The note under the chart counts how many were judged that way instead of on the ticked stretch, and names the rows that record no count at all - those are DRAWN rather than guessed at.','Reviewed before shipping, and the review stopped it twice: the control was numbered 6, which RANGE already uses, and the floor claimed to measure the ticked stage while reading a whole-run number for the registry rows that make up most of the board.']},
 {v:'73.506',date:'2026-09-05',notes:['ROC %% / YR NOW SITS BESIDE R / YR ON THE TABLES YOU READ A CONFIGURATION OFF. It was added as an axis on the charts two versions ago but never reached the ROW lists, so the 1E matrix, the champion section, the gate/tilt/hybrid comparison and both sizing tabs still had R / YR with no account-relative twin. All four have it now, on the same ticked stretch and the same years the R / YR beside them uses - so where one dashes, the other dashes.','AND IT READS TO A TENTH OF A PERCENT INSTEAD OF A WHOLE ONE. When ROC was a whole-run figure it was hundreds of percent and rounding was harmless; annualised it is single digits, where whole-number rounding put a configuration earning 0.5%% a year and one earning 1.4%% in the same bucket, both printed as 1%%.','THE SIZING TABS SAY WHAT MAKES THIS ROW DIFFERENT: it is the only figure there that re-sizing moves. Every other number on those tabs is scale-free by construction, so a doubled position reads identically - which is exactly why the sizing decision needed one that does not.','THE AXES PROBE NOW HAND-CHECKS THE ARITHMETIC, not just the render: seven thousand dollars over fourteen years against the hundred-thousand account has to draw 0.5%% a year. Writing that check found a second fault - the probe could not read ANY percentage tooltip, because its parser stopped at the digits and choked on the %% sign, and reported the dot as missing rather than as unreadable. DD %% was in the same blind spot.']},
@@ -21811,6 +21812,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // KEY: rank, row, name, PF, $/TRD, MAR, [3 per-year], trades, read = 8 (+3)
         // ALL: adds is, wf, lb, tot, dd (5) and what, run, date, window (4)
         // +1 for the R / YR column added beside EV R (v73.469)
+        // the remembered per-column widths. Declared HERE, above _reTblFix, which reads it
+        //   on the spot - a const is hoisted but not initialised, so declaring it beside its
+        //   own drag handler 1,700 lines below threw before the board could draw.
+        const _reColW=(function(){const o=APREF.resColW;
+          return (o&&typeof o==='object'&&!Array.isArray(o))?o:{};})();
+        // a th width only holds if the BODY cells stop pushing the column wider, so the
+        //   table lays out on its own widths and long text ellipses instead of stretching.
+        const _reTblFix=Object.keys(_reColW).length?'table-layout:fixed;':'';
         const _reNCols=(_reFull?22:13)+((_reBasis==='year')?3:0);
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         //    A CONFIG ROW MEASURES THE TICKED STRETCH, not the whole run. The report
@@ -22256,7 +22265,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           void g;void pb;
           return (tone==='champ')?('color-mix(in srgb,'+b+' '+pa+',transparent)'):'';};
         const _reRow=(st,rw,rank,com,showSt)=>{
-          const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
+          const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
           // a prose cell is clamped to one line and carries its full text on hover. Wrapping
           //   these two columns was what made a row three lines tall.
           const tdw=(txt,colr,w)=>td('<span title="'+_reEsc(txt)+'" style="color:'+colr+';display:inline-block;max-width:'+w+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(txt)+'</span>','left');
@@ -23524,14 +23533,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // ── PASS TWO: the tables. A tile is now a heading, a line of prose, a table and its
         //    notes - the chart it used to carry is the one at the top of the board.
         const _reEmH=sg=>(_reSegsEff.indexOf(sg)>=0)?';background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text3)':'';
-        const _reHdCell=(t,al,tip,extra)=>'<th'+(tip?(' title="'+_reEsc(tip)+'"'):'')+' style="text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+'</th>';
+        // ── DRAG A HEADER EDGE TO SET A COLUMN'S WIDTH (owner 2026-09-05: "add an option on
+        //    the headers to resize the rows like in excel. this takes up so much space and
+        //    cant see the metrics after it"). ─────────────────────────────────────────────
+        //    A grip sits on the right edge of every heading. Widths are remembered per column
+        //    name in resColW and survive a reload; double-click a grip to hand that column
+        //    back to the browser. Applied by column NAME, so a column keeps its width when
+        //    the KEY / ALL switch changes how many columns there are.
+        const _reColWCss=nm=>{const w=+_reColW[nm];
+          return (w>0)?('width:'+w+'px;max-width:'+w+'px;overflow:hidden;text-overflow:ellipsis;'):'';};
+        const _reGrip='<span data-recolgrip style="position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:3"></span>';
+        const _reHdCell=(t,al,tip,extra)=>{
+          const _nm=String(t).replace(/<[^>]*>/g,'').trim();
+          const _w=+_reColW[_nm];
+          return '<th data-recol="'+_reEsc(_nm)+'"'+(tip?(' title="'+_reEsc(tip)+'"'):'')
+            +' style="position:relative;'+_reColWCss(_nm)
+            +'text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+_reGrip+'</th>';};
         // the table header, per study - or for the merged table, with a synthetic st carrying
         //   the one in-sample label the pooled studies share (or the plain word when they don't).
         const _reHd=(st,merged)=>{
           const _hd=_reHdCell,_emH=_reEmH,stg=_reSegCap;
           // a sortable ratio heading: click it to order every table on that column (RESULT order)
           const _sk=String(APREF.reSortK||'');
-          const _hs=(k,t,tip)=>'<th data-resort="'+k+'" title="'+_reEsc(tip)+'" style="text-align:right;font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+'</th>';
+          const _hs=(k,t,tip)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'" title="'+_reEsc(tip)+'" style="position:relative;'+_reColWCss(String(t).replace(/<[^>]*>/g,'').trim())+'text-align:right;font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+'</th>';
           const basHd=(_reBasis==='year')
               ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers.',_reEmH('is')&&'')
                 +_hd('YEARS',null,'How many years the data window on this row covers.')
@@ -23642,7 +23666,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span style="margin-left:auto;font-size:8px;color:var(--text5)">'+_reEsc(st.disc||'')+'</span></div>'
             +'<div data-rebody="'+_reEsc(st.key)+'" style="'+(open?'':'display:none;')+'padding:0 0 11px">'
             +'<div style="font-size:9px;color:var(--text4);line-height:1.6;margin:0 0 7px;max-width:960px">'+_reEsc(st.sub)+'</div>'
-            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
+            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?520:430)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="'+_reTblFix+'width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+hd+'</thead><tbody>'+bodyRows+'</tbody></table></div>'
             +(notes.length?('<ul style="font-size:9px;color:var(--text5);line-height:1.75;margin:8px 0 0;padding-left:15px;max-width:960px">'
                 +notes.map(n=>'<li style="margin-bottom:4px">'+_reEsc(n)+'</li>').join('')+'</ul>'):'')
             +(st.liveIndex?_reLiveIndex(st):'')
@@ -23687,7 +23711,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             .forEach((it,i)=>{rk[it.st.key+':'+it.r.n]=i+1;});
           let bodyRows;
           if(!_reSplitRun){
-            bodyRows=sorted.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('');
+            // the study chip is worth showing only when the rows come from MORE THAN ONE
+            //   study. On the configs view they all come from the same pick, and the chip
+            //   repeated the identical text on every row - the heading above says it once.
+            const _reManySt=(function(){const k={};sorted.forEach(it=>{k[it.st.key]=1;});
+              return Object.keys(k).length>1;})();
+            bodyRows=sorted.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0)).join('');
           }else{
             const has=it=>Array.isArray(it.r.runs)&&it.r.runs.length;
             const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
@@ -23703,7 +23732,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   2026-08-28: "remove text after the tables"). The count is already on the
           //   TABLES heading and the VIEW control is two inches away in the sidebar.
           return ''
-            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+_reHd(synth,1)+'</thead><tbody>'+bodyRows+'</tbody></table></div>';};
+            +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="'+_reTblFix+'width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+_reHd(synth,1)+'</thead><tbody>'+bodyRows+'</tbody></table></div>';};
         const _reBody=tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
@@ -28327,6 +28356,42 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         savePref('resSegs',all.filter(x=>cur.indexOf(x)>=0));renderApp();};});
       content.querySelectorAll('[data-remintrd]').forEach(b=>{b.onclick=()=>{
         savePref('resMinTrd',+b.getAttribute('data-remintrd'));renderApp();};});
+      // DRAG A HEADING'S RIGHT EDGE to set that column's width; double-click to hand it
+      //   back to the browser. Stored by column NAME so the width survives the KEY / ALL
+      //   switch, and remembered across reloads.
+      content.querySelectorAll('[data-recolgrip]').forEach(gp=>{
+        const th=gp.parentElement;if(!th)return;
+        const nm=th.getAttribute('data-recol')||'';if(!nm)return;
+        gp.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();
+          const tbl=th.closest('table');
+          // SEED EVERY COLUMN before switching to fixed layout. Fixed layout divides the
+          //   table equally among columns that carry no width, so setting ONE width used to
+          //   flatten the other twenty-one to 48px with the text painting over its neighbour.
+          //   Measuring them all first means the drag moves one column and leaves the rest
+          //   exactly where they were.
+          const seed=Object.assign({},APREF.resColW||{});
+          if(tbl)tbl.querySelectorAll('th[data-recol]').forEach(t2=>{
+            const k=t2.getAttribute('data-recol');
+            if(k&&!(+seed[k]>0))seed[k]=Math.round(t2.getBoundingClientRect().width);});
+          const x0=e.clientX,w0=th.getBoundingClientRect().width;let w=w0;
+          const mv=ev=>{w=Math.max(28,Math.min(760,w0+(ev.clientX-x0)));
+            // every table on the board shares one heading set, so move them together
+            content.querySelectorAll('th[data-recol="'+CSS.escape(nm)+'"]').forEach(t2=>{
+              t2.style.width=w+'px';t2.style.maxWidth=w+'px';
+              t2.style.overflow='hidden';t2.style.textOverflow='ellipsis';});};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            // a stray click on the 7px strip is not a resize - without this it silently
+            //   committed the table to fixed layout at its current widths.
+            if(Math.abs(w-w0)<2)return;
+            seed[nm]=Math.round(w);savePref('resColW',seed);
+            // the widths only actually BITE once the table re-renders with table-layout
+            //   fixed - without this the first drag appeared to do nothing at all.
+            renderApp();};
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        gp.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();
+          const o=Object.assign({},APREF.resColW||{});delete o[nm];savePref('resColW',o);renderApp();});
+        // the grip is not a sort click
+        gp.addEventListener('click',e=>{e.stopPropagation();});});
       // one click, both axes - the pairing is the part worth naming
       content.querySelectorAll('[data-respreset]').forEach(b=>{b.onclick=()=>{
         const P={edge:['evr','rpy'],risk:['evr','ddr'],qual:['so','evr'],money:['raw','ddp']}
