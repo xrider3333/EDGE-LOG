@@ -13,6 +13,55 @@
 
 ---
 
+## 👑 CROWN CHANGE 2026-09-05 — run #314 `ORB_3_6_R6.py` takes the ORB crown from #234
+
+Owner: *"if 314 is best crown it."* The entry is UNCHANGED from #234 — opening range 2 bars,
+first-candle direction, close-confirmed, buffer 0.25. Only the exit moved:
+
+| | #234 (outgoing) | **#314 (crown)** |
+| --- | --- | --- |
+| stop | 2.0x range | **2.5x** |
+| target | 5.5R | **5.0R** |
+| breakeven | 1.0R | **0.5R** |
+| vol-regime filter | 0.70 | **0.75** |
+| volume-pace gate | 0.70 | **0.80** |
+
+**Validated:** run #314 PASS on all seven checks, walk-forward 7 of 8 folds, lockbox $92,102
+at PF 1.561, **ES transfer 1.019 PASS** — the leg runs #294/#297/#298 never ran.
+
+**It was crowned on RISK, not on money.** It makes about 5% LESS than #234 over the last five
+years ($319,297 vs $336,961). What it wins is drawdown and consistency:
+
+| window | MAR #314 | MAR #234 | DD #314 | DD #234 | worst 12mo #314 | worst 12mo #234 |
+| --- | --- | --- | --- | --- | --- | --- |
+| last 5y | **2.79** | 2.37 | **$22,925** | $28,502 | **+$19,036** | −$8,200 |
+| last 3y | **3.19** | 2.38 | **$22,925** | $28,502 | **+$22,553** | −$8,200 |
+| full 16.2y | 0.85 | 0.83 | $28,857 | $29,142 | −$13,608 | −$22,051 |
+
+It leads annualised MAR in every window measured, and its lead widens the more recent the tape.
+
+**DO NOT justify it on EV R.** Its EV R does read higher, but `tools/orb_pick.py` established
+that EV R is *gameable across this exact knob*: the breakeven sets the average losing trade,
+which is EV R's denominator, so an earlier trigger scratches trades and inflates EV R while
+losing money — `be_after_R` 0.10 reads EV R **0.559**, the best number in the family, on
+$235,084 of net against $328,442 with the breakeven off. Net money is flat within 3% from
+be 0.0 to 1.0 while EV R nearly triples. The defensible claim is the drawdown.
+
+**Honest marks against it:** walk-forward efficiency 3.15 vs #234's 4.65 — the strongest
+argument for the outgoing crown. It also trades less: 152 a year against 166, 59% of sessions
+against 65%, and a longest drought of **28 calendar days against 13**, so long silences are
+expected behaviour rather than a fault.
+
+**Paper:** added as leg `ORB_R6` on 2026-09-05, forward from 2026-09-08. The #234 leg and its
+gated twin `ORB_H` are DELIBERATELY left running as the matched control — same file, same
+window, same costs, the exit is the only difference. Runner-up if the drought matters more
+than the drawdown: **#239**, the #234 config with breakeven 0.8, which keeps all 2,607 trades
+at wfe 4.42 and a $94,268 lockbox.
+
+Harness: `tools/orb_pick.py` (re-runs every PASSING legal ORB side by side over full/8y/5y/3y).
+
+---
+
 ## ⚠ 2026-08-18 — the NOISE prior-day close-position filter does NOT transfer to ORB
 
 Full round log: **`CROSSFAMILY_DAYTYPE.md`** (repo root). Fork: `augur_strategies/ORB_3_8.py`

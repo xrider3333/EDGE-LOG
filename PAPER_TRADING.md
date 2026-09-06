@@ -191,10 +191,14 @@ The website STUDIES board now tags every research row as CROWNED, IN PAPER, both
 and the first thing it surfaces is a mismatch that had gone unstated: **the ORB leg being
 forward-tested is the PREVIOUS crown, not the current one.**
 
-- The standing ORB champion is run #234 (ride to a 5.5x-risk target with the stop moved to
-  breakeven at 1x risk, no partial exit and no trailing stop).
-- The ORB paper leg still runs run #230, the round-one grail-hunt winner, which is what the
-  crown was before #234 took it on 2026-08-17.
+- The standing ORB champion is **run #314** (crowned 2026-09-05): the #234 entry with a
+  re-tuned exit — stop 2.5x the range, target 5.0R, breakeven at 0.5R, filters 0.75/0.80.
+  Crowned on RISK: annualised MAR 2.79 vs #234's 2.37 over five years on a $22,925 drawdown
+  against $28,502, while making about 5% LESS money. See ORB.md's CROWN CHANGE section.
+- Paper carries BOTH: leg `ORB_R6` (#314, forward from 2026-09-08) and leg `ORB` (#234) kept
+  as its matched control, since the exit is the only difference between them.
+- Historical note: the ORB leg ran #230 until 2026-08-21 and the look-ahead #125 before
+  2026-08-16, so compare across those switches with care.
 - NOISE (updated 2026-08-23): the crown moved again, to Short Veto + Wild10 (run #243 —
   run #241's config plus "skip all trades the day after a top-decile volatility
   session"), on the owner's risk-adjusted case (~2% less profit for ~41% less drawdown,

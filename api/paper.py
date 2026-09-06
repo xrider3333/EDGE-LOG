@@ -63,6 +63,10 @@ LEG_LIVE_FROM = {
     # closed and after its nightly shadow run. A 2026-08-21 trade therefore was not watched
     # under this config, so the first FORWARD session is the next trading day, 2026-08-24.
     "ORB":       "2026-08-24",   # config swapped #230 -> #234 (crown followed into paper)
+    # Crowned by the owner on 2026-09-05 and added the same day. The swap happened DURING
+    # the 09-05 session, so that session was not watched under this config end to end; the
+    # first fully forward session is the next trading day.
+    "ORB_R6":    "2026-09-08",   # leg added: run #314 takes the ORB crown from #234
     "ORB_H":     "2026-08-24",   # gate re-based on #234 (its own crowned rf@0.45, re-calibrated)
     "NOISE_225": "2026-08-16",   # leg added
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
@@ -117,6 +121,29 @@ ORB_230 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filt
 ORB_234 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.0, atr_filter=0.7,
                vpace_filter=0.7, close_confirm=True, breakout_buf=0.25, trail_bars=0,
                target_R=5.5, partial_exit_R=0.0, be_after_R=1.0, flat_eod=True,
+               skip_holidays=True)
+
+# THE ORB CROWN as of 2026-09-05 (owner: "if 314 is best crown it"). Run #314, validated
+# from ORB_3_6_R6.py: PASS on all seven checks, walk-forward 7 of 8 folds, lockbox $92,102
+# at PF 1.561, and the ES transfer leg 1.019 PASS -- the leg runs #294/#297/#298 never ran.
+#
+# WHY IT TOOK THE CROWN, and it is NOT the headline number: it makes about 5% LESS money
+# than #234 over the last five years ($319,297 vs $336,961). It wins on RISK. Annualised
+# MAR 2.79 vs 2.37 over five years and 3.19 vs 2.38 over three, on a $22,925 drawdown
+# against $28,502, with a worst rolling twelve months of +$19,036 against -$8,200.
+#
+# DO NOT justify it on EV R. Its EV R does read higher (0.249 vs 0.211 over five years) but
+# tools/orb_pick.py showed EV R is gameable across this exact knob: the breakeven sets the
+# average loss, which is EV R's denominator, so an earlier trigger scratches trades and
+# inflates EV R while LOSING money (be 0.10 reads EV R 0.559 on $235,084 of net). The
+# defensible claim is the drawdown, not the expectancy.
+#
+# COST OF THE CHOICE, stated so the paper board is read correctly: it trades LESS than the
+# outgoing crown -- 152 trades a year against 166, 59% of sessions against 65%, and a
+# longest drought of 28 calendar days against 13. Silence is expected behaviour here.
+ORB_314 = dict(or_bars=2, trade_mode="First-candle dir", stop_frac=2.5, atr_filter=0.75,
+               vpace_filter=0.8, close_confirm=True, breakout_buf=0.25, trail_bars=0,
+               target_R=5.0, partial_exit_R=0.0, be_after_R=0.5, flat_eod=True,
                skip_holidays=True)
 
 # ENGU-Q leg params: NQ_DEPLOY_PARAMS_149 is a clean module-level constant in
@@ -470,6 +497,25 @@ LEG_SOURCE = {
                   "2026-08-16 they measured the look-ahead #125. Compare across the "
                   "switches with that in mind.",
     },
+    "ORB_R6": {
+        "run": 314, "run_label": "#314 (ORB_3_6_R6)", "strategy_file": "ORB_3_6_R6.py",
+        "picked": "2026-09-05",
+        "note": "THE ORB CROWN from 2026-09-05. The #234 entry unchanged (opening range 2 "
+                "bars, first-candle direction, close-confirmed, buffer 0.25) with a re-tuned "
+                "exit: stop 2.5x the range, target 5.0R, breakeven armed at 0.5R. Validate "
+                "#314 PASS on all seven checks, walk-forward 7 of 8, lockbox $92,102 at PF "
+                "1.561, ES transfer 1.019 PASS. It leads every window this project measures "
+                "on annualised MAR: 2.79 vs #234's 2.37 over five years, 3.19 vs 2.38 over "
+                "three, on a $22,925 drawdown against $28,502.",
+        "caveat": "It makes about 5% LESS money than #234 over five years -- the crown was "
+                  "taken on RISK, not return. It also trades less: 152 a year against 166, "
+                  "59% of sessions against 65%, longest drought 28 calendar days against 13, "
+                  "so long silences are expected. Its walk-forward efficiency is 3.15 against "
+                  "#234's 4.65, which is the strongest argument against it. And do NOT quote "
+                  "its EV R as evidence: the breakeven sets the average loss, EV R's own "
+                  "denominator, so EV R is not safe to compare across that knob (see "
+                  "tools/orb_pick.py).",
+    },
     "ENGUQ": {
         "run": 226, "run_label": "#226 (ENGU-Q ETH FROZEN)",
         "strategy_file": "ENGUQ_1M_ETH_FROZEN_1_0.py",
@@ -730,6 +776,17 @@ PAPER_LEGS = [
     {"key": "ORB", "strategy": "ORB_3_6_C2.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_234, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB"]},
+    # ADDED 2026-09-05 (owner: "if 314 is best crown it"). The NEW ORB crown -- see ORB_314's
+    # comment block above for why it took the crown on RISK rather than on money, and ORB.md's
+    # CROWN CHANGE 2026-09-05 section for the writeup. This is an ADDITION, not a swap in
+    # place: the #234 leg immediately above and its gated twin ORB_H are DELIBERATELY left
+    # running as the matched control, exactly as the ENGU-Q crown swap left #265 in place.
+    # Same file, same instrument, same window, same costs -- the EXIT is the only difference,
+    # so any gap between the two rows is the exit and nothing else. No ML gate on this leg:
+    # ORB_H's gate was calibrated on #234 and re-basing it is a separate decision.
+    {"key": "ORB_R6", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6"]},
     # ADDED 2026-09-05 (owner: "crown #309 and swap the paper leg to it"). The NEW
     # ENGU-Q family crown -- see ENGUQ_309's own comment block above for the full
     # evidence and ENGUQ.md's CROWN CHANGE 2026-09-05 section for the writeup. This is
