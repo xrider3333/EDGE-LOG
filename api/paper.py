@@ -68,6 +68,7 @@ LEG_LIVE_FROM = {
     "NOISE_H":   "2026-08-16",   # gate added; the pre-registered claim starts here
     "NOISE_H_RF": "2026-08-16",  # owner's pick, added the same day
     "NOISE_SBS": "2026-08-21",   # leg added the day the owner crowned run #241; retired 08-23
+    "NOISE_304": "2026-09-06",      # the crown moved to run #304; leg added the same day
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
@@ -289,6 +290,25 @@ NOISE_241_SBS = dict(NOISE_225, daytype_mode="skip_bot_short",
 # decays this config degrades toward #241's profile. Params expressed against
 # NOISE_1_0.py like every other NOISE leg; NOISE_225 stays the matched RAW control.
 NOISE_243_SBS_V90 = dict(NOISE_241_SBS, vol_skip_pct=90.0)
+
+# THE NOISE CROWN SINCE 2026-09-05 -- run #304, one step from #243 in two knobs: the
+# volatility skip loosens 90 -> 95 and the noise lookback shortens 44 -> 40 sessions.
+# Everything else is identical, so #243 is a genuine matched control for it.
+#
+# Why it took the crown, measured on ONE CONTINUOUS run sliced by ENTRY time
+# (tools/continuous_lb_check.py), not on a warm-start reload:
+#                       selection 2010-06-07..2025-02-11        held-out 2025-02-11..2026-08-12
+#   #304   n=4,424  PF 1.379  $331,132  DD $16,917  MAR 1.33 | n=409  PF 1.330  $82,123  EV R 0.205  R/YR 56.1
+#   #243   n=4,054  PF 1.420  $320,130  DD $18,425  MAR 1.18 | n=375  PF 1.272  $60,615  EV R 0.170  R/YR 42.6
+# It wins the held-out year on every read -- profit factor, dollars, expectancy per trade
+# and R / YR (56 against 43) -- and it does that on MORE trades, not fewer, with a smaller
+# drawdown. The one thing #243 keeps is per-trade quality on the selection window
+# (PF 1.420 vs 1.379, EV R 0.267 vs 0.241): #304 takes 370 more trades at slightly lower
+# quality and ends up with more total edge. Both are equally broad-based -- deleting the ten
+# best trades costs 22% of #304's selection net and 23% of #243's -- and both hold nothing
+# overnight (longest hold 0 days), so neither carries the runaway-hold risk that the ENGU-Q
+# 24h configs do.
+NOISE_304_NBHD = dict(NOISE_243_SBS_V90, vol_skip_pct=95.0, lookback=40)
 
 # ── ML gate configs (api/paper_gate.py) ──────────────────────────────────────────
 # The gate is an OVERLAY: the strategy picks its trades exactly as it always has, and a
@@ -555,6 +575,22 @@ LEG_SOURCE = {
                   "NOISE lockbox is SPENT (read many times), so lockbox numbers are "
                   "confirmatory only.",
     },
+    "NOISE_304": {
+        "run": 304, "run_label": "#304 (neighbourhood re-search)",
+        "strategy_file": "NOISE_1_1_NBHD.py", "picked": "2026-09-05",
+        "note": "THE CROWNED NOISE CONFIG since 2026-09-05, and the first NOISE crown to come "
+                "out of a real neighbourhood search rather than a pinned card: run #304 "
+                "evaluated 495 configurations, passed 6 of 6 checks and held 8 of 8 "
+                "walk-forward folds. It is #243 with two knobs moved one step -- volatility "
+                "skip 90 -> 95, lookback 44 -> 40 sessions. Graded continuously and sliced by "
+                "entry time it beats #243 on the held-out year on every read (409 trades / "
+                "PF 1.330 / $82,123 / EV R 0.205 / R per year 56.1, against 375 / 1.272 / "
+                "$60,615 / 0.170 / 42.6) on a smaller drawdown, and its edge is broad -- "
+                "deleting its ten best trades costs 22% of its selection-window net. What "
+                "#243 keeps is per-trade quality before the lockbox (PF 1.420 vs 1.379); #304 "
+                "takes 370 more trades at slightly lower quality for more total edge. #243 "
+                "stays on the board as its matched control.",
+    },
     "NOISE_SBS_V90": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10)", "strategy_file": "NOISE_1_0.py",
         "picked": "2026-08-23",
@@ -744,6 +780,14 @@ PAPER_LEGS = [
     # NOISE_H) is its matched RAW control -- the two filters are the only difference.
     # No gate: the crown is the RAW config. history_from matches the gated legs so
     # all four NOISE rows are computed over the identical window.
+    # THE CROWN, MOVED HERE 2026-09-05. #243 below stays as the matched control -- one
+    # backtest apart in two knobs, so any gap between the two rows is those two knobs and
+    # nothing else. Its gate and tilt overlays keep running against #243 as their control,
+    # which is why that leg is not retired.
+    {"key": "NOISE_304", "strategy": "NOISE_1_1_NBHD.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": NOISE_304_NBHD, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_304"]},
+
     {"key": "NOISE_SBS_V90", "strategy": "NOISE_1_0.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": NOISE_243_SBS_V90, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["NOISE_SBS_V90"]},
