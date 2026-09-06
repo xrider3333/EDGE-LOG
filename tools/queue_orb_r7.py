@@ -15,8 +15,22 @@ from firebase_admin import credentials, firestore
 if not firebase_admin._apps:
     firebase_admin.initialize_app(credentials.Certificate("serviceAccount.json"))
 u = firestore.client().collection("users").document("IO0K35JpLIcH9YK4C0pMNYUzZOM2")
-busy=[(d.to_dict() or {}).get("strategy") for d in u.collection("backtests").stream()
-      if (d.to_dict() or {}).get("status") in ("queued","running")]
+
+# The scheduled task fires once just after the daily quota is meant to reset. If it is not
+# actually back yet, one attempt would waste the whole run - so retry for an hour.
+import time
+from google.api_core import exceptions as _gx
+def _retry(fn, tries=7, wait=600):
+    for i in range(tries):
+        try:
+            return fn()
+        except (_gx.ResourceExhausted, _gx.ServiceUnavailable, _gx.DeadlineExceeded) as e:
+            print("attempt %d blocked (%s); waiting %ds" % (i + 1, type(e).__name__, wait), flush=True)
+            if i == tries - 1:
+                raise
+            time.sleep(wait)
+busy=_retry(lambda: [(d.to_dict() or {}).get("strategy") for d in u.collection("backtests").stream()
+                     if (d.to_dict() or {}).get("status") in ("queued","running")])
 print("queue depth", len(busy), [str(b)[:34] for b in busy])
 if len(busy) > 9: sys.exit("ABORT queue too deep")
 job = dict(type="validate", status="queued", strategy="ORB_3_8_R7.py",
@@ -45,5 +59,5 @@ job = dict(type="validate", status="queued", strategy="ORB_3_8_R7.py",
           "PINNED, never searched, because it sets EV R's denominator. Window pinned to #234/#314. "
           "ES transfer leg on."))
 job["createdAt"] = datetime.datetime.now(datetime.timezone.utc)
-ref = u.collection("backtests").document(); ref.set(job)
+ref = u.collection("backtests").document(); _retry(lambda: ref.set(job))
 print("queued", ref.id, job["strategy"])
