@@ -4,7 +4,7 @@ Parent: ENGUQ_1M_ETH_ER_1_0.py. Trading logic is IDENTICAL -- not one line of th
 changed. Only two DEFAULTS move, and the ranges are fenced around the crown so a search
 here explores the neighbourhood instead of wandering off to a new configuration.
 
-    breakeven_R  3.0 -> 1.5     stop_mult  1.3 -> 1.0
+    breakeven_R  3.0 -> 2.0     stop_mult  1.3 -> 1.0
 
 WHY. Run #309 is the crowned ENGU-Q leg. Its profit factor and EV R are the best in the
 library but its risk side is not: it earned about $36,800 a year against a $48,900
@@ -28,14 +28,22 @@ trades, a cleaner tail and half the longest hold. The be2.0 sibling instead beat
 on EVERY read including net; both are recorded because the choice between them is a
 selection question, below.
 
-WHICH ONE, AND WHY THIS ONE IS THE DEFAULT. The knobs were swept on the whole window, so
-the honest test is whether a PRE-LOCKBOX-ONLY selection would have found them. Re-scored on
-2010-06-07..2025-06-30 alone, be1.5/stop1.0 ranks FIRST on both MAR and R per year, so it
-is the cell a rule that never saw the held-out year would have picked -- and it is this
-file's default for that reason. be2.0/stop1.0 ranks second there by a hair (MAR 0.90 vs
-0.96). Critically, EVERY cell that beat the crown before the lockbox also beat it inside
-the held-out year -- the ranking is stable across the split, which is what separates a real
-improvement from a fit.
+WHICH ONE IS THE DEFAULT, AND WHY (owner's call, 2026-09-05: "go with the be2.0 sibling").
+breakeven_R 2.0 is the default. It is the only cell measured that beats the crown on EVERY
+read at once - net, profit factor, EV R, R per year, drawdown, MAR, held-out trade count,
+tail concentration and longest hold - with nothing traded away.
+
+The honest qualifier, kept because it is the reason the other cell existed: both knobs were
+swept on the whole window, so the two were re-scored on PRE-LOCKBOX DATA ONLY
+(2010-06-07..2025-06-30). There be1.5/stop1.0 ranks first on MAR and R per year and
+be2.0/stop1.0 ranks second by a hair (MAR 0.90 vs 0.96), so a mechanical pre-lockbox rule
+would have picked be1.5. be2.0 was chosen instead on the strength of dominating on every
+read and on the held-out year specifically (EV R 0.487 vs 0.429, R per year 57.5 vs 50.7,
+MAR 2.13 vs 2.02). Both remain inside this file's fence, so the validate sees both.
+
+What matters more than which of the two: EVERY cell that beat the crown before the lockbox
+also beat it inside the held-out year. The ranking is stable across the split, which is what
+separates a real improvement from a fit.
 
 Held-out year alone (entries >= 2025-06-30), the unselected read:
     #309 crown      99 trades  PF 1.620  EV R 0.407  R/YR 40.4  MAR 1.75
@@ -118,7 +126,7 @@ DEFAULT_PARAMS = {
     'regime_len': {'default': 10, 'min': 0, 'max': 100, 'step': 5, 'type': 'int',
                   'label': 'Regime SMA (days, 0=off)',
                   'tooltip': 'Only go long when close is above its N-DAY simple average. 0=off.'},
-    'breakeven_R': {'default': 1.5, 'min': 1.0, 'max': 2.5, 'step': 0.5, 'type': 'float',
+    'breakeven_R': {'default': 2.0, 'min': 1.0, 'max': 2.5, 'step': 0.5, 'type': 'float',
                    'label': 'Breakeven (R, 0=off)',
                    'tooltip': 'Once the trade is this many R in profit, raise the stop to entry. 0=off.'},
 }
