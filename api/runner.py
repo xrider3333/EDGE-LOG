@@ -324,7 +324,13 @@ class _JobStopped(BaseException):
 # identifies THIS runner process in claimedBy, so a shared queue stays auditable
 _WORKER_ID = f"runner-{os.getpid()}-{uuid.uuid4().hex[:6]}"
 
+# A WORKER (EDGELOG_WORKER set in its environment) drains jobs ONLY. Shared-state side
+#   duties - paper EOD, QQQ paper publish - stay on the primary so two processes never
+#   rewrite the same file at once. See the guards in the watch loop below.
+_IS_WORKER = bool(os.environ.get("EDGELOG_WORKER"))
+
 def process_job(job: dict, progress_cb=None) -> dict:
+
 
     """Run one job through the engine; return a result patch to merge back.
     job['type']: 'backtest' (default, single config) or 'grid' (param sweep)."""
@@ -1865,7 +1871,7 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[webull] skipped: {type(e).__name__}: {e}")
                 next_trades = time.time() + a.trades_sec
-            if a.firestore and _paper is not None:
+            if a.firestore and _paper is not None and not _IS_WORKER:
                 try:
                     _paper.maybe_run_eod(q)
                 except Exception as e:
@@ -1876,7 +1882,7 @@ def main(argv=None):
             # (users/{uid}/meta/qqq_paper) for the QQQ PAPER web tab to read.
             # Self-throttled and market-hours-gated inside maybe_run(); this call is a
             # cheap no-op the rest of the day. See api/qqq_paper_publish.py.
-            if a.firestore and _qqq_paper is not None:
+            if a.firestore and _qqq_paper is not None and not _IS_WORKER:
                 try:
                     _qqq_paper.maybe_run(q)
                 except Exception as e:
