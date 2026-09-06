@@ -62,6 +62,9 @@ import re
 import csv
 import json
 import os
+import statistics
+import subprocess
+import sys
 import time
 import traceback
 import urllib.error
@@ -111,7 +114,22 @@ DEFAULT_CONFIG = {
     "session": {"open": "09:31", "last_entry": "15:55", "flat_by": "15:58"},
     "kill_file": r"C:\EdgeLog\qqq_exec\KILL",
     "slippage_per_share": 0.01,
+    # NT SIZING GAP (feature #50): "fixed" (default, unchanged behaviour) uses the
+    # `shares` table above verbatim. "nt_notional" instead sizes each lot off the $
+    # notional of the NT futures fill it mirrors: shares = round(nt_notional_usd *
+    # size_fraction / qqq_px), still clamped to max_shares_per_leg.
+    "size_mode": "fixed",
+    "size_fraction": 0.01,
 }
+
+# NT SIZING GAP (feature #50): $ per 1.00-point move of the underlying futures contract
+# (NOT the tick value -- a full point), keyed by the contract root from nt_sync.get_base.
+# NQ = $20/point (tick $5 / tick size 0.25), MNQ = $2/point (tick $0.50 / tick size 0.25).
+NT_MULT_BY_BASE = {"NQ": 20.0, "MNQ": 2.0}
+
+# READINESS (feature #53): trading days of clean evidence required before the shadow
+# adapter is declared ready to inform a real live-sizing decision.
+DAYS_REQUIRED = 10
 
 
 # -- small time helpers ------------------------------------------------------------
@@ -209,6 +227,16 @@ def _default_state():
         # feature (3) RATIO HEALTH: capped rolling history of every successful
         # calibration, [{"at","ratio","source"}], see _maybe_calibrate / _build_ratio_health.
         "ratio_hist": [],
+        # SIGNALS FIRED VS TAKEN (#55): {"YYYY-MM-DD": {leg: {"fired","taken","refused",
+        # "oos"}}} -- rolling 60 days, see _accumulate_signal / _build_signals_day.
+        "signals_days": {},
+        # EVENT TIMELINE (#52): rolling 200-event list, oldest-first in storage
+        # (published newest-first), see _log_event.
+        "events": [],
+        # REPRICE MERGE (#48 half): ET date the daily broker-reprice subprocess last ran.
+        "reprice_done_date": None,
+        # EOD PHONE SUMMARY (#55): ET date the end-of-day ntfy push last went out.
+        "eod_summary_done_date": None,
     }
 
 
@@ -297,6 +325,86 @@ def _notify(msg, title, log=print):
         log(f"[qqq-exec] ntfy push failed: {type(e).__name__}: {e}")
 
 
+# -- event timeline (feature #52) ---------------------------------------------------
+# In-process flag (NOT persisted in state.json): a fresh process is a fresh "boot" --
+# a state.json booted-flag would only fire once ever, across every restart.
+_PROCESS = {"booted": False}
+EVENTS_KEEP = 200
+
+
+def _log_event(state, kind, text, log=print):
+    """Append one event to the rolling, capped timeline. Never raises -- a failure here
+    must not affect trading logic, only the historical event record."""
+    try:
+        events = state.setdefault("events", [])
+        events.append({"ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "kind": kind,
+                       "text": text})
+        state["events"] = events[-EVENTS_KEEP:]
+    except Exception as e:
+        log(f"[qqq-exec] event log failed: {type(e).__name__}: {e}")
+
+
+# -- NT sizing gap (feature #50) -----------------------------------------------------
+def _nt_mult(instrument, log=print):
+    """$ per 1.00-point move of `instrument`'s underlying futures contract, or None if
+    the contract root is unrecognised. Never raises."""
+    try:
+        base = nt_sync.get_base(instrument)
+        if base in NT_MULT_BY_BASE:
+            return NT_MULT_BY_BASE[base]
+        preset = nt_sync.PRESETS.get(base)
+        if preset:
+            tv, ts = preset
+            if ts:
+                return round(tv / ts, 4)
+    except Exception as e:
+        log(f"[qqq-exec] nt_mult lookup failed for {instrument!r}: {type(e).__name__}: {e}")
+    return None
+
+
+# -- signals fired vs taken (feature #55) --------------------------------------------
+def _accumulate_signal(state, dt, leg, kind, log=print):
+    """Bump one (leg, kind) counter for dt's ET calendar date. kind is one of
+    fired/taken/refused/oos. Rolling 60-day cap, mirrors _accumulate_feed_uptime."""
+    try:
+        day = dt.strftime("%Y-%m-%d")
+        days = state.setdefault("signals_days", {})
+        d = days.setdefault(day, {})
+        leg_d = d.setdefault(leg, {"fired": 0, "taken": 0, "refused": 0, "oos": 0})
+        if kind in leg_d:
+            leg_d[kind] = int(leg_d.get(kind, 0)) + 1
+        if len(days) > 60:
+            for k in sorted(days.keys())[:-60]:
+                days.pop(k, None)
+    except Exception as e:
+        log(f"[qqq-exec] signal accumulate failed: {type(e).__name__}: {e}")
+
+
+def _build_signals_day(state):
+    """[{date,fired,taken,refused,oos,by_leg:{ORB:{...},ENGUQ:{...},NOISE:{...}}}, ...]
+    oldest-first, last 60 days -- see module docstring feature (4)."""
+    out = []
+    days = state.get("signals_days") or {}
+    for day in sorted(days.keys()):
+        try:
+            raw = days[day] or {}
+            totals = {"fired": 0, "taken": 0, "refused": 0, "oos": 0}
+            by_leg_out = {}
+            for leg in LEGS:
+                d = raw.get(leg) or {}
+                row = {"fired": int(d.get("fired", 0) or 0), "taken": int(d.get("taken", 0) or 0),
+                      "refused": int(d.get("refused", 0) or 0), "oos": int(d.get("oos", 0) or 0)}
+                by_leg_out[leg] = row
+                for k in totals:
+                    totals[k] += row[k]
+            out.append({"date": day, "fired": totals["fired"], "taken": totals["taken"],
+                       "refused": totals["refused"], "oos": totals["oos"],
+                       "by_leg": by_leg_out})
+        except Exception:
+            continue
+    return out[-60:]
+
+
 # -- leg attribution -----------------------------------------------------------------
 # NinjaTrader stamps the ENTRY signal name per strategy (see bin/Custom/Strategies):
 #   EdgeLogORB230.cs -> "ORB", EdgeLogENGUQ1m.cs -> "EQ", EdgeLogNOISE.cs -> "NZ".
@@ -372,7 +480,7 @@ def _append_csv(path, cols, row, keep):
 
 
 ORDER_COLS = ["ts_et", "leg", "action", "side", "shares", "nq_px", "qqq_px",
-              "px_source", "reason"]
+              "px_source", "reason", "latency_s"]
 # NT PARITY (feature 1): columns appended to the END so pre-existing trades.csv rows
 # (written before this feature shipped) still parse -- missing values read back as "".
 # ratio_at_entry/ratio_at_exit and nt_reconstructed are this adapter's own bookkeeping
@@ -382,16 +490,31 @@ ORDER_COLS = ["ts_et", "leg", "action", "side", "shares", "nq_px", "qqq_px",
 NT_PARITY_COLS = ["nt_entry_exec_id", "nt_entry_ts", "nt_entry_px",
                   "nt_exit_exec_id", "nt_exit_ts", "nt_exit_px", "nt_qty",
                   "ratio_at_entry", "ratio_at_exit", "nt_reconstructed"]
+# NT SIZING GAP (feature #50): captured on the lot at open (_open_lot), travels onto
+# the closed-trade row exactly like NT_PARITY_COLS above -- missing values (unrecognised
+# instrument) read back as "".
+SIZING_COLS = ["nt_mult", "nt_notional_usd", "shadow_notional_usd", "notional_ratio"]
 TRADE_COLS = ["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px",
-              "pnl", "nq_pnl_points", "exit_reason"] + NT_PARITY_COLS
+              "pnl", "nq_pnl_points", "exit_reason"] + NT_PARITY_COLS + SIZING_COLS
 
 
-def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print):
+def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
+                  fill_dt=None):
+    """`fill_dt` (feature #51 LATENCY): the ET timestamp of the NT fill this order
+    mirrors, when one exists -- absent for rail-driven closes (BREAKER/EOD/KILL flatten
+    has no single triggering fill). latency_s = now (adapter order time) - fill_dt."""
+    latency_s = None
+    if fill_dt is not None:
+        try:
+            latency_s = round((_now_et() - fill_dt).total_seconds(), 3)
+        except Exception as e:
+            log(f"[qqq-exec] latency calc failed: {type(e).__name__}: {e}")
     row = {"ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": leg, "action": action,
            "side": side, "shares": shares,
            "nq_px": round(nq_px, 4) if nq_px is not None else "",
            "qqq_px": round(qqq_px, 4) if qqq_px is not None else "",
-           "px_source": px_source or "", "reason": reason or ""}
+           "px_source": px_source or "", "reason": reason or "",
+           "latency_s": latency_s if latency_s is not None else ""}
     _append_csv(ORDERS_CSV, ORDER_COLS, row, ORDERS_KEEP)
     log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
         f"({px_source}) -- {reason}")
@@ -428,6 +551,18 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
         })
     except Exception as e:
         log(f"[qqq-exec] NT parity fields dropped from trade row: {type(e).__name__}: {e}")
+    # NT SIZING GAP (feature #50): captured on the lot at open -- non-fatal, a lot
+    # missing this bookkeeping just publishes as "" (unrecognised instrument, or a lot
+    # opened before this feature shipped).
+    try:
+        row.update({
+            "nt_mult": lot.get("nt_mult") if lot.get("nt_mult") is not None else "",
+            "nt_notional_usd": lot.get("nt_notional_usd") if lot.get("nt_notional_usd") is not None else "",
+            "shadow_notional_usd": lot.get("shadow_notional_usd") if lot.get("shadow_notional_usd") is not None else "",
+            "notional_ratio": lot.get("notional_ratio") if lot.get("notional_ratio") is not None else "",
+        })
+    except Exception as e:
+        log(f"[qqq-exec] sizing-gap fields dropped from trade row: {type(e).__name__}: {e}")
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -676,6 +811,9 @@ def _maybe_calibrate(state, ratio_fn, log=print):
                 state["ratio_hist"] = hist[-500:]
             except Exception as e:
                 log(f"[qqq-exec] ratio_hist append failed: {type(e).__name__}: {e}")
+            _log_event(state, "calib",
+                      f"QQQ:NQ ratio recalibrated to {fresh['ratio']:.3f} ({fresh['source']})",
+                      log=log)
         elif calib is None:
             log("[qqq-exec] no ratio calibration available yet -- nq_ratio pricing "
                 "unavailable until one succeeds")
@@ -760,28 +898,49 @@ def _apply_slippage(px, side, entering, slip):
 
 # -- lot lifecycle ---------------------------------------------------------------------
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print):
-    shares = int(cfg["shares"].get(leg, 0))
-    max_shares = int(cfg.get("max_shares_per_leg", shares))
-    if shares > max_shares:
-        _record_order(leg, "ENTER", side, shares, nq_px, None, None,
-                      f"REFUSED shares {shares} > max_shares_per_leg {max_shares}", log)
-        return
+    """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
+    to know this to tell TAKEN from REFUSED)."""
+    max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
+    size_mode = str(cfg.get("size_mode") or "fixed").strip().lower()
+    instrument = (f.get("instrument") if f else "") or ""
+    nt_mult = _nt_mult(instrument, log=log)
+
+    if size_mode == "nt_notional" and nt_mult and qqq_px_raw:
+        # NT SIZING GAP (feature #50): size the shadow lot off the $ notional of the NT
+        # futures fill it mirrors, instead of the fixed shares table. Still CLAMPED (not
+        # refused) to max_shares_per_leg -- a dynamically computed size can overshoot the
+        # cap easily and refusing every overshoot would defeat the point of the mode.
+        nt_notional_usd = round(nq_qty * nt_mult * nq_px, 2)
+        size_fraction = float(cfg.get("size_fraction", 0.01) or 0.01)
+        shares = int(round(nt_notional_usd * size_fraction / qqq_px_raw))
+        if max_shares:
+            shares = min(shares, max_shares)
+    else:
+        # Default behaviour (size_mode == "fixed"): unchanged from before this feature.
+        shares = int(cfg["shares"].get(leg, 0))
+        if shares > max_shares:
+            _record_order(leg, "ENTER", side, shares, nq_px, None, None,
+                          f"REFUSED shares {shares} > max_shares_per_leg {max_shares}", log,
+                          fill_dt=(f.get("dt") if f else None))
+            return False
+
     if shares <= 0:
-        return
+        return False
+
     fill_px = _apply_slippage(qqq_px_raw, side, True, slip)
-    state["legs"][leg] = {
+    lot = {
         "leg": leg, "side": side, "shares_total": shares, "shares_remaining": shares,
         "nq_qty_total": nq_qty, "nq_qty_remaining": nq_qty,
         "entry_px": fill_px, "nq_entry_px": nq_px, "last_nq_px": nq_px,
         "entry_ts": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
     }
+    state["legs"][leg] = lot
     # NT PARITY (feature 1): the fill that opened this lot IS the NT trade being
     # mirrored -- persist its identity + the ratio in force right now so a closed trade
     # can later prove/disprove it tracked that exact NT round-trip. Best-effort: a
     # missing `f` or calib (should not happen -- every open comes from a routed fill)
     # just leaves these blank rather than raising.
     try:
-        lot = state["legs"][leg]
         lot["nt_entry_exec_id"] = f.get("exec_id") if f else ""
         lot["nt_entry_ts"] = f["dt"].strftime("%Y-%m-%d %H:%M:%S") if f and f.get("dt") else ""
         lot["nt_entry_px"] = f.get("price") if f else nq_px
@@ -789,9 +948,26 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         lot["ratio_at_entry"] = calib.get("ratio") or ""
     except Exception as e:
         log(f"[qqq-exec] NT parity entry fields not captured for {leg}: {type(e).__name__}: {e}")
+    # NT SIZING GAP (feature #50): the $ size of the NT futures fill this lot mirrors,
+    # vs the $ size of the shadow shares -- lets the owner see how far the shadow lot is
+    # from actually matching the real NT position. Best-effort: an unrecognised
+    # instrument (nt_mult None) just leaves the notional fields blank.
+    try:
+        lot["nt_mult"] = nt_mult
+        lot["shadow_notional_usd"] = round(shares * fill_px, 2)
+        if nt_mult:
+            lot["nt_notional_usd"] = round(nq_qty * nt_mult * nq_px, 2)
+            lot["notional_ratio"] = (round(lot["shadow_notional_usd"] / lot["nt_notional_usd"], 4)
+                                     if lot["nt_notional_usd"] else None)
+        else:
+            lot["nt_notional_usd"] = None
+            lot["notional_ratio"] = None
+    except Exception as e:
+        log(f"[qqq-exec] sizing-gap fields not captured for {leg}: {type(e).__name__}: {e}")
     _record_order(leg, "ENTER", side, shares, nq_px, fill_px, state["_px_source"],
-                 "signal entry", log)
+                 "signal entry", log, fill_dt=(f.get("dt") if f else None))
     _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
+    return True
 
 
 def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print):
@@ -832,7 +1008,7 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     except Exception as e:
         log(f"[qqq-exec] NT parity exit fields not captured for {leg}: {type(e).__name__}: {e}")
     _record_order(leg, "EXIT", lot["side"], shares_close, nq_px, fill_px,
-                 state["_px_source"], reason, log)
+                 state["_px_source"], reason, log, fill_dt=(f.get("dt") if f else None))
     _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
            "EDGELOG QQQ SHADOW", log)
     pnl = None
@@ -893,24 +1069,42 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     log(f"[qqq-exec] WARN {leg} already has an open shadow lot -- "
                         f"second entry on {gk} ignored")
                     state["group_leg"][gk] = leg  # still track so exits route correctly
+                    _accumulate_signal(state, f["dt"], leg, "fired", log=log)
+                    _accumulate_signal(state, f["dt"], leg, "refused", log=log)
                     continue
                 in_window = _in_entry_window(f["dt"], cfg["session"])
                 if entries_blocked or not in_window:
-                    reason = ("REFUSED -- outside entry window" if not in_window
+                    # ENGU-Q OUT-OF-SESSION (feature #49): NT runs ENGU-Q (and every
+                    # leg) on the 24h tape; the shadow only ever trades the QQQ session
+                    # (the session-window rule itself is unchanged). A fill refused for
+                    # being outside that window is tagged OOS, not a generic REFUSED, so
+                    # it is never mistaken for a rail block and is always counted, never
+                    # silently dropped.
+                    kind = "oos" if not in_window else "refused"
+                    reason = ("OOS -- outside QQQ session (not mirrored)" if not in_window
                               else "REFUSED -- breaker/feed/kill blocked")
                     _record_order(leg, "ENTER", side_of_fill, cfg["shares"].get(leg, 0),
-                                 f["price"], None, None, reason, log)
+                                 f["price"], None, None, reason, log, fill_dt=f["dt"])
                     state["group_leg"][gk] = leg
+                    _accumulate_signal(state, f["dt"], leg, "fired", log=log)
+                    _accumulate_signal(state, f["dt"], leg, kind, log=log)
+                    _log_event(state, kind,
+                              f"{leg} signal fired {'outside the QQQ session' if kind == 'oos' else 'while blocked (breaker/feed/kill)'} -- not mirrored",
+                              log=log)
                     continue
                 qqq_px, src = resolve_price(cfg, state, f["price"], quote_fn, ratio_fn, log=log)
                 state["_px_source"] = src
                 if qqq_px is None:
                     log(f"[qqq-exec] cannot price {leg} entry -- no quote/ratio available, "
                         f"fill skipped")
+                    _accumulate_signal(state, f["dt"], leg, "fired", log=log)
+                    _accumulate_signal(state, f["dt"], leg, "refused", log=log)
                     continue
-                _open_lot(state, cfg, leg, side_of_fill, abs(delta), f["price"], qqq_px,
-                         cfg.get("slippage_per_share", 0.0), f=f, log=log)
+                opened = _open_lot(state, cfg, leg, side_of_fill, abs(delta), f["price"], qqq_px,
+                                   cfg.get("slippage_per_share", 0.0), f=f, log=log)
                 state["group_leg"][gk] = leg
+                _accumulate_signal(state, f["dt"], leg, "fired", log=log)
+                _accumulate_signal(state, f["dt"], leg, "taken" if opened else "refused", log=log)
             else:
                 leg = leg_open
                 qqq_px, src = resolve_price(cfg, state, f["price"], quote_fn, ratio_fn, log=log)
@@ -962,6 +1156,9 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
         state["breaker_tripped"] = True
         _notify(f"QQQ SHADOW breaker tripped: {total:.2f} (limit -{limit:.2f})",
                "EDGELOG QQQ SHADOW BREAKER", log)
+        _log_event(state, "breaker",
+                  f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) -- "
+                  f"all shadow lots closed", log=log)
     return unrl
 
 
@@ -1028,6 +1225,10 @@ def _check_feed(state, fills_path, log=print):
     stale = age is None or age > FEED_STALE_SEC
     was = state.get("feed_stale", False)
     state["feed_stale"] = stale
+    if stale and not was:
+        _log_event(state, "feed_down",
+                  f"NinjaTrader fill feed went stale ({('%.0fs' % age) if age is not None else 'no heartbeat'}) "
+                  f"-- new entries blocked", log=log)
     if stale and (time.time() - float(state.get("last_feed_alert", 0) or 0)
                  > FEED_ALERT_COOLDOWN_SEC):
         _notify(f"NinjaTrader fill feed stale ({('%.0fs' % age) if age is not None else 'no heartbeat'}) "
@@ -1035,6 +1236,7 @@ def _check_feed(state, fills_path, log=print):
         state["last_feed_alert"] = time.time()
     elif not stale and was:
         log("[qqq-exec] feed heartbeat recovered")
+        _log_event(state, "feed_up", "NinjaTrader fill feed heartbeat recovered", log=log)
     return stale
 
 
@@ -1199,6 +1401,206 @@ def _cum_pnl_by_leg(all_trades):
     return out
 
 
+# -- latency (feature #51) -----------------------------------------------------------
+def _build_latency(orders, log=print):
+    """{n,median_s,p95_s,max_s,last_s} over today's orders that carry a latency_s
+    (adapter order time - NT fill time, ET). `orders` is assumed in file order
+    (ascending by append time), so the last value seen is the most recent order's."""
+    try:
+        vals = []
+        last = None
+        for o in orders:
+            v = o.get("latency_s")
+            if v in (None, ""):
+                continue
+            try:
+                fv = float(v)
+            except Exception:
+                continue
+            vals.append(fv)
+            last = fv
+        if not vals:
+            return {"n": 0, "median_s": None, "p95_s": None, "max_s": None, "last_s": None}
+        vals_sorted = sorted(vals)
+        n = len(vals_sorted)
+        idx95 = min(n - 1, int(round(0.95 * (n - 1))))
+        return {"n": n, "median_s": round(statistics.median(vals_sorted), 3),
+               "p95_s": round(vals_sorted[idx95], 3), "max_s": round(vals_sorted[-1], 3),
+               "last_s": round(last, 3)}
+    except Exception as e:
+        log(f"[qqq-exec] latency build failed: {type(e).__name__}: {e}")
+        return {"n": 0, "median_s": None, "p95_s": None, "max_s": None, "last_s": None}
+
+
+# -- reprice merge (feature #48 half) -------------------------------------------------
+REPRICE_MERGE_FIELDS = ["real_entry_px", "real_exit_px", "real_pnl", "slip_entry_ps",
+                        "slip_exit_ps", "repriced_at", "source", "note"]
+
+
+def _load_reprice_sidecar(log=print):
+    """key (leg, entry_ts) -> sidecar row, from C:\\EdgeLog\\qqq_exec\\reprice.csv
+    (written by the sibling tools/qqq_reprice.py). Missing/unreadable -> {}, never
+    raises -- this file is owned by a different tool and may not exist yet."""
+    path = os.path.join(os.path.dirname(TRADES_CSV) or OUT_DIR, "reprice.csv")
+    out = {}
+    if not os.path.exists(path):
+        return out
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                out[(row.get("leg"), row.get("entry_ts"))] = row
+    except Exception as e:
+        log(f"[qqq-exec] reprice sidecar read failed: {type(e).__name__}: {e}")
+    return out
+
+
+def _merge_reprice(trades_all, log=print):
+    """Merges matching sidecar fields onto trades_all rows IN PLACE (absent when no
+    sidecar row matches (leg, entry_ts)) and returns the reprice summary block."""
+    try:
+        sidecar = _load_reprice_sidecar(log=log)
+        covered = 0
+        slips = []
+        last_run = None
+        for row in trades_all:
+            src = sidecar.get((row.get("leg"), row.get("entry_ts")))
+            if not src:
+                continue
+            covered += 1
+            for fld in REPRICE_MERGE_FIELDS:
+                v = src.get(fld)
+                if v not in (None, ""):
+                    row[fld] = v
+            for fld in ("slip_entry_ps", "slip_exit_ps"):
+                v = _f_or_none(src.get(fld))
+                if v is not None:
+                    slips.append(v)
+            rat = src.get("repriced_at")
+            if rat and (last_run is None or rat > last_run):
+                last_run = rat
+        total = len(trades_all)
+        coverage_pct = round(covered / total, 4) if total else 1.0
+        mean_slip_ps = round(sum(slips) / len(slips), 4) if slips else None
+        return {"covered": covered, "total": total, "coverage_pct": coverage_pct,
+               "mean_slip_ps": mean_slip_ps, "last_run": last_run}
+    except Exception as e:
+        log(f"[qqq-exec] reprice merge failed: {type(e).__name__}: {e}")
+        return {"covered": 0, "total": len(trades_all), "coverage_pct": 0.0,
+               "mean_slip_ps": None, "last_run": None}
+
+
+def _maybe_run_reprice(state, nowdt, log=print):
+    """Once per ET weekday, after 16:20 ET, shells out to tools/qqq_reprice.py --apply
+    (the sidecar-writing tool owned by a different agent). Non-fatal if the tool
+    doesn't exist yet, times out, or errors -- this adapter's own trading logic must
+    never depend on it."""
+    try:
+        if not _is_weekday(nowdt):
+            return
+        if _et_hhmm(nowdt) < (16, 20):
+            return
+        today = nowdt.strftime("%Y-%m-%d")
+        if state.get("reprice_done_date") == today:
+            return
+        state["reprice_done_date"] = today  # mark attempted even if the tool is missing/fails
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script = os.path.join(repo_root, "tools", "qqq_reprice.py")
+        if not os.path.exists(script):
+            log(f"[qqq-exec] reprice tool not found at {script} -- skipping (non-fatal)")
+            return
+        try:
+            subprocess.run([sys.executable, script, "--apply"], timeout=120, check=False)
+        except Exception as e:
+            log(f"[qqq-exec] reprice subprocess failed: {type(e).__name__}: {e}")
+        _log_event(state, "reprice", "Daily broker reprice reconciliation ran", log=log)
+    except Exception as e:
+        log(f"[qqq-exec] reprice scheduling failed: {type(e).__name__}: {e}")
+
+
+# -- readiness (feature #53) -----------------------------------------------------------
+def _build_readiness(feed_days, parity, reprice, state, log=print):
+    """{ready,days_valid,days_required,live_parity_checked,live_parity_failed,
+    uptime_mean_10,rail_trips_unexplained,reprice_coverage_pct,missing,note} -- the
+    single go/no-go read for "is the shadow book real evidence yet". Reconstructed
+    rows never count toward live_parity_* because _parity_summary already excludes
+    them from checked/failed."""
+    try:
+        days_valid = sum(1 for d in feed_days if d.get("valid"))
+        live_parity_checked = int(parity.get("checked") or 0)
+        live_parity_failed = int(parity.get("failed") or 0)
+        last10 = feed_days[-10:]
+        uptime_vals = [d.get("uptime_pct") for d in last10 if d.get("uptime_pct") is not None]
+        uptime_mean_10 = round(sum(uptime_vals) / len(uptime_vals), 4) if uptime_vals else 0.0
+        # No "explained trip" bookkeeping exists yet -- every breaker trip on the rolling
+        # event timeline counts as unexplained until that mechanism exists, which is the
+        # conservative (safe) default for a live-sizing gate.
+        rail_trips_unexplained = sum(1 for e in (state.get("events") or [])
+                                     if e.get("kind") == "breaker")
+        reprice_total = int(reprice.get("total") or 0)
+        reprice_coverage_pct = float(reprice.get("coverage_pct")) if reprice_total else 1.0
+        ready = (days_valid >= DAYS_REQUIRED and live_parity_checked >= DAYS_REQUIRED and
+                live_parity_failed == 0 and uptime_mean_10 >= 0.95 and
+                rail_trips_unexplained == 0 and reprice_coverage_pct >= 0.9)
+        missing = []
+        if days_valid < DAYS_REQUIRED:
+            missing.append(f"only {days_valid} of {DAYS_REQUIRED} valid trading days recorded so far")
+        if live_parity_checked < DAYS_REQUIRED:
+            missing.append(f"only {live_parity_checked} live-captured trade(s) have been "
+                           f"parity-checked against NinjaTrader (need {DAYS_REQUIRED})")
+        if live_parity_failed > 0:
+            missing.append(f"{live_parity_failed} live-captured trade(s) failed the "
+                           f"NinjaTrader parity check")
+        if uptime_mean_10 < 0.95:
+            missing.append(f"average feed uptime over the last {len(last10)} day(s) is "
+                           f"{uptime_mean_10 * 100:.1f}% (need at least 95%)")
+        if rail_trips_unexplained > 0:
+            missing.append(f"{rail_trips_unexplained} breaker trip(s) on record, none yet "
+                           f"marked explained")
+        if reprice_coverage_pct < 0.9:
+            missing.append(f"only {reprice_coverage_pct * 100:.0f}% of closed trades have a "
+                           f"broker-verified reprice (need at least 90%)")
+        note = "ready for a live-sizing decision" if ready else "; ".join(missing)
+        return {"ready": bool(ready), "days_valid": days_valid, "days_required": DAYS_REQUIRED,
+               "live_parity_checked": live_parity_checked, "live_parity_failed": live_parity_failed,
+               "uptime_mean_10": uptime_mean_10, "rail_trips_unexplained": rail_trips_unexplained,
+               "reprice_coverage_pct": round(reprice_coverage_pct, 4), "missing": missing,
+               "note": note}
+    except Exception as e:
+        log(f"[qqq-exec] readiness build failed: {type(e).__name__}: {e}")
+        return {"ready": False, "days_valid": 0, "days_required": DAYS_REQUIRED,
+               "live_parity_checked": 0, "live_parity_failed": 0, "uptime_mean_10": 0.0,
+               "rail_trips_unexplained": 0, "reprice_coverage_pct": 0.0,
+               "missing": [f"readiness unavailable: {type(e).__name__}"],
+               "note": "readiness calc failed"}
+
+
+# -- EOD phone summary (feature #55) --------------------------------------------------
+def _maybe_send_eod_summary(state, doc, nowdt, log=print):
+    """Once per ET weekday, at/after 16:05 ET, pushes one ntfy summary of the day."""
+    try:
+        if not _is_weekday(nowdt):
+            return
+        if _et_hhmm(nowdt) < (16, 5):
+            return
+        today = nowdt.strftime("%Y-%m-%d")
+        if state.get("eod_summary_done_date") == today:
+            return
+        n = len(doc["today"]["trades"])
+        pnl = doc["today"]["realized_pnl"]
+        parity = doc["parity"]
+        today_feed = next((d for d in doc["feed_days"] if d["date"] == today), None)
+        uptime_txt = f"{today_feed['uptime_pct'] * 100:.1f}%" if today_feed else "n/a"
+        rail_trips = 1 if doc.get("breaker_tripped") else 0
+        msg = (f"Trades {n} | P&L ${pnl:.2f} | parity checked/failed "
+              f"{parity['checked']}/{parity['failed']} | feed uptime {uptime_txt} | "
+              f"rail trips {rail_trips}")
+        _notify(msg, "EDGELOG QQQ SHADOW: EOD summary", log)
+        state["eod_summary_done_date"] = today
+        _log_event(state, "eod_summary", msg, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] EOD summary failed: {type(e).__name__}: {e}")
+
+
 def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     orders = []
     try:
@@ -1239,6 +1641,10 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         trades_all.append(row)
     parity = _parity_summary(trades_all)
 
+    # REPRICE MERGE (feature #48 half): merges broker-verified fields onto trades_all
+    # IN PLACE and returns the coverage summary.
+    reprice = _merge_reprice(trades_all, log=log)
+
     feed_days = _build_feed_days(state)
     ratio_hist = (state.get("ratio_hist") or [])[-500:]
     ratio_health = _build_ratio_health(state, _now_et(), log=log)
@@ -1247,7 +1653,22 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     for leg, lot in state.get("legs", {}).items():
         positions[leg] = {"side": lot["side"], "shares": lot["shares_remaining"],
                           "entry_px": lot["entry_px"], "entry_ts": lot["entry_ts"],
-                          "unrealized": unrl_by_leg.get(leg, 0.0)}
+                          "unrealized": unrl_by_leg.get(leg, 0.0),
+                          # NT SIZING GAP (feature #50): live view of the open lot's
+                          # sizing vs. the NT position it mirrors.
+                          "nt_mult": lot.get("nt_mult"),
+                          "nt_notional_usd": lot.get("nt_notional_usd"),
+                          "shadow_notional_usd": lot.get("shadow_notional_usd"),
+                          "notional_ratio": lot.get("notional_ratio")}
+
+    # LATENCY (feature #51): today's orders only, per module docstring.
+    latency = _build_latency(orders, log=log)
+    # SIGNALS FIRED VS TAKEN (feature #55) + EVENT TIMELINE (feature #52).
+    signals_day = _build_signals_day(state)
+    events = list(reversed((state.get("events") or [])))[:EVENTS_KEEP]
+    # READINESS (feature #53): the single go/no-go read, built off everything above.
+    readiness = _build_readiness(feed_days, parity, reprice, state, log=log)
+
     return {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
         "live_from": LIVE_FROM,
@@ -1263,10 +1684,16 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "ratio_hist": ratio_hist,
         "ratio_health": ratio_health,
         "cum_pnl": cum_pnl,
+        "latency": latency,
+        "signals_day": signals_day,
+        "events": events,
+        "readiness": readiness,
+        "reprice": reprice,
         "rails": {"shares": cfg.get("shares"), "max_shares_per_leg": cfg.get("max_shares_per_leg"),
                   "daily_loss_limit_usd": cfg.get("daily_loss_limit_usd"),
                   "session": cfg.get("session"), "slippage_per_share": cfg.get("slippage_per_share"),
-                  "kill_file": cfg.get("kill_file")},
+                  "kill_file": cfg.get("kill_file"), "size_mode": cfg.get("size_mode"),
+                  "size_fraction": cfg.get("size_fraction")},
     }
 
 
@@ -1302,15 +1729,25 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     _roll_day(state, today)
     state["_px_source"] = None
 
+    # EVENT TIMELINE (feature #52): "boot" fires once per PROCESS start (a state.json
+    # flag would only ever fire once across every future restart).
+    if not _PROCESS["booted"]:
+        _log_event(state, "boot", "QQQ SHADOW adapter started", log=log)
+        _PROCESS["booted"] = True
+
     kill_present = os.path.exists(cfg.get("kill_file") or "")
     if kill_present and not state.get("kill_done"):
         log("[qqq-exec] KILL file present -- closing all shadow lots")
         _close_all(state, cfg, "KILL", quote_fn, ratio_fn, log=log)
         state["kill_done"] = True
         _notify("QQQ SHADOW: kill file present, all lots closed", "EDGELOG QQQ SHADOW KILL", log)
+        _log_event(state, "kill", "Kill file present -- all shadow lots closed, new entries blocked",
+                  log=log)
     elif not kill_present and state.get("kill_done"):
         state["kill_done"] = False
         log("[qqq-exec] kill file cleared")
+        _log_event(state, "kill_clear", "Kill file cleared -- adapter resuming normal operation",
+                  log=log)
 
     active = _in_market_window(nowdt)
     feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
@@ -1350,15 +1787,24 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
         if _past_flat_by(nowdt, cfg["session"]) and state.get("flat_by_done_date") != today:
             if state.get("legs"):
+                legs_open = list(state["legs"].keys())
                 log("[qqq-exec] past flat_by -- closing remaining open lots")
                 _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log)
+                _log_event(state, "eod_flatten",
+                          f"End-of-day flatten closed: {', '.join(legs_open)}", log=log)
             state["flat_by_done_date"] = today
 
     unrealized = 0.0
     if not kill_present:
         unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log)
 
+    # REPRICE MERGE (feature #48 half) + EOD PHONE SUMMARY (feature #55): both are
+    # once-per-ET-day, time-gated jobs that must never block or crash a tick -- see
+    # _maybe_run_reprice / _maybe_send_eod_summary for the schedule.
+    _maybe_run_reprice(state, nowdt, log=log)
+
     doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
+    _maybe_send_eod_summary(state, doc, nowdt, log=log)
     save_state(state, log=log)
     return cfg, state, doc
 

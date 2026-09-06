@@ -128,8 +128,10 @@ def main():
         check("ENGUQ lot still open after tick", "ENGUQ" in state["legs"])
 
         noise_orders = [o for o in orders if o["leg"] == "NOISE"]
-        check("NOISE entry logged as refused", len(noise_orders) == 1
-             and "REFUSED" in noise_orders[0]["reason"], noise_orders)
+        # feature #49 ENGU-Q OUT-OF-SESSION: a fill outside the entry window is now
+        # tagged OOS (not a generic REFUSED) and is never silently dropped.
+        check("NOISE entry logged as OOS (outside session)", len(noise_orders) == 1
+             and "OOS" in noise_orders[0]["reason"], noise_orders)
         check("NOISE never opened a shadow lot", "NOISE" not in state["legs"])
 
         print("\nTest 4: flat_by force-closes ENGUQ, tags EOD")
@@ -277,6 +279,139 @@ def main():
         qe.CONFIG_PATH = bad_cfg_path
         forced = qe.load_config()
         check("mode='LIVE' refused and forced to SHADOW", forced["mode"] == "SHADOW", forced["mode"])
+
+        print("\nTest 11: NT SIZING GAP -- fixed vs nt_notional sizing")
+        # Fixed mode (default): Test 1's ORB lot used the config's flat 5 shares, and
+        # sizing-gap fields should still have been captured on that closed trade.
+        with open(qe.TRADES_CSV, encoding="utf-8", newline="") as f:
+            trows = list(csv.DictReader(f))
+        orb_row = next((r for r in trows if r["leg"] == "ORB" and r.get("nt_entry_exec_id") == "e1"), None)
+        check("fixed-mode ORB trade carries nt_mult", orb_row is not None
+             and orb_row.get("nt_mult") not in (None, ""), orb_row)
+        if orb_row:
+            check("fixed-mode nt_mult == 20 (NQ)", float(orb_row["nt_mult"]) == 20.0, orb_row["nt_mult"])
+            check("fixed-mode shares stayed at config default (5)", int(orb_row["shares"]) == 5,
+                 orb_row["shares"])
+
+        fills_path4 = os.path.join(tmp, "fills4.csv")
+        write_fills(fills_path4, [
+            ["n1", "2026-09-08 13:35:00", "Sim101", "NQ 12-26", "BUY", "2", "30000", "0", "n1", "ORB"],
+        ])
+        with open(os.path.join(tmp, "addon_heartbeat.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "accounts": 1, "seen": 1, "version": "2.1", "accts": {}}, f)
+        cfg4 = qe.load_config(path=os.path.join(tmp, "config_notional.json"))
+        cfg4["size_mode"] = "nt_notional"
+        cfg4["size_fraction"] = 0.01
+        cfg4["max_shares_per_leg"] = 1000
+        state4 = qe._default_state()
+        now_n1 = datetime(2026, 9, 8, 9, 40)
+        cfg4, state4, doc4 = qe.tick(fills_path=fills_path4, now=now_n1, quote_fn=no_quote,
+                                     ratio_fn=fixed_ratio(30.0), cfg=cfg4, state=state4)
+        check("nt_notional-mode ORB lot opened", "ORB" in state4["legs"])
+        if "ORB" in state4["legs"]:
+            lot4 = state4["legs"]["ORB"]
+            # nt_qty=2, nt_mult=20, nq_px=30000 -> nt_notional_usd = 1,200,000.
+            # size_fraction 0.01 -> target $ = 12,000; qqq_px ~= 1000.01 -> ~12 shares.
+            check("nt_notional_usd computed (2 * 20 * 30000)",
+                 lot4.get("nt_notional_usd") == 1200000.0, lot4.get("nt_notional_usd"))
+            check("nt_notional sizing produced shares != flat config default (5)",
+                 lot4["shares_total"] != 5, lot4["shares_total"])
+            check("nt_notional shares capped by max_shares_per_leg when it binds",
+                 lot4["shares_total"] <= cfg4["max_shares_per_leg"], lot4["shares_total"])
+
+        # Cap actually binds when max_shares_per_leg is small.
+        cfg5 = dict(cfg4)
+        cfg5["max_shares_per_leg"] = 3
+        state5 = qe._default_state()
+        cfg5, state5, doc5 = qe.tick(fills_path=fills_path4, now=now_n1, quote_fn=no_quote,
+                                     ratio_fn=fixed_ratio(30.0), cfg=cfg5, state=state5)
+        check("nt_notional sizing clamps to max_shares_per_leg (not refused)",
+             "ORB" in state5["legs"] and state5["legs"]["ORB"]["shares_total"] == 3,
+             state5["legs"].get("ORB"))
+
+        print("\nTest 12: LATENCY -- computed from adapter time vs NT fill time")
+        # doc4's own "today" filter compares ts_et (real wall-clock, per module docstring
+        # feature #51) against the SIMULATED trading_day (2026-09-08 here), so it's empty
+        # in this harness by construction -- check the raw order rows and the aggregation
+        # helper directly instead of doc4["latency"].
+        orders_n1 = [o for o in _read_rows(qe.ORDERS_CSV) if o["leg"] == "ORB"
+                    and o.get("shares") == "12"]
+        check("nt_notional ENTER order carries a latency_s", len(orders_n1) == 1
+             and orders_n1[0].get("latency_s") not in (None, ""), orders_n1)
+        if orders_n1:
+            # Sign/magnitude depends on real wall-clock vs. this fixture's simulated
+            # date (not meaningful in this harness) -- just confirm it parses as a
+            # real, finite number.
+            lat_val = float(orders_n1[0]["latency_s"])
+            check("latency_s parses as a finite number", lat_val == lat_val and abs(lat_val) < 1e12,
+                 orders_n1[0]["latency_s"])
+        lat_fixture = [{"latency_s": "1.5"}, {"latency_s": ""}, {"latency_s": "3.25"},
+                      {"latency_s": "2.0"}]
+        lat = qe._build_latency(lat_fixture)
+        check("_build_latency ignores blank rows (n==3)", lat["n"] == 3, lat)
+        check("_build_latency median_s correct", lat["median_s"] == 2.0, lat)
+        check("_build_latency max_s correct", lat["max_s"] == 3.25, lat)
+        check("_build_latency last_s uses the last valued row in file order",
+             lat["last_s"] == 2.0, lat)
+
+        print("\nTest 13: SIGNALS FIRED VS TAKEN -- an OOS refusal is counted, never dropped")
+        sday = next((d for d in doc["signals_day"] if d["date"] == "2026-09-02"), None)
+        check("signals_day has 2026-09-02", sday is not None, doc.get("signals_day"))
+        if sday:
+            check("2026-09-02 NOISE oos count == 1", sday["by_leg"]["NOISE"]["oos"] == 1, sday)
+            check("2026-09-02 NOISE fired count == 1", sday["by_leg"]["NOISE"]["fired"] == 1, sday)
+            check("2026-09-02 ORB taken count == 1", sday["by_leg"]["ORB"]["taken"] == 1, sday)
+            check("2026-09-02 total oos == 1", sday["oos"] == 1, sday)
+
+        print("\nTest 14: EVENT TIMELINE -- key events recorded, newest-first")
+        events_all = doc2.get("events") or []
+        kinds_seen = {e["kind"] for e in events_all}
+        check("breaker event recorded", "breaker" in kinds_seen, kinds_seen)
+        events_from_test1 = doc.get("events") or []
+        kinds1 = {e["kind"] for e in events_from_test1}
+        check("oos event recorded", "oos" in kinds1, kinds1)
+        check("calib event recorded", "calib" in kinds1, kinds1)
+        if len(events_from_test1) >= 2:
+            check("events published newest-first",
+                 events_from_test1[0]["ts_et"] >= events_from_test1[-1]["ts_et"], events_from_test1)
+
+        print("\nTest 15: READINESS -- missing list is correct on a sparse (fresh) book")
+        readiness = doc.get("readiness") or {}
+        check("readiness not ready on a sparse book", readiness.get("ready") is False, readiness)
+        check("readiness missing list non-empty on a sparse book", len(readiness.get("missing") or []) > 0,
+             readiness)
+        check("readiness days_valid < days_required on a sparse book",
+             readiness.get("days_valid", 99) < readiness.get("days_required", 10), readiness)
+        check("readiness live_parity_checked reflects doc parity",
+             readiness.get("live_parity_checked") == doc["parity"]["checked"], readiness)
+
+        print("\nTest 16: REPRICE MERGE -- sidecar rows merge onto matching trades_all rows")
+        # Reuse Test 7's ORB round-trip (leg=ORB, entry_ts = e1's fill time in ET).
+        orb_trade_for_reprice = next((t for t in doc7["trades_all"]
+                                      if t["leg"] == "ORB" and t.get("nt_entry_exec_id") == "e1"), None)
+        check("have an ORB trade to reprice-merge onto", orb_trade_for_reprice is not None)
+        if orb_trade_for_reprice:
+            entry_ts = orb_trade_for_reprice["entry_ts"]
+            reprice_csv = os.path.join(tmp, "reprice.csv")
+            with open(reprice_csv, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["leg", "entry_ts", "exit_ts", "real_entry_px", "real_exit_px",
+                           "real_pnl", "slip_entry_ps", "slip_exit_ps", "repriced_at",
+                           "source", "note"])
+                w.writerow(["ORB", entry_ts, orb_trade_for_reprice["exit_ts"], "1000.02",
+                           "1002.05", "10.15", "0.01", "0.02", "2026-09-08 16:25:00",
+                           "webull_fill", "matched"])
+            doc_rp = qe._build_doc(cfg, state, False, 0.0)
+            merged = next((t for t in doc_rp["trades_all"]
+                          if t["leg"] == "ORB" and t.get("nt_entry_exec_id") == "e1"), None)
+            check("reprice fields merged onto the matching trade", merged is not None
+                 and merged.get("real_pnl") == "10.15", merged)
+            check("reprice summary sees >=1 covered trade", doc_rp["reprice"]["covered"] >= 1,
+                 doc_rp["reprice"])
+            check("reprice coverage_pct > 0 after a sidecar match", doc_rp["reprice"]["coverage_pct"] > 0,
+                 doc_rp["reprice"])
+            os.remove(reprice_csv)
 
         print()
         if FAILURES:
