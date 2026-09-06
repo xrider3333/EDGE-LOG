@@ -450,7 +450,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.522';
+const VERSION='73.523';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -469,6 +469,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.523',date:'2026-09-05',notes:['A CHART MISSING MOST OF ITS ROWS NOW SAYS SO IN PLAIN SIGHT. Stress-testing the board today: SWEEPS listed 1,166 rows and drew 86 of them on EV R against SORTINO. It was not hiding it - the count sat 530 characters into a 5,575-character hover tooltip - but nobody reads that, and a chart showing a fourteenth of what is on screen must never look complete. A line under the chart names the number and the axis that could not place them whenever more than one row in ten is missing.','The gap itself is real and not a bug: the studies registry never recorded a Sharpe, a Sortino or an average losing trade for the local sweep rows. Measured across 1,166 of them - PF places 714, DRAWDOWN 711, ROC 698, but EV R and R / YR only 111 and SORTINO only 86. Pick PF or DRAWDOWN to see the whole population, or re-run a study to fill its figures in.']},
 {v:'73.522',date:'2026-09-05',notes:['TTM ROUND 6 closes the last untested ground and finds something better than what it was looking for. The 24-hour tape is dead for this strategy - eleven of twelve overnight configurations lose, ES worst at minus 647,847 dollars. But the compression check the family discovered is worth MORE to other families than to the squeeze: split any crowned strategy own trades by whether the hourly chart was coiled and the coiled ones earn two to three times the expectancy per unit of risk, on NOISE and ORB alike, and the lockbox year repeats it. Used as a size tilt rather than a filter it is worth 124,000 dollars on the NOISE paper leg for no extra drawdown at all. A scan, not a crownable backtest - studies rows 1262-1282.']},
 {v:'73.515',date:'2026-09-05',notes:['DRAG A COLUMN HEADING EDGE TO RESIZE IT, the way a spreadsheet does. Every heading has a grip on its right edge, the sortable metric headings included - those are the columns that were being pushed off the screen in the first place. Widths are remembered per column name and survive a reload; double-click a grip to hand that column back.','AND THE CONFIG COLUMN STOPS REPEATING ITSELF. In ONE TABLE view each row names the study it came from, which is worth having when several studies are pooled - but on the configs view every row came from the same pick, so it printed CONFIGS OF RUN #316 + # five hundred and fifty-one times and ate the width the metrics needed. It now appears only when the rows genuinely come from more than one study.','Reviewed before shipping, and the review measured it in a real browser rather than reading it: the first drag moved nothing at all, because the widths only bite once the table re-lays out; storing one width flattened the other twenty-one columns to 48 pixels with the text painting over its neighbours; a stray click on the seven-pixel strip silently committed the whole table to that layout; and the metric headings had no grips. All four fixed before the push.']},
 {v:'73.513',date:'2026-09-06',notes:['THE NOISE CROWN IS ON THE PAPER BOARD NOW. The app moved the NOISE crown from run #243 to run #304 yesterday, but the board did not follow - so the crown mark sat on a configuration that was no longer the champion, which is the same split that had just been fixed on ENGU-Q. A NOISE-304 row joins both boards wearing the crown, and #243 stays right under it as its matched control: the two are one step apart in exactly two settings (volatility skip 90 to 95, lookback 44 to 40 sessions), so any gap between those two rows is those two settings and nothing else.','WHY #304 EARNED IT, on one continuous run sliced by entry time rather than a fresh-start reload of the held-out year: in that held-out year it beats #243 on every read - 409 trades at profit factor 1.33 and $82,123, against 375 trades at 1.27 and $60,615, expectancy per trade 0.21 R against 0.17, and 56 R a year against 43 - and it does that on MORE trades with a SMALLER drawdown. It is also the first NOISE crown found by a real neighbourhood search (495 configurations, 6 of 6 checks, 8 of 8 walk-forward folds) rather than a pinned card.','AND WHAT #243 KEEPS, said out loud on the row rather than buried: better per-trade quality before the lockbox, profit factor 1.42 against 1.38. #304 takes 370 more trades at slightly lower quality and ends up with more total edge. Both are broad rather than lucky - deleting the ten best trades costs 22% of #304 selection profit and 23% of #243 - and both are flat at every close, so neither can produce the runaway hold that the 24-hour configurations can.']},
@@ -22896,6 +22897,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reChartAll=(items,com)=>{
           const pts=[],skip=[],failOut=[],thinOut=[],thinNoCt=[];
           window._reSkipBy={};   // run number -> points the ticked axes could not place
+          window._reSkipN=0;window._reShownN=0;   // for the visible note under the chart
           const _reDupAt={};   // how many marks have already landed on each pixel
           items.forEach(o=>{
             // control 5: a failed row leaves the CHART so the axis can fit the rest. It
@@ -23106,6 +23108,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             g+='<text x="'+((L+R)/2)+'" y="'+((T+B)/2-(_wy?10:0))+'" fill="var(--text4)" font-size="13" text-anchor="middle">'+_reEsc(_l1)+'</text>'
               +(_wy?('<text x="'+((L+R)/2)+'" y="'+((T+B)/2+14)+'" fill="var(--text5)" font-size="11" text-anchor="middle">'+_reEsc(_wy.length>150?(_wy.slice(0,149)+'\u2026'):_wy)+'</text>'
                     +'<text x="'+((L+R)/2)+'" y="'+((T+B)/2+32)+'" fill="var(--text5)" font-size="10" text-anchor="middle">The rows are all in the table below \u2014 what they measured is there, it simply is not money.</text>'):'');}
+          window._reSkipN=skip.length;window._reShownN=pts.length+skip.length;
           // the omitted-row line. Counts are real and every reason is the one the table gives.
           let omit;
           if(!skip.length){omit='Every one of the '+pts.length+' rows now shown is on the chart.';}
@@ -24148,6 +24151,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reChartBody=((_reShowCfg&&((_reCfgWait.length&&!_reItems.length)||_reCfgMsg))?_reCfgState:
           (_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))));
         // only the scatter places rows by these two axes, so only the scatter reports on them
+        // A CHART MISSING MOST OF ITS ROWS SAYS SO IN PLAIN SIGHT (owner 2026-09-05:
+        //   "look for any errors or anything missing"). Measured that day: SWEEPS drew 86
+        //   of 1,166 rows on EV R against SORTINO, and the only disclosure was 530
+        //   characters into a 5,575-character hover. The registry rows simply do not record
+        //   Sharpe, Sortino or an average loss - a real gap, not a bug - but a chart showing
+        //   a fourteenth of what is on screen must never look complete.
+        const _reMissNote=(function(){
+          if(_reParOn||_reRadOn||_reLatOn)return '';
+          const n=+window._reSkipN||0,tot=+window._reShownN||0;
+          if(!n||!tot||n<tot*0.1)return '';
+          return '<div style="font-size:8.5px;color:var(--text4);margin-top:7px">'
+            +'<b>'+n+' of the '+tot+' rows on screen are not on this chart</b> - they record nothing for '
+            +_reEsc(_reYcapShort[_reMode()]?String(_reYcapShort[_reMode()]).split(' —')[0]:'the vertical measure')
+            +' or for '+_reEsc(_reXNm[_reXAxis]||'the horizontal measure')+'.'
+            +' <span title="Nothing was substituted to put them on. Most are local sweep rows: the studies registry never recorded a Sharpe, a Sortino or an average losing trade for them, so any axis built on those cannot place them. Pick PF, DRAWDOWN or ROC to see far more of them, or re-run the study to fill the figures in. The full row-by-row reason is in this chart hover." style="cursor:help">ⓘ</span></div>';})();
         const _reSkipNote=(function(){
           if(!_reShowCfg||_reParOn||_reRadOn||_reLatOn)return '';
           const sk=window._reSkipBy||{};
@@ -24176,7 +24194,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +((_reShowCfg&&(_reCfgEmpty.length||Object.keys(_reCfgBy).length))
               ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
                 +Object.keys(_reCfgBy).sort(function(a,b){return b-a;}).map(function(id){return '#'+id+' \u00b7 '+_reCfgBy[id];}).join('&nbsp;&nbsp;')
-                +_reSkipNote
+                +_reMissNote+_reSkipNote
                 +(_reCfgEmpty.length?('&nbsp;&nbsp;<b style="color:var(--text4)">no configuration records:</b> #'+_reCfgEmpty.join(', #')
                   +' <span title="These runs were validated before the engine saved per-configuration records, or are pinned single-config runs whose one configuration IS the run. There is nothing in the document to draw - re-running them through Auto-Validate is the only way to fill this in." style="cursor:help">\u24d8</span>'):'')
                 +'</div>'):'')
