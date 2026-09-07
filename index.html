@@ -476,7 +476,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.543';
+const VERSION='73.544';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -495,6 +495,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.544',date:'2026-09-07',notes:['QQQ SHADOW BOOK: the nightly re-price coverage read 1.0 percent when it was 100 percent - the adapter publishes it as a fraction and the rail printed it raw. It now reads correctly, and the readiness bar for coverage sits at 90 percent, the same rule the adapter itself applies.']},
 {v:'73.541',date:'2026-09-07',notes:['FEATURE BOARD gains a second reading per cell, LIFT, sitting under the existing confidence-interval bar. The bar is a rank correlation, which is built to find a steady tilt spread across many trades and can miss a feature whose whole effect lives in a handful of outsized winners or losers; lift is the average R per trade when the feature reads high minus when it reads low, so it catches exactly that kind of big-trade effect instead. A bold green or red reading means it clears its own significance bar, a triangle means the lockbox year repeats it, and the matrix, the survivors filter, the verdict cards and the legend all know about it now — on a board built before this shipped, none of it appears, the same as today.']},
 {v:'73.538',date:'2026-09-07',notes:['A NEW VIEW, FEATURE BOARD, joins RUNBOARD under COMPARE. It answers one question: which trade features actually help across MORE THAN ONE strategy, not just the one they were found on. It reads two offline reports (tools/feature_board.py and tools/exit_autopsy.py) — PROMOTED and WATCH cards up top for whatever clears the bar, a matrix underneath with one row per feature and one column per strategy showing a confidence-interval bar for how strongly each lines up with that strategy’s trade outcome, filled when the range clears zero and marked with a diamond when the lockbox year agrees.','UNDERNEATH IT, EXIT AUTOPSY asks whether the exit itself is leaving money on the table: for every leg, what a winning trade kept of its own best move, how often a loser was up a full R before turning into a loss, and a give-back figure that is stated as an upper bound, never a promise. Neither report exists yet on a fresh checkout — the board says so in plain words rather than showing an empty page.']},
 {v:'73.535',date:'2026-09-06',notes:['THE KEEL ROW IS NOW VISIBLE IN A RUN REPORT. The engine has been writing a KEEL overlay row next to the size tilts and the hybrids since v73.534, and the report drew none of it - the work happened and the reader could not see it. The 1E MATRIX card carries a KEEL tab now, beside TILT and HYBRID, showing the one keel column through the SAME table as those two: the same IS / WF / LB / FULL dollars, the same MAR, SHARPE, SORTINO, PF, WIN %, EV, EV R, ROC % / YR, R / YR and DD (R) rows, the same SAMPLE tick, the same ordering and the same heat map. Above the table sits the keel own line - model and version, average and biggest size, how often it had any trust at all, its mean trust, the trust each member of the stack earned, and the exact sizing rule it ran.','ITS EQUITY LINE DRAWS ON THE 1A / 2A FUNNEL, in the SIZE TILTS legend group and labelled KEEL v4. It shares that group on purpose: a keel is the same animal as a tilt - every trade is taken and only the size changes - so one toggle covers both. Its curve is folded into the y-scale before the axis is fitted, so the line can never be pushed off the top of the plot the way the top tilt once was.','IT CAN NEVER BE CROWNED, AND THE REPORT SAYS SO IN EVERY PLACE IT APPEARS. The engine writes the row with crownable:false; the tab carries the COMPARISON ONLY wording in its info readout, the row is not counted among the candidates, and it puts no dot on the pooled 1E scatter. What DID change is that a run whose only overlay data is a keel row now draws the 1A funnel instead of being treated as having no ML families at all.','A RUN SAVED BEFORE ANY OF THIS SHOWS NOTHING NEW - no tab, no line, no gap. A run whose keel walk FAILED shows the tab with one muted line naming the error, rather than a tab that silently is not there.','AND THE CROSS-RUN CONFIG BOARD SHOWS IT TOO. COMPARE, with the configurations of the ticked runs on screen, now lists a KEEL v4 row for every ticked run that carries one - built by the same row builder as the TILT and HYBRID rows, so the same money, drawdown, PF, trades and ratio columns mean the same things, and the FAMILY control gained a KEEL button to isolate it. It stays a comparison row: never a crownable candidate, on this board or anywhere else.']},
@@ -25244,6 +25245,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // ── round-3 additions (2026-09-06): readiness gate, event timeline, per-day signals,
       // latency and reprice summaries. Same rule as above -- every one of these may be
       // ABSENT on an older doc, so every read below degrades to a clean empty state.
+        // coverage arrives as a FRACTION from the adapter (1.0 = 100 %); older docs sent a percent -- accept both
+        const qeCovPct=v=>{v=Number(v);return isFinite(v)?(v<=1?v*100:v):0;};
       const QREADY=QE&&QE.readiness?QE.readiness:null;
       const QLAT=QE&&QE.latency?QE.latency:null;
       const QSIG=(QE&&Array.isArray(QE.signals_day))?QE.signals_day:null;
@@ -25347,8 +25350,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             'mean feed uptime, last 10 days: '+(QREADY.uptime_mean_10!=null?qeNum(QREADY.uptime_mean_10,1)+'%':'—')+' (needs 99%)'],
           ['no unexplained rail trips',QREADY.rail_trips_unexplained!=null?(Number(QREADY.rail_trips_unexplained)===0):null,
             (QREADY.rail_trips_unexplained!=null?Number(QREADY.rail_trips_unexplained):'—')+' unexplained rail trip'+(Number(QREADY.rail_trips_unexplained)===1?'':'s')+' in the last 10 days'],
-          ['nightly reprice coverage',QREADY.reprice_coverage_pct!=null?(Number(QREADY.reprice_coverage_pct)>=95):null,
-            'reprice coverage: '+(QREADY.reprice_coverage_pct!=null?qeNum(QREADY.reprice_coverage_pct,1)+'%':'—')+' (needs 95%)'],
+          ['nightly reprice coverage',QREADY.reprice_coverage_pct!=null?(qeCovPct(QREADY.reprice_coverage_pct)>=90):null,
+            'reprice coverage: '+(QREADY.reprice_coverage_pct!=null?qeNum(qeCovPct(QREADY.reprice_coverage_pct),0)+'%':'—')+' (needs 90%)'],
         ];
         const rows=checks.map(([label,pass,detail])=>'<div class="qe-check-row"><span style="font-weight:700;color:'+(pass===true?'var(--green)':pass===false?'var(--red)':'var(--text5)')+'">'+(pass===true?'✓':pass===false?'✗':'—')+'</span><b style="color:var(--text2);font-weight:600">'+label+'</b><span style="color:var(--text4)">— '+detail+'</span></div>').join('');
         const missing=(Array.isArray(QREADY.missing)?QREADY.missing:[]);
@@ -25662,8 +25665,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +railRow('TAKEN, LAST 10 DAYS',(sigTaken!=null)?(sigTaken+' / '+sigFired):'—')
 
           +'<div class="rail-grp">REPRICE</div>'
-          +railRow('COVERAGE',QREPRICE?qeNum(QREPRICE.coverage_pct,1)+'%':'—',QREPRICE?(Number(QREPRICE.coverage_pct)>=95?'var(--green)':'var(--yellow)'):null)
-          +(QREPRICE?railBar(Number(QREPRICE.coverage_pct)||0,Number(QREPRICE.coverage_pct)>=95?'var(--green)':'var(--yellow)'):'')
+          +railRow('COVERAGE',QREPRICE?qeNum(qeCovPct(QREPRICE.coverage_pct),0)+'%':'—',QREPRICE?(qeCovPct(QREPRICE.coverage_pct)>=90?'var(--green)':'var(--yellow)'):null)
+          +(QREPRICE?railBar(qeCovPct(QREPRICE.coverage_pct)||0,qeCovPct(QREPRICE.coverage_pct)>=90?'var(--green)':'var(--yellow)'):'')
           +railRow('MEAN SLIP/SH',QREPRICE&&QREPRICE.mean_slip_ps!=null?qeMoney(QREPRICE.mean_slip_ps):'—')
           +'<div style="font-size:9px;color:var(--text5);margin-top:2px;line-height:1.4">re-priced nightly from real QQQ 1-minute bars</div>'
           +'</aside>';
