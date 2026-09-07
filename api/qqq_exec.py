@@ -71,6 +71,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from . import market_calendar
 from . import nt_sync
 
 try:
@@ -237,10 +238,35 @@ def _default_state():
         "reprice_done_date": None,
         # EOD PHONE SUMMARY (#55): ET date the end-of-day ntfy push last went out.
         "eod_summary_done_date": None,
+        # MARKET CALENDAR: ET date the "market closed" holiday note was last logged
+        # (so a holiday logs at most once/day, not once per 5s tick) and the ET date
+        # the half-day early-close clamp was last logged, same reason.
+        "holiday_logged_date": None,
+        "half_day_logged_date": None,
     }
 
 
-def load_state(path=None):
+def _prune_non_session_feed_days(state, log=print):
+    """MARKET CALENDAR: a bug before this fix accumulated a `feed_days` entry for
+    every WEEKDAY, holidays included (e.g. 2026-09-07 Labor Day got a bogus
+    valid:false, 53% row that dragged the readiness uptime mean down). Non-session
+    days are never written going forward (see tick()'s holiday short-circuit and
+    _accumulate_feed_uptime only being called when market_calendar.is_session), but
+    an on-disk state.json from before the fix can still carry old bad rows -- strip
+    them here, once, on every load. Never raises."""
+    try:
+        days = state.get("feed_days") or {}
+        bad = [d for d in days if not market_calendar.is_session(d)]
+        if bad:
+            for d in bad:
+                days.pop(d, None)
+            log(f"[qqq-exec] pruned {len(bad)} non-session feed_days entr"
+                f"{'y' if len(bad) == 1 else 'ies'} from state.json: {sorted(bad)}")
+    except Exception as e:
+        log(f"[qqq-exec] feed_days prune failed: {type(e).__name__}: {e}")
+
+
+def load_state(path=None, log=print):
     path = path if path is not None else STATE_PATH
     if not os.path.exists(path):
         return _default_state()
@@ -251,6 +277,7 @@ def load_state(path=None):
         return _default_state()
     base = _default_state()
     base.update(st or {})
+    _prune_non_session_feed_days(base, log=log)
     return base
 
 
@@ -1723,7 +1750,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     not a yfinance call every TICK_SEC all night) but `--once` verification runs pass
     True so a dry run away from market hours still demonstrates/exercises pricing."""
     cfg = cfg if cfg is not None else load_config(log=log)
-    state = state if state is not None else load_state()
+    state = state if state is not None else load_state(log=log)
     nowdt = now or _now_et()
     today = nowdt.strftime("%Y-%m-%d")
     _roll_day(state, today)
@@ -1734,6 +1761,40 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     if not _PROCESS["booted"]:
         _log_event(state, "boot", "QQQ SHADOW adapter started", log=log)
         _PROCESS["booted"] = True
+
+    # MARKET CALENDAR: a holiday is not a trading day at all -- no market-window work,
+    # no feed_days accumulation, no signals_day row, no EOD flatten/summary. Weekends
+    # already fall out of _is_weekday/_in_market_window further down without needing
+    # the calendar; this short-circuit only fires for a weekday NYSE/Nasdaq holiday
+    # (e.g. Labor Day), which _in_market_window alone cannot tell from a normal Monday.
+    if _is_weekday(nowdt) and not market_calendar.is_session(nowdt):
+        if state.get("holiday_logged_date") != today:
+            hname = market_calendar.holiday_name(nowdt) or "market holiday"
+            log(f"[qqq-exec] {today} skipped -- {hname}, market closed")
+            _log_event(state, "holiday", f"{today} skipped -- {hname}, market closed", log=log)
+            state["holiday_logged_date"] = today
+        doc = _build_doc(cfg, state, state.get("feed_stale", False), 0.0, log=log)
+        save_state(state, log=log)
+        return cfg, state, doc
+
+    # MARKET CALENDAR: half-day early close (day after Thanksgiving, certain Jul 3 /
+    # Dec 24) -- clamp flat_by to the EARLIER of the configured value and the
+    # recognised early close, in memory only, for this tick's session dict. Never
+    # edits config.json.
+    sess_close = market_calendar.session_close_et(nowdt)
+    if sess_close != "16:00":
+        configured_flat = (cfg.get("session") or {}).get("flat_by", "15:58")
+        if sess_close < configured_flat:
+            cfg = dict(cfg)
+            cfg["session"] = dict(cfg.get("session") or {})
+            cfg["session"]["flat_by"] = sess_close
+            if state.get("half_day_logged_date") != today:
+                log(f"[qqq-exec] {today} is a recognised early close ({sess_close} ET) -- "
+                    f"flat_by clamped from {configured_flat} to {sess_close}")
+                _log_event(state, "half_day",
+                          f"{today} early close ({sess_close} ET) -- flat_by clamped from "
+                          f"{configured_flat} to {sess_close}", log=log)
+                state["half_day_logged_date"] = today
 
     kill_present = os.path.exists(cfg.get("kill_file") or "")
     if kill_present and not state.get("kill_done"):
@@ -1826,7 +1887,7 @@ def qqq_exec_thread(db, uids, stop=None, log=print):
     """Own thread, ticking every TICK_SEC -- never blocks the runner's main loop and
     never takes it down. Publishes to every allow-listed uid each tick that changed,
     at least once a minute regardless (see _publish's force/throttle logic)."""
-    state = load_state()
+    state = load_state(log=log)
     while stop is None or not stop.is_set():
         try:
             cfg = load_config(log=log)

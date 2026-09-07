@@ -413,6 +413,64 @@ def main():
                  doc_rp["reprice"])
             os.remove(reprice_csv)
 
+        print("\nTest 17: MARKET CALENDAR -- a tick on a holiday records nothing")
+        fills_path5 = os.path.join(tmp, "fills5.csv")
+        write_fills(fills_path5, [
+            ["h1", "2026-09-07 13:35:00", "Sim101", "NQ 12-26", "BUY", "2", "30000", "0", "h1", "ORB"],
+        ])
+        with open(os.path.join(tmp, "addon_heartbeat.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "accounts": 1, "seen": 1, "version": "2.1", "accts": {}}, f)
+        cfg_h = qe.load_config(path=os.path.join(tmp, "config_holiday.json"))
+        state_h = qe._default_state()
+        now_h = datetime(2026, 9, 7, 10, 0)  # Labor Day, a Monday
+        cfg_h, state_h, doc_h = qe.tick(fills_path=fills_path5, now=now_h, quote_fn=no_quote,
+                                        ratio_fn=ratio_fn, cfg=cfg_h, state=state_h)
+        check("holiday tick opens no shadow lot", state_h["legs"] == {}, state_h["legs"])
+        check("holiday tick accumulates no feed_days entry",
+             "2026-09-07" not in (state_h.get("feed_days") or {}), state_h.get("feed_days"))
+        check("holiday tick logs no signals_day row",
+             "2026-09-07" not in (state_h.get("signals_days") or {}), state_h.get("signals_days"))
+        holiday_events = [e for e in state_h.get("events") or [] if e.get("kind") == "holiday"]
+        check("holiday event logged", len(holiday_events) == 1, holiday_events)
+        check("holiday event names Labor Day",
+             bool(holiday_events) and "Labor Day" in holiday_events[0]["text"], holiday_events)
+
+        # A second tick the same day must not double-log the holiday event.
+        cfg_h, state_h, doc_h2 = qe.tick(fills_path=fills_path5, now=datetime(2026, 9, 7, 10, 5),
+                                         quote_fn=no_quote, ratio_fn=ratio_fn, cfg=cfg_h, state=state_h)
+        holiday_events2 = [e for e in state_h.get("events") or [] if e.get("kind") == "holiday"]
+        check("holiday event logs at most once per day", len(holiday_events2) == 1, holiday_events2)
+
+        print("\nTest 18: MARKET CALENDAR -- feed_days prune removes a seeded non-session row")
+        state_path_prune = os.path.join(tmp, "state_prune.json")
+        seed_state = qe._default_state()
+        seed_state["feed_days"] = {
+            # 2026-09-07 == Labor Day: a bogus row a pre-fix build would have written.
+            "2026-09-07": {"ticks": 10, "stale_ticks": 5, "first_tick_et": "09:25",
+                          "last_tick_et": "09:30"},
+            # 2026-09-08 == a real Tuesday session -- must survive the prune.
+            "2026-09-08": {"ticks": 100, "stale_ticks": 0, "first_tick_et": "09:25",
+                          "last_tick_et": "16:05"},
+        }
+        with open(state_path_prune, "w", encoding="utf-8") as f:
+            json.dump(seed_state, f)
+        loaded = qe.load_state(path=state_path_prune)
+        check("prune removes the holiday feed_days row",
+             "2026-09-07" not in loaded["feed_days"], loaded["feed_days"])
+        check("prune keeps the real session feed_days row",
+             "2026-09-08" in loaded["feed_days"], loaded["feed_days"])
+
+        print("\nTest 19: MARKET CALENDAR -- readiness/uptime mean counts sessions only")
+        feed_days19 = qe._build_feed_days(loaded)
+        check("built feed_days excludes the pruned holiday",
+             all(d["date"] != "2026-09-07" for d in feed_days19), feed_days19)
+        parity19 = qe._parity_summary([])
+        reprice19 = qe._merge_reprice([])
+        readiness19 = qe._build_readiness(feed_days19, parity19, reprice19, loaded)
+        check("readiness uptime_mean_10 reflects only the session day (100%)",
+             readiness19["uptime_mean_10"] == 1.0, readiness19)
+
         print()
         if FAILURES:
             print(f"SMOKE TEST: {len(FAILURES)} FAILURE(S): {FAILURES}")
