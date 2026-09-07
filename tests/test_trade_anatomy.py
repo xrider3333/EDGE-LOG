@@ -209,3 +209,64 @@ def test_regime_artifact_never_labeled_carries_when_total_money_falls(ta):
     verdict = ta.classify_verdict(row_d, row_h)
     assert verdict in ("regime artifact", "no")
     assert verdict != "carries"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. leg_from_run field mapping — no network, drives the pure
+#    _leg_dict_from_run_doc(rid, d) core directly on a fake run doc.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_leg_from_run_field_mapping_full_doc(ta):
+    fake_doc = {
+        "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
+        "session": None, "data_source": "db_noadj_rth", "source_name": "NQ 5m RTH - no-adj",
+        "cost_pts": 0.533, "multiplier": 20.0, "date_from": "2010-06-07", "date_to": "2026-08-13",
+        "lockbox_months": None, "best_params": {"or_bars": 2, "target_R": 5.0},
+        "gate_validate": {
+            "lockbox_from": "2025-08-13",
+            "ungated_full": {"num_trades": 2299, "total_pnl": 19857.51, "profit_factor": 1.37},
+            "ungated_pre": {"num_trades": 2130, "total_pnl": 15000.0, "profit_factor": 1.3},
+        },
+    }
+    leg = ta._leg_dict_from_run_doc(314, fake_doc)
+    assert leg["key"] == "RUN_314"
+    assert leg["family"] == "ORB"
+    assert leg["file"] == "ORB_3_6_R6.py"
+    assert leg["label"] == "#314 ORB_3_6_R6.py"
+    assert leg["run"] == 314
+
+    cfg = leg["_resolved_cfg"]
+    assert cfg["instrument"] == "NQ" and cfg["timeframe"] == "5m"
+    # session absent on the doc -> inferred from data_source ("db_noadj_rth" -> RTH)
+    assert cfg["session"] == "RTH"
+    assert cfg["cost_pts"] == 0.533
+    assert cfg["mult"] == 20.0
+    assert cfg["date_from"] == "2010-06-07" and cfg["date_to"] == "2026-08-13"
+    assert cfg["lockbox_from"] == "2025-08-13"
+    assert cfg["best_params"] == {"or_bars": 2, "target_R": 5.0}
+    assert cfg["parity_source"] == "run#314"
+    assert cfg["parity_expected"]["full"] == dict(n=2299, net_pts=19857.51, pf=1.37)
+    assert cfg["parity_expected"]["pre"] == dict(n=2130, net_pts=15000.0, pf=1.3)
+    assert "lockbox" not in cfg["parity_expected"]
+
+
+def test_leg_from_run_infers_eth_and_falls_back_lockbox_months(ta):
+    fake_doc = {
+        "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ", "timeframe": "1m",
+        "data_source": "db_noadj_eth", "cost_pts": 0.533, "mult": 20.0,
+        "date_from": "2010-06-07", "date_to": "2026-06-30", "best_params": {"tl_len": 206},
+        "gate_validate": {},   # no lockbox_from on this doc
+    }
+    leg = ta._leg_dict_from_run_doc(309, fake_doc)
+    assert leg["family"] == "ENGUQ"
+    cfg = leg["_resolved_cfg"]
+    assert cfg["session"] == "ETH"
+    assert cfg["mult"] == 20.0            # falls back to "mult" when "multiplier" is absent
+    assert cfg["lockbox_from"] is None
+    assert cfg["lockbox_months"] == 12    # missing on the doc -> assumed default
+    assert cfg["parity_expected"] == {}   # no ungated_* blocks on this doc
+
+
+def test_leg_from_run_missing_strategy_field_refuses(ta):
+    with pytest.raises(SystemExit):
+        ta._leg_dict_from_run_doc(999, {"instrument": "NQ"})

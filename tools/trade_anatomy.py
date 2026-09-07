@@ -81,6 +81,175 @@ def _load_feature_board():
 
 FB = _load_feature_board()
 
+# legs resolved at runtime from --run/--job, keyed the same way as FB.LEGS entries
+# so build_trade_table's lookup doesn't care where a leg came from.
+_EXTRA_LEGS = {}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POINT AT A PAST RUN — leg_from_run(rid) builds the same leg/cfg dict shape
+# build_trade_table already consumes from feature_board.LEGS + resolve_leg_config,
+# but sourced from a completed run doc (users/<uid>/runs/<rid>) instead of a
+# hard-coded LEGS entry. See api/runner.py's Runner._persist_run (~line 1055-1190)
+# for the exact fields a run doc carries; api/runner.py:_next_run_id (~line 920) /
+# sync_runs (~line 795) for how `rid` becomes that doc's id. A run doc does NOT
+# carry `session` directly (unlike a backtests/<docid> job doc, which does) — it is
+# inferred from `data_source` / `source_name` (e.g. "db_noadj_rth" / "NQ 5m RTH -
+# no-adj"), same convention as the NOADJ_<inst>_<tf>_<session>.csv master filenames
+# feature_board.load() reads. Every assumption made because a field was missing is
+# printed loudly instead of silently guessed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _fetch_named_doc(collection, doc_id):
+    """One Firestore .get() from users/<uid>/<collection>/<doc_id>, then a local JSON
+    cache (tools/_featboard_cache/docs/, shared with feature_board.py's own doc cache)
+    so repeat runs of this script never touch Firestore again. Returns None if the
+    doc does not exist."""
+    os.makedirs(FB.DOC_CACHE_DIR, exist_ok=True)
+    cache_fp = os.path.join(FB.DOC_CACHE_DIR, f"{collection}_{doc_id}.json")
+    if os.path.exists(cache_fp):
+        with open(cache_fp, encoding="utf-8") as f:
+            return json.load(f)
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    cred_path = "serviceAccount.json"
+    if not os.path.exists(cred_path):
+        cred_path = os.path.join(FB.SHARED, "serviceAccount.json")
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(cred_path))
+    db = firestore.client()
+    snap = db.collection("users").document(FB.UID).collection(collection).document(str(doc_id)).get()
+    if not snap.exists:
+        return None
+    d = snap.to_dict()
+
+    def _default(o):
+        if isinstance(o, (datetime.datetime, datetime.date)):
+            return o.isoformat()
+        return str(o)
+
+    with open(cache_fp, "w", encoding="utf-8") as f:
+        json.dump(d, f, default=_default, indent=1)
+    return d
+
+
+def _infer_session(d):
+    """session -> (value, how). A `runs/<rid>` doc has no `session` field (see module
+    note above); fall back to parsing it out of data_source / source_name, which both
+    carry the RTH/ETH tag the master file itself is keyed on. Default RTH as a last
+    resort — always reported to the caller so it can be printed, never silent."""
+    s = d.get("session")
+    if s:
+        return str(s).upper(), "doc"
+    for key in ("data_source", "source_name", "source"):
+        v = str(d.get(key) or "").upper()
+        if "ETH" in v:
+            return "ETH", f"inferred from {key}={d.get(key)!r}"
+        if "RTH" in v:
+            return "RTH", f"inferred from {key}={d.get(key)!r}"
+    return "RTH", "no session hint on the doc at all -- defaulted"
+
+
+def _leg_dict_from_run_doc(rid, d):
+    """Pure field-mapping core of leg_from_run — no network, so tests can drive it
+    directly on a fake doc dict. Builds the same leg/cfg shape build_trade_table
+    already consumes (leg["file"]/["key"] + cfg via leg["_resolved_cfg"])."""
+    strategy_file = d.get("strategy") or ""
+    if not strategy_file:
+        raise SystemExit(f"run #{rid}: doc has no 'strategy' field -- can't tell which file to replay")
+    strat_path = os.path.join(FB.ROOT, "augur_strategies", strategy_file)
+    if not os.path.exists(strat_path):
+        strat_path = os.path.join(FB.SHARED, "augur_strategies", strategy_file)
+    if not os.path.exists(strat_path):
+        raise SystemExit(f"run #{rid}: strategy file '{strategy_file}' not found in augur_strategies/ "
+                         f"(checked {FB.ROOT} and {FB.SHARED}) -- can't replay this run")
+
+    session, session_how = _infer_session(d)
+    instrument = d.get("instrument")
+    timeframe = d.get("timeframe")
+    cost_pts = float(d.get("cost_pts") or 0.0)
+    mult_raw = d.get("multiplier")
+    if mult_raw is None:
+        mult_raw = d.get("mult")
+    mult = float(mult_raw) if mult_raw else 1.0
+    date_from, date_to = d.get("date_from"), d.get("date_to")
+    best_params = d.get("best_params") or {}
+    gv = d.get("gate_validate") or {}
+    lockbox_from = gv.get("lockbox_from")
+    lockbox_months = d.get("lockbox_months")
+
+    assumed = []
+    if not instrument or not timeframe or not date_from or not date_to:
+        assumed.append("instrument/timeframe/date window incomplete on the run doc -- results below may "
+                       "be wrong")
+    if session_how != "doc":
+        assumed.append(f"session={session} ({session_how})")
+    if not best_params:
+        assumed.append("best_params empty on the doc -- falling back to the strategy file's own "
+                       "DEFAULT_PARAMS")
+    if not lockbox_from and not lockbox_months:
+        lockbox_months = 12
+        assumed.append("lockbox_months missing on the doc -- assuming 12 (the site's own default)")
+    if assumed:
+        print(f"[RUN_{rid}] ASSUMED: " + "; ".join(assumed))
+
+    parity_expected = {}
+    for blk_name, out_name in (("ungated_full", "full"), ("ungated_pre", "pre"),
+                               ("ungated_lockbox", "lockbox")):
+        blk = gv.get(blk_name)
+        if isinstance(blk, dict) and blk:
+            parity_expected[out_name] = dict(n=blk.get("num_trades"), net_pts=blk.get("total_pnl"),
+                                             pf=blk.get("profit_factor"))
+
+    cfg = dict(instrument=instrument, timeframe=timeframe, session=session, source=d.get("data_source"),
+               cost_pts=cost_pts, mult=mult, date_from=date_from, date_to=date_to,
+               lockbox_months=lockbox_months, lockbox_from=lockbox_from, best_params=best_params,
+               parity_source=f"run#{rid}", parity_expected=parity_expected)
+
+    family = os.path.splitext(strategy_file)[0].split("_")[0]
+    return dict(key=f"RUN_{rid}", family=family, label=f"#{rid} {strategy_file}", file=strategy_file,
+               run=rid, doc=None, _resolved_cfg=cfg)
+
+
+def leg_from_run(rid):
+    """Build a leg from users/<uid>/runs/<rid> — a completed run, the same run number
+    shown on the site (e.g. #314). See the module note above for the doc fields relied
+    on and their fallbacks."""
+    d = _fetch_named_doc("runs", str(rid))
+    if d is None:
+        raise SystemExit(f"run #{rid}: no such document in Firestore users/{FB.UID}/runs")
+    return _leg_dict_from_run_doc(rid, d)
+
+
+def leg_from_job(doc_id):
+    """Build a leg from a backtests/<doc_id> job doc directly (the same shape
+    feature_board.resolve_leg_config already reads via leg['doc'] — reused verbatim,
+    only the strategy filename + family are pulled here for the leg's own label)."""
+    d = FB._fetch_doc(doc_id)          # cached; a 2nd read inside resolve_leg_config is free
+    strategy_file = d.get("strategy") or ""
+    if not strategy_file:
+        raise SystemExit(f"job {doc_id}: doc has no 'strategy' field -- can't tell which file to replay")
+    strat_path = os.path.join(FB.ROOT, "augur_strategies", strategy_file)
+    if not os.path.exists(strat_path):
+        strat_path = os.path.join(FB.SHARED, "augur_strategies", strategy_file)
+    if not os.path.exists(strat_path):
+        raise SystemExit(f"job {doc_id}: strategy file '{strategy_file}' not found in augur_strategies/ "
+                         f"(checked {FB.ROOT} and {FB.SHARED}) -- can't replay this job")
+    family = os.path.splitext(strategy_file)[0].split("_")[0]
+    return dict(key=f"JOB_{doc_id}", family=family, label=f"job {doc_id} ({strategy_file})",
+               file=strategy_file, run=d.get("run_id"), doc=doc_id)
+
+
+def _find_leg(leg_key):
+    leg = _EXTRA_LEGS.get(leg_key)
+    if leg is not None:
+        return leg
+    matches = [l for l in FB.LEGS if l["key"] == leg_key]
+    if not matches:
+        raise SystemExit(f"unknown leg '{leg_key}' -- not in feature_board.LEGS and not registered via "
+                         "--run/--job this session. Use --list to see the hard-coded leg keys.")
+    return matches[0]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # leg replay — same dispatch as feature_board.run_strategy, kept as the FULL
@@ -637,12 +806,12 @@ def split_sets(entry_date, date_from, lockbox_from, frac=DISCOVERY_FRAC):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_trade_table(leg_key, verbose=True):
-    leg = [l for l in FB.LEGS if l["key"] == leg_key][0]
-    cfg = FB.resolve_leg_config(leg)
+    leg = _find_leg(leg_key)
+    cfg = leg.get("_resolved_cfg") or FB.resolve_leg_config(leg)
     tf_min = int(str(cfg["timeframe"]).rstrip("m"))
     if verbose:
         print(f"[{leg_key}] {cfg['instrument']} {cfg['timeframe']} {cfg['session']} "
-              f"{cfg['date_from']}..{cfg['date_to']}")
+              f"{cfg['date_from']}..{cfg['date_to']}  source={cfg.get('parity_source')}")
     df = FB.load(cfg["instrument"], cfg["timeframe"], cfg["session"], cfg["date_from"], cfg["date_to"])
     t0 = time.time()
     trades = run_strategy_full(leg["file"], df, cfg["best_params"])
@@ -656,6 +825,29 @@ def build_trade_table(leg_key, verbose=True):
     side = np.array([t[3] for t in trades], dtype=int)
     entry_px = np.array([t[4] for t in trades], dtype=float)
     usd = (pnl_pts - cfg["cost_pts"]) * cfg["mult"]
+
+    # ── parity check against the source doc's own ungated_full (loud, non-fatal:
+    # proceed either way, but flag it hard so a mismatch is never mistaken for a
+    # clean replay) — same 2%-relative-tolerance rule feature_board.py's own leg
+    # parity table uses, applied here to the FULL (pre-exclusion) trade list. ──
+    expected = (cfg.get("parity_expected") or {}).get("full")
+    full_net = float(usd.sum())
+    parity = dict(source=cfg.get("parity_source"), got_n=int(len(trades)), got_net=round(full_net, 2),
+                 expected_n=None, expected_net=None, ok=None)
+    if expected and expected.get("net_pts") is not None:
+        exp_net = float(expected["net_pts"]) * cfg["mult"]
+        parity["expected_n"] = expected.get("n")
+        parity["expected_net"] = round(exp_net, 2)
+        parity["ok"] = bool(exp_net != 0 and abs(full_net - exp_net) / abs(exp_net) <= 0.02)
+    tag = "PASS" if parity["ok"] else ("FAIL" if parity["ok"] is False else "n/a (no parity target on this doc)")
+    print(f"[{leg_key}] PARITY {tag}  got n={parity['got_n']} net=${full_net:,.0f}  "
+         f"expected n={parity['expected_n']} net="
+         f"{'n/a' if parity['expected_net'] is None else '$' + format(parity['expected_net'], ',.0f')}")
+    if parity["ok"] is False:
+        print(f"[{leg_key}] *** PARITY FAIL *** local replay does not match the doc's own ungated_full "
+             "within 2% -- proceeding anyway (below), but treat every number in this report as suspect "
+             "until this is understood (stale synced params? a different data revision? a cost/mult "
+             "mismatch?).")
 
     entry_date_all = pd.DatetimeIndex(df["_dt"]).date[eb]
     labels, boundary = split_sets(entry_date_all, cfg["date_from"], lockbox_from)
@@ -724,7 +916,7 @@ def build_trade_table(leg_key, verbose=True):
                n_total_replayed=int(len(trades)), n_lockbox_excluded=n_lockbox,
                n_pre_lockbox=int(keep.sum()), n_dropped_no_history=int((~valid).sum()),
                r_unit=r_unit, n_discovery=int((labels_kept == "discovery").sum()),
-               n_holdout=int((labels_kept == "holdout").sum()))
+               n_holdout=int((labels_kept == "holdout").sum()), parity=parity)
     return full, meta, df, B, day_feat
 
 
@@ -1148,6 +1340,28 @@ def plot_path_overlay(paths_dict, out_path, leg_key):
 # outputs
 # ─────────────────────────────────────────────────────────────────────────────
 
+def howto_lines():
+    """The 'HOW TO POINT IT AT A PAST RUN' blurb, shared verbatim by every generated
+    md's header and docs/anatomy/README.md."""
+    return [
+        "## How to point this at a past run",
+        "",
+        "- `python tools/trade_anatomy.py --run 314` replays run #314's own crowned parameters on its own "
+        "window and costs (repeatable: `--run 314 --run 309`). `--job <backtests-doc-id>` points at a job "
+        "doc directly. `--leg <KEY>` runs one of the hard-coded legs in feature_board.LEGS; `--list` "
+        "prints those keys plus this usage line.",
+        "- DISCOVERY / HOLDOUT is a hard split by calendar date, not trade count: only the first 60% of "
+        "the leg's pre-lockbox span is mined below. The remaining 40% (holdout) is touched exactly once, "
+        "as a single pre-registered check. Lockbox trades (the leg's own last N months) are never loaded "
+        "here at all.",
+        "- Nothing on this page is a finding by itself. A rule only means something once it clears the "
+        "TOTAL-MONEY ledger in section 2c (not the per-trade averages in sections 1/2 -- that section "
+        "explains the trap) AND has passed a fenced Auto-Validate with walk-forward and lockbox checks. "
+        "Never adopt a rule straight from this report.",
+        "",
+    ]
+
+
 def write_features_json(out_dir, leg_key):
     doc = {nm: dict(group=FEATURE_GROUP[nm], desc=FEATURE_DESC[nm]) for nm in FEATURE_NAMES}
     fp = os.path.join(out_dir, f"{leg_key}_features.json")
@@ -1170,7 +1384,21 @@ def write_md(leg_key, meta, winner_rows, tree_leaves, skip_top_net, skip_top_mar
     L = []
     L.append(f"# {leg_key} -- trade anatomy")
     L.append("")
+    L.extend(howto_lines())
     cfg = meta["cfg"]
+    p = meta.get("parity") or {}
+    if p.get("ok") is not None:
+        p_tag = "PASS" if p["ok"] else "FAIL"
+        L.append(f"Parity vs the source doc's own ungated_full ({p.get('source')}): **{p_tag}** -- "
+                 f"got n={p.get('got_n')} net=${p.get('got_net'):,.0f}, expected n={p.get('expected_n')} "
+                 f"net=${p.get('expected_net'):,.0f}."
+                 + ("" if p["ok"] else " Proceeding anyway per the loud-note rule -- treat every number "
+                    "below as suspect until this mismatch is understood."))
+        L.append("")
+    elif p:
+        L.append(f"Parity vs the source doc's own ungated_full: n/a ({p.get('source')} -- no parity "
+                 "target on this doc).")
+        L.append("")
     L.append("Discovery window (hard rule): first 60% of the pre-lockbox calendar span, by date.")
     L.append(f"- Pre-lockbox span: {cfg['date_from']} .. {meta['lockbox_from']} (lockbox excluded entirely).")
     L.append(f"- Discovery: {cfg['date_from']} .. {meta['boundary']}  (n={meta['n_discovery']})")
@@ -1420,15 +1648,56 @@ def run_leg(leg_key):
                skip_top_net=skip_top_net, holdout_rows=holdout_rows, money_ledger=money_ledger)
 
 
+def write_readme():
+    os.makedirs(DOCS_ROOT, exist_ok=True)
+    fp = os.path.join(DOCS_ROOT, "README.md")
+    lines = ["# docs/anatomy", ""] + howto_lines()
+    with open(fp, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    return fp
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--leg", action="append", default=None,
                     help="leg key from feature_board.LEGS (repeatable). Default: NOISE_243, ORB_314.")
+    ap.add_argument("--run", action="append", default=None, type=int,
+                    help="point at a past run by its run number (repeatable), e.g. --run 314 --run 309. "
+                        "Reads users/<uid>/runs/<rid> in Firestore, replays the crowned params on the "
+                        "run's own window/costs, and parity-checks against gate_validate.ungated_full.")
+    ap.add_argument("--job", action="append", default=None,
+                    help="point at a backtests/<docid> job doc directly (repeatable).")
+    ap.add_argument("--list", action="store_true",
+                    help="print the hard-coded legs (feature_board.LEGS) and the usage line, then exit.")
     a = ap.parse_args()
-    legs = a.leg if a.leg else ["NOISE_243", "ORB_314"]
+
+    if a.list:
+        print("Usage:")
+        print("  python tools/trade_anatomy.py --leg NOISE_243 --leg ORB_314   # default = these two")
+        print("  python tools/trade_anatomy.py --run 314 --run 309             # point at a past run by number")
+        print("  python tools/trade_anatomy.py --job <backtests-doc-id>        # point at a job doc directly")
+        print()
+        print("Hard-coded legs (feature_board.LEGS):")
+        for l in FB.LEGS:
+            print(f"  {l['key']:<12} family={l['family']:<8} file={l['file']:<28} {l['label']}")
+        return []
+
+    leg_keys = list(a.leg) if a.leg else []
+    for rid in (a.run or []):
+        leg = leg_from_run(rid)
+        _EXTRA_LEGS[leg["key"]] = leg
+        leg_keys.append(leg["key"])
+    for doc_id in (a.job or []):
+        leg = leg_from_job(doc_id)
+        _EXTRA_LEGS[leg["key"]] = leg
+        leg_keys.append(leg["key"])
+    if not leg_keys:
+        leg_keys = ["NOISE_243", "ORB_314"]
+
     os.makedirs(DOCS_ROOT, exist_ok=True)
+    write_readme()
     results = []
-    for leg_key in legs:
+    for leg_key in leg_keys:
         results.append(run_leg(leg_key))
     return results
 
