@@ -1394,6 +1394,16 @@ class FirestoreQueue:
                         ref.update({"status": "cancelled", "finishedAt": time.time()})
                         log(f"  cancelled {snap.id} (stopped before start)")
                         continue
+                    # web PAUSE on a job that has not started -> leave it QUEUED and move
+                    # on to the next one (2026-09-07). Claiming it would park a whole
+                    # runner in the 1-second pause loop inside the progress callback,
+                    # holding a slot open for work it is forbidden to do - with several
+                    # runners draining one queue that is a third of the machine asleep.
+                    # Pausing a job that is ALREADY running still parks its own runner,
+                    # which is what pause means there: keep the job's place.
+                    if job.get("control") == "pause":
+                        log(f"  skip {snap.id} - paused before it started (resume it to run)")
+                        continue
                     # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
                     # Compare this job against ALREADY-COMPLETED jobs, not just
                     # in-flight ones. Checking only 'queued'/'running' is what let four
@@ -1564,11 +1574,25 @@ class FirestoreQueue:
         return n
 
     def sweep_orphans(self, log=print, tag="sweep", dry_run=False):
-        """Put every DEAD status='running' job back on the queue. Dead = orphan_verdict()
-        says so from the doc's heartbeat, the claiming runner's liveness and, for claims
-        made by older code, the doc's last write. Own claims are skipped outright. Never
-        raises - a sweep that could stop the runner is worse than a stranded job."""
+        """Put every DEAD claimed job back on the queue. Dead = orphan_verdict() says so
+        from the doc's heartbeat, the claiming runner's liveness and, for claims made by
+        older code, the doc's last write. Own claims are skipped outright. Never raises -
+        a sweep that could stop the runner is worse than a stranded job.
+
+        BOTH claimed statuses are swept (2026-09-07). 'paused' looked safe to ignore
+        because a paused job has a runner parked in its pause loop - until the machine
+        slept overnight and took that runner with it, leaving NOISE_1_3_WIDE at 85%
+        with nothing alive to resume it and no sweep that could see it. A paused job
+        whose runner is still alive has a fresh heartbeat (the heartbeat thread runs
+        through the pause loop), so it reads as alive here and is left alone.
+
+        The requeue also DELETES `control`. The web writes control='pause'/'run' for the
+        runner holding the job; once that runner is gone the flag means nothing, and a
+        stale 'pause' riding a requeued doc would either park or bounce the next claim
+        for ever. Same night, same lesson: three requeued validates each carried a
+        pause the dead worker never got to act on."""
         from google.cloud.firestore_v1.base_query import FieldFilter as _FF
+        from firebase_admin import firestore
         n = 0
         now = _now_utc()
 
@@ -1585,7 +1609,9 @@ class FirestoreQueue:
                 return None
         for uid in (self.allow or []):
             col = self.db.collection("users").document(uid).collection(self.col)
-            for snap in col.where(filter=_FF("status", "==", "running")).stream():
+            _claimed = list(col.where(filter=_FF("status", "==", "running")).stream())
+            _claimed += list(col.where(filter=_FF("status", "==", "paused")).stream())
+            for snap in _claimed:
                 j = snap.to_dict() or {}
                 if j.get("claimedBy") == _WORKER_ID:
                     continue          # mine, and I am alive
@@ -1594,7 +1620,8 @@ class FirestoreQueue:
                 dead, why = orphan_verdict(hb, upd, _claimant_alive(j.get("claimedBy")))
                 if dry_run:
                     log(f"[orphan:{tag}] {snap.id} {j.get('strategy')} {j.get('progress')}% "
-                        f"claimedBy={j.get('claimedBy')} hb={hb if hb is None else round(hb, 1)} min "
+                        f"was={j.get('status')} claimedBy={j.get('claimedBy')} "
+                        f"hb={hb if hb is None else round(hb, 1)} min "
                         f"upd={upd if upd is None else round(upd, 1)} min -> "
                         f"{'DEAD' if dead else 'alive'}: {why}")
                     if dead:
@@ -1605,13 +1632,19 @@ class FirestoreQueue:
                 try:
                     snap.reference.update({
                         "status": "queued", "progress": 0,
+                        # the dead runner's pause/run flag would trap the next claim
+                        "control": firestore.DELETE_FIELD,
+                        "heartbeat_at": firestore.DELETE_FIELD,
                         "orphan_requeued_at": now,
-                        "orphan_note": (f"requeued by the {tag} sweep: {why}; the job "
-                                        f"was at {j.get('progress')}% under "
-                                        f"{j.get('claimedBy')}")})
+                        "orphan_note": (f"requeued by the {tag} sweep: {why}; the job was "
+                                        f"{j.get('status')} at {j.get('progress')}% under "
+                                        f"{j.get('claimedBy')}"
+                                        + (f"; stale control={j.get('control')!r} cleared"
+                                           if j.get("control") else ""))})
                     n += 1
                     log(f"[orphan] requeued {snap.id}: {j.get('type', 'backtest')} "
-                        f"{j.get('strategy')} ({why}, was {j.get('progress')}%)")
+                        f"{j.get('strategy')} (was {j.get('status')}, {why}, "
+                        f"at {j.get('progress')}%)")
                 except Exception as e:
                     log(f"[orphan] requeue of {snap.id} failed: {type(e).__name__}: {e}")
         if n:
