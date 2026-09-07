@@ -1845,7 +1845,14 @@ def main(argv=None):
             print("QQQ paper (tools/qqq_paper.py): re-syncs ~every 2min during market "
                   "hours (Mon-Fri 09:28-16:05 ET) + one final post-close run, "
                   "publishes users/{uid}/meta/qqq_paper")
-        if a.sync_runs or a.watch:
+        if (a.sync_runs or a.watch) and _IS_WORKER:
+            # A worker drains jobs only. The run-history push (106 writes) and the
+            # masters re-scan behind sync_meta (~3 CPU-minutes over 1.3 GB of CSVs, per
+            # process, all at once when several workers start) belong to the PRIMARY;
+            # on 2026-09-07 three fresh workers sat in this scan for minutes before
+            # claiming their first job.
+            print("run history + meta sync: skipped on a WORKER (the primary owns it)")
+        elif a.sync_runs or a.watch:
             print("syncing run history + meta…")
             try:
                 q.sync_runs(); q.sync_meta()
