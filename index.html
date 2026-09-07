@@ -476,7 +476,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.534';
+const VERSION='73.535';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -495,6 +495,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.535',date:'2026-09-06',notes:['THE KEEL ROW IS NOW VISIBLE IN A RUN REPORT. The engine has been writing a KEEL overlay row next to the size tilts and the hybrids since v73.534, and the report drew none of it - the work happened and the reader could not see it. The 1E MATRIX card carries a KEEL tab now, beside TILT and HYBRID, showing the one keel column through the SAME table as those two: the same IS / WF / LB / FULL dollars, the same MAR, SHARPE, SORTINO, PF, WIN %, EV, EV R, ROC % / YR, R / YR and DD (R) rows, the same SAMPLE tick, the same ordering and the same heat map. Above the table sits the keel own line - model and version, average and biggest size, how often it had any trust at all, its mean trust, the trust each member of the stack earned, and the exact sizing rule it ran.','ITS EQUITY LINE DRAWS ON THE 1A / 2A FUNNEL, in the SIZE TILTS legend group and labelled KEEL v4. It shares that group on purpose: a keel is the same animal as a tilt - every trade is taken and only the size changes - so one toggle covers both. Its curve is folded into the y-scale before the axis is fitted, so the line can never be pushed off the top of the plot the way the top tilt once was.','IT CAN NEVER BE CROWNED, AND THE REPORT SAYS SO IN EVERY PLACE IT APPEARS. The engine writes the row with crownable:false; the tab carries the COMPARISON ONLY wording in its info readout, the row is not counted among the candidates, and it puts no dot on the pooled 1E scatter. What DID change is that a run whose only overlay data is a keel row now draws the 1A funnel instead of being treated as having no ML families at all.','A RUN SAVED BEFORE ANY OF THIS SHOWS NOTHING NEW - no tab, no line, no gap. A run whose keel walk FAILED shows the tab with one muted line naming the error, rather than a tab that silently is not there.']},
 {v:'73.534',date:'2026-09-06',notes:['KEEL, a new ML overlay (owner: make your own ML). Every trade is taken; a logistic + ExtraTrees stack scores each trade\'s EXPECTANCY and the size tilt\'s slope is EARNED from the overlay\'s own out-of-sample dollar ledger, so with no demonstrated skill it sizes 1.0 = the raw strategy. Bounds 0.5x-2x, no cut-off ever. augur_engine/ml_keel.py.','Every Auto-Validate now carries a keel row inside its gate block (comparison-only, never crownable, same standing as the size-tilt rows). Not yet drawn by the 2C tables.','PAPER: new leg NOISE_SBS_V90_K = the #243 crown with KEEL; NOISE_SBS_V90 is its exact control; forward from 2026-09-08. The claim: it beats its control on MAR.','Evidence behind the design, from 138 gate-bearing runs: the crowned CUT has a median lockbox delta of exactly $0; TILT is the only mode with a positive median (+$9,030); xgb is the worst model out-of-sample in every mode. Four-leg bench and the plain verdict (safer, not richer) in BACKTESTING_STACK.md section 4 and tools/keel_bench.py.']},
 {v:'73.532',date:'2026-09-06',notes:['A JOB THAT WAS RUNNING WAS INVISIBLE. The queue chip at the top said 5 WAITING with nothing running, and BUILDER agreed, while the runner was 29 percent of the way through ENGUQ_1M_ETH_ERW_1_0 and eight more jobs were stacked behind it. The web was reading the newest twelve job records BY QUEUED DATE; the runner claims the OLDEST waiting job first. Those two orders point opposite ways, so the running job - requeued a day earlier, and therefore old - had fallen out of the window, and so had three of the waiting jobs. A ninth job queued by a script carried no queued-at date at all, so a date-ordered read could never have shown it under any window size.','THE FIX READS UNFINISHED WORK BY STATUS INSTEAD OF BY DATE, so every queued, running or paused job appears no matter how old it is and no matter whether it carries a date. The finished list is still the newest twelve, fetched once and re-fetched the moment a job leaves the live set. That is still ONE live connection, not two - the runner writes a progress figure about every one and a half seconds and each connection is charged a read for every one of them, so the daily read budget only stretches to one.','THE CHIP AND THE TAB NOW READ THE SAME COUNT, from one shared piece of code, so they cannot drift apart again. The chip reads QUEUE, then the strategy name, then its percent, then plus how many are behind it.','BUILDER IS TWO COLUMNS NOW (owner: relayout the builder tab, put whats build que as a side bar). The build form and its result panels keep the left; a BUILD QUEUE card pins to the right and stays in view as the form scrolls. It reads top to bottom the way the work moves: what is RUNNING right now with its progress bar, how long since the runner picked it up and the pause and stop controls; then WAITING, numbered one to N in the order the runner will actually claim them, oldest first, each with how long it has waited; then RECENT, the finished, failed and cancelled jobs newest first with their money, their scope and their reuse marks, and a click opens the saved run.','A WAITING JOB WITH NO QUEUED-AT DATE SAYS SO rather than being hidden or guessed at: it is listed last, marked in amber as no timestamp, and its hover explains that its real place in the line is held in a field only the runner can read.','Under 1200 pixels wide the queue card drops underneath the form instead of squeezing it.']},
 {v:'73.531',date:'2026-09-06',notes:['QQQ PAPER, round 3 of the shadow-book UI (items 48, 50, 51, 52, 53, 54, 55), all built against mock data since the backend has not shipped these fields to production yet -- everything degrades to a clean dash when a field is missing.','READINESS GATE at the top of the tab: a loud READY or NOT READY headline plus six plain-English checks (enough trading days, a live parity check has run, that check did not fail, feed uptime at least 99 percent, zero unexplained rail trips, reprice coverage at least 95 percent), with a Still Needed list under it when the book is not ready.','EVENT TIMELINE: a new section listing boot, feed, breaker, kill, refused, out-of-session, reprice, and end-of-day events newest first, colour-chipped by severity, with a show-more button past the first 30.','CLICK A CLOSED TRADES ROW to open an inline drawer under it comparing the shadow fill against the real NinjaTrader fill side by side -- timing, size and notional, ratio-priced price against the real re-priced price, and the resulting tracking error. Escape or a second click closes it.','TWO NEW COLUMNS ON CLOSED TRADES, REAL P&L and SLIP PER SHARE, plus a REPRICE tile on the sidebar showing what percentage of trades have been checked against real QQQ one-minute bars.','A SIGNALS STRIP under the feed-uptime bars shows the last 10 days of fired, taken, refused and not-mirrored-overnight signal counts, and each ORB, ENGU-Q and NOISE card now names its most recent trade NT notional against its shadow notional. A LATENCY pill sits in the header, turning red when the 95th-percentile order latency passes 10 seconds.','POLISH: the equity-chart legend is clickable to hide or show a line, the sidebar stays in view while the tab scrolls, an EXPORT CSV button downloads every closed trade with the new columns, and the whole tab now stacks cleanly on a narrow screen instead of squeezing sideways.']},
@@ -12243,7 +12244,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   actually carries: at least one raw curve AND either a second raw curve or any
     //   gate / tilt / hybrid series.
     const _hasFamilySeries=d=>{const g=(d&&d.gate_validate)||{};const L=a=>Array.isArray(a)&&a.length>0;
-      return L(g.candidates)||L(g.tilts)||L(g.hybrids)||!!g.equity||!!(d&&d.ml_gate&&d.ml_gate.equity);};
+      return L(g.candidates)||L(g.tilts)||L(g.hybrids)||!!(g.keel&&!g.keel.error)||!!g.equity||!!(d&&d.ml_gate&&d.ml_gate.equity);};
     const _canFunnel=d=>{const e=d&&d.equity_top;return Array.isArray(e)&&e.length>=1&&(e.length>=2||_hasFamilySeries(d));};
     const topEqOverlayHtml=(d,mult,tag,sink,noTag)=>{
       const etop=d&&d.equity_top;if(!_canFunnel(d))return '';
@@ -12310,6 +12311,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(_bestHybC&&_bestHybC.equity&&Array.isArray(_bestHybC.equity.cum))
           _bestHybC.equity.cum.forEach(v=>extYs.push(v*mult));
       }catch(_bh0){_bestHybC=null;_bestHybMar=null;_bestHybRule=null;}
+      // v73.535: KEEL - ONE comparison-only row the engine writes next to the tilts and
+      //   hybrids (augur_engine/ml_keel.py), crownable:false by construction. Same pre-pass
+      //   as the tilt above: its curve joins the y-scale here so the line cannot be pushed
+      //   off the top of the plot. Older runs carry no keel key and a failed walk carries
+      //   {error} instead of a curve - both simply contribute nothing.
+      const _gvKeel=(function(){try{const k=(d.gate_validate||{}).keel;return (k&&!k.error)?k:null;}catch(_k0){return null;}})();
+      try{if(_gvKeel&&_gvKeel.equity&&Array.isArray(_gvKeel.equity.cum))_gvKeel.equity.cum.forEach(v=>extYs.push(v*mult));}catch(_bk0){}
       // v71.6 (owner: "its putting $ back in the system vs the normal hybrid, so pnl blotter and
       //   trade pnl will be different"). Right - REDEPLOY spends the contracts the filter freed up,
       //   so the same trades carry more size and the dollars, the drawdown and where the book
@@ -12347,6 +12355,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         _fold9(_gv9.candidates||((d.ml_gate||{}).candidates));
         _fold9(_gv9.tilts);
         _fold9(_gv9.hybrids);
+        _fold9([_gv9.keel]);   // v73.535: the keel row draws on this pref too
         // mirrors _fq2 at the draw site line for line, so the fold and the draw agree by
         //   construction; a factor at or below 1.005 draws no recycle line at all.
         _fold9(_gv9.hybrids,c=>{const n=+(((c.full||{}).num_trades))||0;
@@ -12802,6 +12811,15 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
                          li:null,wfi:null,tiltCand:true,famTop:(tl===_bestTiltC),
                          ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
             });
+            // v73.535: KEEL joins the SIZE TILTS legend group rather than earning one of its
+            //   own - it is the same animal as a tilt (every trade taken, only re-sized) and
+            //   equally never crownable, so one toggle covers both. There is only ever ONE
+            //   keel row per run, so this is a single line, labelled "KEEL v4".
+            if(_gvKeel&&_gvKeel.equity&&Array.isArray(_gvKeel.equity.cum)&&_gvKeel.equity.cum.length>=2)
+              _ser.push({id:'keel',label:'KEEL '+String(_gvKeel.version||''),color:'#38bdf8',
+                         eq:_gvKeel.equity.cum.map(v=>v*mult),
+                         li:null,wfi:null,tiltCand:true,
+                         ts:_mkTsSpan(_gvKeel.equity.cum.length,optFromMs,lbToMs)});
             // v71.15 (owner: "i dont see hybrid or hybrid r on expanded") — HYBRID was the one
             //   2B tab with no line in the expanded view. Every hybrid now pushes TWO series: the
             //   book itself, and the same book RECYCLED (sized up by the contracts its filter
@@ -16151,7 +16169,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   which added a whole row of height to the header and pushed the table down. It rides
         //   inline after the name now as (SL) sliding / (ST) steps, hover for the full sentence.
         const _shAb=_TILT_SCHEME_AB;   // v73.34: shared with the §1A/2A chart legend, see global def
-        const _cmpCols=(list,kind)=>list.map(t=>({lbl:String(t.model||'')+((kind==='hyb')?'':(' <span title="'+String(_shTip[t.scheme]||'').replace(/"/g,'&quot;')+'" style="font-weight:400;color:var(--text5);cursor:help">('+(_shAb[t.scheme]||String(t.scheme||'?').slice(0,2).toUpperCase())+')</span>')),
+        const _cmpCols=(list,kind)=>list.map(t=>({lbl:(kind==='keel'?('KEEL <span style="font-weight:400;color:var(--text5)">'+String(t.version||'')+'</span>'):String(t.model||''))+((kind==='hyb'||kind==='keel')?'':(' <span title="'+String(_shTip[t.scheme]||'').replace(/"/g,'&quot;')+'" style="font-weight:400;color:var(--text5);cursor:help">('+(_shAb[t.scheme]||String(t.scheme||'?').slice(0,2).toUpperCase())+')</span>')),
             sub:'',
             col:_gateColor(String(t.model||''),1,60),
             _s:{is:t.is_rng,wf:t.wf_rng,lb:t.lockbox,full:t.full,eq:t.equity,
@@ -16502,6 +16520,36 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _szHead='<div style="color:var(--yellow);font-weight:700;margin-bottom:6px">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD &middot; COMPARISON ONLY, NEVER CROWNED</div>';
         const tiltNote=(!_tl.length)?'':_noteRow(
             _infoIc('<div style="color:var(--text2)">'+_szHead+'<b>THE GATE AND THE TILT USE THE SAME SCORE. THEY SPEND IT DIFFERENTLY.</b><br>A model scores every trade before it happens.<br><br><b>THE GATE</b> (the ML GATE tab) = a bouncer. Score under the cut-off, the trade does not happen.<br><b>THE TILT</b> (this section) = a dimmer. Every trade happens; confident ones get more contracts, doubtful ones fewer (about half a contract up to triple - half an NQ is five MNQ micros). The AVERAGE across all trades is one contract, so it is the same size of book as no-gate, just distributed differently.<br><br><b>A TILT HAS NO CUT-OFF.</b> That is why no column says rf @ 50% here - there is no line below which trades are dropped; the model name alone identifies the column.<br><br><b>THE TWO SIZE SHAPES</b>, tagged after each model name in the column header. <b>(SL) SLIDING</b> = the contract count slides smoothly with confidence, quarter-lot up to 3. <b>(ST) STEPS</b> = three fixed sizes only (half / one / two lots) by confidence band. Same model, same scores - only how the score is turned into a contract count differs.<br><br><b>LB</b> = the lockbox - the sealed final year, opened only after the winner was already chosen. The tilt columns run through the SAME LB window as everything else in this report.<br><br>Comparison only; adopting a tilt would need its own pre-registered rule. Baselines for comparison (no gate, the crowned gate) live in the ML GATE tab.</div>'));
+        // ── KEEL (v73.535) ─ the engine's skill-gated expectancy tilt (augur_engine/ml_keel.py).
+        //   ONE row, the SAME stat-block shape as a tilt, marked crownable:false by the engine.
+        //   It renders through the SAME _cmpMatrix builder the TILT tab uses, so every period
+        //   column, the SAMPLE tick, the heat map and the rank order behave identically and the
+        //   three overlays read against each other directly. No poolName is passed, so the keel
+        //   never pushes a dot into the 1E cross-pool scatter - it is not a candidate pool.
+        //   Older runs have no keel key (nothing renders); a walk that failed carries {error}
+        //   and prints one muted line instead of a table.
+        const _klRaw=(V&&V.keel)||null;
+        const _klErr=(_klRaw&&_klRaw.error)?String(_klRaw.error):'';
+        const _kl=(_klRaw&&!_klRaw.error)?[_klRaw]:[];
+        const _klFacts=(!_kl.length)?'':(function(){const k=_kl[0];
+          const _nm2=v=>((v!=null&&isFinite(+v))?+v:null);
+          const mt=k.member_trust||{};
+          const _pill=(nm,val,tip)=>'<span title="'+String(tip||'').replace(/"/g,'&quot;')+'" style="cursor:help;white-space:nowrap"><b style="color:var(--text3)">'+nm+'</b> <span style="color:var(--text2)">'+val+'</span></span>';
+          const _szF=v=>(_nm2(v)!=null?((+v).toFixed(2)+'&times;'):'&mdash;');
+          const _pcF=v=>(_nm2(v)!=null?(Math.round(+v*100)+'%'):'&mdash;');
+          const _keys=Object.keys(mt);
+          return '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text4);margin-bottom:6px">'
+            +_pill('MODEL',String(k.model||'keel')+' '+String(k.version||''),'the engine keel row, and the version of the keel walk that produced it')
+            +_pill('AVG SIZE',_szF(k.avg_size),'average contracts per trade over the pre-lockbox stretch. A tilt averages about one lot; anything near 1.00 means the keel is mostly standing aside.')
+            +_pill('MAX SIZE',_szF(k.max_size),'the largest size any single trade was given, across the whole run')
+            +_pill('TRUST ON',_pcF(k.trust_on),'share of trades where the walk had ANY trust at all. Trust of zero sizes the trade at one lot - the keel simply does not act.')
+            +_pill('MEAN TRUST',(_nm2(k.trust_mean)!=null?(+k.trust_mean).toFixed(3):'&mdash;'),'average trust across every trade: 0 = never sized, 1 = full confidence. It is EARNED from the overlay own out-of-sample dollar ledger, not set by hand.')
+            +_pill('MEMBERS',(_keys.length?_keys.map(function(m){return m+' '+((_nm2(mt[m])!=null)?(+mt[m]).toFixed(2):'-');}).join(' &middot; '):'&mdash;'),'the trust the walk earned for each member of the keel stack, one figure each')
+            +'</div>'
+            +'<div style="font-size:7.5px;color:var(--text5);margin-bottom:7px;white-space:normal">'+String(k.rule||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>';})();
+        const keelTbl=_kl.length?(_klFacts+_cmpMatrix(_cmpCols(_kl,'keel'),'one',null))
+          :(_klErr?('<div style="font-size:8px;color:var(--text5)">KEEL: '+_klErr.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>'):'');
+        const keelNote=(!_kl.length)?'':_noteRow(_infoIc('<div style="color:var(--text2)"><div style="color:var(--yellow);font-weight:700;margin-bottom:6px">ONE MORE WAY TO SPEND A MODEL SCORE &middot; COMPARISON ONLY, NEVER CROWNED</div><b>KEEL</b> takes every trade, exactly like the TILT, and only sets the SIZE - but the size comes from an estimate of the trade EXPECTANCY, scaled by how much the walk trusts itself at that moment. Where it has earned no trust the size is one lot, which is to say the keel stands aside rather than guessing.<br><br>The columns below are the SAME measures over the SAME ticked stretches as the TILT and HYBRID tabs, so the three overlays can be read straight against each other.<br><br>The engine marks this row crownable:false. It can never win a crown, it is not one of the candidates, and it puts no dot on the 1E pooled scatter.</div>'));
         // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
         //   then sized by the tilt. Floor pinned to the crown - no new knob. Engine >= v68.5 only.
         const _hy=(V.hybrids||[]).slice();
@@ -16534,7 +16582,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             hybNoteBy[md]=_noteRow(_infoIc('<div style="color:var(--yellow);font-weight:700;margin-bottom:6px">GATE FIRST, THEN TILT THE SURVIVORS &middot; '+String((_hybModeNm[md]||['',''])[0]).replace(/<[^>]*>/g,'')+' &middot; COMPARISON ONLY, NEVER CROWNED</div>'+String((_hybModeNm[md]||['',''])[1]).replace(/'/g,'&#39;'))+_infoIc(_hybInfo));});}
         const hybTbl=hybBy.one||'';
         const hybNote=hybNoteBy.one||'';
-        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,ctrls:_ctrls,menus:'',
+        return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,keel:keelTbl,keelNote:keelNote,keelErr:_klErr,ctrls:_ctrls,menus:'',
           szCtrls:_szCtrls,tiltNote:tiltNote,hybNote:hybNote,hybModes:hybModes,hybBy:hybBy,hybNoteBy:hybNoteBy,
           scatterPts:_scatterAcc,scatterDrop:_scatterDrop,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
@@ -17850,6 +17898,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(_selParts||_gateSec||_kpiInner){
         const _hasG=!!(_gateSec&&_gvP);
         const _hasT=!!(_gvP&&_gvP.tilts),_hasH=!!(_gvP&&_gvP.hyb);
+        // v73.535: the keel tab shows whenever the run carries a keel row - and also when the
+        //   keel WALK FAILED, because a one-line error a reader can see beats a tab that
+        //   quietly is not there.
+        const _hasKL=!!(_gvP&&_gvP.keel);
         // v73.13 (owner: gate look-ahead fix landed 2026-08-10): a run scored before that date
         //   carries inflated GATE / TILT / HYBRID numbers (the gate read the entry-bar close on
         //   open-filled bars). Same run-date source the report header uses (d.timestamp, parsed
@@ -17861,6 +17913,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                         ['raw','RAW',!!_selParts,'the strategy parameter configs the search produced, before any model touches them'],
                         ['gate','GATE',_hasG,'the trade filter: a model scores each entry and the ones under the cut-off are not taken'],
                         ['tilt','TILT',_hasT,'every trade is taken, only re-sized by model confidence'],
+                        ['keel','KEEL',_hasKL,'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One row, comparison only, never crowned.'],
                         ['hyb','HYBRID',_hasH,'gate first, then size the survivors by confidence. ONE LOT: every column averages one contract per trade, so a column that refuses trades leaves that capacity idle.'],
                         ['hyb2','HYBRID &#9851;',_hasH,'the same hybrid, REDEPLOYED: sized up until the column spends the same total contracts as the no-gate book - what the freed capacity buys if you put it back to work.'],
                         ['hyb3','HYBRID &#128201;',_hasH,'the same hybrid at EQUAL DRAWDOWN: sized until the column drawdown matches the no-gate book - the most money for the same pain.']]
@@ -17870,6 +17923,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   of seven clicks. Only offered when there are at least two tabs to combine.
         if(_tabDefs.length>1)_tabDefs.push(['all','ALL',true,'every tab above, stacked in this one card - KPI, RAW, GATE, TILT and the hybrid sizings']);
         const _szInfo='<div style="color:var(--text2)">THE SAME MODELS AS THE GATE TAB, SPENT AS SIZE INSTEAD.<br><br>The GATE tab uses a model score as a BOUNCER - under the cut-off, the trade does not happen. These two tabs use the identical score as a DIMMER - every trade still happens, confident ones get more contracts and doubtful ones get fewer.<br><br>Nothing in these two tabs can ever be crowned; they exist so the two ways of spending the same model can be compared side by side over the same stretches.<br><br><b>ST (steps)</b> = 3 discrete size buckets - 2x on the most confident trades, 1x in the middle, 0.5x on the doubtful ones.<br><b>SL (sliding)</b> = size scales continuously with confidence, from 0.25x up to 3x.<br><br>Both differ from GATE, which skips trades below a cutoff rather than resizing them. Same ST/SL tag as the §1A funnel chart legend\'s tilt lines.</div>';
+        const _keelInfo='<div style="color:var(--text2)">KEEL IS A THIRD WAY TO SPEND A MODEL SCORE.<br><br>The GATE uses the score as a BOUNCER (under the cut-off, the trade does not happen). The TILT uses it as a DIMMER (every trade happens, at a size set by confidence). KEEL is a dimmer too, but the dial is set by an estimate of the trade EXPECTANCY scaled by how much the walk trusts itself - and where it has earned no trust, the size is one lot and the keel stands aside.<br><br>There is exactly ONE keel row per run, so this tab is one column. The measures, the SAMPLE tick, the ordering and the heat map are the same as on TILT and HYBRID, so all three read against each other.<br><br>Nothing here can be crowned: the engine writes the row with crownable:false, it is not counted among the candidates, and it puts no dot on the pooled scatter.</div>';
         const _gateInfo=('<div style="color:var(--text2)">'+_gVerdictTxt+'DOES A TRADE-FILTER MODEL EARN ITS KEEP? The ML GATE scores each entry (win-probability from vol / trend / clock features) and only lets trades above a cut-off through. It sweeps several models across several cut-offs on PRE-LOCKBOX data (IS + WF combined), picks ONE winner, and gives only that winner a single look at the LB - no cherry-picking.<br><br>NOT the same as the 2L ML CONFIG BUILDER: 2L picks which PARAMETER CONFIG is best; this gate keeps the chosen config and only decides which individual TRADES to take.<br><br>The gate equity is also drawn on the 2A funnel above.</div>');
         const _nRow=inner=>inner?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'+inner+'</div>'):'';
         const _hybOf=t=>(t==='hyb2'?'redeploy':(t==='hyb3'?'equaldd':'one'));
@@ -17900,9 +17954,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           let tb=String(APREF[prefKey]||'');
           if(!_tabDefs.some(function(t){return t[0]===tb;}))tb=(_tabDefs.some(function(t){return t[0]===fallback;})?fallback:(_tabDefs.length?_tabDefs[0][0]:'raw'));
           const isAll=(tb==='all');
-          const isHyb=(!isAll&&(tb==='hyb'||tb==='hyb2'||tb==='hyb3')),isK=(!isAll&&tb==='kpi'),isG=(!isAll&&tb==='gate'),isSz=(!isAll&&(tb==='tilt'||isHyb));
+          const isHyb=(!isAll&&(tb==='hyb'||tb==='hyb2'||tb==='hyb3')),isK=(!isAll&&tb==='kpi'),isG=(!isAll&&tb==='gate'),isKeel=(!isAll&&tb==='keel'),isSz=(!isAll&&(tb==='tilt'||tb==='keel'||isHyb));
           const info=isK?_infoIc('<div style="color:var(--text2)">'+_mtipRef+'</div>')
                    :isG?_infoIc(_gateInfo)
+                   :isKeel?_infoIc(_keelInfo)
                    :isSz?_infoIc(_szInfo)
                    :((_selParts&&_selParts.tip)?_infoIc('<div style="color:var(--text2)">'+_selParts.tip+'</div>'):'');
           const ctrls=isK?'':(isG?((_gvP&&_gvP.ctrls)||''):(isSz?((_gvP&&_gvP.szCtrls)||''):((_selParts&&_selParts.ctrls)||'')));
@@ -17910,6 +17965,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   permanent muted-warning line leads the TILT tab body, every run, any date.
           const _tiltDeadWarn=(tb==='tilt')?'<div style="color:var(--yellow);font-weight:700;margin-bottom:8px">&#9888; TILT is retired: 0 of 12 tilts cleared the pre-registered bar on causal scores (2026-08-10). Shown for reference only - do not adopt. <span style="font-weight:400;opacity:.8">Standing verdict of the pre-registered study across every champion - not a reading of this run. The columns below are this run, measured normally.</span></div>':'';
           const _bodyOf=function(k){const _isK2=(k==='kpi'),_isG2=(k==='gate'),_isH2=(k==='hyb'||k==='hyb2'||k==='hyb3');
+            // v73.535: the keel body is one table (or one muted error line) - see gvParts.
+            if(k==='keel')return (_gvP&&_gvP.keel)||'';
             return _isK2?kpiMatrixHtml(d,mult0,1,''):(_isG2?_gateCard:(k==='tilt'?(_tiltDeadWarn+((_gvP&&_gvP.tilts)||'')):(_isH2?(((_gvP&&_gvP.hybBy)||{})[_hybOf(k)]||''):((_selParts&&_selParts.table)||''))));};
           const _capOf=function(k){const t=_tabDefs.filter(function(z){return z[0]===k;})[0];return t?t[1]:k.toUpperCase();};
           const mult0=mlt;
@@ -17921,6 +17978,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                return (b&&b.replace(/\s/g,''))?('<div style="margin-top:10px;padding-top:8px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)"><div style="font-size:8px;font-weight:800;letter-spacing:1.2px;color:var(--text3);margin-bottom:6px">'+_capOf(t[0])+'</div>'+b+'</div>'):'';}).join(''))
             :_bodyOf(tb);
           const note=isAll?'':isK?'':isG?''
+                   :isKeel?((_gvP&&_gvP.keelNote)||'')
                    :(tb==='tilt'?((_gvP&&_gvP.tiltNote)||'')
                    :(isHyb?(((_gvP&&_gvP.hybNoteBy)||{})[_hybOf(tb)]||'')
                    :_nRow((_selParts&&_selParts.sub)?('<span style="font-weight:400;color:var(--text4);font-size:8px">'+_selParts.sub+'</span>'):'')));
