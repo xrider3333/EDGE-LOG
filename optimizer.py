@@ -1057,8 +1057,39 @@ def save_master_csv(df, name, instrument, timeframe, source="tv",
                 pass
         fn = overwrite_filename or f"master_{uuid.uuid4().hex[:8]}.csv"
         raw = df_to_tv_csv_bytes(df)
-        with open(os.path.join(CSV_DIR, fn), "wb") as fh:
-            fh.write(raw)
+        # ATOMIC (2026-09-07). This used to truncate the master and write it back in
+        # place, which was safe only while ONE process touched the data: the runner
+        # refreshed masters between jobs, never during one. Five runner processes now
+        # drain the queue and read these same files continuously, and the refresh runs
+        # on its own thread, so an in-place rewrite can be read half-written - a
+        # backtest on a truncated master does not crash, it just quietly answers on
+        # less data. Writing a sibling temp file and renaming it over the target means
+        # a reader always sees the whole old file or the whole new one.
+        _dst = os.path.join(CSV_DIR, fn)
+        _tmp = f"{_dst}.tmp-{uuid.uuid4().hex[:8]}"
+        try:
+            with open(_tmp, "wb") as fh:
+                fh.write(raw)
+                fh.flush()
+                os.fsync(fh.fileno())
+            # Windows refuses the rename while another process still has the target
+            # open; a reader holds it for the length of one read_csv, so retry briefly
+            # rather than failing the refresh. If it never frees, the OLD master stays
+            # in place intact and this returns the error - never a corrupt file.
+            for _try in range(10):
+                try:
+                    os.replace(_tmp, _dst)
+                    break
+                except PermissionError:
+                    if _try == 9:
+                        raise
+                    time.sleep(0.4)
+        finally:
+            if os.path.exists(_tmp):
+                try:
+                    os.remove(_tmp)
+                except OSError:
+                    pass
         df0 = str(df.index[0])[:10]; df1 = str(df.index[-1])[:10]
         conn = _db_conn()
         if overwrite_filename:

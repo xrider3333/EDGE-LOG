@@ -1854,6 +1854,27 @@ def main(argv=None):
         except Exception as e:
             print(f"[{tag}] skipped: {type(e).__name__}: {e}")
 
+    # The master refresh is NOT quick: measured 2026-09-07 it costs ~67 s even when it
+    # changes nothing, because it execs optimizer.py's 9,700-line backend to reuse that
+    # app's proven refresh. On the main loop that is 67 s per pass in which no job is
+    # claimed - at boot, and again every refresh-min. It owns a thread now. The flag
+    # keeps two refreshes from ever overlapping, which matters more than it used to:
+    # a refresh WRITES masters while five runner processes are reading them.
+    _refresh_busy = threading.Event()
+
+    def _refresh_async(tag="auto-refresh"):
+        if _refresh_busy.is_set():
+            print(f"[{tag}] skipped: the previous refresh is still running")
+            return
+        _refresh_busy.set()
+
+        def _go():
+            try:
+                _refresh(tag)
+            finally:
+                _refresh_busy.clear()
+        threading.Thread(target=_go, daemon=True, name="master-refresh").start()
+
     if a.firestore:
         q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills,
                            webull_keys=a.webull_keys)
@@ -1886,13 +1907,34 @@ def main(argv=None):
             # claiming their first job.
             print("run history + meta sync: skipped on a WORKER (the primary owns it)")
         elif a.sync_runs or a.watch:
-            print("syncing run history + meta…")
-            try:
-                q.sync_runs(); q.sync_meta()
-            except Exception as e:
-                # Don't let a transient error (e.g. Firestore 429 quota) kill the runner
-                # before it reaches the watch loop — trade sync must still come up.
-                print(f"[sync-runs] startup skipped: {type(e).__name__}: {e}")
+            # BOOT CHORES DO NOT BLOCK THE FIRST CLAIM (2026-09-07). Publishing the
+            # run history and the strategy/master metadata is what the web READS; it is
+            # not a precondition for RUNNING anything. It used to sit in front of the
+            # watch loop, and with the master refresh behind it the runner could take
+            # minutes to claim its first job while a full queue waited and the machine
+            # idled - worst seen was a boot that had not claimed anything 7 minutes in,
+            # re-profiling masters the NinjaTrader capture had just rewritten. On the
+            # thread the loop reaches 'watching' in seconds and the publish lands when
+            # it lands. The one-shot `--sync-runs` path still runs inline: that process
+            # exits as soon as this returns, so a thread would be killed mid-write.
+            def _boot_chores():
+                try:
+                    q.sync_runs(); q.sync_meta()
+                except Exception as e:
+                    # Don't let a transient error (e.g. Firestore 429 quota) kill the
+                    # runner before it reaches the watch loop — trade sync must still
+                    # come up.
+                    print(f"[sync-runs] startup skipped: {type(e).__name__}: {e}")
+                if a.watch and a.refresh_min > 0:
+                    _refresh("startup")
+            if a.watch:
+                print("syncing run history + meta: on a background thread "
+                      "(jobs start claiming now)")
+                threading.Thread(target=_boot_chores, daemon=True,
+                                 name="boot-chores").start()
+            else:
+                print("syncing run history + meta…")
+                _boot_chores()
         if a.sync_runs and not a.watch:
             return
     else:
@@ -1965,9 +2007,10 @@ def main(argv=None):
         # Auto-refresh data on start and on a timer — hands-free, like the desktop
         # app does on open. Runs in the same loop (infrequent + bounded), so it
         # briefly pauses job polling while it pulls; that's fine at a 30-min cadence.
+        # (the startup refresh itself runs on the boot-chores thread above)
         next_refresh = 0.0
         if a.refresh_min > 0:
-            _refresh("startup"); next_refresh = time.time() + a.refresh_min * 60
+            next_refresh = time.time() + a.refresh_min * 60
         next_trades = 0.0
         if a.firestore and a.trades_sec > 0:
             try:
@@ -2031,7 +2074,7 @@ def main(argv=None):
                     print(f"[orphan] sweep skipped: {type(_e).__name__}: {_e}")
                 next_sweep = time.time() + ORPHAN_SWEEP_SEC
             if a.refresh_min > 0 and time.time() >= next_refresh:
-                _refresh(); next_refresh = time.time() + a.refresh_min * 60
+                _refresh_async(); next_refresh = time.time() + a.refresh_min * 60
             if a.firestore and a.trades_sec > 0 and time.time() >= next_trades:
                 try:
                     done += q.sync_trades()
