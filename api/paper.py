@@ -78,7 +78,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
     "NOISE_SBS_V90_K": "2026-09-08",
     "ENGUQ_309_K": "2026-09-08",
-    "NOISE_SBS_V90_K5": "2026-09-08", # KEEL v5 (steeper, faster-trust schedule) on the same crown, forward test only      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "NOISE_SBS_V90_K6": "2026-09-08", # KEEL v6 (v5 schedule + fast-distrust ledger) on the same crown, forward test only      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -486,16 +486,16 @@ NOISE_243_TILT = {"mode": "tilt", "model": "xgb", "scheme": "tier",
 # THE CLAIM, stated so it can fail: from 2026-09-08 forward, NOISE_SBS_V90_K should beat
 # its matched raw control NOISE_SBS_V90 on MAR (annualised net / max drawdown).
 NOISE_243_KEEL = {"mode": "keel", "model": "keel", "version": "v4", "source_run": 243}
-# KEEL v5 (2026-09-07, owner: "make keel earn more money without adding drawdown"). Same
-# model and ledger as v4; only the size schedule moves: slope 1.5 (v4 0.5), floor 0.75 (v4
-# 0.5), ceiling 2.0, trust earned from ledger t 0.5 to 1.0 (v4 0 to 2). Read on run #243's
-# window: pre-lockbox +$130,826 vs raw at drawdown -$19,213 vs -$18,425 (MAR 1.63, same as
-# v4 on 2.4x the money; year-by-year t 2.87), lockbox -$5,941 at exactly raw's drawdown.
-# NOISE ONLY: on ORB and ENGU-Q v5 loses pre-lockbox money, so it is not deployed there.
-# Second read on the spent window -> FORWARD EVIDENCE ONLY. THE CLAIM, stated so it can
-# fail: from 2026-09-08, NOISE_SBS_V90_K5 beats NOISE_SBS_V90 on net dollars with a
-# drawdown no worse than the control's, and beats NOISE_SBS_V90_K on net dollars.
-NOISE_243_KEEL5 = {"mode": "keel", "model": "keel", "version": "v5", "source_run": 243}
+# KEEL v6 (2026-09-07). v5's steeper schedule (slope 1.5, floor 0.75, ceiling 2, trust from ledger
+# t 0.5 to 1.0) plus a FAST-DISTRUST ledger: the same dollar statistic over the last 100 resolved
+# trades can only cut trust (clip((t100+0.5)/1)). v5 alone was retired before its first session:
+# in run #304's lockbox its slow ledger kept sizing 2x after skill faded (DD -44.7k vs raw -24.5k).
+# v6 on the runs' own stretches: #243 WF +$113k at DD -23.1k vs -18.4k, lockbox +$5.7k at raw's
+# DD (MAR 2.00 vs 1.83); #304 WF +$49k at DD better than raw, lockbox -$2.7k at DD -28.4k vs
+# -24.5k. NOISE ONLY. FORWARD EVIDENCE ONLY. THE CLAIM, stated so it can fail: from 2026-09-08,
+# NOISE_SBS_V90_K6 beats NOISE_SBS_V90 on net dollars with drawdown within 20% of the control's,
+# and beats NOISE_SBS_V90_K on net dollars.
+NOISE_243_KEEL6 = {"mode": "keel", "model": "keel", "version": "v6", "source_run": 243}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
 # year was KEEL's best read (run #265 window: +$15,410, MAR 5.83 -> 7.22, drawdown down)
 # while its pre-lockbox stretch was neutral - exactly the "stands down until it has earned
@@ -716,14 +716,15 @@ LEG_SOURCE = {
                 "earned from its own out-of-sample dollar ledger. Added 2026-09-06 beside the "
                 "NOISE test; ENGUQ_309 is its exact control.",
     },
-    "NOISE_SBS_V90_K5": {
-        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v5 (steeper schedule)",
+    "NOISE_SBS_V90_K6": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v6 (steeper schedule + fast distrust)",
         "strategy_file": "NOISE_1_0.py", "picked": "2026-09-07",
-        "note": "The crowned #243 config with KEEL v5: identical model and skill ledger to the "
-                "K leg, but the size schedule is steeper (slope 1.5, floor 0.75x, ceiling 2x) "
-                "and trust is earned faster (ledger t 0.5 to 1.0). Backtest read: 2.4x the K "
-                "leg's pre-lockbox gain at the same MAR. Added 2026-09-07 as a forward test "
-                "beside the K leg; NOISE_SBS_V90 is the exact control.",
+        "note": "The crowned #243 config with KEEL v6: same model as the K leg, steeper size "
+                "schedule (slope 1.5, floor 0.75x, ceiling 2x, trust from ledger t 0.5 to 1.0) "
+                "plus a 100-trade fast-distrust ledger that can only cut size back to 1.0. "
+                "Walk-forward +37% net on #243 with lockbox at raw's drawdown. Added 2026-09-07 "
+                "beside the K leg (replacing the never-traded v5 leg); NOISE_SBS_V90 is the "
+                "exact control.",
     },
     "NOISE_SBS_V90_K": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL skill-gated tilt",
@@ -942,12 +943,12 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_KEEL, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_K"]},
-    # ADDED 2026-09-07: KEEL v5, the steeper schedule (see NOISE_243_KEEL5). FORWARD EVIDENCE ONLY.
-    {"key": "NOISE_SBS_V90_K5", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+    # ADDED 2026-09-07: KEEL v6, steeper schedule + fast distrust (see NOISE_243_KEEL6). FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_K6", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
-     "gate": NOISE_243_KEEL5, "history_from": _GATE_HISTORY_FROM,
-     "source": LEG_SOURCE["NOISE_SBS_V90_K5"]},
+     "gate": NOISE_243_KEEL6, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_K6"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical

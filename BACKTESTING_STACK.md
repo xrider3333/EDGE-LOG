@@ -795,6 +795,23 @@ drawdown, tail 0. ORB −$3,158 / ENGU-Q −$13,363 pre-LB → NOISE only. Paper
 (control `NOISE_SBS_V90`); claim = more net than control at no worse drawdown, and more than the K leg.
 Third read on the spent window — forward evidence only.
 
+**v6 (2026-09-07) = v5 + FAST-DISTRUST, read the Auto-Validate way (IS pick → WF → one lockbox look) on
+the runs' own stretches.** The v5 lockbox on #304 exposed the design flaw: a 600-trade ledger is ~a year
+of NOISE trades, so after skill faded it kept sizing 2× for months (LB DD −$44.7k vs raw −$24.5k). v6 adds
+a second ledger of the same dollar statistic over the last 100 resolved trades that can only CUT trust
+(`clip((t100+0.5)/1)`). Pre-registered before it ran; plateau: fast windows 50–100 all work, 200 is too slow.
+| run · stretch | RAW | best old ML | KEEL v6 |
+|---|---|---|---|
+| #243 WF | $303,685 / DD −18,425 / MAR 1.88 | CUT logistic@0.50 $281,971 / −13,766 / 2.33 | **$417,111** / −23,145 / 2.05 (yr-by-yr t 2.70, 8/10) |
+| #243 LB | $60,615 / −22,096 / 1.83 | crowned CUT $59,513 / 1.80 | **$66,294 / −22,096 / 2.00** |
+| #304 WF | $316,495 / −16,917 / 2.13 | crowned CUT $314,103 / −10,820 / 3.31 | $365,661 / −13,932 / 2.99 |
+| #304 LB | $82,123 / −24,510 / 2.24 | TILT $87,726 / −31,160 / 1.88 | $79,376 / −28,446 / 1.86 |
+| #314 ORB, #309 ENGU-Q | — | — | identical to raw in the lockbox (stands down) |
+Honest note on the IS→WF discipline: the IS stretch (≈1,500 NOISE trades) is too short to warm a 600-trade
+ledger, so an IS-only pick of the size schedule lands on "nearly raw"; the v4–v6 constants are design
+defaults informed by the whole history, and the paper legs are the untouched test. Paper leg
+`NOISE_SBS_V90_K6` replaces the never-traded K5 leg (control `NOISE_SBS_V90`).
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

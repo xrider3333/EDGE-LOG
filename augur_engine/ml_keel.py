@@ -92,6 +92,17 @@ CFG = {
     #    raw's. Second read on the spent window - the paper leg is the test.
     "v5": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0},
+    # v6 (2026-09-07, pre-registered before it was run): v5 + a FAST-DISTRUST ledger. The 600-trade
+    #    ledger is slow to notice that skill has faded (about a year of NOISE trades), and v5's
+    #    steep slope turned that lag into 2x-sized losers in the #304 lockbox (DD -44.7k vs raw
+    #    -24.5k). A second ledger of the SAME dollar statistic over the last 100 resolved trades
+    #    can only CUT trust: cut = clip((t100 + 0.5) / 1.0, 0, 1). Slow to trust, fast to distrust.
+    #    Plateau: fast windows 50-100 all work, 200 is too slow. Read on the runs' own stretches:
+    #    #243 WF +$113k (+37%) at DD -23.1k vs -18.4k, LB +$5.7k at raw's DD, MAR 2.00 vs 1.83;
+    #    #304 WF +$49k (+16%) at DD -13.9k vs -16.9k, LB -$2.7k at DD -28.4k vs -24.5k.
+    "v6": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+           "fast": {"W": 100, "lo": -0.5, "hi": 0.5}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
@@ -255,6 +266,7 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
     cfg = CFG[version]
     W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
     K, lo, hi = cfg.get("K", K_MAX), cfg.get("LO", LO), cfg.get("HI", HI)
+    fast = cfg.get("fast")
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
     E = np.array([t[0] for t in T]); Xi = np.array([t[1] for t in T]); P = np.array([t[2] for t in T])
     n = len(T)
@@ -295,6 +307,10 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
                 tr = 0.0
         else:
             tr, rh = 1.0, np.nan
+        if fast and tr > 0 and len(led):
+            # fast-distrust: the same dollar ledger over the last fast["W"] resolved trades may only CUT
+            _, _, t_fast = _trust(z[led], P[led], fast["W"], 0.0, 1.0, ledger)
+            tr *= float(np.clip((t_fast - fast["lo"]) / (fast["hi"] - fast["lo"]), 0.0, 1.0))
         trust[k] = tr; rho[k] = rh
         size[k] = float(np.clip(1.0 + K * tr * z[k], lo, hi))
     return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
