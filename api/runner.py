@@ -30,6 +30,10 @@ import argparse
 import random
 import uuid
 import threading
+try:
+    import psutil as _psutil   # liveness (is the claiming runner alive?) + free-memory guard
+except Exception:              # pragma: no cover - degrade to the timestamp-only rules
+    _psutil = None
 
 import augur_engine as ae
 from augur_engine import trial_cache as TC
@@ -328,6 +332,72 @@ _WORKER_ID = f"runner-{os.getpid()}-{uuid.uuid4().hex[:6]}"
 #   duties - paper EOD, QQQ paper publish - stay on the primary so two processes never
 #   rewrite the same file at once. See the guards in the watch loop below.
 _IS_WORKER = bool(os.environ.get("EDGELOG_WORKER"))
+
+# ── LIVENESS + ORPHAN VERDICT (2026-09-07) ───────────────────────────────────────
+# Three runner restarts on the night of 2026-09-06 (other sessions shipping) each killed
+# the job in flight. The boot sweep below only trusted "no write for 60 min", and a job
+# killed seconds before the boot has a FRESH doc, so two validates (70% and 44% done)
+# sat on status='running' for hours, invisible to the queue. Two signals fix that:
+#   * every running job now stamps heartbeat_at every HEARTBEAT_SEC from its own thread,
+#     independent of how often the engine reports progress (a long surrogate fit or an
+#     LLM call can legitimately go minutes without a progress write);
+#   * claimedBy names the runner pid, and psutil can say whether that pid is still an
+#     api.runner process on this machine - a claim by a dead process is dead NOW, no
+#     waiting for a timestamp to age.
+# The sweep runs at boot AND periodically, so a strand is caught without a restart.
+HEARTBEAT_SEC = 60.0             # heartbeat_at cadence (each write = one web read)
+ORPHAN_HB_STALE_MIN = 4.0        # heartbeat older than this and the worker is gone
+ORPHAN_LEGACY_STALE_MIN = 60.0   # no heartbeat field (claim made by pre-09-07 code)
+ORPHAN_SWEEP_SEC = 600.0 if _IS_WORKER else 120.0
+CTRL_CHECK_SEC = 3.0             # STOP/PAUSE poll cadence inside a running job
+MIN_FREE_MEM_BYTES = 2.5 * 1024 ** 3   # do not claim more work below this much free RAM
+
+
+def _claimant_pid(claimed_by):
+    """claimedBy is 'runner-<pid>-<rand>' (see _WORKER_ID). None when it is anything else."""
+    try:
+        parts = str(claimed_by or "").split("-")
+        if len(parts) >= 2 and parts[0] == "runner":
+            return int(parts[1])
+    except Exception:
+        pass
+    return None
+
+
+def _claimant_alive(claimed_by):
+    """True/False when psutil can say whether the claiming runner is still an api.runner
+    process on THIS machine; None when it cannot tell (no psutil, foreign claim format)."""
+    pid = _claimant_pid(claimed_by)
+    if pid is None or _psutil is None:
+        return None
+    try:
+        if not _psutil.pid_exists(pid):
+            return False
+        cmd = " ".join(_psutil.Process(pid).cmdline() or [])
+        return ("api.runner" in cmd) or ("runner.py" in cmd)
+    except _psutil.NoSuchProcess:
+        return False
+    except Exception:
+        return None
+
+
+def orphan_verdict(heartbeat_age_min, update_age_min, claimant_alive):
+    """Pure decision for one status='running' doc. Returns (dead, reason)."""
+    if heartbeat_age_min is not None:
+        if claimant_alive is False:
+            return True, f"claiming runner process is gone (heartbeat {heartbeat_age_min:.0f} min old)"
+        if heartbeat_age_min >= ORPHAN_HB_STALE_MIN:
+            return True, f"heartbeat stopped {heartbeat_age_min:.0f} min ago"
+        return False, "heartbeat fresh"
+    # legacy claim - no heartbeat field on the doc
+    if claimant_alive is False:
+        return True, "claiming runner process is gone (claim carries no heartbeat)"
+    if claimant_alive is True:
+        return False, "claiming runner alive (legacy claim without heartbeat)"
+    if update_age_min is not None and update_age_min >= ORPHAN_LEGACY_STALE_MIN:
+        return True, f"no write for {update_age_min:.0f} min"
+    return False, "cannot tell yet"
+
 
 def process_job(job: dict, progress_cb=None) -> dict:
 
@@ -1340,6 +1410,21 @@ class FirestoreQueue:
                     # STUDIES board can say "repeat of run N" without anyone eyeballing it.
                     # The owner-facing WARNING-BEFORE-SPENDING-20-MINUTES lives in the web
                     # Builder, where there IS someone to ask.
+                    # ── FREE-MEMORY GUARD (2026-09-07) ─────────────────────────────
+                    # Several runners now drain this queue side by side (primary + the
+                    # _run_worker.vbs workers). A 1-minute validate holds ~1.2 GB, and the
+                    # box also carries NinjaTrader, TradingView and Chrome, so each runner
+                    # refuses to claim more work while free RAM is under the floor.
+                    if _psutil is not None:
+                        try:
+                            _avail = _psutil.virtual_memory().available
+                        except Exception:
+                            _avail = None
+                        if _avail is not None and _avail < MIN_FREE_MEM_BYTES:
+                            log(f"[mem] {_avail / 1024 ** 3:.1f} GiB free is under the "
+                                f"{MIN_FREE_MEM_BYTES / 1024 ** 3:.1f} GiB floor - leaving "
+                                f"{snap.id} queued this tick")
+                            break
                     dup_note = None
                     dup_match = None
                     _dup_patch = None
@@ -1372,7 +1457,8 @@ class FirestoreQueue:
                     try:
                         _opt = self.db.write_option(last_update_time=snap.update_time)
                         ref.update({"status": "running", "progress": 0,
-                                    "startedAt": _now_utc(), "claimedBy": _WORKER_ID},
+                                    "startedAt": _now_utc(), "claimedBy": _WORKER_ID,
+                                    "heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()},
                                    option=_opt)
                     except Exception as _ce:
                         log(f"  skip {snap.id} - claimed by another worker ({type(_ce).__name__})")
@@ -1387,13 +1473,18 @@ class FirestoreQueue:
                     log(f"  running {snap.id}: {job.get('type','backtest')} "
                         f"{job.get('strategy')} {job.get('instrument')}…")
                     last = [0.0]
+                    last_pct = [-1]
 
-                    # The progress callback doubles as the STOP/PAUSE check: at the same
-                    # ~1.5s cadence it reads the job's `control` flag. All control I/O is
+                    # The progress callback doubles as the STOP/PAUSE check: every
+                    # CTRL_CHECK_SEC it reads the job's `control` flag. All control I/O is
                     # fail-safe -> any error falls through to normal running, so a flaky
                     # read can never break a backtest, only miss one stop/pause check.
-                    def cb(done, total, _ref=ref, _last=last):
-                        if not total or time.time() - _last[0] <= 1.5:
+                    # The PROGRESS write only happens when the whole-percent figure moved
+                    # (2026-09-07): with several jobs running at once, a same-value write
+                    # every 1.5 s was thousands of billed web reads an hour per job for
+                    # nothing the screen could show.
+                    def cb(done, total, _ref=ref, _last=last, _lp=last_pct):
+                        if not total or time.time() - _last[0] <= CTRL_CHECK_SEC:
                             return
                         _last[0] = time.time()
                         try:
@@ -1412,16 +1503,32 @@ class FirestoreQueue:
                                 ctrl = None
                         if ctrl == "stop":
                             raise _JobStopped()
-                        try:
-                            _ref.update({"status": "running", "progress": round(100 * done / total)})
-                        except Exception:
-                            pass
+                        _pct = round(100 * done / total)
+                        if _pct != _lp[0]:
+                            _lp[0] = _pct
+                            try:
+                                _ref.update({"status": "running", "progress": _pct})
+                            except Exception:
+                                pass
+                    # HEARTBEAT: its own thread, so liveness never depends on how often
+                    # the engine reports progress. Stops the moment the job returns.
+                    _hb_stop = threading.Event()
+
+                    def _hb(_ref=ref, _stop=_hb_stop):
+                        while not _stop.wait(HEARTBEAT_SEC):
+                            try:
+                                _ref.update({"heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()})
+                            except Exception:
+                                pass
+                    threading.Thread(target=_hb, daemon=True, name=f"hb-{snap.id[:8]}").start()
                     _t0 = time.time()
                     try:
                         patch = process_job(job, cb)
                     except _JobStopped:
                         patch = {"status": "cancelled", "finishedAt": time.time()}
                         log(f"  cancelled {snap.id} (stopped mid-run)")
+                    finally:
+                        _hb_stop.set()
                     _elapsed = time.time() - _t0
                     if patch.get("status") == "done":
                         patch["elapsed_s"] = round(_elapsed, 2)
@@ -1454,6 +1561,61 @@ class FirestoreQueue:
                 ref.update({"status": "running", "startedAt": _now_utc()})
                 ref.update(process_job(snap.to_dict() or {}))
                 n += 1
+        return n
+
+    def sweep_orphans(self, log=print, tag="sweep", dry_run=False):
+        """Put every DEAD status='running' job back on the queue. Dead = orphan_verdict()
+        says so from the doc's heartbeat, the claiming runner's liveness and, for claims
+        made by older code, the doc's last write. Own claims are skipped outright. Never
+        raises - a sweep that could stop the runner is worse than a stranded job."""
+        from google.cloud.firestore_v1.base_query import FieldFilter as _FF
+        n = 0
+        now = _now_utc()
+
+        def _age_min(ts):
+            if ts is None:
+                return None
+            try:
+                if isinstance(ts, (int, float)):
+                    ts = datetime.datetime.fromtimestamp(float(ts), datetime.timezone.utc)
+                if getattr(ts, "tzinfo", None) is None:
+                    ts = ts.replace(tzinfo=datetime.timezone.utc)
+                return (now - ts).total_seconds() / 60.0
+            except Exception:
+                return None
+        for uid in (self.allow or []):
+            col = self.db.collection("users").document(uid).collection(self.col)
+            for snap in col.where(filter=_FF("status", "==", "running")).stream():
+                j = snap.to_dict() or {}
+                if j.get("claimedBy") == _WORKER_ID:
+                    continue          # mine, and I am alive
+                hb = _age_min(j.get("heartbeat_at"))
+                upd = _age_min(getattr(snap, "update_time", None))
+                dead, why = orphan_verdict(hb, upd, _claimant_alive(j.get("claimedBy")))
+                if dry_run:
+                    log(f"[orphan:{tag}] {snap.id} {j.get('strategy')} {j.get('progress')}% "
+                        f"claimedBy={j.get('claimedBy')} hb={hb if hb is None else round(hb, 1)} min "
+                        f"upd={upd if upd is None else round(upd, 1)} min -> "
+                        f"{'DEAD' if dead else 'alive'}: {why}")
+                    if dead:
+                        n += 1
+                    continue
+                if not dead:
+                    continue
+                try:
+                    snap.reference.update({
+                        "status": "queued", "progress": 0,
+                        "orphan_requeued_at": now,
+                        "orphan_note": (f"requeued by the {tag} sweep: {why}; the job "
+                                        f"was at {j.get('progress')}% under "
+                                        f"{j.get('claimedBy')}")})
+                    n += 1
+                    log(f"[orphan] requeued {snap.id}: {j.get('type', 'backtest')} "
+                        f"{j.get('strategy')} ({why}, was {j.get('progress')}%)")
+                except Exception as e:
+                    log(f"[orphan] requeue of {snap.id} failed: {type(e).__name__}: {e}")
+        if n:
+            log(f"[orphan] {tag}: {n} stranded job(s) {'would be' if dry_run else ''} put back on the queue")
         return n
 
 
@@ -1663,6 +1825,11 @@ def main(argv=None):
         q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills,
                            webull_keys=a.webull_keys)
         print(f"EDGELOG runner v{_web_version()}: Firestore '{a.collection}', allow {a.allow_uid or 'ALL (no uid filter!)'}")
+        print(f"role: {('WORKER ' + str(os.environ.get('EDGELOG_WORKER'))) if _IS_WORKER else 'PRIMARY'} "
+              f"(pid {os.getpid()}) - side duties {'OFF' if _IS_WORKER else 'ON'}, orphan sweep every "
+              f"{ORPHAN_SWEEP_SEC:g}s, heartbeat every {HEARTBEAT_SEC:g}s, "
+              f"free-RAM floor {MIN_FREE_MEM_BYTES / 1024 ** 3:.1f} GiB"
+              f"{'' if _psutil else ' (psutil missing: timestamp rules only)'}")
         if a.nt_fills:
             _present = os.path.exists(a.nt_fills)
             print(f"NinjaTrader trade sync: {a.nt_fills} "
@@ -1729,10 +1896,11 @@ def main(argv=None):
             else:
                 print(f"queue listener: FAILED -> polling every {a.interval:g}s")
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
+        next_sweep = time.time() + ORPHAN_SWEEP_SEC   # periodic orphan sweep (see sweep_orphans)
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
         # The NT bridge watchdog runs on its OWN thread now -- see
         # _bridge_watchdog_thread for why. Nothing in the main loop republishes it.
-        if a.firestore:
+        if a.firestore and not _IS_WORKER:
             _bw_uids = [u.strip() for u in (a.allow_uid or []) if u and u.strip()]
             if _bw_uids:
                 threading.Thread(target=_bridge_watchdog_thread,
@@ -1743,7 +1911,7 @@ def main(argv=None):
         # the nt-bridge watchdog above: it must keep ticking every ~5s during the market
         # session regardless of how long a backtest job is holding the main loop.
         # SHADOW ONLY -- see that module's docstring; no order is ever sent anywhere.
-        if a.firestore and _qqq_exec is not None:
+        if a.firestore and _qqq_exec is not None and not _IS_WORKER:
             _qe_uids = [u.strip() for u in (a.allow_uid or []) if u and u.strip()]
             if _qe_uids:
                 threading.Thread(target=_qqq_exec.qqq_exec_thread,
@@ -1771,65 +1939,20 @@ def main(argv=None):
             except Exception as e:
                 print(f"[webull] startup skipped: {type(e).__name__}: {e}")
             next_trades = time.time() + a.trades_sec
-        if a.auto_pine:
+        if a.auto_pine and not _IS_WORKER:
             try:
                 if auto_pine(provider=a.pine_provider) and a.firestore:
                     q.sync_meta()
             except Exception as e:
                 print(f"[auto-pine] skipped: {type(e).__name__}: {e}")
-        # ── ORPHAN SWEEP (2026-08-26) ────────────────────────────────────────────
-        # A runner restart while a job is mid-flight leaves that job's doc on
-        # status='running' forever: the worker is gone, nothing ever finishes it, and
-        # the web shows a job frozen at whatever progress it last wrote. It has now bitten
-        # three times (2026-08-05 one job at 85% for ~12h; 2026-08-23 three ENGU-Q
-        # validates sat "running" for THREE DAYS before anyone noticed). Every previous
-        # fix was manual: flip the doc back to 'queued' by hand.
-        #
-        # Liveness signal, with no new bookkeeping: a live job rewrites its own doc every
-        # ~1.5s through the progress callback, so Firestore's server-side update_time is
-        # fresh. An orphan's doc goes cold the moment its worker dies. Anything that has
-        # not touched its doc in ORPHAN_STALE_MIN minutes is dead, so it is requeued.
-        #
-        # Deliberately conservative, because the cost of a false positive is a job running
-        # TWICE: it runs ONCE at startup only (never in the poll loop, where a second
-        # runner could be racing), the threshold is a full hour, every requeue is logged
-        # loudly, and the reason is written onto the doc so the history is not silent.
-        ORPHAN_STALE_MIN = 60.0
+        # ── ORPHAN SWEEP: at boot, then every ORPHAN_SWEEP_SEC in the loop below. The
+        #   verdict lives in orphan_verdict() next to the LIVENESS notes at the top.
         if a.firestore:
             try:
-                from google.cloud.firestore_v1.base_query import FieldFilter as _FF
-                import datetime as _dt
-                _now = _dt.datetime.now(_dt.timezone.utc)
-                _n = 0
-                for _uid in (a.allow_uid or []):
-                    _col = q.db.collection("users").document(_uid).collection(a.collection)
-                    for _snap in _col.where(filter=_FF("status", "==", "running")).stream():
-                        _ut = getattr(_snap, "update_time", None)
-                        _age = None
-                        if _ut is not None:
-                            try:
-                                _age = (_now - _ut.replace(tzinfo=_dt.timezone.utc)).total_seconds() / 60.0
-                            except Exception:
-                                _age = (_now - _dt.datetime.fromtimestamp(
-                                    _ut.timestamp(), _dt.timezone.utc)).total_seconds() / 60.0
-                        if _age is None or _age < ORPHAN_STALE_MIN:
-                            continue
-                        _j = _snap.to_dict() or {}
-                        _snap.reference.update({
-                            "status": "queued", "progress": 0,
-                            "orphan_requeued_at": _now,
-                            "orphan_note": (f"requeued on runner start: doc had been on "
-                                            f"status='running' with no write for "
-                                            f"{_age:.0f} min, so its worker was gone")})
-                        _n += 1
-                        print(f"[orphan] requeued {_snap.id}: {_j.get('type','backtest')} "
-                              f"{_j.get('strategy')} (dead {_age:.0f} min, "
-                              f"was {_j.get('progress')}%)", flush=True)
-                if _n:
-                    print(f"[orphan] {_n} stranded job(s) put back on the queue", flush=True)
+                q.sweep_orphans(log=print, tag="boot")
             except Exception as _e:
                 # Never let the sweep stop the runner coming up.
-                print(f"[orphan] sweep skipped: {type(_e).__name__}: {_e}", flush=True)
+                print(f"[orphan] boot sweep skipped: {type(_e).__name__}: {_e}", flush=True)
         print("watching… (Ctrl+C to stop)")
         while True:
             # Decide WHY (if at all) we should hit the queued-docs query this tick:
@@ -1861,6 +1984,12 @@ def main(argv=None):
                     if done:
                         print(f"[backstop] found {done} job(s)/command(s) the "
                               f"listener missed -- channel may be stale")
+            if a.firestore and time.time() >= next_sweep:
+                try:
+                    q.sweep_orphans(log=print, tag="sweep")
+                except Exception as _e:
+                    print(f"[orphan] sweep skipped: {type(_e).__name__}: {_e}")
+                next_sweep = time.time() + ORPHAN_SWEEP_SEC
             if a.refresh_min > 0 and time.time() >= next_refresh:
                 _refresh(); next_refresh = time.time() + a.refresh_min * 60
             if a.firestore and a.trades_sec > 0 and time.time() >= next_trades:
@@ -1893,7 +2022,7 @@ def main(argv=None):
             # Data-freshness watchdog. Hourly, one tiny doc per uid — the NQ 10s capture
             # died 2026-08-11 and the Yahoo top-up had been off for six weeks, and neither
             # surfaced anywhere the owner looks. See api/data_health.py.
-            if a.firestore and time.time() >= next_health:
+            if a.firestore and not _IS_WORKER and time.time() >= next_health:
                 try:
                     from api import data_health
                     # allow_uid is argparse action="append" -> a LIST; .split() on it
@@ -1909,7 +2038,7 @@ def main(argv=None):
             # per-strategy fingerprint (instrument/account/max qty). Notify-only by design;
             # see api/nt_exec_review.py's module docstring for the escalation path. Runs on
             # its own tighter cadence than BRIDGE_SEC since fills need to feel immediate.
-            if time.time() >= next_exec_review:
+            if not _IS_WORKER and time.time() >= next_exec_review:
                 try:
                     from api import nt_exec_review
                     nt_exec_review.publish()
@@ -1938,7 +2067,7 @@ def main(argv=None):
                         now_et.weekday() < 5
                         and (now_et.hour, now_et.minute) >= PREFLIGHT_START_HHMM
                         and (now_et.hour, now_et.minute) <= PREFLIGHT_END_HHMM)
-                    if in_window and preflight_done_date != now_et.date():
+                    if in_window and preflight_done_date != now_et.date() and not _IS_WORKER:
                         from api import nt_preflight
                         for _uid in (a.allow_uid or []):
                             if _uid and _uid.strip():
@@ -1955,7 +2084,7 @@ def main(argv=None):
                 in_backup_window = (
                     (now_local.hour, now_local.minute) >= BACKUP_START_HHMM
                     and (now_local.hour, now_local.minute) <= BACKUP_END_HHMM)
-                if in_backup_window and backup_done_date != now_local.date():
+                if in_backup_window and backup_done_date != now_local.date() and not _IS_WORKER:
                     from api import nt_backup
                     nt_backup.run_nightly()
                     backup_done_date = now_local.date()
