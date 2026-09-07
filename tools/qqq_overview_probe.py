@@ -3,17 +3,38 @@
 tools/qqq_overview_probe.py -- verification probe for the QQQ SHADOW BOOK overview,
 extended 2026-09-06 (round 3) for the readiness gate / event timeline / trade drawer /
 real-price columns / signals strip / notional+latency / legend toggle / CSV export /
-sticky rail / narrow-layout additions.
+sticky rail / narrow-layout additions. Extended again 2026-09-07 for the mono-theme
+ATTENTION-colour work (--attn-red/--attn-amber/--attn-ok): every alert on this tab
+used to render as flat grey under [data-theme="mono"] because it borrowed the themed
+--red/--green/--yellow vars, which mono flattens to greyscale.
 
-Renders augurSub='qqqpaper' against four fixtures --
+Renders augurSub='qqqpaper' against these fixtures --
   real    : the real ~2-trade doc (older shape, exercises the oldest degrade path)
   mock    : a synthetic ~40-trade / 3-leg doc carrying every new field, readiness
             NOT ready (3 missing items), events of every kind, 12 days of signals,
             3 repriced trades, latency p95 > 10s
   ready   : the same book with every readiness gate passing
   degrade : the same book with every new field stripped out
+  alarms  : every alert condition ON at once (breaker tripped, kill active, feed
+            stale, NT parity failed>0 incl. a parity_ok:false trade, ratio_health
+            warn, latency p95 14.8s, readiness NOT ready, an invalid/low-uptime
+            feed day, today's P&L within 20% of the daily loss limit)
+  healthy : every alert condition OFF/clean -- used to prove nothing gets painted
+            with the attention colours when there is nothing to flag
 at two widths (1400px and 800px), and drives the trade-drawer click and the
 equity-chart legend-toggle click inside the iframe before reading the DOM back out.
+
+The 'alarms' and 'healthy' cases are additionally rendered under
+[data-theme="mono"] (via prefs.theme='mono';applyTheme()) and the computed CSS
+colour of every element whose inline style references var(--attn-red) /
+var(--attn-amber) / var(--attn-ok) is read back with getComputedStyle so the check
+is against actual rendered pixels, not source text: on 'alarms' those elements must
+NOT be greyish (R/G/B channels must differ meaningfully -- mono's other vars are
+literal greys like #f0f0f0/#4d4d4d/#999999 where the channels are equal), and on
+'healthy' there must be zero var(--attn-red)/var(--attn-amber) elements (var(--attn-ok)
+elements are still expected -- READY/ALL MATCHED are deliberately painted attn-ok even
+when healthy). A default-theme 'alarms' pass is also rendered to confirm the swap
+to CSS-variable attention colours did not regress the non-mono look.
 
 Not wired into wt.py ship (ad hoc verification tool), but written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
@@ -62,6 +83,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <pre id="o"></pre>
 <script>
 var FIX=__FIX__;
+var THEME=__THEME__;
 (function(){
   var reported=false;
   function report(why){
@@ -81,12 +103,20 @@ var FIX=__FIX__;
         +"window._qeProbeErrors=[];"
         +"window.onerror=function(m,s,l,c,e){window._qeProbeErrors.push(String(m));};"
         +"currentUser=currentUser||{uid:'probe-uid'};"
+        // THEME -- set BEFORE renderApp() so [data-theme="..."] CSS rules are in
+        // effect for the very first paint we read back. renderApp() itself never
+        // calls applyTheme(), so this sticks.
+        // NOTE: index.html declares "let prefs=..." at top scope -- that is a lexical
+        // binding, NOT a window.prefs property, so it must be assigned directly here
+        // (via eval sharing the iframe's global lexical scope), not through `window.`.
+        +"try{prefs.theme="+JSON.stringify(THEME)+";applyTheme();}catch(e){try{document.documentElement.setAttribute('data-theme',"+JSON.stringify(THEME)+");}catch(e2){}}"
         +"window._qqqExec="+JSON.stringify(FIX)+";"
         +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
         +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
         +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
         +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+      out.themeApplied=d.documentElement.getAttribute('data-theme');
 
       // ── drive the trade-drawer click (row 0) then read the DOM, then close it again ──
       out.drawerClick=w.eval("(function(){try{"
@@ -164,6 +194,40 @@ var FIX=__FIX__;
       out.hasRepriceNote=out.html.indexOf('re-priced nightly from real QQQ')>=0;
       var ovShellCS=d.querySelector('.ov-shell')?w.getComputedStyle(d.querySelector('.ov-shell')):null;
       out.ovShellDisplay=ovShellCS?ovShellCS.display:null;
+
+      // ── ATTENTION-colour check (2026-09-07) -- read ACTUAL COMPUTED colour, not
+      // source text, so this proves the pixels, not just that the code path ran.
+      function parseRgb(s){
+        s=s||'';
+        var m=/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s);
+        if(m)return [+m[1],+m[2],+m[3]];
+        // a color-mix() result can serialize as e.g. "color(srgb 0.54 0.40 0.15)"
+        // (0-1 floats) instead of rgb() -- scale up to 0-255 so the grey check works.
+        var m2=/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(s);
+        if(m2)return [Math.round(+m2[1]*255),Math.round(+m2[2]*255),Math.round(+m2[3]*255)];
+        return null;
+      }
+      function isGreyish(rgb){
+        if(!rgb)return true;
+        var mx=Math.max(rgb[0],rgb[1],rgb[2]),mn=Math.min(rgb[0],rgb[1],rgb[2]);
+        return (mx-mn)<=6; // mono's other vars are literal greys -- equal channels
+      }
+      function scanAttn(varName){
+        // a bar/dot may carry the attn colour ONLY as its background (e.g. a feed-uptime
+        // bar), so check color, border AND background -- "coloured" if any one of the
+        // three is non-grey.
+        var sel='[style*="var(--'+varName+')"]';
+        var els=[].slice.call(d.querySelectorAll(sel));
+        return els.map(function(el){
+          var cs=w.getComputedStyle(el);
+          var c=parseRgb(cs.color), bc=parseRgb(cs.borderTopColor), bg=parseRgb(cs.backgroundColor);
+          return {colorGrey:isGreyish(c),borderGrey:isGreyish(bc),bgGrey:isGreyish(bg),
+            color:cs.color,borderColor:cs.borderTopColor,background:cs.backgroundColor,tag:el.tagName,cls:el.className||''};
+        });
+      }
+      out.attnRed=scanAttn('attn-red');
+      out.attnAmber=scanAttn('attn-amber');
+      out.attnOk=scanAttn('attn-ok');
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='QQQOVPROBE: '+JSON.stringify(out);
   }
@@ -175,12 +239,13 @@ var FIX=__FIX__;
 """
 
 
-def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400):
+def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, theme='dark'):
     pdir = os.path.join(root, '_qqqovprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
     ppath = os.path.join(pdir, 'probe_%s.html' % name)
     html = (PROBE_HTML.replace('__FIX__', json.dumps(fixture))
+            .replace('__THEME__', json.dumps(theme))
             .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -238,7 +303,8 @@ def main():
 
     fx = {}
     fixture_files = {'real': 'qqq_exec_real.json', 'mock': 'qqq_exec_mock.json',
-                      'ready': 'qqq_exec_mock_ready.json', 'degrade': 'qqq_exec_degrade.json'}
+                      'ready': 'qqq_exec_mock_ready.json', 'degrade': 'qqq_exec_degrade.json',
+                      'alarms': 'qqq_exec_alarms.json', 'healthy': 'qqq_exec_healthy.json'}
     for nm, fname in fixture_files.items():
         p = os.path.join(ROOT, 'tools', 'fixtures', fname)
         fx[nm] = json.load(io.open(p, encoding='utf-8'))
@@ -246,19 +312,23 @@ def main():
     out_dir = sys.argv[1] if len(sys.argv) > 1 else ROOT
 
     results = {}
-    # 1400px width: real, mock, ready, degrade. 800px width: mock only (plus a
+    # 1400px width: real, mock, ready, degrade, alarms(mono), healthy(mono),
+    # alarms(default theme, regression check). 800px width: mock only (plus a
     # degrade pass to prove the narrow layout doesn't break the emptiest doc).
     plan = [
-        ('mock_1400', 'mock', 1400, 900),
-        ('ready_1400', 'ready', 1400, 900),
-        ('real_1400', 'real', 1400, 900),
-        ('degrade_1400', 'degrade', 1400, 900),
-        ('mock_800', 'mock', 800, 1000),
-        ('degrade_800', 'degrade', 800, 1000),
+        ('mock_1400', 'mock', 1400, 900, 'dark'),
+        ('ready_1400', 'ready', 1400, 900, 'dark'),
+        ('real_1400', 'real', 1400, 900, 'dark'),
+        ('degrade_1400', 'degrade', 1400, 900, 'dark'),
+        ('alarms_mono', 'alarms', 1400, 1400, 'mono'),
+        ('healthy_mono', 'healthy', 1400, 1400, 'mono'),
+        ('alarms_default', 'alarms', 1400, 1400, 'dark'),
+        ('mock_800', 'mock', 800, 1000, 'dark'),
+        ('degrade_800', 'degrade', 800, 1000, 'dark'),
     ]
-    for case_name, fixture_name, w, h in plan:
+    for case_name, fixture_name, w, h, theme in plan:
         shot = os.path.join(out_dir, 'qqq_overview_%s.png' % case_name)
-        results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, shot, width=w, height=h)
+        results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, shot, width=w, height=h, theme=theme)
         print('%s shot -> %s' % (case_name, shot))
 
     for nm, r in results.items():
@@ -345,6 +415,51 @@ def main():
     if not r800.get('err'):
         if r800.get('ovShellDisplay') != 'block':
             fails.append('mock_800: .ov-shell did not switch to the stacked (display:block) narrow layout at 800px')
+
+    # ── ATTENTION-colour checks (2026-09-07 mono-theme work) ──
+    r_alarms_mono = results.get('alarms_mono', {})
+    if not r_alarms_mono.get('err'):
+        if r_alarms_mono.get('themeApplied') != 'mono':
+            fails.append('alarms_mono: data-theme was not actually "mono" at render time')
+        redEls = r_alarms_mono.get('attnRed') or []
+        amberEls = r_alarms_mono.get('attnAmber') or []
+        okEls = r_alarms_mono.get('attnOk') or []
+        if not redEls:
+            fails.append('alarms_mono: no element used var(--attn-red) even though every red alarm is ON')
+        if not amberEls:
+            fails.append('alarms_mono: no element used var(--attn-amber) even though ratio_health.warn/NOT READY/etc are ON')
+        if not okEls:
+            fails.append('alarms_mono: no element used var(--attn-ok) (expected on a healthy sub-signal, e.g. a passing readiness check)')
+        for label, els in (('attn-red', redEls), ('attn-amber', amberEls), ('attn-ok', okEls)):
+            for i, e in enumerate(els):
+                if e.get('colorGrey') and e.get('borderGrey') and e.get('bgGrey'):
+                    fails.append('alarms_mono: a var(--%s) element rendered GREY under mono (color=%s border=%s, tag=%s)'
+                                  % (label, e.get('color'), e.get('borderColor'), e.get('tag')))
+
+    r_healthy_mono = results.get('healthy_mono', {})
+    if not r_healthy_mono.get('err'):
+        if r_healthy_mono.get('themeApplied') != 'mono':
+            fails.append('healthy_mono: data-theme was not actually "mono" at render time')
+        redEls = r_healthy_mono.get('attnRed') or []
+        amberEls = r_healthy_mono.get('attnAmber') or []
+        if redEls:
+            fails.append('healthy_mono: %d element(s) painted var(--attn-red) on a fixture with every alarm OFF' % len(redEls))
+        if amberEls:
+            fails.append('healthy_mono: %d element(s) painted var(--attn-amber) on a fixture with every alarm OFF' % len(amberEls))
+        # attn-ok elements ARE expected here (READY / ALL MATCHED are painted attn-ok
+        # even when healthy) -- just confirm they are not accidentally grey.
+        for e in (r_healthy_mono.get('attnOk') or []):
+            if e.get('colorGrey') and e.get('borderGrey') and e.get('bgGrey'):
+                fails.append('healthy_mono: a var(--attn-ok) element rendered GREY under mono (color=%s border=%s)'
+                              % (e.get('color'), e.get('borderColor')))
+
+    r_alarms_default = results.get('alarms_default', {})
+    if r_alarms_default.get('err'):
+        fails.append('alarms_default: %s' % r_alarms_default['err'])
+    elif r_alarms_default.get('call') != 'OK':
+        fails.append('alarms_default: renderApp threw under the default theme -- %s' % r_alarms_default.get('call'))
+    elif not r_alarms_default.get('hasOvShell'):
+        fails.append('alarms_default: no .ov-shell rendered under the default theme (regression)')
 
     if fails:
         print('QQQOVPROBE: FAIL')

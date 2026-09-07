@@ -1,0 +1,2789 @@
+{
+ "updated_at": "2026-09-04 15:59:50",
+ "live_from": "2026-07-06",
+ "kill": true,
+ "feed_stale": true,
+ "breaker_tripped": true,
+ "mode": "SHADOW",
+ "calib": {
+  "ratio": 4.02,
+  "source": "nq_qqq_ratio.json",
+  "at": "2026-09-04 09:31:00"
+ },
+ "rails": {
+  "slippage_per_share": 0.01,
+  "kill_file": "C:\\EdgeLog\\qqq_exec\\KILL",
+  "max_shares_per_leg": 10,
+  "daily_loss_limit_usd": 150,
+  "session": {
+   "open": "09:31",
+   "flat_by": "16:00",
+   "last_entry": "15:55"
+  },
+  "shares": {
+   "ORB": 5,
+   "NOISE": 5,
+   "ENGUQ": 5
+  }
+ },
+ "positions": {
+  "ORB": {
+   "side": "long",
+   "shares": "5",
+   "entry_px": "498.32",
+   "entry_ts": "2026-09-14 15:41:20",
+   "unrealized": "18.40"
+  },
+  "ENGUQ": {
+   "side": "short",
+   "shares": "5",
+   "entry_px": "505.10",
+   "entry_ts": "2026-09-04 11:15:00",
+   "unrealized": "-6.75"
+  }
+ },
+ "today": {
+  "trades": [],
+  "orders": [
+   {
+    "ts_et": "2026-09-15 09:31:04",
+    "leg": "ORB",
+    "action": "ENTER",
+    "side": "short",
+    "shares": 5,
+    "nq_px": 20510.25,
+    "qqq_px": 500.5,
+    "px_source": "nq_ratio",
+    "reason": "breakout down",
+    "latency_s": 1.1
+   },
+   {
+    "ts_et": "2026-09-15 10:14:22",
+    "leg": "ENGUQ",
+    "action": "ENTER",
+    "side": "long",
+    "shares": 5,
+    "nq_px": 20488.0,
+    "qqq_px": 499.7,
+    "px_source": "nq_ratio",
+    "reason": "engulfing trendline break",
+    "latency_s": 2.4
+   },
+   {
+    "ts_et": "2026-09-15 20:05:00",
+    "leg": "ENGUQ",
+    "action": "REFUSED",
+    "side": "long",
+    "shares": 0,
+    "nq_px": 20490.5,
+    "qqq_px": null,
+    "px_source": "nq_ratio",
+    "reason": "OOS -- NT ENGU-Q traded outside the QQQ session, not mirrored",
+    "latency_s": null
+   }
+  ],
+  "realized_pnl": -100.0,
+  "unrealized_pnl": -28.0
+ },
+ "trades_all": [
+  {
+   "entry_ts": "2026-09-14 15:37:38",
+   "exit_ts": "2026-09-14 15:41:20",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "500.047",
+   "exit_px": "497.971",
+   "pnl": "20.76",
+   "nq_pnl_points": "8.3",
+   "leg": "ORB",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-09-14 15:37:38",
+   "nt_exit_ts": "2026-09-14 15:41:20",
+   "nt_entry_px": 20501.93,
+   "nt_exit_px": 20416.81,
+   "nt_qty": 2,
+   "nt_points": 85.12,
+   "expected_usd": 20.62,
+   "track_err_usd": 24.7,
+   "parity_ok": false,
+   "parity_note": "shadow fill outside tolerance",
+   "nt_mult": 20,
+   "nt_notional_usd": 820077.2,
+   "shadow_notional_usd": 5000.47,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.31,
+   "real_entry_px": 500.041,
+   "real_exit_px": 497.947,
+   "real_pnl": 19.81,
+   "slip_entry_ps": -0.006,
+   "slip_exit_ps": -0.024,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-09-11 12:42:24",
+   "exit_ts": "2026-09-11 13:43:47",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "448.288",
+   "exit_px": "445.378",
+   "pnl": "14.55",
+   "nq_pnl_points": "11.64",
+   "leg": "NOISE",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-09-11 12:42:24",
+   "nt_exit_ts": "2026-09-11 13:43:47",
+   "nt_entry_px": 18379.81,
+   "nt_exit_px": 18260.5,
+   "nt_qty": 1,
+   "nt_points": 119.31,
+   "expected_usd": 14.27,
+   "track_err_usd": 0.28,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 367596.2,
+   "shadow_notional_usd": 2241.44,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.82,
+   "real_entry_px": 448.323,
+   "real_exit_px": 445.402,
+   "real_pnl": 13.47,
+   "slip_entry_ps": 0.035,
+   "slip_exit_ps": 0.024,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced -- wide bar, using VWAP proxy"
+  },
+  {
+   "entry_ts": "2026-09-10 14:54:07",
+   "exit_ts": "2026-09-10 15:46:57",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "513.8649",
+   "exit_px": "521.7189",
+   "pnl": "-39.27",
+   "nq_pnl_points": "-31.42",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-09-10 14:54:07",
+   "nt_exit_ts": "2026-09-10 15:46:57",
+   "nt_entry_px": 21068.46,
+   "nt_exit_px": 21390.47,
+   "nt_qty": 1,
+   "nt_points": -322.01,
+   "expected_usd": -39.15,
+   "track_err_usd": 0.12,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 421369.2,
+   "shadow_notional_usd": 2569.32,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.22,
+   "real_entry_px": 513.834,
+   "real_exit_px": 521.728,
+   "real_pnl": -40.6,
+   "slip_entry_ps": -0.0309,
+   "slip_exit_ps": 0.0091,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced clean, no gap"
+  },
+  {
+   "entry_ts": "2026-09-09 13:43:46",
+   "exit_ts": "2026-09-09 14:47:47",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "485.0542",
+   "exit_px": "470.1702",
+   "pnl": "74.42",
+   "nq_pnl_points": "59.54",
+   "leg": "ORB",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-09-09 13:43:46",
+   "nt_exit_ts": "2026-09-09 14:47:47",
+   "nt_entry_px": 19887.22,
+   "nt_exit_px": 19276.98,
+   "nt_qty": 1,
+   "nt_points": 610.24,
+   "expected_usd": 92.84,
+   "track_err_usd": 18.42,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 397744.4,
+   "shadow_notional_usd": 2425.27,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.6,
+   "real_entry_px": 485.074,
+   "real_exit_px": 470.19,
+   "real_pnl": 73.29,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-09-07 12:22:46",
+   "exit_ts": "2026-09-07 13:50:20",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "515.5041",
+   "exit_px": "516.8171",
+   "pnl": "13.13",
+   "nq_pnl_points": "5.25",
+   "leg": "NOISE",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-09-07 12:22:46",
+   "nt_exit_ts": "2026-09-07 13:50:20",
+   "nt_entry_px": 21135.67,
+   "nt_exit_px": 21189.5,
+   "nt_qty": 2,
+   "nt_points": 53.83,
+   "expected_usd": 13.16,
+   "track_err_usd": 0.03,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 845426.8,
+   "shadow_notional_usd": 5155.04,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.9,
+   "real_entry_px": 515.524,
+   "real_exit_px": 516.837,
+   "real_pnl": 12.0,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-09-03 11:41:32",
+   "exit_ts": "2026-09-03 12:25:43",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "433.4324",
+   "exit_px": "420.8324",
+   "pnl": "63.0",
+   "nq_pnl_points": "50.4",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-09-03 11:41:32",
+   "nt_exit_ts": "2026-09-03 12:25:43",
+   "nt_entry_px": 17770.73,
+   "nt_exit_px": 17254.13,
+   "nt_qty": 1,
+   "nt_points": 516.6,
+   "expected_usd": 62.89,
+   "track_err_usd": 0.11,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 355414.6,
+   "shadow_notional_usd": 2167.16,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.42,
+   "real_entry_px": 433.452,
+   "real_exit_px": 420.852,
+   "real_pnl": 61.87,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-09-03 15:55:14",
+   "exit_ts": "2026-09-03 15:14:01",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "497.9904",
+   "exit_px": "503.5684",
+   "pnl": "27.89",
+   "nq_pnl_points": "22.31",
+   "leg": "ORB",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-09-03 15:55:14",
+   "nt_exit_ts": "2026-09-03 15:14:01",
+   "nt_entry_px": 20417.61,
+   "nt_exit_px": 20646.3,
+   "nt_qty": 1,
+   "nt_points": 228.69,
+   "expected_usd": 27.54,
+   "track_err_usd": 0.35,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 408352.2,
+   "shadow_notional_usd": 2489.95,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.56,
+   "real_entry_px": 498.01,
+   "real_exit_px": 503.588,
+   "real_pnl": 26.76,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-09-02 15:44:06",
+   "exit_ts": "2026-09-02 15:24:55",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "503.6877",
+   "exit_px": "505.6547",
+   "pnl": "-19.67",
+   "nq_pnl_points": "-7.87",
+   "leg": "NOISE",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-09-02 15:44:06",
+   "nt_exit_ts": "2026-09-02 15:24:55",
+   "nt_entry_px": 20651.2,
+   "nt_exit_px": 20731.84,
+   "nt_qty": 2,
+   "nt_points": -80.64,
+   "expected_usd": -19.66,
+   "track_err_usd": 0.01,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 826048.0,
+   "shadow_notional_usd": 5036.88,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.82,
+   "real_entry_px": 503.708,
+   "real_exit_px": 505.675,
+   "real_pnl": -20.8,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-09-02 12:01:11",
+   "exit_ts": "2026-09-02 13:47:59",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "503.7527",
+   "exit_px": "493.8347",
+   "pnl": "-49.59",
+   "nq_pnl_points": "-39.67",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-09-02 12:01:11",
+   "nt_exit_ts": "2026-09-02 13:47:59",
+   "nt_entry_px": 20653.86,
+   "nt_exit_px": 20247.22,
+   "nt_qty": 1,
+   "nt_points": -406.64,
+   "expected_usd": -49.96,
+   "track_err_usd": 0.37,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 413077.2,
+   "shadow_notional_usd": 2518.76,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.5,
+   "real_entry_px": 503.773,
+   "real_exit_px": 493.855,
+   "real_pnl": -50.72,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-31 15:02:57",
+   "exit_ts": "2026-08-31 15:22:13",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "405.0195",
+   "exit_px": "390.0235",
+   "pnl": "74.98",
+   "nq_pnl_points": "59.98",
+   "leg": "ORB",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-08-31 15:02:57",
+   "nt_exit_ts": "2026-08-31 15:22:13",
+   "nt_entry_px": 16605.8,
+   "nt_exit_px": 15990.96,
+   "nt_qty": 1,
+   "nt_points": 614.84,
+   "expected_usd": 74.93,
+   "track_err_usd": 0.05,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 332116.0,
+   "shadow_notional_usd": 2025.1,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.61,
+   "real_entry_px": 405.039,
+   "real_exit_px": 390.043,
+   "real_pnl": 73.85,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-27 09:07:04",
+   "exit_ts": "2026-08-27 10:56:44",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "488.9477",
+   "exit_px": "494.6517",
+   "pnl": "-28.52",
+   "nq_pnl_points": "-22.82",
+   "leg": "NOISE",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-08-27 09:07:04",
+   "nt_exit_ts": "2026-08-27 10:56:44",
+   "nt_entry_px": 20046.86,
+   "nt_exit_px": 20280.72,
+   "nt_qty": 1,
+   "nt_points": -233.86,
+   "expected_usd": -28.86,
+   "track_err_usd": 0.34,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 400937.2,
+   "shadow_notional_usd": 2444.74,
+   "notional_ratio": 0.0061,
+   "latency_s": 14.8,
+   "note": "one order chased -- feed briefly stale",
+   "real_entry_px": 488.968,
+   "real_exit_px": 494.672,
+   "real_pnl": -29.65,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11"
+  },
+  {
+   "entry_ts": "2026-08-25 09:40:27",
+   "exit_ts": "2026-08-25 10:53:17",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "458.6238",
+   "exit_px": "463.7778",
+   "pnl": "-51.54",
+   "nq_pnl_points": "-20.62",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-08-25 09:40:27",
+   "nt_exit_ts": "2026-08-25 10:53:17",
+   "nt_entry_px": 18803.58,
+   "nt_exit_px": 19014.89,
+   "nt_qty": 2,
+   "nt_points": -211.31,
+   "expected_usd": -51.87,
+   "track_err_usd": 0.33,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 752143.2,
+   "shadow_notional_usd": 4586.24,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.65,
+   "real_entry_px": 458.644,
+   "real_exit_px": 463.798,
+   "real_pnl": -52.67,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-24 10:17:18",
+   "exit_ts": "2026-08-24 11:38:13",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "431.7359",
+   "exit_px": "422.5699",
+   "pnl": "-45.83",
+   "nq_pnl_points": "-36.66",
+   "leg": "ORB",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-08-24 10:17:18",
+   "nt_exit_ts": "2026-08-24 11:38:13",
+   "nt_entry_px": 17701.17,
+   "nt_exit_px": 17325.37,
+   "nt_qty": 1,
+   "nt_points": -375.8,
+   "expected_usd": -45.89,
+   "track_err_usd": 0.06,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 354023.4,
+   "shadow_notional_usd": 2158.68,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.59,
+   "real_entry_px": 431.756,
+   "real_exit_px": 422.59,
+   "real_pnl": -46.96,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-20 11:18:10",
+   "exit_ts": "2026-08-20 12:28:53",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "511.9911",
+   "exit_px": "522.6631",
+   "pnl": "-53.36",
+   "nq_pnl_points": "-42.69",
+   "leg": "NOISE",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-08-20 11:18:10",
+   "nt_exit_ts": "2026-08-20 12:28:53",
+   "nt_entry_px": 20991.64,
+   "nt_exit_px": 21429.19,
+   "nt_qty": 1,
+   "nt_points": -437.55,
+   "expected_usd": -53.1,
+   "track_err_usd": 0.26,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 419832.8,
+   "shadow_notional_usd": 2559.96,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.72,
+   "real_entry_px": 512.011,
+   "real_exit_px": 522.683,
+   "real_pnl": -54.49,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-17 14:41:19",
+   "exit_ts": "2026-08-17 15:29:20",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "485.943",
+   "exit_px": "489.411",
+   "pnl": "34.68",
+   "nq_pnl_points": "13.87",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-08-17 14:41:19",
+   "nt_exit_ts": "2026-08-17 15:29:20",
+   "nt_entry_px": 19923.66,
+   "nt_exit_px": 20065.85,
+   "nt_qty": 2,
+   "nt_points": 142.19,
+   "expected_usd": 34.38,
+   "track_err_usd": 0.3,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 796946.4,
+   "shadow_notional_usd": 4859.43,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.75,
+   "real_entry_px": 485.963,
+   "real_exit_px": 489.431,
+   "real_pnl": 33.55,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-14 12:42:37",
+   "exit_ts": "2026-08-14 13:36:33",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "429.5458",
+   "exit_px": "425.6388",
+   "pnl": "-39.07",
+   "nq_pnl_points": "-15.63",
+   "leg": "ORB",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-08-14 12:42:37",
+   "nt_exit_ts": "2026-08-14 13:36:33",
+   "nt_entry_px": 17611.38,
+   "nt_exit_px": 17451.19,
+   "nt_qty": 2,
+   "nt_points": -160.19,
+   "expected_usd": -39.29,
+   "track_err_usd": 0.22,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 704455.2,
+   "shadow_notional_usd": 4295.46,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.03,
+   "real_entry_px": 429.566,
+   "real_exit_px": 425.659,
+   "real_pnl": -40.2,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-14 13:04:43",
+   "exit_ts": "2026-08-14 14:55:15",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "515.2935",
+   "exit_px": "519.0815",
+   "pnl": "18.94",
+   "nq_pnl_points": "15.15",
+   "leg": "NOISE",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-08-14 13:04:43",
+   "nt_exit_ts": "2026-08-14 14:55:15",
+   "nt_entry_px": 21127.03,
+   "nt_exit_px": 21282.34,
+   "nt_qty": 1,
+   "nt_points": 155.31,
+   "expected_usd": 19.04,
+   "track_err_usd": 0.1,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 422540.6,
+   "shadow_notional_usd": 2576.47,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.16,
+   "real_entry_px": 515.313,
+   "real_exit_px": 519.101,
+   "real_pnl": 17.81,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-10 14:31:09",
+   "exit_ts": "2026-08-10 15:12:18",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "514.8781",
+   "exit_px": "518.4351",
+   "pnl": "-35.57",
+   "nq_pnl_points": "-14.23",
+   "leg": "ENGUQ",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-08-10 14:31:09",
+   "nt_exit_ts": "2026-08-10 15:12:18",
+   "nt_entry_px": 21110.0,
+   "nt_exit_px": 21255.84,
+   "nt_qty": 2,
+   "nt_points": -145.84,
+   "expected_usd": -35.21,
+   "track_err_usd": 0.36,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 844400.0,
+   "shadow_notional_usd": 5148.78,
+   "notional_ratio": 0.0061,
+   "latency_s": 3.05,
+   "real_entry_px": 514.898,
+   "real_exit_px": 518.455,
+   "real_pnl": -36.7,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-07 10:24:00",
+   "exit_ts": "2026-08-07 11:24:16",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "457.763",
+   "exit_px": "468.689",
+   "pnl": "-54.63",
+   "nq_pnl_points": "-43.7",
+   "leg": "ORB",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-08-07 10:24:00",
+   "nt_exit_ts": "2026-08-07 11:24:16",
+   "nt_entry_px": 18768.28,
+   "nt_exit_px": 19216.25,
+   "nt_qty": 1,
+   "nt_points": -447.97,
+   "expected_usd": -54.57,
+   "track_err_usd": 0.06,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 375365.6,
+   "shadow_notional_usd": 2288.82,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.02,
+   "real_entry_px": 457.783,
+   "real_exit_px": 468.709,
+   "real_pnl": -55.76,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-07 09:59:48",
+   "exit_ts": "2026-08-07 10:54:15",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "478.2574",
+   "exit_px": "479.4794",
+   "pnl": "6.11",
+   "nq_pnl_points": "4.89",
+   "leg": "NOISE",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-08-07 09:59:48",
+   "nt_exit_ts": "2026-08-07 10:54:15",
+   "nt_entry_px": 19608.55,
+   "nt_exit_px": 19658.66,
+   "nt_qty": 1,
+   "nt_points": 50.11,
+   "expected_usd": 6.03,
+   "track_err_usd": 0.08,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 392171.0,
+   "shadow_notional_usd": 2391.29,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.51,
+   "real_entry_px": 478.277,
+   "real_exit_px": 479.499,
+   "real_pnl": 4.98,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-06 10:17:29",
+   "exit_ts": "2026-08-06 11:15:55",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "422.9908",
+   "exit_px": "426.0928",
+   "pnl": "15.51",
+   "nq_pnl_points": "12.41",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-08-06 10:17:29",
+   "nt_exit_ts": "2026-08-06 11:15:55",
+   "nt_entry_px": 17342.62,
+   "nt_exit_px": 17469.8,
+   "nt_qty": 1,
+   "nt_points": 127.18,
+   "expected_usd": 15.89,
+   "track_err_usd": 0.38,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 346852.4,
+   "shadow_notional_usd": 2114.95,
+   "notional_ratio": 0.0061,
+   "latency_s": 3.13,
+   "real_entry_px": 423.011,
+   "real_exit_px": 426.113,
+   "real_pnl": 14.38,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-04 15:46:03",
+   "exit_ts": "2026-08-04 15:43:41",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "479.0779",
+   "exit_px": "486.2439",
+   "pnl": "35.83",
+   "nq_pnl_points": "28.66",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-08-04 15:46:03",
+   "nt_exit_ts": "2026-08-04 15:43:41",
+   "nt_entry_px": 19642.19,
+   "nt_exit_px": 19936.0,
+   "nt_qty": 1,
+   "nt_points": 293.81,
+   "expected_usd": 35.47,
+   "track_err_usd": 0.36,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 392843.8,
+   "shadow_notional_usd": 2395.39,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.53,
+   "real_entry_px": 479.098,
+   "real_exit_px": 486.264,
+   "real_pnl": 34.7,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-08-03 13:30:15",
+   "exit_ts": "2026-08-03 14:50:30",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "464.7081",
+   "exit_px": "475.4141",
+   "pnl": "-53.53",
+   "nq_pnl_points": "-42.82",
+   "leg": "NOISE",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-08-03 13:30:15",
+   "nt_exit_ts": "2026-08-03 14:50:30",
+   "nt_entry_px": 19053.03,
+   "nt_exit_px": 19491.98,
+   "nt_qty": 1,
+   "nt_points": -438.95,
+   "expected_usd": -53.24,
+   "track_err_usd": 0.29,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 381060.6,
+   "shadow_notional_usd": 2323.54,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.8,
+   "real_entry_px": 464.728,
+   "real_exit_px": 475.434,
+   "real_pnl": -54.66,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-31 09:55:21",
+   "exit_ts": "2026-07-31 10:04:32",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "408.5192",
+   "exit_px": "405.0012",
+   "pnl": "-17.59",
+   "nq_pnl_points": "-14.07",
+   "leg": "ENGUQ",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-07-31 09:55:21",
+   "nt_exit_ts": "2026-07-31 10:04:32",
+   "nt_entry_px": 16749.29,
+   "nt_exit_px": 16605.05,
+   "nt_qty": 1,
+   "nt_points": -144.24,
+   "expected_usd": -17.76,
+   "track_err_usd": 0.17,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 334985.8,
+   "shadow_notional_usd": 2042.6,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.21,
+   "real_entry_px": 408.539,
+   "real_exit_px": 405.021,
+   "real_pnl": -18.72,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-30 09:15:14",
+   "exit_ts": "2026-07-30 10:04:21",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "477.9854",
+   "exit_px": "473.6034",
+   "pnl": "43.82",
+   "nq_pnl_points": "17.53",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-07-30 09:15:14",
+   "nt_exit_ts": "2026-07-30 10:04:21",
+   "nt_entry_px": 19597.4,
+   "nt_exit_px": 19417.74,
+   "nt_qty": 2,
+   "nt_points": 179.66,
+   "expected_usd": 43.54,
+   "track_err_usd": 0.28,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 783896.0,
+   "shadow_notional_usd": 4779.85,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.8,
+   "real_entry_px": 478.005,
+   "real_exit_px": 473.623,
+   "real_pnl": 42.69,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-29 10:59:34",
+   "exit_ts": "2026-07-29 11:48:46",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "419.8152",
+   "exit_px": "414.7662",
+   "pnl": "50.49",
+   "nq_pnl_points": "20.2",
+   "leg": "NOISE",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-07-29 10:59:34",
+   "nt_exit_ts": "2026-07-29 11:48:46",
+   "nt_entry_px": 17212.42,
+   "nt_exit_px": 17005.41,
+   "nt_qty": 2,
+   "nt_points": 207.01,
+   "expected_usd": 50.18,
+   "track_err_usd": 0.31,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 688496.8,
+   "shadow_notional_usd": 4198.15,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.73,
+   "real_entry_px": 419.835,
+   "real_exit_px": 414.786,
+   "real_pnl": 49.36,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-28 09:46:31",
+   "exit_ts": "2026-07-28 10:52:04",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "406.951",
+   "exit_px": "418.367",
+   "pnl": "-57.08",
+   "nq_pnl_points": "-45.66",
+   "leg": "ENGUQ",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-07-28 09:46:31",
+   "nt_exit_ts": "2026-07-28 10:52:04",
+   "nt_entry_px": 16684.99,
+   "nt_exit_px": 17153.05,
+   "nt_qty": 1,
+   "nt_points": -468.06,
+   "expected_usd": -57.23,
+   "track_err_usd": 0.15,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 333699.8,
+   "shadow_notional_usd": 2034.76,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.26,
+   "real_entry_px": 406.971,
+   "real_exit_px": 418.387,
+   "real_pnl": -58.21,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-24 13:58:00",
+   "exit_ts": "2026-07-24 14:38:20",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "444.8697",
+   "exit_px": "460.1717",
+   "pnl": "76.51",
+   "nq_pnl_points": "61.21",
+   "leg": "ORB",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-07-24 13:58:00",
+   "nt_exit_ts": "2026-07-24 14:38:20",
+   "nt_entry_px": 18239.66,
+   "nt_exit_px": 18867.04,
+   "nt_qty": 1,
+   "nt_points": 627.38,
+   "expected_usd": 76.76,
+   "track_err_usd": 0.25,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 364793.2,
+   "shadow_notional_usd": 2224.35,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.69,
+   "real_entry_px": 444.89,
+   "real_exit_px": 460.192,
+   "real_pnl": 75.38,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-22 09:46:56",
+   "exit_ts": "2026-07-22 10:46:16",
+   "side": "short",
+   "shares": "10",
+   "entry_px": "440.8211",
+   "exit_px": "439.1351",
+   "pnl": "16.86",
+   "nq_pnl_points": "6.74",
+   "leg": "NOISE",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-07-22 09:46:56",
+   "nt_exit_ts": "2026-07-22 10:46:16",
+   "nt_entry_px": 18073.67,
+   "nt_exit_px": 18004.54,
+   "nt_qty": 2,
+   "nt_points": 69.13,
+   "expected_usd": 16.6,
+   "track_err_usd": 0.26,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 722946.8,
+   "shadow_notional_usd": 4408.21,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.91,
+   "real_entry_px": 440.841,
+   "real_exit_px": 439.155,
+   "real_pnl": 15.73,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-22 13:55:00",
+   "exit_ts": "2026-07-22 14:43:46",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "445.7943",
+   "exit_px": "438.9743",
+   "pnl": "-34.1",
+   "nq_pnl_points": "-27.28",
+   "leg": "ENGUQ",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-07-22 13:55:00",
+   "nt_exit_ts": "2026-07-22 14:43:46",
+   "nt_entry_px": 18277.57,
+   "nt_exit_px": 17997.95,
+   "nt_qty": 1,
+   "nt_points": -279.62,
+   "expected_usd": -34.03,
+   "track_err_usd": 0.07,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 365551.4,
+   "shadow_notional_usd": 2228.97,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.03,
+   "real_entry_px": 445.814,
+   "real_exit_px": 438.994,
+   "real_pnl": -35.23,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-21 15:03:55",
+   "exit_ts": "2026-07-21 15:07:09",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "519.6791",
+   "exit_px": "511.2771",
+   "pnl": "42.01",
+   "nq_pnl_points": "33.61",
+   "leg": "ORB",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-07-21 15:03:55",
+   "nt_exit_ts": "2026-07-21 15:07:09",
+   "nt_entry_px": 21306.84,
+   "nt_exit_px": 20962.36,
+   "nt_qty": 1,
+   "nt_points": 344.48,
+   "expected_usd": 42.12,
+   "track_err_usd": 0.11,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 426136.8,
+   "shadow_notional_usd": 2598.4,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.19,
+   "real_entry_px": 519.699,
+   "real_exit_px": 511.297,
+   "real_pnl": 40.88,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-21 11:47:37",
+   "exit_ts": "2026-07-21 12:27:57",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "431.7856",
+   "exit_px": "422.3656",
+   "pnl": "47.1",
+   "nq_pnl_points": "37.68",
+   "leg": "NOISE",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-07-21 11:47:37",
+   "nt_exit_ts": "2026-07-21 12:27:57",
+   "nt_entry_px": 17703.21,
+   "nt_exit_px": 17316.99,
+   "nt_qty": 1,
+   "nt_points": 386.22,
+   "expected_usd": 47.0,
+   "track_err_usd": 0.1,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 354064.2,
+   "shadow_notional_usd": 2158.93,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.44,
+   "real_entry_px": 431.806,
+   "real_exit_px": 422.386,
+   "real_pnl": 45.97,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-20 13:56:45",
+   "exit_ts": "2026-07-20 14:20:13",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "448.1398",
+   "exit_px": "462.8378",
+   "pnl": "73.49",
+   "nq_pnl_points": "58.79",
+   "leg": "ENGUQ",
+   "exit_reason": "TARGET",
+   "nt_entry_ts": "2026-07-20 13:56:45",
+   "nt_exit_ts": "2026-07-20 14:20:13",
+   "nt_entry_px": 18373.73,
+   "nt_exit_px": 18976.35,
+   "nt_qty": 1,
+   "nt_points": 602.62,
+   "expected_usd": 73.53,
+   "track_err_usd": 0.04,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 367474.6,
+   "shadow_notional_usd": 2240.7,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.93,
+   "real_entry_px": 448.16,
+   "real_exit_px": 462.858,
+   "real_pnl": 72.36,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-17 10:43:20",
+   "exit_ts": "2026-07-17 11:53:49",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "432.3937",
+   "exit_px": "440.9637",
+   "pnl": "-42.85",
+   "nq_pnl_points": "-34.28",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-07-17 10:43:20",
+   "nt_exit_ts": "2026-07-17 11:53:49",
+   "nt_entry_px": 17728.14,
+   "nt_exit_px": 18079.51,
+   "nt_qty": 1,
+   "nt_points": -351.37,
+   "expected_usd": -43.2,
+   "track_err_usd": 0.35,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 354562.8,
+   "shadow_notional_usd": 2161.97,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.58,
+   "real_entry_px": 432.414,
+   "real_exit_px": 440.984,
+   "real_pnl": -43.98,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-16 14:04:38",
+   "exit_ts": "2026-07-16 15:40:10",
+   "side": "short",
+   "shares": "5",
+   "entry_px": "425.1408",
+   "exit_px": "410.0908",
+   "pnl": "75.25",
+   "nq_pnl_points": "60.2",
+   "leg": "NOISE",
+   "exit_reason": "EOD",
+   "nt_entry_ts": "2026-07-16 14:04:38",
+   "nt_exit_ts": "2026-07-16 15:40:10",
+   "nt_entry_px": 17430.77,
+   "nt_exit_px": 16813.72,
+   "nt_qty": 1,
+   "nt_points": 617.05,
+   "expected_usd": 74.9,
+   "track_err_usd": 0.35,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 348615.4,
+   "shadow_notional_usd": 2125.7,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.57,
+   "real_entry_px": 425.161,
+   "real_exit_px": 410.111,
+   "real_pnl": 74.12,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-15 12:17:29",
+   "exit_ts": "2026-07-15 13:40:53",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "518.2266",
+   "exit_px": "507.6946",
+   "pnl": "-52.66",
+   "nq_pnl_points": "-42.13",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-07-15 12:17:29",
+   "nt_exit_ts": "2026-07-15 13:40:53",
+   "nt_entry_px": 21247.29,
+   "nt_exit_px": 20815.48,
+   "nt_qty": 1,
+   "nt_points": -431.81,
+   "expected_usd": -52.9,
+   "track_err_usd": 0.24,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 424945.8,
+   "shadow_notional_usd": 2591.13,
+   "notional_ratio": 0.0061,
+   "latency_s": 0.98,
+   "real_entry_px": 518.247,
+   "real_exit_px": 507.715,
+   "real_pnl": -53.79,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-15 11:36:12",
+   "exit_ts": "2026-07-15 12:45:04",
+   "side": "long",
+   "shares": "10",
+   "entry_px": "435.1814",
+   "exit_px": "429.8114",
+   "pnl": "-53.7",
+   "nq_pnl_points": "-21.48",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-07-15 11:36:12",
+   "nt_exit_ts": "2026-07-15 12:45:04",
+   "nt_entry_px": 17842.44,
+   "nt_exit_px": 17622.27,
+   "nt_qty": 2,
+   "nt_points": -220.17,
+   "expected_usd": -53.56,
+   "track_err_usd": 0.14,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 713697.6,
+   "shadow_notional_usd": 4351.81,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.31,
+   "real_entry_px": 435.201,
+   "real_exit_px": 429.831,
+   "real_pnl": -54.83,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-10 09:22:54",
+   "exit_ts": "2026-07-10 10:22:38",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "514.8656",
+   "exit_px": "517.2576",
+   "pnl": "11.96",
+   "nq_pnl_points": "9.57",
+   "leg": "NOISE",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-07-10 09:22:54",
+   "nt_exit_ts": "2026-07-10 10:22:38",
+   "nt_entry_px": 21109.49,
+   "nt_exit_px": 21207.56,
+   "nt_qty": 1,
+   "nt_points": 98.07,
+   "expected_usd": 11.9,
+   "track_err_usd": 0.06,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 422189.8,
+   "shadow_notional_usd": 2574.33,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.6,
+   "real_entry_px": 514.886,
+   "real_exit_px": 517.278,
+   "real_pnl": 10.83,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-10 15:10:44",
+   "exit_ts": "2026-07-10 15:27:21",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "470.7119",
+   "exit_px": "469.6399",
+   "pnl": "-5.36",
+   "nq_pnl_points": "-4.29",
+   "leg": "ENGUQ",
+   "exit_reason": "STOP",
+   "nt_entry_ts": "2026-07-10 15:10:44",
+   "nt_exit_ts": "2026-07-10 15:27:21",
+   "nt_entry_px": 19299.19,
+   "nt_exit_px": 19255.24,
+   "nt_qty": 1,
+   "nt_points": -43.95,
+   "expected_usd": -5.51,
+   "track_err_usd": 0.15,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 385983.8,
+   "shadow_notional_usd": 2353.56,
+   "notional_ratio": 0.0061,
+   "latency_s": 1.28,
+   "real_entry_px": 470.732,
+   "real_exit_px": 469.66,
+   "real_pnl": -6.49,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  },
+  {
+   "entry_ts": "2026-07-07 13:05:37",
+   "exit_ts": "2026-07-07 14:27:02",
+   "side": "long",
+   "shares": "5",
+   "entry_px": "416.7446",
+   "exit_px": "428.8546",
+   "pnl": "60.55",
+   "nq_pnl_points": "48.44",
+   "leg": "ORB",
+   "exit_reason": "SIGNAL",
+   "nt_entry_ts": "2026-07-07 13:05:37",
+   "nt_exit_ts": "2026-07-07 14:27:02",
+   "nt_entry_px": 17086.53,
+   "nt_exit_px": 17583.04,
+   "nt_qty": 1,
+   "nt_points": 496.51,
+   "expected_usd": 60.62,
+   "track_err_usd": 0.07,
+   "parity_ok": true,
+   "parity_note": "",
+   "nt_mult": 20,
+   "nt_notional_usd": 341730.6,
+   "shadow_notional_usd": 2083.72,
+   "notional_ratio": 0.0061,
+   "latency_s": 2.04,
+   "real_entry_px": 416.765,
+   "real_exit_px": 428.875,
+   "real_pnl": 59.42,
+   "slip_entry_ps": 0.02,
+   "slip_exit_ps": 0.02,
+   "repriced_at": "2026-09-15 02:00:11",
+   "note": "re-priced from QQQ 1m bar close"
+  }
+ ],
+ "cum_pnl": {
+  "ORB": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": 6.85
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 6.85
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -36.0
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": -36.0
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 6.01
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 6.01
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 82.52
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 126.34
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 162.17
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 162.17
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 107.54
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 68.47
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": 22.64
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 97.62
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": 97.62
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 125.51
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 199.93
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 220.69
+   }
+  ],
+  "ENGUQ": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": -5.36
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -58.02
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 15.47
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 15.47
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": -18.63
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": -75.71
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": -93.3
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": -77.79
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": -77.79
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": -113.36
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": -78.68
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": -130.22
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": -179.81
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": -116.81
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": -156.08
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": -156.08
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": -156.08
+   }
+  ],
+  "NOISE": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 11.96
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": 11.96
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 87.21
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 134.31
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 151.17
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 201.66
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 148.13
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 154.24
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 173.18
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 119.82
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": 91.3
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 91.3
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 71.63
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 84.76
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 99.31
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 99.31
+   }
+  ],
+  "total": [
+   {
+    "date": "2026-07-06",
+    "cum_pnl": 0.0
+   },
+   {
+    "date": "2026-07-07",
+    "cum_pnl": 60.55
+   },
+   {
+    "date": "2026-07-10",
+    "cum_pnl": 67.15
+   },
+   {
+    "date": "2026-07-15",
+    "cum_pnl": -39.21
+   },
+   {
+    "date": "2026-07-16",
+    "cum_pnl": 36.04
+   },
+   {
+    "date": "2026-07-17",
+    "cum_pnl": -6.81
+   },
+   {
+    "date": "2026-07-20",
+    "cum_pnl": 66.68
+   },
+   {
+    "date": "2026-07-21",
+    "cum_pnl": 155.79
+   },
+   {
+    "date": "2026-07-22",
+    "cum_pnl": 138.55
+   },
+   {
+    "date": "2026-07-24",
+    "cum_pnl": 215.06
+   },
+   {
+    "date": "2026-07-27",
+    "cum_pnl": 215.06
+   },
+   {
+    "date": "2026-07-28",
+    "cum_pnl": 157.98
+   },
+   {
+    "date": "2026-07-29",
+    "cum_pnl": 208.47
+   },
+   {
+    "date": "2026-07-30",
+    "cum_pnl": 252.29
+   },
+   {
+    "date": "2026-07-31",
+    "cum_pnl": 234.7
+   },
+   {
+    "date": "2026-08-03",
+    "cum_pnl": 181.17
+   },
+   {
+    "date": "2026-08-04",
+    "cum_pnl": 217.0
+   },
+   {
+    "date": "2026-08-06",
+    "cum_pnl": 232.51
+   },
+   {
+    "date": "2026-08-07",
+    "cum_pnl": 183.99
+   },
+   {
+    "date": "2026-08-10",
+    "cum_pnl": 148.42
+   },
+   {
+    "date": "2026-08-13",
+    "cum_pnl": 148.42
+   },
+   {
+    "date": "2026-08-14",
+    "cum_pnl": 128.29
+   },
+   {
+    "date": "2026-08-17",
+    "cum_pnl": 162.97
+   },
+   {
+    "date": "2026-08-19",
+    "cum_pnl": 162.97
+   },
+   {
+    "date": "2026-08-20",
+    "cum_pnl": 109.61
+   },
+   {
+    "date": "2026-08-24",
+    "cum_pnl": 63.78
+   },
+   {
+    "date": "2026-08-25",
+    "cum_pnl": 12.24
+   },
+   {
+    "date": "2026-08-27",
+    "cum_pnl": -16.28
+   },
+   {
+    "date": "2026-08-31",
+    "cum_pnl": 58.7
+   },
+   {
+    "date": "2026-09-02",
+    "cum_pnl": -10.56
+   },
+   {
+    "date": "2026-09-03",
+    "cum_pnl": 80.33
+   },
+   {
+    "date": "2026-09-04",
+    "cum_pnl": 80.33
+   },
+   {
+    "date": "2026-09-07",
+    "cum_pnl": 93.46
+   },
+   {
+    "date": "2026-09-09",
+    "cum_pnl": 167.88
+   },
+   {
+    "date": "2026-09-10",
+    "cum_pnl": 128.61
+   },
+   {
+    "date": "2026-09-11",
+    "cum_pnl": 143.16
+   },
+   {
+    "date": "2026-09-14",
+    "cum_pnl": 163.92
+   }
+  ]
+ },
+ "parity": {
+  "checked": 40,
+  "ok": 38,
+  "failed": 2,
+  "worst_err_usd": 24.7,
+  "note": "2 trades missed their NinjaTrader fill by more than the 2 dollar tolerance -- investigate before trusting this book with real money."
+ },
+ "feed_days": [
+  {
+   "date": "2026-08-24",
+   "uptime_pct": 61.8,
+   "stale_min": 2,
+   "first_tick": "2026-08-24 09:31:00",
+   "last_tick": "2026-08-24 16:00:00",
+   "valid": false,
+   "note": "feed dropped and did not recover"
+  },
+  {
+   "date": "2026-08-25",
+   "uptime_pct": 98.9,
+   "stale_min": 1,
+   "first_tick": "2026-08-25 09:31:00",
+   "last_tick": "2026-08-25 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-26",
+   "uptime_pct": 99.5,
+   "stale_min": 1,
+   "first_tick": "2026-08-26 09:31:00",
+   "last_tick": "2026-08-26 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-27",
+   "uptime_pct": 98.6,
+   "stale_min": 2,
+   "first_tick": "2026-08-27 09:31:00",
+   "last_tick": "2026-08-27 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-28",
+   "uptime_pct": 99.3,
+   "stale_min": 2,
+   "first_tick": "2026-08-28 09:31:00",
+   "last_tick": "2026-08-28 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-08-31",
+   "uptime_pct": 99.6,
+   "stale_min": 2,
+   "first_tick": "2026-08-31 09:31:00",
+   "last_tick": "2026-08-31 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-01",
+   "uptime_pct": 99.4,
+   "stale_min": 0,
+   "first_tick": "2026-09-01 09:31:00",
+   "last_tick": "2026-09-01 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-02",
+   "uptime_pct": 98.7,
+   "stale_min": 3,
+   "first_tick": "2026-09-02 09:31:00",
+   "last_tick": "2026-09-02 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-03",
+   "uptime_pct": 61.8,
+   "stale_min": 182,
+   "first_tick": "2026-09-03 09:31:00",
+   "last_tick": "2026-09-03 12:29:00",
+   "valid": false,
+   "note": "feed dropped at 12:29 ET and did not recover -- reconstructed from the recovery log"
+  },
+  {
+   "date": "2026-09-04",
+   "uptime_pct": 98.7,
+   "stale_min": 2,
+   "first_tick": "2026-09-04 09:31:00",
+   "last_tick": "2026-09-04 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-07",
+   "uptime_pct": 98.7,
+   "stale_min": 3,
+   "first_tick": "2026-09-07 09:31:00",
+   "last_tick": "2026-09-07 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-08",
+   "uptime_pct": 99.1,
+   "stale_min": 0,
+   "first_tick": "2026-09-08 09:31:00",
+   "last_tick": "2026-09-08 16:00:00",
+   "valid": true,
+   "note": ""
+  },
+  {
+   "date": "2026-09-09",
+   "uptime_pct": 0.0,
+   "stale_min": 390,
+   "first_tick": null,
+   "last_tick": null,
+   "valid": false,
+   "note": "no ticks all session -- NinjaTrader connection was down (Tradovate token renewal bug)"
+  },
+  {
+   "date": "2026-09-10",
+   "uptime_pct": 99.6,
+   "stale_min": 4,
+   "first_tick": "2026-09-10 09:31:00",
+   "last_tick": "2026-09-10 16:00:00",
+   "valid": true,
+   "note": ""
+  }
+ ],
+ "ratio_hist": [
+  {
+   "at": "2026-09-01 09:31:00",
+   "ratio": 41.02,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-01 12:31:00",
+   "ratio": 41.13,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-02 09:31:00",
+   "ratio": 41.24,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-02 12:31:00",
+   "ratio": 41.35,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-03 09:31:00",
+   "ratio": 41.46,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-03 12:31:00",
+   "ratio": 41.57,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-04 09:31:00",
+   "ratio": 41.68,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-04 12:31:00",
+   "ratio": 41.79,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-05 09:31:00",
+   "ratio": 41.9,
+   "source": "yfinance+NQ_10s"
+  },
+  {
+   "at": "2026-09-05 12:31:00",
+   "ratio": 42.01,
+   "source": "yfinance+NQ_10s"
+  }
+ ],
+ "ratio_health": {
+  "current": 42.01,
+  "at": "2026-09-05 12:31:00",
+  "source": "yfinance+NQ_10s",
+  "age_min": 6,
+  "mean_20": 41.515,
+  "drift_pct": 1.19,
+  "band_lo": 41.165,
+  "band_hi": 41.865,
+  "warn": true,
+  "note": "the NQ-to-QQQ ratio has drifted 1.19% above its 20-tick average -- every shadow price is an NQ price divided by this number, so a stale ratio quietly mis-sizes every fill until the next yfinance refresh."
+ },
+ "latency": {
+  "n": 40,
+  "median_s": 1.4,
+  "p95_s": 14.8,
+  "max_s": 6.2,
+  "last_s": 1.1
+ },
+ "signals_day": [
+  {
+   "date": "2026-09-03",
+   "fired": 8,
+   "taken": 6,
+   "refused": 2,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 4,
+     "taken": 3,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 2,
+     "taken": 1,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 2,
+     "taken": 2,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-04",
+   "fired": 2,
+   "taken": 0,
+   "refused": 3,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 1,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-05",
+   "fired": 12,
+   "taken": 11,
+   "refused": 1,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 3,
+     "taken": 3,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 5,
+     "refused": 0,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 4,
+     "taken": 3,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-06",
+   "fired": 10,
+   "taken": 6,
+   "refused": 3,
+   "oos": 1,
+   "by_leg": {
+    "ORB": {
+     "fired": 2,
+     "taken": 1,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 4,
+     "taken": 2,
+     "refused": 1,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 4,
+     "taken": 3,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-07",
+   "fired": 7,
+   "taken": 6,
+   "refused": 1,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 2,
+     "taken": 1,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 5,
+     "taken": 5,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-08",
+   "fired": 7,
+   "taken": 5,
+   "refused": 3,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 4,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 2,
+     "taken": 1,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-09",
+   "fired": 7,
+   "taken": 6,
+   "refused": 2,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 5,
+     "taken": 4,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 2,
+     "taken": 2,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-10",
+   "fired": 8,
+   "taken": 6,
+   "refused": 1,
+   "oos": 1,
+   "by_leg": {
+    "ORB": {
+     "fired": 4,
+     "taken": 4,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 3,
+     "taken": 2,
+     "refused": 0,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-11",
+   "fired": 7,
+   "taken": 6,
+   "refused": 1,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 3,
+     "taken": 2,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 3,
+     "taken": 3,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-12",
+   "fired": 5,
+   "taken": 2,
+   "refused": 3,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 1,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 3,
+     "taken": 2,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 0,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-13",
+   "fired": 11,
+   "taken": 8,
+   "refused": 3,
+   "oos": 0,
+   "by_leg": {
+    "ORB": {
+     "fired": 4,
+     "taken": 3,
+     "refused": 1,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 5,
+     "taken": 4,
+     "refused": 1,
+     "oos": 0
+    },
+    "NOISE": {
+     "fired": 2,
+     "taken": 1,
+     "refused": 1,
+     "oos": 0
+    }
+   }
+  },
+  {
+   "date": "2026-09-14",
+   "fired": 2,
+   "taken": 2,
+   "refused": 0,
+   "oos": 1,
+   "by_leg": {
+    "ORB": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    },
+    "ENGUQ": {
+     "fired": 0,
+     "taken": 0,
+     "refused": 0,
+     "oos": 1
+    },
+    "NOISE": {
+     "fired": 1,
+     "taken": 1,
+     "refused": 0,
+     "oos": 0
+    }
+   }
+  }
+ ],
+ "events": [
+  {
+   "ts_et": "2026-09-15 16:05:00",
+   "kind": "boot",
+   "text": "qqq_exec thread started, mode SHADOW"
+  },
+  {
+   "ts_et": "2026-09-15 15:50:00",
+   "kind": "feed_down",
+   "text": "yfinance feed went stale for 6 minutes"
+  },
+  {
+   "ts_et": "2026-09-15 15:35:00",
+   "kind": "feed_up",
+   "text": "feed recovered, ratio recalibrated"
+  },
+  {
+   "ts_et": "2026-09-15 15:20:00",
+   "kind": "breaker",
+   "text": "daily loss limit breaker tripped at -$150"
+  },
+  {
+   "ts_et": "2026-09-15 15:05:00",
+   "kind": "kill",
+   "text": "kill file present -- all legs flat and frozen"
+  },
+  {
+   "ts_et": "2026-09-15 14:50:00",
+   "kind": "kill_clear",
+   "text": "kill file removed -- resuming normal operation"
+  },
+  {
+   "ts_et": "2026-09-15 14:35:00",
+   "kind": "calib",
+   "text": "ratio recalibrated to 42.01 from yfinance+NQ_10s"
+  },
+  {
+   "ts_et": "2026-09-15 14:20:00",
+   "kind": "refused",
+   "text": "ENGU-Q entry refused -- outside session window"
+  },
+  {
+   "ts_et": "2026-09-15 14:05:00",
+   "kind": "oos",
+   "text": "NT ENGU-Q traded outside the QQQ session, not mirrored"
+  },
+  {
+   "ts_et": "2026-09-15 13:50:00",
+   "kind": "eod_flatten",
+   "text": "end-of-day flatten -- all legs closed at 16:00 ET"
+  },
+  {
+   "ts_et": "2026-09-15 13:35:00",
+   "kind": "reprice",
+   "text": "nightly reprice job covered 38 of 40 trades"
+  },
+  {
+   "ts_et": "2026-09-15 13:20:00",
+   "kind": "eod_summary",
+   "text": "session summary: 3 trades, net +$41.20"
+  },
+  {
+   "ts_et": "2026-09-15 13:05:00",
+   "kind": "boot",
+   "text": "qqq_exec thread started, mode SHADOW"
+  },
+  {
+   "ts_et": "2026-09-15 12:50:00",
+   "kind": "feed_down",
+   "text": "yfinance feed went stale for 6 minutes"
+  },
+  {
+   "ts_et": "2026-09-15 12:35:00",
+   "kind": "feed_up",
+   "text": "feed recovered, ratio recalibrated"
+  },
+  {
+   "ts_et": "2026-09-15 12:20:00",
+   "kind": "breaker",
+   "text": "daily loss limit breaker tripped at -$150"
+  },
+  {
+   "ts_et": "2026-09-15 12:05:00",
+   "kind": "kill",
+   "text": "kill file present -- all legs flat and frozen"
+  },
+  {
+   "ts_et": "2026-09-15 11:50:00",
+   "kind": "kill_clear",
+   "text": "kill file removed -- resuming normal operation"
+  },
+  {
+   "ts_et": "2026-09-15 11:35:00",
+   "kind": "calib",
+   "text": "ratio recalibrated to 42.01 from yfinance+NQ_10s"
+  },
+  {
+   "ts_et": "2026-09-15 11:20:00",
+   "kind": "refused",
+   "text": "ENGU-Q entry refused -- outside session window"
+  },
+  {
+   "ts_et": "2026-09-15 11:05:00",
+   "kind": "oos",
+   "text": "NT ENGU-Q traded outside the QQQ session, not mirrored"
+  },
+  {
+   "ts_et": "2026-09-15 10:50:00",
+   "kind": "eod_flatten",
+   "text": "end-of-day flatten -- all legs closed at 16:00 ET"
+  },
+  {
+   "ts_et": "2026-09-15 10:35:00",
+   "kind": "reprice",
+   "text": "nightly reprice job covered 38 of 40 trades"
+  },
+  {
+   "ts_et": "2026-09-15 10:20:00",
+   "kind": "eod_summary",
+   "text": "session summary: 3 trades, net +$41.20"
+  },
+  {
+   "ts_et": "2026-09-15 10:05:00",
+   "kind": "boot",
+   "text": "qqq_exec thread started, mode SHADOW"
+  },
+  {
+   "ts_et": "2026-09-15 09:50:00",
+   "kind": "feed_down",
+   "text": "yfinance feed went stale for 6 minutes"
+  },
+  {
+   "ts_et": "2026-09-15 09:35:00",
+   "kind": "feed_up",
+   "text": "feed recovered, ratio recalibrated"
+  },
+  {
+   "ts_et": "2026-09-15 09:20:00",
+   "kind": "breaker",
+   "text": "daily loss limit breaker tripped at -$150"
+  },
+  {
+   "ts_et": "2026-09-15 09:05:00",
+   "kind": "kill",
+   "text": "kill file present -- all legs flat and frozen"
+  },
+  {
+   "ts_et": "2026-09-15 08:50:00",
+   "kind": "kill_clear",
+   "text": "kill file removed -- resuming normal operation"
+  },
+  {
+   "ts_et": "2026-09-15 08:35:00",
+   "kind": "calib",
+   "text": "ratio recalibrated to 42.01 from yfinance+NQ_10s"
+  },
+  {
+   "ts_et": "2026-09-15 08:20:00",
+   "kind": "refused",
+   "text": "ENGU-Q entry refused -- outside session window"
+  },
+  {
+   "ts_et": "2026-09-15 08:05:00",
+   "kind": "oos",
+   "text": "NT ENGU-Q traded outside the QQQ session, not mirrored"
+  },
+  {
+   "ts_et": "2026-09-15 07:50:00",
+   "kind": "eod_flatten",
+   "text": "end-of-day flatten -- all legs closed at 16:00 ET"
+  },
+  {
+   "ts_et": "2026-09-15 07:35:00",
+   "kind": "reprice",
+   "text": "nightly reprice job covered 38 of 40 trades"
+  },
+  {
+   "ts_et": "2026-09-15 07:20:00",
+   "kind": "eod_summary",
+   "text": "session summary: 3 trades, net +$41.20"
+  }
+ ],
+ "readiness": {
+  "ready": false,
+  "days_valid": 24,
+  "days_required": 20,
+  "live_parity_checked": true,
+  "live_parity_failed": 2,
+  "uptime_mean_10": 91.2,
+  "rail_trips_unexplained": 3,
+  "reprice_coverage_pct": 100.0,
+  "missing": [
+   "9 more validated trading days (11 of 20 so far)",
+   "the failed live parity check needs to be investigated and cleared",
+   "3 unexplained rail trips need root-caused before going live"
+  ],
+  "note": "not ready for real money yet -- see the checklist below"
+ },
+ "reprice": {
+  "covered": 40,
+  "total": 40,
+  "coverage_pct": 100.0,
+  "mean_slip_ps": 0.015,
+  "last_run": "2026-09-15 02:00:11"
+ }
+}
