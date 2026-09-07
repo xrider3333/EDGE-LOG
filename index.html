@@ -476,7 +476,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.540';
+const VERSION='73.541';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -495,6 +495,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.541',date:'2026-09-07',notes:['FEATURE BOARD gains a second reading per cell, LIFT, sitting under the existing confidence-interval bar. The bar is a rank correlation, which is built to find a steady tilt spread across many trades and can miss a feature whose whole effect lives in a handful of outsized winners or losers; lift is the average R per trade when the feature reads high minus when it reads low, so it catches exactly that kind of big-trade effect instead. A bold green or red reading means it clears its own significance bar, a triangle means the lockbox year repeats it, and the matrix, the survivors filter, the verdict cards and the legend all know about it now — on a board built before this shipped, none of it appears, the same as today.']},
 {v:'73.538',date:'2026-09-07',notes:['A NEW VIEW, FEATURE BOARD, joins RUNBOARD under COMPARE. It answers one question: which trade features actually help across MORE THAN ONE strategy, not just the one they were found on. It reads two offline reports (tools/feature_board.py and tools/exit_autopsy.py) — PROMOTED and WATCH cards up top for whatever clears the bar, a matrix underneath with one row per feature and one column per strategy showing a confidence-interval bar for how strongly each lines up with that strategy’s trade outcome, filled when the range clears zero and marked with a diamond when the lockbox year agrees.','UNDERNEATH IT, EXIT AUTOPSY asks whether the exit itself is leaving money on the table: for every leg, what a winning trade kept of its own best move, how often a loser was up a full R before turning into a loss, and a give-back figure that is stated as an upper bound, never a promise. Neither report exists yet on a fresh checkout — the board says so in plain words rather than showing an empty page.']},
 {v:'73.535',date:'2026-09-06',notes:['THE KEEL ROW IS NOW VISIBLE IN A RUN REPORT. The engine has been writing a KEEL overlay row next to the size tilts and the hybrids since v73.534, and the report drew none of it - the work happened and the reader could not see it. The 1E MATRIX card carries a KEEL tab now, beside TILT and HYBRID, showing the one keel column through the SAME table as those two: the same IS / WF / LB / FULL dollars, the same MAR, SHARPE, SORTINO, PF, WIN %, EV, EV R, ROC % / YR, R / YR and DD (R) rows, the same SAMPLE tick, the same ordering and the same heat map. Above the table sits the keel own line - model and version, average and biggest size, how often it had any trust at all, its mean trust, the trust each member of the stack earned, and the exact sizing rule it ran.','ITS EQUITY LINE DRAWS ON THE 1A / 2A FUNNEL, in the SIZE TILTS legend group and labelled KEEL v4. It shares that group on purpose: a keel is the same animal as a tilt - every trade is taken and only the size changes - so one toggle covers both. Its curve is folded into the y-scale before the axis is fitted, so the line can never be pushed off the top of the plot the way the top tilt once was.','IT CAN NEVER BE CROWNED, AND THE REPORT SAYS SO IN EVERY PLACE IT APPEARS. The engine writes the row with crownable:false; the tab carries the COMPARISON ONLY wording in its info readout, the row is not counted among the candidates, and it puts no dot on the pooled 1E scatter. What DID change is that a run whose only overlay data is a keel row now draws the 1A funnel instead of being treated as having no ML families at all.','A RUN SAVED BEFORE ANY OF THIS SHOWS NOTHING NEW - no tab, no line, no gap. A run whose keel walk FAILED shows the tab with one muted line naming the error, rather than a tab that silently is not there.','AND THE CROSS-RUN CONFIG BOARD SHOWS IT TOO. COMPARE, with the configurations of the ticked runs on screen, now lists a KEEL v4 row for every ticked run that carries one - built by the same row builder as the TILT and HYBRID rows, so the same money, drawdown, PF, trades and ratio columns mean the same things, and the FAMILY control gained a KEEL button to isolate it. It stays a comparison row: never a crownable candidate, on this board or anywhere else.']},
 {v:'73.534',date:'2026-09-06',notes:['KEEL, a new ML overlay (owner: make your own ML). Every trade is taken; a logistic + ExtraTrees stack scores each trade\'s EXPECTANCY and the size tilt\'s slope is EARNED from the overlay\'s own out-of-sample dollar ledger, so with no demonstrated skill it sizes 1.0 = the raw strategy. Bounds 0.5x-2x, no cut-off ever. augur_engine/ml_keel.py.','Every Auto-Validate now carries a keel row inside its gate block (comparison-only, never crownable, same standing as the size-tilt rows). Not yet drawn by the 2C tables.','PAPER: new leg NOISE_SBS_V90_K = the #243 crown with KEEL; NOISE_SBS_V90 is its exact control; forward from 2026-09-08. The claim: it beats its control on MAR.','Evidence behind the design, from 138 gate-bearing runs: the crowned CUT has a median lockbox delta of exactly $0; TILT is the only mode with a positive median (+$9,030); xgb is the worst model out-of-sample in every mode. Four-leg bench and the plain verdict (safer, not richer) in BACKTESTING_STACK.md section 4 and tools/keel_bench.py.']},
@@ -24906,6 +24907,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const fb=window._fbData,ex=window._exitData;
         const fbReady=fb&&typeof fb==='object';
         const exReady=ex&&typeof ex==='object';
+        // LIFT (v73.539, backend counterpart tools/feature_board.py): a second, tail-aware
+        //   statistic per cell alongside the rank-correlation bar - average R per trade when
+        //   a feature reads high minus when it reads low. An older feature_board.json carries
+        //   no lift_r key at all on any cell, and that case must render byte-for-byte as
+        //   before - no stray dot, no legend line - so every lift addition below is gated on
+        //   this one flag rather than on any single cell.
+        const _fbCellsRaw=(fb&&typeof fb==='object'&&fb.cells)||{};
+        const _fbAnyLift=Object.keys(_fbCellsRaw).some(fn=>{const row=_fbCellsRaw[fn]||{};
+          return Object.keys(row).some(lk=>{const c=row[lk];return c&&Object.prototype.hasOwnProperty.call(c,'lift_r');});});
         const _fbPlaceholder=(msg)=>tile('<div style="padding:34px 18px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px;line-height:1.8">'+msg+'</div>');
         // ── HEADER STRIP: rule, generated date, legend. ──
         const _fbLegendItem=(sw,lbl)=>'<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text4)">'+sw+lbl+'</span>';
@@ -24922,7 +24932,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_fbLegendItem(_fbSwatch('var(--red)'),' hurts')
             +_fbLegendItem(_fbSwatch(null,'var(--text4)'),' filled = the 95% range excludes zero')
             +_fbLegendItem('<span style="color:var(--purple);font-size:10px">◆</span>',' repeats in the lockbox')
-          +'</div>',10);
+            +(_fbAnyLift?_fbLegendItem('<span style="color:var(--purple);font-size:10px">▲</span>',' lift reading that repeats in the lockbox'):'')
+          +'</div>'
+          +(_fbAnyLift?('<div style="font-size:8px;color:var(--text5);margin-top:5px;line-height:1.6">'
+              +_fbEsc((fb&&fb.rule&&fb.rule.lift_note)||'lift = average R per trade when the feature is high minus when it is low; it catches big-winner effects the rank test cannot see')
+            +'</div>'):''),10);
         // ── PROMOTED / WATCH cards. ──
         let verdictBlock='';
         if(fbReady){
@@ -24930,12 +24944,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const verdicts=(fb.verdicts||[]).filter(v=>v&&v.tier&&v.tier!=='NONE');
           verdicts.sort((a,b)=>(a.tier==='PROMOTED'?0:1)-(b.tier==='PROMOTED'?0:1));
           const _famPill=nm=>'<span style="font-size:8px;padding:2px 7px;border-radius:5px;background:var(--bg1);color:var(--text3);border:1px solid var(--border)">'+_fbEsc(nm)+'</span>';
+          const _basisLbl={rank:'on rank',lift:'on lift',both:'on both',conflict:'tests disagree'};
           const _vCard=v=>{const tr=_vTier[v.tier]||{col:'var(--text4)',lbl:v.tier};
             const signWord=v.sign==='+'?'helps':(v.sign==='-'?'hurts':'mixed sign');
             const signCol=v.sign==='+'?'var(--green)':(v.sign==='-'?'var(--red)':'var(--text4)');
+            const basisTxt=_basisLbl[v.basis]||'';
             return '<div data-fbverdict style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid '+tr.col+';border-radius:10px;padding:11px 13px;margin-bottom:8px">'
               +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
                 +'<span style="font-size:9px;font-weight:800;letter-spacing:1.2px;color:'+tr.col+'">'+tr.lbl+'</span>'
+                +(basisTxt?('<span data-fbbasis style="font-size:8px;padding:2px 7px;border-radius:5px;background:var(--bg1);color:var(--text4);border:1px solid var(--border)">'+basisTxt+'</span>'):'')
                 +'<span style="font-size:12px;font-weight:700;color:var(--text)">'+_fbEsc(v.feature)+'</span>'
                 +'<span style="font-size:9px;font-weight:700;color:'+signCol+'">'+signWord+'</span>'
                 +'<span style="margin-left:auto;font-size:8px;color:var(--text5)" title="how many of its legs the lockbox year agreed with">'+(v.lb_agree_count||0)+' leg'+((v.lb_agree_count||0)===1?'':'s')+' repeat in the lockbox</span>'
@@ -24950,7 +24967,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let matrixTile2='';
         if(fbReady){
           const fbFeats=fb.features||[],fbLegs=fb.legs||[],fbCells=fb.cells||{};
-          const _rowSurvives=f=>fbLegs.some(l=>{const c=(fbCells[f.name]||{})[l.key];return c&&c.survives;});
+          const _rowSurvives=f=>fbLegs.some(l=>{const c=(fbCells[f.name]||{})[l.key];return c&&(c.survives||c.lift_survives);});
           const anySurv=fbFeats.some(_rowSurvives);
           const rowMode=(APREF.fbRowMode==='all')?'all':'surv';
           const effMode=(rowMode==='surv'&&anySurv)?'surv':'all';
@@ -24961,13 +24978,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           shownFeats.forEach(f=>{const g=f.group||'other';(groups[g]||(groups[g]=[])).push(f);});
           const groupKeys=GROUP_ORDER.filter(g=>groups[g]&&groups[g].length).concat(Object.keys(groups).filter(g=>GROUP_ORDER.indexOf(g)<0));
           const _pct=v=>{const c=Math.max(-0.3,Math.min(0.3,v==null?0:+v));return ((c+0.3)/0.6*100);};
+          const _fbLiftLine=c=>{if(c.lift_r==null)return '<div data-fblift style="font-size:8px;line-height:1;margin-top:2px;text-align:center;color:var(--text5)">·</div>';
+            const lPos=(+c.lift_r)>=0,lCol=lPos?'var(--green)':'var(--red)',strong=!!c.lift_survives;
+            const txt=(lPos?'+':'')+(+c.lift_r).toFixed(2)+'R';
+            const tri=(c.lift_survives&&c.lb_lift_agrees)?'<span data-fbliftdiamond style="color:var(--purple);font-size:8px;margin-left:3px">▲</span>':'';
+            return '<div data-fblift style="font-size:8px;line-height:1;margin-top:2px;text-align:center;font-weight:'+(strong?'800':'400')+';opacity:'+(strong?'1':'.55')+';color:'+lCol+'">'+txt+tri+'</div>';};
           const _fbCell=(f,l)=>{const c=(fbCells[f.name]||{})[l.key];
-            if(!c)return '<td data-fbcell title="Too few trades carried this feature on this strategy" style="padding:3px 4px;text-align:center;color:var(--text5);font-size:9px">·</td>';
+            if(!c)return '<td data-fbcell title="Too few trades carried this feature on this strategy" style="padding:3px 4px;text-align:center;color:var(--text5);font-size:9px">·'
+              +(_fbAnyLift?'<div data-fblift style="font-size:8px;line-height:1;margin-top:2px;color:var(--text5)">·</div>':'')+'</td>';
             const pos=(+c.rho||0)>=0,col=pos?'var(--green)':'var(--red)';
             const loP=_pct(c.ci_lo),hiP=_pct(c.ci_hi),rhoP=_pct(c.rho),zeroP=_pct(0),w=Math.max(2,hiP-loP);
             const fillCss=c.survives?('background:'+col+';opacity:.85'):('background:transparent;border:1px solid '+col+';opacity:.6');
-            const tt='rho '+(+c.rho).toFixed(2)+' (95%: '+(+c.ci_lo).toFixed(2)+'..'+(+c.ci_hi).toFixed(2)+'), q '+(+c.q).toFixed(2)+', n '+Number(c.n||0).toLocaleString()
+            let tt='rho '+(+c.rho).toFixed(2)+' (95%: '+(+c.ci_lo).toFixed(2)+'..'+(+c.ci_hi).toFixed(2)+'), q '+(+c.q).toFixed(2)+', n '+Number(c.n||0).toLocaleString()
               +(c.lb_rho!=null?', lockbox rho '+(+c.lb_rho).toFixed(2)+' on '+(c.lb_n||0)+' trades':', no lockbox read');
+            if(_fbAnyLift&&c.lift_r!=null){
+              tt+=' | lift '+((+c.lift_r)>=0?'+':'')+(+c.lift_r).toFixed(2)+'R'
+                +((c.lift_lo!=null&&c.lift_hi!=null)?(' (95%: '+(+c.lift_lo).toFixed(2)+'..'+(+c.lift_hi).toFixed(2)+')'):'')
+                +(c.lift_p!=null?(', p '+(+c.lift_p).toFixed(3)):'')
+                +(c.lb_lift_r!=null?(', lockbox lift '+((+c.lb_lift_r)>=0?'+':'')+(+c.lb_lift_r).toFixed(2)+'R'):'');
+            }
             return '<td data-fbcell title="'+tt.replace(/"/g,'&quot;')+'" style="padding:3px 4px;cursor:help">'
               +'<div style="position:relative;height:14px;width:58px;background:var(--bg1);border-radius:3px">'
               +'<div style="position:absolute;left:'+zeroP.toFixed(1)+'%;top:0;bottom:0;width:1px;background:var(--border2)"></div>'
@@ -24975,6 +25004,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<div style="position:absolute;left:calc('+rhoP.toFixed(1)+'% - 1px);top:0;bottom:0;width:2px;background:var(--text)"></div>'
               +'</div>'
               +((c.survives&&c.lb_agrees)?'<div data-fbdiamond style="text-align:center;font-size:8px;color:var(--purple);line-height:1;margin-top:1px">◆</div>':'')
+              +(_fbAnyLift?_fbLiftLine(c):'')
             +'</td>';};
           const matrixHead='<tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px;position:sticky;left:0;background:var(--bg2)">FEATURE</th>'
             +fbLegs.map(l=>'<th style="text-align:center;padding:4px 6px;font-size:9px;color:var(--text3);white-space:nowrap" title="'+_fbEsc(l.file||'')+'">'+_fbEsc(l.label)
@@ -25049,6 +25079,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'Each cell is a confidence interval for how strongly one feature lines up with that strategy’s trade outcome — a correlation check, not a backtest.<br>'
           +'Filled means the 95% range clears zero: solid evidence, not a coincidence of sample size.<br>'
           +'A diamond means the lockbox year — data never touched while building the rule — points the same way.<br>'
+          +(_fbAnyLift?('Rank catches a steady tilt across many trades; lift catches a few outsized winners or losers that rank can miss — trust whichever one a diamond or triangle confirms in the lockbox, and treat a lone reading with neither as a lead, not a verdict.<br>'):'')
           +'PROMOTED needs several unrelated strategy families to agree; one strategy finding something on its own is not enough.'
           +'</div>');
         body=modeToggle+headerTile

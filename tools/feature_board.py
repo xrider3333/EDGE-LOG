@@ -37,11 +37,26 @@ q<0.10 AND the CI excludes zero AND the feature beats its shadow-probe floor. Th
 separately, the SAME rho on LOCKBOX-only trades (light peek, not a second test) checks
 whether the sign repeats — `lb_agrees` (null below 30 lockbox trades).
 
+LIFT: a second, TAIL-aware statistic alongside the rank test above (Spearman is blind to
+a few big winners moving the average). Per leg/feature, on PRE-LOCKBOX trades: split
+trades into HIGH (top tercile, or "on" for a binary feature) and LOW (bottom tercile, or
+"off") groups, convert PnL to R (trade $ / the leg's own average PRE-LOCKBOX losing trade
+in $), and take lift_r = mean R in HIGH minus mean R in LOW. lift_lo/lift_hi come from the
+same moving-block-of-trading-days bootstrap as the rank CI, with group membership fixed;
+lift_p is a two-sided permutation test that shuffles the feature's values at the DAY level
+(bar/state features, which can vary within a day, instead shuffle per-trade within ~21-day
+blocks) and lift_q is that leg's BH-FDR across features. lift_survives requires lift_q<0.10,
+a CI that excludes zero, and beating the 3 shadow probes' lift. lb_lift_r/lb_lift_agrees
+replay the SAME HIGH/LOW thresholds on lockbox trades as a lockbox sign check.
+
 PROMOTION: group legs by family. A feature is PROMOTED when >= 3 distinct families each
 have >= 1 leg with survives=true and the SAME sign, and every one of those families has
 at least one leg where lb_agrees is true. WATCH = 2 families clearing that bar, or >= 3
 families agreeing in sign with survives=true but the lockbox check missing/false in at
-least one of them. Otherwise NONE.
+least one of them. Otherwise NONE. The whole rule is run TWICE — once on the rank basis
+above, once on the LIFT basis (lift_survives / lift_r / lb_lift_agrees) — and a feature's
+verdict keeps whichever basis reaches the stronger tier; `basis` records which one ("rank",
+"lift", or "both" when they tie on tier).
 
 Outputs: docs/feature_board.json (schema is a contract — a web page consumes it, see
 the dict literal at the bottom of main() for the exact shape) and docs/FEATURE_BOARD.md
@@ -81,6 +96,8 @@ if ROOT not in sys.path:
 from augur_engine import context as ctx           # noqa: E402  (reused stats primitives)
 from augur_engine import ml_gate                  # noqa: E402  (entry_features_causal)
 
+LIFT_MIN_GROUP = max(30.0, ctx.MIN_FEATURE_TRADES / 3.0)   # min trades per HIGH/LOW group
+
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 
 COST = {"NQ": 0.533, "ES": 0.363}
@@ -91,6 +108,11 @@ SEED = 42
 PROMOTE_FAMILIES = 3
 FDR_Q = 0.10
 LOCKBOX_MIN_TRADES = 30
+
+# ── LIFT (tail-aware second statistic, see module docstring's LIFT DEFINITION) ──
+LIFT_N_PERM = 1000               # permutation draws for lift_p
+LIFT_BLOCK_PERM_DAYS = 21        # ~1 trading month block for bar/state-group permutation
+LB_LIFT_MIN_TRADES = 15          # min trades per lockbox group for lb_lift_agrees
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -327,6 +349,13 @@ FEATURES = [
         desc="Whether the 60-minute chart was in a volatility squeeze (coiled, about to move) just before entry."),
 ]
 FEATURE_NAMES = [f["name"] for f in FEATURES]
+FEATURE_GROUP = {f["name"]: f["group"] for f in FEATURES}
+# LIFT permutation granularity: "day" = one value per calendar day (daily/macro/
+# structure groups, already joined by date) -> permute at the DAY level. "bar" =
+# can vary within a day (bar/state groups, read per-trade at the entry bar) ->
+# permute per-trade values within ~21-trading-day blocks instead (see
+# _lift_perm_pvalue).
+GROUP_KIND = {"bar": "bar", "state": "bar", "daily": "day", "macro": "day", "structure": "day"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -552,6 +581,131 @@ def _rho_vs_y(x, y):
     return float(ctx._pearson(ctx._rank(xv), ctx._rank(yv)))
 
 
+def _lift_threshold_spec(x):
+    """Group-membership rule fixed from OBSERVED (pre-lockbox) data: binary (exactly
+    two distinct non-nan values) -> HIGH=max value, LOW=min value. Continuous ->
+    HIGH = top tercile, LOW = bottom tercile via np.quantile([1/3, 2/3]) thresholds.
+    Returns (kind, lo_thresh_or_val, hi_thresh_or_val); kind="degenerate" when the
+    feature has <=1 distinct value (no possible split)."""
+    xv = np.asarray(x, float)
+    u = np.unique(xv[~np.isnan(xv)])
+    if len(u) <= 1:
+        return ("degenerate", 0.0, 0.0)
+    if len(u) == 2:
+        return ("binary", float(u.min()), float(u.max()))
+    q_lo, q_hi = np.quantile(xv[~np.isnan(xv)], [1.0 / 3, 2.0 / 3])
+    return ("cont", float(q_lo), float(q_hi))
+
+
+def _lift_masks(xv, spec):
+    kind, lo_t, hi_t = spec
+    xv = np.asarray(xv, float)
+    if kind == "degenerate":
+        z = np.zeros(xv.shape, dtype=bool)
+        return z, z
+    if kind == "binary":
+        return (xv == hi_t), (xv == lo_t)
+    return (xv >= hi_t), (xv <= lo_t)
+
+
+def _lift_r(r_vals, hi_mask, lo_mask):
+    """mean R in HIGH minus mean R in LOW; None if either group is empty."""
+    if not hi_mask.any() or not lo_mask.any():
+        return None
+    r_vals = np.asarray(r_vals, float)
+    return float(np.nanmean(r_vals[hi_mask]) - np.nanmean(r_vals[lo_mask]))
+
+
+def _block_lift_ci(rvals, hi_mask, lo_mask, day_code, n_days, block_days, n_boot, seed):
+    """95% CI for lift_r from the SAME moving-block-of-trading-days bootstrap as
+    ctx._block_bootstrap_ci (see that function's docstring), applied to the lift
+    statistic (mean R in HIGH minus mean R in LOW) instead of rank correlation.
+    Group membership (hi_mask/lo_mask) is FIXED from the observed data — each draw
+    only reweights which trades' days are covered by the resampled blocks, per the
+    module's LIFT DEFINITION ("group membership fixed per trade")."""
+    rng = np.random.default_rng(int(seed))
+    n_boot = int(n_boot); n_days = int(n_days)
+    block_days = int(max(1, min(int(block_days), n_days)))
+    n_blocks = int(np.ceil(n_days / block_days))
+    starts = rng.integers(0, n_days, size=(n_boot, n_blocks))
+    offsets = np.arange(block_days)
+    idx = (starts[:, :, None] + offsets[None, None, :]) % n_days       # circular wrap
+    idx = idx.reshape(n_boot, n_blocks * block_days)[:, :n_days]
+    mult = np.zeros((n_boot, n_days), dtype=np.int32)
+    rows_ = np.repeat(np.arange(n_boot), n_days)
+    np.add.at(mult, (rows_, idx.ravel()), 1)
+    W = mult[:, day_code].astype(float)                     # (n_boot, n_obs)
+    r = np.asarray(rvals, float)
+    Wh = W * hi_mask[None, :].astype(float)
+    Wl = W * lo_mask[None, :].astype(float)
+    swh = Wh.sum(axis=1); swl = Wl.sum(axis=1)
+    swh_safe = np.where(swh > 0, swh, 1.0)
+    swl_safe = np.where(swl > 0, swl, 1.0)
+    mh = (Wh * r[None, :]).sum(axis=1) / swh_safe
+    ml = (Wl * r[None, :]).sum(axis=1) / swl_safe
+    lift_boot = mh - ml
+    lo, hi = np.percentile(lift_boot, [2.5, 97.5])
+    return float(lo), float(hi)
+
+
+def _lift_perm_pvalue(x, r_vals, spec, obs_lift, day_code, n_days, group_kind,
+                      n_perm=LIFT_N_PERM, seed=SEED, block_perm_days=LIFT_BLOCK_PERM_DAYS):
+    """Two-sided permutation p-value for lift_r, at DAY granularity — see module
+    LIFT DEFINITION.
+
+    group_kind == "day" (daily/macro/structure features -- one value per calendar
+    day, already joined by date): permutes which day's feature ROW each day
+    receives. Trades keep their own day, so within-day clustering is preserved.
+
+    group_kind == "bar" (bar/state features that can vary within a day, e.g.
+    momentum read at the trade's own entry bar, or the 60-min compression flag):
+    a whole-day reassignment wouldn't touch the intraday variation these features
+    carry, so instead this permutes per-trade feature VALUES within contiguous
+    blocks of ~21 trading days (`block_perm_days`).
+
+    Both schemes shuffle the underlying value MULTISET, not the trades' R, so the
+    total HIGH/LOW group sizes are invariant across draws -- group membership is
+    recomputed each draw from the fixed thresholds in `spec`, applied to the
+    permuted values (unlike the CI bootstrap, which keeps membership fixed)."""
+    rng = np.random.default_rng(int(seed))
+    x = np.asarray(x, float)
+    r_vals = np.asarray(r_vals, float)
+    n_days = int(n_days)
+    hits = 0
+    if group_kind == "day":
+        day_val = np.zeros(n_days)
+        seen = np.zeros(n_days, dtype=bool)
+        for i, c in enumerate(day_code):
+            if not seen[c]:
+                day_val[c] = x[i]
+                seen[c] = True
+        for _ in range(int(n_perm)):
+            perm = rng.permutation(n_days)
+            xb = day_val[perm][day_code]
+            hb, lb = _lift_masks(xb, spec)
+            lp = _lift_r(r_vals, hb, lb)
+            lp = 0.0 if lp is None else lp
+            if abs(lp) >= abs(obs_lift):
+                hits += 1
+    else:
+        chunks = []
+        for start in range(0, n_days, block_perm_days):
+            block_ids = set(range(start, min(start + block_perm_days, n_days)))
+            idx = np.where(np.isin(day_code, list(block_ids)))[0]
+            if len(idx) > 1:
+                chunks.append(idx)
+        for _ in range(int(n_perm)):
+            xb = x.copy()
+            for idx in chunks:
+                xb[idx] = x[idx[rng.permutation(len(idx))]]
+            hb, lb = _lift_masks(xb, spec)
+            lp = _lift_r(r_vals, hb, lb)
+            lp = 0.0 if lp is None else lp
+            if abs(lp) >= abs(obs_lift):
+                hits += 1
+    return (hits + 1) / (int(n_perm) + 1)
+
+
 def score_leg(data):
     X, y, days, lb = data["X"], data["usd"], np.asarray(data["entry_date"]), data["lb"]
     pre = ~lb
@@ -561,27 +715,50 @@ def score_leg(data):
     Xl = X.loc[lb].reset_index(drop=True)
     yl = y[lb]
 
+    # R unit: leg's average LOSING trade in $, PRE-LOCKBOX only (module LIFT
+    # DEFINITION). Fixed once per leg; used to convert both pre-lockbox and
+    # lockbox dollar PnL into R for every lift computation below.
+    losers = yp[yp < 0]
+    r_unit = float(np.mean(np.abs(losers))) if len(losers) else 1.0
+    if not np.isfinite(r_unit) or r_unit <= 0:
+        r_unit = 1.0
+    rp = yp / r_unit
+    rl = yl / r_unit
+
     probes = _probe_columns(Xp)
     probe_rhos = [_rho_vs_y(v, yp) for v in probes.values()]
     probe_max_abs_rho = max((abs(r) for r in probe_rhos), default=0.0)
+    probe_lifts = []
+    for v in probes.values():
+        pspec = _lift_threshold_spec(v)
+        phi, plo = _lift_masks(v, pspec)
+        plift = _lift_r(rp, phi, plo)
+        if plift is not None:
+            probe_lifts.append(abs(plift))
+    probe_max_abs_lift = max(probe_lifts, default=0.0)
 
     rows, order_names, pvals = {}, [], []
+    lift_rows, lift_order_names, lift_pvals = {}, [], []
     for nm in FEATURE_NAMES:
         if nm not in Xp.columns:
             rows[nm] = None
+            lift_rows[nm] = None
             continue
         xv = Xp[nm].to_numpy(float)
         yv = np.asarray(yp, float)
+        rv = np.asarray(rp, float)
         dv = np.asarray(dp)
         m = ~np.isnan(xv)
-        xv, yv, dv = xv[m], yv[m], dv[m]
+        xv, yv, dv, rv = xv[m], yv[m], dv[m], rv[m]
         n = len(xv)
         if n < ctx.MIN_FEATURE_TRADES or np.ptp(xv) <= 0 or np.ptp(yv) <= 0:
             rows[nm] = None
+            lift_rows[nm] = None
             continue
         uniq_days, day_code = np.unique(dv, return_inverse=True)
         if len(uniq_days) < ctx.MIN_FEATURE_DAYS:
             rows[nm] = None
+            lift_rows[nm] = None
             continue
         rx, ry = ctx._rank(xv), ctx._rank(yv)
         rho = ctx._pearson(rx, ry)
@@ -601,10 +778,32 @@ def score_leg(data):
         order_names.append(nm)
         pvals.append(float(p))
 
+        # ── LIFT (tail-aware second statistic; see module LIFT DEFINITION) ──
+        spec = _lift_threshold_spec(xv)
+        hi_mask, lo_mask = _lift_masks(xv, spec)
+        if spec[0] == "degenerate" or hi_mask.sum() < LIFT_MIN_GROUP or lo_mask.sum() < LIFT_MIN_GROUP:
+            lift_rows[nm] = None
+        else:
+            lift_val = _lift_r(rv, hi_mask, lo_mask)
+            l_ci_lo, l_ci_hi = _block_lift_ci(rv, hi_mask, lo_mask, day_code, len(uniq_days),
+                                              block_days, N_BOOT, SEED)
+            gkind = GROUP_KIND.get(FEATURE_GROUP.get(nm), "day")
+            l_p = _lift_perm_pvalue(xv, rv, spec, lift_val, day_code, len(uniq_days), gkind)
+            lift_beats_probe = bool(abs(lift_val) > probe_max_abs_lift)
+            lift_rows[nm] = dict(lift_r=lift_val, lift_lo=l_ci_lo, lift_hi=l_ci_hi, p=l_p,
+                                 beats_probe=lift_beats_probe, spec=spec)
+            lift_order_names.append(nm)
+            lift_pvals.append(l_p)
+
     qmap = {}
     if order_names:
         qvals = ctx._bh_fdr(pvals)
         qmap = {nm: float(q) for nm, q in zip(order_names, qvals)}
+
+    lift_qmap = {}
+    if lift_order_names:
+        lqvals = ctx._bh_fdr(lift_pvals)
+        lift_qmap = {nm: float(q) for nm, q in zip(lift_order_names, lqvals)}
 
     out = {}
     for nm in FEATURE_NAMES:
@@ -628,10 +827,41 @@ def score_leg(data):
             if lb_rho is not None and lb_n >= LOCKBOX_MIN_TRADES:
                 lb_agrees = bool(np.sign(lb_rho) == np.sign(r["rho"]))
 
-        out[nm] = dict(rho=round(r["rho"], 4), ci_lo=round(r["ci_lo"], 4), ci_hi=round(r["ci_hi"], 4),
-                       q=round(q, 4), n=int(r["n"]), survives=survives, beats_probe=r["beats_probe"],
-                       lb_rho=(round(lb_rho, 4) if lb_rho is not None else None), lb_n=lb_n,
-                       lb_agrees=lb_agrees)
+        cell = dict(rho=round(r["rho"], 4), ci_lo=round(r["ci_lo"], 4), ci_hi=round(r["ci_hi"], 4),
+                    q=round(q, 4), n=int(r["n"]), survives=survives, beats_probe=r["beats_probe"],
+                    lb_rho=(round(lb_rho, 4) if lb_rho is not None else None), lb_n=lb_n,
+                    lb_agrees=lb_agrees)
+
+        # ── merge in LIFT keys (null where not computable — see LIFT DEFINITION) ──
+        lr = lift_rows.get(nm)
+        if lr is None:
+            cell.update(lift_r=None, lift_lo=None, lift_hi=None, lift_p=None, lift_q=None,
+                       lift_beats_probe=None, lift_survives=None, lb_lift_r=None,
+                       lb_lift_agrees=None)
+        else:
+            lq = lift_qmap.get(nm, 1.0)
+            lift_ci_excl0 = bool((lr["lift_lo"] > 0 and lr["lift_hi"] > 0)
+                                 or (lr["lift_lo"] < 0 and lr["lift_hi"] < 0))
+            lift_survives = bool(lq < FDR_Q and lift_ci_excl0 and lr["beats_probe"])
+
+            lb_lift_r, lb_lift_agrees = None, None
+            if nm in Xl.columns:
+                xl = Xl[nm].to_numpy(float)
+                hi_l, lo_l = _lift_masks(xl, lr["spec"])
+                n_hi_l, n_lo_l = int(hi_l.sum()), int(lo_l.sum())
+                if n_hi_l > 0 and n_lo_l > 0:
+                    lb_lift_r = _lift_r(np.asarray(rl, float), hi_l, lo_l)
+                if (lb_lift_r is not None and n_hi_l >= LB_LIFT_MIN_TRADES
+                        and n_lo_l >= LB_LIFT_MIN_TRADES):
+                    lb_lift_agrees = bool(np.sign(lb_lift_r) == np.sign(lr["lift_r"]))
+
+            cell.update(lift_r=round(lr["lift_r"], 4), lift_lo=round(lr["lift_lo"], 4),
+                       lift_hi=round(lr["lift_hi"], 4), lift_p=round(lr["p"], 4),
+                       lift_q=round(lq, 4), lift_beats_probe=lr["beats_probe"],
+                       lift_survives=lift_survives,
+                       lb_lift_r=(round(lb_lift_r, 4) if lb_lift_r is not None else None),
+                       lb_lift_agrees=lb_lift_agrees)
+        out[nm] = cell
     return out
 
 
@@ -639,69 +869,155 @@ def score_leg(data):
 # promotion across legs/families
 # ─────────────────────────────────────────────────────────────────────────────
 
+_TIER_RANK = {"PROMOTED": 0, "WATCH": 1, "NONE": 2}
+
+
+def _basis_verdict(per_leg, fam_of, survives_key, value_key, lb_key):
+    """One basis's (rank or lift) verdict pieces for a single feature. Same rule
+    as the original rank-only `promote`: group surviving legs by family + sign,
+    take the sign with the most agreeing families, PROMOTED needs >=3 families
+    AND lockbox agreement in every one of them, WATCH is 2 families or a lockbox
+    miss, NONE otherwise. `value_key`/`lb_key` pick which cell fields to read so
+    the exact same logic serves both the rank cells (rho/lb_agrees) and the lift
+    cells (lift_r/lb_lift_agrees)."""
+    fam_legs = {}                                       # family -> [(legkey, sign, lb_ok)]
+    for legkey, c in per_leg.items():
+        if not c or not c.get(survives_key):
+            continue
+        val = c.get(value_key)
+        if val is None:
+            continue
+        fam = fam_of.get(legkey)
+        sign = "+" if val > 0 else "-"
+        fam_legs.setdefault(fam, []).append((legkey, sign, c.get(lb_key)))
+
+    sign_fams = {"+": set(), "-": set()}
+    for fam, entries in fam_legs.items():
+        signs_here = {s for _, s, _ in entries}
+        if len(signs_here) == 1:
+            sign_fams[signs_here.pop()].add(fam)
+
+    best_sign, best_fams = None, set()
+    for s in ("+", "-"):
+        if len(sign_fams[s]) > len(best_fams):
+            best_sign, best_fams = s, sign_fams[s]
+
+    any_survived = any(fam_legs.values())
+    if best_sign is None or len(best_fams) < 2:
+        return dict(tier="NONE", sign=("mixed" if any_survived else "n/a"),
+                   families_agree=[], legs_agree=[], lb_agree_count=0)
+
+    agree_legs = [lk for fam in best_fams for lk, s, _ in fam_legs[fam] if s == best_sign]
+    fam_lb_ok = {}
+    for fam in best_fams:
+        entries = [e for e in fam_legs[fam] if e[1] == best_sign]
+        fam_lb_ok[fam] = any(e[2] is True for e in entries)
+    lb_agree_count = sum(1 for f in best_fams if fam_lb_ok[f])
+    lb_ok_all = all(fam_lb_ok[f] for f in best_fams)
+    fams_sorted = sorted(best_fams)
+
+    if len(best_fams) >= PROMOTE_FAMILIES and lb_ok_all:
+        tier = "PROMOTED"
+    else:
+        tier = "WATCH"
+
+    return dict(tier=tier, sign=best_sign, families_agree=fams_sorted, legs_agree=agree_legs,
+               lb_agree_count=lb_agree_count)
+
+
+def _reason(nm, label_of, tier, basis, sign, families_agree, rv, lv):
+    label = label_of.get(nm, nm)
+    if tier == "NONE":
+        return (f"{label} did not clear the significance bar in at least two families with the "
+               "same sign, on rank order or on average dollars per trade (lift).")
+    word = "helped" if sign == "+" else "hurt"
+    fams_str = ", ".join(families_agree)
+    metric_name = {"rank": "on rank order (Spearman)",
+                  "lift": "on average dollars per trade (lift)",
+                  "both": "on both rank order (Spearman) and average dollars per trade (lift)"}[basis]
+
+    if tier == "PROMOTED":
+        core = (f"{label} {word} in {fams_str} {metric_name}, and the direction repeated in each "
+               "of their lockbox reads")
+    elif len(families_agree) >= PROMOTE_FAMILIES:
+        core = (f"{label} {word} in all of {fams_str} {metric_name}, but the lockbox direction did "
+               "not repeat in at least one of them")
+    else:
+        core = (f"{label} {word} in {fams_str} {metric_name} — only {len(families_agree)} "
+               f"famil{'y' if len(families_agree) == 1 else 'ies'}, short of the "
+               f"{PROMOTE_FAMILIES}-family bar")
+
+    if basis == "rank":
+        other_ok = lv["tier"] != "NONE"
+        tail = (", and also leaned the same way on average dollars per trade (lift)." if other_ok
+               else ", though not on average dollars per trade (lift).")
+    elif basis == "lift":
+        other_ok = rv["tier"] != "NONE"
+        tail = (", and also leaned the same way on rank order (Spearman)." if other_ok
+               else ", though not on rank order (Spearman).")
+    else:
+        tail = "."
+    return core + tail
+
+
 def promote(cells, features_meta, legs):
-    """cells: {feature_name: {legkey: cell_dict_or_None}}. legs: [{key, family, ...}]."""
+    """cells: {feature_name: {legkey: cell_dict_or_None}}. legs: [{key, family, ...}].
+
+    Runs the verdict rule twice per feature — once on the RANK basis (rho /
+    survives / lb_agrees, as before) and once on the LIFT basis (lift_r /
+    lift_survives / lb_lift_agrees) — and keeps whichever reaches the stronger
+    tier (PROMOTED beats WATCH beats NONE). When both bases reach the SAME tier,
+    `basis` is "both" and the basis with more agreeing families is reported (ties
+    favor rank). Cells built without any lift_* keys (e.g. this module's own
+    tests) make the lift basis evaluate to NONE for every feature, so a feature
+    that only ever cleared the rank bar is untouched — its output is identical
+    to the pre-LIFT `promote`."""
     fam_of = {l["key"]: l["family"] for l in legs}
     label_of = {f["name"]: f["label"] for f in features_meta}
     verdicts = []
     for nm in [f["name"] for f in features_meta]:
         per_leg = cells.get(nm, {})
-        fam_legs = {}                                  # family -> [(legkey, sign, lb_agrees)]
-        for legkey, c in per_leg.items():
-            if not c or not c.get("survives"):
-                continue
-            fam = fam_of.get(legkey)
-            sign = "+" if c["rho"] > 0 else "-"
-            fam_legs.setdefault(fam, []).append((legkey, sign, c.get("lb_agrees")))
+        rv = _basis_verdict(per_leg, fam_of, "survives", "rho", "lb_agrees")
+        lv = _basis_verdict(per_leg, fam_of, "lift_survives", "lift_r", "lb_lift_agrees")
 
-        sign_fams = {"+": set(), "-": set()}
-        for fam, entries in fam_legs.items():
-            signs_here = {s for _, s, _ in entries}
-            if len(signs_here) == 1:
-                sign_fams[signs_here.pop()].add(fam)
-
-        best_sign, best_fams = None, set()
-        for s in ("+", "-"):
-            if len(sign_fams[s]) > len(best_fams):
-                best_sign, best_fams = s, sign_fams[s]
-
-        any_survived = any(fam_legs.values())
-        if best_sign is None or len(best_fams) < 2:
-            verdicts.append(dict(feature=nm, tier="NONE",
-                                 sign=("mixed" if any_survived else "n/a"),
-                                 families_agree=[], legs_agree=[], lb_agree_count=0,
-                                 reason=(f"{label_of.get(nm, nm)} did not clear the significance bar "
-                                        "in at least two families with the same sign.")))
+        # The two tests must AGREE on direction before either can vouch for the other.
+        # Rank says "helps" while lift says "hurts" (or vice versa) means the ordering
+        # and the dollars point opposite ways - a tail-vs-bulk contradiction, not
+        # evidence. Such a feature is capped at WATCH and labelled a conflict.
+        conflict = (rv["tier"] != "NONE" and lv["tier"] != "NONE"
+                    and rv["sign"] in ("+", "-") and lv["sign"] in ("+", "-")
+                    and rv["sign"] != lv["sign"])
+        if conflict:
+            winner = rv if _TIER_RANK[rv["tier"]] <= _TIER_RANK[lv["tier"]] else lv
+            basis = "conflict"
+            tier = "WATCH"
+            word = {"+": "helped", "-": "hurt"}
+            fams = sorted(set(rv["families_agree"]) | set(lv["families_agree"]))
+            reason = (f"{label_of.get(nm, nm)}: the two tests disagree - by rank order it "
+                      f"{word[rv['sign']]} ({', '.join(rv['families_agree'])}) but by average "
+                      f"dollars per trade it {word[lv['sign']]} ({', '.join(lv['families_agree'])}). "
+                      f"A feature cannot be promoted until both readings point the same way.")
+            verdicts.append(dict(feature=nm, tier=tier, sign="mixed", families_agree=fams,
+                                 legs_agree=sorted(set(rv["legs_agree"]) | set(lv["legs_agree"])),
+                                 lb_agree_count=min(rv["lb_agree_count"], lv["lb_agree_count"]),
+                                 basis=basis, reason=reason))
             continue
 
-        agree_legs = [lk for fam in best_fams for lk, s, _ in fam_legs[fam] if s == best_sign]
-        fam_lb_ok = {}
-        for fam in best_fams:
-            entries = [e for e in fam_legs[fam] if e[1] == best_sign]
-            fam_lb_ok[fam] = any(e[2] is True for e in entries)
-        lb_agree_count = sum(1 for f in best_fams if fam_lb_ok[f])
-        lb_ok_all = all(fam_lb_ok[f] for f in best_fams)
-        fams_sorted = sorted(best_fams)
-        word = "helped" if best_sign == "+" else "hurt"
-
-        if len(best_fams) >= PROMOTE_FAMILIES and lb_ok_all:
-            tier = "PROMOTED"
-            reason = (f"{label_of.get(nm, nm)} {word} in {', '.join(fams_sorted)}, and the direction "
-                     "repeated in each of their lockbox years.")
-        elif len(best_fams) >= PROMOTE_FAMILIES:
-            tier = "WATCH"
-            reason = (f"{label_of.get(nm, nm)} {word} in all of {', '.join(fams_sorted)}, but the "
-                     "lockbox direction did not repeat in at least one of them.")
+        if _TIER_RANK[rv["tier"]] < _TIER_RANK[lv["tier"]]:
+            winner, basis = rv, "rank"
+        elif _TIER_RANK[lv["tier"]] < _TIER_RANK[rv["tier"]]:
+            winner, basis = lv, "lift"
         else:
-            tier = "WATCH"
-            reason = (f"{label_of.get(nm, nm)} {word} in {', '.join(fams_sorted)} — only two families, "
-                     f"short of the {PROMOTE_FAMILIES}-family bar.")
+            winner = rv if len(rv["families_agree"]) >= len(lv["families_agree"]) else lv
+            basis = "both"
 
-        verdicts.append(dict(feature=nm, tier=tier, sign=best_sign, families_agree=fams_sorted,
-                             legs_agree=agree_legs, lb_agree_count=lb_agree_count, reason=reason))
+        reason = _reason(nm, label_of, winner["tier"], basis, winner["sign"],
+                         winner["families_agree"], rv, lv)
+        verdicts.append(dict(feature=nm, tier=winner["tier"], sign=winner["sign"],
+                             families_agree=winner["families_agree"], legs_agree=winner["legs_agree"],
+                             lb_agree_count=winner["lb_agree_count"], basis=basis, reason=reason))
 
-    tier_rank = {"PROMOTED": 0, "WATCH": 1, "NONE": 2}
-    verdicts.sort(key=lambda v: (tier_rank[v["tier"]], -len(v["families_agree"])))
+    verdicts.sort(key=lambda v: (_TIER_RANK[v["tier"]], -len(v["families_agree"])))
     return verdicts
 
 
@@ -712,7 +1028,21 @@ def promote(cells, features_meta, legs):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="skip fetch_external_daily (no network)")
+    ap.add_argument("--verdicts-only", action="store_true",
+                    help="re-run only the promotion rule on the existing docs/feature_board.json (no engine, no stats)")
     a = ap.parse_args()
+
+    if a.verdicts_only:
+        json_fp = os.path.join(DOCS_OUT, "feature_board.json")
+        with open(json_fp, encoding="utf-8") as f:
+            out = json.load(f)
+        out["verdicts"] = promote(out["cells"], out["features"], out["legs"])
+        with open(json_fp, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=1, default=lambda o: None)
+        write_md(out)
+        print(f"re-judged {json_fp}: " + ", ".join(
+            f"{v['feature']} {v['tier']}/{v['basis']}" for v in out["verdicts"] if v["tier"] != "NONE"))
+        return out
 
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(DOCS_OUT, exist_ok=True)
@@ -762,7 +1092,13 @@ def main():
                  lockbox_min_trades=LOCKBOX_MIN_TRADES,
                  note=("A feature is PROMOTED only when it clears the significance bar with the "
                       "same sign in at least 3 different strategy families, and its direction "
-                      "repeats in the last-12-months lockbox of every one of those families.")),
+                      "repeats in the last-12-months lockbox of every one of those families. The "
+                      "rule runs on two bases, rank and lift (see lift_note) — a feature can be "
+                      "PROMOTED/WATCH on either one, or on both."),
+                 lift_note=("LIFT is the difference in average profit, measured in R (the leg's own "
+                           "typical losing trade), between the top third and bottom third of a "
+                           "feature's trades — it catches an edge that shows up mainly in a few big "
+                           "winners even when the trades' RANK ORDER (Spearman) shows nothing.")),
         legs=leg_out,
         features=features_out,
         cells=cells,
@@ -813,14 +1149,61 @@ def write_md(out):
     if not promoted:
         lines.append("None cleared the 3-family + lockbox bar this round.")
     for v in promoted:
-        lines.append(f"- **{v['feature']}** ({v['sign']}, {', '.join(v['families_agree'])}): {v['reason']}")
+        lines.append(f"- **{v['feature']}** ({v['sign']}, {v['basis']}, {', '.join(v['families_agree'])}): "
+                    f"{v['reason']}")
     lines.append("")
     lines.append(f"## WATCH ({len(watch)})")
     lines.append("")
     if not watch:
         lines.append("None.")
     for v in watch[:10]:
-        lines.append(f"- {v['feature']} ({v['sign']}, {', '.join(v['families_agree'])}): {v['reason']}")
+        lines.append(f"- {v['feature']} ({v['sign']}, {v['basis']}, {', '.join(v['families_agree'])}): "
+                    f"{v['reason']}")
+    lines.append("")
+
+    lines.append("## LIFT — tail-aware second read")
+    lines.append("")
+    lines.append(out["rule"]["lift_note"])
+    lines.append("")
+    legs_meta = out["legs"]
+    fam_of = {lg["key"]: lg["family"] for lg in legs_meta}
+    label_of = {lg["key"]: lg["label"] for lg in legs_meta}
+
+    lines.append("### `compressed_60m` on every leg — rank vs lift")
+    lines.append("")
+    lines.append("| leg | rank rho | rank survives | lift_r (R) | lift survives | lockbox lift agrees |")
+    lines.append("|---|---|---|---|---|---|")
+    comp_cells = out["cells"].get("compressed_60m", {})
+    for lg in legs_meta:
+        c = comp_cells.get(lg["key"])
+        if not c:
+            lines.append(f"| {lg['label']} | n/a | n/a | n/a | n/a | n/a |")
+            continue
+        lift_r_str = "n/a" if c.get("lift_r") is None else f"{c['lift_r']:+.3f}"
+        lift_surv_str = "n/a" if c.get("lift_survives") is None else str(c["lift_survives"])
+        lb_str = "n/a" if c.get("lb_lift_agrees") is None else str(c["lb_lift_agrees"])
+        lines.append(f"| {lg['label']} | {c['rho']:+.4f} | {c['survives']} | {lift_r_str} | "
+                    f"{lift_surv_str} | {lb_str} |")
+    lines.append("")
+
+    lift_hits = []
+    for nm, per_leg in out["cells"].items():
+        for legkey, c in (per_leg or {}).items():
+            if c and c.get("lift_survives"):
+                lift_hits.append((nm, legkey, c))
+    lines.append(f"### Cells where lift_survives=true ({len(lift_hits)})")
+    lines.append("")
+    if not lift_hits:
+        lines.append("None this round.")
+    else:
+        lines.append("| feature | leg | family | lift_r (R) | 95% CI | lockbox lift_r | lockbox agrees |")
+        lines.append("|---|---|---|---|---|---|---|")
+        for nm, legkey, c in sorted(lift_hits, key=lambda t: -abs(t[2]["lift_r"])):
+            lb_r_str = "n/a" if c.get("lb_lift_r") is None else f"{c['lb_lift_r']:+.3f}"
+            lb_ok_str = "n/a" if c.get("lb_lift_agrees") is None else str(c["lb_lift_agrees"])
+            lines.append(f"| {nm} | {label_of.get(legkey, legkey)} | {fam_of.get(legkey, '?')} | "
+                        f"{c['lift_r']:+.3f} | [{c['lift_lo']:+.3f}, {c['lift_hi']:+.3f}] | "
+                        f"{lb_r_str} | {lb_ok_str} |")
     lines.append("")
     lines.append("## Caveats")
     lines.append("")

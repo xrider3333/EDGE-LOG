@@ -43,6 +43,20 @@ WHAT IT ASSERTS
   * no horizontal overflow (document.documentElement.scrollWidth <= clientWidth)
   * no console.error and no uncaught exception / unhandled rejection during the render
 
+LIFT (v73.539): the default fixture now carries lift_r/lift_lo/lift_hi/lift_p/lift_q/
+lift_beats_probe/lift_survives/lb_lift_r/lb_lift_agrees on every cell (~1/3 lift_survives,
+a subset with lb_lift_agrees) and a verdict.basis on all three verdicts (one 'rank', one
+'lift', one 'both'). Against that fixture the probe additionally asserts one [data-fblift]
+per [data-fbcell], at least one [data-fbliftdiamond] triangle, at least one [data-fbbasis]
+pill, and the legend carrying the "lift reading that repeats in the lockbox" line plus a
+bare "▲" glyph somewhere on the page. `--nolift` builds the SAME fixture with every
+lift-related key stripped (from cells, verdicts, and rule) to prove the old-format path:
+zero [data-fblift]/[data-fbliftdiamond]/[data-fbbasis], no legend line, no "▲" glyph
+-- byte-for-byte the pre-lift render. `--real` reads whatever is actually in docs/ and
+applies the SAME has-lift branch automatically (has_lift is detected from the loaded JSON,
+not from the CLI flag), so it self-adapts whether the backend has shipped lift fields yet
+or not.
+
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks a push
 on tooling trouble -- no chrome found, timeout, etc).
 
@@ -56,6 +70,14 @@ import subprocess
 import sys
 import tempfile
 import threading
+
+try:
+    # Windows consoles default to cp1252, which cannot print the U+25B2 (▲) glyph in a
+    # FAIL line below; UTF-8 stdout matches every other render probe in tools/.
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except (AttributeError, ValueError):
+    pass
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_featboard_probe.html'
@@ -107,7 +129,7 @@ FEATURES = [
 FEATURE_NAMES = [f['name'] for f in FEATURES]
 
 
-def _cell(seed, survives, lb_agrees, n=1500, lb_n=90):
+def _cell(seed, survives, lb_agrees, n=1500, lb_n=90, with_lift=True):
     # deterministic, no RNG import needed -- a simple hash-ish spread is enough for a fixture
     rho = ((seed * 37) % 21 - 10) / 40.0  # roughly -0.25..0.25
     if survives:
@@ -127,17 +149,51 @@ def _cell(seed, survives, lb_agrees, n=1500, lb_n=90):
             ci_hi = -0.01
     q = 0.02 if survives else 0.35 + (seed % 5) * 0.05
     lb_rho = rho * (0.7 if lb_agrees else -0.6) if lb_agrees is not None else None
-    return {
+    out = {
         'rho': round(rho, 4), 'ci_lo': round(ci_lo, 4), 'ci_hi': round(ci_hi, 4),
         'q': round(q, 4), 'n': n, 'survives': bool(survives), 'beats_probe': bool(survives),
         'lb_rho': (round(lb_rho, 4) if lb_rho is not None else None), 'lb_n': lb_n,
         'lb_agrees': lb_agrees,
     }
+    if with_lift:
+        # LIFT (v73.539): a second, tail-aware statistic -- independent spread from rho above,
+        # roughly 1/3 of cells survive (seed % 3 == 0), a subset of those repeat in the lockbox
+        # (lb_lift_agrees) so at least one data-fbliftdiamond is guaranteed on screen.
+        lift_r = ((seed * 53) % 27 - 13) / 20.0  # roughly -0.65..0.65
+        lift_survives = (seed % 3 == 0)
+        if lift_survives:
+            lift_r = abs(lift_r) + 0.15
+            if seed % 2 == 1:
+                lift_r = -lift_r
+        else:
+            lift_r = lift_r * 0.4
+        lift_half = 0.05 + (seed % 5) * 0.01
+        lift_lo, lift_hi = lift_r - lift_half, lift_r + lift_half
+        if lift_survives:
+            if lift_r >= 0 and lift_lo < 0.02:
+                lift_lo = 0.02
+            if lift_r < 0 and lift_hi > -0.02:
+                lift_hi = -0.02
+        lift_p = 0.004 if lift_survives else 0.28 + (seed % 4) * 0.05
+        lb_lift_agrees = None
+        lb_lift_r = None
+        if lift_survives:
+            lb_lift_agrees = (seed % 2 == 0)
+            lb_lift_r = lift_r * (0.75 if lb_lift_agrees else -0.55)
+        out.update({
+            'lift_r': round(lift_r, 4), 'lift_lo': round(lift_lo, 4), 'lift_hi': round(lift_hi, 4),
+            'lift_p': round(lift_p, 4), 'lift_q': round(min(0.4, lift_p * 1.5), 4),
+            'lift_beats_probe': bool(lift_survives), 'lift_survives': bool(lift_survives),
+            'lb_lift_r': (round(lb_lift_r, 4) if lb_lift_r is not None else None),
+            'lb_lift_agrees': lb_lift_agrees,
+        })
+    return out
 
 
-def build_feature_board_fixture():
+def build_feature_board_fixture(with_lift=True):
     cells = {}
     diamond_planted = False
+    lift_diamond_planted = False
     for fi, feat in enumerate(FEATURES):
         row = {}
         for li, leg in enumerate(LEGS):
@@ -146,15 +202,21 @@ def build_feature_board_fixture():
             lb_agrees = None
             if survives:
                 lb_agrees = True if (fi == 0 and li in (0, 1)) or (fi == 3 and li == 2) else ((seed % 2) == 0)
-            row[leg['key']] = _cell(seed, survives, lb_agrees)
+            row[leg['key']] = _cell(seed, survives, lb_agrees, with_lift=with_lift)
             if row[leg['key']].get('lb_agrees'):
                 diamond_planted = True
+            if row[leg['key']].get('lift_survives') and row[leg['key']].get('lb_lift_agrees'):
+                lift_diamond_planted = True
         cells[feat['name']] = row
     if not diamond_planted:
         # belt and braces: force at least one diamond so the probe's own assertion is
         # never accidentally starved by the deterministic spread above
         cells[FEATURES[0]['name']][LEGS[0]['key']]['lb_agrees'] = True
         cells[FEATURES[0]['name']][LEGS[0]['key']]['survives'] = True
+    if with_lift and not lift_diamond_planted:
+        # same belt-and-braces guard, for the lift triangle (data-fbliftdiamond)
+        cells[FEATURES[1]['name']][LEGS[1]['key']]['lift_survives'] = True
+        cells[FEATURES[1]['name']][LEGS[1]['key']]['lb_lift_agrees'] = True
 
     verdicts = [
         {'feature': 'compression_60m', 'tier': 'PROMOTED', 'sign': '+',
@@ -170,14 +232,25 @@ def build_feature_board_fixture():
          'lb_agree_count': 1,
          'reason': 'The overnight gap lines up with an effect on one leg only so far; worth tracking, not yet promoted.'},
     ]
+    if with_lift:
+        # basis: rank-only, lift-only and both -- one of each, so the probe can prove the
+        # basis pill (data-fbbasis) actually threads the real value through, not a stub.
+        verdicts[0]['basis'] = 'both'
+        verdicts[1]['basis'] = 'rank'
+        verdicts[2]['basis'] = 'lift'
+
+    rule = {
+        'promote_families': 3, 'fdr_q': 0.10, 'lockbox_min_trades': 30,
+        'note': 'A feature is PROMOTED only when at least three unrelated strategy families clear the significance bar on the same sign, after a false-discovery-rate correction; the lockbox year is read for agreement only, never for promotion.',
+    }
+    if with_lift:
+        rule['lift_note'] = ('lift = average R per trade when the feature is high minus when it is low; '
+                              'it catches big-winner effects the rank test cannot see')
 
     return {
         'generated': '2026-09-07T09:00:00Z',
         'version': 1,
-        'rule': {
-            'promote_families': 3, 'fdr_q': 0.10, 'lockbox_min_trades': 30,
-            'note': 'A feature is PROMOTED only when at least three unrelated strategy families clear the significance bar on the same sign, after a false-discovery-rate correction; the lockbox year is read for agreement only, never for promotion.',
-        },
+        'rule': rule,
         'legs': LEGS,
         'features': FEATURES,
         'cells': cells,
@@ -281,6 +354,17 @@ var FB=__FB__, EX=__EX__, NFEAT=__NFEAT__, NLEG=__NLEG__;
       out.rows=d.querySelectorAll('tr[data-fbrow]').length;
       out.cells=d.querySelectorAll('td[data-fbcell]').length;
       out.diamonds=d.querySelectorAll('[data-fbdiamond]').length;
+      out.liftCells=d.querySelectorAll('[data-fblift]').length;
+      out.liftDiamonds=d.querySelectorAll('[data-fbliftdiamond]').length;
+      out.basisPills=d.querySelectorAll('[data-fbbasis]').length;
+      // scoped to #app (the render root), NOT document.body -- index.html's whole source
+      // lives in one inline <script> under <body>, and textContent walks INTO script tags,
+      // so body.textContent would always contain this JS file's own string literals
+      // regardless of what actually rendered. #app holds only rendered output, no <script>.
+      var appEl=d.getElementById('app');
+      var appTxt=(appEl&&appEl.textContent)||'';
+      out.legendHasLift=appTxt.indexOf('lift reading that repeats in the lockbox')>=0;
+      out.legendHasLiftGlyph=appTxt.indexOf('▲')>=0;
       var exitCards=d.querySelectorAll('[data-fbexitcard]');
       out.exitCards=exitCards.length;
       out.exitCardsWithChart=0;
@@ -324,6 +408,16 @@ def make_handler(root):
     return H
 
 
+def _fb_has_lift(fb):
+    """True if ANY cell in fb['cells'] carries a lift_r key -- mirrors index.html's own
+    _fbAnyLift gate, so this probe checks the render against the same rule the app uses."""
+    for row in (fb.get('cells') or {}).values():
+        for c in (row or {}).values():
+            if c and 'lift_r' in c:
+                return True
+    return False
+
+
 def clean(ppath, pdir):
     try:
         os.remove(ppath)
@@ -340,6 +434,7 @@ def main():
         return INCONCLUSIVE
 
     real = '--real' in sys.argv
+    nolift = '--nolift' in sys.argv
     if real:
         # render the ACTUAL docs/*.json the site will fetch, not the fixture
         with open(os.path.join(root, 'docs', 'feature_board.json'), encoding='utf-8') as f:
@@ -348,7 +443,7 @@ def main():
             ex = json.load(f)
         exp_verdicts = len([v for v in fb.get('verdicts', []) if v.get('tier') != 'NONE'])
     else:
-        fb = build_feature_board_fixture()
+        fb = build_feature_board_fixture(with_lift=not nolift)
         ex = build_exit_autopsy_fixture()
         assert len(fb['features']) == 12, len(fb['features'])
         assert len(fb['legs']) == 6, len(fb['legs'])
@@ -390,11 +485,17 @@ def main():
         return INCONCLUSIVE
 
     n_feat, n_leg = len(fb['features']), len(fb['legs'])
+    exp_cells = n_feat * n_leg
+    has_lift = _fb_has_lift(fb)
+    exp_lift_cells = exp_cells if has_lift else 0
     print('FEATBOARD PROBE: version %s, why=%s' % (d.get('VERSION'), d.get('why')))
     print('  call=%s' % str(d.get('call'))[:200])
     print('  header=%s verdicts=%s rows=%s(/%s) cells=%s(/%s) diamonds=%s'
           % (d.get('header'), d.get('verdicts'), d.get('rows'), n_feat,
-             d.get('cells'), n_feat * n_leg, d.get('diamonds')))
+             d.get('cells'), exp_cells, d.get('diamonds')))
+    print('  has_lift=%s liftCells=%s(/%s) liftDiamonds=%s basisPills=%s legendHasLift=%s'
+          % (has_lift, d.get('liftCells'), exp_lift_cells, d.get('liftDiamonds'),
+             d.get('basisPills'), d.get('legendHasLift')))
     print('  exitCards=%s(/%s) exitCardsWithChart=%s scrollWidth=%s clientWidth=%s'
           % (d.get('exitCards'), n_leg, d.get('exitCardsWithChart'),
              d.get('scrollWidth'), d.get('clientWidth')))
@@ -413,6 +514,25 @@ def main():
                     % (n_feat * n_leg, n_feat, n_leg, d.get('cells')))
     if not d.get('diamonds'):
         bad.append('no lockbox-agreement diamonds ([data-fbdiamond]) rendered')
+    if d.get('liftCells') != exp_lift_cells:
+        bad.append('expected %d [data-fblift] lines (has_lift=%s), got %s'
+                    % (exp_lift_cells, has_lift, d.get('liftCells')))
+    if has_lift and not d.get('liftDiamonds'):
+        bad.append('no lift-agreement triangles ([data-fbliftdiamond]) rendered despite lift keys present')
+    if not has_lift and d.get('liftDiamonds'):
+        bad.append('lift-agreement triangles rendered with no lift keys in the data (backward-compat breach)')
+    if has_lift and not d.get('legendHasLift'):
+        bad.append('legend is missing the lift line ("lift reading that repeats in the lockbox")')
+    if not has_lift and d.get('legendHasLift'):
+        bad.append('legend shows the lift line with no lift keys in the data (backward-compat breach)')
+    if has_lift and not d.get('legendHasLiftGlyph'):
+        bad.append('legend/matrix carries no ▲ glyph despite lift keys present')
+    if not has_lift and d.get('legendHasLiftGlyph'):
+        bad.append('a ▲ glyph rendered with no lift keys in the data (backward-compat breach)')
+    if has_lift and not d.get('basisPills'):
+        bad.append('no basis pill ([data-fbbasis]) rendered on any verdict card despite verdict.basis present')
+    if not has_lift and d.get('basisPills'):
+        bad.append('basis pill rendered with no basis field on any verdict (backward-compat breach)')
     if d.get('exitCards') != n_leg:
         bad.append('expected %d exit cards, got %s' % (n_leg, d.get('exitCards')))
     if d.get('exitCardsWithChart') != d.get('exitCards'):
