@@ -1,0 +1,3121 @@
+{
+ "generated": "2026-09-07T08:44:40.170827+00:00",
+ "version": 1,
+ "rule": {
+  "promote_families": 3,
+  "fdr_q": 0.1,
+  "lockbox_min_trades": 30,
+  "note": "A feature is PROMOTED only when it clears the significance bar with the same sign in at least 3 different strategy families, and its direction repeats in the last-12-months lockbox of every one of those families."
+ },
+ "legs": [
+  {
+   "key": "ORB_314",
+   "family": "ORB",
+   "label": "ORB #314 (crown)",
+   "file": "ORB_3_6_R6.py",
+   "run": 314,
+   "instrument": "NQ",
+   "timeframe": "5m",
+   "session": "RTH",
+   "window": [
+    "2010-06-07",
+    "2026-08-13"
+   ],
+   "lockbox_from": "2025-08-13",
+   "n_pre": 2131,
+   "n_lb": 168,
+   "net_pre": 310018.54,
+   "net_lb": 87131.62,
+   "parity": {
+    "source": "doc",
+    "expected_net": 397150.16,
+    "got_net": 397150.16,
+    "ok": true
+   }
+  },
+  {
+   "key": "ORB_234",
+   "family": "ORB",
+   "label": "ORB #234 (control, pinned card)",
+   "file": "ORB_3_6_C2.py",
+   "run": 234,
+   "instrument": "NQ",
+   "timeframe": "5m",
+   "session": "RTH",
+   "window": [
+    "2010-06-07",
+    "2026-06-30"
+   ],
+   "lockbox_from": "2025-06-30",
+   "n_pre": 2411,
+   "n_lb": 173,
+   "net_pre": 300778.74,
+   "net_lb": 72525.82,
+   "parity": {
+    "source": "defaults",
+    "expected_net": null,
+    "got_net": 373304.56,
+    "ok": null
+   }
+  },
+  {
+   "key": "NOISE_243",
+   "family": "NOISE",
+   "label": "NOISE #243 (paper leg, pinned)",
+   "file": "NOISE_1_1_SBS_V90.py",
+   "run": 243,
+   "instrument": "NQ",
+   "timeframe": "5m",
+   "session": "RTH",
+   "window": [
+    "2010-06-07",
+    "2026-08-12"
+   ],
+   "lockbox_from": "2025-02-11",
+   "n_pre": 4054,
+   "n_lb": 375,
+   "net_pre": 320130.25,
+   "net_lb": 60614.74,
+   "parity": {
+    "source": "doc",
+    "expected_net": 380744.99,
+    "got_net": 380744.99,
+    "ok": true
+   }
+  },
+  {
+   "key": "NOISE_316",
+   "family": "NOISE",
+   "label": "NOISE #316",
+   "file": "NOISE_1_1_LB51.py",
+   "run": 316,
+   "instrument": "NQ",
+   "timeframe": "5m",
+   "session": "RTH",
+   "window": [
+    "2010-06-07",
+    "2026-08-12"
+   ],
+   "lockbox_from": "2025-08-12",
+   "n_pre": 3556,
+   "n_lb": 228,
+   "net_pre": 332758.98,
+   "net_lb": 26372.53,
+   "parity": {
+    "source": "doc",
+    "expected_net": 359131.51,
+    "got_net": 359131.51,
+    "ok": true
+   }
+  },
+  {
+   "key": "ENGUQ_309",
+   "family": "ENGUQ",
+   "label": "ENGU-Q #309 (crown, NQ 1m ETH)",
+   "file": "ENGUQ_1M_ETH_ER_1_0.py",
+   "run": 309,
+   "instrument": "NQ",
+   "timeframe": "1m",
+   "session": "ETH",
+   "window": [
+    "2010-06-07",
+    "2026-06-30"
+   ],
+   "lockbox_from": "2025-06-30",
+   "n_pre": 1505,
+   "n_lb": 99,
+   "net_pre": 505756.11,
+   "net_lb": 85510.62,
+   "parity": {
+    "source": "doc",
+    "expected_net": 591266.74,
+    "got_net": 591266.74,
+    "ok": true
+   }
+  },
+  {
+   "key": "NQDIP_307",
+   "family": "NQDIP",
+   "label": "NQDIP #307",
+   "file": "NQDIP_1_0.py",
+   "run": 307,
+   "instrument": "NQ",
+   "timeframe": "5m",
+   "session": "RTH",
+   "window": [
+    "2010-06-07",
+    "2026-08-24"
+   ],
+   "lockbox_from": "2025-08-24",
+   "n_pre": 851,
+   "n_lb": 56,
+   "net_pre": 458383.31,
+   "net_lb": 20937.61,
+   "parity": {
+    "source": "doc",
+    "expected_net": 479320.92,
+    "got_net": 479320.92,
+    "ok": true
+   }
+  }
+ ],
+ "features": [
+  {
+   "name": "mom_5",
+   "label": "5-bar momentum (in ATR units)",
+   "group": "bar",
+   "desc": "How far price has moved over the last 5 bars, scaled by recent volatility."
+  },
+  {
+   "name": "mom_20",
+   "label": "20-bar momentum (in ATR units)",
+   "group": "bar",
+   "desc": "How far price has moved over the last 20 bars, scaled by recent volatility."
+  },
+  {
+   "name": "atr_norm",
+   "label": "Volatility level (ATR / price)",
+   "group": "bar",
+   "desc": "Recent average bar range as a fraction of price \u2014 how choppy the tape is right now."
+  },
+  {
+   "name": "atr_ratio",
+   "label": "Volatility expansion (fast ATR / slow ATR)",
+   "group": "bar",
+   "desc": "Whether short-term volatility is running hot or cold compared to its own slow baseline."
+  },
+  {
+   "name": "trend_20",
+   "label": "20-bar trend strength",
+   "group": "bar",
+   "desc": "How straight-line the last 20 bars have been (near 1 or -1 = trending, near 0 = choppy)."
+  },
+  {
+   "name": "range_pos",
+   "label": "Position in the 20-bar range",
+   "group": "bar",
+   "desc": "Where the current price sits inside its own recent 20-bar high-low range, 0=low to 1=high."
+  },
+  {
+   "name": "dist_pdh_atr",
+   "label": "Distance from yesterday's high (ATR units)",
+   "group": "bar",
+   "desc": "How far the current price sits above or below the PRIOR session's high."
+  },
+  {
+   "name": "dist_pdl_atr",
+   "label": "Distance from yesterday's low (ATR units)",
+   "group": "bar",
+   "desc": "How far the current price sits above or below the PRIOR session's low."
+  },
+  {
+   "name": "dist_pdc_atr",
+   "label": "Distance from yesterday's close (ATR units)",
+   "group": "bar",
+   "desc": "How far the current price sits above or below the PRIOR session's closing price."
+  },
+  {
+   "name": "tod_sin",
+   "label": "Time of day (clock, sine component)",
+   "group": "bar",
+   "desc": "Where in the trading day this bar falls, encoded as a smooth clock position."
+  },
+  {
+   "name": "tod_cos",
+   "label": "Time of day (clock, cosine component)",
+   "group": "bar",
+   "desc": "Where in the trading day this bar falls, the other half of the clock encoding."
+  },
+  {
+   "name": "dow",
+   "label": "Day of week",
+   "group": "bar",
+   "desc": "Which weekday the trade entered on (Monday=0 .. Friday=4)."
+  },
+  {
+   "name": "rsi14",
+   "label": "Daily RSI(14), prior day",
+   "group": "daily",
+   "desc": "Yesterday's 14-day Relative Strength Index \u2014 how overbought or oversold the daily chart was."
+  },
+  {
+   "name": "macd_hist",
+   "label": "Daily MACD histogram, prior day",
+   "group": "daily",
+   "desc": "Yesterday's MACD momentum histogram, normalized by price."
+  },
+  {
+   "name": "atr20_pctile",
+   "label": "Daily volatility percentile, prior day",
+   "group": "daily",
+   "desc": "Where yesterday's 20-day average daily range ranked against the last year \u2014 a calm-vs-wild reading."
+  },
+  {
+   "name": "er20",
+   "label": "Daily efficiency ratio (20d), prior day",
+   "group": "daily",
+   "desc": "Yesterday's ratio of net move to total path length over 20 days \u2014 high means trending, low means choppy."
+  },
+  {
+   "name": "gap_pct",
+   "label": "Today's open gap vs yesterday's close",
+   "group": "daily",
+   "desc": "How far today's opening price jumped from yesterday's close, in percent."
+  },
+  {
+   "name": "prev_ret",
+   "label": "Prior day's return",
+   "group": "daily",
+   "desc": "Yesterday's close-to-close percent change."
+  },
+  {
+   "name": "range_pctile",
+   "label": "Daily range percentile, prior day",
+   "group": "daily",
+   "desc": "Where yesterday's high-low range ranked against the last year."
+  },
+  {
+   "name": "up_streak",
+   "label": "Consecutive up/down day count, prior day",
+   "group": "daily",
+   "desc": "How many days in a row closed up (positive) or down (negative) through yesterday."
+  },
+  {
+   "name": "vix",
+   "label": "VIX level, prior close",
+   "group": "macro",
+   "desc": "Yesterday's closing VIX (stock-market fear gauge) level."
+  },
+  {
+   "name": "vix_pctile_1y",
+   "label": "VIX percentile (1yr), prior close",
+   "group": "macro",
+   "desc": "Where yesterday's VIX ranked against the last year \u2014 high means unusually fearful markets."
+  },
+  {
+   "name": "vix_chg_5d",
+   "label": "VIX 5-day change, prior close",
+   "group": "macro",
+   "desc": "How much the VIX moved over the prior 5 trading days."
+  },
+  {
+   "name": "vix_term",
+   "label": "VIX term structure (3mo - spot)",
+   "group": "macro",
+   "desc": "Whether longer-dated VIX futures expect calm or more fear than right now (negative = stress)."
+  },
+  {
+   "name": "tnx",
+   "label": "10-year Treasury yield, prior close",
+   "group": "macro",
+   "desc": "Yesterday's 10-year Treasury yield level."
+  },
+  {
+   "name": "tnx_chg_20d",
+   "label": "10-year yield 20-day change",
+   "group": "macro",
+   "desc": "How much the 10-year Treasury yield moved over the prior month."
+  },
+  {
+   "name": "curve",
+   "label": "Yield curve (10y minus 3mo)",
+   "group": "macro",
+   "desc": "The gap between long and short interest rates \u2014 negative means the curve is inverted."
+  },
+  {
+   "name": "dist_sma20d_atr",
+   "label": "Distance from the 20-day average price (ATR units)",
+   "group": "structure",
+   "desc": "How far yesterday's close sits above or below its own 20-day average, scaled by volatility."
+  },
+  {
+   "name": "dist_sma50d_atr",
+   "label": "Distance from the 50-day average price (ATR units)",
+   "group": "structure",
+   "desc": "How far yesterday's close sits above or below its own 50-day average, scaled by volatility."
+  },
+  {
+   "name": "dist_sma200d_atr",
+   "label": "Distance from the 200-day average price (ATR units)",
+   "group": "structure",
+   "desc": "How far yesterday's close sits above or below its own 200-day average, scaled by volatility."
+  },
+  {
+   "name": "pos_prev_week",
+   "label": "Position inside the week-before-last's range",
+   "group": "structure",
+   "desc": "Where yesterday's close sat inside the high-low range of the week before last, 0=low to 1=high."
+  },
+  {
+   "name": "prev_day_close_pos",
+   "label": "Yesterday's close position in its own range",
+   "group": "structure",
+   "desc": "Where yesterday closed inside its own high-low range for that day, 0=low to 1=high."
+  },
+  {
+   "name": "compressed_60m",
+   "label": "Hourly chart is coiled (squeeze on)",
+   "group": "state",
+   "desc": "Whether the 60-minute chart was in a volatility squeeze (coiled, about to move) just before entry."
+  }
+ ],
+ "cells": {
+  "mom_5": {
+   "ORB_314": {
+    "rho": 0.0032,
+    "ci_lo": -0.0336,
+    "ci_hi": 0.0403,
+    "q": 0.9649,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0239,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0201,
+    "ci_lo": -0.0145,
+    "ci_hi": 0.0583,
+    "q": 0.594,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0056,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0131,
+    "ci_lo": -0.0154,
+    "ci_hi": 0.0435,
+    "q": 0.5542,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0072,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.012,
+    "ci_lo": -0.0213,
+    "ci_hi": 0.0473,
+    "q": 0.5816,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0677,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0341,
+    "ci_lo": -0.0077,
+    "ci_hi": 0.0753,
+    "q": 0.4042,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.164,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0697,
+    "ci_lo": -0.1478,
+    "ci_hi": 0.0044,
+    "q": 0.0684,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.3018,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "mom_20": {
+   "ORB_314": {
+    "rho": 0.0333,
+    "ci_lo": 0.0002,
+    "ci_hi": 0.0675,
+    "q": 0.4576,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0866,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0359,
+    "ci_lo": 0.0024,
+    "ci_hi": 0.0707,
+    "q": 0.2477,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.1236,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0283,
+    "ci_lo": -0.0003,
+    "ci_hi": 0.0566,
+    "q": 0.182,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0262,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0258,
+    "ci_lo": -0.0087,
+    "ci_hi": 0.0544,
+    "q": 0.3131,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0837,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0095,
+    "ci_lo": -0.0445,
+    "ci_hi": 0.0602,
+    "q": 0.811,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.1387,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0604,
+    "ci_lo": -0.1422,
+    "ci_hi": 0.0217,
+    "q": 0.1157,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1595,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "atr_norm": {
+   "ORB_314": {
+    "rho": 0.0288,
+    "ci_lo": -0.0143,
+    "ci_hi": 0.071,
+    "q": 0.4858,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0967,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0319,
+    "ci_lo": -0.0161,
+    "ci_hi": 0.0729,
+    "q": 0.2724,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0882,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0721,
+    "ci_lo": -0.1023,
+    "ci_hi": -0.0402,
+    "q": 0.0,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1377,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0617,
+    "ci_lo": -0.0866,
+    "ci_hi": -0.0301,
+    "q": 0.0015,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1495,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.1413,
+    "ci_lo": -0.1925,
+    "ci_hi": -0.08,
+    "q": 0.0,
+    "n": 1505,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1796,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": 0.1369,
+    "ci_lo": 0.0517,
+    "ci_hi": 0.2299,
+    "q": 0.0005,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0495,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "atr_ratio": {
+   "ORB_314": {
+    "rho": -0.0281,
+    "ci_lo": -0.0684,
+    "ci_hi": 0.0129,
+    "q": 0.4858,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0114,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": -0.0186,
+    "ci_lo": -0.0574,
+    "ci_hi": 0.0151,
+    "q": 0.628,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.031,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": -0.0815,
+    "ci_lo": -0.1088,
+    "ci_hi": -0.0513,
+    "q": 0.0,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.119,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0789,
+    "ci_lo": -0.1044,
+    "ci_hi": -0.0489,
+    "q": 0.0,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1399,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0342,
+    "ci_lo": -0.0884,
+    "ci_hi": 0.02,
+    "q": 0.4042,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0704,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": 0.0589,
+    "ci_lo": -0.0289,
+    "ci_hi": 0.1445,
+    "q": 0.1209,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0198,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "trend_20": {
+   "ORB_314": {
+    "rho": 0.0384,
+    "ci_lo": 0.0043,
+    "ci_hi": 0.0749,
+    "q": 0.4239,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0765,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0314,
+    "ci_lo": -0.0071,
+    "ci_hi": 0.0672,
+    "q": 0.2724,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0979,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0227,
+    "ci_lo": -0.0054,
+    "ci_hi": 0.0522,
+    "q": 0.3265,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0063,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0147,
+    "ci_lo": -0.0156,
+    "ci_hi": 0.045,
+    "q": 0.5775,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.05,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.022,
+    "ci_lo": -0.076,
+    "ci_hi": 0.0307,
+    "q": 0.5921,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.1078,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0517,
+    "ci_lo": -0.1281,
+    "ci_hi": 0.0196,
+    "q": 0.1746,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0007,
+    "lb_n": 56,
+    "lb_agrees": false
+   }
+  },
+  "range_pos": {
+   "ORB_314": {
+    "rho": 0.0354,
+    "ci_lo": -0.0047,
+    "ci_hi": 0.0756,
+    "q": 0.4239,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0851,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0375,
+    "ci_lo": 0.0022,
+    "ci_hi": 0.0757,
+    "q": 0.2477,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.1084,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0116,
+    "ci_lo": -0.0175,
+    "ci_hi": 0.0436,
+    "q": 0.6072,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0184,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0143,
+    "ci_lo": -0.0198,
+    "ci_hi": 0.0492,
+    "q": 0.5775,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.1421,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0021,
+    "ci_lo": -0.0402,
+    "ci_hi": 0.0401,
+    "q": 0.9656,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.1224,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0804,
+    "ci_lo": -0.1591,
+    "ci_hi": -0.0066,
+    "q": 0.0346,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1537,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "dist_pdh_atr": {
+   "ORB_314": {
+    "rho": 0.02,
+    "ci_lo": -0.0175,
+    "ci_hi": 0.0582,
+    "q": 0.6521,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0031,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0368,
+    "ci_lo": 0.0059,
+    "ci_hi": 0.0684,
+    "q": 0.2477,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0136,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0599,
+    "ci_lo": 0.029,
+    "ci_hi": 0.0939,
+    "q": 0.0005,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0327,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0464,
+    "ci_lo": 0.0102,
+    "ci_hi": 0.0813,
+    "q": 0.0233,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1093,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0678,
+    "ci_lo": -0.1151,
+    "ci_hi": -0.0122,
+    "q": 0.0352,
+    "n": 1505,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1054,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1198,
+    "ci_lo": -0.2054,
+    "ci_hi": -0.027,
+    "q": 0.0021,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.3033,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "dist_pdl_atr": {
+   "ORB_314": {
+    "rho": 0.0227,
+    "ci_lo": -0.0119,
+    "ci_hi": 0.0596,
+    "q": 0.5719,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0282,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": 0.0327,
+    "ci_lo": 0.003,
+    "ci_hi": 0.0699,
+    "q": 0.2724,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0437,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": 0.0665,
+    "ci_lo": 0.0343,
+    "ci_hi": 0.0976,
+    "q": 0.0001,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.054,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0545,
+    "ci_lo": 0.0219,
+    "ci_hi": 0.0882,
+    "q": 0.0063,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1122,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0561,
+    "ci_lo": 0.0101,
+    "ci_hi": 0.1069,
+    "q": 0.108,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.1648,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1171,
+    "ci_lo": -0.207,
+    "ci_hi": -0.0259,
+    "q": 0.0021,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.2539,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "dist_pdc_atr": {
+   "ORB_314": {
+    "rho": 0.0299,
+    "ci_lo": -0.0121,
+    "ci_hi": 0.0693,
+    "q": 0.4858,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0725,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0488,
+    "ci_lo": 0.0113,
+    "ci_hi": 0.085,
+    "q": 0.1361,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0754,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0899,
+    "ci_lo": 0.0566,
+    "ci_hi": 0.1197,
+    "q": 0.0,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0537,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0712,
+    "ci_lo": 0.0377,
+    "ci_hi": 0.1115,
+    "q": 0.0002,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1189,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0276,
+    "ci_lo": -0.0183,
+    "ci_hi": 0.079,
+    "q": 0.4472,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0262,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1079,
+    "ci_lo": -0.2032,
+    "ci_hi": -0.0269,
+    "q": 0.0045,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.2951,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "tod_sin": {
+   "ORB_314": {
+    "rho": -0.0011,
+    "ci_lo": -0.0414,
+    "ci_hi": 0.0324,
+    "q": 0.9649,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0249,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0001,
+    "ci_lo": -0.035,
+    "ci_hi": 0.0343,
+    "q": 0.9951,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0515,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": -0.0831,
+    "ci_lo": -0.1091,
+    "ci_hi": -0.0546,
+    "q": 0.0,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1129,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0718,
+    "ci_lo": -0.101,
+    "ci_hi": -0.0434,
+    "q": 0.0002,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1854,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0333,
+    "ci_lo": -0.0202,
+    "ci_hi": 0.0847,
+    "q": 0.4042,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0293,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": null
+  },
+  "tod_cos": {
+   "ORB_314": {
+    "rho": -0.0022,
+    "ci_lo": -0.042,
+    "ci_hi": 0.0348,
+    "q": 0.9649,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0666,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0103,
+    "ci_lo": -0.0302,
+    "ci_hi": 0.0444,
+    "q": 0.841,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.084,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": 0.0168,
+    "ci_lo": -0.0097,
+    "ci_hi": 0.0442,
+    "q": 0.446,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0355,
+    "lb_n": 375,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": 0.0006,
+    "ci_lo": -0.0316,
+    "ci_hi": 0.03,
+    "q": 0.9708,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0994,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": 0.1064,
+    "ci_lo": 0.0585,
+    "ci_hi": 0.1503,
+    "q": 0.0004,
+    "n": 1505,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1032,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": null
+  },
+  "dow": {
+   "ORB_314": {
+    "rho": 0.0232,
+    "ci_lo": -0.0156,
+    "ci_hi": 0.0624,
+    "q": 0.5719,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0034,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0345,
+    "ci_lo": -0.0044,
+    "ci_hi": 0.0771,
+    "q": 0.2477,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0371,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0095,
+    "ci_lo": -0.0403,
+    "ci_hi": 0.0164,
+    "q": 0.669,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0067,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0047,
+    "ci_lo": -0.0358,
+    "ci_hi": 0.0268,
+    "q": 0.8553,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0386,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0127,
+    "ci_lo": -0.0639,
+    "ci_hi": 0.0418,
+    "q": 0.7601,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0428,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0461,
+    "ci_lo": -0.1005,
+    "ci_hi": 0.0148,
+    "q": 0.2069,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.2233,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "rsi14": {
+   "ORB_314": {
+    "rho": -0.0538,
+    "ci_lo": -0.0988,
+    "ci_hi": -0.0097,
+    "q": 0.1452,
+    "n": 2119,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1427,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.0526,
+    "ci_lo": -0.0907,
+    "ci_hi": -0.0058,
+    "q": 0.1098,
+    "n": 2399,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.08,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.033,
+    "ci_lo": -0.0657,
+    "ci_hi": 0.0035,
+    "q": 0.1076,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0384,
+    "lb_n": 375,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": -0.0344,
+    "ci_lo": -0.0703,
+    "ci_hi": -0.0034,
+    "q": 0.1328,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0635,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0312,
+    "ci_lo": -0.0833,
+    "ci_hi": 0.0114,
+    "q": 0.4165,
+    "n": 1504,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0495,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1067,
+    "ci_lo": -0.1784,
+    "ci_hi": -0.0378,
+    "q": 0.0047,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.2604,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "macd_hist": {
+   "ORB_314": {
+    "rho": -0.0362,
+    "ci_lo": -0.0806,
+    "ci_hi": 0.0041,
+    "q": 0.4239,
+    "n": 2130,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.176,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.0256,
+    "ci_lo": -0.0698,
+    "ci_hi": 0.0213,
+    "q": 0.43,
+    "n": 2410,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0757,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0161,
+    "ci_lo": -0.0524,
+    "ci_hi": 0.0117,
+    "q": 0.446,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.1031,
+    "lb_n": 375,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": -0.021,
+    "ci_lo": -0.0614,
+    "ci_hi": 0.0177,
+    "q": 0.4579,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.1055,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0008,
+    "ci_lo": -0.0595,
+    "ci_hi": 0.0412,
+    "q": 0.9764,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0124,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0876,
+    "ci_lo": -0.1859,
+    "ci_hi": -0.0081,
+    "q": 0.0219,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.2328,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "atr20_pctile": {
+   "ORB_314": {
+    "rho": -0.0076,
+    "ci_lo": -0.0689,
+    "ci_hi": 0.0377,
+    "q": 0.9472,
+    "n": 2086,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.073,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": -0.0118,
+    "ci_lo": -0.0634,
+    "ci_hi": 0.0394,
+    "q": 0.841,
+    "n": 2359,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0045,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0041,
+    "ci_lo": -0.036,
+    "ci_hi": 0.0304,
+    "q": 0.8209,
+    "n": 4019,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.1107,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0131,
+    "ci_lo": -0.0432,
+    "ci_hi": 0.0258,
+    "q": 0.5775,
+    "n": 3521,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1238,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0352,
+    "ci_lo": -0.0957,
+    "ci_hi": 0.0258,
+    "q": 0.4042,
+    "n": 1481,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0252,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": 0.0051,
+    "ci_lo": -0.0842,
+    "ci_hi": 0.0963,
+    "q": 0.8827,
+    "n": 851,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.1858,
+    "lb_n": 56,
+    "lb_agrees": false
+   }
+  },
+  "er20": {
+   "ORB_314": {
+    "rho": -0.0685,
+    "ci_lo": -0.1127,
+    "ci_hi": -0.0305,
+    "q": 0.0534,
+    "n": 2116,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0226,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": -0.0529,
+    "ci_lo": -0.0924,
+    "ci_hi": -0.0171,
+    "q": 0.1098,
+    "n": 2396,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0012,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.008,
+    "ci_lo": -0.0409,
+    "ci_hi": 0.0251,
+    "q": 0.7186,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0171,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0154,
+    "ci_lo": -0.0492,
+    "ci_hi": 0.015,
+    "q": 0.5775,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0319,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0038,
+    "ci_lo": -0.0554,
+    "ci_hi": 0.0514,
+    "q": 0.9388,
+    "n": 1504,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0803,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0257,
+    "ci_lo": -0.1001,
+    "ci_hi": 0.0539,
+    "q": 0.4861,
+    "n": 851,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0166,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "gap_pct": {
+   "ORB_314": {
+    "rho": 0.004,
+    "ci_lo": -0.0399,
+    "ci_hi": 0.0486,
+    "q": 0.9649,
+    "n": 2130,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.077,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0214,
+    "ci_lo": -0.0162,
+    "ci_hi": 0.0612,
+    "q": 0.5692,
+    "n": 2410,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0811,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0645,
+    "ci_lo": 0.0318,
+    "ci_hi": 0.0957,
+    "q": 0.0002,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0483,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0467,
+    "ci_lo": 0.0117,
+    "ci_hi": 0.0859,
+    "q": 0.0233,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1236,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": 0.0188,
+    "ci_lo": -0.0242,
+    "ci_hi": 0.0622,
+    "q": 0.629,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.1181,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1408,
+    "ci_lo": -0.2224,
+    "ci_hi": -0.0649,
+    "q": 0.0005,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.22,
+    "lb_n": 56,
+    "lb_agrees": false
+   }
+  },
+  "prev_ret": {
+   "ORB_314": {
+    "rho": 0.001,
+    "ci_lo": -0.045,
+    "ci_hi": 0.0421,
+    "q": 0.9649,
+    "n": 2130,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0372,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": 0.0097,
+    "ci_lo": -0.0369,
+    "ci_hi": 0.0504,
+    "q": 0.841,
+    "n": 2410,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0525,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": 0.0007,
+    "ci_lo": -0.0337,
+    "ci_hi": 0.0327,
+    "q": 0.962,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0101,
+    "lb_n": 375,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": 0.0101,
+    "ci_lo": -0.029,
+    "ci_hi": 0.0413,
+    "q": 0.647,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0911,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.1091,
+    "ci_lo": -0.1749,
+    "ci_hi": -0.0326,
+    "q": 0.0004,
+    "n": 1505,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0931,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.135,
+    "ci_lo": -0.2365,
+    "ci_hi": -0.0574,
+    "q": 0.0005,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.2261,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "range_pctile": {
+   "ORB_314": {
+    "rho": 0.0118,
+    "ci_lo": -0.0391,
+    "ci_hi": 0.0513,
+    "q": 0.9472,
+    "n": 2091,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0345,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0097,
+    "ci_lo": -0.0419,
+    "ci_hi": 0.0661,
+    "q": 0.841,
+    "n": 2369,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.012,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": -0.0052,
+    "ci_lo": -0.038,
+    "ci_hi": 0.0247,
+    "q": 0.7879,
+    "n": 4040,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0395,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0067,
+    "ci_lo": -0.0262,
+    "ci_hi": 0.0415,
+    "q": 0.7871,
+    "n": 3542,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0834,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0392,
+    "ci_lo": -0.0871,
+    "ci_hi": 0.0058,
+    "q": 0.3935,
+    "n": 1488,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.1049,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": 0.0911,
+    "ci_lo": 0.0052,
+    "ci_hi": 0.1926,
+    "q": 0.0174,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.071,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "up_streak": {
+   "ORB_314": {
+    "rho": 0.0087,
+    "ci_lo": -0.0321,
+    "ci_hi": 0.0443,
+    "q": 0.9472,
+    "n": 2130,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0567,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": 0.0018,
+    "ci_lo": -0.0344,
+    "ci_hi": 0.0359,
+    "q": 0.9596,
+    "n": 2410,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0633,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": 0.0059,
+    "ci_lo": -0.0281,
+    "ci_hi": 0.0364,
+    "q": 0.7879,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0182,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0173,
+    "ci_lo": -0.0171,
+    "ci_hi": 0.0513,
+    "q": 0.5775,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0804,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.097,
+    "ci_lo": -0.1555,
+    "ci_hi": -0.0312,
+    "q": 0.0011,
+    "n": 1505,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0414,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0804,
+    "ci_lo": -0.1495,
+    "ci_hi": -0.0238,
+    "q": 0.0346,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1199,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "vix": {
+   "ORB_314": {
+    "rho": 0.0316,
+    "ci_lo": -0.01,
+    "ci_hi": 0.0686,
+    "q": 0.4786,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0106,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0379,
+    "ci_lo": -0.0097,
+    "ci_hi": 0.0807,
+    "q": 0.2477,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0302,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": -0.0212,
+    "ci_lo": -0.0548,
+    "ci_hi": 0.014,
+    "q": 0.3612,
+    "n": 4045,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0229,
+    "lb_n": 374,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0162,
+    "ci_lo": -0.047,
+    "ci_hi": 0.0164,
+    "q": 0.5775,
+    "n": 3546,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0145,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0496,
+    "ci_lo": -0.1216,
+    "ci_hi": 0.0282,
+    "q": 0.1987,
+    "n": 1436,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0224,
+    "lb_n": 93,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": 0.1397,
+    "ci_lo": 0.048,
+    "ci_hi": 0.2259,
+    "q": 0.0005,
+    "n": 838,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1377,
+    "lb_n": 55,
+    "lb_agrees": true
+   }
+  },
+  "vix_pctile_1y": {
+   "ORB_314": {
+    "rho": 0.0054,
+    "ci_lo": -0.0399,
+    "ci_hi": 0.0517,
+    "q": 0.9472,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0086,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0087,
+    "ci_lo": -0.0345,
+    "ci_hi": 0.0492,
+    "q": 0.8495,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0234,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": 0.0169,
+    "ci_lo": -0.0144,
+    "ci_hi": 0.0501,
+    "q": 0.446,
+    "n": 4045,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0286,
+    "lb_n": 374,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": 0.0128,
+    "ci_lo": -0.0206,
+    "ci_hi": 0.042,
+    "q": 0.5775,
+    "n": 3546,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0261,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0188,
+    "ci_lo": -0.0904,
+    "ci_hi": 0.0578,
+    "q": 0.629,
+    "n": 1436,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.021,
+    "lb_n": 93,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": 0.1131,
+    "ci_lo": 0.0443,
+    "ci_hi": 0.1952,
+    "q": 0.0032,
+    "n": 838,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.1424,
+    "lb_n": 55,
+    "lb_agrees": true
+   }
+  },
+  "vix_chg_5d": {
+   "ORB_314": {
+    "rho": 0.0143,
+    "ci_lo": -0.0312,
+    "ci_hi": 0.059,
+    "q": 0.8822,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0052,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": -0.0038,
+    "ci_lo": -0.043,
+    "ci_hi": 0.0397,
+    "q": 0.9368,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0033,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0159,
+    "ci_lo": -0.0502,
+    "ci_hi": 0.0135,
+    "q": 0.446,
+    "n": 4045,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0158,
+    "lb_n": 374,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": -0.0133,
+    "ci_lo": -0.0475,
+    "ci_hi": 0.0193,
+    "q": 0.5775,
+    "n": 3546,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0122,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0283,
+    "ci_lo": -0.0775,
+    "ci_hi": 0.0202,
+    "q": 0.4472,
+    "n": 1436,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0104,
+    "lb_n": 93,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": 0.0463,
+    "ci_lo": -0.0385,
+    "ci_hi": 0.1356,
+    "q": 0.2069,
+    "n": 838,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.3966,
+    "lb_n": 55,
+    "lb_agrees": true
+   }
+  },
+  "vix_term": {
+   "ORB_314": {
+    "rho": 0.0086,
+    "ci_lo": -0.0412,
+    "ci_hi": 0.0599,
+    "q": 0.9472,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0462,
+    "lb_n": 155,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": 0.0122,
+    "ci_lo": -0.0335,
+    "ci_hi": 0.0561,
+    "q": 0.841,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0074,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0163,
+    "ci_lo": -0.0505,
+    "ci_hi": 0.022,
+    "q": 0.446,
+    "n": 4045,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0042,
+    "lb_n": 369,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": -0.0205,
+    "ci_lo": -0.0527,
+    "ci_hi": 0.0097,
+    "q": 0.4579,
+    "n": 3546,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0164,
+    "lb_n": 223,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0072,
+    "ci_lo": -0.0759,
+    "ci_hi": 0.0552,
+    "q": 0.8633,
+    "n": 1436,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0641,
+    "lb_n": 93,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1066,
+    "ci_lo": -0.1924,
+    "ci_hi": -0.0334,
+    "q": 0.0048,
+    "n": 838,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1425,
+    "lb_n": 51,
+    "lb_agrees": true
+   }
+  },
+  "tnx": {
+   "ORB_314": {
+    "rho": 0.0062,
+    "ci_lo": -0.0462,
+    "ci_hi": 0.0636,
+    "q": 0.9472,
+    "n": 2129,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.034,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0067,
+    "ci_lo": -0.0482,
+    "ci_hi": 0.0634,
+    "q": 0.874,
+    "n": 2409,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0129,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": -0.0396,
+    "ci_lo": -0.1083,
+    "ci_hi": 0.0406,
+    "q": 0.0392,
+    "n": 4038,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0029,
+    "lb_n": 373,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0317,
+    "ci_lo": -0.095,
+    "ci_hi": 0.0401,
+    "q": 0.178,
+    "n": 3540,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0379,
+    "lb_n": 226,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0361,
+    "ci_lo": -0.1453,
+    "ci_hi": 0.0562,
+    "q": 0.4042,
+    "n": 1436,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0982,
+    "lb_n": 93,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0399,
+    "ci_lo": -0.1483,
+    "ci_hi": 0.0488,
+    "q": 0.2747,
+    "n": 838,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0591,
+    "lb_n": 55,
+    "lb_agrees": false
+   }
+  },
+  "tnx_chg_20d": {
+   "ORB_314": {
+    "rho": 0.0054,
+    "ci_lo": -0.0388,
+    "ci_hi": 0.0495,
+    "q": 0.9472,
+    "n": 2128,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0425,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0049,
+    "ci_lo": -0.0367,
+    "ci_hi": 0.0458,
+    "q": 0.922,
+    "n": 2408,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0615,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": -0.0208,
+    "ci_lo": -0.0554,
+    "ci_hi": 0.0188,
+    "q": 0.3612,
+    "n": 4036,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0417,
+    "lb_n": 372,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0157,
+    "ci_lo": -0.0534,
+    "ci_hi": 0.0242,
+    "q": 0.5775,
+    "n": 3538,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0034,
+    "lb_n": 225,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0746,
+    "ci_lo": -0.1381,
+    "ci_hi": 0.0023,
+    "q": 0.0222,
+    "n": 1436,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0191,
+    "lb_n": 93,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0149,
+    "ci_lo": -0.1211,
+    "ci_hi": 0.0666,
+    "q": 0.6888,
+    "n": 837,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.1155,
+    "lb_n": 54,
+    "lb_agrees": false
+   }
+  },
+  "curve": {
+   "ORB_314": {
+    "rho": -0.0265,
+    "ci_lo": -0.0584,
+    "ci_hi": 0.0035,
+    "q": 0.4858,
+    "n": 2129,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0418,
+    "lb_n": 168,
+    "lb_agrees": false
+   },
+   "ORB_234": {
+    "rho": 0.0026,
+    "ci_lo": -0.043,
+    "ci_hi": 0.0367,
+    "q": 0.9574,
+    "n": 2409,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0006,
+    "lb_n": 173,
+    "lb_agrees": false
+   },
+   "NOISE_243": {
+    "rho": 0.1142,
+    "ci_lo": 0.0522,
+    "ci_hi": 0.1657,
+    "q": 0.0,
+    "n": 4038,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0085,
+    "lb_n": 373,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": 0.087,
+    "ci_lo": 0.0392,
+    "ci_hi": 0.132,
+    "q": 0.0,
+    "n": 3540,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0307,
+    "lb_n": 226,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": 0.103,
+    "ci_lo": 0.0048,
+    "ci_hi": 0.1733,
+    "q": 0.0008,
+    "n": 1436,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0459,
+    "lb_n": 93,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0507,
+    "ci_lo": -0.1235,
+    "ci_hi": 0.0094,
+    "q": 0.1768,
+    "n": 838,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0473,
+    "lb_n": 55,
+    "lb_agrees": false
+   }
+  },
+  "dist_sma20d_atr": {
+   "ORB_314": {
+    "rho": -0.0578,
+    "ci_lo": -0.0996,
+    "ci_hi": -0.0089,
+    "q": 0.1285,
+    "n": 2116,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1406,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.057,
+    "ci_lo": -0.0954,
+    "ci_hi": -0.0143,
+    "q": 0.1098,
+    "n": 2396,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0867,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0289,
+    "ci_lo": -0.0625,
+    "ci_hi": 0.0077,
+    "q": 0.1813,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0287,
+    "lb_n": 375,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": -0.0283,
+    "ci_lo": -0.0665,
+    "ci_hi": 0.0051,
+    "q": 0.253,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0674,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0298,
+    "ci_lo": -0.081,
+    "ci_hi": 0.0192,
+    "q": 0.432,
+    "n": 1504,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0537,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1179,
+    "ci_lo": -0.2017,
+    "ci_hi": -0.0362,
+    "q": 0.0021,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.2594,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "dist_sma50d_atr": {
+   "ORB_314": {
+    "rho": -0.0392,
+    "ci_lo": -0.0804,
+    "ci_hi": 0.0113,
+    "q": 0.4239,
+    "n": 2100,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1284,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.0463,
+    "ci_lo": -0.0884,
+    "ci_hi": -0.0036,
+    "q": 0.1572,
+    "n": 2378,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.089,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0261,
+    "ci_lo": -0.0629,
+    "ci_hi": 0.0127,
+    "q": 0.2292,
+    "n": 4050,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0097,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0224,
+    "ci_lo": -0.0574,
+    "ci_hi": 0.0088,
+    "q": 0.4291,
+    "n": 3549,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": 0.0241,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0113,
+    "ci_lo": -0.0791,
+    "ci_hi": 0.0554,
+    "q": 0.781,
+    "n": 1491,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0326,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0678,
+    "ci_lo": -0.167,
+    "ci_hi": 0.028,
+    "q": 0.0744,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1018,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "dist_sma200d_atr": {
+   "ORB_314": {
+    "rho": -0.0279,
+    "ci_lo": -0.0787,
+    "ci_hi": 0.0192,
+    "q": 0.4858,
+    "n": 2023,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0808,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.0357,
+    "ci_lo": -0.0875,
+    "ci_hi": 0.0199,
+    "q": 0.2477,
+    "n": 2286,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0526,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0167,
+    "ci_lo": -0.0616,
+    "ci_hi": 0.0293,
+    "q": 0.446,
+    "n": 3884,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0416,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": -0.0128,
+    "ci_lo": -0.0531,
+    "ci_hi": 0.0254,
+    "q": 0.5775,
+    "n": 3396,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.0145,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0331,
+    "ci_lo": -0.1201,
+    "ci_hi": 0.0468,
+    "q": 0.4042,
+    "n": 1445,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0256,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.0728,
+    "ci_lo": -0.1446,
+    "ci_hi": -0.0073,
+    "q": 0.0633,
+    "n": 824,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0188,
+    "lb_n": 56,
+    "lb_agrees": false
+   }
+  },
+  "pos_prev_week": {
+   "ORB_314": {
+    "rho": -0.0379,
+    "ci_lo": -0.075,
+    "ci_hi": 0.0064,
+    "q": 0.4239,
+    "n": 2127,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1527,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.0364,
+    "ci_lo": -0.0743,
+    "ci_hi": 0.0041,
+    "q": 0.2477,
+    "n": 2407,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.085,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0056,
+    "ci_lo": -0.0374,
+    "ci_hi": 0.0283,
+    "q": 0.7879,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.005,
+    "lb_n": 375,
+    "lb_agrees": false
+   },
+   "NOISE_316": {
+    "rho": 0.0028,
+    "ci_lo": -0.0358,
+    "ci_hi": 0.0366,
+    "q": 0.9259,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.02,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.0188,
+    "ci_lo": -0.0642,
+    "ci_hi": 0.0294,
+    "q": 0.629,
+    "n": 1504,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0184,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.1409,
+    "ci_lo": -0.2402,
+    "ci_hi": -0.0608,
+    "q": 0.0005,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.3982,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "prev_day_close_pos": {
+   "ORB_314": {
+    "rho": -0.0074,
+    "ci_lo": -0.0483,
+    "ci_hi": 0.0337,
+    "q": 0.9472,
+    "n": 2130,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0976,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": -0.0076,
+    "ci_lo": -0.0393,
+    "ci_hi": 0.0284,
+    "q": 0.8674,
+    "n": 2410,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.1349,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": -0.0096,
+    "ci_lo": -0.0452,
+    "ci_hi": 0.0219,
+    "q": 0.669,
+    "n": 4054,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": -0.0328,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.0006,
+    "ci_lo": -0.0311,
+    "ci_hi": 0.0281,
+    "q": 0.9708,
+    "n": 3556,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.008,
+    "lb_n": 228,
+    "lb_agrees": true
+   },
+   "ENGUQ_309": {
+    "rho": -0.08,
+    "ci_lo": -0.1406,
+    "ci_hi": -0.0096,
+    "q": 0.0104,
+    "n": 1505,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0421,
+    "lb_n": 99,
+    "lb_agrees": true
+   },
+   "NQDIP_307": {
+    "rho": -0.1293,
+    "ci_lo": -0.2024,
+    "ci_hi": -0.0604,
+    "q": 0.0008,
+    "n": 851,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.1643,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  },
+  "compressed_60m": {
+   "ORB_314": {
+    "rho": 0.0108,
+    "ci_lo": -0.0308,
+    "ci_hi": 0.0534,
+    "q": 0.9472,
+    "n": 2131,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0062,
+    "lb_n": 168,
+    "lb_agrees": true
+   },
+   "ORB_234": {
+    "rho": 0.0149,
+    "ci_lo": -0.022,
+    "ci_hi": 0.053,
+    "q": 0.767,
+    "n": 2411,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.0442,
+    "lb_n": 173,
+    "lb_agrees": true
+   },
+   "NOISE_243": {
+    "rho": 0.0612,
+    "ci_lo": 0.0323,
+    "ci_hi": 0.0918,
+    "q": 0.0004,
+    "n": 4054,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": 0.0038,
+    "lb_n": 375,
+    "lb_agrees": true
+   },
+   "NOISE_316": {
+    "rho": 0.039,
+    "ci_lo": 0.0074,
+    "ci_hi": 0.0695,
+    "q": 0.0732,
+    "n": 3556,
+    "survives": true,
+    "beats_probe": true,
+    "lb_rho": -0.0104,
+    "lb_n": 228,
+    "lb_agrees": false
+   },
+   "ENGUQ_309": {
+    "rho": -0.0146,
+    "ci_lo": -0.0778,
+    "ci_hi": 0.036,
+    "q": 0.7238,
+    "n": 1505,
+    "survives": false,
+    "beats_probe": false,
+    "lb_rho": 0.191,
+    "lb_n": 99,
+    "lb_agrees": false
+   },
+   "NQDIP_307": {
+    "rho": -0.0513,
+    "ci_lo": -0.1162,
+    "ci_hi": 0.0004,
+    "q": 0.1746,
+    "n": 851,
+    "survives": false,
+    "beats_probe": true,
+    "lb_rho": -0.1608,
+    "lb_n": 56,
+    "lb_agrees": true
+   }
+  }
+ },
+ "verdicts": [
+  {
+   "feature": "atr_norm",
+   "tier": "WATCH",
+   "sign": "-",
+   "families_agree": [
+    "ENGUQ",
+    "NOISE"
+   ],
+   "legs_agree": [
+    "ENGUQ_309",
+    "NOISE_243",
+    "NOISE_316"
+   ],
+   "lb_agree_count": 2,
+   "reason": "Volatility level (ATR / price) hurt in ENGUQ, NOISE \u2014 only two families, short of the 3-family bar."
+  },
+  {
+   "feature": "dist_pdh_atr",
+   "tier": "WATCH",
+   "sign": "-",
+   "families_agree": [
+    "ENGUQ",
+    "NQDIP"
+   ],
+   "legs_agree": [
+    "ENGUQ_309",
+    "NQDIP_307"
+   ],
+   "lb_agree_count": 2,
+   "reason": "Distance from yesterday's high (ATR units) hurt in ENGUQ, NQDIP \u2014 only two families, short of the 3-family bar."
+  },
+  {
+   "feature": "prev_ret",
+   "tier": "WATCH",
+   "sign": "-",
+   "families_agree": [
+    "ENGUQ",
+    "NQDIP"
+   ],
+   "legs_agree": [
+    "ENGUQ_309",
+    "NQDIP_307"
+   ],
+   "lb_agree_count": 2,
+   "reason": "Prior day's return hurt in ENGUQ, NQDIP \u2014 only two families, short of the 3-family bar."
+  },
+  {
+   "feature": "up_streak",
+   "tier": "WATCH",
+   "sign": "-",
+   "families_agree": [
+    "ENGUQ",
+    "NQDIP"
+   ],
+   "legs_agree": [
+    "ENGUQ_309",
+    "NQDIP_307"
+   ],
+   "lb_agree_count": 2,
+   "reason": "Consecutive up/down day count, prior day hurt in ENGUQ, NQDIP \u2014 only two families, short of the 3-family bar."
+  },
+  {
+   "feature": "curve",
+   "tier": "WATCH",
+   "sign": "+",
+   "families_agree": [
+    "ENGUQ",
+    "NOISE"
+   ],
+   "legs_agree": [
+    "ENGUQ_309",
+    "NOISE_243",
+    "NOISE_316"
+   ],
+   "lb_agree_count": 0,
+   "reason": "Yield curve (10y minus 3mo) helped in ENGUQ, NOISE \u2014 only two families, short of the 3-family bar."
+  },
+  {
+   "feature": "prev_day_close_pos",
+   "tier": "WATCH",
+   "sign": "-",
+   "families_agree": [
+    "ENGUQ",
+    "NQDIP"
+   ],
+   "legs_agree": [
+    "ENGUQ_309",
+    "NQDIP_307"
+   ],
+   "lb_agree_count": 2,
+   "reason": "Yesterday's close position in its own range hurt in ENGUQ, NQDIP \u2014 only two families, short of the 3-family bar."
+  },
+  {
+   "feature": "mom_5",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "5-bar momentum (in ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "mom_20",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "20-bar momentum (in ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "atr_ratio",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Volatility expansion (fast ATR / slow ATR) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "trend_20",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "20-bar trend strength did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "range_pos",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Position in the 20-bar range did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "dist_pdl_atr",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Distance from yesterday's low (ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "dist_pdc_atr",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Distance from yesterday's close (ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "tod_sin",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Time of day (clock, sine component) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "tod_cos",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Time of day (clock, cosine component) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "dow",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Day of week did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "rsi14",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Daily RSI(14), prior day did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "macd_hist",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Daily MACD histogram, prior day did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "atr20_pctile",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Daily volatility percentile, prior day did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "er20",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Daily efficiency ratio (20d), prior day did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "gap_pct",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Today's open gap vs yesterday's close did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "range_pctile",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Daily range percentile, prior day did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "vix",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "VIX level, prior close did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "vix_pctile_1y",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "VIX percentile (1yr), prior close did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "vix_chg_5d",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "VIX 5-day change, prior close did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "vix_term",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "VIX term structure (3mo - spot) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "tnx",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "10-year Treasury yield, prior close did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "tnx_chg_20d",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "10-year yield 20-day change did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "dist_sma20d_atr",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Distance from the 20-day average price (ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "dist_sma50d_atr",
+   "tier": "NONE",
+   "sign": "n/a",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Distance from the 50-day average price (ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "dist_sma200d_atr",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Distance from the 200-day average price (ATR units) did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "pos_prev_week",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Position inside the week-before-last's range did not clear the significance bar in at least two families with the same sign."
+  },
+  {
+   "feature": "compressed_60m",
+   "tier": "NONE",
+   "sign": "mixed",
+   "families_agree": [],
+   "legs_agree": [],
+   "lb_agree_count": 0,
+   "reason": "Hourly chart is coiled (squeeze on) did not clear the significance bar in at least two families with the same sign."
+  }
+ ]
+}

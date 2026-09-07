@@ -66,6 +66,10 @@ temp/
 tools/.alpaca_keys.json
 .alpaca_keys.json
 
+# tools/feature_board.py trade + Firestore-doc cache (rebuildable; the doc cache also
+# holds a copy of run-doc contents that should never end up in git history)
+tools/_featboard_cache/
+
 # score-report bar cache: these ARE the record for trades that have aged out of the
 # free 30-day intraday window, so they must be versioned (overrides the *.csv rule above)
 !tools/data/score_bars/*.csv
@@ -81,3 +85,6 @@ tools/_allpools_probe.html
 _paperprobe_dump.json
 # report_render_probe.py debug dump (REPORTPROBE_DUMP=1)
 _reportprobe_dump.json
+
+# exit_autopsy.py per-leg rich-trade cache (rebuilt from the engine any time)
+tools/_exit_cache/

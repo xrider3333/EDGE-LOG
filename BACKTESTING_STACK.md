@@ -831,6 +831,7 @@ not saved to the runs DB — so they carry no run id.*
 - `augur_engine/engine.py` — `run_backtest` (ml_filter/ml_threshold kwargs), `run_gate_validate`.
 - `augur_engine/optimize.py` + `auto.py` — wire `plateau_pick` alongside argmax `best`.
 - `augur_engine/data_quality.py` — gap/coverage/data-health checks (§1).
+- `tools/feature_board.py` + `tools/exit_autopsy.py` → `docs/feature_board.json` / `docs/exit_autopsy.json`, read by **COMPARE ▸ FEATURE BOARD** (v73.538, 2026-09-07) — **CROSS-FAMILY FEATURE BOARD**: the same 33 causal features (bar-level, prior-day, macro, structure, 60m compression) scored against per-trade PnL on six crowned legs (ORB #314/#234, NOISE #243/#316, ENGU-Q #309, NQDIP #307; every leg reproduces its run doc to the dollar); a feature is PROMOTED only when it survives (q<0.10, block-bootstrap CI excludes 0, beats shadow probes) with the same sign in ≥3 families AND the lockbox sign repeats in each. First run: **0 PROMOTED, 6 WATCH** (all ENGU-Q + NQDIP/NOISE pairs; NQDIP survivors are its own dip mechanism; `curve` is a slow-macro trend artifact, lockbox disagrees). 60m compression survives only on NOISE (both legs) under a rank test — the round-6 ORB effect is tail-driven and a Spearman cannot see it. EXIT AUTOPSY (MFE/MAE per trade): exits are NOT the lever on any leg (winners keep 45-85% of best move, only 8-24% of losers were ever up 1R). Caches gitignored; `tools/featboard_render_probe.py [--real]` is the render gate.
 - `augur_engine/context.py` — **TRADE CONTEXT (owner idea 2026-07-23, stages 1+2 SHIPPED
   `ab162a3`)**: per-trade market-context enrichment (prior-day causal: VIX level/pctile/
   5d-change/term-slope, 10y yield + curve via cached yfinance offline-safe; internals from
@@ -2352,6 +2353,8 @@ Applicable in principle; deferred for the reason shown. Promote any to a pill on
   site (web VERSION 44.0). Confirmed ORB 3.0 is the strongest validated asset and needs
   no gate; documented the 16yr RF-gate flip on ORB 1.0. Mapped all Carl McBride Ellis
   notebooks to board status (9 live / 4 planned / 3 skipped).
+
+- **2026-09-07 (owner: "something instead of shots in the dark")** — **CROSS-FAMILY FEATURE BOARD + EXIT AUTOPSY shipped v73.538** (COMPARE ▸ FEATURE BOARD). Verdict: nothing helps in three families at once; strategy-specific features only; exits are not the lever anywhere. Compression gate validate (`NOISE_1_1_SBS_V90_SQ.py`) is queued (job wyWdcdsZ), not yet run.
 
 > **How to keep this current:** update the relevant section + the changelog whenever a
 > pill flips LIVE, a strategy changes verdict, a notable run lands, or a decision is made.

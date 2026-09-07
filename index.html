@@ -476,7 +476,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.537';
+const VERSION='73.538';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -495,6 +495,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.538',date:'2026-09-07',notes:['A NEW VIEW, FEATURE BOARD, joins RUNBOARD under COMPARE. It answers one question: which trade features actually help across MORE THAN ONE strategy, not just the one they were found on. It reads two offline reports (tools/feature_board.py and tools/exit_autopsy.py) — PROMOTED and WATCH cards up top for whatever clears the bar, a matrix underneath with one row per feature and one column per strategy showing a confidence-interval bar for how strongly each lines up with that strategy’s trade outcome, filled when the range clears zero and marked with a diamond when the lockbox year agrees.','UNDERNEATH IT, EXIT AUTOPSY asks whether the exit itself is leaving money on the table: for every leg, what a winning trade kept of its own best move, how often a loser was up a full R before turning into a loss, and a give-back figure that is stated as an upper bound, never a promise. Neither report exists yet on a fresh checkout — the board says so in plain words rather than showing an empty page.']},
 {v:'73.535',date:'2026-09-06',notes:['THE KEEL ROW IS NOW VISIBLE IN A RUN REPORT. The engine has been writing a KEEL overlay row next to the size tilts and the hybrids since v73.534, and the report drew none of it - the work happened and the reader could not see it. The 1E MATRIX card carries a KEEL tab now, beside TILT and HYBRID, showing the one keel column through the SAME table as those two: the same IS / WF / LB / FULL dollars, the same MAR, SHARPE, SORTINO, PF, WIN %, EV, EV R, ROC % / YR, R / YR and DD (R) rows, the same SAMPLE tick, the same ordering and the same heat map. Above the table sits the keel own line - model and version, average and biggest size, how often it had any trust at all, its mean trust, the trust each member of the stack earned, and the exact sizing rule it ran.','ITS EQUITY LINE DRAWS ON THE 1A / 2A FUNNEL, in the SIZE TILTS legend group and labelled KEEL v4. It shares that group on purpose: a keel is the same animal as a tilt - every trade is taken and only the size changes - so one toggle covers both. Its curve is folded into the y-scale before the axis is fitted, so the line can never be pushed off the top of the plot the way the top tilt once was.','IT CAN NEVER BE CROWNED, AND THE REPORT SAYS SO IN EVERY PLACE IT APPEARS. The engine writes the row with crownable:false; the tab carries the COMPARISON ONLY wording in its info readout, the row is not counted among the candidates, and it puts no dot on the pooled 1E scatter. What DID change is that a run whose only overlay data is a keel row now draws the 1A funnel instead of being treated as having no ML families at all.','A RUN SAVED BEFORE ANY OF THIS SHOWS NOTHING NEW - no tab, no line, no gap. A run whose keel walk FAILED shows the tab with one muted line naming the error, rather than a tab that silently is not there.','AND THE CROSS-RUN CONFIG BOARD SHOWS IT TOO. COMPARE, with the configurations of the ticked runs on screen, now lists a KEEL v4 row for every ticked run that carries one - built by the same row builder as the TILT and HYBRID rows, so the same money, drawdown, PF, trades and ratio columns mean the same things, and the FAMILY control gained a KEEL button to isolate it. It stays a comparison row: never a crownable candidate, on this board or anywhere else.']},
 {v:'73.534',date:'2026-09-06',notes:['KEEL, a new ML overlay (owner: make your own ML). Every trade is taken; a logistic + ExtraTrees stack scores each trade\'s EXPECTANCY and the size tilt\'s slope is EARNED from the overlay\'s own out-of-sample dollar ledger, so with no demonstrated skill it sizes 1.0 = the raw strategy. Bounds 0.5x-2x, no cut-off ever. augur_engine/ml_keel.py.','Every Auto-Validate now carries a keel row inside its gate block (comparison-only, never crownable, same standing as the size-tilt rows). Not yet drawn by the 2C tables.','PAPER: new leg NOISE_SBS_V90_K = the #243 crown with KEEL; NOISE_SBS_V90 is its exact control; forward from 2026-09-08. The claim: it beats its control on MAR.','Evidence behind the design, from 138 gate-bearing runs: the crowned CUT has a median lockbox delta of exactly $0; TILT is the only mode with a positive median (+$9,030); xgb is the worst model out-of-sample in every mode. Four-leg bench and the plain verdict (safer, not richer) in BACKTESTING_STACK.md section 4 and tools/keel_bench.py.']},
 {v:'73.532',date:'2026-09-06',notes:['A JOB THAT WAS RUNNING WAS INVISIBLE. The queue chip at the top said 5 WAITING with nothing running, and BUILDER agreed, while the runner was 29 percent of the way through ENGUQ_1M_ETH_ERW_1_0 and eight more jobs were stacked behind it. The web was reading the newest twelve job records BY QUEUED DATE; the runner claims the OLDEST waiting job first. Those two orders point opposite ways, so the running job - requeued a day earlier, and therefore old - had fallen out of the window, and so had three of the waiting jobs. A ninth job queued by a script carried no queued-at date at all, so a date-ordered read could never have shown it under any window size.','THE FIX READS UNFINISHED WORK BY STATUS INSTEAD OF BY DATE, so every queued, running or paused job appears no matter how old it is and no matter whether it carries a date. The finished list is still the newest twelve, fetched once and re-fetched the moment a job leaves the live set. That is still ONE live connection, not two - the runner writes a progress figure about every one and a half seconds and each connection is charged a read for every one of them, so the daily read budget only stretches to one.','THE CHIP AND THE TAB NOW READ THE SAME COUNT, from one shared piece of code, so they cannot drift apart again. The chip reads QUEUE, then the strategy name, then its percent, then plus how many are behind it.','BUILDER IS TWO COLUMNS NOW (owner: relayout the builder tab, put whats build que as a side bar). The build form and its result panels keep the left; a BUILD QUEUE card pins to the right and stays in view as the form scrolls. It reads top to bottom the way the work moves: what is RUNNING right now with its progress bar, how long since the runner picked it up and the pause and stop controls; then WAITING, numbered one to N in the order the runner will actually claim them, oldest first, each with how long it has waited; then RECENT, the finished, failed and cancelled jobs newest first with their money, their scope and their reuse marks, and a click opens the saved run.','A WAITING JOB WITH NO QUEUED-AT DATE SAYS SO rather than being hidden or guessed at: it is listed last, marked in amber as no timestamp, and its hover explains that its real place in the line is held in a field only the runner can read.','Under 1200 pixels wide the queue card drops underneath the form instead of squeezing it.']},
@@ -19145,7 +19146,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // v67.6 (owner ask): BY STRATEGY mode — one curve per strategy family (its champion config,
       //   picked automatically by score) instead of manually picked runs. PICK RUNS stays the
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
-      const _cmpMode=(APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':((APREF.cmpMode==='research')?'research':'runs'));
+      const _cmpMode=(APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':((APREF.cmpMode==='research')?'research':((APREF.cmpMode==='featboard')?'featboard':'runs')));
       // v68.0 (owner ask): metric-table orientation — VERT (runs as columns, metrics as rows,
       //   the original layout) or HORIZ (runs as rows, metrics as columns) so a comparison with
       //   many runs fits without sideways scrolling. Persists like every other Compare pref.
@@ -21297,7 +21298,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   file and only READS run history where a row carries a run number. Since v73.158 the
       //   Past Runs list hydrates lazily, so a browser landing on STUDIES before that finishes
       //   was being told there was nothing to compare when the board was entirely ready.
-      if(!rs.length&&_cmpMode!=='board'&&_cmpMode!=='research'){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
+      if(!rs.length&&_cmpMode!=='board'&&_cmpMode!=='research'&&_cmpMode!=='featboard'){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUNS TO COMPARE YET</div>';}
       else{
         const find=id=>{for(let i=0;i<rs.length;i++)if(String(rs[i].id)===String(id))return rs[i];return null;};
         // N-way: persisted set of run ids (default to the most recent 3)
@@ -21780,8 +21781,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +_cmpModeBtn('runs','PICK RUNS','manually choose which runs go into the comparison - your picks, your tabs, your saved sets')
           +_cmpModeBtn('fam','BY STRATEGY','one curve per strategy family, its top config, chosen automatically by score - no manual picking')
           +_cmpModeBtn('board','RUNBOARD','compare whole BOOKS (deployable strategy combinations) as one strategy each - sample and rank selectable')
+          +_cmpModeBtn('featboard','FEATURE BOARD','which trade features actually help - one confidence interval per feature per strategy, plus what the exits are giving back')
           +_cmpModeBtn('rank','RANKINGS','every run scored and ranked against every other, newest data, one row each')
-          +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">every variant tested, on ONE chart · pick a strategy on the rail · one table per study underneath</span>':'')))+'</div>';
+          +'</span>'+(_cmpMode==='fam'?'<span style="font-size:8px;color:var(--text5)">one curve per strategy family — its top config, picked automatically</span>':(_cmpMode==='board'?'<span style="font-size:8px;color:var(--text5)">top run of every strategy · funnel + matrix redraw on SAMPLE · order follows RANK BY</span>':(_cmpMode==='research'?'<span style="font-size:8px;color:var(--text5)">every variant tested, on ONE chart · pick a strategy on the rail · one table per study underneath</span>':(_cmpMode==='featboard'?'<span style="font-size:8px;color:var(--text5)">what helps every strategy, not just one · plus the exit autopsy underneath</span>':''))))+'</div>';
         if(_cmpMode==='research'){
         // ── STUDIES board (owner asks 2026-08-18). Every row comes from the RESEARCH_STUDIES
         //    registry above — this renderer holds NO data, so a new study renders itself the
@@ -24880,8 +24882,184 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_rbCol(2,'0 1 290px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
           +booksTile;
+        }else if(_cmpMode==='featboard'){
+        // ── FEATURE BOARD (owner ask 2026-09-07): "what helps every strategy, not just one".
+        //    Reads two static JSON files the offline tools/feature_board.py and
+        //    tools/exit_autopsy.py write into docs/ - this renderer holds NO data of its own,
+        //    the same contract STUDIES uses for its registry. A fixture on window lets a
+        //    headless probe skip the fetch entirely (see tools/featboard_render_probe.py);
+        //    file:// pages cannot fetch at all, and even served over http the probe would
+        //    otherwise depend on whatever the two build scripts last wrote to disk.
+        const _fbEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const _fbFix=(typeof window!=='undefined')?window.__FEATBOARD_FIXTURE:null;
+        const _exFix=(typeof window!=='undefined')?window.__EXIT_FIXTURE:null;
+        if(_fbFix){window._fbData=_fbFix;}
+        else if(window._fbData==null&&!window._fbFetching){window._fbFetching=1;
+          fetch('docs/feature_board.json?v='+VERSION).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status))
+            .then(j=>{window._fbData=j;window._fbFetching=0;renderApp();})
+            .catch(e=>{window._fbData=false;window._fbErr=String((e&&e.message)||e);window._fbFetching=0;renderApp();});}
+        if(_exFix){window._exitData=_exFix;}
+        else if(window._exitData==null&&!window._exFetching){window._exFetching=1;
+          fetch('docs/exit_autopsy.json?v='+VERSION).then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status))
+            .then(j=>{window._exitData=j;window._exFetching=0;renderApp();})
+            .catch(e=>{window._exitData=false;window._exErr=String((e&&e.message)||e);window._exFetching=0;renderApp();});}
+        const fb=window._fbData,ex=window._exitData;
+        const fbReady=fb&&typeof fb==='object';
+        const exReady=ex&&typeof ex==='object';
+        const _fbPlaceholder=(msg)=>tile('<div style="padding:34px 18px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px;line-height:1.8">'+msg+'</div>');
+        // ── HEADER STRIP: rule, generated date, legend. ──
+        const _fbLegendItem=(sw,lbl)=>'<span style="display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text4)">'+sw+lbl+'</span>';
+        const _fbSwatch=(bg,border)=>'<span style="display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:middle;'+(border?('border:1.5px solid '+border+';background:transparent'):('background:'+bg))+'"></span>';
+        const headerTile=tile('<div data-fbheader style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">'
+            +'<span style="font-size:13px;font-weight:800;letter-spacing:.5px;color:var(--text)">FEATURE BOARD — what helps every strategy, not just one</span>'
+          +'</div>'
+          +(fb&&fb.rule?('<div style="font-size:9px;color:var(--text3);margin-top:5px;line-height:1.6">'+_fbEsc(fb.rule.note||'')+'</div>'):'')
+          +'<div style="font-size:8px;color:var(--text5);margin-top:4px">'
+            +(fbReady?('generated '+_fbEsc(fb.generated||'—')):(fb===false?'board not built yet':'loading…'))
+          +'</div>'
+          +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;padding-top:8px;border-top:1px solid var(--border2)">'
+            +_fbLegendItem(_fbSwatch('var(--green)'),' helps')
+            +_fbLegendItem(_fbSwatch('var(--red)'),' hurts')
+            +_fbLegendItem(_fbSwatch(null,'var(--text4)'),' filled = the 95% range excludes zero')
+            +_fbLegendItem('<span style="color:var(--purple);font-size:10px">◆</span>',' repeats in the lockbox')
+          +'</div>',10);
+        // ── PROMOTED / WATCH cards. ──
+        let verdictBlock='';
+        if(fbReady){
+          const _vTier={PROMOTED:{col:'var(--green)',lbl:'PROMOTED'},WATCH:{col:'var(--yellow)',lbl:'WATCH'}};
+          const verdicts=(fb.verdicts||[]).filter(v=>v&&v.tier&&v.tier!=='NONE');
+          verdicts.sort((a,b)=>(a.tier==='PROMOTED'?0:1)-(b.tier==='PROMOTED'?0:1));
+          const _famPill=nm=>'<span style="font-size:8px;padding:2px 7px;border-radius:5px;background:var(--bg1);color:var(--text3);border:1px solid var(--border)">'+_fbEsc(nm)+'</span>';
+          const _vCard=v=>{const tr=_vTier[v.tier]||{col:'var(--text4)',lbl:v.tier};
+            const signWord=v.sign==='+'?'helps':(v.sign==='-'?'hurts':'mixed sign');
+            const signCol=v.sign==='+'?'var(--green)':(v.sign==='-'?'var(--red)':'var(--text4)');
+            return '<div data-fbverdict style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid '+tr.col+';border-radius:10px;padding:11px 13px;margin-bottom:8px">'
+              +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
+                +'<span style="font-size:9px;font-weight:800;letter-spacing:1.2px;color:'+tr.col+'">'+tr.lbl+'</span>'
+                +'<span style="font-size:12px;font-weight:700;color:var(--text)">'+_fbEsc(v.feature)+'</span>'
+                +'<span style="font-size:9px;font-weight:700;color:'+signCol+'">'+signWord+'</span>'
+                +'<span style="margin-left:auto;font-size:8px;color:var(--text5)" title="how many of its legs the lockbox year agreed with">'+(v.lb_agree_count||0)+' leg'+((v.lb_agree_count||0)===1?'':'s')+' repeat in the lockbox</span>'
+              +'</div>'
+              +'<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">'+(v.families_agree||[]).map(_famPill).join('')+'</div>'
+              +'<div style="margin-top:7px;font-size:9px;color:var(--text3);line-height:1.65">'+_fbEsc(v.reason||'')+'</div>'
+            +'</div>';};
+          verdictBlock=verdicts.length?verdicts.map(_vCard).join('')
+            :'<div data-fbverdict style="border:1px dashed var(--border);padding:26px;text-align:center;color:var(--text5);font-size:10px;letter-spacing:.5px">Nothing clears the bar yet — that is the honest result, not a bug.</div>';
+        }
+        // ── MATRIX: rows = features (grouped), columns = legs. ──
+        let matrixTile2='';
+        if(fbReady){
+          const fbFeats=fb.features||[],fbLegs=fb.legs||[],fbCells=fb.cells||{};
+          const _rowSurvives=f=>fbLegs.some(l=>{const c=(fbCells[f.name]||{})[l.key];return c&&c.survives;});
+          const anySurv=fbFeats.some(_rowSurvives);
+          const rowMode=(APREF.fbRowMode==='all')?'all':'surv';
+          const effMode=(rowMode==='surv'&&anySurv)?'surv':'all';
+          const shownFeats=(effMode==='surv')?fbFeats.filter(_rowSurvives):fbFeats;
+          const GROUP_ORDER=['bar','daily','macro','structure','state'];
+          const GROUP_LBL={bar:'BAR-LEVEL',daily:'DAILY',macro:'MACRO',structure:'STRUCTURE',state:'STATE'};
+          const groups={};
+          shownFeats.forEach(f=>{const g=f.group||'other';(groups[g]||(groups[g]=[])).push(f);});
+          const groupKeys=GROUP_ORDER.filter(g=>groups[g]&&groups[g].length).concat(Object.keys(groups).filter(g=>GROUP_ORDER.indexOf(g)<0));
+          const _pct=v=>{const c=Math.max(-0.3,Math.min(0.3,v==null?0:+v));return ((c+0.3)/0.6*100);};
+          const _fbCell=(f,l)=>{const c=(fbCells[f.name]||{})[l.key];
+            if(!c)return '<td data-fbcell title="Too few trades carried this feature on this strategy" style="padding:3px 4px;text-align:center;color:var(--text5);font-size:9px">·</td>';
+            const pos=(+c.rho||0)>=0,col=pos?'var(--green)':'var(--red)';
+            const loP=_pct(c.ci_lo),hiP=_pct(c.ci_hi),rhoP=_pct(c.rho),zeroP=_pct(0),w=Math.max(2,hiP-loP);
+            const fillCss=c.survives?('background:'+col+';opacity:.85'):('background:transparent;border:1px solid '+col+';opacity:.6');
+            const tt='rho '+(+c.rho).toFixed(2)+' (95%: '+(+c.ci_lo).toFixed(2)+'..'+(+c.ci_hi).toFixed(2)+'), q '+(+c.q).toFixed(2)+', n '+Number(c.n||0).toLocaleString()
+              +(c.lb_rho!=null?', lockbox rho '+(+c.lb_rho).toFixed(2)+' on '+(c.lb_n||0)+' trades':', no lockbox read');
+            return '<td data-fbcell title="'+tt.replace(/"/g,'&quot;')+'" style="padding:3px 4px;cursor:help">'
+              +'<div style="position:relative;height:14px;width:58px;background:var(--bg1);border-radius:3px">'
+              +'<div style="position:absolute;left:'+zeroP.toFixed(1)+'%;top:0;bottom:0;width:1px;background:var(--border2)"></div>'
+              +'<div style="position:absolute;left:'+loP.toFixed(1)+'%;width:'+w.toFixed(1)+'%;top:3px;bottom:3px;border-radius:2px;'+fillCss+'"></div>'
+              +'<div style="position:absolute;left:calc('+rhoP.toFixed(1)+'% - 1px);top:0;bottom:0;width:2px;background:var(--text)"></div>'
+              +'</div>'
+              +((c.survives&&c.lb_agrees)?'<div data-fbdiamond style="text-align:center;font-size:8px;color:var(--purple);line-height:1;margin-top:1px">◆</div>':'')
+            +'</td>';};
+          const matrixHead='<tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px;position:sticky;left:0;background:var(--bg2)">FEATURE</th>'
+            +fbLegs.map(l=>'<th style="text-align:center;padding:4px 6px;font-size:9px;color:var(--text3);white-space:nowrap" title="'+_fbEsc(l.file||'')+'">'+_fbEsc(l.label)
+              +'<div style="font-weight:400;color:var(--text5);font-size:7.5px">n='+Number(l.n_pre||0).toLocaleString()+'</div></th>').join('')+'</tr>';
+          const matrixBody=groupKeys.map(g=>{
+            const grpRow='<tr><td colspan="'+(fbLegs.length+1)+'" style="padding:9px 6px 2px;font-size:8px;letter-spacing:1.2px;color:var(--text5);font-weight:700;text-transform:uppercase">'+(GROUP_LBL[g]||String(g).toUpperCase())+'</td></tr>';
+            const trs=groups[g].map(f=>'<tr data-fbrow="'+_fbEsc(f.name)+'"><td title="'+_fbEsc(f.desc||'')+'" style="padding:4px 6px;position:sticky;left:0;background:var(--bg2);color:var(--text2);cursor:help;white-space:nowrap">'+_fbEsc(f.label)+'</td>'
+              +fbLegs.map(l=>_fbCell(f,l)).join('')+'</tr>').join('');
+            return grpRow+trs;}).join('');
+          const rowsToggle='<span style="display:inline-flex;gap:3px">'
+            +_tabBtn('data-fbrows="surv"','ONLY SURVIVORS',effMode==='surv','show only features where at least one strategy clears the significance bar','var(--green)')
+            +_tabBtn('data-fbrows="all"','SHOW ALL',effMode==='all','show every feature that was tested, survivors and dead ends alike','var(--green)')
+          +'</span>';
+          matrixTile2=tile('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px">'
+              +'<span class="lbl" style="font-size:11px;letter-spacing:2px;color:var(--text4)">MATRIX</span>'+rowsToggle
+              +'<span style="margin-left:auto;font-size:8px;color:var(--text5)">'+shownFeats.length+' of '+fbFeats.length+' features · '+fbLegs.length+' strategies</span>'
+            +'</div>'
+            +(shownFeats.length?('<div style="overflow-x:auto"><table class="table" style="border-collapse:collapse;width:auto"><thead>'+matrixHead+'</thead><tbody>'+matrixBody+'</tbody></table></div>')
+              :'<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">no features to show</div>'));
+        }
+        // ── EXIT AUTOPSY: one card per leg. ──
+        let exitsBlock='';
+        if(exReady){
+          const exLegs=ex.legs||[];
+          const _pctFmt=v=>(v==null?'—':(Math.round(v*1000)/10)+'%');
+          const _rFmt=v=>(v==null?'—':(+v).toFixed(2)+'R');
+          const _usdFmt=v=>(v==null?'—':'$'+Math.round(v).toLocaleString());
+          const _miniRow=(lbl,tip,pre,lb)=>'<tr><td title="'+tip+'" style="padding:3px 6px;color:var(--text4);cursor:help;white-space:nowrap">'+lbl+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums">'+pre+'</td>'
+            +'<td style="padding:3px 6px;text-align:right;color:var(--text2);font-variant-numeric:tabular-nums">'+lb+'</td></tr>';
+          const _holdChart=hc=>{if(!hc||!hc.length)return '<div style="font-size:9px;color:var(--text5);margin-top:6px">no hold-curve data</div>';
+            const mx=Math.max(0.1,...hc.map(b=>Math.max(Math.abs(+b.mfe_r_med||0),Math.abs(+b.final_r_med||0))));
+            const bars=hc.map(b=>{const hM=Math.max(1,Math.abs(+b.mfe_r_med||0)/mx*46),hF=Math.max(1,Math.abs(+b.final_r_med||0)/mx*46);
+              const finCol=(+b.final_r_med||0)>=0?'var(--green)':'var(--red)';
+              const lbl=b.bucket||((b.bars_lo||0)+'–'+(b.bars_hi||0));
+              return '<div data-fbholdbar style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:0">'
+                +'<div style="display:flex;align-items:flex-end;gap:1px;height:50px">'
+                +'<div title="median best move '+_rFmt(b.mfe_r_med)+'" style="width:6px;height:'+hM.toFixed(0)+'px;background:var(--blue);border-radius:1px 1px 0 0"></div>'
+                +'<div title="median final '+_rFmt(b.final_r_med)+'" style="width:6px;height:'+hF.toFixed(0)+'px;background:'+finCol+';border-radius:1px 1px 0 0"></div>'
+                +'</div>'
+                +'<div style="font-size:6.5px;color:var(--text5);white-space:nowrap;margin-top:2px">'+_fbEsc(lbl)+'</div>'
+              +'</div>';}).join('');
+            return '<div style="font-size:7.5px;color:var(--text5);margin-top:8px">HOLD CURVE — median best move (blue) vs median final (green/red), by bars held</div>'
+              +'<div style="display:flex;align-items:flex-end;gap:3px;margin-top:4px;padding-top:2px">'+bars+'</div>';};
+          const _exCard=leg=>{const pre=leg.pre||{},lb=leg.lb||{};
+            const preW=pre.winners||{},preL=pre.losers||{},lbW=lb.winners||{},lbL=lb.losers||{};
+            const preGB=pre.give_back||{},lbGB=lb.give_back||{};
+            const miniTbl='<table style="width:100%;font-size:9px;border-collapse:collapse;margin-top:7px"><thead><tr style="color:var(--text5)">'
+              +'<th style="text-align:left;padding:3px 6px;font-weight:700;font-size:8px">METRIC</th>'
+              +'<th style="text-align:right;padding:3px 6px;font-weight:700;font-size:8px">PRE-LOCKBOX</th>'
+              +'<th style="text-align:right;padding:3px 6px;font-weight:700;font-size:8px">LOCKBOX</th></tr></thead><tbody>'
+              +_miniRow('TRADES','trade count in this stretch',Number(pre.n||0).toLocaleString(),Number(lb.n||0).toLocaleString())
+              +_miniRow('WINNERS KEEP','the median share of its own best move a winning trade held onto by the exit',_pctFmt(preW.capture_med),_pctFmt(lbW.capture_med))
+              +_miniRow('LOSERS UP ≥ 1R','share of losing trades that were up a full R at some point before turning into a loss',_pctFmt(preL.share_reached_1r),_pctFmt(lbL.share_reached_1r))
+              +_miniRow('LOSERS UP ≥ 0.5R','share of losing trades that were up at least half an R at some point',_pctFmt(preL.share_reached_0_5r),_pctFmt(lbL.share_reached_0_5r))
+              +_miniRow('BEST MOVE, WINNERS','median best favourable move, winning trades only',_rFmt(preW.mfe_r_med),_rFmt(lbW.mfe_r_med))
+              +_miniRow('BEST MOVE, LOSERS','median best favourable move, losing trades only',_rFmt(preL.mfe_r_med),_rFmt(lbL.mfe_r_med))
+              +_miniRow('GIVE-BACK $/YR','what an exit at the exact best price would have added per year',_usdFmt(preGB.usd_per_year),_usdFmt(lbGB.usd_per_year))
+              +'</tbody></table>';
+            return '<div data-fbexitcard style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:10px">'
+              +'<div style="font-size:11px;font-weight:700;color:var(--text2)">'+_fbEsc(leg.label)+'</div>'
+              +(leg.read?('<div style="font-size:9px;color:var(--text3);line-height:1.65;margin-top:4px">'+_fbEsc(leg.read)+'</div>'):'')
+              +miniTbl
+              +'<div style="font-size:7.5px;color:var(--text5);margin-top:4px">give-back is an upper bound, not reachable — it assumes exiting at exactly the best price the trade ever saw.</div>'
+              +_holdChart(pre.hold_curve)
+            +'</div>';};
+          exitsBlock=exLegs.length?exLegs.map(_exCard).join(''):'<div style="padding:22px;text-align:center;color:var(--text5);font-size:10px">no legs in this autopsy</div>';
+        }
+        const exitsHeader='<div class="lbl" style="font-size:11px;letter-spacing:2px;color:var(--text4);margin:16px 0 8px">EXIT AUTOPSY — is the exit the lever?</div>';
+        const footerTile=tile('<div class="lbl" style="font-size:10px;letter-spacing:1.6px;color:var(--text4);margin-bottom:7px">HOW TO READ</div>'
+          +'<div style="font-size:9px;color:var(--text5);line-height:1.9">'
+          +'Each cell is a confidence interval for how strongly one feature lines up with that strategy’s trade outcome — a correlation check, not a backtest.<br>'
+          +'Filled means the 95% range clears zero: solid evidence, not a coincidence of sample size.<br>'
+          +'A diamond means the lockbox year — data never touched while building the rule — points the same way.<br>'
+          +'PROMOTED needs several unrelated strategy families to agree; one strategy finding something on its own is not enough.'
+          +'</div>');
+        body=modeToggle+headerTile
+          +(fbReady?verdictBlock:_fbPlaceholder('Board not built yet — run tools/feature_board.py'))
+          +(fbReady?matrixTile2:'')
+          +exitsHeader
+          +(exReady?exitsBlock:_fbPlaceholder('Board not built yet — run tools/exit_autopsy.py'))
+          +footerTile;
         }else
         // v64.57: a deliberately empty tab renders an empty state instead of the comparison tiles
+        //   (there is nothing to compare) — the picker stays so you can fill this tab.
         //   (there is nothing to compare) — the picker stays so you can fill this tab.
         body=modeToggle+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
@@ -29155,6 +29333,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       })();
       content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{savePref('rbSample',b.dataset.rbs);renderApp();};});
       content.querySelectorAll('[data-rbr]').forEach(b=>{b.onclick=()=>{savePref('rbRank',b.dataset.rbr);renderApp();};});
+      // FEATURE BOARD: row filter (only rows with a surviving strategy, or show everything)
+      content.querySelectorAll('[data-fbrows]').forEach(b=>{b.onclick=()=>{savePref('fbRowMode',b.dataset.fbrows);renderApp();};});
       // VERT ⇄ HORIZ metric-table orientation toggle
       content.querySelectorAll('[data-cmporient]').forEach(b=>{b.onclick=()=>{savePref('cmpOrient',b.dataset.cmporient);renderApp();};});
       // RUNBOARD keeps its own VERT/HORIZ pick so the 1E look survives COMPARE being left on HORIZ
