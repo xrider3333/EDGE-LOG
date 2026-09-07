@@ -783,6 +783,18 @@ single number but its ledger trusted ORB, which has no signal, so it was not kep
 **Standing:** comparison-only row + forward paper test. Not crownable, not adopted. The clean
 evidence path is `NOISE_SBS_V90_K` vs `NOISE_SBS_V90` on MAR from 2026-09-08.
 
+**v5 (2026-09-07, owner: "earn more without adding drawdown").** Same model and ledger; only the size
+schedule moves. 288-cell read on the saved v4 walks (slope × ceiling × floor × trust scale), rule =
+pre-lockbox drawdown not worse than raw on the deployed legs: **no cell passes on ORB** (its drawdown
+worsens in every cell, so ORB stays overlay-free), the NOISE/ENGU-Q passing cells form a plateau at
+floor 0.75 / slope 1.0–1.5 / trust from t 0.5→1.0, and **the up-only floor (1.0×) was rejected — it
+earns most but adds drawdown**. Chosen cell: slope 1.5, floor 0.75, ceiling 2.0, trust clip((t−0.5)/0.5).
+Real walk: NOISE pre-LB **+$130,826** vs raw (v4 +$54,829; incumbent tilt +$72,712), DD −$19,213 vs
+−$18,425 raw, MAR 1.63 unchanged, year-by-year **t 2.87** (tilt 2.68), lockbox −$5,941 at exactly raw's
+drawdown, tail 0. ORB −$3,158 / ENGU-Q −$13,363 pre-LB → NOISE only. Paper leg `NOISE_SBS_V90_K5`
+(control `NOISE_SBS_V90`); claim = more net than control at no worse drawdown, and more than the K leg.
+Third read on the spent window — forward evidence only.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

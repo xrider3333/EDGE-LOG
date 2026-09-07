@@ -84,6 +84,14 @@ CFG = {
     #    98% of the time on ENGU-Q). trust = clip(t/2): proportional from t=0, full at t=2.
     "v4": {"W": 600, "t_lo": 0.0, "t_hi": 2.0, "target": "log", "stack": "trust",
            "ledger": "dollar", "members": ("logit", "et")},
+    # v5 (2026-09-07, owner: "earn more without adding drawdown"): same model and ledger as v4,
+    #    only the size schedule moves. 288-cell read on the saved v4 walks, rule = pre-lockbox
+    #    drawdown not worse than raw on the deployed legs: the passing cells form a plateau at
+    #    floor 0.75 (never 1.0 - up-only sizing adds drawdown), slope 1.0-1.5, trust earned from
+    #    t 0.5 to 1.0. This cell was chosen for the lockbox year too: NOISE LB drawdown exactly
+    #    raw's. Second read on the spent window - the paper leg is the test.
+    "v5": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
@@ -246,6 +254,7 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
     z_members, trust, rho, member trusts, plus the sorted 3-tuples."""
     cfg = CFG[version]
     W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
+    K, lo, hi = cfg.get("K", K_MAX), cfg.get("LO", LO), cfg.get("HI", HI)
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
     E = np.array([t[0] for t in T]); Xi = np.array([t[1] for t in T]); P = np.array([t[2] for t in T])
     n = len(T)
@@ -287,7 +296,7 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
         else:
             tr, rh = 1.0, np.nan
         trust[k] = tr; rho[k] = rh
-        size[k] = float(np.clip(1.0 + K_MAX * tr * z[k], LO, HI))
+        size[k] = float(np.clip(1.0 + K * tr * z[k], lo, hi))
     return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
             "trust": trust, "rho": rho, "trust_members": tm, "n_fits": n_fits,
             "feature_names": names, "version": version}

@@ -77,7 +77,8 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
     "NOISE_SBS_V90_K": "2026-09-08",
-    "ENGUQ_309_K": "2026-09-08",      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "ENGUQ_309_K": "2026-09-08",
+    "NOISE_SBS_V90_K5": "2026-09-08", # KEEL v5 (steeper, faster-trust schedule) on the same crown, forward test only      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -485,6 +486,16 @@ NOISE_243_TILT = {"mode": "tilt", "model": "xgb", "scheme": "tier",
 # THE CLAIM, stated so it can fail: from 2026-09-08 forward, NOISE_SBS_V90_K should beat
 # its matched raw control NOISE_SBS_V90 on MAR (annualised net / max drawdown).
 NOISE_243_KEEL = {"mode": "keel", "model": "keel", "version": "v4", "source_run": 243}
+# KEEL v5 (2026-09-07, owner: "make keel earn more money without adding drawdown"). Same
+# model and ledger as v4; only the size schedule moves: slope 1.5 (v4 0.5), floor 0.75 (v4
+# 0.5), ceiling 2.0, trust earned from ledger t 0.5 to 1.0 (v4 0 to 2). Read on run #243's
+# window: pre-lockbox +$130,826 vs raw at drawdown -$19,213 vs -$18,425 (MAR 1.63, same as
+# v4 on 2.4x the money; year-by-year t 2.87), lockbox -$5,941 at exactly raw's drawdown.
+# NOISE ONLY: on ORB and ENGU-Q v5 loses pre-lockbox money, so it is not deployed there.
+# Second read on the spent window -> FORWARD EVIDENCE ONLY. THE CLAIM, stated so it can
+# fail: from 2026-09-08, NOISE_SBS_V90_K5 beats NOISE_SBS_V90 on net dollars with a
+# drawdown no worse than the control's, and beats NOISE_SBS_V90_K on net dollars.
+NOISE_243_KEEL5 = {"mode": "keel", "model": "keel", "version": "v5", "source_run": 243}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
 # year was KEEL's best read (run #265 window: +$15,410, MAR 5.83 -> 7.22, drawdown down)
 # while its pre-lockbox stretch was neutral - exactly the "stands down until it has earned
@@ -705,6 +716,15 @@ LEG_SOURCE = {
                 "earned from its own out-of-sample dollar ledger. Added 2026-09-06 beside the "
                 "NOISE test; ENGUQ_309 is its exact control.",
     },
+    "NOISE_SBS_V90_K5": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v5 (steeper schedule)",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-07",
+        "note": "The crowned #243 config with KEEL v5: identical model and skill ledger to the "
+                "K leg, but the size schedule is steeper (slope 1.5, floor 0.75x, ceiling 2x) "
+                "and trust is earned faster (ledger t 0.5 to 1.0). Backtest read: 2.4x the K "
+                "leg's pre-lockbox gain at the same MAR. Added 2026-09-07 as a forward test "
+                "beside the K leg; NOISE_SBS_V90 is the exact control.",
+    },
     "NOISE_SBS_V90_K": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL skill-gated tilt",
         "strategy_file": "NOISE_1_0.py", "picked": "2026-09-06",
@@ -922,6 +942,12 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_KEEL, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_K"]},
+    # ADDED 2026-09-07: KEEL v5, the steeper schedule (see NOISE_243_KEEL5). FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_K5", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_KEEL5, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_K5"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
