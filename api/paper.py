@@ -76,7 +76,8 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
-    "NOISE_SBS_V90_K": "2026-09-08",  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "NOISE_SBS_V90_K": "2026-09-08",
+    "ENGUQ_309_K": "2026-09-08",      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -484,6 +485,11 @@ NOISE_243_TILT = {"mode": "tilt", "model": "xgb", "scheme": "tier",
 # THE CLAIM, stated so it can fail: from 2026-09-08 forward, NOISE_SBS_V90_K should beat
 # its matched raw control NOISE_SBS_V90 on MAR (annualised net / max drawdown).
 NOISE_243_KEEL = {"mode": "keel", "model": "keel", "version": "v4", "source_run": 243}
+# KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
+# year was KEEL's best read (run #265 window: +$15,410, MAR 5.83 -> 7.22, drawdown down)
+# while its pre-lockbox stretch was neutral - exactly the "stands down until it has earned
+# it" behaviour to watch forward. ENGUQ_309 is the exact control. FORWARD EVIDENCE ONLY.
+ENGUQ_309_KEEL = {"mode": "keel", "model": "keel", "version": "v4", "source_run": 309}
 
 # Full-history load date for the gated legs (the masters begin here).
 _GATE_HISTORY_FROM = "2010-06-07"
@@ -691,6 +697,14 @@ LEG_SOURCE = {
                   "its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 "
                   "is its exact control — identical file and params, gate off.",
     },
+    "ENGUQ_309_K": {
+        "run": 309, "run_label": "#309 ENGU-Q ETH crown + KEEL skill-gated tilt",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-06",
+        "note": "The #309 crown with KEEL (augur_engine/ml_keel.py): every trade is taken, "
+                "size 0.5x-2x from a logistic + ExtraTrees expectancy stack whose slope is "
+                "earned from its own out-of-sample dollar ledger. Added 2026-09-06 beside the "
+                "NOISE test; ENGUQ_309 is its exact control.",
+    },
     "NOISE_SBS_V90_K": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL skill-gated tilt",
         "strategy_file": "NOISE_1_0.py", "picked": "2026-09-06",
@@ -823,6 +837,12 @@ PAPER_LEGS = [
     {"key": "ENGUQ_309", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_309"]},
+    # ADDED 2026-09-06: the crown with KEEL (see ENGUQ_309_KEEL). FORWARD EVIDENCE ONLY.
+    {"key": "ENGUQ_309_K", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_309_KEEL, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["ENGUQ_309_K"]},
     # ETH since 2026-08-17: the RTH leg was forward-testing the variant this project's own
     # docs had already deprecated as not live-realistic. See ENGUQ_226_ETH above.
     # RETIRED FROM PAPER 2026-08-21 (owner: "replace the old enguq"): the #226 raw leg is
