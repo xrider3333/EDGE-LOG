@@ -476,7 +476,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.531';
+const VERSION='73.532';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -495,6 +495,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.532',date:'2026-09-06',notes:['A JOB THAT WAS RUNNING WAS INVISIBLE. The queue chip at the top said 5 WAITING with nothing running, and BUILDER agreed, while the runner was 29 percent of the way through ENGUQ_1M_ETH_ERW_1_0 and eight more jobs were stacked behind it. The web was reading the newest twelve job records BY QUEUED DATE; the runner claims the OLDEST waiting job first. Those two orders point opposite ways, so the running job - requeued a day earlier, and therefore old - had fallen out of the window, and so had three of the waiting jobs. A ninth job queued by a script carried no queued-at date at all, so a date-ordered read could never have shown it under any window size.','THE FIX READS UNFINISHED WORK BY STATUS INSTEAD OF BY DATE, so every queued, running or paused job appears no matter how old it is and no matter whether it carries a date. The finished list is still the newest twelve, fetched once and re-fetched the moment a job leaves the live set. That is still ONE live connection, not two - the runner writes a progress figure about every one and a half seconds and each connection is charged a read for every one of them, so the daily read budget only stretches to one.','THE CHIP AND THE TAB NOW READ THE SAME COUNT, from one shared piece of code, so they cannot drift apart again. The chip reads QUEUE, then the strategy name, then its percent, then plus how many are behind it.','BUILDER IS TWO COLUMNS NOW (owner: relayout the builder tab, put whats build que as a side bar). The build form and its result panels keep the left; a BUILD QUEUE card pins to the right and stays in view as the form scrolls. It reads top to bottom the way the work moves: what is RUNNING right now with its progress bar, how long since the runner picked it up and the pause and stop controls; then WAITING, numbered one to N in the order the runner will actually claim them, oldest first, each with how long it has waited; then RECENT, the finished, failed and cancelled jobs newest first with their money, their scope and their reuse marks, and a click opens the saved run.','A WAITING JOB WITH NO QUEUED-AT DATE SAYS SO rather than being hidden or guessed at: it is listed last, marked in amber as no timestamp, and its hover explains that its real place in the line is held in a field only the runner can read.','Under 1200 pixels wide the queue card drops underneath the form instead of squeezing it.']},
 {v:'73.531',date:'2026-09-06',notes:['QQQ PAPER, round 3 of the shadow-book UI (items 48, 50, 51, 52, 53, 54, 55), all built against mock data since the backend has not shipped these fields to production yet -- everything degrades to a clean dash when a field is missing.','READINESS GATE at the top of the tab: a loud READY or NOT READY headline plus six plain-English checks (enough trading days, a live parity check has run, that check did not fail, feed uptime at least 99 percent, zero unexplained rail trips, reprice coverage at least 95 percent), with a Still Needed list under it when the book is not ready.','EVENT TIMELINE: a new section listing boot, feed, breaker, kill, refused, out-of-session, reprice, and end-of-day events newest first, colour-chipped by severity, with a show-more button past the first 30.','CLICK A CLOSED TRADES ROW to open an inline drawer under it comparing the shadow fill against the real NinjaTrader fill side by side -- timing, size and notional, ratio-priced price against the real re-priced price, and the resulting tracking error. Escape or a second click closes it.','TWO NEW COLUMNS ON CLOSED TRADES, REAL P&L and SLIP PER SHARE, plus a REPRICE tile on the sidebar showing what percentage of trades have been checked against real QQQ one-minute bars.','A SIGNALS STRIP under the feed-uptime bars shows the last 10 days of fired, taken, refused and not-mirrored-overnight signal counts, and each ORB, ENGU-Q and NOISE card now names its most recent trade NT notional against its shadow notional. A LATENCY pill sits in the header, turning red when the 95th-percentile order latency passes 10 seconds.','POLISH: the equity-chart legend is clickable to hide or show a line, the sidebar stays in view while the tab scrolls, an EXPORT CSV button downloads every closed trade with the new columns, and the whole tab now stacks cleanly on a narrow screen instead of squeezing sideways.']},
 {v:'73.524',date:'2026-09-05',notes:['FIX on the line added a moment ago: it was nested inside the block that only draws on the 1E CONFIGS view, so the one place that needed it most never showed it - SWEEPS, where 646 of 732 rows cannot be placed on EV R against SORTINO. It stands on its own now and appears on any chart missing more than one row in ten.']},
 {v:'73.523',date:'2026-09-05',notes:['A CHART MISSING MOST OF ITS ROWS NOW SAYS SO IN PLAIN SIGHT. Stress-testing the board today: SWEEPS listed 1,166 rows and drew 86 of them on EV R against SORTINO. It was not hiding it - the count sat 530 characters into a 5,575-character hover tooltip - but nobody reads that, and a chart showing a fourteenth of what is on screen must never look complete. A line under the chart names the number and the axis that could not place them whenever more than one row in ten is missing.','The gap itself is real and not a bug: the studies registry never recorded a Sharpe, a Sortino or an average losing trade for the local sweep rows. Measured across 1,166 of them - PF places 714, DRAWDOWN 711, ROC 698, but EV R and R / YR only 111 and SORTINO only 86. Pick PF or DRAWDOWN to see the whole population, or re-run a study to fill its figures in.']},
@@ -2134,6 +2135,62 @@ function _subscribeRunsFull(uid,lim){
     return _bookUnitsOnRead(_isoTs(x));});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
 }
 window._loadMoreRuns=()=>{if(!_runsUid)return;_subscribeRuns(_runsUid,(runsLimit||75)+75);};
+// ── LIVE JOB SET vs RECENT JOB SET ───────────────────────────────
+// `backtests` is merged from two reads (see subscribeAll below): a LIVE listener that
+// carries every unfinished job whatever its age, and a one-shot RECENT fetch of the
+// newest 12 by createdAt for the finished list. Live documents win on a tie.
+let _btLive=[],_btRecent=[],_btRecentT=null;
+// createdAt -> ms. A job written straight in by a script carries no createdAt at all,
+// which is exactly why a newest-12-by-createdAt listener could never show one. 0 sorts
+// it last (treated as oldest) and the UI labels it rather than inventing a time.
+const _btTs=b=>{try{const x=b&&b.createdAt;if(!x)return 0;if(x.toDate)return x.toDate().getTime();const n=new Date(x).getTime();return isNaN(n)?0:n;}catch(e){return 0;}};
+function _btMerge(){
+  const seen={},out=[];
+  (_btLive||[]).forEach(b=>{if(b&&b.id&&!seen[b.id]){seen[b.id]=1;out.push(b);}});
+  (_btRecent||[]).forEach(b=>{if(b&&b.id&&!seen[b.id]){seen[b.id]=1;out.push(b);}});
+  out.sort((a,b)=>_btTs(b)-_btTs(a));   // createdAt DESC; no timestamp = 0 = last
+  backtests=out;
+}
+// One-shot READ (never a second listener) for the finished list. Read cost is the whole
+// reason: the runner writes `progress` about every 1.5s while a job runs and EVERY
+// listener is charged a read for each of those writes, so exactly one listener may
+// watch live work (Spark plan: 50,000 reads a day).
+function _btFetchRecent(){
+  if(!btRef)return;
+  clearTimeout(_btRecentT);
+  _btRecentT=setTimeout(()=>{
+    if(!btRef)return;
+    btRef.orderBy('createdAt','desc').limit(12).get().then(snap=>{
+      _btRecent=snap.docs.map(d=>({id:d.id,...d.data()}));
+      _btMerge();
+      // the "a job just finished" signal that re-reads the runs list - the old
+      // whole-document runs listener used to give us this for free.
+      const _sig=(_btRecent||[]).filter(b=>b.status==='done').map(b=>b.id).join(',');
+      if(window._btDoneSig!=null&&_sig!==window._btDoneSig)_refreshRunsLite();
+      window._btDoneSig=_sig;
+      if(activeTab==='augur')renderApp();
+    }).catch(e=>{console.warn('[jobs] recent-jobs read failed:',(e&&e.message)||e);});
+  },300);
+}
+// ── ONE SOURCE OF TRUTH for "what is the runner doing right now" ─────────────
+// The top-bar QUEUE chip and the BUILDER build-queue sidebar both read THIS, so the two
+// can never disagree again. `waiting` comes back in the order the runner will actually
+// claim it - oldest first (api/runner.py run_once sorts queued jobs by create time) -
+// with a job that carries no queued-at stamp placed last, because its real position
+// cannot be read from the web at all.
+const _liveJobs=()=>{
+  const st=b=>String((b&&b.status)||'').toLowerCase();
+  const all=(backtests||[]).filter(b=>b&&b.id);
+  const running=all.filter(b=>st(b)==='running'||st(b)==='paused');
+  const waiting=all.filter(b=>st(b)==='queued').slice().sort((a,b)=>{
+    const x=_btTs(a),y=_btTs(b);
+    if(!x&&!y)return 0;
+    if(!x)return 1;
+    if(!y)return -1;
+    return x-y;});
+  const recent=all.filter(b=>st(b)==='done'||st(b)==='error'||st(b)==='cancelled').slice(0,12);
+  return {run:running[0]||null,running:running,waiting:waiting,recent:recent};
+};
 function subscribeAll(uid){
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
@@ -2143,17 +2200,31 @@ function subscribeAll(uid){
   unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='journal')renderApp();});
   btRef=db.collection('users').doc(uid).collection('backtests');
   if(unsubBT)unsubBT();
-  // BOOT SPEED: this listener pulled the newest 50 job documents whole, and 99.7% of that
-  //   weight is the finished `result` block - a duplicate of what already got saved as a
-  //   run. Measured 2026-08-19: 15.6 MB stored across 50 jobs. The Builder only ever
-  //   displays the newest 12 (see `grids` below), so 12 is what we now read: ~3.7 MB.
-  //   It also doubles as the "a job just finished" signal that re-reads the runs list,
-  //   which the old whole-document runs listener used to give us for free.
-  unsubBT=btRef.orderBy('createdAt','desc').limit(12).onSnapshot(snap=>{backtests=snap.docs.map(d=>({id:d.id,...d.data()}));
-    const _sig=backtests.filter(b=>b.status==='done').map(b=>b.id).join(',');
-    if(window._btDoneSig!=null&&_sig!==window._btDoneSig)_refreshRunsLite();
-    window._btDoneSig=_sig;
-    if(activeTab==='augur')renderApp();});
+  // BOOT SPEED + LIVE TRUTH. One listener plus one one-shot read.
+  //   (1) LIVE: every unfinished job - queued, running or paused - however old it is,
+  //       including jobs written straight in by a script with no createdAt at all. The
+  //       listener this replaced took the newest 12 documents BY createdAt, so a job
+  //       queued days ago and running RIGHT NOW fell outside the window: on 2026-09-06
+  //       the top-bar chip read "5 WAITING" with nothing running while the runner was
+  //       29% of the way through ENGUQ_1M_ETH_ERW_1_0. One single-field `in` filter and
+  //       no orderBy, so the automatic index covers it - no composite index to create.
+  //   (2) RECENT: one get() of the newest 12 by createdAt for the finished list, re-read
+  //       whenever a job leaves the live set. A get() and NOT a second listener, because
+  //       the runner writes `progress` about every 1.5s and every listener is charged a
+  //       read for each of those writes - only one listener may ever see that traffic.
+  //   _btMerge folds the two into `backtests` (live wins, createdAt DESC, no-timestamp
+  //   jobs last). Read it through _liveJobs(), never off the raw array.
+  _btLive=[];_btRecent=[];window._btDoneSig=null;
+  unsubBT=btRef.where('status','in',['queued','running','paused']).onSnapshot(snap=>{
+    const was=(_btLive||[]).map(b=>b.id);
+    _btLive=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const now=_btLive.map(b=>b.id);
+    _btMerge();
+    // a job that LEFT the live set is a job that finished, errored or was cancelled
+    if(was.some(id=>now.indexOf(id)<0))_btFetchRecent();
+    if(activeTab==='augur')renderApp();
+  },e=>{console.warn('[jobs] live-jobs listener failed:',(e&&e.message)||e);});
+  _btFetchRecent();          // first read of the finished list, on login
   runsRef=db.collection('users').doc(uid).collection('runs');
   _runsUid=uid;
   _subscribeRuns(uid,runsLimit);
@@ -8559,10 +8630,13 @@ function renderApp(){
       //   its doc on 'running', and a fresh runner only ever claims 'queued', so it sits
       //   there for ever showing a frozen progress bar.
       try{
-        const live=(backtests||[]).filter(b=>b&&(b.status==='queued'||b.status==='running'));
-        if(!live.length)return '';
-        const run=live.filter(b=>b.status==='running')[0]||null;
-        const wait=live.filter(b=>b.status!=='running').length;
+        // Counts come from _liveJobs() - the SAME helper the BUILDER build-queue sidebar
+        //   reads - so the chip and the sidebar can never disagree again.
+        const _LJ=_liveJobs();
+        if(!_LJ.run&&!_LJ.waiting.length)return '';
+        const run=_LJ.run;
+        const wait=_LJ.waiting.length;
+        const paused=!!(run&&String(run.status||'').toLowerCase()==='paused');
         const _ms=x=>{try{return x&&x.toDate?x.toDate().getTime():(x?new Date(x).getTime():0);}catch(e){return 0;}};
         // Age is only meaningful from the moment the runner CLAIMED the job. createdAt is
         //   when it was queued, and a job that waited half a day behind other work and then
@@ -8580,7 +8654,7 @@ function renderApp(){
         const col=stale?'var(--yellow)':(run?'var(--green)':'var(--text4)');
         const pct=run?Math.max(0,Math.min(100,run.progress||0)):0;
         const nm=run?String(run.strategy||'job').replace(/\.py$/,''):'';
-        const txt=run?(nm+' '+pct+'%'):(wait+' waiting');
+        const txt=run?(nm+' '+(paused?'PAUSED':(pct+'%'))):(wait+' waiting');
         const tail=(run&&wait)?(' +'+wait):'';
         const _dur=m=>(m>=120?(Math.round(m/60)+'h'):(m+' min'));
         const tip=(run?('RUNNING: '+nm+' at '+pct+'%'+(runMin!==null?(', going '+_dur(runMin)):'')+', queued '+_dur(queuedMin)+' ago.'
@@ -18416,7 +18490,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const curStrat=augurExecStrat||slist[0].file;
       const cur=slist.filter(s=>s.file===curStrat)[0]||slist[0];
       const presets=(cur&&cur.presets&&cur.presets.length)?cur.presets:['(start runner to load scopes)'];
-      const grids=backtests.slice(0,12);
+      // BUILD QUEUE + the panels below read ONE helper - the same one the top-bar
+      //   QUEUE chip reads - so the two counts can never disagree again.
+      const BQ=_liveJobs();
+      const grids=BQ.recent;   // finished jobs only (done / error / cancelled), newest 12
       const gbadge=b=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[b.status]||'var(--text4)';const pct=Math.max(0,Math.min(100,b.progress||0));const lbl=b.status==='running'?('RUNNING '+pct+'%'):(b.status||'?').toUpperCase();
         // live progress bar for the active job (runner writes job.progress 0-100)
         const bar=b.status==='running'?'<div style="height:3px;background:var(--bg1);border-radius:2px;overflow:hidden;margin-top:3px;width:84px"><div style="height:100%;width:'+pct+'%;background:var(--yellow);transition:width .3s"></div></div>':'';
@@ -18427,7 +18504,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const jobCtl=b=>{const s=b.status;if(s==='done'||s==='error'||s==='cancelled')return '<span style="color:var(--text5)">—</span>';
         const btn=(v,gl,t,col)=>'<span data-jobctl="'+v+'" data-jobid="'+b.id+'" title="'+t+'" style="cursor:pointer;font-size:12px;margin-left:8px;color:'+col+'">'+gl+'</span>';
         return (s==='paused'?btn('run','▶','Resume','var(--green)'):btn('pause','⏸','Pause','var(--text4)'))+btn('stop','■','Stop','var(--red)');};
-      const grows=grids.map(b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const gvt=b.type==='gate_validate';const single=!ai&&!smart&&!gvt&&b.type!=='grid';const m=(single||gvt)?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):gvt?((r.gate_validate&&r.gate_validate.chosen)?(r.gate_validate.chosen.model+'@'+Math.round(r.gate_validate.chosen.threshold*100)+'%'):'—'):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?((b.ml_filter&&b.ml_filter!=='none')?'🚪 gated':'single'):(scopeLbl[b.type]||(b.preset||'').slice(0,16));const _cr2=r.cache_reuse;const _reuseChip2=(done&&_cr2&&_cr2.total>0&&_cr2.hits>0)?' <span title="Trial cache: reused '+_cr2.hits+' of '+_cr2.total+' configs ('+_cr2.pct_reused+'% less compute)'+(_cr2.note?' (approx: parallel grid, parent-process only)':'')+'" style="font-size:8px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:6px;padding:1px 4px;margin-left:5px;white-space:nowrap">♻ '+_cr2.hits+'/'+_cr2.total+(_cr2.note?'~':'')+'</span>':'';return '<tr><td>'+gbadge(b)+'</td><td style="font-size:var(--fsxs)">'+(ai?'AI ':'')+stratTag(b.strategy)+_reuseChip2+'</td><td style="font-size:var(--fsxs)">'+scope+'</td><td style="text-align:right">'+sizecell+'</td><td style="text-align:right">'+(done?Math.min(m.profit_factor||0,99).toFixed(2):'—')+'</td><td style="text-align:right;color:'+(done?(net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(done?fmtUsd(net):'—')+'</td><td style="text-align:right;white-space:nowrap">'+jobCtl(b)+'</td></tr>';}).join('');
+      // The FIGURES for one finished job, lifted out of the old RUNS table unchanged so
+      //   the BUILD QUEUE sidebar prints exactly the same numbers in a narrower shape.
+      const gmeta=b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const gvt=b.type==='gate_validate';const single=!ai&&!smart&&!gvt&&b.type!=='grid';const m=(single||gvt)?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):gvt?((r.gate_validate&&r.gate_validate.chosen)?(r.gate_validate.chosen.model+'@'+Math.round(r.gate_validate.chosen.threshold*100)+'%'):'—'):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?((b.ml_filter&&b.ml_filter!=='none')?'🚪 gated':'single'):(scopeLbl[b.type]||(b.preset||'').slice(0,16));const _cr2=r.cache_reuse;const _reuseChip2=(done&&_cr2&&_cr2.total>0&&_cr2.hits>0)?' <span title="Trial cache: reused '+_cr2.hits+' of '+_cr2.total+' configs ('+_cr2.pct_reused+'% less compute)'+(_cr2.note?' (approx: parallel grid, parent-process only)':'')+'" style="font-size:8px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:6px;padding:1px 4px;margin-left:5px;white-space:nowrap">♻ '+_cr2.hits+'/'+_cr2.total+(_cr2.note?'~':'')+'</span>':'';return {done:done,ai:ai,net:net,sizecell:sizecell,scope:scope,pf:(done?Math.min(m.profit_factor||0,99).toFixed(2):'—'),reuseChip:_reuseChip2};};
       const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
       // ── ML GATE before/after card (board 3A.2): the most recent gated single run.
       //    UNGATED = the strategy taking every trade; GATED = only the trades the
@@ -18626,7 +18705,74 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _expertToggle='<label class="ex-tgl" style="margin-left:auto"><input id="ex-expert" type="checkbox"'+(_exExpert?' checked':'')+'/> expert view · show everything</label>';
       const _fComm=fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140);
       const _fSlip=fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140);
-      body=exStyle+'<div class="section ex-build'+(_exExpert?' expert':'')+'">'
+      // ── BUILD QUEUE sidebar ───────────────────────────────────────
+      //   owner 2026-09-06: "relayout the builder tab. put whats build que as a side bar".
+      //   Three sections, in the order the work moves through them: what the runner is on
+      //   NOW, what is behind it IN CLAIM ORDER, and what has already finished.
+      const _bqEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+      const _bqMs=x=>{try{return x&&x.toDate?x.toDate().getTime():(x?new Date(x).getTime():0);}catch(e){return 0;}};
+      const _bqAgo=ms=>{if(!ms)return null;const m=Math.max(0,Math.round((Date.now()-ms)/60000));return m<1?'just now':(m<60?(m+' min ago'):(m<2880?(Math.round(m/60)+' h ago'):(Math.round(m/1440)+' d ago')));};
+      const _bqNm=b=>String((b&&b.strategy)||'job').replace(/\.py$/,'');
+      const _bqModeLbl=Object.assign({single:'single',grid:'grid'},scopeLbl);
+      const _bqChip=b=>'<span style="font-size:8px;letter-spacing:.5px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 60%,transparent);border-radius:5px;padding:1px 5px;white-space:nowrap">'+_bqEsc(_bqModeLbl[String(b.type||'single')]||String(b.type||'single'))+(b.lockbox?' \ud83d\udd12':'')+'</span>';
+      const _bqSec=t=>'<div class="lbl" style="margin:13px 0 6px;opacity:.62">'+t+'</div>';
+      const _bqRunHtml=BQ.running.map(b=>{
+        const pct=Math.max(0,Math.min(100,b.progress||0));
+        const _pz=String(b.status||'').toLowerCase()==='paused';
+        const col=_pz?'var(--text4)':'var(--yellow)';
+        const st=_bqAgo(_bqMs(b.startedAt));
+        const stTip=st?('The runner claimed this job '+st+'. A validate on 1-minute data can legitimately run for hours, so a long run is not by itself a fault - a FROZEN percentage is.')
+          :'No start time is recorded on this job, so how long it has really been running cannot be told from here. The runner stamps one from its next restart onward.';
+        return '<div data-bqrunrow="'+b.id+'" style="border:1px solid color-mix(in srgb,'+col+' 34%,var(--border));border-radius:10px;padding:9px 10px;margin-bottom:8px;background:color-mix(in srgb,'+col+' 6%,transparent)">'
+          +'<div style="display:flex;align-items:baseline;gap:7px"><span title="'+_bqEsc(b.strategy||'')+'" style="flex:1 1 auto;min-width:0;font-size:var(--fsxs);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_bqEsc(_bqNm(b))+'</span>'
+          +'<span style="flex:0 0 auto;font-size:var(--fsxs);color:'+col+';font-variant-numeric:tabular-nums">'+(_pz?'PAUSED':(pct+'%'))+'</span></div>'
+          +'<div style="height:3px;background:var(--bg1);border-radius:2px;overflow:hidden;margin:7px 0 6px"><div style="height:100%;width:'+pct+'%;background:'+col+';transition:width .3s"></div></div>'
+          +'<div style="display:flex;align-items:center;gap:6px">'+_bqChip(b)
+          +'<span title="'+_bqEsc(stTip)+'" style="font-size:8px;color:var(--text5);cursor:help">'+(st?('started '+st):'no start time')+'</span>'
+          +'<span style="margin-left:auto;white-space:nowrap">'+jobCtl(b)+'</span></div></div>';}).join('');
+      const _bqWaitHtml=BQ.waiting.map((b,i)=>{
+        const ts=_btTs(b);
+        const ago=ts?('queued '+_bqAgo(ts)):'no timestamp';
+        const tip=ts?('Queued '+new Date(ts).toLocaleString()+'. The runner always claims the OLDEST waiting job first, so this one is number '+(i+1)+' in line.')
+          :'This job carries no queued-at time, which is what a job written straight into the queue by a script looks like. It is listed last here because its real place in the line cannot be read from the web - the runner orders by the document create time, which only the runner can see.';
+        return '<div data-bqwaitrow="'+b.id+'" style="display:flex;align-items:baseline;gap:7px;padding:6px 2px;border-top:1px solid var(--border2)">'
+          +'<span style="flex:0 0 13px;font-size:8px;color:var(--text5);font-variant-numeric:tabular-nums">'+(i+1)+'</span>'
+          +'<span style="flex:1 1 auto;min-width:0"><span title="'+_bqEsc(b.strategy||'')+'" style="display:block;font-size:var(--fsxs);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_bqEsc(_bqNm(b))+'</span>'
+          +'<span style="display:flex;align-items:center;gap:6px;margin-top:4px">'+_bqChip(b)
+          +'<span '+(ts?'':'data-bqnots ')+'title="'+_bqEsc(tip)+'" style="font-size:8px;color:'+(ts?'var(--text5)':'var(--yellow)')+';cursor:help">'+ago+'</span></span></span>'
+          +'<span style="flex:0 0 auto;white-space:nowrap">'+jobCtl(b)+'</span></div>';}).join('');
+      const _bqRecHtml=grids.map(b=>{
+        const M=gmeta(b);
+        const s=String(b.status||'').toLowerCase();
+        const sc={done:'var(--green)',error:'var(--red)',cancelled:'var(--text4)'}[s]||'var(--text4)';
+        const rep=b.repeat_of_run?(' <span title="'+_bqEsc('This job repeated a configuration that had already been computed, as run #'+b.repeat_of_run+'. Same strategy file, same date window, same data source and the same search settings, so the figures should match. It was allowed to run and tagged rather than blocked.')+'" style="font-size:8px;letter-spacing:.5px;color:var(--yellow);border:1px solid color-mix(in srgb,var(--yellow) 40%,transparent);border-radius:5px;padding:1px 4px;margin-left:4px;white-space:nowrap;cursor:help">\u21ba REPEAT OF #'+b.repeat_of_run+'</span>'):'';
+        const rid=b.run_id||b.runId||null;
+        return '<div data-bqrecentrow="'+b.id+'"'+(rid?(' data-bqrun="'+rid+'" title="Open run #'+rid+' in RESULTS"'):'')+' style="display:flex;align-items:baseline;gap:7px;padding:6px 2px;border-top:1px solid var(--border2)'+(rid?';cursor:pointer':'')+'">'
+          +'<span style="flex:1 1 auto;min-width:0">'
+          +'<span style="display:block;font-size:var(--fsxs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(M.ai?'AI ':'')+stratTag(b.strategy)+M.reuseChip+rep+'</span>'
+          +'<span style="display:block;font-size:8px;color:var(--text5);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+          +'<span style="color:'+sc+';letter-spacing:1px">'+(b.status||'?').toUpperCase()+'</span> \u00b7 '+M.scope+' \u00b7 '+M.sizecell+' \u00b7 PF '+M.pf+'</span></span>'
+          +'<span style="flex:0 0 auto;text-align:right;font-size:var(--fsxs);font-variant-numeric:tabular-nums;color:'+(M.done?(M.net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(M.done?fmtUsd(M.net):'\u2014')+'</span></div>';}).join('');
+      const _bqNr=BQ.running.length,_bqNw=BQ.waiting.length;
+      const _bqCount=(_bqNr||_bqNw)?(_bqNr+' RUNNING \u00b7 '+_bqNw+' WAITING'):'IDLE \u00b7 NOTHING QUEUED';
+      const _bqCountCol=(!_bqNr&&_bqNw)?'var(--yellow)':((_bqNr||_bqNw)?'var(--green)':'var(--text4)');
+      const _bqCountTip=(!_bqNr&&_bqNw)?'Work is waiting and nothing is running. If this does not start within a few minutes the runner is not picking work up.'
+        :((_bqNr||_bqNw)?'Every unfinished job on your account, however old it is - this list is not capped to the newest few, so a job queued days ago and running right now still appears.'
+        :'The runner has nothing to do. Fill the form on the left and press RUN ON MY PC.');
+      const bqStyle='<style>.bq-shell{display:block}.bq-main{min-width:0}'
+        +'.bq-side{margin-bottom:14px}'
+        +'.bq-card{background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:13px 15px}'
+        +'@media(min-width:1200px){.bq-shell{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}'
+        +'.bq-side{position:sticky;top:94px;align-self:start;max-height:calc(100vh - 110px);overflow-y:auto;margin-bottom:0}}</style>';
+      const bqSideHtml='<div class="bq-side"><div class="bq-card">'
+        +'<div class="lbl" style="letter-spacing:2px;color:var(--text3);margin-bottom:3px">BUILD QUEUE</div>'
+        +'<div data-bqcount title="'+_bqEsc(_bqCountTip)+'" style="font-size:8px;letter-spacing:1.4px;color:'+_bqCountCol+';cursor:help">'+_bqCount+'</div>'
+        +(_bqNr?(_bqSec('RUNNING')+_bqRunHtml):'')
+        +(_bqNw?(_bqSec('WAITING \u00b7 '+_bqNw)+_bqWaitHtml):'')
+        +((!_bqNr&&!_bqNw)?'<div style="font-size:var(--fsxs);color:var(--text5);padding:12px 0 2px;line-height:1.6">Nothing running and nothing waiting.</div>':'')
+        +(_bqRecHtml?(_bqSec('RECENT')+_bqRecHtml):(_bqSec('RECENT')+'<div style="font-size:var(--fsxs);color:var(--text5);padding:4px 0">NO SWEEPS YET \u2014 RUN ONE</div>'))
+        +'</div></div>';
+      const _exMain=exStyle+'<div class="section ex-build'+(_exExpert?' expert':'')+'">'
         // STEP 1 — WHAT
         +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">1</span>WHAT ARE YOU TESTING?<span class="ex-hint">strategy &amp; data</span></div>'
         +exrow(_fStrat+_fInst+_fTf+_fSess+_fCsv+_fDates)
@@ -18651,9 +18797,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +'</div>'
         +gvHtml
         +(gateHtml?tile(gateHtml):'')
-        +'<div class="lbl" style="margin-bottom:8px">RUNS</div>'
-        +(grids.length?tile('<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>SCOPE</th><th style="text-align:right">SIZE</th><th style="text-align:right">PF</th><th style="text-align:right">BEST $</th><th style="text-align:right">CONTROL</th></tr></thead><tbody>'+grows+'</tbody></table>'):'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO SWEEPS YET — RUN ONE</div>')
         +(topHtml?tile(topHtml):'');
+      // main column = the whole build form and its result panels; right column = the
+      //   BUILD QUEUE card. One column again under 1200px, queue below the form.
+      body=bqStyle+'<div class="bq-shell"><div class="bq-main">'+_exMain+'</div>'+bqSideHtml+'</div>';
     }else if(augurSub==='lib'){
       const sl=metaStrats||[];
       const selS=augurLibSel?sl.find(s=>s.file===augurLibSel):null;
@@ -28318,6 +28465,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // STOP / PAUSE / RESUME a queued or running job — sets `control` on the job doc;
       // the PC runner acts on it at its next progress checkpoint.
       content.querySelectorAll('[data-jobctl]').forEach(x=>x.onclick=async(e)=>{e.stopPropagation();const id=x.dataset.jobid,v=x.dataset.jobctl;if(v==='stop'&&!confirm('Stop this run? It will be marked cancelled.'))return;try{await btRef.doc(id).update({control:v});}catch(err){alert('control failed: '+err.message);}});
+      // a finished BUILD QUEUE row that saved a run opens that run in RESULTS
+      content.querySelectorAll('[data-bqrun]').forEach(x=>x.onclick=()=>{augurRunSel=String(x.dataset.bqrun);augurSub='runs';savePref('augurSub','runs');renderApp();});
       // ── Pre-run sample-sizing readout: how big the in-sample window actually is ──
       // (bars + span in years for the selected CSV/date range — so IS sizing is a
       // decision, not a guess; pair with the post-run trades/param gauge.)
