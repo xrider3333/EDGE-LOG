@@ -731,6 +731,58 @@ row E leaked that same bar's own high/low/close into the score. `entry_features_
 clock columns (tod_sin/tod_cos/dow) are known at the open and stay unshifted. Whole-array
 uses (VIF collinearity, adversarial validation) were never affected.
 
+### KEEL — the skill-gated expectancy tilt (2026-09-06, owner: "create your own ML")
+
+**Engine:** `augur_engine/ml_keel.py`. **Where it shows:** every Auto-Validate's `gate_validate`
+block now carries a `keel` row (comparison-only, never crownable — same standing as the TILT
+rows); PAPER leg `NOISE_SBS_V90_K` (control `NOISE_SBS_V90`) from 2026-09-08. Bench:
+`tools/keel_bench.py {noise|orb|engu|orbes}`.
+
+**Evidence that shaped it (138 gate-bearing runs swept from Firestore, 2026-09-06):** the crowned
+CUT — the only crownable mode — has a median post-fix lockbox delta of exactly **$0** vs ungated
+(rec ratio 0.999, 33% positive). **TILT is the only spending mode with a positive median**
+(+$9,030, 70% positive, avg size 1.01×). **xgb is the worst model out-of-sample in every mode**
+(lockbox rec-ratio medians 0.72 / 0.80 / 0.77) despite 16 crowns. No model family has a median
+lockbox rec ratio meaningfully above 1.0 in any mode. Literature read (de Prado bet sizing,
+Joubert/Meyer meta-labeling architecture, drift-adaptive ensembling) points the same way:
+continuous sizing over thresholds, per-strategy models, and measure sizing skill separately
+from classification skill.
+
+**What KEEL is:** every trade is taken (size 0.5×–2×, never 0); a |pnl|-weighted logistic and an
+ExtraTrees regressor on `sign(R)·log1p(|R|)` score each trade's *expectancy* (not win-rate) from
+the gate's 13 causal features + 7 new ones (60m Bollinger/Keltner compression state and ratio,
+gap in ATR, 5-bar body ratio, run length, day-range position, realised-vol ratio); members are
+stacked in z-space with weights earned from each member's own out-of-sample **dollar ledger**
+(t-stat of `pnl × z` over the last 600 resolved trades), and the tilt slope is scaled by the
+combined score's ledger the same way: `size = clip(1 + 0.5·trust·z, 0.5, 2.0)`,
+`trust = clip(t/2, 0, 1)`. Recency weights `exp(−age/400)`. No skill → size 1 = raw.
+
+**Four-leg read (v4, pinned 2010-06-07→2026-06-30, LB from 2025-06-30, + untouched 2026-07→09-04 tail):**
+
+| leg | RAW pre net / DD / MAR | KEEL v4 pre | incumbent TILT pre | KEEL LB | TILT LB |
+|---|---|---|---|---|---|
+| NOISE #243 | $335,167 / −18,425 / 1.22 | **$389,996 / −16,051 / 1.63** | $407,879 / −21,834 / 1.26 | −$4,735 (MAR 3.38 vs 3.74) | +$16,077 (3.63) |
+| ORB #234 NQ | $300,779 / −29,142 / 0.69 | $301,879 / −36,635 / 0.55 | $307,740 / −32,884 / 0.62 | $0 (stood down) | +$24,219 (3.65) |
+| ENGU-Q #265 | $339,822 / −61,031 / 0.37 | $335,832 / −61,031 / 0.37 | $413,190 / −58,910 / 0.47 | **+$15,410 (7.22 vs 5.83)** | +$15,018 (5.30) |
+| ORB #234 ES | $41,958 / −41,812 / 0.07 | $40,387 / −43,734 / 0.06 | $56,323 / −38,948 / 0.10 | +$1,040 (0.52) | +$3,681 (0.61) |
+
+Year-by-year pre-lockbox delta vs raw: NOISE **t 1.79** (8/15 years), ORB 0.12, ENGU-Q −1.19
+(−$249/yr), ES −0.09; the incumbent logistic/et TILT: 2.68 / 0.42 / 2.16 / 1.19.
+
+**Verdict, stated plainly.** KEEL is the safer overlay, not the richer one. It is the only overlay
+that is neutral wherever there is no edge (ORB NQ/ES and ENGU-Q pre-lockbox: within $4k of raw)
+and it improves MAR where there is one (NOISE pre-LB 1.22→1.63 with drawdown *down*; ENGU-Q
+lockbox 5.83→7.22). It does **not** out-earn the a-priori |pnl|-weighted logistic TILT in-sample
+on any leg — that construct remains the strongest money-maker in the whole ML family and it pays
+for it in drawdown. The honest gap between the two is the price of self-auditing: with true
+score/pnl correlations of 0.03–0.10, a 600-trade ledger cannot confirm skill quickly, so KEEL
+under-sizes the good years and stands down in the bad ones. Iteration log (v1–v4) and the
+reasons for each change are in the module docstring; the v1 NOISE result (MAR 2.06) is the best
+single number but its ledger trusted ORB, which has no signal, so it was not kept.
+
+**Standing:** comparison-only row + forward paper test. Not crownable, not adopted. The clean
+evidence path is `NOISE_SBS_V90_K` vs `NOISE_SBS_V90` on MAR from 2026-09-08.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

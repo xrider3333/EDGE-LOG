@@ -76,6 +76,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90": "2026-08-23",  # leg added the day the owner crowned run #243
     "NOISE_SBS_V90_H": "2026-08-24",  # its run-#243 gate overlay (et@0.50), forward test only
     "NOISE_SBS_V90_T": "2026-08-24",  # its run-#243 size TILT (xgb/tier), forward test only
+    "NOISE_SBS_V90_K": "2026-09-08",  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -471,6 +472,19 @@ NOISE_243_GATE = {"mode": "hybrid", "model": "et", "threshold": 0.50,
 NOISE_243_TILT = {"mode": "tilt", "model": "xgb", "scheme": "tier",
                   "size_norm": 1.060804, "source_run": 243}
 
+# KEEL (augur_engine/ml_keel.py, 2026-09-06 - owner: "create your own ML"). The skill-gated
+# expectancy tilt: every trade is taken; a logistic + ExtraTrees stack scores expectancy,
+# and the slope of the size tilt is EARNED from the overlay's own out-of-sample dollar
+# ledger (no skill -> size 1 = the raw leg). No size_norm, no recycle - mean-1 by
+# construction. NOISE is the one family where an ML overlay has statistically real
+# backtest evidence (t=3.0 across 15 years for the et@0.50 cut), so it is the right place
+# for KEEL's first forward test. Backtest read on run #243's window: pre-lockbox
+# +$54,829 / MAR 1.22 -> 1.63 with drawdown DOWN; lockbox -$4,735 (a year the ledger
+# read as no-skill, so it mostly stood down). FORWARD EVIDENCE ONLY, never crownable.
+# THE CLAIM, stated so it can fail: from 2026-09-08 forward, NOISE_SBS_V90_K should beat
+# its matched raw control NOISE_SBS_V90 on MAR (annualised net / max drawdown).
+NOISE_243_KEEL = {"mode": "keel", "model": "keel", "version": "v4", "source_run": 243}
+
 # Full-history load date for the gated legs (the masters begin here).
 _GATE_HISTORY_FROM = "2010-06-07"
 
@@ -677,6 +691,16 @@ LEG_SOURCE = {
                   "its matched raw control NOISE_SBS_V90 on recovery factor. NOISE_SBS_V90 "
                   "is its exact control — identical file and params, gate off.",
     },
+    "NOISE_SBS_V90_K": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL skill-gated tilt",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-06",
+        "note": "The crowned #243 config with KEEL (augur_engine/ml_keel.py): every trade is "
+                "taken; a logistic + ExtraTrees stack scores each trade's expectancy and the "
+                "size tilt's slope is earned from the overlay's own out-of-sample dollar "
+                "ledger - no demonstrated skill, size 1.0. Bounds 0.5x-2x, mean-1 by "
+                "construction, no cut-off. Added 2026-09-06 as the first forward test of the "
+                "new overlay; NOISE_SBS_V90 is its exact control.",
+    },
     "NOISE_SBS_V90_T": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + xgb/tier size tilt",
         "strategy_file": "NOISE_1_0.py", "picked": "2026-08-24",
@@ -870,6 +894,14 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_TILT, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_T"]},
+    # ADDED 2026-09-06: the same crown with KEEL, the skill-gated expectancy tilt (see
+    # NOISE_243_KEEL's block). Takes every trade the raw crown takes; NOISE_SBS_V90 is the
+    # exact control. FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_K", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_KEEL, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_K"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical

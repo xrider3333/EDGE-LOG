@@ -400,7 +400,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                   thresholds=(0.45, 0.50, 0.55, 0.60), lockbox_months=12,
                   min_kept=50, min_keep_frac=0.10, windows=4, min_history=30,
                   refit_every=25, wf_from=None, wf_to=None,
-                  seed=42, lb_from=None):
+                  seed=42, lb_from=None, keel=True):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
 
     Discipline, by construction:
@@ -701,6 +701,20 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
             except Exception:
                 continue
 
+    # -- KEEL (2026-09-06, owner: "create your own ML"): the skill-gated expectancy tilt,
+    #   augur_engine/ml_keel.py. ONE row, comparison-only, never crownable - same standing as
+    #   the tilt rows above. Its own walk (2 members, refit every 25) - costs about one extra
+    #   model walk per validate. Best-effort: a failure leaves an error string in its place.
+    keel_row = None
+    if keel:
+        try:
+            from .ml_keel import keel_block
+            keel_row = keel_block(arrays, T, _sl, lb_start,
+                                  wf0 if _rng else None, wf1 if _rng else None)
+            keel_row["pre_rec"] = round(_rec(keel_row["pre"]), 2)
+        except Exception as _ke:                          # never fail the gate over KEEL
+            keel_row = {"error": f"{type(_ke).__name__}: {_ke}"}
+
     out = {
         "gates": list(gates), "thresholds": [float(t) for t in thresholds],
         "n_candidates": len(cands), "lockbox_months": int(lockbox_months),
@@ -719,6 +733,8 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         # v68.5 — gate-then-tilt hybrids, floor pinned to the crowned cut-off. Never crownable.
         "hybrids": hybrids,
         "hybrid_rule": "floor_pinned_to_crowned_cutoff_survivor_mean1_cap3",
+        # 2026-09-06 - KEEL row (ml_keel.py). Comparison-only, never crownable.
+        "keel": keel_row,
         "ungated_pre_rec": round(_rec(ung_pre), 2),
         "gate_earns_pre": gate_earns,
         "chosen": None, "lockbox": None,

@@ -1,0 +1,335 @@
+"""KEEL - the skill-gated expectancy tilt (built 2026-09-06, owner: "make your own ML").
+
+A tilt with a conscience. It keeps what the existing overlays got right and fixes what the
+evidence says they got wrong (138 gate-bearing runs swept: the crowned CUT has a median
+lockbox delta of exactly $0; TILT is the only spending mode with a positive median; xgb is
+the worst model out-of-sample in every mode).
+
+  from the GATE (cut)  : causal entry features, rolling refit on trades finished before entry,
+                         |pnl| sample weights.  CHANGED: no cut, ever - a trade is never deleted
+                         (LO..HI size bounds, floor 0.5x), because cuts amputate the tail
+                         winners that ARE the edge on low-win-rate strategies.
+  from the TILT        : continuous size from the score.  CHANGED: the slope is EARNED, not
+                         a-priori - scaled by the overlay's own demonstrated out-of-sample skill.
+  from the HYBRID      : nothing (a floor pinned to a cut-off is a cut).
+  from sizing.py       : the mean-1 / hard-cap discipline; "size, don't filter".
+  from TTM round 6     : the 60m compression state as a FEATURE (coiled hours earn 2-3x EV R).
+  from the model zoo   : logistic (the KISS member) + ExtraTrees, decorrelated biases,
+                         each weighted ONLINE by its own record (ORB.md 4.28: the best
+                         single model flips between instruments, so never bet on one).
+
+Three structural ideas:
+  1. TARGET = expectancy, not win-rate. The tree member regresses sign(R)*log1p(|R|)
+     (R = pnl / average losing trade) - tail winners keep their rank instead of being
+     truncated; the logistic member is |pnl|-weighted so its 0.5 is break-even. Members
+     are combined in z-space, so calibration drift cannot poison the size.
+  2. SKILL-GATED SLOPE. The overlay keeps a ledger of its OWN out-of-sample scores vs the
+     realised pnl of every resolved trade. Skill = t-stat of g_i = pnl_i * z_i (the marginal
+     dollars of a unit-slope tilt) over the last W resolved trades. trust = clip(t/2, 0, 1),
+     per member (for stacking weights) and again for the combined score.
+     size = clip(1 + K * trust * z, LO, HI). No demonstrated skill -> size 1 = the raw
+     strategy. It cannot make a strategy materially worse than raw for long: it stands down.
+  3. RECENCY. Sample weight *= exp(-age/TAU) trades, so a regime break fades out smoothly
+     instead of being a hard refit cliff.
+
+Iteration log (all four legs = NOISE #243, ORB #234 NQ + ES, ENGU-Q #265; pinned window
+2010-06-07..2026-06-30, lockbox 2025-06-30, plus the untouched 2026-07-01..09-04 tail):
+  v1  W 150 rank ledger, clip-5 target, equal-weight members.  NOISE pre-LB MAR 1.22 -> 2.06
+      (best on the board) but the ledger is too noisy: it trusted ORB (no signal) and the
+      clipped target cost ENGU-Q its 2020/2024 tail years.
+  v2  W 600, dead-zone trust, log target, trust-weighted stacking.  Rank correlation is the
+      WRONG skill metric for tail-driven legs: on ENGU-Q it trusted the Huber member (-$55k)
+      and distrusted the logistic member (+$56k).
+  v3  dollar ledger with the v2 dead zone: too strict - stood down 98% of the time.
+  v4  dollar ledger, proportional trust (this file's default).  Neutral where there is no
+      edge (ORB NQ/ES, ENGU-Q pre-LB: within $4k of raw), positive where there is (NOISE
+      pre-LB +$54,829 / MAR 1.22 -> 1.63 with drawdown DOWN $2.4k; ENGU-Q lockbox +$15,410
+      at MAR 7.22 vs 5.83). It does NOT out-earn the a-priori logistic TILT in-sample; it
+      out-MARs it and never hurts. Standing: comparison-only in gate_validate, forward
+      test as a PAPER leg. See BACKTESTING_STACK.md section 4 (KEEL) for the full table.
+"""
+import numpy as np
+import pandas as pd
+
+from augur_engine.ml_gate import entry_features, _CLOCK_FEATS, _stats  # noqa: F401
+
+# -- constants -----------------------------------------------------------------
+K_MAX = 0.5          # size change per z-unit at full trust
+LO, HI = 0.5, 2.0    # size bounds (never 0: a trade is never deleted)
+TAU = 400.0          # recency decay in trades (weight e^-1 at 400 trades old)
+MIN_SKILL_N = 30     # ledger size before any trust is granted
+MIN_HISTORY = 30     # same warm-up as the gate
+REFIT_EVERY = 25     # same refit cadence as the gate
+SEED = 42
+# v1 (2026-09-06 first draft, pre-registered):  W 150, trust = clip(t/2), R clipped at 5,
+#    members averaged with equal weight.
+# v2 (after the 3-leg read + plateau sweep):     W 600 (rho sd ~0.04, so a no-signal leg like
+#    ORB stays untrusted), DEAD ZONE trust = clip((t-1)/2) (nothing below t=1, full at t=3),
+#    target = sign(R)*log1p(|R|) (tail winners keep their rank instead of being truncated -
+#    the truncation cost ENGU-Q its 2020 and 2024 tail years), members STACKED ONLINE: each
+#    member's z is weighted by its OWN ledger trust, then the combined score must earn trust
+#    on its own ledger too.
+CFG = {
+    "v1": {"W": 150, "t_lo": 0.0, "t_hi": 2.0, "target": "clip5", "stack": "equal"},
+    "v2": {"W": 600, "t_lo": 1.0, "t_hi": 3.0, "target": "log", "stack": "trust",
+           "ledger": "rank", "members": ("logit", "et", "huber")},
+    # v3: the ledger measures skill in DOLLARS - t-stat of g_i = pnl_i * z_i, the marginal P&L
+    #    of a unit-slope tilt - instead of Spearman rank (rank ignores magnitude: on ENGU-Q it
+    #    trusted the member that lost $55k and distrusted the one that made $56k). Huber dropped:
+    #    corr 0.83 with logistic on ORB (same linear bias, minus the |pnl| weighting).
+    "v3": {"W": 600, "t_lo": 1.0, "t_hi": 3.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et")},
+    # v4: same dollar ledger, but the dead zone was a rank-ledger calibration; a fat-tailed
+    #    dollar t-stat over 600 trades rarely reaches 1 even for a real edge (v3 stood down
+    #    98% of the time on ENGU-Q). trust = clip(t/2): proportional from t=0, full at t=2.
+    "v4": {"W": 600, "t_lo": 0.0, "t_hi": 2.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et")},
+}
+for _k in ("v1", "v2"):
+    CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
+
+
+# -- extra causal features -----------------------------------------------------
+def _squeeze60(arrays, length=20, bb_mult=2.0, kc_mult=1.5):
+    """60-minute Bollinger/Keltner compression ratio, as of the LAST COMPLETE 60m group
+    before each bar (session-anchored groups, like tools/ttmsqz_round6_parts.hourly_compression).
+    ratio<1 = compressed. NaN until warm."""
+    idx = pd.DatetimeIndex(arrays["index"])
+    H = np.asarray(arrays["high"], float); L = np.asarray(arrays["low"], float)
+    C = np.asarray(arrays["close"], float)
+    day = np.asarray(arrays["day_id"])
+    df = pd.DataFrame({"d": day, "h": H, "l": L, "c": C})
+    df["t"] = idx
+    first = df.groupby("d")["t"].transform("first")
+    off = ((df["t"] - first).dt.total_seconds() // 60).astype("int64")
+    grp = df["d"].astype(np.int64) * 100 + (off // 60)
+    g = df.groupby(grp, sort=True)
+    hh = g["h"].max(); ll = g["l"].min(); cc = g["c"].last()
+    ma = cc.rolling(length).mean()  # noqa: F841
+    sd = cc.rolling(length).std(ddof=0)
+    tr = pd.concat([hh - ll, (hh - cc.shift(1)).abs(), (ll - cc.shift(1)).abs()], axis=1).max(axis=1)
+    atr = tr.rolling(length).mean()
+    ratio = ((bb_mult * sd) / (kc_mult * atr).replace(0.0, np.nan)).to_numpy()
+    codes = pd.factorize(grp, sort=True)[0]
+    prev = codes - 1
+    out = np.full(len(df), np.nan)
+    ok = prev >= 0
+    out[ok] = ratio[prev[ok]]
+    return out
+
+
+def extra_features(arrays):
+    """Extra columns. `lagged` are 'as of bar i close' (caller lags them one bar);
+    `unlagged` are known at bar i's open already."""
+    O = pd.Series(np.asarray(arrays["open"], float)); H = pd.Series(np.asarray(arrays["high"], float))
+    L = pd.Series(np.asarray(arrays["low"], float)); C = pd.Series(np.asarray(arrays["close"], float))
+    day = pd.Series(np.asarray(arrays["day_id"]))
+    tr = pd.concat([H - L, (H - C.shift(1)).abs(), (L - C.shift(1)).abs()], axis=1).max(axis=1)
+    atr14 = tr.ewm(alpha=1 / 14, adjust=False).mean().replace(0.0, np.nan)
+    rng = (H - L).replace(0.0, np.nan)
+    body = ((C - O).abs() / rng).rolling(5, min_periods=1).mean()
+    sv = np.sign(C.diff()).fillna(0.0).to_numpy()
+    run = np.zeros(len(C)); r = 0.0
+    for i in range(len(sv)):
+        if sv[i] == 0:
+            r = 0.0
+        elif i > 0 and sv[i] == sv[i - 1]:
+            r += sv[i]
+        else:
+            r = sv[i]
+        run[i] = r
+    dh = H.groupby(day).cummax(); dl = L.groupby(day).cummin()
+    day_pos = (C - dl) / (dh - dl).replace(0.0, np.nan)
+    day_open = O.groupby(day).transform("first")
+    prev_close = C.groupby(day).last().shift(1)
+    pc_on_bars = prev_close.reindex(day.to_numpy()).to_numpy()
+    gap = (day_open.to_numpy() - pc_on_bars) / atr14.to_numpy()
+    rv20 = C.pct_change().rolling(20).std(); rv100 = C.pct_change().rolling(100).std()
+    sq = _squeeze60(arrays)
+    lagged = pd.DataFrame({"body5": body, "run_len": pd.Series(run), "day_pos": day_pos,
+                           "rv_ratio": (rv20 / rv100.replace(0.0, np.nan))})
+    unlagged = pd.DataFrame({"gap_atr": pd.Series(gap), "sq60_ratio": pd.Series(sq),
+                             "sq60_on": pd.Series((sq < 1.0).astype(float))})
+    return lagged, unlagged
+
+
+def keel_features(arrays):
+    F, names = entry_features(arrays)
+    lag, unl = extra_features(arrays)
+    X = pd.DataFrame(F, columns=names)
+    for c in lag.columns:
+        X[c] = lag[c].to_numpy()
+    mkt = [c for c in X.columns if c not in _CLOCK_FEATS]
+    Xc = X.copy()
+    Xc.loc[1:, mkt] = X[mkt].to_numpy()[:-1]
+    for c in unl.columns:
+        Xc[c] = unl[c].to_numpy()
+    Xc = Xc.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    return Xc.to_numpy(float), list(Xc.columns)
+
+
+# -- the ensemble --------------------------------------------------------------
+def _fit_members(X, y_pnl, w, seed, target="log", use=("logit", "et", "huber")):
+    from sklearn.linear_model import LogisticRegression, HuberRegressor
+    from sklearn.ensemble import ExtraTreesRegressor
+    from sklearn.preprocessing import StandardScaler
+    sc = StandardScaler().fit(X)
+    Xs = sc.transform(X)
+    losses = y_pnl[y_pnl < 0]
+    avg_loss = float(-losses.mean()) if len(losses) else float(np.abs(y_pnl).mean() or 1.0)
+    R = y_pnl / max(avg_loss, 1e-9)
+    R = np.clip(R, -5.0, 5.0) if target == "clip5" else np.sign(R) * np.log1p(np.abs(R))
+    members = []
+    yb = (y_pnl > 0).astype(int)
+    if "logit" in use and np.unique(yb).size == 2:
+        lr = LogisticRegression(max_iter=500, C=1.0, random_state=seed)
+        lr.fit(Xs, yb, sample_weight=w * (np.abs(y_pnl) + 1e-9))
+        d = lr.decision_function(Xs)
+        members.append(("logit", lr, float(d.mean()), float(d.std() + 1e-9)))
+    if "et" in use:
+        et = ExtraTreesRegressor(n_estimators=200, max_depth=5, min_samples_leaf=15,
+                                 n_jobs=-1, random_state=seed)
+        et.fit(Xs, R, sample_weight=w)
+        d = et.predict(Xs)
+        members.append(("et", et, float(d.mean()), float(d.std() + 1e-9)))
+    hb = HuberRegressor(alpha=1.0, max_iter=300)
+    if "huber" not in use:
+        return sc, members
+    try:
+        hb.fit(Xs, R, sample_weight=w)
+        d = hb.predict(Xs)
+        members.append(("huber", hb, float(d.mean()), float(d.std() + 1e-9)))
+    except Exception:
+        pass
+    return sc, members
+
+
+def _predict_z(sc, members, x):
+    xs = sc.transform(x)
+    zs = {}
+    for nm, m, mu, sd in members:
+        d = m.decision_function(xs) if nm == "logit" else m.predict(xs)
+        zs[nm] = float((d[0] - mu) / sd)
+    return zs
+
+
+def _trust(zled, pled, W, t_lo, t_hi, ledger="rank"):
+    n = len(zled)
+    if n < MIN_SKILL_N:
+        return 0.0, np.nan, 0.0
+    ok = ~np.isnan(zled)
+    zled, pled = zled[ok][-W:], pled[ok][-W:]
+    m = len(zled)
+    if m < MIN_SKILL_N:
+        return 0.0, np.nan, 0.0
+    if ledger == "dollar":
+        g = pled * zled                     # marginal $ of a unit-slope tilt, per trade
+        sd = g.std(ddof=1)
+        if not np.isfinite(sd) or sd <= 0:
+            return 0.0, np.nan, 0.0
+        t = g.mean() / (sd / np.sqrt(m))
+        rho = float(g.mean() / (np.abs(pled).mean() + 1e-9))
+    else:
+        from scipy.stats import spearmanr
+        rho = spearmanr(zled, pled).correlation
+        if not np.isfinite(rho):
+            return 0.0, np.nan, 0.0
+        t = rho * np.sqrt(max(m - 2, 1)) / np.sqrt(max(1 - rho * rho, 1e-9))
+    return float(np.clip((t - t_lo) / (t_hi - t_lo), 0.0, 1.0)), float(rho), float(t)
+
+
+DEFAULT_VERSION = "v4"
+
+
+def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version=DEFAULT_VERSION):
+    """Chronological walk. Returns per-trade arrays in ENTRY order: size, z (ensemble),
+    z_members, trust, rho, member trusts, plus the sorted 3-tuples."""
+    cfg = CFG[version]
+    W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
+    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
+    E = np.array([t[0] for t in T]); Xi = np.array([t[1] for t in T]); P = np.array([t[2] for t in T])
+    n = len(T)
+    F, names = feats if feats is not None else keel_features(arrays)
+    X = F[np.clip(E, 0, len(F) - 1)]
+    z = np.full(n, np.nan); trust = np.zeros(n); rho = np.full(n, np.nan)
+    zm = {k: np.full(n, np.nan) for k in ("logit", "et", "huber")}
+    tm = {k: np.zeros(n) for k in ("logit", "et", "huber")}
+    size = np.ones(n)
+    sc = members = None; fitted_on = -1; n_fits = 0
+    for k in range(n):
+        done = Xi[:k] < E[k]
+        nd = int(done.sum())
+        if nd < MIN_HISTORY:
+            continue
+        if members is None or (nd - fitted_on) >= REFIT_EVERY:
+            idx = np.where(done)[0]
+            age = (nd - 1 - np.arange(nd)).astype(float)
+            w = np.exp(-age / TAU)
+            sc, members = _fit_members(X[idx], P[idx], w, seed, target=cfg["target"], use=cfg["members"])
+            fitted_on = nd; n_fits += 1
+        zs = _predict_z(sc, members, X[k:k + 1])
+        for kk, v in zs.items():
+            zm[kk][k] = v
+        led = np.where(done)[0]
+        if cfg["stack"] == "equal":
+            z[k] = float(np.mean(list(zs.values())))
+        else:
+            num = 0.0; den = 0.0
+            for kk, v in zs.items():
+                t_m, _, _ = _trust(zm[kk][led], P[led], W, t_lo, t_hi, ledger) if len(led) else (0.0, np.nan, 0.0)
+                tm[kk][k] = t_m
+                num += t_m * v; den += t_m
+            z[k] = float(num / den) if den > 0 else 0.0
+        if trust_mode == "skill":
+            tr, rh, _ = _trust(z[led], P[led], W, t_lo, t_hi, ledger) if len(led) else (0.0, np.nan, 0.0)
+            if cfg["stack"] != "equal" and den <= 0:
+                tr = 0.0
+        else:
+            tr, rh = 1.0, np.nan
+        trust[k] = tr; rho[k] = rh
+        size[k] = float(np.clip(1.0 + K_MAX * tr * z[k], LO, HI))
+    return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
+            "trust": trust, "rho": rho, "trust_members": tm, "n_fits": n_fits,
+            "feature_names": names, "version": version}
+
+
+def sizes_from_z(z, trust, k=K_MAX, lo=LO, hi=HI):
+    zz = np.where(np.isnan(z), 0.0, z)
+    return np.clip(1.0 + k * trust * zz, lo, hi)
+
+
+# -- gate_validate row --------------------------------------------------------
+def keel_block(arrays, trades, slicer, lb_start, wf0=None, wf1=None, version=DEFAULT_VERSION):
+    """One comparison-only row for gate_validate's output (same stat-block shape as the
+    TILT rows; never crownable). `slicer(ts, pnls, t0, t1)` is gate_validate's _sl."""
+    kw = keel_walk(arrays, trades, version=version)
+    idx = arrays["index"]; nb = len(idx)
+    ts = np.array([idx[min(int(e), nb - 1)] for e in kw["E"]])
+    pnl = kw["P"]; w = kw["size"]
+    tp = pnl * w
+    pre_m = ts < lb_start
+    _rng = wf0 is not None and wf1 is not None
+    row = {"model": "keel", "version": version, "scheme": "skill-gated expectancy tilt",
+           "crownable": False, "n_trades": int(len(tp)), "kept_pre": int(pre_m.sum()),
+           "avg_size": round(float(w[pre_m].mean()) if pre_m.any() else 1.0, 3),
+           "max_size": round(float(w.max()), 2),
+           "sizes": {"small": int((w < 0.75).sum()),
+                     "normal": int(((w >= 0.75) & (w <= 1.5)).sum()),
+                     "big": int((w > 1.5).sum()), "dropped": 0},
+           "trust_mean": round(float(kw["trust"].mean()), 3),
+           "trust_on": round(float((kw["trust"] > 0).mean()), 3),
+           "member_trust": {k: round(float(v.mean()), 3) for k, v in kw["trust_members"].items()},
+           "rule": "size = clip(1 + 0.5 * trust * z, 0.5, 2.0); trust = clip(t_dollar / 2, 0, 1)",
+           "cutoff": None,
+           "pre": slicer(ts, tp, None, lb_start),
+           "lockbox": slicer(ts, tp, lb_start, None),
+           "full": slicer(ts, tp, None, None),
+           "is_rng": (slicer(ts, tp, None, wf0) if _rng else None),
+           "wf_rng": (slicer(ts, tp, wf0, wf1) if _rng else None),
+           "wf_lb": (slicer(ts, tp, wf0, None) if _rng else None)}
+    try:
+        from .analytics import downsample_curve
+        row["equity"] = {"cum": downsample_curve(np.cumsum(tp), cap=300, ndp=None), "n": int(len(tp))}
+    except Exception:
+        pass
+    return row

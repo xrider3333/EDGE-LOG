@@ -139,6 +139,35 @@ def apply_gate(arrays, trades, gate):
             "source_run": gate.get("source_run"),
             "n_in": len(ordered), "warnings": []}
 
+    mode = str(gate.get("mode") or "cut").lower()
+    if mode == "keel":
+        # KEEL (augur_engine/ml_keel.py, 2026-09-06): every trade is taken; the size is the
+        # skill-gated expectancy tilt's own output. No size_norm / recycle: the tilt is mean-1
+        # by construction (it sizes 1.0 whenever it has not earned trust). Falls back to
+        # UNGATED like every other mode if the walk fails.
+        try:
+            from augur_engine.ml_keel import keel_walk
+            kw = keel_walk(arrays, ordered, version=str(gate.get("version") or "v4"))
+            w = np.asarray(kw["size"], float)
+            if len(w) != len(ordered):
+                raise ValueError("keel size vector length mismatch")
+            kept = [(ordered[i], float(w[i])) for i in range(len(ordered))]
+            info.update({"ok": True, "n_kept": len(kept), "n_skipped": 0,
+                         "n_warmup": int(np.isnan(kw["z"]).sum()), "skipped_pnl_pts": 0.0,
+                         "avg_size": round(float(w.mean()), 3), "max_size": round(float(w.max()), 3),
+                         "keel_version": kw.get("version"),
+                         "trust_mean": round(float(kw["trust"].mean()), 3),
+                         "trust_on": round(float((kw["trust"] > 0).mean()), 3),
+                         "trust_last": round(float(kw["trust"][-1]), 3),
+                         "size_last": round(float(w[-1]), 3)})
+            return kept, info
+        except Exception as e:
+            info["warnings"].append(f"keel walk failed: {type(e).__name__}: {e}")
+            info.update({"ok": False, "n_kept": len(ordered), "n_skipped": 0,
+                         "n_warmup": None, "avg_size": 1.0})
+            info["warnings"].append("gate did not run - leg fell back to UNGATED")
+            return [(t, 1.0) for t in ordered], info
+
     try:
         prob = score_trades(arrays, ordered, gate)
     except Exception as e:
@@ -154,7 +183,6 @@ def apply_gate(arrays, trades, gate):
         info["warnings"].append("gate did not run - leg fell back to UNGATED")
         return [(t, 1.0) for t in ordered], info
 
-    mode = str(gate.get("mode") or "cut").lower()
     warm = np.isnan(prob)
     if mode == "tilt":
         # TILT: no cut-off, every trade is taken; only the size moves with the score.
