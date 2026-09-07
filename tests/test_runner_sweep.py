@@ -18,6 +18,20 @@ import datetime
 import os
 import sys
 
+import pytest
+
+# sweep_orphans builds a real Firestore FieldFilter and uses firestore.DELETE_FIELD, so
+# these two are needed to call it at all. Neither is in requirements-dev.txt: CI covers
+# the streamlit-free ENGINE layer, and pulling firebase-admin in for it would drag grpc
+# and google-cloud-firestore into every run. This module therefore SKIPS on CI and runs
+# for real on the machine that actually runs the queue, which is where it matters. The
+# pure decision table (orphan_verdict) has no such dependency and is always exercised,
+# in tests/test_runner_orphans.py.
+pytest.importorskip("google.cloud.firestore_v1.base_query",
+                    reason="google-cloud-firestore is not part of the CI dev deps")
+pytest.importorskip("firebase_admin",
+                    reason="firebase-admin is not part of the CI dev deps")
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.runner import FirestoreQueue, _WORKER_ID
