@@ -1,0 +1,306 @@
+{
+ "path_r1": {
+  "group": "path",
+  "desc": "Single-bar return 1 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r2": {
+  "group": "path",
+  "desc": "Single-bar return 2 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r3": {
+  "group": "path",
+  "desc": "Single-bar return 3 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r4": {
+  "group": "path",
+  "desc": "Single-bar return 4 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r5": {
+  "group": "path",
+  "desc": "Single-bar return 5 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r6": {
+  "group": "path",
+  "desc": "Single-bar return 6 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r7": {
+  "group": "path",
+  "desc": "Single-bar return 7 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r8": {
+  "group": "path",
+  "desc": "Single-bar return 8 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r9": {
+  "group": "path",
+  "desc": "Single-bar return 9 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r10": {
+  "group": "path",
+  "desc": "Single-bar return 10 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r11": {
+  "group": "path",
+  "desc": "Single-bar return 11 bar(s) before the decision bar, in ATR units."
+ },
+ "path_r12": {
+  "group": "path",
+  "desc": "Single-bar return 12 bar(s) before the decision bar, in ATR units."
+ },
+ "path_body_r1": {
+  "group": "path",
+  "desc": "Candle body as a share of its own high-low range, the decision bar."
+ },
+ "path_body_r2": {
+  "group": "path",
+  "desc": "Candle body as a share of its own high-low range, one bar earlier."
+ },
+ "path_body_r3": {
+  "group": "path",
+  "desc": "Candle body as a share of its own high-low range, two bars earlier."
+ },
+ "path_upper_wick": {
+  "group": "path",
+  "desc": "Upper wick as a share of the decision bar's own high-low range."
+ },
+ "path_lower_wick": {
+  "group": "path",
+  "desc": "Lower wick as a share of the decision bar's own high-low range."
+ },
+ "path_upcount5": {
+  "group": "path",
+  "desc": "How many of the last 5 bars closed above their own open."
+ },
+ "path_upcount10": {
+  "group": "path",
+  "desc": "How many of the last 10 bars closed above their own open."
+ },
+ "path_range5_atr": {
+  "group": "path",
+  "desc": "High-low range of the last 5 bars, in ATR units."
+ },
+ "path_range10_atr": {
+  "group": "path",
+  "desc": "High-low range of the last 10 bars, in ATR units."
+ },
+ "path_range20_atr": {
+  "group": "path",
+  "desc": "High-low range of the last 20 bars, in ATR units."
+ },
+ "path_closepos10": {
+  "group": "path",
+  "desc": "Where the decision bar's close sits inside the last 10-bar high-low range (0=low..1=high)."
+ },
+ "path_closepos20": {
+  "group": "path",
+  "desc": "Where the decision bar's close sits inside the last 20-bar high-low range (0=low..1=high)."
+ },
+ "path_closepos60": {
+  "group": "path",
+  "desc": "Where the decision bar's close sits inside the last 60-bar high-low range (0=low..1=high)."
+ },
+ "path_bars_since_hi20": {
+  "group": "path",
+  "desc": "Bars since the highest high of the last 20 bars."
+ },
+ "path_bars_since_lo20": {
+  "group": "path",
+  "desc": "Bars since the lowest low of the last 20 bars."
+ },
+ "path_with12_atr": {
+  "group": "path",
+  "desc": "How far price had already moved in the trade's direction over the previous 12 bars, in ATR units."
+ },
+ "path_with24_atr": {
+  "group": "path",
+  "desc": "How far price had already moved in the trade's direction over the previous 24 bars, in ATR units."
+ },
+ "path_with60_atr": {
+  "group": "path",
+  "desc": "How far price had already moved in the trade's direction over the previous 60 bars, in ATR units."
+ },
+ "lvl_pdh_atr": {
+  "group": "lvl",
+  "desc": "Distance from the prior session's high, in ATR units."
+ },
+ "lvl_pdl_atr": {
+  "group": "lvl",
+  "desc": "Distance from the prior session's low, in ATR units."
+ },
+ "lvl_pdc_atr": {
+  "group": "lvl",
+  "desc": "Distance from the prior session's close, in ATR units."
+ },
+ "lvl_session_open_atr": {
+  "group": "lvl",
+  "desc": "Distance from today's own session open, in ATR units."
+ },
+ "lvl_orb_hi_atr": {
+  "group": "lvl",
+  "desc": "Distance from the first-30-minute opening-range high, in ATR units (NaN before it completes)."
+ },
+ "lvl_orb_lo_atr": {
+  "group": "lvl",
+  "desc": "Distance from the first-30-minute opening-range low, in ATR units (NaN before it completes)."
+ },
+ "lvl_vwap_atr": {
+  "group": "lvl",
+  "desc": "Distance from today's session-cumulative VWAP, in ATR units."
+ },
+ "lvl_ema20_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 20-period EMA on the leg's own bar size, in ATR units."
+ },
+ "lvl_ema50_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 50-period EMA on the leg's own bar size, in ATR units."
+ },
+ "lvl_ema200_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 200-period EMA on the leg's own bar size, in ATR units."
+ },
+ "lvl_ema20_60m_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 20-period EMA on completed 60-minute bars, in ATR units."
+ },
+ "lvl_ema50_60m_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 50-period EMA on completed 60-minute bars, in ATR units."
+ },
+ "lvl_sma20d_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 20-day daily SMA, in daily-ATR units (prior-day-shifted)."
+ },
+ "lvl_sma50d_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 50-day daily SMA, in daily-ATR units (prior-day-shifted)."
+ },
+ "lvl_sma200d_atr": {
+  "group": "lvl",
+  "desc": "Distance from the 200-day daily SMA, in daily-ATR units (prior-day-shifted)."
+ },
+ "lvl_prior_week_hi_atr": {
+  "group": "lvl",
+  "desc": "Distance from the prior calendar week's high, in daily-ATR units."
+ },
+ "lvl_prior_week_lo_atr": {
+  "group": "lvl",
+  "desc": "Distance from the prior calendar week's low, in daily-ATR units."
+ },
+ "ind_rsi14_bar": {
+  "group": "ind",
+  "desc": "14-period RSI on the leg's own bar size."
+ },
+ "ind_rsi14_60m": {
+  "group": "ind",
+  "desc": "14-period RSI on completed 60-minute bars."
+ },
+ "ind_rsi14_daily": {
+  "group": "ind",
+  "desc": "14-period RSI on daily bars (prior-day-shifted)."
+ },
+ "ind_adx14_bar": {
+  "group": "ind",
+  "desc": "14-period ADX (trend strength) on the leg's own bar size."
+ },
+ "ind_adx14_60m": {
+  "group": "ind",
+  "desc": "14-period ADX (trend strength) on completed 60-minute bars."
+ },
+ "ind_adx14_daily": {
+  "group": "ind",
+  "desc": "14-period ADX (trend strength) on daily bars (prior-day-shifted)."
+ },
+ "ind_atr_pctile_bar": {
+  "group": "ind",
+  "desc": "Trailing 1-year percentile rank of 14-period ATR on the leg's own bar size."
+ },
+ "ind_atr_pctile_60m": {
+  "group": "ind",
+  "desc": "Trailing 1-year percentile rank of 14-period ATR on completed 60-minute bars."
+ },
+ "ind_atr_pctile_daily": {
+  "group": "ind",
+  "desc": "Trailing 1-year percentile rank of 14-period ATR on daily bars (prior-day-shifted)."
+ },
+ "ind_bbw_pctile_bar": {
+  "group": "ind",
+  "desc": "Trailing 1-year percentile rank of Bollinger-band width on the leg's own bar size."
+ },
+ "ind_bbw_pctile_60m": {
+  "group": "ind",
+  "desc": "Trailing 1-year percentile rank of Bollinger-band width on completed 60-minute bars."
+ },
+ "ind_macd_sign_bar": {
+  "group": "ind",
+  "desc": "Sign of the MACD histogram (+1/-1/0) on the leg's own bar size."
+ },
+ "ind_macd_sign_60m": {
+  "group": "ind",
+  "desc": "Sign of the MACD histogram (+1/-1/0) on completed 60-minute bars."
+ },
+ "ind_macd_sign_daily": {
+  "group": "ind",
+  "desc": "Sign of the MACD histogram (+1/-1/0) on daily bars (prior-day-shifted)."
+ },
+ "ind_er20_bar": {
+  "group": "ind",
+  "desc": "20-period efficiency ratio (trend vs chop, 0..1) on the leg's own bar size."
+ },
+ "ind_er20_daily": {
+  "group": "ind",
+  "desc": "20-period efficiency ratio (trend vs chop, 0..1) on daily bars (prior-day-shifted)."
+ },
+ "ind_compressed_60m": {
+  "group": "ind",
+  "desc": "Whether the 60-minute chart was in a volatility squeeze (coiled) just before entry."
+ },
+ "day_prior_ret_pct": {
+  "group": "day",
+  "desc": "Prior day's close-to-close return, percent."
+ },
+ "day_prior_range_pctile": {
+  "group": "day",
+  "desc": "Prior day's high-low range, trailing 1-year percentile rank."
+ },
+ "day_prior_close_pos": {
+  "group": "day",
+  "desc": "Prior day's close position inside its own high-low range (0..1)."
+ },
+ "day_gap_pct": {
+  "group": "day",
+  "desc": "Today's open vs yesterday's close, percent."
+ },
+ "day_up_streak": {
+  "group": "day",
+  "desc": "Consecutive up/down day count through the prior day (signed)."
+ },
+ "day_ret_5d": {
+  "group": "day",
+  "desc": "Prior day's trailing 5-day return, percent."
+ },
+ "day_ret_20d": {
+  "group": "day",
+  "desc": "Prior day's trailing 20-day return, percent."
+ },
+ "day_of_week": {
+  "group": "day",
+  "desc": "Day of week the trade entered (Monday=0..Friday=4)."
+ },
+ "day_minutes_since_open": {
+  "group": "day",
+  "desc": "Minutes from session open to the decision bar."
+ },
+ "day_hour": {
+  "group": "day",
+  "desc": "Hour of day (ET) of the decision bar."
+ },
+ "vol_last_vs_avg20": {
+  "group": "vol",
+  "desc": "Decision bar's volume vs its own trailing-20-bar average."
+ },
+ "vol_cum_vs_avg20": {
+  "group": "vol",
+  "desc": "Session-to-date cumulative volume vs the average cumulative volume at the same minute over the prior 20 sessions."
+ }
+}

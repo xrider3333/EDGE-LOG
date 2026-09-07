@@ -88,3 +88,6 @@ _reportprobe_dump.json
 
 # exit_autopsy.py per-leg rich-trade cache (rebuilt from the engine any time)
 tools/_exit_cache/
+
+# trade_anatomy per-trade CSVs are regenerable (8 MB); md/json/png are kept
+docs/anatomy/*_trades.csv
