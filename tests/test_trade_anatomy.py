@@ -89,9 +89,10 @@ def test_causality_no_lookahead(ta):
     X2, entry_date2, valid2 = ta.build_feature_matrix(df2, [entry_bar], tf_min=5)
 
     assert entry_date1[0] == entry_date2[0]
+    assert list(X1.columns) == ta.FEATURE_NAMES, "build_feature_matrix must emit every FEATURE_META column"
     row1 = X1.iloc[0].to_numpy(float)
     row2 = X2.iloc[0].to_numpy(float)
-    bad = [c for c, a, b in zip(X1.columns, row1, row2)
+    bad = [c for c, a, b in zip(ta.FEATURE_NAMES, row1, row2)
           if not (np.isnan(a) and np.isnan(b)) and not np.isclose(a, b, equal_nan=True)]
     assert not bad, f"features that leaked future information: {bad}"
 
@@ -363,3 +364,110 @@ def test_ledger_rollup_robust_flag(ta, tmp_path, monkeypatch):
     # drop D (the regime artifact) -> 3 runs carry (either form), 0 regime artifacts -> ROBUST
     rollup2 = ta.ledger_rollup({k: summaries[k] for k in ("A", "B", "C")}, ["A", "B", "C"])
     assert rollup2[0]["robust"] is True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. cal_ calendar day table: OPEX / month-end / month-start / FOMC / holiday-
+#    adjacent flags on a small hand-built trading-day calendar with known answers.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_calendar_opex_month_end_and_fomc_flags(ta, tmp_path):
+    # day_id 0=Fri 2021-01-15 (the 3rd Friday of Jan 2021 -> opex day/week),
+    #        1=Wed 2021-01-27 (planted FOMC day),
+    #        2=Fri 2021-01-29 (last trading day of Jan in this synthetic calendar
+    #          -> month-end-2; also 2 weekdays after day 1, so both 1 and 2 are
+    #          holiday-adjacent),
+    #        3=Mon 2021-02-01 (first trading day of Feb -> month-start-2).
+    dates = [datetime.date(2021, 1, 15), datetime.date(2021, 1, 27),
+            datetime.date(2021, 1, 29), datetime.date(2021, 2, 1)]
+    rows = []
+    for i, d in enumerate(dates):
+        t = pd.Timestamp(d).tz_localize("US/Eastern") + pd.Timedelta(hours=9, minutes=30)
+        rows.append((t, 100.0, 101.0, 99.0, 100.5, 500.0, i))
+    df = pd.DataFrame(rows, columns=["_dt", "open", "high", "low", "close", "volume", "day_id"])
+    df["_end"] = df["_dt"] + pd.Timedelta(minutes=5)
+
+    fomc_fp = tmp_path / "fomc.csv"
+    fomc_fp.write_text("date,note\n2021-01-27,decision day\n")
+
+    cal = ta.build_calendar_day_table(df, fomc_path=str(fomc_fp))
+
+    assert bool(cal.loc[0, "cal_is_opex_day"]), "Jan 15 2021 is the 3rd Friday of the month"
+    assert bool(cal.loc[0, "cal_is_opex_week"])
+    assert not bool(cal.loc[1, "cal_is_opex_day"])
+    assert not bool(cal.loc[3, "cal_is_opex_week"])
+
+    assert bool(cal.loc[2, "cal_is_month_end_2"]), "Jan 29 is the last trading day of Jan in this calendar"
+    assert not bool(cal.loc[0, "cal_is_month_end_2"])
+    assert bool(cal.loc[3, "cal_is_month_start_2"]), "Feb 1 is the first trading day of Feb"
+    assert not bool(cal.loc[2, "cal_is_month_start_2"])
+
+    assert bool(cal.loc[1, "cal_is_fomc_day"])
+    assert not bool(cal.loc[0, "cal_is_fomc_day"])
+    assert bool(cal.loc[0, "cal_is_fomc_next_day"]), "day 0's next trading day (day 1) is the planted FOMC day"
+    assert bool(cal.loc[2, "cal_is_fomc_prev_day"]), "day 2's previous trading day (day 1) was the FOMC day"
+    assert not bool(cal.loc[1, "cal_is_fomc_prev_day"])
+
+    # Jan 27 -> Jan 29 skips Jan 28 (a weekday) -- more than 1 weekday gap on both sides
+    assert bool(cal.loc[1, "cal_is_holiday_adjacent"])
+    assert bool(cal.loc[2, "cal_is_holiday_adjacent"])
+
+    # dense calendar, isolated from the sparse one above, to also prove a NORMAL
+    # next-business-day step (including over a plain weekend) is NOT flagged:
+    # Tue 26 -> Wed 27 (FOMC, normal) -> Fri 29 (skips Thu 28, a real holiday) -> Mon Feb 1 (normal weekend).
+    dense_dates = [datetime.date(2021, 1, 26), datetime.date(2021, 1, 27),
+                  datetime.date(2021, 1, 29), datetime.date(2021, 2, 1)]
+    rows2 = []
+    for i, d in enumerate(dense_dates):
+        t = pd.Timestamp(d).tz_localize("US/Eastern") + pd.Timedelta(hours=9, minutes=30)
+        rows2.append((t, 100.0, 101.0, 99.0, 100.5, 500.0, i))
+    df2 = pd.DataFrame(rows2, columns=["_dt", "open", "high", "low", "close", "volume", "day_id"])
+    df2["_end"] = df2["_dt"] + pd.Timedelta(minutes=5)
+    cal2 = ta.build_calendar_day_table(df2, fomc_path=str(fomc_fp))
+    assert not bool(cal2.loc[0, "cal_is_holiday_adjacent"]), "Tue->Wed is a normal next-business-day step"
+    assert bool(cal2.loc[1, "cal_is_holiday_adjacent"]), "Wed->Fri skips Thursday, a real holiday"
+    assert bool(cal2.loc[2, "cal_is_holiday_adjacent"])
+    assert not bool(cal2.loc[3, "cal_is_holiday_adjacent"]), "Fri->Mon is a normal weekend step"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. xm_ cross-market vs ES: relative-return math on synthetic ES bars, and
+#    forward-fill-within-session-only (a full-day ES data hole must read as NaN,
+#    never silently filled from the prior session's last ES value).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_xm_relative_return_and_session_fill(ta, monkeypatch):
+    df = _make_synthetic_bars(n_days=10, bars_per_day=30, seed=3)
+    n = len(df)
+    close = df["close"].to_numpy(float)
+    es_close = close * 0.9 + 5.0                    # deterministic, so the relative return is exact
+    es = pd.DataFrame({"_dt": df["_dt"], "open": es_close, "high": es_close + 0.3,
+                       "low": es_close - 0.3, "close": es_close, "day_id": df["day_id"]})
+
+    monkeypatch.setattr(ta.os.path, "exists", lambda p: True)
+    monkeypatch.setattr(ta.FB, "load", lambda inst, tf, session, d0, d1: es)
+    cfg = dict(instrument="NQ", timeframe="5m", session="RTH",
+              date_from="2015-01-01", date_to="2020-01-01")
+
+    out = ta.build_xm_arrays(df, tf_min=5, cfg=cfg)
+    atr_bar = ta.calc_atr(df["high"].to_numpy(float), df["low"].to_numpy(float), close, 14)
+    i = 100
+    expected = ((close[i] - close[i - 12]) - (es_close[i] - es_close[i - 12])) / atr_bar[i]
+    assert np.isclose(out["xm_relret_12b_atr"][i], expected)
+
+    # black out ES for an entire middle session (day_id 1) -- a whole-day data hole
+    es_holes = es.copy()
+    hole_mask = (df["day_id"] == 1).to_numpy()
+    es_holes.loc[hole_mask, ["open", "high", "low", "close"]] = np.nan
+    monkeypatch.setattr(ta.FB, "load", lambda inst, tf, session, d0, d1: es_holes)
+
+    out2 = ta.build_xm_arrays(df, tf_min=5, cfg=cfg)
+    day1_bars = np.flatnonzero(hole_mask)
+    assert np.isnan(out2["xm_es_rsi14"][day1_bars]).all(), (
+        "an ES data hole spanning a whole session must read NaN, never forward-filled "
+        "from the previous session's last value")
+
+    # cfg=None / missing ES master -> all-NaN, never a crash
+    empty = ta.build_xm_arrays(df, tf_min=5, cfg=None)
+    for nm in ta.XM_NAMES:
+        assert np.isnan(empty[nm]).all()

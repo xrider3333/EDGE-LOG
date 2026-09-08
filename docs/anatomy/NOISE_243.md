@@ -1,5 +1,13 @@
 # NOISE_243 -- trade anatomy
 
+## How to point this at a past run
+
+- `python tools/trade_anatomy.py --run 314` replays run #314's own crowned parameters on its own window and costs (repeatable: `--run 314 --run 309`). `--job <backtests-doc-id>` points at a job doc directly. `--leg <KEY>` runs one of the hard-coded legs in feature_board.LEGS; `--list` prints those keys plus this usage line.
+- DISCOVERY / HOLDOUT is a hard split by calendar date, not trade count: only the first 60% of the leg's pre-lockbox span is mined below. The remaining 40% (holdout) is touched exactly once, as a single pre-registered check. Lockbox trades (the leg's own last N months) are never loaded here at all.
+- Nothing on this page is a finding by itself. A rule only means something once it clears the TOTAL-MONEY ledger in section 2c (not the per-trade averages in sections 1/2 -- that section explains the trap) AND has passed a fenced Auto-Validate with walk-forward and lockbox checks. Never adopt a rule straight from this report.
+
+Parity vs the source doc's own ungated_full (doc): **PASS** -- got n=4429 net=$380,745, expected n=4429 net=$380,745.
+
 Discovery window (hard rule): first 60% of the pre-lockbox calendar span, by date.
 - Pre-lockbox span: 2010-06-07 .. 2025-02-11 (lockbox excluded entirely).
 - Discovery: 2010-06-07 .. 2019-03-30  (n=2370)
@@ -14,11 +22,11 @@ Every rule below was mined on discovery net PER TRADE (an average) -- the same r
 | rule | kept % (D/H) | net $ rule (D/H) | net $ base (D/H) | % change (D/H) | PF (D/H) | max DD $ (D/H) | MAR (D/H) | base MAR (D/H) | skip-helped yrs (D/H) | tilt net/DD/MAR (D) | tilt net/DD/MAR (H) | verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Skip trades where day_minutes_since_open > 170.000 (p70) | 69% / 70% | $63,387 / $195,709 | $50,113 / $270,018 | 26.5% / -27.5% | 1.419 / 1.439 | $3,895 / $23,011 | 1.847 / 1.448 | 0.946 / 2.495 | 9/10 / 2/7 | $113,499 / $8,852 / 1.455 | $465,727 / $40,962 / 1.936 | regime artifact |
-| Skip trades where ind_bbw_pctile_bar < 46.418 (p30) | 70% / 69% | $62,693 / $242,290 | $50,113 / $270,018 | 25.1% / -10.3% | 1.393 / 1.561 | $4,811 / $20,407 | 1.479 / 2.022 | 0.946 / 2.495 | 8/10 / 2/7 | $112,805 / $8,669 / 1.477 | $512,308 / $36,768 / 2.373 | regime artifact |
+| Skip trades where ind_bbw_pctile_bar < 46.426 (p30) | 70% / 69% | $62,583 / $241,786 | $50,113 / $270,018 | 24.9% / -10.5% | 1.392 / 1.560 | $4,811 / $20,539 | 1.476 / 2.005 | 0.946 / 2.495 | 8/10 / 2/7 | $112,696 / $8,669 / 1.475 | $511,803 / $36,899 / 2.362 | regime artifact |
 | Skip trades where path_with24_atr < 1.145 (p30) | 70% / 71% | $61,635 / $226,670 | $50,113 / $270,018 | 23.0% / -16.1% | 1.397 / 1.508 | $4,544 / $19,642 | 1.539 / 1.965 | 0.946 / 2.495 | 8/10 / 2/7 | $111,747 / $8,838 / 1.435 | $496,688 / $37,225 / 2.272 | regime artifact |
 | Skip trades where day_hour > 12.000 (p70) | 66% / 66% | $57,444 / $187,229 | $50,113 / $270,018 | 14.6% / -30.7% | 1.403 / 1.435 | $3,803 / $23,039 | 1.714 / 1.384 | 0.946 / 2.495 | 8/10 / 2/7 | $107,557 / $8,946 / 1.365 | $457,247 / $38,040 / 2.047 | regime artifact |
 | Skip trades where ind_rsi14_daily > 64.715 (p70) | 70% / 68% | $60,245 / $219,600 | $50,113 / $270,018 | 20.2% / -18.7% | 1.436 / 1.571 | $5,456 / $15,919 | 1.253 / 2.349 | 0.946 / 2.495 | 8/10 / 3/7 | $110,358 / $10,614 / 1.180 | $489,618 / $32,953 / 2.530 | regime artifact |
-| Skip trades where ind_atr_pctile_bar < 49.523 (p30) | 70% / 71% | $59,880 / $237,792 | $50,113 / $270,018 | 19.5% / -11.9% | 1.374 / 1.521 | $4,577 / $11,543 | 1.485 / 3.508 | 0.946 / 2.495 | 7/10 / 3/7 | $109,992 / $10,579 / 1.180 | $507,810 / $28,881 / 2.994 | regime artifact |
+| Skip trades where ind_atr_pctile_bar < 49.909 (p30) | 70% / 71% | $59,515 / $237,299 | $50,113 / $270,018 | 18.8% / -12.1% | 1.372 / 1.522 | $4,623 / $13,400 | 1.461 / 3.015 | 0.946 / 2.495 | 7/10 / 2/7 | $109,627 / $10,625 / 1.171 | $507,317 / $31,190 / 2.770 | regime artifact |
 | Skip trades where day_hour > 13.000 (p80) | 75% / 75% | $61,456 / $215,522 | $50,113 / $270,018 | 22.6% / -20.2% | 1.380 / 1.464 | $3,930 / $20,608 | 1.775 / 1.781 | 0.946 / 2.495 | 8/10 / 2/7 | $111,569 / $9,942 / 1.274 | $485,540 / $38,559 / 2.144 | regime artifact |
 | Skip trades where day_prior_range_pctile < 33.742 (p30) | 70% / 68% | $57,073 / $204,538 | $50,113 / $270,018 | 13.9% / -24.3% | 1.402 / 1.514 | $4,931 / $11,307 | 1.314 / 3.080 | 0.946 / 2.495 | 6/10 / 2/7 | $107,186 / $10,943 / 1.112 | $474,556 / $28,993 / 2.787 | regime artifact |
 | Skip trades where path_with12_atr < 0.921 (p30) | 70% / 70% | $56,785 / $253,737 | $50,113 / $270,018 | 13.3% / -6.0% | 1.359 / 1.563 | $4,191 / $20,930 | 1.538 / 2.064 | 0.946 / 2.495 | 7/10 / 2/7 | $106,898 / $9,777 / 1.241 | $523,755 / $39,252 / 2.272 | regime artifact |
@@ -35,36 +43,36 @@ Top 20 by absolute lift:
 
 | feature | group | top-decile mean | bottom-decile mean | lift (R) | q |
 |---|---|---|---|---|---|
-| ind_bbw_pctile_bar | ind | 74.977 | 72.716 | 0.617 | 0.0127 |
-| ind_atr_pctile_bar | ind | 76.555 | 73.832 | 0.525 | 0.0276 |
-| ind_atr_pctile_60m | ind | 61.175 | 58.423 | 0.515 | 0.0488 |
-| path_with24_atr | path | 4.005 | 3.674 | 0.475 | 0.0190 |
-| lvl_sma50d_atr | lvl | 1.271 | 1.543 | -0.464 | 0.0276 |
-| ind_er20_bar | ind | 0.373 | 0.368 | 0.461 | 0.0127 |
-| ind_rsi14_daily | ind | 52.376 | 57.375 | -0.459 | 0.0127 |
-| path_with12_atr | path | 3.238 | 3.298 | 0.446 | 0.0253 |
-| day_minutes_since_open | day | 76.435 | 108.698 | -0.431 | 0.0127 |
-| path_range20_atr | path | 5.837 | 5.643 | 0.413 | 0.0292 |
-| ind_atr_pctile_daily | ind | 59.413 | 58.664 | 0.404 | 0.3992 |
-| lvl_sma20d_atr | lvl | 0.362 | 0.589 | -0.402 | 0.0127 |
-| day_ret_20d | day | 0.477 | 1.215 | -0.397 | 0.0292 |
-| day_prior_range_pctile | day | 55.776 | 54.453 | 0.380 | 0.2784 |
-| day_hour | day | 10.278 | 10.835 | -0.375 | 0.0190 |
-| lvl_sma200d_atr | lvl | 5.105 | 5.071 | -0.362 | 0.0127 |
-| ind_compressed_60m | ind | 0.173 | 0.165 | 0.342 | 0.0804 |
-| path_range10_atr | path | 4.598 | 4.465 | 0.324 | 0.0658 |
-| day_prior_close_pos | day | 0.540 | 0.599 | -0.310 | 0.0804 |
-| lvl_session_open_atr | lvl | 0.694 | -0.028 | -0.291 | 0.1265 |
+| cal_is_fomc_day | cal | 0.034 | 0.058 | -0.745 | 0.3107 |
+| ind_bbw_pctile_bar | ind | 75.071 | 72.692 | 0.605 | 0.0175 |
+| ind_atr_pctile_bar | ind | 76.784 | 73.944 | 0.533 | 0.0315 |
+| ind_atr_pctile_60m | ind | 61.175 | 58.423 | 0.515 | 0.0674 |
+| path_with24_atr | path | 4.005 | 3.674 | 0.475 | 0.0262 |
+| lvl_sma50d_atr | lvl | 1.271 | 1.543 | -0.464 | 0.0381 |
+| ind_er20_bar | ind | 0.373 | 0.368 | 0.461 | 0.0175 |
+| ind_rsi14_daily | ind | 52.376 | 57.375 | -0.459 | 0.0175 |
+| path_with12_atr | path | 3.238 | 3.298 | 0.446 | 0.0315 |
+| day_minutes_since_open | day | 76.435 | 108.698 | -0.431 | 0.0175 |
+| path_range20_atr | path | 5.837 | 5.643 | 0.413 | 0.0403 |
+| ind_atr_pctile_daily | ind | 59.413 | 58.664 | 0.404 | 0.4554 |
+| lvl_sma20d_atr | lvl | 0.362 | 0.589 | -0.402 | 0.0175 |
+| day_ret_20d | day | 0.477 | 1.215 | -0.397 | 0.0403 |
+| day_prior_range_pctile | day | 55.776 | 54.453 | 0.380 | 0.3297 |
+| day_hour | day | 10.278 | 10.835 | -0.375 | 0.0262 |
+| lvl_sma200d_atr | lvl | 5.105 | 5.071 | -0.362 | 0.0175 |
+| ind_compressed_60m | ind | 0.173 | 0.165 | 0.342 | 0.1111 |
+| path_range10_atr | path | 4.598 | 4.465 | 0.324 | 0.0909 |
+| day_prior_close_pos | day | 0.540 | 0.599 | -0.310 | 0.1111 |
 
 Top 5 by top-vs-bottom-decile standardized difference:
 
 | feature | group | top-decile mean | bottom-decile mean | all mean | std diff |
 |---|---|---|---|---|---|
+| xm_es_rsi14 | xm | 57.582 | 49.474 | 54.016 | 0.384 |
 | lvl_ema20_atr | lvl | 0.893 | 0.044 | 0.647 | 0.349 |
 | lvl_ema50_atr | lvl | 1.227 | 0.125 | 1.123 | 0.347 |
 | day_gap_pct | day | 0.163 | 0.007 | 0.146 | 0.318 |
 | ind_rsi14_bar | ind | 57.477 | 50.693 | 54.964 | 0.307 |
-| ind_rsi14_daily | ind | 52.376 | 57.375 | 56.133 | -0.302 |
 
 ## 2. Rule mining (PER-TRADE AVERAGES, discovery only, one pre-registered holdout peek -- can mislead; see section 2c for the total-money read)
 
@@ -72,12 +80,12 @@ Top 5 by top-vs-bottom-decile standardized difference:
 
 | rule | n | mean R | PF | share | net $ |
 |---|---|---|---|---|---|
-| ind_bbw_pctile_bar <= 85.022 AND ind_rsi14_daily > 37.458 AND lvl_ema20_atr <= 2.966 | 1472 | -0.120 | 0.820 | 62.1% | $-22,679 |
-| ind_bbw_pctile_bar > 85.022 AND lvl_sma50d_atr > -0.161 AND path_bars_since_hi20 > 0.500 | 233 | -0.060 | 0.931 | 9.8% | $-1,798 |
-| ind_bbw_pctile_bar <= 85.022 AND ind_rsi14_daily <= 37.458 | 191 | 0.631 | 2.295 | 8.1% | $15,531 |
-| ind_bbw_pctile_bar <= 85.022 AND ind_rsi14_daily > 37.458 AND lvl_ema20_atr > 2.966 | 168 | 0.429 | 1.818 | 7.1% | $9,285 |
-| ind_bbw_pctile_bar > 85.022 AND lvl_sma50d_atr <= -0.161 | 163 | 1.451 | 2.795 | 6.9% | $30,480 |
-| ind_bbw_pctile_bar > 85.022 AND lvl_sma50d_atr > -0.161 AND path_bars_since_hi20 <= 0.500 | 143 | 1.047 | 3.128 | 6.0% | $19,294 |
+| ind_bbw_pctile_bar <= 84.993 AND ind_rsi14_daily > 37.458 AND lvl_ema20_atr <= 2.966 | 1470 | -0.122 | 0.816 | 62.0% | $-23,118 |
+| ind_bbw_pctile_bar > 84.993 AND lvl_sma50d_atr > -0.161 AND path_bars_since_hi20 > 0.500 | 235 | -0.045 | 0.948 | 9.9% | $-1,360 |
+| ind_bbw_pctile_bar <= 84.993 AND ind_rsi14_daily <= 37.458 | 187 | 0.600 | 2.226 | 7.9% | $14,459 |
+| ind_bbw_pctile_bar <= 84.993 AND ind_rsi14_daily > 37.458 AND lvl_ema20_atr > 2.966 | 167 | 0.438 | 1.841 | 7.0% | $9,426 |
+| ind_bbw_pctile_bar > 84.993 AND lvl_sma50d_atr <= -0.161 | 167 | 1.466 | 2.836 | 7.0% | $31,552 |
+| ind_bbw_pctile_bar > 84.993 AND lvl_sma50d_atr > -0.161 AND path_bars_since_hi20 <= 0.500 | 144 | 1.032 | 3.080 | 6.1% | $19,153 |
 
 (b) Single-condition skip rules (feature thresholds at the 10/20/30/70/80/90th percentiles, both directions, must keep at least 60% of discovery trades):
 
@@ -86,11 +94,11 @@ Top 10 by remaining net $ per trade:
 | rule | trades kept | net $/trade | MAR proxy |
 |---|---|---|---|
 | Skip trades where day_minutes_since_open > 170.000 (p70) | 1642/2370 | $38.6 | 16.273 |
-| Skip trades where ind_bbw_pctile_bar < 46.418 (p30) | 1663/2370 | $37.7 | 13.778 |
+| Skip trades where ind_bbw_pctile_bar < 46.426 (p30) | 1662/2370 | $37.7 | 13.754 |
 | Skip trades where path_with24_atr < 1.145 (p30) | 1659/2370 | $37.2 | 13.563 |
 | Skip trades where day_hour > 12.000 (p70) | 1555/2370 | $36.9 | 15.105 |
 | Skip trades where ind_rsi14_daily > 64.715 (p70) | 1659/2370 | $36.3 | 11.041 |
-| Skip trades where ind_atr_pctile_bar < 49.523 (p30) | 1663/2370 | $36.0 | 13.081 |
+| Skip trades where ind_atr_pctile_bar < 49.909 (p30) | 1662/2370 | $35.8 | 12.873 |
 | Skip trades where day_hour > 13.000 (p80) | 1780/2370 | $34.5 | 15.638 |
 | Skip trades where day_prior_range_pctile < 33.742 (p30) | 1662/2370 | $34.3 | 11.574 |
 | Skip trades where path_with12_atr < 0.921 (p30) | 1659/2370 | $34.2 | 13.550 |
@@ -103,12 +111,12 @@ Top 10 by remaining MAR proxy (net $ / max drawdown $ of the kept sequence):
 | Skip trades where day_minutes_since_open > 170.000 (p70) | 1642/2370 | $38.6 | 16.273 |
 | Skip trades where day_hour > 13.000 (p80) | 1780/2370 | $34.5 | 15.638 |
 | Skip trades where day_hour > 12.000 (p70) | 1555/2370 | $36.9 | 15.105 |
-| Skip trades where ind_bbw_pctile_bar < 35.538 (p20) | 1899/2370 | $30.2 | 14.082 |
+| Skip trades where ind_bbw_pctile_bar < 35.728 (p20) | 1898/2370 | $30.3 | 14.129 |
 | Skip trades where path_bars_since_hi20 > 16.000 (p80) | 1838/2370 | $27.9 | 13.936 |
 | Skip trades where day_prior_range_pctile < 22.372 (p20) | 1898/2370 | $30.8 | 13.903 |
 | Skip trades where path_with24_atr < -0.224 (p20) | 1896/2370 | $31.4 | 13.844 |
-| Skip trades where ind_bbw_pctile_bar < 46.418 (p30) | 1663/2370 | $37.7 | 13.778 |
-| Skip trades where ind_atr_pctile_bar < 23.350 (p10) | 2134/2370 | $26.5 | 13.632 |
+| Skip trades where ind_bbw_pctile_bar < 46.426 (p30) | 1662/2370 | $37.7 | 13.754 |
+| Skip trades where ind_atr_pctile_bar < 24.031 (p10) | 2134/2370 | $26.5 | 13.681 |
 | Skip trades where path_with24_atr < 1.145 (p30) | 1659/2370 | $37.2 | 13.563 |
 
 Pre-registered holdout check -- the SAME top-10-by-net-per-trade rules (same feature, same threshold, learned on discovery only) applied ONCE to the never-touched holdout set:
@@ -116,11 +124,11 @@ Pre-registered holdout check -- the SAME top-10-by-net-per-trade rules (same fea
 | rule | disc net/trade (rule) | disc net/trade (base) | disc kept | hold net/trade (rule) | hold net/trade (base) | hold kept |
 |---|---|---|---|---|---|---|
 | Skip trades where day_minutes_since_open > 170.000 (p70) | $38.6 | $21.1 | 1642 | $166.8 | $160.3 | 1173 |
-| Skip trades where ind_bbw_pctile_bar < 46.418 (p30) | $37.7 | $21.1 | 1663 | $208.5 | $160.3 | 1162 |
+| Skip trades where ind_bbw_pctile_bar < 46.426 (p30) | $37.7 | $21.1 | 1662 | $208.3 | $160.3 | 1161 |
 | Skip trades where path_with24_atr < 1.145 (p30) | $37.2 | $21.1 | 1659 | $190.5 | $160.3 | 1190 |
 | Skip trades where day_hour > 12.000 (p70) | $36.9 | $21.1 | 1555 | $167.3 | $160.3 | 1119 |
 | Skip trades where ind_rsi14_daily > 64.715 (p70) | $36.3 | $21.1 | 1659 | $193.1 | $160.3 | 1137 |
-| Skip trades where ind_atr_pctile_bar < 49.523 (p30) | $36.0 | $21.1 | 1663 | $199.7 | $160.3 | 1191 |
+| Skip trades where ind_atr_pctile_bar < 49.909 (p30) | $35.8 | $21.1 | 1662 | $199.7 | $160.3 | 1188 |
 | Skip trades where day_hour > 13.000 (p80) | $34.5 | $21.1 | 1780 | $171.0 | $160.3 | 1260 |
 | Skip trades where day_prior_range_pctile < 33.742 (p30) | $34.3 | $21.1 | 1662 | $178.6 | $160.3 | 1145 |
 | Skip trades where path_with12_atr < 0.921 (p30) | $34.2 | $21.1 | 1659 | $215.6 | $160.3 | 1177 |

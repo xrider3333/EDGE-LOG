@@ -302,5 +302,121 @@
  "vol_cum_vs_avg20": {
   "group": "vol",
   "desc": "Session-to-date cumulative volume vs the average cumulative volume at the same minute over the prior 20 sessions."
+ },
+ "cal_day_of_month": {
+  "group": "cal",
+  "desc": "Calendar day-of-month of the trade's own entry day."
+ },
+ "cal_days_to_month_end": {
+  "group": "cal",
+  "desc": "Trading days remaining in the calendar month, counting from the entry day (0 = last trading day of the month)."
+ },
+ "cal_is_month_end_2": {
+  "group": "cal",
+  "desc": "Whether the entry day is one of the last 2 trading days of the calendar month."
+ },
+ "cal_is_month_start_2": {
+  "group": "cal",
+  "desc": "Whether the entry day is one of the first 2 trading days of the calendar month."
+ },
+ "cal_is_opex_day": {
+  "group": "cal",
+  "desc": "Whether the entry day is options-expiration Friday (the 3rd Friday of the month)."
+ },
+ "cal_is_opex_week": {
+  "group": "cal",
+  "desc": "Whether the entry day falls in the same calendar week as options-expiration Friday."
+ },
+ "cal_is_quarter_end_week": {
+  "group": "cal",
+  "desc": "Whether the entry day falls in the calendar week containing the last trading day of a calendar quarter (Mar/Jun/Sep/Dec)."
+ },
+ "cal_is_fomc_day": {
+  "group": "cal",
+  "desc": "Whether the entry day is a scheduled Fed (FOMC) rate-decision day."
+ },
+ "cal_is_fomc_prev_day": {
+  "group": "cal",
+  "desc": "Whether the trading day right before the entry day was an FOMC decision day."
+ },
+ "cal_is_fomc_next_day": {
+  "group": "cal",
+  "desc": "Whether the trading day right after the entry day is a scheduled FOMC decision day."
+ },
+ "cal_is_holiday_adjacent": {
+  "group": "cal",
+  "desc": "Whether the entry day sits next to an exchange-holiday gap (more than one weekday skipped to/from the neighboring trading day)."
+ },
+ "cal_week_of_year": {
+  "group": "cal",
+  "desc": "ISO week number (1-53) of the entry day."
+ },
+ "xm_relret_12b_atr": {
+  "group": "xm",
+  "desc": "NQ's return over the prior 12 bars minus ES's own return over the same 12 bars, in NQ's own bar-ATR units."
+ },
+ "xm_relret_60m_atr": {
+  "group": "xm",
+  "desc": "NQ's return over the prior 60 minutes minus ES's own return over the same 60 minutes, in NQ's own bar-ATR units."
+ },
+ "xm_relret_1d_atr": {
+  "group": "xm",
+  "desc": "NQ's return over the prior trading day minus ES's own return over the same day, in NQ's own daily-ATR units."
+ },
+ "xm_relret_5d_atr": {
+  "group": "xm",
+  "desc": "NQ's return over the prior 5 trading days minus ES's own return over the same 5 days, in NQ's own daily-ATR units."
+ },
+ "xm_ratio_20d": {
+  "group": "xm",
+  "desc": "Ratio of NQ's own 20-day return to ES's own 20-day return, prior-day-shifted."
+ },
+ "xm_es_rsi14": {
+  "group": "xm",
+  "desc": "ES's own 14-bar RSI, read off ES's bars aligned to this leg's own clock."
+ },
+ "xm_es_divergence_hilo20": {
+  "group": "xm",
+  "desc": "+1 if ES just made a new 20-bar high that NQ did not, -1 if ES just made a new 20-bar low that NQ did not, else 0."
+ },
+ "on_range_atr": {
+  "group": "on",
+  "desc": "High-low range of the overnight session (18:00 prior evening to this day's 9:30 open), in daily-ATR units. NaN on ETH legs."
+ },
+ "on_ret_pct": {
+  "group": "on",
+  "desc": "Overnight close-to-open return (first overnight bar's open to the last overnight bar's close), percent. NaN on ETH legs."
+ },
+ "on_open_pos": {
+  "group": "on",
+  "desc": "Where today's RTH open sits inside the overnight high-low range, 0=overnight low to 1=overnight high. NaN on ETH legs."
+ },
+ "on_gap_vwap_atr": {
+  "group": "on",
+  "desc": "Today's RTH open vs the overnight session's own volume-weighted average price, in daily-ATR units. NaN on ETH legs."
+ },
+ "on_mins_since_hi": {
+  "group": "on",
+  "desc": "Minutes from the overnight session's high back to today's RTH open. NaN on ETH legs."
+ },
+ "on_mins_since_lo": {
+  "group": "on",
+  "desc": "Minutes from the overnight session's low back to today's RTH open. NaN on ETH legs."
+ },
+ "vt_intraday_daily_ratio": {
+  "group": "vt",
+  "desc": "Annualized bar-to-bar volatility (14-bar ATR) divided by annualized day-to-day volatility (14-day ATR) -- how much hotter the intraday tape is running vs the daily tape."
+ },
+ "vt_intraday_daily_pctile20": {
+  "group": "vt",
+  "desc": "Trailing 20-trading-day percentile rank of vt_intraday_daily_ratio."
+ },
+ "vt_realized5d_vs_20d": {
+  "group": "vt",
+  "desc": "Ratio of the last 5 trading days' realized volatility to the last 20 trading days', prior-day-shifted -- vol accelerating (>1) or decelerating (<1)."
+ },
+ "vt_vrp": {
+  "group": "vt",
+  "desc": "Prior VIX close divided by realized 20-day annualized volatility -- a variance-risk-premium proxy (>1 = options pricing more fear than realized). Best-effort: NaN when the VIX series isn't available."
  }
 }

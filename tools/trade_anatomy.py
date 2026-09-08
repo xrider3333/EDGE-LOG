@@ -70,6 +70,24 @@ LIFT_N_PERM = 1000
 LIFT_BLOCK_DAYS = 21
 SEED = 42
 
+# FOMC decision-day calendar for the cal_is_fomc_* features -- copied into the worktree
+# (tools/data/fomc_dates.csv) from C:\EdgeLog\_anatomy_cache\fomc_dates.csv, one
+# `date,note` row per decision day. Missing file -> those three columns stay NaN
+# (loud once, not fatal -- a calendar gap must never crash a leg replay).
+FOMC_CSV_DEFAULT = os.path.join(ROOT, "tools", "data", "fomc_dates.csv")
+_FOMC_WARNED = set()
+
+
+def _load_fomc_dates(path=None):
+    fp = path or FOMC_CSV_DEFAULT
+    if not os.path.exists(fp):
+        if fp not in _FOMC_WARNED:
+            print(f"[cal_] FOMC calendar not found at {fp} -- cal_is_fomc_* will be all-NaN.")
+            _FOMC_WARNED.add(fp)
+        return set()
+    d = pd.read_csv(fp)
+    return set(pd.to_datetime(d["date"]).dt.date)
+
 
 def _load_feature_board():
     fp = os.path.join(ROOT, "tools", "feature_board.py")
@@ -462,11 +480,272 @@ def causal_map(df_end, htf_end, series_values, warm=0):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# cal_ CALENDAR — pure function of df's own trading-day sequence (day_id -> date)
+# plus the FOMC decision-day list. Every value here is a calendar/schedule FACT
+# knowable well before the bar even opens (today's date, the FOMC schedule, which
+# trading days the exchange calendar produced) -- so, unlike the day_/lvl_/ind_
+# blocks above, NONE of these are shifted by one trading day: a trade entering on
+# day D reads day D's own calendar facts, not D-1's. is_fomc_prev_day/next_day are
+# schedule look-ups (the FOMC calendar is published a year ahead), not price
+# look-ahead. Returns a DataFrame indexed by day_id (one row per trading day,
+# same index shape as build_day_features' return), so it merges into that table
+# with a plain concat.
+# ─────────────────────────────────────────────────────────────────────────────
+
+CAL_NAMES = ["cal_day_of_month", "cal_days_to_month_end", "cal_is_month_end_2",
+            "cal_is_month_start_2", "cal_is_opex_day", "cal_is_opex_week",
+            "cal_is_quarter_end_week", "cal_is_fomc_day", "cal_is_fomc_prev_day",
+            "cal_is_fomc_next_day", "cal_is_holiday_adjacent", "cal_week_of_year"]
+
+
+def build_calendar_day_table(df, fomc_path=None):
+    g = df.groupby("day_id", sort=True)
+    date_s = g["_dt"].last().dt.date          # same "date" convention as build_day_features
+    idx = date_s.index
+    dates = date_s.to_numpy()
+    n = len(dates)
+    dts = pd.DatetimeIndex(pd.to_datetime(dates))
+
+    ym = dts.year.astype(str) + "-" + dts.month.astype(str).str.zfill(2)
+    ymf = pd.Series(ym)
+    rank_fwd = ymf.groupby(ymf).cumcount()
+    rank_rev = ymf.groupby(ymf).cumcount(ascending=False)
+    is_month_start_2 = (rank_fwd.to_numpy() <= 1)
+    is_month_end_2 = (rank_rev.to_numpy() <= 1)
+    days_to_month_end = rank_rev.to_numpy().astype(float)
+
+    row_iso = dts.isocalendar()
+    week_of_year = row_iso["week"].to_numpy().astype(float)
+    row_yw = row_iso["year"].astype(str) + "-" + row_iso["week"].astype(str).str.zfill(2)
+    row_yw = row_yw.to_numpy()
+
+    def _third_friday(y, m):
+        d0 = datetime.date(y, m, 1)
+        first_fri = d0 + datetime.timedelta(days=(4 - d0.weekday()) % 7)   # Friday = weekday 4
+        return first_fri + datetime.timedelta(days=14)
+
+    third_fridays = np.array([_third_friday(d.year, d.month) for d in dates])
+    is_opex_day = (dates == third_fridays)
+    tf_iso = pd.DatetimeIndex(pd.to_datetime(third_fridays)).isocalendar()
+    opex_yw = (tf_iso["year"].astype(str) + "-" + tf_iso["week"].astype(str).str.zfill(2)).to_numpy()
+    is_opex_week = (row_yw == opex_yw)
+
+    quarter = ((dts.month.to_numpy() - 1) // 3) + 1
+    yq = dts.year.astype(str) + "Q" + pd.Series(quarter, index=idx).astype(str)
+    last_of_q = pd.Series(dates, index=idx).groupby(yq.to_numpy()).transform("max")
+    lq_iso = pd.DatetimeIndex(pd.to_datetime(last_of_q.to_numpy())).isocalendar()
+    lq_yw = (lq_iso["year"].astype(str) + "-" + lq_iso["week"].astype(str).str.zfill(2)).to_numpy()
+    is_quarter_end_week = (row_yw == lq_yw)
+
+    fomc = _load_fomc_dates(fomc_path)
+    is_fomc_day = np.array([d in fomc for d in dates])
+    is_fomc_prev_day = np.r_[False, is_fomc_day[:-1]]     # yesterday (prior trading day) was FOMC
+    is_fomc_next_day = np.r_[is_fomc_day[1:], False]      # tomorrow (next trading day) is FOMC
+
+    if n > 1:
+        d64 = np.array(dates, dtype="datetime64[D]")
+        gaps = np.busday_count(d64[:-1], d64[1:])          # weekdays strictly between consecutive trading days
+        gap_after = np.r_[gaps, 0]
+        gap_before = np.r_[0, gaps]
+        is_holiday_adjacent = (gap_after > 1) | (gap_before > 1)
+    else:
+        is_holiday_adjacent = np.zeros(n, dtype=bool)
+
+    return pd.DataFrame({
+        "cal_day_of_month": dts.day.to_numpy().astype(float),
+        "cal_days_to_month_end": days_to_month_end,
+        "cal_is_month_end_2": is_month_end_2.astype(float),
+        "cal_is_month_start_2": is_month_start_2.astype(float),
+        "cal_is_opex_day": is_opex_day.astype(float),
+        "cal_is_opex_week": is_opex_week.astype(float),
+        "cal_is_quarter_end_week": is_quarter_end_week.astype(float),
+        "cal_is_fomc_day": is_fomc_day.astype(float),
+        "cal_is_fomc_prev_day": is_fomc_prev_day.astype(float),
+        "cal_is_fomc_next_day": is_fomc_next_day.astype(float),
+        "cal_is_holiday_adjacent": is_holiday_adjacent.astype(float),
+        "cal_week_of_year": week_of_year,
+    }, index=idx)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# xm_ CROSS-MARKET vs ES — needs the matching ES master (same tf/session), so
+# unlike cal_ it requires `cfg` (instrument/timeframe/session/date window).
+# Missing cfg / missing ES master / leg instrument already ES -> all-NaN, loud
+# once, never fatal (module convention: a research feature must never crash a
+# leg replay). Alignment: ES bars joined onto df's own bar timestamps, forward-
+# filled WITHIN a trading day only (never across a session boundary -- an ES
+# value from yesterday must never leak into today's NaN gap).
+# ─────────────────────────────────────────────────────────────────────────────
+
+XM_NAMES = ["xm_relret_12b_atr", "xm_relret_60m_atr", "xm_relret_1d_atr", "xm_relret_5d_atr",
+           "xm_ratio_20d", "xm_es_rsi14", "xm_es_divergence_hilo20"]
+
+
+def _shift_fill_nan(a, h):
+    a = np.asarray(a, float)
+    out = np.full(len(a), np.nan)
+    if h < len(a):
+        out[h:] = a[:-h]
+    return out
+
+
+def build_xm_arrays(df, tf_min, cfg, day_atr_per_bar=None):
+    n = len(df)
+    out = {nm: np.full(n, np.nan) for nm in XM_NAMES}
+    if not cfg:
+        return out
+    inst = str(cfg.get("instrument") or "").upper()
+    tf, session = cfg.get("timeframe"), cfg.get("session")
+    date_from, date_to = cfg.get("date_from"), cfg.get("date_to")
+    if inst == "ES" or inst == "" or not tf or not session or not date_from or not date_to:
+        return out
+    fn = f"NOADJ_ES_{tf}_{session}.csv"
+    path = os.path.join(FB.UP_LOCAL, fn)
+    if not os.path.exists(path):
+        path = os.path.join(FB.UP_SHARED, fn)
+    if not os.path.exists(path):
+        print(f"[xm_] no ES master {fn} -- xm_ columns stay NaN for this leg.")
+        return out
+    es = FB.load("ES", tf, session, date_from, date_to)
+    if len(es) == 0:
+        return out
+    if day_atr_per_bar is None:
+        day_atr_per_bar = np.full(n, np.nan)
+
+    es_al = es[["_dt", "close", "high", "low"]].rename(
+        columns={"close": "es_close", "high": "es_high", "low": "es_low"})
+    merged = df[["_dt", "day_id"]].merge(es_al, on="_dt", how="left")
+    for c in ("es_close", "es_high", "es_low"):
+        merged[c] = merged.groupby("day_id")[c].ffill()
+    es_close = merged["es_close"].to_numpy(float)
+    es_high = merged["es_high"].to_numpy(float)
+    es_low = merged["es_low"].to_numpy(float)
+
+    close = df["close"].to_numpy(float)
+    high = df["high"].to_numpy(float)
+    low = df["low"].to_numpy(float)
+    atr_bar = calc_atr(high, low, close, 14)
+    bars_per_day = max(1, int(round(df.groupby("day_id").size().median())))
+    bars_60m = max(1, 60 // int(tf_min))
+
+    def relret(h):
+        return (close - _shift_fill_nan(close, h)) - (es_close - _shift_fill_nan(es_close, h))
+
+    out["xm_relret_12b_atr"] = relret(12) / atr_bar
+    out["xm_relret_60m_atr"] = relret(bars_60m) / atr_bar
+    out["xm_relret_1d_atr"] = relret(bars_per_day) / day_atr_per_bar
+    out["xm_relret_5d_atr"] = relret(bars_per_day * 5) / day_atr_per_bar
+
+    day_close = pd.Series(close).groupby(df["day_id"].to_numpy()).last()
+    es_day_close = pd.Series(es_close).groupby(df["day_id"].to_numpy()).last()
+    day_ret20 = day_close.pct_change(20, fill_method=None)
+    es_ret20 = es_day_close.pct_change(20, fill_method=None)
+    ratio20 = (day_ret20 / es_ret20.replace(0.0, np.nan)).shift(1)      # prior-day-shifted (day-scale feature)
+    out["xm_ratio_20d"] = df["day_id"].map(ratio20).to_numpy(float)
+
+    out["xm_es_rsi14"] = calc_rsi(es_close, 14)
+
+    es_hi20 = bars_since_extreme(es_high, 20, "max")
+    es_lo20 = bars_since_extreme(es_low, 20, "min")
+    nq_hi20 = bars_since_extreme(high, 20, "max")
+    nq_lo20 = bars_since_extreme(low, 20, "min")
+    div = np.zeros(n)
+    div[(es_hi20 == 0) & (nq_hi20 != 0)] = 1.0     # ES made a new 20-bar high, NQ did not
+    div[(es_lo20 == 0) & (nq_lo20 != 0)] = -1.0    # ES made a new 20-bar low, NQ did not
+    out["xm_es_divergence_hilo20"] = div
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# on_ OVERNIGHT (RTH legs only) — reads the matching NQ ETH master and, for each
+# RTH trading day, summarizes the ETH bars strictly BEFORE that day's own 09:30
+# RTH open. ETH's own day_id rolls at 18:00 ET (feature_board.load), so the
+# overnight bucket for RTH day D lives inside ETH's OWN day_id whose bucket
+# covers 18:00(D-1)..17:00(D) -- joined here by calendar DATE rather than by
+# day_id number, since the two masters are loaded/factorized independently.
+# ETH legs (session != RTH): all-NaN, per the module spec.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ON_NAMES = ["on_range_atr", "on_ret_pct", "on_open_pos", "on_gap_vwap_atr",
+           "on_mins_since_hi", "on_mins_since_lo"]
+_RTH_OPEN_TIME = datetime.time(9, 30)
+
+
+def build_overnight_arrays(df, cfg):
+    n = len(df)
+    out = {nm: np.full(n, np.nan) for nm in ON_NAMES}
+    if not cfg or str(cfg.get("session") or "").upper() != "RTH":
+        return out                     # ETH legs: NaN, stated in the module docstring
+    inst, tf = cfg.get("instrument"), cfg.get("timeframe")
+    date_from, date_to = cfg.get("date_from"), cfg.get("date_to")
+    if not inst or not tf or not date_from or not date_to:
+        return out
+    fn = f"NOADJ_{inst}_{tf}_ETH.csv"
+    path = os.path.join(FB.UP_LOCAL, fn)
+    if not os.path.exists(path):
+        path = os.path.join(FB.UP_SHARED, fn)
+    if not os.path.exists(path):
+        print(f"[on_] no {fn} ETH master -- on_ columns stay NaN for this leg.")
+        return out
+    eth = FB.load(inst, tf, "ETH", date_from, date_to)
+    if len(eth) == 0:
+        return out
+
+    on_mask = (eth["_dt"].dt.time < _RTH_OPEN_TIME)
+    onb = eth.loc[on_mask]
+    if len(onb) == 0:
+        return out
+    eg = onb.groupby("day_id")
+    on_hi, on_lo = eg["high"].max(), eg["low"].min()
+    on_open, on_close = eg["open"].first(), eg["close"].last()
+    if "volume" in onb.columns:
+        tp = (onb["high"] + onb["low"] + onb["close"]) / 3.0
+        pv = (tp * onb["volume"]).groupby(onb["day_id"]).sum()
+        vv = onb["volume"].groupby(onb["day_id"]).sum()
+        on_vwap = pv / vv.replace(0.0, np.nan)
+    else:
+        on_vwap = pd.Series(dtype=float)
+    idx_hi = eg["high"].idxmax()
+    idx_lo = eg["low"].idxmin()
+    t_hi = onb.loc[idx_hi].set_index("day_id")["_dt"]
+    t_lo = onb.loc[idx_lo].set_index("day_id")["_dt"]
+
+    # RTH day_id -> its own date -> the ETH day_id whose 18:00..17:00 bucket covers that date's morning
+    df_date = df.groupby("day_id")["_dt"].first().dt.date
+    eth_date_by_id = eth.groupby("day_id")["_dt"].apply(lambda s: (s.iloc[0] + pd.Timedelta(hours=6)).date())
+    date_to_eth_id = {v: k for k, v in eth_date_by_id.items()}
+    rth_to_eth = {rid: date_to_eth_id.get(d) for rid, d in df_date.items()}
+
+    def _map(series):
+        per_rth_day = {rid: series.get(eid) for rid, eid in rth_to_eth.items() if eid in series.index}
+        return df["day_id"].map(pd.Series(per_rth_day))
+
+    on_hi_b = _map(on_hi).to_numpy(float)
+    on_lo_b = _map(on_lo).to_numpy(float)
+    on_open_b = _map(on_open).to_numpy(float)
+    on_close_b = _map(on_close).to_numpy(float)
+    on_vwap_b = _map(on_vwap).to_numpy(float) if len(on_vwap) else np.full(n, np.nan)
+    t_hi_b, t_lo_b = _map(t_hi), _map(t_lo)
+
+    rng = on_hi_b - on_lo_b
+    out["on_ret_pct"] = np.where(on_open_b != 0, (on_close_b - on_open_b) / on_open_b * 100.0, np.nan)
+    rth_open_px = df.groupby("day_id")["open"].transform("first").to_numpy(float)
+    out["on_open_pos"] = np.where(rng > 0, (rth_open_px - on_lo_b) / rng, np.nan)
+    out["on_range_atr"] = rng                       # divided by daily ATR at assembly time (build_bar_arrays)
+    out["on_gap_vwap_atr"] = rth_open_px - on_vwap_b   # divided by daily ATR at assembly time (build_bar_arrays)
+
+    rth_open_time = df.groupby("day_id")["_dt"].transform("first")
+    out["on_mins_since_hi"] = ((rth_open_time - t_hi_b).dt.total_seconds() / 60.0).to_numpy(float)
+    out["on_mins_since_lo"] = ((rth_open_time - t_lo_b).dt.total_seconds() / 60.0).to_numpy(float)
+    return out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # whole-dataframe bar-level + 60m-mapped + session/OR/VWAP/volume arrays,
 # computed ONCE per leg (vectorized), then indexed per-trade at the decision bar
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_bar_arrays(df, tf_min):
+def build_bar_arrays(df, tf_min, cfg=None, day_feat=None):
     n = len(df)
     close = df["close"].to_numpy(float)
     open_ = df["open"].to_numpy(float)
@@ -583,6 +862,30 @@ def build_bar_arrays(df, tf_min):
         B["vwap"] = np.full(n, np.nan)
         B["volume"] = None
     B["has_vol"] = has_vol
+
+    # ── daily-ATR mapped onto every bar (day D sees D-1's daily ATR, same value
+    # for every bar of day D) -- shared by vt_ and the xm_ day-scale columns ──
+    if day_feat is not None and "atr14_daily" in day_feat.columns:
+        day_atr_per_bar = day_feat["atr14_daily"].reindex(df["day_id"]).to_numpy(float)
+    else:
+        day_atr_per_bar = np.full(n, np.nan)
+
+    # ── vt_ VOL TERM STRUCTURE (bar-level; the day-level half -- realized 5d/20d
+    # vol ratio and the VIX/realized-vol premium -- lives in build_day_features) ──
+    bars_per_day_ = max(1, int(round(df.groupby("day_id").size().median())))
+    vt_ratio = (B["atr_bar"] / day_atr_per_bar) * np.sqrt(bars_per_day_)
+    B["vt_intraday_daily_ratio"] = vt_ratio
+    B["vt_intraday_daily_pctile20"] = pctile_vs_prior_days(vt_ratio, _dayid, year_days=20)
+
+    # ── xm_ CROSS-MARKET vs ES ──
+    B.update(build_xm_arrays(df, tf_min, cfg, day_atr_per_bar))
+
+    # ── on_ OVERNIGHT (RTH legs only) ──
+    on = build_overnight_arrays(df, cfg)
+    on["on_range_atr"] = on["on_range_atr"] / day_atr_per_bar
+    on["on_gap_vwap_atr"] = on["on_gap_vwap_atr"] / day_atr_per_bar
+    B.update(on)
+
     return B
 
 
@@ -594,7 +897,7 @@ def build_bar_arrays(df, tf_min):
 # column set.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_day_features(df):
+def build_day_features(df, fomc_path=None, ext_vix=None):
     # Keyed by TRADING DAY (day_id), not calendar date. On a 24h (ETH) tape a trading day runs
     # 18:00 -> 17:00 next day; after a holiday an evening-less session starts on the same
     # calendar date as the previous session's 18:00 open, so calendar dates collide
@@ -643,6 +946,22 @@ def build_day_features(df):
     prior_wk = wagg_prior.reindex(wk)
     prior_wk.index = day.index
 
+    # ── vt_ VOL TERM STRUCTURE, day-level half (bar-level ratio + its own 20-day
+    # percentile is built in build_bar_arrays, which has the bar-level ATR series) ──
+    vol5 = day_ret.rolling(5, min_periods=5).std()
+    vol20 = day_ret.rolling(20, min_periods=20).std()
+    vt_realized_ratio = (vol5 / vol20.replace(0.0, np.nan)).shift(1)     # prior-day-shifted, like every day_ column
+
+    vix_by_date = None
+    if ext_vix is not None and "vix" in getattr(ext_vix, "columns", []):
+        vix_by_date = ext_vix["vix"]           # fetch_external_daily already shifts +1 day internally (causal)
+    if vix_by_date is not None:
+        vix_mapped = pd.Series(day["date"].map(vix_by_date).to_numpy(), index=day.index)
+    else:
+        vix_mapped = pd.Series(np.full(len(day), np.nan), index=day.index)
+    realized20_annualized_pct = (vol20.shift(1) * np.sqrt(YEAR_DAYS))    # shifted: today can't know today's own vol20
+    vt_vrp = vix_mapped / realized20_annualized_pct.replace(0.0, np.nan)
+
     out = pd.DataFrame({
         "rsi14_daily": rsi14.shift(1), "adx14_daily": adx14.shift(1),
         "atr_pctile_daily": atr_pctile.shift(1), "macd_sign_daily": macd_sign.shift(1),
@@ -654,7 +973,11 @@ def build_day_features(df):
         "day_prior_close_pos": close_pos_own.shift(1), "day_up_streak": up_streak.shift(1),
         "day_ret_5d": ret5.shift(1), "day_ret_20d": ret20.shift(1),
         "day_gap_pct": gap_pct, "session_open": day["o"], "date": day["date"],
+        "vt_realized5d_vs_20d": vt_realized_ratio, "vt_vrp": vt_vrp,
     }, index=day.index)
+
+    cal = build_calendar_day_table(df, fomc_path)          # NOT shifted -- see build_calendar_day_table docstring
+    out = pd.concat([out, cal], axis=1)
     return out
 
 
@@ -731,6 +1054,43 @@ def _feature_meta():
     m.append(("vol_last_vs_avg20", "vol", "Decision bar's volume vs its own trailing-20-bar average."))
     m.append(("vol_cum_vs_avg20", "vol",
               "Session-to-date cumulative volume vs the average cumulative volume at the same minute over the prior 20 sessions."))
+
+    # cal_ CALENDAR -- schedule facts about the trade's own day, known well before the bar opens.
+    m.append(("cal_day_of_month", "cal", "Calendar day-of-month of the trade's own entry day."))
+    m.append(("cal_days_to_month_end", "cal", "Trading days remaining in the calendar month, counting from the entry day (0 = last trading day of the month)."))
+    m.append(("cal_is_month_end_2", "cal", "Whether the entry day is one of the last 2 trading days of the calendar month."))
+    m.append(("cal_is_month_start_2", "cal", "Whether the entry day is one of the first 2 trading days of the calendar month."))
+    m.append(("cal_is_opex_day", "cal", "Whether the entry day is options-expiration Friday (the 3rd Friday of the month)."))
+    m.append(("cal_is_opex_week", "cal", "Whether the entry day falls in the same calendar week as options-expiration Friday."))
+    m.append(("cal_is_quarter_end_week", "cal", "Whether the entry day falls in the calendar week containing the last trading day of a calendar quarter (Mar/Jun/Sep/Dec)."))
+    m.append(("cal_is_fomc_day", "cal", "Whether the entry day is a scheduled Fed (FOMC) rate-decision day."))
+    m.append(("cal_is_fomc_prev_day", "cal", "Whether the trading day right before the entry day was an FOMC decision day."))
+    m.append(("cal_is_fomc_next_day", "cal", "Whether the trading day right after the entry day is a scheduled FOMC decision day."))
+    m.append(("cal_is_holiday_adjacent", "cal", "Whether the entry day sits next to an exchange-holiday gap (more than one weekday skipped to/from the neighboring trading day)."))
+    m.append(("cal_week_of_year", "cal", "ISO week number (1-53) of the entry day."))
+
+    # xm_ CROSS-MARKET vs ES -- same-clock ES bars aligned onto this leg's own bar grid.
+    m.append(("xm_relret_12b_atr", "xm", "NQ's return over the prior 12 bars minus ES's own return over the same 12 bars, in NQ's own bar-ATR units."))
+    m.append(("xm_relret_60m_atr", "xm", "NQ's return over the prior 60 minutes minus ES's own return over the same 60 minutes, in NQ's own bar-ATR units."))
+    m.append(("xm_relret_1d_atr", "xm", "NQ's return over the prior trading day minus ES's own return over the same day, in NQ's own daily-ATR units."))
+    m.append(("xm_relret_5d_atr", "xm", "NQ's return over the prior 5 trading days minus ES's own return over the same 5 days, in NQ's own daily-ATR units."))
+    m.append(("xm_ratio_20d", "xm", "Ratio of NQ's own 20-day return to ES's own 20-day return, prior-day-shifted."))
+    m.append(("xm_es_rsi14", "xm", "ES's own 14-bar RSI, read off ES's bars aligned to this leg's own clock."))
+    m.append(("xm_es_divergence_hilo20", "xm", "+1 if ES just made a new 20-bar high that NQ did not, -1 if ES just made a new 20-bar low that NQ did not, else 0."))
+
+    # on_ OVERNIGHT (RTH legs only -- NaN on ETH legs, see build_overnight_arrays).
+    m.append(("on_range_atr", "on", "High-low range of the overnight session (18:00 prior evening to this day's 9:30 open), in daily-ATR units. NaN on ETH legs."))
+    m.append(("on_ret_pct", "on", "Overnight close-to-open return (first overnight bar's open to the last overnight bar's close), percent. NaN on ETH legs."))
+    m.append(("on_open_pos", "on", "Where today's RTH open sits inside the overnight high-low range, 0=overnight low to 1=overnight high. NaN on ETH legs."))
+    m.append(("on_gap_vwap_atr", "on", "Today's RTH open vs the overnight session's own volume-weighted average price, in daily-ATR units. NaN on ETH legs."))
+    m.append(("on_mins_since_hi", "on", "Minutes from the overnight session's high back to today's RTH open. NaN on ETH legs."))
+    m.append(("on_mins_since_lo", "on", "Minutes from the overnight session's low back to today's RTH open. NaN on ETH legs."))
+
+    # vt_ VOL TERM STRUCTURE.
+    m.append(("vt_intraday_daily_ratio", "vt", "Annualized bar-to-bar volatility (14-bar ATR) divided by annualized day-to-day volatility (14-day ATR) -- how much hotter the intraday tape is running vs the daily tape."))
+    m.append(("vt_intraday_daily_pctile20", "vt", "Trailing 20-trading-day percentile rank of vt_intraday_daily_ratio."))
+    m.append(("vt_realized5d_vs_20d", "vt", "Ratio of the last 5 trading days' realized volatility to the last 20 trading days', prior-day-shifted -- vol accelerating (>1) or decelerating (<1)."))
+    m.append(("vt_vrp", "vt", "Prior VIX close divided by realized 20-day annualized volatility -- a variance-risk-premium proxy (>1 = options pricing more fear than realized). Best-effort: NaN when the VIX series isn't available."))
     return m
 
 
@@ -749,11 +1109,11 @@ TR_COLS = ["tr_side", "tr_net_usd", "tr_pnl_r", "tr_win", "tr_mfe_r", "tr_mae_r"
 # tests can drive it directly on synthetic bars for the causality check.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def build_feature_matrix(df, eb, tf_min, B=None, day_feat=None, side=None):
-    if B is None:
-        B = build_bar_arrays(df, tf_min)
+def build_feature_matrix(df, eb, tf_min, B=None, day_feat=None, side=None, cfg=None):
     if day_feat is None:
         day_feat = build_day_features(df)
+    if B is None:
+        B = build_bar_arrays(df, tf_min, cfg=cfg, day_feat=day_feat)
     n = len(df)
     eb = np.asarray(eb, dtype=int)
     if side is None:
@@ -852,6 +1212,21 @@ def build_feature_matrix(df, eb, tf_min, B=None, day_feat=None, side=None):
             cva = B["cumvol_avg20"][d]
             rows["vol_cum_vs_avg20"][i] = B["cumvol"][d] / cva if cva else np.nan
 
+        # cal_ -- calendar facts about the trade's OWN day, not shifted (see
+        # build_calendar_day_table docstring)
+        for nm in CAL_NAMES:
+            rows[nm][i] = dr[nm]
+
+        # xm_ / on_ -- bar-level arrays, indexed at the decision bar like every ind_/lvl_ column
+        for nm in XM_NAMES + ON_NAMES:
+            rows[nm][i] = B[nm][d]
+
+        # vt_ -- bar-level ratio + its own percentile from B, the realized-vol/VRP half from dr
+        rows["vt_intraday_daily_ratio"][i] = B["vt_intraday_daily_ratio"][d]
+        rows["vt_intraday_daily_pctile20"][i] = B["vt_intraday_daily_pctile20"][d]
+        rows["vt_realized5d_vs_20d"][i] = dr["vt_realized5d_vs_20d"]
+        rows["vt_vrp"][i] = dr["vt_vrp"]
+
     X = pd.DataFrame(rows)
     return X, entry_date, valid
 
@@ -930,9 +1305,14 @@ def build_trade_table(leg_key, verbose=True):
     eb, xb, pnl_pts, side, entry_px, usd = eb[keep], xb[keep], pnl_pts[keep], side[keep], entry_px[keep], usd[keep]
     labels_kept = labels[keep]
 
-    B = build_bar_arrays(df, tf_min)
-    day_feat = build_day_features(df)
-    X, entry_date, valid = build_feature_matrix(df, eb, tf_min, B=B, day_feat=day_feat, side=side)
+    ext_vix = None
+    try:
+        ext_vix = ctx.fetch_external_daily(str(cfg["date_from"]), str(cfg["date_to"]))
+    except Exception as e:
+        print(f"[{leg_key}] vt_vrp: fetch_external_daily failed ({e}) -- vt_vrp stays NaN for this leg.")
+    day_feat = build_day_features(df, ext_vix=ext_vix)
+    B = build_bar_arrays(df, tf_min, cfg=cfg, day_feat=day_feat)
+    X, entry_date, valid = build_feature_matrix(df, eb, tf_min, B=B, day_feat=day_feat, side=side, cfg=cfg)
     X = X.loc[valid].reset_index(drop=True)
     eb, xb, pnl_pts, side, entry_px, usd = eb[valid], xb[valid], pnl_pts[valid], side[valid], entry_px[valid], usd[valid]
     labels_kept = labels_kept[valid]
