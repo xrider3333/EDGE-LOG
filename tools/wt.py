@@ -20,7 +20,8 @@ USAGE
 -----
   python tools/wt.py new  <name>     create + print the worktree path to cd into
   python tools/wt.py ship [name]     rebase onto origin/main, fix VERSION, preflight, push
-                                     (gates: boot, STUDIES, PAPER, run REPORT, row numbers)
+                                     (gates: boot, STUDIES, PAPER, run REPORT, 1E AXES /
+                                     1A funnel line procedure, row numbers)
   python tools/wt.py list            show every session worktree
   python tools/wt.py drop <name>     remove a worktree (refuses if it has uncommitted work)
 
@@ -343,6 +344,26 @@ def cmd_ship(name, message):
             sys.stderr.write(out)
             raise SystemExit('run-report gate SELF-TEST FAILED - the gate no longer catches a '
                              'known-bad build - not pushing')
+
+    # AXES GATE (2026-09-07): the 1E ALL-CONFIGS axis set and the 1A CONFIG FUNNEL's line
+    # procedure. Neither the boot gate nor the report gate above opens a run report far enough
+    # to catch this: matrix_axes_render_probe.py had caught a real regression (045de82,
+    # v73.520) where the funnel's crowned/champion line lost its walk-forward dash (and the
+    # in-sample/walk-forward split with it) for a full day of shipped versions - this script
+    # existed the whole time but was never wired into `ship`, so nobody was told. It also
+    # covers the EV R / SORTINO axes on the 1E PARALLEL/SCATTER/TABLE views and the ML family
+    # tables (see its own docstring). ~6-15 s, well under the report gate above. Only runs
+    # when index.html changed. INCONCLUSIVE (exit 2, e.g. no local Chrome) never blocks.
+    mx = os.path.join(wt, 'tools', 'matrix_axes_render_probe.py')
+    if touched_index.strip() and os.path.isfile(mx):
+        r = subprocess.run([sys.executable, mx], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        verdict = [l for l in out.strip().splitlines() if l.startswith('1E AXES PROBE:')]
+        print(verdict[-1] if verdict else '(axes probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('1E axes / 1A funnel render gate FAILED - not pushing')
 
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows

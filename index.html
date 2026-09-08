@@ -481,7 +481,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.557';
+const VERSION='73.558';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12532,11 +12532,15 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
         //   lockbox continuation DOTTED. Survivors are COLOURED (one hue each — the lines we
         //   care about), the cloud stays light grey, every stroke as thin as legible.
         const _huePal=['#e0a04b','#a879e6','#4bc0c0','#e06b9a','#8fbf4d','#5b8dee','#d9c34a','#c86b4b'];
-        // ONE SOLID polyline end to end. It used to be two - solid to the in-sample door,
-        //   dashed after it - but the door already has its own vertical marker and the
-        //   stripes behind the chart already shade the stages, so the dash was a third
-        //   telling of the same thing and made every line look broken.
-        const _proc=(vals,col,wd,op)=>'<polyline points="'+_seg(vals,0,1)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>';
+        // v73.520 (045de82) made this ONE SOLID polyline end to end, arguing the WF dash
+        //   was a third telling of the door boundary the stripes/marker already show. That
+        //   shipped without updating _selTip below, which still promises "the walk-forward
+        //   stretch is DASHED, and the lockbox continuation is DOTTED" - a regression, not a
+        //   completed redesign. Restored per the v64.27 LINE PROCEDURE above: IS solid, WF
+        //   dashed 2.2 1.6 (the lockbox tail's own 0.5 1.6 dash is set where it is drawn,
+        //   near the 'lb+=' line below).
+        const _proc=(vals,col,wd,op)=>'<polyline points="'+_seg(vals,0,fIS)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'"/>'
+          +'<polyline points="'+_seg(vals,fIS,1)+'" fill="none" stroke="'+col+'" stroke-width="'+wd+'" opacity="'+op+'" stroke-dasharray="2.2 1.6"/>';
         // v71.66 (owner: "when expanding 1A the config colours change"): the tile paints the
         //   survivors from this 8-hue palette while the expanded explorer was painting the SAME
         //   configs from a teal ramp - two palettes for one set of lines. The tile's choice is
@@ -12596,7 +12600,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
           const _sc=1;
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
-          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-linecap="round"/>';
+          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="0.95" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
           // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
           const fv=anchor+_rawEnd*_sc;
           if(cr||(_a2kAll&&!(+(APREF.a2cfgAll||0))))labs.push({y:Yv(fv*mult),col,kg:(cr?'crown':'lb'),txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
