@@ -92,6 +92,50 @@ of 1,604.
   finding that surfaced #309 as "the ENGU-Q configuration the EV R / R/YR question
   actually points at" — this section is the crowning decision that followed from it.
 
+### 2026-09-07 — `regime_len` units on the crown's file are FROZEN on purpose (not "10 days")
+
+**Verified by grep on origin/main and by measurement.** The 2026-08-26 ETH regime rescale
+(commit 6da54db, `rb = regime_len * ETH_BARS_PER_DAY` with `ETH_BARS_PER_DAY = 1091`) was
+applied ONLY to `augur_strategies/ENGUQ_1M_ETH_1_0.py` — the frozen #226 file. The three
+forks off that lineage (`ENGUQ_1M_ETH_LIM_1_0.py`, `ENGUQ_1M_ETH_ER_1_0.py`,
+`ENGUQ_1M_ETH_ERW_1_0.py`) still compute `rb = int(regime_len) * 390`, so on the 24-hour
+tape (~1,091 one-minute bars/day) `regime_len` on those three files counts **390-bar
+blocks** (~0.36 of an ETH day each), not days. **Run #309 — the crown above, on
+`ENGUQ_1M_ETH_ER_1_0.py` — was validated with `regime_len 10`, which is 3,900 bars ≈ 3.6
+days, not 10 days.** Any wording elsewhere that reads "#309's regime filter is 10 days" is
+wrong; it is ~3.6 days.
+
+**Why it must stay exactly as it is.** Measured on the #309 params, one continuous run
+sliced by entry time (NQ 1m ETH 2010-06-07..2026-06-30, split 2025-06-30, cost 0.533,
+mult 20):
+
+| regime_len (blocks) | bars | ~days | selection PF / net / EV R | top-10 share | held-out n / PF / net |
+|---|---|---|---|---|---|
+| 5 | 1,950 | 1.8 | 1.469 / $445,967 / 0.321 | 84% | 30 / 2.503 / $100,965 |
+| 7 | 2,730 | 2.5 | 1.566 / $496,005 / 0.383 | 75% | 32 / 4.559 / $109,295 |
+| **10 (CROWN)** | 3,900 | 3.6 | **1.661 / $505,756 / 0.439** | 53% | 99 / 1.620 / $85,511 |
+| 14 | 5,460 | 5.0 | 1.434 / $365,703 / 0.293 | 74% | 97 / 1.655 / $88,410 |
+| 20 | 7,800 | 7.1 | 1.322 / $281,113 / 0.215 | 75% | 106 / 1.337 / $62,400 |
+| 28 (= the INTENDED 10 days at 1,091/day) | 10,920 | 10.0 | 1.224 / $203,744 / 0.152 | 88% | 118 / 1.238 / $45,647 |
+| off | – | – | 1.284 / $446,125 / 0.189 | 56% | 117 / 1.563 / $132,271 |
+
+The crown's edge lives at the ~3.6-day lookback; a genuine 10-day filter (the "28" row) is
+**worse than no filter at all**. Profit sits on a ridge — 7 through 14 blocks are all
+within reach of the crown — but the crown's broad base (53% top-10 share) is specific to
+10 blocks; every neighbour makes similar money out of far fewer trades (74–88% top-10
+share). Rescaling these three files to 1,091 would silently turn the crown into the
+28-block row, and runs #309 / #310 / the queued ERW validate would stop reproducing from
+their own files — the run #198 lesson (`BACKTESTING_STACK.md` 2026-08-08/2026-09-05). The
+NinjaTrader port `EdgeLogENGUQ1m.RegimeLen` (v73.559, `tools/nt/EdgeLogENGUQ1m.cs`)
+deliberately mirrors this same 390 math for that reason.
+
+**What changed:** a prominent frozen-unit notice + this table added to the module
+docstring of all three files, and the `regime_len` DEFAULT_PARAMS label/tooltip corrected
+from "days" to "390-bar blocks" on all three. No executable line touched (verified by
+`ast.parse` on each file and by re-running #309's exact params through
+`augur_engine.engine.run_backtest`: n=1,604 / PF 1.655 / net $591,267 — unchanged from the
+run doc).
+
 ---
 
 ## §1 — ⚠ THE EDGE IS A HANDFUL OF TRADES (measured 2026-08-20) — READ BEFORE JUDGING A DRAWDOWN

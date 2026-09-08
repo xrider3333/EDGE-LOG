@@ -18,6 +18,35 @@ Battery V/W evidence (2010-06-07..2026-06-30, NQ 1m ETH, 0.533 x $20, entry-slic
   of 5,000 paired block bootstraps (CI [-0.018, +0.534] - just touches zero).
   Caveats recorded: the l50 pairing is weaker (84.5%); er(60)>=0.30 collapses the
   lockbox, so the threshold plateau is one-sided - do not push er_th above 0.25.
+
+WARNING - regime_len UNIT NOTICE, FROZEN 2026-09-07, verified by grep + measurement (do
+not rescale without re-validating). `rb = int(regime_len) * 390` below counts 390-bar
+BLOCKS, not calendar days, even though this file runs on the 24-hour ETH tape (~1,091
+one-minute bars/day). The 2026-08-26 ETH regime rescale (commit 6da54db,
+`rb = regime_len * ETH_BARS_PER_DAY`) was applied ONLY to ENGUQ_1M_ETH_1_0.py; this file
+(and its LIM parent and ERW child) were deliberately left on the old 390 math. Run #309 -
+the ENGU-Q family crown since 2026-09-05, THIS file with er_th=0.0 - was validated with
+regime_len=10, i.e. 3,900 bars ~= 3.6 calendar days, not 10 days.
+
+Measured on the #309 params, one continuous run sliced by entry time (NQ 1m ETH
+2010-06-07..2026-06-30, split 2025-06-30, cost 0.533, mult 20):
+  regime_len(blocks)  ~days  selection PF/net/EV R          top10%  held-out n/PF/net
+  5                    1.8   1.469 / $445,967 / 0.321        84%    30 / 2.503 / $100,965
+  7                    2.5   1.566 / $496,005 / 0.383        75%    32 / 4.559 / $109,295
+  10 (CROWN)           3.6   1.661 / $505,756 / 0.439        53%    99 / 1.620 / $85,511
+  14                   5.0   1.434 / $365,703 / 0.293        74%    97 / 1.655 / $88,410
+  20                   7.1   1.322 / $281,113 / 0.215        75%    106 / 1.337 / $62,400
+  28 (would-be 10-day at 1,091/day)  10.0  1.224 / $203,744 / 0.152  88%  118 / 1.238 / $45,647
+  off                  -     1.284 / $446,125 / 0.189        56%    117 / 1.563 / $132,271
+
+Reading: the crown's edge lives at ~3.6 days, not 10 - a GENUINE 10-day filter (the "28"
+row) is WORSE than no filter at all. Rescaling this file to 1,091 would silently turn the
+crown into that worse row, and run #309 (plus #310 on the LIM file and the queued ERW
+validate) would stop reproducing from their own files - the run #198 lesson,
+BACKTESTING_STACK.md 2026-08-08/2026-09-05. The NinjaTrader port
+`EdgeLogENGUQ1m.RegimeLen` (v73.559, tools/nt/EdgeLogENGUQ1m.cs) deliberately mirrors this
+same 390 math for the same reason. DO NOT rescale `regime_len` on this file without
+re-validating run #309 from scratch.
 """
 import numpy as np
 
@@ -75,8 +104,11 @@ DEFAULT_PARAMS = {
                'label': 'ATR Length',
                'tooltip': 'Lookback for ATR (buffer/decisiveness/limit depth).'},
     'regime_len': {'default': 0, 'min': 0, 'max': 100, 'step': 5, 'type': 'int',
-                  'label': 'Regime SMA (days, 0=off)',
-                  'tooltip': 'Only go long when close is above its N-DAY simple average. 0=off.'},
+                  'label': 'Regime SMA (390-bar blocks, 0=off)',
+                  'tooltip': 'Only go long when close is above its N-BLOCK simple average '
+                             '(1 block = 390 bars -- NOT a calendar day on this ETH file; '
+                             'FROZEN unit, do not rescale without re-validating. Run #309 '
+                             'crown = 10 blocks ~= 3.6 calendar days.) 0=off.'},
     'breakeven_R': {'default': 1.5, 'min': 0.0, 'max': 3.0, 'step': 0.5, 'type': 'float',
                    'label': 'Breakeven (R, 0=off)',
                    'tooltip': 'Once the trade is this many R in profit, raise the stop to entry. 0=off.'},
