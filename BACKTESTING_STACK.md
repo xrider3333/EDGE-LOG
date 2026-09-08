@@ -855,6 +855,20 @@ LB $70,527 at better DD; #304 LB $121,069 at DD within 3%. Graded-by-depth (1.25
 (ratio<0.85 only) compression both lose to plain on/off. Compression-only has the highest yearly t of all
 (4.6, 9/10 years) — the most consistent effect in the study; KEEL adds money at t≈3.
 
+**Model-side round (2026-09-08), 8 full-walk experiments on both NOISE runs with the v10 schedule:** tail-winner
+member (P(R>2)), deeper ExtraTrees, per-member fast ledgers, τ 1000, refit every 10, combinations, tail-only.
+**None beats v10 on both runs in both stretches** — each wins one run's lockbox and loses the other's (e.g. τ 1000:
+WF better on both, LB net better on both, LB DD worse on both by 14–66%; tail member: #243 LB collapses to
+$43.7k). The model stays as it is.
+**Structural scan (entry hour, side, weekday, bars-in-session) on both NOISE runs:** shorts carry the higher EV R
+everywhere but a 1.5× short tilt worsens both lockbox DDs; the first hour is strong pre-2025 and dead in the
+lockbox (regime); **Friday is the best weekday in both windows of both runs** (EV R 0.47/0.51 on #243, 0.39/0.38
+on #304 vs ~0.25 other days) and the 1.5× Friday tilt helps 9/10 WF years on both (t 4.35 / 3.76).
+**v11 = v10 × 1.5 Friday, NOISE only:** #243 WF $523,751 (v10 $489,144) at DD −19.8k (better), LB **$86,074**
+(v10 $70,527, raw $60,615) at DD −19.9k (raw −22.1k); #304 WF $490,614 at DD −16.6k (raw −16.9k), LB **$139,016**
+(v10 $121,069) at DD −26.9k (raw −24.5k). Fails ENGU-Q's lockbox (24h tape); on ORB comp×Friday lifts the lockbox
+($102k→$123k at DD +2%) but costs WF drawdown (+14%) — not deployed there. Paper: `NOISE_SBS_V90_K11`.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

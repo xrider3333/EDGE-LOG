@@ -147,6 +147,20 @@ CFG = {
             "fast": {"W": 50, "lo": -0.5, "hi": 0.5},
             "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
             "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0}},
+    # v11 (2026-09-08) = v10 x an a-priori DAY-OF-WEEK tilt: 1.5x on Friday entries. Found by the
+    #    same structural scan that found compression: Friday carries the highest EV R on both NOISE
+    #    runs in BOTH walk-forward and lockbox (0.47/0.51 on #243, 0.39/0.38 on #304 vs ~0.25 other
+    #    days). Year-by-year robustness of the tilt in WF: t 4.35 (9/10 years) on #243, 3.76 (9/10)
+    #    on #304; lockbox 2/3 years on both. On top of v10: #243 WF $523,751 vs v10 $489,144 at DD
+    #    -19.8k vs -22.2k (MAR 3.01), LB $86,074 vs $70,527 at DD -19.9k (raw -22.1k); #304 WF
+    #    $490,614 at DD -16.6k (raw -16.9k), LB $139,016 vs $121,069 at DD -26.9k (raw -24.5k).
+    #    NOISE only: fails ENGU-Q's lockbox (24h tape), and on ORB it costs WF drawdown.
+    "v11": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+            "fast": {"W": 50, "lo": -0.5, "hi": 0.5},
+            "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
+            "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0},
+            "dow": {"4": 1.5, "cap": 3.0}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
@@ -364,6 +378,12 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
             size[k] = float(np.clip(1.0 - shade["k"] * z[k], shade["lo"], shade["hi"]))
         else:
             size[k] = float(np.clip(1.0 + K * tr * z[k], lo, hi))
+    dow = cfg.get("dow")
+    if dow:
+        # a-priori day-of-week multiplier on the entry bar's weekday (0=Mon .. 4=Fri)
+        _idx = pd.DatetimeIndex(arrays["index"]); _wd = _idx[np.clip(E, 0, len(_idx) - 1)].dayofweek
+        _m = np.array([float(dow.get(str(int(w)), 1.0)) for w in _wd])
+        size = np.minimum(size * _m, float(dow.get("cap", 3.0)))
     if comp and comp["feature"] in names:
         # a-priori compression multiplier on top of the learned size (TTM round 6), capped
         on = X[:, names.index(comp["feature"])] > 0

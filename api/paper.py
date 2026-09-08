@@ -83,6 +83,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_K8": "2026-09-08", # KEEL v8 (symmetric shade, 50-trade fast window) on the same crown, forward test only
     "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
     "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
+    "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
     "ORB_R6_C15": "2026-09-08",       # the ORB crown x compression 1.5x, no model (the tilt travels: LB $87k -> $102k at identical DD)
     "ENGUQ_309_C15": "2026-09-08",    # the ENGU-Q crown x compression 1.5x, no model (LB $86k -> $110k at better DD)
     "ENGUQ_309_K9": "2026-09-08",     # KEEL v9 on the ENGU-Q crown (WF $576k vs $471k at BETTER DD; LB = the tilt alone)      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
@@ -534,6 +535,14 @@ NOISE_243_KEEL8 = {"mode": "keel", "model": "keel", "version": "v8", "source_run
 # #243 $70,527 vs $60,615 at better DD. ENGUQ_309_K9 stays at v9 (window untested there).
 NOISE_243_KEEL9 = {"mode": "keel", "model": "keel", "version": "v10", "source_run": 243}
 NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 243}
+# KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
+# compression tilt: Friday has the highest EV R on both NOISE runs in both walk-forward and
+# lockbox; the tilt helps 9 of 10 WF years on both (t 4.35 / 3.76). On top of v10: #243 WF
+# $523,751 at DD -19.8k (v10 -22.2k), LB $86,074 vs $70,527 at DD -19.9k (raw -22.1k); #304 WF
+# $490,614 at DD -16.6k (raw -16.9k), LB $139,016 vs $121,069 at DD -26.9k (raw -24.5k). NOISE
+# only (fails ENGU-Q's lockbox; costs ORB WF drawdown). THE CLAIM: from 2026-09-08 K11 beats
+# NOISE_SBS_V90 on net at drawdown within 25% of the control's, and beats K9. FORWARD EVIDENCE ONLY.
+NOISE_243_KEEL11 = {"mode": "keel", "model": "keel", "version": "v11", "source_run": 243}
 # THE TILT TRAVELS (2026-09-07). Read on the crowns' own WF / lockbox stretches, no model:
 #   ORB #314    LB $87,132 -> $101,788 at IDENTICAL DD (MAR 3.80 -> 4.44); WF +13% at DD +14%.
 #   ENGU-Q #309 LB $85,511 -> $109,921 at BETTER DD (MAR 1.75 -> 2.32); WF +13% at DD +10%.
@@ -773,6 +782,15 @@ LEG_SOURCE = {
                 "year-by-year consistency (WF t 3.4 / 2.9 on the two NOISE runs). Crown lockbox "
                 "read $121k vs raw $82k at drawdown within 3%. NOISE_SBS_V90 is the exact control "
                 "and NOISE_SBS_V90_C15 is the no-model compression control.",
+    },
+    "NOISE_SBS_V90_K11": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v11 (v10 x 1.5 Friday)",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-08",
+        "note": "The crowned #243 config with KEEL v11: v10 (50-trade fast ledger, symmetric shade, "
+                "1.5x on coiled-hour entries) times 1.5x on Friday entries, an a-priori day tilt "
+                "found by the same scan that found compression and robust in 9 of 10 walk-forward "
+                "years on both NOISE runs. Crown lockbox read $139k vs raw $82k at drawdown within "
+                "10%. Added 2026-09-08; NOISE_SBS_V90 is the exact control.",
     },
     "ORB_R6_C15": {
         "run": 314, "run_label": "#314 ORB crown + compression tilt 1.5x (no model)",
@@ -1077,6 +1095,12 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_COMP15, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_C15"]},
+    # ADDED 2026-09-08: KEEL v11 = v10 x 1.5 Friday (see NOISE_243_KEEL11). FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_K11", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_KEEL11, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_K11"]},
     # ADDED 2026-09-07: the compression tilt travels - ORB and ENGU-Q crowns, no model. FORWARD EVIDENCE ONLY.
     {"key": "ORB_R6_C15", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
