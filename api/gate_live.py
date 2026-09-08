@@ -158,9 +158,15 @@ def _log(msg):
 
 
 def _gated_legs():
-    """The paper legs that carry a gate -- the single source of truth for what to serve."""
+    """The paper legs that carry a gate -- the single source of truth for what to serve.
+
+    2026-09-07: KEEL legs (gate mode "keel", augur_engine/ml_keel.py) are ENGINE-SIDE paper
+    overlays with no live artifact - their sizes come from a rolling walk inside api/paper_gate,
+    not from a pickled model. Serving them here raised "unknown gate model 'keel'" per leg and
+    flipped the whole service to DOWN on the board while every NT leg was in fact loaded."""
     from api import paper
-    return [l for l in paper.PAPER_LEGS if l.get("gate")]
+    return [l for l in paper.PAPER_LEGS
+            if l.get("gate") and str(l["gate"].get("mode") or "").lower() != "keel"]
 
 
 # ── nightly artifact ──────────────────────────────────────────────────────────────
