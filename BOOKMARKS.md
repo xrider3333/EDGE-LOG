@@ -234,3 +234,13 @@ daily corr 0.19 (0.35 shared days), $136k of $151k earned on ORB days; ORB+GAPGO
 12-month lockbox, window pinned to ORB crown 2010-06-07..2026-08-13). Open knobs gap_mult 0.10-0.30, stop_mult
 0.5-1.0, or_bars 1-3. **Hand-off for another session:** 24h tape, ES, gap as a regime gate on the ORB crown
 (replace/gate first-candle direction with gap direction), confirmation-bar count.
+
+### B21 addendum — rounds 35-36 (rows 1300-1309, v73.579): GAPGO is a FAMILY
+
+- **The gap is not yesterday:** first-bar break in the prior-day direction = PF 1.10, top-10 135%, ex-top-10 negative (`tools/r35_family_seeds4.py`).
+- **ES transfer:** GAPGO 0.15 ATR on ES = PF 1.20, 6/8, top-10 72%, $56,733 at $50/pt — same sign, a quarter of the edge; not a leg.
+- **B22 — GAPGO TRAVEL 1.0 (`augur_strategies/GAPGO_TRAVEL_1_0.py`)**: at 10:00 ET, |close − open| ≥ 0.3 × ATR20 → go with it, stop at the open, BE 1R pinned, flat at close. Triage n=1050 / $146,387 / PF 1.345 / DD $18,115 / n/DD 8.08 / 6-of-8 / top-10 54% (ex-top-10 +$67,064 PF 1.16). Edge decays with the clock (10:30 PF 1.23, 11:00 PF 1.16). Parity exact.
+- **Why a family member, not a twin** (`tools/r36b_travel_vs_gapgo.py`): 26% of GAPGO days shared, TRAVEL earns +$157,283 on non-GAPGO days and −$10,896 on shared days, daily corr 0.24; pooled 1:1 n/DD 9.79 vs 9.06 / 8.08 alone.
+- **Overnight-range position** (open in the outer 20% of the 18:00-09:25 range → first-bar break) is a third read: PF 1.31, 7/8, but 88% top-10 — noted, not adopted.
+- **Dead in r35-36:** STREAK (3/4-bar persistence), FAILED FILL. 17 more cells.
+- **Validates queued:** GAPGO_1_0 (G59lJB5aID4v2EFBqrAi) and GAPGO_TRAVEL_1_0 (`tools/queue_travel_validate.py`), both 8 WF folds / 12-month lockbox / ORB crown window 2010-06-07..2026-08-13. **Hand-off point = both posted.**
