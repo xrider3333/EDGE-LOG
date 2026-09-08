@@ -38,6 +38,15 @@ fixture at 1400 in both themes. 'ready' proves the compact readiness card reads 
 Not wired into wt.py ship (ad hoc verification tool), but written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
 serving the repo over loopback so index.html's own fetches never fire.
+
+DENSITY PASS 2026-09-08 (owner: 1920x1080 screenshot, "seems like I have to scroll down a
+lot" -- a 48px hero spread over four stacked lines, a ~330px chart with two dots, then the
+tiles, then everything else off-screen). Compacted the hero to one row, gave the chart a
+fixed 220px/180px height, tightened qb-card padding, and added a >=1100px two-column shell
+(left: chart/tiles/activity/trades/footer, right: a sticky Readiness->Legs->Integrity rail)
+that collapses back to the same single-column DOM order below 1100px. 'mono_real_1400' and
+'fold_mock_1400' below measure getBoundingClientRect().bottom of the tiles row and the
+readiness card at 1400x900 and assert both are <=900px -- see the FOLD_LIMIT block in main().
 """
 import http.server
 import io
@@ -133,6 +142,18 @@ var IW=__IW__;
       out.legRowCount=d.querySelectorAll('[data-qblegrow]').length;
       out.bodyScrollW=d.body?d.body.scrollWidth:null;
       out.overflowOk=(out.bodyScrollW==null)||(out.bodyScrollW<=IW+2);
+
+      // ── density pass 2026-09-08 fold measurement -- the owner's complaint was
+      // "seems like I have to scroll down a lot"; these read back the ACTUAL rendered
+      // bottom (getBoundingClientRect, viewport-relative, iframe has no scroll offset at
+      // first paint) of the tiles row and the compact readiness card so the acceptance
+      // check (<=900px at 1400x900) is measured, not eyeballed. readinessBottom is null
+      // when the fixture published no readiness doc (e.g. the 'real' fixture) -- that is
+      // an honest "not applicable", not a failure.
+      var tilesEl=d.querySelector('.qb-sec-tiles');
+      out.tilesBottom=tilesEl?tilesEl.getBoundingClientRect().bottom:null;
+      var readyEl=d.querySelector('.qb-sec-ready');
+      out.readinessBottom=readyEl?readyEl.getBoundingClientRect().bottom:null;
 
       if(OPENCHECKS&&!DEEP){
         // lightweight: open ONLY the readiness "All checks" disclosure, so a passing
@@ -340,6 +361,10 @@ def main():
     # the named alarms screenshot below stays in its natural collapsed state.
     extra_plan = [
         ('alarms_checks_open', 'alarms', 1400, 1400, 'mono', False, False, True),
+        # density pass 2026-09-08 -- 'mock' fixture DOES publish a readiness doc (unlike
+        # 'real', a 2-trade doc with no readiness field yet), so this case is what proves
+        # the readiness card itself also clears the 1400x900 fold, not just the tiles row.
+        ('fold_mock_1400', 'mock', 1400, 900, 'mono', False, False, False),
     ]
 
     # ── named screenshot cases (the 5 the owner asked for, plus 'ready'/'healthy' checks) ──
@@ -498,6 +523,46 @@ def main():
     r_sheet = results.get('sheet_open_1400', {})
     if r_sheet.get('err'):
         fails.append('sheet_open_1400: %s' % r_sheet['err'])
+
+    # ── density pass 2026-09-08 fold check (owner: "seems like I have to scroll down a
+    # lot" at 1920x1080, screenshot showed a near-empty ~330px chart and everything below
+    # the four tiles off-screen). Acceptance: at 1400x900, hero + chart + tiles + readiness
+    # (start of legs) fit without scrolling -- measured via getBoundingClientRect, not
+    # eyeballed. 'mono_real_1400' is the named screenshot the owner asked for (the REAL
+    # fixture, no readiness doc published yet, so only the tiles bound applies there);
+    # 'fold_mock_1400' is the same 1400x900 mono render on a fixture that DOES publish
+    # readiness, so the readiness-card bound gets a real check too. ──
+    FOLD_LIMIT = 900
+    r_fold_real = results.get('mono_real_1400', {})
+    if r_fold_real.get('err'):
+        fails.append('mono_real_1400 (fold): %s' % r_fold_real['err'])
+    else:
+        tb = r_fold_real.get('tilesBottom')
+        if tb is None:
+            fails.append('mono_real_1400 (fold): tiles row (.qb-sec-tiles) not found')
+        elif tb > FOLD_LIMIT:
+            fails.append('mono_real_1400 (fold): tiles row bottom %.1fpx > %dpx' % (tb, FOLD_LIMIT))
+        rb = r_fold_real.get('readinessBottom')
+        if rb is not None and rb > FOLD_LIMIT:
+            fails.append('mono_real_1400 (fold): readiness card bottom %.1fpx > %dpx' % (rb, FOLD_LIMIT))
+        # rb is None here in the current fixture set (the 'real' doc has not published a
+        # readiness block yet) -- that is a data gap, not a layout failure; fold_mock_1400
+        # below is what actually exercises the readiness-card bound.
+
+    r_fold_mock = results.get('fold_mock_1400', {})
+    if r_fold_mock.get('err'):
+        fails.append('fold_mock_1400 (fold): %s' % r_fold_mock['err'])
+    else:
+        tb = r_fold_mock.get('tilesBottom')
+        if tb is None:
+            fails.append('fold_mock_1400 (fold): tiles row (.qb-sec-tiles) not found')
+        elif tb > FOLD_LIMIT:
+            fails.append('fold_mock_1400 (fold): tiles row bottom %.1fpx > %dpx' % (tb, FOLD_LIMIT))
+        rb = r_fold_mock.get('readinessBottom')
+        if rb is None:
+            fails.append('fold_mock_1400 (fold): readiness card (.qb-sec-ready) not found on a fixture that publishes readiness')
+        elif rb > FOLD_LIMIT:
+            fails.append('fold_mock_1400 (fold): readiness card bottom %.1fpx > %dpx' % (rb, FOLD_LIMIT))
 
     for nm, r in results.items():
         print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k not in ('html', 'moreStatsHtml')}, indent=1))

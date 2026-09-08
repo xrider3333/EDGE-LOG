@@ -438,24 +438,33 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
   .ov-shell.qqq-ov-shell .ov-cc-grid .ov-cal{order:0;margin-bottom:12px}
 }
 /* ── QB — QQQ Shadow Book Robinhood/iOS re-skin (2026-09-08), qb- prefixed, additive ── */
+/* density pass 2026-09-08 (owner: "seems like I have to scroll down a lot") — compact
+   hero, fixed-height chart, tighter card padding, and a >=1100px two-column shell with a
+   sticky right rail (Readiness -> Legs -> Integrity) so the fold shows hero+chart+tiles+
+   readiness on a 1400x900 screen. Below 1100px this collapses back to the single column,
+   same DOM order as before, so nothing about the mechanism/behaviour changed, only spacing. */
 .qb-shell{max-width:1120px;margin:0 auto;padding:0 24px;box-sizing:border-box}
 .qb-shell *{box-sizing:border-box}
-.qb-hero{padding:4px 0 20px}
+.qb-hero{padding:8px 0 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.qb-hero-left{min-width:0}
 .qb-hero-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text4);font-weight:700}
-.qb-hero-num{font-variant-numeric:tabular-nums;font-size:48px;font-weight:600;line-height:1.05;margin-top:8px;word-break:break-word}
-.qb-hero-sub{font-size:13px;color:var(--text3);margin-top:6px}
-.qb-hero-status{font-size:12px;color:var(--text4);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.qb-hero-refresh{cursor:pointer;border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-size:11px;color:var(--text3);background:transparent}
-.qb-attnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.qb-hero-num{font-variant-numeric:tabular-nums;font-size:40px;font-weight:600;line-height:1.05;margin-top:4px;word-break:break-word}
+.qb-hero-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.qb-hero-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-top:6px;max-width:100%}
+.qb-hero-statusline{font-size:12px;color:var(--text4);white-space:nowrap}
+.qb-hero-refresh{cursor:pointer;border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-size:11px;color:var(--text3);background:transparent;white-space:nowrap}
 .qb-chip{font-size:10px;font-weight:700;letter-spacing:.04em;padding:4px 10px;border-radius:999px;white-space:nowrap;border:1px solid currentColor}
-.qb-chart-wrap{margin:8px 0 24px;position:relative}
-.qb-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.qb-chart-wrap{margin:0 0 16px;position:relative}
+.qb-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:0}
 .qb-chart-head .lbl2{font-size:11px;color:var(--text4);letter-spacing:.04em}
-.qb-card{background:var(--bg1);border-radius:16px;padding:18px 20px;margin-bottom:16px;overflow-x:auto}
+.qb-chart-svg{display:block;width:100%;height:220px}
+.qb-chart-legend{margin-top:8px}
+@media(max-width:600px){.qb-chart-svg{height:180px}}
+.qb-card{background:var(--bg1);border-radius:16px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
 [data-theme="paper"] .qb-card{border:1px solid var(--border)}
 .qb-section-hd{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text4);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .qb-list{padding:2px 0}
-.qb-row{display:flex;align-items:center;min-height:44px;gap:10px;border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent);padding:8px 2px}
+.qb-row{display:flex;align-items:center;min-height:40px;gap:10px;border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent);padding:6px 2px}
 .qb-row:last-child{border-bottom:none}
 .qb-row-label{color:var(--text3);font-size:13px;flex:1;min-width:0}
 .qb-row-sublabel{font-size:11px;color:var(--text5);margin-top:2px}
@@ -464,21 +473,21 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 .qb-chevron{color:var(--text5);font-size:16px;margin-left:2px;flex:0 0 auto}
 .qb-tap{cursor:pointer}
 .qb-tap:hover{background:color-mix(in srgb,var(--text) 3%,transparent);border-radius:8px}
-.qb-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-.qb-tile{background:var(--bg2);border-radius:16px;padding:14px;min-width:0}
+.qb-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+.qb-tile{background:var(--bg2);border-radius:14px;padding:10px 12px;min-width:0}
 [data-theme="paper"] .qb-tile{border:1px solid var(--border)}
 .qb-tile-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text4)}
-.qb-tile-val{font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;margin-top:5px;word-break:break-word}
+.qb-tile-val{font-variant-numeric:tabular-nums;font-size:17px;font-weight:600;margin-top:3px;word-break:break-word}
 @media(max-width:600px){.qb-tiles{grid-template-columns:repeat(2,1fr)}}
 .qb-seg{display:inline-flex;background:var(--bg2);border-radius:999px;padding:3px;gap:2px}
 .qb-seg button{border:none;background:transparent;color:var(--text4);font-size:11px;font-weight:600;letter-spacing:.03em;padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit}
 .qb-seg button.on{background:var(--bg1);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.35)}
 [data-theme="paper"] .qb-seg button.on{box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .qb-pill{font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid currentColor}
-.qb-bar{height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:10px}
+.qb-bar{height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:8px}
 [data-theme="paper"] .qb-bar{background:rgba(0,0,0,0.08)}
 .qb-bar>div{height:100%}
-.qb-disclosure{cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 2px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.qb-disclosure{cursor:pointer;display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
 .qb-disclosure-arrow{font-size:11px;color:var(--text5);width:12px;flex:0 0 auto}
 .qb-spark-cell{width:60px;flex:0 0 60px}
 .qb-leg-detail{margin-top:10px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;gap:18px;flex-wrap:wrap;font-size:12px;width:100%}
@@ -496,7 +505,40 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
 @keyframes qbSlideUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .qb-attn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;flex:0 0 auto}
 .qb-hairline-top{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:6px;padding-top:10px}
-@media(max-width:760px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:38px}.qb-chart-head{flex-wrap:wrap}}
+@media(max-width:760px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:34px}.qb-chart-head{flex-wrap:wrap}}
+/* ── two-column shell at >=1100px: left = chart/tiles/activity/trades/footer, right =
+   a sticky rail (readiness -> legs -> integrity). Paired grid rows (chart+ready,
+   tiles+legs, activity+integrity) so each right-rail card starts level with its
+   left-column counterpart, then sticks at top:54px (same offset as the QQQ overview
+   tab's own sticky rail) while its row scrolls past, handing off to the next. ── */
+@media(min-width:1100px){
+  .qb-shell{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 360px;
+    grid-template-areas:
+      "hero hero"
+      "chart ready"
+      "tiles legs"
+      "activity integrity"
+      "trades ."
+      "orders ."
+      "footer .";
+    gap:20px;
+    align-items:start;
+  }
+  .qb-shell .qb-card{margin-bottom:0}
+  .qb-chart-wrap{margin:0}
+  .qb-hero{grid-area:hero}
+  .qb-chart-wrap{grid-area:chart}
+  .qb-sec-tiles{grid-area:tiles}
+  .qb-sec-ready{grid-area:ready;position:sticky;top:54px}
+  .qb-sec-legs{grid-area:legs;position:sticky;top:54px}
+  .qb-sec-activity{grid-area:activity}
+  .qb-sec-integrity{grid-area:integrity;position:sticky;top:54px}
+  .qb-sec-trades{grid-area:trades}
+  .qb-sec-orders{grid-area:orders}
+  .qb-sec-footer{grid-area:footer}
+}
 </style>
 </head>
 <body>
@@ -541,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.585';
+const VERSION='73.586';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -560,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.586',date:'2026-09-08',notes:['QQQ SHADOW BOOK density pass. The first screen used to be a four-line header and a mostly empty chart, so everything useful sat below the fold. The header is now one row, the chart is a fixed 220 pixels, and on wide screens the page becomes two columns: chart, stat tiles, activity and trades on the left; the readiness card, legs and integrity list in a sticky column on the right. On a 1400 by 900 window the tiles and the readiness card both finish above 900 pixels, and the page probe now measures that rather than trusting a screenshot. Phones keep the single column.']},
 {v:'73.585',date:'2026-09-08',notes:['STUDIES: the run-331 row is renumbered 1314 (it had been given 1288 in a push that raced the rounds 32-34 rows, which already held 1288). Row numbers are permanent handles and a duplicate is worse than a gap; nothing else about the row changed.']},
 {v:'73.583',date:'2026-09-08',notes:['STUDIES BOARD: GAPGO family validates, rows 1310 to 1313 - runs #330 (GAPGO 1.0) and #329 (GAPGO TRAVEL 1.0) both pass all six gates on the selection window (walk-forward 8 of 8 and 7 of 8 folds, high-ground plateaus) and both LOSE the sealed lockbox year: minus 39,179 at profit factor 0.77 and minus 15,923 at 0.90. Verdict FAIL on both. June-July 2026 did the damage (median overnight gap half the daily range, every gap-size bucket lost); the data is clean Databento; the ORB crown earned 88,943 in the same twelve months, so the gap READ broke, not the opening-momentum factor.','The family is NOT validated and is not being handed over as one; files, harnesses and the lockbox diagnosis (tools/gapgo_lockbox_year.py) stay in the repo. The GAPGO family rail description now says so.']},
 {v:'73.582',date:'2026-09-08',notes:['COMPARE - STUDIES: run 331, the hourly-compression SIZE TILT on the NOISE paper leg, joins round 6 as row 1314. It PASSED every house gate (walk-forward 8 of 8, overfit probability 0.19, lockbox 101,628 dollars at profit factor 1.65, annualised MAR 1.77 vs raw 1.34) and did NOT clear the bar pre-registered before it ran: the search crowned the most aggressive corner (2x, 30-minute check, loosest ratio) whose lockbox drawdown sits 31 percent above raw against a 25 percent cap - 979 dollars over. Fourteen of the sixteen fenced cells clear every clause; every 1.5x cell does, including the C15 leg already in the paper forward test (drawdown BELOW raw). Nothing is re-crowned after the fact.']},
@@ -25473,13 +25516,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const statusBits=['shadow only',(mOpen?'market open':'market closed'),
           (QE?(QE.feed_stale?'feed stale':'feed OK'):'feed unknown'),
           (QRHEALTH?(QRHEALTH.warn?'ratio warn':'ratio fresh'):null)].filter(Boolean).join(' · ');
+        // density pass 2026-09-08 (owner: too much scroll before the fold) -- title+number
+        // on the left, status sentence + attention chips (only when present) + Refresh all
+        // share ONE row on the right, so the whole hero fits under ~120px on desktop.
         return '<div class="qb-hero">'
+          +'<div class="qb-hero-left">'
           +'<div class="qb-hero-title">QQQ Shadow Book</div>'
           +'<div class="qb-hero-num" style="color:'+(netVal==null?'var(--text)':pnlCol(netVal))+'">'+(netVal==null?'—':qeMoney(netVal))+'</div>'
           +'<div class="qb-hero-sub">'+sinceLabel+'</div>'
-          +'<div class="qb-hero-status"><span>'+statusBits+'</span><span style="flex:1"></span>'
-          +'<button class="qb-hero-refresh" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button></div>'
-          +(chips.length?('<div class="qb-attnrow">'+chips.join('')+'</div>'):'')
+          +'</div>'
+          +'<div class="qb-hero-right">'
+          +'<span class="qb-hero-statusline">'+statusBits+'</span>'
+          +chips.join('')
+          +'<button class="qb-hero-refresh" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'
+          +'</div>'
           +'</div>';
       };
 
@@ -25576,7 +25626,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // checklist (readinessHtml's rows), nothing recomputed.
         const passedN=checks.filter(c=>c[1]===true).length, totalN=checks.length;
         const topMissing=(missing.length?missing:checks.filter(c=>c[1]===false).map(c=>c[2])).slice(0,2);
-        readinessCompactHtml='<div class="qb-card">'
+        readinessCompactHtml='<div class="qb-card qb-sec-ready">'
           +'<div class="qb-section-hd">Ready for real shares?</div>'
           +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
           +'<div style="font-size:20px;font-weight:800;color:'+(QREADY.ready?'var(--attn-ok)':'var(--attn-amber)')+'">'+(QREADY.ready?'READY':'NOT READY')+'</div>'
@@ -26091,8 +26141,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const periodSeg=qbSegHtml('period',[['1W','1W'],['1M','1M'],['3M','3M'],['ALL','ALL']],qbChartPeriod);
           if(!totalSeries.length){
             equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L</span>'+periodSeg+'</div>'
-              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px 0 4px">curve starts with the first closed shadow trade</div>'
-              +'<svg viewBox="0 0 760 50" width="100%" style="display:block;max-width:760px"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg></div>';
+              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:8px 0 0">curve starts with the first closed shadow trade</div>'
+              +'<svg class="qb-chart-svg" viewBox="0 0 760 50" preserveAspectRatio="none"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg></div>';
           }else{
             const W=760,H=220,padL=8,padR=8,padT=14,padB=22;
             const plotW=W-padL-padR,plotH=H-padT-padB;
@@ -26104,7 +26154,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // to the y-axis, and draw it as a dot (a 1-point polyline renders nothing).
             const x=i=>padL+(allDates.length<=1?plotW/2:(i/(allDates.length-1))*plotW);
             const y=v=>padT+plotH-((v-ymin)/(ymax-ymin))*plotH;
-            let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:'+W+'px">';
+            let svg='<svg class="qb-chart-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
             svg+='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="var(--border)" stroke-dasharray="3,3"/>';
             // ── G. legend toggle — window._qeChartHidden{key:true} hides a series; the
             // legend swatch itself is the click target (data-qelegend).
@@ -26132,7 +26182,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const legItem=(key,label,color)=>'<span class="qe-legend-item'+(hiddenSet[key]?' off':'')+'" data-qelegend="'+key+'" title="click to show/hide this line" style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+color+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>';
             const legend=legItem('total','TOTAL','var(--text)')
               +QE_LEGS.map(([k,label,color])=>legItem(k,label,color)).join('');
-            equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L since '+naS(QE.live_from)+'</span>'+periodSeg+'</div>'+svg+'<div style="margin-top:6px">'+legend+'</div></div>';
+            equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L since '+naS(QE.live_from)+'</span>'+periodSeg+'</div>'+svg+'<div class="qb-chart-legend">'+legend+'</div></div>';
           }
         }
 
@@ -26163,7 +26213,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<td style="text-align:right;color:'+((o.latency_s!=null&&o.latency_s>10)?'var(--red)':'var(--text3)')+'">'+(o.latency_s!=null?qeNum(o.latency_s,2)+'s':'—')+'</td>'
               +'<td style="color:var(--text4)">'+String(naS(o.reason)).replace(/</g,'&lt;')+tagFor(o.reason)+'</td>'
               +'</tr>').join('');
-            ordersHtml='<div class="qb-card"><div class="qb-section-hd">Today&rsquo;s orders (' +orders.length+')</div>'
+            ordersHtml='<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Today&rsquo;s orders (' +orders.length+')</div>'
               +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th style="text-align:right">LATENCY</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
           }
         }
@@ -26395,14 +26445,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +qbStatRow('Open exposure',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):null)
           +qbStatRow('Daily loss limit',rails.daily_loss_limit_usd!=null?qeMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'—',dllNearLimit?'var(--attn-red)':null)
           +'</div>';
-        const qbStatsCard='<div class="qb-card">'
+        const qbStatsCard='<div class="qb-card qb-sec-tiles">'
           +qbTilesHtml
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="morestats"><span class="qb-disclosure-arrow">'+(moreStatsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">More stats</span></div>'
           +(moreStatsOpen?qbMoreStatsBody:'')
           +'</div>';
 
         // ── 6. ACTIVITY — calendar restyled, feed/signals strips behind a disclosure.
-        const qbActivityCard='<div class="qb-card"><div class="qb-section-hd">Activity</div>'
+        const qbActivityCard='<div class="qb-card qb-sec-activity"><div class="qb-section-hd">Activity</div>'
           +qeCalHtml.cal
           +(qeCalHtml.hasStrips?('<div class="qb-disclosure qb-tap" data-qbdisclosure="feedsig"><span class="qb-disclosure-arrow">'+(feedSigOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Feed &amp; signals</span></div>'
             +(feedSigOpen?('<div style="margin-top:4px">'+qeCalHtml.strips+'</div>'):'')):'')
@@ -26412,7 +26462,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // orders shown only when non-empty.
         const qbTradesSeg=qbSegHtml('tradesview',[['list','List'],['table','Table']],qbTradesView);
         const qbCsvBtn='<button class="qb-hero-refresh" data-qeexportcsv title="Export CSV" style="padding:5px 10px">⬇</button>';
-        const qbTradesCard='<div class="qb-card"><div id="qe-trades-section"></div>'
+        const qbTradesCard='<div class="qb-card qb-sec-trades"><div id="qe-trades-section"></div>'
           +'<div class="qb-section-hd" style="justify-content:space-between">'
           +'<span>Trades ('+closedN+')</span>'
           +'<span style="display:flex;gap:8px;align-items:center;flex:0 0 auto">'+qbTradesSeg+qbCsvBtn+'</span>'
@@ -26431,7 +26481,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbLatencyDotCol=(QLAT&&qeNumOr(QLAT.p95_s)!=null&&QLAT.p95_s>10)?'var(--attn-red)':null;
         const qbRepriceDotCol=QREPRICE?(qeCovPct(QREPRICE.coverage_pct)>=90?null:'var(--attn-amber)'):null;
         const qbFeedDotCol=feedMean!=null?(feedMean>=99?null:feedMean>=95?'var(--attn-amber)':'var(--attn-red)'):null;
-        const qbIntegrityCard='<div class="qb-card"><div class="qb-section-hd">Integrity</div><div class="qb-list">'
+        const qbIntegrityCard='<div class="qb-card qb-sec-integrity"><div class="qb-section-hd">Integrity</div><div class="qb-list">'
           +qbIntegrityRow('Parity',(parTotal!=null)?(parMatched+' / '+parTotal):'—',parFailed>0?'var(--attn-red)':null,'parity')
           +qbIntegrityRow('Feed uptime',feedMean!=null?feedMean.toFixed(1)+'%':'—',qbFeedDotCol,'feeduptime')
           +qbIntegrityRow('Ratio',QE&&QE.calib?qeNum(QE.calib.ratio,3):'—',(QRHEALTH&&QRHEALTH.warn)?'var(--attn-amber)':null,'ratio')
@@ -26441,7 +26491,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
 
         // ── 9. FOOTER DISCLOSURES — Rails / Event timeline / Model reference, collapsed,
         // state remembered per browser same as the MODEL section already did.
-        const qbFooter='<div class="qb-card">'
+        const qbFooter='<div class="qb-card qb-sec-footer">'
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="rails" style="border-top:none"><span class="qb-disclosure-arrow">'+(railsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Rails</span></div>'
           +(railsOpen?('<div style="margin-top:4px">'+railsHtml+'</div>'):'')
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="events"><span class="qb-disclosure-arrow">'+(eventsOpenState?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Event timeline'+(QEVT&&QEVT.length?(' ('+QEVT.length+')'):'')+'</span></div>'
@@ -26486,7 +26536,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +equityHtml
           +qbStatsCard
           +readinessCompactHtml
-          +'<div class="qb-card"><div class="qb-section-hd">Legs</div>'+legListHtml+'</div>'
+          +'<div class="qb-card qb-sec-legs"><div class="qb-section-hd">Legs</div>'+legListHtml+'</div>'
           +qbActivityCard
           +qbTradesCard
           +(ordersHtml||'')
