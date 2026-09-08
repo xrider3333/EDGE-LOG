@@ -270,3 +270,96 @@ def test_leg_from_run_infers_eth_and_falls_back_lockbox_months(ta):
 def test_leg_from_run_missing_strategy_field_refuses(ta):
     with pytest.raises(SystemExit):
         ta._leg_dict_from_run_doc(999, {"instrument": "NQ"})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. summary JSON round-trips through --compare and the replication score
+#    counts correctly; a feature confirmed on 3 runs is CONSISTENT, a 4th run
+#    with a holdout sign flip does not block those 3 and is not itself counted.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _write_fake_summary(ta, out_dir, key, lift_r, lift_q, hold_lift, feature="path_r1",
+                        extra_winner=(), ledger_rows=()):
+    """Writes <key>_summary.json directly via write_summary_json, on hand-built inputs
+    (no leg replay, no bar data) -- exercises exactly the function run_leg() calls."""
+    winner_rows = [dict(feature=feature, group=ta.FEATURE_GROUP.get(feature, "path"),
+                        mean_top_decile=1.0, mean_bottom_decile=-1.0, mean_all=0.0,
+                        std_diff=0.4, lift=lift_r, lift_p=0.001 if lift_q is not None else None,
+                        lift_q=lift_q)] + list(extra_winner)
+    tercile_rows = [dict(feature=feature, threshold_top=1.0, threshold_bot=-1.0,
+                         disc_lift=lift_r, hold_lift=hold_lift,
+                         same_sign=(None if lift_r is None or hold_lift is None
+                                    else (lift_r > 0) == (hold_lift > 0)))]
+    leg_info = dict(key=key, label=f"leg {key}", family="TEST", file="TEST_1_0.py", run=None)
+    meta = dict(cfg=dict(instrument="NQ", timeframe="5m", session="RTH",
+                        date_from="2020-01-01", date_to="2021-01-01"),
+               boundary=datetime.date(2020, 7, 1), lockbox_from="2021-01-01",
+               n_discovery=100, n_holdout=50, n_lockbox_excluded=10, r_unit=200.0,
+               parity=dict(source="test", got_n=150, got_net=1000.0, expected_n=None,
+                          expected_net=None, ok=None))
+    return ta.write_summary_json(key, leg_info, meta, winner_rows, list(ledger_rows), tercile_rows, out_dir)
+
+
+def test_summary_json_roundtrip_and_replication_score(ta, tmp_path, monkeypatch):
+    monkeypatch.setattr(ta, "DOCS_ROOT", str(tmp_path))
+    keys = ["A", "B", "C", "D"]
+    # A, B, C: positive discovery lift, q < 0.10, holdout agrees (positive) -> should score.
+    # D: also positive discovery lift with q < 0.10, but holdout FLIPS negative -> must not score,
+    #    and must not block A/B/C.
+    specs = {"A": (0.50, 0.01, 0.40), "B": (0.60, 0.02, 0.30),
+            "C": (0.55, 0.03, 0.35), "D": (0.40, 0.02, -0.20)}
+    for k, (lift_r, lift_q, hold_lift) in specs.items():
+        fp = _write_fake_summary(ta, str(tmp_path), k, lift_r, lift_q, hold_lift)
+        assert os.path.exists(fp)
+
+    # round-trip: what load_summary reads back must be usable by build_replication_table
+    summaries = {k: ta.load_summary(k) for k in keys}
+    for k in keys:
+        assert summaries[k]["winner_anatomy"][0]["feature"] == "path_r1"
+        assert summaries[k]["tercile_lift_holdout"][0]["hold_lift"] == round(specs[k][2], 4)
+
+    rep_rows = ta.build_replication_table(summaries, keys)
+    row = next(r for r in rep_rows if r["feature"] == "path_r1")
+    assert row["rep_score"] == 3, "A, B, C should score (sig + holdout agree); D should not"
+    assert row["per_run"]["D"]["sig"] is True and row["per_run"]["D"]["agree"] is False
+
+    consistent = ta.consistent_conditions(rep_rows, keys, min_runs=3)
+    hit = [c for c in consistent if c["feature"] == "path_r1"]
+    assert len(hit) == 1
+    assert hit[0]["sign"] == 1
+    assert sorted(hit[0]["runs"]) == ["A", "B", "C"]
+    assert "D" not in hit[0]["runs"], "the holdout sign flip on D must not be listed as consistent"
+
+
+def test_ledger_rollup_robust_flag(ta, tmp_path, monkeypatch):
+    monkeypatch.setattr(ta, "DOCS_ROOT", str(tmp_path))
+    rule = dict(feature="ind_rsi14_bar", direction="skip_below", threshold=30.0, pctile=20, kind="skip")
+
+    def ledger_row(verdict, thr):
+        r = dict(rule)
+        r["threshold"] = thr
+        return dict(rule=r,
+                   disc=dict(kept_pct=70.0, net_rule=1000.0, net_base=800.0, pct_change=25.0,
+                            pf=1.5, dd=500.0, mar=2.0, base_mar=1.6, yrs_helped="2/3",
+                            tilt_net=1200.0, tilt_dd=600.0, tilt_mar=2.0),
+                   hold=dict(kept_pct=68.0, net_rule=400.0, net_base=300.0, pct_change=33.0,
+                            pf=1.4, dd=200.0, mar=2.0, base_mar=1.5, yrs_helped="1/2",
+                            tilt_net=450.0, tilt_dd=220.0, tilt_mar=2.0),
+                   verdict=verdict)
+
+    keys = ["A", "B", "C", "D"]
+    verdicts = {"A": "carries", "B": "carries", "C": "carries as tilt", "D": "regime artifact"}
+    for k in keys:
+        _write_fake_summary(ta, str(tmp_path), k, lift_r=None, lift_q=None, hold_lift=None,
+                            feature="unrelated", ledger_rows=[ledger_row(verdicts[k], thr=29.0 + hash(k) % 5)])
+
+    summaries = {k: ta.load_summary(k) for k in keys}
+    rollup = ta.ledger_rollup(summaries, keys)
+    assert len(rollup) == 1
+    row = rollup[0]
+    assert row["n_carries"] == 2 and row["n_tilt"] == 1 and row["n_regime"] == 1
+    assert row["robust"] is False, "one regime-artifact run must veto ROBUST even with 3 carrying runs"
+
+    # drop D (the regime artifact) -> 3 runs carry (either form), 0 regime artifacts -> ROBUST
+    rollup2 = ta.ledger_rollup({k: summaries[k] for k in ("A", "B", "C")}, ["A", "B", "C"])
+    assert rollup2[0]["robust"] is True

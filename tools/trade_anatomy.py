@@ -1293,6 +1293,56 @@ def build_money_ledger(rules, Xd, usd_d, ed_d, years_d, Xh, usd_h, ed_h, years_h
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# ANALYSIS 2d — holdout-only tercile lift, ONE fixed tercile per feature (top
+# third minus bottom third of that feature's own DISCOVERY distribution), so a
+# feature's discovery-vs-holdout sign agreement can be read directly, on the
+# same threshold, without going through feature_board's LIFT threshold picker
+# (which is not guaranteed to be a tercile). Feeds the cross-run COMPARE mode.
+# ─────────────────────────────────────────────────────────────────────────────
+
+TERCILE_LO_PCTILE = 100.0 / 3.0
+TERCILE_HI_PCTILE = 100.0 / 3.0 * 2.0
+
+
+def compute_tercile_lift_holdout(Xd, pnl_r_d, Xh, pnl_r_h, min_group=10):
+    """For every feature in Xd: fix top/bottom tercile thresholds on discovery, then
+    report the discovery lift AND the holdout lift on those SAME thresholds (mean pnl_R
+    in the top third minus the bottom third), plus whether their signs agree. Returns a
+    list of dicts, one per feature, in Xd.columns order."""
+    pnl_r_d = np.asarray(pnl_r_d, float)
+    pnl_r_h = np.asarray(pnl_r_h, float)
+    rows = []
+    for nm in Xd.columns:
+        xd = Xd[nm].to_numpy(float)
+        xh = Xh[nm].to_numpy(float) if nm in Xh.columns else np.full(len(pnl_r_h), np.nan)
+        valid_d = ~np.isnan(xd)
+        if valid_d.sum() < min_group:
+            rows.append(dict(feature=nm, threshold_top=None, threshold_bot=None,
+                             disc_lift=None, hold_lift=None, same_sign=None))
+            continue
+        top_thr = float(np.nanpercentile(xd, TERCILE_HI_PCTILE))
+        bot_thr = float(np.nanpercentile(xd, TERCILE_LO_PCTILE))
+
+        d_hi, d_lo = xd >= top_thr, xd <= bot_thr
+        disc_lift = None
+        if d_hi.sum() >= min_group and d_lo.sum() >= min_group:
+            disc_lift = float(np.nanmean(pnl_r_d[d_hi]) - np.nanmean(pnl_r_d[d_lo]))
+
+        h_hi, h_lo = xh >= top_thr, xh <= bot_thr
+        hold_lift = None
+        if np.nansum(h_hi) >= min_group and np.nansum(h_lo) >= min_group:
+            hold_lift = float(np.nanmean(pnl_r_h[h_hi]) - np.nanmean(pnl_r_h[h_lo]))
+
+        same_sign = None
+        if disc_lift is not None and hold_lift is not None and disc_lift != 0:
+            same_sign = bool(np.sign(disc_lift) == np.sign(hold_lift))
+
+        rows.append(dict(feature=nm, threshold_top=top_thr, threshold_bot=bot_thr,
+                         disc_lift=disc_lift, hold_lift=hold_lift, same_sign=same_sign))
+    return rows
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CHARTS — small, dark-neutral candlestick snapshots + one path-overlay chart
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1432,6 +1482,69 @@ def howto_lines():
 def write_features_json(out_dir, leg_key):
     doc = {nm: dict(group=FEATURE_GROUP[nm], desc=FEATURE_DESC[nm]) for nm in FEATURE_NAMES}
     fp = os.path.join(out_dir, f"{leg_key}_features.json")
+    with open(fp, "w", encoding="utf-8") as f:
+        json.dump(doc, f, indent=1)
+    return fp
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# machine-readable per-run summary — the input the --compare mode reads.
+# Floats round to 4dp; NaN/inf -> null (json.dump would otherwise emit the
+# non-standard "NaN"/"Infinity" tokens).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _jsonify(v):
+    if isinstance(v, dict):
+        return {k: _jsonify(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [_jsonify(x) for x in v]
+    if isinstance(v, (np.floating,)):
+        v = float(v)
+    if isinstance(v, float):
+        return round(v, 4) if np.isfinite(v) else None
+    if isinstance(v, (np.integer,)):
+        return int(v)
+    if isinstance(v, np.bool_):
+        return bool(v)
+    if isinstance(v, (datetime.date, datetime.datetime, pd.Timestamp)):
+        return v.isoformat()
+    return v
+
+
+def write_summary_json(leg_key, leg_info, meta, winner_rows, money_ledger, tercile_rows, out_dir):
+    """docs/anatomy/<leg_key>_summary.json -- everything --compare needs to read this leg without
+    re-running it: leg identity/window, every feature's winner-anatomy lift (not just the report's
+    top 20), every section-2c ledger row, and the holdout-only tercile lift per feature."""
+    cfg = meta["cfg"]
+    leg_meta = dict(
+        key=leg_key, label=leg_info.get("label"), family=leg_info.get("family"),
+        file=leg_info.get("file"), run=leg_info.get("run"),
+        instrument=cfg.get("instrument"), timeframe=cfg.get("timeframe"), session=cfg.get("session"),
+        date_from=cfg.get("date_from"), date_to=cfg.get("date_to"),
+        discovery_from=cfg.get("date_from"), discovery_to=meta["boundary"],
+        holdout_from=meta["boundary"], holdout_to=meta["lockbox_from"],
+        lockbox_from=meta["lockbox_from"], n_discovery=meta["n_discovery"], n_holdout=meta["n_holdout"],
+        n_lockbox_excluded=meta["n_lockbox_excluded"], r_unit=meta["r_unit"], parity=meta.get("parity"),
+    )
+    winner_out = [dict(feature=r["feature"], group=r["group"], lift_r=r["lift"], lift_q=r["lift_q"],
+                       top_dec_mean=r["mean_top_decile"], bot_dec_mean=r["mean_bottom_decile"],
+                       std_diff=r["std_diff"]) for r in winner_rows]
+    ledger_out = []
+    for row in money_ledger:
+        rule, rd, rh = row["rule"], row["disc"], row["hold"]
+        ledger_out.append(dict(
+            rule_text=rule_english(rule), feature=rule["feature"], direction=rule["direction"],
+            threshold=rule["threshold"], pctile=rule.get("pctile"), kind=rule.get("kind", "skip"),
+            kept_pct_d=rd["kept_pct"], kept_pct_h=rh["kept_pct"],
+            net_rule_d=rd["net_rule"], net_base_d=rd["net_base"],
+            net_rule_h=rh["net_rule"], net_base_h=rh["net_base"],
+            pct_d=rd["pct_change"], pct_h=rh["pct_change"],
+            mar_d=rd["mar"], base_mar_d=rd["base_mar"], mar_h=rh["mar"], base_mar_h=rh["base_mar"],
+            tilt_mar_d=rd["tilt_mar"], tilt_mar_h=rh["tilt_mar"],
+            skip_helped_d=rd["yrs_helped"], skip_helped_h=rh["yrs_helped"], verdict=row["verdict"]))
+    doc = _jsonify(dict(leg=leg_meta, winner_anatomy=winner_out, ledger=ledger_out,
+                        tercile_lift_holdout=tercile_rows))
+    fp = os.path.join(out_dir, f"{leg_key}_summary.json")
     with open(fp, "w", encoding="utf-8") as f:
         json.dump(doc, f, indent=1)
     return fp
@@ -1689,6 +1802,11 @@ def run_leg(leg_key):
     money_ledger = build_money_ledger(ledger_rules, Xd, usd_d, entry_date_d, years_d,
                                       Xh, usd_h, entry_date_h, years_h)
 
+    tercile_rows = compute_tercile_lift_holdout(Xd, pnl_r_d, Xh, hold["tr_pnl_r"].to_numpy(float))
+    leg_info = _find_leg(leg_key)
+    summ_fp = write_summary_json(leg_key, leg_info, meta, winner_rows, money_ledger, tercile_rows, out_dir)
+    print(f"[{leg_key}] wrote {summ_fp}")
+
     print(f"[{leg_key}] charts...")
     ranked_disc = disc.sort_values("tr_pnl_r", ascending=False).reset_index(drop=True)
     winners16 = ranked_disc.head(16)
@@ -1712,7 +1830,350 @@ def run_leg(leg_key):
     print(f"[{leg_key}] leg total time {time.time()-t_all:.1f}s")
 
     return dict(leg=leg_key, meta=meta, winner_rows=winner_rows, tree_leaves=tree_leaves,
-               skip_top_net=skip_top_net, holdout_rows=holdout_rows, money_ledger=money_ledger)
+               skip_top_net=skip_top_net, holdout_rows=holdout_rows, money_ledger=money_ledger,
+               tercile_lift_holdout=tercile_rows)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# --from-csv — rebuild sections 1/2/2c + the summary JSON from an existing
+# <KEY>_trades.csv (as written by run_leg above) with no Firestore and no price
+# data reload. Section 3 (charts) needs the bar-level OHLC this mode doesn't
+# have, so it is skipped. date_from/boundary/lockbox_from aren't columns on the
+# CSV, so they are re-derived from the trade dates themselves -- loudly flagged,
+# same convention as the run-doc-field ASSUMED notes above.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_trade_table_from_csv(csv_path, leg_key=None):
+    df = pd.read_csv(csv_path)
+    if "tr_entry_date" not in df.columns:
+        raise SystemExit(f"--from-csv {csv_path}: no tr_entry_date column -- not a trade_anatomy trades CSV")
+    entry_date = pd.to_datetime(df["tr_entry_date"]).dt.date
+    df["tr_entry_date"] = entry_date
+    missing_feats = [c for c in FEATURE_NAMES if c not in df.columns]
+    if missing_feats:
+        head = ", ".join(missing_feats[:5]) + ("..." if len(missing_feats) > 5 else "")
+        raise SystemExit(f"--from-csv {csv_path}: missing feature column(s) {head} -- not a "
+                         "trade_anatomy trades CSV")
+    for req in ("tr_set", "tr_pnl_r", "tr_net_usd"):
+        if req not in df.columns:
+            raise SystemExit(f"--from-csv {csv_path}: missing '{req}' column -- not a trade_anatomy "
+                             "trades CSV")
+
+    key = leg_key or (str(df["leg"].iloc[0]) if "leg" in df.columns and len(df)
+                      else os.path.splitext(os.path.basename(csv_path))[0].replace("_trades", ""))
+
+    disc = df[df["tr_set"] == "discovery"]
+    hold = df[df["tr_set"] == "holdout"]
+    all_dates = np.asarray(entry_date)
+    date_from = min(all_dates) if len(all_dates) else None
+    date_to = max(all_dates) if len(all_dates) else None
+    boundary = min(hold["tr_entry_date"]) if len(hold) else date_to
+    lockbox_from = (date_to + datetime.timedelta(days=1)) if date_to is not None else None
+    print(f"[--from-csv {key}] ASSUMED: date_from/boundary/lockbox_from are not columns on the CSV -- "
+         "re-derived from the trade dates themselves (date_from = earliest trade, boundary = earliest "
+         "holdout trade, lockbox_from = latest trade + 1 day). r_unit re-derived as the median "
+         "net_usd/pnl_R ratio. Section 3 (charts) is skipped -- no bar-level OHLC in a trades CSV.")
+
+    ratio = (disc["tr_net_usd"] / disc["tr_pnl_r"].replace(0, np.nan)).dropna()
+    r_unit = float(ratio.median()) if len(ratio) else 1.0
+    if not np.isfinite(r_unit) or r_unit <= 0:
+        r_unit = 1.0
+
+    cfg = dict(instrument="?", timeframe="?", session="?", date_from=str(date_from), date_to=str(date_to),
+              best_params={}, parity_source=f"from-csv:{csv_path}", parity_expected={})
+    meta = dict(leg=key, cfg=cfg, boundary=boundary, lockbox_from=str(lockbox_from),
+               n_total_replayed=len(df), n_lockbox_excluded=0, n_pre_lockbox=len(df),
+               n_dropped_no_history=0, r_unit=r_unit, n_discovery=int(len(disc)), n_holdout=int(len(hold)),
+               parity=dict(source=cfg["parity_source"], got_n=len(df), got_net=None,
+                          expected_n=None, expected_net=None, ok=None))
+    return df, meta
+
+
+def run_leg_from_csv(csv_path, leg_key=None):
+    print(f"\n===== --from-csv {csv_path} =====")
+    full, meta = build_trade_table_from_csv(csv_path, leg_key)
+    key = meta["leg"]
+    out_dir = DOCS_ROOT
+    os.makedirs(out_dir, exist_ok=True)
+
+    disc = full[full["tr_set"] == "discovery"].reset_index(drop=True)
+    hold = full[full["tr_set"] == "holdout"].reset_index(drop=True)
+    print(f"[{key}] discovery n={len(disc)}  holdout n={len(hold)}  boundary={meta['boundary']}  "
+         f"lockbox_from={meta['lockbox_from']}")
+
+    Xd = disc[FEATURE_NAMES]
+    pnl_r_d = disc["tr_pnl_r"].to_numpy(float)
+    usd_d = disc["tr_net_usd"].to_numpy(float)
+    entry_date_d = disc["tr_entry_date"].to_numpy()
+
+    winner_rows = winner_anatomy(Xd, pnl_r_d, entry_date_d)
+    tree_leaves, _ = fit_rule_tree(Xd, pnl_r_d, usd_d)
+    skip_candidates = mine_skip_rules(Xd, usd_d, entry_date_d)
+    skip_top_net = sorted(skip_candidates, key=lambda d: -d["net_per_trade"])[:10]
+    skip_top_mar = sorted(skip_candidates,
+                          key=lambda d: -(d["mar_proxy"] if d["mar_proxy"] == d["mar_proxy"] else -1e18))[:10]
+
+    Xh = hold[FEATURE_NAMES]
+    pnl_r_h = hold["tr_pnl_r"].to_numpy(float)
+    usd_h = hold["tr_net_usd"].to_numpy(float)
+    entry_date_h = hold["tr_entry_date"].to_numpy()
+    base_disc = float(usd_d.sum() / len(usd_d)) if len(usd_d) else float("nan")
+    base_hold = float(usd_h.sum() / len(usd_h)) if len(usd_h) else float("nan")
+    holdout_rows = []
+    for r in skip_top_net:
+        n_d, npt_d = eval_rule(Xd, usd_d, r)
+        n_h, npt_h = eval_rule(Xh, usd_h, r)
+        holdout_rows.append(dict(rule=r, disc_rule=npt_d, disc_base=base_disc, disc_n=n_d,
+                                 hold_rule=npt_h, hold_base=base_hold, hold_n=n_h))
+
+    years_d = max((pd.Timestamp(meta["boundary"]) - pd.Timestamp(meta["cfg"]["date_from"])).days / 365.25, 1e-6)
+    years_h = max((pd.Timestamp(meta["lockbox_from"]) - pd.Timestamp(meta["boundary"])).days / 365.25, 1e-6)
+    tercile_rule = build_tercile_rule(Xd)
+    ledger_rules = list(skip_top_net) + [tercile_rule]
+    money_ledger = build_money_ledger(ledger_rules, Xd, usd_d, entry_date_d, years_d,
+                                      Xh, usd_h, entry_date_h, years_h)
+    tercile_rows = compute_tercile_lift_holdout(Xd, pnl_r_d, Xh, pnl_r_h)
+
+    md_fp, n_lines = write_md(key, meta, winner_rows, tree_leaves, skip_top_net, skip_top_mar,
+                              holdout_rows, money_ledger, out_dir)
+    print(f"[{key}] wrote {md_fp} ({n_lines} lines)")
+
+    leg_info = dict(key=key, label=f"--from-csv {os.path.basename(csv_path)}",
+                    family=key.split("_")[0], file=None, run=None)
+    summ_fp = write_summary_json(key, leg_info, meta, winner_rows, money_ledger, tercile_rows, out_dir)
+    print(f"[{key}] wrote {summ_fp}")
+
+    return dict(leg=key, meta=meta, winner_rows=winner_rows, tree_leaves=tree_leaves,
+               skip_top_net=skip_top_net, holdout_rows=holdout_rows, money_ledger=money_ledger,
+               tercile_lift_holdout=tercile_rows)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# --compare — read N legs' *_summary.json and write ONE cross-run answer:
+# which pre-entry conditions repeat, with the same sign, across the discovery
+# AND the once-touched holdout of multiple runs. Never re-runs anything.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def load_summary(key):
+    fp = os.path.join(DOCS_ROOT, f"{key}_summary.json")
+    if not os.path.exists(fp):
+        raise SystemExit(f"--compare: missing summary JSON for '{key}' at {fp} -- run "
+                         f"'python tools/trade_anatomy.py --leg {key}' (or --run/--job/--from-csv) "
+                         "first so it gets written.")
+    with open(fp, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _sign(x):
+    if x is None or (isinstance(x, float) and x != x):
+        return None
+    if x > 0:
+        return 1
+    if x < 0:
+        return -1
+    return 0
+
+
+def build_replication_table(summaries, keys):
+    """One row per FEATURE_META feature: each run's discovery-lift sign/q and holdout-tercile-lift
+    sign, a replication SCORE = count of runs where (discovery q<0.10) AND (holdout sign agrees), and
+    the mean |discovery lift| across runs that had one. Sorted by score desc, then mean |lift| desc."""
+    rows = []
+    for nm in FEATURE_NAMES:
+        per_run = {}
+        rep_score = 0
+        abs_lifts = []
+        for k in keys:
+            s = summaries[k]
+            wa = {r["feature"]: r for r in s.get("winner_anatomy", [])}
+            tl = {r["feature"]: r for r in s.get("tercile_lift_holdout", [])}
+            w, t = wa.get(nm), tl.get(nm)
+            lift_r = w.get("lift_r") if w else None
+            lift_q = w.get("lift_q") if w else None
+            hold_lift = t.get("hold_lift") if t else None
+            sign_d, sign_h = _sign(lift_r), _sign(hold_lift)
+            sig = lift_q is not None and lift_q < 0.10
+            agree = sign_d is not None and sign_h is not None and sign_d != 0 and sign_d == sign_h
+            if sig and agree:
+                rep_score += 1
+            if lift_r is not None:
+                abs_lifts.append(abs(lift_r))
+            per_run[k] = dict(lift_r=lift_r, lift_q=lift_q, hold_lift=hold_lift,
+                              sign_d=sign_d, sign_h=sign_h, sig=sig, agree=agree)
+        rows.append(dict(feature=nm, group=FEATURE_GROUP.get(nm, "?"), per_run=per_run,
+                         rep_score=rep_score, mean_abs_lift=float(np.mean(abs_lifts)) if abs_lifts else 0.0))
+    rows.sort(key=lambda r: (-r["rep_score"], -r["mean_abs_lift"]))
+    return rows
+
+
+def consistent_conditions(rep_rows, keys, min_runs=3):
+    """A feature is CONSISTENT (for a sign) if >= min_runs runs have BOTH a discovery lift of that
+    sign AND a holdout tercile lift of that same sign -- runs where holdout disagrees are simply not
+    part of that count; they don't disqualify the runs that do agree."""
+    out = []
+    for r in rep_rows:
+        per_run = r["per_run"]
+        for sign in (1, -1):
+            confirmed = [k for k in keys if per_run[k]["sign_d"] == sign and per_run[k]["sign_h"] == sign]
+            if len(confirmed) >= min_runs:
+                out.append(dict(feature=r["feature"], group=r["group"], sign=sign, runs=confirmed,
+                                detail={k: per_run[k] for k in confirmed}))
+    return out
+
+
+def _canonical_rule_text(feature, direction, pctile, kind):
+    cmp_ = "<" if direction == "skip_below" else ">"
+    tag = " [tercile]" if kind == "tercile" else ""
+    pc = "?" if pctile is None else pctile
+    return f"Skip trades where {feature} {cmp_} p{pc}{tag} (threshold fit per-run on its own discovery set)"
+
+
+def ledger_rollup(summaries, keys, min_runs=2, robust_min=3):
+    """Group each run's section-2c ledger rows by RULE RECIPE (feature + direction + percentile +
+    kind), not the literal formatted threshold -- thresholds are fit per-run on that run's own
+    discovery distribution, so the same recipe almost never lands on the same numeric threshold twice.
+    ROBUST = carries (either the filter or the size-tilt form) in >= robust_min runs and is a regime
+    artifact in none."""
+    by_rule = {}
+    for k in keys:
+        for row in summaries[k].get("ledger", []):
+            key_tup = (row["feature"], row["direction"], row.get("pctile"), row.get("kind", "skip"))
+            by_rule.setdefault(key_tup, {})[k] = dict(verdict=row["verdict"], rule_text=row["rule_text"],
+                                                       threshold=row["threshold"])
+    out = []
+    for (feature, direction, pctile, kind), per_run in by_rule.items():
+        if len(per_run) < min_runs:
+            continue
+        n_carries = sum(1 for v in per_run.values() if v["verdict"] == "carries")
+        n_tilt = sum(1 for v in per_run.values() if v["verdict"] == "carries as tilt")
+        n_regime = sum(1 for v in per_run.values() if v["verdict"] == "regime artifact")
+        robust = (n_carries + n_tilt) >= robust_min and n_regime == 0
+        out.append(dict(rule_text=_canonical_rule_text(feature, direction, pctile, kind),
+                        feature=feature, direction=direction, pctile=pctile, kind=kind,
+                        per_run={k: v["verdict"] for k, v in per_run.items()}, per_run_detail=per_run,
+                        n_carries=n_carries, n_tilt=n_tilt, n_regime=n_regime, robust=robust))
+    out.sort(key=lambda r: (-r["robust"], -(r["n_carries"] + r["n_tilt"]), r["n_regime"]))
+    return out
+
+
+def write_compare_md(keys, label, rep_rows, consistent, rollup, out_dir):
+    apos = chr(39)
+    L = [f"# COMPARE {label} -- cross-run replication", ""]
+    L.append(f"Runs compared ({len(keys)}): " + ", ".join(f"`{k}`" for k in keys) + ".")
+    L.append("")
+    L.append("This reads each run's own `<KEY>_summary.json` (never re-runs anything) and asks one "
+             "question: which pre-entry conditions repeat, with the same sign, in discovery AND in "
+             "that run's own once-touched holdout, across multiple runs.")
+    L.append("")
+
+    L.append("## a. Replication table")
+    L.append("")
+    L.append(f"Discovery lift sign per run (up-arrow positive / down-arrow negative), **bold** when that "
+             f"run's discovery lift_q < 0.10, plus a checkmark when the SAME run's holdout tercile lift "
+             f"(fixed threshold, from `tercile_lift_holdout`) has the same sign. Sorted by replication "
+             f"score (count of runs where q<0.10 AND holdout agrees), then mean |discovery lift|.")
+    L.append("")
+    L.append("| feature | group | " + " | ".join(keys) + " | rep score |")
+    L.append("|---|---|" + "---|" * len(keys) + "---|")
+    for r in rep_rows:
+        cells = []
+        for k in keys:
+            pr = r["per_run"][k]
+            sd = pr["sign_d"]
+            if sd is None:
+                cells.append("n/a")
+                continue
+            arrow = "▲" if sd > 0 else ("▼" if sd < 0 else "=")
+            txt = f"**{arrow}**" if pr["sig"] else arrow
+            if pr["agree"]:
+                txt += "✓"
+            cells.append(txt)
+        L.append(f"| {r['feature']} | {r['group']} | " + " | ".join(cells) + f" | {r['rep_score']} |")
+    L.append("")
+
+    L.append("## b. Consistent conditions")
+    L.append("")
+    L.append("Features with the SAME discovery-lift sign in >= 3 runs, where the holdout tercile lift "
+             "agrees in every one of those runs. This is the answer to read first.")
+    L.append("")
+    if not consistent:
+        L.append("None. No feature clears same-sign discovery + full holdout agreement in 3 or more of "
+                 f"the {len(keys)} runs compared.")
+    else:
+        for c in consistent:
+            direction_word = "higher" if c["sign"] > 0 else "lower"
+            L.append(f"- **{c['feature']}** ({c['group']}) -- {direction_word} values precede better "
+                     f"trades, confirmed on {len(c['runs'])} runs' own holdout: " + "; ".join(
+                         f"{k} disc={_fmt(c['detail'][k]['lift_r'])} (q={_fmt(c['detail'][k]['lift_q'], 4)}) "
+                         f"hold={_fmt(c['detail'][k]['hold_lift'])}" for k in c["runs"]))
+    L.append("")
+
+    L.append("## c. Ledger roll-up")
+    L.append("")
+    L.append("Every section-2c rule RECIPE (feature + direction + percentile) mined in >= 2 runs, with "
+             "its verdict per run (thresholds are fit per-run on that run's own discovery set, so the "
+             "numeric threshold is not compared, only the recipe and the verdict). ROBUST = carries "
+             f"(filter or size-tilt) in >= 3 runs and is a regime artifact in none.")
+    L.append("")
+    L.append("| rule | " + " | ".join(keys) + " | carries | tilt | regime | ROBUST |")
+    L.append("|---|" + "---|" * len(keys) + "---|---|---|---|")
+    for r in rollup:
+        cells = [r["per_run"].get(k, "n/a") for k in keys]
+        L.append(f"| {r['rule_text']} | " + " | ".join(cells) +
+                 f" | {r['n_carries']} | {r['n_tilt']} | {r['n_regime']} | "
+                 f"{'YES' if r['robust'] else 'no'} |")
+    if not rollup:
+        L.append("| (no rule recipe appears in 2 or more runs' ledgers) | " + " | ".join(["-"] * len(keys)) +
+                 " | - | - | - | - |")
+    L.append("")
+
+    L.append("## d. Summary")
+    L.append("")
+    n_robust = sum(1 for r in rollup if r["robust"])
+    if consistent:
+        feats = ", ".join(sorted({c["feature"] for c in consistent}))
+        L.append(f"{len({c['feature'] for c in consistent})} pre-entry condition(s) repeat with the "
+                 f"same sign across >= 3 of the {len(keys)} runs compared AND hold their sign on each "
+                 f"of those runs' own untouched holdout set: {feats}.")
+    else:
+        L.append(f"No pre-entry condition repeats with the same discovery sign across >= 3 of the "
+                 f"{len(keys)} runs compared with full holdout agreement.")
+    if n_robust:
+        L.append(f"{n_robust} section-2c rule recipe(s) are ROBUST across runs (carry, as a filter or a "
+                 "size tilt, in >= 3 runs, never a regime artifact).")
+    else:
+        L.append("No section-2c rule recipe clears the ROBUST bar (>= 3 runs carrying, zero regime "
+                 "artifacts).")
+    L.append("")
+    L.append(f"Standing caveat: this is still discovery-only mining with one pre-registered holdout peek "
+             f"per run, pooled across runs -- it is a replication READ, not a validation. Nothing above "
+             f"is adoptable without a fenced Auto-Validate (walk-forward + lockbox) on whatever "
+             f"condition{apos}s or rules survive this comparison.")
+
+    md = "\n".join(L) + "\n"
+    fp = os.path.join(out_dir, f"COMPARE_{label}.md")
+    with open(fp, "w", encoding="utf-8") as f:
+        f.write(md)
+    return fp
+
+
+def compare_legs(keys, label):
+    summaries = {k: load_summary(k) for k in keys}
+    rep_rows = build_replication_table(summaries, keys)
+    consistent = consistent_conditions(rep_rows, keys)
+    rollup = ledger_rollup(summaries, keys)
+
+    out_dir = DOCS_ROOT
+    os.makedirs(out_dir, exist_ok=True)
+    md_fp = write_compare_md(keys, label, rep_rows, consistent, rollup, out_dir)
+    json_doc = _jsonify(dict(keys=keys, label=label, replication_table=rep_rows,
+                             consistent_conditions=consistent, ledger_rollup=rollup))
+    json_fp = os.path.join(out_dir, f"COMPARE_{label}.json")
+    with open(json_fp, "w", encoding="utf-8") as f:
+        json.dump(json_doc, f, indent=1)
+    print(f"[compare {label}] wrote {md_fp}")
+    print(f"[compare {label}] wrote {json_fp}")
+    return dict(md=md_fp, json=json_fp, rep_rows=rep_rows, consistent=consistent, rollup=rollup)
 
 
 def write_readme():
@@ -1734,6 +2195,16 @@ def main():
                         "run's own window/costs, and parity-checks against gate_validate.ungated_full.")
     ap.add_argument("--job", action="append", default=None,
                     help="point at a backtests/<docid> job doc directly (repeatable).")
+    ap.add_argument("--from-csv", action="append", default=None, metavar="PATH",
+                    help="rebuild sections 1/2/2c + the summary JSON from an existing <KEY>_trades.csv "
+                        "(repeatable) -- no Firestore, no price-data reload. Charts (section 3) are "
+                        "skipped in this mode.")
+    ap.add_argument("--compare", nargs="+", default=None, metavar="KEY",
+                    help="read docs/anatomy/<KEY>_summary.json for each KEY (repeatable, >=2) and write "
+                        "COMPARE_<label>.md/.json instead of running any leg.")
+    ap.add_argument("--compare-label", default="COMPARE",
+                    help="output name suffix for --compare: writes COMPARE_<label>.md/.json. "
+                        "Default: COMPARE.")
     ap.add_argument("--list", action="store_true",
                     help="print the hard-coded legs (feature_board.LEGS) and the usage line, then exit.")
     a = ap.parse_args()
@@ -1743,10 +2214,17 @@ def main():
         print("  python tools/trade_anatomy.py --leg NOISE_243 --leg ORB_314   # default = these two")
         print("  python tools/trade_anatomy.py --run 314 --run 309             # point at a past run by number")
         print("  python tools/trade_anatomy.py --job <backtests-doc-id>        # point at a job doc directly")
+        print("  python tools/trade_anatomy.py --from-csv docs/anatomy/NOISE_243_trades.csv   # no Firestore")
+        print("  python tools/trade_anatomy.py --compare RUN_309 RUN_226 --compare-label ENGUQ")
         print()
         print("Hard-coded legs (feature_board.LEGS):")
         for l in FB.LEGS:
             print(f"  {l['key']:<12} family={l['family']:<8} file={l['file']:<28} {l['label']}")
+        return []
+
+    if a.compare:
+        os.makedirs(DOCS_ROOT, exist_ok=True)
+        compare_legs(list(a.compare), a.compare_label)
         return []
 
     leg_keys = list(a.leg) if a.leg else []
@@ -1758,7 +2236,8 @@ def main():
         leg = leg_from_job(doc_id)
         _EXTRA_LEGS[leg["key"]] = leg
         leg_keys.append(leg["key"])
-    if not leg_keys:
+    csv_paths = list(a.from_csv) if a.from_csv else []
+    if not leg_keys and not csv_paths:
         leg_keys = ["NOISE_243", "ORB_314"]
 
     os.makedirs(DOCS_ROOT, exist_ok=True)
@@ -1766,6 +2245,8 @@ def main():
     results = []
     for leg_key in leg_keys:
         results.append(run_leg(leg_key))
+    for csv_path in csv_paths:
+        results.append(run_leg_from_csv(csv_path))
     return results
 
 
