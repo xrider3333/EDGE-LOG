@@ -595,12 +595,16 @@ def build_bar_arrays(df, tf_min):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_day_features(df):
-    g = df.groupby("day_id")
-    date_of_day = g["_dt"].first().dt.date
-    day = pd.DataFrame({"date": date_of_day.to_numpy(),
+    # Keyed by TRADING DAY (day_id), not calendar date. On a 24h (ETH) tape a trading day runs
+    # 18:00 -> 17:00 next day; after a holiday an evening-less session starts on the same
+    # calendar date as the previous session's 18:00 open, so calendar dates collide
+    # ("cannot reindex on an axis with duplicate labels", 2026-09-08). The `date` column is
+    # the day's LAST bar date (the settlement / RTH date) and is only used for week ids.
+    g = df.groupby("day_id", sort=True)
+    day = pd.DataFrame({"date": g["_dt"].last().dt.date.to_numpy(),
                         "o": g["open"].first().to_numpy(), "h": g["high"].max().to_numpy(),
-                        "l": g["low"].min().to_numpy(), "c": g["close"].last().to_numpy()})
-    day = day.sort_values("date").reset_index(drop=True).set_index("date")
+                        "l": g["low"].min().to_numpy(), "c": g["close"].last().to_numpy()},
+                       index=g.size().index)
 
     pc, ph, pl = day["c"].shift(1), day["h"].shift(1), day["l"].shift(1)
     tr = pd.concat([day["h"] - day["l"], (day["h"] - pc).abs(), (day["l"] - pc).abs()], axis=1).max(axis=1)
@@ -630,8 +634,8 @@ def build_day_features(df):
     ret5 = day["c"].pct_change(5) * 100.0
     ret20 = day["c"].pct_change(20) * 100.0
 
-    diso = pd.to_datetime(day.index)
-    iso = diso.isocalendar()
+    diso = pd.to_datetime(day["date"])
+    iso = pd.DatetimeIndex(diso).isocalendar()
     wk = iso["year"].astype(str).to_numpy() + "-" + iso["week"].astype(str).str.zfill(2).to_numpy()
     wtab = pd.DataFrame({"h": day["h"].to_numpy(), "l": day["l"].to_numpy(), "wk": wk}, index=day.index)
     wagg = wtab.groupby("wk", sort=True).agg(wh=("h", "max"), wl=("l", "min"))
@@ -649,7 +653,7 @@ def build_day_features(df):
         "day_prior_ret_pct": day_ret.shift(1), "day_prior_range_pctile": range_pctile.shift(1),
         "day_prior_close_pos": close_pos_own.shift(1), "day_up_streak": up_streak.shift(1),
         "day_ret_5d": ret5.shift(1), "day_ret_20d": ret20.shift(1),
-        "day_gap_pct": gap_pct, "session_open": day["o"],
+        "day_gap_pct": gap_pct, "session_open": day["o"], "date": day["date"],
     }, index=day.index)
     return out
 
@@ -759,7 +763,8 @@ def build_feature_matrix(df, eb, tf_min, B=None, day_feat=None, side=None):
     db = eb - 1
     valid = db >= 60                                    # need 60 bars of path history
     entry_date = pd.DatetimeIndex(df["_dt"]).date[np.clip(eb, 0, n - 1)]
-    day_row = day_feat.reindex(entry_date).reset_index(drop=True)
+    entry_day = df["day_id"].to_numpy()[np.clip(eb, 0, n - 1)]        # trading day, not calendar date
+    day_row = day_feat.reindex(entry_day).reset_index(drop=True)
 
     rows = {name: np.full(len(eb), np.nan) for name in FEATURE_NAMES}
     close, high, low = B["close"], B["high"], B["low"]
@@ -1394,9 +1399,9 @@ def plot_trade_chart(df, B, day_feat, row, out_path):
         vwap = B["vwap"][lo_i:hi_i + 1]
         ax.plot(np.arange(n), vwap, color="#e8b84b", linewidth=0.8, linestyle="--", label="VWAP", zorder=3)
 
-    edate = pd.Timestamp(df["_dt"].iloc[eb]).date()
-    if edate in day_feat.index:
-        dr = day_feat.loc[edate]
+    edid = df["day_id"].iloc[eb]
+    if edid in day_feat.index:
+        dr = day_feat.loc[edid]
         for lvl, col in ((dr.get("prior_day_high"), "#9098a3"), (dr.get("prior_day_low"), "#9098a3"),
                         (dr.get("prior_day_close"), "#6f7783")):
             if pd.notna(lvl):
