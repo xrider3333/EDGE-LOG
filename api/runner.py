@@ -1111,24 +1111,28 @@ class FirestoreQueue:
                 t.set(ctr, {"next": nxt + 1}, merge=True)
                 return nxt
 
-            for _att in range(6):
+            for _att in range(8):
                 try:
                     rid = _bump(self.db.transaction())
                     if isinstance(rid, int) and rid > 0:
                         return rid
                 except Exception:
-                    if _att == 5:
+                    if _att == 7:
                         raise
-                    time.sleep(0.15 * (2 ** _att) + random.random() * 0.1)
+                    # ~65 s in total: long enough to ride out a transient 429 burst,
+                    # short enough that a finished job is not held hostage to it.
+                    time.sleep(min(20.0, 0.4 * (2 ** _att)) + random.random() * 0.2)
         except Exception as _e:
             print(f"  (transactional run id unavailable, using legacy scan: {type(_e).__name__}: {_e})")
         return self._next_run_id_legacy(uid)
 
-    def _next_run_id_legacy(self, uid) -> int:
-
-        """Sequential run id = (max existing id in users/{uid}/runs) + 1, so web sweeps get
-        a clean number instead of a 10-digit epoch. Falls back to an epoch id (still unique)
-        only if the lookup fails."""
+    def _next_run_id_legacy(self, uid):
+        """Sequential run id = (max existing id in users/{uid}/runs) + 1. Returns None when
+        that lookup fails too - it USED to return an epoch second here, which is how the
+        ERW validate of 2026-09-08 was saved as run 1788836275 during a quota outage and
+        sat above every real run in Past Runs. A run must never fail over its id, but it
+        must not invent one either: the caller saves it PROVISIONAL and the primary's
+        sweep renumbers it the moment reads recover (repair_provisional_run_ids)."""
         try:
             from google.cloud.firestore_v1 import Query
             col = self.db.collection("users").document(uid).collection("runs")
@@ -1139,7 +1143,9 @@ class FirestoreQueue:
                     return int(top) + 1
         except Exception:
             pass
-        return int(time.time())
+        print("  !! run id unavailable (Firestore reads failing) - the run will be saved "
+              "with a PROVISIONAL id and renumbered by the sweep once reads recover")
+        return None
 
     def _family_of(self, strategy) -> str:
         """Coarse master family for a strategy (must match the web resolver + backfill), so every
@@ -1254,6 +1260,9 @@ class FirestoreQueue:
             best = (((_gv.get("lockbox") or {}).get("gated"))
                     or ((_gv.get("chosen") or {}).get("pre")) or {})
         rid = self._next_run_id(uid)
+        _provisional = rid is None
+        if _provisional:
+            rid = int(time.time())      # unique, obviously not a run number, flagged below
         famkey, famseq = self._assign_family(uid, job.get("strategy", ""))
         mm = self._master_of(job)
         df, dt, days = self._run_window(job, result, mm)
@@ -1362,6 +1371,8 @@ class FirestoreQueue:
             doc["famKey"] = famkey
             doc["famSeq"] = famseq
         doc = shrink_to_fit(doc, log=log, label=f"run #{rid}")
+        if _provisional:
+            doc["id_provisional"] = True
         self.db.collection("users").document(uid).collection("runs").document(str(rid)).set(doc)
         log(f"    -> saved to Runs history (#{rid}"
             + (f" · {famkey}-{famseq}" if famkey is not None else "") + ")")
@@ -1783,6 +1794,48 @@ class FirestoreQueue:
                 ref.update({"status": "running", "startedAt": _now_utc()})
                 ref.update(process_job(snap.to_dict() or {}))
                 n += 1
+        return n
+
+    def repair_provisional_run_ids(self, log=print):
+        """Give every run saved under a PROVISIONAL id (see _next_run_id_legacy) its real
+        sequential number: allocate one from the counter, re-save the doc under it, delete
+        the provisional doc, point the job doc's run_id at the new number, and assign the
+        per-family number the outage also skipped. Oldest provisional first, so order is
+        kept. Stops quietly if reads are still failing; never raises."""
+        from google.cloud.firestore_v1.base_query import FieldFilter as _FF
+        n = 0
+        for uid in (self.allow or []):
+            try:
+                root = self.db.collection("users").document(uid)
+                runs = root.collection("runs")
+                jobs = root.collection(self.col)
+                prov = sorted(runs.where(filter=_FF("id_provisional", "==", True)).stream(),
+                              key=lambda sn: float((sn.to_dict() or {}).get("id") or 0))
+                for snap in prov:
+                    d = snap.to_dict() or {}
+                    old = d.get("id")
+                    rid = self._next_run_id(uid)
+                    if rid is None:
+                        log("[run-id] reads still failing - provisional ids stay for now")
+                        return n
+                    d["id"] = rid
+                    d.pop("id_provisional", None)
+                    d["id_was_provisional"] = old
+                    if not d.get("famKey"):
+                        fk, fs = self._assign_family(uid, d.get("strategy") or "")
+                        if fk:
+                            d["famKey"], d["famSeq"] = fk, fs
+                    runs.document(str(rid)).set(d)
+                    snap.reference.delete()
+                    for js in jobs.where(filter=_FF("run_id", "==", old)).stream():
+                        try:
+                            js.reference.update({"run_id": rid})
+                        except Exception:
+                            pass
+                    log(f"[run-id] renumbered provisional run {old} -> #{rid} ({d.get('strategy')})")
+                    n += 1
+            except Exception as e:
+                log(f"[run-id] repair skipped: {type(e).__name__}: {e}")
         return n
 
     def sweep_orphans(self, log=print, tag="sweep", dry_run=False):
@@ -2454,6 +2507,8 @@ def main(argv=None):
             except Exception as _e:
                 # Never let the sweep stop the runner coming up.
                 print(f"[orphan] boot sweep skipped: {type(_e).__name__}: {_e}", flush=True)
+            if not _IS_WORKER:
+                q.repair_provisional_run_ids(log=print)
         print("watching… (Ctrl+C to stop)")
         # Exponential backoff for repeated Firestore 429s on this poll/commands tick
         # (2026-09-07 — see _Backoff). A dead quota must make this loop SLOWER, never
@@ -2506,6 +2561,8 @@ def main(argv=None):
                     q.sweep_orphans(log=print, tag="sweep")
                 except Exception as _e:
                     print(f"[orphan] sweep skipped: {type(_e).__name__}: {_e}")
+                if not _IS_WORKER:
+                    q.repair_provisional_run_ids(log=print)
                 next_sweep = time.time() + ORPHAN_SWEEP_SEC
             if a.refresh_min > 0 and time.time() >= next_refresh:
                 _refresh_async(); next_refresh = time.time() + a.refresh_min * 60
