@@ -2011,18 +2011,21 @@ def build_replication_table(summaries, keys):
     return rows
 
 
-def consistent_conditions(rep_rows, keys, min_runs=3):
+def consistent_conditions(rep_rows, keys, min_runs=3, min_sig=2, q_bar=0.10):
     """A feature is CONSISTENT (for a sign) if >= min_runs runs have BOTH a discovery lift of that
-    sign AND a holdout tercile lift of that same sign -- runs where holdout disagrees are simply not
-    part of that count; they don't disqualify the runs that do agree."""
+    sign AND a holdout tercile lift of that same sign, AND at least min_sig of those runs cleared the
+    discovery significance bar (lift_q < q_bar). Sign agreement alone is nearly free when the runs
+    are variants of one strategy on one tape (they share most of their trades), so it is not
+    evidence by itself. Runs where holdout disagrees are simply not part of the count."""
     out = []
     for r in rep_rows:
         per_run = r["per_run"]
         for sign in (1, -1):
             confirmed = [k for k in keys if per_run[k]["sign_d"] == sign and per_run[k]["sign_h"] == sign]
-            if len(confirmed) >= min_runs:
+            sig = [k for k in confirmed if per_run[k].get("sig")]      # sig = discovery lift_q < 0.10 (set by build_replication_table)
+            if len(confirmed) >= min_runs and len(sig) >= min_sig:
                 out.append(dict(feature=r["feature"], group=r["group"], sign=sign, runs=confirmed,
-                                detail={k: per_run[k] for k in confirmed}))
+                                sig_runs=sig, detail={k: per_run[k] for k in confirmed}))
     return out
 
 
@@ -2098,7 +2101,7 @@ def write_compare_md(keys, label, rep_rows, consistent, rollup, out_dir):
 
     L.append("## b. Consistent conditions")
     L.append("")
-    L.append("Features with the SAME discovery-lift sign in >= 3 runs, where the holdout tercile lift "
+    L.append("Features with the SAME discovery-lift sign in >= 3 runs, significant (lift_q < 0.10) in at least 2 of them, where the holdout tercile lift "
              "agrees in every one of those runs. This is the answer to read first.")
     L.append("")
     if not consistent:
