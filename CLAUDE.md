@@ -2,6 +2,13 @@
 
 ## Response format (EVERY reply — the owner has stated this repeatedly; HARD rule)
 
+**SUPERSEDING CORRECTION (owner 2026-09-08: "give me this in 10 one row bullets or less.
+respond like that from here on out. tables only for comparing or open action items").**
+Every reply = status header line, then AT MOST 10 bullets, each ONE ROW (one short sentence,
+no second line). Tables ONLY when COMPARING things (RUNBOARD, A vs B) or listing OPEN ACTION
+ITEMS - never as a ledger of finished work. Same 10-bullet cap as 2026-08-26, tightened to
+one row per bullet, plus the table rule.
+
 **HARD CAP (owner 2026-08-26: "from here on out keep your responces to 10 bullit points or less").**
 Every reply is AT MOST 10 bullet points. Not 10 bullets plus paragraphs -- 10 bullets total,
 after a one-line status header. If it does not fit, cut content, do not reflow it into prose.
