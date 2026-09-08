@@ -828,6 +828,16 @@ walk-forward. v7 with window 50 on #304: WF $354,489 / DD −13.9k / MAR 2.90; L
 #243 LB $59,576 at DD −19.9k (raw −22.1k); WF +34% / +10%. Paper ladder from 2026-09-08: K6 stand down →
 K7 mild lean → K8 full lean, one control. If the ladder is monotone forward, the shade is real.
 
+**v9 (2026-09-07) = v8-100 × the compression tilt.** Same pass tried lean 1.5 (symmetric slopes) and a
+slow-ledger boost: both a wash. The orthogonal lever is the TTM round-6 keeper (coiled-hour trades earn 2-3×
+EV R, lockbox-repeated): an a-priori 1.5× on trades entered while the 60m squeeze is on (13% of NOISE
+trades), capped 3×. Stacked on v8-100: #243 WF **$480,796** (raw $303,685, DD −21.3k vs −18.4k, MAR 2.57),
+LB **$101,242** (raw $60,615) at DD −18.3k (better), MAR 3.70; #304 WF $434,115 (raw $316,495, DD −18.0k vs
+−16.9k, MAR 2.74), LB $100,820 (raw $82,123) at DD −29.6k vs −24.5k. 2× = more money but +43% lockbox DD on
+#304 → rejected. **Raw × compression alone (no model)**: #243 WF $403,039 / LB $80,641, #304 WF $429,542 /
+LB $101,578, with drawdown BETTER than raw everywhere — the tilt is the stronger risk lever, KEEL the stronger
+money lever. Paper: `NOISE_SBS_V90_K9` + `NOISE_SBS_V90_C15` (compression only, the attribution control).
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

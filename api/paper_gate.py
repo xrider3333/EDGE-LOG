@@ -140,6 +140,25 @@ def apply_gate(arrays, trades, gate):
             "n_in": len(ordered), "warnings": []}
 
     mode = str(gate.get("mode") or "cut").lower()
+    if mode == "comp":
+        # COMPRESSION TILT, no model (2026-09-07): the attribution control for KEEL v9. Size
+        # gate["mult"] (default 1.5) on trades entered while the 60m Bollinger/Keltner state is
+        # compressed, 1.0 otherwise. Falls back to UNGATED if the feature build fails.
+        try:
+            from augur_engine.ml_keel import compression_sizes
+            w = np.asarray(compression_sizes(arrays, ordered, mult=float(gate.get("mult") or 1.5)), float)
+            if len(w) != len(ordered):
+                raise ValueError("compression size vector length mismatch")
+            kept = [(ordered[i], float(w[i])) for i in range(len(ordered))]
+            info.update({"ok": True, "n_kept": len(kept), "n_skipped": 0, "n_warmup": 0, "skipped_pnl_pts": 0.0,
+                         "avg_size": round(float(w.mean()), 3), "max_size": round(float(w.max()), 3),
+                         "coiled_share": round(float((w > 1.0).mean()), 3), "size_last": round(float(w[-1]), 3)})
+            return kept, info
+        except Exception as e:
+            info["warnings"].append(f"compression tilt failed: {type(e).__name__}: {e}")
+            info.update({"ok": False, "n_kept": len(ordered), "n_skipped": 0, "n_warmup": None, "avg_size": 1.0})
+            info["warnings"].append("gate did not run - leg fell back to UNGATED")
+            return [(t, 1.0) for t in ordered], info
     if mode == "keel":
         # KEEL (augur_engine/ml_keel.py, 2026-09-06): every trade is taken; the size is the
         # skill-gated expectancy tilt's own output. No size_norm / recycle: the tilt is mean-1

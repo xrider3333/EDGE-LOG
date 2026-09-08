@@ -124,6 +124,19 @@ CFG = {
            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
            "fast": {"W": 50, "lo": -0.5, "hi": 0.5},
            "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5}},
+    # v9 (2026-09-07) = v8 with the 100-trade fast window, times an A-PRIORI compression multiplier:
+    #    1.5x on trades entered while the 60m Bollinger/Keltner state is compressed (sq60_on, the
+    #    TTM round-6 keeper: coiled-hour trades earn 2-3x EV R, lockbox-repeated on NOISE x2 + ORB).
+    #    Not fitted here - the multiplier is the round-6 tilt at its moderate setting. Final size
+    #    capped at 3x (sizing.py's cap). Read on the runs' own stretches: #243 WF $480,796 vs raw
+    #    $303,685 (DD -21.3k vs -18.4k), LB $101,242 vs $60,615 at DD -18.3k (better); #304 WF
+    #    $434,115 vs $316,495 (DD -18.0k vs -16.9k), LB $100,820 vs $82,123 at DD -29.6k vs -24.5k.
+    #    2x was tried: more money, but #304 lockbox DD +43% - too much.
+    "v9": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+           "fast": {"W": 100, "lo": -0.5, "hi": 0.5},
+           "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
+           "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
@@ -289,6 +302,7 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
     K, lo, hi = cfg.get("K", K_MAX), cfg.get("LO", LO), cfg.get("HI", HI)
     fast = cfg.get("fast")
     shade = cfg.get("shade")
+    comp = cfg.get("comp")
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
     E = np.array([t[0] for t in T]); Xi = np.array([t[1] for t in T]); P = np.array([t[2] for t in T])
     n = len(T)
@@ -340,9 +354,23 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
             size[k] = float(np.clip(1.0 - shade["k"] * z[k], shade["lo"], shade["hi"]))
         else:
             size[k] = float(np.clip(1.0 + K * tr * z[k], lo, hi))
+    if comp and comp["feature"] in names:
+        # a-priori compression multiplier on top of the learned size (TTM round 6), capped
+        on = X[:, names.index(comp["feature"])] > 0
+        size = np.minimum(np.where(on, size * float(comp["mult"]), size), float(comp.get("cap", 3.0)))
     return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
             "trust": trust, "rho": rho, "trust_members": tm, "n_fits": n_fits,
             "feature_names": names, "version": version}
+
+
+def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on"):
+    """RAW x compression, no model: the attribution control for v9. Size `mult` on trades entered
+    while the 60m state is compressed, 1.0 otherwise. Trades sorted by entry bar."""
+    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
+    F, names = keel_features(arrays)
+    E = np.array([t[0] for t in T])
+    on = F[np.clip(E, 0, len(F) - 1), names.index(feature)] > 0
+    return np.where(on, float(mult), 1.0)
 
 
 def sizes_from_z(z, trust, k=K_MAX, lo=LO, hi=HI):

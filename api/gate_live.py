@@ -166,7 +166,7 @@ def _gated_legs():
     flipped the whole service to DOWN on the board while every NT leg was in fact loaded."""
     from api import paper
     return [l for l in paper.PAPER_LEGS
-            if l.get("gate") and str(l["gate"].get("mode") or "").lower() != "keel"]
+            if l.get("gate") and str(l["gate"].get("mode") or "").lower() not in ("keel", "comp")]
 
 
 # ── nightly artifact ──────────────────────────────────────────────────────────────

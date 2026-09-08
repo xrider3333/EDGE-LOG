@@ -80,7 +80,9 @@ LEG_LIVE_FROM = {
     "ENGUQ_309_K": "2026-09-08",
     "NOISE_SBS_V90_K6": "2026-09-08", # KEEL v6 (v5 schedule + fast-distrust ledger) on the same crown, forward test only
     "NOISE_SBS_V90_K7": "2026-09-08", # KEEL v7 (v6 + shade when wrong) on the same crown, forward test only
-    "NOISE_SBS_V90_K8": "2026-09-08", # KEEL v8 (symmetric shade, 50-trade fast window) on the same crown, forward test only      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "NOISE_SBS_V90_K8": "2026-09-08", # KEEL v8 (symmetric shade, 50-trade fast window) on the same crown, forward test only
+    "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
+    "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -513,6 +515,18 @@ NOISE_243_KEEL7 = {"mode": "keel", "model": "keel", "version": "v7", "source_run
 # forward ladder beside K6 (stand down) and K7 (mild lean). THE CLAIM: from 2026-09-08 K8 beats
 # NOISE_SBS_V90 on net at drawdown no worse than the control's, and beats K7. FORWARD EVIDENCE ONLY.
 NOISE_243_KEEL8 = {"mode": "keel", "model": "keel", "version": "v8", "source_run": 243}
+# KEEL v9 (2026-09-07) = v8 with the 100-trade fast window, times the TTM round-6 compression
+# tilt: 1.5x on trades entered while the 60m Bollinger/Keltner state is compressed (sq60_on).
+# The multiplier is an a-priori rule from that study (coiled-hour trades earn 2-3x EV R,
+# lockbox-repeated on NOISE x2 + ORB), not fitted here. Read on the runs' own stretches:
+# #243 WF $480,796 vs raw $303,685 (DD -21.3k vs -18.4k), LB $101,242 vs $60,615 at BETTER DD;
+# #304 WF $434,115 vs $316,495, LB $100,820 vs $82,123 at DD -29.6k vs -24.5k. 2x was more money
+# but +43% lockbox DD on #304, so 1.5x. NOISE_SBS_V90_C15 (raw x compression, no model) is the
+# attribution control: if K9 does not beat C15 forward, the model adds nothing on top of the
+# compression tilt. THE CLAIM: from 2026-09-08 K9 beats NOISE_SBS_V90 on net at drawdown within
+# 25% of the control's, and beats C15 on net. FORWARD EVIDENCE ONLY.
+NOISE_243_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run": 243}
+NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 243}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
 # year was KEEL's best read (run #265 window: +$15,410, MAR 5.83 -> 7.22, drawdown down)
 # while its pre-lockbox stretch was neutral - exactly the "stands down until it has earned
@@ -732,6 +746,22 @@ LEG_SOURCE = {
                 "size 0.5x-2x from a logistic + ExtraTrees expectancy stack whose slope is "
                 "earned from its own out-of-sample dollar ledger. Added 2026-09-06 beside the "
                 "NOISE test; ENGUQ_309 is its exact control.",
+    },
+    "NOISE_SBS_V90_K9": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v9 (v8 x compression 1.5x)",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-07",
+        "note": "The crowned #243 config with KEEL v9: the v8 rule with the 100-trade fast ledger, "
+                "then 1.5x size on trades entered while the 60-minute Bollinger/Keltner state is "
+                "compressed (the TTM round-6 keeper), capped at 3x. Lockbox read on the paper run "
+                "$101k vs raw $61k at lower drawdown. Added 2026-09-07; NOISE_SBS_V90 is the exact "
+                "control and NOISE_SBS_V90_C15 is the no-model compression control.",
+    },
+    "NOISE_SBS_V90_C15": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + compression tilt 1.5x (no model)",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-07",
+        "note": "The crowned #243 config with only the TTM round-6 compression tilt: 1.5x on trades "
+                "entered while the 60-minute squeeze is on, 1.0 otherwise, no model anywhere. The "
+                "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
     },
     "NOISE_SBS_V90_K8": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v8 (symmetric shade, fast 50)",
@@ -996,6 +1026,17 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_KEEL8, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_K8"]},
+    # ADDED 2026-09-07: KEEL v9 = v8-100 x compression 1.5x, and its no-model control. FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_K9", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_KEEL9, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_K9"]},
+    {"key": "NOISE_SBS_V90_C15", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_COMP15, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_C15"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
