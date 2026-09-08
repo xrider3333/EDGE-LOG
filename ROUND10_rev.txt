@@ -1,0 +1,186 @@
+ORB ROUND 10 - FAILED-BREAKOUT REVERSAL ("trap trade") - READ (2026-09-08)
+========================================================================
+
+Smoke test: PASS. reverse_after_stop=False (all new knobs at default) is BIT-IDENTICAL
+to ORB_3_6.py on the #314 crown params (2299/2299 trades, pnl matches to 1e-9).
+reverse_after_stop=True measurably changes results (344 reversal trades fired).
+
+rev_direct: NOT IMPLEMENTED. The spec's described scenario (first trade never taken
+because trade_mode/First-candle direction forbade it, then price closes through the
+OTHER side) turns out to already be exactly what the base entry loop does on its own:
+"First-candle dir" mode fixes long_ok/short_ok for the WHOLE session before the k-loop
+runs, and the allowed-direction close-cross is checked on every bar regardless of what
+an earlier forbidden-direction breakout did — so if the allowed side ever closes past
+its level, ORB_3_6's own logic already takes that trade normally. There is no daylight
+left for a "direct" add-on without inventing an ungrounded rule (e.g. re-triggering the
+FORBIDDEN direction itself, which the spec never describes). Left un-coded per the
+spec's own "skip this if it makes the code messy" clause; the knob is present in
+DEFAULT_PARAMS as an inert placeholder. No "2 best with rev_direct=True" rows, per spec.
+
+5-BULLET READ
+-------------
+1. ALL 12 configs FAIL the gates, every one on G1 (5-year MAR never beats the crown's
+   2.79 — best is 2.65, "rev/be=True/sf=1.5/tR=0"), most also on G1(full MAR>0.85, best
+   0.84) and/or G3 (OOS PF: the crown's own OOS PF 1.531 is never matched, best 1.527).
+   No adoption case here.
+2. The reversal ADDS trades and net $ (up to +$33,086 full-window net on the best
+   config) but adds them DISPROPORTIONATELY MORE drawdown (crown $28,857 -> $31,666 or
+   $32,579, a ~10-13% DD jump) and it front-loads into the OOS year LESS than the base
+   strategy does, which is exactly what drags MAR and the OOS gate down even as full
+   net rises. This is a classic "more trades, worse risk-adjusted" pattern.
+3. The trap trade DOES have standalone edge, and it is real, not noise: on its own
+   (n=344-408 depending on reverse_after_be), PF ranges 1.006-1.252 and every single
+   one of the 12 sweep configs' reversal-only PF is >= 1.0 (positive expectancy before
+   even blending with the first trade). The best slice (be=True, rev_stop_frac=1.5,
+   rev_target_R=0->reuse target_R) nets $33,086 on 408 trades at PF 1.252, win% 35.8 -
+   a real but modest, low-win-rate/long-tail edge (consistent with "ride the failed
+   breakout's unwind" being a trend continuation, not a mean reversion, bet).
+4. rev_stop_frac matters MUCH more than rev_target_R: sf=1.5 beats sf=0 (reuse
+   stop_frac=2.5) and sf=2.0 on every single row of every window - a TIGHTER stop on
+   the reversal (1.5x range vs the parent's 2.5x) is uniformly better. rev_target_R
+   barely matters (0 vs 3.0 changes net by low single-digit percent, sign inconsistent
+   across configs) - the reversal's edge lives in getting the STOP right, not the
+   target. reverse_after_be=True (also reversing after a scratched breakeven stop, not
+   only a true initial-stop loss) modestly beats reverse_after_be=False on every row -
+   more reversal opportunities, same shape.
+5. PLATEAU: NOT PLATEAU. Neighbours of the best config (rev/be=False/sf=1.5/tR=0 at 2.60
+   MAR, rev/be=True/sf=0/tR=0 at 2.04, rev/be=True/sf=2.0/tR=0 at 2.48, rev/be=True/
+   sf=1.5/tR=3.0 at 2.65) all sit BELOW the crown's 2.79 too, so the "keep >=70% of
+   gain" check is moot (gain is negative - the best config never beats the crown, so
+   there is no positive gain to test a plateau against). Printed as NOT PLATEAU by the
+   driver's own definition (gain<=0 => keep=None => fail), which is the honest read:
+   this fork does not beat the crown anywhere in the swept space, plateaued or not.
+
+BOTTOM LINE: the trap trade is a real, modestly profitable pattern in isolation (PF up
+to 1.25 on its own) but STACKING it onto the #314 crown as an intraday-second-trade adds
+risk faster than it adds risk-adjusted return - every config FAILS G1 and most FAIL G3.
+Not adopted this round. If revisited, the standalone reversal-only edge (bullet 3) is
+the more promising thread than trying to bolt it onto the SAME day's already-completed
+trade - e.g. as its own independent book/leg rather than a same-session add-on.
+
+
+======================================================================================================================
+ORB ROUND 10 - FAILED-BREAKOUT REVERSAL sweep (ORB_3_6_REV.py) on the #314 crown
+  master NQ 5m RTH no-adj, 0.533 pts/RT, one contract, entries to 2026-08-13
+======================================================================================================================
+
+----------------------------------------------------------------------------------------------------------------------
+FULL  (<= 2026-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (rev off)            2299    397,150    28,857  1.371   0.85  0.204   28.9    142   -13,608  79.2
+rev/be=False/sf=0/tR=0     2643    397,963    31,404  1.330   0.78  0.182   29.8    163   -16,036  78.7
+rev/be=False/sf=0/tR=3.0   2643    399,288    31,404  1.331   0.79  0.183   29.9    163   -16,036  78.7
+rev/be=False/sf=1.5/tR=0   2643    414,508    31,666  1.351   0.81  0.197   32.2    163   -13,628  79.8
+rev/be=False/sf=1.5/tR=3.0   2643    413,621    31,666  1.350   0.81  0.196   32.1    163   -13,628  79.8
+rev/be=False/sf=2.0/tR=0   2643    406,973    31,764  1.341   0.79  0.190   31.0    163   -15,061  79.2
+rev/be=False/sf=2.0/tR=3.0   2643    404,048    31,764  1.338   0.79  0.188   30.7    163   -15,061  79.2
+rev/be=True/sf=0/tR=0      2707    406,026    32,579  1.328   0.77  0.182   30.4    167   -14,832  78.7
+rev/be=True/sf=0/tR=3.0    2707    406,731    32,579  1.329   0.77  0.182   30.4    167   -14,832  78.7
+rev/be=True/sf=1.5/tR=0    2707    430,236    31,666  1.358   0.84  0.201   33.7    167   -12,425  79.2
+rev/be=True/sf=1.5/tR=3.0   2707    427,616    31,666  1.356   0.83  0.200   33.5    167   -12,425  79.2
+rev/be=True/sf=2.0/tR=0    2707    418,636    31,764  1.343   0.81  0.191   32.0    167   -13,857  79.8
+rev/be=True/sf=2.0/tR=3.0   2707    414,141    31,764  1.340   0.81  0.189   31.7    167   -13,857  79.2
+
+----------------------------------------------------------------------------------------------------------------------
+IS    (<= 2025-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (rev off)            2131    310,019    28,857  1.342   0.71  0.189   26.5    140   -13,608  77.8
+rev/be=False/sf=0/tR=0     2457    306,243    31,404  1.297   0.64  0.165   26.7    162   -16,036  77.2
+rev/be=False/sf=0/tR=3.0   2457    307,568    31,404  1.298   0.65  0.166   26.8    162   -16,036  77.2
+rev/be=False/sf=1.5/tR=0   2457    327,548    31,666  1.327   0.68  0.185   29.9    162   -13,628  78.4
+rev/be=False/sf=1.5/tR=3.0   2457    320,111    31,666  1.319   0.67  0.181   29.2    162   -13,628  78.4
+rev/be=False/sf=2.0/tR=0   2457    318,383    31,764  1.313   0.66  0.175   28.4    162   -15,061  77.8
+rev/be=False/sf=2.0/tR=3.0   2457    315,458    31,764  1.310   0.65  0.174   28.1    162   -15,061  77.8
+rev/be=True/sf=0/tR=0      2514    324,891    32,579  1.310   0.66  0.172   28.5    166   -14,832  77.2
+rev/be=True/sf=0/tR=3.0    2514    325,596    32,579  1.310   0.66  0.173   28.6    166   -14,832  77.2
+rev/be=True/sf=1.5/tR=0    2514    348,221    31,666  1.343   0.72  0.194   32.2    166   -12,425  77.8
+rev/be=True/sf=1.5/tR=3.0   2514    339,051    31,666  1.334   0.71  0.189   31.3    166   -12,425  77.8
+rev/be=True/sf=2.0/tR=0    2514    337,811    31,764  1.328   0.70  0.184   30.4    166   -13,857  78.4
+rev/be=True/sf=2.0/tR=3.0   2514    333,316    31,764  1.323   0.69  0.181   30.0    166   -13,857  77.8
+
+----------------------------------------------------------------------------------------------------------------------
+OOS   (2025-08-13 .. 2026-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (rev off)             168     87,132    22,925  1.531   3.82  0.268   45.4    169    75,210 100.0
+rev/be=False/sf=0/tR=0      186     91,720    23,573  1.527   3.92  0.266   49.9    187    79,798 100.0
+rev/be=False/sf=0/tR=3.0    186     91,720    23,573  1.527   3.92  0.266   49.9    187    79,798 100.0
+rev/be=False/sf=1.5/tR=0    186     86,960    26,260  1.487   3.33  0.246   46.0    187    75,038 100.0
+rev/be=False/sf=1.5/tR=3.0    186     93,510    26,260  1.523   3.58  0.262   49.0    187    81,588 100.0
+rev/be=False/sf=2.0/tR=0    186     88,590    23,573  1.500   3.78  0.253   47.3    187    76,668 100.0
+rev/be=False/sf=2.0/tR=3.0    186     88,590    23,573  1.500   3.78  0.253   47.3    187    76,668 100.0
+rev/be=True/sf=0/tR=0       193     81,135    23,583  1.431   3.46  0.223   43.4    194    69,213 100.0
+rev/be=True/sf=0/tR=3.0     193     81,135    23,583  1.431   3.46  0.223   43.4    194    69,213 100.0
+rev/be=True/sf=1.5/tR=0     193     82,015    26,271  1.438   3.14  0.227   44.1    194    70,093 100.0
+rev/be=True/sf=1.5/tR=3.0    193     88,565    26,271  1.473   3.39  0.243   47.1    194    76,643 100.0
+rev/be=True/sf=2.0/tR=0     193     80,825    23,583  1.429   3.45  0.222   43.1    194    68,903 100.0
+rev/be=True/sf=2.0/tR=3.0    193     80,825    23,583  1.429   3.45  0.222   43.1    194    68,903 100.0
+
+----------------------------------------------------------------------------------------------------------------------
+5-YEAR (from 2021-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (rev off)             774    319,297    22,925  1.473   2.79  0.249   38.6    155    19,036 100.0
+rev/be=False/sf=0/tR=0      886    331,123    31,285  1.435   2.12  0.230   40.8    178    20,778 100.0
+rev/be=False/sf=0/tR=3.0    886    332,418    29,990  1.437   2.22  0.231   41.0    178    22,073 100.0
+rev/be=False/sf=1.5/tR=0    886    340,363    26,260  1.455   2.60  0.245   43.5    178    24,724 100.0
+rev/be=False/sf=1.5/tR=3.0    886    340,700    29,902  1.456   2.29  0.245   43.5    178    20,831 100.0
+rev/be=False/sf=2.0/tR=0    886    333,873    28,382  1.442   2.36  0.236   41.9    178    25,143 100.0
+rev/be=False/sf=2.0/tR=3.0    886    331,813    29,022  1.439   2.29  0.234   41.7    178    23,888 100.0
+rev/be=True/sf=0/tR=0       909    330,965    32,579  1.421   2.04  0.223   40.7    182    32,259 100.0
+rev/be=True/sf=0/tR=3.0     909    332,260    32,579  1.423   2.05  0.224   40.8    182    32,905 100.0
+rev/be=True/sf=1.5/tR=0     909    347,395    26,271  1.454   2.65  0.246   44.8    182    26,075 100.0
+rev/be=True/sf=1.5/tR=3.0    909    347,290    26,271  1.454   2.65  0.245   44.7    182    27,415 100.0
+rev/be=True/sf=2.0/tR=0     909    337,048    27,270  1.434   2.48  0.233   42.5    182    29,497 100.0
+rev/be=True/sf=2.0/tR=3.0    909    334,988    27,270  1.432   2.46  0.232   42.2    182    29,497 100.0
+
+======================================================================================================================
+BEST by 5y MAR: rev/be=True/sf=1.5/tR=0  (MAR 2.65 vs crown 2.79)
+Plateau check (immediate neighbours must keep >=70%% of the 5y MAR gain over crown):
+  rev/be=False/sf=1.5/tR=0 5y MAR 2.60  keep=n/a
+  rev/be=True/sf=0/tR=0    5y MAR 2.04  keep=n/a
+  rev/be=True/sf=2.0/tR=0  5y MAR 2.48  keep=n/a
+  rev/be=True/sf=1.5/tR=3.0 5y MAR 2.65  keep=n/a
+PLATEAU: NOT PLATEAU
+
+REVERSAL ('trap') TRADES ONLY (best config = rev/be=True/sf=1.5/tR=0, full window <= 2026-08-13):
+  n=408  net=$33,086  PF=1.252  win%=35.8  avg=$81
+
+REVERSAL TRADES ONLY, ALL CONFIGS (full window <= 2026-08-13):
+config                        n       net$     PF   win%
+CROWN (rev off)               0          -      -      -
+rev/be=False/sf=0/tR=0      344        813  1.006   42.2
+rev/be=False/sf=0/tR=3.0    344      2,138  1.016   42.2
+rev/be=False/sf=1.5/tR=0    344     17,358  1.157   35.5
+rev/be=False/sf=1.5/tR=3.0    344     16,470  1.149   35.8
+rev/be=False/sf=2.0/tR=0    344      9,823  1.080   39.5
+rev/be=False/sf=2.0/tR=3.0    344      6,898  1.056   39.5
+rev/be=True/sf=0/tR=0       408      8,876  1.054   42.2
+rev/be=True/sf=0/tR=3.0     408      9,581  1.058   42.2
+rev/be=True/sf=1.5/tR=0     408     33,086  1.252   35.8
+rev/be=True/sf=1.5/tR=3.0    408     30,466  1.232   36.0
+rev/be=True/sf=2.0/tR=0     408     21,486  1.145   39.5
+rev/be=True/sf=2.0/tR=3.0    408     16,991  1.114   39.5
+
+======================================================================================================================
+GATE CHECK  (G1 5y MAR>2.79 & full MAR>0.85 | G2 net>=95% of $397,150 | G3 OOS net/PF>=crown | G5 tr/yr>=120)
+======================================================================================================================
+CROWN (rev off)          FAIL: G1(5yMAR 2.79<=2.79)
+rev/be=False/sf=0/tR=0   FAIL: G1(5yMAR 2.12<=2.79); G1(fullMAR 0.78<=0.85); G3(OOSpf 1.527<1.531)
+rev/be=False/sf=0/tR=3.0 FAIL: G1(5yMAR 2.22<=2.79); G1(fullMAR 0.79<=0.85); G3(OOSpf 1.527<1.531)
+rev/be=False/sf=1.5/tR=0 FAIL: G1(5yMAR 2.60<=2.79); G1(fullMAR 0.81<=0.85); G3(OOSnet 86960<87132); G3(OOSpf 1.487<1.531)
+rev/be=False/sf=1.5/tR=3.0 FAIL: G1(5yMAR 2.29<=2.79); G1(fullMAR 0.81<=0.85); G3(OOSpf 1.523<1.531)
+rev/be=False/sf=2.0/tR=0 FAIL: G1(5yMAR 2.36<=2.79); G1(fullMAR 0.79<=0.85); G3(OOSpf 1.500<1.531)
+rev/be=False/sf=2.0/tR=3.0 FAIL: G1(5yMAR 2.29<=2.79); G1(fullMAR 0.79<=0.85); G3(OOSpf 1.500<1.531)
+rev/be=True/sf=0/tR=0    FAIL: G1(5yMAR 2.04<=2.79); G1(fullMAR 0.77<=0.85); G3(OOSnet 81135<87132); G3(OOSpf 1.431<1.531)
+rev/be=True/sf=0/tR=3.0  FAIL: G1(5yMAR 2.05<=2.79); G1(fullMAR 0.77<=0.85); G3(OOSnet 81135<87132); G3(OOSpf 1.431<1.531)
+rev/be=True/sf=1.5/tR=0  FAIL: G1(5yMAR 2.65<=2.79); G1(fullMAR 0.84<=0.85); G3(OOSnet 82015<87132); G3(OOSpf 1.438<1.531)
+rev/be=True/sf=1.5/tR=3.0 FAIL: G1(5yMAR 2.65<=2.79); G1(fullMAR 0.83<=0.85); G3(OOSpf 1.473<1.531)
+rev/be=True/sf=2.0/tR=0  FAIL: G1(5yMAR 2.48<=2.79); G1(fullMAR 0.81<=0.85); G3(OOSnet 80825<87132); G3(OOSpf 1.429<1.531)
+rev/be=True/sf=2.0/tR=3.0 FAIL: G1(5yMAR 2.46<=2.79); G1(fullMAR 0.81<=0.85); G3(OOSnet 80825<87132); G3(OOSpf 1.429<1.531)
