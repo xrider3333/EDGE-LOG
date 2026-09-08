@@ -59,6 +59,34 @@ USAGE
                                                # validate.windows off users/<uid>/runs/310 --
                                                # ONE doc read (Firestore Spark quota is 50k
                                                # reads/day -- never stream a collection here).
+
+THE {} TRAP -- FIXED 2026-09-08
+--------------------------------
+`--params '{}'` (or any dict missing keys) used to fall straight through to the strategy
+plugin's own run_backtest() KEYWORD defaults -- which are frequently just the file's
+INHERITED PARENT defaults, kept as a byte-for-byte parity anchor, and can be a totally
+different configuration from the one the file's DEFAULT_PARAMS dict (what the web Builder
+actually pre-fills, and what the owner has chosen as "the current default") describes. On
+ENGUQ_1M_ETH_R2_1_0.py this meant `--params '{}'` silently re-ran the frozen #226 parity
+anchor (2,838 trades / $432,954, breakeven_R 1.5 / stop_mult 1.0, inherited from the
+signature) and PASSED it, while the runner's own BOOK job #323 for the SAME file with the
+SAME empty leg params ran the file's real default (the "be2.0 sibling", breakeven_R 2.0 /
+stop_mult 1.0, 1,949 trades / $613,125) -- a guard that never actually graded the
+configuration it was asked about. Caught grading run #323's leg 2026-09-08.
+
+THE FIX: `resolve_params()` below now mirrors what a real job carries -- a real job never
+hits this gap because the web Builder always populates every param from
+DEFAULT_PARAMS[k]['default'] before it ever writes a job doc (api/runner.py's sync_meta,
+~line 972-982, ships that same 'default' key to the browser for exactly this reason);
+augur_engine.engine.run_backtest / augur_engine.book.run_book both simply forward **params
+straight to the plugin function with NO resolution step of their own, trusting the caller
+to have already filled in every key. Every guard() call below now takes DEFAULT_PARAMS[k]
+['default'] for any key the caller does not supply, then overlays the caller's params on
+top -- so `{}` now means "the file's real defaults", exactly like a real queued job, not
+"whatever the function signature happens to say". The resolved params (and which key came
+from where) print at the top of every report so a mismatch with a run doc is visible
+before trusting the verdict. A strategy with no DEFAULT_PARAMS at all has nothing to
+resolve against and falls back to the pre-fix behaviour -- the report says so explicitly.
 """
 from __future__ import annotations
 
@@ -89,11 +117,65 @@ import pandas as pd                                                   # noqa: E4
 from augur_engine.engine import run_backtest                          # noqa: E402
 from augur_engine.data import find_master, load_master_arrays         # noqa: E402
 from augur_engine.analytics import expectancy_r as _engine_expectancy_r  # noqa: E402
+from augur_engine.strategies import load_strategy, strategy_params    # noqa: E402
 
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 # data_source -> session, the same map tools/backfill_keel.py uses for run docs that
 # carry no explicit `session` field.
 _SOURCE_SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth", "tv": "rth"}
+
+
+def resolve_params(strategy_file, params):
+    """Resolve a strategy's EFFECTIVE params exactly the way a real queued job carries them:
+    DEFAULT_PARAMS[k]['default'] for every key the caller does not supply, overlaid by
+    whatever the caller DID supply. NEVER the plugin run_backtest() function's own keyword
+    defaults -- see "THE {} TRAP" in the module docstring for why those can be a different
+    configuration entirely.
+
+    Returns (resolved, source, has_default_params):
+      resolved            -- dict, the params to actually pass to run_backtest.
+      source              -- dict[key -> 'default'|'caller'], which side each key came from.
+      has_default_params  -- False if the strategy file exposes no DEFAULT_PARAMS at all, in
+          which case `resolved` is just the caller's params, unchanged -- there is nothing
+          to resolve against, so every key the caller omits still falls back to the
+          plugin's own signature default, exactly as before this fix. Callers must surface
+          this case rather than silently treating it as fully resolved.
+    """
+    caller = dict(params or {})
+    mod = load_strategy(strategy_file)
+    dp = strategy_params(mod) or {}
+    if not dp:
+        return caller, {k: "caller" for k in caller}, False
+    resolved, source = {}, {}
+    for k, meta in dp.items():
+        if isinstance(meta, dict) and "default" in meta:
+            resolved[k] = meta["default"]
+            source[k] = "default"
+    for k, v in caller.items():
+        resolved[k] = v
+        source[k] = "caller"
+    return resolved, source, True
+
+
+def format_resolved_report(strategy_file, resolved, source, has_default_params):
+    """Report lines for guard()'s printout: one sorted-keys RESOLVED PARAMS line, then which
+    keys came from DEFAULT_PARAMS vs the caller -- so a mismatch with a run doc's saved
+    params is visible before trusting the verdict."""
+    line = ", ".join("%s=%r" % (k, resolved[k]) for k in sorted(resolved))
+    out = ["RESOLVED PARAMS: %s" % (line or "(none)")]
+    if not has_default_params:
+        out.append(
+            "NOTE: %s has no DEFAULT_PARAMS -- nothing to resolve against; every key not "
+            "supplied by the caller falls back to the plugin's own run_backtest() signature "
+            "default (pre-fix behaviour)." % strategy_file)
+        return out
+    from_default = sorted(k for k, v in source.items() if v == "default")
+    from_caller = sorted(k for k, v in source.items() if v == "caller")
+    out.append("  from DEFAULT_PARAMS (%d): %s"
+               % (len(from_default), ", ".join(from_default) or "(none)"))
+    out.append("  from caller         (%d): %s"
+               % (len(from_caller), ", ".join(from_caller) or "(none)"))
+    return out
 
 
 def split_from_lockbox(date_to, lockbox_months):
@@ -144,6 +226,13 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
     dict. See the module docstring for the three hard reasons and the exit-code mapping
     (also placed on the returned dict as result["exit_code"])."""
     label = label or strategy_file
+    resolved_params, param_source, has_dp = resolve_params(strategy_file, params)
+
+    print("=" * 118)
+    print("%s   [%s]" % (label, strategy_file))
+    for line in format_resolved_report(strategy_file, resolved_params, param_source, has_dp):
+        print("  " + line)
+
     master = find_master(instrument, timeframe, session, source)
     if not master:
         raise SystemExit(f"no master for instrument={instrument} timeframe={timeframe} "
@@ -151,17 +240,17 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
     arr = load_master_arrays(master, date_from=date_from, date_to=date_to)
     idx = pd.DatetimeIndex(arr["index"])
 
-    r = run_backtest(strategy_file, arrays=arr, params=(dict(params) if params else {}),
+    r = run_backtest(strategy_file, arrays=arr, params=dict(resolved_params),
                      cost_pts=cost_pts, return_trades=True)
     trades = r.get("trades") or []          # (entry_i, exit_i, pnl_pts, side, entry_price)
 
-    print("=" * 118)
-    print("%s   [%s]" % (label, strategy_file))
     if not trades:
         print("  NO TRADES over the window -- nothing to grade")
         reasons = ["ARTIFACT: zero trades over the whole window -- there is no edge to queue."]
         print("  VERDICT: ARTIFACT -- " + reasons[0])
-        return dict(label=label, strategy=strategy_file, params=params, verdict="ARTIFACT",
+        return dict(label=label, strategy=strategy_file, params=params,
+                   resolved_params=resolved_params, param_source=param_source,
+                   has_default_params=has_dp, verdict="ARTIFACT",
                    reasons=reasons, exit_code=1, n_all=0)
 
     # The master's index is tz-aware ET (load_master_arrays factorizes day_id on the ET
@@ -202,7 +291,7 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
     # run from `split` to `date_to`, same shape as run_validate's own lockbox call.
     rl = run_backtest(strategy_file, instrument=instrument, timeframe=timeframe,
                       session=session, source=source,
-                      params=(dict(params) if params else {}), cost_pts=cost_pts,
+                      params=dict(resolved_params), cost_pts=cost_pts,
                       date_from=split, date_to=date_to)
     rl_n = int(rl.get("num_trades") or 0)
     longest = int(max(hold_days)) if hold_days else 0
@@ -272,7 +361,9 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
     for line in reasons:
         print("    - " + line)
 
-    return dict(label=label, strategy=strategy_file, params=params, verdict=verdict,
+    return dict(label=label, strategy=strategy_file, params=params,
+               resolved_params=resolved_params, param_source=param_source,
+               has_default_params=has_dp, verdict=verdict,
                reasons=reasons, exit_code=exit_code, sel=S, lb=L, all=A, sel_ex10=S10,
                top10_share=share, reload_n=rl_n, continuous_lb_n=L["n"],
                longest_hold_days=longest, engine_expectancy_r=engine_evr,
@@ -323,10 +414,76 @@ def _guard_kwargs_from_run(run_id, cred_path):
             f"source={source!r} date_from={date_from!r} date_to={date_to!r} split={split!r} "
             f"(validate.windows={windows!r})")
 
-    return dict(strategy_file=strategy, params=params, instrument=instrument,
-               timeframe=timeframe, session=session, source=source, cost_pts=cost_pts,
-               mult=mult, date_from=date_from, date_to=date_to, split=split,
-               label=f"run #{run_id}")
+    kw = dict(strategy_file=strategy, params=params, instrument=instrument,
+             timeframe=timeframe, session=session, source=source, cost_pts=cost_pts,
+             mult=mult, date_from=date_from, date_to=date_to, split=split,
+             label=f"run #{run_id}")
+    return kw, d
+
+
+def _print_doc_count_check(result, run_id, doc):
+    """--run only: print the guard's own trade count next to the run doc's, flagged
+    COUNT MISMATCH when they differ by more than 5% -- but ONLY against a like-for-like
+    figure. Three sources, in order of preference:
+
+      1. a BOOK doc's `book.legs[]` entry for THIS strategy file -- a whole-window replay
+         of exactly one leg (augur_engine/book.py, no split) -> vs guard WHOLE RUN n.
+         This is the apples-to-apples check that would have caught the #323 mismatch.
+      2. a validate doc's `gate_validate.ungated_full` (whole-window, continuous, sliced
+         by entry time -- the engine's own re-run, see edgelog-validate-header-75-split)
+         -> vs guard WHOLE RUN n; else `gate_validate.ungated_pre` -> vs guard SELECTION n.
+      3. `best_trades` -- the Stage-A 75%-IS-SPLIT figure, a DIFFERENT window from any
+         guard stretch, so it is printed for orientation only and NEVER flagged.
+    """
+    strategy_file = result.get("strategy")
+    guard_all = (result.get("all") or {}).get("n")
+    guard_sel = (result.get("sel") or {}).get("n")
+
+    def _n(block):
+        if not isinstance(block, dict):
+            return None
+        for k in ("trades", "n", "num_trades"):
+            if block.get(k) is not None:
+                try:
+                    return int(block[k])
+                except Exception:
+                    return None
+        return None
+
+    legs = ((doc.get("book") or {}).get("legs")) or []
+    leg = next((l for l in legs if l.get("strategy") == strategy_file), None)
+    gv = doc.get("gate_validate") or {}
+    if leg is not None and _n(leg) is not None:
+        doc_n, doc_label, guard_n, guard_label = (
+            _n(leg), "book leg `trades` (whole-window replay of this leg)",
+            guard_all, "guard WHOLE RUN n")
+    elif _n(gv.get("ungated_full")) is not None:
+        doc_n, doc_label, guard_n, guard_label = (
+            _n(gv.get("ungated_full")), "gate_validate.ungated_full trades (continuous, whole window)",
+            guard_all, "guard WHOLE RUN n")
+    elif _n(gv.get("ungated_pre")) is not None:
+        doc_n, doc_label, guard_n, guard_label = (
+            _n(gv.get("ungated_pre")), "gate_validate.ungated_pre trades (continuous, pre-lockbox)",
+            guard_sel, "guard SELECTION n")
+    else:
+        bt = doc.get("best_trades")
+        if bt is None:
+            print("  run #%s: doc carries no comparable trade count (no book leg, no "
+                  "gate_validate.ungated_*, no best_trades)." % run_id)
+        else:
+            print("  run #%s: best_trades = %s is the Stage-A 75%%-IS-split figure (a different "
+                  "window from every guard stretch) -- shown for orientation, not compared; "
+                  "guard SELECTION n = %s, WHOLE RUN n = %s." % (run_id, bt, guard_sel, guard_all))
+        return
+    if guard_n is None:
+        print("  run #%s: guard produced no comparable count (NO TRADES?) -- skipping the "
+              "count check against %s = %s." % (run_id, doc_label, doc_n))
+        return
+    base = max(int(doc_n), 1)
+    diverge_pct = abs(int(guard_n) - int(doc_n)) / base * 100.0
+    flag = "   *** COUNT MISMATCH ***" if diverge_pct > 5 else ""
+    print("  run #%s: %s = %d   vs  %s = %d   (%.1f%% diff)%s"
+          % (run_id, doc_label, doc_n, guard_label, guard_n, diverge_pct, flag))
 
 
 def main():
@@ -351,8 +508,9 @@ def main():
                     help="Firebase service-account JSON (repo root, gitignored)")
     a = ap.parse_args()
 
+    run_doc = None
     if a.run is not None:
-        kw = _guard_kwargs_from_run(a.run, a.cred)
+        kw, run_doc = _guard_kwargs_from_run(a.run, a.cred)
     else:
         required = dict(strategy=a.strategy, instrument=a.instrument, timeframe=a.timeframe,
                         session=a.session, source=a.source, date_from=a.date_from,
@@ -368,6 +526,8 @@ def main():
                  date_to=a.date_to, split=a.split, label=a.label)
 
     result = guard(**kw)
+    if run_doc is not None:
+        _print_doc_count_check(result, a.run, run_doc)
     sys.exit(result["exit_code"])
 
 

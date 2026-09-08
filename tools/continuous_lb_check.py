@@ -68,6 +68,19 @@ import numpy as np                                                     # noqa: E
 import pandas as pd                                                    # noqa: E402
 from augur_engine.engine import run_backtest                           # noqa: E402
 from augur_engine.data import find_master, load_master_arrays          # noqa: E402
+# THE {} TRAP (fixed 2026-09-08, see tools/queue_guard.py's module docstring): a strategy
+# plugin's run_backtest() keyword defaults are frequently just its inherited PARENT
+# defaults (a parity anchor), a different configuration from the file's own DEFAULT_PARAMS
+# dict -- the values the web Builder actually pre-fills and the ones the owner has chosen
+# as "the current default". Every CASES/SELFTEST entry below already spells out every key
+# by hand, so this file never actually fell into the trap -- but it shares the exact same
+# run_backtest() call shape queue_guard.py did, so it gets the exact same resolver rather
+# than trusting that invariant to hold forever. tools/ is on sys.path when this file runs
+# as a script (python puts a script's own directory at sys.path[0]); the explicit insert
+# below is a no-op in that case and only matters if this module is ever imported from
+# elsewhere.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))       # noqa: E402
+from queue_guard import resolve_params, format_resolved_report         # noqa: E402
 
 # ── the configs under test ────────────────────────────────────────────────────────────
 # Every one is NQ 1m ETH (db_noadj_eth), mult 20, family cost 0.533, ENGU-Q windows:
@@ -112,6 +125,14 @@ CASES = [
     # anchor (limit_atr 0 = fill at the signal close = byte-identical to the frozen #226), so
     # passing {} silently re-runs #226 under a #310 label. It did exactly that on the first
     # pass here, and the two rows came out identical to the dollar -- which is how it was caught.
+    # FIXED 2026-09-08 (tools/queue_guard.py's resolve_params(), imported above): every
+    # run_backtest() call in this file now resolves params through DEFAULT_PARAMS[k]
+    # ['default'] first, so a {} or partial dict here would land on the file's DEFAULT_PARAMS
+    # (which for some files IS the parity anchor, as LIM's case above shows, and for others --
+    # e.g. ENGUQ_1M_ETH_R2_1_0.py -- is a DIFFERENT, deliberately-chosen configuration than the
+    # run_backtest() signature's own inherited defaults), never silently the signature's. Every
+    # CASES/SELFTEST entry already spells out every key by hand, so this fix changes nothing
+    # here today -- it only stops a FUTURE partial-dict entry from repeating the #323 mistake.
     ("#310 LIM (let-it-run)", "ENGUQ_1M_ETH_LIM_1_0.py", {
         "buf_atr": 1.0, "breakeven_R": 1.5, "ema_len": 420, "tl_len": 238, "vol_mult": 0.8,
         "stop_mult": 1.7, "trail_frac": 4.0, "regime_len": 5, "min_brk": 0.4,
@@ -163,12 +184,18 @@ def _fmt(d):
 
 
 def run_case(label, plugin, params, out):
+    resolved_params, param_source, has_dp = resolve_params(plugin, params)
+    print("=" * 118)
+    print("%s   [%s]" % (label, plugin))
+    for line in format_resolved_report(plugin, resolved_params, param_source, has_dp):
+        print("  " + line)
+
     m = find_master("NQ", "1m", "eth", "db_noadj_eth")
     if not m:
         raise SystemExit("no NQ 1m ETH master")
     arr = load_master_arrays(m, date_from=WIN[0], date_to=WIN[1])
     idx = pd.DatetimeIndex(arr["index"])
-    r = run_backtest(plugin, arrays=arr, params=(dict(params) if params else {}),
+    r = run_backtest(plugin, arrays=arr, params=dict(resolved_params),
                      cost_pts=COST, return_trades=True)
     trades = r.get("trades") or []          # (entry_i, exit_i, pnl_pts, side, entry_price)
     if not trades:
@@ -211,14 +238,12 @@ def run_case(label, plugin, params, out):
 
     # the RELOAD the engine grades on, for the divergence flag
     rl = run_backtest(plugin, instrument="NQ", timeframe="1m", session="eth",
-                      source="db_noadj_eth", params=(dict(params) if params else {}),
+                      source="db_noadj_eth", params=dict(resolved_params),
                       cost_pts=COST, date_from=SPLIT, date_to=WIN[1])
     rl_n = int(rl.get("num_trades") or 0)
     longest = int(max(hold_days)) if len(hold_days) else 0
     diverge = (rl_n - L["n"])
 
-    print("=" * 118)
-    print("%s   [%s]" % (label, plugin))
     print("  SELECTION  %s..%s  %s" % (WIN[0], SPLIT, _fmt(S)))
     print("  LOCKBOX    %s..%s  %s   <- CONTINUOUS, sliced by ENTRY time" % (SPLIT, WIN[1], _fmt(L)))
     print("  WHOLE RUN                         %s" % _fmt(A))
