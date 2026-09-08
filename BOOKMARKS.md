@@ -140,3 +140,28 @@ same seed/window/gates, so the ceilings read against each other:
 **Why it matters:** the frequency ceiling and the edge ceiling sit in DIFFERENT families —
 that is exactly why pooling them (B19) beat every book measured, and why pooling two legs
 from the same family would not have.
+
+## 2026-09-08 — RETRACTION of B17 and B19 (rows 1283-1287, v73.570)
+
+**B17 (EV R record 1.40, ENGU-Q ER frontier) is WITHDRAWN.** Its Auto-Validate came back
+**PASS 6/6 (run #320)** and it still fails the test that matters: **101% of its net comes
+from TEN trades**; ex-top-10 the other 823 trades make **-$3,821 at PF 0.977**. The house
+artifact guard flags it SUSPECT at 99% top-10 share and is correct. EV R divides by the
+average LOSING trade, so it rewards exactly this few-enormous-winners shape — a wide trail
+on the 24h tape (holds to 179 days) scores 1.4 while being untradeable.
+
+**B19 (the frontier PAIR book, "R/YR 240 / EV R 0.57") is WITHDRAWN with it** — 65% of its
+net was those same ten trades; ex-top-10 it is $142,571 at PF 1.23, EV R 0.20. Both book
+cards were already cancelled in the queue and are **not** being requeued.
+
+**B18 (NOISE R/YR frontier) SURVIVES the same test**: top-10 share 43%, ex-top-10 still
+$84,029 across 5,538 trades at PF 1.187, EV R 0.160. Its own validate was **WEAK** (run
+#319, overfit check only) — a candidate, not a champion.
+
+**New gate: `tools/concentration_check.py`** — run BEFORE queueing. Bar: top-10 share >=90%
+or a negative ex-top-10 net = ARTIFACT, do not queue; 50-90% = state it on the card; <50%
+with positive ex-top-10 = spread. Reference: deployed ENGU-Q leg 80%, NOISE crowns 22-43%.
+
+**Process lesson:** plateau = do neighbouring settings agree (26/26 did). Walk-forward = does
+it hold untuned (it did). **Neither answers whether the profit is ten trades.** Three
+different questions; ask all three.
