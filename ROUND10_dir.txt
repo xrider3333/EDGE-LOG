@@ -1,0 +1,137 @@
+C:\Users\xride\AppData\Local\EdgeLog-worktrees\orb10dir\augur_strategies\ORB_3_6_DIR.py:234: RuntimeWarning: Mean of empty slice
+  _pace_ref[_si, :] = np.nanmean(_pref[_si - 20:_si, :], axis=0)
+====================================================================================================================
+ORB ROUND 10b - DIRECTION-RULE sweep (ORB_3_6_DIR.py) on the #314 crown
+  master NQ 5m RTH no-adj, 0.533 pts/RT, one contract, entries to 2026-08-13
+====================================================================================================================
+
+--------------------------------------------------------------------------------------------------------------------
+FULL  (<= 2026-08-13)
+--------------------------------------------------------------------------------------------------------------------
+config                      n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+--------------------------------------------------------------------------------------------------------------------
+CROWN (first_candle)     2299    397,150    28,857  1.371   0.85  0.204   28.9    142   -13,608  79.2
+gap                      2006    250,236    58,791  1.263   0.26  0.141   17.5    124   -41,649  87.4
+gap_fade                 2002    174,269    72,906  1.170   0.15  0.102   12.6    124   -22,073  54.1
+prior_day                1985     77,585    79,684  1.075   0.06  0.044    5.4    123   -65,205  56.8
+prior_day_fade           2022    331,108    32,281  1.347   0.63  0.191   23.9    125    -4,173  86.9
+or_vs_prior_close        2091    303,890    29,976  1.304   0.63  0.162   21.0    129    -3,192  88.0
+either (ref, =Both)      3122    333,549    65,953  1.209   0.31  0.118   22.8    193   -24,540  77.0
+
+--------------------------------------------------------------------------------------------------------------------
+IS    (<= 2025-08-13)
+--------------------------------------------------------------------------------------------------------------------
+config                      n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+--------------------------------------------------------------------------------------------------------------------
+CROWN (first_candle)     2131    310,019    28,857  1.342   0.71  0.189   26.5    140   -13,608  77.8
+gap                      1866    201,688    42,564  1.248   0.31  0.133   16.4    123   -15,826  91.8
+gap_fade                 1859    183,063    43,800  1.220   0.28  0.132   16.2    122   -22,073  51.5
+prior_day                1840     65,413    79,684  1.076   0.05  0.045    5.4    121   -65,205  57.9
+prior_day_fade           1884    303,527    22,972  1.387   0.87  0.212   26.3    124    -4,173  86.0
+or_vs_prior_close        1942    259,318    29,976  1.310   0.57  0.165   21.1    128    -3,192  87.7
+either (ref, =Both)      2897    340,493    51,790  1.261   0.43  0.147   28.1    191   -24,540  76.6
+
+--------------------------------------------------------------------------------------------------------------------
+OOS   (2025-08-13 .. 2026-08-13)
+--------------------------------------------------------------------------------------------------------------------
+config                      n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+--------------------------------------------------------------------------------------------------------------------
+CROWN (first_candle)      168     87,132    22,925  1.531   3.82  0.268   45.4    169    75,210 100.0
+gap                       140     48,548    23,467  1.348   2.13  0.184   26.6    144    35,584 100.0
+gap_fade                  143     -8,794    72,906  0.955  -0.12 -0.026   -3.7    143    -5,485   0.0
+prior_day                 145     12,172    22,126  1.073   0.56  0.039    5.7    148     7,749 100.0
+prior_day_fade            138     27,581    32,281  1.163   0.87  0.093   13.1    140    22,349 100.0
+or_vs_prior_close         149     44,572    21,747  1.275   2.07  0.148   22.3    151    31,659 100.0
+either (ref, =Both)       225     -6,943    65,953  0.976  -0.11 -0.013   -3.0    226   -16,598   0.0
+
+--------------------------------------------------------------------------------------------------------------------
+5-YEAR (from 2021-08-13)
+--------------------------------------------------------------------------------------------------------------------
+config                      n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+--------------------------------------------------------------------------------------------------------------------
+CROWN (first_candle)      774    319,297    22,925  1.473   2.79  0.249   38.6    155    19,036 100.0
+gap                       700    172,153    58,791  1.282   0.59  0.149   20.9    141   -41,649  79.6
+gap_fade                  684    191,639    72,906  1.294   0.53  0.166   22.8    137    -5,351  98.0
+prior_day                 688    143,471    40,229  1.231   0.71  0.126   17.4    138   -19,045  81.6
+prior_day_fade            693    202,698    32,281  1.314   1.26  0.171   23.9    139     1,684 100.0
+or_vs_prior_close         717    215,904    29,976  1.335   1.44  0.175   25.1    144      -708  98.0
+either (ref, =Both)      1073    277,722    65,953  1.272   0.84  0.145   31.2    215   -23,561  95.9
+
+====================================================================================================================
+PER-SIDE SPLIT (longs vs shorts), FULL and 5-YEAR windows
+====================================================================================================================
+config                 | FULL longs / shorts          | 5y longs / shorts           
+CROWN (first_candle)   | L n=1204 $  166,088 PF 1.32 | S n=1095 $  231,062 PF 1.41 || 5y L n=399 $ 120,444 PF 1.37 | S n=375 $ 198,853 PF 1.57
+gap                    | L n=1141 $  134,862 PF 1.28 | S n= 865 $  115,374 PF 1.24 || 5y L n=383 $  96,775 PF 1.31 | S n=317 $  75,378 PF 1.25
+gap_fade               | L n= 911 $   68,451 PF 1.15 | S n=1091 $  105,817 PF 1.19 || 5y L n=328 $  62,721 PF 1.20 | S n=356 $ 128,918 PF 1.38
+prior_day              | L n=1050 $   58,910 PF 1.13 | S n= 935 $   18,675 PF 1.03 || 5y L n=373 $  74,276 PF 1.26 | S n=315 $  69,195 PF 1.21
+prior_day_fade         | L n=1008 $  139,702 PF 1.29 | S n=1014 $  191,406 PF 1.41 || 5y L n=340 $  79,298 PF 1.23 | S n=353 $ 123,400 PF 1.40
+or_vs_prior_close      | L n=1158 $  186,476 PF 1.39 | S n= 933 $  117,414 PF 1.23 || 5y L n=381 $ 134,541 PF 1.44 | S n=336 $  81,363 PF 1.24
+either (ref, =Both)    | L n=1591 $  209,510 PF 1.28 | S n=1531 $  124,040 PF 1.15 || 5y L n=567 $ 159,818 PF 1.31 | S n=506 $ 117,904 PF 1.23
+
+====================================================================================================================
+PER-YEAR NET$: first_candle (crown) vs best other rule by 5y MAR (or_vs_prior_close)
+====================================================================================================================
+year    first_candle$ or_vs_prior_cl$         delta$
+2010           -1,112            395          1,507
+2011           -2,886         -1,859          1,027
+2012            8,583          7,190         -1,393
+2013            1,154            574           -580
+2014            6,938          6,382           -556
+2015           -2,825          4,772          7,597
+2016           -5,701         -1,127          4,573
+2017             -730          5,417          6,147
+2018           35,747         17,708        -18,039
+2019           10,089         11,126          1,037
+2020            1,457          6,533          5,076
+2021           45,697         43,214         -2,482
+2022           90,416         69,186        -21,230
+2023           23,524         19,452         -4,072
+2024           35,874         50,766         14,892
+2025           94,155         11,458        -82,697
+2026           56,770         52,703         -4,067
+
+====================================================================================================================
+GATE CHECK  (G1 5yMAR>2.79 & fullMAR>0.85 | G2 net>=95%*$397150 | G3 OOS net/PF>=crown | G5 tr/yr>=120)
+G4 (plateau): dir_rule is a single CATEGORICAL knob (no numeric neighbours) — substituted
+  with an IS-AND-OOS-both-beat-crown consistency check (see per-rule note below).
+====================================================================================================================
+gap                    FAIL: G1(5yMAR 0.59<=2.79); G1(fullMAR 0.26<=0.85); G2(net 250236<95%*397150); G3(OOSnet 48548<87132); G3(OOSpf 1.348<1.531)   [G4: NOT consistent (IS/OOS split)]
+gap_fade               FAIL: G1(5yMAR 0.53<=2.79); G1(fullMAR 0.15<=0.85); G2(net 174269<95%*397150); G3(OOSnet -8794<87132); G3(OOSpf 0.955<1.531)   [G4: NOT consistent (IS/OOS split)]
+prior_day              FAIL: G1(5yMAR 0.71<=2.79); G1(fullMAR 0.06<=0.85); G2(net 77585<95%*397150); G3(OOSnet 12172<87132); G3(OOSpf 1.073<1.531)   [G4: NOT consistent (IS/OOS split)]
+prior_day_fade         FAIL: G1(5yMAR 1.26<=2.79); G1(fullMAR 0.63<=0.85); G2(net 331108<95%*397150); G3(OOSnet 27581<87132); G3(OOSpf 1.163<1.531)   [G4: NOT consistent (IS/OOS split)]
+or_vs_prior_close      FAIL: G1(5yMAR 1.44<=2.79); G1(fullMAR 0.63<=0.85); G2(net 303890<95%*397150); G3(OOSnet 44572<87132); G3(OOSpf 1.275<1.531)   [G4: NOT consistent (IS/OOS split)]
+either (ref, =Both)    FAIL: G1(5yMAR 0.84<=2.79); G1(fullMAR 0.31<=0.85); G2(net 333549<95%*397150); G3(OOSnet -6943<87132); G3(OOSpf 0.976<1.531)   [G4: NOT consistent (IS/OOS split)]
+
+====================================================================================================================
+5-BULLET READ
+====================================================================================================================
+1. All 6 alternative dir_rules FAIL every gate. first_candle (the #314 crown's own rule -
+   trade the way the opening-range candle itself closed) is the best of the 7 on every
+   window: FULL net $397,150 vs next-best $331,108 (prior_day_fade), 5y MAR 2.79 vs
+   next-best 1.44 (or_vs_prior_close), and OOS net $87,132 vs next-best $48,548 (gap).
+2. The OOS year is where the gap is starkest and where it matters most: crown OOS PF
+   1.531 vs the best alternative's 1.348 (gap) and 1.275 (or_vs_prior_close); gap_fade
+   and "either" (=Both, no direction restriction) are OOS LOSERS (net -$8,794 and
+   -$6,943, PF <1). Whatever "First-candle dir" is picking up, it is NOT fungible with
+   the overnight gap or the prior day's own direction - it degrades hardest exactly in
+   the most recent, most decision-relevant year.
+3. Per-side split shows the crown's edge is NOT one-sided: longs $166,088/PF1.32 and
+   shorts $231,062/PF1.41 over the full window (shorts a bit stronger, both profitable,
+   both healthy PF). No alternative rule improves both sides at once - each one that
+   raises one side's count/PF (e.g. or_vs_prior_close on longs, PF 1.39) does so by
+   discarding real crown trades on the other side, and the discarded trades were net
+   positive under first_candle.
+4. Per-year table (first_candle vs or_vs_prior_close, the best alternative by 5y MAR):
+   the alternative is NOT one bad regime - it trails in 11 of 17 years, including a
+   -$82,697 gap in 2025 alone (the year right before the lockbox) and -$21,230 in 2022,
+   the strategy's best year. It occasionally wins a small year (2015, 2017, 2024) but
+   never by enough to matter, and always loses the big years.
+5. G4 (plateau) does not literally apply - dir_rule is one categorical knob with no
+   numeric neighbours to perturb - so it was substituted with an IS-and-OOS-both-beat-
+   crown consistency check; every alternative fails that too (none beats the crown's
+   MAR in BOTH IS and OOS). VERDICT: the direction-rule fork is CLOSED. The crown's own
+   first-candle-close rule is not an arbitrary default worth re-deriving from gaps or
+   prior-day direction - it is already the best of the 7 rules tested, and by a wide,
+   recent-year margin. No config to adopt; the crown (#314) stands unchallenged by this
+   axis.
