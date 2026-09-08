@@ -264,8 +264,10 @@ def _fit_members(X, y_pnl, w, seed, target="log", use=("logit", "et", "huber")):
         d = lr.decision_function(Xs)
         members.append(("logit", lr, float(d.mean()), float(d.std() + 1e-9)))
     if "et" in use:
+        # n_jobs=1 on purpose: this refits inside the same rolling walk as the gate, and a
+        # process pool per fit cost more than the fit (see _GATE_N_JOBS in ml_gate.py).
         et = ExtraTreesRegressor(n_estimators=200, max_depth=5, min_samples_leaf=15,
-                                 n_jobs=-1, random_state=seed)
+                                 n_jobs=1, random_state=seed)
         et.fit(Xs, R, sample_weight=w)
         d = et.predict(Xs)
         members.append(("et", et, float(d.mean()), float(d.std() + 1e-9)))

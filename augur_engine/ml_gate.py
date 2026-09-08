@@ -182,6 +182,21 @@ def _risk_adj(pnls, yrs):
     return _shp(p, yrs), _sop(p, yrs)
 
 
+# ── ONE THREAD PER FIT (2026-09-08) ─────────────────────────────────────────────
+# The gate refits every 25 trades as it walks a trade list, so a validate makes a few
+# thousand fits on a few hundred to a few thousand rows each. With n_jobs=-1 every one of
+# those fits spun up a joblib process pool (RandomForest / ExtraTrees) or twenty OpenMP
+# threads (XGBoost) and tore them down again. Profiled on a 2.5-year NQ 5m validate:
+# gate_validate was 1,360 s of the 1,970 s total, and of that ~750 s was XGBoost's
+# per-round thread churn and ~560 s was joblib creating and terminating pools - two
+# thirds of the whole validate spent starting workers, not fitting. With five runner
+# processes sharing the box the oversubscription made it worse still (the same stage
+# ran 6x slower on a loaded machine than an idle one). The surrogate module pinned
+# n_jobs=1 for exactly this reason (see its docstring); the gate now does the same.
+# Results are unchanged: sklearn forests are deterministic in n_jobs given random_state,
+# and XGBoost hist is deterministic in nthread. Verified on the fixture before shipping.
+_GATE_N_JOBS = 1
+
 def _make_model(name, seed):
     """Gate-model zoo. All shallow/regularized on purpose: training sets are a few
     hundred trades, and an expressive model would memorize them. Uniform Pipeline
@@ -196,7 +211,7 @@ def _make_model(name, seed):
     elif name in ("rf", "forest", "random_forest", "randomforest"):
         from sklearn.ensemble import RandomForestClassifier
         clf = RandomForestClassifier(n_estimators=100, max_depth=4,
-                                     min_samples_leaf=10, n_jobs=-1,
+                                     min_samples_leaf=10, n_jobs=_GATE_N_JOBS,
                                      random_state=int(seed))
     elif name in ("boosted", "xgb", "xgboost", "hgb", "gbt"):
         # literal XGBoost (installed 2026-07-02, owner-approved); sklearn
@@ -205,7 +220,7 @@ def _make_model(name, seed):
         try:
             from xgboost import XGBClassifier
             clf = XGBClassifier(max_depth=3, n_estimators=100, learning_rate=0.1,
-                                tree_method="hist", n_jobs=-1, verbosity=0,
+                                tree_method="hist", n_jobs=_GATE_N_JOBS, verbosity=0,
                                 random_state=int(seed))
             impl = "xgboost"
         except ImportError:
@@ -230,7 +245,7 @@ def _make_model(name, seed):
         # which decorrelates the ensemble. Cheap, and a genuinely different bias to RF.
         from sklearn.ensemble import ExtraTreesClassifier
         clf = ExtraTreesClassifier(n_estimators=200, max_depth=5,
-                                   min_samples_leaf=15, n_jobs=-1,
+                                   min_samples_leaf=15, n_jobs=_GATE_N_JOBS,
                                    random_state=int(seed))
     else:
         raise ValueError(
@@ -1156,7 +1171,7 @@ def gate_feature_select(arrays, trades, min_history=30, seed=42):
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.model_selection import StratifiedKFold
         est = RandomForestClassifier(n_estimators=80, max_depth=4, min_samples_leaf=10,
-                                     random_state=int(seed), n_jobs=-1)
+                                     random_state=int(seed), n_jobs=_GATE_N_JOBS)
         sel = RFECV(est, step=1, min_features_to_select=2, scoring="roc_auc",
                     cv=StratifiedKFold(3, shuffle=True, random_state=int(seed)))
         sel.fit(X, y)
