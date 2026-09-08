@@ -165,3 +165,27 @@ with positive ex-top-10 = spread. Reference: deployed ENGU-Q leg 80%, NOISE crow
 **Process lesson:** plateau = do neighbouring settings agree (26/26 did). Walk-forward = does
 it hold untuned (it did). **Neither answers whether the profit is ten trades.** Three
 different questions; ask all three.
+
+## 2026-09-08 — B21 GAPGO family seed (rounds 32-34, rows 1288-1299, v73.577)
+
+**Owner ask:** something that can branch out into its own strategy family for another session.
+Seven never-traded mechanisms pre-registered (`tools/r32_family_seeds.py`, `r32b_weekly_or.py`,
+`r33_family_seeds2.py`, `r33b_ovngo_controls.py`, `r34_family_seeds3.py`), concentration test in the loop.
+**Six dead** (RELEASE, VALUE AREA, WEEKLY-OR, VOLBAR, LEAD-LAG, RETEST — 55 cells, do not re-test).
+
+**B21 — GAPGO 1.0 (`augur_strategies/GAPGO_1_0.py`)**: trade the overnight-gap direction (|open − prior RTH
+close| ≥ gap_mult × ATR20 of daily ranges) once a 5m bar CLOSES beyond the first bar(s) that way; stop =
+stop_mult × first-bar range; BE 1R pinned; flat at close; calendar roll-seam skip. Triage (2010-06-07..2025-06-29,
+lockbox never loaded): **n=2007 / $151,024 / PF 1.341 / DD $16,672 / n/DD 9.06 / 8-of-8 slices / EV R 0.26 /
+R/YR 35**. Parity harness↔plugin exact. Controls: plain 5m ORB both sides PF 1.10 (4/8); against-gap = tail;
+any-gap direction PF 1.20 (8/8) → **the gap direction is the edge**. Plateau gap 0.10-0.25; 0.35 dies.
+
+**Honest marks:** concentration 50% top-10 (ex-top-10 +$74,781 / PF 1.17) = CONCENTRATED, queueable.
+**Overlap with ORB crown** (`tools/gapgo_vs_orb_overlap.py`): 63% of trade days shared, same direction 61%,
+daily corr 0.19 (0.35 shared days), $136k of $151k earned on ORB days; ORB+GAPGO 1:1 n/DD 10.03 vs ORB 10.32 —
+**a new trigger on the opening-momentum factor, not a diversifier.**
+
+**Status:** Auto-Validate QUEUED 2026-09-08 (job G59lJB5aID4v2EFBqrAi, `tools/queue_gapgo_validate.py`; 8 WF folds,
+12-month lockbox, window pinned to ORB crown 2010-06-07..2026-08-13). Open knobs gap_mult 0.10-0.30, stop_mult
+0.5-1.0, or_bars 1-3. **Hand-off for another session:** 24h tape, ES, gap as a regime gate on the ORB crown
+(replace/gate first-candle direction with gap direction), confirmation-bar count.
