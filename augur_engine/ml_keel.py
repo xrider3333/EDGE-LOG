@@ -393,14 +393,23 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
             "feature_names": names, "version": version}
 
 
-def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on"):
+def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, thr=0.85, dow=None, cap=3.0):
     """RAW x compression, no model: the attribution control for v9. Size `mult` on trades entered
-    while the 60m state is compressed, 1.0 otherwise. Trades sorted by entry bar."""
+    while the 60m state is compressed, 1.0 otherwise. Trades sorted by entry bar.
+    2026-09-08 options: `deep` = multiplier when sq60_ratio < `thr` (depth-graded: 2x deep / 1.5x on /
+    1x off beat the flat 1.5x on the ORB and ENGU-Q crowns); `dow` = {"4": 1.5} weekday multiplier
+    on the entry bar (comp x Friday passed on the ORB crown). Product capped at `cap`."""
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
     F, names = keel_features(arrays)
-    E = np.array([t[0] for t in T])
-    on = F[np.clip(E, 0, len(F) - 1), names.index(feature)] > 0
-    return np.where(on, float(mult), 1.0)
+    E = np.clip(np.array([t[0] for t in T]), 0, len(F) - 1)
+    on = F[E, names.index(feature)] > 0
+    m = np.where(on, float(mult), 1.0)
+    if deep is not None and "sq60_ratio" in names:
+        m = np.where(F[E, names.index("sq60_ratio")] < float(thr), float(deep), m)
+    if dow:
+        wd = pd.DatetimeIndex(arrays["index"])[E].dayofweek
+        m = m * np.array([float(dow.get(str(int(w)), 1.0)) for w in wd])
+    return np.minimum(m, float(cap))
 
 
 def sizes_from_z(z, trust, k=K_MAX, lo=LO, hi=HI):

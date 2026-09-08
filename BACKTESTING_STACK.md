@@ -869,6 +869,23 @@ on #304 vs ~0.25 other days) and the 1.5× Friday tilt helps 9/10 WF years on bo
 (v10 $121,069) at DD −26.9k (raw −24.5k). Fails ENGU-Q's lockbox (24h tape); on ORB comp×Friday lifts the lockbox
 ($102k→$123k at DD +2%) but costs WF drawdown (+14%) — not deployed there. Paper: `NOISE_SBS_V90_K11`.
 
+**Four-thread research round (2026-09-08), one harness (`scratchpad keel_lab.py`), one rule: beat v11 on both
+NOISE runs in WF, LB DD within ~10%, yearly t ≥ 2.5, never pick on the lockbox.**
+- Calendar/event (70 candidates: Friday split by NFP/opex/other, Monday, FOMC-week Wednesday, month turn, week of
+  month, quarter-end, holidays, summer, day-of-month windows): **0 pass**. First-Friday is the strongest Friday
+  sub-cell ($252/trade vs opex-Friday $80) but re-weighting within Friday never beats the uniform 1.5×. A broad
+  "days 8–28 of the month" tilt passes WF and t but blows #243's LB drawdown at any honest magnitude — disqualified.
+- Trade-sequence/state (37 candidates: loss/win streaks, recent form, own-drawdown state, trade number in day, time
+  since last exit, bars into session): **0 pass** at 1.5×/0.75×. Rare-condition "size down" variants are just
+  leverage in disguise (t 3.5–4.0, LB DD +50%); the one stable signal (trailing-50-trade form momentum, t 2.9/2.6)
+  only clears the DD cap when throttled to 1.08×/0.96× by watching that cap — disqualified, and worth ~5%.
+- Cross-family (ORB #314, ENGU-Q #309, WF-selected): **squeeze DEPTH** (2× when sq60_ratio < 0.85, 1.5× on, 1× off)
+  beats flat 1.5× on both — ENGU-Q LB $109,921 → $115,182 at DD −47.3k → −42.4k (better), WF $534k → $575k; ORB LB
+  $101.8k → $105.7k at flat DD. **ORB comp × Friday 1.5×** is the one stack clearing every gate: LB $123,072 at DD
+  +1.8%, t 2.04 (8/10). Friday does NOT travel to ENGU-Q. ORB first-30-min and short-side tilts are real (t 3.8 /
+  2.9) but cost +49% / +57% LB DD. ENGU-Q is long-only (side tilt moot). On NOISE depth is marginal (+2% WF, t 2.3)
+  → NOISE keeps flat 1.5×. Paper: `ORB_R6_C15F`, `ENGUQ_309_CD`.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

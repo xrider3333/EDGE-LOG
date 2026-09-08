@@ -84,6 +84,8 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
     "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
     "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
+    "ORB_R6_C15F": "2026-09-08",      # ORB crown x compression 1.5x x Friday 1.5x (LB $102k -> $123k at DD +1.8%, 8/10 WF years)
+    "ENGUQ_309_CD": "2026-09-08",     # ENGU-Q crown x DEPTH-graded compression (2x when ratio<0.85, 1.5x on): LB $110k -> $115k at DD 10% BETTER
     "ORB_R6_C15": "2026-09-08",       # the ORB crown x compression 1.5x, no model (the tilt travels: LB $87k -> $102k at identical DD)
     "ENGUQ_309_C15": "2026-09-08",    # the ENGU-Q crown x compression 1.5x, no model (LB $86k -> $110k at better DD)
     "ENGUQ_309_K9": "2026-09-08",     # KEEL v9 on the ENGU-Q crown (WF $576k vs $471k at BETTER DD; LB = the tilt alone)      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
@@ -553,6 +555,17 @@ NOISE_243_KEEL11 = {"mode": "keel", "model": "keel", "version": "v11", "source_r
 ORB_314_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 314}
 ENGUQ_309_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 309}
 ENGUQ_309_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run": 309}
+# Cross-family round 2 (2026-09-08, agent scan of calendar/hour/side/depth stacks on the ORB and
+# ENGU-Q crowns, selected on walk-forward only):
+#   ORB: compression x Friday 1.5x is the one stack that clears WF, LB and the DD band - LB
+#   $101,788 -> $123,072 at DD +1.8%, yearly t 2.04 (8/10). First-30-min and short-side tilts are
+#   real edges on ORB but cost +49% / +57% lockbox DD - not adopted.
+#   ENGU-Q: depth-graded compression (2x when sq60_ratio < 0.85, 1.5x when merely on, 1x off) beats
+#   the flat 1.5x - LB $109,921 -> $115,182 at DD -47.3k -> -42.4k (BETTER), WF $534k -> $575k.
+#   Friday does NOT travel to ENGU-Q (LB net falls). On NOISE depth is marginal (+2% WF, t 2.3) so
+#   the NOISE legs keep the flat 1.5x. FORWARD EVIDENCE ONLY; controls = ORB_R6 / ENGUQ_309 / the C15 legs.
+ORB_314_COMP15F = {"mode": "comp", "model": "compression", "mult": 1.5, "dow": {"4": 1.5}, "source_run": 314}
+ENGUQ_309_COMPD = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85, "source_run": 309}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
 # year was KEEL's best read (run #265 window: +$15,410, MAR 5.83 -> 7.22, drawdown down)
 # while its pre-lockbox stretch was neutral - exactly the "stands down until it has earned
@@ -791,6 +804,24 @@ LEG_SOURCE = {
                 "found by the same scan that found compression and robust in 9 of 10 walk-forward "
                 "years on both NOISE runs. Crown lockbox read $139k vs raw $82k at drawdown within "
                 "10%. Added 2026-09-08; NOISE_SBS_V90 is the exact control.",
+    },
+    "ORB_R6_C15F": {
+        "run": 314, "run_label": "#314 ORB crown + compression 1.5x x Friday 1.5x (no model)",
+        "strategy_file": "ORB_3_6_R6.py", "picked": "2026-09-08",
+        "note": "The ORB crown with the compression tilt and a 1.5x Friday tilt stacked, no model. "
+                "The one calendar/hour/side stack that clears walk-forward, lockbox and the drawdown "
+                "band on ORB: lockbox $123k vs $102k for compression alone at drawdown +1.8%, 8 of "
+                "10 walk-forward years helped. Added 2026-09-08; ORB_R6 is the raw control and "
+                "ORB_R6_C15 the compression-only control.",
+    },
+    "ENGUQ_309_CD": {
+        "run": 309, "run_label": "#309 ENGU-Q crown + depth-graded compression (no model)",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-08",
+        "note": "The ENGU-Q crown with the compression tilt graded by squeeze depth: 2x when the "
+                "60-minute Bollinger/Keltner ratio is under 0.85, 1.5x when merely compressed, 1x "
+                "otherwise, no model. Beats the flat 1.5x on both stretches with lockbox drawdown 10% "
+                "lower. Added 2026-09-08; ENGUQ_309 is the raw control and ENGUQ_309_C15 the flat "
+                "compression control.",
     },
     "ORB_R6_C15": {
         "run": 314, "run_label": "#314 ORB crown + compression tilt 1.5x (no model)",
@@ -1102,6 +1133,13 @@ PAPER_LEGS = [
      "gate": NOISE_243_KEEL11, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_K11"]},
     # ADDED 2026-09-07: the compression tilt travels - ORB and ENGU-Q crowns, no model. FORWARD EVIDENCE ONLY.
+    {"key": "ORB_R6_C15F", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ORB_314_COMP15F, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6_C15F"]},
+    {"key": "ENGUQ_309_CD", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_309_COMPD, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ENGUQ_309_CD"]},
     {"key": "ORB_R6_C15", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": ORB_314_COMP15, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6_C15"]},

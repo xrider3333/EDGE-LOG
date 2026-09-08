@@ -146,7 +146,9 @@ def apply_gate(arrays, trades, gate):
         # compressed, 1.0 otherwise. Falls back to UNGATED if the feature build fails.
         try:
             from augur_engine.ml_keel import compression_sizes
-            w = np.asarray(compression_sizes(arrays, ordered, mult=float(gate.get("mult") or 1.5)), float)
+            w = np.asarray(compression_sizes(arrays, ordered, mult=float(gate.get("mult") or 1.5),
+                                             deep=gate.get("deep"), thr=float(gate.get("thr") or 0.85),
+                                             dow=gate.get("dow")), float)
             if len(w) != len(ordered):
                 raise ValueError("compression size vector length mismatch")
             kept = [(ordered[i], float(w[i])) for i in range(len(ordered))]
