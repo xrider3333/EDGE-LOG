@@ -1,0 +1,22 @@
+Does a bigger IS trial budget in Auto-Validate help?  (2026-09-08, owner question)
+Same validate, WIDE parent ORB_3_6.py (~1e11 combos, 13 knobs), #314's window 2010-06-07..2026-08-13,
+lockbox 12m, cost 0.533, steered search ON (production path). Driver: tools/validate_trial_budget.py
+Crown for reference (#314, fenced file): IS ~$310k, lockbox $87k PF 1.53; its fenced validate exhausted its 324-combo space (382 draws).
+
+run           time  evaluated/valid  verdict  wfe   held  dsr   pbo   IS$      IS PF  LB$      LB PF  crowned config
+200 seed 42   156m   353/200          FAIL 4  2.70  6/8   0.66  0.79  60,219   1.09   -9,753   0.96   ob4 stop2.25 tgt3 be.5 atr0 vp0 buf0 trail9 partial5.5
+200 seed 7    154m   432/200          WEAK 5  1.41  5/8   0.98  0.44  80,300   1.19   81,670   1.60   ob2 stop1.25 tgt8 be1.6 atr.5 vp.5 buf.5 trail10 partial4.5
+600 seed 42   217m  1126/600          FAIL 4  2.42  6/8   0.58  0.60  90,646   1.16   20,336   1.08   ob1 stop2.25 tgt3 be.5 atr0 vp.7 buf.35 noconfirm trail12 partial4.5
+1000 seed 42  257m  2103/1000         FAIL 4  1.48  7/8   0.42  0.61  70,956   1.13   54,629   1.26   ob2 stop1.5 tgt2.5 be1.4 atr.2 vp.5 buf.25 trail3 partial3
+
+READ
+1. Budget is NOT the bottleneck. 5x the trials found an IS optimum 3-4x BELOW the known crown ($60-90k vs ~$310k),
+   and never entered the crown's region (trail OFF, partial OFF, stop 2.5, target 5, filters .75/.8). All four crowns
+   have trailing stop + partial exit ON and weak/zero vol filters = the known-losing family.
+2. Seed noise (200 s42 lockbox -$9.7k FAIL vs 200 s7 +$81.7k WEAK) is BIGGER than the 200-vs-1000 difference.
+   The wide-file verdict is a coin flip on seed, not on budget.
+3. More trials makes the verdict HARDER to pass, not easier: DSR 0.66 -> 0.42 (the luck bar rises with n), 1000 = FAIL.
+4. Half the draws die on min_trades (1126 evaluated for 600 valid), so a wide file wastes ~50% of any budget.
+5. Decision: keep the scope defaults (80/120/200/300). The pipeline that works stays: offline hunt -> plateau ->
+   fenced file -> Auto-Validate (which then exhausts the fence). If discovery itself is to improve, the lever is a
+   smarter search (seed from DEFAULT_PARAMS / coordinate descent), not a bigger random+GP budget.
