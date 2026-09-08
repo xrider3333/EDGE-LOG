@@ -360,6 +360,65 @@ def calc_bb_width(c, period=20, k=2.0):
     return ((2.0 * k * std) / sma.replace(0.0, np.nan)).to_numpy()
 
 
+def pctile_vs_prior_days(x, day_id, year_days=252, min_days=60, samples_per_day=60):
+    """Trailing-year percentile rank (0-100) of a BAR-level series, causal and fast.
+
+    The reference distribution is rebuilt once per trading day from the prior `year_days`
+    days (never today), subsampled to ~`samples_per_day` values per day, and every bar of
+    the day is ranked against it with a binary search. Equivalent in spirit to a rolling
+    rank over a one-year window of bars, but O(n log) instead of O(n * window) - the
+    rolling form is fine on 5-minute bars and never finishes on 1-minute bars (5.6M rows,
+    350k-bar windows)."""
+    x = np.asarray(x, float)
+    n = len(x)
+    out = np.full(n, np.nan)
+    days = np.asarray(day_id)
+    if n == 0:
+        return out
+    starts = np.flatnonzero(np.r_[True, days[1:] != days[:-1]])
+    ends = np.r_[starts[1:], n]
+    bpd = max(1, int(np.median(ends - starts)))
+    stride = max(1, bpd // max(1, samples_per_day))
+    day_samples = [x[s:e:stride] for s, e in zip(starts, ends)]
+    for k in range(len(starts)):
+        if k < min_days:
+            continue
+        ref = np.concatenate(day_samples[max(0, k - year_days):k])
+        ref = ref[~np.isnan(ref)]
+        if len(ref) < 100:
+            continue
+        ref.sort()
+        seg = x[starts[k]:ends[k]]
+        r = np.searchsorted(ref, seg, side="right") / float(len(ref)) * 100.0
+        r[np.isnan(seg)] = np.nan
+        out[starts[k]:ends[k]] = r
+    return out
+
+
+def bars_since_extreme(a, w, kind):
+    """Bars since the window's max (kind='max') or min (kind='min') over the last `w` bars,
+    inclusive of the current bar; ties resolve to the OLDEST bar (numpy argmax semantics).
+    Vectorized: w shifted passes instead of a Python callback per row."""
+    a = np.asarray(a, float)
+    n = len(a)
+    best = np.full(n, np.nan)
+    idx = np.full(n, np.nan)
+    for j in range(w):
+        sh = np.full(n, np.nan)
+        sh[j:] = a[:n - j]
+        ok = ~np.isnan(sh)
+        if j == 0:
+            best = np.where(ok, sh, np.nan)
+            idx = np.where(ok, 0.0, np.nan)
+            continue
+        better = ok & (np.isnan(best) | ((sh >= best) if kind == "max" else (sh <= best)))
+        best = np.where(better, sh, best)
+        idx = np.where(better, float(j), idx)
+    if w > 1:
+        idx[:w - 1] = np.nan
+    return idx
+
+
 def rolling_pctile(x, window, min_periods=None):
     return ctx._rolling_pctile(pd.Series(x, dtype=float), window=window, min_periods=min_periods).to_numpy()
 
@@ -422,8 +481,9 @@ def build_bar_arrays(df, tf_min):
 
     bars_per_day = max(1, int(round(df.groupby("day_id").size().median())))
     win_bar_yr = max(60, bars_per_day * YEAR_DAYS)
-    B["atr_pctile_bar"] = rolling_pctile(B["atr_bar"], win_bar_yr, min_periods=max(60, win_bar_yr // 4))
-    B["bbw_pctile_bar"] = rolling_pctile(bbw_bar, win_bar_yr, min_periods=max(60, win_bar_yr // 4))
+    _dayid = df["day_id"].to_numpy()
+    B["atr_pctile_bar"] = pctile_vs_prior_days(B["atr_bar"], _dayid, YEAR_DAYS)
+    B["bbw_pctile_bar"] = pctile_vs_prior_days(bbw_bar, _dayid, YEAR_DAYS)
 
     # ── rolling path-shape stats (vectorized over the whole df once) ──
     hi_s, lo_s, cl_s = pd.Series(high), pd.Series(low), pd.Series(close)
@@ -438,10 +498,8 @@ def build_bar_arrays(df, tf_min):
     up = (cl_s > pd.Series(open_)).astype(float)
     for w in (5, 10):
         B[f"upcount{w}"] = up.rolling(w, min_periods=w).sum().to_numpy()
-    B["bars_since_hi20"] = hi_s.rolling(20, min_periods=20).apply(
-        lambda x: float(len(x) - 1 - np.argmax(x)), raw=True).to_numpy()
-    B["bars_since_lo20"] = lo_s.rolling(20, min_periods=20).apply(
-        lambda x: float(len(x) - 1 - np.argmin(x)), raw=True).to_numpy()
+    B["bars_since_hi20"] = bars_since_extreme(high, 20, "max")
+    B["bars_since_lo20"] = bars_since_extreme(low, 20, "min")
     body = (cl_s - pd.Series(open_)).abs()
     rng = (hi_s - lo_s).replace(0.0, np.nan)
     B["body_ratio"] = (body / rng).to_numpy()
