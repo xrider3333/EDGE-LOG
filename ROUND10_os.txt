@@ -1,0 +1,44 @@
+
+== FULL (<= lockbox start) ==
+crown s0               n 2299  net $   397150  DD $  28857  PF 1.371  MAR  0.85  EVR 0.204  R/YR  28.9  w12  79%
+s3 9:45                n 2392  net $   172426  DD $  50925  PF 1.151  MAR  0.21  EVR 0.092  R/YR  13.6  w12  62%
+s6 10:00               n 2307  net $     7675  DD $  58890  PF 1.007  MAR  0.01  EVR 0.004  R/YR   0.6  w12  46%
+s9 10:15               n 2322  net $   105767  DD $  43368  PF 1.108  MAR  0.15  EVR 0.069  R/YR   9.9  w12  50%
+s12 10:30              n 2300  net $    31617  DD $  59583  PF 1.033  MAR  0.03  EVR 0.021  R/YR   3.0  w12  58%
+s6 ob3                 n 2214  net $    -4276  DD $  83665  PF 0.996  MAR -0.00  EVR -0.002  R/YR  -0.3  w12  55%
+s3 ob3                 n 2306  net $    78626  DD $  53392  PF 1.066  MAR  0.09  EVR 0.038  R/YR   5.4  w12  50%
+s6 ob1                 n 2464  net $   120764  DD $  47473  PF 1.120  MAR  0.16  EVR 0.081  R/YR  12.3  w12  62%
+s12 ob3                n 2207  net $    68531  DD $  37436  PF 1.072  MAR  0.11  EVR 0.042  R/YR   5.8  w12  60%
+
+== IS ==
+crown s0               n 2131  net $   310019  DD $  28857  PF 1.342  MAR  0.71  EVR 0.189  R/YR  26.5  w12  78%
+s3 9:45                n 2215  net $   152518  DD $  50925  PF 1.163  MAR  0.20  EVR 0.100  R/YR  14.5  w12  60%
+s6 10:00               n 2141  net $    -4233  DD $  58890  PF 0.995  MAR -0.00  EVR -0.003  R/YR  -0.4  w12  44%
+s9 10:15               n 2164  net $    79749  DD $  43368  PF 1.096  MAR  0.12  EVR 0.062  R/YR   8.8  w12  49%
+s12 10:30              n 2131  net $    37136  DD $  48584  PF 1.048  MAR  0.05  EVR 0.030  R/YR   4.2  w12  61%
+s6 ob3                 n 2055  net $    37561  DD $  57689  PF 1.041  MAR  0.04  EVR 0.024  R/YR   3.2  w12  57%
+s3 ob3                 n 2147  net $    56245  DD $  53392  PF 1.056  MAR  0.07  EVR 0.033  R/YR   4.6  w12  49%
+s6 ob1                 n 2283  net $   105153  DD $  47473  PF 1.128  MAR  0.15  EVR 0.085  R/YR  12.9  w12  60%
+s12 ob3                n 2050  net $    56132  DD $  37436  PF 1.071  MAR  0.10  EVR 0.042  R/YR   5.7  w12  59%
+
+== OOS 2025-08-13..2026-08-13 ==
+crown s0               n  168  net $    87132  DD $  22925  PF 1.531  MAR  3.82  EVR 0.268  R/YR  45.4  w12 100%
+s3 9:45                n  177  net $    19908  DD $  37100  PF 1.096  MAR  0.54  EVR 0.054  R/YR   9.6  w12 100%
+s6 10:00               n  166  net $    11908  DD $  34028  PF 1.060  MAR  0.36  EVR 0.038  R/YR   6.4  w12 100%
+s9 10:15               n  158  net $    26018  DD $  35315  PF 1.175  MAR  0.74  EVR 0.103  R/YR  16.4  w12 100%
+s12 10:30              n  169  net $    -5519  DD $  25882  PF 0.967  MAR -0.22  EVR -0.020  R/YR  -3.3  w12   0%
+s6 ob3                 n  159  net $   -41837  DD $  77592  PF 0.801  MAR -0.55  EVR -0.129  R/YR -20.9  w12   0%
+s3 ob3                 n  159  net $    22380  DD $  48859  PF 1.119  MAR  0.46  EVR 0.060  R/YR   9.6  w12 100%
+s6 ob1                 n  181  net $    15611  DD $  33210  PF 1.086  MAR  0.47  EVR 0.059  R/YR  10.7  w12 100%
+s12 ob3                n  157  net $    12399  DD $  24189  PF 1.076  MAR  0.52  EVR 0.041  R/YR   6.4  w12 100%
+
+== 5-YEAR ==
+crown s0               n  774  net $   319297  DD $  22925  PF 1.473  MAR  2.79  EVR 0.249  R/YR  38.6  w12 100%
+s3 9:45                n  825  net $   159103  DD $  50925  PF 1.217  MAR  0.63  EVR 0.124  R/YR  20.5  w12  96%
+s6 10:00               n  792  net $    38955  DD $  35116  PF 1.056  MAR  0.22  EVR 0.034  R/YR   5.5  w12  78%
+s9 10:15               n  797  net $   107424  DD $  43368  PF 1.170  MAR  0.50  EVR 0.103  R/YR  16.5  w12  69%
+s12 10:30              n  808  net $    18832  DD $  59583  PF 1.030  MAR  0.06  EVR 0.019  R/YR   3.0  w12  37%
+s6 ob3                 n  762  net $    24772  DD $  83665  PF 1.034  MAR  0.06  EVR 0.019  R/YR   3.0  w12  73%
+s3 ob3                 n  787  net $    98056  DD $  51877  PF 1.130  MAR  0.38  EVR 0.070  R/YR  11.1  w12  59%
+s6 ob1                 n  841  net $   125620  DD $  43353  PF 1.194  MAR  0.58  EVR 0.124  R/YR  21.0  w12  94%
+s12 ob3                n  770  net $    55019  DD $  37313  PF 1.087  MAR  0.30  EVR 0.051  R/YR   7.9  w12  57%
