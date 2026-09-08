@@ -838,6 +838,18 @@ LB **$101,242** (raw $60,615) at DD −18.3k (better), MAR 3.70; #304 WF $434,11
 LB $101,578, with drawdown BETTER than raw everywhere — the tilt is the stronger risk lever, KEEL the stronger
 money lever. Paper: `NOISE_SBS_V90_K9` + `NOISE_SBS_V90_C15` (compression only, the attribution control).
 
+**THE TILT TRAVELS (2026-09-07).** Same 1.5× coiled-hour multiplier, no model, no per-family fitting, read on
+each crown's own stretches:
+| crown | WF raw → tilt | LB raw → tilt |
+|---|---|---|
+| ORB #314 | $308,124 → $347,779 (DD −28.9k → −32.8k) | **$87,132 → $101,788 at identical DD** (MAR 3.80 → 4.44) |
+| ENGU-Q #309 | $470,976 → $534,331 (DD −44.4k → −48.7k) | **$85,511 → $109,921 at better DD** (MAR 1.75 → 2.32) |
+| NOISE #304 | $316,495 → $429,542 (DD better) | **$82,123 → $101,578 at better DD** |
+KEEL on top: ENGU-Q WF $576,379 at DD −41.3k (better than raw) with v9, lockbox = the tilt alone (model stood
+down); ORB v8/v9 DD −40k/−47k vs −29k → **no KEEL on ORB**. v9 with fast window 50 on NOISE #304: WF $421,474
+at DD −14.4k (better), LB **$121,069** at DD −25.1k (MAR 3.21 vs 2.24). Paper: `ORB_R6_C15`, `ENGUQ_309_C15`,
+`ENGUQ_309_K9`. The round-6 memory's "ORB +45% DD" was #234; on the #314 crown the lockbox DD is identical.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

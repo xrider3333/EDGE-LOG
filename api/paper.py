@@ -82,7 +82,10 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_K7": "2026-09-08", # KEEL v7 (v6 + shade when wrong) on the same crown, forward test only
     "NOISE_SBS_V90_K8": "2026-09-08", # KEEL v8 (symmetric shade, 50-trade fast window) on the same crown, forward test only
     "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
-    "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
+    "ORB_R6_C15": "2026-09-08",       # the ORB crown x compression 1.5x, no model (the tilt travels: LB $87k -> $102k at identical DD)
+    "ENGUQ_309_C15": "2026-09-08",    # the ENGU-Q crown x compression 1.5x, no model (LB $86k -> $110k at better DD)
+    "ENGUQ_309_K9": "2026-09-08",     # KEEL v9 on the ENGU-Q crown (WF $576k vs $471k at BETTER DD; LB = the tilt alone)      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -527,6 +530,16 @@ NOISE_243_KEEL8 = {"mode": "keel", "model": "keel", "version": "v8", "source_run
 # 25% of the control's, and beats C15 on net. FORWARD EVIDENCE ONLY.
 NOISE_243_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run": 243}
 NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 243}
+# THE TILT TRAVELS (2026-09-07). Read on the crowns' own WF / lockbox stretches, no model:
+#   ORB #314    LB $87,132 -> $101,788 at IDENTICAL DD (MAR 3.80 -> 4.44); WF +13% at DD +14%.
+#   ENGU-Q #309 LB $85,511 -> $109,921 at BETTER DD (MAR 1.75 -> 2.32); WF +13% at DD +10%.
+#   NOISE #304  LB $82,123 -> $101,578 at BETTER DD.
+# KEEL on top: helps ENGU-Q in WF (v9 $576k vs $471k at DD -41k vs -44k), HURTS ORB (v8/v9 DD
+# -40k/-47k vs -29k) - ORB gets the tilt alone. Same 1.5x, same feature, same cap, no per-family
+# fitting. FORWARD EVIDENCE ONLY; controls are the raw crown legs ORB_R6 and ENGUQ_309.
+ORB_314_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 314}
+ENGUQ_309_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 309}
+ENGUQ_309_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run": 309}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
 # year was KEEL's best read (run #265 window: +$15,410, MAR 5.83 -> 7.22, drawdown down)
 # while its pre-lockbox stretch was neutral - exactly the "stands down until it has earned
@@ -755,6 +768,28 @@ LEG_SOURCE = {
                 "compressed (the TTM round-6 keeper), capped at 3x. Lockbox read on the paper run "
                 "$101k vs raw $61k at lower drawdown. Added 2026-09-07; NOISE_SBS_V90 is the exact "
                 "control and NOISE_SBS_V90_C15 is the no-model compression control.",
+    },
+    "ORB_R6_C15": {
+        "run": 314, "run_label": "#314 ORB crown + compression tilt 1.5x (no model)",
+        "strategy_file": "ORB_3_6_R6.py", "picked": "2026-09-07",
+        "note": "The ORB crown with only the TTM round-6 compression tilt: 1.5x on trades entered "
+                "while the 60-minute squeeze is on, no model. Read on the run's own stretches: lockbox "
+                "$102k vs raw $87k at identical drawdown. KEEL is NOT stacked on ORB (it hurts there). "
+                "Added 2026-09-07; ORB_R6 is the exact control.",
+    },
+    "ENGUQ_309_C15": {
+        "run": 309, "run_label": "#309 ENGU-Q crown + compression tilt 1.5x (no model)",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-07",
+        "note": "The ENGU-Q crown with only the compression tilt: 1.5x on coiled-hour entries, no "
+                "model. Lockbox read $110k vs raw $86k at better drawdown. Added 2026-09-07; "
+                "ENGUQ_309 is the exact control.",
+    },
+    "ENGUQ_309_K9": {
+        "run": 309, "run_label": "#309 ENGU-Q crown + KEEL v9 (v8 x compression 1.5x)",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-07",
+        "note": "The ENGU-Q crown with KEEL v9. Walk-forward read $576k vs raw $471k at better "
+                "drawdown; in the lockbox the model stood down so it equals the tilt alone. Added "
+                "2026-09-07 beside ENGUQ_309_C15 (the no-model control) and ENGUQ_309_K (v4).",
     },
     "NOISE_SBS_V90_C15": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + compression tilt 1.5x (no model)",
@@ -1037,6 +1072,18 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_COMP15, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_C15"]},
+    # ADDED 2026-09-07: the compression tilt travels - ORB and ENGU-Q crowns, no model. FORWARD EVIDENCE ONLY.
+    {"key": "ORB_R6_C15", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ORB_314_COMP15, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6_C15"]},
+    {"key": "ENGUQ_309_C15", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_309_COMP15, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ENGUQ_309_C15"]},
+    {"key": "ENGUQ_309_K9", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_309_KEEL9, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ENGUQ_309_K9"]},
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
