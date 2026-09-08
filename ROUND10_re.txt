@@ -1,0 +1,133 @@
+ORB ROUND 10 — SAME-DIRECTION RE-ENTRY FORK (ORB_3_6_RE.py)
+Generated 2026-09-08 via tools/orb_hunt10_re.py
+
+Fork: augur_strategies/ORB_3_6_RE.py (_AUGUR_PARENT = ORB_3_6.py)
+Smoke test: reentry_max=0 parity vs ORB_3_6.py = PASS (n 2299 vs 2299, pnl 21082.8750 vs 21082.8750,
+identical run also on the crown params: 2299/2299 trades, bit-identical net $397,150).
+
+Crown params (#314): or_bars=2, trade_mode=First-candle dir, close_confirm=True, partial_exit_R=0,
+trail_bars=0, flat_eod=True, skip_holidays=True, breakout_buf=0.25, stop_frac=2.5, target_R=5.0,
+be_after_R=0.5, atr_filter=0.75, vpace_filter=0.8.
+
+New knobs swept: reentry_max in {1,2} x reentry_after in {stop,any} x reentry_mode in {rebreak,retest}
+(8 configs) + the crown (reentry_max=0) as row 0. Windows: FULL(<=2026-08-13), IS(<=2025-08-13),
+OOS(2025-08-13..2026-08-13), 5-YEAR(from 2021-08-13). Master NQ 5m RTH no-adj, 0.533 pts/RT, 1 contract.
+
+======================================================================================================================
+FULL  (<= 2026-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (re=0)               2299    397,150    28,857  1.371   0.85  0.204   28.9    142   -13,608  79.2
+re=1/stop/rebreak          2494    402,349    29,383  1.352   0.85  0.195   30.1    154   -17,817  77.0
+re=1/stop/retest           2617    393,150    30,542  1.332   0.80  0.184   29.7    162   -17,407  74.9
+re=1/any/rebreak           2494    402,349    29,383  1.352   0.85  0.195   30.1    154   -17,817  77.0
+re=1/any/retest            2619    392,354    30,542  1.331   0.79  0.183   29.7    162   -17,407  74.3
+re=2/stop/rebreak          2504    402,637    29,383  1.351   0.85  0.195   30.1    155   -17,817  77.0
+re=2/stop/retest           2651    396,025    31,674  1.331   0.77  0.183   30.0    164   -18,943  74.3
+re=2/any/rebreak           2504    402,637    29,383  1.351   0.85  0.195   30.1    155   -17,817  77.0
+re=2/any/retest            2655    396,163    31,674  1.331   0.77  0.183   30.0    164   -18,943  73.8
+
+======================================================================================================================
+IS    (<= 2025-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (re=0)               2131    310,019    28,857  1.342   0.71  0.189   26.5    140   -13,608  77.8
+re=1/stop/rebreak          2314    312,088    29,383  1.323   0.70  0.180   27.4    152   -17,817  75.4
+re=1/stop/retest           2431    309,581    30,542  1.310   0.67  0.172   27.6    160   -17,407  73.1
+re=1/any/rebreak           2314    312,088    29,383  1.323   0.70  0.180   27.4    152   -17,817  75.4
+re=1/any/retest            2433    308,784    30,542  1.309   0.67  0.172   27.6    160   -17,407  72.5
+re=2/stop/rebreak          2323    315,549    29,383  1.326   0.71  0.181   27.8    153   -17,817  75.4
+re=2/stop/retest           2464    315,629    31,674  1.313   0.66  0.174   28.3    162   -18,943  72.5
+re=2/any/rebreak           2323    315,549    29,383  1.326   0.71  0.181   27.8    153   -17,817  75.4
+re=2/any/retest            2468    315,766    31,674  1.313   0.66  0.174   28.3    163   -18,943  71.9
+
+======================================================================================================================
+OOS   (2025-08-13 .. 2026-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (re=0)                168     87,132    22,925  1.531   3.82  0.268   45.4    169    75,210 100.0
+re=1/stop/rebreak           180     90,261    25,861  1.514   3.51  0.268   48.6    181    78,340 100.0
+re=1/stop/retest            186     83,570    25,182  1.448   3.34  0.234   43.7    187    71,648 100.0
+re=1/any/rebreak            180     90,261    25,861  1.514   3.51  0.268   48.6    181    78,340 100.0
+re=1/any/retest             186     83,570    25,182  1.448   3.34  0.234   43.7    187    71,648 100.0
+re=2/stop/rebreak           181     87,088    25,861  1.487   3.39  0.256   46.5    182    75,166 100.0
+re=2/stop/retest            187     80,397    25,182  1.424   3.21  0.222   41.8    188    68,475 100.0
+re=2/any/rebreak            181     87,088    25,861  1.487   3.39  0.256   46.5    182    75,166 100.0
+re=2/any/retest             187     80,397    25,182  1.424   3.21  0.222   41.8    188    68,475 100.0
+
+======================================================================================================================
+5-YEAR (from 2021-08-13)
+----------------------------------------------------------------------------------------------------------------------
+config                        n       net$    maxDD$     PF    MAR   EV R   R/YR  tr/yr   worst12 win12%
+----------------------------------------------------------------------------------------------------------------------
+CROWN (re=0)                774    319,297    22,925  1.473   2.79  0.249   38.6    155    19,036 100.0
+re=1/stop/rebreak           844    341,863    25,861  1.479   2.65  0.252   42.7    169    15,530 100.0
+re=1/stop/retest            880    333,092    30,542  1.448   2.19  0.238   42.0    177     5,976 100.0
+re=1/any/rebreak            844    341,863    25,861  1.479   2.65  0.252   42.7    169    15,530 100.0
+re=1/any/retest             881    333,081    30,542  1.448   2.19  0.238   42.1    177     5,965 100.0
+re=2/stop/rebreak           848    342,093    25,861  1.477   2.65  0.251   42.7    170    18,643 100.0
+re=2/stop/retest            891    334,609    31,674  1.445   2.12  0.236   42.1    179     8,523 100.0
+re=2/any/rebreak            848    342,093    25,861  1.477   2.65  0.251   42.7    170    18,643 100.0
+re=2/any/retest             893    335,208    31,674  1.446   2.12  0.236   42.3    179     9,122 100.0
+
+======================================================================================================================
+BEST by 5y MAR: re=2/stop/rebreak  (MAR 2.65 vs crown 2.79 — WORSE than the crown)
+Plateau check (immediate neighbours must keep >=70% of the 5y MAR gain over crown; the "best" config's
+gain over the crown is actually negative, so the check is moot — reported n/a below):
+  re=1/stop/rebreak        5y MAR 2.65  keep=n/a
+  re=2/any/rebreak         5y MAR 2.65  keep=n/a
+  re=2/stop/retest         5y MAR 2.12  keep=n/a
+PLATEAU: NOT PLATEAU
+
+RE-ENTRY TRADES ONLY (best config = re=2/stop/rebreak, full window <= 2026-08-13):
+  n=205  net=$5,487  PF=1.073  win%=39.0  avg=$27/trade
+FIRST TRADES ONLY (same config): n=2299  net=$397,150  PF=1.371  win%=45.1
+
+======================================================================================================================
+GATE CHECK  (G1 5y MAR>2.79 & full MAR>0.85 | G2 net>=95% of $397,150 | G3 OOS net/PF>=crown | G5 tr/yr>=120)
+======================================================================================================================
+CROWN (re=0)             FAIL: G1(5yMAR 2.79<=2.79)   [self-comparison; ">" not ">=", included for reference only]
+re=1/stop/rebreak        FAIL: G1(5yMAR 2.65<=2.79); G1(fullMAR 0.85<=0.85); G3(OOSpf 1.514<1.531)
+re=1/stop/retest         FAIL: G1(5yMAR 2.19<=2.79); G1(fullMAR 0.80<=0.85); G3(OOSnet 83570<87132); G3(OOSpf 1.448<1.531)
+re=1/any/rebreak         FAIL: G1(5yMAR 2.65<=2.79); G1(fullMAR 0.85<=0.85); G3(OOSpf 1.514<1.531)
+re=1/any/retest           FAIL: G1(5yMAR 2.19<=2.79); G1(fullMAR 0.79<=0.85); G3(OOSnet 83570<87132); G3(OOSpf 1.448<1.531)
+re=2/stop/rebreak        FAIL: G1(5yMAR 2.65<=2.79); G1(fullMAR 0.85<=0.85); G3(OOSnet 87088<87132); G3(OOSpf 1.487<1.531)
+re=2/stop/retest         FAIL: G1(5yMAR 2.12<=2.79); G1(fullMAR 0.77<=0.85); G3(OOSnet 80397<87132); G3(OOSpf 1.424<1.531)
+re=2/any/rebreak         FAIL: G1(5yMAR 2.65<=2.79); G1(fullMAR 0.85<=0.85); G3(OOSnet 87088<87132); G3(OOSpf 1.487<1.531)
+re=2/any/retest           FAIL: G1(5yMAR 2.12<=2.79); G1(fullMAR 0.77<=0.85); G3(OOSnet 80397<87132); G3(OOSpf 1.424<1.531)
+
+======================================================================================================================
+READ (5 bullets)
+======================================================================================================================
+1. ALL 8 re-entry configs FAIL. Every one clears G2 (net >= 95% of $397,150 — re-entries do add gross
+   dollars, +$1.5k to +$5.5k on the full window) but every one FAILS G1 (5-year MAR drops from 2.79 to
+   2.12-2.65, never higher) and every non-CROWN row also FAILS G3 (OOS PF drops from 1.531 to 1.424-1.514).
+   Re-entry adds trades and a little net $, but adds proportionally MORE drawdown and MORE variance —
+   it is a worse risk-adjusted trade, not a free option.
+
+2. THE RE-ENTRY TRADES THEMSELVES HAVE ~NO EDGE: isolated on the best-MAR config (re=2/stop/rebreak),
+   the 205 re-entry trades net only $5,487 on PF 1.073 and 39.0% win rate, vs the 2299 first trades'
+   $397,150 net / PF 1.371 / 45.1% win rate. The second same-direction breakout after a stop-out is a
+   materially weaker signal than the first — it costs COST=0.533 pts/RT per shot and barely covers it.
+
+3. "stop" vs "any" made NO DIFFERENCE at any reentry_max in this crown config — re=1/stop/rebreak and
+   re=1/any/rebreak are IDENTICAL rows (2494 trades, same $ down to the dollar) in every window, same
+   for re=2. Reason: target_R=5.0 with stop_frac=2.5 means a target hit is a 2R+ winner; in the data,
+   sessions that hit that target essentially never had bars left afterward to also throw a fresh
+   same-direction close beyond up_lvl/dn_lvl before EOD, so the "any" gate's extra permission (allow
+   re-entry after a TARGET exit too) was never actually exercised.
+
+4. "rebreak" clearly beats "retest" at every reentry_max: re=1/stop/rebreak (5y MAR 2.65, OOS PF 1.514)
+   vs re=1/stop/retest (5y MAR 2.19, OOS PF 1.448); re=2/stop/rebreak (2.65 / 1.487) vs re=2/stop/retest
+   (2.12 / 1.424). Requiring price to close back inside the range before allowing a fresh breakout
+   filters out the "still chopping around the level" whipsaw that "retest" happily re-enters on — but
+   even the better mode still loses to not re-entering at all.
+
+5. PLATEAU is moot/NOT-PLATEAU: the single best-by-5y-MAR row (re=2/stop/rebreak, MAR 2.65) is already
+   BELOW the crown's own MAR (2.79), so there is no positive edge to plateau-check — the whole re-entry
+   knob-space is dominated by reentry_max=0. VERDICT: same-direction re-entry on the #314 crown is
+   CLOSED — do not adopt, do not re-sweep this shape without a materially different re-entry signal
+   (e.g. a fresh independent range/level rather than the same up_lvl/dn_lvl).
