@@ -1,4 +1,10 @@
 @echo off
+REM ONE ENTRY POINT FOR THE WHOLE RUNNER SET (2026-09-08): the primary and its drain-only
+REM workers. Used by the logon launcher (Startup\EdgeLogRunner.vbs), by
+REM _restart_runner_hidden.vbs, and by the NT recovery scripts. Every path that starts a
+REM runner comes through here, so a logon or a restart can never again silently drop the
+REM queue back to ONE job slot - which is what happened every time until today, because the
+REM workers were launched by hand and nothing relaunched them.
 cd /d "C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
 set AUGUR_TRIAL_CACHE=1
 REM ntfy push topic. Without this the local alerters (api/nt_exec_review.py fill pings and
@@ -9,4 +15,34 @@ set NTFY_TOPIC=edgelog-ESmQqoq7tFF9PZVHs6azgDYI
 REM Warn on the phone well before the bridge's own breaker floor (max_daily_loss_usd in
 REM C:\EdgeLog\bridge.json) so a bad day is audible long before anything trips.
 set EDGELOG_DD_WARN_USD=500
+REM Drain-only workers riding beside the primary (job slots = 1 + this). Each runner refuses
+REM new work under 2.5 GiB free RAM, so a high count is safe - it only costs idle processes.
+set EDGELOG_WORKERS=4
+REM Fold-level parallelism INSIDE one validate: the walk-forward folds run side by side in
+REM this many processes. Read by augur_engine.validate; 1 = the old sequential path.
+set EDGELOG_VALIDATE_WORKERS=3
+REM KEEP-AWARE RESTART (2026-09-08). tools\fleet_restart.py --helper kills every api.runner
+REM python NOT named in EDGELOG_KEEP (a comma list of worker numbers and/or the word primary,
+REM set for you by `python tools\fleet_restart.py --keep 2`) and relaunches the workers that
+REM were not kept. WHY: a restart only exists to load new code, and a full kill took the
+REM ENGU-Q R2 validate (a 6 hour job) down four times in one day, once at 89 percent.
+REM With EDGELOG_KEEP unset this is the old full restart. Helper exit 3 = the primary is
+REM kept, so this bat must not stack a second one; any other failure falls back to the old
+REM unconditional kill + relaunch below, so a broken helper can never leave two sets running.
+REM ONE RUNNER SET AT A TIME either way: the kill pattern matches python processes only - a
+REM shell whose own command line mentions api.runner must never be killed.
+"C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\python3.13.exe" tools\fleet_restart.py --helper
+if errorlevel 4 goto fallback
+if errorlevel 3 exit /b 0
+if errorlevel 1 goto fallback
+goto primary
+:fallback
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^python' -and $_.CommandLine -match 'api\.runner' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+ping -n 4 127.0.0.1 >nul
+set /a _LAST=1+%EDGELOG_WORKERS%
+for /L %%n in (2,1,%_LAST%) do (
+  wscript "C:\EdgeLog\_run_worker.vbs" %%n
+  ping -n 3 127.0.0.1 >nul
+)
+:primary
 "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\python3.13.exe" -u -m api.runner --firestore --cred serviceAccount.json --allow-uid IO0K35JpLIcH9YK4C0pMNYUzZOM2 --watch --refresh-min 240 --interval 30 --trades-sec 20 >> "C:\EdgeLog\runner.log" 2>&1
