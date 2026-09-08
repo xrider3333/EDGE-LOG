@@ -312,7 +312,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # ON makes the crown REAL on every path instead of faking one in the UI.
                  # NOTE this also re-crowns the champion by walk-forward OOS on those paths (the
                  # #88 rule itself) -- that is the intended behaviour, not just a reporting change.
-                 select_oos_topk=5):
+                 select_oos_topk=5, workers=None):
+    # Walk-forward folds in parallel processes (augur_engine.wf_pool). The runner sets
+    # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
+    # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
+    import os as _os
+    try:
+        _wf_workers = int(workers) if workers else int(_os.environ.get("EDGELOG_VALIDATE_WORKERS", "1") or 1)
+    except Exception:
+        _wf_workers = 1
+    _wf_workers = max(1, _wf_workers)
+    if _wf_workers > 1:
+        print(f"[validate] walk-forward folds in {_wf_workers} processes")
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
 
@@ -401,7 +412,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                       source=source, method="walkforward", wf_mode=mode, oos=True,
                       wf_folds=wf_folds, n_trials=n_trials, cost_pts=cost_pts,
                       min_trades=min_trades, top_n=20, seed=seed,
-                      date_from=opt_from, date_to=opt_to, progress_cb=_stage(c0, c1)) or {}
+                      date_from=opt_from, date_to=opt_to, progress_cb=_stage(c0, c1),
+                      workers=_wf_workers) or {}
         ran = bool(Bm.get("wf"))
         fl = Bm.get("top") or []
         so = st = si = strn = hd = 0.0

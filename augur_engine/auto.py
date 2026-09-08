@@ -637,6 +637,92 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
     return pp, log, recs, summary
 
 
+def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pts,
+                 f, tr_start, tr_end, te_s, te_e, tick=None):
+    """ONE walk-forward fold, exactly as run_auto's in-line loop did it: a fresh sampler
+    from the run's seed (so no fold depends on another, or on the order they run in),
+    n_trials evaluations on the training window, the realism gate, the fold champion,
+    then that champion once on the test window. BOTH the in-line loop and the
+    wf_pool workers call this, so the parallel path cannot drift from the sequential
+    one. `tick(i)` is called after each trial when given (in-line progress). Returns the
+    fold row, or None when no trial cleared min_trades."""
+    samp = _RandomSampler(space, seed=seed)
+    recs = []
+    for _i in range(n_trials):
+        pe = _collapse(samp.ask(), dp)
+        m = ev(tr_start, tr_end, pe)
+        if m and m.get("num_trades", 0) >= min_trades:
+            recs.append({**pe, **m})
+        if tick is not None:
+            tick(_i + 1)
+    if not recs:
+        return None
+    gated = [r for r in recs if _is_real(r, tr_end - tr_start)]
+    champ = max(gated or recs, key=lambda r: float(r.get("total_pnl", 0) or 0))
+    pp = {k: champ[k] for k in pkeys if k in champ}
+    om = ev(te_s, te_e, pp, keep_trades=True)
+    row = {k: champ.get(k) for k in pkeys}
+    row.update({k: champ.get(k) for k in _METRIC_KEYS})
+    row["fold"] = f + 1
+    row["test_bars"] = te_e - te_s
+    row["train_bars"] = tr_end - tr_start   # IS window length (for WFE)
+    row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
+    row["oos_trades"] = int(om["num_trades"]) if om else 0
+    # OOS per-trade net PnLs + heat/reach for the report's walk-forward distribution
+    # tiles (1G/1H WF scope). Best-effort — never let this break a fold.
+    row["_oos_pnls"] = []
+    row["_oos_mae"] = []
+    row["_oos_mfe"] = []
+    row["_oos_won"] = []
+    try:
+        _tr = (om or {}).get("trades") or []
+        if _tr:
+            row["_oos_pnls"] = [round(float(t[2]) - cost_pts, 4) for t in _tr]
+            from .analytics import mae_mfe as _mmfe_wf
+            _mm = _mmfe_wf(_tr, H[te_s:te_e], L[te_s:te_e])
+            if _mm and _mm.get("mae"):
+                row["_oos_mae"] = [round(float(v), 4) for v in _mm["mae"]]
+                row["_oos_mfe"] = [round(float(v), 4) for v in _mm["mfe"]]
+                row["_oos_won"] = list(_mm.get("won") or [])
+    except Exception:
+        pass
+    row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
+    row["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
+    row["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
+    return row
+
+
+def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, cost_pts,
+                        session, space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
+                        workers, progress_cb, n_total):
+    """Drive wf_pool: one process per fold up to `workers`. Progress is reported per
+    finished fold (a fold is n_trials of the total). Rows come back in fold order."""
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    from . import wf_pool as WP
+    nproc = max(1, min(int(workers), len(fold_specs)))
+    specs = [(f, s0, s1, t0, t1, space, dp, pkeys, seed, n_trials, min_trades)
+             for (f, s0, s1, t0, t1) in fold_specs]
+    rows = {}
+    done = 0
+    with ProcessPoolExecutor(max_workers=nproc, initializer=WP.init_worker,
+                             initargs=(strategy, master, date_from, date_to, arrays_to_send,
+                                       cost_pts, session)) as ex:
+        futs = [ex.submit(WP.fold_task, s) for s in specs]
+        try:
+            for fut in as_completed(futs):
+                f, row = fut.result()
+                rows[f] = row
+                done += n_trials
+                if progress_cb:
+                    progress_cb(min(done, n_total), n_total)
+        except BaseException:
+            # a web STOP arrives as an exception out of progress_cb: cancel what has
+            # not started instead of draining the whole pool on context exit
+            ex.shutdown(wait=False, cancel_futures=True)
+            raise
+    return [rows.get(f) for (f, *_r) in fold_specs]
+
+
 def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
              master=None, arrays=None, cost_pts=0.0, min_trades=30, n_trials=200,
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
@@ -647,8 +733,12 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
              compute_surrogate=False,
              auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15,
-             steer_method="gp"):
+             steer_method="gp", workers=1):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
+
+    workers (2026-09-08): walk-forward folds run in this many processes (see
+    augur_engine.wf_pool). 1 = the in-line loop. Results are identical either way;
+    only wall-clock changes. Ignored by method="single".
 
     compute_context (default True): TRADE CONTEXT (augur_engine.context) — see
     run_grid's docstring; identical contract here, on the same winner trade list
@@ -745,6 +835,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         raise ValueError("strategy exposes no tunable DEFAULT_PARAMS for auto search")
     pkeys = list(space.keys())
 
+    _arrays_supplied = arrays is not None
     if arrays is None:
         if master is None:
             master = find_master(instrument, timeframe, session, source)
@@ -794,57 +885,44 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         init = int(n * 0.40)
         tsize = max(1, (n - init) // n_folds)
         n_total = n_trials * n_folds
-        done = 0
+        fold_specs = []
         for f in range(n_folds):
             tr_end = init + f * tsize
             tr_start = max(0, tr_end - init) if rolling else 0
             te_s = tr_end
             te_e = n if f == n_folds - 1 else te_s + tsize
-            samp = _RandomSampler(space, seed=seed)
-            recs = []
-            for _ in range(n_trials):
-                pe = _collapse(samp.ask(), dp)
-                m = _ev(tr_start, tr_end, pe)
-                if m and m.get("num_trades", 0) >= min_trades:
-                    recs.append({**pe, **m})
-                done += 1
-                if progress_cb and done % 10 == 0:
-                    progress_cb(done, n_total)
-            if not recs:
-                continue
-            gated = [r for r in recs if _is_real(r, tr_end - tr_start)]
-            champ = max(gated or recs, key=lambda r: float(r.get("total_pnl", 0) or 0))
-            pp = {k: champ[k] for k in pkeys if k in champ}
-            om = _ev(te_s, te_e, pp, keep_trades=True)
-            row = {k: champ.get(k) for k in pkeys}
-            row.update({k: champ.get(k) for k in _METRIC_KEYS})
-            row["fold"] = f + 1
-            row["test_bars"] = te_e - te_s
-            row["train_bars"] = tr_end - tr_start   # IS window length (for WFE)
-            row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
-            row["oos_trades"] = int(om["num_trades"]) if om else 0
-            # OOS per-trade net PnLs + heat/reach for the report's walk-forward distribution
-            # tiles (1G/1H WF scope). Best-effort — never let this break a fold.
-            row["_oos_pnls"] = []
-            row["_oos_mae"] = []
-            row["_oos_mfe"] = []
-            row["_oos_won"] = []
+            fold_specs.append((f, tr_start, tr_end, te_s, te_e))
+        # ── PARALLEL FOLDS (2026-09-08, augur_engine.wf_pool) ──────────────────────
+        #   Each fold is its own process when workers > 1. Same _wf_fold_row as the
+        #   loop below, so the rows are identical; only the wall-clock differs. Any
+        #   pool failure falls back to the loop. A web STOP (raised by progress_cb)
+        #   is NOT an Exception and passes straight through.
+        _rows = None
+        if int(workers or 1) > 1 and len(fold_specs) > 1 and isinstance(strategy, str):
             try:
-                _tr = (om or {}).get("trades") or []
-                if _tr:
-                    row["_oos_pnls"] = [round(float(t[2]) - cost_pts, 4) for t in _tr]
-                    from .analytics import mae_mfe as _mmfe_wf
-                    _mm = _mmfe_wf(_tr, H[te_s:te_e], L[te_s:te_e])
-                    if _mm and _mm.get("mae"):
-                        row["_oos_mae"] = [round(float(v), 4) for v in _mm["mae"]]
-                        row["_oos_mfe"] = [round(float(v), 4) for v in _mm["mfe"]]
-                        row["_oos_won"] = list(_mm.get("won") or [])
-            except Exception:
-                pass
-            row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
-            row["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
-            row["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
-            records.append(row)
+                _rows = _run_folds_parallel(
+                    strategy, master, date_from, date_to,
+                    arrays if _arrays_supplied else None, cost_pts, session,
+                    space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
+                    int(workers), progress_cb, n_total)
+            except Exception as _pe:
+                print(f"[wf] parallel folds failed ({type(_pe).__name__}: {_pe}) - "
+                      f"running the folds in-line instead")
+                _rows = None
+        if _rows is not None:
+            records.extend(r for r in _rows if r)
+        else:
+            _done = [0]
+
+            def _tick(_i):
+                _done[0] += 1
+                if progress_cb and _done[0] % 10 == 0:
+                    progress_cb(_done[0], n_total)
+            for (f, tr_start, tr_end, te_s, te_e) in fold_specs:
+                row = _wf_fold_row(_ev, H, L, space, dp, pkeys, seed, n_trials, min_trades,
+                                   cost_pts, f, tr_start, tr_end, te_s, te_e, tick=_tick)
+                if row is not None:
+                    records.append(row)
         if progress_cb:
             progress_cb(n_total, n_total)
         is_wf = True
