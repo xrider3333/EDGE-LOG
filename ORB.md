@@ -163,6 +163,31 @@ full story + numbers in `PAPER_TRADING.md` (repo root), library-wide audit in me
   data). Un-backtestable beyond ~7 weeks (needs intrabar volume) → the PAPER forward
   test (BACKTESTER ▸ PAPER) is the arbiter.
 
+### ✗ 2026-09-08 — Round 10: the crown's STRUCTURE tested, five forks, all CLOSED
+
+With parameters (rounds 4–8), the prior-day filter (#325), fills and sizing (round 9) all closed,
+round 10 asked what the strategy does *around* its one trade. Five forks of `ORB_3_6`, each a
+knob that is off by default and asserted bit-identical to the parent, each swept against
+gates written before the first run (5-year MAR above 2.79, net within 5%, OOS not worse,
+plateau, at least 120 trades a year). Files: `ORB_3_6_{OS,RE,REV,PYR,TS}.py`, drivers
+`tools/orb_hunt10_*.py`, tables in the commit messages. 0 of 66 configs passed.
+
+| fork | what it tried | verdict |
+| --- | --- | --- |
+| OS | opening range starting at 9:45 / 10:00 / 10:15 / 10:30 | **dead, decisively** — 9:45 halves MAR (0.85 → 0.21), 10:00 is flat. The edge *is* the 9:30 open. |
+| RE | re-enter the same way after a stop-out | dead — second trades PF 1.07 alone; variance, no money |
+| REV | trade the failed breakout the other way | not adopted — real on its own (PF 1.25, ~$2k/yr) but adds drawdown faster than money |
+| PYR | add a unit at +0.5R … +3R | not adopted — net up to $583k is leverage; per-unit MAR 0.85 → 0.88 at best, worse on 5y and OOS |
+| TS | entry cutoff, time stop, stale-out | dead — every knob cuts trades the 5R target needs |
+
+The useful by-product came from TS: **late entries still earn.** On the five-year window the
+best entry bucket is bars 6–11 (PF 1.93) and breakouts after bar 48 still post PF 1.66. Do not
+cut late breakouts.
+
+Where that leaves ORB: closed on every axis we can test on this data. The only lever left is
+the forward paper read — `ORB_R6` (#314) beside `ORB` (#234) — and round 9's bootstrap says
+those two are a statistical coin flip, so that read will take months, not weeks.
+
 ### The open research direction: replace the illegal gate with a PRE-KNOWN one
 
 The fill at the level carried the money ($494k with the illegal filter, $63k with no
