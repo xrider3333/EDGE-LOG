@@ -114,6 +114,16 @@ CFG = {
            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
            "fast": {"W": 100, "lo": -0.5, "hi": 0.5},
            "shade": {"t": -1.0, "k": 0.5, "lo": 0.75, "hi": 1.25}},
+    # v8 (2026-09-07) = SYMMETRIC shade. Grid over fast window x shade trigger x lean x bounds on
+    #    both NOISE runs: every shade cell beats no-shade on the lockboxes and the harder the lean
+    #    the more they earn, at ~2% of walk-forward. Full symmetry - lean against the score as
+    #    hard as v5 leans with it - with the 50-trade fast window: #304 lockbox $103,078 vs raw
+    #    $82,123 at identical DD; #243 lockbox $59,576 vs $60,615 at DD -19.9k vs -22.1k; WF
+    #    +34% / +10%. Third rung of the forward ladder: K6 stand down, K7 mild lean, K8 full lean.
+    "v8": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+           "fast": {"W": 50, "lo": -0.5, "hi": 0.5},
+           "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))

@@ -820,6 +820,14 @@ clip(1 − 0.5z, 0.75, 1.25), on ~10% of trades. #243 LB $69,575 / DD −21.0k (
 vs 1.83); #304 LB $79,414 / DD −25.3k (raw $82,123 / −24.5k; v6 $79,376 / −28.4k); WF unchanged. Paper leg
 `NOISE_SBS_V90_K7` beside K6 = forward A/B of "stand down" vs "lean against".
 
+**v8 (2026-09-07) = SYMMETRIC shade, fast window 50.** Grid (window 50/100 × shade trigger −0.5/−1/−1.5 × lean
+0.5/1.0 × bounds 0.75–1.25 / 0.5–1.5) on both NOISE runs: **every shade cell beats no-shade on the summed
+lockboxes** (148k–166k vs 139k–146k; raw 142.7k) and the harder the lean the more they earn, at ~2% of
+walk-forward. v7 with window 50 on #304: WF $354,489 / DD −13.9k / MAR 2.90; LB **$89,255 / −24,510 / 2.43**
+(raw $82,123 / 2.24). v8 = window 50, trigger −0.5, lean 1.0, bounds 0.5–1.5: #304 LB **$103,078** at raw's DD;
+#243 LB $59,576 at DD −19.9k (raw −22.1k); WF +34% / +10%. Paper ladder from 2026-09-08: K6 stand down →
+K7 mild lean → K8 full lean, one control. If the ladder is monotone forward, the shade is real.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
