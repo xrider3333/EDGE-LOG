@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.586';
+const VERSION='73.587';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.587',date:'2026-09-08',notes:['tools/queue_guard.py gains --book-run N: one Firestore doc read grades every leg of a BOOK run doc book.legs[] in a single command, instead of copying flags leg by leg by hand. Each leg gets its own guard() report, then one summary table (verdict, selection and continuous-lockbox n/PF/net, top-10 share, and that leg trades count against the WHOLE RUN n this guard measured, flagged past a 5 percent gap), then a pooled line comparing the summed continuous entry-sliced lockbox across legs against the day-sliced book.lockbox on the doc itself - the two are not expected to match (a multi-day hold straddling the split lands in a different stretch under each slicing rule), so it prints both and flags neither. Exit code is the worst leg. Tests: tests/test_queue_guard_book.py.']},
 {v:'73.586',date:'2026-09-08',notes:['QQQ SHADOW BOOK density pass. The first screen used to be a four-line header and a mostly empty chart, so everything useful sat below the fold. The header is now one row, the chart is a fixed 220 pixels, and on wide screens the page becomes two columns: chart, stat tiles, activity and trades on the left; the readiness card, legs and integrity list in a sticky column on the right. On a 1400 by 900 window the tiles and the readiness card both finish above 900 pixels, and the page probe now measures that rather than trusting a screenshot. Phones keep the single column.']},
 {v:'73.585',date:'2026-09-08',notes:['STUDIES: the run-331 row is renumbered 1314 (it had been given 1288 in a push that raced the rounds 32-34 rows, which already held 1288). Row numbers are permanent handles and a duplicate is worse than a gap; nothing else about the row changed.']},
 {v:'73.583',date:'2026-09-08',notes:['STUDIES BOARD: GAPGO family validates, rows 1310 to 1313 - runs #330 (GAPGO 1.0) and #329 (GAPGO TRAVEL 1.0) both pass all six gates on the selection window (walk-forward 8 of 8 and 7 of 8 folds, high-ground plateaus) and both LOSE the sealed lockbox year: minus 39,179 at profit factor 0.77 and minus 15,923 at 0.90. Verdict FAIL on both. June-July 2026 did the damage (median overnight gap half the daily range, every gap-size bucket lost); the data is clean Databento; the ORB crown earned 88,943 in the same twelve months, so the gap READ broke, not the opening-momentum factor.','The family is NOT validated and is not being handed over as one; files, harnesses and the lockbox diagnosis (tools/gapgo_lockbox_year.py) stay in the repo. The GAPGO family rail description now says so.']},

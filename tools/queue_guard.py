@@ -60,6 +60,44 @@ USAGE
                                                # ONE doc read (Firestore Spark quota is 50k
                                                # reads/day -- never stream a collection here).
 
+BOOK RUN DOCS -- `--book-run N` -- ADDED 2026-09-08
+----------------------------------------------------
+A BOOK job (queued by tools/book_smoke.py or the runner's own BOOK job type) pools several
+strategy legs over one shared window and scores them as ONE strategy (see BOOK job type in
+BACKTESTING_STACK.md); its run doc carries `book.legs[]`, each entry already shaped like a
+resolved leg -- {"strategy": "NOISE_1_2_RYR.py", "instrument": "NQ", "timeframe": "5m",
+"session": "rth", "source": "db_noadj_rth", "cost_pts": 0.533, "mult": 20.0, "trades": 5969,
+"net": 173763.06, "weight": 1.0} -- plus `book.date_from` / `book.date_to` /
+`book.lockbox_from` and `book.lockbox` {num_trades, total_pnl, profit_factor, ...} (the
+runner's own DAY-sliced lockbox read on the pooled book, not any one leg). Until now every leg
+had to be guarded by hand with copied flags. `--book-run N` does it in one command:
+
+  python tools/queue_guard.py --book-run 323  # ONE doc read; grades every leg in
+                                               # book.legs[] with params = leg.get("params")
+                                               # or {} (a book leg carries no per-leg params
+                                               # today, so this is the file's real
+                                               # DEFAULT_PARAMS defaults via resolve_params()),
+                                               # date_from/date_to/split = book.date_from /
+                                               # book.date_to / book.lockbox_from. Prints each
+                                               # leg's own guard() report, then one summary
+                                               # table (verdict, selection n/PF/net,
+                                               # continuous lockbox n/PF/net, top-10 share,
+                                               # and the leg's own `trades` field vs this
+                                               # guard's WHOLE RUN n, flagged past a 5% diff --
+                                               # the same book-leg-vs-guard check `--run`
+                                               # prefers when a run doc is itself one leg of a
+                                               # book), then a POOLED line: the sum of every
+                                               # leg's continuous, ENTRY-sliced lockbox n/net
+                                               # next to the doc's `book.lockbox` DAY-sliced
+                                               # n/net (augur_engine/book.py slices the book's
+                                               # combined DAILY series at lockbox_from, not
+                                               # each leg's own entry time -- a multi-day hold
+                                               # straddling the split can land in different
+                                               # stretches under the two rules, so this line is
+                                               # never flagged, only shown side by side). Exit
+                                               # code is the WORST leg's: 1 if any leg is
+                                               # ARTIFACT, else 2 if any is SUSPECT, else 0.
+
 THE {} TRAP -- FIXED 2026-09-08
 --------------------------------
 `--params '{}'` (or any dict missing keys) used to fall straight through to the strategy
@@ -220,6 +258,15 @@ def _fmt(d):
                g("ryr", "%.1f", 6)))
 
 
+def _fmt_short(d):
+    """Abbreviated n/PF/net form of _fmt(), for the --book-run summary table columns where
+    the full n/PF/wr/net/DD/MAR/EV R/R-YR line would not fit next to two other stretches."""
+    def g(k, f, w):
+        v = d.get(k)
+        return (f % v).rjust(w) if v is not None else "-".rjust(w)
+    return "n=%-5d PF=%s net=$%s" % (d.get("n", 0), g("pf", "%.3f", 6), g("net", "%.0f", 9))
+
+
 def guard(strategy_file, params, *, instrument, timeframe, session, source, cost_pts, mult,
          date_from, date_to, split, label=None):
     """Run ONE continuous backtest over [date_from, date_to], grade it, and return a verdict
@@ -371,6 +418,25 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
                split=split)
 
 
+# ── shared "leg dict -> guard() kwargs" step, used by both --run and --book-run ─────────
+def _leg_kwargs(leg, date_from, date_to, split, label=None):
+    """Build guard() kwargs from a normalized leg-like dict -- one that already carries
+    strategy/params/instrument/timeframe/session/source/cost_pts/mult -- plus the window and
+    split it should be graded over. A `book.legs[]` entry already IS this shape (see the
+    module docstring's BOOK run doc example); `_guard_kwargs_from_run` below assembles one of
+    this shape from a single-strategy run doc's differently-named/derived fields
+    (best_params, data_source -> session, multiplier, validate.windows) before handing it
+    here. Keeping this step in one place means --run and --book-run can never quietly drift
+    apart on how a leg's params/cost/mult get turned into a guard() call."""
+    return dict(strategy_file=leg.get("strategy"), params=leg.get("params") or {},
+               instrument=leg.get("instrument"), timeframe=leg.get("timeframe"),
+               session=leg.get("session"), source=leg.get("source"),
+               cost_pts=float(leg.get("cost_pts") or 0.0),
+               mult=float(leg.get("mult") or leg.get("multiplier") or 1.0),
+               date_from=date_from, date_to=date_to, split=split,
+               label=label or leg.get("strategy"))
+
+
 # ── --run N: pull the leg off a Firestore run doc (ONE doc read, never a stream) ────────
 def _guard_kwargs_from_run(run_id, cred_path):
     import firebase_admin
@@ -414,10 +480,9 @@ def _guard_kwargs_from_run(run_id, cred_path):
             f"source={source!r} date_from={date_from!r} date_to={date_to!r} split={split!r} "
             f"(validate.windows={windows!r})")
 
-    kw = dict(strategy_file=strategy, params=params, instrument=instrument,
-             timeframe=timeframe, session=session, source=source, cost_pts=cost_pts,
-             mult=mult, date_from=date_from, date_to=date_to, split=split,
-             label=f"run #{run_id}")
+    leg = dict(strategy=strategy, params=params, instrument=instrument, timeframe=timeframe,
+              session=session, source=source, cost_pts=cost_pts, mult=mult)
+    kw = _leg_kwargs(leg, date_from, date_to, split, label=f"run #{run_id}")
     return kw, d
 
 
@@ -486,11 +551,130 @@ def _print_doc_count_check(result, run_id, doc):
           % (run_id, doc_label, doc_n, guard_label, guard_n, diverge_pct, flag))
 
 
+# ── --book-run N: grade EVERY leg of a BOOK run doc in one command (one doc read) ───────
+def _grade_book(run_id, book):
+    """Grade every leg in a BOOK run doc's already-fetched `book` sub-dict (see the module
+    docstring's `book.legs[]` shape). Pure function -- takes `book` as plain data and calls
+    the module-level `guard()` by name (never touches Firestore itself), so a test can
+    monkeypatch `queue_guard.guard` and drive this with a synthetic book dict. The Firestore
+    read lives in `_book_run()` below, kept separate on purpose so the two are independently
+    testable.
+
+    Returns (results, worst_exit_code):
+      results           -- list of (leg_dict, guard_result_dict) pairs, one per graded leg.
+      worst_exit_code   -- 1 if any leg is ARTIFACT, else 2 if any leg is SUSPECT, else 0
+                          (PASS) -- the priority order matches guard()'s own three-way verdict,
+                          never a numeric max() of the per-leg exit codes.
+    """
+    legs = book.get("legs") or []
+    if not legs:
+        raise SystemExit(f"run #{run_id}: book.legs is empty -- nothing to grade.")
+
+    date_from = book.get("date_from")
+    date_to = book.get("date_to")
+    split = book.get("lockbox_from")
+    missing = [k for k, v in dict(date_from=date_from, date_to=date_to, split=split).items()
+              if not v]
+    if missing:
+        raise SystemExit(f"run #{run_id}: book is missing {missing} -- cannot derive a "
+                         f"date_from/date_to/split window for any leg.")
+
+    results = []
+    for leg in legs:
+        strategy = leg.get("strategy")
+        if not strategy:
+            print("  SKIPPING a book leg with no `strategy` field: %r" % (leg,))
+            continue
+        kw = _leg_kwargs(leg, date_from, date_to, split, label=strategy)
+        result = guard(**kw)
+        results.append((leg, result))
+
+    if not results:
+        raise SystemExit(f"run #{run_id}: no leg could be graded (see SKIPPING lines above).")
+
+    # ── one summary table across every leg ──────────────────────────────────────────────
+    print("=" * 118)
+    print("BOOK RUN #%s SUMMARY  (%d leg%s)"
+         % (run_id, len(results), "" if len(results) == 1 else "s"))
+    print("  %-30s %-8s %-34s %-34s %-8s %s"
+         % ("leg", "verdict", "selection (n/PF/net)", "continuous lockbox (n/PF/net)",
+            "top10%", "leg trades in doc  vs  guard WHOLE RUN n"))
+    for leg, r in results:
+        strategy = r.get("strategy")
+        verdict = r.get("verdict")
+        S, L = (r.get("sel") or {}), (r.get("lb") or {})
+        share = r.get("top10_share")
+        share_s = ("%.0f%%" % share) if share is not None else "-"
+        doc_n = leg.get("trades")
+        guard_all_n = (r.get("all") or {}).get("n")
+        if doc_n is not None and guard_all_n is not None:
+            base = max(int(doc_n), 1)
+            diverge_pct = abs(int(guard_all_n) - int(doc_n)) / base * 100.0
+            flag = "  *** MISMATCH ***" if diverge_pct > 5 else ""
+            count_s = "%s vs %s (%.1f%% diff)%s" % (doc_n, guard_all_n, diverge_pct, flag)
+        else:
+            count_s = "doc=%s  guard=%s  (not comparable)" % (doc_n, guard_all_n)
+        print("  %-30s %-8s %-34s %-34s %-8s %s"
+             % (strategy, verdict, _fmt_short(S), _fmt_short(L), share_s, count_s))
+
+    # ── pooled continuous, ENTRY-sliced lockbox vs the doc's DAY-sliced book.lockbox ────
+    pooled_n = sum(int((r.get("lb") or {}).get("n") or 0) for _, r in results)
+    pooled_net = sum(float((r.get("lb") or {}).get("net") or 0.0) for _, r in results)
+    doc_lb = book.get("lockbox") or {}
+    print("  POOLED continuous ENTRY-sliced lockbox (sum of legs' guard LOCKBOX rows above): "
+         "n=%d  net=$%.0f" % (pooled_n, pooled_net))
+    print("  book.lockbox (DAY-sliced P&L -- augur_engine/book.py slices the book's daily "
+         "combined series at lockbox_from, NOT each leg's own entry time): n=%s  net=$%s"
+         % (doc_lb.get("num_trades"), doc_lb.get("total_pnl")))
+    print("  These two are NOT expected to match: a multi-day hold straddling the split lands "
+         "in different stretches under day-slicing vs entry-slicing. Shown side by side, "
+         "flagged for nothing.")
+
+    verdicts = [r.get("verdict") for _, r in results]
+    if "ARTIFACT" in verdicts:
+        worst = 1
+    elif "SUSPECT" in verdicts:
+        worst = 2
+    else:
+        worst = 0
+    return results, worst
+
+
+def _book_run(run_id, cred_path):
+    """--book-run N: ONE Firestore doc read of users/<uid>/runs/<N>, refuse clearly if it
+    carries no `book` (i.e. it is not a BOOK job), then hand the book sub-dict to
+    _grade_book() for the actual per-leg grading, table, and pooled-lockbox line."""
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(cred_path))
+    db = firestore.client()
+    d = (db.collection("users").document(UID).collection("runs")
+        .document(str(run_id)).get().to_dict())
+    if not d:
+        raise SystemExit(f"run #{run_id}: no such doc under users/{UID}/runs")
+
+    book = d.get("book")
+    if not book:
+        raise SystemExit(
+            f"run #{run_id}: doc has no `book` field -- --book-run only works on a BOOK job "
+            f"(type=='book', book.legs[] present). This doc's type={d.get('type')!r}. Use "
+            f"--run {run_id} to grade a single-strategy run doc instead.")
+
+    return _grade_book(run_id, book)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--run", type=int, help="pull the leg off users/<uid>/runs/<N> instead "
                                             "of the explicit flags below (one doc read)")
+    ap.add_argument("--book-run", type=int, dest="book_run",
+                    help="grade EVERY leg of a BOOK run doc (users/<uid>/runs/<N>, one doc "
+                         "read) in a single command -- see the module docstring's BOOK RUN "
+                         "DOCS section. Mutually exclusive with --run and the explicit "
+                         "--strategy flags below.")
     ap.add_argument("--strategy", help="strategy plugin filename, e.g. ENGUQ_1M_ETH_ER_1_0.py")
     ap.add_argument("--params", default="{}", help="JSON dict of the leg's params")
     ap.add_argument("--instrument")
@@ -507,6 +691,10 @@ def main():
     ap.add_argument("--cred", default=str(REPO / "serviceAccount.json"),
                     help="Firebase service-account JSON (repo root, gitignored)")
     a = ap.parse_args()
+
+    if a.book_run is not None:
+        _results, worst = _book_run(a.book_run, a.cred)
+        sys.exit(worst)
 
     run_doc = None
     if a.run is not None:
