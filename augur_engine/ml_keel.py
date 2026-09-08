@@ -137,6 +137,16 @@ CFG = {
            "fast": {"W": 100, "lo": -0.5, "hi": 0.5},
            "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
            "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0}},
+    # v10 (2026-09-08) = v9 with the 50-trade fast window. Chosen on year-by-year CONSISTENCY, not
+    #    lockbox dollars: WF year-by-year t 3.41 vs 3.00 on #243 and 2.93 vs 2.11 on #304, WF drawdown
+    #    better on both (#304 -14.4k vs raw -16.9k). Lockbox: #304 $121,069 (raw $82,123) at DD
+    #    within 3%; #243 $70,527 (raw $60,615) at better DD. Graded-by-depth and strict-only
+    #    compression both lose to the plain on/off rule. NOISE only (ENGU-Q K9 stays at v9).
+    "v10": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+            "fast": {"W": 50, "lo": -0.5, "hi": 0.5},
+            "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
+            "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))

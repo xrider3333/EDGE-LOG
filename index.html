@@ -481,7 +481,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.568';
+const VERSION='73.569';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -500,6 +500,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.569',date:'2026-09-08',notes:['KEEL v10 = v9 with the 50-trade fast ledger, and the NOISE K9 paper leg now runs it (switched before its first session was processed, so no forward history is lost). Chosen on year-by-year consistency: walk-forward t 3.4 vs 3.0 on the paper run and 2.9 vs 2.1 on the crown, drawdown better on both. Crown lockbox reads $121k against raw $82k at drawdown within 3 percent. Grading the compression multiplier by squeeze depth, or restricting it to deep squeezes, both lose to the plain on/off rule.']},
 {v:'73.567',date:'2026-09-07',notes:['THE COMPRESSION TILT TRAVELS. The same 1.5x on coiled-hour entries, no model, no per-family fitting, read on each crown\'s own walk-forward and lockbox: ORB #314 lockbox $87k to $102k at identical drawdown, ENGU-Q #309 $86k to $110k at better drawdown, NOISE #304 $82k to $102k at better drawdown. KEEL on top helps ENGU-Q in walk-forward and hurts ORB, so ORB gets the tilt alone.','PAPER: three new legs from 2026-09-08 - ORB_R6_C15 and ENGUQ_309_C15 (the tilt alone) against their raw crowns, and ENGUQ_309_K9 (KEEL v9) beside them.']},
 {v:'73.564',date:'2026-09-07',notes:['KEEL v9 = v8 (100-trade fast ledger) times the TTM round-6 compression tilt: 1.5x size on trades entered while the 60-minute squeeze is on, capped at 3x. The multiplier is that study\'s a-priori rule, not a new fit. On the runs\' own stretches it lifts both NOISE runs on walk-forward AND lockbox: paper run lockbox $101k against raw $61k at lower drawdown; crown lockbox $101k against $82k at drawdown 21% worse. 2x was tried and rejected on the crown\'s lockbox drawdown.','PAPER: NOISE_SBS_V90_K9 from 2026-09-08, plus NOISE_SBS_V90_C15 = the same compression tilt with NO model, the attribution control. If K9 does not beat C15 forward, the model adds nothing on top of the tilt. The live bouncer ignores both, like the other KEEL legs.']},
 {v:'73.560',date:'2026-09-07',notes:['KEEL v8 = the v7 shade rule made symmetric: a 50-trade fast ledger, shade from t below -0.5, lean against the score as hard as v5 leans with it (0.5x to 1.5x). A grid over window, trigger, lean and bounds on both NOISE runs shows every shade cell beating no-shade on the lockboxes, and the harder the lean the more they earn, at about 2% of walk-forward. NOISE crown lockbox reads $103k against raw $82k at identical drawdown.','PAPER: NOISE_SBS_V90_K8 joins K6 (stand down) and K7 (mild lean) as the third rung of a forward ladder from 2026-09-08; NOISE_SBS_V90 is the control for all three.']},

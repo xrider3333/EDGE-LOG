@@ -849,6 +849,11 @@ KEEL on top: ENGU-Q WF $576,379 at DD −41.3k (better than raw) with v9, lockbo
 down); ORB v8/v9 DD −40k/−47k vs −29k → **no KEEL on ORB**. v9 with fast window 50 on NOISE #304: WF $421,474
 at DD −14.4k (better), LB **$121,069** at DD −25.1k (MAR 3.21 vs 2.24). Paper: `ORB_R6_C15`, `ENGUQ_309_C15`,
 `ENGUQ_309_K9`. The round-6 memory's "ORB +45% DD" was #234; on the #314 crown the lockbox DD is identical.
+**v10 (2026-09-08) = v9 with fast window 50, NOISE K9 leg only.** Chosen on year-by-year consistency: WF
+t 3.41 vs 3.00 (#243), 2.93 vs 2.11 (#304), WF DD better on both; #243 WF $489,113 (best of any variant),
+LB $70,527 at better DD; #304 LB $121,069 at DD within 3%. Graded-by-depth (1.25/1.5/2) and strict
+(ratio<0.85 only) compression both lose to plain on/off. Compression-only has the highest yearly t of all
+(4.6, 9/10 years) — the most consistent effect in the study; KEEL adds money at t≈3.
 
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.

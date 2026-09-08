@@ -528,7 +528,11 @@ NOISE_243_KEEL8 = {"mode": "keel", "model": "keel", "version": "v8", "source_run
 # attribution control: if K9 does not beat C15 forward, the model adds nothing on top of the
 # compression tilt. THE CLAIM: from 2026-09-08 K9 beats NOISE_SBS_V90 on net at drawdown within
 # 25% of the control's, and beats C15 on net. FORWARD EVIDENCE ONLY.
-NOISE_243_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run": 243}
+# 2026-09-08, before the leg's first session was processed: the NOISE K9 leg runs v10 = v9 with the
+# 50-trade fast window, chosen on year-by-year consistency (WF t 3.41 vs 3.00 on #243, 2.93 vs 2.11
+# on #304, WF drawdown better on both). Lockbox: #304 $121,069 vs raw $82,123 at DD within 3%;
+# #243 $70,527 vs $60,615 at better DD. ENGUQ_309_K9 stays at v9 (window untested there).
+NOISE_243_KEEL9 = {"mode": "keel", "model": "keel", "version": "v10", "source_run": 243}
 NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 243}
 # THE TILT TRAVELS (2026-09-07). Read on the crowns' own WF / lockbox stretches, no model:
 #   ORB #314    LB $87,132 -> $101,788 at IDENTICAL DD (MAR 3.80 -> 4.44); WF +13% at DD +14%.
@@ -761,13 +765,14 @@ LEG_SOURCE = {
                 "NOISE test; ENGUQ_309 is its exact control.",
     },
     "NOISE_SBS_V90_K9": {
-        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v9 (v8 x compression 1.5x)",
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v10 (v9, 50-trade fast window)",
         "strategy_file": "NOISE_1_0.py", "picked": "2026-09-07",
-        "note": "The crowned #243 config with KEEL v9: the v8 rule with the 100-trade fast ledger, "
+        "note": "The crowned #243 config with KEEL v10: the v8 rule with a 50-trade fast ledger, "
                 "then 1.5x size on trades entered while the 60-minute Bollinger/Keltner state is "
-                "compressed (the TTM round-6 keeper), capped at 3x. Lockbox read on the paper run "
-                "$101k vs raw $61k at lower drawdown. Added 2026-09-07; NOISE_SBS_V90 is the exact "
-                "control and NOISE_SBS_V90_C15 is the no-model compression control.",
+                "compressed (the TTM round-6 keeper), capped at 3x. Window 50 chosen 2026-09-08 on "
+                "year-by-year consistency (WF t 3.4 / 2.9 on the two NOISE runs). Crown lockbox "
+                "read $121k vs raw $82k at drawdown within 3%. NOISE_SBS_V90 is the exact control "
+                "and NOISE_SBS_V90_C15 is the no-model compression control.",
     },
     "ORB_R6_C15": {
         "run": 314, "run_label": "#314 ORB crown + compression tilt 1.5x (no model)",
