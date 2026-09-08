@@ -118,7 +118,16 @@ def _fetch_named_doc(collection, doc_id):
     if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(cred_path))
     db = firestore.client()
-    snap = db.collection("users").document(FB.UID).collection(collection).document(str(doc_id)).get()
+    try:
+        snap = db.collection("users").document(FB.UID).collection(collection).document(str(doc_id)).get()
+    except Exception as e:                     # google.api_core ResourceExhausted / 429 and friends
+        if "ResourceExhausted" in type(e).__name__ or "Quota" in str(e) or "429" in str(e):
+            have = sorted(os.listdir(FB.DOC_CACHE_DIR)) if os.path.isdir(FB.DOC_CACHE_DIR) else []
+            raise SystemExit(
+                f"Firestore READ QUOTA EXHAUSTED (Spark plan, 50k reads/day; resets at midnight Pacific). "
+                f"Cannot fetch {collection}/{doc_id}. Cached docs available offline in {FB.DOC_CACHE_DIR}: "
+                f"{', '.join(have) or 'none'}. Re-run after the reset, or point --run at a cached one.")
+        raise
     if not snap.exists:
         return None
     d = snap.to_dict()

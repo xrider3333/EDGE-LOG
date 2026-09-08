@@ -86,8 +86,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
 UP_LOCAL = os.path.join(ROOT, "augur_uploads")
 UP_SHARED = os.path.join(SHARED, "augur_uploads")
-CACHE_DIR = os.path.join(ROOT, "tools", "_featboard_cache")
-DOC_CACHE_DIR = os.path.join(CACHE_DIR, "docs")
+# Caches live OUTSIDE the git worktrees: on 2026-09-07 a worktree cleanup wiped two hours of
+# 1-minute replays and every cached run doc. C:\EdgeLog is the machine's stable, non-git home
+# (runner logs, launchers); override with EDGELOG_CACHE_DIR when needed.
+_CACHE_BASE = os.environ.get("EDGELOG_CACHE_DIR") or (
+    r"C:\EdgeLog\_anatomy_cache" if os.path.isdir(r"C:\EdgeLog") else os.path.join(ROOT, "tools", "_anatomy_cache"))
+CACHE_DIR = os.path.join(_CACHE_BASE, "featboard")
+DOC_CACHE_DIR = os.path.join(_CACHE_BASE, "docs")
 DOCS_OUT = os.path.join(ROOT, "docs")
 
 if ROOT not in sys.path:

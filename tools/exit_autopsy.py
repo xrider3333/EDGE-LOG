@@ -45,7 +45,7 @@ SHARED = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
 UP = os.path.join(ROOT, "augur_uploads")
 CRED = os.path.join(SHARED, "serviceAccount.json")
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
-CACHE_DIR = os.path.join(ROOT, "tools", "_exit_cache")
+CACHE_DIR = os.path.join(os.environ.get("EDGELOG_CACHE_DIR") or (r"C:\EdgeLog\_anatomy_cache" if os.path.isdir(r"C:\EdgeLog") else os.path.join(ROOT, "tools", "_anatomy_cache")), "exit")
 
 # house convention used everywhere on the board for NQ 5m/1m one-contract runs
 # (tools/ttmsqz_round6_parts.py COST/MULT) — used as the fallback for ORB_234,
