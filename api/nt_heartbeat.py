@@ -106,6 +106,40 @@ def evaluate(bridge_data, prior_alert):
     }
 
 
+def _note_read():
+    """Account this module's one Firestore .get() under runner.py's read-quota meter,
+    bucket 'other' (2026-09-08 -- this call runs every BRIDGE_SEC on the runner's
+    nt-bridge-watchdog thread, so it is a timer-driven read, not a one-shot boot read,
+    and was invisible to the meter before this). A plain document .get() always costs
+    exactly 1 read whether or not the document exists, so no max(1, n) is needed here
+    -- see api/runner.py's _note_reads docstring for the general minimum-charge rule
+    this is a special case of. Lazy import (not module-level) because api.runner
+    imports this module, not the other way around; never raises if runner.py isn't
+    importable (e.g. under a test that stubs this module out standalone)."""
+    fn = _runner_note_reads()
+    if fn is not None:
+        try:
+            fn("other", 1)
+        except Exception:
+            pass
+
+
+def _runner_note_reads():
+    """Find the LIVE runner module's _note_reads without importing api.runner afresh.
+    The runner is launched as `python -m api.runner`, so its module lives in
+    sys.modules as '__main__' -- a bare `from api.runner import _note_reads` here
+    would load a SECOND copy of runner.py with its own _ReadMeter, and these reads
+    would be counted into a meter nobody prints (caught in review 2026-09-08). So:
+    look at '__main__' first, then an already-imported 'api.runner'; never import."""
+    import sys
+    for name in ("__main__", "api.runner"):
+        m = sys.modules.get(name)
+        fn = getattr(m, "_note_reads", None) if m is not None else None
+        if callable(fn):
+            return fn
+    return None
+
+
 def publish(db, uid):
     """Read meta/nt_bridge + the prior meta/nt_alert, evaluate(), and write the new
     meta/nt_alert. Never raises -- same exception-proof contract as nt_bridge_pub.publish
@@ -114,6 +148,7 @@ def publish(db, uid):
     bridge_data = None
     try:
         doc = meta.document("nt_bridge").get()
+        _note_read()
         if doc.exists:
             bridge_data = doc.to_dict()
     except Exception as e:
@@ -122,6 +157,7 @@ def publish(db, uid):
     prior_alert = None
     try:
         doc = meta.document("nt_alert").get()
+        _note_read()
         if doc.exists:
             prior_alert = doc.to_dict()
     except Exception as e:

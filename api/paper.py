@@ -1521,9 +1521,46 @@ def _run_eod_check(q, *, force=False, dry_run=False):
     return {"date": target_date_s, "reports": reports}
 
 
+def _note_reads_other(n=1):
+    """Account a Firestore read here under runner.py's read-quota meter, bucket
+    'other' (2026-09-08). Both call sites that use this (_get_state's paper_state
+    .get(), and _prune's per-leg .stream() below) run on a TIMER -- maybe_run_eod's
+    own 60s-throttled check, itself gated to actually fire at most once per trading
+    day per uid -- not a one-shot boot read, so they were invisible to the `[reads]`
+    meter before this. See api/runner.py's _note_reads docstring for the general
+    minimum-charge-per-query rule (max(1, n) here covers _prune's query; a plain
+    single-document .get() is always exactly 1, which the default n=1 already is).
+    Lazy import: api.runner imports this module (`from . import paper as _paper`),
+    not the other way around, so importing at call time avoids a circular import at
+    module load; never raises if runner.py isn't importable (e.g. a test exercising
+    this module standalone with a fake `db`/`q`)."""
+    fn = _runner_note_reads()
+    if fn is not None:
+        try:
+            fn("other", max(1, int(n or 0)))
+        except Exception:
+            pass
+
+
+def _runner_note_reads():
+    """Find the LIVE runner module's _note_reads without importing api.runner afresh:
+    the runner runs as `python -m api.runner`, so it is sys.modules['__main__'], and a
+    bare `from api.runner import ...` would load a SECOND copy of runner.py with its
+    own _ReadMeter -- reads counted into a meter nobody prints (review, 2026-09-08).
+    '__main__' first, then an already-imported 'api.runner'; never import."""
+    import sys
+    for name in ("__main__", "api.runner"):
+        m = sys.modules.get(name)
+        fn = getattr(m, "_note_reads", None) if m is not None else None
+        if callable(fn):
+            return fn
+    return None
+
+
 def _get_state(db, uid):
     try:
         doc = db.collection("users").document(uid).collection("meta").document("paper_state").get()
+        _note_reads_other(1)
         return doc.to_dict() if doc.exists else None
     except Exception:
         return None
@@ -1640,8 +1677,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
         start_unix = int(pd.Timestamp(PAPER_START).timestamp())
         removed = 0
         try:
-            docs = (q.db.collection("users").document(uid).collection("paper_trades")
-                    .where("leg", "==", key).stream())
+            docs = list(q.db.collection("users").document(uid).collection("paper_trades")
+                       .where("leg", "==", key).stream())
+            _note_reads_other(len(docs))
             for d in docs:
                 t = d.to_dict() or {}
                 et = t.get("entryTime")

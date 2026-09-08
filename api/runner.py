@@ -632,7 +632,7 @@ def _now_utc():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-# ── FIRESTORE READ-QUOTA GUARDS (2026-09-07) ─────────────────────────────────────
+# ── FIRESTORE READ-QUOTA GUARDS (2026-09-07, updated 2026-09-08) ─────────────────
 # Spark plan = 50,000 reads/day, and Firestore bills ONE READ PER DOCUMENT RETURNED
 # by a query, not per query call. Five runner processes (primary + 4 drain-only
 # _run_worker.vbs workers) each poll independently. Two multipliers found by reading
@@ -651,6 +651,33 @@ def _now_utc():
 #      moment later). This was likely the single largest contributor and needed no
 #      new limit, just re-ordering the guard to run AFTER a successful claim — see
 #      that call site below.
+#
+# 2026-09-08: the fix above only slowed CommandThread's flat poll down on workers
+# (POLL_SEC 5s -> WORKER_POLL_SEC 30s) and added the `[reads]` meter — it did not
+# remove the poll, and the meter itself was wrong: it idled at "0 reads in the last
+# 60s" on a quiet queue while real billed reads kept happening underneath it, because
+# every _note_reads(...) call site was passing the raw doc COUNT, and an empty poll
+# returns 0 docs even though Firestore still bills it (see the minimum-charge rule
+# quoted in _note_reads's docstring below — every site now passes max(1, n)).
+#   * idle baseline BEFORE this pass, invisible to the meter: primary CommandThread
+#     at POLL_SEC=5s = 12 polls/min = 17,280 reads/day, plus 4 workers at
+#     WORKER_POLL_SEC=30s = 2 polls/min each = 11,520 reads/day combined ->
+#     ~28,800 (~29k) reads/day of pure idle floor, ~58% of the 50k/day quota, spent
+#     before a single real get_bars/get_blotter click or queued job.
+#   * fix, this pass: (a) every _note_reads(...) site counts max(1, n) per query so
+#     the meter can never again silently under-report an idle tick; (b) a WORKER no
+#     longer constructs CommandThread at all (see main()) — it never served
+#     get_bars/get_blotter anyway (see CommandThread's docstring for what was
+#     verified); (c) the PRIMARY's CommandThread is now on_snapshot listener-driven,
+#     the same pattern as FirestoreQueue's job-queue listener (start_listeners /
+#     _on_snapshot / a wake Event), with a LISTENER_BACKSTOP_SEC (600s) poll as the
+#     fallback if the channel wedges silently.
+#   * idle baseline AFTER this pass: no more flat per-second/per-30s polling anywhere.
+#     What is left is backstop-only — primary: one cmd-listener backstop poll/600s +
+#     one job-queue backstop poll/600s; workers: one job-queue backstop poll/600s
+#     each (they were already listener-driven for the job queue, see FirestoreQueue;
+#     they now run no cmd poll at all) — on the order of a few hundred reads/day
+#     total across all 5 processes, not ~29k.
 JOB_POLL_LIMIT = 50   # safety cap on the queued-docs poll (FirestoreQueue.run_once).
                        # Deliberately NOT 1: that query has no order_by (adding one
                        # needs a manual composite index — the comment at its call
@@ -730,7 +757,23 @@ _READ_BUCKETS = ("poll", "listener", "claim", "orphan", "cmd", "other")
 
 def _note_reads(bucket: str, n) -> None:
     """Call at every site that returns documents from a Firestore .stream()/.get()/
-    snapshot callback. Never raises — accounting must never break a real read."""
+    snapshot callback. Never raises — accounting must never break a real read.
+
+    MINIMUM-CHARGE RULE (2026-09-08 — this is what made the `[reads]` meter lie
+    about an idle queue costing 0 reads/60s). Firestore's own pricing page states:
+    "There is a minimum charge of one document read for each query that you
+    perform, even if the query returns no results." (verified against
+    https://firebase.google.com/docs/firestore/pricing). The same page describes a
+    realtime listener's reconnect as billed "as if you had issued a brand-new
+    query", so an empty initial/reconnect snapshot is not free either — same rule.
+    Every call site that reports the outcome of ONE query or ONE listener snapshot
+    MUST therefore pass max(1, n) here, never the raw doc count: an empty
+    .stream()/.get()/snapshot still cost 1 billed read that the raw count (0) would
+    silently drop. (A flat per-document count, e.g. a single-document .get() passed
+    as a literal 1, already satisfies this trivially.) See the call sites: the
+    listener callback and poll loops below, the dupe_guard read_hook, and the
+    orphan sweep's two separate status queries (each needs its OWN max(1, n) — it
+    is two queries, not one)."""
     try:
         _READS.add(bucket, int(n or 0))
     except Exception:
@@ -846,7 +889,8 @@ class FirestoreQueue:
         self._last_event_ts = time.time()
         try:
             _n = len(_changes) if _changes is not None else len(_col_snapshot or [])
-            _note_reads("listener", _n)
+            # minimum-charge rule: see _note_reads — an empty snapshot still bills 1.
+            _note_reads("listener", max(1, _n))
         except Exception:
             pass
         self.wake.set()
@@ -1403,7 +1447,8 @@ class FirestoreQueue:
         for uid in (self.allow or []):
             col = self.db.collection("users").document(uid).collection("commands")
             _docs = list(col.where(filter=qf).limit(CMD_POLL_LIMIT).stream())
-            _note_reads("poll", len(_docs))
+            # minimum-charge rule: see _note_reads — one query per uid, even empty.
+            _note_reads("poll", max(1, len(_docs)))
             for snap in _docs:
                 ref = snap.reference
                 doc = snap.to_dict() or {}
@@ -1526,7 +1571,8 @@ class FirestoreQueue:
                 # why this can't safely be dropped to a tiny number.
                 _queued = sorted(col.where(filter=qf).limit(JOB_POLL_LIMIT).stream(),
                                  key=lambda sn: (sn.create_time is None, sn.create_time))
-                _note_reads("poll", len(_queued))
+                # minimum-charge rule: see _note_reads — one query per uid, even empty.
+                _note_reads("poll", max(1, len(_queued)))
                 for snap in _queued:
                     ref = snap.reference
                     job = snap.to_dict() or {}
@@ -1619,7 +1665,9 @@ class FirestoreQueue:
                         _fp = dupe_guard.job_fingerprint(job)
                         _m, _rid = dupe_guard.find_duplicate(
                             self.db, uid, job, exclude_ids=(snap.id,),
-                            read_hook=lambda _n: _note_reads("claim", _n))
+                            # minimum-charge rule: see _note_reads — read_hook fires
+                            # once per query dupe_guard runs (backtests, then runs).
+                            read_hook=lambda _n: _note_reads("claim", max(1, _n)))
                         _dup_patch = {"fingerprint": _fp}
                         if _m:
                             dup_note = dupe_guard.describe(_m, _rid)
@@ -1773,9 +1821,15 @@ class FirestoreQueue:
                 return None
         for uid in (self.allow or []):
             col = self.db.collection("users").document(uid).collection(self.col)
-            _claimed = list(col.where(filter=_FF("status", "==", "running")).stream())
-            _claimed += list(col.where(filter=_FF("status", "==", "paused")).stream())
-            _note_reads("orphan", len(_claimed))
+            # Two SEPARATE queries (status=='running', status=='paused') — each gets
+            # its own max(1, n) minimum-charge floor (see _note_reads); combining them
+            # into one len() before flooring would under-count an idle sweep that
+            # finds nothing as 1 read instead of the 2 Firestore actually bills.
+            _running = list(col.where(filter=_FF("status", "==", "running")).stream())
+            _note_reads("orphan", max(1, len(_running)))
+            _paused = list(col.where(filter=_FF("status", "==", "paused")).stream())
+            _note_reads("orphan", max(1, len(_paused)))
+            _claimed = _running + _paused
             for snap in _claimed:
                 j = snap.to_dict() or {}
                 if j.get("claimedBy") == _WORKER_ID:
@@ -1819,11 +1873,30 @@ class FirestoreQueue:
 
 class CommandThread:
     """Daemon thread that serves READONLY_ACTIONS commands (get_bars, get_blotter,
-    similar_setups)
-    immediately, in parallel with a backtest job that may be running in the main watch
-    loop for 30-90+ minutes. Without this, a web request for chart candles or a trade
-    blotter sits queued behind the running job until it finishes — this thread polls
-    independently on its own short cadence so those two read-only lookups never wait.
+    similar_setups, config_trades) immediately, in parallel with a backtest job that
+    may be running in the main watch loop for 30-90+ minutes. Without this, a web
+    request for chart candles or a trade blotter sits queued behind the running job
+    until it finishes.
+
+    VERIFIED 2026-09-08 (before removing this thread from workers, per the
+    quota-fix below): this class serves ONLY the four READONLY_ACTIONS above —
+    _serve() below has no branch for cancel/pause/resume/requeue, and no code path
+    here ever writes a job's `control` field or a backtest doc's status to anything
+    but this thread's own claim. Job control lives entirely in the main loop instead:
+    a queued backtest's control=='stop'/'pause' is read and acted on inside
+    FirestoreQueue.run_once() (the queued-docs poll, above), and requeuing a stranded
+    claim is FirestoreQueue.sweep_orphans() (also above) — both run from main()'s
+    watch loop, which every WORKER still executes. So a worker that never starts this
+    thread loses nothing but the four read-only chart lookups, which it was never
+    supposed to be answering anyway (see the 2026-09-07 WORKER_POLL_SEC note below,
+    now superseded by not constructing the thread there at all).
+
+    2026-09-08 listener conversion: the PRIMARY's flat POLL_SEC/BUSY_POLL_SEC timer
+    below is now the FALLBACK, not the normal path. start_listeners()/_on_snapshot()/
+    self.wake mirror FirestoreQueue's job-queue listener exactly (same on_snapshot +
+    wake-Event + backstop-poll pattern — see start_listeners there) so an idle chart
+    tab costs zero Firestore reads between actual get_bars/get_blotter requests,
+    instead of a poll every POLL_SEC forever. See run_forever().
 
     Claim mechanism: an update-with-precondition write (Firestore `write_option
     (last_update_time=...)`), keyed off the exact snapshot this thread just read. If the
@@ -1840,19 +1913,22 @@ class CommandThread:
     # dead time on EVERY request. After serving anything, drop to a fast cadence for a
     # short while; an idle runner goes straight back to the slow one, so the daily
     # Firestore read budget is untouched except during a burst of real use.
+    # (2026-09-08: this busy/idle split only matters on the flat-poll FALLBACK path
+    # now — see run_forever — since the listener path serves on wake, not on a timer.)
     BUSY_POLL_SEC = 0.75
     BUSY_WINDOW_SEC = 45.0
     # A drain-only WORKER (_run_worker.vbs) exists to run backtest jobs, not to answer
-    # get_bars/get_blotter chart lookups — yet main() starts one of these threads on
-    # EVERY process, unconditionally (found 2026-09-07), so with a primary + 4 workers
-    # FIVE separate threads independently .stream() the SAME users/{uid}/commands
-    # query. Only one ever wins a given claim; the other four paid the read for
-    # nothing. Arithmetic: 5 processes x up to 80 polls/min (busy, 0.75s) x up to
-    # CMD_POLL_LIMIT docs was the single largest measured contributor to the
-    # 2026-09-06/07 quota exhaustion — this is the "poll skipped: ResourceExhausted"
-    # signature seen in runner.log. Slowing the 4 workers down here to
-    # WORKER_POLL_SEC/WORKER_BUSY_POLL_SEC cuts their share ~6x/~6x while the
-    # primary — the one actually racing the owner's chart clicks — is untouched.
+    # get_bars/get_blotter chart lookups — yet main() used to start one of these
+    # threads on EVERY process, unconditionally (found 2026-09-07), so with a primary
+    # + 4 workers FIVE separate threads independently .stream()'d the SAME
+    # users/{uid}/commands query. Only one ever won a given claim; the other four
+    # paid the read for nothing. The 2026-09-07 fix slowed the 4 workers down to
+    # WORKER_POLL_SEC/WORKER_BUSY_POLL_SEC (~6x fewer reads); the 2026-09-08 fix goes
+    # further and stops main() from constructing this thread on a worker AT ALL (see
+    # the class docstring's VERIFIED note) — so WORKER_POLL_SEC/WORKER_BUSY_POLL_SEC
+    # are dead in production now. Kept because tests still construct CommandThread
+    # directly with _IS_WORKER patched True and pin this cadence, and as the fallback
+    # cadence value should a future caller ever run one there anyway.
     WORKER_POLL_SEC = 30.0
     WORKER_BUSY_POLL_SEC = 5.0
 
@@ -1867,12 +1943,63 @@ class CommandThread:
         # role-based cadence — see the WORKER_* comment above.
         self._poll_sec = self.WORKER_POLL_SEC if _IS_WORKER else self.POLL_SEC
         self._busy_poll_sec = self.WORKER_BUSY_POLL_SEC if _IS_WORKER else self.BUSY_POLL_SEC
+        # Listener conversion (2026-09-08) — same wake-event pattern as
+        # FirestoreQueue.wake (see start_listeners/_on_snapshot below).
+        self.wake = threading.Event()
+        self._watches = []
 
     def _log(self, msg):
         try:
             self.log(f"  [cmd-thread] {msg}")
         except Exception:
             pass
+
+    def _on_snapshot(self, _col_snapshot, _changes, _read_time):
+        """Firestore background-thread callback for the commands watch. Must stay
+        cheap — no engine work, no Firestore writes here (same contract as
+        FirestoreQueue._on_snapshot). Meters the delivery under bucket 'cmd' (same
+        bucket the flat poll uses) with the minimum-charge floor — see _note_reads —
+        then wakes run_forever."""
+        try:
+            _n = len(_changes) if _changes is not None else len(_col_snapshot or [])
+            _note_reads("cmd", max(1, _n))
+        except Exception:
+            pass
+        self.wake.set()
+
+    def start_listeners(self, log=print, ready_timeout=15.0):
+        """Attach an on_snapshot listener on status=='queued' for every allowlisted
+        uid's commands subcollection — one listener per uid, same shape as
+        FirestoreQueue.start_listeners (see that method's docstring for the design).
+        Returns True if at least one listener confirms it's alive (fires its initial
+        snapshot) within ready_timeout, else False so run_forever falls back to the
+        flat POLL_SEC/BUSY_POLL_SEC poll. Never raises."""
+        from google.cloud.firestore_v1.base_query import FieldFilter
+        if not self.allow:
+            return False
+        qf = FieldFilter("status", "==", "queued")
+        ready = threading.Event()
+
+        def _cb(col_snapshot, changes, read_time):
+            ready.set()
+            self._on_snapshot(col_snapshot, changes, read_time)
+
+        ok = 0
+        for uid in self.allow:
+            try:
+                ref = self.db.collection("users").document(uid).collection("commands")
+                watch = ref.where(filter=qf).on_snapshot(_cb)
+                self._watches.append(watch)
+                ok += 1
+            except Exception as e:
+                log(f"  [cmd-listener] {uid} setup failed: {type(e).__name__}: {e}")
+        if not ok:
+            return False
+        # Firestore always fires an initial snapshot right after attach (even if
+        # empty), so waiting here confirms the channel is actually live rather than
+        # just "no exception was raised while attaching" — same check as
+        # FirestoreQueue.start_listeners.
+        return ready.wait(ready_timeout)
 
     def _claim(self, snap):
         """Try to atomically flip one queued doc to running+claimedBy='cmdthread'.
@@ -1914,7 +2041,8 @@ class CommandThread:
         qf = FieldFilter("status", "==", "queued")
         n = 0
         _docs = list(col.where(filter=qf).limit(CMD_POLL_LIMIT).stream())
-        _note_reads("cmd", len(_docs))
+        # minimum-charge rule: see _note_reads — one query per uid, even empty.
+        _note_reads("cmd", max(1, len(_docs)))
         for snap in _docs:
             doc = snap.to_dict() or {}
             action = doc.get("action")
@@ -1965,24 +2093,77 @@ class CommandThread:
         return n
 
     def run_forever(self):
-        """Thread target: poll every POLL_SEC seconds until the process exits (daemon
-        thread, so it never blocks shutdown). A crash anywhere in poll_once is swallowed
-        here too, belt-and-suspenders on top of poll_once's own per-uid guard."""
-        self._log(f"command thread: ON (get_bars/get_blotter/similar_setups/config_trades "
-                  f"served in parallel with jobs; cadence {self._poll_sec:g}s idle / "
-                  f"{self._busy_poll_sec:g}s busy{' [WORKER]' if _IS_WORKER else ' [PRIMARY]'})")
+        """Thread target: serve queued READONLY_ACTIONS commands until the process
+        exits (daemon thread, so it never blocks shutdown).
+
+        2026-09-08: listener-driven, not a flat timer. Attaches start_listeners()
+        first; on success this loop blocks on self.wake (set by _on_snapshot) instead
+        of sleeping a fixed POLL_SEC every tick, with a LISTENER_BACKSTOP_SEC poll
+        underneath in case the channel wedges silently — same belt-and-suspenders the
+        job queue already uses (see main()'s queue-listener setup). Falls back to the
+        old flat POLL_SEC/BUSY_POLL_SEC poll if the listener never attaches (or there
+        is no allowlist to watch, e.g. the LocalQueue test path never calls this).
+
+        A crash anywhere in poll_once is swallowed here too, belt-and-suspenders on
+        top of poll_once's own per-uid guard."""
+        listener_ok = False
+        try:
+            listener_ok = self.start_listeners(log=self._log)
+        except Exception as e:
+            self._log(f"listener setup failed: {type(e).__name__}: {e}")
+        if listener_ok:
+            self._log("cmd listener: ON (get_bars/get_blotter/similar_setups/"
+                      f"config_trades served on wake; backstop poll "
+                      f"{LISTENER_BACKSTOP_SEC:g}s)")
+        else:
+            self._log(f"cmd listener: FAILED -> polling every {self._poll_sec:g}s")
+        next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         last_served = 0.0
         while not self._stop:
-            try:
-                if self.poll_once():
+            if listener_ok:
+                if self.wake.is_set():
+                    self.wake.clear()
+                    reason = "listener"
+                elif time.time() >= next_backstop:
+                    reason = "backstop"
+                else:
+                    reason = None
+            else:
+                reason = "poll"
+            served = 0
+            if reason:
+                try:
+                    served = self.poll_once()
+                except Exception as e:
+                    self._log(f"loop error (continuing): {type(e).__name__}: {e}")
+                if served:
                     last_served = time.time()
-            except Exception as e:
-                self._log(f"loop error (continuing): {type(e).__name__}: {e}")
+                    # The busy-cadence (0.75s) behaviour becomes: after serving,
+                    # immediately re-check once (there may be more queued right
+                    # behind it — a burst of chart clicks, or more docs than
+                    # CMD_POLL_LIMIT in one pass) — then wait for the next wake.
+                    if not self._quota_backoff:
+                        try:
+                            more = self.poll_once()
+                            if more:
+                                served += more
+                                last_served = time.time()
+                        except Exception as e:
+                            self._log(f"loop error (continuing): {type(e).__name__}: {e}")
+                if reason == "backstop":
+                    next_backstop = time.time() + LISTENER_BACKSTOP_SEC
+                    if served:
+                        self._log(f"[backstop] found {served} command(s) the "
+                                  f"listener missed -- channel may be stale")
             if self._quota_backoff:
                 time.sleep(self._quota_backoff)
                 continue
-            busy = (time.time() - last_served) < self.BUSY_WINDOW_SEC
-            time.sleep(self._busy_poll_sec if busy else self._poll_sec)
+            if listener_ok:
+                wait_s = max(0.05, next_backstop - time.time())
+                self.wake.wait(timeout=wait_s)
+            else:
+                busy = (time.time() - last_served) < self.BUSY_WINDOW_SEC
+                time.sleep(self._busy_poll_sec if busy else self._poll_sec)
 
 
 def auto_pine(log=print, limit=25, provider=None):
@@ -2008,6 +2189,29 @@ def auto_pine(log=print, limit=25, provider=None):
             log(f"   – {s['file']}: {r.get('error')}")
     log(f"[auto-pine] {made}/{len(missing)} converted.")
     return made
+
+
+def _start_cmd_thread_if_primary(a, q):
+    """Start the CommandThread daemon (get_bars/get_blotter/similar_setups/
+    config_trades) unless this process is a drain-only WORKER — split out of main()
+    so the 2026-09-08 "workers don't get one at all" rule is unit-testable without
+    running the full --watch loop (which never returns). See the call site in
+    main() and CommandThread's docstring for why a worker doesn't need this: it only
+    ever serves READONLY_ACTIONS, and job control (cancel/pause/resume/requeue)
+    lives in FirestoreQueue.run_once/sweep_orphans instead, which every worker still
+    runs unchanged. Returns the CommandThread instance if one was started, else
+    None. No-ops (returns None) when not using Firestore at all (the LocalQueue test
+    path has no commands subcollection to poll)."""
+    if not a.firestore:
+        return None
+    if _IS_WORKER:
+        print("cmd server: OFF on a WORKER (the primary answers "
+              "get_bars/get_blotter/similar_setups/config_trades)")
+        return None
+    cmd_thread = CommandThread(q.db, a.allow_uid, ROOT, log=print)
+    threading.Thread(target=cmd_thread.run_forever, daemon=True,
+                     name="cmd-thread").start()
+    return cmd_thread
 
 
 def main(argv=None):
@@ -2162,10 +2366,18 @@ def main(argv=None):
         # get_bars/get_blotter off a separate daemon thread so those two web lookups
         # never queue behind a 30-90 min job in the main loop below. Firestore-only
         # (the LocalQueue test path has no commands subcollection to poll).
-        if a.firestore:
-            cmd_thread = CommandThread(q.db, a.allow_uid, ROOT, log=print)
-            threading.Thread(target=cmd_thread.run_forever, daemon=True,
-                             name="cmd-thread").start()
+        #
+        # 2026-09-08: NOT on a WORKER. Verified (see CommandThread's docstring) that
+        # this thread only ever serves READONLY_ACTIONS (get_bars/get_blotter/
+        # similar_setups/config_trades) -- all job control (cancel/pause/resume/
+        # requeue) runs in FirestoreQueue.run_once/sweep_orphans on the main loop
+        # below, which a worker still executes unchanged. A drain-only worker was
+        # never supposed to answer chart lookups in the first place, so it now
+        # starts zero extra listeners/threads for this instead of just polling them
+        # slower (the 2026-09-07 fix) -- one less of the 5 processes touching
+        # users/{uid}/commands at all when nobody asked it to. (Split into
+        # _start_cmd_thread_if_primary so this rule is unit-testable.)
+        _start_cmd_thread_if_primary(a, q)
         # Job-queue / command listener conversion (item #36): on_snapshot listeners
         # replace the tight poll loop below with an event-driven wake, cutting idle
         # Firestore reads (~5,800/day at --interval 30 x2 queries). A slow backstop
