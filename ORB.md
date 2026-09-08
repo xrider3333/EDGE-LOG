@@ -1,7 +1,19 @@
 # ORB — Opening Range Breakout: status, results & backlog
 
-> Living handoff doc. **Last updated: 2026-08-11** (Claude Code).
-> **2026-08-18 addendum, confirmed 2026-08-21:** the standing crown is **run #234 / `ORB_3_6_C2.py`**
+> Living handoff doc. **Last updated: 2026-09-08** (Claude Code).
+> **2026-09-05 — THE CROWN MOVED TO RUN #314 / `ORB_3_6_R6.py`.** Same #230 close-confirmed
+> entry; re-tuned exit: **stop 2.5x the range, target 5.0R, breakeven 0.5R, filters 0.75 / 0.80**.
+> Validate #314 PASS on all seven checks, WF 7/8, lockbox $92,102 / PF 1.561, **ES transfer 1.019
+> PASS** — the leg runs #294/#297/#298 never ran. It leads annualised MAR in every window measured
+> (five years 2.79 vs #234's 2.37; three years 3.19 vs 2.38) on a **$22,925** drawdown against
+> $28,502. **It was crowned on RISK, not on money — it makes about 5% LESS than #234 over five
+> years**, trades 152/yr against 166, and its walk-forward efficiency is 3.15 against 4.65. Do NOT
+> cite its EV R as evidence: EV R divides by the average losing trade, which the breakeven sets, so
+> it is not comparable across that knob (`tools/orb_pick.py`, memory
+> `edgelog-evr-gameable-by-breakeven`). Paper leg `ORB_R6` from 2026-09-08; **#234 stays running
+> beside it as the matched control**. Ranking driver: `tools/orb_pick.py`.
+>
+> **2026-08-18 addendum, confirmed 2026-08-21 — SUPERSEDED as the crown:** run #234 / `ORB_3_6_C2.py`
 > ("ride + breakeven": the #230 close-confirmed entry, ride to 5.5R, breakeven at 1R, NO partial, NO
 > trail). $389,874 · PF 1.31 · DD $29,142 · LB $88,943 · WF 7/8 · ES ✓. Six one-knob neighbours all
 > PASS; an open Auto-Validate of the space (#264) could not find it and its own pick failed. Owner
@@ -77,6 +89,36 @@ after a weak close average +$86 per trade over 248 trades, where NOISE's lose $1
 actually-bad population is a different one — **long entries after a 0.6-0.8 prior-day close
 lose $103 each over 252 trades, profit factor 0.79** — and that is a new, unexploited,
 not-yet-pre-registered lead.
+
+### ✅ 2026-09-08 — that lead was taken up, and it is now CLOSED. Validate #325 FAILED.
+
+Round 7 (`tools/orb_hunt7.py`) built exactly the filter this paragraph asked for — skip LONG
+entries after a prior-day close inside the band — on top of the new #314 crown, as
+`ORB_3_8_R7.py` with the band, stop, partial and trail left OPEN so the walk-forward chose.
+Offline it looked like the best ORB ever measured: full-window annualised MAR 0.85 → **1.18**,
+lockbox $99,844, worst rolling year −$7,917.
+
+**Run #325 says no.** Verdict **FAIL**, on two checks:
+
+| check | result |
+| --- | --- |
+| walk-forward | **8 of 8 folds**, wfe 3.33 |
+| lockbox | **PASS** — $98,960, PF 1.619, 159 trades |
+| **ES transfer** | **FAIL** — PF 0.9955, −$67 (the #314 crown passes at 1.019) |
+| **PBO** | **FAIL** — 0.651, "likely overfit selection" over 24 configs / 10 blocks |
+
+Read it plainly: the folds and the lockbox liked it, and the two checks that exist precisely to
+catch *selection* overfitting did not. A 65% probability of backtest overfitting is the number
+that matters, and it is exactly the risk flagged when this was built — round 7 stacked a fourth
+lever on a base already tuned by rounds 5 and 6 on the same tape. The search also ran to the
+ceiling of the range it was given (`partial_exit_R` 6.0) and picked a narrower band
+(0.55–0.70) than the sweep's 0.60–0.85, both signs of a cell fitted rather than found.
+
+**#314 remains the crown. Nothing changes on the paper board.** Round 8 (`tools/orb_hunt8.py`)
+had already established two things that survive this: the volatility filters cannot be loosened
+to buy trades back (0 of 36), and only the band-long mode works among the prior-day options
+(0 of 16). Do not re-open this lead without new data — it has now been tested twice, on two
+different bases, and failed both times.
 
 ---
 
