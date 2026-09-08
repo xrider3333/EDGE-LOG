@@ -244,3 +244,10 @@ daily corr 0.19 (0.35 shared days), $136k of $151k earned on ORB days; ORB+GAPGO
 - **Overnight-range position** (open in the outer 20% of the 18:00-09:25 range → first-bar break) is a third read: PF 1.31, 7/8, but 88% top-10 — noted, not adopted.
 - **Dead in r35-36:** STREAK (3/4-bar persistence), FAILED FILL. 17 more cells.
 - **Validates queued:** GAPGO_1_0 (G59lJB5aID4v2EFBqrAi) and GAPGO_TRAVEL_1_0 (`tools/queue_travel_validate.py`), both 8 WF folds / 12-month lockbox / ORB crown window 2010-06-07..2026-08-13. **Hand-off point = both posted.**
+
+### B21 / B22 RESULT (rows 1310-1313, v73.583): both validates FAIL on the lockbox
+
+- **#330 GAPGO 1.0** (gap 0.15 / stop 1.0 / 2 bars): selection n=1902 / $205,545 / PF 1.33 / DD $32,654; 6/6 gates, WF 8/8 (wfe 1.77), plateau HIGH GROUND, PBO 0.27, top-10 37%; **lockbox 2025-08-13..2026-08-13 = −$39,179 / PF 0.77 / 135 trades → FAIL.**
+- **#329 GAPGO TRAVEL 1.0** (10:00 / 0.2 ATR / stop at open): selection n=1741 / $189,606 / PF 1.29 / DD $26,737; 6/6 gates, WF 7/8 (wfe 2.39), PBO 0.44, top-10 44%; **lockbox = −$15,923 / PF 0.90 / 134 trades → FAIL.**
+- **Diagnosis** (`tools/gapgo_lockbox_year.py`): five positive Aug–Aug years before it for both; June–July 2026 lost $37.6k / $32.8k with median gaps ~0.5 ATR (norm 0.28) and 450–535-pt daily ranges; every gap-size bucket lost (pre-window >0.5-ATR gaps earned PF 1.26 on 691 trades, so a cap was never supported); master is clean Databento, 78 bars/day. **ORB crown made +$88,943 in the same year** — the gap read broke, not the factor.
+- **Status: NOT validated, NOT handed over as a family.** Only open lead = a pre-registered, before-the-open regime condition (trailing median gap / range level) under which the gap read is trusted, re-validated on a fresh lockbox — never fitted to Jun–Jul 2026.
