@@ -184,6 +184,12 @@ The useful by-product came from TS: **late entries still earn.** On the five-yea
 best entry bucket is bars 6–11 (PF 1.93) and breakouts after bar 48 still post PF 1.66. Do not
 cut late breakouts.
 
+Round 10b (same day) closed the last two questions. The direction rule itself
+(`ORB_3_6_DIR.py`, six alternatives: gap, gap-fade, prior day, prior-day fade, range vs prior
+close, both sides) loses to first-candle on every window — next-best 5y MAR 1.44 vs 2.79, and
+gap-fade / both-sides lose money out of sample. And the concentration check says the crown is
+not a ten-trade illusion: top-10 winners are 41% of net (#234: 43%), ex-top-10 PF 1.21.
+
 Where that leaves ORB: closed on every axis we can test on this data. The only lever left is
 the forward paper read — `ORB_R6` (#314) beside `ORB` (#234) — and round 9's bootstrap says
 those two are a statistical coin flip, so that read will take months, not weeks.
