@@ -541,7 +541,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.580';
+const VERSION='73.581';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -560,6 +560,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.581',date:'2026-09-08',notes:['ON THE 1E CONFIGS VIEW A BOOK RUN SAYS SO. A book pools its legs into one result and never saves per-configuration records, so ticking #323 or #324 there could only ever end in an empty chart. Its chip is greyed, labelled book, and explains itself; switch SHOW to RUNS to compare it as one row.','The strategy filter reads an object as well as the JSON string it is normally stored as - an object handed straight in used to vanish silently.','The timestamp run-id fix (#1788836275) shipped separately in the same hour under the PROVISIONAL-id design - a run that cannot get a number is saved provisional and renumbered by the primary sweep once reads recover. A parallel raise-and-defer version was dropped in favour of it rather than run two allocators. The pre-existing #1788836275 carries no provisional flag, so that one still needs renumbering by hand.']},
 {v:'73.580',date:'2026-09-08',notes:['Four parallel research threads on the overlay (calendar and event tilts, trade-sequence tilts, model architecture, cross-family stacks), all on one harness with one rule: beat the current best on both NOISE runs in walk-forward, no lockbox drawdown worse than about 10 percent, year-by-year t at least 2.5, never pick by looking at the lockbox. Calendar: 70 candidates, none pass. Sequence and state: 37 candidates, none pass at an honest size. The a-priori Friday tilt stands.','Cross-family: grading the compression tilt by squeeze depth (2x when the 60-minute ratio is under 0.85) beats the flat 1.5x on the ORB and ENGU-Q crowns and lowers the ENGU-Q lockbox drawdown by 10 percent; compression times Friday is the one stack that clears every gate on ORB. PAPER: ORB_R6_C15F and ENGUQ_309_CD from 2026-09-08, against their raw and compression-only controls.']},
 {v:'73.579',date:'2026-09-08',notes:['STUDIES BOARD: ROUNDS 35-36, rows 1300 to 1309 - GAPGO becomes a FAMILY. Two more never-traded mechanisms are dead (STREAK, FAILED FILL). The GAPGO hand-off dossier: the gap direction is NOT the prior day candle (that control is profit factor 1.10 and 135 percent top-ten), on ES it travels in sign but at a quarter of the edge (1.20), and TRAVEL - how far price has moved from the open by 10:00 - clears the house bar on triage (1,050 trades, 146,387 dollars, profit factor 1.35, net over drawdown 8.1) while trading the days GAPGO does not (26 percent shared days, correlation 0.24, pooled net over drawdown 9.8 vs 9.1 and 8.1 alone).','TRAVEL is now augur_strategies/GAPGO_TRAVEL_1_0.py and its Auto-Validate is queued beside GAPGO_1_0 (both: 8 folds, 12-month lockbox, ORB crown window). The overnight-range position is a third read of the factor but 88 percent top-ten - noted, not adopted.']},
 {v:'73.578',date:'2026-09-08',notes:['QQQ SHADOW BOOK re-composed into a single column, styled after Robinhood and iOS (owner: modern, slick, simple to use). One hero net profit and loss number up top with a quiet status line and alert chips only when something is actually wrong. A full width equity chart with a 1 week / 1 month / 3 month / all time switch. Four quick stat tiles (win rate, profit factor, trades, max drawdown) with a More stats list underneath carrying every ratio the old sidebar had. A compact ready-for-real-shares card with a progress bar and an All checks list. A legs list that expands on tap. The activity calendar restyled with rounded day cells and a Feed and signals disclosure. Trades default to a list where tapping a trade opens a bottom sheet with the same breakdown the table row used to show inline, with a Table view still available and CSV export moved to a small icon button. Integrity (parity, feed uptime, ratio, latency, re-price coverage) is now its own list, tap a row to open its detail sheet. Rails, the event timeline and the model reference sit in collapsed footer sections. Nothing was removed -- every number and panel from the old six-panel layout is reachable behind a tap, a sheet, or a disclosure. Verified with an extended tools/qqq_overview_probe.py across mono and default themes at 1400, 800 and 390 pixels wide, plus a deep pass that expands every disclosure, opens the trade and integrity sheets, toggles List/Table, and confirms the period switch actually changes the plotted points.']},
@@ -22065,7 +22066,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reFailOn=(APREF.resFail==='1');
         const _reMinTrd=(function(){const v=+APREF.resMinTrd;
           return ([0,30,100,250].indexOf(v)>=0)?v:0;})();
-        const _reFilt=(()=>{try{const o=JSON.parse(APREF.resFilt||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
+        // stored as a JSON STRING by every writer on this board, but an object handed
+        //   straight in used to vanish (JSON.parse of an object throws -> {}), so a
+        //   caller could set a filter and watch the board ignore it. Both shapes read.
+        const _reFilt=(()=>{try{const raw=APREF.resFilt;
+          if(raw&&typeof raw==='object'&&!Array.isArray(raw))return raw;
+          const o=JSON.parse(raw||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
         // ── TIME SCOPE (owner ask 2026-08-19: "add a scope to add whats been run past week,
         //    month etc"). It narrows the WHOLE board — charts and tables together — to a recent
         //    stretch of work, and it always says how many rows it is holding back.
@@ -24317,8 +24323,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +_reCfgPick.filter(function(r){const sel=_reFilt.fam;
             return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;})
           .slice(0,40).map(function(r){const id=String(r.id);
-            return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,
-              'run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||''),_TONE.rank);}).join('')
+            // a BOOK run pools its legs into one document and saves no per-configuration
+            //   records (the BOOK job type never emits them), so on this view its chip
+            //   is greyed and says why rather than letting the pick end in an empty chart.
+            //   The doc marks itself two ways - scope carries Book, strategy starts BOOK:
+            const isBook=(String(r.scope||'').indexOf('Book')>=0)||(/^BOOK:/i.test(String(r.strategy||'')));
+            const tip='run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||'');
+            if(_reShowCfg&&isBook)return '<span style="opacity:.55;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' · book',_reCfgIds.indexOf(id)>=0,
+              tip+' — a BOOK run: its legs are pooled into one result and no per-configuration records exist, so it has nothing to draw on this view. Switch SHOW to RUNS to compare it as one row.',_TONE.samp)+'</span>';
+            return _reBtn('data-recfgrun="'+id+'"','#'+id,_reCfgIds.indexOf(id)>=0,tip,_TONE.rank);}).join('')
           ,_TONE.rank);
         const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',(_reChartK==='scatter'),'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
