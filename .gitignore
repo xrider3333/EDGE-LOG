@@ -91,3 +91,6 @@ tools/_exit_cache/
 
 # trade_anatomy per-trade CSVs are regenerable (8 MB); md/json/png are kept
 docs/anatomy/*_trades.csv
+
+# FOMC decision-day list used by tools/leg_scan_ideas.py + trade_anatomy calendar features (tiny reference data, overrides *.csv)
+!tools/data/fomc_dates.csv
