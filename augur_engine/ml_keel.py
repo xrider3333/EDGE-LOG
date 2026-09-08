@@ -103,6 +103,17 @@ CFG = {
     "v6": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
            "fast": {"W": 100, "lo": -0.5, "hi": 0.5}},
+    # v7 (2026-09-07) = v6 + SHADE WHEN WRONG. When the 100-trade fast ledger says the model is
+    #    confidently wrong (t100 < -1), v6 only stands down to 1.0; v7 leans a little against the
+    #    score instead: size = clip(1 - 0.5 * z, 0.75, 1.25). Active on ~10% of trades. Read on the
+    #    runs' own stretches: walk-forward unchanged (#243 $414k, #304 $367k), lockbox up on BOTH
+    #    NOISE runs with drawdown better on both (#243 $69,575 / DD -21.0k vs raw -22.1k, MAR 2.21
+    #    vs 1.83; #304 $79,414 / DD -25.3k vs v6's -28.4k). Calendar-day fast windows and a
+    #    drawdown brake were tried in the same pass and did not earn their keep.
+    "v7": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+           "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+           "fast": {"W": 100, "lo": -0.5, "hi": 0.5},
+           "shade": {"t": -1.0, "k": 0.5, "lo": 0.75, "hi": 1.25}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
@@ -267,6 +278,7 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
     W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
     K, lo, hi = cfg.get("K", K_MAX), cfg.get("LO", LO), cfg.get("HI", HI)
     fast = cfg.get("fast")
+    shade = cfg.get("shade")
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
     E = np.array([t[0] for t in T]); Xi = np.array([t[1] for t in T]); P = np.array([t[2] for t in T])
     n = len(T)
@@ -307,12 +319,17 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
                 tr = 0.0
         else:
             tr, rh = 1.0, np.nan
-        if fast and tr > 0 and len(led):
+        t_fast = None
+        if fast and len(led) and (tr > 0 or shade):
             # fast-distrust: the same dollar ledger over the last fast["W"] resolved trades may only CUT
             _, _, t_fast = _trust(z[led], P[led], fast["W"], 0.0, 1.0, ledger)
             tr *= float(np.clip((t_fast - fast["lo"]) / (fast["hi"] - fast["lo"]), 0.0, 1.0))
         trust[k] = tr; rho[k] = rh
-        size[k] = float(np.clip(1.0 + K * tr * z[k], lo, hi))
+        if shade and t_fast is not None and t_fast < shade["t"] and z[k] != 0:
+            # shade when wrong: lean a little against a score the recent record says is inverted
+            size[k] = float(np.clip(1.0 - shade["k"] * z[k], shade["lo"], shade["hi"]))
+        else:
+            size[k] = float(np.clip(1.0 + K * tr * z[k], lo, hi))
     return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
             "trust": trust, "rho": rho, "trust_members": tm, "n_fits": n_fits,
             "feature_names": names, "version": version}

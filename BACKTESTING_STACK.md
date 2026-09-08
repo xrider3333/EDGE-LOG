@@ -812,6 +812,14 @@ ledger, so an IS-only pick of the size schedule lands on "nearly raw"; the v4–
 defaults informed by the whole history, and the paper legs are the untouched test. Paper leg
 `NOISE_SBS_V90_K6` replaces the never-traded K5 leg (control `NOISE_SBS_V90`).
 
+**v7 (2026-09-07) = v6 + SHADE WHEN WRONG.** Same pass also tried a 50-trade fast window (better on #304's
+lockbox, worse on #243's — noise-level either way), a dual 50/100 ledger, calendar-day ledgers (45 d bad, 90 d
+a wash) and a drawdown brake (never worse DD, but a third of the WF gain gone). The one change that helped
+BOTH lockboxes at lower drawdown: when the fast ledger reads t < −1, lean against the score, size =
+clip(1 − 0.5z, 0.75, 1.25), on ~10% of trades. #243 LB $69,575 / DD −21.0k (raw $60,615 / −22.1k, MAR 2.21
+vs 1.83); #304 LB $79,414 / DD −25.3k (raw $82,123 / −24.5k; v6 $79,376 / −28.4k); WF unchanged. Paper leg
+`NOISE_SBS_V90_K7` beside K6 = forward A/B of "stand down" vs "lean against".
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
