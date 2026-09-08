@@ -6,7 +6,14 @@
 //  the same config the runner shadow-trades (api/paper.py):
 //    tl_len=48 · ema_len=390 · buf_atr=0.9 · min_brk=1.3 · atr_len=30 ·
 //    vol_mult=0.8 · stop_mult=1.0 · act_R=2.5 · trail_frac=2.5 · breakeven_R=1.5
-//    (regime_len=0 = off, not implemented)
+//    (regime_len=0 = off)
+//
+//  RegimeLen (added 2026-09-07, run #309's knob -- see NT_RUNBOOK.md): optional
+//  long-term trend gate, long only above its own trailing simple mean of CLOSE.
+//  0 = off = untouched. >0: mirrors augur_strategies/ENGUQ_1M_ETH_ER_1_0.py's
+//  `regime_len`, whose window is RegimeLen * 390 bars (that file's own constant,
+//  NOT the corrected 1091 bars/day in the sibling ENGUQ_1M_ETH_1_0.py -- this port
+//  matches the file that actually produced #309's numbers, bug included).
 //
 //  Chart: NQ ##-## · 1 Minute · session template "CME US Index Futures RTH".
 //  Load AT LEAST 30 days of chart history — the 390-bar EMA and the trendline
@@ -59,6 +66,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double trSum;
         private double[] trBuf;
         private int trCount;
+
+        // rolling simple mean of CLOSE for the RegimeLen gate (same running-sum shape
+        // as the ATR ring above -- see RegimeLen property + OnBarUpdate for the source
+        // this mirrors, augur_strategies/ENGUQ_1M_ETH_ER_1_0.py's `regime_len`).
+        private double regSum;
+        private double[] regBuf;
+        private int regCount;
+        private int regBars;    // RegimeLen * 390, cached at DataLoaded; 0 = off
 
         // trendline regression constants (x = 0..TlLen-1)
         private double xm, xss;
@@ -247,8 +262,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 StopMult   = 1.0;
                 ActR       = 2.5;
                 TrailFrac  = 2.5;
-                BreakevenR = 1.5;
-                ErLen      = 60;
+                BreakevenR = 1.5;
+                ErLen      = 60;
                 ErTh       = 0.25;  // was 0.0 (gate OFF). 0.25 = the run #265 efficiency floor,
                                     // the ONLY thing separating #265 from the retired #226 leg.
                 LimitAtr   = 0.0;
@@ -261,6 +276,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 lowMin = MIN(Low, TlLen + 1);
                 trBuf  = new double[AtrLen];
                 trSum  = 0; trCount = 0;
+                // RegimeLen==0 (default) allocates nothing and touches no other state --
+                // bit-identical to before this knob existed.
+                regBars = RegimeLen > 0 ? RegimeLen * 390 : 0;
+                regBuf  = regBars > 0 ? new double[regBars] : null;
+                regSum  = 0; regCount = 0;
                 xm  = (TlLen - 1) / 2.0;
                 xss = 0;
                 for (int j = 0; j < TlLen; j++) xss += (j - xm) * (j - xm);
@@ -319,7 +339,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 sb.AppendLine("# tlLen=" + TlLen + " emaLen=" + EmaLen + " bufAtr=" + BufAtr
                               + " minBrk=" + MinBrk + " atrLen=" + AtrLen + " volMult=" + VolMult
                               + " stopMult=" + StopMult + " actR=" + ActR + " trailFrac=" + TrailFrac
-                              + " breakevenR=" + BreakevenR + " qty=" + Qty);
+                              + " breakevenR=" + BreakevenR + " regimeLen=" + RegimeLen + " qty=" + Qty);
                 sb.AppendLine("# times=UTC bar_stamp=close");
                 sb.AppendLine("trade,side,qty,entry_utc,exit_utc,entry_px,exit_px,entry_name,exit_name,pnl_usd");
 
@@ -368,6 +388,31 @@ namespace NinjaTrader.NinjaScript.Strategies
             trBuf[slot] = tr; trSum += tr;
             if (trCount < AtrLen) trCount++;
             double atr = trCount >= AtrLen ? trSum / AtrLen : tr;
+
+            // ── rolling simple mean of CLOSE for the RegimeLen gate (off unless set) ──
+            // Mirrors augur_strategies/ENGUQ_1M_ETH_ER_1_0.py:
+            //   reg = None
+            //   if int(regime_len) > 0:
+            //       rb = int(regime_len) * 390
+            //       if rb < n:
+            //           reg = np.full(n, np.nan)
+            //           rc = np.cumsum(c)
+            //           reg[rb - 1:] = (rc[rb - 1:] - np.concatenate([[0], rc[:-rb]])) / rb
+            // regValue[i] is the mean of the trailing `regBars` closes ENDING AT AND
+            // INCLUDING bar i (same window the python cumsum produces), computed as a
+            // running sum over a ring buffer exactly like the ATR block above rather
+            // than an indicator that reloads -- regBars can be up to 400*390=156,000.
+            bool regReady = false;
+            double regValue = double.NaN;
+            if (regBars > 0)
+            {
+                int rSlot = CurrentBar % regBars;
+                if (regCount >= regBars) regSum -= regBuf[rSlot];
+                regBuf[rSlot] = Close[0]; regSum += Close[0];
+                if (regCount < regBars) regCount++;
+                regReady = regCount >= regBars;
+                if (regReady) regValue = regSum / regBars;
+            }
 
             // re-sync flat state if the position closed via the resting stop
             if (inPos && Position.MarketPosition == MarketPosition.Flat && !PendingEntry())
@@ -473,6 +518,15 @@ namespace NinjaTrader.NinjaScript.Strategies
             // ── entry signal (all conditions on the just-closed bar) ─────────────
             if (Close[0] <= Open[0]) return;                            // green candle
             if (!(Close[0] > ema[0])) return;                           // uptrend
+
+            // ── RegimeLen gate (run #309's knob; engine ENGUQ_1M_ETH_ER_1_0, `reg`) ──
+            // python: if reg is not None and (np.isnan(reg[i]) or c[i] <= reg[i]): continue
+            // RegimeLen=0 (default) skips this block entirely -- bit-identical to before.
+            if (RegimeLen > 0)
+            {
+                if (!regReady || Close[0] <= regValue) return;
+            }
+
             if (VolMult > 0)
             {
                 if (CurrentBar < 19) return;
@@ -595,6 +649,20 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty, Range(0.0, 1.0)]
         [Display(Name = "Shallow limit depth (x ATR, 0=market at close)", Order = 11, GroupName = "ENGU-Q")]
         public double LimitAtr { get; set; }
+
+        // RegimeLen (2026-09-07): run #309's trend-gate knob, added because NT could not
+        // follow the ENGU-Q crown without it -- see NT_RUNBOOK.md. Carries a [Range] (unlike
+        // ErLen below) because a missing element on an old saved row deserializes to the CLR
+        // default 0, which is already this knob's OFF value and sits comfortably inside the
+        // range, so there is no silent-finalize trap here regardless of declaration order.
+        // 0 = off = every code path below is untouched, bit-for-bit identical to before this
+        // knob existed. See the OnBarUpdate regime block for the exact python mirrored and
+        // the DELIBERATE 390-bars/day constant (not the corrected 1091 in the sibling
+        // ENGUQ_1M_ETH_1_0.py -- this file mirrors ENGUQ_1M_ETH_ER_1_0.py, the file that
+        // actually produced run #309's numbers, which still carries the old constant).
+        [NinjaScriptProperty, Range(0, 400)]
+        [Display(Name = "Regime SMA (390-bar blocks, 0=off) - run #309's regime_len", Order = 96, GroupName = "ENGU-Q")]
+        public int RegimeLen { get; set; }
 
         // Declared LAST on purpose: XmlSerializer writes elements in declaration
         // order, and every existing saved row predates these knobs - a missing element

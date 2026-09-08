@@ -68,6 +68,28 @@ break BOTH builds with CS0579 (happened 2026-08-17). So:
   24h session template; ranges widened v73.99 to fit. Warm-up replay can leave a REAL
   working stop order (`EQx`) guarding a position that only exists in its replay —
   check `/orders` after enable and cancel the orphan.
+- **EdgeLogENGUQ1m — RegimeLen (added 2026-09-07, compiled, NOT deployed)**: the one
+  knob the ENGU-Q crown (run #309, `augur_strategies/ENGUQ_1M_ETH_ER_1_0.py`) needs
+  that this port did not have — an optional long-term trend gate, long only above its
+  own trailing simple mean of close, `[Range(0, 400)]`, default 0 = off = every other
+  code path untouched, bit-for-bit. **RegimeLen counts 390-bar blocks, not calendar
+  days** — the window is `RegimeLen * 390` bars, matching the ER file's own constant
+  exactly (verified in the current committed source, one commit, never touched by the
+  2026-08-26 fix that corrected the SIBLING file `ENGUQ_1M_ETH_1_0.py` to the true
+  `ETH_BARS_PER_DAY = 1091`). The ER file was forked earlier (2026-08-21) and still
+  carries the old, documented bug — and that is the file that actually produced #309's
+  measured numbers, so this port mirrors the bug on purpose rather than the corrected
+  constant, to stay bit-for-bit with the crowned backtest. Practical effect: on the 24h
+  ETH tape (~1091 real bars/day) `RegimeLen 10` is really only ~3.6 calendar days of
+  trailing mean, not 10 — load chart history well past that: at least
+  `RegimeLen * 390 + EmaLen + TlLen + 1` bars (for the #309 cell — EmaLen 220, TlLen
+  206 — `RegimeLen 10` needs >= 4,327 bars, comfortably inside a week of 24h 1-minute
+  history; the deployed-config EmaLen 1380 / TlLen 170 cell needs >= 5,451). Remaining
+  deploy steps (owner-gated, not done): build with
+  `dotnet build NinjaTrader.Custom.csproj -p:BaseIntermediateOutputPath=<scratch>\ntobj\`,
+  stop NinjaTrader, copy the built `bin\Custom\NinjaTrader.Custom.dll` over the live
+  one, run `nt_recover.ps1`, then confirm `RegimeLen` appears in `/strategy/params`
+  for `EdgeLogENGUQ1m` before setting it away from 0.
 - **EdgeLogORBV2**: deliberately OUT of the recover roster since 2026-08-16 — it runs
   retired look-ahead-era params while the engine crown moved to run #230. Its fills
   measure a dead config. `EdgeLogORB230.cs` is the honest port (compiled, in the
