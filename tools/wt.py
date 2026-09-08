@@ -43,8 +43,10 @@ import argparse
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 BRANCH_PREFIX = 'session/'
@@ -52,6 +54,16 @@ BRANCH_PREFIX = 'session/'
 # fights git for locks. Override with EDGELOG_WT_ROOT.
 DEFAULT_ROOT = os.path.join(
     os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), 'EdgeLog-worktrees')
+
+# Where a REAL (non-identical) fast-forward blocker gets backed up before we leave it in
+# place for a human. Override with EDGELOG_WT_BACKUP_ROOT (used by the selftest so it never
+# touches the real path).
+BACKUP_ROOT = os.environ.get('EDGELOG_WT_BACKUP_ROOT') or r'C:\EdgeLog\_wt_backup'
+
+# Never auto-clear these regardless of what the content-equality check says - they are
+# large/binary/secret and a byte-identical read-back is not worth the risk of being wrong.
+_PROTECTED_BASENAMES = {'optimizer_history.db', 'trial_cache.db', 'serviceAccount.json'}
+_PROTECTED_PREFIXES = ('augur_uploads/',)
 
 
 def run(args, cwd=None, check=True, quiet=False):
@@ -418,27 +430,18 @@ def sync_shared(root):
     Deliberately conservative -- this is a shared working directory on a live trading
     machine:
       * fast-forward ONLY. Never rebase, never merge a divergence, never reset.
-      * skipped entirely if the shared checkout has uncommitted changes or commits of
-        its own; that is somebody's work, so this prints how to look at it instead.
+      * skipped entirely if the shared checkout carries commits of its own; that is
+        somebody's work, so this prints how to look at it instead.
+      * dirty tracked/untracked files that BLOCK the merge get ONE pass of
+        `_clear_ff_blockers` (below) before we retry - it only clears a blocker when the
+        working copy is byte-identical to origin/main modulo line endings, and backs up
+        + names anything that differs instead of touching it.
       * never fatal. A push that succeeded must not report failure because the shared
         checkout could not be tidied afterwards.
     """
     try:
         if run(['git', '-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], check=False) != 'main':
             print('shared checkout: not on main - left alone')
-            return
-        dirty = run(['git', '-C', root, 'status', '--porcelain', '--untracked-files=no'],
-                    check=False, quiet=True)
-        if dirty:
-            # Most of what stalls this is not somebody's work at all - see
-            #   _clear_lossless_modified. Try to clear it, then re-read.
-            run(['git', '-C', root, 'fetch', '-q', 'origin'], check=False)
-            _clear_lossless_modified(root)
-            dirty = run(['git', '-C', root, 'status', '--porcelain',
-                         '--untracked-files=no'], check=False, quiet=True)
-        if dirty:
-            print('shared checkout: %d file(s) modified - NOT fast-forwarded. '
-                  'Review with: git -C "%s" status' % (len(dirty.splitlines()), root))
             return
         run(['git', '-C', root, 'fetch', '-q', 'origin'], check=False)
         counts = run(['git', '-C', root, 'rev-list', '--left-right', '--count',
@@ -452,161 +455,212 @@ def sync_shared(root):
         if behind == '0':
             print('shared checkout: already current')
             return
-        _clear_identical_untracked(root)
-        run(['git', '-C', root, 'merge', '--ff-only', '-q', 'origin/main'])
-        print('shared checkout: fast-forwarded %s commit(s) -> %s'
-              % (behind, run(['git', '-C', root, 'log', '--oneline', '-1'])))
+
+        _clear_ff_blockers(root)
+        pr = subprocess.run(['git', '-C', root, 'merge', '--ff-only', 'origin/main'],
+                            capture_output=True, text=True, encoding='utf-8',
+                            errors='replace')
+        if pr.returncode == 0:
+            print('shared checkout: fast-forwarded %s commit(s) -> %s'
+                  % (behind, run(['git', '-C', root, 'log', '--oneline', '-1'])))
+            return
+
+        out = (pr.stdout or '') + (pr.stderr or '')
+        untracked, modified = _parse_ff_blockers(out)
+        blockers = sorted(set(untracked) | set(modified))
+        if not blockers:
+            last = out.strip().splitlines()[-1] if out.strip() else 'unknown reason'
+            print('shared checkout: still %s commit(s) behind, NOT fast-forwarded (%s). '
+                  'Review with: git -C "%s" status' % (behind, last, root))
+            return
+        print('shared checkout: still %s commit(s) behind, NOT fast-forwarded - %d real '
+              'blocker(s) left in place (see backups above): %s'
+              % (behind, len(blockers), ', '.join(blockers)))
     except Exception as e:                                    # never fail a good push
         print('shared checkout: could not fast-forward (%s: %s) - the push itself was fine'
               % (type(e).__name__, e))
 
 
-def _clear_lossless_modified(root):
-    """Discard TRACKED modifications that provably carry no unshipped work.
+def _is_protected(rel):
+    posix = rel.replace('\\', '/')
+    if posix.rsplit('/', 1)[-1] in _PROTECTED_BASENAMES:
+        return True
+    return any(posix.startswith(p) for p in _PROTECTED_PREFIXES)
 
-    WHY. _clear_identical_untracked (below) already solves this for UNTRACKED files:
-    a session drops a file in the shared checkout, ships the same file properly from a
-    worktree, and the fast-forward then stalls on a duplicate of what it was about to
-    write. The identical thing happens to TRACKED files and was not covered, so the
-    shared checkout sat 25 commits behind for days on five files that held nothing.
-    Measured 2026-08-28: four TTM strategy files whose working copies were BYTE-
-    IDENTICAL to origin/main, and an index.html whose entire uncommitted delta was a
-    CRLF/LF flip on two lines. Nothing to lose in any of the five, and the runner was
-    meanwhile executing engine code 25 commits old.
 
-    TWO conditions, either of which proves the discard is lossless:
-      (a) the working copy already equals the INCOMING version, so the merge was going
-          to write exactly these bytes anyway; or
-      (b) the working copy equals its own HEAD version once line endings are
-          normalised, so the uncommitted delta is whitespace and nothing else.
+def _parse_ff_blockers(text):
+    """Parse the two shapes git prints when `merge --ff-only` refuses because local
+    content is in the way. Returns (untracked_paths, modified_paths) - repo-relative
+    paths, in the order git listed them. Git prints these BEFORE touching anything and
+    aborts cleanly, so capturing a real (non-dry-run) merge attempt's output is safe.
 
-    A file can be dirty with NOTHING uncommitted in it at all: if the blob at HEAD
-    carries a stray CR that .gitattributes normalisation strips on the way back in,
-    every checkout of that file is instantly dirty again and no amount of
-    `git checkout --` clears it. That is why the discard writes the origin/main
-    version rather than re-materialising the index one.
+        error: The following untracked working tree files would be overwritten by merge:
+                path/one
+        Please move or remove them before you merge.
 
-    Anything failing BOTH is somebody's unshipped work. It is left alone and named,
-    and the caller then declines to fast-forward exactly as before - a human decides.
-    That asymmetry is deliberate: the cost of a stalled fast-forward is a stale runner,
-    and the cost of a wrong discard is lost work. Only the provable case is automated.
+        error: Your local changes to the following files would be overwritten by merge:
+                path/two
+        Please commit your changes or stash them before you merge.
     """
-    norm = lambda t: (t or "").replace("\r\n", "\n").strip()
-    try:
-        rows = run(["git", "-C", root, "status", "--porcelain",
-                    "--untracked-files=no"], check=False, quiet=True)
-    except Exception:
-        return
-    cleared, kept = [], []
-    for line in (rows or "").splitlines():
-        code, _, rel = line.partition(" ")[0], None, line[3:].strip().strip('"')
-        if not rel or "->" in rel:          # a rename is never auto-discarded
-            kept.append(rel or line.strip())
+    untracked, modified = [], []
+    mode = None
+    for line in (text or '').splitlines():
+        if 'untracked working tree files would be overwritten' in line:
+            mode = 'untracked'
             continue
-        full = os.path.join(root, rel.replace("/", os.sep))
-        try:
-            with io.open(full, encoding="utf-8", errors="replace") as fh:
-                local = fh.read()
-            incoming = run(["git", "-C", root, "show", "origin/main:" + rel],
-                           check=False, quiet=True)
-            head = run(["git", "-C", root, "show", "HEAD:" + rel],
-                       check=False, quiet=True)
-            n = norm(local)
-            if n == norm(incoming) or n == norm(head):
-                # CHECK OUT FROM origin/main, NOT from the index. Measured 2026-08-28:
-                #   the blob at the stale HEAD held two stray CR bytes, so `checkout --`
-                #   re-materialised the same dirt and the guard would have looped for
-                #   ever. origin/main is what the fast-forward is about to write anyway,
-                #   so writing it now is the same outcome one step early.
-                run(["git", "-C", root, "checkout", "origin/main", "--", rel],
-                    check=False, quiet=True)
-                cleared.append(rel)
-            else:
-                kept.append(rel)
-        except Exception:
-            kept.append(rel)
-    if cleared:
-        print("shared checkout: discarded %d modification(s) that carried no unshipped "
-              "work - already identical to what was incoming, or whitespace only (%s)"
-              % (len(cleared), ", ".join(cleared[:4])
-                 + (", ..." if len(cleared) > 4 else "")))
-    if kept:
-        print("shared checkout: left %d modified file(s) alone - they hold real "
-              "unshipped changes (%s)" % (len(kept), ", ".join(kept[:4])
-                                          + (", ..." if len(kept) > 4 else "")))
+        if 'local changes to the following files would be overwritten' in line:
+            mode = 'modified'
+            continue
+        if mode:
+            t = line.strip()
+            if not t:
+                continue
+            if t.startswith(('Please ', 'Aborting', 'error:', 'fatal:', 'Updating')):
+                if t.startswith(('Please ', 'Aborting')):
+                    mode = None
+                continue
+            (untracked if mode == 'untracked' else modified).append(t)
+    return untracked, modified
 
 
-def _clear_identical_untracked(root):
-    """Remove untracked files that are BYTE-IDENTICAL to the incoming commit.
+def _diff_stat(root, rel, full):
+    """Best-effort one-line `diff --stat` between origin/main's copy of `rel` and the
+    local working copy at `full`, for the loud REAL-unshipped-work report. Never raises -
+    a missing stat is not worth failing a push over."""
+    tmp_dir = None
+    try:
+        incoming = run(['git', '-C', root, 'show', 'origin/main:' + rel], check=False, quiet=True)
+        tmp_dir = tempfile.mkdtemp(prefix='wt_ff_')
+        tmp_path = os.path.join(tmp_dir, os.path.basename(rel) or 'incoming')
+        with io.open(tmp_path, 'w', encoding='utf-8', newline='') as f:
+            f.write(incoming)
+        pr = subprocess.run(['git', 'diff', '--no-index', '--stat', tmp_path, full],
+                            capture_output=True, text=True, encoding='utf-8', errors='replace')
+        lines = [l for l in (pr.stdout or '').strip().splitlines() if l.strip()]
+        return lines[-1].strip() if lines else 'diff stat unavailable'
+    except Exception:
+        return 'diff stat unavailable'
+    finally:
+        if tmp_dir:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    WHY (hit three times in four days, 2026-08-20 / 24). A session researching in the
-    shared checkout drops a new strategy or tool file there, then ships the same file
-    properly from a worktree. Now the shared checkout holds an untracked copy of a file
-    that main tracks, and `merge --ff-only` refuses outright:
 
-        error: The following untracked working tree files would be overwritten by merge
+def _backup_file(full, rel, ts_dir):
+    dest = os.path.join(ts_dir, rel.replace('/', os.sep))
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    shutil.copy2(full, dest)
+    return dest
 
-    So the whole auto-fast-forward stalls on files whose content is already what the
-    merge wants to write. Every collision found so far has been an exact duplicate:
-    ONDRIFT_1_0.py, r18/r18b/r19 triage tools, the TTM squeeze files, eleven more on
-    2026-08-20 -- 0 differing lines in every case.
 
-    STRICTLY identical-only. The comparison ignores line endings (this repo mixes CRLF
-    and LF and the same file legitimately differs that way), but nothing else. A file
-    that differs by even one real line is somebody's unshipped work: it is left alone,
-    named, and the merge is allowed to fail so a human decides. Silently deleting that
-    is the one outcome worth more than the convenience.
+def _clear_ff_blockers(root):
+    """Clear ONLY the `merge --ff-only` blockers that are provably lossless - byte-
+    identical to origin/main once line endings are normalised - and back up + loudly
+    name anything that genuinely differs, without touching it.
+
+    WHY THIS EXISTS (owner, 2026-09-07: blocked the shared checkout TWICE in 24 hours -
+    25 commits behind on 2026-09-05, 4 behind on 2026-09-06). Sessions write strategy/tool
+    files DIRECTLY into the shared checkout AND ship the same files through a worktree, so
+    the checkout ends up holding an untracked or modified copy of a file origin/main also
+    carries; `merge --ff-only` refuses outright and the runner keeps executing a stale
+    tree. In EVERY case measured so far the blocking copy was byte-identical to
+    origin/main once CRLF/LF is normalised. This replaces the old `_clear_lossless_modified`
+    (tracked-only) and `_clear_identical_untracked` (untracked-only, dry-run merge) with one
+    path that handles both refusal shapes plus staged-added files, backs up anything real
+    instead of silently discarding it, and never touches protected files
+    (optimizer_history.db, trial_cache.db, serviceAccount.json, augur_uploads/*).
+
+    Runs ONE real `merge --ff-only origin/main` (git aborts cleanly on either refusal
+    shape without changing anything, so this is safe as the discovery step), parses both
+    refusal shapes, and also folds in any `git status --porcelain` path that the incoming
+    commits touch (covers staged changes, which do not always echo into the refusal text
+    the same way). The caller is responsible for retrying the merge afterwards.
     """
-    # run() returns stdout only, and git prints this refusal on STDERR - so call the
-    # dry merge directly rather than widening run()'s contract for one caller.
+    norm = lambda t: (t or '').replace('\r\n', '\n').strip()
+
+    def porcelain():
+        out = run(['git', '-C', root, 'status', '--porcelain'], check=False, quiet=True)
+        m = {}
+        for line in (out or '').splitlines():
+            if len(line) < 4:
+                continue
+            code, rel = line[:2], line[3:].strip().strip('"')
+            if '->' in rel:                  # a rename is never auto-cleared
+                rel = rel.split('->', 1)[1].strip().strip('"')
+            m[rel] = code
+        return m
+
     try:
         pr = subprocess.run(['git', '-C', root, 'merge', '--ff-only', 'origin/main'],
-                            capture_output=True, text=True, encoding='utf-8',
-                            errors='replace')
-        out = (pr.stdout or '') + (pr.stderr or '')
+                            capture_output=True, text=True, encoding='utf-8', errors='replace')
     except Exception:
-        return
-    if 'untracked working tree files' not in out:
-        return
-    names, grabbing = [], False
-    for line in (out or '').splitlines():
-        if 'untracked working tree files' in line:
-            grabbing = True
+        return False
+    if pr.returncode == 0:
+        return False                         # already fast-forwarded, nothing to clear
+
+    out = (pr.stdout or '') + (pr.stderr or '')
+    untracked, modified = _parse_ff_blockers(out)
+
+    codes = porcelain()
+    incoming_touched = set(run(['git', '-C', root, 'diff', '--name-only', 'HEAD', 'origin/main'],
+                               check=False, quiet=True).splitlines())
+    for rel, code in codes.items():
+        if rel in untracked or rel in modified or rel not in incoming_touched:
             continue
-        if grabbing:
-            t = line.strip()
-            if not t or t.startswith(('Please ', 'Aborting', 'error:', 'Updating')):
-                if t.startswith(('Please ', 'Aborting')):
-                    break
-                continue
-            names.append(t)
-    removed, kept = [], []
-    for rel in names:
+        (untracked if code == '??' else modified).append(rel)
+
+    seen, paths = set(), []
+    for rel in untracked + modified:
+        if rel and rel not in seen:
+            seen.add(rel)
+            paths.append(rel)
+    if not paths:
+        return False
+
+    ts_dir = None
+    cleared, kept = [], []
+    for rel in paths:
+        if _is_protected(rel):
+            kept.append(rel)
+            print('shared checkout: %s is protected - never auto-cleared, left alone' % rel)
+            continue
         full = os.path.join(root, rel.replace('/', os.sep))
         try:
-            incoming = run(['git', '-C', root, 'show', 'origin/main:' + rel],
-                           check=False, quiet=True)
             with io.open(full, encoding='utf-8', errors='replace') as fh:
                 local = fh.read()
-            # run() already strips its side, so strip both the same way: a leading
-            # blank line must not read as a real difference. CRLF vs LF is normalised
-            # too - this repo legitimately holds the same file both ways.
-            norm = lambda t: t.replace('\r\n', '\n').strip()
-            if norm(local) == norm(incoming):
-                os.remove(full)
-                removed.append(rel)
-            else:
-                kept.append(rel)
-        except Exception:
+        except OSError:
             kept.append(rel)
-    if removed:
-        print('shared checkout: cleared %d untracked duplicate(s) of files main already '
-              'tracks (%s)' % (len(removed), ', '.join(removed[:4])
-                               + (', ...' if len(removed) > 4 else '')))
+            continue
+        incoming = run(['git', '-C', root, 'show', 'origin/main:' + rel], check=False, quiet=True)
+        if norm(local) != norm(incoming):
+            if ts_dir is None:
+                ts_dir = os.path.join(BACKUP_ROOT, time.strftime('%Y%m%d_%H%M%S'))
+            dest = _backup_file(full, rel, ts_dir)
+            stat = _diff_stat(root, rel, full)
+            print('REAL unshipped work - left in place, backed up to %s (%s)' % (dest, stat))
+            kept.append(rel)
+            continue
+        code = codes.get(rel, '')
+        if code[:1] == 'A':
+            # staged-added file identical to origin/main: unstage first, then it is just
+            # an untracked duplicate of what the merge is about to write.
+            run(['git', '-C', root, 'restore', '--staged', '--', rel], check=False, quiet=True)
+            os.remove(full)
+        elif code == '??' or (not code and rel in untracked):
+            os.remove(full)
+        else:
+            # CHECK OUT FROM origin/main, NOT from the index/HEAD: a stray CR baked into
+            # the tracked blob would otherwise re-dirty the file every time (2026-08-28).
+            run(['git', '-C', root, 'checkout', 'origin/main', '--', rel], check=False, quiet=True)
+        cleared.append(rel)
+        print('cleared: %s (identical to origin/main modulo line endings)' % rel)
+
+    if cleared:
+        print('shared checkout: cleared %d blocker(s) with no unshipped work (%s)'
+              % (len(cleared), ', '.join(cleared[:4]) + (', ...' if len(cleared) > 4 else '')))
     if kept:
-        print('shared checkout: %d untracked file(s) DIFFER from main and were left alone '
-              '- fast-forward will stop here on purpose: %s'
+        print('shared checkout: %d blocker(s) left in place - real content differences: %s'
               % (len(kept), ', '.join(kept)))
+    return bool(cleared)
 
 
 def cmd_list():
