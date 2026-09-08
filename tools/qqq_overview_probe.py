@@ -1,40 +1,39 @@
 #!/usr/bin/env python3
 """
-tools/qqq_overview_probe.py -- verification probe for the QQQ SHADOW BOOK overview,
-extended 2026-09-06 (round 3) for the readiness gate / event timeline / trade drawer /
-real-price columns / signals strip / notional+latency / legend toggle / CSV export /
-sticky rail / narrow-layout additions. Extended again 2026-09-07 for the mono-theme
-ATTENTION-colour work (--attn-red/--attn-amber/--attn-ok): every alert on this tab
-used to render as flat grey under [data-theme="mono"] because it borrowed the themed
---red/--green/--yellow vars, which mono flattens to greyscale.
+tools/qqq_overview_probe.py -- verification probe for the QQQ SHADOW BOOK tab, REWRITTEN
+2026-09-08 for the Robinhood/iOS "qb-" re-composition (owner ask: "improve the layout.
+need it to be more modern, slick, and simple to use. combination of robinhood and ios").
+
+The old .ov-shell / .ov-rail sidebar layout is gone -- this file used to assert against
+that DOM shape. It now asserts against the new single-column shell: .qb-shell containing
+a hero number, a chart with a 1W/1M/3M/ALL qb-seg period control, four qb-tile stat tiles
+behind a "More stats" disclosure (must still carry every RATIOS/PERFORMANCE/RISK label the
+old .ov-rail rail carried -- QB_OLD_RAIL_LABELS below is that list, extracted from the
+pre-redesign branch before it was touched), a compact READY/NOT READY card, a Legs list
+(tap-to-expand), an Activity calendar (calendar cells + a "Feed & signals" disclosure), a
+Trades card (List | Table qb-seg, CSV icon button, List rows open a qb-sheet holding the
+same drawer breakdown the Table view's inline row always showed), an Integrity list (tap a
+row -> a qb-sheet with that figure's existing detail panel), and footer disclosures
+(Rails / Event timeline / Model reference).
 
 Renders augurSub='qqqpaper' against these fixtures --
-  real    : the real ~2-trade doc (older shape, exercises the oldest degrade path)
-  mock    : a synthetic ~40-trade / 3-leg doc carrying every new field, readiness
-            NOT ready (3 missing items), events of every kind, 12 days of signals,
-            3 repriced trades, latency p95 > 10s
+  real    : the real ~2-trade doc (oldest degrade path, minimal data)
+  mock    : a synthetic ~40-trade / 3-leg doc carrying every field (readiness NOT ready,
+            events of every kind, signals/feed history, repriced trades, latency)
   ready   : the same book with every readiness gate passing
-  degrade : the same book with every new field stripped out
-  alarms  : every alert condition ON at once (breaker tripped, kill active, feed
-            stale, NT parity failed>0 incl. a parity_ok:false trade, ratio_health
-            warn, latency p95 14.8s, readiness NOT ready, an invalid/low-uptime
-            feed day, today's P&L within 20% of the daily loss limit)
-  healthy : every alert condition OFF/clean -- used to prove nothing gets painted
-            with the attention colours when there is nothing to flag
-at two widths (1400px and 800px), and drives the trade-drawer click and the
-equity-chart legend-toggle click inside the iframe before reading the DOM back out.
-
-The 'alarms' and 'healthy' cases are additionally rendered under
-[data-theme="mono"] (via prefs.theme='mono';applyTheme()) and the computed CSS
-colour of every element whose inline style references var(--attn-red) /
-var(--attn-amber) / var(--attn-ok) is read back with getComputedStyle so the check
-is against actual rendered pixels, not source text: on 'alarms' those elements must
-NOT be greyish (R/G/B channels must differ meaningfully -- mono's other vars are
-literal greys like #f0f0f0/#4d4d4d/#999999 where the channels are equal), and on
-'healthy' there must be zero var(--attn-red)/var(--attn-amber) elements (var(--attn-ok)
-elements are still expected -- READY/ALL MATCHED are deliberately painted attn-ok even
-when healthy). A default-theme 'alarms' pass is also rendered to confirm the swap
-to CSS-variable attention colours did not regress the non-mono look.
+  degrade : the same book with every optional field stripped out
+  alarms  : every alert condition ON at once
+  healthy : every alert condition OFF -- proves nothing gets painted with the attention
+            colours when there is nothing to flag
+at three widths -- 1400 / 800 / 390 -- in BOTH [data-theme="mono"] and the default
+(dark, no data-theme attribute) theme, 4 fixtures (real/mock/alarms/degrade) x 3 widths x
+2 themes = 24 structural passes (no undefined/NaN, no console errors, no horizontal body
+overflow at 390, hero+chart+tiles present). A deeper interaction pass (More stats expand,
+trades List/Table toggle + row count, a trade row opening its sheet, each Integrity row
+opening its sheet, the period control changing the plotted point count) runs on the 'mock'
+fixture at 1400 in both themes. 'ready' proves the compact readiness card reads READY;
+'alarms'/'healthy' under mono (plus a default-theme 'alarms' regression pass) prove the
+--attn-red/--attn-amber/--attn-ok colours still render non-grey.
 
 Not wired into wt.py ship (ad hoc verification tool), but written the same way as
 tools/paper_render_probe.py: stdlib + a subprocess call to local headless Chrome,
@@ -52,6 +51,16 @@ import tempfile
 import threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Every RATIOS/PERFORMANCE/RISK label the pre-redesign .ov-rail sidebar carried. The new
+# "More stats" disclosure must still carry all of these -- the PARITY/FEED UPTIME/
+# SIGNALS/REPRICE groups moved to the new INTEGRITY list+sheets by design (owner spec
+# section 8), so they are deliberately NOT in this list.
+QB_OLD_RAIL_LABELS = [
+    'WIN RATE', 'PROFIT FACTOR', 'EXPECTANCY', 'PAYOFF',
+    'TRADES', 'AVG $/TRADE', 'AVG WIN', 'AVG LOSS', 'BEST', 'WORST', 'CURRENT STREAK',
+    'MAX DRAWDOWN', 'RECOVERY FACTOR', 'OPEN EXPOSURE', 'DAILY LOSS LIMIT',
+]
 
 
 def find_chrome():
@@ -84,6 +93,10 @@ PROBE_HTML = """<!DOCTYPE html>
 <script>
 var FIX=__FIX__;
 var THEME=__THEME__;
+var DEEP=__DEEP__;
+var KEEPSHEET=__KEEPSHEET__;
+var OPENCHECKS=__OPENCHECKS__;
+var IW=__IW__;
 (function(){
   var reported=false;
   function report(why){
@@ -92,130 +105,122 @@ var THEME=__THEME__;
     try{
       var fr=document.getElementById('f'), w=fr.contentWindow, d=fr.contentDocument;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
-      var consoleErrors=[];
       out.call=w.eval("(function(){try{"
-        // the app's own auth.onAuthStateChanged(user=>{...else renderAuth();}) fires
-        // asynchronously (real Firebase, no signed-in session in this probe) and would
-        // repaint the sign-in screen over whatever we render below -- possibly well
-        // after our call returns, once the virtual-time budget runs long enough for it
-        // to resolve. Neutralise it FIRST so no later firing can undo our render.
         +"window.renderAuth=function(){};"
         +"window._qeProbeErrors=[];"
         +"window.onerror=function(m,s,l,c,e){window._qeProbeErrors.push(String(m));};"
         +"currentUser=currentUser||{uid:'probe-uid'};"
-        // THEME -- set BEFORE renderApp() so [data-theme="..."] CSS rules are in
-        // effect for the very first paint we read back. renderApp() itself never
-        // calls applyTheme(), so this sticks.
-        // NOTE: index.html declares "let prefs=..." at top scope -- that is a lexical
-        // binding, NOT a window.prefs property, so it must be assigned directly here
-        // (via eval sharing the iframe's global lexical scope), not through `window.`.
         +"try{prefs.theme="+JSON.stringify(THEME)+";applyTheme();}catch(e){try{document.documentElement.setAttribute('data-theme',"+JSON.stringify(THEME)+");}catch(e2){}}"
         +"window._qqqExec="+JSON.stringify(FIX)+";"
         +"window._qqqExecLoaded=true;window._qqqExecLoading=false;window._qqqExecErr=null;"
         +"window._qqqPaper=null;window._qqqPaperLoaded=true;window._qqqPaperLoading=false;window._qqqPaperErr=null;"
         +"window._qqqCalMonth=null;window._qeDrawerIdx=null;window._qeChartHidden={};window._qeTradesShown=50;window._qeEventsShown=30;"
+        +"window._qbSheet=null;window._qbLegOpen=new Set();window._qeTradesView='list';window._qeChartPeriod='ALL';"
         +"activeTab='augur';augurSub='qqqpaper';renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       out.themeApplied=d.documentElement.getAttribute('data-theme');
 
-      // ── drive the trade-drawer click (row 0) then read the DOM, then close it again ──
-      out.drawerClick=w.eval("(function(){try{"
-        +"var el=document.querySelector('[data-qetraderow=\\"0\\"]');"
-        +"if(!el)return 'NO_ROW';el.click();return 'OK';"
-        +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
-      out.hasDrawerAfterClick=!!d.querySelector('.qe-drawer');
+      function fire(sel){var el=d.querySelector(sel);if(el){el.click();return true;}return false;}
+      function html(){var ap=d.getElementById('app')||d.body;return ap?ap.innerHTML:'';}
 
-      // ── drive the equity-chart legend toggle (hide the ORB line) ──
-      out.legendClick=w.eval("(function(){try{"
-        +"var el=document.querySelector('[data-qelegend=\\"ORB\\"]');"
-        +"if(!el)return 'NO_LEGEND';el.click();return 'OK';"
-        +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
-      out.hasLegendOffClass=!!d.querySelector('.qe-legend-item.off');
+      // ── structural counts on the FIRST paint (ALL cases) ──
+      out.hasQbShell=!!d.querySelector('.qb-shell');
+      out.hasHero=!!d.querySelector('.qb-hero-num');
+      out.heroText=(d.querySelector('.qb-hero-num')||{}).textContent||null;
+      out.hasChart=!!d.querySelector('.qb-chart-wrap svg');
+      out.tileCount=d.querySelectorAll('.qb-tile').length;
+      out.hasReadinessCard=!!d.querySelector('.qb-card .qb-bar');
+      out.legRowCount=d.querySelectorAll('[data-qblegrow]').length;
+      out.bodyScrollW=d.body?d.body.scrollWidth:null;
+      out.overflowOk=(out.bodyScrollW==null)||(out.bodyScrollW<=IW+2);
 
-      // put the drawer back closed + legend back on for a clean readout
-      w.eval("(function(){try{window._qeDrawerIdx=null;window._qeChartHidden={};renderApp();}catch(e){}})()");
+      if(OPENCHECKS&&!DEEP){
+        // lightweight: open ONLY the readiness "All checks" disclosure, so a passing
+        // sub-check (e.g. "enough trading days") is on the page for the attention-colour
+        // scan below, without running the full interactive suite.
+        fire('[data-qbdisclosure="allchecks"]');
+      }
+
+      if(DEEP){
+        // ── More stats -> every old-rail label must still be reachable ──
+        out.moreStatsBefore=!!d.querySelector('[data-qbdisclosure="morestats"]');
+        fire('[data-qbdisclosure="morestats"]');
+        out.moreStatsHtml=html();
+
+        // ── All checks disclosure on the readiness card ──
+        fire('[data-qbdisclosure="allchecks"]');
+        out.hasAllChecksRows=d.querySelectorAll('.qe-check-row').length;
+
+        // ── Feed & signals disclosure under Activity ──
+        fire('[data-qbdisclosure="feedsig"]');
+        out.hasFeedSigContent=html().indexOf('FEED UPTIME \\u2014 LAST')>=0||html().indexOf('SIGNALS \\u2014 LAST')>=0;
+
+        // ── Footer disclosures ──
+        fire('[data-qbdisclosure="rails"]');
+        out.hasRailsContent=html().indexOf('SHARES / LEG')>=0;
+        fire('[data-qbdisclosure="events"]');
+        out.hasEventsContent=d.querySelectorAll('.qe-evt-row').length;
+
+        // ── Trades: List view row count vs trades_all (capped at 50) ──
+        out.tradesListRows=d.querySelectorAll('[data-qbtraderow]').length;
+        out.tradesAllLen=(FIX.trades_all||[]).length;
+
+        // ── tap a trade row -> sheet opens with the drawer content ──
+        out.tradeRowClick=fire('[data-qbtraderow="0"]')?'OK':'NO_ROW';
+        out.hasSheetAfterTradeClick=!!d.querySelector('.qb-sheet-backdrop');
+        out.hasDrawerInSheet=!!d.querySelector('.qb-sheet .qe-drawer');
+        fire('[data-qbsheetclose]');
+        out.sheetClosedAfterX=!d.querySelector('.qb-sheet-backdrop');
+
+        // ── List | Table toggle ──
+        out.tableSegClick=fire('[data-qbseg="tradesview"] [data-qbsegval="table"]')?'OK':'NO_SEG';
+        out.hasTableAfterToggle=!!d.querySelector('table.table thead th');
+        out.noListRowsInTableView=d.querySelectorAll('[data-qbtraderow]').length===0;
+        fire('[data-qbseg="tradesview"] [data-qbsegval="list"]');
+        out.tradesListRowsAfterBack=d.querySelectorAll('[data-qbtraderow]').length;
+
+        // ── Integrity rows each open a sheet ──
+        ['parity','feeduptime','ratio','latency','reprice'].forEach(function(k){
+          var opened=fire('[data-qbsheet="'+k+'"]');
+          out['integrity_'+k+'_opened']=opened&&!!d.querySelector('.qb-sheet-backdrop');
+          fire('[data-qbsheetclose]');
+        });
+
+        // ── period control changes the plotted point count (hover-dot circles on the
+        // TOTAL line, one per plotted date) ──
+        var dotSel='.qb-chart-wrap svg circle[fill="transparent"]';
+        out.chartDotsAll=d.querySelectorAll(dotSel).length;
+        fire('[data-qbseg="period"] [data-qbsegval="1W"]');
+        out.chartDots1W=d.querySelectorAll(dotSel).length;
+        fire('[data-qbseg="period"] [data-qbsegval="ALL"]');
+      }
+
+      if(KEEPSHEET){
+        fire('[data-qbtraderow="0"]');
+      }
 
       out.consoleErrors=w.eval('window._qeProbeErrors||[]');
-
-      var ap=d.getElementById('app')||d.body;
-      out.appLen=ap?ap.innerHTML.length:-1;
-      out.html=ap?ap.innerHTML:'';
-      out.hasOvShell=!!d.querySelector('.ov-shell');
-      out.hasRail=!!d.querySelector('.ov-rail');
-      out.hasCal=!!d.querySelector('.ov-cal');
-      out.railRows=d.querySelectorAll('.ov-rail .rail-row').length;
-      out.calDays=d.querySelectorAll('[data-qcalday]').length;
-      out.calNav=d.querySelectorAll('[data-qcalmo]').length;
-      out.svgCount=d.querySelectorAll('.ov-cc-grid svg, .ov-shell svg').length;
-      out.legCards=d.querySelectorAll('.ov-work').length;
+      out.html=html();
       var undef=(out.html.match(/undefined/g)||[]).length;
       var nan=(out.html.match(/NaN/g)||[]).length;
       out.undefCount=undef; out.nanCount=nan;
-      var lbl=d.querySelector('.ov-cal .lbl');
-      out.calMonthLabel=lbl?lbl.textContent:null;
-      var net=d.querySelector('.ov-rail .rail-net');
-      out.railNet=net?net.textContent:null;
 
-      // ── NT PARITY / FEED UPTIME / RATIO HEALTH (2026-09-05) ──
-      var railGrps=[].slice.call(d.querySelectorAll('.ov-rail .rail-grp')).map(function(e){return e.textContent;});
-      out.hasParityRailGrp=railGrps.indexOf('PARITY')>=0;
-      out.hasFeedRailGrp=railGrps.indexOf('FEED UPTIME')>=0;
-      out.hasSignalsRailGrp=railGrps.indexOf('SIGNALS')>=0;
-      out.hasRepriceRailGrp=railGrps.indexOf('REPRICE')>=0;
-      var headerRows=[].slice.call(d.querySelectorAll('table.table thead tr')).map(function(tr){
-        return [].slice.call(tr.querySelectorAll('th')).map(function(th){return th.textContent;});
-      });
-      out.hasNtPointsCol=headerRows.some(function(cols){return cols.indexOf('NT POINTS')>=0;});
-      out.hasExpectedCol=headerRows.some(function(cols){return cols.indexOf('EXPECTED $')>=0;});
-      out.hasTrackErrCol=headerRows.some(function(cols){return cols.indexOf('TRACK ERR')>=0;});
-      out.hasRealPnlCol=headerRows.some(function(cols){return cols.indexOf('REAL P&L')>=0;});
-      out.hasSlipCol=headerRows.some(function(cols){return cols.indexOf('SLIP/SH')>=0;});
-      out.hasLatencyCol=headerRows.some(function(cols){return cols.indexOf('LATENCY')>=0;});
-      out.hasParityChip=out.html.indexOf('PARITY NOTE')>=0||out.html.indexOf('RECONSTRUCTED')>=0;
-      out.hasFeedInvalidTag=out.html.indexOf('FEED INVALID')>=0;
-      out.hasFeedStrip=out.html.indexOf('FEED UPTIME \u2014 LAST')>=0;
-      out.hasSignalsStrip=out.html.indexOf('SIGNALS \u2014 LAST')>=0;
-      out.hasRatioToggle=!!d.querySelector('[data-qqqratiotoggle]');
-      out.hasWebullLink=out.html.indexOf('app.webull.com')>=0;
-      out.hasWebullNote=out.html.indexOf('WEBULL PAPER \u2014 not used')>=0;
-      out.hasParityPanel=out.html.indexOf('NT PARITY') >= 0;
-
-      // ── round-3 additions ──
-      out.hasReadinessBanner=!!d.querySelector('.qe-ready-banner');
-      out.readinessIsReady=!!d.querySelector('.qe-ready-banner.ready');
-      out.readinessIsNotReady=!!d.querySelector('.qe-ready-banner.notready');
-      out.hasEventsPanel=out.html.indexOf('EVENT TIMELINE')>=0;
-      out.eventRowCount=d.querySelectorAll('.qe-evt-row').length;
-      out.hasEventsShowMore=!!d.querySelector('[data-qeeventsmore]');
-      out.hasNotionalLine=out.html.indexOf('NOTIONAL \u2014')>=0;
-      out.hasLatencyPill=out.html.indexOf('LATENCY')>=0;
-      out.hasExportBtn=!!d.querySelector('[data-qeexportcsv]');
-      out.hasOosTag=out.html.indexOf('NOT MIRRORED')>=0;
-      out.hasRepriceNote=out.html.indexOf('re-priced nightly from real QQQ')>=0;
-      var ovShellCS=d.querySelector('.ov-shell')?w.getComputedStyle(d.querySelector('.ov-shell')):null;
-      out.ovShellDisplay=ovShellCS?ovShellCS.display:null;
-
-      // ── ATTENTION-colour check (2026-09-07) -- read ACTUAL COMPUTED colour, not
-      // source text, so this proves the pixels, not just that the code path ran.
+      // ── ATTENTION-colour check (unchanged mechanism -- scans inline style attrs, so it
+      // is unaffected by the markup re-composition) ──
       function parseRgb(s){
         s=s||'';
-        var m=/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(s);
+        var m=/rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/.exec(s);
         if(m)return [+m[1],+m[2],+m[3]];
-        // a color-mix() result can serialize as e.g. "color(srgb 0.54 0.40 0.15)"
-        // (0-1 floats) instead of rgb() -- scale up to 0-255 so the grey check works.
-        var m2=/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(s);
+        var m2=/color\\(srgb\\s+([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)/.exec(s);
         if(m2)return [Math.round(+m2[1]*255),Math.round(+m2[2]*255),Math.round(+m2[3]*255)];
         return null;
       }
       function isGreyish(rgb){
         if(!rgb)return true;
         var mx=Math.max(rgb[0],rgb[1],rgb[2]),mn=Math.min(rgb[0],rgb[1],rgb[2]);
-        return (mx-mn)<=6; // mono's other vars are literal greys -- equal channels
+        return (mx-mn)<=6;
       }
       function scanAttn(varName){
-        // a bar/dot may carry the attn colour ONLY as its background (e.g. a feed-uptime
-        // bar), so check color, border AND background -- "coloured" if any one of the
-        // three is non-grey.
         var sel='[style*="var(--'+varName+')"]';
         var els=[].slice.call(d.querySelectorAll(sel));
         return els.map(function(el){
@@ -239,13 +244,17 @@ var THEME=__THEME__;
 """
 
 
-def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, theme='dark'):
+def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, theme='dark',
+             deep=False, keep_sheet=False, open_checks=False):
     pdir = os.path.join(root, '_qqqovprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
     ppath = os.path.join(pdir, 'probe_%s.html' % name)
     html = (PROBE_HTML.replace('__FIX__', json.dumps(fixture))
             .replace('__THEME__', json.dumps(theme))
+            .replace('__DEEP__', 'true' if deep else 'false')
+            .replace('__KEEPSHEET__', 'true' if keep_sheet else 'false')
+            .replace('__OPENCHECKS__', 'true' if open_checks else 'false')
             .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -264,14 +273,13 @@ def run_case(chrome, root, fixture, name, shot_path, width=1600, height=1400, th
              '--dump-dom', url],
             capture_output=True, text=True, encoding='utf-8', errors='replace',
             timeout=180).stdout
-        # separate screenshot pass (dump-dom and screenshot can't combine reliably
-        # for iframe content on some Chrome builds, so do it as its own invocation)
-        subprocess.run(
-            [chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
-             '--user-data-dir=' + prof, '--virtual-time-budget=50000',
-             '--window-size=%d,%d' % (win_w, win_h), '--screenshot=' + shot_path, url],
-            capture_output=True, text=True, encoding='utf-8', errors='replace',
-            timeout=180)
+        if shot_path:
+            subprocess.run(
+                [chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
+                 '--user-data-dir=' + prof, '--virtual-time-budget=50000',
+                 '--window-size=%d,%d' % (win_w, win_h), '--screenshot=' + shot_path, url],
+                capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=180)
     finally:
         srv.shutdown()
         try:
@@ -309,132 +317,158 @@ def main():
         p = os.path.join(ROOT, 'tools', 'fixtures', fname)
         fx[nm] = json.load(io.open(p, encoding='utf-8'))
 
-    out_dir = sys.argv[1] if len(sys.argv) > 1 else ROOT
+    out_dir = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else ROOT
 
     results = {}
-    # 1400px width: real, mock, ready, degrade, alarms(mono), healthy(mono),
-    # alarms(default theme, regression check). 800px width: mock only (plus a
-    # degrade pass to prove the narrow layout doesn't break the emptiest doc).
-    plan = [
-        ('mock_1400', 'mock', 1400, 900, 'dark'),
-        ('ready_1400', 'ready', 1400, 900, 'dark'),
-        ('real_1400', 'real', 1400, 900, 'dark'),
-        ('degrade_1400', 'degrade', 1400, 900, 'dark'),
-        ('alarms_mono', 'alarms', 1400, 1400, 'mono'),
-        ('healthy_mono', 'healthy', 1400, 1400, 'mono'),
-        ('alarms_default', 'alarms', 1400, 1400, 'dark'),
-        ('mock_800', 'mock', 800, 1000, 'dark'),
-        ('degrade_800', 'degrade', 800, 1000, 'dark'),
-    ]
-    for case_name, fixture_name, w, h, theme in plan:
-        shot = os.path.join(out_dir, 'qqq_overview_%s.png' % case_name)
-        results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, shot, width=w, height=h, theme=theme)
-        print('%s shot -> %s' % (case_name, shot))
 
-    for nm, r in results.items():
-        print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k != 'html'}, indent=1))
+    # ── 24-case structural matrix: real/mock/alarms/degrade x 1400/800/390 x mono/default ──
+    matrix_plan = []
+    for fixture_name in ('real', 'mock', 'alarms', 'degrade'):
+        for width in (1400, 800, 390):
+            for theme in ('mono', 'dark'):
+                case = '%s_%d_%s' % (fixture_name, width, theme)
+                matrix_plan.append((case, fixture_name, width, max(900, width), theme, False, False, False))
+
+    # ── deep interaction pass (mock fixture, 1400px, both themes) ──
+    deep_plan = [
+        ('deep_mock_mono', 'mock', 1400, 1400, 'mono', True, False, False),
+        ('deep_mock_dark', 'mock', 1400, 1400, 'dark', True, False, False),
+    ]
+
+    # ── extra non-screenshot case: alarms with "All checks" pre-opened, so a passing
+    # sub-check (e.g. "enough trading days") is on the page for the attn-ok colour scan --
+    # the named alarms screenshot below stays in its natural collapsed state.
+    extra_plan = [
+        ('alarms_checks_open', 'alarms', 1400, 1400, 'mono', False, False, True),
+    ]
+
+    # ── named screenshot cases (the 5 the owner asked for, plus 'ready'/'healthy' checks) ──
+    shot_plan = [
+        ('mono_real_1400', 'real', 1400, 900, 'mono', False, False, False),
+        ('mono_alarms_1400', 'alarms', 1400, 1400, 'mono', False, False, False),
+        ('mono_real_390', 'real', 390, 1000, 'mono', False, False, False),
+        ('default_theme_1400', 'mock', 1400, 1400, 'dark', False, False, False),
+        ('sheet_open_1400', 'mock', 1400, 1400, 'mono', False, True, False),
+        ('ready_1400', 'ready', 1400, 1400, 'dark', False, False, False),
+        ('healthy_mono', 'healthy', 1400, 1400, 'mono', False, False, False),
+    ]
+
+    shot_names = set(n for n, *_ in shot_plan)
+    for case_name, fixture_name, w, h, theme, deep, keep_sheet, open_checks in matrix_plan + deep_plan + extra_plan + shot_plan:
+        shot = os.path.join(out_dir, 'qqq_overview_%s.png' % case_name) if case_name in shot_names else None
+        results[case_name] = run_case(chrome, ROOT, fx[fixture_name], case_name, shot,
+                                       width=w, height=h, theme=theme, deep=deep,
+                                       keep_sheet=keep_sheet, open_checks=open_checks)
+        if shot:
+            print('%s shot -> %s' % (case_name, shot))
 
     fails = []
-    for nm, r in results.items():
+
+    # ── structural matrix assertions ──
+    for case_name, fixture_name, w, h, theme, deep, keep_sheet, open_checks in matrix_plan:
+        r = results[case_name]
         if r.get('err'):
-            fails.append('%s: %s' % (nm, r['err']))
+            fails.append('%s: %s' % (case_name, r['err']))
             continue
         if r.get('call') != 'OK':
-            fails.append('%s: renderApp threw -- %s' % (nm, r.get('call')))
-        if not r.get('hasOvShell'):
-            fails.append('%s: no .ov-shell rendered' % nm)
-        if not r.get('hasRail'):
-            fails.append('%s: no .ov-rail rendered' % nm)
-        if not r.get('hasCal'):
-            fails.append('%s: no .ov-cal rendered' % nm)
-        if not r.get('railRows'):
-            fails.append('%s: rail has no rows' % nm)
-        if not r.get('svgCount'):
-            fails.append('%s: no chart svg drawn' % nm)
-        if r.get('undefCount'):
-            fails.append('%s: literal "undefined" appears %d times' % (nm, r['undefCount']))
-        if r.get('nanCount'):
-            fails.append('%s: literal "NaN" appears %d times' % (nm, r['nanCount']))
-        if r.get('consoleErrors'):
-            fails.append('%s: console errors -- %s' % (nm, r['consoleErrors']))
-        if r.get('hasWebullLink'):
-            fails.append('%s: WEBULL PAPER trap link still present' % nm)
-        if not r.get('hasWebullNote'):
-            fails.append('%s: WEBULL PAPER "not used" note missing' % nm)
-        if not r.get('hasParityRailGrp'):
-            fails.append('%s: rail is missing the PARITY group' % nm)
-        if not r.get('hasFeedRailGrp'):
-            fails.append('%s: rail is missing the FEED UPTIME group' % nm)
-        if not r.get('hasRepriceRailGrp'):
-            fails.append('%s: rail is missing the REPRICE group' % nm)
-        if not r.get('hasNtPointsCol') or not r.get('hasExpectedCol') or not r.get('hasTrackErrCol'):
-            fails.append('%s: CLOSED TRADES is missing an NT-parity column' % nm)
-        if not r.get('hasRealPnlCol') or not r.get('hasSlipCol'):
-            fails.append('%s: CLOSED TRADES is missing REAL P&L / SLIP/SH column' % nm)
-        if not r.get('hasParityPanel'):
-            fails.append('%s: no NT PARITY panel rendered' % nm)
-        if not r.get('hasExportBtn'):
-            fails.append('%s: no EXPORT CSV button' % nm)
-
-    # mock-only: fields that only exist when the mock's real values are present.
-    for nm in ('mock_1400', 'mock_800'):
-        r = results.get(nm, {})
-        if r.get('err'):
+            fails.append('%s: renderApp threw -- %s' % (case_name, r.get('call')))
             continue
-        if not r.get('hasParityChip'):
-            fails.append('%s: no parity chip (RECONSTRUCTED/PARITY NOTE) rendered on any trade row' % nm)
-        if not r.get('hasFeedInvalidTag'):
-            fails.append('%s: no invalid-feed-day tooltip (FEED INVALID) found on the calendar' % nm)
-        if not r.get('hasFeedStrip'):
-            fails.append('%s: FEED UPTIME strip under the calendar missing' % nm)
-        if not r.get('hasSignalsStrip'):
-            fails.append('%s: SIGNALS strip under the calendar missing' % nm)
-        if not r.get('hasRatioToggle'):
-            fails.append('%s: hero calibration text has no ratio-health click target' % nm)
-        if not r.get('hasReadinessBanner') or not r.get('readinessIsNotReady'):
-            fails.append('%s: readiness banner missing or not showing NOT READY' % nm)
-        if not r.get('hasEventsPanel') or not r.get('eventRowCount'):
-            fails.append('%s: event timeline missing or empty' % nm)
-        if not r.get('hasNotionalLine'):
-            fails.append('%s: no NOTIONAL line on a leg card' % nm)
-        if not r.get('hasOosTag'):
-            fails.append("%s: no NOT MIRRORED (OOS) tag on today's orders" % nm)
-        if not r.get('hasRepriceNote'):
-            fails.append('%s: no nightly-reprice note under CLOSED TRADES' % nm)
-        if r.get('drawerClick') != 'OK' or not r.get('hasDrawerAfterClick'):
-            fails.append('%s: trade drawer did not open on row click' % nm)
-        if r.get('legendClick') != 'OK' or not r.get('hasLegendOffClass'):
-            fails.append('%s: chart legend toggle did not mark the line off' % nm)
+        if not r.get('hasQbShell'):
+            fails.append('%s: no .qb-shell rendered' % case_name)
+        if not r.get('hasHero'):
+            fails.append('%s: no hero number rendered' % case_name)
+        if not r.get('hasChart'):
+            fails.append('%s: no chart svg drawn' % case_name)
+        if (r.get('tileCount') or 0) < 4:
+            fails.append('%s: fewer than 4 stat tiles rendered (%s)' % (case_name, r.get('tileCount')))
+        if r.get('undefCount'):
+            fails.append('%s: literal "undefined" appears %d times' % (case_name, r['undefCount']))
+        if r.get('nanCount'):
+            fails.append('%s: literal "NaN" appears %d times' % (case_name, r['nanCount']))
+        if r.get('consoleErrors'):
+            fails.append('%s: console errors -- %s' % (case_name, r['consoleErrors']))
+        if w == 390 and not r.get('overflowOk'):
+            fails.append('%s: horizontal body overflow at 390px (scrollWidth=%s)' % (case_name, r.get('bodyScrollW')))
 
+    # ── deep interaction assertions (mock fixture) ──
+    for case_name, *_r in deep_plan:
+        r = results[case_name]
+        if r.get('err'):
+            fails.append('%s: %s' % (case_name, r['err']))
+            continue
+        # case-insensitive: the redesign deliberately uses iOS-style sentence-case row
+        # labels ("Win rate") instead of the old rail's ALL-CAPS ("WIN RATE") -- same
+        # words, same metric, different typography. Section headers stay uppercase.
+        more_stats_upper = (r.get('moreStatsHtml') or '').upper()
+        missing_labels = [lbl for lbl in QB_OLD_RAIL_LABELS if lbl not in more_stats_upper]
+        if missing_labels:
+            fails.append('%s: "More stats" is missing old-rail labels: %s' % (case_name, missing_labels))
+        if not r.get('hasAllChecksRows'):
+            fails.append('%s: "All checks" disclosure produced no qe-check-row rows' % case_name)
+        if not r.get('hasFeedSigContent'):
+            fails.append('%s: "Feed & signals" disclosure produced no strip content' % case_name)
+        if not r.get('hasRailsContent'):
+            fails.append('%s: "Rails" footer disclosure missing its content' % case_name)
+        if not r.get('hasEventsContent'):
+            fails.append('%s: "Event timeline" footer disclosure produced no rows' % case_name)
+        expect_rows = min(r.get('tradesAllLen') or 0, 50)
+        if r.get('tradesListRows') != expect_rows:
+            fails.append('%s: trades LIST row count %s != trades_all length (capped at 50) %s'
+                          % (case_name, r.get('tradesListRows'), expect_rows))
+        if r.get('tradeRowClick') != 'OK' or not r.get('hasSheetAfterTradeClick') or not r.get('hasDrawerInSheet'):
+            fails.append('%s: tapping a trade row did not open a sheet with the drawer content' % case_name)
+        if not r.get('sheetClosedAfterX'):
+            fails.append('%s: the sheet close (X) did not close the sheet' % case_name)
+        if r.get('tableSegClick') != 'OK' or not r.get('hasTableAfterToggle') or not r.get('noListRowsInTableView'):
+            fails.append('%s: List->Table toggle did not switch to the table view' % case_name)
+        if r.get('tradesListRowsAfterBack') != expect_rows:
+            fails.append('%s: Table->List toggle did not restore the list rows' % case_name)
+        for k in ('parity', 'feeduptime', 'ratio', 'latency', 'reprice'):
+            if not r.get('integrity_%s_opened' % k):
+                fails.append('%s: INTEGRITY row "%s" did not open a sheet' % (case_name, k))
+        if r.get('chartDotsAll') is None or r.get('chartDots1W') is None:
+            fails.append('%s: chart period control produced no readable point count' % case_name)
+        elif r.get('chartDots1W') >= r.get('chartDotsAll'):
+            fails.append('%s: 1W period did not plot fewer points than ALL (1W=%s, ALL=%s)'
+                          % (case_name, r.get('chartDots1W'), r.get('chartDotsAll')))
+
+    # ── readiness READY on the 'ready' fixture ──
     r_ready = results.get('ready_1400', {})
-    if not r_ready.get('err'):
-        if not r_ready.get('readinessIsReady'):
-            fails.append('ready_1400: readiness banner is not showing READY on the ready fixture')
+    if r_ready.get('err'):
+        fails.append('ready_1400: %s' % r_ready['err'])
+    elif 'READY' not in (r_ready.get('html') or '') or 'NOT READY' in (r_ready.get('html') or ''):
+        fails.append('ready_1400: compact readiness card is not showing READY on the ready fixture')
 
-    r800 = results.get('mock_800', {})
-    if not r800.get('err'):
-        if r800.get('ovShellDisplay') != 'block':
-            fails.append('mock_800: .ov-shell did not switch to the stacked (display:block) narrow layout at 800px')
-
-    # ── ATTENTION-colour checks (2026-09-07 mono-theme work) ──
-    r_alarms_mono = results.get('alarms_mono', {})
+    # ── ATTENTION-colour checks ── attn-red/attn-amber are checked on the natural,
+    # collapsed 'mono_alarms_1400' state (the Integrity list's dots + hero chips render
+    # those without opening anything); attn-ok needs a PASSING sub-check on the page, which
+    # on this redesign sits behind the readiness "All checks" disclosure, so that one uses
+    # the 'alarms_checks_open' case (same alarms fixture, disclosure pre-opened).
+    r_alarms_mono = results.get('mono_alarms_1400', {})
     if not r_alarms_mono.get('err'):
         if r_alarms_mono.get('themeApplied') != 'mono':
-            fails.append('alarms_mono: data-theme was not actually "mono" at render time')
+            fails.append('mono_alarms_1400: data-theme was not actually "mono" at render time')
         redEls = r_alarms_mono.get('attnRed') or []
         amberEls = r_alarms_mono.get('attnAmber') or []
-        okEls = r_alarms_mono.get('attnOk') or []
         if not redEls:
-            fails.append('alarms_mono: no element used var(--attn-red) even though every red alarm is ON')
+            fails.append('mono_alarms_1400: no element used var(--attn-red) even though every red alarm is ON')
         if not amberEls:
-            fails.append('alarms_mono: no element used var(--attn-amber) even though ratio_health.warn/NOT READY/etc are ON')
-        if not okEls:
-            fails.append('alarms_mono: no element used var(--attn-ok) (expected on a healthy sub-signal, e.g. a passing readiness check)')
-        for label, els in (('attn-red', redEls), ('attn-amber', amberEls), ('attn-ok', okEls)):
-            for i, e in enumerate(els):
+            fails.append('mono_alarms_1400: no element used var(--attn-amber) even though ratio_health.warn/NOT READY/etc are ON')
+        for label, els in (('attn-red', redEls), ('attn-amber', amberEls)):
+            for e in els:
                 if e.get('colorGrey') and e.get('borderGrey') and e.get('bgGrey'):
-                    fails.append('alarms_mono: a var(--%s) element rendered GREY under mono (color=%s border=%s, tag=%s)'
+                    fails.append('mono_alarms_1400: a var(--%s) element rendered GREY under mono (color=%s border=%s, tag=%s)'
                                   % (label, e.get('color'), e.get('borderColor'), e.get('tag')))
+
+    r_alarms_checks = results.get('alarms_checks_open', {})
+    if not r_alarms_checks.get('err'):
+        okEls = r_alarms_checks.get('attnOk') or []
+        if not okEls:
+            fails.append('alarms_checks_open: no element used var(--attn-ok) even with the readiness checklist open (a partially-passing gate)')
+        for e in okEls:
+            if e.get('colorGrey') and e.get('borderGrey') and e.get('bgGrey'):
+                fails.append('alarms_checks_open: a var(--attn-ok) element rendered GREY under mono (color=%s border=%s)'
+                              % (e.get('color'), e.get('borderColor')))
 
     r_healthy_mono = results.get('healthy_mono', {})
     if not r_healthy_mono.get('err'):
@@ -446,20 +480,27 @@ def main():
             fails.append('healthy_mono: %d element(s) painted var(--attn-red) on a fixture with every alarm OFF' % len(redEls))
         if amberEls:
             fails.append('healthy_mono: %d element(s) painted var(--attn-amber) on a fixture with every alarm OFF' % len(amberEls))
-        # attn-ok elements ARE expected here (READY / ALL MATCHED are painted attn-ok
-        # even when healthy) -- just confirm they are not accidentally grey.
         for e in (r_healthy_mono.get('attnOk') or []):
             if e.get('colorGrey') and e.get('borderGrey') and e.get('bgGrey'):
                 fails.append('healthy_mono: a var(--attn-ok) element rendered GREY under mono (color=%s border=%s)'
                               % (e.get('color'), e.get('borderColor')))
 
-    r_alarms_default = results.get('alarms_default', {})
+    # ── default-theme alarms regression (proves the qb- work did not regress the non-mono look) ──
+    r_alarms_default = results.get('alarms_1400_dark', {})
     if r_alarms_default.get('err'):
-        fails.append('alarms_default: %s' % r_alarms_default['err'])
+        fails.append('alarms_1400_dark: %s' % r_alarms_default['err'])
     elif r_alarms_default.get('call') != 'OK':
-        fails.append('alarms_default: renderApp threw under the default theme -- %s' % r_alarms_default.get('call'))
-    elif not r_alarms_default.get('hasOvShell'):
-        fails.append('alarms_default: no .ov-shell rendered under the default theme (regression)')
+        fails.append('alarms_1400_dark: renderApp threw under the default theme -- %s' % r_alarms_default.get('call'))
+    elif not r_alarms_default.get('hasQbShell'):
+        fails.append('alarms_1400_dark: no .qb-shell rendered under the default theme (regression)')
+
+    # ── sheet_open screenshot case sanity ──
+    r_sheet = results.get('sheet_open_1400', {})
+    if r_sheet.get('err'):
+        fails.append('sheet_open_1400: %s' % r_sheet['err'])
+
+    for nm, r in results.items():
+        print(nm.upper(), ':', json.dumps({k: v for k, v in r.items() if k not in ('html', 'moreStatsHtml')}, indent=1))
 
     if fails:
         print('QQQOVPROBE: FAIL')

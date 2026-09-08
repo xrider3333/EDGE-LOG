@@ -437,6 +437,66 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
   .ov-shell.qqq-ov-shell .ov-cc-grid{display:block}
   .ov-shell.qqq-ov-shell .ov-cc-grid .ov-cal{order:0;margin-bottom:12px}
 }
+/* ── QB — QQQ Shadow Book Robinhood/iOS re-skin (2026-09-08), qb- prefixed, additive ── */
+.qb-shell{max-width:1120px;margin:0 auto;padding:0 24px;box-sizing:border-box}
+.qb-shell *{box-sizing:border-box}
+.qb-hero{padding:4px 0 20px}
+.qb-hero-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text4);font-weight:700}
+.qb-hero-num{font-variant-numeric:tabular-nums;font-size:48px;font-weight:600;line-height:1.05;margin-top:8px;word-break:break-word}
+.qb-hero-sub{font-size:13px;color:var(--text3);margin-top:6px}
+.qb-hero-status{font-size:12px;color:var(--text4);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qb-hero-refresh{cursor:pointer;border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-size:11px;color:var(--text3);background:transparent}
+.qb-attnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.qb-chip{font-size:10px;font-weight:700;letter-spacing:.04em;padding:4px 10px;border-radius:999px;white-space:nowrap;border:1px solid currentColor}
+.qb-chart-wrap{margin:8px 0 24px;position:relative}
+.qb-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
+.qb-chart-head .lbl2{font-size:11px;color:var(--text4);letter-spacing:.04em}
+.qb-card{background:var(--bg1);border-radius:16px;padding:18px 20px;margin-bottom:16px;overflow-x:auto}
+[data-theme="paper"] .qb-card{border:1px solid var(--border)}
+.qb-section-hd{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text4);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qb-list{padding:2px 0}
+.qb-row{display:flex;align-items:center;min-height:44px;gap:10px;border-bottom:1px solid color-mix(in srgb,var(--border) 55%,transparent);padding:8px 2px}
+.qb-row:last-child{border-bottom:none}
+.qb-row-label{color:var(--text3);font-size:13px;flex:1;min-width:0}
+.qb-row-sublabel{font-size:11px;color:var(--text5);margin-top:2px}
+.qb-row-value{font-variant-numeric:tabular-nums;color:var(--text);font-size:13px;text-align:right;white-space:nowrap}
+.qb-row-sub{font-size:11px;color:var(--text5);text-align:right}
+.qb-chevron{color:var(--text5);font-size:16px;margin-left:2px;flex:0 0 auto}
+.qb-tap{cursor:pointer}
+.qb-tap:hover{background:color-mix(in srgb,var(--text) 3%,transparent);border-radius:8px}
+.qb-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.qb-tile{background:var(--bg2);border-radius:16px;padding:14px;min-width:0}
+[data-theme="paper"] .qb-tile{border:1px solid var(--border)}
+.qb-tile-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text4)}
+.qb-tile-val{font-variant-numeric:tabular-nums;font-size:19px;font-weight:600;margin-top:5px;word-break:break-word}
+@media(max-width:600px){.qb-tiles{grid-template-columns:repeat(2,1fr)}}
+.qb-seg{display:inline-flex;background:var(--bg2);border-radius:999px;padding:3px;gap:2px}
+.qb-seg button{border:none;background:transparent;color:var(--text4);font-size:11px;font-weight:600;letter-spacing:.03em;padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit}
+.qb-seg button.on{background:var(--bg1);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+[data-theme="paper"] .qb-seg button.on{box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.qb-pill{font-size:10px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid currentColor}
+.qb-bar{height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:10px}
+[data-theme="paper"] .qb-bar{background:rgba(0,0,0,0.08)}
+.qb-bar>div{height:100%}
+.qb-disclosure{cursor:pointer;display:flex;align-items:center;gap:8px;padding:12px 2px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.qb-disclosure-arrow{font-size:11px;color:var(--text5);width:12px;flex:0 0 auto}
+.qb-spark-cell{width:60px;flex:0 0 60px}
+.qb-leg-detail{margin-top:10px;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);display:flex;gap:18px;flex-wrap:wrap;font-size:12px;width:100%}
+.qb-leg-row{flex-direction:column;align-items:stretch}
+.qb-leg-row-top{display:flex;align-items:center;gap:10px;width:100%}
+/* bottom sheet */
+.qb-sheet-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;display:flex;align-items:flex-end;justify-content:center}
+.qb-sheet{background:var(--bg1);border-radius:20px 20px 0 0;width:100%;max-width:720px;max-height:86vh;overflow-y:auto;padding:10px 20px 26px;box-shadow:0 -8px 30px rgba(0,0,0,.4)}
+.qb-sheet-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:6px auto 14px}
+.qb-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}
+.qb-sheet-title{font-size:15px;font-weight:700}
+.qb-sheet-close{cursor:pointer;color:var(--text4);font-size:20px;line-height:1;padding:4px 8px}
+@media(prefers-reduced-motion:no-preference){.qb-sheet-backdrop{animation:qbFadeIn .15s ease}.qb-sheet{animation:qbSlideUp .15s ease}}
+@keyframes qbFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes qbSlideUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
+.qb-attn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;flex:0 0 auto}
+.qb-hairline-top{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:6px;padding-top:10px}
+@media(max-width:760px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:38px}.qb-chart-head{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -481,7 +541,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.577';
+const VERSION='73.578';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -500,6 +560,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.578',date:'2026-09-08',notes:['QQQ SHADOW BOOK re-composed into a single column, styled after Robinhood and iOS (owner: modern, slick, simple to use). One hero net profit and loss number up top with a quiet status line and alert chips only when something is actually wrong. A full width equity chart with a 1 week / 1 month / 3 month / all time switch. Four quick stat tiles (win rate, profit factor, trades, max drawdown) with a More stats list underneath carrying every ratio the old sidebar had. A compact ready-for-real-shares card with a progress bar and an All checks list. A legs list that expands on tap. The activity calendar restyled with rounded day cells and a Feed and signals disclosure. Trades default to a list where tapping a trade opens a bottom sheet with the same breakdown the table row used to show inline, with a Table view still available and CSV export moved to a small icon button. Integrity (parity, feed uptime, ratio, latency, re-price coverage) is now its own list, tap a row to open its detail sheet. Rails, the event timeline and the model reference sit in collapsed footer sections. Nothing was removed -- every number and panel from the old six-panel layout is reachable behind a tap, a sheet, or a disclosure. Verified with an extended tools/qqq_overview_probe.py across mono and default themes at 1400, 800 and 390 pixels wide, plus a deep pass that expands every disclosure, opens the trade and integrity sheets, toggles List/Table, and confirms the period switch actually changes the plotted points.']},
 {v:'73.577',date:'2026-09-08',notes:['STUDIES BOARD: ROUNDS 32 to 34 - the NEW-FAMILY hunt, rows 1288 to 1299. Seven mechanisms the library never traded were pre-registered with the concentration test in the loop: pre-event RELEASE, prior-day VALUE AREA, WEEKLY opening range, relative-VOLUME bars, OVERNIGHT-GAP direction, ES-to-NQ LEAD-LAG, BREAK-AND-RETEST. Six are dead (55 cells). ONE clears the house bar on triage: GAPGO 1.0 - trade the direction of the overnight gap once a 5-minute bar closes beyond the first bar that way; 2,007 trades, 151,024 dollars, profit factor 1.34, drawdown 16,672, net over drawdown 9.1, 8 of 8 slices. The controls show the gap DIRECTION is the edge (the same break with no gap reference is profit factor 1.10).','Honest marks on the card: top-ten share 50 percent (ex-top-10 still plus 74,781 at profit factor 1.17), and 63 percent of its trade days are ORB-crown days - a new trigger on the same opening-momentum factor, not a diversifier. Its Auto-Validate is QUEUED (8 folds, 12-month lockbox, window pinned to the ORB crown). New family rail GAPGO (number 16). Files: augur_strategies/GAPGO_1_0.py, tools/r33b_ovngo_controls.py, tools/gapgo_vs_orb_overlap.py.']},
 {v:'73.575',date:'2026-09-08',notes:['Runner: the Firestore read meter was blind to idle polling. Firestore bills a minimum of one document read per query even when it returns nothing, and every [reads] site counted returned docs, so a quiet runner reported 0 reads/min while the 5-second commands poll on the primary alone cost about 17,000 reads a day and four workers another 11,500 - about 58% of the 50k Spark quota, invisible. Fix: every metered query counts at least one read; drain-only workers no longer start the commands thread at all (it only ever served chart lookups - job control lives in the main loop they still run); the commands thread on the primary is now a Firestore listener with a 10-minute backstop poll instead of a flat 5-second timer; the NT heartbeat and paper end-of-day reads are metered under other. Idle floor is now a few hundred reads a day across all five processes. Tests: tests/test_runner_quota.py (+8).']},
 {v:'73.574',date:'2026-09-08',notes:['tools/queue_guard.py and tools/continuous_lb_check.py now resolve the params of a leg the way the runner does: any key you do not pass comes from the DEFAULT_PARAMS of the strategy file default, never from the Python function signature. Until now `--params {}` silently graded the frozen #226 parity anchor on the ENGU-Q forks (2,838 trades) while the BOOK job for the same file ran the real defaults of the file (1,949 trades) - the guard passed a configuration it never ran. Every report now prints the resolved params and where each key came from; `--run N` prints the trade count the guard measured next to a like-for-like count from the doc (book leg, or gate_validate.ungated_full/pre) and flags a >5% gap. Tests: tests/test_queue_guard_params.py.']},
@@ -25328,30 +25389,43 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const QREPRICE=QE&&QE.reprice?QE.reprice:null;
       const qeNumOr=(v,d)=>(v===null||v===undefined||isNaN(v))?null:Number(v);
       const ratioOpen=APREF.qqqRatioOpen==null?0:+APREF.qqqRatioOpen; // collapsed by default
+      // ── QB disclosure/sheet open-state — each one a standing per-browser choice, same
+      // localStorage mechanism as the existing qqqModelOpen/qqqRatioOpen toggles.
+      const allChecksOpen=APREF.qqqChecksOpen==null?0:+APREF.qqqChecksOpen;
+      const moreStatsOpen=APREF.qqqMoreStatsOpen==null?0:+APREF.qqqMoreStatsOpen;
+      const feedSigOpen=APREF.qqqFeedSigOpen==null?0:+APREF.qqqFeedSigOpen;
+      const railsOpen=APREF.qqqRailsOpen==null?0:+APREF.qqqRailsOpen;
+      const eventsOpenState=APREF.qqqEventsOpen==null?0:+APREF.qqqEventsOpen;
+      const qbSheet=window._qbSheet||null; // {kind:'trade',idx}|{kind:'integrity',key}|null
+      const qbTradesView=window._qeTradesView||'list';
+      const qbChartPeriod=window._qeChartPeriod||'ALL';
 
-      const heroTile=tile(
-        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">'
-        +'<div style="min-width:260px;max-width:560px">'
-        +'<div style="font-size:15px;font-weight:700;letter-spacing:.02em">QQQ SHADOW BOOK</div>'
-        +'<div style="font-size:var(--fsxs);color:var(--text3);margin-top:4px;line-height:1.5">NinjaTrader fires the NQ strategies; this book mirrors every fill as QQQ shares. No orders are sent.</div>'
-        +'</div>'
-        +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-        +qePill(naS(QE&&QE.mode)!=='—'?QE.mode:'SHADOW','var(--blue)',true)
-        +qePill(mLabel,mOpen?'var(--green)':'var(--text5)')
-        +(QE?qePill(QE.feed_stale?'FEED STALE':'FEED OK',QE.feed_stale?'var(--attn-red)':'var(--text4)'):'')
-        +(QE?qePill(QE.breaker_tripped?'BREAKER TRIPPED':'BREAKER CLEAR',QE.breaker_tripped?'var(--attn-red)':'var(--text4)'):'')
-        +(QE?qePill(QE.kill?'KILL ACTIVE':'KILL CLEAR',QE.kill?'var(--attn-red)':'var(--text4)'):'')
-        +(QLAT?qePill('LATENCY '+qeNum(QLAT.median_s,1)+'s med',(qeNumOr(QLAT.p95_s)!=null&&QLAT.p95_s>10)?'var(--attn-red)':'var(--text4)'):'')
-        +'</div>'
-        +'</div>'
-        +'<div style="margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:var(--fsxs);color:var(--text4)">'
-        +'<span>last tick: '+(QE?qeFmtETTime(QE.updated_at)+' ET':'—')+'</span>'
-        +'<span data-qqqratiotoggle title="click to open the ratio-health panel" style="cursor:pointer;border-bottom:1px dashed '+(QRHEALTH&&QRHEALTH.warn?'var(--attn-amber)':'var(--text5)')+';color:'+(QRHEALTH&&QRHEALTH.warn?'var(--attn-amber)':'var(--text4)')+'">calibration: '+(QE&&QE.calib?qeNum(QE.calib.ratio,3)+' ('+naS(QE.calib.source)+')':'—')+(QRHEALTH&&QRHEALTH.warn?' ⚠':'')+'</span>'
-        +'<span style="flex:1"></span>'
-        +'<button class="btn-ghost" data-qqqrefresh style="border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:var(--fsxs)">'+(qeLoading?'LOADING…':'⟳ REFRESH')+'</button>'
-        +'</div>'
-        +'<div style="margin-top:4px;font-size:var(--fsxs);color:var(--text5)">WEBULL PAPER — not used. Webull has no paper API, so nothing is ever sent there. This book is the paper record.</div>'
-        ,10);
+      // ── QB HERO — Robinhood-style single hero number, redesigned 2026-09-08 (owner ask:
+      // "modern, slick, robinhood + iOS"). Reads the SAME QE/mOpen/mLabel/QLAT/QRHEALTH/
+      // QREADY fields the old badge row read; nothing recomputed. Alarm chips only render
+      // when something is actually wrong -- a clean book shows one quiet status sentence.
+      const qbChip=(txt,col)=>'<span class="qb-chip" style="color:'+col+'">'+txt+'</span>';
+      const qbHeroBuild=(netVal,sinceLabel,parFailedForHero)=>{
+        const chips=[];
+        if(QE&&QE.breaker_tripped)chips.push(qbChip('BREAKER TRIPPED','var(--attn-red)'));
+        if(QE&&QE.kill)chips.push(qbChip('KILL ACTIVE','var(--attn-red)'));
+        if(QE&&QE.feed_stale)chips.push(qbChip('FEED STALE','var(--attn-red)'));
+        if(parFailedForHero>0)chips.push(qbChip(parFailedForHero+' PARITY MISMATCH'+(parFailedForHero===1?'':'ES'),'var(--attn-red)'));
+        if(QRHEALTH&&QRHEALTH.warn)chips.push(qbChip('RATIO DRIFT','var(--attn-amber)'));
+        if(QLAT&&qeNumOr(QLAT.p95_s)!=null&&QLAT.p95_s>10)chips.push(qbChip('SLOW LATENCY','var(--attn-amber)'));
+        if(QREADY&&QREADY.ready===false)chips.push(qbChip('NOT READY','var(--attn-amber)'));
+        const statusBits=['shadow only',(mOpen?'market open':'market closed'),
+          (QE?(QE.feed_stale?'feed stale':'feed OK'):'feed unknown'),
+          (QRHEALTH?(QRHEALTH.warn?'ratio warn':'ratio fresh'):null)].filter(Boolean).join(' · ');
+        return '<div class="qb-hero">'
+          +'<div class="qb-hero-title">QQQ Shadow Book</div>'
+          +'<div class="qb-hero-num" style="color:'+(netVal==null?'var(--text)':pnlCol(netVal))+'">'+(netVal==null?'—':qeMoney(netVal))+'</div>'
+          +'<div class="qb-hero-sub">'+sinceLabel+'</div>'
+          +'<div class="qb-hero-status"><span>'+statusBits+'</span><span style="flex:1"></span>'
+          +'<button class="qb-hero-refresh" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button></div>'
+          +(chips.length?('<div class="qb-attnrow">'+chips.join('')+'</div>'):'')
+          +'</div>';
+      };
 
       // ── RATIO HEALTH panel — every shadow price is an NQ price divided by the calibration
       // ratio, so a stale/drifting ratio quietly mis-sizes every fill. Collapsed by default,
@@ -25403,15 +25477,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div style="margin-top:10px">'+sparkSvg+'</div>'
           +warnBox);
       }
-      const ratioSection='<div style="margin-top:10px">'
-        +(ratioOpen?ratioBody:'')
-        +'</div>';
+      // ratioBody (the RATIO HEALTH detail panel) now lives inside the INTEGRITY list's
+      // "Ratio" sheet (see below) instead of an inline hero-toggle section.
 
       // ── A. READINESS PANEL — sits above the calendar/chart row inside .ov-work. Six
       // plain-English checks, each with the number behind it, plus the backend's own
       // "missing" list. Renders nothing when the backend has not published readiness yet
       // (older doc) so it never shows a false NOT READY.
       let readinessHtml='';
+      let readinessCompactHtml='';
       if(QREADY){
         const checks=[
           ['enough trading days',(QREADY.days_valid!=null&&QREADY.days_required!=null)?(QREADY.days_valid>=QREADY.days_required):null,
@@ -25440,6 +25514,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +(missing.length?('<div style="margin-top:10px;padding:9px 12px;border-radius:8px;background:color-mix(in srgb,var(--attn-amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--attn-amber) 45%,var(--border))"><div style="font-size:8px;letter-spacing:.08em;color:var(--attn-amber);text-transform:uppercase;margin-bottom:5px">still missing</div>'+missing.map(m=>'<div style="font-size:var(--fsxs);color:var(--text3);padding:2px 0">• '+String(m).replace(/</g,'&lt;')+'</div>').join('')+'</div>'):'')
           +(QREADY.note?('<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text4)">'+String(QREADY.note).replace(/</g,'&lt;')+'</div>'):'')
           ,10);
+        // ── QB compact readiness card — "Ready for real shares?" hero word + a passed/6
+        // progress bar + top-2 missing items, sourced from the SAME checks[]/QREADY.missing
+        // arrays as the full checklist just built above. "All checks" reveals that exact
+        // checklist (readinessHtml's rows), nothing recomputed.
+        const passedN=checks.filter(c=>c[1]===true).length, totalN=checks.length;
+        const topMissing=(missing.length?missing:checks.filter(c=>c[1]===false).map(c=>c[2])).slice(0,2);
+        readinessCompactHtml='<div class="qb-card">'
+          +'<div class="qb-section-hd">Ready for real shares?</div>'
+          +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
+          +'<div style="font-size:20px;font-weight:800;color:'+(QREADY.ready?'var(--attn-ok)':'var(--attn-amber)')+'">'+(QREADY.ready?'READY':'NOT READY')+'</div>'
+          +'<div style="font-size:12px;color:var(--text4)">'+passedN+' of '+totalN+' checks passed</div>'
+          +'</div>'
+          +'<div class="qb-bar"><div style="width:'+Math.round(passedN/totalN*100)+'%;background:'+(QREADY.ready?'var(--attn-ok)':'var(--attn-amber)')+'"></div></div>'
+          +topMissing.map(m=>'<div style="margin-top:8px;font-size:12px;color:var(--text3)">• '+String(m).replace(/</g,'&lt;')+'</div>').join('')
+          +'<div class="qb-disclosure qb-tap" data-qbdisclosure="allchecks"><span class="qb-disclosure-arrow">'+(allChecksOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">All checks</span></div>'
+          +(allChecksOpen?('<div style="margin-top:2px">'+readinessHtml+'</div>'):'')
+          +'</div>';
       }
 
       // ── MODEL section (collapsed by default, remembers open/closed in localStorage) —
@@ -25606,18 +25697,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
       }
       const modelOpen=APREF.qqqModelOpen==null?0:+APREF.qqqModelOpen; // collapsed by default
-      const modelSection='<div style="margin-top:18px">'
-        +'<div data-qqqmodeltoggle style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 4px;border-top:1px solid var(--border)">'
-        +'<span style="font-size:11px;color:var(--text5)">'+(modelOpen?'▾':'▸')+'</span>'
-        +'<span class="lbl">MODEL — strategies re-run on delayed Yahoo QQQ bars (reference only; not what the shadow trades)</span>'
+      const modelSection='<div class="qb-disclosure qb-tap" data-qqqmodeltoggle>'
+        +'<span class="qb-disclosure-arrow">'+(modelOpen?'▾':'▸')+'</span>'
+        +'<span style="font-size:12px;color:var(--text3)">Model reference — strategies re-run on delayed Yahoo QQQ bars (reference only; not what the shadow trades)</span>'
         +'</div>'
-        +(modelOpen?('<div style="margin-top:8px">'+modelBody+'</div>'):'')
-        +'</div>';
+        +(modelOpen?('<div style="margin-top:8px">'+modelBody+'</div>'):'');
 
       if(qeErr){
-        body=heroTile+ratioSection+tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qeErr).replace(/</g,'&lt;')+'</div>')+modelSection;
+        body='<div class="qb-shell">'+qbHeroBuild(null,'—',0)
+          +tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qeErr).replace(/</g,'&lt;')+'</div>')
+          +modelSection+'</div>';
       }else if(!QE){
-        body=heroTile+ratioSection+tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:20px;min-height:140px;display:flex;align-items:center;justify-content:center">'+(qeLoading?'loading…':'no qqq_exec doc yet — the runner publishes users/{uid}/meta/qqq_exec once its own thread ticks (every ~5s, 09:25-16:05 ET Mon-Fri)')+'</div>')+modelSection;
+        body='<div class="qb-shell">'+qbHeroBuild(null,'—',0)
+          +tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:20px;min-height:140px;display:flex;align-items:center;justify-content:center">'+(qeLoading?'loading…':'no qqq_exec doc yet — the runner publishes users/{uid}/meta/qqq_exec once its own thread ticks (every ~5s, 09:25-16:05 ET Mon-Fri)')+'</div>')
+          +modelSection+'</div>';
       }else{
         const positions=QE.positions||{};
         const trades=QE.trades_all||[];  // newest-first, per api/qqq_exec.py _build_doc
@@ -25834,17 +25927,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             signalsStripHtml='<div style="margin-top:12px"><div style="font-size:9px;letter-spacing:.05em;color:var(--text5);margin-bottom:4px">SIGNALS — LAST '+last10sig.length+' DAYS <span style="color:var(--green)">■</span> taken <span style="color:var(--yellow)">■</span> refused <span style="color:var(--text5)">■</span> not mirrored (overnight)</div>'
               +'<div style="display:flex;gap:4px;align-items:flex-end">'+bars2+'</div></div>';
           }
-          return tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'
+          // ── QB split: the calendar cells are the ACTIVITY card body; the feed-uptime +
+          // signals strips move behind a "Feed & signals ›" disclosure underneath it.
+          // Same cells/feedStripHtml/signalsStripHtml markup as before, nothing recomputed.
+          const calOnly='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">'
             +'<span class="lbl" style="margin:0">'+first.toLocaleString('en',{month:'long'})+' '+cy+'</span>'
             +nav('-1','◀',atFirst)+nav('1','▶',atLast)
             +'<span style="margin-left:auto;font-size:10px;color:'+(moPnl>=0?'var(--green)':'var(--red)')+'">'+qeMoney(Math.round(moPnl))
             +'<span style="color:var(--text5)"> · '+moN+' trade'+(moN===1?'':'s')+(moN?' · '+Math.round(moW/moN*100)+'% won':'')+'</span></span></div>'
             +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">'+cells+'</div>'
-            +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed shadow trades yet</div>':'')
-            +feedStripHtml+signalsStripHtml,10);
+            +(!keys.length?'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5);text-align:center">no closed shadow trades yet</div>':'');
+          return {cal:calOnly,feedStrip:feedStripHtml,signalsStrip:signalsStripHtml,
+            strips:(feedStripHtml||signalsStripHtml)?(feedStripHtml+signalsStripHtml):'',
+            hasStrips:!!(feedStripHtml||signalsStripHtml)};
         })();
 
         let legCardsHtml='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">';
+        // ── QB LEGS LIST — one qb-row per leg (name+pill left, since-start P&L right, a
+        // small sparkline), tap expands unrealized/today/NT-vs-shadow notional. Same
+        // per-leg values as the card grid above (badge/legUnreal/legTodayRealized/
+        // legClosedSum/sparkData/notionalHtml), built inside the same forEach so nothing
+        // is recomputed twice.
+        const qbLegOpenSet=window._qbLegOpen||(window._qbLegOpen=new Set());
+        let legListHtml='<div class="qb-list">';
         QE_LEGS.forEach(([key,label,color])=>{
           const p=positions[key];
           const badge=p?(p.side==='long'?'LONG':'SHORT'):'FLAT';
@@ -25879,21 +25984,61 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div style="margin-top:8px">'+(sparkData.length>=2?sparkline(sparkData,color,220,32,false):sparkData.length===1?'<div style="font-size:var(--fsxs);color:var(--text4);padding:6px 0">one closed trade — the curve needs a second day</div>':'<div style="font-size:var(--fsxs);color:var(--text5);padding:6px 0">no closed trades yet</div>')+'</div>'
             +notionalHtml
             +'</div>';
+
+          const legOpenNow=qbLegOpenSet.has(key);
+          legListHtml+='<div class="qb-row qb-leg-row">'
+            +'<div class="qb-leg-row-top qb-tap" data-qblegrow="'+key+'">'
+            +'<span style="font-size:13px;font-weight:600;color:'+color+'">'+label+'</span>'
+            +'<span class="qb-pill" style="color:'+badgeColor+'">'+badge+'</span>'
+            +'<span style="flex:1"></span>'
+            +'<span class="qb-spark-cell">'+(sparkData.length>=2?sparkline(sparkData,color,60,26,false):'')+'</span>'
+            +'<span class="qb-row-value" style="color:'+pnlCol(legClosedSum)+'">'+qeMoney(legClosedSum)+'</span>'
+            +'<span class="qb-chevron">'+(legOpenNow?'⌄':'›')+'</span>'
+            +'</div>'
+            +(legOpenNow?('<div class="qb-leg-detail">'
+              +'<div><div class="qb-row-sublabel">UNREALIZED</div><div style="font-size:14px;font-weight:600;color:'+(p?pnlCol(legUnreal):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
+              +'<div><div class="qb-row-sublabel">TODAY</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
+              +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
+              +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
+              +'</div>'):'')
+            +'</div>';
         });
         legCardsHtml+='</div>';
+        legListHtml+='</div>';
 
+        // ── QB PERIOD FILTER — 1W/1M/3M/ALL, anchored on the newest plotted date (this is
+        // a forward-test book, not "today"). Filters the SAME cum_pnl series the chart
+        // always read; the point-plotting math below is untouched.
+        const qbPeriodFilter=(cumObj,period)=>{
+          if(period==='ALL')return cumObj;
+          const cD0=p=>(p&&p.date!==undefined)?p.date:((p||[])[0]);
+          const totalArr=cumObj.total||[];
+          if(!totalArr.length)return cumObj;
+          const lastDate=cD0(totalArr[totalArr.length-1]);
+          const days=period==='1W'?7:period==='1M'?30:90;
+          const dt=new Date(lastDate+'T00:00:00');
+          if(isNaN(dt.getTime()))return cumObj;
+          dt.setDate(dt.getDate()-days);
+          const cutoffStr=dt.toISOString().slice(0,10);
+          const out={};
+          Object.keys(cumObj).forEach(k=>{out[k]=(cumObj[k]||[]).filter(p=>cD0(p)>=cutoffStr);});
+          return out;
+        };
+        const qbSegHtml=(name,options,active)=>'<div class="qb-seg" data-qbseg="'+name+'">'
+          +options.map(([val,lbl])=>'<button data-qbsegval="'+val+'" class="'+(active===val?'on':'')+'">'+lbl+'</button>').join('')+'</div>';
         let equityHtml;
         {
-          const cum=QE.cum_pnl||{};
+          const cum=qbPeriodFilter(QE.cum_pnl||{},qbChartPeriod);
           const cD=p=>(p&&p.date!==undefined)?p.date:((p||[])[0]);
           const cV=p=>Number((p&&p.cum_pnl!==undefined)?p.cum_pnl:((p||[])[1]))||0;
           const totalSeries=cum.total||[];
+          const periodSeg=qbSegHtml('period',[['1W','1W'],['1M','1M'],['3M','3M'],['ALL','ALL']],qbChartPeriod);
           if(!totalSeries.length){
-            equityHtml=tile('<div class="lbl" style="margin-bottom:6px">EQUITY CURVE — cumulative shadow P&amp;L</div>'
+            equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L</span>'+periodSeg+'</div>'
               +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:10px 0 4px">curve starts with the first closed shadow trade</div>'
-              +'<svg viewBox="0 0 760 50" width="100%" style="display:block;max-width:760px"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg>');
+              +'<svg viewBox="0 0 760 50" width="100%" style="display:block;max-width:760px"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg></div>';
           }else{
-            const W=760,H=240,padL=54,padR=14,padT=10,padB=22;
+            const W=760,H=220,padL=8,padR=8,padT=14,padB=22;
             const plotW=W-padL-padR,plotH=H-padT-padB;
             let ymin=0,ymax=0;
             ['ORB','ENGUQ','NOISE','total'].forEach(k=>{(cum[k]||[]).forEach(p=>{ymin=Math.min(ymin,cV(p));ymax=Math.max(ymax,cV(p));});});
@@ -25905,11 +26050,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const y=v=>padT+plotH-((v-ymin)/(ymax-ymin))*plotH;
             let svg='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="display:block;max-width:'+W+'px">';
             svg+='<line x1="'+padL+'" y1="'+y(0).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y(0).toFixed(1)+'" stroke="var(--border)" stroke-dasharray="3,3"/>';
-            [ymin,0,ymax].forEach(v=>{svg+='<text x="4" y="'+(y(v)+3).toFixed(1)+'" font-size="9" fill="var(--text5)">'+qeMoney(v)+'</text>';});
             // ── G. legend toggle — window._qeChartHidden{key:true} hides a series; the
             // legend swatch itself is the click target (data-qelegend).
             const hiddenSet=window._qeChartHidden||{};
-            const drawSeries=(key,color,w)=>{
+            let hoverDots='';
+            const drawSeries=(key,color,w,isTotal)=>{
               if(hiddenSet[key])return;
               const series=cum[key]||[];if(!series.length)return;
               const dMap={};series.forEach(p=>{dMap[cD(p)]=cV(p);});
@@ -25917,27 +26062,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               allDates.forEach((d,i)=>{if(dMap[d]!==undefined)last=dMap[d];if(dMap[d]!==undefined||i===allDates.length-1)pts.push(x(i).toFixed(1)+','+y(last).toFixed(1));});
               if(pts.length===1){const xy=pts[0].split(',');svg+='<circle cx="'+xy[0]+'" cy="'+xy[1]+'" r="'+(w>2?3.4:2.6)+'" fill="'+color+'"/>';}
               else svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"/>';
+              // hover/touch value bubble -- an invisible-fill circle + native <title> per
+              // plotted day on the TOTAL line only, so a hover/tap reads the day's value.
+              if(isTotal)allDates.forEach((d,i)=>{if(dMap[d]===undefined)return;
+                hoverDots+='<circle cx="'+x(i).toFixed(1)+'" cy="'+y(dMap[d]).toFixed(1)+'" r="7" fill="transparent" stroke="none"><title>'+d+' · '+qeMoney(dMap[d])+'</title></circle>';});
             };
-            drawSeries('ORB','var(--blue)',1.4);
-            drawSeries('ENGUQ','var(--purple)',1.4);
-            drawSeries('NOISE','var(--green)',1.4);
-            drawSeries('total','var(--text)',2.4);
-            if(allDates.length<=1){svg+='<text x="'+x(0).toFixed(1)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="middle">'+naS(allDates[0])+'</text>';}
-            else{svg+='<text x="'+padL+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)">'+naS(allDates[0])+'</text>';
-            svg+='<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="9" fill="var(--text5)" text-anchor="end">'+naS(allDates[allDates.length-1])+'</text>';}
+            drawSeries('ORB','var(--blue)',1);
+            drawSeries('ENGUQ','var(--purple)',1);
+            drawSeries('NOISE','var(--green)',1);
+            drawSeries('total','var(--text)',2,true);
+            svg+=hoverDots;
             svg+='</svg>';
             const legItem=(key,label,color)=>'<span class="qe-legend-item'+(hiddenSet[key]?' off':'')+'" data-qelegend="'+key+'" title="click to show/hide this line" style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+color+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>';
             const legend=legItem('total','TOTAL','var(--text)')
               +QE_LEGS.map(([k,label,color])=>legItem(k,label,color)).join('');
-            equityHtml=tile('<div class="lbl" style="margin-bottom:8px">EQUITY CURVE — cumulative shadow P&amp;L since '+naS(QE.live_from)+'</div>'+svg+'<div style="margin-top:6px">'+legend+'</div>');
+            equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L since '+naS(QE.live_from)+'</span>'+periodSeg+'</div>'+svg+'<div style="margin-top:6px">'+legend+'</div></div>';
           }
         }
 
         let ordersHtml;
+        const ordersArr=(QE.today&&QE.today.orders)||[]; // ── QB: TODAY'S ORDERS shows only when non-empty
         {
-          const orders=(QE.today&&QE.today.orders)||[];
+          const orders=ordersArr;
           if(!orders.length){
-            ordersHtml=tile('<div class="lbl" style="margin-bottom:6px">TODAY&rsquo;S ORDERS</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>');
+            ordersHtml='';
           }else{
             const tagFor=reason=>{
               const r=String(reason||'');
@@ -25959,16 +26107,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<td style="text-align:right;color:'+((o.latency_s!=null&&o.latency_s>10)?'var(--red)':'var(--text3)')+'">'+(o.latency_s!=null?qeNum(o.latency_s,2)+'s':'—')+'</td>'
               +'<td style="color:var(--text4)">'+String(naS(o.reason)).replace(/</g,'&lt;')+tagFor(o.reason)+'</td>'
               +'</tr>').join('');
-            ordersHtml=tile('<div class="lbl" style="margin-bottom:8px">TODAY&rsquo;S ORDERS ('+orders.length+')</div>'
-              +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th style="text-align:right">LATENCY</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>');
+            ordersHtml='<div class="qb-card"><div class="qb-section-hd">Today&rsquo;s orders (' +orders.length+')</div>'
+              +'<div style="overflow-x:auto;max-height:340px;overflow-y:auto"><table class="table"><thead><tr><th>TIME (ET)</th><th>LEG</th><th>ACTION</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">NQ PX</th><th style="text-align:right">QQQ PX</th><th>SOURCE</th><th style="text-align:right">LATENCY</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
           }
         }
 
-        let tradesHtml;
+        let tradesHtml,tradesListHtml,qbBuildDrawerFn=null;
         {
           const shown=window._qeTradesShown||50;
           if(!closedN){
-            tradesHtml=tile('<div class="lbl" style="margin-bottom:6px">CLOSED TRADES</div><div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>');
+            tradesHtml='<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>';
+            tradesListHtml=tradesHtml;
           }else{
             const visible=trades.slice(0,shown);  // trades[] is already newest-first
             const chrono=trades.slice().reverse();
@@ -26034,6 +26183,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'</div>'
                 +'</div>';
             };
+            qbBuildDrawerFn=buildDrawer;
             const rows=visible.map((t,i)=>{
               const pnl=Number(t.pnl)||0;
               const hasParity=t.parity_ok!==undefined&&t.parity_ok!==null;
@@ -26059,13 +26209,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               return rowHtml+(drawerIdx===i?('<tr><td colspan="15" style="padding:0">'+buildDrawer(t)+'</td></tr>'):'');
             }).join('');
             const showMoreBtn=shown<closedN?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(closedN-shown)+' more)</button></div>'):'';
-            tradesHtml=tile('<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">'
-              +'<div class="lbl" style="margin:0">CLOSED TRADES ('+closedN+')</div>'
-              +'<button class="btn-ghost" data-qeexportcsv style="margin-left:auto;border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-size:var(--fsxs)">EXPORT CSV</button>'
-              +'</div>'
-              +'<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th style="text-align:right">NT POINTS</th><th style="text-align:right">EXPECTED $</th><th style="text-align:right">TRACK ERR</th><th style="text-align:right">REAL P&amp;L</th><th style="text-align:right">SLIP/SH</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+            // ── QB TABLE view — the exact table this tab has always shown, just without its
+            // own header (the List|Table toggle + EXPORT CSV button now live once, in the
+            // shared TRADES card header at composition time).
+            tradesHtml='<div style="overflow-x:auto"><table class="table"><thead><tr><th>ENTRY (ET)</th><th>EXIT (ET)</th><th>LEG</th><th>SIDE</th><th style="text-align:right">SHARES</th><th style="text-align:right">ENTRY</th><th style="text-align:right">EXIT</th><th style="text-align:right">P&amp;L</th><th style="text-align:right">RUNNING</th><th style="text-align:right">NT POINTS</th><th style="text-align:right">EXPECTED $</th><th style="text-align:right">TRACK ERR</th><th style="text-align:right">REAL P&amp;L</th><th style="text-align:right">SLIP/SH</th><th>REASON</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
               +showMoreBtn
-              +'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">click a row to see the full shadow-vs-NT breakdown &middot; REAL P&amp;L / SLIP re-priced nightly from real QQQ 1-minute bars</div>');
+              +'<div style="margin-top:8px;font-size:var(--fsxs);color:var(--text5)">click a row to see the full shadow-vs-NT breakdown &middot; REAL P&amp;L / SLIP re-priced nightly from real QQQ 1-minute bars</div>';
+
+            // ── QB LIST view (default) — one qb-row per closed trade: leg badge + date
+            // range left, P&L + reconstructed/parity tag + chevron right. Tap opens a
+            // qb-sheet holding the SAME buildDrawer(t) breakdown the table's inline drawer
+            // uses -- nothing recomputed, just re-hosted.
+            const qbDateRange=t=>{
+              const a=qeFmtET(t.entry_ts),b=qeFmtET(t.exit_ts);
+              return a+' → '+b;
+            };
+            tradesListHtml='<div class="qb-list">'+visible.map((t,i)=>{
+              const pnl=Number(t.pnl)||0;
+              const tag=parityChip(t)||tagFor(t.exit_reason);
+              return '<div class="qb-row qb-tap" data-qbtraderow="'+i+'">'
+                +'<span style="font-size:11px;font-weight:700;color:'+legColorQE(t.leg)+';flex:0 0 auto">'+naS(t.leg)+'</span>'
+                +'<span class="qb-row-label" style="flex:1.6">'+qbDateRange(t)+(tag?(' '+tag):'')+'</span>'
+                +'<span class="qb-row-value" style="color:'+pnlCol(pnl)+'">'+qeMoney(pnl)+'</span>'
+                +'<span class="qb-chevron">›</span>'
+                +'</div>';
+            }).join('')+'</div>'+showMoreBtn;
           }
         }
 
@@ -26101,8 +26269,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
 
         const sess=rails.session||{};
-        const railsHtml=tile('<div class="lbl" style="margin-bottom:8px">RAILS</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:var(--fsxs);color:var(--text3)">'
+        const railsHtml='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:var(--fsxs);color:var(--text3)">'
           +'<div><div style="color:var(--text5)">SHARES / LEG</div><div>ORB '+naS(rails.shares&&rails.shares.ORB)+' &middot; ENGU-Q '+naS(rails.shares&&rails.shares.ENGUQ)+' &middot; NOISE '+naS(rails.shares&&rails.shares.NOISE)+'</div></div>'
           +'<div><div style="color:var(--text5)">MAX SHARES / LEG</div><div>'+naS(rails.max_shares_per_leg)+'</div></div>'
           +'<div><div style="color:var(--text5)">DAILY LOSS LIMIT</div><div>'+qeMoney(rails.daily_loss_limit_usd)+'</div></div>'
@@ -26110,22 +26277,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div><div style="color:var(--text5)">SLIPPAGE</div><div>'+qeMoney(rails.slippage_per_share)+'/share</div></div>'
           +'<div><div style="color:var(--text5)">KILL FILE</div><div style="word-break:break-all">'+naS(rails.kill_file)+'</div></div>'
           +'</div>'
-          +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text5)">edit C:\\EdgeLog\\qqq_exec\\config.json — reloaded every tick</div>');
-
-        // ── OVERVIEW SHELL — sidebar rail + calendar/chart row, same skeleton as the
-        // TRADING LOG overview (.ov-shell / .ov-rail / .ov-cc-grid). No monthly/symbol
-        // filter pills here on owner's ask — the rail already carries the ratios.
-        const overviewHtml='<div class="ov-shell qqq-ov-shell">'
-          +railHtml
-          +'<div class="ov-work">'
-          +readinessHtml
-          +'<div class="ov-cc-grid">'
-          +'<div class="section" style="border:none;background:transparent;padding:0">'+equityHtml+'</div>'
-          +'<div class="section ov-cal" style="border:none;background:transparent;padding:0">'+qeCalHtml+'</div>'
-          +'</div>'
-          +legCardsHtml
-          +'</div>'
-          +'</div>';
+          +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text5)">edit C:\\EdgeLog\\qqq_exec\\config.json — reloaded every tick. WEBULL PAPER is not used — Webull has no paper API, so nothing is ever sent there; this book is the paper record.</div>';
 
         // ── B. EVENT TIMELINE — newest-first, chip-coded by severity, "show more" past 30.
         // Renders nothing when the backend has not published events yet.
@@ -26144,10 +26296,148 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'</div>';
           }).join('');
           const showMoreEvt=evtShown<QEVT.length?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeeventsmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(QEVT.length-evtShown)+' more)</button></div>'):'';
-          eventsHtml=tile('<div class="lbl" style="margin-bottom:8px">EVENT TIMELINE — newest first</div>'+rows+showMoreEvt,10);
+          eventsHtml=rows+showMoreEvt;
         }
 
-        body=heroTile+ratioSection+overviewHtml+parityPanelHtml+'<div id="qe-trades-section"></div>'+ordersHtml+tradesHtml+railsHtml+eventsHtml+modelSection;
+        // ── QB FINAL COMPOSITION (2026-09-08 Robinhood/iOS re-skin) — single column, top
+        // to bottom: hero -> chart -> stat tiles -> readiness -> legs -> activity ->
+        // trades -> integrity -> footer disclosures. Every value below is read from the
+        // SAME QE/QST/QPAR/QFEED/QRHEALTH/QLAT/QREPRICE/QREADY fields and the SAME
+        // helper output (qqqStats/qeCalHtml/legList/buildDrawer/parityPanelHtml/
+        // railsHtml/eventsHtml/modelSection) built above -- nothing recomputed here,
+        // only assembled and restyled.
+        const qbSinceLabel='since '+naS(QE.live_from)+' · '+(QST.n?(QST.n+' closed trade'+(QST.n===1?'':'s')):'no closed trades yet');
+        const qbHeroHtml=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed);
+
+        // ── 3. STAT TILES + "More stats" -- same four headline numbers a Robinhood
+        // position screen leads with, then the FULL RATIOS/PERFORMANCE/RISK set the old
+        // sidebar rail carried, unchanged labels, behind a disclosure.
+        const qbTile=(lbl,val,col)=>'<div class="qb-tile"><div class="qb-tile-lbl">'+lbl+'</div><div class="qb-tile-val" style="'+(col?('color:'+col):'')+'">'+val+'</div></div>';
+        const qbTilesHtml='<div class="qb-tiles">'
+          +qbTile('Win rate',QST.n?Math.round(QST.wr*100)+'%':'—',QST.n?(QST.wr>=0.5?'var(--green)':'var(--red)'):null)
+          +qbTile('Profit factor',QST.n?(QST.pf>=99?'∞':QST.pf.toFixed(2)):'—',QST.n?(QST.pf>=1?'var(--green)':'var(--red)'):null)
+          +qbTile('Trades',QST.n||'—')
+          +qbTile('Max drawdown',QST.n?qeMoney(-QST.maxDD):'—','var(--red)')
+          +'</div>';
+        const qbStatRow=(label,val,col)=>'<div class="qb-row"><span class="qb-row-label">'+label+'</span><span class="qb-row-value" style="'+(col?('color:'+col):'')+'">'+val+'</span></div>';
+        const qbMoreStatsBody='<div class="qb-section-hd" style="margin-top:8px">Ratios</div><div class="qb-list">'
+          +qbStatRow('Win rate',QST.n?Math.round(QST.wr*100)+'%':'—',QST.n?(QST.wr>=0.5?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Profit factor',QST.n?(QST.pf>=99?'∞':QST.pf.toFixed(2)):'—',QST.n?(QST.pf>=1?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Expectancy',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
+          +qbStatRow('Payoff',QST.n&&QST.losses?(QST.payoff>=99?'∞':QST.payoff.toFixed(2)):'—')
+          +'</div><div class="qb-section-hd" style="margin-top:14px">Performance</div><div class="qb-list">'
+          +qbStatRow('Trades',QST.n||'—')
+          +qbStatRow('Avg $/trade',QST.n?qeMoney(QST.ev):'—',QST.n?pnlCol(QST.ev):null)
+          +qbStatRow('Avg win',QST.wins?'+'+qeMoney(QST.avgW):'—','var(--green)')
+          +qbStatRow('Avg loss',QST.losses?qeMoney(-QST.avgL):'—','var(--red)')
+          +qbStatRow('Best',QST.n?qeMoney(QST.best):'—',QST.n?pnlCol(QST.best):null)
+          +qbStatRow('Worst',QST.n?qeMoney(QST.worst):'—',QST.n?pnlCol(QST.worst):null)
+          +qbStatRow('Current streak',QST.n?((QST.sdir>0?'+':'-')+QST.streak+(QST.sdir>0?'W':'L')):'—',QST.n?(QST.sdir>0?'var(--green)':'var(--red)'):null)
+          +'</div><div class="qb-section-hd" style="margin-top:14px">Risk</div><div class="qb-list">'
+          +qbStatRow('Max drawdown',QST.n?qeMoney(-QST.maxDD):'—','var(--red)')
+          +qbStatRow('Recovery factor',(QST.n&&QST.maxDD>0)?QST.recovery.toFixed(2)+'×':'—',(QST.n&&QST.maxDD>0)?(QST.recovery>=1?'var(--green)':'var(--red)'):null)
+          +qbStatRow('Open exposure',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):null)
+          +qbStatRow('Daily loss limit',rails.daily_loss_limit_usd!=null?qeMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'—',dllNearLimit?'var(--attn-red)':null)
+          +'</div>';
+        const qbStatsCard='<div class="qb-card">'
+          +qbTilesHtml
+          +'<div class="qb-disclosure qb-tap" data-qbdisclosure="morestats"><span class="qb-disclosure-arrow">'+(moreStatsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">More stats</span></div>'
+          +(moreStatsOpen?qbMoreStatsBody:'')
+          +'</div>';
+
+        // ── 6. ACTIVITY — calendar restyled, feed/signals strips behind a disclosure.
+        const qbActivityCard='<div class="qb-card"><div class="qb-section-hd">Activity</div>'
+          +qeCalHtml.cal
+          +(qeCalHtml.hasStrips?('<div class="qb-disclosure qb-tap" data-qbdisclosure="feedsig"><span class="qb-disclosure-arrow">'+(feedSigOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Feed &amp; signals</span></div>'
+            +(feedSigOpen?('<div style="margin-top:4px">'+qeCalHtml.strips+'</div>'):'')):'')
+          +'</div>';
+
+        // ── 7. TRADES — List | Table qb-seg, CSV icon button in the header. Today's
+        // orders shown only when non-empty.
+        const qbTradesSeg=qbSegHtml('tradesview',[['list','List'],['table','Table']],qbTradesView);
+        const qbCsvBtn='<button class="qb-hero-refresh" data-qeexportcsv title="Export CSV" style="padding:5px 10px">⬇</button>';
+        const qbTradesCard='<div class="qb-card"><div id="qe-trades-section"></div>'
+          +'<div class="qb-section-hd" style="justify-content:space-between">'
+          +'<span>Trades ('+closedN+')</span>'
+          +'<span style="display:flex;gap:8px;align-items:center;flex:0 0 auto">'+qbTradesSeg+qbCsvBtn+'</span>'
+          +'</div>'
+          +(qbTradesView==='table'?tradesHtml:tradesListHtml)
+          +'</div>';
+
+        // ── 8. INTEGRITY — Parity / Feed uptime / Ratio / Latency / Re-price coverage,
+        // each with an attention dot and a tap-to-open sheet with the SAME detail panel
+        // this tab has always shown for that figure (parityPanelHtml/feed strip/
+        // ratioBody), nothing recomputed.
+        const qbAttnDot=col=>col?('<span class="qb-attn-dot" style="background:'+col+'"></span>'):'';
+        const qbIntegrityRow=(label,val,dotCol,sheetKey)=>'<div class="qb-row qb-tap" data-qbsheet="'+sheetKey+'">'
+          +'<span class="qb-row-label">'+label+'</span>'
+          +'<span class="qb-row-value">'+val+qbAttnDot(dotCol)+'</span><span class="qb-chevron">›</span></div>';
+        const qbLatencyDotCol=(QLAT&&qeNumOr(QLAT.p95_s)!=null&&QLAT.p95_s>10)?'var(--attn-red)':null;
+        const qbRepriceDotCol=QREPRICE?(qeCovPct(QREPRICE.coverage_pct)>=90?null:'var(--attn-amber)'):null;
+        const qbFeedDotCol=feedMean!=null?(feedMean>=99?null:feedMean>=95?'var(--attn-amber)':'var(--attn-red)'):null;
+        const qbIntegrityCard='<div class="qb-card"><div class="qb-section-hd">Integrity</div><div class="qb-list">'
+          +qbIntegrityRow('Parity',(parTotal!=null)?(parMatched+' / '+parTotal):'—',parFailed>0?'var(--attn-red)':null,'parity')
+          +qbIntegrityRow('Feed uptime',feedMean!=null?feedMean.toFixed(1)+'%':'—',qbFeedDotCol,'feeduptime')
+          +qbIntegrityRow('Ratio',QE&&QE.calib?qeNum(QE.calib.ratio,3):'—',(QRHEALTH&&QRHEALTH.warn)?'var(--attn-amber)':null,'ratio')
+          +qbIntegrityRow('Latency',QLAT?qeNum(QLAT.median_s,1)+'s median':'—',qbLatencyDotCol,'latency')
+          +qbIntegrityRow('Re-price coverage',QREPRICE?qeNum(qeCovPct(QREPRICE.coverage_pct),0)+'%':'—',qbRepriceDotCol,'reprice')
+          +'</div></div>';
+
+        // ── 9. FOOTER DISCLOSURES — Rails / Event timeline / Model reference, collapsed,
+        // state remembered per browser same as the MODEL section already did.
+        const qbFooter='<div class="qb-card">'
+          +'<div class="qb-disclosure qb-tap" data-qbdisclosure="rails" style="border-top:none"><span class="qb-disclosure-arrow">'+(railsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Rails</span></div>'
+          +(railsOpen?('<div style="margin-top:4px">'+railsHtml+'</div>'):'')
+          +'<div class="qb-disclosure qb-tap" data-qbdisclosure="events"><span class="qb-disclosure-arrow">'+(eventsOpenState?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Event timeline'+(QEVT&&QEVT.length?(' ('+QEVT.length+')'):'')+'</span></div>'
+          +(eventsOpenState?('<div style="margin-top:4px">'+(eventsHtml||'<div style="color:var(--text5);font-size:var(--fsxs);padding:8px 0">no events published yet</div>')+'</div>'):'')
+          +modelSection
+          +'</div>';
+
+        // ── SHEET RENDERER — one qb-sheet at a time. window._qbSheet is either
+        // {kind:'trade',idx} (List row tap -> the SAME buildDrawer(t) breakdown the
+        // TABLE view's inline row uses) or {kind:'integrity',key} (Parity/Feed
+        // uptime/Ratio/Latency/Re-price row tap -> that figure's existing detail panel).
+        let qbSheetHtml='';
+        if(qbSheet){
+          let sheetTitle='',sheetBody='';
+          if(qbSheet.kind==='trade'){
+            const t=trades[qbSheet.idx];
+            if(t){
+              sheetTitle=naS(t.leg)+' · '+qeFmtET(t.entry_ts)+' → '+qeFmtET(t.exit_ts);
+              sheetBody=qbBuildDrawerFn?qbBuildDrawerFn(t):'';
+            }
+          }else if(qbSheet.kind==='integrity'){
+            const K=qbSheet.key;
+            if(K==='parity'){sheetTitle='NT Parity';sheetBody=parityPanelHtml;}
+            else if(K==='feeduptime'){sheetTitle='Feed uptime';sheetBody=qeCalHtml.feedStrip||'<div style="color:var(--text5);font-size:var(--fsxs);padding:10px 0">feed uptime history not published yet</div>';}
+            else if(K==='ratio'){sheetTitle='Ratio health';sheetBody=ratioBody;}
+            else if(K==='latency'){sheetTitle='Latency';sheetBody=QLAT
+              ?('<div style="font-size:13px;line-height:2">median <b>'+qeNum(QLAT.median_s,2)+'s</b><br>p95 <b style="color:'+(qbLatencyDotCol||'var(--text)')+'">'+(qeNumOr(QLAT.p95_s)!=null?qeNum(QLAT.p95_s,2)+'s':'—')+'</b><br><span style="color:var(--text4);font-size:11px">time from an NT fill to the mirrored shadow fill</span></div>')
+              :'<div style="color:var(--text5);font-size:var(--fsxs);padding:10px 0">latency not published yet</div>';}
+            else if(K==='reprice'){sheetTitle='Re-price coverage';sheetBody=QREPRICE
+              ?('<div style="font-size:13px;line-height:2">coverage <b>'+qeNum(qeCovPct(QREPRICE.coverage_pct),0)+'%</b><br>mean slip/share <b>'+(QREPRICE.mean_slip_ps!=null?qeMoney(QREPRICE.mean_slip_ps):'—')+'</b><br><span style="color:var(--text4);font-size:11px">re-priced nightly from real QQQ 1-minute bars</span></div>')
+              :'<div style="color:var(--text5);font-size:var(--fsxs);padding:10px 0">re-price coverage not published yet</div>';}
+          }
+          qbSheetHtml='<div class="qb-sheet-backdrop" data-qbsheetclose><div class="qb-sheet" onclick="event.stopPropagation()">'
+            +'<div class="qb-sheet-handle"></div>'
+            +'<div class="qb-sheet-head"><span class="qb-sheet-title">'+sheetTitle+'</span><span class="qb-sheet-close" data-qbsheetclose>✕</span></div>'
+            +sheetBody
+            +'</div></div>';
+        }
+
+        body='<div class="qb-shell">'
+          +qbHeroHtml
+          +equityHtml
+          +qbStatsCard
+          +readinessCompactHtml
+          +'<div class="qb-card"><div class="qb-section-hd">Legs</div>'+legListHtml+'</div>'
+          +qbActivityCard
+          +qbTradesCard
+          +(ordersHtml||'')
+          +qbIntegrityCard
+          +qbFooter
+          +'</div>'
+          +qbSheetHtml;
       }
     }else if(augurSub==='paper'||augurSub==='paper2'){
       // ── PAPER · LIVE FORWARD TEST — the PC runner re-runs each crowned strategy on live
@@ -29769,6 +30059,47 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const h=window._qeChartHidden||(window._qeChartHidden={});
         h[k]=!h[k];
         renderApp();};});
+      // ── QB re-skin wiring (2026-09-08) ──────────────────────────────────────────
+      // Segmented controls: chart period (1W/1M/3M/ALL, session-only) and trades
+      // List|Table (saved like every other view-choice on this tab).
+      content.querySelectorAll('[data-qbseg] [data-qbsegval]').forEach(el=>{el.onclick=()=>{
+        const seg=el.closest('[data-qbseg]').getAttribute('data-qbseg');
+        const val=el.getAttribute('data-qbsegval');
+        if(seg==='period')window._qeChartPeriod=val;
+        else if(seg==='tradesview'){window._qeTradesView=val;savePref('qqqTradesView',val);}
+        renderApp();};});
+      // Disclosures — each remembers open/closed per browser, same mechanism as the
+      // pre-existing qqqModelOpen toggle.
+      const QB_DISC_PREF={morestats:'qqqMoreStatsOpen',allchecks:'qqqChecksOpen',
+        feedsig:'qqqFeedSigOpen',rails:'qqqRailsOpen',events:'qqqEventsOpen'};
+      content.querySelectorAll('[data-qbdisclosure]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-qbdisclosure'),pk=QB_DISC_PREF[k];
+        if(pk)savePref(pk,(APREF[pk]==null?0:+APREF[pk])?0:1);
+        renderApp();};});
+      // Legs list — tap a leg row to expand unrealized/today/notional inline.
+      content.querySelectorAll('[data-qblegrow]').forEach(el=>{el.onclick=()=>{
+        const k=el.getAttribute('data-qblegrow');
+        const s=window._qbLegOpen||(window._qbLegOpen=new Set());
+        if(s.has(k))s.delete(k);else s.add(k);
+        renderApp();};});
+      // Trade LIST rows -> open a bottom sheet with the same drawer breakdown the
+      // TABLE view's inline row shows. Integrity rows -> open a sheet with that
+      // figure's existing detail panel (parity/feed-uptime/ratio/latency/reprice).
+      content.querySelectorAll('[data-qbtraderow]').forEach(el=>{el.onclick=()=>{
+        window._qbSheet={kind:'trade',idx:+el.getAttribute('data-qbtraderow')};
+        renderApp();};});
+      content.querySelectorAll('[data-qbsheet]').forEach(el=>{el.onclick=()=>{
+        window._qbSheet={kind:'integrity',key:el.getAttribute('data-qbsheet')};renderApp();};});
+      // Sheet close — backdrop tap, ✕ tap, or Escape.
+      content.querySelectorAll('[data-qbsheetclose]').forEach(el=>{el.onclick=()=>{window._qbSheet=null;renderApp();};});
+      if(!window._qbSheetEscWired){
+        window._qbSheetEscWired=true;
+        document.addEventListener('keydown',e=>{
+          if(e.key==='Escape'&&window._qbSheet&&activeTab==='augur'&&augurSub==='qqqpaper'){
+            window._qbSheet=null;renderApp();
+          }
+        });
+      }
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
