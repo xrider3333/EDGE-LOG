@@ -481,7 +481,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.555';
+const VERSION='73.556';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -500,6 +500,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.556',date:'2026-09-07',notes:['ROC % / YR NOW SITS BESIDE R / YR ON THE STUDIES BOARD. Two spots still showed R / YR with no ROC % / YR beside it: the COMPARE > STUDIES results table (the two scatter-axis pickers on that same board already offered ROC % / YR - only the table column was missing it) and the PARALLEL and RADAR charts underneath it, which draw off the same measure list. Both now carry it, read over the same ticked stretch and the same years R / YR uses, printed to one decimal with a percent sign, colored green for positive and red for negative, and dashed with a reason wherever R / YR would dash too.','ITS TOOLTIP SAYS WHAT MAKES IT DIFFERENT: every other ratio on this board is leverage-blind - it divides money by something that scales with position size, so a bigger position lands on the same number. ROC % / YR divides by a fixed account instead, so it is the one reading here that a bigger position actually moves. Read it beside R / YR: R / YR says how much edge a configuration earns, this says what that edge is worth on your account.']},
 {v:'73.554',date:'2026-09-07',notes:['KEEL v7 = v6 plus SHADE WHEN WRONG. When the 100-trade fast ledger says the model is confidently wrong, v6 rests at size 1.0; v7 leans a little against the score instead (0.75x to 1.25x), on about one trade in ten. Read on the runs own stretches: walk-forward unchanged, lockbox up on BOTH NOISE runs with drawdown better on both. A 50-trade fast window, a dual ledger, calendar-day ledgers and a drawdown brake were tried in the same pass and did not earn their keep.','PAPER: NOISE_SBS_V90_K7 runs beside K6 from 2026-09-08 as a forward A/B, stand down versus lean against; NOISE_SBS_V90 is the control for both.']},
 {v:'73.551',date:'2026-09-07',notes:['KEEL v6 = v5 plus a FAST-DISTRUST ledger. The 600-trade skill ledger is slow to notice when the model stops being right, and v5 turned that lag into 2x-sized losers in a lockbox. A second 100-trade ledger of the same dollar statistic can now only cut size back to 1.0. Slow to trust, fast to distrust.','Read on the runs own IS / walk-forward / lockbox stretches: NOISE #243 walk-forward +$113k (+37%) at drawdown -23.1k vs -18.4k raw, lockbox +$5.7k at exactly raw drawdown (MAR 2.00 vs 1.83). NOISE #304 walk-forward +$49k at drawdown better than raw, lockbox -$2.7k at -28.4k vs -24.5k. ORB and ENGU-Q: identical to raw, it stands down.','PAPER: NOISE_SBS_V90_K6 replaces the never-traded K5 leg beside the K (v4) leg; NOISE_SBS_V90 is the control. The claim: more net than the control at drawdown within 20% of it, and more net than the K leg.']},
 {v:'73.548',date:'2026-09-07',notes:['QQQ SHADOW BOOK readiness: the feed-uptime check printed 0.5 percent for an uptime of 53.8 percent - the adapter sends that figure as a fraction, the same way re-price coverage does, and the check was reading it raw. It also asked for 99 percent when the adapter itself passes the day at 95 percent, so the checklist could never agree with the rule behind it. Both are fixed.']},
@@ -22139,6 +22140,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // KEY: rank, row, name, PF, $/TRD, MAR, [3 per-year], trades, read = 8 (+3)
         // ALL: adds is, wf, lb, tot, dd (5) and what, run, date, window (4)
         // +1 for the R / YR column added beside EV R (v73.469)
+        // +1 for the ROC % / YR column added beside R / YR (v73.545)
         // the remembered per-column widths. Declared HERE, above _reTblFix, which reads it
         //   on the spot - a const is hoisted but not initialised, so declaring it beside its
         //   own drag handler 1,700 lines below threw before the board could draw.
@@ -22147,7 +22149,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // a th width only holds if the BODY cells stop pushing the column wider, so the
         //   table lays out on its own widths and long text ellipses instead of stretching.
         const _reTblFix=Object.keys(_reColW).length?'table-layout:fixed;':'';
-        const _reNCols=(_reFull?22:13)+((_reBasis==='year')?3:0);
+        const _reNCols=(_reFull?23:14)+((_reBasis==='year')?3:0);
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         //    A CONFIG ROW MEASURES THE TICKED STRETCH, not the whole run. The report
         //    spans the first ticked stretch's start to the last one's end, off the run's
@@ -22680,6 +22682,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               return (v==null||!isFinite(v))?_reDash('This row records no average losing trade, so expectancy cannot be put in R. Only a run, or a study that has been re-run since 2026-08-28, carries one.'):(v.toFixed(2)+'R');})())
             +td((function(){const v=_reRpy(st,rw);
               return (v==null||!isFinite(v))?_reDash('R / YR needs an expectancy in R, a trade count and a window; this row is missing at least one.'):(v.toFixed(1)+'R');})())
+            +td((function(){const v=_reRoc(st,rw);
+              return (v==null||!isFinite(v))?_reDash('ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.'):('<span style="color:'+((v>=0)?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'%</span>');})())
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
             +basCells
             +td((()=>{const t=_reTrd(rw);
@@ -22859,6 +22863,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           {k:'rpy', t:'R / YEAR',
            v:(st,r)=>_rPerYr(_reEvR(st,r),_reNum(r,'trd'),_reYrs(st,r)),
            f:v=>v.toFixed(1)+'R'},
+          {k:'roc', t:'ROC % / YEAR',
+           v:(st,r)=>_reRoc(st,r),
+           f:v=>v.toFixed(1)+'%'},
           {k:'tpy', t:'TRADES / YR',
            v:(st,r)=>{const n=_reNum(r,'trd'),y=_reYrs(st,r);return (n&&y&&y>0)?n/y:null;},
            f:v=>Math.round(v).toLocaleString()},
@@ -22866,7 +22873,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
            v:(st,r)=>_reSegVal(r),
            f:v=>((v<0?'-$':'$')+_reAbbr(v))}];
         // ── RADAR (owner ask 2026-08-28) ─────────────────────────────────────────────
-        //    The same ten measures as the parallel chart, drawn as a closed loop instead of
+        //    The same eleven measures as the parallel chart, drawn as a closed loop instead of
         //    a line. It answers a different question: parallel coordinates show a row's PATH
         //    and let you follow it axis by axis, a radar shows its SHAPE, and shape is what
         //    the eye compares when you want to know whether two rows are the same KIND of
@@ -22970,7 +22977,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             rows.push({o:o,st:o.st,r:o.r,v:vals,
               src:(o.r._cfg?'cfg':((Array.isArray(o.r.runs)&&o.r.runs.length)?'el':'py'))});});
           // A HARD CAP, and it is not cosmetic. A radar draws a FILLED polygon per row; at
-          //   the ALL level that is a thousand semi-transparent ten-sided shapes stacked on
+          //   the ALL level that is a thousand semi-transparent eleven-sided shapes stacked on
           //   each other, and compositing them froze the tab outright (measured 2026-08-28 -
           //   the page stopped answering at all). It is also unreadable long before that: the
           //   note under this chart already said a radar wants fewer than about eight rows.
@@ -23032,7 +23039,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                 +'" fill="'+col+'" opacity="'+(champ?'0.95':'0.55')+'"><title>'+tip+'</title></circle>';});
             lines+='</g>';});
           const note='<div style="font-size:8.5px;color:var(--text5);line-height:1.75;margin-top:6px">'
-            +'<b style="color:var(--text4)">Every spoke is scaled to the rows on screen</b> - lowest near the middle, highest on the rim - because ten measures in ten units cannot share one radius. So a position here is RELATIVE: change the filter and the same row changes shape. The figures themselves are on the hover, and the PARALLEL chart prints them on its axes. Read a radar for SHAPE - whether two rows are the same kind of thing - and the parallel chart for VALUES. '
+            +'<b style="color:var(--text4)">Every spoke is scaled to the rows on screen</b> - lowest near the middle, highest on the rim - because eleven measures in eleven units cannot share one radius. So a position here is RELATIVE: change the filter and the same row changes shape. The figures themselves are on the hover, and the PARALLEL chart prints them on its axes. Read a radar for SHAPE - whether two rows are the same kind of thing - and the parallel chart for VALUES. '
             +rows.length+' row'+((rows.length===1)?'':'s')+' drawn'
             +(capped?(', the strongest by NET of '+(rows.length+capped)+' - a radar draws a filled shape per row and a thousand of them stacked will lock the page, so the other '+capped+' are left off rather than drawn badly. Narrow the strategy or the level to see different ones'):'')
             +((rows.length>8&&!capped)?(' - a radar is easiest to read under about eight, so hover one to isolate it'):'')
@@ -23916,6 +23923,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_hs('wr','WIN %','Winning trades as a share of all trades. Click to sort.')
             +_hd('EV R',null,'Expectancy in R: the average trade divided by the average LOSING trade. It is leverage-blind, so a row trading one contract and a row trading ten land on the same number, which raw dollar expectancy cannot do. A dash means the row records no average loss - only a run or a re-run study carries one. The $/TRD column beside it is the same expectancy in dollars.')
             +_hd('R / YR',null,'R / YR: expectancy in R multiplied by trades per year over the ticked stretch. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. A strategy earning 0.4R on 200 trades a year beats one earning 0.6R on 40. The same figure the run report 1E matrix prints.')
+            +_hd('ROC % / YR',null,'ROC % / YR: the ticked stretch profit, annualised, as a percentage of the fixed account ROC is measured against (the chip on the run report sets it). It is the one measure on this row that is NOT leverage-blind - every ratio beside it divides money by something that scales with position size, so sizing cancels out, while this divides by an account you set, which does not. Read it beside R / YR: R / YR says how much edge the configuration earns, this says what that edge is worth on your account. A dash means this row is missing a profit figure or a data window to annualise it over.')
             +_hd('$/TRD',null,_rePptTip)
             +basHd
             +_hd('TRADES',null,'How many trades the variant took over its whole run. A small circle marks a count read from the saved run document.')
@@ -24175,7 +24183,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
             _reBtn('data-reschart="scatter"','SCATTER',(_reChartK==='scatter'),'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp)
-           +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same ten measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because ten measures in ten units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp)
+           +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same eleven measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because eleven measures in eleven units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp)
            +_reBtn('data-reschart="lattice"','LATTICE',_reLatOn,'every measure against every other in small panes. It answers what the other charts cannot: which of these measures are saying the same thing. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging on. Five scale-free measures, so every pane is a fair comparison.',_TONE.samp),
           _TONE.samp);
         // THE APPLES-TO-APPLES PAIR, said once where it is chosen: SORTINO across the
