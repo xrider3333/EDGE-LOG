@@ -58,10 +58,16 @@ CAVEATS THAT TRAVEL WITH ALL THREE
 * Nothing here moves the paper board. #309 stays the crown and the live leg until the owner
   says otherwise.
 """
+import argparse
 import datetime
+import os
+import sys
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from queue_guard import guard, split_from_lockbox         # noqa: E402  (--guard, opt-in)
 
 CRED = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
@@ -143,7 +149,35 @@ BOOK_TRIO = dict(
           "strictly 1:1:1 weighting, MAR is the guard against leverage and it rises."))
 
 
+def _guard_legs(label, job):
+    """--guard (2026-09-07, opt-in, default OFF): run tools/queue_guard.py's continuous-lockbox
+    check on every leg of a BOOK job before it is queued. Refuses (raises) if any leg comes
+    back ARTIFACT -- the #310 empty-continuous-lockbox shape, or the ex-top-10-net-goes-negative
+    shape two BOOK legs showed on 2026-09-05 (see queue_guard.py's module docstring). SUSPECT
+    is printed but does not block: concentration alone must never fail a leg on its own
+    (ENGUQ.md section 1.0 -- the deployed ENGU-Q leg runs an 80% top-10 share, NOISE crowns
+    22-42%). A job with no "legs" (the plain VALIDATE search job) is a no-op."""
+    legs = job.get("legs")
+    if not legs:
+        return
+    split = split_from_lockbox(job["date_to"], job.get("lockbox_months", 12))
+    for leg in legs:
+        res = guard(leg["strategy"], leg.get("params") or {}, instrument=leg["instrument"],
+                   timeframe=leg["timeframe"], session=leg["session"], source=leg["source"],
+                   cost_pts=leg["cost_pts"], mult=leg["mult"], date_from=job["date_from"],
+                   date_to=job["date_to"], split=split, label=f"{label} :: {leg['strategy']}")
+        if res["verdict"] == "ARTIFACT":
+            sys.exit(f"ABORT -- {label} leg {leg['strategy']} is ARTIFACT, refusing to queue "
+                     f"(see the guard printout above)")
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--guard", action="store_true",
+                    help="run tools/queue_guard.py on every BOOK leg first; refuse to queue "
+                         "any job whose leg comes back ARTIFACT (default off, behaviour "
+                         "otherwise unchanged)")
+    args = ap.parse_args()
     if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(CRED))
     col = firestore.client().collection("users").document(UID).collection("backtests")
@@ -151,6 +185,8 @@ def main():
     for label, job in (("R2 auto-validate", VALIDATE),
                        ("BOOK pair + R2", BOOK_PAIR),
                        ("BOOK trio + R2", BOOK_TRIO)):
+        if args.guard:
+            _guard_legs(label, job)
         ref = col.add(dict(job, createdAt=now))[1]
         print("queued %-18s %s" % (label, ref.id))
 

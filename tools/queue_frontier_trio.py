@@ -39,11 +39,17 @@ TWO CAVEATS THAT TRAVEL WITH THIS BOOK:
     annualised MAR is the read that catches leverage (it falls under weighting, and it RISES
     here, which is the evidence the gain is real diversification).
 """
+import argparse
 import copy
 import datetime
+import os
+import sys
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from queue_guard import guard, split_from_lockbox         # noqa: E402  (--guard, opt-in)
 
 CRED = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
@@ -74,6 +80,11 @@ NOTE = (
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--guard", action="store_true",
+                    help="run tools/queue_guard.py on every leg first; refuse to queue if any "
+                         "leg comes back ARTIFACT (default off, behaviour otherwise unchanged)")
+    args = ap.parse_args()
     if not firebase_admin._apps:
         firebase_admin.initialize_app(credentials.Certificate(CRED))
     col = firestore.client().collection("users").document(UID).collection("backtests")
@@ -93,6 +104,23 @@ def main():
     j.update(preset=name, strategy=name, status="queued", progress=0,
              book_name="3-LEG - NOISE morning (RYR) + NOISE afternoon (EV R) + ENGU-Q #309, 1:1:1",
              createdAt=datetime.datetime.now(datetime.timezone.utc), note=NOTE)
+
+    if args.guard:
+        # --guard (2026-09-07, opt-in, default OFF): tools/queue_guard.py's continuous-lockbox
+        # check on every leg -- catches the #310 empty-continuous-lockbox shape and the
+        # ex-top-10-net-goes-negative shape two BOOK legs showed on 2026-09-05. SUSPECT
+        # (concentration, reload/continuous divergence) is printed but does not block --
+        # concentration alone must never fail a leg (ENGUQ.md section 1.0).
+        split = split_from_lockbox(j["date_to"], j.get("lockbox_months", 12))
+        for leg in j["legs"]:
+            res = guard(leg["strategy"], leg.get("params") or {}, instrument=leg["instrument"],
+                       timeframe=leg["timeframe"], session=leg["session"], source=leg["source"],
+                       cost_pts=leg["cost_pts"], mult=leg["mult"], date_from=j["date_from"],
+                       date_to=j["date_to"], split=split, label=f"{name} :: {leg['strategy']}")
+            if res["verdict"] == "ARTIFACT":
+                sys.exit(f"ABORT -- leg {leg['strategy']} is ARTIFACT, refusing to queue "
+                         f"(see the guard printout above)")
+
     print("queued", col.add(j)[1].id)
 
 
