@@ -7,6 +7,105 @@
 
 ---
 
+## 🔬 2026-09-08 — ROUND 37: THE SCALP HUNT — the 2-MINUTE bar is where NOISE is a scalp (STUDIES rows 1315–1336, web v73.589)
+
+**Owner ask, verbatim:** *"look at EL strategies we've developed thus far. try to develop something
+that beats it. focus more on the shorter side like scalping if possible. make your backend testing
+get added to the compare/studies tab and autovalidate anything that seems promising, if not keep
+searching/developing."*
+
+**VERDICT, one line: no new short-hold mechanism survives on NQ 1m (0 of 39 pre-registered cells),
+but the NOISE band itself becomes a 4-minute scalp on 2-MINUTE bars — a 300-config search of
+`NOISE_1_0.py`'s own ranges on the NQ 2m RTH master found a plateau cell at R/YR 140.6 (library
+record; prior 102.6 = #319), MAR 19.6, DD $10,917, top-10 share 34% — and the file's FULL space is
+queued as an Auto-Validate on the 2m master (job `qsSDwagxJsahDSmAwx1r`).**
+
+Selection window 2010-06-07 → 2025-06-29 throughout; cost 0.533/RT, $20/pt. The NOISE lockbox is
+SPENT (read since 2026-08-12); it was opened once here, by `tools/queue_guard.py` for the
+ten-trades / zero-lockbox-trades artifact check on the leader, never to rank.
+
+### Part A — the NOISE band on shorter bars (`tools/ryr_search.py`, tags `noise2m` / `noise1m`)
+
+Reference cells first — the crowns, nothing re-fitted, hold = median minutes in trade:
+
+| config | bars | n | net $ | PF | maxDD $ | net/DD | EV R | R/YR | slices | hold | $/trade |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| #243 crown (paper) | **5m** | 4,120 | 335,167 | 1.419 | 18,425 | 18.2 | 0.267 | 72.9 | 7/8 | 40 | 81 |
+| #243 crown | **2m** | 6,431 | 319,554 | 1.338 | **12,873** | **24.8** | 0.227 | **96.9** | 7/8 | 12 | 50 |
+| #243 crown | **1m** | 9,516 | 276,933 | 1.255 | 15,408 | 18.0 | 0.179 | 113.0 | **5/8** | 3 | 29 |
+| #305 champion | 5m | 3,473 | 319,077 | 1.445 | 34,480 | 9.3 | 0.273 | 62.9 | 8/8 | 50 | 92 |
+| #305 champion | 2m | 5,884 | 280,696 | 1.291 | 53,370 | 5.3 | 0.192 | 74.9 | 8/8 | 14 | 48 |
+| #305 champion | 1m | 9,256 | 261,789 | 1.224 | 35,814 | 7.3 | 0.154 | 94.9 | 6/8 | 2 | 28 |
+
+**The bar size is the lever.** #243's geometry (confirm 1, band 0.75/1.5, bandwidth stop 1.75)
+loses 30% of its drawdown and gains a third in R/YR on 2m while holding a median 12 minutes;
+#305's geometry (confirm 4 on 5m bars) does not travel down, because four confirming closes are a
+different clock on a different bar.
+
+Search (objective random search of the file's OWN declared ranges, gates PF ≥ 1.25 / n ≥ 300 /
+≥ 6 of 8 slices; 2m: 74 of 300 pass, 1m: 38 of 200 pass):
+
+| cell | bars | n | net $ | PF | maxDD $ | net/DD | EV R | R/YR | slices | top-10 | ex-top-10 | hold | $/trade |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **LEADER** (row 1321): boundary exit · ATR stop 3.5 · confirm 4 · skip-top-long · lookback 46 · bands 0.75/1.5 · vol-skip 78 · skip-holidays | 2m | 5,340 | 213,549 | 1.477 | 10,917 | 19.6 | 0.396 | **140.6** | 6/8 | 34% | +141,865 / PF 1.32 | **4** | 40 |
+| leader, daytype OFF (row 1322) | 2m | 6,471 | 245,476 | 1.454 | 10,300 | **23.8** | 0.378 | **162.3** | 7/8 | 29% | +173,792 / PF 1.32 | 4 | 38 |
+| leader, confirm 3 (row 1323) | 2m | 6,365 | 226,368 | 1.476 | 11,581 | 19.6 | 0.403 | 170.1 | 6/8 | 32% | +154,160 | 2 | 36 |
+| money cell (row 1324): VWAP exit · fixed stop 3.75 · skip-bot-all | 2m | 4,346 | **308,872** | 1.378 | 18,322 | 16.9 | 0.25 | 71.5 | **8/8** | 25% | +230,128 | 24 | 71 |
+| leader carried to 5m (row 1325) | 5m | 3,155 | 188,125 | 1.534 | 14,043 | 13.4 | 0.42 | 88.0 | 7/8 | 34% | +124,706 | 10 | 60 |
+| leader carried to 1m (row 1326) | 1m | 7,919 | 210,863 | 1.397 | 13,567 | 15.5 | 0.341 | 179.3 | **5/8** | 35% | +136,020 | 2 | 27 |
+| 1m search best gated (row 1327): VWAP exit · fixed stop 3.75 | 1m | 5,979 | 285,764 | 1.31 | 16,616 | 17.2 | 0.22 | 85.8 | 6/8 | — | — | — | 48 |
+
+- **Plateau** (`tools/ryr_neighbourhood.py noise2m`, 30 one-step neighbours): 30/30 keep PF ≥ 1.25,
+  25/30 keep ≥ 6/8 slices, 27/30 keep ≥ 50% of the leader's R/YR, median neighbour 139.4. The worst
+  neighbours are the categorical ones (window=morning 53.9, Short Only 54.2, exit vwap 63.0) — the
+  boundary exit and both sides ARE the cell.
+- **Queue guard on the leader** (continuous, entry-sliced at 2025-02-11, `--to 2026-07-16`): selection
+  n=5,264 / PF 1.475 / $205,517; spent lockbox n=458 / PF 1.392 / +$45,308 / DD $12,975; reload 468 vs
+  continuous 458; longest hold 0 days; **PASS**.
+- **Live-legality note on the boundary exit:** it is a resting stop at the band level (fills on the
+  touch), so it is legal, but at $40 a trade the 0.533 house cost is 27% of the average trade — a
+  second tick of slippage per side would take a third of the edge. Say this on the paper card if it
+  ever gets one.
+- **1m is past the point where the band pays:** more trades, fewer dollars each ($27–29 vs $40–50),
+  and the slices thin out (5/8 on the leader and on #243). No 1m validate queued; owner's call.
+
+### Part B — five new short-hold mechanisms on NQ 1m (`tools/r37_scalp_triage.py`): 0 of 39 pass
+
+Pre-registered bar: PF ≥ 1.25, MAR ≥ 8, n ≥ 300, ≥ 6/8 slices, top-10 < 90% with a positive
+ex-top-10 net, $/trade ≥ 2× cost. Each mechanism × {1R target, 2R target, ride-to-close with BE}.
+
+| mechanism | best fixed-target cell | best ride cell |
+|---|---|---|
+| M1 micro opening range (2/3/5 bars, close-confirm) | or5/first/T1: n 2,664 · **−$12,938** · PF 0.98 | or5/first/RIDE: $129,577 · PF 1.16 · MAR 3.8 · 6/8 · top-10 71% · hold 145 min |
+| M2 open drive (09:30 bar direction at 09:31) | T1: **−$76,395** · PF 0.81 | rng05/RIDE: $59,948 · PF 1.13 · top-10 146% |
+| M3 prior-day high/low break | stop0.10/T2: $10,780 · PF 1.02 · $3/trade | stop0.10/RIDE: $91,274 · PF 1.19 · MAR 4.7 · R/YR 38.7 · 5/8 · top-10 81% |
+| M4 range burst (3×/4× avg range, with the day) | x4/T1: $14,625 · PF 1.16 · n 674 · top-10 169% | x4/RIDE: $19,694 · PF 1.15 · top-10 376% |
+| M5 VWAP cross after ≥30 bars one side | T1: **−$48,824** · PF 0.94 | RIDE: $42,785 · PF 1.05 · top-10 223% |
+
+**The structural lesson (TIER 3):** every fixed-target scalp on NQ 1m loses or makes nothing — a
+1R/2R target on a one-minute range cannot pay twice the round-turn cost. The only cells that earn are
+the ride-to-close versions, which are not scalps (mean hold 100+ min), sit under the bar, and are
+mostly a handful of trend days. The money on this tape is in the TAIL of a trade, which is exactly
+what NOISE's VWAP / boundary exits keep and what a fixed target throws away. Do not re-test these 39
+cells; the way to a shorter hold is a shorter bar under a tail-keeping exit, not a target.
+
+### What is queued, and what is not
+
+- **Queued:** `NOISE_1_0.py`, FULL declared space, NQ **2m** RTH `db_noadj_rth`, 2010-06-07 →
+  2026-07-16 (the 2m master ends there), 8 WF folds, 17-month lockbox (~2025-02-16 on, to start
+  where #305's does), 250 trials — `tools/queue_noise_shortbar_validates.py 2m`, job
+  `qsSDwagxJsahDSmAwx1r`. The card says out loud that the lockbox is the family's spent one.
+- **Not queued:** the 1m twin (same script, argument `1m`) — the evidence says 2m dominates 1m, and a
+  1m validate costs hours of runner time. Owner's call.
+- **Next if the 2m card PASSES:** compare the runner's own champion against rows 1321/1322, re-run
+  `tools/noise_hunt5.py`-style NT parity on 2m bars, and decide whether a 2m NOISE leg joins paper
+  beside the 5m crown (same file, different bar — it would be the first non-5m NOISE leg).
+
+Files: `tools/r37_scalp_triage.py`, `tools/queue_noise_shortbar_validates.py`, results in
+`tools/r37_results/` (search CSVs, neighbourhood CSV, reference/concentration JSON, logs).
+
+---
+
 ## ✅ 2026-08-27 — ROUND 5: does the crown TRAVEL (Study A), and is #243 a PLATEAU or a SPIKE (Study B)?
 
 **VERDICT, one line: the NOISE BAND MECHANISM travels across the whole regular-session bar ladder — 8 of 8 cells from 1m to 60m clear a four-leg bar written before any cell ran, with nothing re-fitted — run #243 sits on a genuine PLATEAU on all 7 of its own knobs, the 24-hour session FAILS, and NOTHING here is promotable or worth a runner job.**

@@ -70,7 +70,7 @@ Rounds 13-25 detail: `MISC_SWEEP.md`, `TV_SWEEP.md`, `BACKTESTING_STACK.md` (Cha
 
 ## Round 27 (2026-09-04) — the EV R / R / YR hunt (owner: beat everything on EV R and R / YR)
 
-Definitions (v73.460): EV R = (1 - win%) x (PF - 1); R / YR = EV R x trades per year. Board rows 1165-1177 (v73.479).
+Definitions (v73.589): EV R = (1 - win%) x (PF - 1); R / YR = EV R x trades per year. Board rows 1165-1177 (v73.589).
 
 | # | What | Numbers | Where / reproduce | Caveat |
 |---|---|---|---|---|
@@ -81,7 +81,7 @@ Definitions (v73.460): EV R = (1 - win%) x (PF - 1); R / YR = EV R x trades per 
 Dead this round: `EMAPB_1_0.py` (1m EMA-pullback continuation, 27/27 cells lose, PF 0.86-0.94); ENGU-Q NQ+ES pooled (#312) R / YR 48 vs 43 alone - the WEAK ES leg dilutes.
 Lesson: the crowning rule (MAR floor) and the owner metric (R / YR) pick DIFFERENT configs from the same search - mine populations before building anything new.
 
-## Round 28 (2026-09-05) — the R / YR OBJECTIVE SEARCH (board rows 1241-1245, v73.484)
+## Round 28 (2026-09-05) — the R / YR OBJECTIVE SEARCH (board rows 1241-1245, v73.589)
 
 The app crowns on its MAR rule; the owner ranks on EV R / R / YR. Different objectives -> the
 R / YR frontier sits uncrowned inside passed runs. Method: `tools/ryr_search.py` (objective
@@ -101,7 +101,7 @@ and 6+/8 slices, median neighbour R / YR 77.3 vs centre 77.4; NOISE 29/30 keep P
 The sweep's R / YR 23.5 / 8-of-8 did not survive the app's own walk-forward. NQDIP 1.0 (#307,
 PASS 6/6) stands; 1.1 parked. A sweep is never the last step.
 
-## Round 29 (2026-09-05) — the frontier legs pooled: **the best book measured** (rows 1246-1252, v73.487)
+## Round 29 (2026-09-05) — the frontier legs pooled: **the best book measured** (rows 1246-1252, v73.589)
 
 One common pre-lockbox window (2010-06-07..2025-06-29), real engine, pooled by exit time,
 scored as ONE strategy (`tools/book_ryr_frontier.py`).
@@ -124,7 +124,7 @@ lowest-EV-R leg in the library (0.150); an R / YR search over 400 ORB configs co
 **Caveat carried on every card:** both frontier legs were selected by a search on this same
 window, so the book inherits that selection. Their own fenced validates are queued (B17/B18).
 
-## Round 30 (2026-09-05) — the R / YR ceiling of every family (rows 1253-1257, v73.493)
+## Round 30 (2026-09-05) — the R / YR ceiling of every family (rows 1253-1257, v73.589)
 
 Identical objective search (`tools/ryr_search.py`) on each family's own file and ranges,
 same seed/window/gates, so the ceilings read against each other:
@@ -141,7 +141,7 @@ same seed/window/gates, so the ceilings read against each other:
 that is exactly why pooling them (B19) beat every book measured, and why pooling two legs
 from the same family would not have.
 
-## 2026-09-08 — RETRACTION of B17 and B19 (rows 1283-1287, v73.570)
+## 2026-09-08 — RETRACTION of B17 and B19 (rows 1283-1287, v73.589)
 
 **B17 (EV R record 1.40, ENGU-Q ER frontier) is WITHDRAWN.** Its Auto-Validate came back
 **PASS 6/6 (run #320)** and it still fails the test that matters: **101% of its net comes
@@ -211,7 +211,7 @@ entry-sliced, same window/split as above):
 `wRUgSS4JeGLlI7muKZ31`, running) and the owner. See `ENGUQ.md` for the `{}`-params trap this
 comparison exposed and fixed.
 
-## 2026-09-08 — B21 GAPGO family seed (rounds 32-34, rows 1288-1299, v73.577)
+## 2026-09-08 — B21 GAPGO family seed (rounds 32-34, rows 1288-1299, v73.589)
 
 **Owner ask:** something that can branch out into its own strategy family for another session.
 Seven never-traded mechanisms pre-registered (`tools/r32_family_seeds.py`, `r32b_weekly_or.py`,
@@ -235,7 +235,7 @@ daily corr 0.19 (0.35 shared days), $136k of $151k earned on ORB days; ORB+GAPGO
 0.5-1.0, or_bars 1-3. **Hand-off for another session:** 24h tape, ES, gap as a regime gate on the ORB crown
 (replace/gate first-candle direction with gap direction), confirmation-bar count.
 
-### B21 addendum — rounds 35-36 (rows 1300-1309, v73.579): GAPGO is a FAMILY
+### B21 addendum — rounds 35-36 (rows 1300-1309, v73.589): GAPGO is a FAMILY
 
 - **The gap is not yesterday:** first-bar break in the prior-day direction = PF 1.10, top-10 135%, ex-top-10 negative (`tools/r35_family_seeds4.py`).
 - **ES transfer:** GAPGO 0.15 ATR on ES = PF 1.20, 6/8, top-10 72%, $56,733 at $50/pt — same sign, a quarter of the edge; not a leg.
@@ -245,9 +245,23 @@ daily corr 0.19 (0.35 shared days), $136k of $151k earned on ORB days; ORB+GAPGO
 - **Dead in r35-36:** STREAK (3/4-bar persistence), FAILED FILL. 17 more cells.
 - **Validates queued:** GAPGO_1_0 (G59lJB5aID4v2EFBqrAi) and GAPGO_TRAVEL_1_0 (`tools/queue_travel_validate.py`), both 8 WF folds / 12-month lockbox / ORB crown window 2010-06-07..2026-08-13. **Hand-off point = both posted.**
 
-### B21 / B22 RESULT (rows 1310-1313, v73.583): both validates FAIL on the lockbox
+### B21 / B22 RESULT (rows 1310-1313, v73.589): both validates FAIL on the lockbox
 
 - **#330 GAPGO 1.0** (gap 0.15 / stop 1.0 / 2 bars): selection n=1902 / $205,545 / PF 1.33 / DD $32,654; 6/6 gates, WF 8/8 (wfe 1.77), plateau HIGH GROUND, PBO 0.27, top-10 37%; **lockbox 2025-08-13..2026-08-13 = −$39,179 / PF 0.77 / 135 trades → FAIL.**
 - **#329 GAPGO TRAVEL 1.0** (10:00 / 0.2 ATR / stop at open): selection n=1741 / $189,606 / PF 1.29 / DD $26,737; 6/6 gates, WF 7/8 (wfe 2.39), PBO 0.44, top-10 44%; **lockbox = −$15,923 / PF 0.90 / 134 trades → FAIL.**
 - **Diagnosis** (`tools/gapgo_lockbox_year.py`): five positive Aug–Aug years before it for both; June–July 2026 lost $37.6k / $32.8k with median gaps ~0.5 ATR (norm 0.28) and 450–535-pt daily ranges; every gap-size bucket lost (pre-window >0.5-ATR gaps earned PF 1.26 on 691 trades, so a cap was never supported); master is clean Databento, 78 bars/day. **ORB crown made +$88,943 in the same year** — the gap read broke, not the factor.
 - **Status: NOT validated, NOT handed over as a family.** Only open lead = a pre-registered, before-the-open regime condition (trailing median gap / range level) under which the gap read is trusted, re-validated on a fresh lockbox — never fitted to Jun–Jul 2026.
+
+## Round 37 (2026-09-08) — THE SCALP HUNT (rows 1315-1336, v73.589)
+
+Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `NOISE.md` round 37.
+
+| # | What | Numbers (pre-lockbox, 2010-06..2025-06) | Where | Status |
+|---|---|---|---|---|
+| **B26** | **NOISE on 2-MINUTE bars — the 4-minute scalp.** Search leader of `NOISE_1_0.py`'s own ranges on NQ 2m RTH: boundary exit · ATR stop 3.5 · confirm 4 · skip-top-long · lookback 46 · bands 0.75/1.5 · vol-skip 78 | n=5,340 · $213,549 · PF 1.477 · DD $10,917 · MAR 19.6 · EV R 0.40 · **R / YR 140.6 (library record; prior 102.6)** · 6/8 slices · median hold 4 min · $40/trade · top-10 34% (ex-top-10 +$141,865 PF 1.32) · plateau 30/30 · guard PASS. Daytype-OFF neighbour: R / YR 162, MAR 23.8, 7/8 | `tools/ryr_search.py` noise2m → `tools/r37_results/`; STUDIES rows 1321-1322 | **Auto-Validate QUEUED — `NOISE_1_0.py` FULL space on the NQ 2m master, job `qsSDwagxJsahDSmAwx1r`** (spent-lockbox caveat on the card) |
+| B27 | The paper crown #243 configuration, untouched, on 2m bars | n=6,431 · $319,554 · PF 1.338 · **DD $12,873 (−30%)** · **MAR 24.8** · R / YR 96.9 · 7/8 · hold 12 min | STUDIES row 1316 | reference — the bar size is the lever; the 2m validate above is the test |
+
+**TIER 3 additions (round 37):**
+- **A fixed target cannot make a scalp on NQ 1m.** 25 of 25 fixed-target cells (1R / 2R, 30–60 min time stop) across five mechanisms lose or net nothing after the 0.533 round trip; only ride-to-close exits earn, and those hold 100+ minutes. The money is in the tail — shorten the BAR under a tail-keeping exit (NOISE's VWAP / boundary), never the trade.
+- **1m is past the point where the NOISE band pays:** $27–29 a trade vs $40–50 on 2m, slices thin to 5/8. Two minutes is the floor for this mechanism at house costs.
+- **Confirm-bar geometry does not travel across bar sizes** (#305's confirm-4 on 5m collapses on 2m to MAR 5.3; #243's confirm-1 improves). Re-search per bar size; never carry a bar-counted knob.
