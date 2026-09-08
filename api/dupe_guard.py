@@ -215,13 +215,28 @@ def describe(match, run_id=None):
 
 
 def find_duplicate(db, uid, candidate, exclude_ids=(), collection="backtests",
-                   scan_limit=400):
+                   scan_limit=400, read_hook=None):
     """Look through the user's own backtest jobs - COMPLETED ones included, which is the
     whole point - for one that computes the same thing as `candidate`.
+
+    This reads up to `scan_limit` (backtests) + 600 (runs) docs — real Firestore-read
+    cost, ~1,000 in the worst case. `read_hook`, if given, is called with the doc count
+    of each of those two reads (e.g. a quota-meter increment in api/runner.py) so a
+    caller can account for it; it is optional and never affects the result. Callers
+    on the hot claim path (api/runner.py) run this ONLY after they've already won the
+    job's claim, specifically so N racing runner processes don't all pay this cost for
+    the same job (2026-09-07 quota-burn fix — see runner.py's call site).
 
     Returns (match, run_id) or (None, None). Every failure is swallowed: a guard that can
     break a backtest is worse than the duplicate it prevents.
     """
+    def _tick(n):
+        if read_hook is not None:
+            try:
+                read_hook(n)
+            except Exception:
+                pass
+
     prior = None
     try:
         col = db.collection("users").document(uid).collection(collection)
@@ -234,14 +249,16 @@ def find_duplicate(db, uid, candidate, exclude_ids=(), collection="backtests",
             prior = [(s.id, s.to_dict() or {}) for s in col.limit(scan_limit).stream()]
         except Exception:
             return None, None
+    _tick(len(prior))
     match = scan_for_duplicate(candidate, prior, exclude_ids=exclude_ids)
     if not match:
         return None, None
     run_id = None
     try:
         runs = db.collection("users").document(uid).collection("runs")
-        run_id = resolve_run_id(match, [(s.id, s.to_dict() or {})
-                                        for s in runs.limit(600).stream()])
+        _runs_docs = [(s.id, s.to_dict() or {}) for s in runs.limit(600).stream()]
+        _tick(len(_runs_docs))
+        run_id = resolve_run_id(match, _runs_docs)
     except Exception:
         pass
     return match, run_id

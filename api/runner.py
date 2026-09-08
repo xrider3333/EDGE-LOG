@@ -30,6 +30,7 @@ import argparse
 import random
 import uuid
 import threading
+import collections
 try:
     import psutil as _psutil   # liveness (is the claiming runner alive?) + free-memory guard
 except Exception:              # pragma: no cover - degrade to the timestamp-only rules
@@ -631,6 +632,131 @@ def _now_utc():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+# ── FIRESTORE READ-QUOTA GUARDS (2026-09-07) ─────────────────────────────────────
+# Spark plan = 50,000 reads/day, and Firestore bills ONE READ PER DOCUMENT RETURNED
+# by a query, not per query call. Five runner processes (primary + 4 drain-only
+# _run_worker.vbs workers) each poll independently. Two multipliers found by reading
+# the actual claim/poll code (not guessed):
+#   1) CommandThread (below) has no on_snapshot listener at all — every process polls
+#      users/{uid}/commands on a flat timer (POLL_SEC=5s / BUSY_POLL_SEC=0.75s busy),
+#      unconditionally, even on drain-only workers whose whole job is to run
+#      backtests, not serve get_bars/get_blotter. With ~10 queued docs: 5 processes x
+#      80 polls/min (busy) x up to 10 docs = up to 4,000 reads/min = ~240k/hour — this
+#      is the source of the "poll skipped: ResourceExhausted" lines in runner.log.
+#   2) The job-queue claim path (FirestoreQueue.run_once) used to run
+#      dupe_guard.find_duplicate() — which reads up to 400 completed-backtest docs
+#      plus up to 600 run docs, ~1,000 reads — BEFORE attempting the claim, for every
+#      job every process still saw as 'queued'. With N processes racing for the same
+#      job, N-1 of them pay that ~1,000-read cost for nothing (they lose the claim a
+#      moment later). This was likely the single largest contributor and needed no
+#      new limit, just re-ordering the guard to run AFTER a successful claim — see
+#      that call site below.
+JOB_POLL_LIMIT = 50   # safety cap on the queued-docs poll (FirestoreQueue.run_once).
+                       # Deliberately NOT 1: that query has no order_by (adding one
+                       # needs a manual composite index — the comment at its call
+                       # site explains why it was avoided), so a small `limit()`
+                       # would return the SAME slice every time in Firestore's
+                       # default (doc-id) order. A job the web paused-before-start
+                       # sitting in that fixed slice would then block every OTHER
+                       # queued job forever on every runner process, since they'd
+                       # all keep re-fetching that identical slice and skipping it.
+                       # 50 only guards a pathological batch-queue; the everyday
+                       # ~10-job case is fixed by the dupe_guard re-ordering instead.
+CMD_POLL_LIMIT = 20    # same backstop, applied to both commands-queue polls.
+
+
+def _is_quota_exhausted(exc) -> bool:
+    """True for a Firestore 429 (ResourceExhausted). Checked by class/message text
+    only, so this needs no google.api_core import — keeps the Firestore SDK entirely
+    optional at module-import time, same as the rest of this file."""
+    name = type(exc).__name__
+    if name == "ResourceExhausted":
+        return True
+    s = str(exc)
+    return "ResourceExhausted" in s or "429" in s
+
+
+class _Backoff:
+    """Exponential backoff applied ONLY to repeated Firestore 429s, so a dead quota
+    makes the poll loop slower, not faster. Before this, a 429 just logged
+    'poll skipped' and retried at the normal fast cadence next tick — which is itself
+    part of why a quota outage never got a chance to recover on its own (2026-09-06/07:
+    hours of ResourceExhausted, one poll attempt every cadence tick, all day).
+    Steps 30s -> 60s -> 120s, capped; one clean call resets it back to zero."""
+    STEPS = (30.0, 60.0, 120.0)
+
+    def __init__(self):
+        self._n = 0
+
+    def hit(self) -> float:
+        s = self.STEPS[min(self._n, len(self.STEPS) - 1)]
+        self._n += 1
+        return s
+
+    def ok(self):
+        self._n = 0
+
+
+class _ReadMeter:
+    """Per-process Firestore-read counter — documents RETURNED, not calls, since
+    that's what Firestore bills. Thread-safe: the main loop, CommandThread, and the
+    on_snapshot listener callback (fired from the Firestore SDK's own background
+    thread) all touch it. summary() drains the counts back to zero so each log line
+    reports that interval only, not a running total since boot."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._counts = collections.Counter()
+
+    def add(self, bucket: str, n: int):
+        if not n:
+            return
+        try:
+            with self._lock:
+                self._counts[bucket] += n
+        except Exception:
+            pass
+
+    def summary(self):
+        with self._lock:
+            out = dict(self._counts)
+            self._counts.clear()
+        return out
+
+
+_READS = _ReadMeter()
+_READ_BUCKETS = ("poll", "listener", "claim", "orphan", "cmd", "other")
+
+
+def _note_reads(bucket: str, n) -> None:
+    """Call at every site that returns documents from a Firestore .stream()/.get()/
+    snapshot callback. Never raises — accounting must never break a real read."""
+    try:
+        _READS.add(bucket, int(n or 0))
+    except Exception:
+        pass
+
+
+def _read_meter_thread(stop=None, interval=60.0, log=print):
+    """Logs THIS process's own Firestore read burn once a minute (own thread, daemon,
+    exception-proof — see MEMORY 'the single biggest operational defect in the system
+    right now', 2026-09-07). Prints even an all-zero minute so 'the meter is silent'
+    is never confused with 'nothing happened'."""
+    while stop is None or not stop.is_set():
+        if stop is not None:
+            if stop.wait(interval):
+                return
+        else:
+            time.sleep(interval)
+        try:
+            s = _READS.summary()
+            total = sum(s.values())
+            parts = ", ".join(f"{b} {s.get(b, 0)}" for b in _READ_BUCKETS)
+            log(f"[reads] firestore reads: {total} in the last {interval:g}s ({parts})")
+        except Exception as e:
+            print(f"[reads] meter skipped: {type(e).__name__}: {e}", flush=True)
+
+
 class LocalQueue:
     """File-backed queue for testing: each job is a JSON file in augur_jobs/."""
 
@@ -712,8 +838,17 @@ class FirestoreQueue:
 
     def _on_snapshot(self, _col_snapshot, _changes, _read_time):
         """Firestore background-thread callback for both the backtests and commands
-        watches. Must stay cheap — no engine work, no Firestore writes here."""
+        watches. Must stay cheap — no engine work, no Firestore writes here.
+
+        Each document delivered in a snapshot (initial attach, or a later change) is
+        one billed read, same as a .stream() result — counted here so the read-meter
+        can tell listener traffic apart from the plain poll's."""
         self._last_event_ts = time.time()
+        try:
+            _n = len(_changes) if _changes is not None else len(_col_snapshot or [])
+            _note_reads("listener", _n)
+        except Exception:
+            pass
         self.wake.set()
 
     def start_listeners(self, log=print, ready_timeout=15.0):
@@ -1267,7 +1402,9 @@ class FirestoreQueue:
         n = 0
         for uid in (self.allow or []):
             col = self.db.collection("users").document(uid).collection("commands")
-            for snap in col.where(filter=qf).stream():
+            _docs = list(col.where(filter=qf).limit(CMD_POLL_LIMIT).stream())
+            _note_reads("poll", len(_docs))
+            for snap in _docs:
                 ref = snap.reference
                 doc = snap.to_dict() or {}
                 action = doc.get("action")
@@ -1383,9 +1520,13 @@ class FirestoreQueue:
             # uid is inherently the allowed one, so this is also the auth gate.)
             for uid in self.allow:
                 col = self.db.collection("users").document(uid).collection(self.col)
-                # oldest FIRST - see the note above on why this is not an order_by
-                _queued = sorted(col.where(filter=qf).stream(),
+                # oldest FIRST - see the note above on why this is not an order_by.
+                # JOB_POLL_LIMIT is a pathological-queue backstop, not a per-poll
+                # reduction target — see its comment (near _is_quota_exhausted) for
+                # why this can't safely be dropped to a tiny number.
+                _queued = sorted(col.where(filter=qf).limit(JOB_POLL_LIMIT).stream(),
                                  key=lambda sn: (sn.create_time is None, sn.create_time))
+                _note_reads("poll", len(_queued))
                 for snap in _queued:
                     ref = snap.reference
                     job = snap.to_dict() or {}
@@ -1435,35 +1576,18 @@ class FirestoreQueue:
                                 f"{MIN_FREE_MEM_BYTES / 1024 ** 3:.1f} GiB floor - leaving "
                                 f"{snap.id} queued this tick")
                             break
-                    dup_note = None
-                    dup_match = None
-                    _dup_patch = None
-                    try:
-                        _fp = dupe_guard.job_fingerprint(job)
-                        _m, _rid = dupe_guard.find_duplicate(
-                            self.db, uid, job, exclude_ids=(snap.id,))
-                        _patch = {"fingerprint": _fp}
-                        if _m:
-                            dup_note = dupe_guard.describe(_m, _rid)
-                            dup_match = {"run_id": _m.get("run_id") or _rid,
-                                         "job_id": _m.get("job_id"),
-                                         "fingerprint": _fp,
-                                         "note": dup_note}
-                            _patch["repeat_of"] = _m["job_id"]
-                            _patch["repeat_of_at"] = _m["when"]
-                            if _rid is not None:
-                                _patch["repeat_of_run"] = _rid
-                            log("  !! DUPLICATE WORK: " + dup_note)
-                            log(f"     (this job {snap.id} runs anyway - reruns are "
-                                f"legitimate - and is tagged as a repeat)")
-                        _dup_patch = _patch      # applied just after the claim
-                    except Exception as _e:
-                        # A guard that can break a backtest is worse than the duplicate
-                        # it prevents, so every failure here is non-fatal.
-                        log(f"  (duplicate-guard skipped: {_e})")
                     # CLAIM WITH A PRECONDITION so N runner processes can share this queue: if
                     #   another worker moved this doc since we read it the write is rejected and
                     #   we skip, rather than executing the same job twice.
+                    #
+                    # THE DUPLICATE-WORK GUARD (below) MOVED TO AFTER THIS CLAIM (2026-09-07
+                    #   quota-burn fix). dupe_guard.find_duplicate() reads up to ~1,000 docs
+                    #   (400 completed backtests + 600 runs) — a real cost, but it used to run
+                    #   BEFORE the claim, for every job every process still saw as 'queued'.
+                    #   With N runner processes racing the same doc, N-1 of them paid that
+                    #   ~1,000-read cost and then lost the claim anyway. Now only the ONE
+                    #   process that actually wins the claim (and is about to run the job)
+                    #   pays it — same duplicate-detection result, a fraction of the reads.
                     try:
                         _opt = self.db.write_option(last_update_time=snap.update_time)
                         ref.update({"status": "running", "progress": 0,
@@ -1473,13 +1597,53 @@ class FirestoreQueue:
                     except Exception as _ce:
                         log(f"  skip {snap.id} - claimed by another worker ({type(_ce).__name__})")
                         continue
-                    if _dup_patch:
-                        # stamped AFTER the claim on purpose - writing it before would bump
-                        #   update_time and invalidate our own precondition.
+                    # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
+                    # Compare this job against ALREADY-COMPLETED jobs, not just
+                    # in-flight ones. Checking only 'queued'/'running' is what let four
+                    # NOISE validates run twice on 2026-08-18: the originals had already
+                    # finished, so they were invisible to the check.
+                    #
+                    # It does NOT block. The runner is the headless path - a script or a
+                    # dead session queued this and nobody is here to answer a prompt, and
+                    # a rerun is often exactly what was wanted (reproducibility, or the
+                    # same configuration on newer data). Refusing silently would be the
+                    # surprising behaviour. So it runs the job and makes the repeat
+                    # impossible to miss: a loud log line, and a permanent link stamped on
+                    # the job doc and carried onto the run doc, so Past Runs and the
+                    # STUDIES board can say "repeat of run N" without anyone eyeballing it.
+                    # The owner-facing WARNING-BEFORE-SPENDING-20-MINUTES lives in the web
+                    # Builder, where there IS someone to ask.
+                    dup_note = None
+                    dup_match = None
+                    try:
+                        _fp = dupe_guard.job_fingerprint(job)
+                        _m, _rid = dupe_guard.find_duplicate(
+                            self.db, uid, job, exclude_ids=(snap.id,),
+                            read_hook=lambda _n: _note_reads("claim", _n))
+                        _dup_patch = {"fingerprint": _fp}
+                        if _m:
+                            dup_note = dupe_guard.describe(_m, _rid)
+                            dup_match = {"run_id": _m.get("run_id") or _rid,
+                                         "job_id": _m.get("job_id"),
+                                         "fingerprint": _fp,
+                                         "note": dup_note}
+                            _dup_patch["repeat_of"] = _m["job_id"]
+                            _dup_patch["repeat_of_at"] = _m["when"]
+                            if _rid is not None:
+                                _dup_patch["repeat_of_run"] = _rid
+                            log("  !! DUPLICATE WORK: " + dup_note)
+                            log(f"     (this job {snap.id} runs anyway - reruns are "
+                                f"legitimate - and is tagged as a repeat)")
+                        # stamped as a follow-up write, same as before reordering - it
+                        #   doesn't touch the precondition we already won.
                         try:
                             ref.update(_dup_patch)
                         except Exception as _e:
                             log(f"  (duplicate-guard stamp skipped: {_e})")
+                    except Exception as _e:
+                        # A guard that can break a backtest is worse than the duplicate
+                        # it prevents, so every failure here is non-fatal.
+                        log(f"  (duplicate-guard skipped: {_e})")
                     log(f"  running {snap.id}: {job.get('type','backtest')} "
                         f"{job.get('strategy')} {job.get('instrument')}…")
                     last = [0.0]
@@ -1611,6 +1775,7 @@ class FirestoreQueue:
             col = self.db.collection("users").document(uid).collection(self.col)
             _claimed = list(col.where(filter=_FF("status", "==", "running")).stream())
             _claimed += list(col.where(filter=_FF("status", "==", "paused")).stream())
+            _note_reads("orphan", len(_claimed))
             for snap in _claimed:
                 j = snap.to_dict() or {}
                 if j.get("claimedBy") == _WORKER_ID:
@@ -1677,6 +1842,19 @@ class CommandThread:
     # Firestore read budget is untouched except during a burst of real use.
     BUSY_POLL_SEC = 0.75
     BUSY_WINDOW_SEC = 45.0
+    # A drain-only WORKER (_run_worker.vbs) exists to run backtest jobs, not to answer
+    # get_bars/get_blotter chart lookups — yet main() starts one of these threads on
+    # EVERY process, unconditionally (found 2026-09-07), so with a primary + 4 workers
+    # FIVE separate threads independently .stream() the SAME users/{uid}/commands
+    # query. Only one ever wins a given claim; the other four paid the read for
+    # nothing. Arithmetic: 5 processes x up to 80 polls/min (busy, 0.75s) x up to
+    # CMD_POLL_LIMIT docs was the single largest measured contributor to the
+    # 2026-09-06/07 quota exhaustion — this is the "poll skipped: ResourceExhausted"
+    # signature seen in runner.log. Slowing the 4 workers down here to
+    # WORKER_POLL_SEC/WORKER_BUSY_POLL_SEC cuts their share ~6x/~6x while the
+    # primary — the one actually racing the owner's chart clicks — is untouched.
+    WORKER_POLL_SEC = 30.0
+    WORKER_BUSY_POLL_SEC = 5.0
 
     def __init__(self, db, allow_uids, root, log=print):
         self.db = db
@@ -1684,6 +1862,11 @@ class CommandThread:
         self.root = root
         self.log = log
         self._stop = False
+        self._backoff = _Backoff()
+        self._quota_backoff = 0.0
+        # role-based cadence — see the WORKER_* comment above.
+        self._poll_sec = self.WORKER_POLL_SEC if _IS_WORKER else self.POLL_SEC
+        self._busy_poll_sec = self.WORKER_BUSY_POLL_SEC if _IS_WORKER else self.BUSY_POLL_SEC
 
     def _log(self, msg):
         try:
@@ -1730,7 +1913,9 @@ class CommandThread:
         col = self.db.collection("users").document(uid).collection("commands")
         qf = FieldFilter("status", "==", "queued")
         n = 0
-        for snap in col.where(filter=qf).stream():
+        _docs = list(col.where(filter=qf).limit(CMD_POLL_LIMIT).stream())
+        _note_reads("cmd", len(_docs))
+        for snap in _docs:
             doc = snap.to_dict() or {}
             action = doc.get("action")
             # filtered client-side (not a second `where`) so this stays the same simple
@@ -1759,20 +1944,33 @@ class CommandThread:
     def poll_once(self) -> int:
         """One pass over every allowlisted uid. Never raises — a per-uid failure (bad
         query, transient Firestore error, etc.) is logged and skipped so the rest of the
-        allowlist and the next poll are unaffected."""
+        allowlist and the next poll are unaffected.
+
+        A repeated Firestore 429 (ResourceExhausted) is treated specially: it stops
+        this pass early and sets self._quota_backoff so run_forever sleeps a lot
+        longer than usual instead of hammering an already-exhausted quota at the
+        normal cadence (2026-09-07 — see _Backoff)."""
         n = 0
         for uid in self.allow:
             try:
                 n += self._poll_uid(uid)
             except Exception as e:
+                if _is_quota_exhausted(e):
+                    self._quota_backoff = self._backoff.hit()
+                    self._log(f"quota exceeded (429) - backing off {self._quota_backoff:g}s")
+                    return n
                 self._log(f"uid {uid} poll skipped: {type(e).__name__}: {e}")
+        self._backoff.ok()
+        self._quota_backoff = 0.0
         return n
 
     def run_forever(self):
         """Thread target: poll every POLL_SEC seconds until the process exits (daemon
         thread, so it never blocks shutdown). A crash anywhere in poll_once is swallowed
         here too, belt-and-suspenders on top of poll_once's own per-uid guard."""
-        self._log("command thread: ON (get_bars/get_blotter/similar_setups/config_trades served in parallel with jobs)")
+        self._log(f"command thread: ON (get_bars/get_blotter/similar_setups/config_trades "
+                  f"served in parallel with jobs; cadence {self._poll_sec:g}s idle / "
+                  f"{self._busy_poll_sec:g}s busy{' [WORKER]' if _IS_WORKER else ' [PRIMARY]'})")
         last_served = 0.0
         while not self._stop:
             try:
@@ -1780,8 +1978,11 @@ class CommandThread:
                     last_served = time.time()
             except Exception as e:
                 self._log(f"loop error (continuing): {type(e).__name__}: {e}")
+            if self._quota_backoff:
+                time.sleep(self._quota_backoff)
+                continue
             busy = (time.time() - last_served) < self.BUSY_WINDOW_SEC
-            time.sleep(self.BUSY_POLL_SEC if busy else self.POLL_SEC)
+            time.sleep(self._busy_poll_sec if busy else self._poll_sec)
 
 
 def auto_pine(log=print, limit=25, provider=None):
@@ -1884,6 +2085,11 @@ def main(argv=None):
               f"{ORPHAN_SWEEP_SEC:g}s, heartbeat every {HEARTBEAT_SEC:g}s, "
               f"free-RAM floor {MIN_FREE_MEM_BYTES / 1024 ** 3:.1f} GiB"
               f"{'' if _psutil else ' (psutil missing: timestamp rules only)'}")
+        # Read-quota meter (2026-09-07): this process reports its OWN Firestore read
+        # burn once a minute, so the next quota exhaustion is measured, not guessed
+        # at. See _read_meter_thread / _note_reads above.
+        threading.Thread(target=_read_meter_thread, args=(None, 60.0, print),
+                         daemon=True, name="read-meter").start()
         if a.nt_fills:
             _present = os.path.exists(a.nt_fills)
             print(f"NinjaTrader trade sync: {a.nt_fills} "
@@ -2037,6 +2243,10 @@ def main(argv=None):
                 # Never let the sweep stop the runner coming up.
                 print(f"[orphan] boot sweep skipped: {type(_e).__name__}: {_e}", flush=True)
         print("watching… (Ctrl+C to stop)")
+        # Exponential backoff for repeated Firestore 429s on this poll/commands tick
+        # (2026-09-07 — see _Backoff). A dead quota must make this loop SLOWER, never
+        # spin at the normal cadence retrying a call that cannot succeed.
+        _poll_backoff = _Backoff()
         while True:
             # Decide WHY (if at all) we should hit the queued-docs query this tick:
             # a listener wake, the backstop timer, or — no listener (LocalQueue, or
@@ -2052,16 +2262,28 @@ def main(argv=None):
             else:
                 poll_reason = None
             done = 0
+            _backoff_wait = 0.0
             if poll_reason:
                 try:
                     done = q.run_once()
+                    _poll_backoff.ok()
                 except Exception as _e:
-                    print(f"[queue] skipped: {type(_e).__name__}: {_e}"); done = 0
+                    done = 0
+                    if _is_quota_exhausted(_e):
+                        _backoff_wait = _poll_backoff.hit()
+                        print(f"[queue] 429 quota exceeded - backing off {_backoff_wait:g}s")
+                    else:
+                        print(f"[queue] skipped: {type(_e).__name__}: {_e}")
                 if a.firestore:
                     try:
                         done += q.run_commands()
+                        _poll_backoff.ok()
                     except Exception as _e:
-                        print(f"[commands] skipped: {type(_e).__name__}: {_e}")
+                        if _is_quota_exhausted(_e):
+                            _backoff_wait = max(_backoff_wait, _poll_backoff.hit())
+                            print(f"[commands] 429 quota exceeded - backing off {_backoff_wait:g}s")
+                        else:
+                            print(f"[commands] skipped: {type(_e).__name__}: {_e}")
                 if poll_reason == "backstop":
                     next_backstop = time.time() + LISTENER_BACKSTOP_SEC
                     if done:
@@ -2174,14 +2396,17 @@ def main(argv=None):
             except Exception as e:
                 print(f"[nt-backup] skipped: {type(e).__name__}: {e}")
             if not done:
+                # A 429 backoff overrides the normal wait so a dead quota is retried
+                # at 30s/60s/120s, never at the tight a.interval cadence.
+                _wait_s = _backoff_wait or a.interval
                 if listener_active:
-                    # Blocks until a listener wake, or a.interval elapses — whichever
+                    # Blocks until a listener wake, or _wait_s elapses — whichever
                     # is first — so refresh_min/trades_sec/paper stay on their
                     # existing cadence while the queued-docs query itself stays idle
                     # (no read) unless the listener actually signals a change.
-                    q.wake.wait(timeout=a.interval)
+                    q.wake.wait(timeout=_wait_s)
                 else:
-                    time.sleep(a.interval)
+                    time.sleep(_wait_s)
     else:
         done = q.run_once()
         print(f"processed {done} job(s).")
