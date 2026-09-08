@@ -136,6 +136,35 @@ from "days" to "390-bar blocks" on all three. No executable line touched (verifi
 `augur_engine.engine.run_backtest`: n=1,604 / PF 1.655 / net $591,267 — unchanged from the
 run doc).
 
+### 2026-09-08: R2 sibling measured continuously
+
+`ENGUQ_1M_ETH_R2_1_0.py` — a sibling file that corrects the crown's risk knobs (breakeven 2.0R
+/ stop 1.0R) — measured the same way as the crown, continuous and entry-sliced
+(`tools/queue_guard.py`, same window/split as the crown table above):
+
+| | run #309 (crown) | R2 sibling |
+|---|---|---|
+| selection | PF 1.661 · net $505,756 · EV R 0.439 · R/YR 43.9 | PF 1.714 · net $522,613 · EV R 0.505 · R/YR 61.7 |
+| lockbox | n=99 · PF 1.620 · net $85,511 · EV R 0.407 · R/YR 40.4 | n=118 · PF 1.675 · net $88,380 · DD $41,534 · EV R 0.487 · R/YR 57.5 |
+| top-10 share | 53% | 52% |
+| longest hold | 282 d | 142 d |
+
+**R2 beats #309 on every read in this table** — selection and lockbox PF, net, EV R and R/YR
+all move the right way, top-10 share is a hair lower, and the longest hold is half as long.
+Crowning waits on R2's own Auto-Validate (job `wRUgSS4JeGLlI7muKZ31`, running as of 2026-09-08)
+and the owner's decision — this table is the research finding, not the crowning. See
+`BOOKMARKS.md` B25 for the same comparison alongside the round-31 pooled books.
+
+**The `{}`-params trap this comparison caught and fixed.** Before v73.574,
+`tools/queue_guard.py --params {}` on the ETH forks (`ENGUQ_1M_ETH_LIM_1_0.py`,
+`ENGUQ_1M_ETH_ER_1_0.py`, `ENGUQ_1M_ETH_ERW_1_0.py`, and this new `_R2_1_0.py`) silently fell
+back to hardcoded module defaults rather than each file's own `DEFAULT_PARAMS` — on 2026-09-08
+it graded R2 on the **#226 parity anchor** (2,838 trades / $432,954) instead of R2's own
+defaults, before the bug was caught and fixed. Since v73.574 the guard resolves any omitted
+param from the target file's `DEFAULT_PARAMS` and prints the resolved params it actually ran,
+so an empty `{}` can no longer silently mean "some other config." The R2 numbers in the table
+above are post-fix.
+
 ---
 
 ## §1 — ⚠ THE EDGE IS A HANDFUL OF TRADES (measured 2026-08-20) — READ BEFORE JUDGING A DRAWDOWN
@@ -438,6 +467,15 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 ---
 
 ## §3 — Changelog
+
+- **2026-09-08** — R2 sibling (`ENGUQ_1M_ETH_R2_1_0.py`, corrected breakeven/stop) measured
+  continuously against the #309 crown: beats it on every read (selection PF 1.714 vs 1.661,
+  R/YR 61.7 vs 43.9; lockbox PF 1.675 vs 1.620, R/YR 57.5 vs 40.4; top-10 share 52% vs 53%;
+  longest hold 142 d vs 282 d). Not yet crowned — its own Auto-Validate (job
+  `wRUgSS4JeGLlI7muKZ31`) is running. Same-day fix: `tools/queue_guard.py` v73.574 now resolves
+  omitted params from each file's own `DEFAULT_PARAMS` instead of silently falling back to
+  hardcoded module defaults — the bug had graded R2 on the #226 parity anchor before being
+  caught. See the new subsection under CROWN CHANGE above and `BOOKMARKS.md` B25.
 
 - **2026-09-05** — CROWN CHANGE: family crown moves from #226 to run #309 (owner:
   "crown #309 and swap the paper leg to it"). New `ENGUQ_309` PAPER leg added

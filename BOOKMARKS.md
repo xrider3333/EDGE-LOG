@@ -166,6 +166,51 @@ with positive ex-top-10 = spread. Reference: deployed ENGU-Q leg 80%, NOISE crow
 it hold untuned (it did). **Neither answers whether the profit is ten trades.** Three
 different questions; ask all three.
 
+## Round 31 (2026-09-08) — B19's replacement books, and the crown's own risk-knob sibling
+
+B19's original frontier-pair cards were cancelled (the ER_RYR leg is an EV R tail artifact, see
+the retraction above). Replacement BOOK validates, all verdict **PASS**, common window
+2010-06-21..2026-06-30, lockbox from 2025-06-30, book lockbox = day-sliced P&L:
+
+| # | Book | Pre-lockbox | Lockbox | Note |
+|---|---|---|---|---|
+| **B22** | pair NOISE_1_2_RYR + ENGUQ_1M_ETH_ER_1_0 (#309 crown) | run **#317**: 7,052 trades / PF 1.520 / $631,992 / DD $40,129 | 521 trades / PF 1.556 / $133,038 | |
+| **B23** | pair NOISE_1_2_RYR + ENGUQ_1M_ETH_R2_1_0 | run **#323**: 7,378 trades / PF 1.551 / $650,981 / DD $34,769 | 540 trades / PF 1.585 / $135,907 | **beats #317 (B22) on every header read** |
+| **B24** | trio (+ NOISE_1_0 afternoon leg) | run **#324**: 11,797 trades / PF 1.496 / $797,524 / DD $39,947 | 791 trades / PF 1.524 / $158,135 | more money, lower PF, same DD — the third leg adds trades, not quality |
+
+Per-leg continuous entry-sliced guard (`tools/queue_guard.py`, same window/split):
+
+- **NOISE_1_2_RYR** defaults: selection 5,525 trades / PF 1.325 / $146,020 / DD $16,345 / EV R
+  0.278 / R-YR 103.0; lockbox 421 trades / PF 1.270 / $27,371; top-10 share 43%; **PASS**.
+- **ENGUQ_1M_ETH_R2_1_0** defaults (be 2.0 / stop 1.0): selection 1,830 trades / PF 1.714 /
+  $522,613 / DD $38,687 / EV R 0.505 / R-YR 61.7; lockbox 118 trades / PF 1.675 / $88,380 / DD
+  $41,534 / EV R 0.487 / R-YR 57.5; top-10 share 52%; longest hold 142 d; **PASS**.
+
+Note the pooled per-leg continuous lockbox ($115,751 = $27,371 + $88,380) is BELOW the book's
+day-sliced lockbox ($135,907, B23) because a 142-day ENGU-Q hold that entered before the split
+lands in different windows under the two slicing rules — state both, neither is wrong.
+
+Also landed this round: NOISE momentum-tilt validate **#327 = WEAK** (not adopted); compression
+gate **#321 = PASS** (already recorded — see the feature-board memory / BACKTESTING_STACK
+Changelog, cross-reference only, not repeated here); ORB R7 **#325 = FAIL** (transfer + PBO) —
+**#314 stays the ORB crown** (see `ORB.md`, memory `edgelog-which-orb-to-trade`).
+
+### B25 — "R2 = the crown's risk knobs corrected"
+
+`ENGUQ_1M_ETH_R2_1_0.py` vs the #309 crown, both measured continuously (`tools/queue_guard.py`,
+entry-sliced, same window/split as above):
+
+| | #309 (crown) | R2 sibling |
+|---|---|---|
+| selection | PF 1.661 / $505,756 / EV R 0.439 / R-YR 43.9 | PF 1.714 / $522,613 / EV R 0.505 / R-YR 61.7 |
+| lockbox | 99 trades / PF 1.620 / $85,511 / EV R 0.407 / R-YR 40.4 | 118 trades / PF 1.675 / $88,380 / EV R 0.487 / R-YR 57.5 |
+| top-10 share | 53% | 52% |
+| longest hold | 282 d | 142 d |
+
+**R2 beats #309 on every read above.** Crowning waits on R2's own Auto-Validate (job
+`wRUgSS4JeGLlI7muKZ31`, running) and the owner. See `ENGUQ.md` for the `{}`-params trap this
+comparison exposed and fixed.
+
 ## 2026-09-08 — B21 GAPGO family seed (rounds 32-34, rows 1288-1299, v73.577)
 
 **Owner ask:** something that can branch out into its own strategy family for another session.
