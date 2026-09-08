@@ -1,0 +1,221 @@
+====================================================================================================================================
+ROUND 10 — ORB_3_6_PYR pyramiding sweep vs the #314 crown
+  master NQ 5m RTH no-adj, 0.533 pts/RT PER UNIT, $20/pt, entries to 2026-08-13
+====================================================================================================================================
+
+------------------------------------------------------------------------------------------------------------------------------------
+FULL window  (from start to 2026-08-13)
+------------------------------------------------------------------------------------------------------------------------------------
+config                              n        net$     maxDD$     PF    MAR   EV R   R/YR   worst12  w12%
+CROWN (pyr_add_R=0)              2299     397,150     28,857  1.371   0.85  0.204   28.9   -13,608  79.2
+addR=0.5/shared/max1             2299     541,865     37,874  1.387   0.88  0.222   31.5   -13,605  82.5
+addR=0.5/shared/max2             2299     582,578     57,635  1.385   0.62  0.223   31.7   -19,758  77.6
+addR=0.5/own/max1                2299     524,997     36,829  1.366   0.88  0.204   29.0   -14,227  81.4
+addR=0.5/own/max2                2299     538,055     52,663  1.349   0.63  0.198   28.1   -21,660  76.0
+addR=1.0/shared/max1             2299     437,863     39,083  1.374   0.69  0.210   29.8   -19,199  74.9
+addR=1.0/shared/max2             2299     469,208     39,083  1.399   0.74  0.224   31.8   -21,881  74.3
+addR=1.0/own/max1                2299     410,208     39,573  1.352   0.64  0.197   28.0   -18,877  76.5
+addR=1.0/own/max2                2299     432,328     39,573  1.369   0.68  0.208   29.5   -21,636  74.3
+addR=1.5/shared/max1             2299     437,556     35,639  1.402   0.76  0.222   31.5   -19,779  77.0
+addR=1.5/shared/max2             2299     431,262     35,639  1.394   0.75  0.218   31.0   -19,779  77.0
+addR=1.5/own/max1                2299     429,786     35,649  1.396   0.75  0.219   31.2   -18,849  77.6
+addR=1.5/own/max2                2299     423,604     35,649  1.390   0.73  0.216   30.7   -18,849  77.0
+addR=2.0/shared/max1             2299     428,495     28,857  1.398   0.92  0.219   31.1   -13,424  79.2
+addR=2.0/shared/max2             2299     412,197     29,281  1.378   0.87  0.208   29.6   -13,424  79.2
+addR=2.0/own/max1                2299     419,270     28,857  1.391   0.90  0.215   30.5   -13,424  78.7
+addR=2.0/own/max2                2299     414,214     28,857  1.384   0.89  0.212   30.1   -13,424  78.7
+addR=3.0/shared/max1             2299     390,856     28,857  1.364   0.84  0.200   28.4   -13,608  79.2
+addR=3.0/shared/max2             2299     390,856     28,857  1.364   0.84  0.200   28.4   -13,608  79.2
+addR=3.0/own/max1                2299     390,969     28,857  1.365   0.84  0.200   28.5   -13,608  79.2
+addR=3.0/own/max2                2299     390,969     28,857  1.365   0.84  0.200   28.5   -13,608  79.2
+
+------------------------------------------------------------------------------------------------------------------------------------
+IS window  (from start to 2025-08-13)
+------------------------------------------------------------------------------------------------------------------------------------
+config                              n        net$     maxDD$     PF    MAR   EV R   R/YR   worst12  w12%
+CROWN (pyr_add_R=0)              2131     310,019     28,857  1.342   0.71  0.189   26.5   -13,608  77.8
+addR=0.5/shared/max1             2131     456,414     35,168  1.391   0.85  0.225   31.6   -13,605  81.3
+addR=0.5/shared/max2             2131     507,594     45,394  1.407   0.74  0.236   33.2   -19,758  76.0
+addR=0.5/own/max1                2131     454,451     34,046  1.382   0.88  0.214   30.0   -14,227  80.1
+addR=0.5/own/max2                2131     476,559     44,762  1.377   0.70  0.214   30.0   -21,660  74.3
+addR=1.0/shared/max1             2131     361,199     39,083  1.369   0.61  0.207   29.1   -19,199  73.1
+addR=1.0/shared/max2             2131     385,612     39,083  1.391   0.65  0.220   30.9   -21,881  72.5
+addR=1.0/own/max1                2131     332,127     39,573  1.340   0.55  0.191   26.9   -18,877  74.9
+addR=1.0/own/max2                2131     350,480     39,573  1.357   0.58  0.202   28.3   -21,636  72.5
+addR=1.5/shared/max1             2131     333,710     35,639  1.361   0.62  0.201   28.1   -19,779  75.4
+addR=1.5/shared/max2             2131     333,267     35,639  1.360   0.62  0.200   28.1   -19,779  75.4
+addR=1.5/own/max1                2131     325,940     35,649  1.354   0.60  0.197   27.7   -18,849  76.0
+addR=1.5/own/max2                2131     321,182     35,649  1.349   0.59  0.195   27.3   -18,849  75.4
+addR=2.0/shared/max1             2131     334,431     28,857  1.367   0.76  0.203   28.5   -13,424  77.8
+addR=2.0/shared/max2             2131     335,899     28,857  1.369   0.77  0.204   28.6   -13,424  77.8
+addR=2.0/own/max1                2131     328,371     28,857  1.361   0.75  0.200   28.1   -13,424  77.2
+addR=2.0/own/max2                2131     329,839     28,857  1.363   0.75  0.201   28.2   -13,424  77.2
+addR=3.0/shared/max1             2131     309,576     28,857  1.341   0.71  0.189   26.5   -13,608  77.8
+addR=3.0/shared/max2             2131     309,576     28,857  1.341   0.71  0.189   26.5   -13,608  77.8
+addR=3.0/own/max1                2131     305,261     28,857  1.337   0.70  0.186   26.1   -13,608  77.8
+addR=3.0/own/max2                2131     305,261     28,857  1.337   0.70  0.186   26.1   -13,608  77.8
+
+------------------------------------------------------------------------------------------------------------------------------------
+OOS window  (from 2025-08-13 to 2026-08-13)
+------------------------------------------------------------------------------------------------------------------------------------
+config                              n        net$     maxDD$     PF    MAR   EV R   R/YR   worst12  w12%
+CROWN (pyr_add_R=0)               168      87,132     22,925  1.531   3.82  0.268   45.4    75,210 100.0
+addR=0.5/shared/max1              168      85,451     27,114  1.370   3.17  0.196   33.2    71,981 100.0
+addR=0.5/shared/max2              168      74,983     34,534  1.284   2.18  0.156   26.3    61,513 100.0
+addR=0.5/own/max1                 168      70,546     26,477  1.286   2.68  0.150   25.3    57,076 100.0
+addR=0.5/own/max2                 168      61,496     32,807  1.222   1.89  0.121   20.5    48,025 100.0
+addR=1.0/shared/max1              168      76,664     27,560  1.402   2.80  0.215   36.4    64,742 100.0
+addR=1.0/shared/max2              168      83,596     27,560  1.438   3.05  0.235   39.7    71,674 100.0
+addR=1.0/own/max1                 168      78,081     27,560  1.412   2.85  0.221   37.4    66,160 100.0
+addR=1.0/own/max2                 168      81,849     27,560  1.432   2.99  0.232   39.2    69,927 100.0
+addR=1.5/shared/max1              168     103,846     22,925  1.632   4.56  0.320   54.1    91,924 100.0
+addR=1.5/shared/max2              168      97,994     22,925  1.580   4.30  0.297   50.2    86,073 100.0
+addR=1.5/own/max1                 168     103,846     22,925  1.632   4.56  0.320   54.1    91,924 100.0
+addR=1.5/own/max2                 168     102,422     22,925  1.623   4.50  0.319   53.9    90,500 100.0
+addR=2.0/shared/max1              168      94,064     22,925  1.573   4.13  0.290   49.0    82,142 100.0
+addR=2.0/shared/max2              168      76,298     29,281  1.426   2.62  0.218   36.9    64,376 100.0
+addR=2.0/own/max1                 168      90,899     22,925  1.554   3.99  0.280   47.3    78,977 100.0
+addR=2.0/own/max2                 168      84,375     22,925  1.502   3.70  0.257   43.4    72,453 100.0
+addR=3.0/shared/max1              168      81,280     22,925  1.487   3.57  0.249   42.1    69,359 100.0
+addR=3.0/shared/max2              168      81,280     22,925  1.487   3.57  0.249   42.1    69,359 100.0
+addR=3.0/own/max1                 168      85,708     22,925  1.522   3.76  0.264   44.6    73,786 100.0
+addR=3.0/own/max2                 168      85,708     22,925  1.522   3.76  0.264   44.6    73,786 100.0
+
+------------------------------------------------------------------------------------------------------------------------------------
+5y window  (from 2021-08-13 to 2026-08-13)
+------------------------------------------------------------------------------------------------------------------------------------
+config                              n        net$     maxDD$     PF    MAR   EV R   R/YR   worst12  w12%
+CROWN (pyr_add_R=0)               774     319,297     22,925  1.473   2.79  0.249   38.6    19,036 100.0
+addR=0.5/shared/max1              774     429,825     37,874  1.477   2.28  0.259   40.3    23,072 100.0
+addR=0.5/shared/max2              774     482,102     57,635  1.499   1.68  0.277   42.9     9,842 100.0
+addR=0.5/own/max1                 774     416,223     36,829  1.449   2.27  0.237   36.7    16,936 100.0
+addR=0.5/own/max2                 774     439,810     52,663  1.446   1.68  0.241   37.5     3,860 100.0
+addR=1.0/shared/max1              774     371,574     35,937  1.509   2.07  0.274   42.6    18,052 100.0
+addR=1.0/shared/max2              774     399,598     35,937  1.545   2.23  0.293   45.6    17,136 100.0
+addR=1.0/own/max1                 774     342,884     34,519  1.471   1.99  0.254   39.5    19,010 100.0
+addR=1.0/own/max2                 774     366,341     34,519  1.502   2.13  0.271   42.1    18,094 100.0
+addR=1.5/shared/max1              774     359,948     22,925  1.528   3.15  0.280   43.5    18,307 100.0
+addR=1.5/shared/max2              774     355,087     22,925  1.517   3.11  0.275   42.7    18,307 100.0
+addR=1.5/own/max1                 774     352,725     23,531  1.518   3.01  0.276   42.9    16,895 100.0
+addR=1.5/own/max2                 774     347,822     25,992  1.511   2.68  0.273   42.4    16,895 100.0
+addR=2.0/shared/max1              774     347,321     22,925  1.513   3.04  0.270   42.0    18,120 100.0
+addR=2.0/shared/max2              774     331,174     29,281  1.479   2.27  0.253   39.3    18,120 100.0
+addR=2.0/own/max1                 774     342,753     22,925  1.507   3.00  0.267   41.5    18,120 100.0
+addR=2.0/own/max2                 774     337,849     22,925  1.497   2.96  0.263   40.8    18,120 100.0
+addR=3.0/shared/max1              774     314,436     24,642  1.464   2.56  0.245   38.0    19,036 100.0
+addR=3.0/shared/max2              774     314,436     24,642  1.464   2.56  0.245   38.0    19,036 100.0
+addR=3.0/own/max1                 774     314,394     25,262  1.466   2.50  0.245   38.1    19,036 100.0
+addR=3.0/own/max2                 774     314,394     25,262  1.466   2.50  0.245   38.1    19,036 100.0
+
+====================================================================================================================================
+FAIRNESS READ — FULL window, net/DD divided by the CONFIG'S OWN avg units-per-trade
+  (MAR is bit-identical to the raw table above: both numerator and denominator
+   are divided by the same constant, so this isolates leverage from real edge.)
+====================================================================================================================================
+config                          avgUnit   net/unit$   DD/unit$    MAR   read
+CROWN (pyr_add_R=0)                1.00     397,150     28,857   0.85   baseline
+addR=0.5/shared/max1               1.43     380,149     26,570   0.88   MAR IMPROVES (real edge)
+addR=0.5/shared/max2               1.60     364,547     36,065   0.62   net only (leverage)
+addR=0.5/own/max1                  1.43     368,315     25,837   0.88   MAR IMPROVES (real edge)
+addR=0.5/own/max2                  1.60     336,687     32,954   0.63   net only (leverage)
+addR=1.0/shared/max1               1.17     373,386     33,327   0.69   net only (leverage)
+addR=1.0/shared/max2               1.20     390,271     32,507   0.74   net only (leverage)
+addR=1.0/own/max1                  1.17     349,803     33,745   0.64   net only (leverage)
+addR=1.0/own/max2                  1.20     359,596     32,915   0.68   net only (leverage)
+addR=1.5/shared/max1               1.07     408,089     33,239   0.76   net only (leverage)
+addR=1.5/shared/max2               1.08     398,822     32,958   0.75   net only (leverage)
+addR=1.5/own/max1                  1.07     400,843     33,248   0.75   net only (leverage)
+addR=1.5/own/max2                  1.08     391,740     32,967   0.73   net only (leverage)
+addR=2.0/shared/max1               1.03     416,185     28,028   0.92   MAR IMPROVES (real edge)
+addR=2.0/shared/max2               1.03     399,511     28,380   0.87   MAR IMPROVES (real edge)
+addR=2.0/own/max1                  1.03     407,225     28,028   0.90   MAR IMPROVES (real edge)
+addR=2.0/own/max2                  1.03     401,467     27,968   0.89   MAR IMPROVES (real edge)
+addR=3.0/shared/max1               1.01     387,318     28,595   0.84   worse on both
+addR=3.0/shared/max2               1.01     387,318     28,595   0.84   worse on both
+addR=3.0/own/max1                  1.01     387,430     28,595   0.84   worse on both
+addR=3.0/own/max2                  1.01     387,430     28,595   0.84   worse on both
+
+====================================================================================================================================
+ADDED UNITS ONLY — FULL window (excludes unit 1 / the original entry)
+====================================================================================================================================
+config                           n adds   net$ adds  PF adds
+addR=0.5/shared/max1                978     144,715    1.369
+addR=0.5/shared/max2               1375     185,427    1.326
+addR=0.5/own/max1                   978     127,847    1.298
+addR=0.5/own/max2                  1375     140,905    1.229
+addR=1.0/shared/max1                397      40,713    1.230
+addR=1.0/shared/max2                465      72,058    1.356
+addR=1.0/own/max1                   397      13,058    1.070
+addR=1.0/own/max2                   465      35,178    1.161
+addR=1.5/shared/max1                166      40,405    1.652
+addR=1.5/shared/max2                187      34,112    1.426
+addR=1.5/own/max1                   166      32,635    1.482
+addR=1.5/own/max2                   187      26,454    1.309
+addR=2.0/shared/max1                 68      31,345    2.247
+addR=2.0/shared/max2                 73      15,047    1.349
+addR=2.0/own/max1                    68      22,120    1.698
+addR=2.0/own/max2                    73      17,064    1.445
+addR=3.0/shared/max1                 21      -6,294    0.650
+addR=3.0/shared/max2                 21      -6,294    0.650
+addR=3.0/own/max1                    21      -6,181    0.654
+addR=3.0/own/max2                    21      -6,181    0.654
+
+====================================================================================================================================
+GATES (pre-registered, ROUND10_SPEC.md)
+====================================================================================================================================
+config                         gate   detail
+addR=0.5/shared/max1           FAIL   G1(5yMAR=2.28,fullMAR=0.88), G3(oosNet=85451/87132,oosPF=1.37/1.53)
+addR=0.5/shared/max2           FAIL   G1(5yMAR=1.68,fullMAR=0.62), G3(oosNet=74983/87132,oosPF=1.28/1.53)
+addR=0.5/own/max1              FAIL   G1(5yMAR=2.27,fullMAR=0.88), G3(oosNet=70546/87132,oosPF=1.29/1.53)
+addR=0.5/own/max2              FAIL   G1(5yMAR=1.68,fullMAR=0.63), G3(oosNet=61496/87132,oosPF=1.22/1.53)
+addR=1.0/shared/max1           FAIL   G1(5yMAR=2.07,fullMAR=0.69), G3(oosNet=76664/87132,oosPF=1.40/1.53)
+addR=1.0/shared/max2           FAIL   G1(5yMAR=2.23,fullMAR=0.74), G3(oosNet=83596/87132,oosPF=1.44/1.53)
+addR=1.0/own/max1              FAIL   G1(5yMAR=1.99,fullMAR=0.64), G3(oosNet=78081/87132,oosPF=1.41/1.53)
+addR=1.0/own/max2              FAIL   G1(5yMAR=2.13,fullMAR=0.68), G3(oosNet=81849/87132,oosPF=1.43/1.53)
+addR=1.5/shared/max1           FAIL   G1(5yMAR=3.15,fullMAR=0.76)
+addR=1.5/shared/max2           FAIL   G1(5yMAR=3.11,fullMAR=0.75)
+addR=1.5/own/max1              FAIL   G1(5yMAR=3.01,fullMAR=0.75)
+addR=1.5/own/max2              FAIL   G1(5yMAR=2.68,fullMAR=0.73)
+addR=2.0/shared/max1           PASS   -
+addR=2.0/shared/max2           FAIL   G1(5yMAR=2.27,fullMAR=0.87), G3(oosNet=76298/87132,oosPF=1.43/1.53)
+addR=2.0/own/max1              PASS   -
+addR=2.0/own/max2              FAIL   G3(oosNet=84375/87132,oosPF=1.50/1.53)
+addR=3.0/shared/max1           FAIL   G1(5yMAR=2.56,fullMAR=0.84), G3(oosNet=81280/87132,oosPF=1.49/1.53)
+addR=3.0/shared/max2           FAIL   G1(5yMAR=2.56,fullMAR=0.84), G3(oosNet=81280/87132,oosPF=1.49/1.53)
+addR=3.0/own/max1              FAIL   G1(5yMAR=2.50,fullMAR=0.84), G3(oosNet=85708/87132,oosPF=1.52/1.53)
+addR=3.0/own/max2              FAIL   G1(5yMAR=2.50,fullMAR=0.84), G3(oosNet=85708/87132,oosPF=1.52/1.53)
+
+G4 PLATEAU CHECK (best config by 5y MAR): NOT PLATEAU best=addR=2.0/shared/max1 (5yMAR 3.04, gain 0.25 over crown 2.79); neighbours: addR=1.5/shared/max1: keeps 145%; addR=3.0/shared/max1: keeps -96%; addR=2.0/own/max1: keeps 84%; addR=2.0/shared/max2: keeps -214%
+
+2 / 20 configs PASS all gates.
+
+====================================================================================================================================
+5-BULLET READ
+====================================================================================================================================
+1. Pyramiding raises net across nearly every config (crown $397,150 -> up to $582,578 at
+   addR=0.5/shared/max2) but that is mostly LEVERAGE: avg units/trade climbs to 1.03-1.60,
+   and once net/DD are divided back down to a per-unit basis, only a narrow band (addR=0.5
+   at max1, and addR=2.0 at any stop/max) shows a REAL MAR improvement (0.85 -> 0.88-0.92);
+   everything at addR=1.0-1.5 or at max2 sizing is "net only (leverage)" or worse.
+2. 2 of 20 configs clear gates G1/G2/G3/G5 outright: addR=2.0/shared/max1 (full MAR 0.92,
+   5y MAR 3.04) and addR=2.0/own/max1 (full MAR 0.90, 5y MAR 3.00) - both are single-add,
+   max1 configs; every max2 (second-add) variant FAILS, mostly on G3 (OOS PF/net below the
+   crown) because the second add fires rarely (n_adds in the tens to low hundreds) and its
+   own edge is thin-to-negative at the wider addR thresholds.
+3. G4 (plateau) KILLS both gate-passing survivors: addR=2.0/shared/max1's neighbour on
+   pyr_max (max2) keeps -214% of its 5y-MAR gain over the crown (net NEGATIVE gain), and its
+   addR=3.0 neighbour keeps -96% - the "add trigger" and "how many adds" knobs are both
+   cliffs, not a plateau. Result: 0/20 configs pass all 5 gates.
+4. The added units' own book (FULL window, ADDED UNITS ONLY table) shows the edge decays
+   with distance: addR=0.5 adds are consistently profitable (PF 1.2-1.4, biggest single
+   contributor to net, 978-1375 fills) but addR=3.0 adds are a small LOSING sideshow (21
+   fills, -$6.2k, PF 0.65) - the "add into strength" idea only pays close to entry, which
+   is also where G1's full-MAR gate is hardest to clear (the extra units drag DD up before
+   the win-rate advantage of an early add offsets it).
+5. VERDICT: pyramiding is NOT adopted from this round. It reliably manufactures more net
+   dollars (that is real, tradeable money) but the fairness-scaled read shows most of it is
+   leverage rather than a sharper edge, the two spots where MAR genuinely improves both fail
+   the pre-registered plateau gate, and the crown ($397,150 full / MAR 0.85, MAR 2.79 5y)
+   remains the reference. If this family is revisited, addR in the 0.4-0.6 zone at max1
+   (where the added units themselves are profitable, PF>1.2, and MAR does improve on a
+   per-unit basis) is the only region worth re-fencing with a tighter grid.
