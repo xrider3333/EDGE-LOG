@@ -7,6 +7,89 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUND 44: THE CROWN IS ON THE WRONG BAR — 15 minutes beats 5 on almost everything, and the clause that said otherwise was mis-specified (STUDIES rows 1606-1610, web v73.666)
+
+**Owner ask:** *"keep testing noise."* Round 41 walked a bar ladder while chasing the 2-minute
+scalp story and printed something it never followed up: for the crown's geometry, ranked on
+net-over-drawdown at the stressed cost, **5 minutes was the worst bar it tested** (10m 23.6, 3m 23.4,
+2m 19.4, 5m 16.1, 1m 7.4). It summarised that as *"the bar barely matters"* — true of the 2m-vs-5m
+comparison it cared about, not true of its own numbers. The 5-minute bar is what the crowned,
+paper-traded, NinjaTrader-deployed configuration actually trades. This round is the proper look:
+the **live #304 geometry, unchanged**, on 2 / 3 / 5 / 10 / 15-minute bars.
+
+Harness `tools/r44_noise_crown_bar.py`, pre-registration fixed before any cell ran. One source tape
+(the registered NQ 1m master, round 41's resampler reused) with **two** parity gates, one more than
+round 41 had: the resampled 5m and 15m tapes must each reproduce their REGISTERED master on the
+crown geometry. Both pass (−0.06% and +0.40% on net).
+
+**A GATE CAUGHT A REAL METHOD BUG FIRST.** The 15m gate initially failed by 2.54% on money with the
+trade count matching to 0.13%. Cause: the registered 15m master **ends 2026-06-30 mid-session** while
+the 1m tape runs to 2026-07-16, so the two were being compared over different calendars. Clipping
+each gate to its own master's last bar fixes it. **This also means round 41's 3-minute and 10-minute
+cells were never checkable against anything** — no registered master exists at those sizes — which is
+one more reason its ladder deserved re-running rather than quoting.
+
+### The ladder — live crown geometry, unchanged, at the stressed cost (0.783 pts / $15.66)
+
+| bar | n | PF | net $ | DD $ | net/DD | slices | top-10 | ex-top-10 $ | $/trade |
+|---|---|---|---|---|---|---|---|---|---|
+| 2m | 6,915 | 1.278 | 290,830 | 15,819 | **18.38** | 6/8 | 27.3% | 211,542 | 42 |
+| 3m | 5,626 | 1.307 | 301,788 | 15,278 | **19.75** | 5/8 | 25.9% | 223,510 | 54 |
+| 5m **(what it trades)** | 4,424 | 1.351 | 311,783 | 17,497 | **17.82** | 7/8 | 23.6% | 238,230 | 70 |
+| **10m** | 3,319 | 1.403 | 301,990 | 10,030 | **30.11** | 7/8 | 24.3% | 228,516 | 91 |
+| **15m** | 2,759 | 1.494 | 324,006 | 9,386 | **34.52** | 7/8 | 21.7% | 253,727 | 117 |
+
+**15 minutes beats the bar it trades on everything that matters, and it is not close.** More money
+($324,006 against $311,783) on **38% fewer trades**, **half the drawdown** ($9,386 against $17,497),
+net-over-drawdown **34.52 against 17.82**, profit factor 1.494 against 1.351, a **lower** top-10 share
+(21.7% against 23.6%), and **$117 a trade against $70**. Ten minutes is the same story one
+step down. Both hold at every cost on the ladder, and the pre-registered **neighbour-sanity clause
+passes** — 10m and 15m are adjacent and both beat 5m, so this is a region of the bar dimension, not
+one lucky grid alignment. A fatter bar is also *easier* to trade live, not harder: fewer fills, each
+one bigger relative to the spread.
+
+### The one clause it failed — and why the clause was wrong
+
+I pre-registered that a challenger must not be **worse in the recent stretch** than the 5-minute
+cell. On raw numbers 15m fails it (recent $28,126 at PF 1.135 against 5m's $61,015 at PF 1.249), and
+by the letter of the pre-registration nothing is queued automatically. **But the clause is
+mis-specified, and this round says so rather than quietly rewriting it.** Comparing two
+configurations' *absolute* recent performance punishes whichever one is not currently hot. Measured
+against **each cell's own history** — sliding a window of the same trade count through its own
+pre-split record — every bar is at or above its own median right now:
+
+| bar | recent $/trade | percentile of its OWN history | its own median |
+|---|---|---|---|
+| 2m | $90 | 84.4th | $12 |
+| 3m | $68 | 70.8th | $17 |
+| **5m (crown)** | **$153** | **87.6th** | $41 |
+| 10m | $61 | 51.0th | $44 |
+| 15m | ${PT15B} | 61.3th | $57 |
+
+Nothing is broken on 15 minutes. **The 5-minute bar is simply having one of the best stretches of
+its own life** (87.6th percentile), and my clause read that as the challengers failing. The same
+clause failed round 43's C3 the day before; that verdict stands on its concentration failure, which
+this correction does not touch — but the recency clause should not be used again in this form. The
+right version compares each candidate against its own distribution, which is now in the harness.
+
+### What happens next
+
+**Queued: the full declared space of `NOISE_1_0.py` on the registered 15-minute master**, job
+`kzTWeRL5SR5c0po62KOM` (`tools/queue_noise_15m_validate.py`; open ranges — a pinned variant would
+give n_evaluated=1 and kill the plateau, parallel-coordinate and PBO reads), 8 walk-forward folds,
+**a 12-month lockbox that has never been opened** (the 5-minute NOISE lockbox is spent; this one is
+not — that is the single best reason to run this on 15m rather than argue about it).
+
+**Nothing moved.** The crown stays run #304 on 5 minutes, the paper board and NinjaTrader are
+untouched, and no bar is crowned on a re-read of spent years. If that validate comes back PASS with
+a clean lockbox, the bar change is the cheapest real improvement this family has been offered: same
+rules, same file, same knobs, a different chart.
+
+Files: `tools/r44_noise_crown_bar.py`, `tools/queue_noise_15m_validate.py`; results
+`tools/r37_results/r44_crown_bar.csv`, `r44_crown_bar.txt`.
+
+---
+
 ## 🔬 2026-09-09 — ROUND 43: round 41's cost-robust GEOMETRY vs the LIVE crown — it wins the trade, FAILS the swap (STUDIES rows 1600-1605, web v73.662)
 
 **Owner ask:** *"keep testing noise."* Round 41 closed the 2-minute leg idea and left exactly one

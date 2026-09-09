@@ -1,0 +1,24 @@
+============================================================================================================
+THE BAR: an alternative must beat 5m on net-over-drawdown at ALL THREE costs, match its
+profit factor and slice count, stay within 5 points on top-10 share with a positive
+ex-top-10 net, not be worse in the spent recent stretch, and its NEIGHBOURING bars must
+beat 5m too (a lone winning bar is a session-grid artifact, not an edge).
+============================================================================================================
+    2m: net/DD NO | PF NO | slices NO | concentration ok | recent stretch NO
+    3m: net/DD NO | PF NO | slices NO | concentration ok | recent stretch NO
+   10m: net/DD beats 5m | PF ok | slices ok | concentration ok | recent stretch NO
+   15m: net/DD beats 5m | PF ok | slices ok | concentration ok | recent stretch NO
+
+  5m reference at 0.783: net/DD 17.82, PF 1.351, 7/8 slices, top-10 23.6%, $70 a trade, recent stretch $61,015 at PF 1.249
+  -> NO BAR CLEARS EVERY CLAUSE. The crown stays on 5 minutes and round 41's
+     ladder is explained: it ranked one metric at one cost on one window.
+
+THE RECENT STRETCH IN CONTEXT -- is each bar's weak patch unusual for itself?
+  (its own pre-split history, sliding a window of the same trade count, at 0.783)
+      2m: recent $    90 a trade over  622 trades -- the 84.4th percentile of its own history (median $12, worst $-17)
+      3m: recent $    68 a trade over  513 trades -- the 70.8th percentile of its own history (median $17, worst $-15)
+      5m: recent $   153 a trade over  399 trades -- the 87.6th percentile of its own history (median $41, worst $-12)
+     10m: recent $    61 a trade over  297 trades -- the 51.0th percentile of its own history (median $44, worst $-14)
+     15m: recent $   110 a trade over  256 trades -- the 61.3th percentile of its own history (median $57, worst $-17)
+  A low percentile everywhere means the whole family is in a soft patch, not that
+  the 5-minute bar is uniquely regime-current.
