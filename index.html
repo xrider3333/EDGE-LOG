@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.670';
+const VERSION='73.671';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -731,6 +731,7 @@ window._dataFeedWarn=function(){
 const CHANGELOG=[
 {v:'73.670',date:'2026-09-09',notes:['COMPARE - STUDIES: the gap-stress read on the validated structural stop, rows 1613-1616. It corrected the worry rather than confirming it: the ATR legs stop on 10.6 percent of trades and lose 43 to 44 percent of their gross losses there, the structural leg stops on 13.2 percent and loses 6.8 percent there. Under up to 10 points of slippage on every stop fill and stop losses scaled up to six times, it still beats the book leg on money, profit factor and lockbox.','Overnight gap risk is zero for this leg - it is flat at every session close, so the largest gap on the tape, 10,838 dollars on the 2024 yen-carry unwind, reached no position. The limits are stated too: the stress aimed at the stop channel, which is not where this leg loses, and the one wide-stop-specific number is a single trade.']},
 {v:'73.669',date:'2026-09-09',notes:['COMPARE - STUDIES: the TTM structural stop is VALIDATED. Run 353 passes all six gates and clears every clause of the bar written before it: lockbox 16,977 dollars at profit factor 6.72 against the book leg 6,948 at 2.38, whole run 101,017 at 2.91 and annualised MAR 1.450 against 0.957, at a drawdown of 4,338 against 4,549 - LOWER in the whole run and in the lockbox alike.','Run 352, the first attempt, passed every gate and MISSED the same bar: its search walked to a looser verification length, nearly doubling the trades and lifting drawdown 57 percent for a dead-heat MAR. Run 353 is the same file with that one knob held at the incumbent own value. Adoption still waits on a gap-stress read of the wider stop and a book run against the book in production.']},
+{v:'73.671',date:'2026-09-09',notes:['COMPARE BETA, PHASE 4b: EXPLORE loses the twenty-five-control sidebar. The profit stage and the strategy rail stay in plain sight, because comparing within and across strategies on in-sample, walk-forward and lockbox is what this screen is for. Everything else moves behind three buttons - FILTERS, VIEWS and READ - and not one control was rewritten to do it: the sidebar was already built from named groups, so each group is re-hosted exactly as it is. Same markup, same handlers, same chart.','The COMPARE FOR presets were already there, on the chart tile, and they stay there. A second bar under the same name was written for this screen and then deleted in review: three of its four axis pairs disagreed with the real one, which would have put two identically-labelled controls on one screen giving different answers.','FILTERS counts only what is actually narrowing the board from behind that button, so a filtered chart cannot look like an unfiltered one. The HOW TO READ toggle comes with it, since it used to live in the sidebar and would otherwise have been unreachable here.','The old COMPARE tab is untouched: the studies parity fingerprint reports the board identical across all sixteen control combinations, measured against the same commit.']},
 {v:'73.666',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 44, rows 1606-1610 - THE CROWN IS ON THE WRONG BAR. The live crown geometry, unchanged, on a 15-minute chart makes MORE money than on the 5-minute chart it trades (324,006 against 311,783 dollars) on 38 percent fewer trades, with half the drawdown (9,386 against 17,497), net-over-drawdown 34.52 against 17.82, profit factor 1.494 against 1.351, a lower top-10 share and 117 dollars a trade against 70; the 10-minute neighbour confirms it. Two parity gates, three costs, entry-sliced. One pre-registered clause failed and is reported as MIS-SPECIFIED rather than quietly rewritten: comparing absolute recent performance punishes whichever configuration is not hot, and against each cell own history every bar is at or above its median now, with the 5-minute bar at the 87.6th percentile of its own record. The full declared space is QUEUED on the registered 15-minute master, whose 12-month lockbox has never been opened. Nothing crowned, paper board and NinjaTrader untouched.']},
 {v:'73.662',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 43, rows 1600-1605. Round 41 left one lead - its cost-robust geometry carried to the crown own 5-minute bar - and named it a replacement candidate for the crown. Tested against the crown that actually trades (run 304): it wins profit factor 1.569 against 1.351, net-over-drawdown 19.52 against 17.83 and 101 dollars a trade against 70 at one extra tick, and it decays half as fast across the cost ladder. It FAILS two pre-registered clauses - top-10 share 32.0 percent against the crown 23.6 where 5 points were allowed, and a recent stretch of 3,446 dollars at profit factor 1.03 against the crown 61,015 at 1.25 - and it gives up 38 percent of the crown money on 57 percent fewer trades. NOTHING MOVES: the crown stays run 304, the paper board and NinjaTrader are untouched, and the geometry is banked as the one to reach for if fills ever get materially worse.']},
 {v:'73.661',date:'2026-09-09',notes:['COMPARE - STUDIES: TTM Squeeze round 12, rows 1584-1599 - five parallel hunts for a new version of the squeeze. Squeeze Pro grading, cross-instrument compression, coil shape and most pre-session state are all clean negatives.','THE ROUND CAUGHT A LOOK-AHEAD BUG IN ITS OWN BEST RESULT: a pre-session rule that beat the incumbent everywhere at p 0.0000 was reading the close of the day being traded. Read honestly it gives up a third of the money. The strategy file caught the scan - which is now the standing rule: a scan result becomes a strategy file before it becomes a belief.','ONE REAL LEAD: stopping at the far side of the squeeze range instead of 1.5 ATR lifts profit factor 2.12 to 2.70 and the lockbox 4,992 to about 11,650 dollars at no worse drawdown, at three buffers alike - with the recorded caveat that the stop is 76 percent wider per contract. It is being written as a fenced file so it can be tested rather than believed.']},
@@ -26104,12 +26105,61 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the COMPARE BETA screen strip, so EXPLORE is a screen of that tab rather than a
         //   detour into the old one. Deliberately plain: the redesigned chrome lands next,
         //   and until it does the honest thing is to say what this screen currently is.
+        // ── PHASE 4b: the EXPLORE chrome ───────────────────────────────
+        //    Not one control is rewritten. The sidebar is already assembled from named
+        //    groups, so each group is re-hosted as-is - the identical markup, therefore the
+        //    identical handlers, therefore the identical chart. What changes is only WHERE
+        //    each group sits: the profit stage and the strategy rail stay in view, because
+        //    comparing within and across strategies on IS / WF / LB is what this screen is
+        //    for, and the rest goes behind a button.
+        //    The COMPARE FOR presets are NOT re-made here: the board already carries them on
+        //    the chart tile, with better descriptions than a second set would have had, and
+        //    a duplicate bar under the same name whose pairs disagreed would be worse than
+        //    no bar at all.
+        const _c2Sheet=(['filters','views','read'].indexOf(APREF.c2Sheet)>=0)?APREF.c2Sheet:'';
+        // how many controls behind the FILTERS button are actively narrowing the board, so
+        //   it can say so rather than the user having to open it to find out. Only what is
+        //   BEHIND that button counts - the strategy rail is in plain sight above.
+        const _c2FiltN=(function(){let n=0;try{const f=_reFilt||{};
+          ['tone','run','study'].forEach(k=>{if(Array.isArray(f[k])&&f[k].length)n++;});}catch(e){}
+          if(_reMinTrd>0)n++; if(_reScope&&_reScope!=='all')n++; if(_reFailOn)n++;
+          if(_reLvl&&_reLvl!=='all')n++; if(_reShowCfg)n++; return n;})();
+        const _c2SheetBtn=(k,lbl,n)=>'<span data-c2sheet="'+k+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;cursor:pointer;border:1px solid '
+          +((k===_c2Sheet)?'color-mix(in srgb,var(--blue) 55%,transparent);color:var(--blue)':'var(--border);color:var(--text3)')+'">'+lbl+(n?(' \u00b7 '+n):'')+'</span>';
         const _c2ExpSeg=!_c2Exp?'':[['lead','LEADERBOARD'],['cmp','COMPARE'],['explore','EXPLORE']]
           .map(o=>'<span data-c2screen="'+o[0]+'" style="font-size:10px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:7px;cursor:pointer;user-select:none;white-space:nowrap;line-height:1;'
             +((o[0]==='explore')?'background:var(--bg1);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)':'color:var(--text4)')+'">'+o[1]+'</span>').join('');
         const _c2ExpTop=_c2Exp?('<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">'
           +'<span style="display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:2px;gap:2px">'+_c2ExpSeg+'</span>'
           +'<span style="margin-left:auto;font-size:9px;letter-spacing:1.4px;color:var(--text5);font-weight:700">COMPARE \u03b2 \u00b7 THIS IS THE STUDIES BOARD ITSELF - SAME CHART, SAME CONTROLS, SAME NUMBERS</span></div>'):'';
+        if(_c2Exp){
+          // the sheet holds the board's OWN control groups, moved not rebuilt. FILTERS keeps
+          //   the ones that decide which rows exist; VIEWS the other three drawings; AXES the
+          //   full pair of pickers, for anything the four presets do not cover.
+          const _c2SheetBody=(_c2Sheet==='filters')
+            ?_reGrid(_reLvlBtns+_reShowBtns+_reCfgSel+_reCfgFamBtns+_reFailBtns+_reMinTrdBtns
+                     +_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
+                     +_reViewBtns+_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns
+                     +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
+            :((_c2Sheet==='views')?_reGrid(_reChartBtns)
+            :((_c2Sheet==='read')?_reGrid(_reReadBtns):''));
+          const _c2Bar='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+            +_c2SheetBtn('filters','FILTERS',_c2FiltN)+_c2SheetBtn('views','VIEWS',0)+_c2SheetBtn('read','READ',0)
+            // the HOW TO READ toggle only ever rendered inside the sidebar, so without this
+            //   the panel could be neither opened nor closed from this screen.
+            +'<span style="margin-left:auto">'+_reHelpBtn+'</span>'
+            +'</div>';
+          // capped and scrollable, like the sidebar it replaces - fifteen control groups at
+          //   full width would otherwise push the chart below the fold.
+          const _c2SheetWrap=_c2Sheet?('<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;margin-bottom:10px;max-height:52vh;overflow-y:auto">'+_c2SheetBody+'</div>'):'';
+          // the stage picker and the strategy rail never go behind a button: choosing a
+          //   strategy and choosing which stretch of its life you are judging are the two
+          //   things this screen exists to let you do.
+          const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
+            +_reGrid(_reStageBtns+_reFamRail)+'</div>';
+          body=_c2ExpTop+_c2Bar+_c2SheetWrap+_c2Keep+_reChartTile
+            +'<div style="margin-top:10px">'+_reBody+'</div>';
+        }else{
         body=_c2ExpTop+'<div style="display:flex;align-items:stretch;gap:2px;min-height:calc(100vh - 96px)">'+_reSideBar+_reSideBarDrag
           +'<div style="flex:1 1 0;min-width:0">'
             +(_reSplit?('<div style="display:flex;align-items:flex-start;flex-wrap:nowrap">'
@@ -26121,8 +26171,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_reChartTile
             +(_reSplit?'</div></div>':'')
           +'</div></div>'
+          ;}
 
-          +'<div data-rehelp style="'+(_reHelp?'':'display:none;')+'">'+tile(
+        body+='<div data-rehelp style="'+(_reHelp?'':'display:none;')+'">'+tile(
             '<div class="lbl" style="font-size:11px;letter-spacing:1.6px;color:var(--text4);margin-bottom:7px">HOW TO READ THIS BOARD</div>'
             +'<div style="font-size:9px;color:var(--text5);line-height:1.8;max-width:960px">'
             +'ONE CHART, one table per study. The chart above every table used to be fourteen separate charts on fourteen different scales, which made a strategy whose research is spread over five studies impossible to read as one picture; the STRATEGY rail is how you move between strategies now. Each study still keeps its OWN table, because the studies do not share a yardstick. This board compares individual strategies against each other and never combinations of strategies, because a combination ties up more margin than one strategy does and the two can never be read as a like-for-like comparison. Use the RUNBOARD mode to compare whole strategy combinations. A dash means the figure genuinely does not exist for that row; hover it and it says why. Drawdown is always shown as a positive number. Row numbers are permanent handles and never change. The STATUS column keeps apart two things that are easy to confuse: CROWN means the row is the standing champion of its family, and PAPER means that exact configuration is running in the nightly paper forward test right now. A row can be one, both or neither.</div>'
@@ -31130,6 +31181,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     // the COMPARE BETA buttons, in a function because two branches now render them: the
     //   tab's own screens, and the EXPLORE screen, which is drawn by the old tab's branch.
     const _wireC2=(content)=>{
+      // EXPLORE: the three sheets. The COMPARE FOR presets are the board's own and are
+      //   already wired with the rest of it.
+      content.querySelectorAll('[data-c2sheet]').forEach(b=>{b.onclick=()=>{
+        const k=b.dataset.c2sheet;savePref('c2Sheet',(APREF.c2Sheet===k)?'':k);renderApp();};});
       content.querySelectorAll('[data-c2screen]').forEach(b=>{b.onclick=()=>{savePref('c2Screen',b.dataset.c2screen);renderApp();};});
       content.querySelectorAll('[data-c2rank]').forEach(b=>{b.onclick=()=>{savePref('c2Rank',b.dataset.c2rank);renderApp();};});
       content.querySelectorAll('[data-c2stage]').forEach(b=>{b.onclick=()=>{savePref('c2Stage',b.dataset.c2stage);renderApp();};});

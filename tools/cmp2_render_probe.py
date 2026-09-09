@@ -211,6 +211,14 @@ var FIX = __FIX__;
         r.rows=d.querySelectorAll('tr[data-rerow]').length;
         r.screenBtns=d.querySelectorAll('[data-c2screen]').length;
         r.hold=!!d.querySelector('.c2-hold');
+        // phase 4b chrome: the preset bar, the three sheet buttons, and the two control
+        //   groups that must never hide - the profit stage and the strategy rail. The old
+        //   sidebar must be gone from this screen (it is still there on the old tab).
+        r.presets=d.querySelectorAll('[data-respreset]').length;
+        r.sheets=d.querySelectorAll('[data-c2sheet]').length;
+        r.sidebar=d.querySelectorAll('[data-residel]').length;
+        r.stage=d.querySelectorAll('[data-resstage]').length;
+        r.help=d.querySelectorAll('[data-rehelptog]').length;
       })();
 
       // ── case 6: book (a BOOK run - own BOOKS row, dollars unscaled, LB dd off the book block) ─
@@ -565,10 +573,17 @@ def main(argv=None):
              and (r.get('rail') or 0) >= 1
              and (r.get('rows') or 0) >= 1
              and r.get('screenBtns') == 3
+             and (r.get('presets') or 0) >= 4   # the board's own COMPARE FOR bar
+             and r.get('sheets') == 3           # FILTERS / VIEWS / AXES
+             and r.get('sidebar') == 0          # the old control sidebar is gone here
+             and (r.get('stage') or 0) >= 1     # the profit stage stays in view
+             and (r.get('help') or 0) >= 1      # HOW TO READ is reachable from this screen
              and not r.get('hold'))
-    line('explore', ex_ok, 'call=%s points=%s rail=%s rows=%s screenBtns=%s hold=%s'
+    line('explore', ex_ok, 'call=%s points=%s rail=%s rows=%s screenBtns=%s presets=%s '
+         'sheets=%s sidebar=%s stage=%s help=%s hold=%s'
          % (r.get('call'), r.get('points'), r.get('rail'), r.get('rows'),
-            r.get('screenBtns'), r.get('hold')))
+            r.get('screenBtns'), r.get('presets'), r.get('sheets'), r.get('sidebar'),
+            r.get('stage'), r.get('help'), r.get('hold')))
     if not ex_ok:
         if r.get('call') != 'OK':
             fail('explore: renderApp threw -- %s' % str(r.get('call'))[:300])
@@ -586,6 +601,16 @@ def main(argv=None):
         if r.get('screenBtns') != 3:
             fail('explore: %s screen-switcher buttons, expected 3 - COMPARE BETA lost its '
                  'own strip on this screen' % r.get('screenBtns'))
+        if not (r.get('presets') or 0) >= 4:
+            fail('explore: the COMPARE FOR preset bar is missing (%s buttons)' % r.get('presets'))
+        if not (r.get('help') or 0) >= 1:
+            fail('explore: the HOW TO READ toggle is unreachable on this screen')
+        if r.get('sheets') != 3:
+            fail('explore: %s sheet buttons, expected 3' % r.get('sheets'))
+        if r.get('sidebar'):
+            fail('explore: the old control sidebar is still on this screen')
+        if not (r.get('stage') or 0) >= 1:
+            fail('explore: the profit stage picker is not in view - it must never be hidden')
         if r.get('hold'):
             fail('explore: still showing a placeholder card')
 
