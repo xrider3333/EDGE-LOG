@@ -259,6 +259,101 @@ the two-leg baseline control, and the three-leg candidate.
 
 ---
 
+## 10. 2026-09-09 — the risk clause every book bar used was inert, and what replaces it
+
+**The clause.** Every book bar written in this repo up to today read some version of *"annualised
+MAR at least X above the adopted book, at a WHOLE-RUN drawdown within Y percent of it, with a
+lockbox at least as large."* The middle clause is the one that broke.
+
+**Why it cannot bind.** A book's whole-run maximum drawdown is ONE stretch of tape. A candidate leg
+that took no trades inside that stretch cannot move the number at any weight. The TTM leg is the
+worked example: BOOK runs #336, #337 and #341 all record a whole-run drawdown of **$34,329.21 — the
+same to the cent** — even though #336 and #341 carry three ES contracts of a leg #337 does not have
+at all. The stretch belongs to the two NQ legs; the ES leg was absent for all of it.
+
+**The audit.** `tools/book_clause_audit.py` asked the question of every book adoption on the board.
+Verdicts, all on the pinned windows the stored runs used:
+
+| adoption | worst stretch | who paid | added leg present? | old clause | lockbox clause |
+|---|---|---|---|---|---|
+| **#336 vs #337** — TTM adopted as a leg | 2022-04-27..05-24, $34,329 | ENGU-Q 92%, ORB 8% | **no, 0 days** | PASS | **PASS** (LB DD $26,235 vs $33,112 — it *improved* it) |
+| **#341 vs #336** — validated tilt | same, unchanged | same | **no, 0 days** | MISS (MAR x1.049) | MISS (same reason) |
+| **#342 vs #336** — tilt + ES 15m | 2022-04-27..05-24, $34,564 | same | **no, 0 days both legs** | PASS | **PASS** (LB DD $26,098 vs $26,235) |
+| **weak-edge ETF book** #332 / #338 | its own: 2011-05-30..08-16 $73,194 / 2011-06-15..08-16 $43,818 | NQDIP 43%, then the QQQ/IWM legs | depends on the incumbent: **all 7** trade the r25 champion's 2020 stretch (dip-buyers, and that is a crash), but only **1 of 7** (GLD, 1 day) touches today's #337 baseline stretch | its bar had no drawdown clause; the stack bar it MISSED is unaffected | MISS harder — the stack raises lockbox drawdown 74–89% |
+| **NASDAQ WF book** (B11) | champion's: 2020-02-25..03-25, $71,773 | ENGU-Q ETH 63%, ORB 37% | **yes — 6 of 8 legs, −$52k of the stacked −$123,925** | PASS (+28% MAR here vs the +15% bar) | **MISS** — the stack raises last-12-months drawdown 104% |
+| **ORB x ENGU-Q 1:1 blend** | 2020-02-25..03-25 ($58,171 RTH leg / $71,773 ETH leg) | both legs, roughly half each | both present | n/a (a net/DD ranking) | not inert, but a one-month denominator |
+
+**So: nothing is retracted.** Two families split cleanly.
+
+*Decided on an inert clause, but the verdict survives the stronger one:* the three TTM book runs.
+The ES leg traded the incumbent's worst stretch **zero** days in all three, so the drawdown clause
+could not have failed — but #336 and #342 pass a lockbox-drawdown clause too, and #342 passes it
+because it **lowered** the lockbox drawdown ($26,098 vs $26,235), which is exactly the evidence the
+whole-run clause could never have supplied. #341 misses under both, for the same MAR reason
+already recorded.
+
+*Not inert at all:* the ETF and NASDAQ books. Both are dip-buying families and the incumbent's
+worst stretch is a crash, so their legs are heavily present in it — the NASDAQ book's eight legs
+add **−$52,391** of the stacked **−$123,925**, and all seven ETF legs trade the r25 champion's
+stretch. Their MAR bars were doing real work.
+
+**The one headline to re-read is B11's.** It cleared its +15% MAR bar honestly, but the same stack
+raises the champion's whole-run drawdown **+73%** and its last-12-months drawdown **+104%**
+($38,838 → $79,330) and **fails a lockbox-drawdown clause outright**. A bar written on MAR alone
+cannot see that; a bar written on lockbox drawdown would have. The evidence is put in front of the
+owner, not acted on here. (Two arithmetic notes on B11, recorded rather than repeated: the champion
+half of "8.31 → 11.20" reproduces at 8.30, but the stacked half does not — the eight book legs give
+10.60 (+28%) and only pooling all ten saved OOS series, which adds two per-fold JOINT series that
+are **not** part of the 8-leg book, reaches 11.30 (+36%). Every reading clears +15%.)
+
+**THE REPLACEMENT CLAUSE — use this wording for every future book bar.**
+`tools/book_dd_attribution.bar_text()` prints it so a queue driver states it rather than
+re-inventing it:
+
+> BAR (pre-registered) against *the incumbent book*: (1) annualised MAR at least 1.05x it;
+> (2) **LOCKBOX drawdown** within 5 percent of it; (3) lockbox net at least as large. The
+> WHOLE-RUN drawdown is reported as a **check, not a gate**: it is set by one stretch of tape, so
+> a leg that took no trades in that stretch cannot move it at any weight and the comparison says
+> nothing about the risk being added.
+
+The lockbox drawdown is the right number because it is measured on tape the legs' parameters never
+saw AND it actually responds to weight — the TTM leg's lockbox drawdown climbs $26,235 → $29,128
+going from three contracts to six while the whole-run number never moves at all.
+
+**The engine now supplies the evidence itself.** `augur_engine/book.py` writes
+`book.worst_stretch`, `book.worst_stretch_lockbox` and `book.inert_legs` onto every book result:
+the stretch's dates and depth, each leg's dollars and trading days inside it, and the names of any
+leg that was absent. The rows sum to the drawdown to the cent (the span is the days strictly AFTER
+the peak — including the peak day double-counts its P&L). COMPARE ▸ RUNBOARD's BOOKS table shows
+the stretch under each book's legs and flags the absent ones in yellow. Guarded by
+`tests/test_book_worst_stretch.py`.
+
+**Reproduce**
+
+```
+python tools/book_dd_attribution.py --run 341 --vs 336 --new-legs 1   # one pair, both clauses
+python tools/book_clause_audit.py                                     # the whole audit
+```
+
+### 10b. An open item this audit turned up: two day-stamping rules disagree
+
+The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
+stored BOOK runs record **2022-04-27..2022-05-24 at $34,329**. Same legs, same params, same master,
+**net identical to the cent**. The difference is how a trade is stamped to a day. `augur_engine/
+book.py` pools with `np.asarray(index, dtype="datetime64[D]")`, and numpy truncates a US/Eastern
+index *in UTC*, so a 24h leg's trade exiting at or after 20:00 ET (19:00 in winter) is booked on the
+NEXT day; the TTM driver used the ET calendar day. **227 of the ENGU-Q ETH leg's 1,179 exit days**
+carry their dollars on a different day under the two rules. Day-session legs are unaffected.
+
+Neither rule is the CME trade-date convention (which rolls at 18:00 ET). Nothing was changed on
+this account: every stored book run is on the engine's rule, so moving it would move every recorded
+book drawdown at once. `tools/book_dd_attribution.leg_daily(..., day_mode="session")` computes the
+other one on demand, and section 0 of the audit prints both. **The finding does not depend on it —
+under BOTH rules the TTM leg traded the stretch zero times.** Owner call on which rule a book should
+use.
+
+---
+
 ## 9. 2026-08-18 — the headline net on a book run was 20x too large (FIXED, forward-only)
 
 ### What the headline field on a book run means

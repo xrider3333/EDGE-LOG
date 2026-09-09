@@ -1,0 +1,14 @@
+book,question,worst_stretch,depth,biggest_contributor,contributor_share,candidate_days_in_stretch,old_clause,new_clause,note
+#337 baseline (ORB 234 + ENGU-Q 309),where is the book's worst stretch?,2022-04-27..2022-05-24,34329,ENGUQ_1M_ETH_ER_1_0 NQ 1m,92.2,-,-,-,one NQ month sets the whole-run drawdown; both legs are NQ so both pay
+#336 vs #337 baseline,round 7: TTM adopted as a book leg,2022-04-27..2022-05-24,34329,ENGUQ_1M_ETH_ER_1_0 NQ 1m,0.0,0,PASS,PASS,added leg traded 0 days in the incumbent's worst stretch
+#341 vs #336 adopted,"queue_ttm_tilt_books: MAR x1.05, DD within 5%, LB >=",2022-04-27..2022-05-24,34329,ENGUQ_1M_ETH_ER_1_0 NQ 1m,0.0,0,MISS,MISS,added leg traded 0 days in the incumbent's worst stretch
+#342 vs #336 adopted,"queue_ttm_tilt_books: MAR x1.05, DD within 5%, LB >=",2022-04-27..2022-05-24,34329,ENGUQ_1M_ETH_ER_1_0 NQ 1m,0.0,0,PASS,PASS,added leg traded 0 days in the incumbent's worst stretch
+#332 ETF/weak-edge book,own worst stretch,2011-05-30..2011-08-16,73194,NQDIP_1_0 NQ 5m,42.6,-,-,-,0 of 8 legs never traded in it
+#338 ETF/weak-edge book,own worst stretch,2011-06-15..2011-08-16,43818,ETFDIP_RSI2_1_0 IWM 1d,32.7,-,-,-,0 of 7 legs never traded in it
+house baseline #337 + #332,"r25 stack bar: MAR +15%, give up <=10% net",2022-04-27..2022-05-24,34329,(baseline NQ legs),0.0,3,MISS,MISS,ETF legs traded 3 days inside the baseline's worst stretch
+house baseline #337 + #338,"r25 stack bar: MAR +15%, give up <=10% net",2022-04-27..2022-05-24,34329,(baseline NQ legs),0.0,1,MISS,MISS,ETF legs traded 1 days inside the baseline's worst stretch
+r25 champion (ORB 234 + ENGU-Q ETH 226) + #332,"r25 stack bar: MAR +15%, give up <=10% net",2020-02-25..2020-03-25,71773,(baseline NQ legs),0.0,13,MISS,MISS,ETF legs traded 13 days inside the baseline's worst stretch
+r25 champion (ORB 234 + ENGU-Q ETH 226) + #338,"r25 stack bar: MAR +15%, give up <=10% net",2020-02-25..2020-03-25,71773,(baseline NQ legs),0.0,8,MISS,MISS,ETF legs traded 8 days inside the baseline's worst stretch
+champion + NASDAQ WF book (B11),adopt bar: raise champion MAR by >= 15%,2020-02-25..2020-03-25,71773,ENGU-Q ETH #226,0.0,8,PASS,MISS,NASDAQ legs traded 8 days inside the champion's worst stretch
+blend baseline: ORB #234 x ENGU-Q RTH #149 leg,"net/DD, the upgrade menu's ranking",2020-02-25..2020-03-25,58171,ENGU-Q RTH #149 leg,53.9,-,-,-,"both legs trade the stretch - the clause is not inert, but the denominator is still one month"
+blend baseline: ORB #234 x ENGU-Q ETH #226 leg,"net/DD, the upgrade menu's ranking",2020-02-25..2020-03-25,71773,ENGU-Q ETH #226 leg,62.7,-,-,-,"both legs trade the stretch - the clause is not inert, but the denominator is still one month"

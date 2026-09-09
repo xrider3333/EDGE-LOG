@@ -1,0 +1,380 @@
+BOOK RISK-CLAUSE AUDIT   2026-09-09 07:48
+question: for every book adoption on the board, where is the book's worst stretch, which legs
+paid for it, and would the adoption still clear on LOCKBOX drawdown instead of whole-run drawdown?
+
+============================================================================================================
+0. PROVENANCE - two day-stamping rules, two different worst stretches
+============================================================================================================
+The finding on file says 2020-02-21..2020-03-25 / $34,903. Every BOOK run records $34,329.21.
+Same legs, same params, same master. The difference is which DAY a trade is booked on.
+
+  (a) THE BOOK ENGINE'S RULE - numpy datetime64[D] on a US/Eastern index, i.e. truncated in UTC
+    worst stretch 2022-04-27 .. 2022-05-24 (peak 2022-04-26), $34,329 over 15 trading days
+      ENGUQ_1M_ETH_ER_1_0 NQ 1m                        -31,651   11 days    92.2% of it
+      ORB_3_6_C2 NQ 5m                                  -2,679   13 days     7.8% of it
+      TOTAL                                            -34,329   (decomposition check: must equal the stretch)
+
+  (b) THE ET CALENDAR DAY - the day the account would write on the ticket (the TTM driver's rule)
+    worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $34,903 over 11 trading days
+      ORB_3_6_C2 (ET session day)                      -26,796    9 days    76.8% of it
+      ENGUQ_1M_ETH_ER_1_0 (ET session day)              -8,107    6 days    23.2% of it
+      TOTAL                                            -34,903   (decomposition check: must equal the stretch)
+
+  engine rule  net $964,571  DD $34,329
+  ET-day rule  net $964,571  DD $34,903
+  227 leg-days carry their dollars on a different day; the NET is identical to the cent.
+  => this is a real inconsistency and it is REPORTED, NOT FIXED here: every stored book run is
+     on the engine's rule, so changing it would move every recorded book drawdown at once.
+     Everything below uses the engine's rule, i.e. the numbers the stored runs actually carry.
+  => the FINDING is unaffected either way: under BOTH rules the TTM leg traded the stretch
+     zero times, which is the whole point.
+
+============================================================================================================
+1. THE HOUSE BASELINE BOOK - run #337, ORB #234 + ENGU-Q #309, one NQ contract each
+============================================================================================================
+  net $964,571  whole-run DD $34,329  ann.MAR 1.749  lockbox $178,192  LB DD $33,112  15/17 years
+  whole run: worst stretch 2022-04-27 .. 2022-05-24 (peak 2022-04-26), $34,329 over 15 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ 1m                        -31,651   11 days    92.2% of it
+    ORB_3_6_C2 NQ 5m                                  -2,679   13 days     7.8% of it
+    TOTAL                                            -34,329   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-03-05 .. 2026-05-01 (peak 2026-03-04), $33,112 over 36 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ 1m                        -16,908   11 days    51.1% of it
+    ORB_3_6_C2 NQ 5m                                 -16,204   29 days    48.9% of it
+    TOTAL                                            -33,112   (decomposition check: must equal the stretch)
+
+============================================================================================================
+2. THE TTM ADOPTIONS - is the leg being judged even present in the stretch?
+============================================================================================================
+
+----------------------------------------------------------------------------------------------------
+  run #336  BOOK: ORB 234 + ENGU-Q 309 + TTM 299 x3
+  bar as written: round 7: TTM adopted as a book leg
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  #337 baseline               964,571      34,329    1.749     178,192      33,112
+  #336                      1,119,697      34,329    2.031     193,170      26,235
+  ratios                             1.000x   1.161x      1.084x      0.792x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    TTMSQZ_3_0_ES30N ES 30m x3                           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+  OLD clause  (MAR x1.05, WHOLE-RUN DD within 5%, lockbox >=): PASS   [MAR ok, DD ok, LB ok]
+  NEW clause  (MAR x1.05, LOCKBOX  DD within 5%, lockbox >=): PASS   [MAR ok, DD ok, LB ok]
+  VERDICT: this adoption's drawdown clause could not have failed - the leg it was asked about took NO trades in the book's worst stretch.
+
+----------------------------------------------------------------------------------------------------
+  run #341  BOOK: ORB 234 + ENGU-Q 309 + TTM 299 tilt x3
+  bar as written: queue_ttm_tilt_books: MAR x1.05, DD within 5%, LB >=
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  #336 adopted              1,119,697      34,329    2.031     193,170      26,235
+  #341                      1,174,222      34,329    2.129     199,035      27,209
+  ratios                             1.000x   1.049x      1.030x      1.037x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    TTMSQZ_3_0_ES30T ES 30m x3                           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+  OLD clause  (MAR x1.05, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD ok, LB ok]
+  NEW clause  (MAR x1.05, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD ok, LB ok]
+  VERDICT: this adoption's drawdown clause could not have failed - the leg it was asked about took NO trades in the book's worst stretch.
+
+----------------------------------------------------------------------------------------------------
+  run #342  BOOK: ORB 234 + ENGU-Q 309 + TTM 299 tilt x3 + TTM ES 15m x3
+  bar as written: queue_ttm_tilt_books: MAR x1.05, DD within 5%, LB >=
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  #336 adopted              1,119,697      34,329    2.031     193,170      26,235
+  #342                      1,241,601      34,564    2.236     209,287      26,098
+  ratios                             1.007x   1.101x      1.083x      0.995x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    TTMSQZ_3_0_ES30T ES 30m x3                           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    TTMSQZ_3_0_ES30N ES 15m x3                           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+  OLD clause  (MAR x1.05, WHOLE-RUN DD within 5%, lockbox >=): PASS   [MAR ok, DD ok, LB ok]
+  NEW clause  (MAR x1.05, LOCKBOX  DD within 5%, lockbox >=): PASS   [MAR ok, DD ok, LB ok]
+  VERDICT: this adoption's drawdown clause could not have failed - the leg it was asked about took NO trades in the book's worst stretch.
+
+============================================================================================================
+3. THE WEAK-EDGE / ETF DIP BOOK - runs #332 (ETF + NQDIP) and #338 (ETF only)
+============================================================================================================
+Its own bar (r25) was standalone PF >= 1.25 and MAR >= 8 - no drawdown-vs-incumbent clause at
+all - plus a STACK test on the champion book that it MISSED (+12% MAR vs a +15% bar). So the
+question here is not 'was it adopted on an inert clause' but 'is its own drawdown one stretch
+too', and what the stack looks like judged on the lockbox.
+
+----------------------------------------------------------------------------------------------------
+  run #332  BOOK: r25 weak-edge (ETF dips + NQDIP)
+  net $832,313  whole-run DD $73,194  ann.MAR 0.750  lockbox $85,335  LB DD $61,419
+  whole run: worst stretch 2011-05-30 .. 2011-08-16 (peak 2011-05-27), $73,194 over 18 trading days
+    NQDIP_1_0 NQ 5m                                  -31,167   12 days    42.6% of it
+    ETFDIP_RSI2_1_0 IWM 1d                           -14,308    2 days    19.5% of it
+    ETFDIP_PB20_1_0 QQQ 1d                           -12,015    4 days    16.4% of it
+    ETFDIP_RSI2_1_0 QQQ 1d                            -9,248    2 days    12.6% of it
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]        -9,248    2 days    12.6% of it
+    ETFDIP_DBL7_1_0 QQQ 1d                            -5,310    4 days     7.3% of it
+    ETFDIP_DBL7_1_0 GLD 1d                             1,604    2 days    -2.2% of it
+    ETFDIP_DBL7_1_0 TLT 1d                             6,499    4 days    -8.9% of it
+    TOTAL                                            -73,194   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2025-03-04 .. 2025-03-25 (peak 2025-02-14), $61,419 over 6 trading days
+    NQDIP_1_0 NQ 5m                                  -25,870    4 days    42.1% of it
+    ETFDIP_PB20_1_0 QQQ 1d                           -10,539    1 days    17.2% of it
+    ETFDIP_RSI2_1_0 IWM 1d                            -7,369    1 days    12.0% of it
+    ETFDIP_DBL7_1_0 QQQ 1d                            -6,794    1 days    11.1% of it
+    ETFDIP_RSI2_1_0 QQQ 1d                            -6,497    1 days    10.6% of it
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]        -6,497    1 days    10.6% of it
+    ETFDIP_DBL7_1_0 TLT 1d                                 0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    ETFDIP_DBL7_1_0 GLD 1d                             2,147    1 days    -3.5% of it
+    TOTAL                                            -61,419   (decomposition check: must equal the stretch)
+
+----------------------------------------------------------------------------------------------------
+  run #338  BOOK: r25 weak-edge ETF-ONLY (no NQDIP)
+  net $498,889  whole-run DD $43,818  ann.MAR 0.751  lockbox $53,879  LB DD $35,549
+  whole run: worst stretch 2011-06-15 .. 2011-08-16 (peak 2011-06-13), $43,818 over 10 trading days
+    ETFDIP_RSI2_1_0 IWM 1d                           -14,308    2 days    32.7% of it
+    ETFDIP_PB20_1_0 QQQ 1d                           -10,300    3 days    23.5% of it
+    ETFDIP_RSI2_1_0 QQQ 1d                            -9,248    2 days    21.1% of it
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]        -9,248    2 days    21.1% of it
+    ETFDIP_DBL7_1_0 QQQ 1d                            -7,252    3 days    16.5% of it
+    ETFDIP_DBL7_1_0 GLD 1d                             1,604    2 days    -3.7% of it
+    ETFDIP_DBL7_1_0 TLT 1d                             4,933    3 days   -11.3% of it
+    TOTAL                                            -43,818   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2025-03-06 .. 2025-03-25 (peak 2025-02-14), $35,549 over 4 trading days
+    ETFDIP_PB20_1_0 QQQ 1d                           -10,539    1 days    29.6% of it
+    ETFDIP_RSI2_1_0 IWM 1d                            -7,369    1 days    20.7% of it
+    ETFDIP_DBL7_1_0 QQQ 1d                            -6,794    1 days    19.1% of it
+    ETFDIP_RSI2_1_0 QQQ 1d                            -6,497    1 days    18.3% of it
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]        -6,497    1 days    18.3% of it
+    ETFDIP_DBL7_1_0 TLT 1d                                 0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    ETFDIP_DBL7_1_0 GLD 1d                             2,147    1 days    -6.0% of it
+    TOTAL                                            -35,549   (decomposition check: must equal the stretch)
+
+----------------------------------------------------------------------------------------------------
+  STACK 1:1: house baseline #337 + run #332, common window 2010-06-07..2025-06-29, lockbox from 2024-06-25
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  house baseline #337         786,379      34,329    1.522     203,832      31,791
+  + book #332               1,605,568      87,503    1.219     289,167      75,141
+  ratios                             2.549x   0.801x      1.419x      2.364x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                          -2,300 over   1 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 IWM 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_DBL7_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_PB20_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    NQDIP_1_0 NQ 5m                                -10,679 over   2 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+
+  STACK RISK-MATCHED (the r25 method, weak-edge side x0.610 so daily sigma matches):
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  house baseline #337         786,379      34,329    1.522     203,832      31,791
+  + #332 risk-matched       1,286,242      65,895    1.297     255,903      51,200
+  ratios                             1.920x   0.852x      1.255x      1.611x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                          -1,404 over   1 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 IWM 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_DBL7_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_PB20_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    NQDIP_1_0 NQ 5m                                 -6,516 over   2 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+
+----------------------------------------------------------------------------------------------------
+  STACK 1:1: house baseline #337 + run #338, common window 2010-06-07..2025-06-29, lockbox from 2024-06-25
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  house baseline #337         786,379      34,329    1.522     203,832      31,791
+  + book #338               1,272,144      57,801    1.462     257,711      49,272
+  ratios                             1.684x   0.961x      1.264x      1.550x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                          -2,300 over   1 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 IWM 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_DBL7_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_PB20_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+
+  STACK RISK-MATCHED (the r25 method, weak-edge side x0.877 so daily sigma matches):
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  house baseline #337         786,379      34,329    1.522     203,832      31,791
+  + #338 risk-matched       1,212,446      52,766    1.526     251,090      44,903
+  ratios                             1.537x   1.003x      1.232x      1.412x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                          -2,018 over   1 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 IWM 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_DBL7_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]           0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    ETFDIP_PB20_1_0 QQQ 1d                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+
+----------------------------------------------------------------------------------------------------
+  STACK 1:1: r25 champion (ORB 234 + ENGU-Q ETH 226) + run #332, common window 2010-06-07..2025-06-29, lockbox from 2024-06-25
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  r25 champion (ORB 234       605,877      71,773    0.561     119,950      38,838
+  + book #332               1,425,067     127,206    0.744     205,285      99,252
+  ratios                             1.772x   1.327x      1.711x      2.556x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                           6,731 over   2 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                             523 over   1 trading days
+    ETFDIP_RSI2_1_0 IWM 1d                          -8,437 over   1 trading days
+    ETFDIP_DBL7_1_0 QQQ 1d                          -4,075 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d                          -2,770 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]      -2,770 over   1 trading days
+    ETFDIP_PB20_1_0 QQQ 1d                         -10,725 over   1 trading days
+    NQDIP_1_0 NQ 5m                                -33,907 over   5 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+
+  STACK RISK-MATCHED (the r25 method, weak-edge side x0.580 so daily sigma matches):
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  r25 champion (ORB 234       605,877      71,773    0.561     119,950      38,838
+  + #332 risk-matched       1,080,650     103,900    0.691     169,407      73,430
+  ratios                             1.448x   1.232x      1.412x      1.891x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                           3,901 over   2 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                             303 over   1 trading days
+    ETFDIP_RSI2_1_0 IWM 1d                          -4,890 over   1 trading days
+    ETFDIP_DBL7_1_0 QQQ 1d                          -2,362 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d                          -1,606 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]      -1,606 over   1 trading days
+    ETFDIP_PB20_1_0 QQQ 1d                          -6,216 over   1 trading days
+    NQDIP_1_0 NQ 5m                                -19,651 over   5 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+
+----------------------------------------------------------------------------------------------------
+  STACK 1:1: r25 champion (ORB 234 + ENGU-Q ETH 226) + run #338, common window 2010-06-07..2025-06-29, lockbox from 2024-06-25
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  r25 champion (ORB 234       605,877      71,773    0.561     119,950      38,838
+  + book #338               1,091,643      93,299    0.777     173,830      73,383
+  ratios                             1.300x   1.386x      1.449x      1.889x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                           6,731 over   2 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                             523 over   1 trading days
+    ETFDIP_RSI2_1_0 IWM 1d                          -8,437 over   1 trading days
+    ETFDIP_DBL7_1_0 QQQ 1d                          -4,075 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d                          -2,770 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]      -2,770 over   1 trading days
+    ETFDIP_PB20_1_0 QQQ 1d                         -10,725 over   1 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+
+  STACK RISK-MATCHED (the r25 method, weak-edge side x0.833 so daily sigma matches):
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  r25 champion (ORB 234       605,877      71,773    0.561     119,950      38,838
+  + #338 risk-matched       1,010,558      89,706    0.748     164,836      67,449
+  ratios                             1.250x   1.334x      1.374x      1.737x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    ETFDIP_DBL7_1_0 GLD 1d                           5,607 over   2 trading days
+    ETFDIP_DBL7_1_0 TLT 1d                             435 over   1 trading days
+    ETFDIP_RSI2_1_0 IWM 1d                          -7,029 over   1 trading days
+    ETFDIP_DBL7_1_0 QQQ 1d                          -3,395 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d                          -2,308 over   1 trading days
+    ETFDIP_RSI2_1_0 QQQ 1d [allow_shorts=True]      -2,308 over   1 trading days
+    ETFDIP_PB20_1_0 QQQ 1d                          -8,935 over   1 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+
+============================================================================================================
+4. THE NASDAQ WALK-FORWARD BOOK (BOOKMARKS B11) - the '+35% MAR = adopt bar cleared' claim
+============================================================================================================
+The bar was 'raise the champion book's MAR by >= 15%'. MAR is net over WHOLE-RUN drawdown, so
+the same question applies: if the added legs sit out the champion's worst stretch, the
+denominator is frozen and the MAR bar quietly becomes a NET bar.
+
+  window (the WF book's own OOS span) 2012-06-18 .. 2025-06-25
+  champion book  net $595,992  DD $71,773  net/DD 8.30
+  NASDAQ WF book net $717,561  DD $73,985  net/DD 9.70
+  champion book whole run: worst stretch 2020-02-25 .. 2020-03-25 (peak 2020-02-21), $71,773 over 20 trading days
+    ENGU-Q ETH #226                                  -44,977   14 days    62.7% of it
+    ORB #234 (c2)                                    -26,796    9 days    37.3% of it
+    TOTAL                                            -71,773   (decomposition check: must equal the stretch)
+
+  do the eight NASDAQ legs trade inside the CHAMPION's worst stretch?
+    QQQ/PB                       -26,699 over   1 trading days
+    NQ/PB                        -11,404 over   1 trading days
+    QQQ/CAP                       -7,219 over   1 trading days
+    QQQ/RSI                       -4,750 over   1 trading days
+    NQ/RSI                        -4,319 over   2 trading days
+    NQ/DBL                             0 over   0 trading days   <- never traded there
+    QQQ/DBL                            0 over   0 trading days   <- never traded there
+    NQ/CAP                         2,239 over   2 trading days
+
+  STACK (1:1, the way B11 reports it)
+    champion        net $595,992  DD $71,773  net/DD 8.30
+    + NASDAQ book   net $1,313,553  DD $123,925  net/DD 10.60  = net x2.20, MAR x1.28
+    all TEN saved OOS series (adds the two JOINT ones, NOT the book) net $1,457,000  DD $128,905  net/DD 11.30  = MAR x1.36
+    recorded in BOOKMARKS B11: 8.31 -> 11.20 (+35%). The champion half reproduces; the stacked
+    half sits between the two readings above. Every reading clears the +15% bar.
+  stacked book whole run: worst stretch 2020-02-25 .. 2020-03-25 (peak 2020-02-21), $123,925 over 20 trading days
+    ENGU-Q ETH #226                                  -44,977   14 days    36.3% of it
+    ORB #234 (c2)                                    -26,796    9 days    21.6% of it
+    QQQ/PB                                           -26,699    1 days    21.5% of it
+    NQ/PB                                            -11,404    1 days     9.2% of it
+    QQQ/CAP                                           -7,219    1 days     5.8% of it
+    QQQ/RSI                                           -4,750    1 days     3.8% of it
+    NQ/RSI                                            -4,319    2 days     3.5% of it
+    NQ/DBL                                                 0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    QQQ/DBL                                                0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    NQ/CAP                                             2,239    2 days    -1.8% of it
+    TOTAL                                           -123,925   (decomposition check: must equal the stretch)
+
+  the WF book has no lockbox of its own (its OOS IS the holdout), so the nearest
+  lockbox-shaped read is the last 12 months, 2024-06-25 .. 2025-06-25:
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  champion                    595,992      71,773    0.638     122,261      38,838
+  + NASDAQ book             1,313,553     123,925    0.814     182,034      79,330
+  ratios                             1.727x   1.276x      1.489x      2.043x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    NQ/CAP                                           2,239 over   2 trading days
+    NQ/DBL                                               0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    NQ/PB                                          -11,404 over   1 trading days
+    NQ/RSI                                          -4,319 over   2 trading days
+    QQQ/CAP                                         -7,219 over   1 trading days
+    QQQ/DBL                                              0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    QQQ/PB                                         -26,699 over   1 trading days
+    QQQ/RSI                                         -4,750 over   1 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+
+============================================================================================================
+5. THE ORB x ENGU-Q 1:1 BLEND BASELINE - the net/DD number the upgrade menu ranks on
+============================================================================================================
+The blend's upgrade menu (ENS leg swap 16.12, sizing overlay 18.92, ETH-NBO swap 16.98) is a
+ranking on net over WHOLE-RUN drawdown. Same denominator, same question.
+NOTE ON WHAT IS MEASURED HERE. The recorded $837,645 / $60,098 / 13.94 belongs to the LEAKING
+ORB #125 pair (ORB_3_1 at vol_filter 1.25, see ORB.md). That configuration no longer produces
+a result through the engine on any current NQ 5m master - run_backtest returns nothing at
+vol_filter 1.25 on both the no-adj and the tv master - so this section does NOT resurrect it.
+It asks the same question of the LEGAL successor pair, from the committed daily series the
+round-13 legal-legs file holds: ORB #234 with each ENGU-Q leg in turn.
+
+----------------------------------------------------------------------------------------------------
+  ORB #234 x ENGU-Q RTH #149 leg, 1:1, 2010-06-07..2026-06-30
+  net $832,071  whole-run DD $58,171  net/DD 14.30  last-12-months net $183,038  DD $52,410
+  whole run: worst stretch 2020-02-25 .. 2020-03-25 (peak 2020-02-21), $58,171 over 20 trading days
+    ENGU-Q RTH #149 leg                              -31,375   11 days    53.9% of it
+    ORB #234 leg                                     -26,796    9 days    46.1% of it
+    TOTAL                                            -58,171   (decomposition check: must equal the stretch)
+  last 12 months: worst stretch 2026-02-27 .. 2026-03-26 (peak 2026-02-26), $52,410 over 19 trading days
+    ENGU-Q RTH #149 leg                              -38,562   15 days    73.6% of it
+    ORB #234 leg                                     -13,848   12 days    26.4% of it
+    TOTAL                                            -52,410   (decomposition check: must equal the stretch)
+
+----------------------------------------------------------------------------------------------------
+  ORB #234 x ENGU-Q ETH #226 leg, 1:1, 2010-06-07..2026-06-30
+  net $791,686  whole-run DD $71,773  net/DD 11.03  last-12-months net $185,809  DD $32,621
+  whole run: worst stretch 2020-02-25 .. 2020-03-25 (peak 2020-02-21), $71,773 over 20 trading days
+    ENGU-Q ETH #226 leg                              -44,977   14 days    62.7% of it
+    ORB #234 leg                                     -26,796    9 days    37.3% of it
+    TOTAL                                            -71,773   (decomposition check: must equal the stretch)
+  last 12 months: worst stretch 2026-02-10 .. 2026-03-26 (peak 2026-02-09), $32,621 over 30 trading days
+    ENGU-Q ETH #226 leg                              -23,909   19 days    73.3% of it
+    ORB #234 leg                                      -8,712   18 days    26.7% of it
+    TOTAL                                            -32,621   (decomposition check: must equal the stretch)
+
+  READ: the ranking is not inert - both legs are NQ and both pay for the stretch - but every
+  number in that menu is one month's drawdown in the denominator, so a candidate that improves
+  net/DD by sitting out that month has improved nothing about its own risk. The menu should
+  carry the last-12-months drawdown beside it before any of it is adopted.

@@ -188,6 +188,37 @@ def _stats(trades):
     }
 
 
+def _stretch_attribution(pooled, per_leg, leg_info):
+    """The book's worst peak-to-trough stretch, decomposed leg by leg.
+
+    The span is (peak day, trough day] — days strictly AFTER the peak — so the legs' dollars
+    inside it sum to the drawdown EXACTLY. Including the peak day would double-count its P&L
+    and the rows would no longer add up to the number they claim to explain.
+
+    `days` on a leg row is how many days that leg actually booked a trade inside the stretch.
+    A leg at zero was ABSENT: no weight of it can change the whole-run drawdown, which is
+    precisely when a "drawdown within X percent" clause stops being a risk test.
+    """
+    days, daily = _daily(pooled)
+    if not len(days):
+        return None
+    cum = np.cumsum(daily)
+    ddown = cum - np.maximum.accumulate(cum)
+    ti = int(np.argmin(ddown))
+    depth = float(-ddown[ti])
+    pi = int(np.argmax(cum[:ti + 1]))
+    lo, hi = days[pi], days[ti]
+    rows = []
+    for tr, info in zip(per_leg, leg_info):
+        inside = [p for d, p in tr if lo < d <= hi]
+        rows.append({"leg": str(info.get("strategy") or "?"),
+                     "instrument": info.get("instrument"), "timeframe": info.get("timeframe"),
+                     "weight": info.get("weight"), "usd": round(float(sum(inside)), 2),
+                     "days": int(len(set(d for d, _ in tr if lo < d <= hi)))})
+    return {"peak": str(lo), "from": str(days[min(pi + 1, ti)]), "to": str(hi),
+            "depth": round(depth, 2), "trading_days": int(ti - pi), "legs": rows}
+
+
 def _downsample(cum, boundary_i, n_points):
     """Endpoint-pinned downsample of a cumulative curve, carrying an index with it.
 
@@ -223,11 +254,13 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
 
     pooled = []
     leg_info = []
+    per_leg = []
     for i, leg in enumerate(legs):
         if progress_cb:
             progress_cb(int(5 + 70.0 * i / len(legs)), 100)
         tr, info = _leg_trades(leg, date_from, date_to)
         pooled.extend(tr)
+        per_leg.append(tr)
         leg_info.append(info)
     if not pooled:
         raise ValueError("the book produced no trades over this window")
@@ -269,6 +302,19 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
 
     lb_pass = bool(lb_st and lb_st["total_pnl"] > 0
                    and (lb_st["profit_factor"] or 0) >= 1.0)
+
+    # ── WHOSE DRAWDOWN IS THIS? (2026-09-09) ────────────────────────────────────────────
+    # Every book bar written in this shop used to read "whole-run drawdown within X percent
+    # of the adopted book". That clause cannot bind on a leg that took no trades in the one
+    # stretch which sets that number: the TTM leg was scaled from one contract to four while
+    # the book drawdown stayed identical to the cent, because it sat the stretch out entirely.
+    # So a book now reports WHO PAID for its worst stretch, on the whole run and again on the
+    # lockbox, and names any leg that was absent. A bar can then be written on the lockbox
+    # drawdown (which does move with weight) with the whole-run number carried as a check that
+    # says out loud when it is inert. Pure addition: nothing above this line changed.
+    worst = _stretch_attribution(pooled, per_leg, leg_info)
+    worst_lb = _stretch_attribution(lb, [[t for t in tr if lb_from is not None and t[0] >= lb_from]
+                                         for tr in per_leg], leg_info)
     return {
         "best": best,
         "best_params": {"book": [l["strategy"] for l in leg_info]},
@@ -286,6 +332,10 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
             "date_from": (str(days[0]) if len(days) else None),
             "date_to": (str(days[-1]) if len(days) else None),
             "trading_days": int(len(days)),
+            "worst_stretch": worst,
+            "worst_stretch_lockbox": worst_lb,
+            "inert_legs": ([l["leg"] for l in (worst or {}).get("legs") or [] if not l["days"]]
+                           if worst else []),
         },
         # the report card the app already knows how to read. WF is deliberately absent.
         "validate": {
