@@ -365,6 +365,24 @@ def cmd_ship(name, message):
             sys.stderr.write(out)
             raise SystemExit('1E axes / 1A funnel render gate FAILED - not pushing')
 
+    # CMP2 GATE (2026-09-08): the new COMPARE beta LEADERBOARD (augurSub==='cmp2'). Same
+    # argument as the studies/paper/report gates above - the boot gate never enters this
+    # branch of renderApp, so a throw in the LEADERBOARD, its expand-a-family sub-rows, or
+    # the COMPARE/EXPLORE placeholder screens would ship green. cmp2_render_probe.py injects
+    # the same run fixture the report gate uses (tools/fixtures/run_report.json) plus an
+    # empty-runHistory case, and renders both. Only runs when index.html changed.
+    # INCONCLUSIVE (exit 2, e.g. no local Chrome) never blocks.
+    c2 = os.path.join(wt, 'tools', 'cmp2_render_probe.py')
+    if touched_index.strip() and os.path.isfile(c2):
+        r = subprocess.run([sys.executable, c2], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        verdict = [l for l in out.strip().splitlines() if l.startswith('CMP2 PROBE:')]
+        print(verdict[-1] if verdict else '(cmp2 probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('COMPARE beta (cmp2) render gate FAILED - not pushing')
+
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows
     # at the same time silently produced 27 collisions, and a row number is the board's permanent
