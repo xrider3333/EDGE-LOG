@@ -194,6 +194,34 @@ Where that leaves ORB: closed on every axis we can test on this data. The only l
 the forward paper read — `ORB_R6` (#314) beside `ORB` (#234) — and round 9's bootstrap says
 those two are a statistical coin flip, so that read will take months, not weeks.
 
+### ✗ 2026-09-09 — Round 11: the SHAPE of the levels, three forks, all CLOSED
+
+Every level this strategy uses descends from one number: the width of the first two bars. The stop is a
+multiple of it, the target a multiple of the stop, the entry buffer a fraction of it. Rounds 4-10 changed
+when and whether to trade. Round 11 asked whether that number is measured correctly, and whether the
+multiples hung off it should be the same on every day.
+
+Three forks, about 110 configs, none adopted:
+
+* **Flexing the stop and target with the day's width.** The intuitive version (a wide open gets a tighter
+  stop and a farther target) loses money in every window, worse the harder it is pushed. The inverted
+  version wins on the dollar gates at one grid corner and then collapses at its own neighbour.
+* **A different entry threshold.** Measuring the buffer in volatility instead of range width, and demanding
+  two or three confirming closes, are both pure cost. The diagnostic is the keeper: bucket the crown's own
+  trades by how far the confirming close cleared the level, and money falls monotonically from the nearest
+  quartile ($98,954, PF 1.73) to the farthest ($60,282, PF 1.29). The edge lives in barely-clearing
+  entries. Never add an entry threshold.
+* **A different yardstick entirely.** Body width instead of high-low, blends of the two, an ATR width,
+  and body-based trigger levels: 34 alternatives, all losing, the best still 21% below the crown's net.
+  Wicks are signal, not noise — the opening range is half wick on a typical day (median high-low to body
+  ratio 1.63) and the wickiest tenth of days are the crown's best trades (PF 2.39).
+
+One near-miss deserves recording because it is the shape of a false find. A target-scaling setting cleared
+every dollar gate, and its entire gain was $17,341 in the single out-of-sample year on 168 trades, against
+minus $119 across the previous fifteen years, at the maximum value on its grid, with two of three
+reference lengths giving the gain back. That is a coincidence with a good year, not a mechanism, and
+round 9's bootstrap already said a one-year gap that size between two ORB configs sits inside the noise.
+
 ### The open research direction: replace the illegal gate with a PRE-KNOWN one
 
 The fill at the level carried the money ($494k with the illegal filter, $63k with no
