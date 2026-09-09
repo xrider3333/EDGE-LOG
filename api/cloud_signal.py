@@ -271,7 +271,15 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     merged = pd.concat([old, fresh], ignore_index=True)
     if len(merged):
         merged = merged.drop_duplicates("time", keep="last").sort_values("time")
-    merged.to_csv(path, index=False)
+    # ATOMIC (2026-09-09): to_csv() TRUNCATES then writes, so a reader that opens the file
+    # mid-write gets an empty or half-written cache. That is not hypothetical -- this thread
+    # rewrites the cache every 30s and it caught the test suite red-handed, which is exactly
+    # what a strategy run or a manual replay would have hit instead. Write beside it and
+    # rename: os.replace is atomic on Windows and POSIX, so a reader sees the old file or
+    # the new one, never a torn one.
+    tmp = path + ".tmp"
+    merged.to_csv(tmp, index=False)
+    os.replace(tmp, path)
     return merged
 
 

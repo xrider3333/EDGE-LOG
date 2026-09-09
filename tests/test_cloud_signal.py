@@ -22,6 +22,10 @@ tests the diff/idempotency mechanics, which are warm-up-depth-independent.
 """
 import os
 import shutil
+import zoneinfo
+import datetime
+import tempfile
+import time
 import types
 
 import pandas as pd
@@ -56,18 +60,56 @@ TEST_WARMUP_SESSIONS = 5   # see module docstring "SPEED"
 TEST_MAX_TICKS = 60        # first 60 minutes of the session only — see "SPEED"
 
 
+# FROZEN SNAPSHOT (2026-09-09). These tests read the owner's live bar cache, and since the
+# parallel run started that cache is REWRITTEN every 30 seconds by api/cloud_signal's runner
+# thread. Copying it per test meant two "identical" runs could be seeded from two different
+# files, and the determinism test duly went red on a change that had nothing to do with it.
+# Snapshot the cache exactly once per test session and seed every home from that copy.
+_SNAPSHOT = {}
+
+
+def _snapshot_dir():
+    """Copy the live cache once, VALIDATING each copy. api/cloud_signal now writes the cache
+    atomically, but this file is also touched by tools/qqq_paper.py and by hand, so the read
+    side stays defensive: a copy that will not parse is retried rather than trusted."""
+    if not _SNAPSHOT:
+        d = tempfile.mkdtemp(prefix="qqq_cache_snapshot_")
+        for src in (REAL_CACHE_1M, REAL_CACHE_5M):
+            dst = os.path.join(d, os.path.basename(src))
+            for attempt in range(5):
+                shutil.copy(src, dst)
+                try:
+                    if len(pd.read_csv(dst)):
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
+            else:
+                pytest.skip(f"could not take a stable snapshot of {src}")
+        _SNAPSHOT["dir"] = d
+    return _SNAPSHOT["dir"]
+
+
 def _seed_home(home_dir):
     paths = cs._paths(home=str(home_dir))
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
-    shutil.copy(REAL_CACHE_1M, paths["ohlc_dir"])
-    shutil.copy(REAL_CACHE_5M, paths["ohlc_dir"])
+    src = _snapshot_dir()
+    shutil.copy(os.path.join(src, "QQQ_1m.csv"), paths["ohlc_dir"])
+    shutil.copy(os.path.join(src, "QQQ_5m.csv"), paths["ohlc_dir"])
     return paths
 
 
 def _newest_cached_session():
-    df = pd.read_csv(REAL_CACHE_1M)
+    """Newest session in the snapshot, EXCLUDING today: today's bars are still arriving, so
+    replaying it races the live feed and the trade list can legitimately differ between two
+    runs seconds apart. A finished session is the only stable thing to assert on."""
+    df = pd.read_csv(os.path.join(_snapshot_dir(), "QQQ_1m.csv"))
     idx = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert(cs.TZ)
-    return str(idx.dt.date.max())
+    today = datetime.datetime.now(zoneinfo.ZoneInfo(cs.TZ)).date()
+    days = sorted(d for d in set(idx.dt.date) if d < today)
+    if not days:
+        pytest.skip("cache holds only today's still-growing session")
+    return str(days[-1])
 
 
 def _event_key(e):

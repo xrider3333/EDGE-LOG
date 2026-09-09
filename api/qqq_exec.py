@@ -2269,7 +2269,7 @@ def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
 
 
 # -- runner thread hook (mirrors api.runner._bridge_watchdog_thread) ---------------------
-def qqq_exec_thread(db, uids, stop=None, log=print):
+def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     """Own thread, ticking every TICK_SEC -- never blocks the runner's main loop and
     never takes it down. Publishes to every allow-listed uid each tick that changed,
     at least once a minute regardless (see _publish's force/throttle logic)."""
@@ -2281,22 +2281,113 @@ def qqq_exec_thread(db, uids, stop=None, log=print):
             for uid in uids:
                 publish_async(db, uid, doc, state, log=log)
             save_state(state, log=log)
+            if on_tick is not None:
+                on_tick(log=log)
         except Exception as e:
             log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
         (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
 
 
 # -- CLI ---------------------------------------------------------------------------------------
+# -- STANDALONE SERVING (2026-09-09) -----------------------------------------------------
+# WHY THIS EXISTS. The adapter used to ride as a thread inside the job runner, so its
+# uptime was tied to a process that ~30 concurrent sessions restart all day to pick up
+# code. On 2026-09-09 the adapter booted EIGHT times between 09:47 and 13:49 and the day
+# recorded ~94% coverage against a 95% readiness bar -- the trial was being failed by
+# deploys, not by anything wrong with the adapter. Uptime cannot be a property of the
+# busiest process on the box.
+#
+# So the adapter runs as its OWN detached process. A runner boot no longer interrupts it;
+# instead the runner calls ensure_standalone(), which starts one only if none is alive.
+# That makes every fleet restart a no-op for the shadow book while still auto-reviving the
+# adapter if it ever dies.
+#
+# LIVENESS is a heartbeat file, not a pid: a pid can be reused and a hard kill never gets
+# to clean up. The serving process rewrites SERVING_LOCK every tick; anyone who sees a lock
+# older than SERVING_STALE_SEC treats the slot as free. Worst case on a race is a brief
+# double-tick, which is harmless -- both writers compute the same state from the same fills.
+SERVING_LOCK = os.path.join(OUT_DIR, "SERVING.lock")
+SERVING_STALE_SEC = 120.0
+QQQ_EXEC_VBS = r"C:\EdgeLog\_run_qqq_exec.vbs"
+
+
+def serving_alive(path=None):
+    """(alive, pid) for the current standalone serving process, from the heartbeat file."""
+    path = path or SERVING_LOCK
+    try:
+        age = time.time() - os.path.getmtime(path)
+        if age > SERVING_STALE_SEC:
+            return False, None
+        with open(path, encoding="utf-8") as fh:
+            return True, int((fh.read().strip().split() or ["0"])[0])
+    except Exception:
+        return False, None
+
+
+def _touch_serving_lock(log=print):
+    try:
+        os.makedirs(OUT_DIR, exist_ok=True)
+        with open(SERVING_LOCK, "w", encoding="utf-8") as fh:
+            fh.write(f"{os.getpid()} {_now_et().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    except Exception as e:
+        log(f"[qqq-exec] could not write serving lock: {type(e).__name__}: {e}")
+
+
+def ensure_standalone(log=print, vbs=None):
+    """Called by the runner at boot. Returns True when a standalone is serving (already
+    running, or just launched), meaning the runner must NOT start its own thread.
+
+    Launch is DETACHED via wscript, never a direct child: a process started from a session's
+    console dies with that console and, worse, orphans into the 0xC0000142 popup loop that
+    cost a day in 2026-09-01 (see memory edgelog-runner-launch-detached)."""
+    alive, pid = serving_alive()
+    if alive:
+        log(f"[qqq-exec] standalone already serving (pid {pid}) -- runner thread stays off")
+        return True
+    vbs = vbs or QQQ_EXEC_VBS
+    if not os.path.exists(vbs):
+        log(f"[qqq-exec] no launcher at {vbs} -- falling back to the in-runner thread")
+        return False
+    try:
+        subprocess.Popen(["wscript.exe", vbs], close_fds=True,
+                         creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+        log(f"[qqq-exec] launched the standalone adapter via {vbs}")
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] standalone launch failed ({type(e).__name__}: {e}) -- "
+            f"falling back to the in-runner thread")
+        return False
+
+
+def serve(db, uids, log=print):
+    """Run the adapter in THIS process until killed, holding the serving lock."""
+    alive, pid = serving_alive()
+    if alive and pid != os.getpid():
+        log(f"[qqq-exec] another standalone is already serving (pid {pid}) -- exiting")
+        return
+    _touch_serving_lock(log=log)
+    log(f"[qqq-exec] SERVING standalone (pid {os.getpid()}), tick {TICK_SEC:g}s")
+    try:
+        qqq_exec_thread(db, uids, log=log, on_tick=_touch_serving_lock)
+    finally:
+        try:
+            os.remove(SERVING_LOCK)
+        except Exception:
+            pass
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--once", action="store_true", help="run a single tick and exit")
+    ap.add_argument("--serve", action="store_true",
+                    help="run forever as the standalone adapter (see STANDALONE SERVING)")
     ap.add_argument("--uid", default=None, help="publish to users/{uid}/meta/qqq_exec")
     ap.add_argument("--fills", default=DEFAULT_FILLS)
     ap.add_argument("--cred", default=None, help="Firestore service-account json "
                                                   "(needed with --uid)")
     a = ap.parse_args()
-    if not a.once:
+    if not (a.once or a.serve):
         ap.print_help()
         return
     db = None
@@ -2311,6 +2402,13 @@ def main():
         except Exception as e:
             print(f"[qqq-exec] Firestore unavailable ({type(e).__name__}: {e}) -- "
                  f"running --once without publish")
+    if a.serve:
+        if db is None or not a.uid:
+            print("[qqq-exec] --serve needs --uid and a reachable Firestore; refusing to "
+                  "serve blind (the published doc IS the record)")
+            return
+        serve(db, [a.uid])
+        return
     run_once(uid=a.uid, fills_path=a.fills, db=db)
 
 

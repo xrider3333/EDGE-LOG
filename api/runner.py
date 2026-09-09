@@ -2500,11 +2500,20 @@ def main(argv=None):
         if a.firestore and _qqq_exec is not None and not _IS_WORKER:
             _qe_uids = [u.strip() for u in (a.allow_uid or []) if u and u.strip()]
             if _qe_uids:
-                threading.Thread(target=_qqq_exec.qqq_exec_thread,
-                                 args=(q.db, _qe_uids), daemon=True,
-                                 name='qqq-exec').start()
-                print(f"QQQ SHADOW execution (api/qqq_exec.py): ON (own thread, every "
-                     f"{_qqq_exec.TICK_SEC:g}s during 09:25-16:05 ET Mon-Fri)")
+                # STANDALONE FIRST (2026-09-09). The adapter's uptime must not be a
+                # property of this process: ~30 sessions restart the fleet all day to load
+                # code, and on 2026-09-09 that booted the adapter EIGHT times before 14:00,
+                # holding the day to ~94% coverage against a 95% readiness bar. The trial
+                # was being failed by deploys. ensure_standalone() leaves a live adapter
+                # completely alone and only launches one when none is serving, so a fleet
+                # restart is now a no-op for the shadow book. The in-process thread stays
+                # as the fallback for when the launcher is missing.
+                if not _qqq_exec.ensure_standalone(log=print):
+                    threading.Thread(target=_qqq_exec.qqq_exec_thread,
+                                     args=(q.db, _qe_uids), daemon=True,
+                                     name='qqq-exec').start()
+                    print(f"QQQ SHADOW execution (api/qqq_exec.py): ON (own thread, every "
+                         f"{_qqq_exec.TICK_SEC:g}s during 09:25-16:05 ET Mon-Fri)")
 
         # CLOUD SIGNAL parallel run (api/cloud_signal.py) -- own thread, primary only.
         # Runs the same three crowns on QQQ BARS while qqq_exec mirrors NinjaTrader's NQ
