@@ -1,0 +1,65 @@
+ROUND 53 - which opening-range leg makes the BOOK best? (2026-09-09)
+Driver tools/r53_book_orb_leg.py. 216 opening-range configurations, one at a time, inside the
+adopted four-leg book (opening range x1, ENGU-Q #335 x1, squeeze structural stop x3, NOISE #304
+x1). Window 2010-06-07..2026-06-30, last 12 months sealed. Scored on return-over-drawdown.
+The substituted leg reproduces the incumbent EXACTLY (2,584 trades, $373,305), so every
+difference below is the variant and not the plumbing.
+
+CONTROLS NOBODY HAD RUN
+  NO opening-range leg   selection  32.51 | sealed year  9.28
+  #234 at WEIGHT 2       selection  28.08 | sealed year  8.13
+  #314 at WEIGHT 2       selection  32.51 | sealed year  7.62
+  #314 crown             selection  42.18 | sealed year 10.04
+  #234 incumbent         selection  38.18 | sealed year 10.33
+
+  The book NEEDS the leg (+5.67 selection, +1.05 sealed) and wants it at weight 1.
+
+TOP 8 ON THE SEALED YEAR - the only stretch nothing was chosen on
+  opening-range leg                  sealed selection     leg net
+  s2.0 t5.5 be1.0 f0.75/0.80 ob2      11.54     41.12      356527
+  s2.0 t5.0 be1.0 f0.75/0.80 ob2      11.46     41.17      356497
+  s2.0 t4.0 be1.0 f0.75/0.80 ob2      11.12     41.14      346872
+  s2.0 t6.0 be1.0 f0.75/0.80 ob2      10.83     41.15      339752
+  s2.0 t5.5 be0.5 f0.75/0.80 ob2      10.82     43.21      326672
+  s2.0 t5.0 be0.5 f0.75/0.80 ob2      10.74     43.28      326642
+  s2.0 t5.5 be1.0 f0.75/0.80 ob1      10.74     33.92      229370
+  s2.0 t5.0 be1.0 f0.75/0.80 ob1      10.67     33.83      224395
+  #234 incumbent                      10.33     38.18      373305   <- incumbent, 14th of 214
+
+TOP 5 ON THE SELECTION STRETCH - and what they did afterwards
+  s2.5 t5.0 be0.5 f0.70/0.70 ob3   selection  53.42 | sealed  4.67
+  s2.5 t5.5 be0.5 f0.70/0.70 ob3   selection  53.37 | sealed  4.67
+  s2.5 t6.0 be0.5 f0.70/0.70 ob3   selection  53.37 | sealed  4.67
+  s2.5 t4.0 be0.5 f0.70/0.70 ob3   selection  53.37 | sealed  4.67
+  s3.0 t4.0 be0.5 f0.70/0.70 ob3   selection  51.08 | sealed  4.29
+
+BY FILTER SETTING              n   selection   sealed   beat incumbent on both
+  crown 0.75/0.80            71      39.73     8.27          9
+  none                       72      29.34     7.57          0
+  old 0.70/0.70              71      40.74     7.62          0
+
+BY OPENING-RANGE LENGTH        n   selection   sealed
+  1 bars of 5 minutes       72      32.59     9.21
+  2 bars of 5 minutes       70      36.89     9.41
+  3 bars of 5 minutes       72      40.24     4.89
+
+DOES THE SELECTION STRETCH PREDICT THE SEALED YEAR?
+  Pearson -0.320 | Spearman -0.186
+  top tenth by selection -> mean sealed 4.63 | bottom tenth -> 7.98 | all -> 7.82 | incumbent 10.33
+
+READ
+1. The book needs its opening-range leg and wants exactly one unit of it. Both controls are new.
+2. Choosing that leg by the selection stretch is WORSE than useless - the two stretches are
+   negatively correlated, and the three-bar opening range proves it: the best selection-stretch
+   group of all, and by far the worst sealed year (4.89 against 9.41 for the two-bar group).
+3. The sealed year picks run #297's configuration first of 214. That is the incumbent's own
+   geometry - 2.0 stop, 5.5 target, breakeven at 1R, two-bar range - with the crown's two filter
+   thresholds instead of the old ones. The incumbent is 14th.
+4. It is a plateau, not a spike: the top six sealed-year rows are all its immediate neighbours,
+   every one sharing that geometry and those filters, differing only in target and breakeven.
+5. All nine configurations that beat the incumbent on BOTH stretches carry those same two filter
+   settings, out of three filter settings tested. That is the pattern, not the individual cell.
+6. The crown itself is NOT the answer here: run #314 in this slot scores better on the selection
+   stretch (42.18) and WORSE in the sealed year (10.04) than the incumbent's 10.33.
+QUEUED: the four-leg book with the #297 leg (tools/queue_book_orb297.py), so the house scorer
+rules on it rather than this harness.
