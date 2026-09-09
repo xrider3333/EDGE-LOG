@@ -7,6 +7,79 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUND 52: EXIT MANAGEMENT — the one device NOISE never had, and it is a wash (STUDIES rows 1704-1706, web v73.707)
+
+**Owner ask:** *"keep optimizing it."* Seven spaces around this crown are already closed. One
+genuine gap remained, and it is visible by comparing the three crowned families rather than by
+staring at NOISE alone:
+
+| family | protective stop | breakeven move | trail |
+|---|---|---|---|
+| ORB (#314) | yes | **yes** | **yes** |
+| ENGU-Q (#335) | yes | **yes** | **yes** |
+| **NOISE (#304)** | yes | **no** | **no** |
+
+NOISE sets its stop once at entry and never moves it again. Both siblings manage the exit, and
+nobody ever tested whether this one should. Research fork `augur_strategies/NOISE_1_7_EXIT.py`
+adds two knobs expressed in R, where R is the distance from entry to the initial stop: `be_r`
+(move the stop to the entry price once the trade has run that many R) and `trail_frac` (once one R
+is made, keep the stop that far behind the best price). **Both read the PREVIOUS bar's finished
+extreme**, never the bar being traded — this session has paid twice for reading a bar early. Both
+default off and the fork reproduces the parent to the cent (parity-gated).
+
+Ranked on profit factor and net-over-drawdown, **never on EV R**: an early breakeven shrinks the
+average loss, which is EV R's denominator, and inflates it while losing money (memory
+`edgelog-evr-gameable-by-breakeven`).
+
+### The grid, at the stressed cost
+
+| exit management | n | PF | net $ | DD $ | net/DD | 2010–23 | 2024–26 |
+|---|---|---|---|---|---|---|---|
+| **none — the crown** | 4,825 | **1.3292** | **373,010** | 19,493 | 19.14 | 1.3234 | 1.3399 |
+| breakeven at 0.5R | 5,223 | 1.3342 | 369,965 | 19,234 | 19.24 | 1.3192 | 1.3626 |
+| breakeven at 1.0R | 4,889 | 1.3297 | 371,764 | **18,579** | **20.01** | 1.3218 | 1.3444 |
+| breakeven at 1.5R | 4,841 | 1.3252 | 368,703 | 19,493 | 18.91 | 1.3221 | 1.3309 |
+| trail 1.0R | 5,302 | 1.2942 | 362,634 | 20,194 | 17.96 | 1.2906 | 1.3008 |
+| trail 2.0R | 4,875 | 1.3202 | 367,106 | 19,545 | 18.78 | 1.3216 | 1.3178 |
+| trail 3.0R | 4,828 | 1.3285 | 372,362 | 19,493 | 19.10 | 1.3225 | 1.3397 |
+| breakeven 1.0R + trail 3.0R | 4,892 | 1.3293 | 371,285 | 18,579 | 19.98 | 1.3211 | 1.3444 |
+
+**Every trail is worse, and the tighter the trail the worse it gets** — 1.0R costs a full 0.035 of
+profit factor. That is the family's own character showing up in a new place: NOISE's edge is a slow
+drift back to VWAP, and a trail keeps cutting it off. **Breakeven is a genuine wash**: at 1.0R it
+buys about 5% of drawdown (19,493 → 18,579, so net-over-drawdown 19.14 → 20.01) for a hair less
+money and a profit factor that moves in the fourth decimal.
+
+**No cell clears the pre-registered bar**, which asked for a higher profit factor at both costs AND
+in both eras. Every breakeven variant is very slightly *worse* across 2010–23 and slightly better
+since 2024, which is a coin-flip pattern rather than an edge.
+
+### What is queued, and why
+
+The breakeven-at-1.0R cell is the closest thing to an improvement eight rounds have produced —
+better drawdown, level everything else — and it is exactly the sort of near-miss that a human eye
+should not adjudicate. The fork is therefore **fenced to those two knobs alone** (every other knob
+pinned to the crown's value, so its defaults reproduce the crown exactly) and **queued as an
+Auto-Validate**: 153 cells, eight walk-forward folds, a twelve-month lockbox. If the runner's own
+search, with folds and a sealed lockbox, picks a non-zero breakeven and passes, that is real
+evidence; if it lands on zero, the crown's do-nothing exit is confirmed by the strongest instrument
+available and the question is closed for good.
+
+**Nothing is adopted.** The crown stays run #304 with its stop set once and left alone.
+
+### Eight spaces, one leg
+
+knobs (43, 45, 46) · bar size (44, 45) · entry conditions (47) · volatility estimator (48) · band
+anchor (49) · position capacity (50) · higher-timeframe agreement (51) · **exit management (52)**.
+Three candidates withdrawn, two of them for look-aheads caught in-house. The single strongest
+statement this program can now make about NOISE is that its crown is not improvable from the
+inside — and the one thing that did lift the whole book this week came from outside it, by adding
+this leg to a book rather than by changing it.
+
+Files: `augur_strategies/NOISE_1_7_EXIT.py`, `tools/queue_noise_exit_validate.py`.
+
+---
+
 ## 🔬 2026-09-09 — ROUNDS 48–51: four more spaces closed, and a SECOND look-ahead caught before it reached the record (STUDIES rows 1687-1691, web v73.702)
 
 **Owner ask:** *"auto validate anything you think might be better. and continue optimizing. dont
