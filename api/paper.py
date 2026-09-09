@@ -86,6 +86,7 @@ LEG_LIVE_FROM = {
     "TTM_299": "2026-09-09",  # TTM Squeeze crown (run 299) as the book diversifier leg, 3 ES in BOOK 336
     "TTM_299_T": "2026-09-10", # the same leg with the VALIDATED deep-squeeze size tilt (run 340) - TTM_299 is its control
     "TTM_299_SS": "2026-09-10", # the same leg again with the VALIDATED structural stop (run 353) - TTM_299_T is its control
+    "TTM_299_SSOF2": "2026-09-10", # the same leg with BOTH later validated changes (runs 368 + 364) - TTM_299_SS is its control
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
     "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
@@ -649,6 +650,25 @@ TTM_299_T = dict(TTM_299)
 # it is queued.
 TTM_299_SS = dict(kc_mult=1.5, eod_cutoff=1)
 
+# THE SAME TRADES AGAIN, SIZED AND HELD DIFFERENTLY. Two further single changes each cleared a bar
+# written before it ran, within an hour of each other on 2026-09-09:
+#   run #368  1.5 contracts on the SESSION OPEN-BAR entry. The mechanical question was whether this
+#             leg should skip the noisy first bars the way it already skips the last; the answer was
+#             inverted - the 87 of 357 trades that fill on the first bar an entry can happen average
+#             $805 against $115 for the other 270, and blocking that one bar removes $70,053 of a
+#             $101,017 leg. That is the overnight gap releasing into an hour that is still coiled.
+#   run #364  the momentum-fade exit waits for a SECOND fading bar. Better on every base measured -
+#             with and without the tilt, with the ATR stop and with the structural one.
+# Run #369 then put both in one leg and PASSED all six gates with an overfit probability of 0.099,
+# the lowest this family has recorded, clearing a bar set against the BETTER PARENT rather than the
+# incumbent. They compose better than either alone for a legible reason: the tilt buys money with
+# drawdown ($4,338 -> $5,330) and the later fade gives most of it back ($4,634) while keeping the
+# money. Against the leg the book carries: $135,884 vs $101,017, annualised MAR 1.826 vs 1.450,
+# lockbox $22,739 at profit factor 9.89 vs $16,977 at 6.72, lockbox drawdown $1,978 vs $2,003.
+# NOTE FOR ANY LIVE PORT: the deep-squeeze tilt and the open-bar tilt MULTIPLY, so this leg trades a
+# 1.0 / 1.5 / 2.25 contract ladder. Round 11's whole-contract answer covered one tilt, not two.
+TTM_299_SSOF2 = dict(TTM_299_SS)
+
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
                      "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
 # KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
@@ -1106,6 +1126,16 @@ LEG_SOURCE = {
                 "entered while the 60-minute squeeze is on, 1.0 otherwise, no model anywhere. The "
                 "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
     },
+    "TTM_299_SSOF2": {
+        "run": 369, "run_label": "#369 (TTM-ES30SSOF2) the book leg plus the open-bar tilt and the later fade",
+        "strategy_file": "TTMSQZ_3_0_ES30SSOF2.py", "picked": "2026-09-09",
+        "note": "Two validated single changes in one leg: 1.5 contracts on the session open-bar entry "
+                "(run #368) and the momentum-fade exit waiting for a second fading bar (run #364). Run "
+                "#369 passed all six gates with an overfit probability of 0.099 - the lowest this family "
+                "has recorded - and cleared a bar set against the better parent rather than the incumbent. "
+                "TTM_299_SS is the exact matched control. Reported per one contract; the deep-squeeze and "
+                "open-bar tilts multiply, so the leg trades a 1.0 / 1.5 / 2.25 ladder.",
+    },
     "TTM_299_SS": {
         "run": 353, "run_label": "#353 (TTM-ES30SS20) the tilted ES 30m leg with the structural stop",
         "strategy_file": "TTMSQZ_3_0_ES30SS20.py", "picked": "2026-09-09",
@@ -1500,6 +1530,12 @@ PAPER_LEGS = [
      "timeframe": "30m", "session": "rth", "params": TTM_299_T,
      "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
      "source": LEG_SOURCE["TTM_299_T"]},
+    # ADDED 2026-09-09: both later validated changes in one leg (runs 368 + 364, combined as run 369),
+    # beside TTM_299_SS as its exact matched control. FORWARD EVIDENCE ONLY until its BOOK run reports.
+    {"key": "TTM_299_SSOF2", "strategy": "TTMSQZ_3_0_ES30SSOF2.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299_SSOF2,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "source": LEG_SOURCE["TTM_299_SSOF2"]},
     # THE BOOK LEG since 2026-09-09 (owner: "swap it"), at weight 3. The validated structural stop:
     # same trades and same tilt as TTM_299_T, which stays beside it as the exact matched control -
     # only the protective stop differs. Leg validate #353, stress read, and BOOK run #361 all clear.
