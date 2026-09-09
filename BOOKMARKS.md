@@ -331,3 +331,9 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **NOISE_1_0 own ranges on ES 5m RTH** (`tools/ryr_search.py noise_es5m`, 400 cfg, 0.30/RT, $50/pt): 41 pass; leader lookback 62 / bands 1.0-1.75 / vwap / both / all-day = n=3151 / $138,185 / PF 1.285 / DD $12,845 / MAR 10.8 / 7-of-8 / top-10 35% (ex +$90,422 PF 1.19); plateau 26/28 (boundary exit = the cliff). Cleanest cell: long-only lb 63 = PF 1.75 / MAR 14.1 / 8-of-8 on 744 trades. **Full-space ES validate queued (job 4Xic3kiQspP2CMiUdhtG, NOISE crown #243 window).** ~$9k/yr on one ES — a diversifier, not size.
 - **ENGU-Q ES neighbours** (`tools/r16_results/r39_enguq_variants.log`): trail 3.0 = PF 1.60 / n/DD 14.8; trail 3.5 = 1.59 / 12.5; trail 3.0 + BE 1.5 = 1.55 / 12.5; day-session-only = PF 1.40 / n/DD 5.8 (not a leg). **Two-leg NQ+ES BOOK queued (job VgyMFCyNxjPvfTGcFVOt; bar: beat NQ-alone n/DD 13.2 and positive lockbox).**
 - **GAPGO regime gates CLOSED** (`tools/r39_gapgo_regime.py`): six causal gates on #330, none rescues the spent lockbox; pre-window earned in every gap regime. Dead for good.
+
+### B23/B24 RESULT — BOOK #339 ENGU-Q NQ+ES (rows 1416-1421, v73.613)
+
+- **Selection window** (2010-06-07..2025-06-30): book n=3842 / $694,819 / PF 1.53 / DD $46,787 / **n/DD 14.9 vs NQ alone 13.3 (+12%)**, 8/8 slices → pre-registered bar CLEARED.
+- **Lockbox** (2025-06-30..2026-06-30): book +$137,136 / PF 1.70 / DD $69,144; NQ alone +$87,790 / PF 1.67 / DD $41,889; **ES alone +$17,496 / PF 1.27 / DD $33,074** — positive on sign, drawdown twice the gain inside the year.
+- **Verdict:** candidate, not adopted; the single-leg ES validate (job GIrlgbDJ1umq12NrnfY8, 8 folds) is the formal grade. If it passes: ES/MES paper-leg decision (one ES = 2.5x one NQ per point).
