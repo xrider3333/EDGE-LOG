@@ -346,3 +346,17 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Head-to-head on the crown window** (`tools/r40b_es_selected_vs_crown.py`): ES-selected n=3049 / $310,408 / PF 1.434 / DD $15,807 / **n/DD 19.6 / 8-of-8** vs crown card n=4160 / $336,671 / PF 1.413 / DD $18,425 / n/DD 18.3 / 7-of-8. **A tie, not a challenger** — evidence the band edge is real, not a fitted NQ artefact.
 - **LIVE-LEG CAUTION:** in the last 12 months both are tail-driven — top-10 share 214% (ES-selected) and 176% (crown card), ex-top-10 −$43,809 and −$33,284. NOISE family-wide, not one cell.
 - **Harness lesson:** the first pass retyped the leader from a truncated console line and mis-scored it (PF 1.17 vs 1.29). Read params from the search CSV, never a printed row. Also: `tools/r16_results/*.csv` is gitignored, so ship scripts carry the .log not the .csv.
+## Round 41 (2026-09-09) — THE CORRECTION to rounds 37/38 (rows 1445-1453, v73.623)
+
+**B26/B28 are DOWNGRADED by this round.** `tools/r41_bar_ladder_overlap.py`.
+
+| # | What | Numbers | Verdict |
+|---|---|---|---|
+| — | **2m is not the best bar** — the ladder at the STRESSED cost ($15.66), one source tape | crown geometry n/DD: 10m **23.6** · 3m **23.4** · 2m 19.4 · 5m 16.1 · 1m 7.4 | R/YR pointed at 2m only because it rises mechanically with trade count |
+| — | **The 2m cells ARE the crown** | #334 champion vs crown: 81% shared days · **98% same direction** · corr 0.811 · **−$93,445 on days the crown is flat** | not a second edge; **no 2m leg to paper** |
+| **B30** | **The cost-robust corner is a BAR-DIMENSION plateau** — band exit · ATR stop 0.75 · confirm 3 · afternoon block · lookback 74 · bands 1.0/1.75 | clears the full house bar in **all 10 ladder cells** (5 bars x 2 costs); on the crown's own 5m bar: n=1,956 · $202,725 · **PF 1.563** (crown 1.418) · DD $12,737 (crown $18,425) · **8/8** · $104/trade | the only geometry measured with a plateau across bar sizes; a **replacement** candidate for the crown's geometry, never an addition (92% overlap) |
+
+**TIER 3 additions (round 41):**
+- **R/YR is bar-size-inflated.** EV-R x trades-per-year rises mechanically when a shorter bar chops one edge into more trades. Never rank bar sizes on it; rank on net-over-drawdown at a stressed cost.
+- **Overlap before pooling, and read the fourth column.** The test that settles "new edge or same edge" is what a candidate earns on the days the incumbent is FLAT. The #334 champion earns −$93,445 there. Shared-day count and correlation alone would have let it through.
+- **A sum's drawdown can never exceed the sum of its parts'.** That bound caught a real bug (pooled DD $222,772 vs a $31,517 bound) from `pd.concat` returning an unsorted union index. Assert monotonic order before any pooled cumsum.

@@ -36,7 +36,17 @@ def daily(fn, mult=20.0):
 
 
 def book(dfs, label):
-    s = pd.concat([d.groupby("day").pnl.sum() for d in dfs], axis=1).fillna(0).sum(axis=1)
+    # SORT_INDEX IS LOAD-BEARING (added 2026-09-09, round 41): pd.concat on two `datetime.date`
+    # indexes returns their UNION IN UNSORTED ORDER, so the cumsum below walks the calendar out
+    # of order and the "drawdown" it reports is meaningless. The bug is invisible without a
+    # bound to check it against -- use this one: a sum's max drawdown can never exceed the sum
+    # of its parts' max drawdowns. On THIS file's own pair the error is small (GAPGO+ORB reads
+    # n/DD 10.82 unsorted vs 10.63 sorted) because these date sets nearly sort themselves, but
+    # it is unbounded in general: tools/r41_bar_ladder_overlap.py hit a pair that read
+    # DD $222,772 unsorted against parts of $13,092 and $18,425 (bound $31,517) -- n/DD 2.62
+    # where the truth was 24.40. Never cumsum a concatenated daily series without sorting first.
+    s = pd.concat([d.groupby("day").pnl.sum() for d in dfs], axis=1).sort_index().fillna(0).sum(axis=1)
+    assert s.index.is_monotonic_increasing, "pooled daily index is not in calendar order"
     cum = s.cumsum(); dd = float((cum - cum.cummax()).min()); net = float(s.sum())
     print(f"  BOOK {label:28} net=${net:>10,.0f} DD=${-dd:>9,.0f} n/DD={net/-dd if dd < 0 else 99:5.2f}")
     return s

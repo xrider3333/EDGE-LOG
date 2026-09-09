@@ -144,6 +144,69 @@ exits (1R, 2R, ride-BE, and NOISE's own VWAP-cross exit): best cell micro-OR 10-
 PF 1.18 / MAR 5.3 / top-10 90%; range-burst 3x / ride PF 1.36 / MAR 7.2 / top-10 112%. The band entry
 sizes itself to the day's realized noise; a fixed level cannot, and the VWAP exit does not rescue it.
 
+### ROUND 41 (2026-09-09) — THE CORRECTION: 2m is not the best bar, and the 2m cells are the CROWN (rows 1445–1453, web v73.623)
+
+**Both open questions from round 38 are now answered, and both go against rounds 37/38.** Harness
+`tools/r41_bar_ladder_overlap.py`; one source tape (the NQ 1m RTH master) resampled in-file to
+2/3/5/10m so no cell differs by how its master was built — gated against the registered 5m master
+(C1 reproduces it to 0.11% on net, 0.00% on trade count). Window 2010-06-07..2025-06-29; the spent
+lockbox was not opened.
+
+**A. THE BAR LADDER — 2 minutes is nobody's best bar.** Net-over-drawdown at the STRESSED cost
+(0.783 pts = $15.66), which is the basis a leg decision actually rests on:
+
+| geometry | 1m | 2m | 3m | 5m | 10m |
+|---|---|---|---|---|---|
+| C1 — #243 crown (the paper leg) | 7.4 | 19.4 | **23.4** | 16.1 | **23.6** |
+| C2 — #334 champion | 2.8 | 10.6 | **10.9** | 9.2 | 8.7 |
+| C3 — cost-robust corner (r38 rank 8) | **16.9** | 16.2 | 14.5 | 15.0 | 12.8 |
+
+Rounds 37/38 ranked on **R/YR**, which is EV-R × trades-per-year and therefore rises *mechanically*
+whenever a shorter bar chops one edge into more trades. On the decision basis the bar barely matters,
+and the crown geometry is best at **10m and 3m**, not 2m. The 3m crown cell: n 5,231 / $329,477 /
+PF 1.373 / DD $12,323 / MAR 26.7 / $63 a trade. The 10m cell: n 3,105 / $305,593 / PF 1.441 /
+DD $12,211 / MAR 25.0 → 23.6 stressed / 7-of-8 at both costs / $98 a trade.
+
+**C3 is the one genuinely good result, and it is a GEOMETRY not a bar: it clears the full house bar
+in all TEN ladder cells** (5 bar sizes × 2 costs) — a plateau across the *bar* dimension, stronger
+than the knob plateaus this program usually measures. On the crown's own 5m bar it is n 1,956 /
+$202,725 / **PF 1.563** (crown 1.418) / DD $12,737 (crown $18,425) / **8-of-8** / $104 a trade —
+the best *trade* in this whole line of work, on far fewer of them.
+
+**B. THE OVERLAP — the 2m cells are the crown re-expressed, not a second edge.**
+
+| pair | shared days | same direction | daily corr | net where the OTHER is flat | pooled 1:1 n/DD |
+|---|---|---|---|---|---|
+| #334 champion (2m) vs #243 crown (5m) | 1,928 of 2,381 (81%) | **98%** | 0.811 (0.909 shared) | **−$93,445** of $334,138 | 23.65 (vs 12.42 / 18.17) |
+| cost-robust corner (2m) vs crown (5m) | 1,517 of 1,651 (92%) | 98% | 0.711 | +$15,177 of $248,390 (6%) | 24.40 (vs 18.97 / 18.17) |
+| corner (2m) vs champion (2m) | 1,523 of 1,651 (92%) | 97% | 0.676 | +$12,031 | 26.30 |
+
+**The decisive number is the fourth column.** The run-#334 champion *loses* money on the days the
+crown does not trade — every dollar it makes, and more, comes from days the crown already owns. The
+corner is positive there but only 6% of its net. The pooled n/DD gains are the ordinary averaging
+benefit of two correlated expressions of ONE edge, not diversification (corr 0.71–0.81), and this
+program has already been burned once reading a pooled number too kindly (the B19 retraction).
+
+**DECISION: nothing moves on the paper board.** A 2m leg would trade the crown twice at a finer
+granularity while consuming a second margin slot. Run #334 stands as an honest validated card on its
+own bar and needs no action. If the crown's *exit/stop* geometry is ever revisited, C3 at 5m
+(PF 1.563, 8/8, $104 a trade) is the configuration to test against it — as a **replacement**
+candidate, never as an addition.
+
+**METHOD BUG FOUND AND FIXED (it affects a shipped tool).** `pd.concat` on two daily series with
+`datetime.date` indexes returns the union **unsorted**, so a `cumsum` over it walks the calendar out
+of order and the drawdown is meaningless. Caught by the bound that *a sum's drawdown can never exceed
+the sum of its parts'*: the corner-vs-crown pool read **DD $222,772** against parts of $13,092 and
+$18,425 (bound $31,517). Sorted it reads $23,899 / n-per-DD 24.40, not 2.62.
+**`tools/gapgo_vs_orb_overlap.py` carries the same pattern** — measured there as 10.82 unsorted vs
+**10.63** sorted (small, because those date sets nearly sort themselves; the error is unbounded in
+general). Both files now `.sort_index()` and assert monotonic order.
+
+Files: `tools/r41_bar_ladder_overlap.py`; results `tools/r37_results/r41_bar_ladder.csv`,
+`r41_overlap.txt`, `r41_bar_ladder.log`.
+
+---
+
 **Three 2m NOISE candidates now exist, none crowned:** the runner's #334 champion (most money,
 cost-fragile), the R/YR record (row 1321, cost-fragile), and the cost-robust corner (row 1403). A
 2m leg would need NT parity on 2m bars first; the 1m validate (job `RboN8x79sMiYCBgbOySp`) is running.

@@ -1,0 +1,26 @@
+
+PART B - IS THE 2m EDGE A DIFFERENT EDGE FROM THE 5m CROWN?
+  #334 champion on 2m                n= 7419 net=$   334,138 PF=1.314 DD=$27,517
+  #243 crown on 5m (the paper leg)   n= 4120 net=$   334,810 PF=1.418 DD=$18,425
+  cost-robust corner on 2m           n= 3618 net=$   248,390 PF=1.485 DD=$13,438
+
+  #334 champion on 2m  vs  #243 crown on 5m (the paper leg)
+    shared trade days: 1928 of 2381 and 2129 (81% of the first)
+    same direction on shared days: 98%
+    daily-PnL correlation: 0.811 all days, 0.909 shared days only
+    net earned on days the OTHER does not trade: $-93,445 of $334,138
+    pooled 1:1  net=$668,949 DD=$28,290 n/DD=23.65   vs alone 12.42 and 18.17
+
+  cost-robust corner on 2m  vs  #243 crown on 5m (the paper leg)
+    shared trade days: 1517 of 1651 and 2129 (92% of the first)
+    same direction on shared days: 98%
+    daily-PnL correlation: 0.711 all days, 0.792 shared days only
+    net earned on days the OTHER does not trade: $15,177 of $248,390
+    pooled 1:1  net=$583,200 DD=$23,899 n/DD=24.40   vs alone 18.97 and 18.17
+
+  cost-robust corner on 2m  vs  #334 champion on 2m
+    shared trade days: 1523 of 1651 and 2381 (92% of the first)
+    same direction on shared days: 97%
+    daily-PnL correlation: 0.676 all days, 0.775 shared days only
+    net earned on days the OTHER does not trade: $12,031 of $248,390
+    pooled 1:1  net=$582,528 DD=$22,148 n/DD=26.30   vs alone 18.97 and 12.42
