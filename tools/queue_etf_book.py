@@ -117,14 +117,14 @@ def nq_leg():
             "source": "db_noadj_rth", "cost_pts": 0, "mult": 1, "weight": 1}
 
 
-def build_job(warm=False):
+def build_job(warm=False, etf_only=False):
     etf, table = select_etf_legs()
     print(f"{'leg':14}{'n':>6}{'net$':>11}{'PF':>8}  include")
     for lg, n, net, pf, ok in table:
         print(f"{lg:14}{n:>6}{net:>11,.0f}{pf:>8.3f}  {'YES' if ok else 'no'}")
     print(f"\nrule selected {len(etf)} ETF legs (PF>={PF_MIN}, net>0, n>={N_MIN})")
 
-    legs = etf + [nq_leg()]
+    legs = etf if etf_only else etf + [nq_leg()]
     picked = ", ".join(f"{l['instrument']}/{l['strategy'].split('_1_0')[0]}"
                        + ("(both)" if l["params"].get("allow_shorts") else "")
                        for l in etf)
@@ -154,7 +154,7 @@ def build_job(warm=False):
     )
     return {
         "type": "book",
-        "strategy": "BOOK: r25 weak-edge (ETF dips + NQDIP)",
+        "strategy": ("BOOK: r25 weak-edge ETF-ONLY (no NQDIP)" if etf_only else "BOOK: r25 weak-edge (ETF dips + NQDIP)"),
         "book_name": "ROUND 25 WEAK-EDGE BOOK - %d ETF dip legs + NQDIP_1_0" % len(etf),
         "date_from": (WARM_FROM if warm else WIN_FROM),
         "date_to": WIN_TO,
@@ -194,10 +194,11 @@ def send(job):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--send", action="store_true", help="actually queue it (guarded)")
+    ap.add_argument("--etf-only", action="store_true", help="the 7 ETF legs without NQDIP (sub-book control for run #332)")
     ap.add_argument("--warm", action="store_true",
                     help="open the window at 2009-06-01 so the ETF legs warm up outside it")
     a = ap.parse_args()
-    job = build_job(a.warm)
+    job = build_job(a.warm, a.etf_only)
     print("\n" + json.dumps(job, indent=2, default=str))
     print(f"\nSUMMARY  {job['book_name']}\n"
           f"  window        {job['date_from']} -> {job['date_to']}, "
