@@ -415,3 +415,10 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **The crown swap alone is a WASH** (28.77 vs 30.25) — defensible as housekeeping (it is what the paper leg trades), not an improvement. **My round-48 claim of 11.95 → 28.77 is withdrawn.**
 - **Why round 48 was wrong:** I reproduced #361 locally, pooling legs by exit day in local time; the app stamps its own way and for an overnight leg that halves the measured drawdown. **Take the app's own numbers as the baseline when comparing against a run it produced.**
 - **Unchanged caveat:** all three books' held-back year has ten best days ≈103% of that year's profit.
+
+### B31 CLOSED — no fifth leg, no weight change; run #366 stands (round 52, rows 1694-1698, v73.705)
+
+- **Dip book as a 5th leg — REJECTED.** Most uncorrelated thing in the library (−0.003 to +0.014 vs all four legs) but its own DD $44,824 > the whole book's $36,562; adding it drops selection n/DD **38.18 → 23.37** (w2 18.89, w3 16.73). Alone it is 9.92. **Uncorrelated is not enough — a leg must also be competitive on its own drawdown-adjusted return.**
+- **Weight ladder — metric artifact, NOT adopted.** TTM w3→4→5→6 improves BOTH stretches monotonically (38.18 / 40.48 / 42.78 / 45.07) with no interior optimum — the ratio has no concentration term and would keep rising until the book *is* that leg. At w5 it supplies **26.9% of selection profit from 9% of trading days** (326 of 3,444). Owner's risk call, not a finding. Book stays at w3.
+- Also tested: ORB x2 (28.08) and ENGU-Q x2 (32.18) worse; ORB x0.5 better on both (42.85 / 10.40) for the same mechanical reason — recorded, not acted on.
+- **Standing answer: the validated four-leg book run #366** — selection n/DD 38.18 vs adopted 30.25, whole 46.11 vs 36.93, held-back level 10.33, 8/8 slices. Adoption is the owner's call.
