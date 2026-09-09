@@ -607,9 +607,11 @@ NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source
 # earns ~2,900 dollars a year on one contract (about 20 trades a year) - too small to trade by itself.
 # Its daily profits are UNCORRELATED with both crowns (0.060 to ORB, 0.003 to ENGU-Q), so three ES
 # contracts on the baseline book lifted annualised MAR 1.75 -> 2.03 at IDENTICAL whole-run drawdown
-# and a lockbox drawdown 21% lower (BOOK 336 vs 337, 8 of 8 slices both). THE CLAIM: the book with
-# this leg (see book336 in the nightly report) beats the ORB + ENGU-Q baseline on net at drawdown no
-# worse than it. Reported per ONE contract; the book applies weight 3. FORWARD EVIDENCE ONLY.
+# and a lockbox drawdown 21% lower (BOOK 336 vs 337, 8 of 8 slices both). THE CLAIM: this leg beats
+# the ORB + ENGU-Q baseline on net at drawdown no worse than it. Reported per ONE contract.
+# SINCE 2026-09-09 THIS LEG IS THE CONTROL, NOT THE BOOK LEG: the owner swapped the book to the
+# tilted version below, and TTM_299 keeps running unchanged as its exact matched control.
+# FORWARD EVIDENCE ONLY.
 TTM_299 = dict(kc_mult=1.5, stop_atr=1.5, eod_cutoff=1, gate_len=20)
 
 # THE SAME CELL, SIZED. Run #340 (TTMSQZ_3_0_ES30T.py, 2026-09-09) put the round-8 deep-squeeze size
@@ -620,9 +622,11 @@ TTM_299 = dict(kc_mult=1.5, stop_atr=1.5, eod_cutoff=1, gate_len=20)
 # difference between this leg and TTM_299 is size: the 188 of 359 trades entered while the hourly
 # squeeze is deep carry 1.5 contracts. It also cleared the bar written before it ran: lockbox $6,948
 # at profit factor 2.38 against $4,992 at 2.22, whole run $69,884 at drawdown $4,549 against $51,709
-# at $3,740, annualised MAR 0.96 against 0.86. THE CLAIM: from 2026-09-10 this leg beats TTM_299 on
-# net without a materially worse drawdown, per contract. FORWARD EVIDENCE ONLY - the book336 figure
-# still carries the untilted TTM_299, and nothing is swapped until the forward read says so.
+# at $3,740, annualised MAR 0.96 against 0.86. BOOK run #341 then measured it in the book: 4.9 percent
+# more money at an IDENTICAL whole-run drawdown and a 3 percent bigger lockbox, missing the shop's
+# plus-5-percent MAR clause by 0.15 of a percent. THE CLAIM: from 2026-09-10 this leg beats TTM_299 on
+# net without a materially worse drawdown, per contract. THIS IS NOW THE BOOK LEG (owner swapped it in
+# on 2026-09-09, knowing the book bar was missed by a hair); TTM_299 stays as the matched control.
 TTM_299_T = dict(TTM_299)
 
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
@@ -1025,7 +1029,10 @@ LEG_SOURCE = {
                 "is DEEP (band-to-channel ratio at or under 0.85, the house threshold from the "
                 "KEEL overlay) are sized 1.5. Run #340 PASSED all six gates and cleared the bar "
                 "written before it ran; the search re-crowned the same cell, so TTM_299 is an "
-                "exact matched control. Reported per one contract; not in the book336 figure.",
+                "exact matched control. Reported per one contract; carried at weight 3 in the book "
+                "figure since the owner swapped it in on 2026-09-09 (BOOK run #341: 4.9 percent more "
+                "money at an identical drawdown, a 3 percent bigger lockbox, and a book MAR clause "
+                "missed by 0.15 of a percent, overridden knowingly).",
     },
     "TTM_299": {
         "run": 299, "run_label": "#299 (TTM-ES30N) hourly-verified ES 30m squeeze",
@@ -1382,17 +1389,19 @@ PAPER_LEGS = [
      "gate": NOISE_243_COMP15, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_C15"]},
     # ADDED 2026-09-08 (owner: "continue with all" on the BOOK-336 adoption): the TTM diversifier leg,
-    # the first ES leg and the first 30-minute leg in the paper book. One contract here; weight 3 in
-    # the book336 figure of the nightly report. FORWARD EVIDENCE ONLY.
+    # the first ES leg and the first 30-minute leg in the paper book. One contract here. It carried the
+    # book figure at weight 3 for one day and became the CONTROL on 2026-09-09, when the owner swapped
+    # the book onto the tilted leg below. FORWARD EVIDENCE ONLY.
     {"key": "TTM_299", "strategy": "TTMSQZ_3_0_ES30N.py", "instrument": "ES",
      "timeframe": "30m", "session": "rth", "params": TTM_299,
-     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
      "source": LEG_SOURCE["TTM_299"]},
-    # ADDED 2026-09-09: the validated deep-squeeze tilt (run 340) beside the adopted TTM leg, which is
-    # its exact matched control. Not in book336 - FORWARD EVIDENCE ONLY.
+    # ADDED 2026-09-09: the validated deep-squeeze tilt (run 340) beside the untilted TTM leg, which is
+    # its exact matched control. THE BOOK LEG since the owner swapped it in the same day, at weight 3.
+    # FORWARD EVIDENCE ONLY.
     {"key": "TTM_299_T", "strategy": "TTMSQZ_3_0_ES30T.py", "instrument": "ES",
      "timeframe": "30m", "session": "rth", "params": TTM_299_T,
-     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
      "source": LEG_SOURCE["TTM_299_T"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
@@ -2191,14 +2200,30 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     # blend stays the owner's 1:1 ORB+ENGU-Q baseline — NOISE is reported as its own
     # leg but does NOT join the blend until the owner adds it to the book.
     blend_pnl = sum(leg_reports[k]["pnl_usd"] for k in ("ORB", "ENGUQ") if k in leg_reports)
-    # BOOK 336 (owner adopted 2026-09-08): ORB 234 + ENGU-Q 309, one NQ contract each, plus THREE ES
-    # contracts of the TTM 299 leg. Legs report per one contract; the weight is applied here only.
-    _BOOK336 = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299": 3.0}
-    book336_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK336.items() if k in leg_reports)
+    # THE BOOK: ORB 234 + ENGU-Q 309, one NQ contract each, plus THREE ES contracts of the TTM leg.
+    # Legs report per ONE contract; the weight is applied here only.
+    #
+    # SWAPPED TO THE TILTED TTM LEG 2026-09-09 (owner: "swap the book leg to the tilted config").
+    # The evidence for the swap is leg-level first and book-level second. Leg: run #340 put the
+    # deep-squeeze size tilt through a fenced Auto-Validate on run #299's own four knobs and passed
+    # all six gates, then cleared the bar written before it ran - lockbox $6,948 at profit factor
+    # 2.38 against $4,992 at 2.22. The search re-crowned run #299's exact cell, so the two legs take
+    # the SAME trades and differ only in size. Book: BOOK run #341 against #336 - $1,174,222 against
+    # $1,119,697, up 4.9 percent, at an IDENTICAL whole-run drawdown of $34,329, lockbox $199,035
+    # against $193,170. It missed the shop's plus-5-percent MAR clause by 0.15 of a percent, which
+    # the owner overrode knowingly; round 10 also showed that clause cannot bind on this leg at all
+    # (the book's worst stretch is Feb-Mar 2020 and the TTM leg took zero trades in it).
+    #
+    # TTM_299 keeps running as its own leg - the exact matched control - it is simply no longer the
+    # one the book counts. One-day seam: TTM_299_T's first forward session is 2026-09-10, so on
+    # 2026-09-09 this figure carries the two NQ legs only.
+    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_T": 3.0}
+    book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
-        "book336": {"pnl_usd": book336_pnl, "weights": _BOOK336},
+        "book": {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 341,
+                 "name": "ORB 234 + ENGU-Q 309 + 3 ES of the tilted TTM leg (run 340)"},
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),
