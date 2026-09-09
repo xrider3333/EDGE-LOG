@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.679';
+const VERSION='73.680';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.680',date:'2026-09-09',notes:['HOME TAB: closed the two known gaps in the sub-tab. First, MORE STATS ▸ ACCOUNT now has a vs SPY row - your account return over the selected range minus SPYs return over that same range, colored green for ahead and red for behind. It reuses the exact same SPY data and math the OVERVIEW tabs own vs SPY row already uses, so the two never disagree; while SPY prices are still loading (or if they fail to load) it shows a plain dash instead of guessing.','Second, tags are no longer read-only on this tab. Click the TAGS cell in the table, or the tags row in the trade detail sheet, to open the same tag picker the TRADES tab uses - toggle a tag on or off, or remove one with its x - and it saves the same way TRADES does, so both tabs always show the same tags. Clicking the tags area never opens the detail sheet by accident, and editing tags inside the detail sheet updates it immediately without closing it.']},
 {v:'73.677',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 46, rows 1628-1631 - THE MIRROR TEST RETIRES MY OWN ROUND 45 EXPLANATION. Round 45 said this tape rewards entering fast since 2024. Tested against eight pre-declared FASTER variants with the falsifier written first: zero of eight beat the crown recently and seven of eight are worse in both eras, so the story is retired. The crown own trades show the tape timing is unchanged - median 2 bars to the best price and 8 bars held in both eras - while AMPLITUDE grew about sevenfold, median peak per trade from about 100 dollars in 2010-2017 to 1,382 in 2026, which means every raw-dollar recency clause in rounds 43 to 45 was partly reading volatility. On profit factor the decay is real anyway: the slower candidates led the crown by 0.104 and 0.147 and now trail by 0.060 and 0.041 while the crown own profit factor is flat. CORRECTED ACCOUNT: the optimum has moved to where the crown already sits - it is now the best point in both directions. Nothing moves; crown stays run 304 on five minutes.']},
 {v:'73.676',date:'2026-09-09',notes:['STUDIES BOARD: ROUND 46, rows 1622 to 1627 - the ENGU-Q ES leg passes the two tests that killed everything else this week. RECENCY: profit factor 1.24 over 2010 to 2023 and 1.59 over 2024 to 2026, earning 357 dollars a trade recently against 66 before - the opposite of the NOISE finding that everything improving the old tape has lost since 2024. COST: at 30 dollars a round trip it still earns 98 dollars a trade, 3.3 times its cost, where the NOISE ES configuration earned under twice its cost and was closed.','Honest marks on the card: the recent strength is bigger trades not more of them (236 since 2024 against 1,871 before), the drawdown arrives in the same stretch (net over drawdown 2.5 recently against 5.5 before), 2015 and 2016 were losing years, and 2026 to the end of June is nearly flat. A second Auto-Validate is queued at honest fills - same file, window and lockbox at 30 dollars a round trip instead of 20.']},
 {v:'73.678',date:'2026-09-09',notes:['PHASE 5: THERE IS ONE COMPARE TAB AGAIN. The beta loses its label and the old tab comes off the rail. Nothing it could do has been taken away: the two views with no replacement yet - the RUNBOARD funnel and matrix, and the picked-run tabs and saved sets, plus the feature board - are now HOSTED from the COMPARE screen, the same way EXPLORE already hosts the studies board. A view picker on that screen chooses between the new overlay and each of them, and every screen carries the same navigation instead of the old VIEW pills, which all jumped to a tab that is no longer there.','The old code is deliberately still on disk, and says so on screen: a hosted view is labelled as hosted until the new screen absorbs it. Deleting six thousand lines today would have taken the funnel, the matrix and the saved sets with it, and they have no replacement yet. That deletion is its own change, after the absorption, when there is nothing left to lose.','Nothing strands: the escape hatches, the old view pills and the rankings rail now land on the screen that hosts what they pointed at, instead of on a tab with no way back.']},
@@ -8484,10 +8485,14 @@ window.removeTagFromTrade=async function(tid,tag){
   try{await updateTrade(tid,{tags});}catch(e){console.error('Tag save failed',e);}
   renderApp();
 };
-// Close tag picker when clicking elsewhere
+// Close tag picker when clicking elsewhere (TRADES table + HOME table share the
+// "tagpick-<id>" naming; the HOME detail sheet's single picker is "hm-sheet-tagpick" — both
+// close together whenever a click lands outside any .tag-cell trigger).
 document.addEventListener('click',(e)=>{
   if(!e.target.closest('.tag-cell')){
     document.querySelectorAll('[id^="tagpick-"]').forEach(d=>{d.style.display='none';});
+    const sheetPick=document.getElementById('hm-sheet-tagpick');
+    if(sheetPick)sheetPick.style.display='none';
   }
 });
 
@@ -9162,6 +9167,43 @@ function _hmStatStrip(stats){
 function _hmMsRow(label,value,cls){
   return `<div class="hm-ms-row"><div class="l">${label}</div><div class="v${cls?(' '+cls):''}">${value}</div></div>`;
 }
+// vs SPY (alpha) for the ACCOUNT group — reuses the OVERVIEW tab's own SPY fetcher/cache
+// (fetchSPYData/_spyCache/spyReturnReal/_spyAllRange, all defined near the SPY cache above)
+// so the two tabs read the same data and can never disagree. Kicks off (or continues) the
+// same background fetch OVERVIEW's rail uses; never fetches a second time for the same
+// window since _spyCache is shared and keyed off the full trade history span.
+function _hmEnsureSpyData(){
+  if(!trades.length)return;
+  const range=_spyAllRange();
+  if(!range)return;
+  const [startD,endD]=range;
+  const key=startD+'_'+endD;
+  if(_spyCache[key]||_spyCache._loading===key)return;
+  _spyCache._loading=key;
+  fetchSPYData(startD,endD).then(d=>{
+    _spyCache._loading=null;
+    if(d&&activeTab==='home')renderApp(); // repaint MORE STATS once real data lands
+  });
+}
+// Account return over the selected range MINUS SPY's return over the same range — the exact
+// alpha definition OVERVIEW's "vs SPY" rail row uses (same sB/aP/sD/eD/sP arithmetic), scoped
+// here to the HOME range pill instead of OVERVIEW's chart timeframe. Returns a number once
+// real SPY data is cached, or null/undefined when there is nothing to show yet — the caller
+// renders an em dash for either, NEVER the crude annual-approximation OVERVIEW falls back to,
+// so HOME never shows a made-up figure while (or after a failed) load.
+function _hmVsSpyValue(){
+  const rTr=_hmTradesInRange(bScope(trades),homeRange);
+  if(!rTr.length)return null;
+  const sB=brokerStartEquity();
+  if(sB<=0)return null;
+  const sd=_spyCache[(_spyAllRange()||[]).join('_')];
+  if(!sd)return null; // real data not cached yet (or a prior fetch failed) — em dash, never approximate
+  const rStats=calcStats(rTr);
+  const aP=(rStats.net/sB)*100;
+  const sD=rTr[0].date,eD=rTr[rTr.length-1].date;
+  const sP=spyReturnReal(sD,eD,sd)*100;
+  return aP-sP;
+}
 function _hmMoreStats(stats){
   if(!stats)return '<div class="hm-ms-note">No trades in this range.</div>';
   const winPct=(stats.wins+stats.losses)>0?(stats.wins/(stats.wins+stats.losses))*100:0;
@@ -9197,6 +9239,7 @@ function _hmMoreStats(stats){
       ${_hmMsRow('START EQUITY',_hmMoney(_hmWindowStartEquity(homeRange)))}
       ${_hmMsRow('TOTAL FEES',_hmMoney(stats.totalFees))}
       ${_hmMsRow('FEES % OF GROSS',stats.feeImpact.toFixed(1)+'%')}
+      ${(()=>{const a=_hmVsSpyValue();return _hmMsRow('vs SPY',a==null?'&mdash;':_hmPct(a),a==null?'':_hmCls(a));})()}
     </div>
   </div>
   <div class="hm-ms-note">SCOPED TO ACCOUNT + RANGE</div>`;
@@ -9262,6 +9305,27 @@ function _hmRenderFeedDay(list){
   });
   return html;
 }
+// Interactive tag editor shared by the HOME table's TAGS column and the HOME detail sheet.
+// Reuses the TRADES tab's own save path (window.toggleTagOnTrade / window.removeTagFromTrade,
+// defined once near the SPY cache above) and its customTags list — no second picker, no
+// second tag list. `pickerId` must be unique in the DOM (the table gives each row's dropdown
+// "tagpick-<id>", the sheet uses its own fixed id since only one sheet is open at a time).
+// Applied-vs-not is shown with a DIFFERENT FILL (not just a color swap) plus a checkmark and
+// bold weight, so the picker still reads correctly under the mono theme (green renders white,
+// red renders grey there — hue alone would not distinguish the two states).
+function _hmTagEditorHtml(t,pickerId,compact){
+  const pillFs=compact?'8px':'10px';
+  const pillsHtml=(t.tags||[]).map(tag=>`<span style="font-size:${pillFs};padding:2px 6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text3);display:inline-flex;align-items:center;gap:3px"><span>${_hmEsc(tag)}</span><span onclick="event.stopPropagation();window.removeTagFromTrade('${t.id}','${String(tag).replace(/'/g,"\\'")}');return false" style="cursor:pointer;color:var(--text5);font-weight:bold">&times;</span></span>`).join('');
+  const plusHtml=(t.tags||[]).length===0?`<span style="color:var(--text5);font-size:9px">+ tag</span>`:`<span style="color:var(--text5);font-size:10px;margin-left:4px">+</span>`;
+  const pickHtml=customTags.length===0?`<span style="font-size:9px;color:var(--text5);padding:4px 8px">No tags defined. Add some in Settings &rarr; CUSTOM TAGS.</span>`:customTags.map(tg=>{
+    const isApplied=(t.tags||[]).includes(tg);
+    return `<button type="button" style="background:${isApplied?'var(--green)':'var(--bg3)'};border:1px solid ${isApplied?'var(--green)':'var(--border2)'};color:${isApplied?'var(--bg)':'var(--text3)'};font-weight:${isApplied?'700':'400'};font-size:9px;padding:3px 7px;cursor:pointer;font-family:'JetBrains Mono',monospace" onclick="event.stopPropagation();window.toggleTagOnTrade('${t.id}','${String(tg).replace(/'/g,"\\'")}')">${isApplied?'&#10003; ':''}${_hmEsc(tg)}</button>`;
+  }).join('');
+  return `<div class="tag-cell" data-id="${t.id}" style="position:relative">
+    <div style="display:flex;flex-wrap:wrap;gap:2px;align-items:center;min-height:18px;cursor:pointer" onclick="event.stopPropagation();const d=document.getElementById('${pickerId}');d.style.display=d.style.display==='flex'?'none':'flex'">${pillsHtml}${plusHtml}</div>
+    <div id="${pickerId}" style="display:none;position:absolute;left:0;top:100%;background:var(--bg1);border:1px solid var(--border);padding:4px;z-index:50;min-width:160px;flex-wrap:wrap;gap:3px;max-width:240px">${pickHtml}</div>
+  </div>`;
+}
 function _hmSheetHtml(id){
   const t=trades.find(x=>String(x.id)===String(id));
   if(!t)return '';
@@ -9297,7 +9361,7 @@ function _hmSheetHtml(id){
     ['SOURCE',t.source||'--']
   ];
   const dlHtml=rows.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${_hmEsc(r[1])}</div></div>`).join('');
-  const tagsHtml=(t.tags||[]).map(tag=>`<span class="tag">${_hmEsc(tag)}</span>`).join('');
+  const tagsHtml=_hmTagEditorHtml(t,'hm-sheet-tagpick',false);
   return `<button class="hm-sheet-close" id="hm-sheet-close" aria-label="Close">&#10005;</button>
     <div class="hm-sheet-sym">${_hmEsc(t.symbol)}</div>
     <div class="hm-sheet-sub">${t.type} ${t.size!=null?t.size:''}${isFut(t.symbol)?' contract'+(t.size>1?'s':''):' sh'} &middot; ${t.date}</div>
@@ -9328,7 +9392,7 @@ function _hmTableRow(t,idx,total,runBals){
   const unit=isFut(t.symbol)?'/c':'/sh';
   const dir=t.type==='LONG'?1:-1;
   const ptsPerC=(t.entry!=null&&t.exit!=null)?((t.exit-t.entry)*dir):null;
-  const tagsHtml=(t.tags||[]).slice(0,3).map(tag=>`<span class="tag" style="font-size:9px;margin-right:3px">${_hmEsc(tag)}</span>`).join('');
+  const tagsHtml=_hmTagEditorHtml(t,'tagpick-'+t.id,true);
   const sc=scoreOf(t);
   const scoreHtml=sc?`<span class="score-pill" style="color:${scoreColor(sc.overall)};border-color:color-mix(in srgb,${scoreColor(sc.overall)} 35%,transparent);background:color-mix(in srgb,${scoreColor(sc.overall)} 10%,transparent)" title="Setup ${sc.setup.total} / Execution ${sc.exec.total}" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">${sc.overall} ${scoreBand(sc.overall)}</span>`
     :`<span class="score-pill" title="Not scored yet" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">-</span>`;
@@ -9355,7 +9419,7 @@ function _hmTableRow(t,idx,total,runBals){
     <td><select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></td>
     <td><select class="inline-sel" data-hmfield="timeframe" data-hmid="${t.id}">${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}${t.timeframe&&!TIMEFRAMES.includes(t.timeframe)?`<option selected>${t.timeframe}</option>`:''}</select></td>
     <td class="hm-icon-cell" data-hmchart="${t.id}">${t.chartUrl?'&#128200;':'--'}</td>
-    <td>${tagsHtml}</td>
+    <td style="padding:3px 6px;max-width:130px">${tagsHtml}</td>
     <td class="hm-notes-cell" title="${_hmEsc(t.notes||'')}">${_hmEsc(t.notes||'')}</td>
     ${extra}
     <td class="hm-icon-cell" data-hmedit="${t.id}">&#9998;</td>
@@ -9370,6 +9434,7 @@ function _hmRenderTable(list){
 }
 // Main entry point - builds the whole HOME tab into `content` and wires every control.
 function _hmRenderHome(content){
+  _hmEnsureSpyData(); // kick off (or continue) the shared SPY fetch so vs SPY resolves without blocking paint
   const rangeTrades=_hmTradesInRange(trades,homeRange);
   const rangeStats=calcStats(rangeTrades);
   const list=_hmFeedList();
@@ -9455,7 +9520,7 @@ function _hmRenderHome(content){
     feedC.querySelectorAll('[data-hmdel]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();deleteTrade(td.dataset.hmdel);};});
     feedC.querySelectorAll('tbody tr[data-hmid]').forEach(tr=>{
       tr.onclick=(e)=>{
-        if(e.target.closest('select')||e.target.closest('.hm-icon-cell'))return;
+        if(e.target.closest('select')||e.target.closest('.hm-icon-cell')||e.target.closest('.tag-cell'))return;
         homeSheetId=tr.dataset.hmid;renderApp();
       };
     });
