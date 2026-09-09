@@ -225,7 +225,8 @@ var FIX = __FIX__;
           var fams=rows.map(function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'');});
           var bi=fams.indexOf('BOOKS');
           var big=(bi>=0)?rows[bi].querySelector('.c2-big'):null;
-          per[rk]={call:call,fams:fams,bookBig:big?(big.textContent||'').trim():null,
+          var bnm=(bi>=0)?rows[bi].querySelector('.c2-nm'):null;
+          per[rk]={call:call,fams:fams,bookBig:big?(big.textContent||'').trim():null,bookNm:bnm?(bnm.textContent||'').trim():null,
             errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
         });
         var ok=['mar','net','pf'].every(function(k){return per[k].call==='OK';});
@@ -510,6 +511,7 @@ def main(argv=None):
                and _num(mar.get('bookBig')) is not None            # MAR off book.lockbox.max_drawdown + lockbox_from
                and _num(net.get('bookBig')) == 70000.0             # dollars, NOT x20
                and _num(pf.get('bookBig')) == 1.4
+               and 'BOOKS' in (mar.get('bookNm') or '')                # the row says BOOKS, not the first leg tag
                and (r.get('subRows') or 0) >= 1)
     line('book', book_ok, 'call=%s fams=%s MAR=%r NET=%r PF=%r subRows=%s'
          % (r.get('call'), fams, mar.get('bookBig'), net.get('bookBig'), pf.get('bookBig'), r.get('subRows')))
@@ -530,6 +532,8 @@ def main(argv=None):
             fail('book: MAR on LB is a dash for the book (got %r) - book.lockbox.max_drawdown / lockbox_from fallback broken' % mar.get('bookBig'))
         if _num(net.get('bookBig')) != 70000.0:
             fail('book: NET on LB is %r, expected $70,000 (a book must not take a second contract multiplier)' % net.get('bookBig'))
+        if 'BOOKS' not in (mar.get('bookNm') or ''):
+            fail('book: BOOKS row label is %r, expected it to say BOOKS' % mar.get('bookNm'))
         if _num(pf.get('bookBig')) != 1.4:
             fail('book: PF on LB is %r, expected 1.40' % pf.get('bookBig'))
         if (r.get('subRows') or 0) < 1:
