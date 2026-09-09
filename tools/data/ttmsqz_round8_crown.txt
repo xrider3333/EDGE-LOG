@@ -1,0 +1,23 @@
+TTM SQUEEZE ROUND 8 - improving the crown (run 299, ES 30m hourly-verified)   2026-09-08 21:45
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01; ES cost 0.363 pts, mult 50; book = ORB 234 + ENGU-Q 309 (1 NQ each) + 3 ES of the TTM cell
+BAR (pre-registered): alone LB>0 and PF>=crown; stacked ann. MAR >= crown-stack x1.05 at DD within 5%; stacked LB >= crown-stack LB
+
+  cell                                       n     PF      net $     DD $    MAR      LB $  LB PF  LB DD $ |  BOOK net $  BOOK DD    MAR  BOOK LB $    LB DD  yrs+  verdict
+  BASELINE book alone (no TTM)               0      0          0        0   0.00         0    n/a      n/a |     964,571   34,903   1.72    178,192   33,112 15/17  reference
+  CROWN run 299 (the thing to beat)        359   2.12     51,709    3,740   0.86     4,992   2.22    3,151 |   1,119,697   34,903   2.00    193,170   26,235 17/17  crown
+  fade exit after 2 bars                   356   2.07     53,543    3,639   0.92     6,723   3.40    2,214 |   1,125,199   34,903   2.01    198,362   23,192 17/17  no (alone, book MAR/DD)
+  fade exit after 3 bars                   355   1.95     52,954    3,238   1.02     8,761   4.08    1,990 |   1,123,433   34,903   2.00    204,474   23,192 17/17  no (alone, book MAR/DD)
+  ride exit (stop or close only)           351   1.62     41,140    6,206   0.41     9,799   3.56    1,990 |   1,087,992   34,903   1.94    207,590   23,192 17/17  no (alone, book MAR/DD)
+  min 2-bar squeeze                        319   2.10     45,600    3,676   0.77     4,929   2.23    3,151 |   1,101,370   34,903   1.96    192,979   26,235 17/17  no (alone, book MAR/DD, book LB)
+  min 3-bar squeeze                        285   2.01     37,421    3,471   0.67     4,929   2.23    3,151 |   1,076,834   34,903   1.92    192,979   26,235 17/17  no (alone, book MAR/DD, book LB)
+  range-break entry                        277   2.01     39,883    3,058   0.81     2,734   1.85    1,995 |   1,084,220   34,903   1.93    186,396   24,654 17/17  no (alone, book MAR/DD, book LB)
+  long only                                217   2.08     25,279    3,151   0.50       316   1.08    3,151 |   1,040,407   36,156   1.79    179,141   36,156 16/17  no (alone, book MAR/DD, book LB)
+  short only                               142   2.16     26,430    3,025   0.56     4,676  99.00       -0 |   1,043,861   34,903   1.86    192,221   23,192 16/17  no (book MAR/DD, book LB)
+  2-hour verification                      201   1.29      9,009    5,427   0.11     4,650   3.89    1,609 |     991,598   34,903   1.77    192,143   23,192 16/17  no (alone, book MAR/DD, book LB)
+  hourly AND 2-hour coiled (filter)        121   1.84     14,083    2,689   0.33     4,636   4.39    1,366 |   1,006,819   34,903   1.80    192,102   23,192 15/17  no (alone, book MAR/DD, book LB)
+  1.5x when hourly ratio <= 0.85 (188 of 359)   359   2.23     69,884    4,549   0.96     6,948   2.38    4,053 |   1,174,222   34,903   2.09    199,035   27,209 16/17  no (book MAR/DD)
+  1.5x when hourly ratio <= 0.70 (52 of 359)   359   2.15     56,166    4,038   0.87     5,424   2.29    3,279 |   1,133,069   34,903   2.02    194,465   26,235 17/17  no (book MAR/DD)
+
+  QQQ 30m at the 299 config: no trades - the QQQ 5m master holds only 2026-06-08..06-30 (3 weeks), NO TAPE to test on; not a finding
+
+LEADS: 0 of 12 cells clear all three clauses - the crown stands

@@ -83,6 +83,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_K8": "2026-09-08", # KEEL v8 (symmetric shade, 50-trade fast window) on the same crown, forward test only
     "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
     "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
+    "TTM_299": "2026-09-09",  # TTM Squeeze crown (run 299) as the book diversifier leg, 3 ES in BOOK 336
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
     "ORB_R6_C15F": "2026-09-08",      # ORB crown x compression 1.5x x Friday 1.5x (LB $102k -> $123k at DD +1.8%, 8/10 WF years)
@@ -104,6 +105,10 @@ _NQ_MULT = 20.0
 # NQ round-trip cost in POINTS — same value tools/t5_runboard.py's leg_trades() and
 # tools/book_smoke.py use for both the ORB and ENGU-Q NQ legs (commission+slippage,
 # see ORB.md: "cost_pts = 0.533 (NQ, mult 20)").
+# ES contract multiplier and round-trip cost in points - the house ES convention
+# (tools/orb_hunt4.py, tools/ttmsqz_round6_parts.py, BOOK run 336).
+_ES_MULT = 50.0
+_ES_COST_PTS = 0.363
 _NQ_COST_PTS = 0.533
 
 # ORB leg params: ORB_125 is defined inline in tools/t5_runboard.py (line ~26), a
@@ -588,6 +593,17 @@ NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source
 # only which higher-timeframe bar is read. THE CLAIM: from 2026-09-09 C15G beats NOISE_SBS_V90 on net at
 # drawdown within 25% of it, and the C15G-vs-C15 spread says whether the validated gate beats the
 # a-priori one forward. FORWARD EVIDENCE ONLY.
+# TTM SQUEEZE run 299 - THE BOOK DIVERSIFIER LEG (owner adopted 2026-09-08 on BOOK run 336 vs 337).
+# ES 30-minute Carter squeeze fire taken only while the HOURLY squeeze is still on (TTMSQZ_3_0 with the
+# ES30N neighbourhood wrapper: mechanism frozen, four robust knobs at run 299's chosen cell). Alone it
+# earns ~2,900 dollars a year on one contract (about 20 trades a year) - too small to trade by itself.
+# Its daily profits are UNCORRELATED with both crowns (0.060 to ORB, 0.003 to ENGU-Q), so three ES
+# contracts on the baseline book lifted annualised MAR 1.75 -> 2.03 at IDENTICAL whole-run drawdown
+# and a lockbox drawdown 21% lower (BOOK 336 vs 337, 8 of 8 slices both). THE CLAIM: the book with
+# this leg (see book336 in the nightly report) beats the ORB + ENGU-Q baseline on net at drawdown no
+# worse than it. Reported per ONE contract; the book applies weight 3. FORWARD EVIDENCE ONLY.
+TTM_299 = dict(kc_mult=1.5, stop_atr=1.5, eod_cutoff=1, gate_len=20)
+
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
                      "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
 # KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
@@ -904,6 +920,16 @@ LEG_SOURCE = {
         "note": "The crowned #243 config with only the TTM round-6 compression tilt: 1.5x on trades "
                 "entered while the 60-minute squeeze is on, 1.0 otherwise, no model anywhere. The "
                 "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
+    },
+    "TTM_299": {
+        "run": 299, "run_label": "#299 (TTM-ES30N) hourly-verified ES 30m squeeze",
+        "strategy_file": "TTMSQZ_3_0_ES30N.py", "picked": "2026-09-08",
+        "note": "The TTM Squeeze family crown, adopted as a BOOK LEG (not a standalone) after BOOK "
+                "run 336 vs 337: three ES contracts on the ORB 234 + ENGU-Q 309 baseline raised annualised "
+                "MAR 16 percent at identical drawdown, every slice improved. Run 299 PASSED every gate on a "
+                "4-knob fenced neighbourhood (WF 6/8, PBO 0.24, lockbox PF 2.27); daily profits uncorrelated "
+                "with both crowns. Reported per one contract; BOOK 336 weight is 3. ES 30m RTH; the 30-minute "
+                "master ends 2026-06-30 and the tail is rebuilt nightly from the NinjaTrader ES 10s file.",
     },
     "NOISE_SBS_V90_C15G": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + compression tilt 1.5x on the validated gate (run 333)",
@@ -1249,6 +1275,13 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_COMP15, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_C15"]},
+    # ADDED 2026-09-08 (owner: "continue with all" on the BOOK-336 adoption): the TTM diversifier leg,
+    # the first ES leg and the first 30-minute leg in the paper book. One contract here; weight 3 in
+    # the book336 figure of the nightly report. FORWARD EVIDENCE ONLY.
+    {"key": "TTM_299", "strategy": "TTMSQZ_3_0_ES30N.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
+     "source": LEG_SOURCE["TTM_299"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
@@ -1334,7 +1367,7 @@ def _log(msg):
 
 
 # ── fresh-tail builder ───────────────────────────────────────────────────────────
-def _ticks_path():
+def _ticks_path(instrument="NQ"):
     """Pick the FRESHEST 10s file, not merely the first one that exists.
 
     This preferred _ADDON_10S purely on existence, which is how a stale file won:
@@ -1345,9 +1378,13 @@ def _ticks_path():
     -- with a fresher file sitting right next to it. Compare last-modified and take the
     newer; if only one exists that one wins by default.
     """
-    have = [p for p in (_ADDON_10S, _FALLBACK_10S) if os.path.exists(p)]
+    # The two NQ paths are the pattern; another instrument (ES for the TTM leg, 2026-09-08)
+    # swaps the symbol in the file name. NinjaTrader writes ES_10s.csv beside NQ_10s.csv.
+    cands = [p.replace("NQ_10s", "%s_10s" % str(instrument or "NQ").upper())
+             for p in (_ADDON_10S, _FALLBACK_10S)]
+    have = [p for p in cands if os.path.exists(p)]
     if not have:
-        return _ADDON_10S          # canonical path for the "missing" warning
+        return cands[0]            # canonical path for the "missing" warning
     if len(have) == 1:
         return have[0]
     try:
@@ -1356,9 +1393,9 @@ def _ticks_path():
         return have[0]
 
 
-def _load_fresh_ticks():
+def _load_fresh_ticks(instrument="NQ"):
     """Read the live 10s OHLC+delta CSV. Returns (DataFrame|None, path)."""
-    path = _ticks_path()
+    path = _ticks_path(instrument)
     if not os.path.exists(path):
         return None, path
     try:
@@ -1500,7 +1537,7 @@ def run_shadow(leg, today):
                      or (pd.Timestamp(today_d) - pd.Timedelta(days=_WARMUP_DAYS)).strftime("%Y-%m-%d"))
         arrays = load_master_arrays(master, date_from=date_from, date_to=None)
 
-        ticks_df, ticks_path = _load_fresh_ticks()
+        ticks_df, ticks_path = _load_fresh_ticks(leg.get("instrument") or "NQ")
         if ticks_df is None:
             warnings.append(f"10s data file missing/empty: {ticks_path}")
         else:
@@ -1513,8 +1550,14 @@ def run_shadow(leg, today):
                     f"10s data looks stale: last bar {last_tick_et} "
                     f"(more than {_STALE_MINUTES}m before {close_et} close)")
 
-            tf_min = 5 if str(leg["timeframe"]).lower().startswith("5") else 1
-            bars = _resample(ticks_df, tf_min)
+            # "1m" / "5m" / "30m" -> minutes (the TTM leg is the first 30-minute leg)
+            _digits = "".join(ch for ch in str(leg["timeframe"]) if ch.isdigit())
+            tf_min = int(_digits) if _digits else 1
+            # NinjaTrader stamps every 10s row at the bar's END (checked 2026-09-08 against the
+            # Databento 5m masters: open/close disagreed on half the rebuilt bars, and agreed on
+            # all but ~20 once the stamp is read as bar end). Shift one second back so each row
+            # lands in the bar it belongs to; bar time stays the bar START, as the masters use.
+            bars = _resample(ticks_df.assign(time=ticks_df["time"] - 1), tf_min)
             bars, bars_et = _filter_rth(bars, leg.get("session", "rth"))
             last_master_time = arrays["index"][-1] if len(arrays["index"]) else None
             if last_master_time is not None and len(bars):
@@ -1924,9 +1967,14 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
     # blend stays the owner's 1:1 ORB+ENGU-Q baseline — NOISE is reported as its own
     # leg but does NOT join the blend until the owner adds it to the book.
     blend_pnl = sum(leg_reports[k]["pnl_usd"] for k in ("ORB", "ENGUQ") if k in leg_reports)
+    # BOOK 336 (owner adopted 2026-09-08): ORB 234 + ENGU-Q 309, one NQ contract each, plus THREE ES
+    # contracts of the TTM 299 leg. Legs report per one contract; the weight is applied here only.
+    _BOOK336 = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299": 3.0}
+    book336_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK336.items() if k in leg_reports)
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
+        "book336": {"pnl_usd": book336_pnl, "weights": _BOOK336},
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),
