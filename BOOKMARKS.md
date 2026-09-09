@@ -337,3 +337,12 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Selection window** (2010-06-07..2025-06-30): book n=3842 / $694,819 / PF 1.53 / DD $46,787 / **n/DD 14.9 vs NQ alone 13.3 (+12%)**, 8/8 slices → pre-registered bar CLEARED.
 - **Lockbox** (2025-06-30..2026-06-30): book +$137,136 / PF 1.70 / DD $69,144; NQ alone +$87,790 / PF 1.67 / DD $41,889; **ES alone +$17,496 / PF 1.27 / DD $33,074** — positive on sign, drawdown twice the gain inside the year.
 - **Verdict:** candidate, not adopted; the single-leg ES validate (job GIrlgbDJ1umq12NrnfY8, 8 folds) is the formal grade. If it passes: ES/MES paper-leg decision (one ES = 2.5x one NQ per point).
+
+### B25 — the NOISE ES branch travels across bar sizes; an ES-picked config ties the NQ crown (round 40, rows 1422-1429, v73.617)
+
+- **Convergence:** independent searches on ES 5m (400 cfg) and ES 15m (250 cfg) returned the SAME 15-knob leader (lb 62 / bands 1.0-1.75 / vwap / both / all-day / fixed stop 3.75 / skip_bot_all 0.05-0.95 / vol-skip 95).
+- **ES bar-size travel** (`tools/r40_noise_bar_travel.py`): 5m PF 1.285 n/DD 10.8 (7/8, top-10 35%) · 15m PF 1.298 n/DD **13.2** (7/8, 37%) · 30m PF 1.258 n/DD 8.3 (7/8, 49%) · **60m fails** (PF 1.21, 5/8, top-10 67%).
+- **Cross-instrument OOS** — the config never saw an NQ bar during selection: NQ 5m PF 1.433 n/DD 19.3 (8/8, top-10 24%) · 15m 1.501 / 19.2 · 30m 1.503 / 20.3 · 60m 1.492 / 14.1. Four bar sizes, four passes.
+- **Head-to-head on the crown window** (`tools/r40b_es_selected_vs_crown.py`): ES-selected n=3049 / $310,408 / PF 1.434 / DD $15,807 / **n/DD 19.6 / 8-of-8** vs crown card n=4160 / $336,671 / PF 1.413 / DD $18,425 / n/DD 18.3 / 7-of-8. **A tie, not a challenger** — evidence the band edge is real, not a fitted NQ artefact.
+- **LIVE-LEG CAUTION:** in the last 12 months both are tail-driven — top-10 share 214% (ES-selected) and 176% (crown card), ex-top-10 −$43,809 and −$33,284. NOISE family-wide, not one cell.
+- **Harness lesson:** the first pass retyped the leader from a truncated console line and mis-scored it (PF 1.17 vs 1.29). Read params from the search CSV, never a printed row. Also: `tools/r16_results/*.csv` is gitignored, so ship scripts carry the .log not the .csv.
