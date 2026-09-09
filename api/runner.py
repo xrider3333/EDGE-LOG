@@ -2237,7 +2237,7 @@ def auto_pine(log=print, limit=25, provider=None):
             payload["provider"] = provider
         r = process_command("make_pine", payload, log=lambda *_: None)
         if r.get("ok"):
-            made += 1; log(f"   ✓ {s['file']} -> {r.get('made')} (via {r.get('via')})")
+            made += 1; log(f"   OK {s['file']} -> {r.get('made')} (via {r.get('via')})")  # ASCII on purpose: the launcher redirects stdout to a cp1252 log and a checkmark raised UnicodeEncodeError, which skipped the whole startup step (seen 2026-09-08)
         else:
             log(f"   – {s['file']}: {r.get('error')}")
     log(f"[auto-pine] {made}/{len(missing)} converted.")

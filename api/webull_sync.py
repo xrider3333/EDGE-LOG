@@ -113,6 +113,12 @@ def _client(keys):
         api.set_token_dir(TOKEN_DIR)
     except Exception:
         pass
+    # The SDK attaches a TimedRotatingFileHandler on ./webull_trade_sdk.log unless a logger is
+    # already marked as set. Five runner processes (primary + 4 workers) share this CWD, so the
+    # hourly rotation's os.rename hit WinError 32 (file held by the other four) and dumped a
+    # traceback into runner.log every hour (seen 2026-09-08). Mark it set and log to nothing.
+    api._file_logger_set = True
+    import logging as _lg; _lg.getLogger('webull.core').addHandler(_lg.NullHandler())
     return TradeClient(api)
 
 

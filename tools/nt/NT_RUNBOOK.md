@@ -68,7 +68,7 @@ break BOTH builds with CS0579 (happened 2026-08-17). So:
   24h session template; ranges widened v73.99 to fit. Warm-up replay can leave a REAL
   working stop order (`EQx`) guarding a position that only exists in its replay —
   check `/orders` after enable and cancel the orphan.
-- **EdgeLogENGUQ1m — RegimeLen (added 2026-09-07, compiled, NOT deployed)**: the one
+- **EdgeLogENGUQ1m — RegimeLen: DEPLOYED 2026-09-08 21:34** (source copied from tools/nt, headless build 0 errors, `NinjaTrader.Custom.dll` swapped with NT stopped, previous dll kept as `.bak-20260908`; the R2 crown params are NOT set yet - `nt_recover.ps1` stopped at the Welcome window with "Incorrect username or password" from the stored Credential-Manager entry, owner to re-store it via `nt_login_setup.ps1`; the strategy rows still carry the #226 config, so nothing trades differently until `RegimeLen` is confirmed in `/strategy/params` and the R2 knobs are set). History of the knob: the one
   knob the ENGU-Q crown (run #309, `augur_strategies/ENGUQ_1M_ETH_ER_1_0.py`) needs
   that this port did not have — an optional long-term trend gate, long only above its
   own trailing simple mean of close, `[Range(0, 400)]`, default 0 = off = every other
