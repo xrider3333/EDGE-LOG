@@ -1,0 +1,104 @@
+TTM SQUEEZE ROUND 15a - is the coil the right SIZE to trade?   2026-09-09 11:52
+ES 30m RTH, TTMSQZ_3_0_ES30SS20.py (structural stop, verification length pinned at 20), kc_mult 1.5, eod_cutoff 1
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01, 0.363 pts/RT, $50/pt, one contract
+SCAN ONLY - crowns nothing, queues nothing. Discovery=first 60%% of pre-lockbox trades by time, holdout=the rest; thresholds are read off discovery only, then frozen and applied unchanged to holdout and lockbox.
+REPRODUCTION CHECK vs the quoted incumbent (TTMSQZ_3_0_ES30SS20.py, kc_mult 1.5, eod_cutoff 1):
+  got:    n=357 PF=2.91 net=$101,017 DD=$4,338 lockbox=$16,977 @ PF 6.72
+  quoted: n=357 PF=2.91 net=$101,017 DD=$4,338 lockbox=$16,977 @ PF 6.72
+  MATCH -- bit-for-bit before anything else runs.
+
+============================================================================================================
+DESCRIPTIVE - the coil-width distribution and the stress-read numbers, reproduced (all 357 trades)
+============================================================================================================
+  width in points:   min 1.50  p10 5.50  p25 9.25  median 14.75  p75 25.50  p90 45.00  max 130.00
+  width in ATR-mult: min 0.46  p10 1.04  p25 1.74  median 2.91  p75 3.70  p90 4.21  max 6.99
+  per-contract structural risk $: mean $1,041  max $6,612  (stress read: mean $1,041, worst $6,612 - matches)
+
+  SCALE DRIFT - why points and ATR are tested separately, not interchangeably (median width by year):
+  year       n    med pts    med ATR
+  2010      21      10.75       2.27
+  2011      13      10.75       2.91
+  2012      21       9.00       2.87
+  2013      20      11.00       3.76
+  2014      28      10.88       3.07
+  2015      16      11.62       2.93
+  2016      22      13.88       3.08
+  2017      41       9.75       2.86
+  2018      25      17.00       2.72
+  2019      28      12.75       2.70
+  2020      20      26.00       2.25
+  2021      24      22.50       2.59
+  2022      11      37.25       2.48
+  2023      22      31.12       3.05
+  2024      19      33.50       3.16
+  2025      20      44.38       2.55
+  2026       6      82.75       3.72
+  points drift 8x across the window (ES's own price/vol scale rose ~5x, 2010->2026); the ATR-multiple
+  stays inside roughly 2.2-3.8 the whole way. A raw-points threshold frozen on early, low-vol
+  discovery trades will bind very differently in the recent, high-vol years than the ATR one does.
+
+============================================================================================================
+SPLIT: 357 trades total -> discovery 205, holdout 136, lockbox 16
+(lockbox n=16 is under the 40-trade testability floor - shown for the record, never used alone as evidence)
+============================================================================================================
+
+FROZEN THRESHOLDS (read off discovery's own distribution, then applied unchanged everywhere):
+  FLOOR-PTS  : keep coils >= 7.25 points          (discovery's own 25th percentile)
+  FLOOR-ATR  : keep coils >= 1.89 ATR-multiples   (discovery's own 25th percentile, scale-free)
+  FLOOR-ECON : keep coils >= 2.18 points          (a priori, NOT fit: 6x the 0.363pt round-trip cost,
+               i.e. cost <= 1/6 of the stop distance - the exact motivating example in the brief)
+  CAP-ATR    : keep coils <= 3.77 ATR-multiples   (discovery's own 75th percentile)
+
+============================================================================================================
+FLOOR AND CAP AS SELECTION AND AS A 1.5x TILT   (n / PF / net$ / DD$  per column)
+============================================================================================================
+                                                     ----- discovery (n=205) -----   ------ holdout (n=136) ------   ------ lockbox (n=16) ------
+  ALL TRADES (incumbent, unfiltered):   205   2.64    31,065    2,018 |   136   2.70    52,974    4,338 |    16   6.72    16,977    2,003
+
+  FLOOR-PTS  width_pts >= 7.25             select    156   2.98    28,817    2,412 |   129   2.62    49,814    4,215 |    16   6.72    16,977    2,003   perm p(disc)=0.1032
+     same rule, 1.5x on the liked trades   tilt      205   2.73    45,474    3,224 |   136   2.68    77,881    6,446 |    16   6.72    25,466    3,005
+
+  FLOOR-ATR  width_atr >= 1.89             select    154   2.82    26,214    1,706 |    90   1.59    15,266    4,481 |    11   5.91    13,983    2,003   perm p(disc)=0.3896
+     same rule, 1.5x on the liked trades   tilt      205   2.69    44,172    2,863 |   136   2.38    60,607    6,142 |    16   6.46    23,969    3,005
+
+  FLOOR-ECON width_pts >= 2.18 (6x cost)   select    201   2.63    30,762    2,004 |   136   2.70    52,974    4,338 |    16   6.72    16,977    2,003   perm p(disc)=0.7580
+     same rule, 1.5x on the liked trades   tilt      205   2.64    46,446    3,020 |   136   2.70    79,461    6,507 |    16   6.72    25,466    3,005
+
+  CAP-ATR    width_atr <= 3.77             select    154   2.88    26,320    2,080 |   118   2.72    48,035    4,259 |    10   9.83     9,988    1,010   perm p(disc)=0.3614
+     same rule, 1.5x on the liked trades   tilt      205   2.70    44,225    3,035 |   136   2.71    76,992    6,429 |    16   7.22    21,972    2,508
+
+MULTIPLE COMPARISONS: 4 rules were tried in this family (floor-pts, floor-atr, floor-econ, cap-atr).
+The honest threshold is 0.05 / 4 = 0.0125 - read the discovery p-value against THAT, not against 0.05.
+(The hybrid-stop idea below is reported separately and is NOT part of this family or this correction -
+ it is a different mechanism, not a selection rule, per the brief's own instruction not to mix them.)
+
+VERDICT per rule - survives only if: the mean-$/trade gap (kept vs skipped) points the SAME way in
+discovery AND holdout, BOTH the kept and skipped buckets clear the 40-trade floor in BOTH splits, and
+the discovery p-value clears the raw p<0.05 bar (before the stricter Bonferroni bar above):
+  FLOOR-PTS  width_pts >= 7.25             disc kept/skip 156/49  hold kept/skip 129/7  gap(d/h/lb) +139/-65/n/a $/trade -> does not survive
+  FLOOR-ATR  width_atr >= 1.89             disc kept/skip 154/51  hold kept/skip 90/46  gap(d/h/lb) +75/-650/+672 $/trade -> does not survive
+  FLOOR-ECON width_pts >= 2.18 (6x cost)   disc kept/skip 201/4  hold kept/skip 136/0  gap(d/h/lb) +77/n/a/n/a $/trade -> does not survive
+  CAP-ATR    width_atr <= 3.77             disc kept/skip 154/51  hold kept/skip 118/18  gap(d/h/lb) +78/+133/-166 $/trade -> does not survive
+
+============================================================================================================
+HYBRID STOP (separate idea, NOT a selection rule, NOT mixed into the family above): every trade is
+still taken; the structural stop is capped at 3.77 ATR from the ACTUAL fill (same threshold as CAP-ATR,
+for comparability) whenever the structural range would have set it wider. Distance is min(structural,
+cap_atr x ATR-at-the-fire-bar) - the ATR value is known at the fire bar, before the fill, same as every
+filter above. This can shift exit bars/prices, so the trade LIST differs from the incumbent's 357 -
+reported as its own run, not a re-score of the same trades.
+
+                                           whole-run (n/PF/net$/DD$)                then discovery / holdout / lockbox (n/PF/net$/DD$ each)
+  incumbent (no cap, 357 trades)   357   2.91   101,017    4,338
+  hybrid cap 3.77 ATR (357 trades)   357   2.90   100,828    4,338   disc   205   2.65    31,101    1,983   hold   136   2.69    52,750    4,338   lb    16   6.72    16,977    2,003
+  whole-run: incumbent net $101,017 DD $4,338 PF 2.91  ->  hybrid net $100,828 DD $4,338 PF 2.90  (-$189 in net, +$0 in DD)
+  the cap actually shortened the stop on 109 of 357 trades (31%) at its own discovery-75th-percentile threshold; the other 248 fires never reached 3.77 ATR of structural width in the first place.
+
+============================================================================================================
+BOTTOM LINE
+============================================================================================================
+NOTHING in the floor/cap family survives discovery+holdout agreement at a testable bucket size.
+This matches the family's own closed history (TTM.md: coil shape - length, depth, slope, range-in-
+ATR, prior move - already failed a holdout once, round 12d). The coil's SIZE, like its SHAPE, does
+not separate this leg's own trades on 357 of them. The hourly-compression CHECK, already in
+production, remains the only durable filter this family has ever produced.

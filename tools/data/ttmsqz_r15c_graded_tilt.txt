@@ -1,0 +1,55 @@
+TTM SQUEEZE ROUND 15c - GRADED size tilt (house convention, ENGU-Q's compression_sizes)   2026-09-09 11:50
+Leg: TTMSQZ_3_0_ES30SS20.py (run #353, structural stop, the leg the paper book carries), ES 30m RTH, kc_mult 1.5, eod_cutoff 1, gate_len 20.
+Window 2010-06-07..2026-06-30, lockbox from 2025-07-01, cost 0.363 pts/RT, $50/pt (tools/ttmsqz_round6_parts.py).
+
+========================================================================================
+STEP 1 - reproduce TTMSQZ_3_0_ES30SS20.py bit-for-bit before testing anything
+========================================================================================
+  quoted:    n 357, PF 2.91, net $101,017, DD $4,338 | lockbox $16,977 @ PF 6.72
+  file run:  n 357, PF 2.91, net $101,017, DD $4,338 | lockbox $16,977 @ PF 6.72
+  REPRODUCTION: MATCH (whole run), MATCH (lockbox)
+
+========================================================================================
+STEP 2 - this file's own raw-trade construction, re-priced with the incumbent's own
+single-step tilt (1.5x at ratio<=0.85), checked against STEP 1's file-level output
+========================================================================================
+  self-built control: n 357, PF 2.91, net $101,017, DD $4,338 (NaN ratios at decision bar: 0)
+  MATCHES STEP 1's file-level net/DD to the dollar: YES
+
+========================================================================================
+STEP 3 - bucket counts at the decision-bar ratio (n=357 trades total)
+========================================================================================
+  HOUSE grading (variant 1):  deep (ratio<=0.85) 185  |  on-not-deep (0.85<ratio<1.0) 172  |  off (ratio>=1.0) 0
+  DEPTH3 grading (variant 2): deep (ratio<=0.70) 52  |  mid (0.70<ratio<=0.85) 133  |  shallow (ratio>0.85) 172
+  confirmed: the third HOUSE bucket (squeeze off) is EMPTY on this leg - every entered trade already requires the hourly squeeze to be on, exactly as expected.
+
+========================================================================================
+STEP 4 - WHOLE RUN, 2010-06-07..2026-06-30
+========================================================================================
+  variant                            n      PF       net $      DD $     MAR    contr.   $/contr.
+  1 INCUMB (control 1.5x<=.85)     357    2.91     101,017     4,338   1.453       450        225
+  2 FLAT15 (leverage control)      357    2.70     110,581     5,463   1.263       536        206
+  3 HOUSE (2.0/1.5/1.0, ENGU-Q)    357    2.85     137,877     6,159   1.397       628        220
+  4 DEPTH3 (2.0/1.5/1.0 @.70/.85)   357    2.92     106,288     4,355   1.523       476        224
+
+========================================================================================
+STEP 5 - LOCKBOX, 2025-07-01..2026-06-30 (never tuned on, reported separately)
+========================================================================================
+  variant                            n      PF       net $      DD $     MAR    contr.   $/contr.
+  1 INCUMB (control 1.5x<=.85)      16    6.72      16,977     2,003   8.720        20        871
+  2 FLAT15 (leverage control)       16    5.38      17,564     2,621   6.894        24        732
+  3 HOUSE (2.0/1.5/1.0, ENGU-Q)     16    6.31      22,832     2,877   8.165        28        830
+  4 DEPTH3 (2.0/1.5/1.0 @.70/.85)    16    6.62      17,409     2,131   8.405        20        849
+
+========================================================================================
+STEP 6 - the honest read
+========================================================================================
+  Whole-run MAR: INCUMB 1.453 | FLAT15 1.263 | HOUSE 1.397 | DEPTH3 1.523
+  Whole-run $/contract traded: INCUMB $225 | FLAT15 $206 | HOUSE $220 | DEPTH3 $224
+  Lockbox MAR: INCUMB 8.720 | FLAT15 6.894 | HOUSE 8.165 | DEPTH3 8.405
+
+  HOUSE vs INCUMB: net +36.5%, DD +42.0%, whole-run MAR -3.9%, contracts +39.7%
+  DEPTH3 vs INCUMB: net +5.2%, DD +0.4%, whole-run MAR +4.8%, contracts +5.8%
+  HOUSE vs FLAT15 (the leverage control): net +24.7%, DD +12.7%, whole-run MAR +10.6%, contracts +17.3%
+
+  Elapsed 4.8s

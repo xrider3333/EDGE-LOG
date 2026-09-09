@@ -1,0 +1,43 @@
+IS THE HOUSE BOOK STILL BUILT ON THE RIGHT LEGS?   2026-09-09 11:51
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01; NQ 0.533 pts a round trip and 20 dollars a point, ES 0.363 and 50
+BAR (canonical, BOOK.md section 10): vs the book in production - ann. MAR >= x1.05, LOCKBOX drawdown
+within 5 percent, lockbox net at least as large. Whole-run drawdown is a CHECK, not a gate.
+
+LEGS (each on its own tape, one contract, cost-inclusive):
+  ORB_234    ORB_3_6_C2.py              NQ  5m    net $   373,305  DD $   29,142  days  2584
+  ORB_314    ORB_3_6_R6.py              NQ  5m    net $   370,357  DD $   28,857  days  2278
+  ENGUQ_309  ENGUQ_1M_ETH_ER_1_0.py     NQ  1m    net $   591,267  DD $   45,869  days  1179
+  ENGUQ_335  ENGUQ_1M_ETH_R2_1_0.py     NQ  1m    net $   434,721  DD $   50,420  days  1695
+  TTM_SS     TTMSQZ_3_0_ES30SS20.py     ES  30m   net $   101,017  DD $    4,338  days   341
+
+  book                                           net $      DD $    MAR   xMAR   lockbox $    xLB   LB DD $  xLBDD   yrs+  verdict
+  IN PRODUCTION: ORB 234 + ENGU-Q 309 + 3 TTM   1,267,621    34,903  2.261  1.000     229,124  1.000    22,226  1.000  17/17  the thing to beat
+  ORB 314 (current crown) swapped in         1,264,673    37,382  2.106  0.932     215,481  0.940    23,459  1.056  17/17  no (MAR, LB drawdown, LB net)
+  ENGU-Q 335 (current crown) swapped in      1,111,075    71,773  0.964  0.426     253,081  1.105    32,129  1.446  17/17  no (MAR, LB drawdown)
+  BOTH current crowns                        1,108,127    65,578  1.052  0.465     239,437  1.045    39,189  1.763  17/17  no (MAR, LB drawdown)
+
+AND WITHOUT THE TTM LEG, so the NQ pair can be read on its own:
+    ORB 234 + ENGU-Q 309 (the old pair)        964,571    34,903  1.720  0.761     178,192  0.778    33,112  1.490  15/17  no (MAR, LB drawdown, LB net)
+    ORB 314 + ENGU-Q 335 (both crowns)         805,078    59,604  0.841  0.372     188,505  0.823    39,189  1.763  16/17  no (MAR, LB drawdown, LB net)
+
+IS IT THE LEG OR THE SIZE? ENGU-Q 335 at reduced weight, everything else in production.
+READ THESE ROWS CAREFULLY: they REPLACE the 309 leg rather than adding to it, so a lower weight
+means a SMALLER book, and the falling MAR is partly just less money. The like-for-like row is
+weight 1.00, where 335 earns 434,721 dollars against 309 591,267 with a larger drawdown of its
+own - less money and more risk, before any book effect. The sweep is here to show that scaling
+the leg down does not rescue it, not to suggest a weight that would.
+    ENGU-Q 335 at weight 0.25                  785,035    38,589  1.266  0.560     155,863  0.680    22,867  1.029  17/17  no (MAR, LB net)
+    ENGU-Q 335 at weight 0.50                  893,715    49,285  1.129  0.499     188,269  0.822    22,949  1.033  17/17  no (MAR, LB net)
+    ENGU-Q 335 at weight 0.75                1,002,395    60,529  1.031  0.456     220,675  0.963    24,206  1.089  17/17  no (MAR, LB drawdown, LB net)
+    ENGU-Q 335 at weight 1.00                1,111,075    71,773  0.964  0.426     253,081  1.105    32,129  1.446  17/17  no (MAR, LB drawdown)
+
+READ IT THIS WAY: the book in production is not stale, it is correct. Both NQ legs have been
+superseded as CROWNS since the book was defined, and putting either current crown into the book
+makes the book worse - ORB 314 costs 7 percent of annualised MAR and 6 percent of the lockbox,
+and ENGU-Q 335 more than doubles the whole-run drawdown, from 34,903 to 71,773 dollars, for a
+lockbox drawdown 45 percent larger. That is not a criticism of either crown: each was crowned on
+its own tape for its own reasons, and #335 does earn a bigger lockbox here. It is a statement
+about BOOKS - the best leg on its own and the best leg for a book are different questions, and
+this book's drawdown is bought by how its legs' bad stretches line up rather than by any one of
+them. Reducing #335's weight recovers most of the damage without ever beating the incumbent,
+which says the problem is the leg's shape in this company, not merely its size.

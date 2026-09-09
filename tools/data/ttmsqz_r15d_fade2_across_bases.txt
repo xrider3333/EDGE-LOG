@@ -1,0 +1,17 @@
+TTM SQUEEZE r15d - is fade-after-2 a property of the EXIT, or an interaction with the stop?
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01; ES 30m RTH, 0.363 pts a round trip, 50 dollars a point
+
+base / exit                                       n     PF      net $     DD $    MAR       LB $  LB PF
+ATR stop, untilted, fade 1                      359   2.12     51,709    3,740   0.86      4,992   2.22
+ATR stop, untilted, fade 2                      356   2.07     53,543    3,639   0.92      6,723   3.40
+ATR stop, with the validated 1.5x tilt, fade 1  359   2.23     69,884    4,549   0.96      6,948   2.38
+ATR stop, with the validated 1.5x tilt, fade 2  356   2.13     70,917    4,030   1.10      9,266   3.92
+
+The structural-stop base is not run here - it lives in TTMSQZ_3_0_ES30SS20.py and its fade-2 sibling
+TTMSQZ_3_0_ES30SSF2.py, measured at 357 trades / PF 2.91 / $101,017 / DD $4,338 / LB $16,977 against
+354 / 2.80 / $101,795 / $4,277 / $17,452. Add that to the four rows above and the pattern is the same
+on every base tried: more money, LOWER drawdown, higher annualised MAR, a bigger lockbox and a much
+better lockbox profit factor - and a lower whole-run profit factor every single time. One extra bar of
+patience gives back a few small winners at the close and keeps more of the large ones. That it holds
+with and without the tilt, and with both stops, says it is a property of the EXIT rather than an
+interaction with anything else.
