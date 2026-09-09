@@ -91,7 +91,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 8
+N_CASES = 9
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -334,6 +334,28 @@ var FIX = __FIX__;
         var r=snap('runboard', ok?'OK':'ERR');
         r.per=per;
       })();
+
+      // ── case 9: hosted views (phase 5) ───────────────────────
+      //    With the old tab off the rail these are the ONLY way to reach the funnel and
+      //    matrix, the picked-run tabs and saved sets, and the feature board. If one of
+      //    them throws or draws nothing, a working feature has silently disappeared.
+      (function(){
+        var per={};
+        ['board','runs','fam','feat'].forEach(function(v){
+          var call=doRender({c2Screen:'cmp',c2View:v,cmpIds:[String(FIX.id)]}, FIX_WIN);
+          var ap=d.getElementById('app');
+          per[v]={call:call,
+            len:ap?ap.innerHTML.length:-1,
+            screenBtns:d.querySelectorAll('[data-c2screen]').length,
+            viewBtns:d.querySelectorAll('[data-c2view]').length,
+            oldPills:d.querySelectorAll('[data-cmpmode]').length,
+            errors:sink.errors.slice(0,4),uncaught:sink.uncaught.slice(0,4)};
+        });
+        var ok=['board','runs','fam','feat'].every(function(v){return per[v].call==='OK';});
+        var r=snap('hosted', ok?'OK':'ERR');
+        r.per=per;
+      })();
+
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -779,6 +801,40 @@ def main(argv=None):
                  % (lbc.get('mar'), want,
                     ('That is exactly ' + str(naive) + ', which') if lbc.get('mar') == naive
                      else 'The app-wide definition since v73.460'))
+
+    # case 9: hosted views
+    r = cases.get('hosted', {})
+    per = r.get('per') or {}
+    hosted_ok = (r.get('call') == 'OK'
+                 and all((per.get(v) or {}).get('call') == 'OK' for v in ('board', 'runs', 'fam', 'feat'))
+                 and all(not (per.get(v) or {}).get('errors') and not (per.get(v) or {}).get('uncaught')
+                         for v in ('board', 'runs', 'fam', 'feat'))
+                 and all(((per.get(v) or {}).get('len') or 0) > 2000 for v in ('board', 'runs', 'fam', 'feat'))
+                 and all((per.get(v) or {}).get('screenBtns') == 3 for v in ('board', 'runs', 'fam', 'feat'))
+                 and all((per.get(v) or {}).get('viewBtns') == 5 for v in ('board', 'runs', 'fam', 'feat'))
+                 and all(not (per.get(v) or {}).get('oldPills') for v in ('board', 'runs', 'fam', 'feat')))
+    line('hosted', hosted_ok, ' '.join('%s=(call=%s len=%s scr=%s view=%s pills=%s)'
+         % (v, (per.get(v) or {}).get('call'), (per.get(v) or {}).get('len'),
+            (per.get(v) or {}).get('screenBtns'), (per.get(v) or {}).get('viewBtns'),
+            (per.get(v) or {}).get('oldPills')) for v in ('board', 'runs', 'fam', 'feat')))
+    if not hosted_ok:
+        for v in ('board', 'runs', 'fam', 'feat'):
+            p = per.get(v) or {}
+            if p.get('call') != 'OK':
+                fail('hosted: the %s view threw -- %s' % (v, str(p.get('call'))[:300]))
+            if p.get('errors'):
+                fail('hosted: %s console.error -- %s' % (v, p['errors'][0][:200]))
+            if p.get('uncaught'):
+                fail('hosted: %s uncaught -- %s' % (v, p['uncaught'][0][:200]))
+            if (p.get('len') or 0) <= 2000:
+                fail('hosted: the %s view rendered almost nothing (%s chars) - a feature that '
+                     'is now only reachable here has gone missing' % (v, p.get('len')))
+            if p.get('screenBtns') != 3 or p.get('viewBtns') != 5:
+                fail('hosted: %s lost its navigation (screen=%s view=%s) - there would be no way '
+                     'back out of it' % (v, p.get('screenBtns'), p.get('viewBtns')))
+            if p.get('oldPills'):
+                fail('hosted: %s still shows the old VIEW pills, which jump to a tab that is no '
+                     'longer on the rail' % v)
 
     if bad:
         print('CMP2 PROBE: FAIL')

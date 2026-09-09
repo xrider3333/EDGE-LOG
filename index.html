@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.677';
+const VERSION='73.678';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -731,6 +731,7 @@ window._dataFeedWarn=function(){
 const CHANGELOG=[
 {v:'73.677',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 46, rows 1628-1631 - THE MIRROR TEST RETIRES MY OWN ROUND 45 EXPLANATION. Round 45 said this tape rewards entering fast since 2024. Tested against eight pre-declared FASTER variants with the falsifier written first: zero of eight beat the crown recently and seven of eight are worse in both eras, so the story is retired. The crown own trades show the tape timing is unchanged - median 2 bars to the best price and 8 bars held in both eras - while AMPLITUDE grew about sevenfold, median peak per trade from about 100 dollars in 2010-2017 to 1,382 in 2026, which means every raw-dollar recency clause in rounds 43 to 45 was partly reading volatility. On profit factor the decay is real anyway: the slower candidates led the crown by 0.104 and 0.147 and now trail by 0.060 and 0.041 while the crown own profit factor is flat. CORRECTED ACCOUNT: the optimum has moved to where the crown already sits - it is now the best point in both directions. Nothing moves; crown stays run 304 on five minutes.']},
 {v:'73.676',date:'2026-09-09',notes:['STUDIES BOARD: ROUND 46, rows 1622 to 1627 - the ENGU-Q ES leg passes the two tests that killed everything else this week. RECENCY: profit factor 1.24 over 2010 to 2023 and 1.59 over 2024 to 2026, earning 357 dollars a trade recently against 66 before - the opposite of the NOISE finding that everything improving the old tape has lost since 2024. COST: at 30 dollars a round trip it still earns 98 dollars a trade, 3.3 times its cost, where the NOISE ES configuration earned under twice its cost and was closed.','Honest marks on the card: the recent strength is bigger trades not more of them (236 since 2024 against 1,871 before), the drawdown arrives in the same stretch (net over drawdown 2.5 recently against 5.5 before), 2015 and 2016 were losing years, and 2026 to the end of June is nearly flat. A second Auto-Validate is queued at honest fills - same file, window and lockbox at 30 dollars a round trip instead of 20.']},
+{v:'73.678',date:'2026-09-09',notes:['PHASE 5: THERE IS ONE COMPARE TAB AGAIN. The beta loses its label and the old tab comes off the rail. Nothing it could do has been taken away: the two views with no replacement yet - the RUNBOARD funnel and matrix, and the picked-run tabs and saved sets, plus the feature board - are now HOSTED from the COMPARE screen, the same way EXPLORE already hosts the studies board. A view picker on that screen chooses between the new overlay and each of them, and every screen carries the same navigation instead of the old VIEW pills, which all jumped to a tab that is no longer there.','The old code is deliberately still on disk, and says so on screen: a hosted view is labelled as hosted until the new screen absorbs it. Deleting six thousand lines today would have taken the funnel, the matrix and the saved sets with it, and they have no replacement yet. That deletion is its own change, after the absorption, when there is nothing left to lose.','Nothing strands: the escape hatches, the old view pills and the rankings rail now land on the screen that hosts what they pointed at, instead of on a tab with no way back.']},
 {v:'73.672',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 45, rows 1617-1621 - THE CORRECTION THAT WITHDRAWS ROUND 44. Round 44 said the crown is on the wrong bar. It is ahead in 11 of 17 calendar years and ZERO of the last three (2025 alone minus 32 thousand dollars). An entirely separate mechanism on the same chart, requiring a second confirming close, is ahead in 10 of 17 and also zero of the last three, and the 2026-08-17 variant campaign already noted its filters gave back 2025-26 profit. Since 2024 this tape rewards entering FAST. Also established: the fatter bar works through CONFIRMATION not stop width (widening the stop from 1.75 to 7.0 changes nothing; a second confirming close recovers 86 percent of the 15-minute benefit), the ladder should be read on profit factor because net-over-drawdown collapses at 20 minutes and recovers at 30, and a banked 2026-08-17 winner was fenced out of every later crowning search because the crown neighbourhood file pins confirmation between 1 and 1. NOTHING MOVES: crown stays run 304 on five minutes.']},
 {v:'73.670',date:'2026-09-09',notes:['COMPARE - STUDIES: the gap-stress read on the validated structural stop, rows 1613-1616. It corrected the worry rather than confirming it: the ATR legs stop on 10.6 percent of trades and lose 43 to 44 percent of their gross losses there, the structural leg stops on 13.2 percent and loses 6.8 percent there. Under up to 10 points of slippage on every stop fill and stop losses scaled up to six times, it still beats the book leg on money, profit factor and lockbox.','Overnight gap risk is zero for this leg - it is flat at every session close, so the largest gap on the tape, 10,838 dollars on the 2024 yen-carry unwind, reached no position. The limits are stated too: the stress aimed at the stop channel, which is not where this leg loses, and the one wide-stop-specific number is a single trade.']},
 {v:'73.669',date:'2026-09-09',notes:['COMPARE - STUDIES: the TTM structural stop is VALIDATED. Run 353 passes all six gates and clears every clause of the bar written before it: lockbox 16,977 dollars at profit factor 6.72 against the book leg 6,948 at 2.38, whole run 101,017 at 2.91 and annualised MAR 1.450 against 0.957, at a drawdown of 4,338 against 4,549 - LOWER in the whole run and in the lockbox alike.','Run 352, the first attempt, passed every gate and MISSED the same bar: its search walked to a looser verification length, nearly doubling the trades and lifting drawdown 57 percent for a dead-heat MAR. Run 353 is the same file with that one knob held at the incumbent own value. Adoption still waits on a gap-stress read of the wider stop and a book run against the book in production.']},
@@ -1755,7 +1756,7 @@ const LOG_TABS=['home','overview','trades','analytics','import_export','journal'
 // RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
 //   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
 //   rail navigates to it - it is simply not offered as a top-level tab as well.
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['cmp2','COMPARE \u03b2'],['paper2','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
+const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
 const ASUB_ICON={lib:'◫',exec:'▸',runs:'▦',rank:'▤',cmp:'◧',cmp2:'◨',paper:'◷',paper2:'◑',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
@@ -1996,6 +1997,11 @@ let analyticsSubTab='summary'; // summary | charts | deepagnostics | ai // -1=de
 try{const _lv=JSON.parse(localStorage.getItem('el_view')||'{}');
   if(_lv.activeTab)activeTab=_lv.activeTab;
   if(_lv.augurSub)augurSub=_lv.augurSub;
+  // the old COMPARE came off the rail at v73.673. A session saved while it was open would
+  //   otherwise restore onto a tab that is no longer in the rail, with nothing selected.
+  //   Only on restore: the branch is still what draws several screens of the new tab, and
+  //   the render probes reach it by this name.
+  if(augurSub==='cmp')augurSub='cmp2';
   if(_lv.augurRunSel!=null)augurRunSel=_lv.augurRunSel;
   if(_lv.analyticsSubTab)analyticsSubTab=_lv.analyticsSubTab;
   if(_lv.activeChart)activeChart=_lv.activeChart;
@@ -9635,7 +9641,7 @@ function renderApp(){
   let _splitTog='';
   if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:2px;align-items:center;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
-  else if(activeTab==='augur'&&augurSub==='cmp'&&_ap.cmpMode==='research'){const cv=_ap.resSplit==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res2-side','\u25e7',cv==='side','Chart beside the study tables')}${_spv('res2-stack','\u25a4',cv==='stack','Chart above the study tables')}</span>`;}
+  else if(activeTab==='augur'&&(augurSub==='cmp'||(augurSub==='cmp2'&&_ap.c2Screen==='explore'))&&(_ap.cmpMode==='research'||augurSub==='cmp2')){const cv=_ap.resSplit==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res2-side','\u25e7',cv==='side','Chart beside the study tables')}${_spv('res2-stack','\u25a4',cv==='stack','Chart above the study tables')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
   // ── ACCOUNT scope pills (ALL / <broker> …) — trading-log side only, and only once at
   // least one broker is tagged on trades. Right-aligned; clicking sets the global scope.
@@ -19532,6 +19538,24 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   code executing - which is the only way to promise the picture is unchanged. The new
     //   chrome replaces that sidebar afterwards, a control group at a time.
     const _c2Exp=(augurSub==='cmp2'&&APREF.c2Screen==='explore');
+    // PHASE 5. The old tab is off the rail, so everything it still draws has to be
+    //   reachable from this one. Two of its views have no replacement yet - the funnel
+    //   and matrix, and the picked-run tabs and saved sets - so they are HOSTED here the
+    //   same way EXPLORE hosts the studies board, rather than deleted. The COMPARE screen
+    //   picks between its own overlay and those.
+    const _c2View=(['ovl','board','runs','fam','feat'].indexOf(APREF.c2View)>=0)?APREF.c2View:'ovl';
+    //   the screen must actually BE the compare screen: an absent preference falls to the
+    //   leaderboard everywhere else, and hosting a view under it would show the runboard to
+    //   someone whose tab says LEADERBOARD.
+    const _c2Host=(augurSub==='cmp2'&&APREF.c2Screen==='cmp'&&_c2View!=='ovl');
+    const _c2Old=_c2Exp||_c2Host;
+    // one segmented control, built the same way wherever it appears
+    const _c2Seg2=(attr,opts,cur)=>'<span style="display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:2px;gap:2px">'
+      +opts.map(o=>'<span data-'+attr+'="'+o[0]+'" style="font-size:10px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:7px;cursor:pointer;user-select:none;white-space:nowrap;line-height:1;'
+        +((o[0]===cur)?'background:var(--bg1);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)':'color:var(--text4)')+'">'+o[1]+'</span>').join('')+'</span>';
+    //   BY STRATEGY is on this list because the LEADERBOARD has not absorbed it yet, and a
+    //   button that promises one curve per family must not quietly open something else.
+    const _C2VIEWS=[['ovl','OVERLAY'],['board','RUNBOARD'],['runs','PICK RUNS'],['fam','BY STRATEGY'],['feat','FEATURES']];
     if(augurSub==='launch'){
       body='<div style="display:grid;grid-template-columns:280px 1fr;gap:16px">'
         +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;align-self:start">'
@@ -20141,14 +20165,23 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const plibTile=tile('<div class="lbl" style="margin:0 0 8px">◫ PARAM LIBRARY · every knob in every strategy, plain language · click a section to expand</div>'+_plibInner,0);
       body+='<div style="margin-top:18px">'+_detsP('libParams','◫ PARAM LIBRARY',plibTile)+'</div>';
       body+='<div style="margin-top:14px">'+_detsP('libModes','◎ MODES',modesTile)+'</div>';
-    }else if(augurSub==='cmp'||_c2Exp){
+    }else if(augurSub==='cmp'||_c2Old){
       const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
       // v67.6 (owner ask): BY STRATEGY mode — one curve per strategy family (its champion config,
       //   picked automatically by score) instead of manually picked runs. PICK RUNS stays the
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
       // EXPLORE only ever shows the research board; the other views of the old tab are the
       //   LEADERBOARD and COMPARE screens now, and they live in the other branch.
-      const _cmpMode=_c2Exp?'research':((APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':((APREF.cmpMode==='research')?'research':((APREF.cmpMode==='featboard')?'featboard':'runs'))));
+      const _cmpMode=_c2Exp?'research':(_c2Host?({board:'board',runs:'runs',fam:'fam',feat:'featboard'}[_c2View]||'runs')
+        :((APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':((APREF.cmpMode==='research')?'research':((APREF.cmpMode==='featboard')?'featboard':'runs')))));
+      // the new tab's own navigation, standing in for the old VIEW pills wherever one of
+      //   these screens is being drawn for it. The pills are the OTHER tab's navigation and
+      //   every one of them jumps there, which from here is a trapdoor.
+      const _c2Nav=!_c2Old?'':('<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+        +_c2Seg2('c2screen',[['lead','LEADERBOARD'],['cmp','COMPARE'],['explore','EXPLORE']],(_c2Exp?'explore':'cmp'))
+        +(_c2Exp?'':_c2Seg2('c2view',_C2VIEWS,_c2View))
+        +'<span style="margin-left:auto;font-size:9px;letter-spacing:1.4px;color:var(--text5);font-weight:700">'
+        +(_c2Exp?'THE STUDIES BOARD ITSELF - SAME CHART, SAME CONTROLS, SAME NUMBERS':'HOSTED FROM THE OLD COMPARE UNTIL THIS SCREEN ABSORBS IT')        +'</span></div>');
       // v68.0 (owner ask): metric-table orientation — VERT (runs as columns, metrics as rows,
       //   the original layout) or HORIZ (runs as rows, metrics as columns) so a comparison with
       //   many runs fits without sideways scrolling. Persists like every other Compare pref.
@@ -26129,7 +26162,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   augurSub='cmp'. On this tab that is a trapdoor: clicking STUDIES, the pill
             //   already lit, would drop you onto the old COMPARE without saying so. The
             //   screen strip above the board is the navigation here.
-            +(_c2Exp?'':(_reSideHd('VIEW',1)+modeToggle))
+            +(_c2Old?'':(_reSideHd('VIEW',1)+modeToggle))
             +_reSideHd('CHART')+_reCtlPanel
             // and the table's own settings, delineated, so every control on the page is in
             //   one place instead of split across two panels.
@@ -26179,9 +26212,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _c2ExpSeg=!_c2Exp?'':[['lead','LEADERBOARD'],['cmp','COMPARE'],['explore','EXPLORE']]
           .map(o=>'<span data-c2screen="'+o[0]+'" style="font-size:10px;font-weight:700;letter-spacing:.5px;padding:5px 11px;border-radius:7px;cursor:pointer;user-select:none;white-space:nowrap;line-height:1;'
             +((o[0]==='explore')?'background:var(--bg1);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)':'color:var(--text4)')+'">'+o[1]+'</span>').join('');
-        const _c2ExpTop=_c2Exp?('<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">'
-          +'<span style="display:inline-flex;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:2px;gap:2px">'+_c2ExpSeg+'</span>'
-          +'<span style="margin-left:auto;font-size:9px;letter-spacing:1.4px;color:var(--text5);font-weight:700">COMPARE \u03b2 \u00b7 THIS IS THE STUDIES BOARD ITSELF - SAME CHART, SAME CONTROLS, SAME NUMBERS</span></div>'):'';
+        const _c2ExpTop=_c2Nav;
         if(_c2Exp){
           // the sheet holds the board's OWN control groups, moved not rebuilt. FILTERS keeps
           //   the ones that decide which rows exist; VIEWS the other three drawings; AXES the
@@ -26627,7 +26658,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _rbCol=(i,dflt,mw,inner)=>'<div data-rbcol="'+i+'" style="flex:'+(_rbW?(_rbW[i]+' 1 0px'):dflt)+';min-width:'+mw+'px">'+inner+'</div>';
         const _rbSp=i=>'<div data-rbsplit="'+i+'" title="drag left / right — width moves between these two panels · double-click = reset" style="flex:0 0 10px;align-self:stretch;cursor:ew-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:3px;height:46px;border-radius:2px;background:var(--border)"></div></div>';
         const _openSide='<button data-rbside="best" title="add a fourth panel on the right listing ten individual runs - best, worst or most recent" style="height:20px;padding:0 10px;font-size:9px;letter-spacing:.5px;font-weight:700;border-radius:6px;border:1px solid var(--border);background:var(--bg1);color:var(--text4);cursor:pointer">＋ TOP 10</button>';
-        body=modeToggle.replace('</div>',_openSide+'</div>')
+        // + TOP 10 was spliced INTO the old pill row, so swapping that row out dropped it.
+        //   It opens a fourth panel of individual runs and is the only way to do so.
+        body=(_c2Old?_c2Nav.replace('</div>',_openSide+'</div>'):modeToggle.replace('</div>',_openSide+'</div>'))
           +(runs.length?('<div data-rbrow style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
             // the matrix is the densest panel — it carries eight numeric columns — so it takes the
             //   larger share by default. Drag the bars to change it; the split is remembered.
@@ -26839,7 +26872,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +(_fbAnyLift?('Rank catches a steady tilt across many trades; lift catches a few outsized winners or losers that rank can miss — trust whichever one a diamond or triangle confirms in the lockbox, and treat a lone reading with neither as a lead, not a verdict.<br>'):'')
           +'PROMOTED needs several unrelated strategy families to agree; one strategy finding something on its own is not enough.'
           +'</div>');
-        body=modeToggle+headerTile
+        body=(_c2Old?_c2Nav:modeToggle)+headerTile
           +(fbReady?verdictBlock:_fbPlaceholder('Board not built yet — run tools/feature_board.py'))
           +(fbReady?matrixTile2:'')
           +exitsHeader
@@ -26849,7 +26882,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // v64.57: a deliberately empty tab renders an empty state instead of the comparison tiles
         //   (there is nothing to compare) — the picker stays so you can fill this tab.
         //   (there is nothing to compare) — the picker stays so you can fill this tab.
-        body=modeToggle+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'
+        body=(_c2Old?_c2Nav:modeToggle)+'<div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">'
           +'<div style="flex:0 1 430px;min-width:310px">'+pickerTile+'</div>'
           +(!runs.length?('<div style="flex:1 1 480px;min-width:0">'+tile('<div style="padding:40px 18px;text-align:center;color:var(--text5);font-size:var(--fsxs);line-height:2"><div style="font-size:12px;letter-spacing:3px;color:var(--text4);margin-bottom:6px">EMPTY COMPARISON TAB</div>Pick runs in the list on the left — they are added to <b style="color:var(--text3)">this tab only</b>, so each tab keeps its own comparison.</div>')+'</div>'):
           ('<div style="flex:1 1 480px;min-width:0">'
@@ -27089,7 +27122,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const picked=_c2Pick.map(id=>rs2.filter(r=>String(r.id)===id)[0]).filter(Boolean);
         const gone=_c2Pick.length-picked.length;
         if(!picked.length){
-          _c2Body='<div class="c2-card"><div class="c2-hold">NOTHING PICKED YET'
+          _c2Body='<div style="margin-bottom:10px">'+_c2Seg2('c2view',_C2VIEWS,_c2View)+'</div>'
+            +'<div class="c2-card"><div class="c2-hold">NOTHING PICKED YET'
             +'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4)">Open a strategy on the LEADERBOARD and press + COMPARE on any run, up to eight of them. They stack up here, on whichever stage you pick.</div>'
             +'<div style="margin-top:12px"><span class="c2-act" data-c2screen="lead">\u2190 GO TO THE LEADERBOARD</span></div></div></div>';
         }else{
@@ -27173,7 +27207,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +((i===bi)?' title="best of the picked runs on this row"':'')+'>'
                 +(der?'~':'')+mfmt(m.k,v)+'</span></td>';}).join('')+'</tr>';}).join('');
           const noCurve=items.filter(x=>!x.c).length;
-          _c2Body='<div class="c2-top" style="margin-top:2px">'
+          _c2Body='<div style="margin-bottom:10px">'+_c2Seg2('c2view',_C2VIEWS,_c2View)+'</div>'
+            +'<div class="c2-top" style="margin-top:2px">'
             +'<span class="c2-lbl">STAGE</span>'+_c2Seg('c2stage',[['is','IS','the tuning years'],['wf','WF','the walk-forward folds'],['lb','LB','the sealed lockbox']],_c2Stage)
             +'<span class="c2-lbl">'+picked.length+' OF 8 PICKED</span>'
             +'<span class="c2-act" data-c2clr="1" title="empty the comparison">CLEAR</span>'
@@ -31253,7 +31288,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const id=String(b.dataset.c2rm);
         savePref('cmpIds',(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String).filter(v=>v!==id));renderApp();};});
       content.querySelectorAll('[data-c2clr]').forEach(b=>{b.onclick=e=>{e.stopPropagation();savePref('cmpIds',[]);renderApp();};});
-      content.querySelectorAll('[data-c2gocmp]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.c2gocmp);augurSub='cmp';renderApp();};});
+      content.querySelectorAll('[data-c2view]').forEach(b=>{b.onclick=()=>{
+        savePref('c2View',b.dataset.c2view);savePref('c2Screen','cmp');renderApp();};});
     };
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
@@ -31478,10 +31514,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);if(el('ex-pills'))savePref('pills',el('ex-pills').checked);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
       :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});const _dup=dupeFind(job,backtests);if(_dup&&!confirm(dupeAsk(_dup)))return;if(_dup){job.repeat_of=_dup.job.id;if(_dup.runId)job.repeat_of_run=_dup.runId;job.repeat_ack=true;}xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
-    else if(augurSub==='cmp'||_c2Exp){
+    else if(augurSub==='cmp'||_c2Old){
       // on EXPLORE the tab's own buttons are wired as well as the board's, because the
       //   screen switcher above the board belongs to COMPARE BETA, not to the old tab.
-      if(_c2Exp)_wireC2(content);
+      // EVERY hosted view, not just EXPLORE. Widening the render guard without this one
+      //   drew the runboard, the picker and the feature board perfectly and left every
+      //   control in them dead - which looks exactly like a working screen.
+      if(_c2Old)_wireC2(content);
       // v64.57: mirrors the renderer — a deliberately empty tab starts from EMPTY, so picking a run
       //   adds just that run instead of the "latest 3" fallback plus that run.
       const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(!ids.length&&!cmpTabEmpty())ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
@@ -31578,7 +31617,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{
         const k=b.dataset.cmpmode;
         if(k==='rank'){augurSub='rank';renderApp();return;}
-        if(augurSub!=='cmp')augurSub='cmp';
+        if(augurSub!=='cmp'&&augurSub!=='cmp2')augurSub='cmp2';
         savePref('cmpMode',k);renderApp();};});
       // RUNBOARD: sample (FULL/IS/LB) + rank-by controls
       // RESEARCH board: DATE DISCOVERED / DATE RAN ordering toggle (persisted like every other view pref)
@@ -32069,7 +32108,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-cmpmode]').forEach(b=>{b.onclick=()=>{
         const k=b.dataset.cmpmode;
         if(k==='rank')return;
-        augurSub='cmp';savePref('cmpMode',k);renderApp();};});
+        // RANKINGS is folded into the LEADERBOARD, and the rest of the old views are
+        //   screens of the new tab now.
+        augurSub='cmp2';
+        if(k==='research')savePref('c2Screen','explore');
+        else if(k==='board'){savePref('c2Screen','cmp');savePref('c2View','board');}
+        else if(k==='featboard'){savePref('c2Screen','cmp');savePref('c2View','feat');}
+        else if(k==='runs'){savePref('c2Screen','cmp');savePref('c2View','runs');}
+        else if(k==='fam'){savePref('c2Screen','cmp');savePref('c2View','fam');}
+        else{savePref('c2Screen','lead');}
+        renderApp();};});
       content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
       const _rgb2=content.querySelector('[data-rankgroupbtn]');if(_rgb2)_rgb2.onclick=()=>{savePref('rankGroup',!APREF.rankGroup);renderApp();};
       content.querySelectorAll('[data-rankgrp]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.rankgrp);if(window._rankGrpOpen.has(k))window._rankGrpOpen.delete(k);else window._rankGrpOpen.add(k);renderApp();};});}
