@@ -56,6 +56,11 @@ except Exception as _e:
     _qqq_exec = None
     print(f"[qqq_exec] import skipped: {type(_e).__name__}: {_e}")
 try:
+    from . import cloud_signal as _cloud_signal
+except Exception as _e:  # pragma: no cover
+    _cloud_signal = None
+    print(f"[cloud_signal] import skipped: {type(_e).__name__}: {_e}")
+try:
     from . import etf_book_shadow as _etfbook
 except Exception as _e:
     _etfbook = None
@@ -2500,6 +2505,18 @@ def main(argv=None):
                                  name='qqq-exec').start()
                 print(f"QQQ SHADOW execution (api/qqq_exec.py): ON (own thread, every "
                      f"{_qqq_exec.TICK_SEC:g}s during 09:25-16:05 ET Mon-Fri)")
+
+        # CLOUD SIGNAL parallel run (api/cloud_signal.py) -- own thread, primary only.
+        # Runs the same three crowns on QQQ BARS while qqq_exec mirrors NinjaTrader's NQ
+        # fills, so the two ledgers accumulate over identical sessions. That side-by-side
+        # record is what the "drop NinjaTrader entirely" decision rests on, and it is worth
+        # nothing unless it is collected every session rather than replayed after the fact.
+        # SIGNALS ONLY: this module imports no broker SDK and has no order path.
+        if _cloud_signal is not None and not _IS_WORKER:
+            threading.Thread(target=_cloud_signal.cloud_signal_thread, daemon=True,
+                             name='cloud-signal').start()
+            print(f"CLOUD SIGNAL parallel run (api/cloud_signal.py): ON (own thread, every "
+                 f"{_cloud_signal.THREAD_STEP_SEC:g}s during RTH; signals only, no order path)")
         next_exec_review = 0.0  # first pass runs immediately, then every EXEC_REVIEW_SEC
         preflight_done_date = None  # last local date the 9am ET roster preflight ran
         backup_done_date = None     # last local date the nightly NT backup ran

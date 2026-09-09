@@ -587,6 +587,46 @@ def cmd_once():
     print(_fmt_ledger_table(events))
 
 
+THREAD_STEP_SEC = 30.0   # see cloud_signal_thread
+
+
+def cloud_signal_thread(stop=None, log=print):
+    """Runner-hosted PARALLEL RUN. Steps the signal engine through every session so the
+    QQQ-bar signals accumulate beside the NinjaTrader-mirrored shadow book, which is the
+    evidence the "drop NinjaTrader" decision needs: two ledgers over the same sessions,
+    one derived from NQ futures fills and one from QQQ bars alone.
+
+    Signals only -- this thread cannot place an order, and nothing downstream of
+    signals.csv exists. It never raises into the runner and never blocks its main loop.
+
+    30s rather than cmd_loop's 20s: every step may hit yfinance once per timeframe before
+    the cheap "no new bar closed" short-circuit in step() can skip the engine, and a 1m leg
+    cannot gain a bar faster than once a minute anyway. Two fetches a minute per timeframe
+    is enough to see a bar the moment it closes without leaning on a free endpoint."""
+    log("[cloud-signal] parallel run: ON (signals only, no order path)")
+    while stop is None or not stop.is_set():
+        in_session = False           # set before the try so a throw still picks a sleep
+        try:
+            now_et = _dt.datetime.now(tz=_zi(TZ))
+            in_session = (market_calendar.is_session(now_et.date())
+                         and RTH_OPEN <= now_et.time() <= RTH_CLOSE)
+            if in_session:
+                events = step(now=now_et, fetch=True, paths=DEFAULT_PATHS)
+                _write_heartbeat(DEFAULT_PATHS, ok=True, note=f"{len(events)} event(s)")
+                for e in events:
+                    log(f"[cloud-signal] {e['event']} {e['leg']} {e.get('side','')} "
+                        f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) {e.get('reason','')}")
+            else:
+                _write_heartbeat(DEFAULT_PATHS, ok=True, note="outside session hours")
+        except Exception as e:                            # a bad step must never kill the run
+            try:
+                _write_heartbeat(DEFAULT_PATHS, ok=False, note=f"{type(e).__name__}: {e}")
+            except Exception:
+                pass
+            log(f"[cloud-signal] step failed: {type(e).__name__}: {e}")
+        _time.sleep(THREAD_STEP_SEC if in_session else 60.0)
+
+
 def cmd_loop():
     paths = DEFAULT_PATHS
     print("cloud_signal --loop: stepping every 20s during session hours (Ctrl+C to stop)")
