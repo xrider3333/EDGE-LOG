@@ -45,8 +45,13 @@ pre-registered hybrid test, unrelated to this change). See `PAPER_TRADING.md`.
 The validate posted as **run #335, verdict PASS** (checks 6/6: plateau, wfe, sample,
 consistency, pbo, luck; walk-forward folds held **8 of 8**, WFE 1.405, DSR 0.997; plateau
 HIGH GROUND 24/24; PBO 0.385 = "some overfit risk"; lockbox pass=true, 129 trades / PF 1.53),
-and the crown moved the same evening. **NinjaTrader is NOT swapped** — it still runs the
-#226 port; that is a separate owner call.
+and the crown moved the same evening. **NinjaTrader followed at 21:41** (owner: *"go for all"*):
+`EdgeLogENGUQ1m` now runs the R2 knobs exactly (TlLen 206, EmaLen 220, BufAtr 0.3, MinBrk 1.6,
+AtrLen 52, VolMult 1.1, StopMult 1.0, ActR 1.5, TrailFrac 2.5, BreakevenR 2.0, LimitAtr 0.55,
+RegimeLen 10, ErLen 100, ErTh 0.0) after the RegimeLen build was deployed with NT stopped. The
+port's limit-entry, efficiency-ratio and regime paths had never run live before this night, so
+the nightly reconcile against paper leg `ENGUQ_335` is the parity check from 2026-09-09 on —
+any divergence there is a PORT bug until proven otherwise.
 
 **What R2 is:** `augur_strategies/ENGUQ_1M_ETH_R2_1_0.py`, a sibling of the #309 file with the
 trading logic untouched and two defaults moved — `breakeven_R` 3.0 → **2.0** and
@@ -82,7 +87,7 @@ era split 2-2, not 4-0 (PF slips 2010-14 and 2018-22, improves 2014-18 and 2022-
   certifies the landscape, not that cell.** Owner, later the same evening ("go for all"):
   that cell now rides BESIDE the crown as a forward-test leg `ENGUQ_335_VC` on both boards
   (control = `ENGUQ_335`), so the two cells are judged on the same live tape from here on.
-  It is not the crown and NinjaTrader does not run it.
+  It is not the crown and NinjaTrader does not run it (NinjaTrader runs the R2 defaults, see above).
 - **#309 stays on the board as the control.** Same lineage, same window, only the breakeven
   and stop differ, so any gap between the two rows from 2026-09-08 on is those two knobs
   and nothing else. Its chip reads "ex-crown · control".

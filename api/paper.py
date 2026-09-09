@@ -313,7 +313,9 @@ ENGUQ_309 = dict(buf_atr=0.3, tl_len=206, trail_frac=2.5, ema_len=220, atr_len=5
 # defaults ($49,812 at PF 1.455 vs $88,380 at PF 1.675, entry-sliced both). This leg trades
 # the R2 DEFAULTS the owner compared and chose; the run certifies the landscape. If the
 # owner wants #335's own cell on the board instead, that is a one-line change here.
-# NinjaTrader is NOT swapped by this -- it still runs the #226 port.
+# NinjaTrader FOLLOWS THIS CROWN since 2026-09-08 21:41 (owner: "go for all"): EdgeLogENGUQ1m
+# runs exactly these knobs (RegimeLen dll deployed the same night); the nightly reconcile
+# against this leg is the parity check for the port's limit-entry / ER / regime paths.
 ENGUQ_335 = dict(ENGUQ_309, breakeven_R=2.0, stop_mult=1.0)
 
 # Run #335's OWN selected cell (validate.champion) -- what the Auto-Validate picked when it
@@ -1049,9 +1051,11 @@ LEG_SOURCE = {
                   "($49,812 at PF 1.455 vs $88,380 at PF 1.675). This leg trades the R2 "
                   "DEFAULTS the owner compared; the run certifies the landscape, not that "
                   "cell. PBO 0.385 is the one soft check. #309 stays running directly beside "
-                  "it as the matched control (LEG_SOURCE[\"ENGUQ_309\"]); NinjaTrader still "
-                  "runs the #226 port -- swapping it is a separate owner call. See ENGUQ.md "
-                  "CROWN CHANGE 2026-09-08.",
+                  "it as the matched control (LEG_SOURCE[\"ENGUQ_309\"]). NinjaTrader was "
+                  "swapped to these exact knobs at 21:41 the same night (owner: go for all; "
+                  "RegimeLen dll deployed) -- the port's limit-entry / ER / regime code had never "
+                  "run live before, so the nightly reconcile against this leg is its parity "
+                  "check from 2026-09-09. See ENGUQ.md CROWN CHANGE 2026-09-08.",
     },
     "ENGUQ_309": {
         "run": 309, "run_label": "#309 (ENGU-Q ETH, EV R / R-YR crown)",
