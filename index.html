@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.611';
+const VERSION='73.612';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.612',date:'2026-09-08',notes:['PAPER: new leg ETFBOOK_332, the ETF dip book that passed BOOK validate #332, running SHADOW ONLY on the stocks account - seven ETF legs (GLD and TLT on the 7-day low, IWM on RSI-2 both sides, and QQQ on the 7-day low, RSI-2 long, RSI-2 both sides and the 20-day pullback) pooled into one row at 100,000 dollars notional a trade and 20 dollars a round trip.','It is the first leg on the board that does not run on the NQ tape: every evening after 16:15 New York time the runner pulls the day GLD, TLT, IWM and QQQ daily bar from Yahoo, appends it to the frozen daily masters without ever rewriting history, re-runs the seven legs and records the entries and exits the book would fill at the next open. Nothing is ever sent to a broker.']},
 {v:'73.611',date:'2026-09-08',notes:['STUDIES BOARD: ROUND 39, rows 1409 to 1415 - building on the ES branch. ENGU-Q on ES is a plateau ABOVE its defaults (trail 3.0 = profit factor 1.60, net over drawdown 14.8) and a two-leg NQ+ES BOOK validate is queued beside the single-leg ES validate. NOISE searched on ES with its own ranges: 41 of 400 configurations clear, the leader is spread (top-ten 35 percent) and plateaued (26 of 28), full-space validate queued on the NOISE crown window. GAPGO regime-gate lead CLOSED: no before-the-open read explains the sealed-year loss. Two crowned mechanisms now branch onto ES; ORB does not.']},
 {v:'73.610',date:'2026-09-08',notes:['STUDIES BOARD: round 38 (rows 1400 to 1408). The 2-minute NOISE Auto-Validate posted as run 334: PASS 6 of 6, walk-forward 7 of 8, lockbox plus 59,451 dollars at profit factor 1.28 - better than either 5-minute crown on the same market days; its champion is a narrow-band VWAP-exit afternoon cell (R per year 104, median hold 8 minutes) and is cost-fragile.','The cost question: 0.533 points is 10.66 dollars a round trip (about two ticks plus commissions) and is not high; the round-37 scalp cells fail gross as well. But 2m scalps are cost-sensitive, so all 74 gate-passing 2m cells were re-scored at 15.66 and 20.66 dollars: 21 and 16 survive, and the cost-robust corner (band exit, afternoon block) keeps net over drawdown 16 to 14 under stress at 64 dollars a trade.','Four other short-hold triggers under the NOISE VWAP exit on 2m: 0 of 28 pass - the band is the trigger, not the exit.']},
 {v:'73.609',date:'2026-09-08',notes:['COMPARE BETA - a new primary tab beside COMPARE, the start of the rebuild the owner signed off today. Three screens will replace six views; this ships the first, the LEADERBOARD: one row per strategy, its champion by the same robustness score BY STRATEGY uses, ranked on one figure (R / YR, MAR, PF or NET) measured on one stage (IS, WF or LB). Tap a strategy for its runs, tap a run for its report, + COMPARE adds it to the same picked-run list PICK RUNS reads. COMPARE and EXPLORE are placeholders until phases 3 and 4; the old COMPARE is untouched until parity.','It draws only on the shared theme tokens, so all eight themes carry it, and it has its own render probe in the ship gates from this push. Reviewed before shipping: an unrecognised strategy now keeps its own row instead of being merged under another name, a missing profit factor stays a dash instead of reading as a loss, and older runs that saved a lockbox length in months still annualise.']},
@@ -27065,6 +27066,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // THIS is what NinjaTrader runs: EdgeLogNOISE carries the #225 params and its gate
         // call points at leg=NOISE_H_RF. (It trades MNQ micros at base 3 while the paper leg
         // computes one lot -- proportional, so the curves compare shape for shape.)
+        // ADDED 2026-09-08: the ETF dip book (run #332) as a SHADOW-ONLY stocks-account leg.
+        // Seven ETF legs pooled into one row -- it is not a variant of anything else on this
+        // board, so it has no `ctrl`: the honest control for a book is the book not existing.
+        // No `nt` field: NinjaTrader is the futures demo and never sees this.
+        {k:'ETFBOOK_332', label:'ETF DIP BOOK-332 · SHADOW', color:'#e0b877',
+         chip:'shadow · stocks',
+         chipTip:'The ROUND-25 weak-edge book after it passed BOOK validate #332: seven ETF dip legs - GLD and TLT buying the 7-day closing low, IWM trading RSI-2 both ways, and QQQ on the 7-day low, RSI-2 long, RSI-2 both ways and the 20-day pullback - pooled and scored as one strategy. Daily bars, 100,000 dollars notional a trade, 20 dollars a round trip, signals read on a close and filled at the next open. SHADOW ONLY: it records what the book would have done and never sends anything to a broker. Honest marks carried from run #332: the lockbox year took a 61,419 dollar drawdown against its 85,335 dollar gain, three of the seven legs are QQQ so the book is more correlated than seven names suggests, and the prices are Yahoo total-return bars frozen as master files, which the live series will not match tick for tick.',
+         ntNote:'Engine-only, and deliberately so. This is a STOCKS-account book; the NinjaTrader demo trades futures and will never run it.'},
         {k:'NOISE_H_RF',label:'NOISE-231 · rf HYBRID♻ 55',   color:'#d98cc4', ctrl:'NOISE_225', nt:'NOISE',
          ntNote:'EdgeLogNOISE on the demo account, MNQ, base size 3. CHANGED 2026-08-26: the two crown filters (short veto, wildest-10-percent skip) were switched ON there at the owner ask, so NinjaTrader now runs CROWN CONFIG + rf GATE - a combination no leg on this board computes. This row is still the nearest match, because it is the only one carrying the same gate, but from 2026-08-26 the nightly reconcile is comparing two configurations that differ by those two filters. Expect the difference to show on days a filter vetoes.'},
       ];
@@ -27125,6 +27134,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(r.indexOf('ORB')===0)return 'ORB';
         if(r.indexOf('ENGUQ')===0)return 'ENGU-Q';
         if(r.indexOf('NOISE')===0)return 'NOISE';
+        if(r.indexOf('ETFBOOK')===0)return 'ETF BOOK';
         return r;};
       // ML = an ML overlay sits on top (hybrid gate or size tilt). _legGate is the truth
       // where a report carries one; the key suffix covers legs before their first report.
@@ -28093,6 +28103,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const f=String(k||'').toUpperCase();
         if(f.indexOf('ENGUQ')===0)return {timeframe:'1m',session:'eth'};
         if(f.indexOf('NOISE')===0)return {timeframe:'5m',session:'rth'};
+        // The ETF dip book runs on DAILY bars, on four different ETFs. Asking for NQ 5m
+        // here would fail every lookup the way the ENGU-Q 1m/ETH mismatch used to.
+        if(f.indexOf('ETFBOOK')===0)return {timeframe:'1d',session:'rth'};
         return {timeframe:'5m',session:'rth'};          // ORB and anything new
       };
       const _etKey=sec=>{if(!sec)return '';try{

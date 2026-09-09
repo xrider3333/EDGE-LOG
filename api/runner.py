@@ -55,6 +55,11 @@ try:
 except Exception as _e:
     _qqq_exec = None
     print(f"[qqq_exec] import skipped: {type(_e).__name__}: {_e}")
+try:
+    from . import etf_book_shadow as _etfbook
+except Exception as _e:
+    _etfbook = None
+    print(f"[etfbook] import skipped: {type(_e).__name__}: {_e}")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
@@ -2358,6 +2363,12 @@ def main(argv=None):
             print(f"Webull trade sync: {a.webull_keys} "
                   f"({'keys found' if _wb_ok else 'not configured yet — paste App Key/Secret into the file'}), "
                   f"once per NY day")
+        if _etfbook is not None:
+            print(f"ETF dip book #332 SHADOW leg ({_etfbook.LEG_KEY}): once per trading day "
+                  f"at/after {_etfbook.MIN_ET_FOR_TODAY[0]:02d}:"
+                  f"{_etfbook.MIN_ET_FOR_TODAY[1]:02d} ET -- appends the day's "
+                  f"{'/'.join(_etfbook.TICKERS)} bar, re-runs {len(_etfbook.BOOK_CELLS)} legs, "
+                  f"writes shadow signals. NO ORDERS, ever.")
         if _qqq_paper is not None:
             print("QQQ paper (tools/qqq_paper.py): re-syncs ~every 2min during market "
                   "hours (Mon-Fri 09:28-16:05 ET) + one final post-close run, "
@@ -2582,6 +2593,19 @@ def main(argv=None):
                     _paper.maybe_run_eod(q)
                 except Exception as e:
                     print(f"[paper] hook error: {type(e).__name__}: {e}")
+            # ETF dip book (#332) SHADOW leg -- api/etf_book_shadow.py. The paper hook
+            # directly above fires at 16:10 ET, which is BEFORE Yahoo's daily bar is
+            # trusted (16:15, MIN_ET_FOR_TODAY), so that pass renders the leg from the
+            # master as it stands. This call is the once-per-evening step: it pulls and
+            # appends the day's GLD/TLT/IWM/QQQ bar, re-runs the seven legs, diffs the
+            # position set and rewrites JUST this leg's rows and report block. Guarded to
+            # once per ET trading day on disk and in-process, exception-proof, and a
+            # sub-millisecond no-op the rest of the day. NOTHING here places an order.
+            if a.firestore and _etfbook is not None and not _IS_WORKER:
+                try:
+                    _etfbook.maybe_nightly_update(q)
+                except Exception as e:
+                    print(f"[etfbook] hook error: {type(e).__name__}: {e}")
             # QQQ paper (tools/qqq_paper.py) — re-syncs the three crowned legs on QQQ
             # shares roughly every 2 minutes during market hours, plus one final run
             # just after close, and publishes ONE Firestore doc per uid

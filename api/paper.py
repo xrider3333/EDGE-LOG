@@ -91,6 +91,10 @@ LEG_LIVE_FROM = {
     "ORB_R6_C15": "2026-09-08",       # the ORB crown x compression 1.5x, no model (the tilt travels: LB $87k -> $102k at identical DD)
     "ENGUQ_309_C15": "2026-09-08",    # the ENGU-Q crown x compression 1.5x, no model (LB $86k -> $110k at better DD)
     "ENGUQ_309_K9": "2026-09-08",     # KEEL v9 on the ENGU-Q crown (WF $576k vs $471k at BETTER DD; LB = the tilt alone)      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    # The ETF dip book (run #332) shadow leg. STOCKS account, daily bars, seven ETF legs
+    # pooled into one row -- see api/etf_book_shadow.py. Everything before this date is a
+    # backtest re-run of a book validated on 2026-09-08, not forward evidence.
+    "ETFBOOK_332": "2026-09-09",
     "ENGUQ_335_VC": "2026-09-08",  # run #335's OWN best cell, forward test beside the crown (owner: "go for all")
     "ENGUQ_335": "2026-09-08",  # NEW FAMILY CROWN (owner 2026-09-08: "crown R2 once the validate
                                 # passes, swap the paper leg"); #309 below stays as the control
@@ -654,6 +658,29 @@ _GATE_HISTORY_FROM = "2010-06-07"
 # auto-validate). `caveat` is the one thing you would want to know before trusting the
 # leg's numbers -- leave it None rather than inventing reassurance.
 LEG_SOURCE = {
+    "ETFBOOK_332": {
+        "run": 332, "run_label": "#332 (BOOK-13, ETF-only sub-book)",
+        "strategy_file": "ETFDIP_DBL7_1_0.py / ETFDIP_RSI2_1_0.py / ETFDIP_PB20_1_0.py",
+        "picked": "2026-09-09",
+        "note": "The ROUND-25 weak-edge book through the house BOOK scorer: run #332 PASSED "
+                "(whole n=1,676 / $832,313 / PF 1.72 / DD $73,194, raw net-to-DD 11.4 against "
+                "pre-registered gates of PF >= 1.25 and net/DD >= 8, 8 of 8 slices held, "
+                "lockbox 137 trades +$85,335 at PF 1.67). This leg is its ETF-ONLY sub-book: "
+                "the seven legs r25's own pre-registered inclusion rule selects (PF >= 1.40, "
+                "net > 0, n >= 100) -- GLD/DBL7, TLT/DBL7, IWM/RSI2-both, QQQ/DBL7, QQQ/RSI2, "
+                "QQQ/RSI2-both, QQQ/PB20 -- at $100,000 notional per trade and $20 a round "
+                "trip. The NQDIP leg of #332 is NOT here: it is NQ futures and this is a "
+                "stocks-account book. SHADOW ONLY -- nothing is ever sent to a broker.",
+        "caveat": "Three honest marks carried over from run #332's own entry. (a) The lockbox "
+                  "year took a $61,419 drawdown against its $85,335 gain (the 2025 spring "
+                  "selloff) and that is most of the book's whole-window max drawdown; "
+                  "annualised MAR is only 0.71 at this notional. (b) Three of the seven legs "
+                  "are QQQ variants, so the book is more correlated than seven names suggests. "
+                  "(c) Prices are Yahoo TOTAL-RETURN daily bars frozen as master files "
+                  "(csv_files ids 52-56); Yahoo re-scales that whole series on every dividend, "
+                  "so the live tape will not match the study tick for tick. This leg APPENDS "
+                  "only and logs the divergence rather than rewriting history.",
+    },
     "ORB": {
         "run": 234, "run_label": "#234 (ORB-42)", "strategy_file": "ORB_3_6_C2.py",
         "picked": "2026-08-21",
@@ -1314,6 +1341,18 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": ENGUQ_309_KEEL9, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ENGUQ_309_K9"]},
 
+    # ADDED 2026-09-09: the ETF dip book that passed BOOK validate #332, as a SHADOW-ONLY
+    # stocks-account leg. It is the only leg on this board that does not run on the NQ
+    # master + 10s tail: seven ETF sub-legs on DAILY bars, pooled into one row. `runner`
+    # sends run_shadow to api/etf_book_shadow.py, which pulls the day's GLD/TLT/IWM/QQQ bar
+    # from Yahoo, appends it to the frozen 1d masters, re-runs the seven legs and diffs the
+    # position set. Every ledger write below this point is this file's normal code path.
+    # cost_pts 0 / mult 1 because each ETFDIP plugin bills its own dollars and sizes its own
+    # shares -- multiplying again is the bug that stored 20x headlines on runs #258-#263.
+    {"key": "ETFBOOK_332", "strategy": "ETFDIP_DBL7_1_0.py+RSI2+PB20", "instrument": "ETF",
+     "timeframe": "1d", "session": "rth", "params": {}, "cost_pts": 0.0, "mult": 1.0,
+     "runner": "etf_book", "source": LEG_SOURCE["ETFBOOK_332"]},
+
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical
     # strategy file and params with the gate off, so it IS the matched control.
@@ -1513,6 +1552,20 @@ def run_shadow(leg, today):
     populated only for a gated leg that declares `emit_ungated_as` (its matched control),
     and `gate` is the gate summary or None.
     """
+    # A leg may declare its OWN data path. The ETF dip book (api/etf_book_shadow.py) is the
+    # first: it runs on daily ETF bars pulled from Yahoo, not on the NQ master + 10s tail
+    # everything below assumes. It returns this function's exact contract, so every write
+    # after this point -- _emit, _prune, the report block, the PAPER tab -- is unchanged.
+    if leg.get("runner") == "etf_book":
+        try:
+            from . import etf_book_shadow
+            return etf_book_shadow.run_shadow_leg(leg, today)
+        except Exception as e:
+            msg = f"exception routing {leg.get('key')} to etf_book_shadow: {type(e).__name__}: {e}"
+            _log(msg)
+            return {"trades": [], "ungated_trades": [], "gate": None, "bars_appended": 0,
+                    "data_fresh_thru": None, "warnings": [msg], "ran_ok": False}
+
     warnings = []
     trades_out = []
     ungated_out = []
@@ -1784,9 +1837,32 @@ def _set_state(db, uid, patch):
         _log(f"state write failed for uid: {type(e).__name__}: {e}")
 
 
-def _run_one_uid(q, uid, target_date, *, dry_run=False):
+def rerun_legs(q, keys, target_date, *, dry_run=False):
+    """Recompute JUST these legs for every allowed uid and merge them into the day's report.
+
+    Exists for a leg whose data only becomes available AFTER the 16:10 EOD pass -- today the
+    ETF dip book, whose daily Yahoo bar is not trusted until 16:15 ET (api/etf_book_shadow.py
+    MIN_ET_FOR_TODAY). Re-running the WHOLE board a second time each evening would cost
+    minutes of CPU to refresh one row, so this runs the named legs only and writes their
+    blocks with merge=True. It deliberately does NOT touch `blend`, `live`, `reconcile` or
+    `gate_live`: those were computed by the full pass and re-deriving them from a partial
+    run would overwrite good data with a thinner version of itself."""
+    out = {}
+    for uid in list(getattr(q, "allow", None) or []):
+        try:
+            out[uid] = _run_one_uid(q, uid, target_date, dry_run=dry_run, only_legs=keys)
+        except Exception as e:
+            _log(f"rerun_legs uid skipped: {type(e).__name__}: {e}")
+    return out
+
+
+def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     """Run both legs for one uid, upsert trades + write the daily report doc.
-    Returns the report dict (also written to Firestore unless dry_run)."""
+    Returns the report dict (also written to Firestore unless dry_run).
+
+    only_legs: run just these leg keys and MERGE their blocks into the existing report doc
+    (see rerun_legs). None = the full nightly pass, which is what the runner's EOD hook
+    does."""
     leg_reports = {}
     total_pnl = 0.0
     batch = None
@@ -1907,7 +1983,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
             _log(f"uid={uid} leg={key} prune skipped: {type(e).__name__}: {e}")
         return removed
 
-    for leg in PAPER_LEGS:
+    _legs_to_run = ([lg for lg in PAPER_LEGS if lg["key"] in set(only_legs)]
+                    if only_legs else PAPER_LEGS)
+    for leg in _legs_to_run:
         r = run_shadow(leg, target_date)
 
         # A gated leg's matched control is written FIRST so the board reads control-then-
@@ -1963,6 +2041,22 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False):
 
     if not dry_run and pending:
         batch.commit()
+
+    # PARTIAL PASS (only_legs): merge these leg blocks into the day's existing report and
+    # stop. Everything below re-derives whole-board fields from the legs that just ran, and
+    # a partial run would write a thinner version of them over the full pass's good data.
+    if only_legs:
+        for _blk in leg_reports.values():
+            _blk.pop("_trades", None)
+        partial = {"legs": leg_reports, "run_date": target_date.isoformat()}
+        if not dry_run:
+            doc = json_safe(dict(partial))
+            doc["generatedAt"] = firestore.SERVER_TIMESTAMP
+            q.db.collection("users").document(uid).collection("paper_reports").document(
+                target_date.isoformat()).set(doc, merge=True)
+            _log(f"uid={uid} {target_date.isoformat()}: partial pass "
+                 + ", ".join(f"{k}:{v['n_signals']}" for k, v in leg_reports.items()))
+        return partial
 
     # blend stays the owner's 1:1 ORB+ENGU-Q baseline — NOISE is reported as its own
     # leg but does NOT join the blend until the owner adds it to the book.
