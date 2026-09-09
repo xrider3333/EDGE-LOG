@@ -189,11 +189,11 @@ var CASES=__CASES__, FIX=__FIX__;
         r.tradeLegs={}; r.redNoNt=[]; r.crowned={};
         for(var j=0;j<trows.length;j++){
           var cells=trows[j].cells;
-          var legTxt=cells[2]?cells[2].innerText.trim():'';
+          var _lc=trows[j].querySelector('[data-pc="leg"]')||cells[2];var legTxt=_lc?_lc.innerText.trim():'';
           // the crown glyph rides inside the LEG cell, so strip it for the label compare
           legTxt=legTxt.replace(/\\u0001?\\uD83D\\uDC51\\uFE0F?/g,'').trim();
           r.tradeLegs[legTxt]=(r.tradeLegs[legTxt]||0)+1;
-          var chips=cells[0]?cells[0].querySelectorAll('span'):[];
+          var _ec=trows[j].querySelector('[data-pc="eng"]')||cells[0];var chips=_ec?_ec.querySelectorAll('span'):[];
           for(var c=0;c<chips.length;c++){
             var t=(chips[c].textContent||'').trim();
             if(t.indexOf('NT')!==0)continue;

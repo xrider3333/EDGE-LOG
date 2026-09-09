@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.599';
+const VERSION='73.600';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.600',date:'2026-09-08',notes:['PAPER (owner: "give me a makeover of the Paper trade tab. something thats easier to read and a combo of robinhood and IOS" - build it): the tab is rebuilt as grouped iOS sheets. Sidebar = SHOW (WHEN / FAMILY / TYPE as segmented controls, then Baselines only / Show config + gate / Archived as switches) and STRATEGIES as a list - live dot, name + timeframe/session/trades/win/PF line, the net as a big numeral, and an iOS switch that includes or excludes the leg everywhere on the right. Main column = a Robinhood hero (one big net number, trades / won / PF / days / today under it, a 1W / 1M / All period picker that windows the curve too), the month calendar in its own sheet, then TRADES grouped by day with a day total on each header (strategy, side, entry->exit time, entry->exit price, hold+points, slip, delta $, $, cum, engines, chart). Status chips + the AUTO-RECOVER switch sit in the top bar beside REFRESH. Every filter, sort, selection and chart handler is the same one as before - only the shapes changed. tools/paper_render_probe.py reads the trade rows by data-pc instead of cell index.']},
 {v:'73.599',date:'2026-09-08',notes:['STUDIES BOARD: ROUND 37, rows 1367 to 1374 - which crown branches onto ES? The three crowned NQ files were run unchanged on the ES tape. ORB is dead there (profit factor 1.06), NOISE is a near miss (1.24, 5 of 8 slices), and the ENGU-Q R2 crown CLEARS THE HOUSE BAR on ES 24-hour 1-minute at its NQ defaults: 2,013 trades, 208,644 dollars at 50 a point, profit factor 1.37, net over drawdown 10.8, 7 of 8 slices; 27 of 27 one-step neighbours hold and it survives 0.60 points a round trip. Top-ten share 69 percent, said out loud.','Its Auto-Validate on ES is QUEUED (open ranges, 8 folds, 12-month lockbox, window pinned to the R2 crown #335). If it passes, ENGU-Q becomes the first family with an ES leg.']},
 {v:'73.596',date:'2026-09-08',notes:['PAPER BOARDS: run #335 selected its own best cell when it searched the whole R2 file, and that cell differs from the R2 defaults the crown trades (ema 1340, trendline 238, trail 4.0, atr 28, activation 2.5 R, breakeven 1.0 R, limit 0.1 ATR, no volume filter, regime 5, break 1.4). Owner (go for all): it now rides beside the crown as a FORWARD TEST leg ENGUQ_335_VC on the web board and in api/paper.py, control = ENGUQ_335. Its held-out year was weaker than the crown (49,812 dollars at PF 1.46 vs 88,380 at PF 1.68), so it is a forward test, not the crown.']},
 {v:'73.595',date:'2026-09-08',notes:['COMPARE - STUDIES: the TTM book leg is VALIDATED - runs 337 (baseline ORB 234 + ENGU-Q 309 book) and 336 (the same plus three ES contracts of the TTM crown, run 299) join round 7 as rows 1365 and 1366. Identical window: MAR 1.75 to 2.03 (+16 percent against a +15 percent pre-registered bar), whole-run drawdown identical to the dollar at 34,329, lockbox +8 percent at a lockbox drawdown 21 percent lower, eight of eight slices held on both and every slice improved. The first TTM result to clear a pre-registered bar under the engine. Adopting the leg into the paper book is the owner call. Also bookmarked in BOOKMARKS.md.']},
@@ -27207,7 +27208,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const sel=_legShown(name), dim=!sel;
         // Live state, pinned RIGHT on the tile (owner: "need the status dot on the tile
         // (again pined right)"). Literal hex -- the theme greys out --green/--yellow/--red.
-        let dotHtml='';
+        let dotHtml='',dotMini='';
         if(name!=='BLEND'){
           const _B=window._ntBridge;
           const _def=PAPER_LEG_DEFS.find(d=>d.k===name)||{};
@@ -27246,6 +27247,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
           dotHtml='<span title="'+String(dt).replace(/"/g,'&quot;')+'" style="display:inline-flex;align-items:center;gap:4px;font-size:8px;color:var(--text5);cursor:help">'
             +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+dc+'"></span>'+txt+'</span>';
+          dotMini='<span title="'+String(dt).replace(/"/g,'&quot;')+'" class="p2live" style="background:'+dc+'"></span>';
         }
         // The cross-engine block -- the only part of the old MATRIX that was not already
         // on the tile. Follows the TODAY / ALL TIME tab above the strip.
@@ -27412,13 +27414,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           last:_td(a.lastT?_dOnly(a.lastT):_dashR('No trades, so there is no last one.')),
           xeng:_td(xHtml||'<span style="color:var(--text5)">—</span>','left')
         };
-        const _mainRow='<tr data-paperleg="'+name+'" title="'+(sel?'click to EXCLUDE '+label+' from the chart and every total below':'click to include '+label+' again')
-          +'" style="cursor:pointer;opacity:'+(dim?0.55:1)+';transition:opacity .12s">'
-          +PCOLS_ON.map(c=>_cells[c.k]||_td('')).join('')
+        // iOS LIST ROW (owner 2026-09-08: 'a combo of robinhood and IOS'). Four cells,
+        // one shape for on/off everywhere on the page - the switch. The figures the old
+        // thirteen columns carried are on the sub-line and the hover, nothing is lost.
+        // _legMkt is declared further down (TDZ), so the market line is read off the family here.
+        const _isEQ=String(name).toUpperCase().indexOf('ENGUQ')===0;
+        const _subBits=[_isEQ?'1m':'5m',_isEQ?'24h':'RTH'];
+        if(a.n){_subBits.push(a.n+' tr');_subBits.push(Math.round(a.wr*100)+'% won');if(_pfTxt!=null)_subBits.push('PF '+_pfTxt);}
+        else _subBits.push('no trades yet');
+        const _hover=[label,'net '+fmtUsd(a.net)+' over '+a.n+' trade'+(a.n===1?'':'s')+' on '+a.days+' day'+(a.days===1?'':'s'),
+          (_S.ev!=null?('EV '+fmtUsd(_S.ev)+' per trade'):''),(_S.perDay!=null?(fmtUsd(_S.perDay)+' per calendar day'):''),
+          (_sp.nBf?('forward '+_sp.nFw+' tr '+fmtUsd(_sp.netFw)+' / backfill '+_sp.nBf+' tr '+fmtUsd(_sp.netBf)):''),
+          (a.lastT?('last trade '+_dOnly(a.lastT)):''),
+          (sel?'Switch is ON: included in the chart, calendar, totals and trades.':'Switch is OFF: excluded everywhere on the right.')].filter(Boolean).join(' \u00b7 ');
+        const _rtd=(inner,extra)=>'<td style="padding:8px 6px;border-top:1px solid var(--border2);vertical-align:middle;'+(extra||'')+'">'+inner+'</td>';
+        const _mainRow='<tr data-paperleg="'+name+'" class="p2row" title="'+_hover.replace(/"/g,'&quot;')+'" style="cursor:pointer">'
+          +_rtd(dotMini||'<span class="p2live" style="background:var(--text5)"></span>','width:1%;padding-left:14px')
+          +_rtd('<div style="font-weight:700;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;color:'+(dim?'var(--text5)':color)+'">'
+               +_crownIc(name)+label+wBadge+orbBadge+noteBadge+'</div>'
+               +'<div style="font-size:9.5px;color:var(--text5);margin-top:2px;white-space:nowrap">'+_subBits.join(' \u00b7 ')+'</div>','min-width:0;opacity:'+(dim?.55:1))
+          +_rtd(a.n?('<span class="p2num" style="font-size:18px;color:'+(a.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(a.net)+'</span>')
+                   :'<span style="color:var(--text5)">\u2014</span>','text-align:right;white-space:nowrap;opacity:'+(dim?.55:1))
+          +_rtd('<span class="p2sw'+(sel?' on':'')+'" role="switch" aria-checked="'+(sel?'true':'false')+'"></span>','width:1%;padding-right:14px')
           +'</tr>';
         // Detail row: only when asked for, and only when there is something to say.
         const _detailRow=(_cfgOn&&_detail)
-          ? '<tr style="opacity:'+(dim?0.4:1)+'"><td colspan="'+PCOLS_ON.length+'" style="padding:0 7px 5px 7px;border-bottom:1px solid var(--border2);font-size:8px;color:var(--text5);line-height:1.55">'
+          ? '<tr style="opacity:'+(dim?0.4:1)+'"><td colspan="4" style="padding:0 14px 8px 40px;font-size:8.5px;color:var(--text5);line-height:1.55">'
             +_detail+'</td></tr>'
           : '';
         return _mainRow+_detailRow;
@@ -27512,28 +27533,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // COMPACT: 9px text, 1px vertical padding, no per-cell borders - the trades table
       // underneath reads well because its rows are one tight line each, and this one was
       // three times the height for the same amount of information.
-      const legTable='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:9px">'
-        +'<thead><tr style="color:var(--text4);font-size:8px;letter-spacing:.8px;text-transform:uppercase">'
-          +PCOLS_ON.map(c=>{
-            const on=!!c.sort&&_lsCol===c.k;
-            const arrow=c.sort?('<span style="margin-left:3px;color:'+(on?'var(--blue)':'var(--text5)')
-              +';opacity:'+(on?'1':'.45')+'">'+(on?(_lsDir==='asc'?'\u25b2':'\u25bc'):'\u25be')+'</span>'):'';
-            const tip=(c.tip||'')+(c.sort?(' \u00b7 Click to sort by this column'
-              +(on?(_lsDir==='asc'?' (showing lowest first - click to flip)':' (showing highest first - click to flip)'):'')):'');
-            return '<th'+(c.sort?(' data-lsort="'+c.k+'"'):'')
-              +' title="'+String(tip).replace(/"/g,'&quot;')
-              +'" style="padding:2px 7px;text-align:'+c.al
-              +';border-bottom:1px solid var(--border);font-weight:700;'
-              +(c.sort?'cursor:pointer;user-select:none':(c.tip?'cursor:help':''))+'">'+c.h+arrow+'</th>';}).join('')
-        +'</tr></thead><tbody>'
+      // Two sortable headings (name, net) over the iOS rows; every other sort key still
+      // works through _LSORTS (the probe drives them), it just has no heading to click.
+      const _lth=(k,lbl,al)=>{const on=_lsCol===k;
+        return '<th data-lsort="'+k+'" title="sort by '+lbl+(on?(_lsDir==='asc'?' (lowest first - click to flip)':' (highest first - click to flip)'):'')
+          +'" style="cursor:pointer;user-select:none;padding:4px 6px;text-align:'+al+';font-size:8.5px;letter-spacing:1.2px;color:var(--text5);font-weight:700;border:0">'
+          +lbl+'<span style="margin-left:3px;color:'+(on?'var(--text2)':'var(--text5)')+';opacity:'+(on?'1':'.45')+'">'+(on?(_lsDir==='asc'?'\u25b2':'\u25bc'):'\u25be')+'</span></th>';};
+      const legTable='<div id="p2legs" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+        +'<thead><tr><th style="border:0;padding:0"></th>'+_lth('leg','STRATEGY','left')+_lth('net','NET','right')+'<th style="border:0;padding:0"></th></tr></thead><tbody>'
         +(_legOrder.length?_legOrder.map(d=>legTile(d[0],d[1],d[2])).join('')
-          // An empty table must say WHY (owner 2026-08-29: "where are the ML's?" -
-          // they were behind RAW + BASELINES ONLY, and clicking ML with BASELINES
-          // ONLY still on yields zero rows, because an ML overlay is never its own
-          // baseline). Name the switch, not just the absence.
-          :('<tr><td colspan="'+PCOLS_ON.length+'" style="padding:14px 8px;text-align:center;font-size:9px;color:var(--text5)">'
-            +(PKIND==='ML'&&PBASE?'BASELINES ONLY hides every ML overlay — switch it off to see the ML legs.'
-              :'No strategy matches these filters — set the family and RAW / ML switches to ALL.')
+          :('<tr><td colspan="4" style="padding:16px 14px;text-align:center;font-size:10px;color:var(--text5);line-height:1.6">'
+            +(PKIND==='ML'&&PBASE?'BASELINES ONLY hides every ML overlay \u2014 switch it off to see the ML legs.'
+              :'No strategy matches these filters \u2014 set FAMILY and TYPE back to ALL.')
             +'</td></tr>'))
         +'</tbody></table></div>'
         // Footnotes removed 2026-08-29 ("info is cropped" / "simpler"): the
@@ -27697,45 +27708,75 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // PAPER plus puts the strategy strip in its sidebar instead of under the chart,
       // so it needs the same tile WITHOUT the strip. Built from the same pieces rather
       // than a second copy, so the two layouts cannot drift apart.
-      const curveHtmlNoLegs=tile('<div class="lbl" style="margin-bottom:8px">CUMULATIVE PAPER PnL'
-        +(_legOff.length?(' <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_nShown+' of '+LEGS_VIS.length+' legs included</span>'):'')
-        +'</div>'
-        +'<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start">'
-        +'<div style="flex:2 1 420px;min-width:300px">'+_curveSvg(_allDates,_curveSeries)+'</div>'
-        +'<div style="flex:1 1 300px;min-width:270px;max-width:430px">'+_calHtml+'</div>'
-        +'</div>');
+      // ROBINHOOD HERO (owner 2026-09-08): one number, one line under it, a period
+      // picker, then the curve. The picker is a lens (not saved): 1W / 1M / ALL count
+      // back from the newest trade on the board, because this is a forward test and
+      // 'the last 7 days' of a quiet week would be an empty chart.
+      const _pcw=(PSCOPE==='TODAY')?'TODAY':(['1W','1M','ALL'].indexOf(window._paperCurveWin)>=0?window._paperCurveWin:'ALL');
+      const _pcwFrom=(()=>{
+        if(_pcw==='TODAY')return _todayET;
+        if(_pcw==='ALL'||!_allDates.length)return '';
+        const last=new Date(_allDates[_allDates.length-1]+'T12:00:00');
+        last.setDate(last.getDate()-(_pcw==='1W'?7:30));
+        return last.toISOString().slice(0,10);
+      })();
+      const _heroRows=_pt.filter(t=>_legShown(legOf(t))).filter(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime)||'';return _pcw==='TODAY'?d===_todayET:(!_pcwFrom||d>=_pcwFrom);});
+      const _H=(()=>{const rows=_heroRows;
+        const net=rows.reduce((a,t)=>a+(+t.pnl_usd||0),0);
+        const gw=rows.reduce((a,t)=>a+Math.max(0,+t.pnl_usd||0),0), gl=rows.reduce((a,t)=>a+Math.max(0,-(+t.pnl_usd||0)),0);
+        const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
+        const days=new Set(rows.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean)).size;
+        const today=_pt.filter(t=>_legShown(legOf(t))).filter(t=>(t.run_date||_dOnly(t.exitTime||t.entryTime))===_todayET).reduce((a,t)=>a+(+t.pnl_usd||0),0);
+        return {n:rows.length,net:net,wr:rows.length?wins/rows.length:0,pf:gl>0?gw/gl:(gw>0?Infinity:null),days:days,today:today};})();
+      const _winDates=_allDates.filter(d=>!_pcwFrom||d>=_pcwFrom);
+      const _i0=_allDates.length-_winDates.length;
+      const _winSeries=_curveSeries.map(sr=>{const base=_i0>0?sr.vals[_i0-1]:0;return Object.assign({},sr,{vals:sr.vals.slice(_i0).map(v=>v-base)});});
+      const _pcwSeg=(PSCOPE==='TODAY')?''
+        :('<div class="p2seg" data-ptray style="margin-top:14px;max-width:300px">'+['1W','1M','ALL'].map(w=>'<span data-pcwin="'+w+'"'+(_pcw===w?' class="on"':'')+' title="'+(w==='ALL'?'The whole forward test':(w==='1W'?'The 7 days up to the newest trade':'The 30 days up to the newest trade'))+'">'+(w==='ALL'?'All':w)+'</span>').join('')+'</div>');
+      const _pcwLbl=_pcw==='TODAY'?('today \u00b7 '+_todayET):(_pcw==='ALL'?'all time':(_pcw==='1W'?'last 7 days':'last 30 days'));
+      const curveHtmlNoLegs='<div class="p2sheet"><div class="p2hero">'
+        +'<div class="p2lbl">Net \u00b7 '+_pcwLbl+' \u00b7 '+_nShown+' of '+LEGS_VIS.length+' legs</div>'
+        +'<div class="p2big" style="color:'+(_H.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_H.net)+'</div>'
+        +'<div class="p2delta"><span><b>'+_H.n+'</b> trades</span><span><b>'+(_H.n?Math.round(_H.wr*100)+'%':'\u2014')+'</b> won</span>'
+          +'<span><b>PF '+(_H.pf==null?'\u2014':(_H.pf===Infinity?'\u221e':_H.pf.toFixed(2)))+'</b></span><span><b>'+_H.days+'</b> trading day'+(_H.days===1?'':'s')+'</span>'
+          +(_pcw!=='TODAY'?('<span style="color:'+(_H.today>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_H.today)+' today</span>'):'')+'</div>'
+        +_pcwSeg+'</div>'
+        +'<div style="padding:6px 8px 10px">'+_curveSvg(_winDates,_winSeries)+'</div></div>'
+        +'<div class="p2sheet"><div style="padding:8px 14px 14px">'+_calHtml+'</div></div>';
       // THE SIDEBAR, v4 - a PICKER, not a data table (owner 2026-08-29: cropped info,
       // unclear affordances, two ALLs side by side). Two shapes only: a CHOICE is a
       // labelled tray (label in the tray, active cell inverted); a TOGGLE is a checkbox
       // line, same glyph convention as the strategy rows. If it has a checkbox it
       // toggles; if it is a tray you pick one.
       const legsCard=(()=>{
+        // iOS sidebar (owner 2026-09-08). Two shapes only: a SEGMENTED CONTROL picks one
+        // of several; a SWITCH turns one thing on or off. Nothing else is clickable.
         const esc=t=>String(t||'').replace(/"/g,'&quot;');
-        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'" style="cursor:pointer;user-select:none;text-align:center;font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:5px 2px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(on?'background:var(--text);color:var(--bg1)':'color:var(--text5)')+'">'+lbl+'</span>';
-        const tray=(lbl,cells,n)=>'<div data-ptray style="display:grid;grid-template-columns:52px repeat('+n+',1fr);align-items:stretch;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:2px;gap:2px;margin-bottom:5px">'
-          +'<span style="align-self:center;text-align:left;padding-left:6px;font-size:7.5px;letter-spacing:1.2px;color:var(--text5);font-weight:700">'+lbl+'</span>'+cells+'</div>';
-        const ck=(attr,on,lbl,tip)=>'<span data-'+attr+' title="'+esc(tip)+'" style="cursor:pointer;user-select:none;font-size:9px;color:'+(on?'var(--text2)':'var(--text5)')+'">'
-          +'<span style="font-size:11px">'+(on?'\u2611':'\u2610')+'</span> '+lbl+'</span>';
-        let h=tray('VIEW',seg('mscope','TODAY',PSCOPE==='TODAY','TODAY','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
-               +seg('mscope','ALL',PSCOPE==='ALL','ALL TIME','The whole forward test.'),2);
-        h+=tray('FAMILY',seg('pfam','ALL',PFAM==='ALL','ALL','every strategy family')
-               +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''),1+_famList.length);
-        h+=tray('TYPE',seg('pkind','ALL',PKIND==='ALL','ALL','raw configs and ML overlays together')
-               +seg('pkind','RAW',PKIND==='RAW','RAW','only plain configs, no ML overlay')
-               +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'),3);
-        h+='<div style="display:flex;gap:14px;flex-wrap:wrap;margin:7px 2px 2px">'
-          +ck('pbase',PBASE,'baselines only','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.')
-          +ck('papercfg',!!window._paperShowCfg,'detail','Show which run and configuration each leg came from, under its row.')
-          +(_nArch?ck('patharch',_showArch,'archived · '+_nArch,'Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Toggling brings their rows AND their trades back everywhere.'):'')
+        const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'"'+(on?' class="on"':'')+'>'+lbl+'</span>';
+        const segRow=(lbl,cells)=>'<div class="p2seglab"><b>'+lbl+'</b><div class="p2seg" data-ptray>'+cells+'</div></div>';
+        const swRow=(attr,on,lbl,tip,extra)=>'<div class="p2srow" data-'+attr+' title="'+esc(tip)+'"><div style="flex:1;font-size:11px;font-weight:500">'+lbl+(extra||'')+'</div>'
+          +'<span class="p2sw'+(on?' on':'')+'" role="switch" aria-checked="'+(on?'true':'false')+'"></span></div>';
+        let h='<div class="p2sheet"><div class="p2sh"><span>Show</span></div><div style="display:flex;flex-direction:column;gap:8px;padding:6px 14px 12px">'
+          +segRow('WHEN',seg('mscope','TODAY',PSCOPE==='TODAY','Today','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
+                +seg('mscope','ALL',PSCOPE==='ALL','All time','The whole forward test.'))
+          +segRow('FAMILY',seg('pfam','ALL',PFAM==='ALL','All','every strategy family')
+                +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''))
+          +segRow('TYPE',seg('pkind','ALL',PKIND==='ALL','All','raw configs and ML overlays together')
+                +seg('pkind','RAW',PKIND==='RAW','Raw','only plain configs, no ML overlay')
+                +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'))
+          +'</div>'
+          +swRow('pbase',PBASE,'Baselines only','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.')
+          +swRow('papercfg',!!window._paperShowCfg,'Show config + gate','Show which run and configuration each leg came from, and what its gate did, under its row.')
+          +(_nArch?swRow('patharch',_showArch,'Archived','Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Switching on brings their rows AND their trades back everywhere.','<span class="p2tag">'+_nArch+'</span>'):'')
           +'</div>';
-        // The crown footnote lives here as a tooltip now, instead of wrapping under the table.
         const _crownGone=PAPER_LEG_DEFS.filter(d=>d.crown&&!LEGS_F.some(x=>x.k===d.k));
-        h+='<div style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">'
-          +'<span title="'+esc('Click a row to include or exclude it. \ud83d\udc51 marks the standing champion of its family.'
-            +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help;font-size:8px;letter-spacing:1.4px;color:var(--text5);font-weight:700">STRATEGIES · '+LEGS_F.length+' OF '+LEGS_VIS.length+'</span>'
-          +(_legOff.length?('<span data-paperlegall style="cursor:pointer;user-select:none;margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.5px;background:var(--text);color:var(--bg1);border-radius:999px;padding:2px 9px">INCLUDE ALL</span>'):'')
-          +'</div>';
-        return tile(h+legTable);
+        h+='<div class="p2sheet"><div class="p2sh">'
+          +'<span title="'+esc('Switch a strategy on to include it in everything on the right. \ud83d\udc51 marks the standing champion of its family.'
+            +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies \u00b7 '+_nShown+' of '+LEGS_F.length+'</span>'
+          +(_legOff.length?('<span data-paperlegall style="cursor:pointer;user-select:none;letter-spacing:.3px;text-transform:none;font-weight:600;color:var(--text2)">Include all</span>'):'')
+          +'</div>'+legTable+'</div>'
+          +'<div style="font-size:9.5px;color:var(--text5);padding:0 4px 6px;line-height:1.5">Switch = included in everything on the right. Green dot = running in NinjaTrader. \ud83d\udc51 = family champion.</div>';
+        return h;
       })();
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
@@ -27943,6 +27984,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +' '+_engChip('TV –','#8a8a8a','TradingView has no API to poll - it is only ever checked by hand, in bulk. See CROSS-ENGINE, ALL TIME.')
           +'</td>';
       };
+      const _dayTot={};_tSorted.forEach(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime)||'';
+        if(!_dayTot[d])_dayTot[d]={pnl:0,n:0};_dayTot[d].pnl+=(+t.pnl_usd||0);_dayTot[d].n++;});
+      let _lastDay=null;
       const _tRows=_tSorted.slice(0,200).map(t=>{
         const leg=legOf(t),lc=_legColor[leg]||'#5b8def';const pnl=+t.pnl_usd||0;
         const _etk=_etKey(t.entryTime),_xtk=_etKey(t.exitTime);
@@ -27963,26 +28007,36 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // several). The id is the SAME _no the candle rows carry, so a selection hands
         // straight to the chart gallery with no second lookup table.
         const _selNow=(window._ptSel&&window._ptSel.has('P'+_ci));
-        return '<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'+_engineCell(t)+'<td>'+(t.run_date||_dOnly(t.exitTime||t.entryTime)||'—')+'</td>'
-          +'<td>'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:600">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
-          +'<td>'+((_sideOf(t.side)||'—').toUpperCase())+'</td>'
-          +'<td>'+_fmtET(t.entryTime)+'</td>'
-          +'<td>'+_fmtET(t.exitTime)+'</td>'
-          +'<td style="text-align:right">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'—')+'</td>'
-          +'<td style="text-align:right">'+(t.exit_px!=null?(+t.exit_px).toFixed(2):'—')+'</td>'
-          +'<td style="text-align:right">'+_durTxt(t)+'</td>'
-          +'<td style="text-align:right">'+(t.pnl_pts!=null?(+t.pnl_pts).toFixed(2):'—')+'</td>'
+        // DAY HEADERS (iOS section headers): only while the table is in date order -
+        // grouping a list sorted by dollars would scatter the groups.
+        const _dsRow=t.run_date||_dOnly(t.exitTime||t.entryTime)||'';
+        let _dayHdr='';
+        if(_psCol==='date'&&_dsRow!==_lastDay){
+          _lastDay=_dsRow;
+          const _dt=_dayTot[_dsRow]||{pnl:0,n:0};
+          let _lbl=_dsRow;try{_lbl=new Date(_dsRow+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}).replace(', ',' \u00b7 ');}catch(e){}
+          _dayHdr='<tr class="p2day"><td colspan="11"><span style="display:flex;align-items:baseline;justify-content:space-between"><span>'+_lbl+(_dsRow?' <span style="letter-spacing:0;text-transform:none;font-weight:400">'+_dsRow+'</span>':'')+'</span>'
+            +'<span class="p2num" style="font-size:15px;letter-spacing:.4px;color:'+(_dt.pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_dt.pnl)+' <span style="font-family:inherit;font-size:9px;color:var(--text5)">\u00b7 '+_dt.n+' trade'+(_dt.n===1?'':'s')+'</span></span></span></td></tr>';
+        }
+        const _sideTxt=(_sideOf(t.side)||'\u2014').toUpperCase();
+        return _dayHdr+'<tr data-ptrow="P'+_ci+'"'+(_selNow?' class="ptsel"':'')+'>'
+          +'<td data-pc="leg" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+_laBadge+'</td>'
+          +'<td><span style="display:inline-block;font-size:9px;letter-spacing:1px;font-weight:700;padding:1px 7px;border-radius:6px;border:1px solid var(--border);color:var(--text2)">'+_sideTxt+'</span></td>'
+          +'<td style="white-space:nowrap;color:var(--text4)" title="entry \u2192 exit, New York time">'+_fmtET(t.entryTime)+' \u2192 '+_fmtET(t.exitTime)+'</td>'
+          +'<td style="white-space:nowrap;color:var(--text4)" title="entry price \u2192 exit price">'+(t.entry_px!=null?(+t.entry_px).toFixed(2):'\u2014')+' \u2192 '+(t.exit_px!=null?(+t.exit_px).toFixed(2):'\u2014')+'</td>'
+          +'<td style="text-align:right;white-space:nowrap;color:var(--text4)" title="time in the trade \u00b7 points won or lost">'+_durTxt(t)+' \u00b7 '+(t.pnl_pts!=null?(+t.pnl_pts).toFixed(2):'\u2014')+' pt</td>'
           +(()=>{const m=t.entryIso?_ntMatch[_ntKey(leg,t.entryIso)]:null;
-            if(!m)return '<td style="text-align:right;color:var(--text5)" title="no matched NinjaTrader fill for this trade, so there is nothing to compare">—</td>'
-                        +'<td style="text-align:right;color:var(--text5)">—</td>';
+            if(!m)return '<td style="text-align:right;color:var(--text5)" title="no matched NinjaTrader fill for this trade, so there is nothing to compare">\u2014</td>'
+                        +'<td style="text-align:right;color:var(--text5)">\u2014</td>';
             const sl=(m.entry_slip_pts!=null)?+m.entry_slip_pts:null;
             const dd=(m.pnl_diff_usd!=null)?+m.pnl_diff_usd:null;
             return '<td style="text-align:right;color:'+(sl==null?'var(--text5)':(sl>0?PNL_NEG:(sl<0?PNL_POS:'var(--text4)')))+'" title="entry slippage in points, signed AGAINST us: positive means the live fill was worse than the engine">'
-                 +(sl==null?'—':(sl>0?'+':'')+sl.toFixed(2))+'</td>'
+                 +(sl==null?'\u2014':(sl>0?'+':'')+sl.toFixed(2))+'</td>'
                  +'<td style="text-align:right;color:'+(dd==null?'var(--text5)':(dd>=0?PNL_POS:PNL_NEG))+'" title="live P and L minus engine P and L on this matched trade">'
-                 +(dd==null?'—':fmtUsd(dd))+'</td>';})()
-          +'<td style="text-align:right;font-weight:600;color:'+(pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(pnl)+'</td>'
-          +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.75" title="running total of the rows currently shown, in date order">'+(c==null?'—':fmtUsd(c))+'</td>';})()
+                 +(dd==null?'\u2014':fmtUsd(dd))+'</td>';})()
+          +'<td style="text-align:right;white-space:nowrap"><span class="p2num" style="font-size:17px;color:'+(pnl>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(pnl)+'</span></td>'
+          +(()=>{const c=_cumById.get(t);return '<td style="text-align:right;color:'+((c||0)>=0?PNL_POS:PNL_NEG)+';opacity:.7" title="running total of the rows currently shown, in date order">'+(c==null?'\u2014':fmtUsd(c))+'</td>';})()
+          +_engineCell(t).replace('<td ','<td data-pc="eng" ')
           +_chartCell+'</tr>';
       }).join('');
       // SELECTION BAR - owner 2026-08-20: "allow me to select (click and drag) multiple
@@ -27991,26 +28045,26 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _ptSelBar='<span data-ptallcharts style="cursor:pointer;margin-left:10px;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 9px;border-radius:6px;border:1px solid var(--border);color:var(--text3)" title="open every trade shown below as its own live chart in one scrollable window - no need to select rows first">&#9638; ALL CHARTS</span>'
         +'<span id="pt-selbar" style="margin-left:10px;font-weight:400;letter-spacing:0"></span>'
         +'<span style="margin-left:auto;font-weight:400;letter-spacing:0;font-size:8px;color:var(--text5)">click a row to select &middot; drag across rows for a range &middot; shift-click extends &middot; ctrl-click adds one</span>';
-      const tradesHtml=tile('<div class="lbl" style="margin-bottom:8px;display:flex;align-items:center">TRADES'+(_tSorted.length>200?' <span style="font-weight:400;color:var(--text5);font-size:8px">&middot; showing 200 of '+_tSorted.length+'</span>':'')+_ptSelBar+'</div>'
-        // COMPACT ROWS (owner 2026-08-26: "make the attached table smaller (vertically)").
-        // The app-wide td/th padding is shared by every table in the app, so this is SCOPED
-        // to #ptrades-wrap - tightening the global rule would have shrunk the run blotter,
-        // the library list and the trading log along with it. Vertical padding 6px -> 2px,
-        // type 11px -> 9.5px, and the three ENGINES chips and the CHART pill lose the
-        // padding that was making them, not the text, set the row height. Rows stay a
-        // comfortable click and drag target, and the selection bar down the left is
-        // untouched. Nothing is dropped - every column is still there.
-        +'<style>#ptrades-body tr{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}'
-          +'#ptrades-wrap table{font-size:9.5px}'
-          +'#ptrades-wrap th{padding:3px 7px;letter-spacing:1px}'
-          +'#ptrades-wrap td{padding:2px 7px;line-height:1.35}'
-          +'#ptrades-wrap td>span{line-height:1.25}'
+      const _p2dot=(col,txt)=>'<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:7px;height:7px;border-radius:50%;background:'+col+';display:inline-block"></i>'+txt+'</span>';
+      const tradesHtml='<div class="p2sheet"><div class="p2sh" style="flex-wrap:wrap"><span>Trades \u00b7 '+_tSorted.length+(_tSorted.length>200?' <span style="font-weight:400;letter-spacing:.3px;text-transform:none">(showing 200)</span>':'')+'</span>'
+          +'<span style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:.3px;font-weight:500">'
+          +'<span data-psort="date" class="p2chip" style="cursor:pointer;height:26px" title="click to flip the day order">'+(_psCol==='date'?(_psDir==='desc'?'newest first':'oldest first'):'sorted by '+_psCol+' \u00b7 click for day order')+'</span>'
+          +_ptSelBar.replace('margin-left:10px;','').replace(/<span style="margin-left:auto[^>]*>.*?<\/span>$/,'')+'</span></div>'
+        +'<div style="display:flex;gap:14px;padding:0 14px 10px;font-size:10px;color:var(--text5);flex-wrap:wrap;align-items:center">'+_p2dot(PNL_POS,'green = matched')+_p2dot(PNL_NEG,'red = missed')+_p2dot('#8a8a8a','grey = not run / not checked')+'<span style="margin-left:auto">click a row to select \u00b7 drag for a range \u00b7 shift-click extends</span></div>'
+        +'<style>#ptrades-body tr[data-ptrow]{cursor:pointer}#ptrades-body tr.ptsel{background:color-mix(in srgb,var(--blue) 20%,transparent)!important;box-shadow:inset 2px 0 0 var(--blue)}#ptrades-body.ptdrag{user-select:none;-webkit-user-select:none}'
+          +'#ptrades-wrap table{font-size:10.5px;border-collapse:collapse}'
+          +'#ptrades-wrap th{padding:4px 8px;letter-spacing:1.2px;font-size:8.5px;color:var(--text5);border:0;white-space:nowrap}'
+          +'#ptrades-wrap td{padding:7px 8px;line-height:1.3;border-top:1px solid var(--border2);border-bottom:0;vertical-align:middle}'
+          +'#ptrades-wrap td:first-child{padding-left:14px}#ptrades-wrap td:last-child{padding-right:14px}'
+          +'#ptrades-body tr.p2day td{padding:12px 14px 4px;font-size:10px;letter-spacing:1.2px;color:var(--text4);text-transform:uppercase;font-weight:700;border-top:0}'
           +'</style>'
-        +(_tSorted.length?'<div id="ptrades-wrap" style="overflow-x:auto"><table class="table"><thead><tr><th title="Which engines produced this trade. EL = the EDGELOG engine, true of every row here by definition. NT = NinjaTrader, and every mark is about THIS leg only: a green tick means NinjaTrader FILLED it on the demo account, a red cross means NinjaTrader runs this leg and did not take it, a blue wave means NinjaTrader own backtest of this leg produced the same trade, an amber cross means that backtest covered the date and disagreed, n/a means NinjaTrader does not run this configuration at all, and a question mark means nothing has checked it yet. TV = TradingView, which has no API to poll.">ENGINES</th>'+_psTh('date','DATE')+_psTh('leg','LEG')+_psTh('side','SIDE')+_psTh('entry','ENTRY (ET)')+_psTh('exit','EXIT (ET)')+_psTh('entrypx','ENTRY PX','right')+_psTh('exitpx','EXIT PX','right')+'<th style="text-align:right" title="how long the trade was held">DUR</th>'+_psTh('pts','PTS','right')
-        +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
-        +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
-        +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th><th>CHART</th></tr></thead><tbody id="ptrades-body">'+_tRows+'</tbody></table></div>'
-          :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START+'</div>'));
+        +(_tSorted.length?'<div id="ptrades-wrap" style="overflow-x:auto"><table class="table"><thead><tr>'
+          +_psTh('leg','strategy','left')+_psTh('side','side','left')+_psTh('entry','entry time','left')+_psTh('entrypx','entry price','left')+_psTh('pts','hold \u00b7 points','right')
+          +'<th style="text-align:right" title="entry slippage in points vs the engine, positive = live fill was worse">SLIP</th>'
+          +'<th style="text-align:right" title="live P and L minus engine P and L, matched trades only">&#916; $</th>'
+          +_psTh('usd','$','right')+'<th style="text-align:right" title="running total of the rows shown, in date order">CUM</th>'
+          +'<th title="Which engines produced this trade. EL = the EDGELOG engine, true of every row. NT = NinjaTrader on the demo account. TV = TradingView, only ever checked by hand.">ENGINES</th><th>CHART</th></tr></thead><tbody id="ptrades-body">'+_tRows+'</tbody></table></div>'
+          :'<div style="padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px">NO PAPER TRADES YET \u2014 SHADOW TRADING STARTS '+PAPER_START+'</div>')+'</div>';
       // daily reports — one row per paper_reports doc, click to expand per-leg detail + verdict
       const _repOpen=window._paperReportOpen||(window._paperReportOpen=new Set());
       const _repRows=_pr.map(r=>{
@@ -28054,7 +28108,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // publishing meta/nt_bridge (+ the 9am ET roster check in meta/nt_preflight).
       // Before this existed, "are the strategies even running?" took a screenshot.
       let bridgeHtml='';
-      let _wdBtn='';   // the AUTO-RECOVER pill, built below; hoisted so PAPER plus can reuse it
+      let _wdBtn='',_wdSw='';   // the AUTO-RECOVER pill (+ its iOS switch twin), built below; hoisted so PAPER plus can reuse it
       {
         const B=window._ntBridge, P=window._ntPreflight;
         const _age=ts=>{if(!ts)return null;const m=Math.floor((Date.now()-Date.parse(String(ts).replace(' ','T')+'Z'))/60000);return m;};
@@ -28224,6 +28278,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the read-only chips beside it. Page rule since v73.398: a CHECKBOX toggles.
         // So the switch is a checkbox line - the only one on the strip.
         _wdBtn=(_wdOn===null&&!_WD)?'':('<span data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="margin-left:auto;cursor:'+(_wdBusy?'wait':'pointer')+';user-select:none;font-size:9px;font-weight:700;letter-spacing:.4px;color:'+_wdCol+';opacity:'+(_wdBusy?'.55':'1')+'"><span style="font-size:12px;vertical-align:-1px">'+(_wdBusy?'…':(_wdOn===null?'?':(_wdOn?'\u2611':'\u2610')))+'</span> AUTO-RECOVER'+(_wdOn===false?' OFF':'')+'</span>');
+        _wdSw=(_wdOn===null&&!_WD)?'':('<span class="p2chip" data-wdtoggle="'+((_wdOn===false)?'on':'off')+'" title="'+_wdTip.replace(/"/g,'&quot;')+'" style="gap:9px;cursor:'+(_wdBusy?'wait':'pointer')+';opacity:'+(_wdBusy?'.55':'1')+'">Auto-recover'
+          +(_wdOn===null?' <span style="color:var(--text5)">?</span>':'<span class="p2sw'+(_wdOn?' on':'')+'" role="switch" aria-checked="'+(_wdOn?'true':'false')+'"></span>')+'</span>');
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
           +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
@@ -28733,75 +28789,88 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _p2 = (window._p2Open||(window._p2Open={}));
         const _p2Card=(key,title,inner,sub)=>{
           const on=!!_p2[key];
-          return '<div style="border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden">'
-            +'<div data-p2card="'+key+'" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;padding:6px 11px;background:var(--bg2)">'
-              +'<span style="font-size:9px;color:var(--text5);width:9px">'+(on?'▾':'▸')+'</span>'
-              +'<span class="lbl" style="margin:0;font-size:10px">'+title+'</span>'
-              +(sub?('<span style="font-size:9px;color:var(--text5);margin-left:auto">'+sub+'</span>'):'')
+          return '<div class="p2sheet">'
+            +'<div data-p2card="'+key+'" class="p2sh" style="cursor:pointer;user-select:none;padding:12px 14px;justify-content:flex-start">'
+              +'<span style="width:10px;color:var(--text5)">'+(on?'\u25be':'\u25b8')+'</span>'
+              +'<span>'+title+'</span>'
+              +(sub?('<span style="margin-left:auto;text-transform:none;letter-spacing:.3px;font-weight:500;color:var(--text5)">'+sub+'</span>'):'')
             +'</div>'
-            +(on?('<div style="padding:9px 11px">'+inner+'</div>'):'')
+            +(on?('<div style="padding:4px 14px 14px">'+inner+'</div>'):'')
             +'</div>';
         };
         // ONE-LINE STATUS. Reads the same bridge snapshot the big card does.
+        // STATUS CHIPS in the top bar (Robinhood x iOS, owner 2026-09-08). Totals moved
+        // into the hero, so this strip only says what is running.
         const _p2Status=(()=>{
-          // Board-wide totals over exactly the rows on screen (_tSorted already carries
-          // the leg filter), so this line can never disagree with the table under it.
-          const _A=(()=>{const rows=_tSorted;
-            const days=new Set(rows.map(t=>t.run_date||_dOnly(t.exitTime||t.entryTime)).filter(Boolean));
-            const net=rows.reduce((a,t)=>a+(+t.pnl_usd||0),0);
-            const wins=rows.filter(t=>(+t.pnl_usd||0)>0).length;
-            return {n:rows.length,days:days.size,net:net,wr:rows.length?wins/rows.length:0};})();
           const B=window._ntBridge;
           const rt=(B&&B.up)?(B.strategies||[]).filter(x=>String(x.state)==='Realtime'):[];
           const nStrat=(B&&B.up)?(B.strategies||[]).length:0;
           const held=(B&&B.up)?(B.positions||[]).length:0;
           const G=(B&&B.gate)||{};
-          const chip=(txt,col,tip)=>'<span title="'+String(tip||'').replace(/"/g,'&quot;')+'" style="cursor:help;display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 9px;border-radius:999px;border:1px solid '+col+';color:'+col+'">'
-            +'<span style="width:6px;height:6px;border-radius:50%;background:'+col+'"></span>'+txt+'</span>';
+          const chip=(txt,col,tip)=>'<span class="p2chip" title="'+String(tip||'').replace(/"/g,'&quot;')+'"><span class="p2dot" style="background:'+col+'"></span>'+txt+'</span>';
           const ntCol=!B?'#8a8a8a':(rt.length&&rt.length===nStrat?PNL_POS:'#e0a33a');
           const gCol=!G.up?PNL_NEG:(G.error?'#e0a33a':PNL_POS);
-          return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 11px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">'
-            +chip(!B?'NO SNAPSHOT':(rt.length+'/'+nStrat+' LIVE'),ntCol,
+          return chip(!B?'No snapshot':(rt.length+' / '+nStrat+' live in NinjaTrader'),ntCol,
                   !B?'The runner has not published a NinjaTrader snapshot yet.'
                     :(rt.length+' of '+nStrat+' strategies are Realtime on the demo account.'))
-            +chip(held?(held+' OPEN'):'FLAT',held?'#e0a33a':'#8a8a8a',
+            +chip(held?(held+' open'):'Flat',held?'#e0a33a':'#8a8a8a',
                   held?'NinjaTrader is holding a position right now.':'Nothing open on the demo account.')
-            +chip(!G.up?'GATE DOWN':(G.error?'GATE PARTIAL':'GATE UP'),gCol,
+            +chip(!G.up?'Gate down':(G.error?'Gate partial':'Gate up'),gCol,
                   (G.error||'The ML gate service is answering and every model loaded.'))
-            +'<span style="margin-left:auto;display:flex;align-items:center;gap:14px;font-size:10px">'
-              +'<span><span style="color:var(--text5)">NET </span><b style="color:'+(_A.net>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(_A.net)+'</b></span>'
-              +'<span><span style="color:var(--text5)">TRADES </span><b>'+_A.n+'</b></span>'
-              +'<span><span style="color:var(--text5)">WIN </span><b>'+(_A.n?Math.round(_A.wr*100)+'%':'—')+'</b></span>'
-              +'<span><span style="color:var(--text5)">DAYS </span><b>'+_A.days+'</b></span>'
-            +'</span>'+(_wdBtn?('<span style="margin-left:10px">'+_wdBtn.replace('margin-left:auto;','')+'</span>'):'')+'</div>';
+            +_wdSw;
         })();
-        const _p2Head='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
-          +'<span class="lbl" style="font-size:13px">◑ PAPER · LIVE FORWARD TEST</span>'
-          +'<span style="font-size:9px;color:var(--text5)">select strategies in the left panel &middot; everything on the right follows that selection</span>'
-          +_reloadBtn+'</div>';
-        // THE SIDEBAR. headerHtml is the legacy LEGS panel - the filters AND the
-        // strategy table. Sticky, so the selection stays readable while everything
-        // else scrolls; scrollable in itself, because the table in ALL-columns mode is
-        // taller and wider than a viewport.
-        const _p2Main=_p2Status+dataHtml+curveHtmlNoLegs+tradesHtml
-          +_p2Card('nt','NINJATRADER · DETAIL',bridgeHtml,'live state, fills, orders')
-          +_p2Card('recon','CROSS-ENGINE · DO THEY AGREE?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
-          +_p2Card('gate','DID THE GATE DO ITS JOB?',gateAuditInner,_gaSub)
-          +_p2Card('reports','DAILY REPORTS',reportsHtml,'one row per night')
+        const _p2Css='<style>'
+          +'.p2top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:4px 0 14px}'
+          +'.p2title{font-size:24px;font-weight:600;letter-spacing:-.3px;line-height:1.1;color:var(--text)}'
+          +'.p2title small{display:block;font-size:10.5px;font-weight:400;color:var(--text4);margin-top:4px;letter-spacing:.2px}'
+          +'.p2status{display:flex;gap:8px;align-items:center;flex-wrap:wrap}'
+          +'.p2chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;background:var(--bg2);border:1px solid var(--border);font-size:10px;font-weight:600;letter-spacing:.3px;color:var(--text2);cursor:help;white-space:nowrap}'
+          +'.p2dot{width:7px;height:7px;border-radius:50%;flex:none}'
+          +'.p2sheet{background:var(--bg2);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:14px}'
+          +'.p2sh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px 6px;font-size:10px;letter-spacing:1.4px;color:var(--text4);text-transform:uppercase;font-weight:700}'
+          +'.p2lbl{font-size:10px;letter-spacing:1.4px;color:var(--text4);text-transform:uppercase;font-weight:700}'
+          +'.p2hero{padding:18px 18px 8px}'
+          +'.p2big{font-family:\'Bebas Neue\',monospace;font-size:60px;line-height:1;letter-spacing:1px;margin:6px 0 4px}'
+          +'.p2delta{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--text3)}'
+          +'.p2delta b{font-weight:700;color:var(--text)}'
+          +'.p2num{font-family:\'Bebas Neue\',monospace;letter-spacing:.4px}'
+          +'.p2live{display:inline-block;width:7px;height:7px;border-radius:50%;cursor:help}'
+          +'.p2tag{display:inline-block;font-size:9px;padding:1px 6px;border-radius:5px;border:1px solid var(--border);color:var(--text4);margin-left:6px;vertical-align:1px}'
+          +'.p2sw{position:relative;display:inline-block;width:38px;height:22px;border-radius:999px;background:var(--bg3);border:1px solid var(--border);flex:none;cursor:pointer;vertical-align:middle;transition:background .15s}'
+          +'.p2sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text4);transition:transform .15s,background .15s}'
+          +'.p2sw.on{background:var(--text);border-color:var(--text)}'
+          +'.p2sw.on::after{transform:translateX(16px);background:var(--bg1)}'
+          +'.p2seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px}'
+          +'.p2seg span{display:block;text-align:center;padding:6px 4px;border-radius:7px;font-size:10px;font-weight:700;letter-spacing:.4px;color:var(--text4);cursor:pointer;white-space:nowrap;user-select:none;overflow:hidden;text-overflow:ellipsis}'
+          +'.p2seg span.on{background:var(--bg2);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.35)}'
+          +'.p2seglab{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:10px}'
+          +'.p2seglab b{font-size:9px;letter-spacing:1.2px;color:var(--text5);font-weight:700}'
+          +'.p2srow{display:flex;align-items:center;gap:12px;min-height:40px;padding:0 14px;border-top:1px solid var(--border2);cursor:pointer;user-select:none;color:var(--text2)}'
+          +'#p2legs tr.p2row:hover td{background:color-mix(in srgb,var(--text) 4%,transparent)}'
+          +'@media (prefers-reduced-motion:reduce){.p2sw,.p2sw::after{transition:none}}'
+          +'</style>';
+        const _p2Head=_p2Css+'<div class="p2top">'
+          +'<div class="p2title">Paper<small>Live forward test \u00b7 NQ demo \u00b7 since '+PAPER_START+'</small></div>'
+          +'<div class="p2status">'+_p2Status+_reloadBtn.replace('height:24px','height:28px').replace('border-radius:7px','border-radius:999px')+'</div></div>';
+        const _p2Main=dataHtml+curveHtmlNoLegs+tradesHtml
+          +_p2Card('nt','NinjaTrader \u00b7 detail',bridgeHtml,'live state, fills, orders')
+          +_p2Card('recon','Cross-engine \u00b7 do they agree?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
+          +_p2Card('gate','Did the gate do its job?',gateAuditInner,_gaSub)
+          +_p2Card('reports','Daily reports',reportsHtml,'one row per night')
           +_errHtml;
         // WIDTH IS THE READER'S, and remembered. Clamped on read as well as on drag:
         // a stored width from a wider monitor must not push the main column off a
         // laptop screen.
         const _p2Wmax=Math.max(320,Math.round((window.innerWidth||1400)*0.55));
-        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||440)));
+        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||360)));
         // Below ~1080px there is not enough room for two columns, so it stacks and the
-        // panel simply sits on top - the legacy tab's own layout.
+        // panel simply sits on top.
         const _p2Narrow=(window.innerWidth||1400)<1080;
         if(_p2Narrow){
           body=_p2Head+legsCard+_p2Main;
         }else{
           body=_p2Head
-            +'<div style="display:grid;grid-template-columns:'+_p2W+'px 7px minmax(0,1fr);align-items:start">'
+            +'<div style="display:grid;grid-template-columns:'+_p2W+'px 14px minmax(0,1fr);align-items:start">'
               +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+legsCard+'</div>'
               +'<div data-p2side title="Drag to set how wide the strategy panel is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:center;justify-content:center">'
                 +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
@@ -30471,6 +30540,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         else {window._paperSortCol=k;window._paperSortDir='desc';}
         renderApp();};});
       content.querySelectorAll('[data-mscope]').forEach(el=>{el.onclick=()=>{window._paperMatrixScope=el.getAttribute('data-mscope');renderApp();};});
+      content.querySelectorAll('[data-pcwin]').forEach(el=>{el.onclick=()=>{window._paperCurveWin=el.getAttribute('data-pcwin');renderApp();};});
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       // Archived legs (ORB): hidden by default, one click brings the whole history back.
       // Deliberately NOT persisted -- like the leg filter, it is a lens you look through.
