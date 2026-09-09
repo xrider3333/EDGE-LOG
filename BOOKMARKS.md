@@ -274,3 +274,12 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 | # | What | Numbers | Where / reproduce | Caveat |
 |---|---|---|---|---|
 | **B28** | **TTM crown (run 299, ES 30m, hourly-compression verified) as a BOOK LEG** — three ES contracts stacked on the baseline blend ORB #234 + ENGU-Q #309 (1 NQ each) | BOOK run **#336** vs control **#337**, identical window 2010-06-07..2026-06-30, LB 12 mo: whole $1,119,697 vs $964,571 · DD **$34,329 vs $34,329 (identical)** · ann. MAR **2.03 vs 1.75 (+16%, bar +15%)** · LB $193,170 vs $178,192 at LB DD **$26,235 vs $33,112 (−21%)** · slices 8/8 both, every slice improved · TTM leg $155,126 · corr TTM~ORB 0.060, TTM~ENGU-Q 0.003 | `augur_strategies/TTMSQZ_3_0_ES30N.py` @ gate_len 20 / stop_atr 1.5 / eod_cutoff 1 / kc_mult 1.5, weight 3; book legs as in run #336 doc; STUDIES rows 1365-1366 (key ttmsqz7); stack scan `tools/ttmsqz_round6_parts.py` legs | TTM alone is ~$2,900/yr — it earns its place ONLY as a diversifier (its losing days do not coincide with the crowns); the NQ TTM cells do NOT diversify (corr 0.3-0.4, add DD). 3 ES contracts ≈ $11k standalone DD; equal-risk (x9.6) overshoots (LB DD +36%). Not in paper; owner call. |
+
+## 2026-09-08 — B23 ENGU-Q branches onto ES (round 37, rows 1367-1374, v73.599)
+
+**Question turned around:** not a new mechanism on NQ, but a crowned mechanism on a second instrument (`tools/r37_es_branch.py`).
+- ORB crown card on ES 5m RTH: PF 1.06, top-10 174%, ex-top-10 −$31k → dead (matches the validate transfer legs).
+- NOISE crown card on ES 5m RTH: n=4204 / $131,957 / PF 1.236 / n/DD 14.3 / 5-of-8 / top-10 37% → near miss, not a leg.
+- **ENGU-Q R2 crown (`ENGUQ_1M_ETH_R2_1_0.py`, NQ defaults, nothing re-tuned — all knobs ATR/R-relative) on ES 1m ETH at 0.40 pts/RT, $50/pt: n=2013 / $208,644 / PF 1.367 / DD $19,396 / n/DD 10.76 / 7-of-8 / EV R 0.27 / R/YR 36.** Top-10 69% (NQ crown 52%), ex-top-10 +$64,902 PF 1.11. Cost 0.60 → PF 1.32 / n/DD 8.4 (clears); 0.80 → PF 1.28 / n/DD 6.3. Plateau: 27/27 neighbours hold, 26/27 PF ≥ 1.25; best = trail 3.0 (PF 1.60, n/DD 14.8), worst = regime 5d (n/DD 4.1). Longest hold ~98 days (ENGU-Q shape).
+- **Not yet measured:** ES-leg vs NQ-leg daily correlation (expect high on big days → account diversifier, not return diversifier).
+- **Validate QUEUED** job GIrlgbDJ1umq12NrnfY8 (`tools/queue_enguq_es_validate.py`): ES 1m ETH, open ranges, 8 folds, LB 12m, window pinned to R2 crown #335 (2010-06-07..2026-06-30). **Hand-off point = validate posted.**
