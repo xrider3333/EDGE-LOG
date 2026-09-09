@@ -51,13 +51,16 @@ RECORDS: C:\\EdgeLog\\qqq_exec\\orders.csv (every shadow order), \\trades.csv (e
 closed round-trip), \\state.json (cursor + open lots + rail state -- this IS the
 adapter's memory across ticks/restarts), \\config.json (owner-editable, reloaded every
 tick). Firestore doc users/{uid}/meta/qqq_exec mirrors the current state for the web
-SHADOW EXECUTION panel.
+SHADOW EXECUTION panel, written by a single dedicated background thread (see
+_Publisher/publish_async) so a slow or failing Firestore call can never stall the 5s
+tick loop -- see feature (2) below.
 
 CLI: `python -m api.qqq_exec --once [--uid UID]` runs a single tick and exits -- used by
 `api/runner.py`'s watch loop (own thread, ticking every ~5s during the session, exactly
 like the nt-bridge watchdog thread) and by hand for verification.
 """
 import argparse
+import concurrent.futures
 import re
 import csv
 import json
@@ -65,6 +68,7 @@ import os
 import statistics
 import subprocess
 import sys
+import threading
 import time
 import traceback
 import urllib.error
@@ -131,6 +135,15 @@ NT_MULT_BY_BASE = {"NQ": 20.0, "MNQ": 2.0}
 # READINESS (feature #53): trading days of clean evidence required before the shadow
 # adapter is declared ready to inform a real live-sizing decision.
 DAYS_REQUIRED = 10
+
+# COVERAGE-BASED UPTIME + NON-BLOCKING PUBLISH (2026-09-08 fix -- see module docstring
+# feature (2) and _Publisher below). PUBLISH_TIMEOUT_SEC bounds every Firestore set() so
+# a 503 can never again stall the tick loop; PUBLISH_FAIL_LOG_COOLDOWN_SEC caps how often
+# a failing publish spams runner.log; TICK_GAP_WARN_SEC is the real wall-clock gap between
+# ticks that counts as a stall worth an event (independent of TICK_SEC's target cadence).
+PUBLISH_TIMEOUT_SEC = 8.0
+PUBLISH_FAIL_LOG_COOLDOWN_SEC = 10 * 60
+TICK_GAP_WARN_SEC = 120.0
 
 
 # -- small time helpers ------------------------------------------------------------
@@ -243,6 +256,20 @@ def _default_state():
         # the half-day early-close clamp was last logged, same reason.
         "holiday_logged_date": None,
         "half_day_logged_date": None,
+        # NON-BLOCKING PUBLISH (2026-09-08 fix): rolling count of failed Firestore
+        # publishes today + when the last one SUCCEEDED, see _record_publish_result and
+        # module docstring feature (2). "_publish_fail_day" / "_last_publish_fail_log"
+        # are private bookkeeping for the daily reset and the 10-min log cooldown.
+        "publish_fail_today": 0,
+        "last_publish_ok_et": None,
+        "_publish_fail_day": None,
+        "_last_publish_fail_log": 0.0,
+        # TICK GAP (2026-09-08 fix): largest REAL wall-clock gap between two active
+        # ticks today, independent of whatever `now` a caller injects for ET-market-hours
+        # logic -- see _track_tick_gap. "_tick_gap_day" / "_last_tick_wall" are private.
+        "tick_gap_max_s_today": 0.0,
+        "_tick_gap_day": None,
+        "_last_tick_wall": None,
     }
 
 
@@ -405,6 +432,22 @@ def _accumulate_signal(state, dt, leg, kind, log=print):
                 days.pop(k, None)
     except Exception as e:
         log(f"[qqq-exec] signal accumulate failed: {type(e).__name__}: {e}")
+
+
+def _ensure_signals_day(state, day, log=print):
+    """EXPLICIT ZERO DAYS (2026-09-08 fix, module docstring feature (3)): guarantees a
+    signals_days row exists for `day` even when no signal fires at all -- otherwise a
+    genuine "no signals today" session is indistinguishable, on the record, from a day
+    the adapter never ran. _build_signals_day already defaults every leg's counters to
+    zero for an empty {} row, so this only needs to make the key exist. Never raises."""
+    try:
+        days = state.setdefault("signals_days", {})
+        days.setdefault(day, {})
+        if len(days) > 60:
+            for k in sorted(days.keys())[:-60]:
+                days.pop(k, None)
+    except Exception as e:
+        log(f"[qqq-exec] signals_day ensure failed: {type(e).__name__}: {e}")
 
 
 def _build_signals_day(state):
@@ -617,7 +660,6 @@ def default_webull_quote(symbol="QQQ", log=print):
         return qs["last"]
     if now < qs["disabled_until"]:
         return None
-    import concurrent.futures
     ex = concurrent.futures.ThreadPoolExecutor(max_workers=1,
                                                thread_name_prefix="qqq-quote")
     fut = ex.submit(_webull_quote_raw, symbol, log)
@@ -1215,11 +1257,44 @@ def _accumulate_feed_uptime(state, nowdt, stale, log=print):
         log(f"[qqq-exec] feed uptime accumulate failed: {type(e).__name__}: {e}")
 
 
+def _expected_ticks(day):
+    """Expected tick count for one ET calendar date's active window: 09:25 ET to
+    min(16:05, that date's market_calendar session close), at TICK_SEC intervals.
+
+    COVERAGE-BASED UPTIME (2026-09-08 fix): the old uptime formula (1 - stale_ticks /
+    ticks) only ever looked at ticks that DID happen, so a day the adapter's tick thread
+    was simply ABSENT (runner restarts, a hung process) published as a perfect 100%
+    uptime -- `ticks` was small, but `stale_ticks` was 0 for every tick that DID fire, so
+    the ratio still read 1.0. This is the missing denominator: how many ticks the day
+    SHOULD have produced, so a day with only half its ticks reads as ~50% coverage no
+    matter how healthy each individual tick that did land was. `day` accepts a date
+    string or datetime/date -- forwarded to market_calendar as-is."""
+    try:
+        if not market_calendar.is_session(day):
+            return 0
+        close = market_calendar.session_close_et(day)  # "16:00" normally, "13:00" half-day
+        ch, cm = _hhmm(close)
+        window_start_min = 9 * 60 + 25
+        window_end_min = min(16 * 60 + 5, ch * 60 + cm)
+        secs = max(0, (window_end_min - window_start_min) * 60)
+        return int(secs / TICK_SEC)
+    except Exception:
+        return 0
+
+
 def _build_feed_days(state):
-    """[{date,uptime_pct,stale_min,first_tick,last_tick,valid,note}, ...] oldest-first,
-    derived from the raw per-day tick/stale counts in state['feed_days']. A day is
-    `valid` evidence only if the feed was up >=95% of its ticks AND we were watching
-    from (or before) 09:35 ET -- see module docstring feature (2)."""
+    """[{date,ticks,expected_ticks,coverage_pct,uptime_pct,stale_min,first_tick,
+    last_tick,valid,note}, ...] oldest-first, derived from the raw per-day tick/stale
+    counts in state['feed_days'].
+
+    COVERAGE-BASED UPTIME (2026-09-08 fix -- see module docstring feature (2)):
+    `coverage_pct` = ticks actually recorded / ticks the session SHOULD have produced
+    (_expected_ticks) -- this is what makes an adapter that was simply ABSENT for part
+    of the day (not running at all, vs. running but stale) show up as reduced uptime.
+    `uptime_pct` = coverage_pct * (1 - stale_ticks/ticks) folds BOTH failure modes (never
+    ticked, and ticked-but-stale) into one number. A day is `valid` evidence only if
+    uptime_pct >= 95% AND the adapter was watching by 09:35 ET AND stayed watching
+    through 15:55 ET."""
     out = []
     days = state.get("feed_days") or {}
     for day in sorted(days.keys()):
@@ -1227,23 +1302,83 @@ def _build_feed_days(state):
             d = days[day] or {}
             ticks = int(d.get("ticks") or 0)
             stale_ticks = int(d.get("stale_ticks") or 0)
-            uptime_pct = round(1.0 - (stale_ticks / ticks if ticks else 1.0), 4)
+            expected_ticks = _expected_ticks(day)
+            # Capped at 1.0: the tick loop's active window (09:25-16:05) runs a few
+            # minutes longer than _expected_ticks' denominator (09:25-session close), so
+            # a perfectly healthy day can otherwise read as slightly OVER 100% coverage.
+            coverage_pct = min(1.0, round(ticks / expected_ticks, 4)) if expected_ticks else 0.0
+            uptime_within_ticks = (1.0 - (stale_ticks / ticks)) if ticks else 0.0
+            uptime_pct = round(coverage_pct * uptime_within_ticks, 4)
             stale_min = round(stale_ticks * TICK_SEC / 60.0, 1)
             first_tick = d.get("first_tick_et")
             last_tick = d.get("last_tick_et")
-            valid = bool(ticks > 0 and uptime_pct >= 0.95 and first_tick and first_tick <= "09:35")
+            valid = bool(ticks > 0 and uptime_pct >= 0.95
+                        and first_tick and first_tick <= "09:35"
+                        and last_tick and last_tick >= "15:55")
             note = d.get("note") or ""
             if not valid and not note:
-                if stale_min > 0:
-                    note = f"feed down ~{int(round(stale_min))} min -- NinjaTrader was restarting"
-                elif first_tick and first_tick > "09:35":
-                    note = f"adapter wasn't watching until {first_tick} ET"
-            out.append({"date": day, "uptime_pct": uptime_pct, "stale_min": stale_min,
-                       "first_tick": first_tick, "last_tick": last_tick,
+                reasons = []
+                if ticks == 0:
+                    reasons.append("adapter never ticked this session")
+                else:
+                    missing_ticks = max(0, expected_ticks - ticks)
+                    missing_min = missing_ticks * TICK_SEC / 60.0
+                    if missing_min >= 1:
+                        reasons.append(f"adapter absent ~{missing_min:.0f} min (restarts "
+                                      f"or publish stalls)")
+                    if stale_min > 0:
+                        reasons.append(f"feed stale ~{stale_min:.0f} min while ticking")
+                    if first_tick and first_tick > "09:35":
+                        reasons.append(f"didn't start watching until {first_tick} ET")
+                    if last_tick and last_tick < "15:55":
+                        reasons.append(f"stopped watching by {last_tick} ET")
+                note = ("; ".join(reasons) + " -- day not valid evidence") if reasons \
+                    else "day not valid evidence"
+            out.append({"date": day, "ticks": ticks, "expected_ticks": expected_ticks,
+                       "coverage_pct": coverage_pct, "uptime_pct": uptime_pct,
+                       "stale_min": stale_min, "first_tick": first_tick, "last_tick": last_tick,
                        "valid": valid, "note": note})
         except Exception:
             continue
     return out[-60:]
+
+
+# -- tick gap (2026-09-08 fix) --------------------------------------------------------------
+def _track_tick_gap(state, nowdt, now_wall=None, log=print):
+    """Real WALL-CLOCK gap since the previous active tick -- deliberately independent of
+    the `now` ET timestamp callers may inject for market-hours simulation, because a
+    stall in the tick loop itself (a hung publish, a GC pause, thread scheduling, a
+    runner restart) is a real-time phenomenon that must show up even when the adapter is
+    fed a fixed/simulated `now`. THE BUG THIS FIXES (2026-09-08): the old synchronous
+    Firestore publish blocked this exact loop for up to 60s per failure and there was no
+    record of it at all -- see module docstring feature (2) and _Publisher below.
+
+    Rolling per-ET-day max in state['tick_gap_max_s_today']; logs a `tick_gap` event each
+    time a gap exceeds TICK_GAP_WARN_SEC (no cooldown -- each is a distinct real stall).
+    Returns the gap in seconds, or None on the first tick of a fresh state. Never raises."""
+    try:
+        wall = now_wall if now_wall is not None else time.time()
+        day = nowdt.strftime("%Y-%m-%d")
+        if state.get("_tick_gap_day") != day:
+            state["_tick_gap_day"] = day
+            state["tick_gap_max_s_today"] = 0.0
+        last = state.get("_last_tick_wall")
+        state["_last_tick_wall"] = wall
+        if last is None:
+            return None
+        gap = round(wall - last, 2)
+        if gap > float(state.get("tick_gap_max_s_today", 0.0) or 0.0):
+            state["tick_gap_max_s_today"] = gap
+        if gap > TICK_GAP_WARN_SEC:
+            log(f"[qqq-exec] WARN tick loop gap {gap:.0f}s (expected ~{TICK_SEC:g}s)")
+            _log_event(state, "tick_gap",
+                      f"tick loop gap of {gap:.0f}s detected (expected ~{TICK_SEC:g}s) -- "
+                      f"a stall between ticks, not a feed/publish problem by itself",
+                      log=log)
+        return gap
+    except Exception as e:
+        log(f"[qqq-exec] tick gap tracking failed: {type(e).__name__}: {e}")
+        return None
 
 
 # -- feed staleness ------------------------------------------------------------------------
@@ -1695,6 +1830,14 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     events = list(reversed((state.get("events") or [])))[:EVENTS_KEEP]
     # READINESS (feature #53): the single go/no-go read, built off everything above.
     readiness = _build_readiness(feed_days, parity, reprice, state, log=log)
+    # HEALTH (2026-09-08 fix): the adapter's own operational vitals -- publish failures
+    # and the largest tick-loop stall today -- independent of trading/feed logic, so a
+    # silent infrastructure problem (Firestore down, the loop stalling) is visible on the
+    # web tab even on a day nothing else went wrong. See _record_publish_result /
+    # _track_tick_gap and module docstring feature (2).
+    health = {"publish_fail_today": int(state.get("publish_fail_today", 0) or 0),
+             "last_publish_ok_et": state.get("last_publish_ok_et"),
+             "tick_gap_max_s_today": float(state.get("tick_gap_max_s_today", 0.0) or 0.0)}
 
     return {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
@@ -1715,6 +1858,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "signals_day": signals_day,
         "events": events,
         "readiness": readiness,
+        "health": health,
         "reprice": reprice,
         "rails": {"shares": cfg.get("shares"), "max_shares_per_leg": cfg.get("max_shares_per_leg"),
                   "daily_loss_limit_usd": cfg.get("daily_loss_limit_usd"),
@@ -1724,31 +1868,181 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     }
 
 
-def _publish(db, uid, doc, state, force=False, log=print):
+def _record_publish_result(state, ok, err=None, log=print):
+    """Folds one publish attempt's outcome into `state` -- publish_fail_today /
+    last_publish_ok_et (published under doc['health'], see _build_doc), a runner.log
+    line at most once per PUBLISH_FAIL_LOG_COOLDOWN_SEC, and a `publish_down` event on
+    the same cooldown. Shared by both the synchronous (--once) and background-thread
+    publish paths so the health numbers mean the same thing either way. Never raises."""
+    try:
+        today = _now_et().strftime("%Y-%m-%d")
+        if state.get("_publish_fail_day") != today:
+            state["_publish_fail_day"] = today
+            state["publish_fail_today"] = 0
+        if ok:
+            state["last_publish_ok_et"] = _now_et().strftime("%H:%M:%S")
+            return
+        state["publish_fail_today"] = int(state.get("publish_fail_today", 0) or 0) + 1
+        now = time.time()
+        last_log = float(state.get("_last_publish_fail_log", 0) or 0)
+        if now - last_log > PUBLISH_FAIL_LOG_COOLDOWN_SEC:
+            n = state["publish_fail_today"]
+            log(f"[qqq-exec] publish failing ({err}) -- shadow keeps ticking; "
+                f"{n} failure(s) since {_now_et().strftime('%H:%M')}")
+            _log_event(state, "publish_down",
+                      f"Firestore publish failing ({err}) -- shadow keeps ticking, "
+                      f"{n} failure(s) today", log=log)
+            state["_last_publish_fail_log"] = now
+    except Exception as e:
+        log(f"[qqq-exec] publish result tracking failed: {type(e).__name__}: {e}")
+
+
+class _Publisher:
+    """Owns every Firestore write this adapter makes, on a SINGLE dedicated background
+    thread, so a slow or failing publish can never again stall the 5s tick loop.
+
+    THE BUG THIS FIXES (2026-09-08, second live shadow day): the old `_publish` called
+    `set()` inline in the tick loop. 2,245 Firestore "503 failed to connect to all
+    addresses" errors that day each retried for up to 60s before giving up, and every one
+    of those 60s windows was NinjaTrader fills the adapter was not watching for -- with
+    nothing on the record to show it happened (the old uptime formula only ever counted
+    ticks that DID fire).
+
+    `submit` is the only thing the tick loop calls, and it never blocks: it just replaces
+    whatever doc is currently pending for that uid (older pending docs are DROPPED, not
+    queued -- only the newest state matters to the web tab) and wakes the writer thread.
+    The writer thread bounds every actual `set()` to PUBLISH_TIMEOUT_SEC via a throwaway
+    worker + `future.result(timeout=...)`, the same hard-timeout pattern already used for
+    the Webull quote call (see default_webull_quote) -- a `timeout=` kwarg passed to
+    `set()` itself is a soft/best-effort hint on some client versions, not a guarantee."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._pending = {}          # uid -> (db, doc, state, log)
+        self._wake = threading.Event()
+        self._stop = threading.Event()
+        self._thread = None
+        self._ex = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                          thread_name_prefix="qqq-publish")
+
+    def start(self, log=print):
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run, name="qqq-publisher", daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        self._wake.set()
+
+    def submit(self, db, uid, doc, state, log=print):
+        """Non-blocking: enqueue/replace the pending doc for `uid` and return immediately.
+        Safe to call from the tick loop on every tick."""
+        with self._lock:
+            self._pending[uid] = (db, doc, state, log)
+        self._wake.set()
+
+    def _run(self):
+        while not self._stop.is_set():
+            fired = self._wake.wait(timeout=5.0)
+            if self._stop.is_set():
+                return
+            if not fired:
+                continue
+            self._wake.clear()
+            with self._lock:
+                batch = list(self._pending.items())
+                self._pending.clear()
+            for uid, (db, doc, state, log) in batch:
+                self.write_one(db, uid, doc, state, log=log)
+
+    def write_one(self, db, uid, doc, state, log=print):
+        """The actual write, bounded to PUBLISH_TIMEOUT_SEC. Called from the background
+        writer thread for the live loop, and called DIRECTLY (synchronously, on the
+        caller's own thread) by publish_now for --once, where the process exits right
+        after and there is no later tick for a background thread to flush to. Either way
+        this never raises -- failure is recorded via _record_publish_result, not thrown."""
+        fut = self._ex.submit(self._do_set, db, uid, doc)
+        try:
+            fut.result(timeout=PUBLISH_TIMEOUT_SEC)
+            _record_publish_result(state, True, log=log)
+        except concurrent.futures.TimeoutError:
+            _record_publish_result(state, False,
+                                   err=f"timed out after {PUBLISH_TIMEOUT_SEC:g}s", log=log)
+        except Exception as e:
+            _record_publish_result(state, False, err=f"{type(e).__name__}: {e}", log=log)
+
+    @staticmethod
+    def _do_set(db, uid, doc):
+        ref = db.collection("users").document(uid).collection("meta").document("qqq_exec")
+        try:
+            ref.set(doc, timeout=PUBLISH_TIMEOUT_SEC)
+        except TypeError:
+            # Some client stubs (and the smoke test's stub db) don't accept a `timeout`
+            # kwarg on set() -- the ThreadPoolExecutor future above is the real hard
+            # timeout backstop regardless, this is just for compatibility.
+            ref.set(doc)
+
+
+_publisher = _Publisher()
+
+
+def _should_publish(state, doc, force=False):
+    """True if `doc` differs from the last-published hash, or `force`, or 60s have
+    passed since the last publish -- unchanged throttle logic from the old `_publish`,
+    just factored out so both the sync and async publish paths share it."""
     payload = json.dumps(doc, sort_keys=True, default=str)
     h = str(hash(payload))
     now = time.time()
-    if not force and h == state.get("last_doc_hash") and now - state.get("last_publish", 0) < 60:
-        return
+    should = force or h != state.get("last_doc_hash") or now - state.get("last_publish", 0) >= 60
+    return should, h, now
+
+
+def publish_async(db, uid, doc, state, force=False, log=print):
+    """Non-blocking publish for the live tick loop -- enqueues on the background
+    _Publisher thread and returns immediately regardless of Firestore's health. Never
+    raises."""
     try:
-        db.collection("users").document(uid).collection("meta").document("qqq_exec").set(doc)
+        should, h, now = _should_publish(state, doc, force=force)
+        if not should:
+            return
         state["last_doc_hash"] = h
         state["last_publish"] = now
+        _publisher.start(log=log)
+        _publisher.submit(db, uid, doc, state, log=log)
     except Exception as e:
-        log(f"[qqq-exec] Firestore publish failed: {type(e).__name__}: {e}")
+        log(f"[qqq-exec] publish enqueue failed: {type(e).__name__}: {e}")
+
+
+def publish_now(db, uid, doc, state, force=True, log=print):
+    """Synchronous publish for --once: the CLI process exits right after this call, so
+    there is no later tick for the async publisher thread to flush a queued doc to. Still
+    bounded to PUBLISH_TIMEOUT_SEC (via the same _Publisher.write_one path) so a dead
+    Firestore endpoint can't hang the CLI either."""
+    should, h, now = _should_publish(state, doc, force=force)
+    if not should:
+        return
+    state["last_doc_hash"] = h
+    state["last_publish"] = now
+    _publisher.write_one(db, uid, doc, state, log=log)
 
 
 # -- one tick --------------------------------------------------------------------------------
 def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
          ratio_fn=default_ratio_calibration, cfg=None, state=None, force_calib=False,
-         log=print):
+         _now_wall=None, log=print):
     """Run one adapter pass. Returns (cfg, state, doc) for callers/tests. Loads/saves
     config+state from disk unless the caller supplies them (tests inject fixed state).
 
     `force_calib`: attempt the ratio calibration even outside the market window. The
     live thread leaves this False (outside 09:25-16:05 ET it must stay a cheap no-op,
     not a yfinance call every TICK_SEC all night) but `--once` verification runs pass
-    True so a dry run away from market hours still demonstrates/exercises pricing."""
+    True so a dry run away from market hours still demonstrates/exercises pricing.
+
+    `_now_wall`: real wall-clock seconds (time.time()-shaped) to use for tick-gap
+    tracking (see _track_tick_gap), separate from `now` (which simulates ET market-hours
+    logic and is often a fixed historical datetime in tests). Defaults to time.time()."""
     cfg = cfg if cfg is not None else load_config(log=log)
     state = state if state is not None else load_state(log=log)
     nowdt = now or _now_et()
@@ -1814,6 +2108,11 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
     if active:
         _accumulate_feed_uptime(state, nowdt, feed_stale, log=log)
+        _track_tick_gap(state, nowdt, now_wall=_now_wall, log=log)
+        # EXPLICIT ZERO DAYS (feature #3): every active day gets a signals_days row even
+        # if no signal ever fires, so "no signals today" is on the record rather than
+        # indistinguishable from "the adapter never ran".
+        _ensure_signals_day(state, today, log=log)
 
     if (active or force_calib) and not kill_present:
         _maybe_calibrate(state, ratio_fn, log=log)
@@ -1877,8 +2176,9 @@ def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
         f"realized={doc['today']['realized_pnl']} unrealized={doc['today']['unrealized_pnl']} "
         f"calib={doc.get('calib')}")
     if db is not None and uid:
-        _publish(db, uid, doc, state, force=True, log=log)
-        log(f"[qqq-exec] published users/{uid}/meta/qqq_exec")
+        publish_now(db, uid, doc, state, force=True, log=log)
+        log(f"[qqq-exec] published users/{uid}/meta/qqq_exec "
+            f"(publish_fail_today={state.get('publish_fail_today', 0)})")
     return doc
 
 
@@ -1893,7 +2193,7 @@ def qqq_exec_thread(db, uids, stop=None, log=print):
             cfg = load_config(log=log)
             cfg2, state, doc = tick(cfg=cfg, state=state, log=log)
             for uid in uids:
-                _publish(db, uid, doc, state, log=log)
+                publish_async(db, uid, doc, state, log=log)
             save_state(state, log=log)
         except Exception as e:
             log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")

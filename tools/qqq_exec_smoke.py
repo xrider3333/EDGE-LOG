@@ -21,6 +21,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from datetime import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -445,13 +446,18 @@ def main():
         print("\nTest 18: MARKET CALENDAR -- feed_days prune removes a seeded non-session row")
         state_path_prune = os.path.join(tmp, "state_prune.json")
         seed_state = qe._default_state()
+        # 2026-09-08's ticks are set to the FULL expected count (not an arbitrary small
+        # number) -- under the coverage-based uptime rule, a day with fewer ticks than
+        # the session should have produced is EXACTLY what must read as reduced uptime
+        # now (that's the whole fix), so a "full uptime" fixture has to actually be full.
+        exp_0908 = qe._expected_ticks("2026-09-08")
         seed_state["feed_days"] = {
             # 2026-09-07 == Labor Day: a bogus row a pre-fix build would have written.
             "2026-09-07": {"ticks": 10, "stale_ticks": 5, "first_tick_et": "09:25",
                           "last_tick_et": "09:30"},
             # 2026-09-08 == a real Tuesday session -- must survive the prune.
-            "2026-09-08": {"ticks": 100, "stale_ticks": 0, "first_tick_et": "09:25",
-                          "last_tick_et": "16:05"},
+            "2026-09-08": {"ticks": exp_0908, "stale_ticks": 0, "first_tick_et": "09:25",
+                          "last_tick_et": "16:00"},
         }
         with open(state_path_prune, "w", encoding="utf-8") as f:
             json.dump(seed_state, f)
@@ -470,6 +476,108 @@ def main():
         readiness19 = qe._build_readiness(feed_days19, parity19, reprice19, loaded)
         check("readiness uptime_mean_10 reflects only the session day (100%)",
              readiness19["uptime_mean_10"] == 1.0, readiness19)
+
+        print("\nTest 20: COVERAGE-BASED UPTIME -- half the expected ticks -> coverage ~0.5, invalid")
+        # Mirrors the actual 2026-09-08 incident this feature fixes: ticks recorded, none
+        # of them individually stale, but far fewer than the session should have produced
+        # (adapter absent, not adapter-present-but-unhealthy) -- the OLD formula
+        # (1 - stale/ticks) would have called this day a perfect 100% uptime.
+        state_cov = qe._default_state()
+        expected20 = qe._expected_ticks("2026-09-08")
+        half_ticks = expected20 // 2
+        state_cov["feed_days"]["2026-09-08"] = {
+            "ticks": half_ticks, "stale_ticks": 0,
+            "first_tick_et": "09:25", "last_tick_et": "16:00"}
+        feed_days20 = qe._build_feed_days(state_cov)
+        d20 = next((d for d in feed_days20 if d["date"] == "2026-09-08"), None)
+        check("2026-09-08 present in built feed_days", d20 is not None)
+        if d20:
+            check("expected_ticks matches the helper", d20["expected_ticks"] == expected20, d20)
+            check("coverage_pct ~= 0.5 on half the expected ticks",
+                 abs(d20["coverage_pct"] - 0.5) < 0.02, d20)
+            check("uptime_pct ~= coverage_pct when no tick was stale",
+                 abs(d20["uptime_pct"] - d20["coverage_pct"]) < 1e-6, d20)
+            check("half-coverage day marked invalid", d20["valid"] is False, d20)
+            check("note explains adapter absence, not just staleness",
+                 "absent" in d20["note"], d20["note"])
+
+        print("\nTest 21: NON-BLOCKING PUBLISH -- a 30s-sleeping publish never stalls the caller")
+        class _SlowDB:
+            """Fluent stub matching db.collection(...).document(...).collection(...)
+            .document(...).set(doc, timeout=...) -- every hop returns self, and set()
+            sleeps 30s to simulate the real 2026-09-08 failure mode (a Firestore call
+            that hangs for up to 60s)."""
+            def collection(self, *_a, **_k):
+                return self
+
+            def document(self, *_a, **_k):
+                return self
+
+            def set(self, doc, timeout=None):
+                time.sleep(30)
+
+        state_pub = qe._default_state()
+        doc_stub = {"x": 1}
+        t0 = time.time()
+        qe.publish_async(_SlowDB(), "smoke-uid", doc_stub, state_pub, force=True)
+        qe.publish_async(_SlowDB(), "smoke-uid", doc_stub, state_pub, force=True)
+        elapsed21 = time.time() - t0
+        check("two publish_async enqueues return in <1s despite a 30s-sleeping set()",
+             elapsed21 < 1.0, elapsed21)
+
+        print("\nTest 22: TICK GAP -- a 3-minute wall-clock gap between ticks logs an event + max")
+        state_gap = qe._default_state()
+        cfg_gap = qe.load_config(path=os.path.join(tmp, "config_gap.json"))
+        fills_path6 = os.path.join(tmp, "fills6.csv")
+        write_fills(fills_path6, [])
+        with open(os.path.join(tmp, "addon_heartbeat.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "accounts": 1, "seen": 1, "version": "2.1", "accts": {}}, f)
+        now_gap = datetime(2026, 9, 8, 10, 0)
+        wall0 = 1_000_000.0
+        cfg_gap, state_gap, doc_g1 = qe.tick(fills_path=fills_path6, now=now_gap, quote_fn=no_quote,
+                                             ratio_fn=ratio_fn, cfg=cfg_gap, state=state_gap,
+                                             _now_wall=wall0)
+        check("no gap on the first tick (nothing to compare against)",
+             state_gap.get("tick_gap_max_s_today", 0.0) == 0.0, state_gap.get("tick_gap_max_s_today"))
+        cfg_gap, state_gap, doc_g2 = qe.tick(fills_path=fills_path6, now=now_gap, quote_fn=no_quote,
+                                             ratio_fn=ratio_fn, cfg=cfg_gap, state=state_gap,
+                                             _now_wall=wall0 + 180.0)
+        check("tick_gap_max_s_today ~= 180 after a simulated 3-minute gap",
+             abs(state_gap.get("tick_gap_max_s_today", 0) - 180.0) < 1,
+             state_gap.get("tick_gap_max_s_today"))
+        gap_events = [e for e in state_gap.get("events") or [] if e.get("kind") == "tick_gap"]
+        check("tick_gap event logged for the 3-minute gap", len(gap_events) == 1, gap_events)
+        health_gap = doc_g2.get("health") or {}
+        check("doc health.tick_gap_max_s_today reflects the gap",
+             abs(health_gap.get("tick_gap_max_s_today", 0) - 180.0) < 1, health_gap)
+        # A THIRD tick only 5s later must NOT add a second tick_gap event.
+        cfg_gap, state_gap, doc_g3 = qe.tick(fills_path=fills_path6, now=now_gap, quote_fn=no_quote,
+                                             ratio_fn=ratio_fn, cfg=cfg_gap, state=state_gap,
+                                             _now_wall=wall0 + 185.0)
+        gap_events3 = [e for e in state_gap.get("events") or [] if e.get("kind") == "tick_gap"]
+        check("a normal 5s gap afterwards does not add another tick_gap event",
+             len(gap_events3) == 1, gap_events3)
+
+        print("\nTest 23: EXPLICIT ZERO DAYS -- a session with no signals still gets a signals_day row")
+        state_zero = qe._default_state()
+        cfg_zero = qe.load_config(path=os.path.join(tmp, "config_zero.json"))
+        fills_path7 = os.path.join(tmp, "fills7.csv")
+        write_fills(fills_path7, [])  # no fills at all today
+        with open(os.path.join(tmp, "addon_heartbeat.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "accounts": 1, "seen": 1, "version": "2.1", "accts": {}}, f)
+        now_zero = datetime(2026, 9, 8, 10, 0)
+        cfg_zero, state_zero, doc_zero = qe.tick(fills_path=fills_path7, now=now_zero,
+                                                 quote_fn=no_quote, ratio_fn=ratio_fn,
+                                                 cfg=cfg_zero, state=state_zero)
+        zday = next((d for d in doc_zero["signals_day"] if d["date"] == "2026-09-08"), None)
+        check("zero-signal session still has a signals_day row", zday is not None,
+             doc_zero.get("signals_day"))
+        if zday:
+            check("zero-signal row totals are all zero",
+                 zday["fired"] == 0 and zday["taken"] == 0 and zday["refused"] == 0
+                 and zday["oos"] == 0, zday)
 
         print()
         if FAILURES:
