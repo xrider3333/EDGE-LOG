@@ -1,0 +1,179 @@
+TTM SQUEEZE ROUND 13 - gap/slippage stress harness on the structural stop   2026-09-09 09:49
+ES 30m RTH, window 2010-06-07..2026-06-30, lockbox from 2025-07-01, house cost 0.363 pts, mult 50, 1 base contract
+A = TTMSQZ_3_0_ES30N (1.5xATR stop, no tilt) | B = TTMSQZ_3_0_ES30T (1.5xATR stop + 1.5x
+deep-squeeze tilt, the book leg) | C = TTMSQZ_3_0_ES30SS20 (structural range-edge stop,
+buffer 0, gate_len pinned 20, + the same tilt). All three: kc_mult 1.5, gate_len 20,
+eod_cutoff 1. Sections 2-3 re-price CLOSED trades (stop exits only) after the fact - they
+do NOT re-run the strategy, so the trade LIST is fixed throughout each section; a wider
+stop changing which trades exist is a different question, addressed separately (section 5).
+
+====================================================================================================
+REPRODUCTION CHECK - this file's loop vs the real strategy files on the pinned cell
+====================================================================================================
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A engine (ES30N)                 359    2.12       51,709     3,740 | 4,992 @ 2.22 n16
+  B engine (ES30T)                 359    2.23       69,884     4,549 | 6,948 @ 2.38 n16
+  C engine (ES30SS20)              357    2.91      101,017     4,338 | 16,977 @ 6.72 n16
+  A this file's loop               359    2.12       51,709     3,740 | 4,992 @ 2.22 n16
+  B this file's loop               359    2.23       69,884     4,549 | 6,948 @ 2.38 n16
+  C this file's loop               357    2.91      101,017     4,338 | 16,977 @ 6.72 n16
+  verdict: MATCH on n/net/DD for all three legs - trusting the exit-reason tags below
+
+====================================================================================================
+BASELINE (no stress) - all three legs, this file's own trade list
+====================================================================================================
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    2.12       51,709     3,740 | 4,992 @ 2.22 n16
+  B book leg (ATR stop + tilt)     359    2.23       69,884     4,549 | 6,948 @ 2.38 n16
+  C structural stop + tilt         357    2.91      101,017     4,338 | 16,977 @ 6.72 n16
+
+====================================================================================================
+1. HOW OFTEN THE STOP IS ACTUALLY HIT (count / share of exits / share of gross losses)
+====================================================================================================
+  leg                                 n     stop n     stop % |     fade n      eod n | gross loss $  stop-loss %
+  A incumbent (ATR stop, no tilt)    359         38      10.6% |        188        133 |       46,026        44.2%
+  B book leg (ATR stop + tilt)      359         38      10.6% |        188        133 |       56,848        42.6%
+  C structural stop + tilt          357         47      13.2% |        175        135 |       52,980         6.8%
+
+  concentration read: a stop that fires on a small share of exits but carries a large
+  share of gross losses means the tail risk is concentrated in few trades, not spread -
+  exactly the shape a 16-year window can fail to punish even once by chance.
+    A incumbent (ATR stop, no tilt): stop exits are 10.6% of trades but 44.2% of gross losses (concentration x4.18)
+    B book leg (ATR stop + tilt): stop exits are 10.6% of trades but 42.6% of gross losses (concentration x4.02)
+    C structural stop + tilt: stop exits are 13.2% of trades but 6.8% of gross losses (concentration x0.52)
+
+====================================================================================================
+2. SLIPPAGE ON STOP FILLS - N points of adverse slippage added to every STOP exit only
+   (fade and session-close exits are untouched at every level; fixed trade list throughout)
+====================================================================================================
+
+-- slippage 0.0 pts/stop fill ($0/contract) --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    2.12       51,709     3,740 | 4,992 @ 2.22 n16
+  B book leg (ATR stop + tilt)     359    2.23       69,884     4,549 | 6,948 @ 2.38 n16
+  C structural stop + tilt         357    2.91      101,017     4,338 | 16,977 @ 6.72 n16
+
+-- slippage 0.5 pts/stop fill ($25/contract) --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    2.08       50,759     3,872 | 4,967 @ 2.21 n16
+  B book leg (ATR stop + tilt)     359    2.18       68,721     4,687 | 6,923 @ 2.37 n16
+  C structural stop + tilt         357    2.85       99,529     4,513 | 16,915 @ 6.70 n16
+
+-- slippage 1.0 pts/stop fill ($50/contract) --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    2.04       49,809     4,022 | 4,942 @ 2.20 n16
+  B book leg (ATR stop + tilt)     359    2.14       67,559     4,824 | 6,898 @ 2.36 n16
+  C structural stop + tilt         357    2.80       98,042     4,688 | 16,852 @ 6.68 n16
+
+-- slippage 2.0 pts/stop fill ($100/contract) --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    1.96       47,909     4,322 | 4,892 @ 2.17 n16
+  B book leg (ATR stop + tilt)     359    2.06       65,234     5,099 | 6,848 @ 2.34 n16
+  C structural stop + tilt         357    2.69       95,067     5,038 | 16,727 @ 6.64 n16
+
+-- slippage 4.0 pts/stop fill ($200/contract) --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    1.82       44,109     4,922 | 4,792 @ 2.12 n16
+  B book leg (ATR stop + tilt)     359    1.92       60,584     5,681 | 6,748 @ 2.29 n16
+  C structural stop + tilt         357    2.49       89,117     5,738 | 16,477 @ 6.55 n16
+
+  crossover search (0.05-pt steps, 0-10 pts) on stop-fill slippage:
+    C vs B on whole-run net : C stays >= B through 10 pts of stop slippage
+    C vs B on whole-run PF  : C stays >= B through 10 pts of stop slippage
+    C's own PF crosses 1.0 at > 10 pts (not reached)
+    C vs B on lockbox net   : C stays >= B through 10 pts of stop slippage
+    C's own lockbox net turns negative at > 10 pts (not reached)
+
+====================================================================================================
+3. GAP-THROUGH - the LOSS on every stop exit scaled by a factor (fixed trade list throughout)
+====================================================================================================
+
+-- gap-through factor 1.0x on stop-exit losses --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    2.12       51,709     3,740 | 4,992 @ 2.22 n16
+  B book leg (ATR stop + tilt)     359    2.23       69,884     4,549 | 6,948 @ 2.38 n16
+  C structural stop + tilt         357    2.91      101,017     4,338 | 16,977 @ 6.72 n16
+
+-- gap-through factor 1.5x on stop-exit losses --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    1.75       41,877     4,845 | 4,446 @ 1.96 n16
+  B book leg (ATR stop + tilt)     359    1.85       58,208     5,821 | 6,402 @ 2.15 n16
+  C structural stop + tilt         357    2.82       99,432     4,569 | 16,977 @ 6.72 n16
+
+-- gap-through factor 2.0x on stop-exit losses --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    1.49       32,045     6,094 | 3,900 @ 1.75 n16
+  B book leg (ATR stop + tilt)     359    1.58       46,533     7,678 | 5,855 @ 1.96 n16
+  C structural stop + tilt         357    2.74       97,848     4,800 | 16,977 @ 6.72 n16
+
+-- gap-through factor 3.0x on stop-exit losses --
+  leg                                n      PF        net $      DD $ | lockbox $ @ PF, n
+  A incumbent (ATR stop, no tilt)   359    1.15       12,382    10,006 | 2,808 @ 1.45 n16
+  B book leg (ATR stop + tilt)     359    1.22       23,182    11,860 | 4,763 @ 1.66 n16
+  C structural stop + tilt         357    2.60       94,679     5,263 | 16,977 @ 6.72 n16
+
+  crossover search (0.05x steps, 1.0-6.0x) on stop-exit gap-through:
+    C vs B on whole-run net : C stays >= B through 6.0x gap-through
+    C vs B on whole-run PF  : C stays >= B through 6.0x gap-through
+    C vs B on lockbox net   : C stays >= B through 6.0x gap-through
+    C's own PF crosses 1.0 at > 6.0x (not reached)
+    C's own lockbox net turns negative at > 6.0x (not reached)
+
+====================================================================================================
+4. THE REAL HISTORICAL TAIL - per leg, no stress applied (actual realized trades)
+====================================================================================================
+
+A incumbent (ATR stop, no tilt)
+  five worst trades ($):
+        -1,813  exit 2025-05-30  side -1  reason stop   size 1.0x  $
+        -1,665  exit 2023-01-04  side +1  reason stop   size 1.0x  $
+        -1,337  exit 2022-02-08  side -1  reason stop   size 1.0x  $
+        -1,293  exit 2026-03-03  side +1  reason fade   size 1.0x  $
+        -1,280  exit 2022-09-20  side -1  reason stop   size 1.0x  $
+  worst STOP-exit trade: -1,813 on 2025-05-30 (entry 5865.00 -> exit 5900.89, size 1.0x)
+  mean stop distance at entry: 11.74 pts ($587/contract, n=359 entries)
+
+B book leg (ATR stop + tilt)
+  five worst trades ($):
+        -2,719  exit 2025-05-30  side -1  reason stop   size 1.5x  $
+        -1,940  exit 2026-03-03  side +1  reason fade   size 1.5x  $
+        -1,665  exit 2023-01-04  side +1  reason stop   size 1.0x  $
+        -1,337  exit 2022-02-08  side -1  reason stop   size 1.0x  $
+        -1,280  exit 2022-09-20  side -1  reason stop   size 1.0x  $
+  worst STOP-exit trade: -2,719 on 2025-05-30 (entry 5865.00 -> exit 5900.89, size 1.5x)
+  mean stop distance at entry: 11.74 pts ($587/contract, n=359 entries)
+
+C structural stop + tilt
+  five worst trades ($):
+        -2,952  exit 2025-05-30  side -1  reason fade   size 1.5x  $
+        -2,296  exit 2023-11-29  side +1  reason fade   size 1.5x  $
+        -2,056  exit 2023-01-04  side +1  reason fade   size 1.0x  $
+        -1,808  exit 2023-05-12  side -1  reason eod    size 1.5x  $
+        -1,331  exit 2021-11-22  side +1  reason fade   size 1.0x  $
+  worst STOP-exit trade: -496 on 2011-01-25 (entry 1278.50 -> exit 1284.75, size 1.5x)
+  mean stop distance at entry: 23.50 pts ($1,175/contract, n=357 entries)
+
+  largest session-to-session gap in the whole window (open vs prior session's close,
+  4125 session boundaries checked): 216.75 pts = $10,838 on 2024-08-05
+  (this strategy is flat at every session close, so no trade in these legs was ever
+  exposed to this gap directly - it is a plausibility check on how big ES gaps get,
+  used below against each leg's stop cushion, not a trade this family ever held through)
+    A incumbent (ATR stop, no tilt): worst gap $10,838 is 18.47x the mean stop cushion $587 -> BIGGER than the cushion
+    B book leg (ATR stop + tilt): worst gap $10,838 is 18.47x the mean stop cushion $587 -> BIGGER than the cushion
+    C structural stop + tilt: worst gap $10,838 is 9.22x the mean stop cushion $1,175 -> BIGGER than the cushion
+
+====================================================================================================
+5. WORST-CASE RECONSTRUCTION - leg C's largest adverse move against an open position,
+   reconstructed under leg B's tighter (1.5x ATR) stop. This is a SINGLE-TRADE
+   counterfactual (the brief's own request), not an aggregate re-price like sections 2-3 -
+   it does NOT change the trade list, it re-simulates ONE historical trade's stop rule.
+====================================================================================================
+
+  worst MAE trade in leg C: entered 2025-05-30 (bar 49298), exited 2025-05-30 (bar 49301), side -1, entry 5865.00
+  max adverse excursion: 45.00 pts ($2,250) - exit reason was 'fade' at 5904.00, actual result $-2,952
+  leg B's stop for this SAME entry would sit 35.89 pts away ($1,794) at 5900.89
+  under leg B's tighter stop this trade is stopped out on 2025-05-30 (bar 49300) at 5900.89:
+  reconstructed result -2,719  vs  leg C's actual result -2,952  (difference -233)
+
+====================================================================================================
+elapsed 11s
