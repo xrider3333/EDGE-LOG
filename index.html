@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.641';
+const VERSION='73.642';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.642',date:'2026-09-09',notes:['COMPARE BETA: the overlay axis stops printing two numbers on top of each other. With a floor just below zero, the lowest label and the zero label landed on the same pixel and read as one smear; each is now drawn only when it is far enough from the zero line to be read on its own.']},
 {v:'73.641',date:'2026-09-09',notes:['PAPER: the owner swapped the paper book leg onto the validated tilted TTM config. The nightly book figure is now ORB 234 plus ENGU-Q 309, one NQ contract each, plus THREE ES contracts of TTM_299_T - the run 340 leg, which takes exactly the same trades as the crown and puts 1.5 contracts on the ones entered while the hourly squeeze is deep. The untilted TTM_299 keeps running unchanged as its exact matched control.','The evidence for the swap, stated plainly: the LEG passed all six gates and cleared the bar written before it ran (lockbox 6,948 dollars at profit factor 2.38 against 4,992 at 2.22), and the BOOK measured 4.9 percent more money at an IDENTICAL drawdown of 34,329 dollars with a 3 percent bigger lockbox - which missed the plus 5 percent book clause by 0.15 of a percent. That clause was overridden knowingly, and round 10 showed it cannot bind on this leg at all, because the book worst stretch is the 2020 crash and the TTM leg took zero trades in it.','One seam to expect in the numbers: TTM_299_T first forward session is 2026-09-10, so the book figure for 2026-09-09 carries the two NQ legs only.']},
 {v:'73.638',date:'2026-09-09',notes:['PILLS AUDIT: run 335 showed every top-level diagnostic-pill field (adversarial, VIF, and the rest) empty even though validate.flags carried real numbers. Traced it down: nothing was ever dropped - Auto-Validate has always computed the full pill bundle and saved it nested under validate, and the top-level fields are only used by Auto-Optimize runs (a comment in the save code already said so). The real gap was different: the pill block had ONE try/except around all eleven checks, so a single failing check could silently take out every other one for that run, and there was no way to turn any of it off.','FIXED: Auto-Validate now calls the same shared pill bundle Auto-Optimize uses, so each check gets its OWN try/except - one failing check can never suppress the rest. Two new engine switches (default ON, matching the always-on behavior this already had): compute_pills, and compute_feature_select for the one check measured as the most expensive by a wide margin - about 28 seconds of a roughly 64-second bundle on a 16-year 1-minute NQ window.','THE ONE NUMBER WORTH READING: the adversarial-validation score - does the reserved lockbox period look like a different market regime than the training history - now gets its own plain-English line right next to the big PASS/WEAK/FAIL verdict (clean/mild/moderate/severe drift, with the number), instead of waiting inside the chip grid further down. Also added as a small drift pill on the COMPARE BETA LEADERBOARD rows, next to the verdict pill.']},
 {v:'73.635',date:'2026-09-09',notes:['COMPARE - STUDIES: run 343 - the ES 15-minute TTM cell on its own - joins round 9 as row 1469 and comes back WEAK: the luck check fails and the deflated Sharpe says it does not beat the luck bar, against a bar that allowed WEAK on the overfit check alone. It also crowned different settings than BOOK run 342 used, which fires the condition written into that job note: run 342 does not transfer.','TTM stays a one-leg diversifier. The only validated improvement in the family is the deep-squeeze size tilt (run 340), which is running in the paper forward test as TTM_299_T beside the untilted control.']},
@@ -25877,7 +25878,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           for(let i=a;i<=b;i++)d+=((i===a)?'M':'L')+px(i/last).toFixed(1)+','+py(v[i]).toFixed(1);return d;};
         let g='<line x1="'+PL+'" y1="'+py(0).toFixed(1)+'" x2="'+(PL+pw)+'" y2="'+py(0).toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>';
         const lab=(y,t)=>'<text x="'+(PL-7)+'" y="'+py(y).toFixed(1)+'" text-anchor="end" dominant-baseline="middle" fill="var(--text5)" font-size="9" font-family="monospace">'+t+'</text>';
-        g+=((mx>0)?lab(mx,kd(mx)):'')+lab(0,'$0')+((mn<0)?lab(mn,kd(mn)):'');
+        // the zero line always gets its label; the peak and the floor only get one when they
+        //   are far enough from it to be read as separate numbers. A floor a little under zero
+        //   used to print itself straight through the zero label.
+        const z=py(0),gap=11;
+        g+=((mx>0&&Math.abs(py(mx)-z)>gap)?lab(mx,kd(mx)):'')+lab(0,'$0')
+          +((mn<0&&Math.abs(py(mn)-z)>gap)?lab(mn,kd(mn)):'');
         cs.forEach(x=>{const c=x.c,end=c.n-1,cut=(c.li!=null?c.li:end);
           g+='<path d="'+pth(c.v,0,cut)+'" fill="none" stroke="'+x.col+'" stroke-width="1.7" stroke-linejoin="round"/>';
           if(c.li!=null){g+='<path d="'+pth(c.v,cut,end)+'" fill="none" stroke="'+x.col+'" stroke-width="1.7" stroke-dasharray="1.6,3.2" stroke-linecap="round"/>';
