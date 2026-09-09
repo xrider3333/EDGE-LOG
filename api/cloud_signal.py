@@ -71,6 +71,7 @@ CLI
 import argparse
 import datetime as _dt
 import json
+import logging as _logging
 import math
 import os
 import sys
@@ -170,10 +171,91 @@ def load_cached_bars(timeframe, paths=None):
     return pd.read_csv(path)
 
 
-def fetch_and_merge(timeframe, paths=None):
-    """Pull fresh bars via qp._fetch_yf (reused, not reimplemented), merge into the
-    cache under EDGELOG_HOME, and return the merged epoch-schema frame. Network call —
-    never invoked from --replay or from tests, only from a live step()."""
+WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")
+WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
+WEBULL_TAIL_BARS = 200          # see _fetch_webull
+
+
+def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
+    """Recent QQQ bars from the official Webull OpenAPI, in this module's epoch schema,
+    or None if unavailable. PREFERRED over yfinance since 2026-09-09, when the owner
+    claimed the free Nasdaq Basic non-display tier: it is the exchange's own consolidated
+    Level 1 feed, roughly a second behind the print, against yfinance's ~38s median for
+    the newest CLOSED minute (measured, tools/qqq_feed_latency_probe.py).
+
+    Only the TAIL is fetched. The API caps a request at 1200 bars while the rolling
+    window wants tens of thousands, so history stays in the on-disk cache and this call
+    just tops it up — the same shape the yfinance path always had.
+
+    TOKEN: MarketData(api) does NOT authenticate; only ClientInitializer.initializer()
+    attaches the x-access-token, and the SDK runs it inside TradeClient/DataClient but
+    never inside MarketData. Omitting it is a silent 401 that reads like "no
+    entitlement" — the bug that kept api/qqq_exec.py's quote path dark for the whole
+    trial. Do not remove that call.
+
+    RTH ONLY, matching the yfinance path's prepost=False: the crowned configs are
+    regular-session configs and a spliced overnight bar would change what a bar means.
+    """
+    import json as _json
+    import pandas as pd
+    try:
+        with open(WEBULL_KEYS, encoding="utf-8") as fh:
+            keys = _json.load(fh)
+        ak = (keys.get("app_key") or "").strip()
+        sk = (keys.get("app_secret") or "").strip()
+        if not ak or not sk or ak.startswith("PASTE_"):
+            return None
+        from webull.core.client import ApiClient
+        from webull.core.http.initializer.client_initializer import ClientInitializer
+        from webull.data.quotes.market_data import MarketData
+        from webull.data.common.category import Category
+        from webull.data.common.timespan import Timespan
+        span = {"1m": Timespan.M1, "5m": Timespan.M5}.get(timeframe)
+        if span is None:
+            return None
+        api = ApiClient(ak, sk, (keys.get("region") or "us").strip().lower(),
+                        token_check_duration_seconds=15, token_check_interval_seconds=5,
+                        connect_timeout=10, timeout=25)
+        os.makedirs(WEBULL_TOKEN_DIR, exist_ok=True)
+        api.set_token_dir(WEBULL_TOKEN_DIR)
+        # the SDK otherwise attaches a rotating file logger on the shared CWD, which the
+        # five runner processes fight over every hour (WinError 32)
+        api._file_logger_set = True
+        _logging.getLogger("webull.core").addHandler(_logging.NullHandler())
+        ClientInitializer.initializer(api)
+        resp = MarketData(api).get_history_bar("QQQ", Category.US_ETF, span, count=str(count))
+        rows = resp.json() if hasattr(resp, "json") else resp
+        if not isinstance(rows, list) or not rows:
+            return None
+        out = []
+        for r in rows:
+            if str(r.get("trading_session", "RTH")).upper() != "RTH":
+                continue
+            try:
+                ts = int(pd.Timestamp(r["time"]).timestamp())
+                out.append({"time": ts, "open": float(r["open"]), "high": float(r["high"]),
+                            "low": float(r["low"]), "close": float(r["close"]),
+                            "volume": float(r.get("volume") or 0.0)})
+            except Exception:
+                continue
+        if not out:
+            return None
+        return pd.DataFrame(out).sort_values("time").reset_index(drop=True)
+    except Exception as e:
+        log(f"[cloud-signal] webull bars unavailable ({timeframe}): {type(e).__name__}: {e}")
+        return None
+
+
+def fetch_and_merge(timeframe, paths=None, log=print):
+    """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return the merged
+    epoch-schema frame. Network call — never invoked from --replay or from tests, only
+    from a live step().
+
+    Webull first, yfinance as the fallback. Both are consolidated US equity prints for
+    the same regular session, so they agree to the cent in normal conditions; the cache
+    can therefore hold rows from either without a seam. If that ever stops being true it
+    shows up as a price jump exactly at a source change, so the fallback logs when it
+    fires rather than switching silently."""
     import pandas as pd
     paths = paths or DEFAULT_PATHS
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
@@ -181,8 +263,11 @@ def fetch_and_merge(timeframe, paths=None):
     old = load_cached_bars(timeframe, paths)
     if old is None:
         old = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
-    fresh_df = qp._fetch_yf(timeframe)
-    fresh = qp._to_epoch_frame(fresh_df)
+    fresh = _fetch_webull(timeframe, log=log)
+    if fresh is None or not len(fresh):
+        log(f"[cloud-signal] falling back to yfinance for {timeframe} bars")
+        fresh_df = qp._fetch_yf(timeframe)
+        fresh = qp._to_epoch_frame(fresh_df)
     merged = pd.concat([old, fresh], ignore_index=True)
     if len(merged):
         merged = merged.drop_duplicates("time", keep="last").sort_values("time")
