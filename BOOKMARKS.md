@@ -376,3 +376,12 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Cost** (the test that closed NOISE-on-ES): $98.48/trade at $30/RT = **3.3x its cost** (house rule 2x). NOISE-on-ES was under 2x.
 - **Honest marks:** recent strength is bigger trades not more (236 since 2024 vs 1,871 before); DD arrives in the same stretch (n/DD 2.52 recent vs 5.49 older); **2015 −$4,578 and 2016 −$10,500** are losing years; 2026-to-June nearly flat (+$2,010 on 62 trades); the 2025-26 rows are the sealed year the running validate is grading.
 - **Queued at honest fills:** same file/window/lockbox at **0.60/RT** (job KLxmi3KXnSK7n0KV6D1Z), beside the running 0.40 one (GIrlgbDJ1umq12NrnfY8) — per the round-42 rule. If it only survives at 0.40 it is not a leg.
+
+### B23 CORRECTION — the ENGU-Q ES leg's recency pass was ten trades (round 47, rows 1642-1647, v73.688)
+
+- **Round 46's recency claim is WITHDRAWN.** ES 2024-2026: PF 1.585 on 236 trades, but **top-10 = 123.6% of net**; ex-top-10 **−$19,909 at PF 0.862**; half the stretch profit from **4 trades**.
+- **It was never spread:** ES 2010-2023 top-10 = 102.2%, ex-top-10 −$2,656 at PF 0.995, half the profit from 3 trades.
+- **The decisive read** (house gate, honest fills): 14 of 16 years positive, but **only 3 of 16 survive removing each year's three biggest trades**. Whole-window gate says CONCENTRATED (top-10 76%, ex-top-10 +$44,872 at PF 1.077) — passable on paper, hollow underneath.
+- **The NQ crown is different, and that is the point:** whole window ex-top-10 **+$262,415 at PF 1.302** vs the ES leg's 1.077. **But the crown's own 2024-2026 stretch is tail-driven** (top-10 106.3%, ex-top-10 −$15,676; one trade 2026-04-07 = $91,152) — a live-card caution.
+- **Validates left running** (0.40 and 0.60 per round trip) — their verdict is worth having, but a walk-forward and a sealed year cannot detect concentration (the EV R and GAPGO lessons).
+- **Process fix:** run the concentration test on **each stretch being claimed**, not only the whole window — the whole-window read hid two eras that are each negative once their own top ten come out.
