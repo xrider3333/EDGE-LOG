@@ -422,3 +422,24 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Weight ladder — metric artifact, NOT adopted.** TTM w3→4→5→6 improves BOTH stretches monotonically (38.18 / 40.48 / 42.78 / 45.07) with no interior optimum — the ratio has no concentration term and would keep rising until the book *is* that leg. At w5 it supplies **26.9% of selection profit from 9% of trading days** (326 of 3,444). Owner's risk call, not a finding. Book stays at w3.
 - Also tested: ORB x2 (28.08) and ENGU-Q x2 (32.18) worse; ORB x0.5 better on both (42.85 / 10.40) for the same mechanical reason — recorded, not acted on.
 - **Standing answer: the validated four-leg book run #366** — selection n/DD 38.18 vs adopted 30.25, whole 46.11 vs 36.93, held-back level 10.33, 8/8 slices. Adoption is the owner's call.
+
+## ADOPTED 2026-09-09 - the book is run #366 (supersedes #361)
+
+**Four legs, nothing tuned** - re-queue with `python tools/queue_book_four_leg.py`:
+
+| leg | file | market | cost/RT | mult | weight |
+|---|---|---|---|---|---|
+| opening-range crown | `ORB_3_6_C2.py` | NQ 5m RTH | 0.533 | x20 | 1 |
+| **ENGU-Q crown (current)** | `ENGUQ_1M_ETH_R2_1_0.py` | NQ 1m ETH | **0.783** (24h convention) | x20 | 1 |
+| squeeze structural-stop | `TTMSQZ_3_0_ES30SS20.py` | ES 30m RTH | 0.363 | x50 | **3** |
+| **NOISE crown** | `NOISE_1_1_NBHD.py` (run #304 champion settings) | NQ 5m RTH | 0.533 | x20 | 1 |
+
+| | selection net | sel DD | **sel n/DD** | whole n/DD | PF | LB n/DD | slices |
+|---|---|---|---|---|---|---|---|
+| **#366 ADOPTED** | $1,395,904 | $36,562 | **38.18** | **46.11** | 1.486 | 10.33 | 8/8 |
+| #361 superseded | $1,038,497 | $34,329 | 30.25 | 36.93 | 1.526 | 10.31 | 8/8 |
+
+- **Bought:** +26%% selection n/DD, +25%% whole-window, held-back year level. Net +34%% for +6.5%% DD.
+- **Cost:** PF 1.526 -> 1.486 and ~2x the trades - **judge on n/DD, not PF.**
+- **Rejected before adopting:** NQDIP as a 5th leg (38.18 -> 23.37, its own DD exceeds the whole book's) and the TTM weight ladder (monotonic, no interior optimum = metric without a concentration term).
+- **Standing caveat:** every version's held-back year has ten best days about 103%% of that year's profit; the ENGU-Q leg's held-back year was already read at crowning.
