@@ -98,6 +98,33 @@ had to be guarded by hand with copied flags. `--book-run N` does it in one comma
                                                # code is the WORST leg's: 1 if any leg is
                                                # ARTIFACT, else 2 if any is SUSPECT, else 0.
 
+THE TAIL / BETA BAR -- `--tail` / `--tail-enforce` -- ADDED 2026-09-09
+---------------------------------------------------------------------
+The owner's challenge, verbatim: "interesting how it beat on important metrics like EV R,
+R/YR etc, but those are only bc of the fat tail. i tells me its only working bc qqq, what it
+was trading, was going up the last 10 years. take those tail trades out and you have a
+problem? asses. would need to make sure that concentration rule gets adheaerd too."
+
+The concentration WARNING above deliberately never fails this guard, and that stays true --
+see the note at the top of this docstring, it is load-bearing. What was missing is the read
+that tells a real fat tail apart from long exposure to a rising index: WHEN the tail lands.
+`--tail` prints it (yearly net beside the instrument's own yearly return, their correlation,
+the benchmark's DOWN years called out separately, positive years with and without each
+year's three biggest trades, longest hold in days -- the shared implementation lives in
+tools/concentration_check.py:beta_block, imported lazily because that module imports
+resolve_params from here). `--tail-enforce` additionally makes it a BAR:
+
+    top-10 share < 60%   AND   non-negative in EVERY benchmark down year   AND
+    correlation of yearly net with the instrument's yearly return < 0.40
+
+A breach returns the new verdict **BETA** and exit code 1, so a queue script that already
+checks the exit code will refuse to fire the job without any further change. It is OPT-IN
+for the same reason concentration is only a warning: this program's own deployed legs fail
+it (measured 2026-09-09 on ENGU-Q ETH -- run #335's search champion 82% / +0.77 / -$54,250
+in the down years, #309 53% / +0.59, the live R2 crown 51% / +0.51, all FAIL; only R3, the
+crown plus an 8,280-bar hold cap, PASSES at 44% / +0.39 / +$20,491). Pass it when the owner
+has asked for a config that must not depend on the index rising; leave it off otherwise.
+
 THE {} TRAP -- FIXED 2026-09-08
 --------------------------------
 `--params '{}'` (or any dict missing keys) used to fall straight through to the strategy
@@ -268,7 +295,7 @@ def _fmt_short(d):
 
 
 def guard(strategy_file, params, *, instrument, timeframe, session, source, cost_pts, mult,
-         date_from, date_to, split, label=None):
+         date_from, date_to, split, label=None, tail=False, tail_enforce=False):
     """Run ONE continuous backtest over [date_from, date_to], grade it, and return a verdict
     dict. See the module docstring for the three hard reasons and the exit-code mapping
     (also placed on the returned dict as result["exit_code"])."""
@@ -403,10 +430,43 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
             "PASS: continuous lockbox trades exist and are broadly in line with the reload, "
             "and the edge survives deleting its ten best selection-window trades.")
 
-    exit_code = {"PASS": 0, "ARTIFACT": 1, "SUSPECT": 2}[verdict]
+    exit_code = {"PASS": 0, "ARTIFACT": 1, "SUSPECT": 2, "BETA": 1}[verdict]
     print("  VERDICT: %s" % verdict)
     for line in reasons:
         print("    - " + line)
+
+    tail_read = None
+    if tail or tail_enforce:
+        # lazy import: concentration_check imports resolve_params from THIS module
+        from tools.concentration_check import beta_block
+        corr, down, yr = beta_block(trades, mult, arr)
+        neg = [y for y in down if float(yr.get(y, 0.0)) < 0]
+        tail_read = dict(corr=corr, down_years=[int(y) for y in down],
+                         negative_down_years=[int(y) for y in neg],
+                         top10_share=share)
+        if tail_enforce:
+            fails = []
+            if share is not None and share >= 60:
+                fails.append("top-10 share of selection net %.0f%% >= 60%%" % share)
+            if neg:
+                fails.append("loses money in benchmark down year(s) %s" % neg)
+            if corr == corr and corr >= 0.40:
+                fails.append("yearly net correlates %+.2f with the instrument's own yearly "
+                             "return (>= 0.40)" % corr)
+            if fails:
+                verdict, exit_code = "BETA", 1
+                reasons.append("BETA (hard fail, --tail-enforce): " + "; ".join(fails)
+                               + ". This config's edge is not separable from the instrument "
+                               "going up over the window -- do NOT queue it as a "
+                               "beta-independent candidate.")
+                print("  VERDICT: %s  (raised by --tail-enforce)" % verdict)
+                print("    - " + reasons[-1])
+            else:
+                print("  TAIL / BETA BAR: PASS -- spread enough, and it does not need the "
+                      "instrument to rise.")
+        else:
+            print("  (tail / beta reads above are REPORTED only -- pass --tail-enforce to "
+                  "make them a bar)")
 
     return dict(label=label, strategy=strategy_file, params=params,
                resolved_params=resolved_params, param_source=param_source,
@@ -415,7 +475,7 @@ def guard(strategy_file, params, *, instrument, timeframe, session, source, cost
                top10_share=share, reload_n=rl_n, continuous_lb_n=L["n"],
                longest_hold_days=longest, engine_expectancy_r=engine_evr,
                cross_expectancy_r=cross_evr, date_from=date_from, date_to=date_to,
-               split=split)
+               split=split, tail=tail_read)
 
 
 # ── shared "leg dict -> guard() kwargs" step, used by both --run and --book-run ─────────
@@ -552,7 +612,7 @@ def _print_doc_count_check(result, run_id, doc):
 
 
 # ── --book-run N: grade EVERY leg of a BOOK run doc in one command (one doc read) ───────
-def _grade_book(run_id, book):
+def _grade_book(run_id, book, tail=False, tail_enforce=False):
     """Grade every leg in a BOOK run doc's already-fetched `book` sub-dict (see the module
     docstring's `book.legs[]` shape). Pure function -- takes `book` as plain data and calls
     the module-level `guard()` by name (never touches Firestore itself), so a test can
@@ -586,7 +646,7 @@ def _grade_book(run_id, book):
             print("  SKIPPING a book leg with no `strategy` field: %r" % (leg,))
             continue
         kw = _leg_kwargs(leg, date_from, date_to, split, label=strategy)
-        result = guard(**kw)
+        result = guard(tail=tail, tail_enforce=tail_enforce, **kw)
         results.append((leg, result))
 
     if not results:
@@ -631,7 +691,7 @@ def _grade_book(run_id, book):
          "flagged for nothing.")
 
     verdicts = [r.get("verdict") for _, r in results]
-    if "ARTIFACT" in verdicts:
+    if "ARTIFACT" in verdicts or "BETA" in verdicts:
         worst = 1
     elif "SUSPECT" in verdicts:
         worst = 2
@@ -640,7 +700,7 @@ def _grade_book(run_id, book):
     return results, worst
 
 
-def _book_run(run_id, cred_path):
+def _book_run(run_id, cred_path, tail=False, tail_enforce=False):
     """--book-run N: ONE Firestore doc read of users/<uid>/runs/<N>, refuse clearly if it
     carries no `book` (i.e. it is not a BOOK job), then hand the book sub-dict to
     _grade_book() for the actual per-leg grading, table, and pooled-lockbox line."""
@@ -662,7 +722,7 @@ def _book_run(run_id, cred_path):
             f"(type=='book', book.legs[] present). This doc's type={d.get('type')!r}. Use "
             f"--run {run_id} to grade a single-strategy run doc instead.")
 
-    return _grade_book(run_id, book)
+    return _grade_book(run_id, book, tail=tail, tail_enforce=tail_enforce)
 
 
 def main():
@@ -688,12 +748,21 @@ def main():
     ap.add_argument("--to", dest="date_to")
     ap.add_argument("--split", help="ET calendar date the selection/lockbox split falls on")
     ap.add_argument("--label")
+    ap.add_argument("--tail", action="store_true",
+                    help="also print the tail / beta reads (yearly net vs the instrument's "
+                         "own yearly return, their correlation, the benchmark's down years, "
+                         "positive years ex-top-3, longest hold). Reported, not enforced.")
+    ap.add_argument("--tail-enforce", dest="tail_enforce", action="store_true",
+                    help="make those reads a BAR: top-10 share < 60%%, non-negative in every "
+                         "benchmark down year, yearly correlation < 0.40. A breach is verdict "
+                         "BETA, exit 1. Opt-in -- the program's own deployed legs fail it.")
     ap.add_argument("--cred", default=str(REPO / "serviceAccount.json"),
                     help="Firebase service-account JSON (repo root, gitignored)")
     a = ap.parse_args()
 
     if a.book_run is not None:
-        _results, worst = _book_run(a.book_run, a.cred)
+        _results, worst = _book_run(a.book_run, a.cred,
+                                    tail=a.tail, tail_enforce=a.tail_enforce)
         sys.exit(worst)
 
     run_doc = None
@@ -713,7 +782,7 @@ def main():
                  mult=(a.mult if a.mult is not None else 1.0), date_from=a.date_from,
                  date_to=a.date_to, split=a.split, label=a.label)
 
-    result = guard(**kw)
+    result = guard(tail=a.tail, tail_enforce=a.tail_enforce, **kw)
     if run_doc is not None:
         _print_doc_count_check(result, a.run, run_doc)
     sys.exit(result["exit_code"])
