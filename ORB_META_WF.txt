@@ -1,0 +1,52 @@
+META WALK-FORWARD: is RE-OPTIMISING the ORB worth anything? (2026-09-09)
+Driver tools/orb_meta_walkforward.py. 288 configs run once over all history and sliced; at each
+August 2015-2025 the same selection we actually run (best annualised net/DD among configs
+trading >=120 times a year, in-sample data only) picks a winner, which is then traded for the
+NEXT year. Forward years do not overlap. Nothing after the sealed date is loaded.
+
+=== FORWARD YEAR after each decision date (net $, one contract) ===
+      date  n_elig  pick_net  pick_mar  picknet_net  default_net  crown_net  median_net  mean_net  pct_of_field  median_mar
+2015-08-13     288  -10012.1      -1.1      -2244.3     -14926.9   -11727.1     -8758.8   -7506.1          38.9        -0.8
+2016-08-13     288    1796.8       0.3       1796.8       4817.4     3304.3      1372.6     651.8          57.6         0.2
+2017-08-13     288   22334.3       2.6      22334.3      21034.4    17785.1     22770.4   24221.6          46.5         3.6
+2018-08-13     288   21681.7       2.8      25394.4      27176.0    31854.7     19579.9   20968.6          55.9         2.5
+2019-08-13     288   18997.3       2.3      19825.1     -11203.0    10622.7      4505.9    4160.7          94.4         0.2
+2020-08-13     288   -3859.1      -0.1       3898.0      13651.3    13363.3     10297.7    9302.2           4.2         0.4
+2021-08-13     288   35086.2       2.2      24811.2      73967.8    59129.4     55511.1   45040.8          33.3         2.4
+2022-08-13     288    4933.8       0.3      47632.9      59561.9    40834.4     45572.3   33579.8          17.7         2.7
+2023-08-13     288   26243.7       1.5      29801.8      26536.8    55802.2     39949.7   45364.8          32.6         2.1
+2024-08-13     288   74564.3       3.4     122092.3      87952.0    76399.1     86310.3   77843.3          36.1         3.8
+2025-08-13     288  -25311.8      -0.5     -24517.7      88942.5    87131.6     35238.9   32883.5           5.6         0.9
+
+=== SUMMARY over 11 decision dates ===
+  re-optimised by MAR            total $   166455 | mean/yr $   15132 | positive years 8/11
+  re-optimised by NET            total $   270825 | mean/yr $   24620 | positive years 9/11
+  left alone (parent default)    total $   377510 | mean/yr $   34319 | positive years 9/11
+  today's crown params           total $   384500 | mean/yr $   34955 | positive years 10/11
+  a config picked at random      total $   312350 | mean/yr $   28395 | positive years 10/11
+
+  re-optimised beat leave-alone in 3 of 11 years
+  re-optimised beat a RANDOM config in 3 of 11 years (mean percentile 38)
+
+SIGNIFICANCE (paired, re-optimised minus left-alone, 11 forward years)
+  mean -$19,187/yr, median -$5,494, wins 3 of 11, two-sided sign test p = 0.227
+  bootstrap 95% CI of the mean difference: -$42,802 to +$218; P(difference < 0) = 0.97
+  mean forward percentile of the pick within the field 38.4 vs 50 expected (SE 7.8, t = -1.49)
+  drop the worst year (2025): still -$9,680/yr and 3 of 10 - not one outlier
+
+READ
+1. There is NO evidence that re-optimising helps, and the point estimates all run the other way.
+   Re-optimising by risk-adjusted return earned $166k over the 11 forward years; leaving the parent
+   defaults untouched earned $377k; a config drawn at random from the eligible field earned $312k.
+2. The selection lands at the 38th percentile of the field on average. A rule with no skill would
+   sit at 50. So the rule is not merely weak, it tilts towards configs that do WORSE next year.
+3. It is not statistically decisive on 11 readings (sign test p = 0.23, CI touches zero). Treat it as
+   the burden of proof moving, not as proof. But the bootstrap puts 97% of the mass below zero.
+4. Selecting on NET did better than selecting on risk-adjusted return ($271k vs $166k) and still lost
+   to leaving it alone. Consistent with maxDD being too noisy on a short window to select on.
+5. CAVEAT, stated because it flatters us: the "today's crown" row ($385k) is CONTAMINATED - those
+   params were chosen with full knowledge of these same forward years. It is an upper bound on
+   hindsight, not a competitor. The only clean comparison is re-optimised vs left-alone vs random.
+IMPLICATION: freeze the crown; the bar for any future re-crowning is not "it wins in-sample" but
+"it beats leaving the parameters alone, forward". That is what this file measures, and it is cheap
+to re-run on any strategy in the stack.
