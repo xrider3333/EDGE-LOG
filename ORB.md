@@ -222,6 +222,34 @@ minus $119 across the previous fifteen years, at the maximum value on its grid, 
 reference lengths giving the gain back. That is a coincidence with a good year, not a mechanism, and
 round 9's bootstrap already said a one-year gap that size between two ORB configs sits inside the noise.
 
+### ✗ 2026-09-09 — Round 11b: the "barely-clearing entries" keeper FAILS its null (correction)
+
+Round 11's entry-threshold fork left a diagnostic that looked like the round's one keeper: sort the crown's
+own trades by how far the confirming close cleared the trigger level, and money falls steadily from the
+nearest quartile to the farthest. It is measured only from bars the strategy has already seen, so it would
+have been legal to trade. It does not survive being tested properly. Driver: `tools/orb_entry_distance_null.py`.
+
+* **It is not the range-width effect in disguise.** Distance measured in opening-range widths correlates
+  only -0.21 with how wide the day's range is against its own recent norm. That much is fine.
+* **It is not monotone once you hold range width fixed.** Inside the narrow-range half the third quartile
+  (profit factor 1.76) beats the second (1.22); inside the wide half the second (1.51) beats the third
+  (1.01). Only the nearest quartile is consistently good, so the "gradient" is a marginal artifact.
+* **The nearest quartile itself is inside the noise.** Shuffling the distance labels within each calendar
+  year, 2,000 draws, the observed nearest-quartile profit factor of 1.59 sits below the null's 95th
+  percentile of 1.72; p = 0.14 on the full window and 0.23 on the last five years.
+
+So the honest version of the round-11 finding is narrower: adding an entry threshold measurably LOSES money
+(the sweep showed that directly, 45 configs), but the claim that the edge LIVES in barely-clearing entries
+is not established. Do not build a size tilt on it. This is the same lesson as the compression tilt that was
+withdrawn from ORB this week — a bucket table is a scan, and a scan is not a finding until a null has had a
+turn at it.
+
+**Audited while here, and clean.** Because the ORB 3.0/3.1 work was voided by a volume filter that read the
+breakout bar's own finished volume, the crown's two filters were re-read line by line. The vol-regime filter
+decides at the session open from the previous 5 and 60 sessions only. The volume-pace gate compares the
+bars strictly BEFORE the decision bar against a reference built from the previous 20 sessions. Neither
+touches the bar it trades on. The crown is not carrying that leak.
+
 ### The open research direction: replace the illegal gate with a PRE-KNOWN one
 
 The fill at the level carried the money ($494k with the illegal filter, $63k with no
