@@ -59,6 +59,11 @@ NEW_BOOK = {
                           'legs': [{'leg': 'AAA_1_0.py', 'usd': -34329.21, 'days': 15},
                                    {'leg': 'BBB_1_0.py', 'usd': 0.0, 'days': 0}]},
         'inert_legs': ['BBB_1_0.py'],
+        # the two day-stamping rules disagree on this one, so the row must say so
+        'day_rule': {'used': 'utc_truncated', 'drawdown_differs': True, 'net_differs': False,
+                     'session_day': {'total_pnl': 1119697.0, 'max_drawdown': 34903.0,
+                                     'worst_stretch': {'from': '2020-02-26', 'to': '2020-03-25',
+                                                       'depth': 34903.0}}},
     },
 }
 OLD_BOOK = {
@@ -107,6 +112,11 @@ var RUNS = __RUNS__, SAMPLES = __SAMPLES__;
         r.hasNew=txt.indexOf('PROBE NEW BOOK')>=0;
         r.hasOld=txt.indexOf('PROBE OLD BOOK')>=0;
         r.hasDates=txt.indexOf('2022-04-27')>=0 && txt.indexOf('2022-05-24')>=0;
+        r.dayRule=txt.indexOf('day rule')>=0 && txt.indexOf('34,903')>=0 && txt.indexOf('2020-03-25')>=0;
+        var oldRow='';
+        for(var k3=0;k3<rows.length;k3++)
+          if(rows[k3].textContent.indexOf('PROBE OLD BOOK')>=0)oldRow=rows[k3].textContent;
+        r.oldNoDayRule=(oldRow.indexOf('day rule')<0);
         r.hasDepth=txt.indexOf('34,329')>=0 || txt.indexOf('34329')>=0;
         r.namesInert=txt.indexOf('BBB_1_0')>=0;
         r.undef=txt.indexOf('undefined')>=0 || txt.indexOf('NaN')>=0;
@@ -204,6 +214,7 @@ def main():
         print('  sample=%-4s rows=%s new=%s old=%s dates=%s depth=%s inert=%s oldClean=%s %s'
               % (smp, r['bookRows'], r['hasNew'], r['hasOld'], r['hasDates'], r['hasDepth'],
                  r['namesInert'], r['oldClean'], r['call']))
+        print('             dayRule=%s oldNoDayRule=%s' % (r.get('dayRule'), r.get('oldNoDayRule')))
         if r['call'] != 'OK':
             bad.append('%s: %s' % (smp, str(r['call'])[:300]))
             continue
@@ -214,7 +225,9 @@ def main():
                        ('hasDates', 'the worst-stretch dates are not printed'),
                        ('hasDepth', 'the worst-stretch depth is not printed'),
                        ('namesInert', 'the absent leg is not named'),
-                       ('oldClean', 'a book with no worst_stretch block printed one anyway')):
+                       ('oldClean', 'a book with no worst_stretch block printed one anyway'),
+                       ('dayRule', 'the day-stamping disagreement is not printed on the row'),
+                       ('oldNoDayRule', 'a book with no day_rule block printed one anyway')):
             if not r.get(k):
                 bad.append('%s: %s' % (smp, why))
         if r.get('undef'):

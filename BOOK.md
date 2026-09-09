@@ -571,8 +571,26 @@ Neither rule is the CME trade-date convention (which rolls at 18:00 ET). Nothing
 this account: every stored book run is on the engine's rule, so moving it would move every recorded
 book drawdown at once. `tools/book_dd_attribution.leg_daily(..., day_mode="session")` computes the
 other one on demand, and section 0 of the audit prints both. **The finding does not depend on it —
-under BOTH rules the TTM leg traded the stretch zero times.** Owner call on which rule a book should
-use.
+under BOTH rules the TTM leg traded the stretch zero times.**
+
+**MADE VISIBLE 2026-09-09** (owner: *"make the day-stamping rule an owner decision I can see"*).
+Every book run now scores BOTH readings and stores them on `book.day_rule`: the rule that produced
+the result (`utc_truncated` — unchanged), the session-day net, drawdown and worst stretch, and two
+flags, `net_differs` and `drawdown_differs`. COMPARE ▸ RUNBOARD's BOOKS row prints the second
+reading beside the first **whenever they differ**, which is never for a book that only trades the
+day session. Verified by re-running run #337's own legs: engine rule **$34,329.21**
+(2022-04-27..05-24), session rule **$34,903.00** (2020-02-26..03-25), **net identical to the cent**.
+
+**Nothing was switched, and that is the point.** Every stored figure is still the engine rule,
+because changing it would move the recorded drawdown of every book at once and make old and new
+runs incomparable. What changed is that the disagreement now sits on the row instead of in this
+file. Adopting the session rule is not a patch — it is a re-scoring of every stored book, and it
+should be decided as that. **Owner call.**
+
+Guards: `tests/test_book_worst_stretch.py` pins the contract (both rules must report the SAME net —
+a restamp moves trades, it never loses them — and a restamp that carries a loss across a peak must
+raise `drawdown_differs`); `tools/runboard_books_probe.py` pins that the row prints the second
+reading when the rules differ, and prints nothing for an older book that carries no block.
 
 ---
 

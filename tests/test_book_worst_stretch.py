@@ -53,3 +53,76 @@ def test_absent_leg_cannot_move_the_whole_run_drawdown_at_any_weight():
 
 def test_empty_book_stretch_is_none_not_a_crash():
     assert _stretch_attribution([], [[]], [{"strategy": "A.py"}]) is None
+
+
+# ── the day-stamping choice, made visible ────────────────────────────────────────
+def test_a_book_reports_both_day_rules_and_only_the_curve_moves(monkeypatch):
+    """A trade's calendar day has two defensible answers; a book must report both.
+
+    The engine truncates a US/Eastern index, which numpy does in UTC, so a 24h leg exiting at or
+    after 20:00 ET books on the NEXT day. The other answer is the ET session day. NET IS THE SAME
+    under both -- only the daily curve moves -- and because drawdown is measured on the daily
+    curve, the two can disagree about the drawdown and about which stretch is worst.
+
+    Pinned here because the whole point is that the disagreement is VISIBLE. If a future change
+    drops `day_rule`, or lets the two nets drift apart (which would mean trades were lost rather
+    than restamped), this fails.
+    """
+    import augur_engine.book as B
+
+    # one leg, same four trades, stamped one day apart by the two rules
+    utc = [(_d("2021-01-04"), 100.0), (_d("2021-01-06"), -900.0),
+           (_d("2021-01-07"), 100.0), (_d("2021-01-20"), 900.0)]
+    sess = [(_d("2021-01-04"), 100.0), (_d("2021-01-05"), -900.0),
+            (_d("2021-01-07"), 100.0), (_d("2021-01-20"), 900.0)]
+
+    def fake(leg, date_from, date_to):
+        return list(utc), {"strategy": "A.py", "instrument": "NQ", "timeframe": "1m",
+                           "session": "eth", "source": None, "mult": 1.0, "weight": 1.0,
+                           "trades": len(utc), "net": 200.0, "master": "x", "cost_pts": 0.0,
+                           "_session_day": list(sess)}
+
+    monkeypatch.setattr(B, "_leg_trades", fake)
+    r = B.run_book([{"strategy": "A.py", "instrument": "NQ"}],
+                   date_from="2021-01-01", date_to="2021-02-01", lockbox_months=0, slices=2)
+    dr = r["book"]["day_rule"]
+
+    assert dr["used"] == "utc_truncated"
+    assert dr["session_day"]["total_pnl"] == r["book"]["whole"]["total_pnl"], (
+        "the two rules disagree about NET -- they must only restamp trades, never lose them")
+    assert dr["net_differs"] is False
+    assert dr["session_day"]["max_drawdown"] == r["book"]["whole"]["max_drawdown"]
+    # both stampings put the -900 in the same relative place here, so nothing should be flagged
+    assert dr["drawdown_differs"] is False
+    assert dr["session_day"]["worst_stretch"]["to"] == "2021-01-05"   # the restamped day, one earlier
+
+
+def test_the_day_rule_block_flags_a_real_disagreement(monkeypatch):
+    """When the restamp moves a loss across a peak, the drawdown differs and the book says so."""
+    import augur_engine.book as B
+
+    # Both curves open with the same gain, so both have a real peak to fall from -- a series
+    # that only ever falls has no drawdown by definition and would test nothing. Under the
+    # engine rule the two losses sit either side of a recovery; under the session rule they land
+    # on the SAME day, so the fall is taken in one step and is twice as deep.
+    utc = [(_d("2021-01-04"), 1000.0), (_d("2021-01-05"), -500.0),
+           (_d("2021-01-06"), 800.0), (_d("2021-01-07"), -500.0)]
+    sess = [(_d("2021-01-04"), 1000.0), (_d("2021-01-05"), -500.0),
+            (_d("2021-01-05"), -500.0), (_d("2021-01-06"), 800.0)]
+
+    def fake(leg, date_from, date_to):
+        return list(utc), {"strategy": "A.py", "instrument": "NQ", "timeframe": "1m",
+                           "session": "eth", "mult": 1.0, "weight": 1.0, "trades": 4,
+                           "net": 800.0, "master": "x", "cost_pts": 0.0,
+                           "_session_day": list(sess)}
+
+    monkeypatch.setattr(B, "_leg_trades", fake)
+    bk = B.run_book([{"strategy": "A.py", "instrument": "NQ"}],
+                    date_from="2021-01-01", date_to="2021-02-01",
+                    lockbox_months=0, slices=2)["book"]
+    dr, r_dd = bk["day_rule"], bk["whole"]["max_drawdown"]
+
+    assert dr["net_differs"] is False, "restamping must never change the money"
+    assert dr["drawdown_differs"] is True, "a moved loss deepened the curve and was not flagged"
+    assert r_dd == 500.0, "engine rule: two separated 500s"
+    assert dr["session_day"]["max_drawdown"] == 1000.0, "session rule: one 1000 step"

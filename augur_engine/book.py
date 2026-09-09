@@ -23,6 +23,7 @@ Honesty boundaries — these are deliberate, do not "improve" them without readi
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
 
 from .engine import run_backtest
 from .data import find_master, load_master_arrays
@@ -113,18 +114,46 @@ def _leg_trades(leg, date_from, date_to):
     weight = float(leg.get("weight", 1) or 1)
     idx = arr["index"]
     out = []
+    out_sess = []          # the same trades stamped on the ET session day (see below)
     # exit-bar timestamps -> calendar day. astype("datetime64[D]") on the whole index once is
     # both faster and warning-free (np.datetime64(x, "D") on a tz-aware stamp warns per call).
+    #
+    # WHICH DAY IS THIS TRADE ON? THERE ARE TWO ANSWERS AND THEY DISAGREE (2026-09-09).
+    # The masters carry a tz-aware US/Eastern index, and numpy performs this truncation in UTC.
+    # So a 24-hour leg's trade exiting at or after 20:00 ET (19:00 in winter) is stamped on the
+    # NEXT calendar day. The other reading is the ET session day -- the date the account would
+    # write on the ticket. NET IS IDENTICAL under both; the DAILY CURVE is not, and drawdown is
+    # measured on the daily curve, so the two rules can disagree about which month holds a
+    # book's worst stretch. On the house baseline they do: May 2022 / $34,329 under this rule,
+    # Feb-Mar 2020 / $34,903 under the session rule.
+    #
+    # Every stored book run uses THIS rule, so it stays the one that computes the result -- a
+    # silent switch would move every recorded book drawdown at once. What changed is that the
+    # alternative is now computed alongside and reported, so the choice is the owner's to make
+    # in the open rather than an accident of how numpy truncates. Day-session legs are
+    # unaffected: only a leg that trades past 20:00 ET can move.
     days_idx = np.asarray(idx, dtype="datetime64[D]")
+    _sess_idx = None
+    try:
+        _di = pd.DatetimeIndex(idx)
+        if _di.tz is not None:
+            _sess_idx = np.asarray(_di.tz_localize(None).normalize().values, dtype="datetime64[D]")
+    except Exception:
+        _sess_idx = None
     last = len(days_idx) - 1
     # `size` is the gate's per-trade size multiplier (1.0 everywhere when ungated), so the
     # ungated path is bit-identical to before this feature existed.
     for t, size in sized:
         try:
-            out.append((days_idx[min(int(t[1]), last)],
-                        float(t[2]) * mult * weight * float(size)))
+            i = min(int(t[1]), last)
+            usd = float(t[2]) * mult * weight * float(size)
+            out.append((days_idx[i], usd))
+            if _sess_idx is not None:
+                out_sess.append((_sess_idx[i], usd))
         except Exception:
             continue
+    if _sess_idx is None:                    # a tz-naive master reads the same either way
+        out_sess.extend(out)
     info = {"strategy": leg.get("strategy"), "instrument": inst, "timeframe": tf,
             "session": sess, "source": src, "mult": mult, "weight": weight,
             "trades": len(out), "net": round(sum(p for _, p in out), 2),
@@ -140,6 +169,7 @@ def _leg_trades(leg, date_from, date_to):
             for k in ("ok", "error", "note", "n_skipped", "warnings", "size_norm"):
                 if gate_info.get(k) is not None:
                     info["gate"][k] = gate_info[k]
+    info["_session_day"] = out_sess
     return out, info
 
 
@@ -253,6 +283,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
         raise ValueError("a book needs at least one leg")
 
     pooled = []
+    pooled_sess = []      # the same trades on the ET session day - see _leg_trades
     leg_info = []
     per_leg = []
     for i, leg in enumerate(legs):
@@ -261,6 +292,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
         tr, info = _leg_trades(leg, date_from, date_to)
         pooled.extend(tr)
         per_leg.append(tr)
+        pooled_sess.extend(info.pop("_session_day", None) or [])
         leg_info.append(info)
     if not pooled:
         raise ValueError("the book produced no trades over this window")
@@ -312,6 +344,33 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     # lockbox, and names any leg that was absent. A bar can then be written on the lockbox
     # drawdown (which does move with weight) with the whole-run number carried as a check that
     # says out loud when it is inert. Pure addition: nothing above this line changed.
+    # ── THE DAY-STAMPING CHOICE, MADE VISIBLE (2026-09-09) ──────────────────────────────
+    # _leg_trades explains the two rules. The figures above are the UTC-truncated one, which is
+    # what every stored book run has always used and what this result reports. The session-day
+    # reading is scored here so a book says out loud when the two disagree, instead of the
+    # disagreement living in a document. Nothing downstream reads this to make a decision -- it
+    # exists so the owner can make one.
+    day_rule = {"used": "utc_truncated",
+                "note": ("Trades are stamped by truncating a US/Eastern index, which numpy does "
+                         "in UTC, so a 24h leg exiting at or after 20:00 ET books on the NEXT "
+                         "day. The alternative is the ET session day. Net is identical under "
+                         "both; the daily curve, and so the drawdown, is not.")}
+    try:
+        alt = _stats(pooled_sess)
+        alt_worst = _stretch_attribution(pooled_sess, per_leg, leg_info) if pooled_sess else None
+        if alt:
+            day_rule["session_day"] = {
+                "total_pnl": alt["total_pnl"], "max_drawdown": alt["max_drawdown"],
+                "worst_stretch": ({"from": alt_worst["from"], "to": alt_worst["to"],
+                                   "depth": alt_worst["depth"]} if alt_worst else None)}
+            _wd = whole["max_drawdown"] if whole else None
+            day_rule["drawdown_differs"] = bool(
+                _wd is not None and abs(alt["max_drawdown"] - _wd) > 0.005)
+            day_rule["net_differs"] = bool(
+                whole is not None and abs(alt["total_pnl"] - whole["total_pnl"]) > 0.005)
+    except Exception as _e:                     # a reporting extra must never fail a book run
+        day_rule["error"] = "%s: %s" % (type(_e).__name__, _e)
+
     worst = _stretch_attribution(pooled, per_leg, leg_info)
     worst_lb = _stretch_attribution(lb, [[t for t in tr if lb_from is not None and t[0] >= lb_from]
                                          for tr in per_leg], leg_info)
@@ -336,6 +395,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
             "worst_stretch_lockbox": worst_lb,
             "inert_legs": ([l["leg"] for l in (worst or {}).get("legs") or [] if not l["days"]]
                            if worst else []),
+            "day_rule": day_rule,
         },
         # the report card the app already knows how to read. WF is deliberately absent.
         "validate": {
