@@ -45,6 +45,76 @@ def _parse_utc(ts):
         return None
 
 
+# -- 10-SECOND NQ FEED (added 2026-09-09) -----------------------------------------------
+# THE BLIND SPOT THIS CLOSES. On 2026-09-09 NinjaTrader was perfectly healthy all session
+# -- bridge up, all three strategies Realtime, fills.csv fresh, this heartbeat green -- and
+# yet its 10-second NQ chart export was dead from 08:39:40 ET. Of that morning's 3,087
+# exported bars, 3,075 were the chart's historical backfill and only 12 were live prints:
+# the indicator lost its tick subscription 24 seconds after the strategies were enabled and
+# never re-subscribed. NOTHING NOTICED. nt_recover.ps1 only inspects STRATEGY state, the
+# bridge only answers "is NinjaTrader running", and this module only asked "is the bridge
+# still publishing" -- a chart indicator that quietly stops writing is invisible to all
+# three. The cost is real: with no live NQ price the QQQ shadow cannot mark an open lot, so
+# an end-of-day flatten would price the exit at the ENTRY price and write a fabricated
+# round trip into the forward record.
+#
+# WHY ONLY REGULAR HOURS. NQ trades nearly 24/5, but the harm is concentrated in the window
+# the shadow book actually mirrors, and a page at 03:00 for a feed nobody is trading off
+# teaches people to ignore pages. Outside 09:30-16:00 ET on a session day this reports
+# "idle" and never alerts.
+TICK_FEED_PATHS = (r"C:\EdgeLog\ohlc_addon\NQ_10s.csv", r"C:\EdgeLog\ohlc\NQ_10s.csv")
+TICK_FEED_STALE_MINUTES = 10.0     # a live chart writes a bar every 10 seconds
+
+
+def newest_tick_bar_epoch(paths=TICK_FEED_PATHS):
+    """Newest bar timestamp across the 10s feed files, or None. Tail-read: these files
+    reach 25+ MB and this runs on a timer. Never raises."""
+    newest = None
+    for path in paths:
+        try:
+            with open(path, "rb") as fh:
+                fh.seek(0, 2)
+                fh.seek(max(0, fh.tell() - 4096))
+                tail = fh.read().decode("utf-8", "replace")
+            for line in reversed([ln for ln in tail.splitlines() if ln.strip()]):
+                try:
+                    ts = float(line.split(",")[0])
+                except (ValueError, IndexError):
+                    continue                      # header or a torn final line
+                newest = ts if newest is None else max(newest, ts)
+                break
+        except Exception:
+            continue
+    return newest
+
+
+def evaluate_tick_feed(newest_epoch, now_et, is_session_day, prior_tick=None):
+    """Pure function: (newest bar epoch or None, ET-aware now, is this a session day,
+    prior tick_feed block) -> new tick_feed block. `alerted` latches so a single outage
+    pages once rather than every cycle, and clears itself when bars resume."""
+    prior_tick = prior_tick or {}
+    in_window = bool(is_session_day) and (9, 30) <= (now_et.hour, now_et.minute) < (16, 0)
+    age_min = None
+    if newest_epoch is not None:
+        age_min = round(max(0.0, now_et.timestamp() - float(newest_epoch)) / 60.0, 1)
+
+    if not in_window:
+        return {"state": "idle", "age_minutes": age_min, "alerted": False,
+                "message": "outside 09:30-16:00 ET -- the 10s feed is not watched here"}
+    if age_min is None:
+        return {"state": "missing", "age_minutes": None,
+                "alerted": bool(prior_tick.get("alerted")),
+                "message": "no 10s NQ feed file could be read at all"}
+    if age_min > TICK_FEED_STALE_MINUTES:
+        return {"state": "stale", "age_minutes": age_min,
+                "alerted": bool(prior_tick.get("alerted")),
+                "message": (f"10s NQ feed has not written for {age_min:.0f} min -- the "
+                            f"NinjaTrader chart export has stopped; the QQQ shadow cannot "
+                            f"mark open lots and is refusing new entries")}
+    return {"state": "ok", "age_minutes": age_min, "alerted": False,
+            "message": f"10s NQ feed live ({age_min:.1f} min old)"}
+
+
 def evaluate(bridge_data, prior_alert):
     """Pure function: (meta/nt_bridge dict or None, meta/nt_alert dict or None) -> new
     meta/nt_alert dict. No I/O -- kept separate from publish() so it's trivially testable."""
@@ -104,6 +174,24 @@ def evaluate(bridge_data, prior_alert):
         "stale_minutes": round(stale_minutes, 1) if stale_minutes is not None else None,
         "checked_utc": now_str,
     }
+
+
+def _page(msg, title):
+    """Best-effort ntfy push. A watchdog must never take down the watch loop, so every
+    failure here is swallowed -- the printed log line is the durable record."""
+    try:
+        import os
+        import urllib.request
+        topic = os.environ.get("NTFY_TOPIC")
+        if not topic:
+            print(f"[nt-heartbeat] NTFY_TOPIC unset, push skipped: {title}: {msg}")
+            return
+        req = urllib.request.Request(f"https://ntfy.sh/{topic}",
+                                     data=msg.encode("utf-8"),
+                                     headers={"Title": title, "Priority": "high"})
+        urllib.request.urlopen(req, timeout=8).read()
+    except Exception as e:
+        print(f"[nt-heartbeat] push failed: {type(e).__name__}: {e}")
 
 
 def _note_read():
@@ -169,6 +257,24 @@ def publish(db, uid):
         print(f"[nt-heartbeat] evaluate failed: {type(e).__name__}: {e}")
         return
 
+    # 10s feed check rides along on the same timer (see the block above evaluate()).
+    try:
+        from zoneinfo import ZoneInfo
+        now_et = datetime.now(ZoneInfo("America/New_York"))
+        try:
+            from api import market_calendar
+            session_day = market_calendar.is_session(now_et.date())
+        except Exception:
+            session_day = now_et.weekday() < 5
+        tick = evaluate_tick_feed(newest_tick_bar_epoch(), now_et, session_day,
+                                  (prior_alert or {}).get("tick_feed"))
+        if tick["state"] in ("stale", "missing") and not tick["alerted"]:
+            _page(f"NT 10s NQ feed stopped: {tick['message']}", "EDGELOG NT FEED")
+            tick["alerted"] = True
+        rep["tick_feed"] = tick
+    except Exception as e:
+        print(f"[nt-heartbeat] tick-feed check failed: {type(e).__name__}: {e}")
+
     try:
         meta.document("nt_alert").set(rep)
     except Exception as e:
@@ -181,6 +287,9 @@ def publish(db, uid):
         print(f"[nt-heartbeat] warning: {rep['message']}")
     else:
         print(f"[nt-heartbeat] ok ({rep['stale_minutes']}m)")
+    tick = rep.get("tick_feed") or {}
+    if tick.get("state") in ("stale", "missing"):
+        print(f"[nt-heartbeat] TICK FEED: {tick.get('message')}")
 
 
 if __name__ == "__main__":
