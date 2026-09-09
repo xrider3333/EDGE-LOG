@@ -532,6 +532,24 @@ PASS is provisional on these six validates."* All six failed, so there are no su
 nothing to re-score. **The run-349 ETF stack candidate is WITHDRAWN.** It is not a close call and it
 does not need another book run.
 
+**RETIRED FROM THE SHADOW BOOK 2026-09-09** (owner: *"retire the ETF legs from the shadow book"*).
+The `ETFBOOK_332` paper leg — added that same morning, live_from 2026-09-09 — never wrote a row: it
+needed a runner restart to activate and the validates landed first. It is now archived rather than
+deleted, the house convention: the leg comes out of `PAPER_LEGS`, its `LEG_SOURCE` provenance block
+stays so any report naming the key still resolves, and the board keeps it behind SHOW ARCHIVED with
+its colour and label intact. A forward test exists to find out whether an edge survives going
+forward; six of six had already answered that, so shadow time on them buys nothing.
+
+*One switch, not two.* The runner hook in `api/runner.py` is deliberately left wired.
+`etf_book_shadow.maybe_nightly_update` now returns immediately when `ETFBOOK_332` is absent from
+`PAPER_LEGS`, so registration is the only switch and re-adding the entry turns the whole path back
+on with nothing else to remember. That matters more than it looks: this leg's evening job appends
+Yahoo bars to the frozen daily masters, so a half-retirement — off the board, still appending —
+would have been invisible, because no row is written anywhere a person looks.
+`tests/test_etf_book_shadow.py` pins both halves (the hook is off while the leg is unregistered and
+comes back when it is re-registered; the provenance block survives), and removing the check makes
+that test fail.
+
 **What this does and does not say about the clause work.** It does not retract anything in §10 or
 §10c: the lockbox-drawdown clause behaved exactly as designed — it flagged #349 as a *candidate*,
 listed the missing leg validates as blocker #1, and blocker #1 is what killed it. The clause swap

@@ -746,7 +746,12 @@ LEG_SOURCE = {
                 "QQQ/RSI2-both, QQQ/PB20 -- at $100,000 notional per trade and $20 a round "
                 "trip. The NQDIP leg of #332 is NOT here: it is NQ futures and this is a "
                 "stocks-account book. SHADOW ONLY -- nothing is ever sent to a broker.",
-        "caveat": "Three honest marks carried over from run #332's own entry. (a) The lockbox "
+        "caveat": "RETIRED FROM PAPER 2026-09-09, before it wrote a single row -- all seven "
+                  "legs were validated individually that day (runs #354-#359) and 6 of 6 "
+                  "FAILED, every one on walk-forward efficiency (0.050-0.332 against 0.5), "
+                  "with not one crown matching the cell this leg carried. Provenance stays "
+                  "here so any report naming the key still resolves. BOOK.md section 10d. "
+                  "The three honest marks that were already on it, unchanged: (a) The lockbox "
                   "year took a $61,419 drawdown against its $85,335 gain (the 2025 spring "
                   "selloff) and that is most of the book's whole-window max drawdown; "
                   "annualised MAR is only 0.71 at this notional. (b) Three of the seven legs "
@@ -1555,17 +1560,22 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": ENGUQ_309_KEEL9, "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ENGUQ_309_K9"]},
 
-    # ADDED 2026-09-09: the ETF dip book that passed BOOK validate #332, as a SHADOW-ONLY
-    # stocks-account leg. It is the only leg on this board that does not run on the NQ
-    # master + 10s tail: seven ETF sub-legs on DAILY bars, pooled into one row. `runner`
-    # sends run_shadow to api/etf_book_shadow.py, which pulls the day's GLD/TLT/IWM/QQQ bar
-    # from Yahoo, appends it to the frozen 1d masters, re-runs the seven legs and diffs the
-    # position set. Every ledger write below this point is this file's normal code path.
-    # cost_pts 0 / mult 1 because each ETFDIP plugin bills its own dollars and sizes its own
-    # shares -- multiplying again is the bug that stored 20x headlines on runs #258-#263.
-    {"key": "ETFBOOK_332", "strategy": "ETFDIP_DBL7_1_0.py+RSI2+PB20", "instrument": "ETF",
-     "timeframe": "1d", "session": "rth", "params": {}, "cost_pts": 0.0, "mult": 1.0,
-     "runner": "etf_book", "source": LEG_SOURCE["ETFBOOK_332"]},
+    # RETIRED 2026-09-09, the same day it was added and before it ever wrote a row (owner:
+    # "retire the ETF legs from the shadow book"). ETFBOOK_332 pooled the seven ETF dip legs
+    # of run #332/#338 into one shadow row. On 2026-09-09 all seven were put through
+    # leg-level Auto-Validate for the first time (runs #354-#359, six jobs because two of
+    # them differ only in a bool the search always explores) and SIX OF SIX FAILED -- every
+    # one on walk-forward efficiency, 0.050 to 0.332 against a bar of 0.5, and not one crown
+    # was the cell this leg carried. They are not noise cells (t 2.41-5.57, every p < 0.02,
+    # causal and plateau clean on all six); they are real in-sample edges that do not survive
+    # being re-fitted forward, which is precisely what a forward test is for and precisely
+    # why there is no point spending one on them. See BOOK.md section 10d.
+    #
+    # Its provenance block stays in LEG_SOURCE, the way every other retirement here does, so
+    # any report that names the key still resolves. The runner hook in api/runner.py is left
+    # in place on purpose: api/etf_book_shadow.maybe_nightly_update now checks THIS list and
+    # no-ops when the leg is absent, so registration is the single switch and re-adding the
+    # entry above turns the whole path back on with nothing else to remember.
 
     # ── gated legs (api/paper_gate.py) ──────────────────────────────────────────
     # ORB_H needs no companion: the raw ORB leg above already runs the identical

@@ -191,3 +191,43 @@ def test_module_imports_nothing_that_can_trade():
     for bad in ("webull", "nt_sync", "ib_insync", "alpaca", "tradovate", "requests.post",
                 "urllib.request.urlopen"):
         assert bad not in src.split('"""', 2)[-1], f"unexpected import/use of {bad}"
+
+
+# ── 8. retirement ────────────────────────────────────────────────────────────────
+def test_the_nightly_hook_is_off_while_the_leg_is_not_registered(monkeypatch):
+    """RETIRED 2026-09-09. Registration in api.paper.PAPER_LEGS is the ONLY switch.
+
+    The runner hook in api/runner.py is deliberately left wired after a retirement, so the
+    thing that must be true is that `maybe_nightly_update` does nothing while the leg is off
+    the board. Without this test a retired leg goes on appending Yahoo bars to the frozen
+    daily masters every evening -- invisible, because no row is written anywhere a person
+    looks. The clock is pinned to a weekday evening past the cutoff so a pass cannot come
+    from the time-of-day guard instead.
+    """
+    from api import paper as _paper
+
+    called = []
+    monkeypatch.setattr(EB, "nightly_update", lambda **kw: called.append(kw) or {})
+    monkeypatch.setattr(EB, "_et_now", lambda: pd.Timestamp("2026-09-10 17:00", tz="US/Eastern"))
+    monkeypatch.setattr(EB, "_last_hook_date", None, raising=False)
+
+    # as shipped: the leg is retired, so the hook must not reach nightly_update at all
+    assert EB.maybe_nightly_update(None) is None
+    assert called == [], "a retired leg still ran its nightly append"
+
+    # and re-registering it is all it takes to turn the path back on
+    monkeypatch.setattr(_paper, "PAPER_LEGS",
+                        list(_paper.PAPER_LEGS) + [{"key": EB.LEG_KEY}])
+    monkeypatch.setattr(EB, "_last_hook_date", None, raising=False)
+    EB.maybe_nightly_update(None)
+    assert called, "re-registering the leg did not re-enable the nightly update"
+
+
+def test_retired_leg_keeps_its_provenance_so_old_reports_resolve():
+    """The house convention on every retirement here: the LEG_SOURCE block stays."""
+    from api import paper as _paper
+
+    assert not any(l.get("key") == EB.LEG_KEY for l in _paper.PAPER_LEGS)
+    src = _paper.LEG_SOURCE.get(EB.LEG_KEY)
+    assert src, "provenance was deleted with the leg -- old reports naming it will not resolve"
+    assert "RETIRED" in src.get("caveat", ""), "provenance does not say it was retired"

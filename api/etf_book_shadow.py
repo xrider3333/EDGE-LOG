@@ -720,6 +720,18 @@ def maybe_nightly_update(q):
     """
     global _last_hook_date
     try:
+        # RETIREMENT SWITCH, and there is deliberately only one of it (2026-09-09). This leg
+        # is retired when its key is not in api.paper.PAPER_LEGS, so the runner hook can stay
+        # wired exactly as it was and simply stop doing anything. Two switches -- a flag here
+        # AND the registry there -- is how a leg ends up half-retired: off the board but still
+        # appending bars to the frozen masters every evening. Re-adding the PAPER_LEGS entry
+        # turns this whole path back on with nothing else to remember.
+        try:
+            from . import paper as _p
+            if not any(str(l.get("key")) == LEG_KEY for l in (_p.PAPER_LEGS or [])):
+                return None
+        except Exception:
+            pass          # a paper import that fails is not a reason to append bars either
         now = _et_now()
         if now.weekday() >= 5:
             return None
