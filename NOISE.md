@@ -7,6 +7,47 @@
 
 ---
 
+## ⛔ 2026-09-09 — ROUND 47 RETRACTION (same day, before anything was built on it): the "longs below the mean" filter was a ONE-BAR LOOK-AHEAD (STUDIES row 1652, web v73.690)
+
+**The candidate reported in round 47 below is WITHDRAWN.** It does not survive its own causal test,
+and this section is written before a single line of the follow-up knob was added — which was the only
+thing that saved it, because writing that knob is what forced the question.
+
+**The defect.** The battery tagged each trade by the state at the **fill bar** — the bar whose open
+the trade is filled at — using `t[0]` from the trade log. But the entry decision is made at the
+**previous** bar's close. Comparing `close <= slow mean` at the fill bar therefore reads one bar of
+data the rule could never have had, and that bar is the very bar the trade begins in: a long that is
+about to go badly is disproportionately a long whose fill bar closes below the mean. The tag was
+partly an OUTCOME, not a condition.
+
+**What it costs the finding.** Re-measured at the signal bar, which is what a live rule can see:
+
+| slow mean | fill-bar tag (round 47) | signal-bar tag (causal) |
+|---|---|---|
+| 100 bars | 332 trades, PF 0.540, −$47,765 | 293 trades, PF 0.769, **−$18,564** |
+| 200 bars | 614 trades, PF 0.778, **−$43,999** | 596 trades, PF 1.039, **+$6,738** |
+| 300 bars | 784 trades, PF 0.920, −$19,468 | 773 trades, PF 1.024, **+$5,371** |
+
+**The headline cell flips sign.** The 200-bar version — the one round 47 reported, the one with the
+era-stable ratio and the q of 0.000 — makes money once measured honestly. What remains is a smaller
+effect at 60–150 bars worth $8k–$20k on veto (2–5% of net, against the 11.8% claimed), and it
+**FAILS the tilt guard** on the causal tag: only 21 tagged trades in the recent stretch, which the
+guard reports as under-powered, with one trade carrying 122% of that bucket.
+
+**Verdict: no candidate.** Round 47's eleven negative states stand, its method stands (profit factor
+rather than dollars, direction chosen by the data, shift null, Benjamini-Hochberg), and its
+conclusion is now the same as rounds 43–46: **nothing moves.** The crown stays run #304 unchanged.
+No knob was added to the strategy file and no validate was queued.
+
+**The lesson, banked as a rule.** When tagging trades by a condition, evaluate the condition at the
+**signal bar (fill index − 1)**, never at the fill bar. The fill bar's close post-dates the decision
+and correlates with the trade's own outcome. This is the same failure mode as memory
+`edgelog-scan-then-strategy-file` (a TTM pre-session rule that read the close of the day it traded)
+and it arrived by the same route: a scan believed before the causal version was written. The
+difference this time is that the causal version was written the same hour, so nothing was built on it.
+
+---
+
 ## 🔬 2026-09-09 — ROUND 47: the conditional sweep — eleven states say nothing, and the twelfth is a real filter the crown does not have (STUDIES rows 1648-1651, web v73.689)
 
 **Owner ask:** *"continue optimizing the frontier models and search for more on the NOISE alpha."*
