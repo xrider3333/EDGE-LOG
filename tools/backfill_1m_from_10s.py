@@ -40,11 +40,22 @@ def _master(conn, inst, tf, source):
     return None if df.empty else df.iloc[0].to_dict()
 
 
-def aggregate(df10):
-    """10s OHLCV(+order flow) -> 1m. Bar stamped at the START of its minute, which is
-    what the rest of the library assumes (a 09:30:00 bar covers 09:30:00-09:30:59)."""
+def aggregate(df10, stamp="end"):
+    """10s OHLCV(+order flow) -> 1m. Output bar stamped at the START of its minute, which
+    is what the rest of the library assumes (a 09:30:00 bar covers 09:30:00-09:30:59).
+
+    The INPUT rows are NinjaTrader's 10s export, stamped at the bar END (the row stamped
+    09:30:00 covers 09:29:50-09:30:00) -- the same finding as api/paper.py::_resample, and
+    the same `time - 1` bucketing (stamp="end", default). Until 2026-09-08 this read the
+    stamp as bar start, so every minute it built took the previous 10 s as its open and
+    lost its last 10 s to the next minute; the rows it wrote into the NQ 1m nt_noadj_eth
+    master (06-23..08-13) carry that shift and disagree with the Databento 1m master on
+    11,611 of 12,762 overlapping opens (tools/diag_10s_stamp.py --backfill). Existing rows
+    win on a re-run, so a rebuild of those rows is a deliberate, owner-approved step.
+    """
     d = df10.copy()
-    d["min"] = (d["time"] // 60) * 60
+    t = d["time"] - 1 if stamp == "end" else d["time"]
+    d["min"] = (t // 60) * 60
     agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
     for c in FLOW_SUM:
         if c in d.columns:
@@ -88,6 +99,13 @@ def main():
 
     have = set(d1m["time"].astype("int64"))
     fresh = built[~built["time"].astype("int64").isin(have)]
+    # Rows the master already has that a rebuild from the 10s capture would set
+    # differently (the bar-END shift above, or a changed capture). Reported, never
+    # rewritten here: existing rows win.
+    _j = d1m[["time", "open", "high", "low", "close"]].merge(
+        built[["time", "open", "high", "low", "close"]], on="time", suffixes=("_have", "_new"))
+    stale = int((_j[["open_have", "high_have", "low_have", "close_have"]].values
+                 != _j[["open_new", "high_new", "low_new", "close_new"]].values).any(axis=1).sum())
     merged = pd.concat([d1m, fresh], ignore_index=True).sort_values("time")
     merged = merged.drop_duplicates(subset="time", keep="first").reset_index(drop=True)
 
@@ -99,6 +117,8 @@ def main():
     print(f"1m  master  : {m1m['filename']}  {len(d1m):,} rows  {_span(d1m)}")
     print(f"aggregated  : {len(built):,} 1m bars ({thin:,} assembled from <6 ten-sec bars)")
     print(f"new bars    : {len(fresh):,}")
+    print(f"stale rows  : {stale:,} existing 1m rows differ from a fresh aggregate "
+          f"(kept as-is; existing rows win)")
     if len(fresh):
         print(f"  covering  : {_span(fresh)}")
     print(f"result      : {len(merged):,} rows  {_span(merged)}")

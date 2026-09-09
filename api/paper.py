@@ -1448,12 +1448,29 @@ def _load_fresh_ticks(instrument="NQ"):
     return df, path
 
 
-def _resample(df, tf_minutes):
-    """10s rows -> OHLCV bars of tf_minutes, bar time = bar-start unix. Bars with no
-    rows are simply absent (groupby only emits buckets that have data)."""
+def _resample(df, tf_minutes, stamp="end"):
+    """10s rows -> OHLCV bars of tf_minutes, bar time = bar-START unix (the masters'
+    convention). Bars with no rows are simply absent (groupby only emits buckets that
+    have data).
+
+    `stamp` says what a 10s row's `time` means. NinjaTrader's OHLC export stamps every
+    row at the bar's END (default "end"; the row stamped 09:30:00 covers 09:29:50-09:30:00),
+    so the row is bucketed by `time - 1`: a row stamped exactly on an N-minute boundary
+    belongs to the bar that just closed, not the one opening. Read as bar START the old
+    way, every rebuilt N-minute bar took the previous 10 s as its open and lost its last
+    10 s to the next bar -- against the Databento 5m masters (July-Sept 2026) that mis-set
+    the open or close on 3,307 of 3,659 NQ bars and 1,883 of 3,653 ES bars; read as bar
+    end, 136 and 19 remain (roll days). Measured by tools/diag_10s_stamp.py. The shift
+    lives HERE, not in the callers, so the paper tail, the candle window (api/bars.py) and
+    the LIVE gate bouncer (api/gate_live.py) all rebuild the same bars; pass
+    stamp="start" only for a source whose rows are stamped at the bar open.
+    """
+    if stamp not in ("end", "start"):
+        raise ValueError(f"stamp must be 'end' or 'start', got {stamp!r}")
     sec = int(tf_minutes) * 60
-    key = (df["time"] // sec) * sec
-    g = df.groupby(key, sort=True)
+    t = df["time"] - 1 if stamp == "end" else df["time"]
+    key = (t // sec) * sec
+    g = df.groupby(key.values, sort=True)
     out = pd.DataFrame({
         "time": g["open"].first().index.values,
         "open": g["open"].first().values,
@@ -1606,11 +1623,10 @@ def run_shadow(leg, today):
             # "1m" / "5m" / "30m" -> minutes (the TTM leg is the first 30-minute leg)
             _digits = "".join(ch for ch in str(leg["timeframe"]) if ch.isdigit())
             tf_min = int(_digits) if _digits else 1
-            # NinjaTrader stamps every 10s row at the bar's END (checked 2026-09-08 against the
-            # Databento 5m masters: open/close disagreed on half the rebuilt bars, and agreed on
-            # all but ~20 once the stamp is read as bar end). Shift one second back so each row
-            # lands in the bar it belongs to; bar time stays the bar START, as the masters use.
-            bars = _resample(ticks_df.assign(time=ticks_df["time"] - 1), tf_min)
+            # NinjaTrader stamps every 10s row at the bar's END; _resample reads it that way by
+            # default (stamp="end") since v73.622 -- the shift used to sit here alone, which left
+            # the live gate and the candle window rebuilding shifted bars. Do NOT pre-shift.
+            bars = _resample(ticks_df, tf_min)
             bars, bars_et = _filter_rth(bars, leg.get("session", "rth"))
             last_master_time = arrays["index"][-1] if len(arrays["index"]) else None
             if last_master_time is not None and len(bars):

@@ -37,22 +37,25 @@ def _nearest_at_or_before(bars, ts):
     return best
 
 
-def _fresh_tail(timeframe, session, last_master_ts, log):
+def _fresh_tail(timeframe, session, last_master_ts, log, instrument="NQ"):
     """Bars the master does not have yet, resampled from the live 10s feed.
 
     The masters currently end 2026-07-16 while PAPER trades start 2026-08-11, so a
     paper trade has NO bars in any master. api/paper.py already solves this for the
     shadow engine — reuse its exact 10s loader/resampler/RTH filter so the candles a
-    paper trade draws are built from the same bars the shadow run used. Returns a
-    DataFrame (time/open/high/low/close/volume) of bars strictly AFTER
-    `last_master_ts`, or None when there is no feed or nothing newer.
+    paper trade draws are built from the same bars the shadow run used (the resampler
+    reads the NinjaTrader stamp as bar END; see _resample). `instrument` picks the 10s
+    file — NQ_10s.csv or ES_10s.csv — it used to be NQ unconditionally, which drew NQ
+    candles under an ES trade. Returns a DataFrame (time/open/high/low/close/volume)
+    of bars strictly AFTER `last_master_ts`, or None when there is no feed or nothing
+    newer.
     """
     try:
         from api import paper as _paper
     except Exception as e:                                    # pragma: no cover
         log(f"    -> fresh tail unavailable ({type(e).__name__}: {e})")
         return None
-    ticks, path = _paper._load_fresh_ticks()
+    ticks, path = _paper._load_fresh_ticks(instrument or "NQ")
     if ticks is None:
         log(f"    -> no live 10s feed at {path}")
         return None
@@ -160,7 +163,7 @@ def load_session_bars(root, payload, log=print) -> dict:
         full_last = _master_last_ts(m, log)
         if full_last is None:
             full_last = load_master_arrays(m)["index"][-1]
-        tail = _fresh_tail(timeframe, session, full_last, log)
+        tail = _fresh_tail(timeframe, session, full_last, log, instrument=m.get("instrument"))
         if tail is not None:
             tail_et = pd.to_datetime(tail["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
             keep = ((tail_et >= pd.Timestamp(date_from).tz_localize("US/Eastern")) &

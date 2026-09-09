@@ -34,7 +34,15 @@ WINDOW_FROM, WINDOW_TO = "2022-01-03", "2025-06-25"
 
 
 def _qqq(date_to=WINDOW_TO):
-    row = find_master("QQQ", EB.TIMEFRAME, EB.SESSION, EB.MASTER_SOURCE)
+    # A git worktree carries the code but not the (gitignored) optimizer_history.db, and
+    # sqlite CREATES an empty file on connect -- so find_master raises "no such table:
+    # csv_files" instead of returning None, and the skip below never fired. That failed
+    # this whole file on every worktree push (the pre-push engine gate, 2026-09-09).
+    # No registry means the same thing as no row: this checkout cannot run the test.
+    try:
+        row = find_master("QQQ", EB.TIMEFRAME, EB.SESSION, EB.MASTER_SOURCE)
+    except Exception as e:
+        pytest.skip(f"master registry unreadable in this checkout ({type(e).__name__})")
     if not row:
         pytest.skip("QQQ 1d yahoo_adj master not registered in this checkout")
     return load_master_arrays(row, date_from=WINDOW_FROM, date_to=date_to)

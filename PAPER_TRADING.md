@@ -168,6 +168,9 @@ Forward-testing the crowned strategies on live data with no real money, to answe
 | 2 · TRADINGVIEW | Pine ports of the same strategies on layout **PAPER EdgeLog**, run in TradingView's own engine, exported as "List of trades" and matched trade-for-trade against ours (`tools/reconcile.py --tv`) | Whether the RULES are what we think they are — a second engine that shares no code with ours | **NOISE: LIVE**, reconciled 2026-08-12 (see below) · ENGU-Q: blocked on chart session |
 | 3 · RECONCILE | `tools/reconcile.py --daily` shadow-vs-demo-vs-backtest compare | Which layer diverges | Not built yet — needs demo fills to exist |
 
+> **10s stamp (2026-09-09, v73.622).** The NinjaTrader 10s export stamps each row at the bar END. `_resample` in `api/paper.py` reads it that way by default (`stamp="end"`), and the same function feeds the live gate bouncer and the candle window, so all three rebuild the bars the Databento masters hold (5m open mismatches since July: NQ 3,307→136, ES 1,883→19). The paper tail had the shift alone from v73.605; the pre-shift is gone from the caller. Check any new 10s consumer with `python tools/diag_10s_stamp.py`.
+
+
 **Why layer 2 earns its place.** Layers 0 and 1 both run OUR code, so both reproduce our
 bugs — layer 0 says so in its own row. TradingView re-implements the strategy from the Pine
 source in an engine we did not write, so a rule we got wrong shows up as a trade mismatch.
