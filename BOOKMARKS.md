@@ -360,3 +360,12 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **R/YR is bar-size-inflated.** EV-R x trades-per-year rises mechanically when a shorter bar chops one edge into more trades. Never rank bar sizes on it; rank on net-over-drawdown at a stressed cost.
 - **Overlap before pooling, and read the fourth column.** The test that settles "new edge or same edge" is what a candidate earns on the days the incumbent is FLAT. The #334 champion earns −$93,445 there. Shared-day count and correlation alone would have let it through.
 - **A sum's drawdown can never exceed the sum of its parts'.** That bound caught a real bug (pooled DD $222,772 vs a $31,517 bound) from `pd.concat` returning an unsorted union index. Assert monotonic order before any pooled cumsum.
+
+### B24/B25 RESULT — the NOISE ES branch is CLOSED (round 42, rows 1577-1583, v73.658)
+
+- **Cost ladder** (`tools/r42_es_config_cost_ladder.py`): ES clears **3 of 9** cells — only at $15/RT (better-than-one-tick fills). At $25/RT (one tick + commission) every bar size fails on PF (5m 1.211 · 15m 1.239 · 30m 1.204); at $35/RT it is PF 1.14-1.18 with 4-6 of 8 slices.
+- **NQ clears 9 of 9** at up to $20.66/RT (5m PF 1.380 n/DD 16.6 · 15m 1.454 / 17.6 · 30m 1.461 / 17.2). Per trade: **ES $43.85-$57.49 vs NQ $101-$149** — ES pays under 2x its cost, below the house rule; NQ pays 6-14x.
+- **Validate #344 (NOISE_1_0 full space, ES 5m, crown window): WEAK.** WF 8/8 folds, wfe 1.015, plateau/sample/consistency/luck all pass, **PBO 0.675 = likely overfit selection**; its own champion is a different cell (afternoon block, lookback 32, band exit); lockbox 184 trades / PF 1.134 / ~$7.6k on a ~$18.5k DD.
+- **Verdict: no NOISE leg on ES.** It is an instrument problem, not a configuration problem — the same 15 knobs are cost-robust on NQ and cost-fragile on ES.
+- **What survives:** the cross-instrument evidence (a config picked without ever reading NQ clears on NQ at four bar sizes and double cost) — the band edge belongs to the mechanism, not to NQ history.
+- **Caveat to carry:** the ES validate was queued at 0.30/RT, which this round shows is optimistic; any future ES validate should be queued at 0.50 or worse.
