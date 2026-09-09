@@ -1,0 +1,207 @@
+C:\Users\xride\AppData\Local\EdgeLog-worktrees\orb12tf\augur_strategies\ORB_3_6.py:221: RuntimeWarning: Mean of empty slice
+  _pace_ref[_si, :] = np.nanmean(_pref[_si - 20:_si, :], axis=0)
+ROUND 12 — ORB crown across bar sizes / opening-range length (or_bars ladder)
+Master: NQ 5m RTH, 320849 bars, 4175 sessions. COST=0.533 pts/RT MULT=20
+CROWN params (fixed except or_bars): {'or_bars': 2, 'trade_mode': 'First-candle dir', 'close_confirm': True, 'partial_exit_R': 0.0, 'trail_bars': 0, 'flat_eod': True, 'skip_holidays': True, 'breakout_buf': 0.25, 'stop_frac': 2.5, 'target_R': 5.0, 'be_after_R': 0.5, 'atr_filter': 0.75, 'vpace_filter': 0.8}
+  or_bars=2   (10min (CROWN)): 2299 trades through LB_END
+  or_bars=3   (15min): 2205 trades through LB_END
+  or_bars=4   (20min): 2129 trades through LB_END
+  or_bars=6   (30min): 2001 trades through LB_END
+  or_bars=9   (45min): 1746 trades through LB_END
+  or_bars=12  (60min): 1605 trades through LB_END
+
+====================================================================================================================================
+STANDARD TABLE — crown row first, then the ladder
+====================================================================================================================================
+
+FULL             (from start to 2026-08-13)
+config                n       net$        DD$     PF     MAR    EV R    R/YR  tr/yr
+----------------------------------------------------------------------------------------------------
+10min (CROWN)      2299    397,150     28,857   1.37    0.85   0.204    28.9    142
+15min              2205    353,322     47,068   1.33    0.46   0.172    23.4    136
+20min              2129    191,560     42,767   1.17    0.28   0.090    11.8    132
+30min              2001    110,209     39,535   1.11    0.17   0.054     6.7    124
+45min              1746    159,685     40,799   1.20    0.24   0.097    10.5    108
+60min              1605    131,458     46,237   1.18    0.18   0.088     8.7     99
+
+IS               (from start to 2025-08-13)
+config                n       net$        DD$     PF     MAR    EV R    R/YR  tr/yr
+----------------------------------------------------------------------------------------------------
+10min (CROWN)      2131    310,019     28,857   1.34    0.71   0.189    26.5    140
+15min              2048    373,473     28,193   1.43    0.87   0.225    30.4    135
+20min              1983    187,884     42,767   1.20    0.29   0.105    13.8    131
+30min              1856    125,098     37,655   1.15    0.22   0.074     9.0    122
+45min              1621    140,638     40,799   1.21    0.23   0.100    10.7    107
+60min              1495    132,418     42,158   1.22    0.21   0.105    10.3     98
+
+OOS              (from 2025-08-13 to 2026-08-13)
+config                n       net$        DD$     PF     MAR    EV R    R/YR  tr/yr
+----------------------------------------------------------------------------------------------------
+10min (CROWN)       168     87,132     22,925   1.53    3.82   0.268    45.4    169
+15min               157    -20,151     47,068   0.90   -0.43  -0.051    -8.0    158
+20min               146      3,676     26,529   1.02    0.14   0.010     1.5    147
+30min               145    -14,888     39,535   0.91   -0.38  -0.048    -7.0    146
+45min               125     19,048     32,921   1.15    0.58   0.082    10.3    126
+60min               110       -960     46,237   0.99   -0.02  -0.004    -0.5    111
+
+5y               (from 2021-08-13 to 2026-08-13)
+config                n       net$        DD$     PF     MAR    EV R    R/YR  tr/yr
+----------------------------------------------------------------------------------------------------
+10min (CROWN)       774    319,297     22,925   1.47    2.79   0.249    38.6    155
+15min               761    289,723     47,068   1.42    1.24   0.206    31.4    153
+20min               722    144,453     42,767   1.20    0.68   0.098    14.2    145
+30min               683     89,314     39,535   1.14    0.45   0.067     9.1    137
+45min               612    162,406     32,921   1.34    0.99   0.151    18.4    123
+60min               567    145,573     46,237   1.35    0.63   0.155    17.6    114
+
+====================================================================================================================================
+OVERLAP + CORRELATION  (day both take >=1 trade / correlation of daily $ series)  FULL window
+====================================================================================================================================
+config           10min (CROWN)         15min         20min         30min         45min         60min
+10min (CROWN)                -  85.9%/ 0.72  78.5%/ 0.67  69.0%/ 0.56  57.0%/ 0.51  51.1%/ 0.45
+15min             89.5%/ 0.72             -  86.8%/ 0.80  75.6%/ 0.63  61.7%/ 0.52  55.1%/ 0.50
+20min             84.8%/ 0.67  89.9%/ 0.80             -  82.6%/ 0.71  66.1%/ 0.59  58.0%/ 0.56
+30min             79.3%/ 0.56  83.4%/ 0.63  87.9%/ 0.71             -  75.0%/ 0.68  65.1%/ 0.66
+45min             75.1%/ 0.51  77.9%/ 0.52  80.6%/ 0.59  85.9%/ 0.68             -  80.5%/ 0.77
+60min             73.2%/ 0.45  75.6%/ 0.50  76.9%/ 0.56  81.1%/ 0.66  87.6%/ 0.77             -
+(cell = %% of config-A's trade days that OB also traded / correlation of daily $)
+
+====================================================================================================================================
+POOLING TEST  crown (10min) + each variant, ONE UNIT EACH, scored PER UNIT (net/DD /2)
+====================================================================================================================================
+crown alone (per unit): net=$397,150  DD=$28,857  MAR=0.851
+
+pooled with       net$/unit   DD$/unit     MAR MAR>crown DD<crown-5%    VERDICT
+------------------------------------------------------------------------------------------
+15min               375,236     25,101   0.924     True     True       PASS
+20min               294,355     25,320   0.718    False     True FAIL (leverage/no real cut)
+30min               253,680     20,607   0.761    False     True FAIL (leverage/no real cut)
+45min               278,418     20,724   0.830    False     True FAIL (leverage/no real cut)
+60min               264,304     19,797   0.825    False     True FAIL (leverage/no real cut)
+
+====================================================================================================================================
+YEAR-BY-YEAR  per-unit pooled-vs-crown, each pooled pair, 16 calendar years
+====================================================================================================================================
+
+15min pooled with crown: 6/16 years pass BOTH tests
+   2010  crown MAR=-0.54 DD=$3,861  pooled MAR=-0.67 DD=$3,766  fail
+   2011  crown MAR=-0.55 DD=$5,480  pooled MAR=-0.32 DD=$5,314  fail
+   2012  crown MAR=6.97 DD=$1,326  pooled MAR=5.45 DD=$1,655  fail
+   2013  crown MAR=0.27 DD=$4,431  pooled MAR=0.03 DD=$4,406  fail
+   2014  crown MAR=1.50 DD=$4,853  pooled MAR=1.35 DD=$4,027  fail
+   2015  crown MAR=-0.23 DD=$12,642  pooled MAR=-0.42 DD=$14,095  fail
+   2016  crown MAR=-0.47 DD=$12,223  pooled MAR=-0.33 DD=$6,278  PASS
+   2017  crown MAR=-0.12 DD=$6,200  pooled MAR=-0.45 DD=$6,546  fail
+   2018  crown MAR=6.55 DD=$5,540  pooled MAR=7.89 DD=$5,557  fail
+   2019  crown MAR=2.07 DD=$5,051  pooled MAR=0.55 DD=$6,273  fail
+   2020  crown MAR=0.06 DD=$25,399  pooled MAR=0.31 DD=$18,637  PASS
+   2021  crown MAR=3.34 DD=$13,985  pooled MAR=1.87 DD=$15,295  fail
+   2022  crown MAR=4.72 DD=$19,500  pooled MAR=5.61 DD=$16,639  PASS
+   2023  crown MAR=1.31 DD=$18,681  pooled MAR=2.27 DD=$16,076  PASS
+   2024  crown MAR=1.52 DD=$22,801  pooled MAR=3.31 DD=$15,080  PASS
+   2025  crown MAR=4.62 DD=$21,023  pooled MAR=8.73 DD=$10,981  PASS
+
+20min pooled with crown: 3/16 years pass BOTH tests
+   2010  crown MAR=-0.54 DD=$3,861  pooled MAR=-0.83 DD=$4,131  fail
+   2011  crown MAR=-0.55 DD=$5,480  pooled MAR=-0.46 DD=$5,556  fail
+   2012  crown MAR=6.97 DD=$1,326  pooled MAR=3.58 DD=$1,729  fail
+   2013  crown MAR=0.27 DD=$4,431  pooled MAR=0.38 DD=$4,606  fail
+   2014  crown MAR=1.50 DD=$4,853  pooled MAR=0.93 DD=$4,991  fail
+   2015  crown MAR=-0.23 DD=$12,642  pooled MAR=-0.46 DD=$11,177  fail
+   2016  crown MAR=-0.47 DD=$12,223  pooled MAR=-0.69 DD=$8,599  fail
+   2017  crown MAR=-0.12 DD=$6,200  pooled MAR=-0.26 DD=$6,840  fail
+   2018  crown MAR=6.55 DD=$5,540  pooled MAR=11.53 DD=$3,609  PASS
+   2019  crown MAR=2.07 DD=$5,051  pooled MAR=2.43 DD=$3,851  PASS
+   2020  crown MAR=0.06 DD=$25,399  pooled MAR=-0.38 DD=$19,968  fail
+   2021  crown MAR=3.34 DD=$13,985  pooled MAR=2.54 DD=$11,768  fail
+   2022  crown MAR=4.72 DD=$19,500  pooled MAR=4.67 DD=$18,580  fail
+   2023  crown MAR=1.31 DD=$18,681  pooled MAR=0.75 DD=$22,126  fail
+   2024  crown MAR=1.52 DD=$22,801  pooled MAR=0.70 DD=$22,748  fail
+   2025  crown MAR=4.62 DD=$21,023  pooled MAR=5.02 DD=$14,504  PASS
+
+30min pooled with crown: 5/16 years pass BOTH tests
+   2010  crown MAR=-0.54 DD=$3,861  pooled MAR=-0.65 DD=$3,311  fail
+   2011  crown MAR=-0.55 DD=$5,480  pooled MAR=-0.22 DD=$3,552  PASS
+   2012  crown MAR=6.97 DD=$1,326  pooled MAR=3.98 DD=$1,405  fail
+   2013  crown MAR=0.27 DD=$4,431  pooled MAR=-0.11 DD=$5,511  fail
+   2014  crown MAR=1.50 DD=$4,853  pooled MAR=1.17 DD=$4,338  fail
+   2015  crown MAR=-0.23 DD=$12,642  pooled MAR=-0.31 DD=$11,635  fail
+   2016  crown MAR=-0.47 DD=$12,223  pooled MAR=-0.63 DD=$9,188  fail
+   2017  crown MAR=-0.12 DD=$6,200  pooled MAR=0.03 DD=$4,822  PASS
+   2018  crown MAR=6.55 DD=$5,540  pooled MAR=7.43 DD=$4,244  PASS
+   2019  crown MAR=2.07 DD=$5,051  pooled MAR=2.10 DD=$3,810  PASS
+   2020  crown MAR=0.06 DD=$25,399  pooled MAR=-0.02 DD=$14,937  fail
+   2021  crown MAR=3.34 DD=$13,985  pooled MAR=1.72 DD=$10,478  fail
+   2022  crown MAR=4.72 DD=$19,500  pooled MAR=4.49 DD=$17,504  fail
+   2023  crown MAR=1.31 DD=$18,681  pooled MAR=1.52 DD=$14,376  PASS
+   2024  crown MAR=1.52 DD=$22,801  pooled MAR=0.94 DD=$17,944  fail
+   2025  crown MAR=4.62 DD=$21,023  pooled MAR=3.04 DD=$17,100  fail
+
+45min pooled with crown: 6/16 years pass BOTH tests
+   2010  crown MAR=-0.54 DD=$3,861  pooled MAR=-1.49 DD=$3,126  fail
+   2011  crown MAR=-0.55 DD=$5,480  pooled MAR=-0.25 DD=$3,062  PASS
+   2012  crown MAR=6.97 DD=$1,326  pooled MAR=6.06 DD=$1,188  fail
+   2013  crown MAR=0.27 DD=$4,431  pooled MAR=-0.03 DD=$4,275  fail
+   2014  crown MAR=1.50 DD=$4,853  pooled MAR=2.71 DD=$2,771  PASS
+   2015  crown MAR=-0.23 DD=$12,642  pooled MAR=-0.29 DD=$10,164  fail
+   2016  crown MAR=-0.47 DD=$12,223  pooled MAR=-0.76 DD=$10,266  fail
+   2017  crown MAR=-0.12 DD=$6,200  pooled MAR=-0.07 DD=$3,375  PASS
+   2018  crown MAR=6.55 DD=$5,540  pooled MAR=6.14 DD=$4,017  fail
+   2019  crown MAR=2.07 DD=$5,051  pooled MAR=0.40 DD=$4,985  fail
+   2020  crown MAR=0.06 DD=$25,399  pooled MAR=-0.06 DD=$12,472  fail
+   2021  crown MAR=3.34 DD=$13,985  pooled MAR=1.50 DD=$8,684  fail
+   2022  crown MAR=4.72 DD=$19,500  pooled MAR=4.78 DD=$16,446  PASS
+   2023  crown MAR=1.31 DD=$18,681  pooled MAR=3.51 DD=$9,548  PASS
+   2024  crown MAR=1.52 DD=$22,801  pooled MAR=1.32 DD=$18,440  fail
+   2025  crown MAR=4.62 DD=$21,023  pooled MAR=5.35 DD=$13,732  PASS
+
+60min pooled with crown: 6/16 years pass BOTH tests
+   2010  crown MAR=-0.54 DD=$3,861  pooled MAR=-0.53 DD=$2,525  PASS
+   2011  crown MAR=-0.55 DD=$5,480  pooled MAR=-0.38 DD=$3,492  PASS
+   2012  crown MAR=6.97 DD=$1,326  pooled MAR=3.45 DD=$1,256  fail
+   2013  crown MAR=0.27 DD=$4,431  pooled MAR=0.10 DD=$3,723  fail
+   2014  crown MAR=1.50 DD=$4,853  pooled MAR=1.51 DD=$2,968  PASS
+   2015  crown MAR=-0.23 DD=$12,642  pooled MAR=-0.43 DD=$10,754  fail
+   2016  crown MAR=-0.47 DD=$12,223  pooled MAR=-0.78 DD=$8,130  fail
+   2017  crown MAR=-0.12 DD=$6,200  pooled MAR=0.81 DD=$2,657  PASS
+   2018  crown MAR=6.55 DD=$5,540  pooled MAR=4.01 DD=$5,770  fail
+   2019  crown MAR=2.07 DD=$5,051  pooled MAR=-0.10 DD=$6,624  fail
+   2020  crown MAR=0.06 DD=$25,399  pooled MAR=-0.13 DD=$11,999  fail
+   2021  crown MAR=3.34 DD=$13,985  pooled MAR=2.60 DD=$8,973  fail
+   2022  crown MAR=4.72 DD=$19,500  pooled MAR=4.43 DD=$16,616  fail
+   2023  crown MAR=1.31 DD=$18,681  pooled MAR=2.19 DD=$11,997  PASS
+   2024  crown MAR=1.52 DD=$22,801  pooled MAR=1.49 DD=$19,122  fail
+   2025  crown MAR=4.62 DD=$21,023  pooled MAR=4.78 DD=$12,217  PASS
+
+====================================================================================================================================
+READ
+====================================================================================================================================
+At least one variant PASSED the per-unit pooling test on both MAR and DD.
+
+====================================================================================================================================
+HONEST 5-BULLET READ (owner-facing)
+====================================================================================================================================
+- LADDER: money and MAR fall almost monotonically as the opening range widens past the crown's
+  10-minute (or_bars=2) window. FULL net$ 397,150 -> 353,322 (15min) -> 191,560 (20min) -> 110,209
+  (30min) -> 159,685 (45min) -> 131,458 (60min); FULL MAR 0.85 -> 0.46 -> 0.28 -> 0.17 -> 0.24 -> 0.18.
+  Nothing on the ladder beats the crown outright on any full-window metric. Widening the range is not
+  a free upgrade; it is a worse strategy that happens to still make money.
+- OVERLAP/CORRELATION: every neighbour trades 70-90% of the crown's trade days and its daily-$ series
+  correlates 0.45-0.72 with the crown's (closest neighbour, 15min, is the worst offender: 85.9%/89.5%
+  day overlap, corr 0.72). These are not independent bets - they are the same breakout wearing wider
+  pants, and the correlation falls off only gradually as the range widens, with no natural break point.
+- POOLING: only the 15min pair clears the mechanical per-unit bar (MAR 0.924 > crown's 0.851, DD
+  $25,101 vs crown's $28,857, a 13% cut). Every other variant (20/30/45/60min) pooled with the crown
+  raises DD-adjusted MAR less than the crown alone and is a straightforward leverage artefact - net
+  goes up in some cases, but per-unit MAR and DD both say no.
+- YEAR-BY-YEAR ON THE ONE "PASS" (15min): only 6 of 16 years actually clear both bars, and all six are
+  2016 or 2020-2025 - there is no pre-2016 year in the winning set. The pair's OOS year outright LOSES
+  money on its own (15min solo net -$20,151 vs crown's +$87,132 OOS, PF 0.90 vs 1.53), so the aggregate
+  "pass" is riding IS-era and very-recent years, exactly the one-lucky-stretch pattern this week's other
+  retractions warned about. This is not a robust, all-weather diversification benefit.
+- VERDICT: the ORB crown does NOT diversify across opening-range length. The bar-size axis is the same
+  bet wearing a hat, not a different bet: high day-overlap, real correlation, no variant that beats the
+  crown outright, and the one pooled pair that clears the per-unit bar on paper does so from 6 recent
+  years and fails OOS on its own. Reject the whole axis. No resampling cross-check was built (the
+  harness has no clean 10/15/30-minute resample utility and one was out of scope for this pass) - the
+  or_bars ladder on 5-minute bars, run above, is the full required deliverable.
