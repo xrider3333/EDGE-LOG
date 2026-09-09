@@ -313,6 +313,6 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 5. **Owner call:** the 1.5x compression tilt legs (C15/C15G) — judge on forward paper data, first read after a few weeks.
 6. NinjaTrader still runs the #226 ENGU-Q port; the live leg has not been moved to the #335 crown (NT restart is owner-only).
 7. NOISE crown on ES is a near miss (PF 1.24, 5/8): one fenced neighbourhood look on the ES 5m tape, cheap, not yet done.
-8. Scalpers round 38 (sweep-reclaim, chop-fade, ignition, box-break, each with fixed AND ride exits) is running now; results go on the board with the round-37 scalp study.
+8. ~~Scalpers round 38~~ DONE: 0 of 20 (rows 1375-1381, v73.603) - sweep-reclaim, chop-fade, ignition, box-break all lose at house cost with fixed AND ride exits; the 1m tape is cost-dominated; week total 0 of 59 short-hold cells across two sessions. Do not re-test 1m fixed-target scalps.
 9. Data: the NQ 1-minute hole 2026-07-01..08-05 is unrecoverable (5m is clean); any 1m validate whose lockbox spans it needs the caveat on the card.
 10. Alpaca key / Databento buy remains the only route to a genuinely new data axis (1m stock bars for an intraday QQQ family, or other futures for instrument branches).
