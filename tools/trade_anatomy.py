@@ -70,23 +70,63 @@ LIFT_N_PERM = 1000
 LIFT_BLOCK_DAYS = 21
 SEED = 42
 
-# FOMC decision-day calendar for the cal_is_fomc_* features -- copied into the worktree
-# (tools/data/fomc_dates.csv) from C:\EdgeLog\_anatomy_cache\fomc_dates.csv, one
-# `date,note` row per decision day. Missing file -> those three columns stay NaN
-# (loud once, not fatal -- a calendar gap must never crash a leg replay).
+# FOMC decision-day calendar for the cal_is_fomc_* features. Fed-sourced .txt is
+# canonical; see _load_fomc_dates below for provenance and the fallback rule.
+FOMC_TXT_DEFAULT = os.path.join(ROOT, "tools", "data", "fomc_dates.txt")
 FOMC_CSV_DEFAULT = os.path.join(ROOT, "tools", "data", "fomc_dates.csv")
 _FOMC_WARNED = set()
 
 
 def _load_fomc_dates(path=None):
-    fp = path or FOMC_CSV_DEFAULT
-    if not os.path.exists(fp):
-        if fp not in _FOMC_WARNED:
-            print(f"[cal_] FOMC calendar not found at {fp} -- cal_is_fomc_* will be all-NaN.")
-            _FOMC_WARNED.add(fp)
-        return set()
-    d = pd.read_csv(fp)
-    return set(pd.to_datetime(d["date"]).dt.date)
+    """FOMC decision days as a set of datetime.date.
+
+    CANONICAL SOURCE is tools/data/fomc_dates.txt -- collected page by page from
+    federalreserve.gov (fomchistorical<year>.htm for 2010-2020, fomccalendars.htm for
+    2021-2026) and carrying its own exclusion list: SCHEDULED decision days only, no
+    conference calls, emergency meetings or notation votes. tools/event_size_scan.py
+    reads the same file, so the two tools agree by construction.
+
+    tools/data/fomc_dates.csv is a FALLBACK ONLY. It was typed from memory on
+    2026-09-08 and agrees with the Fed file on 128 of its 129 scheduled days over
+    2010-2025, but a hand-typed calendar must never silently outrank a sourced one.
+    Neither file present -> the three cal_is_fomc_* columns stay NaN (loud once, never
+    fatal: a calendar gap must not crash a leg replay).
+    """
+    cands = [path] if path else [FOMC_TXT_DEFAULT, FOMC_CSV_DEFAULT]
+    for fp in cands:
+        if not fp or not os.path.exists(fp):
+            continue
+        try:
+            if fp.lower().endswith(".txt"):
+                out = set()
+                with open(fp, encoding="utf-8") as fh:
+                    for line in fh:
+                        line = line.split("#", 1)[0].strip()
+                        d10 = line[:10]
+                        if len(d10) == 10 and d10[4] == "-" and d10[7] == "-" and d10.replace("-", "").isdigit():
+                            out.add(pd.Timestamp(line[:10]).date())
+                if not out:
+                    continue
+                if fp not in _FOMC_WARNED:
+                    print("[cal_] FOMC calendar: %d scheduled decision days from %s "
+                          "(federalreserve.gov)." % (len(out), os.path.basename(fp)))
+                    _FOMC_WARNED.add(fp)
+                return out
+            d = pd.read_csv(fp)
+            if fp not in _FOMC_WARNED:
+                print("[cal_] FOMC calendar: FALLBACK to hand-typed %s -- the Fed-sourced "
+                      "fomc_dates.txt was not found." % os.path.basename(fp))
+                _FOMC_WARNED.add(fp)
+            return set(pd.to_datetime(d["date"]).dt.date)
+        except Exception as e:
+            if fp not in _FOMC_WARNED:
+                print("[cal_] FOMC calendar unreadable at %s: %s: %s"
+                      % (fp, type(e).__name__, e))
+                _FOMC_WARNED.add(fp)
+    if "MISSING" not in _FOMC_WARNED:
+        print("[cal_] FOMC calendar not found -- cal_is_fomc_* will be all-NaN.")
+        _FOMC_WARNED.add("MISSING")
+    return set()
 
 
 def _load_feature_board():
