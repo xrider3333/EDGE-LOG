@@ -16,12 +16,27 @@ from . import trial_cache as _TC
 
 
 def list_masters():
-    """All registered master CSVs as a list of dicts."""
+    """All registered master CSVs as a list of dicts.
+
+    Returns [] when this checkout has no master registry at all. optimizer_history.db
+    is an untracked local file, so every git WORKTREE starts without one and
+    sqlite3.connect() then silently CREATES an empty database whose first query raises
+    "no such table: csv_files". Callers already treat an empty registry as "not
+    registered in this checkout" (find_master -> None -> the affected tests skip
+    themselves, which is exactly what tests/test_etf_book_shadow.py's own skip guard
+    was written to do). Letting the bare DatabaseError escape turned that intended
+    skip into 6 hard FAILURES in every worktree, which fails the pre-push engine gate
+    and blocks `tools/wt.py ship` for every session. Any other database error raises.
+    """
     conn = sqlite3.connect(DB_PATH)
     try:
         df = pd.read_sql(
             "SELECT * FROM csv_files WHERE is_master=1 "
             "ORDER BY instrument,timeframe,source", conn)
+    except pd.errors.DatabaseError as exc:
+        if "no such table" in str(exc).lower():
+            return []
+        raise
     finally:
         conn.close()
     return df.to_dict("records")

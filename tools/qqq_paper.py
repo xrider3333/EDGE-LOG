@@ -8,9 +8,12 @@ THE THREE LEGS (params imported directly from api/paper.py — the same source
 of truth the NQ shadow-paper runner uses — so this tool can never silently
 drift from the crowned NQ config):
 
-  ORB_234    augur_strategies/ORB_3_6_C2.py (base ORB_3_6.py), 5m RTH.
-             params = api.paper.ORB_234. Gate: api.paper.ORB_GATE (hybrid
-             rf@0.45), model C:\\EdgeLog\\gate_models\\ORB_H.pkl.
+  ORB_234    dict KEY unchanged (index.html's QQQ-paper panel hardcodes it),
+             but VALUE updated 2026-09-08 to the current ORB crown: run #314,
+             augur_strategies/ORB_3_6_R6.py, params = api.paper.ORB_314, 5m
+             RTH. UNGATED — ORB_H.pkl was calibrated on #234's exit and
+             api/paper.py's own ORB_R6 leg runs ungated for the same reason;
+             re-basing the gate on #314 is a separate decision, not made here.
 
   ENGUQ_149  augur_strategies/ENGUQ_1M_1_0.py, NQ_DEPLOY_PARAMS_149 — the RTH
              variant (api.paper.ENGUQ_149). QQQ trades RTH, so the ETH clock-
@@ -23,6 +26,27 @@ drift from the crowned NQ config):
              risk-reducer, WITH a flagged domain-shift caveat (see
              GATE FEASIBILITY below).
 
+             CROWN UPDATE 2026-09-08, DELIBERATELY NOT FOLLOWED HERE: the
+             ENGU-Q family crown moved to run #335 (ENGUQ_1M_ETH_R2_1_0.py,
+             api.paper.ENGUQ_335) — an ETH (24-hour NQ futures) config. This
+             tool's whole QQQ tape is RTH-only by design (yfinance
+             prepost=False, same as every other leg here), and #335's file
+             counts its regime_len blocks as `regime_len * 390` bars — 390
+             IS one RTH session's bar count, so on the ETH tape it was fit on
+             that block is ~3.6 CALENDAR days, but spliced onto an RTH-only
+             tape the identical knob reads as 10 SESSIONS: a real semantic
+             drift, not a rounding error. #335's file also hardcodes an
+             absolute $0.50 minimum-risk floor and a $0.25 ATR floor (same
+             family of caveat already flagged below for #149's stop-risk
+             floor) calibrated for NQ's price level, not QQQ's. Porting #335
+             here would silently run a config outside the tape it was
+             validated on, so this leg deliberately keeps running the older
+             RTH #149 variant instead. api/cloud_signal.py (the forward-
+             looking cloud signal engine, a separate module) DOES run #335 as
+             asked, with this same limitation flagged loudly in its own
+             docstring and in the report that shipped it — read that before
+             trusting its ENGUQ_335 leg.
+
   NOISE_243  augur_strategies/NOISE_1_0.py, api.paper.NOISE_243_SBS_V90
              params. Registered in api/paper.py's own LEGS list as
              timeframe="5m", session="rth" (NOT 1m — the strategy's bar
@@ -30,7 +54,8 @@ drift from the crowned NQ config):
              5m RTH). RAW / UNGATED, matching api/paper.py's own leg
              registration (NOISE_SBS_V90 carries no "gate" key there;
              NOISE_SBS_V90_H is a separate, explicitly-not-crowned forward
-             test leg, not this one).
+             test leg, not this one). This IS the current NOISE crown
+             (#243) already — nothing to update.
 
 KNOB SCALING NQ -> QQQ (read every knob in all three strategy files before
 writing this): a knob transfers UNCHANGED when it is expressed as a fraction/
@@ -41,7 +66,9 @@ a flat absolute price distance in NQ points. Classification, argued from the
 actual run_backtest() source (not from a knob's default value, which can look
 point-like without being one):
 
-  ORB_234 (ORB_3_6.py):
+  ORB_234 (now ORB_3_6_R6.py, the #314 crown -- same knob set/semantics as the
+  ORB_3_6.py family below, only be_after_R/target_R/stop_frac/atr_filter/vpace_filter
+  VALUES differ; nothing here needed a rescale review):
     or_bars, trail_bars                  bar counts                    unchanged
     trade_mode, close_confirm,
       flat_eod, skip_holidays            categorical / bool            unchanged
@@ -168,7 +195,7 @@ if ROOT not in sys.path:
 
 from augur_engine.engine import run_backtest as engine_run_backtest         # noqa: E402
 from augur_engine.ml_gate import entry_features_causal                     # noqa: E402
-from api.paper import (ORB_234, ORB_GATE, ENGUQ_149, ENGUQ_ER_GATE,        # noqa: E402
+from api.paper import (ORB_314, ENGUQ_149, ENGUQ_ER_GATE,                  # noqa: E402
                        NOISE_243_SBS_V90)
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -205,11 +232,19 @@ RTH_OPEN = _dt.time(9, 30)
 RTH_CLOSE = _dt.time(16, 0)
 
 LEGS = {
+    # Dict KEY stays "ORB_234" even though the params/strategy below moved on
+    # 2026-09-08 -- index.html's QQQ-paper panel (LEGS_QP) hardcodes this exact string
+    # as its lookup key for the "ORB" column/color, and this task is not touching
+    # index.html. The VALUE is the current crown (see CROWN UPDATE note below); the
+    # key is just a stable UI handle at this point, not a claim about which run it is.
     "ORB_234": {
-        "strategy": "ORB_3_6_C2.py",
+        "strategy": "ORB_3_6_R6.py",
         "timeframe": "5m",
-        "params": dict(ORB_234),
-        "gate": dict(ORB_GATE, pkl="ORB_H.pkl"),
+        "params": dict(ORB_314),
+        # No gate: ORB_H.pkl was calibrated on #234's exit, and api/paper.py's own
+        # ORB_R6 leg entry runs ungated for the same reason ("ORB_H's gate was
+        # calibrated on #234 and re-basing it is a separate decision" -- api/paper.py).
+        "gate": None,
         "gap_skip": False,
     },
     "ENGUQ_149": {
