@@ -17,9 +17,13 @@
 >   contracts on the 188 of 359 entered while the hourly compression ratio is at or under 0.85) — this
 >   is the leg the book carries; and **run #353**, the STRUCTURAL STOP, which passed every gate and
 >   cleared every clause at a LOWER drawdown than the leg it challenges.
-> - **THE BOOK LEG IS `TTM_299_SS` since 2026-09-09** (owner: *"swap it"*), at weight 3 — the
->   structural stop, after leg validate #353, the stress read, and BOOK run #361 all cleared.
->   `TTM_299_T` stays beside it as the exact matched control, as `TTM_299` does for that.
+> - **THE BOOK LEG IS `TTM_299_SSOF2` since 2026-09-09**, at weight 3 — the combined leg: structural
+>   stop, deep-squeeze tilt, **plus 1.5 contracts on the session open-bar entry (run #368) and the
+>   momentum-fade exit waiting for a second fading bar (run #364)**, validated together as run #369
+>   (overfit probability 0.099, the lowest this family has recorded) and cleared in the book by
+>   **BOOK #371**: MAR ×1.0798 on a ×1.05 bar, lockbox +7.5%, **lockbox drawdown identical**, 8/8
+>   slices. Three swaps in one day, each on a complete evidence chain.
+> - `TTM_299_SS`, `TTM_299_T` and `TTM_299` all keep running beside it as matched controls.
 
 ---
 
@@ -74,6 +78,10 @@ paper legs (see `KEEL.md` / memory `edgelog-keel-overlay`).
 | #342 | BOOK, tilt + ES 15m cell | — | $1,241,601 · DD $34,564 | $209,287 | Cleared all three clauses — but see #343 |
 | #343 | `TTMSQZ_3_0_ES15N.py` | **WEAK** | 879 · $52,163 · PF 1.39 | $5,472 · PF 1.36 | Luck check fails; crowned a different cell than #342 ran, so **#342 does not transfer** |
 | #361 | BOOK, structural-stop leg | **clears the canonical bar** | $1,267,621 · DD $34,329 · MAR 3.034 | $229,124 · LB DD $22,226 | vs #341: MAR x1.0795, lockbox +15%, **lockbox drawdown 18% LOWER**. 8/8 slices |
+| #364 | `TTMSQZ_3_0_ES30SSF2.py` | **PASS + bar cleared** | 354 · $101,795 · PF 2.80 · DD $4,277 | $17,452 · PF 7.82 | Leave on the SECOND fading bar. Better on every base measured; whole-run PF is the one number it costs |
+| #368 | `TTMSQZ_3_0_ES30SSO.py` | **PASS + bar cleared** | 357 · $136,043 · PF 3.28 · MAR 1.589 | $22,321 · PF 8.52 · DD $2,003 | 1.5x on the session open-bar entry — the 87 trades averaging $805 against $115 |
+| #369 | `TTMSQZ_3_0_ES30SSOF2.py` | **PASS, PBO 0.099** | 354 · $135,884 · PF 3.12 · MAR **1.826** | $22,739 · PF 9.89 · DD $1,978 | Both changes at once; bar set against the better parent. THE BOOK LEG |
+| #371 | BOOK, combined leg | **clears the canonical bar** | $1,372,225 · DD $34,416 · MAR 3.276 | $246,409 · LB DD $22,226 | vs #361: MAR ×1.0798, lockbox +7.5%, **lockbox drawdown identical**. 8/8 slices |
 | #352 | `TTMSQZ_3_0_ES30SS.py` | **PASS, bar missed** | 665 · $109,651 · PF 2.00 · DD $7,143 | $22,404 · PF 2.94 · 40 trades | Search walked to gate length 16; drawdown 57% over the cap for a dead-heat MAR |
 | #353 | `TTMSQZ_3_0_ES30SS20.py` | **PASS + every clause cleared** | 357 · $101,017 · PF 2.91 · DD $4,338 · MAR 1.450 | $16,977 · PF 6.72 · DD $2,003 | The structural stop with the verification length pinned at 20. Lower drawdown than the leg it challenges, in the whole run and the lockbox |
 

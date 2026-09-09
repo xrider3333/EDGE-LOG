@@ -1530,18 +1530,19 @@ PAPER_LEGS = [
      "timeframe": "30m", "session": "rth", "params": TTM_299_T,
      "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
      "source": LEG_SOURCE["TTM_299_T"]},
-    # ADDED 2026-09-09: both later validated changes in one leg (runs 368 + 364, combined as run 369),
-    # beside TTM_299_SS as its exact matched control. FORWARD EVIDENCE ONLY until its BOOK run reports.
+    # THE BOOK LEG since 2026-09-09, at weight 3, after BOOK run #371 cleared every clause of the canonical
+    # bar. Both later validated changes in one leg (runs 368 + 364, combined as run 369); TTM_299_SS stays
+    # beside it as the exact matched control.
     {"key": "TTM_299_SSOF2", "strategy": "TTMSQZ_3_0_ES30SSOF2.py", "instrument": "ES",
      "timeframe": "30m", "session": "rth", "params": TTM_299_SSOF2,
-     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
      "source": LEG_SOURCE["TTM_299_SSOF2"]},
-    # THE BOOK LEG since 2026-09-09 (owner: "swap it"), at weight 3. The validated structural stop:
+    # The validated structural stop - the book leg for a few hours on 2026-09-09, now the control:
     # same trades and same tilt as TTM_299_T, which stays beside it as the exact matched control -
     # only the protective stop differs. Leg validate #353, stress read, and BOOK run #361 all clear.
     {"key": "TTM_299_SS", "strategy": "TTMSQZ_3_0_ES30SS20.py", "instrument": "ES",
      "timeframe": "30m", "session": "rth", "params": TTM_299_SS,
-     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
      "source": LEG_SOURCE["TTM_299_SS"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
@@ -2385,13 +2386,21 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     #           8 of 8 slices. The whole-run drawdown is identical to the dollar, which is the inert
     #           clause behaving as round 10 said it would; BOOK.md section 10 is why it is not a gate.
     # TTM_299_T stays running as the exact matched control, exactly as TTM_299 does for it.
-    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_SS": 3.0}
+    # SWAPPED A THIRD TIME 2026-09-09 (owner: "swap it once the book run clears" - it cleared). The leg is
+    # now the combined one: the structural stop, the deep-squeeze tilt, PLUS 1.5 contracts on the session
+    # open-bar entry (run #368) and the momentum-fade exit waiting for a second fading bar (run #364),
+    # validated together as run #369 with an overfit probability of 0.099 - the lowest this family has
+    # recorded. BOOK run #371 against #361: annualised MAR 3.276 against 3.034, x1.0798 on a x1.05 bar;
+    # lockbox $246,409 against $229,124, up 7.5 percent; LOCKBOX DRAWDOWN IDENTICAL at $22,226; 8 of 8
+    # slices. Whole-run drawdown x1.0025, reported as a check rather than a gate per BOOK.md section 10.
+    # TTM_299_SS stays beside it as the exact matched control, as TTM_299_T does for that.
+    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_SSOF2": 3.0}
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
-        "book": {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 361,
-                 "name": "ORB 234 + ENGU-Q 309 + 3 ES of the structural-stop TTM leg (run 353)"},
+        "book": {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 371,
+                 "name": "ORB 234 + ENGU-Q 309 + 3 ES of the combined TTM leg (run 369)"},
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),
