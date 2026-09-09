@@ -40,7 +40,10 @@ def test_daily_master_round_trip(tmp_path, monkeypatch):
     days = pd.date_range("2020-01-02", periods=5, freq="B")
     stamps = (days + pd.Timedelta(hours=9, minutes=30)).tz_localize("US/Eastern")
     df = pd.DataFrame({
-        "time": stamps.tz_convert("UTC").astype("int64") // 10**9,
+        # POSIX seconds whatever the index resolution. pandas 3 builds this index in
+        # microseconds, so astype("int64") // 10**9 gave 1970-01-19 and put all five bars
+        # on one day - CI (unpinned pandas) was red from 2026-09-08 until this line.
+        "time": [int(t.timestamp()) for t in stamps],
         "open": [10.0, 11, 12, 13, 14], "high": [10.5, 11.5, 12.5, 13.5, 14.5],
         "low": [9.5, 10.5, 11.5, 12.5, 13.5], "close": [10.2, 11.2, 12.2, 13.2, 14.2],
         "volume": [100, 200, 300, 400, 500],

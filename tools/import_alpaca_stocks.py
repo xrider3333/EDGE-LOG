@@ -112,7 +112,7 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
         return pd.DataFrame()
     df = pd.DataFrame(rows)
     out = pd.DataFrame({
-        "time":   pd.to_datetime(df["t"], utc=True).astype("int64") // 10**9,
+        "time":   (pd.to_datetime(df["t"], utc=True) - pd.Timestamp(0, tz="UTC")) // pd.Timedelta(seconds=1),  # POSIX seconds independent of datetime resolution (pandas 3 = microseconds; astype//1e9 breaks)
         "open":   df["o"].astype(float), "high": df["h"].astype(float),
         "low":    df["l"].astype(float), "close": df["c"].astype(float),
         "volume": df["v"].astype("int64"),

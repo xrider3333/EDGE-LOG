@@ -105,7 +105,7 @@ def build(tk, end, dry_run=False):
     days = pd.DatetimeIndex([pd.Timestamp(x).normalize() for x in a.index])
     stamps = (days + pd.Timedelta(hours=9, minutes=30)).tz_localize("US/Eastern")
     out = pd.DataFrame({
-        "time": (stamps.tz_convert("UTC").astype("int64") // 10**9),
+        "time": ((stamps.tz_convert("UTC") - pd.Timestamp(0, tz="UTC")) // pd.Timedelta(seconds=1)),  # POSIX seconds independent of datetime resolution (pandas 3 = microseconds; astype//1e9 breaks)
         "open": o, "high": h, "low": l, "close": c, "volume": v,
     })
     out = out.sort_values("time").drop_duplicates("time").reset_index(drop=True)

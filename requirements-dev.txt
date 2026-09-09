@@ -1,8 +1,10 @@
 # Test/dev dependencies for the streamlit-free engine layer (augur_engine/, api/,
 # augur_mp_worker.py). The Streamlit app itself is NOT needed to run these tests.
 # Install:  pip install -r requirements-dev.txt   (add --break-system-packages if needed)
-numpy
-pandas
+numpy<3
+pandas>=2.2,<3        # CI must test the pandas line the runner runs (2.2.x on the box). An unpinned
+                      # install pulled pandas 3.0.5 on 2026-09-08, whose microsecond DatetimeIndex broke
+                      # the ETF-masters fixture. Move this line on purpose, never by accident.
 scipy
 scikit-learn      # ml_gate / analytics relationship-scores paths
 requests          # augur_engine.ai imports it at package-init time

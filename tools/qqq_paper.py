@@ -282,7 +282,7 @@ def _to_epoch_frame(df):
     idx = df.index
     if idx.tz is None:
         idx = idx.tz_localize(TZ)
-    epoch = idx.tz_convert("UTC").astype("int64") // 10 ** 9
+    epoch = (idx.tz_convert("UTC") - pd.Timestamp(0, tz="UTC")) // pd.Timedelta(seconds=1)  # POSIX seconds independent of datetime resolution (pandas 3 = microseconds; astype//1e9 breaks)
     return pd.DataFrame({
         "time": epoch.astype("int64"),
         "open": df["Open"].astype(float).values,
