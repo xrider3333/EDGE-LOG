@@ -1,0 +1,170 @@
+
+RISK-MATCH SCALE on this window (r25 method: champion daily sigma / ETF-book daily sigma)
+  champion sigma $3403, ETF-book sigma $3433  ->  scale x0.991
+  (r25 computed x0.833 on its own 2010-06-07..2025-06-29 window; this window adds a year)
+
+====================================================================================================
+CONTROL-A  champion of the day (= run #347)
+  net $793,811  whole DD $71,903  ann.MAR 0.687  lockbox $201,204  LB DD $35,723  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $71,903 over 17 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ                       -45,107   14 days    62.7% of it
+    ORB_3_6_C2 NQ                                    -26,796    9 days    37.3% of it
+    TOTAL                                            -71,903   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-10 .. 2026-03-26 (peak 2026-02-09), $35,723 over 27 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ                       -27,011   19 days    75.6% of it
+    ORB_3_6_C2 NQ                                     -8,712   18 days    24.4% of it
+    TOTAL                                            -35,723   (decomposition check: must equal the stretch)
+
+====================================================================================================
+ETF-A1     champion + 7 ETF legs at weight 1
+  net $1,318,092  whole DD $93,429  ann.MAR 0.878  lockbox $253,632  LB DD $36,950  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $93,429 over 18 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ                       -45,107   14 days    48.3% of it
+    ORB_3_6_C2 NQ                                    -26,796    9 days    28.7% of it
+    PB20_1_0 QQQ                                     -10,725    1 days    11.5% of it
+    RSI2_1_0 IWM [both]                               -8,437    1 days     9.0% of it
+    DBL7_1_0 QQQ                                      -4,075    1 days     4.4% of it
+    RSI2_1_0 QQQ [long]                               -2,770    1 days     3.0% of it
+    RSI2_1_0 QQQ [both]                               -2,770    1 days     3.0% of it
+    DBL7_1_0 TLT                                         523    1 days    -0.6% of it
+    DBL7_1_0 GLD                                       6,731    2 days    -7.2% of it
+    TOTAL                                            -93,429   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-06-17 .. 2026-06-26 (peak 2026-06-16), $36,950 over 9 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ                       -34,697    8 days    93.9% of it
+    DBL7_1_0 GLD                                      -4,766    1 days    12.9% of it
+    DBL7_1_0 TLT                                           0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    RSI2_1_0 IWM [both]                                    0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    DBL7_1_0 QQQ                                           0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    RSI2_1_0 QQQ [long]                                    0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    RSI2_1_0 QQQ [both]                                    0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    PB20_1_0 QQQ                                           0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    ORB_3_6_C2 NQ                                      2,513    3 days    -6.8% of it
+    TOTAL                                            -36,950   (decomposition check: must equal the stretch)
+
+====================================================================================================
+ETF-A2     champion + 7 ETF legs risk-matched x0.991
+  net $1,313,442  whole DD $93,238  ann.MAR 0.877  lockbox $253,167  LB DD $36,908  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $93,238 over 18 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ                       -45,107   14 days    48.4% of it
+    ORB_3_6_C2 NQ                                    -26,796    9 days    28.7% of it
+    PB20_1_0 QQQ rm                                  -10,630    1 days    11.4% of it
+    RSI2_1_0 IWM [both] rm                            -8,363    1 days     9.0% of it
+    DBL7_1_0 QQQ rm                                   -4,039    1 days     4.3% of it
+    RSI2_1_0 QQQ [long] rm                            -2,746    1 days     2.9% of it
+    RSI2_1_0 QQQ [both] rm                            -2,746    1 days     2.9% of it
+    DBL7_1_0 TLT rm                                      518    1 days    -0.6% of it
+    DBL7_1_0 GLD rm                                    6,671    2 days    -7.2% of it
+    TOTAL                                            -93,238   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-06-17 .. 2026-06-26 (peak 2026-06-16), $36,908 over 9 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ                       -34,697    8 days    94.0% of it
+    DBL7_1_0 GLD rm                                   -4,723    1 days    12.8% of it
+    DBL7_1_0 TLT rm                                        0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    RSI2_1_0 IWM [both] rm                                 0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    DBL7_1_0 QQQ rm                                        0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    RSI2_1_0 QQQ [long] rm                                 0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    RSI2_1_0 QQQ [both] rm                                 0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    PB20_1_0 QQQ rm                                        0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    ORB_3_6_C2 NQ                                      2,513    3 days    -6.8% of it
+    TOTAL                                            -36,908   (decomposition check: must equal the stretch)
+
+====================================================================================================
+CONTROL-B  the adopted book (= run #336)
+  net $1,119,697  whole DD $34,329  ann.MAR 2.031  lockbox $193,170  LB DD $26,235  17/17 yrs
+  whole run: worst stretch 2022-04-27 .. 2022-05-24 (peak 2022-04-26), $34,329 over 15 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ                           -31,651   11 days    92.2% of it
+    ORB_3_6_C2 NQ                                     -2,679   13 days     7.8% of it
+    TTMSQZ_3_0_ES30N ES x3.000                             0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    TOTAL                                            -34,329   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-12 .. 2026-05-01 (peak 2026-02-11), $26,235 over 46 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ                           -24,243   13 days    92.4% of it
+    ORB_3_6_C2 NQ                                     -8,054   37 days    30.7% of it
+    TTMSQZ_3_0_ES30N ES x3.000                         6,062    3 days   -23.1% of it
+    TOTAL                                            -26,235   (decomposition check: must equal the stretch)
+
+====================================================================================================
+ETF-B1     adopted book + 7 ETF legs at weight 1
+  net $1,643,978  whole DD $53,597  ann.MAR 1.910  lockbox $245,598  LB DD $48,867  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $53,597 over 11 trading days
+    ORB_3_6_C2 NQ                                    -26,796    9 days    50.0% of it
+    PB20_1_0 QQQ                                     -10,725    1 days    20.0% of it
+    RSI2_1_0 IWM [both]                               -8,437    1 days    15.7% of it
+    ENGUQ_1M_ETH_ER_1_0 NQ                            -5,275    6 days     9.8% of it
+    DBL7_1_0 QQQ                                      -4,075    1 days     7.6% of it
+    RSI2_1_0 QQQ [long]                               -2,770    1 days     5.2% of it
+    RSI2_1_0 QQQ [both]                               -2,770    1 days     5.2% of it
+    TTMSQZ_3_0_ES30N ES x3.000                             0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    DBL7_1_0 TLT                                         523    1 days    -1.0% of it
+    DBL7_1_0 GLD                                       6,731    2 days   -12.6% of it
+    TOTAL                                            -53,597   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-03-01 .. 2026-04-30 (peak 2026-02-27), $48,867 over 40 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ                           -18,635   12 days    38.1% of it
+    RSI2_1_0 QQQ [both]                              -12,210    2 days    25.0% of it
+    ORB_3_6_C2 NQ                                    -11,795   31 days    24.1% of it
+    DBL7_1_0 GLD                                      -8,406    1 days    17.2% of it
+    DBL7_1_0 TLT                                      -2,776    1 days     5.7% of it
+    DBL7_1_0 QQQ                                      -1,341    1 days     2.7% of it
+    PB20_1_0 QQQ                                        -508    1 days     1.0% of it
+    RSI2_1_0 QQQ [long]                                  273    1 days    -0.6% of it
+    RSI2_1_0 IWM [both]                                  490    1 days    -1.0% of it
+    TTMSQZ_3_0_ES30N ES x3.000                         6,041    2 days   -12.4% of it
+    TOTAL                                            -48,867   (decomposition check: must equal the stretch)
+
+====================================================================================================
+THE BAR - B1's OWN STACK BAR WITH THE RISK CLAUSE SWAPPED:
+  (1) annualised MAR >= incumbent x1.15      [B1's own]
+  (2) LOCKBOX drawdown within 5 percent      [swapped in for the whole-run denominator]
+  (3) net >= 90 percent of the incumbent's   [B1's own 'give up <= 10% of its net']
+
+----------------------------------------------------------------------------------------------------
+  ETF-A1     champion + 7 ETF legs at weight 1  vs  CONTROL-A
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  CONTROL-A                   793,811      71,903    0.687     201,204      35,723
+  ETF-A1                    1,318,092      93,429    0.878     253,632      36,950
+  ratios                             1.299x   1.278x      1.261x      1.034x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    DBL7_1_0 GLD                                     6,731 over   2 trading days
+    DBL7_1_0 TLT                                       523 over   1 trading days
+    RSI2_1_0 IWM [both]                             -8,437 over   1 trading days
+    DBL7_1_0 QQQ                                    -4,075 over   1 trading days
+    RSI2_1_0 QQQ [long]                             -2,770 over   1 trading days
+    RSI2_1_0 QQQ [both]                             -2,770 over   1 trading days
+    PB20_1_0 QQQ                                   -10,725 over   1 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): PASS   [MAR ok, DD ok, LB ok]
+  B1's net clause: net x1.660 (needs >= 0.90) -> ok
+
+----------------------------------------------------------------------------------------------------
+  ETF-A2     champion + 7 ETF legs risk-matched x0.991  vs  CONTROL-A
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  CONTROL-A                   793,811      71,903    0.687     201,204      35,723
+  ETF-A2                    1,313,442      93,238    0.877     253,167      36,908
+  ratios                             1.297x   1.276x      1.258x      1.033x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    DBL7_1_0 GLD rm                                  6,671 over   2 trading days
+    DBL7_1_0 TLT rm                                    518 over   1 trading days
+    RSI2_1_0 IWM [both] rm                          -8,363 over   1 trading days
+    DBL7_1_0 QQQ rm                                 -4,039 over   1 trading days
+    RSI2_1_0 QQQ [long] rm                          -2,746 over   1 trading days
+    RSI2_1_0 QQQ [both] rm                          -2,746 over   1 trading days
+    PB20_1_0 QQQ rm                                -10,630 over   1 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR ok, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): PASS   [MAR ok, DD ok, LB ok]
+  B1's net clause: net x1.655 (needs >= 0.90) -> ok
+
+----------------------------------------------------------------------------------------------------
+  ETF-B1     adopted book + 7 ETF legs at weight 1  vs  CONTROL-B
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  CONTROL-B                 1,119,697      34,329    2.031     193,170      26,235
+  ETF-B1                    1,643,978      53,597    1.910     245,598      48,867
+  ratios                             1.561x   0.940x      1.271x      1.863x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    DBL7_1_0 GLD                                    -2,300 over   1 trading days
+    DBL7_1_0 TLT                                         0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    RSI2_1_0 IWM [both]                                  0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    DBL7_1_0 QQQ                                         0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    RSI2_1_0 QQQ [long]                                  0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    RSI2_1_0 QQQ [both]                                  0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+    PB20_1_0 QQQ                                         0 over   0 trading days   <- ZERO: the whole-run drawdown clause is INERT here
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  B1's net clause: net x1.468 (needs >= 0.90) -> ok

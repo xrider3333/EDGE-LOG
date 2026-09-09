@@ -422,6 +422,69 @@ while lockbox DD ratios are x1.122 and x1.068 — the latter nearly inside the 5
 clauses disagree about the direction of the risk here, which is why both are printed on every card
 rather than one replacing the other silently.
 
+### 10c. THE ETF BOOK STACK RE-JUDGED — the first verdict the clause swap actually changes
+
+Owner: *"now do the same for the ETF book stack."* Driver `tools/queue_etf_lockbox_rejudge.py`;
+prediction and results in `tools/data/etf_lockbox_rejudge_{prediction,results}.txt`. Runs **#349,
+#350, #351**, every figure matching a prediction written before they ran, **to the dollar**.
+
+**A stronger test than the B11 re-judge.** B11's book re-tunes every fold, so only a weaker
+"tradeable representation" of it could be run. The ETF legs *are* fixed-parameter files — exactly
+the seven BOOK run #338 carries — replayed unchanged. Nothing is approximated here.
+
+**The bar is B1's own stack bar with one clause swapped:** MAR ≥ incumbent ×1.15 (unchanged),
+**LOCKBOX drawdown within 5%** (was the whole-run denominator), net ≥ 90% of the incumbent's
+(unchanged — B1's "give up ≤ 10% of its net"). Window 2010-06-07..2026-06-30, 12-month lockbox, so
+run #347 is the incumbent for this re-judge and the B11 one alike.
+
+| card | run | net | whole DD | ann.MAR | lockbox | LB DD | PF | slices |
+|---|---|---|---|---|---|---|---|---|
+| CONTROL-A (champion of the day) | #347 | $793,811 | $71,903 | 0.687 | $201,204 | $35,723 | 1.31 | 8/8 |
+| **ETF-A1** champion + 7 ETF legs | **#349** | $1,318,092 | $93,429 | 0.878 | $253,632 | $36,950 | 1.40 | 8/8 |
+| **ETF-S** the 7 ETF legs alone | **#350** | $524,281 | $43,818 | 0.787 | $52,428 | $25,007 | 1.75 | 8/8 |
+| CONTROL-B (adopted book) | #336 | $1,119,697 | $34,329 | 2.031 | $193,170 | $26,235 | 1.49 | 8/8 |
+| **ETF-B1** adopted book + 7 ETF legs | **#351** | $1,643,978 | $53,597 | 1.910 | $245,598 | $48,867 | 1.55 | 8/8 |
+
+| judged | vs | MAR (×1.15) | net (≥0.90) | whole-run DD | **lockbox DD** | old | new |
+|---|---|---|---|---|---|---|---|
+| **#349** | #347 | **×1.278** ✓ | ×1.660 ✓ | ×1.299 ✗ | **×1.034** ✓ | MISS | **PASS** |
+| #351 | #336 | **×0.940** ✗ | ×1.468 ✓ | ×1.561 ✗ | ×1.863 ✗ | MISS | MISS |
+
+**#349 IS THE FIRST CARD ON THIS BOARD WHERE THE CLAUSE SWAP CHANGES THE VERDICT — and it changes
+it towards adopting something the old clause blocked.** The two clauses disagree by a factor of
+nine on the same candidate: the whole-run drawdown says the stack costs **+30%** more drawdown, the
+lockbox drawdown says it costs **+3.4%**.
+
+**And the disagreement is NOT an inert clause.** `inert_legs = []` on #349: all seven ETF legs
+trade inside the champion's worst stretch, because that stretch is the 2020 crash and these are
+dip buyers. Both numbers are real measurements of different stretches. The whole-run figure is
+2020; the lockbox figure is 2026-06-17..06-26, where the ETF legs contribute almost nothing and
+94% of the loss is the ENGU-Q leg the incumbent already carried. **That is the honest reading: the
+ETF legs cost drawdown in a crash and cost nothing in the sealed year.** Which of those a bar
+should price is a judgement about what kind of risk the account is actually exposed to, and it is
+the owner's call — not something the clause swap settles by itself.
+
+**This is a CANDIDATE, not an adoption, and four things stand between it and one:**
+1. **No leg-level validate.** None of the seven has ever been through Auto-Validate — they are
+   round-25 sweep cells. A BOOK card is not a substitute for a validate; that is exactly the
+   NQDIP_1_1 lesson (run #315 passed a sweep at MAR 10.2 and failed its validate 3-of-8 folds).
+2. **Two of the seven are near-duplicates** (QQQ RSI2 long-only and QQQ RSI2 both-sides). They
+   post identical dollars in both worst stretches. The bar does not price that concentration.
+3. **The window is not B1's.** It adds a year past r25's 2025-06-29 cut — genuine holdout for
+   these legs, but it means the ×1.278 here is not comparable to B1's recorded +12%, which was
+   also a different object (the 20-leg equal-risk book, not these seven).
+4. **ETF-S has two losing years of its own** (14 of 16). The stack cards hide that because the NQ
+   legs paper over them.
+
+**ETF-B1 settles the question that actually bears on the deployed book: no.** Adding these legs to
+what is traded today cuts MAR 6% and **nearly doubles the lockbox drawdown** ($26,235 → $48,867).
+Whatever #349 says about the old champion pairing, this family does not belong on book #336.
+
+**#351 reproduced the same moving-target effect the B11 re-judge found:** its `inert_legs` is
+`['TTMSQZ_3_0_ES30N.py']` — the leg not under test — because adding the ETF legs moved the book's
+worst stretch from 2022-04-27..05-24 back to the 2020 crash, where TTM also took no trades. Two
+independent candidates have now moved a book's worst stretch by being added to it.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the

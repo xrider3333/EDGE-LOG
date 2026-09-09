@@ -1,0 +1,38 @@
+card                           run        net $   whole DD  ann.MAR   lockbox $      LB DD     PF trades slices
+CONTROL-B adopted book         336    1,119,697     34,329    2.031     193,170     26,235   1.49   4547    8/8  PASS
+CONTROL-A champion 226         347      793,811     71,903    0.687     201,204     35,723   1.31   5427    8/8  PASS
+ETF-A1 champ+7 ETF             349    1,318,092     93,429    0.878     253,632     36,950   1.40   6485    8/8  PASS
+ETF-S 7 ETF alone              350      524,281     43,818    0.787      52,428     25,007   1.75   1058    8/8  PASS
+ETF-B1 book336+7 ETF           351    1,643,978     53,597    1.910     245,598     48,867   1.55   5605    8/8  PASS
+
+THE BAR (B1's own, one clause swapped): MAR >= incumbent x1.15 | LOCKBOX DD within 5 percent | net >= 90 percent of incumbent.
+
+  #349 vs #347   MAR x1.278 ok | net x1.660 ok | whole-run DD x1.299 NO | LOCKBOX DD x1.034 ok | lockbox net x1.261
+     OLD clause (whole-run DD): MISS     NEW clause (LOCKBOX DD): PASS
+
+  #351 vs #336   MAR x0.940 NO | net x1.468 ok | whole-run DD x1.561 NO | LOCKBOX DD x1.863 NO | lockbox net x1.271
+     OLD clause (whole-run DD): MISS     NEW clause (LOCKBOX DD): MISS
+
+WORST-STRETCH BLOCKS:
+  #347 CONTROL-A champion 226   2020-02-26 .. 2020-03-25  $71,903 over 17 days   inert=[]
+       ENGUQ_1M_ETH_FROZEN_1_0.py NQ          -45,107  14 days
+       ORB_3_6_C2.py NQ                       -26,796   9 days
+       lockbox stretch 2026-02-10 .. 2026-03-26  $35,723
+  #349 ETF-A1 champ+7 ETF       2020-02-26 .. 2020-03-25  $93,429 over 18 days   inert=[]
+       ENGUQ_1M_ETH_FROZEN_1_0.py NQ          -45,107  14 days
+       ORB_3_6_C2.py NQ                       -26,796   9 days
+       ETFDIP_PB20_1_0.py QQQ                 -10,725   1 days
+       ETFDIP_RSI2_1_0.py IWM                  -8,437   1 days
+       lockbox stretch 2026-06-17 .. 2026-06-26  $36,950
+  #350 ETF-S 7 ETF alone        2011-06-15 .. 2011-08-16  $43,818 over 10 days   inert=[]
+       ETFDIP_RSI2_1_0.py IWM                 -14,308   2 days
+       ETFDIP_PB20_1_0.py QQQ                 -10,300   3 days
+       ETFDIP_RSI2_1_0.py QQQ                  -9,248   2 days
+       ETFDIP_RSI2_1_0.py QQQ                  -9,248   2 days
+       lockbox stretch 2026-03-20 .. 2026-04-29  $25,007
+  #351 ETF-B1 book336+7 ETF     2020-02-26 .. 2020-03-25  $53,597 over 11 days   inert=['TTMSQZ_3_0_ES30N.py']
+       ORB_3_6_C2.py NQ                       -26,796   9 days
+       ETFDIP_PB20_1_0.py QQQ                 -10,725   1 days
+       ETFDIP_RSI2_1_0.py IWM                  -8,437   1 days
+       ENGUQ_1M_ETH_ER_1_0.py NQ               -5,275   6 days
+       lockbox stretch 2026-03-01 .. 2026-04-30  $48,867
