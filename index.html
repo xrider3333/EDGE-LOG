@@ -539,6 +539,133 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
   .qb-sec-orders{grid-area:orders}
   .qb-sec-footer{grid-area:footer}
 }
+
+/* ══════════════════════════ HOME tab (v73.651) ══════════════════════════
+   New sub-tab, keyed 'home'. Every class below is prefixed hm- so nothing here
+   collides with any existing selector; colors are all var(--...) tokens so all
+   ten themes (incl. paper, the light one) keep working unchanged. */
+.hm-wrap{max-width:1080px;margin:0 auto}
+.hm-micro{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5)}
+.hm-hero{padding-top:6px}
+.hm-hero-value{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:clamp(52px,7vw,76px);line-height:1;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums}
+.hm-hero-delta{display:flex;align-items:baseline;gap:6px;font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.hm-hero-delta .hm-suffix{color:var(--text5)}
+.hm-chart-wrap{position:relative;margin:22px 0 4px}
+.hm-chart-wrap svg{display:block;width:100%;height:260px;cursor:crosshair}
+.hm-range-row{display:flex;align-items:center;justify-content:space-between;margin:2px 0 26px;flex-wrap:wrap;gap:14px}
+.hm-range-pills{display:flex;gap:18px}
+.hm-range-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-range-pills button.active{color:var(--text);border-bottom-color:var(--text)}
+.hm-mode-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.hm-mode-toggle button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-mode-toggle button.active{background:var(--bg1);color:var(--text)}
+.hm-stat-strip{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg1);border-radius:12px;margin-bottom:14px}
+.hm-stat-cell{padding:20px 22px;border-left:1px solid var(--border2)}
+.hm-stat-cell:first-child{border-left:none}
+.hm-stat-val{font-size:20px;color:var(--text);margin-top:8px;font-variant-numeric:tabular-nums;font-weight:500}
+.hm-morestats-toggle{display:flex;align-items:center;gap:6px;width:100%;background:transparent;border:none;border-top:1px solid var(--border2);padding:12px 4px 0;margin-bottom:24px;font-family:'JetBrains Mono',monospace;text-align:left;cursor:pointer}
+.hm-morestats-toggle .hm-chev{color:var(--text5);font-size:10px;display:inline-block;transition:transform .18s ease}
+.hm-morestats-toggle[aria-expanded="true"] .hm-chev{transform:rotate(180deg)}
+.hm-morestats-toggle:hover .hm-micro{color:var(--text3)}
+.hm-morestats-panel{background:var(--bg1);border-radius:12px;padding:0 20px;margin:0;overflow:hidden;max-height:0;opacity:0;transition:max-height .28s ease,opacity .2s ease,padding .28s ease,margin .28s ease}
+.hm-morestats-panel.open{max-height:900px;opacity:1;padding:20px;margin:-10px 0 30px}
+.hm-ms-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.hm-ms-group h4{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5);font-weight:500;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2)}
+.hm-ms-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;gap:10px}
+.hm-ms-row .l{font-size:11px;color:var(--text3)}
+.hm-ms-row .v{font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
+.hm-ms-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;margin:6px 0 2px;background:var(--bg2)}
+.hm-ms-bar .seg-w{background:var(--green)}
+.hm-ms-bar .seg-l{background:var(--red)}
+.hm-ms-note{font-size:9px;color:var(--text5);margin-top:16px;letter-spacing:.5px}
+.hm-feed-head{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;flex-wrap:wrap;gap:12px}
+.hm-feed-controls{display:flex;align-items:center;gap:10px}
+.hm-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.hm-seg button{background:transparent;border:none;padding:7px 13px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-seg button.active{background:var(--bg1);color:var(--text)}
+.hm-ghostbtn{background:transparent;border:1px solid var(--border);color:var(--text3);padding:7px 13px;border-radius:8px;font-size:10px;letter-spacing:1px;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-ghostbtn:hover{color:var(--text);border-color:var(--text4)}
+.hm-ghostbtn.active{background:var(--bg2);color:var(--text);border-color:var(--text4)}
+.hm-filter-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 2px 16px;flex-wrap:wrap}
+.hm-feed-search{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 2px;min-width:200px;flex:1;max-width:320px;font-family:'JetBrains Mono',monospace}
+.hm-feed-search::placeholder{color:var(--text5)}
+.hm-feed-search:focus{border-bottom-color:var(--text4);outline:none}
+.hm-chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.hm-chip{background:transparent;border:1px solid var(--border);color:var(--text5);padding:5px 10px;border-radius:999px;font-size:10px;letter-spacing:.5px;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-chip.active{background:var(--bg2);color:var(--text);border-color:var(--text4)}
+.hm-empty-state{padding:60px 10px;text-align:center;color:var(--text5);font-size:12px}
+.hm-table-toolbar{display:flex;justify-content:flex-end;padding:0 2px 10px}
+.hm-table-wrap{overflow-x:auto}
+.hm-dtable{border-collapse:collapse;width:100%;min-width:1400px;font-size:11px}
+.hm-dtable th{position:sticky;top:0;background:var(--bg2);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text5);padding:9px 10px;border-bottom:1px solid var(--border2);white-space:nowrap}
+.hm-dtable td{padding:8px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;color:var(--text)}
+.hm-dtable tbody tr{cursor:pointer}
+.hm-dtable tbody tr:hover{background:var(--bg1)}
+.hm-dtable td.num,.hm-dtable th.num{font-variant-numeric:tabular-nums;text-align:right}
+.hm-dir-badge{font-size:9px;padding:2px 6px;border-radius:4px;letter-spacing:.5px}
+.hm-dir-badge.long{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+.hm-dir-badge.short{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.hm-notes-cell{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3)}
+.hm-icon-cell{text-align:center;color:var(--text4);cursor:pointer}
+.hm-icon-cell:hover{color:var(--text)}
+.hm-day-group{margin-bottom:2px}
+.hm-day-header{display:flex;align-items:baseline;justify-content:space-between;padding:18px 2px 8px}
+.hm-day-header .dlabel{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text3)}
+.hm-day-header .dnet{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:20px;font-variant-numeric:tabular-nums}
+.hm-row{display:flex;align-items:center;gap:14px;padding:0 2px;height:58px;border-bottom:1px solid var(--border2);cursor:pointer}
+.hm-row:hover{background:var(--bg1)}
+.hm-row-static{cursor:default}
+.hm-row-static:hover{background:none}
+.hm-tile{width:34px;height:34px;min-width:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+.hm-tile.long{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+.hm-tile.short{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.hm-tile.dep{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--blue)}
+.hm-tile.day{background:var(--bg2);color:var(--text2);font-size:14px}
+.hm-rowmain{flex:1;min-width:0}
+.hm-rowmain .l1{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-rowmain .l2{font-size:10px;color:var(--text5);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-badge-s{display:inline-block;padding:1px 5px;border-radius:4px;background:var(--bg2);color:var(--text4);font-size:9px;letter-spacing:1px;margin-left:6px;vertical-align:middle}
+.hm-rowend{text-align:right;flex-shrink:0}
+.hm-rowend .r1{font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}
+.hm-rowend .r1.dep{color:var(--blue)}
+.hm-rowend .r2{font-size:10px;color:var(--text5);margin-top:3px;font-variant-numeric:tabular-nums}
+.hm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .22s ease;z-index:200}
+.hm-backdrop.open{opacity:1;pointer-events:auto}
+.hm-sheet{position:fixed;top:0;right:0;height:100vh;width:440px;max-width:92vw;background:var(--bg1);border-left:1px solid var(--border);transform:translateX(100%);transition:transform .22s ease;z-index:201;overflow-y:auto;padding:26px 26px 30px}
+.hm-sheet.open{transform:translateX(0)}
+.hm-sheet-close{position:absolute;top:20px;right:20px;background:transparent;border:1px solid var(--border);color:var(--text3);width:30px;height:30px;border-radius:8px;font-size:14px;cursor:pointer}
+.hm-sheet-close:hover{color:var(--text)}
+.hm-sheet-sym{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:32px;color:var(--text);margin-top:4px}
+.hm-sheet-sub{font-size:11px;color:var(--text3);margin-top:4px;letter-spacing:.5px}
+.hm-sheet-net{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:44px;margin:18px 0 22px;font-variant-numeric:tabular-nums}
+.hm-dl-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border2);gap:12px}
+.hm-dl-row .dt{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5)}
+.hm-dl-row .dd{font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-tags{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 14px}
+.hm-notes{background:var(--bg2);border-radius:8px;padding:13px;font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:20px}
+.hm-sheet-foot{display:flex;gap:8px}
+.hm-sheet-foot button{flex:1;padding:11px 4px;text-align:center;border:1px solid var(--border);border-radius:8px;font-size:10px;letter-spacing:1px;color:var(--text2);background:transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.hm-sheet-foot button:hover{border-color:var(--text4);color:var(--text)}
+.hm-sheet-foot button.del{color:var(--red);border-color:var(--red)}
+.hm-up{color:var(--green)}
+.hm-down{color:var(--red)}
+@media (max-width:900px){
+  .hm-ms-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:760px){
+  .hm-range-row{flex-direction:column;align-items:flex-start;gap:12px}
+  .hm-mode-toggle{align-self:stretch}
+  .hm-mode-toggle button{flex:1;text-align:center}
+  .hm-stat-strip{grid-template-columns:repeat(2,1fr)}
+  .hm-stat-cell:nth-child(3){border-left:none}
+  .hm-stat-cell:nth-child(3),.hm-stat-cell:nth-child(4){border-top:1px solid var(--border2)}
+  .hm-sheet{width:100%}
+  .hm-ms-grid{grid-template-columns:1fr}
+  .hm-feed-head{flex-direction:column;align-items:flex-start}
+}
+@media (max-width:520px){
+  .hm-dtable .hm-col-dur,.hm-dtable .hm-col-in,.hm-dtable .hm-col-out{display:none}
+}
 </style>
 </head>
 <body>
@@ -583,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.653';
+const VERSION='73.654';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.654',date:'2026-09-09',notes:['NEW HOME SUB-TAB (TRADING LOG). A combined dashboard now sits first in the log tab bar, opt-in - OVERVIEW stays the default until you visit HOME yourself. One hero number (account equity or cumulative P&L, your call) over a full-width scrub chart: drag across it and the number and the delta line update live without a page repaint. Range pills (1W/1M/3M/YTD/1Y/ALL) crop the same continuous curve rather than resetting it, so the hero number always matches your real balance.','Under the chart: a four-stat strip (win rate, profit factor, max drawdown, today), a MORE STATS expander with four groups (returns, risk, mix, account), a search + chip filter row (ALL/LONG/SHORT/WINS/LOSSES/FUTURES/STOCKS), and an activity feed grouped by day (or rolled up by day) with deposits shown inline. A TABLE button swaps the feed for the full 24-plus-column spreadsheet with a SHOW MORE toggle for the order/fill/id columns, live GRADE/SETUP/TF dropdowns, and a slide-over detail sheet with EDIT/CHART/DELETE. Every number here reads the same account/broker scoping, stats engine and running-balance math the OVERVIEW and TRADES tabs already use - nothing was reinvented.']},
 {v:'73.651',date:'2026-09-09',notes:['COMPARE - STUDIES: BOOKMARKS B11 re-judged, rows 1567-1571. The owner asked for the lockbox-clause version of the NASDAQ dip stack, so three BOOK cards ran on B11 OWN bar with exactly one clause swapped - MAR at least 1.15 times the incumbent unchanged, LOCKBOX drawdown within 5 percent instead of whole-run, lockbox net unchanged. Runs 346, 347 and 348. Every figure matched a prediction written before they ran, to the dollar.','ALL THREE MISS UNDER BOTH CLAUSES - AND THE CLAUSE THAT FAILS IS MAR, NOT RISK. The tradeable NQDIP family scores MAR times 1.008 and times 1.086 against the champion B11 was judged against, on a bar of 1.15, and times 0.659 on the book actually being traded, where it takes the drawdown from 34,329 to 74,275 dollars. B11 headline was times 1.35, so the plus 35 percent looks like a property of the walk-forward construction rather than of anything tradeable with fixed settings. The walk-forward result itself is NOT retracted.','RUN 347 IS THE QUIET RESULT: ORB 234 plus ENGU-Q ETH 226 is the pairing B11 was measured against, and it had never been stored as a run, so the claim could not be checked against a card at all until now.','THE SWAP WAS NOT WHAT DECIDED IT. On the champion cards the lockbox drawdown is the KINDER number - whole-run ratios 1.587 and 2.156 against lockbox ratios 1.122 and 1.068 - so had MAR passed, the new clause would have been the easier gate. Both are printed on every card rather than one replacing the other.','AND THE ENGINE FOUND SOMETHING ON ITS OWN: run 348 names the TTM leg as its inert one, because adding the dip leg MOVED the book worst stretch from April 2022 back to the 2020 crash. Which legs are inert is not a property of a leg - it moves with the composition of the book, so a whole-run drawdown clause has to be re-read every time a leg is added.']},
 {v:'73.651',date:'2026-09-09',notes:['Where the sealed-year strip does not carry a figure - a drawdown, an average loss - that cell shows a dash instead of quietly keeping the one from the slice it replaced. Half a column from each source would put one net over the other drawdown and call it MAR.','ONE LOCKBOX, ONE NUMBER (owner call). The run report LOCKBOX column was reading the gate study slice of the champion trade list, while COMPARE BETA and the RUNBOARD read the lockbox strip - the block that carries the PASS or FAIL the verdict was scored from. On run 306 those are 88 percent apart, both labelled LOCKBOX. Every screen now reads the strip. The cost is stated where it happens: the three sections may no longer add up to TOTAL exactly, and the column tooltip says so.','THE WALK-FORWARD PROFIT FACTOR IS POOLED, NOT THE MEDIAN FOLD (owner call). A profit factor is gross wins over gross losses; the middle value of a list of ratios is not that, and it is not comparable with any other profit factor in the app. The run report already pooled, so this was a third number under a shared label. Both tabs now rebuild each fold gross loss from its own net and profit factor and sum the grosses. Expectancy in R and R per year on the walk-forward stage move with it. The PICK RUNS row is relabelled from Median fold PF to Pooled fold PF.']},
 {v:'73.650',date:'2026-09-09',notes:['THE RUNBOARD NOW READS TOP-DOWN. Annualising the MAR column exposed the other half of the same fault: the board ranked BOOKS on figures that appear nowhere on it. Every cell prints a book from its own pooled block, but the sort key had no book branch and fell through to the generic run path, so run 331 could show the highest MAR on the board at 2.56 and still sit in second place behind a book showing 2.24. Books are now ranked on exactly the numbers printed for them, on all three sample ticks.']},
@@ -1608,7 +1736,7 @@ const TABS=['overview','trades','analytics','import_export','journal','augur'];
 // own subtabs underneath. 'augur' is the single activeTab behind the Backtester master.
 // v73.20 (owner: "tired of having two settings spots"): SETTINGS is no longer a subtab on
 //   either side. Both panels live in ONE master modal behind the topbar gear (openSettings).
-const LOG_TABS=['overview','trades','analytics','import_export','journal'];
+const LOG_TABS=['home','overview','trades','analytics','import_export','journal'];
 // RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
 //   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
 //   rail navigates to it - it is simply not offered as a top-level tab as well.
@@ -1639,7 +1767,7 @@ function savePref(k,v){prefs[k]=v;localStorage.setItem('el_prefs',JSON.stringify
 //   Every Firestore update re-renders EVERY open tab, and each render wrote its own view here -
 //   so a second tab left parked on COMPARE kept stamping COMPARE over the tab you were actually
 //   using, and the next refresh restored that. Only the VISIBLE tab writes now.
-function _saveView(){try{if(document.hidden)return;localStorage.setItem('el_view',JSON.stringify({activeTab:activeTab,augurSub:augurSub,augurRunSel:augurRunSel,analyticsSubTab:analyticsSubTab,activeChart:activeChart,chartTF:chartTF,chartMode:chartMode,distMetric:distMetric,dataSub:window._dataSubTab||null,lastLogTab:window._lastLogTab||null}));}catch(e){}}
+function _saveView(){try{if(document.hidden)return;localStorage.setItem('el_view',JSON.stringify({activeTab:activeTab,augurSub:augurSub,augurRunSel:augurRunSel,analyticsSubTab:analyticsSubTab,activeChart:activeChart,chartTF:chartTF,chartMode:chartMode,distMetric:distMetric,dataSub:window._dataSubTab||null,lastLogTab:window._lastLogTab||null,homeRange:homeRange,homeChartMode:homeChartMode,homeFeedMode:homeFeedMode,homeView:homeView,homeChip:homeChip}));}catch(e){}}
 function applyTheme(){document.documentElement.setAttribute('data-theme',prefs.theme||'dark');document.documentElement.setAttribute('data-density',prefs.density||'normal');}
 applyTheme();
 
@@ -1703,6 +1831,11 @@ function _bookFixChip(r,sz){
 let runsLimit=75,_runsUid=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
 let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
+// HOME tab state (v73.651) - the combined dashboard sub-tab. homeRange/homeChartMode/
+// homeFeedMode/homeView/homeChip are persisted below the same way chartTF/chartMode are;
+// homeQuery/homeStatsOpen/homeExtras/homeSheetId stay session-only (showAllCols on the
+// Trades tab is never persisted either, so this matches precedent).
+let homeRange='1M',homeChartMode='equity',homeFeedMode='trade',homeView='feed',homeStatsOpen=false,homeChip='ALL',homeQuery='',homeExtras=false,homeSheetId=null;
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
 let ntSync=null,unsubNT=null,ntRefreshing=false; // NinjaTrader runner auto-sync status
@@ -1856,6 +1989,11 @@ try{const _lv=JSON.parse(localStorage.getItem('el_view')||'{}');
   if(_lv.distMetric)distMetric=_lv.distMetric;
   if(_lv.dataSub)window._dataSubTab=_lv.dataSub;
   if(_lv.lastLogTab)window._lastLogTab=_lv.lastLogTab;
+  if(_lv.homeRange)homeRange=_lv.homeRange;
+  if(_lv.homeChartMode)homeChartMode=_lv.homeChartMode;
+  if(_lv.homeFeedMode)homeFeedMode=_lv.homeFeedMode;
+  if(_lv.homeView)homeView=_lv.homeView;
+  if(_lv.homeChip)homeChip=_lv.homeChip;
 }catch(e){}
 // remember scroll position too, so a refresh returns to the same spot on the page (window scroll,
 //   debounced). Restored with a few retries on load because run data streams in and the page grows.
@@ -8738,6 +8876,594 @@ const _TILT_SCHEME_NM={tier:'steps',linear:'sliding'};
 // ══════════════════════════════════════════════════════════════════
 //  MAIN RENDER
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════ HOME TAB (v73.651) ══════════════════════════
+// Helpers for the combined dashboard sub-tab (activeTab==='home'). Every stat and series
+// here is built from the SAME globals the rest of the app already uses - bScope,
+// calcStats, scopedLedger, scopedNetPnl, brokerStartEquity, liveBalance, reconBadge,
+// ntReconBadge, isFut, durStr, scoreOf, scoreKey, scoreColor, scoreBand, openEditModal,
+// deleteTrade, updateTrade, showTradeScore, showFeeBreakdown, trades, ledgerEvents,
+// activeBroker, customSetups, GRADES, TIMEFRAMES - nothing here reinvents them. Every
+// helper name is prefixed _hm so nothing collides with the rest of the file.
+function _hmMoney(v){
+  v=v||0;const neg=v<0;const abs=Math.abs(v);
+  const s=abs.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  return (neg?'-':'')+'$'+s;
+}
+function _hmSigned(v){return (v>=0?'+':'')+_hmMoney(v);}
+function _hmPct(v){return (v>=0?'+':'')+(v||0).toFixed(2)+'%';}
+function _hmCls(v){return v>=0?'hm-up':'hm-down';}
+function _hmEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+const _HM_RANGE_LABEL={'1W':'past week','1M':'past month','3M':'past 3 months','YTD':'year to date','1Y':'past year','ALL':'all time'};
+function _hmCutoff(range){
+  const now=new Date();
+  if(range==='1W'){const d=new Date(now);d.setDate(d.getDate()-7);return d;}
+  if(range==='1M'){const d=new Date(now);d.setDate(d.getDate()-30);return d;}
+  if(range==='3M'){const d=new Date(now);d.setDate(d.getDate()-90);return d;}
+  if(range==='YTD')return new Date(now.getFullYear(),0,1);
+  if(range==='1Y'){const d=new Date(now);d.setDate(d.getDate()-365);return d;}
+  return null;
+}
+function _hmTradesInRange(tds,range){
+  const cutoff=_hmCutoff(range);
+  if(!cutoff)return tds;
+  const cs=cutoff.toISOString().slice(0,10);
+  return (tds||[]).filter(t=>t.date>=cs);
+}
+// Full-history running series (equity or cumulative-pnl), built the same way the OVERVIEW
+// equity chart builds its series (see the chartMode==='equity' block in the activeTab
+// ==='overview' branch): running balance seeded from brokerStartEquity(), deposits from
+// scopedLedger() folded in on their own date, re-summed after every trade. The range pills
+// only CROP the window shown - the curve underneath is one continuous history, which is
+// what keeps the hero number (liveBalance()/scopedNetPnl(), always the true, un-cropped
+// total) consistent with the end of whatever slice of the chart is on screen.
+function _hmFullSeries(mode){
+  const scoped=[...bScope(trades)].sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  if(mode==='equity'){
+    const byDate={};
+    (scopedLedger()||[]).forEach(e=>{byDate[e.date]=(byDate[e.date]||0)+e.amount;});
+    let bal=brokerStartEquity();
+    const applied=new Set();
+    const firstDate=scoped.length?scoped[0].date:null;
+    Object.keys(byDate).sort().forEach(d=>{if(!firstDate||d<=firstDate){bal+=byDate[d];applied.add(d);}});
+    const pts=[{v:+bal.toFixed(2),date:firstDate}];
+    scoped.forEach(t=>{
+      Object.keys(byDate).forEach(d=>{if(!applied.has(d)&&d<=t.date){bal+=byDate[d];applied.add(d);}});
+      bal=+(bal+t.pnl).toFixed(2);
+      pts.push({v:bal,date:t.date,id:t.id});
+    });
+    return pts;
+  }
+  let c=0;
+  const pts=[{v:0,date:scoped.length?scoped[0].date:null}];
+  scoped.forEach(t=>{c=+(c+t.pnl).toFixed(2);pts.push({v:c,date:t.date,id:t.id});});
+  return pts;
+}
+// Slices the full series to the selected range: the first point of the slice carries the
+// running value AS OF the cutoff (the chart starts flat at the right baseline instead of
+// resetting to zero); everything after it is the real trade-by-trade move within range.
+function _hmRangeSeries(range,mode){
+  const full=_hmFullSeries(mode);
+  if(full.length<2)return full;
+  const cutoff=_hmCutoff(range);
+  if(!cutoff)return full;
+  const cs=cutoff.toISOString().slice(0,10);
+  let startIdx=0;
+  for(let i=0;i<full.length;i++){
+    if(full[i].date&&full[i].date<cs)startIdx=i;else break;
+  }
+  return full.slice(startIdx);
+}
+// Running balance per trade id, scoped to the ACCOUNT pill - the EXACT same math the
+// Trades tab uses to build its own ACCT / ACCT% columns (see the _runBals build in the
+// activeTab==='trades' branch), duplicated here (not called into) per the ship rule that
+// this tab is new code, not a refactor of the Trades tab table. Kept in lock-step so the
+// two tabs never disagree.
+function _hmRunningBalances(){
+  const byDate={};
+  (scopedLedger()||[]).forEach(ev=>{byDate[ev.date]=(byDate[ev.date]||0)+ev.amount;});
+  const sortedTr=[...bScope(trades)].sort((a,b)=>{
+    if(a.date!==b.date)return a.date>b.date?1:-1;
+    return (a.entryTime||'')>(b.entryTime||'')?1:-1;
+  });
+  const firstTradeDate=sortedTr[0]&&sortedTr[0].date;
+  let bal=0;
+  const applied=new Set();
+  Object.keys(byDate).sort().forEach(d=>{
+    if(!firstTradeDate||d<=firstTradeDate){bal+=byDate[d];applied.add(d);}
+  });
+  if(bal===0&&brokerStartEquity()>0)bal=brokerStartEquity();
+  const runBals={};
+  sortedTr.forEach(t=>{
+    Object.keys(byDate).forEach(d=>{
+      if(!applied.has(d)&&d<=t.date){bal+=byDate[d];applied.add(d);}
+    });
+    bal=+(bal+t.pnl).toFixed(2);
+    runBals[t.id]=bal;
+  });
+  return runBals;
+}
+function _hmMatches(t){
+  const q=(homeQuery||'').trim().toLowerCase();
+  if(q){
+    const hay=(t.symbol+' '+(t.setup||'')+' '+(t.notes||'')).toLowerCase();
+    if(hay.indexOf(q)===-1)return false;
+  }
+  if(homeChip==='ALL')return true;
+  if(homeChip==='LONG')return t.type==='LONG';
+  if(homeChip==='SHORT')return t.type==='SHORT';
+  if(homeChip==='WINS')return t.pnl>=0;
+  if(homeChip==='LOSSES')return t.pnl<0;
+  if(homeChip==='FUTURES')return isFut(t.symbol);
+  if(homeChip==='STOCKS')return !isFut(t.symbol);
+  return true;
+}
+function _hmFeedList(){
+  return _hmTradesInRange(bScope(trades),homeRange).filter(_hmMatches);
+}
+function _hmDayLabel(dateStr){
+  const now=new Date();const todayStr=now.toISOString().slice(0,10);
+  const y=new Date(now);y.setDate(y.getDate()-1);const yestStr=y.toISOString().slice(0,10);
+  if(dateStr===todayStr)return 'TODAY';
+  if(dateStr===yestStr)return 'YESTERDAY';
+  const d=new Date(dateStr+'T12:00:00');
+  const dow=['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
+  const mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
+  return dow+' &middot; '+mon+' '+d.getDate();
+}
+function _hmFmtDateLong(dateStr){
+  if(!dateStr)return '';
+  const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d=new Date(dateStr+'T12:00:00');
+  return MONTHS[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+}
+function _hmHeroLabel(){
+  const acct=activeBroker?_hmEsc(activeBroker.toUpperCase()):'ALL ACCOUNTS';
+  return (homeChartMode==='equity'?'ACCOUNT EQUITY &middot; ':'CUMULATIVE P&amp;L &middot; ')+acct+reconBadge()+ntReconBadge();
+}
+function _hmPaintDelta(delta,pct,suffix){
+  const up=delta>=0;
+  const tri=up?'&#9650;':'&#9660;';
+  const elD=document.getElementById('hm-hero-delta');
+  if(!elD)return;
+  elD.innerHTML=`<span class="${up?'hm-up':'hm-down'}">${tri}</span><span class="${up?'hm-up':'hm-down'}">${_hmMoney(Math.abs(delta))} (${_hmPct(pct)})</span><span class="hm-suffix">${_hmEsc(suffix)}</span>`;
+}
+function _hmRenderHeroDefault(endVal,startVal){
+  const lbl=document.getElementById('hm-hero-label');if(lbl)lbl.innerHTML=_hmHeroLabel();
+  const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(endVal);
+  const delta=endVal-startVal;
+  const pctBase=homeChartMode==='equity'?Math.abs(startVal||1):Math.abs(endVal||1);
+  _hmPaintDelta(delta,(delta/pctBase)*100,_HM_RANGE_LABEL[homeRange]||'');
+}
+const _HM_VB_W=1000,_HM_VB_H=260,_HM_PAD_L=6,_HM_PAD_R=76,_HM_PAD_T=26,_HM_PAD_B=26;
+// Draws the scrub chart + wires its mousemove/mouseleave interaction. The scrub handler
+// below writes straight to the hero + crosshair DOM nodes and NEVER calls renderApp() -
+// a full repaint on every mousemove would be unusable.
+function _hmRenderChartInto(root){
+  const ser=_hmRangeSeries(homeRange,homeChartMode);
+  const vals=ser.length>=2?ser.map(p=>p.v):(ser.length===1?[ser[0].v,ser[0].v]:[0,0]);
+  const n=vals.length;
+  const endVal=homeChartMode==='equity'?liveBalance():scopedNetPnl();
+  const startVal=ser.length?ser[0].v:0;
+  let min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+  if(min===max){min-=1;max+=1;}
+  const span=max-min,pad=span*0.15;min-=pad;max+=pad;
+  const plotL=_HM_PAD_L,plotR=_HM_VB_W-_HM_PAD_R,plotT=_HM_PAD_T,plotB=_HM_VB_H-_HM_PAD_B;
+  const xFor=i=>plotL+(i/(n-1))*(plotR-plotL);
+  const yFor=v=>plotT+(1-((v-min)/(max-min)))*(plotB-plotT);
+  const up=endVal>=startVal;
+  const lineColor=up?'var(--green)':'var(--red)';
+  const pts=[];for(let i=0;i<n;i++)pts.push(xFor(i).toFixed(2)+','+yFor(vals[i]).toFixed(2));
+  const lineStr=pts.join(' ');
+  const areaStr=plotL.toFixed(2)+','+plotB.toFixed(2)+' '+lineStr+' '+plotR.toFixed(2)+','+plotB.toFixed(2);
+  const baseY=yFor(vals[0]);
+  const lastX=xFor(n-1),lastY=yFor(vals[n-1]);
+  const svg=`<svg viewBox="0 0 ${_HM_VB_W} ${_HM_VB_H}" preserveAspectRatio="xMidYMid meet">
+      <defs><linearGradient id="hmChartGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+      </linearGradient></defs>
+      <polygon points="${areaStr}" fill="url(#hmChartGrad)" stroke="none"/>
+      <line x1="${plotL}" y1="${baseY.toFixed(2)}" x2="${plotR}" y2="${baseY.toFixed(2)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" fill="none"/>
+      <text x="${plotR+8}" y="${Math.min(Math.max(baseY-6,plotT+8),plotB-2).toFixed(2)}" font-size="9" fill="var(--text5)" font-family="JetBrains Mono, monospace">${_hmMoney(vals[0])}</text>
+      <polyline points="${lineStr}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${lastX.toFixed(2)}" cy="${lastY.toFixed(2)}" r="9" fill="${lineColor}" fill-opacity="0.18"/>
+      <circle cx="${lastX.toFixed(2)}" cy="${lastY.toFixed(2)}" r="3.5" fill="${lineColor}" stroke="none"/>
+      <line id="hm-crosshair-line" x1="0" y1="${plotT}" x2="0" y2="${plotB}" stroke="var(--text5)" stroke-opacity="0.5" stroke-width="1" fill="none" visibility="hidden"/>
+      <circle id="hm-crosshair-dot" cx="0" cy="0" r="4" fill="${lineColor}" stroke="none" visibility="hidden"/>
+      <rect id="hm-chart-capture" x="0" y="0" width="${_HM_VB_W}" height="${_HM_VB_H}" fill="transparent" stroke="none"/>
+    </svg>`;
+  const wrapEl=root.querySelector('#hm-chart-wrap');
+  if(!wrapEl)return;
+  wrapEl.innerHTML=svg;
+  _hmRenderHeroDefault(endVal,startVal);
+  _hmWireChart(root,plotL,plotR,n,ser,startVal,endVal,vals);
+}
+function _hmWireChart(root,plotL,plotR,n,ser,startVal,endVal,vals){
+  const svgEl=root.querySelector('#hm-chart-wrap svg');
+  const cap=root.querySelector('#hm-chart-capture');
+  const chLine=root.querySelector('#hm-crosshair-line');
+  const chDot=root.querySelector('#hm-crosshair-dot');
+  if(!cap||!svgEl)return;
+  cap.addEventListener('mousemove',function(e){
+    const rect=svgEl.getBoundingClientRect();
+    const scale=_HM_VB_W/rect.width;
+    const vx=(e.clientX-rect.left)*scale;
+    let t=(vx-plotL)/(plotR-plotL);
+    t=Math.max(0,Math.min(1,t));
+    const idx=Math.round(t*(n-1));
+    let min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);
+    if(min===max){min-=1;max+=1;}
+    const r=max-min,pad=r*0.15;min-=pad;max+=pad;
+    const plotTt=_HM_PAD_T,plotBb=_HM_VB_H-_HM_PAD_B;
+    const xFor=i=>plotL+(i/(n-1))*(plotR-plotL);
+    const yFor=v=>plotTt+(1-((v-min)/(max-min)))*(plotBb-plotTt);
+    const x=xFor(idx),y=yFor(vals[idx]);
+    if(chLine){chLine.setAttribute('x1',x.toFixed(2));chLine.setAttribute('x2',x.toFixed(2));chLine.setAttribute('visibility','visible');}
+    if(chDot){chDot.setAttribute('cx',x.toFixed(2));chDot.setAttribute('cy',y.toFixed(2));chDot.setAttribute('visibility','visible');}
+    const v=vals[idx];
+    const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(v);
+    const delta=v-startVal;
+    const pctBase=homeChartMode==='equity'?Math.abs(startVal||1):Math.abs(endVal||1);
+    const ptDate=ser[idx]&&ser[idx].date;
+    _hmPaintDelta(delta,(delta/pctBase)*100,ptDate?_hmFmtDateLong(ptDate):(_HM_RANGE_LABEL[homeRange]||''));
+  });
+  cap.addEventListener('mouseleave',function(){
+    if(chLine)chLine.setAttribute('visibility','hidden');
+    if(chDot)chDot.setAttribute('visibility','hidden');
+    _hmRenderHeroDefault(endVal,startVal);
+  });
+}
+function _hmStatStrip(stats){
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const todayTr=bScope(trades).filter(t=>t.date===today);
+  const todayNet=todayTr.reduce((s,t)=>s+t.pnl,0);
+  const wr=stats?(stats.wr*100).toFixed(0)+'%':'--';
+  const pf=stats?(stats.pf>=99?'infinite':stats.pf.toFixed(2)):'--';
+  const dd=stats?_hmMoney(Math.abs(stats.maxDD)):'--';
+  return `<div class="hm-stat-cell"><div class="hm-micro">WIN RATE</div><div class="hm-stat-val">${wr}</div></div>
+    <div class="hm-stat-cell"><div class="hm-micro">PROFIT FACTOR</div><div class="hm-stat-val">${pf}</div></div>
+    <div class="hm-stat-cell"><div class="hm-micro">MAX DD</div><div class="hm-stat-val">${dd}</div></div>
+    <div class="hm-stat-cell"><div class="hm-micro">TODAY</div><div class="hm-stat-val ${_hmCls(todayNet)}">${_hmSigned(todayNet)}</div></div>`;
+}
+function _hmMsRow(label,value,cls){
+  return `<div class="hm-ms-row"><div class="l">${label}</div><div class="v${cls?(' '+cls):''}">${value}</div></div>`;
+}
+function _hmMoreStats(stats){
+  if(!stats)return '<div class="hm-ms-note">No trades in this range.</div>';
+  const winPct=(stats.wins+stats.losses)>0?(stats.wins/(stats.wins+stats.losses))*100:0;
+  const dayCount=Object.keys(stats.byDay||{}).length||1;
+  const tradesPerDay=stats.total/dayCount;
+  const streakTxt=(stats.sdir>0?'+':'-')+stats.streak+(stats.sdir>0?'W':'L');
+  return `<div class="hm-ms-grid">
+    <div class="hm-ms-group"><h4>Returns</h4>
+      ${_hmMsRow('NET P&amp;L',_hmSigned(stats.net),_hmCls(stats.net))}
+      ${_hmMsRow('GROSS',_hmSigned(stats.grossNet),_hmCls(stats.grossNet))}
+      ${_hmMsRow('EXP VALUE',_hmSigned(stats.ev),_hmCls(stats.ev))}
+      ${_hmMsRow('AVG WIN',_hmSigned(stats.avgW),'hm-up')}
+      ${_hmMsRow('AVG LOSS',_hmMoney(-stats.avgL),'hm-down')}
+      ${_hmMsRow('R : R',stats.rr.toFixed(2)+'R')}
+    </div>
+    <div class="hm-ms-group"><h4>Risk</h4>
+      ${_hmMsRow('MAX DD',_hmMoney(Math.abs(stats.maxDD)))}
+      ${_hmMsRow('SHARPE',stats.sharpe.toFixed(2))}
+      ${_hmMsRow('RECOVERY',stats.recovery.toFixed(2)+'x')}
+      ${_hmMsRow('CURRENT STREAK',streakTxt,stats.sdir>0?'hm-up':'hm-down')}
+      ${_hmMsRow('LARGEST LOSS',_hmMoney(-stats.maxLoss),'hm-down')}
+    </div>
+    <div class="hm-ms-group"><h4>Mix</h4>
+      ${_hmMsRow('LONGS',_hmSigned(stats.longPnl),_hmCls(stats.longPnl))}
+      ${_hmMsRow('SHORTS',_hmSigned(stats.shortPnl),_hmCls(stats.shortPnl))}
+      <div class="hm-ms-row"><div class="l">WIN / LOSS</div><div class="v">${stats.wins} W &middot; ${stats.losses} L</div></div>
+      <div class="hm-ms-bar"><div class="seg-w" style="width:${winPct.toFixed(1)}%"></div><div class="seg-l" style="width:${(100-winPct).toFixed(1)}%"></div></div>
+      ${_hmMsRow('AVG HOLD',fmtDur(Math.round(stats.avgDur||0)))}
+      ${_hmMsRow('TRADES / DAY',tradesPerDay.toFixed(1))}
+    </div>
+    <div class="hm-ms-group"><h4>Account</h4>
+      ${_hmMsRow('ACCT EQUITY',_hmMoney(liveBalance()))}
+      ${_hmMsRow('START EQUITY',_hmMoney(brokerStartEquity()))}
+      ${_hmMsRow('TOTAL FEES',_hmMoney(stats.totalFees))}
+      ${_hmMsRow('FEES % OF GROSS',stats.feeImpact.toFixed(1)+'%')}
+    </div>
+  </div>
+  <div class="hm-ms-note">SCOPED TO ACCOUNT + RANGE</div>`;
+}
+function _hmTradeRow(t){
+  const tileCls=t.type==='LONG'?'long':'short';
+  const glyph=t.type==='LONG'?'&#9650;':'&#9660;';
+  const stockBadge=isFut(t.symbol)?'':'<span class="hm-badge-s">S</span>';
+  const unit=isFut(t.symbol)?'/c':'/sh';
+  const dir=t.type==='LONG'?1:-1;
+  const ptsPerC=(t.entry!=null&&t.exit!=null)?((t.exit-t.entry)*dir):null;
+  const ptsTxt=ptsPerC==null?'--':(ptsPerC>=0?'+':'')+ptsPerC.toFixed(2)+unit;
+  return `<div class="hm-row" data-hmid="${t.id}" tabindex="0" role="button" aria-label="${_hmEsc(t.symbol)} trade detail">
+      <div class="hm-tile ${tileCls}">${glyph}</div>
+      <div class="hm-rowmain"><div class="l1">${_hmEsc(t.symbol)}${stockBadge}</div><div class="l2">${t.type} ${t.size!=null?t.size:''} &middot; ${t.entryTime||'--'} &rarr; ${t.exitTime||'--'} &middot; ${_hmEsc(t.setup||'--')}</div></div>
+      <div class="hm-rowend"><div class="r1 ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</div><div class="r2">${ptsTxt}</div></div>
+    </div>`;
+}
+function _hmDepositRow(ev){
+  return `<div class="hm-row hm-row-static">
+      <div class="hm-tile dep">&darr;</div>
+      <div class="hm-rowmain"><div class="l1">${ev.amount>=0?'DEPOSIT':'WITHDRAWAL'}</div><div class="l2">${_hmEsc(_evBroker(ev))} &middot; ${_hmEsc(ev.desc||'funding')}</div></div>
+      <div class="hm-rowend"><div class="r1 dep">${_hmMoney(ev.amount)}</div></div>
+    </div>`;
+}
+function _hmRenderFeedTrade(list){
+  if(!list.length)return '<div class="hm-empty-state">No trades match this filter.</div>';
+  const filtersActive=!!(homeQuery&&homeQuery.trim())||homeChip!=='ALL';
+  const deposits=filtersActive?[]:_hmTradesInRange(scopedLedger()||[],homeRange);
+  const byDay={};
+  list.forEach(t=>{(byDay[t.date]=byDay[t.date]||{trades:[],deps:[]}).trades.push(t);});
+  deposits.forEach(ev=>{(byDay[ev.date]=byDay[ev.date]||{trades:[],deps:[]}).deps.push(ev);});
+  const dates=Object.keys(byDay).sort((a,b)=>a<b?1:(a>b?-1:0));
+  let html='';
+  dates.forEach(date=>{
+    const grp=byDay[date];
+    const trs=grp.trades.slice().sort((a,b)=>(b.entryTime||'')<(a.entryTime||'')?-1:((b.entryTime||'')>(a.entryTime||'')?1:0));
+    const net=trs.reduce((s,t)=>s+t.pnl,0);
+    html+=`<div class="hm-day-group"><div class="hm-day-header"><div class="dlabel">${_hmDayLabel(date)}</div><div class="dnet ${_hmCls(net)}">${_hmSigned(net)}</div></div>`;
+    grp.deps.forEach(ev=>{html+=_hmDepositRow(ev);});
+    trs.forEach(t=>{html+=_hmTradeRow(t);});
+    html+='</div>';
+  });
+  return html;
+}
+function _hmRenderFeedDay(list){
+  if(!list.length)return '<div class="hm-empty-state">No trades match this filter.</div>';
+  const byDay={};
+  list.forEach(t=>{(byDay[t.date]=byDay[t.date]||[]).push(t);});
+  const dates=Object.keys(byDay).sort((a,b)=>a<b?1:(a>b?-1:0));
+  let html='';
+  dates.forEach(date=>{
+    const items=byDay[date];
+    let net=0,wins=0;
+    items.forEach(t=>{net+=t.pnl;if(t.pnl>=0)wins++;});
+    const wrp=items.length?Math.round((wins/items.length)*100):0;
+    const d=new Date(date+'T12:00:00');
+    html+=`<div class="hm-row hm-row-static">
+      <div class="hm-tile day">${d.getDate()}</div>
+      <div class="hm-rowmain"><div class="l1">${_hmDayLabel(date)}</div><div class="l2">${items.length} trade${items.length!==1?'s':''} &middot; ${wins}W ${items.length-wins}L</div></div>
+      <div class="hm-rowend"><div class="r1 ${_hmCls(net)}">${_hmSigned(net)}</div><div class="r2">win rate ${wrp}%</div></div>
+    </div>`;
+  });
+  return html;
+}
+function _hmSheetHtml(id){
+  const t=trades.find(x=>String(x.id)===String(id));
+  if(!t)return '';
+  const runBals=_hmRunningBalances();
+  const bal=runBals[t.id];
+  const acctPct=(bal!=null&&t.pnl)?((t.pnl/(bal-t.pnl))*100):null;
+  const unit=isFut(t.symbol)?'/c':'/sh';
+  const dir=t.type==='LONG'?1:-1;
+  const ptsPerC=(t.entry!=null&&t.exit!=null)?((t.exit-t.entry)*dir):null;
+  const sc=scoreOf(t);
+  const rows=[
+    ['ENTRY',t.entry!=null?(isFut(t.symbol)?String(t.entry):'$'+t.entry):'--'],
+    ['EXIT',t.exit!=null?(isFut(t.symbol)?String(t.exit):'$'+t.exit):'--'],
+    ['POINTS',ptsPerC==null?'--':(ptsPerC>=0?'+':'')+ptsPerC.toFixed(2)+unit],
+    ['SIZE',String(t.size!=null?t.size:'--')],
+    ['GROSS',_hmSigned(t.grossPnl!=null?t.grossPnl:t.pnl)],
+    ['FEES',t.fees>0?_hmMoney(-t.fees):'$0.00'],
+    ['NET',_hmSigned(t.pnl)],
+    ['ACCT BALANCE',bal!=null?_hmMoney(bal):'--'],
+    ['ACCT %',acctPct!=null?_hmPct(acctPct):'--'],
+    ['DURATION',durStr(t)],
+    ['IN',t.entryTime||'--'],
+    ['OUT',t.exitTime||'--'],
+    ['SETUP',t.setup||'--'],
+    ['TIMEFRAME',t.timeframe||'--'],
+    ['GRADE',t.grade||'--'],
+    ['SCORE',sc?String(sc.overall):'--'],
+    ['BROKER',t.broker||'--'],
+    ['ACCOUNT',t.account||'--'],
+    ['BUY ORDER',t.buyOrderId||'--'],
+    ['SELL ORDER',t.sellOrderId||'--'],
+    ['POSITION ID',t.positionId||'--'],
+    ['SOURCE',t.source||'--']
+  ];
+  const dlHtml=rows.map(r=>`<div class="hm-dl-row"><div class="dt">${_hmEsc(r[0])}</div><div class="dd">${_hmEsc(r[1])}</div></div>`).join('');
+  const tagsHtml=(t.tags||[]).map(tag=>`<span class="tag">${_hmEsc(tag)}</span>`).join('');
+  return `<button class="hm-sheet-close" id="hm-sheet-close" aria-label="Close">&#10005;</button>
+    <div class="hm-sheet-sym">${_hmEsc(t.symbol)}</div>
+    <div class="hm-sheet-sub">${t.type} ${t.size!=null?t.size:''}${isFut(t.symbol)?' contract'+(t.size>1?'s':''):' sh'} &middot; ${t.date}</div>
+    <div class="hm-sheet-net ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</div>
+    <div>${dlHtml}</div>
+    <div class="hm-tags">${tagsHtml}</div>
+    <div class="hm-notes">${_hmEsc(t.notes||'No notes recorded.')}</div>
+    <div class="hm-sheet-foot">
+      <button id="hm-sheet-edit">EDIT</button>
+      ${t.chartUrl?'<button id="hm-sheet-chart">CHART &#8599;</button>':''}
+      <button id="hm-sheet-del" class="del">DELETE</button>
+    </div>`;
+}
+function _hmTableHeader(){
+  const extra=homeExtras?'<th>ACCOUNT</th><th>BROKER</th><th>BUY ORD</th><th>SELL ORD</th><th>BUY FILL</th><th>SELL FILL</th><th>POS ID</th><th>PAIR ID</th><th>SRC</th>':'';
+  return `<tr>
+    <th class="num">#</th><th>DATE</th><th class="hm-col-in">IN</th><th class="hm-col-out">OUT</th><th class="hm-col-dur">DUR</th>
+    <th>SYM</th><th>DIR</th><th class="num">ENTRY</th><th class="num">EXIT</th><th class="num">PTS</th><th class="num">CTRS</th>
+    <th class="num">GROSS</th><th class="num">FEES</th><th class="num">NET</th><th>ACCT</th><th class="num">ACCT%</th>
+    <th>GRADE</th><th>SCORE</th><th>SETUP</th><th>TF</th><th>CHART</th><th>TAGS</th><th>NOTES</th>
+    ${extra}
+    <th>&#9998;</th><th>&#10005;</th>
+  </tr>`;
+}
+function _hmTableRow(t,idx,total,runBals){
+  const bal=runBals[t.id];
+  const acctPct=(bal!=null&&t.pnl)?((t.pnl/(bal-t.pnl))*100):null;
+  const unit=isFut(t.symbol)?'/c':'/sh';
+  const dir=t.type==='LONG'?1:-1;
+  const ptsPerC=(t.entry!=null&&t.exit!=null)?((t.exit-t.entry)*dir):null;
+  const tagsHtml=(t.tags||[]).slice(0,3).map(tag=>`<span class="tag" style="font-size:9px;margin-right:3px">${_hmEsc(tag)}</span>`).join('');
+  const sc=scoreOf(t);
+  const scoreHtml=sc?`<span class="score-pill" style="color:${scoreColor(sc.overall)};border-color:color-mix(in srgb,${scoreColor(sc.overall)} 35%,transparent);background:color-mix(in srgb,${scoreColor(sc.overall)} 10%,transparent)" title="Setup ${sc.setup.total} / Execution ${sc.exec.total}" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">${sc.overall} ${scoreBand(sc.overall)}</span>`
+    :`<span class="score-pill" title="Not scored yet" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">-</span>`;
+  const extra=homeExtras?`<td>${_hmEsc(t.account||'--')}</td><td>${_hmEsc(t.broker||'--')}</td><td>${_hmEsc(t.buyOrderId||'--')}</td><td>${_hmEsc(t.sellOrderId||'--')}</td><td>${_hmEsc(t.buyFillId||'--')}</td><td>${_hmEsc(t.sellFillId||'--')}</td><td>${_hmEsc(t.positionId||'--')}</td><td>${_hmEsc(t.pairId||'--')}</td><td>${_hmEsc(t.source||'--')}</td>`:'';
+  return `<tr data-hmid="${t.id}">
+    <td class="num">${String(total-idx).padStart(2,'0')}</td>
+    <td>${t.date}</td>
+    <td class="hm-col-in">${t.entryTime||'--'}</td>
+    <td class="hm-col-out">${t.exitTime||'--'}</td>
+    <td class="hm-col-dur">${durStr(t)}</td>
+    <td>${_hmEsc(t.symbol)}<span style="font-size:8px;color:var(--text5);margin-left:2px">${isFut(t.symbol)?'':'S'}</span></td>
+    <td><span class="hm-dir-badge ${t.type==='LONG'?'long':'short'}">${t.type}</span></td>
+    <td class="num">${t.entry!=null?t.entry:'--'}</td>
+    <td class="num">${t.exit!=null?t.exit:'--'}</td>
+    <td class="num">${ptsPerC==null?'--':(ptsPerC>=0?'+':'')+ptsPerC.toFixed(2)+unit}</td>
+    <td class="num">${t.size!=null?t.size:'--'}</td>
+    <td class="num ${_hmCls(t.grossPnl!=null?t.grossPnl:t.pnl)}">${_hmSigned(t.grossPnl!=null?t.grossPnl:t.pnl)}</td>
+    <td class="num" style="color:var(--yellow);cursor:pointer" data-hmfee="${t.id}">${t.fees>0?'-$'+t.fees.toFixed(2):'--'}</td>
+    <td class="num ${_hmCls(t.pnl)}">${_hmSigned(t.pnl)}</td>
+    <td>${bal!=null?_hmMoney(bal):'--'}</td>
+    <td class="num ${acctPct!=null?_hmCls(acctPct):''}">${acctPct!=null?_hmPct(acctPct):'--'}</td>
+    <td><select class="inline-sel" data-hmfield="grade" data-hmid="${t.id}">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select></td>
+    <td>${scoreHtml}</td>
+    <td><select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></td>
+    <td><select class="inline-sel" data-hmfield="timeframe" data-hmid="${t.id}">${TIMEFRAMES.map(tf=>`<option${tf===(t.timeframe||'—')?' selected':''}>${tf}</option>`).join('')}${t.timeframe&&!TIMEFRAMES.includes(t.timeframe)?`<option selected>${t.timeframe}</option>`:''}</select></td>
+    <td class="hm-icon-cell" data-hmchart="${t.id}">${t.chartUrl?'&#128200;':'--'}</td>
+    <td>${tagsHtml}</td>
+    <td class="hm-notes-cell" title="${_hmEsc(t.notes||'')}">${_hmEsc(t.notes||'')}</td>
+    ${extra}
+    <td class="hm-icon-cell" data-hmedit="${t.id}">&#9998;</td>
+    <td class="hm-icon-cell" data-hmdel="${t.id}">&#10005;</td>
+  </tr>`;
+}
+function _hmRenderTable(list){
+  const runBals=_hmRunningBalances();
+  const rowsHtml=list.map((t,i)=>_hmTableRow(t,i,list.length,runBals)).join('');
+  return `<div class="hm-table-toolbar"><button class="hm-ghostbtn" id="hm-table-extras">${homeExtras?'HIDE EXTRAS':'SHOW MORE'}</button></div>
+    <div class="hm-table-wrap"><table class="hm-dtable"><thead>${_hmTableHeader()}</thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+// Main entry point - builds the whole HOME tab into `content` and wires every control.
+function _hmRenderHome(content){
+  const rangeTrades=_hmTradesInRange(trades,homeRange);
+  const rangeStats=calcStats(rangeTrades);
+  const list=_hmFeedList();
+  content.innerHTML=`<div class="hm-wrap">
+    <div class="hm-hero">
+      <div class="hm-micro" id="hm-hero-label"></div>
+      <div class="hm-hero-value" id="hm-hero-value"></div>
+      <div class="hm-hero-delta" id="hm-hero-delta"></div>
+    </div>
+    <div class="hm-chart-wrap" id="hm-chart-wrap"></div>
+    <div class="hm-range-row">
+      <div class="hm-range-pills" id="hm-range-pills">
+        ${['1W','1M','3M','YTD','1Y','ALL'].map(r=>`<button data-hmrange="${r}" class="${homeRange===r?'active':''}">${r}</button>`).join('')}
+      </div>
+      <div class="hm-mode-toggle" id="hm-mode-toggle">
+        <button data-hmmode="equity" class="${homeChartMode==='equity'?'active':''}">EQUITY</button>
+        <button data-hmmode="pnl" class="${homeChartMode==='pnl'?'active':''}">P&amp;L</button>
+      </div>
+    </div>
+    <div class="hm-stat-strip" id="hm-stat-strip">${_hmStatStrip(rangeStats)}</div>
+    <button class="hm-morestats-toggle" id="hm-morestats-toggle" aria-expanded="${homeStatsOpen?'true':'false'}" aria-controls="hm-morestats-panel">
+      <span class="hm-micro">MORE STATS</span><span class="hm-chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="hm-morestats-panel${homeStatsOpen?' open':''}" id="hm-morestats-panel">${homeStatsOpen?_hmMoreStats(rangeStats):''}</div>
+    <div class="hm-feed-head">
+      <div class="hm-micro">ACTIVITY</div>
+      <div class="hm-feed-controls">
+        <div class="hm-seg" id="hm-feed-seg"${homeView==='table'?' style="display:none"':''}>
+          <button data-hmfeed="trade" class="${homeFeedMode==='trade'?'active':''}">BY TRADE</button>
+          <button data-hmfeed="day" class="${homeFeedMode==='day'?'active':''}">BY DAY</button>
+        </div>
+        <button class="hm-ghostbtn${homeView==='table'?' active':''}" id="hm-view-toggle" aria-pressed="${homeView==='table'?'true':'false'}">${homeView==='table'?'&#9776; FEED':'&#8862; TABLE'}</button>
+      </div>
+    </div>
+    <div class="hm-filter-row" id="hm-filter-row">
+      <input type="text" id="hm-search" class="hm-feed-search" placeholder="Search symbol, setup, note..." aria-label="Search trades" value="${_hmEsc(homeQuery)}">
+      <div class="hm-chip-row" id="hm-chip-row">
+        ${['ALL','LONG','SHORT','WINS','LOSSES','FUTURES','STOCKS'].map(c=>`<button class="hm-chip${homeChip===c?' active':''}" data-hmchip="${c}">${c}</button>`).join('')}
+      </div>
+    </div>
+    <div id="hm-feed-container"></div>
+  </div>
+  <div class="hm-backdrop" id="hm-backdrop"></div>
+  <div class="hm-sheet" id="hm-sheet" role="dialog" aria-modal="true" aria-label="Trade detail"></div>`;
+
+  content.querySelectorAll('[data-hmrange]').forEach(b=>{b.onclick=()=>{homeRange=b.dataset.hmrange;renderApp();};});
+  content.querySelectorAll('[data-hmmode]').forEach(b=>{b.onclick=()=>{homeChartMode=b.dataset.hmmode;renderApp();};});
+  content.querySelectorAll('[data-hmfeed]').forEach(b=>{b.onclick=()=>{homeFeedMode=b.dataset.hmfeed;renderApp();};});
+  const viewBtn=content.querySelector('#hm-view-toggle');
+  if(viewBtn)viewBtn.onclick=()=>{homeView=homeView==='table'?'feed':'table';renderApp();};
+  const moreBtn=content.querySelector('#hm-morestats-toggle');
+  if(moreBtn)moreBtn.onclick=()=>{homeStatsOpen=!homeStatsOpen;renderApp();};
+  const searchEl=content.querySelector('#hm-search');
+  if(searchEl){
+    searchEl.oninput=(e)=>{homeQuery=e.target.value;renderApp();};
+    searchEl.focus();
+    const vlen=searchEl.value.length;
+    try{searchEl.setSelectionRange(vlen,vlen);}catch(errSel){}
+  }
+  content.querySelectorAll('[data-hmchip]').forEach(b=>{b.onclick=()=>{homeChip=b.dataset.hmchip;renderApp();};});
+
+  const feedC=content.querySelector('#hm-feed-container');
+  if(homeView==='table'){
+    feedC.innerHTML=_hmRenderTable(list);
+    const extrasBtn=feedC.querySelector('#hm-table-extras');
+    if(extrasBtn)extrasBtn.onclick=()=>{homeExtras=!homeExtras;renderApp();};
+    feedC.querySelectorAll('.inline-sel').forEach(sel=>{
+      sel.onchange=async()=>{
+        const field=sel.dataset.hmfield,id=sel.dataset.hmid,val=sel.value;
+        sel.style.opacity='.5';
+        await updateTrade(id,{[field]:val});
+        sel.style.opacity='1';
+      };
+      sel.onclick=e=>e.stopPropagation();
+    });
+    feedC.querySelectorAll('[data-hmfee]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();showFeeBreakdown(td.dataset.hmfee);};});
+    feedC.querySelectorAll('[data-hmchart]').forEach(td=>{
+      const idc=td.dataset.hmchart;
+      const tt=trades.find(x=>String(x.id)===String(idc));
+      if(tt&&tt.chartUrl)td.onclick=(e)=>{e.stopPropagation();window.open(tt.chartUrl,'_blank');};
+    });
+    feedC.querySelectorAll('[data-hmedit]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();openEditModal(td.dataset.hmedit);};});
+    feedC.querySelectorAll('[data-hmdel]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();deleteTrade(td.dataset.hmdel);};});
+    feedC.querySelectorAll('tbody tr[data-hmid]').forEach(tr=>{
+      tr.onclick=(e)=>{
+        if(e.target.closest('select')||e.target.closest('.hm-icon-cell'))return;
+        homeSheetId=tr.dataset.hmid;renderApp();
+      };
+    });
+  }else{
+    feedC.innerHTML=homeFeedMode==='trade'?_hmRenderFeedTrade(list):_hmRenderFeedDay(list);
+    feedC.querySelectorAll('.hm-row[data-hmid]').forEach(rowEl=>{
+      rowEl.addEventListener('click',()=>{homeSheetId=rowEl.dataset.hmid;renderApp();});
+      rowEl.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();homeSheetId=rowEl.dataset.hmid;renderApp();}});
+    });
+  }
+
+  _hmRenderChartInto(content);
+
+  const sheetEl=content.querySelector('#hm-sheet');
+  const backdropEl=content.querySelector('#hm-backdrop');
+  if(homeSheetId){
+    sheetEl.innerHTML=_hmSheetHtml(homeSheetId);
+    sheetEl.classList.add('open');
+    backdropEl.classList.add('open');
+    const closeBtn=sheetEl.querySelector('#hm-sheet-close');
+    if(closeBtn)closeBtn.onclick=()=>{homeSheetId=null;renderApp();};
+    const editBtn=sheetEl.querySelector('#hm-sheet-edit');
+    if(editBtn)editBtn.onclick=()=>{openEditModal(homeSheetId);};
+    const chartBtn=sheetEl.querySelector('#hm-sheet-chart');
+    if(chartBtn){
+      const tt=trades.find(x=>String(x.id)===String(homeSheetId));
+      chartBtn.onclick=()=>{if(tt&&tt.chartUrl)window.open(tt.chartUrl,'_blank');};
+    }
+    const delBtn=sheetEl.querySelector('#hm-sheet-del');
+    if(delBtn)delBtn.onclick=()=>{const idd=homeSheetId;deleteTrade(idd);homeSheetId=null;renderApp();};
+    backdropEl.onclick=()=>{homeSheetId=null;renderApp();};
+  }else{
+    sheetEl.classList.remove('open');
+    backdropEl.classList.remove('open');
+    sheetEl.innerHTML='';
+  }
+  if(!window._hmEscWired){
+    window._hmEscWired=true;
+    document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&activeTab==='home'&&homeSheetId){homeSheetId=null;renderApp();}});
+  }
+}
+
 function renderApp(){
   if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
   // v73.20: SETTINGS left the tab bars for the topbar gear. A browser that saved the old
@@ -8871,7 +9597,7 @@ function renderApp(){
   const _master=(activeTab==='augur')?'backtester':'log';
   const sub=document.createElement('div');
   sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:1px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center;position:sticky;top:46px;z-index:99';
-  const _logIc={overview:'◎',trades:'≡',analytics:'⌬',import_export:'⇅',journal:'✎',settings:'⚙'};
+  const _logIc={home:'⌂',overview:'◎',trades:'≡',analytics:'⌬',import_export:'⇅',journal:'✎',settings:'⚙'};
   const _logLbl=t=>t==='import_export'?'IMPORT / EXPORT':t.toUpperCase();
   // Split-screen layout toggle lives in the tab bar (right-aligned), shown for the
   // sub-tabs that actually use a split view (Results, Library).
@@ -8918,6 +9644,12 @@ function renderApp(){
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
   if(el('tog-net'))el('tog-net').onclick=()=>{useGross=false;renderApp();};
   if(el('tog-grs'))el('tog-grs').onclick=()=>{useGross=true;renderApp();};
+
+  // ══ HOME ══
+  if(activeTab==='home'){
+    _hmRenderHome(content);
+    return;
+  }
 
   // ══ OVERVIEW ══
   if(activeTab==='overview'){
