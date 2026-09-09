@@ -216,8 +216,13 @@ def test_synthetic_fixture_entry_then_exit(tmp_path):
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     epoch_df.to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1m.csv"), index=False)
 
+    # This case is about the ENTRY/EXIT diff, not about lateness. The fixture has to look at
+    # the bars from several minutes out so bar 2's exit is confirmed rather than a data-end
+    # guess (see _fixture_epoch_df), which would trip the late-entry horizon; the horizon
+    # itself has its own case above. Say that in the config rather than leaving the two
+    # rules to collide silently.
     legs = {"STUB": {"strategy": _stub_module(), "timeframe": "1m", "params": {},
-                     "warmup_sessions": 5}}
+                     "warmup_sessions": 5, "max_entry_age_sec": 3600}}
     # SEED FIRST on an empty history (see test_cold_start_seeds_without_emitting): at
     # base+2m30s only bars 0-1 are closed, the stub needs 3, so the cold start absorbs
     # nothing and the leg is armed. Everything after this is a genuine live signal.
@@ -269,6 +274,30 @@ def test_stale_entry_is_recorded_but_not_emitted(tmp_path):
     assert cs.step(now=next_day.to_pydatetime(), legs=legs, paths=paths, fetch=False) == []
     state = cs._load_state(paths)
     assert state["legs"]["STUB"]["stale_skipped"] == 1
+
+
+def test_hours_late_entry_is_recorded_but_not_emitted(tmp_path):
+    """Seen live on 2026-09-09: after the 12:44 runner restart the engine re-derived the day
+    and emitted an ENGU-Q ENTRY stamped 10:07 -- two and a half hours old, but still "today",
+    so the date test let it through. An executor cannot take a 10:07 price at 12:44. A bar or
+    so late is normal; hours late means a gap, and the trade is gone."""
+    epoch_df, base = _fixture_epoch_df()          # bars at 09:30..09:33
+    paths = cs._paths(home=str(tmp_path / "late_home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    epoch_df.to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1m.csv"), index=False)
+
+    legs = {"STUB": {"strategy": _stub_module(), "timeframe": "1m", "params": {},
+                     "warmup_sessions": 5}}
+    # arm the leg on an empty history so the next call is a genuine live diff
+    cs.step(now=(base + pd.Timedelta(minutes=2, seconds=30)).to_pydatetime(),
+            legs=legs, paths=paths, fetch=False)
+
+    # look at it 3 HOURS later, same session: the stub's entry bar is long gone
+    late = base + pd.Timedelta(hours=3)
+    assert cs.step(now=late.to_pydatetime(), legs=legs, paths=paths, fetch=False) == []
+    state = cs._load_state(paths)
+    assert state["legs"]["STUB"]["late_skipped"] == 1
+    assert state["legs"]["STUB"].get("stale_skipped", 0) == 0,         "same-day but hours old is LATE, not stale -- the two are counted apart"
 
 
 # ── 2. Real-cache replay: determinism + idempotency ─────────────────────────────────────

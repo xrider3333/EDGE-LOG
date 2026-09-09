@@ -452,7 +452,12 @@ def step(now=None, legs=None, paths=None, fetch=True):
             continue
 
         trades = run_leg_trades(cfg, arrays)
-        events = _diff_leg(key, trades, leg_state, now)
+        # Three bars of grace by default: a signal may legitimately be discovered a bar or
+        # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
+        # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.
+        events = _diff_leg(key, trades, leg_state, now,
+                           max_entry_age_sec=cfg.get("max_entry_age_sec",
+                                                     3 * TIMEFRAME_SECONDS[tf]))
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
@@ -471,7 +476,7 @@ def _zi(name):
         return pytz.timezone(name)
 
 
-def _diff_leg(leg_key, trades, leg_state, now):
+def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
 
@@ -525,18 +530,43 @@ def _diff_leg(leg_key, trades, leg_state, now):
                        f"emitting; open_at_seed={open_at_seed}"),
         })
         return events
+    # LATE ENTRIES ARE NOT ACTIONABLE EITHER (2026-09-09, seen live). "Entry is from today"
+    # was too weak a test. After the 12:44 runner restart this engine re-derived the day and
+    # emitted an ENGU-Q ENTRY stamped 10:07 -- two and a half hours old -- because it was
+    # still technically today. An executor cannot take a 10:07 price at 12:44; it would open
+    # at a different price than the one the signal was justified at, which is precisely the
+    # divergence the whole parallel run exists to measure. Being one bar late is normal and
+    # fine; being hours late means a gap (restart, data outage) and the trade is gone. So an
+    # entry must be within a few bars of `now` to emit, and anything older is recorded
+    # silently and counted in `late_skipped` -- visible, but never handed downstream.
     today = now.date().isoformat()
     for t in trades:
         key = _entry_key(leg_key, t)
         rec = recorded.get(key)
         if rec is None:
-            fresh = str(t["entry_time"])[:10] == today
+            # One trade, ONE reason. STALE = the entry is not even from today (the rolling
+            # window's left edge re-minting an old trade). LATE = today, but discovered too
+            # many bars after the fact to act on. They are different failures and counting
+            # a trade under both makes each counter a lie.
+            skip = None
+            if str(t["entry_time"])[:10] != today:
+                skip = "stale"
+            elif max_entry_age_sec:
+                try:
+                    entered = _dt.datetime.fromisoformat(str(t["entry_time"]))
+                    if entered.tzinfo is None:
+                        entered = entered.replace(tzinfo=_zi(TZ))
+                    if (now - entered).total_seconds() > max_entry_age_sec:
+                        skip = "late"
+                except Exception:
+                    pass
             recorded[key] = {"entry_time": t["entry_time"], "side": t["side"],
                              "entry_px": t["entry_px"], "shares": t["shares"],
-                             "exit_emitted": not fresh, "exit_time": None,
-                             "exit_px": None, "stale": not fresh}
-            if not fresh:
-                leg_state["stale_skipped"] = int(leg_state.get("stale_skipped", 0)) + 1
+                             "exit_emitted": bool(skip), "exit_time": None,
+                             "exit_px": None, "skipped": skip}
+            if skip:
+                counter = f"{skip}_skipped"
+                leg_state[counter] = int(leg_state.get(counter, 0)) + 1
                 continue
             events.append({
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
