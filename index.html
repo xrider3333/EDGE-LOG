@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.595';
+const VERSION='73.596';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.596',date:'2026-09-08',notes:['PAPER BOARDS: run #335 selected its own best cell when it searched the whole R2 file, and that cell differs from the R2 defaults the crown trades (ema 1340, trendline 238, trail 4.0, atr 28, activation 2.5 R, breakeven 1.0 R, limit 0.1 ATR, no volume filter, regime 5, break 1.4). Owner (go for all): it now rides beside the crown as a FORWARD TEST leg ENGUQ_335_VC on the web board and in api/paper.py, control = ENGUQ_335. Its held-out year was weaker than the crown (49,812 dollars at PF 1.46 vs 88,380 at PF 1.68), so it is a forward test, not the crown.']},
 {v:'73.595',date:'2026-09-08',notes:['COMPARE - STUDIES: the TTM book leg is VALIDATED - runs 337 (baseline ORB 234 + ENGU-Q 309 book) and 336 (the same plus three ES contracts of the TTM crown, run 299) join round 7 as rows 1365 and 1366. Identical window: MAR 1.75 to 2.03 (+16 percent against a +15 percent pre-registered bar), whole-run drawdown identical to the dollar at 34,329, lockbox +8 percent at a lockbox drawdown 21 percent lower, eight of eight slices held on both and every slice improved. The first TTM result to clear a pre-registered bar under the engine. Adopting the leg into the paper book is the owner call. Also bookmarked in BOOKMARKS.md.']},
 {v:'73.594',date:'2026-09-08',notes:['ENGU-Q CROWN MOVES TO RUN #335 (owner: crown R2 once the validate passes, swap the paper leg). R2 is the #309 configuration with two risk knobs corrected - breakeven 3.0 R to 2.0 R and stop 1.3 to 1.0 ATR - and it beats #309 on every continuous read: selection PF 1.714 vs 1.661, net 522,613 vs 505,756 dollars, EV R 0.505 vs 0.439, R per year 61.7 vs 43.9; held-out year PF 1.675 vs 1.620, 88,380 vs 85,511 dollars; top-10 share 52 vs 53 percent; longest hold 142 vs 282 days. Auto-Validate #335: PASS, 6 of 6 checks, 8 of 8 walk-forward folds held, WFE 1.41, DSR 0.997, plateau HIGH GROUND 24 of 24, PBO 0.385, lockbox held.','PAPER BOARDS: new leg ENGUQ_335 (crown chip, forward evidence from 2026-09-08) on the web board and in api/paper.py (params, LEG_LIVE_FROM, LEG_SOURCE, PAPER_LEGS); ENGUQ_309 stays running as the matched control with an ex-crown chip. HONEST NOTE, stated in the crown tooltip and in ENGUQ.md: run #335 searched the whole file and its own best cell is a different configuration (ema 1340, trail 4.0, breakeven 1.0 R, no volume filter) whose held-out year is weaker (49,812 dollars at PF 1.46 vs 88,380 at PF 1.68), so the leg trades the R2 DEFAULTS the owner compared and the run certifies the landscape. NinjaTrader is NOT swapped - it still runs the #226 port; that is a separate owner call.']},
 {v:'73.593',date:'2026-09-08',notes:['COMPARE - STUDIES: TTM Squeeze round 7, rows 1338-1364. Where TTM belongs is as a BOOK LEG: run 299 is uncorrelated with both crowns (0.06 to ORB, 0.003 to ENGU-Q) and three ES contracts of it stacked on the baseline blend lift annualised MAR 1.62 to 1.89 - plus 17 percent, clearing the plus 15 percent stack bar - at unchanged whole-run drawdown, lockbox drawdown down 13 percent, seventeen of seventeen years positive. Two BOOK validates queued, bar pre-registered. The daily ETF tape (QQQ SPY IWM GLD TLT, 40 cells) is dead like the daily futures tape was.']},
@@ -26739,6 +26740,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          crownTip:'The standing ENGU-Q champion since 2026-09-08: run #335, the R2 sibling of #309 - the same configuration with the breakeven moved from 3.0 R to 2.0 R and the stop from 1.3 to 1.0 ATR. Measured on one continuous run sliced by entry time - selection window 1,830 trades, profit factor 1.71, EV R 0.51, R / YR 61.7; held-out year 118 trades, profit factor 1.68, EV R 0.49, R / YR 57.5. Beats #309 on every one of those reads with a lower top-10 share (52% vs 53%) and half the longest hold (142 days vs 282). Auto-Validate #335: PASS, 6 of 6 checks, 8 of 8 walk-forward folds held, lockbox held. Note: the validate searched the whole file and its own best cell is a different configuration with a weaker held-out year; this leg trades the R2 defaults the owner compared, and #309 runs beside it as the control.',
          chip:'crown 09-08',
          chipTip:'Added to the board the day it was crowned, so every trade from here is forward evidence. Anything dated before 2026-09-08 on this row is a backtest.'},
+        // VALIDATE PICK (owner 2026-09-08 evening: "go for all"): run #335 searched the whole R2
+        // file and its own best cell is a different configuration from the R2 defaults the crown
+        // trades - ema 1340, trendline 238, trail 4.0, atr 28, activation 2.5 R, breakeven 1.0 R,
+        // limit 0.1 ATR, no volume filter, regime 5, break 1.4. Whole window 1,344 trades / PF 1.82
+        // / $541k; entry-sliced held-out year 128 trades / PF 1.455 / $49,812 / DD $47,779, weaker
+        // than the crown's $88,380 / PF 1.675. It rides beside the crown as a FORWARD TEST so the
+        // two cells are judged on the same tape from here on. Not the crown; ENGUQ_335 is.
+        {k:'ENGUQ_335_VC', label:'ENGU-Q-335 · VALIDATE PICK', color:'#c9b3ff', ctrl:'ENGUQ_335',
+         chip:'forward test 09-08',
+         chipTip:'The configuration run #335 itself selected when it searched the whole R2 file - a different cell from the R2 defaults the crown trades (ema 1340, trail 4.0, breakeven 1.0 R, no volume filter). Its held-out year was weaker than the crown on the same tape (49,812 dollars at profit factor 1.46 against 88,380 at 1.68), so it runs here as a forward test beside the crown, not as the crown. Every trade from 2026-09-08 on is forward evidence.'},
         // EX-CROWN since 2026-09-08: run #335 (the R2 sibling, ENGUQ_335 below) took the crown.
         // #309 stays on the board as the matched control - same file lineage, same window, the
         // only differences are breakeven 3.0 R -> 2.0 R and stop 1.3 -> 1.0 ATR - so any gap

@@ -79,8 +79,10 @@ era split 2-2, not 4-0 (PF slips 2010-14 and 2018-22, improves 2014-18 and 2022-
   1.455 / $49,812 / DD $47,779 against 118 / 1.675 / $88,380 / $41,534. It also carries the
   early breakeven (1.0 R) that memory `edgelog-evr-gameable-by-breakeven` warns about.
   **The paper leg therefore trades the R2 DEFAULTS the owner compared and chose; run #335
-  certifies the landscape, not that cell.** Putting #335's own cell on the board instead is
-  a one-line change in `api/paper.py` (`ENGUQ_335`) — the owner's call.
+  certifies the landscape, not that cell.** Owner, later the same evening ("go for all"):
+  that cell now rides BESIDE the crown as a forward-test leg `ENGUQ_335_VC` on both boards
+  (control = `ENGUQ_335`), so the two cells are judged on the same live tape from here on.
+  It is not the crown and NinjaTrader does not run it.
 - **#309 stays on the board as the control.** Same lineage, same window, only the breakeven
   and stop differ, so any gap between the two rows from 2026-09-08 on is those two knobs
   and nothing else. Its chip reads "ex-crown · control".

@@ -89,6 +89,7 @@ LEG_LIVE_FROM = {
     "ORB_R6_C15": "2026-09-08",       # the ORB crown x compression 1.5x, no model (the tilt travels: LB $87k -> $102k at identical DD)
     "ENGUQ_309_C15": "2026-09-08",    # the ENGU-Q crown x compression 1.5x, no model (LB $86k -> $110k at better DD)
     "ENGUQ_309_K9": "2026-09-08",     # KEEL v9 on the ENGU-Q crown (WF $576k vs $471k at BETTER DD; LB = the tilt alone)      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "ENGUQ_335_VC": "2026-09-08",  # run #335's OWN best cell, forward test beside the crown (owner: "go for all")
     "ENGUQ_335": "2026-09-08",  # NEW FAMILY CROWN (owner 2026-09-08: "crown R2 once the validate
                                 # passes, swap the paper leg"); #309 below stays as the control
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
@@ -313,6 +314,18 @@ ENGUQ_309 = dict(buf_atr=0.3, tl_len=206, trail_frac=2.5, ema_len=220, atr_len=5
 # owner wants #335's own cell on the board instead, that is a one-line change here.
 # NinjaTrader is NOT swapped by this -- it still runs the #226 port.
 ENGUQ_335 = dict(ENGUQ_309, breakeven_R=2.0, stop_mult=1.0)
+
+# Run #335's OWN selected cell (validate.champion) -- what the Auto-Validate picked when it
+# searched the whole R2 file (every knob open except the two fenced ones). A DIFFERENT
+# configuration from the R2 defaults the crown trades: whole window 1,344 trades / PF 1.82 /
+# $541k, entry-sliced held-out year 128 trades / PF 1.455 / $49,812 / DD $47,779 -- weaker
+# than ENGUQ_335's $88,380 / PF 1.675 on the same tape, and it carries the early breakeven
+# (1.0 R) that memory `edgelog-evr-gameable-by-breakeven` warns about. Owner 2026-09-08
+# evening ("go for all"): it rides beside the crown as a FORWARD TEST so both cells are
+# judged on the same live tape from here on. NOT the crown; ENGUQ_335 is its control.
+ENGUQ_335_VC = dict(buf_atr=0.4, tl_len=238, trail_frac=4.0, ema_len=1340, atr_len=28,
+                    act_R=2.5, breakeven_R=1.0, limit_atr=0.1, er_len=100, stop_mult=1.2,
+                    regime_len=5, min_brk=1.4, vol_mult=0.0, er_th=0.0)
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -974,6 +987,24 @@ LEG_SOURCE = {
                   "leg is a pre-registered forward test: it should beat NOISE_225 on recovery "
                   "from 2026-08-16 on, and if it does not, the lockbox row was noise.",
     },
+    "ENGUQ_335_VC": {
+        "run": 335, "run_label": "#335 validate pick (its own best cell, not the R2 defaults)",
+        "strategy_file": "ENGUQ_1M_ETH_R2_1_0.py",
+        "picked": "2026-09-08",
+        "note": "FORWARD TEST beside the crown (owner 2026-09-08 evening: \"go for all\"). This is "
+                "run #335's validate.champion -- the cell the Auto-Validate selected when it "
+                "searched the whole R2 file: buf_atr 0.4, tl_len 238, trail_frac 4.0, ema_len 1340, "
+                "atr_len 28, act_R 2.5, breakeven_R 1.0, limit_atr 0.1, er_len 100, stop_mult 1.2, "
+                "regime_len 5, min_brk 1.4, vol_mult 0.0, er_th 0.0. Run doc reads: IS (first 75%) "
+                "870 trades / PF 2.26; whole window 1,344 trades / PF 1.82 / $541k / DD $66.6k; "
+                "entry-sliced held-out year 128 trades / PF 1.455 / $49,812 / DD $47,779. The "
+                "PASS verdict (6/6, WF 8/8, lockbox held, PBO 0.385) belongs to this cell.",
+        "caveat": "Weaker held-out year than the crown's R2 defaults on the same tape ($49,812 at "
+                  "PF 1.455 vs $88,380 at PF 1.675), 16.8% win rate, and an early 1.0 R breakeven "
+                  "(memory: an early breakeven flatters EV R while losing money). That is why it "
+                  "is a forward test and not the crown -- ENGUQ_335 is its control; judge them on "
+                  "the same forward tape. NinjaTrader does not run this cell.",
+    },
     "ENGUQ_335": {
         "run": 335, "run_label": "#335 (ENGU-Q ETH, R2 = #309 with breakeven 2.0 R / stop 1.0)",
         "strategy_file": "ENGUQ_1M_ETH_R2_1_0.py",
@@ -1063,6 +1094,11 @@ PAPER_LEGS = [
     {"key": "ENGUQ_335", "strategy": "ENGUQ_1M_ETH_R2_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_335,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335"]},
+    # ADDED 2026-09-08 evening (owner: "go for all"): run #335's own selected cell as a
+    # FORWARD TEST beside the crown -- see ENGUQ_335_VC's comment block. Control = ENGUQ_335.
+    {"key": "ENGUQ_335_VC", "strategy": "ENGUQ_1M_ETH_R2_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_335_VC,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335_VC"]},
     # ADDED 2026-09-05 (owner: "crown #309 and swap the paper leg to it"). The NEW
     # ENGU-Q family crown -- see ENGUQ_309's own comment block above for the full
     # evidence and ENGUQ.md's CROWN CHANGE 2026-09-05 section for the writeup. This is
