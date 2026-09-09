@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.686';
+const VERSION='73.687';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.687',date:'2026-09-09',notes:['OVERVIEW TAB: fixed the vs SPY number - it was quietly showing your own account return relabeled as alpha, on days when the SPY price data behind it had not actually loaded. Root cause: the free web service this page used to fetch SPY prices (corsproxy.io) now demands a paid API key and rejects every request, and going straight to Yahoo from the browser is blocked outright, so real SPY prices currently cannot load at all - that is an outside service going away, not a bug in this page, and it needs your call on where to get SPY prices from going forward.','Until then, OVERVIEW now behaves like the HOME tab already does: when real SPY data is not available, the vs SPY number in the side rail, the vs SPY number under the chart, and the vs SPY line on the chart itself all show a plain dash instead of a guess. When real data IS available, the math is unchanged and HOME and OVERVIEW always show the identical figure.','Also stopped the page from hammering the dead SPY service on every single screen refresh - it now waits a minute between attempts instead of retrying instantly forever, in case the service starts working again.']},
 {v:'73.684',date:'2026-09-09',notes:['COMPARE - STUDIES: the seven ETF book legs validated individually at last, rows 1633-1641, runs 354 to 359. SIX OF SIX FAIL. Seven legs became six validates because two of them differ only in a boolean the engine always searches over both values - which also disposes of the near-duplicate caveat on the stack card.','EVERY ONE FAILS WALK-FORWARD EFFICIENCY, between 0.050 and 0.332 against a bar of 0.5; five of six also fail consistency and three fail the overfit check. NOT ONE crown is the cell the book carries, so the book cells were never validated either - the run 343 precedent, written down before these ran.','THEY ARE NOT NOISE CELLS. Every leg has a significant in-sample edge, t of 2.41 to 5.57, every p under 0.02, causal and plateau clean on all six. High in-sample significance plus a real plateau plus walk-forward near 0.1 is the signature of an edge that does not generalise forward.','THE LIMIT WAS WRITTEN DOWN FIRST AND IT HELD: these legs trade 7 to 13 times a year, so three of the six lockboxes held ZERO trades and one held two. The order of evidence was fixed in advance - folds first, then the untouched 2006-2009 pre-window, then the lockbox. On that pre-window the simple round-25 cell beats the 300-trial crown in FIVE of six legs, and two crowns lose money outright.','CONSEQUENCE, PRE-REGISTERED AND APPLIED: the run-349 ETF stack candidate is WITHDRAWN - no surviving legs, nothing to re-score. This does NOT retract the lockbox-drawdown clause, which worked as designed: it flagged 349 as a candidate and named the missing leg validates as blocker number one, and blocker number one is what killed it. A book card can look excellent while every leg inside it is individually unvalidated.']},
 {v:'73.683',date:'2026-09-09',notes:['COMPARE - STUDIES: BOOK run 361 - the validated structural-stop TTM leg inside the book in production - CLEARS all three clauses of the canonical bar: annualised MAR times 1.0795 against a bar of times 1.05, lockbox up 15 percent to 229,124 dollars, and the lockbox drawdown 18 percent LOWER at 22,226 against 27,209. Eight of eight slices.','The evidence chain is complete - leg validate, stress read, book run - and the book figure still carries the tilted leg until the owner says otherwise. The structural stop runs in paper as TTM_299_SS from 2026-09-10 with the tilted leg as its matched control.']},
 {v:'73.685',date:'2026-09-09',notes:['EXPLORE RESPONDS FASTER (owner: the explore tab and compare are laggy). Measured on the live page rather than guessed at: this board emits about 4.2 megabytes of markup and 23,000 elements, and every click rebuilds all of it - picking a preset, a stage, a strategy. Roughly three and a half of those megabytes are the study tables, rebuilt even while you are only moving the chart.','So the tables are built on demand here. Hiding them in CSS would have saved nothing, because the cost is assembling the markup rather than painting it, so when they are off the string is never assembled at all. The TABLES button says how many rows are waiting behind it, remembers the choice, and filters nothing - everything in them is still there.','When they are on they now sit in a capped scrolling box, the way the old sidebar layout capped them, so a thousand rows cannot push the chart off the screen.','For the record: this was never a regression from the rebuild. The same board on the old tab measured about 2.5 seconds a render against 1.5 on the new one, because the new screen dropped the sidebar. The tables were always the bulk of it.']},
@@ -8278,6 +8279,19 @@ window.expandKPI=function(label,infoKey){
 
 // SPY data cache + real fetcher
 let _spyCache={};
+// Bounded retry backoff — a failed SPY fetch (dead proxy / CORS block) used to silently
+// re-fire on every single render since the in-flight flag clears on both success and
+// failure. That is not a stuck flag, but it IS an unbounded retry against a source that is
+// currently down. Cap retries to once per cooldown window instead of once per render.
+const SPY_RETRY_COOLDOWN_MS=60000;
+function _spyOnCooldown(key){
+  const t=_spyCache._failAt&&_spyCache._failAt[key];
+  return !!t&&(Date.now()-t)<SPY_RETRY_COOLDOWN_MS;
+}
+function _spyMarkResult(key,data){
+  if(!data){_spyCache._failAt=_spyCache._failAt||{};_spyCache._failAt[key]=Date.now();}
+  else if(_spyCache._failAt)delete _spyCache._failAt[key];
+}
 async function fetchSPYData(startDate,endDate){
   const key=startDate+'_'+endDate;
   if(_spyCache[key])return _spyCache[key];
@@ -8331,10 +8345,11 @@ function ensureSPYData(){
   if(!spyOverlay||!trades.length)return;
   const [startD,endD]=_spyAllRange();
   const key=startD+'_'+endD;
-  if(_spyCache[key]||_spyCache._loading===key)return;
+  if(_spyCache[key]||_spyCache._loading===key||_spyOnCooldown(key))return;
   _spyCache._loading=key;
   fetchSPYData(startD,endD).then(d=>{
     _spyCache._loading=null;
+    _spyMarkResult(key,d);
     if(d)renderApp(); // re-render with real data
   });
 }
@@ -9181,10 +9196,11 @@ function _hmEnsureSpyData(){
   if(!range)return;
   const [startD,endD]=range;
   const key=startD+'_'+endD;
-  if(_spyCache[key]||_spyCache._loading===key)return;
+  if(_spyCache[key]||_spyCache._loading===key||_spyOnCooldown(key))return;
   _spyCache._loading=key;
   fetchSPYData(startD,endD).then(d=>{
     _spyCache._loading=null;
+    _spyMarkResult(key,d);
     if(d&&activeTab==='home')renderApp(); // repaint MORE STATS once real data lands
   });
 }
@@ -9937,7 +9953,7 @@ function renderApp(){
         <div class="rail-row"><span style="color:var(--text4)">SHARPE</span><span style="font-family:'Bebas Neue',monospace;color:${S.sharpe>=0?'var(--green)':'var(--red)'}">${S.sharpe.toFixed(2)}</span></div>
         <div class="rail-row"><span style="color:var(--text4)">RECOVERY</span><span style="font-family:'Bebas Neue',monospace;color:${S.recovery>=1?'var(--green)':'var(--red)'}">${S.recovery.toFixed(2)}×</span></div>
         <div class="rail-row"><span style="color:var(--text4)">R:R</span><span style="font-family:'Bebas Neue',monospace;color:${S.rr>=1?'var(--green)':'var(--red)'}">${S.rr.toFixed(2)}R</span></div>
-        ${(()=>{ if(!tfTrades.length||brokerStartEquity()<=0)return ''; const sB=brokerStartEquity(); const aP=(tfS.net/sB)*100; const sD=tfTrades[0].date,eD=tfTrades[tfTrades.length-1].date; const sd=_spyCache[(_spyAllRange()||[]).join('_')]; const sP=(sd?spyReturnReal(sD,eD,sd):spyReturnBetweenDates(sD,eD))*100; const a=aP-sP; return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:${a>=0?'var(--green)':'var(--red)'}">${a>=0?'+':''}${a.toFixed(1)}% α</span></div>`; })()}
+        ${(()=>{ if(!tfTrades.length||brokerStartEquity()<=0)return ''; const sB=brokerStartEquity(); const aP=(tfS.net/sB)*100; const sD=tfTrades[0].date,eD=tfTrades[tfTrades.length-1].date; const sd=_spyCache[(_spyAllRange()||[]).join('_')]; if(!sd)return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:var(--text4)" title="SPY benchmark data not loaded yet">&mdash;</span></div>`; const sP=spyReturnReal(sD,eD,sd)*100; const a=aP-sP; return `<div class="rail-row"><span style="color:var(--text4)">vs SPY</span><span style="font-family:'Bebas Neue',monospace;color:${a>=0?'var(--green)':'var(--red)'}">${a>=0?'+':''}${a.toFixed(1)}% α</span></div>`; })()}
 
         <div class="rail-grp">BOOK</div>
         <div class="rail-row"><span style="color:var(--text4)">LONGS</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.longPnl>=0?'var(--green)':'var(--red)'}">$${tfS.longPnl.toFixed(0)}</span></div>
@@ -10020,11 +10036,13 @@ function renderApp(){
             const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
             let bal=startB;
             const points=filtTr.map(t=>{bal=bal+t.pnl;const pct=((bal-startB)/startB)*100;return{y:pct,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};});
-            // Add SPY overlay points if enabled
-            if(spyOverlay&&filtTr.length){
+            // Add SPY overlay points only when real SPY data is actually loaded — drawing an
+            // overlay from missing data used to fall back to a crude annual-approximation
+            // curve presented as if it were real SPY prices. No data = no line, not a guess.
+            const spyDataKey=(_spyAllRange()||[]).join('_');
+            const spyData=_spyCache[spyDataKey];
+            if(spyOverlay&&filtTr.length&&spyData){
               const startDate=filtTr[0].date;
-              const spyDataKey=(_spyAllRange()||[]).join('_');
-              const spyData=_spyCache[spyDataKey];
               const spyPts=filtTr.map(t=>({y:spyReturnReal(startDate,t.date,spyData)*100}));
               return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
             }
@@ -10038,13 +10056,14 @@ function renderApp(){
         <span style="color:var(--text4)">MAX DD <span style="color:var(--red);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.maxDD.toFixed(0)}</span></span>
         ${(()=>{
           if(!tfTrades.length)return '';
-          const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
-          const acctPct=startB>0?(tfS.net/startB)*100:0;
           const startD=tfTrades[0].date;
           const endD=tfTrades[tfTrades.length-1].date;
           const spyDataKey=(_spyAllRange()||[]).join('_');
           const spyData=_spyCache[spyDataKey];
-          const spyPct=(spyData?spyReturnReal(startD,endD,spyData):spyReturnBetweenDates(startD,endD))*100;
+          if(!spyData)return `<span style="color:var(--text4)">vs SPY <span style="color:var(--text4);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="SPY benchmark data not loaded yet">&mdash;</span></span>`;
+          const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+          const acctPct=startB>0?(tfS.net/startB)*100:0;
+          const spyPct=spyReturnReal(startD,endD,spyData)*100;
           const alpha=acctPct-spyPct;
           return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
         })()}
@@ -10212,11 +10231,13 @@ function renderApp(){
             const startPoint={y:0,pnl:0,id:null,date:null,symbol:null};
             let bal=startB;
             const points=filtTr.map(t=>{bal=bal+t.pnl;const pct=((bal-startB)/startB)*100;return{y:pct,pnl:t.pnl,id:t.id,date:t.date,symbol:t.symbol,type:t.type};});
-            // Add SPY overlay points if enabled
-            if(spyOverlay&&filtTr.length){
+            // Add SPY overlay points only when real SPY data is actually loaded — drawing an
+            // overlay from missing data used to fall back to a crude annual-approximation
+            // curve presented as if it were real SPY prices. No data = no line, not a guess.
+            const spyDataKey=(_spyAllRange()||[]).join('_');
+            const spyData=_spyCache[spyDataKey];
+            if(spyOverlay&&filtTr.length&&spyData){
               const startDate=filtTr[0].date;
-              const spyDataKey=(_spyAllRange()||[]).join('_');
-              const spyData=_spyCache[spyDataKey];
               const spyPts=filtTr.map(t=>({y:spyReturnReal(startDate,t.date,spyData)*100}));
               return svgLineLabeled([startPoint,...points], chartColor,1400,380,true, [{y:0},...spyPts]);
             }
@@ -10230,13 +10251,14 @@ function renderApp(){
         <span style="color:var(--text4)">MAX DD <span style="color:var(--red);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px">-$${S.maxDD.toFixed(0)}</span></span>
         ${(()=>{
           if(!tfTrades.length)return '';
-          const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
-          const acctPct=startB>0?(tfS.net/startB)*100:0;
           const startD=tfTrades[0].date;
           const endD=tfTrades[tfTrades.length-1].date;
           const spyDataKey=(_spyAllRange()||[]).join('_');
           const spyData=_spyCache[spyDataKey];
-          const spyPct=(spyData?spyReturnReal(startD,endD,spyData):spyReturnBetweenDates(startD,endD))*100;
+          if(!spyData)return `<span style="color:var(--text4)">vs SPY <span style="color:var(--text4);font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="SPY benchmark data not loaded yet">&mdash;</span></span>`;
+          const startB=brokerStartEquity()||(scopedLedger()||[]).filter(e=>e.amount>0).reduce((s,e)=>s+e.amount,0)||1000;
+          const acctPct=startB>0?(tfS.net/startB)*100:0;
+          const spyPct=spyReturnReal(startD,endD,spyData)*100;
           const alpha=acctPct-spyPct;
           return `<span style="color:var(--text4)">vs SPY <span style="color:${alpha>=0?'var(--green)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:13px;margin-left:4px" title="Alpha = your return - SPY return for same period">${alpha>=0?'+':''}${alpha.toFixed(1)}% α</span></span>`;
         })()}
@@ -10399,7 +10421,7 @@ function renderApp(){
       </div>
     </div>`;
     }
-    if(trades.length){const _spr=_spyAllRange(),_spk=_spr.join('_');if(!_spyCache[_spk]&&_spyCache._ovload!==_spk){_spyCache._ovload=_spk;fetchSPYData(_spr[0],_spr[1]).then(d=>{_spyCache._ovload=null;if(d&&activeTab==='overview')renderApp();});}}
+    if(trades.length){const _spr=_spyAllRange(),_spk=_spr.join('_');if(!_spyCache[_spk]&&_spyCache._ovload!==_spk&&!_spyOnCooldown(_spk)){_spyCache._ovload=_spk;fetchSPYData(_spr[0],_spr[1]).then(d=>{_spyCache._ovload=null;_spyMarkResult(_spk,d);if(d&&activeTab==='overview')renderApp();});}}
     setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
   }
 
