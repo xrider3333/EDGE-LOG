@@ -73,12 +73,13 @@ paper legs (see `KEEL.md` / memory `edgelog-keel-overlay`).
 | #341 | BOOK, tilted leg | — | $1,174,222 · DD $34,329 | $199,035 | +4.9% money at identical drawdown; **missed the +5% MAR clause by 0.15%** — owner overrode knowingly |
 | #342 | BOOK, tilt + ES 15m cell | — | $1,241,601 · DD $34,564 | $209,287 | Cleared all three clauses — but see #343 |
 | #343 | `TTMSQZ_3_0_ES15N.py` | **WEAK** | 879 · $52,163 · PF 1.39 | $5,472 · PF 1.36 | Luck check fails; crowned a different cell than #342 ran, so **#342 does not transfer** |
+| #361 | BOOK, structural-stop leg | **clears the canonical bar** | $1,267,621 · DD $34,329 · MAR 3.034 | $229,124 · LB DD $22,226 | vs #341: MAR x1.0795, lockbox +15%, **lockbox drawdown 18% LOWER**. 8/8 slices |
 | #352 | `TTMSQZ_3_0_ES30SS.py` | **PASS, bar missed** | 665 · $109,651 · PF 2.00 · DD $7,143 | $22,404 · PF 2.94 · 40 trades | Search walked to gate length 16; drawdown 57% over the cap for a dead-heat MAR |
 | #353 | `TTMSQZ_3_0_ES30SS20.py` | **PASS + every clause cleared** | 357 · $101,017 · PF 2.91 · DD $4,338 · MAR 1.450 | $16,977 · PF 6.72 · DD $2,003 | The structural stop with the verification length pinned at 20. Lower drawdown than the leg it challenges, in the whole run and the lockbox |
 
 ## Open leads
 
-1. **The structural stop — VALIDATED (run #353), book run pending.** Stop at the far side of the
+1. **The structural stop — VALIDATED (run #353) AND its BOOK run (#361) clears every clause. Adoption is the owner's call; the book figure still carries the tilted leg.** Stop at the far side of the
    squeeze range instead of 1.5 ATR. With the validated tilt: **$101,017 at PF 2.91, annualised MAR
    1.450 against the book leg's 0.957, drawdown $4,338 against $4,549 — lower — and a lockbox of
    $16,977 at PF 6.72 against $6,948 at 2.38, at a lockbox drawdown of $2,003 against $4,053.**
