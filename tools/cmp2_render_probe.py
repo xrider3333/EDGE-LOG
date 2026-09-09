@@ -38,10 +38,12 @@ WHAT IT ASSERTS, per case
                        and >=1 [data-c2add] chip appear.
   stages           -- IS / WF / LB all render without throwing (values may honestly be
                        the dash -- this run fixture is thin on some stages).
-  placeholders     -- the EXPLORE screen (phase 4, not built yet)
-                       shows a .c2-hold placeholder card and a [data-c2gocmp] escape
-                       hatch back to the old tab, with no errors. COMPARE is no longer
-                       a placeholder - see the `compare` case.
+  explore          -- the phase-4 EXPLORE screen. It is not a copy of the STUDIES board,
+                       it IS that board: the tab hands the render to the old branch, so
+                       this case checks the chart actually plotted points, the strategy
+                       rail and study tables came with it, and COMPARE BETA's own screen
+                       switcher sits above it. If EXPLORE ever renders without points
+                       while the old tab still has them, the hand-off broke.
   runboard         -- the OLD tab's RUNBOARD (cmpMode 'board'), which no gate rendered
                        until the un-annualised MAR column was found by hand. Renders on all
                        three SAMPLE ticks and checks the lockbox MAR cell equals the
@@ -200,21 +202,16 @@ var FIX = __FIX__;
         r.uncaught=allUncaught.slice(0,10);
       })();
 
-      // ── case 5: placeholders (cmp / explore) ──────────────────────────────────
+      // ── case 5: explore (phase 4) ────────────────────────
       (function(){
-        var screens=['explore'], per={};
-        screens.forEach(function(scr){
-          var call=doRender({c2Screen:scr}, FIX_WIN);
-          per[scr]={call:call,
-            hold:!!d.querySelector('.c2-hold'),
-            gocmp:!!d.querySelector('[data-c2gocmp]'),
-            errors:sink.errors.slice(0,5),
-            uncaught:sink.uncaught.slice(0,5)};
-        });
-        var r=snap('placeholders', (per.explore.call==='OK')?'OK':'ERR');
-        r.per=per;
+        var call=doRender({c2Screen:'explore',resLvl:'sweep'}, FIX_WIN);
+        var r=snap('explore', call);
+        r.points=d.querySelectorAll('[data-repoint]').length;
+        r.rail=d.querySelectorAll('[data-refam]').length;
+        r.rows=d.querySelectorAll('tr[data-rerow]').length;
+        r.screenBtns=d.querySelectorAll('[data-c2screen]').length;
+        r.hold=!!d.querySelector('.c2-hold');
       })();
-
 
       // ── case 6: book (a BOOK run - own BOOKS row, dollars unscaled, LB dd off the book block) ─
       //    Synthesised from the fixture: the engine's book shape (augur_engine/book.py) - a
@@ -561,30 +558,36 @@ def main(argv=None):
             if v.get('call') != 'OK':
                 fail('stages: %s stage threw -- %s' % (s, str(v.get('call'))[:300]))
 
-    # case 5: placeholders
-    r = cases.get('placeholders', {})
-    per = r.get('per') or {}
-    ph_ok = True
-    for scr in ('explore',):
-        p = per.get(scr) or {}
-        if not (p.get('call') == 'OK' and p.get('hold') and p.get('gocmp')
-                and not p.get('errors') and not p.get('uncaught')):
-            ph_ok = False
-    line('placeholders', ph_ok, 'explore=%s'
-         % ({k: v for k, v in (per.get('explore') or {}).items() if k != 'per'},))
-    if not ph_ok:
-        for scr in ('explore',):
-            p = per.get(scr) or {}
-            if p.get('call') != 'OK':
-                fail('placeholders: %s screen renderApp threw -- %s' % (scr, str(p.get('call'))[:300]))
-            if p.get('errors'):
-                fail('placeholders: %s console.error -- %s' % (scr, p['errors'][0][:200]))
-            if p.get('uncaught'):
-                fail('placeholders: %s uncaught -- %s' % (scr, p['uncaught'][0][:200]))
-            if p.get('call') == 'OK' and not p.get('hold'):
-                fail('placeholders: %s screen has no .c2-hold card' % scr)
-            if p.get('call') == 'OK' and not p.get('gocmp'):
-                fail('placeholders: %s screen has no [data-c2gocmp] escape hatch' % scr)
+    # case 5: explore -- the board itself, hosted by the new tab
+    r = cases.get('explore', {})
+    ex_ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
+             and (r.get('points') or 0) >= 1
+             and (r.get('rail') or 0) >= 1
+             and (r.get('rows') or 0) >= 1
+             and r.get('screenBtns') == 3
+             and not r.get('hold'))
+    line('explore', ex_ok, 'call=%s points=%s rail=%s rows=%s screenBtns=%s hold=%s'
+         % (r.get('call'), r.get('points'), r.get('rail'), r.get('rows'),
+            r.get('screenBtns'), r.get('hold')))
+    if not ex_ok:
+        if r.get('call') != 'OK':
+            fail('explore: renderApp threw -- %s' % str(r.get('call'))[:300])
+        if r.get('errors'):
+            fail('explore: console.error -- %s' % r['errors'][0][:200])
+        if r.get('uncaught'):
+            fail('explore: uncaught -- %s' % r['uncaught'][0][:200])
+        if not (r.get('points') or 0) >= 1:
+            fail('explore: the chart plotted no points - the hand-off to the studies '
+                 'branch did not happen, or it drew an empty frame')
+        if not (r.get('rail') or 0) >= 1:
+            fail('explore: no strategy rail rendered')
+        if not (r.get('rows') or 0) >= 1:
+            fail('explore: no study table rows rendered')
+        if r.get('screenBtns') != 3:
+            fail('explore: %s screen-switcher buttons, expected 3 - COMPARE BETA lost its '
+                 'own strip on this screen' % r.get('screenBtns'))
+        if r.get('hold'):
+            fail('explore: still showing a placeholder card')
 
     # case 6: book
     r = cases.get('book', {})
