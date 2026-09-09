@@ -84,6 +84,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
     "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
     "TTM_299": "2026-09-09",  # TTM Squeeze crown (run 299) as the book diversifier leg, 3 ES in BOOK 336
+    "TTM_299_T": "2026-09-10", # the same leg with the VALIDATED deep-squeeze size tilt (run 340) - TTM_299 is its control
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
     "ORB_R6_C15F": "2026-09-08",      # ORB crown x compression 1.5x x Friday 1.5x (LB $102k -> $123k at DD +1.8%, 8/10 WF years)
@@ -608,6 +609,19 @@ NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source
 # worse than it. Reported per ONE contract; the book applies weight 3. FORWARD EVIDENCE ONLY.
 TTM_299 = dict(kc_mult=1.5, stop_atr=1.5, eod_cutoff=1, gate_len=20)
 
+# THE SAME CELL, SIZED. Run #340 (TTMSQZ_3_0_ES30T.py, 2026-09-09) put the round-8 deep-squeeze size
+# tilt through a fenced Auto-Validate on run #299 own four knobs and admissible set, with the
+# multiplier fixed at 1.5 and the deep threshold fixed at 0.85 a priori. It PASSED all six gates
+# (plateau, walk-forward, sample, consistency, overfit, luck; walk-forward efficiency 1.09, overfit
+# probability 0.37, 69 trades per knob) and the search re-crowned run #299 EXACT cell, so the only
+# difference between this leg and TTM_299 is size: the 188 of 359 trades entered while the hourly
+# squeeze is deep carry 1.5 contracts. It also cleared the bar written before it ran: lockbox $6,948
+# at profit factor 2.38 against $4,992 at 2.22, whole run $69,884 at drawdown $4,549 against $51,709
+# at $3,740, annualised MAR 0.96 against 0.86. THE CLAIM: from 2026-09-10 this leg beats TTM_299 on
+# net without a materially worse drawdown, per contract. FORWARD EVIDENCE ONLY - the book336 figure
+# still carries the untilted TTM_299, and nothing is swapped until the forward read says so.
+TTM_299_T = dict(TTM_299)
+
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
                      "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
 # KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
@@ -947,6 +961,16 @@ LEG_SOURCE = {
         "note": "The crowned #243 config with only the TTM round-6 compression tilt: 1.5x on trades "
                 "entered while the 60-minute squeeze is on, 1.0 otherwise, no model anywhere. The "
                 "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
+    },
+    "TTM_299_T": {
+        "run": 340, "run_label": "#340 (TTM-ES30T) hourly-verified ES 30m squeeze, 1.5x on deep squeezes",
+        "strategy_file": "TTMSQZ_3_0_ES30T.py", "picked": "2026-09-09",
+        "note": "The run #299 crowned cell with one change that is not a trading rule: every "
+                "trade is still taken, but the ones entered while the verifying hourly squeeze "
+                "is DEEP (band-to-channel ratio at or under 0.85, the house threshold from the "
+                "KEEL overlay) are sized 1.5. Run #340 PASSED all six gates and cleared the bar "
+                "written before it ran; the search re-crowned the same cell, so TTM_299 is an "
+                "exact matched control. Reported per one contract; not in the book336 figure.",
     },
     "TTM_299": {
         "run": 299, "run_label": "#299 (TTM-ES30N) hourly-verified ES 30m squeeze",
@@ -1309,6 +1333,12 @@ PAPER_LEGS = [
      "timeframe": "30m", "session": "rth", "params": TTM_299,
      "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
      "source": LEG_SOURCE["TTM_299"]},
+    # ADDED 2026-09-09: the validated deep-squeeze tilt (run 340) beside the adopted TTM leg, which is
+    # its exact matched control. Not in book336 - FORWARD EVIDENCE ONLY.
+    {"key": "TTM_299_T", "strategy": "TTMSQZ_3_0_ES30T.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299_T,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "source": LEG_SOURCE["TTM_299_T"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
@@ -1426,10 +1456,23 @@ def _ticks_path(instrument="NQ"):
         return cands[0]            # canonical path for the "missing" warning
     if len(have) == 1:
         return have[0]
-    try:
-        return max(have, key=os.path.getmtime)
-    except OSError:
-        return have[0]
+    # 2026-09-09: modification time is not freshness. Both ES files were rewritten in the same
+    # minute by a restart, the tie went to the addon copy -- which holds 47 days of bars against
+    # the watch-folder copy 66, because the addon only writes while its chart is open -- and the
+    # TTM leg rebuilt half a tail (284 bars instead of 617) with a two-month hole in front of it.
+    # Rank on what actually matters: the LAST BAR each file carries, then how much history it has.
+    def _rank(path):
+        try:
+            with open(path, "rb") as fh:
+                fh.seek(0, os.SEEK_END)
+                size = fh.tell()
+                fh.seek(max(0, size - 4096))
+                tail = fh.read().decode("utf-8", "replace").strip().splitlines()
+            last = int(float(tail[-1].split(",")[0])) if tail else 0
+        except (OSError, ValueError, IndexError):
+            return (0, 0)
+        return (last, size)
+    return max(have, key=_rank)
 
 
 def _load_fresh_ticks(instrument="NQ"):
