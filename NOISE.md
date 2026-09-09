@@ -7,6 +7,109 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUND 46: THE MIRROR TEST — my own round 45 explanation is WRONG, and the real answer is better news (STUDIES rows 1628-1631, web v73.677)
+
+**Owner ask:** *"keep testing noise."* Round 45 established a real pattern — every change that
+improves NOISE across 2010–2023 has lost 2024, 2025 and 2026 — and attached a story to it: *since
+2024 this tape rewards entering FAST*. **That story had never been tested.** Every candidate this
+family has produced is SLOWER than the crown, so the claim rested entirely on things that lost. A
+story that only ever explains failures is not a finding, so this round pointed the same measurement
+in the other direction, with the falsifier written down first.
+
+**The prediction, pre-registered:** if the tape rewards speed, then variants one step FASTER than the
+crown must be ahead in 2024–2026 and behind across 2010–2023 — round 45's signature, mirrored. **The
+declared falsifier:** if the faster variants are simply worse in BOTH eras, the regime story is wrong
+and the dull account is right — the crown is a well-chosen configuration and its neighbours in every
+direction are worse. Harness `tools/r46_noise_fast_side.py`, stressed cost 0.783.
+
+### Part A — the mirror is absent. Completely.
+
+| variant (one step faster) | n old | PF old | net old $ | vs crown | PF recent | net recent $ | vs crown |
+|---|---|---|---|---|---|---|---|
+| CROWN (reference) | 4,097 | 1.323 | 237,882 | +0.0% | 1.340 | 135,128 | +0.0% |
+| narrow upper band 0.50 | 5,705 | 1.249 | 228,013 | -4.1% | 1.266 | 127,859 | -5.4% |
+| narrow both 0.50/1.25 | 6,098 | 1.204 | 204,319 | -14.1% | 1.179 | 97,646 | -27.7% |
+| short lookback 20 | 4,346 | 1.300 | 228,711 | -3.9% | 1.235 | 100,034 | -26.0% |
+| short lookback 10 | 4,697 | 1.251 | 202,366 | -14.9% | 1.251 | 107,930 | -20.1% |
+| boundary exit | 9,768 | 1.125 | 90,447 | -62.0% | 1.218 | 76,618 | -43.3% |
+| no volatility filter | 4,352 | 1.305 | 250,164 | +5.2% | 1.251 | 122,275 | -9.5% |
+| 3-minute bar | 5,225 | 1.275 | 225,815 | -5.1% | 1.253 | 111,082 | -17.8% |
+| 2-minute bar | 6,421 | 1.241 | 212,327 | -10.7% | 1.299 | 134,522 | -0.4% |
+
+**0 of 8 faster variants beat the crown in the recent stretch. 7 of 8 are worse in both eras.** The
+narrower band, the shorter lookback, the touch-fill exit, the removed volatility filter, the 3-minute
+and 2-minute bars — every one of them loses now AND lost then. The prediction failed as completely as
+a prediction can, and the falsifier fires: **"this tape rewards entering fast" is not what round 45
+measured, and that language is retired.**
+
+### Part B — the tape's timing has not changed at all
+
+The crown's own trades, by year: how many bars until a trade reaches its best price, and how long it
+is held.
+
+| year | trades | bars to peak | bars held | median peak $ |
+|---|---|---|---|---|
+| 2013 | 312 | 2.0 | 8.0 | $75 |
+| 2016 | 361 | 1.0 | 5.0 | $115 |
+| 2019 | 362 | 1.0 | 4.0 | $175 |
+| 2022 | 273 | 3.0 | 11.0 | $955 |
+| 2023 | 320 | 2.0 | 7.5 | $548 |
+| 2024 | 289 | 2.0 | 9.0 | $730 |
+| 2025 | 264 | 2.0 | 9.0 | $905 |
+| 2026 | 168 | 2.0 | 6.5 | $1,382 |
+
+**Median bars to peak: 2.0 in 2010–2023 and 2.0 in 2024–2026. Bars held: 8.0 and 8.0.** Nothing about
+how quickly a move pays has moved. But look at the last column: **the median peak per trade grew from
+about $100 in 2010–2017 to $730–$1,382 in 2024–2026** — roughly sevenfold. The tape did not get
+faster. It got *bigger*.
+
+### Part C — that amplitude is a trap, and the decay is real anyway
+
+Amplitude alone would inflate every recent dollar comparison, which is exactly what rounds 43, 44 and
+45 leaned on. Profit factor cannot be inflated that way, so it settles it:
+
+| config | PF 2010–2023 | PF 2024–2026 | edge vs the crown |
+|---|---|---|---|
+| crown, 5-minute | 1.323 | 1.34 | reference — and **flat** |
+| `confirm_bars=2` on 5m | 1.427 | 1.28 | **+0.104 → −0.060** |
+| 15-minute bar | 1.471 | 1.299 | **+0.147 → −0.041** |
+
+The decay survives the amplitude-free test: both slower candidates genuinely led the crown across
+2010–2023 and genuinely trail it now, while **the crown's own profit factor is flat (1.323 → 1.34)**.
+
+### The corrected account — and it is good news
+
+Put the three parts together. Nothing faster wins. Nothing slower wins any more. The tape's timing is
+unchanged. **The optimum has moved to where the crown already sits.** Before 2024 the crown was on
+the fast side of a slower optimum, which is why every "wait longer" variant beat it historically;
+today it is the best point in BOTH directions. The crown is not merely surviving — it is currently
+sitting on top of its own hill.
+
+Two things follow, and neither is a change:
+
+- **Nothing moves, and now for a positive reason rather than a defensive one.** The crown stays run
+  #304 on 5 minutes with one confirming close. Rounds 43, 44 and 45 each proposed a change and each
+  is now closed: the C3 geometry (concentration), the 15-minute bar and the confirmation knob (both
+  decayed to below the crown on profit factor).
+- **An optimum that moved once can move again, so this is a reason to keep measuring, not to
+  conclude.** The cheap standing check is the era table above: if the crown's own profit factor
+  starts sliding while a neighbour's rises, the hill has moved again and this round is how to see it.
+
+**Method, worth banking beyond NOISE:** this family's tape grew about sevenfold in amplitude while
+its timing did not move, so **any cross-era comparison in raw dollars is mechanically inflated**.
+Compare eras on profit factor or on volatility-normalised dollars — never on raw net. Rounds 43–45
+each used a raw-dollar recency clause; the pattern they found survives the correction, but the size
+of it did not.
+
+**The queued 15-minute Auto-Validate (`kzTWeRL5SR5c0po62KOM`) keeps running** and its expectation is
+unchanged from round 45: its untouched lockbox covers exactly the stretch where the 15-minute bar has
+lost its edge, so a mediocre card is the predicted result.
+
+Files: `tools/r46_noise_fast_side.py`; results `tools/r37_results/r46_fast_side.csv`,
+`r46_timing.csv`, `r46_era_pf.csv`, `r46_fast_side.txt`.
+
+---
+
 ## 🔬 2026-09-09 — ROUND 45: WHY the fatter bar helps — and the correction that takes round 44's headline back (STUDIES rows 1617-1621, web v73.672)
 
 **Owner ask:** *"keep testing noise."* Round 44 (earlier today) found the live crown geometry

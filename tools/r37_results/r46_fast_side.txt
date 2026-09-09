@@ -1,0 +1,13 @@
+PART A -- the prediction was: faster variants AHEAD in the recent stretch and BEHIND in the old one.
+  variants showing that MIRROR signature: 0 of 8  (none)
+  ahead of the crown in the RECENT stretch at all: 0 of 8  (none)
+  WORSE IN BOTH stretches: 7 of 8
+  -> THE REGIME STORY IS NOT SUPPORTED. Not one faster variant beats the crown on the recent tape, so 'this tape rewards entering fast' cannot be what round 45 measured. The honest account is the dull one: the crown is a well-chosen configuration and its neighbours - faster AND slower - are worse. Round 45's language should be corrected to say exactly that.
+
+PART B -- median bars from entry to the trade's best price: OLD 2.0, RECENT 2.0 (bars held: 8.0 vs 8.0). A faster tape would show the peak arriving SOONER.
+  -> the timing is essentially UNCHANGED (within 10%), so whatever shifted in 2024 is not the speed at which a move pays. Round 45's explanation should be held loosely: the pattern it measured is real, the story attached to it is not supported by the tape's own timing.
+
+PART C -- on profit factor, which amplitude cannot inflate, the decay is REAL: the two slower candidates led the crown by +0.104 and +0.147 across 2010-2023 and now trail it by 0.060 and 0.041, while the crown's own profit factor is FLAT (1.323 -> 1.340).
+  Put with Part A (nothing faster wins either) and Part B (the tape's timing is unchanged), the correct account is NOT that this tape rewards speed. It is that THE OPTIMUM HAS MOVED TO WHERE THE CROWN ALREADY SITS: before 2024 the crown was on the fast side of a slower optimum, and today it is the best point in BOTH directions.
+  That is good news for the crown and a reason to keep measuring rather than to conclude - an optimum that moved once can move again.
+  METHOD, worth banking: the tape's amplitude grew about sevenfold (median peak per trade ~$100 in 2010-2017 against ~$900 in 2024-2026) while its timing did not move, so ANY cross-era comparison in raw dollars is inflated. Compare eras on profit factor or on volatility-normalised dollars, never on raw net.
