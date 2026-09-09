@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.613';
+const VERSION='73.614';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -25622,10 +25622,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const pfs=fl.map(f=>+f.oos_pf).filter(v=>isFinite(v)&&v>0).sort((a,b)=>a-b);
         const wins=fl.some(f=>f.oos_wins!=null)?fl.reduce((a,f)=>a+(+f.oos_wins||0),0):null;
         return {net:net,pf:(pfs.length?pfs[Math.floor(pfs.length/2)]:null),tr:(tr||null),wr:((wins!=null&&tr>0)?100*wins/tr:null),dd:null,yrs:null};};
-      const _c2lb=x=>{const V=x.validate,lb=V&&V.lockbox;if(!lb)return null;const W=(V.windows&&V.windows.lockbox)||null;
-        return {net:(+lb.pnl||0)*_c2mc(x),pf:(+lb.pf||0),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:null),dd:null,
+      const _c2lb=x=>{const V=x.validate,lb=V&&V.lockbox;if(!lb)return null;const W=((lb.from&&lb.to)?[lb.from,lb.to]:null)||(V.windows&&V.windows.lockbox)||null;
+        return {net:(+lb.pnl||0)*_c2mc(x),pf:(+lb.pf||0),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:null),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):null),
           yrs:((W&&W[0]&&W[1]&&typeof _yrsBetween==='function')?_yrsBetween(String(W[0]).slice(0,10),String(W[1]).slice(0,10))
                :((V.windows&&+V.windows.lockbox_months>0)?(+V.windows.lockbox_months/12):null)),pass:!!lb.pass};};
+      // a BOOK is not a strategy: its first leg mapped it into that leg family, its pooled size won the
+      //   robustness score, and its thin lockbox (no win rate) dashed the row - the real crowns of
+      //   ENGU-Q, NOISE and NQDIP lost their rows on the live page (2026-09-08). Own row, like RUNBOARD.
+      const _c2IsBook=r=>!!(r.book&&Array.isArray(r.book.legs))||(String(r.scope||'').indexOf('Book')>=0)||/^(BOOK:|COMBINED)/i.test(String(r.strategy||''));
       const _c2is=x=>({net:(+x.best_pnl_usd||0),pf:(x.best_pf!=null?+x.best_pf:null),tr:(+x.best_trades||0),wr:(x.best_win_rate!=null?+x.best_win_rate:null),dd:Math.abs(+x.best_dd_usd||0),yrs:_runYrs(x)});
       // ── state (namespaced c2*, so the two tabs never fight over a pref) ─────────────
       const _c2Screen=(['lead','cmp','explore'].indexOf(APREF.c2Screen)>=0)?APREF.c2Screen:'lead';
@@ -25636,6 +25640,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _c2StageNm={is:'IS',wf:'WF',lb:'LB'}[_c2Stage];
       // the one figure a row is ranked on, plus why it is missing when it is
       const _c2Val=r=>{const S=_c2StageOf(r);if(!S)return {v:null,why:'This run saved no '+({is:'in-sample',wf:'walk-forward',lb:'lockbox'}[_c2Stage])+' figures.'};
+        if(_c2Rank==='rpy'&&S.wr==null&&_c2Stage==='lb'&&_c2IsBook(r))return {v:null,why:'A book saves only net, profit factor and trade count for its lockbox - no win rate - so expectancy in R cannot be read here. Compare books on PF or NET.'};
         if(_c2Rank==='net')return {v:S.net,why:''};
         if(_c2Rank==='pf')return {v:(S.pf>0?S.pf:null),why:'No profit factor on this stretch.'};
         if(_c2Rank==='mar'){if(S.dd==null)return {v:null,why:'A '+_c2StageNm+' drawdown is not saved on the run summary - open the report for it.'};
@@ -25662,8 +25667,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const rs=(runHistory||[]).filter(r=>r&&r.id!=null);
         // an unrecognised strategy keeps its own name as its family - merging every one of
         //   them under one row labelled with the champion name mislabelled the others
-        const fam={};rs.forEach(r=>{const k=_canonFam(r.strategy)||String(r.strategy||'').replace(/\.py$/,'')||'UNTAGGED';(fam[k]=fam[k]||[]).push(r);});
-        const fams=Object.keys(fam).map(k=>{const xs=fam[k].slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)));
+        const fam={};rs.forEach(r=>{const k=_c2IsBook(r)?'BOOKS':(_canonFam(r.strategy)||String(r.strategy||'').replace(/\.py$/,'')||'UNTAGGED');(fam[k]=fam[k]||[]).push(r);});
+        const fams=Object.keys(fam).map(k=>{const xs=fam[k].slice().sort((a,b)=>((b.starred?1:0)-(a.starred?1:0))||(scoreRun(b)-scoreRun(a))||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)));
           const ch=xs[0],val=_c2Val(ch);return {k:k,runs:xs,ch:ch,val:val};});
         fams.sort((a,b)=>{const av=a.val.v,bv=b.val.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return bv-av;});
         const noFig=fams.filter(f=>f.val.v==null).length;
@@ -25671,7 +25676,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const inCmp=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String).indexOf(String(r.id))>=0;
           return '<div class="c2-row sub" data-c2run="'+r.id+'" title="open run #'+r.id+'">'
             +'<span class="c2-chev">'+(isChamp?'\u2605':'')+'</span>'
-            +'<div><div class="c2-nm">#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+'</div>'
+            +'<div><div class="c2-nm">#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+(S&&S.tr?' \u00b7 '+S.tr+' trades':'')
             +' <span class="c2-act'+(inCmp?' on':'')+'" data-c2add="'+r.id+'" title="'+(inCmp?'in the comparison - click to remove':'add to the comparison (up to 8)')+'">'+(inCmp?'\u2713 COMPARING':'+ COMPARE')+'</span></div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(val.v)+'"'+(val.v==null?(' title="'+_reEscC2(val.why)+'"'):'')+'>'+_c2Fmt(val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
@@ -25689,7 +25694,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<span class="c2-lbl">RANK ON</span>'+_c2Seg('c2rank',[['rpy','R / YR','expectancy in R times trades per year - the cross-strategy read'],['mar','MAR','net per year over the worst drawdown'],['pf','PF','gross wins over gross losses'],['net','NET','money']],_c2Rank)
           +'<span class="c2-lbl" style="margin-left:6px">STAGE</span>'+_c2Seg('c2stage',[['is','IS','in-sample'],['wf','WF','walk-forward folds'],['lb','LB','the lockbox - the honest read']],_c2Stage)
           +'</div><div class="c2-card">'+(rows||'<div class="c2-hold">NO RUNS YET</div>')+'</div>'
-          +'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = highest robustness score, the same rule BY STRATEGY uses'
+          +'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = your crown (★ starred) where one exists, else the highest robustness score · books sit in their own row'
           +(noFig?(' \u00b7 <b>'+noFig+' without a '+_c2StageNm+' figure</b> (hover the dash for why) - they sort last, never hidden'):'')
           +(_c2Stage!=='is'?' \u00b7 MAR and DD (R) need a stage drawdown the run summary does not carry; open the report for those':'')+'</div>';
       }
