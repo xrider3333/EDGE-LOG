@@ -991,6 +991,42 @@ leg, `ENGUQ_309_CDE2`, against `ENGUQ_309_CDE` as its exact control. **38 trades
 an adoption.** The calendar file ends 2026-12-10 and `tools/keel_event_check.py` now warns when it is
 within 60 days of running out.
 
+### ORB on release days — chased and rejected (2026-09-09)
+
+The BLS round threw off a number worth chasing: on the ORB #314 crown, release-day trades run EV R
++0.419 against +0.181 for everything else over full history — the widest gap on a large-sample bucket
+anywhere in this work, with a mechanism a breakout strategy should like (an 08:30 shock puts a real
+directional move into the opening range that ORB then breaks). It fails, and the way it fails is
+instructive: **the full-history gap was mostly a lockbox artefact.** Split by stretch the
+walk-forward gap is only +0.261 vs +0.215, while the lockbox reads +0.763 on **12 trades of which one
+is 68%**. Sizing release days 1.5× earns +$19,444 in the walk-forward but takes drawdown from −37,367
+to −46,417, so MAR *falls* 1.13 → 0.95. Exposure-matched flat leverage beats it outright. 11.7% of
+random day-sets and 5.2% of random Friday-sets match it. And the placebo settles it: the session
+**after** a release pays +$29,868 in the walk-forward, more than the release day itself.
+
+### tools/tilt_guard.py — the battery, made reusable (2026-09-09)
+
+Four calendar candidates in a row were decided by the same handful of controls, three of them written
+by hand each time. They are now one function, so a future tilt is tested properly by default:
+
+| check | what it catches |
+|---|---|
+| MONEY | the house bar: better net every stretch, drawdown not materially worse |
+| C1 exposure-matched uniform | a size-up that cannot beat flat leverage **is** flat leverage (killed ORB) |
+| C2 permutation, any day | prices the fact that you went looking |
+| C3 **subgroup** permutation | if the base already tilts Fridays and the candidate is 194/203 Fridays, random days are the wrong null (killed payrolls on #243) |
+| C4 concentration | one trade at 62% of a lockbox bucket is not evidence (killed payrolls on #304) |
+| C5 placebo | the adjacent window must not pay as well (killed ORB) |
+
+Validated against four cases whose answers were already known by hand — v12's FOMC cut on both NOISE
+runs must PASS, payrolls 1.5× on both must FAIL — and it reproduces all four. Worth noting that
+**different controls catch the same candidate on different runs**: payrolls fails C1 and C3 on #243
+but passes both on #304, where only the concentration check stops it. Run the whole battery.
+`tests/test_tilt_guard.py` runs a synthetic self-test (a planted real edge, flat leverage, a one-trade
+gain, a placebo that matches) on every commit. A bucket under `min_trades` is reported
+**under-powered** rather than passed — v12's own lockbox bucket is 6 trades, which is why it ships as
+a forward test and not as proof.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
