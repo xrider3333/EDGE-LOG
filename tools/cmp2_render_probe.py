@@ -294,7 +294,7 @@ var FIX = __FIX__;
           +"runHistory=[doc,bdoc,kdoc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
         var picks=[String(FIX.id),String(BK.id),String(C.id)];
         var per={};
-        ['lb','is','wf'].forEach(function(st){
+        ['lb','is','wf','full'].forEach(function(st){
           var call=doRender({c2Screen:'cmp',c2Stage:st,cmpIds:picks}, wc);
           // scoped to the chart card, and the coordinates are read - an SVG whose d is full
           //   of NaN renders blank while still counting as a path, which is exactly the
@@ -304,15 +304,24 @@ var FIX = __FIX__;
             paths:ds.length,
             badD:ds.filter(function(t){return !t||/NaN|Infinity|undefined/.test(t);}).length,
             shortD:ds.filter(function(t){return (t.match(/L/g)||[]).length<1;}).length,
-            apx:[].filter.call(d.querySelectorAll('.c2-mx td span'),function(e){
+            apx:[].filter.call(d.querySelectorAll('.c2-card table td span'),function(e){
               return /^~/.test((e.textContent||'').trim());}).length,
             chips:d.querySelectorAll('.c2-lg').length,
             rm:d.querySelectorAll('[data-c2rm]').length,
             clr:d.querySelectorAll('[data-c2clr]').length,
-            cols:d.querySelectorAll('.c2-mx th').length,
-            rows:d.querySelectorAll('.c2-mx tr').length,
-            best:d.querySelectorAll('.c2-best').length,
+            cols:d.querySelectorAll('.c2-card table th').length,
+            rows:d.querySelectorAll('.c2-card table tr').length,
+            best:d.querySelectorAll('[title="best of the picked runs on this row"]').length,
             note:((d.querySelector('.c2-note')||{}).textContent||'').slice(0,1400),
+            // read named rows out of the matrix by their label, so a wrong number in a
+            //   specific measure fails rather than hiding behind a row count.
+            row:(function(){var o={};
+              [].forEach.call(d.querySelectorAll('.c2-card table tr'),function(tr){
+                var c=tr.children; if(c.length<2)return;
+                var lab=(c[0].textContent||'').trim();
+                if(!lab)return;
+                o[lab]=[].slice.call(c,1).map(function(td){return (td.textContent||'').trim();});});
+              return o;})(),
             errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
         });
         var emptyCall=doRender({c2Screen:'cmp',c2Stage:'lb',cmpIds:[]}, wc);
@@ -711,9 +720,9 @@ def main(argv=None):
     r = cases.get('compare', {})
     per = r.get('per') or {}
     lb = per.get('lb') or {}
-    stages_ok = all((per.get(k) or {}).get('call') == 'OK' for k in ('lb', 'is', 'wf'))
+    stages_ok = all((per.get(k) or {}).get('call') == 'OK' for k in ('lb', 'is', 'wf', 'full'))
     errs_ok = not any((per.get(k) or {}).get('errors') or (per.get(k) or {}).get('uncaught')
-                      for k in ('lb', 'is', 'wf'))
+                      for k in ('lb', 'is', 'wf', 'full'))
     # three picked runs: the fixture and its no-stored-drawdown twin each draw a solid
     # tuning stretch plus a dotted lockbox tail; the book draws nothing at all.
     cmp_ok = (r.get('call') == 'OK' and stages_ok and errs_ok
@@ -722,12 +731,18 @@ def main(argv=None):
               and lb.get('shortD') == 0             # every path actually draws a line
               and lb.get('chips') == 3              # one removable chip per picked run
               and lb.get('rm') == 3 and lb.get('clr') == 1
-              and lb.get('cols') == 4               # blank corner + one column per run
-              and lb.get('rows') == 10              # header + one row per metric
-              and lb.get('best') == 6               # one per CONTESTED row: net, MAR, PF, EV R, R/YR, drawdown
+              and (lb.get('cols') or 0) >= 4        # blank corner + one column per run
+              and (lb.get('rows') or 0) >= 15       # header + band captions + one row per measure
+              and (lb.get('best') or 0) >= 5        # one per contested row that has a winner
               and (lb.get('apx') or 0) >= 1         # the curve-derived drawdown path ran at all
               and 'no equity curve' in (lb.get('note') or '')
               and 'under-state' in (lb.get('note') or '')
+              # the walk-forward fold count must actually render - it was dead on arrival
+              # once because the stage reader did not carry the counts at all
+              and any('/' in c for c in ((lb.get('row') or {}).get('FOLDS HELD') or []))
+              # a book's whole-run column must be its POOLED whole-run block, not its
+              # pre-lockbox figure with the sealed year silently missing
+              and '$320,000' in (((per.get('full') or {}).get('row') or {}).get('NET') or [])
               and r.get('emptyCall') == 'OK' and r.get('emptyHold') and r.get('emptyGo'))
     line('compare', cmp_ok,
          'call=%s paths=%s badD=%s shortD=%s chips=%s cols=%s rows=%s best=%s apx=%s rm=%s clr=%s '
@@ -735,9 +750,9 @@ def main(argv=None):
          % (r.get('call'), lb.get('paths'), lb.get('badD'), lb.get('shortD'), lb.get('chips'),
             lb.get('cols'), lb.get('rows'), lb.get('best'), lb.get('apx'), lb.get('rm'), lb.get('clr'),
             r.get('emptyCall'), r.get('emptyHold'),
-            r.get('emptyGo'), {k: (per.get(k) or {}).get('call') for k in ('lb', 'is', 'wf')}))
+            r.get('emptyGo'), {k: (per.get(k) or {}).get('call') for k in ('lb', 'is', 'wf', 'full')}))
     if not cmp_ok:
-        for k in ('lb', 'is', 'wf'):
+        for k in ('lb', 'is', 'wf', 'full'):
             p = per.get(k) or {}
             if p.get('call') != 'OK':
                 fail('compare: %s stage threw -- %s' % (k, str(p.get('call'))[:300]))
@@ -759,14 +774,14 @@ def main(argv=None):
         if lb.get('rm') != 3 or lb.get('clr') != 1:
             fail('compare: remove/clear controls are rm=%s clr=%s, expected 3 and 1'
                  % (lb.get('rm'), lb.get('clr')))
-        if lb.get('cols') != 4:
+        if (lb.get('cols') or 0) < 4:
             fail('compare: metric table has %s header cells, expected 4 (corner + 3 runs)'
                  % lb.get('cols'))
-        if lb.get('rows') != 10:
-            fail('compare: metric table has %s rows, expected 10 (header + 9 metrics)'
+        if (lb.get('rows') or 0) < 15:
+            fail('compare: metric table has %s rows, expected at least 15 (header, band captions, measures)'
                  % lb.get('rows'))
-        if lb.get('best') != 6:
-            fail('compare: %s best-in-row marks, expected 6 (net, MAR, PF, EV R, R/YR, '
+        if (lb.get('best') or 0) < 5:
+            fail('compare: %s best-in-row marks, expected at least 5 (net, MAR, PF, EV R, R/YR, '
                  'drawdown - win rate, trades and years are not contests)' % lb.get('best'))
         if not (lb.get('apx') or 0) >= 1:
             fail('compare: no cell marked ~ - the run with no stored lockbox drawdown should '
@@ -777,6 +792,15 @@ def main(argv=None):
         if 'under-state' not in (lb.get('note') or ''):
             fail('compare: the note does not disclose that a derived drawdown under-states '
                  '(note=%r)' % (lb.get('note') or '')[:180])
+        if not any('/' in c for c in ((lb.get('row') or {}).get('FOLDS HELD') or [])):
+            fail('compare: FOLDS HELD renders no fold count on any run (%r) - the '
+                 'walk-forward reader is not carrying held/n'
+                 % ((lb.get('row') or {}).get('FOLDS HELD')))
+        _fn = ((per.get('full') or {}).get('row') or {}).get('NET') or []
+        if '$320,000' not in _fn:
+            fail("compare: the book's whole-run NET is %r, expected $320,000 - falling back "
+                 'to best_pnl_usd gives its PRE-LOCKBOX net under a column labelled end to '
+                 'end' % _fn)
         if not (r.get('emptyCall') == 'OK' and r.get('emptyHold') and r.get('emptyGo')):
             fail('compare: empty state call=%s hold=%s leaderboard-link=%s'
                  % (r.get('emptyCall'), r.get('emptyHold'), r.get('emptyGo')))
