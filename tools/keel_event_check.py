@@ -13,8 +13,9 @@ WHAT IT CHECKS
      statement, against everything else, split IS / walk-forward / lockbox.
   2. Year-by-year sign of that bucket in the walk-forward.
   3. Permutation test: random day-calendars of the same size; where does the real one rank?
-  4. Placebos that must FAIL: the morning before a decision day, a random matched day-set, and
-     an every-morning shrink of the same dollar size.
+  4. The full tools/tilt_guard.py battery, with the two nulls that matter: permutations
+     restricted to the pre-14:00 window, and a SUBGROUP permutation against other Wednesday
+     mornings (130 of 143 decision days are Wednesdays).
   5. v11 vs v12 through the real keel_walk on both NOISE stretches.
 
 The bar v12 was adopted on: better net on all four stretches with drawdown never worse on any.
@@ -32,6 +33,8 @@ sys.path.insert(0, ROOT)
 from augur_engine import ml_keel                                  # noqa: E402
 from augur_engine.data import find_master, load_master_arrays     # noqa: E402
 from augur_engine.engine import run_backtest                      # noqa: E402
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+from tilt_guard import guard                                      # noqa: E402
 
 WF0, LB0, END = "2016-05-02", "2025-02-11", "2026-08-12"
 NQ_MULT, COST = 20.0, 0.533
@@ -129,42 +132,26 @@ def main():
         g = pd.Series(v11[pre & wf]).groupby(yr[pre & wf]).sum()
         print(f"  2. walk-forward years with the bucket negative: {int((g < 0).sum())}/{len(g)}   total ${g.sum():+,.0f}")
 
-        dcode = pd.Categorical([t.date() for t in ts], categories=sorted({t.date() for t in ts})).codes
-        alldays = np.array(sorted({t.date() for t in ts}))
+        # 3-4. the whole control battery, via tools/tilt_guard.py, so the adoption faces exactly
+        # what every rejected candidate faced. Two details matter and both were learned the hard way:
+        #   window= restricts the permutations to trades before 14:00, because that is all the tilt
+        #     touches - without it a sampled day would have EVERY trade re-sized, a far larger
+        #     intervention than the candidate makes, and the null would be too easy to beat;
+        #   subgroup= is the tight null. 130 of the 143 decision days are WEDNESDAYS, so the real
+        #     question is not "are these days worse than other days" but "are these Wednesday
+        #     mornings worse than other Wednesday mornings". The payrolls candidate died on exactly
+        #     this control (17.6% of random Friday sets matched it), so this one must face it too.
         am = np.array([t.hour < 14 for t in ts])
-        k = int(np.isin(alldays, list(days)).sum())
-        real = float(v11[pre].sum())
-        draws = np.array([v11[am & np.isin(dcode, rng.choice(len(alldays), size=k, replace=False))].sum()
-                          for _ in range(args.perm)])
-        pct = float((draws <= real).mean())
-        print(f"  3. permutation: real ${real:+,.0f} vs random-calendar mean ${draws.mean():+,.0f} "
-              f"(sd ${draws.std():,.0f})  ->  {pct*100:.2f}% of {args.perm} are this bad  (z {(real-draws.mean())/draws.std():.2f})")
-
+        alldays = np.array(sorted({t.date() for t in ts}))
         nxt = {alldays[i]: alldays[i + 1] for i in range(len(alldays) - 1)}
-        before = np.array([nxt.get(t.date()) in days for t in ts]) & am
-        print("  4. placebos (each must LOSE money - if one wins, the tilt is not about the events)")
-        for nm, mask, mult in (("morning before a decision day", before, 0.5),
-                               ("every morning, same $ shrink ", am, 0.985)):
-            alt = v11 * np.where(mask, mult, 1.0)
-            d_wf, d_lb = (alt - v11)[wf].sum(), (alt - v11)[lb].sum()
-            print(f"     {nm}: walk-forward ${d_wf:+,.0f}   lockbox ${d_lb:+,.0f}"
-                  f"   {'OK (loses, as required)' if d_wf < 0 else '<-- WARNING: this placebo WINS'}")
-        # the random-day placebo is a DISTRIBUTION, never a single draw. One draw is pure noise:
-        # at some seeds it "wins" and reads like a failed placebo when nothing is wrong. What has
-        # to be true is that halving a RANDOM day-set is usually worthless, while halving the real
-        # calendar is near the top of that distribution.
-        real_gain = float((v11 * np.where(pre, 0.5, 1.0) - v11)[wf | lb].sum())
-        gains = np.empty(min(args.perm, 500))
-        for i in range(len(gains)):
-            fk = np.isin(dcode, rng.choice(len(alldays), size=k, replace=False)) & am
-            gains[i] = (v11 * np.where(fk, 0.5, 1.0) - v11)[wf | lb].sum()
-        beat = float((gains >= real_gain).mean())
-        print(f"     random matched day-sets ({len(gains)} draws): halving a random calendar is worth "
-              f"${gains.mean():+,.0f} on average (sd ${gains.std():,.0f});")
-        print(f"       halving the REAL calendar is worth ${real_gain:+,.0f} - beaten by {beat*100:.1f}% of them"
-              f"   {'OK' if beat < 0.05 else '<-- WARNING: random day-sets do this well too'}")
+        placebo = np.array([nxt.get(t.date()) in days for t in ts]) & am
+        g = guard(P, ts, sizes["v11"], pre, 0.5, wf, lb, window=am,
+                  subgroup=(ts.dayofweek.values == 2), placebo_mask=placebo,
+                  label=f"#{rid} KEEL v12 half size before the statement", perm=args.perm)
+        print("  3-4. " + g["report"].replace("\n", "\n     "))
+        verdict.append((g["passed"], g["passed"]))
 
-        print("  5. v11 vs v12 on the run's own stretches")
+        print("  5. v11 vs v12 on the run's own stretches (engine figures, for the record)")
         for stg, m, a, b in (("walk-forward", wf, WF0, LB0), ("lockbox     ", lb, LB0, END)):
             m11 = metrics((P * sizes["v11"])[m], a, b)
             m12 = metrics((P * sizes["v12"])[m], a, b)
@@ -191,7 +178,7 @@ def main():
 
     ok_net = all(v[0] for v in verdict)
     ok_dd = all(v[1] for v in verdict)
-    print(f"\n{'='*92}\nADOPTION BAR: net better on {sum(v[0] for v in verdict)}/{len(verdict)} stretches; "
+    print(f"\n{'='*92}\nADOPTION BAR + GUARD: {sum(v[0] for v in verdict)}/{len(verdict)} checks green; "
           f"drawdown never worse: {ok_dd}  ->  {'HOLDS' if ok_net and ok_dd else 'DOES NOT HOLD'}")
     return 0 if (ok_net and ok_dd) else 1
 

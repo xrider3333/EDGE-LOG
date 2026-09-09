@@ -1055,6 +1055,18 @@ fields now open with "NOT SUPPORTED ON ITS OWN STRETCHES" instead of describing 
 **The rule, now stated twice in one day:** never quote a bucket's expectancy over full history. A
 lockbox tail and a positive in-sample stretch both hide inside it. Split first, then decide.
 
+**And the adoption itself, re-tested under the corrected null (2026-09-09).** The K12 leg was put
+through the guard with `window=` (permutations restricted to the pre-14:00 window it actually
+touches) and with the tight subgroup null it was owed — **130 of the 143 decision days are
+Wednesdays**, so the real question is whether FOMC Wednesday mornings are worse than *other Wednesday
+mornings*, exactly the control that killed the payrolls candidate. It passes on both runs, and more
+strongly than before: **0.1% and 0.0% of random Wednesday-morning sets do as well**, the bucket is
+negative in all three stretches on both runs, the worst trade is 12% and 20% of the walk-forward
+bucket, flat leverage is beaten in every stretch, and the placebo loses money everywhere. The only
+note against it is the one that was always there: 6 lockbox trades, so it is reported as
+under-powered there. `tools/keel_event_check.py` now runs this battery instead of its own
+hand-rolled permutation, so the adoption is held to the same standard as every rejection.
+
 The guard gained `window=` from this round, for a tilt that fires on a time window inside a day
 rather than on whole days. Without it the permutations re-size every trade on each sampled day,
 a far larger intervention than the candidate, and the null is meaningless.
