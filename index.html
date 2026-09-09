@@ -26718,11 +26718,34 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // deployed leg's 80%, and it still nets $235,741 with its ten best trades deleted.
         // The #265 pair below stays on the board deliberately: it is the outgoing control and
         // carries an active pre-registered hybrid claim. Retire it only on the owner's word.
+        // THE ENGU-Q CROWN, MOVED HERE 2026-09-08 (owner: "crown R2 once the validate passes,
+        // swap the paper leg"). R2 = the #309 configuration with its two risk knobs corrected:
+        // breakeven 3.0 R -> 2.0 R and stop 1.3 -> 1.0 ATR, everything else byte-identical.
+        // Measured continuously, sliced by ENTRY time (tools/queue_guard.py), same window as #309:
+        //   selection 2010-06-07..2025-06-30  n=1,830  PF 1.714  $522,613  DD $38,687  EV R 0.505  R/YR 61.7
+        //   held-out year                     n=  118  PF 1.675  $ 88,380  DD $41,534  EV R 0.487  R/YR 57.5
+        // Against #309: selection PF 1.661 / $505,756 / EV R 0.439 / R/YR 43.9 and held-out
+        // PF 1.620 / $85,511 / EV R 0.407 / R/YR 40.4 - R2 wins every read, top-10 share 52%
+        // vs 53%, longest hold 142 days vs 282. Certified by Auto-Validate run #335 (verdict
+        // PASS, 6/6 checks, 8/8 walk-forward folds held, WFE 1.41, DSR 0.997, plateau HIGH
+        // GROUND 24/24, PBO 0.385 = some overfit risk, lockbox held). HONEST NOTE: #335 searched
+        // the whole file (every knob open except the two fenced ones) and its own best cell is a
+        // DIFFERENT configuration (ema 1340, trail 4.0, breakeven 1.0 R, no volume filter) whose
+        // held-out year is weaker than these defaults ($49,812 PF 1.46 vs $88,380 PF 1.68). This
+        // leg trades the R2 DEFAULTS the owner compared, not that cell; the run certifies the
+        // landscape. #309 stays as the control directly below. NinjaTrader is NOT swapped.
+        {k:'ENGUQ_335', label:'ENGU-Q-335 · RAW',           color:'#6f4fc8',
+         crown:true, ctrl:'ENGUQ_309',
+         crownTip:'The standing ENGU-Q champion since 2026-09-08: run #335, the R2 sibling of #309 - the same configuration with the breakeven moved from 3.0 R to 2.0 R and the stop from 1.3 to 1.0 ATR. Measured on one continuous run sliced by entry time - selection window 1,830 trades, profit factor 1.71, EV R 0.51, R / YR 61.7; held-out year 118 trades, profit factor 1.68, EV R 0.49, R / YR 57.5. Beats #309 on every one of those reads with a lower top-10 share (52% vs 53%) and half the longest hold (142 days vs 282). Auto-Validate #335: PASS, 6 of 6 checks, 8 of 8 walk-forward folds held, lockbox held. Note: the validate searched the whole file and its own best cell is a different configuration with a weaker held-out year; this leg trades the R2 defaults the owner compared, and #309 runs beside it as the control.',
+         chip:'crown 09-08',
+         chipTip:'Added to the board the day it was crowned, so every trade from here is forward evidence. Anything dated before 2026-09-08 on this row is a backtest.'},
+        // EX-CROWN since 2026-09-08: run #335 (the R2 sibling, ENGUQ_335 below) took the crown.
+        // #309 stays on the board as the matched control - same file lineage, same window, the
+        // only differences are breakeven 3.0 R -> 2.0 R and stop 1.3 -> 1.0 ATR - so any gap
+        // between the two rows from here on is those two knobs and nothing else.
         {k:'ENGUQ_309', label:'ENGU-Q-309 · RAW',           color:'#8f6fd8',
-         crown:true,
-         crownTip:'The standing ENGU-Q champion since 2026-09-05: run #309, the efficiency variant with a shallow limit entry. Measured on one continuous run sliced by entry time - selection window 1,505 trades, profit factor 1.66, EV R 0.44, R / YR 43.9; held-out year 99 trades, profit factor 1.62, EV R 0.41, R / YR 40.4. It beats the old crown (#226) on expectancy per trade both before and inside the held-out year, and only 53% of its profit sits in its ten best trades against 80% for the leg it replaces. It loses on one read: it trades about half as often, so its held-out R / YR is lower.',
-         chip:'crown 09-05',
-         chipTip:'Added to the board the day it was crowned, so every trade from here is forward evidence. Anything dated before 2026-09-05 on this row is a backtest.'},
+         chip:'ex-crown · control',
+         chipTip:'Crowned 2026-09-05 (run #309), replaced 2026-09-08 by run #335 - the same configuration with the breakeven moved from 3.0 R to 2.0 R and the stop from 1.3 to 1.0 ATR. Kept running as the matched control for the new crown: every trade from 2026-09-05 on is forward evidence, anything earlier is a backtest.'},
         {k:'ENGUQ_L50',  label:'ENGU-Q-249 · LIMIT 0.50',    color:'#8ad4ff', ctrl:'ENGUQ_ER',
          chip:'limit entry',
          chipTip:'Same 24-hour ENGU-Q settings as ENGU-Q RAW. The ONLY difference is the entry: instead of buying at the signal close, it rests a limit order half an ATR BELOW it and drops the trade entirely if that never fills within ten bars. RAW is its matched control, so any difference between the two rows is the entry and nothing else. Caveat from validate #249: entering lower against the same stop widens risk, so it FAILS the pre-registered net-per-drawdown bar (8.32 vs the control 8.62). Candidate, not a winner.',
