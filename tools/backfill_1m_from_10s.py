@@ -68,11 +68,79 @@ def aggregate(df10, stamp="end"):
     return out
 
 
+def rebuild(d10, d1m, p1m, conn_path, master_id, dry):
+    """Restamp the rows already in the 1m master from the 10s capture (--rebuild).
+
+    WHY (2026-09-09). Until today `aggregate()` read the NinjaTrader 10s stamp as the bar
+    START when it is the bar END, so every minute this tool wrote took the previous 10 s as
+    its open and lost its last 10 s to the next minute. The NT 1m export rows that were
+    imported alongside are worse: NT stamps those at bar end too, so they sit a FULL minute
+    late. Against the Databento 1m ETH master the shipped file disagreed on 11,611 of 12,762
+    overlapping opens. `aggregate()` is fixed, but a normal run repairs nothing because
+    existing rows win on the merge -- this is the deliberate, owner-approved repair pass.
+
+    Scope, on purpose:
+      * only minutes ALREADY in the master are rewritten, so this fixes values and never
+        silently extends the window (that is what a plain run is for);
+      * a minute the 10s capture cannot rebuild is DROPPED, not left behind -- keeping it
+        would re-mix the two stamp conventions this pass exists to remove, and it is
+        unverifiable either way. 31 of 47,725 rows on the first run.
+      * `rt` becomes 1 when ANY 10s row in that minute was captured live.
+    The caller backs the CSV up first; the write is atomic (temp file + os.replace) because
+    the runner may be reading the same path.
+    """
+    import os
+    import sqlite3
+    import tempfile
+
+    built = aggregate(d10)                      # stamp="end" since 2026-09-09
+    built = built.drop(columns=["_n"])
+    keep = set(d1m["time"].astype("int64"))
+    built = built[built["time"].astype("int64").isin(keep)].copy()
+
+    d = d10.copy()
+    d["min"] = ((d["time"] - 1) // 60) * 60
+    if "rt" in d.columns:
+        rt = d.groupby("min")["rt"].max().rename("rt")
+        built = built.merge(rt, left_on="time", right_index=True, how="left")
+    built = built[[c for c in d1m.columns if c in built.columns]]
+    built = built.sort_values("time").reset_index(drop=True)
+
+    dropped = len(keep) - len(built)
+    j = d1m.merge(built, on="time", suffixes=("_old", "_new"))
+    changed = int((j[["open_old", "high_old", "low_old", "close_old"]].values
+                   != j[["open_new", "high_new", "low_new", "close_new"]].values).any(axis=1).sum())
+    print(f"rebuild     : {len(built):,} rows restamped from the 10s capture")
+    print(f"  changed   : {changed:,} of {len(j):,} rows differ from what is on disk")
+    print(f"  dropped   : {dropped:,} rows the 10s capture cannot rebuild")
+    if dry:
+        print("\n--dry-run: nothing written.")
+        return
+
+    tmp = tempfile.NamedTemporaryFile("w", delete=False, newline="",
+                                      dir=os.path.dirname(p1m), suffix=".tmp")
+    built.to_csv(tmp.name, index=False)
+    tmp.close()
+    os.replace(tmp.name, p1m)                   # atomic: no reader ever sees a partial file
+    print(f"\nWrote {p1m}")
+    conn = sqlite3.connect(conn_path)
+    try:
+        conn.execute("UPDATE csv_files SET rows=? WHERE id=?", (len(built), master_id))
+        conn.commit()
+    finally:
+        conn.close()
+    print(f"registry    : rows -> {len(built):,} for master id {master_id}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--inst", default="NQ")
     ap.add_argument("--session", default="eth")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--rebuild", action="store_true",
+                    help="RESTAMP the rows already in the 1m master from the 10s capture "
+                         "(repairs the pre-2026-09-09 bar-START shift; a normal run cannot, "
+                         "because existing rows win). Backs the CSV up first.")
     args = ap.parse_args()
     src = f"nt_noadj_{args.session.lower()}"
 
@@ -91,6 +159,18 @@ def main():
     p1m = os.path.join(UP, m1m["filename"])
     d10 = pd.read_csv(p10)
     d1m = pd.read_csv(p1m)
+
+    if args.rebuild:
+        if not args.dry_run:
+            import shutil
+            from datetime import datetime
+            bak = p1m + ".bak-" + datetime.now().strftime("%Y%m%d-%H%M%S")
+            shutil.copy2(p1m, bak)
+            print(f"backup      : {bak}")
+        print(f"10s master  : {m10['filename']}  {len(d10):,} rows")
+        print(f"1m  master  : {m1m['filename']}  {len(d1m):,} rows")
+        rebuild(d10, d1m, p1m, DB, int(m1m["id"]), args.dry_run)
+        return
 
     built = aggregate(d10)
     thin = int((built["_n"] < 6).sum())
