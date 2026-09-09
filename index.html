@@ -14758,8 +14758,22 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       return (y!=null&&y>0)?y:((x.days_in_test&&+x.days_in_test>0)?(+x.days_in_test/365.25):null);};
     const _runLbYrs=x=>{const w=x&&x.validate&&x.validate.windows;if(w&&w.lockbox&&w.lockbox[0]&&w.lockbox[1]){const y=_yrsBetween(w.lockbox[0],w.lockbox[1]);if(y)return y;}
       const m=(w&&w.lockbox_months)||(x&&x.validate&&x.validate.lockbox_months)||null;return m?(+m/12):null;};
-    const _runMarAnn=x=>_marAnn(+x.best_pnl_usd||0,_runYrs(x),+x.best_dd_usd||0);
-    const _runRPerYr=x=>_rPerYr(_evInR(x.best_win_rate,x.best_pf,(+x.best_trades||0)),(+x.best_trades||0),_runYrs(x));
+    // THE IN-SAMPLE DENOMINATOR IS THE TUNING WINDOW, NOT THE WHOLE RUN. best_* is scored on
+    //   the optimize window; the sealed lockbox year that comes after it contributed none of
+    //   that money, so dividing by the whole run understated every in-sample MAR and R per year
+    //   by roughly the lockbox share - about 10 percent on a 16-year run with a 1-year lockbox.
+    //   One helper, used by the run list, the RUNBOARD and COMPARE BETA, so the three cannot
+    //   drift apart again. Open question the ENGINE owns, not the page: whether best_* covers
+    //   the whole optimize window or only its earlier part. If it is the earlier part this is
+    //   still too long a window - but it is a lower bound on MAR instead of a wrong number, and
+    //   it no longer counts a sealed year that produced none of the numerator.
+    const _isYrs=x=>{const W=x&&x.validate&&x.validate.windows;
+      if(W&&W.optimize&&W.optimize[0]&&W.optimize[1]){
+        const y=_yrsBetween(String(W.optimize[0]).slice(0,10),String(W.optimize[1]).slice(0,10));
+        if(y)return y;}
+      return _runYrs(x);};
+    const _runMarAnn=x=>_marAnn(+x.best_pnl_usd||0,_isYrs(x),+x.best_dd_usd||0);
+    const _runRPerYr=x=>_rPerYr(_evInR(x.best_win_rate,x.best_pf,(+x.best_trades||0)),(+x.best_trades||0),_isYrs(x));
     // ── RETURN ON CAPITAL (owner 2026-09-01). Every other ratio on this board is scale-free:
     //    numerator and denominator both scale with position size, so leverage cancels. That is
     //    why HYBRID RECYCLE - which is pure leverage, the capacity the gate freed spent on the
@@ -21938,7 +21952,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // ── per-run WF / LB aggregates for the scoped comparison ── (hoisted v71.22 — the
         //    RUNBOARD rank rule below needs them before the champion-per-family pick runs)
         const _mcOf=x=>x.multiplier||instMult(x.instrument)||20;
-        const _wfA=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f2=>f2&&f2.fold!=null):[]);if(fl.length<2)return null;
+        // one fold is still a fold - the run report shows it, so this must not drop it.
+        const _wfA=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f2=>f2&&f2.fold!=null):[]);if(!fl.length)return null;
           const mc=_mcOf(x),net=fl.reduce((s2,f2)=>s2+(+f2.oos_pnl||0),0)*mc,held=fl.filter(f2=>(+f2.oos_pnl||0)>0).length;
           const pfs=fl.map(f2=>+f2.oos_pf).filter(p2=>isFinite(p2)&&p2>0).sort((a2,b2)=>a2-b2);
           const tr=fl.reduce((s2,f2)=>s2+(+f2.oos_trades||0),0);
@@ -21972,7 +21987,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _rbVal=(r,k)=>{
           if(_rbS==='is'){const dd=Math.abs(+r.best_dd_usd||0);
             return k==='net'?(+r.best_pnl_usd||0):k==='pf'?(+r.best_pf||0):k==='dd'?-(dd||1e15):((dd>1e-9&&_runYrs(r))?((+r.best_pnl_usd||0)/_runYrs(r))/dd:-1e15);}
-          if(_rbS==='lb'){const a=_lbA(r);if(!a)return -1e15;const dd=_eqDD(r,'lb');
+          // the same stored-first drawdown the MAR column prints, so the order and the number
+          //   in the row can never come from two different readings again.
+          if(_rbS==='lb'){const a=_lbA(r);if(!a)return -1e15;
+            const _slb=r&&r.validate&&r.validate.lockbox;
+            const dd=(_slb&&_slb.dd!=null&&isFinite(+_slb.dd))?Math.abs(+_slb.dd)*_mcOf(r):_eqDD(r,'lb');
             return k==='net'?a.net:k==='pf'?a.pf:k==='dd'?-(dd==null?1e15:dd):((dd&&dd>1e-9&&_runLbYrs(r))?(a.net/_runLbYrs(r))/dd:-1e15);}
           const t=_totA(r),dd=_eqDD(r,'full')||Math.abs(+r.best_dd_usd||0);
           return k==='net'?t.net:k==='pf'?(+r.best_pf||0):k==='dd'?-(dd||1e15):((dd>1e-9&&_runYrs(r))?(t.net/_runYrs(r))/dd:-1e15);};
@@ -25239,8 +25258,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _pf2=v=>(v==null||!isFinite(v)||v<=0)?null:Math.min(v,99);
         const _netOf=r=>{const b=_bw(r);if(b)return +b.total_pnl||0;
           return (_rbS==='is')?(+r.best_pnl_usd||0):((_rbS==='lb')?((_lbA(r)||{}).net):(_totA(r).net));};
-        const _ddOf2=r=>{const b=_bw(r);if(b)return Math.abs(+b.max_drawdown||0);
-          return (_rbS==='is')?Math.abs(+r.best_dd_usd||0):((_rbS==='lb')?_eqDD(r,'lb'):(_eqDD(r,'full')||Math.abs(+r.best_dd_usd||0)));};
+        // the STORED lockbox drawdown wins over one measured off the saved curve: that curve is
+        //   downsampled, so a peak-to-trough read from it can only come out too small, and too
+        //   small is exactly what wins a smallest-drawdown mark and inflates a MAR. A run with no
+        //   in-sample drawdown saved gets a dash - it used to get zero, which won the same mark.
+        const _lbDDof=r=>{const lb=r&&r.validate&&r.validate.lockbox;
+          if(lb&&lb.dd!=null&&isFinite(+lb.dd))return Math.abs(+lb.dd)*_mcOf(r);
+          return _eqDD(r,'lb');};
+        const _ddOf2=r=>{const b=_bw(r);if(b)return (b.max_drawdown!=null&&isFinite(+b.max_drawdown))?Math.abs(+b.max_drawdown):null;
+          return (_rbS==='is')?((r.best_dd_usd!=null&&isFinite(+r.best_dd_usd))?Math.abs(+r.best_dd_usd):null)
+            :((_rbS==='lb')?_lbDDof(r):(_eqDD(r,'full')||((r.best_dd_usd!=null&&isFinite(+r.best_dd_usd))?Math.abs(+r.best_dd_usd):null)));};
         // v71.72 (owner: "were missing data for the risk / reward in them too"): the whole-run PF
         //   and win rate were blank on every run except a book. They are recoverable — the run
         //   report's own KPI matrix builds them the same way: PF by POOLING the stages (rebuild
@@ -25283,7 +25310,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(_rbS==='lb')return (_lbA(r)||{}).tr;
           const a=_wfA(r),lb=_lbA(r);
           return (+r.best_trades||0)+((a&&a.tr)||0)+((lb&&lb.tr)||0);};
-        const _marOf=r=>{const n=_netOf(r),d=_ddOf2(r);return (n!=null&&d&&d>1e-9)?n/d:null;};
+        // MAR IS ANNUALISED HERE TOO (owner standard since v73.460: MAR = net per year over
+        //   drawdown, one definition, one label). This column was the last survivor of the old
+        //   net-over-drawdown reading, so it printed 18.93 for run 314 where the run report and
+        //   COMPARE BETA print 1.17 - a 16x gap under the same word. Worse, the board already
+        //   SORTED on the annualised value (see _rbVal), so the rows were ordered by one number
+        //   and labelled with another, and a 2-year run could outrank a 16-year run that beat it.
+        //   The window is the one the ticked sample actually covers, and a book carries its own.
+        const _rbYrs=r=>{const b=r&&r.book;
+          if(_rbS==='lb'){const y=_runLbYrs(r);if(y)return y;
+            // a run saved before windows.lockbox existed still carries the dates on the
+            //   lockbox strip itself, and a book carries its own.
+            const lb=r&&r.validate&&r.validate.lockbox;
+            if(lb&&lb.from&&lb.to){const y2=_yrsBetween(String(lb.from).slice(0,10),String(lb.to).slice(0,10));if(y2)return y2;}
+            return (b&&b.lockbox_from&&(b.date_to||r.date_to))
+              ?_yrsBetween(String(b.lockbox_from).slice(0,10),String(b.date_to||r.date_to).slice(0,10)):null;}
+          // on the in-sample tick a BOOK is showing its PRE-LOCKBOX pool, so its window must
+          //   stop where the lockbox starts - the whole span would divide a tuning-window
+          //   numerator by a denominator that includes the sealed year.
+          if(b&&b.date_from){
+            const end=(_rbS==='is'&&b.lockbox_from)?b.lockbox_from:b.date_to;
+            if(end){const y=_yrsBetween(String(b.date_from).slice(0,10),String(end).slice(0,10));if(y)return y;}}
+          return (_rbS==='is')?_isYrs(r):_runYrs(r);};
+        const _marOf=r=>_marAnn(_netOf(r),_rbYrs(r),_ddOf2(r));
         const _bestOf=(fn,dir)=>{let bv=null,bi=-1;runs.forEach((r,i)=>{const v=fn(r);
           if(v==null||!isFinite(v))return;if(bv===null||(dir==='min'?v<bv:v>bv)){bv=v;bi=i;}});return bi;};
         // the 1E heat map, same maths as the 1E card: red at the worst end through to green at the
@@ -25821,7 +25870,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   old board returns zero there too.
         if(rm===-Infinity)return null;
         return Math.abs(dd)*mc;};
-      const _c2wf=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f=>f&&f.fold!=null):[]);if(fl.length<2)return null;
+      // ONE FOLD IS STILL A FOLD. Requiring two dropped the whole walk-forward column for a
+      //   single-fold run and said 'this run saved no walk-forward figures', which was false -
+      //   the run report shows that fold. The median of one value is that value.
+      const _c2wf=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f=>f&&f.fold!=null):[]);if(!fl.length)return null;
         const mc=_c2mc(x),net=fl.reduce((a,f)=>a+(+f.oos_pnl||0),0)*mc,tr=fl.reduce((a,f)=>a+(+f.oos_trades||0),0);
         const pfs=fl.map(f=>+f.oos_pf).filter(v=>isFinite(v)&&v>0).sort((a,b)=>a-b);
         const wins=fl.some(f=>f.oos_wins!=null)?fl.reduce((a,f)=>a+(+f.oos_wins||0),0):null;
@@ -25831,7 +25883,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   fields RUNBOARD's BOOKS tile reads. Without them a book dashed MAR and R / YR on LB.
       const _c2lb=x=>{const V=x.validate,lb=V&&V.lockbox;if(!lb)return null;const _bl=(x.book&&x.book.lockbox)||null;
         const W=((lb.from&&lb.to)?[lb.from,lb.to]:null)||(V.windows&&V.windows.lockbox)||((x.book&&x.book.lockbox_from&&(x.book.date_to||x.date_to))?[x.book.lockbox_from,(x.book.date_to||x.date_to)]:null)||null;
-        return {net:(+lb.pnl||0)*_c2mc(x),pf:(+lb.pf||0),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:((_bl&&_bl.win_rate!=null)?+_bl.win_rate:null)),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):((_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))?Math.abs(+_bl.max_drawdown):_c2eqDD(x,'lb'))),ddApx:(lb.dd==null&&!(_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))),
+        return {net:((lb.pnl!=null&&isFinite(+lb.pnl))?(+lb.pnl)*_c2mc(x):null),
+          // zero IS a reading - it means the stretch never won a trade, and expectancy in R
+          //   is built to say so. Only a missing or negative profit factor is a dash.
+          pf:((lb.pf!=null&&isFinite(+lb.pf)&&+lb.pf>=0)?+lb.pf:null),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:((_bl&&_bl.win_rate!=null)?+_bl.win_rate:null)),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):((_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))?Math.abs(+_bl.max_drawdown):_c2eqDD(x,'lb'))),ddApx:(lb.dd==null&&!(_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))),
           yrs:((W&&W[0]&&W[1]&&typeof _yrsBetween==='function')?_yrsBetween(String(W[0]).slice(0,10),String(W[1]).slice(0,10))
                :((V.windows&&+V.windows.lockbox_months>0)?(+V.windows.lockbox_months/12):null)),pass:!!lb.pass};};
       // A MISSING FIGURE IS A DASH, NEVER A ZERO. Coercing an absent drawdown to 0 made the
@@ -25842,7 +25897,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         pf:(x.best_pf!=null?+x.best_pf:null),tr:(+x.best_trades||0),
         wr:(x.best_win_rate!=null?+x.best_win_rate:null),
         dd:((x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null),
-        yrs:_runYrs(x)});
+        yrs:_isYrs(x)});
       // ── state (namespaced c2*, so the two tabs never fight over a pref) ─────────────
       const _c2Screen=(['lead','cmp','explore'].indexOf(APREF.c2Screen)>=0)?APREF.c2Screen:'lead';
       const _c2Stage=(['is','wf','lb'].indexOf(APREF.c2Stage)>=0)?APREF.c2Stage:'lb';
@@ -26034,7 +26089,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'Curves run end to end across the window each run was tested on, so left to right is progress through THAT run - two runs over different years still fill the width, because the shape is what is being compared.'
             +(apx?' A ~ marks a drawdown measured off the saved curve rather than stored on the run: the curve is downsampled, so that number can only under-state the real drawdown, and a run measured that way never takes the best mark on the drawdown or MAR rows.':'')
             +(noCurve?(' '+noCurve+' of these runs saved no equity curve, so they appear in the table but not on the chart.'):'')
-            +(gone?(' '+gone+' picked run'+(gone===1?' is':'s are')+' no longer in your history and were skipped.'):'')
+            +(gone?(' '+gone+((gone===1)?' picked run is':' picked runs are')+' no longer in your history, so '+((gone===1)?'it was':'they were')+' skipped.'):'')
             +'</div>';
         }
       }else{

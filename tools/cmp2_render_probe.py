@@ -42,6 +42,11 @@ WHAT IT ASSERTS, per case
                        shows a .c2-hold placeholder card and a [data-c2gocmp] escape
                        hatch back to the old tab, with no errors. COMPARE is no longer
                        a placeholder - see the `compare` case.
+  runboard         -- the OLD tab's RUNBOARD (cmpMode 'board'), which no gate rendered
+                       until the un-annualised MAR column was found by hand. Renders on all
+                       three SAMPLE ticks and checks the lockbox MAR cell equals the
+                       annualised figure computed here from the fixture's own lockbox pnl,
+                       drawdown and window - so net-over-drawdown can never come back.
   compare          -- the phase-3 COMPARE screen with three runs picked (the fixture, a
                        twin with its stored lockbox drawdown removed so the curve-derived
                        path runs, and the synthesised book): the overlay draws the
@@ -72,6 +77,7 @@ Stdlib only, plus a subprocess call to local Chrome.
 """
 import argparse
 import http.server
+import datetime
 import io
 import json
 import os
@@ -83,7 +89,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 7
+N_CASES = 8
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -121,14 +127,14 @@ var FIX = __FIX__;
       if(out.renderAppType!=='function'){out.why='noboot';
         document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);return;}
 
-      function doRender(prefs, winCode){
+      function doRender(prefs, winCode, sub){
         sink.errors.length=0; sink.uncaught.length=0;
         var call;
         try{
           call=w.eval("(function(){try{"
             +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(prefs))+");"
             +winCode
-            +"activeTab='augur';augurSub='cmp2';renderApp();return 'OK';"
+            +"activeTab='augur';augurSub='"+(sub||'cmp2')+"';renderApp();return 'OK';"
             +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
         }catch(e){call='ERR '+(e&&e.stack?e.stack:e);}
         return call;
@@ -301,6 +307,27 @@ var FIX = __FIX__;
         var ok=['lb','is','wf'].every(function(k){return per[k].call==='OK';})&&emptyCall==='OK';
         var r=snap('compare', ok?'OK':'ERR');
         r.per=per;r.emptyCall=emptyCall;r.emptyHold=emptyHold;r.emptyGo=emptyGo;
+      })();
+
+      // ── case 8: runboard (the OLD tab) ──────────────────────────
+      (function(){
+        var per={};
+        ['lb','is','full'].forEach(function(smp){
+          var call=doRender({cmpMode:'board',rbSample:smp,rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp');
+          var mar=null, rows=[];
+          [].forEach.call(d.querySelectorAll('tr'),function(tr){
+            var c=[].map.call(tr.children,function(td){return (td.textContent||'').trim();});
+            if(!c.length)return;
+            rows.push(c[0]);
+            if(c[0]==='MAR'&&mar===null){
+              for(var i=1;i<c.length;i++){if(/^-?[0-9]/.test(c[i])){mar=c[i];break;}}}
+          });
+          per[smp]={call:call,mar:mar,hasMarRow:rows.indexOf('MAR')>=0,
+            errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
+        });
+        var ok=['lb','is','full'].every(function(k){return per[k].call==='OK';});
+        var r=snap('runboard', ok?'OK':'ERR');
+        r.per=per;
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -679,6 +706,51 @@ def main(argv=None):
         if not (r.get('emptyCall') == 'OK' and r.get('emptyHold') and r.get('emptyGo')):
             fail('compare: empty state call=%s hold=%s leaderboard-link=%s'
                  % (r.get('emptyCall'), r.get('emptyHold'), r.get('emptyGo')))
+
+    # case 8: runboard -- MAR must be ANNUALISED, i.e. (net / years) / drawdown.
+    # The expectation is computed here from the fixture's own saved lockbox block, so it
+    # tracks the fixture instead of being a number typed into the gate.
+    r = cases.get('runboard', {})
+    per = r.get('per') or {}
+    lbc = per.get('lb') or {}
+    want = None
+    try:
+        V = (fixture.get('validate') or {})
+        lb = V.get('lockbox') or {}
+        mult = float(fixture.get('multiplier') or 20)
+        net = float(lb['pnl']) * mult
+        ddv = abs(float(lb['dd'])) * mult
+        d0 = datetime.datetime.strptime(str(lb['from'])[:10], '%Y-%m-%d')
+        d1 = datetime.datetime.strptime(str(lb['to'])[:10], '%Y-%m-%d')
+        yrs = (d1 - d0).days / 365.25
+        want = '%.2f' % ((net / yrs) / ddv)
+        naive = '%.2f' % (net / ddv)
+    except Exception as e:
+        want, naive = None, None
+        print('  (runboard: could not derive the expected MAR from the fixture: %s)' % e)
+    rb_ok = (r.get('call') == 'OK'
+             and all((per.get(k) or {}).get('call') == 'OK' for k in ('lb', 'is', 'full'))
+             and not any((per.get(k) or {}).get('uncaught') for k in ('lb', 'is', 'full'))
+             and lbc.get('hasMarRow')
+             and (want is None or lbc.get('mar') == want))
+    line('runboard', rb_ok, 'lb MAR=%s (annualised=%s, net/dd would be %s) is=%s full=%s'
+         % (lbc.get('mar'), want, naive,
+            (per.get('is') or {}).get('mar'), (per.get('full') or {}).get('mar')))
+    if not rb_ok:
+        for k in ('lb', 'is', 'full'):
+            p = per.get(k) or {}
+            if p.get('call') != 'OK':
+                fail('runboard: %s sample threw -- %s' % (k, str(p.get('call'))[:300]))
+            if p.get('uncaught'):
+                fail('runboard: %s uncaught -- %s' % (k, p['uncaught'][0][:200]))
+        if not lbc.get('hasMarRow'):
+            fail('runboard: no MAR row rendered on the lockbox sample')
+        elif want is not None and lbc.get('mar') != want:
+            fail('runboard: lockbox MAR reads %s, expected the ANNUALISED %s. %s is net over '
+                 'drawdown with no years in it -- the whole point of this case.'
+                 % (lbc.get('mar'), want,
+                    ('That is exactly ' + str(naive) + ', which') if lbc.get('mar') == naive
+                     else 'The app-wide definition since v73.460'))
 
     if bad:
         print('CMP2 PROBE: FAIL')
