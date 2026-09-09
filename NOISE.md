@@ -7,6 +7,116 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUND 47: the conditional sweep — eleven states say nothing, and the twelfth is a real filter the crown does not have (STUDIES rows 1648-1651, web v73.689)
+
+**Owner ask:** *"continue optimizing the frontier models and search for more on the NOISE alpha."*
+Rounds 43–46 exhausted the KNOB directions around the crown and all four ended "nothing moves";
+round 46 closed by showing the optimum now sits exactly where the crown sits, so more perturbation of
+the same knobs is a dead line. What had never been swept is **conditional** alpha: not *is another
+configuration better on average*, but *is the crown's own edge concentrated in identifiable states*.
+Exactly one such effect was known on this family — the 60-minute compression tilt — and it was found
+by accident, which is a reason to sweep the space once, properly.
+
+Twelve states were declared before any was computed, each causal at entry. Harness
+`tools/r47_noise_conditions.py`. Two corrections to method are baked in and both come from this
+week's own mistakes:
+
+- **Effects are read on PROFIT FACTOR, never on dollars per trade.** Round 46 showed this tape's
+  amplitude grew about sevenfold while its timing did not move, so any state that selects volatile
+  bars earns more dollars for reasons that are not edge. An earlier draft of this file ranked on
+  dollars and would have crowned "expansion" — which is simply *volatility*.
+- **The tilt direction is chosen by the data, not assumed.** A state that trades better is tested as
+  a size-up; a state that trades worse is tested as a CUT. That same earlier draft tested every
+  state as a size-up, which asks a question nobody would act on for a losing state.
+
+Each state is scored with `tools/tilt_guard.py` against the **shift null** for intraday conditions
+(it rolls the tag along the trade sequence, keeping the state's own firing rate and run lengths and
+destroying only its alignment) and the day null for the two calendar states, then
+Benjamini-Hochberg across all twelve.
+
+### The battery
+
+| condition | tagged | PF inside | PF outside | ratio | 2010–23 | 2024–26 | tested as | q | guard |
+|---|---|---|---|---|---|---|---|---|---|
+| with-trend | 4076 | 1.467 | 0.867 | 1.69 | 1.72 | 1.64 | size-up 1.5x | 0.000 | fail |
+| **against-trend** | 749 | 0.867 | 1.467 | 0.59 | 0.58 | 0.61 | cut 0.5x | 0.000 | **PASS** |
+| Friday | 853 | 1.634 | 1.263 | 1.29 | 1.22 | 1.43 | size-up 1.5x | 0.046 | fail |
+| expansion | 2786 | 1.431 | 1.136 | 1.26 | 1.30 | 1.18 | size-up 1.5x | 0.004 | fail |
+| midday | 2283 | 1.438 | 1.239 | 1.16 | 1.00 | 1.52 | size-up 1.5x | 0.167 | fail |
+| gap day | 1364 | 1.454 | 1.277 | 1.14 | 1.35 | 0.88 | size-up 1.5x | 0.141 | fail |
+| busy open | 3183 | 1.394 | 1.225 | 1.14 | 1.30 | 0.89 | size-up 1.5x | 0.244 | fail |
+| Monday | 977 | 1.390 | 1.317 | 1.05 | 1.13 | 0.92 | size-up 1.5x | 0.468 | fail |
+| first hour | 2123 | 1.267 | 1.391 | 0.91 | 1.01 | 0.76 | cut 0.5x | 0.409 | fail |
+| quiet open | 1629 | 1.224 | 1.394 | 0.88 | 0.77 | 1.12 | cut 0.5x | 0.244 | fail |
+| compression | 943 | 1.022 | 1.380 | 0.74 | 0.69 | 0.86 | cut 0.5x | 0.027 | fail |
+| last hour | 419 | 0.955 | 1.349 | 0.71 | 0.94 | 0.38 | cut 0.5x | 0.070 | fail |
+
+**Eleven of twelve say nothing actionable.** Compression reads *worse* here than outside on this
+crown's own trades, which does not contradict the validated compression SIZE tilt (a different
+instrument on a different question) but does mean it is not a standalone entry filter. Expansion,
+busy-open and gap-day all look strong on dollars and are the amplitude illusion: their profit-factor
+edge is small and their era split falls apart (gap day 1.35 then 0.88; busy open 1.30 then 0.89).
+
+### The twelfth is real: **entries taken against the slow mean lose money**
+
+`against-trend` — the entry side disagrees with the sign of close minus its own 200-bar mean — is the
+only state to clear every clause: profit factor **0.867 inside against 1.467 outside**, a ratio of
+**0.59**, stable across eras (**0.58** then **0.61** — the first thing all session to hold up in the
+recent years), shift permutation **p = 0.000, q = 0.000**, and the full tilt guard **PASSES** as a
+half-size cut.
+
+**And it is not "shorts lose".** Only 18% of the tagged trades are shorts, and shorts as a whole are
+the *better* side (profit factor 1.552 against longs' 1.229). Decomposed:
+
+| bucket | n | PF | net $ |
+|---|---|---|---|
+| longs, with the mean | 2,951 | 1.382 | +223,068 |
+| shorts, with the mean | 1,125 | 1.640 | +184,645 |
+| shorts, against the mean | 135 | 1.148 | +9,295 |
+| **longs, AGAINST the mean** | **614** | **0.778** | **−43,999** |
+
+The whole effect is **long entries taken while price sits below its own recent mean** — buying a
+band break in a market that is already sagging. 614 trades, median trade **−$130**, **negative in 13
+of 17 calendar years**, and worse recently (profit factor 0.805 across 2010–23, 0.693 since 2024)
+rather than decaying like everything rounds 43–46 turned up.
+
+**What vetoing them is worth**, on the crown otherwise untouched:
+
+| | net $ | PF | drawdown $ | net/DD | trades |
+|---|---|---|---|---|---|
+| the crown as it stands | 373,010 | 1.329 | 19,493 | 19.14 | 4,825 |
+| half size on the tagged | 395,009 | 1.382 | 19,459 | 20.30 | 4,825 |
+| **veto the tagged** | **417,009** | **1.446** | **19,459** | **21.43** | 4,211 |
+
+**+11.8% net and +0.12 profit factor for the same drawdown, by declining 614 trades.**
+
+### The honest caveats, stated before anyone gets excited
+
+- **The plateau is REAL but BOUNDED.** Sweeping the lookback: 100 bars −$47.8k, 150 −$26.6k, 200
+  −$44.0k, 300 −$19.5k all lose, but **400 and 600 turn positive** (+$14.3k, +$10.9k). So this is
+  not a long-term trend filter; it is "price below its last two or three sessions' mean", and it
+  stops working once the mean is slow enough to be a different thing. Four of six lookbacks work,
+  two do not, and 150 has an inconsistent era split (0.73 then 1.24). That bound is the finding, not
+  a footnote.
+- **Concentration.** The ten worst tagged trades are 59% of the −$44k. Against that: the median
+  tagged trade is −$130 and the group is negative in 13 of 17 years, so it is not only a tail — but
+  the number belongs on the record.
+- **The 5-minute NOISE lockbox is SPENT.** Everything above is in-sample in the sense that matters,
+  which is why the next step is a validate and then forward evidence, not an adoption.
+
+### What happens next
+
+**Nothing is adopted and nothing is crowned.** The crown stays run #304 exactly as it is. The next
+step is the house pipeline: add the filter to `NOISE_1_0.py` as a knob that **ships default OFF**
+(the same convention the file's own 2026-08-17 filters use — byte-identical when untouched), then a
+fenced Auto-Validate with the knob open, then forward paper evidence before any board change. That is
+queued as the immediate follow-up to this round.
+
+Files: `tools/r47_noise_conditions.py`; results `tools/r37_results/r47_conditions.csv`,
+`r47_conditions.txt`.
+
+---
+
 ## 🔬 2026-09-09 — ROUND 46: THE MIRROR TEST — my own round 45 explanation is WRONG, and the real answer is better news (STUDIES rows 1628-1631, web v73.677)
 
 **Owner ask:** *"keep testing noise."* Round 45 established a real pattern — every change that
