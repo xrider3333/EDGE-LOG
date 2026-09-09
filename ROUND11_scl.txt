@@ -376,3 +376,25 @@ required only mode x strength x ref_days at "at least" that grid.)
    SHAPE-of-levels axis is not dead like rounds 4-10 found for WHEN/WHETHER, but
    nothing here is both profitable AND robust enough to promote past the crown.
 
+
+======================================================================================================================
+ADDENDUM (reviewer, 2026-09-09): the unverified target/+1.00 claim, now CHECKED — it FAILS G4 too.
+======================================================================================================================
+The 5-bullet read left scl=target/+1.00 as "clears the gates but never plateau-checked". Checked now.
+
+  config                    5y MAR   gain over crown 2.79   keep
+  scl=target/+1.00/rd20      2.92     +0.13                  (the point)
+  scl=target/+1.00/rd10      2.91     +0.12                   92%   OK
+  scl=target/+1.00/rd40      2.76     -0.03                 -23%   FAIL  (below the crown outright)
+  scl=target/+0.50/rd20      2.78     -0.01                  -8%   FAIL  (below the crown outright)
+VERDICT: NOT PLATEAU. Both immediate neighbours (the next reference length AND the next strength step)
+fall BELOW the crown. Two of three reference lengths at strength +1.00 give back the entire gain.
+
+Why it looked good, and why that is not enough. The whole gain sits in the sealed-ish OOS year:
+  window   crown net    target/+1.00/rd20   delta
+  IS       $310,019     $309,900            -$119   (nothing, over 2,131 trades and 15 years)
+  OOS       $87,132     $104,473          +$17,341   (all of it, on 168 trades)
+A knob that does nothing for fifteen years and then adds 20% in the last one, at the maximum value on
+its grid, on two of three settings, is a coincidence with a good year - not a mechanism. It is also the
+exact shape the round-9 bootstrap warned about (a one-year gap of this size between two ORB configs is
+inside the noise band). Not adopted. If the next forward year repeats it on the paper leg, revisit.
