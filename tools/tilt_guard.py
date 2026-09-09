@@ -57,7 +57,7 @@ def _years(ts, m):
 
 
 def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, window=None,
-          label="candidate", perm=2000, seed=20260909, cap=3.0, dd_tol=0.10, min_trades=25):
+          permute="days", label="candidate", perm=2000, seed=20260909, cap=3.0, dd_tol=0.10, min_trades=25):
     """pnl: per-trade dollars (unsized). ts: DatetimeIndex of entries. base: the sizing the
     candidate sits on top of. mask: where the tilt applies. mult: its multiplier.
     wf / lb: boolean stretch masks. subgroup: the set the base already tilts (e.g. Fridays).
@@ -68,7 +68,15 @@ def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, w
     re-size EVERY trade on each sampled day, which is a far larger intervention than the
     candidate makes, and the null becomes meaningless. With it each sampled day is intersected
     with the same window, so the question asked is the right one: are THESE days' windows
-    worse than other days' windows?"""
+    worse than other days' windows?
+
+    permute: "days" (default) resamples whole DAYS - right for a calendar tilt, where the
+    question is whether these dates are special. Use "shift" for a CONDITION tilt (a squeeze
+    state, a volatility regime, anything that switches inside a day): it rolls the tag along the
+    trade sequence by a random offset instead, which keeps the condition's own run lengths and
+    firing rate intact and destroys only its ALIGNMENT with the trades. Asking a day-based null
+    of an intraday condition compares two different shapes and can manufacture significance from
+    the mismatch alone, so the choice is not cosmetic."""
     pnl = np.asarray(pnl, float); base = np.asarray(base, float); mask = np.asarray(mask, bool)
     cand = np.minimum(base * np.where(mask, float(mult), 1.0), cap)
     rng = np.random.default_rng(seed)
@@ -124,6 +132,23 @@ def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, w
         pos = {x: i for i, x in enumerate(alld)}
         pools.append(("subgroup", np.array([pos[x] for x in sub_days]),
                       int(np.isin(sub_days, tagged_days).sum())))
+    if permute == "shift":
+        # CONDITION null: keep the tag's shape, destroy only its alignment with the trades.
+        n = len(mask)
+        lo = max(int(0.02 * n), 25)
+        g = np.empty(perm)
+        for i in range(perm):
+            k = int(rng.integers(lo, n - lo)) if n > 2 * lo + 1 else int(rng.integers(1, max(n - 1, 2)))
+            mm = np.roll(mask, k) & win
+            g[i] = stat(np.minimum(base * np.where(mm, float(mult), 1.0), cap)) - b0
+        beat = float((g >= real).mean())
+        L.append(f"  C2 permutation SHIFT     real ${real:+,.0f} vs shifted ${g.mean():+,.0f}"
+                 f" (sd ${g.std():,.0f}) -> {beat*100:5.1f}% of {perm} shifts match it")
+        if beat >= 0.05:
+            ok = False
+            reasons.append(f"{beat*100:.1f}% of random re-alignments of the same condition do as well - "
+                           f"the condition's SHAPE is doing the work, not where it points")
+        pools = []
     for nm, pool, kk in pools:
         if kk <= 0 or kk > len(pool):
             L.append(f"  C{2 if nm=='any day' else 3} permutation {nm:9s} skipped (n/a)"); continue

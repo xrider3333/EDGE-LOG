@@ -1071,6 +1071,41 @@ The guard gained `window=` from this round, for a tilt that fires on a time wind
 rather than on whole days. Without it the permutations re-size every trade on each sampled day,
 a far larger intervention than the candidate, and the null is meaningless.
 
+### The compression tilt through the guard (2026-09-09): a NOISE effect, and it does not travel
+
+The oldest and most-trusted a-priori tilt in this work, the TTM round-6 by-product, put through the
+same battery as everything else. Compression is a **condition**, not a calendar, so the null is the
+new `permute="shift"`: keep the squeeze's own run lengths and firing rate, break only its alignment
+with the trades. A day-resampling null would compare a clustered intraday condition against a
+scattered day sample and could manufacture significance from the shape mismatch alone.
+
+| leg | shift null | verdict | what decides it |
+|---|---|---|---|
+| **NOISE #243 standalone** | **0.5%** | **PASS** | walk-forward bucket 297 trades, worst trade 7% of the gain |
+| **NOISE inside v12 (#304)** | **0.0%** | **PASS** | +$81,773 walk-forward at *better* drawdown |
+| NOISE inside v12 (#243) | 0.0% | fails C4 only | +$86,738 walk-forward at +0.9% drawdown, +$10,871 lockbox at −7.7%; worst walk-forward trade 8% — but one lockbox trade is 56% of that bucket |
+| ORB #314 | 4.8% | **FAIL** | walk-forward drawdown **+13.6%**, and flat leverage beats it on MAR (1.17 vs 1.15) |
+| ENGU-Q #309 flat | **8.4%** | **FAIL** | the condition's shape does the work, not its aim |
+| ENGU-Q #309 depth increment | 5.0% | **FAIL** | lockbox bucket 7 trades, one at 92% |
+
+**On NOISE the tilt is real and strong.** Shift null 0.0–0.5%, the walk-forward bucket is large and
+broad (297 trades, worst trade 7–9% of the gain), it beats flat leverage in every stretch, and inside
+v12 it is worth roughly +$85,000 of walk-forward money at flat or better drawdown on both runs.
+
+**The "tilt travels" claim from 2026-09-07 is withdrawn.** It was sold on lockbox reads — ORB
+$87k→$102k "at identical drawdown", ENGU-Q $86k→$110k "at better drawdown" — computed on **21 and 20
+trades**, with one trade at 52% and 37% of those buckets. The walk-forward, where ORB has 167 tagged
+trades, says the opposite: +$36,745 of money for **13.6% more drawdown**, which flat leverage beats.
+
+**One honest note on the guard's own calibration.** The #243-inside-v12 case fails on C4 alone
+(one lockbox trade at 56%) while every other check is outstanding, including a 0.0% shift null and a
+297-trade walk-forward bucket whose worst trade is 8%. C4 currently fires on lockbox concentration
+regardless of how strong the walk-forward evidence is, and for a tilt tagging 13% of trades on a
+fat-tailed instrument a small lockbox bucket will often have one dominant trade. That may be too
+strict. **The rule has deliberately NOT been changed here**, because relaxing a control immediately
+after it fails something you like is exactly how these mistakes happen. It is flagged as a separate
+decision, on its own evidence, rather than settled in passing.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

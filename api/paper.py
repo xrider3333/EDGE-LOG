@@ -1027,17 +1027,25 @@ LEG_SOURCE = {
         "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-08",
         "note": "The ENGU-Q crown with the compression tilt graded by squeeze depth: 2x when the "
                 "60-minute Bollinger/Keltner ratio is under 0.85, 1.5x when merely compressed, 1x "
-                "otherwise, no model. Beats the flat 1.5x on both stretches with lockbox drawdown 10% "
-                "lower. Added 2026-09-08; ENGUQ_309 is the raw control and ENGUQ_309_C15 the flat "
-                "compression control.",
+                "otherwise, no model. Added 2026-09-08; ENGUQ_309 is the raw control and "
+                "ENGUQ_309_C15 the flat compression control.",
+        "caveat": "GUARD-FAILED 2026-09-09. Under the SHIFT null - which keeps the squeeze's own run "
+                  "lengths and firing rate and only breaks its alignment with the trades - 5.0% of "
+                  "re-aimed versions of the same condition do as well, so the condition's SHAPE is "
+                  "doing much of the work rather than where it points. The depth increment's lockbox "
+                  "bucket is 7 trades with ONE at 92% of it. Forward test only.",
     },
     "ORB_R6_C15": {
         "run": 314, "run_label": "#314 ORB crown + compression tilt 1.5x (no model)",
         "strategy_file": "ORB_3_6_R6.py", "picked": "2026-09-07",
         "note": "The ORB crown with only the TTM round-6 compression tilt: 1.5x on trades entered "
-                "while the 60-minute squeeze is on, no model. Read on the run's own stretches: lockbox "
-                "$102k vs raw $87k at identical drawdown. KEEL is NOT stacked on ORB (it hurts there). "
-                "Added 2026-09-07; ORB_R6 is the exact control.",
+                "while the 60-minute squeeze is on, no model. KEEL is NOT stacked on ORB (it hurts "
+                "there). Added 2026-09-07; ORB_R6 is the exact control.",
+        "caveat": "GUARD-FAILED 2026-09-09 and the 'travels' claim is withdrawn for ORB. The lockbox "
+                  "read that sold it ($102k vs $87k at identical drawdown) rests on 21 trades with ONE "
+                  "at 52% of the bucket. In the WALK-FORWARD, where there are 167 tagged trades, the "
+                  "tilt earns +$36,745 but takes 13.6% MORE drawdown and exposure-matched flat leverage "
+                  "beats it on MAR (1.17 vs 1.15). On ORB this is leverage. Forward test only.",
     },
     "ENGUQ_309_C15": {
         "run": 309, "run_label": "#309 ENGU-Q crown + compression tilt 1.5x (no model)",
