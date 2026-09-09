@@ -1,0 +1,19 @@
+TTM SQUEEZE r15e - the OPEN-BAR TILT, the follow-up round 15b demands   2026-09-09 11:53
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01; the book leg (ES30SS20) on ES 30m RTH, 0.363 pts a round trip, 50 a point
+Discovery = the first 60 percent of pre-lockbox trades by time; the rule has no threshold to tune.
+Judged risk-adjusted, with a flat 1.5x leverage control beside it. Nothing is crowned here.
+
+  357 trades, 87 entered on the session first bar (24 percent). Discovery 204, holdout 137, lockbox 16.
+  mean dollars a trade: first bar 805, every other bar 115
+
+                                     ----------------- discovery -----------------   ------------- holdout -------------   ------------- lockbox -------------
+  variant                                n     PF      net $     DD $    MAR    $/ctr       n     PF      net $     DD $    MAR       n     PF      net $     DD $
+  the book leg, unchanged              204   2.68     31,333    2,018   0.97      154     137   2.68     52,706    4,338   0.76      16   6.72     16,977    2,003
+  1.5x on session-first-bar entries    204   3.08     41,600    1,923   1.35      184     137   2.96     72,123    5,330   0.84      16   8.52     22,321    2,003
+  2.0x on session-first-bar entries    204   3.43     51,866    1,929   1.67      229     137   3.16     91,540    6,322   0.90      16  10.32     27,664    2,003
+  flat 1.5x (leverage control)         204   2.68     47,000    3,027   0.97      154     137   2.68     79,059    6,507   0.76      16   6.72     25,466    3,005
+
+  permutation on the discovery half, first bar against the rest: gap +399 a trade, p = 0.0000
+  ONE rule was tested here, chosen by round 15b rather than by searching this table, so there is no
+  multiple-comparisons discount to apply - but the rule was still found by looking at these trades.
+  The holdout and lockbox columns are the evidence; the discovery column is where it came from.
