@@ -31,7 +31,27 @@ import api.cloud_signal as cs
 
 REAL_CACHE_1M = r"C:\EdgeLog\ohlc\QQQ_1m.csv"
 REAL_CACHE_5M = r"C:\EdgeLog\ohlc\QQQ_5m.csv"
-HAS_REAL_CACHE = os.path.exists(REAL_CACHE_1M) and os.path.exists(REAL_CACHE_5M)
+def _usable_cache(path):
+    r"""A cache file counts as present only if there is something in it to parse.
+
+    2026-09-09: this guard tested os.path.exists alone, and C:\EdgeLog\ohlc\QQQ_1m.csv was
+    sitting at ZERO BYTES, so the skipif sailed straight past it and both replay tests died
+    inside pd.read_csv with "EmptyDataError: No columns to parse from file". That turned main
+    red for every push in the repo behind an error message naming pandas rather than the cache.
+    An empty cache is an absent cache: skip, and say WHICH file is missing so the next person
+    reads the real problem off the skip line. Why the 1m cache is empty is a live-feed question
+    and is deliberately not answered here.
+    """
+    try:
+        return os.path.getsize(path) > 0
+    except OSError:
+        return False
+
+
+_MISSING_CACHE = [p for p in (REAL_CACHE_1M, REAL_CACHE_5M) if not _usable_cache(p)]
+HAS_REAL_CACHE = not _MISSING_CACHE
+_CACHE_SKIP = ("no usable local QQQ bar cache to replay -- missing or empty: %s"
+               % ", ".join(_MISSING_CACHE))
 TEST_WARMUP_SESSIONS = 5   # see module docstring "SPEED"
 TEST_MAX_TICKS = 60        # first 60 minutes of the session only — see "SPEED"
 
@@ -188,7 +208,7 @@ def test_stale_entry_is_recorded_but_not_emitted(tmp_path):
 
 
 # ── 2. Real-cache replay: determinism + idempotency ─────────────────────────────────────
-@pytest.mark.skipif(not HAS_REAL_CACHE, reason="no local QQQ bar cache (C:\\EdgeLog\\ohlc) to replay")
+@pytest.mark.skipif(not HAS_REAL_CACHE, reason=_CACHE_SKIP)
 def test_replay_deterministic_across_independent_runs(tmp_path):
     day = _newest_cached_session()
     paths_a = _seed_home(tmp_path / "run_a")
@@ -202,7 +222,7 @@ def test_replay_deterministic_across_independent_runs(tmp_path):
     assert [_event_key(e) for e in events_a] == [_event_key(e) for e in events_b]
 
 
-@pytest.mark.skipif(not HAS_REAL_CACHE, reason="no local QQQ bar cache (C:\\EdgeLog\\ohlc) to replay")
+@pytest.mark.skipif(not HAS_REAL_CACHE, reason=_CACHE_SKIP)
 def test_replay_same_day_twice_is_idempotent(tmp_path):
     day = _newest_cached_session()
     paths = _seed_home(tmp_path / "run")
