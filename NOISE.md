@@ -104,6 +104,50 @@ cells; the way to a shorter hold is a shorter bar under a tail-keeping exit, not
 Files: `tools/r37_scalp_triage.py`, `tools/queue_noise_shortbar_validates.py`, results in
 `tools/r37_results/` (search CSVs, neighbourhood CSV, reference/concentration JSON, logs).
 
+### ROUND 38 (same day) — run #334 PASSES, the cost question, and the band is the trigger (rows 1400–1408, web v73.610)
+
+**Run #334 — `NOISE_1_0.py` full space on NQ 2m RTH, 2010-06-07 → 2026-07-16, 8 folds, 17-month lockbox
+(2025-02-14 →).** Verdict **PASS 6/6**, WF **7/8** folds, wfe 2.654, PBO 0.46 ("some overfit risk"),
+7,885 trades, Sharpe 1.26, whole-run DD 1,523 pts ($30,464). Champion: band 0.5 / 1.0 · VWAP exit ·
+fixed stop 3.0 · confirm 4 · lookback 104 · afternoon block · skip-bot-short 0.3/0.95 · vol-skip 96.
+**Lockbox 453 trades / +$59,451 / PF 1.283 / DD $19,204 — on the same market days #243 made +$40,648
+at PF 1.19 and #305 +$24,553 at PF 1.12** (spent lockbox, confirmatory only). Champion on the common
+2010-06-07..2025-06-29 window: n 7,427 / $335,478 / PF 1.315 / DD $27,517 / MAR 12.2 / EV R 0.21 /
+R/YR 104 / top-10 24% / median hold 8 min. Cost-fragile: MAR 10.65 at 0.783, 7.49 at 1.033 (4/8 slices).
+Note: the doc's header `best_*` fields (5,505 trades / $95,437 / PF 1.20 / DD $10,929) are the run's own
+IS-stage figures, not the whole optimize window; the engine reproduces the champion at 7,282 trades /
+$337,659 on the optimize window. `tools/r37_results/run334_champion_read.json`.
+
+**The cost question (owner: "$10 seems high round trip but idk").** 0.533 pts = $10.66 on NQ = about
+two ticks plus commissions, the same number every crown was graded on. It is not what killed the 1m
+cells — rerun at ZERO cost the 25 fixed-target cells still fail (best PF 1.11, MAR 3.6;
+`r37_scalp_triage_GROSS.csv`). What cost does is squeeze a $40 trade:
+
+| config | $0 | $5.66 | $10.66 (house) | $15.66 | $20.66 |
+|---|---|---|---|---|---|
+| R/YR record (row 1321), MAR | 25.9 (8/8) | 22.5 (8/8) | 19.6 (6/8) | 11.4 (5/8) | 5.4 (4/8) |
+| daytype-off neighbour (row 1322), MAR | 34.7 | 29.8 | 23.8 (7/8) | 9.3 (4/8) | 4.7 |
+| #243 crown config on 2m (row 1316), MAR | 31.6 | 27.9 | 24.8 (7/8) | 19.8 (5/8) | 11.0 |
+| run #334 champion, MAR | — | — | 12.2 (7/8) | 10.7 (4/8) | 7.5 (4/8) |
+
+`tools/r38_noise2m_cost_stress.py` re-scored all 74 gate-passing 2m cells at 0.533 / 0.783 / 1.033:
+**21 still clear the bar at 0.783, 16 at 1.033.** The cost-robust corner is the **band exit in the
+afternoon block**: search rank 8 (row 1403: band exit · ATR stop 0.75 · confirm 3 · afternoon block ·
+skip-bot-short · lookback 74 · bands 1.0/1.75 · vol-skip 93) = n 3,621 / $247,998 / PF 1.483 / DD $13,438
+/ **MAR 18.5 → 16.2 → 14.2** / 7/8 at every cost / R/YR 86 → 79 → 71 / $64 a trade / top-10 28% / hold
+16 min; rank 23 (row 1404, long only) = MAR 18.6 → 16.5 → 14.6 with **8/8 at every cost**, $69 a trade.
+`tools/r37_results/noise2m_cost_stress.csv`, `noise2m_cost_sensitivity.json`.
+
+**The band is the trigger, not the exit (`tools/r38_scalp2m_triage.py`, 0 of 28).** Round 37's four
+triggers (micro OR 3/5 bars, open drive, PDH/PDL 0.10/0.20, range burst 3x/4x) on 2m bars under four
+exits (1R, 2R, ride-BE, and NOISE's own VWAP-cross exit): best cell micro-OR 10-min / VWAP exit at
+PF 1.18 / MAR 5.3 / top-10 90%; range-burst 3x / ride PF 1.36 / MAR 7.2 / top-10 112%. The band entry
+sizes itself to the day's realized noise; a fixed level cannot, and the VWAP exit does not rescue it.
+
+**Three 2m NOISE candidates now exist, none crowned:** the runner's #334 champion (most money,
+cost-fragile), the R/YR record (row 1321, cost-fragile), and the cost-robust corner (row 1403). A
+2m leg would need NT parity on 2m bars first; the 1m validate (job `RboN8x79sMiYCBgbOySp`) is running.
+
 ---
 
 ## ✅ 2026-08-27 — ROUND 5: does the crown TRAVEL (Study A), and is #243 a PLATEAU or a SPIKE (Study B)?

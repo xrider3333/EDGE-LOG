@@ -261,7 +261,7 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 
 | # | What | Numbers (pre-lockbox, 2010-06..2025-06) | Where | Status |
 |---|---|---|---|---|
-| **B26** | **NOISE on 2-MINUTE bars — the 4-minute scalp.** Search leader of `NOISE_1_0.py`'s own ranges on NQ 2m RTH: boundary exit · ATR stop 3.5 · confirm 4 · skip-top-long · lookback 46 · bands 0.75/1.5 · vol-skip 78 | n=5,340 · $213,549 · PF 1.477 · DD $10,917 · MAR 19.6 · EV R 0.40 · **R / YR 140.6 (library record; prior 102.6)** · 6/8 slices · median hold 4 min · $40/trade · top-10 34% (ex-top-10 +$141,865 PF 1.32) · plateau 30/30 · guard PASS. Daytype-OFF neighbour: R / YR 162, MAR 23.8, 7/8 | `tools/ryr_search.py` noise2m → `tools/r37_results/`; STUDIES rows 1321-1322 | **Auto-Validate QUEUED — `NOISE_1_0.py` FULL space on the NQ 2m master, job `qsSDwagxJsahDSmAwx1r`** (spent-lockbox caveat on the card) |
+| **B26** | **NOISE on 2-MINUTE bars — the 4-minute scalp.** Search leader of `NOISE_1_0.py`'s own ranges on NQ 2m RTH: boundary exit · ATR stop 3.5 · confirm 4 · skip-top-long · lookback 46 · bands 0.75/1.5 · vol-skip 78 | n=5,340 · $213,549 · PF 1.477 · DD $10,917 · MAR 19.6 · EV R 0.40 · **R / YR 140.6 (library record; prior 102.6)** · 6/8 slices · median hold 4 min · $40/trade · top-10 34% (ex-top-10 +$141,865 PF 1.32) · plateau 30/30 · guard PASS. Daytype-OFF neighbour: R / YR 162, MAR 23.8, 7/8 | `tools/ryr_search.py` noise2m → `tools/r37_results/`; STUDIES rows 1321-1322 | **VALIDATED — run #334 PASS 6/6, WF 7/8, LB +$59,451 / PF 1.28 (beats both 5m crowns on the same days); the runner's champion is a different corner (row 1400, MAR 12.2, R/YR 104, cost-fragile).** Round 38: the R/YR record itself is cost-fragile (MAR 19.6 → 11.4 at 0.783) |
 | B27 | The paper crown #243 configuration, untouched, on 2m bars | n=6,431 · $319,554 · PF 1.338 · **DD $12,873 (−30%)** · **MAR 24.8** · R / YR 96.9 · 7/8 · hold 12 min | STUDIES row 1316 | reference — the bar size is the lever; the 2m validate above is the test |
 
 **TIER 3 additions (round 37):**
@@ -316,3 +316,12 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 8. ~~Scalpers round 38~~ DONE: 0 of 20 (rows 1375-1381, v73.603) - sweep-reclaim, chop-fade, ignition, box-break all lose at house cost with fixed AND ride exits; the 1m tape is cost-dominated; week total 0 of 59 short-hold cells across two sessions. Do not re-test 1m fixed-target scalps.
 9. Data: the NQ 1-minute hole 2026-07-01..08-05 is unrecoverable (5m is clean); any 1m validate whose lockbox spans it needs the caveat on the card.
 10. Alpaca key / Databento buy remains the only route to a genuinely new data axis (1m stock bars for an intraday QQQ family, or other futures for instrument branches).
+### Round 38 addendum (2026-09-08) — run #334, the cost question, the band is the trigger (rows 1400-1408, v73.610)
+
+| # | What | Numbers | Where | Status |
+|---|---|---|---|---|
+| **B28** | **Cost-robust 2m NOISE corner** — band exit · ATR stop 0.75 · confirm 3 · afternoon block · skip-bot-short · lookback 74 · bands 1.0/1.75 · vol-skip 93 | n=3,621 · $247,998 · PF 1.48 · DD $13,438 · **MAR 18.5 / 16.2 / 14.2 at $10.66 / $15.66 / $20.66** · 7/8 at every cost · R/YR 86 · $64/trade · top-10 28% · hold 16 min | STUDIES row 1403; `tools/r38_noise2m_cost_stress.py` | candidate — inside run #334's own search space, not separately validated |
+| B29 | Run #334's champion (narrow bands 0.5/1.0, VWAP exit, afternoon block) | common window n=7,427 · $335,478 · PF 1.32 · MAR 12.2 · R/YR 104 · hold 8 min; LB +$59,451 / PF 1.28 | Past Runs #334; row 1400 | PASS 6/6 but cost-fragile (MAR 7.5 at $20.66) |
+
+- **TIER 3:** the house cost (0.533 pts = $10.66) is two ticks plus commissions, not high; the round-37 scalp cells fail at ZERO cost too. A $40-a-trade scalp loses half its MAR to one extra tick each way; a $60+ trade does not. Judge any sub-5m cell at 0.783 as well as 0.533.
+- **TIER 3:** the NOISE band is the trigger. Four other 2m momentum triggers under NOISE's own VWAP exit: 0 of 28 (`tools/r38_scalp2m_triage.py`).
