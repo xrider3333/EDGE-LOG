@@ -1,0 +1,26 @@
+TTM SQUEEZE ROUND 11 - can the tilted leg be traded in whole contracts, and does it survive worse fills?   2026-09-09 07:52
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01. NOTHING IS CROWNED: part A is a feasibility read against the IDEAL tilt,
+part B a robustness read at four cost levels. Both specified before the run.
+
+  359 trades, 188 of them deep-squeeze entries (52 percent)
+
+PART A - whole-contract schedules, the leg alone and then inside the book
+  schedule                                     leg net $   leg DD leg PF  leg LB $ |  BOOK net $  BOOK DD    MAR  BOOK LB $    xMAR  xIDEAL
+  ideal 3 -> 4.5 (what the validate measured)     209,651   13,648   2.23    20,843 |   1,174,222   34,903  2.094    199,035   1.049   1.000
+  whole 2 -> 3   (exactly 1.5x, smaller)         139,767    9,098   2.23    13,895 |   1,104,338   34,903  1.970    192,088   0.986   0.940
+  whole 4 -> 6   (exactly 1.5x, bigger)          279,534   18,197   2.23    27,791 |   1,244,105   34,903  2.219    205,983   1.111   1.060
+  whole 3 -> 4   (1.33x, nearest below)          191,476   12,838   2.20    18,888 |   1,156,047   34,903  2.062    197,080   1.032   0.985
+  whole 3 -> 5   (1.67x, nearest above)          227,826   14,457   2.26    22,798 |   1,192,397   34,903  2.127    200,991   1.065   1.015
+  micros 30 -> 45 MES (1.5x at book size)        200,341   14,521   2.14    20,442 |   1,164,913   34,903  2.078    198,635   1.040   0.992
+  untilted 3 -> 3 (the control)                  155,126   11,220   2.12    14,977 |   1,119,697   34,903  1.997    193,170   1.000   0.954
+
+PART B - what worse fills do to the leg (whole run, one contract, tilt on and off)
+  cost per round trip                  net $     DD $     PF lockbox $    LB PF
+  0.363 pts ($18 a trade) untilted      51,709    3,740   2.12     4,992     2.22
+  0.363 pts ($18 a trade) tilted 1.5x on deep      69,884    4,549   2.23     6,948     2.38
+  0.500 pts ($25 a trade) untilted      49,249    4,044   2.04     4,883     2.18
+  0.500 pts ($25 a trade) tilted 1.5x on deep      66,780    4,840   2.14     6,814     2.34
+  0.750 pts ($38 a trade) untilted      44,762    4,632   1.90     4,683     2.11
+  0.750 pts ($38 a trade) tilted 1.5x on deep      61,118    5,394   2.00     6,570     2.26
+  1.000 pts ($50 a trade) untilted      40,274    5,219   1.78     4,483     2.04
+  1.000 pts ($50 a trade) tilted 1.5x on deep      55,455    6,112   1.86     6,327     2.19
