@@ -1,0 +1,11 @@
+[Unit]
+Description=EDGE-LOG runner healthcheck (stale-log watchdog + ntfy alert)
+After=edgelog-runner.service
+
+[Service]
+Type=oneshot
+# Deliberately runs as root (no User= line): restarting edgelog-runner.service via
+# systemctl needs privilege, and a oneshot maintenance job is the normal place for
+# that on a single-owner box. It only reads the env file and the runner's own log.
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=/usr/bin/env bash __EDGELOG_REPO__/deploy/cloud/healthcheck.sh

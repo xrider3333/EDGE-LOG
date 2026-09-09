@@ -1,0 +1,34 @@
+# EDGE-LOG cloud runner dependencies (Ubuntu 24.04 ARM, api.runner ONLY -- no
+# Streamlit, no NinjaTrader). This is the UNION of api/requirements.txt (the
+# runner's own asks: Firestore queue + Webull sync) and the augur_engine runtime
+# deps that live in requirements-dev.txt (scipy / scikit-learn / requests / tzdata).
+#
+# Why a third file instead of reusing one of the existing two: neither is
+# sufficient by itself to actually START `python -m api.runner`.
+#   - api/requirements.txt alone is missing scipy/scikit-learn/requests: augur_engine/
+#     __init__.py imports .analytics and .ml_gate (via .engine) at PACKAGE-IMPORT time
+#     (see augur_engine/analytics.py, ml_gate.py, ml_keel.py, surrogate.py, context.py,
+#     data_quality.py), so the process fails on `import augur_engine` without them.
+#   - requirements-dev.txt alone is missing fastapi/uvicorn/firebase-admin/
+#     webull-openapi-python-sdk (the runner's Firestore queue + Webull sync) and
+#     carries pytest, which the runner never imports and the cloud box doesn't need.
+# No pywin32 / py-spy / other Windows-only packages appear in either source file, so
+# nothing had to be EXCLUDED here -- this is purely a union + pin.
+#
+# Install:  pip install -r deploy/cloud/requirements-cloud.txt
+
+numpy<3
+pandas>=2.2,<3   # same pin as requirements-dev.txt -- an unpinned install pulled pandas
+                 # 3.0.5 on 2026-09-08 (microsecond DatetimeIndex) and broke a fixture;
+                 # move this line on purpose, never by accident (see memory
+                 # edgelog-ci-red-pandas3 / CHANGELOG 2026-09-08).
+scipy
+scikit-learn     # ml_gate / analytics relationship-scores paths
+requests         # augur_engine.ai imports it at package-init time
+tzdata           # load_master_arrays converts to US/Eastern; belt-and-suspenders next
+                 # to the apt tzdata package installed by install.sh
+fastapi
+uvicorn
+firebase-admin
+webull-openapi-python-sdk   # official Webull OpenAPI (webull_sync daily trade pull +
+                             # the QQQ shadow adapter's order/quote calls)

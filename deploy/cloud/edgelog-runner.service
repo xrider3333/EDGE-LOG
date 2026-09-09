@@ -1,0 +1,25 @@
+[Unit]
+Description=EDGE-LOG runner - Firestore job queue + QQQ shadow adapter (cloud, no NinjaTrader)
+Documentation=https://github.com/xrider3333/EDGE-LOG/blob/main/deploy/cloud/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+# Mirrors the PRIMARY invocation in tools/_restart_runner.bat.example (the Windows
+# launcher this replaces), minus the Windows-only worker-fleet plumbing: one process,
+# Firestore queue, the owner's uid allowlisted, watch loop with a master refresh every
+# 240 min, a queue poll every 30s, a trade-sync pass every 20s.
+ExecStart=__EDGELOG_VENV__/bin/python -u -m api.runner --firestore --cred serviceAccount.json --allow-uid __EDGELOG_ALLOW_UID__ --watch --refresh-min 240 --interval 30 --trades-sec 20
+Restart=always
+RestartSec=15
+StandardOutput=append:__EDGELOG_HOME__/logs/runner.log
+StandardError=append:__EDGELOG_HOME__/logs/runner.log
+Nice=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

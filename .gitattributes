@@ -7,3 +7,4 @@ tools/githooks/pre-push text eol=lf
 # ties the normalisation to the repo instead of the machine. No diff today - the stored blob is
 # already LF - so this changes nothing except who guarantees it.
 index.html text
+deploy/cloud/** text eol=lf
