@@ -13,10 +13,13 @@
 >   contract each **+ three ES contracts of `TTM_299_T`**.
 > - Crown cell, unchanged since run #299: **ES 30m RTH**, Keltner 1.5, stop 1.5 ATR, no entries in
 >   the last bar, hourly verification length 20 — `TTMSQZ_3_0_ES30N.py`.
-> - The one validated improvement: **run #340**, the deep-squeeze 1.5x size tilt — same trades,
->   1.5 contracts on the 188 of 359 entered while the hourly compression ratio is at or under 0.85.
-> - **Open lead:** the structural stop (run #352 passed every gate, missed its bar; pinned re-run
->   queued). See *Open leads* below.
+> - Validated improvements, in order: **run #340**, the deep-squeeze 1.5x size tilt (same trades, 1.5
+>   contracts on the 188 of 359 entered while the hourly compression ratio is at or under 0.85) — this
+>   is the leg the book carries; and **run #353**, the STRUCTURAL STOP, which passed every gate and
+>   cleared every clause at a LOWER drawdown than the leg it challenges.
+> - **`TTM_299_SS`** runs in paper from 2026-09-10 as the structural stop's forward test, with
+>   `TTM_299_T` as its exact matched control. Its BOOK run against the book in production is queued;
+>   the book figure does not change until that says so.
 
 ---
 
@@ -71,18 +74,28 @@ paper legs (see `KEEL.md` / memory `edgelog-keel-overlay`).
 | #342 | BOOK, tilt + ES 15m cell | — | $1,241,601 · DD $34,564 | $209,287 | Cleared all three clauses — but see #343 |
 | #343 | `TTMSQZ_3_0_ES15N.py` | **WEAK** | 879 · $52,163 · PF 1.39 | $5,472 · PF 1.36 | Luck check fails; crowned a different cell than #342 ran, so **#342 does not transfer** |
 | #352 | `TTMSQZ_3_0_ES30SS.py` | **PASS, bar missed** | 665 · $109,651 · PF 2.00 · DD $7,143 | $22,404 · PF 2.94 · 40 trades | Search walked to gate length 16; drawdown 57% over the cap for a dead-heat MAR |
+| #353 | `TTMSQZ_3_0_ES30SS20.py` | **PASS + every clause cleared** | 357 · $101,017 · PF 2.91 · DD $4,338 · MAR 1.450 | $16,977 · PF 6.72 · DD $2,003 | The structural stop with the verification length pinned at 20. Lower drawdown than the leg it challenges, in the whole run and the lockbox |
 
 ## Open leads
 
-1. **The structural stop** — stop at the far side of the squeeze range instead of 1.5 ATR.
-   At the pinned cell, mechanism only: 357 trades, PF 2.70, $73,720, DD $3,642, lockbox $11,710 at
-   5.38. With the validated tilt: **$101,017 at PF 2.91, DD $4,338 (below the book leg's $4,549),
-   lockbox $16,977 at 6.72.** Buffers of 0, 0.5 and 1.0 points behave alike.
-   *Status:* run #352 passed the gates and missed the bar; `TTMSQZ_3_0_ES30SS20.py` (verification
-   length pinned at 20) is queued with the same bar.
-   *Unsettled:* the stop is ~76% wider per contract ($1,041 vs $586, worst observed $6,412–6,612).
-   Sixteen years never punished that — one draw, not proof. Gap-stress harness:
-   `tools/ttmsqz_r13_gap_stress.py`.
+1. **The structural stop — VALIDATED (run #353), book run pending.** Stop at the far side of the
+   squeeze range instead of 1.5 ATR. With the validated tilt: **$101,017 at PF 2.91, annualised MAR
+   1.450 against the book leg's 0.957, drawdown $4,338 against $4,549 — lower — and a lockbox of
+   $16,977 at PF 6.72 against $6,948 at 2.38, at a lockbox drawdown of $2,003 against $4,053.**
+   Buffers of 0, 0.5 and 1.0 points behave alike, which is what a structural effect looks like.
+   *Run #352 is the cautionary half:* the same file with the verification length free passed every
+   gate and MISSED the bar, because the search walked to length 16 — 665 trades, drawdown $7,143
+   against a $5,004 cap, for a dead-heat MAR. `_ES30SS20.py` pins that knob at the incumbent's own
+   value; that is one change at a time, not a cell picked to fit a bar.
+   *Gap stress (`tools/ttmsqz_r13_gap_stress.py`) corrected the obvious worry rather than confirming
+   it:* the ATR legs stop on 10.6% of trades but carry **43–44% of gross losses** there, while the
+   structural leg stops on 13.2% and carries **6.8%** — its five worst trades are all fade or
+   session-close exits and its worst stop exit is $496. It survives 0–10 points of slippage on every
+   stop fill and stop losses scaled 1–6x, still beating the book leg. **Overnight gap risk is zero:
+   the leg is flat at every session close**, so the largest gap on the tape ($10,838, the 2024-08-05
+   yen-carry unwind) reached no position. *Limits:* the stress aimed at the stop channel, which is
+   not where this leg loses, and the one wide-stop-specific number (worst draw $2,952 vs $2,719) is
+   a single trade.
 2. **Contract schedule for live trading.** The tilt asks for 4.5 ES contracts at book weight 3, and
    there is no half contract. **3→4 keeps 98.5% of the ideal at less size** (recommended); 3→5 lands
    1.5% above it; 30→45 MES micros express the exact 1.5x to within 1%. **Never 2→3** — a smaller
