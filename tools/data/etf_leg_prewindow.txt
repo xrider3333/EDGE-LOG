@@ -1,0 +1,61 @@
+THE SECOND HOLDOUT - 2006-01-03 .. 2009-05-31, never loaded by round 25 and excluded from the validate window
+(the validates' own lockbox holds 8-14 trades per leg; this stretch holds 22-31 and contains 2008)
+
+====================================================================================================
+run #354  ETFDIP_DBL7_1_0.py on GLD   validate verdict: FAIL
+  crown: dbl_n=6, trend_len=125
+  book cell: dbl_n=7, trend_len=200
+  -> CROWN DIFFERS from the book's cell on dbl_n, trend_len. What was validated is a DIFFERENT
+     leg; the book's version remains UNVALIDATED (the run #343 precedent).
+  PRE-WINDOW, crowned config : n=30   net $23,690     PF 1.84   DD $14,066
+  PRE-WINDOW, book cell      : n=28   net $36,388     PF 2.97   DD $12,056
+====================================================================================================
+run #355  ETFDIP_DBL7_1_0.py on TLT   validate verdict: FAIL
+  crown: dbl_n=5, trend_len=125
+  book cell: dbl_n=7, trend_len=200
+  -> CROWN DIFFERS from the book's cell on dbl_n, trend_len. What was validated is a DIFFERENT
+     leg; the book's version remains UNVALIDATED (the run #343 precedent).
+  PRE-WINDOW, crowned config : n=38   net $1,999      PF 1.07   DD $10,218
+  PRE-WINDOW, book cell      : n=30   net $6,292      PF 1.26   DD $8,451
+====================================================================================================
+run #356  ETFDIP_DBL7_1_0.py on QQQ   validate verdict: FAIL
+  crown: dbl_n=7, trend_len=225
+  book cell: dbl_n=7, trend_len=200
+  -> CROWN DIFFERS from the book's cell on trend_len. What was validated is a DIFFERENT
+     leg; the book's version remains UNVALIDATED (the run #343 precedent).
+  PRE-WINDOW, crowned config : n=18   net $-928       PF 0.96   DD $13,927
+  PRE-WINDOW, book cell      : n=22   net $-26,273    PF 0.52   DD $45,523
+====================================================================================================
+run #357  ETFDIP_RSI2_1_0.py on IWM   validate verdict: FAIL
+  crown: allow_shorts=True, rsi_exit=6, rsi_len=2, rsi_thr=25, rsi_thr_short=95, trend_len=100
+  book cell: allow_shorts=True, rsi_exit=5, rsi_len=2, rsi_thr=10, rsi_thr_short=90, trend_len=200
+  -> CROWN DIFFERS from the book's cell on rsi_exit, rsi_thr, rsi_thr_short, trend_len. What was validated is a DIFFERENT
+     leg; the book's version remains UNVALIDATED (the run #343 precedent).
+  PRE-WINDOW, crowned config : n=41   net $20,685     PF 1.88   DD $9,939
+  PRE-WINDOW, book cell      : n=30   net $26,683     PF 2.31   DD $6,740
+====================================================================================================
+run #358  ETFDIP_RSI2_1_0.py on QQQ   validate verdict: FAIL
+  crown: allow_shorts=False, rsi_exit=7, rsi_len=2, rsi_thr=30, rsi_thr_short=95, trend_len=250
+  book cells: allow_shorts=False, rsi_exit=5, rsi_len=2, rsi_thr=10, rsi_thr_short=90, trend_len=200 | allow_shorts=True, rsi_exit=5, rsi_len=2, rsi_thr=10, rsi_thr_short=90, trend_len=200
+  -> CROWN DIFFERS from the book's cell on rsi_exit, rsi_thr, rsi_thr_short, trend_len. What was validated is a DIFFERENT
+     leg; the book's version remains UNVALIDATED (the run #343 precedent).
+  PRE-WINDOW, crowned config : n=32   net $4,563      PF 1.21   DD $12,004
+  PRE-WINDOW, book cell #1   : n=13   net $366        PF 1.03   DD $5,336
+  PRE-WINDOW, book cell #2   : n=24   net $11,538     PF 1.58   DD $6,579
+====================================================================================================
+run #359  ETFDIP_PB20_1_0.py on QQQ   validate verdict: FAIL
+  crown: pb_ema=5, pb_hold=19, trend_len=250
+  book cell: pb_ema=20, pb_hold=10, trend_len=200
+  -> CROWN DIFFERS from the book's cell on pb_ema, pb_hold, trend_len. What was validated is a DIFFERENT
+     leg; the book's version remains UNVALIDATED (the run #343 precedent).
+  PRE-WINDOW, crowned config : n=32   net $-18,681    PF 0.60   DD $33,044
+  PRE-WINDOW, book cell      : n=31   net $11,970     PF 1.49   DD $13,805
+
+====================================================================================================
+run   leg                    verdict  crown=        n   pre net $  pre PF   reading
+354   DBL7 GLD               FAIL     OTHER        30      23,690    1.84   pre-window positive; crown != book cell
+355   DBL7 TLT               FAIL     OTHER        38       1,999    1.07   pre-window positive; crown != book cell
+356   DBL7 QQQ               FAIL     OTHER        18        -928    0.96   pre-window LOSES money; crown != book cell
+357   RSI2 IWM               FAIL     OTHER        41      20,685    1.88   pre-window positive; crown != book cell
+358   RSI2 QQQ               FAIL     OTHER        32       4,563    1.21   pre-window positive; crown != book cell
+359   PB20 QQQ               FAIL     OTHER        32     -18,681    0.60   pre-window LOSES money; crown != book cell

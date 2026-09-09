@@ -1,0 +1,39 @@
+SIX ETF LEG VALIDATES - full discovery, window 2009-06-01..2026-06-30, 12-month lockbox
+
+run   leg            verdict gates  gates that FAILED           wfe-r  wfe-a  t/par  LB n   LB pnl $  crown = book cell?
+------------------------------------------------------------------------------------------------------------------------
+354   DBL7 GLD       FAIL      4/6  wfe,sample                  0.167  0.668   25.0     6          1  no - DIFFERENT leg
+355   DBL7 TLT       FAIL      4/6  wfe,consistency             0.050  0.234   35.2     2     -2,001  no - DIFFERENT leg
+356   DBL7 QQQ       FAIL      3/6  wfe,pbo,consistency         0.061  0.000   32.5     0          0  no - DIFFERENT leg
+357   RSI2 IWM       FAIL      2/6  wfe,pbo,consistency,sample  0.215  0.465   24.9    12      6,654  no - DIFFERENT leg
+358   RSI2 QQQ       FAIL      4/6  wfe,consistency             0.332  0.096   30.8     0          0  no - DIFFERENT leg
+359   PB20 QQQ       FAIL      3/6  wfe,pbo,consistency         0.205  0.000   63.0     0          0  no - DIFFERENT leg
+
+CROWNS vs THE CELLS THE BOOK CARRIES
+  #354  DBL7 GLD       crown: dbl_n=6, trend_len=125
+                      book : dbl_n=7, trend_len=200   <- differs on dbl_n (6 vs 7), trend_len (125 vs 200)
+  #355  DBL7 TLT       crown: dbl_n=5, trend_len=125
+                      book : dbl_n=7, trend_len=200   <- differs on dbl_n (5 vs 7), trend_len (125 vs 200)
+  #356  DBL7 QQQ       crown: dbl_n=7, trend_len=225
+                      book : dbl_n=7, trend_len=200   <- differs on trend_len (225 vs 200)
+  #357  RSI2 IWM       crown: allow_shorts=True, rsi_exit=6, rsi_len=2, rsi_thr=25, rsi_thr_short=95, trend_len=100
+                      book : allow_shorts=True, rsi_exit=5, rsi_len=2, rsi_thr=10, rsi_thr_short=90, trend_len=200   <- differs on rsi_exit (6 vs 5), rsi_thr (25 vs 10), rsi_thr_short (95 vs 90), trend_len (100 vs 200)
+  #358  RSI2 QQQ       crown: allow_shorts=False, rsi_exit=7, rsi_len=2, rsi_thr=30, rsi_thr_short=95, trend_len=250
+                      book : allow_shorts=False, rsi_exit=5, rsi_len=2, rsi_thr=10, rsi_thr_short=90, trend_len=200   <- differs on rsi_exit (7 vs 5), rsi_thr (30 vs 10), rsi_thr_short (95 vs 90), trend_len (250 vs 200)
+                      book : allow_shorts=True, rsi_exit=5, rsi_len=2, rsi_thr=10, rsi_thr_short=90, trend_len=200   <- differs on allow_shorts (False vs True), rsi_exit (7 vs 5), rsi_thr (30 vs 10), rsi_thr_short (95 vs 90), trend_len (250 vs 200)
+  #359  PB20 QQQ       crown: pb_ema=5, pb_hold=19, trend_len=250
+                      book : pb_ema=20, pb_hold=10, trend_len=200   <- differs on pb_ema (5 vs 20), pb_hold (19 vs 10), trend_len (250 vs 200)
+
+WHY EACH VERDICT LANDED WHERE IT DID (the gates the house actually scores)
+  #354  DBL7 GLD       FAIL | luck=ok wfe=NO pbo=ok consistency=ok sample=NO plateau=ok
+       edge t=2.56 p=0.01145 | plateau 4/4 HIGH GROUND | pbo 0.294 (robust selection) | dsr 0.889 | causal entry timing carries real signal
+  #355  DBL7 TLT       FAIL | luck=ok wfe=NO pbo=ok consistency=NO sample=ok plateau=ok
+       edge t=2.41 p=0.01706 | plateau 4/4 HIGH GROUND | pbo 0.23 (robust selection) | dsr 0.915 | causal entry timing carries real signal
+  #356  DBL7 QQQ       FAIL | luck=ok wfe=NO pbo=NO consistency=NO sample=ok plateau=ok
+       edge t=4.5 p=1e-05 | plateau 3/3 HIGH GROUND | pbo 0.869 (likely overfit selection) | dsr 0.990 | causal entry timing carries real signal
+  #357  RSI2 IWM       FAIL | luck=ok wfe=NO pbo=NO consistency=NO sample=NO plateau=ok
+       edge t=2.88 p=0.00429 | plateau 6/6 HIGH GROUND | pbo 0.901 (likely overfit selection) | dsr 0.823 | causal entry timing carries real signal
+  #358  RSI2 QQQ       FAIL | luck=ok wfe=NO pbo=ok consistency=NO sample=ok plateau=ok
+       edge t=5.57 p=0.0 | plateau 7/7 HIGH GROUND | pbo 0.409 (some overfit risk) | dsr 0.998 | causal entry timing carries real signal
+  #359  PB20 QQQ       FAIL | luck=ok wfe=NO pbo=NO consistency=NO sample=ok plateau=ok
+       edge t=3.91 p=0.00011 | plateau 4/4 HIGH GROUND | pbo 0.631 (likely overfit selection) | dsr 0.980 | causal entry timing carries real signal

@@ -346,8 +346,18 @@ def format_clause(res, base_name="incumbent", cand_name="candidate", mar_gain=0.
 _JOBS = {}
 
 
-def run_job(run_id, uid=DEFAULT_UID, cred=None):
-    """The stored job doc for a run number: its legs, window and recorded book result."""
+def all_jobs(uid=DEFAULT_UID, cred=None):
+    """Every stored job doc keyed by run number, scanned once per process and cached.
+
+    Callers that want to FILTER runs (by note, type, strategy) need the whole map rather than one
+    lookup at a time; without this they end up calling run_job with a bogus id just to warm the
+    cache, which is exactly the sort of thing that reads as a bug six months later.
+    """
+    _ensure_jobs(uid, cred)
+    return _JOBS[uid]
+
+
+def _ensure_jobs(uid, cred=None):
     if uid not in _JOBS:
         import firebase_admin
         from firebase_admin import credentials, firestore
@@ -364,6 +374,11 @@ def run_job(run_id, uid=DEFAULT_UID, cred=None):
             except Exception:
                 continue
         _JOBS[uid] = m
+
+
+def run_job(run_id, uid=DEFAULT_UID, cred=None):
+    """The stored job doc for a run number: its legs, window and recorded book result."""
+    _ensure_jobs(uid, cred)
     try:
         return _JOBS[uid][int(run_id)]
     except KeyError:

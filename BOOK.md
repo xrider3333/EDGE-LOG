@@ -485,6 +485,60 @@ Whatever #349 says about the old champion pairing, this family does not belong o
 worst stretch from 2022-04-27..05-24 back to the 2020 crash, where TTM also took no trades. Two
 independent candidates have now moved a book's worst stretch by being added to it.
 
+### 10d. THE SEVEN ETF LEGS, VALIDATED INDIVIDUALLY — 6 of 6 FAIL, and run #349 is WITHDRAWN
+
+Owner: *"validate the seven ETF legs individually."* This was blocker #1 on the run-349 candidate in
+§10c. Drivers `tools/queue_etf_leg_validates.py`, readers `tools/etf_leg_validate_report.py` and
+`tools/etf_leg_prewindow.py`; logs `tools/data/etf_leg_{validates,prewindow}.txt`.
+
+**Seven legs, six validates.** The two "near-duplicate" QQQ RSI2 legs differ only in `allow_shorts`,
+and `augur_engine/auto.py` treats a bool as categorical that is **always searched over both values**
+— so one validate answers for both. That alone disposes of the near-duplicate caveat: they were
+never two independent legs. Full discovery over each file's own ranges, nothing pinned. Window
+2009-06-01..2026-06-30 (exactly what r25 loaded), 12-month lockbox, `min_trades` lowered from the
+usual 300 to r25's own floor of 100 because these legs only produce 122-221 trades in 17 years.
+
+| run | leg | verdict | gates | failed | wfe roll | wfe anch | trades/param | lockbox n | crown = book cell? |
+|---|---|---|---|---|---|---|---|---|---|
+| #354 | DBL7 GLD | **FAIL** | 4/6 | wfe, sample | 0.167 | 0.668 | 25.0 | 6 | no |
+| #355 | DBL7 TLT | **FAIL** | 4/6 | wfe, consistency | 0.050 | 0.234 | 35.2 | 2 | no |
+| #356 | DBL7 QQQ | **FAIL** | 3/6 | wfe, pbo, consistency | 0.061 | 0.000 | 32.5 | 0 | no |
+| #357 | RSI2 IWM | **FAIL** | 2/6 | wfe, pbo, consistency, sample | 0.215 | 0.465 | 24.9 | 12 | no |
+| #358 | RSI2 QQQ | **FAIL** | 4/6 | wfe, consistency | 0.332 | 0.096 | 30.8 | 0 | no |
+| #359 | PB20 QQQ | **FAIL** | 3/6 | wfe, pbo, consistency | 0.205 | 0.000 | 63.0 | 0 | no |
+
+**Every single one fails walk-forward efficiency** — 0.050 to 0.332 against a 0.5 threshold — and
+five of six also fail consistency. **And not one crown is the cell the book carries**, so even
+setting the verdicts aside, the book's r25 cells were never validated (the run #343 precedent,
+pre-registered before these ran).
+
+**These are not noise cells, and that is what makes the result interesting.** Every leg shows a
+statistically significant in-sample edge: t = 2.41 to 5.57, all p < 0.02, `causal` returns "entry
+timing carries real signal" on all six, and `plateau` returns HIGH GROUND on all six. What they do
+not do is survive being re-fitted forward. High in-sample significance, a real plateau, and
+walk-forward efficiency near 0.1 is the textbook signature of an edge that does not generalise.
+
+**The second holdout says the same thing from the other side.** On 2006-01-03..2009-05-31 — which
+r25 never downloaded and which was deliberately excluded from the validate window — two of the six
+crowns lose money (DBL7 QQQ −$928, PB20 QQQ −$18,681). More telling: **the simple r25 cell beats the
+300-trial crown there in 5 of 6 legs** (GLD $36,388 vs $23,690; TLT $6,292 vs $1,999; IWM $26,683 vs
+$20,685; QQQ RSI2 $11,538 vs $4,563; QQQ PB20 +$11,970 vs −$18,681). A 300-trial search on a leg
+with ~150 trades is fitting noise, which is exactly what `pbo` reported on three of them ("likely
+overfit selection", 0.409 to 0.901).
+
+**THE PRE-REGISTERED CONSEQUENCE, APPLIED.** §10c and the queue driver both committed in advance:
+*"if any leg FAILS, #349 is re-scored on the survivors and the lockbox clause re-applied; run #349's
+PASS is provisional on these six validates."* All six failed, so there are no survivors and there is
+nothing to re-score. **The run-349 ETF stack candidate is WITHDRAWN.** It is not a close call and it
+does not need another book run.
+
+**What this does and does not say about the clause work.** It does not retract anything in §10 or
+§10c: the lockbox-drawdown clause behaved exactly as designed — it flagged #349 as a *candidate*,
+listed the missing leg validates as blocker #1, and blocker #1 is what killed it. The clause swap
+was never the weak link. **The legs were.** The lesson is the older one, sharpened: a book card
+measures how a pile of legs behaves together and can look excellent while every leg in it is
+individually unvalidated. Run #315 taught it for NQDIP_1_1; this is the same lesson at book scale.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
