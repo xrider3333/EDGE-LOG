@@ -83,6 +83,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_K8": "2026-09-08", # KEEL v8 (symmetric shade, 50-trade fast window) on the same crown, forward test only
     "NOISE_SBS_V90_K9": "2026-09-08", # KEEL v9 (v8-100 x compression 1.5x) on the same crown, forward test only
     "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
+    "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
     "ORB_R6_C15F": "2026-09-08",      # ORB crown x compression 1.5x x Friday 1.5x (LB $102k -> $123k at DD +1.8%, 8/10 WF years)
     "ENGUQ_309_CD": "2026-09-08",     # ENGU-Q crown x DEPTH-graded compression (2x when ratio<0.85, 1.5x on): LB $110k -> $115k at DD 10% BETTER
@@ -577,6 +578,16 @@ NOISE_243_KEEL8 = {"mode": "keel", "model": "keel", "version": "v8", "source_run
 # #243 $70,527 vs $60,615 at better DD. ENGUQ_309_K9 stays at v9 (window untested there).
 NOISE_243_KEEL9 = {"mode": "keel", "model": "keel", "version": "v10", "source_run": 243}
 NOISE_243_COMP15 = {"mode": "comp", "model": "compression", "mult": 1.5, "source_run": 243}
+# THE VALIDATED GATE (owner ask 2026-09-08: add the second paper leg on 30/16/1.15). Run 333 put the
+# 1.5x tilt through Auto-Validate with the size fixed and the gate in an 8-cell fence: PASS 6/6 (WF 8/8,
+# PBO 0.22) AND it cleared the pre-registered bar (LB $82,436 PF 1.60 vs raw $60,001 at LB DD +13%,
+# ann. MAR 1.60 vs 1.34) on the 30-minute check, length 16, ratio 1.15 - the same gate run 321 chose as
+# a filter. C15 (hourly 60/20/1.0) stays as the a-priori control. Same mult, same trades, same file;
+# only which higher-timeframe bar is read. THE CLAIM: from 2026-09-09 C15G beats NOISE_SBS_V90 on net at
+# drawdown within 25% of it, and the C15G-vs-C15 spread says whether the validated gate beats the
+# a-priori one forward. FORWARD EVIDENCE ONLY.
+NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
+                     "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
 # KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
 # compression tilt: Friday has the highest EV R on both NOISE runs in both walk-forward and
 # lockbox; the tilt helps 9 of 10 WF years on both (t 4.35 / 3.76). On top of v10: #243 WF
@@ -891,6 +902,15 @@ LEG_SOURCE = {
         "note": "The crowned #243 config with only the TTM round-6 compression tilt: 1.5x on trades "
                 "entered while the 60-minute squeeze is on, 1.0 otherwise, no model anywhere. The "
                 "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
+    },
+    "NOISE_SBS_V90_C15G": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + compression tilt 1.5x on the validated gate (run 333)",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-08",
+        "note": "The crowned #243 config with the TTM compression tilt on the gate Auto-Validate crowned "
+                "twice (run 321 as a filter, run 333 as this 1.5x tilt, PASS 6/6 and pre-registered bar "
+                "cleared): 1.5x on trades entered while the 30-minute squeeze is at or under ratio 1.15, "
+                "length 16; 1.0 otherwise; no model. Added 2026-09-08 at the owner request; NOISE_SBS_V90 "
+                "is the raw control and NOISE_SBS_V90_C15 (hourly gate) the a-priori control.",
     },
     "NOISE_SBS_V90_K8": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v8 (symmetric shade, fast 50)",
@@ -1225,6 +1245,12 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_COMP15, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_C15"]},
+    # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_COMP15G, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_C15G"]},
     # ADDED 2026-09-08: KEEL v11 = v10 x 1.5 Friday (see NOISE_243_KEEL11). FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_K11", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,

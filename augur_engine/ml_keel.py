@@ -167,7 +167,7 @@ for _k in ("v1", "v2"):
 
 
 # -- extra causal features -----------------------------------------------------
-def _squeeze60(arrays, length=20, bb_mult=2.0, kc_mult=1.5):
+def _squeeze60(arrays, length=20, bb_mult=2.0, kc_mult=1.5, tf_min=60):
     """60-minute Bollinger/Keltner compression ratio, as of the LAST COMPLETE 60m group
     before each bar (session-anchored groups, like tools/ttmsqz_round6_parts.hourly_compression).
     ratio<1 = compressed. NaN until warm."""
@@ -179,7 +179,7 @@ def _squeeze60(arrays, length=20, bb_mult=2.0, kc_mult=1.5):
     df["t"] = idx
     first = df.groupby("d")["t"].transform("first")
     off = ((df["t"] - first).dt.total_seconds() // 60).astype("int64")
-    grp = df["d"].astype(np.int64) * 100 + (off // 60)
+    grp = df["d"].astype(np.int64) * 100 + (off // int(tf_min))   # session-anchored groups of tf_min minutes
     g = df.groupby(grp, sort=True)
     hh = g["h"].max(); ll = g["l"].min(); cc = g["c"].last()
     ma = cc.rolling(length).mean()  # noqa: F841
@@ -395,7 +395,8 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
             "feature_names": names, "version": version}
 
 
-def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, thr=0.85, dow=None, cap=3.0):
+def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, thr=0.85, dow=None, cap=3.0,
+                      gate_tf_min=60, gate_len=20, gate_ratio=1.0):
     """RAW x compression, no model: the attribution control for v9. Size `mult` on trades entered
     while the 60m state is compressed, 1.0 otherwise. Trades sorted by entry bar.
     2026-09-08 options: `deep` = multiplier when sq60_ratio < `thr` (depth-graded: 2x deep / 1.5x on /
@@ -404,7 +405,15 @@ def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, th
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
     F, names = keel_features(arrays)
     E = np.clip(np.array([t[0] for t in T]), 0, len(F) - 1)
-    on = F[E, names.index(feature)] > 0
+    if (int(gate_tf_min), int(gate_len), float(gate_ratio)) != (60, 20, 1.0):
+        # 2026-09-08: the gate the fenced validates crowned twice (run 321 as a filter, run 333 as
+        #   the 1.5x tilt: 30-minute check, length 16, ratio <= 1.15). Same last-complete-group
+        #   construction as the default path, read at the entry bar; ratio <= gate_ratio, exactly as
+        #   the validated NOISE_1_1_SBS_V90_CT15.py reads it (walked equal at group boundaries).
+        r = _squeeze60(arrays, length=int(gate_len), tf_min=int(gate_tf_min))[E]
+        on = np.isfinite(r) & (r <= float(gate_ratio))
+    else:
+        on = F[E, names.index(feature)] > 0
     m = np.where(on, float(mult), 1.0)
     if deep is not None and "sq60_ratio" in names:
         m = np.where(F[E, names.index("sq60_ratio")] < float(thr), float(deep), m)
