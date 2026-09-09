@@ -12,6 +12,8 @@ Sequence (all on data BEFORE the reserved lockbox, so the holdout is never seen)
 Then a PASS / WEAK / FAIL verdict against professional thresholds.
 """
 import datetime as _dt
+import json as _json
+import random as _random
 
 from .data import find_master, load_master_arrays
 from .engine import run_backtest
@@ -60,7 +62,218 @@ def _avg_wl(trades):
     """Avg win / avg loss in POINTS, net of cost; avg_loss is a POSITIVE magnitude."""
     return _avg_wl_shared(trades)
 
-def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.0, k=5):
+# ─────────────────────────────────────────────────────────────────────────────
+# Two OPT-IN blind-spot closers (both default OFF; with both off every line below
+# is dead code and a validate's saved dict is byte-identical to what it was before).
+#
+#   save_fold_detail  — we stored `folds_held` (a COUNT) and `wf_oos_pnl` (a TOTAL)
+#       per candidate, so "did this config win in every fold or ride one lucky
+#       fold?" was unanswerable after the run. This writes the PER-FOLD row that
+#       was already computed (never a second pass over the folds).
+#   oos_sample_k      — `points` (the searched cloud, ~250 rows) carries IN-SAMPLE
+#       pnl/dd only, and out-of-sample truth existed for the ten hand-picked
+#       winners alone. So "does a REGION of the space hold up out of sample?" was
+#       unanswerable too. This scores a STRATIFIED sample of the cloud (deciles of
+#       in-sample net, random draw inside each) on the same walk-forward folds and
+#       the same lockbox slice the candidates use.
+#
+# HARD RULE for both: they are EVIDENCE, never SELECTION. The crown is decided in
+# `_select_oos_champion` from the walk-forward folds and reads none of this; the
+# oos_sample's lockbox leg runs strictly AFTER the champion is already fixed (the
+# same footing as the #88b candidate carry-through and the 2K surrogate-pick lockbox
+# that already exist below).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Firestore's per-doc cap is 1 MiB and this repo has been bitten by it more than once
+# (docs: "Firestore doc cap + session divergence"). The fold-detail block gets a small
+# slice of that budget; over it, every fold row drops to net+trades and `folds_trimmed`
+# says so. Module-level so a test can shrink it.
+_FOLD_DETAIL_BUDGET_BYTES = 80_000
+
+
+def _anchored_fold_bounds(wf_anch):
+    """(test_start, test_end) bar-index pairs for an ANCHORED walk-forward result —
+    test_start == that fold's train_bars, since anchored mode's train window always
+    starts at bar 0. Factored out of _select_oos_champion so the OOS-sample stage
+    scores its configs on the EXACT same fold slices the crown pool was scored on."""
+    out = []
+    if wf_anch and wf_anch.get("ran"):
+        for fr in (wf_anch.get("folds") or []):
+            tb = int(fr.get("train_bars") or 0)
+            te = int(fr.get("test_bars") or 0)
+            if te > 0:
+                out.append((tb, tb + te))
+    return out
+
+
+def _fold_dates(index, a, b):
+    """('YYYY-MM-DD', 'YYYY-MM-DD') calendar bounds of bar slice [a, b) on `index`
+    (the optimize-window bar timestamps), or (None, None) when there is no index."""
+    try:
+        if index is None or not len(index):
+            return None, None
+        lo = max(0, min(int(a), len(index) - 1))
+        hi = max(0, min(int(b) - 1, len(index) - 1))
+        return str(_pd.Timestamp(index[lo]).date()), str(_pd.Timestamp(index[hi]).date())
+    except Exception:
+        return None, None
+
+
+def _fold_detail_rows(rows, fold_bounds, arrays):
+    """Per-fold OOS detail for ONE config, from the rows `score_candidates_on_folds`
+    ALREADY returned for it — no fold is re-run here. Capped at the fold count, floats
+    rounded, one compact row per fold:
+        {"f": i, "from": d, "to": d, "trades": n, "net": pts, "pf": x, "dd": pts,
+         "held": bool}"""
+    index = (arrays or {}).get("index")
+    out = []
+    for i, r in enumerate((rows or [])[:len(fold_bounds)]):
+        a, b = fold_bounds[i]
+        row = {"f": i,
+               "trades": int(r.get("oos_trades", 0) or 0),
+               "net": round(float(r.get("oos_pnl", 0.0) or 0.0), 1),
+               "pf": round(float(r.get("oos_pf", 0.0) or 0.0), 3),
+               "dd": round(abs(float(r.get("oos_dd", 0.0) or 0.0)), 1),
+               "held": bool(r.get("held"))}
+        d0, d1 = _fold_dates(index, a, b)
+        if d0:
+            row["from"] = d0
+            row["to"] = d1
+        out.append(row)
+    return out
+
+
+def _apply_fold_budget(selection, budget=None):
+    """Firestore guard for the fold-detail payload. Measures the serialized size of
+    every `folds` block in the selection (candidates + robust + oos_sample); if it is
+    over `budget` bytes, each fold row drops to net+trades only and
+    `selection["folds_trimmed"]` is set True. Returns whether it trimmed."""
+    if not isinstance(selection, dict):
+        return False
+    budget = _FOLD_DETAIL_BUDGET_BYTES if budget is None else int(budget)
+    blocks = [c for grp in ("candidates", "robust", "oos_sample")
+              for c in (selection.get(grp) or []) if isinstance(c, dict) and c.get("folds")]
+    if not blocks:
+        selection["folds_trimmed"] = False
+        return False
+    try:
+        size = len(_json.dumps([c["folds"] for c in blocks], separators=(",", ":"), default=str))
+    except Exception:
+        size = budget + 1      # unmeasurable -> trim, never risk the doc cap
+    if size <= budget:
+        selection["folds_trimmed"] = False
+        return False
+    for c in blocks:
+        c["folds"] = [{"f": r.get("f"), "net": r.get("net"), "trades": r.get("trades")}
+                      for r in c["folds"]]
+    selection["folds_trimmed"] = True
+    return True
+
+
+def _stratified_oos_sample(strategy, arrays, points, pkeys, fold_bounds, exclude_sigs,
+                           k, cost_pts=0.0, seed=42, n_bins=10, save_fold_detail=False):
+    """`oos_sample_k` — score a STRATIFIED sample of the SEARCHED CLOUD out of sample.
+
+    Why not the top k: the ten configs we already score out of sample are the ten the
+    search liked best, so they answer "did our winners hold up?" and nothing about
+    whether the NEIGHBOURHOOD they sit in holds up. Sampling across the whole in-sample
+    score range instead — deciles of in-sample net, a random draw inside each, taken
+    round-robin so a small k still spans the range — turns the saved landscape from
+    in-sample-only into an in-sample/out-of-sample PAIR per region.
+
+    `points`       -- A["points"], the searched cloud (param dict + pnl + dd per config,
+                      in-sample only, already downsampled to <=1200 by run_auto).
+    `pkeys`        -- the champion's param keys (defines a config's signature).
+    `fold_bounds`  -- the SAME anchored walk-forward test slices the crown pool used.
+    `exclude_sigs` -- signatures already scored out of sample as candidates/robust rows;
+                      a sampled config is NEVER a duplicate of one of those.
+    `seed`         -- the run's own seed, so the draw is reproducible.
+
+    Returns a list of candidate-shaped dicts:
+      {"params", "decile", "is_pnl", "is_dd",       # straight off `points` -- the SEARCH's
+                                                     #   own recorded score (Stage A's 75%
+                                                     #   in-sample split), NOT the whole
+                                                     #   optimize window; same number the
+                                                     #   2H/2I scatter plots that config at
+       "metrics",                                    # optimize-window profile, one backtest,
+                                                     #   same fields 2B shows per candidate
+       "wf_oos_pnl", "folds_held", "n_folds",        # walk-forward, same folds as 2B
+       ["folds"]}                                    # per-fold rows when save_fold_detail
+    The caller attaches "lockbox" afterwards, once the champion is already crowned.
+
+    Trial-cache note (docs/INCREMENTAL_BACKTEST_REUSE.md): the cache key includes the
+    (a, b) slice bounds, so a fold-slice score here is a HIT only if that exact config
+    was already run on that exact slice — which the search never does (it scores the
+    75% split, the folds score their own bounds). Treat this stage as real compute, not
+    a free cache read; the cost estimate in the flag's rollout notes assumes misses."""
+    k = int(k or 0)
+    if k <= 0 or not points or not pkeys or not fold_bounds:
+        return []
+    seen, pool = set(), []
+    for p in points:
+        if not isinstance(p, dict) or any(kk not in p for kk in pkeys):
+            continue
+        prm = {kk: p.get(kk) for kk in pkeys}
+        sig = tuple(sorted((kk, prm[kk]) for kk in pkeys))
+        if sig in seen or sig in (exclude_sigs or set()):
+            continue
+        seen.add(sig)
+        pool.append({"params": prm, "is_pnl": float(p.get("pnl", 0) or 0),
+                     "is_dd": abs(float(p.get("dd", 0) or 0))})
+    if not pool:
+        return []
+
+    # rank-deciles of in-sample net: equal-count bins over the sorted cloud, so the
+    # bottom and the top of the score range are both represented no matter how skewed
+    # the PnL distribution is (value-width bins would put ~everything in one bucket).
+    pool.sort(key=lambda r: r["is_pnl"])
+    nb = max(1, min(int(n_bins), len(pool)))
+    rng = _random.Random(int(seed or 0))
+    bins = []
+    for i in range(nb):
+        lo = (i * len(pool)) // nb
+        hi = ((i + 1) * len(pool)) // nb
+        b = pool[lo:hi]
+        rng.shuffle(b)                       # random draw WITHIN the decile
+        for r in b:
+            r["decile"] = i
+        bins.append(b)
+
+    picked, cursor = [], [0] * nb
+    while len(picked) < k and any(cursor[i] < len(bins[i]) for i in range(nb)):
+        for i in range(nb):                  # round-robin so a small k still spans deciles
+            if len(picked) >= k:
+                break
+            if cursor[i] < len(bins[i]):
+                picked.append(bins[i][cursor[i]])
+                cursor[i] += 1
+    if not picked:
+        return []
+
+    fold_scores = score_candidates_on_folds(strategy, arrays, [s["params"] for s in picked],
+                                            fold_bounds, cost_pts=cost_pts)
+    ev = make_slice_evaluator(strategy, arrays, cost_pts)
+    n_bars = len(arrays["close"])
+    out = []
+    for s, rows in zip(picked, fold_scores):
+        m = ev(0, n_bars, s["params"])       # optimize-window profile, same fields 2B shows
+        row = {"params": dict(s["params"]), "decile": int(s.get("decile", 0)),
+               "is_pnl": round(float(s["is_pnl"]), 1), "is_dd": round(float(s["is_dd"]), 1),
+               "metrics": ({kk: m.get(kk) for kk in
+                            ("total_pnl", "num_trades", "profit_factor", "win_rate",
+                             "max_drawdown", "avg_pnl") if m.get(kk) is not None}
+                           if m else None),
+               "wf_oos_pnl": round(sum(r["oos_pnl"] for r in rows), 1),
+               "folds_held": sum(1 for r in rows if r["held"]),
+               "n_folds": len(rows)}
+        if save_fold_detail:
+            row["folds"] = _fold_detail_rows(rows, fold_bounds, arrays)
+        out.append(row)
+    return out
+
+
+def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.0, k=5,
+                         save_fold_detail=False):
     """#88 OOS-checked champion selection (owner-approved 2026-07-20). Motivating
     evidence: run #167 crowned the sharpest realism-gated IN-SAMPLE config (IS
     $257,873) which then collapsed on the lockbox ($35,083, PBO gate fired, verdict
@@ -161,13 +374,7 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
              {kk: row.get(kk) for kk in _SEL_METRIC_KEYS if kk in row},
              row.get("total_pnl", 0))
 
-    fold_bounds = []
-    if wf_anch and wf_anch.get("ran"):
-        for fr in (wf_anch.get("folds") or []):
-            tb = int(fr.get("train_bars") or 0)
-            te = int(fr.get("test_bars") or 0)
-            if te > 0:
-                fold_bounds.append((tb, tb + te))
+    fold_bounds = _anchored_fold_bounds(wf_anch)
 
     if not cands or not fold_bounds:
         return champ, bestA, {
@@ -182,6 +389,11 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
         c["wf_oos_pnl"] = sum(r["oos_pnl"] for r in rows)
         c["folds_held"] = sum(1 for r in rows if r["held"])
         c["crownable"] = (_sig(c["params"]) in crown_sigs)
+        # `save_fold_detail`: keep the per-fold rows this loop is already summing, so
+        # "won every fold" vs "carried by one lucky fold" stays answerable after the run.
+        # No fold is re-run — `rows` is the walk-forward scoring that just happened.
+        if save_fold_detail:
+            c["_fold_rows"] = rows
 
     n_bars = len(arrays["close"])
     ev = make_slice_evaluator(strategy, arrays, cost_pts)
@@ -264,7 +476,7 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
         c["crowned"] = (c is winner)
 
     def _out(c):
-        return {"params": dict(c["params"]), "is_pnl": round(float(c["is_pnl"]), 1),
+        _o = {"params": dict(c["params"]), "is_pnl": round(float(c["is_pnl"]), 1),
                 "wf_oos_pnl": round(float(c.get("wf_oos_pnl", 0.0)), 1),
                 "folds_held": int(c.get("folds_held", 0)),
                 "crowned": bool(c.get("crowned", False)),
@@ -282,6 +494,11 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
                 #   trades). Both are None on configs where no walk-forward fold bound existed
                 #   (mirrors cal's own None case) so the client falls back cleanly.
                 "is_rng": c.get("is_rng"), "wf_rng": c.get("wf_rng")}
+        # opt-in per-fold OOS breakdown (see `save_fold_detail` above) — absent
+        # entirely when the flag is off, so the saved shape is unchanged.
+        if save_fold_detail and c.get("_fold_rows") is not None:
+            _o["folds"] = _fold_detail_rows(c["_fold_rows"], fold_bounds, arrays)
+        return _o
 
     # `candidates` = the CROWN POOL (the configs eligible to win — unchanged shape), and
     # `robust` = the extra top-IS configs shown only as walk-forward context (owner's
@@ -320,7 +537,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # switch for just the one pill measured as the dominant cost (see the block
                  # below). api/runner.py threads both from the job doc's `pills` /
                  # `pills_feature_select` fields for jtype=='validate'.
-                 compute_pills=True, compute_feature_select=True):
+                 compute_pills=True, compute_feature_select=True,
+                 # ── two opt-in blind-spot closers, both OFF by default. With both off
+                 #    NOTHING below behaves differently and the saved dict is identical
+                 #    to what it was before they existed (tests/test_fold_detail.py pins
+                 #    that). See the block comment above `_anchored_fold_bounds`.
+                 save_fold_detail=False, oos_sample_k=0):
     # Walk-forward folds in parallel processes (augur_engine.wf_pool). The runner sets
     # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
     # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
@@ -479,18 +701,59 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    conformal, causal, synthetic) automatically reflects the crowned candidate,
     #    since those calls all run AFTER this block reassigns `champ`.
     selection = None
+    _fold_detail = bool(save_fold_detail)
+    _sample_k = int(oos_sample_k or 0)
+    _arr_sel = None          # optimize-window arrays, loaded at most once below
     _select_k = int(select_oos_topk or 0)
     if _select_k >= 2 and champ:
         try:
             _arr_sel = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
             champ, bestA, selection = _select_oos_champion(
-                strategy, _arr_sel, champ, bestA, A, wf_anch, cost_pts=cost_pts, k=_select_k)
+                strategy, _arr_sel, champ, bestA, A, wf_anch, cost_pts=cost_pts, k=_select_k,
+                save_fold_detail=_fold_detail)
             is_trades = int(bestA.get("num_trades", 0) or 0)
             tpp = (is_trades / nparam) if nparam else 0.0
         except Exception as _sel_e:
             selection = {"mode": "wf_oos_topk", "k": _select_k, "candidates": [],
                         "is_max_crowned": True,
                         "error": f"{type(_sel_e).__name__}: {_sel_e}"}
+
+    # ── Stage A.6 (opt-in, `oos_sample_k`) — STRATIFIED out-of-sample sample of the
+    #    searched cloud. `points` only ever carried IN-SAMPLE pnl/dd, and the only
+    #    configs with out-of-sample truth were the ten the search already liked, so
+    #    "does this REGION of the parameter space generalise?" had no answer. This
+    #    scores k configs spread across the in-sample score range on the SAME anchored
+    #    walk-forward folds the crown pool used. It runs AFTER the crown is decided and
+    #    nothing downstream reads it — it is evidence for the report, never selection.
+    #    Any failure is swallowed into `oos_sample_error`; an extra must never sink a
+    #    validate. ──
+    if _sample_k > 0 and champ:
+        try:
+            _fb_s = _anchored_fold_bounds(wf_anch)
+            _pts_s = A.get("points") or []
+            _pk_s = list(champ.keys())
+            if _fb_s and _pts_s and _pk_s:
+                if _arr_sel is None:
+                    _arr_sel = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
+                _excl = set()
+                for _c in (((selection or {}).get("candidates") or [])
+                           + ((selection or {}).get("robust") or [])):
+                    _cp = _c.get("params") or {}
+                    _excl.add(tuple(sorted((kk, _cp.get(kk)) for kk in _pk_s)))
+                _smp = _stratified_oos_sample(strategy, _arr_sel, _pts_s, _pk_s, _fb_s, _excl,
+                                              _sample_k, cost_pts=cost_pts, seed=seed,
+                                              save_fold_detail=_fold_detail)
+                if selection is None:
+                    # champion selection is off on this call; give the sample the same
+                    # no-op-shaped selection envelope the empty paths already produce.
+                    selection = {"mode": "wf_oos_topk", "k": _select_k, "candidates": [],
+                                 "is_max_crowned": True,
+                                 "error": "champion selection off — oos_sample only"}
+                selection["oos_sample"] = _smp
+                selection["oos_sample_k"] = _sample_k
+        except Exception as _smp_e:
+            if isinstance(selection, dict):
+                selection["oos_sample_error"] = f"{type(_smp_e).__name__}: {_smp_e}"
 
     # ── Gate ──────────────────────────────────────────────────────────────────
     plateau_ran = bool(nb)
@@ -604,6 +867,32 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                   "t": times}
         except Exception:
             pass
+
+    # ── `oos_sample_k` lockbox leg — one short backtest per sampled config on the
+    #    held-out slice, on exactly the footing the 2K surrogate-pick lockbox below
+    #    already stands on: the champion was crowned from the walk-forward folds long
+    #    before this line, and nothing reads these numbers back into any decision.
+    #    Without it a sampled region has an in-sample and a walk-forward number but no
+    #    true-future one, which is the whole question the sample was added to answer. ──
+    if isinstance(selection, dict) and selection.get("oos_sample"):
+        for _s in selection["oos_sample"]:
+            try:
+                _sbt = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
+                                    session=session, source=source, params=_s["params"],
+                                    cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
+                                    return_trades=False)
+                _s["lockbox"] = ({kk: (round(_sbt.get(kk), 4) if isinstance(_sbt.get(kk), float)
+                                       else _sbt.get(kk))     # ints (num_trades) stay ints
+                                  for kk in ("total_pnl", "num_trades", "profit_factor",
+                                             "win_rate", "max_drawdown", "avg_pnl")}
+                                 if isinstance(_sbt, dict) else None)
+            except Exception:
+                _s["lockbox"] = None
+
+    # Firestore doc-cap guard for the whole opt-in fold-detail payload (candidates +
+    # robust + oos_sample), applied once, after every `folds` block above exists.
+    if _fold_detail and isinstance(selection, dict):
+        _apply_fold_budget(selection)
 
     # ── LOCKBOX-slice distributions for the 1D/1G report tiles (owner: those charts should
     #    be viewable on the OUT-OF-SAMPLE slice, not just the whole run). win_dist = per-trade

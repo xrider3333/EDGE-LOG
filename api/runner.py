@@ -545,6 +545,17 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 # walk-forward fold OOS PnL and crowns the steadiest one instead of
                 # the raw IS-max (augur_engine/validate.py's Stage A.5).
                 select_oos_topk=int(job.get("select_oos_topk", 10) or 0),   # v68.5 (owner): crown pool widened to the top-10 IS configs, still WF-ranked
+                # Two opt-in blind-spot closers, both OFF unless the job doc asks for
+                # them, so an ordinary Auto-Validate stays byte-identical:
+                #   save_fold_detail -- per-fold OOS rows under each 2B candidate, so
+                #     "won every fold" vs "carried by one lucky fold" is still
+                #     answerable after the run (we kept only a fold COUNT and a TOTAL).
+                #   oos_sample_k -- also score N configs spread across the searched
+                #     cloud's in-sample score range out of sample, so the saved
+                #     landscape answers "does this REGION generalise", not just "did
+                #     our ten hand-picked winners". Evidence; never touches the crown.
+                save_fold_detail=bool(job.get("save_fold_detail", False)),
+                oos_sample_k=int(job.get("oos_sample_k", 0) or 0),
                 progress_cb=progress_cb)
         elif jtype == "book":
             # BOOK (RUNBOARD item B): N strategy files traded side by side over ONE window,

@@ -160,9 +160,16 @@ def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pt
 
     Returns a list (one entry per candidate, same order/length as `candidates`) of
     lists (one row per fold, same order/length as `fold_bounds`):
-      [{"oos_pnl": pts, "oos_pf": pf, "oos_trades": n, "held": bool(oos_pf > 1)}, ...]
+      [{"oos_pnl": pts, "oos_pf": pf, "oos_trades": n, "oos_dd": pts,
+        "held": bool(oos_pf > 1)}, ...]
     A fold the strategy fails on (exception / no trades / empty slice) still gets a
-    zeroed row rather than shortening the list, so callers can always zip positionally."""
+    zeroed row rather than shortening the list, so callers can always zip positionally.
+
+    `oos_dd` (drawdown MAGNITUDE, engine pts) rides along for free -- the per-fold
+    backtest already returned max_drawdown and it was simply being dropped on the floor.
+    It is what validate.py's `save_fold_detail` block reports per fold. Nothing that
+    existed before this key was added reads it, so every existing caller's numbers stay
+    bit-identical; no extra backtest is run for it."""
     n = len(arrays["close"])
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
     # PR1 (docs/INCREMENTAL_BACKTEST_REUSE.md): only cost_pts is cleanly available
@@ -180,7 +187,9 @@ def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pt
             pnl = float(m.get("total_pnl", 0) or 0) if m else 0.0
             pf = float(m.get("profit_factor", 0) or 0) if m else 0.0
             tr = int(m.get("num_trades", 0) or 0) if m else 0
-            rows.append({"oos_pnl": pnl, "oos_pf": pf, "oos_trades": tr, "held": bool(pf > 1)})
+            dd = abs(float(m.get("max_drawdown", 0) or 0)) if m else 0.0
+            rows.append({"oos_pnl": pnl, "oos_pf": pf, "oos_trades": tr, "oos_dd": dd,
+                         "held": bool(pf > 1)})
         out.append(rows)
     return out
 
