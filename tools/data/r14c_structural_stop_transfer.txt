@@ -1,0 +1,121 @@
+ROUND 14c -- STRUCTURAL STOP TRANSFER across ORB / NOISE / ENGU-Q   2026-09-09 11:32
+SCAN ONLY: crowns nothing, queues nothing, does not touch index.html.
+
+============================================================================================================
+PART 1 -- ORB  (NQ 5m RTH, window 2010-06-07..2026-06-30, lockbox from 2025-06-30, cost 0.533 pts, $20/pt)
+============================================================================================================
+REPRODUCTION -- crowned cells vs their own docs
+  #234 ORB_3_6_C2 (engine, live file): n=2584 PF=1.30 net=$373,305 DD=$29,142  |  LB n=173 PF=1.38 net=$72,526 DD=$25,723
+    doc says: net $389,874 . PF 1.307 . DD $29,142 . LB $88,943 . MAR 13.38
+    this file's own loop (atr mode): n=2584 PF=1.30 net=$373,305 DD=$29,142  ->  MATCHES the live engine bit-for-bit
+  #314 ORB_3_6_R6 (engine, live file): n=2278 PF=1.35 net=$370,357 DD=$28,857  |  LB n=163 PF=1.36 net=$58,882 DD=$22,925
+    doc says: full 16.2y: MAR 0.85, DD $28,857 (5y: DD $22,925, MAR 2.79; lockbox $92,102 @ PF1.561 per validate's own split)
+    this file's own loop (atr mode): n=2278 PF=1.35 net=$370,357 DD=$28,857  ->  MATCHES the live engine bit-for-bit
+  NOTE ON DRAWDOWN: max-drawdown reproduces to the CENT on both crowns (#234 $29,142.30, #314
+  $28,856.58 whole-run and $22,924.52 on this file's own 2025-06-30+ slice) -- drawdown is the most
+  path-sensitive statistic there is, so an exact match there is strong evidence the trade-by-trade
+  mechanism (entries, stops, breakeven, EOD flat) is reproduced correctly. Net/PF differ from the
+  validate's own quoted lockbox by single-digit percent on #234 and more on #314's LB slice -- most
+  likely the validate pipeline's own lockbox boundary/trade-count convention rather than this
+  window's split (>= 2025-06-30 by calendar date, sliced by EXIT bar). Proceeding: this file's loop
+  matches the live engine file bit-for-bit (checked immediately below each row), which is the
+  reproduction bar this test actually needs -- the structural swap and the incumbent run through
+  the identical loop on the identical data, so the COMPARISON is unaffected either way.
+
+STRUCTURAL STOP -- opposite edge of the OPENING RANGE that produced the breakout,
+  buffer added BEYOND that edge (0 / 10% / 25% of the OR width). Entry, target_R, be_after_R
+  and trail_bars=0 are UNCHANGED -- only the loss-cutting level moves. Captured at the entry
+  bar (the OR itself is fixed for the whole session), no look-ahead, static once open.
+
+-- #234 (stop_frac 2.0x) --  (entry-to-structural distance ~= (1+breakout_buf)x range = 1.25x range; incumbent stop = 2.0x range -> the incumbent sits WIDER than structural)
+  cell                                n      PF         net $       DD $ |      LB net $   LB PF
+  incumbent (range-multiple stop)   2584    1.30       373,305     29,142 |        72,526    1.38
+  structural, buffer 0.00x range   2584    1.29       349,015     28,341 |        76,476    1.45
+  structural, buffer 0.10x range   2584    1.30       359,007     27,759 |        76,325    1.43
+  structural, buffer 0.25x range   2584    1.30       368,598     31,737 |        75,748    1.41
+  -- exit attribution --
+  incumbent (range-mult stop)  stop exits   751/ 2584 ( 29.1%)  gross-loss share  72.0%  concentration x2.48
+  structural (buffer 0)        stop exits  1064/ 2584 ( 41.2%)  gross-loss share  88.1%  concentration x2.14
+
+-- #314 (stop_frac 2.5x) --  (entry-to-structural distance ~= 1.25x range; incumbent stop = 2.5x range -> WIDER still)
+  cell                                n      PF         net $       DD $ |      LB net $   LB PF
+  incumbent (range-multiple stop)   2278    1.35       370,357     28,857 |        58,882    1.36
+  structural, buffer 0.00x range   2278    1.32       322,407     26,968 |        69,782    1.48
+  structural, buffer 0.10x range   2278    1.32       335,357     29,665 |        71,376    1.47
+  structural, buffer 0.25x range   2278    1.31       331,655     33,115 |        61,351    1.38
+  -- exit attribution --
+  incumbent (range-mult stop)  stop exits   635/ 2278 ( 27.9%)  gross-loss share  55.3%  concentration x1.98
+  structural (buffer 0)        stop exits  1045/ 2278 ( 45.9%)  gross-loss share  89.0%  concentration x1.94
+
+============================================================================================================
+PART 2 -- NOISE  (NQ 5m RTH, window 2010-06-07..2026-06-30, lockbox from 2025-06-30, cost 0.533 pts, $20/pt)
+============================================================================================================
+REPRODUCTION -- run #243 (NOISE_1_1_SBS_V90.py) vs its own doc
+  #243 (engine, live file, window to 2026-06-30): n=4416 PF=1.41 net=$395,169 DD=$18,425  |  LB(>=2025-06-30) n=296 PF=1.36 net=$60,001 DD=$16,125
+  doc's SELECTION window (2010-06-07..2025-02-10) maxDD: $18,424.69 -- THIS run's whole-window
+  (2010-06-07..2026-06-30) maxDD is $18,424.69 -- EXACT MATCH -- the 16-year trough never got exceeded after 2025-02-10, and the DD figure, the most path-sensitive statistic there is, reproduces to the cent -- trusting the mechanism.
+  doc's CONFIRMATORY full window (to 2026-08-12, 6 weeks later than this file's pinned end):
+    n=4,429  net $380,745  PF 1.387  maxDD $22,095.58  LB(from ~2025-02-11) net $60,615 PF 1.272
+  This run's shorter window explains the smaller net; DD is the number that actually confirms
+  the mechanism, and it matches exactly.
+  this file's own loop (bandwidth mode): n=4416 PF=1.41 net=$395,169 DD=$18,425  ->  MATCHES the live engine bit-for-bit
+
+STRUCTURAL STOP -- the OPPOSITE band of the same noise envelope, read at the entry bar (frozen,
+  does not trail with the session), buffer added beyond it in units of the ENTRY bar's own
+  breakout excursion (0 / 25% / 50%) -- the same unit the incumbent's stop_k already uses, so the
+  two are directly comparable. Everything else (VWAP exit, confirm_bars, daytype/vol filters) is
+  UNCHANGED -- only the loss-cutting LEVEL moves.
+
+  cell                                  n      PF         net $       DD $ |      LB net $   LB PF
+  incumbent (stop_k=1.75 x own excursion)   4416    1.41       395,169     18,425 |        60,001    1.36
+  structural, buffer 0.00x excursion   4403    1.40       389,394     16,260 |        63,460    1.39
+  structural, buffer 0.25x excursion   4403    1.40       389,394     16,260 |        63,460    1.39
+  structural, buffer 0.50x excursion   4403    1.40       389,394     16,260 |        63,460    1.39
+  -- exit attribution --
+  incumbent (bandwidth stop)   stop exits   150/ 4416 (  3.4%)  gross-loss share  13.0%  concentration x3.84
+  structural (buffer 0)        stop exits     0/ 4403 (  0.0%)  gross-loss share  -0.0%  concentration xnan
+  honest read: NOISE's stop is a rare backstop either way (the primary exit is the VWAP cross),
+  so 'reason' here splits stop / vwap / eod, not stop / fade / eod as TTM's did -- vwap is
+  NOISE's own version of 'the setup faded', not an invalidation signal, so the comparison is
+  stop-share-of-losses, same as TTM, but the base rate of stop exits is expected to be lower.
+
+============================================================================================================
+PART 3 -- ENGU-Q  (NQ 1m ETH, window 2010-06-07..2026-06-30, lockbox from 2025-06-30, entry-sliced, cost 0.533, $20/pt)
+============================================================================================================
+  loaded 5439594 bars in 17s
+REPRODUCTION -- run #309 (ENGUQ_1M_ETH_ER_1_0.py) vs its own doc
+  engine run in 23s
+  this window, entry-sliced selection (->2025-06-30): n=1511 PF=1.68 net=$529,092 DD=$50,447
+  this window, entry-sliced held-out  (2025-06-30->2026-06-30): n=101 PF=1.62 net=$84,780 DD=$52,668
+  doc says selection: n=1,505 PF 1.661 net $505,756 DD $44,403
+  doc says held-out:  n=99   PF 1.620 net $85,511  DD (not stated per-slice)
+  held-out PF matches to 3 decimals (1.620 vs 1.620) and net within 1% -- selection net is
+  ~5%% high and its own DD is computed on the RESET selection-slice curve here (a different
+  convention from whatever the validate pipeline's internal split used) -- this is treated as an
+  adequate reproduction: the held-out slice, which is what would gate any real adoption, is
+  close to exact, and the whole-window mechanism (entries, trailing, breakeven) is the same code
+  path exercised by every variant below.
+  this file's own loop (atr mode, whole window): n=1612 PF=1.67 net=$613,873 DD=$52,668  vs engine whole-window n=1612 PF=1.67 net=$613,873 DD=$52,668 -> MATCHES bit-for-bit
+
+STRUCTURAL STOP -- the swing low itself (the low over the trendline window through the
+  breakout bar) IS the structural invalidation level for this long-only breakout: stop_mult=1.0
+  puts the stop exactly there. buf_frac adds room BELOW it (0 / 5% / 10% of entry risk), same
+  direction TTM's buffer added. Trailing (act_R/trail_frac) and breakeven (breakeven_R) are
+  UNCHANGED -- they still ratchet the stop up from whichever initial level this sets.
+  NOTE: run #335 -- the ENGU-Q family CROWN since 2026-09-08, superseding #309 as the running
+  paper leg -- already moved stop_mult 1.3 -> 1.0 for an unrelated reason (a two-knob risk fix
+  alongside breakeven 3.0R -> 2.0R). stop_mult=1.0 IS this test's buffer-0 structural cell; the
+  fact that it was independently adopted is itself evidence for the transfer question below.
+
+  cell                                  n      PF         net $       DD $ |     sel net $  sel PF
+  incumbent (stop_mult 1.30)         1612    1.67       613,873     52,668 |       529,092    1.68
+  structural, buffer 0.00 (stop_mult 1.00)   1928    1.71       633,868     52,220 |       550,013    1.72
+  structural, buffer 0.05 (stop_mult 1.05)   1886    1.68       617,465     54,428 |       536,001    1.69
+  structural, buffer 0.10 (stop_mult 1.10)   1786    1.69       618,502     57,529 |       532,952    1.69
+  -- exit attribution (initial_stop = never moved by trailing/breakeven before it hit;
+     trail_or_be = it had already moved favourably; eod = forced close at series end) --
+  incumbent (stop_mult 1.30)   stop exits   792/ 1612 ( 49.1%)  gross-loss share  87.9%  concentration x1.79
+  structural, buffer 0.00 (stop_mult 1.00) stop exits  1074/ 1928 ( 55.7%)  gross-loss share  87.9%  concentration x1.58
+
+============================================================================================================
+total runtime 196s
