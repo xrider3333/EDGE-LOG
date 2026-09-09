@@ -85,6 +85,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_C15": "2026-09-08", # raw x compression 1.5x, NO model - the attribution control for K9
     "TTM_299": "2026-09-09",  # TTM Squeeze crown (run 299) as the book diversifier leg, 3 ES in BOOK 336
     "TTM_299_T": "2026-09-10", # the same leg with the VALIDATED deep-squeeze size tilt (run 340) - TTM_299 is its control
+    "TTM_299_SS": "2026-09-10", # the same leg again with the VALIDATED structural stop (run 353) - TTM_299_T is its control
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
     "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
@@ -630,6 +631,24 @@ TTM_299 = dict(kc_mult=1.5, stop_atr=1.5, eod_cutoff=1, gate_len=20)
 # on 2026-09-09, knowing the book bar was missed by a hair); TTM_299 stays as the matched control.
 TTM_299_T = dict(TTM_299)
 
+# THE SAME TRADES AGAIN, PROTECTED DIFFERENTLY. Run #353 (TTMSQZ_3_0_ES30SS20.py, 2026-09-09) moved
+# the protective stop from 1.5 ATR to the FAR SIDE OF THE SQUEEZE RANGE - the level that says the
+# setup was simply wrong - keeping everything else, the tilt included. It PASSED all six gates and
+# cleared every clause of the bar written before it ran: whole run $101,017 at profit factor 2.91
+# and annualised MAR 1.450 against the book leg's 0.957, lockbox $16,977 at 6.72 against $6,948 at
+# 2.38, at a drawdown of $4,338 against $4,549 - LOWER, in the whole run and in the lockbox alike.
+# The first attempt (run #352) passed the gates and MISSED the same bar by letting the search walk
+# to a looser verification length, so this file pins that knob at the incumbent's own value of 20.
+# The gap-stress read (tools/ttmsqz_r13_gap_stress.py) then corrected the obvious worry: a stop 76
+# percent wider does NOT concentrate the tail here - the ATR legs stop on 10.6 percent of trades and
+# take 43 to 44 percent of their gross losses there, this one stops on 13.2 percent and takes 6.8
+# percent, and the leg is flat at every session close so it carries no overnight gap risk at all.
+# gate_len is pinned inside the strategy file; stop_atr is gone because the structural stop makes it
+# inert. THE CLAIM: from 2026-09-10 this leg beats TTM_299_T on net without a worse drawdown, per
+# contract. FORWARD EVIDENCE ONLY - the book figure still carries TTM_299_T, and a BOOK run against
+# it is queued.
+TTM_299_SS = dict(kc_mult=1.5, eod_cutoff=1)
+
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
                      "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
 # KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
@@ -1068,6 +1087,18 @@ LEG_SOURCE = {
                 "entered while the 60-minute squeeze is on, 1.0 otherwise, no model anywhere. The "
                 "attribution control for K9. Added 2026-09-07; NOISE_SBS_V90 is the exact control.",
     },
+    "TTM_299_SS": {
+        "run": 353, "run_label": "#353 (TTM-ES30SS20) the tilted ES 30m leg with the structural stop",
+        "strategy_file": "TTMSQZ_3_0_ES30SS20.py", "picked": "2026-09-09",
+        "note": "Run #340's leg with one change: the protective stop is the far side of the squeeze "
+                "range rather than 1.5 ATR, which is the level that says the setup was wrong rather "
+                "than a volatility multiple. Run #353 PASSED all six gates and cleared every clause "
+                "of its pre-registered bar, at a LOWER drawdown than the leg it challenges in both "
+                "the whole run and the lockbox. The verification length is pinned at 20 inside the "
+                "file because the first attempt's search walked to a looser value and missed the bar. "
+                "TTM_299_T is the exact matched control. Reported per one contract; not in the book "
+                "figure until its BOOK run says so.",
+    },
     "TTM_299_T": {
         "run": 340, "run_label": "#340 (TTM-ES30T) hourly-verified ES 30m squeeze, 1.5x on deep squeezes",
         "strategy_file": "TTMSQZ_3_0_ES30T.py", "picked": "2026-09-09",
@@ -1450,6 +1481,13 @@ PAPER_LEGS = [
      "timeframe": "30m", "session": "rth", "params": TTM_299_T,
      "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
      "source": LEG_SOURCE["TTM_299_T"]},
+    # ADDED 2026-09-09: the validated structural stop (run 353) beside the tilted leg, which is its
+    # exact matched control - same trades, same tilt, only the protective stop differs. NOT in the
+    # book figure; a BOOK run against the book in production is queued. FORWARD EVIDENCE ONLY.
+    {"key": "TTM_299_SS", "strategy": "TTMSQZ_3_0_ES30SS20.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299_SS,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "source": LEG_SOURCE["TTM_299_SS"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
