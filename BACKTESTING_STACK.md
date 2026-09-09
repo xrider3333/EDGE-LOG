@@ -948,6 +948,49 @@ to reject leverage, and this one adds no drawdown anywhere. Paper legs from 2026
 ablation control: `NOISE_SBS_V90_K12` (control `K11`), `ORB_R6_C15FE` (control `ORB_R6_C15F`),
 `ENGUQ_309_CDE` (control `ENGUQ_309_CD`). Lab: `keel_events.py`, `keel_events2.py`, `keel_events3.py`.
 
+### The CPI / payrolls calendar (2026-09-09): the mechanism holds, the RTH translation does not
+
+Second new-information pull, and the first one that mostly says no. `tools/data/bls_dates.txt` carries
+203 Employment Situation and 203 CPI release dates, all 08:30 ET, scraped year by year from bls.gov for
+2010-2026. The irregular dates are the proof it was read rather than guessed: the October 2013
+shutdown delays, six payrolls reports moved ahead of July 4, and the autumn 2025 disruption in which
+October CPI was never published as a standalone release at all.
+
+**Both releases land at 08:30, before the 9:30 open.** That is the whole difference from FOMC, whose
+statement lands at 14:00 *inside* the session. So an RTH leg has no pre-release window to tilt.
+
+**Pre-registered (PREREG, written before any bucket was printed) and REFUTED.** H1 said the session
+*before* an 08:30 release should be the bad bucket, the pinned-tape analogue of v12's FOMC morning.
+It is the **best** bucket: walk-forward EV R +0.414 / +0.360 against a +0.267 / +0.245 baseline, and
++0.395 / +0.369 in-sample. Every H1 size-down loses money on both runs (t −1.5 to −2.4).
+
+**The one candidate that looked adoptable, and the four controls that killed it.** 1.5x on payrolls
+days gained on all four stretches with walk-forward drawdown *identical* on both runs and lockbox
+money +20% / +13%. It fails everything that matters:
+
+| control | result |
+|---|---|
+| exposure-matched uniform scale | uniform earns **$4,883 MORE** than the calendar in #243's walk-forward |
+| permutation, any day | 4.9% / 0.5% of random day-sets match it — passes |
+| permutation, **Friday-only** | **17.6%** of random Friday-sets match it on #243 — fails, and this is the right control because v12 already sizes every Friday 1.5x and 194 of 203 payrolls days are Fridays |
+| concentration | the lockbox gain is 12 trades of which **one is 62%** (best 3 = 117%, i.e. the rest net negative); median trade **loses** |
+
+The placebo agrees: the session *after* payrolls also gains in walk-forward. Nothing ships for RTH.
+
+**A correction this forced.** The earlier "NFP Friday" near-miss used a first-Friday proxy. That proxy
+caught only 173 of 203 real payrolls days (85%), and on #243 its *false* hits — first Fridays that were
+not payrolls days — scored EV R **+0.915** against +0.606 for the real ones. That near-miss was an
+artefact of the proxy, not a payrolls effect.
+
+**What does hold: H3, on the only leg that trades the window.** On ENGU-Q's 24-hour tape the hours
+before 08:30 on a release day run EV R **−0.278** (n=38) against a +0.440 baseline — the same sign and
+size as that leg's FOMC pre-statement bucket (−0.499, n=30) — while the *same day after 08:30* is
++0.504, above baseline. So v12's mechanism is intact; "the session before" was simply the wrong
+translation of it. Exposed as `event={"mult":0.5,"cut_hour":14,"bls":True}` and carried by one forward
+leg, `ENGUQ_309_CDE2`, against `ENGUQ_309_CDE` as its exact control. **38 trades — a forward test, not
+an adoption.** The calendar file ends 2026-12-10 and `tools/keel_event_check.py` now warns when it is
+within 60 days of running out.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

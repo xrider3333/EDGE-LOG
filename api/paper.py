@@ -88,6 +88,7 @@ LEG_LIVE_FROM = {
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
     "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
+    "ENGUQ_309_CDE2": "2026-09-09",   # + the pre-08:30 CPI/payrolls window (ETH only - an RTH leg has no such bars)
     "ENGUQ_309_CDE": "2026-09-09",    # ENGU-Q crown x depth-graded compression x FOMC-morning 0.5x
     "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
     "ORB_R6_C15F": "2026-09-08",      # ORB crown x compression 1.5x x Friday 1.5x (LB $102k -> $123k at DD +1.8%, 8/10 WF years)
@@ -677,6 +678,21 @@ ORB_314_COMP15FE = {"mode": "comp", "model": "compression", "mult": 1.5, "dow": 
                     "event": FOMC_HALF, "source_run": 314}
 ENGUQ_309_COMPDE = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85,
                     "event": FOMC_HALF, "source_run": 309}
+# THE 24-HOUR HALF OF THE EVENT HOLE (2026-09-09). Second new-information pull: the BLS release
+# calendar (tools/data/bls_dates.txt - Employment Situation and CPI, both 08:30 ET, scraped from
+# bls.gov 2010-2026). The pre-registered guess for the RTH legs was WRONG and is recorded as such:
+# the session BEFORE an 08:30 release is the BEST bucket on both NOISE runs, not the worst, and a
+# 1.5x payrolls-day size-up fails every control (uniform re-scaling earns MORE in #243's
+# walk-forward; 17.6% of random Friday sets match it there; and its whole lockbox gain is ONE
+# trade, 62% of the total, on a bucket whose median trade LOSES). So nothing ships for RTH.
+# What DOES hold is the mechanism, on the only leg that trades the window: on ENGU-Q's 24-hour tape
+# the hours BEFORE 08:30 on a release day run EV R -0.278 (n=38) against a +0.440 baseline, the
+# same sign and size as its FOMC pre-statement bucket (-0.499, n=30), while the SAME day after
+# 08:30 is +0.504, above baseline. An RTH leg has no bars before 08:30 at all, which is exactly why
+# "the session before" was the wrong translation. n=38 is small; this leg is how it gets tested.
+# FORWARD EVIDENCE ONLY; ENGUQ_309_CDE is the exact ablation control (identical but for this).
+ENGUQ_309_COMPDE2 = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85,
+                     "event": dict(FOMC_HALF, bls=True), "source_run": 309}
 ORB_314_COMP15F = {"mode": "comp", "model": "compression", "mult": 1.5, "dow": {"4": 1.5}, "source_run": 314}
 ENGUQ_309_COMPD = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85, "source_run": 309}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
@@ -955,6 +971,19 @@ LEG_SOURCE = {
                 "baseline. No model. Added 2026-09-09; ORB_R6_C15F is the exact ablation control.",
         "caveat": "The ORB read is a mechanism check over full history, not a stretch-by-stretch "
                   "validate - this leg is the forward test of whether it travels.",
+    },
+    "ENGUQ_309_CDE2": {
+        "run": 309, "run_label": "#309 ENGU-Q crown + depth compression x FOMC and CPI/payrolls pre-release 0.5x",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-09",
+        "note": "ENGUQ_309_CDE with the half-size window widened from the FOMC statement to include "
+                "the hours before the 08:30 CPI and payrolls releases, off the BLS calendar. Only a "
+                "24-hour leg can carry this - an RTH leg has no bars before 08:30. On this leg that "
+                "window runs EV R -0.278 against a +0.440 baseline, the same sign as its FOMC "
+                "pre-statement bucket, while the same day after 08:30 is +0.504, above baseline. "
+                "Added 2026-09-09; ENGUQ_309_CDE is the exact ablation control.",
+        "caveat": "38 trades. That is why this is a forward leg and not an adoption: the sign agrees "
+                  "with the FOMC bucket on the same leg, but on its own it is under-powered. The RTH "
+                  "translation of the same idea was tested and REJECTED - see ENGUQ_309_COMPDE2.",
     },
     "ENGUQ_309_CDE": {
         "run": 309, "run_label": "#309 ENGU-Q crown + depth-graded compression x FOMC-morning 0.5x",
@@ -1420,6 +1449,11 @@ PAPER_LEGS = [
      "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": ORB_314_COMP15FE, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["ORB_R6_C15FE"]},
+    {"key": "ENGUQ_309_CDE2", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_309_COMPDE2, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["ENGUQ_309_CDE2"]},
     {"key": "ENGUQ_309_CDE", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
      "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,

@@ -243,6 +243,51 @@ def pre_statement_mask(arrays, E, cut_hour=14):
     return np.array([(t.date() in days) and (t.hour < int(cut_hour)) for t in e], bool)
 
 
+_BLS = None
+
+
+def bls_release_days(path=None):
+    """The BLS release days for the two market-moving series, as ET calendar dates.
+    Source: tools/data/bls_dates.txt (Employment Situation and CPI, both 08:30 ET), scraped from
+    bls.gov schedule pages 2010..2026. Published a year ahead, so knowable at entry.
+    Returns {"EMP": set, "CPI": set, "ALL": set}; empty sets if the file is missing (tilt = no-op)."""
+    global _BLS
+    if _BLS is None:
+        p = path or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "tools", "data", "bls_dates.txt")
+        emp, cpi = set(), set()
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                for ln in fh:
+                    ln = ln.strip()
+                    if not ln or ln.startswith("#"):
+                        continue
+                    parts = ln.split("|")
+                    (emp if parts[0] == "EMP" else cpi).add(_dt.date.fromisoformat(parts[1]))
+        except Exception:
+            pass
+        _BLS = {"EMP": emp, "CPI": cpi, "ALL": emp | cpi}
+    return _BLS
+
+
+def pre_release_mask(arrays, E):
+    """True where the entry bar is BEFORE the 08:30 ET CPI / payrolls release on a release day.
+
+    Only meaningful for a 24-hour (ETH) leg. An RTH leg has no bars before 08:30, so this is all
+    False there - which is the point: the 2026-09-09 study found the pre-event hole does NOT
+    transfer to an RTH leg via "the session before a release" (that session is in fact the BEST
+    bucket), only to a leg that actually trades the pinned hours immediately before the number."""
+    idx = pd.DatetimeIndex(arrays["index"])
+    if idx.tz is not None:
+        idx = idx.tz_convert("US/Eastern")
+    e = idx[np.clip(np.asarray(E, int), 0, len(idx) - 1)]
+    days = bls_release_days()["ALL"]
+    if not days:
+        return np.zeros(len(e), bool)
+    return np.array([(t.date() in days) and (t.hour < 8 or (t.hour == 8 and t.minute < 30))
+                     for t in e], bool)
+
+
 # -- extra causal features -----------------------------------------------------
 def _squeeze60(arrays, length=20, bb_mult=2.0, kc_mult=1.5, tf_min=60):
     """60-minute Bollinger/Keltner compression ratio, as of the LAST COMPLETE 60m group
@@ -471,6 +516,8 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
     if ev:
         # a-priori EVENT tilt, applied LAST so no cap can undo a cut: half size before the statement
         _pre = pre_statement_mask(arrays, E, ev.get("cut_hour", 14))
+        if ev.get("bls"):
+            _pre = _pre | pre_release_mask(arrays, E)
         size = np.where(_pre, size * float(ev.get("mult", 0.5)), size)
     return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
             "trust": trust, "rho": rho, "trust_members": tm, "n_fits": n_fits,
@@ -505,7 +552,10 @@ def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, th
     m = np.minimum(m, float(cap))
     if event:
         # v12's FOMC pre-statement half-size, model-free (that bucket is negative on ORB and ENGU-Q too)
-        m = np.where(pre_statement_mask(arrays, E, event.get("cut_hour", 14)), m * float(event.get("mult", 0.5)), m)
+        _pre = pre_statement_mask(arrays, E, event.get("cut_hour", 14))
+        if event.get("bls"):
+            _pre = _pre | pre_release_mask(arrays, E)
+        m = np.where(_pre, m * float(event.get("mult", 0.5)), m)
     return m
 
 

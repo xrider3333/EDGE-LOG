@@ -94,6 +94,14 @@ def main():
     if max(days) < dt.date.today():
         print("  !! the calendar ends in the past - the live tilt will never fire. Refresh it from")
         print("     federalreserve.gov/monetarypolicy/fomccalendars.htm into tools/data/fomc_dates.txt")
+    bls = ml_keel.bls_release_days()
+    if bls["ALL"]:
+        print(f"BLS release days: {len(bls['EMP'])} payrolls + {len(bls['CPI'])} CPI, "
+              f"{min(bls['ALL'])} .. {max(bls['ALL'])}")
+        if max(bls["ALL"]) < dt.date.today() + dt.timedelta(days=60):
+            print("  !! the BLS calendar runs out within 60 days - refresh tools/data/bls_dates.txt from")
+            print("     bls.gov/schedule/YYYY/home.htm or the per-series forward pages, or any ETH")
+            print("     pre-release tilt silently stops firing")
 
     rng = np.random.default_rng(20260909)
     verdict = []
