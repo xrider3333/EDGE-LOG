@@ -343,7 +343,16 @@ def sync_bars(timeframe):
     merged = pd.concat([old, fresh], ignore_index=True)
     if len(merged):
         merged = merged.drop_duplicates("time", keep="last").sort_values("time")
-    merged.to_csv(path, index=False)
+    # ATOMIC (2026-09-09), the same reason api/cloud_signal.py writes this way: to_csv()
+    # TRUNCATES the destination and then fills it, so a reader that opens the file inside that
+    # window gets an empty or half-written cache. It is not hypothetical -- the pre-push engine
+    # gate read C:\EdgeLog\ohlc\QQQ_1m.csv at zero bytes and turned main red for every push in
+    # the repo. cloud_signal was fixed for its own writer; this is the OTHER writer of the very
+    # same files, so leaving it torn would have kept the race alive through this path.
+    # os.replace is atomic on Windows and POSIX: a reader sees the old file or the new one.
+    tmp = path + ".tmp"
+    merged.to_csv(tmp, index=False)
+    os.replace(tmp, path)
     print(f"  QQQ {timeframe}: cache now {len(merged)} bars -> {path}")
     return merged
 

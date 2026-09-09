@@ -35,27 +35,49 @@ import api.cloud_signal as cs
 
 REAL_CACHE_1M = r"C:\EdgeLog\ohlc\QQQ_1m.csv"
 REAL_CACHE_5M = r"C:\EdgeLog\ohlc\QQQ_5m.csv"
-def _usable_cache(path):
-    r"""A cache file counts as present only if there is something in it to parse.
+def _cache_state(path):
+    r"""(present, empty) for one cache file -- and the two are NOT the same condition.
 
-    2026-09-09: this guard tested os.path.exists alone, and C:\EdgeLog\ohlc\QQQ_1m.csv was
-    sitting at ZERO BYTES, so the skipif sailed straight past it and both replay tests died
-    inside pd.read_csv with "EmptyDataError: No columns to parse from file". That turned main
-    red for every push in the repo behind an error message naming pandas rather than the cache.
-    An empty cache is an absent cache: skip, and say WHICH file is missing so the next person
-    reads the real problem off the skip line. Why the 1m cache is empty is a live-feed question
-    and is deliberately not answered here.
+    2026-09-09, and this guard has now been wrong in both directions in one day. It began as
+    os.path.exists alone, so when C:\EdgeLog\ohlc\QQQ_1m.csv sat at ZERO BYTES the skipif
+    sailed past and both replay tests died inside pd.read_csv with "EmptyDataError: No columns
+    to parse from file" -- main red for every push in the repo behind a message naming pandas
+    rather than the cache. The first fix treated empty as absent and SKIPPED. That is too quiet:
+    that empty file was a real outage (a runner restart caught the writer mid-write and the cache
+    stayed at 0 bytes for over an hour, starving the 1-minute leg), and it surfaced ONLY because
+    these tests went red.
+
+    So the two conditions are separated. A MISSING cache is an environment fact -- a fresh clone
+    or any machine that is not the owner's box has no C:\EdgeLog -- and skips. A cache that
+    EXISTS BUT IS EMPTY is an anomaly: something wrote that file and produced nothing, and that
+    is worth being loud about. It fails, by name, saying what it means.
     """
     try:
-        return os.path.getsize(path) > 0
+        return True, os.path.getsize(path) == 0
     except OSError:
-        return False
+        return False, False
 
 
-_MISSING_CACHE = [p for p in (REAL_CACHE_1M, REAL_CACHE_5M) if not _usable_cache(p)]
-HAS_REAL_CACHE = not _MISSING_CACHE
-_CACHE_SKIP = ("no usable local QQQ bar cache to replay -- missing or empty: %s"
-               % ", ".join(_MISSING_CACHE))
+_CACHE_STATE = {p: _cache_state(p) for p in (REAL_CACHE_1M, REAL_CACHE_5M)}
+_ABSENT = [p for p, (present, _) in _CACHE_STATE.items() if not present]
+_EMPTY = [p for p, (present, empty) in _CACHE_STATE.items() if present and empty]
+HAS_REAL_CACHE = not _ABSENT and not _EMPTY
+_CACHE_SKIP = "no local QQQ bar cache on this machine: %s" % ", ".join(_ABSENT)
+
+
+def test_no_cache_file_is_present_but_empty():
+    """A bar cache that exists at zero bytes is an outage, not a missing-environment skip.
+
+    Kept deliberately loud. Both writers of these files now rename into place
+    (tests/test_qqq_cache_atomic.py pins that), so a torn write should no longer produce this
+    -- which makes a hit here a NEW cause worth stopping for rather than skipping past.
+    """
+    assert not _EMPTY, (
+        "QQQ bar cache present but EMPTY: %s. Something wrote this file and produced nothing; "
+        "anything replaying off it is being starved. Do not silence this -- find the writer."
+        % ", ".join(_EMPTY))
+
+
 TEST_WARMUP_SESSIONS = 5   # see module docstring "SPEED"
 TEST_MAX_TICKS = 60        # first 60 minutes of the session only — see "SPEED"
 
