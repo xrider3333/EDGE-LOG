@@ -85,7 +85,7 @@ job.update(
 )
 ref = u.collection("backtests").document()
 ref.set(job)
-print("queued:", ref.id, "|", name, "| cloned from #341's job", SRC[0])
+print("queued:", ref.id, "|", name, "| cloned from BOOK #361 job", SRC[0])
 for L in job["legs"]:
     print("   %-26s %-4s %-4s w%.0f  %s" % (L.get("strategy"), L.get("instrument"), L.get("timeframe"),
                                             float(L.get("weight") or 1), L.get("params")))
