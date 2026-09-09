@@ -45,6 +45,31 @@ def _tf(fn):
     return (m.group(1) + m.group(2).lower()) if m else ""
 
 
+def _stamp_shift_secs(tf):
+    """Seconds to subtract from a NinjaTrader export stamp to reach the bar's START.
+
+    NinjaTrader stamps EVERY exported bar at its END: the row stamped 09:31:00 on a
+    1-minute chart covers 09:30:00-09:31:00. The rest of this library stamps a bar at its
+    OPEN, so an aggregated series has to be converted here or it lands a whole bar late.
+    Measured 2026-09-09 on the 5,670 NQ 1m rows this importer had already merged: against
+    the Databento 1m ETH master the open disagreed on 4,933 of 5,249 overlapping bars as
+    stored, and on 55 once shifted back 60 s.
+
+    SUB-MINUTE SERIES ARE LEFT ALONE ON PURPOSE. The 10s and 1s captures are raw material,
+    not bars anyone charts: api/paper.py::_resample and backfill_1m_from_10s.aggregate both
+    read the END stamp themselves (stamp="end") when they build minutes out of them, so
+    shifting here as well would double-count and move every rebuilt bar a further 10 s.
+    Returning 0 for those keeps exactly one place responsible for the convention.
+    """
+    m = re.fullmatch(r"(\d+)([smhd])", str(tf or "").lower())
+    if not m:
+        return 0
+    n, unit = int(m.group(1)), m.group(2)
+    if unit == "s":
+        return 0                      # raw capture - the consumer applies the shift
+    return n * {"m": 60, "h": 3600, "d": 86400}[unit]
+
+
 def _session(df):
     """24h capture -> 'eth'; a 09:30-16:00 ET-only file -> 'rth'."""
     et = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
@@ -108,6 +133,11 @@ def main():
         if "time" not in new.columns or new.empty:
             log(f"  skip (no rows): {os.path.basename(f)}"); continue
         fresh[os.path.basename(f)] = int(new["time"].max())
+        _shift = _stamp_shift_secs(tf)
+        if _shift:
+            new["time"] = new["time"].astype("int64") - _shift
+            log(f"  {os.path.basename(f)}: NT stamps at bar END - shifted {_shift}s "
+                f"to bar START ({tf})")
         sess = _session(new)
         src  = f"nt_noadj_{sess}"
 
