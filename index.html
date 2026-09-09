@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.692';
+const VERSION='73.693';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.693',date:'2026-09-09',notes:['SPY BENCHMARK: real vs-SPY numbers are on their way back. Your computer now pulls SPYs daily closing prices directly from a market data provider (Alpaca) and stores them, so this page reads them from your own storage instead of trying to reach the dead free service that broke a couple of versions ago. Nothing changes for you today, since no data has been pulled yet - the vs SPY spots in OVERVIEW and HOME keep showing a plain dash until that first pull happens.','ONE MANUAL STEP LEFT FOR THE OWNER: add a free Alpaca account key to this computer (a config file, not this website) before the first pull can run. Once its added, your computer fills in the last ten-plus years of SPY prices in one go and then keeps itself up to date automatically, once a day, with no further action needed.','Also removed the old broken connection to the free web service entirely, so this page no longer wastes a request trying to reach a service that has been rejecting it since it started demanding paid access.']},
 {v:'73.692',date:'2026-09-09',notes:['PAPER: the ETF DIP BOOK-332 shadow leg is RETIRED, the same day it was added and before it ever wrote a row. All seven of its ETF legs were put through leg-level Auto-Validate that day and six of six FAILED, every one on walk-forward efficiency between 0.050 and 0.332 against a bar of 0.5, with not one crown matching the cell the leg carried. A forward test exists to find out whether an edge survives going forward; these had already answered that, so spending months of shadow time on them buys nothing.','It is ARCHIVED rather than deleted - its colour, label and key keep resolving, the same treatment every other retired leg gets, and the SHOW ARCHIVED toggle still brings it back into view. Its provenance block stays in the paper source table so any report naming the key resolves.','One switch, not two: the nightly job that pulled the day GLD, TLT, IWM and QQQ bar and appended it to the frozen daily masters now checks whether the leg is registered at all and does nothing when it is not. The runner hook is left wired on purpose - a retired leg that quietly kept appending bars every evening would be invisible, because no row is written anywhere a person looks. A test pins it, and removing the check makes that test fail.','UNRELATED, FOUND WHILE SHIPPING THIS: the engine gate was refusing every push in the repository because two cloud-signal replay tests were dying on an empty file. The QQQ one-minute bar cache is ZERO BYTES while the five-minute cache beside it is healthy. The test guard only checked that the file existed, so it now checks that there is something in it and names the file when it skips. WHY the one-minute cache is empty is a live-feed question and is NOT answered by that change.']},
 {v:'73.690',date:'2026-09-09',notes:['RETRACTION, same day: the NOISE round 47 candidate was a ONE-BAR LOOK-AHEAD and is withdrawn (row 1652). The battery tagged each trade by the state at the FILL bar, but the entry decision is made at the previous bar close, so the tag read one bar the rule could never have had, and that bar is the one the trade begins in, which makes it partly an outcome. Re-measured at the signal bar the headline 200-bar cell FLIPS SIGN, from 614 trades at profit factor 0.778 and minus 43,999 dollars to 596 at 1.039 and plus 6,738. What survives is a smaller effect at 60 to 150 bars worth 8 to 20 thousand on veto instead of the 11.8 percent of net claimed, and it FAILS the tilt guard as under-powered with one trade carrying 122 percent of the recent bucket. No knob was added and no validate queued; the correction arrived because writing the causal knob forced the question. RULE BANKED: tag trades at the SIGNAL bar, never the fill bar.']},
 {v:'73.689',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 47, rows 1648-1651 - THE FIRST REAL CANDIDATE IN FIVE ROUNDS. After rounds 43-46 exhausted the knob directions, this swept CONDITIONAL alpha: twelve entry states declared before any was computed, effects read on profit factor rather than dollars (this tape amplitude grew sevenfold), tilt direction chosen by the data, shift null for intraday states, Benjamini-Hochberg across all twelve. Eleven say nothing - expansion and busy-open are amplitude illusions whose era splits fall apart. The twelfth clears every clause: entries against the 200-bar mean run at profit factor 0.867 against 1.467, stable at 0.58 then 0.61 across eras, permutation q 0.000, guard passes. It is NOT shorts - only 18 percent are, and shorts are the better side; the effect is LONG entries below the mean, 614 trades at profit factor 0.778 and minus 43,999 dollars, negative in 13 of 17 years. Vetoing them takes the crown from 373,010 at 1.329 to 417,009 at 1.446 with drawdown unchanged. BOUNDED: lookbacks 100 to 300 work, 400 and 600 do not. Nothing adopted; the knob goes into the strategy file default OFF and then to a fenced validate.']},
@@ -8284,10 +8285,10 @@ window.expandKPI=function(label,infoKey){
 
 // SPY data cache + real fetcher
 let _spyCache={};
-// Bounded retry backoff — a failed SPY fetch (dead proxy / CORS block) used to silently
-// re-fire on every single render since the in-flight flag clears on both success and
-// failure. That is not a stuck flag, but it IS an unbounded retry against a source that is
-// currently down. Cap retries to once per cooldown window instead of once per render.
+// Bounded retry backoff — a failed SPY fetch used to silently re-fire on every single
+// render since the in-flight flag clears on both success and failure. That is not a
+// stuck flag, but it IS an unbounded retry against a source that may be down. Cap
+// retries to once per cooldown window instead of once per render.
 const SPY_RETRY_COOLDOWN_MS=60000;
 function _spyOnCooldown(key){
   const t=_spyCache._failAt&&_spyCache._failAt[key];
@@ -8297,32 +8298,47 @@ function _spyMarkResult(key,data){
   if(!data){_spyCache._failAt=_spyCache._failAt||{};_spyCache._failAt[key]=Date.now();}
   else if(_spyCache._failAt)delete _spyCache._failAt[key];
 }
+// SPY benchmark data now comes from the BACKEND (api/spy_daily.py pulls split-adjusted
+// daily closes from Alpaca and writes ONE document, users/{uid}/meta/spy_daily) instead
+// of a browser-side call to Yahoo through the now-dead corsproxy.io relay. Read ONCE per
+// session and keep it in memory — _spyDailyPromise makes every concurrent caller share
+// the same in-flight Firestore read instead of issuing one each.
+let _spyDailyDoc=null,_spyDailyPromise=null;
+function _loadSpyDailyDoc(){
+  if(_spyDailyDoc)return Promise.resolve(_spyDailyDoc);
+  if(_spyDailyPromise)return _spyDailyPromise;
+  if(!db||!auth||!auth.currentUser){return Promise.resolve(null);}
+  const uid=auth.currentUser.uid;
+  _spyDailyPromise=db.collection('users').doc(uid).collection('meta').doc('spy_daily').get()
+    .then(snap=>{
+      const data=snap.exists?snap.data():null;
+      _spyDailyDoc=(data&&Array.isArray(data.bars)&&data.bars.length)?data:null;
+      _spyDailyPromise=null;
+      return _spyDailyDoc;
+    })
+    .catch(()=>{_spyDailyPromise=null;return null;});
+  return _spyDailyPromise;
+}
 async function fetchSPYData(startDate,endDate){
   const key=startDate+'_'+endDate;
   if(_spyCache[key])return _spyCache[key];
-  const p1=Math.floor(new Date(startDate).getTime()/1000);
-  // extend the window to "now" so late trades never fall past the data and flatten the overlay
-  const p2=Math.max(Math.floor(new Date(endDate).getTime()/1000)+86400,Math.floor(Date.now()/1000));
-  const yahoo=`https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=${p1}&period2=${p2}&interval=1d`;
-  // Yahoo's chart API is CORS-blocked in the browser, so route it through a CORS proxy first,
-  // then try direct (works in non-browser contexts). Both return the same JSON shape.
-  const urls=[`https://corsproxy.io/?url=${encodeURIComponent(yahoo)}`, yahoo];
-  for(const url of urls){
-    try{
-      const res=await fetch(url);
-      if(!res.ok)continue;
-      const j=await res.json();
-      const r=j&&j.chart&&j.chart.result&&j.chart.result[0];
-      if(!r)continue;
-      const ts=r.timestamp||[];
-      const closes=(r.indicators&&r.indicators.quote&&r.indicators.quote[0]&&r.indicators.quote[0].close)||[];
-      const data={};
-      ts.forEach((t,i)=>{const dt=new Date(t*1000).toISOString().slice(0,10);if(closes[i]!=null)data[dt]=closes[i];});
-      if(Object.keys(data).length){_spyCache[key]=data;return data;}
-    }catch(e){/* try next source */}
+  const doc=await _loadSpyDailyDoc();
+  if(!doc){
+    console.warn('SPY benchmark data not available yet (users/{uid}/meta/spy_daily missing or empty)');
+    return null;
   }
-  console.warn('SPY fetch failed (CORS/network) — using approximation');
-  return null;
+  // Coverage guard: the stored series only reaches back to doc.from — a window that
+  // starts earlier than that cannot be honestly answered, so treat it the same as "no
+  // data" (dash, no overlay) rather than silently comparing against a shorter history.
+  if(doc.from&&startDate&&startDate<doc.from){
+    console.warn('SPY benchmark data starts '+doc.from+', after the requested '+startDate);
+    return null;
+  }
+  const data={};
+  doc.bars.forEach(row=>{if(Array.isArray(row)&&row.length===2&&row[0]!=null&&row[1]!=null)data[row[0]]=row[1];});
+  if(!Object.keys(data).length)return null;
+  _spyCache[key]=data;
+  return data;
 }
 // Calculate SPY return % between two dates using real data (if cached) or approx
 function spyReturnReal(startDate,endDate,spyData){

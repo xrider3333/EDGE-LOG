@@ -65,6 +65,11 @@ try:
 except Exception as _e:
     _etfbook = None
     print(f"[etfbook] import skipped: {type(_e).__name__}: {_e}")
+try:
+    from . import spy_daily as _spy_daily
+except Exception as _e:
+    _spy_daily = None
+    print(f"[spy-daily] import skipped: {type(_e).__name__}: {_e}")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JOBS_DIR = os.path.join(ROOT, "augur_jobs")
@@ -2403,6 +2408,11 @@ def main(argv=None):
             print("QQQ paper (tools/qqq_paper.py): re-syncs ~every 2min during market "
                   "hours (Mon-Fri 09:28-16:05 ET) + one final post-close run, "
                   "publishes users/{uid}/meta/qqq_paper")
+        if _spy_daily is not None:
+            print(f"SPY benchmark (api/spy_daily.py): once per trading day at/after "
+                  f"{_spy_daily.MIN_ET_FOR_TODAY[0]:02d}:{_spy_daily.MIN_ET_FOR_TODAY[1]:02d} ET, "
+                  f"pulls SPY daily closes from Alpaca and writes users/{{uid}}/meta/spy_daily "
+                  f"-- no-ops with one log line until an Alpaca key is configured")
         if (a.sync_runs or a.watch) and _IS_WORKER:
             # A worker drains jobs only. The run-history push (106 writes) and the
             # masters re-scan behind sync_meta (~3 CPU-minutes over 1.3 GB of CSVs, per
@@ -2668,6 +2678,17 @@ def main(argv=None):
                     _qqq_paper.maybe_run(q)
                 except Exception as e:
                     print(f"[qqq_paper] hook error: {type(e).__name__}: {e}")
+            # SPY benchmark data -- pulls SPY daily closes from Alpaca and writes ONE
+            # Firestore doc per uid (users/{uid}/meta/spy_daily) so the web app's vs-SPY
+            # comparison stops depending on the dead corsproxy.io relay. Self-throttled
+            # and date-guarded inside maybe_run() to at most once per ET day; a cheap
+            # no-op every other tick, and a single clean log line (no retry loop) if no
+            # Alpaca key is configured yet. See api/spy_daily.py.
+            if a.firestore and _spy_daily is not None and not _IS_WORKER:
+                try:
+                    _spy_daily.maybe_run(q)
+                except Exception as e:
+                    print(f"[spy-daily] hook error: {type(e).__name__}: {e}")
             # Data-freshness watchdog. Hourly, one tiny doc per uid — the NQ 10s capture
             # died 2026-08-11 and the Yahoo top-up had been off for six weeks, and neither
             # surfaced anywhere the owner looks. See api/data_health.py.
