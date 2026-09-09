@@ -62,7 +62,11 @@ import sys
 import numpy as np
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# A git worktree has NO master registry (optimizer_history.db is untracked -- memory
+# `edgelog-worktree-registry-trap`), so anything that loads a master must run against the
+# SHARED checkout. EDGELOG_REPO_ROOT lets this file live in a worktree while importing the
+# shared engine and reading the shared registry; unset, it behaves exactly as before.
+ROOT = os.environ.get("EDGELOG_REPO_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
@@ -142,8 +146,10 @@ def measure(arrays, params, cost, split=None):
         cut = pd.Timestamp(split).date()
         pre = [p for d, p in zip(days, pnl) if d < cut]
         post = [p for d, p in zip(days, pnl) if d >= cut]
-        yr_pre = (pd.Timestamp(cut) - idx[0]).days / 365.25
-        yr_post = (idx[-1] - pd.Timestamp(cut)).days / 365.25
+        # the master index is tz-aware; match it or the subtraction raises
+        cut_ts = pd.Timestamp(split, tz=idx.tz) if idx.tz is not None else pd.Timestamp(split)
+        yr_pre = (cut_ts - idx[0]).days / 365.25
+        yr_post = (idx[-1] - cut_ts).days / 365.25
         out["sel"] = _metrics(pre, years=yr_pre)
         out["held"] = _metrics(post, years=yr_post)
     out["_trades"] = (days, np.asarray(pnl) * MULT, np.array([t[3] for t in tr]))

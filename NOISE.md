@@ -7,6 +7,77 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUND 43: round 41's cost-robust GEOMETRY vs the LIVE crown — it wins the trade, FAILS the swap (STUDIES rows 1600-1605, web v73.662)
+
+**Owner ask:** *"keep testing noise."* Round 41 closed the 2-minute leg idea and left exactly one
+live lead, in its own words: *"if the crown's exit/stop geometry is ever revisited, C3 at 5m
+(PF 1.563, 8/8, $104 a trade) is the configuration to test against it — as a **replacement**
+candidate, never as an addition."* Nobody had. Round 41 compared C3 against the **#243** geometry,
+reported no concentration read, no held-out read and no knob plateau **at 5m**, and the live family
+crown and paper leg is **#304** (same knob set, lookback 40, vol-skip 95). This round is that test.
+
+**C3** = round 38's cost-robust corner (2m search rank 8): band exit · ATR stop 0.75 · confirm 3 ·
+afternoon block · skip-bot-short · lookback 74 · bands 1.00/1.75 · vol-skip 93, run on the crown's
+own 5-minute bar. Harness `tools/r43_noise_c3_vs_crown.py`, pre-registration fixed and shipped
+BEFORE any cell ran (commit 5d1f216).
+
+**Gate G1 — round 41 reproduces.** Their C3-at-5m headline was measured on a 1-minute tape resampled
+in-file; this used the registered 5m master and landed within **0.1%**: n 1,958 / $202,879 / PF
+1.564 / DD $12,737 / 8-of-8 / $104 a trade against their 1,956 / $202,725 / 1.563 / $12,737.
+
+### The ladder — one window (2010-06-07 → 2026-07-16), trades sliced by ENTRY at 2025-02-14
+
+| cost | config | n | PF | net $ | DD $ | net/DD | slices | top-10 | $/trade |
+|---|---|---|---|---|---|---|---|---|---|
+| 0.533 house | **C3** | 1,917 | **1.609** | 203,966 | 9,871 | **20.66** | 8/8 | 30.5% | **106** |
+| 0.533 house | crown #304 | 4,426 | 1.382 | **334,125** | 16,917 | 19.75 | 8/8 | 22.0% | 75 |
+| 0.783 +1 tick | **C3** | 1,917 | **1.569** | 194,381 | 9,956 | **19.52** | 7/8 | 32.0% | **101** |
+| 0.783 +1 tick | crown #304 | 4,426 | 1.351 | **311,995** | 17,497 | 17.83 | 7/8 | 23.6% | 70 |
+| 1.033 +1/side | **C3** | 1,917 | **1.531** | 184,796 | 10,077 | **18.34** | **7/8** | 33.6% | **96** |
+| 1.033 +1/side | crown #304 | 4,426 | 1.321 | **289,865** | 18,077 | 16.04 | 6/8 | 25.4% | 65 |
+
+**C3 wins every quality read and loses the money read.** Profit factor 1.569 against 1.351,
+net-over-drawdown 19.52 against 17.83, $101 a trade against $70 — and it is the more
+**cost-robust** of the two: across the ladder C3's net-over-drawdown falls -11% while the
+crown's falls -19%, which is the whole point of the corner. It also gives up **-38% of the
+crown's money on -57% of its trades**.
+
+### Why it is NOT queued — two clauses, both pre-registered
+
+1. **CONCENTRATION FAILS.** The bar was: ex-top-10 net positive AND top-10 share no more than 5
+   points worse than the crown. C3's ten best trades are **32.0% of its net against the crown's
+   23.6%** — 8.4 points worse, not 5. Its ex-top-10 net is healthily positive ($132,227), so this
+   is not a B17-style tail artifact; it is simply a more concentrated way to earn less money.
+2. **THE RECENT STRETCH IS FLAT.** On the post-split stretch (spent lockbox — confirmatory only,
+   it ranks nothing) C3 made **$3,446 at PF 1.028 on 196 trades** while the crown made
+   **$61,015 at PF 1.249 on 399**. Whatever C3's per-trade quality is worth, it has not been
+   worth much lately, and the crown has.
+
+**Plateau at 5m: PASS, but only just.** All 30 one-step neighbours: **24 keep** profit factor ≥ 1.25
+AND ≥ 70% of C3's net-over-drawdown = exactly the 80% bar. The weak ones are the categorical knobs
+(Short Only 10.8, morning window 11.9, Long Only 13.1) — the same pattern round 37 found: the
+side and the window ARE the cell.
+
+**Overlap: it is a pure geometry swap, as expected.** C3 trades 1,427 days, the crown 2,451, of
+which **1,391 are shared — 97% of C3's days**; daily correlation 0.61 (0.73 on shared days); C3's
+net on days the crown is flat is $9,747. A replacement SHOULD overlap; this confirms the swap
+changes how the same days are traded, not which days.
+
+**Confirmatory, and worth banking: the 2026-09-06 crown move to #304 measures right.** On this same
+ladder #304 beats #243 on net-over-drawdown at every cost (17.83 against 15.50 at 0.783) and
+holds a slice more at the stressed cost.
+
+**DECISION: nothing moves.** C3 is not queued, the crown stays #304, the paper board and NinjaTrader
+are untouched. C3 is banked as **the best per-trade, most cost-robust NOISE geometry measured** — the
+one to reach for if fills ever get materially worse, or as the starting geometry if the family is
+ever re-searched for quality rather than money. Re-testing it needs a REASON (worse fills, a new
+tape), not another read of these same spent years.
+
+Files: `tools/r43_noise_c3_vs_crown.py`; results `tools/r37_results/r43_c3_vs_crown.csv`,
+`r43_plateau.csv`, `r43_overlap.txt`.
+
+---
+
 ## 🔬 2026-09-08 — ROUND 37: THE SCALP HUNT — the 2-MINUTE bar is where NOISE is a scalp (STUDIES rows 1315–1336, web v73.589)
 
 **Owner ask, verbatim:** *"look at EL strategies we've developed thus far. try to develop something
