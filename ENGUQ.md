@@ -39,6 +39,60 @@ pre-registered hybrid test, unrelated to this change). See `PAPER_TRADING.md`.
 
 ---
 
+## 👑 CROWN CHANGE 2026-09-08 — the crown moves to run #335 (R2: the #309 knobs with breakeven 2.0 R and stop 1.0)
+
+**Owner decision, 2026-09-08:** *"crown R2 once the validate passes, swap the paper leg."*
+The validate posted as **run #335, verdict PASS** (checks 6/6: plateau, wfe, sample,
+consistency, pbo, luck; walk-forward folds held **8 of 8**, WFE 1.405, DSR 0.997; plateau
+HIGH GROUND 24/24; PBO 0.385 = "some overfit risk"; lockbox pass=true, 129 trades / PF 1.53),
+and the crown moved the same evening. **NinjaTrader is NOT swapped** — it still runs the
+#226 port; that is a separate owner call.
+
+**What R2 is:** `augur_strategies/ENGUQ_1M_ETH_R2_1_0.py`, a sibling of the #309 file with the
+trading logic untouched and two defaults moved — `breakeven_R` 3.0 → **2.0** and
+`stop_mult` 1.3 → **1.0**. #309's own search maximised net and drawdown, never MAR or R per
+year, and pushed the breakeven to the top of its range so the stop almost never interfered;
+that is why 58% of its net sat in ten trades with a 282-day hold.
+
+Measured continuously with `tools/queue_guard.py` (entry-sliced, same window, costs and split
+as the #309 table below):
+
+| | run #335 / R2 defaults (new crown) | run #309 (outgoing crown, now the control) |
+|---|---|---|
+| selection (→2025-06-30) | n=1,830 · PF 1.714 · net $522,613 · DD $38,687 · EV R 0.505 · R/YR 61.7 | n=1,505 · PF 1.661 · net $505,756 · DD $44,403 · EV R 0.439 · R/YR 43.9 |
+| held-out year | n=118 · PF 1.675 · net $88,380 · DD $41,534 · EV R 0.487 · R/YR 57.5 | n=99 · PF 1.620 · net $85,511 · EV R 0.407 · R/YR 40.4 |
+| top-10 share of selection net | 52% | 53% |
+| longest hold | 142 days | 282 days |
+
+R2 wins every read and nothing is traded away. Selection check on pre-lockbox data only:
+be 1.5 / stop 1.0 ranks first and be 2.0 second by a hair (MAR 0.90 vs 0.96); the owner chose
+be 2.0 for dominating every read and winning the held-out year, and every cell that beat the
+crown pre-lockbox also beat it in the held-out year. Caveat carried over from the queue note:
+era split 2-2, not 4-0 (PF slips 2010-14 and 2018-22, improves 2014-18 and 2022-26).
+
+- **The honest note, said plainly:** run #335 searched the **whole file** — every knob open
+  except the two fenced ones — and its own best cell (`validate.champion`) is a **different
+  configuration**: ema_len 1340, tl_len 238, trail_frac 4.0, atr_len 28, act_R 2.5,
+  breakeven_R 1.0, limit_atr 0.1, vol_mult 0.0, regime_len 5, min_brk 1.4. That cell is
+  IS 870 trades / PF 2.26 (first-75% score), whole window 1,344 trades / PF 1.82 / $541k,
+  and its entry-sliced held-out year is **weaker** than the R2 defaults: 128 trades / PF
+  1.455 / $49,812 / DD $47,779 against 118 / 1.675 / $88,380 / $41,534. It also carries the
+  early breakeven (1.0 R) that memory `edgelog-evr-gameable-by-breakeven` warns about.
+  **The paper leg therefore trades the R2 DEFAULTS the owner compared and chose; run #335
+  certifies the landscape, not that cell.** Putting #335's own cell on the board instead is
+  a one-line change in `api/paper.py` (`ENGUQ_335`) — the owner's call.
+- **#309 stays on the board as the control.** Same lineage, same window, only the breakeven
+  and stop differ, so any gap between the two rows from 2026-09-08 on is those two knobs
+  and nothing else. Its chip reads "ex-crown · control".
+- **Recorded where:** `index.html` PAPER_LEG_DEFS gets `ENGUQ_335` (crown chip, `ctrl:
+  ENGUQ_309`) and `ENGUQ_309` loses the crown; `api/paper.py` gets `ENGUQ_335 =
+  dict(ENGUQ_309, breakeven_R=2.0, stop_mult=1.0)`, `LEG_LIVE_FROM["ENGUQ_335"] =
+  "2026-09-08"`, a `LEG_SOURCE["ENGUQ_335"]` provenance block and a new `PAPER_LEGS` row —
+  no ML gate. The KEEL / compression overlay legs keep #309 as their base and control.
+- **Background:** the research finding is the 2026-09-08 subsection under the 09-05 section
+  ("R2 sibling measured continuously") and `BOOKMARKS.md` B25; the `{}`-params trap it
+  exposed is fixed since v73.574 (`tools/queue_guard.py`).
+
 ## 👑 CROWN CHANGE 2026-09-05 — the ENGU-Q family crown moves to run #309
 
 **Owner decision, 2026-09-05:** *"crown #309 and swap the paper leg to it."* The ENGU-Q
@@ -151,8 +205,8 @@ run doc).
 
 **R2 beats #309 on every read in this table** — selection and lockbox PF, net, EV R and R/YR
 all move the right way, top-10 share is a hair lower, and the longest hold is half as long.
-Crowning waits on R2's own Auto-Validate (job `wRUgSS4JeGLlI7muKZ31`, running as of 2026-09-08)
-and the owner's decision — this table is the research finding, not the crowning. See
+That validate posted as **run #335, verdict PASS**, and the crown moved on 2026-09-08 — see the
+CROWN CHANGE 2026-09-08 section at the top; this table is the research finding behind it. See
 `BOOKMARKS.md` B25 for the same comparison alongside the round-31 pooled books.
 
 **The `{}`-params trap this comparison caught and fixed.** Before v73.574,
@@ -468,6 +522,11 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 
 ## §3 — Changelog
 
+- **2026-09-08 (evening)** — **CROWN CHANGE → run #335 (R2).** Its Auto-Validate passed (6/6,
+  WF 8/8, lockbox held) and the owner's standing instruction fired: paper leg `ENGUQ_335`
+  added on both boards trading the R2 defaults, `ENGUQ_309` demoted to the matched control.
+  The validate's own best cell is a different configuration with a weaker held-out year —
+  stated in the new CROWN CHANGE section, not adopted. NinjaTrader unchanged (#226 port).
 - **2026-09-08** — R2 sibling (`ENGUQ_1M_ETH_R2_1_0.py`, corrected breakeven/stop) measured
   continuously against the #309 crown: beats it on every read (selection PF 1.714 vs 1.661,
   R/YR 61.7 vs 43.9; lockbox PF 1.675 vs 1.620, R/YR 57.5 vs 40.4; top-10 share 52% vs 53%;

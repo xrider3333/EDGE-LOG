@@ -207,8 +207,11 @@ entry-sliced, same window/split as above):
 | top-10 share | 53% | 52% |
 | longest hold | 282 d | 142 d |
 
-**R2 beats #309 on every read above.** Crowning waits on R2's own Auto-Validate (job
-`wRUgSS4JeGLlI7muKZ31`, running) and the owner. See `ENGUQ.md` for the `{}`-params trap this
+**R2 beats #309 on every read above. CROWNED 2026-09-08:** the validate posted as run **#335, PASS**
+(6/6 checks, WF 8/8, lockbox held, PBO 0.385); paper leg `ENGUQ_335` trades the R2 defaults on both
+boards and #309 is its matched control. The validate's own best cell is a different configuration
+with a weaker held-out year ($49.8k PF 1.46 vs $88.4k PF 1.68) — recorded, not adopted; see
+`ENGUQ.md` CROWN CHANGE 2026-09-08. NinjaTrader unchanged. See `ENGUQ.md` for the `{}`-params trap this
 comparison exposed and fixed.
 
 ## 2026-09-08 — B21 GAPGO family seed (rounds 32-34, rows 1288-1299, v73.589)

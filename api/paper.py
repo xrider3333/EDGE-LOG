@@ -89,6 +89,8 @@ LEG_LIVE_FROM = {
     "ORB_R6_C15": "2026-09-08",       # the ORB crown x compression 1.5x, no model (the tilt travels: LB $87k -> $102k at identical DD)
     "ENGUQ_309_C15": "2026-09-08",    # the ENGU-Q crown x compression 1.5x, no model (LB $86k -> $110k at better DD)
     "ENGUQ_309_K9": "2026-09-08",     # KEEL v9 on the ENGU-Q crown (WF $576k vs $471k at BETTER DD; LB = the tilt alone)      # KEEL overlay on the ENGU-Q crown, forward test only (added 09-06)  # KEEL overlay on the same crown, forward test only (added 09-06, a Sunday)
+    "ENGUQ_335": "2026-09-08",  # NEW FAMILY CROWN (owner 2026-09-08: "crown R2 once the validate
+                                # passes, swap the paper leg"); #309 below stays as the control
     "ENGUQ_309": "2026-09-05",  # NEW FAMILY CROWN (owner: "crown #309 and swap the paper
     # leg to it"); ENGUQ_ER / ENGUQ_ER_H / ENGUQ_L50 keep their own dates unchanged --
     # this is an addition, not a swap-in-place.
@@ -286,6 +288,31 @@ ENGUQ_ER_GATE = {"mode": "hybrid", "model": "logistic", "threshold": 0.55,
 ENGUQ_309 = dict(buf_atr=0.3, tl_len=206, trail_frac=2.5, ema_len=220, atr_len=52,
                  act_R=1.5, breakeven_R=3.0, limit_atr=0.55, er_len=100, stop_mult=1.3,
                  regime_len=10, min_brk=1.6, vol_mult=1.1, er_th=0.0)
+
+# ENGU-Q ETH -- run #335, THE FAMILY CROWN SINCE 2026-09-08 (owner: "crown R2 once the
+# validate passes, swap the paper leg"). R2 = augur_strategies/ENGUQ_1M_ETH_R2_1_0.py, a
+# sibling of the #309 file whose trading logic is untouched; its DEFAULT_PARAMS are the
+# #309 configuration above with the two risk knobs corrected -- breakeven 3.0 R -> 2.0 R
+# and stop 1.3 -> 1.0 ATR -- so this dict is derived from ENGUQ_309 on purpose: any drift
+# between the two rows on the paper board is those two knobs and nothing else.
+#
+# Measured continuously, sliced by ENTRY time (tools/queue_guard.py, same window, costs and
+# split as ENGUQ_309 above):
+#   selection 2010-06-07..2025-06-30  n=1,830  PF 1.714  net $522,613  DD $38,687  EV R 0.505  R/YR 61.7
+#   held-out year                     n=  118  PF 1.675  net $ 88,380  DD $41,534  EV R 0.487  R/YR 57.5
+# vs #309: selection PF 1.661 / $505,756 / EV R 0.439 / R/YR 43.9, held-out PF 1.620 /
+# $85,511 / EV R 0.407 / R/YR 40.4 -- R2 wins every read; top-10 share 52% vs 53%; longest
+# hold 142 days vs 282. Certified by Auto-Validate run #335 (PASS, checks 6/6, WF folds
+# held 8/8, WFE 1.41, DSR 0.997, plateau HIGH GROUND 24/24, PBO 0.385, lockbox held).
+#
+# THE HONEST NOTE: #335 searched the WHOLE file (every knob open except the two fenced
+# ones) and its own best cell is a different configuration (ema_len 1340, trail_frac 4.0,
+# breakeven_R 1.0, vol_mult 0.0, limit_atr 0.1) whose held-out year is WEAKER than these
+# defaults ($49,812 at PF 1.455 vs $88,380 at PF 1.675, entry-sliced both). This leg trades
+# the R2 DEFAULTS the owner compared and chose; the run certifies the landscape. If the
+# owner wants #335's own cell on the board instead, that is a one-line change here.
+# NinjaTrader is NOT swapped by this -- it still runs the #226 port.
+ENGUQ_335 = dict(ENGUQ_309, breakeven_R=2.0, stop_mult=1.0)
 
 # NOISE leg params: the validated config (see NOISE_1_0.py docstring) + the
 # researched bandwidth stop. NOISE is execution-CLEAN (close signal -> next-open
@@ -947,6 +974,34 @@ LEG_SOURCE = {
                   "leg is a pre-registered forward test: it should beat NOISE_225 on recovery "
                   "from 2026-08-16 on, and if it does not, the lockbox row was noise.",
     },
+    "ENGUQ_335": {
+        "run": 335, "run_label": "#335 (ENGU-Q ETH, R2 = #309 with breakeven 2.0 R / stop 1.0)",
+        "strategy_file": "ENGUQ_1M_ETH_R2_1_0.py",
+        "picked": "2026-09-08",
+        "note": "THE FAMILY CROWN since 2026-09-08, replacing #309 (owner: \"crown R2 once the "
+                "validate passes, swap the paper leg\"). R2 is the #309 configuration with two "
+                "risk knobs corrected -- breakeven 3.0 R -> 2.0 R, stop 1.3 -> 1.0 ATR -- in a "
+                "sibling file whose trading logic is byte-identical. Measured continuously "
+                "over 2010-06-07..2026-06-30, NQ 1m ETH, cost 0.533, mult 20 (tools/"
+                "queue_guard.py, entry-sliced): selection n=1,830 / PF 1.714 / net $522,613 / "
+                "DD $38,687 / EV R 0.505 / R per YR 61.7; held-out year n=118 / PF 1.675 / "
+                "net $88,380 / DD $41,534 / EV R 0.487 / R per YR 57.5; top-10 share 52% "
+                "(#309: 53%); longest hold 142 days (#309: 282). Beats #309 on every read. "
+                "Auto-Validate run #335: verdict PASS (checks 6/6: plateau, wfe, sample, "
+                "consistency, pbo, luck; WF folds_held 8 of 8, WFE 1.405, DSR 0.997; plateau "
+                "HIGH GROUND 24/24; PBO 0.385 = some overfit risk; lockbox pass=true, 129 "
+                "trades / PF 1.53). No ML gate on this leg.",
+        "caveat": "SAID PLAINLY: run #335 searched the whole file (every knob open except the "
+                  "two fenced ones) and its own best cell is a DIFFERENT configuration "
+                  "(ema_len 1340, trail_frac 4.0, breakeven_R 1.0, vol_mult 0.0, limit_atr "
+                  "0.1) whose entry-sliced held-out year is weaker than these defaults "
+                  "($49,812 at PF 1.455 vs $88,380 at PF 1.675). This leg trades the R2 "
+                  "DEFAULTS the owner compared; the run certifies the landscape, not that "
+                  "cell. PBO 0.385 is the one soft check. #309 stays running directly beside "
+                  "it as the matched control (LEG_SOURCE[\"ENGUQ_309\"]); NinjaTrader still "
+                  "runs the #226 port -- swapping it is a separate owner call. See ENGUQ.md "
+                  "CROWN CHANGE 2026-09-08.",
+    },
     "ENGUQ_309": {
         "run": 309, "run_label": "#309 (ENGU-Q ETH, EV R / R-YR crown)",
         "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py",
@@ -1000,6 +1055,14 @@ PAPER_LEGS = [
     {"key": "ORB_R6", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
      "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "history_from": _GATE_HISTORY_FROM, "source": LEG_SOURCE["ORB_R6"]},
+    # ADDED 2026-09-08 (owner: "crown R2 once the validate passes, swap the paper leg").
+    # THE ENGU-Q family crown -- see ENGUQ_335's comment block above and ENGUQ.md's
+    # CROWN CHANGE 2026-09-08 section. An ADDITION, not a swap-in-place: the #309 row
+    # directly below keeps running as the matched control (same lineage, same window,
+    # only the breakeven and stop differ). No ML gate on this leg.
+    {"key": "ENGUQ_335", "strategy": "ENGUQ_1M_ETH_R2_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_335,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "source": LEG_SOURCE["ENGUQ_335"]},
     # ADDED 2026-09-05 (owner: "crown #309 and swap the paper leg to it"). The NEW
     # ENGU-Q family crown -- see ENGUQ_309's own comment block above for the full
     # evidence and ENGUQ.md's CROWN CHANGE 2026-09-05 section for the writeup. This is
