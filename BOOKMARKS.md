@@ -401,3 +401,17 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **All 18 combinations scored** — the four-leg book wins; dropping ORB (weakest alone, 0.42 correlated with NOISE) is worse on both stretches. Other correlations 0.01-0.10.
 - **Queued:** three-leg crown swap (`m3Q0cIr8M5w61Cflqubp`) and four-leg book (`pu7lNV62eVgMYwqWS6XU`), the former deliberately separate so the swap and the new leg can be told apart.
 - **Standing caveat:** every version — adopted included — has a held-back year whose ten best days are ~103% of its profit; the ENGU-Q leg's held-back year was already read at crowning.
+
+### B31 RESULT — the four-leg book is better; the crown swap is a wash (round 51, rows 1682-1686, v73.700)
+
+| book (app's own scorer, same window + held-back split) | sel net | sel DD | **sel n/DD** | PF | LB n/DD | slices |
+|---|---|---|---|---|---|---|
+| #361 adopted (ENGU-Q ex-crown) | $1,038,497 | $34,329 | 30.25 | 1.526 | 10.31 | 8/8 |
+| #365 crown swap only | $1,048,336 | $36,435 | 28.77 | 1.538 | 10.72 | 8/8 |
+| **#366 four-leg (+ NOISE #304 w1)** | **$1,395,904** | $36,562 | **38.18** | 1.486 | 10.33 | 8/8 |
+
+- **#366 is the win:** +26% selection n/DD, +25% whole-window (46.11 vs 36.93), held-back year level, 8/8 slices. Net +34% for +6.5% drawdown.
+- **Cost of it:** PF 1.526 → 1.486 (NOISE is the lowest-PF leg) and trade count roughly doubles. Judge on n/DD, not PF.
+- **The crown swap alone is a WASH** (28.77 vs 30.25) — defensible as housekeeping (it is what the paper leg trades), not an improvement. **My round-48 claim of 11.95 → 28.77 is withdrawn.**
+- **Why round 48 was wrong:** I reproduced #361 locally, pooling legs by exit day in local time; the app stamps its own way and for an overnight leg that halves the measured drawdown. **Take the app's own numbers as the baseline when comparing against a run it produced.**
+- **Unchanged caveat:** all three books' held-back year has ten best days ≈103% of that year's profit.
