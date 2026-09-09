@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.639';
+const VERSION='73.640';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -605,6 +605,7 @@ const CHANGELOG=[
 {v:'73.638',date:'2026-09-09',notes:['PILLS AUDIT: run 335 showed every top-level diagnostic-pill field (adversarial, VIF, and the rest) empty even though validate.flags carried real numbers. Traced it down: nothing was ever dropped - Auto-Validate has always computed the full pill bundle and saved it nested under validate, and the top-level fields are only used by Auto-Optimize runs (a comment in the save code already said so). The real gap was different: the pill block had ONE try/except around all eleven checks, so a single failing check could silently take out every other one for that run, and there was no way to turn any of it off.','FIXED: Auto-Validate now calls the same shared pill bundle Auto-Optimize uses, so each check gets its OWN try/except - one failing check can never suppress the rest. Two new engine switches (default ON, matching the always-on behavior this already had): compute_pills, and compute_feature_select for the one check measured as the most expensive by a wide margin - about 28 seconds of a roughly 64-second bundle on a 16-year 1-minute NQ window.','THE ONE NUMBER WORTH READING: the adversarial-validation score - does the reserved lockbox period look like a different market regime than the training history - now gets its own plain-English line right next to the big PASS/WEAK/FAIL verdict (clean/mild/moderate/severe drift, with the number), instead of waiting inside the chip grid further down. Also added as a small drift pill on the COMPARE BETA LEADERBOARD rows, next to the verdict pill.']},
 {v:'73.635',date:'2026-09-09',notes:['COMPARE - STUDIES: run 343 - the ES 15-minute TTM cell on its own - joins round 9 as row 1469 and comes back WEAK: the luck check fails and the deflated Sharpe says it does not beat the luck bar, against a bar that allowed WEAK on the overfit check alone. It also crowned different settings than BOOK run 342 used, which fires the condition written into that job note: run 342 does not transfer.','TTM stays a one-leg diversifier. The only validated improvement in the family is the deep-squeeze size tilt (run 340), which is running in the paper forward test as TTM_299_T beside the untilted control.']},
 {v:'73.633',date:'2026-09-09',notes:['COMPARE - STUDIES: TTM Squeeze round 10, rows 1457-1468 - a sizing sweep of the TTM book leg that crowned nothing, because the rule written for it turned out degenerate: the book whole-run drawdown does not move at all as the leg goes from one contract to four.','THE REASON MATTERS BEYOND TTM: the book worst stretch is the pandemic crash, 2020-02-21 to 2020-03-25, and the TTM leg took ZERO trades in it. Any leg that sat out early 2020 can be scaled almost freely under a whole-run drawdown clause - which is the clause under the plus 15 percent stack bar and the three-clause bar used in rounds 8 to 10. The lockbox drawdown is the number that actually responds to weight, and it is the one run 342 improved.']},
+{v:'73.640',date:'2026-09-09',notes:['COMPARE BETA, PHASE 3: the COMPARE screen is real. The runs you picked draw as one equity overlay - solid through the tuning years, dotted through the sealed lockbox, one colour per run with a removable chip - over a table that puts every run in its own column: net, MAR, profit factor, expectancy in R, R per year, win rate, trades, drawdown and years, with the best run on each row underlined. It reads the SAME picked-run list the old PICK RUNS writes, so a selection made on either tab is the selection on both, and every figure follows the one STAGE control instead of living on three separate views.','LOCKBOX DRAWDOWN NO LONGER DASHES. A per-stage drawdown is only stored on runs validated since v73.419, which is why MAR and DD were blank for most runs on the board. When it is missing it is now measured off the saved equity curve, the way the old RUNBOARD already did. That curve is downsampled, so the figure can only under-state the real drawdown - it is drawn with a leading ~ wherever it is used, so a derived number never passes for a stored one.','A book takes no second contract multiplier on the overlay either, so a book curve reads in the dollars the engine pooled. The old PICK RUNS overlay multiplies it a second time; that is the outlier, not this.','A MISSING IN-SAMPLE FIGURE NOW DASHES INSTEAD OF READING ZERO, on this screen and on the LEADERBOARD. A run with no saved in-sample drawdown was showing a drawdown of nothing at all, which made it the smallest of the runs being compared and won it the row; a run with no saved net showed as breaking even and beat a run that genuinely lost money.','A run whose drawdown had to be measured off its curve is shown but never crowned on the drawdown or MAR rows, since an under-stated drawdown would win them by being wrong. On the LEADERBOARD, where MAR is what a family is RANKED on, such a figure still ranks - hiding a family would be worse - but it prints with a ~ and the note under the board says a ~ MAR is if anything flattering. The board note used to claim those figures were simply unavailable, which is now the opposite of what it draws. Win rate and trade count are no longer contests at all - the crown of this book wins 27 percent of its trades by design.','Ship gate: the COMPARE BETA render probe grows a seventh case that picks three runs - one with a curve, one with a curve but no stored drawdown, one with no curve at all - renders the screen on all three stages, and checks the paths carry real coordinates rather than the NaN that renders as a blank chart, plus the chips, the per-run columns, the best-in-row marks, the ~ markers and every sentence of the disclosure note.']},
 {v:'73.630',date:'2026-09-09',notes:['KEEL v12 - HALF SIZE BEFORE THE FED SPEAKS. Every earlier round searched the same features harder and found nothing: about 175 candidates across seven directions, none of them beating v11. This one adds information that was never in the data - the Federal Reserve\'s own published calendar of policy meeting dates, which is announced a year ahead, so a rule keyed on it is knowable at the moment of entry. Trades entered on a decision day BEFORE the 2pm Eastern statement are the worst bucket found anywhere in this work: expectancy of minus 0.48 and minus 0.43 R on the two NOISE runs against a plus 0.31 and plus 0.28 baseline, losing in the in-sample stretch, the walk-forward AND the lockbox on both runs, and losing in 8 of 9 walk-forward years on both. Against 4,000 random calendars of the same size the real one lands in the bottom tenth of one percent. Three placebos all lose money as they must - the morning before a decision day, a random matched day-set, and an every-morning shrink of the same dollar size - so the rule is keyed to the events and not to mornings. Half size, never a cut.','On top of v11 it is better on all four stretches with drawdown never worse on any of them: paper run walk-forward $532,380 against $523,760 at identical drawdown and lockbox $90,740 against $86,080 at slightly better drawdown; crown walk-forward $497,200 against $490,620 at better drawdown and lockbox $144,260 against $139,020 at identical drawdown. Stated against itself: the pre-registered story was backwards - the 2pm shock was supposed to be the bad half and it is the better half - so the split is after the fact, which is what the permutation test and the placebos are there to price.','The hole is not a NOISE quirk. The same bucket is negative on the ORB breakout crown and on the ENGU-Q continuation crown, which share nothing with NOISE but the tape, so the tilt is also available without the model for those legs.','PAPER from 2026-09-09, each beside the identical config without the event rule: NOISE_SBS_V90_K12 (control K11), ORB_R6_C15FE (control ORB_R6_C15F), ENGUQ_309_CDE (control ENGUQ_309_CD). The Fed calendar file now carries the schedule forward to December 2027, so the tilt fires live rather than going quiet.']},
 {v:'73.629',date:'2026-09-09',notes:['COMPARE - STUDIES: BOOK run 342 - the validated deep-squeeze tilt plus the ES 15-minute cell - joins round 9 as row 1456 and CLEARS all three clauses against the adopted book: annualised MAR times 1.1015 against a bar of times 1.05, drawdown times 1.007, lockbox up 8 percent at a LOWER lockbox drawdown, eight of eight slices. Its own prediction, filed before the run, was times 1.097.','Not an adoption: the 15-minute leg has never been validated alone, so it is now under a fenced Auto-Validate with the fence inherited from run 299 and the bar written first. If that run crowns a different cell, the book has to be re-measured before anything changes.']},
 {v:'73.627',date:'2026-09-09',notes:['COMPARE - STUDIES: BOOK run 341 - the validated deep-squeeze tilt as the TTM book leg - joins round 8 as row 1455. Against the adopted book: 4.9 percent more money at an IDENTICAL drawdown of 34,329 dollars and a 3 percent bigger lockbox, but annualised MAR times 1.0485 against a bar of times 1.05. It misses on that clause alone, by fifteen hundredths of a percent, exactly as the prediction filed in its job note said. The leg passed its bar; the book did not pass the book bar.']},
@@ -25724,6 +25725,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'.c2-act.on{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 50%,transparent)}'
         +'.c2-note{font-size:9.5px;color:var(--text5);margin-top:8px;line-height:1.6}'
         +'.c2-hold{padding:34px 20px;text-align:center;color:var(--text5);font-size:10px;letter-spacing:2px}'
+        +'.c2-scroll{overflow-x:auto}'
+        +'.c2-mx{border-collapse:collapse;width:100%;font-size:11px}'
+        +'.c2-mx th,.c2-mx td{padding:7px 14px;border-top:1px solid var(--border2);white-space:nowrap;text-align:right;font-family:\'JetBrains Mono\',monospace;font-variant-numeric:tabular-nums}'
+        +'.c2-mx th{border-top:0;font-family:inherit;font-size:9.5px;letter-spacing:.5px;color:var(--text3);font-weight:700;padding-bottom:9px}'
+        +'.c2-mx tr>*:first-child{text-align:left;font-family:inherit;font-size:9px;letter-spacing:.9px;color:var(--text5);font-weight:700;position:sticky;left:0;background:var(--bg2)}'
+        +'.c2-mx tr:hover td{background:color-mix(in srgb,var(--text) 4%,transparent)}'
+        +'.c2-best{border-bottom:2px solid color-mix(in srgb,var(--blue) 65%,transparent);padding-bottom:1px}'
+        +'.c2-lg{display:inline-flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);border:1px solid var(--border2);border-radius:999px;padding:3px 9px;margin:0 6px 6px 0}'
+        +'.c2-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}'
+        +'.c2-x{cursor:pointer;color:var(--text5);font-size:12px;line-height:1}'
+        +'.c2-x:hover{color:var(--red)}'
         +'</style>';
       // ── components: the five things every screen is built from ────────────────────
       const _c2Seg=(attr,opts,cur)=>'<span class="c2-seg">'+opts.map(o=>'<span data-'+attr+'="'+o[0]+'"'+(o[2]?(' title="'+_reEscC2(o[2])+'"'):'')+' class="'+(o[0]===cur?'on':'')+'">'+o[1]+'</span>').join('')+'</span>';
@@ -25754,6 +25766,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // a book's figures are already DOLLARS (each leg was scaled by its own contract multiplier
       //   when the engine pooled them - augur_engine/book.py), so it gets no second multiplier.
       const _c2mc=x=>_c2IsBook(x)?1:(x.multiplier||instMult(x.instrument)||20);
+      // THE DRAWDOWN THE RUN SUMMARY DOES NOT CARRY, measured off the saved equity curve
+      //   instead. Without this, MAR and DD dashed on the lockbox for most runs, because a
+      //   per-stage drawdown is only stored on runs validated since v73.419 - the old
+      //   RUNBOARD fills the same gap the same way. The saved curve is DOWNSAMPLED, so a
+      //   peak-to-trough measured here can only UNDER-state the real one; every figure that
+      //   comes from it is drawn with a leading ~ so a derived number never passes for a
+      //   stored one.
+      // lb_idx is an index into the VALIDATE curve and into nothing else, so a lockbox
+      //   stretch can only ever be measured there - the plain-sweep curve carries no marker
+      //   for where the sealed year begins. Only the lockbox is asked for today, so that is
+      //   the only curve this reads; the bounds match _c2Curve exactly, so a run never gets
+      //   a lockbox drawdown from a stretch the chart declined to draw as a lockbox.
+      const _c2eqDD=(r,seg)=>{const V=r&&r.validate;
+        const eq=(V&&Array.isArray(V.equity)&&V.equity.length>2)?V.equity:null;
+        if(!eq||seg!=='lb')return null;
+        const mc=_c2mc(r),n=eq.length,b=n-1;
+        const k=(V.lb_idx!=null)?Math.round(+V.lb_idx):null;
+        if(k==null||!isFinite(k)||k<1||k>n-2)return null;
+        let rm=-Infinity,dd=0;
+        for(let i=k;i<=b;i++){const v=+eq[i];if(!isFinite(v))continue;if(v>rm)rm=v;const d=v-rm;if(d<dd)dd=d;}
+        // nothing readable in the stretch is NOT a drawdown of zero - that would be a
+        //   confident wrong number. A stretch that really never drew down is zero, and the
+        //   old board returns zero there too.
+        if(rm===-Infinity)return null;
+        return Math.abs(dd)*mc;};
       const _c2wf=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f=>f&&f.fold!=null):[]);if(fl.length<2)return null;
         const mc=_c2mc(x),net=fl.reduce((a,f)=>a+(+f.oos_pnl||0),0)*mc,tr=fl.reduce((a,f)=>a+(+f.oos_trades||0),0);
         const pfs=fl.map(f=>+f.oos_pf).filter(v=>isFinite(v)&&v>0).sort((a,b)=>a-b);
@@ -25764,10 +25801,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   fields RUNBOARD's BOOKS tile reads. Without them a book dashed MAR and R / YR on LB.
       const _c2lb=x=>{const V=x.validate,lb=V&&V.lockbox;if(!lb)return null;const _bl=(x.book&&x.book.lockbox)||null;
         const W=((lb.from&&lb.to)?[lb.from,lb.to]:null)||(V.windows&&V.windows.lockbox)||((x.book&&x.book.lockbox_from&&(x.book.date_to||x.date_to))?[x.book.lockbox_from,(x.book.date_to||x.date_to)]:null)||null;
-        return {net:(+lb.pnl||0)*_c2mc(x),pf:(+lb.pf||0),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:((_bl&&_bl.win_rate!=null)?+_bl.win_rate:null)),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):((_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))?Math.abs(+_bl.max_drawdown):null)),
+        return {net:(+lb.pnl||0)*_c2mc(x),pf:(+lb.pf||0),tr:(+lb.trades||0),wr:(lb.win_rate!=null?+lb.win_rate:((_bl&&_bl.win_rate!=null)?+_bl.win_rate:null)),dd:(lb.dd!=null?Math.abs(+lb.dd)*_c2mc(x):((_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))?Math.abs(+_bl.max_drawdown):_c2eqDD(x,'lb'))),ddApx:(lb.dd==null&&!(_bl&&_bl.max_drawdown!=null&&isFinite(+_bl.max_drawdown))),
           yrs:((W&&W[0]&&W[1]&&typeof _yrsBetween==='function')?_yrsBetween(String(W[0]).slice(0,10),String(W[1]).slice(0,10))
                :((V.windows&&+V.windows.lockbox_months>0)?(+V.windows.lockbox_months/12):null)),pass:!!lb.pass};};
-      const _c2is=x=>({net:(+x.best_pnl_usd||0),pf:(x.best_pf!=null?+x.best_pf:null),tr:(+x.best_trades||0),wr:(x.best_win_rate!=null?+x.best_win_rate:null),dd:Math.abs(+x.best_dd_usd||0),yrs:_runYrs(x)});
+      // A MISSING FIGURE IS A DASH, NEVER A ZERO. Coercing an absent drawdown to 0 made the
+      //   run with no drawdown saved the SMALLEST drawdown of the picked runs, so it won the
+      //   row and the MAR row underneath it; an absent net showed as $0 and beat a run that
+      //   genuinely lost money.
+      const _c2is=x=>({net:((x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd))?+x.best_pnl_usd:null),
+        pf:(x.best_pf!=null?+x.best_pf:null),tr:(+x.best_trades||0),
+        wr:(x.best_win_rate!=null?+x.best_win_rate:null),
+        dd:((x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null),
+        yrs:_runYrs(x)});
       // ── state (namespaced c2*, so the two tabs never fight over a pref) ─────────────
       const _c2Screen=(['lead','cmp','explore'].indexOf(APREF.c2Screen)>=0)?APREF.c2Screen:'lead';
       const _c2Stage=(['is','wf','lb'].indexOf(APREF.c2Stage)>=0)?APREF.c2Stage:'lb';
@@ -25777,10 +25822,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _c2StageNm={is:'IS',wf:'WF',lb:'LB'}[_c2Stage];
       // the one figure a row is ranked on, plus why it is missing when it is
       const _c2Val=r=>{const S=_c2StageOf(r);if(!S)return {v:null,why:'This run saved no '+({is:'in-sample',wf:'walk-forward',lb:'lockbox'}[_c2Stage])+' figures.'};
-        if(_c2Rank==='net')return {v:S.net,why:''};
+        if(_c2Rank==='net')return {v:S.net,why:(S.net==null?('No '+_c2StageNm+' net is saved on this run.'):'')};
         if(_c2Rank==='pf')return {v:(S.pf>0?S.pf:null),why:'No profit factor on this stretch.'};
-        if(_c2Rank==='mar'){if(S.dd==null)return {v:null,why:'A '+_c2StageNm+' drawdown is not saved on the run summary - open the report for it.'};
-          const m=_marAnn(S.net,S.yrs,S.dd);return {v:m,why:(m==null?'Needs the window length and a drawdown.':'')};}
+        if(_c2Rank==='mar'){if(S.dd==null)return {v:null,why:'A '+_c2StageNm+' drawdown is not saved on this run, and its saved curve cannot be cut at this stage either.'};
+          if(S.net==null)return {v:null,why:'No '+_c2StageNm+' net is saved on this run, so there is nothing to divide by the drawdown.'};
+          if(S.dd===0)return {v:null,why:'This stretch never drew down, so MAR has nothing to divide by.'};
+          const m=_marAnn(S.net,S.yrs,S.dd);
+          // a MAR built on a drawdown measured off the downsampled curve is INFLATED, because
+          //   that drawdown can only come out too small. It still ranks - hiding a family
+          //   would be worse - but it is marked ~ wherever it is printed, and the note under
+          //   the board says what the mark means.
+          return {v:m,why:(m==null?('The '+_c2StageNm+' window length is not saved on this run, so MAR cannot be annualised.'):''),apx:!!(m!=null&&S.ddApx)};}
         const e=_evInR(S.wr,S.pf,S.tr);if(e==null)return {v:null,why:'Expectancy in R needs a win rate and a profit factor on this stretch.'};
         if(S.yrs==null)return {v:null,why:'The '+_c2StageNm+' window length is not saved on the run summary, so R per year cannot be annualised here.'};
         return {v:_rPerYr(e,S.tr,S.yrs),why:''};};
@@ -25788,14 +25840,168 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(_c2Rank==='rpy')return v.toFixed(1);return v.toFixed(2);};
       const _c2Unit={rpy:'R / YR',mar:'MAR',pf:'PF',net:'NET'}[_c2Rank]+' \u00b7 '+_c2StageNm;
       const _c2Col=v=>(_c2Rank==='net'&&v!=null)?(v>=0?'var(--green)':'var(--red)'):'var(--text)';
+      // ── the overlay (phase 3) ──────────────────────────────────
+      //    The old tab draws its overlay inline, tangled with that tab own mode flags, so
+      //    there is no function to call - this is the same drawing off the same fields: the
+      //    saved curve scaled by the run multiplier, and lb_idx for where the sealed
+      //    lockbox begins. A book is already in dollars, so _c2mc gives it no second
+      //    multiplier, which is the one number the old overlay gets wrong.
+      const _C2PAL=['#60a5fa','#34d399','#f0b429','#c084fc','#f87171','#2dd4bf','#f0abfc','#94a3b8'];
+      const _c2Curve=r=>{const V=r&&r.validate,mc=_c2mc(r);
+        const ve=(V&&Array.isArray(V.equity)&&V.equity.length>2)?V.equity:null;
+        const eq=ve||((r&&r.equity&&Array.isArray(r.equity.cum)&&r.equity.cum.length>2)?r.equity.cum:null);
+        if(!eq)return null;
+        const v=eq.map(x=>(+x||0)*mc),n=v.length;
+        // ONLY the validate curve may be cut at lb_idx - it is an index into that array and
+        //   no other. Cutting the plain-sweep curve there drew the lockbox boundary in the
+        //   wrong place and labelled tuning-window money as sealed, which is the worst kind
+        //   of wrong: quietly plausible. A curve with no marker simply draws solid.
+        let li=null;
+        if(ve&&V.lb_idx!=null){const k=Math.round(+V.lb_idx);if(isFinite(k)&&k>=1&&k<=n-2)li=k;}
+        return {v:v,n:n,li:li};};
+      // Curves run end to end across their OWN window, so left-to-right is progress through
+      //   each run, not a shared calendar - a 2010 run and a 2024 run fill the same width on
+      //   purpose, because what is being compared is the shape. The dotted tail is the
+      //   sealed lockbox, so how much of a curve was earned out of sample is visible without
+      //   reading a single number. Said in words under the chart, never left to be guessed.
+      const _c2Ovl=items=>{const cs=items.filter(x=>x.c);
+        if(!cs.length)return '<div class="c2-hold">NONE OF THESE RUNS SAVED AN EQUITY CURVE</div>';
+        const W=1000,H=250,PL=56,PR=12,PT=12,PB=16,pw=W-PL-PR,ph=H-PT-PB;
+        let mn=0,mx=0;cs.forEach(x=>{x.c.v.forEach(y=>{if(y<mn)mn=y;if(y>mx)mx=y;});});
+        if(mx-mn<1)mx=mn+1;
+        const px=f=>(PL+f*pw),py=y=>(PT+ph-((y-mn)/(mx-mn))*ph);
+        const kd=y=>{const a=Math.abs(y),g=(y<0?'-$':'$');
+          return (a>=10000)?(g+Math.round(a/1000).toLocaleString()+'k'):(g+Math.round(a).toLocaleString());};
+        const pth=(v,a,b)=>{let d='';const last=v.length-1;
+          for(let i=a;i<=b;i++)d+=((i===a)?'M':'L')+px(i/last).toFixed(1)+','+py(v[i]).toFixed(1);return d;};
+        let g='<line x1="'+PL+'" y1="'+py(0).toFixed(1)+'" x2="'+(PL+pw)+'" y2="'+py(0).toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>';
+        const lab=(y,t)=>'<text x="'+(PL-7)+'" y="'+py(y).toFixed(1)+'" text-anchor="end" dominant-baseline="middle" fill="var(--text5)" font-size="9" font-family="monospace">'+t+'</text>';
+        g+=((mx>0)?lab(mx,kd(mx)):'')+lab(0,'$0')+((mn<0)?lab(mn,kd(mn)):'');
+        cs.forEach(x=>{const c=x.c,end=c.n-1,cut=(c.li!=null?c.li:end);
+          g+='<path d="'+pth(c.v,0,cut)+'" fill="none" stroke="'+x.col+'" stroke-width="1.7" stroke-linejoin="round"/>';
+          if(c.li!=null){g+='<path d="'+pth(c.v,cut,end)+'" fill="none" stroke="'+x.col+'" stroke-width="1.7" stroke-dasharray="1.6,3.2" stroke-linecap="round"/>';
+            g+='<line x1="'+px(cut/end).toFixed(1)+'" y1="'+PT+'" x2="'+px(cut/end).toFixed(1)+'" y2="'+(PT+ph)+'" stroke="'+x.col+'" stroke-width="1" stroke-opacity=".22"/>';}
+          });
+        return '<svg viewBox="0 0 '+W+' '+H+'" style="display:block;width:100%;height:auto">'+g+'</svg>';};
       // ── the screen strip ─────────────────────────────────────────────────────────────
       const _c2Top='<div class="c2-top">'+_c2Seg('c2screen',[['lead','LEADERBOARD','the champion of every strategy, ranked'],['cmp','COMPARE','overlay picked runs - phase 3'],['explore','EXPLORE','every configuration on one scatter - phase 4']],_c2Screen)
         +'<span style="margin-left:auto" class="c2-lbl">COMPARE \u03b2 \u00b7 the old COMPARE is untouched until this reaches parity</span></div>';
       let _c2Body='';
-      if(_c2Screen!=='lead'){
-        _c2Body='<div class="c2-card"><div class="c2-hold">'+(_c2Screen==='cmp'?'COMPARE \u2014 PHASE 3':'EXPLORE \u2014 PHASE 4')+'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4)">'
-          +(_c2Screen==='cmp'?'The equity overlay, one metric card per run, books as rows. Until then, PICK RUNS on the old COMPARE does this.':'The scatter with presets and a Filters sheet - every within- and across-strategy comparison on IS / WF / LB kept. Until then, STUDIES on the old COMPARE does this.')
-          +'</div><div style="margin-top:12px"><span class="c2-act" data-c2gocmp="'+(_c2Screen==='cmp'?'runs':'research')+'">OPEN IT ON THE OLD COMPARE \u2192</span></div></div></div>';
+      if(_c2Screen==='explore'){
+        _c2Body='<div class="c2-card"><div class="c2-hold">EXPLORE \u2014 PHASE 4'+'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4)">'
+          +'The scatter with presets and a Filters sheet - every within- and across-strategy comparison on IS / WF / LB kept. Until then, STUDIES on the old COMPARE does this.'
+          +'</div><div style="margin-top:12px"><span class="c2-act" data-c2gocmp="research">OPEN IT ON THE OLD COMPARE \u2192</span></div></div></div>';
+      }else if(_c2Screen==='cmp'){
+        // ── COMPARE: the runs you picked, one overlay and one column each ──────────
+        //    This is PICK RUNS, BY STRATEGY and the RUNBOARD matrix answering their one
+        //    shared question in one place. It reads the SAME picked-run preference the old
+        //    tab writes, so a selection made there is already made here, and every figure
+        //    follows the STAGE control - in-sample, walk-forward and lockbox are one click
+        //    apart instead of three separate screens.
+        const rs2=(runHistory||[]).filter(r=>r&&r.id!=null);
+        const _c2Pick=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String);
+        const picked=_c2Pick.map(id=>rs2.filter(r=>String(r.id)===id)[0]).filter(Boolean);
+        const gone=_c2Pick.length-picked.length;
+        if(!picked.length){
+          _c2Body='<div class="c2-card"><div class="c2-hold">NOTHING PICKED YET'
+            +'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4)">Open a strategy on the LEADERBOARD and press + COMPARE on any run, up to eight of them. They stack up here, on whichever stage you pick.</div>'
+            +'<div style="margin-top:12px"><span class="c2-act" data-c2screen="lead">\u2190 GO TO THE LEADERBOARD</span></div></div></div>';
+        }else{
+          // one colour per curve. Two runs of the same strategy would draw the same colour,
+          //   so the second and third are shaded down - the legend chip always carries the
+          //   exact colour its curve was drawn with, so a chip is never ambiguous.
+          const _used={};
+          const items=picked.map((r,i)=>{
+            // the first run of a strategy keeps that strategy colour, so a curve here matches
+            //   the same strategy everywhere else in the app. Comparing two runs OF one
+            //   strategy is the main thing this screen is for, though, and they would draw
+            //   identically - so a collision takes the next unused colour outright. Shading
+            //   the duplicate down was worse: on the light theme it fades toward the page.
+            let col=((typeof stratColor==='function')?stratColor(r.strategy):'')||'';
+            if(!col||_used[col]){col='';
+              for(let k=0;k<_C2PAL.length;k++){const c=_C2PAL[(i+k)%_C2PAL.length];if(!_used[c]){col=c;break;}}
+              if(!col)col=_C2PAL[i%_C2PAL.length];}
+            _used[col]=1;
+            return {r:r,col:col,S:_c2StageOf(r),c:_c2Curve(r)};});
+          const _nm=r=>String(r.strategy||'').replace(/[.]py$/,'').slice(0,26);
+          const legend=items.map(x=>'<span class="c2-lg"><span class="c2-dot" style="background:'+x.col+'"></span>'
+            +'<span data-c2run="'+x.r.id+'" style="cursor:pointer" title="open run #'+x.r.id+'">#'+x.r.id+' '+_reEscC2(_nm(x.r))+'</span>'
+            +'<span class="c2-x" data-c2rm="'+x.r.id+'" title="take this run out of the comparison">\u00d7</span></span>').join('');
+          // every row is the same figure on every picked run, so the best one can be marked.
+          //   Drawdown is the one row where SMALLER wins; years is not a contest at all.
+          // hi:1 bigger wins, hi:-1 smaller wins, hi:0 not a contest. WIN % and TRADES are
+          //   deliberately not contests: ENGU-Q wins 27% of its trades BY DESIGN and is the
+          //   crown, and a run is not better for having traded more often.
+          const MROWS=[
+            {k:'net',lbl:'NET',hi:1},{k:'mar',lbl:'MAR',hi:1},{k:'pf',lbl:'PF',hi:1},
+            {k:'evr',lbl:'EV R',hi:1},{k:'rpy',lbl:'R / YR',hi:1},{k:'wr',lbl:'WIN %',hi:0},
+            {k:'tr',lbl:'TRADES',hi:0},{k:'dd',lbl:'DRAWDOWN',hi:-1},{k:'yrs',lbl:'YEARS',hi:0}];
+          const mval=(x,k)=>{const S=x.S;if(!S)return null;
+            if(k==='net')return (S.net==null?null:+S.net);
+            if(k==='pf')return (S.pf>0?+S.pf:null);
+            if(k==='tr')return (S.tr?+S.tr:null);
+            if(k==='wr')return (S.wr==null?null:+S.wr);
+            if(k==='dd')return (S.dd==null?null:Math.abs(+S.dd));
+            if(k==='yrs')return (S.yrs==null?null:+S.yrs);
+            if(k==='evr')return _evInR(S.wr,S.pf,S.tr);
+            if(k==='mar')return _marAnn(S.net,S.yrs,S.dd);
+            if(k==='rpy'){const e=_evInR(S.wr,S.pf,S.tr);return (e==null)?null:_rPerYr(e,S.tr,S.yrs);}
+            return null;};
+          const mfmt=(k,v)=>{if(v==null||!isFinite(v))return '\u2014';
+            if(k==='net')return (v<0?'-$':'$')+Math.round(Math.abs(v)).toLocaleString();
+            if(k==='dd')return '$'+Math.round(Math.abs(v)).toLocaleString();
+            if(k==='tr')return Math.round(v).toLocaleString();
+            if(k==='wr')return v.toFixed(1)+'%';
+            if(k==='rpy'||k==='yrs')return v.toFixed(1);
+            return v.toFixed(2);};
+          // a dash always says why. The reasons are the same ones the LEADERBOARD gives.
+          const mwhy=(x,k)=>{const S=x.S;
+            if(!S)return 'This run saved no '+({is:'in-sample',wf:'walk-forward',lb:'lockbox'}[_c2Stage])+' figures.';
+            if(k==='mar'&&S.net==null)return 'No '+_c2StageNm+' net is saved on this run, so there is nothing to divide by the drawdown.';
+            if(k==='mar'&&S.dd===0)return 'This stretch never drew down, so MAR has nothing to divide by.';
+            if((k==='mar'||k==='dd')&&S.dd==null)return ((_c2Stage==='wf')
+              ?'A walk-forward drawdown is not saved on the run summary, and the saved curve does not mark where the folds begin, so there is nothing honest to measure here.'
+              :'No '+_c2StageNm+' drawdown is saved on this run, and its saved curve cannot be cut at this stage either.');
+            if((k==='rpy'||k==='evr')&&(S.wr==null||!(S.pf>0)))return 'Expectancy in R needs a win rate and a profit factor on this stretch.';
+            if(k==='rpy'&&S.yrs==null)return 'The '+_c2StageNm+' window length is not saved, so R per year cannot be annualised.';
+            if(k==='yrs'||k==='mar')return 'The '+_c2StageNm+' window length is not saved on this run.';
+            return 'Not saved on this run for the '+_c2StageNm+' stage.';};
+          const hdr='<tr><th></th>'+items.map(x=>'<th><span class="c2-dot" style="background:'+x.col+';margin-right:5px"></span>#'+x.r.id
+            +'<div style="font-weight:500;color:var(--text5);margin-top:2px">'+_reEscC2(_nm(x.r))+'</div></th>').join('')+'</tr>';
+          let apx=false;
+          const body=MROWS.map(m=>{
+            const vs=items.map(x=>mval(x,m.k));
+            let bi=-1;
+            if(m.hi){let bv=null;vs.forEach((v,i)=>{if(v==null||!isFinite(v))return;
+              // a drawdown read off the downsampled curve can only come out SMALLER than the
+              //   real one, so it would win the drawdown row - and the MAR row it feeds - by
+              //   being understated. It is shown, but it never takes the mark.
+              if((m.k==='dd'||m.k==='mar')&&items[i].S&&items[i].S.ddApx)return;
+              if(bv==null||((m.hi>0)?(v>bv):(v<bv))){bv=v;bi=i;}});}
+            return '<tr><td>'+m.lbl+'</td>'+items.map((x,i)=>{const v=vs[i];
+              const der=(m.k==='dd'||m.k==='mar')&&x.S&&x.S.ddApx&&v!=null;
+              if(der)apx=true;
+              const col=(m.k==='net'&&v!=null)?(v>=0?'var(--green)':'var(--red)'):'var(--text2)';
+              return '<td'+((v==null)?(' title="'+_reEscC2(mwhy(x,m.k))+'"'):'')+'>'
+                +'<span class="'+((i===bi)?'c2-best':'')+'" style="color:'+col+'"'
+                +((i===bi)?' title="best of the picked runs on this row"':'')+'>'
+                +(der?'~':'')+mfmt(m.k,v)+'</span></td>';}).join('')+'</tr>';}).join('');
+          const noCurve=items.filter(x=>!x.c).length;
+          _c2Body='<div class="c2-top" style="margin-top:2px">'
+            +'<span class="c2-lbl">STAGE</span>'+_c2Seg('c2stage',[['is','IS','the tuning years'],['wf','WF','the walk-forward folds'],['lb','LB','the sealed lockbox']],_c2Stage)
+            +'<span class="c2-lbl">'+picked.length+' OF 8 PICKED</span>'
+            +'<span class="c2-act" data-c2clr="1" title="empty the comparison">CLEAR</span>'
+            +'<span style="margin-left:auto" class="c2-lbl">SOLID = TUNING YEARS \u00b7 DOTTED = SEALED LOCKBOX</span></div>'
+            +'<div class="c2-card" style="padding:10px 12px 6px">'+_c2Ovl(items)
+            +'<div style="margin-top:8px">'+legend+'</div></div>'
+            +'<div class="c2-card c2-scroll" style="margin-top:10px"><table class="c2-mx">'+hdr+body+'</table></div>'
+            +'<div class="c2-note">Every figure in the table follows the STAGE control and is the same read the LEADERBOARD uses. The chart always shows the whole run. '
+            +'Curves run end to end across the window each run was tested on, so left to right is progress through THAT run - two runs over different years still fill the width, because the shape is what is being compared.'
+            +(apx?' A ~ marks a drawdown measured off the saved curve rather than stored on the run: the curve is downsampled, so that number can only under-state the real drawdown, and a run measured that way never takes the best mark on the drawdown or MAR rows.':'')
+            +(noCurve?(' '+noCurve+' of these runs saved no equity curve, so they appear in the table but not on the chart.'):'')
+            +(gone?(' '+gone+' picked run'+(gone===1?' is':'s are')+' no longer in your history and were skipped.'):'')
+            +'</div>';
+        }
       }else{
         // ── LEADERBOARD: one row per strategy family, its champion by the robustness
         //    score (the same rule BY STRATEGY and RUNBOARD use), ranked on ONE figure
@@ -25815,7 +26021,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div><div class="c2-nm">#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2Drift(r)+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+(S&&S.tr?' \u00b7 '+S.tr+' trades':'')
             +' <span class="c2-act'+(inCmp?' on':'')+'" data-c2add="'+r.id+'" title="'+(inCmp?'in the comparison - click to remove':'add to the comparison (up to 8)')+'">'+(inCmp?'\u2713 COMPARING':'+ COMPARE')+'</span></div></div>'
-            +'<div><div class="c2-big" style="color:'+_c2Col(val.v)+'"'+(val.v==null?(' title="'+_reEscC2(val.why)+'"'):'')+'>'+_c2Fmt(val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
+            +'<div><div class="c2-big" style="color:'+_c2Col(val.v)+'"'+(val.v==null?(' title="'+_reEscC2(val.why)+'"'):'')+'>'+(val.apx?'~':'')+_c2Fmt(val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">\u203a</span></div>';};
         const rows=fams.map((f,i)=>{const open=window._c2Open.has(f.k),ch=f.ch,vv=ch.validate?ch.validate.verdict:'',S=_c2StageOf(ch);
           const eq=(ch.equity&&Array.isArray(ch.equity.cum)&&ch.equity.cum.length>2)?ch.equity.cum:null;
@@ -25823,7 +26029,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
             +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+(eq?_c2Spark(eq,64,18):'')+'</div>'
             +'<div class="c2-who">champion #'+ch.id+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString():'')+'</div></div>'
-            +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
+            +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+(f.val.apx?'~':'')+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
             +(open?f.runs.map((r,j)=>_c2RunRow(r,j===0)).join(''):'');}).join('');
         _c2Body='<div class="c2-top" style="margin-bottom:8px">'
@@ -25832,7 +26038,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div><div class="c2-card">'+(rows||'<div class="c2-hold">NO RUNS YET</div>')+'</div>'
           +'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = your crown (★ starred) where one exists, else the highest robustness score · books sit in their own row'
           +(noFig?(' \u00b7 <b>'+noFig+' without a '+_c2StageNm+' figure</b> (hover the dash for why) - they sort last, never hidden'):'')
-          +(_c2Stage!=='is'?' \u00b7 MAR and DD (R) need a stage drawdown the run summary does not carry; open the report for those':'')+'</div>';
+          // ONLY THE LOCKBOX can have a drawdown derived for it - lb_idx is the only marker
+          //   the saved curve carries - so only the lockbox note may promise a ~. The
+          //   walk-forward stage still has nothing to measure, and says so instead.
+          +((_c2Stage==='lb')
+            ?' \u00b7 where a lockbox drawdown is not saved on the run it is measured off the saved equity curve and marked ~ - that curve is downsampled, so a ~ MAR is if anything flattering'
+            :((_c2Stage==='wf')
+              ?' \u00b7 MAR and DD (R) need a walk-forward drawdown no run summary carries, and the saved curve does not mark where the folds begin; open the report for those'
+              :''))+'</div>';
       }
       body=_c2Css+'<div class="c2">'+_c2Top+_c2Body+'</div>';
     }else if(augurSub==='rank'){
@@ -30644,6 +30857,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let cur=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String);
         if(cur.indexOf(id)>=0)cur=cur.filter(x=>x!==id);else{if(cur.length>=8){alert('The comparison holds 8 runs. Remove one first.');return;}cur.push(id);}
         savePref('cmpIds',cur);renderApp();};});
+      // the COMPARE screen: drop one run, or empty the comparison.
+      content.querySelectorAll('[data-c2rm]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+        const id=String(b.dataset.c2rm);
+        savePref('cmpIds',(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String).filter(v=>v!==id));renderApp();};});
+      content.querySelectorAll('[data-c2clr]').forEach(b=>{b.onclick=e=>{e.stopPropagation();savePref('cmpIds',[]);renderApp();};});
       content.querySelectorAll('[data-c2gocmp]').forEach(b=>{b.onclick=()=>{savePref('cmpMode',b.dataset.c2gocmp);augurSub='cmp';renderApp();};});
     }
     else if(augurSub==='rank'){

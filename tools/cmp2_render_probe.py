@@ -38,9 +38,18 @@ WHAT IT ASSERTS, per case
                        and >=1 [data-c2add] chip appear.
   stages           -- IS / WF / LB all render without throwing (values may honestly be
                        the dash -- this run fixture is thin on some stages).
-  placeholders     -- the COMPARE and EXPLORE screens (phases 3/4, not built yet) each
-                       show a .c2-hold placeholder card and a [data-c2gocmp] escape
-                       hatch back to the old tab, with no errors.
+  placeholders     -- the EXPLORE screen (phase 4, not built yet)
+                       shows a .c2-hold placeholder card and a [data-c2gocmp] escape
+                       hatch back to the old tab, with no errors. COMPARE is no longer
+                       a placeholder - see the `compare` case.
+  compare          -- the phase-3 COMPARE screen with three runs picked (the fixture, a
+                       twin with its stored lockbox drawdown removed so the curve-derived
+                       path runs, and the synthesised book): the overlay draws the
+                       solid + dotted paths with real coordinates, one removable chip per
+                       picked run, a column per run and one row per metric, a best-in-row
+                       mark on each contested row, a ~ on the derived drawdown, and a CLEAR
+                       control; renders on IS / WF / LB without throwing. With nothing
+                       picked it shows the empty card and its own way to the leaderboard.
   book             -- a synthesised BOOK run (engine shape: validate.lockbox = pnl/pf/
                        trades/pass only, `book` block with legs, lockbox {total_pnl,
                        max_drawdown, win_rate}, lockbox_from, date_to) beside the fixture:
@@ -74,7 +83,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 6
+N_CASES = 7
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -187,7 +196,7 @@ var FIX = __FIX__;
 
       // ── case 5: placeholders (cmp / explore) ──────────────────────────────────
       (function(){
-        var screens=['cmp','explore'], per={};
+        var screens=['explore'], per={};
         screens.forEach(function(scr){
           var call=doRender({c2Screen:scr}, FIX_WIN);
           per[scr]={call:call,
@@ -196,7 +205,7 @@ var FIX = __FIX__;
             errors:sink.errors.slice(0,5),
             uncaught:sink.uncaught.slice(0,5)};
         });
-        var r=snap('placeholders', (per.cmp.call==='OK'&&per.explore.call==='OK')?'OK':'ERR');
+        var r=snap('placeholders', (per.explore.call==='OK')?'OK':'ERR');
         r.per=per;
       })();
 
@@ -233,6 +242,65 @@ var FIX = __FIX__;
         var r=snap('book', ok?'OK':'ERR');
         r.per=per;
         r.subRows=d.querySelectorAll('.c2-row.sub[data-c2run]').length;
+      })();
+
+      // ── case 7: compare (phase 3) ──────────────────────────────
+      //    Three runs picked: the fixture (a 400-point validate.equity with an lb_idx, so it
+      //    must draw a solid path AND a dotted lockbox tail); a twin of it with the stored
+      //    lockbox drawdown deleted, which is the only run that reaches _c2eqDD, so the ~
+      //    marker and its sentence in the note are actually executed; and the book from case
+      //    6, whose validate was replaced and whose equity was deleted, so it has NO curve
+      //    and must appear in the table but not on the chart, with the note saying so.
+      (function(){
+        var BK=JSON.parse(JSON.stringify(FIX));
+        BK.id=String(+FIX.id+900000);BK.strategy='BOOK: '+String(FIX.strategy||'');BK.starred=false;
+        BK.best_pnl_usd=250000;BK.best_dd_usd=30000;BK.multiplier=20;
+        BK.book={name:'probe book',legs:[{strategy:FIX.strategy,weight:1},{strategy:'X_1_0.py',weight:1}],
+          whole:{total_pnl:320000,max_drawdown:32000},pre_lockbox:{total_pnl:250000,max_drawdown:30000},
+          lockbox:{total_pnl:70000,num_trades:400,win_rate:44.5,profit_factor:1.4,max_drawdown:25000},
+          slices:[1,1,1,1,1,1,1,1],slices_held:8,slices_n:8,lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:70000,pf:1.4,trades:400,pass:true},book:true};
+        delete BK.equity;   // a book with NO curve at all, so the disclosure line is tested
+        // a third run with its stored lockbox drawdown removed: this is the only run that
+        //   reaches _c2eqDD, so without it the headline of the change - the curve-derived
+        //   drawdown, its ~ marker and its sentence in the note - is never executed here.
+        var C=JSON.parse(JSON.stringify(FIX));
+        C.id=String(+FIX.id+800000);C.starred=false;
+        delete C.validate.lockbox.dd;
+        var wc="var F="+JSON.stringify(FIX)+";var B="+JSON.stringify(BK)+";var K="+JSON.stringify(C)+";"
+          +"var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+          +"var bdoc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(B)):B;"
+          +"var kdoc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(K)):K;"
+          +"runHistory=[doc,bdoc,kdoc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+        var picks=[String(FIX.id),String(BK.id),String(C.id)];
+        var per={};
+        ['lb','is','wf'].forEach(function(st){
+          var call=doRender({c2Screen:'cmp',c2Stage:st,cmpIds:picks}, wc);
+          // scoped to the chart card, and the coordinates are read - an SVG whose d is full
+          //   of NaN renders blank while still counting as a path, which is exactly the
+          //   silent failure this case exists to catch.
+          var ds=[].map.call(d.querySelectorAll('.c2-card svg path'),function(p){return p.getAttribute('d')||'';});
+          per[st]={call:call,
+            paths:ds.length,
+            badD:ds.filter(function(t){return !t||/NaN|Infinity|undefined/.test(t);}).length,
+            shortD:ds.filter(function(t){return (t.match(/L/g)||[]).length<1;}).length,
+            apx:[].filter.call(d.querySelectorAll('.c2-mx td span'),function(e){
+              return /^~/.test((e.textContent||'').trim());}).length,
+            chips:d.querySelectorAll('.c2-lg').length,
+            rm:d.querySelectorAll('[data-c2rm]').length,
+            clr:d.querySelectorAll('[data-c2clr]').length,
+            cols:d.querySelectorAll('.c2-mx th').length,
+            rows:d.querySelectorAll('.c2-mx tr').length,
+            best:d.querySelectorAll('.c2-best').length,
+            note:((d.querySelector('.c2-note')||{}).textContent||'').slice(0,1400),
+            errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
+        });
+        var emptyCall=doRender({c2Screen:'cmp',c2Stage:'lb',cmpIds:[]}, wc);
+        var _hold=d.querySelector('.c2-hold');
+        var emptyHold=!!_hold, emptyGo=!!(_hold&&_hold.querySelector('[data-c2screen=\"lead\"]'));
+        var ok=['lb','is','wf'].every(function(k){return per[k].call==='OK';})&&emptyCall==='OK';
+        var r=snap('compare', ok?'OK':'ERR');
+        r.per=per;r.emptyCall=emptyCall;r.emptyHold=emptyHold;r.emptyGo=emptyGo;
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -470,16 +538,15 @@ def main(argv=None):
     r = cases.get('placeholders', {})
     per = r.get('per') or {}
     ph_ok = True
-    for scr in ('cmp', 'explore'):
+    for scr in ('explore',):
         p = per.get(scr) or {}
         if not (p.get('call') == 'OK' and p.get('hold') and p.get('gocmp')
                 and not p.get('errors') and not p.get('uncaught')):
             ph_ok = False
-    line('placeholders', ph_ok, 'cmp=%s explore=%s'
-         % ({k: v for k, v in (per.get('cmp') or {}).items() if k != 'per'},
-            {k: v for k, v in (per.get('explore') or {}).items() if k != 'per'}))
+    line('placeholders', ph_ok, 'explore=%s'
+         % ({k: v for k, v in (per.get('explore') or {}).items() if k != 'per'},))
     if not ph_ok:
-        for scr in ('cmp', 'explore'):
+        for scr in ('explore',):
             p = per.get(scr) or {}
             if p.get('call') != 'OK':
                 fail('placeholders: %s screen renderApp threw -- %s' % (scr, str(p.get('call'))[:300]))
@@ -538,6 +605,80 @@ def main(argv=None):
             fail('book: PF on LB is %r, expected 1.40' % pf.get('bookBig'))
         if (r.get('subRows') or 0) < 1:
             fail('book: BOOKS row pre-opened but no sub-row rendered')
+
+    # case 7: compare (phase 3)
+    r = cases.get('compare', {})
+    per = r.get('per') or {}
+    lb = per.get('lb') or {}
+    stages_ok = all((per.get(k) or {}).get('call') == 'OK' for k in ('lb', 'is', 'wf'))
+    errs_ok = not any((per.get(k) or {}).get('errors') or (per.get(k) or {}).get('uncaught')
+                      for k in ('lb', 'is', 'wf'))
+    # three picked runs: the fixture and its no-stored-drawdown twin each draw a solid
+    # tuning stretch plus a dotted lockbox tail; the book draws nothing at all.
+    cmp_ok = (r.get('call') == 'OK' and stages_ok and errs_ok
+              and lb.get('paths') == 4
+              and lb.get('badD') == 0               # no NaN / Infinity in any coordinate
+              and lb.get('shortD') == 0             # every path actually draws a line
+              and lb.get('chips') == 3              # one removable chip per picked run
+              and lb.get('rm') == 3 and lb.get('clr') == 1
+              and lb.get('cols') == 4               # blank corner + one column per run
+              and lb.get('rows') == 10              # header + one row per metric
+              and lb.get('best') == 6               # one per CONTESTED row: net, MAR, PF, EV R, R/YR, drawdown
+              and (lb.get('apx') or 0) >= 1         # the curve-derived drawdown path ran at all
+              and 'no equity curve' in (lb.get('note') or '')
+              and 'under-state' in (lb.get('note') or '')
+              and r.get('emptyCall') == 'OK' and r.get('emptyHold') and r.get('emptyGo'))
+    line('compare', cmp_ok,
+         'call=%s paths=%s badD=%s shortD=%s chips=%s cols=%s rows=%s best=%s apx=%s rm=%s clr=%s '
+         'empty=(%s,hold=%s,go=%s) stages=%s'
+         % (r.get('call'), lb.get('paths'), lb.get('badD'), lb.get('shortD'), lb.get('chips'),
+            lb.get('cols'), lb.get('rows'), lb.get('best'), lb.get('apx'), lb.get('rm'), lb.get('clr'),
+            r.get('emptyCall'), r.get('emptyHold'),
+            r.get('emptyGo'), {k: (per.get(k) or {}).get('call') for k in ('lb', 'is', 'wf')}))
+    if not cmp_ok:
+        for k in ('lb', 'is', 'wf'):
+            p = per.get(k) or {}
+            if p.get('call') != 'OK':
+                fail('compare: %s stage threw -- %s' % (k, str(p.get('call'))[:300]))
+            if p.get('errors'):
+                fail('compare: %s console.error -- %s' % (k, p['errors'][0][:200]))
+            if p.get('uncaught'):
+                fail('compare: %s uncaught -- %s' % (k, p['uncaught'][0][:200]))
+        if lb.get('paths') != 4:
+            fail('compare: overlay drew %s paths, expected 4 - a solid tuning stretch and a '
+                 'dotted lockbox tail for each of the two runs that have a curve, and '
+                 'nothing for the curveless book' % lb.get('paths'))
+        if lb.get('badD'):
+            fail('compare: %s overlay path(s) contain NaN / Infinity / undefined coordinates '
+                 '- the chart would render blank' % lb.get('badD'))
+        if lb.get('shortD'):
+            fail('compare: %s overlay path(s) have no line segment at all' % lb.get('shortD'))
+        if lb.get('chips') != 3:
+            fail('compare: %s legend chips for 3 picked runs' % lb.get('chips'))
+        if lb.get('rm') != 3 or lb.get('clr') != 1:
+            fail('compare: remove/clear controls are rm=%s clr=%s, expected 3 and 1'
+                 % (lb.get('rm'), lb.get('clr')))
+        if lb.get('cols') != 4:
+            fail('compare: metric table has %s header cells, expected 4 (corner + 3 runs)'
+                 % lb.get('cols'))
+        if lb.get('rows') != 10:
+            fail('compare: metric table has %s rows, expected 10 (header + 9 metrics)'
+                 % lb.get('rows'))
+        if lb.get('best') != 6:
+            fail('compare: %s best-in-row marks, expected 6 (net, MAR, PF, EV R, R/YR, '
+                 'drawdown - win rate, trades and years are not contests)' % lb.get('best'))
+        if not (lb.get('apx') or 0) >= 1:
+            fail('compare: no cell marked ~ - the run with no stored lockbox drawdown should '
+                 'derive one from its saved curve and say so')
+        if 'no equity curve' not in (lb.get('note') or ''):
+            fail('compare: the note does not disclose the run with no curve (note=%r)'
+                 % (lb.get('note') or '')[:180])
+        if 'under-state' not in (lb.get('note') or ''):
+            fail('compare: the note does not disclose that a derived drawdown under-states '
+                 '(note=%r)' % (lb.get('note') or '')[:180])
+        if not (r.get('emptyCall') == 'OK' and r.get('emptyHold') and r.get('emptyGo')):
+            fail('compare: empty state call=%s hold=%s leaderboard-link=%s'
+                 % (r.get('emptyCall'), r.get('emptyHold'), r.get('emptyGo')))
 
     if bad:
         print('CMP2 PROBE: FAIL')
