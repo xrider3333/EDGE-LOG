@@ -219,6 +219,15 @@ var FIX = __FIX__;
         r.sidebar=d.querySelectorAll('[data-residel]').length;
         r.stage=d.querySelectorAll('[data-resstage]').length;
         r.help=d.querySelectorAll('[data-rehelptog]').length;
+        // the study tables are built ON DEMAND here (they are ~3.5 MB of markup and were
+        //   rebuilt on every click). Off by default; the button must bring them back, and
+        //   the chart must be unaffected either way.
+        r.tblBtn=d.querySelectorAll('[data-c2tbl]').length;
+        r.rowsOff=d.querySelectorAll('tr[data-rerow]').length;
+        var call2=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true}, FIX_WIN);
+        r.call2=call2;
+        r.rowsOn=d.querySelectorAll('tr[data-rerow]').length;
+        r.pointsOn=d.querySelectorAll('[data-repoint]').length;
       })();
 
       // ── case 6: book (a BOOK run - own BOOKS row, dollars unscaled, LB dd off the book block) ─
@@ -593,7 +602,11 @@ def main(argv=None):
     ex_ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
              and (r.get('points') or 0) >= 1
              and (r.get('rail') or 0) >= 1
-             and (r.get('rows') or 0) >= 1
+             and r.get('tblBtn') == 1           # the TABLES button is there
+             and (r.get('rowsOff') or 0) == 0   # and the tables are off by default
+             and r.get('call2') == 'OK'
+             and (r.get('rowsOn') or 0) >= 1    # switching them on builds them
+             and (r.get('pointsOn') or 0) >= 1  # and the chart still draws either way
              and r.get('screenBtns') == 3
              and (r.get('presets') or 0) >= 4   # the board's own COMPARE FOR bar
              and r.get('sheets') == 3           # FILTERS / VIEWS / AXES
@@ -602,10 +615,11 @@ def main(argv=None):
              and (r.get('help') or 0) >= 1      # HOW TO READ is reachable from this screen
              and not r.get('hold'))
     line('explore', ex_ok, 'call=%s points=%s rail=%s rows=%s screenBtns=%s presets=%s '
-         'sheets=%s sidebar=%s stage=%s help=%s hold=%s'
+         'sheets=%s sidebar=%s stage=%s help=%s tblBtn=%s rowsOff=%s rowsOn=%s hold=%s'
          % (r.get('call'), r.get('points'), r.get('rail'), r.get('rows'),
             r.get('screenBtns'), r.get('presets'), r.get('sheets'), r.get('sidebar'),
-            r.get('stage'), r.get('help'), r.get('hold')))
+            r.get('stage'), r.get('help'), r.get('tblBtn'), r.get('rowsOff'),
+            r.get('rowsOn'), r.get('hold')))
     if not ex_ok:
         if r.get('call') != 'OK':
             fail('explore: renderApp threw -- %s' % str(r.get('call'))[:300])
@@ -618,8 +632,18 @@ def main(argv=None):
                  'branch did not happen, or it drew an empty frame')
         if not (r.get('rail') or 0) >= 1:
             fail('explore: no strategy rail rendered')
-        if not (r.get('rows') or 0) >= 1:
-            fail('explore: no study table rows rendered')
+        if r.get('tblBtn') != 1:
+            fail('explore: the TABLES button is missing, so the study tables would be '
+                 'unreachable on this screen')
+        if (r.get('rowsOff') or 0) != 0:
+            fail('explore: %s table rows built while the tables are off - the whole point is '
+                 'that they are not assembled' % r.get('rowsOff'))
+        if r.get('call2') != 'OK':
+            fail('explore: turning the tables on threw -- %s' % str(r.get('call2'))[:300])
+        if (r.get('rowsOn') or 0) < 1:
+            fail('explore: turning the tables on produced no rows')
+        if (r.get('pointsOn') or 0) < 1:
+            fail('explore: the chart stopped drawing when the tables were turned on')
         if r.get('screenBtns') != 3:
             fail('explore: %s screen-switcher buttons, expected 3 - COMPARE BETA lost its '
                  'own strip on this screen' % r.get('screenBtns'))

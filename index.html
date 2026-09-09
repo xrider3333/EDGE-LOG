@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.684';
+const VERSION='73.685';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -731,6 +731,7 @@ window._dataFeedWarn=function(){
 const CHANGELOG=[
 {v:'73.684',date:'2026-09-09',notes:['COMPARE - STUDIES: the seven ETF book legs validated individually at last, rows 1633-1641, runs 354 to 359. SIX OF SIX FAIL. Seven legs became six validates because two of them differ only in a boolean the engine always searches over both values - which also disposes of the near-duplicate caveat on the stack card.','EVERY ONE FAILS WALK-FORWARD EFFICIENCY, between 0.050 and 0.332 against a bar of 0.5; five of six also fail consistency and three fail the overfit check. NOT ONE crown is the cell the book carries, so the book cells were never validated either - the run 343 precedent, written down before these ran.','THEY ARE NOT NOISE CELLS. Every leg has a significant in-sample edge, t of 2.41 to 5.57, every p under 0.02, causal and plateau clean on all six. High in-sample significance plus a real plateau plus walk-forward near 0.1 is the signature of an edge that does not generalise forward.','THE LIMIT WAS WRITTEN DOWN FIRST AND IT HELD: these legs trade 7 to 13 times a year, so three of the six lockboxes held ZERO trades and one held two. The order of evidence was fixed in advance - folds first, then the untouched 2006-2009 pre-window, then the lockbox. On that pre-window the simple round-25 cell beats the 300-trial crown in FIVE of six legs, and two crowns lose money outright.','CONSEQUENCE, PRE-REGISTERED AND APPLIED: the run-349 ETF stack candidate is WITHDRAWN - no surviving legs, nothing to re-score. This does NOT retract the lockbox-drawdown clause, which worked as designed: it flagged 349 as a candidate and named the missing leg validates as blocker number one, and blocker number one is what killed it. A book card can look excellent while every leg inside it is individually unvalidated.']},
 {v:'73.683',date:'2026-09-09',notes:['COMPARE - STUDIES: BOOK run 361 - the validated structural-stop TTM leg inside the book in production - CLEARS all three clauses of the canonical bar: annualised MAR times 1.0795 against a bar of times 1.05, lockbox up 15 percent to 229,124 dollars, and the lockbox drawdown 18 percent LOWER at 22,226 against 27,209. Eight of eight slices.','The evidence chain is complete - leg validate, stress read, book run - and the book figure still carries the tilted leg until the owner says otherwise. The structural stop runs in paper as TTM_299_SS from 2026-09-10 with the tilted leg as its matched control.']},
+{v:'73.685',date:'2026-09-09',notes:['EXPLORE RESPONDS FASTER (owner: the explore tab and compare are laggy). Measured on the live page rather than guessed at: this board emits about 4.2 megabytes of markup and 23,000 elements, and every click rebuilds all of it - picking a preset, a stage, a strategy. Roughly three and a half of those megabytes are the study tables, rebuilt even while you are only moving the chart.','So the tables are built on demand here. Hiding them in CSS would have saved nothing, because the cost is assembling the markup rather than painting it, so when they are off the string is never assembled at all. The TABLES button says how many rows are waiting behind it, remembers the choice, and filters nothing - everything in them is still there.','When they are on they now sit in a capped scrolling box, the way the old sidebar layout capped them, so a thousand rows cannot push the chart off the screen.','For the record: this was never a regression from the rebuild. The same board on the old tab measured about 2.5 seconds a render against 1.5 on the new one, because the new screen dropped the sidebar. The tables were always the bulk of it.']},
 {v:'73.680',date:'2026-09-09',notes:['HOME TAB: closed the two known gaps in the sub-tab. First, MORE STATS ▸ ACCOUNT now has a vs SPY row - your account return over the selected range minus SPYs return over that same range, colored green for ahead and red for behind. It reuses the exact same SPY data and math the OVERVIEW tabs own vs SPY row already uses, so the two never disagree; while SPY prices are still loading (or if they fail to load) it shows a plain dash instead of guessing.','Second, tags are no longer read-only on this tab. Click the TAGS cell in the table, or the tags row in the trade detail sheet, to open the same tag picker the TRADES tab uses - toggle a tag on or off, or remove one with its x - and it saves the same way TRADES does, so both tabs always show the same tags. Clicking the tags area never opens the detail sheet by accident, and editing tags inside the detail sheet updates it immediately without closing it.']},
 {v:'73.677',date:'2026-09-09',notes:['STUDIES BOARD: NOISE round 46, rows 1628-1631 - THE MIRROR TEST RETIRES MY OWN ROUND 45 EXPLANATION. Round 45 said this tape rewards entering fast since 2024. Tested against eight pre-declared FASTER variants with the falsifier written first: zero of eight beat the crown recently and seven of eight are worse in both eras, so the story is retired. The crown own trades show the tape timing is unchanged - median 2 bars to the best price and 8 bars held in both eras - while AMPLITUDE grew about sevenfold, median peak per trade from about 100 dollars in 2010-2017 to 1,382 in 2026, which means every raw-dollar recency clause in rounds 43 to 45 was partly reading volatility. On profit factor the decay is real anyway: the slower candidates led the crown by 0.104 and 0.147 and now trail by 0.060 and 0.041 while the crown own profit factor is flat. CORRECTED ACCOUNT: the optimum has moved to where the crown already sits - it is now the best point in both directions. Nothing moves; crown stays run 304 on five minutes.']},
 {v:'73.676',date:'2026-09-09',notes:['STUDIES BOARD: ROUND 46, rows 1622 to 1627 - the ENGU-Q ES leg passes the two tests that killed everything else this week. RECENCY: profit factor 1.24 over 2010 to 2023 and 1.59 over 2024 to 2026, earning 357 dollars a trade recently against 66 before - the opposite of the NOISE finding that everything improving the old tape has lost since 2024. COST: at 30 dollars a round trip it still earns 98 dollars a trade, 3.3 times its cost, where the NOISE ES configuration earned under twice its cost and was closed.','Honest marks on the card: the recent strength is bigger trades not more of them (236 since 2024 against 1,871 before), the drawdown arrives in the same stretch (net over drawdown 2.5 recently against 5.5 before), 2015 and 2016 were losing years, and 2026 to the end of June is nearly flat. A second Auto-Validate is queued at honest fills - same file, window and lockbox at 30 dollars a round trip instead of 20.']},
@@ -19622,6 +19623,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +((o[0]===cur)?'background:var(--bg1);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25)':'color:var(--text4)')+'">'+o[1]+'</span>').join('')+'</span>';
     //   BY STRATEGY is on this list because the LEADERBOARD has not absorbed it yet, and a
     //   button that promises one curve per family must not quietly open something else.
+    // THE STUDY TABLES ARE BUILT ON DEMAND on the EXPLORE screen, and that is a speed
+    //   decision, not a design one. Measured live: this board emits ~4.2 MB of markup and
+    //   ~23,000 elements, and every click rebuilds all of it - about three and a half of
+    //   those megabytes are the tables, rebuilt even when you are only moving the chart.
+    //   Hiding them in CSS saves nothing, because the cost is assembling the string, so
+    //   when they are off they are never assembled. The button says how many rows wait
+    //   behind it, and the choice is remembered.
+    const _c2Tbl=(APREF.c2Tbl===true);
     const _C2VIEWS=[['ovl','OVERLAY'],['board','RUNBOARD'],['runs','PICK RUNS'],['fam','BY STRATEGY'],['feat','FEATURES']];
     if(augurSub==='launch'){
       body='<div style="display:grid;grid-template-columns:280px 1fr;gap:16px">'
@@ -25591,6 +25600,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   exactly one study standing, that study opens itself - you clearly asked for it.
         const _reOpenSet=(Array.isArray(APREF.resOpen)?APREF.resOpen:[]).map(String);
         const _reWithRows=_rePrep.filter(p=>p.rows.length);
+        // how many rows are waiting behind the TABLES button, counted off the prepared
+        //   studies rather than off the markup, so asking costs nothing.
+        const _reRowsN=_reWithRows.reduce((a,p)=>a+((p.rows||[]).length),0);
         const _reSolo=(_reWithRows.length===1)?String(_reWithRows[0].st.key):'';
         const _reTotal=RESEARCH_STUDIES.reduce((a,st)=>a+(st.rows||[]).length,0);
         //   VS CROWN"). span=true makes the buttons run the full width, for the one control with
@@ -25832,7 +25844,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   TABLES heading and the VIEW control is two inches away in the sidebar.
           return ''
             +'<div data-rescroll style="position:relative;max-height:'+(_reSplit?560:520)+'px;overflow:auto;border:1px solid var(--border2);border-radius:8px"><table style="'+_reTblFix+'width:100%;border-collapse:collapse;font-size:8.5px"><thead>'+_reHd(synth,1)+'</thead><tbody>'+bodyRows+'</tbody></table></div>';};
-        const _reBody=tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
+        const _reBody=(_c2Exp&&!_c2Tbl)?'':tile('<div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:2px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
@@ -26317,6 +26329,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             :((_c2Sheet==='read')?_reGrid(_reReadBtns):''));
           const _c2Bar='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
             +_c2SheetBtn('filters','FILTERS',_c2FiltN)+_c2SheetBtn('views','VIEWS',0)+_c2SheetBtn('read','READ',0)
+            +'<span data-c2tbl="1" title="'+_reEsc('The study tables under the chart. They are the slowest thing on this screen - about three and a half megabytes of markup, rebuilt every time you touch a control - so they are off until you ask for them. Everything in them is still here; nothing is filtered out by this button.')+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;cursor:pointer;border:1px solid '
+              +(_c2Tbl?'color-mix(in srgb,var(--blue) 55%,transparent);color:var(--blue)':'var(--border);color:var(--text3)')+'">TABLES'+(_reRowsN?(' \u00b7 '+_reRowsN):'')+'</span>'
             // the HOW TO READ toggle only ever rendered inside the sidebar, so without this
             //   the panel could be neither opened nor closed from this screen.
             +'<span style="margin-left:auto">'+_reHelpBtn+'</span>'
@@ -26329,8 +26343,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   things this screen exists to let you do.
           const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
             +_reGrid(_reStageBtns+_reFamRail)+'</div>';
+          // capped and scrollable when they are on, so a thousand rows cannot push the
+          //   chart off the screen - the old sidebar layout capped them the same way.
           body=_c2ExpTop+_c2Bar+_c2SheetWrap+_c2Keep+_reChartTile
-            +'<div style="margin-top:10px">'+_reBody+'</div>';
+            +(_reBody?('<div style="margin-top:10px;max-height:58vh;overflow:auto">'+_reBody+'</div>'):'');
         }else{
         body=_c2ExpTop+'<div style="display:flex;align-items:stretch;gap:2px;min-height:calc(100vh - 96px)">'+_reSideBar+_reSideBarDrag
           +'<div style="flex:1 1 0;min-width:0">'
@@ -31359,6 +31375,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     const _wireC2=(content)=>{
       // EXPLORE: the three sheets. The COMPARE FOR presets are the board's own and are
       //   already wired with the rest of it.
+      content.querySelectorAll('[data-c2tbl]').forEach(b=>{b.onclick=()=>{
+        savePref('c2Tbl',!(APREF.c2Tbl===true));renderApp();};});
       content.querySelectorAll('[data-c2sheet]').forEach(b=>{b.onclick=()=>{
         const k=b.dataset.c2sheet;savePref('c2Sheet',(APREF.c2Sheet===k)?'':k);renderApp();};});
       content.querySelectorAll('[data-c2screen]').forEach(b=>{b.onclick=()=>{savePref('c2Screen',b.dataset.c2screen);renderApp();};});
