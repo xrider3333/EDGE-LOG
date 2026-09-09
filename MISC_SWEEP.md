@@ -173,7 +173,11 @@ on the pooled dip book — a sizing decision, not a validation pass.
 
 OPEN (owner action): free Alpaca key -> 1m ETF bars since 2016 -> test ORB/ENGU
 mechanisms intraday on stocks. Harness: tools/r19_etf_classics.py (re-downloads its
-own data). Board rows 1027-1051 (v73.313).
+own data). Board rows 553-585 (v73.252).
+
+> Rows 1027-1051 are NOT this round: they are rounds 24-25, which have no section in
+> this file. A v73.313 session wrote its own block number here by mistake, and into the
+> rounds 20-23 entry of BACKTESTING_STACK.md as well. Both were corrected 2026-09-09.
 
 ---
 

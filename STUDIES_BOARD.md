@@ -802,7 +802,8 @@ retired on 2026-08-19 and is described immediately below.
 On 2026-08-19 the owner had every pooled-book study taken off this board, for the reason given
 in section 6. Forty-six rows were removed and their numbers are retired for good. Row numbers
 are permanent handles, so nothing that stayed was renumbered and none of these numbers may ever
-be handed to a future row. The next free row number on this board is 262, not 236 and not 25.
+be handed to a future row. The next free row number on this board was then 262, not 236 and
+not 25.
 
 | Retired | Count | What it was |
 | --- | --- | --- |
@@ -832,7 +833,7 @@ enforces uniqueness.
 | 249 | Paper: NOISE Short Veto — a copy of the NOISE crown | 2 (run 241) |
 
 Row 1 (the old NOISE champion) was moved from the `champ` mark to `ref` the same day so NOISE carries exactly one blue mark, row 2. These five numbers are retired for good. Row 341 (Paper: ENGU-Q + Efficiency Gate, run 265) was
-added the same day because that gate overlay had no row anywhere. The next free row number is 342.
+added the same day because that gate overlay had no row anywhere. The next free row number **was 342 at that point**.
 
 **Block ledger since 2026-08-22** (read the highest number on origin/main before taking a block —
 several sessions add concurrently): 342-344 ENGU-Q efficiency, 345 Efficiency Gate on ES,
@@ -843,8 +844,12 @@ CROSSFAMILY_DAYTYPE.md round 3 — the 0.6-0.8 prior-close band long veto, teste
 **482-486 ES-native NOISE (2026-08-22/23, NOISE.md "2026-08-22 — ES-native study" — the first
 re-TUNE of NOISE on ES, distinct from every transfer row; selection bar cleared, single
 pre-registered holdout read FAILED, family dead on ES).**
-The next free row number is **487**. `tools/studies_registry_check.py` now reads the checkout
-it lives in (it used to hardcode one session's worktree path — fixed 2026-08-23).
+The next free row number **when this ledger was written** was 487. Do not take a number from
+that sentence, or from any other sentence in this document: the live rule is the one stated
+above - the next free number is the highest number on the board plus one, read from
+`origin/main`. `tools/studies_registry_check.py` prints the board's current range as
+`numbers 1..N`, so N plus one is the answer. That check now reads the checkout it lives in
+(it used to hardcode one session's worktree path — fixed 2026-08-23).
 
 **The mismatch the board showed until 2026-08-21, now closed.** From 2026-08-16 to 2026-08-21 the
 crowned ORB configuration was row 47 (run 234) while the paper forward test was still running the
@@ -914,7 +919,9 @@ moved, whole and in order, into the free range at the end of the board:
 Nothing was reused and no gap was closed: 592-616 and 697-736 now name the TTM rows alone, and
 1485-1549 were free. Only the `n` field moved - every figure, tone and note travelled with its
 row. `KNOWN_DUP_ROWS` is empty again, so the next collision blocks a push instead of being
-baselined. **The next free row number is 1550.**
+baselined. The next free row number was 1550 when this was written - and 1550 was taken ten
+minutes later by the next study to land. That is the point: read the board, not this
+paragraph.
 
 This is the second time a collision has been settled this way. The first is recorded in
 `NOISE.md` as a "Board numbering note": that round wrote its rows as 737-787, found the numbers

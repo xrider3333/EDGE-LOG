@@ -441,7 +441,7 @@ Crown baseline: 4,054 trades · $320,130 · PF 1.420 · maxDD $18,425 · net/DD 
 
 The crown is **not** the local best on 5 of 7 axes. That is not a finding — the argmax of a 7-point
 axis beats the middle by construction most of the time, and "beats the crown" was pre-registered as
-reported, never crowned. The full per-cell curves are the STUDIES rows 749–787.
+reported, never crowned. The full per-cell curves are the STUDIES rows 1102–1140.
 
 **A4 `stop_k` is the flattest axis in the study:** the whole range *including no stop at all* spans
 $312k–$328k. **A7 `confirm_bars` is CLOSED GROUND for adoption** — any value above 1 makes #243 a
