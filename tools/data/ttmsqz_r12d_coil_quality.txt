@@ -1,0 +1,72 @@
+TTM SQUEEZE ROUND 12d - the QUALITY of the coil, not just the fire   2026-09-09 09:13
+crown cell: ES 30m RTH, kc 1.5 / stop 1.5 ATR / eod 1 / gate 60m sq_on len 20 / length 20 / bb 2.0 /
+  min squeeze 1 / open fill / fade-1 exit -- 359 trades, $51,709, PF 2.12, DD $3,740, lockbox $4,992 PF 2.22
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01, 0.363 pts/RT, 50 dollars/pt, one contract
+Discovery = first 60%% of pre-lockbox trades by time. Thresholds are read off discovery only, then
+frozen and applied unchanged to holdout and lockbox. Nothing here is crowned.
+
+  359 trades total: discovery 206, holdout 137, lockbox 16
+  (lockbox n=16 is well under the 40-trade testability floor this shop uses - shown for the record, not as evidence)
+
+  1. COIL LENGTH (bars in the base squeeze before the fire) (discovery only, descriptive)
+  bucket                     n     PF       net $    $/trade    WR%
+  1-2 bars                  40   1.54       2,224         56   37.5
+  3-7 bars                  55   2.03       4,861         88   50.9
+  8-16 bars                 46   2.82       4,703        102   54.3
+  17+ bars                  65   2.46       7,792        120   52.3
+
+  2a. COIL TIGHTNESS (deepest compression ratio reached in the coil, lower = tighter) (discovery only, descriptive)
+  bucket                     n     PF       net $    $/trade    WR%
+  <=0.65 (deep)             59   2.32       5,756         98   54.2
+  0.65-0.85 (mid)           78   2.24       7,733         99   47.4
+  0.85-1.0 (barely on)      69   2.00       6,091         88   47.8
+
+  2b. COIL TIGHTNESS AT THE FIRE (ratio on the fire bar itself, how hard it broke) (discovery only, descriptive)
+  bucket                     n     PF       net $    $/trade    WR%
+  1.00-1.05 (narrow break)    90   1.56       3,892         43   45.6
+  1.05-1.20 (mid)           85   2.76      11,058        130   55.3
+  1.20+ (wide break)        31   2.33       4,630        149   45.2
+
+  4. COIL RANGE (squeeze-range height / ATR at the fire bar) (discovery only, descriptive)
+  bucket                     n     PF       net $    $/trade    WR%
+  <1.75 ATR (narrow)        47   1.26       1,057         22   44.7
+  1.75-3.7 ATR (mid)        98   2.87      14,954        153   53.1
+  3.7+ ATR (wide)           61   1.77       3,569         59   47.5
+
+  frozen thresholds (discovery medians): coil length 8 bars, min ratio 0.755, fire ratio 1.059, range 2.92 ATR
+  coil direction is undefined for a 1-bar coil (k=1): 41 of 359 trades excluded from rule 3
+  prior-move window unavailable at the very start of the tape: 0 of 359 trades excluded from rule 6
+
+                                                           ------- discovery -------   -------- holdout --------   -------- lockbox --------
+  rule                                           shape       n     PF     net $     DD $      n     PF     net $     DD $      n     PF     net $     DD $  perm p
+  ALL TRADES (the crown, unchanged)              base      206   2.17    19,580    2,327    137   2.08    27,136    3,740     16   2.22     4,992    3,151     n/a
+  1. long coil (>= 8 bars)                       select    111   2.58    12,495      918     64   1.93    11,806    2,853      9   2.04     3,032    2,895  0.4708
+     same rule as a 1.5x size tilt               tilt      206   2.25    25,827    2,420    137   2.05    33,039    4,836     16   2.18     6,508    4,599     n/a
+  2a. deep coil (min ratio <= 0.755)             select    103   2.23    10,254      919     59   2.05    13,023    2,449      7   0.33    -2,494    3,745  0.8634
+     same rule as a 1.5x size tilt               tilt      206   2.18    24,707    2,563    137   2.07    33,648    4,949     16   1.63     3,745    4,602     n/a
+  2b. wide breakout bar (fire ratio > 1.059)     select    103   2.42    12,999    1,494     66   1.96    14,211    2,453      9   1.71     2,644    2,902  0.2400
+     same rule as a 1.5x size tilt               tilt      206   2.22    26,080    2,648    137   2.05    34,242    4,764     16   2.06     6,315    4,602     n/a
+  3. still tightening into the fire (ratio falling) select     47   1.87     4,073    2,133     36   3.28    14,071    2,084      3   1.01         8    1,099  0.6180
+     same rule as a 1.5x size tilt               tilt      182   2.36    22,317    3,209    122   2.04    27,469    4,263     14   2.08     4,933    3,279     n/a
+  4. narrow coil range (<= 2.92 ATR)             select    103   2.55    12,845    1,354     74   2.63    18,600    2,630      7   2.29     1,773    1,293  0.2650
+     same rule as a 1.5x size tilt               tilt      206   2.25    26,002    2,964    137   2.18    36,436    5,016     16   2.23     5,879    3,794     n/a
+  5. fire agrees with the move into the coil     select    111   1.53     4,878    1,087     77   2.53    19,711    2,629      9   1.96     2,137    1,293  0.0332
+     same rule as a 1.5x size tilt               tilt      206   2.03    22,019    2,641    137   2.17    36,992    4,685     16   2.17     6,061    3,794     n/a
+
+MULTIPLE COMPARISONS, stated before anyone reads a p-value: 6 rules were tested here, so the
+smallest honest threshold is 0.05 / 6 = 0.0083. Read the discovery p-value against THAT, not 0.05.
+
+VERDICT - survives only if the mean-$/trade gap points the same direction in discovery AND holdout,
+both buckets clear the 40-trade testability floor, and discovery clears the raw p<0.05 bar (before
+the Bonferroni correction above, which is the stricter bar a real finding should still be judged by):
+  1. long coil (>= 8 bars)                       disc gap +38$/trade  hold gap -26$/trade  lb gap +57$/trade  -> does not survive
+  2a. deep coil (min ratio <= 0.755)             disc gap +9$/trade  hold gap +40$/trade  lb gap -1,188$/trade  -> does not survive
+  2b. wide breakout bar (fire ratio > 1.059)     disc gap +62$/trade  hold gap +33$/trade  lb gap -42$/trade  -> does not survive
+  3. still tightening into the fire (ratio falling) disc gap -33$/trade  hold gap +317$/trade  lb gap -445$/trade  -> does not survive
+  4. narrow coil range (<= 2.92 ATR)             disc gap +59$/trade  hold gap +116$/trade  lb gap -104$/trade  -> does not survive
+  5. fire agrees with the move into the coil     disc gap -111$/trade  hold gap +132$/trade  lb gap -171$/trade  -> does not survive
+
+NOTHING SURVIVES. Every rule either flips sign between discovery and holdout, or rests on a bucket
+under the 40-trade floor, or both. This matches every previous structure hunt in this family:
+the compression CHECK (hourly squeeze on/off, already in production) carries the real signal; how
+the coil got there does not add anything measurable on 359 trades.

@@ -1,0 +1,53 @@
+TTM SQUEEZE ROUND 12e - the OVERNIGHT coil as a pre-session read   2026-09-09 09:15
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01; ES 30m RTH crown cell, 0.363 pts a round trip, 50 dollars a point
+Discovery = the first 60 percent of pre-lockbox trades by time. Rules are read off discovery only;
+holdout and lockbox are reported beside every one of them. Nothing is crowned.
+
+  360 trades, 360 with an overnight read (4167 nights in the table, median 15 complete hours before the open)
+  discovery 206 trades, holdout 138, lockbox 16
+
+                                                       ------- discovery -------   -------- holdout --------   -------- lockbox --------
+  rule                                         shape       n     PF     net $     DD $      n     PF     net $     DD $      n     PF     net $     DD $  perm p
+  ALL TRADES (the crown, unchanged)            base      206   2.21    19,905    2,327    138   2.05    26,868    3,740     16   2.22     4,992    3,151     n/a
+  PROXY overnight GAP agrees with the trade    select    133   2.98    19,979    1,680     88   2.22    21,719    3,132     10   4.39     6,901    1,110  0.0057
+     same rule as a 1.5x size tilt             tilt      206   2.39    29,895    3,021    138   2.10    37,727    5,306     16   2.66     8,443    3,706     n/a
+  PROXY quiet overnight gap (under 0.25 of range) select     81   1.32     2,138    1,906     53   1.12     1,359    3,172      5   0.76      -383    1,622  0.0283
+     same rule as a 1.5x size tilt             tilt      206   2.06    20,974    3,238    138   1.89    27,548    4,400     16   1.98     4,801    3,962     n/a
+  PROXY prior day close-to-close agrees        select    109   3.15    14,753      775     75   2.77    20,565    1,958      6   2.29     1,761    1,366  0.1270
+     same rule as a 1.5x size tilt             tilt      206   2.37    27,281    2,125    138   2.19    37,150    4,080     16   2.23     5,873    3,834     n/a
+  overnight squeeze ON at the open             select     62   1.76     3,666    1,350     44   1.15     1,640    3,227      1   0.00      -256      256  0.3518
+     same rule as a 1.5x size tilt             tilt      206   2.15    21,738    3,002    138   1.90    27,688    4,484     16   2.16     4,865    3,279     n/a
+  overnight ratio at or under 1.0              select     62   1.76     3,666    1,350     44   1.15     1,640    3,227      1   0.00      -256      256  0.3518
+     same rule as a 1.5x size tilt             tilt      206   2.15    21,738    3,002    138   1.90    27,688    4,484     16   2.16     4,865    3,279     n/a
+  overnight ratio at or under 0.85 (deep)      select     34   2.50     2,847    1,018     29   0.97      -191    3,081      1   0.00      -256      256  0.8383
+     same rule as a 1.5x size tilt             tilt      206   2.23    21,328    2,786    138   1.92    26,772    3,964     16   2.16     4,865    3,279     n/a
+  overnight range under its 20-day median      select    111   1.58     5,178    1,885     69   1.54     7,578    4,406      8   3.34     3,975    1,622  0.0410
+     same rule as a 1.5x size tilt             tilt      206   2.08    22,494    3,171    138   1.94    30,657    4,587     16   2.41     6,980    3,962     n/a
+  overnight range under 0.8 of its median      select     70   1.60     3,119    1,065     44   1.64     4,716    2,913      5   0.08    -1,558    1,622  0.1560
+     same rule as a 1.5x size tilt             tilt      206   2.13    21,464    2,779    138   2.00    29,226    4,069     16   1.85     4,213    3,962     n/a
+  quiet night AND coiled (both above)          select     50   1.85     3,172    1,169     34   0.96      -334    4,402      1   0.00      -256      256  0.4760
+     same rule as a 1.5x size tilt             tilt      206   2.17    21,491    2,911    138   1.88    26,701    4,484     16   2.16     4,865    3,279     n/a
+  overnight momentum agrees with the trade     select    141   2.82    19,065    1,321     96   2.26    22,948    3,058     12   3.91     6,653    1,366  0.0307
+     same rule as a 1.5x size tilt             tilt      206   2.36    29,437    2,809    138   2.11    38,342    5,007     16   2.59     8,319    3,831     n/a
+
+TAKING THE PRIOR-DAY RULE APART - is it one effect, or a long-only bull market?
+  cut                                          shape       n     PF     net $     DD $      n     PF     net $     DD $      n     PF     net $     DD $  perm p
+    base, longs only                           base      124   2.24    10,048    1,019     80   2.35    14,971    2,583     14   1.08       316    3,151     n/a
+    prior-day agrees, longs only               select     65   2.31     4,818      893     44   3.91    12,130      836      6   2.29     1,761    1,366  0.7770
+    base, shorts only                          base       82   2.18     9,857    3,025     58   1.83    11,897    2,869      2  99.00     4,676       -0     n/a
+    prior-day agrees, shorts only              select     44   4.14     9,935      699     31   2.13     8,434    1,983      -      -         -        -  0.0343
+    validated deep tilt alone (run 340 shape)  tilt      206   2.30    27,063    2,833    138   2.16    35,958    4,549     16   2.38     6,948    4,053     n/a
+    deep tilt AND prior-day agrees             both      109   3.38    20,897    1,091     75   2.79    26,966    2,854      6   2.09     1,634    1,494     n/a
+  overlap: 59 percent of deep-squeeze trades also agree with the prior day (base rate 53 percent)
+  base                     positive years 14 of 17, worst year -2,424 dollars
+  prior-day agrees         positive years 14 of 17, worst year -489 dollars
+
+MULTIPLE COMPARISONS, stated before anyone reads a p-value: TEN rules were tested here, so the
+smallest honest threshold is 0.05 divided by 10, which is 0.005. NO rule in this table clears that.
+A p-value near 0.03 with seven attempts is what chance produces; the holdout and lockbox columns are
+the evidence that matters, and they matter only where the bucket is big enough to mean anything.
+
+HOW TO READ THIS: a rule earns attention only if it beats the base row in BOTH holdout and lockbox,
+and the tilt rows are the shape this shop adopts - a selection rule that throws trades away has lost
+money every time it has been tried in this family. Bucket sizes matter: under about 40 trades a
+difference is not measurable on this sample at all.

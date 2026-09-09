@@ -1,0 +1,77 @@
+TTM SQUEEZE ROUND 12a - Squeeze Pro (graded 3-level compression) as the SIGNAL   2026-09-09 09:12
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01, house costs, one contract; hourly (60m) sq_on gate ON in every row
+INCUMBENT quoted (ES 30m RTH crown): n=359 PF=2.12 net=$51,709 DD=$3,740 LB=$4,992 LB PF=2.22
+
+==================================================================================================================================
+PREMISE CHECK - does HIGH(kc1.0) imply MID(kc1.5) imply LOW(kc2.0) at every bar?
+==================================================================================================================================
+  ES 30m: nesting OK (HIGH-not-MID violations=0, MID-not-LOW violations=0); HIGH on 1.8% of bars, MID on 17.4% of bars, LOW on 39.3% of bars
+  NQ 15m: nesting OK (HIGH-not-MID violations=0, MID-not-LOW violations=0); HIGH on 2.5% of bars, MID on 21.1% of bars, LOW on 44.0% of bars
+
+==================================================================================================================================
+SANITY CHECK - run_pro_entry(entry_kc=1.5, gate_kc=1.5) on ES 30m must reproduce the incumbent
+==================================================================================================================================
+  TTMSQZ_3_0.run_backtest direct : n=359 PF=2.12 net=$51,709
+  run_pro_entry (this file)      : n=359 PF=2.12 net=$51,709
+  identical trades: True   |   matches quoted incumbent (n=359 net=$51,709): True
+
+==================================================================================================================================
+BASELINE - classic MID release (kc 1.5), hourly gate ON, both markets (ES 30m = the incumbent tape)
+==================================================================================================================================
+  cell                                                      n      PF        net $       DD $    lockbox $   LB PF
+  ES 30m classic MID release  [INCUMBENT config]          359    2.12       51,709      3,740        4,992    2.22
+  NQ 15m classic MID release  [reference (never crowned)]    483    1.71       66,095     11,111        6,913    1.44
+
+==================================================================================================================================
+TEST 1 - fire on release from HIGH (kc 1.0) instead of classic MID (kc 1.5); hourly gate stays classic
+==================================================================================================================================
+  cell                                                      n      PF        net $       DD $    lockbox $   LB PF
+  ES 30m fire-from-HIGH release                            87    1.81        7,604      3,110        4,216    9.05
+  NQ 15m fire-from-HIGH release                           121    1.99       12,038      2,201         -943    0.00
+
+==================================================================================================================================
+TEST 2 - required HIGH touched at any point during the coil, then fire on the classic MID release
+  (post-hoc SELECTION on the classic trade list above - no trade added, removed timing unchanged)
+==================================================================================================================================
+  cell                                                      n      PF        net $       DD $    lockbox $   LB PF
+  ES 30m SELECT: reached HIGH during coil  (100/359 kept)    100    1.70       10,057      4,191         -541    0.70
+    permutation p on mean $/trade gap (reached vs not): 0.4406  (not significant on its own)
+  NQ 15m SELECT: reached HIGH during coil  (120/483 kept)    120    1.82       17,759      4,855       -3,322    0.32
+    permutation p on mean $/trade gap (reached vs not): 0.9098  (not significant on its own)
+
+==================================================================================================================================
+TEST 3 - LEVEL AT THE FIRE (compression grade of the last bar still inside the coil)
+  3a SELECTION: only take classic fires that were wound to HIGH at that moment
+  3b TILT: keep every classic trade, 1.5x size on the ones wound to HIGH (round-8 shape)
+==================================================================================================================================
+  cell                                                      n      PF        net $       DD $    lockbox $   LB PF
+  ES 30m: level-at-fire distribution over 359 classic trades - MID(2)=356 HIGH(3)=3
+  ES 30m SELECT: level-at-fire == HIGH  (3/359 kept)        3    0.13         -299        343          n/a     n/a
+    permutation p on mean $/trade gap (HIGH-at-fire vs MID-at-fire): 0.4404  (not significant on its own)
+  ES 30m TILT: 1.5x when level-at-fire == HIGH            359    2.12       51,559      3,740        4,992    2.22
+  NQ 15m: level-at-fire distribution over 483 classic trades - MID(2)=473 HIGH(3)=10
+  NQ 15m SELECT: level-at-fire == HIGH  (10/483 kept)      10    6.70        5,198        476         -476    0.00
+    permutation p on mean $/trade gap (HIGH-at-fire vs MID-at-fire): 0.1922  (not significant on its own)
+  NQ 15m TILT: 1.5x when level-at-fire == HIGH            483    1.73       68,695     11,294        6,675    1.42
+
+==================================================================================================================================
+TEST 4 - DURATION at HIGH before the fire (consecutive bars at HIGH ending on the last squeezed bar)
+  4a SELECTION buckets: 0 (never reached HIGH) / 1-2 bars / 3+ bars
+  4b TILT: keep every classic trade, 1.5x size when duration-at-HIGH >= 2 bars
+==================================================================================================================================
+  cell                                                      n      PF        net $       DD $    lockbox $   LB PF
+  ES 30m SELECT: duration-at-HIGH = 0 (never HIGH)  (356/359 kept)    356    2.14       52,008      3,740        4,992    2.22
+  ES 30m SELECT: duration-at-HIGH = 1-2 bars at HIGH  (1/359 kept)      1   99.00           44         -0          n/a     n/a
+  ES 30m SELECT: duration-at-HIGH = 3+ bars at HIGH  (2/359 kept)      2    0.00         -343        343          n/a     n/a
+  ES 30m TILT: 1.5x when duration-at-HIGH >= 2            359    2.12       51,537      3,740        4,992    2.22
+    permutation p on mean $/trade gap (duration>=2 vs <2): 0.3754  (not significant on its own)
+  NQ 15m SELECT: duration-at-HIGH = 0 (never HIGH)  (473/483 kept)    473    1.66       60,897     10,745        7,388    1.48
+  NQ 15m SELECT: duration-at-HIGH = 1-2 bars at HIGH  (4/483 kept)      4    3.41        1,147        476         -476    0.00
+  NQ 15m SELECT: duration-at-HIGH = 3+ bars at HIGH  (6/483 kept)      6   10.28        4,051        271          n/a     n/a
+  NQ 15m TILT: 1.5x when duration-at-HIGH >= 2            483    1.73       68,328     11,294        6,675    1.42
+    permutation p on mean $/trade gap (duration>=2 vs <2): 0.1926  (not significant on its own)
+
+==================================================================================================================================
+VERDICT - cells beating the incumbent on BOTH whole-run PF (>=2.12) AND lockbox net (>=$4,992)
+==================================================================================================================================
+  BEATS INCUMBENT: ES 30m SELECT: duration-at-HIGH = 0 (never HIGH)     PF 2.14 (vs 2.12)  LB $4,992 (vs $4,992)

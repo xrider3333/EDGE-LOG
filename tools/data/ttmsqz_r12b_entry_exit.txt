@@ -1,0 +1,80 @@
+TTM SQUEEZE ROUND 12b - entry, protection, exit   2026-09-09 09:13
+ES 30m RTH, window 2010-06-07..2026-06-30, lockbox from 2025-07-01, house cost 0.363 pts, mult 50, 1 contract
+hourly squeeze-on gate held ON throughout (gate_tf_min 60, gate_mode sq_on, gate_len 20) - the
+family's one durable finding across 11 rounds. Only entry/stop/exit mechanics vary below.
+Same-bar stop/target conflicts resolved pessimistically (stop wins) throughout; no look-ahead:
+every decision uses only bars closed at or before it, mirroring TTMSQZ_3_0.run_backtest exactly.
+
+REPRODUCTION CHECK (this file's loop vs the engine's run_backtest on the incumbent config):
+  cell                                           n      PF       net $      DD $ |        LB $   LB PF    LB n  
+  incumbent (engine, quoted)                   359    2.12      51,709     3,740 |       4,992    2.22      16  engine numbers as stated
+  incumbent (this file's own loop)             359    2.12      51,709     3,740 |       4,992    2.22      16  MATCH
+
+====================================================================================================
+1. PULLBACK ENTRY - wait for a retrace of X% of the squeeze range, limit order expires after N bars
+   stop/exit unchanged from the incumbent (1.5 ATR stop, 1-bar fade exit)
+====================================================================================================
+  cell                                           n      PF       net $      DD $ |        LB $   LB PF    LB n  fires elig/filled/miss%
+  retrace 25%, order lives 4 bars              187    1.77      14,380     2,202 |         566    1.41       6  356/187/47%
+  retrace 25%, order lives 8 bars              202    1.75      14,680     2,631 |         566    1.41       6  356/202/43%
+  retrace 38%, order lives 4 bars              135    1.38       4,911     1,934 |        -867    0.34       4  356/135/62%
+  retrace 38%, order lives 8 bars              153    1.50       6,718     1,863 |        -391    0.70       5  355/153/57%
+  retrace 50%, order lives 4 bars               99    1.29       2,941     1,431 |        -760    0.41       4  356/99/72%
+  retrace 50%, order lives 8 bars              117    1.13       1,578     2,203 |        -760    0.41       4  353/117/67%
+
+====================================================================================================
+2. STRUCTURAL STOP - opposite side of the squeeze range (+/- buffer) instead of 1.5x ATR
+   entry/exit unchanged from the incumbent (next-open entry, 1-bar fade exit)
+====================================================================================================
+  cell                                           n      PF       net $      DD $ |        LB $   LB PF    LB n  
+  range-edge stop, buffer 0.00 pts             357    2.70      73,720     3,642 |      11,710    5.38      16  <-- BEATS incumbent (PF+LB)
+  range-edge stop, buffer 0.50 pts             357    2.72      73,970     3,492 |      11,660    5.36      16  <-- BEATS incumbent (PF+LB)
+  range-edge stop, buffer 1.00 pts             357    2.68      73,083     3,617 |      11,610    5.35      16  <-- BEATS incumbent (PF+LB)
+  caveat: mean stop distance 1.5xATR $586 vs range-edge $1,033 per contract (76% wider, 360 fires) -
+  the wider stop is what stops fewer good trades from being cut early, but it also means a bigger loss
+  on whichever trade DOES eventually hit it; this window's max DD does not certify that tail is safe.
+
+====================================================================================================
+3. TIME EXIT - hold N bars, exit at the next bar's open; with and without the protective stop
+   entry unchanged (next-open); no fade exit in this family (time or stop or EOD only)
+====================================================================================================
+  cell                                           n      PF       net $      DD $ |        LB $   LB PF    LB n  
+  hold 2 bars, WITH 1.5 ATR stop               359    1.41      15,422     3,421 |       1,273    1.43      15  
+  hold 2 bars, NO stop                         357    1.55      18,795     2,550 |       1,390    1.49      15  
+  hold 4 bars, WITH 1.5 ATR stop               355    1.49      23,906     4,943 |       6,373    4.01      15  
+  hold 4 bars, NO stop                         351    1.58      26,667     4,537 |       6,215    3.73      15  
+  hold 6 bars, WITH 1.5 ATR stop               353    1.63      34,061     4,766 |       7,123    3.35      15  
+  hold 6 bars, NO stop                         344    1.61      33,044     4,832 |       7,540    3.89      15  
+  hold 8 bars, WITH 1.5 ATR stop               351    1.67      39,572     4,632 |      10,211    3.97      15  
+  hold 8 bars, NO stop                         341    1.68      40,198     5,562 |      10,328    4.11      15  
+  hold 12 bars, WITH 1.5 ATR stop              351    1.62      41,140     6,206 |       9,799    3.56      15  
+  hold 12 bars, NO stop                        341    1.50      36,986     5,902 |       9,940    3.70      15  
+
+====================================================================================================
+4. TRAIL - an ATR trailing stop instead of the momentum-fade exit
+   entry unchanged (next-open); trail starts at entry x ATR mult, only ratchets in favor
+====================================================================================================
+  cell                                           n      PF       net $      DD $ |        LB $   LB PF    LB n  
+  1.0x ATR trail                               354    1.81      35,872     3,428 |       5,625    2.46      15  
+  1.5x ATR trail                               352    1.93      46,625     3,359 |      10,906    4.89      15  
+  2.0x ATR trail                               347    1.83      47,297     5,617 |      10,269    4.06      15  
+
+====================================================================================================
+5. FIRST-TARGET SCALE - exit half at 1R (R = entry-to-1.5-ATR-stop distance), let the rest run to the fade
+   cost split 50/50 across the two legs so the total cost budget per original trade is unchanged
+====================================================================================================
+  cell                                           n      PF       net $      DD $ |        LB $   LB PF    LB n  
+  scale half at 1R, rest to fade               465    1.95      42,674     3,151 |       4,381    2.07      19  
+  prior finding on another family (ORB): scale-outs were risk-adjusted (lower DD), not
+  richer (not higher net). Read below whether that repeats here.
+  net $ vs incumbent: 42,674 vs 51,709 (82.5%)   DD $ vs incumbent: 3,151 vs 3,740 (84.3%)
+
+====================================================================================================
+SUMMARY - incumbent: n 359, PF 2.12, net $51,709, DD $3,740, lockbox $4,992 at PF 2.22
+====================================================================================================
+cells beating the incumbent on BOTH whole-run PF and lockbox net:
+  - [2 structural stop] range-edge stop, buffer 0.00 pts
+  - [2 structural stop] range-edge stop, buffer 0.50 pts
+  - [2 structural stop] range-edge stop, buffer 1.00 pts
+
+elapsed 2s

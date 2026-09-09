@@ -1,0 +1,71 @@
+TTM SQUEEZE ROUND 12c - CROSS-INSTRUMENT COMPRESSION (ES vs NQ hourly squeeze)   2026-09-09 09:13
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01, house costs, one contract unless noted
+incumbent quoted: ES 30m RTH crown - kc 1.5 / stop_atr 1.5 / eod_cutoff 1 / gate 60m sq_on gate_len 20 / fade 1 bar / length 20 bb 2.0 min_sq_bars 1
+no-lookahead rule: cross-instrument state read from the LAST COMPLETE 60m group as of the decision bar, aligned by np.searchsorted on wall-clock bar-close time (`_end`), never by row index (ES 30m and NQ 30m differ by 1 bar over the window).
+
+masters: ES 30m RTH 52861 bars (2010-06-07..2026-06-30) | NQ 30m RTH 52860 bars (2010-06-07..2026-06-30) | NQ 15m RTH 105665 bars (2010-06-07..2026-06-30)
+self-map sanity check: PASS (cross-map onto an instrument's own bars == r6.hourly_compression, bit-exact)
+
+incumbent reproduction check: n=359 net=$51,709 PF=2.123 DD=$3,740 LB=$4,992 LB PF=2.223  (quoted: 359 / $51,709 / 2.12 / $3,740 / $4,992 / 2.22)
+
+==================================================================================================================================
+1. SWAP / BOTH - which instrument's hourly squeeze verifies the ES 30m crown's own fires
+==================================================================================================================================
+  raw fires before any hourly gate (both directions, all other crown rules unchanged): n=1202
+  cell                                          n      PF       net $      DD $ |  lockbox $   LB PF   LB DD $ |   keep%
+  INCUMBENT (ES hourly verifies, as published)    359    2.12      51,709     3,740 |      4,992    2.22     3,151 |  100.0%
+  SWAP: NQ hourly verifies instead (ES gate dropped)    292    1.52      25,263     4,447 |      8,034    2.93     2,895 |   24.3%
+  BOTH: ES hourly AND NQ hourly required (keep% of incumbent)    200    1.87      25,154     3,644 |      6,028    3.20     2,652 |   55.7%
+  internal-gate parity check: ungated fires re-filtered by the ES-hourly cross-map = 358 (incumbent = 359)
+    (off by 1: gating changes which trades are taken, which changes when the position slot is free, so a later fire can appear/disappear under a different gate - path dependency in the engine itself, not an alignment bug; the SWAP/BOTH cells below are built the only way available - post-filtering the ungated fire list - since the engine takes no externally-injected gate array.)
+
+==================================================================================================================================
+2. TILT - keep ES verification, size 1.5x the incumbent's own trades when NQ's hourly
+   compression RATIO is <= 0.85 (deep) at the decision bar - the shape already validated on ES
+==================================================================================================================================
+  cell                                          n      PF       net $      DD $ |  lockbox $   LB PF   LB DD $ |   keep%
+  INCUMBENT (flat 1x, as traded)              359    2.12      51,709     3,740 |      4,992    2.22     3,151 |  100.0%
+  1.5x on NQ-deep trades (share tilted, not dropped)    359    2.03      57,055     4,481 |      5,724    2.05     4,481 |   32.9%
+
+==================================================================================================================================
+3. MIRROR - crown's own rules on the NQ tape, verified by the ES hourly squeeze instead of NQ's own
+==================================================================================================================================
+
+-- NQ 15m RTH --
+  cell                                          n      PF       net $      DD $ |  lockbox $   LB PF   LB DD $ |   keep%
+  ES-hourly verifies NQ 15m RTH (of 2839 raw fires)    458    1.59      54,651     8,302 |      5,493    1.35     6,483 |   16.1%
+    reference: NQ-native-hourly verifies NQ 15m RTH (context, not a cross test)    483    1.71      66,095    11,111 |      6,913    1.44     7,480 |   17.0%
+
+-- NQ 30m RTH --
+  cell                                          n      PF       net $      DD $ |  lockbox $   LB PF   LB DD $ |   keep%
+  ES-hourly verifies NQ 30m RTH (of 1218 raw fires)    307    1.25      23,467    15,174 |       -851    0.94     8,925 |   25.2%
+    reference: NQ-native-hourly verifies NQ 30m RTH (context, not a cross test)    392    1.45      50,260    15,020 |      6,819    1.48     4,488 |   32.2%
+
+==================================================================================================================================
+4. BASE RATE - is the whole market coiled together, and does it show up in the ES crown's own trades?
+==================================================================================================================================
+  ES 30m bars, whole window (n=52771, post-warmup): P(ES hourly coiled)=13.3%  P(NQ hourly coiled)=13.2%  P(BOTH)=7.1%
+  P(NQ coiled | ES coiled)=53.4%  (vs unconditional P(NQ coiled)=13.2% -> lift x4.03)
+  Pearson correlation of ES vs NQ hourly compression RATIO (continuous, n=52771): r=0.815
+
+  ES crown's own 359 trades split by NQ-hourly-coiled at the decision bar:
+    NQ coiled:     n=200  mean $/trade=126
+    NQ NOT coiled: n=159  mean $/trade=167
+    gap in mean $/trade: -41   permutation p=0.5684 (5000 shuffles)  NOT significant on its own
+
+==================================================================================================================================
+5. SAME SPLIT, LOCKBOX ONLY (>= 2025-07-01, untouched by any search)
+==================================================================================================================================
+  lockbox trades: n=16
+    LB, NQ coiled:     n=12  net=$6,028  PF=3.20
+    LB, NQ NOT coiled: n=4  net=$-1,035  PF=0.23
+    gap in mean $/trade: +761   permutation p=0.2806 (5000 shuffles, lockbox n=16 only - read as directional, not conclusive)
+
+==================================================================================================================================
+VERDICT - cells beating the incumbent on BOTH whole-run PF and lockbox net $
+==================================================================================================================================
+  incumbent: PF=2.123  lockbox net=$4,992
+  SWAP: NQ hourly only                     PF=1.522 (below)  lockbox=$8,034 (beats)  
+  BOTH: ES AND NQ hourly                   PF=1.865 (below)  lockbox=$6,028 (beats)  
+  TILT: 1.5x on NQ-deep                    PF=2.030 (below)  lockbox=$5,724 (beats)  
+  cells beating on BOTH: none
