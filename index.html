@@ -603,6 +603,7 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
 {v:'73.651',date:'2026-09-09',notes:['COMPARE - STUDIES: BOOKMARKS B11 re-judged, rows 1567-1571. The owner asked for the lockbox-clause version of the NASDAQ dip stack, so three BOOK cards ran on B11 OWN bar with exactly one clause swapped - MAR at least 1.15 times the incumbent unchanged, LOCKBOX drawdown within 5 percent instead of whole-run, lockbox net unchanged. Runs 346, 347 and 348. Every figure matched a prediction written before they ran, to the dollar.','ALL THREE MISS UNDER BOTH CLAUSES - AND THE CLAUSE THAT FAILS IS MAR, NOT RISK. The tradeable NQDIP family scores MAR times 1.008 and times 1.086 against the champion B11 was judged against, on a bar of 1.15, and times 0.659 on the book actually being traded, where it takes the drawdown from 34,329 to 74,275 dollars. B11 headline was times 1.35, so the plus 35 percent looks like a property of the walk-forward construction rather than of anything tradeable with fixed settings. The walk-forward result itself is NOT retracted.','RUN 347 IS THE QUIET RESULT: ORB 234 plus ENGU-Q ETH 226 is the pairing B11 was measured against, and it had never been stored as a run, so the claim could not be checked against a card at all until now.','THE SWAP WAS NOT WHAT DECIDED IT. On the champion cards the lockbox drawdown is the KINDER number - whole-run ratios 1.587 and 2.156 against lockbox ratios 1.122 and 1.068 - so had MAR passed, the new clause would have been the easier gate. Both are printed on every card rather than one replacing the other.','AND THE ENGINE FOUND SOMETHING ON ITS OWN: run 348 names the TTM leg as its inert one, because adding the dip leg MOVED the book worst stretch from April 2022 back to the 2020 crash. Which legs are inert is not a property of a leg - it moves with the composition of the book, so a whole-run drawdown clause has to be re-read every time a leg is added.']},
+{v:'73.651',date:'2026-09-09',notes:['Where the sealed-year strip does not carry a figure - a drawdown, an average loss - that cell shows a dash instead of quietly keeping the one from the slice it replaced. Half a column from each source would put one net over the other drawdown and call it MAR.','ONE LOCKBOX, ONE NUMBER (owner call). The run report LOCKBOX column was reading the gate study slice of the champion trade list, while COMPARE BETA and the RUNBOARD read the lockbox strip - the block that carries the PASS or FAIL the verdict was scored from. On run 306 those are 88 percent apart, both labelled LOCKBOX. Every screen now reads the strip. The cost is stated where it happens: the three sections may no longer add up to TOTAL exactly, and the column tooltip says so.','THE WALK-FORWARD PROFIT FACTOR IS POOLED, NOT THE MEDIAN FOLD (owner call). A profit factor is gross wins over gross losses; the middle value of a list of ratios is not that, and it is not comparable with any other profit factor in the app. The run report already pooled, so this was a third number under a shared label. Both tabs now rebuild each fold gross loss from its own net and profit factor and sum the grosses. Expectancy in R and R per year on the walk-forward stage move with it. The PICK RUNS row is relabelled from Median fold PF to Pooled fold PF.']},
 {v:'73.650',date:'2026-09-09',notes:['THE RUNBOARD NOW READS TOP-DOWN. Annualising the MAR column exposed the other half of the same fault: the board ranked BOOKS on figures that appear nowhere on it. Every cell prints a book from its own pooled block, but the sort key had no book branch and fell through to the generic run path, so run 331 could show the highest MAR on the board at 2.56 and still sit in second place behind a book showing 2.24. Books are now ranked on exactly the numbers printed for them, on all three sample ticks.']},
 {v:'73.649',date:'2026-09-09',notes:['COMPARE - STUDIES: a new block, rows 1550-1566 - every book adoption on the board re-judged, because the risk clause all of them used could not fail. A book whole-run drawdown is ONE stretch of tape, so a leg that took no trades inside that stretch cannot move it at any weight: runs 336, 337 and 341 all record 34,329.21 dollars to the cent even though two of them carry three ES contracts the third does not have at all.','THE SPLIT. The three TTM book runs WERE decided on an inert clause - the ES leg traded the incumbent worst stretch zero days in all three - but 336 and 342 pass a lockbox-drawdown clause as well, and 342 passes it because it LOWERED the lockbox drawdown. The ETF and NASDAQ books are the opposite: they are dip buyers and the incumbent worst stretch is a crash, so their legs are heavily present in it and their MAR bars were doing real work. NOTHING IS RETRACTED - the evidence is put in front of the owner.','THE ONE HEADLINE WORTH RE-READING is the NASDAQ book. It cleared its plus 15 percent MAR bar honestly, but the same stack raises the champion last-twelve-months drawdown 104 percent, from 38,838 to 79,330 dollars, and fails a lockbox-drawdown clause outright.','REPLACEMENT CLAUSE for every future book bar: MAR at least 1.05 times the incumbent, LOCKBOX drawdown within 5 percent, lockbox net at least as large, with the whole-run drawdown reported as a check that says out loud when it is inert. augur_engine/book.py now writes worst_stretch, worst_stretch_lockbox and inert_legs onto every book result, and the BOOKS table in COMPARE - RUNBOARD prints the stretch under each book legs and flags any leg that was absent from it. New tools/book_dd_attribution.py and tools/book_clause_audit.py; gates tests/test_book_worst_stretch.py and tools/runboard_books_probe.py.','OPEN ITEM, OWNER CALL: two day-stamping rules disagree about which month a book worst stretch is in. The engine truncates a US Eastern index with numpy datetime64 day, which numpy does in UTC, so a 24-hour leg trade exiting at or after 20:00 ET is booked on the NEXT day. 227 of the ENGU-Q ETH leg 1,179 exit days move. Net is identical to the cent; the drawdown is not. Nothing was changed, because every stored book run is on the engine rule.']},
 {v:'73.648',date:'2026-09-09',notes:['THE RUNBOARD MAR COLUMN WAS NEVER ANNUALISED - the code for this shipped in the previous version, but its entry was lost to a numbering collision, so it is written down here. The column printed net divided by drawdown while every other MAR in the app, and the RUNBOARD own row ordering, used net PER YEAR divided by drawdown - the single definition set in v73.460. On run 314 the column read 18.93 where the run report and COMPARE BETA read 1.17. Two consequences: the number was about sixteen times too large, and because a longer run was not penalised for its length, a 2-year run could sit above a 16-year run that beat it. The column now uses the same annualised figure the board already sorted on.','A STORED LOCKBOX DRAWDOWN BEATS ONE MEASURED OFF THE CURVE on the RUNBOARD, in the column and in the sort. The saved curve is downsampled, so a drawdown read from it can only come out too small - and too small is what wins a smallest-drawdown mark and inflates the MAR beside it. On run 306 the curve reads 18,334 dollars against the 21,888 the run actually saved.','A MISSING DRAWDOWN IS A DASH, NOT ZERO. A run with no in-sample drawdown saved was being treated as having a drawdown of nothing, which made it the least risky run on the board.','IN-SAMPLE FIGURES ARE NO LONGER DIVIDED BY THE SEALED YEAR. MAR and R per year on the in-sample reading divided by the whole run, lockbox included, when the money in the numerator was earned before the lockbox started - about 10 percent understated on a 16-year run with a 1-year lockbox, on every screen at once. One shared window now serves the run list, the RUNBOARD and COMPARE BETA. Open question for the engine, not the page: whether the in-sample figure covers the whole optimize window or only its earlier part.','COMPARE BETA: a lockbox with no saved net dashes instead of reading 0 dollars, a lockbox profit factor of zero is kept because zero means the stretch never won a trade, and a single walk-forward fold is kept on both tabs rather than reported as no walk-forward result at all.','Ship gate: the RUNBOARD had no render gate of any kind, which is how a sixteen-fold error sat in the open. It now has one - the board renders on all three sample ticks and its lockbox MAR is checked against a figure the gate computes from the run fixture own saved lockbox, so net-over-drawdown cannot come back green.']},
@@ -15050,12 +15051,37 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _uMap={IS:_mkU(_uIS,_gS,_gW),WF:_mkU(_uWF,_gW,_gL),LB:_mkU(_uLB,_gL,_gE),TOTAL:_mkU(_uAL,_gS,_gE)};
         // TOTAL drawdown is the deepest dip on the WHOLE curve, not the deepest of the sections.
         if(V.total_dd!=null)_uMap.TOTAL.dd=Math.abs(+V.total_dd)*mult;
+        // THE LOCKBOX COLUMN FOLLOWS THE LOCKBOX STRIP (owner 2026-09-09: go with
+        //   validate.lockbox as authoritative). The slice above is the champion own trades
+        //   cut at the lockbox dates, which is what makes the three sections add up - but it
+        //   is not the block the PASS or FAIL was scored from, and on run 306 the two are 88
+        //   percent apart. Two screens must not print different lockboxes under one word, so
+        //   this column now reads the same block COMPARE BETA and the RUNBOARD read. The
+        //   consequence is stated in the tooltip: the sections may no longer sum to TOTAL.
+        const _sLB=(V&&V.lockbox)||null;
+        if(_sLB&&_sLB.pnl!=null&&isFinite(+_sLB.pnl)){
+          // ALL OF IT OR NONE OF IT. Filling in only the fields the strip happens to carry
+          //   and leaving the rest behind from the slice would put the strip net over the
+          //   slice drawdown and call it MAR - one number built from two different readings,
+          //   which is exactly what this change exists to stop. A field the strip does not
+          //   carry shows a dash and says so on hover, like every other missing figure here.
+          const _n=(v,f)=>((v!=null&&isFinite(+v))?f(+v):null);
+          const o=_uMap.LB;
+          o.net=(+_sLB.pnl)*mult;
+          o.tr=_n(_sLB.trades,v=>v);
+          o.pf=_n(_sLB.pf,v=>v);
+          o.wr=_n(_sLB.win_rate,v=>v);
+          o.dd=_n(_sLB.dd,v=>Math.abs(v)*mult);
+          o.sh=_n(_sLB.sharpe,v=>v);
+          o.aw=_n(_sLB.avg_win,v=>Math.abs(v)*mult);
+          o.al=_n(_sLB.avg_loss,v=>Math.abs(v)*mult);
+        }
         phases.forEach(ph=>{const o=_uMap[ph.sh_];if(!o)return;
           Object.keys(o).forEach(k=>{if(o[k]!=null)ph[k]=o[k];});
           ph.tip=({IS:'IN-SAMPLE = the years before walk-forward testing starts - the stretch no fold ever tested out-of-sample. Every figure here is the CHAMPION own trades over these exact dates, the same numbers the RAW and GATE tabs show.',
                    WF:'WALK-FORWARD = the years the folds tested over. Every figure here is the CHAMPION held constant across those years. The separate WF OOS chip on the title row is the walk-forward PROCEDURE result, where each fold re-picks its own config - a different question.',
-                   LB:'LOCKBOX = the sealed final year, opened once after the winner was already chosen.',
-                   TOTAL:'TOTAL = the whole backtest. NET, TRADES and the section figures all come from the champion own trade list, so the three sections add up exactly. MAX DD is the deepest dip on the whole curve, which is why it is deeper than any single section.'})[ph.sh_]||ph.tip;});
+                   LB:'LOCKBOX = the sealed final year, opened once after the winner was already chosen. These are the figures from the lockbox strip - the block the PASS or FAIL was scored from, and the one COMPARE BETA and the RUNBOARD also read. The gate study saves a second lockbox slice cut from the champion own trade list; where the two differ this column follows the strip, so the three sections may not add up to TOTAL exactly.',
+                   TOTAL:'TOTAL = the whole backtest, taken from the champion own trade list over the full span. The three sections no longer have to add up to it: the LOCKBOX column reads the sealed-year strip that the PASS or FAIL was scored from, and where that differs from the slice cut out of this trade list, the difference shows up here as a gap. See the LOCKBOX note. MAX DD is the deepest dip on the whole curve, which is why it is deeper than any single section.'})[ph.sh_]||ph.tip;});
       }
       const _pf=v=>(v==null||!isFinite(v)||v<=0)?'—':Math.min(v,99).toFixed(2);
       const _sh=v=>(v==null||!isFinite(v))?'—':(+v).toFixed(2);
@@ -22006,9 +22032,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // one fold is still a fold - the run report shows it, so this must not drop it.
         const _wfA=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f2=>f2&&f2.fold!=null):[]);if(!fl.length)return null;
           const mc=_mcOf(x),net=fl.reduce((s2,f2)=>s2+(+f2.oos_pnl||0),0)*mc,held=fl.filter(f2=>(+f2.oos_pnl||0)>0).length;
-          const pfs=fl.map(f2=>+f2.oos_pf).filter(p2=>isFinite(p2)&&p2>0).sort((a2,b2)=>a2-b2);
           const tr=fl.reduce((s2,f2)=>s2+(+f2.oos_trades||0),0);
-          return {net:net,held:held,n:fl.length,pfm:(pfs.length?pfs[Math.floor(pfs.length/2)]:null),tr:(tr||null)};};
+          // POOLED, NOT THE MEDIAN FOLD (owner 2026-09-09). A profit factor is gross wins over
+          //   gross losses; the middle value of a list of ratios is not that, and it disagreed
+          //   with the run report, which has always pooled. Each fold gross loss is rebuilt
+          //   from its own net and profit factor, then the grosses are summed.
+          const _wp=_poolPf(fl.map(f2=>({pf:+f2.oos_pf,net:+f2.oos_pnl})));
+          return {net:net,held:held,n:fl.length,pf:((_wp!=null&&isFinite(_wp)&&_wp>0)?_wp:null),tr:(tr||null)};};
         const _lbA=x=>{const lb=x.validate&&x.validate.lockbox;if(!lb)return null;
           return {net:(lb.pnl||0)*_mcOf(x),pf:(+lb.pf||0),tr:(lb.trades||0),pass:!!lb.pass};};
         // v64.56 (owner: "no overall section"): the old "OVERALL" scope was really the IN-SAMPLE
@@ -22226,7 +22256,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         const M_wf=[
           {l:'WF net $ (out-of-sample)',s:'WF $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?_ab$(a.net):'—';},b:'max',sec:'return'},
-          {l:'Median fold PF',s:'Fold PF',v:x=>{const a=_wfA(x);return (a&&a.pfm!=null)?a.pfm:-1e15;},f:x=>{const a=_wfA(x);return (a&&a.pfm!=null)?a.pfm.toFixed(2):'—';},b:'max',sec:'edge'},
+          {l:'Pooled fold PF',s:'Fold PF',v:x=>{const a=_wfA(x);return (a&&a.pf!=null)?a.pf:-1e15;},f:x=>{const a=_wfA(x);return (a&&a.pf!=null)?a.pf.toFixed(2):'—';},b:'max',sec:'edge'},
           {l:'Folds held',s:'Folds',f:x=>{const a=_wfA(x);return a?('<b style="color:'+(a.held>=a.n/2?'var(--green)':'var(--red)')+'">'+a.held+'/'+a.n+'</b>'):'—';},sec:'sample'},
           {l:'OOS trades',s:'OOS tr',f:x=>{const a=_wfA(x);return (a&&a.tr)?a.tr:'—';},sec:'sample'}];
         const M_lb=[
@@ -24177,7 +24207,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(tot==null||!isFinite(tot))return;
             const dd=(V&&V.total_dd!=null)?Math.abs(+V.total_dd)*mc:Math.abs(+x.best_dd_usd||0);
             const pf=poolPF([{net:(t?t.is:(+x.best_pnl_usd||0)),pf:+x.best_pf||0},
-                             {net:(wf?wf.net:0),pf:(wf&&wf.pfm!=null)?wf.pfm:0},
+                             {net:(wf?wf.net:0),pf:(wf&&wf.pf!=null)?wf.pf:0},
                              {net:(lb?lb.net:0),pf:(lb?lb.pf:0)}]);
             const trd=(V&&V.total_trades!=null)?+V.total_trades
                      :((+x.best_trades||0)+((wf&&wf.tr)||0)+((lb&&lb.tr)||0))||null;
@@ -25357,7 +25387,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // plain Auto-Optimize runs used to show a dash here.
           if(!a&&!lb)return _pf2(+r.best_pf);
           return _pf2(_poolPF([{net:t.is,pf:+r.best_pf||0},
-                               {net:(a?a.net:0),pf:(a&&a.pfm!=null)?a.pfm:0},
+                               {net:(a?a.net:0),pf:(a&&a.pf!=null)?a.pf:0},
                                {net:(lb?lb.net:0),pf:(lb?lb.pf:0)}]));};
         const _wrOf=r=>{const b=_bw(r);if(b)return (b.win_rate!=null)?+b.win_rate:null;
           const V=r.validate;
@@ -25953,12 +25983,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         return Math.abs(dd)*mc;};
       // ONE FOLD IS STILL A FOLD. Requiring two dropped the whole walk-forward column for a
       //   single-fold run and said 'this run saved no walk-forward figures', which was false -
-      //   the run report shows that fold. The median of one value is that value.
+      //   the run report shows that fold. One fold simply pools to its own profit factor.
       const _c2wf=x=>{const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(f=>f&&f.fold!=null):[]);if(!fl.length)return null;
         const mc=_c2mc(x),net=fl.reduce((a,f)=>a+(+f.oos_pnl||0),0)*mc,tr=fl.reduce((a,f)=>a+(+f.oos_trades||0),0);
-        const pfs=fl.map(f=>+f.oos_pf).filter(v=>isFinite(v)&&v>0).sort((a,b)=>a-b);
         const wins=fl.some(f=>f.oos_wins!=null)?fl.reduce((a,f)=>a+(+f.oos_wins||0),0):null;
-        return {net:net,pf:(pfs.length?pfs[Math.floor(pfs.length/2)]:null),tr:(tr||null),wr:((wins!=null&&tr>0)?100*wins/tr:null),dd:null,yrs:null};};
+        // POOLED across the folds, not the median fold (owner 2026-09-09). This matches the
+        //   run report POOLED FOLD OOS reading - not its walk-forward COLUMN, which is a
+        //   different thing again: the champion held constant across those years rather than
+        //   re-fitted fold by fold. The report says which is which in its own tooltip.
+        const _wp=_poolPf(fl.map(f=>({pf:+f.oos_pf,net:+f.oos_pnl})));
+        return {net:net,pf:((_wp!=null&&isFinite(_wp)&&_wp>0)?_wp:null),tr:(tr||null),wr:((wins!=null&&tr>0)?100*wins/tr:null),dd:null,yrs:null};};
       // a BOOK keeps its lockbox drawdown and window on the book block (validate.lockbox carries
       //   only pnl / pf / trades / pass for a book), so those are the fallbacks here - the same
       //   fields RUNBOARD's BOOKS tile reads. Without them a book dashed MAR and R / YR on LB.
