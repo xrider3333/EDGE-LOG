@@ -7,7 +7,8 @@ that the app actually rendered -- VERSION present, renderApp defined, no
 loadError, real body content -- rather than white-screening. Also runs a tight
 static lint for the malformed-template-tag bug that shipped in v53.3 (an
 opening HTML tag missing its closing ">" immediately followed by a "${...}"
-template-interpolation line).
+template-interpolation line), plus a lint for a stray carriage return that
+is not a line ending (it survives CRLF normalisation and reaches the blob).
 
 Exit codes:
   0 = PASS          index.html boots cleanly.
@@ -76,6 +77,43 @@ def find_chrome():
 # Multi-line tags that continue with MORE attributes on the next line must NOT
 # trip this -- only a following "${" content line does.
 MALFORMED_TAG_RE = re.compile(r'^\s*<\w[^>]*"\s*$')
+
+
+# Stray-carriage-return lint. index.html is a CRLF file in the working tree
+# (core.autocrlf=true on this machine, and .gitattributes pins it as "text"),
+# so a CR that ENDS a line is normal and git normalises it away on check-in.
+# A CR anywhere else is NOT normalised, because it is not a line ending: it
+# lands mid-line and goes straight into the stored blob. That is how three
+# "}<CR>," artifacts reached origin/main in the RESEARCH_STUDIES rows array on
+# 2026-09-09 -- a splice whose replacement text still carried CRLF, dropped in
+# front of the row's pre-existing comma. The browser treats it as whitespace,
+# so nothing breaks, but it is invisible in a diff and makes every later edit
+# of that line read as a whitespace change. Cheap to catch, so catch it.
+def lint_stray_carriage_returns(path):
+    """Return a list of (line_no, col, snippet) for CRs that are NOT part of a
+    CRLF pair, or None if the file could not be read. Reads bytes, because text
+    mode would translate away the very thing being looked for."""
+    try:
+        with open(path, 'rb') as f:
+            raw = f.read()
+    except OSError:
+        return None
+    cr, lf = b'\r', b'\n'
+    hits = []
+    pos = 0
+    while True:
+        i = raw.find(cr, pos)
+        if i < 0:
+            break
+        pos = i + 1
+        if raw[i + 1:i + 2] == lf:
+            continue                      # ordinary CRLF line ending
+        line_no = raw.count(lf, 0, i) + 1
+        line_start = raw.rfind(lf, 0, i) + 1
+        before = raw[max(line_start, i - 40):i].decode('utf-8', 'replace')
+        after = raw[i + 1:i + 20].decode('utf-8', 'replace')
+        hits.append((line_no, i - line_start + 1, before + '<CR>' + after))
+    return hits
 
 
 def lint_malformed_template_tags(path):
@@ -248,6 +286,21 @@ def main(argv=None):
               '(opening tag missing ">" immediately followed by a "${" content line)' % lines_desc)
         for n, txt in lint_hits:
             print('  line %d: %s' % (n, txt))
+        return FAIL
+
+    # ---- static lint: a CR that is not a line ending (2026-09-09) ----
+    cr_hits = lint_stray_carriage_returns(target)
+    if cr_hits is None:
+        print('PREFLIGHT: INCONCLUSIVE -- could not read %s for the CR lint' % target)
+        return INCONCLUSIVE
+    if cr_hits:
+        print('PREFLIGHT: FAIL -- %d stray carriage return(s) that are not line '
+              'endings. A CR mid-line survives CRLF normalisation and lands in '
+              'the committed blob.' % len(cr_hits))
+        for n, col, snip in cr_hits[:10]:
+            print('  line %d col %d: %s' % (n, col, snip))
+        if len(cr_hits) > 10:
+            print('  ...and %d more' % (len(cr_hits) - 10))
         return FAIL
 
     # ---- headless-Chrome boot probe ----
