@@ -1149,6 +1149,28 @@ still loses (3.47 vs 3.57), and every pass still beats the control on both measu
 control that has just failed something is only acceptable when it is a demonstrable logic error and
 the fix moves no verdict; both conditions are met and stated here so the claim can be checked.
 
+### v12 corroborated independently, by a scan that found nothing else (2026-09-09)
+
+A separate session ran a 1,080-cell scheduled-event SIZE scan over ten calendars (Fed decisions and
+minutes, inflation, payrolls, quad-witching, month and quarter turns, the Fed blackout) crossed with
+day offsets, clock windows, four multipliers and three crowned legs. Two of its conclusions matter here.
+
+**The survivor list as a whole is noise.** 40 cells cleared its bar, but replacing all ten calendars
+with random ones of identical per-year day counts and re-running the whole pipeline 25 times gives a
+median of 32 survivors, P(random >= real) = 0.12. Forty out of 1,080 is exactly what nothing looks
+like once the family-wide null is priced.
+
+**The single real cell is the one already adopted**: NOISE, Fed decision day, before 14:00 ET, shrink
+- rank **1 of 2001** (p = 0.0005). Independent corroboration of v12 from a different pipeline and a
+different author, not a new find. The same scan found **no effect shared by two legs**, which is the
+conclusion the guard reached when it withdrew the cross-family claim, arrived at independently; its
+inflation cells appear on two legs at different offsets in *opposite* directions, the signature of noise.
+
+**Transferable lesson, and it is the wider one:** any scan broad enough to be interesting needs a
+family-wide null, not just a per-cell permutation. Count how many cells survive when the signal is
+replaced by noise, then compare. Re-running the guard over the ENGU-Q pre-release leg and the ORB
+Fed-morning claim reproduced every recorded number exactly, so that record is verified, not asserted.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
