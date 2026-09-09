@@ -335,6 +335,50 @@ python tools/book_dd_attribution.py --run 341 --vs 336 --new-legs 1   # one pair
 python tools/book_clause_audit.py                                     # the whole audit
 ```
 
+### 10a. B11 RE-JUDGED — three BOOK cards queued 2026-09-09 (owner ask)
+
+Owner: *"re-judge B11 — queue the lockbox-clause version of that stack."* Driver
+`tools/queue_b11_lockbox_rejudge.py`, prediction `tools/data/b11_lockbox_rejudge_prediction.txt`.
+
+**The bar is B11's own with exactly one clause swapped:** MAR >= incumbent x1.15 (unchanged),
+**LOCKBOX drawdown within 5%** (was whole-run), lockbox net >= incumbent (unchanged).
+
+**What is being run, and what is not.** B11's book re-picks its parameters every fold, so it
+cannot be replayed as a BOOK job — a book run replays FIXED parameters. The cards run the
+*tradeable* representation of the same family, `NQDIP_1_0.py` at the configs its own validates
+crowned: the NQ 5m leg from run #307 (PASSED) and the QQQ 1d leg from run #308 (**FAILED**, zero
+lockbox trades — carried anyway, because dropping the QQQ half would quietly re-scope B11's
+QQQ+NQ claim). A pass would not restore B11; a miss does not by itself retract it.
+
+| card | what | job |
+|---|---|---|
+| **CONTROL-A** | ORB #234 + ENGU-Q ETH #226 — the champion B11 was *actually* judged against, which had never been stored as a run. Without it none of B11's clauses were checkable. | `YBB48OUdD099jropRhDR` |
+| **CAND-A2** | CONTROL-A + NQDIP NQ 5m + NQDIP QQQ 1d — the full QQQ+NQ shape | `Y0CBQV2oNuCxMlWTglrK` |
+| **CAND-B1** | the adopted book #336 + NQDIP NQ 5m — the only version that bears on what is traded today | `NrhrTugDQtfMrMDDk7po` |
+
+**CAND-A1 was not queued**: it already exists as stored BOOK #311, same window and lockbox. It
+becomes judgeable the moment CONTROL-A lands.
+
+**The prediction, written before the runs** (offline, `tools/book_dd_attribution.py`, same legs):
+
+| card | vs | MAR | whole-run DD | **lockbox DD** | lockbox net | verdict |
+|---|---|---|---|---|---|---|
+| #311 (CAND-A1) | CONTROL-A | **x1.008** | x1.587 | x1.122 | x1.156 | MISS |
+| CAND-A2 | CONTROL-A | **x1.086** | x2.156 | x1.068 | x1.466 | MISS |
+| CAND-B1 | BOOK #336 | **x0.659** | x2.164 | x1.237 | x1.162 | MISS |
+
+**All three miss — and the clause that kills them is not the risk clause, it is MAR.** B11's
+headline was MAR x1.35; frozen into a tradeable file the same family reaches x1.01 and x1.09
+against a x1.15 bar, and on today's book it is actively harmful (x0.659, drawdown $34,329 ->
+$74,275). **The +35% appears to belong to the walk-forward construction — re-picking parameters
+every fold — rather than to anything that can be traded with fixed settings.**
+
+**And a point that cuts against the finding that motivated this:** on the A cards swapping to the
+lockbox drawdown makes the bar *easier*, not harder. Whole-run DD ratios are x1.587 and x2.156
+while lockbox DD ratios are x1.122 and x1.068 — the latter nearly inside the 5% tolerance. The two
+clauses disagree about the direction of the risk here, which is why both are printed on every card
+rather than one replacing the other silently.
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the

@@ -1,0 +1,116 @@
+
+====================================================================================================
+CONTROL-A  champion of the day (ORB 234 + ENGU-Q ETH 226)
+    (ran ENGUQ_1M_ETH_FROZEN_1_0.py 1m in 33s)
+  net $793,811  whole DD $71,903  ann.MAR 0.687  lockbox $201,204  LB DD $35,723  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $71,903 over 17 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ 1m                    -45,107   14 days    62.7% of it
+    ORB_3_6_C2 NQ 5m                                 -26,796    9 days    37.3% of it
+    TOTAL                                            -71,903   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-10 .. 2026-03-26 (peak 2026-02-09), $35,723 over 27 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ 1m                    -27,011   19 days    75.6% of it
+    ORB_3_6_C2 NQ 5m                                  -8,712   18 days    24.4% of it
+    TOTAL                                            -35,723   (decomposition check: must equal the stretch)
+
+====================================================================================================
+CAND-A1    + NQDIP NQ 5m  (= stored BOOK #311)
+    (ran NQDIP_1_0.py 5m in 4s)
+  net $1,269,839  whole DD $114,107  ann.MAR 0.693  lockbox $232,508  LB DD $40,097  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $114,107 over 18 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ 1m                    -45,107   14 days    39.5% of it
+    NQDIP_1_0 NQ 5m                                  -42,204    5 days    37.0% of it
+    ORB_3_6_C2 NQ 5m                                 -26,796    9 days    23.5% of it
+    TOTAL                                           -114,107   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-10 .. 2026-03-26 (peak 2026-02-09), $40,097 over 27 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ 1m                    -27,011   19 days    67.4% of it
+    ORB_3_6_C2 NQ 5m                                  -8,712   18 days    21.7% of it
+    NQDIP_1_0 NQ 5m                                   -4,375    4 days    10.9% of it
+    TOTAL                                            -40,097   (decomposition check: must equal the stretch)
+
+====================================================================================================
+CAND-A2    + NQDIP NQ 5m + NQDIP QQQ 1d  (the full B11 shape)
+    (ran NQDIP_1_0.py 1d in 0s)
+  net $1,857,814  whole DD $154,999  ann.MAR 0.746  lockbox $294,996  LB DD $38,160  16/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $154,999 over 18 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ 1m                    -45,107   14 days    29.1% of it
+    NQDIP_1_0 NQ 5m                                  -42,204    5 days    27.2% of it
+    NQDIP_1_0 QQQ 1d                                 -40,892    5 days    26.4% of it
+    ORB_3_6_C2 NQ 5m                                 -26,796    9 days    17.3% of it
+    TOTAL                                           -154,999   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-10 .. 2026-03-26 (peak 2026-02-09), $38,160 over 27 trading days
+    ENGUQ_1M_ETH_FROZEN_1_0 NQ 1m                    -27,011   19 days    70.8% of it
+    ORB_3_6_C2 NQ 5m                                  -8,712   18 days    22.8% of it
+    NQDIP_1_0 NQ 5m                                   -4,375    4 days    11.5% of it
+    NQDIP_1_0 QQQ 1d                                   1,937    5 days    -5.1% of it
+    TOTAL                                            -38,160   (decomposition check: must equal the stretch)
+
+====================================================================================================
+CONTROL-B  the adopted book (BOOK #336)
+  net $1,119,697  whole DD $34,329  ann.MAR 2.031  lockbox $193,170  LB DD $26,235  17/17 yrs
+  whole run: worst stretch 2022-04-27 .. 2022-05-24 (peak 2022-04-26), $34,329 over 15 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ 1m                        -31,651   11 days    92.2% of it
+    ORB_3_6_C2 NQ 5m                                  -2,679   13 days     7.8% of it
+    TTMSQZ_3_0_ES30N ES 30m x3                             0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    TOTAL                                            -34,329   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-12 .. 2026-05-01 (peak 2026-02-11), $26,235 over 46 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ 1m                        -24,243   13 days    92.4% of it
+    ORB_3_6_C2 NQ 5m                                  -8,054   37 days    30.7% of it
+    TTMSQZ_3_0_ES30N ES 30m x3                         6,062    3 days   -23.1% of it
+    TOTAL                                            -26,235   (decomposition check: must equal the stretch)
+
+====================================================================================================
+CAND-B1    #336 + NQDIP NQ 5m
+  net $1,595,725  whole DD $74,275  ann.MAR 1.337  lockbox $224,475  LB DD $32,457  17/17 yrs
+  whole run: worst stretch 2020-02-26 .. 2020-03-25 (peak 2020-02-21), $74,275 over 13 trading days
+    NQDIP_1_0 NQ 5m                                  -42,204    5 days    56.8% of it
+    ORB_3_6_C2 NQ 5m                                 -26,796    9 days    36.1% of it
+    ENGUQ_1M_ETH_ER_1_0 NQ 1m                         -5,275    6 days     7.1% of it
+    TTMSQZ_3_0_ES30N ES 30m x3                             0    0 days    -0.0% of it  <- NEVER TRADED in the stretch: inert under a whole-run drawdown clause
+    TOTAL                                            -74,275   (decomposition check: must equal the stretch)
+  lockbox: worst stretch 2026-02-12 .. 2026-05-01 (peak 2026-02-11), $32,457 over 47 trading days
+    ENGUQ_1M_ETH_ER_1_0 NQ 1m                        -24,243   13 days    74.7% of it
+    ORB_3_6_C2 NQ 5m                                  -8,054   37 days    24.8% of it
+    NQDIP_1_0 NQ 5m                                   -6,222    6 days    19.2% of it
+    TTMSQZ_3_0_ES30N ES 30m x3                         6,062    3 days   -18.7% of it
+    TOTAL                                            -32,457   (decomposition check: must equal the stretch)
+
+====================================================================================================
+THE BAR, UNCHANGED FROM B11 EXCEPT THE RISK CLAUSE: MAR >= incumbent x1.15,
+<RISK CLAUSE> within 5 percent, lockbox net >= incumbent.
+
+----------------------------------------------------------------------------------------------------
+  CAND-A1    + NQDIP NQ 5m  (= stored BOOK #311)
+  vs CONTROL-A  champion of the day (ORB 234 + ENGU-Q ETH 226)
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  CONTROL-A                   793,811      71,903    0.687     201,204      35,723
+  CAND-A1                   1,269,839     114,107    0.693     232,508      40,097
+  ratios                             1.587x   1.008x      1.156x      1.122x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    NQDIP_1_0 NQ 5m                                -42,204 over   5 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+
+----------------------------------------------------------------------------------------------------
+  CAND-A2    + NQDIP NQ 5m + NQDIP QQQ 1d  (the full B11 shape)
+  vs CONTROL-A  champion of the day (ORB 234 + ENGU-Q ETH 226)
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  CONTROL-A                   793,811      71,903    0.687     201,204      35,723
+  CAND-A2                   1,857,814     154,999    0.746     294,996      38,160
+  ratios                             2.156x   1.086x      1.466x      1.068x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    NQDIP_1_0 NQ 5m                                -42,204 over   5 trading days
+    NQDIP_1_0 QQQ 1d                               -40,892 over   5 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+
+----------------------------------------------------------------------------------------------------
+  CAND-B1    #336 + NQDIP NQ 5m
+  vs CONTROL-B  the adopted book (BOOK #336)
+  book                          net $    whole DD  ann.MAR   lockbox $       LB DD
+  CONTROL-B                 1,119,697      34,329    2.031     193,170      26,235
+  CAND-B1                   1,595,725      74,275    1.337     224,475      32,457
+  ratios                             2.164x   0.659x      1.162x      1.237x
+  participation of the ADDED leg(s) in the incumbent's worst stretch:
+    NQDIP_1_0 NQ 5m                                 -1,035 over   2 trading days
+  OLD clause  (MAR x1.15, WHOLE-RUN DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
+  NEW clause  (MAR x1.15, LOCKBOX  DD within 5%, lockbox >=): MISS   [MAR no, DD no, LB ok]
