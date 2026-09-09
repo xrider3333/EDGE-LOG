@@ -385,3 +385,19 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **The NQ crown is different, and that is the point:** whole window ex-top-10 **+$262,415 at PF 1.302** vs the ES leg's 1.077. **But the crown's own 2024-2026 stretch is tail-driven** (top-10 106.3%, ex-top-10 −$15,676; one trade 2026-04-07 = $91,152) — a live-card caution.
 - **Validates left running** (0.40 and 0.60 per round trip) — their verdict is worth having, but a walk-forward and a sealed year cannot detect concentration (the EV R and GAPGO lessons).
 - **Process fix:** run the concentration test on **each stretch being claimed**, not only the whole window — the whole-window read hid two eras that are each negative once their own top ten come out.
+
+### B31 — the adopted book was trading the ex-crown; two fixes lift it 11.95 → 38.18 (rounds 48-50, rows 1667-1673, v73.698)
+
+| book (same window + held-back split as #361) | sel net | sel DD | **sel n/DD** | top-10 | LB net | LB DD | LB n/DD |
+|---|---|---|---|---|---|---|---|
+| #361 as adopted (ENGU-Q ex-crown @0.533) | $857,995 | $71,773 | 11.95 | 36% | $253,081 | $32,129 | 7.88 |
+| + crown swap to #335 R2 @0.783 (honest cost) | $1,048,336 | $36,435 | **28.77** | 31% | $231,399 | $21,577 | 10.72 |
+| + NOISE #304 at weight 1 | $1,395,904 | $36,562 | **38.18** | 25% | $289,811 | $28,066 | 10.33 |
+| (NOISE at weight 2 — rejected) | $1,743,472 | $39,786 | 43.82 | 22% | $348,224 | $38,686 | **9.00** |
+| (drop ORB — worse) | $1,095,125 | $33,686 | 32.51 | 28% | $217,286 | $23,422 | 9.28 |
+
+- **The swap is the bigger half:** ENGU-Q crown moved 2026-09-08, only the paper leg followed. 22% more net on HALF the drawdown. Cost correction (0.533 day-session → 0.783 24-hour) is worth ~$14k and changes nothing.
+- **The NOISE leg is nearly free:** +$347,568 net for +$127 drawdown; concentration improves 31% → 25%.
+- **All 18 combinations scored** — the four-leg book wins; dropping ORB (weakest alone, 0.42 correlated with NOISE) is worse on both stretches. Other correlations 0.01-0.10.
+- **Queued:** three-leg crown swap (`m3Q0cIr8M5w61Cflqubp`) and four-leg book (`pu7lNV62eVgMYwqWS6XU`), the former deliberately separate so the swap and the new leg can be told apart.
+- **Standing caveat:** every version — adopted included — has a held-back year whose ten best days are ~103% of its profit; the ENGU-Q leg's held-back year was already read at crowning.
