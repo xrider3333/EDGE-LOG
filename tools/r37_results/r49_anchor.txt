@@ -1,0 +1,10 @@
+THE BAR: higher profit factor than the shipped anchor at BOTH costs AND in BOTH eras, concentration within 3 points with positive ex-top-10, net-over-drawdown at least as good when stressed, and it must hold at BOTH band widths.
+
+  vwap  no (0 of 2 widths)
+      crown 0.75/1.50: PF 1.0574 vs 1.3292 | net/DD 2.68 vs 19.14 | old 1.0425 vs 1.3234 | new 1.0853 vs 1.3399
+      wider 1.00/1.75: PF 1.0885 vs 1.3901 | net/DD 2.83 vs 15.33 | old 1.1012 vs 1.4225 | new 1.0651 vs 1.3335
+  mid   no (0 of 2 widths)
+      crown 0.75/1.50: PF 1.0930 vs 1.3292 | net/DD 4.43 vs 19.14 | old 1.0934 vs 1.3234 | new 1.0924 vs 1.3399
+      wider 1.00/1.75: PF 1.1179 vs 1.3901 | net/DD 4.03 vs 15.33 | old 1.1232 vs 1.4225 | new 1.1083 vs 1.3335
+
+NO ANCHOR BEATS THE SHIPPED ONE. Measuring the band from a level fixed at the open is not the weakness it looks like, and the last structural choice around this crown is now tested.

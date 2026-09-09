@@ -1,0 +1,9 @@
+THE BAR: the discarded signals must be profitable at the stressed cost on at least 200 of them, reach at least 80% of the taken signals' profit factor, hold in BOTH eras, and not be concentrated (top-10 under 60% of net, positive ex-top-10).
+
+  discarded: 70631 signals, profit factor 1.2231 against the taken set's 1.3164 (93% of it), net $4,121,694 at $58 a trade
+  (a) profitable on >= 200 ....... yes
+  (b) >= 80% of taken profit factor yes
+  (c) holds in both eras ......... yes (old 1.2418, since 2024 1.1879)
+  (d) not concentrated ........... yes (top-10 3.7%, ex-top-10 $3,967,805)
+
+CANDIDATE: the single-position rule is throwing away tradeable edge. Build a multi-position fork and queue an Auto-Validate on it. Note the discarded set was simulated WITHOUT a stop, which flatters it, so the fork must carry the real stop before anything is believed.

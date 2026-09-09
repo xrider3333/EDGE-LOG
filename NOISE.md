@@ -7,6 +7,125 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUNDS 48–51: four more spaces closed, and a SECOND look-ahead caught before it reached the record (STUDIES rows 1687-1691, web v73.702)
+
+**Owner ask:** *"auto validate anything you think might be better. and continue optimizing. dont
+come back till you find something better."* Rounds 43–47 had already swept the knob space, the bar
+space and the conditional space. These four rounds attack the parts of the strategy that had never
+been questioned at all — its volatility ESTIMATOR, its band ANCHOR, its single-position RULE, and
+whether a slower timeframe should have a vote. **All four close. Nothing is queued, because nothing
+earned it.**
+
+### Round 48 — the volatility estimator: the plain mean wins
+
+Everything NOISE does rests on one number: for each bar of the session it estimates how far price
+usually travels from the open by that time, as the **mean** of the last N sessions' displacement at
+that same time of day. That mean has been the estimator since the family was written. Four
+alternatives, each run at three lookbacks (24 / 40 / 60), everything else held at the crown
+(`tools/r48_noise_sigma_estimator.py`):
+
+| estimator | lb 24 | lb 40 (crown) | lb 60 | verdict |
+|---|---|---|---|---|
+| BASE — the shipped mean | 1.2799 | **1.3292** | 1.2936 | reference |
+| MEDIAN — robust to one wild session | 1.1801 | 1.2131 | 1.2178 | worse everywhere |
+| TRIM20 — mean less the top fifth | 1.1636 | 1.1819 | 1.1609 | worse everywhere |
+| EWMA — recency-weighted | 1.2906 | 1.3127 | 1.3064 | wins at 24 and 60, **loses at 40** |
+| DAYSCALE — profile × today's own scale | 1.2197 | 1.2043 | 1.2141 | worse everywhere |
+
+(profit factor at the stressed cost.) **No estimator clears the bar**, which required beating BASE at
+both costs, in both eras, and at all three lookbacks. Two findings worth keeping: the robust
+estimators (median, trimmed) are much *worse* — one wild session widening the bands is apparently
+doing useful work, not damage — and BASE at lookback 40, the crown's own setting, is the best cell
+in the whole grid, which is round 46's "the crown sits on its hill" arriving from a new direction.
+
+### Round 49 — the band anchor: the fixed level is the mechanism, not a flaw
+
+The bands are measured from a level fixed for the whole session (the max and min of the session open
+and the prior close). A 15:00 breakout is therefore judged against a morning level, while the
+strategy's own EXIT uses a moving reference (the session VWAP). That asymmetry looked like an
+oversight worth testing. Research fork `augur_strategies/NOISE_1_5_ANCHOR.py`, parity-gated to
+reproduce the parent exactly (`tools/r49_noise_anchor.py`):
+
+| anchor | PF at crown width | PF at wider bands | net/DD |
+|---|---|---|---|
+| **open — shipped, fixed** | **1.3292** | **1.3901** | **19.14** |
+| vwap — running session VWAP | 1.0574 | 1.0885 | 2.68 |
+| mid — running range midpoint | 1.0930 | 1.1179 | 4.43 |
+
+**Not close.** Anchoring the band to something that follows the session destroys the edge, because
+the whole mechanism is *displacement from where the day started*. A moving anchor measures
+displacement from where the day already went, which is a different and far weaker question. The
+asymmetry with the exit is deliberate and correct.
+
+### Round 50 — the single-position rule: it is doing useful work
+
+The strategy holds one position at a time and silently discards every trigger that fires while it is
+in a trade. An instrumented fork (`NOISE_1_6_SIGNALS.py`, parity-gated) logged every trigger:
+**76,494 fired, only 4,825 were acted on.** The first pass simulated all 71,669 discarded ones and
+printed a profit factor of 1.22 on $4.1 million — a number that is **twelve-fold double counting**,
+because the trigger stays true for as long as price sits outside the band, so one move produces
+dozens of "signals". Corrected to **fresh crossings only** there are 6,395, of which 2,559 were
+discarded, and filling them into real position slots with the strategy's own stop and exit:
+
+| | trades | PF | net $ | book net/DD | exposure-matched control |
+|---|---|---|---|---|---|
+| the crown as it stands | 4,825 | 1.3292 | 373,010 | **19.14** | — |
+| + 1 extra slot | 1,293 | 1.2335 | 87,584 | 12.56 | size ×1.36 → $507,948, **net/DD 19.14** |
+| + 2 extra slots | 1,900 | 1.2436 | 131,351 | 10.34 | size ×1.52 → $568,404, **net/DD 19.14** |
+| + 3 extra slots | 2,208 | 1.2541 | 155,578 | 10.71 | size ×1.60 → $595,357, **net/DD 19.14** |
+
+**Every version loses to simply trading the existing strategy larger.** The discarded signals are
+genuinely worse (profit factor 1.23 against 1.33) and they arrive clustered in time, so they stack
+drawdown exactly when the position already open is suffering. A second concurrent position is
+leverage with worse trades attached. The single-position rule stays.
+
+### Round 51 — a slower timeframe's vote: and the second look-ahead of the day
+
+Rounds 44–45 found the crown's geometry has clearly better per-trade quality on a 15-minute bar. The
+obvious synthesis: keep the 5-minute frequency but require the 15-minute band to agree. The first
+pass printed **profit factor 1.73 against 1.33, more money on fewer trades and lower drawdown** — the
+best number this family has ever produced, and false.
+
+**The defect:** bar timestamps are OPEN times. A 15-minute bar stamped 10:00 does not close until
+10:15, but a 5-minute signal at 10:05 was being compared against it — reading up to fifteen minutes
+into the future, and the 5-minute entry sits *inside* that same 15-minute bar, so "the slower bar
+closed outside its band in my direction" is very nearly "this trade worked". Corrected to use only
+**fully closed** higher-timeframe bars:
+
+| | trades | PF | net $ | net/DD |
+|---|---|---|---|---|
+| unfiltered crown | 4,825 | 1.3292 | 373,010 | **19.14** |
+| 15-minute agreement (causal) | 2,331 | 1.3623 | 168,030 | 11.55 |
+| the trades it would have vetoed | 2,494 | **1.3062** | **+204,980** | — |
+| kept set sized ×2.07 to match exposure | 2,331 | 1.3623 | 347,810 | 11.55 |
+
+The filter raises profit factor a little and costs half the trades — and the trades it throws away
+are **profitable** (1.3062, +$204,980). Sized back up to the same exposure it still reads net/DD
+11.55 against the crown's 19.14. **Not a candidate.** The 10-minute version is worse again.
+
+**This is the second one-bar-class look-ahead caught in one day** (round 47's was tagging at the fill
+bar). Both were caught the same way — by asking what the rule could actually have known at the moment
+it fired — and this one never reached the record at all. The rule banked in
+`edgelog-tag-at-the-signal-bar` now has a companion: **when mixing timeframes, a higher-timeframe bar
+is only usable once its own close has passed**, and the tell is the same both times — an effect far
+larger than anything else the family has produced.
+
+### Where this leaves NOISE
+
+**Six independent spaces have now been swept and every one is empty:** knobs (43, 45, 46), bar size
+(44, 45), entry conditions (47), the volatility estimator (48), the band anchor (49), position
+capacity (50) and higher-timeframe agreement (51). Three separate candidates were withdrawn, two of
+them for look-aheads I introduced and caught. **The crown — run #304, five-minute, one confirming
+close — is not improvable by any of these routes, and rounds 46 and 48 both independently place it at
+the top of its own hill.** The honest recommendation is to stop optimising this leg and let forward
+paper evidence do the talking; the next real gain for this family will come from outside it.
+
+Files: `tools/r48_noise_sigma_estimator.py`, `tools/r49_noise_anchor.py`,
+`tools/r50_noise_missed_signals.py`, forks `augur_strategies/NOISE_1_5_ANCHOR.py` and
+`NOISE_1_6_SIGNALS.py`; results `tools/r37_results/r48_sigma.csv`, `r49_anchor.csv`, `r50_missed.csv`.
+
+---
+
 ## ⛔ 2026-09-09 — ROUND 47 RETRACTION (same day, before anything was built on it): the "longs below the mean" filter was a ONE-BAR LOOK-AHEAD (STUDIES row 1652, web v73.690)
 
 **The candidate reported in round 47 below is WITHDRAWN.** It does not survive its own causal test,
