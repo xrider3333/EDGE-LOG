@@ -1,0 +1,37 @@
+TTM SQUEEZE ROUND 9 - an ES-only TTM sub-book vs the single adopted leg   2026-09-09 06:16
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01; ES 0.363 pts a round trip, 50 dollars a point; crown config unchanged on every cell
+BAR vs the adopted book (baseline + 3 ES of run 299): ann. MAR >= x1.05, whole-run DD within 5 percent, lockbox >= it
+  ES 30m Carter (run 299, the adopted leg)   n  359  PF  2.12  net $   51,709  DD $  3,740  MAR  0.86 | LB $  4,992  PF  2.22  on 16
+  ES 15m Carter                              n  525  PF  1.31  net $   22,460  DD $  8,240  MAR  0.17 | LB $  3,417  PF  1.51  on 26
+  ES 15m range-break                         n  403  PF  1.17  net $   10,669  DD $  8,060  MAR  0.08 | LB $ -2,682  PF  0.61  on 20
+  ES 5m Carter                               n 1258  PF  1.13  net $   12,889  DD $ 11,144  MAR  0.07 | LB $ -2,729  PF  0.75  on 58
+  ES 5m range-break                          n  972  PF  1.06  net $    5,733  DD $ 12,504  MAR  0.03 | LB $ -1,620  PF  0.82  on 43
+
+DAILY-PROFIT CORRELATIONS (on days either side traded)
+                                                  30m       15m       15m        5m        5m  baseline
+  ES 30m Carter (run 299, the adopted leg)      1.000     0.289     0.243     0.002    -0.002     0.034
+  ES 15m Carter                                 0.289     1.000     0.863     0.587     0.593     0.157
+  ES 15m range-break                            0.243     0.863     1.000     0.617     0.617     0.166
+  ES 5m Carter                                  0.002     0.587     0.617     1.000     0.983     0.172
+  ES 5m range-break                            -0.002     0.593     0.617     0.983     1.000     0.173
+  baseline book                                 0.034     0.157     0.166     0.172     0.173     1.000
+
+  book                                                 net $      DD $    MAR   lockbox $   LB DD $   yrs+  verdict
+  BASELINE (ORB 234 + ENGU-Q 309)                    964,571    34,903   1.72     178,192    33,112  15/17  reference
+  ADOPTED: baseline + 3 ES of run 299              1,119,697    34,903   2.00     193,170    26,235  17/17  the thing to beat
+  FLAT sub-book: adopted + 1 of each ES cell       1,171,448    37,641   1.94     189,556    26,614  16/17  no (MAR, DD, LB)   [MAR x0.970, DD x1.078, LB x0.981 vs adopted]
+  RISK-MATCHED sub-book (15m Carter x1.4, 15m range-break x1.4, 5m Carter x1.0, 5m range-break x0.9)   1,184,126    36,169   2.04     190,012    25,488  16/17  no (MAR, LB)   [MAR x1.021, DD x1.036, LB x0.984 vs adopted]
+  adopted + 1 of ES 15m Carter                     1,142,157    35,027   2.03     196,587    24,158  16/17  no (MAR)   [MAR x1.016, DD x1.004, LB x1.018 vs adopted]
+  adopted + 1 of ES 15m range-break                1,130,366    34,329   2.05     190,488    24,555  16/17  no (MAR, LB)   [MAR x1.026, DD x0.984, LB x0.986 vs adopted]
+  adopted + 1 of ES 5m Carter                      1,132,586    37,686   1.87     190,440    28,768  16/17  no (MAR, DD, LB)   [MAR x0.937, DD x1.080, LB x0.986 vs adopted]
+  adopted + 1 of ES 5m range-break                 1,125,430    37,811   1.85     191,550    28,581  16/17  no (MAR, DD, LB)   [MAR x0.928, DD x1.083, LB x0.992 vs adopted]
+  adopted + 3 of ES 15m Carter                     1,187,076    35,274   2.10     203,421    24,158  16/17  no (MAR)   [MAR x1.049, DD x1.011, LB x1.053 vs adopted]
+  adopted + 3 of ES 15m range-break                1,151,704    34,329   2.09     185,124    24,402  16/17  no (MAR, LB)   [MAR x1.046, DD x0.984, LB x0.958 vs adopted]
+  adopted + 3 of ES 5m Carter                      1,158,364    43,251   1.67     184,982    33,833  16/17  no (MAR, DD, LB)   [MAR x0.835, DD x1.239, LB x0.958 vs adopted]
+  adopted + 3 of ES 5m range-break                 1,136,896    43,626   1.62     188,311    33,274  16/17  no (MAR, DD, LB)   [MAR x0.812, DD x1.250, LB x0.975 vs adopted]
+
+INFORMATION ONLY (not a result, not crowned): both near misses at once -
+    deep-squeeze tilt on the 30m leg + 3 of ES 15m Carter   1,241,601    35,274   2.19     209,287    26,098  16/17  LEAD - all three clauses   [MAR x1.097, DD x1.011, LB x1.083 vs adopted]
+  Each bar above was pre-registered for ONE change. A combination needs its own
+  pre-registration and a BOOK validate; stacking two near misses until they clear is
+  exactly the search that produces runs like 290.
