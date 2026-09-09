@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.659';
+const VERSION='73.660';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.660',date:'2026-09-09',notes:['HOME TAB: two fixes to the sub-tab shipped in 73.654. FIRST, the chart rendered solid grey on every theme - the colors were set as raw stroke/fill attributes inside the chart SVG, and Chrome does not resolve a theme color variable written that way. All nine themed pieces (the line, the area fill, the endpoint dot, the dashed baseline, its label, and the scrub crosshair) now set color through a real style attribute, so the line goes green or red again depending on whether the cropped range ends up or down.','SECOND, a short range like 1M could show a delta and a dashed-baseline number that did not match the MORE STATS panel underneath it, off by exactly the size of an old deposit that happened months before the window even started. The chart was re-walking the whole account history and re-applying every deposit in date order, so a deposit sitting in a quiet stretch with no trade right after it could get attached to whatever trade came next - even one inside the cropped window, months later. The starting balance for a range is now read straight off your CURRENT balance minus only the trading result and only the deposits or withdrawals dated inside that range, so money already sitting in your account before the window opened can never be counted twice. The dashed baseline and MORE STATS START EQUITY now come from that one shared number and cannot drift apart again.']},
 {v:'73.658',date:'2026-09-09',notes:['STUDIES BOARD: ROUND 42, rows 1577 to 1583 - the NOISE ES branch is CLOSED. Two independent reads say no. The cost ladder: on ES the configuration earns 43 to 57 dollars a trade and a realistic round trip is 25 to 30, so it only clears the house bar at fills better than one tick (3 of 9 cells); the identical configuration on NQ clears 9 of 9 at up to double the house cost, earning 101 to 149 dollars a trade. And the full-space ES Auto-Validate (run #344) came back WEAK - 8 of 8 walk-forward folds but an overfit-selection probability of 0.675 and a thin lockbox year.','What survives is the cross-instrument finding: a configuration selected without ever reading an NQ bar clears on NQ at four bar sizes and at double the house cost, which is evidence the noise-band edge belongs to the mechanism rather than to NQ history. The ENGU-Q ES leg is a separate question and its validate is still running.']},
 {v:'73.657',date:'2026-09-09',notes:['COMPARE - STUDIES: the weak-edge ETF book stack re-judged, rows 1572-1576, runs 349, 350 and 351. The round-25 stack test missed its plus 15 percent MAR bar at plus 12 and the ETF book was never adopted as a stack. Re-run on B1 own bar with exactly one clause swapped - MAR at least 1.15 times the incumbent unchanged, LOCKBOX drawdown within 5 percent instead of whole-run, net at least 90 percent unchanged. Every figure matched a prediction written before the cards ran, to the dollar.','RUN 349 IS THE FIRST CARD ON THE BOARD WHERE THE CLAUSE SWAP CHANGES THE VERDICT, and it changes it towards adopting something the old clause blocked: MAR times 1.278 and net times 1.660 clear easily, the whole-run drawdown goes times 1.299 and FAILS the old clause, the lockbox drawdown goes times 1.034 and PASSES. The two clauses disagree by a factor of nine about the same candidate.','AND IT IS NOT AN INERT CLAUSE - run 349 inert-legs list is EMPTY. All seven ETF legs trade the champion worst stretch, because that stretch is the 2020 crash and these are dip buyers. Both numbers are real: the whole-run one is 2020, the lockbox one is nine days in June 2026 where the ETF legs contribute almost nothing. They cost drawdown in a crash and cost nothing in the sealed year. Which of those a bar should price is the owner call; the swap does not settle it.','CANDIDATE, NOT ADOPTION: not one of the seven legs has ever had a leg-level Auto-Validate, two of them are near-duplicates, the window adds a year past the round-25 cut so the times 1.278 is not comparable to the recorded plus 12 percent, and standalone the book is positive in only 14 of 16 years.','ON THE BOOK ACTUALLY BEING TRADED THE ANSWER IS NO. Run 351 adds the same seven legs to the adopted book and misses under both clauses - MAR times 0.940, lockbox drawdown from 26,235 to 48,867 dollars. It also names TTM as its inert leg, because adding the ETF legs moved the book worst stretch back to 2020 - the second independent candidate to move a book worst stretch by being added to it.']},
 {v:'73.656',date:'2026-09-09',notes:['CORRECTION to the round 37 and 39 ENGU-Q ES-branch cards: the POOLED net-over-drawdown of the NQ plus ES pair was computed over an unsorted daily index, so two published numbers were wrong. Corrected: the ES leg alone is net over drawdown 10.76 (was printed 7.5, and 10.76 is what the single-leg round 37 read already said), and the pooled pair is 15.40 (was printed 16.1). The conclusion does not change - pooling still lifts net over drawdown 17 percent over the NQ leg alone, and the two legs still correlate only 0.20.','The cause was a pandas concatenation that returns two date indexes in unsorted order, so the running total walked the calendar out of order; a sibling session found the same trap in another tool the same day. Both of my affected tools now sort and then assert calendar order before measuring any drawdown.']},
@@ -8914,39 +8915,52 @@ function _hmTradesInRange(tds,range){
   const cs=cutoff.toISOString().slice(0,10);
   return (tds||[]).filter(t=>t.date>=cs);
 }
-// Full-history running series (equity or cumulative-pnl), built the same way the OVERVIEW
-// equity chart builds its series (see the chartMode==='equity' block in the activeTab
-// ==='overview' branch): running balance seeded from brokerStartEquity(), deposits from
-// scopedLedger() folded in on their own date, re-summed after every trade. The range pills
-// only CROP the window shown - the curve underneath is one continuous history, which is
-// what keeps the hero number (liveBalance()/scopedNetPnl(), always the true, un-cropped
-// total) consistent with the end of whatever slice of the chart is on screen.
+// Full-history running series for CUMULATIVE P&L mode only - one continuous history the
+// range pills merely CROP (a deposit never enters this calc, so it can't mis-anchor it).
 function _hmFullSeries(mode){
   const scoped=[...bScope(trades)].sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-  if(mode==='equity'){
-    const byDate={};
-    (scopedLedger()||[]).forEach(e=>{byDate[e.date]=(byDate[e.date]||0)+e.amount;});
-    let bal=brokerStartEquity();
-    const applied=new Set();
-    const firstDate=scoped.length?scoped[0].date:null;
-    Object.keys(byDate).sort().forEach(d=>{if(!firstDate||d<=firstDate){bal+=byDate[d];applied.add(d);}});
-    const pts=[{v:+bal.toFixed(2),date:firstDate}];
-    scoped.forEach(t=>{
-      Object.keys(byDate).forEach(d=>{if(!applied.has(d)&&d<=t.date){bal+=byDate[d];applied.add(d);}});
-      bal=+(bal+t.pnl).toFixed(2);
-      pts.push({v:bal,date:t.date,id:t.id});
-    });
-    return pts;
-  }
   let c=0;
   const pts=[{v:0,date:scoped.length?scoped[0].date:null}];
   scoped.forEach(t=>{c=+(c+t.pnl).toFixed(2);pts.push({v:c,date:t.date,id:t.id});});
   return pts;
 }
-// Slices the full series to the selected range: the first point of the slice carries the
-// running value AS OF the cutoff (the chart starts flat at the right baseline instead of
-// resetting to zero); everything after it is the real trade-by-trade move within range.
+// Net P&L / net deposits FROM TRADES OR LEDGER EVENTS DATED INSIDE the range only - used to
+// back the window's start-of-range equity out of the current (always-accurate) live balance
+// instead of replaying deposit history forward. liveBalance() already reflects every deposit
+// ever logged (accountEquity is bumped cumulatively the moment a deposit is added - see
+// addLedgerEvent), so a deposit dated BEFORE the window is already baked in and must not be
+// re-added; only subtracting the IN-WINDOW net pnl + net deposits peels the window back off.
+function _hmWindowNet(list,range){
+  return +(_hmTradesInRange(list||[],range)||[]).reduce((s,x)=>s+(x.pnl!=null?x.pnl:(x.amount||0)),0).toFixed(2);
+}
+// The ONE place start-of-range equity is computed - the chart baseline (_hmEquitySeriesForRange)
+// and the MORE STATS "START EQUITY" row both call this, so they can never drift apart again.
+function _hmWindowStartEquity(range){
+  const netPnlWindow=_hmWindowNet(bScope(trades),range);
+  const netDepWindow=_hmWindowNet(scopedLedger(),range);
+  return +(liveBalance()-netPnlWindow-netDepWindow).toFixed(2);
+}
+// Equity-mode series for the selected range: starts at _hmWindowStartEquity(range) (deposits
+// before the window already baked in, never re-applied) and walks forward through ONLY the
+// trades + ledger events dated inside the window, in chronological order (deposits applied
+// before same-day trades) - so it always resolves back to the true liveBalance() at the end.
+function _hmEquitySeriesForRange(range){
+  const windowTr=_hmTradesInRange(bScope(trades),range);
+  const windowDep=_hmTradesInRange(scopedLedger(),range);
+  const events=[
+    ...windowDep.map(e=>({date:e.date,ord:0,amt:e.amount,id:null})),
+    ...windowTr.map(t=>({date:t.date,ord:1,amt:t.pnl,id:t.id}))
+  ].sort((a,b)=>a.date!==b.date?(a.date<b.date?-1:1):a.ord-b.ord);
+  let bal=_hmWindowStartEquity(range);
+  const pts=[{v:+bal.toFixed(2),date:null}];
+  events.forEach(ev=>{bal=+(bal+ev.amt).toFixed(2);pts.push({v:bal,date:ev.date,id:ev.id});});
+  return pts;
+}
+// Series for the chart: EQUITY mode is reconstructed fresh per range (see above, fixes the
+// v73.654 bug where an out-of-window deposit leaked into a cropped window's baseline);
+// P&L mode stays a slice of the one continuous cumulative-P&L history (no deposits involved).
 function _hmRangeSeries(range,mode){
+  if(mode==='equity')return _hmEquitySeriesForRange(range);
   const full=_hmFullSeries(mode);
   if(full.length<2)return full;
   const cutoff=_hmCutoff(range);
@@ -9064,17 +9078,17 @@ function _hmRenderChartInto(root){
   const lastX=xFor(n-1),lastY=yFor(vals[n-1]);
   const svg=`<svg viewBox="0 0 ${_HM_VB_W} ${_HM_VB_H}" preserveAspectRatio="xMidYMid meet">
       <defs><linearGradient id="hmChartGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.10"/>
-        <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+        <stop offset="0%" style="stop-color:${lineColor}" stop-opacity="0.10"/>
+        <stop offset="100%" style="stop-color:${lineColor}" stop-opacity="0"/>
       </linearGradient></defs>
       <polygon points="${areaStr}" fill="url(#hmChartGrad)" stroke="none"/>
-      <line x1="${plotL}" y1="${baseY.toFixed(2)}" x2="${plotR}" y2="${baseY.toFixed(2)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="4 4" fill="none"/>
-      <text x="${plotR+8}" y="${Math.min(Math.max(baseY-6,plotT+8),plotB-2).toFixed(2)}" font-size="9" fill="var(--text5)" font-family="JetBrains Mono, monospace">${_hmMoney(vals[0])}</text>
-      <polyline points="${lineStr}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${lastX.toFixed(2)}" cy="${lastY.toFixed(2)}" r="9" fill="${lineColor}" fill-opacity="0.18"/>
-      <circle cx="${lastX.toFixed(2)}" cy="${lastY.toFixed(2)}" r="3.5" fill="${lineColor}" stroke="none"/>
-      <line id="hm-crosshair-line" x1="0" y1="${plotT}" x2="0" y2="${plotB}" stroke="var(--text5)" stroke-opacity="0.5" stroke-width="1" fill="none" visibility="hidden"/>
-      <circle id="hm-crosshair-dot" cx="0" cy="0" r="4" fill="${lineColor}" stroke="none" visibility="hidden"/>
+      <line x1="${plotL}" y1="${baseY.toFixed(2)}" x2="${plotR}" y2="${baseY.toFixed(2)}" style="stroke:var(--border)" stroke-width="1" stroke-dasharray="4 4" fill="none"/>
+      <text x="${plotR+8}" y="${Math.min(Math.max(baseY-6,plotT+8),plotB-2).toFixed(2)}" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">${_hmMoney(vals[0])}</text>
+      <polyline points="${lineStr}" fill="none" style="stroke:${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${lastX.toFixed(2)}" cy="${lastY.toFixed(2)}" r="9" style="fill:${lineColor}" fill-opacity="0.18"/>
+      <circle cx="${lastX.toFixed(2)}" cy="${lastY.toFixed(2)}" r="3.5" style="fill:${lineColor}" stroke="none"/>
+      <line id="hm-crosshair-line" x1="0" y1="${plotT}" x2="0" y2="${plotB}" style="stroke:var(--text5)" stroke-opacity="0.5" stroke-width="1" fill="none" visibility="hidden"/>
+      <circle id="hm-crosshair-dot" cx="0" cy="0" r="4" style="fill:${lineColor}" stroke="none" visibility="hidden"/>
       <rect id="hm-chart-capture" x="0" y="0" width="${_HM_VB_W}" height="${_HM_VB_H}" fill="transparent" stroke="none"/>
     </svg>`;
   const wrapEl=root.querySelector('#hm-chart-wrap');
@@ -9165,7 +9179,7 @@ function _hmMoreStats(stats){
     </div>
     <div class="hm-ms-group"><h4>Account</h4>
       ${_hmMsRow('ACCT EQUITY',_hmMoney(liveBalance()))}
-      ${_hmMsRow('START EQUITY',_hmMoney(brokerStartEquity()))}
+      ${_hmMsRow('START EQUITY',_hmMoney(_hmWindowStartEquity(homeRange)))}
       ${_hmMsRow('TOTAL FEES',_hmMoney(stats.totalFees))}
       ${_hmMsRow('FEES % OF GROSS',stats.feeImpact.toFixed(1)+'%')}
     </div>
