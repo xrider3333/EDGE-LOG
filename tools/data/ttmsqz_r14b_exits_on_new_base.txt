@@ -1,0 +1,63 @@
+TTM SQUEEZE ROUND 14b - the exit, re-asked on the structural-stop base   2026-09-09 11:17
+ES 30m RTH, window 2010-06-07..2026-06-30, lockbox from 2025-07-01, house cost 0.363 pts, mult 50, 1 contract
+STRUCTURAL STOP kept throughout (buffer 0, run #353's own cell): kc_mult 1.50, gate_len 20, eod_cutoff 1. 1.5x deep-squeeze tilt applied throughout, exactly as ES30SS20 applies it.
+Same-bar stop/target conflicts resolved pessimistically (STOP CHECKED FIRST) throughout — see
+simulate()'s "STOP FIRST" block. Breakeven arms only from favourable excursion through the
+PRIOR bar (one bar in arrears) — never off the same bar that first reached it. No look-ahead.
+
+REPRODUCTION CHECK (this file's loop vs run #353 / ES30SS20 on the incumbent config):
+  cell                                               n     PF       net $      DD $ |        LB $  LB PF  LB n  
+  incumbent (run #353, quoted)                     357   2.91     101,017     4,338 |      16,977   6.72  None  quoted, not recomputed
+  incumbent (this file's own loop)                 357   2.91     101,017     4,338 |      16,977   6.72    16  MATCH   exits: stop 47 / target 0 / fade 175 / close 135  (entries 357)
+
+====================================================================================================
+1. MOMENTUM-FADE after 2 and 3 bars instead of 1 (round 8 re-asked on the new base)
+====================================================================================================
+  cell                                               n     PF       net $      DD $ |        LB $  LB PF  LB n  
+  fade after 1 bar  (incumbent)                    357   2.91     101,017     4,338 |      16,977   6.72    16  exits: stop 47 / target 0 / fade 175 / close 135  (entries 357)
+  fade after 2 bars                                354   2.80     101,795     4,277 |      17,452   7.82    15  exits: stop 55 / target 0 / fade 105 / close 194  (entries 354)
+  fade after 3 bars                                351   2.56      98,203     5,979 |      17,195   6.44    15  exits: stop 57 / target 0 / fade 69 / close 225  (entries 351)
+
+====================================================================================================
+2. RIDE TO SESSION CLOSE - no momentum exit at all (stop or EOD only)
+====================================================================================================
+  cell                                               n     PF       net $      DD $ |        LB $  LB PF  LB n  
+  ride to close (stop/EOD only, no fade)           346   2.26      92,492     7,542 |      18,020   6.41    15  exits: stop 67 / target 0 / fade 0 / close 279  (entries 346)
+
+====================================================================================================
+3. STRUCTURAL TARGET - entry +/- Nx the fire bar's squeeze-range width, with and without
+   the fade exit still armed underneath (stop unchanged: structural, buffer 0)
+====================================================================================================
+  cell                                               n     PF       net $      DD $ |        LB $  LB PF  LB n  
+  1.0x range target, fade ARMED                    357   2.62      84,735     4,164 |      16,865   6.68    16  exits: stop 47 / target 50 / fade 156 / close 104  (entries 357)
+  1.0x range target, fade off                      347   2.06      75,578     7,542 |      17,395   6.22    15  exits: stop 67 / target 58 / fade 0 / close 222  (entries 347)
+  1.5x range target, fade ARMED                    357   2.76      92,670     4,338 |      16,977   6.72    16  exits: stop 47 / target 27 / fade 168 / close 115  (entries 357)
+  1.5x range target, fade off                      346   2.16      83,461     7,542 |      18,124   6.44    15  exits: stop 67 / target 30 / fade 0 / close 249  (entries 346)
+  2.0x range target, fade ARMED                    357   2.78      94,523     4,338 |      16,977   6.72    16  exits: stop 47 / target 13 / fade 171 / close 126  (entries 357)
+  2.0x range target, fade off                      346   2.15      84,786     7,542 |      18,020   6.41    15  exits: stop 67 / target 13 / fade 0 / close 266  (entries 346)
+  3.0x range target, fade ARMED                    357   2.82      96,673     4,338 |      16,977   6.72    16  exits: stop 47 / target 6 / fade 174 / close 130  (entries 357)
+  3.0x range target, fade off                      346   2.19      87,174     7,542 |      18,020   6.41    15  exits: stop 67 / target 6 / fade 0 / close 273  (entries 346)
+
+====================================================================================================
+4. BREAK-EVEN - once price has travelled 1x the range width in favour, stop moves to
+   entry. Judged on NET and DRAWDOWN ONLY (never EV R — an early breakeven flatters it
+   while losing money, memory edgelog-evr-gameable-by-breakeven). Fade exit (1 bar) stays armed.
+====================================================================================================
+  cell                                               n     PF       net $      DD $ |        LB $  LB PF  LB n  
+  breakeven at 1x range MFE, fade underneath       357   2.86      97,573     4,300 |      16,977   6.72    16  exits: stop 56 / target 0 / fade 170 / close 131  (entries 357)
+  NET vs incumbent: 97,573 vs 101,017 (96.6%)   DD vs incumbent: 4,300 vs 4,338 (99.1%)  -- judge on these two
+
+====================================================================================================
+5. SCALE OUT - half off at the 1.0x structural target, the rest rides to the fade exit
+====================================================================================================
+  cell                                               n     PF       net $      DD $ |        LB $  LB PF  LB n  
+  half off @1.0x target, rest to fade              407   2.76      92,876     4,164 |      16,921   6.70    17  exits: stop 47 / target 0 / fade 175 / close 135  (entries 357)  [+50 half-off @target, final leg counted above]
+  net $ vs incumbent: 92,876 vs 101,017 (91.9%)   DD $ vs incumbent: 4,164 vs 4,338 (96.0%)
+  repeats the standing scale-out finding (ORB, round 12b's own 1R test)? -> RISK-ADJUSTED (lower DD, not richer)
+
+====================================================================================================
+SUMMARY - incumbent (run #353): n 357, PF 2.91, net $101,017, DD $4,338, lockbox $16,977 at PF 6.72
+====================================================================================================
+no cell beats the incumbent on both whole-run PF and lockbox net.
+
+elapsed 10s

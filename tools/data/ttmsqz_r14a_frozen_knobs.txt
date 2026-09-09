@@ -1,0 +1,68 @@
+TTM SQUEEZE ROUND 14a - the two frozen knobs (base length, gate_tf_min) + bb_mult + decoupled base kc_mult, on the STRUCTURAL-STOP base   2026-09-09 11:15
+window 2010-06-07..2026-06-30, lockbox from 2025-07-01, ES 30m RTH, cost 0.363 pts, $50/pt; mechanism = run #353's structural stop (buffer 0) + run #340's validated 1.5x deep-squeeze tilt (tilt definition FIXED at 20/2.0/1.5/60m throughout - not one of the knobs under test)
+INCUMBENT (TTMSQZ_3_0_ES30SS20.py, quoted from TTM.md): n=357 PF=2.91 net=$101,017 DD=$4,338 | lockbox $16,977 PF=6.72
+
+======================================================================================================================
+SANITY CHECK - TTMSQZ_3_0_ES30SS20.run_backtest (the real fenced file) vs this file's _run_cell at the matching config
+======================================================================================================================
+  fenced file : n=357 PF=2.91 net=$101,017 DD=$4,338 | lockbox $16,977 PF 6.72
+  this file   : n=357 PF=2.91 net=$101,017 DD=$4,338 | lockbox $16,977 PF 6.72
+  IDENTICAL TRADES: True   |   matches TTM.md's quoted incumbent (n=357 net=$101,017): True
+
+======================================================================================================================
+GRID 1 - base squeeze length (Bollinger/Keltner/momentum window on the traded 30m bars). Gate untouched (60m, gate_len 20, coupled bb/kc at the incumbent's own values).
+======================================================================================================================
+  cell                                           n      PF        net $      DD $     MAR |   lockbox $   LB PF   LB n
+  length = 8                                   516    1.14       13,975     8,882   0.098 |         804    1.09     27
+  length = 10                                  511    1.19       20,536     9,495   0.135 |       2,510    1.22     26
+  length = 14                                  456    1.47       42,904     7,969   0.336 |       2,009    1.15     25
+  length = 20  [incumbent]                     357    2.91      101,017     4,338   1.453 |      16,977    6.72     16
+  length = 26                                  284    1.97       60,422     6,344   0.594 |      20,259    5.73     17
+  length = 34                                  218    1.73       32,025     6,026   0.332 |      -2,196    0.26      8
+  length = 40                                  138    1.30        7,596     4,469   0.107 |         400    1.20      7
+
+======================================================================================================================
+GRID 2 - verification frame (gate_tf_min), re-asked on the structural-stop base. Round 8 tried 120 on the OLD (ATR-stop) base and it failed; base length stays 20, gate_len stays 20 (same convention round 8 used: the gate always reads 20 bars of ITS OWN frame).
+======================================================================================================================
+  cell                                           n      PF        net $      DD $     MAR |   lockbox $   LB PF   LB n
+  gate_tf_min = 30                            no trades
+  gate_tf_min = 60  [incumbent]                357    2.91      101,017     4,338   1.453 |      16,977    6.72     16
+  gate_tf_min = 120                            200    1.66       23,645     7,524   0.201 |       6,330    5.00      8
+  gate_tf_min = 240                            126    2.20       23,691     4,070   0.378 |       6,379    2.57      6
+
+======================================================================================================================
+GRID 3 - base Bollinger multiplier, DECOUPLED from the gate's (gate_bb_mult pinned at the published 2.0 in every row here, via _build_arrays_gen's separate gate_bb_mult argument).
+======================================================================================================================
+  cell                                           n      PF        net $      DD $     MAR |   lockbox $   LB PF   LB n
+  base bb_mult = 1.50 (gate bb_mult fixed 2.0)   318    2.25       67,054     5,134   0.815 |       7,309    2.91     17
+  base bb_mult = 2.00 (gate bb_mult fixed 2.0)  [incumbent]   357    2.91      101,017     4,338   1.453 |      16,977    6.72     16
+  base bb_mult = 2.50 (gate bb_mult fixed 2.0)   216    1.75       29,674     3,814   0.486 |       3,789    2.04     10
+
+======================================================================================================================
+GRID 4 - base Keltner multiplier, DECOUPLED from the gate's (gate_kc_mult pinned at the published 1.5 in every row here). TTMSQZ_3_0.py shares one kc_mult between the fire and the hourly gate; this grid asks what the FIRE alone wants once the gate's own coil definition is held fixed.
+======================================================================================================================
+  cell                                           n      PF        net $      DD $     MAR |   lockbox $   LB PF   LB n
+  base kc_mult = 1.00 (gate kc_mult fixed 1.5)    87    1.47        6,383     4,301   0.096 |       4,020    6.12      6
+  base kc_mult = 1.25 (gate kc_mult fixed 1.5)   250    1.68       32,263     8,745   0.231 |      -1,568    0.74     13
+  base kc_mult = 1.50 (gate kc_mult fixed 1.5)  [incumbent, still coupled here]   357    2.91      101,017     4,338   1.453 |      16,977    6.72     16
+  base kc_mult = 1.75 (gate kc_mult fixed 1.5)   379    2.13       71,864     4,965   0.903 |      11,044    4.06     18
+  base kc_mult = 2.00 (gate kc_mult fixed 1.5)   318    2.25       67,054     5,134   0.815 |       7,309    2.91     17
+
+======================================================================================================================
+COMBINATIONS - the best value(s) from each grid above, stacked. THESE ARE A SECOND LOOK AT THE SAME ~357 TRADES, not an independent test: any apparent win here is much weaker evidence than an equal-looking win in a single grid above, because the search space just grew and the same 12 lockbox months are being asked again.
+======================================================================================================================
+  best cell per grid, by whole-run PF:
+    length         length = 20  [incumbent] (PF 2.91)
+    gate_tf_min    gate_tf_min = 60  [incumbent] (PF 2.91)
+    bb_mult        base bb_mult = 2.00 (gate bb_mult fixed 2.0)  [incumbent] (PF 2.91)
+    kc_mult        base kc_mult = 1.50 (gate kc_mult fixed 1.5)  [incumbent, still coupled here] (PF 2.91)
+
+  cell                                           n      PF        net $      DD $     MAR |   lockbox $   LB PF   LB n
+  all four best values stacked                 357    2.91      101,017     4,338   1.453 |      16,977    6.72     16
+  best length + best gate_tf_min only (headline pair)   357    2.91      101,017     4,338   1.453 |      16,977    6.72     16
+
+======================================================================================================================
+VERDICT - cells beating the incumbent on BOTH whole-run PF (>=2.91) AND lockbox net (>=$16,977)
+======================================================================================================================
+  no single-knob cell beats the incumbent on both PF and lockbox net.
+  no combination cell beats the incumbent on both PF and lockbox net either.
