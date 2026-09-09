@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.700';
+const VERSION='73.701';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.701',date:'2026-09-09',notes:['TRADING LOG REDESIGN, PHASE TWO: OVERVIEW is retired and HOME is now the tab you land on. HOME already carried everything OVERVIEW showed except three things, which moved to ANALYTICS instead of being lost: the monthly calendar, the six colored breakdown bars (monthly, by symbol, by timeframe, by setup, by duration, by grade), and the profit-and-loss histogram with its mean and standard-deviation lines. The AI ASSESSMENT card moved to HOME, right under the More Stats panel, so that insight is still one screen away instead of buried on a retired tab.','FIXED WHILE MOVING IT: the calendar, the histogram, and the by-duration bar were quietly ignoring the ACCOUNT selector at the top of the page - switching to a single account changed your headline numbers but those three kept adding up every account together. They now follow the ACCOUNT selector like every other number on the page.','If OVERVIEW is gone and you saved a bookmark or your browser remembered it as your last tab, you will now land on HOME automatically instead of a blank screen. If you want to see the old OVERVIEW tab one more time for any reason, add ?overview=1 to the end of the page address - that door stays open for one more version before the old tab is removed for good.']},
 {v:'73.700',date:'2026-09-09',notes:['STUDIES BOARD: ROUND 51, rows 1682 to 1686 - both queued books have run and they settle rounds 48 to 50. THE FOUR-LEG BOOK IS BETTER: run #366 scores 38.18 return-over-drawdown on the selection window against the adopted book 30.25, and 46.11 across the whole window against 36.93, with the held-back year level at 10.33 and eight of eight slices. Net rises 34 percent while drawdown rises 6.5 percent. The gain is the NOISE crown, which was crowned and paper-traded and had never been in the book.','TWO CORRECTIONS. The ENGU-Q crown swap on its own is a WASH, not the win I reported - run #365 scores 28.77 against the adopted 30.25. And round 48 quoted the adopted book at 11.95 because I pooled its legs by my own day-stamping instead of taking the app own numbers; the app scores it 30.25. When comparing against a run the app produced, use that run own figures. Unchanged caveat: in all three books the held-back year ten best days are about 103 percent of that year profit.']},
 {v:'73.699',date:'2026-09-09',notes:['COMPARE - STUDIES: TTM Squeeze round 15, rows 1674-1681. RUN 364 PASSES: leaving on the SECOND fading bar earns more at a LOWER drawdown with a bigger lockbox, and does it on every base it has been measured on. It had been rejected twice by a scan screen that used whole-run profit factor - the one number it makes worse - which is triage, not the bar this shop crowns on.','AND AN INVERTED ASSUMPTION: blocking the session open bar, the obvious missing filter, removes the leg BEST trades - 87 of 357 averaging 805 dollars against 115. Sized 1.5 instead, the leg reaches 136,043 dollars at MAR 1.589 against 1.450 with the lockbox drawdown unchanged, and it beats a flat 1.5x leverage control in both halves. Fenced validate queued. Re-entry, a graded tilt and coil-size floors all close clean; and swapping either current NQ crown into the book makes the book worse.']},
 {v:'73.698',date:'2026-09-09',notes:['STUDIES BOARD: ROUNDS 48 to 50, rows 1667 to 1673 - the book adopted this morning was trading the EX-CROWN ENGU-Q leg and had no NOISE leg at all. The ENGU-Q crown moved on 2026-09-08 and only the paper leg followed; putting the current crown in that slot is worth 22 percent more money on HALF the drawdown, taking the selection window from 11.95 return-over-drawdown to 28.77. Adding the NOISE crown at weight 1 then adds 347,568 dollars for 127 dollars of extra drawdown, lifting it to 38.18, and improves concentration from 31 to 25 percent.','All eighteen combinations of the four legs were scored and the four-leg book is the best of them - removing the opening-range leg makes it worse, so every leg earns its slot. Weight 2 on NOISE was rejected because the held-back year degrades, which is leverage rather than edge. Both new books are queued as full validates, the three-leg swap separately so it can be told apart from the new leg. The standing caveat is unchanged: every version of this book has a held-back year whose ten best days are about 103 percent of its profit.']},
@@ -1769,7 +1770,13 @@ const TABS=['overview','trades','analytics','import_export','journal','augur'];
 // own subtabs underneath. 'augur' is the single activeTab behind the Backtester master.
 // v73.20 (owner: "tired of having two settings spots"): SETTINGS is no longer a subtab on
 //   either side. Both panels live in ONE master modal behind the topbar gear (openSettings).
-const LOG_TABS=['home','overview','trades','analytics','import_export','journal'];
+// v73.7xx SHIP TWO: OVERVIEW retired from the clickable tab bar - HOME (the combined
+//   Robinhood-style dashboard) replaced it as the default landing tab and everything
+//   OVERVIEW showed either already lives on HOME or moved to ANALYTICS (calendar, the
+//   six breakdown bars, the P&L distribution histogram). The OVERVIEW render code itself
+//   is untouched below and stays reachable for one version via ?overview=1 in the URL,
+//   as a safety net - see the el_view restore block and window.LOG_OVERVIEW_ESCAPE_HATCH.
+const LOG_TABS=['home','trades','analytics','import_export','journal'];
 // RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
 //   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
 //   rail navigates to it - it is simply not offered as a top-level tab as well.
@@ -1863,7 +1870,7 @@ function _bookFixChip(r,sz){
 // 75 per LOAD MORE click (below); _runsUid remembers who to re-subscribe as.
 let runsLimit=75,_runsUid=null;
 let trades=[],lessons=[],balanceHistory=[],currentUser=null;
-let activeTab='overview',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
+let activeTab='home',activeChart='equity',chartTF='all',chartMode='pnl',spyOverlay=false,chartPctMode=false;window.chartPctMode=false;
 // HOME tab state (v73.651) - the combined dashboard sub-tab. homeRange/homeChartMode/
 // homeFeedMode/homeView/homeChip are persisted below the same way chartTF/chartMode are;
 // homeQuery/homeStatsOpen/homeExtras/homeSheetId stay session-only (showAllCols on the
@@ -2033,6 +2040,14 @@ try{const _lv=JSON.parse(localStorage.getItem('el_view')||'{}');
   if(_lv.homeView)homeView=_lv.homeView;
   if(_lv.homeChip)homeChip=_lv.homeChip;
 }catch(e){}
+// v73.7xx SHIP TWO: OVERVIEW left the tab bar - a browser (including the owner's own,
+//   right now) that saved 'overview' as its last-viewed tab must land on HOME instead of
+//   a tab with no button, not a blank screen. ?overview=1 in the URL is a one-version
+//   escape hatch that force-opens the retired render regardless of saved state, in case
+//   something it showed did not make it over to ANALYTICS.
+window.LOG_OVERVIEW_ESCAPE_HATCH=new URLSearchParams(location.search).get('overview')==='1';
+if(window.LOG_OVERVIEW_ESCAPE_HATCH)activeTab='overview';
+else if(activeTab==='overview')activeTab='home';
 // remember scroll position too, so a refresh returns to the same spot on the page (window scroll,
 //   debounced). Restored with a few retries on load because run data streams in and the page grows.
 try{
@@ -8437,7 +8452,9 @@ window.openAllChartsForFiltered=async function(){
 // Calendar hover: show mini trade details popup
 let _calHoverEl=null,_calHoverLine=null;
 window.showCalHover=function(dateStr){
-  const dayTrades=trades.filter(t=>t.date===dateStr);
+  // v73.7xx: scoped through bScope() so the hover popup agrees with the calendar cell
+  // it belongs to — both now follow the ACCOUNT pill instead of always summing every account.
+  const dayTrades=bScope(trades).filter(t=>t.date===dateStr);
   if(!dayTrades.length){window.hideCalHover();return;}
   if(!_calHoverEl){
     _calHoverEl=document.createElement('div');
@@ -9505,6 +9522,17 @@ function _hmRenderHome(content){
       <span class="hm-micro">MORE STATS</span><span class="hm-chev" aria-hidden="true">&#9662;</span>
     </button>
     <div class="hm-morestats-panel${homeStatsOpen?' open':''}" id="hm-morestats-panel">${homeStatsOpen?_hmMoreStats(rangeStats):''}</div>
+    <!-- v73.7xx: AI ASSESSMENT carried over from the retired OVERVIEW tab so this insight
+         does not disappear now that HOME is the default landing tab. -->
+    <div class="section" style="margin:14px 0">
+      <div class="sec-hd">
+        <span>🤖 AI ASSESSMENT</span>
+        <button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button>
+      </div>
+      <div id="overview-ai-output" style="padding:12px;font-size:var(--fsxs);color:var(--text3);line-height:1.7;max-height:400px;overflow-y:auto">
+        <div style="color:var(--text5);text-align:center;padding:20px">Loading insights...</div>
+      </div>
+    </div>
     <div class="hm-feed-head">
       <div class="hm-micro">ACTIVITY</div>
       <div class="hm-feed-controls">
@@ -9607,6 +9635,7 @@ function _hmRenderHome(content){
     window._hmEscWired=true;
     document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&activeTab==='home'&&homeSheetId){homeSheetId=null;renderApp();}});
   }
+  setTimeout(()=>{if(document.getElementById('overview-ai-output'))runOverviewAI();},100);
 }
 
 function renderApp(){
@@ -9614,7 +9643,10 @@ function renderApp(){
   // v73.20: SETTINGS left the tab bars for the topbar gear. A browser that saved the old
   //   view (el_view) can still restore activeTab 'settings' / augurSub 'set' — send those
   //   back to a real tab so the user never lands on a tab that no longer has a button.
-  if(activeTab==='settings')activeTab=(window._lastLogTab&&window._lastLogTab!=='settings')?window._lastLogTab:'overview';
+  if(activeTab==='settings')activeTab=(window._lastLogTab&&window._lastLogTab!=='settings')?window._lastLogTab:'home';
+  // OVERVIEW is retired from the tab bar (v73.7xx) - a stale lastLogTab pointing at it
+  // (or at 'settings' before that) must not hand it back out except via the URL escape hatch.
+  if(activeTab==='overview'&&!window.LOG_OVERVIEW_ESCAPE_HATCH)activeTab='home';
   if(augurSub==='set')augurSub='lib';
   // v73.378: the two paper tabs merged (owner: "there are still two paper tabs. redo
   // this"). 'paper' no longer has a button, so a browser restoring the old saved view
@@ -9774,7 +9806,7 @@ function renderApp(){
    try{if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>setTimeout(_pinSub,0));}catch(_e){}
    if(!window._subPinWired){window._subPinWired=1;window.addEventListener('resize',()=>{const w=document.getElementById('app');const tb=w&&w.querySelector('.topbar'),sb=w&&w.querySelector('[data-asubtop],[data-tab]');if(tb&&sb&&sb.parentElement)sb.parentElement.style.top=tb.offsetHeight+'px';});}}
 
-  wrap.querySelectorAll('[data-master]').forEach(b=>{b.onclick=()=>{const m=b.dataset.master;if(m==='backtester'){activeTab='augur';if(!ASUBS.some(s=>s[0]===augurSub))augurSub='lib';}else{if(activeTab==='augur')activeTab=window._lastLogTab||'overview';}renderApp();};});
+  wrap.querySelectorAll('[data-master]').forEach(b=>{b.onclick=()=>{const m=b.dataset.master;if(m==='backtester'){activeTab='augur';if(!ASUBS.some(s=>s[0]===augurSub))augurSub='lib';}else{if(activeTab==='augur'){activeTab=window._lastLogTab||'home';if(activeTab==='overview'&&!window.LOG_OVERVIEW_ESCAPE_HATCH)activeTab='home';}}renderApp();};});
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;window._lastLogTab=b.dataset.tab;renderApp();};});
   wrap.querySelectorAll('[data-asubtop]').forEach(b=>{b.onclick=()=>{activeTab='augur';augurSub=b.dataset.asubtop;augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
   // STUDIES split toggle. APREF is not built yet at this point in renderApp, so it writes
@@ -10958,6 +10990,120 @@ function renderApp(){
       `;
       content.appendChild(ringHTML);
 
+      // ═══ v73.7xx SHIP TWO: calendar + 6 breakdown bars + P&L distribution histogram,
+      // moved here from the retired OVERVIEW tab. Every one is routed through bScope()
+      // (the same account-scoping helper calcStats() already calls internally) so the
+      // ACCOUNT pill actually changes what they show - OVERVIEW's versions read the raw
+      // trade list directly and ignored the pill. ═══
+      (()=>{
+        const _anTrades=bScope(trades);
+        const _anLabel=document.createElement('div');
+        _anLabel.className='stat-lbl';
+        _anLabel.style.cssText='margin:2px 2px 10px';
+        _anLabel.textContent='CALENDAR & BREAKDOWNS';
+        content.appendChild(_anLabel);
+
+        const _anCalHTML=(()=>{
+          const cm=calMonth||new Date().toISOString().slice(0,7);
+          const [cyr,cmo]=cm.split('-').map(Number);
+          const yr=cyr,mo=cmo;
+          const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
+          const tbd={};_anTrades.forEach(t=>{if(!tbd[t.date])tbd[t.date]=[];tbd[t.date].push(t);});
+          const moStr=yr+'-'+String(mo).padStart(2,'0');
+          const moT=_anTrades.filter(t=>t.date.startsWith(moStr));
+          const moPnl=moT.reduce((s,t)=>s+t.pnl,0),moWR=moT.length?moT.filter(t=>t.pnl>0).length/moT.length:0;
+          const dow=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+          let cells=dow.map(d=>`<div style="text-align:center;font-size:9px;color:var(--text5);padding:3px 0;letter-spacing:1px">${d}</div>`).join('');
+          for(let i=0;i<startDow;i++)cells+=`<div></div>`;
+          for(let day=1;day<=daysInMonth;day++){
+            const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+            const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
+            const isToday=ds===new Date().toISOString().slice(0,10);
+            const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
+            const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a050':'#ff3d5a50'}`:'1px solid transparent';
+            cells+=`<div class="cal-day-cell" data-date="${ds}" style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:52px;display:flex;flex-direction:column;justify-content:center;position:relative;cursor:${dt.length?'pointer':'default'}" onmouseenter="window.showCalHover('${ds}')" onmouseleave="window.hideCalHover()" onclick="${dt.length?`window.gotoTradesByDate('${ds}')`:''}">
+              <div style="color:${isToday?'var(--yellow)':dt.length?(dp>=0?'#00e5a0':'#ff3d5a'):'var(--text5)'};font-family:'Bebas Neue',monospace;font-size:13px">${day}</div>
+              ${dt.length?`<div style="font-size:11px;color:${dp>=0?'#00e5a0':'#ff3d5a'};font-family:'Bebas Neue',monospace;margin-top:2px">${dp>=0?'+$':'-$'}${Math.abs(dp).toFixed(0)}</div>`:''}
+            </div>`;
+          }
+          return `<div class="sec-hd" style="justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="changeCalMonth(-1)">◀</button>
+              <span style="font-family:'Bebas Neue',monospace;font-size:14px;letter-spacing:2px">${firstDay.toLocaleString('en',{month:'long'})} ${yr}</span>
+              <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="changeCalMonth(1)">▶</button>
+              <button class="btn-d" style="padding:3px 8px;font-size:var(--fsxs)" onclick="resetCalMonth()">TODAY</button>
+            </div>
+            <span style="font-size:var(--fsm);color:${gch(moPnl)};font-family:'Bebas Neue',monospace">${fmt(moPnl)} · ${(moWR*100).toFixed(0)}% WR · ${moT.length} trades</span>
+          </div>
+          <div style="padding:8px;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
+        })();
+        const calSection=document.createElement('div');
+        calSection.id='an-cal-section';
+        calSection.className='section';calSection.style.cssText='margin-bottom:14px';
+        calSection.innerHTML=_anCalHTML;
+        content.appendChild(calSection);
+
+        const _anByDuration=(()=>{
+          const buckets={'<1m':[],'1-5m':[],'5-15m':[],'15-30m':[],'30-60m':[],'1h+':[],'unknown':[]};
+          _anTrades.forEach(t=>{const d=t.durationMins;if(d==null||d===0)buckets['unknown'].push(t);else if(d<1)buckets['<1m'].push(t);else if(d<5)buckets['1-5m'].push(t);else if(d<15)buckets['5-15m'].push(t);else if(d<30)buckets['15-30m'].push(t);else if(d<60)buckets['30-60m'].push(t);else buckets['1h+'].push(t);});
+          return Object.entries(buckets).filter(([,arr])=>arr.length>0).map(([range,arr])=>({label:range,count:arr.length,wins:arr.filter(t=>t.pnl>0).length,pnl:arr.reduce((s,t)=>s+t.pnl,0)}));
+        })();
+        const breakdownGrid=document.createElement('div');
+        breakdownGrid.id='an-breakdown-grid';
+        breakdownGrid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px';
+        breakdownGrid.innerHTML=`
+          <div class="section">${stackBar('MONTHLY', Object.entries(S.monthly).sort(([a],[b])=>b>a?1:-1).slice(0,8).map(([m,d])=>({label:new Date(m+'-01T12:00:00').toLocaleString('en',{month:'short'}).toUpperCase(),count:d.trades,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('BY SYMBOL', Object.entries(S.syms).sort(([,a],[,b])=>b.pnl-a.pnl).map(([sym,s])=>({label:sym,count:s.count,wins:s.wins,pnl:s.pnl})))}</div>
+          <div class="section">${stackBar('BY TIMEFRAME', Object.entries(S.byTF).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([tf,d])=>({label:tf,count:d.count,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('BY SETUP', Object.entries(S.setups).sort(([,a],[,b])=>b.pnl-a.pnl).slice(0,8).map(([s,d])=>({label:s,count:d.count,wins:d.wins,pnl:d.pnl})))}</div>
+          <div class="section">${stackBar('BY DURATION', _anByDuration)}</div>
+          <div class="section">${stackBar('BY GRADE', (()=>{const order={A:1,B:2,C:3,D:4,F:5,'—':6};return Object.entries(S.byGrade).sort(([a],[b])=>(order[a]||9)-(order[b]||9)).map(([g,d])=>({label:g,count:d.count,wins:d.wins,pnl:d.pnl}));})())}</div>
+        `;
+        content.appendChild(breakdownGrid);
+
+        const _anPnls=_anTrades.map(t=>useGross?(t.grossPnl||t.pnl):t.pnl).filter(p=>p!=null);
+        const _anMean=_anPnls.length?_anPnls.reduce((a,b)=>a+b,0)/_anPnls.length:0;
+        const _anStd=_anPnls.length>1?Math.sqrt(_anPnls.reduce((a,b)=>a+(b-_anMean)**2,0)/(_anPnls.length-1)):0;
+        const _anMin=Math.min(..._anPnls,0),_anMax=Math.max(..._anPnls,0);
+        const _anBinCount=Math.min(20,Math.max(8,Math.ceil(Math.sqrt(_anPnls.length))));
+        const _anBinSize=(_anMax-_anMin)/_anBinCount||1;
+        const _anBins=Array(_anBinCount).fill(0);
+        _anPnls.forEach(p=>{const i=Math.min(_anBinCount-1,Math.floor((p-_anMin)/_anBinSize));_anBins[i]++;});
+        const _anMaxBin=Math.max(..._anBins,1);
+        const histSection=document.createElement('div');
+        histSection.id='an-hist-section';
+        histSection.className='section';histSection.style.cssText='margin-bottom:14px';
+        histSection.innerHTML=`<div class="sec-hd" style="flex-wrap:wrap;gap:8px">
+            <span>P&L DISTRIBUTION</span>
+            <div style="display:flex;gap:14px;font-size:var(--fsxs);align-items:center">
+              <span style="color:var(--text4)">MEAN <span style="color:${_anMean>=0?'var(--green)':'var(--red)'}">${_anMean>=0?'+':''}$${_anMean.toFixed(2)}</span></span>
+              <span style="color:var(--text4)">STD DEV <span style="color:var(--yellow)">$${_anStd.toFixed(2)}</span></span>
+              <span style="color:var(--text4)">−1σ <span style="color:var(--yellow)">$${(_anMean-_anStd).toFixed(0)}</span></span>
+              <span style="color:var(--text4)">+1σ <span style="color:var(--yellow)">+$${(_anMean+_anStd).toFixed(0)}</span></span>
+            </div>
+          </div>
+          <div class="dist-chart" style="padding:14px 12px;cursor:zoom-in" ondblclick="expandChart('P&L DISTRIBUTION', this.innerHTML)">
+            <svg viewBox="0 0 1400 240" width="100%" style="display:block">
+              <line x1="0" y1="210" x2="1400" y2="210" stroke="var(--border)" stroke-width="1"/>
+              ${_anMin<0&&_anMax>0?(()=>{const zx=((0-_anMin)/(_anMax-_anMin))*1400;return `<line x1="${zx}" y1="0" x2="${zx}" y2="210" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2,3"/><text x="${zx+4}" y="14" fill="var(--text5)" font-size="12">$0</text>`})():''}
+              ${(()=>{const mx=((_anMean-_anMin)/(_anMax-_anMin))*1400;return `<line x1="${mx}" y1="0" x2="${mx}" y2="210" stroke="#f5c842" stroke-width="1.5" stroke-dasharray="3,3" opacity=".7"/><text x="${mx+4}" y="32" fill="#f5c842" font-size="13">μ mean</text>`})()}
+              ${_anStd>0?(()=>{const lx=((_anMean-_anStd-_anMin)/(_anMax-_anMin))*1400,rx=((_anMean+_anStd-_anMin)/(_anMax-_anMin))*1400;return `<rect x="${lx}" y="0" width="${rx-lx}" height="210" fill="#f5c842" opacity=".07"/><text x="${lx+4}" y="48" fill="#f5c842" font-size="11" opacity=".8">−1σ</text><text x="${rx-30}" y="48" fill="#f5c842" font-size="11" opacity=".8">+1σ</text>`})():''}
+              ${_anBins.map((cnt,i)=>{
+                const bx=(i/_anBinCount)*1400;
+                const bw=1400/_anBinCount-3;
+                const bh=(cnt/_anMaxBin)*185;
+                const by=210-bh;
+                const binMid=_anMin+(i+0.5)*_anBinSize;
+                const color=binMid>=0?'#00e5a0':'#ff3d5a';
+                return `<rect x="${bx+1.5}" y="${by}" width="${bw}" height="${bh}" fill="${color}" opacity=".75"><title>$${(_anMin+i*_anBinSize).toFixed(0)} to $${(_anMin+(i+1)*_anBinSize).toFixed(0)}: ${cnt} trade${cnt!==1?'s':''}</title></rect>${cnt>0?`<text x="${bx+bw/2+1.5}" y="${by-4}" fill="var(--text3)" font-size="11" text-anchor="middle">${cnt}</text>`:''}`;
+              }).join('')}
+              <text x="4" y="230" fill="var(--text4)" font-size="11">$${_anMin.toFixed(0)}</text>
+              <text x="700" y="230" fill="var(--text4)" font-size="11" text-anchor="middle">$${((_anMin+_anMax)/2).toFixed(0)}</text>
+              <text x="1396" y="230" fill="var(--text4)" font-size="11" text-anchor="end">$${_anMax.toFixed(0)}</text>
+            </svg>
+          </div>`;
+        content.appendChild(histSection);
+      })();
 
       // Customizable distribution under rings (with metric toggle buttons)
       if(trades.length>=3){
