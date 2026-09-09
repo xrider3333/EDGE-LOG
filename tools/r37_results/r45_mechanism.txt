@@ -1,0 +1,17 @@
+PART A: net-over-drawdown at the stressed cost peaks at 15m (34.52); the 5m bar the crown trades reads 17.82.
+  ladder: 5m 17.8  10m 30.1  15m 34.5  20m 17.8  30m 22.0  45m 18.9  60m 17.3
+  median hold: 5m 40min  10m 70min  15m 90min  20m 120min  30m 150min  45m 180min  60m 180min
+  $/trade:     5m $70  10m $91  15m $117  20m $109  30m $125  45m $119  60m $113
+
+PART B: the best 5-minute cell is confirm_bars=2, stop_k=1.75 -- net/DD 29.67, which is 86% of the 15-minute cell's 34.52.
+  it reads PF 1.445 (target 1.494), 7/8 slices (target 7), top-10 22.4% (target 21.7%), $86 a trade (target $117), hold 50 min (target 90 min).
+  VERDICT: THE BAR IS NOT A PROXY FOR A KNOB. No confirmation or stop setting on the 5-minute bar reaches the 15-minute cell, so the fatter bar carries something the knobs cannot express - consistent with the band's volatility estimate being indexed by bar ORDINAL within the session, which only a real bar change moves. The queued 15-minute Auto-Validate is therefore the right next step, and a chart change is the real proposal if it passes.
+
+PART C: 15-minute bar vs the 5-minute crown -- ahead in 11 of 17 years, 0 of the last three.
+
+PART C: confirm_bars=2 vs the crown, both on 5m -- ahead in 10 of 17 years, 0 of the last three.
+  BOTH candidates share one signature: they beat the crown across 2010-2023 and LOSE
+  2024, 2025 and 2026. Two independent mechanisms decaying together, plus the same
+  give-back already noted by the 2026-08-17 variant campaign, is more than a hot
+  streak in the baseline -- it is the reason NOT to change the bar or the
+  confirmation on this evidence.

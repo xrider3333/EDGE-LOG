@@ -7,6 +7,106 @@
 
 ---
 
+## 🔬 2026-09-09 — ROUND 45: WHY the fatter bar helps — and the correction that takes round 44's headline back (STUDIES rows 1617-1621, web v73.672)
+
+**Owner ask:** *"keep testing noise."* Round 44 (earlier today) found the live crown geometry
+measures far better on a 15-minute bar than on the 5-minute bar it trades, called it *"the crown is
+on the wrong bar"*, and queued a 15-minute Auto-Validate. This round asked the two questions that
+decide what to actually do about it — where the ladder peaks, and whether the bar is a proxy for a
+knob — and the answer to a third question nobody had asked **takes the round 44 headline back**.
+
+Harness `tools/r45_noise_bar_mechanism.py`; three parity gates (resampled 5m, 15m and 30m each
+reproduce their registered master, clipped to its own coverage — all within 0.4%).
+
+### Part A — the ladder peaks at 15 minutes, and net-over-drawdown is a noisy way to read it
+
+| bar | n | PF | net $ | DD $ | net/DD | slices | hold | $/trade |
+|---|---|---|---|---|---|---|---|---|
+| 5m (crown) | 4,424 | 1.351 | 311,783 | 17,497 | 17.82 | 7/8 | 40 min | 70 |
+| 10m | 3,319 | 1.403 | 301,990 | 10,030 | 30.11 | 7/8 | 70 min | 91 |
+| **15m** | 2,759 | 1.494 | 324,006 | 9,386 | 34.52 | 7/8 | 90 min | 117 |
+| 20m | 2,501 | 1.428 | 272,083 | 15,310 | 17.77 | 7/8 | 120 min | 109 |
+| 30m | 2,070 | 1.470 | 258,580 | 11,753 | 22.00 | 6/8 | 150 min | 125 |
+| 45m | 1,771 | 1.444 | 210,492 | 11,129 | 18.91 | 6/8 | 180 min | 119 |
+| 60m | 1,566 | 1.432 | 177,125 | 10,212 | 17.34 | 6/8 | 180 min | 113 |
+
+Net-over-drawdown peaks at 15m (34.52) but the ladder is **not monotonic**: 20 minutes collapses to
+17.77 — back to the 5-minute level — while 30 minutes reads 22.00. A statistic that swings that far
+between neighbouring bars is telling you about one deep drawdown, not about an edge (memory
+`edgelog-netdd-unreliable`: maxDD's confidence interval is wider than the statistic). **Profit factor
+is the stable read, and on it the finding survives cleanly: every bar from 10 minutes up beats the
+5-minute crown** (1.403–1.494 against 1.351), on $91–125 a trade against $70. So the direction is
+real; round 44's *magnitude* (a doubling of net-over-drawdown) was drawdown noise.
+
+### Part B — the mechanism is CONFIRMATION, not patience
+
+Twenty pre-declared cells on the 5-minute bar, `confirm_bars` × `stop_k`, everything else pinned:
+
+| confirming closes | n | PF | net $ | net/DD | $/trade | hold |
+|---|---|---|---|---|---|---|
+| 1 | 4,424 | 1.351 | 311,783 | 17.82 | 70 | 40 min |
+| 2 | 3,729 | 1.445 | 321,511 | 29.67 | 86 | 50 min |
+| 3 | 3,268 | 1.489 | 309,394 | 26.51 | 95 | 55 min |
+| 4 | 2,953 | 1.495 | 283,933 | 21.87 | 96 | 60 min |
+
+**Widening the stop does nothing.** From `stop_k` 1.75 to 7.0 the numbers barely move at any
+confirmation level — so "the fatter bar is more patient with its stop" is wrong. **Waiting for a
+second confirming close does almost everything**: it lifts the 5-minute cell from net/DD 17.82 to
+29.67 — 86% of the 15-minute cell — with profit factor 1.445 against the crown's 1.351, on 16%
+fewer trades at $86 a trade. The remaining gap is what the bar carries that no knob expresses:
+the band's own volatility estimate is indexed by bar ORDINAL within the session (round 5's
+correction — `lookback` counts SESSIONS, not bars), so only a real bar change moves its resolution.
+
+**And this is a REDISCOVERY, which is worth more than a discovery here.** `NOISE_1_0.py`'s own
+docstring records that the **2026-08-17 variant campaign already found it**: its pre-registered
+winner was `confirm_bars=2` + `skip_bot_short`, n 4,010 / net $332,699 / PF 1.399 / MAR 23.64
+against a baseline of PF 1.241 / MAR 14.22. It shipped **default OFF**, only the day-type half was
+carried into the crown — and then the crown's fenced neighbourhood file (`NOISE_1_1_NBHD.py`) **pins
+`confirm_bars` to 1** (`"min": 1, "max": 1`), so no crowning search since has been able to evaluate
+2. A banked winner was fenced out of the selection that followed it.
+
+### Part C — the correction: both improvements stopped working in 2024
+
+Nobody had asked whether either candidate is *still* ahead. Net by calendar year at the stressed cost:
+
+| candidate | ahead in | last three years | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|
+| 15-minute bar vs the 5-minute crown | 11 of 17 years | **0 of 3** | −$4k | **−$32k** | −$3k |
+| `confirm_bars=2` vs the crown, both on 5m | 10 of 17 years | **0 of 3** | −$4k | **−$26k** | −$7k |
+
+**Two independent mechanisms, the same signature: ahead across 2010–2023, behind in 2024, 2025 and
+2026.** The 2026-08-17 campaign saw the leading edge of it and said so at the time — its
+confirmatory read noted the filters *"gave back some 2025-26 profit"*. Round 43's C3 geometry and
+round 44's fatter bars are the same story again. That is four independent findings pointing one way.
+
+Round 44 offered a kinder reading — that the 5-minute crown is simply in the 88th percentile of its
+own history — and that is still true. But a hot baseline does not explain **two different mechanisms
+losing three years in a row while a third, found a month earlier, decayed on schedule.** The simplest
+account is that since 2024 this tape rewards entering FAST, and every version of "wait for more
+evidence before entering" — a fatter bar, more confirming closes, a tighter band filter — is paying
+for information the market no longer makes you wait for.
+
+### What this means
+
+- **Round 44's headline is withdrawn.** "The crown is on the wrong bar" is true of 2010–2023 and
+  false of the last three years. The corrected statement: *the crown's bar was wrong for the tape
+  this strategy was built on, and is right for the tape it is trading now.*
+- **Nothing changes.** The crown stays run #304, 5-minute, one confirming close. Do not adopt the
+  15-minute bar, do not open `confirm_bars`, and do not re-litigate either on spent years.
+- **The queued 15-minute Auto-Validate (`kzTWeRL5SR5c0po62KOM`) is still worth reading, and its
+  expectation is now on the record BEFORE it posts:** its untouched 12-month lockbox covers
+  2025-06 → 2026-06, which is precisely where 15 minutes is weakest. A mediocre card there is the
+  predicted result and would confirm this round rather than surprise it. A strong one would be
+  genuine evidence against everything above.
+- **Fix worth making regardless:** the fenced neighbourhood file pinning `confirm_bars` to 1 should
+  be recorded as a known blind spot of the crowning pipeline, not as a setting. If the family is ever
+  re-crowned, open it.
+
+Files: `tools/r45_noise_bar_mechanism.py`; results `tools/r37_results/r45_ladder.csv`,
+`r45_knobgrid.csv`, `r45_yearly.csv`, `r45_mechanism.txt`.
+
+---
+
 ## 🔬 2026-09-09 — ROUND 44: THE CROWN IS ON THE WRONG BAR — 15 minutes beats 5 on almost everything, and the clause that said otherwise was mis-specified (STUDIES rows 1606-1610, web v73.666)
 
 **Owner ask:** *"keep testing noise."* Round 41 walked a bar ladder while chasing the 2-minute
