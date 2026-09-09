@@ -84,7 +84,34 @@ def main():
     ap.add_argument("--bar-min", type=int, default=5,
                     help="bar width in minutes; NT stamps at close, the engine at open")
     ap.add_argument("--tol-min", type=int, default=2)
+    ap.add_argument("--leg", default=None,
+                    help="take strategy/instrument/timeframe/session/params/cost from a "
+                         "PAPER leg in api/paper.py (e.g. --leg ORB) instead of --strategy "
+                         "+ --params; the leg dict is the same object the shadow runner "
+                         "trades, so a parity row is checked against what paper actually runs")
+    ap.add_argument("--scan-offset", action="store_true",
+                    help="try entry offsets -15..+15 min and report which one pairs the "
+                         "blotters 1:1 (NT stamp conventions drift by a bar; guessing wrong "
+                         "reads as '0 matched' on blotters that actually agree)")
     a = ap.parse_args()
+
+    leg_params = None
+    if a.leg:
+        # api/paper.py owns the live definitions; never restate a leg config here.
+        from api.paper import PAPER_LEGS
+        hit = [lg for lg in PAPER_LEGS if lg["key"] == a.leg]
+        if not hit:
+            sys.exit("no PAPER leg %r - keys: %s"
+                     % (a.leg, ", ".join(sorted(lg["key"] for lg in PAPER_LEGS))))
+        lg = hit[0]
+        a.strategy = lg["strategy"]
+        a.inst = lg["instrument"]
+        a.tf = lg["timeframe"]
+        a.session = lg.get("session", "rth")
+        a.cost_pts = lg.get("cost_pts", a.cost_pts)
+        leg_params = dict(lg.get("params") or {})
+        print("PAPER leg %s -> %s on %s %s %s, cost %s pts"
+              % (a.leg, a.strategy, a.inst, a.tf, a.session, a.cost_pts))
 
     path = a.dump
     if path == "auto":
@@ -108,6 +135,9 @@ def main():
             pass
         params[k.strip()] = v
 
+    if leg_params is not None:
+        params = leg_params
+
     mult = MULT.get(a.inst.upper(), 1)
     eng, meta = edgelog_blotter(a.strategy, a.inst, a.tf, a.session, params,
                                 date_from=a.date_from, date_to=a.date_to,
@@ -118,9 +148,29 @@ def main():
     lo = min(t.entry_dt for t in eng) if eng else None
     hi = max(t.entry_dt for t in eng) if eng else None
     if lo is not None:
-        b = [t for t in b if lo <= t.entry_dt <= hi]
+        # Pad the window before clipping: NT stamps a fill up to a bar or two after the
+        # engine's entry stamp, so clipping on the engine's exact span silently DROPS a
+        # boundary trade that the offset would have paired (seen 2026-09-09: 7 matched
+        # instead of 8, with the last day's trade reported unmatched on both sides).
+        pad = pd.Timedelta(minutes=15 + a.tol_min)
+        b = [t for t in b if lo - pad <= t.entry_dt <= hi + pad]
 
-    pairs, ua, ub = match(eng, b, 0, a.tol_min)
+    offset = 0
+    if a.scan_offset:
+        best = []
+        for off in range(-15, 16):
+            n = len(match(eng, b, off, a.tol_min)[0])
+            if n:
+                best.append((n, off))
+        if best:
+            best.sort(key=lambda t: (-t[0], abs(t[1])))
+            offset = best[0][1]
+            print("\n  offset scan: %s" % ", ".join("%+dmin=%d" % (o, n) for n, o in best))
+            print("  using offset %+d min" % offset)
+        else:
+            print("\n  offset scan: nothing pairs at any offset -15..+15")
+
+    pairs, ua, ub = match(eng, b, offset, a.tol_min)
     ident = [(x, y) for x, y, _ in pairs if x.exit_dt == y.exit_dt]
     print(f"\n  matched            {len(pairs)}")
     print(f"  exit bar identical {len(ident)}   PnL gap ${sum(y.pnl_usd - x.pnl_usd for x, y in ident):,.0f}")
