@@ -1,0 +1,65 @@
+CAN ANYTHING BEAT LEAVING THE ORB'S PARAMETERS ALONE? Five candidates, 2026-09-09.
+Same protocol throughout: decide on data before a date, trade the winner the next year, never
+overlap, never look past the sealed end. 288 configs, eleven forward years (2015-2025).
+
+1. POOLING INSTEAD OF PICKING  (tools/orb_ensemble_forward.py)
+=== SUMMARY (11 forward years, per unit) ===
+  top-1   ensemble   total $  166455 | mean/yr $  15132 | mean DD $  17248 | pos yrs  8/11
+  top-3   ensemble   total $  182112 | mean/yr $  16556 | mean DD $  16642 | pos yrs  8/11
+  top-5   ensemble   total $  187946 | mean/yr $  17086 | mean DD $  16358 | pos yrs  8/11
+  top-10  ensemble   total $  208512 | mean/yr $  18956 | mean DD $  16123 | pos yrs  8/11
+  top-20  ensemble   total $  219799 | mean/yr $  19982 | mean DD $  16349 | pos yrs  8/11
+  top-40  ensemble   total $  224862 | mean/yr $  20442 | mean DD $  16280 | pos yrs  9/11
+  leave alone       total $  377510 | mean/yr $  34319 | mean DD $  17141 | pos yrs  9/11
+  today's crown*    total $  384500 | mean/yr $  34955 | mean DD $  15269 | pos yrs 10/11
+  (* crown params were chosen knowing these years - hindsight upper bound, not a competitor)
+  top-3 beats leave-alone in 5 of 11 years; mean diff $-17763
+  top-5 beats leave-alone in 4 of 11 years; mean diff $-17233
+  top-10 beats leave-alone in 5 of 11 years; mean diff $-15363
+  top-20 beats leave-alone in 5 of 11 years; mean diff $-14337
+  top-40 beats leave-alone in 4 of 11 years; mean diff $-13877
+
+2. SELECTING ON RECENT DATA ONLY  (tools/orb_recency_select.py)
+=== TOTALS over 11 forward years ===
+  all history|MAR        total $  166455 | mean/yr $  15132 | pos  8/11 | beats leave-alone  3/11
+  all history|PF         total $  258730 | mean/yr $  23521 | pos  8/11 | beats leave-alone  4/11
+  last 5y|MAR            total $  233382 | mean/yr $  21217 | pos  8/11 | beats leave-alone  4/11
+  last 5y|PF             total $  278876 | mean/yr $  25352 | pos  8/11 | beats leave-alone  3/11
+  last 3y|MAR            total $  238186 | mean/yr $  21653 | pos  7/11 | beats leave-alone  5/11
+  last 3y|PF             total $  264431 | mean/yr $  24039 | pos  7/11 | beats leave-alone  4/11
+  last 2y|MAR            total $  238001 | mean/yr $  21636 | pos  8/11 | beats leave-alone  4/11
+  last 2y|PF             total $  230805 | mean/yr $  20982 | pos  8/11 | beats leave-alone  4/11
+  leave alone            total $  377510 | mean/yr $  34319 | pos  9/11 | beats leave-alone  0/11
+  random config          total $  312350 | mean/yr $  28395 | pos 10/11 | beats leave-alone  4/11
+
+3. THE ONE ROUND-10 CONFIG THAT LOOKED LIKE A WIN  (tools/orb_pyramid_verify.py)
+   Add a second unit once a bar CLOSES at +2R, shared stop, one add maximum. It beat the crown on
+   EVERY window at an IDENTICAL drawdown (full net $429,220 vs $397,150, PF 1.399 vs 1.371, MAR 0.92
+   vs 0.85; 5-year MAR 3.04 vs 2.79; out-of-sample MAR 4.13 vs 3.82), passed gates G1/G2/G3/G5, and
+   round 10 rejected it only on the plateau rule. It is legal - the add triggers on a bar CLOSE and
+   fills at that close, exactly like the parent's own entry. It still fails, for a better reason:
+     * Per-stretch concentration. Strip the five biggest winners from each 200-trade block and the
+       pyramid is WORSE than the crown (mean 0.988 vs 0.998, better in only 3 of 11 blocks). Adds
+       fire only on trades that already reached +2R, so the whole gain is the tail amplified.
+     * Drawdown. Bootstrap says it lowers drawdown in just 20% of resamples (mean +$256 WORSE).
+       The identical headline drawdown is one path, not a property.
+     * The plateau call was right. Its neighbours are +1.5R (MAR 0.76, clearly worse) and +3.0R
+       (MAR 0.84, the knob effectively off). A spike between a worse neighbour and an inert one.
+
+4. POOLING THE ELEVEN ALREADY-VALIDATED CONFIGS  (tools/orb_pool_bootstrap.py)
+   Per unit it beat the crown on the full window (MAR 0.90 vs 0.85, drawdown $26,142 vs $28,857,
+   96% of the net) and in the out-of-sample year. A year-block bootstrap then killed it: better MAR
+   in 28% of resamples, lower drawdown in 33%. The five-year window flatters the crown anyway,
+   because 5-year MAR is the exact statistic #314 was crowned on.
+
+5. BAR SIZE / OPENING-RANGE LENGTH  (tools/orb_hunt12_tf.py, ROUND12_tf.txt)
+   Neighbours trade 70-90% of the same days at 0.45-0.72 daily correlation. Same bet in a hat.
+
+VERDICT
+Across five candidates and eight distinct selectors, NOTHING beats leaving the parameters alone.
+Picking on all history returns $166k over the eleven forward years, on recent history $233-279k,
+pooling the top-K $182-225k, a config drawn at random $312k, and leaving the parent defaults
+untouched $377k. Pooling reliably beats picking - drawdown falls monotonically as the pool grows -
+so the ranking is: leave it alone, then pool, then pick. Picking is the worst thing we do.
+This does NOT say the strategy is weak. It says our selection step has no forward skill on it, and
+the honest ORB programme from here is to freeze the parameters and let the paper legs report.
