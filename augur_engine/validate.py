@@ -312,7 +312,15 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # ON makes the crown REAL on every path instead of faking one in the UI.
                  # NOTE this also re-crowns the champion by walk-forward OOS on those paths (the
                  # #88 rule itself) -- that is the intended behaviour, not just a reporting change.
-                 select_oos_topk=5, workers=None):
+                 select_oos_topk=5, workers=None,
+                 # diagnostic 'pills' (adversarial / acf / tailfit / seasonality / vif /
+                 # conformal / causal / synthetic / feature_select / edge_sig / lead_lag) —
+                 # informational only, never gates the verdict. Default ON (this block ran
+                 # unconditionally before v73.63x); compute_feature_select is a SEPARATE
+                 # switch for just the one pill measured as the dominant cost (see the block
+                 # below). api/runner.py threads both from the job doc's `pills` /
+                 # `pills_feature_select` fields for jtype=='validate'.
+                 compute_pills=True, compute_feature_select=True):
     # Walk-forward folds in parallel processes (augur_engine.wf_pool). The runner sets
     # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
     # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
@@ -945,38 +953,43 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #    Also runs three more distribution-free robustness checks on the champion's
     #    whole-history trades: conformal PnL band (§4), causal entry test (§7), and a
     #    trading-day bootstrap (§8). All INFORMATIONAL — none changes the verdict.
+    # v73.63x (diagnosis 2026-09-09, "pills default off" audit): this used to be its own
+    #   copy-pasted block with ONE outer try/except around all eleven checks — a single
+    #   failure (e.g. a bad master on the sibling instrument) silently skipped every other
+    #   pill for the whole run, and the block ran unconditionally with no way to turn it
+    #   off. It now calls the SHARED analytics.run_pills() bundle (the same one Auto-Optimize
+    #   uses via compute_pills), which wraps EACH pill in its own try/except, so one bad
+    #   check can never suppress the rest. compute_pills defaults True (matches the always-on
+    #   behavior this block already had); compute_feature_select defaults True too but can be
+    #   turned off separately since gate_feature_select was measured as the single most
+    #   expensive pill (~28s of a ~64s bundle on a 16-year NQ 1m window).
     adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = edgesig = tailfit = season = None
-    try:
-        from .ml_gate import (adversarial_validation, entry_features, gate_feature_select)
-        from .analytics import (conformal_pnl_band, causal_entry_test,
-                                synthetic_day_bootstrap, lead_lag, serial_dependence,
-                                vif_collinearity, edge_significance, return_tailfit,
-                                seasonality)
-        _avarr = _full_arr if _full_arr is not None else load_master_arrays(
-            master, date_from=opt_from, date_to=date_to)
-        adversarial = adversarial_validation(_avarr, lb_start)
-        acf = serial_dependence(_avarr)                       # §1 momentum vs mean-revert
-        tailfit = return_tailfit(_avarr)                      # §1 fat-tail fit
-        season = seasonality(_avarr)                          # §6 intraday/weekly seasonality
-        _Xf, _nf = entry_features(_avarr)
-        vif = vif_collinearity(_Xf, _nf)                      # §2 collinearity of inputs
-        _ftr = full.get("trades") if (champ and isinstance(full, dict)) else None
-        if _ftr:
-            conformal = conformal_pnl_band([t[2] for t in _ftr])
-            causal = causal_entry_test(_ftr, _avarr.get("close"), cost_pts=cost_pts)
-            synthetic = synthetic_day_bootstrap(_ftr, _avarr.get("index"))
-            featsel = gate_feature_select(_avarr, _ftr)       # §2 which inputs to keep
-            edgesig = edge_significance([t[2] for t in _ftr]) # §4 is the edge significant?
-        # cross-instrument lead-lag (board §7): does a sibling lead this instrument?
-        _sib = (tlist[0] if tlist else
-                {"NQ": "ES", "ES": "NQ", "MNQ": "MES", "MES": "MNQ"}.get(str(instrument).upper()))
-        if _sib and str(_sib).upper() != str(instrument).upper():
-            _sm = find_master(_sib, timeframe, session, source)
-            if _sm:
-                leadlag = lead_lag(_avarr, load_master_arrays(_sm),
-                                   name_a=str(instrument), name_b=str(_sib))
-    except Exception:
-        pass
+    if compute_pills:
+        try:
+            from .analytics import run_pills
+            _avarr = _full_arr if _full_arr is not None else load_master_arrays(
+                master, date_from=opt_from, date_to=date_to)
+            _ftr = full.get("trades") if (champ and isinstance(full, dict)) else None
+            # cross-instrument lead-lag (board §7): does a sibling lead this instrument?
+            _sib = (tlist[0] if tlist else
+                    {"NQ": "ES", "ES": "NQ", "MNQ": "MES", "MES": "MNQ"}.get(str(instrument).upper()))
+            _pills = run_pills(_avarr, champ_trades=_ftr, cost_pts=cost_pts,
+                               instrument=instrument, timeframe=timeframe, session=session,
+                               source=source, lb_start=lb_start, sibling=_sib,
+                               include_feature_select=compute_feature_select)
+            adversarial = _pills.get("adversarial")
+            acf = _pills.get("acf")
+            tailfit = _pills.get("tailfit")
+            season = _pills.get("seasonality")
+            vif = _pills.get("vif")
+            conformal = _pills.get("conformal")
+            causal = _pills.get("causal")
+            synthetic = _pills.get("synthetic")
+            featsel = _pills.get("feature_select")
+            edgesig = _pills.get("edge_sig")
+            leadlag = _pills.get("lead_lag")
+        except Exception:
+            pass
 
     # ── Advisory flags — shown in the checklist as context, but they do NOT hard-fail the
     #    verdict (regime drift / collinearity are caveats, not kill-switches; a gate not helping

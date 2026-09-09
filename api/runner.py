@@ -529,6 +529,12 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 ai_rounds=int(job.get("n_rounds", 4)),
                 equity_points=int(job.get("equity_points", 400) or 400),
                 thresholds=job.get("thresholds"),
+                # diagnostic pills (adversarial/acf/tailfit/seasonality/vif/conformal/causal/
+                # synthetic/feature_select/edge_sig/lead_lag) -- informational only, default ON
+                # for validates (see augur_engine/validate.py run_pills call). compute_feature_select
+                # is a separate off-switch for the single most expensive pill.
+                compute_pills=bool(job.get("pills", True)),
+                compute_feature_select=bool(job.get("pills_feature_select", True)),
                 # #88 (owner-approved 2026-07-20): OOS-checked champion selection — the
                 # production Auto-Validate path opts in HERE (run_validate's own
                 # signature default stays 0/OFF for library neutrality / tests).

@@ -1455,7 +1455,7 @@ def seasonality(arrays):
 
 def run_pills(arrays, *, champ_trades=None, cost_pts=0.0,
               instrument=None, timeframe="5m", session="rth", source=None,
-              lb_start=None, sibling=None):
+              lb_start=None, sibling=None, include_feature_select=True):
     """Shared 'method pill' bundle — the distribution-free robustness + diagnostic
     checks that Auto-Validate layers on top of a search, so Auto-Optimize can run the
     SAME set (board §1/§2/§4/§6/§7/§8). Every entry is INFORMATIONAL — none is a gate.
@@ -1466,6 +1466,11 @@ def run_pills(arrays, *, champ_trades=None, cost_pts=0.0,
     `lb_start`    lockbox boundary — enables the lockbox-vs-history adversarial check.
                   Pass None (Auto-Optimize has no lockbox) to skip it.
     `sibling`     a cross-instrument sibling ticker for the lead-lag / Granger check.
+    `include_feature_select` set False to skip gate_feature_select — measured (2026-09-09,
+                  NQ 1m/16yr window) as the single most expensive pill (~28s of a ~64s total
+                  bundle on that window, vs adversarial ~15s and lead_lag ~13s incl. sibling
+                  load). Kept ON by default (matches prior behavior); a caller under time
+                  pressure (many concurrent validates) can turn just this one off.
 
     Each pill is wrapped in its own try/except so one failure never suppresses the rest.
     Returns a dict of the keys that succeeded (matches the validate.py report shape):
@@ -1516,10 +1521,11 @@ def run_pills(arrays, *, champ_trades=None, cost_pts=0.0,
             out["synthetic"] = synthetic_day_bootstrap(champ_trades, arrays.get("index"))  # §8
         except Exception:
             pass
-        try:
-            out["feature_select"] = gate_feature_select(arrays, champ_trades)     # §2
-        except Exception:
-            pass
+        if include_feature_select:
+            try:
+                out["feature_select"] = gate_feature_select(arrays, champ_trades)     # §2
+            except Exception:
+                pass
         try:
             out["edge_sig"] = edge_significance([t[2] for t in champ_trades])     # §4
         except Exception:

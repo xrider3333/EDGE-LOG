@@ -583,7 +583,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.637';
+const VERSION='73.638';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -602,6 +602,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.638',date:'2026-09-09',notes:['PILLS AUDIT: run 335 showed every top-level diagnostic-pill field (adversarial, VIF, and the rest) empty even though validate.flags carried real numbers. Traced it down: nothing was ever dropped - Auto-Validate has always computed the full pill bundle and saved it nested under validate, and the top-level fields are only used by Auto-Optimize runs (a comment in the save code already said so). The real gap was different: the pill block had ONE try/except around all eleven checks, so a single failing check could silently take out every other one for that run, and there was no way to turn any of it off.','FIXED: Auto-Validate now calls the same shared pill bundle Auto-Optimize uses, so each check gets its OWN try/except - one failing check can never suppress the rest. Two new engine switches (default ON, matching the always-on behavior this already had): compute_pills, and compute_feature_select for the one check measured as the most expensive by a wide margin - about 28 seconds of a roughly 64-second bundle on a 16-year 1-minute NQ window.','THE ONE NUMBER WORTH READING: the adversarial-validation score - does the reserved lockbox period look like a different market regime than the training history - now gets its own plain-English line right next to the big PASS/WEAK/FAIL verdict (clean/mild/moderate/severe drift, with the number), instead of waiting inside the chip grid further down. Also added as a small drift pill on the COMPARE BETA LEADERBOARD rows, next to the verdict pill.']},
 {v:'73.635',date:'2026-09-09',notes:['COMPARE - STUDIES: run 343 - the ES 15-minute TTM cell on its own - joins round 9 as row 1469 and comes back WEAK: the luck check fails and the deflated Sharpe says it does not beat the luck bar, against a bar that allowed WEAK on the overfit check alone. It also crowned different settings than BOOK run 342 used, which fires the condition written into that job note: run 342 does not transfer.','TTM stays a one-leg diversifier. The only validated improvement in the family is the deep-squeeze size tilt (run 340), which is running in the paper forward test as TTM_299_T beside the untilted control.']},
 {v:'73.633',date:'2026-09-09',notes:['COMPARE - STUDIES: TTM Squeeze round 10, rows 1457-1468 - a sizing sweep of the TTM book leg that crowned nothing, because the rule written for it turned out degenerate: the book whole-run drawdown does not move at all as the leg goes from one contract to four.','THE REASON MATTERS BEYOND TTM: the book worst stretch is the pandemic crash, 2020-02-21 to 2020-03-25, and the TTM leg took ZERO trades in it. Any leg that sat out early 2020 can be scaled almost freely under a whole-run drawdown clause - which is the clause under the plus 15 percent stack bar and the three-clause bar used in rounds 8 to 10. The lockbox drawdown is the number that actually responds to weight, and it is the one run 342 improved.']},
 {v:'73.630',date:'2026-09-09',notes:['KEEL v12 - HALF SIZE BEFORE THE FED SPEAKS. Every earlier round searched the same features harder and found nothing: about 175 candidates across seven directions, none of them beating v11. This one adds information that was never in the data - the Federal Reserve\'s own published calendar of policy meeting dates, which is announced a year ahead, so a rule keyed on it is knowable at the moment of entry. Trades entered on a decision day BEFORE the 2pm Eastern statement are the worst bucket found anywhere in this work: expectancy of minus 0.48 and minus 0.43 R on the two NOISE runs against a plus 0.31 and plus 0.28 baseline, losing in the in-sample stretch, the walk-forward AND the lockbox on both runs, and losing in 8 of 9 walk-forward years on both. Against 4,000 random calendars of the same size the real one lands in the bottom tenth of one percent. Three placebos all lose money as they must - the morning before a decision day, a random matched day-set, and an every-morning shrink of the same dollar size - so the rule is keyed to the events and not to mornings. Half size, never a cut.','On top of v11 it is better on all four stretches with drawdown never worse on any of them: paper run walk-forward $532,380 against $523,760 at identical drawdown and lockbox $90,740 against $86,080 at slightly better drawdown; crown walk-forward $497,200 against $490,620 at better drawdown and lockbox $144,260 against $139,020 at identical drawdown. Stated against itself: the pre-registered story was backwards - the 2pm shock was supposed to be the bad half and it is the better half - so the split is after the fact, which is what the permutation test and the placebos are there to price.','The hole is not a NOISE quirk. The same bucket is negative on the ORB breakout crown and on the ENGU-Q continuation crown, which share nothing with NOISE but the tape, so the tilt is also available without the model for those legs.','PAPER from 2026-09-09, each beside the identical config without the event rule: NOISE_SBS_V90_K12 (control K11), ORB_R6_C15FE (control ORB_R6_C15F), ENGUQ_309_CDE (control ENGUQ_309_CD). The Fed calendar file now carries the schedule forward to December 2027, so the tilt fires live rather than going quiet.']},
@@ -15474,6 +15475,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // #94: verdict POWER line — shared builder (also rendered on the 1E matrix panel,
       //   since the saved-run report no longer shows this card since the §1 redesign).
       const _pwrLine=verdictPowerHtml(V,mlt);
+      // v73.632 (owner ask): the adversarial-validation AUC — is the lockbox a different
+      //   market regime than the training history — is the one number worth a reader's
+      //   time out of the eleven "pills", so it gets its own plain-English line right next
+      //   to the big PASS/WEAK/FAIL verdict instead of waiting in the §3 chip grid below.
+      //   Same bucket + color rule pillsList already uses for the ADVERSARIAL chip.
+      const _driftLine=(()=>{const AV=V&&V.adversarial;if(!AV||AV.auc==null)return '';
+        const a=AV.auc,dcol=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)',
+          dlbl=a<0.55?'clean':a<0.70?'mild':a<0.85?'moderate':'severe';
+        return '<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)" title="A classifier tries to tell the lockbox period apart from the training history using market-state features. Near 0.50 = indistinguishable, trust the lockbox as-is; higher = the lockbox looks like a different market regime, so its PASS/FAIL is weaker evidence. Full detail + which inputs shifted most is in the ADVERSARIAL chip below.">🎭 Regime drift vs training: <b style="color:'+dcol+'">'+dlbl+' ('+a.toFixed(2)+')</b></div>';})();
       return '<div class="lbl" style="margin:2px 0 9px;font-size:11px;letter-spacing:1px">FEASIBILITY · AUTO-VALIDATE</div>'
         +'<div style="display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin-bottom:10px">'
         +'<div style="font-size:26px;font-weight:800;color:'+vc+';letter-spacing:1px">'+V.verdict+'</div>'
@@ -15487,6 +15497,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +((V.transfer&&V.transfer.length)?'<div style="margin-top:7px;font-size:var(--fsxs);color:var(--text3)">↔ Champion re-tested (no re-fit): '+V.transfer.map(t=>instTag(t.inst)+' '+(t.pass?'<b style="color:var(--green)">holds</b>':'<b style="color:var(--red)">fails</b>')+' · PF '+Math.min(t.pf||0,99).toFixed(2)+' · '+fmtUsd(Math.round((t.pnl||0)*instMult(t.inst)))+' · '+(t.trades||0)+' trd').join('　·　')+'</div>':'')
         +eqSvg
         +'<div style="margin-top:9px;padding:9px 11px;border-radius:9px;background:var(--bg1);font-size:var(--fsxs)">🔒 Lockbox (never optimized): <b style="color:'+lbVerdict(lb,V,0).col+'" title="'+lbVerdictTip(lb,V).replace(/"/g,'&quot;')+'">'+lbVerdict(lb,V,1).word+'</b> · '+fmtUsd(Math.round((lb.pnl||0)*mlt))+' · PF '+Math.min(lb.pf||0,99).toFixed(2)+' · '+(lb.trades||0)+' trades'+(V.mc_p95!=null?'　·　Monte-Carlo P95 drawdown <b style="color:var(--red)">'+fmtUsd(Math.round(V.mc_p95*mlt))+'</b> (size to this)':'')+'</div>'
+        +_driftLine
         +_pwrLine;
     };
     const masterOptsHtml=(inst,tf,sess)=>{const ms=(metaMasters||[]).map((m,i)=>({m:m,i:i})).filter(o=>String(o.m.instrument)===String(inst)&&String(o.m.timeframe)===String(tf)&&(!o.m.session||!sess||String(o.m.session).toLowerCase()===String(sess).toLowerCase()));return '<option value="">'+(ms.length?('Auto — best match ('+ms.length+')'):'— no matching CSV —')+'</option>'+ms.map(o=>'<option value="'+o.i+'">'+((o.m.name||(o.m.instrument+' '+o.m.timeframe))+' · '+(o.m.source||'')+' · '+(o.m.rows||0).toLocaleString()+'r')+'</option>').join('');};
@@ -25725,6 +25736,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<circle cx="'+w+'" cy="'+(h-((eq[n-1]-mn)/sp)*h).toFixed(1)+'" r="1.8" fill="'+(up?'var(--green)':'var(--red)')+'"/></svg>';};
       const _c2Pill=v=>{v=String(v||'').toUpperCase();if(!v)return '';const c=(v==='PASS')?'var(--green)':(v==='WEAK')?'var(--yellow)':'var(--red)';
         return '<span class="c2-pill" style="color:'+c+';border-color:color-mix(in srgb,'+c+' 45%,transparent)">'+v+'</span>';};
+      // v73.632 (owner ask): regime drift vs training (adversarial-validation AUC) as a small
+      //   pill next to the verdict, same bucket rule as the run report's drift line and the
+      //   §3 ADVERSARIAL chip. validate.adversarial for Auto-Validate rows, top-level for
+      //   Auto-Optimize rows that ran with pills on (same fallback rule pillsList uses).
+      const _c2Drift=r=>{const AV=(r.validate&&r.validate.adversarial)||r.adversarial;if(!AV||AV.auc==null)return '';
+        const a=AV.auc,c=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)',
+          lbl=a<0.55?'clean':a<0.70?'mild':a<0.85?'moderate':'severe';
+        return '<span class="c2-pill" style="color:'+c+';border-color:color-mix(in srgb,'+c+' 45%,transparent)" title="regime drift vs training (adversarial-validation AUC) — is the lockbox a different market regime than what this was trained on">drift '+lbl+'</span>';};
       // ── the same three stage reads the old COMPARE uses, mirrored here so this branch
       //    never reaches into that one. Kept tiny on purpose.
       // a BOOK is not a strategy: its first leg mapped it into that leg family, its pooled size won the
@@ -25793,7 +25812,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const inCmp=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String).indexOf(String(r.id))>=0;
           return '<div class="c2-row sub" data-c2run="'+r.id+'" title="open run #'+r.id+'">'
             +'<span class="c2-chev">'+(isChamp?'\u2605':'')+'</span>'
-            +'<div><div class="c2-nm">#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+'</div>'
+            +'<div><div class="c2-nm">#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2Drift(r)+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+(S&&S.tr?' \u00b7 '+S.tr+' trades':'')
             +' <span class="c2-act'+(inCmp?' on':'')+'" data-c2add="'+r.id+'" title="'+(inCmp?'in the comparison - click to remove':'add to the comparison (up to 8)')+'">'+(inCmp?'\u2713 COMPARING':'+ COMPARE')+'</span></div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(val.v)+'"'+(val.v==null?(' title="'+_reEscC2(val.why)+'"'):'')+'>'+_c2Fmt(val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
@@ -25802,7 +25821,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const eq=(ch.equity&&Array.isArray(ch.equity.cum)&&ch.equity.cum.length>2)?ch.equity.cum:null;
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
-            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)))+_c2Pill(vv)+(eq?_c2Spark(eq,64,18):'')+'</div>'
+            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+(eq?_c2Spark(eq,64,18):'')+'</div>'
             +'<div class="c2-who">champion #'+ch.id+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString():'')+'</div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
