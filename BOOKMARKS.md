@@ -369,3 +369,10 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Verdict: no NOISE leg on ES.** It is an instrument problem, not a configuration problem — the same 15 knobs are cost-robust on NQ and cost-fragile on ES.
 - **What survives:** the cross-instrument evidence (a config picked without ever reading NQ clears on NQ at four bar sizes and double cost) — the band edge belongs to the mechanism, not to NQ history.
 - **Caveat to carry:** the ES validate was queued at 0.30/RT, which this round shows is optimistic; any future ES validate should be queued at 0.50 or worse.
+
+### B23 UPDATE — the ENGU-Q ES leg passes the recency and cost tests (round 46, rows 1622-1627, v73.676)
+
+- **Recency** (`tools/r46_enguq_es_recency.py`): ES leg PF **1.244 over 2010-2023** vs **1.585 over 2024-2026** at $30/RT; $65.84/trade then **$357.31/trade**. The NQ leg does the same (1.611 → 1.857). Opposite of the r43-45 NOISE finding.
+- **Cost** (the test that closed NOISE-on-ES): $98.48/trade at $30/RT = **3.3x its cost** (house rule 2x). NOISE-on-ES was under 2x.
+- **Honest marks:** recent strength is bigger trades not more (236 since 2024 vs 1,871 before); DD arrives in the same stretch (n/DD 2.52 recent vs 5.49 older); **2015 −$4,578 and 2016 −$10,500** are losing years; 2026-to-June nearly flat (+$2,010 on 62 trades); the 2025-26 rows are the sealed year the running validate is grading.
+- **Queued at honest fills:** same file/window/lockbox at **0.60/RT** (job KLxmi3KXnSK7n0KV6D1Z), beside the running 0.40 one (GIrlgbDJ1umq12NrnfY8) — per the round-42 rule. If it only survives at 0.40 it is not a leg.
