@@ -1,0 +1,333 @@
+====================================================================================================================================================
+ORB ROUND 11 — fork BUF: adaptive breakout buffer / multi-bar confirmation
+  master NQ 5m RTH no-adj, $0.533/RT, one contract. FULL<=2026-08-13, IS<=2025-08-13, OOS 2025-08-13..2026-08-13, 5y from 2021-08-13
+====================================================================================================================================================
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+FULL window   (2010-06-07 .. 2026-08-13)
+config                            n       net$    maxDD$     PF    MAR   EV R   R/YR wst12 win12%
+----------------------------------------------------------------------------------------------------------------------------------------------------
+CROWN                          2299    397,150    28,857  1.371   0.85  0.204   28.9 -13,608   79.2
+range/confirm2                 2150    275,594    29,639  1.266   0.57  0.145   19.2 -22,795   72.1
+range/confirm2/mono            2064    239,703    30,613  1.240   0.48  0.130   16.6 -14,911   67.8
+range/confirm3                 2038    239,402    30,337  1.249   0.49  0.135   17.0 -25,400   67.2
+range/confirm3/mono            1767    240,721    29,271  1.309   0.51  0.164   18.0 -17,967   76.5
+atr/0.1/confirm1               2247    342,697    33,135  1.311   0.64  0.170   23.6 -23,657   75.4
+atr/0.1/confirm2               2085    286,294    32,794  1.286   0.54  0.152   19.6 -14,876   68.9
+atr/0.1/confirm2/mono          1998    236,636    27,357  1.242   0.53  0.129   16.0 -17,995   65.0
+atr/0.1/confirm3               1977    248,495    27,523  1.269   0.56  0.143   17.5 -22,985   71.6
+atr/0.1/confirm3/mono          1724    236,107    32,248  1.304   0.45  0.160   17.0 -15,109   72.7
+atr/0.2/confirm1               1921    265,732    23,111  1.288   0.71  0.155   18.4 -14,628   70.5
+atr/0.2/confirm2               1761    232,448    28,184  1.276   0.51  0.148   16.1 -14,858   73.8
+atr/0.2/confirm2/mono          1694    198,097    30,499  1.247   0.40  0.132   13.8 -24,658   72.1
+atr/0.2/confirm3               1652    218,632    27,537  1.285   0.49  0.150   15.4 -23,031   71.0
+atr/0.2/confirm3/mono          1460    139,444    32,521  1.207   0.27  0.111   10.0 -13,101   66.7
+atr/0.3/confirm1               1594    216,575    23,945  1.290   0.56  0.154   15.2 -11,806   73.8
+atr/0.3/confirm2               1489    169,197    34,939  1.244   0.30  0.131   12.1 -26,023   69.4
+atr/0.3/confirm2/mono          1420    143,075    37,124  1.212   0.24  0.115   10.1 -28,868   67.8
+atr/0.3/confirm3               1398    154,605    28,647  1.237   0.33  0.126   10.9 -21,594   65.0
+atr/0.3/confirm3/mono          1235    117,770    28,235  1.210   0.26  0.112    8.6 -16,221   73.2
+atr/0.5/confirm1               1134    131,709    23,651  1.256   0.34  0.140    9.8 -15,299   59.0
+atr/0.5/confirm2               1038    125,000    23,313  1.278   0.33  0.149    9.6 -17,422   65.0
+atr/0.5/confirm2/mono          1002    104,166    28,051  1.236   0.23  0.127    7.9 -15,165   63.4
+atr/0.5/confirm3                971     95,912    26,392  1.234   0.22  0.126    7.6 -14,961   62.3
+atr/0.5/confirm3/mono           854     57,726    26,839  1.154   0.13  0.082    4.3 -25,462   54.6
+hybrid/0.1/confirm1            2207    366,066    26,084  1.351   0.87  0.191   26.1 -14,148   79.2
+hybrid/0.1/confirm2            2056    287,348    31,569  1.294   0.56  0.157   19.9 -24,725   69.9
+hybrid/0.1/confirm2/mono       1974    238,890    25,140  1.249   0.59  0.134   16.3 -14,805   67.8
+hybrid/0.1/confirm3            1958    232,385    29,087  1.252   0.49  0.135   16.4 -24,860   67.8
+hybrid/0.1/confirm3/mono       1706    220,647    32,738  1.289   0.42  0.153   16.1 -18,429   74.3
+hybrid/0.2/confirm1            1918    270,164    23,111  1.295   0.72  0.159   18.9 -14,628   75.4
+hybrid/0.2/confirm2            1761    217,030    28,184  1.255   0.48  0.136   14.8 -16,518   70.5
+hybrid/0.2/confirm2/mono       1694    191,489    30,499  1.237   0.39  0.127   13.3 -25,493   70.5
+hybrid/0.2/confirm3            1652    209,515    30,612  1.271   0.42  0.143   14.6 -26,106   69.4
+hybrid/0.2/confirm3/mono       1455    146,717    32,521  1.221   0.28  0.118   10.6 -15,771   71.0
+hybrid/0.3/confirm1            1592    223,267    23,945  1.302   0.58  0.160   15.8 -10,668   75.4
+hybrid/0.3/confirm2            1489    169,582    34,939  1.244   0.30  0.131   12.1 -26,023   69.4
+hybrid/0.3/confirm2/mono       1420    142,935    37,124  1.212   0.24  0.115   10.1 -28,868   67.8
+hybrid/0.3/confirm3            1398    149,745    32,457  1.228   0.29  0.122   10.6 -25,404   65.0
+hybrid/0.3/confirm3/mono       1235    116,890    28,235  1.208   0.26  0.111    8.5 -16,396   73.2
+hybrid/0.5/confirm1            1134    131,709    23,651  1.256   0.34  0.140    9.8 -15,299   59.0
+hybrid/0.5/confirm2            1038    124,690    23,313  1.278   0.33  0.149    9.6 -17,422   65.0
+hybrid/0.5/confirm2/mono       1002    104,041    28,051  1.236   0.23  0.127    7.9 -15,165   63.4
+hybrid/0.5/confirm3             971     95,787    26,392  1.234   0.22  0.126    7.6 -14,961   62.3
+hybrid/0.5/confirm3/mono        854     57,326    26,839  1.153   0.13  0.082    4.3 -25,462   54.6
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+IS window   (2010-06-07 .. 2025-08-13)
+config                            n       net$    maxDD$     PF    MAR   EV R   R/YR wst12 win12%
+----------------------------------------------------------------------------------------------------------------------------------------------------
+CROWN                          2131    310,019    28,857  1.342   0.71  0.189   26.5 -13,608   77.8
+range/confirm2                 1999    207,851    29,639  1.234   0.46  0.128   16.8 -22,795   70.2
+range/confirm2/mono            1918    171,072    30,613  1.198   0.37  0.108   13.7 -14,911   65.5
+range/confirm3                 1891    189,072    30,337  1.231   0.41  0.126   15.7 -25,400   64.9
+range/confirm3/mono            1632    209,663    29,271  1.324   0.47  0.173   18.6 -17,967   74.9
+atr/0.1/confirm1               2080    263,905    33,135  1.283   0.52  0.156   21.4 -23,657   73.7
+atr/0.1/confirm2               1936    210,887    32,794  1.245   0.42  0.131   16.7 -14,876   66.7
+atr/0.1/confirm2/mono          1854    163,509    27,357  1.193   0.39  0.105   12.8 -17,995   62.6
+atr/0.1/confirm3               1835    188,409    27,523  1.239   0.45  0.128   15.5 -22,985   69.6
+atr/0.1/confirm3/mono          1589    204,769    32,248  1.318   0.42  0.168   17.6 -15,109   70.8
+atr/0.2/confirm1               1782    187,304    23,111  1.234   0.53  0.128   15.0 -14,628   68.4
+atr/0.2/confirm2               1630    179,074    28,184  1.252   0.42  0.136   14.6 -14,858   71.9
+atr/0.2/confirm2/mono          1566    158,771    30,499  1.236   0.34  0.127   13.1 -24,658   70.2
+atr/0.2/confirm3               1526    179,960    27,537  1.282   0.43  0.149   15.0 -23,031   69.0
+atr/0.2/confirm3/mono          1343    132,176    24,103  1.244   0.36  0.130   11.5 -13,101   64.3
+atr/0.3/confirm1               1469    178,945    23,945  1.288   0.49  0.152   14.7 -11,806   71.9
+atr/0.3/confirm2               1371    156,345    34,939  1.277   0.29  0.149   13.4 -26,023   67.8
+atr/0.3/confirm2/mono          1304    141,997    37,124  1.263   0.25  0.142   12.2 -28,868   67.3
+atr/0.3/confirm3               1288    142,080    28,647  1.267   0.33  0.142   12.0 -21,594   63.7
+atr/0.3/confirm3/mono          1137    112,605    28,235  1.251   0.26  0.133   10.0 -16,221   72.5
+atr/0.5/confirm1               1046    128,660    19,332  1.308   0.44  0.167   11.5 -15,299   57.9
+atr/0.5/confirm2                956    114,874    21,500  1.320   0.35  0.170   10.7 -17,422   63.7
+atr/0.5/confirm2/mono           922    101,341    23,110  1.287   0.29  0.153    9.3 -14,160   62.6
+atr/0.5/confirm3                897     96,663    26,392  1.293   0.24  0.157    9.2 -14,961   61.4
+atr/0.5/confirm3/mono           785     77,222    25,584  1.271   0.20  0.144    7.4 -16,304   53.8
+hybrid/0.1/confirm1            2044    282,493    26,084  1.320   0.71  0.175   23.6 -14,148   77.8
+hybrid/0.1/confirm2            1911    218,516    31,569  1.260   0.46  0.139   17.5 -24,725   67.8
+hybrid/0.1/confirm2/mono       1833    169,043    25,140  1.204   0.44  0.110   13.3 -14,805   65.5
+hybrid/0.1/confirm3            1817    181,478    29,087  1.231   0.41  0.124   14.9 -24,860   65.5
+hybrid/0.1/confirm3/mono       1572    197,477    32,738  1.314   0.40  0.167   17.3 -18,429   72.5
+hybrid/0.2/confirm1            1779    191,736    23,111  1.242   0.55  0.132   15.5 -14,628   73.7
+hybrid/0.2/confirm2            1630    163,657    28,184  1.227   0.38  0.122   13.1 -16,518   68.4
+hybrid/0.2/confirm2/mono       1566    152,164    30,499  1.225   0.33  0.121   12.5 -25,493   68.4
+hybrid/0.2/confirm3            1526    170,843    30,612  1.265   0.37  0.141   14.1 -26,106   67.3
+hybrid/0.2/confirm3/mono       1338    139,449    24,103  1.262   0.38  0.140   12.3 -15,771   69.0
+hybrid/0.3/confirm1            1467    185,637    23,945  1.302   0.51  0.160   15.4 -10,668   73.7
+hybrid/0.3/confirm2            1371    156,730    34,939  1.277   0.30  0.149   13.5 -26,023   67.8
+hybrid/0.3/confirm2/mono       1304    141,857    37,124  1.262   0.25  0.142   12.2 -28,868   67.3
+hybrid/0.3/confirm3            1288    137,220    32,457  1.257   0.28  0.137   11.6 -25,404   63.7
+hybrid/0.3/confirm3/mono       1137    111,725    28,235  1.248   0.26  0.132    9.9 -16,396   72.5
+hybrid/0.5/confirm1            1046    128,660    19,332  1.308   0.44  0.167   11.5 -15,299   57.9
+hybrid/0.5/confirm2             956    114,564    21,500  1.319   0.35  0.170   10.7 -17,422   63.7
+hybrid/0.5/confirm2/mono        922    101,216    23,110  1.287   0.29  0.153    9.3 -14,160   62.6
+hybrid/0.5/confirm3             897     96,538    26,392  1.293   0.24  0.156    9.2 -14,961   61.4
+hybrid/0.5/confirm3/mono        785     76,822    25,584  1.270   0.20  0.143    7.4 -16,304   53.8
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+OOS window   (2025-08-13 .. 2026-08-13)
+config                            n       net$    maxDD$     PF    MAR   EV R   R/YR wst12 win12%
+----------------------------------------------------------------------------------------------------------------------------------------------------
+CROWN                           168     87,132    22,925  1.531   3.82  0.268   45.4 75,210  100.0
+range/confirm2                  151     67,743    15,511  1.458   4.39  0.230   35.0 55,671  100.0
+range/confirm2/mono             146     68,631    15,011  1.510   4.61  0.248   36.5 57,794  100.0
+range/confirm3                  147     50,330    17,000  1.351   2.99  0.170   25.2 40,218  100.0
+range/confirm3/mono             135     31,058    16,326  1.236   1.92  0.117   15.9 22,761  100.0
+atr/0.1/confirm1                167     78,792    27,305  1.459   2.91  0.231   38.9 65,625  100.0
+atr/0.1/confirm2                149     75,407    12,976  1.545   5.86  0.259   39.0 63,824  100.0
+atr/0.1/confirm2/mono           144     73,127    14,865  1.543   4.96  0.249   36.1 62,085  100.0
+atr/0.1/confirm3                142     60,086    15,549  1.448   3.90  0.221   31.6 48,519  100.0
+atr/0.1/confirm3/mono           135     31,338    16,706  1.235   1.89  0.116   15.9 23,041  100.0
+atr/0.2/confirm1                139     78,428    12,523  1.630   6.32  0.294   41.3 69,311  100.0
+atr/0.2/confirm2                131     53,374    17,648  1.408   3.05  0.196   26.0 46,311  100.0
+atr/0.2/confirm2/mono           128     39,326    18,199  1.299   2.18  0.152   19.6 32,263  100.0
+atr/0.2/confirm3                126     38,672    13,804  1.298   2.83  0.154   19.6 31,539  100.0
+atr/0.2/confirm3/mono           117      7,268    32,521  1.055   0.23  0.030    3.5 1,765  100.0
+atr/0.3/confirm1                125     37,630    18,856  1.300   2.05  0.166   21.3 29,097  100.0
+atr/0.3/confirm2                118     12,852    14,234  1.099   0.93  0.055    6.7 5,794  100.0
+atr/0.3/confirm2/mono           116      1,078    18,864  1.008   0.06  0.004    0.5 -5,980    0.0
+atr/0.3/confirm3                110     12,525    20,727  1.103   0.62  0.058    6.5 6,452  100.0
+atr/0.3/confirm3/mono            98      5,165    27,905  1.046   0.19  0.026    2.6 -3,658    0.0
+atr/0.5/confirm1                 88      3,049    22,943  1.031   0.14  0.018    1.7 -3,699    0.0
+atr/0.5/confirm2                 82     10,126    23,313  1.113   0.45  0.065    5.5 4,182  100.0
+atr/0.5/confirm2/mono            80      2,825    20,844  1.032   0.14  0.019    1.6 -3,119    0.0
+atr/0.5/confirm3                 74       -751    23,792  0.991  -0.03 -0.006   -0.4 -6,790    0.0
+atr/0.5/confirm3/mono            69    -19,496    26,839  0.785  -0.76 -0.128   -9.2 -25,659    0.0
+hybrid/0.1/confirm1             163     83,572    23,534  1.524   3.58  0.264   43.4 71,240  100.0
+hybrid/0.1/confirm2             145     68,832    13,915  1.503   4.99  0.246   36.0 56,889  100.0
+hybrid/0.1/confirm2/mono        141     69,847    14,975  1.540   4.71  0.257   36.5 59,550  100.0
+hybrid/0.1/confirm3             141     50,907    15,600  1.375   3.29  0.189   26.9 40,795  100.0
+hybrid/0.1/confirm3/mono        134     23,169    16,706  1.170   1.40  0.088   11.9 14,872  100.0
+hybrid/0.2/confirm1             139     78,428    12,523  1.630   6.32  0.294   41.3 69,311  100.0
+hybrid/0.2/confirm2             131     53,374    17,648  1.408   3.05  0.196   26.0 46,311  100.0
+hybrid/0.2/confirm2/mono        128     39,326    18,199  1.299   2.18  0.152   19.6 32,263  100.0
+hybrid/0.2/confirm3             126     38,672    13,804  1.298   2.83  0.154   19.6 31,539  100.0
+hybrid/0.2/confirm3/mono        117      7,268    32,521  1.055   0.23  0.030    3.5 1,765  100.0
+hybrid/0.3/confirm1             125     37,630    18,856  1.300   2.05  0.166   21.3 29,097  100.0
+hybrid/0.3/confirm2             118     12,852    14,234  1.099   0.93  0.055    6.7 5,794  100.0
+hybrid/0.3/confirm2/mono        116      1,078    18,864  1.008   0.06  0.004    0.5 -5,980    0.0
+hybrid/0.3/confirm3             110     12,525    20,727  1.103   0.62  0.058    6.5 6,452  100.0
+hybrid/0.3/confirm3/mono         98      5,165    27,905  1.046   0.19  0.026    2.6 -3,658    0.0
+hybrid/0.5/confirm1              88      3,049    22,943  1.031   0.14  0.018    1.7 -3,699    0.0
+hybrid/0.5/confirm2              82     10,126    23,313  1.113   0.45  0.065    5.5 4,182  100.0
+hybrid/0.5/confirm2/mono         80      2,825    20,844  1.032   0.14  0.019    1.6 -3,119    0.0
+hybrid/0.5/confirm3              74       -751    23,792  0.991  -0.03 -0.006   -0.4 -6,790    0.0
+hybrid/0.5/confirm3/mono         69    -19,496    26,839  0.785  -0.76 -0.128   -9.2 -25,659    0.0
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+5y window   (2021-08-13 .. 2026-08-13)
+config                            n       net$    maxDD$     PF    MAR   EV R   R/YR wst12 win12%
+----------------------------------------------------------------------------------------------------------------------------------------------------
+CROWN                           774    319,297    22,925  1.473   2.79  0.249   38.6 19,036  100.0
+range/confirm2                  720    229,782    28,617  1.349   1.61  0.181   26.2 -1,463   98.0
+range/confirm2/mono             701    200,330    30,613  1.311   1.31  0.163   23.0 -11,065   89.8
+range/confirm3                  691    190,189    30,337  1.304   1.26  0.155   21.5 -25,400   81.6
+range/confirm3/mono             607    174,684    29,271  1.341   1.20  0.173   21.1 -17,967   89.8
+atr/0.1/confirm1                756    285,824    27,305  1.414   2.10  0.215   32.7 10,656  100.0
+atr/0.1/confirm2                693    246,528    22,494  1.398   2.20  0.198   27.5 -7,859   93.9
+atr/0.1/confirm2/mono           676    197,836    27,357  1.315   1.45  0.160   21.7 -17,995   79.6
+atr/0.1/confirm3                665    183,569    27,523  1.303   1.34  0.156   20.9 -22,985   85.7
+atr/0.1/confirm3/mono           593    170,339    32,248  1.333   1.06  0.168   20.1 -15,109   91.8
+atr/0.2/confirm1                651    213,240    23,111  1.362   1.85  0.189   24.7 -9,371   87.8
+atr/0.2/confirm2                601    166,081    28,184  1.296   1.18  0.152   18.4 -14,858   93.9
+atr/0.2/confirm2/mono           586    144,521    30,499  1.269   0.95  0.142   16.7 -24,658   87.8
+atr/0.2/confirm3                568    152,193    27,537  1.295   1.11  0.150   17.1 -23,031   87.8
+atr/0.2/confirm3/mono           513     87,289    32,521  1.190   0.54  0.098   10.1 -13,101   83.7
+atr/0.3/confirm1                547    162,654    23,945  1.336   1.37  0.177   19.5 -5,775   95.9
+atr/0.3/confirm2                513    114,414    34,939  1.243   0.66  0.129   13.3 -26,023   85.7
+atr/0.3/confirm2/mono           501     96,909    37,124  1.210   0.53  0.113   11.4 -28,868   81.6
+atr/0.3/confirm3                487    111,971    28,647  1.257   0.79  0.135   13.2 -21,594   85.7
+atr/0.3/confirm3/mono           439     57,430    28,235  1.146   0.41  0.077    6.8 -16,221   75.5
+atr/0.5/confirm1                388    115,106    23,651  1.359   0.98  0.190   14.8 -15,299   77.6
+atr/0.5/confirm2                352     88,875    23,313  1.312   0.77  0.166   11.8 -12,236   81.6
+atr/0.5/confirm2/mono           346     64,444    28,051  1.221   0.46  0.121    8.4 -15,165   77.6
+atr/0.5/confirm3                331     53,534    26,392  1.199   0.41  0.109    7.3 -14,961   77.6
+atr/0.5/confirm3/mono           291     30,298    26,839  1.123   0.23  0.064    3.7 -25,462   61.2
+hybrid/0.1/confirm1             742    296,595    23,534  1.452   2.53  0.235   35.0 10,827  100.0
+hybrid/0.1/confirm2             686    251,085    23,042  1.414   2.19  0.206   28.3 2,063  100.0
+hybrid/0.1/confirm2/mono        670    201,938    25,140  1.328   1.61  0.168   22.6 -14,805   87.8
+hybrid/0.1/confirm3             662    178,981    29,087  1.296   1.24  0.154   20.4 -24,860   85.7
+hybrid/0.1/confirm3/mono        591    148,015    32,738  1.288   0.91  0.148   17.6 -18,429   91.8
+hybrid/0.2/confirm1             651    210,820    23,111  1.358   1.83  0.187   24.5 -11,791   87.8
+hybrid/0.2/confirm2             601    164,421    28,184  1.293   1.17  0.150   18.2 -16,518   93.9
+hybrid/0.2/confirm2/mono        586    143,686    30,499  1.267   0.95  0.141   16.6 -25,493   87.8
+hybrid/0.2/confirm3             568    149,118    30,612  1.288   0.98  0.146   16.7 -26,106   85.7
+hybrid/0.2/confirm3/mono        513     84,619    32,521  1.183   0.52  0.095    9.8 -15,771   83.7
+hybrid/0.3/confirm1             547    162,654    23,945  1.336   1.37  0.177   19.5 -5,775   95.9
+hybrid/0.3/confirm2             513    114,414    34,939  1.243   0.66  0.129   13.3 -26,023   85.7
+hybrid/0.3/confirm2/mono        501     96,909    37,124  1.210   0.53  0.113   11.4 -28,868   81.6
+hybrid/0.3/confirm3             487    108,161    32,457  1.247   0.67  0.130   12.8 -25,404   85.7
+hybrid/0.3/confirm3/mono        439     57,255    28,235  1.146   0.41  0.077    6.8 -16,396   75.5
+hybrid/0.5/confirm1             388    115,106    23,651  1.359   0.98  0.190   14.8 -15,299   77.6
+hybrid/0.5/confirm2             352     88,875    23,313  1.312   0.77  0.166   11.8 -12,236   81.6
+hybrid/0.5/confirm2/mono        346     64,444    28,051  1.221   0.46  0.121    8.4 -15,165   77.6
+hybrid/0.5/confirm3             331     53,534    26,392  1.199   0.41  0.109    7.3 -14,961   77.6
+hybrid/0.5/confirm3/mono        291     30,298    26,839  1.123   0.23  0.064    3.7 -25,462   61.2
+
+====================================================================================================================================================
+GATE CHECK  (G1 5y MAR>2.79 & FULL MAR>0.85 | G2 FULL net>=95%% of $397,150 | G3 OOS net & PF >= crown | G4 plateau | G5 trades/yr>=120)
+====================================================================================================================================================
+CROWN                        (baseline, not gated against itself)
+range/confirm2               FAIL: G1 (5y MAR 1.61 <= 2.79); G1 (FULL MAR 0.57 <= 0.85); G2 (FULL net $275594 < 95% of $397,150); G3 (OOS net $67743 < crown $87132); G3 (OOS PF 1.458 < crown 1.531)
+range/confirm2/mono          FAIL: G1 (5y MAR 1.31 <= 2.79); G1 (FULL MAR 0.48 <= 0.85); G2 (FULL net $239703 < 95% of $397,150); G3 (OOS net $68631 < crown $87132); G3 (OOS PF 1.510 < crown 1.531)
+range/confirm3               FAIL: G1 (5y MAR 1.26 <= 2.79); G1 (FULL MAR 0.49 <= 0.85); G2 (FULL net $239402 < 95% of $397,150); G3 (OOS net $50330 < crown $87132); G3 (OOS PF 1.351 < crown 1.531)
+range/confirm3/mono          FAIL: G1 (5y MAR 1.20 <= 2.79); G1 (FULL MAR 0.51 <= 0.85); G2 (FULL net $240721 < 95% of $397,150); G3 (OOS net $31058 < crown $87132); G3 (OOS PF 1.236 < crown 1.531); G5 (trades/yr 109 < 120)
+atr/0.1/confirm1             FAIL: G1 (5y MAR 2.10 <= 2.79); G1 (FULL MAR 0.64 <= 0.85); G2 (FULL net $342697 < 95% of $397,150); G3 (OOS net $78792 < crown $87132); G3 (OOS PF 1.459 < crown 1.531)
+atr/0.1/confirm2             FAIL: G1 (5y MAR 2.20 <= 2.79); G1 (FULL MAR 0.54 <= 0.85); G2 (FULL net $286294 < 95% of $397,150); G3 (OOS net $75407 < crown $87132)
+atr/0.1/confirm2/mono        FAIL: G1 (5y MAR 1.45 <= 2.79); G1 (FULL MAR 0.53 <= 0.85); G2 (FULL net $236636 < 95% of $397,150); G3 (OOS net $73127 < crown $87132)
+atr/0.1/confirm3             FAIL: G1 (5y MAR 1.34 <= 2.79); G1 (FULL MAR 0.56 <= 0.85); G2 (FULL net $248495 < 95% of $397,150); G3 (OOS net $60086 < crown $87132); G3 (OOS PF 1.448 < crown 1.531)
+atr/0.1/confirm3/mono        FAIL: G1 (5y MAR 1.06 <= 2.79); G1 (FULL MAR 0.45 <= 0.85); G2 (FULL net $236107 < 95% of $397,150); G3 (OOS net $31338 < crown $87132); G3 (OOS PF 1.235 < crown 1.531); G5 (trades/yr 107 < 120)
+atr/0.2/confirm1             FAIL: G1 (5y MAR 1.85 <= 2.79); G1 (FULL MAR 0.71 <= 0.85); G2 (FULL net $265732 < 95% of $397,150); G3 (OOS net $78428 < crown $87132); G5 (trades/yr 119 < 120)
+atr/0.2/confirm2             FAIL: G1 (5y MAR 1.18 <= 2.79); G1 (FULL MAR 0.51 <= 0.85); G2 (FULL net $232448 < 95% of $397,150); G3 (OOS net $53374 < crown $87132); G3 (OOS PF 1.408 < crown 1.531); G5 (trades/yr 109 < 120)
+atr/0.2/confirm2/mono        FAIL: G1 (5y MAR 0.95 <= 2.79); G1 (FULL MAR 0.40 <= 0.85); G2 (FULL net $198097 < 95% of $397,150); G3 (OOS net $39326 < crown $87132); G3 (OOS PF 1.299 < crown 1.531); G5 (trades/yr 105 < 120)
+atr/0.2/confirm3             FAIL: G1 (5y MAR 1.11 <= 2.79); G1 (FULL MAR 0.49 <= 0.85); G2 (FULL net $218632 < 95% of $397,150); G3 (OOS net $38672 < crown $87132); G3 (OOS PF 1.298 < crown 1.531); G5 (trades/yr 102 < 120)
+atr/0.2/confirm3/mono        FAIL: G1 (5y MAR 0.54 <= 2.79); G1 (FULL MAR 0.27 <= 0.85); G2 (FULL net $139444 < 95% of $397,150); G3 (OOS net $7268 < crown $87132); G3 (OOS PF 1.055 < crown 1.531); G5 (trades/yr 90 < 120)
+atr/0.3/confirm1             FAIL: G1 (5y MAR 1.37 <= 2.79); G1 (FULL MAR 0.56 <= 0.85); G2 (FULL net $216575 < 95% of $397,150); G3 (OOS net $37630 < crown $87132); G3 (OOS PF 1.300 < crown 1.531); G5 (trades/yr 99 < 120)
+atr/0.3/confirm2             FAIL: G1 (5y MAR 0.66 <= 2.79); G1 (FULL MAR 0.30 <= 0.85); G2 (FULL net $169197 < 95% of $397,150); G3 (OOS net $12852 < crown $87132); G3 (OOS PF 1.099 < crown 1.531); G5 (trades/yr 92 < 120)
+atr/0.3/confirm2/mono        FAIL: G1 (5y MAR 0.53 <= 2.79); G1 (FULL MAR 0.24 <= 0.85); G2 (FULL net $143075 < 95% of $397,150); G3 (OOS net $1078 < crown $87132); G3 (OOS PF 1.008 < crown 1.531); G5 (trades/yr 88 < 120)
+atr/0.3/confirm3             FAIL: G1 (5y MAR 0.79 <= 2.79); G1 (FULL MAR 0.33 <= 0.85); G2 (FULL net $154605 < 95% of $397,150); G3 (OOS net $12525 < crown $87132); G3 (OOS PF 1.103 < crown 1.531); G5 (trades/yr 87 < 120)
+atr/0.3/confirm3/mono        FAIL: G1 (5y MAR 0.41 <= 2.79); G1 (FULL MAR 0.26 <= 0.85); G2 (FULL net $117770 < 95% of $397,150); G3 (OOS net $5165 < crown $87132); G3 (OOS PF 1.046 < crown 1.531); G5 (trades/yr 76 < 120)
+atr/0.5/confirm1             FAIL: G1 (5y MAR 0.98 <= 2.79); G1 (FULL MAR 0.34 <= 0.85); G2 (FULL net $131709 < 95% of $397,150); G3 (OOS net $3049 < crown $87132); G3 (OOS PF 1.031 < crown 1.531); G5 (trades/yr 70 < 120)
+atr/0.5/confirm2             FAIL: G1 (5y MAR 0.77 <= 2.79); G1 (FULL MAR 0.33 <= 0.85); G2 (FULL net $125000 < 95% of $397,150); G3 (OOS net $10126 < crown $87132); G3 (OOS PF 1.113 < crown 1.531); G5 (trades/yr 64 < 120)
+atr/0.5/confirm2/mono        FAIL: G1 (5y MAR 0.46 <= 2.79); G1 (FULL MAR 0.23 <= 0.85); G2 (FULL net $104166 < 95% of $397,150); G3 (OOS net $2825 < crown $87132); G3 (OOS PF 1.032 < crown 1.531); G5 (trades/yr 62 < 120)
+atr/0.5/confirm3             FAIL: G1 (5y MAR 0.41 <= 2.79); G1 (FULL MAR 0.22 <= 0.85); G2 (FULL net $95912 < 95% of $397,150); G3 (OOS net $-751 < crown $87132); G3 (OOS PF 0.991 < crown 1.531); G5 (trades/yr 60 < 120)
+atr/0.5/confirm3/mono        FAIL: G1 (5y MAR 0.23 <= 2.79); G1 (FULL MAR 0.13 <= 0.85); G2 (FULL net $57726 < 95% of $397,150); G3 (OOS net $-19496 < crown $87132); G3 (OOS PF 0.785 < crown 1.531); G5 (trades/yr 53 < 120)
+hybrid/0.1/confirm1          FAIL: G1 (5y MAR 2.53 <= 2.79); G2 (FULL net $366066 < 95% of $397,150); G3 (OOS net $83572 < crown $87132); G3 (OOS PF 1.524 < crown 1.531)
+hybrid/0.1/confirm2          FAIL: G1 (5y MAR 2.19 <= 2.79); G1 (FULL MAR 0.56 <= 0.85); G2 (FULL net $287348 < 95% of $397,150); G3 (OOS net $68832 < crown $87132); G3 (OOS PF 1.503 < crown 1.531)
+hybrid/0.1/confirm2/mono     FAIL: G1 (5y MAR 1.61 <= 2.79); G1 (FULL MAR 0.59 <= 0.85); G2 (FULL net $238890 < 95% of $397,150); G3 (OOS net $69847 < crown $87132)
+hybrid/0.1/confirm3          FAIL: G1 (5y MAR 1.24 <= 2.79); G1 (FULL MAR 0.49 <= 0.85); G2 (FULL net $232385 < 95% of $397,150); G3 (OOS net $50907 < crown $87132); G3 (OOS PF 1.375 < crown 1.531)
+hybrid/0.1/confirm3/mono     FAIL: G1 (5y MAR 0.91 <= 2.79); G1 (FULL MAR 0.42 <= 0.85); G2 (FULL net $220647 < 95% of $397,150); G3 (OOS net $23169 < crown $87132); G3 (OOS PF 1.170 < crown 1.531); G5 (trades/yr 105 < 120)
+hybrid/0.2/confirm1          FAIL: G1 (5y MAR 1.83 <= 2.79); G1 (FULL MAR 0.72 <= 0.85); G2 (FULL net $270164 < 95% of $397,150); G3 (OOS net $78428 < crown $87132); G5 (trades/yr 119 < 120)
+hybrid/0.2/confirm2          FAIL: G1 (5y MAR 1.17 <= 2.79); G1 (FULL MAR 0.48 <= 0.85); G2 (FULL net $217030 < 95% of $397,150); G3 (OOS net $53374 < crown $87132); G3 (OOS PF 1.408 < crown 1.531); G5 (trades/yr 109 < 120)
+hybrid/0.2/confirm2/mono     FAIL: G1 (5y MAR 0.95 <= 2.79); G1 (FULL MAR 0.39 <= 0.85); G2 (FULL net $191489 < 95% of $397,150); G3 (OOS net $39326 < crown $87132); G3 (OOS PF 1.299 < crown 1.531); G5 (trades/yr 105 < 120)
+hybrid/0.2/confirm3          FAIL: G1 (5y MAR 0.98 <= 2.79); G1 (FULL MAR 0.42 <= 0.85); G2 (FULL net $209515 < 95% of $397,150); G3 (OOS net $38672 < crown $87132); G3 (OOS PF 1.298 < crown 1.531); G5 (trades/yr 102 < 120)
+hybrid/0.2/confirm3/mono     FAIL: G1 (5y MAR 0.52 <= 2.79); G1 (FULL MAR 0.28 <= 0.85); G2 (FULL net $146717 < 95% of $397,150); G3 (OOS net $7268 < crown $87132); G3 (OOS PF 1.055 < crown 1.531); G5 (trades/yr 90 < 120)
+hybrid/0.3/confirm1          FAIL: G1 (5y MAR 1.37 <= 2.79); G1 (FULL MAR 0.58 <= 0.85); G2 (FULL net $223267 < 95% of $397,150); G3 (OOS net $37630 < crown $87132); G3 (OOS PF 1.300 < crown 1.531); G5 (trades/yr 98 < 120)
+hybrid/0.3/confirm2          FAIL: G1 (5y MAR 0.66 <= 2.79); G1 (FULL MAR 0.30 <= 0.85); G2 (FULL net $169582 < 95% of $397,150); G3 (OOS net $12852 < crown $87132); G3 (OOS PF 1.099 < crown 1.531); G5 (trades/yr 92 < 120)
+hybrid/0.3/confirm2/mono     FAIL: G1 (5y MAR 0.53 <= 2.79); G1 (FULL MAR 0.24 <= 0.85); G2 (FULL net $142935 < 95% of $397,150); G3 (OOS net $1078 < crown $87132); G3 (OOS PF 1.008 < crown 1.531); G5 (trades/yr 88 < 120)
+hybrid/0.3/confirm3          FAIL: G1 (5y MAR 0.67 <= 2.79); G1 (FULL MAR 0.29 <= 0.85); G2 (FULL net $149745 < 95% of $397,150); G3 (OOS net $12525 < crown $87132); G3 (OOS PF 1.103 < crown 1.531); G5 (trades/yr 87 < 120)
+hybrid/0.3/confirm3/mono     FAIL: G1 (5y MAR 0.41 <= 2.79); G1 (FULL MAR 0.26 <= 0.85); G2 (FULL net $116890 < 95% of $397,150); G3 (OOS net $5165 < crown $87132); G3 (OOS PF 1.046 < crown 1.531); G5 (trades/yr 76 < 120)
+hybrid/0.5/confirm1          FAIL: G1 (5y MAR 0.98 <= 2.79); G1 (FULL MAR 0.34 <= 0.85); G2 (FULL net $131709 < 95% of $397,150); G3 (OOS net $3049 < crown $87132); G3 (OOS PF 1.031 < crown 1.531); G5 (trades/yr 70 < 120)
+hybrid/0.5/confirm2          FAIL: G1 (5y MAR 0.77 <= 2.79); G1 (FULL MAR 0.33 <= 0.85); G2 (FULL net $124690 < 95% of $397,150); G3 (OOS net $10126 < crown $87132); G3 (OOS PF 1.113 < crown 1.531); G5 (trades/yr 64 < 120)
+hybrid/0.5/confirm2/mono     FAIL: G1 (5y MAR 0.46 <= 2.79); G1 (FULL MAR 0.23 <= 0.85); G2 (FULL net $104041 < 95% of $397,150); G3 (OOS net $2825 < crown $87132); G3 (OOS PF 1.032 < crown 1.531); G5 (trades/yr 62 < 120)
+hybrid/0.5/confirm3          FAIL: G1 (5y MAR 0.41 <= 2.79); G1 (FULL MAR 0.22 <= 0.85); G2 (FULL net $95787 < 95% of $397,150); G3 (OOS net $-751 < crown $87132); G3 (OOS PF 0.991 < crown 1.531); G5 (trades/yr 60 < 120)
+hybrid/0.5/confirm3/mono     FAIL: G1 (5y MAR 0.23 <= 2.79); G1 (FULL MAR 0.13 <= 0.85); G2 (FULL net $57326 < 95% of $397,150); G3 (OOS net $-19496 < crown $87132); G3 (OOS PF 0.785 < crown 1.531); G5 (trades/yr 53 < 120)
+
+----------------------------------------------------------------------------------------------------------------------------------------------------
+PLATEAU READ
+Best (non-crown) by 5y MAR: hybrid/0.1/confirm1          MAR 2.53  (crown 2.79, gain -0.26)
+Best config does not beat the crown's 5y MAR at all - NOT A PLATEAU, NOT A FIND.
+
+====================================================================================================================================================
+DIAGNOSTIC (not gated): CROWN's own confirming-close distance beyond the level, in ATR units,
+bucketed - does a bigger or smaller entry threshold have anything to bite on? (5y window)
+====================================================================================================================================================
+bucket (ATR units)            n       net$     PF    EV R
+------------------------------------------------------------
+Q1  [0.000, 0.020]            194     98,954  1.728   0.345
+Q2  [0.020, 0.047]            193     78,723  1.494   0.264
+Q3  [0.047, 0.096]            193     81,338  1.472   0.254
+Q4  [0.096, 1.237]            194     60,282  1.292   0.162
+
+====================================================================================================================================================
+ASSUMPTIONS (stated per the spec's "if ambiguous, pick the reasonable option" rule)
+====================================================================================================================================================
+- ORB_3_6.py has no per-BAR ATR series; the closest thing it already computes for
+  atr_filter is a per-SESSION quantity: the trailing-60-session MEDIAN session range,
+  fixed before the session starts. This fork reuses that exact quantity, computed
+  identically and independently of whether atr_filter itself is on, as the "ATR" for
+  buf_mode=atr/hybrid and for the diagnostic below. It is a session-level, not bar-level,
+  yardstick - stated here as the interpretation of "the same ATR series the parent
+  already computes."
+- buf_mode="atr": the buffer is buf_atr_mult x ATR, ignoring breakout_buf entirely.
+  buf_mode="hybrid": buffer = max(breakout_buf x range, buf_atr_mult x ATR).
+- Warm-up sessions (first 6) have no ATR reference; buf_mode=atr/hybrid falls back to
+  the range-based buffer for those sessions only (a handful of trades in 16 years).
+- confirm_bars / confirm_close_beyond are read ONLY inside the close_confirm=True path;
+  with close_confirm=False (touch entry) they are never referenced - verified INERT by
+  the smoke test (n and $ identical between confirm_bars=1/False and confirm_bars=3/True
+  under close_confirm=False: n 2562 vs 2562, pnl $16,748.375 vs $16,748.375 in points).
+- confirm_close_beyond, when confirm_bars>1: each direction's streak requires the new
+  confirming close to clear the PREVIOUS confirming close in that direction (long: higher
+  close each time; short: lower close each time). A close that fails the monotone test
+  restarts the streak at 1 if it still clears the level, else resets to 0.
+- Skipped grid cells (per the spec's "skip meaningless combinations"): buf_atr_mult swept
+  only under buf_mode=atr/hybrid (buf_mode=range never reads buf_atr_mult - verified: it
+  is bit-identical to the crown when buf_atr_mult=0, and buf_mode=range ignores the knob
+  entirely regardless of its value); confirm_close_beyond swept only when confirm_bars>1
+  (at confirm_bars=1 there is no "previous confirming close" so on/off are identical).
+
+====================================================================================================================================================
+FIVE-BULLET READ
+====================================================================================================================================================
+- ALL 45 configs FAIL, most on every gate at once. Every single variant - both buffer
+  yardsticks (atr, hybrid) at every multiple (0.1-0.5), and every confirmation depth
+  (confirm_bars 2-3, with or without the monotone push) - loses money and MAR relative
+  to the crown on every window. The best non-crown config by 5y MAR (hybrid/0.1/confirm1,
+  which barely widens the buffer via a light ATR floor) still lands at MAR 2.53 vs the
+  crown's 2.79 (net $366,066 vs $397,150 on FULL) - a clean loss, not a near-miss.
+- CONFIRMATION DEPTH IS PURE COST. Going from confirm_bars=1 (the crown) to 2 or 3
+  monotonically loses trades (2299 -> 2150 -> 2038 on FULL, range mode) and money at every
+  step, with no window where more confirmation pays for the trades it forgoes; MAR falls
+  from 0.85 to 0.57 to 0.49 on FULL, and 2.79 to 1.61 to 1.26 on 5y. The monotone-push add
+  (confirm_close_beyond) never helps and is usually worse than plain multi-bar confirmation
+  at the same confirm_bars (e.g. 5y MAR range/confirm2 1.61 vs range/confirm2/mono 1.31).
+- SWITCHING THE BUFFER TO ATR IS WORSE THAN THE RANGE BUFFER, NOT BETTER. Every atr_mult
+  step (0.1 -> 0.5) monotonically loses trades and money at fixed confirm_bars - the
+  ATR-proxy buffer is on average WIDER than the crown's 0.25x-range buffer on the days
+  that matter (wide-range trend days, exactly where ORB earns its money per round 9), so
+  it prices out the crown's best entries. hybrid (max of the two) never beats plain range
+  by more than a rounding error and is identical to atr whenever the ATR term dominates
+  (see the many equal FULL/5y rows between atr/x and hybrid/x at the same mult/confirm).
+- G3 (OOS) is the gate that kills the grid fastest even before G1/G2: crown OOS net
+  $87,132 / PF 1.531 beats every single config's OOS row except two close-but-still-short
+  range/confirm2 variants (net $67,743-$68,631, PF 1.458-1.510) - both still short on net.
+  Nothing in this fork improves the crown's most recent 12 months; several configs (the
+  wider ATR multiples) turn NEGATIVE in OOS (atr/hybrid 0.5/confirm3: -$751 to -$19,496).
+- THE DIAGNOSTIC EXPLAINS WHY: on the crown's own 774 five-year trades, bucketing by how
+  far the confirming close cleared the level (in ATR units) shows a MONOTONE DECLINE -
+  Q1 (closest confirms, 0.000-0.020 ATR) nets $98,954 at PF 1.728/EV R 0.345; Q4 (farthest,
+  0.096-1.237 ATR) nets only $60,282 at PF 1.292/EV R 0.162. The crown's edge is
+  concentrated in trades that barely clear the level, not ones that clear it by a lot -
+  exactly the opposite of what a bigger buffer or extra confirmation bar would select for.
+  That is the single fact behind every FAIL above: round 11 BUF's whole premise (fewer,
+  better-confirmed entries) selects AWAY from where this strategy's edge actually lives.
