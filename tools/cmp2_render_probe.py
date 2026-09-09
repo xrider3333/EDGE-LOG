@@ -41,6 +41,12 @@ WHAT IT ASSERTS, per case
   placeholders     -- the COMPARE and EXPLORE screens (phases 3/4, not built yet) each
                        show a .c2-hold placeholder card and a [data-c2gocmp] escape
                        hatch back to the old tab, with no errors.
+  book             -- a synthesised BOOK run (engine shape: validate.lockbox = pnl/pf/
+                       trades/pass only, `book` block with legs, lockbox {total_pnl,
+                       max_drawdown, win_rate}, lockbox_from, date_to) beside the fixture:
+                       a BOOKS family row exists next to the strategy row, its LB NET is
+                       $70,000 exactly (no second contract multiplier), PF 1.40, and MAR
+                       is a number (drawdown + window read off the book block).
 
 No Firebase sign-in is needed; cmp2 reads only from the global runHistory array. cmp2's
 render path is synchronous string-building (no deferred chart draw / no async render
@@ -68,7 +74,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 5
+N_CASES = 6
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -194,6 +200,39 @@ var FIX = __FIX__;
         r.per=per;
       })();
 
+
+      // ── case 6: book (a BOOK run - own BOOKS row, dollars unscaled, LB dd off the book block) ─
+      //    Synthesised from the fixture: the engine's book shape (augur_engine/book.py) - a
+      //    validate.lockbox with ONLY pnl/pf/trades/pass and a `book` block carrying legs,
+      //    lockbox {total_pnl, max_drawdown, win_rate}, lockbox_from and date_to.
+      (function(){
+        var BK=JSON.parse(JSON.stringify(FIX));
+        BK.id=String(+FIX.id+900000);BK.strategy='BOOK: '+String(FIX.strategy||'');BK.starred=false;
+        BK.best_pnl_usd=250000;BK.best_dd_usd=30000;BK.multiplier=20;
+        BK.book={name:'probe book',legs:[{strategy:FIX.strategy,weight:1},{strategy:'X_1_0.py',weight:1}],
+          whole:{total_pnl:320000,max_drawdown:32000},pre_lockbox:{total_pnl:250000,max_drawdown:30000},
+          lockbox:{total_pnl:70000,num_trades:400,win_rate:44.5,profit_factor:1.4,max_drawdown:25000},
+          slices:[1,1,1,1,1,1,1,1],slices_held:8,slices_n:8,lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:70000,pf:1.4,trades:400,pass:true},book:true};
+        var wc="var F="+JSON.stringify(FIX)+";var B="+JSON.stringify(BK)+";"
+          +"var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+          +"var bdoc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(B)):B;"
+          +"runHistory=[doc,bdoc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set(['BOOKS']);";
+        var per={};
+        ['mar','net','pf'].forEach(function(rk){
+          var call=doRender({c2Screen:'lead',c2Rank:rk,c2Stage:'lb'}, wc);
+          var rows=Array.prototype.slice.call(d.querySelectorAll('.c2-row[data-c2fam]'));
+          var fams=rows.map(function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'');});
+          var bi=fams.indexOf('BOOKS');
+          var big=(bi>=0)?rows[bi].querySelector('.c2-big'):null;
+          per[rk]={call:call,fams:fams,bookBig:big?(big.textContent||'').trim():null,
+            errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
+        });
+        var ok=['mar','net','pf'].every(function(k){return per[k].call==='OK';});
+        var r=snap('book', ok?'OK':'ERR');
+        r.per=per;
+        r.subRows=d.querySelectorAll('.c2-row.sub[data-c2run]').length;
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -451,6 +490,50 @@ def main(argv=None):
                 fail('placeholders: %s screen has no .c2-hold card' % scr)
             if p.get('call') == 'OK' and not p.get('gocmp'):
                 fail('placeholders: %s screen has no [data-c2gocmp] escape hatch' % scr)
+
+    # case 6: book
+    r = cases.get('book', {})
+    per = r.get('per') or {}
+    mar, net, pf = (per.get('mar') or {}), (per.get('net') or {}), (per.get('pf') or {})
+    fams = mar.get('fams') or []
+    def _num(t):
+        t = (t or '').strip().replace(',', '')
+        neg = t.startswith('-')
+        t = t.lstrip('-').lstrip('$')
+        try:
+            return -float(t) if neg else float(t)
+        except Exception:
+            return None
+    book_ok = (r.get('call') == 'OK'
+               and not any((per.get(k) or {}).get('errors') or (per.get(k) or {}).get('uncaught') for k in ('mar', 'net', 'pf'))
+               and 'BOOKS' in fams and len(fams) >= 2
+               and _num(mar.get('bookBig')) is not None            # MAR off book.lockbox.max_drawdown + lockbox_from
+               and _num(net.get('bookBig')) == 70000.0             # dollars, NOT x20
+               and _num(pf.get('bookBig')) == 1.4
+               and (r.get('subRows') or 0) >= 1)
+    line('book', book_ok, 'call=%s fams=%s MAR=%r NET=%r PF=%r subRows=%s'
+         % (r.get('call'), fams, mar.get('bookBig'), net.get('bookBig'), pf.get('bookBig'), r.get('subRows')))
+    if not book_ok:
+        if r.get('call') != 'OK':
+            fail('book: renderApp threw -- %s' % str(r.get('call'))[:300])
+        for k in ('mar', 'net', 'pf'):
+            p = per.get(k) or {}
+            if p.get('errors'):
+                fail('book: %s console.error -- %s' % (k, p['errors'][0][:200]))
+            if p.get('uncaught'):
+                fail('book: %s uncaught -- %s' % (k, p['uncaught'][0][:200]))
+        if 'BOOKS' not in fams:
+            fail('book: no BOOKS family row (fams=%s)' % fams)
+        if len(fams) < 2:
+            fail('book: the book swallowed the strategy row (fams=%s)' % fams)
+        if _num(mar.get('bookBig')) is None:
+            fail('book: MAR on LB is a dash for the book (got %r) - book.lockbox.max_drawdown / lockbox_from fallback broken' % mar.get('bookBig'))
+        if _num(net.get('bookBig')) != 70000.0:
+            fail('book: NET on LB is %r, expected $70,000 (a book must not take a second contract multiplier)' % net.get('bookBig'))
+        if _num(pf.get('bookBig')) != 1.4:
+            fail('book: PF on LB is %r, expected 1.40' % pf.get('bookBig'))
+        if (r.get('subRows') or 0) < 1:
+            fail('book: BOOKS row pre-opened but no sub-row rendered')
 
     if bad:
         print('CMP2 PROBE: FAIL')
