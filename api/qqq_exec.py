@@ -1157,7 +1157,7 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     # silently dropped.
                     kind = "oos" if not in_window else "refused"
                     reason = ("OOS -- outside QQQ session (not mirrored)" if not in_window
-                              else "REFUSED -- breaker/feed/kill blocked")
+                              else "REFUSED -- breaker/fill-feed/price-feed/kill blocked")
                     _record_order(leg, "ENTER", side_of_fill, cfg["shares"].get(leg, 0),
                                  f["price"], None, None, reason, log, fill_dt=f["dt"])
                     state["group_leg"][gk] = leg
@@ -1388,6 +1388,43 @@ def _track_tick_gap(state, nowdt, now_wall=None, log=print):
 
 
 # -- feed staleness ------------------------------------------------------------------------
+def _check_px_feed(state, log=print):
+    """True when we cannot obtain a LIVE price to mark or exit a lot with.
+
+    WHY THIS IS ITS OWN RAIL (2026-09-09). `_check_feed` below watches the FILL feed --
+    whether NinjaTrader is still writing fills.csv. It says nothing about the PRICE feed
+    (the NQ 10s bars), and the two die independently: on 2026-09-09 NinjaTrader was
+    perfectly healthy, all three strategies Realtime, fills.csv fresh -- while the 10s
+    chart export stopped 40 seconds after the strategies were enabled and stayed dead all
+    session. With no live NQ price, `_close_all` falls back to `lot["nq_entry_px"]`, so an
+    EOD flatten writes an exit AT THE ENTRY PRICE: a fabricated round trip that shows a
+    plausible P&L, fails NT parity, and quietly poisons the readiness evidence the go-live
+    decision rests on. That is exactly the 2026-09-03 corruption v73.469 was written to
+    end, reached by a different road.
+
+    So: a lot we cannot honestly manage is a lot we must not open. A refused signal is
+    recorded, explainable evidence ("we could not mirror this one"); a mispriced trade is
+    corrupt evidence, which is worse than none. Exits are deliberately NOT blocked -- an
+    already-open lot still gets every chance to close.
+
+    Conservative by design: if the Webull quote ever gains its market-data entitlement
+    (it answers 403 MARKET_DATA_NOT_SUBSCRIBED today) it could price a fill with no NQ
+    feed at all, and this rail could then be relaxed to consult it first."""
+    px, _ts = _latest_nq_px()
+    stale = px is None
+    was = state.get("px_feed_stale", False)
+    state["px_feed_stale"] = stale
+    if stale and not was:
+        _log_event(state, "px_feed_down",
+                  "NQ price feed went stale -- open lots cannot be marked, so new entries "
+                  "are blocked (an exit would otherwise be priced at the entry price)",
+                  log=log)
+    elif was and not stale:
+        _log_event(state, "px_feed_up", "NQ price feed is live again -- entries re-enabled",
+                  log=log)
+    return stale
+
+
 def _check_feed(state, fills_path, log=print):
     age, _version, _accts = nt_sync._addon_heartbeat(fills_path)
     stale = age is None or age > FEED_STALE_SEC
@@ -1849,6 +1886,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
         "live_from": LIVE_FROM,
         "feed_stale": bool(feed_stale), "breaker_tripped": bool(state.get("breaker_tripped")),
+        "px_feed_stale": bool(state.get("px_feed_stale")),
         "kill": bool(state.get("kill_done")), "calib": state.get("calib"),
         "positions": positions,
         "today": {"orders": orders, "trades": trades,
@@ -2112,6 +2150,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     active = _in_market_window(nowdt)
     feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
+    px_feed_stale = _check_px_feed(state, log=log) if active else state.get("px_feed_stale", False)
     if active:
         _accumulate_feed_uptime(state, nowdt, feed_stale, log=log)
         _track_tick_gap(state, nowdt, now_wall=_now_wall, log=log)
@@ -2143,7 +2182,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         new_fills = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") >= today]
         new_fills.sort(key=lambda f: (f["dt"], f["_i"]))
 
-        entries_blocked = (state.get("breaker_tripped") or feed_stale or kill_present)
+        entries_blocked = (state.get("breaker_tripped") or feed_stale or px_feed_stale
+                          or kill_present)
         if new_fills:
             _route_fills(state, cfg, new_fills, quote_fn, ratio_fn, entries_blocked, log=log)
             for f in new_fills:

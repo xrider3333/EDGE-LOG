@@ -70,6 +70,14 @@ def main():
     tmp = tempfile.mkdtemp(prefix="qqq_exec_smoke_")
     try:
         qe.OUT_DIR = tmp
+        # A LIVE NQ price feed. The harness has no C:\EdgeLog\ohlc\NQ_10s.csv, so the real
+        # _latest_nq_px returns (None, None) here -- which meant every case in this file was
+        # silently exercising the DEGRADED marking path (mark/close falls back to the lot's
+        # entry price) rather than the normal one. Since the price-feed rail landed, that same
+        # "no live price" condition also blocks ENTRIES (_check_px_feed: never open a lot we
+        # cannot mark), so without this stub no case could open a lot at all. A live price is
+        # the realistic default; the degraded path gets its own dedicated case.
+        qe._latest_nq_px = lambda *a, **k: (30000.0, time.time())
         qe.CONFIG_PATH = os.path.join(tmp, "config.json")
         qe.STATE_PATH = os.path.join(tmp, "state.json")
         qe.ORDERS_CSV = os.path.join(tmp, "orders.csv")
@@ -578,6 +586,50 @@ def main():
             check("zero-signal row totals are all zero",
                  zday["fired"] == 0 and zday["taken"] == 0 and zday["refused"] == 0
                  and zday["oos"] == 0, zday)
+
+        print()
+        print("Test 24: PRICE-FEED RAIL -- a dead NQ price feed blocks new entries")
+        # WHY: on 2026-09-09 NinjaTrader was healthy and fills.csv was fresh while the 10s
+        # chart export was dead all session. With no live NQ price, an EOD flatten prices the
+        # exit at the lot's ENTRY price -- a fabricated round trip that fails NT parity and
+        # poisons the readiness evidence. A refused signal is honest evidence; a mispriced
+        # trade is not. See api/qqq_exec.py::_check_px_feed.
+        fills_path8 = os.path.join(tmp, "fills8.csv")
+        write_fills(fills_path8, [
+            ["px1", "2026-09-04 13:35:00", "Sim101", "NQ 12-26", "BUY", "1", "30000", "0", "px1", "ORB"],
+        ])
+        with open(os.path.join(tmp, "addon_heartbeat.json"), "w", encoding="utf-8") as f:
+            json.dump({"ts_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                      "accounts": 1, "seen": 1, "version": "2.1", "accts": {}}, f)
+        cfg8 = qe.load_config(path=os.path.join(tmp, "config_px.json"))
+        state8 = qe._default_state()
+        live_px = qe._latest_nq_px
+        qe._latest_nq_px = lambda *a, **k: (None, None)          # the price feed is dead
+        try:
+            cfg8, state8, doc8 = qe.tick(fills_path=fills_path8,
+                                         now=datetime(2026, 9, 4, 9, 40),
+                                         quote_fn=no_quote, ratio_fn=ratio_fn,
+                                         cfg=cfg8, state=state8)
+        finally:
+            qe._latest_nq_px = live_px
+        check("dead price feed opens NO shadow lot", not state8.get("legs"), state8.get("legs"))
+        check("dead price feed is published as px_feed_stale",
+             doc8.get("px_feed_stale") is True, doc8.get("px_feed_stale"))
+        pxday = next((d for d in doc8["signals_day"] if d["date"] == "2026-09-04"), None)
+        check("the signal is recorded as FIRED and REFUSED, not dropped",
+             bool(pxday) and pxday["fired"] == 1 and pxday["refused"] == 1 and pxday["taken"] == 0,
+             pxday)
+        check("a px_feed_down event explains why",
+             any(e.get("kind") == "px_feed_down" for e in (state8.get("events") or [])),
+             state8.get("events"))
+
+        # ...and the rail lifts by itself the moment a live price returns.
+        cfg8, state8, doc8b = qe.tick(fills_path=fills_path8,
+                                      now=datetime(2026, 9, 4, 9, 45),
+                                      quote_fn=no_quote, ratio_fn=ratio_fn,
+                                      cfg=cfg8, state=state8)
+        check("price feed back -> rail clears", doc8b.get("px_feed_stale") is False,
+             doc8b.get("px_feed_stale"))
 
         print()
         if FAILURES:
