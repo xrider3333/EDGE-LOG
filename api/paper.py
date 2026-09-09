@@ -966,11 +966,15 @@ LEG_SOURCE = {
     "ORB_R6_C15FE": {
         "run": 314, "run_label": "#314 ORB crown + compression x Friday x FOMC-morning 0.5x",
         "strategy_file": "ORB_3_6_R6.py", "picked": "2026-09-09",
-        "note": "ORB_R6_C15F with half size before the FOMC statement. The event hole is not a NOISE "
-                "artefact: on this breakout crown the same bucket runs EV R -0.257 against a +0.211 "
-                "baseline. No model. Added 2026-09-09; ORB_R6_C15F is the exact ablation control.",
-        "caveat": "The ORB read is a mechanism check over full history, not a stretch-by-stretch "
-                  "validate - this leg is the forward test of whether it travels.",
+        "note": "ORB_R6_C15F with half size before the FOMC statement, no model. Added 2026-09-09; "
+                "ORB_R6_C15F is the exact ablation control.",
+        "caveat": "NOT SUPPORTED ON ORB's OWN STRETCHES - corrected the same day it was added. The "
+                  "-0.257 EV R that motivated it was a FULL-HISTORY read; split by stretch the "
+                  "in-sample bucket is POSITIVE (+0.082), the walk-forward has 21 trades and the "
+                  "lockbox 4, with one trade at 152% of the lockbox bucket. tools/tilt_guard.py "
+                  "FAILS it: 13.2% of random calendars do as well, and it is under-powered in both "
+                  "stretches. Kept only as a forward test against its exact control. v12 is "
+                  "validated on NOISE only.",
     },
     "ENGUQ_309_CDE2": {
         "run": 309, "run_label": "#309 ENGU-Q crown + depth compression x FOMC and CPI/payrolls pre-release 0.5x",
@@ -981,18 +985,24 @@ LEG_SOURCE = {
                 "window runs EV R -0.278 against a +0.440 baseline, the same sign as its FOMC "
                 "pre-statement bucket, while the same day after 08:30 is +0.504, above baseline. "
                 "Added 2026-09-09; ENGUQ_309_CDE is the exact ablation control.",
-        "caveat": "38 trades. That is why this is a forward leg and not an adoption: the sign agrees "
-                  "with the FOMC bucket on the same leg, but on its own it is under-powered. The RTH "
-                  "translation of the same idea was tested and REJECTED - see ENGUQ_309_COMPDE2.",
+        "caveat": "GUARD-FAILED, and the reason is recorded here rather than buried. The -0.278 EV R "
+                  "that motivated it was FULL-HISTORY; by stretch the in-sample bucket is POSITIVE "
+                  "(+0.656), the walk-forward is 25 trades and the lockbox 5. tools/tilt_guard.py "
+                  "fails it: 8.9% of random calendars and 14.4% of random overnight-window sets do "
+                  "as well. The money it adds is real but tiny (+$1,239 walk-forward, +$1,539 "
+                  "lockbox) at slightly better drawdown, so it is kept purely as a forward test "
+                  "against its exact control. The RTH translation was tested and REJECTED outright.",
     },
     "ENGUQ_309_CDE": {
         "run": 309, "run_label": "#309 ENGU-Q crown + depth-graded compression x FOMC-morning 0.5x",
         "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-09",
-        "note": "ENGUQ_309_CD with half size before the FOMC statement. Same event hole on a "
-                "continuation strategy on the 24-hour tape: EV R -0.499 against a +0.444 baseline. "
-                "No model. Added 2026-09-09; ENGUQ_309_CD is the exact ablation control.",
-        "caveat": "Same as the ORB leg - a full-history mechanism read, not a fenced validate. On "
-                  "the ETH tape the pre-statement window includes the overnight session.",
+        "note": "ENGUQ_309_CD with half size before the FOMC statement, no model. Added 2026-09-09; "
+                "ENGUQ_309_CD is the exact ablation control.",
+        "caveat": "NOT SUPPORTED ON ENGU-Q's OWN STRETCHES - corrected the same day it was added. "
+                  "The -0.499 EV R was a FULL-HISTORY read; by stretch the walk-forward bucket is 20 "
+                  "trades and the LOCKBOX HAS NONE. tools/tilt_guard.py FAILS it: it loses to flat "
+                  "leverage in the walk-forward and 17.1% of random calendars do as well. Forward "
+                  "test only. v12 is validated on NOISE only.",
     },
     "NOISE_SBS_V90_K11": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v11 (v10 x 1.5 Friday)",

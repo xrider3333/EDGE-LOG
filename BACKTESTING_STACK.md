@@ -1027,6 +1027,38 @@ gain, a placebo that matches) on every commit. A bucket under `min_trades` is re
 **under-powered** rather than passed — v12's own lockbox bucket is 6 trades, which is why it ships as
 a forward test and not as proof.
 
+### CORRECTION (2026-09-09, same day): v12 is validated on NOISE only
+
+The guard was built, and the first thing it did was fail three of this week's own legs. Recorded in
+full, because the mistake was made twice in one day and it is an easy one to make again.
+
+The v12 event tilt was extended from NOISE to ORB and ENGU-Q on the strength of **full-history**
+bucket reads: ORB's FOMC pre-statement bucket at EV R −0.257 against +0.211, ENGU-Q's at −0.499
+against +0.444, and ENGU-Q's pre-08:30 release bucket at −0.278 against +0.440. Split by stretch,
+none of them holds:
+
+| leg · bucket | in-sample | walk-forward | lockbox | guard |
+|---|---|---|---|---|
+| ORB #314 · FOMC pre-statement | **+0.082** (n=20) | −0.356 (n=21) | −0.488 (n=4) | FAIL |
+| ENGU-Q #309 · FOMC pre-statement | — | (n=20) | **no trades at all** | FAIL |
+| ENGU-Q #309 · pre-08:30 release | **+0.656** (n=8) | −0.247 (n=25) | −0.499 (n=5) | FAIL |
+
+In every case the in-sample half is positive or the sample is a handful of trades, 8–17% of random
+calendars do as well, and on ENGU-Q the FOMC version loses to flat leverage in the walk-forward.
+**On the two NOISE runs, where v12 was actually validated, the guard PASSES it on both.** The
+adoption stands exactly where it was tested, and nowhere else.
+
+The three cross-family legs stay, because a forward test against an exact control is the right
+vehicle for an unproven idea and they are paper only, costing nothing but a row. Their `caveat`
+fields now open with "NOT SUPPORTED ON ITS OWN STRETCHES" instead of describing a mechanism check.
+
+**The rule, now stated twice in one day:** never quote a bucket's expectancy over full history. A
+lockbox tail and a positive in-sample stretch both hide inside it. Split first, then decide.
+
+The guard gained `window=` from this round, for a tilt that fires on a time window inside a day
+rather than on whole days. Without it the permutations re-size every trade on each sampled day,
+a far larger intervention than the candidate, and the null is meaningless.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

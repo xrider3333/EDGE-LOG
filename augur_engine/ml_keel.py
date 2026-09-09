@@ -184,9 +184,16 @@ CFG = {
     #    Better net on 4 of 4 stretches, drawdown never worse on any of them.
     #    Deeper cuts score monotonically better (0.25x > 0.5x > 0.75x); 0.5x is the honest middle,
     #    not the optimum, because the standing rule is never to tune a size on the lockbox.
-    #    NOT NOISE-only: the same bucket is negative on the ORB #314 breakout (EV R -0.257 vs +0.211)
-    #    and the ENGU-Q #309 continuation (-0.499 vs +0.444), which is why the tilt is also exposed
-    #    through compression_sizes(event=...) for the model-free legs.
+    #    CROSS-FAMILY CLAIM CORRECTED 2026-09-09, the same day, by tools/tilt_guard.py. This note
+    #    used to say the effect was 'not NOISE-only' because ORB #314 read EV R -0.257 and ENGU-Q
+    #    #309 read -0.499. Both were FULL-HISTORY reads, and splitting them by stretch undoes the
+    #    claim: on ORB the in-sample bucket is POSITIVE (+0.082), the walk-forward has 21 trades
+    #    and the lockbox 4, with one trade at 152% of the lockbox bucket; on ENGU-Q the walk-forward
+    #    has 20 and the lockbox NONE. Through the guard on their own stretches both FAIL (13.2% and
+    #    17.1% of random calendars do as well; ENGU-Q also loses to flat leverage).
+    #    So v12 is validated on NOISE ONLY. The option stays exposed and the ORB / ENGU-Q legs stay,
+    #    but as FORWARD TESTS against exact controls - not as evidence for the rule.
+    #    The lesson, learned twice in one day: never quote a bucket over full history. Split it.
     #    Recorded honestly: the PRE-REGISTERED story was the opposite (I expected the 14:00 statement
     #    to be the bad half; it is the better half), so the bucket split is post-hoc - which is what
     #    the permutation test and the three placebos are there to price. It also misses the lab's

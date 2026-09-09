@@ -56,12 +56,19 @@ def _years(ts, m):
     return max((t.max() - t.min()).days / 365.25, 1 / 12) if len(t) else 1.0
 
 
-def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None,
+def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, window=None,
           label="candidate", perm=2000, seed=20260909, cap=3.0, dd_tol=0.10, min_trades=25):
     """pnl: per-trade dollars (unsized). ts: DatetimeIndex of entries. base: the sizing the
     candidate sits on top of. mask: where the tilt applies. mult: its multiplier.
     wf / lb: boolean stretch masks. subgroup: the set the base already tilts (e.g. Fridays).
-    dd_tol: fraction of extra drawdown tolerated (0.10 = 10% worse still counts as 'close')."""
+    dd_tol: fraction of extra drawdown tolerated (0.10 = 10% worse still counts as 'close').
+
+    window: pass this whenever the tilt fires on a TIME WINDOW inside a day rather than on
+    whole days - for instance 'before 08:30 on a release day'. Without it the permutations
+    re-size EVERY trade on each sampled day, which is a far larger intervention than the
+    candidate makes, and the null becomes meaningless. With it each sampled day is intersected
+    with the same window, so the question asked is the right one: are THESE days' windows
+    worse than other days' windows?"""
     pnl = np.asarray(pnl, float); base = np.asarray(base, float); mask = np.asarray(mask, bool)
     cand = np.minimum(base * np.where(mask, float(mult), 1.0), cap)
     rng = np.random.default_rng(seed)
@@ -105,11 +112,15 @@ def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None,
     scope = wf | lb
     stat = lambda z: float((pnl * z)[scope].sum())
     b0 = stat(base); real = stat(cand) - b0
+    win = np.ones(len(pnl), bool) if window is None else np.asarray(window, bool)
+    if window is not None:
+        L.append(f"  (permutations restricted to the same intra-day window: "
+                 f"{win.sum()} trades, {100*win.mean():.1f}%)")
     tagged_days = np.array(sorted({x for x, mm in zip(d, mask) if mm}))
     pools = [("any day", np.arange(len(alld)), len(tagged_days))]
     if subgroup is not None:
         sub = np.asarray(subgroup, bool)
-        sub_days = np.array(sorted({x for x, s in zip(d, sub) if s}))
+        sub_days = np.array(sorted({x for x, s, w in zip(d, sub, win) if s and w}))
         pos = {x: i for i, x in enumerate(alld)}
         pools.append(("subgroup", np.array([pos[x] for x in sub_days]),
                       int(np.isin(sub_days, tagged_days).sum())))
@@ -118,7 +129,7 @@ def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None,
             L.append(f"  C{2 if nm=='any day' else 3} permutation {nm:9s} skipped (n/a)"); continue
         g = np.empty(perm)
         for i in range(perm):
-            mm = np.isin(code, rng.choice(pool, size=kk, replace=False))
+            mm = np.isin(code, rng.choice(pool, size=kk, replace=False)) & win
             g[i] = stat(np.minimum(base * np.where(mm, float(mult), 1.0), cap)) - b0
         beat = float((g >= real).mean())
         L.append(f"  C{2 if nm=='any day' else 3} permutation {nm:9s} real ${real:+,.0f} vs random ${g.mean():+,.0f}"
