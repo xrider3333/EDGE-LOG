@@ -107,7 +107,11 @@ def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, w
     for nm, m in stages:
         y = _years(ts, m)
         c, u = metrics((pnl * cand)[m], y), metrics((pnl * unif)[m], y)
-        win = c["net"] > u["net"] and c["mar"] >= u["mar"]
+        # the control is exposure-MATCHED, so the question is risk-adjusted: did putting the
+        # same exposure HERE beat spreading it everywhere? A tilt can earn slightly less than
+        # blanket leverage and still be the better trade if MAR improves. Requiring it to win
+        # on money too was a bug: it failed tilts that moved exposure somewhere safer.
+        win = c["mar"] > u["mar"] or (c["net"] > u["net"] and c["mar"] >= u["mar"])
         L.append(f"     {nm:13s} tilt ${c['net']:>10,.0f} MAR {c['mar']:5.2f}  |  uniform ${u['net']:>10,.0f}"
                  f" MAR {u['mar']:5.2f}   -> {'beats' if win else 'LOSES TO'} flat leverage")
         if nm == "walk-forward" and not win:

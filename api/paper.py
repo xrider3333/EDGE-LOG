@@ -1026,6 +1026,16 @@ LEG_SOURCE = {
     "NOISE_SBS_V90_K11": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v11 (v10 x 1.5 Friday)",
         "strategy_file": "NOISE_1_0.py", "picked": "2026-09-08",
+        "caveat": "THE FRIDAY BLOCK GUARD-FAILED 2026-09-09, and the reason is subtle enough to state "
+                  "in full. Friday genuinely IS the best weekday - rank 1 of 5 on both NOISE runs, by "
+                  "$18k and $20k - and on RAW sizing it is the only weekday that adds money without "
+                  "adding much drawdown. But ALL FIVE weekdays make money at 1.5x on raw, which is the "
+                  "signature of leverage, and STACKED INSIDE the overlay it fails: on the crown run it "
+                  "costs 13.6% more walk-forward drawdown and 13.9% more lockbox drawdown for 10% more "
+                  "money, and on the paper run 11.3% of random day-sets of the same size do as well. "
+                  "The problem is not Friday, it is 1.5x ON TOP of sizes that already hit the 3.0 cap "
+                  "on 171 trades. A smaller multiplier inside the overlay is the obvious follow-up and "
+                  "must be fenced, not tuned. The v12 FOMC block sits ABOVE this and passes on its own.",
         "note": "The crowned #243 config with KEEL v11: v10 (50-trade fast ledger, symmetric shade, "
                 "1.5x on coiled-hour entries) times 1.5x on Friday entries, an a-priori day tilt "
                 "found by the same scan that found compression and robust in 9 of 10 walk-forward "
@@ -1035,6 +1045,10 @@ LEG_SOURCE = {
     "ORB_R6_C15F": {
         "run": 314, "run_label": "#314 ORB crown + compression 1.5x x Friday 1.5x (no model)",
         "strategy_file": "ORB_3_6_R6.py", "picked": "2026-09-08",
+        "caveat": "The Friday half GUARD-FAILED 2026-09-09 as a stacked tilt - see NOISE_243_KEEL11. "
+                  "Friday really is the best weekday, rank 1 of 5 on both NOISE runs, but stacking "
+                  "1.5x on top of an already-tilted book is where it turns into leverage. Forward "
+                  "test only; ORB_R6_C15 is the compression-only control that isolates it.",
         "note": "The ORB crown with the compression tilt and a 1.5x Friday tilt stacked, no model. "
                 "The one calendar/hour/side stack that clears walk-forward, lockbox and the drawdown "
                 "band on ORB: lockbox $123k vs $102k for compression alone at drawdown +1.8%, 8 of "

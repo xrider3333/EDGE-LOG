@@ -1106,6 +1106,49 @@ strict. **The rule has deliberately NOT been changed here**, because relaxing a 
 after it fails something you like is exactly how these mistakes happen. It is flagged as a separate
 decision, on its own evidence, rather than settled in passing.
 
+### The Friday tilt through the guard (2026-09-09): it does not clear the bar as shipped
+
+Friday is different from every other candidate tested this week in one way that matters: **it was
+chosen from five.** The Fed rule was a hypothesis about one named event; Friday won a scan across
+weekdays. No permutation over random dates can price that, because every random date-set is drawn
+from the pool the winner already won. So the battery was run on **all five weekdays**, on raw sizing,
+on both runs.
+
+**Every weekday makes money at 1.5×.** That is the leverage signature, and it is the first thing to
+notice:
+
+| weekday | #243 walk-forward | its drawdown | #304 walk-forward | its drawdown |
+|---|---|---|---|---|
+| Monday | +$23,648 | +16.3% | +$28,238 | +20.2% |
+| Tuesday | +$23,705 | +33.4% | +$29,987 | +20.0% |
+| Wednesday | +$22,543 | +17.2% | +$21,919 | +8.0% |
+| Thursday | +$37,422 | +29.0% | +$32,327 | +16.3% |
+| **Friday** | **+$44,524** | **−4.0%** | **+$45,777** | **+4.0%** |
+
+**Friday is genuinely the best weekday**, rank 1 of 5 on both runs by $18k and $20k, and on raw sizing
+it is the only one that adds money without adding drawdown. That much is real and consistent.
+
+**But as shipped — stacked inside the overlay — it fails.** On the crown run it costs **13.6% more
+walk-forward drawdown and 13.9% more lockbox drawdown** for 10% more money, with MAR flat (3.57 →
+3.47). On the paper run **11.3% of random day-sets of the same size do as well**. The diagnosis is
+specific: the problem is not Friday, it is 1.5× applied **on top of sizes that already reach the 3.0
+cap on 171 and 145 trades**. A smaller multiplier inside the overlay is the obvious follow-up, and it
+must be fenced rather than tuned.
+
+**The v12 event block is unaffected.** It sits above the Friday block and was tested against a base
+that already contains it, so its own pass is independent of this.
+
+### A real bug found in the guard's C1, and why fixing it now is defensible
+
+C1 demanded the tilt beat the exposure-matched uniform control on **both** net and MAR. That is
+wrong. The control spends the *same* exposure; a tilt that moves that exposure somewhere safer will
+earn slightly less than spreading it everywhere while producing a much better MAR, and that is a win.
+C1 now judges on MAR. **Verified verdict-neutral before changing it:** re-checked against every case
+decided this week and nothing flips — ORB compression still loses (MAR 1.15 vs 1.17), #304 Friday
+still loses (3.47 vs 3.57), and every pass still beats the control on both measures. Changing a
+control that has just failed something is only acceptable when it is a demonstrable logic error and
+the fix moves no verdict; both conditions are met and stated here so the claim can be checked.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
