@@ -1171,6 +1171,32 @@ family-wide null, not just a per-cell permutation. Count how many cells survive 
 replaced by noise, then compare. Re-running the guard over the ENGU-Q pre-release leg and the ORB
 Fed-morning claim reproduced every recorded number exactly, so that record is verified, not asserted.
 
+### Signal-bar audit of this whole session (2026-09-09)
+
+A hard rule landed the same day: a per-trade condition read at the fill bar sees a bar the rule never
+had, and it is the worst possible bar, because it is the one the trade begins in. A NOISE candidate
+flipped from −$43,999 to +$6,738 when re-measured one bar earlier — after passing the full guard.
+**Every mask used in this session's work was built at the fill bar**, so all of it was re-tagged at
+the signal bar and re-run rather than reasoned about.
+
+| what moves | #243 | #304 |
+|---|---|---|
+| squeeze tags that change | 11 of 4,429 (0.25%) | 11 of 4,833 (0.23%) |
+| statement tags that change | 1 (0.02%) | 2 (0.04%) |
+
+**No verdict changes.** The adoption still passes with 0.1% / 0.0% of random Wednesday mornings
+matching; compression on raw still passes at 0.5% / 0.2%; the one inside-overlay case still fails on
+lockbox concentration, for the same reason and by the same margin.
+
+**Why this work was immune, stated so the distinction transfers.** The hazard is specific to a
+condition that reads a **price at the tagging bar**, because a trade about to go badly is
+disproportionately one whose fill bar closes against it, so the tag becomes partly an outcome. The
+masks here are a calendar date, a clock time, and a squeeze defined as the **last complete prior
+60-minute group** — none of them can see the fill bar's close, which is why only a fraction of a
+percent of tags move at all, and those only where the fill straddles an hour boundary or lands exactly
+on 14:00. The guard's docstring now says this up front, because the guard itself cannot detect it: a
+fill-bar mask sails through every control in it.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

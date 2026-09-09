@@ -30,6 +30,15 @@ WHAT IT CHECKS, and why each one exists (every reason below is a real result fro
   C5 PLACEBO (optional, pass placebo_mask). The adjacent window must NOT pay. On ORB the session
      AFTER a release paid better than the release itself, which ended it.
 
+TAG AT THE SIGNAL BAR. A trade tuple is (fill_bar, exit, pnl, side, entry_px), so index 0 is the
+bar the trade FILLS in and the decision was made one bar earlier. Build `mask` from bar index-1,
+not index. This guard cannot detect the difference - a mask that reads the fill bar's own close
+is partly an OUTCOME, and it will sail through every control here. A NOISE candidate flipped from
+-$44k to +$6.7k when moved one bar back after passing this whole battery. Conditions that read a
+PRICE at the tagging bar are exposed; a calendar date, a clock time, or an indicator defined on
+the last COMPLETE prior group are not. When in doubt, re-tag one bar earlier and re-run: if the
+verdict moves, the mask was reading the trade's own beginning.
+
 Cuts and size-ups are both handled: C1 matches exposure in whichever direction the tilt moves it.
 A tilt that touches under `min_trades` trades in a stretch is reported as UNDER-POWERED rather
 than passed, because v12's own lockbox bucket was 6 trades and that is a forward test, not proof.
