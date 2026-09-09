@@ -250,6 +250,33 @@ decides at the session open from the previous 5 and 60 sessions only. The volume
 bars strictly BEFORE the decision bar against a reference built from the previous 20 sessions. Neither
 touches the bar it trades on. The crown is not carrying that leak.
 
+### ✓ 2026-09-09 — The ORB edge is IMPROVING, and it is not us picking it
+
+Everything this week said what does not work. This says something about the strategy itself, and it
+is the first positive result in three rounds. Cut the crown's history into blocks of two hundred
+trades, so every point rests on the same amount of evidence, and measure only profit factor and win
+rate. Dollars are useless here: the index amplitude grew about sevenfold across the window and would
+manufacture a rising trend out of nothing. Drivers `tools/orb_edge_decay.py` and its control.
+
+The crown's profit factor goes from 1.09 across the first half of its history to 1.41 across the
+second, and its win rate from 42.4% to 46.8%. A permutation test on the block order puts that at
+p 0.03. Strip the five biggest winners out of every block and it still rises, 0.86 to 1.11 at
+p 0.05, which is the per-stretch concentration test that retracted an ENGU-Q recency claim this same
+week.
+
+The obvious objection is that the crown was chosen partly on recent data, so of course its recent
+blocks look good. The control answers it: the same test on the untouched parent default, on a
+version with both filters switched off, on a deliberately wide stop, and on two other opening-range
+lengths. Five of six rise, and the two strongest are configs nobody ever selected — both filters off
+at p 0.02, and a three-bar range at p 0.00. Selection cannot flatter a configuration that was never
+chosen.
+
+What follows from it. Full-window statistics understate what this strategy is now, so a gate written
+on full-window money — round 10's second gate, for instance — quietly rewards old-regime behaviour
+and penalises anything that only works on the tape we actually trade. It also reproduces, on a
+different strategy family and by a different method, what NOISE found in its rounds 43 to 46:
+everything tuned on the old tape lost on the new one.
+
 ### The open research direction: replace the illegal gate with a PRE-KNOWN one
 
 The fill at the level carried the money ($494k with the illegal filter, $63k with no
