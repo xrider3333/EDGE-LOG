@@ -939,8 +939,8 @@ LEG_SOURCE = {
                 "decision day before the 14:00 ET statement, off the Fed's own published calendar. "
                 "That bucket loses money in every stretch of both NOISE runs and in 8 of 9 "
                 "walk-forward years, and the real calendar beats 99.9% of random calendars of the "
-                "same size. Read on the run's own stretches: walk-forward $532,380 vs $523,760 at "
-                "identical drawdown, lockbox $90,740 vs $86,080 at drawdown slightly better. "
+                "same size. Read on the run's own stretches: walk-forward $532,376 vs $523,751 at "
+                "identical drawdown, lockbox $90,746 vs $86,074 at drawdown slightly better. "
                 "Added 2026-09-09; NOISE_SBS_V90 is the raw control and K11 the ablation control.",
         "caveat": "The bucket split is post-hoc - the pre-registered story had the sign backwards "
                   "(the post-statement afternoon is the GOOD half). Priced with a permutation test "

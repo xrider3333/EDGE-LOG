@@ -134,16 +134,27 @@ def main():
 
         nxt = {alldays[i]: alldays[i + 1] for i in range(len(alldays) - 1)}
         before = np.array([nxt.get(t.date()) in days for t in ts]) & am
-        fake = np.isin(dcode, rng.choice(len(alldays), size=k, replace=False)) & am
         print("  4. placebos (each must LOSE money - if one wins, the tilt is not about the events)")
         for nm, mask, mult in (("morning before a decision day", before, 0.5),
-                               ("random matched day-set       ", fake, 0.5),
                                ("every morning, same $ shrink ", am, 0.985)):
             alt = v11 * np.where(mask, mult, 1.0)
-            d_wf = (alt - v11)[wf].sum()
-            d_lb = (alt - v11)[lb].sum()
+            d_wf, d_lb = (alt - v11)[wf].sum(), (alt - v11)[lb].sum()
             print(f"     {nm}: walk-forward ${d_wf:+,.0f}   lockbox ${d_lb:+,.0f}"
                   f"   {'OK (loses, as required)' if d_wf < 0 else '<-- WARNING: this placebo WINS'}")
+        # the random-day placebo is a DISTRIBUTION, never a single draw. One draw is pure noise:
+        # at some seeds it "wins" and reads like a failed placebo when nothing is wrong. What has
+        # to be true is that halving a RANDOM day-set is usually worthless, while halving the real
+        # calendar is near the top of that distribution.
+        real_gain = float((v11 * np.where(pre, 0.5, 1.0) - v11)[wf | lb].sum())
+        gains = np.empty(min(args.perm, 500))
+        for i in range(len(gains)):
+            fk = np.isin(dcode, rng.choice(len(alldays), size=k, replace=False)) & am
+            gains[i] = (v11 * np.where(fk, 0.5, 1.0) - v11)[wf | lb].sum()
+        beat = float((gains >= real_gain).mean())
+        print(f"     random matched day-sets ({len(gains)} draws): halving a random calendar is worth "
+              f"${gains.mean():+,.0f} on average (sd ${gains.std():,.0f});")
+        print(f"       halving the REAL calendar is worth ${real_gain:+,.0f} - beaten by {beat*100:.1f}% of them"
+              f"   {'OK' if beat < 0.05 else '<-- WARNING: random day-sets do this well too'}")
 
         print("  5. v11 vs v12 on the run's own stretches")
         for stg, m, a, b in (("walk-forward", wf, WF0, LB0), ("lockbox     ", lb, LB0, END)):

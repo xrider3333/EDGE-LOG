@@ -176,10 +176,11 @@ CFG = {
     #    of the same dollar size all LOSE money - so the tilt is keyed to the events, not to mornings.
     #    On top of v11, ENGINE-VERIFIED through keel_walk on freshly backtested trade lists (4,429 and
     #    4,833 trades; 87 and 91 tagged pre-statement, 2.0% / 1.9%, every one exactly halved):
-    #      #243 WF $523,760 -> $532,380 at IDENTICAL drawdown -19,820 (MAR 3.01 -> 3.06)
-    #      #243 LB  $86,080 ->  $90,740 at -19,800 vs -19,860, i.e. BETTER (MAR 2.89 -> 3.06)
-    #      #304 WF $490,620 -> $497,200 at -16,340 vs -16,600, BETTER (MAR 3.37 -> 3.46)
-    #      #304 LB $139,020 -> $144,260 at identical -26,920 (MAR 3.45 -> 3.58)
+    #      #243 WF $523,751 -> $532,376 at IDENTICAL drawdown -19,810 (MAR 3.01 -> 3.06)
+    #      #243 LB  $86,074 ->  $90,746 at -19,804 vs -19,862, i.e. BETTER (MAR 2.89 -> 3.06)
+    #      #304 WF $490,614 -> $497,207 at -16,349 vs -16,599, BETTER (MAR 3.37 -> 3.46)
+    #      #304 LB $139,016 -> $144,266 at identical -26,920 (MAR 3.45 -> 3.58)
+    #    Reproduce all of it with `python tools/keel_event_check.py` (exits non-zero if the bar breaks).
     #    Better net on 4 of 4 stretches, drawdown never worse on any of them.
     #    Deeper cuts score monotonically better (0.25x > 0.5x > 0.75x); 0.5x is the honest middle,
     #    not the optimum, because the standing rule is never to tune a size on the lockbox.

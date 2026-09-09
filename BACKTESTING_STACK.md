@@ -923,16 +923,18 @@ matched day-set, and an every-morning shrink of the same dollar size.
 
 | run · stretch | v11 net | v12 net | v11 DD | v12 DD | v11 MAR | v12 MAR |
 |---|---|---|---|---|---|---|
-| #243 walk-forward | $523,760 | **$532,380** | −19,820 | −19,820 | 3.01 | 3.06 |
-| #243 lockbox | $86,080 | **$90,740** | −19,860 | −19,800 | 2.89 | 3.06 |
-| #304 walk-forward | $490,620 | **$497,200** | −16,600 | −16,340 | 3.37 | 3.46 |
-| #304 lockbox | $139,020 | **$144,260** | −26,920 | −26,920 | 3.45 | 3.58 |
+| #243 walk-forward | $523,751 | **$532,376** | −19,810 | −19,810 | 3.01 | 3.06 |
+| #243 lockbox | $86,074 | **$90,746** | −19,862 | −19,804 | 2.89 | 3.06 |
+| #304 walk-forward | $490,614 | **$497,207** | −16,599 | −16,349 | 3.37 | 3.46 |
+| #304 lockbox | $139,016 | **$144,266** | −26,920 | −26,920 | 3.45 | 3.58 |
 
 Engine-verified, not lab-cache: re-run through `ml_keel.keel_walk` on freshly backtested trade lists
 (4,429 and 4,833 trades; 87 and 91 of them tagged pre-statement, 2.0% and 1.9%, every one exactly halved).
 This pass also corrected a lab artefact — the scratch harness read #304's walk-forward as $466,749 off its
 cached state file, where the engine and this doc's own v11 entry both read $490,620. The engine is the
-authority; the direction and every delta were unchanged.
+authority; the direction and every delta were unchanged. Reproduce the whole finding with
+`python tools/keel_event_check.py` — it re-derives the buckets, the permutation test and the placebos
+from freshly backtested trades and exits non-zero if the adoption bar ever stops holding.
 
 Better net on 4 of 4 stretches with drawdown never worse on any of them — the owner's adoption bar, met cleanly.
 Deeper cuts score monotonically better (0.25× > 0.5× > 0.75×); 0.5× is the honest middle, not the optimum,
