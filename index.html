@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.696';
+const VERSION='73.697';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.697',date:'2026-09-09',notes:['THE RUNBOARD FUNNEL IS ABSORBED, and it took handing over one array rather than building forty features. The funnel is not markup - it is a live chart function - so the COMPARE screen now hands it the runs you picked and lets it draw. That brings the shared calendar (two runs over different years line up by DATE now, not by progress), the drawdown pane under the curves, high-water marks, zoom and pan, the crosshair, the three-state key rows, and the fullscreen explorer with its trade blotter.','The spotlight works across both panels: hover a curve and its column in the table lifts while the rest fade. The chart looks for a specific attribute AND a specific box, and review caught that renaming the cells was necessary but not sufficient - the box needed the name too, or the table never reacted.','My own drawing stays underneath as the fallback - and is genuinely restored if the live chart throws, because the chart clears the host before it draws, so simply leaving it there would have left an empty box.','Hiding a curve is remembered only while the same runs are picked. A new selection starts with everything showing, rather than with something invisible for a reason you can no longer see.']},
 {v:'73.695',date:'2026-09-09',notes:['COMPARE - STUDIES: does the TTM structural stop transfer to the other crowns? Rows 1663-1666. Only where the setup defines a range. ORB already stops BEYOND its structural level - tightening to the opposite opening-range edge costs 24,000 to 48,000 dollars and nearly doubles stop exits. NOISE has no such level: its envelope is never reached, zero stop exits against 150.','ENGU-Q does have one - the swing low behind the trendline break - and tightening to it earns 20,000 dollars more at a flat drawdown; but the crown already moved to that value in run 335 for unrelated reasons, so it is corroboration, not a new lead. Each family was reproduced to the cent before being tested.']},
 {v:'73.694',date:'2026-09-09',notes:['COMPARE - STUDIES: TTM Squeeze round 14, rows 1653-1662. The four knobs this family inherited from Carter and never tested - base squeeze length, verification frame, Bollinger width, base Keltner width - are each the best cell in their own grid, usually by a wide margin. Length 20 against 8 and 40 is profit factor 2.91 against 1.14 and 1.30.','The exit was re-asked on the new structural-stop base and closes the same way it did on the old one: the one-bar momentum fade beats every alternative. Riding to the close instead blows drawdown up 74 percent with the stop unchanged, which says the fade exit is doing real risk work, not just taking profit.']},
 {v:'73.693',date:'2026-09-09',notes:['SPY BENCHMARK: real vs-SPY numbers are on their way back. Your computer now pulls SPYs daily closing prices directly from a market data provider (Alpaca) and stores them, so this page reads them from your own storage instead of trying to reach the dead free service that broke a couple of versions ago. Nothing changes for you today, since no data has been pulled yet - the vs SPY spots in OVERVIEW and HOME keep showing a plain dash until that first pull happens.','ONE MANUAL STEP LEFT FOR THE OWNER: add a free Alpaca account key to this computer (a config file, not this website) before the first pull can run. Once its added, your computer fills in the last ten-plus years of SPY prices in one go and then keeps itself up to date automatically, once a day, with no further action needed.','Also removed the old broken connection to the free web service entirely, so this page no longer wastes a request trying to reach a service that has been rejecting it since it started demanding paid access.']},
@@ -27407,7 +27408,37 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(!col)col=_C2PAL[i%_C2PAL.length];}
             _used[col]=1;
             return {r:r,col:col,S:_c2StageOf(r),c:_c2Curve(r)};});
+          const _c2Hwm=(APREF.c2Hwm===true);
+          const _c2OvlH=320;
           const _nm=r=>String(r.strategy||'').replace(/[.]py$/,'').slice(0,26);
+          // the shape the live chart reads. Money is already scaled by the run multiplier
+          //   (and a book takes none, because its figures are pooled dollars already), the
+          //   lockbox door is the index the chart splits on, and each fold result rides along
+          //   for the fullscreen explorer to read.
+          window._cmpOvlH=_c2OvlH;
+          window._cmpOvl1A=true;
+          window._rbHwm=_c2Hwm;
+          window._cmpEqxSeries=items.map((x,i)=>({x:x,i:i})).filter(o=>o.x.c).map(o=>{const x=o.x,i=o.i,r=x.r,mc=_c2mc(r);
+            const fl=(Array.isArray(r.top10_results)?r.top10_results.filter(f=>f&&f.fold!=null):[]).slice().sort((a,b)=>a.fold-b.fold);
+            return {id:r.id,
+              label:((typeof stratTag==='function'?(stratTag(r.strategy)||''):'').replace(/<[^>]*>/g,'').trim())||('#'+r.id),
+              color:x.col,eq:x.c.v,li:x.c.li,wfi:null,rank:i+1,wfFolds:null,
+              wfInfo:(fl.length?fl.map(f=>({n:f.fold,pnl:(+f.oos_pnl||0)*mc,pf:(+f.oos_pf||0),tr:(+f.oos_trades||0)})):null),
+              blot:{run_id:r.id,instrument:r.instrument||'',timeframe:r.timeframe||'5m',session:r.session||'rth',
+                strategy:r.strategy||'',params:r.best_params||null,
+                cost_pts:(r.cost_pts!=null?r.cost_pts:5.66/mc),mult:mc,
+                date_from:r.date_from||null,date_to:r.date_to||null,source:r.data_source||null,
+                code:((typeof r.code_snapshot==='string'&&r.code_snapshot.length>100)?r.code_snapshot:null)}};});
+          window._cmpEqxNoCurve=items.filter(x=>!x.c).map(x=>({id:x.r.id,
+            label:((typeof stratTag==='function'?(stratTag(x.r.strategy)||''):'').replace(/<[^>]*>/g,'').trim())||('#'+x.r.id)}));
+          // hiding a curve is remembered, but only while the SAME runs are picked - a new
+          //   selection starts with everything showing rather than with something invisible
+          //   for a reason you can no longer see.
+          //   The old board guards the SAME two sets with its own signature, so a second
+          //   variable let a run greyed on one screen stay faint on the other with no control
+          //   showing why. One namespaced signature means any screen switch clears both.
+          (function(){const sig='c2:'+items.map(x=>x.r.id).join(',');
+            if(window._cmpOvlSig!==sig){window._cmpOvlSig=sig;window._cmpOvlHide=null;window._cmpOvlGrey=null;}})();
           const legend=items.map(x=>'<span class="c2-lg"><span class="c2-dot" style="background:'+x.col+'"></span>'
             +'<span data-c2run="'+x.r.id+'" style="cursor:pointer" title="open run #'+x.r.id+'">#'+x.r.id+' '+_reEscC2(_nm(x.r))+'</span>'
             +'<span class="c2-x" data-c2rm="'+x.r.id+'" title="take this run out of the comparison">\u00d7</span></span>').join('');
@@ -27487,7 +27518,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               let t=(below+(ties-1)/2)/(vs.length-1);if(m.hi<0)t=1-t;
               return 'hsla('+(4+116*t).toFixed(0)+',62%,44%,'+(0.06+0.32*Math.abs(t-0.5)).toFixed(3)+')';};};
           const _mCols=items.map(x=>({x:x,col:x.col,
-            dataAttr:' data-c2rbc="'+x.r.id+'"',
+            // the chart reaches across and dims every column that is not the curve under
+            //   the cursor. It looks for this exact attribute, so it has to be this name.
+            dataAttr:' data-rbc="'+x.r.id+'"',
             lbl:'#'+x.r.id,
             sub:_reEscC2(_nm(x.r)),
             tip:_reEscC2(String(x.r.strategy||'')+' \u00b7 #'+x.r.id+' \u00b7 '+String(x.r.instrument||'')+' '+String(x.r.timeframe||'')
@@ -27527,13 +27560,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="c2-lbl">'+picked.length+' OF 8 PICKED</span>'
             +'<span class="c2-act" data-c2clr="1" title="empty the comparison">CLEAR</span>'
             +'<span style="margin-left:auto" class="c2-lbl">SOLID = TUNING YEARS \u00b7 DOTTED = SEALED LOCKBOX</span></div>'
-            +'<div class="c2-card" style="padding:10px 12px 6px">'+_c2Ovl(items)
+            // ── THE FUNNEL ───────────────────────────────────────
+            //    The interactive chart is a function, not markup, so the picked runs are
+            //    handed to it in the shape it reads and it draws itself over the top of my
+            //    static one after the render. That brings the shared calendar, the drawdown
+            //    pane, the high-water marks, zoom and pan, the crosshair, the three-state
+            //    legend, the fullscreen explorer and the spotlight - none of which I have to
+            //    build or maintain, and all of which then behave the same on both screens.
+            +'<div class="c2-card" style="padding:10px 12px 6px">'
+            +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+            +'<span class="c2-lbl">EQUITY</span>'
+            +'<span data-c2hwm="1" title="draw each run high-water mark - the running peak - so a flat stretch reads as time spent under water" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid '
+              +(_c2Hwm?'color-mix(in srgb,var(--yellow) 55%,transparent);color:var(--yellow)':'var(--border);color:var(--text3)')+'">HWM</span>'
+            +'<span data-cmpexpand style="margin-left:auto;font-size:11px;cursor:pointer;color:var(--text3)" title="open the fullscreen explorer, with the trade blotter">\u26f6</span></div>'
+            +'<div id="c2-ovl-host" style="position:relative;min-height:'+_c2OvlH+'px">'+_c2Ovl(items)+'</div>'
             +'<div style="margin-top:8px">'+legend+'</div></div>'
-            +'<div class="c2-card c2-scroll" style="margin-top:10px;padding:4px 6px">'+_c2Mtx+'</div>'
+            // the chart's spotlight looks INSIDE one element by id before it dims columns, so
+            //   renaming the cell attribute was necessary but not enough - the box needs the
+            //   name too, or hovering a curve lifts the curve and the table never reacts.
+            +'<div id="rb-mtx-box" class="c2-card c2-scroll" style="margin-top:10px;padding:4px 6px">'+_c2Mtx+'</div>'
             +'<div style="margin-top:6px"><span data-c2heat="1" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid '
               +(_c2Heat?'color-mix(in srgb,var(--yellow) 55%,transparent);color:var(--yellow)':'var(--border);color:var(--text3)')+'" title="shade each row by where a run places in it, best to worst - position in the row, not distance in value, so one runaway number cannot wash the rest flat">HEAT</span></div>'
             +'<div class="c2-note">Every figure in the table follows the STAGE control and is the same read the LEADERBOARD uses, except ROBUSTNESS and VERDICT, which describe the whole run whatever stage is picked, and FOLDS HELD, which is always the walk-forward. The chart always shows the whole run. '
-            +'Curves run end to end across the window each run was tested on, so left to right is progress through THAT run - two runs over different years still fill the width, because the shape is what is being compared.'
+            +'The chart puts every run on ONE calendar, so two runs over different years line up by date rather than by progress, and a run that had not started yet simply has no line there. Hover a curve to lift it and dim the rest, including its column in the table; click a name in the key to grey it, click again to hide it and rescale. If that chart cannot start, a simpler one is drawn in its place and says so - it spreads each run across its own window instead of a shared calendar.'
             +(apx?' A ~ marks a drawdown measured off the saved curve rather than stored on the run: the curve is downsampled, so that number can only under-state the real drawdown, and a run measured that way never takes the best mark on the drawdown or MAR rows.':'')
             +(noCurve?(' '+noCurve+' of these runs saved no equity curve, so they appear in the table but not on the chart.'):'')
             +(gone?(' '+gone+((gone===1)?' picked run is':' picked runs are')+' no longer in your history, so '+((gone===1)?'it was':'they were')+' skipped.'):'')
@@ -31588,6 +31637,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     const _wireC2=(content)=>{
       // EXPLORE: the three sheets. The COMPARE FOR presets are the board's own and are
       //   already wired with the rest of it.
+      // THE LIVE CHART draws itself over the static one once the markup is in the page.
+      //   It is the same function the old board mounts, so both screens get the same chart
+      //   and the same fixes forever after.
+      {const _h=content.querySelector('#c2-ovl-host');
+       if(_h&&typeof window.cmpOvlMount==='function'){
+        // the mount CLEARS the host before it draws, so the static chart is only a fallback
+        //   if it is put back - otherwise a throw leaves an empty box.
+        const _keep=_h.innerHTML;
+        try{window.cmpOvlMount('c2-ovl-host');}catch(e){
+          try{_h.innerHTML=_keep;}catch(e2){}
+          console.warn('[compare] live chart did not mount, static chart restored:',(e&&e.message)||e);}}}
+      // the fullscreen explorer. Without this the button does nothing AND the chart's own
+      //   double-click finds it, clicks it, and returns - so zoom could never be reset.
+      {const _cx=content.querySelector('[data-cmpexpand]');
+       if(_cx)_cx.onclick=()=>{try{
+         const all=(window._cmpEqxSeries||[]);
+         const hid=window._cmpOvlHide,gry=window._cmpOvlGrey;
+         const vis=all.filter(s2=>!(hid&&hid.has&&hid.has(s2.id))&&!(gry&&gry.has&&gry.has(s2.id)));
+         if(typeof window.expandCompareEq==='function')window.expandCompareEq(vis.length?vis:all,{noTabs:true});
+       }catch(e){console.warn('[compare] explorer failed:',(e&&e.message)||e);}};}
+      content.querySelectorAll('[data-c2hwm]').forEach(b=>{b.onclick=()=>{
+        savePref('c2Hwm',!(APREF.c2Hwm===true));renderApp();};});
       content.querySelectorAll('[data-c2heat]').forEach(b=>{b.onclick=()=>{
         savePref('c2Heat',!(APREF.c2Heat!==false));renderApp();};});
       content.querySelectorAll('[data-c2tbl]').forEach(b=>{b.onclick=()=>{

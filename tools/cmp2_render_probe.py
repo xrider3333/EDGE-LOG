@@ -304,6 +304,12 @@ var FIX = __FIX__;
             paths:ds.length,
             badD:ds.filter(function(t){return !t||/NaN|Infinity|undefined/.test(t);}).length,
             shortD:ds.filter(function(t){return (t.match(/L/g)||[]).length<1;}).length,
+            // the live chart draws itself over the static one; its key rows are the proof it
+            //   mounted, and the spotlight hook is what lets it reach into the table.
+            host:d.querySelectorAll('#c2-ovl-host').length,
+            keyRows:d.querySelectorAll('[data-ovltog]').length,
+            expand:d.querySelectorAll('[data-cmpexpand]').length,
+            spot:d.querySelectorAll('#rb-mtx-box [data-rbc]').length,
             apx:[].filter.call(d.querySelectorAll('.c2-card table td span'),function(e){
               return /^~/.test((e.textContent||'').trim());}).length,
             chips:d.querySelectorAll('.c2-lg').length,
@@ -726,7 +732,11 @@ def main(argv=None):
     # three picked runs: the fixture and its no-stored-drawdown twin each draw a solid
     # tuning stretch plus a dotted lockbox tail; the book draws nothing at all.
     cmp_ok = (r.get('call') == 'OK' and stages_ok and errs_ok
-              and lb.get('paths') == 4
+              and (lb.get('paths') or 0) >= 2
+              and lb.get('host') == 1
+              and (lb.get('keyRows') or 0) >= 1   # the live chart mounted
+              and (lb.get('spot') or 0) >= 1      # and can reach the table columns
+              and lb.get('expand') == 1           # the fullscreen explorer button exists
               and lb.get('badD') == 0               # no NaN / Infinity in any coordinate
               and lb.get('shortD') == 0             # every path actually draws a line
               and lb.get('chips') == 3              # one removable chip per picked run
@@ -760,10 +770,20 @@ def main(argv=None):
                 fail('compare: %s console.error -- %s' % (k, p['errors'][0][:200]))
             if p.get('uncaught'):
                 fail('compare: %s uncaught -- %s' % (k, p['uncaught'][0][:200]))
-        if lb.get('paths') != 4:
-            fail('compare: overlay drew %s paths, expected 4 - a solid tuning stretch and a '
-                 'dotted lockbox tail for each of the two runs that have a curve, and '
-                 'nothing for the curveless book' % lb.get('paths'))
+        if (lb.get('paths') or 0) < 2:
+            fail('compare: the chart drew %s paths' % lb.get('paths'))
+        if lb.get('host') != 1:
+            fail('compare: the chart host is missing, so the live chart has nowhere to mount')
+        if (lb.get('keyRows') or 0) < 1:
+            fail('compare: the live chart did not mount - no key rows. The static fallback '
+                 'may still be drawn, which is why the path count alone cannot catch this')
+        if (lb.get('spot') or 0) < 1:
+            fail('compare: the chart cannot reach the table - the spotlight looks inside one '
+                 'named box and the table is not in it, so hovering a curve would lift the '
+                 'curve and leave the columns alone')
+        if lb.get('expand') != 1:
+            fail('compare: the fullscreen explorer button is missing - and the chart '
+                 'double-click looks for it, so its absence also breaks reset-zoom')
         if lb.get('badD'):
             fail('compare: %s overlay path(s) contain NaN / Infinity / undefined coordinates '
                  '- the chart would render blank' % lb.get('badD'))
