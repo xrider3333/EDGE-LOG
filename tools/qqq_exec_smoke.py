@@ -631,6 +631,32 @@ def main():
         check("price feed back -> rail clears", doc8b.get("px_feed_stale") is False,
              doc8b.get("px_feed_stale"))
 
+        # ...and a LIVE WEBULL QUOTE alone is enough, even with the NQ feed still dead:
+        # resolve_price consults the quote first and both marking and closing go through
+        # it, so refusing the trade would throw away a fill we can price to the cent.
+        fills_path9 = os.path.join(tmp, "fills9.csv")
+        write_fills(fills_path9, [
+            ["px2", "2026-09-04 13:35:00", "Sim101", "NQ 12-26", "BUY", "1", "30000", "0", "px2", "ORB"],
+        ])
+        cfg9 = qe.load_config(path=os.path.join(tmp, "config_px2.json"))
+        state9 = qe._default_state()
+        qe._PX_RAIL_QUOTE_CACHE["at"] = 0.0        # 60s probe cache; force a fresh look
+        qe._latest_nq_px = lambda *a, **k: (None, None)
+        try:
+            cfg9, state9, doc9 = qe.tick(fills_path=fills_path9,
+                                         now=datetime(2026, 9, 4, 9, 40),
+                                         quote_fn=bad_quote_factory(700.0),
+                                         ratio_fn=ratio_fn, cfg=cfg9, state=state9)
+        finally:
+            qe._latest_nq_px = live_px
+            qe._PX_RAIL_QUOTE_CACHE["at"] = 0.0
+        check("a live quote alone clears the rail", doc9.get("px_feed_stale") is False,
+             doc9.get("px_feed_stale"))
+        check("and the lot actually opens, priced off the quote",
+             "ORB" in state9.get("legs", {})
+             and abs(state9["legs"]["ORB"]["entry_px"] - 700.0) < 0.05,
+             state9.get("legs"))
+
         print()
         if FAILURES:
             print(f"SMOKE TEST: {len(FAILURES)} FAILURE(S): {FAILURES}")

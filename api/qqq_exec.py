@@ -722,6 +722,18 @@ def _webull_quote_raw(symbol="QQQ", log=print):
         # traceback into runner.log every hour (seen 2026-09-08). Mark it set and log to nothing.
         api._file_logger_set = True
         import logging as _lg; _lg.getLogger('webull.core').addHandler(_lg.NullHandler())
+        # TOKEN (2026-09-09): MarketData(api) does NOT authenticate the client. Only
+        # ClientInitializer.initializer() mints and attaches the x-access-token, and the
+        # SDK runs it inside TradeClient/DataClient constructors -- never inside
+        # MarketData. Building MarketData on a bare ApiClient therefore sent every
+        # market-data request with NO token and got back
+        #   401 INVALID_TOKEN "Header x-access-token is missing or invalid"
+        # which this function swallowed as "no entitlement" and fell back to the NQ ratio.
+        # So this path had NEVER worked. (The 403 MARKET_DATA_NOT_SUBSCRIBED seen while
+        # spiking was a red herring: that script happened to build a TradeClient on the
+        # same ApiClient first, which initialised it.) Initialise explicitly here.
+        from webull.core.http.initializer.client_initializer import ClientInitializer
+        ClientInitializer.initializer(api)
         md = MarketData(api)
         for cat in (Category.US_ETF, Category.US_STOCK):
             try:
@@ -730,11 +742,21 @@ def _webull_quote_raw(symbol="QQQ", log=print):
                 resp = None
             if not resp:
                 continue
-            item = resp[0] if isinstance(resp, list) else resp
-            price = (getattr(item, "close", None) or getattr(item, "price", None)
-                     or getattr(item, "last_price", None))
-            ts = (getattr(item, "trade_time", None) or getattr(item, "timestamp", None)
-                  or getattr(item, "mktradetime", None))
+            # SHAPE (2026-09-09): get_snapshot returns an HTTP RESPONSE, not a model --
+            # the payload is a JSON list of plain dicts. The old getattr() reads returned
+            # None against a dict even when a perfectly good quote was in hand, so this
+            # was a second, independent reason the path could never price a fill.
+            try:
+                body = resp.json() if hasattr(resp, "json") else resp
+            except Exception:
+                continue
+            item = body[0] if isinstance(body, list) and body else body
+            if not isinstance(item, dict):
+                continue
+            price = item.get("close") or item.get("price") or item.get("last_price")
+            # epoch MILLISECONDS on this feed; last_trade_time is the print we care about
+            ts = (item.get("last_trade_time") or item.get("quote_time")
+                  or item.get("trade_time") or item.get("timestamp"))
             if price is None:
                 continue
             age = None
@@ -1388,7 +1410,10 @@ def _track_tick_gap(state, nowdt, now_wall=None, log=print):
 
 
 # -- feed staleness ------------------------------------------------------------------------
-def _check_px_feed(state, log=print):
+_PX_RAIL_QUOTE_CACHE = {"at": 0.0, "ok": False}   # see _check_px_feed
+
+
+def _check_px_feed(state, quote_fn=None, log=print):
     """True when we cannot obtain a LIVE price to mark or exit a lot with.
 
     WHY THIS IS ITS OWN RAIL (2026-09-09). `_check_feed` below watches the FILL feed --
@@ -1407,21 +1432,35 @@ def _check_px_feed(state, log=print):
     corrupt evidence, which is worse than none. Exits are deliberately NOT blocked -- an
     already-open lot still gets every chance to close.
 
-    Conservative by design: if the Webull quote ever gains its market-data entitlement
-    (it answers 403 MARKET_DATA_NOT_SUBSCRIBED today) it could price a fill with no NQ
-    feed at all, and this rail could then be relaxed to consult it first."""
+    RELAXED 2026-09-09, exactly as this docstring anticipated. The owner claimed the free
+    Nasdaq Basic non-display tier, so `quote_fn` now returns a real-time QQQ print about a
+    second old. `resolve_price` consults that quote FIRST, and both `_mark_and_check_breaker`
+    and `_close_all` go through it -- so with a working quote a dead NQ feed no longer
+    blinds anything, and blocking entries on it would refuse trades we can price perfectly
+    well. The rail therefore fires only when BOTH sources are gone. The quote probe is
+    cached for 60s and only ever runs when the NQ feed is already stale, so the healthy
+    path stays a cheap file read and a dead-feed day costs one API call a minute."""
     px, _ts = _latest_nq_px()
     stale = px is None
+    if stale and quote_fn is not None:
+        now = time.time()
+        if now - _PX_RAIL_QUOTE_CACHE["at"] >= 60.0:
+            _PX_RAIL_QUOTE_CACHE["at"] = now
+            try:
+                _PX_RAIL_QUOTE_CACHE["ok"] = quote_fn(log=log) is not None
+            except Exception:
+                _PX_RAIL_QUOTE_CACHE["ok"] = False
+        if _PX_RAIL_QUOTE_CACHE["ok"]:
+            stale = False
     was = state.get("px_feed_stale", False)
     state["px_feed_stale"] = stale
     if stale and not was:
         _log_event(state, "px_feed_down",
-                  "NQ price feed went stale -- open lots cannot be marked, so new entries "
-                  "are blocked (an exit would otherwise be priced at the entry price)",
-                  log=log)
+                  "No live price from EITHER the Webull quote or the NQ feed -- open lots "
+                  "cannot be marked, so new entries are blocked (an exit would otherwise "
+                  "be priced at the entry price)", log=log)
     elif was and not stale:
-        _log_event(state, "px_feed_up", "NQ price feed is live again -- entries re-enabled",
-                  log=log)
+        _log_event(state, "px_feed_up", "Live pricing is back -- entries re-enabled", log=log)
     return stale
 
 
@@ -2150,7 +2189,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     active = _in_market_window(nowdt)
     feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
-    px_feed_stale = _check_px_feed(state, log=log) if active else state.get("px_feed_stale", False)
+    px_feed_stale = (_check_px_feed(state, quote_fn=quote_fn, log=log) if active
+                     else state.get("px_feed_stale", False))
     if active:
         _accumulate_feed_uptime(state, nowdt, feed_stale, log=log)
         _track_tick_gap(state, nowdt, now_wall=_now_wall, log=log)
