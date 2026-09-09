@@ -1,4 +1,4 @@
-"""Queue the STRUCTURAL STOP Auto-Validate (TTMSQZ_3_0_ES30SS.py, 27 fenced cells).
+"""Queue the STRUCTURAL STOP re-run with the verification length PINNED (TTMSQZ_3_0_ES30SS20.py, 9 cells).
 
 Window, master, costs and lockbox are copied from run #299's job so every TTM validate in the
 family sits on the same tape. Written 2026-09-09 out of TTM round 12b.
@@ -20,7 +20,7 @@ db = firestore.client()
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 u = db.collection("users").document(UID)
 
-FILE = "TTMSQZ_3_0_ES30SS.py"
+FILE = "TTMSQZ_3_0_ES30SS20.py"
 if not os.path.exists(os.path.join("augur_strategies", FILE)):
     sys.exit(f"ABORT - {FILE} is not in the runner's checkout (ship first)")
 
@@ -46,32 +46,28 @@ CARRY = ["type", "instrument", "timeframe", "session", "source", "cost_pts", "mu
 job = {k: src[k] for k in CARRY if k in src}
 job.update(
     type="validate", status="queued", progress=0, strategy=FILE,
-    preset="Short  (ES 30m structural stop)",
-    note=("THE PROTECTIVE STOP, MOVED FROM A VOLATILITY MULTIPLE TO THE STRUCTURE. Round 12b tested the "
-          "entry, the stop and the exit of the crown cell; pullback entries, fixed time exits and scaling "
-          "out were all worse, and one change was not: stopping at the FAR SIDE OF THE SQUEEZE RANGE - the "
-          "level that says the setup was simply wrong - instead of 1.5 ATR. On the pinned window, mechanism "
-          "only: 357 trades, profit factor 2.70 against the crown 2.12, net $73,720 against $51,709, "
-          "drawdown $3,642 against $3,740, lockbox $11,710 at profit factor 5.38 against $4,992 at 2.22. "
-          "Buffers of 0, 0.5 and 1.0 points behave alike, which is what a structural effect looks like "
-          "rather than a fitted one; this file freezes the buffer at 0. With run #340's validated "
-          "deep-squeeze 1.5x tilt on top, which is the leg the paper book carries: $101,017 at profit "
-          "factor 2.91, drawdown $4,338 against the tilted leg's $4,549, lockbox $16,977 at 6.72 against "
-          "$6,948 at 2.38. THE FILE WAS BUILT BEFORE THIS WAS BELIEVED and reproduces the scan to the "
-          "dollar - which matters, because the same round caught a look-ahead bug in a different rule "
-          "exactly this way. stop_atr is dropped from the searched set because the structural stop makes "
-          "it inert; three knobs remain over the same admissible values as run #299, enforced in the file, "
-          "refusing out-of-set configurations rather than clamping them. "
-          "PRE-REGISTERED BAR (written before the run): (a) PASS, or WEAK on the overfit check alone; "
-          "(b) lockbox net at least the book leg's $6,948 AND lockbox profit factor at least its 2.38; "
-          "(c) whole-run annualised MAR at least the book leg's, at a whole-run drawdown no more than 10 "
-          "percent above its $4,549. "
-          "THE RISK THIS RUN CANNOT SETTLE, recorded here so it is not forgotten at adoption time: the "
-          "structural stop averages $1,041 a contract against the ATR stop's $586, so it is about 76 "
-          "percent wider, and its worst observed distance is $6,612. In THIS window that never cost "
-          "anything - the worst single trade is $2,056 against the incumbent's $1,813, only 13 percent "
-          "worse - but sixteen years that never punished a wider tail is one draw, not proof. Adoption "
-          "needs a gap-stress read on top of a PASS here, and then a BOOK run against #341."),
+    preset="Short  (ES 30m structural stop, gate length 20)",
+    note=("THE STRUCTURAL STOP, WITH THE KNOB ITS SEARCH RAN AWAY ON PINNED. Run #352 put this stop through "
+          "Auto-Validate and PASSED every house gate - plateau, walk-forward, sample, consistency, overfit "
+          "and luck, overfit probability 0.17, deflated Sharpe beats the luck bar, 162 trades per knob. It "
+          "did NOT clear the bar written before it ran. The search crowned a verification length of 16 "
+          "instead of 20, which nearly doubles the trades - 665 against 357 - and takes the whole-run "
+          "drawdown to $7,143 against the book leg $4,549, a 57 percent rise against a 10 percent cap, for "
+          "an annualised MAR of 0.956 against the book leg 0.957. A dead heat bought with more risk, which "
+          "is what the drawdown clause exists to catch, and the same corner-walking that run #331 showed. "
+          "This run asks the question the round was about - does the STOP help - with gate_len held at 20, "
+          "the value run #299 and run #340 both crowned months before this stop was considered and the "
+          "value the paper book carries today. That is one change at a time, not a cell chosen to fit a bar. "
+          "At that cell, mechanism only: 357 trades, profit factor 2.70, $73,720, drawdown $3,642, lockbox "
+          "$11,710 at 5.38. With run #340 validated tilt on top, which is the shipped file: $101,017 at "
+          "2.91, drawdown $4,338 - BELOW the book leg $4,549 - and a lockbox of $16,977 at 6.72. "
+          "THE BAR IS UNCHANGED FROM RUN #352 so the two are comparable: (a) PASS, or WEAK on the overfit "
+          "check alone; (b) lockbox net at least $6,948 AND lockbox profit factor at least 2.38; (c) "
+          "whole-run annualised MAR at least the book leg, at a drawdown no more than 10 percent above its "
+          "$4,549. THE CAVEAT NEITHER RUN CAN SETTLE: this stop averages about $1,041 a contract against "
+          "the ATR stop $586, some 76 percent wider, worst observed distance $6,612. In this window that "
+          "never cost anything - worst single trade $2,056 against $1,813 - but that is one draw, not proof. "
+          "Adoption needs a gap-stress read on top of a PASS, and then a BOOK run against #341."),
 )
 for k in ("date_from", "date_to", "source", "cost_pts", "lockbox_months"):
     if k not in job:
@@ -80,6 +76,6 @@ job["createdAt"] = datetime.datetime.now(datetime.timezone.utc)
 ref = u.collection("backtests").document()
 ref.set(job)
 print("queued:", ref.id)
-print("  strategy :", job["strategy"], "| 27 cells |", job["instrument"], job["timeframe"])
+print("  strategy :", job["strategy"], "| 9 cells |", job["instrument"], job["timeframe"])
 print("  window   :", job["date_from"], "->", job["date_to"], "| lockbox", job["lockbox_months"], "mo")
 print("  source   :", job["source"], "| cost_pts", job["cost_pts"], "| mult", job.get("mult") or job.get("multiplier"))
