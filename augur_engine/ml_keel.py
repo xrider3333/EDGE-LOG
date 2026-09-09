@@ -48,6 +48,8 @@ Iteration log (all four legs = NOISE #243, ORB #234 NQ + ES, ENGU-Q #265; pinned
       out-MARs it and never hurts. Standing: comparison-only in gate_validate, forward
       test as a PAPER leg. See BACKTESTING_STACK.md section 4 (KEEL) for the full table.
 """
+import os
+import datetime as _dt
 import numpy as np
 import pandas as pd
 
@@ -161,9 +163,83 @@ CFG = {
             "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
             "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0},
             "dow": {"4": 1.5, "cap": 3.0}},
+    # v12 (2026-09-09) = v11 x an a-priori EVENT tilt: HALF SIZE on trades entered on a scheduled
+    #    FOMC decision day BEFORE the 14:00 ET statement. The first new-information lever in the
+    #    study - the Fed's own published calendar (tools/data/fomc_dates.txt), knowable years ahead.
+    #    The pre-statement morning is the worst bucket found anywhere in this work: WF EV R -0.484
+    #    (#243) / -0.426 (#304) against a +0.31 / +0.27 baseline; negative in IS, WF and the lockbox
+    #    on BOTH runs (6 of 6 stretches); negative in 8 of 9 walk-forward years on both; the median
+    #    trade loses; the worst single trade is only 13% of the hole, so it is broad, not a blow-up.
+    #    Permutation test: against 4,000 random day-calendars of the same size the real FOMC calendar
+    #    lands in the bottom 0.10% on both runs (z -2.71 / -2.58). Three placebos FAIL as they should
+    #    - the morning BEFORE a decision day, a random matched day-set, and an every-morning shrink
+    #    of the same dollar size all LOSE money - so the tilt is keyed to the events, not to mornings.
+    #    On top of v11, ENGINE-VERIFIED through keel_walk on freshly backtested trade lists (4,429 and
+    #    4,833 trades; 87 and 91 tagged pre-statement, 2.0% / 1.9%, every one exactly halved):
+    #      #243 WF $523,760 -> $532,380 at IDENTICAL drawdown -19,820 (MAR 3.01 -> 3.06)
+    #      #243 LB  $86,080 ->  $90,740 at -19,800 vs -19,860, i.e. BETTER (MAR 2.89 -> 3.06)
+    #      #304 WF $490,620 -> $497,200 at -16,340 vs -16,600, BETTER (MAR 3.37 -> 3.46)
+    #      #304 LB $139,020 -> $144,260 at identical -26,920 (MAR 3.45 -> 3.58)
+    #    Better net on 4 of 4 stretches, drawdown never worse on any of them.
+    #    Deeper cuts score monotonically better (0.25x > 0.5x > 0.75x); 0.5x is the honest middle,
+    #    not the optimum, because the standing rule is never to tune a size on the lockbox.
+    #    NOT NOISE-only: the same bucket is negative on the ORB #314 breakout (EV R -0.257 vs +0.211)
+    #    and the ENGU-Q #309 continuation (-0.499 vs +0.444), which is why the tilt is also exposed
+    #    through compression_sizes(event=...) for the model-free legs.
+    #    Recorded honestly: the PRE-REGISTERED story was the opposite (I expected the 14:00 statement
+    #    to be the bad half; it is the better half), so the bucket split is post-hoc - which is what
+    #    the permutation test and the three placebos are there to price. It also misses the lab's
+    #    year-by-year t >= 2.5 bar (t 1.57 / 2.00), unavoidable for a tilt touching 2.3% of trades,
+    #    but that bar exists to reject leverage and this one adds no drawdown anywhere.
+    "v12": {"W": 600, "t_lo": 0.5, "t_hi": 1.0, "target": "log", "stack": "trust",
+            "ledger": "dollar", "members": ("logit", "et"), "K": 1.5, "LO": 0.75, "HI": 2.0,
+            "fast": {"W": 50, "lo": -0.5, "hi": 0.5},
+            "shade": {"t": -0.5, "k": 1.0, "lo": 0.5, "hi": 1.5},
+            "comp": {"feature": "sq60_on", "mult": 1.5, "cap": 3.0},
+            "dow": {"4": 1.5, "cap": 3.0},
+            "event": {"mult": 0.5, "cut_hour": 14}},
 }
 for _k in ("v1", "v2"):
     CFG[_k].setdefault("ledger", "rank"); CFG[_k].setdefault("members", ("logit", "et", "huber"))
+
+
+# -- scheduled macro events ----------------------------------------------------
+_FOMC = None
+
+
+def fomc_decision_days(path=None):
+    """The Fed's own scheduled FOMC decision (statement) days, as ET calendar dates.
+    Source: tools/data/fomc_dates.txt, scraped from federalreserve.gov (2010 -> 2027).
+    Published years in advance, so a tilt keyed on it is knowable at entry - no look-ahead.
+    Returns an empty set if the file is missing, which makes any event tilt a silent no-op."""
+    global _FOMC
+    if _FOMC is None:
+        p = path or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "tools", "data", "fomc_dates.txt")
+        out = set()
+        try:
+            with open(p, "r", encoding="utf-8") as fh:
+                for ln in fh:
+                    ln = ln.strip()
+                    if ln and not ln.startswith("#"):
+                        out.add(_dt.date.fromisoformat(ln))
+        except Exception:
+            pass
+        _FOMC = out
+    return _FOMC
+
+
+def pre_statement_mask(arrays, E, cut_hour=14):
+    """True where the entry bar sits on a scheduled FOMC decision day BEFORE the ET statement.
+    Handles both the naive and the tz-aware index paths (ETH masters carry a tz)."""
+    idx = pd.DatetimeIndex(arrays["index"])
+    if idx.tz is not None:
+        idx = idx.tz_convert("US/Eastern")
+    e = idx[np.clip(np.asarray(E, int), 0, len(idx) - 1)]
+    days = fomc_decision_days()
+    if not days:
+        return np.zeros(len(e), bool)
+    return np.array([(t.date() in days) and (t.hour < int(cut_hour)) for t in e], bool)
 
 
 # -- extra causal features -----------------------------------------------------
@@ -390,13 +466,18 @@ def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version
         # a-priori compression multiplier on top of the learned size (TTM round 6), capped
         on = X[:, names.index(comp["feature"])] > 0
         size = np.minimum(np.where(on, size * float(comp["mult"]), size), float(comp.get("cap", 3.0)))
+    ev = cfg.get("event")
+    if ev:
+        # a-priori EVENT tilt, applied LAST so no cap can undo a cut: half size before the statement
+        _pre = pre_statement_mask(arrays, E, ev.get("cut_hour", 14))
+        size = np.where(_pre, size * float(ev.get("mult", 0.5)), size)
     return {"trades": T, "E": E, "X": Xi, "P": P, "size": size, "z": z, "z_members": zm,
             "trust": trust, "rho": rho, "trust_members": tm, "n_fits": n_fits,
             "feature_names": names, "version": version}
 
 
 def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, thr=0.85, dow=None, cap=3.0,
-                      gate_tf_min=60, gate_len=20, gate_ratio=1.0):
+                      gate_tf_min=60, gate_len=20, gate_ratio=1.0, event=None):
     """RAW x compression, no model: the attribution control for v9. Size `mult` on trades entered
     while the 60m state is compressed, 1.0 otherwise. Trades sorted by entry bar.
     2026-09-08 options: `deep` = multiplier when sq60_ratio < `thr` (depth-graded: 2x deep / 1.5x on /
@@ -420,7 +501,11 @@ def compression_sizes(arrays, trades, mult=1.5, feature="sq60_on", deep=None, th
     if dow:
         wd = pd.DatetimeIndex(arrays["index"])[E].dayofweek
         m = m * np.array([float(dow.get(str(int(w)), 1.0)) for w in wd])
-    return np.minimum(m, float(cap))
+    m = np.minimum(m, float(cap))
+    if event:
+        # v12's FOMC pre-statement half-size, model-free (that bucket is negative on ORB and ENGU-Q too)
+        m = np.where(pre_statement_mask(arrays, E, event.get("cut_hour", 14)), m * float(event.get("mult", 0.5)), m)
+    return m
 
 
 def sizes_from_z(z, trust, k=K_MAX, lo=LO, hi=HI):

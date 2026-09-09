@@ -886,6 +886,66 @@ NOISE runs in WF, LB DD within ~10%, yearly t ≥ 2.5, never pick on the lockbox
   2.9) but cost +49% / +57% LB DD. ENGU-Q is long-only (side tilt moot). On NOISE depth is marginal (+2% WF, t 2.3)
   → NOISE keeps flat 1.5×. Paper: `ORB_R6_C15F`, `ENGUQ_309_CD`.
 
+- **Cross-strategy state, day structure and NQ-vs-ES divergence (2026-09-08/09, 14 candidates): 0 pass.**
+  Whether ORB had already fired or resolved that day, opening-range width vs ATR, the overnight gap, and the
+  NQ-minus-ES 60-minute return z-scored and signed against the trade. Two facts worth keeping even though no
+  tilt survives: a NOISE entry after ORB has fired is worth less (EV R 0.25 vs 0.31) but cutting it loses money
+  in every walk-forward year; and "relative-oversold" entries, where NQ has lagged ES by over a sigma against
+  the trade, are the **worst** divergence bucket (EV R 0.14 / 0.03), so divergence is a trend signal, not a
+  reversion edge. Every broad size-up here (no-ORB days, narrow openings, big gaps, fighting the tape) earns at
+  t 3–5 with drawdown up in proportion — leverage, rejected. Lab: `keel_xstate.py`, `keel_esdiv.py`.
+
+### v12 — the event hole (2026-09-09): the first NEW-INFORMATION lever that works
+
+Everything above searches the same features harder. This one adds information that was never in the dataset:
+the Fed's own published FOMC calendar (`tools/data/fomc_dates.txt`, scraped from federalreserve.gov, now carried
+forward to 2027-12-08 so the tilt fires live). Meeting dates are published a year ahead, so a tilt keyed on them
+is knowable at entry — no look-ahead.
+
+**The finding.** Trades entered on a scheduled decision day **before the 14:00 ET statement** are the worst
+bucket found anywhere in this study, and it is not a NOISE artefact:
+
+| leg | mechanism | pre-statement EV R | all other trades |
+|---|---|---|---|
+| NOISE #243 | fade | **−0.484** | +0.308 |
+| NOISE #304 | fade | **−0.426** | +0.281 |
+| ORB #314 | breakout | **−0.257** | +0.211 |
+| ENGU-Q #309 | continuation | **−0.499** | +0.444 |
+
+Negative in IS, walk-forward **and** lockbox on both NOISE runs (6 of 6 stretches); negative in 8 of 9
+walk-forward years on both; the median trade loses; the worst single trade is only 13% of the hole, so it is
+broad rather than one blow-up. Against **4,000 random day-calendars** of the same size the real FOMC calendar
+lands in the **bottom 0.10%** on both runs (z −2.71 / −2.58). Three placebos all lose money, exactly as they
+must if the tilt is keyed to the events and not to mornings: the morning **before** a decision day, a random
+matched day-set, and an every-morning shrink of the same dollar size.
+
+**v12 = v11 × half size before the statement.** Never a cut — the standing rule is size, don't filter.
+
+| run · stretch | v11 net | v12 net | v11 DD | v12 DD | v11 MAR | v12 MAR |
+|---|---|---|---|---|---|---|
+| #243 walk-forward | $523,760 | **$532,380** | −19,820 | −19,820 | 3.01 | 3.06 |
+| #243 lockbox | $86,080 | **$90,740** | −19,860 | −19,800 | 2.89 | 3.06 |
+| #304 walk-forward | $490,620 | **$497,200** | −16,600 | −16,340 | 3.37 | 3.46 |
+| #304 lockbox | $139,020 | **$144,260** | −26,920 | −26,920 | 3.45 | 3.58 |
+
+Engine-verified, not lab-cache: re-run through `ml_keel.keel_walk` on freshly backtested trade lists
+(4,429 and 4,833 trades; 87 and 91 of them tagged pre-statement, 2.0% and 1.9%, every one exactly halved).
+This pass also corrected a lab artefact — the scratch harness read #304's walk-forward as $466,749 off its
+cached state file, where the engine and this doc's own v11 entry both read $490,620. The engine is the
+authority; the direction and every delta were unchanged.
+
+Better net on 4 of 4 stretches with drawdown never worse on any of them — the owner's adoption bar, met cleanly.
+Deeper cuts score monotonically better (0.25× > 0.5× > 0.75×); 0.5× is the honest middle, not the optimum,
+because sizes are never tuned on the lockbox.
+
+**Stated against itself.** The pre-registered story was the *opposite* — I expected the 14:00 statement shock to
+be the bad half, and it is the **better** half (EV R 0.42 / 0.29, above baseline). The bucket split is therefore
+post-hoc, which is what the permutation test and the three placebos are there to price. It also misses the lab's
+year-by-year t ≥ 2.5 bar (t 1.57 / 2.00) — unavoidable for a tilt touching 2.3% of trades — but that bar exists
+to reject leverage, and this one adds no drawdown anywhere. Paper legs from 2026-09-09, each beside its exact
+ablation control: `NOISE_SBS_V90_K12` (control `K11`), `ORB_R6_C15FE` (control `ORB_R6_C15F`),
+`ENGUQ_309_CDE` (control `ENGUQ_309_CD`). Lab: `keel_events.py`, `keel_events2.py`, `keel_events3.py`.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

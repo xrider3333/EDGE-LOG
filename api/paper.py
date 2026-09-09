@@ -86,6 +86,9 @@ LEG_LIVE_FROM = {
     "TTM_299": "2026-09-09",  # TTM Squeeze crown (run 299) as the book diversifier leg, 3 ES in BOOK 336
     "TTM_299_T": "2026-09-10", # the same leg with the VALIDATED deep-squeeze size tilt (run 340) - TTM_299 is its control
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
+    "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
+    "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
+    "ENGUQ_309_CDE": "2026-09-09",    # ENGU-Q crown x depth-graded compression x FOMC-morning 0.5x
     "NOISE_SBS_V90_K11": "2026-09-08", # KEEL v11 = v10 x 1.5 Friday (a-priori day tilt) on the same crown, forward test only
     "ORB_R6_C15F": "2026-09-08",      # ORB crown x compression 1.5x x Friday 1.5x (LB $102k -> $123k at DD +1.8%, 8/10 WF years)
     "ENGUQ_309_CD": "2026-09-08",     # ENGU-Q crown x DEPTH-graded compression (2x when ratio<0.85, 1.5x on): LB $110k -> $115k at DD 10% BETTER
@@ -651,6 +654,25 @@ ENGUQ_309_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run
 #   the flat 1.5x - LB $109,921 -> $115,182 at DD -47.3k -> -42.4k (BETTER), WF $534k -> $575k.
 #   Friday does NOT travel to ENGU-Q (LB net falls). On NOISE depth is marginal (+2% WF, t 2.3) so
 #   the NOISE legs keep the flat 1.5x. FORWARD EVIDENCE ONLY; controls = ORB_R6 / ENGUQ_309 / the C15 legs.
+# THE EVENT HOLE (2026-09-09). The first NEW-INFORMATION lever in this study: the Fed's own
+# published FOMC calendar (tools/data/fomc_dates.txt, now carried forward to 2027-12-08, so the
+# tilt fires live). Trades entered on a scheduled decision day BEFORE the 14:00 ET statement are
+# the worst bucket found anywhere in the work, and NOT only on NOISE:
+#   NOISE #243  WF EV R -0.484 vs +0.308 baseline     NOISE #304  -0.426 vs +0.281
+#   ORB   #314  EV R -0.257 vs +0.211 (a breakout)    ENGU-Q #309 -0.499 vs +0.444 (continuation)
+# Negative in IS, walk-forward AND lockbox on both NOISE runs (6 of 6 stretches), negative in 8 of
+# 9 walk-forward years on both, median trade negative, worst single trade only 13% of the hole.
+# Against 4,000 random day-calendars of the same size the real one lands in the bottom 0.10%
+# (z -2.71 / -2.58). Placebos all LOSE money, as they must: the morning BEFORE a decision day, a
+# random matched day-set, and an every-morning shrink of the same dollar size. So: HALF SIZE, never
+# a cut. On top of v11 it is better net on 4 of 4 NOISE stretches with drawdown never worse on any.
+# FORWARD EVIDENCE ONLY; controls are K11 / ORB_R6_C15F / ENGUQ_309_CD, each identical but for this.
+FOMC_HALF = {"mult": 0.5, "cut_hour": 14}
+NOISE_243_KEEL12 = {"mode": "keel", "model": "keel", "version": "v12", "source_run": 243}
+ORB_314_COMP15FE = {"mode": "comp", "model": "compression", "mult": 1.5, "dow": {"4": 1.5},
+                    "event": FOMC_HALF, "source_run": 314}
+ENGUQ_309_COMPDE = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85,
+                    "event": FOMC_HALF, "source_run": 309}
 ORB_314_COMP15F = {"mode": "comp", "model": "compression", "mult": 1.5, "dow": {"4": 1.5}, "source_run": 314}
 ENGUQ_309_COMPD = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85, "source_run": 309}
 # KEEL on the ENGU-Q crown (#309). Second forward test, chosen because the ENGU-Q lockbox
@@ -905,6 +927,39 @@ LEG_SOURCE = {
                 "year-by-year consistency (WF t 3.4 / 2.9 on the two NOISE runs). Crown lockbox "
                 "read $121k vs raw $82k at drawdown within 3%. NOISE_SBS_V90 is the exact control "
                 "and NOISE_SBS_V90_C15 is the no-model compression control.",
+    },
+    "NOISE_SBS_V90_K12": {
+        "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v12 (v11 x FOMC-morning 0.5x)",
+        "strategy_file": "NOISE_1_0.py", "picked": "2026-09-09",
+        "note": "KEEL v11 with one thing added: half size on trades entered on a scheduled FOMC "
+                "decision day before the 14:00 ET statement, off the Fed's own published calendar. "
+                "That bucket loses money in every stretch of both NOISE runs and in 8 of 9 "
+                "walk-forward years, and the real calendar beats 99.9% of random calendars of the "
+                "same size. Read on the run's own stretches: walk-forward $532,380 vs $523,760 at "
+                "identical drawdown, lockbox $90,740 vs $86,080 at drawdown slightly better. "
+                "Added 2026-09-09; NOISE_SBS_V90 is the raw control and K11 the ablation control.",
+        "caveat": "The bucket split is post-hoc - the pre-registered story had the sign backwards "
+                  "(the post-statement afternoon is the GOOD half). Priced with a permutation test "
+                  "and three placebos, but it is 2.3% of trades, so the portfolio-level yearly t is "
+                  "only 1.57 / 2.00 and forward data is the real test.",
+    },
+    "ORB_R6_C15FE": {
+        "run": 314, "run_label": "#314 ORB crown + compression x Friday x FOMC-morning 0.5x",
+        "strategy_file": "ORB_3_6_R6.py", "picked": "2026-09-09",
+        "note": "ORB_R6_C15F with half size before the FOMC statement. The event hole is not a NOISE "
+                "artefact: on this breakout crown the same bucket runs EV R -0.257 against a +0.211 "
+                "baseline. No model. Added 2026-09-09; ORB_R6_C15F is the exact ablation control.",
+        "caveat": "The ORB read is a mechanism check over full history, not a stretch-by-stretch "
+                  "validate - this leg is the forward test of whether it travels.",
+    },
+    "ENGUQ_309_CDE": {
+        "run": 309, "run_label": "#309 ENGU-Q crown + depth-graded compression x FOMC-morning 0.5x",
+        "strategy_file": "ENGUQ_1M_ETH_ER_1_0.py", "picked": "2026-09-09",
+        "note": "ENGUQ_309_CD with half size before the FOMC statement. Same event hole on a "
+                "continuation strategy on the 24-hour tape: EV R -0.499 against a +0.444 baseline. "
+                "No model. Added 2026-09-09; ENGUQ_309_CD is the exact ablation control.",
+        "caveat": "Same as the ORB leg - a full-history mechanism read, not a fenced validate. On "
+                  "the ETH tape the pre-statement window includes the overnight session.",
     },
     "NOISE_SBS_V90_K11": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v11 (v10 x 1.5 Friday)",
@@ -1345,6 +1400,22 @@ PAPER_LEGS = [
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
      "gate": NOISE_243_COMP15G, "history_from": _GATE_HISTORY_FROM,
      "source": LEG_SOURCE["NOISE_SBS_V90_C15G"]},
+    # ADDED 2026-09-09: the FOMC pre-statement half-size tilt, one leg per family beside its exact
+    # ablation control (see FOMC_HALF). FORWARD EVIDENCE ONLY.
+    {"key": "NOISE_SBS_V90_K12", "strategy": "NOISE_1_0.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": NOISE_243_KEEL12, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_SBS_V90_K12"]},
+    {"key": "ORB_R6_C15FE", "strategy": "ORB_3_6_R6.py", "instrument": "NQ", "timeframe": "5m",
+     "session": "rth", "params": ORB_314, "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ORB_314_COMP15FE, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["ORB_R6_C15FE"]},
+    {"key": "ENGUQ_309_CDE", "strategy": "ENGUQ_1M_ETH_ER_1_0.py", "instrument": "NQ",
+     "timeframe": "1m", "session": "eth", "params": ENGUQ_309,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
+     "gate": ENGUQ_309_COMPDE, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["ENGUQ_309_CDE"]},
     # ADDED 2026-09-08: KEEL v11 = v10 x 1.5 Friday (see NOISE_243_KEEL11). FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_K11", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,

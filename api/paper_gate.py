@@ -148,7 +148,7 @@ def apply_gate(arrays, trades, gate):
             from augur_engine.ml_keel import compression_sizes
             w = np.asarray(compression_sizes(arrays, ordered, mult=float(gate.get("mult") or 1.5),
                                              deep=gate.get("deep"), thr=float(gate.get("thr") or 0.85),
-                                             dow=gate.get("dow"),
+                                             dow=gate.get("dow"), event=gate.get("event"),
                                              gate_tf_min=int(gate.get("gate_tf_min") or 60),
                                              gate_len=int(gate.get("gate_len") or 20),
                                              gate_ratio=float(gate.get("gate_ratio") or 1.0)), float)
