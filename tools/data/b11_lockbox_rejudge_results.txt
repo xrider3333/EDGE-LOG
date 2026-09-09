@@ -1,0 +1,35 @@
+card                 run        net $   whole DD  ann.MAR   lockbox $      LB DD     PF slices
+CONTROL-A            347      793,811     71,903    0.687     201,204     35,723   1.31    8/8  PASS
+CAND-A1 (=#311)      311    1,269,839    114,107    0.693     232,508     40,097   1.40    8/8  PASS
+CAND-A2              346    1,857,814    154,999    0.746     294,996     38,160   1.51    8/8  PASS
+CONTROL-B (=#336)    336    1,119,697     34,329    2.031     193,170     26,235   1.49    8/8  PASS
+CAND-B1              348    1,595,725     74,275    1.337     224,475     32,457   1.55    8/8  PASS
+
+THE BAR: MAR >= incumbent x1.15, LOCKBOX DD within 5 percent, lockbox net >= incumbent.
+
+  #311 vs #347   MAR x1.008 NO | whole-run DD x1.587 no | LOCKBOX DD x1.122 no | lockbox net x1.156 ok
+     OLD clause (whole-run DD): MISS     NEW clause (LOCKBOX DD): MISS
+
+  #346 vs #347   MAR x1.086 NO | whole-run DD x2.156 no | LOCKBOX DD x1.068 no | lockbox net x1.466 ok
+     OLD clause (whole-run DD): MISS     NEW clause (LOCKBOX DD): MISS
+
+  #348 vs #336   MAR x0.659 NO | whole-run DD x2.164 no | LOCKBOX DD x1.237 no | lockbox net x1.162 ok
+     OLD clause (whole-run DD): MISS     NEW clause (LOCKBOX DD): MISS
+
+WORST-STRETCH BLOCKS carried by the new cards (first book runs produced by the shipped engine):
+  #347  2020-02-26 .. 2020-03-25  $71,903 over 17 days   inert_legs=[]
+        ENGUQ_1M_ETH_FROZEN_1_0.py           -45,107   14 days
+        ORB_3_6_C2.py                        -26,796    9 days
+     lockbox stretch 2026-02-10 .. 2026-03-26  $35,723
+  #346  2020-02-26 .. 2020-03-25  $154,999 over 18 days   inert_legs=[]
+        ENGUQ_1M_ETH_FROZEN_1_0.py           -45,107   14 days
+        NQDIP_1_0.py                         -42,204    5 days
+        NQDIP_1_0.py                         -40,892    5 days
+        ORB_3_6_C2.py                        -26,796    9 days
+     lockbox stretch 2026-02-10 .. 2026-03-26  $38,160
+  #348  2020-02-26 .. 2020-03-25  $74,275 over 13 days   inert_legs=['TTMSQZ_3_0_ES30N.py']
+        NQDIP_1_0.py                         -42,204    5 days
+        ORB_3_6_C2.py                        -26,796    9 days
+        ENGUQ_1M_ETH_ER_1_0.py                -5,275    6 days
+        TTMSQZ_3_0_ES30N.py                        0    0 days
+     lockbox stretch 2026-02-12 .. 2026-05-01  $32,457

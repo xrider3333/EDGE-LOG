@@ -359,7 +359,50 @@ QQQ+NQ claim). A pass would not restore B11; a miss does not by itself retract i
 **CAND-A1 was not queued**: it already exists as stored BOOK #311, same window and lockbox. It
 becomes judgeable the moment CONTROL-A lands.
 
-**The prediction, written before the runs** (offline, `tools/book_dd_attribution.py`, same legs):
+**THE CARDS LANDED — runs #346, #347, #348 — AND EVERY FIGURE MATCHES THE PREDICTION TO THE
+DOLLAR.** All three MISS, under BOTH clauses, and the clause that fails is **MAR, not risk**.
+
+| card | run | net | whole DD | ann.MAR | lockbox | LB DD | PF | slices |
+|---|---|---|---|---|---|---|---|---|
+| CONTROL-A (champion of the day) | **#347** | $793,811 | $71,903 | 0.687 | $201,204 | $35,723 | 1.31 | 8/8 |
+| CAND-A1 (= stored #311) | #311 | $1,269,839 | $114,107 | 0.693 | $232,508 | $40,097 | 1.40 | 8/8 |
+| CAND-A2 (full QQQ+NQ shape) | **#346** | $1,857,814 | $154,999 | 0.746 | $294,996 | $38,160 | 1.51 | 8/8 |
+| CONTROL-B (adopted book) | #336 | $1,119,697 | $34,329 | 2.031 | $193,170 | $26,235 | 1.49 | 8/8 |
+| CAND-B1 (#336 + dip leg) | **#348** | $1,595,725 | $74,275 | 1.337 | $224,475 | $32,457 | 1.55 | 8/8 |
+
+| judged | vs | MAR (bar x1.15) | whole-run DD | **lockbox DD** | lockbox net | old | new |
+|---|---|---|---|---|---|---|---|
+| #311 | #347 | **x1.008** ✗ | x1.587 | x1.122 | x1.156 ✓ | MISS | MISS |
+| #346 | #347 | **x1.086** ✗ | x2.156 | x1.068 | x1.466 ✓ | MISS | MISS |
+| #348 | #336 | **x0.659** ✗ | x2.164 | x1.237 | x1.162 ✓ | MISS | MISS |
+
+**What this says about B11.** Its headline was MAR x1.35 on a x1.15 bar. Frozen into the tradeable
+file the same family reaches **x1.008 and x1.086** — and on the book the owner actually trades it
+is harmful: **x0.659, drawdown $34,329 → $74,275**. Every card still makes more money and holds a
+bigger lockbox net; what it does not do is earn that money at a comparable risk. **The +35% looks
+like a property of the walk-forward construction — re-picking parameters every fold — rather than
+of anything that can be traded with fixed settings.** That is a stronger and narrower statement
+than "B11 fails the new clause", and it is the honest reading of these five cards. B11 is NOT
+retracted here: the walk-forward result stands as what it is, an out-of-sample walk-forward
+result, and what is now on record beside it is that its tradeable form does not clear its own bar.
+
+**The clause swap was not what decided it, and that is worth saying plainly.** On the A cards the
+lockbox drawdown is the *kinder* number: whole-run ratios x1.587 and x2.156 against lockbox ratios
+x1.122 and **x1.068** — the last of those is nearly inside the 5% tolerance. Had MAR passed, the
+new clause would have been the easier gate, not the harder one. The two clauses disagree about the
+direction of the risk on this candidate, which is exactly why both print on every card.
+
+**A finding the new engine block produced on its own:** #348 reports
+`inert_legs = ['TTMSQZ_3_0_ES30N.py']`. Adding the dip leg **moves the book's worst stretch** from
+2022-04-27..05-24 ($34,329) back to the 2020 crash ($74,275) — and in that different stretch the
+TTM leg is the absent one. So which legs are inert is not a fixed property of a leg; it moves with
+the composition of the book. Any bar quoting a whole-run drawdown has to be re-read whenever a leg
+is added, not just the first time.
+
+Results log `tools/data/b11_lockbox_rejudge_results.txt`. STUDIES block `b11rejudge`.
+
+**The prediction, written before the runs** (offline, `tools/book_dd_attribution.py`, same legs) —
+kept here because every line of it was confirmed:
 
 | card | vs | MAR | whole-run DD | **lockbox DD** | lockbox net | verdict |
 |---|---|---|---|---|---|---|
