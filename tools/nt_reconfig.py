@@ -761,6 +761,81 @@ def add_parity_rows(dry):
         log(f"workspace: {len(ws_edits)} parity row(s) hosted on their live charts")
 
 
+def host_parity_rows(dry):
+    """Re-host the PARITY rows on their live charts so a boot re-creates them.
+
+    WHY (2026-09-09). Restarting NinjaTrader left EdgeLogENGUQPAR and EdgeLogORBPAR out
+    of the Control Center grid, and it looked like the restart had DELETED them. It had
+    not: all six EdgeLog rows were intact in the DB with their Strategy2Account /
+    Strategy2Instrument links, which is why --add-parity-rows is a no-op here ("already
+    exists - skipped"). What was missing is the OTHER half of a strategy row -- the
+    workspace entry that hosts it on a chart, the half --add-orb230's docstring calls
+    record 4. `Untitled 2.xml` hosted only EdgeLogNOISE and EdgeLogENGUQ1m, and carries
+    no ORB230 anchor at all, so --add-parity-rows' own insertion point for ORBPAR does
+    not exist either. This writes the two entries directly:
+
+      EdgeLogENGUQPAR (386606477) -> the NQ 1-minute chart, beside EdgeLogENGUQ1m
+      EdgeLogORBPAR   (386606478) -> the NQ 5-minute chart (the ORB chart; the owner
+                                     confirmed 2026-09-09 that it is the NQ one)
+
+    The 5-minute chart is identified by its PRIMARY series (BarsPeriodTypeSerialize 4 =
+    Minute, Value 5, Instrument NQ 09-26) and must match EXACTLY ONCE, so this cannot
+    silently bind a 5-minute strategy to the 1-minute or the 10-second chart -- the
+    mis-binding class this repo has been bitten by before. Idempotent, refuses to write
+    XML that does not parse, and NT must be STOPPED (it reads the workspace at boot).
+
+    After the restart the rows are reachable on the bridge's grid path
+    (`/strategy/check?name=EdgeLogORBPAR`) but do NOT show in `/strategies`, which lists
+    each ACCOUNT's collection -- the enabled instances only. That is the normal resting
+    state for a parity row, the same one EdgeLogNOISEPAR sits in.
+    """
+    import xml.etree.ElementTree as ET
+    CRLF = "\r\n"
+    s = open(WORKSPACE, encoding="utf-8", newline="").read()
+    orig = s
+
+    anchor = '<Strategy0 BarsIndex="0">386606474</Strategy0>'
+    if '>386606477</Strategy1>' in s:
+        log("ENGUQPAR already hosted - skipped")
+    elif s.count(anchor) != 1:
+        raise SystemExit("ENGUQ1m chart anchor found %dx - refusing" % s.count(anchor))
+    else:
+        ind = re.search(r"([ \t]*)" + re.escape(anchor), s).group(1)
+        s = s.replace(anchor, anchor + CRLF + ind
+                      + '<Strategy1 BarsIndex="0">386606477</Strategy1>', 1)
+        log("ENGUQPAR -> NQ 1-minute chart (beside ENGUQ1m)")
+
+    if '>386606478</Strategy' in s:
+        log("ORBPAR already hosted - skipped")
+    else:
+        charts = [m for m in re.finditer(
+            r"<DataSeries>(.*?)</DataSeries>(\s*)(<Strategies\s*/>)", s, re.S)
+            if "<BarsPeriodTypeSerialize>4</BarsPeriodTypeSerialize>" in m.group(1)
+            and re.search(r"<BarsPeriod>.*?<Value>5</Value>", m.group(1), re.S)
+            and "<Instrument>NQ 09-26</Instrument>" in m.group(1)
+            and "<IsPrimarySeries>true</IsPrimarySeries>" in m.group(1)]
+        if len(charts) != 1:
+            raise SystemExit("empty NQ 5-minute chart matched %dx - refusing" % len(charts))
+        m = charts[0]
+        ind = re.search(r"([ \t]*)<Strategies\s*/>", s[m.start():]).group(1)
+        s = (s[:m.start(3)] + "<Strategies>" + CRLF + ind
+             + '  <Strategy0 BarsIndex="0">386606478</Strategy0>' + CRLF + ind
+             + "</Strategies>" + s[m.end(3):])
+        log("ORBPAR -> NQ 5-minute chart")
+
+    if s == orig:
+        log("nothing to do - both parity rows are already hosted")
+        return
+    ET.fromstring(s.encode("utf-8"))          # never write malformed XML
+    if dry:
+        log("DRY RUN: would add %d bytes to %s" % (len(s) - len(orig), WORKSPACE))
+        return
+    backup(WORKSPACE)
+    open(WORKSPACE, "w", encoding="utf-8", newline="").write(s)
+    log("workspace written - start NinjaTrader, then confirm with "
+        "/strategy/check?name=EdgeLogORBPAR")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--noise-micros", action="store_true")
@@ -770,6 +845,9 @@ def main():
                     help="re-scale the risk rails for recycle sizing (no NT restart)")
     ap.add_argument("--add-parity-rows", action="store_true",
                     help="insert the disabled EdgeLogENGUQPAR + EdgeLogORBPAR backtest rows")
+    ap.add_argument("--host-parity-rows", action="store_true",
+                    help="re-host EdgeLogENGUQPAR + EdgeLogORBPAR on their charts "
+                         "after a restart drops them out of the grid")
     ap.add_argument("--add-orb230", action="store_true",
                     help="create the EdgeLogORB230 strategy row (run #230 port) on ORBV2's chart")
     ap.add_argument("--daily-loss", type=int, default=None,
@@ -893,6 +971,14 @@ def main():
         if not a.dry_run and _up:
             raise SystemExit('NinjaTrader is RUNNING - stop it first (it rewrites both stores on exit)')
         add_parity_rows(a.dry_run)
+        return 0
+    if a.host_parity_rows:
+        _up = subprocess.run(["powershell", "-NoProfile", "-Command",
+                              "(Get-Process NinjaTrader -ErrorAction SilentlyContinue) -ne $null"],
+                             capture_output=True, text=True).stdout.strip() == "True"
+        if not a.dry_run and _up:
+            raise SystemExit('NinjaTrader is RUNNING - stop it first (it reads the workspace at boot)')
+        host_parity_rows(a.dry_run)
         return 0
     if a.add_orb230:
         if a.dry_run:
