@@ -58,7 +58,8 @@ print(f"GAPGO n={len(g)} net=${g.sum():,.0f}   TRAVEL n={len(t)} net=${t.sum():,
 print(f"shared days {len(both)} = {100*len(both)/len(t):.0f}% of TRAVEL days, {100*len(both)/len(g):.0f}% of GAPGO days")
 same = np.mean([gap_s[x] == tr_s[x] for x in both])
 print(f"same direction on shared days: {100*same:.0f}%")
-al = pd.concat([g, t], axis=1).fillna(0); al.columns = ["gapgo", "travel"]
+al = pd.concat([g, t], axis=1).sort_index().fillna(0); al.columns = ["gapgo", "travel"]
+assert al.index.is_monotonic_increasing, "pooled daily index is not in calendar order"  # round 41 lesson
 print(f"daily-PnL correlation (zeros filled): {al.gapgo.corr(al.travel):.3f}; shared days only: {g[both].corr(t[both]):.3f}")
 print(f"TRAVEL net on GAPGO days ${t[both].sum():,.0f}; on non-GAPGO days ${t.drop(both).sum():,.0f}")
 for lab, s in (("GAPGO alone", g), ("TRAVEL alone", t), ("GAPGO+TRAVEL 1:1", al.sum(axis=1))):

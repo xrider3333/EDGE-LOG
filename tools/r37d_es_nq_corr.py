@@ -26,7 +26,11 @@ for inst, cost, mult in (("NQ", 0.783, 20.0), ("ES", 0.40, 50.0)):
     out[inst] = df
     print(f"{inst}: n={len(df)} net=${df.pnl.sum():,.0f}", flush=True)
 nq = out["NQ"].groupby("d").pnl.sum(); es = out["ES"].groupby("d").pnl.sum()
-al = pd.concat([nq, es], axis=1).fillna(0); al.columns = ["nq", "es"]
+# sort_index IS LOAD-BEARING (round 41 lesson): pd.concat on two date-object indexes returns the
+# UNION IN UNSORTED ORDER, so a cumsum below would walk the calendar out of order and the
+# "drawdown" it reports would be meaningless. Sort, then assert.
+al = pd.concat([nq, es], axis=1).sort_index().fillna(0); al.columns = ["nq", "es"]
+assert al.index.is_monotonic_increasing, "pooled daily index is not in calendar order"
 print(f"exit-day PnL correlation (zeros filled): {al.nq.corr(al.es):.3f}")
 mo = al.groupby(pd.to_datetime(al.index).to_period("M")).sum(); print(f"monthly PnL correlation: {mo.nq.corr(mo.es):.3f}")
 shared = set(out["NQ"].e) & set(out["ES"].e)
