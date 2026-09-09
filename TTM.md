@@ -17,9 +17,9 @@
 >   contracts on the 188 of 359 entered while the hourly compression ratio is at or under 0.85) — this
 >   is the leg the book carries; and **run #353**, the STRUCTURAL STOP, which passed every gate and
 >   cleared every clause at a LOWER drawdown than the leg it challenges.
-> - **`TTM_299_SS`** runs in paper from 2026-09-10 as the structural stop's forward test, with
->   `TTM_299_T` as its exact matched control. Its BOOK run against the book in production is queued;
->   the book figure does not change until that says so.
+> - **THE BOOK LEG IS `TTM_299_SS` since 2026-09-09** (owner: *"swap it"*), at weight 3 — the
+>   structural stop, after leg validate #353, the stress read, and BOOK run #361 all cleared.
+>   `TTM_299_T` stays beside it as the exact matched control, as `TTM_299` does for that.
 
 ---
 
@@ -79,7 +79,7 @@ paper legs (see `KEEL.md` / memory `edgelog-keel-overlay`).
 
 ## Open leads
 
-1. **The structural stop — VALIDATED (run #353) AND its BOOK run (#361) clears every clause. Adoption is the owner's call; the book figure still carries the tilted leg.** Stop at the far side of the
+1. ~~The structural stop~~ — **ADOPTED 2026-09-09.** Leg #353, stress read, BOOK #361: all cleared, and the owner swapped the book onto it the same day. Kept here for the record. Stop at the far side of the
    squeeze range instead of 1.5 ATR. With the validated tilt: **$101,017 at PF 2.91, annualised MAR
    1.450 against the book leg's 0.957, drawdown $4,338 against $4,549 — lower — and a lockbox of
    $16,977 at PF 6.72 against $6,948 at 2.38, at a lockbox drawdown of $2,003 against $4,053.**

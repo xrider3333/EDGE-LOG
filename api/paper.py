@@ -1498,14 +1498,14 @@ PAPER_LEGS = [
     # FORWARD EVIDENCE ONLY.
     {"key": "TTM_299_T", "strategy": "TTMSQZ_3_0_ES30T.py", "instrument": "ES",
      "timeframe": "30m", "session": "rth", "params": TTM_299_T,
-     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
      "source": LEG_SOURCE["TTM_299_T"]},
-    # ADDED 2026-09-09: the validated structural stop (run 353) beside the tilted leg, which is its
-    # exact matched control - same trades, same tilt, only the protective stop differs. NOT in the
-    # book figure; a BOOK run against the book in production is queued. FORWARD EVIDENCE ONLY.
+    # THE BOOK LEG since 2026-09-09 (owner: "swap it"), at weight 3. The validated structural stop:
+    # same trades and same tilt as TTM_299_T, which stays beside it as the exact matched control -
+    # only the protective stop differs. Leg validate #353, stress read, and BOOK run #361 all clear.
     {"key": "TTM_299_SS", "strategy": "TTMSQZ_3_0_ES30SS20.py", "instrument": "ES",
      "timeframe": "30m", "session": "rth", "params": TTM_299_SS,
-     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT, "book_weight": 3.0,
      "source": LEG_SOURCE["TTM_299_SS"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
@@ -2329,15 +2329,33 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
     # (the book's worst stretch is Feb-Mar 2020 and the TTM leg took zero trades in it).
     #
     # TTM_299 keeps running as its own leg - the exact matched control - it is simply no longer the
-    # one the book counts. One-day seam: TTM_299_T's first forward session is 2026-09-10, so on
+    # one the book counts. One-day seam: the TTM leg's first forward session is 2026-09-10, so on
     # 2026-09-09 this figure carries the two NQ legs only.
-    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_T": 3.0}
+    #
+    # SWAPPED AGAIN TO THE STRUCTURAL-STOP LEG 2026-09-09 (owner: "swap it"), a few hours after the
+    # tilt swap above, because the evidence arrived in one afternoon and it is complete:
+    #   LEG   - run #353 passed all six gates and cleared every clause of its pre-registered bar, at
+    #           a LOWER drawdown than the leg it challenged, in the whole run ($4,338 vs $4,549) and
+    #           in the lockbox ($2,003 vs $4,053). Its first attempt, run #352, passed the gates and
+    #           MISSED the bar by letting the search walk to a looser verification length - so the
+    #           file pins that knob at the incumbent's own value.
+    #   TAIL  - the stop is ~76% wider per contract, so the obvious worry was a fatter tail. The
+    #           stress read found the opposite: the ATR legs stop on 10.6% of trades and carry 43-44%
+    #           of gross losses there, this one stops on 13.2% and carries 6.8%. It survives 10 points
+    #           of slippage on every stop fill and stop losses scaled 6x. Overnight gap risk is zero -
+    #           the leg is flat at every session close.
+    #   BOOK  - run #361 in this exact book: annualised MAR 3.034 vs 2.810 (x1.0795, bar x1.05),
+    #           lockbox $229,124 vs $199,035, and the LOCKBOX DRAWDOWN $22,226 vs $27,209 - 18% lower.
+    #           8 of 8 slices. The whole-run drawdown is identical to the dollar, which is the inert
+    #           clause behaving as round 10 said it would; BOOK.md section 10 is why it is not a gate.
+    # TTM_299_T stays running as the exact matched control, exactly as TTM_299 does for it.
+    _BOOK = {"ORB": 1.0, "ENGUQ_309": 1.0, "TTM_299_SS": 3.0}
     book_pnl = sum(leg_reports[k]["pnl_usd"] * w for k, w in _BOOK.items() if k in leg_reports)
     report = {
         "legs": leg_reports,
         "blend": {"pnl_usd": blend_pnl},
-        "book": {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 341,
-                 "name": "ORB 234 + ENGU-Q 309 + 3 ES of the tilted TTM leg (run 340)"},
+        "book": {"pnl_usd": book_pnl, "weights": _BOOK, "source_run": 361,
+                 "name": "ORB 234 + ENGU-Q 309 + 3 ES of the structural-stop TTM leg (run 353)"},
         "live": collect_live_fills(target_date),   # Layer 1: NT demo fills, unattributed
         "status": "runner_done",
         "run_date": target_date.isoformat(),
