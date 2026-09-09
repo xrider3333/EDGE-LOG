@@ -889,6 +889,39 @@ configuration you were about to add, leave theirs alone and say in your own stud
 rows carry the rest of the family. Row numbers are permanent handles and a duplicate is worse
 than a gap.
 
+### The 2026-09-09 renumber - the collisions that rule was written for
+
+Twice the advice above arrived too late and two studies shipped holding the same numbers, 65
+rows in all. Rows 592-616 were claimed by the TTM Squeeze rounds 2 and 4 **and** by the ORB
+crown-travel and exit-management-round-2 studies; rows 697-736 by TTM Squeeze round 5 **and**
+by MISC rounds 20-23. `tools/wt.py` baselined all 65 in `KNOWN_DUP_ROWS` so the push gate would
+still catch a NEW collision, and there they sat until the owner called for them to be settled.
+
+They were resolved on 2026-09-09 (web v73.647) on the rule that **the study discovered first
+keeps the number**. The TTM rounds carry `disc` 2026-08-22 and 2026-08-23; the other six carry
+2026-08-24 and 2026-08-25. So the TTM rows kept 592-616 and 697-736, and the six later studies
+moved, whole and in order, into the free range at the end of the board:
+
+| Study | Was | Now |
+| --- | --- | --- |
+| ORB crown travel (`orbtravel`) | 592-598 | 1485-1491 |
+| ORB exit management round 2 (`orbexits2`) | 599-616 | 1492-1509 |
+| Round 20 (`misc20`) | 697-716 | 1510-1529 |
+| Round 21 (`misc21`) | 717-725 | 1530-1538 |
+| Round 22 (`misc22`) | 726-732 | 1539-1545 |
+| Round 23 (`misc23`) | 733-736 | 1546-1549 |
+
+Nothing was reused and no gap was closed: 592-616 and 697-736 now name the TTM rows alone, and
+1485-1549 were free. Only the `n` field moved - every figure, tone and note travelled with its
+row. `KNOWN_DUP_ROWS` is empty again, so the next collision blocks a push instead of being
+baselined. **The next free row number is 1550.**
+
+This is the second time a collision has been settled this way. The first is recorded in
+`NOISE.md` as a "Board numbering note": that round wrote its rows as 737-787, found the numbers
+taken, and moved to 1090-1140 *before* shipping. That is the cheap version. Renumbering after
+the rows have shipped is a last resort, because it makes every reference written in between
+ambiguous - which is the whole reason the rule above exists.
+
 ### Repeats and the duplicate-work guard
 
 On 18 August 2026 four pinned NOISE validates ran twice. One session queued them and died;

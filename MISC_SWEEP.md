@@ -179,8 +179,10 @@ own data). Board rows 1027-1051 (v73.313).
 
 # Rounds 20-23 — the autonomous grind (2026-08-24/25, owner: "keep trying until you find something")
 
-Harnesses: tools/r20..r23_misc_triage.py; CSVs beside them. Board rows 697-736
-(v73.309). All pre-registered, lockbox never loaded, house roll detector.
+Harnesses: tools/r20..r23_misc_triage.py; CSVs beside them. Board rows 1510-1549
+(v73.309; these were rows 697-736 until v73.647, when the collision with TTM Squeeze
+round 5 was resolved in favour of the earlier-discovered study - STUDIES_BOARD.md
+section 9). All pre-registered, lockbox never loaded, house roll detector.
 
 ## Verdict: 0 of 40 more cells (hunt total: 0/144). The map got much sharper:
 

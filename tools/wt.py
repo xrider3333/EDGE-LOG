@@ -390,17 +390,15 @@ def cmd_ship(name, message):
     # references ambiguous forever. studies_registry_check.py already asserted uniqueness; it was
     # simply never wired into a gate.
     #
-    # KNOWN_DUP_ROWS is the mess that already exists on main (the TTM Squeeze rounds and the ORB
-    # travel/exits rounds landed on the same numbers). Renumbering those is an OWNER call, not a
-    # side effect of someone else's push, so they are baselined: this gate blocks a push that adds
-    # a NEW collision and lets the existing ones through. Shrink this set as they get resolved;
-    # never grow it to get a push through.
-    # 592-616: the TTM Squeeze rounds vs the ORB travel/exits rounds.
-    # 697-736: a second cross-session overlap found 2026-08-26, same cause.
-    # Both belong to other work and are referenced elsewhere BY NUMBER, so renumbering
-    # them is an owner call. Shrink this set as they get resolved; never grow it to
-    # get a push through - pick a free number instead.
-    KNOWN_DUP_ROWS = set(range(592, 617)) | set(range(697, 737))
+    # KNOWN_DUP_ROWS baselines collisions that ALREADY exist on main, so this gate blocks a push
+    # that adds a NEW one while letting the known mess through. It is EMPTY, and should stay that
+    # way: the 65 rows that used to sit here (592-616, the TTM Squeeze rounds 2 and 4 against the
+    # ORB travel/exits rounds, and 697-736, TTM round 5 against MISC rounds 20-23) were resolved
+    # on 2026-09-09 in web v73.647. The rule was the study discovered first keeps the number: the
+    # TTM rounds carry disc 2026-08-22/23, the other six 2026-08-24/25, so those six moved to
+    # 1485-1549. See STUDIES_BOARD.md section 9. Never grow this set to get a push through -
+    # pick a free number above the board's current maximum instead.
+    KNOWN_DUP_ROWS = set()
     rc = os.path.join(wt, 'tools', 'studies_registry_check.py')
     if touched_index.strip() and os.path.isfile(rc):
         r = subprocess.run([sys.executable, rc], cwd=wt, capture_output=True, text=True,
