@@ -284,3 +284,35 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Not yet measured:** ES-leg vs NQ-leg daily correlation (expect high on big days → account diversifier, not return diversifier).
 - **Validate QUEUED** job GIrlgbDJ1umq12NrnfY8 (`tools/queue_enguq_es_validate.py`): ES 1m ETH, open ranges, 8 folds, LB 12m, window pinned to R2 crown #335 (2010-06-07..2026-06-30). **Hand-off point = validate posted.**
 - **Correlation measured (`tools/r37d_es_nq_corr.py`): ES leg vs NQ leg, exit-day PnL corr 0.20, monthly 0.21; 685 shared entry days of 1,148 (NQ) / 1,262 (ES). Pooled 1:1 (daily-aggregated): NQ alone n/DD 13.2, ES alone 7.5, NQ+ES $720,491 / DD $44,896 / n/DD 16.1 — a RETURN diversifier, not just an account diversifier.**
+
+## WEEK OF 2026-09-07 — what is of note, and what is still to be done (annotated 2026-09-08 night)
+
+**Crowns and legs that moved this week**
+- **ENGU-Q crown moved to run #335 (R2 = #309 + breakeven 2.0 R / stop 1.0)**; paper leg ENGUQ_335 on both boards, #309 kept as control; the R2 validate had to survive four fleet restarts to post (keep-aware restart `tools/fleet_restart.py --keep N` now exists because of it).
+- **ORB is CLOSED on every axis** (#314 crown; round 7 prior-day filter FAILED #325; rounds 9-10b: fills honest, delayed range / re-entry / trap reversal / pyramid / time stop / direction rule 0 of 72). Only forward paper data is left.
+- **The 1.5x compression SIZE TILT is the one overlay that passed its own bar** (run #333 on NOISE; #331's 2x corner was leverage). Paper legs C15 / C15G on NOISE, ENGU-Q, ORB from 2026-09-08/09. KEEL v10/v11 model rounds: no change.
+- **TTM Squeeze = a BOOK LEG, not a strategy** (book #336 vs baseline #337: MAR +16% at identical DD, LB DD −21%, corr 0.06). Adoption = owner call.
+- **Weak-edge ETF BOOK validated: run #332 PASS** (PF 1.72, net/DD 11.4, 8/8 slices, LB +$85k but LB DD $61k; NQDIP = 40% of net). Stocks-account book; ETF-only sub-book control queued.
+- **NOISE on 2-MINUTE bars is the scalp side that pays** (R/YR 140.6 record, 4-minute median hold, plateau 30/30; full-space 2m validate queued). Five other 1m scalp mechanisms: 0 of 39; a fixed target cannot make a scalp at house costs.
+
+**Retractions and guards**
+- **The EV R 1.40 record (ENGU-Q ER) and the frontier pair book were WITHDRAWN**: 101% of net was ten trades; a 6/6 validate PASS did not catch it. New pre-queue gate `tools/concentration_check.py`; `queue_guard.py --run N` now resolves empty params like the runner and grades book legs (`--book-run`).
+- **Runner fleet**: Firestore quota exhaustion traced to idle polling (~29k reads/day floor) and fixed; workers run no command thread; walk-forward folds in parallel processes (bit-identical); gate/KEEL models fit on one thread (two thirds of a validate was thread churn); the epoch run id from the 2026-09-07 outage renumbered to #328; one launcher for the 5-runner set.
+- **CI was red for 14 commits** because an unpinned install pulled pandas 3; pinned `pandas>=2.2,<3`.
+
+**The new-family hunt (this session, rounds 32-37)**
+- Nine never-traded mechanisms across 72 cells: eight dead (RELEASE, VALUE AREA, WEEKLY-OR, VOLBAR, LEAD-LAG, RETEST, STREAK, FAILED FILL).
+- **GAPGO (overnight-gap direction) and GAPGO TRAVEL (distance from open at 10:00) both passed triage and 6/6 gates, then LOST the sealed year** (#330 −$39k, #329 −$16k) while the ORB crown made +$89k in the same months: the gap READ broke in the June-July 2026 mega-gap regime, not the opening-momentum factor. Family NOT handed over.
+- **The branch is an instrument, not a mechanism: the ENGU-Q R2 crown file clears the house bar on ES 1m 24h at its NQ defaults** (PF 1.37, n/DD 10.8, plateau 27/27, survives 0.60 pts/RT), and the ES leg's correlation to the NQ leg is only 0.20 (pooled n/DD 16.1 vs 13.2). **ES validate running (job GIrlgbDJ1umq12NrnfY8).**
+
+**TO BE DONE (open action items, owner calls marked)**
+1. Read the ENGU-Q ES validate when it posts; if it passes its sealed year, hand the ES branch to another session (files + `tools/r37*` harnesses + B23) and decide whether it becomes a paper leg on the ES/MES account. — this session
+2. Read the NOISE 2m full-space validate (job qsSDwagxJsahDSmAwx1r); if it passes, the 2m leg is the scalp-side candidate for paper. — NOISE session
+3. **Owner call:** adopt the TTM book leg (#336) into the baseline book, or not.
+4. **Owner call:** ETF weak-edge book — run the ETF-only sub-book control, then decide on a QQQ-shadow paper leg.
+5. **Owner call:** the 1.5x compression tilt legs (C15/C15G) — judge on forward paper data, first read after a few weeks.
+6. NinjaTrader still runs the #226 ENGU-Q port; the live leg has not been moved to the #335 crown (NT restart is owner-only).
+7. NOISE crown on ES is a near miss (PF 1.24, 5/8): one fenced neighbourhood look on the ES 5m tape, cheap, not yet done.
+8. Scalpers round 38 (sweep-reclaim, chop-fade, ignition, box-break, each with fixed AND ride exits) is running now; results go on the board with the round-37 scalp study.
+9. Data: the NQ 1-minute hole 2026-07-01..08-05 is unrecoverable (5m is clean); any 1m validate whose lockbox spans it needs the caveat on the card.
+10. Alpaca key / Databento buy remains the only route to a genuinely new data axis (1m stock bars for an intraday QQQ family, or other futures for instrument branches).
