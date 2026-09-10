@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.719';
+const VERSION='73.720';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.720',date:'2026-09-10',notes:['PLAIN DOTS, AND THEY ARE THE DEFAULT (owner: the scatter was dots before). A verdict shape per point is readable at twenty points and a wall of icons at eight hundred, which is what this chart usually holds. Colour still carries the verdict either way, and SHAPES is one click away for a sparse chart or for anyone who reads shape faster than colour.','EVIDENCE and SHOW ARE BACK IN PLAIN SIGHT, and this answers three things at once - why the table looked like it only had raw configurations, how to put every 1E configuration of one strategy on the chart, and where KEEL went. Those two controls decide what kind of thing the board is showing: SWEEPS are study-registry rows, where RAW is the only family there is, and the 1E families - GATE, TILT, HYBRID and KEEL - only exist once the level is AUTO VAL with 1E CONFIGS showing. Burying them behind FILTERS made a whole half of the board look missing.','THE NOT-ON-THIS-CHART LINE NOW SAYS WHAT TO DO. When a large share of the rows record nothing for the axes you picked, it names a pair they do carry - money and profit factor - instead of only reporting the loss. Those are mostly older sweep rows that predate expectancy in R being on the board at all.']},
 {v:'73.719',date:'2026-09-10',notes:['STUDIES BOARD: ROUNDS 53-54, rows 1712 to 1717 - the staleness audit that produced run #366 was applied to every remaining leg, and two of three were stale. The opening-range slot held the CONTROL run #234 while the crown had moved to run #314 (run #373, PASS, selection 41.73 vs 38.18, but the held-back year gives back 4.5 percent and run #314 is WORSE standalone at 9.12 vs 10.32).','The squeeze slot held the structural-stop-only file (run #353, 55,912 dollars on 4,338 drawdown) while the crown is the COMBINED leg (run #369, 77,105 on 3,350 - more money on less drawdown from the same 273 trades) at triple weight. Both crowns together = run #379, PASS: selection 44.35 vs the adopted book 38.18, held-back year 294,142 vs 289,811, profit factor 1.548 vs 1.486, nothing given back, no knob tuned. Run #378 raises the squeeze leg to four lots for 47.16 and is recorded as a KNOB TEST, not adopted. Adoption of #379 is the owner call.']},
 {v:'73.718',date:'2026-09-10',notes:['THE TABLES GO BACK ON TOP (owner: the table was supposed to be on top). This board has always drawn the tables first and the chart under them, stacked or split, and I had built the EXPLORE screen the other way round. That is also why my side-by-side attempts kept coming out wrong: I was building chart-on-the-left when the layout is tables-on-the-left.','THE SPLIT TOGGLE IS BACK and it splits. The structure is the old board own, verbatim, minus the sidebar it used to sit beside. It only appears when the tables are actually on, because with them off there is nothing to put beside the chart - which was the real reason my earlier attempts collapsed a column to nothing.']},
 {v:'73.717',date:'2026-09-10',notes:['THE EXPLORE SPLIT TOGGLE IS GONE, because it did nothing. When the sidebar came off that screen the chart-beside-tables layout went with it and the control was left pointing at nothing. I tried three ways to bring the layout back - a fresh two-column flex, explicit column widths, and the old board own structure lifted verbatim - and every one collapsed the tables column to zero width on the page while reading correctly in the code. I have not found the cause, so rather than ship a button that looks like it works, it is off this screen. The chart sits above the tables, and the tables are still one click behind TABLES.','The same split still works on the old board, which is reachable from the RUNBOARD and PICK RUNS views until that code is deleted.']},
@@ -24803,8 +24804,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reCfgPal={'RAW':'#1d9e75','GATE':'#e24b4a','TILT':'#f0b429',
           'HYBRID':'#c084fc','HYBRID \u267b':'#f0abfc','HYBRID \u2193DD':'#2dd4bf','KEEL':'#38bdf8'};
         const _reSz={champ:9,good:6.6,frag:6.6,fail:6.2,ref:6.4};
+        // MARKS: plain dots by default. A verdict shape per point - circle, square,
+        //   triangle, cross - is readable at twenty points and a wall of icons at eight
+        //   hundred, which is what this chart usually holds. The shapes are still one click
+        //   away for anyone reading a sparse chart, and the colour still carries the verdict
+        //   either way, so nothing is lost by looking at dots.
+        const _reDots=(APREF.resMarks!=='shape');
         const _reShape=(tone,cx,cy,s,col,fo,so)=>{
           const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
+          if(_reDots)return '<circle cx="'+x+'" cy="'+y+'" r="'+(s*0.82).toFixed(1)+'" fill="'+col+'"'
+            +((tone==='champ')?(' stroke="var(--text)" stroke-width="2"'):'')
+            +' fill-opacity="'+fo+'" stroke-opacity="'+so+'"/>';
           const bod=' fill-opacity="'+fo+'" stroke-opacity="'+so+'"';
           if(tone==='champ')return '<circle cx="'+x+'" cy="'+y+'" r="'+s+'" fill="'+col+'" stroke="var(--text)" stroke-width="2"'+bod+'/>';
           if(tone==='good'){const h=s*0.9;return '<rect x="'+(cx-h).toFixed(1)+'" y="'+(cy-h).toFixed(1)+'" width="'+(2*h).toFixed(1)+'" height="'+(2*h).toFixed(1)+'" fill="'+col+'" stroke="'+col+'" stroke-width="1"'+bod+'/>';}
@@ -25642,7 +25652,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             skip.forEach(k=>{if(!seen[k.w]){seen[k.w]=[];order.push(k.w);}seen[k.w].push(k.o.r.n);});
             omit=skip.length+' of the '+(pts.length+skip.length)+' rows now shown are not on the chart, because a point needs both figures and these do not have one. '
               +order.map(w=>'Row'+(seen[w].length>1?'s ':' ')+seen[w].join(', ')+': '+w).join(' ')
-              +' Nothing was substituted to put them on.';}
+              +' Nothing was substituted to put them on.'
+              // and what to do about it, rather than only reporting the loss. Sweep rows are
+              //   scored on money and profit factor; expectancy in R was added to the board
+              //   later and most of them predate it, so an axis pair they DO carry puts them
+              //   back on screen.
+              +((skip.length>=Math.max(3,(pts.length+skip.length)*0.15))
+                ?' Most rows that record nothing here are older sweep rows, which are scored on money and profit factor - put RAW PROFIT or PF up the side and DRAWDOWN across and they come back.'
+                :'');}
           if(failOut.length){const _fdd=failOut.map(o=>_reNum(o.r,'dd')).filter(v=>v!=null);
             omit+=' '+failOut.length+' failed row'+(failOut.length>1?'s are':' is')+' left off the chart on purpose (control 5, PLOT FAILURES)'
               +(_fdd.length?(', the worst of them drawing down '+_reMoney(Math.max.apply(null,_fdd))):'')
@@ -26820,7 +26837,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _c2FiltN=(function(){let n=0;try{const f=_reFilt||{};
           ['tone','run','study'].forEach(k=>{if(Array.isArray(f[k])&&f[k].length)n++;});}catch(e){}
           if(_reMinTrd>0)n++; if(_reScope&&_reScope!=='all')n++; if(_reFailOn)n++;
-          if(_reLvl&&_reLvl!=='all')n++; if(_reShowCfg)n++; return n;})();
+          return n;})();
         const _c2SheetBtn=(k,lbl,n)=>'<span data-c2sheet="'+k+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;cursor:pointer;border:1px solid '
           +((k===_c2Sheet)?'color-mix(in srgb,var(--blue) 55%,transparent);color:var(--blue)':'var(--border);color:var(--text3)')+'">'+lbl+(n?(' \u00b7 '+n):'')+'</span>';
         const _c2ExpSeg=!_c2Exp?'':[['lead','LEADERBOARD'],['cmp','COMPARE'],['explore','EXPLORE']]
@@ -26832,7 +26849,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   the ones that decide which rows exist; VIEWS the other three drawings; AXES the
           //   full pair of pickers, for anything the four presets do not cover.
           const _c2SheetBody=(_c2Sheet==='filters')
-            ?_reGrid(_reLvlBtns+_reShowBtns+_reCfgSel+_reCfgFamBtns+_reFailBtns+_reMinTrdBtns
+            ?_reGrid(_reCfgSel+_reCfgFamBtns+_reFailBtns+_reMinTrdBtns
                      +_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
                      +_reViewBtns+_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns
                      +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
@@ -26840,6 +26857,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             :((_c2Sheet==='read')?_reGrid(_reReadBtns):''));
           const _c2Bar='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
             +_c2SheetBtn('filters','FILTERS',_c2FiltN)+_c2SheetBtn('views','VIEWS',0)+_c2SheetBtn('read','READ',0)
+            +'<span data-c2marks="1" title="'+_reEsc('DOTS draws every point the same shape and lets colour carry the verdict - easier to read when the chart is crowded, which it usually is. SHAPES gives each verdict its own outline as well, which helps on a sparse chart and for anyone who reads shape faster than colour.')+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;cursor:pointer;border:1px solid '
+              +(_reDots?'var(--border);color:var(--text3)':'color-mix(in srgb,var(--blue) 55%,transparent);color:var(--blue)')+'">'+(_reDots?'DOTS':'SHAPES')+'</span>'
             +'<span data-c2tbl="1" title="'+_reEsc('The study tables under the chart. They are the slowest thing on this screen - about three and a half megabytes of markup, rebuilt every time you touch a control - so they are off until you ask for them. Everything in them is still here; nothing is filtered out by this button.')+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:4px 9px;border-radius:6px;cursor:pointer;border:1px solid '
               +(_c2Tbl?'color-mix(in srgb,var(--blue) 55%,transparent);color:var(--blue)':'var(--border);color:var(--text3)')+'">TABLES'+(_reRowsN?(' \u00b7 '+_reRowsN):'')+'</span>'
             // the HOW TO READ toggle only ever rendered inside the sidebar, so without this
@@ -26852,8 +26871,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // the stage picker and the strategy rail never go behind a button: choosing a
           //   strategy and choosing which stretch of its life you are judging are the two
           //   things this screen exists to let you do.
+          // EVIDENCE and SHOW belong in plain sight, not behind FILTERS. They decide what
+          //   kind of thing is on the board at all: sweeps are study-registry rows, where
+          //   RAW is the only family there is, and the 1E families - GATE, TILT, HYBRID,
+          //   KEEL - only exist once you are on AUTO VAL with 1E CONFIGS showing. Hiding
+          //   that made the board look as though it only ever had raw configurations.
           const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
-            +_reGrid(_reStageBtns+_reFamRail)+'</div>';
+            +_reGrid(_reLvlBtns+_reShowBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
           // capped and scrollable when they are on, so a thousand rows cannot push the
           //   chart off the screen - the old sidebar layout capped them the same way.
           // SIDE puts the chart and the tables in two columns, STACK keeps them one above the
@@ -32411,6 +32435,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         savePref('c2Src',b.dataset.c2src);renderApp();};});
       content.querySelectorAll('[data-c2top]').forEach(b=>{b.onclick=()=>{
         const k=b.dataset.c2top;savePref('c2Top',(APREF.c2Top===k)?'':k);renderApp();};});
+      content.querySelectorAll('[data-c2marks]').forEach(b=>{b.onclick=()=>{
+        savePref('resMarks',(APREF.resMarks==='shape')?'dot':'shape');renderApp();};});
       content.querySelectorAll('[data-c2heat]').forEach(b=>{b.onclick=()=>{
         savePref('c2Heat',!(APREF.c2Heat!==false));renderApp();};});
       content.querySelectorAll('[data-c2tbl]').forEach(b=>{b.onclick=()=>{
