@@ -91,7 +91,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 11
+N_CASES = 12
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -365,7 +365,7 @@ var FIX = __FIX__;
       //    them throws or draws nothing, a working feature has silently disappeared.
       (function(){
         var per={};
-        ['board','runs','fam','feat'].forEach(function(v){
+        ['board','runs','feat'].forEach(function(v){
           var call=doRender({c2Screen:'cmp',c2View:v,cmpIds:[String(FIX.id)]}, FIX_WIN);
           var ap=d.getElementById('app');
           per[v]={call:call,
@@ -375,7 +375,7 @@ var FIX = __FIX__;
             oldPills:d.querySelectorAll('[data-cmpmode]').length,
             errors:sink.errors.slice(0,4),uncaught:sink.uncaught.slice(0,4)};
         });
-        var ok=['board','runs','fam','feat'].every(function(v){return per[v].call==='OK';});
+        var ok=['board','runs','feat'].every(function(v){return per[v].call==='OK';});
         var r=snap('hosted', ok?'OK':'ERR');
         r.per=per;
       })();
@@ -454,6 +454,33 @@ var FIX = __FIX__;
         var r=snap('toprun',(per.best.call==='OK'&&per.worst.call==='OK'&&off==='OK')?'OK':'ERR');
         r.per=per;r.offCall=off;r.offRows=d.querySelectorAll('.c2-card .c2-row.sub[data-c2run]').length;
         r.betterId=String(+FIX.id+700000);
+      })();
+
+
+      // ── case 12: champions source ───────────────────────
+      //    CHAMPIONS must name the SAME run the leaderboard names, because they now read one
+      //    rule. Two runs of one strategy, one clearly better: the overlay must show exactly
+      //    one chip, it must be that run, and it must match the leaderboard's champion.
+      (function(){
+        var A=JSON.parse(JSON.stringify(FIX));
+        var B=JSON.parse(JSON.stringify(FIX));
+        B.id=String(+FIX.id+600000);B.starred=true;   // your crown wins first
+        var wc="var A="+JSON.stringify(A)+";var B="+JSON.stringify(B)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(A),f(B)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+        var call=doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'champ',c2Stage:'lb',cmpIds:[]}, wc);
+        var r=snap('champions', call);
+        r.chips=d.querySelectorAll('.c2-lg').length;
+        r.rm=d.querySelectorAll('[data-c2rm]').length;
+        r.clr=d.querySelectorAll('[data-c2clr]').length;
+        r.srcBtns=d.querySelectorAll('[data-c2src]').length;
+        r.ids=[].map.call(d.querySelectorAll('.c2-card table th'),function(x){
+          var m=(x.textContent||'').match(/#([0-9]+)/);return m?m[1]:null;}).filter(Boolean);
+        // and the leaderboard's champion for the same history
+        doRender({c2Screen:'lead',c2Stage:'lb'}, wc);
+        var sub=d.querySelector('.c2-row[data-c2fam]');
+        r.leadChamp=sub?((sub.textContent||'').match(/#([0-9]+)/)||[])[1]:null;
+        r.expect=String(+FIX.id+600000);
       })();
 
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -950,19 +977,19 @@ def main(argv=None):
     r = cases.get('hosted', {})
     per = r.get('per') or {}
     hosted_ok = (r.get('call') == 'OK'
-                 and all((per.get(v) or {}).get('call') == 'OK' for v in ('board', 'runs', 'fam', 'feat'))
+                 and all((per.get(v) or {}).get('call') == 'OK' for v in ('board', 'runs', 'feat'))
                  and all(not (per.get(v) or {}).get('errors') and not (per.get(v) or {}).get('uncaught')
-                         for v in ('board', 'runs', 'fam', 'feat'))
-                 and all(((per.get(v) or {}).get('len') or 0) > 2000 for v in ('board', 'runs', 'fam', 'feat'))
-                 and all((per.get(v) or {}).get('screenBtns') == 3 for v in ('board', 'runs', 'fam', 'feat'))
-                 and all((per.get(v) or {}).get('viewBtns') == 6 for v in ('board', 'runs', 'fam', 'feat'))
-                 and all(not (per.get(v) or {}).get('oldPills') for v in ('board', 'runs', 'fam', 'feat')))
+                         for v in ('board', 'runs', 'feat'))
+                 and all(((per.get(v) or {}).get('len') or 0) > 2000 for v in ('board', 'runs', 'feat'))
+                 and all((per.get(v) or {}).get('screenBtns') == 3 for v in ('board', 'runs', 'feat'))
+                 and all((per.get(v) or {}).get('viewBtns') == 5 for v in ('board', 'runs', 'feat'))
+                 and all(not (per.get(v) or {}).get('oldPills') for v in ('board', 'runs', 'feat')))
     line('hosted', hosted_ok, ' '.join('%s=(call=%s len=%s scr=%s view=%s pills=%s)'
          % (v, (per.get(v) or {}).get('call'), (per.get(v) or {}).get('len'),
             (per.get(v) or {}).get('screenBtns'), (per.get(v) or {}).get('viewBtns'),
-            (per.get(v) or {}).get('oldPills')) for v in ('board', 'runs', 'fam', 'feat')))
+            (per.get(v) or {}).get('oldPills')) for v in ('board', 'runs', 'feat')))
     if not hosted_ok:
-        for v in ('board', 'runs', 'fam', 'feat'):
+        for v in ('board', 'runs', 'feat'):
             p = per.get(v) or {}
             if p.get('call') != 'OK':
                 fail('hosted: the %s view threw -- %s' % (v, str(p.get('call'))[:300]))
@@ -973,7 +1000,7 @@ def main(argv=None):
             if (p.get('len') or 0) <= 2000:
                 fail('hosted: the %s view rendered almost nothing (%s chars) - a feature that '
                      'is now only reachable here has gone missing' % (v, p.get('len')))
-            if p.get('screenBtns') != 3 or p.get('viewBtns') != 6:
+            if p.get('screenBtns') != 3 or p.get('viewBtns') != 5:
                 fail('hosted: %s lost its navigation (screen=%s view=%s) - there would be no way '
                      'back out of it' % (v, p.get('screenBtns'), p.get('viewBtns')))
             if p.get('oldPills'):
@@ -1072,6 +1099,36 @@ def main(argv=None):
         if w.get('first') == b.get('first'):
             fail('toprun: BEST and WORST lead with the same run, so the ordering is not '
                  'reversing')
+
+    # case 12: champions source
+    r = cases.get('champions', {})
+    ch_ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
+             and r.get('srcBtns') == 2
+             and r.get('chips') == 1                      # one family, one champion
+             and (r.get('ids') or []) == [r.get('expect')]
+             and r.get('rm') == 0 and r.get('clr') == 0    # nothing to remove; it fills itself
+             and r.get('leadChamp') == r.get('expect'))    # and the leaderboard agrees
+    line('champions', ch_ok, 'call=%s src=%s chips=%s ids=%s expect=%s rm=%s clr=%s lead=%s'
+         % (r.get('call'), r.get('srcBtns'), r.get('chips'), r.get('ids'), r.get('expect'),
+            r.get('rm'), r.get('clr'), r.get('leadChamp')))
+    if not ch_ok:
+        if r.get('call') != 'OK':
+            fail('champions: renderApp threw -- %s' % str(r.get('call'))[:300])
+        if r.get('srcBtns') != 2:
+            fail('champions: %s source buttons, expected PICKED and CHAMPIONS' % r.get('srcBtns'))
+        if r.get('chips') != 1:
+            fail('champions: %s chips for one family - it should show one champion each'
+                 % r.get('chips'))
+        if (r.get('ids') or []) != [r.get('expect')]:
+            fail('champions: the overlay shows %s, expected the crowned run %s'
+                 % (r.get('ids'), r.get('expect')))
+        if r.get('rm') or r.get('clr'):
+            fail('champions: remove/clear controls are showing (rm=%s clr=%s) on a list that '
+                 'fills itself' % (r.get('rm'), r.get('clr')))
+        if r.get('leadChamp') != r.get('expect'):
+            fail('champions: the leaderboard names %s as champion but the overlay shows %s - '
+                 'the two screens are not reading one rule'
+                 % (r.get('leadChamp'), r.get('expect')))
 
     if bad:
         print('CMP2 PROBE: FAIL')

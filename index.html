@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.711';
+const VERSION='73.712';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.712',date:'2026-09-10',notes:['BY STRATEGY IS ABSORBED. That view was one curve per family with its champion chosen for you, which is a SOURCE of runs rather than a screen - so the COMPARE overlay gained a SHOW switch: PICKED, which is what it has always done, or CHAMPIONS, which fills itself with the best run of every strategy. The old view comes off the strip.','The champion rule is now written ONCE and read by both screens. It used to live inside the leaderboard, and copying it would have repeated the mistake this rebuild has already had to fix three times: one rule in two places drifts, and then two screens disagree about which run is a family best.','In CHAMPIONS the chips lose their remove buttons and the CLEAR control disappears, because there is nothing to remove - the list fills itself. The note says how the choice was made and how to take it back.']},
 {v:'73.711',date:'2026-09-10',notes:['TOP RUNS on the LEADERBOARD, and the last of the old runboard list. That list showed the same rows the leaderboard already shows once a family is opened, minus three things - so those three were added rather than a second list built: the strategy colour, so a run is findable by eye; the family run number the studies board and the notes call it by; and the robustness score.','The genuinely missing half was the panel of INDIVIDUAL runs, and it is the more useful one. The leaderboard only ever shows champions; this ranks every run in every family on whatever is picked above, so the best run of a family that never won anything is one click away - and so is the WORST, which is usually the more informative click. NEWEST ignores the ranking and just lists the ten latest.','It reaches runs the champion list leaves out for having a window under two years. They are shown with a warning and their length rather than dropped, because a short sample is a caveat, not a disqualification.','Every read this screen ranks on - R per year, MAR, profit factor, net - is better when it is larger, so BEST and WORST really are the two ends of one sorted list. A smaller-is-better read would need a direction flag, and there is a note in the code saying so.']},
 {v:'73.710',date:'2026-09-10',notes:['COMPARE: the BOOKS table is now a view of its own on the new COMPARE screen, drawn there directly instead of being borrowed from the old tab. Pick BOOKS on the view strip. Every real book run in your history is listed first, newest first, then the four older offline rows a script worked out and someone pasted in. Clicking a live row opens that run report.','The STAGE control drives the table: the whole window, the tuning years, or the sealed lockbox. Every figure on a row comes from that ONE pooled stretch, so the net, the profit factor, the drawdown and the trade count always describe the same piece of history. Return over drawdown in this table is plain net divided by the worst drawdown of that stretch, with no years in it - the same number the old table printed, so the column stays comparable top to bottom.','A book pools its legs over one window and tunes nothing, so it has no walk-forward stage. Picking the walk-forward stage now says that in a sentence and offers the other three, instead of drawing a table full of blank cells.','The two look-ahead warnings still travel with the rows that earned them, and the button that starts a new book run is deliberately not duplicated here - the table points at the RUNBOARD view, where it lives.']},
 {v:'73.709',date:'2026-09-09',notes:['COMPARE - STUDIES: run 369 validates BOTH changes in one leg (overfit probability 0.099, the lowest this family has recorded) and BOOK run 371 clears every clause of the canonical bar - annualised MAR times 1.0798, lockbox up 7.5 percent, lockbox drawdown IDENTICAL, 8 of 8 slices. The owner swapped the book onto it. Rows 1707-1708.','The TTM leg ends the day at 135,884 dollars and annualised MAR 1.826, against 51,709 and 0.86 this morning - four separate validated changes, each against a bar written first. TTM_299, TTM_299_T and TTM_299_SS all keep running in paper as controls. The two tilts multiply into a 1.0 / 1.5 / 2.25 contract ladder, so the whole-contract answer from round 11 needs redoing before any live order.']},
@@ -19816,7 +19817,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   and matrix, and the picked-run tabs and saved sets - so they are HOSTED here the
     //   same way EXPLORE hosts the studies board, rather than deleted. The COMPARE screen
     //   picks between its own overlay and those.
-    const _c2View=(['ovl','board','runs','fam','feat','books'].indexOf(APREF.c2View)>=0)?APREF.c2View:'ovl';
+    //   BY STRATEGY was absorbed by the OVERLAY's CHAMPIONS switch at v73.712. A saved view
+    //   pointing at it lands on that instead of on a screen with no pill lit and no way back.
+    const _c2ViewRaw=(APREF.c2View==='fam')?'ovl':APREF.c2View;
+    const _c2View=(['ovl','board','runs','feat','books'].indexOf(_c2ViewRaw)>=0)?_c2ViewRaw:'ovl';
     //   the screen must actually BE the compare screen: an absent preference falls to the
     //   leaderboard everywhere else, and hosting a view under it would show the runboard to
     //   someone whose tab says LEADERBOARD.
@@ -19836,7 +19840,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   when they are off they are never assembled. The button says how many rows wait
     //   behind it, and the choice is remembered.
     const _c2Tbl=(APREF.c2Tbl===true);
-    const _C2VIEWS=[['ovl','OVERLAY'],['board','RUNBOARD'],['runs','PICK RUNS'],['fam','BY STRATEGY'],['feat','FEATURES'],['books','BOOKS']];
+    //   BY STRATEGY is gone from this strip: it was one curve per family champion, which the
+    //   OVERLAY now does with its SHOW switch. The old view is still reachable by preference
+    //   until the old code is deleted, so nothing breaks for anyone mid-session.
+    const _C2VIEWS=[['ovl','OVERLAY'],['board','RUNBOARD'],['runs','PICK RUNS'],['feat','FEATURES'],['books','BOOKS']];
     // ── BOOK DATA, at render scope ───────────────────────
     //   These three sat inside the OLD compare branch. The new tab draws the BOOKS
     //   table itself now, so they live one level up where both branches read the
@@ -20471,7 +20478,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
       // EXPLORE only ever shows the research board; the other views of the old tab are the
       //   LEADERBOARD and COMPARE screens now, and they live in the other branch.
-      const _cmpMode=_c2Exp?'research':(_c2Host?({board:'board',runs:'runs',fam:'fam',feat:'featboard'}[_c2View]||'runs')
+      const _cmpMode=_c2Exp?'research':(_c2Host?({board:'board',runs:'runs',feat:'featboard'}[_c2View]||'runs')
         :((APREF.cmpMode==='fam')?'fam':((APREF.cmpMode==='board')?'board':((APREF.cmpMode==='research')?'research':((APREF.cmpMode==='featboard')?'featboard':'runs')))));
       // the new tab's own navigation, standing in for the old VIEW pills wherever one of
       //   these screens is being drawn for it. The pills are the OTHER tab's navigation and
@@ -27603,6 +27610,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _c2StageOf=r=>(_c2Stage==='is')?_c2is(r):(_c2Stage==='wf')?_c2wf(r):(_c2Stage==='full')?_c2full(r):_c2lb(r);
       const _c2StageNm={is:'IS',wf:'WF',lb:'LB',full:'FULL'}[_c2Stage];
       // the one figure a row is ranked on, plus why it is missing when it is
+      // WHICH FAMILY A RUN BELONGS TO, and which run is that family's champion. Written
+      //   once because both screens ask: the LEADERBOARD lists champions, and the COMPARE
+      //   overlay can fill itself with them. A second copy would drift, and then the two
+      //   screens would disagree about which run is a family's best - which is exactly the
+      //   fault this rebuild has already had to fix three times.
+      const _c2FamOf=r=>_c2IsBook(r)?'BOOKS':((typeof _canonFam==='function'&&_canonFam(r.strategy))||String(r.strategy||'').replace(/\.py$/,'')||'UNTAGGED');
+      // your crown wins first, then the robustness score, then the money. Same order the
+      //   leaderboard has used since books got their own row.
+      const _c2FamSort=(a,b)=>((b.starred?1:0)-(a.starred?1:0))||(scoreRun(b)-scoreRun(a))||((b.best_pnl_usd||0)-(a.best_pnl_usd||0));
+      const _c2FamsOf=list=>{const fam={};
+        (list||[]).forEach(r=>{const k=_c2FamOf(r);(fam[k]=fam[k]||[]).push(r);});
+        return Object.keys(fam).map(k=>{const xs=fam[k].slice().sort(_c2FamSort);
+          return {k:k,runs:xs,ch:xs[0]};});};
       const _c2Val=r=>{const S=_c2StageOf(r);if(!S)return {v:null,why:'This run saved no '+({is:'in-sample',wf:'walk-forward',lb:'lockbox',full:'whole-run'}[_c2Stage])+' figures.'};
         if(_c2Rank==='net')return {v:S.net,why:(S.net==null?('No '+_c2StageNm+' net is saved on this run.'):'')};
         if(_c2Rank==='pf')return {v:(S.pf>0?S.pf:null),why:'No profit factor on this stretch.'};
@@ -27686,9 +27706,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    follows the STAGE control - in-sample, walk-forward and lockbox are one click
         //    apart instead of three separate screens.
         const rs2=(runHistory||[]).filter(r=>r&&r.id!=null);
+        // PICKED or CHAMPIONS. The old BY STRATEGY view was the second of these and nothing
+        //   else - one curve per family, its champion picked for you - so it lives here now
+        //   rather than as a screen of its own. Ten is the cap the old board used.
+        const _c2Src=((APREF.c2Src==='champ')||(APREF.c2View==='fam'))?'champ':'pick';
         const _c2Pick=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String);
-        const picked=_c2Pick.map(id=>rs2.filter(r=>String(r.id)===id)[0]).filter(Boolean);
-        const gone=_c2Pick.length-picked.length;
+        const _c2Champs=_c2FamsOf(rs2).map(f=>({f:f,v:_c2Val(f.ch)}))
+          .sort((a,b)=>{const av=a.v.v,bv=b.v.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return bv-av;})
+          .map(o=>o.f.ch).slice(0,10);
+        const picked=(_c2Src==='champ')?_c2Champs
+          :_c2Pick.map(id=>rs2.filter(r=>String(r.id)===id)[0]).filter(Boolean);
+        const gone=(_c2Src==='champ')?0:(_c2Pick.length-picked.length);
         // ── BOOKS ────────────────────────────────────────────────────────────────
         //    The old COMPARE tab drew this table inside its RUNBOARD. It is drawn HERE
         //    now, natively, off the same two constants, so the old tile can go without
@@ -27813,7 +27841,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(_bkLive||'<tr><td colspan="10" style="padding:8px 9px;color:var(--text5);font-size:9px">No real book run in your history yet - the rows below are the older offline figures.</td></tr>')
               +_bkStat+'</tbody></table></div>'+_bkNote+_bkGo+'</div>';
           }
-        }else if(!picked.length){
+        }else if(!picked.length&&_c2Src!=='champ'){
           _c2Body='<div style="margin-bottom:10px">'+_c2Seg2('c2view',_C2VIEWS,_c2View)+'</div>'
             +'<div class="c2-card"><div class="c2-hold">NOTHING PICKED YET'
             +'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4)">Open a strategy on the LEADERBOARD and press + COMPARE on any run, up to eight of them. They stack up here, on whichever stage you pick.</div>'
@@ -27868,7 +27896,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(window._cmpOvlSig!==sig){window._cmpOvlSig=sig;window._cmpOvlHide=null;window._cmpOvlGrey=null;}})();
           const legend=items.map(x=>'<span class="c2-lg"><span class="c2-dot" style="background:'+x.col+'"></span>'
             +'<span data-c2run="'+x.r.id+'" style="cursor:pointer" title="open run #'+x.r.id+'">#'+x.r.id+' '+_reEscC2(_nm(x.r))+'</span>'
-            +'<span class="c2-x" data-c2rm="'+x.r.id+'" title="take this run out of the comparison">\u00d7</span></span>').join('');
+            +((_c2Src==='champ')?'':('<span class="c2-x" data-c2rm="'+x.r.id+'" title="take this run out of the comparison">\u00d7</span>'))+'</span>').join('');
           // ── THE MATRIX ─────────────────────────────────────────
           //    Built with the board's own table builder rather than a second hand-rolled one,
           //    so the sticky measure column, the banded groups and the rank-shaded heat map
@@ -27983,9 +28011,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const noCurve=items.filter(x=>!x.c).length;
           _c2Body='<div style="margin-bottom:10px">'+_c2Seg2('c2view',_C2VIEWS,_c2View)+'</div>'
             +'<div class="c2-top" style="margin-top:2px">'
+            +'<span class="c2-lbl">SHOW</span>'+_c2Seg('c2src',[['pick','PICKED','the runs you added, up to eight'],['champ','CHAMPIONS','the best run of every strategy, chosen for you - what BY STRATEGY used to be']],_c2Src)
             +'<span class="c2-lbl">STAGE</span>'+_c2Seg('c2stage',[['is','IS','the tuning years'],['wf','WF','the walk-forward folds'],['lb','LB','the sealed lockbox'],['full','FULL','the whole run, end to end']],_c2Stage)
-            +'<span class="c2-lbl">'+picked.length+' OF 8 PICKED</span>'
-            +'<span class="c2-act" data-c2clr="1" title="empty the comparison">CLEAR</span>'
+            +'<span class="c2-lbl">'+((_c2Src==='champ')?(picked.length+' CHAMPION'+(picked.length===1?'':'S')+' \u00b7 CHOSEN FOR YOU'):(picked.length+' OF 8 PICKED'))+'</span>'
+            +((_c2Src==='champ')?'':'<span class="c2-act" data-c2clr="1" title="empty the comparison">CLEAR</span>')
             +'<span style="margin-left:auto" class="c2-lbl">SOLID = TUNING YEARS \u00b7 DOTTED = SEALED LOCKBOX</span></div>'
             // ── THE FUNNEL ───────────────────────────────────────
             //    The interactive chart is a function, not markup, so the picked runs are
@@ -28008,7 +28037,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div id="rb-mtx-box" class="c2-card c2-scroll" style="margin-top:10px;padding:4px 6px">'+_c2Mtx+'</div>'
             +'<div style="margin-top:6px"><span data-c2heat="1" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid '
               +(_c2Heat?'color-mix(in srgb,var(--yellow) 55%,transparent);color:var(--yellow)':'var(--border);color:var(--text3)')+'" title="shade each row by where a run places in it, best to worst - position in the row, not distance in value, so one runaway number cannot wash the rest flat">HEAT</span></div>'
-            +'<div class="c2-note">Every figure in the table follows the STAGE control and is the same read the LEADERBOARD uses, except ROBUSTNESS and VERDICT, which describe the whole run whatever stage is picked, and FOLDS HELD, which is always the walk-forward. The chart always shows the whole run. '
+            +'<div class="c2-note">'+((_c2Src==='champ')?'These are the best run of each strategy, chosen the same way the LEADERBOARD chooses them: your crown first where you have set one, then the robustness score, then the money. Switch to PICKED to choose them yourself. ':'')+'Every figure in the table follows the STAGE control and is the same read the LEADERBOARD uses, except ROBUSTNESS and VERDICT, which describe the whole run whatever stage is picked, and FOLDS HELD, which is always the walk-forward. The chart always shows the whole run. '
             +'The chart puts every run on ONE calendar, so two runs over different years line up by date rather than by progress, and a run that had not started yet simply has no line there. Hover a curve to lift it and dim the rest, including its column in the table; click a name in the key to grey it, click again to hide it and rescale. If that chart cannot start, a simpler one is drawn in its place and says so - it spreads each run across its own window instead of a shared calendar.'
             +(apx?' A ~ marks a drawdown measured off the saved curve rather than stored on the run: the curve is downsampled, so that number can only under-state the real drawdown, and a run measured that way never takes the best mark on the drawdown or MAR rows.':'')
             +(noCurve?(' '+noCurve+' of these runs saved no equity curve, so they appear in the table but not on the chart.'):'')
@@ -28022,9 +28051,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const rs=(runHistory||[]).filter(r=>r&&r.id!=null);
         // an unrecognised strategy keeps its own name as its family - merging every one of
         //   them under one row labelled with the champion name mislabelled the others
-        const fam={};rs.forEach(r=>{const k=_c2IsBook(r)?'BOOKS':(_canonFam(r.strategy)||String(r.strategy||'').replace(/\.py$/,'')||'UNTAGGED');(fam[k]=fam[k]||[]).push(r);});
-        const fams=Object.keys(fam).map(k=>{const xs=fam[k].slice().sort((a,b)=>((b.starred?1:0)-(a.starred?1:0))||(scoreRun(b)-scoreRun(a))||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)));
-          const ch=xs[0],val=_c2Val(ch);return {k:k,runs:xs,ch:ch,val:val};});
+        const fams=_c2FamsOf(rs).map(f=>({k:f.k,runs:f.runs,ch:f.ch,val:_c2Val(f.ch)}));
         fams.sort((a,b)=>{const av=a.val.v,bv=b.val.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return bv-av;});
         const noFig=fams.filter(f=>f.val.v==null).length;
         const _c2RunRow=(r,isChamp)=>{const val=_c2Val(r),S=_c2StageOf(r),vv=r.validate?r.validate.verdict:'';
@@ -32129,6 +32156,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-c2hwm]').forEach(b=>{b.onclick=()=>{
         savePref('c2Hwm',!(APREF.c2Hwm===true));renderApp();};});
       // TOP RUNS: clicking the lit tab closes the panel again.
+      content.querySelectorAll('[data-c2src]').forEach(b=>{b.onclick=()=>{
+        savePref('c2Src',b.dataset.c2src);renderApp();};});
       content.querySelectorAll('[data-c2top]').forEach(b=>{b.onclick=()=>{
         const k=b.dataset.c2top;savePref('c2Top',(APREF.c2Top===k)?'':k);renderApp();};});
       content.querySelectorAll('[data-c2heat]').forEach(b=>{b.onclick=()=>{
