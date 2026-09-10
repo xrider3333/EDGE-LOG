@@ -228,6 +228,17 @@ var FIX = __FIX__;
         r.call2=call2;
         r.rowsOn=d.querySelectorAll('tr[data-rerow]').length;
         r.pointsOn=d.querySelectorAll('[data-repoint]').length;
+        // SIDE must really put the tables beside the chart, and the tables come FIRST.
+        //   Measured on the page, because a layout can read correctly and still collapse.
+        doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resSplit:'side'}, FIX_WIN);
+        (function(){
+          var L=d.querySelector('[data-resplitl]');
+          var sv=[].filter.call(d.querySelectorAll('svg'),function(x){return x.querySelector('[data-repoint]');})[0];
+          r.splitCol=L?Math.round(L.getBoundingClientRect().width):0;
+          r.splitChart=sv?Math.round(sv.getBoundingClientRect().width):0;
+          r.splitLeftFirst=(L&&sv)?(L.getBoundingClientRect().left<sv.getBoundingClientRect().left):null;
+          r.splitSameRow=(L&&sv)?(Math.abs(L.getBoundingClientRect().top-sv.getBoundingClientRect().top)<260):null;
+        })();
       })();
 
       // ── case 6: book (a BOOK run - own BOOKS row, dollars unscaled, LB dd off the book block) ─
@@ -811,6 +822,10 @@ def main(argv=None):
              and r.get('call2') == 'OK'
              and (r.get('rowsOn') or 0) >= 1    # switching them on builds them
              and (r.get('pointsOn') or 0) >= 1  # and the chart still draws either way
+             and (r.get('splitCol') or 0) > 100      # the tables column has real width
+             and (r.get('splitChart') or 0) > 100    # and so does the chart
+             and r.get('splitLeftFirst') is True     # tables on the left, chart to their right
+             and r.get('splitSameRow') is True
              and r.get('screenBtns') == 3
              and (r.get('presets') or 0) >= 4   # the board's own COMPARE FOR bar
              and r.get('sheets') == 3           # FILTERS / VIEWS / AXES
@@ -819,11 +834,12 @@ def main(argv=None):
              and (r.get('help') or 0) >= 1      # HOW TO READ is reachable from this screen
              and not r.get('hold'))
     line('explore', ex_ok, 'call=%s points=%s rail=%s rows=%s screenBtns=%s presets=%s '
-         'sheets=%s sidebar=%s stage=%s help=%s tblBtn=%s rowsOff=%s rowsOn=%s hold=%s'
+         'sheets=%s sidebar=%s stage=%s help=%s tblBtn=%s rowsOff=%s rowsOn=%s split=(t%s c%s L%s R%s) hold=%s'
          % (r.get('call'), r.get('points'), r.get('rail'), r.get('rows'),
             r.get('screenBtns'), r.get('presets'), r.get('sheets'), r.get('sidebar'),
             r.get('stage'), r.get('help'), r.get('tblBtn'), r.get('rowsOff'),
-            r.get('rowsOn'), r.get('hold')))
+            r.get('rowsOn'), r.get('splitCol'), r.get('splitChart'),
+            r.get('splitLeftFirst'), r.get('splitSameRow'), r.get('hold')))
     if not ex_ok:
         if r.get('call') != 'OK':
             fail('explore: renderApp threw -- %s' % str(r.get('call'))[:300])
@@ -848,6 +864,14 @@ def main(argv=None):
             fail('explore: turning the tables on produced no rows')
         if (r.get('pointsOn') or 0) < 1:
             fail('explore: the chart stopped drawing when the tables were turned on')
+        if (r.get('splitCol') or 0) <= 100 or (r.get('splitChart') or 0) <= 100:
+            fail('explore: the side-by-side split collapsed a column (tables %spx, chart %spx)'
+                 % (r.get('splitCol'), r.get('splitChart')))
+        if r.get('splitLeftFirst') is not True:
+            fail('explore: the chart is to the LEFT of the tables - this board puts the tables '
+                 'first')
+        if r.get('splitSameRow') is not True:
+            fail('explore: on SIDE the two are stacked, not beside each other')
         if r.get('screenBtns') != 3:
             fail('explore: %s screen-switcher buttons, expected 3 - COMPARE BETA lost its '
                  'own strip on this screen' % r.get('screenBtns'))
