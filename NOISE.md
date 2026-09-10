@@ -7,6 +7,84 @@
 
 ---
 
+## 🔬 2026-09-10 — ROUND 53: KEEL meets the LIVE crown for the first time — and it is leverage plus three trades (STUDIES rows 1709-1711, web v73.714)
+
+**Owner ask:** *"what's the top noise we have or think we have that may need any further testing.
+have you run it with our keel ML?"* The honest answer to the second half was **no**, and finding
+that out is most of this round's value.
+
+**Every KEEL overlay on this family sits on the PREVIOUS crown.** The paper legs (v4, v6, v7, v8,
+v10, v11, v12) all run the #243 geometry — lookback 44, volatility skip 90 — and the bench harness
+had exactly one NOISE leg, also #243. The family crown moved to **#304** on 2026-09-06 (lookback 40,
+volatility skip 95) and **no overlay was ever re-based onto it**. So the model had never met the
+configuration actually being traded, in the paper board or in the adopted book.
+
+This round adds the live crown to the bench and runs three versions against it.
+
+### What the bench prints, and why it is not the answer
+
+| | trades | net $ | PF | drawdown $ | MAR |
+|---|---|---|---|---|---|
+| raw crown, tuning era | 4,503 | 347,568 | 1.376 | 16,917 | 1.38 |
+| **KEEL v12, tuning era** | 4,503 | **539,973** | **1.493** | 26,132 | 1.39 |
+| raw crown, sealed year | 314 | 58,412 | 1.317 | 19,304 | 3.04 |
+| **KEEL v12, sealed year** | 314 | **113,538** | **1.519** | 26,919 | **4.24** |
+
+Read alone that is the best result this family has produced: **+55% before the sealed year and +94%
+inside it**, profit factor up in both, and the sealed year is genuinely out of sample. Fifteen of
+fifteen tuning years helped, t = 3.26.
+
+**But v12 runs an average size of 1.21 with a cap of 3.0**, so the only question that matters is
+whether it beats simply trading the crown that much bigger.
+
+### The exposure-matched control — the same test that killed three candidates this week
+
+| stretch | raw crown | KEEL v12 | **raw sized ×1.213** |
+|---|---|---|---|
+| tuning era, net-over-drawdown | 20.55 | **20.66** | **20.55** |
+| sealed year, net-over-drawdown | 3.03 | **4.22** | 3.03 |
+| beyond every window (28 trades) | 0.57 | 0.53 | 0.57 |
+
+**On the tuning era v12 IS leverage, exactly.** It earns 28% more than the exposure-matched control
+and carries 27% more drawdown; net-over-drawdown moves from 20.55 to 20.66, which is nothing. Its
+higher profit factor is real but it buys no risk-adjusted improvement. **v10 is worse than
+leverage** (18.88 against the control's 20.55) and **v4, which barely sizes at all, is slightly
+better before the sealed year and clearly worse inside it.**
+
+Only one number resisted: the sealed year, where v12 beat its own control 4.22 against 3.03.
+
+### And that number is three trades
+
+Against the exposure-matched control, v12's sealed-year advantage is **$42,682**. Decomposed:
+
+| | share of the advantage |
+|---|---|
+| the single best-helped trade | **$17,996 — 42%** |
+| the best three | **$41,420 — 97%** |
+| **everything except the best ten** | **−$29,471** |
+
+**Remove the ten trades the overlay helped most and it is $29,471 WORSE than simply sizing up.**
+That is the same shape as the retracted B17 and B19 bookmarks, and it is disqualifying under the
+standing concentration rule. The overlay sized up on 190 of 314 sealed-year trades, so this is not a
+rare-signal story — it is a broad size increase whose entire measured benefit sits in three trades.
+
+**VERDICT: KEEL does not improve the live crown.** It is leverage on the tuning era and luck in the
+sealed year, which is precisely what this program already banked about the family — the model is not
+the lever (memory `edgelog-keel-overlay`, roughly 175 candidates and none passing). Running it
+against #304 rather than #243 does not change that answer; it confirms it on the configuration that
+is actually being traded, which is worth having on the record.
+
+**What this DOES change:** the KEEL paper legs are forward-testing an overlay on a crown that was
+replaced four days ago. They are measuring the wrong base. Either re-base one onto #304 so the
+forward evidence is about the live configuration, or retire them — **an owner call either way**, and
+this round is not an argument for spending a board slot on it.
+
+Files: `tools/keel_bench.py` (the live crown added as its own leg, plus a shared-checkout override
+so the bench can run from a worktree); results `tools/data/keel_bench_noise304_v12.json`,
+`keel_walk_noise304_v12.npz`.
+
+---
+
 ## 🔬 2026-09-09 — ROUND 52: EXIT MANAGEMENT — the one device NOISE never had, and it is a wash (STUDIES rows 1704-1706, web v73.707)
 
 **Owner ask:** *"keep optimizing it."* Seven spaces around this crown are already closed. One

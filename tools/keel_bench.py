@@ -12,7 +12,10 @@ import os, sys, json, time
 import numpy as np
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# A git worktree has no master registry (optimizer_history.db is untracked), so anything that
+# loads a master must run against the SHARED checkout. EDGELOG_REPO_ROOT lets this bench live
+# in a worktree while reading the shared registry and engine; unset, behaviour is unchanged.
+ROOT = os.environ.get("EDGELOG_REPO_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "tools", "data")
 os.makedirs(OUT, exist_ok=True)
 os.chdir(ROOT); sys.path.insert(0, ROOT)
@@ -30,6 +33,15 @@ ENGUQ_265 = {"ema_len": 1380, "tl_len": 170, "atr_len": 106, "buf_atr": 0.9,
              "vol_mult": 0.8, "stop_mult": 1.0, "trail_frac": 2.5, "regime_len": 0,
              "min_brk": 1.3, "breakeven_R": 1.5, "act_R": 2.5,
              "er_len": 60, "er_th": 0.25, "limit_atr": 0.0}
+# The CURRENT crown (run #304, live paper leg and a leg of the adopted book #366). KEEL has
+# only ever been benched and paper-traded on #243 below, which the crown replaced on
+# 2026-09-06 - so this is the first time the overlay meets the configuration actually being
+# traded. Same knob set, lookback 40 and vol-skip 95 instead of 44 and 90.
+NOISE_304 = {"lookback": 40, "band_mult_long": 0.75, "band_mult_short": 1.5,
+             "exit_mode": "vwap", "side": "Both", "window": "all_day", "flat_eod": True,
+             "skip_holidays": False, "stop_mode": "bandwidth", "stop_k": 1.75,
+             "daytype_mode": "skip_bot_short", "daytype_lo": 0.2, "daytype_hi": 0.8,
+             "vol_skip_pct": 95.0}
 NOISE_243 = {"lookback": 44, "band_mult_long": 0.75, "band_mult_short": 1.5,
              "exit_mode": "vwap", "side": "Both", "window": "all_day", "flat_eod": True,
              "skip_holidays": False, "stop_mode": "bandwidth", "stop_k": 1.75,
@@ -37,6 +49,7 @@ NOISE_243 = {"lookback": 44, "band_mult_long": 0.75, "band_mult_short": 1.5,
              "vol_skip_pct": 90.0}
 LEGS = {
     "noise": ("NOISE #243",  "NOISE_1_0.py",             NOISE_243, "NQ", "5m", "rth", "db_noadj_rth", "et", 20.0),
+    "noise304": ("NOISE #304 (the LIVE crown)", "NOISE_1_0.py", NOISE_304, "NQ", "5m", "rth", "db_noadj_rth", "et", 20.0),
     "orb":   ("ORB #234",    "ORB_3_6_C2.py",            ORB_234,   "NQ", "5m", "rth", "db_noadj_rth", "rf", 20.0),
     "engu":  ("ENGU-Q #265", "ENGUQ_1M_ETH_ER25_1_0.py", ENGUQ_265, "NQ", "1m", "eth", "db_noadj_eth", "logistic", 20.0),
     "orbes": ("ORB #234 on ES", "ORB_3_6_C2.py",         ORB_234,   "ES", "5m", "rth", "db_noadj_rth", "rf", 50.0),
