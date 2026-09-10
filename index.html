@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.724';
+const VERSION='73.725';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -14731,11 +14731,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   same short-name-vs-long-name mismatch fixed in v73.6x wearing a new disguise; caught
     //   here by the render test rather than in production this time.
     const MTX_HYB2='HYBRID ♻';
-    const _mtxPoolCol={RAW:'#1d9e75',GATE:'#e24b4a',TILT:'#f0b429',HYBRID:'#c084fc'};
+    const _mtxPoolCol={RAW:'#1d9e75',GATE:'#e24b4a',TILT:'#f0b429',KEEL:'#38bdf8',HYBRID:'#c084fc'};
     _mtxPoolCol[MTX_HYB2]='#f0abfc';
     const _mtxPoolTip={RAW:'RAW - the strategy parameter configs the search produced, before any model touches them. Same green the funnel KEY paints the crowned config.',
                        GATE:'GATE - the trade filter: a model scores each entry and the ones under the cut-off are not taken. Same red as the funnel GATE line.',
                        TILT:'TILT - every trade is taken, only re-sized by model confidence. Same amber as the funnel TILT line.',
+                       KEEL:'KEEL - every trade is taken and sized by a trust-scaled estimate of its expectancy. ONE row per run, comparison only and never crownable, so it is a single dot rather than a cloud. Same sky blue as the funnel KEEL line.',
                        HYBRID:'HYBRID - gate first, then size the survivors by confidence, one contract per trade on average. Same violet as the funnel HYBRID line.'};
     _mtxPoolTip[MTX_HYB2]='HYBRID RECYCLE - the same hybrid book sized UP until it spends the same total contracts as the no-filter book: what the capacity the gate freed actually buys. Different net $ AND different drawdown from plain HYBRID, which is why it is its own point here. Same pink as the funnel HYBRID recycle line.';
     // ── LEGEND = FAMILY TOGGLES ─────────────────────────────────────────────────────────────
@@ -17859,7 +17860,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +_pill('MEMBERS',(_keys.length?_keys.map(function(m){return m+' '+((_nm2(mt[m])!=null)?(+mt[m]).toFixed(2):'-');}).join(' &middot; '):'&mdash;'),'the trust the walk earned for each member of the keel stack, one figure each')
             +'</div>'
             +'<div style="font-size:7.5px;color:var(--text5);margin-bottom:7px;white-space:normal">'+String(k.rule||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>';})();
-        const keelTbl=_kl.length?(_klFacts+_cmpMatrix(_cmpCols(_kl,'keel'),'one',null))
+        // v73.7x (owner: "dont see keel in scatter"): the third argument is the POOL NAME, and it
+        //   is what pushes a column's net $ and drawdown into the shared cross-pool array the
+        //   scatter and parallel views draw from. TILT passes 'tilt', HYBRID passes 'hyb'; this
+        //   passed null, so KEEL had a tab and a table but never a dot. 'keel'.toUpperCase() is
+        //   'KEEL', which is the key the colour, tooltip and click-to-jump tables all use.
+        const keelTbl=_kl.length?(_klFacts+_cmpMatrix(_cmpCols(_kl,'keel'),'one','keel'))
           :(_klErr?('<div style="font-size:8px;color:var(--text5)">KEEL: '+_klErr.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>'):'');
         const keelNote=(!_kl.length)?'':_noteRow(_infoIc('<div style="color:var(--text2)"><div style="color:var(--yellow);font-weight:700;margin-bottom:6px">ONE MORE WAY TO SPEND A MODEL SCORE &middot; COMPARISON ONLY, NEVER CROWNED</div><b>KEEL</b> takes every trade, exactly like the TILT, and only sets the SIZE - but the size comes from an estimate of the trade EXPECTANCY, scaled by how much the walk trusts itself at that moment. Where it has earned no trust the size is one lot, which is to say the keel stands aside rather than guessing.<br><br>The columns below are the SAME measures over the SAME ticked stretches as the TILT and HYBRID tabs, so the three overlays can be read straight against each other.<br><br>The engine marks this row crownable:false. It can never win a crown, it is not one of the candidates, and it puts no dot on the 1E pooled scatter.</div>'));
         // 2E HYBRID (owner idea, v68.5): the gate keeps its crowned cut-off, the SURVIVORS are
@@ -33890,7 +33896,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const pool=el2.getAttribute('data-pool'),key=el2.getAttribute('data-mtxkey');
         // v73.7x: HYBRID RECYCLE joined the four originals, and it lands on the 1E hyb2 tab.
         //   Keyed off the same long family name the colour table uses (see _mtxPoolCol).
-        const tabOf={RAW:'raw',GATE:'gate',TILT:'tilt',HYBRID:'hyb'};
+        // v73.7x: KEEL too - it is a real 1E tab ('keel'), and without this entry clicking its
+        //   dot scrolled without switching the table underneath.
+        const tabOf={RAW:'raw',GATE:'gate',TILT:'tilt',KEEL:'keel',HYBRID:'hyb'};
         tabOf[MTX_HYB2]='hyb2';
         if(tabOf[pool])savePref('cfgTab',tabOf[pool]);
         window._mtxScrollKey=key||null;
