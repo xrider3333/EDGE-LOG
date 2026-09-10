@@ -49,6 +49,11 @@ WHAT IT ASSERTS, per case
                        three SAMPLE ticks and checks the lockbox MAR cell equals the
                        annualised figure computed here from the fixture's own lockbox pnl,
                        drawdown and window - so net-over-drawdown can never come back.
+  gatewf           -- with the stage rail on WALK-FORWARD and return on capital across,
+                       a GATE row must be ON the chart. Every gate row on the board was
+                       off it at once because the gate row reported no walk-forward
+                       figure; the engine saves one, and the two halves must still add
+                       up to the pooled pre-lockbox figure.
   compare          -- the phase-3 COMPARE screen with three runs picked (the fixture, a
                        twin with its stored lockbox drawdown removed so the curve-derived
                        path runs, and the synthesised book): the overlay draws the
@@ -91,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 13
+N_CASES = 14
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -127,7 +132,9 @@ var FIX = __FIX__;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
       out.renderAppType=w.eval('typeof renderApp');
       if(out.renderAppType!=='function'){out.why='noboot';
-        document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);return;}
+  
+
+      document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);return;}
 
       function doRender(prefs, winCode, sub){
         sink.errors.length=0; sink.uncaught.length=0;
@@ -599,6 +606,53 @@ var FIX = __FIX__;
         try{w.alert=oldAlert;}catch(_e){}
         keep();
         r.errors=errs.slice(0,8);r.uncaught=unc.slice(0,8);
+      })();
+
+      // -- case 14: a gate row is plottable on the WALK-FORWARD stage ---------------
+      //    Every gate row on the board was off the chart at once - 600 of them, the same
+      //    40 on each of 15 runs - because the gate row reported no walk-forward figure at
+      //    all. No profit for the ticked stretch means no MAR and no return on capital, so
+      //    nothing to plot and two dashes in the table. The engine does save the slice, so
+      //    this pins it: with the stage rail on WALK-FORWARD and return on capital across,
+      //    a GATE point must be ON the chart, and the two halves must still add up to the
+      //    pooled pre-lockbox figure they came from.
+      (function(){
+        var blk=function(p,dd,n){return {total_pnl:p,max_drawdown:dd,num_trades:n,
+          profit_factor:1.5,win_rate:0.4,sharpe:1.2,sortino:2.1,avg_pnl:(p/n),avg_loss:-100};};
+        var cand={model:'logistic',threshold:0.5,eligible:true,
+          pre_pnl:10000,pre_rec:4,pre_pf:1.5,pre_wr:0.4,kept_pre:100,
+          pre_sharpe:1.2,pre_sortino:2.1,
+          is_rng:blk(1000,-300,20),wf_rng:blk(9000,-500,80),
+          lockbox:blk(2000,-200,25),full:blk(12000,-600,125),wf_lb:blk(11000,-550,105)};
+        var GV={span:['2010-01-04','2026-01-02'],wf_range:['2016-01-04','2025-01-02'],
+          lockbox_from:'2025-01-02',candidates:[cand],chosen:{model:'logistic',threshold:0.5},
+          tilts:[],hybrids:[],gates:[],windows:{}};
+        // the configurations are read out of the CONFIGS-ONLY document, so seed that
+        var wc=FIX_WIN+'doc.gate_validate='+JSON.stringify(GV)+';runHistory=[doc];'
+          +'window._runCfg={};window._runCfg[String(doc.id)]=doc;';
+        var call=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',
+                           resCfgRun:[String(FIX.id)],
+                           resSegs:['wf'],resXAxis:'roc',resMarks:'dot',
+                           c2Tbl:true}, wc);
+        var r=snap('gatewf', call);
+        // A GATE POINT, not just any point: the hover text names the family, and it is the
+        //   gate rows specifically that were missing.
+        var pts=[].slice.call(d.querySelectorAll('[data-repoint]'));
+        r.points=pts.length;
+        r.gatePoints=pts.filter(function(g){
+          var t=g.querySelector('title');return !!(t&&(t.textContent||'').indexOf('GATE')>=0);}).length;
+        r.skipN=w._reSkipN; r.shownN=w._reShownN;
+        // and the table row must carry real figures where it used to carry two dashes
+        var hdr=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').trim();});
+        var iMar=-1,iRoc=-1;
+        hdr.forEach(function(h,i2){if(h.indexOf('MAR')===0&&iMar<0)iMar=i2;
+                                   if(h.indexOf('ROC')===0&&iRoc<0)iRoc=i2;});
+        var gtr=[].slice.call(d.querySelectorAll('tr[data-rerow]')).filter(function(tr){
+          return (tr.textContent||'').indexOf('GATE')>=0;})[0]||null;
+        var cell=function(i2){return (gtr&&i2>=0&&gtr.cells[i2])?(gtr.cells[i2].textContent||'').trim():null;};
+        r.gateMar=cell(iMar); r.gateRoc=cell(iRoc);
+        r.hasGateRow=!!gtr;
+        r.sums=(cand.is_rng.total_pnl+cand.wf_rng.total_pnl)===cand.pre_pnl;
       })();
 
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -1379,6 +1433,42 @@ def main(argv=None):
                  'and CANCEL)' % bm)
         if not r.get('bkModalGone'):
             fail('sets: CANCEL did not close the book panel')
+
+
+    # case 14: a gate row is plottable on the WALK-FORWARD stage
+    #   600 gate rows - every one on the board, the same 40 on each of 15 runs - were off
+    #   the chart because the gate row reported no walk-forward figure at all. Other rows
+    #   on this board legitimately record nothing for a walk-forward stretch (a sweep row
+    #   from the studies registry has no such slice), so this asserts the GATE point, not
+    #   an empty skip list.
+    r = cases.get('gatewf', {})
+    dash = '—'
+    gw_ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
+             and r.get('hasGateRow') and r.get('sums')
+             and (r.get('gatePoints') or 0) >= 1
+             and r.get('gateMar') not in (None, '', dash)
+             and r.get('gateRoc') not in (None, '', dash))
+    line('gatewf', gw_ok, 'call=%s gateRow=%s gatePts=%s of %s pts (skip %s of %s) MAR=%r '
+         'ROC=%r sums=%s'
+         % (r.get('call'), r.get('hasGateRow'), r.get('gatePoints'), r.get('points'),
+            r.get('skipN'), r.get('shownN'), r.get('gateMar'), r.get('gateRoc'),
+            r.get('sums')))
+    if not gw_ok:
+        if r.get('call') != 'OK':
+            fail('gatewf: renderApp threw -- %s' % str(r.get('call'))[:300])
+        if not r.get('hasGateRow'):
+            fail('gatewf: no GATE row rendered at all, so the case proves nothing')
+        if not r.get('sums'):
+            fail('gatewf: the probe fixture is wrong - in-sample plus walk-forward must add '
+                 'up to the pooled pre-lockbox figure, or the split would double-count')
+        if (r.get('gatePoints') or 0) < 1:
+            fail('gatewf: the GATE row is not on the chart on the walk-forward stage - it is '
+                 'reporting no walk-forward figure again (%s points drawn, %s of %s rows off)'
+                 % (r.get('points'), r.get('skipN'), r.get('shownN')))
+        if r.get('gateMar') in (None, '', dash) or r.get('gateRoc') in (None, '', dash):
+            fail('gatewf: the GATE row shows MAR=%r and ROC=%r on the walk-forward stage - a '
+                 'dash there means the stage profit is missing again'
+                 % (r.get('gateMar'), r.get('gateRoc')))
 
     if bad:
         print('CMP2 PROBE: FAIL')
