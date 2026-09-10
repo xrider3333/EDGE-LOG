@@ -91,7 +91,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 10
+N_CASES = 11
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -426,6 +426,36 @@ var FIX = __FIX__;
         var r=snap('books', ok?'OK':'ERR');
         r.per=per;
       })();
+
+      // ── case 11: top runs ───────────────────────────────
+      //    The leaderboard shows champions; this panel ranks individual runs. Two runs with
+      //    different figures must come out in OPPOSITE order under BEST and WORST, which is
+      //    the one thing a row count cannot check.
+      (function(){
+        var A=JSON.parse(JSON.stringify(FIX));
+        var B=JSON.parse(JSON.stringify(FIX));
+        B.id=String(+FIX.id+700000);B.starred=false;
+        // make B clearly the better run on the lockbox read
+        if(B.validate&&B.validate.lockbox){B.validate.lockbox.pnl=(+FIX.validate.lockbox.pnl||0)*4+1000;
+          B.validate.lockbox.pf=(+FIX.validate.lockbox.pf||1)+0.6;}
+        var wc="var A="+JSON.stringify(A)+";var B="+JSON.stringify(B)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(A),f(B)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+        var per={};
+        ['best','worst'].forEach(function(k){
+          var call=doRender({c2Screen:'lead',c2Stage:'lb',c2Rank:'net',c2Top:k}, wc);
+          var rows=[].slice.call(d.querySelectorAll('.c2-card .c2-row.sub[data-c2run]'));
+          per[k]={call:call,tabs:d.querySelectorAll('[data-c2top]').length,
+            n:rows.length,
+            first:rows.length?rows[0].getAttribute('data-c2run'):null,
+            errors:sink.errors.slice(0,4),uncaught:sink.uncaught.slice(0,4)};
+        });
+        var off=doRender({c2Screen:'lead',c2Stage:'lb',c2Rank:'net'}, wc);
+        var r=snap('toprun',(per.best.call==='OK'&&per.worst.call==='OK'&&off==='OK')?'OK':'ERR');
+        r.per=per;r.offCall=off;r.offRows=d.querySelectorAll('.c2-card .c2-row.sub[data-c2run]').length;
+        r.betterId=String(+FIX.id+700000);
+      })();
+
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -1011,6 +1041,37 @@ def main(argv=None):
                  'blank or invented' % (wfb.get('ths'), wfb.get('bodyRows')))
         if not (wfb.get('noWf') and wfb.get('hold')):
             fail('books: the walk-forward stage does not explain why there is nothing to show')
+
+    # case 11: top runs
+    r = cases.get('toprun', {})
+    per = r.get('per') or {}
+    b, w = (per.get('best') or {}), (per.get('worst') or {})
+    top_ok = (r.get('call') == 'OK'
+              and not b.get('errors') and not b.get('uncaught')
+              and b.get('tabs') == 3 and w.get('tabs') == 3
+              and (b.get('n') or 0) >= 2 and (w.get('n') or 0) >= 2
+              and b.get('first') == r.get('betterId')      # the better run leads BEST
+              and w.get('first') != b.get('first'))        # and does not lead WORST
+    line('toprun', top_ok, 'best=(call=%s tabs=%s n=%s first=%s) worst=(first=%s) better=%s off=(%s rows=%s)'
+         % (b.get('call'), b.get('tabs'), b.get('n'), b.get('first'), w.get('first'),
+            r.get('betterId'), r.get('offCall'), r.get('offRows')))
+    if not top_ok:
+        for k in ('best', 'worst'):
+            p = per.get(k) or {}
+            if p.get('call') != 'OK':
+                fail('toprun: %s threw -- %s' % (k, str(p.get('call'))[:300]))
+            if p.get('errors'):
+                fail('toprun: %s console.error -- %s' % (k, p['errors'][0][:200]))
+        if b.get('tabs') != 3:
+            fail('toprun: %s tabs, expected BEST / WORST / NEWEST' % b.get('tabs'))
+        if (b.get('n') or 0) < 2:
+            fail('toprun: only %s rows listed for two runs' % b.get('n'))
+        if b.get('first') != r.get('betterId'):
+            fail('toprun: BEST leads with run %s, but %s is the better run on this read'
+                 % (b.get('first'), r.get('betterId')))
+        if w.get('first') == b.get('first'):
+            fail('toprun: BEST and WORST lead with the same run, so the ordering is not '
+                 'reversing')
 
     if bad:
         print('CMP2 PROBE: FAIL')

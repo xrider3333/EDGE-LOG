@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.710';
+const VERSION='73.711';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.711',date:'2026-09-10',notes:['TOP RUNS on the LEADERBOARD, and the last of the old runboard list. That list showed the same rows the leaderboard already shows once a family is opened, minus three things - so those three were added rather than a second list built: the strategy colour, so a run is findable by eye; the family run number the studies board and the notes call it by; and the robustness score.','The genuinely missing half was the panel of INDIVIDUAL runs, and it is the more useful one. The leaderboard only ever shows champions; this ranks every run in every family on whatever is picked above, so the best run of a family that never won anything is one click away - and so is the WORST, which is usually the more informative click. NEWEST ignores the ranking and just lists the ten latest.','It reaches runs the champion list leaves out for having a window under two years. They are shown with a warning and their length rather than dropped, because a short sample is a caveat, not a disqualification.','Every read this screen ranks on - R per year, MAR, profit factor, net - is better when it is larger, so BEST and WORST really are the two ends of one sorted list. A smaller-is-better read would need a direction flag, and there is a note in the code saying so.']},
 {v:'73.710',date:'2026-09-10',notes:['COMPARE: the BOOKS table is now a view of its own on the new COMPARE screen, drawn there directly instead of being borrowed from the old tab. Pick BOOKS on the view strip. Every real book run in your history is listed first, newest first, then the four older offline rows a script worked out and someone pasted in. Clicking a live row opens that run report.','The STAGE control drives the table: the whole window, the tuning years, or the sealed lockbox. Every figure on a row comes from that ONE pooled stretch, so the net, the profit factor, the drawdown and the trade count always describe the same piece of history. Return over drawdown in this table is plain net divided by the worst drawdown of that stretch, with no years in it - the same number the old table printed, so the column stays comparable top to bottom.','A book pools its legs over one window and tunes nothing, so it has no walk-forward stage. Picking the walk-forward stage now says that in a sentence and offers the other three, instead of drawing a table full of blank cells.','The two look-ahead warnings still travel with the rows that earned them, and the button that starts a new book run is deliberately not duplicated here - the table points at the RUNBOARD view, where it lives.']},
 {v:'73.709',date:'2026-09-09',notes:['COMPARE - STUDIES: run 369 validates BOTH changes in one leg (overfit probability 0.099, the lowest this family has recorded) and BOOK run 371 clears every clause of the canonical bar - annualised MAR times 1.0798, lockbox up 7.5 percent, lockbox drawdown IDENTICAL, 8 of 8 slices. The owner swapped the book onto it. Rows 1707-1708.','The TTM leg ends the day at 135,884 dollars and annualised MAR 1.826, against 51,709 and 0.86 this morning - four separate validated changes, each against a bar written first. TTM_299, TTM_299_T and TTM_299_SS all keep running in paper as controls. The two tilts multiply into a 1.0 / 1.5 / 2.25 contract ladder, so the whole-contract answer from round 11 needs redoing before any live order.']},
 {v:'73.708',date:'2026-09-09',notes:['BOOKS: the day-stamping rule is now a decision you can see rather than a note in a document. A trade calendar day has two defensible answers. The engine truncates a New York index, which numpy does in Universal Time, so a 24-hour leg exiting at or after 8pm New York books on the NEXT day; the other answer is the session day you would write on the ticket. The money is IDENTICAL under both - only the daily curve moves - but drawdown is measured on the daily curve, so the two can disagree about which month holds a book worst stretch. On the house baseline they do: 34,329 dollars in May 2022 against 34,903 in February and March 2020.','Every book run now scores BOTH and stores them, and the BOOKS row prints the second reading beside the first whenever they differ - which is never for a book that only trades the day session. NOTHING WAS CHANGED: every stored figure is still the engine rule, because switching it would move the recorded drawdown of every book at once and make old and new runs incomparable. Adopting the other rule is a re-scoring of every stored book, not a patch. The point is that the choice is now in front of you instead of in a file.']},
@@ -28028,13 +28029,55 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const noFig=fams.filter(f=>f.val.v==null).length;
         const _c2RunRow=(r,isChamp)=>{const val=_c2Val(r),S=_c2StageOf(r),vv=r.validate?r.validate.verdict:'';
           const inCmp=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String).indexOf(String(r.id))>=0;
+          // the colour is the strategy's own, so a run is findable by eye in a long list the
+          //   way it is on the chart; the alias is the family run number the studies board and
+          //   the notes refer to; the score is the 0-100 robustness read the old list carried.
+          const _sw=((typeof stratColor==='function')&&stratColor(r.strategy))||'var(--text4)';
+          const _alias=(r.famKey&&r.famSeq!=null)?(r.famKey+'-'+r.famSeq):'';
+          const _sc=(typeof scoreRun==='function')?scoreRun(r):null;
+          const _scOk=(_sc!=null&&isFinite(_sc));
           return '<div class="c2-row sub" data-c2run="'+r.id+'" title="open run #'+r.id+'">'
             +'<span class="c2-chev">'+(isChamp?'\u2605':'')+'</span>'
-            +'<div><div class="c2-nm">#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2Drift(r)+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+'</div>'
+            +'<div><div class="c2-nm"><span style="flex:0 0 8px;height:8px;border-radius:2px;background:'+_sw+'"></span>#'+r.id+' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)+_c2Drift(r)+(r.starred?'<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)">CROWN</span>':'')+(_alias?('<span style="font-size:8px;font-weight:700;color:var(--text5)" title="the family run number - what the studies board and the notes call this run">'+_reEscC2(_alias)+'</span>'):'')+(_scOk?('<span style="font-size:8px;font-weight:700;color:'+((_sc>=70)?'var(--green)':((_sc>=45)?'var(--yellow)':'var(--red)'))+'" title="robustness score, 0 to 100, measured on the WHOLE run whatever stage is picked above">'+Math.round(_sc)+'</span>'):'')+'</div>'
             +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+(S&&S.tr?' \u00b7 '+S.tr+' trades':'')
             +' <span class="c2-act'+(inCmp?' on':'')+'" data-c2add="'+r.id+'" title="'+(inCmp?'in the comparison - click to remove':'add to the comparison (up to 8)')+'">'+(inCmp?'\u2713 COMPARING':'+ COMPARE')+'</span></div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(val.v)+'"'+(val.v==null?(' title="'+_reEscC2(val.why)+'"'):'')+'>'+(val.apx?'~':'')+_c2Fmt(val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">\u203a</span></div>';};
+        // ── TOP RUNS ─────────────────────────────────────────────
+        //    The list above only ever shows champions. This ranks INDIVIDUAL runs across every
+        //    family on whatever is picked above, so the best run of a family that never won
+        //    anything is one click away - and so is the WORST, which is usually the more
+        //    informative click. Runs with a window under two years are included rather than
+        //    dropped, and marked, because a short sample is a caveat and not a disqualifier.
+        const _c2Top=(['best','worst','recent'].indexOf(APREF.c2Top)>=0)?APREF.c2Top:'';
+        const _c2TopRows=(function(){if(!_c2Top)return [];
+          const xs=rs.map(r=>({r:r,v:_c2Val(r)})).filter(o=>o.v&&o.v.v!=null&&isFinite(o.v.v));
+          if(_c2Top==='recent')return rs.slice().sort((a,b)=>(+b.id||0)-(+a.id||0)).slice(0,10).map(r=>({r:r,v:_c2Val(r)}));
+          // every read this screen offers - R per year, MAR, profit factor, net - is better when
+          //   it is LARGER, so best is simply descending. If a smaller-is-better read is ever
+          //   added to the rank strip, this needs a direction flag with it.
+          xs.sort((a,b)=>(_c2Top==='best')?(b.v.v-a.v.v):(a.v.v-b.v.v));
+          return xs.slice(0,10);})();
+        const _c2TopBar='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">'
+          +'<span class="c2-lbl">TOP RUNS</span>'
+          +[['best','BEST'],['worst','WORST'],['recent','NEWEST']].map(o=>'<span data-c2top="'+o[0]+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 9px;border-radius:6px;cursor:pointer;border:1px solid '
+            +((o[0]===_c2Top)?'color-mix(in srgb,var(--blue) 55%,transparent);color:var(--blue)':'var(--border);color:var(--text3)')+'">'+o[1]+'</span>').join('')
+          +(_c2Top?('<span style="font-size:9px;color:var(--text5)">'+(( _c2Top==='recent')?'the ten newest runs, whatever they scored':('ranked on '+_c2Unit+' \u00b7 individual runs, not family champions'))+'</span>'):'')
+          +'</div>';
+        const _c2TopList=!_c2Top?'':('<div class="c2-card" style="margin-top:6px">'+(_c2TopRows.length?_c2TopRows.map((o,i)=>{
+          const r=o.r,vv=r.validate?r.validate.verdict:'';
+          const sw=((typeof stratColor==='function')&&stratColor(r.strategy))||'var(--text4)';
+          const yrs=(typeof _runYrs==='function')?_runYrs(r):null;
+          const shrt=(yrs!=null&&yrs<2);
+          return '<div class="c2-row sub" data-c2run="'+r.id+'" title="open run #'+r.id+'">'
+            +'<span class="c2-chev" style="color:var(--text5)">'+(i+1)+'</span>'
+            +'<div><div class="c2-nm"><span style="flex:0 0 8px;height:8px;border-radius:2px;background:'+sw+'"></span>#'+r.id
+            +' <span style="font-weight:500;color:var(--text3)">'+_reEscC2(String(r.strategy||'').replace(/\.py$/,''))+'</span>'+_c2Pill(vv)
+            +(shrt?('<span style="font-size:8px;color:var(--yellow)" title="this run window is under two years, so its figures rest on a short sample - the champion list leaves runs like this out">\u26a0 '+yrs.toFixed(1)+'y</span>'):'')+'</div>'
+            +'<div class="c2-who">'+_reEscC2(String(r.instrument||'')+' '+String(r.timeframe||''))+' \u00b7 '+String(r.timestamp||'').slice(0,10)+'</div></div>'
+            +'<div><div class="c2-big" style="color:'+_c2Col(o.v.v)+'">'+(o.v.apx?'~':'')+_c2Fmt(o.v.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
+            +'<span class="c2-chev">\u203a</span></div>';}).join('')
+          :('<div class="c2-hold">NO RUN CARRIES THAT MEASUREMENT ON THIS STAGE</div>'))+'</div>');
         const rows=fams.map((f,i)=>{const open=window._c2Open.has(f.k),ch=f.ch,vv=ch.validate?ch.validate.verdict:'',S=_c2StageOf(ch);
           const eq=(ch.equity&&Array.isArray(ch.equity.cum)&&ch.equity.cum.length>2)?ch.equity.cum:null;
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
@@ -28048,7 +28091,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<span class="c2-lbl">RANK ON</span>'+_c2Seg('c2rank',[['rpy','R / YR','expectancy in R times trades per year - the cross-strategy read'],['mar','MAR','net per year over the worst drawdown'],['pf','PF','gross wins over gross losses'],['net','NET','money']],_c2Rank)
           +'<span class="c2-lbl" style="margin-left:6px">STAGE</span>'+_c2Seg('c2stage',[['is','IS','in-sample'],['wf','WF','walk-forward folds'],['lb','LB','the lockbox - the honest read']],_c2Stage)
           +'</div><div class="c2-card">'+(rows||'<div class="c2-hold">NO RUNS YET</div>')+'</div>'
-          +'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = your crown (★ starred) where one exists, else the highest robustness score · books sit in their own row'
+          +_c2TopBar+_c2TopList+'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = your crown (★ starred) where one exists, else the highest robustness score · books sit in their own row'
           +(noFig?(' \u00b7 <b>'+noFig+' without a '+_c2StageNm+' figure</b> (hover the dash for why) - they sort last, never hidden'):'')
           // ONLY THE LOCKBOX can have a drawdown derived for it - lb_idx is the only marker
           //   the saved curve carries - so only the lockbox note may promise a ~. The
@@ -32085,6 +32128,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
        }catch(e){console.warn('[compare] explorer failed:',(e&&e.message)||e);}};}
       content.querySelectorAll('[data-c2hwm]').forEach(b=>{b.onclick=()=>{
         savePref('c2Hwm',!(APREF.c2Hwm===true));renderApp();};});
+      // TOP RUNS: clicking the lit tab closes the panel again.
+      content.querySelectorAll('[data-c2top]').forEach(b=>{b.onclick=()=>{
+        const k=b.dataset.c2top;savePref('c2Top',(APREF.c2Top===k)?'':k);renderApp();};});
       content.querySelectorAll('[data-c2heat]').forEach(b=>{b.onclick=()=>{
         savePref('c2Heat',!(APREF.c2Heat!==false));renderApp();};});
       content.querySelectorAll('[data-c2tbl]').forEach(b=>{b.onclick=()=>{
