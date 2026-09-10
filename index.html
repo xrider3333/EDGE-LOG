@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.712';
+const VERSION='73.713';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -14037,14 +14037,18 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
                          li:null,wfi:null,tiltCand:true,famTop:(tl===_bestTiltC),
                          ts:_mkTsSpan(tl.equity.cum.length,optFromMs,lbToMs)});
             });
-            // v73.535: KEEL joins the SIZE TILTS legend group rather than earning one of its
+            // v73.535 put KEEL in the SIZE TILTS legend group; SUPERSEDED - it now has its
+            //   own key row and its own line (see the _keelOv block in the 1A chart). The old
             //   own - it is the same animal as a tilt (every trade taken, only re-sized) and
             //   equally never crownable, so one toggle covers both. There is only ever ONE
             //   keel row per run, so this is a single line, labelled "KEEL v4".
             if(_gvKeel&&_gvKeel.equity&&Array.isArray(_gvKeel.equity.cum)&&_gvKeel.equity.cum.length>=2)
               _ser.push({id:'keel',label:'KEEL '+String(_gvKeel.version||''),color:'#38bdf8',
                          eq:_gvKeel.equity.cum.map(v=>v*mult),
-                         li:null,wfi:null,tiltCand:true,
+                         // famTop, not tiltCand: the 1A chart now draws KEEL as its own
+                         //   family line with its own key row, so it must NOT also be
+                         //   drawn thin underneath when ALL CONFIGS is switched on.
+                         li:null,wfi:null,famTop:true,
                          ts:_mkTsSpan(_gvKeel.equity.cum.length,optFromMs,lbToMs)});
             // v71.15 (owner: "i dont see hybrid or hybrid r on expanded") — HYBRID was the one
             //   2B tab with no line in the expanded view. Every hybrid now pushes TWO series: the
@@ -14237,6 +14241,27 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
             _famDD.push({a:_ta,x:function(j){const f=_tn<=1?1:j/(_tn-1);return (f<=_tf)?(xL+(xFull-xL)*(f/_tf)):(xFull+(xR-xFull)*((f-_tf)/(1-_tf)));},col:'#f0b429',kg:'tilt',nm:'TILT'});
             _tiltEnd=_ta[_tn-1];}
         }catch(_te){}
+        // v73.7xx (owner, twice: "i dont see keel on auto validates" / "not seeing it on the
+        //   charts"): KEEL now draws as its own family top with its own key row. It used to be
+        //   pushed with tiltCand:true, which meant DEFAULT-HIDDEN behind ALL CONFIGS - and since
+        //   the row also ran v4 (average size 1.00, fixed the same day) its line sat exactly on
+        //   the raw curve even once revealed. Two reasons to see nothing at all.
+        //   Same trade-grid mapping as the tilt above: the lockbox door sits at kept_pre/n_trades.
+        let _keelOv='',_keelEnd=null,_keelVer='';
+        try{
+          const _bk=(function(){try{const k=(d.gate_validate||{}).keel;return (k&&!k.error)?k:null;}catch(_e){return null;}})();
+          if(_bk&&_bk.equity&&Array.isArray(_bk.equity.cum)&&_bk.equity.cum.length>2){
+            _keelVer=String(_bk.version||'');
+            const _ka=_bk.equity.cum.map(v=>v*mult),_kn=_ka.length;
+            const _kf=Math.max(0.02,Math.min(0.98,(+_bk.kept_pre||0)/Math.max(1,+_bk.n_trades||_kn)));
+            const _kp=[];
+            for(let j=0;j<_kn;j++){const f=_kn<=1?1:j/(_kn-1);
+              const x=(f<=_kf)?(xL+(xFull-xL)*(f/_kf)):(xFull+(xR-xFull)*((f-_kf)/(1-_kf)));
+              _kp.push(x.toFixed(1)+' '+Yv(_ka[j]).toFixed(1));}
+            _keelOv='<g data-kg="keel"><polyline points="'+_kp.join(' ')+'" fill="none" stroke="#38bdf8" stroke-width="0.75" opacity="0.9"><title>KEEL '+_keelVer+' (skill-gated expectancy tilt) · average size '+String(_bk.avg_size!=null?_bk.avg_size:'?')+'x · comparison only, never crownable</title></polyline></g>';
+            _famDD.push({a:_ka,x:function(j){const f=_kn<=1?1:j/(_kn-1);return (f<=_kf)?(xL+(xFull-xL)*(f/_kf)):(xFull+(xR-xFull)*((f-_kf)/(1-_kf)));},col:'#38bdf8',kg:'keel',nm:'KEEL'});
+            _keelEnd=_ka[_kn-1];}
+        }catch(_ke2){}
         // v68.6: the best HYBRID (2E) draws too — violet, same trade-grid mapping as the tilt.
         let _hybOv='',_hybEnd=null;
         try{
@@ -14411,6 +14436,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
         const _marSuf=(m,R)=>{const sl=R&&R.segs?R.segs.toUpperCase():'',rk=R?(_rkTxt[R.rule]||R.rule):'';
           return (R?(' · picked on '+sl+' by '+rk):'')+((m!=null&&isFinite(m))?(' · MAR '+m.toFixed(1)+'×'):'');};
         if(_tiltEnd!=null)_kOrder.push(['tilt','TILT',_tiltEnd,'#f0b429','best of the size-tilt models'+_marSuf(_bestTiltMar,_bestTiltRule),0]);
+        if(_keelEnd!=null)_kOrder.push(['keel','KEEL'+(_keelVer?(' <span style="font-weight:400;opacity:.7">'+_keelVer+'</span>'):''),_keelEnd,'#38bdf8','the skill-gated expectancy tilt - every trade taken, only re-sized, comparison only and never crownable',0]);
         if(_hybEnd!=null)_kOrder.push(['hyb','HYBRID',_hybEnd,'#c084fc','best of the hybrid models'+_marSuf(_bestHybMar,_bestHybRule),0]);
         if(_hyb2KeyV!=null)_kOrder.push([(_hyb2End!=null?'hyb2':'hyb'),'HYBRID &#9851;'+(_hyb2End!=null?'':' <span style="opacity:.7">1.00&times;</span>'),_hyb2KeyV,'#f0abfc',
               (_hyb2End!=null?('the same hybrid book sized up '+(_hyRdF||1).toFixed(2)+'x - the contracts the filter freed, put back to work'+_marSuf(_bestHybMar,_bestHybRule))
@@ -14470,7 +14496,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         selSvg=_ddStrip+_hwOv
           +(_acOv?('<g data-kg="allcfg"'+(_acOn?'':' style="display:none"')+'>'+_acOv+'</g>'):'')
           +'<g data-kg="wf"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+wf+'</g>'
-          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'+_dimOv;}
+          +ov+'<g data-kg="lb">'+lb+'</g>'+_tiltOv+_keelOv+_hybOv+_hyb2Ov+'<g data-kg="gate"'+(_a2gate?'':' style="display:none"')+'>'+gateOv+'</g>'+_dimOv;}
       // x-axis date labels (owner request). Use the OPTIMIZE window when this is a validate
       //   run; selMode+lockbox pushes the right label out to the holdout end.
       const _xw=(d.validate&&d.validate.windows&&d.validate.windows.optimize)||null;
