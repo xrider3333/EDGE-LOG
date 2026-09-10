@@ -443,3 +443,18 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **Cost:** PF 1.526 -> 1.486 and ~2x the trades - **judge on n/DD, not PF.**
 - **Rejected before adopting:** NQDIP as a 5th leg (38.18 -> 23.37, its own DD exceeds the whole book's) and the TTM weight ladder (monotonic, no interior optimum = metric without a concentration term).
 - **Standing caveat:** every version's held-back year has ten best days about 103%% of that year's profit; the ENGU-Q leg's held-back year was already read at crowning.
+
+### B32 - the staleness audit finishes: run #379 beats the adopted #366 on every axis (rounds 53-54, rows 1712-1717, v73.719)
+
+| book | selection net | DD | sel n/DD | PF | held-back net | held-back PF |
+|---|---|---|---|---|---|---|
+| #366 adopted | $1,395,904 | $36,562 | 38.18 | 1.486 | $289,811 | 1.563 |
+| #373 ORB crown | $1,391,722 | $33,350 | 41.73 | 1.523 | $276,858 | 1.575 |
+| **#379 both crowns** | **$1,479,042** | **$33,350** | **44.35** | **1.548** | **$294,142** | **1.612** |
+| #378 squeeze w4 (knob test) | $1,592,187 | $33,759 | 47.16 | 1.577 | $316,881 | 1.656 |
+
+- **Two of three remaining legs were stale.** Opening range held the CONTROL (#234) not the crown (#314); squeeze held the structural-stop-only file (#353) not the crowned COMBINED leg (#369).
+- **The squeeze swap is the clean one:** #369 alone = $77,105 / DD $3,350 vs #353's $55,912 / DD $4,338 - more money on LESS drawdown from the same 273 trades, at triple weight.
+- **The ORB swap is thin:** #314 is WORSE standalone (9.12 vs 10.32); the book gains from drawdown TIMING, and the two correlate 0.899. Held-back year gives back 4.5 percent.
+- **#379 gives nothing back** - beats #366 on selection, held-back and PF with no knob tuned. **Adoption is the owner call.**
+- #378 (squeeze weight 4) is better again and the ladder now has an interior best at 4 (40.96/44.35/47.16/45.99) where round 52's ladder on the OLD leg was monotonic - but the weight is still picked on the selection window. Recorded, not adopted.
