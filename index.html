@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.723';
+const VERSION='73.724';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.724',date:'2026-09-10',notes:['RUNS IS DRAWN ONCE (owner: why are there duplicates for run). It was in the FILTERS sheet and in the row of controls I had pulled out into plain sight, so it rendered twice. It belongs in plain sight, because it decides which runs the configurations are read out of, and the copy in the sheet is gone.','THE ROWS-NOT-ON-THIS-CHART LINE NOW SAYS WHY (owner: why are there only 600 shown, fix it). It said what was missing and never what caused it, so it read like a fault in the board. It is not one: the engine only began writing Sharpe and Sortino onto every 1E configuration at a certain point, and runs validated before that leave those two fields empty for good. The line says that, says a re-validate fills them in, and names an axis pair that plots every one of those rows today.']},
 {v:'73.723',date:'2026-09-10',notes:['A filter with nothing ticked now reads ALL on its menu rather than a bare dash. Three of the new menus showed a dash because nothing in them is set - accurate, but it says nothing, and putting what is set on the face of the control was the entire point of the change.']},
 {v:'73.722',date:'2026-09-10',notes:['THE CONTROLS ARE MENUS NOW, LAID ACROSS (owner: so much space with all of these, and I get lost with things not being viewed). Each group shows one closed menu with whatever is set, and they sit in a wrapping row instead of a tall stack - so what is ON is always on screen and nothing scrolls out of sight.','Nothing about what the controls DO changed. The real buttons are still in the page, hidden, and the menu clicks the one you pick, so every handler, preference and tooltip is the one that was already there. That also means a control cannot drift out of step with the board.','A group where several things can be on at once - the run ticks, the 1E families, the verdicts - keeps its chips, because a closed menu cannot show three answers at once. Those now say how many of them are set.']},
 {v:'73.721',date:'2026-09-10',notes:['EVERY NUMBER COLUMN CAN ORDER THE TABLE (owner: cannot rank by any of these). Five of the headings were clickable and the rest were not, with nothing on screen saying which was which - so expectancy in R, R per year, return on capital, dollars per trade and the trade count all looked sortable and were not. They are now, and every sortable heading says so on hover.','Drawdown sorts SMALLEST first, because a smaller one is the better result. Sorting it like a score would have put the worst rows at the top under a heading that reads like a ranking.','A row that records nothing for the column you picked still sits at the bottom rather than being given a place it did not earn.']},
@@ -25660,8 +25661,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   scored on money and profit factor; expectancy in R was added to the board
               //   later and most of them predate it, so an axis pair they DO carry puts them
               //   back on screen.
+              // WHY, not just what. Two different causes, and they need different answers:
+              //   a configuration row with no Sharpe or Sortino comes from a run validated
+              //   before the engine started writing those onto every 1E block, and only a
+              //   re-validate fills them in. An older SWEEP row was scored on money and
+              //   profit factor and simply never had the ratio axes.
               +((skip.length>=Math.max(3,(pts.length+skip.length)*0.15))
-                ?' Most rows that record nothing here are older sweep rows, which are scored on money and profit factor - put RAW PROFIT or PF up the side and DRAWDOWN across and they come back.'
+                ?(_reShowCfg
+                  ?' This is not a fault in the board: the engine only began writing Sharpe and Sortino onto every configuration when it saved them, and runs validated before that leave those two blank for good. Re-running Auto-Validate on the runs above fills them in; until then, EV R or PF up the side plots every one of these rows.'
+                  :' Most rows that record nothing here are older sweep rows, which were scored on money and profit factor - put RAW PROFIT or PF up the side and DRAWDOWN across and they come back.')
                 :'');}
           if(failOut.length){const _fdd=failOut.map(o=>_reNum(o.r,'dd')).filter(v=>v!=null);
             omit+=' '+failOut.length+' failed row'+(failOut.length>1?'s are':' is')+' left off the chart on purpose (control 5, PLOT FAILURES)'
@@ -26869,7 +26877,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   the ones that decide which rows exist; VIEWS the other three drawings; AXES the
           //   full pair of pickers, for anything the four presets do not cover.
           const _c2SheetBody=(_c2Sheet==='filters')
-            ?_reGrid(_reCfgSel+_reCfgFamBtns+_reFailBtns+_reMinTrdBtns
+            // RUNS is NOT here - it sits in the row of controls above, in plain sight,
+            //   because it decides which runs the configurations are read out of. It was in
+            //   both places and drew twice.
+            ?_reGrid(_reCfgFamBtns+_reFailBtns+_reMinTrdBtns
                      +_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
                      +_reViewBtns+_reColBtns+_reOrdBtns+_reSplitRunBtns+_reBasBtns
                      +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
