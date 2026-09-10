@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.722';
+const VERSION='73.723';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.723',date:'2026-09-10',notes:['A filter with nothing ticked now reads ALL on its menu rather than a bare dash. Three of the new menus showed a dash because nothing in them is set - accurate, but it says nothing, and putting what is set on the face of the control was the entire point of the change.']},
 {v:'73.722',date:'2026-09-10',notes:['THE CONTROLS ARE MENUS NOW, LAID ACROSS (owner: so much space with all of these, and I get lost with things not being viewed). Each group shows one closed menu with whatever is set, and they sit in a wrapping row instead of a tall stack - so what is ON is always on screen and nothing scrolls out of sight.','Nothing about what the controls DO changed. The real buttons are still in the page, hidden, and the menu clicks the one you pick, so every handler, preference and tooltip is the one that was already there. That also means a control cannot drift out of step with the board.','A group where several things can be on at once - the run ticks, the 1E families, the verdicts - keeps its chips, because a closed menu cannot show three answers at once. Those now say how many of them are set.']},
 {v:'73.721',date:'2026-09-10',notes:['EVERY NUMBER COLUMN CAN ORDER THE TABLE (owner: cannot rank by any of these). Five of the headings were clickable and the rest were not, with nothing on screen saying which was which - so expectancy in R, R per year, return on capital, dollars per trade and the trade count all looked sortable and were not. They are now, and every sortable heading says so on hover.','Drawdown sorts SMALLEST first, because a smaller one is the better result. Sorting it like a score would have put the worst rows at the top under a heading that reads like a ranking.','A row that records nothing for the column you picked still sits at the bottom rather than being given a place it did not earn.']},
 {v:'73.720',date:'2026-09-10',notes:['PLAIN DOTS, AND THEY ARE THE DEFAULT (owner: the scatter was dots before). A verdict shape per point is readable at twenty points and a wall of icons at eight hundred, which is what this chart usually holds. Colour still carries the verdict either way, and SHAPES is one click away for a sparse chart or for anyone who reads shape faster than colour.','EVIDENCE and SHOW ARE BACK IN PLAIN SIGHT, and this answers three things at once - why the table looked like it only had raw configurations, how to put every 1E configuration of one strategy on the chart, and where KEEL went. Those two controls decide what kind of thing the board is showing: SWEEPS are study-registry rows, where RAW is the only family there is, and the 1E families - GATE, TILT, HYBRID and KEEL - only exist once the level is AUTO VAL with 1E CONFIGS showing. Burying them behind FILTERS made a whole half of the board look missing.','THE NOT-ON-THIS-CHART LINE NOW SAYS WHAT TO DO. When a large share of the rows record nothing for the axes you picked, it names a pair they do carry - money and profit factor - instead of only reporting the loss. Those are mostly older sweep rows that predate expectancy in R being on the board at all.']},
@@ -32490,7 +32491,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(isOn(b2))o.selected=true;
             sel.appendChild(o);});
           if(!on.length){const o0=document.createElement('option');
-            o0.value='';o0.textContent='\u2014';o0.selected=true;sel.insertBefore(o0,sel.firstChild);}
+            // a filter with nothing ticked is not blank, it is ALL - and saying so is the
+            //   whole point of putting what is set on the face of the control.
+            o0.value='';o0.textContent='ALL';o0.selected=true;sel.insertBefore(o0,sel.firstChild);}
           sel.onchange=function(){const i3=parseInt(sel.value,10);
             if(isFinite(i3)&&btns[i3])btns[i3].click();};
           box.style.display='none';
