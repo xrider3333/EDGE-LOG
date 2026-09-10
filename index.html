@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.716';
+const VERSION='73.717';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.717',date:'2026-09-10',notes:['THE EXPLORE SPLIT TOGGLE IS GONE, because it did nothing. When the sidebar came off that screen the chart-beside-tables layout went with it and the control was left pointing at nothing. I tried three ways to bring the layout back - a fresh two-column flex, explicit column widths, and the old board own structure lifted verbatim - and every one collapsed the tables column to zero width on the page while reading correctly in the code. I have not found the cause, so rather than ship a button that looks like it works, it is off this screen. The chart sits above the tables, and the tables are still one click behind TABLES.','The same split still works on the old board, which is reachable from the RUNBOARD and PICK RUNS views until that code is deleted.']},
 {v:'73.716',date:'2026-09-10',notes:['THE TAB STRIP STOPS JUMPING (owner: clicking compare or runboard changes the layout of the subtabs). Two different builders were drawing the same navigation - the tab own screens used one, the views borrowed from the old tab used another with its own inline styles - so the row changed height and the page shifted under the cursor. There is one builder now, and the tab stylesheet is emitted wherever that strip renders.','EXPLORE SPLIT VIEW WORKS AGAIN (owner: it does not work). When the sidebar came off that screen the chart-beside-tables layout went with it, but the toggle in the top bar was left pointing at it. SIDE now puts the chart and the tables in two columns and STACK keeps them one above the other, as before.','KEEL HAS ITS OWN COLOUR ON THE SCATTER (owner: do the keels show up on explore). They always did - the engine writes a KEEL row beside the tilts and it plots like any other family - but the family palette had six entries and KEEL was not one of them, so on the one view where colour IS the family its points borrowed the verdict colour and it never appeared in the key. It now takes the same blue it already uses on the funnel.']},
 {v:'73.714',date:'2026-09-10',notes:['STUDIES BOARD: NOISE round 53, rows 1709-1711 - KEEL MEETS THE LIVE CROWN FOR THE FIRST TIME. Every KEEL paper leg and the bench harness sat on the PREVIOUS crown (run 243, lookback 44, volatility skip 90); the crown moved to run 304 on 2026-09-06 and nobody re-based the overlay, so the model had never met the configuration actually being traded. Added the live crown to the bench: version 12 lifts net from 347,568 to 539,973 with profit factor 1.376 to 1.493, but at average size 1.21 with a cap of 3.0 and drawdown rising from 16,917 to 26,132 - against the raw crown sized by that same amount, net-over-drawdown is 20.66 for the overlay and 20.55 for flat leverage, so on the tuning era it IS leverage. Its one out-of-sample win, the sealed year at 4.22 against 3.03, decomposes into THREE TRADES: one carries 42 percent of the advantage, three carry 97, and stripping the best ten leaves the overlay 29,471 dollars WORSE than sizing up. KEEL does not improve the live crown. The KEEL paper legs are measuring a base that is no longer traded - re-base or retire, owner call.']},
 {v:'73.713',date:'2026-09-10',notes:['THE PICKED-RUN TABS AND SAVED SETS ARE ON THE COMPARE OVERLAY. A TABS + SETS button next to CLEAR opens a panel with the numbered tabs and every set you have saved: switch tabs, open a new one, close one, load a set, rename it, delete it, or save what is on screen as a new set. Switching a tab writes the runs on screen into the tab you are leaving first, so nothing is lost, and the last tab cannot be closed. They read and write the same stored lists the PICK RUNS view uses, so a set saved on either screen is there on the other. Under CHAMPIONS the panel is gone entirely and one line says why: that list is chosen for you and refills itself, so there is nothing to keep.','THE BUTTON THAT STARTS A BOOK RUN IS NOW ON THE BOOKS VIEW. It used to sit only on the RUNBOARD, with a line here pointing at it; that line is gone and the button is here. It is the same button and the same panel - the leg list, the from and to dates, the lockbox months, the name, the shared-window readout and the queue button are unchanged, and it queues exactly the same job it always did. A short line beside it says that pressing it puts real work on your PC.']},
@@ -9798,7 +9799,7 @@ function renderApp(){
   let _splitTog='';
   if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:2px;align-items:center;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
-  else if(activeTab==='augur'&&(augurSub==='cmp'||(augurSub==='cmp2'&&_ap.c2Screen==='explore'))&&(_ap.cmpMode==='research'||augurSub==='cmp2')){const cv=_ap.resSplit==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res2-side','\u25e7',cv==='side','Chart beside the study tables')}${_spv('res2-stack','\u25a4',cv==='stack','Chart above the study tables')}</span>`;}
+  else if(activeTab==='augur'&&augurSub==='cmp'&&_ap.cmpMode==='research'){const cv=_ap.resSplit==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res2-side','\u25e7',cv==='side','Chart beside the study tables')}${_spv('res2-stack','\u25a4',cv==='stack','Chart above the study tables')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
   // ── ACCOUNT scope pills (ALL / <broker> …) — trading-log side only, and only once at
   // least one broker is tagged on trades. Right-aligned; clicking sets the global scope.
@@ -26839,12 +26840,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // SIDE puts the chart and the tables in two columns, STACK keeps them one above the
           //   other. The toggle for this lives in the top bar and had been pointing at a layout
           //   that no longer existed since the sidebar came off this screen.
-          const _c2Tbls=_reBody?('<div style="'+(_reSplit?'flex:1 1 0;min-width:320px;max-height:78vh':'margin-top:10px;max-height:58vh')+';overflow:auto">'+_reBody+'</div>'):'';
-          body=_c2ExpTop+_c2Bar+_c2SheetWrap+_c2Keep
-            +(_reSplit
-              ?('<div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:nowrap">'
-                +'<div style="flex:1 1 0;min-width:340px">'+_reChartTile+'</div>'+_c2Tbls+'</div>')
-              :(_reChartTile+_c2Tbls));
+          // CHART ABOVE TABLES, and only that. Side-by-side was tried three ways on this screen
+          //   - a fresh flex layout, explicit column widths, and the old board's own structure
+          //   lifted verbatim - and every one of them collapsed the tables column to nothing on
+          //   the page while reading correctly in the code. Rather than leave a control that
+          //   does nothing, the toggle for it is off this screen until the cause is found.
+          body=_c2ExpTop+_c2Bar+_c2SheetWrap+_c2Keep+_reChartTile
+            +(_reBody?('<div style="margin-top:10px;max-height:58vh;overflow:auto">'+_reBody+'</div>'):'');
         }else{
         body=_c2ExpTop+'<div style="display:flex;align-items:stretch;gap:2px;min-height:calc(100vh - 96px)">'+_reSideBar+_reSideBarDrag
           +'<div style="flex:1 1 0;min-width:0">'
