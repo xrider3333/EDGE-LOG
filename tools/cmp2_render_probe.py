@@ -91,7 +91,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 9
+N_CASES = 10
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -380,6 +380,52 @@ var FIX = __FIX__;
         r.per=per;
       })();
 
+      // ── case 10: BOOKS (the old tab BOOKS tile, now a NATIVE view) ─────────────
+      //    Two row sources - every real book run in history first, then the four
+      //    offline rows - read from ONE pooled block per stage. The walk-forward
+      //    stage must EXPLAIN itself: a book pools its legs over one window and
+      //    tunes nothing, so ten empty cells would be a lie dressed as a table.
+      (function(){
+        var BK=JSON.parse(JSON.stringify(FIX));
+        BK.id=String(+FIX.id+900000);BK.strategy='BOOK: '+String(FIX.strategy||'');BK.starred=false;
+        BK.best_pnl_usd=250000;BK.best_dd_usd=30000;BK.multiplier=20;
+        BK.book={name:'probe book',legs:[{strategy:FIX.strategy,weight:1},{strategy:'X_1_0.py',weight:1}],
+          whole:{total_pnl:320000,max_drawdown:32000,num_trades:2000,profit_factor:1.30},
+          pre_lockbox:{total_pnl:250000,max_drawdown:30000,num_trades:1600,profit_factor:1.28},
+          lockbox:{total_pnl:70000,num_trades:400,win_rate:44.5,profit_factor:1.4,max_drawdown:25000},
+          worst_stretch:{from:'2020-02-19',to:'2020-03-23',depth:-32000},inert_legs:['X_1_0.py'],
+          slices:[1,1,1,1,1,1,1,1],slices_held:8,slices_n:8,lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:70000,pf:1.4,trades:400,pass:true},book:true};
+        var wc="var F="+JSON.stringify(FIX)+";var B="+JSON.stringify(BK)+";"
+          +"var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+          +"var bdoc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(B)):B;"
+          +"runHistory=[doc,bdoc];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+        var per={};
+        ['lb','is','full','wf'].forEach(function(st){
+          var call=doRender({c2Screen:'cmp',c2View:'books',c2Stage:st}, wc);
+          var ths=d.querySelectorAll('.c2-card table th');
+          var bodyRows=d.querySelectorAll('.c2-card table tbody tr');
+          var liveRows=d.querySelectorAll('.c2-card table tbody tr[data-c2run]');
+          var txt=(d.body&&(d.body.innerText||d.body.textContent))||'';
+          per[st]={call:call,
+            ths:ths.length,
+            bodyRows:bodyRows.length,
+            liveRows:liveRows.length,
+            statRows:bodyRows.length-liveRows.length,
+            liveTxt:liveRows.length?(liveRows[0].textContent||'').slice(0,200):null,
+            viewBtns:d.querySelectorAll('[data-c2view]').length,
+            goRunboard:d.querySelectorAll('[data-c2view=board]').length,
+            booksBtn:d.querySelectorAll('[data-c2view=books]').length,
+            hold:!!d.querySelector('.c2-hold'),
+            noWf:txt.indexOf('NO WALK-FORWARD STAGE')>=0,
+            note:txt.indexOf('t5_runboard.py')>=0,
+            launcher:txt.indexOf('RUN A BOOK')>=0,
+            errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
+        });
+        var ok=['lb','is','full','wf'].every(function(k){return per[k].call==='OK';});
+        var r=snap('books', ok?'OK':'ERR');
+        r.per=per;
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -879,7 +925,7 @@ def main(argv=None):
                          for v in ('board', 'runs', 'fam', 'feat'))
                  and all(((per.get(v) or {}).get('len') or 0) > 2000 for v in ('board', 'runs', 'fam', 'feat'))
                  and all((per.get(v) or {}).get('screenBtns') == 3 for v in ('board', 'runs', 'fam', 'feat'))
-                 and all((per.get(v) or {}).get('viewBtns') == 5 for v in ('board', 'runs', 'fam', 'feat'))
+                 and all((per.get(v) or {}).get('viewBtns') == 6 for v in ('board', 'runs', 'fam', 'feat'))
                  and all(not (per.get(v) or {}).get('oldPills') for v in ('board', 'runs', 'fam', 'feat')))
     line('hosted', hosted_ok, ' '.join('%s=(call=%s len=%s scr=%s view=%s pills=%s)'
          % (v, (per.get(v) or {}).get('call'), (per.get(v) or {}).get('len'),
@@ -897,12 +943,74 @@ def main(argv=None):
             if (p.get('len') or 0) <= 2000:
                 fail('hosted: the %s view rendered almost nothing (%s chars) - a feature that '
                      'is now only reachable here has gone missing' % (v, p.get('len')))
-            if p.get('screenBtns') != 3 or p.get('viewBtns') != 5:
+            if p.get('screenBtns') != 3 or p.get('viewBtns') != 6:
                 fail('hosted: %s lost its navigation (screen=%s view=%s) - there would be no way '
                      'back out of it' % (v, p.get('screenBtns'), p.get('viewBtns')))
             if p.get('oldPills'):
                 fail('hosted: %s still shows the old VIEW pills, which jump to a tab that is no '
                      'longer on the rail' % v)
+
+
+    # case 10: books -- the old tab BOOKS tile, drawn natively on the new tab
+    r = cases.get('books', {})
+    per = r.get('per') or {}
+    lbb, wfb = (per.get('lb') or {}), (per.get('wf') or {})
+    books_ok = (r.get('call') == 'OK'
+                and all((per.get(k) or {}).get('call') == 'OK' for k in ('lb', 'is', 'full', 'wf'))
+                and not any((per.get(k) or {}).get('errors') or (per.get(k) or {}).get('uncaught')
+                            for k in ('lb', 'is', 'full', 'wf'))
+                and lbb.get('ths') == 10
+                and (lbb.get('liveRows') or 0) >= 1
+                and (lbb.get('statRows') or 0) >= 4
+                and lbb.get('note') and not lbb.get('launcher')
+                and (lbb.get('goRunboard') or 0) >= 2
+                and (lbb.get('viewBtns') or 0) >= 6 and (lbb.get('booksBtn') or 0) >= 1
+                and (wfb.get('ths') or 0) == 0
+                and wfb.get('noWf') and wfb.get('hold')
+                and (wfb.get('bodyRows') or 0) == 0)
+    line('books', books_ok, 'lb=(call=%s th=%s live=%s static=%s note=%s launcher=%s go=%s view=%s) '
+         'wf=(call=%s th=%s rows=%s explains=%s) is=%s full=%s'
+         % (lbb.get('call'), lbb.get('ths'), lbb.get('liveRows'), lbb.get('statRows'),
+            lbb.get('note'), lbb.get('launcher'), lbb.get('goRunboard'),
+            str(lbb.get('viewBtns')) + '/books=' + str(lbb.get('booksBtn')),
+            wfb.get('call'), wfb.get('ths'), wfb.get('bodyRows'), wfb.get('noWf'),
+            (per.get('is') or {}).get('bodyRows'), (per.get('full') or {}).get('bodyRows')))
+    if not books_ok:
+        for k in ('lb', 'is', 'full', 'wf'):
+            p = per.get(k) or {}
+            if p.get('call') != 'OK':
+                fail('books: the %s stage threw -- %s' % (k, str(p.get('call'))[:300]))
+            if p.get('errors'):
+                fail('books: %s console.error -- %s' % (k, p['errors'][0][:200]))
+            if p.get('uncaught'):
+                fail('books: %s uncaught -- %s' % (k, p['uncaught'][0][:200]))
+        if lbb.get('ths') != 10:
+            fail('books: the table has %s header cells, expected 10 (#, STRATEGY, VERSION, '
+                 'NET, PF, MAX DD, MAR, TRADES, WF, VERDICT)' % lbb.get('ths'))
+        if (lbb.get('liveRows') or 0) < 1:
+            fail('books: no live book row rendered for a run that carries a book block - the '
+                 'row source that matters most is dead')
+        if (lbb.get('statRows') or 0) < 4:
+            fail('books: %s offline rows rendered, expected the 4 hard-coded ones'
+                 % lbb.get('statRows'))
+        if not lbb.get('note'):
+            fail('books: the provenance note under the table is missing')
+        if lbb.get('launcher'):
+            fail('books: the RUN A BOOK launcher was ported - it queues a real job and must '
+                 'stay on the RUNBOARD view only')
+        if (lbb.get('goRunboard') or 0) < 2:
+            fail('books: no control pointing at the RUNBOARD view, so the launcher would be '
+                 'unreachable from here')
+        if (lbb.get('viewBtns') or 0) < 6 or (lbb.get('booksBtn') or 0) < 1:
+            fail('books: the view strip reads %s buttons with %s BOOKS pill - the strip is '
+                 'incomplete or BOOKS is not on it'
+                 % (lbb.get('viewBtns'), lbb.get('booksBtn')))
+        if (wfb.get('ths') or 0) != 0 or (wfb.get('bodyRows') or 0) != 0:
+            fail('books: the walk-forward stage still draws a table (th=%s rows=%s). A book '
+                 'pools its legs over one window and tunes nothing, so every cell would be '
+                 'blank or invented' % (wfb.get('ths'), wfb.get('bodyRows')))
+        if not (wfb.get('noWf') and wfb.get('hold')):
+            fail('books: the walk-forward stage does not explain why there is nothing to show')
 
     if bad:
         print('CMP2 PROBE: FAIL')
