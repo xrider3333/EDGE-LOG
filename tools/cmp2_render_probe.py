@@ -223,6 +223,27 @@ var FIX = __FIX__;
         //   rebuilt on every click). Off by default; the button must bring them back, and
         //   the chart must be unaffected either way.
         r.tblBtn=d.querySelectorAll('[data-c2tbl]').length;
+        // the controls sheet renders as MENUS laid across, with the real buttons hidden
+        //   behind them - and a menu must actually drive the button it stands for.
+        doRender({c2Screen:'explore',resLvl:'sweep',c2Sheet:'filters'}, FIX_WIN);
+        (function(){
+          var host=d.querySelector('[data-remenus]');
+          r.menuHost=!!host;
+          r.menus=host?host.querySelectorAll('select').length:0;
+          r.hiddenBoxes=host?[].filter.call(host.querySelectorAll('[data-regrpbtns]'),function(x){
+            return x.style.display==='none';}).length:0;
+          r.groups=host?host.querySelectorAll('[data-regrp]').length:0;
+          // pick a menu, choose a different option, and see the preference move
+          var sel=host?host.querySelector('select'):null;
+          r.menuDrives=false;
+          if(sel&&sel.options.length>1){
+            var before=w.eval("JSON.stringify(JSON.parse(localStorage.getItem('augurPrefs')||'{}'))");
+            var i2=(sel.selectedIndex===0)?1:0;
+            sel.selectedIndex=i2;
+            if(sel.onchange)sel.onchange();
+            var after=w.eval("JSON.stringify(JSON.parse(localStorage.getItem('augurPrefs')||'{}'))");
+            r.menuDrives=(before!==after);}
+        })();
         r.rowsOff=d.querySelectorAll('tr[data-rerow]').length;
         var call2=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true}, FIX_WIN);
         r.call2=call2;
@@ -818,6 +839,11 @@ def main(argv=None):
              and (r.get('points') or 0) >= 1
              and (r.get('rail') or 0) >= 1
              and r.get('tblBtn') == 1           # the TABLES button is there
+             and r.get('menuHost') is True
+             and (r.get('groups') or 0) >= 5
+             and (r.get('menus') or 0) >= 3      # single-choice groups became menus
+             and (r.get('hiddenBoxes') or 0) >= 3
+             and r.get('menuDrives') is True     # and a menu really drives its buttons
              and (r.get('rowsOff') or 0) == 0   # and the tables are off by default
              and r.get('call2') == 'OK'
              and (r.get('rowsOn') or 0) >= 1    # switching them on builds them
@@ -852,6 +878,15 @@ def main(argv=None):
                  'branch did not happen, or it drew an empty frame')
         if not (r.get('rail') or 0) >= 1:
             fail('explore: no strategy rail rendered')
+        if r.get('menuHost') is not True or (r.get('groups') or 0) < 5:
+            fail('explore: the controls sheet did not render its groups (host=%s groups=%s)'
+                 % (r.get('menuHost'), r.get('groups')))
+        if (r.get('menus') or 0) < 3 or (r.get('hiddenBoxes') or 0) < 3:
+            fail('explore: the controls did not become menus (%s menus, %s button rows hidden)'
+                 % (r.get('menus'), r.get('hiddenBoxes')))
+        if r.get('menuDrives') is not True:
+            fail('explore: choosing from a menu changed no setting - the menu is not driving '
+                 'the button behind it')
         if r.get('tblBtn') != 1:
             fail('explore: the TABLES button is missing, so the study tables would be '
                  'unreachable on this screen')

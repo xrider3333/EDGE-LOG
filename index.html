@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.721';
+const VERSION='73.722';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.722',date:'2026-09-10',notes:['THE CONTROLS ARE MENUS NOW, LAID ACROSS (owner: so much space with all of these, and I get lost with things not being viewed). Each group shows one closed menu with whatever is set, and they sit in a wrapping row instead of a tall stack - so what is ON is always on screen and nothing scrolls out of sight.','Nothing about what the controls DO changed. The real buttons are still in the page, hidden, and the menu clicks the one you pick, so every handler, preference and tooltip is the one that was already there. That also means a control cannot drift out of step with the board.','A group where several things can be on at once - the run ticks, the 1E families, the verdicts - keeps its chips, because a closed menu cannot show three answers at once. Those now say how many of them are set.']},
 {v:'73.721',date:'2026-09-10',notes:['EVERY NUMBER COLUMN CAN ORDER THE TABLE (owner: cannot rank by any of these). Five of the headings were clickable and the rest were not, with nothing on screen saying which was which - so expectancy in R, R per year, return on capital, dollars per trade and the trade count all looked sortable and were not. They are now, and every sortable heading says so on hover.','Drawdown sorts SMALLEST first, because a smaller one is the better result. Sorting it like a score would have put the worst rows at the top under a heading that reads like a ranking.','A row that records nothing for the column you picked still sits at the bottom rather than being given a place it did not earn.']},
 {v:'73.720',date:'2026-09-10',notes:['PLAIN DOTS, AND THEY ARE THE DEFAULT (owner: the scatter was dots before). A verdict shape per point is readable at twenty points and a wall of icons at eight hundred, which is what this chart usually holds. Colour still carries the verdict either way, and SHAPES is one click away for a sparse chart or for anyone who reads shape faster than colour.','EVIDENCE and SHOW ARE BACK IN PLAIN SIGHT, and this answers three things at once - why the table looked like it only had raw configurations, how to put every 1E configuration of one strategy on the chart, and where KEEL went. Those two controls decide what kind of thing the board is showing: SWEEPS are study-registry rows, where RAW is the only family there is, and the 1E families - GATE, TILT, HYBRID and KEEL - only exist once the level is AUTO VAL with 1E CONFIGS showing. Burying them behind FILTERS made a whole half of the board look missing.','THE NOT-ON-THIS-CHART LINE NOW SAYS WHAT TO DO. When a large share of the rows record nothing for the axes you picked, it names a pair they do carry - money and profit factor - instead of only reporting the loss. Those are mostly older sweep rows that predate expectancy in R being on the board at all.']},
 {v:'73.719',date:'2026-09-10',notes:['STUDIES BOARD: ROUNDS 53-54, rows 1712 to 1717 - the staleness audit that produced run #366 was applied to every remaining leg, and two of three were stale. The opening-range slot held the CONTROL run #234 while the crown had moved to run #314 (run #373, PASS, selection 41.73 vs 38.18, but the held-back year gives back 4.5 percent and run #314 is WORSE standalone at 9.12 vs 10.32).','The squeeze slot held the structural-stop-only file (run #353, 55,912 dollars on 4,338 drawdown) while the crown is the COMBINED leg (run #369, 77,105 on 3,350 - more money on less drawdown from the same 273 trades) at triple weight. Both crowns together = run #379, PASS: selection 44.35 vs the adopted book 38.18, held-back year 294,142 vs 289,811, profit factor 1.548 vs 1.486, nothing given back, no knob tuned. Run #378 raises the squeeze leg to four lots for 47.16 and is recorded as a KNOB TEST, not adopted. Adoption of #379 is the owner call.']},
@@ -26140,15 +26141,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   compressed"). The label column drops 70px->54px, the gutter 9px->6px, and the
         //   rows lost their leading. Nothing is hidden and no control moved - the same
         //   block is simply about a third shorter.
-        const _reCtl=(num,cap,tip,items,tone,span)=>'<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px;align-items:start;min-width:0">'
+        //   the caption is on the wrapper so the menu pass can find each group and name it,
+        //   and the buttons are in a marked box so it can hide exactly those.
+        const _reCtl=(num,cap,tip,items,tone,span)=>'<div data-regrp="'+_reEsc(String(cap).replace(/<[^>]*>/g,''))+'" title="'+_reEsc(tip)+'" style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px;align-items:start;min-width:0">'
           +'<div title="'+_reEsc(tip)+'" style="font-size:6.5px;font-weight:700;letter-spacing:.3px;line-height:1.35;color:'+(tone?('color-mix(in srgb,'+tone+' 62%,var(--text5))'):'var(--text5)')+';cursor:help;padding-top:3px;overflow:hidden">'
           +'<span style="color:var(--text5);opacity:.6;margin-right:3px">'+num+'</span>'+cap+'</div>'
-          +'<div style="display:inline-flex;justify-self:start;flex-wrap:wrap;gap:1px;min-width:0;padding:1px;border-radius:6px;background:color-mix(in srgb,var(--text) 6%,transparent)">'+items+'</div></div>';
+          +'<div data-regrpbtns style="display:inline-flex;justify-self:start;flex-wrap:wrap;gap:1px;min-width:0;padding:1px;border-radius:6px;background:color-mix(in srgb,var(--text) 6%,transparent)">'+items+'</div></div>';
         // ONE COLUMN, ALWAYS (owner 2026-08-30: "clicking the sub tabs like study changes
         //   the layout of the subtabs"). auto-fit re-solved the column count whenever a
         //   label's width changed - picking a study changed a count, the count changed a
         //   width, and the whole block re-wrapped. A sidebar is a list; it gets one column.
-        const _reGrid=(inner,extra)=>'<div style="display:grid;grid-template-columns:100%;gap:4px 14px;align-items:start'+(extra||'')+'">'+inner+'</div>';
+        //   inside the menus sheet the groups sit in a wrapping row; everywhere else this
+        //   stays one column, which is what stopped the sidebar re-flowing on every click.
+        const _reGrid=(inner,extra)=>'<div style="display:'+(_c2Exp?'flex':'grid')+';'
+          +(_c2Exp?'flex-wrap:wrap;align-items:center;gap:6px 18px':'grid-template-columns:100%;gap:4px 14px;align-items:start')
+          +(extra||'')+'">'+inner+'</div>';
         //    how much of the value range the chart spends its height on.
         const _reBasBtns=_reCtl(13,'COMPARE ON','raw totals measured over different stretches of history are not comparable, so this adds a per-year reading of every row to the STUDY TABLES. It changes the TABLES ONLY - it used to move every point on the chart as well, which was reach it never announced. The chart reads what VERTICAL AXIS says and nothing else, and PF and $/TRADE up there need no window basis at all because neither is a property of the calendar',
             _reBtn('data-resbasis="asis"','RATIOS AS IS',_reBasis==='asis','read every row exactly as it recorded itself, over whatever window it happens to cover. This is what the board has always done, and the WINDOW chip still tells you where the windows disagree',_reFT)
@@ -26879,7 +26886,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'</div>';
           // capped and scrollable, like the sidebar it replaces - fifteen control groups at
           //   full width would otherwise push the chart below the fold.
-          const _c2SheetWrap=_c2Sheet?('<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;margin-bottom:10px;max-height:52vh;overflow-y:auto">'+_c2SheetBody+'</div>'):'';
+          // ACROSS, NOT DOWN. One column meant the sheet was as tall as the sidebar it
+          //   replaced and half of it was off screen, which is the thing it was meant to fix.
+          const _c2SheetWrap=_c2Sheet?('<div data-remenus style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;margin-bottom:10px;max-height:42vh;overflow-y:auto;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center">'+_c2SheetBody+'</div>'):'';
           // the stage picker and the strategy rail never go behind a button: choosing a
           //   strategy and choosing which stretch of its life you are judging are the two
           //   things this screen exists to let you do.
@@ -32447,6 +32456,47 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         savePref('c2Src',b.dataset.c2src);renderApp();};});
       content.querySelectorAll('[data-c2top]').forEach(b=>{b.onclick=()=>{
         const k=b.dataset.c2top;savePref('c2Top',(APREF.c2Top===k)?'':k);renderApp();};});
+      // ── CONTROLS AS MENUS ───────────────────────────────────────────────────────
+      //    The sheet was a tall stack of button rows; this puts a menu in front of each
+      //    group and lays them out across the width. The real buttons stay in the page,
+      //    hidden, and the menu clicks the one you pick - so every handler, preference and
+      //    tooltip is the one that was already there. A group where several things can be
+      //    on at once keeps its chips, because a closed menu cannot show three answers.
+      (function(){
+        const host=content.querySelector('[data-remenus]');
+        if(!host)return;
+        const groups=[].slice.call(host.querySelectorAll('[data-regrp]'));
+        groups.forEach(function(g){
+          const cap=g.getAttribute('data-regrp')||'';
+          const box=g.querySelector('[data-regrpbtns]');
+          if(!box)return;
+          const btns=[].slice.call(box.children).filter(function(el){
+            return el.attributes&&[].some.call(el.attributes,function(a){return a.name.indexOf('data-')===0;});});
+          if(btns.length<2)return;
+          const isOn=el=>String(el.style.color||'').indexOf('--text)')>=0;
+          const on=btns.filter(isOn);
+          if(on.length>1){
+            // several at once - keep the chips, but say how many are set
+            const tag=document.createElement('span');
+            tag.textContent=on.length+' of '+btns.length;
+            tag.style.cssText='font-size:7px;font-weight:700;color:var(--blue);margin-left:6px;white-space:nowrap';
+            g.appendChild(tag);return;}
+          const sel=document.createElement('select');
+          sel.style.cssText='background:var(--bg1);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.3px;padding:3px 6px;max-width:190px;cursor:pointer';
+          sel.title=(box.getAttribute('title')||g.getAttribute('title')||cap);
+          btns.forEach(function(b2,i2){const o=document.createElement('option');
+            o.value=String(i2);
+            o.textContent=(b2.textContent||'').trim()||('option '+(i2+1));
+            if(isOn(b2))o.selected=true;
+            sel.appendChild(o);});
+          if(!on.length){const o0=document.createElement('option');
+            o0.value='';o0.textContent='\u2014';o0.selected=true;sel.insertBefore(o0,sel.firstChild);}
+          sel.onchange=function(){const i3=parseInt(sel.value,10);
+            if(isFinite(i3)&&btns[i3])btns[i3].click();};
+          box.style.display='none';
+          g.appendChild(sel);
+        });
+      })();
       content.querySelectorAll('[data-c2marks]').forEach(b=>{b.onclick=()=>{
         savePref('resMarks',(APREF.resMarks==='shape')?'dot':'shape');renderApp();};});
       content.querySelectorAll('[data-c2heat]').forEach(b=>{b.onclick=()=>{
