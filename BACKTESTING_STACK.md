@@ -1212,6 +1212,29 @@ percent of tags move at all, and those only where the fill straddles an hour bou
 on 14:00. The guard's docstring now says this up front, because the guard itself cannot detect it: a
 fill-bar mask sails through every control in it.
 
+### The Auto-Validate KEEL row was showing v4 (2026-09-10)
+
+Owner: *"i dont see keel on auto validates"*. The row was never missing — the engine writes it on
+every validate and had done so without a single failure: **24 of 24** non-book runs between #330 and
+#375 carry a working row, none errored. Two things made it invisible.
+
+**It was running v4.** The row took the module default, which is still the first cut from 2026-09-06,
+from before the compression, event and day tilts existed. v4 stands down almost always: average size
+across those runs is **0.995 to 1.038**. A tilt that sizes everything at 1.00 draws an equity line
+that sits exactly on top of the raw curve, so there is nothing to see even when it is drawn.
+
+**And it has no legend entry of its own.** A deliberate choice (v73.535) folded it into the SIZE
+TILTS group, on the reasoning that it is the same animal as a tilt. That is defensible, but combined
+with a line that overlaps raw it means the row is effectively undiscoverable.
+
+Fixed the first: the row now runs the shipped version, through a named constant so there is one place
+to bump when that moves. Paper legs pin their own versions and are deliberately untouched. It costs
+nothing — same two members, same 600-trade ledger, same refit schedule; the extra tilts are arithmetic
+on the same walk. The line will now separate from raw, and the label reads the version it ran.
+
+The second is left alone rather than quietly reversing another decision: if the folded legend is the
+real complaint, breaking KEEL out into its own toggle is a small follow-up.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

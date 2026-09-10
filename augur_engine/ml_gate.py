@@ -723,9 +723,10 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
     keel_row = None
     if keel:
         try:
-            from .ml_keel import keel_block
+            from .ml_keel import keel_block, VALIDATE_VERSION
             keel_row = keel_block(arrays, T, _sl, lb_start,
-                                  wf0 if _rng else None, wf1 if _rng else None)
+                                  wf0 if _rng else None, wf1 if _rng else None,
+                                  version=VALIDATE_VERSION)
             keel_row["pre_rec"] = round(_rec(keel_row["pre"]), 2)
         except Exception as _ke:                          # never fail the gate over KEEL
             keel_row = {"error": f"{type(_ke).__name__}: {_ke}"}

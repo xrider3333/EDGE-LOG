@@ -447,6 +447,15 @@ def _trust(zled, pled, W, t_lo, t_hi, ledger="rank"):
 
 
 DEFAULT_VERSION = "v4"
+# The version the Auto-Validate comparison row runs. It was DEFAULT_VERSION until 2026-09-10,
+# which meant every validate showed v4 - the first cut, from before the compression, event and
+# day tilts existed. v4 stands down almost always (average size 1.00 across runs 340-374), so
+# its equity line sat exactly on top of the raw curve and the row read as missing. The row is
+# meant to answer "what would the overlay have done on THIS run", so it has to track what is
+# actually shipped. Bump this when the shipped version moves; paper legs pin their own version
+# and are deliberately unaffected. Costs nothing extra: same two members, same 600-trade
+# ledger, same refit schedule - the extra tilts are arithmetic on top of the same walk.
+VALIDATE_VERSION = "v12"
 
 
 def keel_walk(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version=DEFAULT_VERSION):
