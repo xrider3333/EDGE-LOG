@@ -91,7 +91,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 12
+N_CASES = 13
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -481,6 +481,92 @@ var FIX = __FIX__;
         var sub=d.querySelector('.c2-row[data-c2fam]');
         r.leadChamp=sub?((sub.textContent||'').match(/#([0-9]+)/)||[])[1]:null;
         r.expect=String(+FIX.id+600000);
+      })();
+
+
+      // ── case 13: the SETS sheet on the overlay, and the BOOK launcher on BOOKS ───
+      //    Both are things that MOVED off a hosted view. The sheet must open on the
+      //    overlay with real tab and set controls, must be gone under CHAMPIONS (that
+      //    list refills itself, so a tab of it could never be saved), and the launcher
+      //    must be present AND WIRED on BOOKS. [data-booknew] is counted rather than the
+      //    words RUN A BOOK, and the panel it opens is opened for real, because a dead
+      //    button and a button with no handler both read as a working screen otherwise.
+      (function(){
+        var picks=[String(FIX.id)];
+        var base={c2Screen:'cmp',c2View:'ovl',c2Stage:'lb',cmpIds:picks,
+                  cmpTabs:[picks,[]],cmpTabN:0,cmpSets:[{name:'probe set',ids:picks}]};
+        function P(extra){var o={};for(var k in base)o[k]=base[k];for(var k2 in extra)o[k2]=extra[k2];return o;}
+        var errs=[],unc=[];
+        function keep(){errs=errs.concat(sink.errors);unc=unc.concat(sink.uncaught);}
+
+        var openCall=doRender(P({c2Src:'pick',c2Sheet:'sets'}), FIX_WIN);
+        var r=snap('sets', openCall); keep();
+        r.openBtn=d.querySelectorAll('[data-c2sheet=sets]').length;
+        r.tabs=d.querySelectorAll('[data-cmptab]').length;
+        r.tabNew=d.querySelectorAll('[data-cmptabnew]').length;
+        r.tabDel=d.querySelectorAll('[data-cmptabdel]').length;
+        r.setChips=d.querySelectorAll('[data-cmpset]').length;
+        r.setSave=d.querySelectorAll('[data-cmpsetsave]').length;
+        r.setRen=d.querySelectorAll('[data-cmpsetren]').length;
+        r.setDel=d.querySelectorAll('[data-cmpsetdel]').length;
+        // the tab chips and the save control must be WIRED, not just drawn
+        r.tabWired=(function(){var x=d.querySelector('[data-cmptab]');return !!(x&&typeof x.onclick==='function');})();
+        r.saveWired=(function(){var x=d.querySelector('[data-cmpsetsave]');return !!(x&&typeof x.onclick==='function');})();
+
+        // closed: the opener is still there, the sheet body is not
+        r.shutCall=doRender(P({c2Src:'pick'}), FIX_WIN); keep();
+        r.shutBtn=d.querySelectorAll('[data-c2sheet=sets]').length;
+        r.shutTabs=d.querySelectorAll('[data-cmptab]').length;
+        r.shutSave=d.querySelectorAll('[data-cmpsetsave]').length;
+
+        // CHAMPIONS: nothing at all, and a line saying so
+        r.champCall=doRender(P({c2Src:'champ',c2Sheet:'sets'}), FIX_WIN); keep();
+        r.champBtn=d.querySelectorAll('[data-c2sheet=sets]').length;
+        r.champTabs=d.querySelectorAll('[data-cmptab]').length;
+        r.champSave=d.querySelectorAll('[data-cmpsetsave]').length;
+        r.champSets=d.querySelectorAll('[data-cmpset]').length;
+        r.champSays=((d.body&&(d.body.innerText||d.body.textContent))||'')
+          .indexOf('TABS AND SETS ARE FOR PICKED RUNS ONLY')>=0;
+
+        // nothing picked at all: this is the state you land in after CLEAR, and switching
+        //   to a tab that HAS runs is the only way back, so the sheet must survive it.
+        r.mtCall=doRender(P({c2Src:'pick',c2Sheet:'sets',cmpIds:[]}), FIX_WIN); keep();
+        r.mtBtn=d.querySelectorAll('[data-c2sheet=sets]').length;
+        r.mtTabs=d.querySelectorAll('[data-cmptab]').length;
+        r.mtSave=d.querySelectorAll('[data-cmpsetsave]').length;
+        r.mtSets=d.querySelectorAll('[data-cmpset]').length;
+        r.mtWired=(function(){var x=d.querySelector('[data-cmptab]');return !!(x&&typeof x.onclick==='function');})();
+        r.mtHold=!!d.querySelector('.c2-hold');
+
+        // the launcher on the native BOOKS view
+        r.bkCall=doRender({c2Screen:'cmp',c2View:'books',c2Stage:'lb',cmpIds:picks}, FIX_WIN); keep();
+        r.bkBtn=d.querySelectorAll('[data-booknew]').length;
+        r.bkWired=(function(){var b=d.querySelector('[data-booknew]');return !!(b&&typeof b.onclick==='function');})();
+        r.bkOldLine=((d.body&&(d.body.innerText||d.body.textContent))||'').indexOf('lives on the RUNBOARD view')>=0;
+        // open the panel for real. alert() is stubbed so an empty leg pool reports as a
+        //   reading instead of hanging or silently doing nothing.
+        r.bkAlert=null;r.bkModal=null;
+        var oldAlert=w.alert;
+        try{
+          w.alert=function(m){r.bkAlert=String(m);};
+          var b2=d.querySelector('[data-booknew]');
+          if(b2&&b2.onclick){
+            b2.onclick();
+            r.bkModal={legs:d.querySelectorAll('[data-bkleg]').length,
+                       from:d.querySelectorAll('[data-bkfrom]').length,
+                       to:d.querySelectorAll('[data-bkto]').length,
+                       lb:d.querySelectorAll('[data-bklb]').length,
+                       nm:d.querySelectorAll('[data-bkname]').length,
+                       win:d.querySelectorAll('[data-bkwin]').length,
+                       run:d.querySelectorAll('[data-bkrun]').length,
+                       cancel:d.querySelectorAll('[data-bkcancel]').length};
+            var cx=d.querySelector('[data-bkcancel]');if(cx&&cx.onclick)cx.onclick();
+            r.bkModalGone=d.querySelectorAll('[data-bkrun]').length===0;
+          }
+        }catch(e){r.bkModalErr=String(e&&e.message||e);}
+        try{w.alert=oldAlert;}catch(_e){}
+        keep();
+        r.errors=errs.slice(0,8);r.uncaught=unc.slice(0,8);
       })();
 
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -1019,9 +1105,8 @@ def main(argv=None):
                 and lbb.get('ths') == 10
                 and (lbb.get('liveRows') or 0) >= 1
                 and (lbb.get('statRows') or 0) >= 4
-                and lbb.get('note') and not lbb.get('launcher')
-                and (lbb.get('goRunboard') or 0) >= 2
-                and (lbb.get('viewBtns') or 0) >= 6 and (lbb.get('booksBtn') or 0) >= 1
+                and lbb.get('note') and lbb.get('launcher')
+                and (lbb.get('viewBtns') or 0) >= 5 and (lbb.get('booksBtn') or 0) >= 1
                 and (wfb.get('ths') or 0) == 0
                 and wfb.get('noWf') and wfb.get('hold')
                 and (wfb.get('bodyRows') or 0) == 0)
@@ -1052,13 +1137,10 @@ def main(argv=None):
                  % lbb.get('statRows'))
         if not lbb.get('note'):
             fail('books: the provenance note under the table is missing')
-        if lbb.get('launcher'):
-            fail('books: the RUN A BOOK launcher was ported - it queues a real job and must '
-                 'stay on the RUNBOARD view only')
-        if (lbb.get('goRunboard') or 0) < 2:
-            fail('books: no control pointing at the RUNBOARD view, so the launcher would be '
-                 'unreachable from here')
-        if (lbb.get('viewBtns') or 0) < 6 or (lbb.get('booksBtn') or 0) < 1:
+        if not lbb.get('launcher'):
+            fail('books: the RUN A BOOK launcher is missing - it lives on this view now, and '
+                 'nothing else points at where it used to be')
+        if (lbb.get('viewBtns') or 0) < 5 or (lbb.get('booksBtn') or 0) < 1:
             fail('books: the view strip reads %s buttons with %s BOOKS pill - the strip is '
                  'incomplete or BOOKS is not on it'
                  % (lbb.get('viewBtns'), lbb.get('booksBtn')))
@@ -1129,6 +1211,115 @@ def main(argv=None):
             fail('champions: the leaderboard names %s as champion but the overlay shows %s - '
                  'the two screens are not reading one rule'
                  % (r.get('leadChamp'), r.get('expect')))
+
+    # case 13: the SETS sheet on the overlay + the BOOK launcher on BOOKS
+    r = cases.get('sets', {})
+    bm = r.get('bkModal') or {}
+    sets_ok = (r.get('call') == 'OK' and r.get('shutCall') == 'OK'
+               and r.get('champCall') == 'OK' and r.get('bkCall') == 'OK'
+               and r.get('mtCall') == 'OK'
+               and not r.get('errors') and not r.get('uncaught')
+               # open on PICKED: opener, both tabs, the +, a close on each, the saved set
+               # with its rename/delete, and the save-current control -- all wired
+               and r.get('openBtn') == 1 and (r.get('tabs') or 0) >= 2
+               and r.get('tabNew') == 1 and (r.get('tabDel') or 0) >= 2
+               and (r.get('setChips') or 0) >= 1 and r.get('setSave') == 1
+               and (r.get('setRen') or 0) >= 1 and (r.get('setDel') or 0) >= 1
+               and r.get('tabWired') and r.get('saveWired')
+               # closed: opener only
+               and r.get('shutBtn') == 1 and r.get('shutTabs') == 0 and r.get('shutSave') == 0
+               # nothing picked: the sheet is still there, and still wired
+               and r.get('mtHold') and r.get('mtBtn') == 1 and (r.get('mtTabs') or 0) >= 2
+               and r.get('mtSave') == 1 and (r.get('mtSets') or 0) >= 1 and r.get('mtWired')
+               # champions: nothing, and it says why
+               and r.get('champBtn') == 0 and r.get('champTabs') == 0
+               and r.get('champSave') == 0 and r.get('champSets') == 0
+               and r.get('champSays')
+               # the launcher, on BOOKS, wired, opening the real panel
+               and r.get('bkBtn') == 1 and r.get('bkWired') and not r.get('bkOldLine')
+               and bm.get('run') == 1 and bm.get('cancel') == 1 and (bm.get('legs') or 0) >= 1
+               and bm.get('from') == 1 and bm.get('to') == 1 and bm.get('lb') == 1
+               and bm.get('nm') == 1 and bm.get('win') == 1
+               and r.get('bkModalGone')
+               and not r.get('bkAlert') and not r.get('bkModalErr'))
+    line('sets', sets_ok,
+         'open=(btn=%s tabs=%s new=%s del=%s sets=%s save=%s ren=%s sdel=%s wired=%s/%s) '
+         'shut=(btn=%s tabs=%s save=%s) empty=(hold=%s btn=%s tabs=%s save=%s sets=%s wired=%s) '
+         'champ=(btn=%s tabs=%s sets=%s says=%s) '
+         'books=(btn=%s wired=%s oldline=%s modal=%s alert=%r)'
+         % (r.get('openBtn'), r.get('tabs'), r.get('tabNew'), r.get('tabDel'),
+            r.get('setChips'), r.get('setSave'), r.get('setRen'), r.get('setDel'),
+            r.get('tabWired'), r.get('saveWired'),
+            r.get('shutBtn'), r.get('shutTabs'), r.get('shutSave'),
+            r.get('mtHold'), r.get('mtBtn'), r.get('mtTabs'), r.get('mtSave'),
+            r.get('mtSets'), r.get('mtWired'),
+            r.get('champBtn'), r.get('champTabs'), r.get('champSets'), r.get('champSays'),
+            r.get('bkBtn'), r.get('bkWired'), r.get('bkOldLine'), bm, r.get('bkAlert')))
+    if not sets_ok:
+        for k, lbl in (('call', 'overlay/open'), ('shutCall', 'overlay/closed'),
+                       ('champCall', 'overlay/champions'), ('mtCall', 'overlay/nothing-picked'),
+                       ('bkCall', 'books')):
+            if r.get(k) != 'OK':
+                fail('sets: the %s render threw -- %s' % (lbl, str(r.get(k))[:300]))
+        if r.get('errors'):
+            fail('sets: console.error -- %s' % r['errors'][0][:200])
+        if r.get('uncaught'):
+            fail('sets: uncaught -- %s' % r['uncaught'][0][:200])
+        if r.get('openBtn') != 1:
+            fail('sets: %s TABS + SETS openers on the overlay, expected exactly 1'
+                 % r.get('openBtn'))
+        if (r.get('tabs') or 0) < 2 or r.get('tabNew') != 1 or (r.get('tabDel') or 0) < 2:
+            fail('sets: the sheet drew %s tab chips, %s add controls and %s close controls '
+                 '-- two saved tabs should give two chips, one +, and a close on each'
+                 % (r.get('tabs'), r.get('tabNew'), r.get('tabDel')))
+        if (r.get('setChips') or 0) < 1 or r.get('setSave') != 1:
+            fail('sets: %s saved-set chips and %s save-current controls, expected the one '
+                 'saved set and exactly one save control' % (r.get('setChips'), r.get('setSave')))
+        if (r.get('setRen') or 0) < 1 or (r.get('setDel') or 0) < 1:
+            fail('sets: the saved set has no rename (%s) or no delete (%s) control'
+                 % (r.get('setRen'), r.get('setDel')))
+        if not (r.get('tabWired') and r.get('saveWired')):
+            fail('sets: the sheet controls are drawn but dead (tab wired=%s, save wired=%s) '
+                 '-- which looks exactly like a working screen'
+                 % (r.get('tabWired'), r.get('saveWired')))
+        if r.get('shutBtn') != 1 or r.get('shutTabs') or r.get('shutSave'):
+            fail('sets: with the sheet closed the overlay still shows %s tab chips and %s '
+                 'save controls (opener=%s)'
+                 % (r.get('shutTabs'), r.get('shutSave'), r.get('shutBtn')))
+        if not (r.get('mtHold') and r.get('mtBtn') == 1 and (r.get('mtTabs') or 0) >= 2
+                and r.get('mtSave') == 1 and (r.get('mtSets') or 0) >= 1 and r.get('mtWired')):
+            fail('sets: with nothing picked the overlay shows hold=%s opener=%s tabs=%s '
+                 'save=%s sets=%s wired=%s -- after CLEAR, switching to a tab that has runs '
+                 'in it is the only way back, so the sheet has to survive an empty comparison'
+                 % (r.get('mtHold'), r.get('mtBtn'), r.get('mtTabs'), r.get('mtSave'),
+                    r.get('mtSets'), r.get('mtWired')))
+        if (r.get('champBtn') or r.get('champTabs') or r.get('champSave')
+                or r.get('champSets')):
+            fail('sets: CHAMPIONS still shows sheet controls (opener=%s tabs=%s save=%s '
+                 'sets=%s) -- that list refills itself, so they would be dead'
+                 % (r.get('champBtn'), r.get('champTabs'), r.get('champSave'),
+                    r.get('champSets')))
+        if not r.get('champSays'):
+            fail('sets: CHAMPIONS hides the sheet without saying why')
+        if r.get('bkBtn') != 1:
+            fail('sets: %s [data-booknew] buttons on the BOOKS view, expected exactly 1'
+                 % r.get('bkBtn'))
+        if not r.get('bkWired'):
+            fail('sets: the RUN A BOOK button on BOOKS has no handler')
+        if r.get('bkOldLine'):
+            fail('sets: the BOOKS view still says the launcher lives on the RUNBOARD view')
+        if r.get('bkModalErr'):
+            fail('sets: opening the book panel threw -- %s' % r['bkModalErr'])
+        if r.get('bkAlert'):
+            fail('sets: the book launcher refused to open -- %s' % r['bkAlert'])
+        if not (bm.get('run') == 1 and bm.get('cancel') == 1 and (bm.get('legs') or 0) >= 1
+                and bm.get('from') == 1 and bm.get('to') == 1 and bm.get('lb') == 1
+                and bm.get('nm') == 1 and bm.get('win') == 1):
+            fail('sets: the book panel is not the launcher -- %s (want >=1 leg checkbox and '
+                 'one each of FROM, TO, LOCKBOX MONTHS, NAME, the window readout, QUEUE BOOK '
+                 'and CANCEL)' % bm)
+        if not r.get('bkModalGone'):
+            fail('sets: CANCEL did not close the book panel')
 
     if bad:
         print('CMP2 PROBE: FAIL')
