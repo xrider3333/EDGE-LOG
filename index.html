@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.720';
+const VERSION='73.721';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -729,6 +729,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[
+{v:'73.721',date:'2026-09-10',notes:['EVERY NUMBER COLUMN CAN ORDER THE TABLE (owner: cannot rank by any of these). Five of the headings were clickable and the rest were not, with nothing on screen saying which was which - so expectancy in R, R per year, return on capital, dollars per trade and the trade count all looked sortable and were not. They are now, and every sortable heading says so on hover.','Drawdown sorts SMALLEST first, because a smaller one is the better result. Sorting it like a score would have put the worst rows at the top under a heading that reads like a ranking.','A row that records nothing for the column you picked still sits at the bottom rather than being given a place it did not earn.']},
 {v:'73.720',date:'2026-09-10',notes:['PLAIN DOTS, AND THEY ARE THE DEFAULT (owner: the scatter was dots before). A verdict shape per point is readable at twenty points and a wall of icons at eight hundred, which is what this chart usually holds. Colour still carries the verdict either way, and SHAPES is one click away for a sparse chart or for anyone who reads shape faster than colour.','EVIDENCE and SHOW ARE BACK IN PLAIN SIGHT, and this answers three things at once - why the table looked like it only had raw configurations, how to put every 1E configuration of one strategy on the chart, and where KEEL went. Those two controls decide what kind of thing the board is showing: SWEEPS are study-registry rows, where RAW is the only family there is, and the 1E families - GATE, TILT, HYBRID and KEEL - only exist once the level is AUTO VAL with 1E CONFIGS showing. Burying them behind FILTERS made a whole half of the board look missing.','THE NOT-ON-THIS-CHART LINE NOW SAYS WHAT TO DO. When a large share of the rows record nothing for the axes you picked, it names a pair they do carry - money and profit factor - instead of only reporting the loss. Those are mostly older sweep rows that predate expectancy in R being on the board at all.']},
 {v:'73.719',date:'2026-09-10',notes:['STUDIES BOARD: ROUNDS 53-54, rows 1712 to 1717 - the staleness audit that produced run #366 was applied to every remaining leg, and two of three were stale. The opening-range slot held the CONTROL run #234 while the crown had moved to run #314 (run #373, PASS, selection 41.73 vs 38.18, but the held-back year gives back 4.5 percent and run #314 is WORSE standalone at 9.12 vs 10.32).','The squeeze slot held the structural-stop-only file (run #353, 55,912 dollars on 4,338 drawdown) while the crown is the COMBINED leg (run #369, 77,105 on 3,350 - more money on less drawdown from the same 273 trades) at triple weight. Both crowns together = run #379, PASS: selection 44.35 vs the adopted book 38.18, held-back year 294,142 vs 289,811, profit factor 1.548 vs 1.486, nothing given back, no knob tuned. Run #378 raises the squeeze leg to four lots for 47.16 and is recorded as a KNOB TEST, not adopted. Adoption of #379 is the owner call.']},
 {v:'73.718',date:'2026-09-10',notes:['THE TABLES GO BACK ON TOP (owner: the table was supposed to be on top). This board has always drawn the tables first and the chart under them, stacked or split, and I had built the EXPLORE screen the other way round. That is also why my side-by-side attempts kept coming out wrong: I was building chart-on-the-left when the layout is tables-on-the-left.','THE SPLIT TOGGLE IS BACK and it splits. The structure is the old board own, verbatim, minus the sidebar it used to sit beside. It only appears when the tables are actually on, because with them off there is nothing to put beside the chart - which was the real reason my earlier attempts collapsed a column to nothing.']},
@@ -26193,7 +26194,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _hd=_reHdCell,_emH=_reEmH,stg=_reSegCap;
           // a sortable ratio heading: click it to order every table on that column (RESULT order)
           const _sk=String(APREF.reSortK||'');
-          const _hs=(k,t,tip)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'" title="'+_reEsc(tip)+'" style="position:relative;'+_reColWCss(String(t).replace(/<[^>]*>/g,'').trim())+'text-align:right;font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+'</th>';
+          //   every sortable heading says so in its own tooltip, because five of them used to
+          //   be clickable and the rest were not with nothing on screen to tell them apart.
+          const _hs=(k,t,tip)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'" title="'+_reEsc(tip+' \u00b7 click to order every table on this column, click again to release it.')+'" style="position:relative;'+_reColWCss(String(t).replace(/<[^>]*>/g,'').trim())+'text-align:right;font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+'</th>';
           const basHd=(_reBasis==='year')
               ?(_hd('PER YEAR',null,'The '+stg.toLowerCase()+' profit on this row divided by the number of years the row OWN window covers.',_reEmH('is')&&'')
                 +_hd('YEARS',null,'How many years the data window on this row covers.')
@@ -26212,12 +26215,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_hs('so','SORTINO','Return over its DOWNSIDE deviation only. Click to sort.')
             +_hs('pf','PF','Profit factor: gross wins divided by gross losses. Click to sort.')
             +_hs('wr','WIN %','Winning trades as a share of all trades. Click to sort.')
-            +_hd('EV R',null,'Expectancy in R: the average trade divided by the average LOSING trade. It is leverage-blind, so a row trading one contract and a row trading ten land on the same number, which raw dollar expectancy cannot do. A dash means the row records no average loss - only a run or a re-run study carries one. The $/TRD column beside it is the same expectancy in dollars.')
-            +_hd('R / YR',null,'R / YR: expectancy in R multiplied by trades per year over the ticked stretch. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. A strategy earning 0.4R on 200 trades a year beats one earning 0.6R on 40. The same figure the run report 1E matrix prints.')
-            +_hd('ROC % / YR',null,'ROC % / YR: the ticked stretch profit, annualised, as a percentage of the fixed account ROC is measured against (the chip on the run report sets it). It is the one measure on this row that is NOT leverage-blind - every ratio beside it divides money by something that scales with position size, so sizing cancels out, while this divides by an account you set, which does not. Read it beside R / YR: R / YR says how much edge the configuration earns, this says what that edge is worth on your account. A dash means this row is missing a profit figure or a data window to annualise it over.')
-            +_hd('$/TRD',null,_rePptTip)
+            +_hs('evr','EV R','Expectancy in R: the average trade divided by the average LOSING trade. It is leverage-blind, so a row trading one contract and a row trading ten land on the same number, which raw dollar expectancy cannot do. A dash means the row records no average loss - only a run or a re-run study carries one. The $/TRD column beside it is the same expectancy in dollars.')
+            +_hs('rpy','R / YR','R / YR: expectancy in R multiplied by trades per year over the ticked stretch. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. A strategy earning 0.4R on 200 trades a year beats one earning 0.6R on 40. The same figure the run report 1E matrix prints.')
+            +_hs('roc','ROC % / YR','ROC % / YR: the ticked stretch profit, annualised, as a percentage of the fixed account ROC is measured against (the chip on the run report sets it). It is the one measure on this row that is NOT leverage-blind - every ratio beside it divides money by something that scales with position size, so sizing cancels out, while this divides by an account you set, which does not. Read it beside R / YR: R / YR says how much edge the configuration earns, this says what that edge is worth on your account. A dash means this row is missing a profit figure or a data window to annualise it over.')
+            +_hs('ppt','$/TRD',_rePptTip)
             +basHd
-            +_hd('TRADES',null,'How many trades the variant took over its whole run. A small circle marks a count read from the saved run document.')
+            +_hs('trd','TRADES','How many trades the variant took over its whole run. A small circle marks a count read from the saved run document.')
             +_hd('READ','left','The one-line verdict. Hover it and it prints the whole row.')
             +(_reFull?(_hd('WHAT IT DOES','left','What the variant does, in one line. The full sentence is on the hover of the cell.')
             +_hd('RUN','left','The run number this result was persisted as. "local" means it was never saved as a run.')
@@ -26241,9 +26244,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // best first on the stage and axis now selected; a row with no figure for it sits
               // last rather than being given a place it did not earn
               const _skK=String(APREF.reSortK||'');
-              const _skGet={mar:r=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:r=>_reShOf(st,r),so:r=>_reSoOf(st,r),pf:r=>_reNum(r,'pf'),wr:r=>_reWrOf(st,r)}[_skK];
-              sorted.sort((a,b)=>{const va=_skGet?_skGet(a):_reYv(st,a,com),vb=_skGet?_skGet(b):_reYv(st,b,com);
-                if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_reYSgn();});
+              // EVERY numeric column can order the board, not the five that happened to be
+              //   wired. A row with no figure for the picked column still sits last rather
+              //   than being given a place it did not earn.
+              const _skG={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>{const p=_reSegVal(r),t=_reNum(r,'trd');return (p==null||!t)?null:(p/t);},trd:(st,r)=>_reNum(r,'trd'),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd')};
+              const _skLow={dd:1,ddr:1};
+              const _skGet=_skG[_skK];
+              const _skSgn=_skGet?(_skLow[_skK]?-1:1):_reYSgn();
+              sorted.sort((a,b)=>{const va=_skGet?_skGet(st,a):_reYv(st,a,com),vb=_skGet?_skGet(st,b):_reYv(st,b,com);
+                if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_skSgn;});
             }else{
               // newest first on whichever date DATE names; a row with no such date keeps the
               // registry order at the bottom. Rows sharing a date keep the registry order too,
@@ -26337,9 +26346,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const sorted=items.slice();
           if(_reOrd==='res'){
             const _skK2=String(APREF.reSortK||'');
-            const _skGet2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r)}[_skK2];
+            const _skG2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:(p/Math.abs(d));},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>{const p=_reSegVal(r),t=_reNum(r,'trd');return (p==null||!t)?null:(p/t);},trd:(st,r)=>_reNum(r,'trd'),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd')};
+            const _skLow2={dd:1,ddr:1};
+            const _skGet2=_skG2[_skK2];
+            const _skSgn2=_skGet2?(_skLow2[_skK2]?-1:1):_reYSgn();
             sorted.sort((a,b)=>{const va=_skGet2?_skGet2(a.st,a.r):_reYv(a.st,a.r,com),vb=_skGet2?_skGet2(b.st,b.r):_reYv(b.st,b.r,com);
-              if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_reYSgn();});
+              if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_skSgn2;});
           }else{
             sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
               if(da===db)return a.r.n-b.r.n;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
