@@ -2653,3 +2653,105 @@ x['win_dist_lb']            # per-trade LB P&L array
 
 Run from the checkout root (needs `serviceAccount.json`). Set `PYTHONIOENCODING=utf-8` —
 some verdict strings contain em-dashes that crash cp1252 stdout on Windows.
+
+
+## Round 54 (2026-09-11) -- the forward-testing ranking, and where the compression tilt belongs
+
+The owner asked for a ranking of NOISE configurations worthy of forward testing, read off the
+configurations actually run and the comparison scatter plots. Thirty-five NOISE runs are on the
+board. Reading their scatter clouds rather than their headline numbers changed two answers.
+
+### What the scatter clouds say that the headline numbers do not
+
+Three things are only visible in the cloud a run searched, not in the row it reported.
+
+**Where the champion sits in its own cloud.** The live crown #304 sits at the 80th percentile of
+its own 495 configurations -- it is NOT the peak. That is the shape you want, because it was
+picked by the plateau and neighbourhood test rather than by being the single best cell, and a
+champion at the peak of its cloud is the classic overfit signature. Every other candidate in the
+family sits at the 87th to 100th percentile of its own cloud.
+
+**How much of the cloud is viable.** The 2-minute card #334 is the thinnest measured: only 64% of
+its 485 neighbours make money at all, against 100% for the 5-minute candidates. A thin cloud means
+a knob slightly wrong is a losing configuration, which is a forward-testing risk that no headline
+number shows.
+
+**Whether the realised drawdown was lucky.** The Monte Carlo strip compares the realised drawdown
+against resampled orderings of the same trades. The crown's is typical (95th percentile 1.57x the
+realised). The compression legs #331 and #333 are the flattered ones -- 98% and 94% of resampled
+paths drew down deeper, 2.15x and 1.98x at the 95th percentile -- so their headline MAR is path
+luck as much as edge, and they must be sized to the resampled drawdown, not the realised one. The
+15-minute card #362 is the opposite: its realised drawdown is already at the resampled worst case.
+
+One family-wide property, stated so nobody mistakes it for a discriminator: EVERY NOISE candidate
+loses money in the sealed year once its ten biggest winners are removed. That is what a 35%-win
+mean-reversion leg looks like over a twelve-month window and it does not separate the candidates.
+What does separate them is the RELATIVE share -- #333 at 117% and #331 at 120% of the sealed year's
+net are the least concentrated in the family; #345 on 1-minute bars is at 2,092%, meaning ten
+trades are twenty times the whole year's profit, and it is not forward-testable on that basis.
+
+### The finding: the compression tilt belongs on the RETIRED base, not the live crown
+
+Run #333 validated the hourly-compression size tilt and it is the only size tilt in the family
+that survives the shift null. But #333 -- and both deployed paper legs, the raw compression leg
+and the validated-gate one -- freeze their core to lookback 44 and volatility skip 90. That is run
+#243, the crown the family retired on 2026-09-05 when #304 moved those two knobs to 40 and 95. So
+the family's best validated improvement forward-tests on a base nobody trades, while the base that
+IS traded forward-tests without it. That is the same staleness the KEEL overlay had, found the day
+before, and found the same way: by reading which base a leg pins rather than which base its name
+suggests.
+
+The obvious fix was to re-base the tilt onto the live crown, and `NOISE_1_8_CT304.py` does exactly
+that -- champion written out literally, because the parent file still DEFAULTS to 44 and 90 and
+only its ranges span the crown, so reading defaults would have rebuilt the retired base a second
+time. At size 1.0 it reproduces the live crown's 4,833 trades bar for bar with a worst per-trade
+gap of zero.
+
+Then the battery said the fix is wrong. Identical harness, identical shift null, 2,000
+permutations, the only difference being which base sits underneath:
+
+| tilt 1.5x on | walk-forward drawdown growth | sealed-year drawdown growth | shifts matching | battery |
+|---|---|---|---|---|
+| retired #243 base | +8.5% | +6.0% | 0.0% of 2,000 | PASS |
+| live #304 crown | +6.4% | +17.9% | 2.1% of 2,000 | FAIL on drawdown |
+
+The tilt is REAL on both -- it beats its own exposure-matched flat control on every stretch at
+every size, which is the test that killed the KEEL overlay, three size candidates this week and
+the gate tilt before them. It simply costs more drawdown on the live crown than the house
+tolerates. The reason looks structural rather than accidental: #304 loosened the volatility skip
+from the 90th percentile to the 95th, so it takes about 400 more trades in noisier conditions, and
+sizing those up inside a compressed hour compounds the drawdown that the looser skip already
+bought. The tighter skip and the tilt are complementary; the looser skip and the tilt are not.
+
+So the deployed compression legs are not stale by mistake. They are on the base where the tilt
+passes. The re-based file is queued as an Auto-Validate anyway, with size 1.0 inside its
+admissible set as the parity control, because a single harness with a single drawdown tolerance
+should not settle this on its own -- and a search that lands on 1.0 closes the question for good.
+
+### The ranking
+
+1. **Run #304 raw, the live crown.** Already trading. Unbeaten across the eight spaces swept in
+   rounds 43 to 53. The only candidate sitting off the peak of its own cloud, on high ground by
+   the neighbourhood test, with an honest Monte Carlo strip and the least flattered drawdown. It
+   is the benchmark every other row has to beat, and none of them has.
+2. **The retired #243 base with the compression tilt at 1.5x.** Already forward-testing since
+   2026-09-08. The only add-on in the family that clears the whole battery -- beats flat leverage
+   on both stretches, zero of 2,000 shifts match it, drawdown grows 6%. In the sealed year it
+   earns essentially the crown's money on 4% less drawdown, and across the full window it earns
+   the crown's money on 18% less drawdown. Keep it, size it to the resampled drawdown rather than
+   the realised one.
+3. **The live crown with the compression tilt at 1.5x.** The most money and the best MAR of
+   anything measured, and it beats flat leverage everywhere -- but it fails the house drawdown
+   clause in the sealed year. Worth forward testing at reduced size, and queued for the house
+   verdict; not worth crowning on the hand battery alone.
+4. **The 2-minute card #334.** The only genuinely independent geometry that passed: its champion
+   sits far from the crown's, it has the most sealed-year trades in the family at 453, and its
+   Monte Carlo strip is honest. Against that it has the thinnest cloud measured. Small size, for
+   the diversification, not as a crown challenger.
+5. **Nothing else earns a slot.** The 15-minute card #362 has a walk-forward efficiency of 0.6
+   against the family's 2.4 to 3.2 and a realised drawdown already at its resampled worst case.
+   The 1-minute cards #345 and #360 make 1.02 profit factor in the sealed year on the most
+   concentrated distribution on the board. The squeeze FILTER #321 has 63 sealed-year trades. The
+   exit-management fork #374 came back WEAK and its own search chose no breakeven. The KEEL
+   overlays are leverage by their own exposure-matched control.
+
