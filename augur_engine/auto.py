@@ -491,9 +491,30 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
         _, lo, hi, step = spec
         meta = dp.get(pname)
         meta = meta if isinstance(meta, dict) else {}
+        # ZERO IS A FLOOR UNLESS THE FILE SAYS OTHERWISE (2026-09-11).
+        #   hard_min/hard_max are opt-in keys almost no strategy declares, so expansion used
+        #   to widen a range in either direction with nothing to stop it. On run #381 that
+        #   walked a VOLUME MULTIPLIER to -2.4 and an EFFICIENCY FLOOR to -0.1, then crowned
+        #   a cell built on both - values that have no meaning at all (a filter cannot
+        #   require less than no volume), and the run then failed its lockbox on that cell.
+        #   That is not discovery escaping a too-narrow fence, it is the search leaving the
+        #   domain where the parameter means anything.
+        #
+        #   THE RULE: if a param declares no explicit hard_min and its declared min is zero
+        #   or above, zero becomes its floor. Widening UPWARD is untouched, and a param that
+        #   legitimately goes negative (a declared min below zero) is untouched too - so
+        #   plateau discovery keeps every bit of the room it actually needs. A file can still
+        #   override with an explicit hard_min, including a negative one.
+        _hmin = meta.get("hard_min")
+        if _hmin is None:
+            try:
+                if float(meta.get("min", lo)) >= 0:
+                    _hmin = 0
+            except (TypeError, ValueError):
+                _hmin = None
         active[pname] = {"kind": spec[0], "orig_lo": lo, "orig_hi": hi, "step": step,
                          "cur_lo": lo, "cur_hi": hi, "edge": edge, "rounds": 0,
-                         "hard_min": meta.get("hard_min"), "hard_max": meta.get("hard_max"),
+                         "hard_min": _hmin, "hard_max": meta.get("hard_max"),
                          "emerged": emerged, "cause": list(cause or []),
                          "via": via, "partner": partner, "slice": slice_}
         return True
