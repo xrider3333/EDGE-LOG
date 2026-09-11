@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.735';
+const VERSION='73.736';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -15842,7 +15842,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   the 1E table rows AND both parallel views. RATIOS = the unit-free reads (MAR, PF, SHARPE,
     //   WIN %, SORTINO, PBO, CALMAR); NUMBERS = the dollars and counts; BOTH = everything.
     const _mtxColsMode=(k)=>{const v=String(APREF[k||'mtxCols']||'both');return (v==='num'||v==='ratio')?v:'both';};
-    const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|EV R|R \/ YR|DD \(R\)|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
+    // ROC % / YR and DD % are ratios too - both are percentages with the dollars divided
+    //   out - and leaving them off this list meant the RATIOS view silently dropped two of
+    //   the columns the ALL view carries (owner, 2026-09-11). Everything here is unit-free:
+    //   a number you can compare between two strategies without knowing the account size.
+    const _isRatioLbl=lbl=>/^(MAR|SHARPE|PF|WIN %|SORTINO|EV R|R \/ YR|DD \(R\)|DD %|ROC %|PBO|CALMAR|WFE|R2)/.test(String(lbl||'').replace(/<[^>]*>/g,'').trim());
     const _mtxColsKeep=(lbl,k)=>{const m=_mtxColsMode(k);return m==='both'||(m==='ratio')===_isRatioLbl(lbl);};
     // the scatter names its own axes, so it ignores the column filter entirely
     // EV IN R (owner 2026-08-31: "ev in r and soritno since those seem to be the fairir
@@ -19361,8 +19365,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const _mV=_mtxViewOf(_MTXK.view);
           const _pboRun=(function(){const _p=(d.validate&&d.validate.pbo)||d.pbo;return (_p&&_p.pbo!=null&&isFinite(+_p.pbo))?+_p.pbo:null;})();
           const _poolPar=(!isK&&(_mV==='parallel'||_mV==='scatter'))?poolParallelHtml(_mtxScatterPts,_pboRun,_mtxDropN):'';
-          const _tabRail=(isK?'':_distViewRail(_MTXK.view,_mV,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+((_mV==='scatter')?'':_mtxColsRail(_MTXK.cols)))
-            +(showScatter?('<span data-mtxtwin title="'+(APREF.mtxTwin?'close the second 1E card and give the column back to the distributions':'open a SECOND 1E card beside this one, on its own tab, to compare two views side by side')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;margin-left:6px;border:1px solid '+(APREF.mtxTwin?'var(--text)':'var(--border)')+';color:'+(APREF.mtxTwin?'var(--bg)':'var(--text4)')+';'+(APREF.mtxTwin?'background:var(--text);':'')+'">&#8862; COMPARE'+(APREF.mtxTwin?' ON':'')+'</span>'):'');
+          // COMPARE sits on the TITLE now, not in the controls row (owner, 2026-09-11: "just
+          //   put it as a simple button embedded on the 1e label"). It is a mode switch for the
+          //   whole card rather than a drawing control, so it belongs with the card's name - and
+          //   the controls row gets its width back for the view and column rails.
+          const _twinBtn=(showScatter?('<span data-mtxtwin title="'+(APREF.mtxTwin?'close the second 1E card and give the column back to the distributions':'open a SECOND 1E card beside this one, on its own tab, to compare two views side by side')+'" style="cursor:pointer;user-select:none;white-space:nowrap;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:6px;margin-left:6px;border:1px solid '+(APREF.mtxTwin?'var(--text)':'var(--border)')+';color:'+(APREF.mtxTwin?'var(--bg)':'var(--text4)')+';'+(APREF.mtxTwin?'background:var(--text);':'')+'">&#8862; COMPARE'+(APREF.mtxTwin?' ON':'')+'</span>'):'');
+          const _tabRail=(isK?'':_distViewRail(_MTXK.view,_mV,[['table','TABLE'],['parallel','PARALLEL'],['scatter','SCATTER']])+((_mV==='scatter')?'':_mtxColsRail(_MTXK.cols)));
           // v73.13 (owner ask): a run scored before the 2026-08-10 gate look-ahead fix carries an
           //   amber pill next to the tab strip whenever an ML tab (GATE / TILT / HYBRID family) is
           //   the active one — never on RAW or KPI, and it never touches any number.
@@ -19371,7 +19379,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   tab rail gets the width back.
           const title=_kpiInner?'1E MATRIX':(_cfgN+'B CONFIGS');
           return '<div style="margin:0;font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
-            +title+' '+info
+            +title+' '+info+_twinBtn
             +'<span style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end">'+_preFixBadge+tabs+'</span></div>'
             +((_tabRail||ctrls)?('<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px">'+_tabRail+ctrls+'</div>'):'')
             // v73.6x (owner ask): the cross-pool scatter moved to 1A as its own tab (see the 1A
