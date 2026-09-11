@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.741';
+const VERSION='73.742';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12293,7 +12293,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   On the run that raised this: 21 of 400 trades made half the profit - 5.3% - which
       //   read GREEN under the old rule because its 22% top-5 share never crossed 50%.
       const _hFrac=(half&&srt.length)?(half/srt.length):null;
-      const _shapeWarn=(_hFrac!=null&&_hFrac<0.05);
+      // 5% was too tight to be useful: the run that raised this sat at 5.25% and stayed
+      //   green. A tenth of the trades carrying half the money is the point where the
+      //   shape is worth remarking on for a strategy that wins a quarter of its trades.
+      const _shapeWarn=(_hFrac!=null&&_hFrac<0.10);
       const st=(net<=0)?'info'
               :((exact&&wo5<=0)?'bad'
               :((_shapeWarn||s5>0.5||s1>0.25)?'warn'
@@ -19121,7 +19124,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   ROBUSTNESS chip like PBO / DOF, so it shows in section 3, the dashboard chips AND the
       //   CAUTIONS strip (which lists every chip that is not a pass).
       const _cc=concStats(d.win_dist,mlt,d.trade_conc,(d.best_pnl_usd!=null?d.best_pnl_usd:null));
-      if(_cc&&_cc.st!=='info'){const _ccc=_cc.st==='bad'?'var(--red)':_cc.st==='warn'?'var(--yellow)':'var(--green)';
+      // THE CHIP SHOWS WHENEVER THERE IS A READ AT ALL. It used to be suppressed on the
+      //   'info' state, which was fine when info meant 'net is not positive' - and wrong
+      //   the moment info also meant 'measured from a sample, nothing alarming in it'.
+      //   The owner's run vanished from the report that way: 21 of 400 trades made half
+      //   the profit, which is worth seeing whatever colour it earns. Concentration is
+      //   not a pass/fail gate, it is a standing fact about the strategy.
+      if(_cc){const _ccc=_cc.st==='bad'?'var(--red)':_cc.st==='warn'?'var(--yellow)':'var(--green)';
         _chips.unshift({k:'conc',ic:'&#9878;',nm:'CONCENTRATION',q:'do a few trades carry the net?',st:_cc.st,cc:_ccc,chip:(_cc.half?('half the profit came from '+_cc.half+' of '+_cc.halfOf.toLocaleString()+' trades'):((_cc.bound?'\u2265':'')+'top-5 '+Math.round(_cc.s5*100)+'% of net')),
           html:'<div class="lbl" style="margin:12px 0 2px" title="How much of the net a handful of trades carry. warn = over 50% of net in 5 trades or over 25% in one; bad = the net goes negative without the top 5 (the strategy IS those trades). Open 2B SCATTER to see which trades they are.">&#9878; PROFIT CONCENTRATION - do a few trades carry the net?</div>'
           +'<div style="font-size:12px;font-weight:700;color:'+_ccc+';margin:2px 0 1px">'
