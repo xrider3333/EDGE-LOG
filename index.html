@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.738';
+const VERSION='73.739';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -14954,7 +14954,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   out towards the card), and the crowned ring moved off var(--green) - now that RAW
         //   itself is the funnel green, a green ring on a green dot was invisible. White ring, the
         //   same mark the 2C cut-off sweep puts on its chosen model.
-        return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.6:3.1)+'" fill="'+col+'" opacity="'+(p.crowned?1:0.88)+'"'+(p.crowned?' stroke="var(--text)" stroke-width="1.4"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip.replace(/"/g,'&quot;')+'"/>';
+        return '<circle class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-hlkey="'+String(p.key||'').replace(/"/g,'')+'" data-net="'+Math.round(p.pnl)+'" cx="'+cx+'" cy="'+cy+'" r="'+(p.crowned?4.6:3.1)+'" fill="'+col+'" opacity="'+(p.crowned?1:0.88)+'"'+(p.crowned?' stroke="var(--text)" stroke-width="1.4"':'')+' style="cursor:pointer;transition:opacity .12s" data-tip="'+tip.replace(/"/g,'&quot;')+'"/>';
       }).join('');
       const _tip='Every candidate the search produced, across all five families, on ONE chart - a sanity check that does not depend on the pre-registered net-$ + MAR-floor rule that actually crowns. Each dot = one candidate: max drawdown on the x axis (a magnitude, so further right = deeper pain) against net $ on the y axis. The crown = the engine-crowned RAW config, ringed in white. Colours match the 1A FUNNEL key exactly, and clicking a key hides that family - the axes and the trend line re-fit to what is left. Click any dot to jump to that candidate own column in the 1E MATRIX below.';
       // v73.7x (owner: "move the sample and show selectsr of 1a to the right (ie pin to the
@@ -15039,7 +15039,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // not piecemeal while it is being built above (the already-escaped &quot; from the label
         // has no raw quote left, so it does not get double-escaped).
         const tipEsc=tip.replace(/"/g,'&quot;');
-        return '<div class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-net="'+Math.round(p.pnl)+'" style="display:flex;align-items:center;gap:'+GAP+'px;cursor:pointer;padding:2px 0;'+(_bi?'border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);':'')+'" data-tip="'+tipEsc+'">'
+        return '<div class="cfgmark" data-mtxsc="1" data-pool="'+p.pool+'" data-mtxkey="'+(p.key||'')+'" data-hlkey="'+String(p.key||'').replace(/"/g,'')+'" data-net="'+Math.round(p.pnl)+'" style="display:flex;align-items:center;gap:'+GAP+'px;cursor:pointer;padding:2px 0;'+(_bi?'border-top:1px solid color-mix(in srgb,var(--border) 40%,transparent);':'')+'" data-tip="'+tipEsc+'">'
           +'<span style="flex:0 0 '+LBW+'px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8.5px;color:var(--text2)"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+col+';margin-right:4px"></span>'+lbl+'</span>'
           +'<span style="flex:0 0 '+DDW+'px;text-align:right;font-size:8.5px;font-weight:700;color:'+(_shD?'#e24b4a':'var(--text5)')+(_shD?'':';opacity:.5')+'">-'+fmtUsd(Math.round(Math.abs(p.dd)))+'</span>'
           +'<span style="flex:1;position:relative;height:11px">'+ddBar+pnlBar+'</span>'
@@ -15755,8 +15755,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const rows=P.slice().sort((a,b)=>{const va=sc.get(a),vb=sc.get(b);
         if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return (va-vb)*sd;});
       const th=cols.map(c=>'<th data-mtxallsort="'+c.k+'" title="click to sort by '+c.nm+'" style="text-align:right;padding:4px 6px;cursor:pointer;white-space:nowrap;color:'+(c===sc?'var(--text)':'var(--text5)')+'">'+c.nm+(c===sc?(sd<0?' &#8595;':' &#8593;'):'')+'</th>').join('');
+      // CROSS-HIGHLIGHT KEY (owner, 2026-09-11: hovering a dot should show where that config
+      //   is in the table and on the funnel). The scatter dots already carry data-mtxkey; the
+      //   rows now carry the SAME key under data-hlkey, which is all the shared highlighter
+      //   below needs. Rows with no key simply never light up - they are not broken, they are
+      //   candidates the scatter could not place.
       const trs=rows.map(x=>{const pc=_mtxPoolCol[String(x.pool||'')]||'var(--text3)';
-        return '<tr style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)'+(x.crowned?';background:color-mix(in srgb,#f5c542 10%,transparent)':'')+'">'
+        const _hk=String(x.key||'').replace(/"/g,'');
+        return '<tr'+(_hk?(' data-hlkey="'+_hk+'"'):'')+' style="border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)'+(x.crowned?';background:color-mix(in srgb,#f5c542 10%,transparent)':'')+'">'
           +'<td style="padding:3px 6px;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+pc+';margin-right:5px"></span><span style="color:'+pc+';font-weight:700">'+String(x.pool||'')+'</span></td>'
           +'<td style="padding:3px 6px;white-space:nowrap;color:var(--text2)">'+(x.crowned?'&#128081; ':'')+String(x.label||'').replace(/"/g,'')+'</td>'
           +cols.map(c=>{const v=c.get(x);const ok=(v!=null&&isFinite(v));
@@ -34011,6 +34017,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const k=b.getAttribute('data-mtxallsort'),cur=String(APREF.mtxAllSort||'net:d');
         savePref('mtxAllSort',(cur===k+':d')?(k+':a'):(k+':d'));renderApp();};});
       content.querySelectorAll('[data-cfgtab]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('cfgTab',b.getAttribute('data-cfgtab'));renderApp();};});
+      // ── CROSS-PANEL HIGHLIGHT ──────────────────────────────────────────────────────
+      //   Hover anything carrying data-hlkey - a scatter dot, a table row - and everything
+      //   else with the SAME key lifts while the rest of the marked elements fade. The owner
+      //   asked for this across the scatter, the table and the 1A funnel; the scatter and the
+      //   table share a key today, and any funnel line that gains one joins in automatically
+      //   with no further wiring.
+      //
+      //   WHY ONE STYLE RULE RATHER THAN TOUCHING NODES: a run can carry 900 candidates, and
+      //   walking them on every mousemove would make the report crawl. Swapping the text of a
+      //   single <style> element hands the work to the browser's own selector engine, which is
+      //   what it is for. Clearing it is one assignment.
+      (function(){
+        let _hlEl=document.getElementById('hl-style');
+        if(!_hlEl){_hlEl=document.createElement('style');_hlEl.id='hl-style';document.head.appendChild(_hlEl);}
+        const esc=k=>String(k).replace(/["\\]/g,'\\$&');
+        const set=k=>{_hlEl.textContent=k?('[data-hlkey]{transition:opacity .08s linear}'
+            +'[data-hlkey]:not([data-hlkey="'+esc(k)+'"]){opacity:.18}'
+            +'[data-hlkey="'+esc(k)+'"]{opacity:1;filter:brightness(1.35)}'
+            +'tr[data-hlkey="'+esc(k)+'"]{background:color-mix(in srgb,var(--text) 14%,transparent)!important}'):'';};
+        content.addEventListener('mouseover',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-hlkey]'):null;
+          if(t)set(t.getAttribute('data-hlkey'));});
+        content.addEventListener('mouseleave',()=>set(''),true);
+        content.addEventListener('mouseout',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-hlkey]'):null;
+          const to=e.relatedTarget&&e.relatedTarget.closest?e.relatedTarget.closest('[data-hlkey]'):null;
+          if(t&&!to)set('');});
+      })();
       // 1E MATRIX SCATTER dot click → jump to that candidate's own column in its pool's matrix
       //   table below. The pool (raw/gate/tilt/hyb) may not be the tab currently open, so this
       //   first switches the 1E tab (same pref data-cfgtab already uses) and defers the actual
