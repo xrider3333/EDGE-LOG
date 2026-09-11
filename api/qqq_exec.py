@@ -2331,15 +2331,46 @@ SERVING_STALE_SEC = 120.0
 QQQ_EXEC_VBS = r"C:\EdgeLog\_run_qqq_exec.vbs"
 
 
+def _pid_alive(pid):
+    """Is this process id running? Conservative: if we cannot tell, say YES, because the
+    heartbeat age below is the real backstop and a false 'dead' would let two adapters run."""
+    if not pid:
+        return False
+    try:
+        if os.name == "nt":
+            import ctypes
+            SYNCHRONIZE = 0x00100000
+            h = ctypes.windll.kernel32.OpenProcess(SYNCHRONIZE, False, int(pid))
+            if h:
+                ctypes.windll.kernel32.CloseHandle(h)
+                return True
+            return False
+        os.kill(int(pid), 0)
+        return True
+    except Exception:
+        return True
+
+
 def serving_alive(path=None):
-    """(alive, pid) for the current standalone serving process, from the heartbeat file."""
+    """(alive, pid) for the current standalone serving process.
+
+    TWO tests, because each covers the other's blind spot. The HEARTBEAT age catches a
+    process that died without cleaning up, and it is what makes a reused pid harmless. The
+    PID check catches the case that actually bit on 2026-09-11: a hard Stop-Process skips
+    serve()'s cleanup, so the lock sits there FRESH for up to two minutes -- and the
+    replacement launched five seconds later read that fresh lock, concluded another adapter
+    was serving, and exited. The adapter was then simply absent, with nothing due to revive
+    it until the next runner boot. A lock whose process is gone frees the slot immediately."""
     path = path or SERVING_LOCK
     try:
         age = time.time() - os.path.getmtime(path)
         if age > SERVING_STALE_SEC:
             return False, None
         with open(path, encoding="utf-8") as fh:
-            return True, int((fh.read().strip().split() or ["0"])[0])
+            pid = int((fh.read().strip().split() or ["0"])[0])
+        if not _pid_alive(pid):
+            return False, None
+        return True, pid
     except Exception:
         return False, None
 
