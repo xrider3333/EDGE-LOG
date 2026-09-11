@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.743';
+const VERSION='73.744';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12239,7 +12239,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     //   the top or bottom. Clip the true line against the box instead (Liang-Barsky), so what is drawn
     //   is exactly the fitted line, just cut at the edges.
     const _clipSeg=(x0,y0,x1,y1,L,T,R,Bm)=>{let t0=0,t1=1;const dx=x1-x0,dy=y1-y0;const P=[-dx,dx,-dy,dy],Q=[x0-L,R-x0,y0-T,Bm-y0];for(let i=0;i<4;i++){if(P[i]===0){if(Q[i]<0)return null;}else{const t=Q[i]/P[i];if(P[i]<0){if(t>t1)return null;if(t>t0)t0=t;}else{if(t<t0)return null;if(t<t1)t1=t;}}}return [x0+t0*dx,y0+t0*dy,x0+t1*dx,y0+t1*dy];};
-    const concStats=(win,mult,conc,runNetUsd)=>{
+    const concStats=(win,mult,conc,runNetUsd,runTrades)=>{
       if(!Array.isArray(win)||win.length<8)return null;
       const runNet=(runNetUsd!=null&&isFinite(+runNetUsd))?+runNetUsd:0;   // the run's REAL net
       const v=win.map(x=>x*mult);let n=v.length,net=v.reduce((a,b)=>a+b,0);
@@ -12301,8 +12301,15 @@ namespace NinjaTrader.NinjaScript.Strategies {
               :((exact&&wo5<=0)?'bad'
               :((_shapeWarn||s5>0.5||s1>0.25)?'warn'
               :(exact?'ok':'info')));
+      // THE HEADLINE MUST COUNT THE RUN, NOT THE SAMPLE. win_dist is a stride sample capped
+      //   at 600 trades, so "21 of 400" was describing the sample on a run that took 2,693 -
+      //   true as a proportion, wrong as a count, and the reader has no way to tell which.
+      //   The PROPORTION is what the sample preserves, so it is scaled up to the run's own
+      //   trade count and marked with a ~ when it was estimated that way.
+      const _runN=(runTrades&&runTrades>srt.length)?runTrades:srt.length;
+      const _halfReal=(half!=null)?Math.max(1,Math.round(half/srt.length*_runN)):null;
       return {n:n,net:net,t1:t1,t5:t5,t10:t10,s1:s1,s5:s5,s10:s10,g5:t5/gross,wo5:wo5,wo10:wo10,st:st,rank:idx,exact:exact,
-              half:half,halfOf:srt.length,curve:curve,
+              half:_halfReal,halfOf:_runN,halfEst:(_runN!==srt.length),halfFrac:((half!=null)?half/srt.length:null),curve:curve,
               bound:(!exact&&runNet>0)};   // bound = the shares are a LOWER bound, print them with >=
     };
     const _distViewRail=(key,cur,opts,lbl)=>{
@@ -19123,7 +19130,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // v73.212 (owner: "concentration strip - is that in our robustness section"): it is now a
       //   ROBUSTNESS chip like PBO / DOF, so it shows in section 3, the dashboard chips AND the
       //   CAUTIONS strip (which lists every chip that is not a pass).
-      const _cc=concStats(d.win_dist,mlt,d.trade_conc,(d.best_pnl_usd!=null?d.best_pnl_usd:null));
+      // the run's own trade count, best source first: the exact concentration block, then
+      //   the validate's whole-run total, then the champion's own count.
+      const _ccN=((d.trade_conc&&d.trade_conc.n)||((d.validate&&d.validate.total_trades))||d.best_trades||0);
+      const _cc=concStats(d.win_dist,mlt,d.trade_conc,(d.best_pnl_usd!=null?d.best_pnl_usd:null),_ccN);
       // THE CHIP SHOWS WHENEVER THERE IS A READ AT ALL. It used to be suppressed on the
       //   'info' state, which was fine when info meant 'net is not positive' - and wrong
       //   the moment info also meant 'measured from a sample, nothing alarming in it'.
@@ -19134,7 +19144,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         _chips.unshift({k:'conc',ic:'&#9878;',nm:'CONCENTRATION',q:'do a few trades carry the net?',st:_cc.st,cc:_ccc,chip:(_cc.half?('half the profit came from '+_cc.half+' of '+_cc.halfOf.toLocaleString()+' trades'):((_cc.bound?'\u2265':'')+'top-5 '+Math.round(_cc.s5*100)+'% of net')),
           html:'<div class="lbl" style="margin:12px 0 2px" title="How much of the net a handful of trades carry. warn = over 50% of net in 5 trades or over 25% in one; bad = the net goes negative without the top 5 (the strategy IS those trades). Open 2B SCATTER to see which trades they are.">&#9878; PROFIT CONCENTRATION - do a few trades carry the net?</div>'
           +'<div style="font-size:12px;font-weight:700;color:'+_ccc+';margin:2px 0 1px">'
-            +(_cc.half?('Half the profit came from <b>'+_cc.half+'</b> of '+_cc.halfOf.toLocaleString()+' trades'):'Concentration could not be measured on this run')+'</div>'
+            +(_cc.half?('Half the profit came from '+(_cc.halfEst?'about ':'')+'<b>'+_cc.half.toLocaleString()+'</b> of '+_cc.halfOf.toLocaleString()+' trades'
+                        +' <span style="opacity:.75;font-weight:400">('+((_cc.halfFrac*100)<1?'<1':Math.round(_cc.halfFrac*100))+'% of them)</span>')
+                       :'Concentration could not be measured on this run')+'</div>'
           +(function(){
              // CUMULATIVE SHARE CURVE - readable size, labelled axes (owner, 2026-09-11: the
              //   first version was 210x54 with no scale at all, which made the one picture
@@ -19146,30 +19158,39 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
              //   remaining trades lose money - visible here, and impossible to state as a
              //   percentage.
              const C=_cc.curve||[];if(C.length<4)return '';
-             const W=520,H=150,L=34,R=8,T=10,B=20;               // viewBox units; the svg scales
-             const top=1.25;                                     // headroom so an over-100% arc fits
+             // SIZE. The previous version scaled a 520-unit viewBox to whatever width the card
+             //   had, which stretched every label with it - the text tripled on a wide screen.
+             //   It now draws at a FIXED pixel size inside a box that scrolls if the card is
+             //   narrower, so a percentage label is the same size here as everywhere else.
+             const W=640,H=210,L=52,R=118,T=16,B=42;
+             const top=1.25;                       // headroom so an over-100% arc still fits
              const x=u=>L+u*(W-L-R), y=v=>H-B-Math.max(-0.15,Math.min(top,v))/top*(H-T-B);
              const pts=C.map(p=>x(p[0]).toFixed(1)+','+y(p[1]).toFixed(1)).join(' ');
              const gl=[[0,'0'],[0.5,'50'],[1,'100']].map(g=>
-                 '<line x1="'+x(0)+'" y1="'+y(g[0])+'" x2="'+x(1)+'" y2="'+y(g[0])+'" stroke="var(--border)" stroke-width="'+(g[0]===1?1.2:0.8)+'"'+(g[0]===1?'':' stroke-dasharray="2 4"')+'/>'
-                +'<text x="'+(L-5)+'" y="'+(y(g[0])+3)+'" text-anchor="end" font-size="9" fill="var(--text5)">'+g[1]+'%</text>').join('');
+                 '<line x1="'+x(0)+'" y1="'+y(g[0])+'" x2="'+x(1)+'" y2="'+y(g[0])+'" stroke="var(--border)" stroke-width="'+(g[0]===1?1.1:0.7)+'"'+(g[0]===1?'':' stroke-dasharray="2 4"')+'/>'
+                +'<text x="'+(L-6)+'" y="'+(y(g[0])+3)+'" text-anchor="end" font-size="9" fill="var(--text5)">'+g[1]+'%</text>').join('');
              const xt=[0,0.25,0.5,0.75,1].map(u=>
-                 '<text x="'+x(u)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="var(--text5)">'+Math.round(u*100)+'%</text>').join('');
-             const hf=(_cc.half&&_cc.halfOf)?(function(){const u=_cc.half/_cc.halfOf;
-                 return '<line x1="'+x(u)+'" y1="'+y(0)+'" x2="'+x(u)+'" y2="'+y(0.5)+'" stroke="'+_ccc+'" stroke-width="1" stroke-dasharray="2 3" opacity=".8"/>'
-                       +'<line x1="'+x(0)+'" y1="'+y(0.5)+'" x2="'+x(u)+'" y2="'+y(0.5)+'" stroke="'+_ccc+'" stroke-width="1" stroke-dasharray="2 3" opacity=".8"/>'
-                       +'<circle cx="'+x(u)+'" cy="'+y(0.5)+'" r="3.2" fill="'+_ccc+'"/>'
-                       +'<text x="'+Math.min(W-R-4,x(u)+6)+'" y="'+(y(0.5)-6)+'" font-size="10" fill="'+_ccc+'">'+_cc.half+' trades \u00b7 '+(u*100<1?'<1':Math.round(u*100))+'% of them</text>';})():'';
-             return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;max-width:'+W+'px;height:auto;margin:6px 0 2px" role="img" aria-label="cumulative share of profit, best trades first">'
+                 '<text x="'+x(u)+'" y="'+(H-B+13)+'" text-anchor="middle" font-size="9" fill="var(--text5)">'+Math.round(u*100)+'%</text>').join('');
+             const hf=(_cc.halfFrac!=null)?(function(){const u=_cc.halfFrac;
+                 // the label sits to the RIGHT of the marker, and is pushed left only if that
+                 //   would run it off the plot - it used to overlap the y axis on early crossings
+                 const lx=(x(u)+8+150>W-R)?(x(u)-8):(x(u)+8);
+                 const an=(x(u)+8+150>W-R)?'end':'start';
+                 return '<line x1="'+x(u)+'" y1="'+y(0)+'" x2="'+x(u)+'" y2="'+y(0.5)+'" stroke="'+_ccc+'" stroke-width="1" stroke-dasharray="2 3" opacity=".85"/>'
+                       +'<line x1="'+x(0)+'" y1="'+y(0.5)+'" x2="'+x(u)+'" y2="'+y(0.5)+'" stroke="'+_ccc+'" stroke-width="1" stroke-dasharray="2 3" opacity=".85"/>'
+                       +'<circle cx="'+x(u)+'" cy="'+y(0.5)+'" r="3" fill="'+_ccc+'"/>'
+                       +'<text x="'+lx+'" y="'+(y(0.5)-8)+'" text-anchor="'+an+'" font-size="10" fill="'+_ccc+'">half the profit \u00b7 '+((u*100)<1?'<1':Math.round(u*100))+'% of trades</text>';})():'';
+             return '<div style="overflow-x:auto;margin:6px 0 2px"><svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="display:block" role="img" aria-label="cumulative share of profit, best trades first">'
                +gl+xt
                +'<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="3 4"/>'
-               +'<text x="'+(x(1)-4)+'" y="'+(y(1)-5)+'" text-anchor="end" font-size="9" fill="var(--text5)">evenly spread</text>'
+               +'<text x="'+(x(1)+6)+'" y="'+(y(1)+3)+'" font-size="9" fill="var(--text5)">evenly spread book</text>'
                +'<polyline points="'+pts+'" fill="none" stroke="'+_ccc+'" stroke-width="2" stroke-linejoin="round"/>'
                +hf
                +'<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(1)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
                +'<line x1="'+x(0)+'" y1="'+T+'" x2="'+x(0)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
-               +'</svg>'
-               +'<div style="font-size:9px;color:var(--text5);margin-bottom:3px">share of TRADES across \u00b7 share of PROFIT up \u00b7 best trades first \u00b7 the dashed diagonal is a book whose profit is spread evenly</div>';})()
+               +'<text x="'+((L+x(1))/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="var(--text4)">SHARE OF TRADES (best first)</text>'
+               +'<text transform="translate(13,'+((T+y(0))/2)+') rotate(-90)" text-anchor="middle" font-size="9" fill="var(--text4)">SHARE OF PROFIT</text>'
+               +'</svg></div>';})()
           +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% \u00b7 top 5 = '+Math.round(_cc.s5*100)+'% \u00b7 top 10 = '+Math.round(_cc.s10*100)+'% of net'
             // "net without the top five" is subtracted from the SAMPLE's net when the exact
             //   figure is missing, so it goes negative on runs that are nothing of the kind.
