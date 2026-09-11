@@ -658,6 +658,37 @@ def main():
              state9.get("legs"))
 
         print()
+        print("Test 25: a STALE quote must not disable the quote path for 30 minutes")
+        # WHY: before the opening auction the newest print is always hours old. Treating
+        # that as a failure tripped the 30-minute breaker pre-market, so the adapter refused
+        # to ask for a quote until well into the session -- and with the NinjaTrader feed
+        # also dead the price rail blocked entries all morning (seen live 2026-09-11).
+        qe._quote_state.update({"last": None, "last_at": 0.0, "disabled_until": 0.0,
+                                "warned": False, "stale_warned": False})
+        _real_raw = qe._webull_quote_raw
+        qe._webull_quote_raw = lambda symbol="QQQ", log=print: qe.QUOTE_STALE
+        try:
+            r_stale = qe.default_webull_quote("QQQ", log=lambda *_a, **_k: None)
+        finally:
+            qe._webull_quote_raw = _real_raw
+        check("stale quote yields no price", r_stale is None, r_stale)
+        check("and the quote path stays ENABLED (breaker untouched)",
+              qe._quote_state["disabled_until"] == 0.0, qe._quote_state["disabled_until"])
+
+        qe._quote_state.update({"last": None, "last_at": 0.0, "disabled_until": 0.0,
+                                "warned": False, "stale_warned": False})
+        qe._webull_quote_raw = lambda symbol="QQQ", log=print: None    # a REAL failure
+        try:
+            r_fail = qe.default_webull_quote("QQQ", log=lambda *_a, **_k: None)
+        finally:
+            qe._webull_quote_raw = _real_raw
+        check("a real failure still yields no price", r_fail is None, r_fail)
+        check("and a real failure DOES trip the breaker",
+              qe._quote_state["disabled_until"] > 0.0, qe._quote_state["disabled_until"])
+        qe._quote_state.update({"last": None, "last_at": 0.0, "disabled_until": 0.0,
+                                "warned": False, "stale_warned": False})
+
+        print()
         if FAILURES:
             print(f"SMOKE TEST: {len(FAILURES)} FAILURE(S): {FAILURES}")
             sys.exit(1)

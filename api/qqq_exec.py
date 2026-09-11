@@ -651,6 +651,12 @@ QUOTE_CACHE_SEC = 20.0
 _quote_state = {"disabled_until": 0.0, "last": None, "last_at": 0.0, "warned": False}
 
 
+# A quote CALL that worked but whose newest print is older than QUOTE_MAX_AGE_SEC. This is
+# NOT a failure -- it is the normal state before the opening auction and in any thin patch --
+# so it must never trip the failure breaker (see default_webull_quote).
+QUOTE_STALE = "stale"
+
+
 def default_webull_quote(symbol="QQQ", log=print):
     """Time-boxed, circuit-broken wrapper around _webull_quote_raw. Never raises, never
     blocks longer than QUOTE_HARD_TIMEOUT_SEC. Returns (price, age_secs) or None."""
@@ -674,6 +680,15 @@ def default_webull_quote(symbol="QQQ", log=print):
         res = None
         log(f"[qqq-exec] Webull quote failed: {type(e).__name__}: {e} -- disabled "
             f"{QUOTE_BACKOFF_SEC/60:g} min")
+    if res is QUOTE_STALE:
+        # No usable price this tick, but the path is healthy: do not disable it, and do not
+        # cache it as a quote. Logged once per market-state change rather than every tick.
+        if not qs.get("stale_warned"):
+            log("[qqq-exec] Webull quote is live but its newest print is older than "
+                f"{QUOTE_MAX_AGE_SEC:g}s (normal before the open) -- no quote pricing yet")
+            qs["stale_warned"] = True
+        return None
+    qs["stale_warned"] = False
     if res is None:
         qs["disabled_until"] = now + QUOTE_BACKOFF_SEC
         if not qs["warned"]:
@@ -768,8 +783,13 @@ def _webull_quote_raw(symbol="QQQ", log=print):
             except Exception:
                 age = None
             if age is not None and age > QUOTE_MAX_AGE_SEC:
-                log(f"[qqq-exec] webull quote too old ({age:.0f}s) -- treating as unavailable")
-                return None
+                # STALE, NOT BROKEN (2026-09-11). Returning None here put this down as a
+                # failure and disabled the whole quote path for 30 minutes. Before the open
+                # the newest print is always hours old, so the adapter tripped its own
+                # breaker pre-market and then refused to even ASK for a quote until 30
+                # minutes into the session -- which, with the NinjaTrader feed also dead,
+                # left the price rail blocking entries on the first clean-coverage day.
+                return QUOTE_STALE
             return float(price), age
         return None
     except Exception as e:
