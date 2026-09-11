@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.740';
+const VERSION='73.741';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12266,17 +12266,14 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const wo5=net-t5,wo10=net-t10,s5=share(t5),s1=share(t1),s10=share(t10);
       // severity: net going NEGATIVE without the 5 best trades = the strategy IS those trades (bad);
       //   over 50% of net in 5 trades, or over 25% in ONE trade = warning.
-      // severity reads the same way on an exact figure and on a lower bound: a lower bound
-      //   over 50% means the true share is over 50% too, so the warning is sound either way.
-      //   'bad' (the net goes negative without the top 5) needs the exact net, so a bounded
-      //   read can warn but never condemn.
-      const st=(net<=0)?'info':((exact&&wo5<=0)?'bad':((s5>0.5||s1>0.25)?'warn':'ok'));
+
       // HOW FEW TRADES MADE HALF THE MONEY - the headline, because it needs no explanation
       //   and cannot blow up the way a ratio can. Walk the trades best-first and count how
       //   many it takes to reach half the net. The cumulative curve below is the same walk
       //   kept as points (x = share of trades, y = share of net) for the card to draw.
       const srt=idx.map(i=>v[i]);
       let half=null,cum=0;const curve=[];
+      const srtN=srt.length;
       const _den=(runNet>0&&!exact)?runNet:net;
       const _step=Math.max(1,Math.ceil(srt.length/400));
       for(let i=0;i<srt.length;i++){
@@ -12284,6 +12281,23 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(half===null&&_den>0&&cum>=0.5*_den)half=i+1;
         if(i%_step===0||i===srt.length-1)curve.push([(i+1)/srt.length,_den>0?(cum/_den):0]);
       }
+      // SEVERITY READS THE SHAPE, NOT A RATIO. Ratios against a sampled net are unusable -
+      //   that is the whole 1190% story - but "how few trades made half the money" is a
+      //   RANK question, and a stride sample answers it honestly because it keeps the shape
+      //   of the distribution even when it does not keep the total.
+      //     bad   the net goes negative without the top 5 (needs the exact net to assert)
+      //     warn  half the profit came from under 5% of the trades, or the old ratio rules
+      //     ok    neither, AND we have the exact figure to say so
+      //     info  bounded read with nothing alarming in it - grey, because "probably fine"
+      //           is not the same as "fine", and green asserts something unmeasured.
+      //   On the run that raised this: 21 of 400 trades made half the profit - 5.3% - which
+      //   read GREEN under the old rule because its 22% top-5 share never crossed 50%.
+      const _hFrac=(half&&srt.length)?(half/srt.length):null;
+      const _shapeWarn=(_hFrac!=null&&_hFrac<0.05);
+      const st=(net<=0)?'info'
+              :((exact&&wo5<=0)?'bad'
+              :((_shapeWarn||s5>0.5||s1>0.25)?'warn'
+              :(exact?'ok':'info')));
       return {n:n,net:net,t1:t1,t5:t5,t10:t10,s1:s1,s5:s5,s10:s10,g5:t5/gross,wo5:wo5,wo10:wo10,st:st,rank:idx,exact:exact,
               half:half,halfOf:srt.length,curve:curve,
               bound:(!exact&&runNet>0)};   // bound = the shares are a LOWER bound, print them with >=
@@ -19126,7 +19140,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                +'<line x1="'+x(0)+'" y1="'+y(1)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--border)" stroke-width="1"/>'
                +'<polyline points="'+pts+'" fill="none" stroke="'+_ccc+'" stroke-width="1.6" stroke-linejoin="round"/></svg>'
                +'<div style="font-size:8px;color:var(--text5);margin-bottom:3px">best trades first \u2192 all trades \u00b7 dashed = an evenly spread book \u00b7 a line that tops out early means a few trades carry it</div>';})()
-          +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% · top 5 = '+Math.round(_cc.s5*100)+'% · top 10 = '+Math.round(_cc.s10*100)+'% of net · net without top 5 <b>'+fmtUsd(Math.round(_cc.wo5))+'</b> · without top 10 <b>'+fmtUsd(Math.round(_cc.wo10))+'</b>'+(_cc.exact?'':' <span style="color:var(--text5)">(SAMPLE read: '+_cc.n+' trades saved - re-run for the exact number)</span>')+'</div>'});}
+          +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% \u00b7 top 5 = '+Math.round(_cc.s5*100)+'% \u00b7 top 10 = '+Math.round(_cc.s10*100)+'% of net'
+            // "net without the top five" is subtracted from the SAMPLE's net when the exact
+            //   figure is missing, so it goes negative on runs that are nothing of the kind.
+            //   Better to say the read is unavailable than to print a loss that is arithmetic.
+            +(_cc.exact?(' \u00b7 net without top 5 '+fmtUsd(Math.round(_cc.wo5))+' \u00b7 without top 10 '+fmtUsd(Math.round(_cc.wo10))):'')
+            +(_cc.exact?'':' <span style="color:var(--text5)">(shares are a floor: '+_cc.n.toLocaleString()+' of the run\'s trades were saved, so the true share can only be higher - re-run for the exact figure)</span>')+'</div>'});}
       const _ensH=ensembleCardHtml(d.ensemble,mlt);
       if(_ensH&&_ensH.replace(/\s/g,''))_chips.push({k:'ens',ic:'🧩',nm:'ENSEMBLE',q:'blend of top-K vs the single best config',st:(d.ensemble&&d.ensemble.improved)?'ok':'info',cc:(d.ensemble&&d.ensemble.improved)?'var(--green)':'var(--text3)',chip:(d.ensemble&&d.ensemble.improved)?'blend wins':'single best',html:_ensH});
       const _plH=plateauCardHtml(d.plateau_pick,d.best_params,mlt);
