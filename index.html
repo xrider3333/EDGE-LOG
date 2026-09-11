@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.734';
+const VERSION='73.735';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12249,11 +12249,19 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // v73.209: runs saved from the engine of this version carry trade_conc = the FULL trade list
       //   net + top-10 PnLs, so the shares are exact; older runs fall back to the saved sample.
       if(conc&&Array.isArray(conc.top)&&conc.n>0){const tp=conc.top.map(x=>Math.max(0,x*mult));n=conc.n;net=conc.net*mult;t1=tp[0]||0;t5=tp.slice(0,5).reduce((a,b)=>a+b,0);t10=tp.slice(0,10).reduce((a,b)=>a+b,0);exact=true;}
-      const share=t=>net>0?t/net:NaN;                     // share of NET - what the owner asked for
+      // A SHARE FROM A SAMPLE IS NOT A SHARE OF THE RUN. Without the exact field above, the
+      //   denominator is the SAMPLED trades' net, and a stride sample of a 3,800-trade run can
+      //   net almost nothing - which is how run #384 came to claim "top 5 = 1190% of net" when
+      //   the true figure over every trade is 45%. Past 150% the sample is telling us about
+      //   itself, not the strategy, so the caller is given no share at all rather than a
+      //   number that reads as catastrophic concentration.
+      const share=t=>{if(!(net>0))return NaN;const r=t/net;return (!exact&&r>1.5)?NaN:r;};
       const wo5=net-t5,wo10=net-t10,s5=share(t5),s1=share(t1),s10=share(t10);
       // severity: net going NEGATIVE without the 5 best trades = the strategy IS those trades (bad);
       //   over 50% of net in 5 trades, or over 25% in ONE trade = warning.
-      const st=(net<=0)?'info':(wo5<=0?'bad':((s5>0.5||s1>0.25)?'warn':'ok'));
+      // an unusable sample share cannot raise a warning either - NaN compares false, so this
+      //   lands on 'info' and the chip says the read is unavailable rather than crying wolf.
+      const st=(net<=0)?'info':(!exact&&!(s5>=0))?'info':(wo5<=0?'bad':((s5>0.5||s1>0.25)?'warn':'ok'));
       return {n:n,net:net,t1:t1,t5:t5,t10:t10,s1:s1,s5:s5,s10:s10,g5:t5/gross,wo5:wo5,wo10:wo10,st:st,rank:idx,exact:exact};
     };
     const _distViewRail=(key,cur,opts,lbl)=>{

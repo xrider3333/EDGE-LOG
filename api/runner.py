@@ -471,7 +471,14 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 method=("walkforward" if jtype == "walkforward" else "single"),
                 date_from=df_from, date_to=df_to, wf_mode=job.get("wf_mode", "anchored"),
                 oos=bool(job.get("oos", True)), wf_folds=int(job.get("wf_folds", 0) or 0),
-                n_trials=int(job.get("n_trials", 200)),
+                # DEFAULT 900 since 2026-09-11. The old 200 came from a budget study on ONE
+                #   wide ORB space, and the A/B that tested it properly (runs #383 vs #384,
+                #   same file, same window, same fence, only the budget differing) went the
+                #   other way: 900 trials returned a LOWER overfit probability (0.603 vs
+                #   0.802), twice the held-out trades (277 vs 140) and three times the
+                #   sealed-year profit. It cost 45 minutes against 26 - affordable only
+                #   because the hot loops are compiled now. A job may still pass its own.
+                n_trials=int(job.get("n_trials", 900)),
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 min_trades=int(job.get("min_trades", 30)), top_n=int(job.get("top_n", 10)),
                 progress_cb=progress_cb,
@@ -531,7 +538,14 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 source=job.get("source"), date_from=df_from, date_to=df_to,
                 cost_pts=float(job.get("cost_pts", 0) or 0),
                 min_trades=int(job.get("min_trades", 30)),
-                n_trials=int(job.get("n_trials", 200)),
+                # DEFAULT 900 since 2026-09-11. The old 200 came from a budget study on ONE
+                #   wide ORB space, and the A/B that tested it properly (runs #383 vs #384,
+                #   same file, same window, same fence, only the budget differing) went the
+                #   other way: 900 trials returned a LOWER overfit probability (0.603 vs
+                #   0.802), twice the held-out trades (277 vs 140) and three times the
+                #   sealed-year profit. It cost 45 minutes against 26 - affordable only
+                #   because the hot loops are compiled now. A job may still pass its own.
+                n_trials=int(job.get("n_trials", 900)),
                 wf_folds=int(job.get("wf_folds", 0) or 0),
                 lockbox_months=int(job.get("lockbox_months", 12)),
                 transfer_to=job.get("transfer_to"),

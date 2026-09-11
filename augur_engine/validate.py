@@ -1391,6 +1391,15 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         # walk-forward out-of-sample versions of 1G/1H (WF scope in the dropdown)
         "win_dist_wf": win_dist_wf, "mae_mfe_wf": mae_mfe_wf,
         "win_dist_is": win_dist_is, "mae_mfe_is": mae_mfe_is,
+        # EXACT PROFIT CONCENTRATION - the full trade list's net and its ten biggest winners.
+        #   run_auto has computed this since v73.209 precisely because win_dist above is a
+        #   STRIDE SAMPLE capped at 600 trades, and a share computed from a sample divides by
+        #   the SAMPLE's net rather than the run's. On run #384 that read "top 5 = 1190% of
+        #   net" - the sampled subset happened to net almost nothing - while the real figure
+        #   measured off all 3,802 trades is 45%. The number was not describing the strategy
+        #   at all. It was computed correctly upstream and simply never carried into the
+        #   validate's saved dict, so every validate on the board fell back to the sample.
+        "trade_conc": A.get("trade_conc"),
         # the NON-selected walk-forward scheme's folds (1C comparison toggle)
         "wf_alt_folds": _alt_folds, "wf_alt_mode": (_altw.get("mode") if _altw.get("ran") else None),
         # 1B monthly + 1F regime + §8 MC drawdown → whole-run champion when available, else in-sample.
