@@ -574,6 +574,11 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 #     our ten hand-picked winners". Evidence; never touches the crown.
                 save_fold_detail=bool(job.get("save_fold_detail", True)),
                 oos_sample_k=int(job.get("oos_sample_k", 30) or 0),
+                # "auto_expand": false on the job doc makes a FENCED strategy file stay
+                # inside its declared ranges. Default True = unchanged behaviour; queue it
+                # false when the point of the run is to grade a neighbourhood rather than
+                # to discover one (run #381 widened 13 params and crowned impossible values).
+                auto_expand=bool(job.get("auto_expand", True)),
                 progress_cb=progress_cb)
         elif jtype == "book":
             # BOOK (RUNBOARD item B): N strategy files traded side by side over ONE window,

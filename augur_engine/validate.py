@@ -542,7 +542,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  #    NOTHING below behaves differently and the saved dict is identical
                  #    to what it was before they existed (tests/test_fold_detail.py pins
                  #    that). See the block comment above `_anchored_fold_bounds`.
-                 save_fold_detail=False, oos_sample_k=0):
+                 save_fold_detail=False, oos_sample_k=0,
+                 # ── AUTO-EXPAND, threaded through so a FENCED file can actually stay fenced.
+                 #    run_auto widens a parameter's range whenever the sampled curve's optimum
+                 #    sits at an edge, and keeps widening across rounds. That is the right
+                 #    default for open discovery and the WRONG one for a neighbourhood file
+                 #    whose whole purpose is "search HERE and nowhere else": on run #381 it
+                 #    widened thirteen parameters, never converged, and crowned a cell with a
+                 #    NEGATIVE volume filter and a NEGATIVE efficiency floor - values the
+                 #    strategy cannot mean - then failed that cell in the lockbox. Nothing
+                 #    upstream could ask it to stop, because no caller could pass the flag.
+                 #    Default stays True, so every existing call is byte-identical.
+                 auto_expand=True):
     # Walk-forward folds in parallel processes (augur_engine.wf_pool). The runner sets
     # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
     # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
@@ -611,6 +622,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # trials, seed 42, lockbox held out, 0 GP fallbacks). run_auto's own
                  # default stays False (library neutrality); this call site is the opt-in.
                  auto_steer=True,
+                 auto_expand=auto_expand,   # see the note on the signature above
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
     # #88 (2026-07-20): `select_oos_topk` USED to follow the same "library default off,
     # production opts in at its one call site" pattern as auto_steer above. It no longer
@@ -1393,6 +1405,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         # interactions, knob screen) — forwarded from Stage A, IS-only by construction.
         "surrogate": A.get("surrogate"),
         "auto_expand": A.get("auto_expand"), "auto_expand_summary": A.get("auto_expand_summary"),
+        "auto_expand_enabled": bool(auto_expand),   # False = the file's fences were honoured
         "steering": A.get("steering"),   # #36 P2: seed/steered/fallback trial counts (badge in 2L)
         # top-level so the existing Robustness card renders the gate bake-off with no new UI.
         "gate_validate": gate_bakeoff,
