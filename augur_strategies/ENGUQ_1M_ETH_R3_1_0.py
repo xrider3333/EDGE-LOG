@@ -45,6 +45,16 @@ anchor and still reproduces the uncapped crown exactly.
 """
 import numpy as np
 
+# Compiled hot loops (augur_engine/fastloop.py). Every entry point returns None when the
+# compiler is unavailable or EDGELOG_NO_FASTLOOP=1 is set, and each call site below keeps its
+# original Python loop as the fallback - so this file behaves identically either way. The
+# compiled walk is used only when no research probe and no stop/pause event is attached,
+# because those are instrumentation the compiled code cannot carry.
+try:
+    from augur_engine import fastloop as _fl
+except Exception:                                                   # pragma: no cover
+    _fl = None
+
 _AUGUR_PARENT = "ENGUQ_1M_ETH_TCAP_1_0.py"
 
 STRATEGY_NAME = "ENGU-Q 1m ETH R3 (crown + hold cap)"
@@ -121,6 +131,10 @@ PARAM_GRID_PRESETS = {
 
 
 def _ema(a, n):
+    if _fl is not None:
+        _o = _fl.ema(a, n)
+        if _o is not None:
+            return _o
     k = 2.0 / (n + 1.0); out = np.empty_like(a); out[0] = a[0]
     for i in range(1, len(a)): out[i] = k * a[i] + (1 - k) * out[i - 1]
     return out
@@ -158,9 +172,11 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
             rc = np.cumsum(c)
             reg[rb - 1:] = (rc[rb - 1:] - np.concatenate([[0], rc[:-rb]])) / rb
 
-    tr = np.empty(n); tr[0] = h[0] - l[0]
-    for i in range(1, n):
-        tr[i] = max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1]))
+    tr = _fl.true_range(h, l, c) if _fl is not None else None
+    if tr is None:
+        tr = np.empty(n); tr[0] = h[0] - l[0]
+        for i in range(1, n):
+            tr[i] = max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1]))
     atr = np.full(n, np.nan); al = int(atr_len)
     csum = np.cumsum(tr)
     atr[al - 1:] = (csum[al - 1:] - np.concatenate([[0], csum[:-al]])) / al
@@ -188,6 +204,27 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
     pnl_list, trade_log = [], []
     pos = None
     i = tl_len + 1
+
+    # ── COMPILED WALK. Identical arithmetic, transcribed in augur_engine/fastloop.py and
+    #    parity-tested against the loop below (tests/test_fastloop_parity.py). Skipped
+    #    whenever instrumentation is attached, and skipped entirely when the compiler is
+    #    unavailable, in which case the interpreted loop below runs exactly as it always has.
+    if (_fl is not None and _signal_probe is None and _fill_probe is None
+            and _stop_event is None and _pause_event is None):
+        _fast = _fl.engu_walk(
+            o, h, l, c, ema, reg, atr, tr, er_ok,
+            vv if have_vol else None, vavg if have_vol else None,
+            tl_len=tl_len, buf_atr=buf_atr, min_brk=min_brk, vol_mult=vol_mult,
+            limit_atr=limit_atr, stop_mult=stop_mult, act_R=act_R, trail_frac=trail_frac,
+            breakeven_R=breakeven_R, n_scan=_N_SCAN, max_hold_bars=int(max_hold_bars))
+        if _fast is not None:
+            _e, _x, _p, _ep = _fast
+            pnl_list = [float(v) for v in _p]
+            if return_trades:
+                trade_log = [(int(_e[q]), int(_x[q]), float(_p[q]), 1, float(_ep[q]))
+                             for q in range(len(_e))]
+            i = n                      # the interpreted walk below is now a no-op
+
     while i < n:
         if _stop_event is not None and _stop_event.is_set():
             break
