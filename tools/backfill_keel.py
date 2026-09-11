@@ -11,6 +11,14 @@ must match the doc's own `gate_validate.ungated_pre` (trade count exact, net wit
 otherwise the run is skipped and reported.
 
 Usage:  python tools/backfill_keel.py 243 234 265 [--write]     (default = dry run)
+        python tools/backfill_keel.py 243 304 --refresh --write   (re-run a STALE row)
+
+2026-09-11: this only ever filled a MISSING row, so a run whose row was written by an older
+version kept it forever. That mattered once the validate row moved off v4: every run in the
+library still showed the first cut, which stands down at average size 1.00 and whose lockbox
+reads WORSE than raw on both NOISE runs - so the panel was making the overlay look bad with a
+version nobody runs. --refresh re-runs a row whose stored version is not the current one;
+--force re-runs regardless. Both still honour the reproduction guard and --write.
 """
 import os, sys, json, time
 import numpy as np
@@ -20,6 +28,7 @@ os.chdir(ROOT); sys.path.insert(0, ROOT)
 from augur_engine.data import find_master, load_master_arrays      # noqa: E402
 from augur_engine.engine import run_backtest                       # noqa: E402
 from augur_engine.ml_gate import gate_validate                     # noqa: E402
+from augur_engine.ml_keel import VALIDATE_VERSION as CURRENT_VERSION  # noqa: E402
 import augur_engine.data as _data                                  # noqa: E402
 if os.environ.get("EDGELOG_UPLOADS"):        # run from a worktree against the shared masters
     _data.UPLOADS = os.environ["EDGELOG_UPLOADS"]
@@ -36,7 +45,7 @@ def _db():
     return firestore.client()
 
 
-def one(db, run_id, write):
+def one(db, run_id, write, refresh=False, force=False):
     ref = db.collection("users").document(UID).collection("runs").document(str(run_id))
     d = ref.get().to_dict()
     if not d:
@@ -44,8 +53,17 @@ def one(db, run_id, write):
     gv = d.get("gate_validate") or {}
     if not gv.get("ungated_pre"):
         print(f"#{run_id}: no gate_validate block on the doc - skip"); return
-    if isinstance(gv.get("keel"), dict) and not gv["keel"].get("error"):
-        print(f"#{run_id}: already has a keel row ({gv['keel'].get('version')}) - skip"); return
+    _k = gv.get("keel")
+    if isinstance(_k, dict) and not _k.get("error"):
+        _have, _want = str(_k.get("version") or "?"), str(CURRENT_VERSION)
+        if force:
+            print(f"#{run_id}: has {_have}, forcing a re-run")
+        elif refresh and _have != _want:
+            print(f"#{run_id}: has {_have}, current is {_want} - refreshing")
+        elif refresh:
+            print(f"#{run_id}: already on {_have} (current) - skip"); return
+        else:
+            print(f"#{run_id}: already has a keel row ({_have}) - skip, pass --refresh to re-run it"); return
     params = (d.get("validate") or {}).get("champion") or d.get("best_params")
     src = d.get("data_source"); sess = SESSION.get(src)
     if not params or not sess:
@@ -88,9 +106,11 @@ def one(db, run_id, write):
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     write = "--write" in sys.argv
+    refresh = "--refresh" in sys.argv
+    force = "--force" in sys.argv
     db = _db()
     for rid in args:
         try:
-            one(db, int(rid), write)
+            one(db, int(rid), write, refresh=refresh, force=force)
         except Exception as e:
             print(f"#{rid}: FAILED {type(e).__name__}: {e}")

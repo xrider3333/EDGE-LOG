@@ -1235,6 +1235,48 @@ on the same walk. The line will now separate from raw, and the label reads the v
 The second is left alone rather than quietly reversing another decision: if the folded legend is the
 real complaint, breaking KEEL out into its own toggle is a small follow-up.
 
+### Is KEEL the best option for its family? (2026-09-11)
+
+Owner: *"does it outperform its sister MLs ... is it the best option (raw or ML or otherwise) for
+said family and worth being a primary candidate for paper trading"*. `tools/keel_family_shootout.py`
+answers it the only fair way: every family's representative is the row with the best **walk-forward**
+money, picked without looking at the lockbox, because that is how a live choice would have to be
+made. The lockbox column is then the held-back read on an already-made choice. All figures are the
+run's own stretches, in dollars.
+
+| run | RAW wf MAR | GATE | TILT | HYBRID | **KEEL** | RAW lb MAR | GATE | TILT | HYBRID | **KEEL** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| #243 NQ 5m (paper leg) | 1.88 | 1.92 | 1.87 | 1.96 | **3.06** | 1.83 | 1.80 | 1.63 | 1.66 | **3.06** |
+| #304 NQ 5m (crown) | 2.13 | 2.17 | 2.67 | 2.18 | **3.46** | 2.24 | 2.24 | 0.55 | 2.06 | **3.58** |
+| #374 NQ 5m (exit variant) | 2.22 | **2.55** | 2.25 | 2.31 | 2.27 | 1.61 | 1.78 | 0.38 | 1.46 | **2.08** |
+| #345 NQ 1m | 3.86 | **3.91** | 3.86 | 3.64 | 3.33 | 0.36 | 0.39 | 0.03 | 0.31 | **1.51** |
+| #362 NQ 15m | **1.13** | 1.14 | 1.25 | 1.14 | 1.10 | 0.20 | 0.19 | 0.11 | 0.21 | **0.58** |
+| #344 on ES 5m | 0.68 | 0.57 | 0.54 | 0.54 | **0.92** | 0.21 | **0.93** | 0.61 | 0.91 | 0.15 |
+
+**On the two runs it was built on it is the best option outright**, beating raw and all three sisters
+on money AND on risk-adjusted return in BOTH stretches. Walk-forward money is +75% and +57% over raw
+with drawdown flat or better, and the lockbox nearly doubles the return-to-drawdown of anything else.
+
+**It beats its closest sister everywhere.** The size TILT is the family KEEL was built from, and its
+lockbox collapses on four of the six runs (0.55, 0.38, 0.03, 0.11). KEEL's lockbox beats TILT on all
+six. Whatever else is true, the plain tilt is not the thing to trade.
+
+**But the scope is narrower than "the NOISE family", and the honest reason is selection.** #243 and
+#304 are exactly the two runs the overlay was developed and guarded on, so its dominance there is
+partly earned and partly fitted. The other four are effectively out-of-sample for its design, and
+there the pattern changes: **lockbox return-to-drawdown still beats raw on three of four**, often by a
+lot (1.51 vs 0.36, 0.58 vs 0.20, 2.08 vs 1.61) — but **walk-forward drawdown runs 50% or more above
+raw**, so on walk-forward efficiency it is a wash or slightly worse. It makes more money and takes
+more heat getting there.
+
+**On ES it fails.** #344 is the one run where the lockbox is worse than raw (0.15 vs 0.21) and a plain
+gate beats everything (0.93). NOISE-on-ES was already closed for other reasons; this is one more.
+
+**Verdict on the paper question.** Primary candidate on the NQ 5-minute crown and paper-leg configs:
+yes, on this evidence it is the best overlay available for them and there is no sister that comes
+close. Everywhere else in the family: forward test only, because the out-of-sample runs buy their
+extra money with materially more drawdown. That split is the finding, not a hedge.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.
