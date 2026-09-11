@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.731';
+const VERSION='73.732';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -9732,51 +9732,71 @@ function renderApp(){
       return `<button class="btn-ghost master-tab${on?' active':''}" data-master="${m[0]}" style="font-size:13px;letter-spacing:1px"><span style="margin-right:7px;font-size:14px;opacity:.8">${m[2]}</span>${m[1]}</button>`;
     }).join('')}
     ${(()=>{
-      // QUEUE chip (owner ask 2026-08-23). One glance: what the runner is doing and how
-      //   many jobs are behind it. Amber when the top job has not moved in a while, which
-      //   is what an orphaned job looks like - a runner restart kills the job but leaves
-      //   its doc on 'running', and a fresh runner only ever claims 'queued', so it sits
-      //   there for ever showing a frozen progress bar.
+      // QUEUE GAUGES (owner ask 2026-09-11, replacing the single-job chip). ONE SMALL DIAL
+      //   PER LIVE JOB - everything running or waiting, visible from every screen, instead
+      //   of the top job plus a "+3" the owner had to click to read.
+      //
+      //   WHY A DIAL AND NOT A BAR. The old chip stated a percentage with total confidence,
+      //   and on 2026-09-11 it sat on "10%" for half an hour after its worker had been
+      //   killed - a GHOST. A job record cannot update itself once its worker dies, so the
+      //   percentage is only as trustworthy as the heartbeat behind it. The needle now says
+      //   what the number means: LIVE (green, heartbeat fresh), STALLED (amber, heartbeat
+      //   gone quiet - the percentage is frozen and probably a ghost), or WAITING (grey
+      //   needle parked at zero). The staleness test is the runner's own heartbeat, which
+      //   is written every few seconds and is the only field that can tell a working job
+      //   from a dead one.
       try{
-        // Counts come from _liveJobs() - the SAME helper the BUILDER build-queue sidebar
-        //   reads - so the chip and the sidebar can never disagree again.
         const _LJ=_liveJobs();
-        if(!_LJ.run&&!_LJ.waiting.length)return '';
-        const run=_LJ.run;
-        const wait=_LJ.waiting.length;
-        const paused=!!(run&&String(run.status||'').toLowerCase()==='paused');
+        const live=[].concat(_LJ.running||[], _LJ.waiting||[]);
+        if(!live.length)return '';
         const _ms=x=>{try{return x&&x.toDate?x.toDate().getTime():(x?new Date(x).getTime():0);}catch(e){return 0;}};
-        // Age is only meaningful from the moment the runner CLAIMED the job. createdAt is
-        //   when it was queued, and a job that waited half a day behind other work and then
-        //   started normally would otherwise render as a fault.
-        const started=run?_ms(run.startedAt):0;
-        const queuedMin=run?Math.round((Date.now()-_ms(run.createdAt))/60000):0;
-        const runMin=started?Math.round((Date.now()-started)/60000):null;
-        // A validate on 1-minute data legitimately runs for hours, so a long run is not by
-        //   itself a fault. Amber only where the claim is supportable: the runner has held
-        //   this job six hours or more MEASURED FROM THE CLAIM, or - the unambiguous case,
-        //   and the one that cost the owner half a day on 2026-08-23 - work is waiting and
-        //   nothing at all is running.
-        const idle=!run&&wait>0;
-        const stale=idle||(runMin!==null&&runMin>=360);
-        const col=stale?'var(--yellow)':(run?'var(--green)':'var(--text4)');
-        const pct=run?Math.max(0,Math.min(100,run.progress||0)):0;
-        const nm=run?String(run.strategy||'job').replace(/\.py$/,''):'';
-        const txt=run?(nm+' '+(paused?'PAUSED':(pct+'%'))):(wait+' waiting');
-        const tail=(run&&wait)?(' +'+wait):'';
+        const MAXD=6;                                   // beyond this the bar stops being glanceable
+        const shown=live.slice(0,MAXD), extra=live.length-shown.length;
+        // 150-degree sweep, like a car tacho: -165deg is empty on the left, -15deg is full
+        //   on the right. r=9 inside a 24x15 box keeps the whole thing the height of the text
+        //   beside it.
+        const dial=(pct,col,stale)=>{
+          const a=(-165+150*Math.max(0,Math.min(100,pct))/100)*Math.PI/180;
+          const x=12+8.2*Math.cos(a), y=12.5+8.2*Math.sin(a);
+          return '<svg width="24" height="15" viewBox="0 0 24 15" style="vertical-align:middle;margin-right:3px">'
+            +'<path d="M 3.3 12.5 A 8.7 8.7 0 0 1 20.7 12.5" fill="none" stroke="var(--bg1)" stroke-width="2.4" stroke-linecap="round"/>'
+            +(pct>0?('<path d="M 3.3 12.5 A 8.7 8.7 0 0 1 20.7 12.5" fill="none" stroke="'+col+'" stroke-width="2.4" stroke-linecap="round"'
+                     +' stroke-dasharray="'+(27.3*Math.max(0,Math.min(100,pct))/100).toFixed(2)+' 100" opacity="'+(stale?'.45':'.9')+'"/>'):'')
+            +'<line x1="12" y1="12.5" x2="'+x.toFixed(2)+'" y2="'+y.toFixed(2)+'" stroke="'+col+'" stroke-width="1.6" stroke-linecap="round"/>'
+            +'<circle cx="12" cy="12.5" r="1.5" fill="'+col+'"/></svg>';
+        };
         const _dur=m=>(m>=120?(Math.round(m/60)+'h'):(m+' min'));
-        const tip=(run?('RUNNING: '+nm+' at '+pct+'%'+(runMin!==null?(', going '+_dur(runMin)):'')+', queued '+_dur(queuedMin)+' ago.'
-                        +(wait?(' '+wait+' job'+(wait>1?'s':'')+' waiting behind it.'):' Nothing waiting behind it.')
-                        +(stale?' IT HAS BEEN ON THIS JOB SIX HOURS OR MORE. If the percentage is also frozen, the runner was probably restarted underneath it, which kills the job but leaves it marked running for ever - a fresh runner only ever claims queued work. Open BUILDER and requeue it.':(runMin===null?' Start time is not recorded on this job, so how long it has really been running cannot be told from here - the runner stamps it from its next restart onward.':'')))
-                     :(wait+' job'+(wait>1?'s':'')+' waiting and nothing running. If this does not start within a few minutes the runner is not picking work up.'))
-                 +' Click for the full list, with stop and pause.';
-        return '<button class="btn-ghost master-tab" data-queuechip title="'+String(tip).replace(/"/g,'&quot;')+'"'
-          +' style="font-size:11px;letter-spacing:.6px;color:'+col+'">'
-          +'<span style="margin-right:6px;font-size:13px;opacity:.85">'+(stale?'\u26a0':'\u25f7')+'</span>'
-          +'QUEUE \u00b7 '+String(txt).toUpperCase()+tail
-          +(run?('<span style="display:inline-block;width:34px;height:3px;margin-left:7px;vertical-align:middle;background:var(--bg1);border-radius:2px;overflow:hidden">'
-                 +'<span style="display:block;height:100%;width:'+pct+'%;background:'+col+'"></span></span>'):'')
-          +'</button>';
+        let html='';
+        for(const j of shown){
+          const stt=String(j.status||'').toLowerCase();
+          const isRun=(stt==='running'||stt==='paused');
+          const pct=isRun?Math.max(0,Math.min(100,j.progress||0)):0;
+          const hb=_ms(j.heartbeat_at);
+          const hbMin=hb?Math.round((Date.now()-hb)/60000):null;
+          // Five minutes of silence from a job that claims to be running is a dead worker.
+          //   The runner writes its heartbeat every few seconds, so this is not a close call.
+          const stale=isRun&&(hbMin===null?false:hbMin>=5);
+          const col=!isRun?'var(--text4)':(stale?'var(--yellow)':(stt==='paused'?'var(--text3)':'var(--green)'));
+          const nm=String(j.strategy||'job').replace(/\.py$/,'').replace(/^BOOK: /,'');
+          const started=_ms(j.startedAt);
+          const runMin=started?Math.round((Date.now()-started)/60000):null;
+          const tip=(isRun
+              ?(nm+' - '+(stt==='paused'?'PAUSED at ':'running, ')+pct+'%'
+                +(runMin!==null?(', going '+_dur(runMin)):'')
+                +(stale?('. STALLED: its last heartbeat was '+_dur(hbMin)+' ago, so this percentage is frozen and the worker behind it is almost certainly gone. A runner restart kills the job but leaves the record on running; the boot sweep requeues it, or requeue it yourself in BUILDER.')
+                       :(hbMin===null?'. This job records no heartbeat, so whether it is really alive cannot be told from here.':'. Heartbeat is fresh, so it is genuinely working.')))
+              :(nm+' - waiting to be claimed. The runner takes the oldest waiting job first.'))
+            +' Click for the full list, with stop and pause.';
+          html+='<span data-queuechip title="'+String(tip).replace(/"/g,'&quot;')+'"'
+            +' style="display:inline-flex;align-items:center;cursor:pointer;font-size:10px;letter-spacing:.4px;color:'+col+';margin-right:9px;white-space:nowrap">'
+            +dial(pct,col,stale)
+            +'<span style="opacity:.92">'+nm.slice(0,16).toUpperCase()+'</span>'
+            +(isRun?('<span style="opacity:.65;margin-left:4px">'+(stale?'STALLED':(pct+'%'))+'</span>')
+                   :'<span style="opacity:.5;margin-left:4px">WAIT</span>')
+            +'</span>';
+        }
+        if(extra>0)html+='<span data-queuechip style="cursor:pointer;font-size:10px;color:var(--text4);margin-right:9px">+'+extra+'</span>';
+        return '<span class="master-tab" style="display:inline-flex;align-items:center;padding:0 2px">'+html+'</span>';
       }catch(e){return '';}
     })()}
     <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px">
@@ -9791,8 +9811,10 @@ function renderApp(){
       <button class="btn-d" style="font-size:var(--fsxs);padding:5px 10px" id="so-btn">OUT</button>
     </div>`;
   wrap.appendChild(tb);
-  { const _qc=tb.querySelector('[data-queuechip]');
-    if(_qc)_qc.onclick=()=>{activeTab='augur';augurSub='exec';savePref('augurSub','exec');renderApp();}; }
+  // every dial is clickable - querySelector would have wired up only the first one
+  tb.querySelectorAll('[data-queuechip]').forEach(_qc=>{
+    _qc.onclick=()=>{activeTab='augur';augurSub='exec';savePref('augurSub','exec');renderApp();};
+  });
   // ── second-level subtab bar (subtabs for the active master section) ──
   const _master=(activeTab==='augur')?'backtester':'log';
   const sub=document.createElement('div');
