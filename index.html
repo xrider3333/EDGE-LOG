@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.736';
+const VERSION='73.737';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -15753,7 +15753,16 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       return '<div style="font-size:8px;color:var(--text4);margin-bottom:4px">ALL CONFIGS &middot; '+rows.length+' &middot; one row per config, every family, the same points the parallel and scatter views draw &middot; click a column to sort'+((_mtxColsMode(_MTXK.cols)!=='ratio')?(' &middot; ROC % / YR and DD % vs '+_rocChip()):'')+((pboV!=null&&isFinite(pboV))?(' &middot; PBO '+Math.round(pboV*100)+'%'):'')
         +(_drp?(' &middot; '+_drp):'')
         +(_mixN?(' &middot; <span style="color:var(--text5)" title="'+_mtxMixT+'">&deg; = derived from the saved curve, not measured trade by trade</span>'):'')+'</div>'
-        +'<div style="overflow-x:auto"><table class="table" style="width:100%;font-size:var(--fsxs);border-collapse:collapse"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
+        // HORIZONTAL SCROLL, and why the container alone was not enough (owner, 2026-09-11:
+        //   "cant scroll over horizontally to see other columns, have to widen the screen").
+        //   The box was already overflow-x:auto, but the table inside it was width:100% - so
+        //   it SHRANK to the column instead of overflowing it, squeezing thirteen measures
+        //   into whatever width was going and never giving the container anything to scroll.
+        //   width:max-content lets the table take the width its columns actually need, with
+        //   min-width:100% so it still fills the card when there is room to spare. Cells stop
+        //   wrapping for the same reason: a wrapped heading hides the overflow rather than
+        //   showing it.
+        +'<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><table class="table" style="width:max-content;min-width:100%;font-size:var(--fsxs);border-collapse:collapse;white-space:nowrap"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
     const poolParallelHtml=(allPts,pboV,dropN)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
       if(P.length<2)return '';
