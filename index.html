@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.726';
+const VERSION='73.727';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -26302,8 +26302,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const withRun=sorted.filter(r=>Array.isArray(r.runs)&&r.runs.length);
               const noRun=sorted.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
               const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:4px 8px 3px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
-              bodyRows=(withRun.length?(sep('RAN AS A VALIDATE RUN \u00b7 '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a run number and a date the run finished. Click a row to open its report. Inside this block they are still in whatever order ORDER is set to.')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
-                +(noRun.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+noRun.length,'These rows were computed locally during research and never persisted as a run, so they have no run number and no date ran. They are shown with a dash rather than a made-up date.')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
+              // ONE SECTION NEEDS NO SECTION HEADING. When every row falls on the same
+              // side of the split the label says nothing the reader cannot already see,
+              // and it costs a band of empty space between the column headers and the
+              // first row. The split still labels itself the moment both sides exist.
+              const _bothSides=withRun.length&&noRun.length;
+              bodyRows=(withRun.length?((_bothSides?sep('RAN AS A VALIDATE RUN \u00b7 '+withRun.length,'These rows were persisted as real Auto-Validate runs, so they have a run number and a date the run finished. Click a row to open its report. Inside this block they are still in whatever order ORDER is set to.'):'')+withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'')
+                +(noRun.length?((_bothSides?sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+noRun.length,'These rows were computed locally during research and never persisted as a run, so they have no run number and no date ran. They are shown with a dash rather than a made-up date.'):'')+noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')):'');
             }
           }
           const _emH=_reEmH;
@@ -26408,8 +26413,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const has=it=>Array.isArray(it.r.runs)&&it.r.runs.length;
             const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
             const a=sorted.filter(has),b=sorted.filter(it=>!has(it));
-            bodyRows=(a.length?(sep('RAN AS A VALIDATE RUN \u00b7 '+a.length,'Rows persisted as real Auto-Validate runs. Click one to open its report.')+a.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')):'')
-              +(b.length?(sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+b.length,'Rows computed locally during research and never persisted as a run.')+b.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')):'');
+            const _bothSides2=a.length&&b.length;   // see the note at the other split
+            bodyRows=(a.length?((_bothSides2?sep('RAN AS A VALIDATE RUN \u00b7 '+a.length,'Rows persisted as real Auto-Validate runs. Click one to open its report.'):'')+a.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')):'')
+              +(b.length?((_bothSides2?sep('NEVER RUN AS A VALIDATE RUN \u00b7 '+b.length,'Rows computed locally during research and never persisted as a run.'):'')+b.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')):'');
           }
           const lbls=_reIsLbls(items);
           const synth={isLbl:(lbls.length===1)?lbls[0]:''};
