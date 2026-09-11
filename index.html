@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.739';
+const VERSION='73.740';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12271,7 +12271,21 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   'bad' (the net goes negative without the top 5) needs the exact net, so a bounded
       //   read can warn but never condemn.
       const st=(net<=0)?'info':((exact&&wo5<=0)?'bad':((s5>0.5||s1>0.25)?'warn':'ok'));
+      // HOW FEW TRADES MADE HALF THE MONEY - the headline, because it needs no explanation
+      //   and cannot blow up the way a ratio can. Walk the trades best-first and count how
+      //   many it takes to reach half the net. The cumulative curve below is the same walk
+      //   kept as points (x = share of trades, y = share of net) for the card to draw.
+      const srt=idx.map(i=>v[i]);
+      let half=null,cum=0;const curve=[];
+      const _den=(runNet>0&&!exact)?runNet:net;
+      const _step=Math.max(1,Math.ceil(srt.length/400));
+      for(let i=0;i<srt.length;i++){
+        cum+=srt[i];
+        if(half===null&&_den>0&&cum>=0.5*_den)half=i+1;
+        if(i%_step===0||i===srt.length-1)curve.push([(i+1)/srt.length,_den>0?(cum/_den):0]);
+      }
       return {n:n,net:net,t1:t1,t5:t5,t10:t10,s1:s1,s5:s5,s10:s10,g5:t5/gross,wo5:wo5,wo10:wo10,st:st,rank:idx,exact:exact,
+              half:half,halfOf:srt.length,curve:curve,
               bound:(!exact&&runNet>0)};   // bound = the shares are a LOWER bound, print them with >=
     };
     const _distViewRail=(key,cur,opts,lbl)=>{
@@ -19094,8 +19108,24 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   CAUTIONS strip (which lists every chip that is not a pass).
       const _cc=concStats(d.win_dist,mlt,d.trade_conc,(d.best_pnl_usd!=null?d.best_pnl_usd:null));
       if(_cc&&_cc.st!=='info'){const _ccc=_cc.st==='bad'?'var(--red)':_cc.st==='warn'?'var(--yellow)':'var(--green)';
-        _chips.unshift({k:'conc',ic:'&#9878;',nm:'CONCENTRATION',q:'do a few trades carry the net?',st:_cc.st,cc:_ccc,chip:(_cc.bound?'\u2265':'')+'top-5 '+Math.round(_cc.s5*100)+'% of net'+(_cc.exact?(' · without them '+fmtUsd(Math.round(_cc.wo5))):' · at least, from the saved trade sample'),
+        _chips.unshift({k:'conc',ic:'&#9878;',nm:'CONCENTRATION',q:'do a few trades carry the net?',st:_cc.st,cc:_ccc,chip:(_cc.half?('half the profit came from '+_cc.half+' of '+_cc.halfOf.toLocaleString()+' trades'):((_cc.bound?'\u2265':'')+'top-5 '+Math.round(_cc.s5*100)+'% of net')),
           html:'<div class="lbl" style="margin:12px 0 2px" title="How much of the net a handful of trades carry. warn = over 50% of net in 5 trades or over 25% in one; bad = the net goes negative without the top 5 (the strategy IS those trades). Open 2B SCATTER to see which trades they are.">&#9878; PROFIT CONCENTRATION - do a few trades carry the net?</div>'
+          +'<div style="font-size:12px;font-weight:700;color:'+_ccc+';margin:2px 0 1px">'
+            +(_cc.half?('Half the profit came from <b>'+_cc.half+'</b> of '+_cc.halfOf.toLocaleString()+' trades'):'Concentration could not be measured on this run')+'</div>'
+          +(function(){
+             // CUMULATIVE SHARE CURVE. Trades best-first along the bottom, share of the net up
+             //   the side, against the diagonal an evenly spread book would draw. It is the one
+             //   picture that survives the case a ratio cannot express: if the remaining trades
+             //   lose money the line rises ABOVE 100% and comes back down, and you see it.
+             const C=_cc.curve||[];if(C.length<4)return '';
+             const W=210,H=54,PD=3;
+             const x=u=>PD+u*(W-2*PD), y=v=>H-PD-Math.max(-0.15,Math.min(1.25,v))/1.25*(H-2*PD);
+             const pts=C.map(p=>x(p[0]).toFixed(1)+','+y(p[1]).toFixed(1)).join(' ');
+             return '<svg width="'+W+'" height="'+H+'" style="display:block;margin:3px 0 2px" aria-label="cumulative share of profit, best trades first">'
+               +'<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2 3"/>'
+               +'<line x1="'+x(0)+'" y1="'+y(1)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--border)" stroke-width="1"/>'
+               +'<polyline points="'+pts+'" fill="none" stroke="'+_ccc+'" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+               +'<div style="font-size:8px;color:var(--text5);margin-bottom:3px">best trades first \u2192 all trades \u00b7 dashed = an evenly spread book \u00b7 a line that tops out early means a few trades carry it</div>';})()
           +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% · top 5 = '+Math.round(_cc.s5*100)+'% · top 10 = '+Math.round(_cc.s10*100)+'% of net · net without top 5 <b>'+fmtUsd(Math.round(_cc.wo5))+'</b> · without top 10 <b>'+fmtUsd(Math.round(_cc.wo10))+'</b>'+(_cc.exact?'':' <span style="color:var(--text5)">(SAMPLE read: '+_cc.n+' trades saved - re-run for the exact number)</span>')+'</div>'});}
       const _ensH=ensembleCardHtml(d.ensemble,mlt);
       if(_ensH&&_ensH.replace(/\s/g,''))_chips.push({k:'ens',ic:'🧩',nm:'ENSEMBLE',q:'blend of top-K vs the single best config',st:(d.ensemble&&d.ensemble.improved)?'ok':'info',cc:(d.ensemble&&d.ensemble.improved)?'var(--green)':'var(--text3)',chip:(d.ensemble&&d.ensemble.improved)?'blend wins':'single best',html:_ensH});
