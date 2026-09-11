@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.742';
+const VERSION='73.743';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -19136,19 +19136,40 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +'<div style="font-size:12px;font-weight:700;color:'+_ccc+';margin:2px 0 1px">'
             +(_cc.half?('Half the profit came from <b>'+_cc.half+'</b> of '+_cc.halfOf.toLocaleString()+' trades'):'Concentration could not be measured on this run')+'</div>'
           +(function(){
-             // CUMULATIVE SHARE CURVE. Trades best-first along the bottom, share of the net up
-             //   the side, against the diagonal an evenly spread book would draw. It is the one
-             //   picture that survives the case a ratio cannot express: if the remaining trades
-             //   lose money the line rises ABOVE 100% and comes back down, and you see it.
+             // CUMULATIVE SHARE CURVE - readable size, labelled axes (owner, 2026-09-11: the
+             //   first version was 210x54 with no scale at all, which made the one picture
+             //   that is supposed to explain concentration something you had to decode).
+             //   Trades best-first along the bottom, share of the profit up the side, against
+             //   the diagonal an evenly spread book would draw. The marker sits where half the
+             //   profit is reached, so the headline sentence and the picture say the same thing
+             //   in two languages. A line that climbs past 100% and falls back is a book whose
+             //   remaining trades lose money - visible here, and impossible to state as a
+             //   percentage.
              const C=_cc.curve||[];if(C.length<4)return '';
-             const W=210,H=54,PD=3;
-             const x=u=>PD+u*(W-2*PD), y=v=>H-PD-Math.max(-0.15,Math.min(1.25,v))/1.25*(H-2*PD);
+             const W=520,H=150,L=34,R=8,T=10,B=20;               // viewBox units; the svg scales
+             const top=1.25;                                     // headroom so an over-100% arc fits
+             const x=u=>L+u*(W-L-R), y=v=>H-B-Math.max(-0.15,Math.min(top,v))/top*(H-T-B);
              const pts=C.map(p=>x(p[0]).toFixed(1)+','+y(p[1]).toFixed(1)).join(' ');
-             return '<svg width="'+W+'" height="'+H+'" style="display:block;margin:3px 0 2px" aria-label="cumulative share of profit, best trades first">'
-               +'<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="2 3"/>'
-               +'<line x1="'+x(0)+'" y1="'+y(1)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--border)" stroke-width="1"/>'
-               +'<polyline points="'+pts+'" fill="none" stroke="'+_ccc+'" stroke-width="1.6" stroke-linejoin="round"/></svg>'
-               +'<div style="font-size:8px;color:var(--text5);margin-bottom:3px">best trades first \u2192 all trades \u00b7 dashed = an evenly spread book \u00b7 a line that tops out early means a few trades carry it</div>';})()
+             const gl=[[0,'0'],[0.5,'50'],[1,'100']].map(g=>
+                 '<line x1="'+x(0)+'" y1="'+y(g[0])+'" x2="'+x(1)+'" y2="'+y(g[0])+'" stroke="var(--border)" stroke-width="'+(g[0]===1?1.2:0.8)+'"'+(g[0]===1?'':' stroke-dasharray="2 4"')+'/>'
+                +'<text x="'+(L-5)+'" y="'+(y(g[0])+3)+'" text-anchor="end" font-size="9" fill="var(--text5)">'+g[1]+'%</text>').join('');
+             const xt=[0,0.25,0.5,0.75,1].map(u=>
+                 '<text x="'+x(u)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="var(--text5)">'+Math.round(u*100)+'%</text>').join('');
+             const hf=(_cc.half&&_cc.halfOf)?(function(){const u=_cc.half/_cc.halfOf;
+                 return '<line x1="'+x(u)+'" y1="'+y(0)+'" x2="'+x(u)+'" y2="'+y(0.5)+'" stroke="'+_ccc+'" stroke-width="1" stroke-dasharray="2 3" opacity=".8"/>'
+                       +'<line x1="'+x(0)+'" y1="'+y(0.5)+'" x2="'+x(u)+'" y2="'+y(0.5)+'" stroke="'+_ccc+'" stroke-width="1" stroke-dasharray="2 3" opacity=".8"/>'
+                       +'<circle cx="'+x(u)+'" cy="'+y(0.5)+'" r="3.2" fill="'+_ccc+'"/>'
+                       +'<text x="'+Math.min(W-R-4,x(u)+6)+'" y="'+(y(0.5)-6)+'" font-size="10" fill="'+_ccc+'">'+_cc.half+' trades \u00b7 '+(u*100<1?'<1':Math.round(u*100))+'% of them</text>';})():'';
+             return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;max-width:'+W+'px;height:auto;margin:6px 0 2px" role="img" aria-label="cumulative share of profit, best trades first">'
+               +gl+xt
+               +'<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(1)+'" y2="'+y(1)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="3 4"/>'
+               +'<text x="'+(x(1)-4)+'" y="'+(y(1)-5)+'" text-anchor="end" font-size="9" fill="var(--text5)">evenly spread</text>'
+               +'<polyline points="'+pts+'" fill="none" stroke="'+_ccc+'" stroke-width="2" stroke-linejoin="round"/>'
+               +hf
+               +'<line x1="'+x(0)+'" y1="'+y(0)+'" x2="'+x(1)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
+               +'<line x1="'+x(0)+'" y1="'+T+'" x2="'+x(0)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
+               +'</svg>'
+               +'<div style="font-size:9px;color:var(--text5);margin-bottom:3px">share of TRADES across \u00b7 share of PROFIT up \u00b7 best trades first \u00b7 the dashed diagonal is a book whose profit is spread evenly</div>';})()
           +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% \u00b7 top 5 = '+Math.round(_cc.s5*100)+'% \u00b7 top 10 = '+Math.round(_cc.s10*100)+'% of net'
             // "net without the top five" is subtracted from the SAMPLE's net when the exact
             //   figure is missing, so it goes negative on runs that are nothing of the kind.
