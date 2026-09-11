@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.733';
+const VERSION='73.734';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -9789,11 +9789,14 @@ function renderApp(){
           //   still reads as one. Running and waiting keep the theme's own colours, so in
           //   monochrome the bar is white and grey with colour only where it means trouble.
           //     running green | pending grey | paused amber | stalled or failed red
+          //   RUNNING uses --attn-ok, not --green: in monochrome --green resolves to white,
+          //   and the owner asked for a live job to read as GREEN on that theme too
+          //   (2026-09-11). --attn-ok is the one green defined identically in every palette.
           const failed=(stt==='error'||stt==='failed'||stt==='cancelled');
           const col=failed?'var(--attn-red)'
                    :(!isRun?'var(--text4)'
                    :(stale?'var(--attn-red)'
-                   :(stt==='paused'?'var(--attn-amber)':'var(--green)')));
+                   :(stt==='paused'?'var(--attn-amber)':'var(--attn-ok)')));
           const nm=String(j.strategy||'job').replace(/\.py$/,'').replace(/^BOOK: /,'');
           const started=_ms(j.startedAt);
           const runMin=started?Math.round((Date.now()-started)/60000):null;
