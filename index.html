@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.745';
+const VERSION='73.746';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -19195,9 +19195,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(_cc){const _ccc=_cc.st==='bad'?'var(--red)':_cc.st==='warn'?'var(--yellow)':'var(--green)';
         _chips.unshift({k:'conc',ic:'&#9878;',nm:'CONCENTRATION',q:'do a few trades carry the net?',st:_cc.st,cc:_ccc,chip:(_cc.half?('half the profit came from '+_cc.half+' of '+_cc.halfOf.toLocaleString()+' trades'):((_cc.bound?'\u2265':'')+'top-5 '+Math.round(_cc.s5*100)+'% of net')),
           html:'<div class="lbl" style="margin:12px 0 2px" title="How much of the net a handful of trades carry. warn = over 50% of net in 5 trades or over 25% in one; bad = the net goes negative without the top 5 (the strategy IS those trades). Open 2B SCATTER to see which trades they are.">&#9878; PROFIT CONCENTRATION - do a few trades carry the net?</div>'
-          +'<div data-conccard="'+String(d.id!=null?d.id:'')+'">'
+          +'<div data-conccard="'+String(d.id!=null?d.id:'')+'" data-concblot="'+String(JSON.stringify({run_id:d.id,instrument:d.instrument||'',timeframe:d.timeframe||'5m',session:d.session||'rth',strategy:d.strategy||'',params:d.best_params||null,cost_pts:(d.cost_pts!=null?d.cost_pts:0),mult:mlt,date_from:d.date_from||null,date_to:d.date_to||null,source:d.data_source||null})).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'">'
             +_concBody(_cc,_ccc)
-            +(_cc.exact?'':'<div style="font-size:9px;color:var(--text5)">measured from the saved '+_cc.n+'-trade sample \u2014 open TRADES on the 1A card once and this card re-reads the real trade list</div>')
+            +(_cc.exact?'':'<div style="font-size:9px;color:var(--text5)" data-concwait="1">measured from the saved '+_cc.n+'-trade sample \u2014 fetching the real trade list\u2026</div>')
           +'</div>'
           +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% \u00b7 top 5 = '+Math.round(_cc.s5*100)+'% \u00b7 top 10 = '+Math.round(_cc.s10*100)+'% of net'
             // "net without the top five" is subtracted from the SAMPLE's net when the exact
@@ -34138,9 +34138,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-conccard]').forEach(box=>{
         const rid=box.getAttribute('data-conccard');
         if(!rid||typeof _blotGet!=='function')return;
-        _blotGet(rid).then(c=>{
+        // AUTOMATIC, not on request (owner, 2026-09-11: "make it so the blotter automatically
+        //   gives that data to the concentration info"). Cached blotter first - that is free
+        //   and instant. Failing that, ask the runner for one exactly as the TRADES button
+        //   does, and cache it under the same key so both features share the one fetch.
+        //   Guarded three ways: only for the card actually on screen, only once per run per
+        //   page (a redraw must not re-ask), and silently abandoned if the runner is not
+        //   there, because a concentration read is not worth an error banner.
+        window._concFetched=window._concFetched||{};
+        const _blotBox=(()=>{try{return JSON.parse(box.getAttribute('data-concblot')||'null');}catch(e){return null;}})();
+        const _fetchIfNeeded=c=>{
+          if(c&&c.rows&&c.rows.length)return Promise.resolve(c);
+          if(!_blotBox||!_blotBox.strategy||window._concFetched[rid])return Promise.resolve(null);
+          window._concFetched[rid]=1;
+          return _runCmd('get_blotter',_blotBox,300000)
+            .then(r=>{if(r&&r.rows&&r.rows.length){_blotPut(rid,{rows:r.rows,capped:r.capped||null,source:r.source||null,master:r.master||null,ts:Date.now()}).catch(()=>{});return r;}return null;})
+            .catch(()=>null);
+        };
+        _blotGet(rid).then(_fetchIfNeeded).then(c=>{
           const rows=(c&&c.rows)||[];
-          if(rows.length<8)return;
+          if(rows.length<8){const w=box.querySelector('[data-concwait]');
+            if(w)w.textContent='measured from the saved trade sample \u2014 the full trade list is not available for this run';
+            return;}
           const usd=rows.map(r=>+r.pnl_usd).filter(v=>isFinite(v));
           if(usd.length<8)return;
           const net=usd.reduce((a,b)=>a+b,0);
