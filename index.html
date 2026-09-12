@@ -268,7 +268,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'JetBra
    the track invisible and the thumb border-toned so it only reads when actually scrolling. */
 #res-detail ::-webkit-scrollbar-track{background:transparent}
 #res-detail ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--border) 80%,transparent);border-radius:2px}
-#res-detail .xscroll{scrollbar-width:auto}
 #res-detail .xscroll::-webkit-scrollbar{height:11px}
 #res-detail .xscroll::-webkit-scrollbar-track{background:color-mix(in srgb,var(--border) 35%,transparent);border-radius:6px}
 #res-detail .xscroll::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--text4) 90%,transparent);border-radius:6px;border:2px solid transparent;background-clip:padding-box}
@@ -715,7 +714,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.752';
+const VERSION='73.753';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -734,6 +733,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[{v:'73.728',date:'2026-09-11',notes:['NOISE ROUND 54 - THE FORWARD-TESTING RANKING (owner: look at the noise configs ran thus and the compare scatter plots, give me a ranking for what you think is most worthy of forward testing). Thirty-five NOISE runs are on the board. Reading the scatter cloud each one searched, rather than the row it reported, changed two answers.','WHAT ONLY THE CLOUD SHOWS. The live crown sits at the 80th percentile of its own 495 configurations - it is not the peak, which is the shape you want because the plateau test picked it rather than the maximum. Every other candidate sits at the 87th to 100th. The 2-minute card has the thinnest cloud measured, only 64 percent of its neighbours making money at all against 100 percent for the 5-minute rows. And the resampling strip says the two compression legs had a drawdown shallower than 94 to 98 percent of their own reshuffled paths, so their headline risk figure is path luck as much as edge.','THE FINDING - THE COMPRESSION TILT BELONGS ON THE RETIRED BASE. The validated tilt, and both deployed paper legs, pin lookback 44 and volatility skip 90 - which is the crown the family retired on 2026-09-05. Re-basing it onto the live crown looked like an obvious fix and the battery says it is the wrong one: identical harness and identical null, the tilt PASSES on the retired base with drawdown growing 6 percent and zero of 2000 shifts matching, and FAILS on the live crown with sealed-year drawdown growing 17.9 percent against a 10 percent tolerance. It is real on both - it beats its own flat-leverage control everywhere - it just costs more risk on the newer base, which loosened the volatility skip and so takes about 400 more trades in noisier conditions. The deployed legs are not stale by mistake; they are on the base where the tilt passes.','THE RANKING. First the live crown raw, still unbeaten across eight swept spaces and the only row off the peak of its own cloud. Second the retired base with the tilt at 1.5x, already forward-testing and the only add-on that clears the whole battery. Third the live crown with the same tilt, the most money and the best risk-adjusted return measured but failing the drawdown clause, now queued for the house verdict with the tilt switched off inside its own admissible set as the parity control. Fourth the 2-minute card at small size for the diversification. Nothing else earns a slot.']},
+{v:'73.753',date:'2026-09-11',notes:['THE CONCENTRATION PILL AND ITS OWN CARD NO LONGER DISAGREE (owner: why does the pill say top 5 is under 10 per cent of net when underneath it says half the profit came from 13 of 4,075 trades - is that not conflicting). It was, and the pill was the wrong one. The pill was worked out once when the page drew, from the 400-trade sample the run saves; the card beneath it is rebuilt from the real trade list the moment that arrives, and nothing ever went back to correct the pill. On this run the sample never even reaches half the run real profit, so the pill gave up on the sentence and fell back to a top-5 percentage - a floor of 10 per cent against a true 24. Both now come from the same numbers.','AND IT WAS GREEN FOR A SECOND REASON. The pill had four states and only three colours - anything that was not bad or warn came out green, including the state that means measured from a sample, nothing alarming in it. That is why it sat there in green with a GREY status dot beside it, the dot having got it right all along. Unmeasured reads are grey now, like the dot.','WHAT THE PILL WILL NOT DO IS GUESS. The trade list it reads is capped at the most recent 6,000 trades, so on a longer run it is real trades but the wrong stretch. In that case the pill keeps the sampled wording, which at least counts the whole run, and the card says the most recent N of M instead of claiming all of them. Where the card declines to answer at all, the pill declines too rather than printing a percentage of nothing.','HOVERING A DOT ON THE 1E SCATTER NOW LIGHTS ITS ROW ON THE OTHER 1E CARD (owner ask). Those dots were the one chart in the family that never carried the shared marker, so there was nothing to match on. Checked in a browser on your own layout - left card on ALL, right card on SCATTER - 51 rows and 52 dots now share it, the extra being the gold crowned ring, which fades with its own dot instead of staying lit. The PARALLEL view joins in as well.','A TILE YOU HAVE DRAGGED SHORTER NO LONGER HIDES THE SCROLLBAR. The bar lives at the bottom of the table box, the box was capped at a fixed height, and the card was locked to whatever height you dragged - so the bar ended up below the fold of its own card with no way to reach it. The cap follows the card now, and it is measured from where the table actually starts rather than assumed, so a wrapped control row or a narrow column cannot push it out of view either.']},
 {v:'73.752',date:'2026-09-11',notes:['THE CONCENTRATION CURVE HAS AN AXIS SWITCH NOW (owner: why is the evenly spread line so compressed, is there a way to show it at 45 degrees). A diagonal only reads at 45 degrees when both axes cover the same range and the plot is square. This curve climbs to 437 per cent of net, so an axis that fits the curve cannot also put the reference line at 45 - the two asks are in direct conflict and no single frame satisfies both. So it is a choice, on the AXIS control beside the panel title.','FIT CURVE is what you have been looking at: the axis follows the curve, you see how far the winners get and how much the losers hand back, and the evenly spread line lies almost flat - measured at 4 degrees, which is what you were reacting to.','45 REFERENCE draws a square plot that stops at 100 per cent, so the evenly spread book is a true 45 degree line - measured at exactly 45 - and the panel reads as the classic inequality curve. The curve leaves through the top of that frame, and where it does the chart marks the spot and says how high it got, so nothing is quietly cropped.']},
 {v:'73.751',date:'2026-09-11',notes:['THE COLUMN HEADERS ON THE 1E ALL TABLE STAY PUT NOW (owner ask). They were never pinned - not a pin that failed, there was simply no pinning on that row. And a pin alone would have done nothing: the box the table sits in scrolls sideways, so it is the box a pinned header would anchor to, but it had no height of its own and so never scrolled up and down - the header would have drifted away with the page regardless. The box is capped in height now, which makes it the thing that scrolls vertically, and the header row is pinned to it with a solid background so the gold crowned row cannot show through, and its own separator line because the old one belonged to the first row and left with it.','YOU COULD ALWAYS SCROLL THAT TABLE SIDEWAYS - YOU JUST COULD NOT SEE HOW (owner, twice: cant scroll over horizontally). 887 pixels of columns in a 349 pixel window, and the bar to drag was three pixels tall on a transparent track, under a fifty-row table. It is eleven pixels now with a visible track, on that table only. Shift and the wheel has always worked too, and the panel says so now.','THE ALL TAB GETS A WIDER COLUMN. It holds sixteen columns in the narrower of section one three columns, so the card itself was 373 pixels and the table was already using every pixel of it - there was nothing to reclaim inside the card. The column is wider while that tab is open and goes back when you leave it, so the other tabs and the comparison card are unchanged. Measured 349 to 472 pixels. If you have dragged the section-one splitters yourself your sizes still win; double-click a splitter to clear them.','THE HOVER HIGHLIGHT WAS NEVER BROKEN - IT WAS ON A TAB YOU DID NOT HAVE OPEN. The dots it pairs with live on the 1A card RISK MAP tab, not on the trade scatter in section 2. With 1A on RISK MAP and 1E on ALL, all 51 dots and all 51 rows carry the same key and hovering either lights the other - checked in a browser, 51 of 51 matched. The panel now says so on its own header rather than leaving you to find it.']},
 {v:'73.750',date:'2026-09-11',notes:['THE CONCENTRATION CURVE WAS RUNNING INTO ITS OWN CEILING (owner: is this still an accurate representation). The numbers under it were right - half the profit from 13 of 4,075 trades, top 10 equals 42 per cent, 451,840 dollars without the top 5 - but the picture was not. The curve walks the trades best first, so it climbs to everything the winners banked and then gives back down to what you actually kept. On run 384 the winners banked 2.6 million against a 596 thousand net, so the curve peaks at 437 per cent - and the chart stopped at 125. Everything past about one per cent of the trades was pinned flat against the top edge, which read as a gentle plateau just above 100 when the real shape is a climb to more than four times the net followed by handing three quarters of it back.','The axis now follows the curve, and the high point gets its own labelled line marked every winner banked. That height is the finding, not decoration: the gap between it and the 100 per cent line is the losing side of the book, drawn to scale for the first time.']},
@@ -15936,7 +15936,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   min-width:100% so it still fills the card when there is room to spare. Cells stop
         //   wrapping for the same reason: a wrapped heading hides the overflow rather than
         //   showing it.
-        +'<div class="xscroll" style="overflow-x:auto;max-height:min(60vh,560px);-webkit-overflow-scrolling:touch"><table class="table" style="width:max-content;min-width:100%;font-size:var(--fsxs);border-collapse:collapse;white-space:nowrap"><thead><tr style="color:var(--text5);position:sticky;top:0;z-index:2;background:var(--bg2);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--border) 55%,transparent)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
+        +'<div class="xscroll" style="overflow-x:auto;max-height:min(60vh,560px,var(--tilefit,560px));-webkit-overflow-scrolling:touch"><table class="table" style="width:max-content;min-width:100%;font-size:var(--fsxs);border-collapse:collapse;white-space:nowrap"><thead><tr style="color:var(--text5);position:sticky;top:0;z-index:2;background:var(--bg2);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--border) 55%,transparent)"><th style="text-align:left;padding:4px 6px">FAMILY</th><th style="text-align:left;padding:4px 6px">CONFIG</th>'+th+'</tr></thead><tbody>'+trs+'</tbody></table></div>';};
     const poolParallelHtml=(allPts,pboV,dropN)=>{
       const P=_mtxVisible(allPts||[]).filter(x=>x&&isFinite(+x.pnl)&&isFinite(+x.dd));
       if(P.length<2)return '';
@@ -15986,7 +15986,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+12)+'" text-anchor="'+anch+'" font-size="9" fill="var(--text5)">'+(a.flat?'':a.fmt(a.inv?a.hi:a.lo))+'</text>'
           +'<text x="'+x.toFixed(1)+'" y="'+(plotB+26)+'" text-anchor="'+anch+'" font-size="'+(A.length>6?9:10)+'" font-weight="700" fill="'+(a.part?'var(--text4)':(a.run?'var(--purple)':'var(--text2)'))+'">'+(a.tip?('<title>'+String(a.tip).replace(/</g,'&lt;')+'</title>'):'')+a.nm+(a.inv?' &#8595;':'')+(a.part?' &#176;':'')+'</text>';});
       if(_mtxViewOf(_MTXK.view)==='scatter'){
-        const rows=P.map(x=>({get:a=>a.get(x),pool:String(x.pool||''),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,
+        const rows=P.map(x=>({get:a=>a.get(x),pool:String(x.pool||''),col:_mtxPoolCol[String(x.pool||'')]||'var(--text3)',crowned:!!x.crowned,key:x.key,
           tip:'<b>'+String(x.pool||'')+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+(x.crowned?' &#128081;':'')}));
         return _mtxScatFromAxes(A,rows,'<span style="font-weight:700;color:var(--text2)">ALL CONFIGS &middot; '+P.length+'</span><span>'+_mtxLegend(allPts)+'</span><span style="color:#f5c542">gold ring = crowned</span>');}
       // best NET $ per pool draws on top of its family, so each pool best line stays findable in the bundle
@@ -16003,7 +16003,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const pts2=segs[0];
         const isC=!!x.crowned,pool=String(x.pool||''),col=_mtxPoolCol[pool]||'var(--text3)';
         const tip='<b>'+pool+'</b> &middot; '+String(x.label||'').replace(/"/g,'')+'<br><b>'+_kfmt(+x.pnl)+'</b> &middot; DD -'+_kfmt(Math.abs(+x.dd))+(_num(x.pf)!=null?' &middot; PF '+(+x.pf).toFixed(2):'')+(_num(x.wr)!=null?' &middot; '+Math.round(+x.wr)+'% win':'')+(_num(x.tr)!=null?' &middot; '+Math.round(+x.tr)+'T':'')+(isC?'<br>&#128081; crowned':'');
-        const _pl=(sg,st,w,op)=>'<polyline points="'+sg.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')+'" fill="none" stroke="'+st+'" stroke-width="'+w+'" opacity="'+op+'"'+(st==='#f5c542'?'':' style="cursor:pointer" data-tip="'+tip+'"')+'/>';
+        // the PARALLEL view is the same builder's other branch - a cord per config. One
+        //   config emits several segments plus a halo; all carry the same key, which is right,
+        //   because the highlighter is an attribute selector and lights every match.
+        const _hkP=String(x.key||'').replace(/"/g,'');
+        const _pl=(sg,st,w,op)=>'<polyline'+(_hkP?(' data-hlkey="'+_hkP+'"'):'')+' points="'+sg.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ')+'" fill="none" stroke="'+st+'" stroke-width="'+w+'" opacity="'+op+'"'+(st==='#f5c542'?'':' style="cursor:pointer" data-tip="'+tip+'"')+'/>';
         const op=isC?0.98:(topIdx[i]?0.9:0.32);
         segs.forEach(function(sg){
           if(isC){crown+=_pl(sg,'#f5c542',5,0.55)+_pl(sg,col,2.4,op);}
@@ -16196,8 +16200,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _seenAt={};let _stacked=0;
       pts.forEach(p=>{const col=p.r.col||'var(--text3)',cx=X(p.x).toFixed(1),cy=Y(p.y).toFixed(1),rad=p.r.crowned?3.6:2.4;
         const _k=cx+','+cy,_dup=(_seenAt[_k]=(_seenAt[_k]||0)+1)-1;if(_dup)_stacked++;
-        dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+(_dup?(1.7*_dup):0))+'" fill="'+(_dup?'none':col)+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="'+(_dup?1.3:1)+'" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
-        if(p.r.crowned)rings+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
+        // CROSS-PANEL KEY (owner: hovering a dot on the second 1E card lit nothing). These are
+        //   the same point objects the 1A RISK MAP plots, so the same key already reaches the
+        //   ALL table rows - no further wiring. Points that land on the same pixel each keep
+        //   their own circle, so one key per circle stays honest. Conditional because the
+        //   phase chart calls this builder with rows that have no key, and an empty key would
+        //   make all of those fade as one group.
+        const _hk=String(p.r.key||'').replace(/"/g,'');
+        dots+='<circle'+(_hk?(' data-hlkey="'+_hk+'"'):'')+' cx="'+cx+'" cy="'+cy+'" r="'+(rad+(_dup?(1.7*_dup):0))+'" fill="'+(_dup?'none':col)+'" fill-opacity="'+(p.r.crowned?0.95:0.6)+'" stroke="'+col+'" stroke-width="'+(_dup?1.3:1)+'" style="cursor:pointer" data-tip="'+String(p.r.tip||'').replace(/"/g,'')+'<br>'+ax.nm.replace(' &#8595;','')+' <b>'+ax.fmt(p.x)+'</b><br>'+ay.nm.replace(' &#8595;','')+' <b>'+ay.fmt(p.y)+'</b>"/>';
+        // the crowned gold ring fades with its own dot, or a crowned config reads as
+        //   permanently highlighted while everything around it dims.
+        if(p.r.crowned)rings+='<circle'+(_hk?(' data-hlkey="'+_hk+'"'):'')+' cx="'+cx+'" cy="'+cy+'" r="'+(rad+3)+'" fill="none" stroke="#f5c542" stroke-width="1.4"/>';
         if(p.r.big)rings+='<text x="'+cx+'" y="'+(+cy-rad-4).toFixed(1)+'" text-anchor="middle" font-size="8" font-weight="800" fill="'+col+'">'+p.r.big+'</text>';});
       const _good=a=>a.inv?'lower is better':'higher is better';
       const svg='<svg data-keepaspect data-katag="1e" viewBox="0 0 '+W+' '+H+'" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;height:auto">'+g+zx+zy+dots+rings
@@ -19252,14 +19265,19 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   champion across the WHOLE window), not best_pnl_usd (the selection stretch).
       const _ccEqF=(d.equity&&!Array.isArray(d.equity)&&d.equity.final!=null)?+d.equity.final:null;
       const _ccNet=(_ccEqF!=null&&isFinite(_ccEqF))?_ccEqF*mlt:(d.best_pnl_usd!=null?d.best_pnl_usd:null);
-      const _cc=concStats(d.win_dist,mlt,d.trade_conc,_ccNet,_ccN);
+      // Once the real trade list has been read for this run (see "CONCENTRATION FROM THE
+      //   REAL TRADE LIST" in the post-render pass) the measured stats are kept per run id and
+      //   preferred here, so the chip, the CAUTIONS strip and the section-3 pass/warn/flag
+      //   counts are all built from measured figures on the FIRST paint of every later render
+      //   instead of flashing the sampled wording and being corrected a moment later.
+      const _cc=((window._concExact||{})[String(d.id!=null?d.id:'')])||concStats(d.win_dist,mlt,d.trade_conc,_ccNet,_ccN);
       // THE CHIP SHOWS WHENEVER THERE IS A READ AT ALL. It used to be suppressed on the
       //   'info' state, which was fine when info meant 'net is not positive' - and wrong
       //   the moment info also meant 'measured from a sample, nothing alarming in it'.
       //   The owner's run vanished from the report that way: 21 of 400 trades made half
       //   the profit, which is worth seeing whatever colour it earns. Concentration is
       //   not a pass/fail gate, it is a standing fact about the strategy.
-      if(_cc){const _ccc=_cc.st==='bad'?'var(--red)':_cc.st==='warn'?'var(--yellow)':'var(--green)';
+      if(_cc){const _ccc=_cc.st==='bad'?'var(--red)':_cc.st==='warn'?'var(--yellow)':_cc.st==='ok'?'var(--green)':'var(--text4)';
         _chips.unshift({k:'conc',ic:'&#9878;',nm:'CONCENTRATION',q:'do a few trades carry the net?',st:_cc.st,cc:_ccc,chip:(_cc.half?('half the profit came from '+_cc.half+' of '+_cc.halfOf.toLocaleString()+' trades'):((_cc.bound?'\u2265':'')+'top-5 '+Math.round(_cc.s5*100)+'% of net')),
           html:'<div class="lbl" style="margin:12px 0 2px" title="How much of the net a handful of trades carry. warn = over 50% of net in 5 trades or over 25% in one; bad = the net goes negative without the top 5 (the strategy IS those trades). Open 2B SCATTER to see which trades they are.">&#9878; PROFIT CONCENTRATION - do a few trades carry the net?'
           +_distViewRail('concAx',(String(APREF.concAx||'')==='even'?'even':'full'),
@@ -32617,13 +32635,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   height (the job the old corner grabber did). Per-tile height persists in APREF.s1th;
       //   double-click = back to automatic (content-driven) height.
       const _s1th=(APREF.s1th&&typeof APREF.s1th==='object')?APREF.s1th:{};
+      // A TILE DRAGGED SHORT USED TO CUT THE HORIZONTAL SCROLLBAR OFF THE BOTTOM of the card:
+      //   the table's own box was capped at 60vh, the card was locked to whatever height was
+      //   dragged, and the bar - which lives at the bottom of the box - ended up below the
+      //   card's fold with no way to reach it. The cap now follows the card, measured rather
+      //   than guessed: the real distance from the card's top to the box's top, so a wrapped
+      //   control rail or a narrow column cannot re-clip it. Every card in the row is swept
+      //   because the drag handle grabs a sibling, and cards without such a box return early.
+      const _fitTile=c=>{const b=c&&c.querySelector&&c.querySelector('.xscroll');if(!b)return;
+        const t=b.getBoundingClientRect().top-c.getBoundingClientRect().top;
+        c.style.setProperty('--tilefit',Math.max(60,c.clientHeight-t-16)+'px');};
       root.querySelectorAll('[data-tilerow]').forEach(g=>{if(g.dataset.gw)return;g.dataset.gw='1';
         const card=g.previousElementSibling;if(!card)return;
         const k='t'+g.dataset.tilerow;
-        if(_s1th[k]>200)card.style.height=_s1th[k]+'px';
+        if(_s1th[k]>200){card.style.height=_s1th[k]+'px';
+          _fitTile(card);if(card.parentElement)Array.prototype.forEach.call(card.parentElement.children,_fitTile);}
         g.addEventListener('pointerdown',e=>{e.preventDefault();
           const y0=e.clientY,h0=card.offsetHeight;
-          const mv=ev=>{card.style.height=Math.max(220,Math.min(2200,h0+(ev.clientY-y0)))+'px';};
+          const mv=ev=>{card.style.height=Math.max(220,Math.min(2200,h0+(ev.clientY-y0)))+'px';_fitTile(card);};
           const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
             const m=Object.assign({},APREF.s1th||{});m[k]=Math.round(card.offsetHeight);savePref('s1th',m);};
           window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
@@ -34235,8 +34264,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const cc=concStats(usd,1,{n:usd.length,net:net,top:top},net,usd.length);
           if(!cc)return;
           const col=cc.st==='bad'?'var(--attn-red)':cc.st==='warn'?'var(--attn-amber)':'var(--attn-ok)';
+          // the blotter is capped at the most recent 6,000 rows, so "all" is a claim that
+          //   has to be checked rather than assumed.
+          const _capped=+((c&&c.capped)||0);
           box.innerHTML=_concBody(cc,col)
-            +'<div style="font-size:9px;color:var(--text5)">measured from all '+usd.length.toLocaleString()+' trades in this run\'s blotter</div>';
+            +'<div style="font-size:9px;color:var(--text5)">measured from '
+              +(_capped?('the most recent '+usd.length.toLocaleString()+' of '+(usd.length+_capped).toLocaleString())
+                       :('all '+usd.length.toLocaleString()))
+              +' trades in this run\'s blotter</div>';
+          // ── AND THE CHIP ABOVE IT, FROM THE SAME NUMBERS ─────────────────────────────
+          //   The chip's text and colour were computed once at render from the 400-trade
+          //   sample. On run #384 that sample never reaches half the run's real net, so the
+          //   chip fell back to ">=top-5 10% of net" in GREEN while the card directly under it
+          //   - rebuilt from all 4,075 trades - said "half the profit came from 13 of 4,075"
+          //   and "top 5 = 24%". One statistic, two answers, and the owner called it out.
+          //   THE GUARD MATTERS AS MUCH AS THE UPDATE. A capped blotter is the most recent
+          //   6,000 trades of a longer run: real trades, wrong population. The card has room
+          //   to say so; a chip does not, and the sampled wording it would replace at least
+          //   counts the whole run. Where the card declines to answer (net <= 0 makes every
+          //   share NaN) the chip must decline too, rather than printing NaN%.
+          //   Only the chip's text and three colours are touched - never the element - so the
+          //   click-to-expand handler bound on it during the render pass survives.
+          if(_capped||cc.half==null||!isFinite(cc.s5))return;
+          if(rid)(window._concExact=window._concExact||{})[rid]=cc;
+          const _cTxt='half the profit came from '+cc.half.toLocaleString()+' of '+cc.halfOf.toLocaleString()+' trades';
+          const _cCol=cc.st==='bad'?'var(--red)':cc.st==='warn'?'var(--yellow)':cc.st==='ok'?'var(--green)':'var(--text4)';
+          content.querySelectorAll('[data-diagchip="conc"]').forEach(ch=>{
+            const hd=ch.firstElementChild,lab=ch.lastElementChild;
+            if(lab&&lab!==hd){lab.textContent=_cTxt;lab.style.color=_cCol;}
+            if(hd&&hd.lastElementChild)hd.lastElementChild.style.background=_cCol;
+            if(window._diagOpenKey==='conc')ch.style.borderColor=_cCol;
+            ch.style.borderLeftColor=_cCol;
+          });
         }).catch(()=>{});
       });
       // ── CROSS-PANEL HIGHLIGHT ──────────────────────────────────────────────────────
