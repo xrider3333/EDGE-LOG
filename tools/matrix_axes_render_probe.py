@@ -81,6 +81,8 @@ def _cum(diffs):
 SMOOTH = _cum(([12.0] * 9 + [-3.0]) * 6)        # mean 10.5/period, tiny downside
 CHOPPY = _cum(([40.0] * 5 + [-19.5] * 5) * 6)   # mean 10.25/period, deep downside
 SHORT = [0.0, 500.0]                            # 2 points: a drawdown, but no Sortino
+LB_CUM = _cum([30.0] * 9 + [-10.0])            # a lockbox tail, starting on its base
+LB_GAP, LB_TAIL = 50.0, 40.0                    # what each saved curve leaves off its end
 
 
 def cfg(name, is_pnl, wf_pnl, cum, wr, pf, ntr, crowned=False, metrics=True, rng=False):
@@ -295,8 +297,33 @@ def build_runs():
     r907['gate_validate'] = gate_validate(tall_gate=False, hyb_recycle_tall=True)
     r907['equity_top'] = [{'cum': SMOOTH}, {'cum': CHOPPY}]
     r907['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
+    # 908: 906's pool WITH lockbox tails on the raw configs, so the funnel has all three panels
+    #   (906 / 907 have none, so DOORS draws two). Every saved curve stops short of its true
+    #   total, as the engine's sampled curves do: the raw curve by LB_GAP, the lockbox tail by
+    #   LB_TAIL. The tilt / hybrid blocks carry the trade counts that place their lockbox door.
+    ml3 = [cfg(n, i, w, cu, wr, pf, ntr, crowned=(n == 'A'), rng=True)
+           for (n, wr, pf), (i, w, cu, ntr) in zip(
+               MAIN_WR_PF,
+               [(4000, 3000, SMOOTH, 500), (3500, 2600, CHOPPY, 400),
+                (3000, 2200, SMOOTH, 620), (2500, 1800, SMOOTH, 90),
+                (2000, 1400, CHOPPY, 300)])]
+    for c in ml3:
+        base = c['equity']['cum'][-1] + LB_GAP
+        c['equity']['final'] = base
+        c['lb_equity'] = {'cum': [base + v for v in LB_CUM], 'base': base,
+                          'final': base + LB_CUM[-1] + LB_TAIL}
+    r908 = run_doc(908, ml3)
+    g908 = gate_validate(tall_gate=False, hyb_recycle_tall=False)
+    for blk_ in g908['tilts']:
+        blk_['kept_pre'] = 1300
+        blk_['equity']['n'] = 1400
+    for blk_ in g908['hybrids']:
+        blk_['equity']['n'] = 1400
+    r908['gate_validate'] = g908
+    r908['equity_top'] = [{'cum': SMOOTH}, {'cum': CHOPPY}]
+    r908['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
     return [run_doc(901, main), run_doc(902, partial), run_doc(903, bare),
-            run_doc(904, modern), kpi, r906, r907]
+            run_doc(904, modern), kpi, r906, r907, r908]
 
 
 CASES = [
@@ -341,6 +368,12 @@ CASES = [
     # -- the 1A CONFIG FUNNEL, ALL CONFIGS on.
     ('funnel-gatecand', 906, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
     ('funnel-hybrcy', 907, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
+    # the same two funnels in DOORS: each stretch its own panel, every line restarting at $0
+    ('funnel-doors-gatecand', 906, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2doors': 1}),
+    ('funnel-doors-hybrcy', 907, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2doors': 1}),
+    # and a run WITH a lockbox panel, drawn both ways so DOORS can be checked against ONE CURVE
+    ('funnel-3p', 908, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-doors-3p', 908, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1, 'a2doors': 1}),
 ]
 
 PROBE_HTML = r"""<!DOCTYPE html>
@@ -451,7 +484,8 @@ var CASES = __CASES__;
           var xh=null;
           try{var a2=sv.getAttribute('data-xh'); if(a2)xh=JSON.parse(decodeURIComponent(a2));}catch(e){}
           var pt=(xh&&xh.py!=null)?+xh.py:6;
-          var f={pt:pt,axisMax:(xh&&xh.y1!=null)?+xh.y1:null,groups:{}};
+          var f={pt:pt,axisMax:(xh&&xh.y1!=null)?+xh.y1:null,axisMin:(xh&&xh.y0!=null)?+xh.y0:null,groups:{},lines:[]};
+          f.H=+((sv.getAttribute('viewBox')||'').split(/[\s,]+/)[3])||140;
           var els=sv.querySelectorAll('polyline,path');
           for(var i2=0;i2<els.length;i2++){
             var el=els[i2],kg=null,p=el,hidden=false;
@@ -466,6 +500,9 @@ var CASES = __CASES__;
               if(!isFinite(yv))continue;
               g.n++; if(g.minY===null||yv<g.minY)g.minY=yv;
               if(yv<pt-0.05)g.over++;}
+            if(kg&&el.tagName.toLowerCase()==='polyline'&&!/dd$/.test(kg)){
+              var mk=/dzc[^)]*?(\d)\)$/.exec(el.getAttribute('clip-path')||''),se=el.closest?el.closest('[data-selidx]'):null;
+              f.lines.push({kg:kg,k:mk?+mk[1]:null,sel:se?se.getAttribute('data-selidx'):null,pts:nums});}
             var ds=el.getAttribute('stroke-dasharray')||'(solid)';
             g.dash=g.dash?(g.dash.indexOf(ds)>=0?g.dash:(g.dash+' | '+ds)):ds;}
           // what the fullscreen explorer payload says each ALL CONFIGS line ends at -
@@ -479,6 +516,19 @@ var CASES = __CASES__;
               if(lim!=null&&e>lim+0.5)over.push({id:s.id,peak:Math.round(e)});});
             f.drawnMax=(peak>-1e17)?peak:null; f.drawnMaxId=peakId; f.overSeries=over;
           }catch(e){f.serErr=String(e);}
+          // DOORS: the panel scales ride the crosshair payload; every walk-forward / lockbox piece
+          //   must begin on its own panel's $0 line
+          try{var wrp=sv.parentElement,a3=wrp&&wrp.getAttribute('data-a2dz'),x3=a3?JSON.parse(decodeURIComponent(a3)):null;
+            var vb3=(sv.getAttribute('viewBox')||'').split(/[\s,]+/).map(Number),VH3=vb3[3]||140;
+            f.dz=(x3&&x3.s)||null;f.dzEbF=(x3&&x3.ebF!=null)?+x3.ebF:null;f.dzClips=sv.querySelectorAll('clipPath[id^="dzc"]').length;f.dzStartBad=[];f.dzPieces=0;
+            if(f.dz){var pT3=x3.ptF*VH3,pB3=x3.ebF*VH3;
+              sv.querySelectorAll('polyline[clip-path]').forEach(function(el){
+                var m3=/dzc[^)]*?(\d)\)$/.exec(el.getAttribute('clip-path')||'');if(!m3)return;
+                var k3=+m3[1],z3=f.dz[k3];if(k3<1||!z3)return;f.dzPieces++;
+                var y03=pB3-(pB3-pT3)*(0-z3[2])/(z3[3]-z3[2]);
+                var nn3=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
+                if(nn3.length>=2&&Math.abs(nn3[1]-y03)>0.35&&f.dzStartBad.length<6)f.dzStartBad.push({panel:k3,y:nn3[1],zero:+y03.toFixed(2)});});}
+          }catch(e){f.dzErr=String(e);}
           r.funnel=f;
         })();
         var ap=d.getElementById('app'); r.appLen=ap?ap.innerHTML.length:-1;
@@ -990,7 +1040,9 @@ def main():
 
     # -- 10. THE 1A CONFIG FUNNEL: no candidate line drawn above the plot top -----
     for fnm, what in (('funnel-gatecand', 'a gate candidate curve'),
-                      ('funnel-hybrcy', 'the recycle line of the hybrid that was NOT picked')):
+                      ('funnel-hybrcy', 'the recycle line of the hybrid that was NOT picked'),
+                      ('funnel-doors-gatecand', 'a gate candidate curve in DOORS'),
+                      ('funnel-doors-hybrcy', 'the recycle line of the unpicked hybrid in DOORS')):
         fr = (cs.get(fnm) or {}).get('funnel')
         if not fr:
             bad.append('%s: the 1A funnel did not render (no [data-a2eqx] chart)' % fnm)
@@ -1023,9 +1075,127 @@ def main():
             if g and want not in (g.get('dash') or ''):
                 bad.append('%s: the %r line lost its %s dash - that one carries meaning '
                            '(walk-forward / lockbox) and must stay' % (fnm, kg, want))
+        if 'doors' in fnm:
+            # -- 10c. DOORS really drew panels (it falls back to ONE CURVE on any error)
+            if not fr.get('dz') or (fr.get('dzClips') or 0) < 2:
+                bad.append('%s: DOORS drew no panels (%s clip regions, scales %s%s) - it fell back '
+                           'to ONE CURVE' % (fnm, fr.get('dzClips'), fr.get('dz'),
+                                             (', ' + fr['dzErr']) if fr.get('dzErr') else ''))
+            elif not fr.get('dzPieces'):
+                bad.append('%s: DOORS drew panels but no line after a door' % fnm)
+            elif fr.get('dzStartBad'):
+                bad.append('%s: %d line pieces after a door do not start on that panel\'s $0: %s'
+                           % (fnm, len(fr['dzStartBad']), fr['dzStartBad'][:3]))
+            else:
+                print('  %-16s %d panels, %d pieces after a door, all start at $0'
+                      % (fnm, len(fr['dz']), fr['dzPieces']))
         print('  %-16s dashes: %s' % (fnm, {k: v.get('dash') for k, v in
                                             (fr.get('groups') or {}).items()
                                             if k in ('crown', 'lb', 'gate', 'tilt', 'hyb', 'hyb2', 'allcfg')}))
+
+    # -- 10d. DOORS against ONE CURVE on the three-panel run. Every DOORS piece must be its ONE
+    #         CURVE line less ONE constant (none in-sample), that constant must be the line's value
+    #         AT the door, and the raw walk-forward pieces and lockbox tails must end on their TRUE
+    #         totals, not on the last point of the sampled curve.
+    def _xy(flat):
+        return [(flat[i], flat[i + 1]) for i in range(0, len(flat) - 1, 2)]
+
+    def _at(pts, x):
+        for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
+            if xa - 1e-6 <= x <= xb + 1e-6:
+                if xb - xa < 1e-6:
+                    return ya, abs(yb - ya)
+                return ya + (yb - ya) * (x - xa) / (xb - xa), abs(yb - ya)
+        return None, None
+
+    fo = (cs.get('funnel-3p') or {}).get('funnel') or {}
+    fd = (cs.get('funnel-doors-3p') or {}).get('funnel') or {}
+    if not fo.get('lines') or not fd.get('lines') or not fd.get('dz') or fd.get('dzEbF') is None:
+        bad.append('funnel-3p / funnel-doors-3p: no funnel lines or no DOORS panel scales to compare')
+    elif len(fd['dz']) != 3:
+        bad.append('funnel-doors-3p: %d panels on a run with a lockbox - expected 3' % len(fd['dz']))
+    else:
+        ptv, eqB = fo['pt'], fd['dzEbF'] * fd['H']
+        y0, y1 = fo['axisMin'], fo['axisMax']
+        u1 = (y1 - y0) / (eqB - ptv)
+
+        def v1(y):
+            return y1 - (y - ptv) * u1
+
+        def vk(y, k):
+            lo, hi = fd['dz'][k][2], fd['dz'][k][3]
+            return hi - (y - ptv) * (hi - lo) / (eqB - ptv)
+
+        ones = [dict(o, xy=_xy(o['pts'])) for o in fo['lines'] if o.get('k') is None]
+        n_ok, fails = 0, []
+        for L in fd['lines']:
+            k = L.get('k')
+            if k is None:
+                continue
+            xy = _xy(L['pts'])
+            inner = xy[1:-1]
+            if len(xy) < 3 or not inner:
+                continue
+            uk = (fd['dz'][k][3] - fd['dz'][k][2]) / (eqB - ptv)
+            tol = 0.06 * (u1 + uk) + 2.0
+            best = None
+            for O in ones:
+                if O['kg'] != L['kg'] or (L.get('sel') is not None and O.get('sel') != L.get('sel')):
+                    continue
+                offs = []
+                for (x, y) in inner:
+                    yo, _s = _at(O['xy'], x)
+                    if yo is None:
+                        break
+                    offs.append(v1(yo) - vk(y, k))
+                if len(offs) != len(inner):
+                    continue
+                spread = max(offs) - min(offs)
+                if best is None or spread < best[0]:
+                    best = (spread, sorted(offs)[len(offs) // 2], O)
+            if best is None:
+                fails.append('%s panel %d: no ONE CURVE line lies under it' % (L['kg'], k))
+                continue
+            spread, off, O = best
+            if spread > 2 * tol:
+                fails.append('%s panel %d: not its ONE CURVE line less a constant (spread $%.0f, allowed $%.0f)'
+                             % (L['kg'], k, spread, 2 * tol))
+                continue
+            xd, yd = xy[0]
+            if k == 0:
+                if abs(off) > tol:
+                    fails.append('%s in-sample: moved by $%.0f - the in-sample panel is never rebased' % (L['kg'], off))
+                    continue
+            else:
+                yo, step = _at(O['xy'], xd)
+                want = v1(yo) if yo is not None else None
+                got = vk(yd, k) + off
+                if want is None or abs(got - want) > tol + (step or 0) * u1:
+                    fails.append('%s panel %d: restarts from $%s where ONE CURVE is at $%s on the door'
+                                 % (L['kg'], k, round(got), None if want is None else round(want)))
+                    continue
+            # the true totals: every seeded raw curve stops LB_GAP short of its total, and every
+            #   lockbox tail LB_TAIL short of its own
+            if k == 1 and L['kg'] in ('crown', 'ismax', 'wf'):
+                end, want = vk(xy[-1][1], 1) + off, v1(O['xy'][-1][1]) + LB_GAP
+                if abs(end - want) > tol:
+                    fails.append('%s walk-forward ends at $%.0f, not on the config total $%.0f - the '
+                                 'trades the saved curve leaves off its end are missing' % (L['kg'], end, want))
+                    continue
+            if k == 2 and L['kg'] == 'lb':
+                want = LB_CUM[-1] + LB_TAIL
+                if abs(vk(xy[-1][1], 2) - want) > tol:
+                    fails.append('lockbox tail ends at $%.0f, not its true total $%.0f'
+                                 % (vk(xy[-1][1], 2), want))
+                    continue
+            n_ok += 1
+        for fl in fails[:8]:
+            bad.append('funnel-doors-3p: ' + fl)
+        if not fails and n_ok < 20:
+            bad.append('funnel-doors-3p: only %d DOORS pieces could be checked against ONE CURVE' % n_ok)
+        elif not fails:
+            print('  %-16s %d DOORS pieces = ONE CURVE less the value at their door; totals kept'
+                  % ('funnel-doors-3p', n_ok))
 
     if bad:
         print('1E AXES PROBE: FAIL')
