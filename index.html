@@ -714,7 +714,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.755';
+const VERSION='73.756';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -733,6 +733,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[{v:'73.728',date:'2026-09-11',notes:['NOISE ROUND 54 - THE FORWARD-TESTING RANKING (owner: look at the noise configs ran thus and the compare scatter plots, give me a ranking for what you think is most worthy of forward testing). Thirty-five NOISE runs are on the board. Reading the scatter cloud each one searched, rather than the row it reported, changed two answers.','WHAT ONLY THE CLOUD SHOWS. The live crown sits at the 80th percentile of its own 495 configurations - it is not the peak, which is the shape you want because the plateau test picked it rather than the maximum. Every other candidate sits at the 87th to 100th. The 2-minute card has the thinnest cloud measured, only 64 percent of its neighbours making money at all against 100 percent for the 5-minute rows. And the resampling strip says the two compression legs had a drawdown shallower than 94 to 98 percent of their own reshuffled paths, so their headline risk figure is path luck as much as edge.','THE FINDING - THE COMPRESSION TILT BELONGS ON THE RETIRED BASE. The validated tilt, and both deployed paper legs, pin lookback 44 and volatility skip 90 - which is the crown the family retired on 2026-09-05. Re-basing it onto the live crown looked like an obvious fix and the battery says it is the wrong one: identical harness and identical null, the tilt PASSES on the retired base with drawdown growing 6 percent and zero of 2000 shifts matching, and FAILS on the live crown with sealed-year drawdown growing 17.9 percent against a 10 percent tolerance. It is real on both - it beats its own flat-leverage control everywhere - it just costs more risk on the newer base, which loosened the volatility skip and so takes about 400 more trades in noisier conditions. The deployed legs are not stale by mistake; they are on the base where the tilt passes.','THE RANKING. First the live crown raw, still unbeaten across eight swept spaces and the only row off the peak of its own cloud. Second the retired base with the tilt at 1.5x, already forward-testing and the only add-on that clears the whole battery. Third the live crown with the same tilt, the most money and the best risk-adjusted return measured but failing the drawdown clause, now queued for the house verdict with the tilt switched off inside its own admissible set as the parity control. Fourth the 2-minute card at small size for the diversification. Nothing else earns a slot.']},
+{v:'73.756',date:'2026-09-12',notes:['THE LOCKBOX NOW TAKES A QUARTER OF THE 1A FUNNEL (owner: one curve first, the LB at 25% is fine). It used to sit where the calendar puts it - about 6 per cent of the width on a 15-year run - which was too thin to read the lines the funnel exists to judge. The walk-forward fold stripes, every line, the ALL CONFIGS lines, the drawdown strip and the hover date all moved together, and the date strip now has a tick on the lockbox door. A short run whose lockbox is already more than a quarter of its calendar keeps its true share. This deliberately undoes the calendar placement from v71.4. The expanded view and the CHAMPION tab still use the calendar, because they have real date axes, so the lockbox looks wider on this tab than on those - and the 1B monthly bars underneath are calendar-spaced, so they no longer line up under the funnel.','NEW: THE HOLD-UP LADDER, UNDER THE FUNNEL AND ITS DRAWDOWN STRIP. One small chart per family. Every config is a line through three columns - in-sample, walk-forward, lockbox - at the dollars it made inside that stretch, scaled within its family. Parallel lines mean the in-sample favourites stayed on top; crossing lines mean the order flipped. Underneath each family: how well the in-sample order held into the lockbox, from +1 (exactly the same) to -1 (fully reversed), marked only N where there are too few configs to lean on. The ring marks the most in-sample dollars in each family - named that way on purpose, because the funnel blue in-sample-best line ranks by the search own score and can be a different config.','THE LADDER NUMBERS ARE THE 1E TABLE NUMBERS. Nothing is recomputed: each line is drawn from the family table own column, with the same key its row carries. Checked in a browser on run 384 with the SAMPLE tick on in-sample, then walk-forward, then lockbox - 51 of 51 configs matched the table in every stretch - and on a second run with different families. Hovering picks the line nearest the pointer, fills a one-line readout with its three figures, and lights the same config in the 1E table (on its family tab too) and on the funnel.','DRAWDOWN STRIP. The lockbox door is now drawn down through it, so the wider lockbox has an edge there too. Two switches were broken: the KEEL key row hid KEEL line but not its drawdown line, and switching GATE off was quietly undone by its own drawdown line staying visible. Both fixed.','HYBRID LINES BENT AT THE WRONG POINT, on the funnel and inside the 1E tables. A hybrid curve runs across every trade, including the ones it skipped, but its lockbox door was placed by counting only the trades it took - so on run 384 it bent at point 272 of 300 while tilt, KEEL and gate bent at 279. Inside 1E the same counting put its in-sample / walk-forward cut at 27 per cent of the curve against a true 38. All five families now cut at the same, correct place; the tilt, KEEL and gate figures do not change.','Hovering a config now lights its lockbox stretch as well - the dotted lockbox tails were the one part of each line that never joined the highlight.']},
 {v:'73.755',date:'2026-09-11',notes:['HOVERING A ROW OR A DOT NOW LIGHTS ITS LINE ON THE 1A FUNNEL (owner ask, third time). The join is by identity, not by name: the funnel and the 1E table are drawing the SAME configuration objects, so each line is stamped with a handle that survives the table being re-sorted, and the real link is swapped in once the column order is settled. Checked in a browser on run 384 - ten funnel lines carry the link and all ten match a row in the table, with none left pointing at nothing.','A LINE ALSO HAD TO LOOK PICKED. The highlight fades everything else and brightens the one you want, which reads well on a dot and not at all on a half-pixel line. The hovered line thickens now, which is what actually reads on a chart of thin curves.','WHAT LIGHTS AND WHAT DOES NOT, plainly: the ten RAW configuration lines do. The gate, tilt, KEEL and hybrid lines do NOT yet - the funnel draws one line per family plus a bundle of candidates behind the ALL CONFIGS toggle, and those carry no handle back to their row. They can be wired the same way and it is the obvious next piece; I would rather say so than have you hover a tilt row and wonder why nothing happens.','The funnel lines other than the crowned one only DRAW when ALL CONFIGS is on, so that is where you will see this. With it off there is one line and it is already obvious.']},
 {v:'73.754',date:'2026-09-11',notes:['THE LAST TWO FUNNEL LINES THAT WERE NOT FULL STRENGTH (owner: all I am asking is to change the line opacity to all be the same). Two versions ago I levelled the six named lines and stopped there. Turning ALL CONFIGS on draws every remaining candidate through a different piece of code, at just over a third strength - so the moment that toggle is on, which is how your funnel is set, the chart had two populations at two different opacities all over again. They are at full strength now. They stay thin, because there are about 37 of them and thickness was not what you asked about. A stray gate line on the non-funnel version of the same chart was at 95 per cent for the same reason and is now at full too.','Every stroke on that chart is now at full strength except one, and that one is on purpose: the faint grey cloud. Those configurations STOP at the in-sample door and never reach the walk-forward - being faint is what tells you that, and it is the one thing the funnel exists to show. Say the word and it goes to full as well.']},
 {v:'73.753',date:'2026-09-11',notes:['THE CONCENTRATION PILL AND ITS OWN CARD NO LONGER DISAGREE (owner: why does the pill say top 5 is under 10 per cent of net when underneath it says half the profit came from 13 of 4,075 trades - is that not conflicting). It was, and the pill was the wrong one. The pill was worked out once when the page drew, from the 400-trade sample the run saves; the card beneath it is rebuilt from the real trade list the moment that arrives, and nothing ever went back to correct the pill. On this run the sample never even reaches half the run real profit, so the pill gave up on the sentence and fell back to a top-5 percentage - a floor of 10 per cent against a true 24. Both now come from the same numbers.','AND IT WAS GREEN FOR A SECOND REASON. The pill had four states and only three colours - anything that was not bad or warn came out green, including the state that means measured from a sample, nothing alarming in it. That is why it sat there in green with a GREY status dot beside it, the dot having got it right all along. Unmeasured reads are grey now, like the dot.','WHAT THE PILL WILL NOT DO IS GUESS. The trade list it reads is capped at the most recent 6,000 trades, so on a longer run it is real trades but the wrong stretch. In that case the pill keeps the sampled wording, which at least counts the whole run, and the card says the most recent N of M instead of claiming all of them. Where the card declines to answer at all, the pill declines too rather than printing a percentage of nothing.','HOVERING A DOT ON THE 1E SCATTER NOW LIGHTS ITS ROW ON THE OTHER 1E CARD (owner ask). Those dots were the one chart in the family that never carried the shared marker, so there was nothing to match on. Checked in a browser on your own layout - left card on ALL, right card on SCATTER - 51 rows and 52 dots now share it, the extra being the gold crowned ring, which fades with its own dot instead of staying lit. The PARALLEL view joins in as well.','A TILE YOU HAVE DRAGGED SHORTER NO LONGER HIDES THE SCROLLBAR. The bar lives at the bottom of the table box, the box was capped at a fixed height, and the card was locked to whatever height you dragged - so the bar ended up below the fold of its own card with no way to reach it. The cap follows the card now, and it is measured from where the table actually starts rather than assumed, so a wrapped control row or a narrow column cannot push it out of view either.']},
@@ -13693,7 +13694,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   until now silently: run 307 LOCKBOX showed 10 RAW columns in the table and 6 rows in
       //   the pooled ALL table with nothing on screen accounting for the other 4. Carry the
       //   refusal count out so the pooled views can say it.
-      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw,rawKeyBySel:_rawKeyBySel,
+      // HOLD-UP LADDER records: the RAW table's OWN per-stretch dollars and keys, so a ladder
+      //   point always equals the table cell. A config whose in-sample / walk-forward figures fell
+      //   back to a different window (no calendar split) gives none rather than a mismatched one.
+      const _ladRaw=cols.map((col,_li)=>({pool:'RAW',key:'raw:'+_li,label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),crowned:!!col.crowned,
+        is:(col.isCal===false?null:col.isV),wf:(col.isCal===false?null:col.wfV),lb:col.lbSlice}));
+      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw,rawKeyBySel:_rawKeyBySel,ladder:_ladRaw,
               scatterDrop:Math.max(0,cols.length-_scatterPtsRaw.length)};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
     //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
@@ -13896,8 +13902,16 @@ namespace NinjaTrader.NinjaScript.Strategies {
       // lockbox START in ms - lets ALL CONFIGS place each candidate own door (see below)
       const _lbStartMs=(function(){try{const d=(Wlb&&Wlb[0])?Date.parse(Wlb[0]):NaN;
         return isFinite(d)?d:null;}catch(_e){return null;}})();
+      // THE LOCKBOX TAKES A QUARTER OF THE WIDTH (owner, 2026-09-12: "the LB at 25% is fine").
+      //   This deliberately reverses v71.4, which put the door where the calendar puts it: on a
+      //   15-year window a 12-month lockbox got about 6% of the chart, too thin to read the lines
+      //   the funnel exists to judge. The door now sits at 75% - or earlier, when the lockbox's
+      //   true share is already bigger than a quarter, so a short run is never squeezed. Every
+      //   line, stripe, overlay, the drawdown strip and the crosshair read xFull, so this one
+      //   value moves all of them together. The expanded explorer and the CHAMPION tab keep the
+      //   calendar - they have a date axis to honour - so the lockbox is wider on this tab.
       const _lbFrac=
-_timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
+_timeOk?Math.max(0.02,Math.min(0.75,(_oE-_oS)/(_lE-_oS))):0.75;
       // v71.13 (owner: "hover over bands"): the fold stripes carried a bare browser tooltip that
       //   said nothing but the fold number, and the lockbox stripe carried none at all. Both now
       //   open the same rich box 1A gives - dates, out-of-sample dollars, PF, and the verdict.
@@ -14053,7 +14067,10 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
           const _sc=1;
           const pts=[xFull.toFixed(1)+' '+Yv(anchor*mult).toFixed(1)];
           for(let j=0;j<n;j++){const f=n<=1?1:j/(n-1);pts.push((xFull+(xR-xFull)*f).toFixed(1)+' '+Yv((anchor+(cum[j]-base)*_sc)*mult).toFixed(1))}
-          lb+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="1" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>';
+          // the lockbox tail carries the same stamp as the config's own line, so hovering a row
+          //   lights the whole path - the stretch that just grew to a quarter of the chart included
+          const _siL=_selSrcIdx.has(c)?_selSrcIdx.get(c):null;
+          lb+=(_siL!=null?('<g data-selidx="'+_siL+'">'):'')+'<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+col+'" stroke-width="'+(cr?0.9:0.6)+'" opacity="1" stroke-dasharray="0.5 1.6" stroke-linecap="round"/>'+(_siL!=null?'</g>':'');
           // v64.71 (owner): the crowned lockbox pill gets the CROWN (all three showed the same 🔒).
           const fv=anchor+_rawEnd*_sc;
           if(cr||(_a2kAll&&!(+(APREF.a2cfgAll||0))))labs.push({y:Yv(fv*mult),col,kg:(cr?'crown':'lb'),txt:_kUsd(fv*mult)+(cr?' 👑':' 🔒')});});
@@ -14511,13 +14528,27 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
             _famDD.push({a:_ka,x:function(j){const f=_kn<=1?1:j/(_kn-1);return (f<=_kf)?(xL+(xFull-xL)*(f/_kf)):(xFull+(xR-xFull)*((f-_kf)/(1-_kf)));},col:'#38bdf8',kg:'keel',nm:'KEEL'});
             _keelEnd=_ka[_kn-1];}
         }catch(_ke2){}
+        // WHERE THE LOCKBOX DOOR FALLS ON A CURVE SAVED ACROSS THE WHOLE UNGATED TRADE LIST.
+        //   A hybrid's curve has one point per trade of the FULL list - a skipped trade just adds
+        //   nothing - so its door is the ungated pre-lockbox share, not kept_pre/n_trades, which
+        //   counts only the trades the hybrid took. On run #384 that bent every hybrid line at
+        //   91-93% of its points against a true door at 93.3%, putting a slice of pre-lockbox
+        //   trades inside the lockbox stretch - hidden in a 6% band, obvious in a 25% one.
+        //   Called with null it returns the run-level split (every ML candidate curve is on the
+        //   full list); with a config it also checks that config's curve really is. Null when the
+        //   counts are not saved, so the caller keeps its own split.
+        const _ungSplit=c=>{try{const U=d.gate_validate||d.ml_gate||{};
+          const p=+((U.ungated_pre||{}).num_trades)||0,l=+((U.ungated_lockbox||{}).num_trades)||0;
+          if(!(p>0&&l>0))return null;
+          if(c!=null){const n=+(((c&&c.equity)||{}).n)||0;if(n!==p+l)return null;}
+          return Math.max(0.02,Math.min(0.98,p/(p+l)));}catch(_e){return null;}};
         // v68.6: the best HYBRID (2E) draws too — violet, same trade-grid mapping as the tilt.
         let _hybOv='',_hybEnd=null;
         try{
           const _bh=_bestHybC;
           if(_bh&&_bh.equity&&Array.isArray(_bh.equity.cum)&&_bh.equity.cum.length>2){
             const _ha=_bh.equity.cum.map(v=>v*mult),_hn=_ha.length;
-            const _hf=Math.max(0.02,Math.min(0.98,(+_bh.kept_pre||0)/Math.max(1,+_bh.n_trades||_hn)));
+            const _hf=(_ungSplit(_bh)!=null)?_ungSplit(_bh):Math.max(0.02,Math.min(0.98,(+_bh.kept_pre||0)/Math.max(1,+_bh.n_trades||_hn)));
             const _hp2=[];
             for(let j=0;j<_hn;j++){const f=_hn<=1?1:j/(_hn-1);
               const x=(f<=_hf)?(xL+(xFull-xL)*(f/_hf)):(xFull+(xR-xFull)*((f-_hf)/(1-_hf)));
@@ -14533,7 +14564,7 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
           const _bh3=_bestHybC;
           if(_hyRdF&&_bh3&&_bh3.equity&&Array.isArray(_bh3.equity.cum)&&_bh3.equity.cum.length>2){
             const _ha3=_bh3.equity.cum.map(v=>v*mult*_hyRdF),_hn3=_ha3.length;
-            const _hf3=Math.max(0.02,Math.min(0.98,(+_bh3.kept_pre||0)/Math.max(1,+_bh3.n_trades||_hn3)));
+            const _hf3=(_ungSplit(_bh3)!=null)?_ungSplit(_bh3):Math.max(0.02,Math.min(0.98,(+_bh3.kept_pre||0)/Math.max(1,+_bh3.n_trades||_hn3)));
             const _hp3=[];
             for(let j=0;j<_hn3;j++){const f=_hn3<=1?1:j/(_hn3-1);
               const x=(f<=_hf3)?(xL+(xFull-xL)*(f/_hf3)):(xFull+(xR-xFull)*((f-_hf3)/(1-_hf3)));
@@ -14585,6 +14616,9 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
             _ddStrip='<g data-kg="dd">'
               +'<rect x="0" y="'+(eqB+1).toFixed(1)+'" width="'+W+'" height="'+Math.max(0,_dT-eqB-2).toFixed(1)+'" fill="var(--bg2)"/>'
               +'<line x1="'+xL.toFixed(1)+'" y1="'+_dT.toFixed(1)+'" x2="'+xR.toFixed(1)+'" y2="'+_dT.toFixed(1)+'" stroke="var(--border)" stroke-width="0.5" opacity="0.6"/>'
+              // the lockbox door, carried down into the strip: the stripes above stop at the equity
+              //   floor, so without this the quarter-width lockbox had no edge in the drawdown pane
+              +(hasLB?('<line x1="'+xFull.toFixed(1)+'" y1="'+_dT.toFixed(1)+'" x2="'+xFull.toFixed(1)+'" y2="'+_dB.toFixed(1)+'" stroke="#a78bfa" stroke-width="0.6" opacity="0.75"/>'):'')
               +'<path d="'+_pts.join('')+'" fill="rgba(193,66,106,0.5)" stroke="#d6557a" stroke-width="0.6" opacity="0.95"><title>RAW champion drawdown (whole run) · worst '+_kUsd(_dmn)+'</title></path>'
               +_dRef(_ddY(_dmn),'#d6557a')+((_mcP!=null)?_dRef(_ddY(_mcP),'#f5c842'):'')
               +'</g>'
@@ -14714,6 +14748,9 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
         //   thin UNDER everything else from the very series payload the explorer reads -
         //   so the tile and the fullscreen view can never disagree about a line.
         let _acOv='',_acN=0;
+        // the same trade split the family top lines use, so each thin candidate line bends at the
+        //   door on the same point as its family's own line (it used made-up calendar timestamps)
+        const _runSp=hasLB?_ungSplit(null):null;
         try{(window._a2EqSeries||[]).forEach(function(sr){
           if(!sr||sr.famTop||sr.dim)return;
           if(!(sr.gateCand||sr.tiltCand||sr.hybCand||sr.hybRcy))return;
@@ -14723,11 +14760,11 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
           //   pre-door into xL..xFull and post-door into xFull..xR, like the family tops.
           const _aq=Array.isArray(sr.ts)?sr.ts:null;
           let _pts='';
-          if(hasLB&&_aq&&_aq.length===sr.eq.length&&_lbStartMs){
+          if(hasLB&&(_runSp!=null||(_aq&&_aq.length===sr.eq.length&&_lbStartMs))){
             let _sp=-1;
-            for(let _k=0;_k<_aq.length;_k++){if(+_aq[_k]>=_lbStartMs){_sp=_k;break;}}
+            if(_runSp==null)for(let _k=0;_k<_aq.length;_k++){if(+_aq[_k]>=_lbStartMs){_sp=_k;break;}}
             const _n2=sr.eq.length;
-            const _fS=(_sp<0)?1:(_sp/Math.max(1,_n2-1));
+            const _fS=(_runSp!=null)?_runSp:((_sp<0)?1:(_sp/Math.max(1,_n2-1)));
             const _xa=[];
             for(let _k=0;_k<_n2;_k++){
               const _f=(_n2<=1)?1:_k/(_n2-1);
@@ -14760,10 +14797,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(selMode&&_timeOk){
         const _xMs=ms=>(ms<=_oE)?(xL+(xFull-xL)*((ms-_oS)/((_oE-_oS)||1)))
                                 :(xFull+(xR-xFull)*((ms-_lS)/((_lE-_lS)||1)));
-        const _N=6;let _tk='';
-        for(let k=0;k<=_N;k++){const ms=_oS+(_lE-_oS)*(k/_N),pc=(_xMs(ms)/W)*100;
-          const al=(k===0)?'left:0':((k===_N)?'right:0':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%)');
-          _tk+='<span style="position:absolute;'+al+';white-space:nowrap">'+_mdy2(ms)+'</span>';}
+        // Ticks evenly spaced in CALENDAR time left the quarter-width lockbox with no label but
+        //   its right edge. They are placed per stretch now: five through the optimize window,
+        //   one on the lockbox door, one at the end.
+        const _tms=[];for(let k=0;k<5;k++)_tms.push(_oS+(_oE-_oS)*(k/5));
+        _tms.push(_lS,_lE);
+        let _tk='';
+        _tms.forEach((ms,k)=>{const pc=(_xMs(ms)/W)*100,last=(k===_tms.length-1);
+          const al=(k===0)?'left:0':(last?'right:0':'left:'+pc.toFixed(2)+'%;transform:translateX(-50%)');
+          _tk+='<span style="position:absolute;'+al+';white-space:nowrap">'+_mdy2(ms)+'</span>';});
         _dateStrip=_tk;
       }else if(_xd0&&_xd1){grid+='<text x="'+xL.toFixed(1)+'" y="'+(H-0.5)+'" font-size="4.6" fill="var(--text3)">'+_dnice(_xd0)+'</text>'
         +'<text x="'+xR.toFixed(1)+'" y="'+(H-0.5)+'" text-anchor="end" font-size="4.6" fill="var(--text3)">'+_dnice(_xd1)+'</text>';}
@@ -14799,7 +14841,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   row - and the configs slider now LEADS it on the left, with the sample tabs and the
       //   GATE toggle keeping the right edge.
       const _hInfo=_infoIc('<div style="color:var(--text2)">'+(selMode?(_selTip+'<br><br>Path: all configs → IS door → top-K walk-forward → top-3 lockbox.'):_eqTip)+'</div>');
-      if(sink){sink.title=selMode?'CONFIG FUNNEL':'TOP CONFIGS PNL';sink.info=_hInfo;}
+      if(sink){sink.title=selMode?'CONFIG FUNNEL':'TOP CONFIGS PNL';sink.info=_hInfo;sink.ladderOk=!!selMode;}
       const _hdr=selMode
         // v71.24 (owner: "remove the FULL RUN and GATE toggles on the top right"): both are gone
         //   from the funnel header. The stretch picker still lives on the 1E MATRIX SAMPLE tabs
@@ -14970,6 +15012,80 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   here by the render test rather than in production this time.
     const MTX_HYB2='HYBRID ♻';
     const _mtxPoolCol={RAW:'#1d9e75',GATE:'#e24b4a',TILT:'#f0b429',KEEL:'#38bdf8',HYBRID:'#c084fc'};
+    // HOLD-UP LADDER (owner, 2026-09-12). The question the funnel exists to answer and its curves
+    //   cannot show: did the configs that looked best IN-SAMPLE stay on top in the walk-forward
+    //   and the lockbox? One small facet per family. Every config is a line through three
+    //   columns at the dollars it made INSIDE that stretch, scaled within its family and column.
+    //   Parallel lines mean the order held; crossing lines mean it flipped. A ring follows each
+    //   family's in-sample #1. Nothing is recomputed here - each record is the 1E family table's
+    //   own column, so a ladder value always equals the table cell and carries the row's own key.
+    const holdUpLadderHtml=recs=>{
+      if(!Array.isArray(recs)||!recs.length)return '';
+      const ORD=['RAW','GATE','TILT','HYBRID',MTX_HYB2,'KEEL'];
+      const COL=Object.assign({},_mtxPoolCol);COL[MTX_HYB2]='#f0abfc';
+      const seen=new Set(),by={};
+      recs.forEach(r=>{if(!r||!r.key||seen.has(r.key))return;seen.add(r.key);(by[r.pool]||(by[r.pool]=[])).push(r);});
+      const ok=v=>v!=null&&isFinite(+v);
+      // the table's own money format (fmtAx), signed - so a small stretch reads $380 or $4.6k,
+      //   exactly as its 1E cell does, instead of rounding to "+$0k"
+      const k$=v=>(v<0?'-':'+')+((typeof fmtAx==='function')?fmtAx(Math.abs(v),1):('$'+Math.round(Math.abs(v))));
+      const rk=a=>{const o=a.map((v,i)=>[v,i]).sort((x,y)=>x[0]-y[0]),r=new Array(a.length);let i=0;
+        while(i<o.length){let j=i;while(j+1<o.length&&o[j+1][0]===o[i][0])j++;const m=(i+j)/2;for(let q=i;q<=j;q++)r[o[q][1]]=m;i=j+1;}return r;};
+      const rho=(a,b)=>{const x=rk(a),y=rk(b),n=a.length,m=(n-1)/2;let t=0,sx=0,sy=0;
+        for(let i=0;i<n;i++){t+=(x[i]-m)*(y[i]-m);sx+=(x[i]-m)*(x[i]-m);sy+=(y[i]-m)*(y[i]-m);}return (sx>0&&sy>0)?t/Math.sqrt(sx*sy):null;};
+      const esc=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+      const CX=[12,50,88],T0=5,T1=63;
+      let facets='';
+      ORD.forEach(fam=>{
+        const all=by[fam]||[];if(!all.length)return;
+        const L=all.filter(r=>ok(r.is)&&ok(r.wf)&&ok(r.lb));
+        const col=COL[fam]||'var(--text3)';
+        let svg='',foot='';
+        CX.forEach(x=>{svg+='<line x1="'+x+'" x2="'+x+'" y1="'+T0+'" y2="'+T1+'" stroke="var(--border)" stroke-width="1" vector-effect="non-scaling-stroke"/>';});
+        if(L.length){
+          const rng=[0,1,2].map(j=>{const v=L.map(r=>+[r.is,r.wf,r.lb][j]);return [Math.min.apply(null,v),Math.max.apply(null,v)];});
+          const Y=(j,v)=>{const q=rng[j];return T1-((q[1]>q[0])?((v-q[0])/(q[1]-q[0])):0.5)*(T1-T0);};
+          // THE RING MARKS THE MOST IN-SAMPLE DOLLARS IN THE FAMILY, picked from EVERY config that
+          //   has an in-sample figure - not only the ones that can be drawn. If that config lacks a
+          //   walk-forward or lockbox figure it is not drawn and the ring is NOT handed to the
+          //   runner-up; the footer says so. It is named for what it measures: the funnel's blue
+          //   in-sample-best line ranks by the search's own score, so "in-sample #1" would name two
+          //   different configs on the same tab.
+          let top=null;all.forEach(r=>{if(ok(r.is)&&(top===null||+r.is>+top.is))top=r;});
+          const topIn=!!(top&&L.indexOf(top)>=0);
+          L.forEach(r=>{
+            const pts=[r.is,r.wf,r.lb].map((v,j)=>CX[j]+','+Y(j,+v).toFixed(1)).join(' ');
+            const tip=esc(fam+' \u00b7 '+r.label+(r.crowned?' (crowned)':'')+((all.length>1&&r===top)?' (most in-sample $)':'')
+              +' \u2014 in-sample '+k$(+r.is)+' \u00b7 walk-forward '+k$(+r.wf)+' \u00b7 lockbox '+k$(+r.lb));
+            // No invisible hit lines. In a dense family wide transparent targets overlap and light a
+            //   neighbour, so a hover picks the NEAREST line to the pointer instead (see the ladder
+            //   wiring) and the lines themselves take no pointer events.
+            svg+='<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="1.2" stroke-linejoin="round" vector-effect="non-scaling-stroke" pointer-events="none" data-ladv="1" data-ladk="1" data-hlkey="'+esc(r.key)+'" data-ladt="'+tip+'"/>';
+          });
+          if(topIn&&L.length>1)[0,1,2].forEach(j=>{svg+='<circle cx="'+CX[j]+'" cy="'+Y(j,+[top.is,top.wf,top.lb][j]).toFixed(1)+'" r="3.2" fill="none" stroke="'+col+'" stroke-width="1.4" vector-effect="non-scaling-stroke" pointer-events="none" data-hlkey="'+esc(top.key)+'"/>';});
+          if(L.length>=2){const r=rho(L.map(x=>+x.is),L.map(x=>+x.lb)),few=L.length<8;
+            foot='<div title="How well this family\'s in-sample order held into the lockbox: +1 = exactly the same order, 0 = no relation, -1 = fully reversed.'+(few?(' Only '+L.length+' configs, so read it as a hint, not a verdict.'):'')+'" style="font-size:8.5px;white-space:nowrap;color:'+(few?'var(--text5)':'var(--text4)')+'">'
+              +(r==null?'IS \u2192 LB: no spread':('IS \u2192 LB '+(r>=0?'+':'\u2212')+Math.abs(r).toFixed(2)))
+              +(few?(' \u00b7 only '+L.length):'')+'</div>';}
+          else foot='<div style="font-size:8.5px;color:var(--text5)">1 config, no rank</div>';
+          if(L.length<all.length)foot+='<div style="font-size:8px;color:var(--text5)">'+(all.length-L.length)+' of '+all.length+' lack a stretch figure</div>';
+          if(top&&!topIn&&all.length>1)foot+='<div style="font-size:8px;color:var(--text5)">most in-sample $ ('+esc(top.label)+') lacks a figure, so no ring</div>';
+        }else{
+          foot='<div style="font-size:8.5px;color:var(--text5)">no per-stretch figures saved</div>';
+        }
+        facets+='<div data-ladfam="'+esc(fam)+'" style="min-width:0">'
+          +'<div style="font-size:9px;font-weight:700;letter-spacing:.3px;color:'+col+'">'+esc(fam)+' \u00b7 '+all.length+'</div>'
+          +'<svg data-ladsvg viewBox="0 0 100 68" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block;overflow:visible;cursor:crosshair">'+svg+'</svg>'
+          +'<div style="position:relative;height:11px;font-size:8px;color:var(--text5)">'
+            +CX.map((x,j)=>'<span style="position:absolute;left:'+x+'%;transform:translateX(-50%)">'+['IS','WF','LB'][j]+'</span>').join('')+'</div>'
+          +foot+'</div>';
+      });
+      if(!facets)return '';
+      return '<div data-ladder style="margin:10px 0 2px">'
+        +'<div title="Each line is one config, placed by the dollars it made INSIDE each stretch - the same figures the 1E tables show - scaled within its family. Parallel lines mean the in-sample order held; crossing lines mean it flipped. The ring marks the config with the most in-sample dollars in each family, by the IS figure shown here - the funnel\'s blue in-sample-best line ranks by the search\'s own score, so it can be a different config." style="font-size:9px;letter-spacing:.3px;color:var(--text4)"><b style="color:var(--text2)">HOLD-UP LADDER</b> \u00b7 did the in-sample favourites stay on top? \u00b7 ring = most in-sample $</div>'
+        +'<div data-ladro style="height:13px;line-height:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9.5px;color:var(--text3);margin:3px 0 4px">hover a line for its three figures</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px 12px">'+facets+'</div></div>';
+    };
     _mtxPoolCol[MTX_HYB2]='#f0abfc';
     const _mtxPoolTip={RAW:'RAW - the strategy parameter configs the search produced, before any model touches them. Same green the funnel KEY paints the crowned config.',
                        GATE:'GATE - the trade filter: a model scores each entry and the ones under the cut-off are not taken. Same red as the funnel GATE line.',
@@ -17097,6 +17213,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   SAMPLE tick each matrix just measured — then handed back on scatterPts and combined
         //   with the RAW pool (selectionTableHtml) into one cross-pool sanity chart.
         const _scatterAcc=[];
+        // HOLD-UP LADDER records from every ML family table, pushed where each column gets its key
+        const _ladAcc=[];
+        const _ladN=v=>(v!=null&&isFinite(+v))?+v*mlt3:null;
         // how many columns were refused a pooled point (no drawdown for the ticked SAMPLE, or a
         //   stretch the engine measured as zero trades). Reported, never swallowed.
         let _scatterDrop=0;
@@ -17569,6 +17688,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _ra1=v=>(v!=null&&isFinite(v))?+v:null;
         _gColsV.forEach((c,_gi)=>{
           c.dataAttr=' data-mtxcol="gate:'+_gi+'"';
+          _ladAcc.push({pool:'GATE',key:'gate:'+_gi,label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),crowned:false,
+            is:_ladN(c.per&&c.per.is&&c.per.is.net),wf:_ladN(c.per&&c.per.wf&&c.per.wf.net),lb:_ladN(c.per&&c.per.lb&&c.per.lb.net)});
           const p=_P(c);
           if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
           else
@@ -17790,11 +17911,23 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   SHARPE used to be measured over the whole run no matter what was ticked. It now cuts
         //   the saved curve to the ticked stretches and annualises on that span only. A pick that
         //   skips a stretch has no single span to read, so it prints a dash.
+        // THE STRETCH SPLIT OF A SAVED CURVE. A curve's points run across the trades it was saved
+        //   on. For a tilt or KEEL that is every trade, so its own per-stretch counts are the
+        //   split. A HYBRID curve is saved across every trade of the full list too, but its own
+        //   counts are only the trades it took, so cutting its curve by them misplaced both doors:
+        //   on run #384 a hybrid's in-sample stretch ended at 27% of its curve against a true 38%
+        //   (1,542 of 4,075 trades). When the curve is on the full list, the ungated counts are
+        //   the right ones - which is also what the funnel's hybrid lines now use, so the chart
+        //   and these tables cut the same curve in the same places.
+        const _spanCounts=c=>{const own=[+((c._s.is||{}).num_trades)||0,+((c._s.wf||{}).num_trades)||0,+((c._s.lb||{}).num_trades)||0];
+          try{const n=+((c._s.eq||{}).n)||0,ui=+((V.ungated_is||{}).num_trades)||0,uw=+((V.ungated_wf||{}).num_trades)||0,ul=+((V.ungated_lockbox||{}).num_trades)||0;
+            if(n>0&&ui>0&&uw>0&&ul>0&&n===ui+uw+ul)return [ui,uw,ul];}catch(_e){}
+          return own;};
         const _shrpC=(c,downOnly)=>{const cum=c._s.eq&&c._s.eq.cum;
           if(!Array.isArray(cum)||cum.length<3||!_spanYrs||_spanYrs<=0)return null;
           let a=0,b=1;
           // same trade-count span split _szSpanOf uses, inlined so this helper stays self-contained
-          const _ia=+((c._s.is||{}).num_trades)||0,_wb=+((c._s.wf||{}).num_trades)||0,_lc=+((c._s.lb||{}).num_trades)||0,_T=_ia+_wb+_lc;
+          const _k3=_spanCounts(c),_ia=_k3[0],_wb=_k3[1],_lc=_k3[2],_T=_ia+_wb+_lc;
           const sp=_T?{is:[0,_ia/_T],wf:[_ia/_T,(_ia+_wb)/_T],lb:[(_ia+_wb)/_T,1]}:null;
           const o=['is','wf','lb'].filter(x=>_szSegs.indexOf(x)>=0);
           if(sp&&o.length){for(let i=1;i<o.length;i++)if(Math.abs(sp[o[i-1]][1]-sp[o[i]][0])>1e-9)return null;
@@ -17841,7 +17974,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const _szKey=_szSegs.join(',');
           const _szEx={'is':'is','wf':'wf','lb':'lb','is,wf,lb':'full'};
           const _szFac=c=>_sc(c,_szEx[_szKey]||'full');
-          const _szSpanOf=c=>{const a=+((c._s.is||{}).num_trades)||0,b=+((c._s.wf||{}).num_trades)||0,l=+((c._s.lb||{}).num_trades)||0,T=a+b+l;
+          const _szSpanOf=c=>{const _k4=_spanCounts(c),a=_k4[0],b=_k4[1],l=_k4[2],T=a+b+l;
             return T?{is:[0,a/T],wf:[a/T,(a+b)/T],lb:[(a+b)/T,1]}:null;};
           const _szPc=new Map();
           const _szP=c=>{
@@ -17942,6 +18075,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(poolName){
             cols.forEach((c,_ci2)=>{
               c.dataAttr=' data-mtxcol="'+poolName+':'+_ci2+'"';
+              _ladAcc.push({pool:(poolName==='hyb'?'HYBRID':(poolName==='hyb2'?MTX_HYB2:poolName.toUpperCase())),key:poolName+':'+_ci2,
+                label:String(c.lbl||'').replace(/<[^>]*>/g,'').trim(),crowned:false,
+                is:_ladN(_sl$(c,'is')),wf:_ladN(_sl$(c,'wf')),lb:_ladN(_sl$(c,'lb'))});
               const p=_szP(c);
               if(!(p&&p.net!=null&&p.dd!=null&&isFinite(p.net)&&isFinite(p.dd)))_scatterDrop++;
               else
@@ -18172,7 +18308,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const hybNote=hybNoteBy.one||'';
         return {V:V,LB:LB,ch:ch,tilts:tiltTbl,hyb:hybTbl,keel:keelTbl,keelNote:keelNote,keelErr:_klErr,ctrls:_ctrls,menus:'',
           szCtrls:_szCtrls,tiltNote:tiltNote,hybNote:hybNote,hybModes:hybModes,hybBy:hybBy,hybNoteBy:hybNoteBy,
-          scatterPts:_scatterAcc,scatterDrop:_scatterDrop,
+          scatterPts:_scatterAcc,scatterDrop:_scatterDrop,ladder:_ladAcc,
           head:'<div class="lbl" style="margin:0 0 6px">🚪🧭 GATE VALIDATE — '+stratLbl+' · '+(V.span?V.span[0]+' → '+V.span[1]:'')+'</div>',
           intro:'<div style="font-size:var(--fsxs);color:var(--text4);margin-bottom:8px">'+V.n_candidates+' candidates ranked pre-lockbox by recovery factor ($ per $ of drawdown). The winner gets exactly one lockbox look — no shopping.</div>',
           matrix:_gMatrix,
@@ -19558,6 +19694,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   disagree. Rendered ONCE, above the tab strip on the PRIMARY 1E card only — it spans
         //   all families at once, so duplicating it on the side-by-side comparison card (1E's
         //   "B" twin) would just be the same picture twice.
+        // HOLD-UP LADDER under the funnel. Built here, after BOTH 1E builders have run, so every
+        //   figure and key is the tables' own. Appended to the funnel string, which ends with the
+        //   chart's resize grip, so it sits below the chart and its drawdown strip - outside the
+        //   fixed-height chart box, where it would otherwise become a clipped side column.
+        //   Guarded: a ladder fault must never blank the report.
+        try{if(_eq&&_eqSink&&_eqSink.ladderOk&&!_eqSink.ladderDone){
+          const _lad=holdUpLadderHtml([].concat((_selParts&&_selParts.ladder)||[],(_gvP&&_gvP.ladder)||[]));
+          if(_lad){_eq+=_lad;_eqSink.ladderDone=true;}}}catch(_le){console.warn('hold-up ladder skipped',_le);}
         _mtxScatterPts=[].concat((_selParts&&_selParts.scatterPts)||[],(_gvP&&_gvP.scatterPts)||[]);
         // configs every pool refused a point (no drawdown for the ticked SAMPLE). Threaded into
         //   the pooled views so a thinned TABLE / PARALLEL can never read as the whole population.
@@ -34147,7 +34291,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const kroot=box;   // v68.6: the key box lives inside the chart wrap again
         // v71.24: each family's drawdown curve rides in the SAME key group as its equity line
         //   ("gatedd" with "gate", and so on), so one click hides or shows both.
-        const _kmap={raw:['crown','ismax','wf','cloud','lb'],gate:['gate','gatedd'],tilt:['tilt','tiltdd'],hyb:['hyb','hybdd'],hyb2:['hyb2','hyb2dd'],dd:['dd']};
+        const _kmap={raw:['crown','ismax','wf','cloud','lb'],gate:['gate','gatedd'],tilt:['tilt','tiltdd'],hyb:['hyb','hybdd'],hyb2:['hyb2','hyb2dd'],keel:['keel','keeldd'],dd:['dd']};
         const _kOthers={raw:['ismax','wf','cloud']};   // groups a click reveals (family top line stays)
         const grp=k=>{const ks=_kmap[k]||[k];const out=[];ks.forEach(k2=>svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>out.push(g)));return out;};
         // v70.6 (owner: "default 2a funnel, just show the top configs of ea tab"): the grey
@@ -34158,7 +34302,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // v71.19: the gate curve is always drawn now and simply hidden when its chip is off, so a
         //   click on the GATE key row reveals it. Its gutter pill hides and shows with it.
         const _a2Gt=(APREF.a2gate==null?1:+APREF.a2gate);
-        (!_a2All?['ismax','wf','cloud']:[]).concat(_a2Gt?[]:['gate']).forEach(k2=>{
+        (!_a2All?['ismax','wf','cloud']:[]).concat(_a2Gt?[]:['gate','gatedd']).forEach(k2=>{
           svg.querySelectorAll('[data-kg="'+k2+'"]').forEach(g=>{g.style.display='none';});
           kroot.querySelectorAll('[data-pg="'+k2+'"]').forEach(p=>{p.style.display='none';});});
         kroot.querySelectorAll('[data-a2call]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
@@ -34223,7 +34367,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           xl.style.left=(fx*100)+'%';yl.style.top=(fy*100)+'%';
           dLab.style.left=Math.min(92,Math.max(8,fx*100))+'%';vLab.style.top=Math.min(94,Math.max(4,fy*100))+'%';
           let dt='';
-          if(xp&&xp.o0){const fS=+xp.fS||0.84;let dte=null;
+          if(xp&&xp.o0){const fS=+xp.fS||0.75;let dte=null;
             if(fx<=fS){const t0=Date.parse(xp.o0),t1=Date.parse(xp.o1);if(!isNaN(t0)&&!isNaN(t1))dte=new Date(t0+(fx/fS)*(t1-t0));}
             else{const t0=Date.parse(xp.l0||xp.o1),t1=Date.parse(xp.l1||xp.o1);if(!isNaN(t0)&&!isNaN(t1))dte=new Date(t0+((fx-fS)/Math.max(1e-9,1-fS))*(t1-t0));}
             if(dte)dt=dte.toISOString().slice(0,10);}
@@ -34342,14 +34486,43 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'[data-hlkey]:not([data-hlkey="'+esc(k)+'"]){opacity:.18}'
             +'[data-hlkey="'+esc(k)+'"]{opacity:1;filter:brightness(1.35)}'
             +'tr[data-hlkey="'+esc(k)+'"]{background:color-mix(in srgb,var(--text) 14%,transparent)!important}'
-            +'g[data-hlkey="'+esc(k)+'"] polyline{stroke-width:1.8}'):'';};
+            +'g[data-hlkey="'+esc(k)+'"] polyline{stroke-width:1.8}'
+            +'polyline[data-ladv][data-hlkey="'+esc(k)+'"]{stroke-width:2.6px}'
+            // the 1E FAMILY tabs mark a config's column with data-mtxcol, which is the same key -
+            //   tint it, so a hover also finds its column when 1E is not on the ALL tab
+            +'[data-mtxcol="'+esc(k)+'"]{background:color-mix(in srgb,var(--text) 12%,transparent)!important}'):'';};
         content.addEventListener('mouseover',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-hlkey]'):null;
           if(t)set(t.getAttribute('data-hlkey'));});
+        window._hlSet=set;   // the hold-up ladder drives this same highlighter from its nearest-line hover
         content.addEventListener('mouseleave',()=>set(''),true);
         content.addEventListener('mouseout',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-hlkey]'):null;
           const to=e.relatedTarget&&e.relatedTarget.closest?e.relatedTarget.closest('[data-hlkey]'):null;
           if(t&&!to)set('');});
       })();
+      // HOLD-UP LADDER readout: the hovered line's three figures, in the ladder's own caption row
+      //   A hover picks the NEAREST line to the pointer in the facet's own units, and drives both
+      //   the readout and the shared highlighter from that single choice - so a dense family cannot
+      //   light a neighbour, and the readout can never name a different config from the highlight.
+      content.querySelectorAll('[data-ladder]').forEach(L=>{
+        const ro=L.querySelector('[data-ladro]');if(!ro)return;const def=ro.textContent;let cur=null;
+        const show=p=>{const k=p?p.getAttribute('data-hlkey'):null;if(k===cur)return;cur=k;
+          ro.textContent=p?p.getAttribute('data-ladt'):def;ro.title=p?ro.textContent:'';
+          if(typeof window._hlSet==='function')window._hlSet(k||'');};
+        L.querySelectorAll('svg[data-ladsvg]').forEach(sv=>{
+          const lines=Array.prototype.map.call(sv.querySelectorAll('polyline[data-ladv]'),p=>({p:p,
+            xy:String(p.getAttribute('points')||'').trim().split(/\s+/).map(q=>q.split(',').map(Number))}));
+          if(!lines.length)return;
+          sv.addEventListener('mousemove',e=>{
+            const m=sv.getScreenCTM&&sv.getScreenCTM();if(!m)return;
+            const pt=sv.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const u=pt.matrixTransform(m.inverse());
+            let best=null,bd=Infinity;
+            lines.forEach(o=>{for(let i=0;i+1<o.xy.length;i++){const a=o.xy[i],b=o.xy[i+1],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;
+              let t=l2?((u.x-a[0])*dx+(u.y-a[1])*dy)/l2:0;t=Math.max(0,Math.min(1,t));
+              const ex=a[0]+t*dx-u.x,ey=a[1]+t*dy-u.y,dd=ex*ex+ey*ey;if(dd<bd){bd=dd;best=o.p;}}});
+            show(bd<=49?best:null);});
+          sv.addEventListener('mouseleave',()=>show(null));
+        });
+      });
       // 1E MATRIX SCATTER dot click → jump to that candidate's own column in its pool's matrix
       //   table below. The pool (raw/gate/tilt/hyb) may not be the tab currently open, so this
       //   first switches the 1E tab (same pref data-cfgtab already uses) and defers the actual
