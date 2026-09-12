@@ -207,6 +207,55 @@ def _downsample_list(lst, cap):
     return [lst[i] for i in idx]
 
 
+# A trade-dollar array and its excursion arrays describe THE SAME TRADES, position for
+#   position, and the run report pairs them that way. _CURVE_KEYS above lists win_dist,
+#   win_dist_wf, win_dist_lb and win_dist_is but no mae/mfe/won key, so stage 1 used to
+#   stride the dollars down and leave the excursions where they were. On run #384 that
+#   turned 600 walk-forward dollars into 400 while 600 excursions stayed 600, and the
+#   report then paired position i of one with position i of the other: every dot on the
+#   2B reach-vs-heat scatter for that stretch plotted one trade's money against a
+#   different trade's reach and heat. The saved 'won' flag proves it - it disagreed with
+#   the sign of the dollar on 34% of those trades, against 0% on the lockbox arrays that
+#   were short enough to be left alone.
+# They are shrunk TOGETHER now, by ONE index set, so position i stays one trade.
+_PAIRED_DIST = (("win_dist", "mae_mfe"), ("win_dist_wf", "mae_mfe_wf"),
+                ("win_dist_lb", "mae_mfe_lb"), ("win_dist_is", "mae_mfe_is"))
+_PAIR_SUBKEYS = ("mae", "mfe", "won", "bars", "hold")
+
+
+def _downsample_idx(n, cap):
+    """The index set _downsample_list would keep, so several arrays can share one."""
+    if n <= cap or cap < 2:
+        return None
+    step = n / (cap - 1)
+    return sorted({min(n - 1, round(i * step)) for i in range(cap - 1)} | {n - 1})
+
+
+def _shrink_paired_dists(doc, cap, hits):
+    """Stage 0: shrink each (dollars, excursions) pair by one shared index set.
+
+    Only pairs that ARRIVE the same length are touched. If they already differ the
+    engine never aligned them and re-cutting either one cannot help - the report has
+    its own guard for that case and refuses to pair them at all."""
+    if not isinstance(doc, dict):
+        return
+    for dk, mk in _PAIRED_DIST:
+        d, m = doc.get(dk), doc.get(mk)
+        if not isinstance(d, list) or not d or not isinstance(m, dict):
+            continue
+        subs = [k for k in _PAIR_SUBKEYS if isinstance(m.get(k), list)]
+        if not subs or any(len(m[k]) != len(d) for k in subs):
+            continue                      # not aligned on arrival - leave both alone
+        idx = _downsample_idx(len(d), cap)
+        if idx is None:
+            continue
+        before = len(d)
+        doc[dk] = [d[i] for i in idx]
+        for k in subs:
+            m[k] = [m[k][i] for i in idx]
+        hits.append((dk + " + " + mk, before, len(idx)))
+
+
 def _walk_shrink_curves(node, cap, hits):
     """Recursively downsample any _CURVE_KEYS array (or list-of-curves, e.g.
     equity_top) found at any depth to <= cap points. Mutates `node` in place."""
@@ -267,8 +316,11 @@ def shrink_to_fit(doc, budget=DOC_SIZE_BUDGET, log=print, label="doc", equity_po
     size0 = _doc_size(doc)
     if size0 <= budget or not isinstance(doc, dict):
         return doc
-    # Stage 1: downsample every equity/curve array to <= equity_points, first/last kept.
+    # Stage 0: dollars and their excursions first, TOGETHER, so stage 1 finds them
+    #   already at cap and leaves them alone instead of cutting one and not the other.
     hits = []
+    _shrink_paired_dists(doc, equity_points, hits)
+    # Stage 1: downsample every equity/curve array to <= equity_points, first/last kept.
     _walk_shrink_curves(doc, equity_points, hits)
     size1 = _doc_size(doc)
     if hits:
