@@ -714,7 +714,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.754';
+const VERSION='73.755';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -733,6 +733,7 @@ window._dataFeedWarn=function(){
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 const CHANGELOG=[{v:'73.728',date:'2026-09-11',notes:['NOISE ROUND 54 - THE FORWARD-TESTING RANKING (owner: look at the noise configs ran thus and the compare scatter plots, give me a ranking for what you think is most worthy of forward testing). Thirty-five NOISE runs are on the board. Reading the scatter cloud each one searched, rather than the row it reported, changed two answers.','WHAT ONLY THE CLOUD SHOWS. The live crown sits at the 80th percentile of its own 495 configurations - it is not the peak, which is the shape you want because the plateau test picked it rather than the maximum. Every other candidate sits at the 87th to 100th. The 2-minute card has the thinnest cloud measured, only 64 percent of its neighbours making money at all against 100 percent for the 5-minute rows. And the resampling strip says the two compression legs had a drawdown shallower than 94 to 98 percent of their own reshuffled paths, so their headline risk figure is path luck as much as edge.','THE FINDING - THE COMPRESSION TILT BELONGS ON THE RETIRED BASE. The validated tilt, and both deployed paper legs, pin lookback 44 and volatility skip 90 - which is the crown the family retired on 2026-09-05. Re-basing it onto the live crown looked like an obvious fix and the battery says it is the wrong one: identical harness and identical null, the tilt PASSES on the retired base with drawdown growing 6 percent and zero of 2000 shifts matching, and FAILS on the live crown with sealed-year drawdown growing 17.9 percent against a 10 percent tolerance. It is real on both - it beats its own flat-leverage control everywhere - it just costs more risk on the newer base, which loosened the volatility skip and so takes about 400 more trades in noisier conditions. The deployed legs are not stale by mistake; they are on the base where the tilt passes.','THE RANKING. First the live crown raw, still unbeaten across eight swept spaces and the only row off the peak of its own cloud. Second the retired base with the tilt at 1.5x, already forward-testing and the only add-on that clears the whole battery. Third the live crown with the same tilt, the most money and the best risk-adjusted return measured but failing the drawdown clause, now queued for the house verdict with the tilt switched off inside its own admissible set as the parity control. Fourth the 2-minute card at small size for the diversification. Nothing else earns a slot.']},
+{v:'73.755',date:'2026-09-11',notes:['HOVERING A ROW OR A DOT NOW LIGHTS ITS LINE ON THE 1A FUNNEL (owner ask, third time). The join is by identity, not by name: the funnel and the 1E table are drawing the SAME configuration objects, so each line is stamped with a handle that survives the table being re-sorted, and the real link is swapped in once the column order is settled. Checked in a browser on run 384 - ten funnel lines carry the link and all ten match a row in the table, with none left pointing at nothing.','A LINE ALSO HAD TO LOOK PICKED. The highlight fades everything else and brightens the one you want, which reads well on a dot and not at all on a half-pixel line. The hovered line thickens now, which is what actually reads on a chart of thin curves.','WHAT LIGHTS AND WHAT DOES NOT, plainly: the ten RAW configuration lines do. The gate, tilt, KEEL and hybrid lines do NOT yet - the funnel draws one line per family plus a bundle of candidates behind the ALL CONFIGS toggle, and those carry no handle back to their row. They can be wired the same way and it is the obvious next piece; I would rather say so than have you hover a tilt row and wonder why nothing happens.','The funnel lines other than the crowned one only DRAW when ALL CONFIGS is on, so that is where you will see this. With it off there is one line and it is already obvious.']},
 {v:'73.754',date:'2026-09-11',notes:['THE LAST TWO FUNNEL LINES THAT WERE NOT FULL STRENGTH (owner: all I am asking is to change the line opacity to all be the same). Two versions ago I levelled the six named lines and stopped there. Turning ALL CONFIGS on draws every remaining candidate through a different piece of code, at just over a third strength - so the moment that toggle is on, which is how your funnel is set, the chart had two populations at two different opacities all over again. They are at full strength now. They stay thin, because there are about 37 of them and thickness was not what you asked about. A stray gate line on the non-funnel version of the same chart was at 95 per cent for the same reason and is now at full too.','Every stroke on that chart is now at full strength except one, and that one is on purpose: the faint grey cloud. Those configurations STOP at the in-sample door and never reach the walk-forward - being faint is what tells you that, and it is the one thing the funnel exists to show. Say the word and it goes to full as well.']},
 {v:'73.753',date:'2026-09-11',notes:['THE CONCENTRATION PILL AND ITS OWN CARD NO LONGER DISAGREE (owner: why does the pill say top 5 is under 10 per cent of net when underneath it says half the profit came from 13 of 4,075 trades - is that not conflicting). It was, and the pill was the wrong one. The pill was worked out once when the page drew, from the 400-trade sample the run saves; the card beneath it is rebuilt from the real trade list the moment that arrives, and nothing ever went back to correct the pill. On this run the sample never even reaches half the run real profit, so the pill gave up on the sentence and fell back to a top-5 percentage - a floor of 10 per cent against a true 24. Both now come from the same numbers.','AND IT WAS GREEN FOR A SECOND REASON. The pill had four states and only three colours - anything that was not bad or warn came out green, including the state that means measured from a sample, nothing alarming in it. That is why it sat there in green with a GREY status dot beside it, the dot having got it right all along. Unmeasured reads are grey now, like the dot.','WHAT THE PILL WILL NOT DO IS GUESS. The trade list it reads is capped at the most recent 6,000 trades, so on a longer run it is real trades but the wrong stretch. In that case the pill keeps the sampled wording, which at least counts the whole run, and the card says the most recent N of M instead of claiming all of them. Where the card declines to answer at all, the pill declines too rather than printing a percentage of nothing.','HOVERING A DOT ON THE 1E SCATTER NOW LIGHTS ITS ROW ON THE OTHER 1E CARD (owner ask). Those dots were the one chart in the family that never carried the shared marker, so there was nothing to match on. Checked in a browser on your own layout - left card on ALL, right card on SCATTER - 51 rows and 52 dots now share it, the extra being the gold crowned ring, which fades with its own dot instead of staying lit. The PARALLEL view joins in as well.','A TILE YOU HAVE DRAGGED SHORTER NO LONGER HIDES THE SCROLLBAR. The bar lives at the bottom of the table box, the box was capped at a fixed height, and the card was locked to whatever height you dragged - so the bar ended up below the fold of its own card with no way to reach it. The cap follows the card now, and it is measured from where the table actually starts rather than assumed, so a wrapped control row or a narrow column cannot push it out of view either.']},
 {v:'73.752',date:'2026-09-11',notes:['THE CONCENTRATION CURVE HAS AN AXIS SWITCH NOW (owner: why is the evenly spread line so compressed, is there a way to show it at 45 degrees). A diagonal only reads at 45 degrees when both axes cover the same range and the plot is square. This curve climbs to 437 per cent of net, so an axis that fits the curve cannot also put the reference line at 45 - the two asks are in direct conflict and no single frame satisfies both. So it is a choice, on the AXIS control beside the panel title.','FIT CURVE is what you have been looking at: the axis follows the curve, you see how far the winners get and how much the losers hand back, and the evenly spread line lies almost flat - measured at 4 degrees, which is what you were reacting to.','45 REFERENCE draws a square plot that stops at 100 per cent, so the evenly spread book is a true 45 degree line - measured at exactly 45 - and the panel reads as the classic inequality curve. The curve leaves through the top of that frame, and where it does the chart marks the spot and says how high it got, so nothing is quietly cropped.']},
@@ -12986,6 +12987,12 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   cloned robust rows could never find their config number and printed "—".
       const _robSet=new Set(_robust);
       const cand=sel.candidates.concat(_robust);
+      // HOVER JOIN. The 1A funnel draws from these SAME candidate objects - its pool is
+      //   sel.candidates.concat(sel.robust) filtered to those carrying a curve, the identical
+      //   concat in the identical order - so this index identifies one config on both sides.
+      //   It is NOT the 1E column index: that moves every time RANK BY re-sorts. It is only a
+      //   handle the funnel stamps and the key map below is keyed on. No label matching.
+      const _selSrcIdx=new Map();cand.forEach((c,j)=>_selSrcIdx.set(c,j));
       let isMaxI=0;cand.forEach((c,i)=>{if((c.is_pnl||0)>(cand[isMaxI].is_pnl||0))isMaxI=i;});
       const isMaxC=cand[isMaxI];
       const pk=Object.keys(cand[0].params||{});
@@ -13089,7 +13096,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         const fullRun=lbOk?lbV:optEnd;
         const fullRunStar=!lbOk;   // no lockbox carry-through: this is the optimize-window end
         const rankTip='rank '+(i+1)+' of '+sorted.length+' by walk-forward result'+(_robSet.has(c)?' - NOT ELIGIBLE: kept for context only; this config was never in the pool the crown is picked from, its rank is informational':'')+(crowned?' - CROWNED (the walk-forward winner)':'')+(ismax?' - also the in-sample maximum (best pre-registered search score)':'');
-        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,sortino,foldsHeld,mmPf,mmWr,mmApt,mmN,rankTip,isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c),
+        return {params:c.params||{},rank:i+1,crowned,ismax,cfgNo,isV,wfV,lbV,lbSlice,fullRun,fullRunStar,mdd,mar,sharpe,sortino,foldsHeld,mmPf,mmWr,mmApt,mmN,rankTip,selIdx:_selSrcIdx.get(c),isCal:_isCal,searchIsV,foldWfV,_dispOnly:_robSet.has(c),
           // v72 (owner ask: RAW's reward/risk rows should follow the SAMPLE toggle like GATE/
           //   TILT/HYBRID): raw candidate reference so _rawP below can read its is_rng/wf_rng/
           //   lockbox blocks (engine validate.py v72 — absent on runs saved before that change).
@@ -13587,6 +13594,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
           return _sv(b)-_sv(a);});
         cols.forEach((c,_ri)=>{c.dataAttr=' data-mtxcol="raw:'+_ri+'"';});
       }
+      // read AFTER both sorts above, so these are the keys the scatter and the ALL table
+      //   will actually emit ('raw:'+cols.indexOf(col) below reads this same final order).
+      const _rawKeyBySel={};
+      cols.forEach((c,_ri)=>{if(c.selIdx!=null)_rawKeyBySel[c.selIdx]='raw:'+_ri;});
       const table=_matrixTbl(cols,groups,{compact:true})
         ;   // v66.4 (owner): the footnote text moved into this tile's ⓘ — see _fullNote below.
       // honesty notes + the crown/robustness paragraph + the funnel-path caption — all relocated
@@ -13682,7 +13693,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       //   until now silently: run 307 LOCKBOX showed 10 RAW columns in the table and 6 rows in
       //   the pooled ALL table with nothing on screen accounting for the other 4. Carry the
       //   refusal count out so the pooled views can say it.
-      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw,
+      return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw,rawKeyBySel:_rawKeyBySel,
               scatterDrop:Math.max(0,cols.length-_scatterPtsRaw.length)};};
     // v71.2 (owner: "maybe just dont have a 1a or 2a on champion or funnel. leave them as just
     //   tabs"): noTag keeps the tag doing its job in the logic below while dropping it from the
@@ -13710,6 +13721,9 @@ namespace NinjaTrader.NinjaScript.Strategies {
       const _okEqS=c=>c&&c.equity&&Array.isArray(c.equity.cum)&&c.equity.cum.length>1;
       const selMode=!isL&&SELN&&Array.isArray(SELN.candidates)&&SELN.candidates.some(_okEqS);
       let crownedC=null,isMaxC=null,lbCs=[],poolAll=[],hasLB=false,Wopt=['',''],Wlb=null;const extYs=[];
+      // candidate object -> its index in sel.candidates.concat(sel.robust), mirroring the
+      //   identical concat in selectionTableHtml. Used only to stamp a line, never to name one.
+      const _selSrcIdx=new Map();
       // v64.87 (item 5): the run config-list number per crown-pool candidate (same _cfgNoOf match
       //   the chart legend labels use below) — filled in once the funnel builds its series, then
       //   handed to selectionTableHtml so its CONFIG # column agrees with the chart, instead of
@@ -13719,6 +13733,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
         // poolAll = the top-K WALK-FORWARD set (crown pool + display-only robust extras) — the
         //   configs that "warranted WF testing"; these continue past the in-sample door.
         poolAll=cand.concat(Array.isArray(SELN.robust)?SELN.robust:[]).filter(_okEqS);
+        cand.concat(Array.isArray(SELN.robust)?SELN.robust:[]).forEach((c,j)=>_selSrcIdx.set(c,j));
         crownedC=cand.find(c=>c.crowned&&_okEqS(c))||null;
         let mm=-Infinity;cand.forEach(c=>{if(_okEqS(c)&&(c.is_pnl||0)>mm){mm=c.is_pnl||0;isMaxC=c;}});
         Wopt=((VV&&VV.windows)||{}).optimize||['',''];Wlb=((VV&&VV.windows)||{}).lockbox||null;
@@ -13989,10 +14004,11 @@ _timeOk?Math.max(0.02,Math.min(0.98,(_oE-_oS)/(_lE-_oS))):0.84;
           // v73.42x (owner): drawn GREEN - the RAW family colour, same as its key row - not
           //   the per-config hue (_hc still feeds the explorer + 2C headers, where configs
           //   must stay tellable apart; here it made RAW lines read as other families).
-          wf+=_proc(c.equity.cum.map(v=>v*mult),'#1d9e75',0.55,1);});
+          const _si=_selSrcIdx.has(c)?_selSrcIdx.get(c):null;
+          wf+=(_si!=null?('<g data-selidx="'+_si+'">'):'')+_proc(c.equity.cum.map(v=>v*mult),'#1d9e75',0.55,1)+(_si!=null?'</g>':'');});
         let ov='';
-        if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax"'+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,1)+'</g>';
-        if(crownedC)ov+='<g data-kg="crown">'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
+        if(isMaxC&&isMaxC!==crownedC)ov+='<g data-kg="ismax"'+(_selSrcIdx.has(isMaxC)?(' data-selidx="'+_selSrcIdx.get(isMaxC)+'"'):'')+((+(APREF.a2kAll||0))?'':' style="display:none"')+'>'+_proc(isMaxC.equity.cum.map(v=>v*mult),'#3a9bdc',0.7,1)+'</g>';
+        if(crownedC)ov+='<g data-kg="crown"'+(_selSrcIdx.has(crownedC)?(' data-selidx="'+_selSrcIdx.get(crownedC)+'"'):'')+'>'+_proc(crownedC.equity.cum.map(v=>v*mult),'#1d9e75',0.9,1)+'</g>';
         // top-3 lockbox continuation [lockbox door → right edge] — DOTTED per the procedure
         // v71.0 (owner: "2a gutter pils not alined"). The alignment was not the gutter box this
         //   time - it was the de-collide pass. Eleven pills were being pushed 8 svg units apart to
@@ -19057,13 +19073,21 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //    4A neighbour robustness · 4B config-PnL distribution. (CLASSIC shows the same tags —
       //    they are dashboard coordinates, not classic section numbers.) ──
       const _eqSink={};
-      const _eq=(_canFunnel(d)?topEqOverlayHtml(d,mlt,_cfgN+'A',_eqSink,1):'');
+      let _eq=(_canFunnel(d)?topEqOverlayHtml(d,mlt,_cfgN+'A',_eqSink,1):'');
       // v64.88 (item 1/2, owner redesign): the SELECTION DETAIL crown-pool table is promoted
       //   out of the 2A card into its own 2B CONFIGS · RAW tile — built here (independent of
       //   whether 2A itself rendered) from d.selection directly; only the CONFIG # column needs
       //   the funnel's own chart-legend match (_eqSink.cfgNoMap), so it alone falls back to a
       //   dash when 2A did not run.
       const _selParts=selectionTableHtml(d.selection,mlt,_eqSink.cfgNoMap,d.validate,d);
+      // The funnel is built BEFORE the 1E columns exist, and the key is a POSITION in a column
+      //   order that RANK BY re-sorts - so the funnel stamps a stable per-candidate id and the
+      //   real key is swapped in HERE, with the order final. Same objects on both sides; no
+      //   label matching anywhere in this join. A candidate with no column has its stamp
+      //   REMOVED rather than left dangling, so a hover can never light the wrong line.
+      if(_selParts&&_selParts.rawKeyBySel&&_eq)
+        _eq=_eq.replace(/ data-selidx="(\d+)"/g,function(m,j){
+          var k=_selParts.rawKeyBySel[+j];return k?(' data-hlkey="'+k+'"'):'';});
       // v64.90 (item 1, owner-reported bug): 2B now gets its OWN bordered tile — the exact same
       //   chrome _colStyle gives 2C below it (background / border / radius / padding / resize
       //   handle) — instead of rendering as a bare header + table hanging under 2A's card. The
@@ -34317,7 +34341,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const set=k=>{_hlEl.textContent=k?('[data-hlkey]{transition:opacity .08s linear}'
             +'[data-hlkey]:not([data-hlkey="'+esc(k)+'"]){opacity:.18}'
             +'[data-hlkey="'+esc(k)+'"]{opacity:1;filter:brightness(1.35)}'
-            +'tr[data-hlkey="'+esc(k)+'"]{background:color-mix(in srgb,var(--text) 14%,transparent)!important}'):'';};
+            +'tr[data-hlkey="'+esc(k)+'"]{background:color-mix(in srgb,var(--text) 14%,transparent)!important}'
+            +'g[data-hlkey="'+esc(k)+'"] polyline{stroke-width:1.8}'):'';};
         content.addEventListener('mouseover',e=>{const t=e.target&&e.target.closest?e.target.closest('[data-hlkey]'):null;
           if(t)set(t.getAttribute('data-hlkey'));});
         content.addEventListener('mouseleave',()=>set(''),true);
