@@ -710,7 +710,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.746';
+const VERSION='73.747';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -12363,7 +12363,13 @@ namespace NinjaTrader.NinjaScript.Strategies {
                +'<line x1="'+x(0)+'" y1="'+T+'" x2="'+x(0)+'" y2="'+y(0)+'" stroke="var(--border)" stroke-width="1"/>'
                +'<text x="'+((L+x(1))/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="9" fill="var(--text4)">SHARE OF TRADES (best first)</text>'
                +'<text transform="translate(13,'+((T+y(0))/2)+') rotate(-90)" text-anchor="middle" font-size="9" fill="var(--text4)">SHARE OF PROFIT</text>'
-               +'</svg></div>';})());
+               +'</svg></div>';})()
+          +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% \u00b7 top 5 = '+Math.round(_cc.s5*100)+'% \u00b7 top 10 = '+Math.round(_cc.s10*100)+'% of net'
+            // "net without the top five" is subtracted from the SAMPLE's net when the exact
+            //   figure is missing, so it goes negative on runs that are nothing of the kind.
+            //   Better to say the read is unavailable than to print a loss that is arithmetic.
+            +(_cc.exact?(' \u00b7 net without top 5 '+fmtUsd(Math.round(_cc.wo5))+' \u00b7 without top 10 '+fmtUsd(Math.round(_cc.wo10))):'')
+            +(_cc.exact?'':' <span style="color:var(--text5)">(shares are a floor: measured from the '+_cc.n.toLocaleString()+' trades this run saved, so the true share can only be higher)</span>')+'</div>');
     const _distViewRail=(key,cur,opts,lbl)=>{
       const on=opts.filter(o=>o[0]===cur)[0]||opts[0]||['',''];
       const tip=(o)=>String(o[2]||('show '+String(o[1]).replace(/<[^>]*>/g,''))).replace(/"/g,'&quot;');
@@ -19199,12 +19205,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +_concBody(_cc,_ccc)
             +(_cc.exact?'':'<div style="font-size:9px;color:var(--text5)" data-concwait="1">measured from the saved '+_cc.n+'-trade sample \u2014 fetching the real trade list\u2026</div>')
           +'</div>'
-          +'<div style="font-size:var(--fsxs);color:'+_ccc+'">top 1 = '+Math.round(_cc.s1*100)+'% \u00b7 top 5 = '+Math.round(_cc.s5*100)+'% \u00b7 top 10 = '+Math.round(_cc.s10*100)+'% of net'
-            // "net without the top five" is subtracted from the SAMPLE's net when the exact
-            //   figure is missing, so it goes negative on runs that are nothing of the kind.
-            //   Better to say the read is unavailable than to print a loss that is arithmetic.
-            +(_cc.exact?(' \u00b7 net without top 5 '+fmtUsd(Math.round(_cc.wo5))+' \u00b7 without top 10 '+fmtUsd(Math.round(_cc.wo10))):'')
-            +(_cc.exact?'':' <span style="color:var(--text5)">(shares are a floor: '+_cc.n.toLocaleString()+' of the run\'s trades were saved, so the true share can only be higher - re-run for the exact figure)</span>')+'</div>'});}
+});}
       const _ensH=ensembleCardHtml(d.ensemble,mlt);
       if(_ensH&&_ensH.replace(/\s/g,''))_chips.push({k:'ens',ic:'🧩',nm:'ENSEMBLE',q:'blend of top-K vs the single best config',st:(d.ensemble&&d.ensemble.improved)?'ok':'info',cc:(d.ensemble&&d.ensemble.improved)?'var(--green)':'var(--text3)',chip:(d.ensemble&&d.ensemble.improved)?'blend wins':'single best',html:_ensH});
       const _plH=plateauCardHtml(d.plateau_pick,d.best_params,mlt);
