@@ -168,15 +168,17 @@ var CASES=__CASES__, FIX=__FIX__;
         r.legsInSide=0;
         try{var _lr=d.querySelector('tr[data-paperleg]');
             var _sb=d.querySelector('[data-p2side]');
-            if(_lr&&_sb&&_sb.parentElement&&_sb.parentElement.firstElementChild)
-              r.legsInSide=_sb.parentElement.firstElementChild.contains(_lr)?1:0;}catch(_e){}
+            // since 2026-09-14 the rail can sit on either side; it carries data-p2col="side"
+            var _side=d.querySelector('[data-p2col="side"]')||(_sb&&_sb.parentElement?_sb.parentElement.firstElementChild:null);
+            if(_lr&&_sb&&_side)
+              r.legsInSide=_side.contains(_lr)?1:0;}catch(_e){}
         // GEOMETRY, not just existence: the owner rejected two sidebars whose controls
         // wrapped into multi-line blobs, and every structural gate passed on both. A
         // segmented tray is one line of chips - if any tray in the sidebar renders
         // taller than ~2 lines, the layout has collapsed into wrapping again.
         r.sideTrayMax=0;
         try{var _sb2=d.querySelector('[data-p2side]');
-            var _col=_sb2&&_sb2.parentElement?_sb2.parentElement.firstElementChild:null;
+            var _col=d.querySelector('[data-p2col="side"]')||(_sb2&&_sb2.parentElement?_sb2.parentElement.firstElementChild:null);
             if(_col){var _trays=_col.querySelectorAll('[data-ptray]');
               for(var _ti=0;_ti<_trays.length;_ti++)
                 r.sideTrayMax=Math.max(r.sideTrayMax,_trays[_ti].clientHeight);}}catch(_e2){}

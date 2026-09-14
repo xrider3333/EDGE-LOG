@@ -722,7 +722,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.779';
+const VERSION='73.780';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -740,7 +740,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.779',date:'2026-09-14',notes:['CORRECTION TO v73.775 - sized hybrids on EXPLORE follow your option A. v73.775 sized every stretch of a HYBRID recycled or HYBRID equal-DD row against its own unsized twin, calling that the run report rule. It was the report OLD rule: on 2026-09-13 you chose option A, and the report 1E tables have sized a column ONCE for the ticked sample since v73.772, so the stretch rows add up to TOTAL. The EXPLORE board now does exactly the same.','How the one size is chosen, identical to the report: the engine block for the ticked pick against its own unsized twin; for a pick with no engine block (IN-SAMPLE + LOCKBOX) REDEPLOY uses the exact trade counts over the ticked stretches and EQUAL-DD the whole-run size. Every dollar figure and the drawdown use that one size, so the in-sample, walk-forward and lockbox money add up and the MAR hover no longer needs to explain a gap. That includes TOTAL on these rows - the whole run at the ticked sample size - and its hover now says so. Consequence you accepted: a stretch figure changes when another stretch is ticked.']},{v:'73.778',date:'2026-09-14',notes:['WEBULL PAPER TRADING (owner: rename it to webull paper trading). The WEBULL QQQ view under PAPER TRADE was headed QQQ Shadow Book; it now reads Webull Paper Trading, and the word shadow is gone from its labels (status line, chart notes, trade drawer). Nothing else changed.']},
+const CHANGELOG=[{v:'73.780',date:'2026-09-14',notes:['PAPER TRADE, NT8 FUTURES - ROBINHOOD MAKEOVER (owner: give it a better Robinhood UI makeover and make most of the info fit on one screen). One big net number with ONE bold line for all switched-on strategies together (each strategy stays as a faint line behind it) - hover the chart and the big number follows the cursor, day by day. 1W / 1M / All are tabs under the chart. A stats grid (trades, win rate, profit factor, average trade / win / loss, best and worst day, max drawdown, green days) sits beside a compact calendar. The strategy list moved to a right-hand rail, like the Webull QQQ view: filters shrink to two segmented lines and three pills, rows are tighter and each net is a coloured pill. Same numbers, same filters, same trade table and panels underneath.']},
+{v:'73.779',date:'2026-09-14',notes:['CORRECTION TO v73.775 - sized hybrids on EXPLORE follow your option A. v73.775 sized every stretch of a HYBRID recycled or HYBRID equal-DD row against its own unsized twin, calling that the run report rule. It was the report OLD rule: on 2026-09-13 you chose option A, and the report 1E tables have sized a column ONCE for the ticked sample since v73.772, so the stretch rows add up to TOTAL. The EXPLORE board now does exactly the same.','How the one size is chosen, identical to the report: the engine block for the ticked pick against its own unsized twin; for a pick with no engine block (IN-SAMPLE + LOCKBOX) REDEPLOY uses the exact trade counts over the ticked stretches and EQUAL-DD the whole-run size. Every dollar figure and the drawdown use that one size, so the in-sample, walk-forward and lockbox money add up and the MAR hover no longer needs to explain a gap. That includes TOTAL on these rows - the whole run at the ticked sample size - and its hover now says so. Consequence you accepted: a stretch figure changes when another stretch is ticked.']},{v:'73.778',date:'2026-09-14',notes:['WEBULL PAPER TRADING (owner: rename it to webull paper trading). The WEBULL QQQ view under PAPER TRADE was headed QQQ Shadow Book; it now reads Webull Paper Trading, and the word shadow is gone from its labels (status line, chart notes, trade drawer). Nothing else changed.']},
 {v:'73.777',date:'2026-09-14',notes:['ONE PAPER TRADE TAB (owner: create one paper trade tab and put the two current tabs as subtabs to toggle between). PAPER and QQQ PAPER are now a single PAPER TRADE tab with a toggle underneath: NT8 FUTURES (the NinjaTrader paper legs) and WEBULL QQQ (Webull paper trading). Both views are unchanged inside; the tab reopens whichever one you had open last.']},
 {v:'73.776',date:'2026-09-14',notes:['NOISE ROUND 57, PART TWO - SINGLE VALIDATES OF THE EXACT CONFIGS (owner: run single validates on the exact configs too). The neighbourhood Auto-Validates crowned a neighbour every time, so each of the five configs was also run as one fixed configuration through Gate-validate: runs 389 to 393 (NOISE-41 to NOISE-45).','READ THEM WITH CARE. A Gate-validate headline on Past Runs is the ML filter number, not the plain config. The plain config rows are inside the report as ungated. The last year is only opened when an ML filter earns its way there on the earlier years, which happened for run 390 alone - so four of the five show no last-year numbers on EL.']},{v:'73.775',date:'2026-09-14',notes:['WIN % IS ON BOTH EXPLORE AXES, right after PF (owner: add win rate next to PF). It plots the win rate of the ticked stretch, the same figure the WIN % column prints, and a row that saves none for that stretch is left off the chart and named underneath.','ONE MAR ON EXPLORE (owner: go for 3). MAR on the two chart axes and the MAR sort were plain profit divided by drawdown, while the MAR column - like every other MAR in the app - is profit PER YEAR over drawdown. Rows covering different lengths of time could therefore sort in an order that contradicted the numbers printed beside them. The axes and the sort now read the annualised MAR; a row with no date window dashes and says why.','HYBRID RECYCLED AND EQUAL-DRAWDOWN ROWS ARE SIZED PER STRETCH (owner: go for 4). They scaled every stretch by one factor measured on the whole run. The run report has sized each stretch by its own ungated twin since v69.6, and the board now does the same, so under REDEPLOY or EQUAL DD a walk-forward or lockbox figure is what that sizing earns on that stretch - which also means the stretches no longer have to add up to the whole. DD (R) on EVERY configuration row that saves an average loss per stretch - raw, tilt, keel and all three hybrids, not only the sized ones - now divides the stretch drawdown by that same stretch average losing trade. It used to divide by the whole-run average loss, so a single-stretch tick mixed two stretches; the figure moves for those rows. Gate rows save no per-stretch average loss and are unchanged. Under a combined tick a sized hybrid reads the combined stretch own total at that stretch own factor, as the report does.','RUNBOARD WHOLE-RUN DRAWDOWN IS THE SAVED ONE (owner: go for 6). It was read off the saved equity curve even though every validated run saves a whole-run drawdown. Checked on 46 runs: the saved figure is never smaller, and the curve read up to a third shallow, so a whole-run MAR on RUNBOARD read up to 1.5 times high. The saved figure is used now. Where a drawdown still has to come off the curve it carries a ~, is explained under the grid, and can never take the best mark. Correction to the audit: books were never affected - RUNBOARD reads each book own saved drawdown.']},{v:'73.773',date:'2026-09-13',notes:['HYBRID RECYCLE AND HYBRID EQUAL-DRAWDOWN: THE STRETCH ROWS NOW ADD UP TO TOTAL (owner pick, option A). These two tabs size each hybrid column up or down. Since v73.768 their TOTAL and DD used one size for the whole ticked SAMPLE, but the IS $, WF $ and LB $ rows still used a separate size per stretch - on run #384 the rf hybrid, IS + WF ticked, read IS $49k + WF $565k beside a TOTAL of $746k.','Every dollar row, TOTAL, DD, EV and AVG CONTRACTS on those two tabs now use the same single size for the ticked years, so the rows add up: the same rf column reads IS $30k + WF $716k = $746k. A stretch row can therefore change when you tick or untick another stretch - same trades, sized for the whole pick. The one-lot HYBRID, TILT and KEEL tabs do not change.','The 1E render gate now checks that the stretch rows add up to TOTAL on the recycle tab, for a current run, an old run and a pick that skips a stretch, and it fails the previous build.']},{v:'73.771',date:'2026-09-13',notes:['CORRECTION TO v73.769, found checking it against live runs. Drawdown, Sharpe and Sortino for IN-SAMPLE, WALK-FORWARD and WALK-FORWARD + LOCKBOX on a run row were cut from the saved equity curve at a boundary placed by trade count. That boundary was wrong: the saved curve is the champion held at one set of settings across every year, while the walk-forward folds are re-fitted and trade a different number of times - run #340 champion made 215 walk-forward trades against 236 in its folds, run #343 made 505 against 481. Those cuts measured the wrong stretch and now dash. The claim that the curve boundary was placed exactly is withdrawn.','What stays, and why it is sound: LOCKBOX keeps its saved figures; IN-SAMPLE + WALK-FORWARD, whose money is exactly the champion pre-lockbox money, keeps a drawdown, Sharpe and Sortino cut from the curve at the saved lockbox boundary, and that drawdown carries a ~; ALL THREE reads the run own saved whole-run totals, with no ~. Books keep theirs, because a book has no walk-forward and its split is that same saved boundary.','Read IN-SAMPLE on a run row for what it is: the whole run minus the pooled, re-fitted walk-forward folds minus the lockbox - the same remainder the run report and RUNBOARD use for in-sample money. Its trades, profit factor and win rate follow that convention; they are not the champion own in-sample trades, which only the configurations view of a run carries.']},{v:'73.770',date:'2026-09-13',notes:['QQQ SHADOW BOOK CAN NOW RUN OFF THE CLOUD SIGNAL ENGINE INSTEAD OF NINJATRADER (owner: move it off NinjaTrader, which kept disconnecting and cost the shadow every trade on 2026-09-03/04). A new setting, signal source, defaults to ENGINE: entries and exits now come from the same crowned strategies computed on Webull or Yahoo QQQ bars, and shadow fill prices come from that same bar, never from NinjaTrader or the NQ export. The old NinjaTrader mirror is kept as a fallback setting for now. Every rail is unchanged either way: the share cap, the daily loss breaker, the session window, the kill file and the feed heartbeat.','THE NOISE LEG WAS STALE. The cloud signal engine was still pricing the NOISE leg off the retired run 243 config from three weeks ago; it now uses the current crown, run 304, the same definition already used by the NQ paper board.','NINJATRADER MODE ALSO GOT SAFER: a strategy re-enable or relaunch can fire a startup entry that matches no real signal (this happened twice on 2026-09-03). Those are now ignored and clearly marked rather than mixed in with real trades, on a five-minute guard window.','QQQ PAPER TAB: a new STATUS block at the top states, in plain words, the signal source, the price source and how many seconds behind it is, whether this is running on the PC or in the cloud, and the age of the last update with a clear STALE label. Each leg now shows its run number (314, 335, 304) and the ENGU-Q leg keeps its own caveat about running an ETH-fit crown on a regular-hours-only tape.']},{v:'73.769',date:'2026-09-13',notes:['RUN ROWS ON EXPLORE FOLLOW THE STAGE YOU TICK (owner: the metrics should follow the sample selected). A run row used to carry figures for the LOCKBOX only: under any other tick its money followed the stage while PF, drawdown, win %, Sharpe, Sortino, EV R, DD (R) and MAR quietly read the whole run, and walk-forward per-year figures divided by the whole run. Each run row now carries its own figures for every stretch, from what the run saved.','WALK-FORWARD pools the folds - money, trades, wins, and gross wins and losses rebuilt from each fold own net and profit factor. LOCKBOX is the saved lockbox. IN-SAMPLE is the whole run minus walk-forward minus lockbox, which is exact because trades, wins and both grosses add; checked against the saved curve end to the dollar. IN-SAMPLE + WALK-FORWARD and WALK-FORWARD + LOCKBOX add the two; ALL THREE is the run own whole-run totals. A book reads its own pre-lockbox, lockbox and whole blocks.','Drawdown, Sharpe and Sortino that were never saved for a stretch are cut from the saved equity curve, which is laid out per trade - its lockbox mark sits at exactly the lockbox share of trades - so the in-sample / walk-forward boundary is placed by trade count. A drawdown cut that way carries a ~ in the MAR and DRAWDOWN cells, because the curve is thinned for storage and can only read shallow.','WHERE IT CANNOT BE DONE IT SAYS SO. On 6 of the 44 validated runs loaded today, including the ENGU-Q crown #335, the walk-forward folds hold more trades than follow the split, so they overlap the in-sample years; those runs dash every in-sample figure with that reason rather than printing a remainder that mixes the two - and any tick that includes IN-SAMPLE dashes the money-based figures too, rather than quietly adding up only the stretches that can be read; with all three ticked they read the whole-run total, which is known exactly. IN-SAMPLE + LOCKBOX has no combined drawdown or profit factor, so those dash, with the trades added.']},{v:'73.768',date:'2026-09-13',notes:['THE TILT, KEEL AND HYBRID TABLES UNDERSTATED DRAWDOWN ON TWO-STRETCH SAMPLES. With IS + WF or WF + LB ticked on the 1E matrix, the DD row was read off the saved equity curve - about 300 points across the whole run - so any drop that opened and closed between two saved points never showed. On run #384 all 32 of those cells read low, by 2% to 34%, and MAR, DD (R) and the heat map inherited the error.','THOSE TWO PICKS NOW READ THE ENGINE OWN FIGURES for the combined span, measured trade by trade - the same figures the GATE tab already used. On the one-lot tabs dollars and trade counts do not move; drawdowns get deeper and lose the degree sign. On the HYBRID redeploy and equal-drawdown tabs these two picks now size each column with ONE ratio across the combined span, the way the all-three pick already did - the only way the drawdown beside the dollars describes the same book - so the dollars there move too (run #384 redeploy, IS + WF: up to 21%). Runs saved before the engine wrote these spans keep the old curve reading, still marked with the degree sign.','The 1E render gate now seeds combined spans whose drawdown the curve reading, the larger of the two parts and the sum of the two parts would each get wrong, and it fails the old build.']},{v:'73.766',date:'2026-09-13',notes:['NOISE ROUND 57 - EVERY NOISE CONFIG THAT WAS NEVER AN AUTO-VALIDATE CHAMPION IS NOW QUEUED (owner: start auto validating the ones that are not). Five jobs, 900 in-sample trials each: the live crown and the retired 243 each keeping only trades taken during an hourly squeeze, the crown settings on 15-minute bars, the crown settings waiting for 2 closes, and the cost-robust corner.','Each is a fenced neighbourhood with the configuration itself as every setting default, and each was checked before queueing: its centre reproduces the scorecard numbers to the dollar and anything outside the fence is refused. Read their lockbox strips with care - for NOISE the saved lockbox restarts cold and drops part of the year.']},{v:'73.765',date:'2026-09-13',notes:['COMPARE SAYS WHICH RUNS IT IS READING (owner: go for it). The run list loads only the newest runs, and every COMPARE screen ranked, crowned, overlaid and plotted from that slice without saying so - the NOISE crown #304 was simply not on the tab. The right of each top bar now names the slice, for example NEWEST 75 RUNS #310 to #384, and offers LOAD 75 MORE (the loader Past Runs already has) and LOAD ALL (new). It replaces the leftover beta labels that sat there. One load runs at a time.','A GUARD UNDER BOTH LOADERS. If the light run-list request ever fails, the app falls back to downloading run documents in full, which is slow and heavy; that fallback now never takes more than 75 runs, whatever a LOAD MORE or LOAD ALL asked for, so a network blip after LOAD ALL cannot freeze the page pulling every run whole.','CHAMPIONS ARE HONEST ABOUT WHERE THEY COME FROM. Only one run on the account is starred, so every other family champion was simply its top score, and a book has no robustness score at all - its saved validate block has no gate counts - so the BOOKS champion fell through to money and crowned #378, a run labelled KNOB TEST. Now: a starred run always wins its family; a KNOB TEST is never champion unless starred; books rank on pre-lockbox net over drawdown, the measure book adoption has used, and never on the sealed lockbox; and each family row says either your crown or top pick, no crown, with a hover saying how to make it your crown.']},{v:'73.762',date:'2026-09-13',notes:['NOISE ROUND 56 - THE SCORECARD (owner: rank the noise configs with their metrics, and say which are auto-validated, which are not, and which need it). Every NOISE configuration run so far was replayed on one continuous tape and window at house cost, ranked on recent profit factor first. The full table, with trades, win rate, net, profit factor, drawdown, profit factor by era and sealed year, and each validation status, is in the family doc.','THE TOP ROW IS NEW: the squeeze FILTER on the live crown. Run 321 validated the filter on the retired base. Moved onto the live crown, the textbook hourly setting keeps 615 trades at profit factor 2.351, 2.184 since 2024 and 1.985 in the sealed year, with one losing year of seventeen and 1.814 without its ten best trades. 25 of the 27 grid settings beat the raw crown and all nine hourly settings sit between 1.68 and 2.35, but the textbook cell is the top of that plateau, so expect nearer 2.0.','ONLY ONE CONFIG NEEDS A VALIDATE AND IT IS QUEUED: run 321 re-based onto the live crown with its own 27-cell grid unchanged, parity checked to the dollar. Its saved lockbox must be read on a continuous replay. The other never-validated configs either duplicate a validated one or fail on their own numbers.','ALSO ON THIS BASIS the retired 243 outranks the live crown on every quality number and made slightly more in the sealed year - the crown swap was a coin flip, not an upgrade.']},{v:'73.761',date:'2026-09-13',notes:['THE ML LINES NO LONGER RUN STRAIGHT AFTER THE LOCKBOX DOOR (owner: the lockbox on the 1A funnel still shows as stretched). Measured on run 384: the gate, tilt, KEEL, hybrid, recycle and ALL CONFIGS lines each had about 20 saved points for the whole lockbox year - one point every 11 pixels, against one every 2.5 before the door - so with the lockbox a quarter of the width they drew as long straight strokes. The raw config lines never did this, because they save their lockbox stretch on its own with 80 points.','WHY. Every ML line is saved as ONE 300-point sample of the whole run. On run 384 the 273 lockbox trades are under 7 per cent of its 4,075 trades, so they get under 7 per cent of the points - about 20 - however wide the lockbox is drawn.','THE FIX. New validates save a dense lockbox section next to every ML line: up to 80 points read off the real trade-by-trade running total, never smoothed or filled in. The funnel draws the saved points up to the door, the value on the door, then that section - in ONE CURVE, DOORS, ALL CONFIGS and the fullscreen explorer. The in-sample and walk-forward part of each line is unchanged, and so is every finish figure, pill and key value, because the section ends on the same final total. A line whose saved sample already has as many lockbox points - a short run, or one whose lockbox is a big share of its trades - keeps that sample, so no lockbox is ever drawn with fewer real points than before; and a lockbox so small that only the final saved point sat past the door, the most stretched case of all, does get its section.','OLD RUNS. Runs saved before this carry no lockbox section, so they keep exactly their old look (checked byte for byte on run 384 and on the report test run) until they are backfilled or re-run - and new validates only carry it once the runner is running this version. A section that does not line up with its own curve is ignored rather than drawn in the wrong place.']},
 {v:'73.760',date:'2026-09-13',notes:['NOISE ROUND 55 - THE FRONTIER, LIKE FOR LIKE (owner: which noise configuration is most worthy of forward or live testing, and does anything never auto-validated approach the frontier). No two NOISE rows on the board are comparable - three different end dates, each with its own split and lockbox - so every distinct candidate was replayed on one tape, one window, two costs and the same eras.','RUN 382 CORRECTED. It returned PASS with a lockbox of 239 trades at profit factor 1.395. The continuous run takes 314 trades that year at 1.275, the crown own figure: the validate grades its lockbox by reloading the tape with no history, and NOISE needs forty prior sessions, so a quarter of the year vanishes. On the continuous basis its own pick fails the bar written into its file. Every saved NOISE lockbox is a cold-restart number, so round 54 ranking is replaced.','THE ONE THING THAT BEATS THE CROWN: the textbook hourly squeeze (hourly frame, length 20, ratio 1.0) as a 1.5x size tilt. It sat inside run 382 grid and was never picked because that search ranks on dollars. It beats the crown in both eras at both costs, passes the whole tilt battery at both costs (walk-forward drawdown falls 11 percent, zero of 2000 shifts match), sits on a plateau (all four hourly cells beat all four 30-minute cells), and keeps 97 percent of its gain when read a full hour late, so it is not a look-ahead. Thin spot: only 41 tagged trades in the sealed year.','NOTHING ELSE BEATS IT. Run 316 (confirm 2 bars) comes closest with far less drawdown, but since 2024 it earns 22 percent less on 11 percent less resampled risk. The 2-minute, 15-minute and 1-minute cards, the cost-robust corner and run 305 all lose their recent profit factor. The momentum tilt is real but adds 34 to 73 percent drawdown. The textbook squeeze on the live crown is not on paper anywhere yet.']},{v:'73.759',date:'2026-09-13',notes:['BOTH AXES OFFER THE SAME TWELVE MEASURES, IN THE SAME ORDER (owner: anything missing from the vertical or the horizontal, add it; left to right should go from risk metrics to reward metrics). The vertical axis gains DRAWDOWN in dollars - DD % was already there - and the horizontal gains RAW PROFIT, MAR and EV in dollars.','The order on both is SORTINO, SHARPE, DD (R), DD %, DRAWDOWN, MAR, PF, EV R, EV, R / YR, ROC % / YR, RAW PROFIT: risk-adjusted first, then the drawdowns, then reward over risk, then reward per trade, then reward per year, then the money itself.','On VS CROWN the point hover now names the horizontal measure it is quoting. It said drawdown whatever was across the bottom - Sortino, EV R, anything - which predates these new pairings but would have mislabelled them too.','$/TRD FOLLOW-UP: the fix one version ago also moves EV (dollars per trade) wherever it is plotted, on either axis, because the chart reads the same figure the column prints. And a row that saves per-stage figures but no trade count of its own now takes its whole-run count rather than falling back to the ticked stage.','Each new pairing uses the reader the other axis already had, so a row sits at the same value whichever side a measure is put on. Dollar drawdown up the side ranks the SHALLOWEST first, like DD % and DD (R), and is never divided per year - a drawdown is one worst event, not a rate.']},{v:'73.758',date:'2026-09-13',notes:['RUN IS ITS OWN COLUMN, AND IT SORTS (owner: auto validate has different runs, I want to be able to sort that). It sits beside FAMILY on every table, not only under ALL columns, so configurations from different runs can be grouped at a glance. Click the heading to put the newest run first; rows never saved as a run sit last. It replaces the grey RUN column that only ALL used to show, so nothing is listed twice.','TRADES / YR, beside TRADES (owner: there is a cumulative trade count but no trades per year). It is the trade count divided by the years of the ticked stretch - the same count and the same window R / YR already uses, so EV R times TRADES / YR is R / YR on every row and the two can never disagree. It sorts like every other number column.','$/TRD IS WHOLE-RUN MONEY OVER WHOLE-RUN TRADES AGAIN, as its heading has always said. On a configuration row the trade count was being read per ticked stage while the money stayed whole-run, so with only WALK-FORWARD ticked, for example, a row divided all of its money by its walk-forward trades and read several times too high. Sorting on $/TRD also used a third formula of its own; it now orders by the figure the column prints.','FIXED ON THE WAY: with IN-SAMPLE and LOCKBOX ticked and WALK-FORWARD not, a configuration row printed its WHOLE-RUN trade count and divided by a window that still included the unticked walk-forward years. That combination is the one with no saved block of its own. Trade counts now add up the ticked stretches and the years add up the ticked stretches, so TRADES, TRADES / YR, R / YR, ROC, DD (R) and the MIN TRADES chart filter all read the stretches actually ticked. Every other combination gives exactly the figures it did before, because touching stretches add up to the same span.']},{v:'73.728',date:'2026-09-11',notes:['NOISE ROUND 54 - THE FORWARD-TESTING RANKING (owner: look at the noise configs ran thus and the compare scatter plots, give me a ranking for what you think is most worthy of forward testing). Thirty-five NOISE runs are on the board. Reading the scatter cloud each one searched, rather than the row it reported, changed two answers.','WHAT ONLY THE CLOUD SHOWS. The live crown sits at the 80th percentile of its own 495 configurations - it is not the peak, which is the shape you want because the plateau test picked it rather than the maximum. Every other candidate sits at the 87th to 100th. The 2-minute card has the thinnest cloud measured, only 64 percent of its neighbours making money at all against 100 percent for the 5-minute rows. And the resampling strip says the two compression legs had a drawdown shallower than 94 to 98 percent of their own reshuffled paths, so their headline risk figure is path luck as much as edge.','THE FINDING - THE COMPRESSION TILT BELONGS ON THE RETIRED BASE. The validated tilt, and both deployed paper legs, pin lookback 44 and volatility skip 90 - which is the crown the family retired on 2026-09-05. Re-basing it onto the live crown looked like an obvious fix and the battery says it is the wrong one: identical harness and identical null, the tilt PASSES on the retired base with drawdown growing 6 percent and zero of 2000 shifts matching, and FAILS on the live crown with sealed-year drawdown growing 17.9 percent against a 10 percent tolerance. It is real on both - it beats its own flat-leverage control everywhere - it just costs more risk on the newer base, which loosened the volatility skip and so takes about 400 more trades in noisier conditions. The deployed legs are not stale by mistake; they are on the base where the tilt passes.','THE RANKING. First the live crown raw, still unbeaten across eight swept spaces and the only row off the peak of its own cloud. Second the retired base with the tilt at 1.5x, already forward-testing and the only add-on that clears the whole battery. Third the live crown with the same tilt, the most money and the best risk-adjusted return measured but failing the drawdown clause, now queued for the house verdict with the tilt switched off inside its own admissible set as the parity control. Fourth the 2-minute card at small size for the diversification. Nothing else earns a slot.']},
@@ -31683,40 +31684,113 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +_pcwSeg+'</div>'
         +'<div style="padding:6px 8px 10px">'+_curveSvg(_winDates,_winSeries)+'</div></div>'
         +'<div class="p2sheet"><div style="padding:8px 14px 14px">'+_calHtml+'</div></div>';
-      // THE SIDEBAR, v4 - a PICKER, not a data table (owner 2026-08-29: cropped info,
-      // unclear affordances, two ALLs side by side). Two shapes only: a CHOICE is a
-      // labelled tray (label in the tray, active cell inverted); a TOGGLE is a checkbox
-      // line, same glyph convention as the strategy rows. If it has a checkbox it
-      // toggles; if it is a tray you pick one.
+      // ── ROBINHOOD MAKEOVER (owner 2026-09-14: "give it a better Robinhood UI makeover ...
+      //    make sure most of the info fits" on a ~2000x1200 screen). Same numbers, same
+      //    filters, same data-* hooks - only the shape changes. One big number with ONE bold
+      //    line you can scrub (the big number follows the cursor), range tabs under the
+      //    chart, a stats grid beside a compact calendar, and the strategy list as a
+      //    right-hand rail like Robinhood's watchlist (the Webull QQQ view already keeps its
+      //    rail on the right, so the two PAPER TRADE views now read the same way).
+      const _rhAcc=_H.net>=0?PNL_POS:PNL_NEG;
+      // the bold line = every switched-on strategy added together, day by day
+      const _rhTotal=_winDates.map((_,i)=>_winSeries.reduce((a,sr)=>a+(+sr.vals[i]||0),0));
+      const _rhN=_winDates.length;
+      const _rhAll=_winSeries.reduce((a,sr)=>a.concat(sr.vals),[0]).concat(_rhTotal);
+      const _rhPad=((Math.max(..._rhAll)-Math.min(..._rhAll))||1)*0.06;
+      const _rhMin=Math.min(..._rhAll)-_rhPad, _rhMax=Math.max(..._rhAll)+_rhPad, _rhRng=(_rhMax-_rhMin)||1;
+      const _rhX=i=>_rhN<=1?50:(i/(_rhN-1))*100;          // percent of the chart width
+      const _rhY=v=>(1-(v-_rhMin)/_rhRng)*100;             // percent of the chart height
+      const _rhChart=(()=>{
+        if(!_rhN)return '<div class="p2rhempty">NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START+'</div>';
+        // The SVG stretches to the box (preserveAspectRatio none) so the chart can take a
+        // share of the screen HEIGHT; strokes stay crisp through vector-effect, and every
+        // label is HTML positioned in percent so text never stretches with it.
+        const path=vals=>vals.map((v,i)=>(i?'L':'M')+_rhX(i).toFixed(3)+','+_rhY(v).toFixed(3)).join(' ');
+        const legs=_winSeries.map(sr=>'<path d="'+path(sr.vals)+'" fill="none" style="stroke:'+sr.color+'" stroke-width="1.2" opacity=".3" vector-effect="non-scaling-stroke"/>').join('');
+        const tot='<path d="'+path(_rhTotal)+'" fill="none" style="stroke:'+_rhAcc+'" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
+        const hasZero=_rhMin<0&&_rhMax>0;
+        const zero=hasZero?'<line x1="0" x2="100" y1="'+_rhY(0).toFixed(3)+'" y2="'+_rhY(0).toFixed(3)+'" style="stroke:var(--text5)" stroke-dasharray="2,5" stroke-width="1" vector-effect="non-scaling-stroke"/>':'';
+        const yv=[_rhMax-_rhPad,_rhMin+_rhPad];if(hasZero)yv.splice(1,0,0);
+        const yl=yv.map(v=>'<span class="p2rhy" style="top:'+_rhY(v).toFixed(2)+'%">'+fmtUsd(v)+'</span>').join('');
+        const nT=Math.min(7,_rhN);
+        const idx=[...new Set([...Array(nT)].map((_,i)=>Math.round(i*(_rhN-1)/Math.max(1,nT-1))))];
+        const xl=idx.map(i=>'<span class="p2rhx" style="left:'+_rhX(i).toFixed(2)+'%'+(i===0&&_rhN>1?';transform:none':(i===_rhN-1&&_rhN>1?';transform:translateX(-100%)':''))+'">'+(_winDates[i]||'').slice(5)+'</span>').join('');
+        return '<div class="p2rhchart" data-p2chart>'
+          +'<svg viewBox="0 0 100 100" preserveAspectRatio="none">'+zero+legs+tot+'</svg>'
+          +yl+'<div class="p2rhcur" data-p2cur></div><div class="p2rhdot" data-p2dot></div>'
+          +'<div class="p2rhxs">'+xl+'</div></div>';
+      })();
+      // read by the scrub handler in the wiring section - plain numbers, no DOM
+      window._p2Scrub={dates:_winDates,total:_rhTotal,ys:_rhTotal.map(_rhY),pos:PNL_POS,neg:PNL_NEG};
+      const _rhTabs=(PSCOPE==='TODAY')?''
+        :('<div class="p2rhtabs">'+['1W','1M','ALL'].map(w=>'<span data-pcwin="'+w+'"'
+            +(_pcw===w?(' class="on" style="color:'+_rhAcc+';border-bottom-color:'+_rhAcc+'"'):'')
+            +' title="'+(w==='ALL'?'The whole forward test':(w==='1W'?'The 7 days up to the newest trade':'The 30 days up to the newest trade'))+'">'+(w==='ALL'?'All':w)+'</span>').join('')
+          +'<span class="p2rhkey">bold line = all switched-on strategies together \u00b7 faint lines = each strategy \u00b7 hover the chart to scrub</span></div>');
+      const _rhStats=(()=>{
+        const rows=_heroRows, n=rows.length;
+        const pnl=t=>+t.pnl_usd||0;
+        const wins=rows.filter(t=>pnl(t)>0), losses=rows.filter(t=>pnl(t)<0);
+        const avg=a=>a.length?a.reduce((x,t)=>x+pnl(t),0)/a.length:null;
+        const byDay={};
+        rows.forEach(t=>{const d=t.run_date||_dOnly(t.exitTime||t.entryTime);if(d)byDay[d]=(byDay[d]||0)+pnl(t);});
+        const dv=Object.keys(byDay).sort().map(d=>[d,byDay[d]]);
+        const best=dv.length?dv.reduce((a,b)=>b[1]>a[1]?b:a):null;
+        const worst=dv.length?dv.reduce((a,b)=>b[1]<a[1]?b:a):null;
+        const upDays=dv.filter(x=>x[1]>0).length;
+        let pk=0,mdd=0;_rhTotal.forEach(v=>{pk=Math.max(pk,v);mdd=Math.min(mdd,v-pk);});
+        const money=v=>v==null?'\u2014':('<span style="color:'+(v>=0?PNL_POS:PNL_NEG)+'">'+fmtUsd(v)+'</span>');
+        const dshort=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});}catch(e){return d;}};
+        const cell=(lbl,val,sub,tip)=>'<div class="p2rhstat" title="'+String(tip||'').replace(/"/g,'&quot;')+'">'
+          +'<div class="p2rhsl">'+lbl+'</div><div class="p2rhsv">'+val+'</div><div class="p2rhss">'+(sub||'&nbsp;')+'</div></div>';
+        return '<div class="p2rhstats">'
+          +cell('Trades',n,_H.days+' trading day'+(_H.days===1?'':'s'),'Closed paper trades in this range, across the switched-on strategies.')
+          +cell('Win rate',n?Math.round(_H.wr*100)+'%':'\u2014',wins.length+' won \u00b7 '+losses.length+' lost','Share of trades that made money.')
+          +cell('Profit factor',_H.pf==null?'\u2014':(_H.pf===Infinity?'\u221e':_H.pf.toFixed(2)),_H.pf==null?'':(_H.pf>=1?'makes money':'loses money'),'Gross winning dollars divided by gross losing dollars. Above 1 makes money.')
+          +cell('Avg trade',money(n?_H.net/n:null),'net \u00f7 trades','Net dollars divided by the number of trades.')
+          +cell('Avg win',money(avg(wins)),'','Average dollars on a winning trade.')
+          +cell('Avg loss',money(avg(losses)),'','Average dollars on a losing trade.')
+          +cell('Best day',best?money(best[1]):'\u2014',best?dshort(best[0]):'','The single best day in this range.')
+          +cell('Worst day',worst?money(worst[1]):'\u2014',worst?dshort(worst[0]):'','The single worst day in this range.')
+          +cell('Max drawdown',money(mdd),'from the prior high','Deepest fall of the bold line below its previous high, measured day by day.')
+          +cell('Green days',dv.length?(upDays+' / '+dv.length):'\u2014',dv.length?(Math.round(upDays/dv.length*100)+'% of days'):'','Days that finished with money made, out of days that traded.')
+          +'</div>';
+      })();
+      // Same calendar, compact: shorter squares, and its footnote rides as a tooltip.
+      const _rhCal='<div class="p2rhcal" title="Each square is one day of paper trading, coloured by that day\u2019s money. Click a day to select its trades below.">'
+        +_calHtml.replace(/min-height:38px/g,'min-height:28px').replace(/<div style="margin-top:7px;font-size:8px;color:var\(--text5\)">Each square[\s\S]*<\/div>$/,'')
+        +'</div>';
+      // THE RAIL (Robinhood watchlist). Filters shrink to two lines of segmented controls
+      // plus three pills; the list itself is the same table, rows and switches as before.
       const legsCard=(()=>{
-        // iOS sidebar (owner 2026-09-08). Two shapes only: a SEGMENTED CONTROL picks one
-        // of several; a SWITCH turns one thing on or off. Nothing else is clickable.
         const esc=t=>String(t||'').replace(/"/g,'&quot;');
         const seg=(attr,val,on,lbl,tip)=>'<span data-'+attr+'="'+val+'" title="'+esc(tip)+'"'+(on?' class="on"':'')+'>'+lbl+'</span>';
-        const segRow=(lbl,cells)=>'<div class="p2seglab"><b>'+lbl+'</b><div class="p2seg" data-ptray>'+cells+'</div></div>';
-        const swRow=(attr,on,lbl,tip,extra)=>'<div class="p2srow" data-'+attr+' title="'+esc(tip)+'"><div style="flex:1;font-size:11px;font-weight:500">'+lbl+(extra||'')+'</div>'
-          +'<span class="p2sw'+(on?' on':'')+'" role="switch" aria-checked="'+(on?'true':'false')+'"></span></div>';
-        let h='<div class="p2sheet"><div class="p2sh"><span>Show</span></div><div style="display:flex;flex-direction:column;gap:8px;padding:6px 14px 12px">'
-          +segRow('WHEN',seg('mscope','TODAY',PSCOPE==='TODAY','Today','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
-                +seg('mscope','ALL',PSCOPE==='ALL','All time','The whole forward test.'))
-          +segRow('FAMILY',seg('pfam','ALL',PFAM==='ALL','All','every strategy family')
-                +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join(''))
-          +segRow('TYPE',seg('pkind','ALL',PKIND==='ALL','All','raw configs and ML overlays together')
-                +seg('pkind','RAW',PKIND==='RAW','Raw','only plain configs, no ML overlay')
-                +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)'))
-          +'</div>'
-          +swRow('pbase',PBASE,'Baselines only','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.')
-          +swRow('papercfg',!!window._paperShowCfg,'Show config + gate','Show which run and configuration each leg came from, and what its gate did, under its row.')
-          +(_nArch?swRow('patharch',_showArch,'Archived','Retired legs'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Switching on brings their rows AND their trades back everywhere.','<span class="p2tag">'+_nArch+'</span>'):'')
-          +'</div>';
+        const pill=(attr,on,lbl,tip,extra)=>'<span class="p2pill'+(on?' on':'')+'" data-'+attr+' role="switch" aria-checked="'+(on?'true':'false')+'" title="'+esc(tip)+'">'+lbl+(extra||'')+'</span>';
         const _crownGone=PAPER_LEG_DEFS.filter(d=>d.crown&&!LEGS_F.some(x=>x.k===d.k));
-        h+='<div class="p2sheet"><div class="p2sh">'
-          +'<span title="'+esc('Switch a strategy on to include it in everything on the right. \ud83d\udc51 marks the standing champion of its family.'
-            +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies \u00b7 '+_nShown+' of '+LEGS_F.length+'</span>'
-          +(_legOff.length?('<span data-paperlegall style="cursor:pointer;user-select:none;letter-spacing:.3px;text-transform:none;font-weight:600;color:var(--text2)">Include all</span>'):'')
-          +'</div>'+legTable+'</div>'
-          +'<div style="font-size:9.5px;color:var(--text5);padding:0 4px 6px;line-height:1.5">Switch = included in everything on the right. Green dot = running in NinjaTrader. \ud83d\udc51 = family champion.</div>';
-        return h;
+        return '<div class="p2rail">'
+          +'<div class="p2railhd"><span title="'+esc('Switch a strategy on to include it in everything on the left. \ud83d\udc51 marks the standing champion of its family.'
+              +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>'
+            +'<span class="p2railct">'+_nShown+' of '+LEGS_F.length+' on</span>'
+            +(_legOff.length?'<span class="p2link" data-paperlegall>Include all</span>':'')+'</div>'
+          +'<div class="p2filt">'
+            +'<div class="p2filtrow">'
+              +'<div class="p2seg" data-ptray>'+seg('mscope','TODAY',PSCOPE==='TODAY','Today','Only today - '+_todayET+' (New York). Money comes from the EDGELOG engine, not NinjaTrader fills.')
+                +seg('mscope','ALL',PSCOPE==='ALL','All time','The whole forward test.')+'</div>'
+              +'<div class="p2seg" data-ptray>'+seg('pkind','ALL',PKIND==='ALL','Both','raw configs and ML overlays together')
+                +seg('pkind','RAW',PKIND==='RAW','Raw','only plain configs, no ML overlay')
+                +seg('pkind','ML',PKIND==='ML','ML','only the ML overlays (hybrid gates and size tilts)')+'</div>'
+            +'</div>'
+            +'<div class="p2seg" data-ptray>'+seg('pfam','ALL',PFAM==='ALL','All','every strategy family')
+              +_famList.map(f=>seg('pfam',f,PFAM===f,f,'show only the '+f+' family')).join('')+'</div>'
+            +'<div class="p2pills">'
+              +pill('pbase',PBASE,'Baselines only','Show only each family'+String.fromCharCode(8217)+'s baseline configuration. An ML overlay is never a baseline, so this hides every ML leg.')
+              +pill('papercfg',!!window._paperShowCfg,'Config + gate','Show which run and configuration each strategy came from, and what its gate did, under its row.')
+              +(_nArch?pill('patharch',_showArch,'Archived','Retired strategies'+(_nArchTrades?(' holding '+_nArchTrades+' trade'+(_nArchTrades===1?'':'s')):'')+'. Switching on brings their rows AND their trades back everywhere.',' <b>'+_nArch+'</b>'):'')
+            +'</div>'
+          +'</div>'
+          +legTable
+          +'<div class="p2railfoot">Switch = included everywhere on the left \u00b7 dot = live in NinjaTrader \u00b7 \ud83d\udc51 = family champion</div>'
+          +'</div>';
       })();
       // ── LIVE · NinjaTrader demo — Layer 1. paper_reports docs now carry a `live` block logged
       // straight off the demo account's own fill log (no strategy attribution — see zero-state copy
@@ -32792,10 +32866,68 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'#p2legs tr.p2row:hover td{background:color-mix(in srgb,var(--text) 4%,transparent)}'
           +'@media (prefers-reduced-motion:reduce){.p2sw,.p2sw::after{transition:none}}'
           +'</style>';
-        const _p2Head=_p2Css+'<div class="p2top">'
-          +'<div class="p2title">Paper<small>Live forward test \u00b7 NQ demo \u00b7 since '+PAPER_START+'</small></div>'
+        const _rhCss='<style>'
+          +'.p2rhhero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:0 0 2px}'
+          +'.p2rhcap{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text4);font-weight:700}'
+          +'.p2rhnum{font-size:46px;font-weight:600;line-height:1.05;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;margin-top:3px}'
+          +'.p2rhsub{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;font-size:12px;color:var(--text3);margin-top:3px;font-variant-numeric:tabular-nums;min-height:17px}'
+          +'.p2rhsep{color:var(--text5)}'
+          +'.p2rhchart{position:relative;height:clamp(180px,30vh,380px);margin:14px 66px 24px 0;cursor:crosshair;touch-action:pan-y}'
+          +'.p2rhchart svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible}'
+          +'.p2rhy{position:absolute;left:calc(100% + 10px);transform:translateY(-50%);font-size:10px;color:var(--text5);font-variant-numeric:tabular-nums;white-space:nowrap}'
+          +'.p2rhxs{position:absolute;left:0;right:0;top:calc(100% + 6px);height:14px}'
+          +'.p2rhx{position:absolute;transform:translateX(-50%);font-size:10px;color:var(--text5);white-space:nowrap}'
+          +'.p2rhcur{position:absolute;top:0;bottom:0;width:1px;background:var(--text4);opacity:0;pointer-events:none}'
+          +'.p2rhdot{position:absolute;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 3px var(--bg1);opacity:0;pointer-events:none}'
+          +'.p2rhchart.scrub .p2rhcur,.p2rhchart.scrub .p2rhdot{opacity:1}'
+          +'.p2rhtabs{display:flex;align-items:center;gap:2px;border-bottom:1px solid var(--border2);margin-bottom:12px}'
+          +'.p2rhtabs span[data-pcwin]{padding:7px 12px 8px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--text4);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;user-select:none}'
+          +'.p2rhtabs span[data-pcwin]:hover{color:var(--text)}'
+          +'.p2rhkey{margin-left:auto;font-size:10px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:12px}'
+          +'.p2rhrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,420px);gap:26px;align-items:start;margin-bottom:10px}'
+          +'.p2rhstats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));column-gap:20px}'
+          +'.p2rhstat{padding:8px 0 7px;border-top:1px solid var(--border2);min-width:0;cursor:help}'
+          +'.p2rhsl{font-size:10px;color:var(--text4);letter-spacing:.03em}'
+          +'.p2rhsv{font-size:17px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}'
+          +'.p2rhss{font-size:10px;color:var(--text5);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+          +'.p2rhcal{min-width:0}'
+          +'.p2rhempty{padding:60px 0;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px}'
+          +'.p2rh .p2sheet{background:transparent;border:0;border-top:1px solid var(--border2);border-radius:0;margin-bottom:0}'
+          +'.p2rh #ptrades-wrap .p2num{font-family:inherit;font-size:12px!important;font-weight:700;letter-spacing:0;font-variant-numeric:tabular-nums}'
+          +'.p2rail{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden}'
+          +'.p2railhd{display:flex;align-items:baseline;gap:8px;padding:12px 14px 9px;font-size:15px;font-weight:700;color:var(--text)}'
+          +'.p2railct{font-size:11px;font-weight:500;color:var(--text4)}'
+          +'.p2link{margin-left:auto;font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;user-select:none}'
+          +'.p2filt{display:flex;flex-direction:column;gap:6px;padding:0 12px 10px;border-bottom:1px solid var(--border2)}'
+          +'.p2filtrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}'
+          +'.p2filt .p2seg{border-radius:9px;padding:2px;gap:2px}'
+          +'.p2filt .p2seg span{padding:4px 3px;font-size:10px;border-radius:7px}'
+          +'.p2pills{display:flex;gap:6px;flex-wrap:wrap}'
+          +'.p2pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 10px;border-radius:999px;border:1px solid var(--border);font-size:10px;font-weight:600;color:var(--text4);cursor:pointer;user-select:none;white-space:nowrap}'
+          +'.p2pill:hover{color:var(--text)}'
+          +'.p2pill.on{background:var(--text);border-color:var(--text);color:var(--bg1)}'
+          +'.p2rail #p2legs td{padding-top:5px!important;padding-bottom:5px!important}'
+          +'.p2rail #p2legs{overflow:hidden!important}.p2rail #p2legs table{table-layout:fixed}'
+          +'.p2rail #p2legs thead th:nth-child(1){width:30px}.p2rail #p2legs thead th:nth-child(3){width:96px}.p2rail #p2legs thead th:nth-child(4){width:52px}'
+          +'.p2rail #p2legs td>div{max-width:100%!important;overflow:hidden;text-overflow:ellipsis}'
+          +'.p2rail #p2legs thead th{padding-top:6px;padding-bottom:3px}'
+          +'.p2rail .p2num{display:inline-block;font-family:inherit;font-size:12px!important;font-weight:700;letter-spacing:0;padding:3px 8px;border-radius:7px;background:color-mix(in srgb,currentColor 14%,transparent);font-variant-numeric:tabular-nums}'
+          +'.p2rail .p2sw{transform:scale(.8);transform-origin:right center}'
+          +'.p2railfoot{font-size:9.5px;color:var(--text5);padding:8px 14px 10px;line-height:1.5;border-top:1px solid var(--border2)}'
+          +'@media (max-width:1500px){.p2rhrow{grid-template-columns:1fr}.p2rhcal{max-width:620px}.p2rhkey{display:none}}'
+          +'@media (max-width:700px){.p2rhstats{grid-template-columns:repeat(2,minmax(0,1fr))}.p2rhnum{font-size:36px}}'
+          +'</style>';
+        const _rhToday=(_pcw!=='TODAY')
+          ?('<span style="color:'+(_H.today>=0?PNL_POS:PNL_NEG)+'">'+(_H.today>0?'+':'')+fmtUsd(_H.today)+' today</span><span class="p2rhsep">\u00b7</span>'):'';
+        const _p2Head=_p2Css+_rhCss+'<div class="p2rhhero">'
+          +'<div style="min-width:0">'
+            +'<div class="p2rhcap">NT8 futures paper \u00b7 NQ demo \u00b7 since '+PAPER_START+'</div>'
+            +'<div class="p2rhnum" data-p2num style="color:'+_rhAcc+'">'+fmtUsd(_H.net)+'</div>'
+            +'<div class="p2rhsub" data-p2sub>'+_rhToday+'<span>'+_pcwLbl+'</span><span class="p2rhsep">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="p2rhsep">\u00b7</span><span>'+_nShown+' of '+LEGS_VIS.length+' strategies</span></div>'
+          +'</div>'
           +'<div class="p2status">'+_p2Status+_reloadBtn.replace('height:24px','height:28px').replace('border-radius:7px','border-radius:999px')+'</div></div>';
-        const _p2Main=dataHtml+curveHtmlNoLegs+tradesHtml
+        const _p2Top=dataHtml+_rhChart+_rhTabs+'<div class="p2rhrow">'+_rhStats+_rhCal+'</div>';
+        const _p2Main=tradesHtml
           +_p2Card('nt','NinjaTrader \u00b7 detail',bridgeHtml,'live state, fills, orders')
           +_p2Card('recon','Cross-engine \u00b7 do they agree?',reconcileHtml,'engine vs NinjaTrader vs TradingView')
           +_p2Card('gate','Did the gate do its job?',gateAuditInner,_gaSub)
@@ -32804,21 +32936,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // WIDTH IS THE READER'S, and remembered. Clamped on read as well as on drag:
         // a stored width from a wider monitor must not push the main column off a
         // laptop screen.
-        const _p2Wmax=Math.max(320,Math.round((window.innerWidth||1400)*0.55));
-        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||360)));
+        const _p2Wmax=Math.max(320,Math.round((window.innerWidth||1400)*0.4));
+        const _p2W=Math.min(_p2Wmax,Math.max(300,+(APREF.p2SideW||380)));
         // Below ~1080px there is not enough room for two columns, so it stacks and the
-        // panel simply sits on top.
+        // rail sits under the stats.
         const _p2Narrow=(window.innerWidth||1400)<1080;
         if(_p2Narrow){
-          body=_p2Head+legsCard+_p2Main;
+          body='<div class="p2rh">'+_p2Head+_p2Top+legsCard+_p2Main+'</div>';
         }else{
-          body=_p2Head
-            +'<div style="display:grid;grid-template-columns:'+_p2W+'px 14px minmax(0,1fr);align-items:start">'
-              +'<div style="position:sticky;top:6px;max-height:calc(100vh - 20px);overflow:auto;padding-right:2px">'+legsCard+'</div>'
-              +'<div data-p2side title="Drag to set how wide the strategy panel is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:center;justify-content:center">'
+          body='<div class="p2rh"><div data-p2grid="right" style="display:grid;grid-template-columns:minmax(0,1fr) 16px '+_p2W+'px;align-items:start">'
+              +'<div style="min-width:0">'+_p2Head+_p2Top+_p2Main+'</div>'
+              +'<div data-p2side title="Drag to set how wide the strategy list is. Double-click to reset." style="cursor:col-resize;align-self:stretch;min-height:120px;display:flex;align-items:flex-start;justify-content:center;padding-top:220px">'
                 +'<div style="width:2px;height:34px;border-radius:2px;background:var(--border)"></div></div>'
-              +'<div style="min-width:0">'+_p2Main+'</div>'
-            +'</div>';
+              +'<div data-p2col="side" style="position:sticky;top:6px;max-height:calc(100vh - 130px);overflow:auto;min-width:0">'+legsCard+'</div>'
+            +'</div></div>';
         }
       }
     }else{
@@ -34549,14 +34680,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // pointermove would rebuild the whole board dozens of times a second.
       content.querySelectorAll('[data-p2side]').forEach(bar=>{
         const grid=bar.parentElement; if(!grid)return;
+        // the rail sits on the RIGHT since the 2026-09-14 makeover: dragging left widens it
+        const right=grid.getAttribute('data-p2grid')==='right';
         bar.onpointerdown=(e)=>{
           e.preventDefault();
-          const x0=e.clientX, w0=grid.firstElementChild.getBoundingClientRect().width;
-          const lim=Math.max(320,Math.round((window.innerWidth||1400)*0.55));
+          const x0=e.clientX, w0=(right?grid.lastElementChild:grid.firstElementChild).getBoundingClientRect().width;
+          const lim=Math.max(320,Math.round((window.innerWidth||1400)*(right?0.4:0.55)));
           let w=w0;
           const mv=(ev)=>{
-            w=Math.min(lim,Math.max(300,w0+(ev.clientX-x0)));
-            grid.style.gridTemplateColumns=w+'px 7px minmax(0,1fr)';
+            w=Math.min(lim,Math.max(300,w0+(right?(x0-ev.clientX):(ev.clientX-x0))));
+            grid.style.gridTemplateColumns=right?('minmax(0,1fr) 16px '+w+'px'):(w+'px 7px minmax(0,1fr)');
           };
           const up=()=>{
             window.removeEventListener('pointermove',mv);
@@ -34566,7 +34699,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           window.addEventListener('pointermove',mv);
           window.addEventListener('pointerup',up);
         };
-        bar.ondblclick=()=>{savePref('p2SideW',440);renderApp();};
+        bar.ondblclick=()=>{savePref('p2SideW',right?380:440);renderApp();};
       });
       content.querySelectorAll('[data-p2card]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-p2card');
@@ -34639,6 +34772,34 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         renderApp();};});
       content.querySelectorAll('[data-mscope]').forEach(el=>{el.onclick=()=>{window._paperMatrixScope=el.getAttribute('data-mscope');renderApp();};});
       content.querySelectorAll('[data-pcwin]').forEach(el=>{el.onclick=()=>{window._paperCurveWin=el.getAttribute('data-pcwin');renderApp();};});
+      // ROBINHOOD SCRUB (2026-09-14): hovering the chart walks the bold line and the big
+      // number + the line under it follow the cursor; leaving puts them back. No re-render.
+      {const ch=content.querySelector('[data-p2chart]'), S=window._p2Scrub;
+       if(ch&&S&&S.dates&&S.dates.length>1){
+         const $=v=>((v||0)<0?'-$':'$')+Math.abs(Math.round(v||0)).toLocaleString();
+         const num=content.querySelector('[data-p2num]'), sub=content.querySelector('[data-p2sub]');
+         const cur=ch.querySelector('[data-p2cur]'), dot=ch.querySelector('[data-p2dot]');
+         const num0=num?num.textContent:'', col0=num?num.style.color:'', sub0=sub?sub.innerHTML:'';
+         const n=S.dates.length;
+         ch.onpointermove=e=>{
+           const r=ch.getBoundingClientRect(); if(!r.width)return;
+           const i=Math.max(0,Math.min(n-1,Math.round((e.clientX-r.left)/r.width*(n-1))));
+           const xp=i/(n-1)*100, v=S.total[i], c=v>=0?S.pos:S.neg;
+           ch.classList.add('scrub');
+           if(cur)cur.style.left=xp+'%';
+           if(dot){dot.style.left=xp+'%';dot.style.top=S.ys[i]+'%';dot.style.background=c;}
+           if(num){num.textContent=$(v);num.style.color=c;}
+           if(sub){
+             let dl=S.dates[i];
+             try{dl=new Date(S.dates[i]+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}
+             const dd=i?(v-S.total[i-1]):v;
+             sub.innerHTML='<span style="color:'+(dd>=0?S.pos:S.neg)+'">'+(dd>0?'+':'')+$(dd)+' that day</span><span class="p2rhsep">\u00b7</span><span>'+dl+'</span>';
+           }
+         };
+         ch.onpointerleave=()=>{ch.classList.remove('scrub');
+           if(num){num.textContent=num0;num.style.color=col0;}
+           if(sub)sub.innerHTML=sub0;};
+       }}
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       // Archived legs (ORB): hidden by default, one click brings the whole history back.
       // Deliberately NOT persisted -- like the leg filter, it is a lens you look through.
