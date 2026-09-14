@@ -703,7 +703,14 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
 # into the doc's "broker" status block -- it never unwinds or blocks the shadow trade.
 BROKER_ORDER_COLS = ["ts_et", "leg", "intent", "side", "shares", "signal_id",
                      "client_order_id", "mode", "ok", "sent", "shadow_px",
-                     "broker_fill_px", "slippage", "reason", "duplicate"]
+                     "broker_fill_px", "slippage", "reason", "duplicate",
+                     # CROSS-HOST LEASE (2026-09-14): appended, never inserted -- same
+                     # backward-compat convention as ORDER_COLS/TRADE_COLS' trailing
+                     # signal_source column (_migrate_csv_header rewrites the on-disk
+                     # header and pads old rows with ""). Which host actually sent (or
+                     # was blocked from sending) this row -- see _lease_host_id and the
+                     # lease-unverifiable gate in _mirror_to_broker.
+                     "host_id"]
 
 _ORDER_ADAPTER = None
 
@@ -769,15 +776,44 @@ def _extract_broker_fill_price(record):
 
 
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0, log=print):
-    """Call after the shadow's own order/trade row is already recorded. Never raises."""
+    """Call after the shadow's own order/trade row is already recorded. Never raises.
+
+    CROSS-HOST LEASE GATE (2026-09-14, "fail CLOSED once real orders can flow"): before
+    actually sending, checks state["_broker_lease_ok"] -- set ONCE PER TICK by tick()'s
+    call into _check_lease_for_broker (see that function's docstring for what "ok" means)
+    -- whenever the broker adapter's effective mode is PAPER or LIVE. OFF mode is never
+    gated: it sends nothing over the network regardless of the lease (mode="OFF" is a
+    pure local record, see webull_orders.OrderAdapter.place_stock_order), so there is no
+    order-collision risk to protect against there. `state` may not carry the key at all
+    (e.g. a caller/test that invokes this directly rather than through tick()) -- default
+    True preserves the exact pre-2026-09-14 behaviour (always attempt the send) for every
+    such caller.
+
+    A lease that cannot be verified suppresses the SEND only, recorded as mode="BLOCKED"
+    exactly like an existing webull_orders rail refusal (halted/max_shares/etc) -- the
+    shadow's own order/trade rows (written by the caller, above, BEFORE this function
+    runs) are untouched, so the shadow book keeps recording simulated trades as if
+    nothing happened. Nothing here is retried automatically once the lease recovers,
+    same as every other BLOCKED reason in this module -- the next real shadow event
+    mirrors normally."""
     if not shares or shares <= 0:
         return
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq)
     try:
         adapter = _get_broker_adapter(log=log)
-        rec = adapter.place_stock_order(leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
-                                        side=_broker_side(side, intent),
-                                        qty=int(round(shares)), intent=intent)
+        mode, _mode_reason = adapter.effective_mode()
+        if (mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
+                and not state.get("_broker_lease_ok", True)):
+            reason = state.get("_broker_lease_reason") or "lease unverifiable"
+            log(f"[qqq-exec] broker {intent} for {leg} BLOCKED before send (mode={mode}): "
+                f"{reason} -- shadow record above stands, broker mirror suppressed")
+            rec = {"ok": False, "sent": False, "mode": "BLOCKED", "reason": reason,
+                  "side": _broker_side(side, intent), "client_order_id": "",
+                  "duplicate": False}
+        else:
+            rec = adapter.place_stock_order(leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
+                                            side=_broker_side(side, intent),
+                                            qty=int(round(shares)), intent=intent)
     except Exception as e:
         rec = {"ok": False, "sent": False, "mode": "ERROR", "error": f"{type(e).__name__}: {e}"}
         log(f"[qqq-exec] broker adapter call failed for {leg} {intent} (non-fatal -- the "
@@ -799,6 +835,10 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0,
         "slippage": slippage if slippage is not None else "",
         "reason": rec.get("reason") or rec.get("error") or "",
         "duplicate": bool(rec.get("duplicate", False)),
+        # CROSS-HOST LEASE (2026-09-14): which host attempted (or was blocked from) this
+        # send -- see BROKER_ORDER_COLS. Recorded on every row, not just blocked ones, so
+        # a handoff between the owner's PC and the cloud VM is visible in the CSV itself.
+        "host_id": _lease_host_id(),
     }
     _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
@@ -808,17 +848,22 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0,
             f"{row['reason']}")
 
 
-def _build_broker_status(log=print):
+def _build_broker_status(state=None, log=print):
     """Small, flat summary of api.webull_orders' own status() for the "broker" key in
     the published doc (see _build_doc) -- trimmed so the phone tab's future broker card
     has what it needs without growing the doc (Firestore 1 MiB cap) or nesting arrays
-    (Firestore rejects array-of-arrays; every value here is a scalar or a flat dict)."""
+    (Firestore rejects array-of-arrays; every value here is a scalar or a flat dict).
+
+    `state` is optional (default None -> lease fields report as verified/no reason) so
+    every pre-2026-09-14 caller/test that calls this with no state argument keeps working
+    unchanged."""
     try:
         adapter = _get_broker_adapter(log=log)
         st = adapter.status()
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
     last_order = st.get("last_order") or {}
+    state = state or {}
     return {
         "requested_mode": st.get("requested_mode"),
         "effective_mode": st.get("effective_mode"),
@@ -840,6 +885,13 @@ def _build_broker_status(log=print):
         },
         "daily_pnl": st.get("daily_pnl"),
         "open_legs": st.get("open_legs"),
+        # CROSS-HOST LEASE (2026-09-14): loud, phone-visible record of whether THIS
+        # host's broker sends are currently gated by an unverifiable/lost lease -- set
+        # once per tick by tick() (see _check_lease_for_broker). Only meaningful in
+        # PAPER/LIVE (see _mirror_to_broker); stays True/None in OFF, where nothing is
+        # ever gated.
+        "lease_ok_to_send": bool(state.get("_broker_lease_ok", True)),
+        "lease_block_reason": state.get("_broker_lease_reason"),
     }
 
 
@@ -2566,7 +2618,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         # BROKER MIRROR (2026-09-13): api.webull_orders' own status, trimmed flat -- see
         # _build_broker_status. Lets the phone tab eventually show mode/creds/last
         # order/last error without a separate endpoint.
-        "broker": _build_broker_status(log=log),
+        "broker": _build_broker_status(state, log=log),
         # LEASE (2026-09-13): this host's heartbeat for the cross-host guard (see
         # _check_lease) -- a second host reads THIS field to decide whether the shadow
         # book (and its broker mirror) is already running elsewhere.
@@ -2737,7 +2789,7 @@ def publish_now(db, uid, doc, state, force=True, log=print):
 # -- one tick --------------------------------------------------------------------------------
 def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
          ratio_fn=default_ratio_calibration, cfg=None, state=None, force_calib=False,
-         _now_wall=None, log=print):
+         _now_wall=None, db=None, uid=None, log=print):
     """Run one adapter pass. Returns (cfg, state, doc) for callers/tests. Loads/saves
     config+state from disk unless the caller supplies them (tests inject fixed state).
 
@@ -2748,13 +2800,56 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     `_now_wall`: real wall-clock seconds (time.time()-shaped) to use for tick-gap
     tracking (see _track_tick_gap), separate from `now` (which simulates ET market-hours
-    logic and is often a fixed historical datetime in tests). Defaults to time.time()."""
+    logic and is often a fixed historical datetime in tests). Defaults to time.time().
+
+    `db`/`uid` (2026-09-14): ONLY used to re-verify the cross-host lease for the broker
+    mirror, every tick -- see _check_lease_for_broker. Both default to None (skips the
+    check, same as "no Firestore configured") so every pre-2026-09-14 caller/test that
+    builds cfg/state by hand and calls tick() directly keeps working unchanged. Neither
+    is threaded any further than this -- publishing still happens in run_once/
+    qqq_exec_thread exactly as before."""
     cfg = cfg if cfg is not None else load_config(log=log)
     state = state if state is not None else load_state(log=log)
     nowdt = now or _now_et()
     today = nowdt.strftime("%Y-%m-%d")
     _roll_day(state, today)
     state["_px_source"] = None
+
+    # CROSS-HOST LEASE (2026-09-14): computed ONCE per tick, read later by every
+    # _mirror_to_broker call this tick makes (via _open_lot/_reduce_lot/_close_all,
+    # below and inside _mark_and_check_breaker) -- "check continuously, not only at
+    # start" means re-derived fresh every time tick() runs, not cached across ticks.
+    #
+    # Only touches the broker adapter / Firestore AT ALL when this call actually carries
+    # BOTH db and uid. The continuous production loop always does -- qqq_exec_thread and
+    # run_once both pass theirs straight through (see their own docstrings) -- so this
+    # cannot weaken the safety guarantee there. Every caller/test that builds cfg/state
+    # by hand and calls tick() with neither (every pre-2026-09-14 test does exactly this,
+    # and there are dozens) skips this block entirely: _get_broker_adapter() is NOT
+    # constructed, no local webull_orders file is read, and state["_broker_lease_ok"]
+    # stays unset, which _mirror_to_broker's own state.get(..., True) default already
+    # reads as "proceed" -- the exact pre-2026-09-14 behaviour. Skipping this for a bare
+    # manual `--once` run with no --uid is an accepted, narrow gap (a deliberate,
+    # supervised one-off, not the unattended multi-hour double-run this fix targets).
+    if db is not None and uid:
+        try:
+            broker_mode, _broker_mode_reason = _get_broker_adapter(log=log).effective_mode()
+        except Exception as e:
+            log(f"[qqq-exec] could not read broker effective_mode ({type(e).__name__}: {e}) -- "
+                "treating as armed and failing CLOSED for broker sends this tick")
+            broker_mode = webull_orders.MODE_PAPER   # unknown -- assume the stricter case
+        if broker_mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            try:
+                lease_ok, lease_reason = _check_lease_for_broker(db, uid, log=log)
+            except Exception as e:
+                lease_ok = False
+                lease_reason = f"lease unverifiable: check crashed ({type(e).__name__}: {e})"
+                log(f"[qqq-exec] broker lease check crashed ({type(e).__name__}: {e}) -- "
+                    "failing CLOSED for broker sends this tick")
+        else:
+            lease_ok, lease_reason = True, None
+        state["_broker_lease_ok"] = lease_ok
+        state["_broker_lease_reason"] = lease_reason
 
     # EVENT TIMELINE (feature #52): "boot" fires once per PROCESS start (a state.json
     # flag would only ever fire once across every future restart).
@@ -2898,7 +2993,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
 
 def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
-    cfg, state, doc = tick(fills_path=fills_path, force_calib=True, log=log)
+    cfg, state, doc = tick(fills_path=fills_path, force_calib=True, db=db, uid=uid, log=log)
     log(f"[qqq-exec] tick complete: mode={cfg.get('mode')} feed_stale={doc['feed_stale']} "
         f"breaker={doc['breaker_tripped']} positions={list(doc['positions'].keys())} "
         f"realized={doc['today']['realized_pnl']} unrealized={doc['today']['unrealized_pnl']} "
@@ -2937,13 +3032,21 @@ def _reconcile_broker_at_boot(log=print):
 def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     """Own thread, ticking every TICK_SEC -- never blocks the runner's main loop and
     never takes it down. Publishes to every allow-listed uid each tick that changed,
-    at least once a minute regardless (see _publish's force/throttle logic)."""
+    at least once a minute regardless (see _publish's force/throttle logic).
+
+    CROSS-HOST LEASE (2026-09-14): tick() re-verifies the lease itself every call (see
+    its own docstring) -- this thread just has to hand it db/uid. `state` here is one
+    shared adapter state across every uid in `uids` (same as every other field on it,
+    e.g. open lots/legs), so the lease is checked against the FIRST uid only; in
+    practice this list is always exactly the one owner uid (api/runner.py builds it from
+    --allow-uid), never a genuine multi-tenant fan-out."""
     state = load_state(log=log)
     _reconcile_broker_at_boot(log=log)
+    lease_uid = uids[0] if uids else None
     while stop is None or not stop.is_set():
         try:
             cfg = load_config(log=log)
-            cfg2, state, doc = tick(cfg=cfg, state=state, log=log)
+            cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
             for uid in uids:
                 publish_async(db, uid, doc, state, log=log)
             save_state(state, log=log)
@@ -3126,6 +3229,55 @@ def _check_lease(db, uid, log=print):
     if age > LEASE_STALE_SEC:
         return True, f"other host's lease is stale ({age:.0f}s old)"
     return False, f"host {other_host!r} holds a fresh lease ({age:.0f}s old)"
+
+
+def _check_lease_for_broker(db, uid, log=print):
+    """(ok, reason) -- gates whether THIS host's broker mirror may actually SEND an
+    order this tick (see _mirror_to_broker). Re-checked every tick by tick(), never only
+    at start (see that function's call into this).
+
+    THIS IS DELIBERATELY THE OPPOSITE DEFAULT FROM _check_lease ABOVE. _check_lease
+    fail-OPENs on any read problem because it only ever gates the harmless shadow book
+    (SHADOW mode places no real order, so the worst case of a wrong "proceed" is a
+    duplicate LOG). This function instead gates REAL broker orders once the broker mirror
+    is armed (PAPER/LIVE) -- and this owner's Firestore free tier (50k reads/day) has
+    already been exhausted twice, so a read failure here is not a hypothetical. Fail-OPEN
+    in that world would let two hosts' broker mirrors both believe they own the account
+    and both send. So: ok=True only when the lease is POSITIVELY verified safe (ours,
+    genuinely free/never claimed, or another host's claim is provably stale); everything
+    else -- a Firestore read error/timeout/exception, no db/uid configured at all (nothing
+    to verify against), or a foreign claim whose leased_at is missing/unparseable (we can
+    see someone else claims it but cannot tell if that claim is stale) -- returns
+    ok=False with a "lease unverifiable" reason. A different host's lease that IS
+    positively confirmed fresh also returns ok=False (they own it, not us), with its own,
+    more specific reason. Never raises."""
+    if db is None or not uid:
+        return False, "lease unverifiable: no Firestore/uid configured"
+    try:
+        snap = db.collection("users").document(uid).collection("meta").document("qqq_exec").get()
+        d = snap.to_dict() if getattr(snap, "exists", True) else None
+    except Exception as e:
+        log(f"[qqq-exec] broker lease check could not read Firestore ({type(e).__name__}: "
+            f"{e}) -- suppressing broker sends this tick (fail-CLOSED for real orders)")
+        return False, f"lease unverifiable: Firestore read failed ({type(e).__name__}: {e})"
+    lease = (d or {}).get("lease") or {}
+    other_host = lease.get("host_id")
+    leased_at = lease.get("leased_at")
+    my_host = _lease_host_id()
+    if not other_host or other_host == my_host:
+        return True, "lease ok (free or already ours)"
+    if leased_at is None:
+        return False, (f"lease unverifiable: host {other_host!r} claims the lease but its "
+                       "timestamp is missing")
+    try:
+        age = time.time() - float(leased_at)
+    except (TypeError, ValueError):
+        return False, (f"lease unverifiable: host {other_host!r} claims the lease but its "
+                       "timestamp is unreadable")
+    if age > LEASE_STALE_SEC:
+        return True, f"lease ok (other host {other_host!r}'s lease is stale, {age:.0f}s old)"
+    return False, (f"host {other_host!r} holds a fresh lease ({age:.0f}s old) -- broker "
+                   "sends blocked")
 
 
 def serve(db, uids, log=print):

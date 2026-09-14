@@ -325,13 +325,31 @@ def test_build_broker_status_shape(tmp_path, monkeypatch):
     adapter = WO.OrderAdapter(config=_broker_cfg(tmp_path, mode="OFF"), log=NOOP)
     _patch_broker_adapter(monkeypatch, adapter)
 
+    # No `state` arg -- confirms the 2026-09-14 lease fields stay optional/backward
+    # compatible for a caller that predates them.
     status = qe._build_broker_status(log=NOOP)
     for key in ("requested_mode", "effective_mode", "mode_reason", "environment",
                "paper_credentials_present", "live_credentials_present", "live_armed",
                "kill_file_present", "halted", "halt_reason", "last_error", "last_order",
-               "daily_pnl", "open_legs"):
+               "daily_pnl", "open_legs",
+               # CROSS-HOST LEASE (2026-09-14): loud, phone-visible record of whether
+               # broker sends are currently gated by an unverifiable/lost lease.
+               "lease_ok_to_send", "lease_block_reason"):
         assert key in status
     assert status["effective_mode"] == "OFF"
+    assert status["lease_ok_to_send"] is True, "no state given -> defaults to ok, never phantom-blocked"
+    assert status["lease_block_reason"] is None
+
+
+def test_build_broker_status_surfaces_lease_block(tmp_path, monkeypatch):
+    _patch_qqq_paths(tmp_path, monkeypatch)
+    adapter = WO.OrderAdapter(config=_broker_cfg(tmp_path, mode="PAPER"), log=NOOP)
+    _patch_broker_adapter(monkeypatch, adapter)
+
+    state = {"_broker_lease_ok": False, "_broker_lease_reason": "lease unverifiable: timeout"}
+    status = qe._build_broker_status(state, log=NOOP)
+    assert status["lease_ok_to_send"] is False
+    assert status["lease_block_reason"] == "lease unverifiable: timeout"
 
 
 def test_build_broker_status_never_raises_on_adapter_error(tmp_path, monkeypatch):

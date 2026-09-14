@@ -54,9 +54,19 @@ def _parse_utc(ts):
 # never re-subscribed. NOTHING NOTICED. nt_recover.ps1 only inspects STRATEGY state, the
 # bridge only answers "is NinjaTrader running", and this module only asked "is the bridge
 # still publishing" -- a chart indicator that quietly stops writing is invisible to all
-# three. The cost is real: with no live NQ price the QQQ shadow cannot mark an open lot, so
-# an end-of-day flatten would price the exit at the ENTRY price and write a fabricated
-# round trip into the forward record.
+# three. The cost is real: with no live NQ price the NQ paper-trading board (api/paper.py,
+# api/bars.py) cannot mark an open lot, so an end-of-day flatten would price the exit at
+# the ENTRY price and write a fabricated round trip into the forward record. Same file also
+# feeds the live ML gate bouncer (api/gate_live.py) that NinjaTrader asks before every entry.
+#
+# CORRECTED 2026-09-14: this paragraph used to also name "the QQQ shadow" as a casualty.
+# That was true when written, but api/qqq_exec.py's signal_source default changed to
+# "engine" in v73.770 -- in that mode it never opens this file at all (see that module's
+# ENGINE MODE docstring), so a dead export no longer touches it. evaluate_tick_feed() below
+# now checks the shadow's OWN effective config before naming it, instead of assuming
+# "ninjatrader" mode -- a real page on 2026-09-14 said the QQQ shadow was refusing entries
+# while its own state showed feed_stale=false and orders flowing, which only confused the
+# owner ("I thought we were off NT"). See _qqq_signal_source/_tick_feed_impact_clause.
 #
 # WHY ONLY REGULAR HOURS. NQ trades nearly 24/5, but the harm is concentrated in the window
 # the shadow book actually mirrors, and a page at 03:00 for a feed nobody is trading off
@@ -88,10 +98,44 @@ def newest_tick_bar_epoch(paths=TICK_FEED_PATHS):
     return newest
 
 
-def evaluate_tick_feed(newest_epoch, now_et, is_session_day, prior_tick=None):
+def _tick_feed_impact_clause(qqq_signal_source):
+    """Plain-language, VERIFIED list of what actually reads the 10s NQ export, for the
+    stale/missing alert message.
+
+    Read the code, don't assume: api/paper.py's run_shadow (_load_fresh_ticks) and
+    api/bars.py's candle window (_fresh_tail) always read this file for the NQ
+    paper-trading board's live price, and api/gate_live.py's decide()/_refresh_live_arrays
+    (the live ML gate NinjaTrader calls before every entry, plus its nightly artifact
+    refit) always reads it too -- those three are named unconditionally.
+
+    The QQQ shadow (api/qqq_exec.py, "Webull paper trading") is DIFFERENT: it only opens
+    this file when its own config's effective signal_source is "ninjatrader" (the old
+    NT-mirror mode). Since v73.770 the default is "engine", which never touches this file
+    (see that module's own "ENGINE MODE" docstring: "never fills.csv, never the NQ 10s
+    export"). So it is named here ONLY when the caller resolved signal_source=="ninjatrader"
+    -- naming it unconditionally is exactly the false alarm this function was rewritten to
+    stop (2026-09-14: a page said the QQQ shadow was "refusing new entries" while its own
+    published state showed feed_stale=false and orders still flowing)."""
+    clause = ("This affects the NQ paper-trading board's live price and the live "
+              "trade-approval check NinjaTrader uses before every order")
+    if str(qqq_signal_source or "").strip().lower() == "ninjatrader":
+        clause += ("; it also affects the QQQ shadow (Webull paper trading), which cannot "
+                   "mark open lots and is refusing new entries")
+    return clause + "."
+
+
+def evaluate_tick_feed(newest_epoch, now_et, is_session_day, prior_tick=None,
+                       qqq_signal_source=None):
     """Pure function: (newest bar epoch or None, ET-aware now, is this a session day,
-    prior tick_feed block) -> new tick_feed block. `alerted` latches so a single outage
-    pages once rather than every cycle, and clears itself when bars resume."""
+    prior tick_feed block, the QQQ shadow's effective signal_source or None if unknown)
+    -> new tick_feed block. `alerted` latches so a single outage pages once rather than
+    every cycle, and clears itself when bars resume.
+
+    `qqq_signal_source` drives whether the message mentions the QQQ shadow at all --
+    see _tick_feed_impact_clause. Left at its default (None/unknown) it stays silent
+    about the QQQ shadow, the same as "engine" -- the safe default, since claiming it is
+    affected when it might not be is the false alarm this exists to prevent; the caller
+    (publish(), via _qqq_signal_source) is the one that actually resolves it."""
     prior_tick = prior_tick or {}
     in_window = bool(is_session_day) and (9, 30) <= (now_et.hour, now_et.minute) < (16, 0)
     age_min = None
@@ -104,13 +148,14 @@ def evaluate_tick_feed(newest_epoch, now_et, is_session_day, prior_tick=None):
     if age_min is None:
         return {"state": "missing", "age_minutes": None,
                 "alerted": bool(prior_tick.get("alerted")),
-                "message": "no 10s NQ feed file could be read at all"}
+                "message": ("no 10s NQ feed file could be read at all. " +
+                           _tick_feed_impact_clause(qqq_signal_source))}
     if age_min > TICK_FEED_STALE_MINUTES:
         return {"state": "stale", "age_minutes": age_min,
                 "alerted": bool(prior_tick.get("alerted")),
                 "message": (f"10s NQ feed has not written for {age_min:.0f} min -- the "
-                            f"NinjaTrader chart export has stopped; the QQQ shadow cannot "
-                            f"mark open lots and is refusing new entries")}
+                            f"NinjaTrader chart export has stopped. " +
+                            _tick_feed_impact_clause(qqq_signal_source))}
     return {"state": "ok", "age_minutes": age_min, "alerted": False,
             "message": f"10s NQ feed live ({age_min:.1f} min old)"}
 
@@ -228,6 +273,37 @@ def _runner_note_reads():
     return None
 
 
+def _qqq_signal_source():
+    """Read-only peek at the QQQ shadow's EFFECTIVE signal_source (its config.json
+    merged with the code default), reusing api.qqq_exec's OWN load_config() rather than
+    re-implementing that merge/validation here. Returns (source_or_None, error_or_None);
+    never raises.
+
+    READ-ONLY, on purpose: api.qqq_exec.load_config() writes a fresh default config.json
+    the first time it sees a missing file, and this heartbeat must never create or touch
+    anything under C:\\EdgeLog (this repo's own hard rule, doubly true while the market is
+    open and that adapter is live). So a missing file is answered straight from
+    qqq_exec.DEFAULT_CONFIG in memory -- which load_config would report anyway -- and
+    load_config() itself is only called once the file is already known to exist.
+
+    Lazy-imports api.qqq_exec (not at module load) so this watchdog keeps working even if
+    that module (or one of ITS imports, e.g. the webull SDK) is broken -- same reasoning
+    as _runner_note_reads' lazy '__main__'/'api.runner' lookup above."""
+    try:
+        from api import qqq_exec
+    except Exception as e:
+        return None, f"qqq_exec unavailable ({type(e).__name__}: {e})"
+    try:
+        import os
+        path = qqq_exec.CONFIG_PATH
+        if not os.path.exists(path):
+            return str(qqq_exec.DEFAULT_CONFIG.get("signal_source") or "engine"), None
+        cfg = qqq_exec.load_config(path=path, log=lambda *a, **k: None)
+        return cfg.get("signal_source"), None
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
+
+
 def publish(db, uid):
     """Read meta/nt_bridge + the prior meta/nt_alert, evaluate(), and write the new
     meta/nt_alert. Never raises -- same exception-proof contract as nt_bridge_pub.publish
@@ -266,8 +342,13 @@ def publish(db, uid):
             session_day = market_calendar.is_session(now_et.date())
         except Exception:
             session_day = now_et.weekday() < 5
+        qqq_signal_source, qqq_err = _qqq_signal_source()
+        if qqq_err:
+            print(f"[nt-heartbeat] QQQ shadow signal_source check failed (message will "
+                 f"stay silent on the QQQ shadow, same as 'engine'): {qqq_err}")
         tick = evaluate_tick_feed(newest_tick_bar_epoch(), now_et, session_day,
-                                  (prior_alert or {}).get("tick_feed"))
+                                  (prior_alert or {}).get("tick_feed"),
+                                  qqq_signal_source=qqq_signal_source)
         if tick["state"] in ("stale", "missing") and not tick["alerted"]:
             _page(f"NT 10s NQ feed stopped: {tick['message']}", "EDGELOG NT FEED")
             tick["alerted"] = True

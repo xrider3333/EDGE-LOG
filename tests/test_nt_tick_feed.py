@@ -7,11 +7,17 @@ every existing watcher asks a different question: nt_recover.ps1 asks about STRA
 the bridge asks whether NinjaTrader is running, and nt_heartbeat asked whether the bridge is
 still publishing. A chart indicator that silently stops writing answers "yes" to all three.
 
-The consequence is not cosmetic: with no live NQ price the QQQ shadow book cannot mark an
-open lot, so an end-of-day flatten prices the exit at the ENTRY price and writes a
+The consequence is not cosmetic: with no live NQ price the NQ paper-trading board cannot
+mark an open lot, so an end-of-day flatten prices the exit at the ENTRY price and writes a
 fabricated round trip into the forward record the go-live decision rests on.
 
 `evaluate_tick_feed` is pure, so the real outage can simply be replayed here.
+
+FALSE-ALARM FIX (2026-09-14). The alert used to also blame "the QQQ shadow" unconditionally,
+but api/qqq_exec.py's default signal_source is "engine" since v73.770, which never reads
+this feed -- so that clause was live-verified false on 2026-09-14 (the shadow's own state
+showed feed_stale=false, cursor advancing, no refusals) while the export really was dead.
+The tests below cover the two modes: engine (no QQQ mention) vs ninjatrader (mention kept).
 """
 import datetime
 import zoneinfo
@@ -85,3 +91,116 @@ def test_reader_skips_a_header_or_torn_final_line(tmp_path):
     p.write_text("time,open,high,low,close,volume\n1788957580,1,2,3,4,5\nnot-a-number,\n",
                  encoding="utf-8")
     assert h.newest_tick_bar_epoch((str(p),)) == 1788957580.0
+
+
+# ── QQQ shadow wording -- engine vs ninjatrader (2026-09-14 false-alarm fix) ────────────
+# The real incident: signal_source defaults to "engine" since v73.770 and never reads this
+# feed, so the alert must not blame it in that mode -- but must keep blaming it in the old
+# "ninjatrader" mode, where the shadow genuinely still reads this file (NQ:QQQ ratio pricing,
+# see api/qqq_exec.py's resolve_price/_last_nq_close). Covers both the "stale" and "missing"
+# states, since both page (see publish()'s `state in ("stale", "missing")` check).
+
+def test_engine_mode_stale_omits_qqq_wording():
+    dead = _et(8, 39, 40).timestamp()
+    r = h.evaluate_tick_feed(dead, _et(10, 25), True, qqq_signal_source="engine")
+    assert r["state"] == "stale"
+    assert "chart export has stopped" in r["message"]
+    assert "QQQ" not in r["message"]
+
+
+def test_engine_mode_missing_omits_qqq_wording():
+    r = h.evaluate_tick_feed(None, _et(10, 25), True, qqq_signal_source="engine")
+    assert r["state"] == "missing"
+    assert "QQQ" not in r["message"]
+
+
+def test_unresolved_signal_source_defaults_to_no_qqq_wording():
+    """The safe default: if the caller could not resolve the shadow's config at all
+    (qqq_signal_source left at None), the message must NOT claim the QQQ shadow is
+    affected -- the false alarm this exists to prevent, not a coin flip."""
+    dead = _et(8, 39, 40).timestamp()
+    r = h.evaluate_tick_feed(dead, _et(10, 25), True)
+    assert "QQQ" not in r["message"]
+
+
+def test_ninjatrader_mode_stale_keeps_qqq_wording():
+    dead = _et(8, 39, 40).timestamp()
+    r = h.evaluate_tick_feed(dead, _et(10, 25), True, qqq_signal_source="ninjatrader")
+    assert r["state"] == "stale"
+    assert "chart export has stopped" in r["message"]
+    assert "QQQ shadow" in r["message"]
+    assert "refusing new entries" in r["message"]
+
+
+def test_ninjatrader_mode_missing_keeps_qqq_wording():
+    r = h.evaluate_tick_feed(None, _et(10, 25), True, qqq_signal_source="ninjatrader")
+    assert r["state"] == "missing"
+    assert "QQQ shadow" in r["message"]
+
+
+def test_qqq_wording_is_case_insensitive_and_ignores_whitespace():
+    dead = _et(8, 39, 40).timestamp()
+    r = h.evaluate_tick_feed(dead, _et(10, 25), True, qqq_signal_source=" NinjaTrader ")
+    assert "QQQ shadow" in r["message"]
+
+
+def test_non_paging_states_are_unaffected_by_signal_source():
+    now = _et(10, 25)
+    fresh = (now - datetime.timedelta(seconds=10)).timestamp()
+    ok_engine = h.evaluate_tick_feed(fresh, now, True, qqq_signal_source="engine")
+    ok_nt = h.evaluate_tick_feed(fresh, now, True, qqq_signal_source="ninjatrader")
+    assert ok_engine["message"] == ok_nt["message"] == f"10s NQ feed live ({ok_engine['age_minutes']:.1f} min old)"
+    idle = h.evaluate_tick_feed(None, _et(3, 0), True, qqq_signal_source="ninjatrader")
+    assert idle["state"] == "idle" and "QQQ" not in idle["message"]
+
+
+# ── _qqq_signal_source() -- read-only config peek, reusing qqq_exec.load_config ────────
+
+def test_qqq_signal_source_missing_config_defaults_to_engine_without_writing_anything(tmp_path, monkeypatch):
+    from api import qqq_exec as qe
+    cfg_path = tmp_path / "qqq_exec" / "config.json"
+    monkeypatch.setattr(qe, "CONFIG_PATH", str(cfg_path))
+    src, err = h._qqq_signal_source()
+    assert src == "engine"
+    assert err is None
+    assert not cfg_path.exists(), "must stay read-only -- must never create config.json itself"
+
+
+def test_qqq_signal_source_reads_ninjatrader_from_existing_config(tmp_path, monkeypatch):
+    import json
+    from api import qqq_exec as qe
+    out_dir = tmp_path / "qqq_exec"
+    out_dir.mkdir()
+    cfg_path = out_dir / "config.json"
+    cfg_path.write_text(json.dumps({"signal_source": "ninjatrader"}), encoding="utf-8")
+    monkeypatch.setattr(qe, "CONFIG_PATH", str(cfg_path))
+    src, err = h._qqq_signal_source()
+    assert src == "ninjatrader"
+    assert err is None
+
+
+def test_qqq_signal_source_reads_engine_from_existing_config(tmp_path, monkeypatch):
+    import json
+    from api import qqq_exec as qe
+    out_dir = tmp_path / "qqq_exec"
+    out_dir.mkdir()
+    cfg_path = out_dir / "config.json"
+    cfg_path.write_text(json.dumps({"signal_source": "engine", "mode": "SHADOW"}), encoding="utf-8")
+    monkeypatch.setattr(qe, "CONFIG_PATH", str(cfg_path))
+    src, err = h._qqq_signal_source()
+    assert src == "engine"
+    assert err is None
+
+
+def test_qqq_signal_source_never_raises_when_qqq_exec_unimportable(monkeypatch):
+    import sys
+    import api as api_pkg
+    # `from api import qqq_exec` only re-imports the submodule when the PACKAGE object
+    # has no such attribute yet -- since some earlier test already imported it, "api"
+    # already carries a live "qqq_exec" attribute, so sys.modules alone is not enough to
+    # force a fresh failure; both must be cleared.
+    monkeypatch.delattr(api_pkg, "qqq_exec", raising=False)
+    monkeypatch.setitem(sys.modules, "api.qqq_exec", None)
+    src, err = h._qqq_signal_source()
+    assert src is None
+    assert err
