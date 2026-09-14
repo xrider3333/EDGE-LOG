@@ -36,17 +36,38 @@ orders, it does not pull quotes.
 ORDER CALLS USED (all real SDK calls, nothing hand-rolled -- verified by reading the
 installed package under site-packages/webull, version pinned in api/requirements.txt
 as webull-openapi-python-sdk): webull.trade.trade_client.TradeClient built on an
-ApiClient exposes `.order_v2` (webull.trade.trade.v2.order_operation_v2.OrderOperationV2)
-with place_order/preview_order/cancel_order/get_order_detail/get_order_history, and
-`.account_v2` (webull.trade.trade.v2.account_info_v2.AccountV2) with
-get_account_list/get_account_balance/get_account_position. `.trade_instrument`
-(webull.trade.trade.trade_instrument.TradeInstrument) resolves a ticker symbol to the
-instrument_id place_order needs via get_trade_security_detail(symbol, market,
-instrument_super_type, instrument_type, strike_price, init_exp_date) -- see
-_resolve_instrument_id(). Order/side/type/tif string values are the `.name` of the
-SDK's own enums (webull.trade.common.order_side.OrderSide, .order_type.OrderType,
-.order_tif.OrderTIF -- EasyEnum.__str__ returns .name, e.g. str(OrderSide.BUY)=="BUY"),
-so this module imports and validates against those enums rather than inventing values.
+ApiClient exposes `.order_v3` (webull.trade.trade.v3.order_opration_v3.OrderOperationV3)
+with place_order/preview_order/cancel_order/get_order_detail/get_order_history/
+get_order_open, and `.account_v2` (webull.trade.trade.v2.account_info_v2.AccountV2) with
+get_account_list/get_account_balance/get_account_position. Order/side/type/tif string
+values are the `.name` of the SDK's own enums (webull.trade.common.order_side.OrderSide,
+.order_type.OrderType, .order_tif.OrderTIF -- EasyEnum.__str__ returns .name, e.g.
+str(OrderSide.BUY)=="BUY"), so this module imports and validates against those enums
+rather than inventing values.
+
+ORDER API VERSION (switched 2026-09-13, per developer.webull.com/apis/docs -- the
+current Trading API getting-started sample calls `order_v3`, not `order_v2`): v3's
+place_order/preview_order take a SYMBOL-keyed order dict (combo_type="NORMAL",
+client_order_id, symbol, instrument_type="EQUITY", market="US", order_type,
+limit_price, quantity (as a STRING), support_trading_session="CORE", side,
+time_in_force, entrust_type="QTY") -- there is no instrument_id to resolve first, so
+_resolve_instrument_id()/`.trade_instrument` are no longer on the order-placement path
+(kept, unused, as a record of how the older v2 path worked, in case a future v3 call
+needs symbol resolution after all). cancel_order(account_id, client_order_id) and
+get_order_detail(account_id, client_order_id) keep the same shape on v3. The installed
+SDK is webull-openapi-python-sdk==2.0.12, which already ships order_v3 -- do NOT
+upgrade the pinned SDK (api/webull_sync.py depends on the 2.0.12 API shape); PyPI's
+latest is 3.0.0, noted here only so nobody "helpfully" bumps it later.
+ORDER SIDE CAVEAT: the installed SDK's OrderSide enum has exactly three members --
+BUY/SELL/SHORT, no COVER -- so closing a short position is sent as BUY (see
+api/qqq_exec.py's _broker_side, the only caller that closes shorts); unverified against
+a live sandbox fill since no paper credentials exist on this machine.
+ORDER STATUS: could also be pushed via webull.trade.trade_events_client.
+TradeEventsClient(app_key, app_secret, region).on_events_message + do_subscribe(
+[account_id]) instead of polling get_order_detail. NOT wired here -- polling is
+adequate for this first cut (status/reconcile are called on demand, not on a tight
+loop) and avoids a second long-lived connection per mode; revisit if fill latency
+against the shadow book's own price ever matters enough to justify it.
 
 RAILS (enforced inside this adapter in EVERY mode, including OFF -- a blocked order
 is recorded with mode="BLOCKED" and never reaches the mode dispatch below it):
@@ -105,15 +126,38 @@ MODE_PAPER = "PAPER"
 MODE_LIVE = "LIVE"
 _VALID_MODES = (MODE_OFF, MODE_PAPER, MODE_LIVE)
 
+
+# ── EDGELOG_HOME (2026-09-13, "fill-in-the-blanks Oracle Cloud move") ───────────────
+# Every path below used to be a bare C:\EdgeLog\... literal, which only made sense on
+# the owner's Windows PC. EDGELOG_HOME is the one base directory a Linux VM sets
+# differently; every specific-file env var (EDGELOG_WEBULL_PAPER_KEYS, etc.) still
+# overrides its own default individually, exactly as before -- this only changes what
+# the DEFAULT is when none of those are set. On Windows with EDGELOG_HOME unset, every
+# path below is byte-identical to the old hardcoded literal (os.path.join with
+# "C:\\EdgeLog" reproduces the same backslashed string).
+def _default_edgelog_home():
+    return r"C:\EdgeLog" if os.name == "nt" else "/var/lib/edgelog"
+
+
+EDGELOG_HOME = os.environ.get("EDGELOG_HOME") or _default_edgelog_home()
+
 # ── paths (every one overridable so the cloud VM can point at its own copies) ──
-DEFAULT_CONFIG_PATH = os.environ.get("EDGELOG_WEBULL_ORDERS_CONFIG", r"C:\EdgeLog\webull_orders\config.json")
-DEFAULT_PAPER_KEYS = os.environ.get("EDGELOG_WEBULL_PAPER_KEYS", r"C:\EdgeLog\webull_paper_keys.json")
-DEFAULT_PAPER_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_PAPER_TOKEN_DIR", r"C:\EdgeLog\webull_paper_token")
-DEFAULT_LIVE_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")  # same var as webull_sync.py
-DEFAULT_LIVE_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
-DEFAULT_ARM_LIVE_FILE = os.environ.get("EDGELOG_WEBULL_ARM_LIVE", r"C:\EdgeLog\webull_orders\ARM_LIVE")
-DEFAULT_KILL_FILE = os.environ.get("EDGELOG_WEBULL_ORDERS_KILL", r"C:\EdgeLog\webull_orders\KILL")
-DEFAULT_STATE_PATH = os.environ.get("EDGELOG_WEBULL_ORDERS_STATE", r"C:\EdgeLog\webull_orders\state.json")
+DEFAULT_CONFIG_PATH = os.environ.get("EDGELOG_WEBULL_ORDERS_CONFIG",
+                                     os.path.join(EDGELOG_HOME, "webull_orders", "config.json"))
+DEFAULT_PAPER_KEYS = os.environ.get("EDGELOG_WEBULL_PAPER_KEYS",
+                                    os.path.join(EDGELOG_HOME, "webull_paper_keys.json"))
+DEFAULT_PAPER_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_PAPER_TOKEN_DIR",
+                                         os.path.join(EDGELOG_HOME, "webull_paper_token"))
+DEFAULT_LIVE_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS",
+                                   os.path.join(EDGELOG_HOME, "webull_keys.json"))  # same var as webull_sync.py
+DEFAULT_LIVE_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR",
+                                        os.path.join(EDGELOG_HOME, "webull_token"))
+DEFAULT_ARM_LIVE_FILE = os.environ.get("EDGELOG_WEBULL_ARM_LIVE",
+                                       os.path.join(EDGELOG_HOME, "webull_orders", "ARM_LIVE"))
+DEFAULT_KILL_FILE = os.environ.get("EDGELOG_WEBULL_ORDERS_KILL",
+                                   os.path.join(EDGELOG_HOME, "webull_orders", "KILL"))
+DEFAULT_STATE_PATH = os.environ.get("EDGELOG_WEBULL_ORDERS_STATE",
+                                    os.path.join(EDGELOG_HOME, "webull_orders", "state.json"))
 
 # See the module docstring's SANDBOX TARGETING section for how these get wired in.
 SANDBOX_REGION = "us"
@@ -598,18 +642,21 @@ class OrderAdapter:
 
         try:
             account_id = account_id or self._account_id(mode, client)
-            instrument_id = instrument_id or self._resolve_instrument_id(client, symbol, market)
+            # v3 order dict (see module docstring, ORDER API VERSION): symbol-keyed, no
+            # instrument_id lookup needed. quantity/limit_price go over as STRINGS per
+            # the documented getting-started sample.
             new_order = {
-                "client_order_id": coid, "instrument_id": instrument_id, "side": side,
-                "order_type": order_type, "tif": tif, "qty": qty, "market": market,
-                "extended_hours_trading": bool(extended_hours),
+                "combo_type": "NORMAL", "client_order_id": coid, "symbol": symbol,
+                "instrument_type": "EQUITY", "market": market, "order_type": order_type,
+                "quantity": str(qty), "support_trading_session": "CORE", "side": side,
+                "time_in_force": tif, "entrust_type": "QTY",
             }
             if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT", "AT_AUCTION_LIMIT") \
                     and limit_price is not None:
-                new_order["limit_price"] = limit_price
-            resp = client.order_v2.place_order(account_id, [new_order])
+                new_order["limit_price"] = str(limit_price)
+            resp = client.order_v3.place_order(account_id, [new_order])
             record.update(ok=True, sent=True, account_id=account_id,
-                          instrument_id=instrument_id, response=_safe_response(resp))
+                          response=_safe_response(resp))
         except Exception as e:
             record.update(ok=False, sent=True, error=f"{type(e).__name__}: {e}")
             self._last_error = record["error"]
@@ -634,12 +681,13 @@ class OrderAdapter:
             return {"ok": False, "reason": f"no {mode} client"}
         try:
             account_id = account_id or self._account_id(mode, client)
-            instrument_id = instrument_id or self._resolve_instrument_id(client, symbol, market)
-            order = {"instrument_id": instrument_id, "side": str(side).upper(),
-                    "order_type": str(order_type).upper(), "qty": qty, "market": market}
+            order = {"combo_type": "NORMAL", "symbol": symbol, "instrument_type": "EQUITY",
+                    "market": market, "order_type": str(order_type).upper(),
+                    "quantity": str(qty), "support_trading_session": "CORE",
+                    "side": str(side).upper(), "time_in_force": "DAY", "entrust_type": "QTY"}
             if limit_price is not None:
-                order["limit_price"] = limit_price
-            resp = client.order_v2.preview_order(account_id, [order])
+                order["limit_price"] = str(limit_price)
+            resp = client.order_v3.preview_order(account_id, [order])
             return {"ok": True, "mode": mode, "response": _safe_response(resp)}
         except Exception as e:
             return {"ok": False, "mode": mode, "reason": f"{type(e).__name__}: {e}"}
@@ -654,7 +702,7 @@ class OrderAdapter:
             return {"ok": False, "reason": f"no {mode} client"}
         try:
             account_id = account_id or self._account_id(mode, client)
-            resp = client.order_v2.cancel_order(account_id, coid)
+            resp = client.order_v3.cancel_order(account_id, coid)
             return {"ok": True, "mode": mode, "response": _safe_response(resp)}
         except Exception as e:
             return {"ok": False, "mode": mode, "reason": f"{type(e).__name__}: {e}"}
@@ -670,7 +718,7 @@ class OrderAdapter:
             return cached or {"ok": False, "reason": f"no {mode} client"}
         try:
             account_id = account_id or self._account_id(mode, client)
-            resp = client.order_v2.get_order_detail(account_id, coid)
+            resp = client.order_v3.get_order_detail(account_id, coid)
             return {"ok": True, "mode": mode, "response": _safe_response(resp), "cached": cached}
         except Exception as e:
             return {"ok": False, "mode": mode, "reason": f"{type(e).__name__}: {e}", "cached": cached}

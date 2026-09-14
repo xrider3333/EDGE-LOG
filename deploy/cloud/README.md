@@ -30,6 +30,66 @@ NinjaTrader/live execution — nothing about that changes until you decide to mo
 
 ---
 
+## Do these in order
+
+One numbered list, start to finish. Each step links to its detailed section below.
+Nothing here creates an Oracle account, enters your Webull/Firebase credentials, or
+places an order — every step that touches money or credentials is something you
+personally do.
+
+1. **Create the Oracle account and the VM.** <https://signup.oraclecloud.com/> → see
+   [(a) Create the free Oracle Cloud VM](#a-create-the-free-oracle-cloud-vm) below.
+2. **Download the SSH key** Oracle generates when you create the VM (or paste your own
+   public key at creation) — you'll need its file path in steps 4 and 5.
+3. **SSH in and run the installer** — see [(b) SSH in](#b-ssh-in) and
+   [(c) Install everything with one command](#c-install-everything-with-one-command).
+   This clones the repo, builds the Python environment, and installs (but does not
+   start) `edgelog-runner.service` and `edgelog-qqq-exec.service`.
+4. **Copy your secrets up from the PC**, using `push_secrets.ps1` from a PowerShell
+   window ON YOUR PC (never run this on the VM, and this script never prints a secret's
+   contents — only file names/sizes):
+   ```powershell
+   cd C:\Users\xride\OneDrive\Desktop\EDGE-LOG\deploy\cloud
+   .\push_secrets.ps1 -VmIp <the-public-ip> -KeyPath C:\path\to\your-downloaded-key.key
+   ```
+   It copies `serviceAccount.json`, the live Webull keys + token, and — if you already
+   have one — the Webull paper-trading keys. Re-run it any time a secret changes (e.g.
+   a fresh Webull live token).
+5. **Fill in `~/edgelog/edgelog.env`** on the VM (`nano ~/edgelog/edgelog.env`) — see
+   [`edgelog.env.example`](edgelog.env.example) for what every line means. At minimum,
+   set `NTFY_TOPIC`. Leave `EDGELOG_HOST_ROLE=cloud` exactly as install.sh wrote it.
+6. **Enable and start the services**, qqq-exec BEFORE runner (order matters — see
+   `edgelog-qqq-exec.service`'s own comments):
+   ```bash
+   sudo systemctl start edgelog-qqq-exec.service
+   sudo systemctl start edgelog-runner.service
+   bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh
+   ```
+7. **Confirm the phone tab shows CLOUD** — open the EDGELOG web app's QQQ SHADOW /
+   Webull paper tab and check the status card's "running on" reads **CLOUD**, not
+   THIS PC. If it still says THIS PC, `check.sh`'s log tail will show why
+   (`edgelog-qqq-exec.service` not started, or its heartbeat not fresh yet).
+8. **Turn the PC-side shadow adapter off**, only after step 7 confirms CLOUD is live:
+   stop `C:\EdgeLog\_run_qqq_exec.vbs`'s process (Task Manager, or however you normally
+   stop it) and don't relaunch it. **You do not have to race this** — the cross-host
+   lease guard (see below) already refuses to let the VM and the PC serve at the same
+   time, so there is no window where both place orders; this step is just cleanup so
+   the PC stops ticking uselessly.
+9. **Decide on PAPER mode** (flip it on with a one-line config change) — see
+   [Webull ORDER adapter](#webull-order-adapter-paper-orders-now-live-staged-for-later)
+   below for the exact steps and the LIVE 2FA caveat. Do this whenever you're ready;
+   it is independent of steps 1–8 above.
+
+**Why two hosts can never both trade:** the QQQ shadow adapter publishes a heartbeat
+(`lease.host_id` / `lease.leased_at`) to the same Firestore status doc the phone tab
+reads, every tick. Before either host starts serving, it checks that doc: if the OTHER
+host's heartbeat is still fresh (under 90 seconds old), it refuses to serve and says so
+in its log, rather than risk two copies mirroring orders to the same broker account at
+once. A host only takes over once the other one's heartbeat has actually gone stale
+(crashed, stopped, or never started) — so step 8 is safe to do at your own pace.
+
+---
+
 ## (a) Create the free Oracle Cloud VM
 
 1. Go to <https://signup.oraclecloud.com/> and create an account (needs a credit card
@@ -109,9 +169,12 @@ When it finishes it prints exactly what's still needed — the next two steps be
 
 ## (d) Copy your secrets from the PC
 
-Three files never live in the git repo (they're gitignored / kept off GitHub on
-purpose) and have to be copied by hand, once, from your PC to the VM. From a
-**PowerShell window on your PC** (not the VM):
+Three-to-four files never live in the git repo (they're gitignored / kept off GitHub
+on purpose) and have to be copied, once, from your PC to the VM. **Preferred:** run
+`deploy/cloud/push_secrets.ps1` from a PowerShell window on your PC (see
+[Do these in order, step 4](#do-these-in-order) above) — it copies exactly these
+files, sets `chmod 600` on each, and never prints a secret's contents. Its manual
+equivalent, if you'd rather run scp yourself:
 
 ```powershell
 scp -i C:\path\to\your-downloaded-key.key `
@@ -125,6 +188,12 @@ scp -i C:\path\to\your-downloaded-key.key `
 scp -i C:\path\to\your-downloaded-key.key `
     "C:\EdgeLog\webull_token\token.txt" `
     ubuntu@<the-public-ip>:~/edgelog/webull_token/token.txt
+
+# only if you already have Webull paper-trading credentials (see "Webull ORDER
+# adapter" below) -- skip this one until you do:
+scp -i C:\path\to\your-downloaded-key.key `
+    "C:\EdgeLog\webull_paper_keys.json" `
+    ubuntu@<the-public-ip>:~/edgelog/webull_paper_keys.json
 ```
 
 What each one is:
@@ -135,16 +204,24 @@ What each one is:
   adapter and the daily Webull trade-history pull.
 - **`webull_token\token.txt`** — the current Webull login token, so the box doesn't
   need you to re-authenticate Webull by hand.
+- **`webull_paper_keys.json`** (optional, once you have it) — the SEPARATE sandbox
+  App Key/Secret that flips the Webull ORDER adapter into PAPER mode. See "Webull
+  ORDER adapter" below.
 
-Then finish `~/edgelog/edgelog.env` on the VM (`nano ~/edgelog/edgelog.env`): fill in
-`NTFY_TOPIC` (the push-notification topic — reuse the one already set on your PC in
-`tools/_restart_runner.bat.example`, or pick a fresh name at <https://ntfy.sh>).
+Then finish `~/edgelog/edgelog.env` on the VM (`nano ~/edgelog/edgelog.env`) — see
+[`edgelog.env.example`](edgelog.env.example) for what every line means. At minimum,
+fill in `NTFY_TOPIC` (the push-notification topic — reuse the one already set on your
+PC in `tools/_restart_runner.bat.example`, or pick a fresh name at <https://ntfy.sh>).
 
 ---
 
 ## (e) Start it and confirm it's running
 
+Start the QQQ shadow adapter BEFORE the runner (see `edgelog-qqq-exec.service`'s own
+comments for why the order matters):
+
 ```bash
+sudo systemctl start edgelog-qqq-exec.service
 sudo systemctl start edgelog-runner.service
 bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh
 ```
@@ -221,26 +298,36 @@ directory to copy — `webull_paper_token/` starts empty and the SDK populates i
 the first paper login (a 2FA approval on the owner's phone), no different from the
 existing live-token flow the day-to-day steps above already document.
 
-### How to enable Webull's paper trading access (owner steps — button names may differ)
+### How to enable Webull's paper trading access (verified 2026-09-13 against
+developer.webull.com's own docs — Individual Application API, "Retail Individual
+Mode" → Sandbox tab)
 
-Webull announced OpenAPI paper-trading access on 2026-07-21 for stocks, options,
-crypto, futures, bonds and event contracts. In the Webull OpenAPI developer portal
-(developer.webull.com):
+1. Go to webull.com, log in, click your avatar (top right) → **Developer Tool** →
+   this opens the **Developer Management Center**.
+2. Under **My Application**, click **"Using OpenAPI service in Paper Trading"**.
+3. That opens the **Sandbox Trading** page → **API Management** → **My Application**
+   → apply for the **Sandbox Trading API**. Webull's docs state this is
+   auto-approved, typically within a few minutes — no waiting on a human reviewer.
+4. Still under **API Management** → **API Keys Management**: register an
+   application (give it a name, tick "I have read and accept the agreement"), then
+   click **Generate Key** to get an **App Key** + **App Secret**. (**Reset Key**
+   there invalidates the old key immediately — only use it if you need to rotate.)
+5. Save those two values to `webull_paper_keys.json` (path above) as:
+   ```json
+   {"app_key": "your-sandbox-app-key", "app_secret": "your-sandbox-app-secret"}
+   ```
+   (`api/webull_orders.py`'s `load_paper_keys()` reads exactly these two field
+   names — `app_key` and `app_secret` — nothing else.) Webull's environments doc
+   confirms the sandbox Trading HTTP host is `api.sandbox.webull.com` (events
+   `events-api.sandbox.webull.com`) — already wired into this adapter, nothing to
+   configure on your end for that part.
+6. Webull states paper logins are normal (no forced 2FA), unlike the live flow's
+   ~2-week re-approval below.
 
-1. Log in with the account that already has the live OpenAPI app registered.
-2. Look for something like **"Apply for Paper Trading"** / **"Sandbox access"** /
-   **"Test Application"** near the existing app's settings — Webull's own docs
-   describe sandbox credentials as coming from a **separate test application**, not
-   the live app's key rotated. *(I could not verify the exact button/menu wording
-   from inside this sandbox — there are no paper credentials on this machine to
-   click through the real flow with. If the portal looks different, look for
-   anything mentioning "sandbox", "paper", or "test app" near the live app.)*
-3. Once approved, the portal issues a **new** app key/secret pair scoped to the
-   sandbox host (`api.sandbox.webull.com`) — that pair is what goes in
-   `webull_paper_keys.json` above. Webull states paper tokens are normal logins (no
-   forced 2FA), unlike the live flow.
-4. No paper account needs to be created by hand elsewhere — the sandbox app itself
-   is what grants a virtual paper account once approved.
+*One thing I could not verify from outside a real account: whether the portal's menu
+wording is character-for-character what's above at the moment you click through it —
+Webull sometimes reflows its own UI. If a label looks slightly different, it will be
+the nearest thing on the page to "Paper Trading" / "Sandbox" / "API Keys".*
 
 ### The 2FA token problem for LIVE (read this before ever arming LIVE)
 
@@ -268,23 +355,36 @@ this bundle:
 Paper mode does NOT have this problem the same way (its own token, and Webull's docs
 say paper logins are normal, not gated behind 2FA) — this is a LIVE-only wrinkle.
 
-### Owner checklist
+### Flipping PAPER on is a one-line config change
 
-- [ ] Apply for / receive Webull OpenAPI paper (sandbox) access for this app.
-- [ ] Save the sandbox app key/secret to `webull_paper_keys.json` on the VM (and/or
-      the PC path `C:\EdgeLog\webull_paper_keys.json` if running there instead).
-- [ ] Confirm the adapter picks it up: its `status()` should show
-      `paper_credentials_present: true` and `effective_mode` become `PAPER` once
-      `webull_orders/config.json` has `{"mode": "PAPER"}` (this file does not exist
-      yet — nothing in this bundle creates it; add it yourself when ready).
-- [ ] Decide on a LIVE unattended-token policy from the options above BEFORE ever
-      creating `webull_orders/ARM_LIVE` — that file plus `"mode": "LIVE"` in
-      `config.json` are the only two things that arm real-money orders, and neither
-      is created by this bundle or by any Claude session without your explicit ask.
-- [ ] Set real rails in `webull_orders/config.json` (`max_shares_per_leg`,
-      `max_total_position_shares`, `daily_loss_limit_usd`, session window) before
-      relying on PAPER results for anything — the shipped defaults are conservative
-      placeholders, not tuned to any real strategy.
+Once `webull_paper_keys.json` exists (steps above) and every shadow OPEN/CLOSE is
+already wired to hand its intent to this adapter (`api/qqq_exec.py`'s
+`_mirror_to_broker`, always on — mode OFF is what makes it a no-op today), turning
+PAPER trading on is exactly **one line** in a file that doesn't exist until you create
+it — nothing else to touch:
+
+```bash
+mkdir -p ~/edgelog/webull_orders   # or C:\EdgeLog\webull_orders on the PC
+cat > ~/edgelog/webull_orders/config.json <<'EOF'
+{"mode": "PAPER"}
+EOF
+```
+
+(`EDGELOG_WEBULL_ORDERS_CONFIG` in `edgelog.env` already points here — see
+`edgelog.env.example`.) The adapter re-reads this file fresh on the next order it
+places (it does not need a restart to notice a mode flip), and its `status()` —
+folded into the published `meta/qqq_exec` doc's `"broker"` field — will show
+`effective_mode: "PAPER"` and `paper_credentials_present: true` once both are true.
+
+Before relying on PAPER results for anything, also set real rails in that same
+`config.json` (`"rails": {"max_shares_per_leg": ..., "max_total_position_shares": ...,
+"daily_loss_limit_usd": ..., "session_start": ..., "session_end": ...}`) — the shipped
+defaults (`DEFAULT_RAILS` in `api/webull_orders.py`) are conservative placeholders,
+not tuned to any real strategy. **Never** create `webull_orders/ARM_LIVE` until you've
+picked a LIVE unattended-token policy from the options above — that file plus
+`"mode": "LIVE"` in `config.json` are the only two things that arm real-money orders,
+and neither is created by this bundle or by any Claude session without your explicit
+ask.
 
 ---
 
@@ -316,12 +416,12 @@ is changed. This is an **inventory only** — nothing below was fixed in this ch
 | 12 | `api/paper.py:1316` | `C:\EdgeLog\fills.csv` | No | Paper-book fill reads (NT-only) |
 | 13 | `api/paper.py:1320` | `C:\EdgeLog\ohlc_addon\NQ_10s.csv` | No | 10-second bar feed, primary path |
 | 14 | `api/paper.py:1321` | `C:\EdgeLog\ohlc\NQ_10s.csv` | No | 10-second bar feed, fallback path |
-| 15 | `api/qqq_exec.py:88` | `C:\EdgeLog\qqq_exec` | **Yes** — `EDGELOG_QQQ_EXEC_DIR` | QQQ shadow adapter output dir |
-| 16 | `api/qqq_exec.py:94` | `C:\EdgeLog\ohlc_addon\NQ_10s.csv` | No | QQQ shadow adapter's 10s feed, primary path |
-| 17 | `api/qqq_exec.py:95` | `C:\EdgeLog\ohlc\NQ_10s.csv` | No | QQQ shadow adapter's 10s feed, fallback path |
-| 18 | `api/qqq_exec.py:96` | `C:\EdgeLog\webull_keys.json` | **Yes** — `EDGELOG_WEBULL_KEYS` | Webull API keys |
-| 19 | `api/qqq_exec.py:97` | `C:\EdgeLog\webull_token` | **Yes** — `EDGELOG_WEBULL_TOKEN_DIR` | Webull token directory |
-| 20 | `api/qqq_exec.py:120` | `C:\EdgeLog\qqq_exec\KILL` | No | QQQ shadow adapter kill-switch file |
+| 15 | `api/qqq_exec.py` `OUT_DIR` | `C:\EdgeLog\qqq_exec` | **Yes** — `EDGELOG_QQQ_EXEC_DIR`, else `EDGELOG_HOME`/qqq_exec | QQQ shadow adapter output dir (**FIXED 2026-09-13** — was a bare literal, now `EDGELOG_HOME`-based) |
+| 16 | `api/qqq_exec.py` `NQ_10S_PRIMARY` | `C:\EdgeLog\ohlc_addon\NQ_10s.csv` | **Yes** — `EDGELOG_NQ_10S_PRIMARY`, else `EDGELOG_HOME` (**FIXED 2026-09-13**) | QQQ shadow adapter's 10s feed, primary path (ninjatrader signal-source mode only) |
+| 17 | `api/qqq_exec.py` `NQ_10S_FALLBACK` | `C:\EdgeLog\ohlc\NQ_10s.csv` | **Yes** — `EDGELOG_NQ_10S_FALLBACK`, else `EDGELOG_HOME` (**FIXED 2026-09-13**) | QQQ shadow adapter's 10s feed, fallback path (ninjatrader signal-source mode only) |
+| 18 | `api/qqq_exec.py` `WEBULL_KEYS` | `C:\EdgeLog\webull_keys.json` | **Yes** — `EDGELOG_WEBULL_KEYS`, else `EDGELOG_HOME` | Webull API keys |
+| 19 | `api/qqq_exec.py` `_WEBULL_TOKEN_DIR` | `C:\EdgeLog\webull_token` | **Yes** — `EDGELOG_WEBULL_TOKEN_DIR`, else `EDGELOG_HOME` | Webull token directory |
+| 20 | `api/qqq_exec.py` `DEFAULT_CONFIG["kill_file"]` | `C:\EdgeLog\qqq_exec\KILL` | **Yes** — derives from `OUT_DIR` (row 15), so `EDGELOG_QQQ_EXEC_DIR`/`EDGELOG_HOME` move it too (**FIXED 2026-09-13**) | QQQ shadow adapter kill-switch file |
 | 21 | `api/qqq_paper_publish.py:46` | `C:\EdgeLog\qqq_paper\state.json` | No | QQQ paper-board publish state |
 | 22 | `api/qqq_paper_publish.py:47` | `C:\EdgeLog\qqq_paper\blotter.csv` | No | QQQ paper-board blotter |
 | 23 | `api/runner.py:2282` | `C:\EdgeLog\fills.csv` (CLI default) | **Yes** — `EDGELOG_NT_FILLS` | `--nt-fills` flag default |
@@ -335,19 +435,24 @@ is changed. This is an **inventory only** — nothing below was fixed in this ch
 | 31 | `api/webull_orders.py` `DEFAULT_KILL_FILE` | `C:\EdgeLog\webull_orders\KILL` | **Yes** — `EDGELOG_WEBULL_ORDERS_KILL` | Order adapter kill switch |
 | 32 | `api/webull_orders.py` `DEFAULT_STATE_PATH` | `C:\EdgeLog\webull_orders\state.json` | **Yes** — `EDGELOG_WEBULL_ORDERS_STATE` | Idempotency/rails state file |
 
-**32 hardcoded lines across 12 files in `api/`.** 15 of them already read an env
-override first and only fall back to the Windows path (rows 1, 9, 10, 15, 18, 19, 23,
-24, 25, 26-32 — using `os.environ.get("EDGELOG_...", r"C:\EdgeLog\...")`) — this
+**32 hardcoded lines across 12 files in `api/`.** 18 of them already read an env
+override first and only fall back to a default path (rows 1, 9, 10, 15-20, 23,
+24, 25, 26-32 — using `os.environ.get("EDGELOG_...", ...)`) — this
 bundle's `install.sh` sets those overrides (rows 27-32 newly added by the Webull ORDER
-adapter, all defaulted to non-existent paths so the adapter starts in its safe OFF
+adapter, rows 15-20 **FIXED 2026-09-13** to default off `EDGELOG_HOME` instead of a
+bare `C:\EdgeLog\...` literal — see `api/qqq_exec.py`'s `EDGELOG_HOME`/`_default_edgelog_home`
+— all still defaulted to non-existent paths so the adapter starts in its safe OFF
 no-op state until the owner fills them in) in `edgelog.env`, so they already work
-correctly on Linux today. The other 17 (rows 2-8, 11-14, 16-17, 20-22) are plain
+correctly on Linux today. The other 14 (rows 2-8, 11-14, 21-22) are plain
 hardcoded strings with no override; on the cloud box they simply point at paths that
-don't exist, so those specific side duties (mostly the NinjaTrader-bridge readers,
-which have nothing to read without NT running) degrade to "not present" rather than
-doing anything, and the QQQ shadow adapter's 10-second bar feed (rows 13, 16-17) and
-kill-switch (row 20) won't work in CLOUD mode until one of those is fixed — noted here
-for whoever does that follow-up, not addressed in this bundle.
+don't exist, so those specific side duties (the NinjaTrader-bridge readers, which have
+nothing to read without NT running, plus `api/paper.py`'s own 10-second NQ bar feed
+and `api/qqq_paper_publish.py`) degrade to "not present" rather than doing anything —
+noted here for whoever does that follow-up, not addressed in this bundle. The QQQ
+shadow adapter itself (`api/qqq_exec.py`) no longer has this problem: rows 15-20 are
+fixed, and its default `signal_source` is "engine" (api/cloud_signal.py's own QQQ-bar
+signals), which never reads the NinjaTrader/NQ-feed paths in rows 16-17 at all — see
+that module's docstring.
 
 **`augur_engine/*.py` has zero hardcoded paths.** `augur_engine/paths.py` already
 supports a Linux home out of the box: every path (`ROOT`, `UPLOADS`, `STRAT_DIR`,
@@ -370,3 +475,14 @@ cloud box today, even though several of its Windows-PC side duties don't yet.
   is normal for the free ARM shape in busy regions, not an account problem.
 - **Can't SSH in:** confirm the security list still only opens port 22 and that
   you're using the private key that matches the public key you added at creation.
+- **Phone tab still shows THIS PC, not CLOUD:** `journalctl -u edgelog-qqq-exec -n 50
+  --no-pager` — the most common cause is the log line `REFUSING to serve for <uid>:
+  host '<pc-hostname>' holds a fresh lease` (the PC-side adapter is still running and
+  ticking within the last 90 seconds — that's the cross-host guard working correctly,
+  not a bug; wait for the PC copy to stop, or stop it yourself, and the VM will take
+  over the next time its heartbeat goes stale). A missing `serviceAccount.json` or an
+  unreachable Firestore also shows up here rather than silently failing.
+- **Worried two copies might trade at once:** they can't stay running at once by
+  design — see "Why two hosts can never both trade" in the numbered checklist above —
+  but if you ever need to force a takeover immediately rather than wait ~90 seconds,
+  stop the other host's service/process first, then start this one.

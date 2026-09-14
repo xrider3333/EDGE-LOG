@@ -1,0 +1,38 @@
+[Unit]
+Description=EDGE-LOG QQQ shadow adapter + Webull order mirror (standalone, cloud)
+Documentation=https://github.com/xrider3333/EDGE-LOG/blob/main/deploy/cloud/README.md
+After=network-online.target edgelog-runner.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+# LINUX LAUNCH APPROACH (see api/qqq_exec.py's ensure_standalone() docstring): on
+# Windows the runner launches this via a detached .vbs when nothing is serving; on
+# Linux there is no equivalent supervisor for a bare subprocess, so this dedicated
+# systemd unit IS the standalone process instead. serve() itself still refuses to
+# double-run (SERVING.lock heartbeat) and refuses to run at all while the OTHER host
+# (the owner's PC) holds a fresh cross-host lease (see api/qqq_exec.py's LEASE_STALE_SEC
+# / _check_lease) -- so starting this unit is always safe to try, it just won't
+# actually trade if the PC is still the active host.
+#
+# START ORDER MATTERS: start (or restart) THIS unit, then restart
+# edgelog-runner.service -- api/runner.py's ensure_standalone() only skips its own
+# in-process fallback thread when this unit's heartbeat is already fresh at runner
+# boot. Starting them in the other order can briefly run two tickers in one process
+# tree until the next runner restart (harmless -- both compute the same state from the
+# same signals -- but avoidable by ordering the two systemctl commands as documented in
+# README.md's checklist).
+Environment=EDGELOG_HOST_ROLE=cloud
+ExecStart=__EDGELOG_VENV__/bin/python -u -m api.qqq_exec --serve --uid __EDGELOG_ALLOW_UID__ --cred serviceAccount.json
+Restart=always
+RestartSec=15
+StandardOutput=append:__EDGELOG_HOME__/logs/qqq_exec.log
+StandardError=append:__EDGELOG_HOME__/logs/qqq_exec.log
+Nice=0
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -72,7 +72,7 @@ echo "==> creating ${EDGELOG_HOME}/{ohlc,qqq_exec,logs,webull_token,webull_paper
 mkdir -p "${EDGELOG_HOME}/ohlc" "${EDGELOG_HOME}/qqq_exec" "${EDGELOG_HOME}/logs" \
          "${EDGELOG_HOME}/webull_token" "${EDGELOG_HOME}/webull_paper_token" \
          "${EDGELOG_HOME}/webull_orders"
-touch "${EDGELOG_HOME}/logs/runner.log"
+touch "${EDGELOG_HOME}/logs/runner.log" "${EDGELOG_HOME}/logs/qqq_exec.log"
 
 # 5. env file -- write once, never clobber an owner-edited file --------------------
 ENV_FILE="${EDGELOG_HOME}/edgelog.env"
@@ -99,6 +99,11 @@ EDGELOG_WEBULL_ORDERS_KILL=${EDGELOG_HOME}/webull_orders/KILL
 EDGELOG_WEBULL_ARM_LIVE=${EDGELOG_HOME}/webull_orders/ARM_LIVE
 EDGELOG_NT_OHLC=${EDGELOG_HOME}/ohlc
 EDGELOG_QQQ_EXEC_DIR=${EDGELOG_HOME}/qqq_exec
+# Tells the QQQ shadow adapter (api/qqq_exec.py) it is the CLOUD copy, both for the
+# phone tab's "running on" label and for the cross-host lease guard (LEASE_STALE_SEC /
+# _check_lease) that stops the PC and this VM from ever trading the same account at
+# once. Leave this exactly as "cloud" -- do NOT set it on the PC.
+EDGELOG_HOST_ROLE=cloud
 # Fold-level parallelism inside one validate (augur_engine.wf_pool). Keep this at or
 # below the box's OCPU count -- 2 for the recommended 2-OCPU/12GB Always Free shape,
 # raise to 3-4 if the instance was sized up to 4 OCPU/24GB.
@@ -118,7 +123,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-healthcheck.service edgelog-healthcheck.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-healthcheck.service edgelog-healthcheck.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -129,7 +134,10 @@ for unit in edgelog-runner.service edgelog-healthcheck.service edgelog-healthche
 done
 
 sudo systemctl daemon-reload
-sudo systemctl enable edgelog-runner.service edgelog-healthcheck.timer
+# edgelog-qqq-exec.service is ENABLED (starts on boot) but not started here -- same
+# "installed, not started" convention as edgelog-runner.service below, so the owner
+# copies secrets and reviews rails/mode before either process can place a single order.
+sudo systemctl enable edgelog-runner.service edgelog-qqq-exec.service edgelog-healthcheck.timer
 sudo systemctl start edgelog-healthcheck.timer
 
 echo
@@ -141,5 +149,10 @@ echo "         webull_token/token.txt -> ${EDGELOG_HOME}/webull_token/token.txt"
 echo "       (Webull ORDER adapter paper credentials, once you have them, go in"
 echo "        ${EDGELOG_HOME}/webull_paper_keys.json -- see README.md \"Webull ORDER adapter\".)"
 echo "    2. Edit ${ENV_FILE} (set NTFY_TOPIC)."
-echo "    3. Start the runner:  sudo systemctl start edgelog-runner.service"
+echo "    3. Start the QQQ shadow adapter FIRST, then the runner (order matters -- see"
+echo "       edgelog-qqq-exec.service's own comments):"
+echo "         sudo systemctl start edgelog-qqq-exec.service"
+echo "         sudo systemctl start edgelog-runner.service"
 echo "    4. Check it:          bash ${REPO_DIR}/deploy/cloud/check.sh"
+echo "    5. Turn OFF the PC-side shadow adapter once the phone tab shows CLOUD (see"
+echo "       README.md's numbered checklist) -- never run both at once."

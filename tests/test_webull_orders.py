@@ -44,16 +44,15 @@ def _write_keys(path, app_key="AK", app_secret="AS"):
 
 def _mock_client():
     """A MagicMock standing in for webull.trade.trade_client.TradeClient, wired just
-    enough for place_stock_order's happy path (account lookup, instrument lookup,
-    place_order) without touching the real SDK or network."""
+    enough for place_stock_order's happy path (account lookup, order_v3.place_order)
+    without touching the real SDK or network. v3 orders are symbol-keyed -- see
+    api/webull_orders.py's ORDER API VERSION docstring section -- so there is no
+    instrument lookup call to mock any more."""
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
         "data": [{"account_id": "ACCT1"}]
     }
-    client.trade_instrument.get_trade_security_detail.return_value.json.return_value = {
-        "instrument_id": "INSTR-AAPL"
-    }
-    client.order_v2.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
+    client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     client.account_v2.get_account_position.return_value.json.return_value = {"data": []}
     return client
 
@@ -131,12 +130,13 @@ def test_paper_with_creds_sends_via_mocked_sdk(tmp_path, monkeypatch):
     assert rec["mode"] == "PAPER"
     assert rec["sent"] is True
     assert rec["ok"] is True
-    mock_client.order_v2.place_order.assert_called_once()
-    args, kwargs = mock_client.order_v2.place_order.call_args
+    mock_client.order_v3.place_order.assert_called_once()
+    args, kwargs = mock_client.order_v3.place_order.call_args
     account_id, new_orders = args
     assert account_id == "ACCT1"
     assert new_orders[0]["side"] == "BUY"
-    assert new_orders[0]["instrument_id"] == "INSTR-AAPL"
+    assert new_orders[0]["symbol"] == "AAPL"
+    assert new_orders[0]["quantity"] == "2"
     assert new_orders[0]["client_order_id"] == "sig-3"
 
 

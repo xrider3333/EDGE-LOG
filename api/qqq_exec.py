@@ -77,6 +77,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import market_calendar
 from . import nt_sync
+from . import webull_orders
 
 try:
     from zoneinfo import ZoneInfo
@@ -84,17 +85,39 @@ try:
 except Exception:  # pragma: no cover -- zoneinfo ships with 3.9+, this repo runs 3.13
     _NY = None
 
+
+# -- EDGELOG_HOME (2026-09-13, "fill-in-the-blanks Oracle Cloud move") ------------------
+# Every path below used to be a bare C:\EdgeLog\... literal. EDGELOG_HOME is the one base
+# directory a Linux VM sets differently; every specific-path env var below still overrides
+# its own default individually, exactly as before -- this only changes what the DEFAULT is
+# when none of those are set. On Windows with EDGELOG_HOME unset, every path is
+# byte-identical to the old hardcoded literal (os.path.join with "C:\\EdgeLog" reproduces
+# the same backslashed string).
+def _default_edgelog_home():
+    return r"C:\EdgeLog" if os.name == "nt" else "/var/lib/edgelog"
+
+
+EDGELOG_HOME = os.environ.get("EDGELOG_HOME") or _default_edgelog_home()
+
 # -- paths -----------------------------------------------------------------------
-OUT_DIR = os.environ.get("EDGELOG_QQQ_EXEC_DIR", r"C:\EdgeLog\qqq_exec")
+OUT_DIR = os.environ.get("EDGELOG_QQQ_EXEC_DIR", os.path.join(EDGELOG_HOME, "qqq_exec"))
 CONFIG_PATH = os.path.join(OUT_DIR, "config.json")
 STATE_PATH = os.path.join(OUT_DIR, "state.json")
 ORDERS_CSV = os.path.join(OUT_DIR, "orders.csv")
 TRADES_CSV = os.path.join(OUT_DIR, "trades.csv")
+# BROKER MIRROR (2026-09-13): a SEPARATE file, never new columns on orders.csv/trades.csv
+# above -- those are read by existing consumers (the web tab, backfill/reprice scripts)
+# that depend on the header staying exactly what it is today. See _mirror_to_broker.
+BROKER_ORDERS_CSV = os.path.join(OUT_DIR, "broker_orders.csv")
 DEFAULT_FILLS = nt_sync.DEFAULT_FILLS
-NQ_10S_PRIMARY = r"C:\EdgeLog\ohlc_addon\NQ_10s.csv"
-NQ_10S_FALLBACK = r"C:\EdgeLog\ohlc\NQ_10s.csv"
-WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.json")
-_WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
+NQ_10S_PRIMARY = os.environ.get("EDGELOG_NQ_10S_PRIMARY",
+                                os.path.join(EDGELOG_HOME, "ohlc_addon", "NQ_10s.csv"))
+NQ_10S_FALLBACK = os.environ.get("EDGELOG_NQ_10S_FALLBACK",
+                                 os.path.join(EDGELOG_HOME, "ohlc", "NQ_10s.csv"))
+WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", os.path.join(EDGELOG_HOME, "webull_keys.json"))
+_WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", os.path.join(EDGELOG_HOME, "webull_token"))
+# The symbol this module's shadow lots (and now the broker mirror) always trade.
+BROKER_SYMBOL = "QQQ"
 
 LEGS = ("ORB", "ENGUQ", "NOISE")
 # ENGINE MODE (2026-09-13): maps api/cloud_signal.py's own CROWN_LEGS keys onto this
@@ -124,7 +147,7 @@ DEFAULT_CONFIG = {
     "max_shares_per_leg": 10,
     "daily_loss_limit_usd": 150,
     "session": {"open": "09:31", "last_entry": "15:55", "flat_by": "15:58"},
-    "kill_file": r"C:\EdgeLog\qqq_exec\KILL",
+    "kill_file": os.path.join(OUT_DIR, "KILL"),
     "slippage_per_share": 0.01,
     # NT SIZING GAP (feature #50): "fixed" (default, unchanged behaviour) uses the
     # `shares` table above verbatim. "nt_notional" instead sizes each lot off the $
@@ -668,6 +691,156 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     row["signal_source"] = lot.get("signal_source") or ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
+
+
+# -- broker mirror (2026-09-13, "flip Webull paper orders on with a one-line config
+# change") -------------------------------------------------------------------------------
+# Every shadow OPEN/CLOSE below also hands the same intent to api.webull_orders, in
+# whatever mode ITS OWN config file says (default OFF -- see that module's docstring).
+# The shadow book stays the source of truth for the simulated record: _open_lot/
+# _reduce_lot already recorded their shadow order/trade rows BEFORE calling
+# _mirror_to_broker, and a broker rejection/exception here is caught, logged, and folded
+# into the doc's "broker" status block -- it never unwinds or blocks the shadow trade.
+BROKER_ORDER_COLS = ["ts_et", "leg", "intent", "side", "shares", "signal_id",
+                     "client_order_id", "mode", "ok", "sent", "shadow_px",
+                     "broker_fill_px", "slippage", "reason", "duplicate"]
+
+_ORDER_ADAPTER = None
+
+
+def _get_broker_adapter(log=print):
+    """One OrderAdapter per process (it owns its own on-disk state file, reloaded once
+    at construction) -- module-level so every OPEN/CLOSE in this process shares the same
+    idempotency/rails/reconcile state. Tests should monkeypatch this function directly
+    rather than relying on the singleton."""
+    global _ORDER_ADAPTER
+    if _ORDER_ADAPTER is None:
+        _ORDER_ADAPTER = webull_orders.OrderAdapter(log=log)
+    return _ORDER_ADAPTER
+
+
+def _broker_side(side, intent):
+    """This module's own vocabulary is side in {"long","short"}; the installed Webull
+    SDK's OrderSide enum is BUY/SELL/SHORT only -- there is no COVER member -- so closing
+    a short is sent as BUY, which nets against the existing short position. See
+    api/webull_orders.py's module docstring, ORDER SIDE CAVEAT: unverified against a live
+    sandbox fill since no paper credentials exist on this machine."""
+    if str(intent).upper() == "OPEN":
+        return "BUY" if side == "long" else "SHORT"
+    return "SELL" if side == "long" else "BUY"
+
+
+def _broker_signal_id(leg, ts, intent, seq=0):
+    """Deterministic across a process restart: `ts` is the LOT's own entry_ts (stored in
+    this module's persisted state.json), so re-deriving the same lot after a restart
+    reproduces the same signal_id -> the same client_order_id -> webull_orders' own
+    idempotency cache returns the cached record instead of sending again. `seq` only
+    matters for a lot reduced more than once (ninjatrader-mode partial exits; engine mode
+    is always single-shot, see module docstring)."""
+    base = f"qqqexec-{leg}-{ts}-{intent}"
+    return base if not seq else f"{base}-{seq}"
+
+
+def _extract_broker_fill_price(record):
+    """Best-effort: the broker's payload shape for a MARKET order's actual fill price
+    varies (and is unverified here -- no live paper credentials exist on this machine).
+    Returns None (never raises) when no recognisable field is present, which is the
+    normal case for OFF/BLOCKED and for many real order-ack payloads that report status,
+    not a fill, at placement time."""
+    if not isinstance(record, dict):
+        return None
+    resp = record.get("response")
+    candidates = []
+    if isinstance(resp, dict):
+        candidates.append(resp)
+        for k in ("data", "orders", "list"):
+            v = resp.get(k)
+            if isinstance(v, list) and v and isinstance(v[0], dict):
+                candidates.append(v[0])
+    for c in candidates:
+        for key in ("avg_fill_price", "avgFillPrice", "fill_price", "filledPrice", "avg_price"):
+            v = c.get(key)
+            if v not in (None, ""):
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    continue
+    return None
+
+
+def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0, log=print):
+    """Call after the shadow's own order/trade row is already recorded. Never raises."""
+    if not shares or shares <= 0:
+        return
+    signal_id = _broker_signal_id(leg, ts, intent, seq=seq)
+    try:
+        adapter = _get_broker_adapter(log=log)
+        rec = adapter.place_stock_order(leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
+                                        side=_broker_side(side, intent),
+                                        qty=int(round(shares)), intent=intent)
+    except Exception as e:
+        rec = {"ok": False, "sent": False, "mode": "ERROR", "error": f"{type(e).__name__}: {e}"}
+        log(f"[qqq-exec] broker adapter call failed for {leg} {intent} (non-fatal -- the "
+            f"shadow record above stands): {type(e).__name__}: {e}")
+    broker_px = _extract_broker_fill_price(rec)
+    slippage = None
+    if broker_px is not None and shadow_px is not None:
+        try:
+            slippage = round(float(broker_px) - float(shadow_px), 4)
+        except (TypeError, ValueError):
+            slippage = None
+    row = {
+        "ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": leg, "intent": intent,
+        "side": rec.get("side") or _broker_side(side, intent), "shares": shares,
+        "signal_id": signal_id, "client_order_id": rec.get("client_order_id") or "",
+        "mode": rec.get("mode") or "", "ok": rec.get("ok"), "sent": rec.get("sent"),
+        "shadow_px": round(shadow_px, 4) if shadow_px is not None else "",
+        "broker_fill_px": broker_px if broker_px is not None else "",
+        "slippage": slippage if slippage is not None else "",
+        "reason": rec.get("reason") or rec.get("error") or "",
+        "duplicate": bool(rec.get("duplicate", False)),
+    }
+    _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
+    state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
+                             "ok": rec.get("ok"), "reason": row["reason"]}
+    if rec.get("mode") not in (None, "OFF") and not rec.get("ok", False):
+        log(f"[qqq-exec] broker {intent} for {leg} NOT ok (mode={rec.get('mode')}): "
+            f"{row['reason']}")
+
+
+def _build_broker_status(log=print):
+    """Small, flat summary of api.webull_orders' own status() for the "broker" key in
+    the published doc (see _build_doc) -- trimmed so the phone tab's future broker card
+    has what it needs without growing the doc (Firestore 1 MiB cap) or nesting arrays
+    (Firestore rejects array-of-arrays; every value here is a scalar or a flat dict)."""
+    try:
+        adapter = _get_broker_adapter(log=log)
+        st = adapter.status()
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    last_order = st.get("last_order") or {}
+    return {
+        "requested_mode": st.get("requested_mode"),
+        "effective_mode": st.get("effective_mode"),
+        "mode_reason": st.get("mode_reason"),
+        "environment": st.get("environment"),
+        "paper_credentials_present": st.get("paper_credentials_present"),
+        "live_credentials_present": st.get("live_credentials_present"),
+        "live_armed": st.get("live_armed"),
+        "kill_file_present": st.get("kill_file_present"),
+        "halted": st.get("halted"),
+        "halt_reason": st.get("halt_reason"),
+        "last_error": st.get("last_error"),
+        "last_order": {
+            "leg": last_order.get("leg"), "symbol": last_order.get("symbol"),
+            "side": last_order.get("side"), "qty": last_order.get("qty"),
+            "intent": last_order.get("intent"), "mode": last_order.get("mode"),
+            "ok": last_order.get("ok"), "sent": last_order.get("sent"),
+            "reason": last_order.get("reason") or last_order.get("error"),
+        },
+        "daily_pnl": st.get("daily_pnl"),
+        "open_legs": st.get("open_legs"),
+    }
 
 
 # -- pricing ---------------------------------------------------------------------------
@@ -1380,6 +1553,11 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
                  "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
                  signal_source=signal_source)
     _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
+    # BROKER MIRROR: after the shadow's own order is already recorded above -- see the
+    # "broker mirror" section docstring near _mirror_to_broker. A broker error here
+    # never unwinds the shadow lot just opened.
+    _mirror_to_broker(state, leg=leg, side=side, shares=shares, shadow_px=fill_px,
+                      intent="OPEN", ts=lot["entry_ts"], log=log)
     return True
 
 
@@ -1426,6 +1604,16 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
                  signal_source=(signal_source or lot.get("signal_source")))
     _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
            "EDGELOG QQQ SHADOW", log)
+    # BROKER MIRROR: mirrors every reduce, not just a full close -- a ninjatrader-mode
+    # partial exit closes only part of the broker position too. `seq` disambiguates more
+    # than one reduce against the SAME lot (engine mode never needs it -- see module
+    # docstring, entries/exits are single-shot there). Flat-by/EOD/KILL route through
+    # here too (_close_all calls _reduce_lot), so this is also what keeps a broker
+    # position from surviving past flat-by.
+    lot["_broker_close_seq"] = lot.get("_broker_close_seq", 0) + 1
+    _mirror_to_broker(state, leg=leg, side=lot["side"], shares=shares_close,
+                      shadow_px=fill_px, intent="CLOSE", ts=lot["entry_ts"],
+                      seq=lot["_broker_close_seq"], log=log)
     pnl = None
     if lot["shares_remaining"] <= 0:
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
@@ -2245,9 +2433,11 @@ def _build_price_status(cfg, state, log=print):
 
 def _build_run_location():
     """{"label": "CLOUD"/"THIS PC", "host": ...} for the web tab's status panel.
-    EDGELOG_RUN_LOCATION is an explicit opt-in ("cloud"/"pc") the runner (or its host
-    environment) can set; absent that, the hostname is shown but always labelled
-    THIS PC -- there is no reliable host-only signal for "running in the cloud"."""
+    EDGELOG_RUN_LOCATION ("cloud"/"pc") is the original explicit opt-in; EDGELOG_HOST_ROLE
+    ("cloud"/"pc", 2026-09-13 Oracle-VM staging) is the deploy/cloud/edgelog.env.example
+    name for the same switch -- either sets CLOUD, so the systemd unit's .env only needs
+    to set one. Absent both, the hostname is shown but always labelled THIS PC -- there
+    is no reliable host-only signal for "running in the cloud"."""
     host = None
     try:
         import platform as _platform
@@ -2255,7 +2445,8 @@ def _build_run_location():
     except Exception:
         host = None
     loc_env = str(os.environ.get("EDGELOG_RUN_LOCATION") or "").strip().lower()
-    label = "CLOUD" if loc_env == "cloud" else "THIS PC"
+    role_env = str(os.environ.get("EDGELOG_HOST_ROLE") or "").strip().lower()
+    label = "CLOUD" if "cloud" in (loc_env, role_env) else "THIS PC"
     return {"label": label, "host": host}
 
 
@@ -2372,6 +2563,14 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                   "session": cfg.get("session"), "slippage_per_share": cfg.get("slippage_per_share"),
                   "kill_file": cfg.get("kill_file"), "size_mode": cfg.get("size_mode"),
                   "size_fraction": cfg.get("size_fraction")},
+        # BROKER MIRROR (2026-09-13): api.webull_orders' own status, trimmed flat -- see
+        # _build_broker_status. Lets the phone tab eventually show mode/creds/last
+        # order/last error without a separate endpoint.
+        "broker": _build_broker_status(log=log),
+        # LEASE (2026-09-13): this host's heartbeat for the cross-host guard (see
+        # _check_lease) -- a second host reads THIS field to decide whether the shadow
+        # book (and its broker mirror) is already running elsewhere.
+        "lease": {"host_id": _lease_host_id(), "leased_at": time.time()},
     }
 
 
@@ -2711,12 +2910,36 @@ def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
     return doc
 
 
+def _reconcile_broker_at_boot(log=print):
+    """Called once per process start (both the standalone serve() path and the
+    in-runner-thread fallback share this function, since both are "startup" from the
+    broker adapter's point of view). Compares the broker's live positions against the
+    adapter's OWN belief -- which mirrors the shadow's open lots 1:1, since every shadow
+    open/close calls place_stock_order with the same leg/qty (see _mirror_to_broker) --
+    and halts new broker OPEN intents on any mismatch. Never raises: a reconcile problem
+    must not stop the shadow book itself from ticking."""
+    try:
+        adapter = _get_broker_adapter(log=log)
+        result = adapter.reconcile()
+        if result is None:
+            return  # OFF mode, or no broker client -- nothing to reconcile against
+        if result.get("ok"):
+            log("[qqq-exec] broker reconcile OK at boot")
+        else:
+            log(f"[qqq-exec] BROKER RECONCILE MISMATCH at boot -- the broker order "
+                f"adapter halts new entries until the owner clears its state: "
+                f"{result.get('mismatches')}")
+    except Exception as e:
+        log(f"[qqq-exec] broker reconcile at boot failed (non-fatal): {type(e).__name__}: {e}")
+
+
 # -- runner thread hook (mirrors api.runner._bridge_watchdog_thread) ---------------------
 def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     """Own thread, ticking every TICK_SEC -- never blocks the runner's main loop and
     never takes it down. Publishes to every allow-listed uid each tick that changed,
     at least once a minute regardless (see _publish's force/throttle logic)."""
     state = load_state(log=log)
+    _reconcile_broker_at_boot(log=log)
     while stop is None or not stop.is_set():
         try:
             cfg = load_config(log=log)
@@ -2751,7 +2974,16 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
 # double-tick, which is harmless -- both writers compute the same state from the same fills.
 SERVING_LOCK = os.path.join(OUT_DIR, "SERVING.lock")
 SERVING_STALE_SEC = 120.0
-QQQ_EXEC_VBS = r"C:\EdgeLog\_run_qqq_exec.vbs"
+QQQ_EXEC_VBS = os.path.join(EDGELOG_HOME, "_run_qqq_exec.vbs")  # Windows launcher only
+
+# LEASE (2026-09-13, "PC and cloud can never both run"): a cross-HOST guard, unlike
+# SERVING_LOCK above which only arbitrates between processes on the SAME machine. Two
+# machines (the owner's PC and the future Oracle Cloud VM) could each pass their own
+# local serving_alive() check while both believing they own the account -- the shared
+# signal that actually spans hosts is the heartbeat this adapter already publishes to
+# Firestore (users/{uid}/meta/qqq_exec) every tick. See _check_lease / _build_doc's
+# "lease" field.
+LEASE_STALE_SEC = 90.0
 
 
 def _pid_alive(pid):
@@ -2813,11 +3045,26 @@ def ensure_standalone(log=print, vbs=None):
 
     Launch is DETACHED via wscript, never a direct child: a process started from a session's
     console dies with that console and, worse, orphans into the 0xC0000142 popup loop that
-    cost a day in 2026-09-01 (see memory edgelog-runner-launch-detached)."""
+    cost a day in 2026-09-01 (see memory edgelog-runner-launch-detached).
+
+    LINUX (the Oracle Cloud VM): there is no wscript.exe and a bare detached subprocess()
+    has no supervisor to restart it if it dies or the host reboots, so the chosen approach
+    on Linux is a dedicated systemd unit (edgelog-qqq-exec.service -- see
+    deploy/cloud/README.md and deploy/cloud/install.sh) that is always enabled, not a
+    process this function launches. This function only checks the heartbeat there; if the
+    unit is not yet up, it falls back to the in-runner thread exactly like the
+    "no launcher" case below, and stops falling back once the unit's own heartbeat goes
+    fresh."""
     alive, pid = serving_alive()
     if alive:
         log(f"[qqq-exec] standalone already serving (pid {pid}) -- runner thread stays off")
         return True
+    if os.name != "nt":
+        log("[qqq-exec] not serving and this is not Windows -- on Linux the standalone "
+            "adapter is supervised by systemd (edgelog-qqq-exec.service, see "
+            "deploy/cloud/README.md), not launched from here; falling back to the "
+            "in-runner thread until that unit is up")
+        return False
     vbs = vbs or QQQ_EXEC_VBS
     if not os.path.exists(vbs):
         log(f"[qqq-exec] no launcher at {vbs} -- falling back to the in-runner thread")
@@ -2833,14 +3080,69 @@ def ensure_standalone(log=print, vbs=None):
         return False
 
 
+def _lease_host_id():
+    """This host's identity for the cross-host lease (see LEASE_STALE_SEC above).
+    EDGELOG_HOST_ID lets the owner name a host explicitly (handy if two VMs ever share a
+    hostname); absent that, the OS hostname is enough to tell "the PC" from "the cloud
+    VM" -- there are only ever two candidates."""
+    override = os.environ.get("EDGELOG_HOST_ID")
+    if override and override.strip():
+        return override.strip()
+    try:
+        import platform as _platform
+        return _platform.node() or "unknown-host"
+    except Exception:
+        return "unknown-host"
+
+
+def _check_lease(db, uid, log=print):
+    """(ok, reason). ok=False means a DIFFERENT host's heartbeat is still fresh in the
+    published users/{uid}/meta/qqq_exec doc's "lease" field -- refuse to serve so the
+    owner's PC and the cloud VM can never both run the shadow book (and its broker
+    mirror) against the same account at once.
+
+    Fail-OPEN on any read problem (missing doc, missing lease field, unreadable
+    timestamp, a Firestore read error): none of those may stop the host that already
+    legitimately owns the lease, or the very first host ever to serve, from starting."""
+    if db is None or not uid:
+        return True, "no Firestore/uid configured -- lease check skipped"
+    try:
+        snap = db.collection("users").document(uid).collection("meta").document("qqq_exec").get()
+        d = snap.to_dict() if getattr(snap, "exists", True) else None
+    except Exception as e:
+        log(f"[qqq-exec] lease check could not read Firestore ({type(e).__name__}: {e}) -- "
+            "proceeding (fail-open)")
+        return True, "lease read failed -- fail-open"
+    lease = (d or {}).get("lease") or {}
+    other_host = lease.get("host_id")
+    leased_at = lease.get("leased_at")
+    my_host = _lease_host_id()
+    if not other_host or other_host == my_host or leased_at is None:
+        return True, "lease free or already ours"
+    try:
+        age = time.time() - float(leased_at)
+    except (TypeError, ValueError):
+        return True, "lease timestamp unreadable -- treating as free"
+    if age > LEASE_STALE_SEC:
+        return True, f"other host's lease is stale ({age:.0f}s old)"
+    return False, f"host {other_host!r} holds a fresh lease ({age:.0f}s old)"
+
+
 def serve(db, uids, log=print):
     """Run the adapter in THIS process until killed, holding the serving lock."""
     alive, pid = serving_alive()
     if alive and pid != os.getpid():
         log(f"[qqq-exec] another standalone is already serving (pid {pid}) -- exiting")
         return
+    for uid in uids:
+        ok, reason = _check_lease(db, uid, log=log)
+        if not ok:
+            log(f"[qqq-exec] REFUSING to serve for {uid}: {reason} -- the owner's PC and "
+                f"the cloud VM must never run the shadow book at the same time")
+            return
     _touch_serving_lock(log=log)
-    log(f"[qqq-exec] SERVING standalone (pid {os.getpid()}), tick {TICK_SEC:g}s")
+    log(f"[qqq-exec] SERVING standalone (pid {os.getpid()}, host {_lease_host_id()!r}), "
+        f"tick {TICK_SEC:g}s")
     try:
         qqq_exec_thread(db, uids, log=log, on_tick=_touch_serving_lock)
     finally:

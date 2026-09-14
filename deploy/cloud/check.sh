@@ -13,13 +13,23 @@ hr() { printf '%s\n' "----------------------------------------------------------
 hr; echo "SERVICE STATUS"; hr
 systemctl status edgelog-runner.service --no-pager -l 2>&1 || echo "(edgelog-runner.service not found -- run install.sh)"
 echo
+systemctl status edgelog-qqq-exec.service --no-pager -l 2>&1 || echo "(edgelog-qqq-exec.service not found -- run install.sh)"
+echo
 systemctl list-timers edgelog-healthcheck.timer --no-pager 2>&1 || echo "(edgelog-healthcheck.timer not found -- run install.sh)"
 
-hr; echo "LAST 20 LOG LINES (${LOG_FILE})"; hr
+QQQ_LOG_FILE="${EDGELOG_HOME}/logs/qqq_exec.log"
+hr; echo "LAST 20 RUNNER LOG LINES (${LOG_FILE})"; hr
 if [ -f "$LOG_FILE" ]; then
   tail -n 20 "$LOG_FILE"
 else
   echo "MISSING: ${LOG_FILE}"
+fi
+
+hr; echo "LAST 20 QQQ-EXEC LOG LINES (${QQQ_LOG_FILE})"; hr
+if [ -f "$QQQ_LOG_FILE" ]; then
+  tail -n 20 "$QQQ_LOG_FILE"
+else
+  echo "MISSING: ${QQQ_LOG_FILE}"
 fi
 
 hr; echo "DISK"; hr
@@ -43,4 +53,5 @@ check_path "${EDGELOG_HOME}/edgelog.env"                 "env"
 check_path "${REPO_DIR}/serviceAccount.json"              "firebase"
 check_path "${EDGELOG_HOME}/webull_keys.json"             "webull"
 check_path "${EDGELOG_HOME}/webull_token/token.txt"       "webull"
+check_path "${EDGELOG_HOME}/webull_paper_keys.json"       "webull-paper"
 hr
