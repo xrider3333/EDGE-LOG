@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 18
+N_CASES = 19
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -849,6 +849,23 @@ var FIX = __FIX__;
             runBtns:d.querySelectorAll('[data-recfgrun]').length+d.querySelectorAll('[data-reshow]').length};}
         r.cfg=read({resShow:'configs',resSegs:['wf']});
         r.runs=read({resShow:'runs',resSegs:['lb'],resAxis:'evr',resXAxis:'pf'});
+      })();
+      // -- case rbhoriz: RUNBOARD sideways reads the same rows as the grid --------------------
+      (function(){
+        var r=snap('rbhoriz','OK');r.per={};
+        ['lb','full'].forEach(function(smp){
+          var out={};
+          ['v','h'].forEach(function(o){
+            var c=doRender({cmpMode:'board',rbSample:smp,rbRank:'mar',rbOrient:o,cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp');
+            var mar=null;
+            if(o==='v'){[].forEach.call(d.querySelectorAll('tr'),function(tr){var cc=[].map.call(tr.children,function(td){return (td.textContent||'').trim();});
+              if(cc[0]==='MAR'&&mar===null)mar=cc[1]||null;});}
+            else{var t=d.querySelector('table[data-rbhoriz]');
+              if(t){var hs=[].map.call(t.querySelectorAll('thead th'),function(x){return (x.textContent||'').trim();});
+                var k=hs.indexOf('MAR');var row=t.querySelector('tbody tr');
+                if(k>=0&&row&&row.children[k])mar=(row.children[k].textContent||'').trim();}}
+            out[o]={call:c,mar:mar,horizTable:!!d.querySelector('table[data-rbhoriz]')};});
+          r.per[smp]=out;});
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -1793,6 +1810,16 @@ def main(argv=None):
     line('lvlall', la_ok, 'failed=%s | configs=%s | runs=%s' % ([k for k, v in la_chk.items() if not v], c, u))
     if not la_ok:
         fail('lvlall: LEVEL = ALL is not showing sweeps together with runs / configurations -- see the lvlall line')
+    # case rbhoriz: RUNBOARD sideways reads the same rows as the grid
+    r = cases.get('rbhoriz', {})
+    per = r.get('per') or {}
+    rbh_ok = all(((per.get(sm) or {}).get('v') or {}).get('mar') not in (None, '')
+                 and ((per.get(sm) or {}).get('h') or {}).get('mar') == ((per.get(sm) or {}).get('v') or {}).get('mar')
+                 and ((per.get(sm) or {}).get('h') or {}).get('horizTable')
+                 for sm in ('lb', 'full'))
+    line('rbhoriz', rbh_ok, 'lb=%s full=%s' % (per.get('lb'), per.get('full')))
+    if not rbh_ok:
+        fail('rbhoriz: RUNBOARD sideways does not show the grid rows (MAR differs from the vertical grid) -- see the rbhoriz line')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:
