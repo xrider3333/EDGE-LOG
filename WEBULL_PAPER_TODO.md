@@ -11,6 +11,7 @@ done.
 | # | item | status | needs from owner |
 | ---: | --- | --- | --- |
 | 1 | Void the fake NOISE rows a test re-run wrote into the live signal record | **WAITING ON OWNER** | reply "apply the ledger repair" |
+| 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
 
 ---
 
@@ -84,6 +85,81 @@ landed, and three things differ now (checked read-only at 16:52 ET on 2026-09-14
 - Never restart the runner or the shadow adapter during market hours.
 - Never edit the live files by hand; only the tool's backed-up, logged path.
 
-**Related, not tracked yet:** `python -m api.cloud_signal --once` and `--loop` still have no
-live-writer check, so running either by hand beside the runner's own thread gives the signal
-record two writers. Worth its own item if the owner wants it.
+**Related:** `python -m api.cloud_signal --once` and `--loop` still have no live-writer check, so
+running either by hand beside the runner's own thread gives the signal record two writers. Now
+tracked as item 2.
+
+---
+
+## 2. Stop a hand-run signal step from writing beside the live signal thread
+
+**Status: OPEN.** Nothing needed from the owner: build, test and push. Added 2026-09-14 from the
+owner's spec below. Checked read-only at ~16:55 ET on 2026-09-14 against origin/main `c61d3e8`:
+the gap is still open, and no session branch or worktree held an unshipped edit to
+`api/cloud_signal.py`.
+
+**What can go wrong, in plain words.** The runner already steps the QQQ signal engine every 30
+seconds and writes the live signal record. Running the engine by hand at the same time makes a
+second writer of the same files. Two writers can send the same entry twice, or lose a trade's
+bookkeeping so the engine sends its entry again after its exit. Webull paper trading would then
+open a trade that never happened, and once the Webull broker mirror is armed that becomes a real
+order. It is the same kind of accident as the two ledger contaminations so far (2026-09-09, and
+2026-09-14 = item 1).
+
+**Context.** `api/cloud_signal.py` is the QQQ-bar signal engine. The runner's primary process runs
+`cloud_signal_thread`, which calls `step(fetch=True, paths=DEFAULT_PATHS)` every 30 s during RTH and
+writes `<EDGELOG_HOME>/cloud_signal/heartbeat.json` every 30-60 s at all hours. `step()` loads
+state.json, diffs, rewrites state.json and appends to signals.csv; `api/qqq_exec.py` consumes
+signals.csv by row-number cursor and acts on ENTRY/EXIT rows emitted within 30 min. Commit
+`cff0006` (2026-09-14) made `--replay` isolated by default and added `--live-paths`, which is
+refused while `_live_writer_age_sec(DEFAULT_PATHS)` is under `LIVE_WRITER_FRESH_SEC` (180 s).
+
+**The gap.** `python -m api.cloud_signal --once` (`cmd_once`) and `--loop` (`cmd_loop`) still step
+into DEFAULT_PATHS with no check, so run by hand while the runner thread is live they become a
+second writer of state.json / signals.csv. Two overlapping steps can both emit the same ENTRY (the
+adapter ignores a second ENTRY while a lot is open), or a lost state update can drop a trade record
+so the next step re-emits its ENTRY after its EXIT, which would open a phantom shadow lot, and a
+real order once the Webull broker mirror is armed.
+
+**The task**
+1. Make `cmd_once` and `cmd_loop` refuse (exit code 2, a clear message naming the heartbeat age and
+   path) when a live writer's heartbeat is fresh, reusing `_live_writer_age_sec` /
+   `LIVE_WRITER_FRESH_SEC`.
+2. `cmd_loop` writes the heartbeat itself, so check ONCE at startup, before its first heartbeat
+   write.
+3. Do NOT add a refusal to `cloud_signal_thread`: a stale heartbeat left by an old `--loop` must
+   never stop the runner's live parallel run.
+4. Add tests in `tests/test_cloud_signal.py` following the existing `fake_live` fixture pattern
+   (monkeypatch `cs.DEFAULT_PATHS` to a tmp home; never touch C:\EdgeLog): a fresh heartbeat is
+   refused and the stand-in live home stays byte-identical; a stale or absent heartbeat lets
+   `cmd_once` proceed (monkeypatch `fetch_and_merge` to avoid the network).
+5. Update the CLI section of the module docstring.
+6. Before pushing, run `tests/test_cloud_signal.py`, `tests/test_qqq_exec_*.py`,
+   `tests/test_qqq_cache_atomic.py` and `python tools/qqq_exec_smoke.py`.
+
+**Found while filing (worth knowing, not part of the spec)**
+- `main()` discards what `cmd_once()` and `cmd_loop()` return; only the `--replay` branch does
+  `rc = ...; sys.exit(rc)`. Exit code 2 has to be passed through there as well.
+- Helpers already sit beside `fake_live`: `_stamp_heartbeat(paths, age_sec)` and `_tree_bytes(root)`.
+- `cmd_once` stamps the heartbeat itself, so a second hand-run `--once` within 180 s is refused too.
+  That is safe; the message should say to wait it out.
+- The design leaves one opening: a runner thread that starts AFTER a `--loop` is already running is
+  not caught, because the thread must not refuse and the loop checks only at startup. If that
+  matters, the loop could compare the heartbeat's `ts` with the one it last wrote and stop on a
+  newer stamp. That is the owner's call.
+
+**Done when**
+- With a heartbeat under 180 s old, `--once` and `--loop` exit with code 2, name the heartbeat's age
+  and path, and change no file under the home.
+- With a stale or absent heartbeat, `--once` steps exactly as before.
+- `cloud_signal_thread` is unchanged, so the runner needs no restart for this.
+- The new tests and the four checks in task step 6 pass, and the change is on main.
+- This item reads DONE with its commit.
+
+**Constraints**
+- Work in your own worktree (`python tools/wt.py new <name>`) and never commit in the shared
+  checkout. A backend-only change may push direct after rebasing onto origin/main; the pre-push hook
+  still runs the gates.
+- Other sessions ship to `api/cloud_signal.py` and `api/qqq_exec.py` today (`550055c`, `cff0006`), so
+  fetch and rebase right before pushing.
+- Never restart the runner or the shadow adapter during market hours.
