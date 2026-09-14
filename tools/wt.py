@@ -80,6 +80,40 @@ def run(args, cwd=None, check=True, quiet=False):
     return (p.stdout or '').strip()
 
 
+def utf8_console():
+    """Make stdout and stderr UTF-8 before anything is printed.
+
+    run() decodes git output as UTF-8, but printing it goes back out through the console
+    encoding, and Python on Windows encodes a piped or redirected console (how Claude sessions
+    run this script) as cp1252: print() raises UnicodeEncodeError on the first character
+    outside it. Observed 2026-09-14: the Greek beta in the subject of 9a6ca04 ("BUILDER ...")
+    killed ship on its `pushed:` line AFTER the push had landed, so sync_shared never ran and
+    the shared checkout had to be fast-forwarded by hand. The same wall had been silently
+    eating warn_pages_budget's warning sign. errors='replace', so nothing printed after this
+    can raise on encoding.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except Exception:            # not a TextIOWrapper (None under pythonw, a test double)
+            pass
+
+
+def safe_print(text):
+    """print() that never raises, for output after the push has landed - a report line that
+    cannot be printed must not skip the post-push steps behind it. main() already made the
+    console UTF-8; this backs up a stream nobody reconfigured (a caller that imported this
+    module rather than running it) by printing the line with what the stream cannot encode
+    escaped, e.g. \\u03b2."""
+    try:
+        print(text)
+    except Exception:
+        try:
+            print(text.encode('ascii', 'backslashreplace').decode('ascii'))
+        except Exception:
+            pass
+
+
 def repo_root():
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return run(['git', '-C', here, 'rev-parse', '--show-toplevel'])
@@ -413,7 +447,11 @@ def cmd_ship(name, message):
               (' (%d known duplicate row(s) baselined)' % len(dups & KNOWN_DUP_ROWS) if dups else ''))
 
     run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'])
-    print('pushed: ' + run(['git', '-C', wt, 'log', '--oneline', '-1']))
+    # The push has LANDED. Nothing from here on may stop the steps after it: a print that
+    # raised on this line once skipped sync_shared and left the runner's checkout behind
+    # (2026-09-14, see utf8_console). Hence check=False and safe_print.
+    head = run(['git', '-C', wt, 'log', '--oneline', '-1'], check=False, quiet=True)
+    safe_print('pushed: ' + head)
     warn_pages_budget(wt)
     sync_shared(root)
 
@@ -439,9 +477,9 @@ def warn_pages_budget(wt):
                    '--format=%H'], check=False, quiet=True)
         n = len([l for l in (out or '').splitlines() if l.strip()])
         if n >= 10:
-            print('  \u26a0 %d pushes to main in the last hour. GitHub Pages builds a '
-                  'branch-sourced site about 10 times an hour, so the LIVE SITE MAY NOW '
-                  'LAG BEHIND main.' % n)
+            safe_print('  \u26a0 %d pushes to main in the last hour. GitHub Pages builds a '
+                       'branch-sourced site about 10 times an hour, so the LIVE SITE MAY NOW '
+                       'LAG BEHIND main.' % n)
             print('    Check: curl -s https://xrider3333.github.io/EDGE-LOG/index.html '
                   '| grep -o "const VERSION=.[0-9.]*."')
             print('    If it is behind, one more push once the hour rolls over '
@@ -498,8 +536,12 @@ def sync_shared(root):
                             capture_output=True, text=True, encoding='utf-8',
                             errors='replace')
         if pr.returncode == 0:
-            print('shared checkout: fast-forwarded %s commit(s) -> %s'
-                  % (behind, run(['git', '-C', root, 'log', '--oneline', '-1'])))
+            # safe_print: this line carries a commit subject too. A plain print that raised
+            # here would land in the except below and report a fast-forward that DID happen
+            # as "could not fast-forward".
+            safe_print('shared checkout: fast-forwarded %s commit(s) -> %s'
+                       % (behind, run(['git', '-C', root, 'log', '--oneline', '-1'],
+                                      check=False, quiet=True)))
             return
 
         out = (pr.stdout or '') + (pr.stderr or '')
@@ -716,6 +758,7 @@ def cmd_drop(name):
 
 
 def main():
+    utf8_console()
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
