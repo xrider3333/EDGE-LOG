@@ -651,6 +651,37 @@ var FIX = __FIX__;
           return (tr.textContent||'').indexOf('GATE')>=0;})[0]||null;
         var cell=function(i2){return (gtr&&i2>=0&&gtr.cells[i2])?(gtr.cells[i2].textContent||'').trim():null;};
         r.gateMar=cell(iMar); r.gateRoc=cell(iRoc);
+        // RUN and TRADES / YR (v73.758): both headed, every body row as wide as its heading,
+        //   and TRADES / YR agreeing with R / YR - they share one count and one window.
+        var ix=function(name){for(var q=0;q<hdr.length;q++){if(hdr[q].replace(/[^A-Z /%$]/g,'').trim()===name)return q;}return -1;};
+        r.iRun=ix('RUN'); r.iTpy=ix('TRADES / YR');
+        r.thN=gtr?gtr.closest('table').querySelectorAll('tr th').length:null;
+        r.tdBad=[].slice.call(d.querySelectorAll('tr[data-rerow]')).filter(function(tr){return tr.cells.length!==r.thN;}).length;
+        r.gateRun=cell(r.iRun); r.gateTpy=cell(r.iTpy);
+        r.gateEvr=cell(ix('EV R')); r.gateRpy=cell(ix('R / YR'));
+        r.runSortable=!!d.querySelector('th[data-resort="run"]');
+        r.tpySortable=!!d.querySelector('th[data-resort="tpy"]');
+        r.expectRun='#'+String(FIX.id);
+        // IN-SAMPLE + LOCKBOX is the one stage pair with no saved block of its own. It used to
+        //   print the whole-run count (125) over a window that still held the unticked
+        //   walk-forward years (16); it must read 20+25=45 trades over 6+1=7 years = 6.4 a year.
+        //   All three ticked must be unchanged: 125 over the 16-year span = 7.8.
+        function stageRead(segs){
+          doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
+                    resSegs:segs,resXAxis:'roc',resMarks:'dot',c2Tbl:true}, wc);
+          var h2=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$]/g,'').trim();});
+          var g2=[].slice.call(d.querySelectorAll('tr[data-rerow]')).filter(function(tr){return (tr.textContent||'').indexOf('GATE')>=0;})[0];
+          var at=function(n){var q=h2.indexOf(n);return (g2&&q>=0&&g2.cells[q])?(g2.cells[q].textContent||'').trim():null;};
+          return {trd:at('TRADES'),tpy:at('TRADES / YR'),ppt:at('$/TRD')};}
+        r.isLb=stageRead(['is','lb']); r.allSeg=stageRead(['is','wf','lb']);
+        r.wfOnly=stageRead(['wf']);
+        // and the ALL layout, which lost its old grey RUN column as well as gaining two
+        r.allCall=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
+                            resSegs:['wf'],resXAxis:'roc',resMarks:'dot',c2Tbl:true,resCols:'all'}, wc);
+        (function(){var t=d.querySelector('tr[data-rerow]');var tb=t?t.closest('table'):null;
+          var th=tb?tb.querySelectorAll('tr th').length:null;
+          r.allTh=th; r.allBad=[].slice.call(d.querySelectorAll('tr[data-rerow]')).filter(function(x){return x.cells.length!==th;}).length;
+          r.allRunHeads=tb?[].filter.call(tb.querySelectorAll('tr th'),function(h){return (h.textContent||'').replace(/[^A-Z ]/g,'').trim()==='RUN';}).length:null;})();
         r.hasGateRow=!!gtr;
         r.sums=(cand.is_rng.total_pnl+cand.wf_rng.total_pnl)===cand.pre_pnl;
       })();
@@ -1443,7 +1474,30 @@ def main(argv=None):
     #   an empty skip list.
     r = cases.get('gatewf', {})
     dash = '—'
-    gw_ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
+    def _f(x):
+        try:
+            return float(str(x).replace('R', '').replace(',', '').strip())
+        except (TypeError, ValueError):
+            return None
+    _e, _t, _y = _f(r.get('gateEvr')), _f(r.get('gateTpy')), _f(r.get('gateRpy'))
+    tpy_agrees = (_e is not None and _t is not None and _y is not None and _y != 0
+                  and abs(_e * _t - _y) / abs(_y) < 0.05)
+    _il, _as = (r.get('isLb') or {}), (r.get('allSeg') or {})
+    # $/TRD is whole-run money over whole-run trades on EVERY stage tick: tot 12,000 x 20 / 125 trades = $1,920
+    _wo = (r.get('wfOnly') or {})
+    _ppts = [_wo.get('ppt'), _il.get('ppt'), _as.get('ppt')]
+    stages_ok = (all(p == _ppts[2] for p in _ppts) and _ppts[2] not in (None, '', '—')
+                 and str(_il.get('trd')).startswith('45') and _il.get('tpy') == '6.4'
+                 and str(_as.get('trd')).startswith('125') and _as.get('tpy') == '7.8')
+    line('stage-counts', stages_ok, 'IS+LB trades=%r per yr=%r (want 45 / 6.4) | all three trades=%r per yr=%r (want 125 / 7.8) | $/TRD wf/is+lb/all=%r (all equal)'
+         % (_il.get('trd'), _il.get('tpy'), _as.get('trd'), _as.get('tpy'), _ppts))
+    if not stages_ok:
+        fail('stage-counts: IN-SAMPLE + LOCKBOX is not reading the ticked stretches (or all three moved) -- see the stage-counts line')
+    cols_ok = (r.get('allCall') == 'OK' and r.get('allBad') == 0 and r.get('allRunHeads') == 1
+               and r.get('iRun', -1) >= 0 and r.get('iTpy', -1) >= 0 and r.get('tdBad') == 0
+               and r.get('runSortable') and r.get('tpySortable')
+               and str(r.get('gateRun') or '').startswith(str(r.get('expectRun'))) and tpy_agrees)
+    gw_ok = (cols_ok and r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
              and r.get('hasGateRow') and r.get('sums')
              and (r.get('gatePoints') or 0) >= 1
              and r.get('gateMar') not in (None, '', dash)
@@ -1453,6 +1507,13 @@ def main(argv=None):
          % (r.get('call'), r.get('hasGateRow'), r.get('gatePoints'), r.get('points'),
             r.get('skipN'), r.get('shownN'), r.get('gateMar'), r.get('gateRoc'),
             r.get('sums')))
+    line('columns', cols_ok, 'RUN at %s (%r, want %s, sorts=%s) TRADES/YR at %s (%r, sorts=%s) misaligned rows=%s EVR*TPY=%s vs R/YR=%s | ALL: th=%s misaligned=%s RUN headings=%s'
+         % (r.get('iRun'), r.get('gateRun'), r.get('expectRun'), r.get('runSortable'), r.get('iTpy'),
+            r.get('gateTpy'), r.get('tpySortable'), r.get('tdBad'),
+            (None if (_e is None or _t is None) else round(_e * _t, 1)), _y,
+            r.get('allTh'), r.get('allBad'), r.get('allRunHeads')))
+    if not cols_ok:
+        fail('columns: RUN / TRADES-YR columns wrong -- see the columns line above (a misaligned row means a cell was added without its heading, or the reverse)')
     if not gw_ok:
         if r.get('call') != 'OK':
             fail('gatewf: renderApp threw -- %s' % str(r.get('call'))[:300])
