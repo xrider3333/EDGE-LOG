@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 14
+N_CASES = 15
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -697,6 +697,47 @@ var FIX = __FIX__;
         r.sums=(cand.is_rng.total_pnl+cand.wf_rng.total_pnl)===cand.pre_pnl;
       })();
 
+      // -- case crowns: which book is champion, and which runs COMPARE is reading --------
+      //    Three books. KNOB carries the most money AND the best pre-lockbox net/DD but is a
+      //    labelled KNOB TEST, so it must never be champion unless starred. BEST has the best
+      //    net/DD of the rest but LESS money than RICH, so a money order would pick RICH - the
+      //    fault that crowned #378. Then RICH is starred and must win, saying your crown.
+      (function(){
+        function mk(id,name,pnl,dd,best){var B=JSON.parse(JSON.stringify(FIX));
+          B.id=String(id);B.strategy='BOOK '+name;B.starred=false;B.best_pnl_usd=best;B.best_dd_usd=dd;B.multiplier=1;
+          B.book={name:name,legs:[{strategy:FIX.strategy,weight:1}],whole:{total_pnl:pnl+10000,max_drawdown:dd},
+            pre_lockbox:{total_pnl:pnl,max_drawdown:dd},lockbox:{total_pnl:10000,num_trades:100,win_rate:40,profit_factor:1.3,max_drawdown:5000},
+            lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+          B.validate={verdict:'PASS',lockbox:{pnl:10000,pf:1.3,trades:100,pass:true},book:true};return B;}
+        var KNOB=mk(910001,'SQUEEZE x4 KNOB TEST',900000,10000,900000);   // 90 net/DD, most money
+        var RICH=mk(910002,'RICH',600000,20000,800000);                    // 30 net/DD
+        var BEST=mk(910003,'BEST',500000,10000,500000);                    // 50 net/DD
+        var pre='var norm=function(o){return (typeof _bookUnitsOnRead==="function"&&typeof _isoTs==="function")?_bookUnitsOnRead(_isoTs(o)):o;};'
+          +'window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
+        function hist(star){var a=JSON.parse(JSON.stringify([FIX,KNOB,RICH,BEST]));if(star)a[2].starred=true;
+          return pre+'runHistory='+JSON.stringify(a)+'.map(norm);';}
+        function bookWho(){var row=[].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'')==='BOOKS';})[0];
+          var w2=row?row.querySelector('.c2-who'):null;return w2?(w2.textContent||'').replace(/ +/g,' ').trim():null;}
+        var c1=doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'lb'}, hist(false));
+        var r=snap('crowns', c1);
+        r.unstarred=bookWho();
+        r.starCall=doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'lb'}, hist(true));
+        r.starred=bookWho();
+        // the run window: not capped (4 runs, limit 75) says ALL; capped says NEWEST with two wired loaders
+        r.allCall=doRender({c2Screen:'lead'}, hist(false));
+        r.allTxt=(function(){var t=d.body.innerText||'';var m=t.match(/(ALL|NEWEST) [0-9]+ RUNS/);return m?m[0]:null;})();
+        r.allBtns=d.querySelectorAll('[data-c2loadruns]').length;
+        var saved=w.eval('runsLimit');
+        r.capped={};
+        [['lead',null],['cmp','ovl'],['cmp','board'],['explore',null]].forEach(function(v){
+          var p={c2Screen:v[0]};if(v[1])p.c2View=v[1];
+          var c=doRender(p, hist(false)+'runsLimit=3;');
+          var bs=d.querySelectorAll('[data-c2loadruns]');
+          var txt=(d.body.innerText||'').match(/NEWEST [0-9]+ RUNS/);
+          r.capped[v.join('/')]={call:c,txt:txt?txt[0]:null,btns:bs.length,
+            wired:[].every.call(bs,function(b){return typeof b.onclick==='function';})};});
+        w.eval('runsLimit='+saved+';');
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -1550,6 +1591,20 @@ def main(argv=None):
                  'dash there means the stage profit is missing again'
                  % (r.get('gateMar'), r.get('gateRoc')))
 
+    # case crowns: knob test never champion, books on pre-lockbox net/DD, star wins; run window
+    r = cases.get('crowns', {})
+    un, st = str(r.get('unstarred') or ''), str(r.get('starred') or '')
+    cap = r.get('capped') or {}
+    cap_ok = (len(cap) == 4 and all(v.get('call') == 'OK' and v.get('txt') == 'NEWEST 4 RUNS'
+                                    and v.get('btns') == 2 and v.get('wired') for v in cap.values()))
+    cr_ok = (r.get('call') == 'OK' and r.get('starCall') == 'OK' and not r.get('errors')
+             and 'top pick' in un and '#910003' in un and '#910001' not in un
+             and 'your crown' in st and '#910002' in st
+             and str(r.get('allTxt') or '').startswith('ALL 4 RUNS') and r.get('allBtns') == 0 and cap_ok)
+    line('crowns', cr_ok, 'unstarred=%r | starred=%r | uncapped=%r btns=%s | capped=%s'
+         % (un[:60], st[:60], r.get('allTxt'), r.get('allBtns'), cap))
+    if not cr_ok:
+        fail('crowns: champion or run-window note wrong -- see the crowns line (want BEST #910003 as top pick with the KNOB TEST passed over, RICH #910002 as your crown once starred, ALL 4 RUNS uncapped, NEWEST 4 RUNS with two wired loaders on every screen when capped)')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:
