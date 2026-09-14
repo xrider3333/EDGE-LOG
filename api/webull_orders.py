@@ -42,8 +42,11 @@ get_order_open, and `.account_v2` (webull.trade.trade.v2.account_info_v2.Account
 get_account_list/get_account_balance/get_account_position. Order/side/type/tif string
 values are the `.name` of the SDK's own enums (webull.trade.common.order_side.OrderSide,
 .order_type.OrderType, .order_tif.OrderTIF -- EasyEnum.__str__ returns .name, e.g.
-str(OrderSide.BUY)=="BUY"), so this module imports and validates against those enums
-rather than inventing values.
+str(OrderSide.BUY)=="BUY"), so this module validates against ORDER_SIDES/ORDER_TYPES/
+ORDER_TIFS -- plain-string mirrors of those enums' members, kept near CLIENT_ORDER_ID_MAX
+below -- rather than inventing values. Validation is done against the local mirrors, not
+a live import of the enums themselves, so it works (and OFF mode stays import-free) even
+where the `webull` package isn't installed at all -- see those constants' own comment.
 
 ORDER API VERSION (switched 2026-09-13, per developer.webull.com/apis/docs -- the
 current Trading API getting-started sample calls `order_v3`, not `order_v2`): v3's
@@ -472,6 +475,27 @@ def fees_total(fields):
 # to allow comes from the SDK's HONG KONG order_operation.place_order docstring, not the US
 # order_v3 path this module calls.
 CLIENT_ORDER_ID_MAX = 32
+
+# ── order enum mirrors (2026-09-14, "OFF mode must never import webull") ───────────
+# place_stock_order() used to validate side/order_type/tif by importing the SDK's own
+# webull.trade.common.order_side.OrderSide / order_type.OrderType / order_tif.OrderTIF
+# enums UNCONDITIONALLY at the top of the method -- reached on EVERY call including
+# OFF mode and every rails-only/BLOCKED path, contradicting this module's own docstring
+# ("this module imports and validates against those enums") and the OFF-mode contract
+# ("OFF mode never imports webull") a few lines below in this same file. On a box
+# without the proprietary `webull` package installed (e.g. CI) that made OFF mode --
+# the default, no-network path -- raise ModuleNotFoundError. These tuples are plain-
+# string mirrors of each enum's `.name` values (EasyEnum.__str__ returns .name, e.g.
+# str(OrderSide.BUY) == "BUY"), verified against the installed webull-openapi-python-sdk
+# 2.0.12: OrderSide has BUY/SELL/SHORT (no COVER, see the module docstring's ORDER SIDE
+# CAVEAT), OrderType has the 11 members below, OrderTIF has DAY/GTC/IOC. Validation
+# against these never needs the real package -- only _build_client() (PAPER/LIVE only)
+# and the SDK call sites inside the try block below still touch it.
+ORDER_SIDES = ("BUY", "SELL", "SHORT")
+ORDER_TYPES = ("MARKET", "LIMIT", "STOP_LOSS", "STOP_LOSS_LIMIT", "TRAILING_STOP_LOSS",
+               "ENHANCED_LIMIT", "AT_AUCTION", "AT_AUCTION_LIMIT", "ODD_LOT_LIMIT",
+               "MARKET_ON_OPEN", "MARKET_ON_CLOSE")
+ORDER_TIFS = ("DAY", "GTC", "IOC")
 
 
 def _sanitize_client_order_id(signal_id):
@@ -905,21 +929,22 @@ class OrderAdapter:
                           instrument_id=None):
         """Idempotent on signal_id. Returns a record dict always (never raises for a
         blocked/no-op/OFF path -- only an unexpected SDK exception in PAPER/LIVE is
-        caught and reported via record["error"], never propagated)."""
-        from webull.trade.common.order_side import OrderSide
-        from webull.trade.common.order_type import OrderType
-        from webull.trade.common.order_tif import OrderTIF
+        caught and reported via record["error"], never propagated).
 
+        Validates side/order_type/tif against the local ORDER_SIDES/ORDER_TYPES/
+        ORDER_TIFS mirrors (see their module-level comment) rather than importing the
+        SDK's enums here -- this runs on EVERY call, including OFF mode, so it must
+        never be the thing that imports webull."""
         side = str(side).upper()
         intent = str(intent).upper()
         order_type = str(order_type).upper()
         tif = str(tif).upper()
-        if side not in (m.name for m in OrderSide):
-            raise ValueError(f"side must be one of {[m.name for m in OrderSide]}, got {side!r}")
-        if order_type not in (m.name for m in OrderType):
-            raise ValueError(f"order_type must be one of {[m.name for m in OrderType]}, got {order_type!r}")
-        if tif not in (m.name for m in OrderTIF):
-            raise ValueError(f"tif must be one of {[m.name for m in OrderTIF]}, got {tif!r}")
+        if side not in ORDER_SIDES:
+            raise ValueError(f"side must be one of {ORDER_SIDES}, got {side!r}")
+        if order_type not in ORDER_TYPES:
+            raise ValueError(f"order_type must be one of {ORDER_TYPES}, got {order_type!r}")
+        if tif not in ORDER_TIFS:
+            raise ValueError(f"tif must be one of {ORDER_TIFS}, got {tif!r}")
         if intent not in ("OPEN", "CLOSE"):
             raise ValueError(f"intent must be OPEN or CLOSE, got {intent!r}")
 
