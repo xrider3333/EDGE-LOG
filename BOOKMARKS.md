@@ -458,3 +458,17 @@ Owner: beat the crowns from the SHORTER side, scalping if possible. Full doc: `N
 - **The ORB swap is thin:** #314 is WORSE standalone (9.12 vs 10.32); the book gains from drawdown TIMING, and the two correlate 0.899. Held-back year gives back 4.5 percent.
 - **#379 gives nothing back** - beats #366 on selection, held-back and PF with no knob tuned. **Adoption is the owner call.**
 - #378 (squeeze weight 4) is better again and the ladder now has an interior best at 4 (40.96/44.35/47.16/45.99) where round 52's ladder on the OLD leg was monotonic - but the weight is still picked on the selection window. Recorded, not adopted.
+
+### B33 - CORRECTION to B32: adopt run #396 (squeeze swap only), not #379 (book round 55, rows 1733-1738, v73.798)
+
+| book | sel n/DD | held-back net | held-back PF | years dominated vs #366 | years lost vs #366 |
+|---|---|---|---|---|---|
+| #366 adopted | 38.18 | $289,811 | 1.563 | - | - |
+| #379 both swaps | 44.35 | $294,142 | 1.612 | 5 | 4 |
+| **#396 squeeze swap only** | **40.57** | **$307,096** | **1.598** | **6** | **1** |
+
+- **#379's ratio lead is one stretch** - 2020, where #366 sets its whole-window max DD ($36,562) and #379 does not. Year by year it dominates 5 of 15 and loses 4.
+- **The ORB swap is a coin flip:** on top of the squeeze swap it dominates 7 years and loses 6; standalone more net in 8 of 15, worst year -$27,405.
+- **The squeeze swap is real:** more net in 13 of 15 years, worst year -$4,061. #396 = #366 with only that file changed, app PASS.
+- **Slot audit:** 7 validated alternatives, none clears (ENGU-Q R4: sel +12.5%, held-back -11.9%).
+- **Hourly squeeze tilt on NOISE:** exact subset of the crown, beats leverage controls, never loses a year - but only 84-87% of nulls in the held-back year vs 95% pre-registered. Parked.
