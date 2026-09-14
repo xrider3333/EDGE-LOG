@@ -733,7 +733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.796';
+const VERSION='73.797';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -751,7 +751,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.796',date:'2026-09-14',notes:['LEADERBOARD STAGE HAS FULL. The stage setting is shared across COMPARE, and COMPARE BOOKS offers FULL, so switching back to the leaderboard after picking it left the strip with no button lit while every number was already the whole-run one. FULL is a button here now, and its note explains the ~ a whole-run drawdown carries when it has to be measured off the saved curve.','CHAMPIONS SAYS WHAT CHOSE THEM. The overlay on CHAMPIONS keeps the top ten strategies by the leaderboard RANK ON setting, which was not on this screen - so the cut could be decided by a setting out of sight. RANK ON is beside SHOW now, and the label reads for example 10 OF 14 STRATEGIES, TOP 10 BY R / YR ON LB.','SMALL THINGS. A ninth or tenth champion curve used to repeat a colour already on the chart when every palette colour was taken; it gets a fresh hue. Two lockbox tooltips on EXPLORE read as broken sentences and now say plainly that the variant saved no lockbox slice. EV on the parallel chart follows the ticked stretch while $/TRD in the table is always whole-run - the axis is labelled EV STRETCH and the column hover says the two differ. And the horizontal axis ticks now carry % for ROC, DD % and WIN % and R for DD (R), as the vertical ones do.']},{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
+const CHANGELOG=[{v:'73.797',date:'2026-09-14',notes:['ONE STAGE ACROSS THE COMPARE TAB. RUNBOARD kept its own SAMPLE setting apart from the STAGE the overlay, BOOKS and the leaderboard share, so moving between COMPARE views silently changed what stage meant. Inside the COMPARE tab RUNBOARD now follows that one STAGE, and its SAMPLE tabs set it. RUNBOARD has no walk-forward grid - its rows need a drawdown and a curve cut the folds do not save - so on WF the whole RUNBOARD view - funnel, grid, strategy list and BOOKS - is held with that explanation and a pointer to the overlay and the leaderboard, which pool the folds, and no panel shows another stage figures under the WF tab. RUNBOARD opened outside the COMPARE tab keeps its own setting as before, and its SAMPLE tabs there no longer move the COMPARE tab stage.']},{v:'73.796',date:'2026-09-14',notes:['LEADERBOARD STAGE HAS FULL. The stage setting is shared across COMPARE, and COMPARE BOOKS offers FULL, so switching back to the leaderboard after picking it left the strip with no button lit while every number was already the whole-run one. FULL is a button here now, and its note explains the ~ a whole-run drawdown carries when it has to be measured off the saved curve.','CHAMPIONS SAYS WHAT CHOSE THEM. The overlay on CHAMPIONS keeps the top ten strategies by the leaderboard RANK ON setting, which was not on this screen - so the cut could be decided by a setting out of sight. RANK ON is beside SHOW now, and the label reads for example 10 OF 14 STRATEGIES, TOP 10 BY R / YR ON LB.','SMALL THINGS. A ninth or tenth champion curve used to repeat a colour already on the chart when every palette colour was taken; it gets a fresh hue. Two lockbox tooltips on EXPLORE read as broken sentences and now say plainly that the variant saved no lockbox slice. EV on the parallel chart follows the ticked stretch while $/TRD in the table is always whole-run - the axis is labelled EV STRETCH and the column hover says the two differ. And the horizontal axis ticks now carry % for ROC, DD % and WIN % and R for DD (R), as the vertical ones do.']},{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
 {v:'73.792',date:'2026-09-14',notes:['BUILDER latest result and recent jobs: a BOOK run now shows its real net (it read as $0, because a book keeps its figures where a search does) along with its own name, its verdict and its profit factor.']},
 {v:'73.791',date:'2026-09-14',notes:['BUILDER IS NOW THE ROBINHOOD-STYLE BUILDER (owner: migrate β). BUILDER β replaced the old BUILDER tab and is simply called BUILDER; the old form is gone. The queue dials in the top bar and USE IN BUILDER in LIBRARY open it, and a browser that last had the old tab open reopens here.','TEST LAST WINNER ON LOCKBOX moved with it: open the Holdout row (under All settings when the goal is Backtest) and press Test the last winner on this holdout. It queues the same job as before.','The queue rail keeps the two queue details the old tab had: the cache-reuse count on finished jobs, and a yellow count with a warning when work is waiting but nothing is running. The panels that sat under the old form after a run are in that run report in RESULTS, which the latest-result card opens.']},
 {v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
@@ -24750,7 +24750,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   the picked SAMPLE. The pooled BOOKS table keeps its own tile at the bottom.
       // v73.8: which strategy family the board is drilled into ('' = one champion per family)
       const _rbFam=String(APREF.rbFam||'');
-      const _rbS=(['full','is','lb'].indexOf(APREF.rbSample)>=0)?APREF.rbSample:'lb';
+      // ONE STAGE ACROSS THE COMPARE TAB. Hosted there, RUNBOARD reads the tab's STAGE, so moving between
+      //   views never changes what stage means; its SAMPLE tabs write that same setting. It has no
+      //   walk-forward grid, so a WF stage is held and said out loud rather than read as another stage.
+      const _rbHostSt=_c2Host?String(APREF.c2Stage||''):'';
+      const _rbWF=(_rbHostSt==='wf');
+      const _rbS=(['full','is','lb'].indexOf(_rbHostSt)>=0)?_rbHostSt:((['full','is','lb'].indexOf(APREF.rbSample)>=0)?APREF.rbSample:'lb');
       const _rbR=(['mar','pf','net','dd'].indexOf(APREF.rbRank)>=0)?APREF.rbRank:'mar';
       // the 1A-style chart dressing (stage bands, in-plot IS/WF/LB, endpoint pills) belongs to the
       //   RUNBOARD only — PICK RUNS / BY STRATEGY keep the plain overlay they have always had.
@@ -28382,7 +28387,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _sampTabs=[['full','FULL','the whole run - in-sample + walk-forward + lockbox'],
                          ['is','IS','the optimize window only - the stretch every config was tuned on'],
                          ['lb','LB','the lockbox year only, never touched during tuning - the honest forward read']]
-          .map(o=>_tabBtn('data-rbs="'+o[0]+'"',o[1],_rbS===o[0],o[2],_TONE.samp)).join('');
+          // inside the COMPARE tab the rail is the tab's STAGE, walk-forward included
+          .concat(_c2Host?[['wf','WF','the walk-forward folds - RUNBOARD has no walk-forward grid; the COMPARE overlay and the LEADERBOARD read this stage']]:[])
+          .map(o=>_tabBtn('data-rbs="'+o[0]+'"',o[1],(_rbWF?(o[0]==='wf'):(_rbS===o[0])),o[2],_TONE.samp)).join('');
         const _rankTabs=[['mar','MAR','net divided by the worst drawdown of the picked sample'],
                          ['pf','PF','gross wins over gross losses'],
                          ['net','NET $','most dollars'],
@@ -28401,6 +28408,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +_rbRail('rbr',_rankTabs,'RANK','which metric orders the strategies - measured on the picked SAMPLE',_TONE.rank)
           +'<span data-rbheat>'+_tabStrip(_tabBtn('','HEAT',_rbHeat,'shade every cell by where it lands across its own row - green best, red worst. The same heat map the 1E card uses.',_TONE.heat),false)+'</span>'
           +orientSeg+'</div>';
+        // RUNBOARD HAS NO WALK-FORWARD STAGE: hold the WHOLE view - funnel, grid, strategy list and BOOKS - so no
+        //   panel shows another stage's figures while the WF tab is lit. The SAMPLE / RANK rail stays to pick one.
+        const _rbWFHold=tile('<div style="margin-bottom:8px">'+_rbCtlRow+'</div><div class="c2-hold" data-rbwf="1" style="padding:26px 16px;line-height:1.7">RUNBOARD HAS NO WALK-FORWARD STAGE. Its funnel, grid, strategy list and BOOKS rows need a drawdown and a curve cut that the walk-forward folds do not save. Pick FULL, IS or LB above, or read walk-forward on the COMPARE overlay or the LEADERBOARD, which pool the folds.</div>');
         // declared here because boardTile below caps its own height when this panel is open
         // set BEFORE the funnel tile is built - the HWM chip reads it while rendering
         window._rbHwm=!!APREF.rbHwm;
@@ -28804,7 +28814,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // + TOP 10 was spliced INTO the old pill row, so swapping that row out dropped it.
         //   It opens a fourth panel of individual runs and is the only way to do so.
         body=(_c2Old?_c2Nav.replace('</div>',_openSide+'</div>'):modeToggle.replace('</div>',_openSide+'</div>'))
-          +(runs.length?('<div data-rbrow style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
+          +(_rbWF?_rbWFHold:(runs.length?('<div data-rbrow style="display:flex;gap:4px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px">'
             // the matrix is the densest panel — it carries eight numeric columns — so it takes the
             //   larger share by default. Drag the bars to change it; the split is remembered.
             // v71.77 (owner: "put the top 10 tile under the runboard"): TOP 10 stacks UNDER the
@@ -28815,7 +28825,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_rbCol(1,'1.35 1 500px',320,matrixTile)+_rbSp(1)
             +_rbCol(2,'0 1 290px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))
             +'</div>'):'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>')
-          +booksTile;
+          +booksTile);
         }else if(_cmpMode==='featboard'){
         // ── FEATURE BOARD (owner ask 2026-09-07): "what helps every strategy, not just one".
         //    Reads two static JSON files the offline tools/feature_board.py and
@@ -34713,7 +34723,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           t.addEventListener('mouseenter',()=>setHL(k,true));
           t.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});});
       })();
-      content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{savePref('rbSample',b.dataset.rbs);renderApp();};});
+      // SAMPLE writes the COMPARE tab's STAGE too - only inside that tab, so the old tab never moves it
+      content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{const v=b.dataset.rbs;
+        if(v!=='wf')savePref('rbSample',v);if(augurSub==='cmp2')savePref('c2Stage',v);renderApp();};});
       content.querySelectorAll('[data-rbr]').forEach(b=>{b.onclick=()=>{savePref('rbRank',b.dataset.rbr);renderApp();};});
       // FEATURE BOARD: row filter (only rows with a surviving strategy, or show everything)
       content.querySelectorAll('[data-fbrows]').forEach(b=>{b.onclick=()=>{savePref('fbRowMode',b.dataset.fbrows);renderApp();};});

@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 20
+N_CASES = 21
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -880,6 +880,29 @@ var FIX = __FIX__;
         var svg=[].filter.call(d.querySelectorAll('svg'),function(x){return x.querySelector('[data-repoint]');})[0];
         var ticks=svg?[].map.call(svg.querySelectorAll('text[text-anchor=middle]'),function(x){return (x.textContent||'').trim();}):[];
         r.pctTicks=ticks.filter(function(x){return /^-?[0-9.,]+[kM]?%$/.test(x);}).length;
+      })();
+      // -- case rbstage: hosted RUNBOARD follows the COMPARE tab's one STAGE --------------------
+      (function(){
+        var r=snap('rbstage','OK');
+        function marOf(){var mar=null;[].forEach.call(d.querySelectorAll('tr'),function(tr){var cc=[].map.call(tr.children,function(td){return (td.textContent||'').trim();});
+          if(cc[0]==='MAR'&&mar===null)mar=cc[1]||null;});return mar;}
+        // the tab STAGE is IS while the old SAMPLE says LB: hosted RUNBOARD must read IS
+        r.isCall=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'is',rbSample:'lb',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN);
+        r.isMar=marOf();
+        r.lbCall=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'lb',rbSample:'is',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN);
+        r.lbMar=marOf();
+        r.wfCall=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbSample:'lb',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN);
+        r.wfHold=!!d.querySelector('[data-rbwf]');r.wfMar=marOf();
+        r.wfTab=!!d.querySelector('[data-rbs=wf]');
+        r.wfFunnel=!!d.querySelector('#cmp-ovl-host');r.wfRows=d.querySelectorAll('[data-rbrow]').length;
+        // clicking SAMPLE FULL sets the tab STAGE
+        var fb=d.querySelector('[data-rbs=full]');if(fb&&fb.onclick)fb.onclick();
+        r.afterClick=w.eval("(JSON.parse(localStorage.getItem('augurPrefs')||'{}').c2Stage)||null");
+        // outside the COMPARE tab RUNBOARD keeps its own SAMPLE and shows no WF tab
+        r.oldCall=doRender({cmpMode:'board',rbSample:'lb',c2Stage:'is',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp');
+        r.oldMar=marOf();r.oldWfTab=!!d.querySelector('[data-rbs=wf]');
+        var ob=d.querySelector('[data-rbs=full]');if(ob&&ob.onclick)ob.onclick();
+        r.oldClickStage=w.eval("(JSON.parse(localStorage.getItem('augurPrefs')||'{}').c2Stage)||null");
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -1847,6 +1870,24 @@ def main(argv=None):
     line('smalls', sm_ok, 'failed=%s | %s' % ([k for k, v in sm_chk.items() if not v], {k: r.get(k) for k in ('champLabel', 'champRankBtns', 'pickRankBtns', 'pctTicks')}))
     if not sm_ok:
         fail('smalls: see the smalls line')
+    # case rbstage: hosted RUNBOARD follows the COMPARE tab's one STAGE
+    r = cases.get('rbstage', {})
+    rbw = (cases.get('runboard') or {}).get('per') or {}
+    want_is, want_lb = (rbw.get('is') or {}).get('mar'), (rbw.get('lb') or {}).get('mar')
+    rs_chk = {
+        'renders OK': all(r.get(k) == 'OK' for k in ('isCall', 'lbCall', 'wfCall', 'oldCall')),
+        'hosted IS reads the tab stage (not SAMPLE LB)': r.get('isMar') == want_is and want_is is not None,
+        'hosted LB reads the tab stage (not SAMPLE IS)': r.get('lbMar') == want_lb and want_lb is not None,
+        'hosted WF holds and names it': bool(r.get('wfHold')) and r.get('wfMar') is None and bool(r.get('wfTab')),
+        'hosted WF holds the whole view (no funnel, no panels)': (not r.get('wfFunnel')) and (r.get('wfRows') or 0) == 0,
+        'old tab SAMPLE click leaves the COMPARE stage alone': r.get('oldClickStage') == 'is',
+        'SAMPLE click sets the tab stage': r.get('afterClick') == 'full',
+        'outside COMPARE keeps its own SAMPLE': r.get('oldMar') == want_lb and not r.get('oldWfTab'),
+    }
+    rs2_ok = all(rs_chk.values())
+    line('rbstage', rs2_ok, 'failed=%s | %s | want is=%s lb=%s' % ([k for k, v in rs_chk.items() if not v], {k: r.get(k) for k in ('isMar', 'lbMar', 'wfHold', 'wfMar', 'wfTab', 'wfFunnel', 'wfRows', 'afterClick', 'oldMar', 'oldWfTab', 'oldClickStage')}, want_is, want_lb))
+    if not rs2_ok:
+        fail('rbstage: see the rbstage line')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:
