@@ -128,7 +128,10 @@ def _resp(payload):
 
 def _make_client():
     c = MagicMock()
-    c.account_v2.get_account_list.return_value = _resp({"data": [{"account_id": "PAPER1"}]})
+    # account_class: api/webull_orders.py picks the stock account by class since 1ed627e;
+    # without it every simulated order fails, and scenarios A and C pass vacuously.
+    c.account_v2.get_account_list.return_value = _resp(
+        {"data": [{"account_id": "PAPER1", "account_class": "INDIVIDUAL_CASH"}]})
 
     def place(account_id, orders):
         o = orders[0]
