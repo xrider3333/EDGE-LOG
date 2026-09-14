@@ -189,6 +189,105 @@ a VM disappearing isn't a mystery.
 
 ---
 
+## Webull ORDER adapter (paper orders now, live staged for later)
+
+`api/webull_orders.py` lets a strategy place a stock/ETF order through Webull's
+**official** OpenAPI — first into Webull's paper/sandbox environment, later (only when
+the owner explicitly arms it) into the real live account. It ships **OFF by default**:
+with nothing configured, it just writes down what it WOULD have ordered and sends
+nothing. This section is for the owner, in plain language, covering only the pieces
+this bundle adds — the module itself, its tests, and these env vars/directories.
+
+### Where paper credentials go
+
+Webull's paper-trading OpenAPI needs its own app key/secret, **separate from** the
+live one already in `webull_keys.json`. On the VM that file is:
+
+```
+~/edgelog/webull_paper_keys.json
+```
+
+(the `EDGELOG_WEBULL_PAPER_KEYS` line `install.sh` writes into `edgelog.env`). Shape:
+
+```json
+{"app_key": "your-sandbox-app-key", "app_secret": "your-sandbox-app-secret"}
+```
+
+Until that file exists (or while it still has placeholder text), the adapter logs one
+line naming exactly this and sends nothing — it will **never** read the live
+`webull_keys.json` as a fallback, even if both files are present. Copy it up with
+`scp`, the same way as the other secrets in step (d) above. There is no paper token
+directory to copy — `webull_paper_token/` starts empty and the SDK populates it after
+the first paper login (a 2FA approval on the owner's phone), no different from the
+existing live-token flow the day-to-day steps above already document.
+
+### How to enable Webull's paper trading access (owner steps — button names may differ)
+
+Webull announced OpenAPI paper-trading access on 2026-07-21 for stocks, options,
+crypto, futures, bonds and event contracts. In the Webull OpenAPI developer portal
+(developer.webull.com):
+
+1. Log in with the account that already has the live OpenAPI app registered.
+2. Look for something like **"Apply for Paper Trading"** / **"Sandbox access"** /
+   **"Test Application"** near the existing app's settings — Webull's own docs
+   describe sandbox credentials as coming from a **separate test application**, not
+   the live app's key rotated. *(I could not verify the exact button/menu wording
+   from inside this sandbox — there are no paper credentials on this machine to
+   click through the real flow with. If the portal looks different, look for
+   anything mentioning "sandbox", "paper", or "test app" near the live app.)*
+3. Once approved, the portal issues a **new** app key/secret pair scoped to the
+   sandbox host (`api.sandbox.webull.com`) — that pair is what goes in
+   `webull_paper_keys.json` above. Webull states paper tokens are normal logins (no
+   forced 2FA), unlike the live flow.
+4. No paper account needs to be created by hand elsewhere — the sandbox app itself
+   is what grants a virtual paper account once approved.
+
+### The 2FA token problem for LIVE (read this before ever arming LIVE)
+
+The **existing live** Webull key (used today by `api/webull_sync.py`) re-authenticates
+via a 2FA approval on the owner's phone roughly **every two weeks** — the SDK caches a
+token under `webull_token/` between approvals. That is fine for a daily trade-history
+pull that just backs off and retries later, but it is a real problem for an
+**unattended, 24/7 order-placing** process on a VM nobody is watching: if the token
+lapses while the owner is asleep or away, LIVE order calls fail closed (this module
+refuses when its client build errors) — but it means the strategy silently stops
+placing real orders until someone re-approves on their phone. Options, none applied by
+this bundle:
+- **Accept the gap.** Treat a lapsed LIVE token as a "flat until re-approved" state —
+  safe (nothing fires) but the strategy misses whatever it would have traded in that
+  window. This module already fails closed this way; no code change needed.
+- **Alert on it.** Wire a check (future work) that pages the owner via `ntfy.sh`
+  (already used by `edgelog-healthcheck.service`) the moment a LIVE order attempt
+  fails with a re-auth-looking error, so the two-week clock is never a surprise.
+- **Ask Webull for a longer-lived / app-only credential** for the live account, if
+  their OpenAPI offers one — not confirmed either way from the SDK source alone.
+- **Never run LIVE unattended at all** — only PAPER runs 24/7 on the VM; LIVE stays a
+  manually-armed, manually-watched mode the owner turns on only when present. This is
+  the safest default and requires nothing further.
+
+Paper mode does NOT have this problem the same way (its own token, and Webull's docs
+say paper logins are normal, not gated behind 2FA) — this is a LIVE-only wrinkle.
+
+### Owner checklist
+
+- [ ] Apply for / receive Webull OpenAPI paper (sandbox) access for this app.
+- [ ] Save the sandbox app key/secret to `webull_paper_keys.json` on the VM (and/or
+      the PC path `C:\EdgeLog\webull_paper_keys.json` if running there instead).
+- [ ] Confirm the adapter picks it up: its `status()` should show
+      `paper_credentials_present: true` and `effective_mode` become `PAPER` once
+      `webull_orders/config.json` has `{"mode": "PAPER"}` (this file does not exist
+      yet — nothing in this bundle creates it; add it yourself when ready).
+- [ ] Decide on a LIVE unattended-token policy from the options above BEFORE ever
+      creating `webull_orders/ARM_LIVE` — that file plus `"mode": "LIVE"` in
+      `config.json` are the only two things that arm real-money orders, and neither
+      is created by this bundle or by any Claude session without your explicit ask.
+- [ ] Set real rails in `webull_orders/config.json` (`max_shares_per_leg`,
+      `max_total_position_shares`, `daily_loss_limit_usd`, session window) before
+      relying on PAPER results for anything — the shipped defaults are conservative
+      placeholders, not tuned to any real strategy.
+
+---
+
 ## Portability blockers — inventory (not fixed in this change)
 
 The runner and its side-processes were written for the Windows PC and hardcode
@@ -229,18 +328,26 @@ is changed. This is an **inventory only** — nothing below was fixed in this ch
 | 24 | `api/runner.py:2288` | `C:\EdgeLog\webull_keys.json` (CLI default) | **Yes** — `EDGELOG_WEBULL_KEYS` | `--webull-keys` flag default |
 | 25 | `api/webull_sync.py:44` | `C:\EdgeLog\webull_keys.json` | **Yes** — `EDGELOG_WEBULL_KEYS` | Webull API keys |
 | 26 | `api/webull_sync.py:45` | `C:\EdgeLog\webull_token` | **Yes** — `EDGELOG_WEBULL_TOKEN_DIR` | Webull token directory |
+| 27 | `api/webull_orders.py` `DEFAULT_CONFIG_PATH` | `C:\EdgeLog\webull_orders\config.json` | **Yes** — `EDGELOG_WEBULL_ORDERS_CONFIG` | Order adapter mode + rails config |
+| 28 | `api/webull_orders.py` `DEFAULT_PAPER_KEYS` | `C:\EdgeLog\webull_paper_keys.json` | **Yes** — `EDGELOG_WEBULL_PAPER_KEYS` | Webull PAPER (sandbox) API keys |
+| 29 | `api/webull_orders.py` `DEFAULT_PAPER_TOKEN_DIR` | `C:\EdgeLog\webull_paper_token` | **Yes** — `EDGELOG_WEBULL_PAPER_TOKEN_DIR` | PAPER token directory |
+| 30 | `api/webull_orders.py` `DEFAULT_ARM_LIVE_FILE` | `C:\EdgeLog\webull_orders\ARM_LIVE` | **Yes** — `EDGELOG_WEBULL_ARM_LIVE` | LIVE-mode arm file (owner-created only) |
+| 31 | `api/webull_orders.py` `DEFAULT_KILL_FILE` | `C:\EdgeLog\webull_orders\KILL` | **Yes** — `EDGELOG_WEBULL_ORDERS_KILL` | Order adapter kill switch |
+| 32 | `api/webull_orders.py` `DEFAULT_STATE_PATH` | `C:\EdgeLog\webull_orders\state.json` | **Yes** — `EDGELOG_WEBULL_ORDERS_STATE` | Idempotency/rails state file |
 
-**26 hardcoded lines across 11 files in `api/`.** 9 of them already read an env
+**32 hardcoded lines across 12 files in `api/`.** 15 of them already read an env
 override first and only fall back to the Windows path (rows 1, 9, 10, 15, 18, 19, 23,
-24, 25, 26 — using `os.environ.get("EDGELOG_...", r"C:\EdgeLog\...")`) — this bundle's
-`install.sh` sets those overrides in `edgelog.env`, so they already work correctly on
-Linux today. The other 17 (rows 2-8, 11-14, 16-17, 20-22) are plain hardcoded strings
-with no override; on the cloud box they simply point at paths that don't exist, so
-those specific side duties (mostly the NinjaTrader-bridge readers, which have nothing
-to read without NT running) degrade to "not present" rather than doing anything, and
-the QQQ shadow adapter's 10-second bar feed (rows 13, 16-17) and kill-switch (row 20)
-won't work in CLOUD mode until one of those is fixed — noted here for whoever does
-that follow-up, not addressed in this bundle.
+24, 25, 26-32 — using `os.environ.get("EDGELOG_...", r"C:\EdgeLog\...")`) — this
+bundle's `install.sh` sets those overrides (rows 27-32 newly added by the Webull ORDER
+adapter, all defaulted to non-existent paths so the adapter starts in its safe OFF
+no-op state until the owner fills them in) in `edgelog.env`, so they already work
+correctly on Linux today. The other 17 (rows 2-8, 11-14, 16-17, 20-22) are plain
+hardcoded strings with no override; on the cloud box they simply point at paths that
+don't exist, so those specific side duties (mostly the NinjaTrader-bridge readers,
+which have nothing to read without NT running) degrade to "not present" rather than
+doing anything, and the QQQ shadow adapter's 10-second bar feed (rows 13, 16-17) and
+kill-switch (row 20) won't work in CLOUD mode until one of those is fixed — noted here
+for whoever does that follow-up, not addressed in this bundle.
 
 **`augur_engine/*.py` has zero hardcoded paths.** `augur_engine/paths.py` already
 supports a Linux home out of the box: every path (`ROOT`, `UPLOADS`, `STRAT_DIR`,

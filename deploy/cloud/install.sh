@@ -68,9 +68,10 @@ echo "==> pip install -r deploy/cloud/requirements-cloud.txt"
 "${VENV_DIR}/bin/pip" install -r "${REPO_DIR}/deploy/cloud/requirements-cloud.txt"
 
 # 4. runtime dirs -------------------------------------------------------------------
-echo "==> creating ${EDGELOG_HOME}/{ohlc,qqq_exec,logs,webull_token}"
+echo "==> creating ${EDGELOG_HOME}/{ohlc,qqq_exec,logs,webull_token,webull_paper_token,webull_orders}"
 mkdir -p "${EDGELOG_HOME}/ohlc" "${EDGELOG_HOME}/qqq_exec" "${EDGELOG_HOME}/logs" \
-         "${EDGELOG_HOME}/webull_token"
+         "${EDGELOG_HOME}/webull_token" "${EDGELOG_HOME}/webull_paper_token" \
+         "${EDGELOG_HOME}/webull_orders"
 touch "${EDGELOG_HOME}/logs/runner.log"
 
 # 5. env file -- write once, never clobber an owner-edited file --------------------
@@ -85,6 +86,17 @@ TZ=America/New_York
 GOOGLE_APPLICATION_CREDENTIALS=${REPO_DIR}/serviceAccount.json
 EDGELOG_WEBULL_KEYS=${EDGELOG_HOME}/webull_keys.json
 EDGELOG_WEBULL_TOKEN_DIR=${EDGELOG_HOME}/webull_token
+# Webull ORDER adapter (api/webull_orders.py) -- SEPARATE from the live keys above.
+# Left pointing at paths that don't exist yet on purpose: the adapter no-ops (logs
+# one line, sends nothing) until the owner has real paper credentials and copies
+# them here. See README.md "Webull ORDER adapter" section before filling any of
+# this in -- do NOT put the live webull_keys.json contents in webull_paper_keys.json.
+EDGELOG_WEBULL_PAPER_KEYS=${EDGELOG_HOME}/webull_paper_keys.json
+EDGELOG_WEBULL_PAPER_TOKEN_DIR=${EDGELOG_HOME}/webull_paper_token
+EDGELOG_WEBULL_ORDERS_CONFIG=${EDGELOG_HOME}/webull_orders/config.json
+EDGELOG_WEBULL_ORDERS_STATE=${EDGELOG_HOME}/webull_orders/state.json
+EDGELOG_WEBULL_ORDERS_KILL=${EDGELOG_HOME}/webull_orders/KILL
+EDGELOG_WEBULL_ARM_LIVE=${EDGELOG_HOME}/webull_orders/ARM_LIVE
 EDGELOG_NT_OHLC=${EDGELOG_HOME}/ohlc
 EDGELOG_QQQ_EXEC_DIR=${EDGELOG_HOME}/qqq_exec
 # Fold-level parallelism inside one validate (augur_engine.wf_pool). Keep this at or
@@ -126,6 +138,8 @@ echo "    1. Copy secrets from the PC (README.md step (d)):"
 echo "         serviceAccount.json   -> ${REPO_DIR}/serviceAccount.json"
 echo "         webull_keys.json      -> ${EDGELOG_HOME}/webull_keys.json"
 echo "         webull_token/token.txt -> ${EDGELOG_HOME}/webull_token/token.txt"
+echo "       (Webull ORDER adapter paper credentials, once you have them, go in"
+echo "        ${EDGELOG_HOME}/webull_paper_keys.json -- see README.md \"Webull ORDER adapter\".)"
 echo "    2. Edit ${ENV_FILE} (set NTFY_TOPIC)."
 echo "    3. Start the runner:  sudo systemctl start edgelog-runner.service"
 echo "    4. Check it:          bash ${REPO_DIR}/deploy/cloud/check.sh"
