@@ -64,6 +64,11 @@ WHAT IT ASSERTS
   * THE DEFAULT VIEW'S FAMILY Y-SCALE FOLDS (920-922, ALL CONFIGS off): a gate, tilt,
     KEEL, hybrid or recycle top line whose lockbox tail holds the chart's peak or
     trough stays inside the plot - the ALL CONFIGS fold cannot mask a broken one there
+  * IS+WF and WF+LB on the TILT / KEEL / HYBRID tables (v73.763, run #384: 32 of 32
+    cells read low) read the drawdown off the engine own combined-span block, not
+    the saved equity curve, the larger of the two per-stretch drawdowns, or their
+    sum - a run saved before the engine wrote that block keeps the curve read,
+    marked with the degree sign
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE.
 Stdlib plus a subprocess call to local Chrome - and augur_engine/analytics.py (numpy,
@@ -194,14 +199,24 @@ def gcand(model, th, cum, zerolb=False, so_lb=1.42):
 
 
 def szcand(model, cum, ntr, full_n, so_lb, scheme=None, zerolb=False):
-    """One TILT (scheme set) or HYBRID (scheme None) column."""
+    """One TILT (scheme set) or HYBRID (scheme None) column.
+
+    pre / wf_lb carry the engine's own IS+WF / WF+LB blocks. Their drawdowns are
+    deliberately NOT the sum of the per-stretch drawdowns above (17200 / 11700), the
+    larger of the two (9100), or the saved FLAT curve own -$3 drop (each cycle dips
+    3) - all four land on a different $k-rounded figure than the engine block (-$13k /
+    -$10k, fmtAx: >=10000 rounds to whole thousands), so whichever wrong method a
+    broken build takes is visible.
+    """
     c = {'model': model, 'n_trades': ntr, 'max_size': 1,
          'equity': {'cum': cum},
          'is_rng': blk(66000, 560, 1.56, 46.0, 8100, 1.22, 1.92),
          'wf_rng': blk(56000, 460, 1.46, 44.0, 9100, 1.03, 1.62),
          'lockbox': (ZERO_BLK if zerolb else blk(9500, 95, 1.36, 43.0, 2600, 0.88, so_lb)),
          'full': blk(131500, full_n, 1.49, 44.7, 11100, 1.10, 1.73),
-         'pre': blk(122000, 1020, 1.51, 45.0, 10200, 1.12, 1.78)}
+         'pre': blk(122000, 1020, 1.51, 45.0, 12800, 1.12, 1.78),
+         'wf_lb': (blk(56000, 460, 1.46, 44.0, 10200, 1.03, 1.62) if zerolb
+                   else blk(65500, 555, 1.44, 43.8, 10200, 1.01, 1.60))}
     if scheme:
         c['scheme'] = scheme
     return c
@@ -222,6 +237,7 @@ def gate_validate(tall_gate, hyb_recycle_tall):
         'ungated_wf': blk(60000, 600, 1.40, 43.0, 10000),
         'ungated_lockbox': blk(10000, 100, 1.30, 42.0, 3000),
         'ungated_pre': blk(130000, 1300, 1.45, 44.0, 12000),
+        'ungated_wf_lb': blk(70000, 700, 1.39, 43.0, 11000),
         'ungated_full': blk(140000, 1400, 1.44, 44.0, 12000),
         'candidates': [gcand('rf', 0.5, FLAT, so_lb=1.42),
                        gcand('logit', 0.6, (TALL if tall_gate else FLAT), so_lb=2.31),
@@ -569,6 +585,15 @@ def build_runs():
     r908['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
     runs = [run_doc(901, main), run_doc(902, partial), run_doc(903, bare),
             run_doc(904, modern), kpi, r906, r907, r908]
+    # 923: 908's pool saved as an OLD run - before the engine wrote pre / wf_lb
+    #   blocks onto tilt / hybrid columns, so a two-stretch pick must still fall back
+    #   to the saved curve (marked with the degree sign) rather than go blank or crash.
+    r923 = copy.deepcopy(r908)
+    r923['id'] = 923
+    for _row923 in r923['gate_validate']['tilts'] + r923['gate_validate']['hybrids']:
+        _row923.pop('pre', None)
+        _row923.pop('wf_lb', None)
+    runs.append(r923)
     # 909: the lockbox-tail block; 910: the same with every tail's door count off by one, which
     #   the web must refuse; 911: the same with the tails removed - an old run
     lb = lbt_block()
@@ -650,6 +675,14 @@ CASES = [
     # a pick that SKIPS a stretch can pool nothing - it must say so, not silently
     #   fall through to a different view.
     ('ml-all-islb', 906, {'cfgTab': 'all', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,lb'}),
+    # v73.763: IS+WF / WF+LB must read the engine's pre / wf_lb blocks, not the
+    #   saved curve - on 908 (new run, carries both blocks) and on 923 (an old run
+    #   with those blocks stripped off, which must keep the marked curve read).
+    ('ml-tilt-iswf', 908, {'cfgTab': 'tilt', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
+    ('ml-tilt-wflb', 908, {'cfgTab': 'tilt', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'wf,lb'}),
+    ('ml-hyb-iswf', 908, {'cfgTab': 'hyb', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
+    ('ml-hyb-wflb', 908, {'cfgTab': 'hyb', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'wf,lb'}),
+    ('ml-tilt-iswf-old', 923, {'cfgTab': 'tilt', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
     # -- the 1A CONFIG FUNNEL, ALL CONFIGS on.
     ('funnel-gatecand', 906, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
     ('funnel-hybrcy', 907, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
@@ -1905,6 +1938,79 @@ def main():
             else:
                 print('  %-16s ALL CONFIGS off: %s holds the peak%s, every family line inside the plot'
                       % (cnm, peak, (', %s the trough' % trough) if trough else ''))
+
+    # -- 11. TWO-STRETCH SAMPLE PICKS READ THE ENGINE'S COMBINED BLOCK (v73.763,
+    #    run #384: 32 of 32 cells read low). Drawdown is path-dependent: it cannot be
+    #    reconstructed from the per-stretch drawdowns either by summing them or by
+    #    taking the larger, and the ~300-point saved curve only sees a drop that
+    #    happens to straddle two of the points it kept. IS+WF and WF+LB must read
+    #    pre / wf_lb - the engine own combined-span blocks, measured trade by trade -
+    #    the way an all-three pick already reads full. The szcand fixture is built so
+    #    a curve read (-$3), the larger part (-$9.1k) and the sum of the parts (-$17k /
+    #    -$12k) each land on a different $k-rounded figure from the engine block
+    #    (-$13k / -$10k), so whichever wrong method a broken build takes is visible.
+    for cnm, prefix, want_dd, want_tr in (('ml-tilt-iswf', 'tilt:', '-$13k', '1,020'),
+                                          ('ml-tilt-wflb', 'tilt:', '-$10k', '555'),
+                                          ('ml-hyb-iswf', 'hyb:', '-$13k', '1,020'),
+                                          ('ml-hyb-wflb', 'hyb:', '-$10k', '555')):
+        r = cs.get(cnm) or {}
+        cells = r.get('cells') or {}
+        cols = [k for k in cells if k.startswith(prefix)]
+        if len(cols) < 2:
+            bad.append('%s: no columns rendered (%s)' % (cnm, sorted(cells.keys())))
+            continue
+        n_ok = 0
+        for k in cols:
+            rows = cells[k]
+            dd = _row(rows, 'DD')
+            if dd is None:
+                bad.append('%s: column %s printed no DD row' % (cnm, k))
+                continue
+            dd = dd.strip()
+            dd_bare = dd.replace(u'\u00b0', '')
+            hint = ''
+            if dd_bare == '-$3':
+                hint = ' (matches the saved curve read)'
+            elif dd_bare == '-$9.1k':
+                hint = ' (matches the larger of the two parts)'
+            elif dd_bare in ('-$17k', '-$12k'):
+                hint = ' (matches the sum of the two parts)'
+            if u'\u00b0' in dd or dd != want_dd:
+                bad.append('%s: column %s DD rendered %r, expected %r%s'
+                           % (cnm, k, dd, want_dd, hint))
+                continue
+            tr = (_row(rows, 'TRADES') or '').strip()
+            if tr != want_tr:
+                bad.append('%s: column %s TRADES rendered %r, expected %r'
+                           % (cnm, k, tr, want_tr))
+                continue
+            n_ok += 1
+        if n_ok:
+            print('  %-16s %d of %d columns read DD %s, TRADES %s off the engine block'
+                  % (cnm, n_ok, len(cols), want_dd, want_tr))
+
+    # the old-run twin (923: 908's pool with pre / wf_lb stripped off every tilt /
+    #   hybrid row) must keep reading the saved curve on the same pick, marked with
+    #   the degree sign - proof the fallback still works for a run saved before the
+    #   engine wrote those blocks, rather than the pick going blank or crashing.
+    ro = cs.get('ml-tilt-iswf-old') or {}
+    rcols = [k for k in (ro.get('cells') or {}) if k.startswith('tilt:')]
+    if len(rcols) < 2:
+        bad.append('ml-tilt-iswf-old: no columns rendered (%s)' % sorted((ro.get('cells') or {}).keys()))
+    else:
+        n_ok = 0
+        for k in rcols:
+            dd = (_row(ro['cells'][k], 'DD') or '').strip()
+            if not dd or dd in ('-', u'\u2014', u'\u2013'):
+                bad.append('ml-tilt-iswf-old: column %s printed no DD (%r)' % (k, dd))
+            elif u'\u00b0' not in dd:
+                bad.append('ml-tilt-iswf-old: column %s DD rendered %r with no degree sign - '
+                           'an old run must keep the curve-read marker' % (k, dd))
+            else:
+                n_ok += 1
+        if n_ok == len(rcols):
+            print('  %-16s %d of %d columns keep the marked curve read on an old run'
+                  % ('ml-tilt-iswf-old', n_ok, len(rcols)))
 
     if bad:
         print('1E AXES PROBE: FAIL')
