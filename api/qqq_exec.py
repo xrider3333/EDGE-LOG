@@ -3321,6 +3321,11 @@ def _pid_alive(pid):
             return False
         os.kill(int(pid), 0)
         return True
+    except ProcessLookupError:
+        # POSIX "no such process" is the one certain answer. Treating it as "cannot tell"
+        # made a hard-killed unit's fresh heartbeat block its own systemd restart on Linux
+        # for up to SERVING_STALE_SEC -- the 2026-09-11 Windows failure, on the VM.
+        return False
     except Exception:
         return True
 

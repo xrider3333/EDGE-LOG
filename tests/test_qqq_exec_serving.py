@@ -97,6 +97,8 @@ def test_runner_does_not_launch_when_one_is_already_serving(tmp_path, monkeypatc
     assert launched == [], "a live adapter must never be restarted by a fleet restart"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="the wscript launcher is Windows-only; Linux is "
+                    "covered by test_ensure_standalone_on_linux_* in test_qqq_exec_edgelog_home.py")
 def test_runner_launches_when_the_slot_is_free(tmp_path, monkeypatch):
     monkeypatch.setattr(qe, "SERVING_LOCK", str(tmp_path / "absent.lock"))
     vbs = tmp_path / "_run_qqq_exec.vbs"
