@@ -329,13 +329,43 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
     part). Without it, replay()'s per-closed-bar recompute pays that cost against the
     ENTIRE cache every single call (390+ times for a 1m leg), which is what made an
     early version of this function take 80+ seconds per replayed session. Restricting
-    to a calendar-day window first (generous: warmup_sessions+5 calendar days, to
-    absorb weekends/holidays before the exact session-count trim below) bounds that
-    cost to roughly the window size regardless of total cache depth."""
+    to a calendar-day window first bounds that cost to roughly the window size
+    regardless of total cache depth.
+
+    BUFFER SIZE (fixed 2026-09-13 — see tools/orb_qqq_warmup_bug.py). The buffer used
+    to be a flat `warmup_sessions + 5` calendar days, on the theory that 5 days was
+    "generous" slack for weekends/holidays. It is not: `warmup_sessions` counts TRADING
+    days, which run only 5/7 of calendar days, so 60 trading sessions span roughly 84
+    calendar days, not 65. The undersized buffer silently truncated the raw prefilter
+    to whichever sessions fit inside it (measured: 47 sessions instead of the intended
+    60 on the real QQQ cache), which is one bug on its own (every trailing filter gets
+    less history than its own code asks for) — but the worse half is that `cutoff`
+    (and therefore `lower_bound`) advances continuously with `now` throughout a single
+    session, so as wall-clock time passes within ONE trading day the oldest session can
+    age out of the too-tight buffer mid-afternoon, shrinking the window by exactly one
+    session at that instant. Every session's index into the trailing-N-session
+    reference (ORB's atr_filter/vpace_filter, and any other plugin doing the same
+    pattern) shifts by one at that moment, which can flip a same-day trading decision
+    hours after the fact: reproduced on 2026-09-04 (ORB_3_6_R6.py's atr/vpace filters),
+    where an entry at the day's 09:55 bar was ABSENT from the engine's trade list at
+    every tick through 14:05 and PRESENT from 14:06 onward, with no new bar of ANY
+    session boundary involved — purely the raw calendar buffer dropping 2026-07-01 out
+    of the window at that exact wall-clock moment. The entry then aged past
+    `max_entry_age_sec` and was recorded as "late" (silently suppressed) — this time.
+    A smaller shift, or a filter less sensitive to one session's weight in a median,
+    would instead have emitted a spurious ENTRY that only exists because of when the
+    engine happened to be asked, which is a live correctness bug, not merely a stale
+    diagnostic. Fix: size the buffer off the actual 5-trading-days-per-7-calendar-days
+    cadence plus real slack for holidays, so the buffer always covers `warmup_sessions`
+    sessions and the raw prefilter is a no-op (keeps every session actually available)
+    long before `keep_days` needs to trim anything — making the exact-session-count
+    trim below the ONLY thing that ever changes the window, and only once a day (when
+    the calendar date itself rolls, not mid-session)."""
     if all_epoch_df is None or not len(all_epoch_df):
         return None
     cutoff = _closed_cutoff_epoch(now, timeframe)
-    lower_bound = cutoff - (int(warmup_sessions) + 5) * 86400
+    calendar_buffer_days = math.ceil(int(warmup_sessions) * 7 / 5) + 15
+    lower_bound = cutoff - calendar_buffer_days * 86400
     df = all_epoch_df[(all_epoch_df["time"] <= cutoff) & (all_epoch_df["time"] >= lower_bound)]
     arrays = build_arrays(df)
     if arrays is None or not len(arrays["close"]):

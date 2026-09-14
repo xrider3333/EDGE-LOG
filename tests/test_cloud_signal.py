@@ -300,6 +300,64 @@ def test_hours_late_entry_is_recorded_but_not_emitted(tmp_path):
     assert state["legs"]["STUB"].get("stale_skipped", 0) == 0,         "same-day but hours old is LATE, not stale -- the two are counted apart"
 
 
+def _synthetic_calendar_epoch_df(n_sessions=90, bars_per_session=3):
+    """`n_sessions` consecutive BUSINESS days (pandas bdate_range — no holiday calendar,
+    weekends only), `bars_per_session` 5-minute RTH bars each, starting 09:30 ET. Enough
+    calendar span (90 business days ~= 126 calendar days) to expose the closed_arrays()
+    buffer bug at the production warmup_sessions=60: the old `warmup_sessions + 5` = 65
+    calendar day buffer holds far fewer than 60 of these business days, while 60 real
+    trading sessions actually need ~84 calendar days. Bar COUNT per session is
+    irrelevant to this test (it only inspects closed_arrays' day/session bookkeeping,
+    never runs a strategy), so it is kept tiny for speed."""
+    days = pd.bdate_range("2026-01-05", periods=n_sessions, tz="US/Eastern")
+    rows = []
+    for d in days:
+        base = d.normalize() + pd.Timedelta(hours=9, minutes=30)
+        for i in range(bars_per_session):
+            t = base + pd.Timedelta(minutes=5 * i)
+            rows.append({"time": int(t.tz_convert("UTC").timestamp()),
+                        "open": 700.0, "high": 700.5, "low": 699.5, "close": 700.0,
+                        "volume": 1000.0})
+    return pd.DataFrame(rows), days[-1]
+
+
+def test_closed_arrays_window_is_stable_within_one_session():
+    """REGRESSION (found 2026-09-13 diagnosing "ORB never fires on QQQ"): closed_arrays()'s
+    raw calendar prefilter used to be `warmup_sessions + 5` calendar days -- "generous" for
+    weekends/holidays in the comment, but 60 TRADING sessions actually span ~84 calendar
+    days (5/7 cadence), not 65. The undersized buffer silently fed the trailing-N-session
+    filters fewer sessions than warmup_sessions asks for, and because `cutoff`/`lower_bound`
+    both advance continuously with `now`, the oldest session can age out of that too-tight
+    buffer PARTWAY THROUGH the very session being evaluated -- shifting every later
+    session's index into the trailing reference by one, at whatever wall-clock minute the
+    engine happens to be asked. Reproduced live: an ORB_3_6_R6.py entry on 2026-09-04 was
+    absent from the engine's trade list at every tick through 14:05 and present from 14:06
+    on, with no new bar of any kind involved -- purely the buffer dropping an old session.
+    That entry aged past `max_entry_age_sec` and was silently suppressed as "late"; a
+    smaller shift could instead emit a spurious ENTRY that only exists because of when the
+    engine was asked. This test pins the invariant directly: for one FIXED calendar day,
+    the window closed_arrays() returns must not change shape between an early-session and
+    a late-session query."""
+    epoch_df, target_day = _synthetic_calendar_epoch_df()
+    early = target_day.normalize() + pd.Timedelta(hours=9, minutes=50)
+    late = target_day.normalize() + pd.Timedelta(hours=15, minutes=55)
+
+    a = cs.closed_arrays(epoch_df, early.to_pydatetime(), "5m", 60)
+    b = cs.closed_arrays(epoch_df, late.to_pydatetime(), "5m", 60)
+    assert a is not None and b is not None
+
+    sessions_a = len(set(a["day_id"].tolist()))
+    sessions_b = len(set(b["day_id"].tolist()))
+    assert sessions_a == sessions_b == 60, (
+        f"session count drifted within the same trading day: early={sessions_a} "
+        f"late={sessions_b} (want 60/60) -- the calendar buffer is too tight and is "
+        f"aging sessions out mid-day")
+    assert a["index"][0] == b["index"][0], (
+        "the window's oldest bar shifted within the same trading day purely because of "
+        "wall-clock time -- a trailing-N-session filter must see the SAME N sessions "
+        "all day, not fewer as the afternoon wears on")
+
+
 # ── 2. Real-cache replay: determinism + idempotency ─────────────────────────────────────
 @pytest.mark.skipif(not HAS_REAL_CACHE, reason=_CACHE_SKIP)
 def test_replay_deterministic_across_independent_runs(tmp_path):
