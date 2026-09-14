@@ -135,6 +135,12 @@ def test_ensure_standalone_on_linux_skips_when_already_serving(tmp_path, monkeyp
     lock = tmp_path / "SERVING.lock"
     lock.write_text(f"{os.getpid()} 2026-09-13 09:00:00\n", encoding="utf-8")
     monkeypatch.setattr(qe, "SERVING_LOCK", str(lock))
+    # Fake the pid check as well. qe.os IS the os module, so with os.name faked the real
+    # _pid_alive takes its POSIX branch, os.kill(pid, 0) -- and on Windows that is CTRL_C_EVENT,
+    # a Ctrl+C to every process on the console: it killed pytest (KeyboardInterrupt a few dozen
+    # tests later) and the PowerShell that launched it (2026-09-14). tests/conftest.py now blocks
+    # that call; _pid_alive itself is covered in test_qqq_exec_serving.py.
+    monkeypatch.setattr(qe, "_pid_alive", lambda pid: pid == os.getpid())
     monkeypatch.setattr(qe.os, "name", "posix")
     try:
         assert qe.ensure_standalone(log=lambda *_: None) is True

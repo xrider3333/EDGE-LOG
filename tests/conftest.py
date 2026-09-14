@@ -21,6 +21,12 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
    The home is resolved once, at import, before any test can touch the environment. A blocked
    attempt outside any test (collection, module-scoped teardown) fails the session. Not covered:
    subprocesses a test spawns, and I/O done in C (sqlite, compiled extensions).
+3. On Windows the same hook blocks os.kill(pid, 0). That is POSIX's "is this pid alive?" probe, but
+   on Windows signal 0 is CTRL_C_EVENT: a Ctrl+C to EVERY process on the console. A test that
+   faked os.name = "posix" in front of api/qqq_exec.py's _pid_alive sent one (2026-09-14): pytest
+   died of KeyboardInterrupt a few dozen tests later, and the PowerShell that launched it died too.
+   Run from Git Bash, as the pre-push gate runs it, pytest survives that, which is why nothing
+   noticed. Blocked, it fails the test that tried, in every shell.
 """
 import errno
 import itertools
@@ -82,6 +88,12 @@ def _live_target(event, args):
             host = host.decode("ascii", "replace")
         if isinstance(host, str) and "webull" in host.lower():
             return host, "connect to Webull"
+        return None
+    elif event == "os.kill":
+        # 3. above -- sys.platform, unlike os.name, is not something a test fakes
+        if sys.platform == "win32" and len(args) > 1 and args[1] == 0:
+            return (f"pid {args[0]}, signal 0 = CTRL_C_EVENT, a Ctrl+C to every process on "
+                    "this console", "send a console-wide Ctrl+C (os.kill(pid, 0) on Windows)")
         return None
     else:
         return None

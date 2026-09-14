@@ -1,6 +1,6 @@
 """tests/conftest.py's guard rails, pinned: every test starts with an OFF-mode order adapter in a
-temp dir, and a write under the real EDGELOG_HOME (or a Webull connection) is blocked and fails
-the test that made it.
+temp dir, and a write under the real EDGELOG_HOME (or a Webull connection, or on Windows a
+console-wide Ctrl+C) is blocked and fails the test that made it.
 
 Every path this file aims at the real home sits inside a directory that does not exist
 (_guard_selftest_<uuid>) and nothing here creates parent directories, so even a broken guard
@@ -73,6 +73,21 @@ def test_a_webull_connection_is_blocked(live_system_guard):
     with pytest.raises(PermissionError, match="connect to Webull"):
         socket.getaddrinfo(host, 443)
     assert [b["target"] for b in live_system_guard.take()] == [host]
+
+
+def test_a_console_wide_ctrl_c_is_blocked_on_windows(live_system_guard):
+    """os.kill(pid, 0) is POSIX's liveness probe; on Windows it is CTRL_C_EVENT, a Ctrl+C to every
+    process on the console. The event is raised with sys.audit, never os.kill, so even a broken
+    guard sends nothing."""
+    if sys.platform != "win32":
+        sys.audit("os.kill", os.getpid(), 0)   # the genuine probe: left alone
+        assert live_system_guard.take() == []
+        return
+    with pytest.raises(PermissionError, match="console-wide Ctrl"):
+        sys.audit("os.kill", os.getpid(), 0)
+    sys.audit("os.kill", os.getpid(), 9)       # TerminateProcess on one pid: left alone
+    (blocked,) = live_system_guard.take()
+    assert blocked["event"] == "os.kill" and blocked["target"].startswith(f"pid {os.getpid()},")
 
 
 def test_every_test_starts_with_an_isolated_off_mode_order_adapter(live_system_guard):
