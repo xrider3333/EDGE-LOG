@@ -23,8 +23,11 @@ print "gap closed" since the LEASE PROTOCOL in api/qqq_exec.py, same day):
   B  a fresh ENTRY emitted during the ~90 s handover gap is absorbed by the new host's cursor
      seed and never acted on.
   C  a host that served before returns with its OLD state.json/cursor within 30 min of the other
-     host's round trip -> re-trades it: duplicate BUY+SELL at the broker (client_order_id is
-     built from the local wall clock, so ids differ) and a duplicate row in trades.csv.
+     host's round trip -> re-trades it: duplicate BUY+SELL at the broker and a duplicate row in
+     trades.csv. (Since 2026-09-14 both hosts send the SAME client_order_ids -- derived from the
+     trade id, no longer from each host's wall clock -- but each host keeps its own order record
+     and nothing checks the other's; whether Webull itself refuses a reused client_order_id is
+     unverified, and this fake broker accepts it.)
   D  api/runner.py's fallback in-process thread (ensure_standalone() returns False on Linux
      whenever the systemd unit is not serving -- including when it is REFUSING on the lease)
      never calls _check_lease; it republishes the doc every tick and then reads itself as the
@@ -33,6 +36,9 @@ print "gap closed" since the LEASE PROTOCOL in api/qqq_exec.py, same day):
      other reads "stale": both pass _check_lease_for_broker.
   F  single host: an EXIT for an OLD trade closes whatever lot is open on that leg (EXIT rows
      carry no entry identity) -- the live ledger had exactly such a row on 2026-09-14 09:31 ET.
+     CLOSED 2026-09-14: ENTRY/EXIT rows carry a trade id (api/trade_id.py) and the adapter
+     closes a lot only with the EXIT carrying the same id; an id-less EXIT closes nothing. The
+     check fails again if the stale EXIT closes the lot OR the trade's own EXIT no longer does.
 """
 import csv
 import datetime as dt
@@ -47,17 +53,27 @@ from unittest.mock import MagicMock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares", "reason",
-               "bar_source"]
-qe = WO = NY = BASE = None
+               "bar_source", "trade_id"]
+qe = WO = NY = BASE = TID = None
 DOC = {}
 BROKER = {"QQQ": 0}
 PLACED = []
 ACTIVE = {"name": None}
 MARK = {"px": 701.0}
+HARNESS_ERRORS = []
+
+
+def _expect(ok, what):
+    """A harness self-check. A GAP verdict is only meaningful if the simulated broker really
+    received the orders the scenario depends on -- when an adapter change stopped every send
+    (2026-09-14: account selection by class), A and C silently flipped to "gap closed"."""
+    if not ok:
+        HARNESS_ERRORS.append(what)
+        print(f"   !! HARNESS: {what}")
 
 
 def _setup():
-    global qe, WO, NY, BASE
+    global qe, WO, NY, BASE, TID
     BASE = tempfile.mkdtemp(prefix="qqq_failover_sim_")
     decoy = os.path.join(BASE, "_decoy")
     os.environ["EDGELOG_HOME"] = decoy
@@ -72,8 +88,9 @@ def _setup():
         sys.path.insert(0, ROOT)
     from zoneinfo import ZoneInfo
     from api import qqq_exec as _qe
+    from api import trade_id as _tid
     from api import webull_orders as _wo
-    qe, WO, NY = _qe, _wo, ZoneInfo("America/New_York")
+    qe, WO, NY, TID = _qe, _wo, ZoneInfo("America/New_York"), _tid
     assert qe.OUT_DIR.startswith(BASE), f"refusing to run: adapter dir is {qe.OUT_DIR}"
     assert WO.DEFAULT_STATE_PATH.startswith(BASE), f"refusing to run: {WO.DEFAULT_STATE_PATH}"
     qe._notify = lambda *a, **k: None
@@ -218,16 +235,26 @@ class Host:
             _Ref().set(doc)
         return doc
 
-    def emit(self, event, leg, side, ref, px, emitted_hhmm, day="2026-09-15"):
+    def emit(self, event, leg, side, ref, px, emitted_hhmm, day="2026-09-15", entry=None, no_id=False):
+        """One signals.csv row as api/cloud_signal.py writes it. The trade id is built exactly
+        as the engine builds it: from the ENTRY bar (`ref` on an ENTRY row, `entry` on an EXIT
+        row, whose own `ref` is the exit bar). `no_id` writes an OLD row with no trade id."""
         new = not os.path.exists(self.sig)
-        ref_time = ref if "T" in str(ref) else (f"{day}T{ref}:00-04:00" if ref else "")
+
+        def _iso(t):
+            return t if "T" in str(t) else (f"{day}T{t}:00-04:00" if t else "")
+
+        ref_time = _iso(ref)
+        tid = ""
+        if not no_id and event in ("ENTRY", "EXIT"):
+            tid = TID.make(leg, ref_time if event == "ENTRY" else _iso(entry), side) or ""
         with open(self.sig, "a", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=SIGNAL_COLS)
             if new:
                 w.writeheader()
             w.writerow({"emitted_at": f"{day}T{emitted_hhmm}:05-04:00", "leg": leg, "event": event,
                         "side": side, "ref_time": ref_time, "ref_price": px, "shares": 140,
-                        "reason": "", "bar_source": "webull"})
+                        "reason": "", "bar_source": "webull", "trade_id": tid})
 
     def grep(self, needle):
         return [m for m in self.logs if needle in m]
@@ -270,6 +297,7 @@ def scenario_a():
     _both((pc, vm), "ENTRY", "ORB_R6", "long", "09:55", 700.00, "10:00")
     pc.tick("10:00")
     print(f"PC opened: legs={list(pc.state['legs'])}  broker QQQ={BROKER['QQQ']}")
+    _expect(BROKER["QQQ"] > 0, "A: the PC's OPEN never reached the simulated broker")
     vm.activate()
     print(f"VM standby, PC lease fresh -> may serve? {qe._check_lease(FDB, 'uid1', log=vm.log)}")
     _age_lease(100)
@@ -278,7 +306,7 @@ def scenario_a():
     print(f"VM boot reconcile: halted={vm.adapter._halted} ({vm.adapter._halt_reason})")
     vm.tick("10:02")
     print(f"VM first tick: cursor={vm.state.get('engine_cursor')} legs={list(vm.state['legs'])}")
-    _both((pc, vm), "EXIT", "ORB_R6", "long", "11:25", 704.00, "11:30")
+    _both((pc, vm), "EXIT", "ORB_R6", "long", "11:25", 704.00, "11:30", entry="09:55")
     vm.tick("11:30")
     skipped = vm.grep("no open shadow lot")
     print(f"VM on the strategy EXIT: {skipped}")
@@ -323,9 +351,10 @@ def scenario_c():
     vm.tick("09:37")
     _both((pc, vm), "ENTRY", "ORB_R6", "long", "12:55", 700.00, "13:00")
     vm.tick("13:00")
-    _both((pc, vm), "EXIT", "ORB_R6", "long", "13:15", 703.00, "13:20")
+    _both((pc, vm), "EXIT", "ORB_R6", "long", "13:15", 703.00, "13:20", entry="12:55")
     vm.tick("13:20")
     print(f"VM traded the round trip: broker QQQ={BROKER['QQQ']}  VM trades={len(vm.rows('trades.csv'))}")
+    _expect(len(PLACED) == 2, "C: the VM's round trip did not reach the simulated broker as BUY+SELL")
     _age_lease(100)
     time.sleep(1.1)
     pc.boot()
@@ -415,12 +444,25 @@ def scenario_f():
     h.tick("09:30")
     h.emit("ENTRY", "NOISE_304", "long", "09:55", 700.00, "10:00")
     h.tick("10:00")
-    h.emit("EXIT", "NOISE_304", "long", "2026-09-03T15:55:00-04:00", 717.61, "10:30")
+    _expect([p["side"] for p in PLACED] == ["BUY"], "F: today's OPEN did not reach the simulated broker")
+    # the live 2026-09-14 row: the EXIT of the 2026-09-03 trade that entered 11:00, exit bar 15:55
+    h.emit("EXIT", "NOISE_304", "long", "2026-09-03T15:55:00-04:00", 717.61, "10:30",
+           entry="2026-09-03T11:00:00-04:00")
     h.tick("10:30")
+    # the same stale EXIT as an OLD row with no trade id at all
+    h.emit("EXIT", "NOISE_304", "long", "2026-09-03T15:55:00-04:00", 717.61, "10:31", no_id=True)
+    h.tick("10:31")
+    stale_closed = (not h.state["legs"]) or bool(h.rows("trades.csv"))
+    refused = {k: v for k, v in ((DOC.get("trade_ids") or {}).get("today") or {}).items() if v}
+    print(f"after the stale EXITs: legs={list(h.state['legs'])} trades={len(h.rows('trades.csv'))} "
+          f"broker orders={[(p['side'], p['qty']) for p in PLACED]} published trade_ids.today={refused}")
+    h.emit("EXIT", "NOISE_304", "long", "11:25", 704.00, "11:30", entry="09:55")
+    h.tick("11:30")
     t = (h.rows("trades.csv") or [{}])[-1]
-    print(f"legs={list(h.state['legs'])} trade entry={t.get('entry_px')} exit={t.get('exit_px')} "
-          f"pnl={t.get('pnl')} broker orders={[(p['side'], p['qty']) for p in PLACED]}")
-    return "F stale EXIT closes today's lot", (not h.state["legs"] and t.get("exit_px") == "717.6")
+    own_closed = not h.state["legs"] and t.get("exit_px") == "703.99"
+    print(f"its own EXIT (same trade id): legs={list(h.state['legs'])} trade entry={t.get('entry_px')} "
+          f"exit={t.get('exit_px')} pnl={t.get('pnl')} broker orders={[(p['side'], p['qty']) for p in PLACED]}")
+    return "F stale EXIT closes today's lot", (stale_closed or not own_closed)
 
 
 def main():
@@ -430,6 +472,11 @@ def main():
     for name, gap in results:
         print(f"  {'GAP PRESENT' if gap else 'gap closed '}  {name}")
     print(f"\n(temp dir: {BASE})")
+    if HARNESS_ERRORS:
+        print("\nHARNESS BROKEN -- the verdicts above cannot be trusted:")
+        for e in HARNESS_ERRORS:
+            print(f"  - {e}")
+        sys.exit(2)
 
 
 if __name__ == "__main__":

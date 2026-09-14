@@ -97,6 +97,7 @@ if ROOT not in sys.path:
 
 from augur_engine.engine import run_backtest as engine_run_backtest          # noqa: E402
 from api import market_calendar                                             # noqa: E402
+from api import trade_id as _trade_id                                       # noqa: E402
 from api.paper import ORB_314, ENGUQ_335, NOISE_304_NBHD                   # noqa: E402
 import tools.qqq_paper as qp                                                # noqa: E402
 
@@ -428,7 +429,53 @@ def run_leg_trades(cfg, arrays):
 
 
 def _entry_key(leg, trade):
+    """The key a leg's emitted-trade memory (leg_state['trades']) is stored under: the
+    trade's stable id from api/trade_id.py -- leg + entry bar time + side, and NOT the entry
+    price (2026-09-14). The old key carried the price, so the same trade re-priced by a
+    cent (Webull vs yfinance bars for one minute can disagree, and the cache keeps
+    whichever source wrote last) looked brand new: within a few bars it re-emitted as a
+    second ENTRY, and either way the original key dropped out of the trade list, so its
+    EXIT was never emitted. The price-bearing form is only a fallback for a trade whose id
+    cannot be formed (never the case for a well-formed engine trade); such a trade's rows
+    carry an empty trade_id and api/qqq_exec.py refuses to act on them."""
+    return _trade_id.make(leg, trade.get("entry_time"), trade.get("side")) or _legacy_entry_key(leg, trade)
+
+
+def _legacy_entry_key(leg, trade):
     return f"{leg}|{trade['entry_time']}|{trade['side']}|{trade['entry_px']:.4f}"
+
+
+# leg_state["key_format"] once _rekey_recorded_trades has run for that leg.
+TRADE_KEY_FORMAT = "trade_id_v1"
+
+
+def _merge_rank(rec):
+    """Which of two memory records for ONE trade id to keep when re-keying: a record whose
+    ENTRY really was emitted beats a skipped/seeded twin (its EXIT may still be owed), and
+    among emitted ones a record whose EXIT already went out beats one still waiting (the
+    trade is one trade -- a second EXIT would only find no lot)."""
+    emitted_entry = not rec.get("skipped") and not rec.get("seeded")
+    return (emitted_entry, bool(rec.get("exit_emitted")))
+
+
+def _rekey_recorded_trades(leg_key, leg_state):
+    """One-time, idempotent upgrade of a leg's emitted-trade memory from the pre-2026-09-14
+    price-bearing keys to trade ids (see _entry_key). Without it, the first step() after
+    the upgrade would find none of its own records: every trade still in the window would
+    look new, a trade open across the upgrade would be recorded as LATE with its exit
+    marked done, and its real EXIT would never be emitted. Price twins of one trade merge
+    via _merge_rank. Returns how many records merged away."""
+    if leg_state.get("key_format") == TRADE_KEY_FORMAT:
+        return 0
+    recorded = leg_state.get("trades") or {}
+    out = {}
+    for key, rec in recorded.items():
+        new_key = _trade_id.make(leg_key, (rec or {}).get("entry_time"), (rec or {}).get("side")) or key
+        cur = out.get(new_key)
+        out[new_key] = rec if cur is None else max((cur, rec), key=_merge_rank)
+    leg_state["trades"] = out
+    leg_state["key_format"] = TRADE_KEY_FORMAT
+    return len(recorded) - len(out)
 
 
 # ── State I/O ───────────────────────────────────────────────────────────────────────────
@@ -450,47 +497,101 @@ def _write_state(state, paths):
 SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares", "reason",
               # appended, never inserted -- api/qqq_exec.py's engine mode and the web tab's
               # status panel read this to attribute a trade's price to WEBULL or YAHOO.
-              "bar_source"]
+              "bar_source",
+              # appended, never inserted (2026-09-14) -- the trade's stable id
+              # (api/trade_id.py: leg + entry bar time + side), IDENTICAL on its ENTRY and
+              # its EXIT row. An EXIT's ref_time is the exit bar, so without this column an
+              # EXIT row cannot say which trade it closes. "" on SEED rows.
+              "trade_id"]
 
 
-def _migrate_signals_header(path, cols):
-    """If `path` already exists under an OLDER/shorter header than `cols` (e.g. before
-    `bar_source` was added), rewrite it under the new header, padding every old row's
-    missing fields with "" -- same rationale and pattern as api/qqq_exec.py's
-    `_migrate_csv_header`: a code upgrade that appends a column must never desync the
-    on-disk header from what DictWriter is about to write next. A no-op when the header
-    already matches. Never raises."""
+def _read_signals_header(path):
+    """signals.csv's on-disk header as a list of names; None if missing, empty or unreadable."""
     import csv
     try:
         with open(path, encoding="utf-8", newline="") as f:
-            header_line = f.readline().rstrip("\r\n")
-        if not header_line or header_line == ",".join(cols):
+            return next(csv.reader(f), None) or None
+    except Exception:
+        return None
+
+
+def _migrate_signals_header(path, cols, _retries=20, _sleep=0.05):
+    """If `path` already exists under an OLDER header -- a strict prefix of `cols` (e.g.
+    before `bar_source` or `trade_id` was added) -- rewrite it under the new header, padding
+    every old row's missing fields with "" -- same rationale and pattern as api/qqq_exec.py's
+    `_migrate_csv_header`: a code upgrade that appends a column must never desync the
+    on-disk header from what DictWriter is about to write next. A no-op when the header
+    already matches. Never raises.
+
+    PREFIX ONLY (2026-09-14). Any other header -- longer, because a newer writer appended a
+    column this version has never heard of, or different -- is left exactly as it is.
+    Rewriting it under `cols` would delete those columns from every row, which is what the
+    pre-2026-09-14 copy of this function does to trade_id whenever an old checkout appends
+    to the live ledger. _append_signals writes aligned to whatever header is on disk.
+
+    ATOMIC (2026-09-14). This used to truncate signals.csv and rewrite it in place, while
+    api/qqq_exec.py reads the same file every 5 s and consumes it by ROW COUNT -- a read
+    landing inside the rewrite saw a short or empty ledger. The new file is written beside
+    it and renamed over it, so a reader sees the old file or the new one. Windows refuses
+    that rename while any reader has the file open, so it is retried for about a second;
+    if it still fails the file is left untouched (and the next append tries again) -- never
+    rewritten in place."""
+    import csv
+    tmp = None
+    try:
+        header = _read_signals_header(path)
+        cols = list(cols)
+        if not header or header == cols:
+            return
+        if not (len(header) < len(cols) and cols[:len(header)] == header):
             return
         with open(path, encoding="utf-8", newline="") as f:
             old_rows = list(csv.DictReader(f))
-        with open(path, "w", newline="", encoding="utf-8") as f:
+        tmp = "%s.%d.migrate.tmp" % (path, os.getpid())
+        with open(tmp, "w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=cols)
             w.writeheader()
             for r in old_rows:
                 w.writerow({c: r.get(c, "") for c in cols})
+        for _ in range(_retries):
+            try:
+                os.replace(tmp, path)
+                tmp = None
+                return
+            except PermissionError:
+                _time.sleep(_sleep)
+            except OSError:
+                break
     except Exception:
         pass
+    finally:
+        if tmp:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def _append_signals(events, paths):
     if not events:
         return
     os.makedirs(paths["state_dir"], exist_ok=True)
-    new_file = not os.path.exists(paths["signals_path"])
+    path = paths["signals_path"]
+    new_file = not os.path.exists(path) or os.path.getsize(path) == 0
     import csv
+    fieldnames = SIGNAL_COLS
     if not new_file:
-        _migrate_signals_header(paths["signals_path"], SIGNAL_COLS)
-    with open(paths["signals_path"], "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=SIGNAL_COLS)
+        _migrate_signals_header(path, SIGNAL_COLS)
+        # Rows follow the header that is actually on disk: normally SIGNAL_COLS, but a newer
+        # writer's longer header is never rewritten (see _migrate_signals_header), and an old
+        # header stays if its upgrade could not swap in this time. Unknown columns stay "".
+        fieldnames = _read_signals_header(path) or SIGNAL_COLS
+    with open(path, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames)
         if new_file:
             w.writeheader()
         for e in events:
-            w.writerow({k: e.get(k, "") for k in SIGNAL_COLS})
+            w.writerow({k: e.get(k, "") for k in fieldnames})
 
 
 # ── The core entry point ───────────────────────────────────────────────────────────────
@@ -500,8 +601,8 @@ def step(now=None, legs=None, paths=None, fetch=True):
     rolling warm-up window, and diff the resulting trade list against what was last
     persisted for that leg. Returns the list of NEW events emitted THIS call (empty on
     a rerun at the same `now` — idempotent by construction: every event is keyed by
-    (leg, entry timestamp, side, entry price) and a key already recorded in state.json
-    is never re-emitted).
+    the trade id (leg, entry bar time, side -- see _entry_key) and a key already recorded
+    in state.json is never re-emitted).
 
     `legs`: defaults to CROWN_LEGS; pass a different dict (e.g. with a stub strategy
     module as cfg["strategy"]) to test the diff/idempotency machinery in isolation.
@@ -630,8 +731,14 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     SEED event is written to the ledger naming what was absorbed. Only trades the
     engine opens AFTER the seed produce ENTRY/EXIT. Consumers must act on ENTRY/EXIT
     only and ignore any other event type.
+
+    TRADE ID (2026-09-14). Every ENTRY and EXIT event carries `trade_id` (api/trade_id.py),
+    the same value on both rows of one trade, and it is also the key of this leg's memory
+    (see _entry_key; _rekey_recorded_trades upgrades a pre-2026-09-14 memory once). An
+    executor closes a position only with the EXIT whose trade_id matches the one it opened.
     """
     events = []
+    _rekey_recorded_trades(leg_key, leg_state)
     recorded = leg_state.setdefault("trades", {})
     if not leg_state.get("seeded"):
         open_at_seed = "none"
@@ -648,7 +755,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
         events.append({
             "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
             "leg": leg_key, "event": "SEED", "side": "", "ref_time": "",
-            "ref_price": "", "shares": "", "bar_source": bar_source or "",
+            "ref_price": "", "shares": "", "bar_source": bar_source or "", "trade_id": "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
                        f"emitting; open_at_seed={open_at_seed}"),
         })
@@ -665,6 +772,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     today = now.date().isoformat()
     for t in trades:
         key = _entry_key(leg_key, t)
+        tid = key if _trade_id.is_valid(key) else ""
         rec = recorded.get(key)
         if rec is None:
             # One trade, ONE reason. STALE = the entry is not even from today (the rolling
@@ -696,6 +804,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "leg": leg_key, "event": "ENTRY", "side": t["side"],
                 "ref_time": t["entry_time"], "ref_price": t["entry_px"],
                 "shares": t["shares"], "reason": "", "bar_source": bar_source or "",
+                "trade_id": tid,
             })
             rec = recorded[key]
         if (not t["still_open"]) and (not rec["exit_emitted"]):
@@ -708,6 +817,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "ref_time": t["exit_time"], "ref_price": t["exit_px"],
                 "shares": t["shares"], "reason": "strategy_exit",
                 "bar_source": bar_source or "",
+                # the ENTRY's id, not one built from the exit bar -- see SIGNAL_COLS
+                "trade_id": tid,
             })
     return events
 
@@ -944,6 +1055,15 @@ def cloud_signal_thread(stop=None, log=print):
     cannot gain a bar faster than once a minute anyway. Two fetches a minute per timeframe
     is enough to see a bar the moment it closes without leaning on a free endpoint."""
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
+    # Bring the live ledger's header up to SIGNAL_COLS at boot rather than at the first
+    # emitted event, which is always mid-session with api/qqq_exec.py reading the file (a
+    # runner restart after the close then upgrades it while nobody is consuming). Atomic
+    # either way -- see _migrate_signals_header.
+    try:
+        if os.path.exists(DEFAULT_PATHS["signals_path"]):
+            _migrate_signals_header(DEFAULT_PATHS["signals_path"], SIGNAL_COLS)
+    except Exception as e:
+        log(f"[cloud-signal] ledger header check failed (next append retries): {type(e).__name__}: {e}")
     while stop is None or not stop.is_set():
         in_session = False           # set before the try so a throw still picks a sleep
         try:

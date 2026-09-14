@@ -205,8 +205,21 @@ def test_client_order_id_stable_and_bounded():
     assert short == "abc-123"
     long_id = "x" * 100
     hashed = WO._sanitize_client_order_id(long_id)
-    assert len(hashed) <= 40
+    assert len(hashed) <= 32
     assert WO._sanitize_client_order_id(long_id) == hashed   # deterministic
+
+
+def test_client_order_id_fits_webulls_documented_32_characters():
+    """Webull's US stock order reference: client_order_id "max 32 chars, must be unique per
+    account" (the 40 once used here is the SDK's Hong Kong docstring)."""
+    assert WO.CLIENT_ORDER_ID_MAX == 32
+    exactly = "a" * 32
+    assert WO._sanitize_client_order_id(exactly) == exactly
+    over = WO._sanitize_client_order_id("a" * 33)
+    assert len(over) == 32 and over.isalnum() and over != "a" * 32
+    # ids that differ only in characters the sanitizer maps still hash apart once too long
+    assert (WO._sanitize_client_order_id("q" * 30 + ":1:") !=
+            WO._sanitize_client_order_id("q" * 30 + "|1|"))
 
 
 # ── each rail blocks ──────────────────────────────────────────────────

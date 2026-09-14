@@ -77,6 +77,7 @@ from datetime import datetime, timedelta, timezone
 
 from . import market_calendar
 from . import nt_sync
+from . import trade_id as _trade_id
 from . import webull_orders
 
 try:
@@ -127,6 +128,7 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
+ENGINE_SHORT_READ_TICKS = 3           # consecutive short ledger reads before accepting a replaced file
 # The ET calendar date shadow trading actually began (first tick of api/qqq_exec.py in
 # production). Published in every doc as `live_from` so the web tab can show a
 # "since start" figure without hardcoding the date client-side.
@@ -813,13 +815,37 @@ def _broker_side(side, intent):
     return "SELL" if side == "long" else "BUY"
 
 
-def _broker_signal_id(leg, ts, intent, seq=0):
-    """Deterministic across a process restart: `ts` is the LOT's own entry_ts (stored in
-    this module's persisted state.json), so re-deriving the same lot after a restart
-    reproduces the same signal_id -> the same client_order_id -> webull_orders' own
-    idempotency cache returns the cached record instead of sending again. `seq` only
-    matters for a lot reduced more than once (ninjatrader-mode partial exits; engine mode
-    is always single-shot, see module docstring)."""
+_NON_ALNUM = re.compile(r"[^A-Za-z0-9]")
+
+
+def _broker_signal_id(leg, ts, intent, seq=0, trade_id=None):
+    """The broker signal_id (-> webull_orders' client_order_id) for one lot's OPEN/CLOSE.
+
+    FROM THE TRADE ID (2026-09-14): "qx" + the trade id with its separators removed + O/C,
+    plus the reduce number only for a second or later reduce of one lot (ninjatrader-mode
+    partial exits; engine mode is single-shot) -- e.g. trade NOISE_304-20260915T135500Z-L
+    opens as qxNOISE30420260915T135500ZLO and closes as qxNOISE30420260915T135500ZLC.
+    The trade id is the same on every host and in every process that sees the trade, so a
+    restart, a second process or another host derives the SAME client_order_id for the same
+    order -- the only way an order id can ever catch a duplicate. The old form was built
+    from the lot's entry_ts, the LOCAL wall clock when this process opened it, so two hosts
+    (tools/qqq_failover_sim.py scenario C) sent one trade under two different ids.
+
+    COMPACT AND ALPHANUMERIC ON PURPOSE. Webull's US stock order reference documents
+    client_order_id as "max 32 chars, must be unique per account", and its own sample
+    generates uuid4().hex. Every current leg fits in 32 with letters and digits only (28
+    characters for NOISE_304 / ENGUQ_335), so webull_orders._sanitize_client_order_id
+    passes it through verbatim; a longer one becomes that function's stable hash, still the
+    same on every host. Dropping "_" from a leg cannot merge two legs here (no two leg keys
+    differ only by underscores), and the fixed-width UTC stamp keeps the parts unambiguous.
+
+    `ts` (the lot's entry_ts) is used ONLY when there is no trade id: a lot opened by code
+    that predates trade ids and is still open in state.json, or a direct caller/test. No
+    production open path creates a lot without one any more (see _open_lot)."""
+    if trade_id:
+        code = {"OPEN": "O", "CLOSE": "C"}.get(str(intent).upper(), str(intent)[:1].upper())
+        base = "qx" + _NON_ALNUM.sub("", str(trade_id)) + code
+        return base if not seq or int(seq) <= 1 else f"{base}{int(seq)}"
     base = f"qqqexec-{leg}-{ts}-{intent}"
     return base if not seq else f"{base}-{seq}"
 
@@ -854,7 +880,8 @@ def _extract_broker_fill_price(record):
         return None
 
 
-def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0, log=print):
+def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, seq=0,
+                      trade_id=None, log=print):
     """Call after the shadow's own order/trade row is already recorded. Never raises.
 
     CROSS-HOST LEASE GATE (2026-09-14, "fail CLOSED once real orders can flow"): before
@@ -883,7 +910,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0,
     is not lease-managed (a direct call, a test) has no such state and is unaffected."""
     if not shares or shares <= 0:
         return
-    signal_id = _broker_signal_id(leg, ts, intent, seq=seq)
+    signal_id = _broker_signal_id(leg, ts, intent, seq=seq, trade_id=trade_id)
     try:
         adapter = _get_broker_adapter(log=log)
         mode, _mode_reason = adapter.effective_mode()
@@ -1735,7 +1762,14 @@ def _consume_engine_signals(state, cfg, now, log=print):
     having been offline when an otherwise-timely signal was emitted.
 
     Returns the ENTRY/EXIT event dicts to route this tick (SEED and any other
-    non-actionable event types are skipped)."""
+    non-actionable event types are skipped). Each carries the row's `trade_id` ("" on a
+    row written before the column existed).
+
+    CURSOR KEPT (2026-09-14). Trade ids did NOT replace this row cursor: which rows are new
+    is still decided by row number in THIS host's own ledger. The ids decide what a row may
+    do once consumed (see _route_engine_events). A consumed-trade-id set -- the piece a
+    two-host takeover needs, since each host's ledger has its own row numbers -- is a
+    separate change."""
     cs = _cs_module()
     sig_path = cs.DEFAULT_PATHS["signals_path"]
     try:
@@ -1762,6 +1796,28 @@ def _consume_engine_signals(state, cfg, now, log=print):
                   f"signal_source=engine activated; {len(rows)} pre-existing signal "
                   f"row(s) absorbed without acting on them", log=log)
         return []
+
+    if len(rows) < int(cursor):
+        # SHORT READ (2026-09-14): fewer rows than this adapter already consumed. Either the
+        # read landed inside another process's in-place rewrite of the ledger (a pre-trade-id
+        # cloud_signal still rewrites its header that way) or the ledger really was replaced
+        # by a shorter one. Dropping the cursor to a torn read's row count would re-consume up
+        # to ENGINE_CONSUME_STALE_SEC of signals on the next tick, so the cursor holds; only a
+        # shortage seen on ENGINE_SHORT_READ_TICKS consecutive reads is taken as a replaced
+        # ledger and re-armed at its end, with nothing replayed.
+        n = int(state.get("_engine_short_reads", 0) or 0) + 1
+        state["_engine_short_reads"] = n
+        if n < ENGINE_SHORT_READ_TICKS:
+            log(f"[qqq-exec] signals.csv read {len(rows)} row(s), fewer than the {cursor} already "
+                f"consumed -- cursor held (short read {n} of {ENGINE_SHORT_READ_TICKS})")
+            return []
+        _log_event(state, "engine_reseed",
+                   f"signal ledger shrank from {cursor} to {len(rows)} rows for {n} reads in a row "
+                   f"-- treated as replaced; cursor re-armed at its end, nothing replayed", log=log)
+        state["engine_cursor"] = len(rows)
+        state["_engine_short_reads"] = 0
+        return []
+    state["_engine_short_reads"] = 0
 
     new_rows = rows[int(cursor):]
     state["engine_cursor"] = len(rows)
@@ -1790,19 +1846,117 @@ def _consume_engine_signals(state, cfg, now, log=print):
         try:
             out.append({"leg": r["leg"], "event": ev, "side": r.get("side") or "long",
                        "ref_time": r["ref_time"], "ref_price": float(r["ref_price"]),
-                       "bar_source": r.get("bar_source") or ""})
+                       "bar_source": r.get("bar_source") or "",
+                       # "" for a row written before cloud_signal wrote trade ids -- see
+                       # _route_engine_events' OLD ROWS rule for what that means
+                       "trade_id": str(r.get("trade_id") or "").strip()})
         except Exception as e:
             log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
     return out
 
 
-def _route_engine_events(state, cfg, events, entries_blocked, log=print):
+# -- TRADE IDENTITY (2026-09-14) -----------------------------------------------------------
+# Everything _route_engine_events declines to act on because a row's trade identity did not
+# check out, by kind. Counted today + all time in state["trade_id_checks"] and published
+# whole (zeros included) under doc["trade_ids"]; each one is also a runner.log WARN line and
+# an event-timeline entry of the same kind.
+TRADE_ID_ISSUES = (
+    "exit_id_mismatch",     # EXIT's trade id is not the open lot's (or the lot has none): nothing closed
+    "exit_no_id",           # EXIT row with no trade id while a lot is open: nothing closed
+    "exit_no_lot",          # EXIT with no open lot on that leg: nothing to close
+    "entry_no_id",          # ENTRY row with no trade id: not taken
+    "entry_id_conflict",    # ENTRY row's trade id disagrees with its own leg/bar time/side: not taken
+    "entry_other_session",  # ENTRY bar is not from today's session (replay leftovers): not taken
+    "entry_duplicate",      # ENTRY for the very trade already open: ignored
+    "entry_leg_busy",       # ENTRY for a different trade while a lot is open on the leg: not taken
+)
+# Bookkeeping rather than a refused signal -- left out of the published refused_today sum.
+_TRADE_ID_INFO_ONLY = ("exit_no_lot", "entry_duplicate")
+
+
+def _record_trade_id_issue(state, kind, text, nowdt=None, detail=None, log=print):
+    """Count one identity problem (today + all time), keep the latest one's details, and
+    write the runner.log line and the timeline event. Never raises."""
+    try:
+        blk = state.setdefault("trade_id_checks", {})
+        day = (nowdt or _now_et()).strftime("%Y-%m-%d")
+        if blk.get("day") != day:
+            blk["day"] = day
+            blk["today"] = {}
+        today = blk.setdefault("today", {})
+        today[kind] = int(today.get(kind, 0) or 0) + 1
+        total = blk.setdefault("total", {})
+        total[kind] = int(total.get(kind, 0) or 0) + 1
+        last = {"kind": kind, "ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "text": text}
+        for k, v in (detail or {}).items():
+            last[k] = v if (v is None or isinstance(v, (str, int, float, bool))) else str(v)
+        blk["last"] = last
+    except Exception as e:
+        log(f"[qqq-exec] trade-id issue count failed: {type(e).__name__}: {e}")
+    log(f"[qqq-exec] WARN {kind}: {text}")
+    _log_event(state, kind, text, log=log)
+
+
+def _build_trade_id_status(state, day=None):
+    """doc["trade_ids"]: flat per-kind counters for `day` (the adapter's trading_day) and
+    for all time, the refused-today total, and the latest issue."""
+    blk = state.get("trade_id_checks") or {}
+    day = day or _now_et().strftime("%Y-%m-%d")
+    today_raw = (blk.get("today") or {}) if blk.get("day") == day else {}
+    today = {k: int(today_raw.get(k, 0) or 0) for k in TRADE_ID_ISSUES}
+    total = {k: int((blk.get("total") or {}).get(k, 0) or 0) for k in TRADE_ID_ISSUES}
+    return {"day": day, "today": today, "total": total,
+            "refused_today": sum(v for k, v in today.items() if k not in _TRADE_ID_INFO_ONLY),
+            "last": blk.get("last")}
+
+
+def _lot_label(lot):
+    tid = (lot or {}).get("trade_id")
+    if tid:
+        return _trade_id.describe(tid, _NY)
+    return f"opened {(lot or {}).get('entry_ts')} (no trade id -- predates trade ids)"
+
+
+def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=None):
     """engine mode's equivalent of _route_fills: consumes api.cloud_signal ENTRY/EXIT
     events (already idempotent and de-duplicated by _consume_engine_signals' cursor)
     and opens/closes shadow lots directly from the engine's own signal price -- no
     NinjaTrader fill, no NQ ratio, no Webull quote call. Each cloud_signal trade is
     single-shot (one ENTRY, one EXIT, no partials -- see run_leg_trades), so an EXIT
-    always closes the WHOLE lot."""
+    always closes the WHOLE lot.
+
+    TRADE IDENTITY (2026-09-14, tools/qqq_failover_sim.py scenario F). A lot carries the
+    trade id (api/trade_id.py: leg + entry bar time + side) of the ENTRY row that opened it,
+    and an EXIT closes a lot ONLY when the EXIT row carries that same id. It used to close
+    whatever lot was open on the leg, because EXIT rows had no entry identity: on
+    2026-09-14 at 09:31 ET the live ledger delivered an EXIT for a 2026-09-03 NOISE trade
+    (left behind by a replay that wrote into the live ledger). No lot was open; had one
+    been, today's lot would have closed at the old trade's price -- and mirrored a real
+    SELL once the broker is armed. A row whose identity does not check out is NOT applied:
+    it is counted, logged and published -- see TRADE_ID_ISSUES.
+
+    OLD ROWS (no trade_id: written by a cloud_signal that predates the column -- a runner
+    not yet restarted onto this code, or a replay run from a stale checkout) are never
+    acted on. An id-less EXIT closes nothing: the lot waits for its own EXIT or for the
+    flat-by / breaker / kill close. An id-less ENTRY opens nothing either: its EXIT could
+    not be matched, so the lot could only ever close on those rails. Deliberately stricter
+    than pairing by leg: a refused signal is a visible, explainable gap, while a lot closed
+    by another trade's exit is a wrong trade. Restart the runner (cloud_signal) together
+    with this adapter.
+
+    An ENTRY whose bar is not from today's session is refused as well. cloud_signal's live
+    run never emits one (its STALE rule), so such a row is replay debris -- the same replay
+    also left 2026-09-03 ENTRY rows in the live ledger.
+
+    A lot opened before trade ids existed (state.json lot without trade_id) cannot be
+    matched by any EXIT and closes only on the flat-by / breaker / kill rails -- and while it
+    is open, every new ENTRY on that leg is refused as leg-busy. So switch a running adapter
+    onto this code (or switch signal_source from ninjatrader to engine) only while it is flat.
+
+    Identity refusals are not added to the fired/refused signal counters: this adapter cannot
+    show such a row is one of today's strategy signals, only that it cannot be attributed."""
+    nowdt = now or _now_et()
+    today = nowdt.strftime("%Y-%m-%d")
     for e in events:
         leg = ENGINE_LEG_MAP.get(e["leg"])
         if leg is None:
@@ -1814,10 +1968,47 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print):
         except Exception:
             sig_dt = None
         px_source = "engine_" + (str(e.get("bar_source") or "cache"))
+        row_tid = str(e.get("trade_id") or "").strip()
+        open_lot = state["legs"].get(leg)
+        detail = {"leg": leg, "event": e["event"], "row_trade_id": row_tid,
+                  "ref_time": str(e.get("ref_time") or ""),
+                  "lot_trade_id": (open_lot or {}).get("trade_id")}
         if e["event"] == "ENTRY":
-            if leg in state["legs"]:
-                log(f"[qqq-exec] WARN engine ENTRY for {leg} with an already-open "
-                    f"shadow lot -- ignored")
+            if not row_tid:
+                _record_trade_id_issue(
+                    state, "entry_no_id",
+                    f"{leg} entry signal ({e.get('side')}, bar {e.get('ref_time')}) has no trade id "
+                    f"-- written by a signal engine that predates trade ids; not taken",
+                    nowdt, detail, log=log)
+                continue
+            own_tid = _trade_id.make(e["leg"], e.get("ref_time"), e.get("side"), default_tz=_NY)
+            if own_tid != row_tid:
+                _record_trade_id_issue(
+                    state, "entry_id_conflict",
+                    f"{leg} entry signal's trade id {row_tid} does not match its own bar time and "
+                    f"side ({own_tid or 'unreadable'}); not taken", nowdt, detail, log=log)
+                continue
+            entry_day = None
+            if sig_dt is not None:
+                entry_day = (sig_dt.astimezone(_NY) if _NY is not None else sig_dt).strftime("%Y-%m-%d")
+            if entry_day != today:
+                _record_trade_id_issue(
+                    state, "entry_other_session",
+                    f"{leg} entry signal is for {_trade_id.describe(row_tid, _NY)}, not today's "
+                    f"session ({today}) -- replay leftovers, not taken", nowdt, detail, log=log)
+                continue
+            if open_lot:
+                if open_lot.get("trade_id") == row_tid:
+                    _record_trade_id_issue(
+                        state, "entry_duplicate",
+                        f"{leg} entry signal repeats the trade already open "
+                        f"({_trade_id.describe(row_tid, _NY)}); ignored", nowdt, detail, log=log)
+                else:
+                    _record_trade_id_issue(
+                        state, "entry_leg_busy",
+                        f"{leg} entry signal for {_trade_id.describe(row_tid, _NY)} while the "
+                        f"shadow trade {_lot_label(open_lot)} is still open; not taken",
+                        nowdt, detail, log=log)
                 continue
             shares = int(cfg["shares"].get(leg, 0))
             if entries_blocked:
@@ -1832,13 +2023,34 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print):
             state["_px_source"] = px_source
             opened = _open_lot(state, cfg, leg, e["side"], shares, None, float(e["ref_price"]),
                                cfg.get("slippage_per_share", 0.0), f=None, log=log,
-                               sig_dt=sig_dt, signal_source=cfg.get("signal_source"))
+                               sig_dt=sig_dt, signal_source=cfg.get("signal_source"),
+                               trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""))
             _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
         elif e["event"] == "EXIT":
-            lot = state["legs"].get(leg)
+            lot = open_lot
+            exit_of = (_trade_id.describe(row_tid, _NY) if row_tid
+                       else f"a trade with no id (exit bar {e.get('ref_time')})")
             if not lot:
-                log(f"[qqq-exec] WARN engine EXIT for {leg} with no open shadow lot -- skipped")
+                # Starts with the pre-2026-09-14 wording verbatim: tools/qqq_failover_sim.py
+                # and docs/CLOUD_SIGNAL_REPAIR_20260914.md's verification grep for it.
+                _record_trade_id_issue(
+                    state, "exit_no_lot",
+                    f"engine EXIT for {leg} with no open shadow lot -- skipped ({exit_of}; "
+                    f"nothing to close)", nowdt, detail, log=log)
+                continue
+            if not row_tid:
+                _record_trade_id_issue(
+                    state, "exit_no_id",
+                    f"{leg} strategy exit (bar {e.get('ref_time')}) has no trade id, so it cannot be "
+                    f"matched to the open shadow trade {_lot_label(lot)}; nothing closed -- that "
+                    f"trade waits for its own exit or the end-of-day close", nowdt, detail, log=log)
+                continue
+            if row_tid != lot.get("trade_id"):
+                _record_trade_id_issue(
+                    state, "exit_id_mismatch",
+                    f"{leg} strategy exit belongs to {exit_of}, but the open shadow trade is "
+                    f"{_lot_label(lot)}; nothing closed", nowdt, detail, log=log)
                 continue
             state["_px_source"] = px_source
             _reduce_lot(state, cfg, leg, lot["nq_qty_total"], None, float(e["ref_price"]),
@@ -1854,7 +2066,7 @@ def _apply_slippage(px, side, entering, slip):
 
 # -- lot lifecycle ---------------------------------------------------------------------
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
-              sig_dt=None, signal_source=None):
+              sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None):
     """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
     to know this to tell TAKEN from REFUSED).
 
@@ -1862,7 +2074,13 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     there is no NT fill to mirror, exactly like a rail-driven BREAKER/EOD/KILL close
     already leaves NT parity fields blank). `sig_dt`/`signal_source` carry the engine
     signal's own timestamp/attribution when `f` is None so latency and the
-    orders/trades CSVs still record something real instead of blank."""
+    orders/trades CSVs still record something real instead of blank.
+
+    `trade_id`/`entry_ref_time` (2026-09-14): the ENTRY row's trade id and entry bar time,
+    stored on the lot -- only an EXIT with the same id closes it (_route_engine_events) and
+    the broker order ids derive from it (_broker_signal_id). With no id given but an NT
+    fill, the id is derived from that fill (leg "NT_<leg>", the fill's own timestamp, side),
+    never from this process's clock."""
     max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
     size_mode = str(cfg.get("size_mode") or "fixed").strip().lower()
     instrument = (f.get("instrument") if f else "") or ""
@@ -1897,6 +2115,12 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         "entry_px": fill_px, "nq_entry_px": nq_px, "last_nq_px": nq_px,
         "entry_ts": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
     }
+    if not trade_id and f is not None and f.get("dt") is not None:
+        trade_id = _trade_id.make(f"NT_{leg}", f["dt"], side, default_tz=_NY)
+        if not entry_ref_time and hasattr(f["dt"], "isoformat"):
+            entry_ref_time = f["dt"].isoformat()
+    lot["trade_id"] = trade_id or None
+    lot["entry_ref_time"] = entry_ref_time or None
     state["legs"][leg] = lot
     # NT PARITY (feature 1): the fill that opened this lot IS the NT trade being
     # mirrored -- persist its identity + the ratio in force right now so a closed trade
@@ -1936,7 +2160,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     # "broker mirror" section docstring near _mirror_to_broker. A broker error here
     # never unwinds the shadow lot just opened.
     _mirror_to_broker(state, leg=leg, side=side, shares=shares, shadow_px=fill_px,
-                      intent="OPEN", ts=lot["entry_ts"], log=log)
+                      intent="OPEN", ts=lot["entry_ts"], trade_id=lot["trade_id"], log=log)
     return True
 
 
@@ -1992,7 +2216,7 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     lot["_broker_close_seq"] = lot.get("_broker_close_seq", 0) + 1
     _mirror_to_broker(state, leg=leg, side=lot["side"], shares=shares_close,
                       shadow_px=fill_px, intent="CLOSE", ts=lot["entry_ts"],
-                      seq=lot["_broker_close_seq"], log=log)
+                      seq=lot["_broker_close_seq"], trade_id=lot.get("trade_id"), log=log)
     pnl = None
     if lot["shares_remaining"] <= 0:
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
@@ -2882,6 +3106,10 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         positions[leg] = {"side": lot["side"], "shares": lot["shares_remaining"],
                           "entry_px": lot["entry_px"], "entry_ts": lot["entry_ts"],
                           "unrealized": unrl_by_leg.get(leg, 0.0),
+                          # TRADE IDENTITY (2026-09-14): which strategy trade this lot
+                          # is -- the only EXIT that may close it carries this id.
+                          "trade_id": lot.get("trade_id"),
+                          "entry_ref_time": lot.get("entry_ref_time"),
                           # NT SIZING GAP (feature #50): live view of the open lot's
                           # sizing vs. the NT position it mirrors.
                           "nt_mult": lot.get("nt_mult"),
@@ -2946,6 +3174,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         # _build_broker_status. Lets the phone tab eventually show mode/creds/last
         # order/last error without a separate endpoint.
         "broker": _build_broker_status(state, log=log),
+        # TRADE IDENTITY (2026-09-14): signals NOT applied because their trade id did not
+        # check out (stale/foreign EXITs, id-less rows, ...) -- see TRADE_ID_ISSUES.
+        "trade_ids": _build_trade_id_status(state, day),
         # LEASE (2026-09-13): this host's heartbeat for the cross-host guard (see
         # _check_lease) -- a second host reads THIS field to decide whether the shadow
         # book (and its broker mirror) is already running elsewhere.
@@ -3505,7 +3736,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         if src_mode == "engine":
             events = _consume_engine_signals(state, cfg, nowdt, log=log)
             if events:
-                _route_engine_events(state, cfg, events, entries_blocked, log=log)
+                _route_engine_events(state, cfg, events, entries_blocked, log=log, now=nowdt)
         else:
             fills = nt_sync.parse_fills(fills_path)
             # fills.csv "Time" is UTC (EdgeLogExport.cs: ex.Time.ToUniversalTime()). Convert to

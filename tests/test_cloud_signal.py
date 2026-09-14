@@ -305,6 +305,236 @@ def test_hours_late_entry_is_recorded_but_not_emitted(tmp_path):
     assert state["legs"]["STUB"].get("stale_skipped", 0) == 0,         "same-day but hours old is LATE, not stale -- the two are counted apart"
 
 
+# ── 1b. Trade id: one identity per trade, on BOTH of its rows (2026-09-14) ──────────────
+# tools/qqq_failover_sim.py scenario F: EXIT rows carried no entry identity (ref_time is the
+# exit bar), so api/qqq_exec.py closed whatever lot was open on the leg -- and the live ledger
+# delivered the EXIT of a 2026-09-03 trade at 09:31 ET on 2026-09-14.
+def test_trade_id_is_price_free_and_host_independent():
+    from api import trade_id as T
+    ny = zoneinfo.ZoneInfo("America/New_York")
+    tid = T.make("NOISE_304", "2026-09-03T11:00:00-04:00", "long")
+    assert tid == "NOISE_304-20260903T150000Z-L"
+    # the same instant from a host whose bar index is UTC, or a pandas Timestamp
+    assert T.make("NOISE_304", "2026-09-03T15:00:00+00:00", "long") == tid
+    assert T.make("NOISE_304", "2026-09-03T15:00:00Z", "long") == tid
+    assert T.make("NOISE_304", pd.Timestamp("2026-09-03 11:00", tz=cs.TZ), "long") == tid
+    # a naive time only counts when the caller names its zone
+    assert T.make("NOISE_304", "2026-09-03 11:00:00", "long") is None
+    assert T.make("NOISE_304", "2026-09-03 11:00:00", "long", default_tz=ny) == tid
+    # side is part of the identity; a malformed part gives NO id, never a different one
+    assert T.make("NOISE_304", "2026-09-03T11:00:00-04:00", "short") == "NOISE_304-20260903T150000Z-S"
+    assert T.make("NOISE 304", "2026-09-03T11:00:00-04:00", "long") is None
+    assert T.make("NOISE_304", "not a time", "long") is None
+    assert T.make("NOISE_304", "2026-09-03T11:00:00-04:00", "flat") is None
+    for leg in cs.CROWN_LEGS:
+        assert T.is_valid(T.make(leg, "2026-09-03T11:00:00-04:00", "long")), leg
+    assert T.parse(tid)["side"] == "long" and T.parse("NOISE_304|junk") is None
+    assert T.describe(tid, ny) == "NOISE_304 long entered 2026-09-03 11:00 ET"
+
+
+def _stub_home(tmp_path, name, epoch_df):
+    paths = cs._paths(home=str(tmp_path / name))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    epoch_df.to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1m.csv"), index=False)
+    return paths
+
+
+def _stub_legs():
+    # max_entry_age_sec: these cases look from a few minutes out (see the synthetic fixture
+    # test above); lateness has its own case.
+    return {"STUB": {"strategy": _stub_module(), "timeframe": "1m", "params": {},
+                     "warmup_sessions": 5, "max_entry_age_sec": 3600}}
+
+
+def test_entry_and_exit_rows_carry_the_same_trade_id(tmp_path):
+    import csv
+    from api import trade_id as T
+    epoch_df, base = _fixture_epoch_df()
+    paths = _stub_home(tmp_path, "tid_home", epoch_df)
+    legs = _stub_legs()
+    cs.step(now=(base + pd.Timedelta(minutes=2, seconds=30)).to_pydatetime(), legs=legs,
+            paths=paths, fetch=False)
+    entry, exit_ = cs.step(now=(base + pd.Timedelta(minutes=6)).to_pydatetime(), legs=legs,
+                           paths=paths, fetch=False)
+    want = T.make("STUB", base + pd.Timedelta(minutes=1), "long")   # the stub enters on bar 1
+    assert (entry["event"], exit_["event"]) == ("ENTRY", "EXIT")
+    assert entry["trade_id"] == exit_["trade_id"] == want, \
+        "the EXIT row must name the trade it closes -- the ENTRY's id, not one built from the exit bar"
+
+    with open(paths["signals_path"], encoding="utf-8", newline="") as f:
+        header = f.readline().strip().split(",")
+        f.seek(0)
+        rows = list(csv.DictReader(f))
+    assert header == cs.SIGNAL_COLS and header[-1] == "trade_id"
+    assert [r["event"] for r in rows] == ["SEED", "ENTRY", "EXIT"]
+    assert rows[0]["trade_id"] == "" and rows[1]["trade_id"] == rows[2]["trade_id"] == want
+
+
+def test_repriced_entry_keeps_its_id_and_still_exits_exactly_once(tmp_path):
+    """The Webull and yfinance bars for one minute can disagree by a cent, and the cache keeps
+    whichever wrote last. With the entry PRICE in the key, the re-priced trade looked new: a
+    second ENTRY, and the original's EXIT never came. Keyed by trade id it is one trade."""
+    epoch_df, base = _fixture_epoch_df()
+    paths = _stub_home(tmp_path, "reprice_home", epoch_df)
+    legs = _stub_legs()
+    cs.step(now=(base + pd.Timedelta(minutes=2, seconds=30)).to_pydatetime(), legs=legs,
+            paths=paths, fetch=False)
+    # bars 0-2 closed: the stub's trade is in, its exit bar is still the last bar -> open
+    first = cs.step(now=(base + pd.Timedelta(minutes=3, seconds=10)).to_pydatetime(), legs=legs,
+                    paths=paths, fetch=False)
+    assert [e["event"] for e in first] == ["ENTRY"]
+
+    epoch_df.loc[1, "open"] = 700.51          # the other source's print for the entry bar
+    epoch_df.to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1m.csv"), index=False)
+    second = cs.step(now=(base + pd.Timedelta(minutes=6)).to_pydatetime(), legs=legs,
+                     paths=paths, fetch=False)
+    assert [e["event"] for e in second] == ["EXIT"], \
+        "a re-priced entry must not enter again, and the trade's own EXIT must still be emitted"
+    assert second[0]["trade_id"] == first[0]["trade_id"]
+
+
+def test_pre_upgrade_price_keyed_memory_is_rekeyed_and_open_trade_still_exits(tmp_path):
+    """state.json written before trade ids holds price-bearing keys. Without the one-time
+    re-key, a trade open across the upgrade would look new, be recorded LATE with its exit
+    marked done, and its real EXIT would never be emitted."""
+    epoch_df, base = _fixture_epoch_df()
+    paths = _stub_home(tmp_path, "upgrade_home", epoch_df)
+    legs = _stub_legs()
+    cs.step(now=(base + pd.Timedelta(minutes=2, seconds=30)).to_pydatetime(), legs=legs,
+            paths=paths, fetch=False)
+    assert [e["event"] for e in cs.step(now=(base + pd.Timedelta(minutes=3, seconds=10)).to_pydatetime(),
+                                        legs=legs, paths=paths, fetch=False)] == ["ENTRY"]
+
+    # rewrite the memory exactly as the old code left it: price-bearing keys, no key_format,
+    # plus the skipped cent-off twin a bar-source flip used to leave beside the real record
+    state = cs._load_state(paths)
+    leg = state["legs"]["STUB"]
+    (rec,) = leg["trades"].values()
+    twin = dict(rec, entry_px=round(rec["entry_px"] + 0.01, 4), exit_emitted=True, skipped="late")
+    leg["trades"] = {cs._legacy_entry_key("STUB", r): r for r in (rec, twin)}
+    leg.pop("key_format", None)
+    cs._write_state(state, paths)
+
+    events = cs.step(now=(base + pd.Timedelta(minutes=6)).to_pydatetime(), legs=legs,
+                     paths=paths, fetch=False)
+    assert [e["event"] for e in events] == ["EXIT"]
+    leg = cs._load_state(paths)["legs"]["STUB"]
+    assert list(leg["trades"]) == [events[0]["trade_id"]], "the twin merges into the one trade id"
+    assert leg["key_format"] == cs.TRADE_KEY_FORMAT
+    assert cs._rekey_recorded_trades("STUB", leg) == 0, "the re-key runs once"
+
+
+def _old_ledger(paths):
+    import csv
+    old_cols = cs.SIGNAL_COLS[:-1]
+    assert old_cols == ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares",
+                        "reason", "bar_source"], "trade_id must be APPENDED at the end, never inserted"
+    os.makedirs(paths["state_dir"], exist_ok=True)
+    with open(paths["signals_path"], "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=old_cols)
+        w.writeheader()
+        w.writerow({"emitted_at": "2026-09-14T09:31:00-04:00", "leg": "NOISE_304", "event": "EXIT",
+                    "side": "long", "ref_time": "2026-09-03T15:55:00-04:00", "ref_price": "717.61",
+                    "shares": "140", "reason": "strategy_exit", "bar_source": "webull"})
+
+
+def _read_ledger(paths):
+    import csv
+    with open(paths["signals_path"], encoding="utf-8", newline="") as f:
+        header = f.readline().strip()
+        f.seek(0)
+        return header, list(csv.DictReader(f))
+
+
+def test_old_ledger_gains_trade_id_column_rows_kept(tmp_path):
+    paths = cs._paths(home=str(tmp_path / "hdr_home"))
+    _old_ledger(paths)
+    tid = "ORB_R6-20260914T140500Z-L"
+    cs._append_signals([{"emitted_at": "2026-09-14T10:06:00-04:00", "leg": "ORB_R6", "event": "ENTRY",
+                         "side": "long", "ref_time": "2026-09-14T10:05:00-04:00", "ref_price": 700.0,
+                         "shares": 140, "reason": "", "bar_source": "webull", "trade_id": tid}], paths)
+    header, rows = _read_ledger(paths)
+    assert header == ",".join(cs.SIGNAL_COLS)
+    assert [r["leg"] for r in rows] == ["NOISE_304", "ORB_R6"], "old rows are kept, in order"
+    assert rows[0]["trade_id"] == "" and rows[0]["ref_price"] == "717.61"
+    assert rows[1]["trade_id"] == tid
+    assert not [n for n in os.listdir(paths["state_dir"]) if n.endswith(".tmp")]
+
+
+def test_header_upgrade_that_cannot_swap_in_leaves_the_ledger_untouched(tmp_path, monkeypatch):
+    """api/qqq_exec.py reads signals.csv every 5 s and Windows refuses a rename over a file a
+    reader holds open. The upgrade must then leave the file exactly as it was -- never
+    rewrite it in place, which is how a reader got a torn, short ledger -- and the rows
+    appended meanwhile must still line up with the header that is on disk."""
+    import csv
+    paths = cs._paths(home=str(tmp_path / "held_home"))
+    _old_ledger(paths)
+    with open(paths["signals_path"], "rb") as f:
+        before = f.read()
+
+    def refused(src, dst):
+        raise PermissionError(32, "The process cannot access the file")
+
+    monkeypatch.setattr(cs.os, "replace", refused)
+    cs._migrate_signals_header(paths["signals_path"], cs.SIGNAL_COLS, _retries=2, _sleep=0.0)
+    with open(paths["signals_path"], "rb") as f:
+        assert f.read() == before, "a failed swap must not touch the ledger"
+    assert not [n for n in os.listdir(paths["state_dir"]) if n.endswith(".tmp")]
+
+    cs._append_signals([{"emitted_at": "2026-09-14T10:06:00-04:00", "leg": "ORB_R6", "event": "ENTRY",
+                         "side": "long", "ref_time": "2026-09-14T10:05:00-04:00", "ref_price": 700.0,
+                         "shares": 140, "reason": "", "bar_source": "webull",
+                         "trade_id": "ORB_R6-20260914T140500Z-L"}], paths)
+    with open(paths["signals_path"], encoding="utf-8", newline="") as f:
+        raw = list(csv.reader(f))
+    assert raw[0] == cs.SIGNAL_COLS[:-1] and all(len(r) == len(raw[0]) for r in raw), \
+        "rows appended under the old header must stay aligned with it"
+    assert raw[2][1:3] == ["ORB_R6", "ENTRY"]
+
+    monkeypatch.undo()
+    cs._migrate_signals_header(paths["signals_path"], cs.SIGNAL_COLS)
+    header, rows = _read_ledger(paths)
+    assert header == ",".join(cs.SIGNAL_COLS) and [r["leg"] for r in rows] == ["NOISE_304", "ORB_R6"]
+
+
+def test_a_longer_header_from_a_newer_writer_is_never_rewritten(tmp_path):
+    """The pre-2026-09-14 copy of the migration rewrote ANY differing header under its own
+    columns, deleting trade_id from every row whenever an old checkout appended. This one
+    only ever extends a strict prefix; a header it does not fully know is left alone and
+    appended to in its own column order."""
+    import csv
+    paths = cs._paths(home=str(tmp_path / "newer_home"))
+    os.makedirs(paths["state_dir"], exist_ok=True)
+    newer = cs.SIGNAL_COLS + ["future_col"]
+    with open(paths["signals_path"], "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=newer)
+        w.writeheader()
+        w.writerow(dict({c: "" for c in newer}, leg="NOISE_304", event="EXIT",
+                        trade_id="NOISE_304-20260903T150000Z-L", future_col="kept"))
+    tid = "ORB_R6-20260914T140500Z-L"
+    cs._append_signals([{"emitted_at": "2026-09-14T10:06:00-04:00", "leg": "ORB_R6", "event": "ENTRY",
+                         "side": "long", "ref_time": "2026-09-14T10:05:00-04:00", "ref_price": 700.0,
+                         "shares": 140, "reason": "", "bar_source": "webull", "trade_id": tid}], paths)
+    header, rows = _read_ledger(paths)
+    assert header == ",".join(newer)
+    assert rows[0]["future_col"] == "kept" and rows[0]["trade_id"] == "NOISE_304-20260903T150000Z-L"
+    assert rows[1]["trade_id"] == tid and rows[1]["future_col"] == ""
+
+
+def test_runner_thread_upgrades_the_ledger_header_at_start(tmp_path, monkeypatch):
+    """At boot, not at the first emitted signal -- which is always mid-session, with the
+    shadow adapter reading the file."""
+    import threading
+    paths = cs._paths(home=str(tmp_path / "boot_home"))
+    _old_ledger(paths)
+    monkeypatch.setattr(cs, "DEFAULT_PATHS", paths)
+    stop = threading.Event()
+    stop.set()                               # boot, then leave the loop straight away
+    cs.cloud_signal_thread(stop=stop, log=lambda *a, **k: None)
+    header, rows = _read_ledger(paths)
+    assert header == ",".join(cs.SIGNAL_COLS) and len(rows) == 1
+
+
 def _synthetic_calendar_epoch_df(n_sessions=90, bars_per_session=3):
     """`n_sessions` consecutive BUSINESS days (pandas bdate_range — no holiday calendar,
     weekends only), `bars_per_session` 5-minute RTH bars each, starting 09:30 ET. Enough

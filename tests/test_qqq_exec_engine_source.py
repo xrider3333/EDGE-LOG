@@ -13,13 +13,18 @@ Coverage:
      entered.
   5. Engine mode never opens fills.csv, addon_heartbeat.json, or the NQ 10s export --
      asserted by patching `open` and failing the test if any of those paths are touched.
+  6. TRADE IDENTITY (2026-09-14, tools/qqq_failover_sim.py scenario F): an EXIT closes only
+     the lot whose trade id it carries; id-less / foreign / replay-leftover rows are never
+     applied, and are counted and published; broker order ids come from the trade id.
 """
 import builtins
 import csv
+import json
 import os
 import sys
 import tempfile
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -30,6 +35,8 @@ if ROOT not in sys.path:
 from api import qqq_exec as qe                 # noqa: E402
 from api import cloud_signal as cs              # noqa: E402
 from api import paper                           # noqa: E402
+from api import trade_id                        # noqa: E402
+from api import webull_orders as WO             # noqa: E402
 
 
 # ── 1. leg definition -----------------------------------------------------------------
@@ -70,10 +77,11 @@ def _write_signal_rows(paths, rows):
             w.writerow({k: r.get(k, "") for k in cs.SIGNAL_COLS})
 
 
-def _row(leg, event, ref_time, ref_price, side="long", emitted_at=None, bar_source="webull"):
+def _row(leg, event, ref_time, ref_price, side="long", emitted_at=None, bar_source="webull",
+         trade_id=""):
     return {"emitted_at": emitted_at or ref_time, "leg": leg, "event": event, "side": side,
            "ref_time": ref_time, "ref_price": ref_price, "shares": 5, "reason": "",
-           "bar_source": bar_source}
+           "bar_source": bar_source, "trade_id": trade_id}
 
 
 @pytest.fixture(autouse=True)
@@ -211,3 +219,285 @@ def test_invalid_signal_source_falls_back_to_engine(tmp_path, monkeypatch):
     cfg_path.write_text('{"signal_source": "bogus"}', encoding="utf-8")
     cfg = qe.load_config(path=str(cfg_path), log=lambda *_: None)
     assert cfg["signal_source"] == "engine"
+
+
+# ── 6. TRADE IDENTITY (2026-09-14) -----------------------------------------------------------
+# The live evidence behind these: C:\EdgeLog\cloud_signal\signals.csv delivered, at 09:31 ET on
+# 2026-09-14, the EXIT of a 2026-09-03 NOISE_304 trade (entered 11:00, exit bar 15:55) that a
+# replay had left behind. The adapter used to close whatever NOISE lot was open.
+NY = ZoneInfo("America/New_York")
+NOOP = lambda *a, **k: None  # noqa: E731
+NOW = datetime(2026, 9, 15, 10, 30, tzinfo=NY)
+TODAY_ENTRY = "2026-09-15T09:55:00-04:00"
+OLD_ENTRY = "2026-09-03T11:00:00-04:00"
+OLD_EXIT = "2026-09-03T15:55:00-04:00"
+TODAY_TID = trade_id.make("NOISE_304", TODAY_ENTRY, "long")
+OLD_TID = trade_id.make("NOISE_304", OLD_ENTRY, "long")
+
+
+def _isolate_adapter(tmp_path, monkeypatch, name="qqq_exec_out"):
+    """Every file a lot open/close writes -> tmp, no phone push, and a broker order adapter
+    in OFF mode whose own state file is in tmp too (the real one defaults to C:\\EdgeLog)."""
+    out = tmp_path / name
+    os.makedirs(out, exist_ok=True)
+    monkeypatch.setattr(qe, "OUT_DIR", str(out))
+    for attr, fname in (("CONFIG_PATH", "config.json"), ("STATE_PATH", "state.json"),
+                        ("ORDERS_CSV", "orders.csv"), ("TRADES_CSV", "trades.csv"),
+                        ("BROKER_ORDERS_CSV", "broker_orders.csv")):
+        monkeypatch.setattr(qe, attr, str(out / fname))
+    monkeypatch.setattr(qe, "_notify", NOOP)
+    wo_cfg = WO.load_config(str(out / "no_such_webull_orders_config.json"))
+    wo_cfg.update(mode="OFF", state_path=str(out / "wo_state.json"), kill_file=str(out / "WO_KILL"),
+                  arm_live_file=str(out / "WO_ARM_LIVE"), paper_keys_path=str(out / "no_paper.json"),
+                  live_keys_path=str(out / "no_live.json"))
+    wo_cfg["rails"] = dict(wo_cfg["rails"], session_start="00:00", session_end="23:59")
+    adapter = WO.OrderAdapter(config=wo_cfg, log=NOOP)
+    monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
+    return out
+
+
+def _ev(event, ref_time, ref_price, tid="", leg="NOISE_304", side="long"):
+    """One event exactly as _consume_engine_signals hands it to _route_engine_events."""
+    return {"leg": leg, "event": event, "side": side, "ref_time": ref_time,
+            "ref_price": float(ref_price), "bar_source": "webull", "trade_id": tid}
+
+
+def _route(state, cfg, *events):
+    qe._route_engine_events(state, cfg, list(events), False, log=NOOP, now=NOW)
+
+
+def _csv_rows(path):
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def _issues(state):
+    return {k: v for k, v in ((state.get("trade_id_checks") or {}).get("today") or {}).items() if v}
+
+
+def test_exit_closes_only_the_lot_whose_trade_id_it_carries(tmp_path, monkeypatch):
+    _isolate_adapter(tmp_path, monkeypatch)
+    cfg, state = _cfg(tmp_path), {"legs": {}}
+    _route(state, cfg, _ev("ENTRY", TODAY_ENTRY, 700.00, TODAY_TID))
+    assert state["legs"]["NOISE"]["trade_id"] == TODAY_TID
+    assert state["legs"]["NOISE"]["entry_ref_time"] == TODAY_ENTRY
+
+    _route(state, cfg, _ev("EXIT", OLD_EXIT, 717.61, OLD_TID))
+    assert "NOISE" in state["legs"], "the 09-03 trade's EXIT must never close today's lot"
+    assert _csv_rows(qe.TRADES_CSV) == []
+    assert [r["intent"] for r in _csv_rows(qe.BROKER_ORDERS_CSV)] == ["OPEN"], "and never mirrors a SELL"
+    assert _issues(state) == {"exit_id_mismatch": 1}
+    last = state["trade_id_checks"]["last"]
+    assert (last["row_trade_id"], last["lot_trade_id"]) == (OLD_TID, TODAY_TID)
+    assert state["events"][-1]["kind"] == "exit_id_mismatch"
+    assert "2026-09-03 11:00" in state["events"][-1]["text"]
+
+    _route(state, cfg, _ev("EXIT", "2026-09-15T10:25:00-04:00", 704.00, TODAY_TID))
+    assert "NOISE" not in state["legs"], "the trade's own EXIT still closes it"
+    (trade,) = _csv_rows(qe.TRADES_CSV)
+    assert float(trade["exit_px"]) == pytest.approx(703.99)   # 704.00 less the 1c exit slippage
+    assert [r["intent"] for r in _csv_rows(qe.BROKER_ORDERS_CSV)] == ["OPEN", "CLOSE"]
+
+
+def test_exit_without_a_matching_identity_is_never_applied(tmp_path, monkeypatch):
+    """OLD ROWS rule: an EXIT with no trade id closes nothing, and neither does any EXIT
+    against a lot that predates trade ids -- both left for the flat-by/breaker/kill closes."""
+    _isolate_adapter(tmp_path, monkeypatch)
+    cfg, state = _cfg(tmp_path), {"legs": {}}
+    _route(state, cfg, _ev("ENTRY", TODAY_ENTRY, 700.00, TODAY_TID))
+    _route(state, cfg, _ev("EXIT", "2026-09-15T10:25:00-04:00", 704.00, tid=""))
+    assert state["legs"]["NOISE"]["trade_id"] == TODAY_TID
+    assert _issues(state) == {"exit_no_id": 1}
+
+    legacy = {"legs": {"NOISE": dict(state["legs"]["NOISE"], trade_id=None, entry_ref_time=None)}}
+    _route(legacy, cfg, _ev("EXIT", "2026-09-15T10:25:00-04:00", 704.00, TODAY_TID))
+    assert "NOISE" in legacy["legs"], "a lot with no trade id cannot be proven to be this EXIT's trade"
+    assert _issues(legacy) == {"exit_id_mismatch": 1}
+    assert _csv_rows(qe.TRADES_CSV) == []
+    # ...and it blocks the leg's next entry, so the rails must still be able to close it
+    later = "2026-09-15T10:40:00-04:00"
+    _route(legacy, cfg, _ev("ENTRY", later, 702.00, trade_id.make("NOISE_304", later, "long")))
+    assert _issues(legacy) == {"exit_id_mismatch": 1, "entry_leg_busy": 1}
+    monkeypatch.setattr(qe, "_engine_mark_price", lambda leg, log=print: (701.0, "engine_test"))
+    qe._close_all(legacy, cfg, "EOD", quote_fn=None, ratio_fn=None, log=NOOP)
+    assert "NOISE" not in legacy["legs"] and len(_csv_rows(qe.TRADES_CSV)) == 1
+
+    # an EXIT with nothing open is only bookkeeping -- published, but not a refused signal
+    flat, lines = {"legs": {}}, []
+    qe._route_engine_events(flat, cfg, [_ev("EXIT", OLD_EXIT, 717.61, OLD_TID)], False,
+                            log=lines.append, now=NOW)
+    assert _issues(flat) == {"exit_no_lot": 1}
+    assert qe._build_trade_id_status(flat, "2026-09-15")["refused_today"] == 0
+    # the log keeps the old wording verbatim: tools/qqq_failover_sim.py scenario A and the
+    # verification step of docs/CLOUD_SIGNAL_REPAIR_20260914.md both search for it
+    assert any("engine EXIT for NOISE with no open shadow lot -- skipped" in s for s in lines)
+
+
+def test_entry_rows_whose_identity_does_not_check_out_open_nothing(tmp_path, monkeypatch):
+    _isolate_adapter(tmp_path, monkeypatch)
+    cfg, state = _cfg(tmp_path), {"legs": {}}
+    _route(state, cfg,
+           _ev("ENTRY", TODAY_ENTRY, 700.00, tid=""),                                  # old row
+           _ev("ENTRY", TODAY_ENTRY, 700.00,
+               trade_id.make("NOISE_304", "2026-09-15T09:50:00-04:00", "long")),       # id != its bar
+           _ev("ENTRY", OLD_ENTRY, 713.57, OLD_TID))                                   # replay leftover
+    assert state["legs"] == {}
+    assert _csv_rows(qe.ORDERS_CSV) == [] and _csv_rows(qe.BROKER_ORDERS_CSV) == []
+    assert _issues(state) == {"entry_no_id": 1, "entry_id_conflict": 1, "entry_other_session": 1}
+    assert qe._build_trade_id_status(state, "2026-09-15")["refused_today"] == 3
+
+
+def test_repeat_or_second_entry_while_a_lot_is_open(tmp_path, monkeypatch):
+    _isolate_adapter(tmp_path, monkeypatch)
+    cfg, state = _cfg(tmp_path), {"legs": {}}
+    other = "2026-09-15T10:20:00-04:00"
+    _route(state, cfg, _ev("ENTRY", TODAY_ENTRY, 700.00, TODAY_TID),
+           _ev("ENTRY", TODAY_ENTRY, 700.00, TODAY_TID),
+           _ev("ENTRY", other, 702.00, trade_id.make("NOISE_304", other, "long")))
+    assert state["legs"]["NOISE"]["trade_id"] == TODAY_TID
+    assert len(_csv_rows(qe.BROKER_ORDERS_CSV)) == 1
+    assert _issues(state) == {"entry_duplicate": 1, "entry_leg_busy": 1}
+
+
+def test_broker_order_ids_come_from_the_trade_id_not_the_clock(tmp_path, monkeypatch):
+    """Two hosts (separate folders, separate order adapters) open and close the same trade at
+    different wall-clock moments: the client_order_ids must be identical, fit Webull's 40
+    characters verbatim, and never depend on when a process happened to open the lot."""
+    ids = []
+    for host, clock in (("pc", datetime(2026, 9, 15, 10, 0, 7, tzinfo=NY)),
+                        ("vm", datetime(2026, 9, 15, 10, 3, 41, tzinfo=NY))):
+        _isolate_adapter(tmp_path, monkeypatch, name=host)
+        monkeypatch.setattr(qe, "_now_et", lambda clock=clock: clock)
+        cfg, state = _cfg(tmp_path), {"legs": {}}
+        _route(state, cfg, _ev("ENTRY", TODAY_ENTRY, 700.00, TODAY_TID))
+        _route(state, cfg, _ev("EXIT", "2026-09-15T10:25:00-04:00", 704.00, TODAY_TID))
+        ids.append([(r["signal_id"], r["client_order_id"]) for r in _csv_rows(qe.BROKER_ORDERS_CSV)])
+    assert ids[0] == ids[1], f"order ids differ between hosts: {ids}"
+    assert ids[0] == [("qxNOISE30420260915T135500ZLO",) * 2,
+                      ("qxNOISE30420260915T135500ZLC",) * 2]
+    # Webull's US order reference: "max 32 chars, must be unique per account" -- every current
+    # leg's id must reach the broker verbatim, letters and digits only
+    for leg in cs.CROWN_LEGS:
+        for intent in ("OPEN", "CLOSE"):
+            sid = qe._broker_signal_id(leg, "x", intent, seq=1,
+                                       trade_id=trade_id.make(leg, TODAY_ENTRY, "short"))
+            assert len(sid) <= 32 and sid.isalnum() and WO._sanitize_client_order_id(sid) == sid, sid
+
+    # a later partial reduce keeps its number; a leg too long for 32 characters falls to
+    # webull_orders' hash form, which is still the same on every host
+    assert qe._broker_signal_id("NOISE", "x", "CLOSE", seq=2, trade_id=TODAY_TID).endswith("ZLC2")
+    long_tid = trade_id.make("NOISE_304_NEIGHBOURHOOD_V2", TODAY_ENTRY, "long")
+    long_id = qe._broker_signal_id("NOISE", "2026-09-15 10:00:07", "OPEN", trade_id=long_tid)
+    assert WO._sanitize_client_order_id(long_id) == WO._sanitize_client_order_id(
+        qe._broker_signal_id("NOISE", "2026-09-15 10:03:41", "OPEN", trade_id=long_tid))
+    assert len(WO._sanitize_client_order_id(long_id)) <= 32
+
+    # ninjatrader mode has no engine row: the id comes from the NT entry fill's own timestamp
+    _isolate_adapter(tmp_path, monkeypatch, name="nt")
+    state = {"legs": {}, "_px_source": "test"}
+    fill_dt = datetime(2026, 9, 15, 9, 35, 0, tzinfo=NY)
+    qe._open_lot(state, _cfg(tmp_path), "ORB", "long", 2, 30000.0, 700.0, 0.0, log=NOOP,
+                 f={"dt": fill_dt, "exec_id": "e1", "price": 30000.0, "instrument": "NQ 12-26"})
+    assert state["legs"]["ORB"]["trade_id"] == "NT_ORB-20260915T133500Z-L"
+
+
+def test_tick_publishes_the_lot_trade_id_and_the_mismatch_count(_patch_cs_home, tmp_path, monkeypatch):
+    """End to end through signals.csv and tick(): the stale EXIT is refused, and the published
+    doc says so (trade_ids counters + the event timeline) while the position keeps its id."""
+    paths = _patch_cs_home
+    _isolate_adapter(tmp_path, monkeypatch)
+    monkeypatch.setattr(qe, "_engine_mark_price", lambda leg, log=print: (701.0, "engine_test"))
+    os.makedirs(paths["state_dir"], exist_ok=True)
+    with open(paths["heartbeat_path"], "w", encoding="utf-8") as f:
+        json.dump({"ts": datetime.now(NY).isoformat(), "ok": True, "note": "test"}, f)
+    cfg = _cfg(tmp_path, kill_file=str(tmp_path / "KILL"))
+    state = qe._default_state()
+
+    def boom(*a, **k):
+        raise AssertionError("engine mode never prices off the quote/ratio path")
+
+    def run(now):
+        return qe.tick(cfg=cfg, state=state, now=now, quote_fn=boom, ratio_fn=boom, log=NOOP)[2]
+
+    _write_signal_rows(paths, [])
+    run(datetime(2026, 9, 15, 9, 50, tzinfo=NY))                     # arms the row cursor
+    entry = _row("NOISE_304", "ENTRY", TODAY_ENTRY, 700.0, emitted_at="2026-09-15T09:56:05-04:00",
+                 trade_id=TODAY_TID)
+    _write_signal_rows(paths, [entry])
+    doc = run(datetime(2026, 9, 15, 10, 0, tzinfo=NY))
+    assert doc["positions"]["NOISE"]["trade_id"] == TODAY_TID
+    assert doc["trade_ids"]["refused_today"] == 0
+
+    stale = _row("NOISE_304", "EXIT", OLD_EXIT, 717.61, emitted_at="2026-09-15T10:29:05-04:00",
+                 trade_id=OLD_TID)
+    _write_signal_rows(paths, [entry, stale])
+    doc = run(NOW)
+    assert doc["positions"]["NOISE"]["trade_id"] == TODAY_TID, "still open after the stale EXIT"
+    assert doc["trade_ids"]["today"]["exit_id_mismatch"] == 1
+    assert doc["trade_ids"]["total"]["exit_id_mismatch"] == 1
+    assert doc["trade_ids"]["refused_today"] == 1
+    assert doc["trade_ids"]["last"]["row_trade_id"] == OLD_TID
+    assert any(e["kind"] == "exit_id_mismatch" for e in doc["events"])
+    json.dumps(doc["trade_ids"])            # plain JSON, no nested arrays for Firestore
+
+
+def test_writer_rows_round_trip_into_the_adapter(_patch_cs_home, tmp_path, monkeypatch):
+    """The ids must agree across the fence: rows written by cloud_signal's own diff and
+    ledger writer open and close the adapter's lot -- including when the bar cache has
+    re-priced the entry by a cent between the ENTRY and the EXIT."""
+    paths = _patch_cs_home
+    _isolate_adapter(tmp_path, monkeypatch)
+    cfg, state, leg_state = _cfg(tmp_path), {"legs": {}}, {}
+
+    def write(events):
+        for e in events:            # the writer stamps the real clock; this test's clock is NOW
+            e["emitted_at"] = NOW.isoformat()
+        cs._append_signals(events, paths)
+        got = qe._consume_engine_signals(state, cfg, NOW, log=NOOP)
+        _route(state, cfg, *got)
+        return got
+
+    trade = {"side": "long", "entry_time": TODAY_ENTRY, "entry_px": 700.0, "shares": 140,
+             "exit_time": None, "exit_px": None, "still_open": True}
+    write(cs._diff_leg("NOISE_304", [], leg_state, NOW))                  # SEED, arms the cursor
+    got = write(cs._diff_leg("NOISE_304", [trade], leg_state, NOW, max_entry_age_sec=3600))
+    assert [e["event"] for e in got] == ["ENTRY"]
+    assert state["legs"]["NOISE"]["trade_id"] == TODAY_TID == got[0]["trade_id"]
+
+    closed = dict(trade, entry_px=700.01, exit_time="2026-09-15T10:25:00-04:00", exit_px=704.0,
+                  still_open=False)
+    got = write(cs._diff_leg("NOISE_304", [closed], leg_state, NOW, max_entry_age_sec=3600))
+    assert [(e["event"], e["trade_id"]) for e in got] == [("EXIT", TODAY_TID)]
+    assert state["legs"] == {} and len(_csv_rows(qe.TRADES_CSV)) == 1
+    assert _issues(state) == {}
+
+
+def test_a_short_read_of_the_ledger_never_moves_the_cursor_back(_patch_cs_home, tmp_path):
+    """A read that lands inside another process's in-place rewrite sees fewer rows. Taking
+    that count as the cursor would re-consume the rows it hid on the next tick."""
+    paths = _patch_cs_home
+    cfg = _cfg(tmp_path)
+    rows = [_row("NOISE_304", "SEED", "", ""),
+            _row("NOISE_304", "ENTRY", TODAY_ENTRY, 700.0, trade_id=TODAY_TID,
+                 emitted_at="2026-09-15T09:56:05-04:00"),
+            _row("NOISE_304", "EXIT", "2026-09-15T10:25:00-04:00", 704.0, trade_id=TODAY_TID,
+                 emitted_at="2026-09-15T10:25:05-04:00")]
+    state = {"legs": {}, "engine_cursor": 3}
+
+    _write_signal_rows(paths, rows[:1])                                   # torn: 1 of 3 rows
+    assert qe._consume_engine_signals(state, cfg, NOW, log=NOOP) == []
+    assert state["engine_cursor"] == 3, "a short read must not drop the cursor"
+    _write_signal_rows(paths, rows + [_row("NOISE_304", "ENTRY", "2026-09-15T10:28:00-04:00", 703.0,
+                                           trade_id=trade_id.make("NOISE_304", "2026-09-15T10:28:00-04:00", "long"),
+                                           emitted_at="2026-09-15T10:29:05-04:00")])
+    got = qe._consume_engine_signals(state, cfg, NOW, log=NOOP)
+    assert [e["ref_time"] for e in got] == ["2026-09-15T10:28:00-04:00"], "only the genuinely new row"
+
+    # a ledger that STAYS shorter was really replaced: re-armed at its end, nothing replayed
+    _write_signal_rows(paths, rows[:2])
+    for _ in range(qe.ENGINE_SHORT_READ_TICKS):
+        assert qe._consume_engine_signals(state, cfg, NOW, log=NOOP) == []
+    assert state["engine_cursor"] == 2
+    assert state["events"][-1]["kind"] == "engine_reseed"

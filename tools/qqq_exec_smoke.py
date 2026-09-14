@@ -29,6 +29,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from api import qqq_exec as qe  # noqa: E402
+from api import webull_orders  # noqa: E402
 
 FAILURES = []
 
@@ -82,6 +83,19 @@ def main():
         qe.STATE_PATH = os.path.join(tmp, "state.json")
         qe.ORDERS_CSV = os.path.join(tmp, "orders.csv")
         qe.TRADES_CSV = os.path.join(tmp, "trades.csv")
+        # BROKER MIRROR ISOLATION (2026-09-14): every lot this script opens or closes is also
+        # handed to api.webull_orders (mode OFF = a local record, nothing sent). Its CSV and
+        # the order adapter's own state file still defaulted to the LIVE
+        # C:\EdgeLog\qqq_exec\broker_orders.csv and C:\EdgeLog\webull_orders\state.json, and
+        # two runs that day wrote fixture orders into both. Point every broker path here.
+        qe.BROKER_ORDERS_CSV = os.path.join(tmp, "broker_orders.csv")
+        _wo_cfg = webull_orders.load_config(os.path.join(tmp, "webull_orders_config.json"))
+        _wo_cfg.update(mode="OFF", state_path=os.path.join(tmp, "webull_orders_state.json"),
+                       kill_file=os.path.join(tmp, "WO_KILL"),
+                       arm_live_file=os.path.join(tmp, "WO_ARM_LIVE"),
+                       paper_keys_path=os.path.join(tmp, "no_paper_keys.json"),
+                       live_keys_path=os.path.join(tmp, "no_live_keys.json"))
+        qe._ORDER_ADAPTER = webull_orders.OrderAdapter(config=_wo_cfg, log=lambda *a, **k: None)
         # This whole file exercises the NinjaTrader fill-mirror path end to end (every
         # fixture below is a synthetic fills.csv row) -- signal_source defaults to
         # "engine" as of 2026-09-13, so pin every load_config() call in this script back

@@ -83,7 +83,8 @@ position read (2026-09-14: this used to silently do nothing), halts all new entr
 fresh adapter/state file, same as before.
 
 IDEMPOTENCY: client_order_id is derived deterministically from the caller's signal_id
-(sanitized, or a stable sha1 if it doesn't fit Webull's 40-char field) and every order
+(sanitized, or a stable sha1 if it doesn't fit Webull's 32-char field -- see
+CLIENT_ORDER_ID_MAX) and every order
 attempt (blocked, OFF, or sent) is persisted to a local JSON state file keyed by that
 id BEFORE returning. A second call with the same signal_id -- including after a
 process restart -- returns the cached record with duplicate=True and sends nothing.
@@ -466,15 +467,25 @@ def fees_total(fields):
     return round(total, 4)
 
 
+# Webull's US stock order reference (developer.webull.com/apis/docs/trade-api/stock/, checked
+# 2026-09-14): client_order_id "max 32 chars, must be unique per account". The 40 this used
+# to allow comes from the SDK's HONG KONG order_operation.place_order docstring, not the US
+# order_v3 path this module calls.
+CLIENT_ORDER_ID_MAX = 32
+
+
 def _sanitize_client_order_id(signal_id):
-    """Deterministic, idempotent client_order_id from a caller's signal_id. Webull
-    caps this field at 40 chars (see webull.trade.trade.order_operation.OrderOperation.
-    place_order docstring) -- fall back to a stable hash when the raw id doesn't fit."""
+    """Deterministic, idempotent client_order_id from a caller's signal_id: kept verbatim
+    (non [A-Za-z0-9_-] characters mapped to "-") when it fits CLIENT_ORDER_ID_MAX, otherwise
+    a stable hash of the raw id that fits exactly ("sig" + 29 hex = 32 characters,
+    letters and digits only, the same shape as Webull's own uuid4().hex sample). The hash
+    is taken over the RAW id, so two ids that only differ in mapped characters still get
+    distinct values once they are hashed."""
     raw = str(signal_id)
-    safe = "".join(c if (c.isalnum() or c in "-_") else "-" for c in raw)
-    if 0 < len(safe) <= 40:
+    safe = "".join(c if (c.isascii() and c.isalnum()) or c in "-_" else "-" for c in raw)
+    if 0 < len(safe) <= CLIENT_ORDER_ID_MAX:
         return safe
-    return "sig-" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:35]
+    return "sig" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:CLIENT_ORDER_ID_MAX - 3]
 
 
 def _now_ny():
