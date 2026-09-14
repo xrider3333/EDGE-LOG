@@ -7,6 +7,27 @@
 
 ---
 
+## 🧪 2026-09-13 — ROUND 57: the five never-validated configs are queued (900 trials each)
+
+Owner: *"some of these configs are in an auto validate, and some aren't - start auto validating them ... keep up
+the robust overparameterization of the IS portion."* From the round-56 scorecard, five configurations had never
+been the champion of an Auto-Validate. Each now has a fenced one-step neighbourhood file with the configuration
+as every knob's default, parity-checked (centre cell reproduces the scorecard to the dollar; out-of-set refused;
+`tools/r57_noise_validate_files_parity.py`), queued by `tools/queue_noise_r57_validates.py` at 900 trials:
+
+| file | configuration | cells | bar / window end |
+|---|---|---|---|
+| `NOISE_1_9_HSQ304.py` | live crown, only trades during an hourly squeeze (cell of #385) | 27 | 5m / 2026-07-16 |
+| `NOISE_1_9_HSQ243.py` | retired #243, only trades during an hourly squeeze (cell of #321) | 27 | 5m / 2026-07-16 |
+| `NOISE_1_1_N304.py` | crown settings on 15-minute bars (round 44 hand test) | 243 | 15m / 2026-06-30 |
+| `NOISE_1_1_N304C2.py` | crown settings waiting for 2 closes (round 45 hand test) | 243 | 5m / 2026-07-16 |
+| `NOISE_1_4_C3N.py` | cost-robust corner C3 (rounds 38-43 hand test) | 729 | 5m / 2026-07-16 |
+
+The validate judges whichever cell its search crowns; whether that is the configuration itself is read off the
+run. The saved lockbox strips are cold-restart numbers for NOISE — re-read each sealed year continuously.
+
+---
+
 ## 🔬 2026-09-13 — ROUND 56: THE SCORECARD — every NOISE configuration, one tape, ranked, with its validation status (STUDIES rows 1729-1732)
 
 **Owner ask:** rank the NOISE configurations run so far, with their metrics, and say which are
