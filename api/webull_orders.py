@@ -175,6 +175,25 @@ DEFAULT_RAILS = {
     "one_open_position_per_leg": True,
 }
 
+# ── account selection (2026-09-14, first LIVE paper smoke test) ────────────────────
+# _account_id() used to take accts[0] from get_account_list() -- "whichever account
+# Webull lists first". That is accidental, not deliberate: the smoke test's account
+# list came back MARGIN Individual Margin, MARGIN Futures, CASH Individual Cash, CASH
+# Events, CASH Crypto -- accts[0] would have placed a STOCK order against the Individual
+# MARGIN account, not the Individual Cash one the owner actually wants funding stock
+# orders, and a paper-account reset silently renumbers/reorders accounts on top of that.
+# DEFAULT_ACCOUNT_SELECT names the account_class (see developer.webull.com/apis/docs/
+# reference/account-list/ -- account_class possible values include INDIVIDUAL_CASH,
+# INDIVIDUAL_MARGIN, FUTURES, CRYPTO, EVENTS_CASH) each order "purpose" should resolve
+# to; cfg["account"] overrides this per-key (load_config() merges it like "rails").
+# futures stays hard-disabled (place_futures_order raises before ever calling
+# _account_id) -- the "futures" entry is here so the config shape is already right for
+# whenever that changes, per this module's existing "staged, not wired" convention.
+DEFAULT_ACCOUNT_SELECT = {
+    "stock": "INDIVIDUAL_CASH",
+    "futures": "FUTURES",
+}
+
 FUTURES_NOT_ENABLED = (
     "Futures order routing is staged but NOT ENABLED: Webull futures orders do not "
     "support combo orders (OCO/OTO/OTOCO), so stop-loss/target exits would have to be "
@@ -239,6 +258,208 @@ def _positions_from_response(resp):
             q = -abs(q)
         out[sym] = out.get(sym, 0.0) + q
     return {s: round(q, 4) for s, q in out.items() if abs(q) > 1e-9}
+
+
+def _account_class(a):
+    return str(_field(a, "account_class", "accountClass", default="")).upper()
+
+
+def _account_label_key(a):
+    """account_label normalized to look like an account_class value, e.g. "Individual
+    Cash" -> "INDIVIDUAL_CASH" -- see developer.webull.com/apis/docs/reference/
+    account-list/, whose documented account_label values map 1:1 onto its account_class
+    enum this way (also: "Futures"->"FUTURES", "Events Cash"->"EVENTS_CASH"). Used only
+    as a fallback when a response omits account_class outright."""
+    label = _field(a, "account_label", "accountLabel", default="")
+    return str(label).upper().replace(" ", "_")
+
+
+def _account_last4(a):
+    num = str(_field(a, "account_number", "accountNumber", "acctNumber", default="") or "")
+    return num[-4:] if len(num) >= 4 else ""
+
+
+def _describe_account(a):
+    """Non-secret one-line description for error messages/logs -- class + last 4 of the
+    account NUMBER only, never the full number (same last-4-only discipline as
+    tools/webull_paper_smoke.py's --check output and its redaction rules)."""
+    cls = _account_class(a) or _account_label_key(a) or "UNKNOWN_CLASS"
+    return f"{cls}:...{_account_last4(a) or '????'}"
+
+
+def _account_selector_key(purpose, cfg):
+    """Canonical string identifying what THIS purpose's account selection is currently
+    configured to pick -- either "last4:XXXX" or "class:SOME_CLASS". The single source
+    of truth for both _select_account() (what to actually match on) and _account_id()'s
+    disk-cache validity check (a cached id is trustworthy only for the exact selector it
+    was resolved under) -- computing "the configured class" independently in two places
+    was a real bug during review: it made the disk-cache fallback compare against the
+    class-based default even when a last4 override was what actually chose the account,
+    so removing/changing a last4 override could resurrect an id chosen under a
+    completely different rule."""
+    sel = cfg.get("account") if isinstance(cfg.get("account"), dict) else {}
+    last4 = sel.get(f"{purpose}_last4")
+    if last4:
+        return f"last4:{str(last4)[-4:]}"
+    want = str(sel.get(purpose) or DEFAULT_ACCOUNT_SELECT.get(purpose) or "").upper()
+    return f"class:{want}"
+
+
+def _select_account(accts, purpose, cfg):
+    """Pick the one account in `accts` (get_account_list() items) this adapter should
+    use for `purpose` ("stock" or "futures"). Raises RuntimeError -- never guesses --
+    when nothing matches or more than one account does; see DEFAULT_ACCOUNT_SELECT's
+    docstring comment for why accts[0] is never an acceptable fallback here."""
+    kind, _, value = _account_selector_key(purpose, cfg).partition(":")
+    if kind == "last4":
+        matches = [a for a in accts if _account_last4(a) == value]
+        basis = f"account_number ending {value}"
+    else:
+        want = value
+        if not want:
+            raise RuntimeError(f"no account class configured for purpose={purpose!r} and "
+                               f"no default -- set cfg['account'][{purpose!r}]")
+        matches = [a for a in accts if _account_class(a) == want]
+        if not matches:
+            # account_class was blank/absent on every row -- fall back to the
+            # documented account_label, normalized (see _account_label_key).
+            matches = [a for a in accts if _account_label_key(a) == want]
+        basis = f"account_class={want!r}"
+    if not matches:
+        seen = ", ".join(sorted({_describe_account(a) for a in accts})) or "(none returned)"
+        raise RuntimeError(f"no account matches {basis} (purpose={purpose!r}); accounts "
+                           f"seen: {seen}")
+    if len(matches) > 1:
+        seen = ", ".join(sorted({_describe_account(a) for a in accts}))
+        raise RuntimeError(f"{len(matches)} accounts match {basis} (purpose={purpose!r}), "
+                           f"ambiguous -- narrow it with an explicit "
+                           f"cfg['account']['{purpose}_last4']; accounts seen: {seen}")
+    return matches[0]
+
+
+# ── order-detail response parsing (2026-09-14, first LIVE paper smoke test) ────────
+# Webull's v3 order endpoints (place_order/cancel_order/get_order_detail) return a
+# COMBO-shaped payload -- client_order_id/combo_order_id/combo_type at the top level,
+# with every actual per-order field (status, filled_quantity, filled_price, commission,
+# fees, ...) nested one level down in an `orders` list. Verified two ways: the real
+# sandbox order-status response captured during that smoke test, AND the documented
+# schema at developer.webull.com/apis/docs/reference/order-detail/ (Get Order Detail),
+# which lists `orders` as a REQUIRED object[] holding all of those fields -- the top
+# level only carries client_order_id/combo_order_id/combo_type. A caller that reads
+# top-level `status` directly (as tools/webull_paper_smoke.py's _extract_order_status
+# used to) always gets None, because that key simply isn't there.
+def _order_items(response):
+    """The list of per-order dicts inside a v3 combo response, or [] if `response`
+    isn't shaped that way (no "orders" key, or it isn't a list)."""
+    if isinstance(response, dict):
+        orders = response.get("orders")
+        if isinstance(orders, list):
+            return [o for o in orders if isinstance(o, dict)]
+    return []
+
+
+def _order_item(response, client_order_id=None):
+    """The single per-order dict `response` is actually reporting on. Matches by
+    client_order_id when given and present among response["orders"]; otherwise returns
+    the first entry (this adapter only ever places single-order combos, so "first" is
+    "the" order in every real call this module makes). Falls back to `response` itself
+    (if a dict) when "orders" is absent/empty -- covers a response shape that predates
+    this nesting, or an unrelated payload, so a caller still gets *something* to read
+    top-level fields from instead of nothing."""
+    items = _order_items(response)
+    if items:
+        if client_order_id is not None:
+            for o in items:
+                coid = _field(o, "client_order_id", "clientOrderId")
+                if coid is not None and str(coid) == str(client_order_id):
+                    return o
+        return items[0]
+    return response if isinstance(response, dict) else None
+
+
+def order_status_fields(response, client_order_id=None):
+    """{status, filled_quantity, filled_price, commission, fees} parsed out of a v3
+    place/cancel/get_order_detail response -- see _order_item for how the right
+    per-order dict is located first. Every value is returned exactly as Webull sent it
+    (strings, mostly) -- callers cast. Never raises; a value genuinely not present in
+    the payload comes back None.
+
+    FIELD NAMES (verified 2026-09-14 against developer.webull.com/apis/docs/reference/
+    order-detail/ -- the Get Order Detail schema -- and cross-checked against a real
+    sandbox SUBMITTED/CANCELLED response captured the same day):
+      status           -- one of PENDING/SUBMITTED/CANCELLED/FILLED/FAILED/
+                           PARTIAL_FILLED.
+      filled_quantity  -- string, e.g. "0" before anything fills.
+      filled_price     -- string. Documented as "Average transaction price of the
+                           filled quantity. If the order has not been executed yet,
+                           this may be zero or null." THIS is the documented fill-price
+                           field -- earlier code in this repo (api/qqq_exec.py's
+                           _extract_broker_fill_price) guessed at avg_price/
+                           avg_fill_price/avgFillPrice/etc. and never actually listed
+                           "filled_price" (snake_case) among them, only camelCase
+                           "filledPrice"; api/webull_sync.py's _order_to_fill (a
+                           DIFFERENT endpoint, get_order_history) already happened to
+                           include "filled_price" in its own candidate list. Kept as a
+                           fallback below alongside those other guesses in case a
+                           different endpoint/API version ever uses one of them.
+      commission       -- OBJECT {actual_commission, receivable_commission}, NOT a
+                           number -- e.g. {} before anything fills.
+      fees             -- ARRAY of {type, actual_value, receivable_value} breakdown
+                           entries, NOT a number -- e.g. [] before anything fills.
+    """
+    item = _order_item(response, client_order_id)
+    if not isinstance(item, dict):
+        return {"status": None, "filled_quantity": None, "filled_price": None,
+               "commission": None, "fees": None}
+    return {
+        "status": _field(item, "status", "order_status", "orderStatus"),
+        "filled_quantity": _field(item, "filled_quantity", "filledQuantity",
+                                  "filled_qty", "filled"),
+        "filled_price": _field(item, "filled_price", "filledPrice", "avg_price",
+                               "avgPrice", "avg_filled_price", "avgFilledPrice",
+                               "avg_fill_price", "avgFillPrice"),
+        "commission": item.get("commission"),
+        "fees": item.get("fees"),
+    }
+
+
+def fees_total(fields):
+    """Sum the `fees`/`commission` shapes order_status_fields() returns into one float.
+    fees is documented as a LIST of {actual_value, receivable_value, ...} breakdown
+    entries; commission is a single {actual_commission, receivable_commission} object
+    -- neither is a bare number, but a bare number is also accepted defensively (e.g. a
+    different endpoint/version). Never raises; an unparseable entry is skipped, not
+    fatal to the total."""
+    total = 0.0
+    fees = fields.get("fees") if isinstance(fields, dict) else None
+    if isinstance(fees, list):
+        for f in fees:
+            if isinstance(f, dict):
+                v = _field(f, "actual_value", "receivable_value", "value")
+                try:
+                    if v is not None:
+                        total += abs(float(v))
+                except (TypeError, ValueError):
+                    pass
+    elif fees is not None:
+        try:
+            total += abs(float(fees))
+        except (TypeError, ValueError):
+            pass
+    commission = fields.get("commission") if isinstance(fields, dict) else None
+    if isinstance(commission, dict):
+        v = _field(commission, "actual_commission", "receivable_commission")
+        try:
+            if v is not None:
+                total += abs(float(v))
+        except (TypeError, ValueError):
+            pass
+    elif commission is not None:
+        try:
+            total += abs(float(commission))
+        except (TypeError, ValueError):
+            pass
+    return round(total, 4)
 
 
 def _sanitize_client_order_id(signal_id):
@@ -313,6 +534,7 @@ def load_config(path=None):
     cfg = {
         "mode": MODE_OFF,
         "rails": dict(DEFAULT_RAILS),
+        "account": dict(DEFAULT_ACCOUNT_SELECT),
         "paper_keys_path": DEFAULT_PAPER_KEYS,
         "paper_token_dir": DEFAULT_PAPER_TOKEN_DIR,
         "live_keys_path": DEFAULT_LIVE_KEYS,
@@ -331,6 +553,8 @@ def load_config(path=None):
                     cfg["mode"] = str(user["mode"]).upper()
                 if isinstance(user.get("rails"), dict):
                     cfg["rails"].update(user["rails"])
+                if isinstance(user.get("account"), dict):
+                    cfg["account"].update(user["account"])
                 for k in ("paper_keys_path", "paper_token_dir", "live_keys_path",
                           "live_token_dir", "arm_live_file", "kill_file", "state_path"):
                     if user.get(k):
@@ -465,21 +689,61 @@ class OrderAdapter:
             self._clients[mode] = self._build_client(mode)
         return self._clients[mode]
 
-    def _account_id(self, mode, client):
-        if mode in self._account_id_cache:
-            return self._account_id_cache[mode]
-        cached = (self._state.get("account_ids") or {}).get(mode)
-        if cached:
-            self._account_id_cache[mode] = cached
-            return cached
-        accts = _as_list(_safe_response(client.account_v2.get_account_list()))
+    def _account_id(self, mode, client, purpose="stock"):
+        """Resolve the account_id to trade `purpose` ("stock" or "futures" -- futures
+        never actually reaches here, see DEFAULT_ACCOUNT_SELECT) through DELIBERATE
+        selection (cfg["account"][purpose] or an explicit cfg["account"][purpose +
+        "_last4"] override, default DEFAULT_ACCOUNT_SELECT -- see _account_selector_key)
+        -- never "whichever account Webull listed first". See the DEFAULT_ACCOUNT_SELECT
+        module comment for why that used to be wrong.
+
+        Caching: an in-memory hit (this process, this adapter instance) is trusted with
+        no re-verification -- the account roster cannot change mid-process. Anything
+        else (first call, or a fresh adapter instance/process) ALWAYS calls
+        get_account_list() live and re-selects under the CURRENTLY configured selector,
+        so a stale disk-cached id can never win just by existing: a config change or an
+        account reset (which renumbers accounts, as happened during the 2026-09-14
+        smoke test) is picked up on the very next call, automatically -- there is no
+        separate "has it changed" check to maintain, because the source of truth is
+        always the live list. The disk cache is consulted ONLY as a last resort if that
+        live call itself fails (network/SDK error), and only when its stored selector
+        still matches _account_selector_key() NOW -- any change (a different class, or a
+        last4 override added/changed/removed) means the id must not be resurrected
+        silently. `_select_account` raises a clear RuntimeError (never falls back to the
+        disk cache) when the configured selector is missing or ambiguous among live
+        accounts -- that is a real configuration problem, not a transient fetch failure.
+        """
+        cache_key = f"{mode}:{purpose}"
+        if cache_key in self._account_id_cache:
+            return self._account_id_cache[cache_key]
+
+        selector = _account_selector_key(purpose, self.cfg)
+
+        try:
+            accts = [a for a in _as_list(_safe_response(client.account_v2.get_account_list()))
+                    if isinstance(a, dict)]
+        except Exception as e:
+            cached = (self._state.get("account_ids") or {}).get(cache_key)
+            if isinstance(cached, dict) and cached.get("account_id") and cached.get("selector") == selector:
+                self.log(f"  [webull-orders] get_account_list failed ({type(e).__name__}: {e}); "
+                        f"using last-known {purpose} account_id from disk cache ({selector})")
+                self._account_id_cache[cache_key] = cached["account_id"]
+                return cached["account_id"]
+            raise RuntimeError(f"get_account_list failed and no usable disk cache for "
+                               f"purpose={purpose!r} ({selector}): {type(e).__name__}: {e}") from e
+
         if not accts:
             raise RuntimeError("get_account_list returned no accounts")
-        aid = _field(accts[0], "account_id", "accountId", "id")
+
+        chosen = _select_account(accts, purpose, self.cfg)
+        aid = _field(chosen, "account_id", "accountId", "id")
         if not aid:
-            raise RuntimeError("could not read account_id from get_account_list response")
-        self._account_id_cache[mode] = aid
-        self._state.setdefault("account_ids", {})[mode] = aid
+            raise RuntimeError("could not read account_id from the matched account")
+
+        self._account_id_cache[cache_key] = aid
+        self._state.setdefault("account_ids", {})[cache_key] = {
+            "account_id": aid, "selector": selector,
+        }
         self._save_state()
         return aid
 
@@ -711,17 +975,23 @@ class OrderAdapter:
         coid = _sanitize_client_order_id(signal_id)
         cached = (self._state.get("orders") or {}).get(coid)
         mode, reason = self.effective_mode()
+        # client_order_id is always included below (added 2026-09-14) so a caller can
+        # match the right entry inside a v3 response's orders[] -- see
+        # order_status_fields() -- without having to re-derive coid itself.
         if mode not in (MODE_PAPER, MODE_LIVE):
-            return cached or {"ok": False, "reason": f"no live query (mode={mode}): {reason}"}
+            return cached or {"ok": False, "reason": f"no live query (mode={mode}): {reason}",
+                              "client_order_id": coid}
         client = self._client(mode)
         if client is None:
-            return cached or {"ok": False, "reason": f"no {mode} client"}
+            return cached or {"ok": False, "reason": f"no {mode} client", "client_order_id": coid}
         try:
             account_id = account_id or self._account_id(mode, client)
             resp = client.order_v3.get_order_detail(account_id, coid)
-            return {"ok": True, "mode": mode, "response": _safe_response(resp), "cached": cached}
+            return {"ok": True, "mode": mode, "response": _safe_response(resp), "cached": cached,
+                   "client_order_id": coid}
         except Exception as e:
-            return {"ok": False, "mode": mode, "reason": f"{type(e).__name__}: {e}", "cached": cached}
+            return {"ok": False, "mode": mode, "reason": f"{type(e).__name__}: {e}",
+                   "cached": cached, "client_order_id": coid}
 
     def positions(self, account_id=None):
         """{"believed": {...}, "broker": {...}|None, "mode": ...}. "believed" always

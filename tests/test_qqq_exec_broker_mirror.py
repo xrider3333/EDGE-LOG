@@ -38,7 +38,9 @@ def _broker_cfg(tmp_path, mode="OFF"):
 def _mock_client(fill_price=None):
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "ACCT1"}]
+        # account_class is what _account_id() selects on by default (purpose "stock"
+        # wants INDIVIDUAL_CASH -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]
     }
     resp = {"status": "SUBMITTED"}
     if fill_price is not None:
@@ -254,6 +256,38 @@ def test_no_slippage_field_when_broker_reports_no_fill_price(tmp_path, monkeypat
     rows = _read_csv(qe.BROKER_ORDERS_CSV)
     assert rows[-1]["broker_fill_px"] == ""
     assert rows[-1]["slippage"] == ""
+
+
+def test_broker_fill_price_reads_nested_v3_orders_list(tmp_path, monkeypatch):
+    """Regression for the 2026-09-14 first LIVE paper smoke test: Webull's v3 responses
+    nest the real per-order fields (including the documented "filled_price" field,
+    see api/webull_orders.py's order_status_fields()) one level down under an "orders"
+    list, matched by client_order_id -- not at the top level of the place/status
+    response, and the OLD _extract_broker_fill_price's own candidate-key list never
+    even included the literal "filled_price" spelling."""
+    _patch_qqq_paths(tmp_path, monkeypatch)
+    adapter, mock_client = _paper_adapter(tmp_path, monkeypatch)
+    _patch_broker_adapter(monkeypatch, adapter)
+
+    def _place(account_id, new_orders):
+        coid = new_orders[0]["client_order_id"]
+        m = MagicMock()
+        m.json.return_value = {
+            "client_order_id": coid, "combo_order_id": "COMBO-1", "combo_type": "NORMAL",
+            "orders": [{"client_order_id": coid, "status": "FILLED",
+                       "filled_price": "501.5", "filled_quantity": "5"}],
+        }
+        return m
+
+    mock_client.order_v3.place_order.side_effect = _place
+
+    state = _base_state()
+    cfg = _base_cfg()
+    qe._open_lot(state, cfg, "ORB", "long", 5, 700.0, 500.0, 0.0, log=NOOP)
+
+    rows = _read_csv(qe.BROKER_ORDERS_CSV)
+    assert rows[-1]["broker_fill_px"] == "501.5"
+    assert float(rows[-1]["slippage"]) == pytest.approx(1.5, abs=1e-6)
 
 
 # ── flat-by / EOD / KILL (via _close_all) mirrors the close, never leaves a broker

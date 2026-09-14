@@ -50,7 +50,11 @@ def _mock_client():
     instrument lookup call to mock any more."""
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "ACCT1"}]
+        # account_class is what _account_id() now selects on (default purpose "stock"
+        # wants INDIVIDUAL_CASH, see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT) --
+        # without it, a single-account mock like this used to still work because the
+        # old code just took accts[0] unconditionally.
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]
     }
     client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     client.account_v2.get_account_position.return_value.json.return_value = {"data": []}
@@ -389,3 +393,259 @@ def test_load_config_malformed_file_does_not_raise(tmp_path):
     p.write_text("{not json", encoding="utf-8")
     cfg = WO.load_config(str(p))
     assert cfg["mode"] == WO.MODE_OFF
+
+
+def test_load_config_default_account_selection_is_individual_cash(tmp_path):
+    cfg = WO.load_config(str(tmp_path / "nope.json"))
+    assert cfg["account"] == WO.DEFAULT_ACCOUNT_SELECT
+    assert cfg["account"]["stock"] == "INDIVIDUAL_CASH"
+
+
+def test_load_config_account_override_merges_not_replaces(tmp_path):
+    p = tmp_path / "cfg.json"
+    p.write_text(json.dumps({"account": {"stock": "INDIVIDUAL_MARGIN"}}), encoding="utf-8")
+    cfg = WO.load_config(str(p))
+    assert cfg["account"]["stock"] == "INDIVIDUAL_MARGIN"
+    assert cfg["account"]["futures"] == "FUTURES"     # untouched default survives the merge
+
+
+# ── order_status_fields() -- v3 orders[] nesting (first LIVE paper smoke test,
+# 2026-09-14 12:04 ET) ──────────────────────────────────────────────────────────────
+# Webull's v3 order-detail/place/cancel responses nest every per-order field under
+# response["orders"][] -- the combo wrapper's OWN top level only ever carries
+# client_order_id/combo_order_id/combo_type. This is the exact shape the real sandbox
+# returned that day (ids redacted) -- see api/webull_orders.py's order_status_fields()
+# docstring and developer.webull.com/apis/docs/reference/order-detail/.
+
+_REAL_ORDER_DETAIL_RESPONSE = {
+    "client_order_id": "SMOKE-abc123", "combo_order_id": "COMBO-xyz",
+    "combo_type": "NORMAL",
+    "orders": [{
+        "client_order_id": "SMOKE-abc123", "commission": {}, "entrust_type": "QTY",
+        "fees": [], "filled_quantity": "0", "instrument_type": "EQUITY",
+        "limit_price": "354.62", "order_id": "ORDID-1", "order_type": "LIMIT",
+        "place_time": "1789401892218", "place_time_at": "2026-09-14T16:04:52.218Z",
+        "side": "BUY", "status": "SUBMITTED", "support_trading_session": "CORE",
+        "symbol": "QQQ", "time_in_force": "DAY", "total_quantity": "1",
+    }],
+}
+
+
+def test_order_status_fields_reads_the_nested_orders_list():
+    fields = WO.order_status_fields(_REAL_ORDER_DETAIL_RESPONSE, "SMOKE-abc123")
+    assert fields["status"] == "SUBMITTED"
+    assert fields["filled_quantity"] == "0"
+    assert fields["commission"] == {}
+    assert fields["fees"] == []
+
+
+def test_order_status_fields_top_level_never_carries_status():
+    # The combo wrapper's OWN top level has no "status" key -- confirms the bug this
+    # fixes: reading response.get("status") directly (or WO._as_list(resp)[0], which
+    # for this dict shape just re-wraps the WHOLE combo as one list item since
+    # WO._as_list only unwraps "data"/"items"/"positions"/"list", never "orders") always
+    # returned None, which is what the smoke test's "saw None" FAIL printed.
+    assert "status" not in _REAL_ORDER_DETAIL_RESPONSE
+
+
+def test_order_status_fields_matches_by_client_order_id_not_position():
+    multi = {"orders": [
+        {"client_order_id": "OTHER", "status": "FILLED"},
+        {"client_order_id": "WANTED", "status": "CANCELLED"},
+    ]}
+    assert WO.order_status_fields(multi, "WANTED")["status"] == "CANCELLED"
+    assert WO.order_status_fields(multi, "OTHER")["status"] == "FILLED"
+
+
+def test_order_status_fields_falls_back_to_first_when_no_coid_given():
+    multi = {"orders": [{"client_order_id": "A", "status": "SUBMITTED"}]}
+    assert WO.order_status_fields(multi)["status"] == "SUBMITTED"
+
+
+def test_order_status_fields_falls_back_to_top_level_when_orders_absent():
+    flat = {"status": "CANCELLED"}
+    assert WO.order_status_fields(flat, "anything")["status"] == "CANCELLED"
+
+
+def test_order_status_fields_finds_documented_filled_price_field():
+    # "filled_price" is the field name documented at developer.webull.com/apis/docs/
+    # reference/order-detail/ ("Average transaction price of the filled quantity") --
+    # NOT avg_price/avgFillPrice/etc, which api/qqq_exec.py's OLD hand-rolled scan
+    # guessed at instead (and never actually listed "filled_price" itself).
+    resp = {"orders": [{"client_order_id": "X", "status": "FILLED",
+                        "filled_price": "11.05"}]}
+    assert WO.order_status_fields(resp, "X")["filled_price"] == "11.05"
+
+
+def test_fees_total_sums_fee_breakdown_list_and_commission_object():
+    fields = {"fees": [{"type": "FINRA_CAT_REGULATORY_FEE", "actual_value": "0.02"},
+                       {"type": "SEC_FEE", "actual_value": "0.01"}],
+             "commission": {"actual_commission": "0.0"}}
+    assert WO.fees_total(fields) == pytest.approx(0.03)
+
+
+def test_fees_total_handles_empty_fees_and_commission():
+    assert WO.fees_total({"fees": [], "commission": {}}) == 0.0
+
+
+# ── deliberate account selection (first LIVE paper smoke test, 2026-09-14) ─────────
+# _account_id() used to take accts[0] unconditionally. The real sandbox account list
+# came back Individual Margin, Futures, Individual Cash, Events, Crypto -- Individual
+# Cash (the one stock orders must use) sits in the MIDDLE, not first, and a paper
+# account RESET renumbers accounts on top of that.
+
+def _accounts_real_order(cash_id="CASH_ID"):
+    """Same order/labelling the real sandbox account list came back in that day."""
+    return [
+        {"account_id": "MARGIN_ID", "account_number": "111100000000HM55",
+         "account_class": "INDIVIDUAL_MARGIN", "account_type": "MARGIN"},
+        {"account_id": "FUT_ID", "account_number": "222200000000HAZ7",
+         "account_class": "FUTURES", "account_type": "MARGIN"},
+        {"account_id": cash_id, "account_number": "333300000000HLZ5",
+         "account_class": "INDIVIDUAL_CASH", "account_type": "CASH"},
+        {"account_id": "EVENTS_ID", "account_number": "444400000000HEG2",
+         "account_class": "EVENTS_CASH", "account_type": "CASH"},
+        {"account_id": "CRYPTO_ID", "account_number": "555500000000HE74",
+         "account_class": "CRYPTO", "account_type": "CASH"},
+    ]
+
+
+def test_account_selection_picks_individual_cash_regardless_of_list_order(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order("CASH_ID")}
+
+    rec = adapter.place_stock_order(leg="L1", signal_id="s1", symbol="AAPL", side="BUY", qty=1)
+    assert rec["mode"] == "PAPER" and rec["ok"] is True
+    args, _ = mock_client.order_v3.place_order.call_args
+    account_id, _new_orders = args
+    assert account_id == "CASH_ID", "must select Individual Cash, not accts[0] (Individual Margin)"
+
+
+def test_account_selection_raises_when_class_not_found(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": [{"account_id": "MARGIN_ID", "account_class": "INDIVIDUAL_MARGIN"}]}
+    with pytest.raises(RuntimeError, match="no account matches"):
+        adapter._account_id("PAPER", mock_client)
+
+
+def test_account_selection_raises_when_ambiguous(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": [{"account_id": "A1", "account_class": "INDIVIDUAL_CASH"},
+                 {"account_id": "A2", "account_class": "INDIVIDUAL_CASH"}]}
+    with pytest.raises(RuntimeError, match="ambiguous"):
+        adapter._account_id("PAPER", mock_client)
+
+
+def test_account_selection_explicit_last4_override(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")
+    cfg["account"]["stock_last4"] = "HAZ7"        # deliberately pin the FUTURES-labelled one
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order()}
+    assert adapter._account_id("PAPER", mock_client) == "FUT_ID"
+
+
+def test_account_selection_configured_class_change_invalidates_cache(tmp_path, monkeypatch):
+    """A disk-cached id resolved for one class must never be reused once the config
+    asks for a DIFFERENT class."""
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order("CASH_ID")}
+    assert adapter._account_id("PAPER", mock_client) == "CASH_ID"
+
+    # A FRESH adapter instance (simulated restart) reading the SAME on-disk state, now
+    # configured for a DIFFERENT class -- must re-resolve live, not reuse CASH_ID.
+    cfg2 = dict(cfg)
+    cfg2["account"] = {"stock": "FUTURES"}
+    adapter2 = WO.OrderAdapter(config=cfg2, log=lambda *a, **k: None)
+    monkeypatch.setattr(adapter2, "_build_client", lambda mode: mock_client)
+    assert adapter2._account_id("PAPER", mock_client) == "FUT_ID"
+
+
+def test_account_selection_disk_cache_refreshed_after_account_reset(tmp_path, monkeypatch):
+    """A paper-account RESET renumbers accounts (same class, new account_id) -- the
+    NEXT process (fresh OrderAdapter, same on-disk state) must pick up the new id live,
+    not keep trusting the pre-reset one."""
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order("CASH_ID_OLD")}
+    assert adapter._account_id("PAPER", mock_client) == "CASH_ID_OLD"
+
+    # Simulated restart with a FRESH adapter (same state file) after Webull reset the
+    # paper account -- same class, brand new account_id; the old id is gone entirely.
+    adapter2 = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    mock_client2 = MagicMock()
+    mock_client2.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order("CASH_ID_NEW")}
+    monkeypatch.setattr(adapter2, "_build_client", lambda mode: mock_client2)
+    assert adapter2._account_id("PAPER", mock_client2) == "CASH_ID_NEW"
+
+
+def test_account_selection_falls_back_to_disk_cache_when_live_fetch_fails(tmp_path, monkeypatch):
+    """The disk cache is a last resort for a FAILED live call (network/SDK error), and
+    only when its stored class still matches what's configured now."""
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order("CASH_ID")}
+    assert adapter._account_id("PAPER", mock_client) == "CASH_ID"
+
+    adapter2 = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    broken_client = MagicMock()
+    broken_client.account_v2.get_account_list.side_effect = RuntimeError("network down")
+    monkeypatch.setattr(adapter2, "_build_client", lambda mode: broken_client)
+    assert adapter2._account_id("PAPER", broken_client) == "CASH_ID"
+
+
+def test_account_selection_disk_cache_ignored_when_last4_override_added(tmp_path, monkeypatch):
+    """A disk-cached id resolved under the CLASS-based default must not be resurrected
+    to answer a DIFFERENT selector (a newly-added last4 override) just because a naive
+    comparison only checked the resolved CLASS -- caught in review: comparing on class
+    alone, this scenario would wrongly hand back CASH_ID (cached under "class:
+    INDIVIDUAL_CASH") to satisfy a "last4:HAZ7" selector it was never resolved under,
+    even though CASH_ID isn't even the HAZ7 account."""
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": _accounts_real_order("CASH_ID")}
+    assert adapter._account_id("PAPER", mock_client) == "CASH_ID"
+    # disk cache now holds {"account_id": "CASH_ID", "selector": "class:INDIVIDUAL_CASH"}
+
+    # A fresh adapter, SAME disk state, now configured with a last4 override -- but its
+    # OWN live call fails. The cache was tagged under the OLD class-based selector, not
+    # this NEW last4-based one, so it must NOT be used to answer it.
+    cfg2 = dict(cfg)
+    cfg2["account"] = {"stock_last4": "HAZ7"}
+    adapter2 = WO.OrderAdapter(config=cfg2, log=lambda *a, **k: None)
+    broken_client = MagicMock()
+    broken_client.account_v2.get_account_list.side_effect = RuntimeError("network down")
+    monkeypatch.setattr(adapter2, "_build_client", lambda mode: broken_client)
+    with pytest.raises(RuntimeError):
+        adapter2._account_id("PAPER", broken_client)
+
+
+def test_account_selection_live_fetch_fails_and_no_usable_cache_raises(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    broken_client = MagicMock()
+    broken_client.account_v2.get_account_list.side_effect = RuntimeError("network down")
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: broken_client)
+    with pytest.raises(RuntimeError):
+        adapter._account_id("PAPER", broken_client)

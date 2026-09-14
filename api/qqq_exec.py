@@ -749,30 +749,33 @@ def _broker_signal_id(leg, ts, intent, seq=0):
 
 
 def _extract_broker_fill_price(record):
-    """Best-effort: the broker's payload shape for a MARKET order's actual fill price
-    varies (and is unverified here -- no live paper credentials exist on this machine).
-    Returns None (never raises) when no recognisable field is present, which is the
-    normal case for OFF/BLOCKED and for many real order-ack payloads that report status,
-    not a fill, at placement time."""
+    """Best-effort fill price off a place_stock_order()/order_status() record's own
+    "response" payload and "client_order_id". Returns None (never raises) when no
+    recognisable field is present, which is the normal case for OFF/BLOCKED and for a
+    LIMIT order-ack that reports status, not a fill, at placement time.
+
+    Delegates the actual field lookup to api.webull_orders.order_status_fields(), which
+    knows Webull's v3 nesting (per-order fields live under response["orders"][], see
+    that function's docstring) -- this used to hand-roll its own candidate-key scan
+    directly against `resp`/`resp["orders"][0]`/etc., and that scan's price-field
+    candidate list never actually included "filled_price" (only "fill_price" and
+    "filledPrice" -- neither matches the documented snake_case field), so a real filled
+    v3 response's price would have been missed. Verified 2026-09-14 against
+    developer.webull.com/apis/docs/reference/order-detail/ -- see order_status_fields()
+    for the full field-name writeup."""
     if not isinstance(record, dict):
         return None
     resp = record.get("response")
-    candidates = []
-    if isinstance(resp, dict):
-        candidates.append(resp)
-        for k in ("data", "orders", "list"):
-            v = resp.get(k)
-            if isinstance(v, list) and v and isinstance(v[0], dict):
-                candidates.append(v[0])
-    for c in candidates:
-        for key in ("avg_fill_price", "avgFillPrice", "fill_price", "filledPrice", "avg_price"):
-            v = c.get(key)
-            if v not in (None, ""):
-                try:
-                    return float(v)
-                except (TypeError, ValueError):
-                    continue
-    return None
+    if not isinstance(resp, dict):
+        return None
+    fields = webull_orders.order_status_fields(resp, record.get("client_order_id"))
+    v = fields.get("filled_price")
+    if v in (None, ""):
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0, log=print):

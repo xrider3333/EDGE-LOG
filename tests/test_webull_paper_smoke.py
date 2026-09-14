@@ -52,8 +52,10 @@ def _mock_client(accounts=None, balance_usd="1000000.00"):
     """A MagicMock standing in for webull.trade.trade_client.TradeClient, wired for
     account listing + balance (--check) and place/status/cancel/status (--order-test)."""
     if accounts is None:
+        # account_class is what _account_id() selects on by default (purpose "stock"
+        # wants INDIVIDUAL_CASH -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
         accounts = [{"account_id": "ACCT1", "account_number": "PA123456789012",
-                    "account_type": "CASH"}]
+                    "account_type": "CASH", "account_class": "INDIVIDUAL_CASH"}]
     client = MagicMock()
     client.account_v2.get_account_list.return_value = _json_mock({"data": accounts})
     client.account_v2.get_account_balance.return_value = _json_mock({
@@ -69,6 +71,28 @@ def _mock_client(accounts=None, balance_usd="1000000.00"):
     client.order_v3.cancel_order.return_value = _json_mock({"status": "CANCELLED"})
     client.account_v2.get_account_position.return_value = _json_mock({"data": []})
     return client
+
+
+def _real_order_detail_response(status, client_order_id):
+    """The EXACT shape the real Webull PAPER sandbox returned for order status during
+    the 2026-09-14 12:04 ET smoke test (ids redacted/replaced) -- a combo wrapper whose
+    OWN top level carries only client_order_id/combo_order_id/combo_type, with the
+    actual per-order status/filled_quantity/commission/fees nested one level down under
+    "orders". The OLD _extract_order_status read the top level directly and always got
+    None, which is what printed "FAIL -- order does not show CANCELLED after cancel
+    (saw None)" even though the order genuinely went SUBMITTED -> CANCELLED."""
+    return {
+        "client_order_id": client_order_id, "combo_order_id": "SMOKE-COMBO-ID",
+        "combo_type": "NORMAL",
+        "orders": [{
+            "client_order_id": client_order_id, "commission": {}, "entrust_type": "QTY",
+            "fees": [], "filled_quantity": "0", "instrument_type": "EQUITY",
+            "limit_price": "354.62", "order_id": "SMOKE-ORDER-ID", "order_type": "LIMIT",
+            "place_time": "1789401892218", "place_time_at": "2026-09-14T16:04:52.218Z",
+            "side": "BUY", "status": status, "support_trading_session": "CORE",
+            "symbol": "QQQ", "time_in_force": "DAY", "total_quantity": "1",
+        }],
+    }
 
 
 def _sandbox_host(_client):
@@ -216,6 +240,41 @@ def test_order_test_happy_path_calls_in_order_exactly_once(tmp_path, monkeypatch
     assert any("PASS" in l for l in lines)
 
 
+def test_order_test_parses_real_nested_v3_response_shape(tmp_path, monkeypatch):
+    """Regression for the 2026-09-14 12:04 ET LIVE smoke test's actual FAIL: the real
+    sandbox order-detail response nests status under orders[], not at the top level.
+    Uses client.order_v3.get_order_detail's OWN (account_id, client_order_id) call args
+    to build a response whose orders[0].client_order_id genuinely matches what was
+    queried, exactly like the real endpoint -- not just a single-item list that happens
+    to work via position-0 fallback."""
+    cfg = _cfg(tmp_path)
+    client = _mock_client()
+    _use_mock_client(monkeypatch, client)
+
+    calls = {"n": 0}
+
+    def _get_order_detail(account_id, client_order_id):
+        calls["n"] += 1
+        status = "SUBMITTED" if calls["n"] == 1 else "CANCELLED"
+        return _json_mock(_real_order_detail_response(status, client_order_id))
+
+    client.order_v3.get_order_detail.side_effect = _get_order_detail
+
+    lines = []
+    rc = WS.cmd_order_test(cfg=cfg, out=lines.append, host_fn=_sandbox_host,
+                           price_fn=_fixed_price, sleep_fn=lambda *_: None)
+    assert rc == 0, "\n".join(lines)
+    assert not any("saw None" in l for l in lines), "\n".join(lines)
+    assert any("PASS" in l for l in lines)
+
+    # The isolated ledger must be back to flat (the OPEN belief reversed on the never-
+    # filled order) -- same assertion as test_positions_empty_after_order_test_round_trip.
+    lines2 = []
+    WS.cmd_positions(cfg=cfg, out=lines2.append)
+    believed = _believed_dict_from_lines(lines2)
+    assert all(abs(p.get("qty", 0)) < 1e-9 for p in believed.values())
+
+
 def test_order_test_limit_price_is_far_below_market(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path)
     client = _mock_client()
@@ -317,16 +376,59 @@ def test_positions_empty_after_order_test_round_trip(tmp_path, monkeypatch):
 
 # ── redaction ───────────────────────────────────────────────────────────────────────
 
-def test_redact_masks_long_alnum_but_not_pure_digits():
+def test_redact_masks_long_alnum_but_not_generic_pure_digit_id():
     # Deliberately NOT shaped like any real vendor key prefix (Stripe/AWS/GitHub/etc.)
     # -- GitHub's push-protection secret scanner flagged an earlier "sk_live_..." fixture
     # here as a live Stripe key and rejected the push, even though it was fake test data.
+    # 2026-09-14: account_id is now ALWAYS redacted regardless of shape (see the two
+    # tests below) -- this test covers a DIFFERENT long purely-numeric id (e.g. an
+    # epoch-ish timestamp) that is not labelled account_id, which still stays readable.
     secret = "NOTAREALSECRETVALUE1234567890ABCDEFGHIJK"
-    msg = f"401 rejected, x-app-key={secret}, account_id=863417315629211648"
+    msg = f"401 rejected, x-app-key={secret}, place_time=1789401892218181648"
     out = WS._redact(msg)
     assert secret not in out
     assert "redacted" in out
-    assert "863417315629211648" in out       # a long purely-numeric id is not a secret
+    assert "1789401892218181648" in out      # a long purely-numeric id is not a secret
+
+
+def test_redact_masks_account_id_even_when_purely_numeric():
+    # "Redact all account_id values" is unconditional -- unlike a generic long numeric
+    # id (above), account_id is redacted BY NAME regardless of digit-purity, so even a
+    # hypothetical all-digit account_id can never slip through the way the real
+    # mostly-digit one did (see the next test).
+    msg = "401 rejected, account_id=863417315629211648"
+    out = WS._redact(msg)
+    assert "863417315629211648" not in out
+    assert "redacted" in out
+
+
+def test_redact_masks_mostly_digit_account_id_from_the_live_smoke_test(tmp_path):
+    # Regression for the 2026-09-14 12:04 ET LIVE smoke test: one account_id printed
+    # un-redacted because it was letters+digits, MOSTLY digits (one letter followed by
+    # 18 digits, 19 characters) -- not pure-digit (so the old isdigit() exemption did
+    # not apply to it) but also short of the OLD 24-character redaction floor, so it
+    # matched nothing and printed in full. The account NUMBER's last-4 (a DIFFERENT
+    # field, always pre-truncated by the caller before it ever reaches _redact) stays
+    # readable exactly as before.
+    account_id = "X123456789012345678"       # 1 letter + 18 digits = 19 chars
+    msg = f"  [1] type=CASH  account_number=...1234  account_id={account_id}"
+    out = WS._redact(msg)
+    assert account_id not in out
+    assert "redacted" in out
+    assert "...1234" in out
+
+
+def test_redact_masks_account_id_in_json_style_result_dict():
+    # _safe_repr() renders adapter result dicts (place/cancel/status) via json.dumps --
+    # confirms the by-name redaction also catches the `"account_id": "..."` shape that
+    # style produces, not just this module's own `account_id=...` f-strings.
+    rec = {"ok": True, "sent": True, "mode": "PAPER",
+          "account_id": "X123456789012345678", "client_order_id": "SMOKE-abc"}
+    msg = WS._safe_repr("      place result", rec)
+    out = WS._redact(msg)
+    assert "X123456789012345678" not in out
+    assert "redacted" in out
+    assert "SMOKE-abc" in out                # an unrelated short field stays untouched
 
 
 def test_redact_leaves_file_paths_readable(tmp_path):

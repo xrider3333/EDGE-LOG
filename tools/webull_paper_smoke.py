@@ -98,11 +98,30 @@ class SmokeRefusal(Exception):
 # those are not secrets -- redacting them made a refusal message unreadable (it hid the
 # very path the owner needs to go fix) without making anything safer, since a real
 # secret's high-entropy payload is already a long run on its own without needing an
-# underscore to reach the length threshold. Purely-numeric runs (account_id, epoch
-# timestamps) are also left readable -- they're routing identifiers, not secrets. Still
-# intentionally broad otherwise: over-redacting a harmless long id is cosmetic,
-# under-redacting a token is not.
-_REDACT_RE = re.compile(r'(?<![A-Za-z0-9])[A-Za-z0-9\-]{24,}(?![A-Za-z0-9])')
+# underscore to reach the length threshold. Purely-numeric runs (epoch timestamps, and
+# an account_id in the rare case one is all-digits) are also left readable -- they're
+# routing identifiers, not secrets.
+#
+# THRESHOLD (was 24, now 12; 2026-09-14 first LIVE smoke test): a real sandbox
+# account_id came back as one letter followed by 18 digits -- 19 characters, MOSTLY
+# digits but not ALL-digit, so it was never exempted by the isdigit() check below, yet
+# it also never reached the old 24-char floor, so it printed in full unredacted. 12
+# catches that shape (and shorter Webull ids generally) with room to spare. Lowering
+# the floor alone would also start catching harmless long pure-letter runs it never
+# used to (a hyphenated path segment, a long English word) -- the new `(?=...\d)`
+# lookahead requires at least one digit somewhere in the token, so those stay readable;
+# every real secret/id this tool has ever seen embeds digits.
+_REDACT_RE = re.compile(r'(?<![A-Za-z0-9])(?=[A-Za-z0-9\-]*\d)[A-Za-z0-9\-]{12,}(?![A-Za-z0-9])')
+
+# account_id specifically is redacted BY NAME, never by shape alone -- a shape/length
+# heuristic is inherently fragile (a short or unusually-formatted account_id could slip
+# under any fixed floor), and unlike an account NUMBER (where the caller already only
+# ever hands this module a pre-truncated last-4 string -- see cmd_check's acct_num[-4:]
+# before it ever reaches here), account_id is Webull's own opaque routing token and the
+# owner has no everyday reason to read it off this tool's output. Matches this module's
+# own f-string style (`account_id=VALUE`) and the JSON style _safe_repr()'s
+# json.dumps() produces (`"account_id": "VALUE"`).
+_ACCOUNT_ID_KV_RE = re.compile(r'(\baccount_id"?\s*[:=]\s*"?)([^\s,"}]+)')
 
 
 def _redact(text):
@@ -115,6 +134,8 @@ def _redact(text):
         s = f"{type(text).__name__}: {text}"
     else:
         s = str(text)
+
+    s = _ACCOUNT_ID_KV_RE.sub(lambda m: f"{m.group(1)}<redacted:{len(m.group(2))}ch>", s)
 
     def _mask(m):
         tok = m.group(0)
@@ -232,18 +253,27 @@ def latest_qqq_price():
 # ── response parsing (defensive field-name matching, same style as api/webull_orders.py) ──
 
 def _extract_order_status(status_result):
-    """status_result is an api.webull_orders.OrderAdapter.order_status() return value."""
+    """status_result is an api.webull_orders.OrderAdapter.order_status() return value.
+
+    Webull's v3 order-detail response nests every per-order field (including `status`)
+    one level down under response["orders"][] -- see api/webull_orders.py's
+    order_status_fields() docstring for the full field-name writeup (verified against
+    both the documented schema and a real captured sandbox response). This used to read
+    WO._as_list(resp)[0] directly, which for a combo-shaped {"orders": [...]} response
+    just wraps the WHOLE combo dict as a single list item (WO._as_list only unwraps
+    "data"/"items"/"positions"/"list", never "orders") -- so `status` was always looked
+    up on the wrong dict and always came back None. Delegating to the shared,
+    unit-tested parser instead of re-deriving the nesting rule here fixes that and
+    keeps this tool and api/webull_orders.py from drifting on the same response shape.
+    """
     if not isinstance(status_result, dict):
         return None
+    coid = status_result.get("client_order_id")
     resp = status_result.get("response")
     if resp is None:
         cached = status_result.get("cached")
         return WO._field(cached, "status", "order_status", "orderStatus") if isinstance(cached, dict) else None
-    items = WO._as_list(resp)
-    item = items[0] if items else (resp if isinstance(resp, dict) else None)
-    if not isinstance(item, dict):
-        return None
-    return WO._field(item, "status", "order_status", "orderStatus")
+    return WO.order_status_fields(resp, coid)["status"]
 
 
 def _extract_balance_usd(payload):
