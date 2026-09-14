@@ -82,6 +82,12 @@ def main():
         qe.STATE_PATH = os.path.join(tmp, "state.json")
         qe.ORDERS_CSV = os.path.join(tmp, "orders.csv")
         qe.TRADES_CSV = os.path.join(tmp, "trades.csv")
+        # This whole file exercises the NinjaTrader fill-mirror path end to end (every
+        # fixture below is a synthetic fills.csv row) -- signal_source defaults to
+        # "engine" as of 2026-09-13, so pin every load_config() call in this script back
+        # to the mode this test is actually about. Engine mode gets its own coverage in
+        # tests/test_qqq_exec_engine_source.py.
+        qe.DEFAULT_CONFIG = dict(qe.DEFAULT_CONFIG, signal_source="ninjatrader")
         os.environ["NTFY_TOPIC"] = ""  # push best-effort no-ops, keep the log quiet-ish
 
         fills_path = os.path.join(tmp, "fills.csv")

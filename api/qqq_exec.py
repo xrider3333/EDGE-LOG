@@ -97,6 +97,13 @@ WEBULL_KEYS = os.environ.get("EDGELOG_WEBULL_KEYS", r"C:\EdgeLog\webull_keys.jso
 _WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", r"C:\EdgeLog\webull_token")
 
 LEGS = ("ORB", "ENGUQ", "NOISE")
+# ENGINE MODE (2026-09-13): maps api/cloud_signal.py's own CROWN_LEGS keys onto this
+# module's short leg keys. Kept explicit (not derived) so a cloud_signal rename never
+# silently breaks this mapping -- update BOTH sides in the same commit. See
+# api/cloud_signal.py's "THE THREE CROWN LEGS" docstring for the current crown/run per key.
+ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_304": "NOISE"}
+ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
+ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
 # The ET calendar date shadow trading actually began (first tick of api/qqq_exec.py in
 # production). Published in every doc as `live_from` so the web tab can show a
 # "since start" figure without hardcoding the date client-side.
@@ -125,6 +132,18 @@ DEFAULT_CONFIG = {
     # size_fraction / qqq_px), still clamped to max_shares_per_leg.
     "size_mode": "fixed",
     "size_fraction": 0.01,
+    # SIGNAL SOURCE (2026-09-13, "move QQQ shadow off NinjaTrader"): "engine" (new
+    # default) takes entries/exits from api/cloud_signal.py's own QQQ-bar signal engine
+    # -- no NinjaTrader file, no NQ ratio, ever. "ninjatrader" is the old mirror
+    # (fills.csv + NQ ratio/Webull-quote pricing), kept only as a fallback. See
+    # api/cloud_signal.py and the ENGINE MODE section of this module's docstring.
+    "signal_source": "engine",
+    # STARTUP GUARD (ninjatrader mode only): a NinjaTrader strategy re-enable/relaunch
+    # can fire a startup entry that matches no real engine signal (observed
+    # 2026-09-03, two such entries at 12:30). Fills within this many minutes of a
+    # relaunch that the engine does not confirm are ignored (marked STARTUP-SUSPECT in
+    # orders.csv, never silently dropped) -- see _relaunch_recently/_engine_confirms_entry.
+    "startup_guard_minutes": 5,
 }
 
 # NT SIZING GAP (feature #50): $ per 1.00-point move of the underlying futures contract
@@ -217,6 +236,12 @@ def load_config(path=None, log=print):
         log(f"[qqq-exec] REFUSED mode={merged.get('mode')!r} -- this build only runs "
             f"SHADOW (no live-order code exists). Forcing SHADOW.")
         merged["mode"] = "SHADOW"
+    src = str(merged.get("signal_source") or "").strip().lower()
+    if src not in ("engine", "ninjatrader"):
+        log(f"[qqq-exec] invalid signal_source={merged.get('signal_source')!r} -- "
+            f"defaulting to 'engine'")
+        src = "engine"
+    merged["signal_source"] = src
     return merged
 
 
@@ -550,7 +575,11 @@ def _append_csv(path, cols, row, keep):
 
 
 ORDER_COLS = ["ts_et", "leg", "action", "side", "shares", "nq_px", "qqq_px",
-              "px_source", "reason", "latency_s"]
+              "px_source", "reason", "latency_s",
+              # appended, never inserted (existing readers/consumers index by position
+              # via csv.DictReader's header, which stays stable) -- "engine" or
+              # "ninjatrader", see DEFAULT_CONFIG["signal_source"].
+              "signal_source"]
 # NT PARITY (feature 1): columns appended to the END so pre-existing trades.csv rows
 # (written before this feature shipped) still parse -- missing values read back as "".
 # ratio_at_entry/ratio_at_exit and nt_reconstructed are this adapter's own bookkeeping
@@ -564,12 +593,14 @@ NT_PARITY_COLS = ["nt_entry_exec_id", "nt_entry_ts", "nt_entry_px",
 # the closed-trade row exactly like NT_PARITY_COLS above -- missing values (unrecognised
 # instrument) read back as "".
 SIZING_COLS = ["nt_mult", "nt_notional_usd", "shadow_notional_usd", "notional_ratio"]
-TRADE_COLS = ["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px",
+TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px",
               "pnl", "nq_pnl_points", "exit_reason"] + NT_PARITY_COLS + SIZING_COLS
+              # appended, never inserted -- see ORDER_COLS's signal_source note.
+              + ["signal_source"])
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
-                  fill_dt=None):
+                  fill_dt=None, signal_source=None):
     """`fill_dt` (feature #51 LATENCY): the ET timestamp of the NT fill this order
     mirrors, when one exists -- absent for rail-driven closes (BREAKER/EOD/KILL flatten
     has no single triggering fill). latency_s = now (adapter order time) - fill_dt."""
@@ -584,7 +615,8 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
            "nq_px": round(nq_px, 4) if nq_px is not None else "",
            "qqq_px": round(qqq_px, 4) if qqq_px is not None else "",
            "px_source": px_source or "", "reason": reason or "",
-           "latency_s": latency_s if latency_s is not None else ""}
+           "latency_s": latency_s if latency_s is not None else "",
+           "signal_source": signal_source or ""}
     _append_csv(ORDERS_CSV, ORDER_COLS, row, ORDERS_KEEP)
     log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
         f"({px_source}) -- {reason}")
@@ -633,6 +665,7 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
         })
     except Exception as e:
         log(f"[qqq-exec] sizing-gap fields dropped from trade row: {type(e).__name__}: {e}")
+    row["signal_source"] = lot.get("signal_source") or ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -996,7 +1029,8 @@ def _build_ratio_health(state, nowdt, log=print):
 
 
 def resolve_price(cfg, state, nq_px, quote_fn, ratio_fn, log=print):
-    """(qqq_px, source) for one fill/mark, or (None, None) if nothing can price it."""
+    """(qqq_px, source) for one fill/mark, or (None, None) if nothing can price it.
+    NinjaTrader-mode pricing only -- see _engine_mark_price for signal_source='engine'."""
     q = quote_fn(log=log) if quote_fn else None
     if q is not None:
         price, _age = q
@@ -1007,6 +1041,259 @@ def resolve_price(cfg, state, nq_px, quote_fn, ratio_fn, log=print):
     return None, None
 
 
+# -- ENGINE MODE (2026-09-13) ---------------------------------------------------------
+# Everything below reads ONLY api/cloud_signal.py's own on-disk cache/signals.csv/
+# state.json/heartbeat.json -- never fills.csv, never the NQ 10s export, never
+# default_webull_quote/default_ratio_calibration. That is the whole point of this mode.
+def _cs_module():
+    """Lazy import of api.cloud_signal -- avoids paying its heavier import chain
+    (augur_engine.engine, tools.qqq_paper) for every ninjatrader-mode run that never
+    touches it, and keeps this module importable even if cloud_signal briefly breaks."""
+    from . import cloud_signal as cs
+    return cs
+
+
+def _check_feed_engine(state, log=print):
+    """engine mode's equivalent of _check_feed: staleness of api.cloud_signal's OWN
+    heartbeat (its parallel-run thread inside api/runner.py) -- never opens fills.csv
+    or addon_heartbeat.json. One heartbeat covers both signal and price freshness in
+    this mode (cloud_signal ticks its bar fetch and its signal diff together), unlike
+    NinjaTrader mode's two independent feeds."""
+    stale = True
+    try:
+        cs = _cs_module()
+        hb_path = cs.DEFAULT_PATHS["heartbeat_path"]
+        if os.path.exists(hb_path):
+            with open(hb_path, encoding="utf-8") as f:
+                hb = json.load(f)
+            ts = datetime.fromisoformat(str(hb.get("ts")))
+            now = datetime.now(ts.tzinfo) if ts.tzinfo else datetime.now()
+            age = (now - ts).total_seconds()
+            stale = age > ENGINE_HEARTBEAT_STALE_SEC or not hb.get("ok", True)
+        else:
+            log("[qqq-exec] engine heartbeat not published yet -- treating feed as stale")
+    except Exception as e:
+        log(f"[qqq-exec] engine heartbeat check failed: {type(e).__name__}: {e}")
+        stale = True
+    was = state.get("feed_stale", False)
+    state["feed_stale"] = stale
+    if stale and not was:
+        _log_event(state, "feed_down",
+                  "cloud_signal engine heartbeat stale/missing -- new entries blocked", log=log)
+    elif was and not stale:
+        log("[qqq-exec] engine heartbeat recovered")
+        state["relaunch_at"] = _now_et().strftime("%Y-%m-%d %H:%M:%S")
+        _log_event(state, "feed_up", "cloud_signal engine heartbeat recovered", log=log)
+    return stale
+
+
+def _engine_mark_price(leg, log=print):
+    """(qqq_px, source) for marking/closing an OPEN leg when signal_source == 'engine' --
+    the newest CLOSED bar close from api.cloud_signal's own on-disk cache (Webull bar if
+    that is what produced it, else yfinance -- see cloud_signal.read_bar_source), never
+    NQ. (None, None) if that leg's cache is empty -- callers then leave the lot
+    unmarked/unclosed, exactly like NinjaTrader mode's 'no quote/ratio available' case."""
+    try:
+        cs = _cs_module()
+        cs_key = next((k for k, short in ENGINE_LEG_MAP.items() if short == leg), None)
+        cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
+        if not cfg_leg:
+            return None, None
+        tf = cfg_leg["timeframe"]
+        df = cs.load_cached_bars(tf, cs.DEFAULT_PATHS)
+        if df is None or not len(df):
+            return None, None
+        last = df.sort_values("time").iloc[-1]
+        px = float(last["close"])
+        src_info = (cs.read_bar_source(cs.DEFAULT_PATHS) or {}).get(tf) or {}
+        src = "engine_" + (src_info.get("source") or "cache")
+        return px, src
+    except Exception as e:
+        log(f"[qqq-exec] engine mark price failed for {leg}: {type(e).__name__}: {e}")
+        return None, None
+
+
+def _relaunch_recently(state, cfg, f_dt):
+    """True if `f_dt` falls within startup_guard_minutes of the last recorded relaunch
+    (adapter process boot, or the NinjaTrader fill-feed heartbeat recovering after a
+    stale spell -- see tick()'s boot handling and _check_feed's feed_up branch, both of
+    which stamp state['relaunch_at'])."""
+    at = state.get("relaunch_at")
+    if not at:
+        return False
+    try:
+        at_dt = datetime.strptime(at, "%Y-%m-%d %H:%M:%S")
+        f_cmp = f_dt.replace(tzinfo=None) if f_dt.tzinfo else f_dt
+        guard_sec = float(cfg.get("startup_guard_minutes", 5) or 5) * 60.0
+        delta = (f_cmp - at_dt).total_seconds()
+        return 0 <= delta <= guard_sec
+    except Exception:
+        return False
+
+
+def _engine_confirms_entry(leg, f_dt, tolerance_sec=180):
+    """Best-effort: does api.cloud_signal's OWN signal ledger show an ENTRY for the
+    mapped engine leg within `tolerance_sec` of this NinjaTrader fill's timestamp? Used
+    only to decide whether a startup-window fill (_relaunch_recently) is a real signal
+    or relaunch noise. An unmapped leg or an unreadable ledger both read as 'not
+    confirmed' -- conservative, matching the task: ignore what the engine doesn't back."""
+    cs_key = next((k for k, short in ENGINE_LEG_MAP.items() if short == leg), None)
+    if cs_key is None:
+        return False
+    try:
+        cs = _cs_module()
+        sig_path = cs.DEFAULT_PATHS["signals_path"]
+        if not os.path.exists(sig_path):
+            return False
+        with open(sig_path, encoding="utf-8", newline="") as fh:
+            rows = list(csv.DictReader(fh))
+        f_cmp = f_dt.replace(tzinfo=None) if f_dt.tzinfo else f_dt
+        for r in rows:
+            if r.get("leg") != cs_key or str(r.get("event") or "").upper() != "ENTRY":
+                continue
+            rt = datetime.fromisoformat(str(r["ref_time"]))
+            rt_cmp = rt.replace(tzinfo=None) if rt.tzinfo else rt
+            if abs((rt_cmp - f_cmp).total_seconds()) <= tolerance_sec:
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def _consume_engine_signals(state, cfg, now, log=print):
+    """engine mode's fill source: NEW rows appended to api.cloud_signal's own
+    signals.csv since the last tick, consumed via a row-count CURSOR persisted in THIS
+    adapter's OWN state.json (state['engine_cursor']) -- never cloud_signal's own
+    idempotency state, which belongs to a different process (the runner's parallel-run
+    thread) and must not gain a second writer.
+
+    COLD START / FIRST ACTIVATION: if this adapter has never run in engine mode before
+    (no cursor yet), the cursor is set to the CURRENT end of signals.csv and nothing is
+    processed this call -- exactly cloud_signal's own SEED rule, so flipping
+    signal_source to 'engine' never replays days of accumulated history as fresh
+    trades. A normal restart resumes from the saved cursor, so it never re-enters or
+    re-exits anything already consumed either.
+
+    STALE BY CONSUMPTION LAG: a row consumed long after it was emitted (this adapter,
+    or cloud_signal, was down) is recorded -- the cursor still advances, it is never
+    reprocessed -- but not acted on if `emitted_at` is more than
+    ENGINE_CONSUME_STALE_SEC old. This is a DIFFERENT guard from cloud_signal's own
+    'never emit an hours-late entry' rule (that one already keeps a signal from being
+    emitted hours after the bar that justified it); this one covers the adapter itself
+    having been offline when an otherwise-timely signal was emitted.
+
+    Returns the ENTRY/EXIT event dicts to route this tick (SEED and any other
+    non-actionable event types are skipped)."""
+    cs = _cs_module()
+    sig_path = cs.DEFAULT_PATHS["signals_path"]
+    try:
+        if not os.path.exists(sig_path):
+            # cloud_signal hasn't ticked even once yet (a startup race, not the normal
+            # case -- it already runs as its own runner thread). Arm the cursor at 0
+            # rather than leaving it unset, so once the ledger DOES appear its rows are
+            # treated as genuinely new instead of being cold-start-absorbed a second time.
+            if state.get("engine_cursor") is None:
+                state["engine_cursor"] = 0
+            return []
+        with open(sig_path, encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except Exception as e:
+        log(f"[qqq-exec] engine signals read failed: {type(e).__name__}: {e}")
+        return []
+
+    cursor = state.get("engine_cursor")
+    if cursor is None:
+        state["engine_cursor"] = len(rows)
+        log(f"[qqq-exec] signal_source=engine activated -- seeded cursor at {len(rows)} "
+            f"existing row(s), nothing replayed")
+        _log_event(state, "engine_seed",
+                  f"signal_source=engine activated; {len(rows)} pre-existing signal "
+                  f"row(s) absorbed without acting on them", log=log)
+        return []
+
+    new_rows = rows[int(cursor):]
+    state["engine_cursor"] = len(rows)
+    if not new_rows:
+        return []
+
+    out = []
+    for r in new_rows:
+        ev = str(r.get("event") or "").strip().upper()
+        if ev not in ("ENTRY", "EXIT"):
+            continue  # SEED and any future non-actionable event types
+        age = None
+        try:
+            emitted = datetime.fromisoformat(str(r["emitted_at"]))
+            now_cmp = now.replace(tzinfo=None) if now.tzinfo else now
+            emitted_cmp = emitted.replace(tzinfo=None) if emitted.tzinfo else emitted
+            age = (now_cmp - emitted_cmp).total_seconds()
+        except Exception:
+            age = None
+        if age is not None and age > ENGINE_CONSUME_STALE_SEC:
+            log(f"[qqq-exec] engine {ev} {r.get('leg')} consumed {age/60:.0f} min after "
+                f"it was emitted -- too stale to act on, recorded only")
+            _log_event(state, "engine_stale_skip",
+                      f"{r.get('leg')} {ev} skipped -- consumed {age/60:.0f} min late", log=log)
+            continue
+        try:
+            out.append({"leg": r["leg"], "event": ev, "side": r.get("side") or "long",
+                       "ref_time": r["ref_time"], "ref_price": float(r["ref_price"]),
+                       "bar_source": r.get("bar_source") or ""})
+        except Exception as e:
+            log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
+    return out
+
+
+def _route_engine_events(state, cfg, events, entries_blocked, log=print):
+    """engine mode's equivalent of _route_fills: consumes api.cloud_signal ENTRY/EXIT
+    events (already idempotent and de-duplicated by _consume_engine_signals' cursor)
+    and opens/closes shadow lots directly from the engine's own signal price -- no
+    NinjaTrader fill, no NQ ratio, no Webull quote call. Each cloud_signal trade is
+    single-shot (one ENTRY, one EXIT, no partials -- see run_leg_trades), so an EXIT
+    always closes the WHOLE lot."""
+    for e in events:
+        leg = ENGINE_LEG_MAP.get(e["leg"])
+        if leg is None:
+            continue  # a cloud_signal leg this module doesn't (yet) mirror
+        try:
+            sig_dt = datetime.fromisoformat(str(e["ref_time"]))
+            if sig_dt.tzinfo is None and _NY is not None:
+                sig_dt = sig_dt.replace(tzinfo=_NY)
+        except Exception:
+            sig_dt = None
+        px_source = "engine_" + (str(e.get("bar_source") or "cache"))
+        if e["event"] == "ENTRY":
+            if leg in state["legs"]:
+                log(f"[qqq-exec] WARN engine ENTRY for {leg} with an already-open "
+                    f"shadow lot -- ignored")
+                continue
+            shares = int(cfg["shares"].get(leg, 0))
+            if entries_blocked:
+                _record_order(leg, "ENTER", e["side"], shares, None, None, None,
+                             "REFUSED -- breaker/feed/kill blocked", log, fill_dt=sig_dt,
+                             signal_source=cfg.get("signal_source"))
+                _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
+                _accumulate_signal(state, sig_dt or _now_et(), leg, "refused", log=log)
+                continue
+            if shares <= 0:
+                continue
+            state["_px_source"] = px_source
+            opened = _open_lot(state, cfg, leg, e["side"], shares, None, float(e["ref_price"]),
+                               cfg.get("slippage_per_share", 0.0), f=None, log=log,
+                               sig_dt=sig_dt, signal_source=cfg.get("signal_source"))
+            _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
+            _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
+        elif e["event"] == "EXIT":
+            lot = state["legs"].get(leg)
+            if not lot:
+                log(f"[qqq-exec] WARN engine EXIT for {leg} with no open shadow lot -- skipped")
+                continue
+            state["_px_source"] = px_source
+            _reduce_lot(state, cfg, leg, lot["nq_qty_total"], None, float(e["ref_price"]),
+                       cfg.get("slippage_per_share", 0.0), "signal exit", f=None, log=log,
+                       sig_dt=sig_dt, signal_source=cfg.get("signal_source"))
+
+
 def _apply_slippage(px, side, entering, slip):
     """slippage always moves the fill AGAINST us: worse price on entry, worse on exit."""
     buying = (side == "long") == entering  # buying to open long, or buying to cover short
@@ -1014,15 +1301,22 @@ def _apply_slippage(px, side, entering, slip):
 
 
 # -- lot lifecycle ---------------------------------------------------------------------
-def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print):
+def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
+              sig_dt=None, signal_source=None):
     """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
-    to know this to tell TAKEN from REFUSED)."""
+    to know this to tell TAKEN from REFUSED).
+
+    `f` is a NinjaTrader-fill-shaped dict (ninjatrader mode) or None (engine mode --
+    there is no NT fill to mirror, exactly like a rail-driven BREAKER/EOD/KILL close
+    already leaves NT parity fields blank). `sig_dt`/`signal_source` carry the engine
+    signal's own timestamp/attribution when `f` is None so latency and the
+    orders/trades CSVs still record something real instead of blank."""
     max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
     size_mode = str(cfg.get("size_mode") or "fixed").strip().lower()
     instrument = (f.get("instrument") if f else "") or ""
     nt_mult = _nt_mult(instrument, log=log)
 
-    if size_mode == "nt_notional" and nt_mult and qqq_px_raw:
+    if size_mode == "nt_notional" and nt_mult and qqq_px_raw and nq_px is not None:
         # NT SIZING GAP (feature #50): size the shadow lot off the $ notional of the NT
         # futures fill it mirrors, instead of the fixed shares table. Still CLAMPED (not
         # refused) to max_shares_per_leg -- a dynamically computed size can overshoot the
@@ -1038,7 +1332,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         if shares > max_shares:
             _record_order(leg, "ENTER", side, shares, nq_px, None, None,
                           f"REFUSED shares {shares} > max_shares_per_leg {max_shares}", log,
-                          fill_dt=(f.get("dt") if f else None))
+                          fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source)
             return False
 
     if shares <= 0:
@@ -1081,13 +1375,16 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
             lot["notional_ratio"] = None
     except Exception as e:
         log(f"[qqq-exec] sizing-gap fields not captured for {leg}: {type(e).__name__}: {e}")
+    lot["signal_source"] = signal_source or ""
     _record_order(leg, "ENTER", side, shares, nq_px, fill_px, state["_px_source"],
-                 "signal entry", log, fill_dt=(f.get("dt") if f else None))
+                 "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
+                 signal_source=signal_source)
     _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
     return True
 
 
-def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print):
+def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason, f=None, log=print,
+                sig_dt=None, signal_source=None):
     lot = state["legs"].get(leg)
     if not lot:
         log(f"[qqq-exec] WARN exit fill for {leg} with no open shadow lot -- skipped")
@@ -1125,7 +1422,8 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     except Exception as e:
         log(f"[qqq-exec] NT parity exit fields not captured for {leg}: {type(e).__name__}: {e}")
     _record_order(leg, "EXIT", lot["side"], shares_close, nq_px, fill_px,
-                 state["_px_source"], reason, log, fill_dt=(f.get("dt") if f else None))
+                 state["_px_source"], reason, log, fill_dt=(f.get("dt") if f else sig_dt),
+                 signal_source=(signal_source or lot.get("signal_source")))
     _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
            "EDGELOG QQQ SHADOW", log)
     pnl = None
@@ -1139,19 +1437,30 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
 
 
 def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
-    nq_now, _ts = _latest_nq_px()
+    """BREAKER/EOD/KILL flatten -- branches on signal_source exactly like
+    _mark_and_check_breaker: engine mode prices the close off api.cloud_signal's own
+    QQQ bar cache (_engine_mark_price), never the NQ feed/ratio/Webull quote."""
+    engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
+    nq_now = None
+    if not engine_mode:
+        nq_now, _ts = _latest_nq_px()
     for leg in list(state["legs"].keys()):
         lot = state["legs"][leg]
-        # flatten at the LIVE NQ price (fallback: last known) -- never at the entry price
-        exit_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
-        qqq_px, src = resolve_price(cfg, state, exit_nq, quote_fn, ratio_fn, log=log)
+        if engine_mode:
+            exit_nq = None
+            qqq_px, src = _engine_mark_price(leg, log=log)
+        else:
+            # flatten at the LIVE NQ price (fallback: last known) -- never at the entry price
+            exit_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
+            qqq_px, src = resolve_price(cfg, state, exit_nq, quote_fn, ratio_fn, log=log)
         state["_px_source"] = src
         if qqq_px is None:
             log(f"[qqq-exec] cannot price {leg} for {reason} close -- no quote/ratio "
                 f"available, lot left open")
             continue
         _reduce_lot(state, cfg, leg, lot["nq_qty_remaining"], exit_nq,
-                   qqq_px, cfg.get("slippage_per_share", 0.0), reason, log=log)
+                   qqq_px, cfg.get("slippage_per_share", 0.0), reason, log=log,
+                   signal_source=cfg.get("signal_source"))
 
 
 # -- fill routing ------------------------------------------------------------------------
@@ -1189,6 +1498,27 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     _accumulate_signal(state, f["dt"], leg, "fired", log=log)
                     _accumulate_signal(state, f["dt"], leg, "refused", log=log)
                     continue
+                # STARTUP GUARD (2026-09-13, ninjatrader mode only): a strategy
+                # re-enable/relaunch can fire a fill NinjaTrader itself never intended
+                # as a real signal (observed 2026-09-03, 12:30, two such entries). Ignore
+                # it -- mark it, never silently drop it -- unless api/cloud_signal.py's
+                # own engine ledger independently confirms the same entry.
+                if (str(cfg.get("signal_source") or "engine").strip().lower() == "ninjatrader"
+                        and _relaunch_recently(state, cfg, f["dt"])
+                        and not _engine_confirms_entry(leg, f["dt"])):
+                    guard_min = cfg.get("startup_guard_minutes", 5)
+                    _record_order(leg, "ENTER", side_of_fill, cfg["shares"].get(leg, 0),
+                                 f["price"], None, None,
+                                 f"STARTUP-SUSPECT -- within {guard_min}min of a relaunch "
+                                 f"with no matching engine signal (not mirrored)", log,
+                                 fill_dt=f["dt"], signal_source=cfg.get("signal_source"))
+                    state["group_leg"][gk] = leg
+                    _accumulate_signal(state, f["dt"], leg, "fired", log=log)
+                    _accumulate_signal(state, f["dt"], leg, "refused", log=log)
+                    _log_event(state, "startup_suspect",
+                              f"{leg} entry ignored -- within {guard_min}min of a relaunch, "
+                              f"no engine confirmation", log=log)
+                    continue
                 in_window = _in_entry_window(f["dt"], cfg["session"])
                 if entries_blocked or not in_window:
                     # ENGU-Q OUT-OF-SESSION (feature #49): NT runs ENGU-Q (and every
@@ -1201,7 +1531,8 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     reason = ("OOS -- outside QQQ session (not mirrored)" if not in_window
                               else "REFUSED -- breaker/fill-feed/price-feed/kill blocked")
                     _record_order(leg, "ENTER", side_of_fill, cfg["shares"].get(leg, 0),
-                                 f["price"], None, None, reason, log, fill_dt=f["dt"])
+                                 f["price"], None, None, reason, log, fill_dt=f["dt"],
+                                 signal_source=cfg.get("signal_source"))
                     state["group_leg"][gk] = leg
                     _accumulate_signal(state, f["dt"], leg, "fired", log=log)
                     _accumulate_signal(state, f["dt"], leg, kind, log=log)
@@ -1218,7 +1549,8 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     _accumulate_signal(state, f["dt"], leg, "refused", log=log)
                     continue
                 opened = _open_lot(state, cfg, leg, side_of_fill, abs(delta), f["price"], qqq_px,
-                                   cfg.get("slippage_per_share", 0.0), f=f, log=log)
+                                   cfg.get("slippage_per_share", 0.0), f=f, log=log,
+                                   signal_source=cfg.get("signal_source"))
                 state["group_leg"][gk] = leg
                 _accumulate_signal(state, f["dt"], leg, "fired", log=log)
                 _accumulate_signal(state, f["dt"], leg, "taken" if opened else "refused", log=log)
@@ -1232,7 +1564,8 @@ def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=pri
                     continue
                 reason = "signal exit" if str(f.get("signal") or "").strip() else "close"
                 _reduce_lot(state, cfg, leg, abs(delta), f["price"], qqq_px,
-                           cfg.get("slippage_per_share", 0.0), reason, f=f, log=log)
+                           cfg.get("slippage_per_share", 0.0), reason, f=f, log=log,
+                           signal_source=cfg.get("signal_source"))
                 if leg not in state["legs"]:
                     state["group_leg"].pop(gk, None)
 
@@ -1247,15 +1580,24 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print):
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
     unrl_by_leg = {}
-    nq_now, nq_ts = _latest_nq_px()
+    engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
+    nq_now = nq_ts = None
+    if not engine_mode:
+        nq_now, nq_ts = _latest_nq_px()
     for leg, lot in state["legs"].items():
-        # Mark at the LIVE NQ price (2026-09-03 fix: marking at the entry price left
-        # unrealized pinned at $0 and blinded the daily-loss breaker). Fall back to the
-        # last known NQ price only when the feed is stale.
-        mark_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
-        lot["mark_nq_px"] = mark_nq
-        lot["mark_fresh"] = nq_now is not None
-        qqq_px, src = resolve_price(cfg, state, mark_nq, quote_fn, ratio_fn, log=log)
+        if engine_mode:
+            # ENGINE MODE: mark off api.cloud_signal's own QQQ bar cache -- never NQ.
+            lot["mark_nq_px"] = None
+            qqq_px, src = _engine_mark_price(leg, log=log)
+            lot["mark_fresh"] = qqq_px is not None
+        else:
+            # Mark at the LIVE NQ price (2026-09-03 fix: marking at the entry price left
+            # unrealized pinned at $0 and blinded the daily-loss breaker). Fall back to the
+            # last known NQ price only when the feed is stale.
+            mark_nq = nq_now if nq_now is not None else (lot.get("last_nq_px") or lot["nq_entry_px"])
+            lot["mark_nq_px"] = mark_nq
+            lot["mark_fresh"] = nq_now is not None
+            qqq_px, src = resolve_price(cfg, state, mark_nq, quote_fn, ratio_fn, log=log)
         if qqq_px is None:
             continue
         lot["mark_px"] = round(qqq_px, 4)
@@ -1500,6 +1842,11 @@ def _check_feed(state, fills_path, log=print):
         state["last_feed_alert"] = time.time()
     elif not stale and was:
         log("[qqq-exec] feed heartbeat recovered")
+        # STARTUP GUARD (2026-09-13): the fill feed coming back after a stale spell is
+        # this module's best available proxy for "a NinjaTrader strategy was just
+        # re-enabled" -- see _relaunch_recently, which uses this timestamp to ignore a
+        # startup entry that matches no real engine signal.
+        state["relaunch_at"] = _now_et().strftime("%Y-%m-%d %H:%M:%S")
         _log_event(state, "feed_up", "NinjaTrader fill feed heartbeat recovered", log=log)
     return stale
 
@@ -1865,6 +2212,53 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         log(f"[qqq-exec] EOD summary failed: {type(e).__name__}: {e}")
 
 
+def _build_price_status(cfg, state, log=print):
+    """{"source": "WEBULL"/"YAHOO"/None, "age_sec": int|None} for the web tab's status
+    panel. Engine mode reads api.cloud_signal's own bar-source attribution (never a
+    live call -- a plain state.json read); NinjaTrader mode reports the source of the
+    LAST fill/mark this tick actually priced (state['_px_source'], best-effort -- a
+    tick with no fill and no open lot to mark has nothing to report)."""
+    try:
+        engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
+        if engine_mode:
+            cs = _cs_module()
+            bs = cs.read_bar_source(cs.DEFAULT_PATHS) or {}
+            best = None
+            for info in bs.values():
+                if info and (best is None or (info.get("checked_at") or "") > (best.get("checked_at") or "")):
+                    best = info
+            if not best:
+                return {"source": None, "age_sec": None}
+            age = None
+            try:
+                age = int(max(0, time.time() - float(best.get("newest_epoch") or 0)))
+            except Exception:
+                age = None
+            return {"source": (best.get("source") or "").upper() or None, "age_sec": age}
+        src = state.get("_px_source")
+        label = "WEBULL" if src == "webull_quote" else "NQ_RATIO" if src == "nq_ratio" else None
+        return {"source": label, "age_sec": None}
+    except Exception as e:
+        log(f"[qqq-exec] price_status build failed: {type(e).__name__}: {e}")
+        return {"source": None, "age_sec": None}
+
+
+def _build_run_location():
+    """{"label": "CLOUD"/"THIS PC", "host": ...} for the web tab's status panel.
+    EDGELOG_RUN_LOCATION is an explicit opt-in ("cloud"/"pc") the runner (or its host
+    environment) can set; absent that, the hostname is shown but always labelled
+    THIS PC -- there is no reliable host-only signal for "running in the cloud"."""
+    host = None
+    try:
+        import platform as _platform
+        host = _platform.node() or None
+    except Exception:
+        host = None
+    loc_env = str(os.environ.get("EDGELOG_RUN_LOCATION") or "").strip().lower()
+    label = "CLOUD" if loc_env == "cloud" else "THIS PC"
+    return {"label": label, "host": host}
+
+
 def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     orders = []
     try:
@@ -1941,9 +2335,19 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
              "last_publish_ok_et": state.get("last_publish_ok_et"),
              "tick_gap_max_s_today": float(state.get("tick_gap_max_s_today", 0.0) or 0.0)}
 
+    # STATUS FOR THE PHONE (2026-09-13): plain-language read of what is currently
+    # driving the shadow book, for the web tab's top-of-tab status panel. Never
+    # touches NinjaTrader/NQ files to build the engine-mode branch (see
+    # _build_price_status / _build_run_location).
+    price_status = _build_price_status(cfg, state, log=log)
+    run_location = _build_run_location()
+
     return {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
         "live_from": LIVE_FROM,
+        "signal_source": cfg.get("signal_source"),
+        "price_status": price_status,
+        "run_location": run_location,
         "feed_stale": bool(feed_stale), "breaker_tripped": bool(state.get("breaker_tripped")),
         "px_feed_stale": bool(state.get("px_feed_stale")),
         "kill": bool(state.get("kill_done")), "calib": state.get("calib"),
@@ -2157,6 +2561,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # flag would only ever fire once across every future restart).
     if not _PROCESS["booted"]:
         _log_event(state, "boot", "QQQ SHADOW adapter started", log=log)
+        # STARTUP GUARD (2026-09-13): a process restart is also when NinjaTrader
+        # strategies typically get re-enabled by hand -- see _relaunch_recently.
+        state["relaunch_at"] = nowdt.strftime("%Y-%m-%d %H:%M:%S")
         _PROCESS["booted"] = True
 
     # MARKET CALENDAR: a holiday is not a trading day at all -- no market-window work,
@@ -2207,10 +2614,21 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         _log_event(state, "kill_clear", "Kill file cleared -- adapter resuming normal operation",
                   log=log)
 
+    src_mode = str(cfg.get("signal_source") or "engine").strip().lower()
+    if src_mode not in ("engine", "ninjatrader"):
+        src_mode = "engine"
+
     active = _in_market_window(nowdt)
-    feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
-    px_feed_stale = (_check_px_feed(state, quote_fn=quote_fn, log=log) if active
-                     else state.get("px_feed_stale", False))
+    if src_mode == "engine":
+        # ENGINE MODE: neither the fill feed nor the price feed check ever opens
+        # fills.csv or the NQ 10s export here -- see _check_feed_engine/_engine_mark_price.
+        feed_stale = _check_feed_engine(state, log=log) if active else state.get("feed_stale", False)
+        px_feed_stale = feed_stale  # one heartbeat covers both signal and price freshness
+        state["px_feed_stale"] = px_feed_stale
+    else:
+        feed_stale = _check_feed(state, fills_path, log=log) if active else state.get("feed_stale", False)
+        px_feed_stale = (_check_px_feed(state, quote_fn=quote_fn, log=log) if active
+                         else state.get("px_feed_stale", False))
     if active:
         _accumulate_feed_uptime(state, nowdt, feed_stale, log=log)
         _track_tick_gap(state, nowdt, now_wall=_now_wall, log=log)
@@ -2219,37 +2637,42 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         # indistinguishable from "the adapter never ran".
         _ensure_signals_day(state, today, log=log)
 
-    if (active or force_calib) and not kill_present:
-        _maybe_calibrate(state, ratio_fn, log=log)
+    if (active or force_calib) and not kill_present and src_mode == "ninjatrader":
+        _maybe_calibrate(state, ratio_fn, log=log)   # engine mode never needs the NQ:QQQ ratio
 
     if active and not kill_present:
-        fills = nt_sync.parse_fills(fills_path)
-        # fills.csv "Time" is UTC (EdgeLogExport.cs: ex.Time.ToUniversalTime()). Convert to
-        # New York once here so every rail below judges the fill on ET wall-clock time.
-        for f in fills:
-            f["dt"] = nt_sync._to_ny(f["dt"])
-        base_ok = lambda inst: nt_sync.get_base(inst) in ("NQ", "MNQ")
-        processed = set(state.get("processed_ids") or [])
-        candidates = [f for f in fills if base_ok(f["instrument"]) and f["exec_id"] not in processed]
-        # Never replay history: anything from before today's ET trading day is marked as
-        # processed without routing (first boot would otherwise re-trade weeks of fills).
-        stale_hist = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") < today]
-        if stale_hist:
-            for f in stale_hist:
-                processed.add(f["exec_id"])
-            state["processed_ids"] = list(processed)[-5000:]
-            log(f"[qqq-exec] skipped {len(stale_hist)} fill(s) from before {today} (history, not replayed)")
-        new_fills = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") >= today]
-        new_fills.sort(key=lambda f: (f["dt"], f["_i"]))
-
         entries_blocked = (state.get("breaker_tripped") or feed_stale or px_feed_stale
                           or kill_present)
-        if new_fills:
-            _route_fills(state, cfg, new_fills, quote_fn, ratio_fn, entries_blocked, log=log)
-            for f in new_fills:
-                processed.add(f["exec_id"])
-            # cap the processed-id memory so state.json stays small
-            state["processed_ids"] = list(processed)[-5000:]
+        if src_mode == "engine":
+            events = _consume_engine_signals(state, cfg, nowdt, log=log)
+            if events:
+                _route_engine_events(state, cfg, events, entries_blocked, log=log)
+        else:
+            fills = nt_sync.parse_fills(fills_path)
+            # fills.csv "Time" is UTC (EdgeLogExport.cs: ex.Time.ToUniversalTime()). Convert to
+            # New York once here so every rail below judges the fill on ET wall-clock time.
+            for f in fills:
+                f["dt"] = nt_sync._to_ny(f["dt"])
+            base_ok = lambda inst: nt_sync.get_base(inst) in ("NQ", "MNQ")
+            processed = set(state.get("processed_ids") or [])
+            candidates = [f for f in fills if base_ok(f["instrument"]) and f["exec_id"] not in processed]
+            # Never replay history: anything from before today's ET trading day is marked as
+            # processed without routing (first boot would otherwise re-trade weeks of fills).
+            stale_hist = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") < today]
+            if stale_hist:
+                for f in stale_hist:
+                    processed.add(f["exec_id"])
+                state["processed_ids"] = list(processed)[-5000:]
+                log(f"[qqq-exec] skipped {len(stale_hist)} fill(s) from before {today} (history, not replayed)")
+            new_fills = [f for f in candidates if f["dt"].strftime("%Y-%m-%d") >= today]
+            new_fills.sort(key=lambda f: (f["dt"], f["_i"]))
+
+            if new_fills:
+                _route_fills(state, cfg, new_fills, quote_fn, ratio_fn, entries_blocked, log=log)
+                for f in new_fills:
+                    processed.add(f["exec_id"])
+                # cap the processed-id memory so state.json stays small
+                state["processed_ids"] = list(processed)[-5000:]
 
         if _past_flat_by(nowdt, cfg["session"]) and state.get("flat_by_done_date") != today:
             if state.get("legs"):

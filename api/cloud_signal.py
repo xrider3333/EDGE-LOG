@@ -29,9 +29,13 @@ differs (this module writes under EDGELOG_HOME, qqq_paper.py always writes under
 literal C:\\EdgeLog\\ohlc) — qqq_paper.py's own behaviour is completely unchanged by
 this file's existence.
 
-THE THREE CROWN LEGS (as of 2026-09-08, api/paper.py PAPER_LEGS):
+THE THREE CROWN LEGS (as of 2026-09-13, api/paper.py PAPER_LEGS):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
-  NOISE_SBS_V90  run #243, NOISE_1_0.py, api.paper.NOISE_243_SBS_V90, 5m RTH, no gate.
+  NOISE_304   run #304, NOISE_1_1_NBHD.py, api.paper.NOISE_304_NBHD, 5m RTH, no gate.
+              (repointed 2026-09-13 -- the NOISE crown moved to #304 on 2026-09-05; this
+              module's leg had been left on the retired #243 SBS_V90 config. #304 is one
+              step from #243 in two knobs, see api/paper.py's own comment beside
+              NOISE_304_NBHD for why it took the crown.)
   ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
 
 ENGINE LIMITATION, READ BEFORE TRUSTING THE ENGUQ_335 LEG. The ENGU-Q family crown
@@ -83,7 +87,7 @@ if ROOT not in sys.path:
 
 from augur_engine.engine import run_backtest as engine_run_backtest          # noqa: E402
 from api import market_calendar                                             # noqa: E402
-from api.paper import ORB_314, ENGUQ_335, NOISE_243_SBS_V90                 # noqa: E402
+from api.paper import ORB_314, ENGUQ_335, NOISE_304_NBHD                   # noqa: E402
 import tools.qqq_paper as qp                                                # noqa: E402
 
 TZ = qp.TZ                             # "US/Eastern" — same convention everywhere in this repo
@@ -135,10 +139,10 @@ CROWN_LEGS = {
         "params": dict(ORB_314),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
     },
-    "NOISE_SBS_V90": {
-        "strategy": "NOISE_1_0.py",
+    "NOISE_304": {
+        "strategy": "NOISE_1_1_NBHD.py",
         "timeframe": "5m",
-        "params": dict(NOISE_243_SBS_V90),
+        "params": dict(NOISE_304_NBHD),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
     },
     "ENGUQ_335": {
@@ -247,15 +251,21 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
 
 
 def fetch_and_merge(timeframe, paths=None, log=print):
-    """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return the merged
-    epoch-schema frame. Network call — never invoked from --replay or from tests, only
-    from a live step().
+    """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return
+    (merged_epoch_frame, source) where source is "webull" or "yfinance" -- whichever one
+    actually produced THIS call's fresh rows. Network call — never invoked from --replay
+    or from tests, only from a live step().
 
     Webull first, yfinance as the fallback. Both are consolidated US equity prints for
     the same regular session, so they agree to the cent in normal conditions; the cache
     can therefore hold rows from either without a seam. If that ever stops being true it
     shows up as a price jump exactly at a source change, so the fallback logs when it
-    fires rather than switching silently."""
+    fires rather than switching silently.
+
+    The returned `source` is what api/qqq_exec.py's engine-mode pricing (and the web
+    tab's status panel) report as WEBULL/YAHOO -- see `read_bar_source` below, which
+    persists this into state.json so a DIFFERENT process (the standalone qqq_exec
+    adapter) can read it without importing this module's live fetch path."""
     import pandas as pd
     paths = paths or DEFAULT_PATHS
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
@@ -264,10 +274,12 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     if old is None:
         old = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
     fresh = _fetch_webull(timeframe, log=log)
+    source = "webull"
     if fresh is None or not len(fresh):
         log(f"[cloud-signal] falling back to yfinance for {timeframe} bars")
         fresh_df = qp._fetch_yf(timeframe)
         fresh = qp._to_epoch_frame(fresh_df)
+        source = "yfinance"
     merged = pd.concat([old, fresh], ignore_index=True)
     if len(merged):
         merged = merged.drop_duplicates("time", keep="last").sort_values("time")
@@ -280,7 +292,21 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     tmp = path + ".tmp"
     merged.to_csv(tmp, index=False)
     os.replace(tmp, path)
-    return merged
+    return merged, source
+
+
+def read_bar_source(paths=None):
+    """Best-effort read of state.json's `bar_source` block: {timeframe: {"source",
+    "newest_epoch", "checked_at"}}, written by step() on every FETCHING call (--once /
+    --loop / the runner thread; never --replay, which passes fetch=False and touches no
+    network). Returns {} if the state file is absent or this process's step() has never
+    fetched live yet -- a caller in a different process (api/qqq_exec.py, engine mode)
+    reads this instead of importing the live fetch path itself."""
+    paths = paths or DEFAULT_PATHS
+    try:
+        return _load_state(paths).get("bar_source") or {}
+    except Exception:
+        return {}
 
 
 build_arrays = qp.build_arrays   # pure transform, reused as-is
@@ -378,7 +404,34 @@ def _write_state(state, paths):
     os.replace(tmp, paths["state_path"])
 
 
-SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares", "reason"]
+SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares", "reason",
+              # appended, never inserted -- api/qqq_exec.py's engine mode and the web tab's
+              # status panel read this to attribute a trade's price to WEBULL or YAHOO.
+              "bar_source"]
+
+
+def _migrate_signals_header(path, cols):
+    """If `path` already exists under an OLDER/shorter header than `cols` (e.g. before
+    `bar_source` was added), rewrite it under the new header, padding every old row's
+    missing fields with "" -- same rationale and pattern as api/qqq_exec.py's
+    `_migrate_csv_header`: a code upgrade that appends a column must never desync the
+    on-disk header from what DictWriter is about to write next. A no-op when the header
+    already matches. Never raises."""
+    import csv
+    try:
+        with open(path, encoding="utf-8", newline="") as f:
+            header_line = f.readline().rstrip("\r\n")
+        if not header_line or header_line == ",".join(cols):
+            return
+        with open(path, encoding="utf-8", newline="") as f:
+            old_rows = list(csv.DictReader(f))
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=cols)
+            w.writeheader()
+            for r in old_rows:
+                w.writerow({c: r.get(c, "") for c in cols})
+    except Exception:
+        pass
 
 
 def _append_signals(events, paths):
@@ -387,6 +440,8 @@ def _append_signals(events, paths):
     os.makedirs(paths["state_dir"], exist_ok=True)
     new_file = not os.path.exists(paths["signals_path"])
     import csv
+    if not new_file:
+        _migrate_signals_header(paths["signals_path"], SIGNAL_COLS)
     with open(paths["signals_path"], "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=SIGNAL_COLS)
         if new_file:
@@ -421,10 +476,15 @@ def step(now=None, legs=None, paths=None, fetch=True):
     all_events = []
 
     tf_cache = {}
+    # PRICE-SOURCE ATTRIBUTION (feature: engine-mode status panel / api/qqq_exec.py):
+    # persisted to state.json below as state["bar_source"][tf], not kept only in this
+    # in-process dict -- the standalone qqq_exec adapter is a DIFFERENT process and can
+    # only see this via the file (see read_bar_source).
+    tf_source = {}
     for key, cfg in legs.items():
         tf = cfg["timeframe"]
         if fetch and tf not in tf_cache:
-            tf_cache[tf] = fetch_and_merge(tf, paths)
+            tf_cache[tf], tf_source[tf] = fetch_and_merge(tf, paths)
         elif tf not in tf_cache:
             tf_cache[tf] = load_cached_bars(tf, paths)
         epoch_df = tf_cache[tf]
@@ -443,6 +503,10 @@ def step(now=None, legs=None, paths=None, fetch=True):
         if not len(usable):
             continue
         latest_bar_epoch = int(usable["time"].max())
+        if tf in tf_source:
+            state.setdefault("bar_source", {})[tf] = {
+                "source": tf_source[tf], "newest_epoch": latest_bar_epoch,
+                "checked_at": now.isoformat()}
         if leg_state.get("last_bar_epoch") == latest_bar_epoch:
             continue
         leg_state["last_bar_epoch"] = latest_bar_epoch
@@ -457,7 +521,8 @@ def step(now=None, legs=None, paths=None, fetch=True):
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.
         events = _diff_leg(key, trades, leg_state, now,
                            max_entry_age_sec=cfg.get("max_entry_age_sec",
-                                                     3 * TIMEFRAME_SECONDS[tf]))
+                                                     3 * TIMEFRAME_SECONDS[tf]),
+                           bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")))
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
@@ -476,9 +541,14 @@ def _zi(name):
         return pytz.timezone(name)
 
 
-def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None):
+def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
+
+    `bar_source` ("webull"/"yfinance"/None) is stamped onto every event this call emits
+    (including SEED) so a downstream consumer -- api/qqq_exec.py's engine mode, or the
+    web tab's status panel -- can show which QQQ feed priced this specific trade, without
+    re-deriving it later from a rolling bar_source history that may have moved on.
 
     STALE ENTRIES ARE NEVER ACTIONABLE. The engine recomputes each leg's trade list
     over a ROLLING warm-up window, and a trade sitting at that window's left edge is
@@ -525,7 +595,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None):
         events.append({
             "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
             "leg": leg_key, "event": "SEED", "side": "", "ref_time": "",
-            "ref_price": "", "shares": "",
+            "ref_price": "", "shares": "", "bar_source": bar_source or "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
                        f"emitting; open_at_seed={open_at_seed}"),
         })
@@ -572,7 +642,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None):
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
                 "leg": leg_key, "event": "ENTRY", "side": t["side"],
                 "ref_time": t["entry_time"], "ref_price": t["entry_px"],
-                "shares": t["shares"], "reason": "",
+                "shares": t["shares"], "reason": "", "bar_source": bar_source or "",
             })
             rec = recorded[key]
         if (not t["still_open"]) and (not rec["exit_emitted"]):
@@ -584,6 +654,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None):
                 "leg": leg_key, "event": "EXIT", "side": t["side"],
                 "ref_time": t["exit_time"], "ref_price": t["exit_px"],
                 "shares": t["shares"], "reason": "strategy_exit",
+                "bar_source": bar_source or "",
             })
     return events
 
