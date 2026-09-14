@@ -733,7 +733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.793';
+const VERSION='73.794';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -751,7 +751,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.792',date:'2026-09-14',notes:['BUILDER latest result and recent jobs: a BOOK run now shows its real net (it read as $0, because a book keeps its figures where a search does) along with its own name, its verdict and its profit factor.']},
+const CHANGELOG=[{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
+{v:'73.792',date:'2026-09-14',notes:['BUILDER latest result and recent jobs: a BOOK run now shows its real net (it read as $0, because a book keeps its figures where a search does) along with its own name, its verdict and its profit factor.']},
 {v:'73.791',date:'2026-09-14',notes:['BUILDER IS NOW THE ROBINHOOD-STYLE BUILDER (owner: migrate β). BUILDER β replaced the old BUILDER tab and is simply called BUILDER; the old form is gone. The queue dials in the top bar and USE IN BUILDER in LIBRARY open it, and a browser that last had the old tab open reopens here.','TEST LAST WINNER ON LOCKBOX moved with it: open the Holdout row (under All settings when the goal is Backtest) and press Test the last winner on this holdout. It queues the same job as before.','The queue rail keeps the two queue details the old tab had: the cache-reuse count on finished jobs, and a yellow count with a warning when work is waiting but nothing is running. The panels that sat under the old form after a run are in that run report in RESULTS, which the latest-result card opens.']},
 {v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
 {v:'73.788',date:'2026-09-14',notes:['WEBULL PAPER TRADING -- ORDER CONNECTION STATUS. The STATUS card now has an ORDERS section in plain language: OFF / PAPER / LIVE / BLOCKED / HALTED with the reason, how much of the daily stop has been used today with a bar, the share size per strategy, which computer is running the order connection and whether the one-computer check is OK, and the last order and last error. Shows Order status not reported yet until the runner publishes the new fields.']},
@@ -2884,8 +2885,7 @@ function _bbRowDef(key,st,X){
         editor:'<div class="bb-chips"><button type="button" class="bb-c'+(st.lockbox?'':' on')+'" data-bbhold="">Off</button>'
           +(end?('<button type="button" class="bb-c" data-bbhold="'+_bbMonthsBack(end,6)+'">Last 6 months</button><button type="button" class="bb-c" data-bbhold="'+_bbMonthsBack(end,12)+'">Last 12 months</button>'):'')+'</div>'
           +'<label class="bb-in"><span>From</span><input id="bb-in-lockbox" type="date" data-bbdate="lockbox" value="'+_bbEsc(st.lockbox)+'"/></label>'
-          +'<div class="bb-lbtest"><button type="button" id="bb-lockbox-test" class="bb-c" data-bblbtest="1"'+(st.lockbox?'':' disabled')+'>Test the last winner on this holdout</button>'
-          +'<small>One backtest of the newest optimization winner on the data from this date to the end. Look only once: a pass it did not earn means it was overfit.</small></div>'};}
+          +'<small class="bb-hint">To test a winner on this holdout, open its run in RESULTS and press the lock in the report tray.</small>'};}
     case 'costs':return {label:'Costs',sub:'Commission and slippage per round turn',value:'$'+st.comm+' · '+st.slip+' pt',kind:'nav',
       editor:'<div class="bb-ins">'+_bbNum('comm_usd',st.comm,'Commission','$ per round turn')+_bbNum('slip_pts',st.slip,'Slippage','points per round turn')+'</div>'};
     case 'gates':return {label:'Gates tried',sub:'Logistic, forest and XGBoost, each at every cut-off',value:'All three',kind:'info'};
@@ -3106,7 +3106,7 @@ function _bbCss(){return '<style>'
   +'.bb :focus-visible{outline:2px solid var(--text);outline-offset:2px}'
   +'@media(prefers-reduced-motion:reduce){.bb *{transition:none!important}}'
   +'.bb-c:disabled{opacity:.45;cursor:not-allowed}'
-  +'.bb-lbtest{display:flex;flex-direction:column;align-items:flex-start;gap:6px}.bb-lbtest small{max-width:540px;font-size:12px;color:var(--text4)}'
+  +'.bb-hint{display:block;max-width:540px;font-size:12px;color:var(--text4)}'
   +'.bb-qhd span.warn{color:var(--yellow);cursor:help}.bb-jl small{font-variant-emoji:text}'
   +'@media(max-width:560px){.bb-title{font-size:25px}.bb-mkt{justify-items:start}.bb-cu{grid-template-columns:minmax(0,1fr) repeat(3,62px)}.bb-rv{max-width:50%}}'
   +'</style>';}
@@ -3220,11 +3220,6 @@ function _bbLive(root,X){
   if(wv){const first=wv.querySelector('.bb-warn[data-bbblock]');if(first)first.remove();if(block)wv.insertAdjacentHTML('afterbegin','<div class="bb-warn" data-bbblock="1">'+E(block)+'</div>');}
   if(run)run.disabled=!!block;
 }
-// the retired tab's lockbox test job, field for field: the newest finished optimization's best config,
-//   one single backtest from the holdout date to the end of the data
-function _bbLockboxJob(X,win,since){
-  return {strategy:win.strategy,instrument:win.instrument,timeframe:win.timeframe,session:win.session,source:win.source||null,params:win.result.best_params,date_from:since,date_to:'',cost_pts:win.cost_pts||0,commission_usd:win.commission_usd,slippage_pts:win.slippage_pts,mult:win.mult||X.instMult(win.instrument),mc_sims:1000,lockbox:true,preset:'🔒 LOCKBOX',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
-}
 function _bbWire(content,X){
   const root=content.querySelector('[data-bb]');if(!root)return;
   const U=_bbUiState();
@@ -3271,17 +3266,6 @@ function _bbWire(content,X){
       if(v==='stop'&&!confirm('Stop this run? It will be marked cancelled.'))return;
       if(!btRef){U.msg={t:'err',s:'Sign in to control jobs.',ts:Date.now()};redraw();return;}
       btRef.doc(id).update({control:v}).catch(err=>{U.msg={t:'err',s:'That did not reach the runner: '+((err&&err.message)||err),ts:Date.now()};redraw();});
-      return;}
-    if(d.bblbtest){const st=_bbModel(X),since=st.lockbox;
-      if(!since){U.msg={t:'err',s:'Set a holdout date first.',ts:Date.now()};redraw();return;}
-      const win=(backtests||[]).find(b=>b.status==='done'&&b.result&&b.result.best_params&&Object.keys(b.result.best_params).length);
-      if(!win){U.msg={t:'err',s:'No finished optimization has a best config to test yet. Run a grid, smart search or walk-forward first.',ts:Date.now()};redraw();return;}
-      if(!confirm('Test the last winner ('+(win.strategy||'')+') once on the lockbox '+since+' → end? The discipline is to look only once.'))return;
-      const j=_bbLockboxJob(X,win,since);
-      t.disabled=true;t.textContent='Queuing…';
-      let p;try{p=btRef.add(j);}catch(err){U.msg={t:'err',s:'Queue failed: '+((err&&err.message)||err),ts:Date.now()};redraw();return;}
-      Promise.resolve(p).then(()=>{U.msg={t:'ok',s:'Queued the lockbox test of '+_bbStratName(X,win.strategy)+'.',ts:Date.now()};redraw();})
-        .catch(err=>{U.msg={t:'err',s:'Queue failed: '+((err&&err.message)||err),ts:Date.now()};redraw();});
       return;}
     if(d.bbrun){openRun(d.bbrun);return;}
     if(t.id==='bb-run'){
@@ -20192,10 +20176,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _actChip=function(on,tint){return 'cursor:pointer;user-select:none;display:inline-flex;align-items:center;justify-content:center;width:23px;height:21px;padding:0;border:0;border-radius:6px;font-family:inherit;font-size:11px;line-height:1;'
         +'color:'+(on?tint:'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+tint+' 18%,transparent)':'transparent')
         +';box-shadow:'+(on?'inset 0 -2px 0 '+tint:'none');};
+      // TEST ON LOCKBOX (owner 2026-09-14: "move test last winner on lockbox to results"; it used to be
+      //   BUILDER's LOCKBOX group): one backtest of THIS run's best config over the reserved slice. Only a
+      //   run with a best config gets the chip, and not a BOOK (it has no single strategy to re-run).
+      const _lbOk=!!(d.best_params&&typeof d.best_params==='object'&&Object.keys(d.best_params).length&&!d.book);
+      const _lbQ=!!(window._lbQueued&&window._lbQueued[String(d.id)]);
       return '<span style="'+_actTray+'">'
         +'<button id="det-note" data-note-id="'+d.id+'" data-note-val="'+_noteEsc+'" title="'+(_hasNote?_noteEsc:'add a note')+'" style="'+_actChip(_hasNote,'var(--green)')+'">&#9998;</button>'
         +'<select id="det-relabel" data-relabel-id="'+d.id+'" title="re-label strategy" style="'+_actChip(false,'var(--blue)')+';-webkit-appearance:none;-moz-appearance:none;appearance:none;text-align:center;text-align-last:center"><option value="">&#8801;</option>'+(metaStrats||[]).map(s=>'<option value="'+s.file+'">'+stratInfo(s.file).label+'</option>').join('')+'</select>'
         +'<button id="det-arch" data-arch-id="'+d.id+'" title="'+(d.archived?'un-archive - show this run in Past Runs again':'archive - hide this run from Past Runs (keeps the data, reversible)')+'" style="'+_actChip(!!d.archived,'var(--yellow)')+'">&#9707;</button>'
+        +(_lbOk?('<button id="det-lockbox" data-lb-id="'+d.id+'" title="'+(_lbQ?'lockbox test queued for this run - it shows in the queue dials at the top':'test this run winner once on the lockbox - one backtest of its best config from your holdout date to the end of the data')+'" style="'+_actChip(_lbQ,'var(--purple)')+'">'
+          +'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>'):'')
         // destructive: the icon carries the red, the chip stays flat like its neighbours.
         +'<button id="det-del" data-del-id="'+d.id+'" title="delete run" style="'+_actChip(false,'var(--red)').replace('color:var(--text4)','color:var(--red)')+'">&#128465;</button>'
         +'</span>';
@@ -35833,6 +35824,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // delete a run: remove the web doc now + queue a runner command to drop it from the
       // local history DB (so a future full re-sync won't bring it back).
       const _del=el('det-del');if(_del)_del.onclick=async()=>{const id=_del.dataset.delId;if(!confirm('Delete run #'+id+'? Removes it from the web and your local AUGUR history.'))return;try{await runsRef.doc(String(id)).delete();if(cmdRef)await cmdRef.add({action:'delete_run',payload:{id:+id},status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});if(String(augurRunSel)===String(id))augurRunSel=null;runHistory=runHistory.filter(r=>String(r.id)!==String(id));try{delete window._runFull[String(id)];}catch(_){}}catch(e){alert('delete failed: '+e.message);}renderApp();};
+      // TEST ON LOCKBOX - the lock chip in the action tray. One single backtest of this run's best config from
+      //   the lockbox date to the end of the data: the last check before trusting a winner, and the
+      //   discipline is to look once. The date defaults to the BUILDER holdout, else the day after this
+      //   run's window. The job carries the same fields BUILDER's old lockbox test queued, sourced from the
+      //   saved run the way SIZING and BOOK read one (session from the data source, source = data_source).
+      const _lbt=el('det-lockbox');if(_lbt)_lbt.onclick=async()=>{
+        const id=String(_lbt.dataset.lbId);
+        const run=(window._runFull&&window._runFull[id])||(runHistory||[]).find(r=>String(r.id)===id);
+        const bp=run&&(run.best_params||(run.result&&run.result.best_params));
+        if(!run||!bp||!Object.keys(bp).length){alert('This run has no best config to test.');return;}
+        let def='';try{def=(JSON.parse(localStorage.getItem('augurPrefs')||'{}').lockbox)||'';}catch(e){}
+        if(!def&&run.date_to){const d1=new Date(String(run.date_to).slice(0,10)+'T00:00');if(!isNaN(d1.getTime())){d1.setDate(d1.getDate()+1);def=d1.toISOString().slice(0,10);}}
+        const got=prompt('Test the winner of run #'+id+' once on the lockbox.\n\nThis runs one backtest of its best config from the date below to the end of the data. The discipline is to look only once: a pass it did not earn means it was overfit.\n\nLockbox starts on (YYYY-MM-DD):',def);
+        if(got===null)return;
+        const since=String(got).trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(since)||isNaN(new Date(since+'T00:00').getTime())){alert('Use a date like 2025-06-01.');return;}
+        const sm=_stratMatch(run.strategy),mlt=run.multiplier||instMult(run.instrument)||20;
+        const comm=(run.commission_usd!=null?+run.commission_usd:null),slip=(run.slippage_pts!=null?+run.slippage_pts:null);
+        const cost=(run.cost_pts!=null?+run.cost_pts:((comm!=null?comm:5.66)/mlt+(slip!=null?slip:0)));
+        const job={strategy:(sm&&sm.file)||run.strategy,instrument:run.instrument,timeframe:run.timeframe||'5m',
+          session:(run.session||(/eth/i.test(String(run.data_source||run.source_name||''))?'eth':'rth')),source:run.data_source||null,
+          params:bp,date_from:since,date_to:'',cost_pts:cost,commission_usd:comm,slippage_pts:slip,mult:mlt,mc_sims:1000,
+          lockbox:true,preset:'🔒 LOCKBOX',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+        _lbt.disabled=true;
+        try{await btRef.add(job);(window._lbQueued=window._lbQueued||{})[id]=true;}catch(e){alert('Queue failed: '+e.message);}
+        renderApp();};
       // SIZING OVERLAY (ORB): queue a backtest of this run's config WITH the sizing rule;
       // the runner attaches res["sizing"] (baseline vs sized) and the report card renders it.
       content.querySelectorAll('[data-sizing-run]').forEach(btn=>{btn.onclick=async()=>{

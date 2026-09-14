@@ -21,8 +21,6 @@ job handed to btRef.add is captured. A case PASSES when the two jobs are deep-
 equal (key order ignored) and the alert counts match, except:
   * pinned_validate - both must queue nothing; the old tab with one PINNED alert,
     BUILDER by disabling Run with the pinned reason printed above it;
-  * lockbox_test - the old "TEST LAST WINNER ON LOCKBOX" button against BUILDER's
-    "Test the last winner on this holdout" (Holdout row), same backtests fixture.
 
     python tools/builder_parity_probe.py                 # baseline from git 24433b5
     python tools/builder_parity_probe.py --baseline X    # any other old-tab build
@@ -79,13 +77,6 @@ META_MASTERS = [
 ]
 META_ETA = {'sec_per_bt': 0.9, 'bars': 300000}
 DEFAULT_STRAT = 'NOISE_1_0.py'
-# a finished optimization with a best config, for the lockbox test (newest first, as backtests is)
-WINNER_JOBS = [
-    {'id': 'job_win', 'strategy': 'NOISE_1_0.py', 'type': 'auto', 'status': 'done', 'instrument': 'NQ',
-     'timeframe': '5m', 'session': 'rth', 'source': 'db_noadj_rth', 'cost_pts': 0.283, 'commission_usd': 5.66,
-     'slippage_pts': 0, 'mult': 20, 'result': {'best_params': {'lookback': 14, 'band_mult_long': 1.5}}},
-]
-
 # (name, strategy, augurPrefs, old-DOM extras, new window._bbUi, options)
 #   old extras: folds -> #ex-folds, masterIdx -> #ex-master + change, cu -> .ex-cu rows
 #   options: backtests (fixture list), old_btn / new_btn (button ids when not the Run buttons)
@@ -120,8 +111,6 @@ CASES = [
       'bb_master': 'ES|1m|eth|nt_noadj_eth|ES 1m ETH'},
      {'masterIdx': 2}, None, None),
     ('pinned_validate', 'NOISE_1_1_SBS_V90.py', {'mode': 'validate'}, None, None, None),
-    ('lockbox_test', DEFAULT_STRAT, {'mode': 'auto', 'lockbox': '2025-06-01'}, None, {'open': 'lockbox'},
-     {'backtests': WINNER_JOBS, 'old_btn': 'ex-lockbox-test', 'new_btn': 'bb-lockbox-test'}),
 ]
 
 

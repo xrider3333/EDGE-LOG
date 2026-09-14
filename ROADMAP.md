@@ -273,7 +273,8 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
   only the rows a mode feeds (All settings for the rest), a data-window bar with the lockbox hatched,
   pinned run bar (summary, estimate, queue position), queue rail with the latest result. Jobs are built
   by `_exMakeJob` (the old Run handler, moved unchanged); `tools/builder_parity_probe.py` proves every
-  mode and the lockbox test queue exactly what the old tab queued (pinned baseline 24433b5).
+  mode queues exactly what the old tab queued (pinned baseline 24433b5). Test last winner on lockbox then
+  moved to RESULTS: the lock chip in a run report's action tray tests THAT run's best config.
 - **v36.0** (2026-06-27) Account balance is now **live / auto-derived** instead of a static
   field. `accountEquity` is treated as the STARTING balance and the shown balance =
   starting + cumulative net P&L (new helpers `totalNetPnl()` / `liveBalance()`). Settings field
