@@ -733,7 +733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.791';
+const VERSION='73.792';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -751,7 +751,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.791',date:'2026-09-14',notes:['BUILDER IS NOW THE ROBINHOOD-STYLE BUILDER (owner: migrate β). BUILDER β replaced the old BUILDER tab and is simply called BUILDER; the old form is gone. The queue dials in the top bar and USE IN BUILDER in LIBRARY open it, and a browser that last had the old tab open reopens here.','TEST LAST WINNER ON LOCKBOX moved with it: open the Holdout row (under All settings when the goal is Backtest) and press Test the last winner on this holdout. It queues the same job as before.','The queue rail keeps the two queue details the old tab had: the cache-reuse count on finished jobs, and a yellow count with a warning when work is waiting but nothing is running. The panels that sat under the old form after a run are in that run report in RESULTS, which the latest-result card opens.']},
+const CHANGELOG=[{v:'73.792',date:'2026-09-14',notes:['BUILDER latest result and recent jobs: a BOOK run now shows its real net (it read as $0, because a book keeps its figures where a search does) along with its own name, its verdict and its profit factor.']},
+{v:'73.791',date:'2026-09-14',notes:['BUILDER IS NOW THE ROBINHOOD-STYLE BUILDER (owner: migrate β). BUILDER β replaced the old BUILDER tab and is simply called BUILDER; the old form is gone. The queue dials in the top bar and USE IN BUILDER in LIBRARY open it, and a browser that last had the old tab open reopens here.','TEST LAST WINNER ON LOCKBOX moved with it: open the Holdout row (under All settings when the goal is Backtest) and press Test the last winner on this holdout. It queues the same job as before.','The queue rail keeps the two queue details the old tab had: the cache-reuse count on finished jobs, and a yellow count with a warning when work is waiting but nothing is running. The panels that sat under the old form after a run are in that run report in RESULTS, which the latest-result card opens.']},
 {v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
 {v:'73.788',date:'2026-09-14',notes:['WEBULL PAPER TRADING -- ORDER CONNECTION STATUS. The STATUS card now has an ORDERS section in plain language: OFF / PAPER / LIVE / BLOCKED / HALTED with the reason, how much of the daily stop has been used today with a bar, the share size per strategy, which computer is running the order connection and whether the one-computer check is OK, and the last order and last error. Shows Order status not reported yet until the runner publishes the new fields.']},
 {v:'73.786',date:'2026-09-14',notes:['BUILDER β run summary typo: the XL scope now reads an 18-month lockbox instead of a 18-month lockbox.']},
@@ -2939,18 +2940,23 @@ function _bbMs(x){try{return x&&x.toDate?x.toDate().getTime():(x?new Date(x).get
 function _bbJobType(b){
   if(b.lockbox)return 'Lockbox test';
   const t=String(b.type||'single');
-  const L={single:'Single',grid:'Grid',auto:'Auto-Optimize',walkforward:'Walk-forward',ai_optimize:'AI optimize',ai_evolve:'AI evolve',validate:'Auto-Validate',gate_validate:'Gate bake-off'};
+  const L={single:'Single',grid:'Grid',auto:'Auto-Optimize',walkforward:'Walk-forward',ai_optimize:'AI optimize',ai_evolve:'AI evolve',validate:'Auto-Validate',gate_validate:'Gate bake-off',book:'Book'};
   return (L[t]||t)+((t==='single'&&b.ml_filter&&b.ml_filter!=='none')?' · gated':'');
 }
-// the same figures the retired tab's queue printed for a finished job
+// a BOOK pools several strategies under a name of its own: print that name, not a family label
+function _bbIsBook(b){return String((b&&b.type)||'')==='book'||!!(b&&b.result&&b.result.book);}
+function _bbJobName(X,b){return _bbIsBook(b)?String(b.strategy||'Book'):(X.stratInfo(b.strategy||'').label||String((b&&b.strategy)||'job').replace(/\.py$/,''));}
+// the figures for a finished job. A single backtest reports them at the top of its result; every search,
+//   validate and BOOK reports them under best. (The retired tab read a BOOK as a single and printed $0 -
+//   caught on the owner's real queue the day BUILDER migrated, when the latest result was a book.)
 function _bbJobFig(b){
   const r=b.result||{},t=String(b.type||'single'),done=b.status==='done';
-  const ai=t==='ai_optimize'||t==='ai_evolve',vald=t==='validate',smart=t==='auto'||t==='walkforward'||vald,gvt=t==='gate_validate',single=!ai&&!smart&&!gvt&&t!=='grid';
-  const m=(single||gvt)?r:(r.best||{});
+  const ai=t==='ai_optimize'||t==='ai_evolve',gvt=t==='gate_validate',V=r.validate;
+  const m=(r.total_pnl!=null)?r:(r.best||r);
   let det='';
-  if(done){if(vald)det=((r.validate&&r.validate.verdict)||'')+((r.validate&&r.validate.n_pass!=null)?(' '+r.validate.n_pass+'/'+(r.validate.n_gates||5)):'');
+  if(done){if(V&&(V.verdict||V.n_pass!=null))det=[V.verdict||'',V.n_pass!=null?(V.n_pass+'/'+(V.n_gates||5)):''].filter(Boolean).join(' ');
     else if(gvt)det=(r.gate_validate&&r.gate_validate.chosen)?(r.gate_validate.chosen.model+' at '+Math.round(r.gate_validate.chosen.threshold*100)+'%'):'';
-    else if(single)det=(r.num_trades||0)+' trades';
+    else if(r.num_trades!=null)det=r.num_trades+' trades';
     else if(ai)det=(r.n_rounds||'?')+' rounds';
     else if(r.n_valid!=null)det=r.n_valid+'/'+r.n_combos+' valid';}
   return {done:done,net:done?Math.round((m.total_pnl||0)*(b.mult||20)):null,det:det,pf:(done&&m.profit_factor!=null)?('PF '+Math.min(m.profit_factor||0,99).toFixed(2)):''};
@@ -2963,7 +2969,7 @@ function _bbRail(X){
   if(last){const F=_bbJobFig(last),rid=last.run_id||last.runId;
     h+='<div class="bb-card bb-last" data-bbrun="'+E(rid)+'" role="button" tabindex="0" title="Open run #'+E(rid)+' in RESULTS">'
       +'<div class="bb-capl">Latest result</div><div class="bb-big '+(F.net>0?'bb-gain':(F.net<0?'bb-loss':''))+'">'+E(_bbMoney(X,F.net||0))+'</div>'
-      +'<div class="bb-lastsub">'+E([_bbStratName(X,last.strategy),_bbJobType(last),F.det,F.pf].filter(Boolean).join(' · '))+'</div>'
+      +'<div class="bb-lastsub">'+E([_bbIsBook(last)?String(last.strategy||'Book'):_bbStratName(X,last.strategy),_bbJobType(last),F.det,F.pf].filter(Boolean).join(' · '))+'</div>'
       +'<div class="bb-link">Open run #'+E(rid)+' ›</div></div>';}
   const nr=BQ.running.length,nw=BQ.waiting.length;
   const qwarn=(!nr&&nw);
@@ -2980,7 +2986,7 @@ function _bbRail(X){
   if(BQ.recent.length){h+='<div class="bb-qs">Recent</div>'+BQ.recent.map(b=>{const F=_bbJobFig(b),rid=b.run_id||b.runId||'',s=String(b.status||'').toLowerCase();
     const cr=(b.result&&b.result.cache_reuse)||null,reuse=(F.done&&cr&&cr.total>0&&cr.hits>0)?('♻ '+cr.hits+'/'+cr.total+(cr.note?'~':'')):'';
     const sub=[_bbJobType(b),s==='done'?'':s,F.det,F.pf,reuse,(b.repeat_of_run?('repeat of #'+b.repeat_of_run):'')].filter(Boolean).join(' · ');
-    return '<div class="bb-job'+(rid?' click':'')+'" data-bbrecentrow="'+E(b.id)+'"'+(rid?(' data-bbrun="'+E(rid)+'" role="button" tabindex="0" title="Open run #'+E(rid)+' in RESULTS"'):'')+'><div class="bb-jl"><b>'+E(X.stratInfo(b.strategy||'').label||nm(b))+'</b><small>'+E(sub)+'</small></div>'
+    return '<div class="bb-job'+(rid?' click':'')+'" data-bbrecentrow="'+E(b.id)+'"'+(rid?(' data-bbrun="'+E(rid)+'" role="button" tabindex="0" title="Open run #'+E(rid)+' in RESULTS"'):'')+'><div class="bb-jl"><b title="'+E(b.strategy||'')+'">'+E(_bbJobName(X,b))+'</b><small>'+E(sub)+'</small></div>'
       +'<span class="bb-jv '+(F.done?(F.net>0?'bb-gain':(F.net<0?'bb-loss':'')):'bb-flat')+'">'+(F.done?E(_bbMoney(X,F.net)):'—')+'</span></div>';}).join('');}
   return h+'</div>';
 }

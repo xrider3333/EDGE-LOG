@@ -109,6 +109,12 @@ def build_fixture():
          "status": "queued", "mult": 20},
     ]
     recent = [
+        # a BOOK (several strategies pooled): figures live under result.best, mult 1. The newest done
+        # job, so it is also the latest-result card - which printed $0 on the owner's real queue.
+        {"id": "job_book", "strategy": "BOOK PROBE: ORB 314 + ENGU-Q 335 + NOISE 304", "type": "book",
+         "status": "done", "mult": 1, "createdAt": _iso(2), "run_id": 380,
+         "result": {"best": {"total_pnl": 1592187.39, "profit_factor": 1.61}, "book": {"legs": 3},
+                    "validate": {"n_pass": 5, "n_gates": 6, "verdict": "PASS"}}},
         {"id": "job_done_a", "strategy": "ORB_R6.py", "type": "single", "status": "done",
          "mult": 20, "createdAt": _iso(9), "run_id": 316,
          "result": {"total_pnl": 1420.5, "num_trades": 411, "profit_factor": 1.34,
@@ -205,6 +211,12 @@ PROBE_HTML = """<!DOCTYPE html>
 
       // ── rail: latest result + queue ──
       out.hasLastCard=!!d.querySelector('.bb-last');
+      var lastBig=d.querySelector('.bb-last .bb-big');
+      out.lastBig=lastBig?lastBig.textContent.trim():null;
+      var lastSub=d.querySelector('.bb-last .bb-lastsub');
+      out.lastSub=lastSub?lastSub.textContent.trim():null;
+      var bookRow=d.querySelector('[data-bbrecentrow="job_book"]');
+      out.bookRowText=bookRow?bookRow.textContent.replace(/\\s+/g,' ').trim():null;
       var cnt=d.querySelector('[data-bbcount]');
       out.countText=cnt?cnt.textContent.trim():null;
 
@@ -422,6 +434,13 @@ def main():
         # rail: latest-result card
         if not r.get('hasLastCard'):
             fails.append('%s: .bb-last is missing though a done job carries a run_id' % nm)
+        # the newest done job is a BOOK: its net comes from result.best at mult 1, and it keeps its own name
+        if r.get('lastBig') != '+$1,592,187':
+            fails.append('%s: latest-result card reads %r, expected the BOOK net +$1,592,187' % (nm, r.get('lastBig')))
+        if not (r.get('lastSub') or '').startswith('BOOK PROBE: ORB 314') or 'PASS 5/6' not in (r.get('lastSub') or ''):
+            fails.append('%s: latest-result subtitle lost the BOOK name or its verdict -- %r' % (nm, r.get('lastSub')))
+        if '+$1,592,187' not in (r.get('bookRowText') or '') or 'Book' not in (r.get('bookRowText') or ''):
+            fails.append('%s: the BOOK recent row does not show Book and +$1,592,187 -- %r' % (nm, r.get('bookRowText')))
 
         # queue count / running row
         if r.get('countText') != '1 running \u00b7 3 up next':
@@ -453,8 +472,8 @@ def main():
                          % (nm, r.get('waitStopCounts')))
 
         # recent: figures survived the move, and finished jobs link their run
-        if r.get('recentRows') != 3:
-            fails.append('%s: expected 3 recent rows, got %s' % (nm, r.get('recentRows')))
+        if r.get('recentRows') != 4:
+            fails.append('%s: expected 4 recent rows, got %s' % (nm, r.get('recentRows')))
         if not r.get('hasReuseChip'):
             fails.append('%s: the cache-reuse chip (\u267b 180/500) did not survive the move' % nm)
         if not r.get('hasRepeatChip'):
@@ -488,8 +507,11 @@ def main():
         if r.get('subExecCount'):
             fails.append('%s: the retired [data-asubtop="exec"] button still exists' % nm)
 
-        # the sticky Run button never drifts below the fold
-        if r.get('runFits') is False:
+        # the sticky Run button never drifts below the fold - with the queue folded. Opening the queue
+        # on a narrow screen deliberately puts the whole list above the ticket, so Run may sit below it.
+        if nm.endswith('_open'):
+            pass
+        elif r.get('runFits') is False:
             fails.append('%s: #bb-run bottom (%.1fpx) is below the viewport (%.1fpx)'
                          % (nm, r.get('runBottom') or -1, r.get('innerHeight') or -1))
         elif r.get('runFits') is None:
