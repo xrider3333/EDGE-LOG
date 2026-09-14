@@ -78,3 +78,39 @@ HOUSE SCORER CONFIRMATION (Past Runs, same window 2010-06-07..2026-06-30, sealed
   #379 rival book        selection 44.35 | sealed 11.02  net $294,142  DD $26,683  PF 1.612  8/8
   #397 FRONTIER book     selection 43.72 | sealed 12.07  net $306,042  DD $25,357  PF 1.607  8/8
   #397 = #379 with only the opening-range leg swapped to #297. Matches the local harness to the cent.
+
+========================================================================================================
+CORRECTION (same day, 2026-09-14) - #397 is NOT an upgrade. It trades money for drawdown.
+========================================================================================================
+Another session retracted #379 today because its ratio lead was one 2020 drawdown, and set the house
+rule: judge book changes BY CALENDAR YEAR, not by one ratio. The right comparison for #397 is therefore
+run #396 - the adopted book with ONLY the combined squeeze leg, keeping the #234 opening-range leg.
+#396 and #397 differ in exactly one leg, so their difference by year is exact on net.
+
+  #396  selection 40.57 | sealed 11.16  net $307,096  DD $27,506  PF 1.598
+  #397  selection 43.72 | sealed 12.07  net $306,042  DD $25,357  PF 1.607
+
+  year   #234 leg   #297 leg     diff        year   #234 leg   #297 leg     diff
+  2010     -1,097       -915     +183        2019      8,930     11,104   +2,174
+  2011        267        789     +521        2020    -14,299     -8,063   +6,235
+  2012      5,661      7,918   +2,257        2021     45,288     34,677  -10,611
+  2013       -973       -213     +760        2022    109,393     97,769  -11,624
+  2014      6,109      5,821     -288        2023     31,901     26,409   -5,493
+  2015       -937        403   +1,340        2024      8,022      8,484     +462
+  2016     -8,648     -4,683   +3,965        2025    100,567     91,700   -8,867
+  2017        103        920     +818        2026     49,589     54,571   +4,982
+  2018     33,428     29,837   -3,591
+
+  The #297 leg is better in 11 of 17 years but earns $16,778 LESS in total (-$23,013 excluding 2020).
+  It wins the small and losing years and gives money back in every one of the four biggest years.
+  In the sealed stretch it earns $1,054 LESS than #396; its higher sealed ratio is the drawdown alone.
+
+WHAT THIS MEANS
+1. The tighter filters do not add edge. They make the leg trade less in high-volatility regimes, which
+   cuts losing streaks (2016, 2020) and also cuts the best trends (2021, 2022, 2025). That is a risk
+   dial, not an improvement - and a book judged on one ratio will always reward a risk dial.
+2. Rounds 53 and 55 ranked on return-over-drawdown and so measured exactly this dial. Their shape
+   findings stand (the book needs the leg at weight 1; volume-pace 0.90 is an artifact; the tighter stop
+   is not a lead), but "#297 is the best opening-range leg in the book" does not.
+3. #396 remains the better book on money. #397 is a legitimate LOWER-DRAWDOWN variant of it for an
+   owner who wants that trade-off, and should be described that way and nothing more.

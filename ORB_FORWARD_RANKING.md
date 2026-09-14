@@ -1,5 +1,15 @@
 # ORB — which configurations deserve forward testing (2026-09-11)
 
+> **CORRECTION 2026-09-14 — read this before the table.** The #1 pick below rested on #297 ranking first
+> inside the book on the sealed year, which was a return-over-drawdown ratio. Judged by calendar year (the
+> house rule set the same day), the #297 leg earns $16,778 LESS than the #234 control over the full window,
+> gives money back in every one of the four biggest years (2021, 2022, 2023, 2025), and wins mainly by losing
+> less in weak years. In the sealed stretch it earns $1,054 less; its better ratio is a shallower drawdown only.
+> So #297 is a **lower-drawdown sibling of the control, not an upgrade**. Revised call: keep the control and the
+> crown in paper as they are; add #297 only if a lower-drawdown ORB leg is wanted for its own sake. Detail in
+> `ORB_ROUND55_FRONTIER.txt`.
+
+
 Every configuration below already passed a full Auto-Validate at 7 of 8 walk-forward folds, so the
 verdict does not separate them. What separates them is the sealed year, whether the money is spread
 across many trades or sits in ten, how the configuration behaves inside the adopted book, and how
