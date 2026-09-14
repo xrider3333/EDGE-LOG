@@ -819,6 +819,9 @@ var FIX = __FIX__;
         var rec2=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf('HYBRID ♻')>=0;})[0];
         var im2=hdr2.indexOf('MAR');var mb=(rec2&&im2>=0)?rec2.cells[im2].querySelector('b[title]'):null;
         r.hybWfLbTip=mb?mb.getAttribute('title'):null;
+        var iWf2=-1;hdr2.forEach(function(h,k){if(iWf2<0&&h.indexOf('WALK')===0)iWf2=k;});
+        var ilb2=-1;hdr2.forEach(function(h,k){if(ilb2<0&&h.indexOf('LOCKBOX')===0)ilb2=k;});
+        r.hybWfAtCombined=cellTitle(rec2,iWf2);r.hybLbAtCombined=cellTitle(rec2,ilb2);
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -1738,9 +1741,9 @@ def main(argv=None):
         '6 curve fallback never best': not cv.get('marBold'),
         '3 chart MAR = table MAR (per year)': (_fl(r.get('gateMarCell')) is not None and r.get('gateMarPoint') is not None
                                                and abs(_fl(r.get('gateMarCell')) - float(r.get('gateMarPoint'))) < 0.011),
-        '4 recycled hybrid WF sized by its own twin': r.get('hybWf') == '$40,000',
+        '4 WF pick sizes on the WF twin': r.get('hybWf') == '$40,000',
         '4 combined tick reads the combined block at its own factor': 'profit of $65,625' in str(r.get('hybWfLbTip') or ''),
-        '4 hover explains the stage columns sum ($70,000)': 'add up to $70,000 instead' in str(r.get('hybWfLbTip') or ''),
+        '4 option A: one size for the WF+LB pick, rows add up': (r.get('hybWfAtCombined') == '$26,250' and r.get('hybLbAtCombined') == '$39,375'),
     }
     f346_ok = all(chk.values())
     line('fixes346', f346_ok, 'failed=%s | rb saved=%s curve=%s want=%s | gate MAR cell=%r point=%r | hybrid WF(%s)=%r'
