@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 19
+N_CASES = 20
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -867,6 +867,20 @@ var FIX = __FIX__;
             out[o]={call:c,mar:mar,horizTable:!!d.querySelector('table[data-rbhoriz]')};});
           r.per[smp]=out;});
       })();
+      // -- case smalls: CHAMPIONS names its ranking; horizontal ticks carry their unit ------------
+      (function(){
+        var r=snap('smalls','OK');
+        r.champCall=doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'champ',c2Stage:'lb',c2Rank:'mar'}, FIX_WIN);
+        var t=(d.body.innerText||'');
+        r.champLabel=(t.match(/[0-9]+ OF [0-9]+ STRATEGIES[^A-Z]*TOP [0-9]+ BY [A-Z /]+ ON [A-Z]+/)||[])[0]||null;
+        r.champRankBtns=d.querySelectorAll('[data-c2rank]').length;
+        r.pickCall=doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:[String(FIX.id)]}, FIX_WIN);
+        r.pickRankBtns=d.querySelectorAll('[data-c2rank]').length;
+        r.tickCall=doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['lb'],resAxis:'evr',resXAxis:'roc'}, FIX_WIN);
+        var svg=[].filter.call(d.querySelectorAll('svg'),function(x){return x.querySelector('[data-repoint]');})[0];
+        var ticks=svg?[].map.call(svg.querySelectorAll('text[text-anchor=middle]'),function(x){return (x.textContent||'').trim();}):[];
+        r.pctTicks=ticks.filter(function(x){return /^-?[0-9.,]+[kM]?%$/.test(x);}).length;
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -1017,7 +1031,7 @@ def main(argv=None):
     # case 1: empty
     r = cases.get('empty', {})
     ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
-          and r.get('hasNoRuns') and r.get('rankCount') == 4 and r.get('stageCount') == 3)
+          and r.get('hasNoRuns') and r.get('rankCount') == 4 and r.get('stageCount') == 4)
     line('empty', ok, 'call=%s NO_RUNS_YET=%s rank=%s stage=%s errors=%s uncaught=%s'
          % (r.get('call'), r.get('hasNoRuns'), r.get('rankCount'), r.get('stageCount'),
             r.get('errors'), r.get('uncaught')))
@@ -1032,8 +1046,8 @@ def main(argv=None):
             fail('empty: body text does not contain NO RUNS YET')
         if r.get('rankCount') != 4:
             fail('empty: expected 4 [data-c2rank] spans, got %s' % r.get('rankCount'))
-        if r.get('stageCount') != 3:
-            fail('empty: expected 3 [data-c2stage] spans, got %s' % r.get('stageCount'))
+        if r.get('stageCount') != 4:
+            fail('empty: expected 4 [data-c2stage] spans (IS, WF, LB, FULL), got %s' % r.get('stageCount'))
 
     # case 2: fixture-lb
     r = cases.get('fixture-lb', {})
@@ -1820,6 +1834,19 @@ def main(argv=None):
     line('rbhoriz', rbh_ok, 'lb=%s full=%s' % (per.get('lb'), per.get('full')))
     if not rbh_ok:
         fail('rbhoriz: RUNBOARD sideways does not show the grid rows (MAR differs from the vertical grid) -- see the rbhoriz line')
+    # case smalls: CHAMPIONS names its ranking; ticks carry their unit; no garbled lockbox tooltip
+    r = cases.get('smalls', {})
+    sm_chk = {
+        'all three renders OK': all(r.get(k) == 'OK' for k in ('champCall', 'pickCall', 'tickCall')),
+        'champions label names the ranking': bool(r.get('champLabel')) and ' BY MAR ON LB' in str(r.get('champLabel')),
+        'RANK ON on CHAMPIONS': (r.get('champRankBtns') or 0) == 4,
+        'no RANK ON on PICKED': (r.get('pickRankBtns') or 0) == 0,
+        'ROC ticks carry %': (r.get('pctTicks') or 0) >= 2,
+    }
+    sm_ok = all(sm_chk.values())
+    line('smalls', sm_ok, 'failed=%s | %s' % ([k for k, v in sm_chk.items() if not v], {k: r.get(k) for k in ('champLabel', 'champRankBtns', 'pickRankBtns', 'pctTicks')}))
+    if not sm_ok:
+        fail('smalls: see the smalls line')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:

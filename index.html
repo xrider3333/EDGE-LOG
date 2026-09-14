@@ -733,7 +733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.795';
+const VERSION='73.796';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -751,7 +751,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
+const CHANGELOG=[{v:'73.796',date:'2026-09-14',notes:['LEADERBOARD STAGE HAS FULL. The stage setting is shared across COMPARE, and COMPARE BOOKS offers FULL, so switching back to the leaderboard after picking it left the strip with no button lit while every number was already the whole-run one. FULL is a button here now, and its note explains the ~ a whole-run drawdown carries when it has to be measured off the saved curve.','CHAMPIONS SAYS WHAT CHOSE THEM. The overlay on CHAMPIONS keeps the top ten strategies by the leaderboard RANK ON setting, which was not on this screen - so the cut could be decided by a setting out of sight. RANK ON is beside SHOW now, and the label reads for example 10 OF 14 STRATEGIES, TOP 10 BY R / YR ON LB.','SMALL THINGS. A ninth or tenth champion curve used to repeat a colour already on the chart when every palette colour was taken; it gets a fresh hue. Two lockbox tooltips on EXPLORE read as broken sentences and now say plainly that the variant saved no lockbox slice. EV on the parallel chart follows the ticked stretch while $/TRD in the table is always whole-run - the axis is labelled EV STRETCH and the column hover says the two differ. And the horizontal axis ticks now carry % for ROC, DD % and WIN % and R for DD (R), as the vertical ones do.']},{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
 {v:'73.792',date:'2026-09-14',notes:['BUILDER latest result and recent jobs: a BOOK run now shows its real net (it read as $0, because a book keeps its figures where a search does) along with its own name, its verdict and its profit factor.']},
 {v:'73.791',date:'2026-09-14',notes:['BUILDER IS NOW THE ROBINHOOD-STYLE BUILDER (owner: migrate β). BUILDER β replaced the old BUILDER tab and is simply called BUILDER; the old form is gone. The queue dials in the top bar and USE IN BUILDER in LIBRARY open it, and a browser that last had the old tab open reopens here.','TEST LAST WINNER ON LOCKBOX moved with it: open the Holdout row (under All settings when the goal is Backtest) and press Test the last winner on this holdout. It queues the same job as before.','The queue rail keeps the two queue details the old tab had: the cache-reuse count on finished jobs, and a yellow count with a warning when work is waiting but nothing is running. The panels that sat under the old form after a run are in that run report in RESULTS, which the latest-result card opens.']},
 {v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
@@ -25764,7 +25764,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               return (isFinite(tv)&&tv>0)?{v:tv}:null;})():_reTrd(rw));
           return (p==null||!t||!t.v)?null:(p/t.v);};
         const _rePptWhy=(st,rw)=>(_reNum(rw,'tot')==null)?_reWhy(st,rw,'tot'):_reTrdWhy;
-        const _rePptTip='Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all. The 1E matrix in a run report calls this same figure EV (expected value); this board keeps its own $/TRD label.';
+        const _rePptTip='Not the same figure as EV on the parallel chart: that axis follows the ticked stretch (its money over its trades), this column is always the whole run. Whole-run profit divided by the number of trades: the average dollars the variant made per trade it took. It is one of the two figures on this board that a mismatched window barely touches, because it is a property of the trade population rather than of the calendar - the other is profit factor. IT IS A WHOLE-RUN FIGURE AND CANNOT FOLLOW THE PROFIT STAGE: a trade count is recorded once per row, not per stage, so there is no in-sample or lockbox trade count to divide by. It also ignores COMPARE ON for the same reason - a per-trade average is already free of window length, and the saved curve a common-window slice reads has no trade count in it at all. The 1E matrix in a run report calls this same figure EV (expected value); this board keeps its own $/TRD label.';
         const _reAxFmt=(f,ov)=>(ov||(_reMoneyF[f]?'money':'num'));
         // A MONEY TICK ROUNDED TO THOUSANDS IS USELESS ON A SMALL AXIS. Owner-reported
         //   2026-08-30: with EXPECTANCY PER TRADE up the side - figures in the hundreds -
@@ -26450,7 +26450,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           {k:'evr', t:'EV IN R',
            v:(st,r)=>{const v=_reEvR(st,r);return (v!=null&&isFinite(v))?v:null;},
            f:v=>v.toFixed(2)+'R'},
-          {k:'ev',  t:'EV',
+          // follows the ticked stretch - unlike the $/TRD table column, which is always whole-run
+          {k:'ev',  t:'EV \u00b7 STRETCH',
            v:(st,r)=>{const p=_reSegVal(r),n=_reNum(r,'trd');return (p!=null&&n&&n>0)?p/n:null;},
            f:v=>((v<0?'-$':'$')+_reAbbr(v))},
           {k:'ppy', t:'$ / YEAR',
@@ -26818,7 +26819,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const xv=xe[0]+(xe[1]-xe[0])*i/4,xx=L+(R-L)*i/4;
               _ticks+='<line x1="'+xx.toFixed(1)+'" y1="'+B+'" x2="'+xx.toFixed(1)+'" y2="'+(B+5)+'" stroke="var(--text3)" stroke-width="1.6"/>';
               g+='<line x1="'+xx.toFixed(1)+'" y1="'+T+'" x2="'+xx.toFixed(1)+'" y2="'+B+'" stroke="var(--border)" stroke-dasharray="2,4"/>'
-                +'<text x="'+xx.toFixed(1)+'" y="'+XT+'" fill="var(--text3)" font-size="12.5" text-anchor="middle">'+_reTick(xv,xf)+'</text>';}
+                +'<text x="'+xx.toFixed(1)+'" y="'+XT+'" fill="var(--text3)" font-size="12.5" text-anchor="middle">'+_reTick(xv,xf)+((['roc','ddp','wr'].indexOf(_reXAxis)>=0)?'%':((_reXAxis==='ddr')?'R':''))+'</text>';}
             // BREAK-EVEN LINE. One chart now carries families whose variants include losers, so
             //   the line between making money and losing it is worth drawing rather than
             //   leaving the reader to find it among the tick labels. Drawn only when the range
@@ -27411,7 +27412,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                         //   window as pf / wr above) are the honest fallback, not a blank.
                         _sh:(function(){const v=shCum(c.equity&&c.equity.cum,yrsW);return v!=null?v:((c.pre_sharpe!=null&&isFinite(+c.pre_sharpe))?+c.pre_sharpe:null);})(),
                         _so:(function(){const v=soCum(c.equity&&c.equity.cum,yrsW);return v!=null?v:((c.pre_sortino!=null&&isFinite(+c.pre_sortino))?+c.pre_sortino:null);})(),
-                        why:{wf:'This run saved no separate walk-forward slice for this gate variant, so its tuning years are only readable pooled into the pre-lockbox figure.',lb:'This run saved no lockbox slice for this gate variant is measured before the lockbox, so it has no lockbox figure.'}});});
+                        why:{wf:'This run saved no separate walk-forward slice for this gate variant, so its tuning years are only readable pooled into the pre-lockbox figure.',lb:'This run saved no lockbox slice for this gate variant, so it has no lockbox figure.'}});});
               // THE THREE HYBRID SIZINGS, exactly as the 1E matrix builds its three tabs
               //   (owner 2026-08-28: "raw top ten all the way to the three hybrids - i want
               //   those configs"). One record, three columns:
@@ -27470,7 +27471,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       _run:RID,runs:[+RID],
                       _sh:shCum(x.equity&&x.equity.cum,yrsW),_so:soCum(x.equity&&x.equity.cum,yrsW),
                       _avl:((st2.avg_loss!=null)?Math.abs(+st2.avg_loss)*mult*f:null),
-                      why:{wf:'This run saved no walk-forward slice for this variant.',lb:'This run saved no lockbox slice for this variant. The window, which is not a lockbox slice.'}});};
+                      why:{wf:'This run saved no walk-forward slice for this variant.',lb:'This run saved no lockbox slice for this variant, so it has no lockbox figure.'}});};
               ((GV&&Array.isArray(GV.tilts))?GV.tilts:[]).forEach(function(t){
                 szRow(t,'TILT','TILT '+String(t.model||'')+' \u00b7 '+String(t.scheme||''));});
               ((GV&&Array.isArray(GV.hybrids))?GV.hybrids:[]).forEach(function(h){
@@ -29306,7 +29307,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   rather than as a screen of its own. Ten is the cap the old board used.
         const _c2Src=((APREF.c2Src==='champ')||(APREF.c2View==='fam'))?'champ':'pick';
         const _c2Pick=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String);
-        const _c2Champs=_c2FamsOf(rs2).map(f=>({f:f,v:_c2Val(f.ch)}))
+        const _c2FamAll=_c2FamsOf(rs2);
+        const _c2Champs=_c2FamAll.map(f=>({f:f,v:_c2Val(f.ch)}))
           .sort((a,b)=>{const av=a.v.v,bv=b.v.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return bv-av;})
           .map(o=>o.f.ch).slice(0,10);
         const picked=(_c2Src==='champ')?_c2Champs
@@ -29493,7 +29495,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             let col=((typeof stratColor==='function')?stratColor(r.strategy):'')||'';
             if(!col||_used[col]){col='';
               for(let k=0;k<_C2PAL.length;k++){const c=_C2PAL[(i+k)%_C2PAL.length];if(!_used[c]){col=c;break;}}
-              if(!col)col=_C2PAL[i%_C2PAL.length];}
+              // every palette colour taken (a 9th or 10th champion): a fresh hue rather than a repeat
+              if(!col)col='hsl('+Math.round((i*137.508)%360)+',62%,60%)';}
             _used[col]=1;
             return {r:r,col:col,S:_c2StageOf(r),c:_c2Curve(r)};});
           const _c2Hwm=(APREF.c2Hwm===true);
@@ -29646,7 +29649,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div class="c2-top" style="margin-top:2px">'
             +'<span class="c2-lbl">SHOW</span>'+_c2Seg('c2src',[['pick','PICKED','the runs you added, up to eight'],['champ','CHAMPIONS','the best run of every strategy, chosen for you - what BY STRATEGY used to be']],_c2Src)
             +'<span class="c2-lbl">STAGE</span>'+_c2Seg('c2stage',[['is','IS','the tuning years'],['wf','WF','the walk-forward folds'],['lb','LB','the sealed lockbox'],['full','FULL','the whole run, end to end']],_c2Stage)
-            +'<span class="c2-lbl">'+((_c2Src==='champ')?(picked.length+' CHAMPION'+(picked.length===1?'':'S')+' \u00b7 CHOSEN FOR YOU'):(picked.length+' OF 8 PICKED'))+'</span>'
+            // CHAMPIONS names what chose them: the top ten families on the leaderboard's RANK ON, at this
+            //   STAGE - the control is right here, so the cut is never decided by a setting out of sight
+            +((_c2Src==='champ')?('<span class="c2-lbl">RANK ON</span>'+_c2Seg('c2rank',[['rpy','R / YR','expectancy in R times trades per year'],['mar','MAR','net per year over the worst drawdown'],['pf','PF','gross wins over gross losses'],['net','NET','money']],_c2Rank)):'')
+            +'<span class="c2-lbl">'+((_c2Src==='champ')?(picked.length+' OF '+_c2FamAll.length+' STRATEGIES \u00b7 TOP '+picked.length+' BY '+({rpy:'R / YR',mar:'MAR',pf:'PF',net:'NET'}[_c2Rank]||'R / YR')+' ON '+_c2StageNm):(picked.length+' OF 8 PICKED'))+'</span>'
             +((_c2Src==='champ')?'':'<span class="c2-act" data-c2clr="1" title="empty the comparison">CLEAR</span>')
             +_c2SetsBtn
             +'<span style="margin-left:auto" class="c2-lbl">SOLID = TUNING YEARS \u00b7 DOTTED = SEALED LOCKBOX</span></div>'
@@ -29751,13 +29757,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(open?f.runs.map((r,j)=>_c2RunRow(r,j===0)).join(''):'');}).join('');
         _c2Body='<div class="c2-top" style="margin-bottom:8px">'
           +'<span class="c2-lbl">RANK ON</span>'+_c2Seg('c2rank',[['rpy','R / YR','expectancy in R times trades per year - the cross-strategy read'],['mar','MAR','net per year over the worst drawdown'],['pf','PF','gross wins over gross losses'],['net','NET','money']],_c2Rank)
-          +'<span class="c2-lbl" style="margin-left:6px">STAGE</span>'+_c2Seg('c2stage',[['is','IS','in-sample'],['wf','WF','walk-forward folds'],['lb','LB','the lockbox - the honest read']],_c2Stage)
+          +'<span class="c2-lbl" style="margin-left:6px">STAGE</span>'+_c2Seg('c2stage',[['is','IS','in-sample'],['wf','WF','walk-forward folds'],['lb','LB','the lockbox - the honest read'],['full','FULL','the whole run, end to end']],_c2Stage)
           +'</div><div class="c2-card">'+(rows||'<div class="c2-hold">NO RUNS YET</div>')+'</div>'
           +_c2TopBar+_c2TopList+'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = your crown (★ starred) where one exists, else the highest robustness score · books sit in their own row and rank on pre-lockbox net ÷ drawdown, never the lockbox · a run labelled KNOB TEST is never champion unless starred'
           +(noFig?(' \u00b7 <b>'+noFig+' without a '+_c2StageNm+' figure</b> (hover the dash for why) - they sort last, never hidden'):'')
-          // ONLY THE LOCKBOX can have a drawdown derived for it - lb_idx is the only marker
-          //   the saved curve carries - so only the lockbox note may promise a ~. The
-          //   walk-forward stage still has nothing to measure, and says so instead.
+          // A ~ can come from the LOCKBOX (cut at lb_idx, the one marker the saved curve carries) or
+          //   from FULL (the whole curve, when no whole-run drawdown is saved) - each note says so.
+          //   The walk-forward stage has nothing to measure, and says that instead.
+          +((_c2Stage==='full')
+            ?' \u00b7 where a whole-run drawdown is not saved on the run it is measured off the whole saved equity curve and marked ~ - that curve is downsampled, so a ~ MAR is if anything flattering'
+            :'')
           +((_c2Stage==='lb')
             ?' \u00b7 where a lockbox drawdown is not saved on the run it is measured off the saved equity curve and marked ~ - that curve is downsampled, so a ~ MAR is if anything flattering'
             :((_c2Stage==='wf')
