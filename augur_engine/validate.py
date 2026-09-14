@@ -21,6 +21,7 @@ from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METR
                    make_slice_evaluator, score_candidates_on_folds)
 from .optimize import run_grid
 from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
+from .analytics import strip_lb_tails
 from .analytics import (sharpe_from_trades as _sharpe_shared,
                         sortino_from_trades as _sortino_shared,
                         avg_win_loss as _avg_wl_shared)
@@ -1366,7 +1367,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "tailfit": tailfit,           # §1: fat-tail fit of returns (Student-t df)
         "seasonality": season,        # §6: intraday / weekly seasonality
         "pbo": pbo,                   # CSCV Probability of Backtest Overfitting (selection risk)
-        "gate_bakeoff": gate_bakeoff, # ungated + logistic/RF/XGB × cut-off bake-off (one lockbox look)
+        # ungated + logistic/RF/XGB × cut-off bake-off (one lockbox look). A mirror of the
+        #   top-level gate_validate below, minus the 1A funnel's lockbox tails (2026-09-13):
+        #   the funnel reads gate_validate, and a second copy would only double the tails'
+        #   bytes on a doc that already runs close to Firestore's 1 MiB cap.
+        "gate_bakeoff": (strip_lb_tails(gate_bakeoff) if gate_bakeoff is not None else None),
         "wf_rolling": _wf_compact(wf_roll), "wf_anchored": _wf_compact(wf_anch),
         "wf_best_mode": _prim["mode"],   # which windowing scheme was stronger (drove the gate)
         "flags": flags,               # advisory: gate choice · adversarial regime drift · VIF

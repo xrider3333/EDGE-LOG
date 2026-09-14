@@ -81,6 +81,131 @@ def downsample_curve(cum, cap=300, ndp=1):
     return [int(round(x)) for x in out] if ndp is None else [round(x, ndp) for x in out]
 
 
+# ── LOCKBOX TAIL (the 1A funnel's held-out year, drawn from real trades) ────────
+#    Owner (2026-09-13): the lockbox on the 1A CONFIG FUNNEL "still shows as stretched".
+#    Every ML line (gate, tilt, KEEL, hybrid) saves ONE 300-point curve over the whole
+#    run, a stride sample. On #384 that is 4,075 trades, so the held-out year's 273
+#    trades get about 20 of those points - and once the funnel gives the lockbox a
+#    quarter of the width, 20 points are drawn as long straight strokes. The RAW config
+#    lines look fine because they save their lockbox stretch separately.
+#
+#    The fix is additive: alongside the untouched 300-point curve, each ML row carries a
+#    denser sample of JUST the lockbox stretch - real per-trade cumulative values, never
+#    interpolated. The web keeps the saved points before the door, then the last
+#    pre-lockbox value, then this tail. The 300-point curve itself is never edited, so
+#    every existing reader (pills, 1E, gateEquityHtml) sees exactly what it saw before.
+LB_TAIL_CAP = 80              # lockbox points per ML line - about the RAW lockbox density
+LB_TAIL_POINT_BUDGET = 3200   # all tails on one run together; ~25 KB on the doc
+
+
+def lb_tail_line_cap(n_lines, cap=LB_TAIL_CAP):
+    """Lockbox points per ML line when one run carries n_lines of them. A HARD budget: the
+    lines together never pass LB_TAIL_POINT_BUDGET, however wide the gate / cut-off grid.
+    There is no density floor - a grid wide enough to push the share below the saved curve's
+    own lockbox points simply gets no tails (lockbox_tail refuses a tail that adds nothing),
+    which is better than quietly growing a doc that already sits near Firestore's 1 MiB cap.
+    Shared by the engine and tools/backfill_lb_tails.py so the two can never disagree."""
+    try:
+        return max(0, min(int(cap), LB_TAIL_POINT_BUDGET // max(1, int(n_lines))))
+    except Exception:
+        return 0
+
+
+def lb_tail_adds_points(tail_len, saved_len, j0):
+    """True when a tail of tail_len points draws the lockbox with MORE points than the saved
+    curve already does. The stitched line keeps saved[:j0], then the door value, then the
+    tail - so it has tail_len + 1 points from the door on, against saved_len - j0 on the saved
+    curve. On a short run, or one whose lockbox is a big share of its trades (over about 27%
+    of them at 80 points), the 300-point sample already holds more lockbox points than any
+    tail, including every real high and low it happened to land on; stitching would draw
+    that lockbox with FEWER real points than before. The web's funnel applies the same rule."""
+    try:
+        return int(tail_len) + 1 > int(saved_len) - int(j0)
+    except Exception:
+        return False
+
+
+def lockbox_tail(cum_full, i0, saved_len, cap=LB_TAIL_CAP, ndp=None, only_if_denser=True):
+    """Dense lockbox sample of a FULL per-trade cumulative curve, stitched by the web
+    onto the saved downsample_curve(cum_full, cap=saved_len, ndp) points.
+
+    cum_full  : the whole per-trade cumulative curve the saved points came from (the
+                SAME array, so the tail's last value is the saved curve's last value).
+    i0        : number of pre-lockbox trades = the index of the first lockbox trade.
+    saved_len : length of the saved curve (its cap) - used to replay the saved index rule.
+
+    Returns {v, cum, base, i0, j0, pts} as plain Python numbers, or None when there is no
+    honest door to draw (fewer than 3 points, under 2 pre-lockbox trades, an empty
+    lockbox, no saved point before the door) or - with only_if_denser (the default) - when
+    the tail would not add points to the lockbox (lb_tail_adds_points):
+      base = value after the last pre-lockbox trade (index i0-1) - where the tail starts;
+      cum  = m = min(cap, lockbox trades) real values at evenly spread offsets, ending
+             on the final trade;
+      j0   = how many saved points sit strictly before index i0-1 (the web keeps those).
+             It can be saved_len-1 - a lockbox so small only the final saved point is past
+             the door, the most stretched line of all - and the stitch is still exact there;
+      pts  = saved_len, so the web can refuse a tail that no longer matches its curve.
+    only_if_denser=False skips the density rule (tests and probes that need a tail the web
+    must refuse); the engine never passes it."""
+    try:
+        xs = [float(x) for x in (cum_full if cum_full is not None else [])]
+        n = len(xs)
+        i0 = int(i0); saved_len = int(saved_len); cap = int(cap)
+    except Exception:
+        return None
+    if n < 3 or i0 < 2 or n - i0 < 1 or saved_len < 2 or cap < 1:
+        return None
+    # Replay downsample_curve's OWN index rule on the trade numbers rather than copying
+    #   its arithmetic here - a second copy is how the two would drift apart one day.
+    idx = downsample_curve(np.arange(n), cap=saved_len, ndp=None)
+    j0 = sum(1 for v in idx[:-1] if v < i0 - 1)
+    if j0 < 1:
+        return None
+    L = n - i0
+    m = min(cap, L)
+    if only_if_denser and not lb_tail_adds_points(m, saved_len, j0):
+        return None                                      # the saved curve already draws it denser
+    offs = [((k + 1) * L) // m for k in range(m)]       # strictly increasing, ends at L
+
+    def rnd(x):                                          # the exact rounding the curve uses
+        return int(round(x)) if ndp is None else round(x, ndp)
+
+    return {"v": 1, "cum": [rnd(xs[i0 - 1 + o]) for o in offs], "base": rnd(xs[i0 - 1]),
+            "i0": int(i0), "j0": int(j0), "pts": int(saved_len)}
+
+
+def strip_lb_tails(gv):
+    """A copy of a gate_validate block with every lb_tail* key removed from its candidate,
+    tilt, hybrid and KEEL rows and from the chosen gate's equity dict. For the
+    validate.gate_bakeoff mirror: the funnel reads the top-level gate_validate, so the
+    mirror would only double the tails' bytes on the doc. Shallow - the original block is
+    never mutated (validate reads it again after the mirror is built)."""
+    if not isinstance(gv, dict):
+        return gv
+
+    def _eq(e):
+        return ({k: v for k, v in e.items() if not str(k).startswith("lb_tail")}
+                if isinstance(e, dict) else e)
+
+    def _row(r):
+        if not isinstance(r, dict):
+            return r
+        o = {k: v for k, v in r.items() if not str(k).startswith("lb_tail")}
+        if "equity" in o:
+            o["equity"] = _eq(o["equity"])
+        return o
+
+    out = {k: v for k, v in gv.items() if not str(k).startswith("lb_tail")}
+    for k in ("candidates", "tilts", "hybrids"):
+        if isinstance(out.get(k), list):
+            out[k] = [_row(r) for r in out[k]]
+    if isinstance(out.get("keel"), dict):
+        out["keel"] = _row(out["keel"])
+    if "equity" in out:
+        out["equity"] = _eq(out["equity"])
+    return out
+
+
 def equity_curve_from_pnls(pnls, cap=160, times=None):
     """Cumulative equity curve from a per-trade NET-PnL series, downsampled to <=cap
     points — the same accumulate-then-index-stride pattern already used ad hoc in a

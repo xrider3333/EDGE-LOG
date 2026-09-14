@@ -581,9 +581,12 @@ def sizes_from_z(z, trust, k=K_MAX, lo=LO, hi=HI):
 
 
 # -- gate_validate row --------------------------------------------------------
-def keel_block(arrays, trades, slicer, lb_start, wf0=None, wf1=None, version=DEFAULT_VERSION):
+def keel_block(arrays, trades, slicer, lb_start, wf0=None, wf1=None, version=DEFAULT_VERSION,
+               lb_tail_cap=0):
     """One comparison-only row for gate_validate's output (same stat-block shape as the
-    TILT rows; never crownable). `slicer(ts, pnls, t0, t1)` is gate_validate's _sl."""
+    TILT rows; never crownable). `slicer(ts, pnls, t0, t1)` is gate_validate's _sl.
+    `lb_tail_cap` > 0 adds the 1A funnel's dense lockbox tail (analytics.lockbox_tail) to
+    the row's equity; gate_validate passes its own per-line cap, 0 (default) adds nothing."""
     kw = keel_walk(arrays, trades, version=version)
     idx = arrays["index"]; nb = len(idx)
     ts = np.array([idx[min(int(e), nb - 1)] for e in kw["E"]])
@@ -614,4 +617,18 @@ def keel_block(arrays, trades, slicer, lb_start, wf0=None, wf1=None, version=DEF
         row["equity"] = {"cum": downsample_curve(np.cumsum(tp), cap=300, ndp=None), "n": int(len(tp))}
     except Exception:
         pass
+    # 2026-09-13: dense lockbox tail, same door rule as gate_validate's rows - the pre-lockbox
+    #   trades must be the leading run of this walk's entry-ordered list, or a count is not a
+    #   position. Its own try: a tail failure never costs the row its curve.
+    if lb_tail_cap and isinstance(row.get("equity"), dict):
+        try:
+            from .analytics import lockbox_tail
+            _cf = np.cumsum(tp)
+            _s = int(pre_m.sum())
+            if _s >= 2 and len(tp) > _s and pre_m[:_s].all() and not pre_m[_s:].any():
+                _lt = lockbox_tail(_cf, _s, len(row["equity"]["cum"]), int(lb_tail_cap), None)
+                if _lt is not None:
+                    row["equity"]["lb_tail"] = _lt
+        except Exception:
+            pass
     return row

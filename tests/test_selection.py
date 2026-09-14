@@ -25,6 +25,7 @@ conventions:
      models regardless of data size) so the module-scoped fixture computes each
      select_oos_topk value's run exactly once and every test function reuses it.
 """
+import json
 import types
 
 import numpy as np
@@ -357,7 +358,14 @@ def _make_selection_strategy():
                "profit_factor": pf, "max_drawdown": -10.0, "avg_pnl": pnl / trades_n,
                "wins": 5, "losses": 5}
         if return_trades:
-            out["trades"] = [(i, i + 1, pnl / trades_n, 1, 100.0) for i in range(trades_n)]
+            # 2026-09-13: the trades are spread across the slice instead of packed into its
+            #   first ten bars, so the whole-window backtest the gate block reads has trades on
+            #   BOTH sides of the lockbox door - otherwise the gate rows can never carry a
+            #   lockbox tail and the wiring test below would pass on nothing. Only positions
+            #   moved: the dollars, the count and every total are exactly as before.
+            step = max(1, (n - 2) // trades_n)
+            out["trades"] = [(i * step, i * step + 1, pnl / trades_n, 1, 100.0)
+                             for i in range(trades_n)]
         return out
 
     mod.run_backtest = run_backtest
@@ -395,8 +403,27 @@ def validate_runs(_patched_data_layer):
                   cost_pts=0.0, min_trades=1, n_trials=40, wf_folds=3, seed=42,
                   lockbox_months=0.2, date_from=None, date_to=None,
                   equity_points=200, discover="auto")
+    # 2026-09-13 (1A funnel lockbox tails): this strategy books 10 trades, so every 300-point
+    #   saved ML curve already holds every trade and the engine rightly writes no tail. The k0
+    #   run switches that density rule off - only for k0 - so the wiring test below still
+    #   proves a tail travels from ml_gate through run_validate onto gate_validate and stays
+    #   off the validate.gate_bakeoff mirror. Tails change nothing else in the result (the
+    #   lb_tail_cap=0 identity test in test_ml_lockbox_tail.py), so k0 stays comparable to k1.
+    import augur_engine.analytics as _an
+    import augur_engine.ml_gate as _mg
+    _real_tail = _an.lockbox_tail
+
+    def _tail_any_density(*a, **kw):
+        kw["only_if_denser"] = False
+        return _real_tail(*a, **kw)
+
+    _an.lockbox_tail = _mg.lockbox_tail = _tail_any_density
+    try:
+        k0 = run_validate(strat, select_oos_topk=0, **kwargs)
+    finally:
+        _an.lockbox_tail = _mg.lockbox_tail = _real_tail
     return {
-        "k0": run_validate(strat, select_oos_topk=0, **kwargs),
+        "k0": k0,
         "k1": run_validate(strat, select_oos_topk=1, **kwargs),
         "k3": run_validate(strat, select_oos_topk=3, **kwargs),
     }
@@ -448,3 +475,36 @@ def test_flag_on_candidates_well_formed(validate_runs):
         eq = c["equity"]
         assert isinstance(eq, dict) and "cum" in eq and "final" in eq
         assert isinstance(eq["cum"], list) and len(eq["cum"]) <= 160
+
+
+# (e) 1A funnel lockbox tails (2026-09-13) ride on the top-level gate_validate block only ──
+
+def test_gate_block_carries_lockbox_tails_and_the_mirror_does_not(validate_runs):
+    """The real pipeline wires the tails through: every gate row the block saves has one,
+    and the validate.gate_bakeoff mirror is the same block with the tails stripped. The
+    builders swallow their own exceptions, so presence is asserted, not assumed."""
+    from augur_engine.analytics import strip_lb_tails
+    out = validate_runs["k0"]
+    gv = out.get("gate_validate")
+    assert gv is not None
+    i0 = int(gv["ungated_pre"]["num_trades"])
+    assert i0 >= 2 and int(gv["ungated_lockbox"]["num_trades"]) >= 1
+    rows = gv["candidates"] + gv["tilts"] + gv["hybrids"]
+    if isinstance(gv.get("keel"), dict) and "error" not in gv["keel"]:
+        rows.append(gv["keel"])
+    assert gv["candidates"] and gv["tilts"]
+    for r in rows:
+        eq = r["equity"]
+        t = eq.get("lb_tail")
+        assert isinstance(t, dict), r.get("model")
+        assert t["i0"] == i0 and t["pts"] == len(eq["cum"]) and t["cum"][-1] == eq["cum"][-1]
+    mirror = out["validate"]["gate_bakeoff"]
+    assert mirror is not None
+    assert "lb_tail" not in json.dumps(mirror, default=str)
+    assert json.dumps(mirror, default=str) == json.dumps(strip_lb_tails(gv), default=str)
+    # and with the engine's own density rule (k1: same champion, same trades) a 10-trade run
+    #   carries no tail at all - the saved curve already draws every lockbox trade
+    gv1 = validate_runs["k1"].get("gate_validate")
+    assert gv1 is not None and gv1["candidates"]
+    assert "lb_tail" not in json.dumps(gv1, default=str)
+    assert json.dumps(strip_lb_tails(gv), default=str) == json.dumps(gv1, default=str)

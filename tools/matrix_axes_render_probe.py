@@ -45,11 +45,34 @@ WHAT IT ASSERTS
     never reached the extent pass and the tallest was clipped off the frame
   * the GATE / TILT / HYBRID-recycle top lines are SOLID. A full-length dash read
     as "walk-forward" under the funnel's own published line procedure
+  * THE ML LINES' LOCKBOX IS DRAWN FROM THE DENSE LOCKBOX TAIL (v73.761). Every ML
+    curve is one 300-point sample of the whole run, which left the held-out year
+    about 20 points - long straight strokes once the lockbox has a quarter of the
+    width. Run 909 carries tails built by the REAL engine helpers (analytics.py,
+    loaded on its own so the engine package is not imported), with a lockbox spike
+    the 300-point stride steps over. Every ML line must put the tail's points past
+    the door, at the tail's x positions and the true running totals; DOORS must
+    still equal ONE CURVE less the door value; a tail whose door count is off by one
+    (910) must draw exactly what no tail (911) draws; and the explorer payload must
+    carry the stitched line on the piecewise calendar
+  * EVERY OTHER TAIL GUARD IS LOAD-BEARING (review, 2026-09-13). 912 breaks each ML
+    line's tail a different way - format, saved-point count, trade count, door index,
+    length, door value, a value, end value, and a tail that adds no points - and must
+    draw exactly 913 (no tails); good tails on a run with no lockbox panel (914) must
+    draw 915; a 500-trade lockbox whose saved curves out-draw any tail (918) must draw
+    919; a 4-trade lockbox with the door on the LAST saved point (916) must be stitched
+  * THE DEFAULT VIEW'S FAMILY Y-SCALE FOLDS (920-922, ALL CONFIGS off): a gate, tilt,
+    KEEL, hybrid or recycle top line whose lockbox tail holds the chart's peak or
+    trough stays inside the plot - the ALL CONFIGS fold cannot mask a broken one there
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE.
-Stdlib only, plus a subprocess call to local Chrome.
+Stdlib plus a subprocess call to local Chrome - and augur_engine/analytics.py (numpy,
+scipy) for the lockbox-tail fixtures, loaded straight from its file.
 """
+import calendar
+import copy
 import http.server
+import importlib.util
 import json
 import os
 import re
@@ -57,6 +80,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_mtxaxes_probe.html'
@@ -223,6 +247,238 @@ def run_doc(rid, cands):
     }
 
 
+def _pool3():
+    """908's raw pool: the five ML-run configs, each WITH a lockbox tail, every saved curve
+       stopping short of its true total the way the engine's sampled curves do."""
+    ml3 = [cfg(n, i, w, cu, wr, pf, ntr, crowned=(n == 'A'), rng=True)
+           for (n, wr, pf), (i, w, cu, ntr) in zip(
+               MAIN_WR_PF,
+               [(4000, 3000, SMOOTH, 500), (3500, 2600, CHOPPY, 400),
+                (3000, 2200, SMOOTH, 620), (2500, 1800, SMOOTH, 90),
+                (2000, 1400, CHOPPY, 300)])]
+    for c in ml3:
+        base = c['equity']['cum'][-1] + LB_GAP
+        c['equity']['final'] = base
+        c['lb_equity'] = {'cum': [base + v for v in LB_CUM], 'base': base,
+                          'final': base + LB_CUM[-1] + LB_TAIL}
+    return ml3
+
+
+# -- 909 / 910 / 911: THE ML LOCKBOX TAIL (v73.761) ------------------------------
+#    An engine-faithful ML block on 908's raw pool. 1,400 trades, the first 1,300 before the
+#    lockbox (908's ungated counts), so every 300-point saved curve keeps 21 points past the
+#    door - the #384 shape. Each row's curve AND its lockbox tail are built by the real
+#    augur_engine/analytics.py helpers from one per-trade series, exactly as ml_gate does.
+#    The lockbox trades swing in blocks of six (+400 / -330), so a line bent at the wrong
+#    point, or drawn from the sparse sample, reads visibly off the true running total.
+#    One non-top gate candidate books +SPIKE on trade 1336 and gives it back on 1337: the
+#    300-point stride samples 1334 and 1339 and never sees it, the tail keeps it, and it is
+#    the tallest value on the chart - so a y-scale that folds the saved curve instead of the
+#    drawn one puts that line off the top.
+LBT_N, LBT_I0 = 1400, 1300
+LBT_SPIKE_AT = 1336
+_LBT = {'mod': None, 'err': None, 'block': None, 'built': {}}
+
+
+def _analytics():
+    """augur_engine/analytics.py loaded from its own file (the package __init__ pulls in the
+       whole engine), or None with the reason in _LBT['err']."""
+    if _LBT['mod'] is None and _LBT['err'] is None:
+        try:
+            spec = importlib.util.spec_from_file_location(
+                '_mtxaxes_analytics', os.path.join(REPO, 'augur_engine', 'analytics.py'))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            for nm in ('downsample_curve', 'lockbox_tail', 'LB_TAIL_CAP'):
+                if not hasattr(mod, nm):
+                    raise AttributeError('analytics.py has no %s' % nm)
+            _LBT['mod'] = mod
+        except Exception as e:
+            _LBT['err'] = '%s: %s' % (type(e).__name__, e)
+    return _LBT['mod']
+
+
+def _lbt_u(i, i0=LBT_I0):
+    """The ungated per-trade PnL. Sub-dollar parts so the gate's 1-decimal curve is exercised."""
+    frac = ((i * 37) % 10) * 0.037
+    if i < i0:
+        return (40.0 if i % 10 != 9 else -60.0) + frac
+    return (400.0 if ((i - i0) // 6) % 2 == 0 else -330.0) + frac
+
+
+def _lbt_build(i0=LBT_I0, spikes=('gc-logit-60',), troughs=(), no_recycle=False, only_if_denser=True):
+    """(gate_validate block, expectations, spike size) for one lockbox-tail run. Each expectation
+       is one drawn ML line: its family, payload id, full per-trade cumulative curve, saved equity
+       dict and the factor the funnel multiplies it by.
+       i0          - the door (pre-lockbox trades of LBT_N);
+       spikes      - line ids ('gate' is the chosen gate) that book +SPIKE on trade LBT_SPIKE_AT and
+                     give it back on the next trade: the 300-point stride steps over it, the tail
+                     keeps it; troughs do the same downwards;
+       no_recycle  - every hybrid keeps all trades, so the funnel draws no recycle line;
+       only_if_denser=False - tails even where they add no points (a tail the funnel must refuse)."""
+    key = (i0, tuple(spikes), tuple(troughs), no_recycle, only_if_denser)
+    if key in _LBT['built']:
+        return _LBT['built'][key]
+    A = _analytics()
+    if A is None:
+        return None
+    np = A.np
+    ii = np.arange(LBT_N)
+    u = np.array([_lbt_u(int(i), i0) for i in ii])
+    cap = int(A.LB_TAIL_CAP)
+    g = gate_validate(tall_gate=False, hyb_recycle_tall=False)
+    g['ungated_pre'] = blk(130000, i0, 1.45, 44.0, 12000)
+    g['ungated_lockbox'] = blk(10000, LBT_N - i0, 1.30, 42.0, 3000)
+    g['ungated_full'] = blk(140000, LBT_N, 1.44, 44.0, 12000)
+    series = []          # (family, payload id, per-trade pnl array, row template, factor)
+    keep_g = ii % 7 != 3
+    for model, th, keep in (('rf', 0.5, keep_g), ('logit', 0.6, ii % 5 != 4), ('xgb', 0.7, ii % 3 != 0)):
+        series.append(('cand', 'gc-%s-%d' % (model, round(th * 100)), np.where(keep, u, 0.0),
+                       gcand(model, th, [0.0]), 1.0))
+    for model, scheme, size in (('rf', 'tier', np.array([0.5, 1.0, 1.0, 2.0])[ii % 4]),
+                                ('xgb', 'linear', 0.75 + 0.125 * (ii % 5))):
+        t = szcand(model, [0.0], LBT_N, LBT_N, 1.55 if model == 'rf' else 1.66, scheme=scheme)
+        t['kept_pre'] = i0
+        series.append(('tilt', 'tilt-%s-%s' % (model, scheme), size * u, t, 1.0))
+    for model, keep, size, so_lb in (('rf', keep_g, 1.25, 1.44),
+                                     ('xgb', ii % 4 != 0, 0.9 + 0.1 * (ii % 3), 1.88)):
+        kept = int(keep.sum())
+        full_n = LBT_N if no_recycle else kept
+        h = szcand(model, [0.0], full_n, full_n, so_lb)
+        h['kept_pre'] = int(keep[:i0].sum())
+        series.append(('hyb', 'hyb-%s' % model, np.where(keep, size * u, 0.0), h,
+                       1.0 if no_recycle else float(LBT_N) / kept))
+    k = szcand('keel', [0.0], LBT_N, LBT_N, 1.5, scheme='skill-gated expectancy tilt')
+    k.update({'version': 'v12', 'kept_pre': i0, 'crownable': False, 'avg_size': 1.0, 'max_size': 1.3,
+              'trust_mean': 0.1, 'trust_on': 0.2, 'member_trust': {}, 'sizes': {}, 'cutoff': None,
+              'rule': 'probe keel', 'wf_lb': blk(9600, 96, 1.37, 43.0, 2600, 0.89, 1.5)})
+    series.append(('keel', 'keel', (0.7 + 0.12 * (ii % 6)) * u, k, 1.0))
+    # the spike: taller than anything else the chart draws, recycle lines and raw pool included
+    tallest = max([float(np.cumsum(p).max()) * f for (_fm, _id, p, _t, f) in series] + [10000.0])
+    spike = float(round(1.6 * tallest, -3))
+
+    def _bump(sid, p):
+        if sid in spikes or sid in troughs:
+            s = spike if sid in spikes else -spike
+            p = p.copy()
+            p[LBT_SPIKE_AT] += s
+            p[LBT_SPIKE_AT + 1] -= s
+        return p
+    rows = []
+    cands, tilts, hybs = [], [], []
+    for fam, sid, p, row, f in series:
+        p = _bump(sid, p)
+        cf = np.cumsum(p)
+        cum = A.downsample_curve(cf, cap=300, ndp=None)
+        eq = {'cum': cum, 'n': LBT_N}
+        tail = A.lockbox_tail(cf, i0, len(cum), cap, None, only_if_denser=only_if_denser)
+        if tail is not None:
+            eq['lb_tail'] = tail
+        row['equity'] = eq
+        {'cand': cands, 'tilt': tilts, 'hyb': hybs}.get(fam, []).append(row)
+        if fam == 'keel':
+            g['keel'] = row
+        ex = {'fam': fam, 'id': sid, 'cf': cf.tolist(), 'eq': eq, 'ck': 'cum', 'lk': 'lb_tail', 'f': 1.0,
+              'spiked': sid in spikes}
+        rows.append(ex)
+        if fam == 'hyb' and not no_recycle:
+            rows.append(dict(ex, fam='hyb2', id='hybr-' + sid[4:], f=f))
+    # the chosen gate: rf @ 50%, on the curve's own 1-decimal rounding, as ml_gate saves it
+    cfg_ = np.cumsum(_bump('gate', np.where(keep_g, u, 0.0)))
+    geq = {'cum_ungated': A.downsample_curve(np.cumsum(u)), 'cum_gated': A.downsample_curve(cfg_), 'n': LBT_N}
+    gt = A.lockbox_tail(cfg_, i0, len(geq['cum_gated']), cap, 1, only_if_denser=only_if_denser)
+    if gt is not None:
+        geq['lb_tail_gated'] = gt
+    rows.append({'fam': 'gate', 'id': 'gate', 'cf': cfg_.tolist(), 'eq': geq, 'ck': 'cum_gated',
+                 'lk': 'lb_tail_gated', 'f': 1.0, 'spiked': 'gate' in spikes})
+    g.update({'equity': geq, 'candidates': cands, 'tilts': tilts, 'hybrids': hybs,
+              'thresholds': [0.5, 0.6, 0.7]})
+    _LBT['built'][key] = (g, rows, spike)
+    return _LBT['built'][key]
+
+
+def lbt_block():
+    """909's block: the #384 shape, good tails, the spike on one non-top gate candidate."""
+    if _LBT['block'] is None:
+        _LBT['block'] = _lbt_build()
+    return _LBT['block']
+
+
+# -- 912 / 913: THE GUARD GAUNTLET. Every tail holder of 909's block carries a tail broken in
+#    exactly ONE way that one _mlTail guard - and only that guard - refuses, so a later edit
+#    that drops any of them draws a line 913 (the same run with no tails) does not.
+#    The broken tails stay otherwise engine-real: the too-long one and the thin one are cut by
+#    the real helper, the rest are 909's tails with one field changed.
+GAUNTLET = (
+    ('gate', 'end', 'last tail value 0.1 off the saved final value'),
+    ('gc-rf-50', 'v', 'unknown tail format v=2'),
+    ('gc-logit-60', 'pts', 'cut for 299 saved points, the curve has 300'),
+    ('gc-xgb-70', 'n', 'the curve says 1,401 trades, the block 1,400'),
+    ('tilt-rf-tier', 'j0', 'door index 6 before the one the saved sampling rule gives'),
+    ('tilt-xgb-linear', 'long', 'more tail points than lockbox trades'),
+    ('hyb-rf', 'base', 'door value saved as text'),
+    ('hyb-xgb', 'value', 'one tail value saved as text'),
+    ('keel', 'thin', 'a 20-point tail where the saved curve already has 21 points past the door'),
+)
+
+
+def _lbt_gauntlet(gv, rows):
+    """-> (the gauntlet block for 912, its no-tail control for 913)."""
+    A = _analytics()
+    out = copy.deepcopy(gv)
+    by_id = {r['id']: r for r in rows}
+    holders = {'gate': out['equity'], 'keel': out['keel']['equity']}
+    for r in out['candidates']:
+        holders['gc-%s-%d' % (r['model'], round(r['threshold'] * 100))] = r['equity']
+    for r in out['tilts']:
+        holders['tilt-%s-%s' % (r['model'], r['scheme'])] = r['equity']
+    for r in out['hybrids']:
+        holders['hyb-%s' % r['model']] = r['equity']
+    L = LBT_N - LBT_I0
+    for sid, how, _why in GAUNTLET:
+        e, ex = holders[sid], by_id[sid]
+        tk = ex['lk']
+        t = e[tk]
+        if how == 'end':
+            t['cum'][-1] = round(t['cum'][-1] + 0.1, 1)
+        elif how == 'v':
+            t['v'] = 2
+        elif how == 'pts':
+            t['pts'] = t['pts'] - 1
+        elif how == 'n':
+            e['n'] = LBT_N + 1
+        elif how == 'j0':
+            t['j0'] = t['j0'] - 6
+        elif how == 'long':
+            full = A.lockbox_tail(A.np.array(ex['cf']), LBT_I0, len(e[ex['ck']]), L, None, only_if_denser=False)
+            e[tk] = dict(full, cum=[full['base']] + full['cum'])
+        elif how == 'base':
+            t['base'] = str(t['base'])
+        elif how == 'value':
+            t['cum'][40] = str(t['cum'][40])
+        elif how == 'thin':
+            e[tk] = A.lockbox_tail(A.np.array(ex['cf']), LBT_I0, len(e[ex['ck']]), 20, None,
+                                   only_if_denser=False)
+
+    def _drop(e, key):
+        del e[key]
+    return out, _lbt_edit(out, _drop)
+
+
+def _lbt_edit(gv, fn):
+    """A deep copy of a gate_validate block with fn applied to every lockbox-tail holder:
+       fn(equity_dict, key) for each lb_tail* key found."""
+    out = copy.deepcopy(gv)
+    holders = [out.get('equity')] + [r.get('equity') for r in
+                                     (out.get('candidates') or []) + (out.get('tilts') or []) +
+                                     (out.get('hybrids') or []) + [out.get('keel') or {}]]
+    for e in holders:
+        if isinstance(e, dict):
+            for key in [x for x in e if str(x).startswith('lb_tail')]:
+                fn(e, key)
+    return out
+
+
 def build_runs():
     main = [
         cfg('A', 4000, 3000, SMOOTH, 40.0, 1.80, 500, crowned=True),
@@ -301,18 +557,7 @@ def build_runs():
     #   (906 / 907 have none, so DOORS draws two). Every saved curve stops short of its true
     #   total, as the engine's sampled curves do: the raw curve by LB_GAP, the lockbox tail by
     #   LB_TAIL. The tilt / hybrid blocks carry the trade counts that place their lockbox door.
-    ml3 = [cfg(n, i, w, cu, wr, pf, ntr, crowned=(n == 'A'), rng=True)
-           for (n, wr, pf), (i, w, cu, ntr) in zip(
-               MAIN_WR_PF,
-               [(4000, 3000, SMOOTH, 500), (3500, 2600, CHOPPY, 400),
-                (3000, 2200, SMOOTH, 620), (2500, 1800, SMOOTH, 90),
-                (2000, 1400, CHOPPY, 300)])]
-    for c in ml3:
-        base = c['equity']['cum'][-1] + LB_GAP
-        c['equity']['final'] = base
-        c['lb_equity'] = {'cum': [base + v for v in LB_CUM], 'base': base,
-                          'final': base + LB_CUM[-1] + LB_TAIL}
-    r908 = run_doc(908, ml3)
+    r908 = run_doc(908, _pool3())
     g908 = gate_validate(tall_gate=False, hyb_recycle_tall=False)
     for blk_ in g908['tilts']:
         blk_['kept_pre'] = 1300
@@ -322,8 +567,48 @@ def build_runs():
     r908['gate_validate'] = g908
     r908['equity_top'] = [{'cum': SMOOTH}, {'cum': CHOPPY}]
     r908['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
-    return [run_doc(901, main), run_doc(902, partial), run_doc(903, bare),
+    runs = [run_doc(901, main), run_doc(902, partial), run_doc(903, bare),
             run_doc(904, modern), kpi, r906, r907, r908]
+    # 909: the lockbox-tail block; 910: the same with every tail's door count off by one, which
+    #   the web must refuse; 911: the same with the tails removed - an old run
+    lb = lbt_block()
+    if lb is not None:
+        def _i0_off(e, key):
+            e[key]['i0'] = e[key]['i0'] + 1
+
+        def _drop(e, key):
+            del e[key]
+        def _lbt_run(rid, gv, pool=None):
+            r = run_doc(rid, pool if pool is not None else _pool3())
+            r['gate_validate'] = copy.deepcopy(gv)
+            r['equity_top'] = [{'cum': SMOOTH}, {'cum': CHOPPY}]
+            r['validate']['windows']['lockbox'] = [GATE_LB0, GATE_SPAN[1]]
+            return r
+        for rid, gv in ((909, lb[0]), (910, _lbt_edit(lb[0], _i0_off)), (911, _lbt_edit(lb[0], _drop))):
+            runs.append(_lbt_run(rid, gv))
+        # 912 / 913: the guard gauntlet and its no-tail twin
+        gnt, gnt0 = _lbt_gauntlet(lb[0], lb[1])
+        runs += [_lbt_run(912, gnt), _lbt_run(913, gnt0)]
+        # 914 / 915: good tails on a run whose RAW configs have no lockbox panel (906's pool) - the
+        #   funnel has no lockbox stretch to put them in, so they must change nothing
+        runs += [_lbt_run(914, lb[0], pool=ml), _lbt_run(915, _lbt_edit(lb[0], _drop), pool=ml)]
+        # 916 / 917: a lockbox of 4 trades, so only the final saved point is past the door (j0 = 299 =
+        #   pts-1). The most stretched line there is: its tail must be drawn
+        tiny = _lbt_build(i0=LBT_N - 4, spikes=())
+        runs += [_lbt_run(916, tiny[0]), _lbt_run(917, _lbt_edit(tiny[0], _drop))]
+        # 918 / 919: a lockbox of 500 of the 1,400 trades. Each saved curve already has 107 points
+        #   past the door against 81 for a tail, so the engine writes none; 918 carries tails cut
+        #   anyway, and the funnel must refuse every one of them (draw exactly 919)
+        short = _lbt_build(i0=900, spikes=(), only_if_denser=False)
+        runs += [_lbt_run(918, short[0]), _lbt_run(919, _lbt_edit(short[0], _drop))]
+        # 920-922: the DEFAULT view (ALL CONFIGS off), where only the family top lines draw and only
+        #   the family y-scale folds size the axis. Each run gives one family top the chart's peak
+        #   and (920, 921) another its deepest trough, in the lockbox tail only
+        runs.append(_lbt_run(920, _lbt_build(spikes=('gate',), troughs=('keel',))[0]))
+        runs.append(_lbt_run(921, _lbt_build(spikes=('tilt-rf-tier', 'tilt-xgb-linear'),
+                                             troughs=('hyb-rf', 'hyb-xgb'), no_recycle=True)[0]))
+        runs.append(_lbt_run(922, _lbt_build(spikes=('hyb-rf', 'hyb-xgb'))[0]))
+    return runs
 
 
 CASES = [
@@ -374,6 +659,29 @@ CASES = [
     # and a run WITH a lockbox panel, drawn both ways so DOORS can be checked against ONE CURVE
     ('funnel-3p', 908, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
     ('funnel-doors-3p', 908, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1, 'a2doors': 1}),
+    # the ML lockbox tail: good tails (909), tails whose door count is off by one (910), none (911)
+    ('funnel-3p-lb', 909, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-doors-3p-lb', 909, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1, 'a2doors': 1}),
+    ('funnel-3p-lbbad', 910, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-doors-3p-lbbad', 910, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1, 'a2doors': 1}),
+    ('funnel-3p-lbnone', 911, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-doors-3p-lbnone', 911, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1, 'a2doors': 1}),
+    # every _mlTail guard, one broken tail each (912) against the same run with no tails (913)
+    ('funnel-lb-gauntlet', 912, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-lb-gauntlet0', 913, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    # good tails with no RAW lockbox panel (914) against none (915)
+    ('funnel-lb-nopanel', 914, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-lb-nopanel0', 915, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    # a 4-trade lockbox, door on the last saved point (916) against none (917)
+    ('funnel-lb-tiny', 916, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-lb-tiny0', 917, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    # a 500-trade lockbox whose saved curves out-draw any tail (918) against none (919)
+    ('funnel-lb-short', 918, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    ('funnel-lb-short0', 919, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1, 'a2kAll': 1}),
+    # the default view, ALL CONFIGS off: family top lines holding the chart's peak / trough
+    ('funnel-ft-gate-keel', 920, {'repCols': '3', 'eqTab': 'funnel'}),
+    ('funnel-ft-tilt-hyb', 921, {'repCols': '3', 'eqTab': 'funnel'}),
+    ('funnel-ft-recycle', 922, {'repCols': '3', 'eqTab': 'funnel'}),
 ]
 
 PROBE_HTML = r"""<!DOCTYPE html>
@@ -529,6 +837,20 @@ var CASES = __CASES__;
                 var nn3=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
                 if(nn3.length>=2&&Math.abs(nn3[1]-y03)>0.35&&f.dzStartBad.length<6)f.dzStartBad.push({panel:k3,y:nn3[1],zero:+y03.toFixed(2)});});}
           }catch(e){f.dzErr=String(e);}
+          // THE LOCKBOX STRIPE: its x span is the lockbox door and the right edge, and its foot is
+          //   the equity pane's floor - enough to read any vertex back into dollars
+          try{var lbr=sv.querySelector('rect[fill="rgba(167,139,250,.16)"]');
+            if(lbr){f.lbX0=+lbr.getAttribute('x');f.lbX1=f.lbX0+(+lbr.getAttribute('width'));
+              f.eqB=(+lbr.getAttribute('y'))+(+lbr.getAttribute('height'));}}catch(e){f.lbErr=String(e);}
+          // the lockbox-tail runs: every polyline as drawn (points, stroke, dash - no clip ids, they
+          //   carry the run id) and the explorer payload's ML series in full
+          if(rid>=909){
+            f.polys=[];sv.querySelectorAll('polyline').forEach(function(el){
+              f.polys.push((el.getAttribute('points')||'')+'|'+(el.getAttribute('stroke')||'')+'|'+(el.getAttribute('stroke-dasharray')||''));});
+            f.ser=[];(w._a2EqSeries||[]).forEach(function(s){
+              if(!s||s.dim||!(s.gateChosen||s.gateCand||s.tiltCand||s.hybCand||s.hybRcy||s.id==='keel'))return;
+              f.ser.push({id:s.id,famTop:!!s.famTop,hasSp:Object.prototype.hasOwnProperty.call(s,'sp'),
+                          sp:(s.sp==null?null:s.sp),li:s.li,wfi:s.wfi,eq:s.eq,ts:s.ts});});}
           r.funnel=f;
         })();
         var ap=d.getElementById('app'); r.appLen=ap?ap.innerHTML.length:-1;
@@ -1042,7 +1364,9 @@ def main():
     for fnm, what in (('funnel-gatecand', 'a gate candidate curve'),
                       ('funnel-hybrcy', 'the recycle line of the hybrid that was NOT picked'),
                       ('funnel-doors-gatecand', 'a gate candidate curve in DOORS'),
-                      ('funnel-doors-hybrcy', 'the recycle line of the unpicked hybrid in DOORS')):
+                      ('funnel-doors-hybrcy', 'the recycle line of the unpicked hybrid in DOORS'),
+                      ('funnel-3p-lb', 'a lockbox spike only the dense lockbox tail carries'),
+                      ('funnel-doors-3p-lb', 'a lockbox spike only the dense lockbox tail carries, in DOORS')):
         fr = (cs.get(fnm) or {}).get('funnel')
         if not fr:
             bad.append('%s: the 1A funnel did not render (no [data-a2eqx] chart)' % fnm)
@@ -1108,13 +1432,17 @@ def main():
                 return ya + (yb - ya) * (x - xa) / (xb - xa), abs(yb - ya)
         return None, None
 
-    fo = (cs.get('funnel-3p') or {}).get('funnel') or {}
-    fd = (cs.get('funnel-doors-3p') or {}).get('funnel') or {}
-    if not fo.get('lines') or not fd.get('lines') or not fd.get('dz') or fd.get('dzEbF') is None:
-        bad.append('funnel-3p / funnel-doors-3p: no funnel lines or no DOORS panel scales to compare')
-    elif len(fd['dz']) != 3:
-        bad.append('funnel-doors-3p: %d panels on a run with a lockbox - expected 3' % len(fd['dz']))
-    else:
+    def _doors_parity(one_nm, doors_nm, ml_ends=None, ml_need=0):
+        """10d / 10g. ml_ends = {family: [lockbox totals]}: each ML lockbox piece must also end
+           on one of its family's true lockbox totals, and at least ml_need of them must."""
+        fo = (cs.get(one_nm) or {}).get('funnel') or {}
+        fd = (cs.get(doors_nm) or {}).get('funnel') or {}
+        if not fo.get('lines') or not fd.get('lines') or not fd.get('dz') or fd.get('dzEbF') is None:
+            bad.append('%s / %s: no funnel lines or no DOORS panel scales to compare' % (one_nm, doors_nm))
+            return
+        if len(fd['dz']) != 3:
+            bad.append('%s: %d panels on a run with a lockbox - expected 3' % (doors_nm, len(fd['dz'])))
+            return
         ptv, eqB = fo['pt'], fd['dzEbF'] * fd['H']
         y0, y1 = fo['axisMin'], fo['axisMax']
         u1 = (y1 - y0) / (eqB - ptv)
@@ -1127,7 +1455,7 @@ def main():
             return hi - (y - ptv) * (hi - lo) / (eqB - ptv)
 
         ones = [dict(o, xy=_xy(o['pts'])) for o in fo['lines'] if o.get('k') is None]
-        n_ok, fails = 0, []
+        n_ok, n_ml, fails = 0, 0, []
         for L in fd['lines']:
             k = L.get('k')
             if k is None:
@@ -1188,14 +1516,395 @@ def main():
                     fails.append('lockbox tail ends at $%.0f, not its true total $%.0f'
                                  % (vk(xy[-1][1], 2), want))
                     continue
+            # an ML line's lockbox piece starts on the door value (checked above) and must end on
+            #   its line's true lockbox total - the last tail point less the value on the door
+            if k == 2 and ml_ends and L['kg'] in ml_ends:
+                end = vk(xy[-1][1], 2)
+                near = min(abs(end - t) for t in ml_ends[L['kg']])
+                if near > tol:
+                    fails.append('%s lockbox piece ends at $%.0f, on none of its family lockbox totals %s'
+                                 % (L['kg'], end, [round(t) for t in ml_ends[L['kg']]]))
+                    continue
+                n_ml += 1
             n_ok += 1
         for fl in fails[:8]:
-            bad.append('funnel-doors-3p: ' + fl)
+            bad.append(doors_nm + ': ' + fl)
         if not fails and n_ok < 20:
-            bad.append('funnel-doors-3p: only %d DOORS pieces could be checked against ONE CURVE' % n_ok)
+            bad.append('%s: only %d DOORS pieces could be checked against ONE CURVE' % (doors_nm, n_ok))
+        elif not fails and n_ml < ml_need:
+            bad.append('%s: only %d ML lockbox pieces could be checked against their true totals (%d drawn '
+                       'ML lines expected)' % (doors_nm, n_ml, ml_need))
         elif not fails:
-            print('  %-16s %d DOORS pieces = ONE CURVE less the value at their door; totals kept'
-                  % ('funnel-doors-3p', n_ok))
+            print('  %-16s %d DOORS pieces = ONE CURVE less the value at their door; totals kept%s'
+                  % (doors_nm, n_ok, ('; %d ML lockbox pieces end on their true lockbox totals' % n_ml)
+                     if ml_ends else ''))
+
+    _doors_parity('funnel-3p', 'funnel-doors-3p')
+
+    # -- 10e..10i. THE ML LOCKBOX TAIL (v73.761). Every ML line (gate, tilt, KEEL, hybrid,
+    #    recycle, ALL CONFIGS) saves one 300-point sample of the whole run, so the held-out year
+    #    had about 20 points and drew as straight strokes. Run 909 carries a dense tail per line,
+    #    built by the real engine helpers; 910 carries the same tails with the door count off by
+    #    one; 911 carries none.
+    lbt = lbt_block()
+    if lbt is None:
+        bad.append('lockbox-tail fixtures (runs 909-911) could not be built - augur_engine/analytics.py did '
+                   'not load (%s), so nothing about the ML lockbox tail was checked' % _LBT['err'])
+    else:
+        _gv9, rows, spike = lbt
+        M = min(int(_analytics().LB_TAIL_CAP), LBT_N - LBT_I0)
+        t_offs = [((q + 1) * (LBT_N - LBT_I0)) // M for q in range(M)]
+        by_id = {r['id']: r for r in rows}
+        ML_KG = ('gate', 'tilt', 'keel', 'hyb', 'hyb2', 'allcfg')
+        pool = {'gate': ('gate',), 'tilt': ('tilt',), 'keel': ('keel',), 'hyb': ('hyb',), 'hyb2': ('hyb2',),
+                'allcfg': ('cand', 'tilt', 'hyb', 'hyb2')}   # ALL CONFIGS = every non-top candidate line
+        spike_row = by_id['gc-logit-60']
+        spike_v = spike_row['cf'][LBT_SPIKE_AT] * MULT
+
+        def _true_tail(ex):
+            """the line's real running totals at the tail's trades, scaled as the funnel draws it"""
+            return [ex['cf'][LBT_I0 - 1 + o] * MULT * ex['f'] for o in t_offs]
+
+        def _geo(fr):
+            if not fr or fr.get('lbX0') is None or fr.get('eqB') is None or fr.get('axisMax') is None:
+                return None
+            ptv, eb, ya, yb = fr['pt'], fr['eqB'], fr['axisMin'], fr['axisMax']
+            u = (yb - ya) / (eb - ptv)
+            return {'x0': fr['lbX0'], 'x1': fr['lbX1'], 'u': u, 'v': (lambda y: yb - (y - ptv) * u)}
+
+        def _lbv(G, pts):
+            """the vertices past the lockbox door, left to right (the door vertex itself excluded)"""
+            half = 0.5 * (G['x1'] - G['x0']) / M
+            return [(x, y) for (x, y) in _xy(pts) if x > G['x0'] + half]
+
+        def _fit(G, lv, ex):
+            """(worst x miss, worst $ miss) of the lockbox vertices against one line's tail, whatever
+               their count - 10e owns the count. Each vertex is read as the tail point nearest its x,
+               so a sparse or mis-bent line misses the tail's x grid, its running totals, or both.
+               None when the line does not end on the right edge."""
+            want = _true_tail(ex)
+            if not lv or abs(lv[-1][0] - G['x1']) > 0.16:
+                return None
+            wx = wv = 0.0
+            step = (G['x1'] - G['x0']) / M
+            for (x, y) in lv:
+                q = min(M - 1, max(0, int(round((x - G['x0']) / step)) - 1))
+                wx = max(wx, abs(x - (G['x0'] + step * (q + 1))))
+                wv = max(wv, abs(G['v'](y) - want[q]))
+            return wx, wv
+
+        def _mlines(fr):
+            out = {}
+            for L in (fr or {}).get('lines') or []:
+                if L.get('k') is None and L['kg'] in ML_KG:
+                    out.setdefault(L['kg'], []).append(L)
+            return out
+
+        # the fixture itself: the stride really does step over the spike, and the tails are the cap
+        _sv = spike_row['eq']['cum']
+        if max(_sv) * MULT > spike_v - 0.5 * spike:
+            bad.append('lockbox-tail fixture: the saved 300-point curve of %s already holds the spike '
+                       '(max %s vs spike %s) - 10e/10f would not tell a tail from a sample'
+                       % (spike_row['id'], max(_sv), round(spike_v)))
+        for ex in rows:
+            q = ex['eq'].get(ex['lk'])
+            if not q or len(q.get('cum') or []) != M or q.get('i0') != LBT_I0:
+                bad.append('lockbox-tail fixture: %s has no %d-point tail at door %d (%s)'
+                           % (ex['id'], M, LBT_I0, None if not q else (len(q.get('cum') or []), q.get('i0'))))
+
+        # -- 10e / 10f on 909 ONE CURVE: every ML line puts exactly the tail's points past the door,
+        #    at the tail's x positions and on the true running totals, ending on the true total
+        lo = (cs.get('funnel-3p-lb') or {}).get('funnel') or {}
+        G = _geo(lo)
+        if G is None:
+            bad.append('funnel-3p-lb: no lockbox stripe or axis to read the ML lines against (lbErr %s)'
+                       % lo.get('lbErr'))
+        else:
+            tolv = 0.06 * G['u'] + 1.0
+            fam = _mlines(lo)
+            n_e = n_f = n_l = 0
+            used = {}
+            for kg in ML_KG:
+                Ls = fam.get(kg) or []
+                if not Ls:
+                    bad.append('funnel-3p-lb: no %r line drawn at all - nothing to check' % kg)
+                    continue
+                if kg == 'allcfg' and len(Ls) != 6:
+                    bad.append('funnel-3p-lb: ALL CONFIGS drew %d lines, expected 6 (3 gate candidates + the '
+                               'non-top tilt, hybrid and hybrid recycle)' % len(Ls))
+                for L in Ls:
+                    n_l += 1
+                    lv = _lbv(G, L['pts'])
+                    if len(lv) < M:
+                        bad.append('funnel-3p-lb (10e): the %r line has %d points past the lockbox door, '
+                                   'expected at least %d - it is still drawn from the sparse 300-point sample'
+                                   % (kg, len(lv), M))
+                    else:
+                        n_e += 1
+                    best = None
+                    for ex in rows:
+                        if ex['fam'] not in pool[kg] or (kg == 'allcfg' and used.get(ex['id'])):
+                            continue
+                        ft = _fit(G, lv, ex)
+                        if ft is not None and (best is None or ft[1] < best[0][1]):
+                            best = (ft, ex)
+                    if best is None or best[0][0] > 0.16 or best[0][1] > tolv:
+                        bad.append('funnel-3p-lb (10f): the %r line lockbox points match no %s tail - worst '
+                                   'x miss %s, worst $ miss %s (allowed 0.16 / $%.0f)'
+                                   % (kg, '/'.join(pool[kg]), None if best is None else round(best[0][0], 3),
+                                      None if best is None else round(best[0][1]), tolv))
+                        continue
+                    n_f += 1
+                    if kg == 'allcfg':
+                        used[best[1]['id']] = True
+                    if best[1]['spiked']:
+                        top = max(G['v'](y) for (_x, y) in lv)
+                        if abs(top - spike_v) > tolv:
+                            bad.append('funnel-3p-lb (10f): the spiked line peaks at $%.0f, not the $%.0f its '
+                                       'lockbox tail carries' % (top, spike_v))
+            if not used.get(spike_row['id']):
+                bad.append('funnel-3p-lb (10f): no ALL CONFIGS line carried the lockbox spike of %s'
+                           % spike_row['id'])
+            if n_l and n_e == n_l and n_f == n_l:
+                print('  %-16s %d ML lines, each with its %d-point lockbox tail at the true running totals '
+                      '(spike $%.0f drawn)' % ('funnel-3p-lb', n_f, M, spike_v))
+
+        # -- 10e control on 911: the same lines with no tail stay sparse, and never see the spike
+        ln = (cs.get('funnel-3p-lbnone') or {}).get('funnel') or {}
+        Gn = _geo(ln)
+        if Gn is None:
+            bad.append('funnel-3p-lbnone: no lockbox stripe or axis to read the ML lines against')
+        else:
+            famn = _mlines(ln)
+            n_c, top_n = 0, None
+            for kg in ML_KG:
+                for L in famn.get(kg) or []:
+                    lv = _lbv(Gn, L['pts'])
+                    n_c += 1
+                    if len(lv) >= M / 2.0:
+                        bad.append('funnel-3p-lbnone (10e): with NO tail saved the %r line still has %d points '
+                                   'past the door - the control is not sparse, so 10e proves nothing'
+                                   % (kg, len(lv)))
+                    for (_x, y) in lv:
+                        top_n = Gn['v'](y) if top_n is None else max(top_n, Gn['v'](y))
+            if n_c < 11:
+                bad.append('funnel-3p-lbnone: only %d ML lines drawn, expected 11' % n_c)
+            elif top_n is not None and top_n > spike_v - 0.5 * spike:
+                bad.append('funnel-3p-lbnone: a line with no tail reaches $%.0f - the 300-point sample was '
+                           'meant to step over the $%.0f spike' % (top_n, spike_v))
+            else:
+                print('  %-16s %d ML lines with no tail keep under %d lockbox points; none reaches the spike'
+                      % ('funnel-3p-lbnone', n_c, M // 2))
+
+        # -- 10g: DOORS still equals ONE CURVE less the door value, with the stitched lines, and every
+        #    ML lockbox piece ends on its line's true lockbox total
+        ends = {}
+        for kg in ML_KG:
+            ends[kg] = [(ex['cf'][-1] - ex['cf'][LBT_I0 - 1]) * MULT * ex['f'] for ex in rows
+                        if ex['fam'] in pool[kg]]
+        _doors_parity('funnel-3p-lb', 'funnel-doors-3p-lb', ml_ends=ends, ml_need=11)
+
+        # -- 10h: a tail whose door count is off by one is refused, so 910 draws exactly what 911
+        #    (no tail) draws - in both layouts and in the explorer payload - and 909 does not
+        def _ser_key(fr):
+            return [(s.get('id'), s.get('hasSp'), s.get('eq'), s.get('ts'), s.get('li'), s.get('wfi'))
+                    for s in (fr or {}).get('ser') or []]
+        for a_nm, b_nm in (('funnel-3p-lbbad', 'funnel-3p-lbnone'),
+                           ('funnel-doors-3p-lbbad', 'funnel-doors-3p-lbnone')):
+            fa = (cs.get(a_nm) or {}).get('funnel') or {}
+            fb = (cs.get(b_nm) or {}).get('funnel') or {}
+            pa, pb = fa.get('polys'), fb.get('polys')
+            if not pa or not pb:
+                bad.append('%s / %s: no polylines harvested to compare' % (a_nm, b_nm))
+            elif pa != pb:
+                nd_ = sum(1 for x, y in zip(pa, pb) if x != y) + abs(len(pa) - len(pb))
+                bad.append('%s (10h): %d of %d polylines differ from %s - a tail whose door count is off by '
+                           'one was drawn instead of refused' % (a_nm, nd_, len(pa), b_nm))
+            elif _ser_key(fa) != _ser_key(fb) or not _ser_key(fa):
+                bad.append('%s (10h): the explorer payload ML series differ from %s (or are empty)' % (a_nm, b_nm))
+            else:
+                print('  %-16s %d polylines and %d ML payload series identical to %s'
+                      % (a_nm, len(pa), len(_ser_key(fa)), b_nm))
+        if (lo.get('polys') or 1) == (ln.get('polys') or 2):
+            bad.append('funnel-3p-lb (10h): 909 draws the same polylines as 911 - the tails changed nothing, '
+                       'so the refusal check proves nothing')
+
+        # -- 10i: the explorer payload. A stitched ML series carries sp, one timestamp per point on
+        #    the piecewise calendar (optimize window, then the lockbox from its own start), its door
+        #    index on the lockbox start, and exactly the saved points + door value + tail. The same
+        #    series with no tail keeps the saved curve evenly spread over the whole span, no sp.
+        def _ms(s):
+            return calendar.timegm(time.strptime(s, '%Y-%m-%d')) * 1000
+        o0, o1, l0, l1 = _ms(OPT_WIN[0]), _ms(OPT_WIN[1]), _ms(GATE_LB0), _ms(GATE_SPAN[1])
+        n_i = 0
+        for cnm, stitched in (('funnel-3p-lb', True), ('funnel-3p-lbnone', False)):
+            ser = ((cs.get(cnm) or {}).get('funnel') or {}).get('ser') or []
+            seen = set()
+            for s in ser:
+                ex = by_id.get(s.get('id'))
+                if ex is None:
+                    continue
+                seen.add(s['id'])
+                sid, eqv, ts = s['id'], s.get('eq') or [], s.get('ts') or []
+                cum, q = ex['eq'][ex['ck']], ex['eq'].get(ex['lk'])
+                errs = []
+                if s.get('li') is not None or s.get('wfi') is not None:
+                    errs.append('li/wfi %s/%s set - the line would draw dashed' % (s.get('li'), s.get('wfi')))
+                if stitched:
+                    want = [v * MULT * ex['f'] for v in cum[:q['j0']] + [q['base']] + q['cum']]
+                    if not s.get('hasSp') or s.get('sp') is None:
+                        errs.append('no sp')
+                    else:
+                        di = int(round(s['sp'] * (len(eqv) - 1)))
+                        if di != q['j0']:
+                            errs.append('sp puts the door at point %d, the tail says %d' % (di, q['j0']))
+                        elif len(ts) == len(eqv) and ts and None not in ts:
+                            if abs(ts[di] - l0) > 1 or abs(ts[di - 1] - o1) > 1:
+                                errs.append('door stamps %s / %s, want optimize end %s then lockbox start %s'
+                                            % (ts[di - 1], ts[di], o1, l0))
+                else:
+                    want = [v * MULT * ex['f'] for v in cum]
+                    if s.get('hasSp'):
+                        errs.append('carries sp with no tail saved')
+                    elif len(ts) == len(eqv) and len(ts) > 1 and None not in ts:
+                        lin = max(abs(t - (o0 + (l1 - o0) * i / (len(ts) - 1))) for i, t in enumerate(ts))
+                        if lin > 1:
+                            errs.append('timestamps not an even spread over the span (off by %.0f ms)' % lin)
+                if len(eqv) != len(want) or any(abs(a - b) > 1e-6 * max(1.0, abs(b)) for a, b in zip(eqv, want)):
+                    errs.append('values are not %s (%d points vs %d)'
+                                % ('saved points + door value + tail' if stitched else 'the saved curve',
+                                   len(eqv), len(want)))
+                if len(ts) != len(eqv) or not ts or None in ts:
+                    errs.append('%d timestamps for %d points' % (len(ts), len(eqv)))
+                elif any(b < a for a, b in zip(ts, ts[1:])):
+                    errs.append('timestamps run backwards')
+                elif abs(ts[0] - o0) > 1 or abs(ts[-1] - l1) > 1:
+                    errs.append('span %s..%s, want %s..%s' % (ts[0], ts[-1], o0, l1))
+                if errs:
+                    bad.append('%s (10i): payload series %s: %s' % (cnm, sid, '; '.join(errs)))
+                else:
+                    n_i += 1
+            if seen != set(by_id):
+                bad.append('%s (10i): the explorer payload is missing ML series %s'
+                           % (cnm, sorted(set(by_id) - seen)))
+        if n_i == 2 * len(by_id):
+            print('  %-16s %d ML payload series stitched on the piecewise calendar, %d unstitched controls intact'
+                  % ('funnel-3p-lb', len(by_id), len(by_id)))
+
+        # -- 10j..10m: A TAIL THE FUNNEL MUST REFUSE DRAWS EXACTLY WHAT NO TAIL DRAWS. One pair per
+        #    guard family: the gauntlet (a different broken tail on every ML line, each caught by
+        #    exactly one guard), good tails on a run with no RAW lockbox panel, and tails on a run
+        #    whose saved curves already draw the lockbox more densely than any tail would.
+        def _same(a_nm, b_nm, what):
+            fa = (cs.get(a_nm) or {}).get('funnel') or {}
+            fb = (cs.get(b_nm) or {}).get('funnel') or {}
+            pa, pb = fa.get('polys'), fb.get('polys')
+            if not pa or not pb:
+                bad.append('%s / %s: no polylines harvested to compare' % (a_nm, b_nm))
+            elif pa != pb:
+                nd_ = sum(1 for x, y in zip(pa, pb) if x != y) + abs(len(pa) - len(pb))
+                bad.append('%s: %d of %d polylines differ from %s - %s was drawn instead of refused'
+                           % (a_nm, nd_, len(pa), b_nm, what))
+            elif _ser_key(fa) != _ser_key(fb) or len(_ser_key(fa)) < 9:
+                bad.append('%s: the explorer payload ML series differ from %s (or are missing) - %s'
+                           % (a_nm, b_nm, what))
+            else:
+                print('  %-16s %d polylines and %d ML payload series identical to %s'
+                      % (a_nm, len(pa), len(_ser_key(fa)), b_nm))
+        _same('funnel-lb-gauntlet', 'funnel-lb-gauntlet0',
+              'a broken tail (%s)' % ', '.join(h for _s, h, _w in GAUNTLET))
+        _same('funnel-lb-nopanel', 'funnel-lb-nopanel0', 'a tail on a run with no lockbox panel')
+        _same('funnel-lb-short', 'funnel-lb-short0', 'a tail that adds no lockbox points')
+        # the fixtures really are what those checks claim
+        short = _lbt_build(i0=900, spikes=(), only_if_denser=False)
+        A_ = _analytics()
+        for ex in short[1]:
+            q = ex['eq'].get(ex['lk'])
+            ndp = 1 if ex['fam'] == 'gate' else None
+            if not q or A_.lockbox_tail(A_.np.array(ex['cf']), 900, len(ex['eq'][ex['ck']]),
+                                        int(A_.LB_TAIL_CAP), ndp) is not None:
+                bad.append('lockbox-tail fixture 918: %s should carry a tail the engine itself would not write'
+                           % ex['id'])
+
+        # -- 10l: a lockbox of 4 trades puts the door on the LAST saved point (j0 = pts-1): the most
+        #    stretched line of all must get its tail - in the payload, and on the drawn lines
+        tiny = _lbt_build(i0=LBT_N - 4, spikes=())
+        t_by = {r['id']: r for r in tiny[1]}
+        ft = (cs.get('funnel-lb-tiny') or {}).get('funnel') or {}
+        ft0 = (cs.get('funnel-lb-tiny0') or {}).get('funnel') or {}
+        n_t, errs_t = 0, []
+        for s in ft.get('ser') or []:
+            ex = t_by.get(s.get('id'))
+            if ex is None:
+                continue
+            cum, q = ex['eq'][ex['ck']], ex['eq'].get(ex['lk'])
+            if not q or q.get('j0') != len(cum) - 1:
+                errs_t.append('%s: fixture tail j0 %s, want %d' % (s['id'], None if not q else q.get('j0'), len(cum) - 1))
+                continue
+            want = [v * MULT * ex['f'] for v in cum[:q['j0']] + [q['base']] + q['cum']]
+            eqv = s.get('eq') or []
+            if not s.get('hasSp') or s.get('sp') is None:
+                errs_t.append('%s: not stitched (no sp)' % s['id'])
+            elif int(round(s['sp'] * (len(eqv) - 1))) != q['j0']:
+                errs_t.append('%s: door at point %d, want %d' % (s['id'], int(round(s['sp'] * (len(eqv) - 1))), q['j0']))
+            elif len(eqv) != len(want) or any(abs(a - b) > 1e-6 * max(1.0, abs(b)) for a, b in zip(eqv, want)):
+                errs_t.append('%s: values are not saved points + door value + tail' % s['id'])
+            else:
+                n_t += 1
+        if errs_t or n_t < len(t_by):
+            bad.append('funnel-lb-tiny (10l): %d of %d ML series drew their tail with the door on the last saved '
+                       'point%s' % (n_t, len(t_by), (': ' + '; '.join(errs_t[:4])) if errs_t else ''))
+        elif not ft.get('polys') or ft.get('polys') == ft0.get('polys'):
+            bad.append('funnel-lb-tiny (10l): the lines draw the same as with no tail - the tails were refused')
+        else:
+            print('  %-16s %d ML series stitched with the door on the last saved point (j0 = 299)'
+                  % ('funnel-lb-tiny', n_t))
+
+        # -- 10n: THE DEFAULT VIEW'S Y-SCALE. With ALL CONFIGS off only the family y-scale folds see
+        #    the gate / tilt / KEEL / hybrid / recycle lines. Each run hands one family top the chart's
+        #    peak (and one its trough) inside its lockbox tail; every family line must sit inside the
+        #    plot, and the named line must be the one touching the top (or the floor) - otherwise
+        #    another line sized the axis and a broken fold would pass unseen.
+        FAM = ('gate', 'tilt', 'keel', 'hyb', 'hyb2')
+        for cnm, peak, trough, absent in (('funnel-ft-gate-keel', 'gate', 'keel', None),
+                                          ('funnel-ft-tilt-hyb', 'tilt', 'hyb', 'hyb2'),
+                                          ('funnel-ft-recycle', 'hyb2', None, None)):
+            fr = (cs.get(cnm) or {}).get('funnel') or {}
+            Gf = _geo(fr)
+            if Gf is None:
+                bad.append('%s: no lockbox stripe or axis to read the family lines against' % cnm)
+                continue
+            ptv, flo = fr['pt'], fr['eqB']
+            ys = {}
+            for L in fr.get('lines') or []:
+                if L.get('k') is None and L['kg'] in FAM:
+                    ys.setdefault(L['kg'], []).extend(y for (_x, y) in _xy(L['pts']))
+            errs = []
+            for kg in FAM:
+                v = ys.get(kg) or []
+                if not v:
+                    continue
+                if min(v) < ptv - 0.05:
+                    errs.append('the %r line is drawn above the plot top (y %.1f, top %.1f)' % (kg, min(v), ptv))
+                if max(v) > flo + 0.05:
+                    errs.append('the %r line is drawn below the plot floor (y %.1f, floor %.1f)' % (kg, max(v), flo))
+            for kg, edge, nm_ in ((peak, ptv, 'top'), (trough, flo, 'floor')):
+                if kg is None:
+                    continue
+                v = ys.get(kg) or []
+                if not v:
+                    errs.append('no %r line drawn - nothing to check' % kg)
+                elif abs((min(v) if nm_ == 'top' else max(v)) - edge) > 0.2:
+                    errs.append('the %r line does not touch the plot %s (%.1f vs %.1f) - another line sized the '
+                                'axis, so this run does not test its fold' % (kg, nm_, min(v) if nm_ == 'top' else max(v), edge))
+            if absent and ys.get(absent):
+                errs.append('a %r line was drawn on a run with no recycle factor' % absent)
+            if errs:
+                for e_ in errs:
+                    bad.append('%s (10n): %s' % (cnm, e_))
+            else:
+                print('  %-16s ALL CONFIGS off: %s holds the peak%s, every family line inside the plot'
+                      % (cnm, peak, (', %s the trough' % trough) if trough else ''))
 
     if bad:
         print('1E AXES PROBE: FAIL')

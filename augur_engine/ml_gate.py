@@ -41,6 +41,8 @@ each measured on real ORB trades before being dropped:
 import numpy as np
 import pandas as pd
 
+from .analytics import LB_TAIL_CAP, lb_tail_line_cap, lockbox_tail
+
 __all__ = ["gate_trades", "entry_features", "entry_features_causal", "gate_validate",
            "gate_explain", "adversarial_validation", "gate_calibration",
            "gate_feature_select"]
@@ -415,7 +417,8 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                   thresholds=(0.45, 0.50, 0.55, 0.60), lockbox_months=12,
                   min_kept=50, min_keep_frac=0.10, windows=4, min_history=30,
                   refit_every=25, wf_from=None, wf_to=None,
-                  seed=42, lb_from=None, keel=True):
+                  seed=42, lb_from=None, keel=True, lb_tail_cap=LB_TAIL_CAP,
+                  keel_version=None):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
 
     Discipline, by construction:
@@ -430,6 +433,13 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         it pre-lockbox, the verdict says so and the one-look is skipped.
 
     Returns a compact json-safe dict for the web card.
+
+    lb_tail_cap (2026-09-13): lockbox points per ML line for the 1A funnel's dense
+      lockbox tail (analytics.lockbox_tail); 0 turns the tails off and leaves the output
+      exactly as it was before they existed. Reporting only - nothing here is read by
+      the chooser, and the saved 300-point curves are untouched.
+    keel_version: pin the KEEL row's version (a backfill replaying an old run needs the
+      version that run saved); None = ml_keel.VALIDATE_VERSION, as before.
     """
     if not trades:
         return None
@@ -519,6 +529,39 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
     ung_wf = _sl(entry_ts, pnls_all, wf0, wf1) if _rng else None
     from .analytics import downsample_curve                # shared w/ gate_trades' own curve
 
+    # ── LOCKBOX TAILS for the 1A funnel (2026-09-13, analytics.lockbox_tail) ──────────
+    #   Every ML curve below is ONE 300-point stride sample of the whole run, which leaves
+    #   the held-out year about 20 points - drawn as straight strokes once the funnel gives
+    #   the lockbox a quarter of the width. Each row now also carries a dense sample of just
+    #   its lockbox stretch. The door is the UNGATED pre-lockbox trade count: every curve
+    #   here is on the same one-step-per-trade grid (a skipped trade steps flat), so trade
+    #   i0 is the first lockbox trade on every line, gated or not.
+    #   Tails only when the pre-lockbox trades are exactly the leading run of the sorted
+    #   list - otherwise a count is not a position and the tail would sit at the wrong spot.
+    #   The per-line cap shrinks when a run carries many lines, so all tails together stay
+    #   inside LB_TAIL_POINT_BUDGET points (~25 KB) whatever the gate / cut-off grid is - a
+    #   hard budget (analytics.lb_tail_line_cap). The default grid (5 gates x 4 cut-offs = 37
+    #   lines) keeps the full 80; a grid so wide that the share cannot beat the saved curve's
+    #   own lockbox points gets no tails at all rather than a bigger doc.
+    _tcap = 0
+    try:
+        _lead = entry_ts < lb_start
+        _tail_ok = bool(lb_tail_cap and ung_pre_n >= 2 and len(pnls_all) > ung_pre_n
+                        and _lead[:ung_pre_n].all() and not _lead[ung_pre_n:].any())
+        _ncur = len(gates) * len(thresholds) + 3 * len(gates) + 2
+        _tcap = lb_tail_line_cap(_ncur, lb_tail_cap) if _tail_ok else 0
+    except Exception:
+        _tcap = 0
+
+    def _tail(cf, saved, ndp=None):
+        """The lockbox tail for one full cumulative curve and its saved points, or None."""
+        try:
+            if not _tcap or cf is None or not isinstance(saved, list):
+                return None
+            return lockbox_tail(cf, ung_pre_n, len(saved), _tcap, ndp)
+        except Exception:
+            return None                                    # reporting only - never fail the gate
+
     cands = []
     lb_secret = {}                                         # lockbox stats stay HERE
     model_prob = {}                                        # one prob array per model (v66.0 sweep)
@@ -571,16 +614,27 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
             #   losing candidates' LOCKBOX STATS stay in lb_secret and are never exposed.
             #   Whole-number points (same convention as the full-population 2A config
             #   curves in optimize.py/auto.py) to keep the Firestore doc small.
+            _cf = None
             try:
                 if cand_keep is not None and len(cand_keep) == len(pnls_all):
                     _kc = np.asarray(cand_keep, bool)
+                    _cf = np.cumsum(np.where(_kc, pnls_all, 0.0))
                     cand["equity"] = {
-                        "cum": downsample_curve(np.cumsum(np.where(_kc, pnls_all, 0.0)),
-                                                cap=300, ndp=None),
+                        "cum": downsample_curve(_cf, cap=300, ndp=None),
                         "n": int(len(pnls_all)),
                     }
             except Exception:
                 pass                                        # defensive: never fail the gate
+            # 2026-09-13: the dense lockbox tail rides INSIDE equity, so _cand_out carries it
+            #   to the card with the curve it belongs to. Its own try: a tail failure must
+            #   never cost the candidate its curve.
+            try:
+                if _cf is not None and isinstance(cand.get("equity"), dict):
+                    _lt = _tail(_cf, cand["equity"]["cum"])
+                    if _lt is not None:
+                        cand["equity"]["lb_tail"] = _lt
+            except Exception:
+                pass
             cands.append(cand)
 
     # ── TILT VARIANTS (v67.2, ORB item 171 — owner: "run it as an auto-validate so I can see it") ──
@@ -639,9 +693,18 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                      "wf_rng": (_sl(entry_ts, tp, wf0, wf1) if _rng else None),
                      "wf_lb": (_sl(entry_ts, tp, wf0, None) if _rng else None)}
                 t["pre_rec"] = round(_rec(t["pre"]), 2)
+                _cf = None
                 try:
-                    t["equity"] = {"cum": downsample_curve(np.cumsum(tp), cap=300, ndp=None),
+                    _cf = np.cumsum(tp)
+                    t["equity"] = {"cum": downsample_curve(_cf, cap=300, ndp=None),
                                    "n": int(len(tp))}
+                except Exception:
+                    pass
+                try:                                        # dense lockbox tail (see above)
+                    if _cf is not None and isinstance(t.get("equity"), dict):
+                        _lt = _tail(_cf, t["equity"]["cum"])
+                        if _lt is not None:
+                            t["equity"]["lb_tail"] = _lt
                 except Exception:
                     pass
                 tilts.append(t)
@@ -706,10 +769,24 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                         "wf_rng": (_sl(h_ts, h_p, wf0, wf1) if _rng else None),
                         "wf_lb": (_sl(h_ts, h_p, wf0, None) if _rng else None)}
                 hrow["pre_rec"] = round(_rec(hrow["pre"]), 2)
+                _cf = None
                 try:
-                    hrow["equity"] = {"cum": downsample_curve(np.cumsum(np.where(keep, hp, 0.0)),
-                                                              cap=300, ndp=None),
+                    _cf = np.cumsum(np.where(keep, hp, 0.0))
+                    hrow["equity"] = {"cum": downsample_curve(_cf, cap=300, ndp=None),
                                       "n": int(len(hp))}
+                except Exception:
+                    pass
+                # Dense lockbox tail. The door is the UNGATED pre-lockbox count (_tail uses
+                #   ung_pre_n) - never this row's kept_pre or n_trades. The curve steps once
+                #   per trade of the WHOLE list (a dropped trade steps flat), so the lockbox
+                #   starts at trade ung_pre_n; kept_pre (2,737 of 3,802 on #384's logistic
+                #   hybrid) would put the door years early and stitch pre-lockbox trades in
+                #   as "lockbox". The web shipped that bug once.
+                try:
+                    if _cf is not None and isinstance(hrow.get("equity"), dict):
+                        _lt = _tail(_cf, hrow["equity"]["cum"])
+                        if _lt is not None:
+                            hrow["equity"]["lb_tail"] = _lt
                 except Exception:
                     pass
                 hybrids.append(hrow)
@@ -726,7 +803,8 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
             from .ml_keel import keel_block, VALIDATE_VERSION
             keel_row = keel_block(arrays, T, _sl, lb_start,
                                   wf0 if _rng else None, wf1 if _rng else None,
-                                  version=VALIDATE_VERSION)
+                                  version=keel_version or VALIDATE_VERSION,
+                                  lb_tail_cap=_tcap)
             keel_row["pre_rec"] = round(_rec(keel_row["pre"]), 2)
         except Exception as _ke:                          # never fail the gate over KEEL
             keel_row = {"error": f"{type(_ke).__name__}: {_ke}"}
@@ -801,6 +879,16 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         out["equity"] = {"cum_ungated": downsample_curve(np.cumsum(pnls_all)),
                          "cum_gated": downsample_curve(np.cumsum(np.where(_ku, pnls_all, 0.0))),
                          "n": int(len(pnls_all))}
+        # 2026-09-13: dense lockbox tail for the chosen gate's line on the 1A funnel, at the
+        #   curve's own 1-decimal rounding. cum_ungated / cum_gated / n above stay exactly as
+        #   they were. No ungated tail: the funnel never draws cum_ungated, and gateEquityHtml
+        #   reads only the cum_* arrays.
+        try:
+            _lt = _tail(np.cumsum(np.where(_ku, pnls_all, 0.0)), out["equity"]["cum_gated"], ndp=1)
+            if _lt is not None:
+                out["equity"]["lb_tail_gated"] = _lt
+        except Exception:
+            pass
     if not gate_earns:
         out["verdict"] = "UNGATED WINS PRE-LOCKBOX — no gate earns its keep; lockbox not opened"
         return out
