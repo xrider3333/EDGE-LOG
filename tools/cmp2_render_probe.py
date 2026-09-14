@@ -675,6 +675,17 @@ var FIX = __FIX__;
           return {trd:at('TRADES'),tpy:at('TRADES / YR'),ppt:at('$/TRD')};}
         r.isLb=stageRead(['is','lb']); r.allSeg=stageRead(['is','wf','lb']);
         r.wfOnly=stageRead(['wf']);
+        // AXIS PARITY (v73.759): both pickers list the same twelve measures in one risk-to-reward
+        //   order, and every pairing that is new draws the gate point rather than an empty chart.
+        function axisPts(y,x){
+          var c=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
+                          resSegs:['wf'],resAxis:y,resXAxis:x,resMarks:'dot'}, wc);
+          var n=[].slice.call(d.querySelectorAll('[data-repoint]')).filter(function(g){
+            var t=g.querySelector('title');return !!(t&&(t.textContent||'').indexOf('GATE')>=0);}).length;
+          return c==='OK'?n:('ERR '+c).slice(0,160);}
+        r.axOrdY=[].map.call(d.querySelectorAll('[data-resaxis]'),function(b){return b.getAttribute('data-resaxis');});
+        r.axOrdX=[].map.call(d.querySelectorAll('[data-resxaxis]'),function(b){return b.getAttribute('data-resxaxis');});
+        r.axNew={ydd:axisPts('dd','so'),xraw:axisPts('evr','raw'),xmar:axisPts('evr','ratio'),xev:axisPts('evr','ppt')};
         // and the ALL layout, which lost its old grey RUN column as well as gaining two
         r.allCall=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
                             resSegs:['wf'],resXAxis:'roc',resMarks:'dot',c2Tbl:true,resCols:'all'}, wc);
@@ -1493,6 +1504,14 @@ def main(argv=None):
          % (_il.get('trd'), _il.get('tpy'), _as.get('trd'), _as.get('tpy'), _ppts))
     if not stages_ok:
         fail('stage-counts: IN-SAMPLE + LOCKBOX is not reading the ticked stretches (or all three moved) -- see the stage-counts line')
+    _ORDER = ['so', 'sh', 'ddr', 'ddp', 'dd', 'ratio', 'pf', 'evr', 'ppt', 'rpy', 'roc', 'raw']
+    _ax = r.get('axNew') or {}
+    axes_ok = (r.get('axOrdY') == _ORDER and r.get('axOrdX') == _ORDER
+               and all(isinstance(v, int) and v >= 1 for v in _ax.values()) and len(_ax) == 4)
+    line('axes', axes_ok, 'vertical=%s horizontal=%s gate points on new pairings=%s'
+         % (r.get('axOrdY'), r.get('axOrdX'), _ax))
+    if not axes_ok:
+        fail('axes: the two axis pickers differ from the agreed order, or a new pairing drew no gate point -- see the axes line')
     cols_ok = (r.get('allCall') == 'OK' and r.get('allBad') == 0 and r.get('allRunHeads') == 1
                and r.get('iRun', -1) >= 0 and r.get('iTpy', -1) >= 0 and r.get('tdBad') == 0
                and r.get('runSortable') and r.get('tpySortable')
