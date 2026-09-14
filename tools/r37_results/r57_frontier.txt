@@ -1,0 +1,192 @@
+ENGU-Q ROUND 57 -- LIKE-FOR-LIKE FRONTIER TABLE   (driver tools/r57_enguq_frontier.py, run 2026-09-14 14:51)
+tape NQ 1m ETH db_noadj_eth | window 2010-06-07..2026-06-30 pinned | cost 0.533 pts/RT x $20 | one continuous run per config, entry-sliced: selection = entries < 2025-06-30 (validates' IS+WF optimize window, no WF folds re-run here), LB = entries >= 2025-06-30
+LB columns are REPORTED ONLY; nothing below is chosen on them.
+
+master NOADJ_NQ_1m_ETH.csv id 34: 5439594 bars, 2010-06-07 00:00:00-04:00 .. 2026-06-30 10:49:00-04:00  (load 5.2s)
+NQ yearly return (selection read, 2025 = H1 to the split): 2011 +2.3%  2012 +16.9%  2013 +35.1%  2014 +19.2%  2015 +7.3%  2016 +5.9%  2017 +31.3%  2018 -0.5%  2019 +38.1%  2020 +46.9%  2021 +26.8%  2022 -32.4%  2023 +54.0%  2024 +24.9%  2025 +7.7%
+
+  ran  1 R2 defaults = #335 crown           1949 trades  0.8s
+  ran  2 #335 search champion               1344 trades  0.4s
+  ran  3 #370/#377 champion (ES-picked)      894 trades  0.6s
+  ran  4 R3 defaults (cap 8280)             2647 trades  0.5s
+  ran  5 #376/#383 champion                 2090 trades  0.6s
+  ran  6 #384 champion (900 trials)         4075 trades  0.4s
+  ran  7 R4 defaults (limit 0.85)           1995 trades  0.4s
+  ran  8 #380 champion                      3336 trades  0.6s
+  ran  9 R5 defaults (lim .85+cap 9660)     2585 trades  0.4s
+  ran 10 #381 champion                      2550 trades  0.3s
+  ran 11 #309 ex-crown control              1604 trades  10.9s
+  ran 12 #265 ER25 (eff. gate 0.25)         1337 trades  12.9s
+  ran 13 #226 frozen control                2843 trades  10.4s
+
+======================================================================================================================================================
+PARITY
+  G1 #226 frozen control, whole window: n=2843 net=$434721.12   want n=2843 net=$434,721.12   -> PASS
+  G2 R2 defaults (#335 crown) from 2010-06-21: sel n=1830 PF 1.714 net $522,613 DD $38,687 EV R 0.505 R/YR 61.7 | LB n=118 PF 1.675 net $88,380 DD $41,534   want sel 1,830 / 1.714 / $522,613 / $38,687 / 0.505 / 61.7, LB 118 / 1.675 / $88,380 / $41,534 (ENGUQ.md)   -> PASS
+  G2c pinned 2010-06-07 run vs 2010-06-21 run: 1 trade(s) only in the pinned run ['2010-06-10 09:16:00-04:00 -> 2010-06-21 14:54:00-04:00 $2131.90'], 0 only in the other   -> PASS (the table's row 1 = ENGUQ.md + that warm-up trade: sel n=1831 PF 1.717 net $524,745)
+  G2b R2 file DEFAULT_PARAMS == api/paper.py ENGUQ_335 (what paper + NinjaTrader trade)   -> PASS
+  G3 #309: whole n=1604 $591,267 | sel n=1505 PF 1.661 | LB n=99 PF 1.620   want 1,604 / $591,267 | 1,505 / 1.661 | 99 / 1.620   -> PASS
+  G4 #335 search champion: whole n=1344 PF 1.820 $541,330 | LB n=128 PF 1.455 $49,812 DD $47,779   want 1,344 / 1.82 / $541k | 128 / 1.455 / $49,812 / DD $47,779   -> PASS
+  G5 #384 champion: whole n=4075 $596,112 PF 1.297 win 29.4%   want 4,075 / $596,112 / 1.297 / 29.4% (memory enguq-384-tail-economics)   -> PASS
+  G6 #265 ER25: LB n=67 PF 2.645   want 67 / 2.645 (continuous_lb_check)   -> PASS
+  G7 R5 defaults vs its docstring: LB n=151 PF 1.648 $99,997 (doc 151 / 1.648 / $99,997); whole-window index corr +0.273 (doc +0.273 via queue_guard --tail)
+  count  5 #376/#383 champion               whole n= 2090 vs run doc gate_validate.ungated_full  2090  (0.0%)
+  count  6 #384 champion (900 trials)       whole n= 4075 vs run doc gate_validate.ungated_full  4075  (0.0%)
+  count  8 #380 champion                    whole n= 3336 vs run doc gate_validate.ungated_full  3336  (0.0%)
+  count 10 #381 champion                    whole n= 2550 vs run doc gate_validate.ungated_full  2550  (0.0%)
+  count 11 #309 ex-crown control            whole n= 1604 vs run doc gate_validate.ungated_full  1604  (0.0%)
+  count 13 #226 frozen control              whole n= 2843 vs run doc gate_validate.ungated_full  2843  (0.0%)
+
+======================================================================================================================================================
+PANEL 1 -- MONEY.  selection = entries 2010-06-07..2025-06-29  |  LB = entries 2025-06-30..2026-06-30 (reported only)
+  # config                           |     n  win%     PF     net $     DD $   MAR   EV R   R/YR | LB n  win%     PF    net $     DD $ | wholen   whole $
+  1 R2 defaults = #335 crown         |  1831  29.4  1.717   524,745   38,687  0.90  0.507   61.6 |  118  28.0  1.675   88,380   41,534 |  1949   613,126
+  2 #335 search champion             |  1216  16.9  1.893   491,518   66,569  0.49  0.742   59.9 |  128  15.6  1.455   49,812   47,779 |  1344   541,330
+  3 #370/#377 champion (ES-picked)   |   857  22.4  2.001   460,332   35,095  0.87  0.776   44.2 |   37  21.6  2.540   82,521   38,765 |   894   542,853
+  4 R3 defaults (cap 8280)           |  2492  28.6  1.478   451,279   40,548  0.74  0.341   56.5 |  155  27.1  1.672  114,634   20,020 |  2647   565,913
+  5 #376/#383 champion               |  1950  22.2  1.509   503,677   73,195  0.46  0.396   51.3 |  140  20.0  1.096   23,256   94,185 |  2090   526,933
+  6 #384 champion (900 trials)       |  3802  29.4  1.313   524,504   47,667  0.73  0.221   55.9 |  273  29.3  1.214   71,608   67,980 |  4075   596,112
+  7 R4 defaults (limit 0.85)         |  1877  28.9  1.713   523,557   28,684  1.21  0.506   63.2 |  118  31.4  1.739   93,727   35,668 |  1995   617,284
+  8 #380 champion                    |  3120  38.2  1.257   422,255   71,925  0.39  0.159   32.9 |  216  42.1  1.303   86,759   44,385 |  3336   509,014
+  9 R5 defaults (lim .85+cap 9660)   |  2434  28.4  1.519   466,910   30,527  1.02  0.371   60.1 |  151  31.8  1.648   99,997   28,884 |  2585   566,907
+ 10 #381 champion                    |  2360  24.2  1.311   440,824   69,669  0.42  0.236   36.9 |  190  23.7  0.934  -23,313   88,030 |  2550   417,511
+ 11 #309 ex-crown control            |  1505  33.6  1.661   505,756   44,403  0.76  0.439   43.9 |   99  34.3  1.620   85,511   48,900 |  1604   591,267
+ 12 #265 ER25 (eff. gate 0.25)       |  1270  26.9  1.468   339,822   61,031  0.37  0.342   28.8 |   67  28.4  2.645  146,231   24,935 |  1337   486,053
+ 13 #226 frozen control              |  2655  25.2  1.303   336,233   50,420  0.44  0.227   40.0 |  188  26.1  1.493   98,488   34,682 |  2843   434,721
+
+======================================================================================================================================================
+PANEL 2 -- TAIL (selection only).  top-10 = share of net in the ten best trades; per era the same inside the era; TTZ = best trades deleted before net <= 0
+  # config                           |  top10    ex10 $ |  n<20   top10    ex10 $ |  n20+   top10    ex10 $ |  TTZ  TTZ% |  EVRx.5% |   corr   yrs
+  1 R2 defaults = #335 crown         |    51%   254,730 |  1218     62%    40,426 |   613     65%   148,185 |   32  1.7% |    0.267 |  +0.50 16/16
+  2 #335 search champion             |    82%    90,520 |   799     80%    26,233 |   417    108%   -30,451 |   16  1.3% |    0.301 |  +0.76 14/16
+  3 #370/#377 champion (ES-picked)   |    71%   134,760 |   504     75%    29,731 |   353     96%    13,759 |   20  2.3% |    0.468 |  +0.52 15/16
+  4 R3 defaults (cap 8280)           |    44%   254,024 |  1598     55%    42,753 |   894     55%   158,499 |   33  1.3% |    0.173 |  +0.40 16/16
+  5 #376/#383 champion               |    39%   306,292 |  1198     64%    39,798 |   752     50%   195,356 |   32  1.6% |    0.242 |  +0.74 14/16
+  6 #384 champion (900 trials)       |    45%   288,010 |  2355     57%    47,561 |  1447     57%   176,185 |   30  0.8% |    0.060 |  +0.49 14/16
+  7 R4 defaults (limit 0.85)         |    53%   247,400 |  1244     65%    35,373 |   633     65%   146,683 |   31  1.7% |    0.260 |  +0.43 16/16
+  8 #380 champion                    |    55%   189,429 |  1882     51%    71,574 |  1238     85%    42,625 |   24  0.8% |    0.037 |  +0.72 14/16
+  9 R5 defaults (lim .85+cap 9660)   |    45%   257,265 |  1574     56%    41,122 |   860     56%   164,621 |   33  1.4% |    0.183 |  +0.26 16/16
+ 10 #381 champion                    |    52%   210,133 |  1457     67%    35,558 |   903     69%   102,812 |   24  1.0% |    0.094 |  +0.73 14/16
+ 11 #309 ex-crown control            |    53%   235,741 |   960     70%    30,819 |   545     67%   134,321 |   29  1.9% |    0.241 |  +0.58 15/16
+ 12 #265 ER25 (eff. gate 0.25)       |    61%   132,008 |   748     89%    10,125 |   522     85%    37,107 |   20  1.6% |    0.206 |  +0.56 14/16
+ 13 #226 frozen control              |    80%    67,297 |  1671     99%       649 |   984    104%   -10,825 |   14  0.5% |    0.007 |  +0.77 12/16
+  corr = yearly net (entry year) vs NQ's own yearly return over 15 selection years 2011..2025-H1; yrs = positive years / years traded 2010-H2..2025-H1
+
+======================================================================================================================================================
+PANEL 3 -- SHAPE (selection only).  2018 = NQ -0.5%, 2022 = NQ -32.4%
+  # config                           |    2018 $    2022 $ | hold sel hold all | med W $ med L $    W/L | BE W/L |  win%   scr%  win%xs | fence breaches / status
+  1 R2 defaults = #335 crown         |    12,392     7,340 |     142d     142d |     793    -267   2.97 |   2.40 |  29.4   8.5%   31.3% | CROWN; paper ENGUQ_335 + NinjaTrader; validate #335 PASS certifies the landscape
+  2 #335 search champion             |     1,631   -55,881 |     199d     199d |   1,992     -77  25.98 |   4.90 |  16.9  39.7%   27.4% | validate #335's own cell; paper ENGUQ_335_VC
+  3 #370/#377 champion (ES-picked)   |     7,715    -9,254 |     235d     235d |   2,210    -261   8.47 |   3.46 |  22.4  25.2%   29.3% | ES validates #370 PASS@0.40 / #377 WEAK@0.60, same cell; on NQ = never selected here
+  4 R3 defaults (cap 8280)           |    17,697     2,794 |      13d      13d |     758    -259   2.93 |   2.50 |  28.6   8.9%   30.5% | file defaults (validates searched it)
+  5 #376/#383 champion               |    12,991   -45,859 |      12d      12d |   1,642     -11 154.04 |   3.50 |  22.2  48.3%   42.7% | R3 validates, WEAK x2, same cell
+  6 #384 champion (900 trials)       |    11,783    -5,673 |      15d      15d |     790    -327   2.42 |   2.40 |  29.4   0.5%   29.2% | R3 validate WEAK
+  7 R4 defaults (limit 0.85)         |    10,574    17,489 |     142d     142d |     822    -258   3.19 |   2.46 |  28.9   7.7%   30.9% | file defaults
+  8 #380 champion                    |     5,818   -60,006 |      63d      63d |     603    -398   1.52 |   1.62 |  38.2   3.5%   37.9% | R4 validate PASS
+  9 R5 defaults (lim .85+cap 9660)   |    13,022    24,796 |      15d      15d |     732    -247   2.96 |   2.52 |  28.4   8.2%   30.2% | file defaults
+ 10 #381 champion                    |    -9,340   -67,207 |      18d      18d |   1,655    -182   9.11 |   3.13 |  24.2  34.4%   36.9% | FENCE: er_len=-30 (fence 20..120); er_th=-0.1 (fence 0.0..0.5); limit_atr=1.15 (fence 0.7..1.0); vol_mult=-2.4 (fence 0.0..5.0); act_R=4.0 (fence 0.0..3.0) | R5 validate FAIL; knobs outside fence
+ 11 #309 ex-crown control            |     9,244      -339 |     282d     282d |     935    -363   2.58 |   1.97 |  33.6   2.0%   33.4% | validate PASS; paper ENGUQ_309
+ 12 #265 ER25 (eff. gate 0.25)       |     8,972   -11,207 |     104d     104d |   1,328    -336   3.96 |   2.71 |  26.9  16.3%   31.5% | validate PASS; paper ENGUQ_ER
+ 13 #226 frozen control              |    -7,401   -48,322 |     105d     105d |     677    -221   3.07 |   2.97 |  25.2  16.9%   29.3% | validate PASS; old crown
+  W/L = median winner / |median loser|; BE W/L = the payoff ratio that breaks even at that win rate, (1-win)/win. W/L barely above BE = the typical trade pair makes nothing.
+  win% = share of trades that are winners (net > 0); scr% = share closing within 1.0 point of flat after cost (breakeven stop-outs); win%xs = winners among the trades that were NOT scratches.
+
+======================================================================================================================================================
+YEARLY SELECTION NET $ by entry year (2010 = Jun-Dec, 2025 = Jan-Jun 29)
+  # config                       2010     2011     2012     2013     2014     2015     2016     2017     2018     2019     2020     2021     2022     2023     2024     2025
+    NQ yearly %                     -    +2.3%   +16.9%   +35.1%   +19.2%    +7.3%    +5.9%   +31.3%    -0.5%   +38.1%   +46.9%   +26.8%   -32.4%   +54.0%   +24.9%    +7.7%
+  1 R2 defaults = #335 crown    7,313    2,795    9,377    2,092    6,656   10,076    5,602   17,484   12,392   32,757   57,535   87,773    7,340  101,977   88,396   75,179
+  2 #335 search champion       11,157   11,910      985    6,740   16,427    2,484   -2,654   27,399    1,631   56,583   92,278   57,928  -55,881   96,805  121,331   46,395
+  3 #370/#377 champion (ES-p   10,403    7,239    2,435    3,132   14,538   11,101   19,320    9,745    7,715   35,373   49,497   43,470   -9,254   93,335   75,685   86,598
+  4 R3 defaults (cap 8280)      4,627    7,466    2,587      390    3,069    9,953    4,609   16,941   17,697   28,186   66,867   88,060    2,794   46,462   82,271   69,300
+  5 #376/#383 champion          5,899     -279   10,480    6,607    3,434    6,119      544   25,641   12,991   39,501   75,126   85,504  -45,859  123,857  107,076   47,038
+  6 #384 champion (900 trial     -763    4,142    4,039    7,358    2,544   18,919   10,760   19,241   11,783   33,802   69,889   68,544   -5,673   84,488  159,596   35,835
+  7 R4 defaults (limit 0.85)    6,204    3,997    8,601    2,093    6,923    9,907    2,645   13,463   10,574   36,310   54,907   94,668   17,489   91,203   91,907   72,666
+  8 #380 champion                 605    6,986   10,810   11,206   15,440   13,066    9,040   31,702    5,818   42,130   55,577   88,906  -60,006   75,810  125,461  -10,297
+  9 R5 defaults (lim .85+cap    2,330    6,285    3,352    3,475    5,268    9,002    2,634   15,451   13,022   31,825   55,069   91,166   24,796   40,797   90,334   72,105
+ 10 #381 champion               3,986    3,220    6,975   11,685   10,225    7,027   10,609   25,111   -9,340   37,823   48,334   56,134  -67,207  120,391  124,244   51,607
+ 11 #309 ex-crown control       7,642    8,693    2,470    1,936    8,085    4,767    2,535   22,938    9,244   33,109   74,568   87,825     -339   96,899   75,927   69,457
+ 12 #265 ER25 (eff. gate 0.2    7,025    2,548   12,031    2,349   15,075    5,636     -300   17,168    8,972   24,397   50,774   46,490  -11,207   43,248   98,842   16,775
+ 13 #226 frozen control         3,412    5,052    6,459    4,772   10,164    7,042     -424   19,205   -7,401   29,842   69,739   39,862  -48,322   90,757  107,055     -981
+
+======================================================================================================================================================
+CROSS-REFERENCE ONLY (reads the LB year, never used to judge): whole-window index corr (queue_guard --tail convention, 16 years 2011..2026-H1)
+   1 R2 defaults = #335 crown         whole-window corr +0.507   whole n=1949 PF 1.711 net $613,126 DD $41,534
+   2 #335 search champion             whole-window corr +0.777   whole n=1344 PF 1.820 net $541,330 DD $66,569
+   3 #370/#377 champion (ES-picked)   whole-window corr +0.538   whole n=894 PF 2.057 net $542,853 DD $44,925
+   4 R3 defaults (cap 8280)           whole-window corr +0.381   whole n=2647 PF 1.507 net $565,913 DD $40,548
+   5 #376/#383 champion               whole-window corr +0.705   whole n=2090 PF 1.428 net $526,933 DD $94,185
+   6 #384 champion (900 trials)       whole-window corr +0.484   whole n=4075 PF 1.297 net $596,112 DD $67,980
+   7 R4 defaults (limit 0.85)         whole-window corr +0.438   whole n=1995 PF 1.717 net $617,284 DD $35,668
+   8 #380 champion                    whole-window corr +0.704   whole n=3336 PF 1.264 net $509,014 DD $71,925
+   9 R5 defaults (lim .85+cap 9660)   whole-window corr +0.273   whole n=2585 PF 1.538 net $566,907 DD $30,527
+  10 #381 champion                    whole-window corr +0.711   whole n=2550 PF 1.236 net $417,511 DD $88,030
+  11 #309 ex-crown control            whole-window corr +0.585   whole n=1604 PF 1.655 net $591,267 DD $48,900
+  12 #265 ER25 (eff. gate 0.25)       whole-window corr +0.383   whole n=1337 PF 1.596 net $486,053 DD $61,031
+  13 #226 frozen control              whole-window corr +0.738   whole n=2843 PF 1.332 net $434,721 DD $50,420
+
+======================================================================================================================================================
+PARETO FRONTIERS (selection-stretch reads only; the LB never enters)
+  (a) risk-adjusted money: max selection MAR, max selection PF
+       1 R2 defaults = #335 crown         MAR 0.90 PF 1.717 | worst-era top-10 65% TTZ 32 (1.7%) corr +0.50 | win 29.4%
+       3 #370/#377 champion (ES-picked)   MAR 0.87 PF 2.001 | worst-era top-10 96% TTZ 20 (2.3%) corr +0.52 | win 22.4%
+       7 R4 defaults (limit 0.85)         MAR 1.21 PF 1.713 | worst-era top-10 65% TTZ 31 (1.7%) corr +0.43 | win 28.9%
+  (b) tail independence: min worst-era top-10 share, max trades-to-zero, min index correlation
+       4 R3 defaults (cap 8280)           MAR 0.74 PF 1.478 | worst-era top-10 55% TTZ 33 (1.3%) corr +0.40 | win 28.6%
+       9 R5 defaults (lim .85+cap 9660)   MAR 1.02 PF 1.519 | worst-era top-10 56% TTZ 33 (1.4%) corr +0.26 | win 28.4%
+  (b_pct) tail independence, proportional variant: trades-to-zero as % of trades
+       1 R2 defaults = #335 crown         MAR 0.90 PF 1.717 | worst-era top-10 65% TTZ 32 (1.7%) corr +0.50 | win 29.4%
+       3 #370/#377 champion (ES-picked)   MAR 0.87 PF 2.001 | worst-era top-10 96% TTZ 20 (2.3%) corr +0.52 | win 22.4%
+       4 R3 defaults (cap 8280)           MAR 0.74 PF 1.478 | worst-era top-10 55% TTZ 33 (1.3%) corr +0.40 | win 28.6%
+       5 #376/#383 champion               MAR 0.46 PF 1.509 | worst-era top-10 64% TTZ 32 (1.6%) corr +0.74 | win 22.2%
+       7 R4 defaults (limit 0.85)         MAR 1.21 PF 1.713 | worst-era top-10 65% TTZ 31 (1.7%) corr +0.43 | win 28.9%
+       9 R5 defaults (lim .85+cap 9660)   MAR 1.02 PF 1.519 | worst-era top-10 56% TTZ 33 (1.4%) corr +0.26 | win 28.4%
+      11 #309 ex-crown control            MAR 0.76 PF 1.661 | worst-era top-10 70% TTZ 29 (1.9%) corr +0.58 | win 33.6%
+  (c) win rate: max win%, with PF as the second axis (win% alone -> the single max)
+       1 R2 defaults = #335 crown         MAR 0.90 PF 1.717 | worst-era top-10 65% TTZ 32 (1.7%) corr +0.50 | win 29.4%
+       3 #370/#377 champion (ES-picked)   MAR 0.87 PF 2.001 | worst-era top-10 96% TTZ 20 (2.3%) corr +0.52 | win 22.4%
+       8 #380 champion                    MAR 0.39 PF 1.257 | worst-era top-10 85% TTZ 24 (0.8%) corr +0.72 | win 38.2%
+      11 #309 ex-crown control            MAR 0.76 PF 1.661 | worst-era top-10 70% TTZ 29 (1.9%) corr +0.58 | win 33.6%
+      highest win% alone: 8 #380 champion 38.2%
+  (c_xs) win rate among non-scratch trades, with PF as the second axis
+       1 R2 defaults = #335 crown         MAR 0.90 PF 1.717 | worst-era top-10 65% TTZ 32 (1.7%) corr +0.50 | win 29.4%
+       3 #370/#377 champion (ES-picked)   MAR 0.87 PF 2.001 | worst-era top-10 96% TTZ 20 (2.3%) corr +0.52 | win 22.4%
+       5 #376/#383 champion               MAR 0.46 PF 1.509 | worst-era top-10 64% TTZ 32 (1.6%) corr +0.74 | win 22.2%
+      11 #309 ex-crown control            MAR 0.76 PF 1.661 | worst-era top-10 70% TTZ 29 (1.9%) corr +0.58 | win 33.6%
+          1 win% ex-scratch 31.3% (scratches 8.5% of trades)
+          3 win% ex-scratch 29.3% (scratches 25.2% of trades)
+          5 win% ex-scratch 42.7% (scratches 48.3% of trades)
+         11 win% ex-scratch 33.4% (scratches 2.0% of trades)
+  (all) all six axes together
+       1 R2 defaults = #335 crown         MAR 0.90 PF 1.717 | worst-era top-10 65% TTZ 32 (1.7%) corr +0.50 | win 29.4%
+       3 #370/#377 champion (ES-picked)   MAR 0.87 PF 2.001 | worst-era top-10 96% TTZ 20 (2.3%) corr +0.52 | win 22.4%
+       4 R3 defaults (cap 8280)           MAR 0.74 PF 1.478 | worst-era top-10 55% TTZ 33 (1.3%) corr +0.40 | win 28.6%
+       6 #384 champion (900 trials)       MAR 0.73 PF 1.313 | worst-era top-10 57% TTZ 30 (0.8%) corr +0.49 | win 29.4%
+       7 R4 defaults (limit 0.85)         MAR 1.21 PF 1.713 | worst-era top-10 65% TTZ 31 (1.7%) corr +0.43 | win 28.9%
+       8 #380 champion                    MAR 0.39 PF 1.257 | worst-era top-10 85% TTZ 24 (0.8%) corr +0.72 | win 38.2%
+       9 R5 defaults (lim .85+cap 9660)   MAR 1.02 PF 1.519 | worst-era top-10 56% TTZ 33 (1.4%) corr +0.26 | win 28.4%
+      11 #309 ex-crown control            MAR 0.76 PF 1.661 | worst-era top-10 70% TTZ 29 (1.9%) corr +0.58 | win 33.6%
+
+======================================================================================================================================================
+RESOLVED PARAMS PER ROW (file DEFAULT_PARAMS overlaid by the run's saved params)
+   1 R2 defaults = #335 crown         [ENGUQ_1M_ETH_R2_1_0.py] {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.55, "min_brk": 1.6, "regime_len": 10, "stop_mult": 1.0, "tl_len": 206, "trail_frac": 2.5, "vol_mult": 1.1}
+   2 #335 search champion             [ENGUQ_1M_ETH_R2_1_0.py] {"act_R": 2.5, "atr_len": 28, "breakeven_R": 1.0, "buf_atr": 0.4, "ema_len": 1340, "er_len": 100, "er_th": 0.0, "limit_atr": 0.1, "min_brk": 1.4, "regime_len": 5, "stop_mult": 1.2, "tl_len": 238, "trail_frac": 4.0, "vol_mult": 0.0}
+   3 #370/#377 champion (ES-picked)   [ENGUQ_1M_ETH_R2_1_0.py] {"act_R": 3.0, "atr_len": 44, "breakeven_R": 1.5, "buf_atr": 0.8, "ema_len": 420, "er_len": 80, "er_th": 0.15, "limit_atr": 0.1, "min_brk": 2.4, "regime_len": 10, "stop_mult": 1.1, "tl_len": 230, "trail_frac": 3.5, "vol_mult": 0.5}
+   4 R3 defaults (cap 8280)           [ENGUQ_1M_ETH_R3_1_0.py] {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.55, "max_hold_bars": 8280, "min_brk": 1.6, "regime_len": 10, "stop_mult": 1.0, "tl_len": 206, "trail_frac": 2.5, "vol_mult": 1.1}
+   5 #376/#383 champion               [ENGUQ_1M_ETH_R3_1_0.py] {"act_R": 0.5, "atr_len": 28, "breakeven_R": 1.0, "buf_atr": 1.0, "ema_len": 500, "er_len": 80, "er_th": 0.15, "limit_atr": 0.45, "max_hold_bars": 7760, "min_brk": 1.8, "regime_len": 0, "stop_mult": 2.0, "tl_len": 186, "trail_frac": 3.5, "vol_mult": 0.2}
+   6 #384 champion (900 trials)       [ENGUQ_1M_ETH_R3_1_0.py] {"act_R": 2.5, "atr_len": 120, "breakeven_R": 0.0, "buf_atr": 0.9, "ema_len": 580, "er_len": 80, "er_th": 0.0, "limit_atr": 0.75, "max_hold_bars": 9600, "min_brk": 0.0, "regime_len": 0, "stop_mult": 0.9, "tl_len": 178, "trail_frac": 2.0, "vol_mult": 0.3}
+   7 R4 defaults (limit 0.85)         [ENGUQ_1M_ETH_R4_1_0.py] {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.85, "min_brk": 1.6, "regime_len": 10, "stop_mult": 1.0, "tl_len": 206, "trail_frac": 2.5, "vol_mult": 1.1}
+   8 #380 champion                    [ENGUQ_1M_ETH_R4_1_0.py] {"act_R": 0.5, "atr_len": 84, "breakeven_R": 2.0, "buf_atr": 0.25, "ema_len": 580, "er_len": 20, "er_th": 0.05, "limit_atr": 0.6, "min_brk": 2.5, "regime_len": 0, "stop_mult": 1.4, "tl_len": 262, "trail_frac": 1.5, "vol_mult": 0.4}
+   9 R5 defaults (lim .85+cap 9660)   [ENGUQ_1M_ETH_R5_1_0.py] {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.85, "max_hold_bars": 9660, "min_brk": 1.6, "regime_len": 10, "stop_mult": 1.0, "tl_len": 206, "trail_frac": 2.5, "vol_mult": 1.1}
+  10 #381 champion                    [ENGUQ_1M_ETH_R5_1_0.py] {"act_R": 4.0, "atr_len": 72, "breakeven_R": 1.5, "buf_atr": 0.35, "ema_len": 560, "er_len": -30, "er_th": -0.1, "limit_atr": 1.15, "max_hold_bars": 11040, "min_brk": 1.1, "regime_len": 0, "stop_mult": 1.9, "tl_len": 194, "trail_frac": 2.0, "vol_mult": -2.4}
+  11 #309 ex-crown control            [ENGUQ_1M_ETH_ER_1_0.py] {"act_R": 1.5, "atr_len": 52, "breakeven_R": 3.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.55, "min_brk": 1.6, "regime_len": 10, "stop_mult": 1.3, "tl_len": 206, "trail_frac": 2.5, "vol_mult": 1.1}
+  12 #265 ER25 (eff. gate 0.25)       [ENGUQ_1M_ETH_ER25_1_0.py] {"act_R": 2.5, "atr_len": 106, "breakeven_R": 1.5, "buf_atr": 0.9, "ema_len": 1380, "er_len": 60, "er_th": 0.25, "limit_atr": 0.0, "min_brk": 1.3, "regime_len": 0, "stop_mult": 1.0, "tl_len": 170, "trail_frac": 2.5, "vol_mult": 0.8}
+  13 #226 frozen control              [ENGUQ_1M_ETH_FROZEN_1_0.py] {"act_R": 2.5, "atr_len": 106, "breakeven_R": 1.5, "buf_atr": 0.9, "ema_len": 1380, "min_brk": 1.3, "regime_len": 0, "stop_mult": 1.0, "tl_len": 170, "trail_frac": 2.5, "vol_mult": 0.8}
+
+======================================================================================================================================================
+REFERENCE, NOT LIKE-FOR-LIKE: row 3's cell on ITS OWN tape (ES 1m ETH db_noadj_eth, $50/pt, same window and split) -- #370 graded it at 0.40 pts/RT, #377 at 0.60
+  #370/#377 champion @0.40   sel n=665 win 23.6% PF 2.374 net $346,353 DD $13,402 MAR 1.72 | top-10 78% TTZ 19 corr -0.08 | LB n=16 PF 4.710 net $34,960 | whole n=681  (run doc ungated_full 681)
+  #370/#377 champion @0.60   sel n=665 win 23.6% PF 2.321 net $339,703 DD $13,602 MAR 1.66 | top-10 79% TTZ 18 corr -0.08 | LB n=16 PF 4.651 net $34,800 | whole n=681
+  R2 defaults on ES @0.40    sel n=2013 win 27.0% PF 1.371 net $211,079 DD $19,396 MAR 0.72 | top-10 69% TTZ 18 corr +0.43 | LB n=94 PF 1.267 net $17,496 | whole n=2107
+
+done in 59s

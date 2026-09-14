@@ -1,0 +1,1412 @@
+========================================================================================================================
+r57 ENGU-Q WINNER vs LOSER ANATOMY at the SIGNAL bar -- run #335 crown = ENGUQ_1M_ETH_R2_1_0.py DEFAULT_PARAMS
+NQ 1m ETH db_noadj_eth | window 2010-06-07..2026-06-30 pinned | cost 0.533 pts/RT | $20/pt | one continuous engine backtest
+SELECTION = entries before 2025-06-30 00:00 ET ONLY. Lockbox trades are dropped on return and never analysed. Eras: E1 2010-06-07..2019-12-31, E2 2020-01-01..2025-06-29.
+generated 2026-09-14 15:11
+========================================================================================================================
+RESOLVED PARAMS (ENGUQ_1M_ETH_R2_1_0.py DEFAULT_PARAMS): {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.55, "min_brk": 1.6, "regime_len": 10, "stop_mult": 1.0, "tl_len": 206, "trail_frac": 2.5, "vol_mult": 1.1}
+MASTER NOADJ_NQ_1m_ETH.csv (id 34)  window 2010-06-07..2026-06-30  bars=5439594  (bars before split=5086313)
+PROBE WALK == ENGINE: 1831 selection trades identical (entry bar, exit bar, entry price, P&L after cost); signal bar recovered for every trade
+
+PARITY vs ENGUQ.md 2026-09-08 (queue_guard, continuous, entry-sliced): doc selection n=1830 PF 1.714 net $522,613 DD $38,687
+  this run: n=1831 PF 1.717 net $524,745 DD $38,687  -> within 1 trade and 0.5 pct of net, drawdown identical (the master was re-synced since)
+  (1,831 is also the selection count tools/tail_adjusted_board.py quoted on 2026-09-09.)
+
+SIGNAL-BAR vs FILL-BAR: fill delay (bars after the signal) counts for 1..10 bars = [1001, 312, 144, 108, 65, 46, 50, 43, 36, 26]
+  -> fill bar - 1 is the signal bar for 1001 of 1831 trades (55%); for the other 830, trade_anatomy's default decision bar is 1-9 bars AFTER the signal.
+  gap-through fills (open below the limit): 153
+
+------------------------------------------------------------------------------------------------------------------------
+BASELINE (selection window, P&L after cost; R = P&L / the file's own risk unit = entry - 206-bar swing low; gross R adds the 0.533-pt cost back)
+  SELECTION 2010-06..2025-06 n= 1831  win=29.4% (gross>0 29.6%, exact-entry scratches 136)  PF=1.717  net=$524,745  meanR=+0.204  PF(R)=1.312  medW/medL=2.97x (break-even 2.40x)  top-10 share=51%  trades-to-zero=32 (1.7%)
+  E1 2010-06..2019-12        n= 1218  win=27.6% (gross>0 27.9%, exact-entry scratches 85)  PF=1.458  net=$106,545  meanR=+0.144  PF(R)=1.208  medW/medL=2.85x (break-even 2.62x)  top-10 share=62%  trades-to-zero=21 (1.7%)
+  E2 2020-01..2025-06        n=  613  win=33.0% (gross>0 33.0%, exact-entry scratches 51)  PF=1.838  net=$418,200  meanR=+0.324  PF(R)=1.557  medW/medL=2.28x (break-even 2.03x)  top-10 share=65%  trades-to-zero=21 (3.4%)
+  cost as a share of the risk unit: median 0.048 R in E1, 0.009 R in E2 -- the same 0.533 pts is ~5x heavier in the early era, so NET R and win rate carry an era trend that has nothing to do with setup quality.
+  (top-10 share and trades-to-zero are given PER STRETCH as well as whole-window, per the house honesty rule; the whole-window share is the kindest number.)
+
+------------------------------------------------------------------------------------------------------------------------
+BUILDING FEATURES
+  own features: 66 in 3s
+  TA chunk 2010-06-07..2013-01-01: bars 891061, trades 247 (+59 overlap), 4s
+  TA chunk 2013-01-01..2016-01-01: bars 1407363, trades 410 (+31 overlap), 8s
+  TA chunk 2016-01-01..2019-01-01: bars 1494934, trades 409 (+54 overlap), 8s
+  TA chunk 2019-01-01..2022-01-01: bars 1544130, trades 411 (+27 overlap), 8s
+  TA chunk 2022-01-01..2025-06-30: bars 1646461, trades 354 (+0 overlap), 9s
+  chunk overlap: 171 trades computed from two different chunks and compared
+  trade_anatomy features: 105 columns in 37s; signal-on-last-bar-of-session day-level NaN'd for 2 trades
+  chunk-overlap agreement: 105 columns compared, 6 differ by > 1e-3 (the smaller of absolute and relative difference): vt_intraday_daily_pctile20 0.0814, ind_bbw_pctile_bar 0.0636, ind_atr_pctile_60m 0.0469, ind_bbw_pctile_60m 0.0291, vt_intraday_daily_ratio 0.0272, ind_atr_pctile_bar 0.0264
+  (those are trade_anatomy's subsampled trailing-year PERCENTILES -- pctile_vs_prior_days picks its day sample stride from the median bars/day of whatever frame it is given, so the same bar ranks slightly differently from two chunks; every other column agrees exactly.)
+  nulls: GLOBAL circular shift 1732 offsets (50..1781 trades); WITHIN-YEAR circular shift 2000 draws (each calendar year's outcomes shifted independently by 10-90% of that year's trades)
+
+========================================================================================================================
+HEADLINE -- 160 features tested at the signal bar on 1831 selection trades; Benjamini-Hochberg q<0.10 across all of them
+  THE HONEST TEST = WITHIN-YEAR shift null (keeps every between-year difference in the null, so a feature that only tells 2012 from 2022 cannot pass):
+    win vs loss survivors: 30 -> ctx_atr_pct_price (0.007), loc_pb_depth_pct (0.007), loc_plan_risk_pct (0.007), loc_cost_share_R (0.007), loc_swing_low_risk_pts (0.007), ctx_vix_prior_close (0.007), ta:lvl_pdl_atr (0.007), ta:lvl_sma50d_atr (0.007), ta:lvl_sma200d_atr (0.007), ta:ind_rsi14_daily (0.007), ta:ind_atr_pctile_bar (0.007), ta:ind_bbw_pctile_bar (0.007), ctx_ema21820_dist_atr (0.011), ctx_days_since_20d_high (0.011), ctx_vix_pctile_1y (0.011), ta:lvl_ema200_atr (0.015), ctx_ema_dist_atr (0.018), ta:day_ret_20d (0.018), ta:lvl_sma20d_atr (0.020), ta:day_prior_close_pos (0.020), imb_upvol_share10 (0.025), ta:vt_intraday_daily_ratio (0.025), loc_pb_recovery (0.045), loc_rn100_near_atr (0.048), ta:vt_intraday_daily_pctile20 (0.048), ta:path_upcount10 (0.049), ta:vol_cum_vs_avg20 (0.068), ta:ind_atr_pctile_daily (0.086), ta:cal_is_opex_week (0.088), ta:path_upcount5 (0.096)
+    net R survivors:       86 -> ctx_ema_dist_atr (0.001), ctx_ema1091_dist_atr (0.001), ctx_ema5455_dist_atr (0.001), ctx_ema21820_dist_atr (0.001), ctx_regime_sma_dist_atr (0.001), ctx_atr_pct_price (0.001), loc_sess_hi_atr (0.001), loc_sess_range_pos (0.001), ctx_days_since_20d_high (0.001), ctx_mins_since_1800 (0.001), ctx_session_bucket (0.001), ctx_is_rth (0.001), loc_rn100_above_atr (0.001), loc_rn100_near_atr (0.001), loc_pb_depth_pct (0.001), loc_pb_recovery (0.001), loc_ext_swing_atr (0.001), loc_ext60_atr (0.001), loc_plan_risk_atr (0.001), loc_plan_risk_pct (0.001), loc_cost_share_R (0.001), imb_upvol_share10 (0.001), imb_upvol_share30 (0.001), imb_upvol_share60 (0.001), imb_upbar_share20 (0.001), imb_ret60_atr (0.001), imb_er100 (0.001), loc_swing_low_risk_pts (0.001), imb_vol_vs_clock20 (0.001), ctx_vix_prior_close (0.001), ctx_vix_pctile_1y (0.001), ta:path_upcount5 (0.001), ta:path_upcount10 (0.001), ta:path_closepos60 (0.001), ta:path_with60_atr (0.001), ta:lvl_pdl_atr (0.001), ta:lvl_vwap_atr (0.001), ta:lvl_ema20_atr (0.001), ta:lvl_ema50_atr (0.001), ta:lvl_ema200_atr (0.001), ta:lvl_ema20_60m_atr (0.001), ta:lvl_ema50_60m_atr (0.001), ta:lvl_sma20d_atr (0.001), ta:lvl_sma50d_atr (0.001), ta:lvl_sma200d_atr (0.001), ta:ind_rsi14_daily (0.001), ta:ind_atr_pctile_bar (0.001), ta:ind_atr_pctile_60m (0.001), ta:ind_atr_pctile_daily (0.001), ta:ind_bbw_pctile_bar (0.001), ta:ind_er20_bar (0.001), ta:day_prior_close_pos (0.001), ta:day_ret_20d (0.001), ta:day_minutes_since_open (0.001), ta:vol_cum_vs_avg20 (0.001), ta:vt_intraday_daily_ratio (0.001), ta:vt_intraday_daily_pctile20 (0.001), imb_brk_atr (0.002), loc_limit_vs_tl_atr (0.002), imb_ret15_atr (0.002), ta:lvl_orb_hi_atr (0.002), ta:ind_rsi14_bar (0.002), ta:ind_rsi14_60m (0.002), ta:ind_adx14_bar (0.002), ta:day_up_streak (0.002), ctx_day_move_datr (0.003), loc_sess_lo_atr (0.003), ta:path_with12_atr (0.003), ta:day_prior_ret_pct (0.003), ta:lvl_pdh_atr (0.006), ta:day_ret_5d (0.008), ta:path_with24_atr (0.010), ta:ind_macd_sign_60m (0.014), ta:path_r2 (0.015), ta:lvl_prior_week_hi_atr (0.020), loc_pdl_datr (0.024), loc_tl_slope_atr100 (0.026), ta:lvl_pdc_atr (0.026), ta:ind_compressed_60m (0.031), loc_rn1000_near_datr (0.038), ta:path_range10_atr (0.041), loc_tl_r2 (0.053), loc_rth_pdl_datr (0.059), loc_bars_since_win_high (0.060), ta:path_lower_wick (0.094), ta:ind_adx14_60m (0.094)
+    gross R survivors (cost added back, i.e. market move only): 30 -> ctx_ema21820_dist_atr (0.009), ctx_days_since_20d_high (0.009), loc_plan_risk_pct (0.009), loc_cost_share_R (0.009), loc_swing_low_risk_pts (0.009), ctx_vix_pctile_1y (0.009), ta:lvl_sma20d_atr (0.009), ta:lvl_sma200d_atr (0.009), ta:ind_rsi14_daily (0.009), ctx_atr_pct_price (0.013), ta:lvl_sma50d_atr (0.013), ta:ind_bbw_pctile_bar (0.013), ctx_vix_prior_close (0.017), ta:ind_atr_pctile_bar (0.017), ta:day_ret_20d (0.027), ta:lvl_ema200_atr (0.028), ta:day_prior_close_pos (0.028), ctx_ema_dist_atr (0.044), loc_pb_recovery (0.044), ta:ind_atr_pctile_daily (0.044), loc_pb_depth_pct (0.051), ta:lvl_pdl_atr (0.051), ctx_ema5455_dist_atr (0.056), imb_upvol_share10 (0.057), ta:day_up_streak (0.058), ta:path_upcount5 (0.058), ta:lvl_prior_week_hi_atr (0.065), ta:vt_intraday_daily_ratio (0.071), ta:day_ret_5d (0.085), loc_ext60_atr (0.099)
+    net-R survivors that pass NEITHER the win test NOR the gross-R test: 52 -- their only link to the outcome is the fixed cost weighing more on small stops (quiet tape, small ATR), i.e. the cost-share mechanic, not setup quality.
+    within-year survivors (win or net R) whose direction agrees inside E1 AND E2: 76 -> ctx_ema_dist_atr, ctx_ema1091_dist_atr, ctx_ema5455_dist_atr, ctx_ema21820_dist_atr, ctx_regime_sma_dist_atr, ctx_atr_pct_price, ctx_day_move_datr, loc_pdl_datr, loc_sess_hi_atr, loc_sess_lo_atr, loc_sess_range_pos, ctx_days_since_20d_high, ctx_mins_since_1800, ctx_is_rth, loc_rth_pdl_datr, loc_rn100_above_atr, loc_rn100_near_atr, loc_rn1000_near_datr, loc_tl_slope_atr100, loc_tl_r2, imb_brk_atr, loc_pb_depth_pct, loc_pb_recovery, loc_bars_since_win_high, loc_ext_swing_atr, loc_ext60_atr, loc_plan_risk_atr, loc_plan_risk_pct, loc_cost_share_R, loc_limit_vs_tl_atr, imb_upvol_share10, imb_upvol_share30, imb_upvol_share60, imb_upbar_share20, imb_ret15_atr, imb_ret60_atr, imb_er100, loc_swing_low_risk_pts, imb_vol_vs_clock20, ctx_vix_prior_close, ctx_vix_pctile_1y, ta:path_range10_atr, ta:path_with12_atr, ta:path_with60_atr, ta:lvl_pdl_atr, ta:lvl_vwap_atr, ta:lvl_ema20_atr, ta:lvl_ema50_atr, ta:lvl_ema200_atr, ta:lvl_ema20_60m_atr, ta:lvl_ema50_60m_atr, ta:lvl_sma20d_atr, ta:lvl_sma50d_atr, ta:lvl_sma200d_atr, ta:ind_rsi14_bar, ta:ind_rsi14_60m, ta:ind_rsi14_daily, ta:ind_adx14_bar, ta:ind_adx14_60m, ta:ind_atr_pctile_bar, ta:ind_atr_pctile_60m, ta:ind_atr_pctile_daily, ta:ind_bbw_pctile_bar, ta:ind_macd_sign_60m, ta:ind_er20_bar, ta:ind_compressed_60m, ta:day_prior_ret_pct, ta:day_prior_close_pos, ta:day_up_streak, ta:day_ret_5d, ta:day_ret_20d, ta:day_minutes_since_open, ta:vol_cum_vs_avg20, ta:cal_is_opex_week, ta:vt_intraday_daily_ratio, ta:vt_intraday_daily_pctile20
+  WEAKER TESTS, printed so the gap is visible (both let era trends through):
+    global circular shift null (win or R): 86 survivors
+    independence-assuming Mann-Whitney win/loss: 37 ; Spearman vs R: 95
+
+NULL CALIBRATION -- 400 placebo features of pure noise (half AR(1) phi 0.95, half within-year random walks) through the within-year null; a calibrated test rejects ~10% / 5% / 1%:
+  win      p<0.10 11.0%   p<0.05  6.2%   p<0.01  1.0%   | p<=0.001: real 15 vs 0.4 expected from noise; p<=0.005: real 22 vs 0.8 expected from noise; p<=0.010: real 26 vs 1.6 expected from noise
+  net R    p<0.10 14.2%   p<0.05  8.2%   p<0.01  3.5%   | p<=0.001: real 65 vs 1.6 expected from noise; p<=0.005: real 72 vs 4.0 expected from noise; p<=0.010: real 75 vs 5.6 expected from noise
+  gross R  p<0.10 13.0%   p<0.05  7.2%   p<0.01  1.5%   | p<=0.001: real 12 vs 0.4 expected from noise; p<=0.005: real 18 vs 1.6 expected from noise; p<=0.010: real 26 vs 2.4 expected from noise
+  (the 'expected from noise' counts use the placebo rejection rate at the same threshold, so they correct for the null's own miscalibration; the p floor is 1/2001 = 0.0005. Features are correlated, so these counts are not independent draws either way.)
+
+FAMILY-WISE 'BEST GROUP ANYWHERE' (max over every feature x group with n>=50; null of the MAXIMUM):
+  global-shift null, global quintiles        best win rate 38.3 (ta:ind_bbw_pctile_bar) vs base 29.4; null max median 37.3, 95th 42.2; p=0.281
+  global-shift null, global quintiles        best mean R-percentile 0.652 (loc_cost_share_R) vs base 0.5; null max median 0.595, 95th 0.61; p=0.001
+  within-year null, within-year quintiles    best win rate 38.3 (loc_swing_low_risk_pts) vs base 29.4; null max median 36.1, 95th 38; p=0.037
+  within-year null, within-year quintiles    best mean R-percentile 0.616 (loc_swing_low_risk_pts) vs base 0.5; null max median 0.541, 95th 0.551; p=0.000
+
+========================================================================================================================
+PER-FEATURE TABLE, sorted by the within-year null. rb = rank-biserial winners vs losers (+ = winners higher); rhoR = Spearman vs net R; rho_t = Spearman vs entry order (era trend); qGS = global-shift q (min of win, R); pWYw/qWYw, pWYR/qWYR, qWYg = within-year null for win, net R, gross R. win% Q = global quintiles; wyQ = quintiles ranked INSIDE each year. E1/E2 = rb per era; stab = same sign of rb and rho in both eras.
+feature                        group          n  med_win  med_los     rb   p_MW   rhoR  rho_t   qGS |  pWYw  qWYw  pWYR  qWYR  qWYg | win% Q1..Q5 (global)          | win% wyQ1..wyQ5               | mean R Q1..Q5 (global)             | mean$ Q1/Q5   |  E1rb  E2rb stab
+ctx_ema_dist_atr               CONTEXT     1831    2.312    1.766 +0.083  0.005 +0.065  -0.09 0.021 | 0.002 0.018 0.000 0.001 0.044 |  27.0  23.8  29.0  35.8  31.4 |  26.3  23.2  30.5  35.8  31.1 |  +0.14  -0.06  +0.22  +0.39  +0.33 |    142/484    | +0.11 +0.05  yes
+ctx_ema1091_dist_atr           CONTEXT     1831    4.515    5.536 -0.054  0.070 -0.128  -0.04 0.002 | 0.104 0.257 0.000 0.001 0.428 |  27.8  33.3  33.1  28.7  24.0 |  28.8  30.6  33.5  28.7  25.3 |  +0.16  +0.37  +0.29  +0.11  +0.09 |    142/81     | -0.04 -0.07  yes
+ctx_ema5455_dist_atr           CONTEXT     1831    7.639    9.009 -0.064  0.031 -0.130  -0.01 0.002 | 0.029 0.124 0.000 0.001 0.056 |  33.0  29.2  32.2  27.3  25.1 |  34.7  29.0  30.2  25.7  27.2 |  +0.36  +0.31  +0.23  +0.22  -0.10 |    228/26     | -0.07 -0.04  yes
+ctx_ema21820_dist_atr          CONTEXT     1831    12.34    19.26 -0.095  0.001 -0.151  -0.01 0.002 | 0.001 0.011 0.000 0.001 0.009 |  34.3  32.0  29.2  26.5  24.9 |  34.4  31.1  30.2  27.6  23.3 |  +0.37  +0.43  +0.30  +0.05  -0.13 |    365/38     | -0.14 -0.00  yes
+ctx_regime_sma_dist_atr        CONTEXT     1831    8.586    10.17 -0.048  0.104 -0.136  -0.02 0.002 | 0.108 0.258 0.000 0.001 0.129 |  31.9  27.9  33.1  27.0  27.0 |  31.5  29.5  31.3  27.6  26.9 |  +0.29  +0.18  +0.26  +0.18  +0.10 |    585/127    | -0.04 -0.06  yes
+ctx_atr_pct_price              CONTEXT     1831  0.04015  0.03314 +0.134  0.000 +0.319  +0.22 0.002 | 0.000 0.007 0.000 0.001 0.013 |  24.3  26.0  27.9  32.2  36.6 |  25.3  26.5  26.7  32.0  36.7 |  +0.02  +0.11  +0.15  +0.26  +0.47 |     16/1014   | +0.13 +0.09  yes
+loc_sess_hi_atr                LOCATION    1831   -6.533   -7.384 +0.040  0.176 +0.091  +0.01 0.002 | 0.146 0.324 0.000 0.001 0.263 |  25.6  29.0  30.9  33.9  27.6 |  26.3  27.6  31.1  35.2  26.7 |  -0.01  +0.19  +0.21  +0.46  +0.18 |     36/428    | +0.04 +0.05  yes
+loc_sess_range_pos             LOCATION    1831   0.6414   0.6206 +0.047  0.110 +0.084  -0.02 0.002 | 0.089 0.242 0.000 0.001 0.174 |  23.7  30.9  33.1  28.7  30.6 |  23.4  32.5  31.9  29.2  30.0 |  -0.04  +0.28  +0.25  +0.18  +0.35 |     61/494    | +0.05 +0.05  yes
+ctx_days_since_20d_high        CONTEXT     1813       10        8 +0.112  0.000 +0.118  -0.00 0.002 | 0.001 0.011 0.000 0.001 0.009 |  23.1  26.4  28.7  35.5  32.9 |  24.4  27.6  24.7  34.3  36.0 |  -0.13  +0.04  +0.24  +0.52  +0.33 |     20/478    | +0.16 +0.02  yes
+ctx_mins_since_1800            CONTEXT     1831    888.5      848 +0.049  0.102 +0.127  -0.03 0.002 | 0.103 0.257 0.000 0.001 0.521 |  28.1  26.0  29.0  33.1  30.9 |  26.9  26.5  30.5  32.8  30.3 |  +0.09  +0.15  +0.27  +0.30  +0.21 |     39/323    | +0.06 +0.03  yes
+ctx_session_bucket             CONTEXT     1831        1        1      -  0.196      -      - 0.002 | 0.220 0.434 0.000 0.001 0.387 |  26.5  28.9  31.8  24.1       | (discrete)                    |  +0.07  +0.25  +0.26  +0.27        |     62/570    |     -     -    -
+ctx_is_rth                     CONTEXT     1831        0        0 +0.050  0.051 +0.131  +0.00 0.002 | 0.044 0.148 0.000 0.001 0.661 |  27.6  31.8                   | (discrete)                    |  +0.16  +0.26                      |    140/479    | +0.06 +0.04  yes
+loc_rn100_above_atr            LOCATION    1831     15.5    21.03 -0.103  0.001 -0.304  -0.60 0.002 | 0.032 0.126 0.000 0.001 0.263 |  33.0  32.5  31.4  24.3  25.7 |  35.2  26.0  29.2  29.5  26.9 |  +0.34  +0.38  +0.17  +0.05  +0.08 |    855/23     | -0.09 -0.05  yes
+loc_rn100_near_atr             LOCATION    1831    7.957    10.35 -0.112  0.000 -0.313  -0.61 0.002 | 0.007 0.048 0.000 0.001 0.171 |  35.1  29.8  33.1  23.2  25.7 |  34.4  30.6  26.4  26.8  28.6 |  +0.48  +0.30  +0.30  -0.12  +0.05 |    829/15     | -0.09 -0.06  yes
+loc_pb_depth_pct               LOCATION    1831   0.5699   0.4986 +0.125  0.000 +0.303  +0.19 0.002 | 0.000 0.007 0.000 0.001 0.051 |  24.5  25.7  29.2  30.6  36.9 |  24.5  25.7  29.7  32.8  34.4 |  +0.03  +0.06  +0.11  +0.28  +0.54 |      8/1059   | +0.11 +0.09  yes
+loc_pb_recovery                LOCATION    1831   0.6382   0.6047 +0.077  0.009 +0.153  +0.00 0.002 | 0.006 0.045 0.000 0.001 0.044 |  23.4  29.5  30.1  33.9  30.1 |  22.6  29.5  30.2  35.0  29.7 |  -0.03  +0.39  +0.10  +0.35  +0.21 |     47/602    | +0.10 +0.04  yes
+loc_ext_swing_atr              LOCATION    1831    9.268    8.878 +0.049  0.101 +0.079  -0.10 0.008 | 0.056 0.169 0.000 0.001 0.263 |  27.5  29.8  25.7  31.7  32.2 |  27.4  28.7  26.4  31.4  33.1 |  +0.14  +0.30  +0.02  +0.29  +0.27 |    138/406    | +0.06 +0.05  yes
+loc_ext60_atr                  LOCATION    1831    8.111    7.953 +0.050  0.091 +0.082  -0.15 0.015 | 0.039 0.137 0.000 0.001 0.099 |  28.1  30.3  25.1  26.0  37.4 |  28.0  28.7  27.8  25.1  37.5 |  +0.09  +0.32  +0.06  -0.04  +0.58 |    252/615    | +0.05 +0.07  yes
+loc_plan_risk_atr              LOCATION    1831    8.718    8.328 +0.049  0.101 +0.079  -0.10 0.008 | 0.056 0.169 0.000 0.001 0.263 |  27.5  29.8  25.7  31.7  32.2 |  27.4  28.7  26.4  31.4  33.1 |  +0.14  +0.30  +0.02  +0.29  +0.27 |    138/406    | +0.06 +0.05  yes
+loc_plan_risk_pct              LOCATION    1831    0.361   0.2876 +0.144  0.000 +0.344  +0.17 0.002 | 0.000 0.007 0.000 0.001 0.009 |  23.2  25.7  27.6  32.8  37.7 |  23.9  27.0  27.5  31.7  36.9 |  -0.04  +0.11  +0.14  +0.37  +0.44 |      4/928    | +0.15 +0.10  yes
+loc_cost_share_R               LOCATION    1831  0.02361  0.03337 -0.144  0.000 -0.419  -0.73 0.002 | 0.000 0.007 0.000 0.001 0.009 |  35.4  33.6  31.4  24.0  22.4 |  37.1  29.5  28.3  27.6  24.2 |  +0.37  +0.45  +0.22  +0.13  -0.14 |   1008/-9     | -0.15 -0.09  yes
+imb_upvol_share10              IMBALANCE   1831   0.7141   0.6969 +0.100  0.001 +0.181  +0.16 0.002 | 0.003 0.025 0.000 0.001 0.057 |  22.6  27.9  32.2  28.7  35.5 |  23.7  27.6  32.2  29.0  34.7 |  -0.15  +0.08  +0.48  +0.17  +0.44 |    -37/582    | +0.13 +0.01  yes
+imb_upvol_share30              IMBALANCE   1831    0.597     0.58 +0.082  0.006 +0.201  +0.27 0.002 | 0.029 0.124 0.000 0.001 0.294 |  26.4  31.4  20.8  33.1  35.2 |  27.7  29.2  25.1  29.2  35.8 |  +0.11  +0.23  -0.02  +0.22  +0.48 |     34/669    | +0.06 +0.07  yes
+imb_upvol_share60              IMBALANCE   1831   0.5224   0.5113 +0.074  0.013 +0.220  +0.32 0.002 | 0.092 0.242 0.000 0.001 0.497 |  24.5  29.0  29.5  32.2  31.7 |  29.3  26.2  28.6  31.4  31.4 |  +0.13  +0.21  +0.12  +0.28  +0.29 |     58/514    | +0.08 +0.00  yes
+imb_upbar_share20              IMBALANCE   1831     0.55     0.55 +0.090  0.002 +0.251  +0.40 0.002 | 0.032 0.126 0.000 0.001 0.246 |  24.8  29.0  27.9  32.0  33.3 |  25.0  30.6  29.7  27.6  34.2 |  +0.03  +0.28  +0.01  +0.36  +0.35 |     59/710    | +0.09 +0.03  yes
+imb_ret60_atr                  IMBALANCE   1831    4.337    3.888 +0.059  0.046 +0.104  -0.07 0.002 | 0.034 0.126 0.000 0.001 0.103 |  28.1  27.0  27.9  30.1  33.9 |  28.0  28.1  25.9  32.0  33.1 |  +0.13  +0.20  +0.12  +0.20  +0.37 |    265/629    | +0.08 +0.03  yes
+imb_er100                      IMBALANCE   1831  0.05137  0.04762 +0.069  0.020 +0.089  +0.02 0.002 | 0.032 0.126 0.000 0.001 0.116 |  27.8  26.2  30.9  29.0  33.1 |  26.6  29.2  26.7  30.9  33.6 |  +0.08  +0.05  +0.45  +0.08  +0.36 |    129/623    | +0.07 +0.07  yes
+loc_swing_low_risk_pts         LOCATION    1831    23.75       17 +0.144  0.000 +0.418  +0.74 0.002 | 0.000 0.007 0.000 0.001 0.009 |  22.6  24.0  31.7  33.9  34.7 |  24.7  26.5  29.7  27.9  38.3 |  -0.12  +0.10  +0.24  +0.45  +0.35 |     -5/992    | +0.15 +0.09  yes
+imb_vol_vs_clock20             IMBALANCE   1829    1.734    1.661 +0.044  0.135 +0.074  -0.07 0.008 | 0.074 0.205 0.000 0.001 0.126 |  26.0  28.7  32.2  29.2  30.7 |  25.8  28.4  29.8  31.1  31.8 |  +0.12  +0.19  +0.28  +0.15  +0.27 |    124/299    | +0.05 +0.04  yes
+ctx_vix_prior_close            CONTEXT     1810    17.76     16.2 +0.103  0.001 +0.210  +0.20 0.002 | 0.000 0.007 0.000 0.001 0.017 |  25.4  24.6  30.1  32.0  35.4 |  25.1  28.0  27.2  29.6  37.8 |  +0.11  +0.01  +0.24  +0.24  +0.47 |    144/709    | +0.10 +0.05  yes
+ctx_vix_pctile_1y              CONTEXT     1810    56.35    47.22 +0.108  0.000 +0.174  +0.13 0.002 | 0.001 0.011 0.000 0.001 0.009 |  25.4  23.8  30.4  31.8  36.2 |  25.6  25.5  28.8  29.9  37.8 |  -0.04  +0.07  +0.24  +0.34  +0.46 |     97/512    | +0.13 +0.06  yes
+ta:path_upcount5               TA:path     1831        4        3 +0.079  0.005 +0.198  +0.18 0.002 | 0.018 0.096 0.000 0.001 0.058 |  18.9  22.6  30.4  31.4  31.9 | (discrete)                    |  -0.47  -0.04  +0.26  +0.26  +0.40 |     18/382    | +0.11 -0.01   NO
+ta:path_upcount10              TA:path     1831        6        6 +0.099  0.001 +0.231  +0.28 0.002 | 0.008 0.049 0.000 0.001 0.102 |  22.1  29.5  30.1  31.1  34.2 |  26.3  25.7  31.9  29.2  33.9 |  -0.12  +0.23  +0.31  +0.21  +0.40 |     -1/724    | +0.13 -0.01   NO
+ta:path_closepos60             TA:path     1831   0.9575    0.957 +0.012  0.675 +0.059  -0.09 0.069 | 0.526 0.701 0.000 0.001 0.368 |  28.1  27.0  33.6  30.1  28.1 |  26.9  29.0  32.4  30.9  27.8 |  +0.21  +0.11  +0.29  +0.14  +0.27 |    236/179    | +0.04 -0.03   NO
+ta:path_with60_atr             TA:path     1831    4.264    3.815 +0.046  0.123 +0.097  -0.06 0.002 | 0.093 0.242 0.000 0.001 0.246 |  27.2  28.7  28.1  32.2  30.6 |  28.0  29.5  25.6  32.2  31.7 |  +0.10  +0.24  +0.15  +0.27  +0.26 |    267/496    | +0.07 +0.01  yes
+ta:lvl_pdl_atr                 TA:lvl      1829    31.57    36.48 -0.108  0.000 -0.180  +0.00 0.002 | 0.000 0.007 0.000 0.001 0.051 |  33.6  30.9  34.7  23.8  24.1 |  33.9  29.8  33.9  26.5  22.8 |  +0.38  +0.27  +0.34  -0.03  +0.06 |    782/32     | -0.06 -0.19  yes
+ta:lvl_vwap_atr                TA:lvl      1831    1.944    1.744 +0.063  0.035 +0.074  -0.04 0.010 | 0.025 0.114 0.000 0.001 0.104 |  27.2  24.9  32.0  29.0  33.9 |  26.6  27.0  30.5  29.2  33.6 |  +0.12  +0.00  +0.32  +0.10  +0.48 |    110/652    | +0.06 +0.06  yes
+ta:lvl_ema20_atr               TA:lvl      1831    2.661    2.619 +0.041  0.170 +0.025  -0.21 0.388 | 0.052 0.168 0.000 0.001 0.148 |  28.3  29.2  27.0  28.4  33.9 |  28.2  27.9  27.0  27.9  36.1 |  +0.17  +0.13  +0.12  +0.13  +0.47 |    167/550    | +0.06 +0.04  yes
+ta:lvl_ema50_atr               TA:lvl      1831    3.292    3.241 +0.041  0.164 +0.073  -0.14 0.051 | 0.094 0.242 0.000 0.001 0.240 |  29.7  27.9  26.8  27.6  35.0 |  29.0  27.9  27.8  27.3  35.0 |  +0.25  +0.04  +0.16  +0.09  +0.48 |    179/652    | +0.06 +0.02  yes
+ta:lvl_ema200_atr              TA:lvl      1831    2.309     1.85 +0.085  0.004 +0.086  -0.09 0.008 | 0.001 0.015 0.000 0.001 0.028 |  27.2  24.0  27.3  38.0  30.3 |  25.5  24.6  29.4  36.1  31.4 |  +0.19  -0.04  +0.07  +0.55  +0.26 |    185/416    | +0.11 +0.04  yes
+ta:lvl_ema20_60m_atr           TA:lvl      1831    4.568    5.272 -0.051  0.086 -0.117  -0.01 0.002 | 0.107 0.258 0.000 0.001 0.387 |  27.2  32.5  33.1  30.3  23.8 |  28.2  32.2  31.9  29.5  25.0 |  +0.13  +0.25  +0.40  +0.23  +0.01 |     93/35     | -0.03 -0.09  yes
+ta:lvl_ema50_60m_atr           TA:lvl      1831    6.356    7.449 -0.067  0.025 -0.145  -0.01 0.002 | 0.028 0.124 0.000 0.001 0.102 |  31.9  30.9  30.3  29.8  24.0 |  31.7  31.7  30.0  31.1  22.2 |  +0.27  +0.25  +0.28  +0.29  -0.06 |    558/5      | -0.04 -0.11  yes
+ta:lvl_sma20d_atr              TA:lvl      1828   0.2724   0.4829 -0.094  0.002 -0.097  +0.02 0.016 | 0.002 0.020 0.000 0.001 0.009 |  36.3  29.2  27.7  28.4  25.2 |  35.8  30.9  29.9  25.4  24.8 |  +0.50  +0.26  +0.16  +0.14  -0.05 |    457/44     | -0.13 -0.03  yes
+ta:lvl_sma50d_atr              TA:lvl      1810   0.7283    1.292 -0.104  0.000 -0.123  -0.00 0.002 | 0.000 0.007 0.000 0.001 0.013 |  33.4  33.7  27.3  27.1  25.4 |  38.3  28.5  29.6  26.5  23.9 |  +0.33  +0.40  +0.16  +0.10  +0.02 |    432/89     | -0.14 -0.04  yes
+ta:lvl_sma200d_atr             TA:lvl      1751    3.383    4.226 -0.106  0.000 -0.123  -0.04 0.002 | 0.000 0.007 0.000 0.001 0.009 |  33.9  33.4  28.9  26.6  24.9 |  36.7  34.3  27.1  27.1  22.1 |  +0.31  +0.34  +0.23  +0.06  +0.14 |    317/86     | -0.13 -0.07  yes
+ta:ind_rsi14_daily             TA:ind      1828    50.68    54.52 -0.118  0.000 -0.119  +0.00 0.002 | 0.000 0.007 0.000 0.001 0.009 |  35.8  30.6  29.3  27.6  23.6 |  36.3  30.1  31.5  24.9  24.0 |  +0.53  +0.31  +0.20  +0.11  -0.15 |    676/-2     | -0.15 -0.05  yes
+ta:ind_atr_pctile_bar          TA:ind      1802    74.53    68.32 +0.118  0.000 +0.251  +0.06 0.002 | 0.000 0.007 0.000 0.001 0.017 |  22.2  28.9  29.6  29.2  36.9 |  22.6  30.8  28.0  30.0  35.6 |  -0.13  +0.31  +0.17  +0.15  +0.50 |    -46/1024   | +0.11 +0.11  yes
+ta:ind_atr_pctile_60m          TA:ind      1802    58.61    55.07 +0.068  0.022 +0.134  +0.09 0.002 | 0.110 0.259 0.000 0.001 0.169 |  25.8  27.8  30.2  28.6  34.4 |  26.4  27.2  29.9  31.7  31.6 |  -0.04  +0.09  +0.44  +0.06  +0.43 |     70/686    | +0.06 +0.05  yes
+ta:ind_atr_pctile_daily        TA:ind      1800    64.29    60.32 +0.086  0.004 +0.144  +0.08 0.002 | 0.015 0.086 0.000 0.001 0.044 |  24.7  26.7  33.6  28.9  33.1 |  21.6  34.2  30.0  27.2  34.2 |  +0.03  +0.10  +0.31  +0.22  +0.34 |    288/419    | +0.11 +0.03  yes
+ta:ind_bbw_pctile_bar          TA:ind      1802    73.64    67.16 +0.130  0.000 +0.258  +0.05 0.002 | 0.000 0.007 0.000 0.001 0.013 |  22.2  27.2  32.4  26.7  38.3 |  23.2  30.0  29.1  27.8  37.0 |  -0.15  +0.24  +0.30  -0.00  +0.60 |    -42/1074   | +0.13 +0.10  yes
+ta:ind_er20_bar                TA:ind      1831   0.3846   0.3651 +0.060  0.044 +0.111  +0.03 0.002 | 0.061 0.176 0.000 0.001 0.230 |  28.3  28.1  27.0  26.0  37.4 |  28.8  26.8  28.6  25.7  37.2 |  +0.11  +0.12  +0.10  +0.20  +0.49 |     96/653    | +0.06 +0.05  yes
+ta:day_prior_close_pos         TA:day      1829   0.7237   0.7823 -0.091  0.002 -0.089  +0.04 0.006 | 0.002 0.020 0.000 0.001 0.028 |  35.5  31.7  27.6  25.7  26.6 |  35.5  31.1  27.9  24.6  27.9 |  +0.46  +0.26  +0.22  -0.03  +0.11 |    696/37     | -0.04 -0.19  yes
+ta:day_ret_20d                 TA:day      1828   0.3591    1.385 -0.091  0.002 -0.092  +0.04 0.013 | 0.002 0.018 0.000 0.001 0.027 |  36.1  33.9  23.0  24.0  29.9 |  35.5  34.4  26.8  21.9  28.1 |  +0.46  +0.40  +0.05  -0.05  +0.14 |    645/271    | -0.14 -0.02  yes
+ta:day_minutes_since_open      TA:day      1831    883.5      846 +0.045  0.129 +0.125  -0.02 0.002 | 0.127 0.291 0.000 0.001 0.570 |  28.1  26.5  28.4  32.8  31.1 |  27.4  26.0  30.5  33.1  30.0 |  +0.11  +0.16  +0.24  +0.29  +0.21 |     59/328    | +0.05 +0.03  yes
+ta:vol_cum_vs_avg20            TA:vol      1825   0.9749   0.9361 +0.072  0.016 +0.128  +0.04 0.002 | 0.011 0.068 0.000 0.001 0.102 |  28.5  27.1  25.2  30.4  35.6 |  28.6  25.7  27.9  30.3  34.5 |  +0.07  +0.17  +0.06  +0.26  +0.45 |     75/520    | +0.10 +0.01  yes
+ta:vt_intraday_daily_ratio     TA:vt       1830   0.8857   0.7591 +0.090  0.002 +0.211  +0.05 0.002 | 0.003 0.025 0.000 0.001 0.071 |  26.0  25.4  32.0  29.8  33.6 |  26.3  24.6  31.1  30.9  34.0 |  -0.04  +0.10  +0.43  +0.23  +0.28 |     31/711    | +0.08 +0.09  yes
+ta:vt_intraday_daily_pctile20  TA:vt       1802    67.28       61 +0.080  0.008 +0.182  +0.01 0.002 | 0.007 0.048 0.000 0.001 0.115 |  26.3  26.1  28.3  32.8  33.3 |  27.0  26.7  28.3  30.0  35.0 |  -0.02  +0.11  +0.24  +0.41  +0.25 |     59/734    | +0.07 +0.09  yes
+imb_brk_atr                    IMBALANCE   1831    4.563    4.428 +0.033  0.259 +0.054  -0.10 0.120 | 0.158 0.341 0.001 0.002 0.360 |  28.9  29.0  29.0  26.8  33.3 |  27.4  30.3  30.2  23.8  35.3 |  +0.10  +0.30  +0.24  +0.08  +0.30 |    230/408    | +0.05 +0.02  yes
+loc_limit_vs_tl_atr            LOCATION    1831    4.013    3.878 +0.033  0.259 +0.054  -0.10 0.120 | 0.158 0.341 0.001 0.002 0.360 |  28.9  29.0  29.0  26.8  33.3 |  27.4  30.3  30.2  23.8  35.3 |  +0.10  +0.30  +0.24  +0.08  +0.30 |    230/408    | +0.05 +0.02  yes
+imb_ret15_atr                  IMBALANCE   1831    3.968    3.685 +0.050  0.089 +0.030  -0.16 0.280 | 0.035 0.128 0.001 0.002 0.263 |  30.2  24.6  27.9  30.3  33.9 |  29.8  24.9  27.8  30.6  33.9 |  +0.06  +0.25  +0.05  +0.31  +0.34 |    145/478    | +0.07 +0.04  yes
+ta:lvl_orb_hi_atr              TA:lvl      1783        0   -0.547 +0.040  0.186 +0.070  +0.03 0.008 | 0.175 0.373 0.001 0.002 0.263 |  26.9  29.1  28.7  31.1  30.9 |  27.4  28.1  30.1  29.5  31.6 |  +0.05  +0.06  +0.24  +0.36  +0.29 |     77/338    | +0.06 -0.00   NO
+ta:ind_rsi14_bar               TA:ind      1831    73.48     72.5 +0.065  0.028 +0.100  +0.00 0.002 | 0.036 0.128 0.001 0.002 0.264 |  28.1  27.6  27.0  28.1  36.1 |  28.0  27.3  28.1  27.9  35.8 |  +0.10  +0.17  +0.09  +0.12  +0.55 |    135/570    | +0.10 +0.00  yes
+ta:ind_rsi14_60m               TA:ind      1831     51.6    53.65 -0.041  0.170 -0.087  +0.02 0.002 | 0.178 0.376 0.001 0.002 0.570 |  29.7  30.1  33.1  27.9  26.2 |  29.8  29.5  33.5  28.4  25.6 |  +0.19  +0.18  +0.36  +0.13  +0.16 |    309/105    | -0.00 -0.11  yes
+ta:ind_adx14_bar               TA:ind      1831    34.31    32.25 +0.049  0.099 +0.073  -0.02 0.007 | 0.097 0.246 0.001 0.002 0.330 |  30.8  24.0  26.2  32.5  33.3 |  30.6  23.0  29.2  31.4  32.8 |  +0.16  -0.05  +0.18  +0.34  +0.38 |    184/424    | +0.06 +0.04  yes
+ta:day_up_streak               TA:day      1829        1        1 -0.039  0.161 -0.057  +0.04 0.053 | 0.137 0.309 0.001 0.002 0.058 |  29.8  33.6  27.3  26.5  29.9 |  30.9  33.1  25.4  30.3  27.3 |  +0.17  +0.36  +0.19  +0.16  +0.15 |    318/51     | -0.01 -0.09  yes
+ctx_day_move_datr              CONTEXT     1830  0.05863  0.03919 +0.047  0.113 +0.072  +0.04 0.011 | 0.126 0.291 0.001 0.003 0.197 |  27.3  30.1  28.7  26.2  34.4 |  28.5  27.6  28.3  28.1  34.3 |  +0.02  +0.23  +0.23  +0.11  +0.40 |     28/715    | +0.05 +0.04  yes
+loc_sess_lo_atr                LOCATION    1831    11.89    10.76 +0.065  0.029 +0.051  -0.04 0.086 | 0.020 0.103 0.001 0.003 0.121 |  27.5  24.9  30.9  33.1  30.6 |  25.8  26.2  31.1  31.4  32.5 |  +0.20  -0.03  +0.37  +0.13  +0.36 |    129/437    | +0.07 +0.07  yes
+ta:path_with12_atr             TA:path     1831     3.61    3.413 +0.053  0.076 +0.032  -0.16 0.251 | 0.033 0.126 0.001 0.003 0.263 |  27.5  28.4  27.6  30.1  33.3 |  26.6  29.5  26.7  27.6  36.7 |  +0.17  +0.07  +0.07  +0.31  +0.40 |    128/411    | +0.07 +0.03  yes
+ta:day_prior_ret_pct           TA:day      1829   0.4249   0.4927 -0.061  0.041 -0.035  +0.08 0.164 | 0.022 0.106 0.001 0.003 0.103 |  34.7  29.0  27.9  27.6  27.9 |  33.1  30.9  30.1  24.6  28.4 |  +0.44  +0.08  +0.22  +0.09  +0.19 |    742/104    | -0.03 -0.13  yes
+ta:lvl_pdh_atr                 TA:lvl      1829   -8.418   -9.492 +0.032  0.276 +0.087  +0.07 0.004 | 0.370 0.598 0.002 0.006 0.718 |  28.4  27.9  27.9  33.6  29.3 |  28.5  28.1  28.7  32.2  29.5 |  +0.11  +0.17  +0.19  +0.29  +0.26 |    163/416    | +0.08 -0.07   NO
+ta:day_ret_5d                  TA:day      1828  -0.1786   0.1257 -0.060  0.042 -0.056  -0.00 0.120 | 0.022 0.106 0.003 0.008 0.085 |  33.6  33.1  24.7  26.5  29.0 |  34.4  31.4  29.3  23.5  28.1 |  +0.31  +0.46  +0.06  +0.03  +0.14 |    575/241    | -0.08 -0.02  yes
+ta:path_with24_atr             TA:path     1831    4.375    4.177 +0.023  0.442 +0.042  -0.10 0.189 | 0.343 0.566 0.004 0.010 0.565 |  27.5  26.8  32.8  29.5  30.3 |  28.5  26.0  32.2  29.0  31.4 |  +0.05  +0.02  +0.42  +0.34  +0.19 |     97/294    | +0.04 -0.00   NO
+ta:ind_macd_sign_60m           TA:ind      1831       -1       -1 -0.021  0.423 -0.053  +0.05 0.060 | 0.414 0.631 0.006 0.014 0.712 |  30.2  28.5                   | (discrete)                    |  +0.21  +0.20                      |    267/307    | -0.01 -0.05  yes
+ta:path_r2                     TA:path     1831   0.4849   0.4615 +0.026  0.377 +0.058  -0.01 0.045 | 0.406 0.624 0.007 0.015 0.210 |  26.4  28.7  31.1  33.3  27.3 |  26.1  29.0  33.5  31.4  26.9 |  -0.02  +0.16  +0.31  +0.36  +0.20 |    258/194    | +0.06 -0.04   NO
+ta:lvl_prior_week_hi_atr       TA:lvl      1828  -0.8108  -0.7181 -0.056  0.057 -0.062  +0.00 0.103 | 0.051 0.168 0.009 0.020 0.065 |  32.8  29.0  32.9  26.2  26.0 |  33.6  30.6  29.0  29.0  24.5 |  +0.41  +0.23  +0.35  -0.05  +0.06 |    502/144    | -0.09 +0.02   NO
+loc_pdl_datr                   LOCATION    1830   0.7829    0.854 -0.063  0.034 -0.062  +0.01 0.027 | 0.041 0.140 0.011 0.024 0.263 |  32.2  33.1  27.0  28.4  26.0 |  33.3  32.0  25.6  29.8  25.9 |  +0.22  +0.36  +0.10  +0.17  +0.15 |    282/303    | -0.02 -0.15  yes
+loc_tl_slope_atr100            LOCATION    1831   -3.056   -3.196 +0.037  0.217 +0.063  +0.03 0.016 | 0.235 0.459 0.012 0.026 0.263 |  23.2  31.7  30.3  35.5  26.2 |  23.7  31.4  30.8  35.5  25.6 |  +0.02  +0.29  +0.23  +0.44  +0.04 |    135/538    | +0.02 +0.05  yes
+ta:lvl_pdc_atr                 TA:lvl      1829    2.519    1.778 +0.039  0.189 +0.055  +0.03 0.054 | 0.190 0.390 0.012 0.026 0.263 |  26.0  29.5  32.0  29.0  30.7 |  26.1  29.8  29.2  31.7  30.4 |  +0.03  +0.17  +0.33  +0.18  +0.33 |     22/231    | +0.07 -0.02   NO
+ta:ind_compressed_60m          TA:ind      1831        0        0 +0.034  0.079 +0.043  -0.03 0.115 | 0.055 0.169 0.015 0.031 0.570 |  28.5  33.6                   | (discrete)                    |  +0.17  +0.36                      |    232/556    | +0.03 +0.04  yes
+ta:cal_is_opex_week            TA:cal      1829        0        0 -0.049  0.021 -0.023  +0.02 0.097 | 0.016 0.088 0.200 0.311 0.598 |  30.7  24.9                   | (discrete)                    |  +0.25  +0.06                      |    299/245    | -0.06 -0.04  yes
+loc_rn1000_near_datr           LOCATION    1830    1.822    2.387 -0.072  0.016 -0.254  -0.74 0.002 | 0.476 0.680 0.019 0.038 0.623 |  32.5  30.1  30.9  28.7  24.6 |  28.5  31.1  29.4  27.3  30.4 |  +0.37  +0.19  +0.13  +0.36  -0.04 |    784/20     | -0.06 -0.00  yes
+ta:path_range10_atr            TA:path     1831    4.452      4.4 +0.040  0.173 +0.000  -0.18 0.391 | 0.057 0.169 0.021 0.041 0.263 |  26.4  30.6  29.0  28.1  32.8 |  27.4  29.2  27.2  28.4  34.7 |  +0.12  +0.06  +0.26  +0.19  +0.39 |     82/559    | +0.04 +0.08  yes
+ta:cal_is_fomc_day             TA:cal      1829        0        0 -0.023  0.027 -0.041  -0.03 0.111 | 0.022 0.106 0.121 0.211 0.373 |  29.9  18.2                   | (discrete)                    |  +0.23  -0.37                      |    293/163    | -0.04 +0.01   NO
+loc_tl_r2                      LOCATION    1831   0.4054   0.4316 -0.028  0.341 -0.041  +0.02 0.138 | 0.308 0.542 0.027 0.053 0.330 |  27.2  31.7  34.7  27.9  25.4 |  28.2  31.7  33.0  28.1  25.8 |  +0.07  +0.25  +0.50  +0.12  +0.08 |    520/99     | -0.00 -0.08  yes
+loc_rth_pdl_datr               LOCATION    1830   0.6355   0.6699 -0.042  0.157 -0.057  -0.00 0.059 | 0.181 0.377 0.030 0.059 0.567 |  31.4  30.1  28.4  29.5  27.3 |  31.7  30.3  28.9  30.1  25.6 |  +0.21  +0.15  +0.22  +0.33  +0.09 |    220/305    | -0.01 -0.09  yes
+loc_bars_since_win_high        LOCATION    1831      167      171 -0.007  0.806 -0.059  -0.03 0.029 | 0.948 0.966 0.031 0.060 0.663 |  28.9  31.7  28.7  28.7  29.0 |  27.7  32.0  29.7  27.3  30.3 |  +0.27  +0.25  +0.15  +0.18  +0.18 |    644/100    | -0.01 -0.00  yes
+ta:ind_adx14_60m               TA:ind      1831     35.4    36.24 -0.022  0.451 -0.042  +0.00 0.150 | 0.522 0.701 0.050 0.094 0.615 |  29.2  32.5  27.6  30.3  27.3 |  30.6  30.3  27.2  30.9  27.8 |  +0.19  +0.34  -0.03  +0.22  +0.30 |    197/278    | -0.03 -0.01  yes
+ta:path_lower_wick             TA:path     1831  0.04545  0.02273 +0.044  0.117 +0.116  +0.25 0.004 | 0.338 0.566 0.050 0.094 0.718 |  24.3  26.2  35.8  33.1  27.6 |  30.4  27.3  30.0  29.2  30.0 |  -0.08  +0.12  +0.34  +0.46  +0.19 |      9/235    | +0.07 -0.04   NO
+ta:path_r10                    TA:path     1831  0.06141        0 +0.031  0.296 +0.043  -0.01 0.132 | 0.301 0.535 0.057 0.106 0.620 |  25.9  30.9  30.1  30.1  30.1 |  26.6  30.9  30.0  30.3  29.2 |  -0.00  +0.26  +0.27  +0.27  +0.24 |    174/238    | +0.05 -0.01   NO
+imb_range_atr                  IMBALANCE   1831    1.571    1.529 +0.047  0.110 -0.012  -0.08 0.287 | 0.058 0.170 0.472 0.605 0.169 |  27.0  28.4  28.7  30.1  32.8 |  27.4  26.2  29.2  31.1  33.1 |  +0.02  +0.24  +0.18  +0.20  +0.37 |     78/357    | +0.05 +0.06   NO
+ta:cal_is_quarter_end_week     TA:cal      1829        0        0 +0.021  0.085 -0.008  -0.06 0.287 | 0.069 0.195 0.668 0.758 0.355 |  29.0  36.7                   | (discrete)                    |  +0.18  +0.57                      |    279/412    | +0.03 +0.02   NO
+ta:path_range5_atr             TA:path     1831    3.344    3.294 +0.011  0.706 -0.017  -0.18 0.676 | 0.343 0.566 0.073 0.134 0.263 |  28.6  31.4  26.5  32.5  27.9 |  27.4  29.0  30.8  30.3  29.4 |  +0.10  +0.30  +0.03  +0.50  +0.08 |    382/189    | +0.02 +0.01  yes
+ta:path_range20_atr            TA:path     1831    5.762    5.666 +0.018  0.544 -0.010  -0.18 0.718 | 0.350 0.571 0.077 0.138 0.709 |  31.1  25.4  29.0  29.5  32.0 |  30.6  26.5  28.3  29.5  31.9 |  +0.29  +0.08  +0.08  +0.20  +0.36 |    262/497    | +0.04 -0.00   NO
+ta:lvl_session_open_atr        TA:lvl      1831    2.695    2.138 +0.020  0.498 +0.039  +0.03 0.214 | 0.512 0.701 0.080 0.142 0.390 |  28.1  29.2  30.1  29.8  29.8 |  28.8  29.2  29.7  28.1  31.1 |  +0.08  +0.17  +0.25  +0.23  +0.28 |     76/270    | +0.04 -0.01   NO
+ta:cal_is_month_end_2          TA:cal      1829        0        0 -0.014  0.371 -0.041  -0.01 0.147 | 0.499 0.701 0.099 0.175 0.330 |  29.7  26.6                   | (discrete)                    |  +0.22  +0.08                      |    301/166    | -0.02 +0.00   NO
+ta:path_r7                     TA:path     1831   0.1281  0.03825 +0.029  0.333 +0.024  -0.04 0.461 | 0.265 0.505 0.128 0.220 0.618 |  27.0  29.2  31.4  28.7  30.6 |  27.7  31.1  27.5  29.5  31.1 |  +0.04  +0.17  +0.38  -0.01  +0.45 |    151/423    | +0.05 -0.01   NO
+ta:path_bars_since_hi20        TA:path     1831        0        0 -0.004  0.803 -0.052  -0.06 0.070 | 0.870 0.959 0.139 0.237 0.807 |  26.4  27.3  30.6  30.9  31.7 |  30.4  28.7  29.2  29.5  29.2 |  -0.05  +0.17  +0.38  +0.22  +0.30 |     57/624    | -0.01 +0.02   NO
+loc_pb_depth_atr               LOCATION    1831    14.62    14.77 -0.017  0.563 -0.062  -0.09 0.046 | 0.742 0.873 0.144 0.243 0.628 |  26.4  32.8  30.6  32.0  25.1 |  26.6  32.0  29.2  31.7  27.5 |  +0.12  +0.29  +0.27  +0.30  +0.04 |    310/75     | -0.03 +0.02   NO
+ta:ind_adx14_daily             TA:ind      1824    31.11    30.61 +0.018  0.554 +0.050  +0.09 0.100 | 0.641 0.808 0.148 0.247 0.387 |  26.8  28.8  32.6  30.1  28.3 |  27.2  31.0  27.7  33.7  27.1 |  +0.08  +0.11  +0.25  +0.32  +0.21 |    230/386    | +0.01 +0.01  yes
+ta:lvl_prior_week_lo_atr       TA:lvl      1828    1.337    1.386 -0.031  0.304 -0.033  +0.01 0.450 | 0.280 0.516 0.150 0.248 0.390 |  30.1  27.9  34.0  28.1  26.8 |  29.3  31.1  31.5  27.6  27.3 |  +0.29  +0.15  +0.45  +0.03  +0.09 |    367/168    | -0.04 -0.01  yes
+ctx_rth_move_datr              CONTEXT      790  0.07234  0.06799 +0.039  0.371 +0.047  -0.01 0.370 | 0.337 0.566 0.159 0.259 0.263 |  29.7  30.4  32.9  29.7  36.1 |  28.2  29.7  33.5  32.3  35.3 |  +0.13  +0.38  +0.31  +0.06  +0.41 |    123/1276   | -0.02 +0.15   NO
+ctx_pdr_pos                    CONTEXT     1831    0.802   0.8174 -0.027  0.363 -0.019  +0.05 0.571 | 0.297 0.535 0.162 0.262 0.598 |  33.8  29.8  25.1  29.0  29.2 |  32.8  30.3  26.4  28.7  28.6 |  +0.39  +0.18  -0.05  +0.25  +0.25 |    502/382    | +0.04 -0.15   NO
+ta:ind_macd_sign_daily         TA:ind      1829       -1       -1 -0.025  0.322 -0.027  -0.00 0.517 | 0.289 0.525 0.177 0.283 0.263 |  30.3  28.2                   | (discrete)                    |  +0.29  +0.08                      |    366/174    | -0.05 +0.02   NO
+ta:path_r3                     TA:path     1831   0.3177   0.2692 +0.018  0.546 +0.012  -0.06 0.711 | 0.421 0.633 0.192 0.305 0.615 |  27.5  31.4  26.2  31.1  30.6 |  28.5  29.5  26.4  31.4  31.1 |  +0.09  +0.29  +0.08  +0.21  +0.35 |    -18/441    | +0.00 +0.07  yes
+loc_n_lower_highs              LOCATION    1831        5        6 -0.004  0.891 +0.026  +0.16 0.499 | 0.467 0.674 0.199 0.311 0.521 |  28.6  30.6  28.1  30.9  28.7 |  28.5  31.4  29.7  28.7  28.6 |  +0.21  +0.22  +0.15  +0.21  +0.23 |    237/342    | -0.02 +0.01   NO
+ctx_ema_slope60_atr            CONTEXT     1831   -1.111   -1.188 +0.040  0.182 +0.012  +0.03 0.388 | 0.206 0.417 0.764 0.830 0.387 |  27.2  28.4  29.5  30.6  31.1 |  26.6  29.0  29.2  30.6  31.7 |  +0.06  +0.27  +0.17  +0.25  +0.27 |    195/622    | +0.03 +0.06   NO
+ta:vt_vrp                      TA:vt       1807   0.9689    1.015 -0.051  0.086 -0.103  -0.25 0.022 | 0.270 0.508 0.215 0.331 0.741 |  31.2  32.1  28.7  28.0  27.4 |  30.2  31.9  29.6  25.8  30.1 |  +0.15  +0.23  +0.26  +0.18  +0.23 |    266/369    | -0.07 +0.01   NO
+ta:path_body_r3                TA:path     1726   0.5359      0.5 +0.026  0.398 -0.025  -0.15 0.503 | 0.217 0.434 0.432 0.576 0.263 |  28.3  28.1  29.3  33.9  29.3 |  29.0  28.8  26.2  32.8  32.2 |  +0.20  +0.12  +0.20  +0.43  +0.14 |    525/234    | +0.02 +0.05   NO
+ctx_prev_trade_win             CONTEXT     1830        0        0 +0.022  0.343 +0.041  +0.06 0.133 | 0.326 0.564 0.228 0.347 0.679 |  28.7  30.9                   | (discrete)                    |  +0.19  +0.22                      |    293/268    | +0.02 +0.01  yes
+ta:path_bars_since_lo20        TA:path     1831       16       16 +0.019  0.507 +0.015  -0.04 0.636 | 0.424 0.633 0.240 0.362 0.535 |  27.2  29.8  30.3  26.2  33.3 |  26.9  30.9  27.8  32.0  29.4 |  +0.14  +0.23  +0.19  -0.01  +0.48 |    172/610    | +0.02 +0.02  yes
+ta:vt_realized5d_vs_20d        TA:vt       1828    1.003    1.038 -0.037  0.213 -0.010  -0.03 0.408 | 0.252 0.487 0.905 0.933 0.959 |  30.3  31.7  29.0  29.8  26.0 |  29.3  32.8  29.0  30.9  24.8 |  +0.12  +0.28  +0.14  +0.30  +0.17 |    163/132    | -0.02 -0.06   NO
+ta:day_gap_pct                 TA:day      1829        0        0 +0.027  0.365 +0.056  +0.07 0.184 | 0.400 0.621 0.256 0.383 0.959 |  28.4  27.9  30.3  30.1  30.4 |  28.8  28.1  30.9  28.7  30.6 |  +0.21  +0.23  +0.12  +0.17  +0.31 |    273/220    | +0.03 -0.01   NO
+ta:path_r4                     TA:path     1831   0.1747   0.1818 +0.018  0.532 +0.019  -0.03 0.524 | 0.511 0.701 0.273 0.404 0.570 |  28.1  28.7  30.6  27.3  32.2 |  28.0  31.1  30.0  25.7  32.2 |  +0.19  +0.16  +0.22  +0.11  +0.34 |     78/321    | +0.03 +0.01  yes
+ta:cal_is_holiday_adjacent     TA:cal      1829        0        0 +0.006  0.433 -0.014  -0.06 0.682 | 0.275 0.511 0.773 0.830 0.718 |  29.3  35.0                   | (discrete)                    |  +0.21  +0.22                      |    288/229    | +0.01 -0.01   NO
+ta:ind_macd_sign_bar           TA:ind      1831        1        1 +0.009  0.499 +0.028  +0.02 0.322 | 0.540 0.708 0.318 0.467 0.521 |  26.7  29.6                   | (discrete)                    |  +0.00  +0.22                      |    255/289    | +0.01 -0.00   NO
+imb_vol_z60                    IMBALANCE   1831    1.464    1.411 +0.029  0.333 +0.010  +0.03 0.589 | 0.328 0.564 0.820 0.875 0.570 |  27.5  31.1  25.7  31.1  31.4 |  28.5  29.8  28.9  29.2  30.6 |  +0.06  +0.25  +0.07  +0.33  +0.30 |      5/465    | +0.00 +0.07  yes
+loc_n_pivots                   LOCATION    1831       12       12 -0.009  0.767 -0.013  +0.03 0.711 | 0.671 0.838 0.330 0.480 0.615 |  29.7  27.9  32.2  27.6  29.5 |  29.0  28.7  32.2  29.0  28.1 |  +0.04  +0.17  +0.18  +0.31  +0.32 |    321/351    | -0.03 +0.02   NO
+ctx_signals_prior_day          CONTEXT     1831        1        1 +0.009  0.749 +0.017  -0.03 0.603 | 0.740 0.873 0.349 0.503 0.898 |  26.7  29.8  32.2  28.1  30.1 |  28.2  29.8  31.3  27.0  30.6 |  +0.19  +0.26  +0.32  +0.01  +0.24 |     91/335    | +0.01 +0.01   NO
+ta:lvl_orb_lo_atr              TA:lvl      1783    4.667    4.622 +0.022  0.464 +0.021  +0.03 0.532 | 0.499 0.701 0.361 0.515 0.360 |  26.6  31.1  27.5  30.8  30.6 |  28.5  30.9  27.3  29.5  30.5 |  -0.02  +0.33  +0.04  +0.31  +0.33 |     10/305    | +0.04 -0.01   NO
+loc_pdh_datr                   LOCATION    1830  -0.2082   -0.206 -0.005  0.878 -0.007  +0.05 0.869 | 0.736 0.873 0.368 0.521 0.738 |  30.9  30.1  27.6  28.7  29.5 |  33.1  26.2  28.9  29.8  28.7 |  +0.26  +0.31  -0.09  +0.26  +0.26 |    324/401    | +0.05 -0.10   NO
+imb_body_vs_avg20              IMBALANCE   1831      2.4    2.338 +0.016  0.592 -0.040  -0.12 0.158 | 0.374 0.599 0.896 0.931 0.355 |  30.5  27.3  27.9  29.8  31.4 |  30.1  27.6  28.3  29.0  31.9 |  +0.19  +0.08  +0.26  +0.26  +0.23 |    180/302    | -0.00 +0.06   NO
+imb_bar_ret_atr                IMBALANCE   1831    1.252    1.198 +0.007  0.820 -0.076  -0.20 0.028 | 0.385 0.610 0.463 0.602 0.468 |  29.4  29.2  30.1  27.9  30.3 |  30.9  25.1  29.4  28.7  32.8 |  +0.09  +0.29  +0.32  +0.09  +0.23 |     82/258    | -0.01 +0.07   NO
+ta:day_hour                    TA:day      1831       11       10 +0.019  0.518 +0.029  +0.04 0.313 | 0.572 0.738 0.389 0.541 0.661 |  25.3  29.5  33.3  31.4  27.3 |  25.3  31.4  33.0  30.1  27.2 |  +0.11  +0.20  +0.42  +0.21  +0.08 |    111/28     | +0.02 +0.01  yes
+imb_close_vs_prevhigh_atr      IMBALANCE   1831   0.9101   0.9065 +0.006  0.853 -0.081  -0.22 0.033 | 0.390 0.611 0.507 0.624 0.535 |  30.8  27.3  27.0  31.1  30.6 |  30.9  26.0  28.1  31.7  30.3 |  +0.24  +0.11  +0.13  +0.38  +0.16 |    424/221    | +0.00 +0.05  yes
+ta:day_prior_range_pctile      TA:day      1800    64.29    65.08 -0.001  0.971 +0.048  +0.05 0.104 | 0.523 0.701 0.390 0.541 0.910 |  26.4  31.1  33.1  28.3  28.1 |  30.3  31.9  27.8  26.9  29.9 |  +0.01  +0.25  +0.36  +0.27  +0.11 |    223/134    | +0.01 -0.04   NO
+loc_bars_since_swing_low       LOCATION    1831       55       54 -0.014  0.626 -0.013  +0.02 0.676 | 0.534 0.706 0.395 0.541 0.570 |  29.7  28.1  30.9  30.3  27.9 |  30.4  27.3  32.7  28.4  28.1 |  +0.28  +0.15  +0.26  +0.36  -0.03 |    156/289    | -0.02 -0.01   NO
+ta:path_r1                     TA:path     1831    1.203      1.2 -0.003  0.913 -0.081  -0.20 0.022 | 0.615 0.787 0.395 0.541 0.570 |  31.6  28.7  27.3  29.8  29.5 |  30.9  25.4  30.0  28.7  31.9 |  +0.17  +0.21  +0.25  +0.29  +0.10 |    185/205    | -0.01 +0.04   NO
+ta:ind_er20_daily              TA:ind      1828   0.1911   0.1838 -0.004  0.898 +0.007  +0.13 0.869 | 0.759 0.877 0.411 0.557 0.754 |  32.2  24.6  28.8  32.2  29.0 |  31.5  26.2  26.0  34.4  28.7 |  +0.33  +0.05  +0.22  +0.23  +0.18 |    236/298    | -0.03 +0.03   NO
+ta:path_r5                     TA:path     1831   0.1521   0.1609 -0.018  0.539 +0.006  -0.03 0.718 | 0.704 0.862 0.415 0.558 0.718 |  29.7  30.6  29.2  29.0  28.4 |  29.8  30.3  27.8  30.6  28.3 |  +0.15  +0.16  +0.21  +0.23  +0.27 |    256/328    | -0.01 -0.03   NO
+ta:path_body_r2                TA:path     1722   0.5349      0.6 -0.030  0.328 -0.050  -0.13 0.203 | 0.427 0.633 0.573 0.694 0.959 |  27.2  36.0  28.7  31.4  25.6 |  27.6  34.5  30.0  30.1  26.7 |  +0.09  +0.61  +0.19  +0.24  +0.04 |    304/97     | -0.04 +0.01   NO
+ta:path_closepos20             TA:path     1831   0.9516   0.9545 -0.035  0.236 -0.044  -0.16 0.222 | 0.432 0.634 0.975 0.981 0.774 |  30.8  29.0  32.0  29.5  25.7 |  29.6  31.1  29.4  30.6  26.1 |  +0.33  +0.15  +0.34  +0.10  +0.10 |    306/-7     | -0.03 -0.01   NO
+ctx_bars_since_prev_exit       CONTEXT     1830      155      165 -0.001  0.981 -0.008  +0.03 0.799 | 0.890 0.959 0.445 0.589 0.803 |  29.5  30.1  29.2  27.0  30.9 |  29.3  30.1  30.2  27.3  29.8 |  +0.14  +0.33  +0.16  +0.04  +0.33 |    340/208    | +0.00 -0.01   NO
+ta:ind_bbw_pctile_60m          TA:ind      1802    54.28    54.56 -0.004  0.885 +0.013  +0.04 0.636 | 0.522 0.701 0.454 0.596 0.701 |  29.6  27.5  32.7  27.8  29.2 |  31.1  31.9  26.3  27.5  29.9 |  +0.11  +0.11  +0.43  +0.16  +0.19 |    293/308    | +0.01 -0.05   NO
+ta:cal_is_opex_day             TA:cal      1829        0        0 -0.009  0.376 -0.019  -0.00 0.597 | 0.468 0.674 0.612 0.724 0.910 |  29.6  25.0                   | (discrete)                    |  +0.21  +0.13                      |    285/339    | -0.02 +0.01   NO
+loc_lh_frac                    LOCATION    1831   0.5385   0.5385 +0.008  0.799 +0.038  +0.16 0.292 | 0.786 0.892 0.474 0.605 0.263 |  29.4  27.6  28.7  32.8  28.4 |  29.6  29.8  27.5  32.5  27.5 |  +0.35  +0.04  +0.27  +0.29  +0.07 |    299/170    | +0.00 -0.00   NO
+imb_close_loc                  IMBALANCE   1831   0.8571   0.8571 -0.024  0.411 -0.074  -0.20 0.054 | 0.767 0.877 0.484 0.605 0.718 |  29.4  26.5  35.0  29.5  26.5 |  30.1  26.0  32.4  32.5  25.8 |  +0.19  +0.12  +0.52  +0.01  +0.17 |    254/-21    | -0.03 +0.03   NO
+imb_upper_wick                 IMBALANCE   1831   0.1429   0.1429 +0.024  0.411 +0.074  +0.20 0.054 | 0.767 0.877 0.484 0.605 0.718 |  26.2  30.1  35.0  26.5  29.2 |  27.7  31.7  31.1  26.8  29.7 |  +0.10  +0.10  +0.53  +0.10  +0.19 |     35/254    | +0.03 -0.03   NO
+ta:path_upper_wick             TA:path     1831   0.1429   0.1429 +0.024  0.411 +0.074  +0.20 0.054 | 0.767 0.877 0.484 0.605 0.718 |  26.2  30.1  35.0  26.5  29.2 |  27.7  31.7  31.1  26.8  29.7 |  +0.10  +0.10  +0.53  +0.10  +0.19 |     35/254    | +0.03 -0.03   NO
+ta:path_closepos10             TA:path     1831   0.9412   0.9444 -0.013  0.655 -0.040  -0.19 0.366 | 0.957 0.969 0.505 0.624 0.615 |  27.0  29.8  34.2  29.0  27.0 |  26.3  31.1  31.9  30.9  26.7 |  +0.15  +0.20  +0.44  +0.06  +0.16 |    234/2      | -0.02 +0.04   NO
+ta:cal_days_to_month_end       TA:cal      1829       11       10 +0.021  0.478 +0.034  +0.06 0.261 | 0.723 0.869 0.511 0.624 0.546 |  28.7  30.1  24.9  32.0  31.5 |  29.3  31.1  23.8  33.1  29.8 |  +0.06  +0.27  -0.02  +0.37  +0.34 |     85/408    | +0.00 +0.05  yes
+ta:path_r8                     TA:path     1831    0.103        0 +0.016  0.598 +0.012  -0.00 0.676 | 0.567 0.738 0.636 0.737 0.721 |  28.6  29.0  30.1  33.3  26.0 |  27.4  30.3  29.7  31.1  28.3 |  +0.30  +0.07  +0.16  +0.41  +0.09 |    263/405    | -0.01 +0.07   NO
+ta:cal_is_fomc_next_day        TA:cal      1829        0        0 -0.000  0.957 -0.001  +0.03 0.964 | 0.833 0.932 0.615 0.724 0.699 |  29.4  29.1                   | (discrete)                    |  +0.22  -0.17                      |    286/333    | +0.00 -0.01   NO
+imb_body_ratio                 IMBALANCE   1831   0.7602     0.75 -0.021  0.473 -0.075  -0.22 0.054 | 0.898 0.959 0.619 0.724 0.721 |  28.6  30.3  30.9  31.7  25.4 |  28.5  27.0  31.3  34.2  25.8 |  +0.21  +0.25  +0.25  +0.28  +0.03 |    348/-22    | -0.04 +0.04   NO
+ta:path_body_r1                TA:path     1831   0.7602     0.75 -0.021  0.473 -0.075  -0.22 0.054 | 0.898 0.959 0.619 0.724 0.721 |  28.6  30.3  30.9  31.7  25.4 |  28.5  27.0  31.3  34.2  25.8 |  +0.21  +0.25  +0.25  +0.28  +0.03 |    348/-22    | -0.04 +0.04   NO
+ta:path_r11                    TA:path     1831        0  0.03989 -0.007  0.821 -0.011  -0.01 0.711 | 0.854 0.949 0.620 0.724 0.774 |  28.6  29.5  32.8  28.1  27.9 |  28.5  30.6  30.0  30.3  27.5 |  +0.21  +0.17  +0.34  +0.20  +0.10 |    496/109    | +0.04 -0.10   NO
+loc_rth_pdh_datr               LOCATION    1830  -0.1604  -0.1714 +0.021  0.489 +0.017  +0.07 0.625 | 0.630 0.800 0.939 0.956 0.841 |  29.0  30.3  24.9  30.6  32.0 |  29.6  30.1  25.1  31.1  30.9 |  +0.18  +0.26  -0.13  +0.31  +0.38 |    185/514    | +0.08 -0.08   NO
+ctx_rth_pdr_pos                CONTEXT     1831   0.8133   0.8071 +0.004  0.884 +0.004  +0.06 0.869 | 0.988 0.988 0.643 0.740 0.910 |  30.0  32.5  23.2  29.0  32.2 |  31.2  29.8  25.6  28.7  31.7 |  +0.21  +0.27  -0.07  +0.20  +0.40 |    268/542    | +0.06 -0.10   NO
+ta:cal_day_of_month            TA:cal      1829       15       16 -0.013  0.654 -0.024  -0.05 0.466 | 0.899 0.959 0.668 0.758 0.615 |  30.6  31.4  25.4  31.1  28.5 |  31.7  29.8  23.8  32.0  29.8 |  +0.25  +0.35  +0.00  +0.34  +0.08 |    290/75     | +0.01 -0.04   NO
+ta:cal_is_month_start_2        TA:cal      1829        0        0 -0.004  0.775 +0.001  +0.02 0.874 | 0.684 0.848 0.910 0.933 0.870 |  29.5  28.5                   | (discrete)                    |  +0.21  +0.19                      |    311/63     | +0.01 -0.02   NO
+imb_vol_ratio_prior20          IMBALANCE   1831    2.018    2.106 -0.010  0.729 -0.049  -0.11 0.138 | 0.941 0.966 0.706 0.796 0.628 |  30.0  29.2  30.9  28.4  28.4 |  29.8  30.3  29.7  28.4  28.6 |  +0.19  +0.14  +0.21  +0.24  +0.24 |    186/312    | -0.02 +0.03   NO
+ta:cal_week_of_year            TA:cal      1829       24       25 -0.021  0.481 -0.029  -0.07 0.503 | 0.708 0.862 0.959 0.971 0.806 |  29.2  30.6  31.7  24.3  31.2 |  32.0  24.3  31.4  26.5  32.9 |  +0.13  +0.28  +0.40  -0.09  +0.30 |    133/414    | -0.02 +0.00   NO
+ta:path_r12                    TA:path     1831  0.02974        0 -0.008  0.796 -0.003  +0.02 0.895 | 0.711 0.862 0.736 0.817 0.570 |  30.5  29.0  28.7  32.2  26.5 |  30.9  28.1  28.1  33.1  26.7 |  +0.27  +0.25  +0.11  +0.35  +0.05 |    211/126    | -0.04 +0.04   NO
+ta:day_of_week                 TA:day      1829        2        2      -  0.896      -      - 0.701 | 0.896 0.959 0.721 0.807 0.525 |  31.5  29.7  29.0  29.2  28.5 | (discrete)                    |  +0.42  +0.16  +0.20  +0.21  +0.11 |    487/-119   |     -     -    -
+imb_vol_ratio20                IMBALANCE   1831    1.938    1.972 -0.010  0.736 -0.047  -0.11 0.148 | 0.944 0.966 0.753 0.825 0.598 |  30.5  29.0  30.3  29.0  28.1 |  29.6  29.8  31.1  27.6  28.9 |  +0.22  +0.11  +0.22  +0.22  +0.25 |    178/330    | -0.02 +0.03   NO
+ta:vol_last_vs_avg20           TA:vol      1831    1.938    1.972 -0.010  0.736 -0.047  -0.11 0.148 | 0.944 0.966 0.753 0.825 0.598 |  30.5  29.0  30.3  29.0  28.1 |  29.6  29.8  31.1  27.6  28.9 |  +0.22  +0.11  +0.22  +0.22  +0.25 |    178/330    | -0.02 +0.03   NO
+ta:cal_is_fomc_prev_day        TA:cal      1829        0        0 -0.002  0.748 +0.001  -0.01 0.893 | 0.936 0.966 0.770 0.830 0.797 |  29.5  27.0                   | (discrete)                    |  +0.21  +0.20                      |    290/168    | -0.01 +0.01   NO
+ctx_at_20d_high_now            CONTEXT     1830        0        0 +0.004  0.743 +0.031  +0.08 0.503 | 0.833 0.932 0.834 0.883 0.718 |  29.3  30.7                   | (discrete)                    |  +0.20  +0.15                      |    297/116    | +0.01 -0.01   NO
+loc_rn100_frac                 LOCATION    1831    0.495   0.5125 +0.003  0.929 +0.013  +0.03 0.676 | 0.971 0.977 0.863 0.908 0.959 |  29.2  28.7  32.8  26.0  30.3 |  30.1  27.6  34.1  24.0  31.1 |  +0.32  -0.03  +0.38  +0.10  +0.26 |    339/445    | -0.00 -0.01  yes
+ta:path_r6                     TA:path     1831   0.1736   0.1261 +0.001  0.985 +0.003  +0.01 0.910 | 0.926 0.966 0.888 0.928 0.870 |  31.6  27.3  29.8  27.3  30.9 |  32.0  25.4  31.3  27.6  30.6 |  +0.38  -0.01  +0.26  +0.23  +0.16 |    302/224    | -0.01 +0.02   NO
+ta:path_r9                     TA:path     1831   0.1178  0.08284 +0.005  0.868 +0.005  +0.01 0.869 | 0.933 0.966 0.990 0.990 0.774 |  28.1  27.9  33.3  29.2  28.4 |  28.8  27.0  31.9  32.8  26.4 |  +0.15  +0.09  +0.48  +0.15  +0.16 |    227/296    | +0.04 -0.06   NO
+
+========================================================================================================================
+DETAIL -- group tables for within-year survivors, the 12 strongest, and the owner's named reads. Global quintiles give n / win %% / profit factor in R / mean R / mean $; within-year quintiles give win %% / PF(R) / mean R.
+
+  ctx_ema_dist_atr [CONTEXT] -- close minus the strategy's own trend EMA (220 1m bars), in signal-bar ATR(52)
+    winners median 2.312 | losers median 1.766 | rank-biserial +0.083 (MW p 0.0049) | Spearman vs R +0.065 | era trend rho_t -0.09
+    within-year null: win p 0.002 (q 0.018) | net R p 0.000 (q 0.001) | gross R p 0.005 (q 0.044)   [global shift: win p 0.003, R p 0.016]
+    Q1>=0.0023       n= 367  win= 27.0%  PF(R)= 1.21  meanR=+0.145  mean$=    142   | within-year Q1 n= 372 win= 26.3% PF(R)= 1.21 meanR=+0.147
+    Q2>=0.574        n= 366  win= 23.8%  PF(R)= 0.92  meanR=-0.056  mean$=    139   | within-year Q2 n= 366 win= 23.2% PF(R)= 0.87 meanR=-0.092
+    Q3>=1.46         n= 366  win= 29.0%  PF(R)= 1.33  meanR=+0.218  mean$=    121   | within-year Q3 n= 367 win= 30.5% PF(R)= 1.41 meanR=+0.265
+    Q4>=2.55         n= 366  win= 35.8%  PF(R)= 1.66  meanR=+0.388  mean$=    546   | within-year Q4 n= 366 win= 35.8% PF(R)= 1.63 meanR=+0.365
+    Q5>=4.65         n= 366  win= 31.4%  PF(R)= 1.52  meanR=+0.326  mean$=    484   | within-year Q5 n= 360 win= 31.1% PF(R)= 1.53 meanR=+0.338
+    E1 n=1218  rank-biserial +0.106 (p 0.004)  Spearman vs R +0.085  Q5-Q1 win-rate spread +7.5 pts
+    E2 n=613  rank-biserial +0.054 (p 0.273)  Spearman vs R +0.089  Q5-Q1 win-rate spread +0.3 pts
+
+  ctx_ema1091_dist_atr [CONTEXT] -- close minus a 1091-bar EMA (~1 ETH day), in ATR(52)
+    winners median 4.515 | losers median 5.536 | rank-biserial -0.054 (MW p 0.0701) | Spearman vs R -0.128 | era trend rho_t -0.04
+    within-year null: win p 0.104 (q 0.257) | net R p 0.000 (q 0.001) | gross R p 0.233 (q 0.428)   [global shift: win p 0.081, R p 0.001]
+    Q1>=-29.7        n= 367  win= 27.8%  PF(R)= 1.24  meanR=+0.158  mean$=    142   | within-year Q1 n= 372 win= 28.8% PF(R)= 1.27 meanR=+0.180
+    Q2>=-0.612       n= 366  win= 33.3%  PF(R)= 1.61  meanR=+0.372  mean$=    634   | within-year Q2 n= 366 win= 30.6% PF(R)= 1.42 meanR=+0.267
+    Q3>=3.24         n= 366  win= 33.1%  PF(R)= 1.48  meanR=+0.295  mean$=    250   | within-year Q3 n= 367 win= 33.5% PF(R)= 1.52 meanR=+0.315
+    Q4>=7.28         n= 366  win= 28.7%  PF(R)= 1.17  meanR=+0.109  mean$=    327   | within-year Q4 n= 366 win= 28.7% PF(R)= 1.21 meanR=+0.133
+    Q5>=15.5         n= 366  win= 24.0%  PF(R)= 1.11  meanR=+0.086  mean$=     81   | within-year Q5 n= 360 win= 25.3% PF(R)= 1.17 meanR=+0.123
+    E1 n=1218  rank-biserial -0.038 (p 0.310)  Spearman vs R -0.153  Q5-Q1 win-rate spread +0.5 pts
+    E2 n=613  rank-biserial -0.073 (p 0.141)  Spearman vs R -0.163  Q5-Q1 win-rate spread -6.3 pts
+
+  ctx_ema5455_dist_atr [CONTEXT] -- close minus a 5455-bar EMA (~5 ETH days), in ATR(52)
+    winners median 7.639 | losers median 9.009 | rank-biserial -0.064 (MW p 0.0308) | Spearman vs R -0.130 | era trend rho_t -0.01
+    within-year null: win p 0.029 (q 0.124) | net R p 0.000 (q 0.001) | gross R p 0.008 (q 0.056)   [global shift: win p 0.038, R p 0.001]
+    Q1>=-37.4        n= 367  win= 33.0%  PF(R)= 1.59  meanR=+0.355  mean$=    228   | within-year Q1 n= 372 win= 34.7% PF(R)= 1.73 meanR=+0.425
+    Q2>=-0.448       n= 366  win= 29.2%  PF(R)= 1.48  meanR=+0.313  mean$=    664   | within-year Q2 n= 366 win= 29.0% PF(R)= 1.42 meanR=+0.277
+    Q3>=5.18         n= 366  win= 32.2%  PF(R)= 1.36  meanR=+0.228  mean$=    425   | within-year Q3 n= 367 win= 30.2% PF(R)= 1.26 meanR=+0.170
+    Q4>=12.6         n= 366  win= 27.3%  PF(R)= 1.33  meanR=+0.219  mean$=     90   | within-year Q4 n= 366 win= 25.7% PF(R)= 1.21 meanR=+0.139
+    Q5>=25.8         n= 366  win= 25.1%  PF(R)= 0.87  meanR=-0.096  mean$=     26   | within-year Q5 n= 360 win= 27.2% PF(R)= 1.00 meanR=+0.002
+    E1 n=1218  rank-biserial -0.070 (p 0.059)  Spearman vs R -0.148  Q5-Q1 win-rate spread -11.0 pts
+    E2 n=613  rank-biserial -0.044 (p 0.376)  Spearman vs R -0.149  Q5-Q1 win-rate spread +0.3 pts
+
+  ctx_ema21820_dist_atr [CONTEXT] -- close minus a 21820-bar EMA (~20 ETH days), in ATR(52)
+    winners median 12.34 | losers median 19.26 | rank-biserial -0.095 (MW p 0.0013) | Spearman vs R -0.151 | era trend rho_t -0.01
+    within-year null: win p 0.001 (q 0.011) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.005, R p 0.001]
+    Q1>=-214         n= 367  win= 34.3%  PF(R)= 1.62  meanR=+0.369  mean$=    365   | within-year Q1 n= 372 win= 34.4% PF(R)= 1.79 meanR=+0.478
+    Q2>=-18.5        n= 366  win= 32.0%  PF(R)= 1.69  meanR=+0.432  mean$=    553   | within-year Q2 n= 366 win= 31.1% PF(R)= 1.55 meanR=+0.342
+    Q3>=7.08         n= 366  win= 29.2%  PF(R)= 1.47  meanR=+0.302  mean$=    469   | within-year Q3 n= 367 win= 30.2% PF(R)= 1.44 meanR=+0.273
+    Q4>=29.9         n= 366  win= 26.5%  PF(R)= 1.07  meanR=+0.049  mean$=      8   | within-year Q4 n= 366 win= 27.6% PF(R)= 1.10 meanR=+0.069
+    Q5>=61.5         n= 366  win= 24.9%  PF(R)= 0.82  meanR=-0.132  mean$=     38   | within-year Q5 n= 360 win= 23.3% PF(R)= 0.79 meanR=-0.153
+    E1 n=1218  rank-biserial -0.138 (p 0.000)  Spearman vs R -0.172  Q5-Q1 win-rate spread -13.4 pts
+    E2 n=613  rank-biserial -0.005 (p 0.921)  Spearman vs R -0.085  Q5-Q1 win-rate spread +2.7 pts
+
+  ctx_regime_sma_dist_atr [CONTEXT] -- close minus the file's regime SMA (3,900 bars ~3.6 ETH days), in ATR(52)
+    winners median 8.586 | losers median 10.17 | rank-biserial -0.048 (MW p 0.1043) | Spearman vs R -0.136 | era trend rho_t -0.02
+    within-year null: win p 0.108 (q 0.258) | net R p 0.000 (q 0.001) | gross R p 0.033 (q 0.129)   [global shift: win p 0.125, R p 0.001]
+    Q1>=0.0057       n= 367  win= 31.9%  PF(R)= 1.49  meanR=+0.293  mean$=    585   | within-year Q1 n= 372 win= 31.5% PF(R)= 1.48 meanR=+0.287
+    Q2>=1.67         n= 366  win= 27.9%  PF(R)= 1.27  meanR=+0.181  mean$=    230   | within-year Q2 n= 366 win= 29.5% PF(R)= 1.35 meanR=+0.229
+    Q3>=6.31         n= 366  win= 33.1%  PF(R)= 1.42  meanR=+0.264  mean$=    432   | within-year Q3 n= 367 win= 31.3% PF(R)= 1.39 meanR=+0.254
+    Q4>=13.9         n= 366  win= 27.0%  PF(R)= 1.26  meanR=+0.178  mean$=     58   | within-year Q4 n= 366 win= 27.6% PF(R)= 1.29 meanR=+0.193
+    Q5>=28.2         n= 366  win= 27.0%  PF(R)= 1.15  meanR=+0.103  mean$=    127   | within-year Q5 n= 360 win= 26.9% PF(R)= 1.08 meanR=+0.054
+    E1 n=1218  rank-biserial -0.042 (p 0.255)  Spearman vs R -0.161  Q5-Q1 win-rate spread -4.4 pts
+    E2 n=613  rank-biserial -0.056 (p 0.260)  Spearman vs R -0.197  Q5-Q1 win-rate spread -4.6 pts
+
+  ctx_atr_pct_price [CONTEXT] -- ATR(52) as % of price (era-neutral volatility level)
+    winners median 0.04015 | losers median 0.03314 | rank-biserial +0.134 (MW p 0.0000) | Spearman vs R +0.319 | era trend rho_t +0.22
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.001 (q 0.013)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.0041       n= 367  win= 24.3%  PF(R)= 1.03  meanR=+0.022  mean$=     16   | within-year Q1 n= 372 win= 25.3% PF(R)= 0.90 meanR=-0.073
+    Q2>=0.0172       n= 366  win= 26.0%  PF(R)= 1.16  meanR=+0.112  mean$=    102   | within-year Q2 n= 366 win= 26.5% PF(R)= 1.34 meanR=+0.223
+    Q3>=0.0288       n= 366  win= 27.9%  PF(R)= 1.23  meanR=+0.152  mean$=    198   | within-year Q3 n= 367 win= 26.7% PF(R)= 1.12 meanR=+0.083
+    Q4>=0.0422       n= 366  win= 32.2%  PF(R)= 1.43  meanR=+0.262  mean$=    104   | within-year Q4 n= 366 win= 32.0% PF(R)= 1.45 meanR=+0.280
+    Q5>=0.066        n= 366  win= 36.6%  PF(R)= 1.86  meanR=+0.473  mean$=   1014   | within-year Q5 n= 360 win= 36.7% PF(R)= 1.91 meanR=+0.518
+    E1 n=1218  rank-biserial +0.127 (p 0.001)  Spearman vs R +0.329  Q5-Q1 win-rate spread +10.8 pts
+    E2 n=613  rank-biserial +0.089 (p 0.072)  Spearman vs R +0.276  Q5-Q1 win-rate spread +10.0 pts
+
+  ctx_day_move_datr [CONTEXT] -- the day's direction so far: close minus the 18:00 ETH session open, in daily ATR(14, prior-day)
+    winners median 0.05863 | losers median 0.03919 | rank-biserial +0.047 (MW p 0.1128) | Spearman vs R +0.072 | era trend rho_t +0.04
+    within-year null: win p 0.126 (q 0.291) | net R p 0.001 (q 0.003) | gross R p 0.058 (q 0.197)   [global shift: win p 0.128, R p 0.004]
+    Q1>=-0.958       n= 366  win= 27.3%  PF(R)= 1.03  meanR=+0.017  mean$=     28   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.12 meanR=+0.080
+    Q2>=-0.113       n= 366  win= 30.1%  PF(R)= 1.35  meanR=+0.233  mean$=    324   | within-year Q2 n= 366 win= 27.6% PF(R)= 1.16 meanR=+0.111
+    Q3>=0            n= 366  win= 28.7%  PF(R)= 1.36  meanR=+0.235  mean$=    204   | within-year Q3 n= 367 win= 28.3% PF(R)= 1.43 meanR=+0.284
+    Q4>=0.106        n= 366  win= 26.2%  PF(R)= 1.17  meanR=+0.115  mean$=    157   | within-year Q4 n= 366 win= 28.1% PF(R)= 1.20 meanR=+0.132
+    Q5>=0.279        n= 366  win= 34.4%  PF(R)= 1.68  meanR=+0.400  mean$=    715   | within-year Q5 n= 359 win= 34.3% PF(R)= 1.67 meanR=+0.398
+    E1 n=1217  rank-biserial +0.054 (p 0.149)  Spearman vs R +0.082  Q5-Q1 win-rate spread +5.0 pts
+    E2 n=613  rank-biserial +0.035 (p 0.478)  Spearman vs R +0.074  Q5-Q1 win-rate spread +9.3 pts
+
+  loc_pdl_datr [LOCATION] -- close minus prior ETH session LOW, in daily ATR
+    winners median 0.7829 | losers median 0.854 | rank-biserial -0.063 (MW p 0.0336) | Spearman vs R -0.062 | era trend rho_t +0.01
+    within-year null: win p 0.041 (q 0.140) | net R p 0.011 (q 0.024) | gross R p 0.112 (q 0.263)   [global shift: win p 0.042, R p 0.011]
+    Q1>=-0.321       n= 366  win= 32.2%  PF(R)= 1.35  meanR=+0.217  mean$=    282   | within-year Q1 n= 372 win= 33.3% PF(R)= 1.39 meanR=+0.239
+    Q2>=0.444        n= 366  win= 33.1%  PF(R)= 1.59  meanR=+0.364  mean$=    451   | within-year Q2 n= 366 win= 32.0% PF(R)= 1.40 meanR=+0.254
+    Q3>=0.711        n= 366  win= 27.0%  PF(R)= 1.15  meanR=+0.104  mean$=    318   | within-year Q3 n= 367 win= 25.6% PF(R)= 1.23 meanR=+0.161
+    Q4>=0.947        n= 366  win= 28.4%  PF(R)= 1.26  meanR=+0.169  mean$=     74   | within-year Q4 n= 366 win= 29.8% PF(R)= 1.33 meanR=+0.215
+    Q5>=1.26         n= 366  win= 26.0%  PF(R)= 1.21  meanR=+0.146  mean$=    303   | within-year Q5 n= 359 win= 25.9% PF(R)= 1.19 meanR=+0.129
+    E1 n=1217  rank-biserial -0.020 (p 0.585)  Spearman vs R -0.054  Q5-Q1 win-rate spread -1.9 pts
+    E2 n=613  rank-biserial -0.149 (p 0.003)  Spearman vs R -0.136  Q5-Q1 win-rate spread -16.0 pts
+
+  loc_sess_hi_atr [LOCATION] -- close minus the session high so far (incl. the signal bar), in ATR(52); 0 = at the high
+    winners median -6.533 | losers median -7.384 | rank-biserial +0.040 (MW p 0.1757) | Spearman vs R +0.091 | era trend rho_t +0.01
+    within-year null: win p 0.146 (q 0.324) | net R p 0.000 (q 0.001) | gross R p 0.110 (q 0.263)   [global shift: win p 0.183, R p 0.001]
+    Q1>=-46.1        n= 367  win= 25.6%  PF(R)= 0.98  meanR=-0.014  mean$=     36   | within-year Q1 n= 372 win= 26.3% PF(R)= 1.01 meanR=+0.007
+    Q2>=-13.7        n= 366  win= 29.0%  PF(R)= 1.28  meanR=+0.186  mean$=     72   | within-year Q2 n= 366 win= 27.6% PF(R)= 1.18 meanR=+0.123
+    Q3>=-8.78        n= 366  win= 30.9%  PF(R)= 1.32  meanR=+0.212  mean$=    247   | within-year Q3 n= 367 win= 31.1% PF(R)= 1.36 meanR=+0.236
+    Q4>=-5.62        n= 366  win= 33.9%  PF(R)= 1.77  meanR=+0.457  mean$=    651   | within-year Q4 n= 366 win= 35.2% PF(R)= 1.88 meanR=+0.511
+    Q5>=-2.56        n= 366  win= 27.6%  PF(R)= 1.28  meanR=+0.180  mean$=    428   | within-year Q5 n= 360 win= 26.7% PF(R)= 1.22 meanR=+0.145
+    E1 n=1218  rank-biserial +0.036 (p 0.331)  Spearman vs R +0.112  Q5-Q1 win-rate spread +2.2 pts
+    E2 n=613  rank-biserial +0.047 (p 0.347)  Spearman vs R +0.078  Q5-Q1 win-rate spread +1.1 pts
+
+  loc_sess_lo_atr [LOCATION] -- close minus the session low so far, in ATR(52)
+    winners median 11.89 | losers median 10.76 | rank-biserial +0.065 (MW p 0.0291) | Spearman vs R +0.051 | era trend rho_t -0.04
+    within-year null: win p 0.020 (q 0.103) | net R p 0.001 (q 0.003) | gross R p 0.029 (q 0.121)   [global shift: win p 0.039, R p 0.045]
+    Q1>=1.32         n= 367  win= 27.5%  PF(R)= 1.29  meanR=+0.196  mean$=    129   | within-year Q1 n= 372 win= 25.8% PF(R)= 1.17 meanR=+0.117
+    Q2>=7.73         n= 366  win= 24.9%  PF(R)= 0.96  meanR=-0.028  mean$=    218   | within-year Q2 n= 366 win= 26.2% PF(R)= 1.12 meanR=+0.081
+    Q3>=9.79         n= 366  win= 30.9%  PF(R)= 1.60  meanR=+0.369  mean$=    436   | within-year Q3 n= 367 win= 31.1% PF(R)= 1.46 meanR=+0.285
+    Q4>=12.9         n= 366  win= 33.1%  PF(R)= 1.20  meanR=+0.129  mean$=    214   | within-year Q4 n= 366 win= 31.4% PF(R)= 1.21 meanR=+0.134
+    Q5>=19.3         n= 366  win= 30.6%  PF(R)= 1.56  meanR=+0.355  mean$=    437   | within-year Q5 n= 360 win= 32.5% PF(R)= 1.67 meanR=+0.408
+    E1 n=1218  rank-biserial +0.070 (p 0.058)  Spearman vs R +0.054  Q5-Q1 win-rate spread +1.3 pts
+    E2 n=613  rank-biserial +0.065 (p 0.191)  Spearman vs R +0.127  Q5-Q1 win-rate spread +7.6 pts
+
+  loc_sess_range_pos [LOCATION] -- close position inside the session's high-low range so far (0..1)
+    winners median 0.6414 | losers median 0.6206 | rank-biserial +0.047 (MW p 0.1097) | Spearman vs R +0.084 | era trend rho_t -0.02
+    within-year null: win p 0.089 (q 0.242) | net R p 0.000 (q 0.001) | gross R p 0.050 (q 0.174)   [global shift: win p 0.115, R p 0.001]
+    Q1>=0.183        n= 367  win= 23.7%  PF(R)= 0.94  meanR=-0.041  mean$=     61   | within-year Q1 n= 372 win= 23.4% PF(R)= 0.90 meanR=-0.072
+    Q2>=0.422        n= 366  win= 30.9%  PF(R)= 1.44  meanR=+0.283  mean$=    199   | within-year Q2 n= 366 win= 32.5% PF(R)= 1.55 meanR=+0.349
+    Q3>=0.558        n= 366  win= 33.1%  PF(R)= 1.40  meanR=+0.252  mean$=    248   | within-year Q3 n= 367 win= 31.9% PF(R)= 1.29 meanR=+0.190
+    Q4>=0.703        n= 366  win= 28.7%  PF(R)= 1.28  meanR=+0.180  mean$=    431   | within-year Q4 n= 366 win= 29.2% PF(R)= 1.30 meanR=+0.194
+    Q5>=0.868        n= 366  win= 30.6%  PF(R)= 1.56  meanR=+0.346  mean$=    494   | within-year Q5 n= 360 win= 30.0% PF(R)= 1.59 meanR=+0.367
+    E1 n=1218  rank-biserial +0.048 (p 0.192)  Spearman vs R +0.108  Q5-Q1 win-rate spread +5.0 pts
+    E2 n=613  rank-biserial +0.048 (p 0.338)  Spearman vs R +0.101  Q5-Q1 win-rate spread +9.3 pts
+
+  ctx_days_since_20d_high [CONTEXT] -- trading days since the last session that made a new 20-day high (before the signal day)
+    winners median 10 | losers median 8 | rank-biserial +0.112 (MW p 0.0002) | Spearman vs R +0.118 | era trend rho_t -0.00
+    within-year null: win p 0.001 (q 0.011) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=1            n= 363  win= 23.1%  PF(R)= 0.82  meanR=-0.133  mean$=     20   | within-year Q1 n= 369 win= 24.4% PF(R)= 0.83 meanR=-0.122
+    Q2>=3            n= 363  win= 26.4%  PF(R)= 1.06  meanR=+0.039  mean$=    250   | within-year Q2 n= 362 win= 27.6% PF(R)= 0.98 meanR=-0.015
+    Q3>=6            n= 362  win= 28.7%  PF(R)= 1.38  meanR=+0.243  mean$=    184   | within-year Q3 n= 364 win= 24.7% PF(R)= 1.07 meanR=+0.046
+    Q4>=12           n= 363  win= 35.5%  PF(R)= 1.90  meanR=+0.523  mean$=    509   | within-year Q4 n= 362 win= 34.3% PF(R)= 1.92 meanR=+0.562
+    Q5>=24           n= 362  win= 32.9%  PF(R)= 1.53  meanR=+0.330  mean$=    478   | within-year Q5 n= 356 win= 36.0% PF(R)= 1.91 meanR=+0.544
+    E1 n=1200  rank-biserial +0.162 (p 0.000)  Spearman vs R +0.133  Q5-Q1 win-rate spread +15.0 pts
+    E2 n=613  rank-biserial +0.018 (p 0.724)  Spearman vs R +0.042  Q5-Q1 win-rate spread +4.4 pts
+
+  ctx_mins_since_1800 [CONTEXT] -- time of day: minutes since 18:00 ET (0 = ETH open, 930 = 09:30, 1320 = 16:00)
+    winners median 888.5 | losers median 848 | rank-biserial +0.049 (MW p 0.1016) | Spearman vs R +0.127 | era trend rho_t -0.03
+    within-year null: win p 0.103 (q 0.257) | net R p 0.000 (q 0.001) | gross R p 0.300 (q 0.521)   [global shift: win p 0.115, R p 0.001]
+    Q1>=0            n= 367  win= 28.1%  PF(R)= 1.14  meanR=+0.092  mean$=     39   | within-year Q1 n= 372 win= 26.9% PF(R)= 1.08 meanR=+0.058
+    Q2>=371          n= 366  win= 26.0%  PF(R)= 1.22  meanR=+0.148  mean$=    167   | within-year Q2 n= 366 win= 26.5% PF(R)= 1.25 meanR=+0.162
+    Q3>=718          n= 366  win= 29.0%  PF(R)= 1.40  meanR=+0.267  mean$=    305   | within-year Q3 n= 367 win= 30.5% PF(R)= 1.47 meanR=+0.303
+    Q4>=938          n= 366  win= 33.1%  PF(R)= 1.49  meanR=+0.303  mean$=    599   | within-year Q4 n= 366 win= 32.8% PF(R)= 1.51 meanR=+0.315
+    Q5>=1.12e+03     n= 366  win= 30.9%  PF(R)= 1.33  meanR=+0.210  mean$=    323   | within-year Q5 n= 360 win= 30.3% PF(R)= 1.29 meanR=+0.183
+    E1 n=1218  rank-biserial +0.060 (p 0.106)  Spearman vs R +0.182  Q5-Q1 win-rate spread +4.6 pts
+    E2 n=613  rank-biserial +0.031 (p 0.536)  Spearman vs R +0.176  Q5-Q1 win-rate spread -0.6 pts
+
+  ctx_session_bucket [CONTEXT] -- 0=Asia 18:00-02:59, 1=Europe 03:00-09:29, 2=RTH 09:30-15:59, 3=post 16:00-17:00
+    winners median 1 | losers median 1 | rank-biserial - (MW p 0.1961) | Spearman vs R - | era trend rho_t -
+    within-year null: win p 0.220 (q 0.434) | net R p 0.000 (q 0.001) | gross R p 0.201 (q 0.387)   [global shift: win p 0.207, R p 0.001]
+    =0               n= 517  win= 26.5%  PF(R)= 1.10  meanR=+0.072  mean$=     62
+    =1               n= 495  win= 28.9%  PF(R)= 1.39  meanR=+0.252  mean$=    197
+    =2               n= 790  win= 31.8%  PF(R)= 1.41  meanR=+0.258  mean$=    479
+    =3               n=  29  win= 24.1%  PF(R)= 1.40  meanR=+0.272  mean$=    570
+    E1 n=1218  rank-biserial - (p 0.264)  Spearman vs R -  Q5-Q1 win-rate spread - pts
+    E2 n=613  rank-biserial - (p 0.612)  Spearman vs R -  Q5-Q1 win-rate spread - pts
+
+  ctx_is_rth [CONTEXT] -- 1 = signal inside the 09:30-16:00 cash session, 0 = overnight/post
+    winners median 0 | losers median 0 | rank-biserial +0.050 (MW p 0.0506) | Spearman vs R +0.131 | era trend rho_t +0.00
+    within-year null: win p 0.044 (q 0.148) | net R p 0.000 (q 0.001) | gross R p 0.504 (q 0.661)   [global shift: win p 0.047, R p 0.001]
+    =0               n=1041  win= 27.6%  PF(R)= 1.24  meanR=+0.163  mean$=    140
+    =1               n= 790  win= 31.8%  PF(R)= 1.41  meanR=+0.258  mean$=    479
+    E1 n=1218  rank-biserial +0.056 (p 0.076)  Spearman vs R +0.188  Q5-Q1 win-rate spread - pts
+    E2 n=613  rank-biserial +0.037 (p 0.385)  Spearman vs R +0.177  Q5-Q1 win-rate spread - pts
+
+  loc_rth_pdl_datr [LOCATION] -- close minus last completed cash-session LOW, in daily ATR
+    winners median 0.6355 | losers median 0.6699 | rank-biserial -0.042 (MW p 0.1567) | Spearman vs R -0.057 | era trend rho_t -0.00
+    within-year null: win p 0.181 (q 0.377) | net R p 0.030 (q 0.059) | gross R p 0.347 (q 0.567)   [global shift: win p 0.175, R p 0.029]
+    Q1>=-0.368       n= 366  win= 31.4%  PF(R)= 1.33  meanR=+0.209  mean$=    220   | within-year Q1 n= 372 win= 31.7% PF(R)= 1.44 meanR=+0.272
+    Q2>=0.281        n= 366  win= 30.1%  PF(R)= 1.23  meanR=+0.149  mean$=    208   | within-year Q2 n= 366 win= 30.3% PF(R)= 1.27 meanR=+0.177
+    Q3>=0.559        n= 366  win= 28.4%  PF(R)= 1.33  meanR=+0.218  mean$=    399   | within-year Q3 n= 367 win= 28.9% PF(R)= 1.33 meanR=+0.214
+    Q4>=0.77         n= 366  win= 29.5%  PF(R)= 1.52  meanR=+0.332  mean$=    297   | within-year Q4 n= 366 win= 30.1% PF(R)= 1.42 meanR=+0.270
+    Q5>=1.05         n= 366  win= 27.3%  PF(R)= 1.13  meanR=+0.092  mean$=    305   | within-year Q5 n= 359 win= 25.6% PF(R)= 1.09 meanR=+0.063
+    E1 n=1217  rank-biserial -0.013 (p 0.717)  Spearman vs R -0.051  Q5-Q1 win-rate spread +0.9 pts
+    E2 n=613  rank-biserial -0.093 (p 0.062)  Spearman vs R -0.090  Q5-Q1 win-rate spread -14.4 pts
+
+  loc_rn100_above_atr [LOCATION] -- distance up to the next 100-point round number, in ATR(52)
+    winners median 15.5 | losers median 21.03 | rank-biserial -0.103 (MW p 0.0005) | Spearman vs R -0.304 | era trend rho_t -0.60
+    within-year null: win p 0.032 (q 0.126) | net R p 0.000 (q 0.001) | gross R p 0.097 (q 0.263)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0            n= 367  win= 33.0%  PF(R)= 1.57  meanR=+0.343  mean$=    855   | within-year Q1 n= 372 win= 35.2% PF(R)= 1.81 meanR=+0.481
+    Q2>=5.26         n= 366  win= 32.5%  PF(R)= 1.65  meanR=+0.383  mean$=    388   | within-year Q2 n= 366 win= 26.0% PF(R)= 1.11 meanR=+0.075
+    Q3>=12.9         n= 366  win= 31.4%  PF(R)= 1.27  meanR=+0.165  mean$=    106   | within-year Q3 n= 367 win= 29.2% PF(R)= 1.29 meanR=+0.185
+    Q4>=27.5         n= 366  win= 24.3%  PF(R)= 1.06  meanR=+0.046  mean$=     60   | within-year Q4 n= 366 win= 29.5% PF(R)= 1.28 meanR=+0.181
+    Q5>=64.6         n= 366  win= 25.7%  PF(R)= 1.11  meanR=+0.083  mean$=     23   | within-year Q5 n= 360 win= 26.9% PF(R)= 1.13 meanR=+0.093
+    E1 n=1218  rank-biserial -0.090 (p 0.015)  Spearman vs R -0.253  Q5-Q1 win-rate spread -8.1 pts
+    E2 n=613  rank-biserial -0.048 (p 0.332)  Spearman vs R -0.194  Q5-Q1 win-rate spread -6.3 pts
+
+  loc_rn100_near_atr [LOCATION] -- distance to the nearest 100-point round number, in ATR(52)
+    winners median 7.957 | losers median 10.35 | rank-biserial -0.112 (MW p 0.0001) | Spearman vs R -0.313 | era trend rho_t -0.61
+    within-year null: win p 0.007 (q 0.048) | net R p 0.000 (q 0.001) | gross R p 0.048 (q 0.171)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0            n= 367  win= 35.1%  PF(R)= 1.83  meanR=+0.480  mean$=    829   | within-year Q1 n= 372 win= 34.4% PF(R)= 2.04 meanR=+0.619
+    Q2>=2.77         n= 366  win= 29.8%  PF(R)= 1.50  meanR=+0.304  mean$=    358   | within-year Q2 n= 366 win= 30.6% PF(R)= 1.11 meanR=+0.069
+    Q3>=6.76         n= 366  win= 33.1%  PF(R)= 1.49  meanR=+0.303  mean$=    226   | within-year Q3 n= 367 win= 26.4% PF(R)= 1.03 meanR=+0.017
+    Q4>=13.8         n= 366  win= 23.2%  PF(R)= 0.84  meanR=-0.119  mean$=      4   | within-year Q4 n= 366 win= 26.8% PF(R)= 1.28 meanR=+0.189
+    Q5>=29.8         n= 366  win= 25.7%  PF(R)= 1.07  meanR=+0.050  mean$=     15   | within-year Q5 n= 360 win= 28.6% PF(R)= 1.17 meanR=+0.118
+    E1 n=1218  rank-biserial -0.094 (p 0.011)  Spearman vs R -0.261  Q5-Q1 win-rate spread -9.7 pts
+    E2 n=613  rank-biserial -0.062 (p 0.215)  Spearman vs R -0.220  Q5-Q1 win-rate spread -5.4 pts
+
+  loc_rn1000_near_datr [LOCATION] -- distance to the nearest 1,000-point round number, in daily ATR
+    winners median 1.822 | losers median 2.387 | rank-biserial -0.072 (MW p 0.0156) | Spearman vs R -0.254 | era trend rho_t -0.74
+    within-year null: win p 0.476 (q 0.680) | net R p 0.019 (q 0.038) | gross R p 0.460 (q 0.623)   [global shift: win p 0.012, R p 0.001]
+    Q1>=0.00298      n= 366  win= 32.5%  PF(R)= 1.62  meanR=+0.367  mean$=    784   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.07 meanR=+0.048
+    Q2>=0.665        n= 366  win= 30.1%  PF(R)= 1.31  meanR=+0.186  mean$=    261   | within-year Q2 n= 366 win= 31.1% PF(R)= 1.70 meanR=+0.451
+    Q3>=1.45         n= 366  win= 30.9%  PF(R)= 1.19  meanR=+0.127  mean$=    215   | within-year Q3 n= 367 win= 29.4% PF(R)= 1.44 meanR=+0.284
+    Q4>=3.52         n= 366  win= 28.7%  PF(R)= 1.53  meanR=+0.359  mean$=    148   | within-year Q4 n= 366 win= 27.3% PF(R)= 1.10 meanR=+0.071
+    Q5>=6.94         n= 366  win= 24.6%  PF(R)= 0.94  meanR=-0.040  mean$=     20   | within-year Q5 n= 359 win= 30.4% PF(R)= 1.23 meanR=+0.147
+    E1 n=1217  rank-biserial -0.057 (p 0.124)  Spearman vs R -0.131  Q5-Q1 win-rate spread -5.2 pts
+    E2 n=613  rank-biserial -0.003 (p 0.945)  Spearman vs R -0.087  Q5-Q1 win-rate spread +2.7 pts
+
+  loc_tl_slope_atr100 [LOCATION] -- trendline slope (fit to the last 206 highs), ATR(52) per 100 bars (more negative = steeper)
+    winners median -3.056 | losers median -3.196 | rank-biserial +0.037 (MW p 0.2167) | Spearman vs R +0.063 | era trend rho_t +0.03
+    within-year null: win p 0.235 (q 0.459) | net R p 0.012 (q 0.026) | gross R p 0.110 (q 0.263)   [global shift: win p 0.204, R p 0.006]
+    Q1>=-24.9        n= 367  win= 23.2%  PF(R)= 1.03  meanR=+0.020  mean$=    135   | within-year Q1 n= 372 win= 23.7% PF(R)= 1.01 meanR=+0.010
+    Q2>=-5.82        n= 366  win= 31.7%  PF(R)= 1.46  meanR=+0.291  mean$=    147   | within-year Q2 n= 366 win= 31.4% PF(R)= 1.43 meanR=+0.280
+    Q3>=-3.91        n= 366  win= 30.3%  PF(R)= 1.36  meanR=+0.232  mean$=    189   | within-year Q3 n= 367 win= 30.8% PF(R)= 1.41 meanR=+0.270
+    Q4>=-2.44        n= 366  win= 35.5%  PF(R)= 1.75  meanR=+0.440  mean$=    425   | within-year Q4 n= 366 win= 35.5% PF(R)= 1.73 meanR=+0.422
+    Q5>=-1.17        n= 366  win= 26.2%  PF(R)= 1.06  meanR=+0.038  mean$=    538   | within-year Q5 n= 360 win= 25.6% PF(R)= 1.06 meanR=+0.038
+    E1 n=1218  rank-biserial +0.024 (p 0.510)  Spearman vs R +0.070  Q5-Q1 win-rate spread +3.4 pts
+    E2 n=613  rank-biserial +0.053 (p 0.282)  Spearman vs R +0.055  Q5-Q1 win-rate spread +4.4 pts
+
+  loc_tl_r2 [LOCATION] -- trendline fit R^2 on those 206 highs (1 = the highs sit on a clean line)
+    winners median 0.4054 | losers median 0.4316 | rank-biserial -0.028 (MW p 0.3413) | Spearman vs R -0.041 | era trend rho_t +0.02
+    within-year null: win p 0.308 (q 0.542) | net R p 0.027 (q 0.053) | gross R p 0.150 (q 0.330)   [global shift: win p 0.332, R p 0.082]
+    Q1>=3.21e-07     n= 367  win= 27.2%  PF(R)= 1.11  meanR=+0.075  mean$=    520   | within-year Q1 n= 372 win= 28.2% PF(R)= 1.13 meanR=+0.083
+    Q2>=0.101        n= 366  win= 31.7%  PF(R)= 1.41  meanR=+0.253  mean$=    345   | within-year Q2 n= 366 win= 31.7% PF(R)= 1.57 meanR=+0.344
+    Q3>=0.314        n= 366  win= 34.7%  PF(R)= 1.81  meanR=+0.498  mean$=    431   | within-year Q3 n= 367 win= 33.0% PF(R)= 1.53 meanR=+0.341
+    Q4>=0.516        n= 366  win= 27.9%  PF(R)= 1.18  meanR=+0.117  mean$=     38   | within-year Q4 n= 366 win= 28.1% PF(R)= 1.28 meanR=+0.185
+    Q5>=0.666        n= 366  win= 25.4%  PF(R)= 1.11  meanR=+0.078  mean$=     99   | within-year Q5 n= 360 win= 25.8% PF(R)= 1.09 meanR=+0.067
+    E1 n=1218  rank-biserial -0.001 (p 0.975)  Spearman vs R -0.035  Q5-Q1 win-rate spread +0.9 pts
+    E2 n=613  rank-biserial -0.078 (p 0.118)  Spearman vs R -0.102  Q5-Q1 win-rate spread -7.1 pts
+
+  imb_brk_atr [IMBALANCE] -- breakout size: close minus the trendline, in ATR(52) (file requires >= 1.6)
+    winners median 4.563 | losers median 4.428 | rank-biserial +0.033 (MW p 0.2590) | Spearman vs R +0.054 | era trend rho_t -0.10
+    within-year null: win p 0.158 (q 0.341) | net R p 0.001 (q 0.002) | gross R p 0.175 (q 0.360)   [global shift: win p 0.259, R p 0.068]
+    Q1>=1.6          n= 367  win= 28.9%  PF(R)= 1.14  meanR=+0.095  mean$=    230   | within-year Q1 n= 372 win= 27.4% PF(R)= 1.10 meanR=+0.069
+    Q2>=2.59         n= 366  win= 29.0%  PF(R)= 1.45  meanR=+0.304  mean$=    340   | within-year Q2 n= 366 win= 30.3% PF(R)= 1.36 meanR=+0.236
+    Q3>=3.8          n= 366  win= 29.0%  PF(R)= 1.38  meanR=+0.235  mean$=    301   | within-year Q3 n= 367 win= 30.2% PF(R)= 1.56 meanR=+0.343
+    Q4>=5.26         n= 366  win= 26.8%  PF(R)= 1.12  meanR=+0.083  mean$=    154   | within-year Q4 n= 366 win= 23.8% PF(R)= 1.01 meanR=+0.006
+    Q5>=7.32         n= 366  win= 33.3%  PF(R)= 1.49  meanR=+0.304  mean$=    408   | within-year Q5 n= 360 win= 35.3% PF(R)= 1.62 meanR=+0.370
+    E1 n=1218  rank-biserial +0.048 (p 0.193)  Spearman vs R +0.078  Q5-Q1 win-rate spread +7.9 pts
+    E2 n=613  rank-biserial +0.016 (p 0.749)  Spearman vs R +0.097  Q5-Q1 win-rate spread +1.9 pts
+
+  loc_pb_depth_pct [LOCATION] -- the same pullback depth as % of price
+    winners median 0.5699 | losers median 0.4986 | rank-biserial +0.125 (MW p 0.0000) | Spearman vs R +0.303 | era trend rho_t +0.19
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.007 (q 0.051)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.0645       n= 367  win= 24.5%  PF(R)= 1.04  meanR=+0.029  mean$=      8   | within-year Q1 n= 372 win= 24.5% PF(R)= 1.00 meanR=-0.002
+    Q2>=0.281        n= 366  win= 25.7%  PF(R)= 1.09  meanR=+0.061  mean$=     56   | within-year Q2 n= 366 win= 25.7% PF(R)= 0.98 meanR=-0.014
+    Q3>=0.428        n= 366  win= 29.2%  PF(R)= 1.17  meanR=+0.112  mean$=     95   | within-year Q3 n= 367 win= 29.7% PF(R)= 1.36 meanR=+0.231
+    Q4>=0.618        n= 366  win= 30.6%  PF(R)= 1.44  meanR=+0.281  mean$=    216   | within-year Q4 n= 366 win= 32.8% PF(R)= 1.60 meanR=+0.371
+    Q5>=0.925        n= 366  win= 36.9%  PF(R)= 1.98  meanR=+0.538  mean$=   1059   | within-year Q5 n= 360 win= 34.4% PF(R)= 1.75 meanR=+0.442
+    E1 n=1218  rank-biserial +0.113 (p 0.002)  Spearman vs R +0.302  Q5-Q1 win-rate spread +8.7 pts
+    E2 n=613  rank-biserial +0.095 (p 0.056)  Spearman vs R +0.301  Q5-Q1 win-rate spread +6.8 pts
+
+  loc_pb_recovery [LOCATION] -- how much of that pullback the signal close has already recovered (0..1+)
+    winners median 0.6382 | losers median 0.6047 | rank-biserial +0.077 (MW p 0.0095) | Spearman vs R +0.153 | era trend rho_t +0.00
+    within-year null: win p 0.006 (q 0.045) | net R p 0.000 (q 0.001) | gross R p 0.005 (q 0.044)   [global shift: win p 0.008, R p 0.001]
+    Q1>=0.119        n= 367  win= 23.4%  PF(R)= 0.96  meanR=-0.031  mean$=     47   | within-year Q1 n= 372 win= 22.6% PF(R)= 0.97 meanR=-0.024
+    Q2>=0.478        n= 366  win= 29.5%  PF(R)= 1.59  meanR=+0.387  mean$=    271   | within-year Q2 n= 366 win= 29.5% PF(R)= 1.46 meanR=+0.304
+    Q3>=0.57         n= 366  win= 30.1%  PF(R)= 1.16  meanR=+0.100  mean$=    236   | within-year Q3 n= 367 win= 30.2% PF(R)= 1.16 meanR=+0.103
+    Q4>=0.672        n= 366  win= 33.9%  PF(R)= 1.58  meanR=+0.353  mean$=    277   | within-year Q4 n= 366 win= 35.0% PF(R)= 1.78 meanR=+0.459
+    Q5>=0.831        n= 366  win= 30.1%  PF(R)= 1.34  meanR=+0.212  mean$=    602   | within-year Q5 n= 360 win= 29.7% PF(R)= 1.29 meanR=+0.181
+    E1 n=1218  rank-biserial +0.097 (p 0.009)  Spearman vs R +0.203  Q5-Q1 win-rate spread +8.7 pts
+    E2 n=613  rank-biserial +0.035 (p 0.478)  Spearman vs R +0.115  Q5-Q1 win-rate spread +6.0 pts
+
+  loc_bars_since_win_high [LOCATION] -- bars since the trendline window's highest high
+    winners median 167 | losers median 171 | rank-biserial -0.007 (MW p 0.8056) | Spearman vs R -0.059 | era trend rho_t -0.03
+    within-year null: win p 0.948 (q 0.966) | net R p 0.031 (q 0.060) | gross R p 0.510 (q 0.663)   [global shift: win p 0.803, R p 0.012]
+    Q1>=1            n= 367  win= 28.9%  PF(R)= 1.43  meanR=+0.269  mean$=    644   | within-year Q1 n= 372 win= 27.7% PF(R)= 1.38 meanR=+0.246
+    Q2>=121          n= 366  win= 31.7%  PF(R)= 1.39  meanR=+0.249  mean$=    356   | within-year Q2 n= 366 win= 32.0% PF(R)= 1.34 meanR=+0.215
+    Q3>=157          n= 366  win= 28.7%  PF(R)= 1.22  meanR=+0.149  mean$=    175   | within-year Q3 n= 367 win= 29.7% PF(R)= 1.28 meanR=+0.187
+    Q4>=181          n= 366  win= 28.7%  PF(R)= 1.28  meanR=+0.177  mean$=    157   | within-year Q4 n= 366 win= 27.3% PF(R)= 1.21 meanR=+0.141
+    Q5>=199          n= 366  win= 29.0%  PF(R)= 1.26  meanR=+0.176  mean$=    100   | within-year Q5 n= 360 win= 30.3% PF(R)= 1.35 meanR=+0.231
+    E1 n=1218  rank-biserial -0.007 (p 0.854)  Spearman vs R -0.067  Q5-Q1 win-rate spread -1.5 pts
+    E2 n=613  rank-biserial -0.004 (p 0.932)  Spearman vs R -0.072  Q5-Q1 win-rate spread +2.7 pts
+
+  loc_ext_swing_atr [LOCATION] -- how extended the move already is: close minus the swing low, in ATR(52)
+    winners median 9.268 | losers median 8.878 | rank-biserial +0.049 (MW p 0.1011) | Spearman vs R +0.079 | era trend rho_t -0.10
+    within-year null: win p 0.056 (q 0.169) | net R p 0.000 (q 0.001) | gross R p 0.108 (q 0.263)   [global shift: win p 0.108, R p 0.003]
+    Q1>=3.19         n= 367  win= 27.5%  PF(R)= 1.20  meanR=+0.140  mean$=    138   | within-year Q1 n= 372 win= 27.4% PF(R)= 1.22 meanR=+0.154
+    Q2>=6.85         n= 366  win= 29.8%  PF(R)= 1.46  meanR=+0.296  mean$=    201   | within-year Q2 n= 366 win= 28.7% PF(R)= 1.40 meanR=+0.262
+    Q3>=8.26         n= 366  win= 25.7%  PF(R)= 1.03  meanR=+0.021  mean$=    208   | within-year Q3 n= 367 win= 26.4% PF(R)= 0.95 meanR=-0.037
+    Q4>=9.79         n= 366  win= 31.7%  PF(R)= 1.48  meanR=+0.291  mean$=    480   | within-year Q4 n= 366 win= 31.4% PF(R)= 1.56 meanR=+0.336
+    Q5>=12.6         n= 366  win= 32.2%  PF(R)= 1.43  meanR=+0.274  mean$=    406   | within-year Q5 n= 360 win= 33.1% PF(R)= 1.50 meanR=+0.308
+    E1 n=1218  rank-biserial +0.058 (p 0.117)  Spearman vs R +0.114  Q5-Q1 win-rate spread +7.1 pts
+    E2 n=613  rank-biserial +0.051 (p 0.303)  Spearman vs R +0.153  Q5-Q1 win-rate spread -1.4 pts
+
+  loc_ext60_atr [LOCATION] -- close minus the 60-bar low, in ATR(52)
+    winners median 8.111 | losers median 7.953 | rank-biserial +0.050 (MW p 0.0909) | Spearman vs R +0.082 | era trend rho_t -0.15
+    within-year null: win p 0.039 (q 0.137) | net R p 0.000 (q 0.001) | gross R p 0.018 (q 0.099)   [global shift: win p 0.093, R p 0.006]
+    Q1>=2.89         n= 367  win= 28.1%  PF(R)= 1.13  meanR=+0.092  mean$=    252   | within-year Q1 n= 372 win= 28.0% PF(R)= 1.06 meanR=+0.042
+    Q2>=6.3          n= 366  win= 30.3%  PF(R)= 1.50  meanR=+0.320  mean$=    194   | within-year Q2 n= 366 win= 28.7% PF(R)= 1.41 meanR=+0.271
+    Q3>=7.39         n= 366  win= 25.1%  PF(R)= 1.10  meanR=+0.065  mean$=    211   | within-year Q3 n= 367 win= 27.8% PF(R)= 1.23 meanR=+0.148
+    Q4>=8.62         n= 366  win= 26.0%  PF(R)= 0.94  meanR=-0.038  mean$=    160   | within-year Q4 n= 366 win= 25.1% PF(R)= 0.95 meanR=-0.032
+    Q5>=10.4         n= 366  win= 37.4%  PF(R)= 2.02  meanR=+0.582  mean$=    615   | within-year Q5 n= 360 win= 37.5% PF(R)= 2.06 meanR=+0.599
+    E1 n=1218  rank-biserial +0.050 (p 0.177)  Spearman vs R +0.122  Q5-Q1 win-rate spread +9.2 pts
+    E2 n=613  rank-biserial +0.073 (p 0.141)  Spearman vs R +0.170  Q5-Q1 win-rate spread +8.5 pts
+
+  loc_plan_risk_atr [LOCATION] -- PLANNED risk at the signal: limit price minus swing low, in ATR(52)
+    winners median 8.718 | losers median 8.328 | rank-biserial +0.049 (MW p 0.1014) | Spearman vs R +0.079 | era trend rho_t -0.10
+    within-year null: win p 0.056 (q 0.169) | net R p 0.000 (q 0.001) | gross R p 0.108 (q 0.263)   [global shift: win p 0.109, R p 0.003]
+    Q1>=2.64         n= 367  win= 27.5%  PF(R)= 1.20  meanR=+0.140  mean$=    138   | within-year Q1 n= 372 win= 27.4% PF(R)= 1.22 meanR=+0.154
+    Q2>=6.3          n= 366  win= 29.8%  PF(R)= 1.46  meanR=+0.296  mean$=    201   | within-year Q2 n= 366 win= 28.7% PF(R)= 1.40 meanR=+0.262
+    Q3>=7.71         n= 366  win= 25.7%  PF(R)= 1.03  meanR=+0.021  mean$=    208   | within-year Q3 n= 367 win= 26.4% PF(R)= 0.95 meanR=-0.037
+    Q4>=9.24         n= 366  win= 31.7%  PF(R)= 1.48  meanR=+0.291  mean$=    480   | within-year Q4 n= 366 win= 31.4% PF(R)= 1.56 meanR=+0.336
+    Q5>=12           n= 366  win= 32.2%  PF(R)= 1.43  meanR=+0.274  mean$=    406   | within-year Q5 n= 360 win= 33.1% PF(R)= 1.50 meanR=+0.308
+    E1 n=1218  rank-biserial +0.058 (p 0.117)  Spearman vs R +0.114  Q5-Q1 win-rate spread +7.1 pts
+    E2 n=613  rank-biserial +0.051 (p 0.303)  Spearman vs R +0.153  Q5-Q1 win-rate spread -1.4 pts
+
+  loc_plan_risk_pct [LOCATION] -- PLANNED risk as % of price (the edge-carrying 'big stop' read, known at the signal)
+    winners median 0.361 | losers median 0.2876 | rank-biserial +0.144 (MW p 0.0000) | Spearman vs R +0.344 | era trend rho_t +0.17
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.027        n= 367  win= 23.2%  PF(R)= 0.95  meanR=-0.040  mean$=      4   | within-year Q1 n= 372 win= 23.9% PF(R)= 0.93 meanR=-0.048
+    Q2>=0.153        n= 366  win= 25.7%  PF(R)= 1.16  meanR=+0.113  mean$=    101   | within-year Q2 n= 366 win= 27.0% PF(R)= 1.20 meanR=+0.135
+    Q3>=0.248        n= 366  win= 27.6%  PF(R)= 1.22  meanR=+0.143  mean$=     33   | within-year Q3 n= 367 win= 27.5% PF(R)= 1.17 meanR=+0.111
+    Q4>=0.38         n= 366  win= 32.8%  PF(R)= 1.59  meanR=+0.369  mean$=    368   | within-year Q4 n= 366 win= 31.7% PF(R)= 1.53 meanR=+0.327
+    Q5>=0.585        n= 366  win= 37.7%  PF(R)= 1.82  meanR=+0.435  mean$=    928   | within-year Q5 n= 360 win= 36.9% PF(R)= 1.89 meanR=+0.503
+    E1 n=1218  rank-biserial +0.147 (p 0.000)  Spearman vs R +0.372  Q5-Q1 win-rate spread +10.4 pts
+    E2 n=613  rank-biserial +0.098 (p 0.048)  Spearman vs R +0.330  Q5-Q1 win-rate spread +7.6 pts
+
+  loc_cost_share_R [LOCATION] -- the 0.533-pt round-trip cost as a fraction of the PLANNED risk (known at the signal; the era-cost mechanic)
+    winners median 0.02361 | losers median 0.03337 | rank-biserial -0.144 (MW p 0.0000) | Spearman vs R -0.419 | era trend rho_t -0.73
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.00109      n= 367  win= 35.4%  PF(R)= 1.66  meanR=+0.368  mean$=   1008   | within-year Q1 n= 372 win= 37.1% PF(R)= 1.89 meanR=+0.497
+    Q2>=0.0102       n= 366  win= 33.6%  PF(R)= 1.78  meanR=+0.448  mean$=    321   | within-year Q2 n= 366 win= 29.5% PF(R)= 1.35 meanR=+0.224
+    Q3>=0.0218       n= 366  win= 31.4%  PF(R)= 1.35  meanR=+0.221  mean$=     86   | within-year Q3 n= 367 win= 28.3% PF(R)= 1.33 meanR=+0.211
+    Q4>=0.0402       n= 366  win= 24.0%  PF(R)= 1.18  meanR=+0.126  mean$=     25   | within-year Q4 n= 366 win= 27.6% PF(R)= 1.10 meanR=+0.067
+    Q5>=0.0764       n= 366  win= 22.4%  PF(R)= 0.82  meanR=-0.143  mean$=     -9   | within-year Q5 n= 360 win= 24.2% PF(R)= 1.02 meanR=+0.014
+    E1 n=1218  rank-biserial -0.153 (p 0.000)  Spearman vs R -0.428  Q5-Q1 win-rate spread -13.4 pts
+    E2 n=613  rank-biserial -0.091 (p 0.067)  Spearman vs R -0.349  Q5-Q1 win-rate spread -7.9 pts
+
+  loc_limit_vs_tl_atr [LOCATION] -- resting limit price minus the trendline value, in ATR(52) (<0 = limit sits below the line)
+    winners median 4.013 | losers median 3.878 | rank-biserial +0.033 (MW p 0.2590) | Spearman vs R +0.054 | era trend rho_t -0.10
+    within-year null: win p 0.158 (q 0.341) | net R p 0.001 (q 0.002) | gross R p 0.175 (q 0.360)   [global shift: win p 0.259, R p 0.068]
+    Q1>=1.05         n= 367  win= 28.9%  PF(R)= 1.14  meanR=+0.095  mean$=    230   | within-year Q1 n= 372 win= 27.4% PF(R)= 1.10 meanR=+0.069
+    Q2>=2.04         n= 366  win= 29.0%  PF(R)= 1.45  meanR=+0.304  mean$=    340   | within-year Q2 n= 366 win= 30.3% PF(R)= 1.36 meanR=+0.236
+    Q3>=3.25         n= 366  win= 29.0%  PF(R)= 1.38  meanR=+0.235  mean$=    301   | within-year Q3 n= 367 win= 30.2% PF(R)= 1.56 meanR=+0.343
+    Q4>=4.71         n= 366  win= 26.8%  PF(R)= 1.12  meanR=+0.083  mean$=    154   | within-year Q4 n= 366 win= 23.8% PF(R)= 1.01 meanR=+0.006
+    Q5>=6.77         n= 366  win= 33.3%  PF(R)= 1.49  meanR=+0.304  mean$=    408   | within-year Q5 n= 360 win= 35.3% PF(R)= 1.62 meanR=+0.370
+    E1 n=1218  rank-biserial +0.048 (p 0.193)  Spearman vs R +0.078  Q5-Q1 win-rate spread +7.9 pts
+    E2 n=613  rank-biserial +0.016 (p 0.749)  Spearman vs R +0.097  Q5-Q1 win-rate spread +1.9 pts
+
+  imb_upvol_share10 [IMBALANCE] -- up-volume share of the last 10 bars (volume on close>open bars / total; no order flow)
+    winners median 0.7141 | losers median 0.6969 | rank-biserial +0.100 (MW p 0.0007) | Spearman vs R +0.181 | era trend rho_t +0.16
+    within-year null: win p 0.003 (q 0.025) | net R p 0.000 (q 0.001) | gross R p 0.008 (q 0.057)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.0943       n= 367  win= 22.6%  PF(R)= 0.79  meanR=-0.155  mean$=    -37   | within-year Q1 n= 372 win= 23.7% PF(R)= 0.87 meanR=-0.096
+    Q2>=0.562        n= 366  win= 27.9%  PF(R)= 1.13  meanR=+0.085  mean$=    114   | within-year Q2 n= 366 win= 27.6% PF(R)= 1.13 meanR=+0.089
+    Q3>=0.665        n= 366  win= 32.2%  PF(R)= 1.77  meanR=+0.482  mean$=    513   | within-year Q3 n= 367 win= 32.2% PF(R)= 1.69 meanR=+0.427
+    Q4>=0.746        n= 366  win= 28.7%  PF(R)= 1.26  meanR=+0.167  mean$=    262   | within-year Q4 n= 366 win= 29.0% PF(R)= 1.25 meanR=+0.163
+    Q5>=0.826        n= 366  win= 35.5%  PF(R)= 1.77  meanR=+0.442  mean$=    582   | within-year Q5 n= 360 win= 34.7% PF(R)= 1.74 meanR=+0.445
+    E1 n=1218  rank-biserial +0.134 (p 0.000)  Spearman vs R +0.215  Q5-Q1 win-rate spread +12.0 pts
+    E2 n=613  rank-biserial +0.006 (p 0.908)  Spearman vs R +0.030  Q5-Q1 win-rate spread +5.2 pts
+
+  imb_upvol_share30 [IMBALANCE] -- up-volume share of the last 30 bars
+    winners median 0.597 | losers median 0.58 | rank-biserial +0.082 (MW p 0.0056) | Spearman vs R +0.201 | era trend rho_t +0.27
+    within-year null: win p 0.029 (q 0.124) | net R p 0.000 (q 0.001) | gross R p 0.128 (q 0.294)   [global shift: win p 0.011, R p 0.001]
+    Q1>=0.0356       n= 367  win= 26.4%  PF(R)= 1.16  meanR=+0.112  mean$=     34   | within-year Q1 n= 372 win= 27.7% PF(R)= 1.25 meanR=+0.172
+    Q2>=0.485        n= 366  win= 31.4%  PF(R)= 1.36  meanR=+0.234  mean$=    254   | within-year Q2 n= 366 win= 29.2% PF(R)= 1.30 meanR=+0.196
+    Q3>=0.554        n= 366  win= 20.8%  PF(R)= 0.97  meanR=-0.021  mean$=    147   | within-year Q3 n= 367 win= 25.1% PF(R)= 1.12 meanR=+0.086
+    Q4>=0.611        n= 366  win= 33.1%  PF(R)= 1.36  meanR=+0.216  mean$=    329   | within-year Q4 n= 366 win= 29.2% PF(R)= 1.13 meanR=+0.085
+    Q5>=0.673        n= 366  win= 35.2%  PF(R)= 1.83  meanR=+0.480  mean$=    669   | within-year Q5 n= 360 win= 35.8% PF(R)= 1.83 meanR=+0.486
+    E1 n=1218  rank-biserial +0.065 (p 0.081)  Spearman vs R +0.199  Q5-Q1 win-rate spread +6.7 pts
+    E2 n=613  rank-biserial +0.066 (p 0.186)  Spearman vs R +0.105  Q5-Q1 win-rate spread +1.9 pts
+
+  imb_upvol_share60 [IMBALANCE] -- up-volume share of the last 60 bars
+    winners median 0.5224 | losers median 0.5113 | rank-biserial +0.074 (MW p 0.0129) | Spearman vs R +0.220 | era trend rho_t +0.32
+    within-year null: win p 0.092 (q 0.242) | net R p 0.000 (q 0.001) | gross R p 0.276 (q 0.497)   [global shift: win p 0.013, R p 0.001]
+    Q1>=0.0921       n= 367  win= 24.5%  PF(R)= 1.17  meanR=+0.128  mean$=     58   | within-year Q1 n= 372 win= 29.3% PF(R)= 1.40 meanR=+0.272
+    Q2>=0.437        n= 366  win= 29.0%  PF(R)= 1.32  meanR=+0.210  mean$=    215   | within-year Q2 n= 366 win= 26.2% PF(R)= 1.20 meanR=+0.136
+    Q3>=0.494        n= 366  win= 29.5%  PF(R)= 1.18  meanR=+0.117  mean$=    154   | within-year Q3 n= 367 win= 28.6% PF(R)= 1.22 meanR=+0.146
+    Q4>=0.537        n= 366  win= 32.2%  PF(R)= 1.46  meanR=+0.275  mean$=    493   | within-year Q4 n= 366 win= 31.4% PF(R)= 1.32 meanR=+0.199
+    Q5>=0.586        n= 366  win= 31.7%  PF(R)= 1.47  meanR=+0.290  mean$=    514   | within-year Q5 n= 360 win= 31.4% PF(R)= 1.42 meanR=+0.268
+    E1 n=1218  rank-biserial +0.079 (p 0.032)  Spearman vs R +0.240  Q5-Q1 win-rate spread +3.8 pts
+    E2 n=613  rank-biserial +0.001 (p 0.979)  Spearman vs R +0.055  Q5-Q1 win-rate spread -3.0 pts
+
+  imb_upbar_share20 [IMBALANCE] -- share of the last 20 bars that closed above their open
+    winners median 0.55 | losers median 0.55 | rank-biserial +0.090 (MW p 0.0023) | Spearman vs R +0.251 | era trend rho_t +0.40
+    within-year null: win p 0.032 (q 0.126) | net R p 0.000 (q 0.001) | gross R p 0.080 (q 0.246)   [global shift: win p 0.003, R p 0.001]
+    Q1>=0.05         n= 367  win= 24.8%  PF(R)= 1.04  meanR=+0.031  mean$=     59   | within-year Q1 n= 372 win= 25.0% PF(R)= 0.93 meanR=-0.055
+    Q2>=0.45         n= 366  win= 29.0%  PF(R)= 1.42  meanR=+0.275  mean$=    149   | within-year Q2 n= 366 win= 30.6% PF(R)= 1.65 meanR=+0.408
+    Q3>=0.5          n= 366  win= 27.9%  PF(R)= 1.01  meanR=+0.005  mean$=     92   | within-year Q3 n= 367 win= 29.7% PF(R)= 1.21 meanR=+0.140
+    Q4>=0.55         n= 366  win= 32.0%  PF(R)= 1.58  meanR=+0.356  mean$=    424   | within-year Q4 n= 366 win= 27.6% PF(R)= 1.09 meanR=+0.060
+    Q5>=0.65         n= 366  win= 33.3%  PF(R)= 1.60  meanR=+0.353  mean$=    710   | within-year Q5 n= 360 win= 34.2% PF(R)= 1.79 meanR=+0.477
+    E1 n=1218  rank-biserial +0.091 (p 0.014)  Spearman vs R +0.251  Q5-Q1 win-rate spread +10.4 pts
+    E2 n=613  rank-biserial +0.029 (p 0.553)  Spearman vs R +0.097  Q5-Q1 win-rate spread +9.2 pts
+
+  imb_ret15_atr [IMBALANCE] -- 15-bar momentum into the signal, in ATR(52)
+    winners median 3.968 | losers median 3.685 | rank-biserial +0.050 (MW p 0.0895) | Spearman vs R +0.030 | era trend rho_t -0.16
+    within-year null: win p 0.035 (q 0.128) | net R p 0.001 (q 0.002) | gross R p 0.093 (q 0.263)   [global shift: win p 0.102, R p 0.371]
+    Q1>=-2.08        n= 367  win= 30.2%  PF(R)= 1.10  meanR=+0.065  mean$=    145   | within-year Q1 n= 372 win= 29.8% PF(R)= 1.14 meanR=+0.095
+    Q2>=2.11         n= 366  win= 24.6%  PF(R)= 1.36  meanR=+0.250  mean$=    406   | within-year Q2 n= 366 win= 24.9% PF(R)= 1.26 meanR=+0.179
+    Q3>=3.27         n= 366  win= 27.9%  PF(R)= 1.08  meanR=+0.052  mean$=    170   | within-year Q3 n= 367 win= 27.8% PF(R)= 1.13 meanR=+0.085
+    Q4>=4.24         n= 366  win= 30.3%  PF(R)= 1.47  meanR=+0.315  mean$=    234   | within-year Q4 n= 366 win= 30.6% PF(R)= 1.41 meanR=+0.266
+    Q5>=5.69         n= 366  win= 33.9%  PF(R)= 1.58  meanR=+0.339  mean$=    478   | within-year Q5 n= 360 win= 33.9% PF(R)= 1.66 meanR=+0.400
+    E1 n=1218  rank-biserial +0.068 (p 0.066)  Spearman vs R +0.060  Q5-Q1 win-rate spread +2.6 pts
+    E2 n=613  rank-biserial +0.041 (p 0.404)  Spearman vs R +0.058  Q5-Q1 win-rate spread +2.7 pts
+
+  imb_ret60_atr [IMBALANCE] -- 60-bar momentum into the signal, in ATR(52)
+    winners median 4.337 | losers median 3.888 | rank-biserial +0.059 (MW p 0.0458) | Spearman vs R +0.104 | era trend rho_t -0.07
+    within-year null: win p 0.034 (q 0.126) | net R p 0.000 (q 0.001) | gross R p 0.022 (q 0.103)   [global shift: win p 0.049, R p 0.001]
+    Q1>=-7.74        n= 367  win= 28.1%  PF(R)= 1.19  meanR=+0.132  mean$=    265   | within-year Q1 n= 372 win= 28.0% PF(R)= 1.20 meanR=+0.139
+    Q2>=1.44         n= 366  win= 27.0%  PF(R)= 1.30  meanR=+0.202  mean$=    123   | within-year Q2 n= 366 win= 28.1% PF(R)= 1.32 meanR=+0.211
+    Q3>=3.16         n= 366  win= 27.9%  PF(R)= 1.18  meanR=+0.116  mean$=    256   | within-year Q3 n= 367 win= 25.9% PF(R)= 1.08 meanR=+0.052
+    Q4>=5.11         n= 366  win= 30.1%  PF(R)= 1.32  meanR=+0.202  mean$=    161   | within-year Q4 n= 366 win= 32.0% PF(R)= 1.41 meanR=+0.252
+    Q5>=7.41         n= 366  win= 33.9%  PF(R)= 1.60  meanR=+0.368  mean$=    629   | within-year Q5 n= 360 win= 33.1% PF(R)= 1.60 meanR=+0.371
+    E1 n=1218  rank-biserial +0.075 (p 0.042)  Spearman vs R +0.149  Q5-Q1 win-rate spread +6.7 pts
+    E2 n=613  rank-biserial +0.034 (p 0.493)  Spearman vs R +0.121  Q5-Q1 win-rate spread +4.4 pts
+
+  imb_er100 [IMBALANCE] -- efficiency ratio of the last 100 bars (move quality; the file's er gate is OFF)
+    winners median 0.05137 | losers median 0.04762 | rank-biserial +0.069 (MW p 0.0201) | Spearman vs R +0.089 | era trend rho_t +0.02
+    within-year null: win p 0.032 (q 0.126) | net R p 0.000 (q 0.001) | gross R p 0.027 (q 0.116)   [global shift: win p 0.017, R p 0.001]
+    Q1>=0            n= 367  win= 27.8%  PF(R)= 1.12  meanR=+0.082  mean$=    129   | within-year Q1 n= 372 win= 26.6% PF(R)= 1.05 meanR=+0.032
+    Q2>=0.0181       n= 366  win= 26.2%  PF(R)= 1.07  meanR=+0.048  mean$=     41   | within-year Q2 n= 366 win= 29.2% PF(R)= 1.25 meanR=+0.169
+    Q3>=0.0376       n= 366  win= 30.9%  PF(R)= 1.71  meanR=+0.455  mean$=    459   | within-year Q3 n= 367 win= 26.7% PF(R)= 1.42 meanR=+0.283
+    Q4>=0.0617       n= 366  win= 29.0%  PF(R)= 1.12  meanR=+0.076  mean$=    181   | within-year Q4 n= 366 win= 30.9% PF(R)= 1.27 meanR=+0.172
+    Q5>=0.103        n= 366  win= 33.1%  PF(R)= 1.59  meanR=+0.358  mean$=    623   | within-year Q5 n= 360 win= 33.6% PF(R)= 1.61 meanR=+0.369
+    E1 n=1218  rank-biserial +0.068 (p 0.064)  Spearman vs R +0.094  Q5-Q1 win-rate spread +5.0 pts
+    E2 n=613  rank-biserial +0.067 (p 0.180)  Spearman vs R +0.122  Q5-Q1 win-rate spread +5.2 pts
+
+  loc_swing_low_risk_pts [LOCATION] -- close minus swing low in POINTS (era-confounded; kept for reference)
+    winners median 23.75 | losers median 17 | rank-biserial +0.144 (MW p 0.0000) | Spearman vs R +0.418 | era trend rho_t +0.74
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=1            n= 367  win= 22.6%  PF(R)= 0.85  meanR=-0.116  mean$=     -5   | within-year Q1 n= 372 win= 24.7% PF(R)= 1.01 meanR=+0.006
+    Q2>=7.5          n= 366  win= 24.0%  PF(R)= 1.14  meanR=+0.104  mean$=     22   | within-year Q2 n= 366 win= 26.5% PF(R)= 1.09 meanR=+0.063
+    Q3>=14           n= 366  win= 31.7%  PF(R)= 1.38  meanR=+0.236  mean$=     95   | within-year Q3 n= 367 win= 29.7% PF(R)= 1.45 meanR=+0.284
+    Q4>=26.2         n= 366  win= 33.9%  PF(R)= 1.77  meanR=+0.446  mean$=    330   | within-year Q4 n= 366 win= 27.9% PF(R)= 1.23 meanR=+0.153
+    Q5>=57           n= 366  win= 34.7%  PF(R)= 1.62  meanR=+0.351  mean$=    992   | within-year Q5 n= 360 win= 38.3% PF(R)= 1.95 meanR=+0.522
+    E1 n=1218  rank-biserial +0.152 (p 0.000)  Spearman vs R +0.428  Q5-Q1 win-rate spread +13.7 pts
+    E2 n=613  rank-biserial +0.089 (p 0.072)  Spearman vs R +0.348  Q5-Q1 win-rate spread +6.8 pts
+
+  imb_vol_vs_clock20 [IMBALANCE] -- signal volume vs the average volume at the same clock minute over the prior 20 sessions
+    winners median 1.734 | losers median 1.661 | rank-biserial +0.044 (MW p 0.1348) | Spearman vs R +0.074 | era trend rho_t -0.07
+    within-year null: win p 0.074 (q 0.205) | net R p 0.000 (q 0.001) | gross R p 0.031 (q 0.126)   [global shift: win p 0.148, R p 0.003]
+    Q1>=0.123        n= 366  win= 26.0%  PF(R)= 1.17  meanR=+0.119  mean$=    124   | within-year Q1 n= 372 win= 25.8% PF(R)= 1.16 meanR=+0.113
+    Q2>=0.996        n= 366  win= 28.7%  PF(R)= 1.29  meanR=+0.189  mean$=    234   | within-year Q2 n= 366 win= 28.4% PF(R)= 1.20 meanR=+0.136
+    Q3>=1.44         n= 366  win= 32.2%  PF(R)= 1.44  meanR=+0.276  mean$=    435   | within-year Q3 n= 366 win= 29.8% PF(R)= 1.31 meanR=+0.198
+    Q4>=1.95         n= 366  win= 29.2%  PF(R)= 1.23  meanR=+0.149  mean$=    336   | within-year Q4 n= 366 win= 31.1% PF(R)= 1.41 meanR=+0.266
+    Q5>=2.94         n= 365  win= 30.7%  PF(R)= 1.44  meanR=+0.271  mean$=    299   | within-year Q5 n= 359 win= 31.8% PF(R)= 1.49 meanR=+0.295
+    E1 n=1216  rank-biserial +0.054 (p 0.142)  Spearman vs R +0.125  Q5-Q1 win-rate spread +5.4 pts
+    E2 n=613  rank-biserial +0.040 (p 0.424)  Spearman vs R +0.057  Q5-Q1 win-rate spread +4.4 pts
+
+  ctx_vix_prior_close [CONTEXT] -- prior-day VIX close (cached yfinance series, shifted one day)
+    winners median 17.76 | losers median 16.2 | rank-biserial +0.103 (MW p 0.0006) | Spearman vs R +0.210 | era trend rho_t +0.20
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.001 (q 0.017)   [global shift: win p 0.001, R p 0.001]
+    Q1>=9.15         n= 362  win= 25.4%  PF(R)= 1.14  meanR=+0.105  mean$=    144   | within-year Q1 n= 367 win= 25.1% PF(R)= 0.96 meanR=-0.031
+    Q2>=13.3         n= 362  win= 24.6%  PF(R)= 1.01  meanR=+0.007  mean$=     37   | within-year Q2 n= 361 win= 28.0% PF(R)= 1.09 meanR=+0.060
+    Q3>=15.3         n= 362  win= 30.1%  PF(R)= 1.39  meanR=+0.242  mean$=    157   | within-year Q3 n= 364 win= 27.2% PF(R)= 1.15 meanR=+0.102
+    Q4>=18.5         n= 362  win= 32.0%  PF(R)= 1.40  meanR=+0.243  mean$=    404   | within-year Q4 n= 361 win= 29.6% PF(R)= 1.50 meanR=+0.317
+    Q5>=23.1         n= 362  win= 35.4%  PF(R)= 1.80  meanR=+0.468  mean$=    709   | within-year Q5 n= 357 win= 37.8% PF(R)= 2.12 meanR=+0.628
+    E1 n=1203  rank-biserial +0.096 (p 0.010)  Spearman vs R +0.101  Q5-Q1 win-rate spread +4.3 pts
+    E2 n=607  rank-biserial +0.055 (p 0.273)  Spearman vs R +0.123  Q5-Q1 win-rate spread +5.2 pts
+
+  ctx_vix_pctile_1y [CONTEXT] -- prior VIX close, trailing 1-year percentile
+    winners median 56.35 | losers median 47.22 | rank-biserial +0.108 (MW p 0.0003) | Spearman vs R +0.174 | era trend rho_t +0.13
+    within-year null: win p 0.001 (q 0.011) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0            n= 362  win= 25.4%  PF(R)= 0.94  meanR=-0.040  mean$=     97   | within-year Q1 n= 367 win= 25.6% PF(R)= 0.93 meanR=-0.052
+    Q2>=17.5         n= 362  win= 23.8%  PF(R)= 1.10  meanR=+0.070  mean$=    121   | within-year Q2 n= 361 win= 25.5% PF(R)= 0.96 meanR=-0.029
+    Q3>=38.1         n= 362  win= 30.4%  PF(R)= 1.37  meanR=+0.243  mean$=    433   | within-year Q3 n= 364 win= 28.8% PF(R)= 1.41 meanR=+0.269
+    Q4>=59.5         n= 362  win= 31.8%  PF(R)= 1.58  meanR=+0.337  mean$=    288   | within-year Q4 n= 361 win= 29.9% PF(R)= 1.31 meanR=+0.205
+    Q5>=81.7         n= 362  win= 36.2%  PF(R)= 1.78  meanR=+0.455  mean$=    512   | within-year Q5 n= 357 win= 37.8% PF(R)= 2.23 meanR=+0.682
+    E1 n=1203  rank-biserial +0.126 (p 0.001)  Spearman vs R +0.179  Q5-Q1 win-rate spread +10.5 pts
+    E2 n=607  rank-biserial +0.063 (p 0.207)  Spearman vs R +0.165  Q5-Q1 win-rate spread +6.1 pts
+
+  ta:path_r2 [TA:path] -- Single-bar return 2 bar(s) before the decision bar, in ATR units.
+    winners median 0.4849 | losers median 0.4615 | rank-biserial +0.026 (MW p 0.3765) | Spearman vs R +0.058 | era trend rho_t -0.01
+    within-year null: win p 0.406 (q 0.624) | net R p 0.007 (q 0.015) | gross R p 0.063 (q 0.210)   [global shift: win p 0.373, R p 0.020]
+    Q1>=-2.55        n= 367  win= 26.4%  PF(R)= 0.98  meanR=-0.017  mean$=    258   | within-year Q1 n= 372 win= 26.1% PF(R)= 1.01 meanR=+0.005
+    Q2>=0            n= 366  win= 28.7%  PF(R)= 1.25  meanR=+0.165  mean$=    469   | within-year Q2 n= 366 win= 29.0% PF(R)= 1.19 meanR=+0.126
+    Q3>=0.321        n= 366  win= 31.1%  PF(R)= 1.49  meanR=+0.311  mean$=    137   | within-year Q3 n= 367 win= 33.5% PF(R)= 1.67 meanR=+0.407
+    Q4>=0.622        n= 366  win= 33.3%  PF(R)= 1.60  meanR=+0.360  mean$=    375   | within-year Q4 n= 366 win= 31.4% PF(R)= 1.53 meanR=+0.329
+    Q5>=1.04         n= 366  win= 27.3%  PF(R)= 1.30  meanR=+0.201  mean$=    194   | within-year Q5 n= 360 win= 26.9% PF(R)= 1.23 meanR=+0.156
+    E1 n=1218  rank-biserial +0.062 (p 0.091)  Spearman vs R +0.093  Q5-Q1 win-rate spread +5.4 pts
+    E2 n=613  rank-biserial -0.043 (p 0.391)  Spearman vs R -0.022  Q5-Q1 win-rate spread -7.9 pts
+
+  ta:path_lower_wick [TA:path] -- Lower wick as a share of the decision bar's own high-low range.
+    winners median 0.04545 | losers median 0.02273 | rank-biserial +0.044 (MW p 0.1170) | Spearman vs R +0.116 | era trend rho_t +0.25
+    within-year null: win p 0.338 (q 0.566) | net R p 0.050 (q 0.094) | gross R p 0.608 (q 0.718)   [global shift: win p 0.102, R p 0.001]
+    Q1>=0            n= 367  win= 24.3%  PF(R)= 0.89  meanR=-0.081  mean$=      9   | within-year Q1 n= 372 win= 30.4% PF(R)= 1.31 meanR=+0.197
+    Q2>=0            n= 366  win= 26.2%  PF(R)= 1.18  meanR=+0.119  mean$=     86   | within-year Q2 n= 366 win= 27.3% PF(R)= 1.15 meanR=+0.098
+    Q3>=0            n= 366  win= 35.8%  PF(R)= 1.61  meanR=+0.338  mean$=    598   | within-year Q3 n= 367 win= 30.0% PF(R)= 1.13 meanR=+0.088
+    Q4>=0.0769       n= 366  win= 33.1%  PF(R)= 1.74  meanR=+0.458  mean$=    505   | within-year Q4 n= 366 win= 29.2% PF(R)= 1.50 meanR=+0.322
+    Q5>=0.182        n= 366  win= 27.6%  PF(R)= 1.28  meanR=+0.186  mean$=    235   | within-year Q5 n= 360 win= 30.0% PF(R)= 1.48 meanR=+0.316
+    E1 n=1218  rank-biserial +0.068 (p 0.043)  Spearman vs R +0.118  Q5-Q1 win-rate spread +5.4 pts
+    E2 n=613  rank-biserial -0.044 (p 0.368)  Spearman vs R -0.025  Q5-Q1 win-rate spread -3.0 pts
+
+  ta:path_upcount5 [TA:path] -- How many of the last 5 bars closed above their own open.
+    winners median 4 | losers median 3 | rank-biserial +0.079 (MW p 0.0052) | Spearman vs R +0.198 | era trend rho_t +0.18
+    within-year null: win p 0.018 (q 0.096) | net R p 0.000 (q 0.001) | gross R p 0.009 (q 0.058)   [global shift: win p 0.008, R p 0.001]
+    =1               n=  90  win= 18.9%  PF(R)= 0.47  meanR=-0.469  mean$=     18
+    =2               n= 239  win= 22.6%  PF(R)= 0.94  meanR=-0.043  mean$=    -26
+    =3               n= 583  win= 30.4%  PF(R)= 1.41  meanR=+0.262  mean$=    306
+    =4               n= 659  win= 31.4%  PF(R)= 1.41  meanR=+0.257  mean$=    382
+    =5               n= 260  win= 31.9%  PF(R)= 1.67  meanR=+0.399  mean$=    382
+    E1 n=1218  rank-biserial +0.113 (p 0.001)  Spearman vs R +0.247  Q5-Q1 win-rate spread - pts
+    E2 n=613  rank-biserial -0.013 (p 0.777)  Spearman vs R +0.027  Q5-Q1 win-rate spread - pts
+
+  ta:path_upcount10 [TA:path] -- How many of the last 10 bars closed above their own open.
+    winners median 6 | losers median 6 | rank-biserial +0.099 (MW p 0.0007) | Spearman vs R +0.231 | era trend rho_t +0.28
+    within-year null: win p 0.008 (q 0.049) | net R p 0.000 (q 0.001) | gross R p 0.021 (q 0.102)   [global shift: win p 0.001, R p 0.001]
+    Q1>=1            n= 367  win= 22.1%  PF(R)= 0.84  meanR=-0.123  mean$=     -1   | within-year Q1 n= 372 win= 26.3% PF(R)= 0.95 meanR=-0.039
+    Q2>=5            n= 366  win= 29.5%  PF(R)= 1.34  meanR=+0.227  mean$=    121   | within-year Q2 n= 366 win= 25.7% PF(R)= 1.18 meanR=+0.124
+    Q3>=6            n= 366  win= 30.1%  PF(R)= 1.48  meanR=+0.305  mean$=    258   | within-year Q3 n= 367 win= 31.9% PF(R)= 1.66 meanR=+0.418
+    Q4>=6            n= 366  win= 31.1%  PF(R)= 1.35  meanR=+0.211  mean$=    331   | within-year Q4 n= 366 win= 29.2% PF(R)= 1.23 meanR=+0.149
+    Q5>=7            n= 366  win= 34.2%  PF(R)= 1.68  meanR=+0.401  mean$=    724   | within-year Q5 n= 360 win= 33.9% PF(R)= 1.63 meanR=+0.375
+    E1 n=1218  rank-biserial +0.133 (p 0.000)  Spearman vs R +0.260  Q5-Q1 win-rate spread +15.7 pts
+    E2 n=613  rank-biserial -0.013 (p 0.793)  Spearman vs R +0.036  Q5-Q1 win-rate spread +2.7 pts
+
+  ta:path_range10_atr [TA:path] -- High-low range of the last 10 bars, in ATR units.
+    winners median 4.452 | losers median 4.4 | rank-biserial +0.040 (MW p 0.1731) | Spearman vs R +0.000 | era trend rho_t -0.18
+    within-year null: win p 0.057 (q 0.169) | net R p 0.021 (q 0.041) | gross R p 0.088 (q 0.263)   [global shift: win p 0.188, R p 0.937]
+    Q1>=1            n= 367  win= 26.4%  PF(R)= 1.18  meanR=+0.120  mean$=     82   | within-year Q1 n= 372 win= 27.4% PF(R)= 1.14 meanR=+0.095
+    Q2>=3.34         n= 366  win= 30.6%  PF(R)= 1.09  meanR=+0.060  mean$=     83   | within-year Q2 n= 366 win= 29.2% PF(R)= 1.33 meanR=+0.216
+    Q3>=4.06         n= 366  win= 29.0%  PF(R)= 1.40  meanR=+0.263  mean$=    284   | within-year Q3 n= 367 win= 27.2% PF(R)= 1.02 meanR=+0.012
+    Q4>=4.74         n= 366  win= 28.1%  PF(R)= 1.29  meanR=+0.189  mean$=    425   | within-year Q4 n= 366 win= 28.4% PF(R)= 1.25 meanR=+0.161
+    Q5>=5.6          n= 366  win= 32.8%  PF(R)= 1.62  meanR=+0.389  mean$=    559   | within-year Q5 n= 360 win= 34.7% PF(R)= 1.90 meanR=+0.544
+    E1 n=1218  rank-biserial +0.037 (p 0.315)  Spearman vs R +0.021  Q5-Q1 win-rate spread +4.6 pts
+    E2 n=613  rank-biserial +0.076 (p 0.123)  Spearman vs R +0.067  Q5-Q1 win-rate spread +8.4 pts
+
+  ta:path_closepos60 [TA:path] -- Where the decision bar's close sits inside the last 60-bar high-low range (0=low..1=high).
+    winners median 0.9575 | losers median 0.957 | rank-biserial +0.012 (MW p 0.6752) | Spearman vs R +0.059 | era trend rho_t -0.09
+    within-year null: win p 0.526 (q 0.701) | net R p 0.000 (q 0.001) | gross R p 0.182 (q 0.368)   [global shift: win p 0.680, R p 0.035]
+    Q1>=0.364        n= 367  win= 28.1%  PF(R)= 1.30  meanR=+0.210  mean$=    236   | within-year Q1 n= 372 win= 26.9% PF(R)= 1.22 meanR=+0.159
+    Q2>=0.889        n= 366  win= 27.0%  PF(R)= 1.16  meanR=+0.108  mean$=    355   | within-year Q2 n= 366 win= 29.0% PF(R)= 1.29 meanR=+0.196
+    Q3>=0.942        n= 366  win= 33.6%  PF(R)= 1.47  meanR=+0.286  mean$=    579   | within-year Q3 n= 367 win= 32.4% PF(R)= 1.38 meanR=+0.234
+    Q4>=0.97         n= 366  win= 30.1%  PF(R)= 1.24  meanR=+0.143  mean$=     84   | within-year Q4 n= 366 win= 30.9% PF(R)= 1.35 meanR=+0.215
+    Q5>=0.993        n= 366  win= 28.1%  PF(R)= 1.41  meanR=+0.274  mean$=    179   | within-year Q5 n= 360 win= 27.8% PF(R)= 1.33 meanR=+0.217
+    E1 n=1218  rank-biserial +0.038 (p 0.301)  Spearman vs R +0.095  Q5-Q1 win-rate spread +4.6 pts
+    E2 n=613  rank-biserial -0.030 (p 0.551)  Spearman vs R +0.053  Q5-Q1 win-rate spread -0.5 pts
+
+  ta:path_with12_atr [TA:path] -- How far price had already moved in the trade's direction over the previous 12 bars, in ATR units.
+    winners median 3.61 | losers median 3.413 | rank-biserial +0.053 (MW p 0.0762) | Spearman vs R +0.032 | era trend rho_t -0.16
+    within-year null: win p 0.033 (q 0.126) | net R p 0.001 (q 0.003) | gross R p 0.105 (q 0.263)   [global shift: win p 0.085, R p 0.367]
+    Q1>=-1.62        n= 367  win= 27.5%  PF(R)= 1.25  meanR=+0.167  mean$=    128   | within-year Q1 n= 372 win= 26.6% PF(R)= 1.18 meanR=+0.120
+    Q2>=2.13         n= 366  win= 28.4%  PF(R)= 1.11  meanR=+0.073  mean$=    178   | within-year Q2 n= 366 win= 29.5% PF(R)= 1.26 meanR=+0.170
+    Q3>=3.01         n= 366  win= 27.6%  PF(R)= 1.10  meanR=+0.073  mean$=    268   | within-year Q3 n= 367 win= 26.7% PF(R)= 0.91 meanR=-0.061
+    Q4>=3.87         n= 366  win= 30.1%  PF(R)= 1.51  meanR=+0.307  mean$=    449   | within-year Q4 n= 366 win= 27.6% PF(R)= 1.24 meanR=+0.160
+    Q5>=4.98         n= 366  win= 33.3%  PF(R)= 1.63  meanR=+0.400  mean$=    411   | within-year Q5 n= 360 win= 36.7% PF(R)= 2.10 meanR=+0.640
+    E1 n=1218  rank-biserial +0.074 (p 0.045)  Spearman vs R +0.057  Q5-Q1 win-rate spread +7.9 pts
+    E2 n=613  rank-biserial +0.034 (p 0.495)  Spearman vs R +0.067  Q5-Q1 win-rate spread +3.6 pts
+
+  ta:path_with24_atr [TA:path] -- How far price had already moved in the trade's direction over the previous 24 bars, in ATR units.
+    winners median 4.375 | losers median 4.177 | rank-biserial +0.023 (MW p 0.4417) | Spearman vs R +0.042 | era trend rho_t -0.10
+    within-year null: win p 0.343 (q 0.566) | net R p 0.004 (q 0.010) | gross R p 0.342 (q 0.565)   [global shift: win p 0.452, R p 0.122]
+    Q1>=-7.78        n= 367  win= 27.5%  PF(R)= 1.08  meanR=+0.053  mean$=     97   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.08 meanR=+0.052
+    Q2>=2.45         n= 366  win= 26.8%  PF(R)= 1.02  meanR=+0.017  mean$=    257   | within-year Q2 n= 366 win= 26.0% PF(R)= 1.10 meanR=+0.068
+    Q3>=3.69         n= 366  win= 32.8%  PF(R)= 1.71  meanR=+0.423  mean$=    361   | within-year Q3 n= 367 win= 32.2% PF(R)= 1.59 meanR=+0.360
+    Q4>=4.82         n= 366  win= 29.5%  PF(R)= 1.53  meanR=+0.339  mean$=    424   | within-year Q4 n= 366 win= 29.0% PF(R)= 1.42 meanR=+0.276
+    Q5>=6.26         n= 366  win= 30.3%  PF(R)= 1.29  meanR=+0.189  mean$=    294   | within-year Q5 n= 360 win= 31.4% PF(R)= 1.42 meanR=+0.268
+    E1 n=1218  rank-biserial +0.041 (p 0.273)  Spearman vs R +0.055  Q5-Q1 win-rate spread +8.3 pts
+    E2 n=613  rank-biserial -0.002 (p 0.975)  Spearman vs R +0.089  Q5-Q1 win-rate spread -0.5 pts
+
+  ta:path_with60_atr [TA:path] -- How far price had already moved in the trade's direction over the previous 60 bars, in ATR units.
+    winners median 4.264 | losers median 3.815 | rank-biserial +0.046 (MW p 0.1229) | Spearman vs R +0.097 | era trend rho_t -0.06
+    within-year null: win p 0.093 (q 0.242) | net R p 0.000 (q 0.001) | gross R p 0.079 (q 0.246)   [global shift: win p 0.128, R p 0.001]
+    Q1>=-8.65        n= 367  win= 27.2%  PF(R)= 1.14  meanR=+0.100  mean$=    267   | within-year Q1 n= 372 win= 28.0% PF(R)= 1.25 meanR=+0.177
+    Q2>=1.35         n= 366  win= 28.7%  PF(R)= 1.36  meanR=+0.238  mean$=    149   | within-year Q2 n= 366 win= 29.5% PF(R)= 1.30 meanR=+0.193
+    Q3>=3.07         n= 366  win= 28.1%  PF(R)= 1.24  meanR=+0.152  mean$=    259   | within-year Q3 n= 367 win= 25.6% PF(R)= 1.05 meanR=+0.034
+    Q4>=4.94         n= 366  win= 32.2%  PF(R)= 1.44  meanR=+0.274  mean$=    264   | within-year Q4 n= 366 win= 32.2% PF(R)= 1.58 meanR=+0.358
+    Q5>=7.33         n= 366  win= 30.6%  PF(R)= 1.40  meanR=+0.256  mean$=    496   | within-year Q5 n= 360 win= 31.7% PF(R)= 1.42 meanR=+0.261
+    E1 n=1218  rank-biserial +0.066 (p 0.073)  Spearman vs R +0.139  Q5-Q1 win-rate spread +5.4 pts
+    E2 n=613  rank-biserial +0.013 (p 0.801)  Spearman vs R +0.104  Q5-Q1 win-rate spread -1.3 pts
+
+  ta:lvl_pdh_atr [TA:lvl] -- Distance from the prior session's high, in ATR units.
+    winners median -8.418 | losers median -9.492 | rank-biserial +0.032 (MW p 0.2763) | Spearman vs R +0.087 | era trend rho_t +0.07
+    within-year null: win p 0.370 (q 0.598) | net R p 0.002 (q 0.006) | gross R p 0.579 (q 0.718)   [global shift: win p 0.271, R p 0.001]
+    Q1>=-116         n= 366  win= 28.4%  PF(R)= 1.17  meanR=+0.112  mean$=    163   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.15 meanR=+0.099
+    Q2>=-22          n= 366  win= 27.9%  PF(R)= 1.26  meanR=+0.170  mean$=    179   | within-year Q2 n= 366 win= 28.1% PF(R)= 1.37 meanR=+0.250
+    Q3>=-12.9        n= 366  win= 27.9%  PF(R)= 1.28  meanR=+0.187  mean$=    316   | within-year Q3 n= 366 win= 28.7% PF(R)= 1.25 meanR=+0.158
+    Q4>=-5.95        n= 366  win= 33.6%  PF(R)= 1.48  meanR=+0.294  mean$=    362   | within-year Q4 n= 366 win= 32.2% PF(R)= 1.42 meanR=+0.258
+    Q5>=-0.385       n= 365  win= 29.3%  PF(R)= 1.40  meanR=+0.263  mean$=    416   | within-year Q5 n= 359 win= 29.5% PF(R)= 1.40 meanR=+0.265
+    E1 n=1216  rank-biserial +0.083 (p 0.025)  Spearman vs R +0.135  Q5-Q1 win-rate spread +6.7 pts
+    E2 n=613  rank-biserial -0.068 (p 0.171)  Spearman vs R -0.004  Q5-Q1 win-rate spread -14.4 pts
+
+  ta:lvl_pdl_atr [TA:lvl] -- Distance from the prior session's low, in ATR units.
+    winners median 31.57 | losers median 36.48 | rank-biserial -0.108 (MW p 0.0003) | Spearman vs R -0.180 | era trend rho_t +0.00
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.007 (q 0.051)   [global shift: win p 0.001, R p 0.001]
+    Q1>=-24.4        n= 366  win= 33.6%  PF(R)= 1.64  meanR=+0.381  mean$=    782   | within-year Q1 n= 372 win= 33.9% PF(R)= 1.49 meanR=+0.292
+    Q2>=13.9         n= 366  win= 30.9%  PF(R)= 1.42  meanR=+0.275  mean$=    400   | within-year Q2 n= 366 win= 29.8% PF(R)= 1.51 meanR=+0.336
+    Q3>=26.7         n= 366  win= 34.7%  PF(R)= 1.57  meanR=+0.339  mean$=    140   | within-year Q3 n= 366 win= 33.9% PF(R)= 1.65 meanR=+0.387
+    Q4>=44.4         n= 366  win= 23.8%  PF(R)= 0.96  meanR=-0.031  mean$=     81   | within-year Q4 n= 366 win= 26.5% PF(R)= 0.99 meanR=-0.008
+    Q5>=77.5         n= 365  win= 24.1%  PF(R)= 1.08  meanR=+0.062  mean$=     32   | within-year Q5 n= 359 win= 22.8% PF(R)= 1.02 meanR=+0.015
+    E1 n=1216  rank-biserial -0.063 (p 0.089)  Spearman vs R -0.207  Q5-Q1 win-rate spread -5.6 pts
+    E2 n=613  rank-biserial -0.188 (p 0.000)  Spearman vs R -0.283  Q5-Q1 win-rate spread -18.5 pts
+
+  ta:lvl_pdc_atr [TA:lvl] -- Distance from the prior session's close, in ATR units.
+    winners median 2.519 | losers median 1.778 | rank-biserial +0.039 (MW p 0.1890) | Spearman vs R +0.055 | era trend rho_t +0.03
+    within-year null: win p 0.190 (q 0.390) | net R p 0.012 (q 0.026) | gross R p 0.101 (q 0.263)   [global shift: win p 0.192, R p 0.025]
+    Q1>=-85.8        n= 366  win= 26.0%  PF(R)= 1.04  meanR=+0.025  mean$=     22   | within-year Q1 n= 372 win= 26.1% PF(R)= 0.92 meanR=-0.058
+    Q2>=-6.17        n= 366  win= 29.5%  PF(R)= 1.26  meanR=+0.166  mean$=    283   | within-year Q2 n= 366 win= 29.8% PF(R)= 1.40 meanR=+0.259
+    Q3>=-0.413       n= 366  win= 32.0%  PF(R)= 1.52  meanR=+0.329  mean$=    387   | within-year Q3 n= 366 win= 29.2% PF(R)= 1.46 meanR=+0.300
+    Q4>=4.78         n= 366  win= 29.0%  PF(R)= 1.28  meanR=+0.180  mean$=    512   | within-year Q4 n= 366 win= 31.7% PF(R)= 1.40 meanR=+0.251
+    Q5>=12.3         n= 365  win= 30.7%  PF(R)= 1.51  meanR=+0.327  mean$=    231   | within-year Q5 n= 359 win= 30.4% PF(R)= 1.44 meanR=+0.280
+    E1 n=1216  rank-biserial +0.068 (p 0.068)  Spearman vs R +0.061  Q5-Q1 win-rate spread +6.7 pts
+    E2 n=613  rank-biserial -0.015 (p 0.758)  Spearman vs R +0.039  Q5-Q1 win-rate spread -0.6 pts
+
+  ta:lvl_orb_hi_atr [TA:lvl] -- Distance from the first-30-minute opening-range high, in ATR units (NaN before it completes).
+    winners median 0 | losers median -0.547 | rank-biserial +0.040 (MW p 0.1863) | Spearman vs R +0.070 | era trend rho_t +0.03
+    within-year null: win p 0.175 (q 0.373) | net R p 0.001 (q 0.002) | gross R p 0.094 (q 0.263)   [global shift: win p 0.196, R p 0.003]
+    Q1>=-50.2        n= 357  win= 26.9%  PF(R)= 1.07  meanR=+0.051  mean$=     77   | within-year Q1 n= 361 win= 27.4% PF(R)= 1.06 meanR=+0.041
+    Q2>=-8.22        n= 357  win= 29.1%  PF(R)= 1.08  meanR=+0.056  mean$=    150   | within-year Q2 n= 356 win= 28.1% PF(R)= 1.11 meanR=+0.078
+    Q3>=-2.51        n= 356  win= 28.7%  PF(R)= 1.37  meanR=+0.237  mean$=    447   | within-year Q3 n= 359 win= 30.1% PF(R)= 1.43 meanR=+0.273
+    Q4>=2.15         n= 357  win= 31.1%  PF(R)= 1.57  meanR=+0.357  mean$=    409   | within-year Q4 n= 356 win= 29.5% PF(R)= 1.43 meanR=+0.273
+    Q5>=8.94         n= 356  win= 30.9%  PF(R)= 1.46  meanR=+0.295  mean$=    338   | within-year Q5 n= 351 win= 31.6% PF(R)= 1.53 meanR=+0.335
+    E1 n=1189  rank-biserial +0.062 (p 0.096)  Spearman vs R +0.095  Q5-Q1 win-rate spread +4.7 pts
+    E2 n=594  rank-biserial -0.001 (p 0.979)  Spearman vs R +0.056  Q5-Q1 win-rate spread +3.7 pts
+
+  ta:lvl_vwap_atr [TA:lvl] -- Distance from today's session-cumulative VWAP, in ATR units.
+    winners median 1.944 | losers median 1.744 | rank-biserial +0.063 (MW p 0.0346) | Spearman vs R +0.074 | era trend rho_t -0.04
+    within-year null: win p 0.025 (q 0.114) | net R p 0.000 (q 0.001) | gross R p 0.023 (q 0.104)   [global shift: win p 0.031, R p 0.003]
+    Q1>=-10.5        n= 367  win= 27.2%  PF(R)= 1.18  meanR=+0.120  mean$=    110   | within-year Q1 n= 372 win= 26.6% PF(R)= 1.20 meanR=+0.134
+    Q2>=-1.14        n= 366  win= 24.9%  PF(R)= 1.00  meanR=+0.002  mean$=    -19   | within-year Q2 n= 366 win= 27.0% PF(R)= 1.16 meanR=+0.115
+    Q3>=0.981        n= 366  win= 32.0%  PF(R)= 1.51  meanR=+0.319  mean$=    432   | within-year Q3 n= 367 win= 30.5% PF(R)= 1.28 meanR=+0.181
+    Q4>=2.71         n= 366  win= 29.0%  PF(R)= 1.16  meanR=+0.099  mean$=    258   | within-year Q4 n= 366 win= 29.2% PF(R)= 1.12 meanR=+0.078
+    Q5>=5.37         n= 366  win= 33.9%  PF(R)= 1.78  meanR=+0.480  mean$=    652   | within-year Q5 n= 360 win= 33.6% PF(R)= 1.85 meanR=+0.519
+    E1 n=1218  rank-biserial +0.064 (p 0.082)  Spearman vs R +0.087  Q5-Q1 win-rate spread +6.3 pts
+    E2 n=613  rank-biserial +0.062 (p 0.215)  Spearman vs R +0.104  Q5-Q1 win-rate spread +10.9 pts
+
+  ta:lvl_ema20_atr [TA:lvl] -- Distance from the 20-period EMA on the leg's own bar size, in ATR units.
+    winners median 2.661 | losers median 2.619 | rank-biserial +0.041 (MW p 0.1702) | Spearman vs R +0.025 | era trend rho_t -0.21
+    within-year null: win p 0.052 (q 0.168) | net R p 0.000 (q 0.001) | gross R p 0.039 (q 0.148)   [global shift: win p 0.184, R p 0.584]
+    Q1>=-0.175       n= 367  win= 28.3%  PF(R)= 1.25  meanR=+0.170  mean$=    167   | within-year Q1 n= 372 win= 28.2% PF(R)= 1.19 meanR=+0.130
+    Q2>=1.9          n= 366  win= 29.2%  PF(R)= 1.20  meanR=+0.134  mean$=    331   | within-year Q2 n= 366 win= 27.9% PF(R)= 1.14 meanR=+0.093
+    Q3>=2.4          n= 366  win= 27.0%  PF(R)= 1.18  meanR=+0.122  mean$=    201   | within-year Q3 n= 367 win= 27.0% PF(R)= 1.14 meanR=+0.096
+    Q4>=2.87         n= 366  win= 28.4%  PF(R)= 1.19  meanR=+0.127  mean$=    185   | within-year Q4 n= 366 win= 27.9% PF(R)= 1.21 meanR=+0.144
+    Q5>=3.54         n= 366  win= 33.9%  PF(R)= 1.76  meanR=+0.467  mean$=    550   | within-year Q5 n= 360 win= 36.1% PF(R)= 1.97 meanR=+0.564
+    E1 n=1218  rank-biserial +0.056 (p 0.128)  Spearman vs R +0.058  Q5-Q1 win-rate spread +5.0 pts
+    E2 n=613  rank-biserial +0.040 (p 0.418)  Spearman vs R +0.083  Q5-Q1 win-rate spread +6.0 pts
+
+  ta:lvl_ema50_atr [TA:lvl] -- Distance from the 50-period EMA on the leg's own bar size, in ATR units.
+    winners median 3.292 | losers median 3.241 | rank-biserial +0.041 (MW p 0.1642) | Spearman vs R +0.073 | era trend rho_t -0.14
+    within-year null: win p 0.094 (q 0.242) | net R p 0.000 (q 0.001) | gross R p 0.075 (q 0.240)   [global shift: win p 0.177, R p 0.023]
+    Q1>=-0.21        n= 367  win= 29.7%  PF(R)= 1.37  meanR=+0.253  mean$=    179   | within-year Q1 n= 372 win= 29.0% PF(R)= 1.24 meanR=+0.166
+    Q2>=2.31         n= 366  win= 27.9%  PF(R)= 1.06  meanR=+0.040  mean$=     92   | within-year Q2 n= 366 win= 27.9% PF(R)= 1.20 meanR=+0.133
+    Q3>=2.93         n= 366  win= 26.8%  PF(R)= 1.24  meanR=+0.157  mean$=    385   | within-year Q3 n= 367 win= 27.8% PF(R)= 1.32 meanR=+0.211
+    Q4>=3.61         n= 366  win= 27.6%  PF(R)= 1.14  meanR=+0.090  mean$=    126   | within-year Q4 n= 366 win= 27.3% PF(R)= 1.03 meanR=+0.018
+    Q5>=4.58         n= 366  win= 35.0%  PF(R)= 1.79  meanR=+0.480  mean$=    652   | within-year Q5 n= 360 win= 35.0% PF(R)= 1.82 meanR=+0.498
+    E1 n=1218  rank-biserial +0.061 (p 0.099)  Spearman vs R +0.105  Q5-Q1 win-rate spread +5.1 pts
+    E2 n=613  rank-biserial +0.024 (p 0.624)  Spearman vs R +0.128  Q5-Q1 win-rate spread +3.6 pts
+
+  ta:lvl_ema200_atr [TA:lvl] -- Distance from the 200-period EMA on the leg's own bar size, in ATR units.
+    winners median 2.309 | losers median 1.85 | rank-biserial +0.085 (MW p 0.0042) | Spearman vs R +0.086 | era trend rho_t -0.09
+    within-year null: win p 0.001 (q 0.015) | net R p 0.000 (q 0.001) | gross R p 0.003 (q 0.028)   [global shift: win p 0.003, R p 0.003]
+    Q1>=-0.735       n= 367  win= 27.2%  PF(R)= 1.27  meanR=+0.187  mean$=    185   | within-year Q1 n= 372 win= 25.5% PF(R)= 1.13 meanR=+0.093
+    Q2>=0.8          n= 366  win= 24.0%  PF(R)= 0.94  meanR=-0.045  mean$=     76   | within-year Q2 n= 366 win= 24.6% PF(R)= 1.01 meanR=+0.004
+    Q3>=1.51         n= 366  win= 27.3%  PF(R)= 1.10  meanR=+0.065  mean$=    102   | within-year Q3 n= 367 win= 29.4% PF(R)= 1.16 meanR=+0.106
+    Q4>=2.58         n= 366  win= 38.0%  PF(R)= 2.00  meanR=+0.552  mean$=    654   | within-year Q4 n= 366 win= 36.1% PF(R)= 1.85 meanR=+0.492
+    Q5>=4.32         n= 366  win= 30.3%  PF(R)= 1.41  meanR=+0.261  mean$=    416   | within-year Q5 n= 360 win= 31.4% PF(R)= 1.52 meanR=+0.329
+    E1 n=1218  rank-biserial +0.113 (p 0.002)  Spearman vs R +0.109  Q5-Q1 win-rate spread +5.9 pts
+    E2 n=613  rank-biserial +0.043 (p 0.386)  Spearman vs R +0.106  Q5-Q1 win-rate spread -0.5 pts
+
+  ta:lvl_ema20_60m_atr [TA:lvl] -- Distance from the 20-period EMA on completed 60-minute bars, in ATR units.
+    winners median 4.568 | losers median 5.272 | rank-biserial -0.051 (MW p 0.0863) | Spearman vs R -0.117 | era trend rho_t -0.01
+    within-year null: win p 0.107 (q 0.258) | net R p 0.000 (q 0.001) | gross R p 0.197 (q 0.387)   [global shift: win p 0.093, R p 0.001]
+    Q1>=-25.7        n= 367  win= 27.2%  PF(R)= 1.19  meanR=+0.130  mean$=     93   | within-year Q1 n= 372 win= 28.2% PF(R)= 1.24 meanR=+0.157
+    Q2>=-0.623       n= 366  win= 32.5%  PF(R)= 1.41  meanR=+0.253  mean$=    651   | within-year Q2 n= 366 win= 32.2% PF(R)= 1.57 meanR=+0.349
+    Q3>=3.11         n= 366  win= 33.1%  PF(R)= 1.68  meanR=+0.403  mean$=    341   | within-year Q3 n= 367 win= 31.9% PF(R)= 1.39 meanR=+0.239
+    Q4>=6.9          n= 366  win= 30.3%  PF(R)= 1.36  meanR=+0.229  mean$=    314   | within-year Q4 n= 366 win= 29.5% PF(R)= 1.26 meanR=+0.173
+    Q5>=15.2         n= 366  win= 23.8%  PF(R)= 1.01  meanR=+0.005  mean$=     35   | within-year Q5 n= 360 win= 25.0% PF(R)= 1.14 meanR=+0.101
+    E1 n=1218  rank-biserial -0.026 (p 0.483)  Spearman vs R -0.139  Q5-Q1 win-rate spread -0.3 pts
+    E2 n=613  rank-biserial -0.092 (p 0.065)  Spearman vs R -0.175  Q5-Q1 win-rate spread -8.7 pts
+
+  ta:lvl_ema50_60m_atr [TA:lvl] -- Distance from the 50-period EMA on completed 60-minute bars, in ATR units.
+    winners median 6.356 | losers median 7.449 | rank-biserial -0.067 (MW p 0.0248) | Spearman vs R -0.145 | era trend rho_t -0.01
+    within-year null: win p 0.028 (q 0.124) | net R p 0.000 (q 0.001) | gross R p 0.020 (q 0.102)   [global shift: win p 0.034, R p 0.001]
+    Q1>=-16.7        n= 367  win= 31.9%  PF(R)= 1.44  meanR=+0.268  mean$=    558   | within-year Q1 n= 372 win= 31.7% PF(R)= 1.51 meanR=+0.319
+    Q2>=1.61         n= 366  win= 30.9%  PF(R)= 1.39  meanR=+0.246  mean$=    337   | within-year Q2 n= 366 win= 31.7% PF(R)= 1.31 meanR=+0.190
+    Q3>=4.98         n= 366  win= 30.3%  PF(R)= 1.44  meanR=+0.283  mean$=    358   | within-year Q3 n= 367 win= 30.0% PF(R)= 1.56 meanR=+0.365
+    Q4>=10.1         n= 366  win= 29.8%  PF(R)= 1.45  meanR=+0.286  mean$=    174   | within-year Q4 n= 366 win= 31.1% PF(R)= 1.39 meanR=+0.249
+    Q5>=22.1         n= 366  win= 24.0%  PF(R)= 0.91  meanR=-0.063  mean$=      5   | within-year Q5 n= 360 win= 22.2% PF(R)= 0.85 meanR=-0.110
+    E1 n=1218  rank-biserial -0.041 (p 0.263)  Spearman vs R -0.169  Q5-Q1 win-rate spread -5.2 pts
+    E2 n=613  rank-biserial -0.109 (p 0.028)  Spearman vs R -0.222  Q5-Q1 win-rate spread -12.8 pts
+
+  ta:lvl_sma20d_atr [TA:lvl] -- Distance from the 20-day daily SMA, in daily-ATR units (prior-day-shifted).
+    winners median 0.2724 | losers median 0.4829 | rank-biserial -0.094 (MW p 0.0016) | Spearman vs R -0.097 | era trend rho_t +0.02
+    within-year null: win p 0.002 (q 0.020) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.004, R p 0.006]
+    Q1>=-3.48        n= 366  win= 36.3%  PF(R)= 1.88  meanR=+0.501  mean$=    457   | within-year Q1 n= 372 win= 35.8% PF(R)= 1.93 meanR=+0.534
+    Q2>=-0.812       n= 366  win= 29.2%  PF(R)= 1.39  meanR=+0.257  mean$=    378   | within-year Q2 n= 366 win= 30.9% PF(R)= 1.46 meanR=+0.293
+    Q3>=0.0813       n= 365  win= 27.7%  PF(R)= 1.24  meanR=+0.159  mean$=    327   | within-year Q3 n= 365 win= 29.9% PF(R)= 1.37 meanR=+0.246
+    Q4>=0.839        n= 366  win= 28.4%  PF(R)= 1.21  meanR=+0.139  mean$=    224   | within-year Q4 n= 366 win= 25.4% PF(R)= 0.98 meanR=-0.014
+    Q5>=1.49         n= 365  win= 25.2%  PF(R)= 0.93  meanR=-0.051  mean$=     44   | within-year Q5 n= 359 win= 24.8% PF(R)= 0.91 meanR=-0.064
+    E1 n=1215  rank-biserial -0.130 (p 0.000)  Spearman vs R -0.092  Q5-Q1 win-rate spread -15.6 pts
+    E2 n=613  rank-biserial -0.031 (p 0.536)  Spearman vs R -0.072  Q5-Q1 win-rate spread -3.8 pts
+
+  ta:lvl_sma50d_atr [TA:lvl] -- Distance from the 50-day daily SMA, in daily-ATR units (prior-day-shifted).
+    winners median 0.7283 | losers median 1.292 | rank-biserial -0.104 (MW p 0.0005) | Spearman vs R -0.123 | era trend rho_t -0.00
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.001 (q 0.013)   [global shift: win p 0.001, R p 0.001]
+    Q1>=-4.53        n= 362  win= 33.4%  PF(R)= 1.56  meanR=+0.333  mean$=    432   | within-year Q1 n= 368 win= 38.3% PF(R)= 2.20 meanR=+0.659
+    Q2>=-0.858       n= 362  win= 33.7%  PF(R)= 1.64  meanR=+0.397  mean$=    255   | within-year Q2 n= 362 win= 28.5% PF(R)= 1.24 meanR=+0.161
+    Q3>=0.521        n= 362  win= 27.3%  PF(R)= 1.24  meanR=+0.164  mean$=    359   | within-year Q3 n= 362 win= 29.6% PF(R)= 1.34 meanR=+0.223
+    Q4>=1.78         n= 362  win= 27.1%  PF(R)= 1.14  meanR=+0.098  mean$=    309   | within-year Q4 n= 362 win= 26.5% PF(R)= 1.11 meanR=+0.074
+    Q5>=3.12         n= 362  win= 25.4%  PF(R)= 1.03  meanR=+0.018  mean$=     89   | within-year Q5 n= 356 win= 23.9% PF(R)= 0.83 meanR=-0.120
+    E1 n=1197  rank-biserial -0.144 (p 0.000)  Spearman vs R -0.129  Q5-Q1 win-rate spread -12.8 pts
+    E2 n=613  rank-biserial -0.038 (p 0.441)  Spearman vs R -0.100  Q5-Q1 win-rate spread -10.3 pts
+
+  ta:lvl_sma200d_atr [TA:lvl] -- Distance from the 200-day daily SMA, in daily-ATR units (prior-day-shifted).
+    winners median 3.383 | losers median 4.226 | rank-biserial -0.106 (MW p 0.0005) | Spearman vs R -0.123 | era trend rho_t -0.04
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=-8.35        n= 351  win= 33.9%  PF(R)= 1.53  meanR=+0.308  mean$=    317   | within-year Q1 n= 357 win= 36.7% PF(R)= 1.99 meanR=+0.560
+    Q2>=0.0847       n= 350  win= 33.4%  PF(R)= 1.55  meanR=+0.343  mean$=    608   | within-year Q2 n= 350 win= 34.3% PF(R)= 1.65 meanR=+0.398
+    Q3>=2.88         n= 350  win= 28.9%  PF(R)= 1.37  meanR=+0.232  mean$=    294   | within-year Q3 n= 350 win= 27.1% PF(R)= 1.22 meanR=+0.146
+    Q4>=5.15         n= 350  win= 26.6%  PF(R)= 1.09  meanR=+0.062  mean$=    172   | within-year Q4 n= 350 win= 27.1% PF(R)= 1.13 meanR=+0.088
+    Q5>=8.04         n= 350  win= 24.9%  PF(R)= 1.20  meanR=+0.141  mean$=     86   | within-year Q5 n= 344 win= 22.1% PF(R)= 0.84 meanR=-0.118
+    E1 n=1138  rank-biserial -0.126 (p 0.001)  Spearman vs R -0.121  Q5-Q1 win-rate spread -11.3 pts
+    E2 n=613  rank-biserial -0.068 (p 0.171)  Spearman vs R -0.106  Q5-Q1 win-rate spread -6.3 pts
+
+  ta:lvl_prior_week_hi_atr [TA:lvl] -- Distance from the prior calendar week's high, in daily-ATR units.
+    winners median -0.8108 | losers median -0.7181 | rank-biserial -0.056 (MW p 0.0573) | Spearman vs R -0.062 | era trend rho_t +0.00
+    within-year null: win p 0.051 (q 0.168) | net R p 0.009 (q 0.020) | gross R p 0.011 (q 0.065)   [global shift: win p 0.065, R p 0.055]
+    Q1>=-4.45        n= 366  win= 32.8%  PF(R)= 1.70  meanR=+0.415  mean$=    502   | within-year Q1 n= 372 win= 33.6% PF(R)= 1.85 meanR=+0.499
+    Q2>=-1.6         n= 366  win= 29.0%  PF(R)= 1.35  meanR=+0.231  mean$=    357   | within-year Q2 n= 366 win= 30.6% PF(R)= 1.37 meanR=+0.241
+    Q3>=-0.974       n= 365  win= 32.9%  PF(R)= 1.56  meanR=+0.355  mean$=    273   | within-year Q3 n= 365 win= 29.0% PF(R)= 1.33 meanR=+0.216
+    Q4>=-0.528       n= 366  win= 26.2%  PF(R)= 0.92  meanR=-0.053  mean$=    154   | within-year Q4 n= 366 win= 29.0% PF(R)= 1.04 meanR=+0.024
+    Q5>=-0.0957      n= 365  win= 26.0%  PF(R)= 1.08  meanR=+0.058  mean$=    144   | within-year Q5 n= 359 win= 24.5% PF(R)= 1.03 meanR=+0.019
+    E1 n=1215  rank-biserial -0.093 (p 0.012)  Spearman vs R -0.049  Q5-Q1 win-rate spread -7.4 pts
+    E2 n=613  rank-biserial +0.020 (p 0.684)  Spearman vs R -0.039  Q5-Q1 win-rate spread -3.8 pts
+
+  ta:ind_rsi14_bar [TA:ind] -- 14-period RSI on the leg's own bar size.
+    winners median 73.48 | losers median 72.5 | rank-biserial +0.065 (MW p 0.0276) | Spearman vs R +0.100 | era trend rho_t +0.00
+    within-year null: win p 0.036 (q 0.128) | net R p 0.001 (q 0.002) | gross R p 0.114 (q 0.264)   [global shift: win p 0.025, R p 0.001]
+    Q1>=37.7         n= 367  win= 28.1%  PF(R)= 1.14  meanR=+0.099  mean$=    135   | within-year Q1 n= 372 win= 28.0% PF(R)= 1.10 meanR=+0.071
+    Q2>=63.6         n= 366  win= 27.6%  PF(R)= 1.25  meanR=+0.168  mean$=    401   | within-year Q2 n= 366 win= 27.3% PF(R)= 1.24 meanR=+0.162
+    Q3>=70           n= 366  win= 27.0%  PF(R)= 1.13  meanR=+0.087  mean$=    102   | within-year Q3 n= 367 win= 28.1% PF(R)= 1.26 meanR=+0.169
+    Q4>=75.7         n= 366  win= 28.1%  PF(R)= 1.17  meanR=+0.116  mean$=    225   | within-year Q4 n= 366 win= 27.9% PF(R)= 1.06 meanR=+0.042
+    Q5>=82.7         n= 366  win= 36.1%  PF(R)= 1.94  meanR=+0.550  mean$=    570   | within-year Q5 n= 360 win= 35.8% PF(R)= 2.00 meanR=+0.585
+    E1 n=1218  rank-biserial +0.099 (p 0.007)  Spearman vs R +0.121  Q5-Q1 win-rate spread +12.9 pts
+    E2 n=613  rank-biserial +0.001 (p 0.986)  Spearman vs R +0.052  Q5-Q1 win-rate spread +0.3 pts
+
+  ta:ind_rsi14_60m [TA:ind] -- 14-period RSI on completed 60-minute bars.
+    winners median 51.6 | losers median 53.65 | rank-biserial -0.041 (MW p 0.1696) | Spearman vs R -0.087 | era trend rho_t +0.02
+    within-year null: win p 0.178 (q 0.376) | net R p 0.001 (q 0.002) | gross R p 0.375 (q 0.570)   [global shift: win p 0.181, R p 0.001]
+    Q1>=5.68         n= 367  win= 29.7%  PF(R)= 1.30  meanR=+0.194  mean$=    309   | within-year Q1 n= 372 win= 29.8% PF(R)= 1.30 meanR=+0.199
+    Q2>=36.8         n= 366  win= 30.1%  PF(R)= 1.28  meanR=+0.178  mean$=    328   | within-year Q2 n= 366 win= 29.5% PF(R)= 1.25 meanR=+0.160
+    Q3>=48           n= 366  win= 33.1%  PF(R)= 1.57  meanR=+0.358  mean$=    455   | within-year Q3 n= 367 win= 33.5% PF(R)= 1.63 meanR=+0.383
+    Q4>=58.4         n= 366  win= 27.9%  PF(R)= 1.21  meanR=+0.134  mean$=    237   | within-year Q4 n= 366 win= 28.4% PF(R)= 1.21 meanR=+0.136
+    Q5>=69.4         n= 366  win= 26.2%  PF(R)= 1.22  meanR=+0.156  mean$=    105   | within-year Q5 n= 360 win= 25.6% PF(R)= 1.20 meanR=+0.140
+    E1 n=1218  rank-biserial -0.004 (p 0.906)  Spearman vs R -0.103  Q5-Q1 win-rate spread +0.1 pts
+    E2 n=613  rank-biserial -0.110 (p 0.026)  Spearman vs R -0.183  Q5-Q1 win-rate spread -12.0 pts
+
+  ta:ind_rsi14_daily [TA:ind] -- 14-period RSI on daily bars (prior-day-shifted).
+    winners median 50.68 | losers median 54.52 | rank-biserial -0.118 (MW p 0.0001) | Spearman vs R -0.119 | era trend rho_t +0.00
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.000 (q 0.009)   [global shift: win p 0.001, R p 0.001]
+    Q1>=10.8         n= 366  win= 35.8%  PF(R)= 1.92  meanR=+0.529  mean$=    676   | within-year Q1 n= 372 win= 36.3% PF(R)= 2.09 meanR=+0.629
+    Q2>=39.9         n= 366  win= 30.6%  PF(R)= 1.48  meanR=+0.312  mean$=    135   | within-year Q2 n= 366 win= 30.1% PF(R)= 1.48 meanR=+0.322
+    Q3>=48.8         n= 365  win= 29.3%  PF(R)= 1.31  meanR=+0.201  mean$=    407   | within-year Q3 n= 365 win= 31.5% PF(R)= 1.33 meanR=+0.204
+    Q4>=57.7         n= 366  win= 27.6%  PF(R)= 1.17  meanR=+0.112  mean$=    214   | within-year Q4 n= 366 win= 24.9% PF(R)= 0.99 meanR=-0.006
+    Q5>=67.4         n= 365  win= 23.6%  PF(R)= 0.79  meanR=-0.149  mean$=     -2   | within-year Q5 n= 359 win= 24.0% PF(R)= 0.78 meanR=-0.157
+    E1 n=1215  rank-biserial -0.155 (p 0.000)  Spearman vs R -0.111  Q5-Q1 win-rate spread -17.3 pts
+    E2 n=613  rank-biserial -0.054 (p 0.274)  Spearman vs R -0.085  Q5-Q1 win-rate spread -6.3 pts
+
+  ta:ind_adx14_bar [TA:ind] -- 14-period ADX (trend strength) on the leg's own bar size.
+    winners median 34.31 | losers median 32.25 | rank-biserial +0.049 (MW p 0.0986) | Spearman vs R +0.073 | era trend rho_t -0.02
+    within-year null: win p 0.097 (q 0.246) | net R p 0.001 (q 0.002) | gross R p 0.148 (q 0.330)   [global shift: win p 0.107, R p 0.002]
+    Q1>=7.22         n= 367  win= 30.8%  PF(R)= 1.25  meanR=+0.160  mean$=    184   | within-year Q1 n= 372 win= 30.6% PF(R)= 1.28 meanR=+0.180
+    Q2>=21.4         n= 366  win= 24.0%  PF(R)= 0.93  meanR=-0.050  mean$=    139   | within-year Q2 n= 366 win= 23.0% PF(R)= 0.90 meanR=-0.071
+    Q3>=28.6         n= 366  win= 26.2%  PF(R)= 1.26  meanR=+0.183  mean$=    156   | within-year Q3 n= 367 win= 29.2% PF(R)= 1.38 meanR=+0.250
+    Q4>=37.3         n= 366  win= 32.5%  PF(R)= 1.56  meanR=+0.345  mean$=    531   | within-year Q4 n= 366 win= 31.4% PF(R)= 1.48 meanR=+0.297
+    Q5>=49.3         n= 366  win= 33.3%  PF(R)= 1.62  meanR=+0.383  mean$=    424   | within-year Q5 n= 360 win= 32.8% PF(R)= 1.58 meanR=+0.367
+    E1 n=1218  rank-biserial +0.056 (p 0.132)  Spearman vs R +0.091  Q5-Q1 win-rate spread +4.6 pts
+    E2 n=613  rank-biserial +0.043 (p 0.391)  Spearman vs R +0.095  Q5-Q1 win-rate spread -3.0 pts
+
+  ta:ind_adx14_60m [TA:ind] -- 14-period ADX (trend strength) on completed 60-minute bars.
+    winners median 35.4 | losers median 36.24 | rank-biserial -0.022 (MW p 0.4514) | Spearman vs R -0.042 | era trend rho_t +0.00
+    within-year null: win p 0.522 (q 0.701) | net R p 0.050 (q 0.094) | gross R p 0.435 (q 0.615)   [global shift: win p 0.441, R p 0.093]
+    Q1>=6.96         n= 367  win= 29.2%  PF(R)= 1.30  meanR=+0.192  mean$=    197   | within-year Q1 n= 372 win= 30.6% PF(R)= 1.37 meanR=+0.228
+    Q2>=24.8         n= 366  win= 32.5%  PF(R)= 1.55  meanR=+0.344  mean$=    540   | within-year Q2 n= 366 win= 30.3% PF(R)= 1.44 meanR=+0.282
+    Q3>=32.6         n= 366  win= 27.6%  PF(R)= 0.96  meanR=-0.030  mean$=    125   | within-year Q3 n= 367 win= 27.2% PF(R)= 1.00 meanR=-0.002
+    Q4>=40.7         n= 366  win= 30.3%  PF(R)= 1.33  meanR=+0.217  mean$=    292   | within-year Q4 n= 366 win= 30.9% PF(R)= 1.34 meanR=+0.214
+    Q5>=51.8         n= 366  win= 27.3%  PF(R)= 1.43  meanR=+0.297  mean$=    278   | within-year Q5 n= 360 win= 27.8% PF(R)= 1.43 meanR=+0.301
+    E1 n=1218  rank-biserial -0.030 (p 0.412)  Spearman vs R -0.052  Q5-Q1 win-rate spread -3.2 pts
+    E2 n=613  rank-biserial -0.010 (p 0.847)  Spearman vs R -0.066  Q5-Q1 win-rate spread -0.6 pts
+
+  ta:ind_atr_pctile_bar [TA:ind] -- Trailing 1-year percentile rank of 14-period ATR on the leg's own bar size.
+    winners median 74.53 | losers median 68.32 | rank-biserial +0.118 (MW p 0.0001) | Spearman vs R +0.251 | era trend rho_t +0.06
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.001 (q 0.017)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.284        n= 361  win= 22.2%  PF(R)= 0.83  meanR=-0.130  mean$=    -46   | within-year Q1 n= 367 win= 22.6% PF(R)= 0.79 meanR=-0.155
+    Q2>=35.4         n= 360  win= 28.9%  PF(R)= 1.47  meanR=+0.307  mean$=    242   | within-year Q2 n= 360 win= 30.8% PF(R)= 1.57 meanR=+0.363
+    Q3>=59.8         n= 361  win= 29.6%  PF(R)= 1.26  meanR=+0.168  mean$=     93   | within-year Q3 n= 361 win= 28.0% PF(R)= 1.19 meanR=+0.126
+    Q4>=78.6         n= 360  win= 29.2%  PF(R)= 1.24  meanR=+0.150  mean$=    120   | within-year Q4 n= 360 win= 30.0% PF(R)= 1.45 meanR=+0.281
+    Q5>=91.1         n= 360  win= 36.9%  PF(R)= 1.86  meanR=+0.499  mean$=   1024   | within-year Q5 n= 354 win= 35.6% PF(R)= 1.67 meanR=+0.387
+    E1 n=1189  rank-biserial +0.111 (p 0.003)  Spearman vs R +0.303  Q5-Q1 win-rate spread +12.8 pts
+    E2 n=613  rank-biserial +0.109 (p 0.028)  Spearman vs R +0.286  Q5-Q1 win-rate spread +14.1 pts
+
+  ta:ind_atr_pctile_60m [TA:ind] -- Trailing 1-year percentile rank of 14-period ATR on completed 60-minute bars.
+    winners median 58.61 | losers median 55.07 | rank-biserial +0.068 (MW p 0.0223) | Spearman vs R +0.134 | era trend rho_t +0.09
+    within-year null: win p 0.110 (q 0.259) | net R p 0.000 (q 0.001) | gross R p 0.045 (q 0.169)   [global shift: win p 0.016, R p 0.001]
+    Q1>=0            n= 361  win= 25.8%  PF(R)= 0.95  meanR=-0.037  mean$=     70   | within-year Q1 n= 367 win= 26.4% PF(R)= 1.00 meanR=+0.002
+    Q2>=25.3         n= 360  win= 27.8%  PF(R)= 1.14  meanR=+0.095  mean$=    191   | within-year Q2 n= 360 win= 27.2% PF(R)= 1.11 meanR=+0.075
+    Q3>=45.8         n= 361  win= 30.2%  PF(R)= 1.68  meanR=+0.443  mean$=    299   | within-year Q3 n= 361 win= 29.9% PF(R)= 1.34 meanR=+0.216
+    Q4>=65.8         n= 360  win= 28.6%  PF(R)= 1.09  meanR=+0.062  mean$=    187   | within-year Q4 n= 360 win= 31.7% PF(R)= 1.60 meanR=+0.370
+    Q5>=83.4         n= 360  win= 34.4%  PF(R)= 1.75  meanR=+0.430  mean$=    686   | within-year Q5 n= 354 win= 31.6% PF(R)= 1.55 meanR=+0.336
+    E1 n=1189  rank-biserial +0.064 (p 0.090)  Spearman vs R +0.130  Q5-Q1 win-rate spread +8.1 pts
+    E2 n=613  rank-biserial +0.055 (p 0.270)  Spearman vs R +0.144  Q5-Q1 win-rate spread +3.5 pts
+
+  ta:ind_atr_pctile_daily [TA:ind] -- Trailing 1-year percentile rank of 14-period ATR on daily bars (prior-day-shifted).
+    winners median 64.29 | losers median 60.32 | rank-biserial +0.086 (MW p 0.0038) | Spearman vs R +0.144 | era trend rho_t +0.08
+    within-year null: win p 0.015 (q 0.086) | net R p 0.000 (q 0.001) | gross R p 0.005 (q 0.044)   [global shift: win p 0.002, R p 0.001]
+    Q1>=0            n= 360  win= 24.7%  PF(R)= 1.04  meanR=+0.028  mean$=    288   | within-year Q1 n= 366 win= 21.6% PF(R)= 0.78 meanR=-0.160
+    Q2>=30.2         n= 360  win= 26.7%  PF(R)= 1.14  meanR=+0.097  mean$=    258   | within-year Q2 n= 360 win= 34.2% PF(R)= 1.53 meanR=+0.325
+    Q3>=52.4         n= 360  win= 33.6%  PF(R)= 1.50  meanR=+0.313  mean$=    215   | within-year Q3 n= 360 win= 30.0% PF(R)= 1.51 meanR=+0.321
+    Q4>=71           n= 360  win= 28.9%  PF(R)= 1.35  meanR=+0.225  mean$=    253   | within-year Q4 n= 360 win= 27.2% PF(R)= 1.18 meanR=+0.124
+    Q5>=88.5         n= 360  win= 33.1%  PF(R)= 1.56  meanR=+0.337  mean$=    419   | within-year Q5 n= 354 win= 34.2% PF(R)= 1.68 meanR=+0.399
+    E1 n=1187  rank-biserial +0.107 (p 0.004)  Spearman vs R +0.146  Q5-Q1 win-rate spread +9.8 pts
+    E2 n=613  rank-biserial +0.034 (p 0.499)  Spearman vs R +0.134  Q5-Q1 win-rate spread +4.3 pts
+
+  ta:ind_bbw_pctile_bar [TA:ind] -- Trailing 1-year percentile rank of Bollinger-band width on the leg's own bar size.
+    winners median 73.64 | losers median 67.16 | rank-biserial +0.130 (MW p 0.0000) | Spearman vs R +0.258 | era trend rho_t +0.05
+    within-year null: win p 0.000 (q 0.007) | net R p 0.000 (q 0.001) | gross R p 0.001 (q 0.013)   [global shift: win p 0.001, R p 0.001]
+    Q1>=0.0265       n= 361  win= 22.2%  PF(R)= 0.81  meanR=-0.148  mean$=    -42   | within-year Q1 n= 367 win= 23.2% PF(R)= 0.89 meanR=-0.085
+    Q2>=35.2         n= 360  win= 27.2%  PF(R)= 1.36  meanR=+0.243  mean$=    213   | within-year Q2 n= 360 win= 30.0% PF(R)= 1.36 meanR=+0.237
+    Q3>=59.6         n= 361  win= 32.4%  PF(R)= 1.49  meanR=+0.300  mean$=    210   | within-year Q3 n= 361 win= 29.1% PF(R)= 1.26 meanR=+0.171
+    Q4>=78.4         n= 360  win= 26.7%  PF(R)= 1.00  meanR=-0.001  mean$=    -23   | within-year Q4 n= 360 win= 27.8% PF(R)= 1.27 meanR=+0.172
+    Q5>=90.9         n= 360  win= 38.3%  PF(R)= 2.08  meanR=+0.599  mean$=   1074   | within-year Q5 n= 354 win= 37.0% PF(R)= 1.90 meanR=+0.508
+    E1 n=1189  rank-biserial +0.135 (p 0.000)  Spearman vs R +0.314  Q5-Q1 win-rate spread +15.7 pts
+    E2 n=613  rank-biserial +0.104 (p 0.036)  Spearman vs R +0.281  Q5-Q1 win-rate spread +13.3 pts
+
+  ta:ind_macd_sign_60m [TA:ind] -- Sign of the MACD histogram (+1/-1/0) on completed 60-minute bars.
+    winners median -1 | losers median -1 | rank-biserial -0.021 (MW p 0.4234) | Spearman vs R -0.053 | era trend rho_t +0.05
+    within-year null: win p 0.414 (q 0.631) | net R p 0.006 (q 0.014) | gross R p 0.570 (q 0.712)   [global shift: win p 0.413, R p 0.031]
+    =-1              n= 940  win= 30.2%  PF(R)= 1.33  meanR=+0.212  mean$=    267
+    =1               n= 891  win= 28.5%  PF(R)= 1.29  meanR=+0.195  mean$=    307
+    E1 n=1218  rank-biserial -0.009 (p 0.770)  Spearman vs R -0.081  Q5-Q1 win-rate spread - pts
+    E2 n=613  rank-biserial -0.045 (p 0.291)  Spearman vs R -0.090  Q5-Q1 win-rate spread - pts
+
+  ta:ind_er20_bar [TA:ind] -- 20-period efficiency ratio (trend vs chop, 0..1) on the leg's own bar size.
+    winners median 0.3846 | losers median 0.3651 | rank-biserial +0.060 (MW p 0.0441) | Spearman vs R +0.111 | era trend rho_t +0.03
+    within-year null: win p 0.061 (q 0.176) | net R p 0.000 (q 0.001) | gross R p 0.070 (q 0.230)   [global shift: win p 0.042, R p 0.001]
+    Q1>=0            n= 367  win= 28.3%  PF(R)= 1.16  meanR=+0.111  mean$=     96   | within-year Q1 n= 372 win= 28.8% PF(R)= 1.18 meanR=+0.123
+    Q2>=0.216        n= 366  win= 28.1%  PF(R)= 1.18  meanR=+0.121  mean$=    124   | within-year Q2 n= 366 win= 26.8% PF(R)= 1.19 meanR=+0.131
+    Q3>=0.324        n= 366  win= 27.0%  PF(R)= 1.14  meanR=+0.097  mean$=    212   | within-year Q3 n= 367 win= 28.6% PF(R)= 1.13 meanR=+0.084
+    Q4>=0.417        n= 366  win= 26.0%  PF(R)= 1.29  meanR=+0.198  mean$=    349   | within-year Q4 n= 366 win= 25.7% PF(R)= 1.21 meanR=+0.139
+    Q5>=0.533        n= 366  win= 37.4%  PF(R)= 1.88  meanR=+0.494  mean$=    653   | within-year Q5 n= 360 win= 37.2% PF(R)= 1.96 meanR=+0.550
+    E1 n=1218  rank-biserial +0.057 (p 0.121)  Spearman vs R +0.114  Q5-Q1 win-rate spread +8.8 pts
+    E2 n=613  rank-biserial +0.050 (p 0.318)  Spearman vs R +0.111  Q5-Q1 win-rate spread +7.6 pts
+
+  ta:ind_compressed_60m [TA:ind] -- Whether the 60-minute chart was in a volatility squeeze (coiled) just before entry.
+    winners median 0 | losers median 0 | rank-biserial +0.034 (MW p 0.0790) | Spearman vs R +0.043 | era trend rho_t -0.03
+    within-year null: win p 0.055 (q 0.169) | net R p 0.015 (q 0.031) | gross R p 0.364 (q 0.570)   [global shift: win p 0.077, R p 0.063]
+    =0               n=1524  win= 28.5%  PF(R)= 1.26  meanR=+0.172  mean$=    232
+    =1               n= 307  win= 33.6%  PF(R)= 1.58  meanR=+0.361  mean$=    556
+    E1 n=1218  rank-biserial +0.034 (p 0.164)  Spearman vs R +0.072  Q5-Q1 win-rate spread - pts
+    E2 n=613  rank-biserial +0.037 (p 0.231)  Spearman vs R +0.060  Q5-Q1 win-rate spread - pts
+
+  ta:day_prior_ret_pct [TA:day] -- Prior day's close-to-close return, percent.
+    winners median 0.4249 | losers median 0.4927 | rank-biserial -0.061 (MW p 0.0407) | Spearman vs R -0.035 | era trend rho_t +0.08
+    within-year null: win p 0.022 (q 0.106) | net R p 0.001 (q 0.003) | gross R p 0.022 (q 0.103)   [global shift: win p 0.050, R p 0.269]
+    Q1>=-7.15        n= 366  win= 34.7%  PF(R)= 1.76  meanR=+0.442  mean$=    742   | within-year Q1 n= 372 win= 33.1% PF(R)= 1.73 meanR=+0.432
+    Q2>=-0.25        n= 366  win= 29.0%  PF(R)= 1.11  meanR=+0.075  mean$=    192   | within-year Q2 n= 366 win= 30.9% PF(R)= 1.19 meanR=+0.120
+    Q3>=0.227        n= 366  win= 27.9%  PF(R)= 1.33  meanR=+0.225  mean$=    198   | within-year Q3 n= 366 win= 30.1% PF(R)= 1.33 meanR=+0.219
+    Q4>=0.726        n= 366  win= 27.6%  PF(R)= 1.13  meanR=+0.091  mean$=    200   | within-year Q4 n= 366 win= 24.6% PF(R)= 1.05 meanR=+0.035
+    Q5>=1.44         n= 365  win= 27.9%  PF(R)= 1.30  meanR=+0.194  mean$=    104   | within-year Q5 n= 359 win= 28.4% PF(R)= 1.33 meanR=+0.217
+    E1 n=1216  rank-biserial -0.026 (p 0.479)  Spearman vs R -0.050  Q5-Q1 win-rate spread -3.2 pts
+    E2 n=613  rank-biserial -0.128 (p 0.010)  Spearman vs R -0.125  Q5-Q1 win-rate spread -8.7 pts
+
+  ta:day_prior_close_pos [TA:day] -- Prior day's close position inside its own high-low range (0..1).
+    winners median 0.7237 | losers median 0.7823 | rank-biserial -0.091 (MW p 0.0021) | Spearman vs R -0.089 | era trend rho_t +0.04
+    within-year null: win p 0.002 (q 0.020) | net R p 0.000 (q 0.001) | gross R p 0.003 (q 0.028)   [global shift: win p 0.004, R p 0.002]
+    Q1>=0            n= 366  win= 35.5%  PF(R)= 1.79  meanR=+0.462  mean$=    696   | within-year Q1 n= 372 win= 35.5% PF(R)= 1.80 meanR=+0.464
+    Q2>=0.356        n= 366  win= 31.7%  PF(R)= 1.41  meanR=+0.264  mean$=    304   | within-year Q2 n= 366 win= 31.1% PF(R)= 1.55 meanR=+0.346
+    Q3>=0.665        n= 366  win= 27.6%  PF(R)= 1.34  meanR=+0.220  mean$=    346   | within-year Q3 n= 366 win= 27.9% PF(R)= 1.13 meanR=+0.087
+    Q4>=0.845        n= 366  win= 25.7%  PF(R)= 0.96  meanR=-0.026  mean$=     52   | within-year Q4 n= 366 win= 24.6% PF(R)= 0.94 meanR=-0.041
+    Q5>=0.938        n= 365  win= 26.6%  PF(R)= 1.16  meanR=+0.107  mean$=     37   | within-year Q5 n= 359 win= 27.9% PF(R)= 1.25 meanR=+0.166
+    E1 n=1216  rank-biserial -0.041 (p 0.266)  Spearman vs R -0.074  Q5-Q1 win-rate spread -2.7 pts
+    E2 n=613  rank-biserial -0.191 (p 0.000)  Spearman vs R -0.223  Q5-Q1 win-rate spread -21.8 pts
+
+  ta:day_up_streak [TA:day] -- Consecutive up/down day count through the prior day (signed).
+    winners median 1 | losers median 1 | rank-biserial -0.039 (MW p 0.1613) | Spearman vs R -0.057 | era trend rho_t +0.04
+    within-year null: win p 0.137 (q 0.309) | net R p 0.001 (q 0.002) | gross R p 0.009 (q 0.058)   [global shift: win p 0.198, R p 0.024]
+    Q1>=-9           n= 366  win= 29.8%  PF(R)= 1.26  meanR=+0.167  mean$=    318   | within-year Q1 n= 372 win= 30.9% PF(R)= 1.51 meanR=+0.306
+    Q2>=-1           n= 366  win= 33.6%  PF(R)= 1.58  meanR=+0.363  mean$=    636   | within-year Q2 n= 366 win= 33.1% PF(R)= 1.47 meanR=+0.294
+    Q3>=1            n= 366  win= 27.3%  PF(R)= 1.27  meanR=+0.186  mean$=     89   | within-year Q3 n= 366 win= 25.4% PF(R)= 1.20 meanR=+0.141
+    Q4>=1            n= 366  win= 26.5%  PF(R)= 1.24  meanR=+0.160  mean$=    341   | within-year Q4 n= 366 win= 30.3% PF(R)= 1.32 meanR=+0.210
+    Q5>=2            n= 365  win= 29.9%  PF(R)= 1.23  meanR=+0.151  mean$=     51   | within-year Q5 n= 359 win= 27.3% PF(R)= 1.10 meanR=+0.072
+    E1 n=1216  rank-biserial -0.013 (p 0.710)  Spearman vs R -0.055  Q5-Q1 win-rate spread -1.9 pts
+    E2 n=613  rank-biserial -0.092 (p 0.050)  Spearman vs R -0.133  Q5-Q1 win-rate spread -7.1 pts
+
+  ta:day_ret_5d [TA:day] -- Prior day's trailing 5-day return, percent.
+    winners median -0.1786 | losers median 0.1257 | rank-biserial -0.060 (MW p 0.0423) | Spearman vs R -0.056 | era trend rho_t -0.00
+    within-year null: win p 0.022 (q 0.106) | net R p 0.003 (q 0.008) | gross R p 0.015 (q 0.085)   [global shift: win p 0.048, R p 0.068]
+    Q1>=-13.2        n= 366  win= 33.6%  PF(R)= 1.52  meanR=+0.315  mean$=    575   | within-year Q1 n= 372 win= 34.4% PF(R)= 1.84 meanR=+0.500
+    Q2>=-1.74        n= 366  win= 33.1%  PF(R)= 1.74  meanR=+0.455  mean$=    472   | within-year Q2 n= 366 win= 31.4% PF(R)= 1.35 meanR=+0.220
+    Q3>=-0.447       n= 365  win= 24.7%  PF(R)= 1.09  meanR=+0.064  mean$=    110   | within-year Q3 n= 365 win= 29.3% PF(R)= 1.39 meanR=+0.253
+    Q4>=0.547        n= 366  win= 26.5%  PF(R)= 1.05  meanR=+0.033  mean$=     32   | within-year Q4 n= 366 win= 23.5% PF(R)= 0.93 meanR=-0.054
+    Q5>=1.52         n= 365  win= 29.0%  PF(R)= 1.21  meanR=+0.139  mean$=    241   | within-year Q5 n= 359 win= 28.1% PF(R)= 1.12 meanR=+0.080
+    E1 n=1215  rank-biserial -0.080 (p 0.030)  Spearman vs R -0.050  Q5-Q1 win-rate spread -4.9 pts
+    E2 n=613  rank-biserial -0.020 (p 0.686)  Spearman vs R -0.048  Q5-Q1 win-rate spread +0.3 pts
+
+  ta:day_ret_20d [TA:day] -- Prior day's trailing 20-day return, percent.
+    winners median 0.3591 | losers median 1.385 | rank-biserial -0.091 (MW p 0.0022) | Spearman vs R -0.092 | era trend rho_t +0.04
+    within-year null: win p 0.002 (q 0.018) | net R p 0.000 (q 0.001) | gross R p 0.002 (q 0.027)   [global shift: win p 0.005, R p 0.005]
+    Q1>=-25.6        n= 366  win= 36.1%  PF(R)= 1.79  meanR=+0.457  mean$=    645   | within-year Q1 n= 372 win= 35.5% PF(R)= 1.84 meanR=+0.489
+    Q2>=-2.95        n= 366  win= 33.9%  PF(R)= 1.67  meanR=+0.403  mean$=    276   | within-year Q2 n= 366 win= 34.4% PF(R)= 1.79 meanR=+0.489
+    Q3>=0.21         n= 365  win= 23.0%  PF(R)= 1.06  meanR=+0.047  mean$=    125   | within-year Q3 n= 365 win= 26.8% PF(R)= 1.16 meanR=+0.107
+    Q4>=2.18         n= 366  win= 24.0%  PF(R)= 0.94  meanR=-0.046  mean$=    113   | within-year Q4 n= 366 win= 21.9% PF(R)= 0.85 meanR=-0.108
+    Q5>=4.1          n= 365  win= 29.9%  PF(R)= 1.23  meanR=+0.144  mean$=    271   | within-year Q5 n= 359 win= 28.1% PF(R)= 1.03 meanR=+0.021
+    E1 n=1215  rank-biserial -0.136 (p 0.000)  Spearman vs R -0.119  Q5-Q1 win-rate spread -12.3 pts
+    E2 n=613  rank-biserial -0.025 (p 0.618)  Spearman vs R -0.070  Q5-Q1 win-rate spread +1.1 pts
+
+  ta:day_minutes_since_open [TA:day] -- Minutes from session open to the decision bar.
+    winners median 883.5 | losers median 846 | rank-biserial +0.045 (MW p 0.1289) | Spearman vs R +0.125 | era trend rho_t -0.02
+    within-year null: win p 0.127 (q 0.291) | net R p 0.000 (q 0.001) | gross R p 0.361 (q 0.570)   [global shift: win p 0.144, R p 0.001]
+    Q1>=0            n= 367  win= 28.1%  PF(R)= 1.17  meanR=+0.113  mean$=     59   | within-year Q1 n= 372 win= 27.4% PF(R)= 1.14 meanR=+0.095
+    Q2>=368          n= 366  win= 26.5%  PF(R)= 1.24  meanR=+0.164  mean$=    169   | within-year Q2 n= 366 win= 26.0% PF(R)= 1.20 meanR=+0.133
+    Q3>=714          n= 366  win= 28.4%  PF(R)= 1.36  meanR=+0.240  mean$=    280   | within-year Q3 n= 367 win= 30.5% PF(R)= 1.47 meanR=+0.305
+    Q4>=937          n= 366  win= 32.8%  PF(R)= 1.48  meanR=+0.294  mean$=    598   | within-year Q4 n= 366 win= 33.1% PF(R)= 1.49 meanR=+0.306
+    Q5>=1.12e+03     n= 366  win= 31.1%  PF(R)= 1.33  meanR=+0.210  mean$=    328   | within-year Q5 n= 360 win= 30.0% PF(R)= 1.29 meanR=+0.183
+    E1 n=1218  rank-biserial +0.054 (p 0.143)  Spearman vs R +0.179  Q5-Q1 win-rate spread +3.8 pts
+    E2 n=613  rank-biserial +0.031 (p 0.536)  Spearman vs R +0.176  Q5-Q1 win-rate spread -0.6 pts
+
+  ta:vol_cum_vs_avg20 [TA:vol] -- Session-to-date cumulative volume vs the average cumulative volume at the same minute over the prior 20 sessions.
+    winners median 0.9749 | losers median 0.9361 | rank-biserial +0.072 (MW p 0.0160) | Spearman vs R +0.128 | era trend rho_t +0.04
+    within-year null: win p 0.011 (q 0.068) | net R p 0.000 (q 0.001) | gross R p 0.020 (q 0.102)   [global shift: win p 0.013, R p 0.001]
+    Q1>=0.22         n= 365  win= 28.5%  PF(R)= 1.11  meanR=+0.073  mean$=     75   | within-year Q1 n= 370 win= 28.6% PF(R)= 1.17 meanR=+0.117
+    Q2>=0.741        n= 365  win= 27.1%  PF(R)= 1.26  meanR=+0.173  mean$=    442   | within-year Q2 n= 366 win= 25.7% PF(R)= 1.12 meanR=+0.080
+    Q3>=0.874        n= 365  win= 25.2%  PF(R)= 1.09  meanR=+0.062  mean$=    130   | within-year Q3 n= 366 win= 27.9% PF(R)= 1.29 meanR=+0.195
+    Q4>=1.01         n= 365  win= 30.4%  PF(R)= 1.39  meanR=+0.256  mean$=    273   | within-year Q4 n= 366 win= 30.3% PF(R)= 1.36 meanR=+0.233
+    Q5>=1.19         n= 365  win= 35.6%  PF(R)= 1.77  meanR=+0.449  mean$=    520   | within-year Q5 n= 357 win= 34.5% PF(R)= 1.67 meanR=+0.393
+    E1 n=1212  rank-biserial +0.102 (p 0.006)  Spearman vs R +0.166  Q5-Q1 win-rate spread +8.8 pts
+    E2 n=613  rank-biserial +0.012 (p 0.816)  Spearman vs R +0.088  Q5-Q1 win-rate spread +4.4 pts
+
+  ta:cal_is_opex_week [TA:cal] -- Whether the entry day falls in the same calendar week as options-expiration Friday.
+    winners median 0 | losers median 0 | rank-biserial -0.049 (MW p 0.0213) | Spearman vs R -0.023 | era trend rho_t +0.02
+    within-year null: win p 0.016 (q 0.088) | net R p 0.200 (q 0.311) | gross R p 0.405 (q 0.598)   [global shift: win p 0.023, R p 0.387]
+    =0               n=1415  win= 30.7%  PF(R)= 1.39  meanR=+0.248  mean$=    299
+    =1               n= 414  win= 24.9%  PF(R)= 1.09  meanR=+0.058  mean$=    245
+    E1 n=1216  rank-biserial -0.058 (p 0.029)  Spearman vs R -0.013  Q5-Q1 win-rate spread - pts
+    E2 n=613  rank-biserial -0.035 (p 0.330)  Spearman vs R -0.037  Q5-Q1 win-rate spread - pts
+
+  ta:vt_intraday_daily_ratio [TA:vt] -- Annualized bar-to-bar volatility (14-bar ATR) divided by annualized day-to-day volatility (14-day ATR) -- how much hotter the intraday tape is running vs the daily tape.
+    winners median 0.8857 | losers median 0.7591 | rank-biserial +0.090 (MW p 0.0024) | Spearman vs R +0.211 | era trend rho_t +0.05
+    within-year null: win p 0.003 (q 0.025) | net R p 0.000 (q 0.001) | gross R p 0.012 (q 0.071)   [global shift: win p 0.005, R p 0.001]
+    Q1>=0.0934       n= 366  win= 26.0%  PF(R)= 0.94  meanR=-0.043  mean$=     31   | within-year Q1 n= 372 win= 26.3% PF(R)= 0.97 meanR=-0.020
+    Q2>=0.419        n= 366  win= 25.4%  PF(R)= 1.15  meanR=+0.100  mean$=     77   | within-year Q2 n= 366 win= 24.6% PF(R)= 1.05 meanR=+0.036
+    Q3>=0.647        n= 366  win= 32.0%  PF(R)= 1.70  meanR=+0.433  mean$=    342   | within-year Q3 n= 367 win= 31.1% PF(R)= 1.63 meanR=+0.396
+    Q4>=0.962        n= 366  win= 29.8%  PF(R)= 1.35  meanR=+0.227  mean$=    266   | within-year Q4 n= 366 win= 30.9% PF(R)= 1.38 meanR=+0.243
+    Q5>=1.47         n= 366  win= 33.6%  PF(R)= 1.47  meanR=+0.282  mean$=    711   | within-year Q5 n= 359 win= 34.0% PF(R)= 1.59 meanR=+0.351
+    E1 n=1217  rank-biserial +0.081 (p 0.028)  Spearman vs R +0.265  Q5-Q1 win-rate spread +5.5 pts
+    E2 n=613  rank-biserial +0.092 (p 0.063)  Spearman vs R +0.235  Q5-Q1 win-rate spread +6.0 pts
+
+  ta:vt_intraday_daily_pctile20 [TA:vt] -- Trailing 20-trading-day percentile rank of vt_intraday_daily_ratio.
+    winners median 67.28 | losers median 61 | rank-biserial +0.080 (MW p 0.0076) | Spearman vs R +0.182 | era trend rho_t +0.01
+    within-year null: win p 0.007 (q 0.048) | net R p 0.000 (q 0.001) | gross R p 0.026 (q 0.115)   [global shift: win p 0.013, R p 0.001]
+    Q1>=0            n= 361  win= 26.3%  PF(R)= 0.97  meanR=-0.019  mean$=     59   | within-year Q1 n= 367 win= 27.0% PF(R)= 1.05 meanR=+0.037
+    Q2>=29           n= 360  win= 26.1%  PF(R)= 1.17  meanR=+0.114  mean$=     47   | within-year Q2 n= 360 win= 26.7% PF(R)= 1.16 meanR=+0.112
+    Q3>=54.1         n= 361  win= 28.3%  PF(R)= 1.37  meanR=+0.237  mean$=    246   | within-year Q3 n= 361 win= 28.3% PF(R)= 1.46 meanR=+0.292
+    Q4>=72.5         n= 360  win= 32.8%  PF(R)= 1.65  meanR=+0.414  mean$=    346   | within-year Q4 n= 360 win= 30.0% PF(R)= 1.39 meanR=+0.257
+    Q5>=88.5         n= 360  win= 33.3%  PF(R)= 1.41  meanR=+0.246  mean$=    734   | within-year Q5 n= 354 win= 35.0% PF(R)= 1.52 meanR=+0.298
+    E1 n=1189  rank-biserial +0.074 (p 0.048)  Spearman vs R +0.249  Q5-Q1 win-rate spread +6.0 pts
+    E2 n=613  rank-biserial +0.088 (p 0.077)  Spearman vs R +0.211  Q5-Q1 win-rate spread +6.0 pts
+
+  ctx_rth_move_datr [CONTEXT] -- cash-session direction so far: close minus the 09:30 open, in daily ATR (RTH signals only)
+    winners median 0.07234 | losers median 0.06799 | rank-biserial +0.039 (MW p 0.3712) | Spearman vs R +0.047 | era trend rho_t -0.01
+    within-year null: win p 0.337 (q 0.566) | net R p 0.159 (q 0.259) | gross R p 0.099 (q 0.263)   [global shift: win p 0.372, R p 0.259]
+    Q1>=-0.813       n= 158  win= 29.7%  PF(R)= 1.19  meanR=+0.128  mean$=    123   | within-year Q1 n= 163 win= 28.2% PF(R)= 1.11 meanR=+0.077
+    Q2>=-0.128       n= 158  win= 30.4%  PF(R)= 1.57  meanR=+0.379  mean$=    223   | within-year Q2 n= 158 win= 29.7% PF(R)= 1.34 meanR=+0.231
+    Q3>=0.0255       n= 158  win= 32.9%  PF(R)= 1.49  meanR=+0.309  mean$=    577   | within-year Q3 n= 158 win= 33.5% PF(R)= 1.63 meanR=+0.386
+    Q4>=0.114        n= 158  win= 29.7%  PF(R)= 1.10  meanR=+0.062  mean$=    197   | within-year Q4 n= 158 win= 32.3% PF(R)= 1.18 meanR=+0.109
+    Q5>=0.253        n= 158  win= 36.1%  PF(R)= 1.75  meanR=+0.410  mean$=   1276   | within-year Q5 n= 153 win= 35.3% PF(R)= 1.91 meanR=+0.498
+    E1 n=523  rank-biserial -0.022 (p 0.686)  Spearman vs R +0.023  Q5-Q1 win-rate spread -2.6 pts
+    E2 n=267  rank-biserial +0.147 (p 0.047)  Spearman vs R +0.091  Q5-Q1 win-rate spread +19.5 pts
+
+  ctx_pdr_pos [CONTEXT] -- position of the close inside the prior ETH session's high-low range (0=low, 1=high; can be <0 or >1)
+    winners median 0.802 | losers median 0.8174 | rank-biserial -0.027 (MW p 0.3627) | Spearman vs R -0.019 | era trend rho_t +0.05
+    within-year null: win p 0.297 (q 0.535) | net R p 0.162 (q 0.262) | gross R p 0.411 (q 0.598)   [global shift: win p 0.388, R p 0.453]
+    Q1>=-1.05        n= 367  win= 33.8%  PF(R)= 1.65  meanR=+0.390  mean$=    502   | within-year Q1 n= 372 win= 32.8% PF(R)= 1.57 meanR=+0.346
+    Q2>=0.522        n= 366  win= 29.8%  PF(R)= 1.27  meanR=+0.177  mean$=    259   | within-year Q2 n= 366 win= 30.3% PF(R)= 1.32 meanR=+0.201
+    Q3>=0.736        n= 366  win= 25.1%  PF(R)= 0.92  meanR=-0.053  mean$=     65   | within-year Q3 n= 367 win= 26.4% PF(R)= 0.99 meanR=-0.006
+    Q4>=0.87         n= 366  win= 29.0%  PF(R)= 1.39  meanR=+0.254  mean$=    225   | within-year Q4 n= 366 win= 28.7% PF(R)= 1.37 meanR=+0.246
+    Q5>=0.991        n= 366  win= 29.2%  PF(R)= 1.38  meanR=+0.250  mean$=    382   | within-year Q5 n= 360 win= 28.6% PF(R)= 1.35 meanR=+0.232
+    E1 n=1218  rank-biserial +0.038 (p 0.307)  Spearman vs R -0.004  Q5-Q1 win-rate spread +1.8 pts
+    E2 n=613  rank-biserial -0.148 (p 0.003)  Spearman vs R -0.131  Q5-Q1 win-rate spread -20.1 pts
+
+  ctx_rth_pdr_pos [CONTEXT] -- position of the close inside the last COMPLETED 09:30-16:00 cash session's range
+    winners median 0.8133 | losers median 0.8071 | rank-biserial +0.004 (MW p 0.8837) | Spearman vs R +0.004 | era trend rho_t +0.06
+    within-year null: win p 0.988 (q 0.988) | net R p 0.643 (q 0.740) | gross R p 0.882 (q 0.910)   [global shift: win p 0.887, R p 0.836]
+    Q1>=-1.47        n= 367  win= 30.0%  PF(R)= 1.33  meanR=+0.211  mean$=    268   | within-year Q1 n= 372 win= 31.2% PF(R)= 1.34 meanR=+0.211
+    Q2>=0.433        n= 366  win= 32.5%  PF(R)= 1.44  meanR=+0.275  mean$=    221   | within-year Q2 n= 366 win= 29.8% PF(R)= 1.36 meanR=+0.231
+    Q3>=0.715        n= 366  win= 23.2%  PF(R)= 0.91  meanR=-0.068  mean$=    274   | within-year Q3 n= 367 win= 25.6% PF(R)= 1.04 meanR=+0.027
+    Q4>=0.885        n= 366  win= 29.0%  PF(R)= 1.30  meanR=+0.198  mean$=    127   | within-year Q4 n= 366 win= 28.7% PF(R)= 1.28 meanR=+0.192
+    Q5>=1.09         n= 366  win= 32.2%  PF(R)= 1.66  meanR=+0.405  mean$=    542   | within-year Q5 n= 360 win= 31.7% PF(R)= 1.58 meanR=+0.362
+    E1 n=1218  rank-biserial +0.063 (p 0.088)  Spearman vs R +0.017  Q5-Q1 win-rate spread +7.9 pts
+    E2 n=613  rank-biserial -0.102 (p 0.039)  Spearman vs R -0.085  Q5-Q1 win-rate spread -10.3 pts
+
+  loc_pdh_datr [LOCATION] -- close minus prior ETH session HIGH, in daily ATR
+    winners median -0.2082 | losers median -0.206 | rank-biserial -0.005 (MW p 0.8778) | Spearman vs R -0.007 | era trend rho_t +0.05
+    within-year null: win p 0.736 (q 0.873) | net R p 0.368 (q 0.521) | gross R p 0.646 (q 0.738)   [global shift: win p 0.894, R p 0.831]
+    Q1>=-1.43        n= 366  win= 30.9%  PF(R)= 1.43  meanR=+0.262  mean$=    324   | within-year Q1 n= 372 win= 33.1% PF(R)= 1.60 meanR=+0.360
+    Q2>=-0.444       n= 366  win= 30.1%  PF(R)= 1.48  meanR=+0.308  mean$=    384   | within-year Q2 n= 366 win= 26.2% PF(R)= 1.17 meanR=+0.113
+    Q3>=-0.274       n= 366  win= 27.6%  PF(R)= 0.87  meanR=-0.088  mean$=    170   | within-year Q3 n= 367 win= 28.9% PF(R)= 1.07 meanR=+0.048
+    Q4>=-0.143       n= 366  win= 28.7%  PF(R)= 1.39  meanR=+0.257  mean$=    150   | within-year Q4 n= 366 win= 29.8% PF(R)= 1.43 meanR=+0.281
+    Q5>=-0.00866     n= 366  win= 29.5%  PF(R)= 1.40  meanR=+0.261  mean$=    401   | within-year Q5 n= 359 win= 28.7% PF(R)= 1.29 meanR=+0.195
+    E1 n=1217  rank-biserial +0.052 (p 0.158)  Spearman vs R +0.010  Q5-Q1 win-rate spread +4.6 pts
+    E2 n=613  rank-biserial -0.105 (p 0.035)  Spearman vs R -0.101  Q5-Q1 win-rate spread -14.4 pts
+
+  loc_rth_pdh_datr [LOCATION] -- close minus last completed cash-session HIGH, in daily ATR
+    winners median -0.1604 | losers median -0.1714 | rank-biserial +0.021 (MW p 0.4889) | Spearman vs R +0.017 | era trend rho_t +0.07
+    within-year null: win p 0.630 (q 0.800) | net R p 0.939 (q 0.956) | gross R p 0.788 (q 0.841)   [global shift: win p 0.517, R p 0.508]
+    Q1>=-1.43        n= 366  win= 29.0%  PF(R)= 1.30  meanR=+0.185  mean$=    185   | within-year Q1 n= 372 win= 29.6% PF(R)= 1.32 meanR=+0.200
+    Q2>=-0.404       n= 366  win= 30.3%  PF(R)= 1.39  meanR=+0.262  mean$=    243   | within-year Q2 n= 366 win= 30.1% PF(R)= 1.36 meanR=+0.233
+    Q3>=-0.238       n= 366  win= 24.9%  PF(R)= 0.82  meanR=-0.131  mean$=    246   | within-year Q3 n= 367 win= 25.1% PF(R)= 0.98 meanR=-0.011
+    Q4>=-0.103       n= 366  win= 30.6%  PF(R)= 1.48  meanR=+0.307  mean$=    240   | within-year Q4 n= 366 win= 31.1% PF(R)= 1.34 meanR=+0.224
+    Q5>=0.0723       n= 366  win= 32.0%  PF(R)= 1.60  meanR=+0.376  mean$=    514   | within-year Q5 n= 359 win= 30.9% PF(R)= 1.57 meanR=+0.356
+    E1 n=1217  rank-biserial +0.078 (p 0.036)  Spearman vs R +0.032  Q5-Q1 win-rate spread +9.2 pts
+    E2 n=613  rank-biserial -0.082 (p 0.097)  Spearman vs R -0.074  Q5-Q1 win-rate spread -7.1 pts
+
+  loc_n_lower_highs [LOCATION] -- how many of those swing highs were lower than the one before
+    winners median 5 | losers median 6 | rank-biserial -0.004 (MW p 0.8910) | Spearman vs R +0.026 | era trend rho_t +0.16
+    within-year null: win p 0.467 (q 0.674) | net R p 0.199 (q 0.311) | gross R p 0.294 (q 0.521)   [global shift: win p 0.918, R p 0.370]
+    Q1>=1            n= 367  win= 28.6%  PF(R)= 1.31  meanR=+0.213  mean$=    237   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.41 meanR=+0.264
+    Q2>=4            n= 366  win= 30.6%  PF(R)= 1.33  meanR=+0.217  mean$=    252   | within-year Q2 n= 366 win= 31.4% PF(R)= 1.35 meanR=+0.221
+    Q3>=5            n= 366  win= 28.1%  PF(R)= 1.24  meanR=+0.153  mean$=    334   | within-year Q3 n= 367 win= 29.7% PF(R)= 1.27 meanR=+0.182
+    Q4>=6            n= 366  win= 30.9%  PF(R)= 1.33  meanR=+0.208  mean$=    268   | within-year Q4 n= 366 win= 28.7% PF(R)= 1.28 meanR=+0.184
+    Q5>=7            n= 366  win= 28.7%  PF(R)= 1.35  meanR=+0.229  mean$=    342   | within-year Q5 n= 360 win= 28.6% PF(R)= 1.25 meanR=+0.168
+    E1 n=1218  rank-biserial -0.022 (p 0.537)  Spearman vs R +0.017  Q5-Q1 win-rate spread +0.9 pts
+    E2 n=613  rank-biserial +0.009 (p 0.853)  Spearman vs R -0.060  Q5-Q1 win-rate spread +6.8 pts
+
+  loc_pb_depth_atr [LOCATION] -- pullback depth before the signal: window high minus swing low, in ATR(52)
+    winners median 14.62 | losers median 14.77 | rank-biserial -0.017 (MW p 0.5631) | Spearman vs R -0.062 | era trend rho_t -0.09
+    within-year null: win p 0.742 (q 0.873) | net R p 0.144 (q 0.243) | gross R p 0.471 (q 0.628)   [global shift: win p 0.545, R p 0.020]
+    Q1>=5.28         n= 367  win= 26.4%  PF(R)= 1.18  meanR=+0.121  mean$=    310   | within-year Q1 n= 372 win= 26.6% PF(R)= 1.13 meanR=+0.087
+    Q2>=10.6         n= 366  win= 32.8%  PF(R)= 1.47  meanR=+0.288  mean$=    371   | within-year Q2 n= 366 win= 32.0% PF(R)= 1.51 meanR=+0.317
+    Q3>=13.3         n= 366  win= 30.6%  PF(R)= 1.41  meanR=+0.266  mean$=    304   | within-year Q3 n= 367 win= 29.2% PF(R)= 1.39 meanR=+0.256
+    Q4>=16.2         n= 366  win= 32.0%  PF(R)= 1.49  meanR=+0.304  mean$=    372   | within-year Q4 n= 366 win= 31.7% PF(R)= 1.29 meanR=+0.187
+    Q5>=20.7         n= 366  win= 25.1%  PF(R)= 1.06  meanR=+0.041  mean$=     75   | within-year Q5 n= 360 win= 27.5% PF(R)= 1.26 meanR=+0.174
+    E1 n=1218  rank-biserial -0.027 (p 0.465)  Spearman vs R -0.081  Q5-Q1 win-rate spread -1.5 pts
+    E2 n=613  rank-biserial +0.017 (p 0.737)  Spearman vs R +0.033  Q5-Q1 win-rate spread +3.5 pts
+
+  imb_body_ratio [IMBALANCE] -- signal candle body / range
+    winners median 0.7602 | losers median 0.75 | rank-biserial -0.021 (MW p 0.4730) | Spearman vs R -0.075 | era trend rho_t -0.22
+    within-year null: win p 0.898 (q 0.959) | net R p 0.619 (q 0.724) | gross R p 0.627 (q 0.721)   [global shift: win p 0.454, R p 0.027]
+    Q1>=0.1          n= 367  win= 28.6%  PF(R)= 1.31  meanR=+0.207  mean$=    348   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.35 meanR=+0.232
+    Q2>=0.538        n= 366  win= 30.3%  PF(R)= 1.39  meanR=+0.254  mean$=    273   | within-year Q2 n= 366 win= 27.0% PF(R)= 1.26 meanR=+0.180
+    Q3>=0.684        n= 366  win= 30.9%  PF(R)= 1.38  meanR=+0.247  mean$=    473   | within-year Q3 n= 367 win= 31.3% PF(R)= 1.35 meanR=+0.219
+    Q4>=0.815        n= 366  win= 31.7%  PF(R)= 1.46  meanR=+0.278  mean$=    361   | within-year Q4 n= 366 win= 34.2% PF(R)= 1.50 meanR=+0.293
+    Q5>=0.944        n= 366  win= 25.4%  PF(R)= 1.05  meanR=+0.034  mean$=    -22   | within-year Q5 n= 360 win= 25.8% PF(R)= 1.13 meanR=+0.094
+    E1 n=1218  rank-biserial -0.037 (p 0.309)  Spearman vs R -0.079  Q5-Q1 win-rate spread -3.6 pts
+    E2 n=613  rank-biserial +0.044 (p 0.378)  Spearman vs R +0.036  Q5-Q1 win-rate spread +1.9 pts
+
+  imb_close_loc [IMBALANCE] -- close location within the signal bar (0=low, 1=high)
+    winners median 0.8571 | losers median 0.8571 | rank-biserial -0.024 (MW p 0.4111) | Spearman vs R -0.074 | era trend rho_t -0.20
+    within-year null: win p 0.767 (q 0.877) | net R p 0.484 (q 0.605) | gross R p 0.593 (q 0.718)   [global shift: win p 0.399, R p 0.026]
+    Q1>=0.167        n= 367  win= 29.4%  PF(R)= 1.29  meanR=+0.194  mean$=    254   | within-year Q1 n= 372 win= 30.1% PF(R)= 1.31 meanR=+0.205
+    Q2>=0.674        n= 366  win= 26.5%  PF(R)= 1.18  meanR=+0.118  mean$=    501   | within-year Q2 n= 366 win= 26.0% PF(R)= 1.19 meanR=+0.134
+    Q3>=0.81         n= 366  win= 35.0%  PF(R)= 1.89  meanR=+0.522  mean$=    523   | within-year Q3 n= 367 win= 32.4% PF(R)= 1.55 meanR=+0.334
+    Q4>=0.909        n= 366  win= 29.5%  PF(R)= 1.02  meanR=+0.013  mean$=    177   | within-year Q4 n= 366 win= 32.5% PF(R)= 1.54 meanR=+0.337
+    Q5>=1            n= 366  win= 26.5%  PF(R)= 1.25  meanR=+0.173  mean$=    -21   | within-year Q5 n= 360 win= 25.8% PF(R)= 1.01 meanR=+0.007
+    E1 n=1218  rank-biserial -0.032 (p 0.373)  Spearman vs R -0.076  Q5-Q1 win-rate spread -1.9 pts
+    E2 n=613  rank-biserial +0.027 (p 0.588)  Spearman vs R +0.014  Q5-Q1 win-rate spread +1.9 pts
+
+  imb_body_vs_avg20 [IMBALANCE] -- signal body vs the average body of the prior 20 bars
+    winners median 2.4 | losers median 2.338 | rank-biserial +0.016 (MW p 0.5923) | Spearman vs R -0.040 | era trend rho_t -0.12
+    within-year null: win p 0.374 (q 0.599) | net R p 0.896 (q 0.931) | gross R p 0.166 (q 0.355)   [global shift: win p 0.593, R p 0.100]
+    Q1>=0.163        n= 367  win= 30.5%  PF(R)= 1.30  meanR=+0.190  mean$=    180   | within-year Q1 n= 372 win= 30.1% PF(R)= 1.26 meanR=+0.170
+    Q2>=1.37         n= 366  win= 27.3%  PF(R)= 1.12  meanR=+0.081  mean$=    126   | within-year Q2 n= 366 win= 27.6% PF(R)= 1.10 meanR=+0.066
+    Q3>=2.03         n= 366  win= 27.9%  PF(R)= 1.39  meanR=+0.262  mean$=    412   | within-year Q3 n= 367 win= 28.3% PF(R)= 1.47 meanR=+0.309
+    Q4>=2.75         n= 366  win= 29.8%  PF(R)= 1.39  meanR=+0.256  mean$=    414   | within-year Q4 n= 366 win= 29.0% PF(R)= 1.42 meanR=+0.276
+    Q5>=4            n= 366  win= 31.4%  PF(R)= 1.35  meanR=+0.231  mean$=    302   | within-year Q5 n= 360 win= 31.9% PF(R)= 1.31 meanR=+0.199
+    E1 n=1218  rank-biserial -0.000 (p 0.999)  Spearman vs R -0.042  Q5-Q1 win-rate spread -2.4 pts
+    E2 n=613  rank-biserial +0.059 (p 0.232)  Spearman vs R +0.008  Q5-Q1 win-rate spread +11.7 pts
+
+  imb_vol_z60 [IMBALANCE] -- z-score of log signal volume vs the prior 60 bars
+    winners median 1.464 | losers median 1.411 | rank-biserial +0.029 (MW p 0.3329) | Spearman vs R +0.010 | era trend rho_t +0.03
+    within-year null: win p 0.328 (q 0.564) | net R p 0.820 (q 0.875) | gross R p 0.357 (q 0.570)   [global shift: win p 0.335, R p 0.626]
+    Q1>=-0.798       n= 367  win= 27.5%  PF(R)= 1.09  meanR=+0.062  mean$=      5   | within-year Q1 n= 372 win= 28.5% PF(R)= 1.23 meanR=+0.151
+    Q2>=0.735        n= 366  win= 31.1%  PF(R)= 1.39  meanR=+0.253  mean$=    302   | within-year Q2 n= 366 win= 29.8% PF(R)= 1.16 meanR=+0.103
+    Q3>=1.21         n= 366  win= 25.7%  PF(R)= 1.11  meanR=+0.073  mean$=    189   | within-year Q3 n= 367 win= 28.9% PF(R)= 1.52 meanR=+0.337
+    Q4>=1.65         n= 366  win= 31.1%  PF(R)= 1.53  meanR=+0.330  mean$=    473   | within-year Q4 n= 366 win= 29.2% PF(R)= 1.24 meanR=+0.160
+    Q5>=2.29         n= 366  win= 31.4%  PF(R)= 1.47  meanR=+0.302  mean$=    465   | within-year Q5 n= 360 win= 30.6% PF(R)= 1.41 meanR=+0.271
+    E1 n=1218  rank-biserial +0.004 (p 0.922)  Spearman vs R +0.008  Q5-Q1 win-rate spread -1.1 pts
+    E2 n=613  rank-biserial +0.070 (p 0.161)  Spearman vs R +0.018  Q5-Q1 win-rate spread +12.5 pts
+
+  imb_vol_ratio20 [IMBALANCE] -- signal volume / 20-bar average incl. the bar (the file's own volume test, >= 1.1)
+    winners median 1.938 | losers median 1.972 | rank-biserial -0.010 (MW p 0.7356) | Spearman vs R -0.047 | era trend rho_t -0.11
+    within-year null: win p 0.944 (q 0.966) | net R p 0.753 (q 0.825) | gross R p 0.407 (q 0.598)   [global shift: win p 0.706, R p 0.091]
+    Q1>=1.1          n= 367  win= 30.5%  PF(R)= 1.34  meanR=+0.215  mean$=    178   | within-year Q1 n= 372 win= 29.6% PF(R)= 1.22 meanR=+0.147
+    Q2>=1.41         n= 366  win= 29.0%  PF(R)= 1.17  meanR=+0.112  mean$=    407   | within-year Q2 n= 366 win= 29.8% PF(R)= 1.23 meanR=+0.153
+    Q3>=1.72         n= 366  win= 30.3%  PF(R)= 1.35  meanR=+0.223  mean$=    315   | within-year Q3 n= 367 win= 31.1% PF(R)= 1.50 meanR=+0.310
+    Q4>=2.22         n= 366  win= 29.0%  PF(R)= 1.34  meanR=+0.221  mean$=    203   | within-year Q4 n= 366 win= 27.6% PF(R)= 1.25 meanR=+0.166
+    Q5>=3.27         n= 366  win= 28.1%  PF(R)= 1.36  meanR=+0.248  mean$=    330   | within-year Q5 n= 360 win= 28.9% PF(R)= 1.36 meanR=+0.245
+    E1 n=1218  rank-biserial -0.020 (p 0.588)  Spearman vs R -0.019  Q5-Q1 win-rate spread -5.6 pts
+    E2 n=613  rank-biserial +0.031 (p 0.537)  Spearman vs R -0.030  Q5-Q1 win-rate spread +6.0 pts
+
+========================================================================================================================
+WHAT THE STRONGEST READS WOULD DO -- IN-SAMPLE DESCRIPTION ONLY. The cut is the worst global quintile of each feature, chosen on this same selection data; this is the size of the effect, not a rule, and the family's history is that entry filters built this way lose money out of sample.
+    ALL selection trades                     n= 1831  win= 29.4%  PF($)=1.717  net=$524,745  PF(R)=1.312  meanR=+0.204  [E1 win  27.6% PF(R) 1.21 | E2 win  33.0% PF(R) 1.56]
+    drop ctx_atr_pct_price Q1                n= 1464  win= 30.7%  PF($)=1.754  net=$518,973  PF(R)=1.398  meanR=+0.250  [E1 win  28.5% PF(R) 1.28 | E2 win  34.0% PF(R) 1.62]
+    drop loc_pb_depth_pct Q1                 n= 1464  win= 30.6%  PF($)=1.756  net=$521,840  PF(R)=1.392  meanR=+0.248  [E1 win  28.8% PF(R) 1.27 | E2 win  33.6% PF(R) 1.63]
+    drop loc_plan_risk_pct Q1                n= 1464  win= 30.9%  PF($)=1.752  net=$523,324  PF(R)=1.423  meanR=+0.265  [E1 win  29.3% PF(R) 1.30 | E2 win  33.8% PF(R) 1.65]
+    drop loc_cost_share_R Q5                 n= 1465  win= 31.1%  PF($)=1.748  net=$528,108  PF(R)=1.470  meanR=+0.291  [E1 win  29.8% PF(R) 1.41 | E2 win  33.0% PF(R) 1.56]
+    drop loc_swing_low_risk_pts Q1           n= 1464  win= 31.1%  PF($)=1.745  net=$526,704  PF(R)=1.458  meanR=+0.284  [E1 win  29.7% PF(R) 1.39 | E2 win  33.0% PF(R) 1.56]
+    drop ctx_vix_prior_close Q1              n= 1448  win= 30.5%  PF($)=1.735  net=$472,905  PF(R)=1.381  meanR=+0.240  [E1 win  29.1% PF(R) 1.29 | E2 win  32.7% PF(R) 1.53]
+    drop ta:lvl_pdl_atr Q5                   n= 1464  win= 30.7%  PF($)=1.779  net=$513,618  PF(R)=1.381  meanR=+0.241  [E1 win  28.6% PF(R) 1.27 | E2 win  34.6% PF(R) 1.63]
+    drop ta:lvl_sma50d_atr Q5                n= 1448  win= 30.4%  PF($)=1.822  net=$490,282  PF(R)=1.384  meanR=+0.248  [E1 win  28.7% PF(R) 1.26 | E2 win  33.7% PF(R) 1.68]
+  MECHANICS CHECK on planned risk %% of price (global quintiles): if small stops only lost more per loser (tick grid, gap-through stops), the effect would sit in the LOSERS' R, not in the win rate:
+    Q1  n=367  win 23.2%  losers: mean gross R -0.866, share worse than -1.05R 0.4%, exact-entry scratches 8.7% | winners: median gross R +2.45, mean +3.23
+    Q2  n=366  win 25.7%  losers: mean gross R -0.869, share worse than -1.05R 0.7%, exact-entry scratches 7.4% | winners: median gross R +1.67, mean +3.17
+    Q3  n=366  win 27.6%  losers: mean gross R -0.879, share worse than -1.05R 0.8%, exact-entry scratches 6.8% | winners: median gross R +2.25, mean +2.95
+    Q4  n=366  win 32.8%  losers: mean gross R -0.904, share worse than -1.05R 1.6%, exact-entry scratches 5.7% | winners: median gross R +2.05, mean +3.04
+    Q5  n=366  win 37.7%  losers: mean gross R -0.843, share worse than -1.05R 0.0%, exact-entry scratches 8.5% | winners: median gross R +2.11, mean +2.58
+
+========================================================================================================================
+COMBINED READ (ceiling check, not a model proposal): L2 logistic on ALL 160 features, time split inside the selection window
+  train 2010-06..2018-12 -> test 2019-01..2025-06: n_train=1066 n_test=765  test AUC(win)=0.513 (score ranked inside each year: 0.515)  Spearman(score, R)=+0.035  top-quintile win 32.7% / PF(R) 1.86 vs bottom-quintile 31.4% / 1.37 vs all 32.2% / 1.55
+  train 2019-01..2025-06 -> test 2010-06..2018-12: n_train=765 n_test=1066  test AUC(win)=0.536 (score ranked inside each year: 0.536)  Spearman(score, R)=+0.201  top-quintile win 29.4% / PF(R) 1.37 vs bottom-quintile 22.0% / 0.66 vs all 27.4% / 1.16
+
+========================================================================================================================
+TAIL vs BODY at signal time
+  $ tail (whole window): the 32 best trades by $ take selection net to <= 0 -- entry years 2015:1, 2020:4, 2021:7, 2022:5, 2023:4, 2024:6, 2025:5
+    -> 31 of 32 are 2020+ entries: in dollars the whole-window tail IS the modern era (NQ's point amplitude grew ~7x), so it is compared WITHIN its era below, not against 2010-19 trades.
+  E1 $ tail: the 21 best E1 trades take E1 net to <= 0 -- years 2010:1, 2012:1, 2013:1, 2014:1, 2015:1, 2017:3, 2018:8, 2019:5
+  E2 $ tail: the 21 best E2 trades take E2 net to <= 0 -- years 2020:3, 2021:3, 2022:3, 2023:4, 2024:4, 2025:4
+  R tail (era-neutral): the 36 best trades by R take summed R to <= 0 -- years 2010:1, 2011:1, 2013:1, 2014:4, 2015:2, 2016:4, 2017:6, 2018:1, 2019:2, 2020:3, 2021:3, 2022:2, 2023:2, 2024:3, 2025:1
+  overlaps: R tail & whole-window $ tail 8; R tail & (E1 tail or E2 tail) 11
+  a dollar is R x risk-in-points x $20, so a dollar tail is partly SELECTED on stop size: E1 $ tail median R 7.3 (risk 34.5 pts vs E1 body 10.8), E2 $ tail median R 5.5 (risk 157.4 pts vs E2 body 55.2), R tail median R 9.7; share of the E1+E2 $ tails inside the top 5% of R: 67%
+
+  R tail (era-neutral), all selection (n=36) vs BODY (the other trades in scope) and vs OTHER WINNERS -- BH across 158 features
+    survivors q<0.10: vs body (Mann-Whitney) 0 ; vs body (within-year null) 0 ; vs other winners (Mann-Whitney) 0
+    feature (15 smallest MW p)        tail med  body med   oth-win     p MW      q     p WY      q  p o-win      q
+    ta:path_r7                          0.4768   0.06306    0.1183   0.0023  0.368   0.0010  0.158   0.0033  0.515
+    ta:ind_macd_sign_daily                  -1        -1        -1   0.0075  0.592   0.0060  0.268   0.0113  0.876
+    ta:path_lower_wick                  0.1021   0.02941   0.04167   0.0123  0.650   0.0085  0.268   0.0233  0.876
+    ta:ind_rsi14_daily                    47.7     53.05     51.03   0.0194  0.734   0.0075  0.268   0.1417  0.929
+    loc_sess_hi_atr                     -4.924    -7.096    -6.684   0.0232  0.734   0.0245  0.553   0.0395  0.929
+    ta:lvl_sma20d_atr                  0.02269    0.4452     0.297   0.0317  0.835   0.0060  0.268   0.1506  0.929
+    imb_upvol_share10                   0.7288    0.7031    0.7118   0.0447  0.998   0.0305  0.602   0.1587  0.929
+    ctx_ema21820_dist_atr                7.475     18.12     12.58   0.0565  0.998   0.0145  0.382   0.2108  0.929
+    ta:vt_realized5d_vs_20d              1.147     1.024    0.9835   0.0673  0.998   0.0450  0.653   0.0277  0.876
+    ta:vt_vrp                            1.066    0.9957     0.956   0.0785  0.998   0.0715  0.774   0.0261  0.876
+    ta:lvl_prior_week_lo_atr             1.164     1.376     1.362   0.0919  0.998   0.0455  0.653   0.1070  0.929
+    ta:day_ret_5d                      -0.4847   0.08291   -0.1702   0.0952  0.998   0.0380  0.653   0.2678  0.929
+    ctx_ema5455_dist_atr                 3.382     8.342     7.708   0.1035  0.998   0.0590  0.753   0.2219  0.929
+    ta:lvl_prior_week_hi_atr           -0.9619     -0.74   -0.7959   0.1128  0.998   0.0620  0.753   0.2227  0.929
+    ta:vol_last_vs_avg20                  2.18      1.95     1.932   0.1351  0.998   0.1424  1.000   0.1039  0.929
+
+  E1 $ tail, inside E1 (n=21) vs BODY (the other trades in scope) and vs OTHER WINNERS -- BH across 158 features
+    survivors q<0.10: vs body (Mann-Whitney) 35 ; vs body (within-year null) 51 ; vs other winners (Mann-Whitney) 28
+    feature (15 smallest MW p)        tail med  body med   oth-win     p MW      q     p WY      q  p o-win      q
+    loc_cost_share_R                   0.01545   0.04913   0.04318   0.0000  0.000   0.0005  0.007   0.0000  0.000
+    loc_swing_low_risk_pts                  36      11.5     13.25   0.0000  0.000   0.0005  0.007   0.0000  0.000
+    loc_plan_risk_pct                   0.6024    0.2597    0.3043   0.0000  0.000   0.0005  0.007   0.0000  0.000
+    loc_rn100_near_atr                   5.895     17.78     15.55   0.0000  0.000   0.0005  0.007   0.0000  0.002
+    loc_pb_depth_pct                    0.8099    0.4425    0.4939   0.0000  0.000   0.0005  0.007   0.0001  0.002
+    ta:ind_bbw_pctile_bar                 94.1     65.98      69.3   0.0000  0.001   0.0005  0.007   0.0003  0.009
+    ta:ind_atr_pctile_bar                91.22     67.06      68.6   0.0001  0.002   0.0005  0.007   0.0004  0.010
+    ctx_atr_pct_price                  0.05536   0.02908    0.0346   0.0001  0.002   0.0005  0.007   0.0014  0.020
+    ta:vt_intraday_daily_ratio           1.427    0.7614    0.8236   0.0001  0.002   0.0005  0.007   0.0007  0.011
+    ta:lvl_pdl_atr                       15.54     34.77     32.77   0.0003  0.005   0.0005  0.007   0.0006  0.011
+    ta:path_upcount5                         4         3         3   0.0004  0.005   0.0020  0.014   0.0019  0.024
+    ta:path_upcount10                        7         6         6   0.0004  0.006   0.0025  0.015   0.0041  0.036
+    ta:lvl_ema50_60m_atr                 1.999     7.612     7.675   0.0005  0.006   0.0005  0.007   0.0007  0.011
+    imb_upvol_share10                   0.7903    0.6857    0.7047   0.0006  0.007   0.0015  0.014   0.0068  0.047
+    ta:vt_intraday_daily_pctile20        84.81     64.23     67.04   0.0006  0.007   0.0010  0.011   0.0024  0.027
+
+  E2 $ tail, inside E2 (n=21) vs BODY (the other trades in scope) and vs OTHER WINNERS -- BH across 158 features
+    survivors q<0.10: vs body (Mann-Whitney) 25 ; vs body (within-year null) 36 ; vs other winners (Mann-Whitney) 16
+    feature (15 smallest MW p)        tail med  body med   oth-win     p MW      q     p WY      q  p o-win      q
+    loc_swing_low_risk_pts               171.2     58.88        58   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    loc_cost_share_R                  0.003386   0.00966  0.009647   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    ta:ind_atr_pctile_bar                97.31     73.37     74.67   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    ta:ind_bbw_pctile_bar                97.91     73.23     73.64   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    loc_plan_risk_pct                    1.107    0.4102    0.4096   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    loc_pb_depth_pct                     1.361    0.6715    0.7175   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    ta:vt_intraday_daily_ratio           2.347    0.8004    0.8474   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    ctx_atr_pct_price                   0.1028   0.04785   0.04818   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    ta:vt_intraday_daily_pctile20        96.69     60.44     60.14   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    ta:lvl_pdl_atr                       13.69      35.4     32.01   0.0000  0.000   0.0005  0.005   0.0001  0.001
+    loc_rn100_above_atr                  2.729     6.528     6.855   0.0000  0.000   0.0005  0.005   0.0000  0.000
+    loc_rn100_near_atr                     1.1      3.54     3.352   0.0000  0.000   0.0005  0.005   0.0000  0.001
+    ctx_is_rth                               1         0         0   0.0004  0.005   0.0005  0.005   0.0007  0.008
+    ta:day_minutes_since_open             1022       840       840   0.0006  0.006   0.0010  0.009   0.0007  0.008
+    ctx_mins_since_1800                   1022       840       840   0.0006  0.006   0.0010  0.009   0.0007  0.008
+
+========================================================================================================================
+CONTAMINATION READ: trade_anatomy features at its DEFAULT decision bar (fill bar - 1) vs the true SIGNAL bar (continuous columns only, within-year null)
+  signal bar    77 columns, within-year FDR survivors 41; strongest: lvl_pdl_atr (corr win -0.085 p 0.000, corr R -0.180 p 0.000); path_with60_atr (corr win +0.036 p 0.093, corr R +0.097 p 0.000); path_closepos60 (corr win +0.010 p 0.526, corr R +0.059 p 0.000); path_upcount10 (corr win +0.080 p 0.008, corr R +0.231 p 0.000); ind_bbw_pctile_bar (corr win +0.102 p 0.000, corr R +0.259 p 0.000); ind_er20_bar (corr win +0.047 p 0.061, corr R +0.111 p 0.000)
+  fill bar - 1  77 columns, within-year FDR survivors 42; strongest: lvl_pdl_atr (corr win -0.087 p 0.000, corr R -0.181 p 0.000); path_with60_atr (corr win +0.031 p 0.154, corr R +0.090 p 0.000); path_upcount10 (corr win +0.062 p 0.058, corr R +0.208 p 0.000); ind_atr_pctile_bar (corr win +0.092 p 0.000, corr R +0.250 p 0.000); ind_atr_pctile_daily (corr win +0.069 p 0.014, corr R +0.146 p 0.000); ind_bbw_pctile_bar (corr win +0.102 p 0.000, corr R +0.256 p 0.000)
+  largest change in corr(feature, R) between the two readings: path_r2 +0.058 -> +0.002; path_bars_since_hi20 -0.052 -> -0.003; path_closepos60 +0.059 -> +0.031; lvl_ema20_atr +0.025 -> -0.003; path_r3 +0.012 -> +0.040; ind_er20_bar +0.111 -> +0.087
+
+========================================================================================================================
+POST-SIGNAL DIAGNOSTICS (NOT knowable at the signal bar -- description only, never a rule)
+  fill delay 1 bars: n=1001 win= 28.9% PF(R)=1.34 meanR=+0.227 mean$=367
+  fill delay 2 bars: n= 312 win= 28.5% PF(R)=1.15 meanR=+0.098 mean$=136
+  fill delay 3 bars: n= 144 win= 31.2% PF(R)=1.28 meanR=+0.171 mean$=264
+  fill delay 4 bars: n= 108 win= 34.3% PF(R)=1.36 meanR=+0.217 mean$=174
+  fill delay 5+ bars: n= 266 win= 29.3% PF(R)=1.39 meanR=+0.253 mean$=219
+
+runtime 96s
