@@ -67,7 +67,15 @@ KNOWN mismatch, not a hidden one:
 CLI
   python -m api.cloud_signal --replay YYYY-MM-DD   replay one cached session bar-by-
                                                      bar, print the signal ledger +
-                                                     the NT-vs-QQQ comparison table
+                                                     the NT-vs-QQQ comparison table.
+                                                     ISOLATED: runs in a temp copy of
+                                                     the bar cache with a cold state
+                                                     and never writes the live ledger
+  python -m api.cloud_signal --replay YYYY-MM-DD --live-paths
+                                                     explicit opt-in: replay INTO the
+                                                     live <home>/cloud_signal ledger +
+                                                     state; refused while a live
+                                                     writer's heartbeat is fresh
   python -m api.cloud_signal --once                 one live step() and exit
   python -m api.cloud_signal --loop                 step() every 20s during session
                                                      hours, sleep outside them
@@ -78,7 +86,9 @@ import json
 import logging as _logging
 import math
 import os
+import shutil
 import sys
+import tempfile
 import time as _time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -129,6 +139,9 @@ def _paths(home=None):
     }
 
 
+# The LIVE store: the runner's parallel run writes here and api/qqq_exec.py consumes
+# signals.csv by row cursor. Only live (fetching) callers may default to it -- an offline
+# run gets isolated_paths() or an explicit paths dict (see isolated_paths, 2026-09-14).
 DEFAULT_PATHS = _paths()
 
 # ── Crown legs (current as of 2026-09-08 — see api/paper.py PAPER_LEGS) ─────────────────
@@ -494,9 +507,19 @@ def step(now=None, legs=None, paths=None, fetch=True):
     module as cfg["strategy"]) to test the diff/idempotency machinery in isolation.
     `fetch`: pull fresh bars over the network first. --replay always passes False (it
     must stay fully offline and deterministic); --once/--loop pass True.
+    `paths`: the state store. Defaults to the live DEFAULT_PATHS ONLY for a fetching
+    (live) call. An offline call (fetch=False) must name its store: it used to fall
+    through to the live ledger too, which is how a replay contaminated it twice (see
+    isolated_paths), and a lone offline step into a fresh scratch store could only ever
+    cold-start, so there is no useful default to give it instead.
     """
     legs = legs if legs is not None else CROWN_LEGS
-    paths = paths or DEFAULT_PATHS
+    if paths is None:
+        if not fetch:
+            raise ValueError("step(fetch=False) needs an explicit `paths`: an offline step must "
+                             "not default to the live ledger -- use replay() or "
+                             "isolated_paths(), or pass DEFAULT_PATHS on purpose")
+        paths = DEFAULT_PATHS
     now = now or _dt.datetime.now(tz=_zi(TZ))
     if now.tzinfo is None:
         now = now.replace(tzinfo=_zi(TZ))
@@ -711,12 +734,51 @@ def _session_minute_closes(day, tz_name=TZ, max_ticks=None):
     return out
 
 
+def isolated_paths(legs=None, source_paths=None, root=None):
+    """A throwaway paths dict for an OFFLINE run: a fresh temp home holding a COPY of the
+    bar cache for every timeframe `legs` uses (copied from `source_paths`, default the
+    live DEFAULT_PATHS) and an empty cloud_signal/ dir, so the run starts cold and every
+    file it writes lands in the copy. The caller owns the folder (paths["home"]) --
+    replay() removes the one it makes for itself; the CLI keeps its copy for inspection.
+
+    WHY (2026-09-14, the second time). `python -m api.cloud_signal --replay 2026-09-03`
+    ran replay(day) -> step(paths=None) -> DEFAULT_PATHS, straight into the live ledger
+    the runner's parallel run appends to and api/qqq_exec.py consumes by row cursor. At
+    00:55 ET it wrote a NOISE_304 SEED plus 2026-09-03 ENTRY/EXIT rows and left that
+    day's 11:00 trade recorded as entered-but-still-open, so at 09:31 ET the LIVE engine
+    emitted the EXIT of a trade from eleven days earlier and the shadow adapter consumed
+    it (no lot happened to be open). 2026-09-09 was the same mistake by hand. A replay
+    row's emitted_at is the real clock, so the adapter cannot tell it from a live
+    signal: the only safe replay is one that cannot reach the live files unless someone
+    asks for exactly that (--live-paths)."""
+    legs = legs if legs is not None else CROWN_LEGS
+    source_paths = source_paths or DEFAULT_PATHS
+    paths = _paths(home=tempfile.mkdtemp(prefix="cloud_signal_replay_", dir=root))
+    try:
+        os.makedirs(paths["ohlc_dir"], exist_ok=True)
+        for tf in sorted({cfg["timeframe"] for cfg in legs.values()}):
+            src = _cache_path(tf, source_paths)
+            if os.path.exists(src):
+                # one read of a file the live writer only ever os.replace()s -- never torn
+                shutil.copyfile(src, _cache_path(tf, paths))
+    except BaseException:
+        shutil.rmtree(paths["home"], ignore_errors=True)
+        raise
+    return paths
+
+
 def replay(day, legs=None, paths=None, warmup_sessions=None, max_ticks=None):
     """Replay one cached session bar-by-bar (1-minute granularity), calling step() at
     each closed-bar boundary with fetch=False (fully offline — only ever reads the
-    on-disk cache). Returns the full ledger of events emitted (across however many
-    times replay() has been called for this day against this state store — call it
-    twice to see the idempotency guarantee: the second call's return is empty).
+    on-disk cache). Returns the events THIS call emitted. Replay the same day twice
+    against one persistent store to see the idempotency guarantee: the second call's
+    return is empty.
+
+    `paths`: the store to replay INTO. The default (None) is a throwaway
+    isolated_paths() copy, removed when the replay returns, so every default call starts
+    cold -- and never the live DEFAULT_PATHS (see isolated_paths for the incident). Pass
+    a paths dict you own to keep the ledger/state or rerun against it; pass DEFAULT_PATHS
+    only when writing into the live ledger is genuinely the point.
 
     `warmup_sessions`: overrides every leg's warm-up window for this call only (does
     not mutate CROWN_LEGS/legs). `max_ticks`: replay only the first N 1-minute closes
@@ -733,10 +795,17 @@ def replay(day, legs=None, paths=None, warmup_sessions=None, max_ticks=None):
         legs = {k: dict(v, warmup_sessions=warmup_sessions) for k, v in legs.items()}
     if not market_calendar.is_session(day):
         raise ValueError(f"{day} is not a session day (holiday or weekend)")
-    ledger = []
-    for now in _session_minute_closes(day, max_ticks=max_ticks):
-        ledger.extend(step(now=now, legs=legs, paths=paths, fetch=False))
-    return ledger
+    own_scratch = paths is None
+    if own_scratch:
+        paths = isolated_paths(legs)
+    try:
+        ledger = []
+        for now in _session_minute_closes(day, max_ticks=max_ticks):
+            ledger.extend(step(now=now, legs=legs, paths=paths, fetch=False))
+        return ledger
+    finally:
+        if own_scratch:
+            shutil.rmtree(paths["home"], ignore_errors=True)
 
 
 # ── NT-vs-QQQ comparison (diagnostic only — no assertion) ────────────────────────────────
@@ -794,13 +863,60 @@ def _write_heartbeat(paths, ok=True, note=""):
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────────────────
-def cmd_replay(day):
-    events = replay(day)
+# The runner thread stamps its heartbeat every 30s in session and every 60s outside it, so
+# three of the slow beats without one is the least that can mean "no live writer".
+LIVE_WRITER_FRESH_SEC = 180.0
+
+
+def _live_writer_age_sec(paths):
+    """Seconds since a live writer (the runner thread, --loop, --once) last stamped the
+    heartbeat under `paths`; None when there is no heartbeat file at all. A heartbeat that
+    exists but cannot be read reads as 0.0 -- "can't tell" must refuse a live write, not
+    wave it through."""
+    hb = paths["heartbeat_path"]
+    if not os.path.exists(hb):
+        return None
+    try:
+        with open(hb, encoding="utf-8") as f:
+            ts = _dt.datetime.fromisoformat(str(json.load(f).get("ts")))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=_zi(TZ))
+        return (_dt.datetime.now(tz=_zi(TZ)) - ts).total_seconds()
+    except Exception:
+        return 0.0
+
+
+def cmd_replay(day, live_paths=False):
+    """--replay. Isolated by default: the session replays in an isolated_paths() copy that
+    is kept and named on screen, so its state.json/signals.csv can be read afterwards,
+    and the live ledger is never opened for writing.
+
+    --live-paths is the explicit opt-in to replay INTO DEFAULT_PATHS, and it is refused
+    while a live writer's heartbeat is fresh: the runner thread rewrites state.json every
+    30s (two writers lose each other's records and re-emit), and api/qqq_exec.py acts on
+    any new ENTRY/EXIT row whose emitted_at looks recent -- which every replay row's does.
+    Stop the thread first, and mind the adapter. Returns a process exit code."""
+    if live_paths:
+        paths = DEFAULT_PATHS
+        age = _live_writer_age_sec(paths)
+        if age is not None and age < LIVE_WRITER_FRESH_SEC:
+            print(f"cloud_signal replay {day}: REFUSED --live-paths -- a live writer stamped "
+                  f"{paths['heartbeat_path']} {age:.0f}s ago. Stop the runner's cloud_signal "
+                  f"thread (or --loop) first, or drop --live-paths to replay in isolation.")
+            return 2
+        print(f"cloud_signal replay {day}: --live-paths -- writing into the LIVE ledger and "
+              f"state in {paths['state_dir']}")
+    else:
+        paths = isolated_paths()
+        print(f"cloud_signal replay {day}: isolated copy in {paths['home']} "
+              f"(live ledger untouched; delete the folder when done)")
+    events = replay(day, paths=paths)
     print(f"cloud_signal replay {day} — {len(events)} new event(s) this call")
     print(_fmt_ledger_table(events))
     nt_rows = nt_comparison(day)
     print(f"\nNT (NinjaTrader NQ) vs QQQ cloud_signal — session {day}")
     print(_fmt_nt_comparison_table(events, nt_rows))
+    return 0
 
 
 def cmd_once():
@@ -873,15 +989,23 @@ def cmd_loop():
             _time.sleep(60)
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--replay", metavar="YYYY-MM-DD", help="replay one cached session")
+    ap.add_argument("--replay", metavar="YYYY-MM-DD",
+                    help="replay one cached session in an isolated copy")
+    ap.add_argument("--live-paths", action="store_true",
+                    help="with --replay: write INTO the live ledger/state instead of a copy "
+                         "(refused while a live writer's heartbeat is fresh)")
     ap.add_argument("--once", action="store_true", help="one live step() and exit")
     ap.add_argument("--loop", action="store_true", help="step() every 20s during session hours")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
+    if args.live_paths and not args.replay:
+        ap.error("--live-paths only applies to --replay")
     if args.replay:
-        cmd_replay(args.replay)
+        rc = cmd_replay(args.replay, live_paths=args.live_paths)
+        if rc:
+            sys.exit(rc)
     elif args.once:
         cmd_once()
     elif args.loop:

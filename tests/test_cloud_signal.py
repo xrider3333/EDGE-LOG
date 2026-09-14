@@ -1,7 +1,7 @@
 """Tests for api/cloud_signal.py — the SIGNAL ENGINE (no order code) that will later
 feed a Webull execution adapter. See that module's docstring for the full design.
 
-Two kinds of coverage:
+Three kinds of coverage:
   1. A synthetic 3-bar fixture (no external data) proving the diff/idempotency
      machinery emits ENTRY then EXIT for a trivially-firing stub strategy, passed in
      via cfg["strategy"] as a loaded module object (engine.run_backtest accepts that
@@ -11,6 +11,10 @@ Two kinds of coverage:
      present, e.g. a fresh clone / CI) proving a replay of the newest cached session
      is deterministic across independent runs, and that replaying the same day twice
      against the SAME state store emits zero NEW events the second time.
+  3. Isolation: a replay that names no store -- library call or CLI -- never writes the
+     live ledger/state, and targeting them takes an explicit --live-paths that is refused
+     while a live writer is ticking (the 2026-09-14 contamination, see
+     cloud_signal.isolated_paths).
 
 SPEED. cloud_signal.replay() recomputes each leg's full engine backtest at every
 closed 1-minute bar boundary — by design, see that function's docstring — so cost is
@@ -20,6 +24,7 @@ idempotency rerun) stay well under this file's speed budget. This does not test
 strategy fidelity at full warm-up depth (regime_len etc. want more history) — it
 tests the diff/idempotency mechanics, which are warm-up-depth-independent.
 """
+import csv
 import os
 import shutil
 import zoneinfo
@@ -391,3 +396,126 @@ def test_replay_same_day_twice_is_idempotent(tmp_path):
         state = json.load(f)
     assert set(state["legs"].keys()) == set(cs.CROWN_LEGS.keys())
     del first  # only used to keep the variable name self-documenting above
+
+
+# ── 3. Isolation: an offline run never writes the live ledger ───────────────────────────
+FIXTURE_DAY = "2026-09-08"   # the day _fixture_epoch_df's bars sit on
+
+
+def _tree_bytes(root):
+    """{relative path: bytes} for every file under `root` -- equal before and after means
+    nothing was written, appended, created or deleted there."""
+    out = {}
+    for d, _, names in os.walk(root):
+        for name in names:
+            p = os.path.join(d, name)
+            with open(p, "rb") as f:
+                out[os.path.relpath(p, root)] = f.read()
+    return out
+
+
+def _stamp_heartbeat(paths, age_sec):
+    ts = datetime.datetime.now(zoneinfo.ZoneInfo(cs.TZ)) - datetime.timedelta(seconds=age_sec)
+    with open(paths["heartbeat_path"], "w", encoding="utf-8") as f:
+        f.write('{"ts": "%s", "ok": true, "note": "test"}' % ts.isoformat())
+
+
+@pytest.fixture
+def fake_live(tmp_path, monkeypatch):
+    """A stand-in for the owner's live EDGELOG_HOME, and the reason these tests can never
+    touch the real one: module-level DEFAULT_PATHS points at a tmp home holding the fixture
+    bar cache and the ledger/state an ARMED parallel run leaves behind (leg already seeded,
+    one SEED row). The crown legs are swapped for the stub, and the temp root isolated
+    copies are made under is moved inside tmp_path so the test can see them."""
+    epoch_df, _ = _fixture_epoch_df()
+    live = cs._paths(home=str(tmp_path / "live_home"))
+    os.makedirs(live["ohlc_dir"])
+    epoch_df.to_csv(cs._cache_path("1m", live), index=False)
+    cs._write_state({"legs": {"STUB": {"trades": {}, "seeded": True}},
+                     "generated_at": "2026-09-08T09:00:00-04:00"}, live)
+    cs._append_signals([{"emitted_at": "2026-09-08T09:00:00-04:00", "leg": "STUB",
+                         "event": "SEED", "reason": "the live run's own seed"}], live)
+    monkeypatch.setattr(cs, "DEFAULT_PATHS", live)
+    monkeypatch.setattr(cs, "CROWN_LEGS", {"STUB": {
+        "strategy": _stub_module(), "timeframe": "1m", "params": {}, "warmup_sessions": 5,
+        # about isolation, not lateness -- see test_synthetic_fixture_entry_then_exit
+        "max_entry_age_sec": 3600}})
+    # the CLI prints NinjaTrader's fills beside the replay; this suite has no fills file
+    monkeypatch.setattr(cs, "nt_comparison", lambda day, fills_path=None: [])
+    scratch_root = tmp_path / "temp_root"
+    scratch_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(scratch_root))
+    return live, scratch_root
+
+
+def test_default_replay_leaves_live_paths_untouched(fake_live):
+    """REGRESSION (2026-09-14): `python -m api.cloud_signal --replay 2026-09-03` ran
+    replay(day) -> step(paths=None) -> DEFAULT_PATHS and wrote a NOISE_304 SEED plus
+    2026-09-03 ENTRY/EXIT rows into the LIVE ledger at 00:55 ET; the live engine then
+    emitted that trade's EXIT at 09:31 and the QQQ shadow adapter consumed it. A replay
+    that names no store must run on a copy and leave every live file byte-for-byte alone."""
+    live, scratch_root = fake_live
+    before = _tree_bytes(live["home"])
+
+    events = cs.replay(FIXTURE_DAY, max_ticks=10)
+
+    assert [e["event"] for e in events] == ["SEED", "ENTRY", "EXIT"], (
+        "the replay must run COLD on a copy of the bar cache -- replaying into the live "
+        "store would have skipped the SEED, because the live leg is already armed")
+    assert _tree_bytes(live["home"]) == before, "a default replay wrote into the live paths"
+    assert os.listdir(scratch_root) == [], "replay() must remove the copy it made for itself"
+
+
+def _short_cli_sessions(monkeypatch):
+    """The CLI replays all ~390 minutes (~6 s against the stub); the stub's trade is over by
+    09:35. Caps the ticks only -- which store the CLI picks is still cmd_replay's own call."""
+    real_replay = cs.replay
+    monkeypatch.setattr(cs, "replay", lambda day, **kw: real_replay(day, max_ticks=10, **kw))
+
+
+def test_cli_replay_runs_in_a_kept_isolated_copy(fake_live, monkeypatch, capsys):
+    """The CLI is the entry point that actually did it. By default it replays into an
+    isolated copy it KEEPS and names, so the replay's own ledger can still be read."""
+    live, scratch_root = fake_live
+    _short_cli_sessions(monkeypatch)
+    before = _tree_bytes(live["home"])
+
+    cs.main(["--replay", FIXTURE_DAY])
+
+    assert _tree_bytes(live["home"]) == before, "the CLI replay wrote into the live paths"
+    (copy_name,) = os.listdir(scratch_root)
+    kept = cs._paths(home=str(scratch_root / copy_name))
+    with open(kept["signals_path"], encoding="utf-8", newline="") as f:
+        assert [r["event"] for r in csv.DictReader(f)] == ["SEED", "ENTRY", "EXIT"]
+    assert copy_name in capsys.readouterr().out, "the CLI must say where the copy is"
+
+
+def test_cli_live_paths_is_an_explicit_opt_in_refused_while_a_writer_ticks(fake_live, monkeypatch):
+    live, scratch_root = fake_live
+    _short_cli_sessions(monkeypatch)
+    _stamp_heartbeat(live, age_sec=20)            # the runner thread is alive
+    before = _tree_bytes(live["home"])
+
+    with pytest.raises(SystemExit) as refused:
+        cs.main(["--replay", FIXTURE_DAY, "--live-paths"])
+    assert refused.value.code == 2
+    assert _tree_bytes(live["home"]) == before, "a refused --live-paths must write nothing"
+
+    _stamp_heartbeat(live, age_sec=cs.LIVE_WRITER_FRESH_SEC + 60)   # ...and now it is stopped
+    cs.main(["--replay", FIXTURE_DAY, "--live-paths"])
+
+    with open(live["signals_path"], encoding="utf-8", newline="") as f:
+        rows = [r["event"] for r in csv.DictReader(f)]
+    assert rows == ["SEED", "ENTRY", "EXIT"], (
+        "opted in with no live writer, the replay appends to the LIVE ledger -- after the "
+        "live run's own SEED, with no second SEED because it reuses the live state")
+    assert os.listdir(scratch_root) == [], "--live-paths must not make a copy"
+
+
+def test_offline_step_without_paths_refuses(fake_live):
+    live, _ = fake_live
+    before = _tree_bytes(live["home"])
+    _, base = _fixture_epoch_df()
+    with pytest.raises(ValueError, match="explicit `paths`"):
+        cs.step(now=(base + pd.Timedelta(minutes=6)).to_pydatetime(), fetch=False)
+    assert _tree_bytes(live["home"]) == before
