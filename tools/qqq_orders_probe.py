@@ -28,7 +28,7 @@ sentence-only check is the only honest one):
   f_stop_tripped-- today's realized loss (-412) at/through the configured daily stop
                    (400) -> "stopped for the day", independent of broker mode.
 
-Each case asserts: renderApp() did not throw, the ORDERS card (.qb-sec-orders) exists,
+Each case asserts: renderApp() did not throw, the ORDERS card (.qb-sec-broker) exists,
 the expected plain-language sentence(s) appear inside it, zero console errors, and (at
 380px) no horizontal body overflow. Not wired into wt.py ship (ad hoc verification tool,
 same category as tools/qqq_overview_probe.py) -- run by hand: `python
@@ -105,10 +105,18 @@ var IW=__IW__;
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
       out.themeApplied=d.documentElement.getAttribute('data-theme');
 
-      var ordersEl=d.querySelector('.qb-sec-orders');
+      var ordersEl=d.querySelector('.qb-sec-broker');
       out.hasOrdersCard=!!ordersEl;
       out.ordersText=ordersEl?ordersEl.textContent:null;
       out.ordersHtml=ordersEl?ordersEl.innerHTML:null;
+      // 2026-09-14 regression check: qb-sec-broker used to be named qb-sec-orders, which
+      // COLLIDES with the pre-existing "Today's orders" table's own qb-sec-orders class --
+      // both would claim the same named CSS grid-area at >=1100px and overlap. Capture
+      // both cards' rects so main() can assert they never intersect.
+      function rectOf(sel){var el=d.querySelector(sel);return el?el.getBoundingClientRect():null;}
+      var brokerRect=rectOf('.qb-sec-broker'), todayOrdersRect=rectOf('.qb-sec-orders');
+      out.brokerRect=brokerRect?{top:brokerRect.top,left:brokerRect.left,right:brokerRect.right,bottom:brokerRect.bottom}:null;
+      out.todayOrdersRect=todayOrdersRect?{top:todayOrdersRect.top,left:todayOrdersRect.left,right:todayOrdersRect.right,bottom:todayOrdersRect.bottom}:null;
       out.bodyScrollW=d.body?d.body.scrollWidth:null;
       out.overflowOk=(out.bodyScrollW==null)||(out.bodyScrollW<=IW+2);
       out.consoleErrors=w.eval('window._qeProbeErrors||[]');
@@ -279,11 +287,27 @@ def build_fixtures():
     d['rails']['daily_loss_limit_usd'] = 400
     fx['f_stop_tripped'] = d
 
+    # (g) LAYOUT REGRESSION CHECK (not one of the 6 required cases; desktop-only, see
+    # main()). qb-sec-broker started life as qb-sec-orders, which is ALSO the class the
+    # pre-existing "Today's orders" table uses -- at >=1100px both would have claimed the
+    # same named CSS grid-area and overlapped. That table only renders when today.orders
+    # is non-empty, so this fixture populates it (same shape as tools/fixtures/
+    # qqq_exec_healthy.json's today.orders rows) specifically to force BOTH cards onto
+    # the page at once.
+    d = copy.deepcopy(fx['c_paper_ok'])
+    d['today'] = {
+        "trades": [], "realized_pnl": 0.0, "unrealized_pnl": 0.0,
+        "orders": [{"ts_et": "2026-09-14 09:31:04", "leg": "NOISE", "action": "ENTER",
+                    "side": "short", "shares": 10, "nq_px": 20510.25, "qqq_px": 500.5,
+                    "px_source": "nq_ratio", "reason": "signal", "latency_s": 1.1}],
+    }
+    fx['g_layout_no_overlap'] = d
+
     return fx
 
 
 # case -> substrings that MUST all appear inside the ORDERS card's own text (not the
-# whole page -- scoped to .qb-sec-orders so a coincidental match elsewhere never counts).
+# whole page -- scoped to .qb-sec-broker so a coincidental match elsewhere never counts).
 EXPECT = {
     'a_no_broker': ['Order status not reported yet'],
     'b_off': ['OFF', 'Simulated only', 'OWNER-PC', 'one-computer check', 'OK',
@@ -295,6 +319,13 @@ EXPECT = {
 }
 
 WIDTHS = [(1400, 1000, 'desktop'), (380, 1000, 'phone')]
+REQUIRED_CASES = ['a_no_broker', 'b_off', 'c_paper_ok', 'd_blocked', 'e_halted', 'f_stop_tripped']
+
+
+def _rects_overlap(r1, r2):
+    if not r1 or not r2:
+        return False
+    return r1['left'] < r2['right'] and r2['left'] < r1['right'] and r1['top'] < r2['bottom'] and r2['top'] < r1['bottom']
 
 
 def main():
@@ -309,13 +340,17 @@ def main():
 
     fx = build_fixtures()
     results = {}
-    for case_name, fixture in fx.items():
+    for case_name in REQUIRED_CASES:
         for width, height, tag in WIDTHS:
             key = '%s_%s' % (case_name, tag)
-            results[key] = run_case_retry(chrome, ROOT, fixture, key, width, height)
+            results[key] = run_case_retry(chrome, ROOT, fx[case_name], key, width, height)
+    # bonus layout-regression case: desktop width only (>=1100px is where the CSS grid
+    # two-column shell -- and therefore the collision it is checking for -- exists at all).
+    results['g_layout_no_overlap_desktop'] = run_case_retry(
+        chrome, ROOT, fx['g_layout_no_overlap'], 'g_layout_no_overlap_desktop', 1400, 1000)
 
     fails = []
-    for case_name in fx:
+    for case_name in REQUIRED_CASES:
         for width, height, tag in WIDTHS:
             key = '%s_%s' % (case_name, tag)
             r = results[key]
@@ -326,7 +361,7 @@ def main():
                 fails.append('%s: renderApp threw -- %s' % (key, r.get('call')))
                 continue
             if not r.get('hasOrdersCard'):
-                fails.append('%s: no .qb-sec-orders card rendered' % key)
+                fails.append('%s: no .qb-sec-broker card rendered' % key)
                 continue
             text = r.get('ordersText') or ''
             for needle in EXPECT[case_name]:
@@ -343,6 +378,24 @@ def main():
                 fails.append('%s: horizontal body overflow at 380px (scrollWidth=%s)'
                               % (key, r.get('bodyScrollW')))
 
+    rg = results['g_layout_no_overlap_desktop']
+    if rg.get('err'):
+        fails.append('g_layout_no_overlap_desktop: %s' % rg['err'])
+    elif rg.get('call') != 'OK':
+        fails.append('g_layout_no_overlap_desktop: renderApp threw -- %s' % rg.get('call'))
+    else:
+        if not rg.get('brokerRect'):
+            fails.append('g_layout_no_overlap_desktop: .qb-sec-broker did not render at desktop width')
+        if not rg.get('todayOrdersRect'):
+            fails.append('g_layout_no_overlap_desktop: .qb-sec-orders (Today’s orders table) did not '
+                         'render even though today.orders was populated -- fixture problem, not a real check')
+        if rg.get('brokerRect') and rg.get('todayOrdersRect') and _rects_overlap(rg['brokerRect'], rg['todayOrdersRect']):
+            fails.append('g_layout_no_overlap_desktop: .qb-sec-broker overlaps the "Today’s orders" table '
+                         '(qb-sec-orders) at 1400px -- the two-column grid-area collision is back: %r vs %r'
+                         % (rg['brokerRect'], rg['todayOrdersRect']))
+        if rg.get('consoleErrors'):
+            fails.append('g_layout_no_overlap_desktop: console errors -- %s' % rg['consoleErrors'])
+
     for nm, r in results.items():
         print(nm, ':', json.dumps({k: v for k, v in r.items() if k != 'ordersHtml'}, indent=1))
 
@@ -351,7 +404,8 @@ def main():
         for f in fails:
             print('  - ' + f)
         return 1
-    print('QQQORDPROBE: PASS (%d cases x %d widths)' % (len(fx), len(WIDTHS)))
+    print('QQQORDPROBE: PASS (%d required cases x %d widths + 1 layout regression check)'
+          % (len(REQUIRED_CASES), len(WIDTHS)))
     return 0
 
 

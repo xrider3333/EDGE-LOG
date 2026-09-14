@@ -529,6 +529,7 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
     grid-template-columns:minmax(0,1fr) 360px;
     grid-template-areas:
       "hero hero"
+      "status broker"
       "chart ready"
       "tiles legs"
       "activity integrity"
@@ -550,6 +551,16 @@ a.clink{color:var(--blue);font-size:var(--fsxs);text-decoration:none}
   .qb-sec-trades{grid-area:trades}
   .qb-sec-orders{grid-area:orders}
   .qb-sec-footer{grid-area:footer}
+  /* 2026-09-14: STATUS (v73.770) had no explicit area and was auto-placed into
+     whichever "." cell happened to be free (observed: the "trades ." row's right
+     cell) -- harmless but accidental. Giving both STATUS and the new order-
+     connection card (qb-sec-broker, added the same day -- named "broker" to
+     avoid colliding with the PRE-EXISTING qb-sec-orders class used by the
+     "Today's orders" table below) their own row keeps them paired right under
+     the hero, matching their DOM order and the single-column layout below
+     1100px. */
+  .qb-sec-status{grid-area:status}
+  .qb-sec-broker{grid-area:broker}
 }
 
 /* ══════════════════════════ HOME tab (v73.651) ══════════════════════════
@@ -722,7 +733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.789';
+const VERSION='73.790';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -740,7 +751,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.788',date:'2026-09-14',notes:['WEBULL PAPER TRADING -- ORDER CONNECTION STATUS. The STATUS card now has an ORDERS section in plain language: OFF / PAPER / LIVE / BLOCKED / HALTED with the reason, how much of the daily stop has been used today with a bar, the share size per strategy, which computer is running the order connection and whether the one-computer check is OK, and the last order and last error. Shows Order status not reported yet until the runner publishes the new fields.']},
+const CHANGELOG=[{v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
+{v:'73.788',date:'2026-09-14',notes:['WEBULL PAPER TRADING -- ORDER CONNECTION STATUS. The STATUS card now has an ORDERS section in plain language: OFF / PAPER / LIVE / BLOCKED / HALTED with the reason, how much of the daily stop has been used today with a bar, the share size per strategy, which computer is running the order connection and whether the one-computer check is OK, and the last order and last error. Shows Order status not reported yet until the runner publishes the new fields.']},
 {v:'73.786',date:'2026-09-14',notes:['BUILDER β run summary typo: the XL scope now reads an 18-month lockbox instead of a 18-month lockbox.']},
 {v:'73.785',date:'2026-09-14',notes:['BUILDER β - A ROBINHOOD-STYLE BUILDER, AS A NEW TAB NEXT TO BUILDER (owner: go for the rebuild, add it as a subtab, migrate it once we like it and retire the old one). The same strategies and the same saved settings, laid out as an order ticket: one Backtest / Optimize / Validate / AI switch, only the settings that run type uses, a picture of the data window with the lockbox hatched on the end, and one big Run button that stays in view. The queue sits on the right with the latest result on top, and folds into a pill on iPad. BUILDER itself looks and works exactly as before.','BUILDER and BUILDER β now build every job with the same code, so the two tabs queue identical jobs for the same settings (checked across all 8 run types).','BUILDER β also fixes three BUILDER annoyances: the Validate time estimate uses the scope trials and years (BUILDER counts the hidden Trials box), a job progress update no longer wipes a number you are typing, and settings a run type ignores are not shown.']},
 {v:'73.783',date:'2026-09-14',notes:['RUNBOARD SIDEWAYS SHOWS THE RUNBOARD. Turning the RUNBOARD grid horizontal used to swap it for the old COMPARE metric table, whose rows ignore the SAMPLE control: its drawdown row was the in-sample optimise-window drawdown whatever sample was picked, and it had no MAR row at all on LOCKBOX or FULL. Horizontal now draws the grid own rows turned on their side - runs down, measures across - so every figure follows SAMPLE exactly as the vertical grid does, with the same ~ marks, best marks and heat. The band captions ride on each measure heading hover.']},{v:'73.782',date:'2026-09-14',notes:['LEVEL = ALL SHOWS THE SWEEPS AND THE AUTO-VALIDATE RUNS TOGETHER (owner: when I select ALL to see both the auto-validate configs and the sweeps, I get nothing). ALL listed research-registry rows only - the sweeps and the write-ups that cite a run - so it never held a real run or configuration, and on Sortino with walk-forward ticked none of those rows had a figure to plot. ALL now puts the sweeps beside the runs from Past Runs, and with SHOW on CONFIGS beside the configurations of the runs you tick; SHOW and RUNS appear on ALL as on AUTO VAL, and the strategy rail counts both.','Two things to expect. With SHOW on RUNS, a registry write-up is replaced by its run once every run it cites is loaded in Past Runs - the rule AUTO VAL has always used - while a write-up of an older run outside the loaded slice stays. With SHOW on CONFIGS no run rows are drawn, so every write-up stays beside the sweeps and the configurations of the runs you tick. Nothing that was on ALL before disappears. And a sweep records no Sharpe, Sortino or walk-forward money, and since v73.771 a run row has no walk-forward Sortino either, so on those axes the chart draws the configurations; the sweeps and runs stay in the table and are named under the chart.']},{v:'73.780',date:'2026-09-14',notes:['PAPER TRADE, NT8 FUTURES - ROBINHOOD MAKEOVER (owner: give it a better Robinhood UI makeover and make most of the info fit on one screen). One big net number with ONE bold line for all switched-on strategies together (each strategy stays as a faint line behind it) - hover the chart and the big number follows the cursor, day by day. 1W / 1M / All are tabs under the chart. A stats grid (trades, win rate, profit factor, average trade / win / loss, best and worst day, max drawdown, green days) sits beside a compact calendar. The strategy list moved to a right-hand rail, like the Webull QQQ view: filters shrink to two segmented lines and three pills, rows are tighter and each net is a coloured pill. Same numbers, same filters, same trade table and panels underneath.']},
@@ -31189,7 +31201,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           try{
             const BR=(QE&&QE.broker)||null;
             if(!BR||BR.error){
-              return '<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Orders</div>'
+              return '<div class="qb-card qb-sec-broker"><div class="qb-section-hd">Orders</div>'
                 +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>'
                 +'</div>';
             }
@@ -31311,11 +31323,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +lastOrderLine+(lastErrLine?('<br>'+lastErrLine):'')
               +'</div>';
 
-            return '<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Orders</div>'
+            return '<div class="qb-card qb-sec-broker"><div class="qb-section-hd">Orders</div>'
               +modeRow+lossRow+sizeRow+hostRow+lastRow
               +'</div>';
           }catch(e){
-            return '<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Orders</div>'
+            return '<div class="qb-card qb-sec-broker"><div class="qb-section-hd">Orders</div>'
               +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>'
               +'</div>';
           }
