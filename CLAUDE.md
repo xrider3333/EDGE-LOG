@@ -162,6 +162,17 @@ result (screenshot / measure the DOM), don't guess. NEVER put a raw apostrophe i
 single-quoted JS string (e.g. a CHANGELOG note) — it terminates the string and white-screens
 the whole app; reword apostrophe-free.
 
+## Running ANY backtest, validate or sweep: read BACKTEST_SPEED.md first (owner 2026-09-14)
+The speed work of 2026-09-08..11 (compiled ENGU-Q loops 26x with 0 trades differing, parallel
+walk-forward folds, one-thread ML fits, trial cache, CPU Boost) is only automatic on the RUNNER.
+A session running code itself must: call the engine rather than re-implementing a strategy loop;
+set `AUGUR_TRIAL_CACHE=1` and `EDGELOG_VALIDATE_WORKERS=3` (code defaults are off / 1); run
+data-reading drivers from the shared checkout; guard multiprocessing callers with
+`if __name__ == "__main__":`; keep each worker process single-threaded; size to free cores and RAM
+after `python tools/queue_truth.py`; and wrap long local runs in `tools/research_beacon.py` so they
+show on the dials. New strategy files are NOT compiled automatically - BACKTEST_SPEED.md section 4
+has the parity-first recipe. Never change the owner's CPU / system settings.
+
 ## Runner restarts: check for a mid-flight job FIRST (multi-session hard rule, 2026-07-19)
 Restarting the runner KILLS any backtest job mid-flight, and the killed job's doc stays
 stuck on status='running' — the fresh runner only polls status=='queued', so the job is
