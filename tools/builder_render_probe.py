@@ -1,28 +1,50 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tools/builder_render_probe.py -- verification probe for the BUILDER tab
-(augurSub='exec') after the BUILD QUEUE sidebar landed in v73.532.
+tools/builder_render_probe.py -- verification probe for the new BUILDER tab
+(augurSub='exec2', every id/class prefixed bb-/data-bb*) that replaced the
+retired BUILDER (augurSub='exec', #ex-*, sidebar .bq-*) on 2026-09-14.
 
 What it guards, in one sentence each:
-  * a RUNNING job that was queued days ago still shows up (the bug: the old listener
-    read the newest 12 job documents BY createdAt while the runner claims the OLDEST
-    queued job first, so the running job and three waiting ones fell outside it);
-  * a queued job written straight in by a script with NO createdAt at all appears,
-    sorts LAST, and is labelled rather than silently given a made-up time;
-  * the top-bar QUEUE chip and the sidebar report the SAME waiting count, because
-    both read the shared _liveJobs() helper;
-  * the RECENT section lists the finished jobs with their figures;
-  * the two-column layout collapses to one column under 1200px;
-  * nothing threw: no window.onerror, no 'runDetail failed' anywhere on the page.
+  * a saved or hand-set augurSub='exec' still lands on the new tab -- renderApp
+    redirects it to 'exec2' on every call, and the old tab's own markup is gone;
+  * the queue rail (aside.bb-rail) shows the same running/waiting/recent picture
+    the retired sidebar did: a job queued 48h ago and running right now still
+    shows up, and a queued job with NO createdAt at all sorts last and carries
+    its own "no timestamp" label instead of a made-up time;
+  * the running row carries a pause control and a stop control, and every
+    waiting row carries its own stop control;
+  * a finished job's cache-reuse figure and its "repeat of #<run>" marker still
+    print, and a finished job that carries a run_id is still a click-through
+    into RESULTS -- both the rail's latest-result card and its own recent row;
+  * the top-bar QUEUE chips agree with the rail on what is running and waiting,
+    and clicking a chip from a completely different tab still lands back on
+    the builder;
+  * the second-level sub-tab strip offers exactly one BUILDER button (exec2,
+    no beta mark) and the retired exec button no longer exists;
+  * the two-column sticky-rail layout holds at and above 1200px, collapses to
+    a floating pill with the rail hidden below that, and window._bbUi.queueOpen
+    brings the rail back without needing a wider viewport;
+  * the sticky Run button never drifts below the fold, and nothing threw: no
+    window.onerror, no console.error, no 'runDetail failed' anywhere on the page.
 
-Fixture (built in Python, injected as `backtests` through _btLive/_btRecent so the
-real merge + sort code runs): 1 running (progress 29, startedAt 3h ago, createdAt
-2 days ago), 3 queued (one WITHOUT createdAt), 2 done, 1 cancelled.
+Fixture (built in Python, handed to the app through _btLive/_btRecent and then
+merged for real by _btMerge(), exactly the way subscribeAll does it): 1 running
+job (progress 29, createdAt 48h ago -- deliberately the oldest thing in the
+set), 3 queued jobs (one of them WITHOUT createdAt), 2 done jobs -- one with a
+run_id and a cache_reuse result, one a repeat_of_run that carries its own
+run_id too -- and 1 cancelled job. metaStrats/metaMasters/metaEta are stubbed
+with one real strategy and one matching market, so the ticket has a data
+window and a time estimate to compute rather than an empty state.
 
-Same shape as tools/qqq_overview_probe.py and tools/paper_render_probe.py: stdlib
-only, plus a subprocess call to local headless Chrome, serving the repo over
-loopback so index.html's own fetches never fire. Exits 0 on pass, 1 on fail.
+Same shape as tools/qqq_overview_probe.py and tools/paper_render_probe.py:
+stdlib only, plus a subprocess call to local headless Chrome, serving the repo
+over loopback so index.html's own fetches never fire, the probe HTML written
+into a throwaway _bldprobe folder at the repo root and removed in `finally`.
+tools/builder_parity_probe.py is the sibling that proves a Run click still
+queues the identical Firestore job the retired tab queued; this probe never
+clicks Run and never touches Firestore -- it only checks what renders. Exits
+0 on pass, 1 on fail, 2 if Chrome cannot be found.
 """
 import datetime
 import http.server
@@ -73,7 +95,7 @@ def build_fixture():
     reads in subscribeAll hand them over, so _btMerge does the real sorting."""
     live = [
         # RUNNING, and DELIBERATELY the oldest thing in the set -- this is the job the
-        # newest-12-by-createdAt listener used to lose.
+        # newest-12-by-createdAt listener used to lose, back when the sidebar first shipped.
         {"id": "job_run", "strategy": "ENGUQ_1M_ETH_ERW_1_0.py", "type": "validate",
          "status": "running", "progress": 29, "mult": 20,
          "startedAt": _iso(3), "createdAt": _iso(48)},
@@ -93,6 +115,7 @@ def build_fixture():
                     "cache_reuse": {"hits": 180, "total": 500, "pct_reused": 36}}},
         {"id": "job_done_b", "strategy": "NOISE_5M_1_2.py", "type": "validate",
          "status": "done", "mult": 20, "createdAt": _iso(20), "repeat_of_run": 304,
+         "run_id": 305,
          "result": {"best": {"total_pnl": -310.0, "profit_factor": 0.92},
                     "n_valid": 495, "n_combos": 495,
                     "validate": {"n_pass": 6, "n_gates": 6, "verdict": "PASS"}}},
@@ -102,13 +125,32 @@ def build_fixture():
     return {"live": live, "recent": recent}
 
 
+def build_meta():
+    """One real strategy + one matching market, so the ticket has a data window and
+    a time estimate to draw instead of the "no data yet" empty state. The instrument/
+    timeframe/session line up with what a fresh augurPrefs defaults to (NQ/5m/RTH)."""
+    strats = [{
+        "file": "NOISE_1_0.py",
+        "presets": ["Short  (frozen + near plateau)", "Medium (round-11 core)"],
+        "params": [{"name": "lookback", "label": "Noise lookback", "type": "int",
+                     "min": 5, "max": 120, "step": 1}],
+        "preset_combos": {"Short  (frozen + near plateau)": 9, "Medium (round-11 core)": 48},
+    }]
+    masters = [{
+        "name": "NQ 5m RTH", "instrument": "NQ", "timeframe": "5m", "session": "rth",
+        "source": "db_noadj_rth", "rows": 318240,
+        "date_from": "2010-06-07", "date_to": "2026-09-11",
+    }]
+    eta = {"sec_per_bt": 0.9, "bars": 300000}
+    return {"strats": strats, "masters": masters, "eta": eta}
+
+
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>builder probe</title></head>
 <body style="margin:0;background:#0a0a12">
 <iframe id="f" src="../index.html" style="width:__IW__px;height:__IH__px;border:0"></iframe>
 <pre id="o"></pre>
 <script>
-var FIX=__FIX__;
 (function(){
   var reported=false;
   function report(why){
@@ -117,84 +159,128 @@ var FIX=__FIX__;
     try{
       var fr=document.getElementById('f'), w=fr.contentWindow, d=fr.contentDocument;
       out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
-      out.call=w.eval("(function(){try{"
-        // the app's own auth.onAuthStateChanged(...) fires asynchronously with no signed-in
-        // session and would repaint the sign-in screen over our render. Kill it first.
-        +"window.renderAuth=function(){};"
-        +"window._bqProbeErrors=[];"
-        +"window.onerror=function(m,s,l,c,e){window._bqProbeErrors.push(String(m));};"
-        +"currentUser=currentUser||{uid:'probe-uid'};"
-        // hand the two reads over exactly as subscribeAll does, then let the real
-        // _btMerge do the de-duping and the createdAt-DESC sort.
-        +"_btLive="+JSON.stringify(FIX.live)+";"
-        +"_btRecent="+JSON.stringify(FIX.recent)+";"
-        +"_btMerge();"
-        +"activeTab='augur';augurSub='exec';renderApp();return 'OK';"
-        +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
 
-      out.consoleErrors=w.eval('window._bqProbeErrors||[]');
+      // ── drive the app: kill auth, hang the fixture off _btLive/_btRecent, merge it
+      //    through the real _btMerge, then force the redirect every case exercises ──
+      out.call=w.eval(`(function(){try{
+        window.renderAuth=function(){};
+        window._bbProbeErr=[];
+        window.onerror=function(m,s,l,c,e){window._bbProbeErr.push('onerror: '+String(m));};
+        window._bbProbeCE=console.error.bind(console);
+        console.error=function(){window._bbProbeErr.push('console.error: '+Array.prototype.slice.call(arguments).join(' '));window._bbProbeCE.apply(console,arguments);};
+        currentUser=currentUser||{uid:'probe-uid'};
+        metaStrats=__METASTRATS__;
+        metaMasters=__METAMASTERS__;
+        metaEta=__METAETA__;
+        _btLive=__LIVE__;
+        _btRecent=__RECENT__;
+        _btMerge();
+        localStorage.setItem('augurPrefs', JSON.stringify({mode:'validate'}));
+        __OPEN__
+        activeTab='augur';augurSub='exec';renderApp();
+        return 'OK';
+      }catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()`);
 
-      // ── the merged array, straight out of the helper both readers use ──
-      out.helper=w.eval("(function(){try{var L=_liveJobs();return JSON.stringify({"
-        +"run:L.run?L.run.id:null,running:L.running.length,"
-        +"waiting:L.waiting.map(function(b){return b.id;}),recent:L.recent.map(function(b){return b.id;})"
-        +"});}catch(e){return 'ERR '+e;}})()");
-      out.mergedOrder=w.eval("(function(){try{return (backtests||[]).map(function(b){return b.id;}).join(',');}catch(e){return 'ERR '+e;}})()");
+      out.augurSubAfterRedirect=w.eval("typeof augurSub!=='undefined'?augurSub:null");
 
-      // ── sidebar ──
-      out.hasShell=!!d.querySelector('.bq-shell');
-      out.hasCard=!!d.querySelector('.bq-card');
-      var cnt=d.querySelector('[data-bqcount]');
+      // ── shape: [data-bb] > .bb-shell > (.bb-main, aside.bb-rail) ──
+      out.hasBB=!!d.querySelector('[data-bb]');
+      out.hasShell=!!d.querySelector('.bb-shell');
+      out.hasMain=!!d.querySelector('.bb-shell>.bb-main');
+      out.hasRailEl=!!d.querySelector('.bb-shell>aside.bb-rail');
+
+      // ── header ──
+      out.hasStrat=!!d.getElementById('bb-strat');
+      out.hasMarket=!!d.getElementById('bb-market');
+      out.hasGoalBacktest=!!d.getElementById('bb-goal-backtest');
+      out.hasGoalOptimize=!!d.getElementById('bb-goal-optimize');
+      out.hasGoalValidate=!!d.getElementById('bb-goal-validate');
+      out.hasGoalAi=!!d.getElementById('bb-goal-ai');
+      var runBtn=d.getElementById('bb-run');
+      out.hasRunBtn=!!runBtn;
+      var barEl=runBtn?runBtn.closest('.bb-bar'):null;
+      out.runInBar=!!barEl;
+      out.barPosition=barEl?w.getComputedStyle(barEl).position:null;
+      out.barBottom=barEl?w.getComputedStyle(barEl).bottom:null;
+
+      // ── rail: latest result + queue ──
+      out.hasLastCard=!!d.querySelector('.bb-last');
+      var cnt=d.querySelector('[data-bbcount]');
       out.countText=cnt?cnt.textContent.trim():null;
-      out.runRows=d.querySelectorAll('[data-bqrunrow]').length;
-      out.waitRows=d.querySelectorAll('[data-bqwaitrow]').length;
-      out.recentRows=d.querySelectorAll('[data-bqrecentrow]').length;
-      out.waitOrder=[].slice.call(d.querySelectorAll('[data-bqwaitrow]'))
-        .map(function(e){return e.getAttribute('data-bqwaitrow');});
-      var lastWait=d.querySelectorAll('[data-bqwaitrow]');
-      lastWait=lastWait.length?lastWait[lastWait.length-1]:null;
-      out.lastWaitId=lastWait?lastWait.getAttribute('data-bqwaitrow'):null;
-      out.lastWaitHasNoTs=!!(lastWait&&lastWait.querySelector('[data-bqnots]'));
-      var nots=d.querySelector('[data-bqnots]');
-      out.noTsLabel=nots?nots.textContent.trim():null;
-      out.noTsCount=d.querySelectorAll('[data-bqnots]').length;
-      out.hasJobCtl=d.querySelectorAll('.bq-card [data-jobctl]').length;
-      out.hasReuseChip=(d.querySelector('.bq-card')||{innerHTML:''}).innerHTML.indexOf('\\u267b')>=0;
-      out.hasRepeatChip=(d.querySelector('.bq-card')||{innerHTML:''}).innerHTML.indexOf('REPEAT OF #304')>=0;
-      out.hasOpenRun=d.querySelectorAll('[data-bqrun]').length;
-      out.progressPct=(function(){var e=d.querySelector('[data-bqrunrow]');return e?e.textContent.replace(/\\s+/g,' ').trim():null;})();
 
-      // ── top-bar chip ──
-      var chip=d.querySelector('[data-queuechip]');
-      out.chipText=chip?chip.textContent.replace(/\\s+/g,' ').trim():null;
-      var m=out.chipText?out.chipText.match(/\\+(\\d+)/):null;
-      out.chipWaiting=m?parseInt(m[1],10):null;
+      var runRows=[].slice.call(d.querySelectorAll('[data-bbrunrow]'));
+      out.runRows=runRows.length;
+      var runRow0=runRows.length?runRows[0]:null;
+      out.runRowText=runRow0?runRow0.textContent.replace(/\\s+/g,' ').trim():null;
+      out.runRowHasPause=!!(runRow0&&runRow0.querySelector('button[data-bbctl="pause"]'));
+      out.runRowHasRun=!!(runRow0&&runRow0.querySelector('button[data-bbctl="run"]'));
+      out.runRowHasStop=!!(runRow0&&runRow0.querySelector('button[data-bbctl="stop"]'));
+
+      var waitRows=[].slice.call(d.querySelectorAll('[data-bbwaitrow]'));
+      out.waitRows=waitRows.length;
+      out.waitOrder=waitRows.map(function(e){return e.getAttribute('data-bbwaitrow');});
+      var lastWait=waitRows.length?waitRows[waitRows.length-1]:null;
+      out.lastWaitId=lastWait?lastWait.getAttribute('data-bbwaitrow'):null;
+      out.lastWaitHasNoTs=!!(lastWait&&lastWait.querySelector('[data-bbnots]'));
+      var nots=d.querySelector('[data-bbnots]');
+      out.noTsLabel=nots?nots.textContent.trim():null;
+      out.noTsCount=d.querySelectorAll('[data-bbnots]').length;
+      out.waitStopCounts=waitRows.map(function(e){return e.querySelectorAll('button[data-bbctl="stop"]').length;});
+
+      out.recentRows=d.querySelectorAll('[data-bbrecentrow]').length;
+      var qCard=d.querySelector('.bb-q');
+      var qHtml=qCard?qCard.innerHTML:'';
+      out.hasReuseChip=qHtml.indexOf('\\u267b 180/500')>=0;
+      out.hasRepeatChip=qHtml.indexOf('repeat of #304')>=0;
+      var doneARow=d.querySelector('[data-bbrecentrow="job_done_a"]');
+      out.doneARunId=doneARow?doneARow.getAttribute('data-bbrun'):null;
+      var doneBRow=d.querySelector('[data-bbrecentrow="job_done_b"]');
+      out.doneBRunId=doneBRow?doneBRow.getAttribute('data-bbrun'):null;
+
+      // ── top-bar queue chips ──
+      var chips=d.querySelectorAll('[data-queuechip]');
+      out.chipCount=chips.length;
+      out.firstChipText=chips.length?chips[0].textContent.replace(/\\s+/g,' ').trim():null;
+
+      // ── sub-tab strip: exactly one BUILDER, the retired button gone ──
+      out.subExec2Count=d.querySelectorAll('[data-asubtop="exec2"]').length;
+      var subExec2=d.querySelector('[data-asubtop="exec2"]');
+      out.subExec2Text=subExec2?subExec2.textContent.trim():null;
+      out.subExecCount=d.querySelectorAll('[data-asubtop="exec"]').length;
 
       // ── layout ──
-      var sh=d.querySelector('.bq-shell');
-      out.shellDisplay=sh?w.getComputedStyle(sh).display:null;
-      var side=d.querySelector('.bq-side');
-      out.sideposition=side?w.getComputedStyle(side).position:null;
-      out.sideTop=side?w.getComputedStyle(side).top:null;
-      out.sideWidth=side?Math.round(side.getBoundingClientRect().width):null;
-      // where the pinned sub-tab strip actually ends, so the sticky top can be checked
-      var bars=[].slice.call(d.querySelectorAll('div')).filter(function(e){
-        return w.getComputedStyle(e).position==='sticky'&&w.getComputedStyle(e).top==='46px';});
-      out.subBarBottom=bars.length?Math.round(bars[0].getBoundingClientRect().bottom):null;
+      var shell=d.querySelector('.bb-shell');
+      out.shellGridCols=shell?w.getComputedStyle(shell).gridTemplateColumns:null;
+      var rail=d.querySelector('.bb-rail');
+      out.railDisplay=rail?w.getComputedStyle(rail).display:null;
+      out.railPosition=rail?w.getComputedStyle(rail).position:null;
+      var qpill=d.getElementById('bb-qpill');
+      out.qpillDisplay=qpill?w.getComputedStyle(qpill).display:null;
+      var bbRoot=d.querySelector('[data-bb]');
+      out.rootHasQopen=!!(bbRoot&&bbRoot.classList.contains('qopen'));
 
-      // ── nothing on the tab regressed ──
-      // read the RENDERED app, not document.body -- body.innerHTML also carries the
-      // whole <script> source, where the literal 'runDetail failed' legitimately lives.
+      // ── nothing regressed ──
       var ap=d.getElementById('app');
-      var body=ap?ap.innerHTML:'';
-      out.bodyLen=body.length;
       out.hasApp=!!ap;
-      out.hasRunDetailFailed=body.indexOf('runDetail failed')>=0;
-      out.hasRunBtn=!!d.getElementById('ex-run');
-      out.hasStratSel=!!d.getElementById('ex-strat');
-      out.hasExpertTgl=!!d.getElementById('ex-expert');
-      out.hasLockbox=!!d.getElementById('ex-lockbox');
-      out.hasOldRunsTable=body.indexOf('>BEST $<')>=0;
+      out.hasRunDetailFailed=(ap?ap.innerHTML:'').indexOf('runDetail failed')>=0;
+
+      // ── the sticky Run button stays on screen ──
+      if(runBtn){
+        var rc=runBtn.getBoundingClientRect();
+        out.runBottom=rc.bottom;out.innerHeight=w.innerHeight;
+        out.runFits=rc.bottom<=w.innerHeight+0.5;
+      }
+
+      // ── a queue chip clicked from a completely different tab returns to the builder ──
+      out.clickFlow=w.eval(`(function(){try{
+        augurSub='runs';renderApp();
+        var c=document.querySelector('[data-queuechip]');
+        if(!c)return {ok:false,why:'no chip found'};
+        c.click();
+        return {ok:true,augurSub:(typeof augurSub!=='undefined'?augurSub:null),activeTab:(typeof activeTab!=='undefined'?activeTab:null)};
+      }catch(e){return {ok:false,why:String(e&&e.stack?e.stack:e)};}})()`);
+
+      out.consoleErrors=w.eval('window._bbProbeErr||[]');
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='BLDPROBE: '+JSON.stringify(out);
   }
@@ -206,12 +292,19 @@ var FIX=__FIX__;
 """
 
 
-def run_case(chrome, root, fixture, name, shot_path, width, height):
+def run_case(chrome, root, fixture, meta, name, shot_path, width, height, open_queue=False):
     pdir = os.path.join(root, '_bldprobe')
     if not os.path.isdir(pdir):
         os.makedirs(pdir)
     ppath = os.path.join(pdir, 'probe_%s.html' % name)
-    html = (PROBE_HTML.replace('__FIX__', json.dumps(fixture))
+    open_js = 'window._bbUi={queueOpen:true};' if open_queue else ''
+    html = (PROBE_HTML
+            .replace('__LIVE__', json.dumps(fixture['live']))
+            .replace('__RECENT__', json.dumps(fixture['recent']))
+            .replace('__METASTRATS__', json.dumps(meta['strats']))
+            .replace('__METAMASTERS__', json.dumps(meta['masters']))
+            .replace('__METAETA__', json.dumps(meta['eta']))
+            .replace('__OPEN__', open_js)
             .replace('__IW__', str(width)).replace('__IH__', str(height)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -268,15 +361,21 @@ def main():
         return 2
 
     fx = build_fixture()
+    meta = build_meta()
     # screenshots go to the system temp dir unless a folder is given, so a probe run
     # never leaves stray PNGs in the repo root.
     out_dir = sys.argv[1] if len(sys.argv) > 1 else tempfile.gettempdir()
 
+    cases = (
+        ('wide_1400', 1400, 1000, False),
+        ('bp_1200', 1200, 1000, False),
+        ('narrow_800', 800, 1100, False),
+        ('narrow_800_open', 800, 1100, True),
+    )
     results = {}
-    for case, w, h in (('wide_1400', 1400, 1000), ('bp_1200', 1200, 1000),
-                       ('narrow_800', 800, 1100)):
+    for case, w, h, openq in cases:
         shot = os.path.join(out_dir, 'builder_%s.png' % case)
-        results[case] = run_case(chrome, ROOT, fx, case, shot, w, h)
+        results[case] = run_case(chrome, ROOT, fx, meta, case, shot, w, h, openq)
         print('%s shot -> %s' % (case, shot))
 
     for nm, r in results.items():
@@ -290,89 +389,162 @@ def main():
         if r.get('call') != 'OK':
             fails.append('%s: renderApp threw -- %s' % (nm, r.get('call')))
             continue
-        if r.get('consoleErrors'):
-            fails.append('%s: console errors -- %s' % (nm, r['consoleErrors']))
         if r.get('hasRunDetailFailed'):
             fails.append('%s: "runDetail failed" appears on the page' % nm)
-        if not r.get('hasShell') or not r.get('hasCard'):
-            fails.append('%s: no BUILD QUEUE card rendered' % nm)
+        if not r.get('hasApp'):
+            fails.append('%s: #app did not render' % nm)
 
-        # RUNNING 1 / WAITING 3
+        # the redirect every case exercises: a stale/typed augurSub='exec' lands on exec2
+        if r.get('augurSubAfterRedirect') != 'exec2':
+            fails.append("%s: augurSub='exec' did not redirect to 'exec2' -- got %r"
+                         % (nm, r.get('augurSubAfterRedirect')))
+        if not r.get('hasBB'):
+            fails.append('%s: [data-bb] root did not render' % nm)
+
+        # shape: .bb-shell = .bb-main + aside.bb-rail
+        if not r.get('hasShell') or not r.get('hasMain') or not r.get('hasRailEl'):
+            fails.append('%s: .bb-shell / .bb-main / aside.bb-rail is missing' % nm)
+
+        # header
+        for key, what in (('hasStrat', '#bb-strat'), ('hasMarket', '#bb-market'),
+                          ('hasGoalBacktest', '#bb-goal-backtest'), ('hasGoalOptimize', '#bb-goal-optimize'),
+                          ('hasGoalValidate', '#bb-goal-validate'), ('hasGoalAi', '#bb-goal-ai'),
+                          ('hasRunBtn', '#bb-run')):
+            if not r.get(key):
+                fails.append('%s: %s is missing' % (nm, what))
+        if not r.get('runInBar'):
+            fails.append('%s: #bb-run is not inside .bb-bar' % nm)
+        if r.get('barPosition') != 'sticky':
+            fails.append('%s: .bb-bar position is %r, expected sticky' % (nm, r.get('barPosition')))
+        if r.get('barBottom') != '10px':
+            fails.append('%s: .bb-bar bottom is %r, expected 10px' % (nm, r.get('barBottom')))
+
+        # rail: latest-result card
+        if not r.get('hasLastCard'):
+            fails.append('%s: .bb-last is missing though a done job carries a run_id' % nm)
+
+        # queue count / running row
+        if r.get('countText') != '1 running \u00b7 3 up next':
+            fails.append('%s: queue count line reads %r' % (nm, r.get('countText')))
         if r.get('runRows') != 1:
-            fails.append('%s: expected 1 RUNNING row, got %s' % (nm, r.get('runRows')))
-        if r.get('waitRows') != 3:
-            fails.append('%s: expected 3 WAITING rows, got %s' % (nm, r.get('waitRows')))
-        if r.get('countText') != '1 RUNNING \u00b7 3 WAITING':
-            fails.append('%s: count line reads %r' % (nm, r.get('countText')))
-        if '29%' not in (r.get('progressPct') or ''):
-            fails.append('%s: RUNNING row does not show 29%% -- %r' % (nm, r.get('progressPct')))
+            fails.append('%s: expected 1 running row, got %s' % (nm, r.get('runRows')))
+        if '29%' not in (r.get('runRowText') or ''):
+            fails.append('%s: running row does not show 29%% -- %r' % (nm, r.get('runRowText')))
+        if not r.get('runRowHasPause'):
+            fails.append('%s: running row has no data-bbctl="pause" control' % nm)
+        if r.get('runRowHasRun'):
+            fails.append('%s: running row has a data-bbctl="run" (resume) control though the job is not paused' % nm)
+        if not r.get('runRowHasStop'):
+            fails.append('%s: running row has no data-bbctl="stop" control' % nm)
 
-        # claim order: oldest createdAt first, no-timestamp last
+        # waiting: claim order, no-timestamp sorts last and is labelled, one stop control each
+        if r.get('waitRows') != 3:
+            fails.append('%s: expected 3 waiting rows, got %s' % (nm, r.get('waitRows')))
         if r.get('waitOrder') != ['job_q_old', 'job_q_mid', 'job_q_none']:
-            fails.append('%s: WAITING is not in claim order -- %s' % (nm, r.get('waitOrder')))
+            fails.append('%s: waiting is not in claim order -- %s' % (nm, r.get('waitOrder')))
         if r.get('lastWaitId') != 'job_q_none':
             fails.append('%s: the no-timestamp job did not sort last -- %s' % (nm, r.get('lastWaitId')))
         if not r.get('lastWaitHasNoTs') or r.get('noTsLabel') != 'no timestamp':
             fails.append('%s: the no-timestamp job is not labelled -- %r' % (nm, r.get('noTsLabel')))
         if r.get('noTsCount') != 1:
             fails.append('%s: expected exactly 1 no-timestamp label, got %s' % (nm, r.get('noTsCount')))
+        if r.get('waitStopCounts') != [1, 1, 1]:
+            fails.append('%s: each waiting row should carry exactly one stop control -- %s'
+                         % (nm, r.get('waitStopCounts')))
 
-        # chip agrees with the sidebar
-        chip = r.get('chipText') or ''
-        if '+3' not in chip:
-            fails.append('%s: chip text has no "+3" -- %r' % (nm, chip))
-        if 'ENGUQ_1M_ETH_ERW_1_0' not in chip.upper():
-            fails.append('%s: chip does not name the running strategy -- %r' % (nm, chip))
-        if '29%' not in chip:
-            fails.append('%s: chip does not show 29%% -- %r' % (nm, chip))
-        if r.get('chipWaiting') != r.get('waitRows'):
-            fails.append('%s: chip waiting %s != sidebar waiting %s'
-                         % (nm, r.get('chipWaiting'), r.get('waitRows')))
-
-        # RECENT
+        # recent: figures survived the move, and finished jobs link their run
         if r.get('recentRows') != 3:
-            fails.append('%s: expected 3 RECENT rows, got %s' % (nm, r.get('recentRows')))
+            fails.append('%s: expected 3 recent rows, got %s' % (nm, r.get('recentRows')))
         if not r.get('hasReuseChip'):
-            fails.append('%s: the recycle (cache-reuse) chip did not survive the move' % nm)
+            fails.append('%s: the cache-reuse chip (\u267b 180/500) did not survive the move' % nm)
         if not r.get('hasRepeatChip'):
-            fails.append('%s: no REPEAT OF marker on the repeated job' % nm)
-        if not r.get('hasOpenRun'):
-            fails.append('%s: no click-to-open-run target on a finished row' % nm)
-        # 2 stop/pause controls on the running job + 1 stop per waiting job
-        if (r.get('hasJobCtl') or 0) < 5:
-            fails.append('%s: too few [data-jobctl] controls in the card (%s)'
-                         % (nm, r.get('hasJobCtl')))
+            fails.append('%s: no "repeat of #304" marker on the repeated job' % nm)
+        if r.get('doneARunId') != '316':
+            fails.append('%s: the done single job does not link run #316 -- data-bbrun=%r'
+                         % (nm, r.get('doneARunId')))
+        if r.get('doneBRunId') != '305':
+            fails.append('%s: the done validate job does not link run #305 -- data-bbrun=%r'
+                         % (nm, r.get('doneBRunId')))
 
-        # the rest of the tab is untouched
-        for key, what in (('hasRunBtn', 'RUN button'), ('hasStratSel', 'strategy dropdown'),
-                          ('hasExpertTgl', 'EXPERT view toggle'), ('hasLockbox', 'lockbox field')):
-            if not r.get(key):
-                fails.append('%s: %s is missing from the main column' % (nm, what))
-        if r.get('hasOldRunsTable'):
-            fails.append('%s: the old RUNS table is still on the tab' % nm)
+        # top-bar chips agree with the rail
+        if r.get('chipCount') != 4:
+            fails.append('%s: expected 4 top-bar queue chips (1 running + 3 waiting), got %s'
+                         % (nm, r.get('chipCount')))
+        chip = r.get('firstChipText') or ''
+        if 'ENGUQ_1M_ETH_ERW' not in chip:
+            fails.append('%s: first chip does not name the running strategy -- %r' % (nm, chip))
+        if '29%' not in chip:
+            fails.append('%s: first chip does not show 29%% -- %r' % (nm, chip))
 
-    # two-column, sticky, ~340px wide at and above the 1200px breakpoint
+        # sub-tab strip: exactly one BUILDER, no beta mark, the retired button is gone
+        if r.get('subExec2Count') != 1:
+            fails.append('%s: expected exactly one [data-asubtop="exec2"] button, got %s'
+                         % (nm, r.get('subExec2Count')))
+        subtxt = r.get('subExec2Text') or ''
+        if 'BUILDER' not in subtxt.upper():
+            fails.append('%s: [data-asubtop="exec2"] does not read BUILDER -- %r' % (nm, subtxt))
+        if '\u03b2' in subtxt:
+            fails.append('%s: [data-asubtop="exec2"] still shows a beta mark -- %r' % (nm, subtxt))
+        if r.get('subExecCount'):
+            fails.append('%s: the retired [data-asubtop="exec"] button still exists' % nm)
+
+        # the sticky Run button never drifts below the fold
+        if r.get('runFits') is False:
+            fails.append('%s: #bb-run bottom (%.1fpx) is below the viewport (%.1fpx)'
+                         % (nm, r.get('runBottom') or -1, r.get('innerHeight') or -1))
+        elif r.get('runFits') is None:
+            fails.append('%s: could not measure #bb-run against the viewport' % nm)
+
+        # a queue chip clicked from a different tab returns to the builder
+        cf = r.get('clickFlow') or {}
+        if not cf.get('ok'):
+            fails.append('%s: clicking the first queue chip failed -- %s' % (nm, cf.get('why')))
+        elif cf.get('augurSub') != 'exec2':
+            fails.append('%s: clicking the first queue chip left augurSub=%r, expected exec2'
+                         % (nm, cf.get('augurSub')))
+
+        # nothing threw across the whole run: setup, both renders, and the click
+        if r.get('consoleErrors'):
+            fails.append('%s: console/window errors -- %s' % (nm, r['consoleErrors']))
+
+    # layout: two columns + sticky rail at and above 1200px; a floating pill with the
+    # rail collapsed below that; queueOpen brings the rail back without a wider viewport
     for nm in ('wide_1400', 'bp_1200'):
         r = results.get(nm, {})
-        if r.get('err'):
+        if r.get('err') or r.get('call') != 'OK':
             continue
-        if r.get('shellDisplay') != 'grid':
-            fails.append('%s: .bq-shell is %r, expected grid at/above 1200px'
-                         % (nm, r.get('shellDisplay')))
-        if r.get('sideposition') != 'sticky':
-            fails.append('%s: sidebar is %r, expected sticky' % (nm, r.get('sideposition')))
-        sw = r.get('sideWidth') or 0
-        if not (330 <= sw <= 350):
-            fails.append('%s: sidebar width is %spx, expected ~340' % (nm, sw))
-        sb = r.get('subBarBottom')
-        st = r.get('sideTop')
-        if sb is not None and st and st.endswith('px') and float(st[:-2]) < sb:
-            fails.append('%s: sticky top %s slides under the pinned sub-tab strip, '
-                         'which ends at %spx' % (nm, st, sb))
+        cols = (r.get('shellGridCols') or '').split()
+        if len(cols) != 2:
+            fails.append('%s: .bb-shell grid-template-columns is %r, expected 2 tracks at/above 1200px'
+                         % (nm, r.get('shellGridCols')))
+        if r.get('railDisplay') == 'none':
+            fails.append('%s: .bb-rail is hidden, expected visible at/above 1200px' % nm)
+        if r.get('railPosition') != 'sticky':
+            fails.append('%s: .bb-rail position is %r, expected sticky' % (nm, r.get('railPosition')))
+        if r.get('qpillDisplay') != 'none':
+            fails.append('%s: #bb-qpill is %r, expected hidden at/above 1200px' % (nm, r.get('qpillDisplay')))
+
     narrow = results.get('narrow_800', {})
-    if not narrow.get('err') and narrow.get('shellDisplay') != 'block':
-        fails.append('narrow_800: .bq-shell is %r, expected the stacked block layout at 800px'
-                     % narrow.get('shellDisplay'))
+    if not narrow.get('err') and narrow.get('call') == 'OK':
+        cols = (narrow.get('shellGridCols') or '').split()
+        if len(cols) != 1:
+            fails.append('narrow_800: .bb-shell grid-template-columns is %r, expected 1 track below 1200px'
+                         % narrow.get('shellGridCols'))
+        if narrow.get('railDisplay') != 'none':
+            fails.append('narrow_800: .bb-rail is %r, expected hidden below 1200px' % narrow.get('railDisplay'))
+        if narrow.get('qpillDisplay') != 'inline-flex':
+            fails.append('narrow_800: #bb-qpill is %r, expected visible below 1200px' % narrow.get('qpillDisplay'))
+        if narrow.get('rootHasQopen'):
+            fails.append('narrow_800: root already carries class qopen though queueOpen was never set')
+
+    nopen = results.get('narrow_800_open', {})
+    if not nopen.get('err') and nopen.get('call') == 'OK':
+        if not nopen.get('rootHasQopen'):
+            fails.append('narrow_800_open: root does not carry class qopen though window._bbUi.queueOpen was set')
+        if nopen.get('railDisplay') == 'none':
+            fails.append('narrow_800_open: .bb-rail stayed hidden though queueOpen was set')
+        if nopen.get('qpillDisplay') != 'inline-flex':
+            fails.append('narrow_800_open: #bb-qpill is %r, expected still visible' % nopen.get('qpillDisplay'))
 
     if fails:
         print('BLDPROBE: FAIL')

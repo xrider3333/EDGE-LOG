@@ -733,7 +733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.790';
+const VERSION='73.791';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -751,7 +751,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
+const CHANGELOG=[{v:'73.791',date:'2026-09-14',notes:['BUILDER IS NOW THE ROBINHOOD-STYLE BUILDER (owner: migrate β). BUILDER β replaced the old BUILDER tab and is simply called BUILDER; the old form is gone. The queue dials in the top bar and USE IN BUILDER in LIBRARY open it, and a browser that last had the old tab open reopens here.','TEST LAST WINNER ON LOCKBOX moved with it: open the Holdout row (under All settings when the goal is Backtest) and press Test the last winner on this holdout. It queues the same job as before.','The queue rail keeps the two queue details the old tab had: the cache-reuse count on finished jobs, and a yellow count with a warning when work is waiting but nothing is running. The panels that sat under the old form after a run are in that run report in RESULTS, which the latest-result card opens.']},
+{v:'73.790',date:'2026-09-14',notes:['WEBULL PAPER TRADING ORDERS CARD: fixed a layout bug from v73.788 where the new ORDERS card could sit on top of the Today Orders table on a wide screen once that table has rows, because the two briefly shared the same layout slot. The ORDERS card now has its own slot next to STATUS, right under the hero number, on wide screens; the phone layout was never affected.']},
 {v:'73.788',date:'2026-09-14',notes:['WEBULL PAPER TRADING -- ORDER CONNECTION STATUS. The STATUS card now has an ORDERS section in plain language: OFF / PAPER / LIVE / BLOCKED / HALTED with the reason, how much of the daily stop has been used today with a bar, the share size per strategy, which computer is running the order connection and whether the one-computer check is OK, and the last order and last error. Shows Order status not reported yet until the runner publishes the new fields.']},
 {v:'73.786',date:'2026-09-14',notes:['BUILDER β run summary typo: the XL scope now reads an 18-month lockbox instead of a 18-month lockbox.']},
 {v:'73.785',date:'2026-09-14',notes:['BUILDER β - A ROBINHOOD-STYLE BUILDER, AS A NEW TAB NEXT TO BUILDER (owner: go for the rebuild, add it as a subtab, migrate it once we like it and retire the old one). The same strategies and the same saved settings, laid out as an order ticket: one Backtest / Optimize / Validate / AI switch, only the settings that run type uses, a picture of the data window with the lockbox hatched on the end, and one big Run button that stays in view. The queue sits on the right with the latest result on top, and folds into a pill on iPad. BUILDER itself looks and works exactly as before.','BUILDER and BUILDER β now build every job with the same code, so the two tabs queue identical jobs for the same settings (checked across all 8 run types).','BUILDER β also fixes three BUILDER annoyances: the Validate time estimate uses the scope trials and years (BUILDER counts the hidden Trials box), a job progress update no longer wipes a number you are typing, and settings a run type ignores are not shown.']},
@@ -1844,8 +1845,8 @@ const LOG_TABS=['home','trades','analytics','import_export','journal'];
 // RANKINGS is not listed here any more: it became one of the COMPARE views on 2026-08-28
 //   and was appearing twice. The 'rank' sub-tab still exists and still renders - the compare
 //   rail navigates to it - it is simply not offered as a top-level tab as well.
-const ASUBS=[['lib','LIBRARY'],['exec','BUILDER'],['exec2','BUILDER β'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','RESEARCH']];
-const ASUB_ICON={lib:'◫',exec:'▸',exec2:'▹',runs:'▦',rank:'▤',cmp:'◧',cmp2:'◨',paper:'◷',paper2:'◑',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
+const ASUBS=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','RESEARCH']];
+const ASUB_ICON={lib:'◫',exec:'▸',exec2:'▸',runs:'▦',rank:'▤',cmp:'◧',cmp2:'◨',paper:'◷',paper2:'◑',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
 const KPI_INFO={
   'WIN RATE':{info:'% of trades that are profitable. Must be paired with good R:R — a 40% WR can be profitable with 2R+.',warn:v=>v<0.4?'danger':v<0.5?'warn':null,msg:v=>v<0.4?'Win rate below 40% — review entries':'Below 50% — ensure R:R compensates'},
@@ -2090,6 +2091,9 @@ try{const _lv=JSON.parse(localStorage.getItem('el_view')||'{}');
   //   Only on restore: the branch is still what draws several screens of the new tab, and
   //   the render probes reach it by this name.
   if(augurSub==='cmp')augurSub='cmp2';
+  // BUILDER β became the only BUILDER (owner 2026-09-14: "migrate β"). A view saved on the old
+  //   tab reopens on the new one instead of on a tab that no longer has a button.
+  if(augurSub==='exec')augurSub='exec2';
   if(_lv.augurRunSel!=null)augurRunSel=_lv.augurRunSel;
   if(_lv.analyticsSubTab)analyticsSubTab=_lv.analyticsSubTab;
   if(_lv.activeChart)activeChart=_lv.activeChart;
@@ -2630,13 +2634,13 @@ const _liveJobs=()=>{
   const recent=all.filter(b=>st(b)==='done'||st(b)==='error'||st(b)==='cancelled').slice(0,12);
   return {run:running[0]||null,running:running,waiting:waiting,recent:recent};
 };
-// ══ BUILDER β ══════════════════════════════════════════════════════════════════════════════
+// ══ BUILDER (augurSub 'exec2') ═════════════════════════════════════════════════════════════
 // owner 2026-09-14: "go for the rebuild. maybe add it as a subtab and when we like it well
-//   migrate it as the main builder tab and retire the old one". A Robinhood-style order ticket
-//   over the SAME settings as BUILDER (the augurPrefs store): one goal switch, only the rows
-//   that goal uses, a picture of the data window, one Run button that stays in view.
-//   Run goes through _exMakeJob - the job builder BUILDER itself uses - so both tabs queue
-//   the same job for the same settings (tools/builder_beta_parity_probe.py proves it).
+//   migrate it as the main builder tab and retire the old one", then "migrate β". It shipped as
+//   BUILDER β beside the old tab and is now the only BUILDER: a Robinhood-style order ticket over
+//   the augurPrefs settings store - one goal switch, only the rows that goal uses, a picture of
+//   the data window, one Run button that stays in view. Run goes through _exMakeJob, the retired
+//   tab's own job builder; tools/builder_parity_probe.py checks every mode still matches it.
 //   renderApp-local helpers arrive in the ctx object X (built by _bbCtx inside renderApp).
 //   Plain function declarations only: they are hoisted, so a render can never reach them early.
 function _bbUiState(){
@@ -2660,8 +2664,8 @@ function _bbModes(){return {
   gate_validate:{n:8,goal:'validate',name:'Gate bake-off',desc:'Tries every ML gate at every cut-off, then takes one look at the lockbox.',cta:'Run gate bake-off'}};}
 function _bbEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-// ── the settings, read exactly the way BUILDER reads them on render ─────────────────────────
-//   Each fallback below mirrors what BUILDER's own controls do with the same prefs (a <select>
+// ── the settings, read exactly the way the retired BUILDER tab read them ─────────────────────────
+//   Each fallback below mirrors what that tab's own controls did with the same prefs (a <select>
 //   whose saved value is not an option shows its first option, the gate resets outside Single
 //   and Gate bake-off, CUSTOM scope falls back to the first preset outside Grid, and so on).
 function _bbModel(X){
@@ -2680,7 +2684,7 @@ function _bbModel(X){
   const sess=A.session==='eth'?'eth':'rth';
   const mKey=m=>[m.instrument,m.timeframe,m.session,m.source,m.name].map(v=>String(v==null?'':v)).join('|');
   const matches=(metaMasters||[]).map((m,i)=>({m:m,i:i})).filter(o=>String(o.m.instrument)===String(inst)&&String(o.m.timeframe)===String(tf)&&(!o.m.session||String(o.m.session).toLowerCase()===sess));
-  // BUILDER opens on Auto every time; BUILDER β remembers the pick while it still matches the market
+  // the retired tab reopened on Auto every time; this one remembers the pick while it still matches the market
   let mIdx='';if(A.bb_master){const h=matches.filter(o=>mKey(o.m)===A.bb_master)[0];if(h)mIdx=String(h.i);}
   const mSel=mIdx!==''?metaMasters[+mIdx]:null;
   const mSpan=mSel||(metaMasters||[]).find(m=>String(m.instrument)===inst&&String(m.timeframe)===tf)||null;
@@ -2703,8 +2707,8 @@ function _bbModel(X){
     wfmode:(A.wf_mode==='rolling'?'rolling':'anchored'),pills:A.pills!==false,folds:String(U.folds||0),
     from:A.date_from||'',to:A.date_to||'',lockbox:A.lockbox||'',pinned:pinned};
 }
-// the element lookup _exMakeJob reads, answered from the model instead of BUILDER's form.
-//   ex-preset: BUILDER's scope <option> has no value attribute, so the browser hands back its text with
+// the element lookup _exMakeJob reads, answered from the model instead of the retired tab's form.
+//   ex-preset: the retired tab's scope <option> had no value attribute, so the browser hands back its text with
 //   runs of whitespace collapsed ("Short  (frozen ...)" queues as "Short (frozen ...)") - do the same.
 function _bbLookup(st){
   const F={'ex-mode':st.mode,'ex-inst':st.inst,'ex-tf':st.tf,'ex-sess':st.sess,'ex-master':st.mIdx,'ex-comm':st.comm,
@@ -2720,7 +2724,7 @@ function _bbCuRows(st){
   return ((st.cur&&st.cur.params)||[]).map(p=>{const e=o[p.name]||{};const d=k=>(e[k]!=null?String(e[k]):(p[k]!=null?String(p[k]):''));
     return {p:p,min:d('min'),max:d('max'),step:d('step')};});
 }
-// same arithmetic as BUILDER's buildCustomGrid / cuCount
+// same arithmetic as the retired tab's buildCustomGrid / cuCount
 function _bbGrid(st){
   const g={};
   _bbCuRows(st).forEach(r=>{const isInt=r.p.type==='int';const mn=parseFloat(r.min),mx=parseFloat(r.max),sp=parseFloat(r.step);if(isNaN(mn))return;
@@ -2776,7 +2780,7 @@ function _bbSrcName(raw){const lo=String(raw||'').toLowerCase();let p=raw||'';
   if(lo.indexOf('nt')===0)p='NinjaTrader';else if(lo.indexOf('db')===0)p='Databento';else if(lo.indexOf('yahoo')===0)p='Yahoo';else if(lo.indexOf('tv')===0)p='TradingView';else if(lo==='merged')p='Merged';
   return p+(lo.indexOf('noadj')>=0?' non-adjusted':'');}
 function _bbStratName(X,file){const i=X.stratInfo(file||'');const n=(i&&i.abbr)?(i.abbr+(i.ver?' '+i.ver:'')+(i.branch?'-'+i.branch:'')):'';return n||String(file||'').replace(/\.py$/,'');}
-// time estimate: BUILDER's formula (combos x calibrated sec per backtest x bars scaling / grid workers),
+// time estimate: the retired tab's formula (combos x calibrated sec per backtest x bars scaling / grid workers),
 //   fed the numbers this run really uses - Validate reads its scope, not the Trials box
 function _bbEst(st,w,X){
   let cb=null,lbl='Estimated time',tail='';
@@ -2815,7 +2819,7 @@ function _bbSummary(st,w,X){
 }
 
 // ── setting rows ────────────────────────────────────────────────────────────────────────────
-// the rows each mode actually feeds (BUILDER's EXFIELDS, plus: AI provider / rounds only when
+// the rows each mode actually feeds (the retired tab's EXFIELDS gating, plus: AI provider / rounds only when
 //   Validate discovers with AI-evolve, graph detail only for Validate, holdout wherever the date cap applies)
 function _bbRowKeys(st){
   switch(st.mode){
@@ -2878,7 +2882,9 @@ function _bbRowDef(key,st,X){
       return {label:'Holdout',sub:'Data from this date stays unseen until one final test',value:st.lockbox?('From '+_bbDay(st.lockbox)):'Off',kind:'nav',
         editor:'<div class="bb-chips"><button type="button" class="bb-c'+(st.lockbox?'':' on')+'" data-bbhold="">Off</button>'
           +(end?('<button type="button" class="bb-c" data-bbhold="'+_bbMonthsBack(end,6)+'">Last 6 months</button><button type="button" class="bb-c" data-bbhold="'+_bbMonthsBack(end,12)+'">Last 12 months</button>'):'')+'</div>'
-          +'<label class="bb-in"><span>From</span><input id="bb-in-lockbox" type="date" data-bbdate="lockbox" value="'+_bbEsc(st.lockbox)+'"/></label>'};}
+          +'<label class="bb-in"><span>From</span><input id="bb-in-lockbox" type="date" data-bbdate="lockbox" value="'+_bbEsc(st.lockbox)+'"/></label>'
+          +'<div class="bb-lbtest"><button type="button" id="bb-lockbox-test" class="bb-c" data-bblbtest="1"'+(st.lockbox?'':' disabled')+'>Test the last winner on this holdout</button>'
+          +'<small>One backtest of the newest optimization winner on the data from this date to the end. Look only once: a pass it did not earn means it was overfit.</small></div>'};}
     case 'costs':return {label:'Costs',sub:'Commission and slippage per round turn',value:'$'+st.comm+' · '+st.slip+' pt',kind:'nav',
       editor:'<div class="bb-ins">'+_bbNum('comm_usd',st.comm,'Commission','$ per round turn')+_bbNum('slip_pts',st.slip,'Slippage','points per round turn')+'</div>'};
     case 'gates':return {label:'Gates tried',sub:'Logistic, forest and XGBoost, each at every cut-off',value:'All three',kind:'info'};
@@ -2936,7 +2942,7 @@ function _bbJobType(b){
   const L={single:'Single',grid:'Grid',auto:'Auto-Optimize',walkforward:'Walk-forward',ai_optimize:'AI optimize',ai_evolve:'AI evolve',validate:'Auto-Validate',gate_validate:'Gate bake-off'};
   return (L[t]||t)+((t==='single'&&b.ml_filter&&b.ml_filter!=='none')?' · gated':'');
 }
-// the same figures BUILDER's queue prints for a finished job
+// the same figures the retired tab's queue printed for a finished job
 function _bbJobFig(b){
   const r=b.result||{},t=String(b.type||'single'),done=b.status==='done';
   const ai=t==='ai_optimize'||t==='ai_evolve',vald=t==='validate',smart=t==='auto'||t==='walkforward'||vald,gvt=t==='gate_validate',single=!ai&&!smart&&!gvt&&t!=='grid';
@@ -2960,24 +2966,26 @@ function _bbRail(X){
       +'<div class="bb-lastsub">'+E([_bbStratName(X,last.strategy),_bbJobType(last),F.det,F.pf].filter(Boolean).join(' · '))+'</div>'
       +'<div class="bb-link">Open run #'+E(rid)+' ›</div></div>';}
   const nr=BQ.running.length,nw=BQ.waiting.length;
-  h+='<div class="bb-card bb-q"><div class="bb-qhd"><b>Queue</b><span>'+((nr||nw)?(nr+' running · '+nw+' up next'):'idle')+'</span></div>';
+  const qwarn=(!nr&&nw);
+  h+='<div class="bb-card bb-q"><div class="bb-qhd"><b>Queue</b><span data-bbcount="1"'+(qwarn?' class="warn" title="Work is waiting and nothing is running. If it does not start within a few minutes, the runner is not picking work up."':'')+'>'+((nr||nw)?(nr+' running · '+nw+' up next'):'idle')+'</span></div>';
   if(nr){h+='<div class="bb-qs">Running</div>'+BQ.running.map(b=>{const pz=String(b.status||'').toLowerCase()==='paused',pct=Math.max(0,Math.min(100,b.progress||0)),st=_bbAgo(_bbMs(b.startedAt));
-    return '<div class="bb-job col" data-bbjob="'+E(b.id)+'"><div class="bb-jrow"><div class="bb-jl"><b title="'+E(b.strategy||'')+'">'+E(nm(b))+'</b><small>'+E(_bbJobType(b)+' · '+(st?('started '+st):'no start time'))+'</small></div><span class="bb-jv">'+(pz?'Paused':(pct+'%'))+'</span></div>'
+    return '<div class="bb-job col" data-bbjob="'+E(b.id)+'" data-bbrunrow="'+E(b.id)+'"><div class="bb-jrow"><div class="bb-jl"><b title="'+E(b.strategy||'')+'">'+E(nm(b))+'</b><small>'+E(_bbJobType(b)+' · '+(st?('started '+st):'no start time'))+'</small></div><span class="bb-jv">'+(pz?'Paused':(pct+'%'))+'</span></div>'
       +'<div class="bb-prog'+(pz?' pz':'')+'"><i style="width:'+pct+'%"></i></div>'
       +'<div class="bb-ctls">'+(pz?'<button type="button" class="bb-ctl" data-bbctl="run" data-id="'+E(b.id)+'">Resume</button>':'<button type="button" class="bb-ctl" data-bbctl="pause" data-id="'+E(b.id)+'">Pause</button>')
       +'<button type="button" class="bb-ctl stop" data-bbctl="stop" data-id="'+E(b.id)+'">Stop</button></div></div>';}).join('');}
   if(nw){h+='<div class="bb-qs">Up next</div>'+BQ.waiting.map((b,i)=>{const ts=_btTs(b);
-    return '<div class="bb-job" data-bbjob="'+E(b.id)+'"><span class="bb-pos">'+(i+1)+'</span><div class="bb-jl"><b title="'+E(b.strategy||'')+'">'+E(nm(b))+'</b><small>'+E(_bbJobType(b))+' · '+(ts?E('queued '+_bbAgo(ts)):'<span class="bb-warnc">no timestamp</span>')+'</small></div>'
+    return '<div class="bb-job" data-bbjob="'+E(b.id)+'" data-bbwaitrow="'+E(b.id)+'"><span class="bb-pos">'+(i+1)+'</span><div class="bb-jl"><b title="'+E(b.strategy||'')+'">'+E(nm(b))+'</b><small>'+E(_bbJobType(b))+' · '+(ts?E('queued '+_bbAgo(ts)):'<span class="bb-warnc" data-bbnots="1" title="This job carries no queued-at time, which is what a job written straight into the queue by a script looks like. It is listed last because its real place in line cannot be read from the web.">no timestamp</span>')+'</small></div>'
       +'<button type="button" class="bb-x" data-bbctl="stop" data-id="'+E(b.id)+'" aria-label="Remove '+E(nm(b))+' from the queue" title="Remove from the queue">×</button></div>';}).join('');}
   if(!nr&&!nw)h+='<div class="bb-empty">Nothing is running or waiting.</div>';
   if(BQ.recent.length){h+='<div class="bb-qs">Recent</div>'+BQ.recent.map(b=>{const F=_bbJobFig(b),rid=b.run_id||b.runId||'',s=String(b.status||'').toLowerCase();
-    const sub=[_bbJobType(b),s==='done'?'':s,F.det,F.pf,(b.repeat_of_run?('repeat of #'+b.repeat_of_run):'')].filter(Boolean).join(' · ');
-    return '<div class="bb-job'+(rid?' click':'')+'"'+(rid?(' data-bbrun="'+E(rid)+'" role="button" tabindex="0" title="Open run #'+E(rid)+' in RESULTS"'):'')+'><div class="bb-jl"><b>'+E(X.stratInfo(b.strategy||'').label||nm(b))+'</b><small>'+E(sub)+'</small></div>'
+    const cr=(b.result&&b.result.cache_reuse)||null,reuse=(F.done&&cr&&cr.total>0&&cr.hits>0)?('♻ '+cr.hits+'/'+cr.total+(cr.note?'~':'')):'';
+    const sub=[_bbJobType(b),s==='done'?'':s,F.det,F.pf,reuse,(b.repeat_of_run?('repeat of #'+b.repeat_of_run):'')].filter(Boolean).join(' · ');
+    return '<div class="bb-job'+(rid?' click':'')+'" data-bbrecentrow="'+E(b.id)+'"'+(rid?(' data-bbrun="'+E(rid)+'" role="button" tabindex="0" title="Open run #'+E(rid)+' in RESULTS"'):'')+'><div class="bb-jl"><b>'+E(X.stratInfo(b.strategy||'').label||nm(b))+'</b><small>'+E(sub)+'</small></div>'
       +'<span class="bb-jv '+(F.done?(F.net>0?'bb-gain':(F.net<0?'bb-loss':'')):'bb-flat')+'">'+(F.done?E(_bbMoney(X,F.net)):'—')+'</span></div>';}).join('');}
   return h+'</div>';
 }
 
-// ── styles: every colour is a theme variable, so all ten themes carry it; Manrope is BUILDER β only ──
+// ── styles: every colour is a theme variable, so all ten themes carry it; Manrope is loaded for this tab only ──
 function _bbCss(){return '<style>'
   +'.bb{font-family:Manrope,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums;letter-spacing:0}'
   +'.bb button,.bb input{font-family:inherit;letter-spacing:0}'
@@ -3091,6 +3099,9 @@ function _bbCss(){return '<style>'
   +'.bb-gain{color:var(--green)}.bb-loss{color:var(--red)}.bb-flat{color:var(--text4)}'
   +'.bb :focus-visible{outline:2px solid var(--text);outline-offset:2px}'
   +'@media(prefers-reduced-motion:reduce){.bb *{transition:none!important}}'
+  +'.bb-c:disabled{opacity:.45;cursor:not-allowed}'
+  +'.bb-lbtest{display:flex;flex-direction:column;align-items:flex-start;gap:6px}.bb-lbtest small{max-width:540px;font-size:12px;color:var(--text4)}'
+  +'.bb-qhd span.warn{color:var(--yellow);cursor:help}.bb-jl small{font-variant-emoji:text}'
   +'@media(max-width:560px){.bb-title{font-size:25px}.bb-mkt{justify-items:start}.bb-cu{grid-template-columns:minmax(0,1fr) repeat(3,62px)}.bb-rv{max-width:50%}}'
   +'</style>';}
 
@@ -3163,8 +3174,8 @@ function _bbHtml(X){
 }
 
 // ── a data refresh must not rebuild the ticket under a field being typed in or a press in progress ──
-//   The runner writes job progress about every 1.5s and every write re-renders the app. BUILDER
-//   loses a half-typed value or a click that way; BUILDER β holds the redraw and runs it afterwards.
+//   The runner writes job progress about every 1.5s and every write re-renders the app. The retired
+//   tab lost a half-typed value or a click that way; this one holds the redraw and runs it afterwards.
 function _bbHold(){
   const U=_bbUiState();
   if(U.ptr&&Date.now()-(U.ptrT||0)>5000)U.ptr=false;
@@ -3203,6 +3214,11 @@ function _bbLive(root,X){
   if(wv){const first=wv.querySelector('.bb-warn[data-bbblock]');if(first)first.remove();if(block)wv.insertAdjacentHTML('afterbegin','<div class="bb-warn" data-bbblock="1">'+E(block)+'</div>');}
   if(run)run.disabled=!!block;
 }
+// the retired tab's lockbox test job, field for field: the newest finished optimization's best config,
+//   one single backtest from the holdout date to the end of the data
+function _bbLockboxJob(X,win,since){
+  return {strategy:win.strategy,instrument:win.instrument,timeframe:win.timeframe,session:win.session,source:win.source||null,params:win.result.best_params,date_from:since,date_to:'',cost_pts:win.cost_pts||0,commission_usd:win.commission_usd,slippage_pts:win.slippage_pts,mult:win.mult||X.instMult(win.instrument),mc_sims:1000,lockbox:true,preset:'🔒 LOCKBOX',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+}
 function _bbWire(content,X){
   const root=content.querySelector('[data-bb]');if(!root)return;
   const U=_bbUiState();
@@ -3210,7 +3226,7 @@ function _bbWire(content,X){
   const save=(k,v)=>X.savePref(k,v);
   const redraw=()=>{window._bbForce=true;try{renderApp();}finally{window._bbForce=false;}};
   const INTS={trials:1,workers:1,rounds:1,min_trades:1,equity_points:1,mlth:1};
-  // a mode change snaps the gate the way BUILDER's mode picker does: XGBoost for the bake-off, none otherwise
+  // a mode change snaps the gate the way the retired tab's mode picker did: XGBoost for the bake-off, none otherwise
   const setMode=m=>{const cur=_bbModel(X);if(m!==cur.mode){save('mlf',m==='gate_validate'?'xgb':'none');save('mode',m);}};
   const openRun=rid=>{augurRunSel=String(rid);augurSub='runs';save('augurSub','runs');renderApp();};
   root.onclick=e=>{
@@ -3249,6 +3265,17 @@ function _bbWire(content,X){
       if(v==='stop'&&!confirm('Stop this run? It will be marked cancelled.'))return;
       if(!btRef){U.msg={t:'err',s:'Sign in to control jobs.',ts:Date.now()};redraw();return;}
       btRef.doc(id).update({control:v}).catch(err=>{U.msg={t:'err',s:'That did not reach the runner: '+((err&&err.message)||err),ts:Date.now()};redraw();});
+      return;}
+    if(d.bblbtest){const st=_bbModel(X),since=st.lockbox;
+      if(!since){U.msg={t:'err',s:'Set a holdout date first.',ts:Date.now()};redraw();return;}
+      const win=(backtests||[]).find(b=>b.status==='done'&&b.result&&b.result.best_params&&Object.keys(b.result.best_params).length);
+      if(!win){U.msg={t:'err',s:'No finished optimization has a best config to test yet. Run a grid, smart search or walk-forward first.',ts:Date.now()};redraw();return;}
+      if(!confirm('Test the last winner ('+(win.strategy||'')+') once on the lockbox '+since+' → end? The discipline is to look only once.'))return;
+      const j=_bbLockboxJob(X,win,since);
+      t.disabled=true;t.textContent='Queuing…';
+      let p;try{p=btRef.add(j);}catch(err){U.msg={t:'err',s:'Queue failed: '+((err&&err.message)||err),ts:Date.now()};redraw();return;}
+      Promise.resolve(p).then(()=>{U.msg={t:'ok',s:'Queued the lockbox test of '+_bbStratName(X,win.strategy)+'.',ts:Date.now()};redraw();})
+        .catch(err=>{U.msg={t:'err',s:'Queue failed: '+((err&&err.message)||err),ts:Date.now()};redraw();});
       return;}
     if(d.bbrun){openRun(d.bbrun);return;}
     if(t.id==='bb-run'){
@@ -3327,7 +3354,7 @@ function subscribeAll(uid){
   cmdRef=db.collection('users').doc(uid).collection('commands');
   metaRef=db.collection('users').doc(uid).collection('meta');
   if(unsubMeta)unsubMeta();
-  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];metaEta=(x&&x.eta_calib)||null;metaWorkers=(x&&x.workers)||null;if(activeTab==='augur'&&(augurSub==='exec'||augurSub==='exec2'||augurSub==='lib'))renderApp();});
+  unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];metaEta=(x&&x.eta_calib)||null;metaWorkers=(x&&x.workers)||null;if(activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib'))renderApp();});
   // strategyPrefs: web-owned Library prefs (archived files + the forward-test star). The runner
   // never writes this doc, so it survives every strategies re-sync.
   unsubSP=metaRef.doc('strategyPrefs').onSnapshot(d=>{metaStratPrefs=d.data()||{};if(activeTab==='augur'&&augurSub==='lib')renderApp();});
@@ -10363,7 +10390,7 @@ function _hmRenderHome(content){
 
 function renderApp(){
   if(window._finishLoad){window._finishLoad();delete window._finishLoad;}
-  // BUILDER β: a data refresh waits while a field there is being typed in or pressed (see _bbHold).
+  // BUILDER: a data refresh waits while a field there is being typed in or pressed (see _bbHold).
   if(activeTab==='augur'&&augurSub==='exec2'&&!window._bbForce&&_bbHold())return;
   // v73.20: SETTINGS left the tab bars for the topbar gear. A browser that saved the old
   //   view (el_view) can still restore activeTab 'settings' / augurSub 'set' — send those
@@ -10377,6 +10404,8 @@ function renderApp(){
   // this"). 'paper' no longer has a button, so a browser restoring the old saved view
   // is routed to the merged tab instead of landing somewhere unreachable.
   if(augurSub==='paper')augurSub='paper2';
+  // the old BUILDER tab is retired: anything that still asks for it gets the new BUILDER
+  if(augurSub==='exec')augurSub='exec2';
   // 2026-09-14: PAPER and QQQ PAPER merged into one PAPER TRADE tab (owner: "create one paper
   // trade tab and put the two current tabs as subtabs to toggle between"). The two views keep
   // their own ids so every loader and handler keyed on them is untouched; this only remembers
@@ -10542,7 +10571,7 @@ function renderApp(){
   wrap.appendChild(tb);
   // every dial is clickable - querySelector would have wired up only the first one
   tb.querySelectorAll('[data-queuechip]').forEach(_qc=>{
-    _qc.onclick=()=>{activeTab='augur';augurSub='exec';savePref('augurSub','exec');renderApp();};
+    _qc.onclick=()=>{activeTab='augur';augurSub='exec2';savePref('augurSub','exec2');renderApp();};
   });
   // ── second-level subtab bar (subtabs for the active master section) ──
   const _master=(activeTab==='augur')?'backtester':'log';
@@ -17972,26 +18001,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +_driftLine
         +_pwrLine;
     };
-    const masterOptsHtml=(inst,tf,sess)=>{const ms=(metaMasters||[]).map((m,i)=>({m:m,i:i})).filter(o=>String(o.m.instrument)===String(inst)&&String(o.m.timeframe)===String(tf)&&(!o.m.session||!sess||String(o.m.session).toLowerCase()===String(sess).toLowerCase()));return '<option value="">'+(ms.length?('Auto — best match ('+ms.length+')'):'— no matching CSV —')+'</option>'+ms.map(o=>'<option value="'+o.i+'">'+((o.m.name||(o.m.instrument+' '+o.m.timeframe))+' · '+(o.m.source||'')+' · '+(o.m.rows||0).toLocaleString()+'r')+'</option>').join('');};
-    // which MODE each Builder field actually feeds (matches the engine): used to grey
-    // out fields the current mode ignores, so no inert control is ever left active.
-    const EXFIELDS={'ex-preset':['grid','ai','evolve'],
-      'ex-work':['grid','ai','evolve'],'ex-rounds':['ai','evolve','validate'],'ex-prov':['ai','evolve','validate'],
-      'ex-trials':['auto','walkforward'],'ex-folds':['walkforward'],
-      'ex-wfmode':['walkforward'],'ex-vscope':['validate'],'ex-xfer':['validate'],'ex-discover':['validate'],
-      'ex-pills':['auto','walkforward'],'ex-mlf':['single'],
-      'ex-mint':['grid','auto','walkforward','ai','evolve']};
-    // EXPERT VIEW: when on, every field is shown at once (the legacy dense layout) and the
-    // MODE picker + SEARCH×VALIDATION×AI axes appear. Persisted so it survives reruns.
-    let _exExpert=!!(APREF&&APREF.expert);
     // sibling instrument for the default cross-instrument transfer test
     const SIB={NQ:'ES',ES:'NQ',MNQ:'MES',MES:'MNQ',RTY:'M2K',M2K:'RTY',YM:'MYM',MYM:'YM',CL:'MCL',MCL:'CL',GC:'MGC',MGC:'GC'};
-    // hide (not just dim) the fields the current mode ignores — no confusing inert controls.
-    const applyExMode=m=>{Object.keys(EXFIELDS).forEach(id=>{const e=el(id);if(!e)return;const on=_exExpert||EXFIELDS[id].indexOf(m)>=0;e.disabled=!on;const w=e.closest('div');if(w)w.style.display=on?'':'none';});};
-    // ONE job builder for BOTH Run buttons (BUILDER and BUILDER β). Moved here unchanged from the
-    //   BUILDER Run handler: `el` is a parameter, so BUILDER passes the real element lookup and
-    //   BUILDER β passes a lookup over its own settings. The two tabs therefore cannot queue
-    //   different jobs for the same settings. Returns {job} or {err} (the text BUILDER alerts).
+    // The job builder behind the BUILDER Run button: the old BUILDER tab's Run handler, moved here
+    //   unchanged before that tab was retired (2026-09-14). `el` is the element lookup, which BUILDER
+    //   now answers from its settings (_bbLookup). tools/builder_parity_probe.py checks every mode
+    //   still queues exactly what the retired tab queued. Returns {job} or {err}.
     const _exMakeJob=(el,buildCustomGrid)=>{const mode=el('ex-mode').value;
       // Instrument/TF/session drive the run; the CSV pick only refines which master (source).
       const inst=el('ex-inst').value,tf=el('ex-tf').value,sess=el('ex-sess').value;
@@ -18021,7 +18036,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
       :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});
       return {job:job};};
-    // BUILDER β reads these renderApp-local helpers through one context object (see _bbModel).
+    // BUILDER reads these renderApp-local helpers through one context object (see _bbModel).
     const _bbCtx=()=>({APREF:APREF,savePref:savePref,stratInfo:stratInfo,instMult:instMult,INSTORD:INSTORD,TFORD:TFORD,SIB:SIB,scopeTier:scopeTier,fmtUsd:fmtUsd,_fmtSecs:_fmtSecs,stratOpts:stratOpts,makeJob:_exMakeJob});
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
@@ -21450,325 +21465,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         +'<div><div class="lbl" style="margin-bottom:8px">RECENT</div>'
         +(backtests.length?'<table class="table"><thead><tr><th>STATUS</th><th>STRATEGY</th><th>MARKET</th><th style="text-align:right">PF</th><th style="text-align:right">TRADES</th><th style="text-align:right">NET P&L</th><th style="text-align:right">P95 DD</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO BACKTESTS YET — LAUNCH ONE</div>')
         +'</div></div>';
-    }else if(augurSub==='exec'){
-      const slist=(metaStrats&&metaStrats.length)?metaStrats:stratOpts.map(f=>({file:f,presets:[]}));
-      const curStrat=augurExecStrat||slist[0].file;
-      const cur=slist.filter(s=>s.file===curStrat)[0]||slist[0];
-      const presets=(cur&&cur.presets&&cur.presets.length)?cur.presets:['(start runner to load scopes)'];
-      // BUILD QUEUE + the panels below read ONE helper - the same one the top-bar
-      //   QUEUE chip reads - so the two counts can never disagree again.
-      const BQ=_liveJobs();
-      const grids=BQ.recent;   // finished jobs only (done / error / cancelled), newest 12
-      const gbadge=b=>{const c={done:'var(--green)',error:'var(--red)',running:'var(--yellow)',queued:'var(--text4)'}[b.status]||'var(--text4)';const pct=Math.max(0,Math.min(100,b.progress||0));const lbl=b.status==='running'?('RUNNING '+pct+'%'):(b.status||'?').toUpperCase();
-        // live progress bar for the active job (runner writes job.progress 0-100)
-        const bar=b.status==='running'?'<div style="height:3px;background:var(--bg1);border-radius:2px;overflow:hidden;margin-top:3px;width:84px"><div style="height:100%;width:'+pct+'%;background:var(--yellow);transition:width .3s"></div></div>':'';
-        return '<span style="color:'+c+';font-size:var(--fsxs);letter-spacing:1px">'+lbl+'</span>'+bar;};
-      const scopeLbl={auto:'Auto-Optimize',walkforward:'Walk-Forward',ai_optimize:'AI optimize',ai_evolve:'AI evolve',validate:'Auto-Validate',gate_validate:'🚪🧭 gate-val'};
-      // STOP / PAUSE / RESUME — write a `control` flag on the job doc; the PC runner
-      // honours it at its next progress checkpoint (~1.5s). Finished jobs get no control.
-      const jobCtl=b=>{const s=b.status;if(s==='done'||s==='error'||s==='cancelled')return '<span style="color:var(--text5)">—</span>';
-        const btn=(v,gl,t,col)=>'<span data-jobctl="'+v+'" data-jobid="'+b.id+'" title="'+t+'" style="cursor:pointer;font-size:12px;margin-left:8px;color:'+col+'">'+gl+'</span>';
-        return (s==='paused'?btn('run','▶','Resume','var(--green)'):btn('pause','⏸','Pause','var(--text4)'))+btn('stop','■','Stop','var(--red)');};
-      // The FIGURES for one finished job, lifted out of the old RUNS table unchanged so
-      //   the BUILD QUEUE sidebar prints exactly the same numbers in a narrower shape.
-      const gmeta=b=>{const r=b.result||{};const done=b.status==='done';const ai=b.type==='ai_optimize'||b.type==='ai_evolve';const vald=b.type==='validate';const smart=b.type==='auto'||b.type==='walkforward'||vald;const gvt=b.type==='gate_validate';const single=!ai&&!smart&&!gvt&&b.type!=='grid';const m=(single||gvt)?r:(r.best||{});const net=done?Math.round((m.total_pnl||0)*(b.mult||20)):0;const sizecell=done?(vald?((r.validate&&r.validate.n_pass!=null?r.validate.n_pass+'/'+(r.validate.n_gates||5):'—')):gvt?((r.gate_validate&&r.gate_validate.chosen)?(r.gate_validate.chosen.model+'@'+Math.round(r.gate_validate.chosen.threshold*100)+'%'):'—'):single?((r.num_trades||0)+'T'):ai?((r.n_rounds||'?')+' rnds'):(r.n_valid+'/'+r.n_combos)):'—';const scope=b.lockbox?'🔒 lockbox':vald?('🧭 '+((r.validate&&r.validate.verdict)||'…')):single?((b.ml_filter&&b.ml_filter!=='none')?'🚪 gated':'single'):(scopeLbl[b.type]||(b.preset||'').slice(0,16));const _cr2=r.cache_reuse;const _reuseChip2=(done&&_cr2&&_cr2.total>0&&_cr2.hits>0)?' <span title="Trial cache: reused '+_cr2.hits+' of '+_cr2.total+' configs ('+_cr2.pct_reused+'% less compute)'+(_cr2.note?' (approx: parallel grid, parent-process only)':'')+'" style="font-size:8px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:6px;padding:1px 4px;margin-left:5px;white-space:nowrap">♻ '+_cr2.hits+'/'+_cr2.total+(_cr2.note?'~':'')+'</span>':'';return {done:done,ai:ai,net:net,sizecell:sizecell,scope:scope,pf:(done?Math.min(m.profit_factor||0,99).toFixed(2):'—'),reuseChip:_reuseChip2};};
-      const lastDone=grids.filter(b=>b.status==='done'&&b.result&&b.result.top)[0];
-      // ── ML GATE before/after card (board 3A.2): the most recent gated single run.
-      //    UNGATED = the strategy taking every trade; GATED = only the trades the
-      //    model let through. Headline result of the run IS the gated column.
-      const lastGated=grids.filter(b=>b.status==='done'&&b.result&&b.result.ml_gate)[0];
-      const gateHtml=lastGated?gateCardHtml(lastGated.result.ml_gate,stratTag(lastGated.strategy),lastGated.mult||20):'';
-      // ── GATE VALIDATE (board 4.10, #38 2026-07-18): every completed gate-validate job is
-      //    persisted into run history the moment it finishes (api/runner.py _persist_run) and
-      //    renders this SAME gvTableHtml bake-off chart inside the saved run report (RESULTS,
-      //    section 4 Diagnostics). Rendering the full chart again here duplicated it exactly,
-      //    so this panel now leaves a one-line pointer to RESULTS instead of the full card.
-      const lastGV=grids.filter(b=>b.status==='done'&&b.result&&b.result.gate_validate)[0];
-      const gvHtml=lastGV?('<div style="font-size:8px;color:var(--text5);margin-bottom:2px">🚪🧭 GATE VALIDATE — the bake-off chart for run #'+lastGV.id+' now renders in RESULTS (open that run to see it).</div>'):'';
-      let topHtml='';
-      if(lastDone){const t=lastDone.result.top;const pk=t.length?Object.keys(t[0]).filter(k=>['total_pnl','num_trades','win_rate','profit_factor','max_drawdown','avg_pnl','wins','losses','oos_pnl','oos_trades','oos_pf','fold','test_bars','train_bars'].indexOf(k)<0):[];const hasOos=t.length&&t[0].oos_pnl!==undefined,isWf=t.length&&t[0].fold!==undefined;const R=lastDone.result,mlt=lastDone.mult||20;let val='';if(R.dsr){const dc=R.dsr.dsr>=0.95?'var(--green)':R.dsr.dsr>=0.8?'var(--yellow)':'var(--red)';val+='<span>Winner Sharpe <b>'+R.dsr.winner_sharpe.toFixed(2)+'</b></span><span>Luck bar / '+R.dsr.n_cfg+' <b>'+R.dsr.luck_bar.toFixed(2)+'</b></span><span>Deflated Sharpe <b style="color:'+dc+'">'+Math.round(R.dsr.dsr*100)+'%</b> · '+R.dsr.verdict+'</span>';}if(R.mc){val+='<span>P95 drawdown <b style="color:var(--red)">$'+Math.round((R.mc.p95||0)*mlt).toLocaleString()+'</b> (size to this)</span>';}
-        // ── Walk-forward efficiency + fold consistency (the numbers a pro reads off WF) ──
-        // WFE = OOS return-per-bar ÷ IS return-per-bar (1.0 = edge fully persisted out-of-sample);
-        // consistency = how many folds stayed profitable on data they were never optimized on.
-        if(isWf){let sOos=0,sTest=0,sIs=0,sTrain=0,held=0;t.forEach(r=>{sOos+=(+r.oos_pnl||0);sTest+=(+r.test_bars||0);sIs+=(+r.total_pnl||0);sTrain+=(+r.train_bars||0);if((+r.oos_pf||0)>1)held++;});
-          const hc=held/t.length>=0.75?'var(--green)':held/t.length>=0.5?'var(--yellow)':'var(--red)';
-          let wfPre='';if(sTrain>0&&sTest>0&&sIs/sTrain>0){const wfe=(sOos/sTest)/(sIs/sTrain),wp=Math.round(wfe*100),wc=wfe>=0.6?'var(--green)':wfe>=0.4?'var(--yellow)':'var(--red)';wfPre='<span title="OOS return-per-bar / IS return-per-bar. >60% strong, <40% likely curve-fit.">Walk-forward efficiency <b style="color:'+wc+'">'+wp+'%</b></span>';}
-          val=wfPre+'<span title="Folds that stayed profitable (PF>1) on data they were never optimized on.">Held OOS <b style="color:'+hc+'">'+held+'/'+t.length+' folds</b></span><span>OOS net <b style="color:'+(sOos>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(sOos*mlt))+'</b></span>'+val;}
-        // ── Degrees of freedom: trades per optimized parameter (the overfitting governor) ──
-        {const _bestM=R.best||(t[0]||{});const _nt=+(_bestM.num_trades||0),_np=pk.length;
-          if(_np>0&&_nt>0){const _dof=_nt/_np,_dc=_dof>=30?'var(--green)':_dof>=10?'var(--yellow)':'var(--red)';val+='<span title="Trades per optimized parameter — the overfitting governor. Under 10 = high risk; aim for 30+. Here '+_nt+' trades across '+_np+' optimized params.">Sample <b>'+_nt+' trd</b> · <b style="color:'+_dc+'">'+Math.round(_dof)+'/param</b></span>';}}
-        const valHtml=val?'<div class="lbl" style="margin:16px 0 6px">VALIDATION</div><div style="display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fsxs);margin-bottom:6px;color:var(--text3)">'+val+'</div>':'';
-        // ── Auto-Validate report card (verdict + 4 gates + lockbox) ──
-        const cardHtml=R.validate?validateCardHtml(R.validate,mlt,stratTag(lastDone.strategy)):'';
-        // ── 3C.1 PDP-plateau pick: the broad-high-ground config, next to the argmax
-        //    champion. Agreement = the champion is NOT a lucky spike; disagreement
-        //    shows both so the deploy decision is explicit.
-        const platHtml=plateauCardHtml(R.plateau_pick,R.best_params,mlt);
-        // ── §6 Ensemble top-K + stacking/CCMP: blend of the top configs vs the single best ──
-        const ensHtml=ensembleCardHtml(R.ensemble,mlt);
-        // ── §1/§2/§4/§6/§7/§8 diagnostic pills — adversarial · conformal · causal · synthetic ·
-        //    lead-lag · ACF · VIF · feature-select · edge-sig · tail-fit · seasonality. Shared
-        //    renderer; source is R.validate for Auto-Validate or R itself for Auto-Optimize. ──
-        const advHtml=pillsHtml(R.validate||R,mlt);
-        topHtml=cardHtml+advHtml+valHtml+platHtml+ensHtml+'<div class="lbl" style="margin:16px 0 6px">'+(isWf?'WALK-FORWARD FOLDS · ':'TOP CONFIGS · ')+stratTag(lastDone.strategy)+(hasOos&&!isWf?' · IS vs OOS':'')+'</div><div style="overflow-x:auto"><table class="table"><thead><tr><th>#</th>'+(isWf?'<th>FOLD</th>':'')+pk.map(k=>'<th>'+k+'</th>').join('')+'<th style="text-align:right">PnL pts</th><th style="text-align:right">TRD</th><th style="text-align:right">WR</th><th style="text-align:right">PF</th>'+(hasOos?'<th style="text-align:right">OOS $</th><th style="text-align:right">OOS PF</th>':'')+'</tr></thead><tbody>'+t.map((r,i)=>'<tr><td>'+(i+1)+'</td>'+(isWf?'<td>'+(r.fold||'')+'</td>':'')+pk.map(k=>'<td style="font-size:var(--fsxs)">'+r[k]+'</td>').join('')+'<td style="text-align:right">'+Math.round(r.total_pnl||0).toLocaleString()+'</td><td style="text-align:right">'+(r.num_trades||0)+'</td><td style="text-align:right">'+Math.round(r.win_rate||0)+'%</td><td style="text-align:right">'+Math.min(r.profit_factor||0,99).toFixed(2)+'</td>'+(hasOos?'<td style="text-align:right;color:'+((r.oos_pnl||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round((r.oos_pnl||0)*mlt))+'</td><td style="text-align:right">'+Math.min(r.oos_pf||0,99).toFixed(2)+'</td>':'')+'</tr>').join('')+'</tbody></table></div>';}
-      // ── Horizontal, left-to-right build flow (like legacy AUGUR "Executions") ──
-      // Each field is a flex cell that packs across the row and wraps as the window
-      // narrows. Groups read in build order: SETUP → DATA WINDOW · COSTS → SEARCH → RUN.
-      // cells size to their set width and DON'T grow to fill the row — they just wrap.
-      const fld=(lbl,inner,w)=>'<div style="flex:0 1 '+(w||150)+'px;width:'+(w||150)+'px"><label class="lbl">'+lbl+'</label>'+inner+'</div>';
-      const exrow=(inner,gap)=>'<div style="display:flex;flex-wrap:wrap;gap:'+(gap||10)+'px;align-items:flex-end;margin-bottom:12px">'+inner+'</div>';
-      const grpH=t=>'<div class="lbl" style="opacity:.55;letter-spacing:2px;margin:2px 0 7px;border-top:1px solid var(--border);padding-top:9px">'+t+'</div>';
-      // ── Mode = 3 independent axes (SEARCH × VALIDATION × AI ASSIST) mapped onto the
-      //    engine's 7 job types (mirrors the Research-tab Stack: §3 Model & Search /
-      //    §4 Validation / AI assist). The hidden #ex-mode input carries the DERIVED job
-      //    type, so every existing reader (ETA, field-gating, submit) works unchanged.
-      const MODEAX={single:['single','none','off'],grid:['grid','none','off'],auto:['bayes','none','off'],walkforward:['bayes','wf','off'],validate:['bayes','full','off'],ai:['bayes','none','propose'],evolve:['bayes','none','rewrite']};
-      const _ax0=MODEAX[APREF.mode||'single']||MODEAX.single;
-      const _axSel=(id,opts,cur)=>'<select id="'+id+'">'+opts.map(o=>'<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
-      const c_search=_axSel('ex-search',[['single','Single · run 1 config'],['grid','Grid · sweep every combo'],['bayes','Bayesian · smart search']],_ax0[0])+'<input type="hidden" id="ex-mode" value="'+(APREF.mode||'single')+'"/>';
-      const c_valid=_axSel('ex-valid',[['none','None · in-sample only'],['wf','Walk-forward folds'],['full','WF + gates + 🔒 lockbox']],_ax0[1]);
-      const c_ai=_axSel('ex-ai',[['off','Off'],['propose','🧠 Propose ranges'],['rewrite','🧬 Rewrite code']],_ax0[2]);
-      // STRATEGY = the trigger/knobs (rule strategies + self-contained learners like
-      // GAINZ_RF). Carl's classification MODELS do NOT multiply this list — they plug in
-      // via the separate ML FILTER slot below (Strategy × Model matrix, ROADMAP #25).
-      const _isModelStrat=f=>/^(GAINZ_RF|RF_|XGB|LOGIT|GAM_)/i.test(String(f||''));
-      // v73.214 (owner: "dont pin configs on auto validate - those are full surfaces"): a file
-      //   whose every knob has min = max is PINNED - it has no search space, so Auto-Validate can
-      //   only record one config and the 2E-2I surfaces never exist (runs 252-267 except 264).
-      const _isPinned=s=>!!(s&&Array.isArray(s.params)&&s.params.length&&s.params.every(p=>p.min!=null&&p.max!=null&&+p.min===+p.max));
-      const _sOpt=s=>'<option value="'+s.file+'"'+(s.file===curStrat?' selected':'')+'>'+stratInfo(s.file).label+(_isPinned(s)?' · PINNED (single / gate only)':'')+'</option>';
-      const _rules=slist.filter(s=>!_isModelStrat(s.file)),_models=slist.filter(s=>_isModelStrat(s.file));
-      const c_strat='<select id="ex-strat"><optgroup label="RULE STRATEGIES — hand-coded">'+_rules.map(_sOpt).join('')+'</optgroup>'
-        +(_models.length?'<optgroup label="MODEL STRATEGIES — self-contained learners">'+_models.map(_sOpt).join('')+'</optgroup>':'')+'</select>';
-      // ML FILTER = the plug-and-play slot for Carl's classification models (board 3A):
-      // the strategy fires entries, the chosen model gates them by profit-weighted
-      // P(win) — pair ANY strategy with ANY model (meta-labeling, ROADMAP #25).
-      // v1: logistic gate LIVE on Single backtests; RF/XGB gates still planned.
-      const _mlf0=(APREF.mlf==='boosted'?'xgb':APREF.mlf)||'none';
-      const _mlfOpt=(v,lbl)=>'<option value="'+v+'"'+(_mlf0===v?' selected':'')+'>'+lbl+'</option>';
-      const c_mlf='<select id="ex-mlf">'+_mlfOpt('none','None — trade every signal')+_mlfOpt('logistic','🚪 logistic gate · 3A.2')+_mlfOpt('rf','🌲 Random Forest gate · 3A.1')+_mlfOpt('xgb','⚡ XGBoost gate · 3A.3')+'</select>';
-      const c_mlth='<input id="ex-mlth" type="number" min="50" max="90" step="1" value="'+(APREF.mlth||50)+'"/>';
-      const _curSess=(APREF.session==='eth'?'eth':'rth');
-      const c_master='<select id="ex-master">'+masterOptsHtml(APREF.instrument||'NQ',APREF.timeframe||'5m',_curSess)+'</select>';
-      const c_inst='<select id="ex-inst">'+INSTORD.map(k=>'<option'+(k===(APREF.instrument||'NQ')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
-      const c_tf='<select id="ex-tf">'+TFORD.map(k=>'<option'+(k===(APREF.timeframe||'5m')?' selected':'')+'>'+k+'</option>').join('')+'</select>';
-      const c_sess='<select id="ex-sess"><option value="rth"'+(APREF.session==='eth'?'':' selected')+'>RTH</option><option value="eth"'+(APREF.session==='eth'?' selected':'')+'>ETH</option></select>';
-      const _wantTier=APREF.scope_tier||'';
-      const _selPreset=presets.find(p=>scopeTier(p)===_wantTier);
-      const c_preset='<select id="ex-preset">'+presets.map(p=>'<option'+(p===_selPreset?' selected':'')+'>'+p+'</option>').join('')+'<option value="CUSTOM"'+(_wantTier==='CUSTOM'?' selected':'')+'>◆ CUSTOM — set ranges</option></select>';
-      const c_prov='<select id="ex-prov"><option value="ollama"'+(APREF.provider&&APREF.provider!=='ollama'?'':' selected')+'>Ollama · qwen3.6 (free)</option><option value="claude-cli"'+(APREF.provider==='claude-cli'?' selected':'')+'>Claude CLI</option><option value="anthropic"'+(APREF.provider==='anthropic'?' selected':'')+'>Anthropic API</option></select>';
-      // iOS-glass treatment: section class picks up the active theme's glass bg/blur;
-      // scoped style rounds the controls (pill inputs/selects) for the iOS minimalist look.
-      const exStyle='<style>.ex-build{border-radius:16px;padding:15px 17px;margin-bottom:14px}'
-        +'.ex-build select,.ex-build input{border-radius:10px;padding:9px 11px}'
-        +'.ex-build select:hover,.ex-build input:hover{border-color:color-mix(in srgb,var(--text5) 60%,transparent)}'
-        +'.ex-build .lbl{margin-bottom:5px;display:block}'
-        // single-pill bounded date-range picker (legacy AUGUR: click start then end on one month)
-        +'.ex-pill{width:100%;text-align:left;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text);cursor:pointer;font-family:inherit;font-size:var(--fsm);transition:border-color .15s}'
-        +'.ex-pill:hover{border-color:color-mix(in srgb,var(--text5) 60%,transparent)}'
-        +'.ex-pop{position:absolute;z-index:90;top:calc(100% + 5px);left:0;width:252px;background:var(--bg1);border:1px solid var(--border);border-radius:13px;padding:11px;box-shadow:0 12px 34px rgba(0,0,0,.55);backdrop-filter:blur(20px)}'
-        +'.ex-cal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:var(--fsxs);font-weight:600;color:var(--text2)}'
-        +'.ex-cal-hd button{width:auto;background:transparent;border:0;color:var(--text3);cursor:pointer;padding:2px 9px;font-size:15px;border-radius:6px}'
-        +'.ex-cal-hd button:hover{background:var(--bg2);color:var(--text)}'
-        +'.ex-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}'
-        +'.ex-cal-dow{text-align:center;font-size:8px;color:var(--text5);padding:2px 0;letter-spacing:0}'
-        +'.ex-cal-day{background:transparent;border:0;color:var(--text2);border-radius:7px;padding:6px 0;font-size:var(--fsxs);cursor:pointer;width:100%}'
-        +'.ex-cal-day:hover:not(:disabled){background:var(--bg2)}'
-        +'.ex-cal-day.rng{background:color-mix(in srgb,var(--green) 16%,transparent)}'
-        +'.ex-cal-day.sel{background:var(--green);color:#04130c;font-weight:700}'
-        +'.ex-cal-day:disabled{opacity:.22;cursor:default}'
-        +'.ex-cal-ft{display:flex;justify-content:space-between;margin-top:9px}'
-        +'.ex-cal-ft button{width:auto;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text3);cursor:pointer;padding:5px 13px;font-size:var(--fsxs)}'
-        +'.ex-cal-ft button:hover{color:var(--text);border-color:var(--text5)}'
-        // ── guided build flow: numbered steps → goal ladder → tune → run summary ──
-        +'.ex-step{border-top:1px solid var(--border);padding-top:10px;margin-top:10px}'
-        +'.ex-step:first-child{border-top:0;padding-top:0;margin-top:0}'
-        +'.ex-steplbl{font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}'
-        +'.ex-steplbl .ex-n{display:inline-grid;place-items:center;width:19px;height:19px;border:1px solid var(--border);border-radius:99px;color:var(--text3);font-size:9px}'
-        +'.ex-steplbl .ex-hint{color:var(--text5);letter-spacing:1px;font-weight:400;text-transform:none}'
-        +'.ex-goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}'
-        +'.ex-goal{text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:13px;background:var(--bg2);padding:10px 11px 11px;color:var(--text);font-family:inherit;transition:border-color .15s,background .15s,transform .12s}'
-        +'.ex-goal:hover{border-color:var(--text5);transform:translateY(-1px)}'
-        +'.ex-goal .gic{font-size:16px;display:block;margin-bottom:7px;line-height:1;font-variant-emoji:text}'
-        +'.ex-goal .gnm{font-size:var(--fsm);letter-spacing:1.5px;color:var(--text2);display:block}'
-        +'.ex-goal .gds{font-size:var(--fsxs);color:var(--text5);margin-top:5px;display:block;line-height:1.45}'
-        +'.ex-goal.sel{border-color:color-mix(in srgb,var(--green) 55%,transparent);background:color-mix(in srgb,var(--green) 7%,var(--bg2));box-shadow:0 6px 20px -14px var(--green)}'
-        +'.ex-goal.sel .gnm{color:var(--green)}'
-        +'#ex-expert-controls{display:none}'
-        +'.ex-build.expert #ex-goals-wrap{display:none}'
-        +'.ex-build.expert #ex-expert-controls{display:block}'
-        +'.ex-tgl{display:flex;align-items:center;gap:7px;font-size:var(--fsxs);color:var(--text3);cursor:pointer;letter-spacing:1px}'
-        +'.ex-tgl input{width:auto;cursor:pointer}'
-        +'.ex-adv{margin-top:8px}'
-        +'.ex-adv>summary{list-style:none;cursor:pointer;font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);padding:7px 0}'
-        +'.ex-adv>summary::-webkit-details-marker{display:none}'
-        +'.ex-adv>summary::before{content:"\\25B8  ";color:var(--text5)}'
-        +'.ex-adv[open]>summary::before{content:"\\25BE  "}'
-        +'.ex-adv>summary:hover{color:var(--text3)}'
-        +'.ex-runbar{border:1px solid color-mix(in srgb,var(--green) 22%,var(--border));border-radius:13px;padding:12px 14px;margin:15px 0 6px;background:linear-gradient(color-mix(in srgb,var(--green) 5%,transparent),transparent)}'
-        +'.ex-cap{font-size:var(--fsxs);letter-spacing:2px;color:var(--text5);margin-bottom:7px}'
-        +'.ex-summary{font-size:var(--fsm);line-height:1.8;color:var(--text2)}'
-        +'.ex-summary .k{color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1px 7px;white-space:nowrap;font-variant-numeric:tabular-nums}'
-        +'.ex-summary .k.g{color:var(--green);border-color:color-mix(in srgb,var(--green) 35%,transparent)}'
-        +'.ex-summary .k.b{color:var(--blue);border-color:color-mix(in srgb,var(--blue) 30%,transparent)}'
-        +'.ex-summary .k.p{color:var(--purple);border-color:color-mix(in srgb,var(--purple) 30%,transparent)}'
-        +'.ex-runrow{display:flex;align-items:center;gap:14px;margin-top:8px;border-top:1px solid var(--border);padding-top:12px}</style>';
-      // CUSTOM scope editor: per-parameter min/max/step rows from the synced spec.
-      const cparams=(cur&&cur.params)||[];
-      const cuRows=cparams.length?cparams.map(p=>'<div style="display:flex;gap:8px;align-items:flex-end;flex:0 1 330px;width:330px;background:var(--bg1);border-radius:10px;padding:8px 10px">'
-        +'<div style="flex:1.6;min-width:0"><div style="font-size:var(--fsxs);color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.label||p.name)+'</div><div style="font-size:8px;color:var(--text5)">'+p.name+' · '+p.type+'</div></div>'
-        +'<div style="flex:1"><label class="lbl">min</label><input class="ex-cu" data-p="'+p.name+'" data-k="min" data-type="'+p.type+'" type="number" step="any" value="'+(p.min!=null?p.min:'')+'"/></div>'
-        +'<div style="flex:1"><label class="lbl">max</label><input class="ex-cu" data-p="'+p.name+'" data-k="max" type="number" step="any" value="'+(p.max!=null?p.max:'')+'"/></div>'
-        +'<div style="flex:1"><label class="lbl">step</label><input class="ex-cu" data-p="'+p.name+'" data-k="step" type="number" step="any" value="'+(p.step!=null?p.step:'')+'"/></div>'
-        +'</div>').join(''):'<div style="font-size:var(--fsxs);color:var(--text5);padding:6px 2px">No param spec synced for this strategy — restart the runner to push DEFAULT_PARAMS.</div>';
-      const customTile='<div id="ex-custom" style="display:none">'
-        +'<div class="lbl" style="opacity:.55;letter-spacing:2px;margin:2px 0 7px;border-top:1px solid var(--border);padding-top:9px">CUSTOM GRID · <span id="ex-cu-count" style="color:var(--text3)">0</span> combos</div>'
-        +'<div style="display:flex;flex-wrap:wrap;gap:10px">'+cuRows+'</div></div>';
-      const _drLbl=(APREF.date_from||APREF.date_to)?((APREF.date_from?_exFmtD(APREF.date_from):'start')+' → '+(APREF.date_to?_exFmtD(APREF.date_to):'end')):'All dates';
-      const c_dates='<div style="position:relative"><button type="button" id="ex-dr-btn" class="ex-pill">'+_drLbl+'</button><div id="ex-dr-pop" class="ex-pop" style="display:none"></div>'
-        +'<input id="ex-from" type="hidden" value="'+(APREF.date_from||'')+'"/><input id="ex-to" type="hidden" value="'+(APREF.date_to||'')+'"/></div>';
-      // Field cells defined once here, then placed by the guided flow below: STEP 1 (data),
-      //   STEP 3 tune row (goal-relevant knobs, gated by applyExMode), and the ADVANCED
-      //   expander (workers / walk-forward / costs). The MODE picker + SEARCH×VALIDATION×AI
-      //   axes only surface in EXPERT view; in guided view the goal ladder drives them. ──
-      // MODE quick-picker: one dropdown for all 8 named modes; picking one snaps the
-      //   SEARCH × VALIDATION × AI axes (+ ML FILTER for the gate bake-off) to match. The
-      //   axes stay visible as the detail — set either the mode OR the axes.
-      const c_qmode='<select id="ex-mode-quick" title="Pick one of the 8 run modes — this sets the SEARCH / VALIDATION / AI axes below to match. You can also set the axes directly.">'+[['single','1 · Single backtest'],['grid','2 · Grid sweep'],['auto','3 · Auto-Optimize'],['walkforward','4 · Walk-Forward'],['ai','5 · AI optimize'],['evolve','6 · AI evolve'],['validate','7 · 🧭 Auto-Validate'],['gate_validate','8 · 🚪🧭 Gate-validate']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.mode||'single')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>';
-      const _fQmode=fld('MODE',c_qmode,190),_fStrat=fld('STRATEGY',c_strat,190),_fMlf=fld('ML FILTER',c_mlf,185),_fMlth=fld('GATE CUT-OFF %',c_mlth,115),
-        _fInst=fld('INSTRUMENT',c_inst,110),_fTf=fld('TIMEFRAME',c_tf,100),_fSess=fld('SESSION',c_sess,100),
-        _fCsv=fld('CSV FILE',c_master,200),_fDates=fld('DATE RANGE',c_dates,230),
-        _fVscope=fld('VALIDATE SCOPE','<select id="ex-vscope">'+[['short','Short · ~3yr · 80 trials · 6mo lock'],['medium','Medium · ~6yr · 120 trials · 12mo lock'],['long','Long · ~12yr · 200 trials · 12mo lock'],['xl','XL · all data · 300 trials · 18mo lock']].map(o=>'<option value="'+o[0]+'"'+(o[0]===(APREF.vscope||'medium')?' selected':'')+'>'+o[1]+'</option>').join('')+'</select>',300),
-        _fXfer=(function(){const _xd=(APREF.xfer!=null?APREF.xfer:(SIB[APREF.instrument||'NQ']||''));return fld('TRANSFER TO','<select id="ex-xfer"><option value="">— none —</option>'+INSTORD.map(k=>'<option value="'+k+'"'+(k===_xd?' selected':'')+'>'+k+'</option>').join('')+'</select>',120);})(),
-        _fSearch=fld('SEARCH',c_search,185),_fValid=fld('VALIDATION',c_valid,190),_fAi=fld('AI ASSIST',c_ai,155),
-        _fDiscover=fld('DISCOVER WITH','<select id="ex-discover"><option value="auto"'+(APREF.discover==='evolve'?'':' selected')+'>Statistical (fast · free)</option><option value="evolve"'+(APREF.discover==='evolve'?' selected':'')+'>AI-evolve (rewrite code → judge)</option></select>',230),
-        _fRounds=fld('AI ROUNDS','<input id="ex-rounds" type="number" value="'+(APREF.rounds||4)+'"/>',90),
-        _fEqPts=fld('GRAPH DETAIL','<input id="ex-eqpts" type="number" min="80" max="1200" step="40" value="'+(APREF.equity_points||400)+'"/>',120),
-        _fProv=fld('AI PROVIDER',c_prov,170),
-        _fScope=fld('SCOPE',c_preset,190),
-        _fTrials=fld('TRIALS','<input id="ex-trials" type="number" value="'+(APREF.trials||500)+'"/>',90),
-        _fWork=fld('WORKERS','<input id="ex-work" type="number" value="'+(APREF.workers||4)+'"/>',90),
-        _fMint=fld('MIN TRADES','<input id="ex-mint" type="number" value="'+(APREF.min_trades||30)+'"/>',100),
-        _fFolds=fld('WF FOLDS','<input id="ex-folds" type="number" value="0"/>',90),
-        _fWftype=fld('WF TYPE','<select id="ex-wfmode"><option value="anchored"'+(APREF.wf_mode==='rolling'?'':' selected')+'>Anchored (expanding)</option><option value="rolling"'+(APREF.wf_mode==='rolling'?' selected':'')+'>Rolling (fixed window)</option></select>',160),
-        _fPills=fld('ALL PILLS','<label title="Run the full diagnostic-pill set (adversarial-free): ACF · tail-fit · seasonality · VIF · conformal · causal · synthetic · feature-select · edge-sig · lead-lag — the same informational checks Auto-Validate runs. Adds runtime (conformal/causal/synthetic each run ~800–1000 sims). Uncheck for a faster search." style="display:flex;align-items:center;gap:6px;height:37px;font-size:var(--fsxs);color:var(--text3);cursor:pointer"><input id="ex-pills" type="checkbox"'+(APREF.pills===false?'':' checked')+' style="width:auto;cursor:pointer"/> run all</label>',110);
-      // ── GUIDED FACE: a goal ladder + per-goal variant controls that all drive the SAME
-      //   hidden #ex-mode (through the mode-quick picker), so the runner/submit path is
-      //   unchanged. Expert view flips back to the dense picker+axes layout with all fields. ──
-      const _goalCard=(g,ic,nm,ds)=>'<button type="button" class="ex-goal" data-goal="'+g+'"><span class="gic">'+ic+'</span><span class="gnm">'+nm+'</span><span class="gds">'+ds+'</span></button>';
-      const _goalsHtml='<div id="ex-goals-wrap"><div class="ex-goals">'
-        +_goalCard('backtest','▶','BACKTEST','Run one config as-is. Fastest look.')
-        +_goalCard('optimize','◎','OPTIMIZE','Search many settings, keep the best.')
-        +_goalCard('validate','🧭','VALIDATE','Optimize, then prove it holds out-of-sample.')
-        +_goalCard('ai','🧠','AI','Let Claude propose ranges or rewrite code.')
-        +'</div></div>';
-      const _expertHtml='<div id="ex-expert-controls">'+grpH('EXPERT — MODE + SEARCH × VALIDATION × AI (all fields shown)')+exrow(_fQmode+_fSearch+_fValid+_fAi)+'</div>';
-      const _gvSearch=fld('SEARCH','<select id="gv-search"><option value="bayes">Bayesian · smart search</option><option value="grid">Grid · every combo</option><option value="custom">◆ Custom ranges</option></select>',210);
-      const _gvDepth=fld('DEPTH','<select id="gv-depth"><option value="wf">Walk-forward folds</option><option value="full">Full · WF + gates + 🔒 lockbox</option></select>',230);
-      const _gvBake=fld('ML GATE BAKE-OFF','<label class="ex-tgl" style="height:37px" title="Run the strategy once, then try all three ML gates (logistic · forest · XGBoost) across cut-offs, rank by recovery factor — only the winner sees the lockbox."><input id="gv-bakeoff" type="checkbox"/> all 3 gates 🚪🌲⚡</label>',210);
-      const _gvAkind=fld('AI MODE','<select id="gv-akind"><option value="propose">🧠 Propose ranges</option><option value="rewrite">🧬 Rewrite code</option></select>',185);
-      const _expertToggle='<label class="ex-tgl" style="margin-left:auto"><input id="ex-expert" type="checkbox"'+(_exExpert?' checked':'')+'/> expert view · show everything</label>';
-      const _fComm=fld('COMMISSION $/RT','<input id="ex-comm" type="number" step="0.01" value="'+(APREF.comm_usd!=null?APREF.comm_usd:5.66)+'"/>',140);
-      const _fSlip=fld('SLIPPAGE pts/RT','<input id="ex-slip" type="number" step="0.25" value="'+(APREF.slip_pts!=null?APREF.slip_pts:0)+'"/>',140);
-      // ── BUILD QUEUE sidebar ───────────────────────────────────────
-      //   owner 2026-09-06: "relayout the builder tab. put whats build que as a side bar".
-      //   Three sections, in the order the work moves through them: what the runner is on
-      //   NOW, what is behind it IN CLAIM ORDER, and what has already finished.
-      const _bqEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-      const _bqMs=x=>{try{return x&&x.toDate?x.toDate().getTime():(x?new Date(x).getTime():0);}catch(e){return 0;}};
-      const _bqAgo=ms=>{if(!ms)return null;const m=Math.max(0,Math.round((Date.now()-ms)/60000));return m<1?'just now':(m<60?(m+' min ago'):(m<2880?(Math.round(m/60)+' h ago'):(Math.round(m/1440)+' d ago')));};
-      const _bqNm=b=>String((b&&b.strategy)||'job').replace(/\.py$/,'');
-      const _bqModeLbl=Object.assign({single:'single',grid:'grid'},scopeLbl);
-      const _bqChip=b=>'<span style="font-size:8px;letter-spacing:.5px;color:var(--text4);border:1px solid color-mix(in srgb,var(--border) 60%,transparent);border-radius:5px;padding:1px 5px;white-space:nowrap">'+_bqEsc(_bqModeLbl[String(b.type||'single')]||String(b.type||'single'))+(b.lockbox?' \ud83d\udd12':'')+'</span>';
-      const _bqSec=t=>'<div class="lbl" style="margin:13px 0 6px;opacity:.62">'+t+'</div>';
-      const _bqRunHtml=BQ.running.map(b=>{
-        const pct=Math.max(0,Math.min(100,b.progress||0));
-        const _pz=String(b.status||'').toLowerCase()==='paused';
-        const col=_pz?'var(--text4)':'var(--yellow)';
-        const st=_bqAgo(_bqMs(b.startedAt));
-        const stTip=st?('The runner claimed this job '+st+'. A validate on 1-minute data can legitimately run for hours, so a long run is not by itself a fault - a FROZEN percentage is.')
-          :'No start time is recorded on this job, so how long it has really been running cannot be told from here. The runner stamps one from its next restart onward.';
-        return '<div data-bqrunrow="'+b.id+'" style="border:1px solid color-mix(in srgb,'+col+' 34%,var(--border));border-radius:10px;padding:9px 10px;margin-bottom:8px;background:color-mix(in srgb,'+col+' 6%,transparent)">'
-          +'<div style="display:flex;align-items:baseline;gap:7px"><span title="'+_bqEsc(b.strategy||'')+'" style="flex:1 1 auto;min-width:0;font-size:var(--fsxs);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_bqEsc(_bqNm(b))+'</span>'
-          +'<span style="flex:0 0 auto;font-size:var(--fsxs);color:'+col+';font-variant-numeric:tabular-nums">'+(_pz?'PAUSED':(pct+'%'))+'</span></div>'
-          +'<div style="height:3px;background:var(--bg1);border-radius:2px;overflow:hidden;margin:7px 0 6px"><div style="height:100%;width:'+pct+'%;background:'+col+';transition:width .3s"></div></div>'
-          +'<div style="display:flex;align-items:center;gap:6px">'+_bqChip(b)
-          +'<span title="'+_bqEsc(stTip)+'" style="font-size:8px;color:var(--text5);cursor:help">'+(st?('started '+st):'no start time')+'</span>'
-          +'<span style="margin-left:auto;white-space:nowrap">'+jobCtl(b)+'</span></div></div>';}).join('');
-      const _bqWaitHtml=BQ.waiting.map((b,i)=>{
-        const ts=_btTs(b);
-        const ago=ts?('queued '+_bqAgo(ts)):'no timestamp';
-        const tip=ts?('Queued '+new Date(ts).toLocaleString()+'. The runner always claims the OLDEST waiting job first, so this one is number '+(i+1)+' in line.')
-          :'This job carries no queued-at time, which is what a job written straight into the queue by a script looks like. It is listed last here because its real place in the line cannot be read from the web - the runner orders by the document create time, which only the runner can see.';
-        return '<div data-bqwaitrow="'+b.id+'" style="display:flex;align-items:baseline;gap:7px;padding:6px 2px;border-top:1px solid var(--border2)">'
-          +'<span style="flex:0 0 13px;font-size:8px;color:var(--text5);font-variant-numeric:tabular-nums">'+(i+1)+'</span>'
-          +'<span style="flex:1 1 auto;min-width:0"><span title="'+_bqEsc(b.strategy||'')+'" style="display:block;font-size:var(--fsxs);color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+_bqEsc(_bqNm(b))+'</span>'
-          +'<span style="display:flex;align-items:center;gap:6px;margin-top:4px">'+_bqChip(b)
-          +'<span '+(ts?'':'data-bqnots ')+'title="'+_bqEsc(tip)+'" style="font-size:8px;color:'+(ts?'var(--text5)':'var(--yellow)')+';cursor:help">'+ago+'</span></span></span>'
-          +'<span style="flex:0 0 auto;white-space:nowrap">'+jobCtl(b)+'</span></div>';}).join('');
-      const _bqRecHtml=grids.map(b=>{
-        const M=gmeta(b);
-        const s=String(b.status||'').toLowerCase();
-        const sc={done:'var(--green)',error:'var(--red)',cancelled:'var(--text4)'}[s]||'var(--text4)';
-        const rep=b.repeat_of_run?(' <span title="'+_bqEsc('This job repeated a configuration that had already been computed, as run #'+b.repeat_of_run+'. Same strategy file, same date window, same data source and the same search settings, so the figures should match. It was allowed to run and tagged rather than blocked.')+'" style="font-size:8px;letter-spacing:.5px;color:var(--yellow);border:1px solid color-mix(in srgb,var(--yellow) 40%,transparent);border-radius:5px;padding:1px 4px;margin-left:4px;white-space:nowrap;cursor:help">\u21ba REPEAT OF #'+b.repeat_of_run+'</span>'):'';
-        const rid=b.run_id||b.runId||null;
-        return '<div data-bqrecentrow="'+b.id+'"'+(rid?(' data-bqrun="'+rid+'" title="Open run #'+rid+' in RESULTS"'):'')+' style="display:flex;align-items:baseline;gap:7px;padding:6px 2px;border-top:1px solid var(--border2)'+(rid?';cursor:pointer':'')+'">'
-          +'<span style="flex:1 1 auto;min-width:0">'
-          +'<span style="display:block;font-size:var(--fsxs);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(M.ai?'AI ':'')+stratTag(b.strategy)+M.reuseChip+rep+'</span>'
-          +'<span style="display:block;font-size:8px;color:var(--text5);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-          +'<span style="color:'+sc+';letter-spacing:1px">'+(b.status||'?').toUpperCase()+'</span> \u00b7 '+M.scope+' \u00b7 '+M.sizecell+' \u00b7 PF '+M.pf+'</span></span>'
-          +'<span style="flex:0 0 auto;text-align:right;font-size:var(--fsxs);font-variant-numeric:tabular-nums;color:'+(M.done?(M.net>=0?'var(--green)':'var(--red)'):'var(--text5)')+'">'+(M.done?fmtUsd(M.net):'\u2014')+'</span></div>';}).join('');
-      const _bqNr=BQ.running.length,_bqNw=BQ.waiting.length;
-      const _bqCount=(_bqNr||_bqNw)?(_bqNr+' RUNNING \u00b7 '+_bqNw+' WAITING'):'IDLE \u00b7 NOTHING QUEUED';
-      const _bqCountCol=(!_bqNr&&_bqNw)?'var(--yellow)':((_bqNr||_bqNw)?'var(--green)':'var(--text4)');
-      const _bqCountTip=(!_bqNr&&_bqNw)?'Work is waiting and nothing is running. If this does not start within a few minutes the runner is not picking work up.'
-        :((_bqNr||_bqNw)?'Every unfinished job on your account, however old it is - this list is not capped to the newest few, so a job queued days ago and running right now still appears.'
-        :'The runner has nothing to do. Fill the form on the left and press RUN ON MY PC.');
-      const bqStyle='<style>.bq-shell{display:block}.bq-main{min-width:0}'
-        +'.bq-side{margin-bottom:14px}'
-        +'.bq-card{background:var(--bg2);border:1px solid color-mix(in srgb,var(--border) 45%,transparent);border-radius:13px;padding:13px 15px}'
-        +'@media(min-width:1200px){.bq-shell{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}'
-        +'.bq-side{position:sticky;top:94px;align-self:start;max-height:calc(100vh - 110px);overflow-y:auto;margin-bottom:0}}</style>';
-      const bqSideHtml='<div class="bq-side"><div class="bq-card">'
-        +'<div class="lbl" style="letter-spacing:2px;color:var(--text3);margin-bottom:3px">BUILD QUEUE</div>'
-        +'<div data-bqcount title="'+_bqEsc(_bqCountTip)+'" style="font-size:8px;letter-spacing:1.4px;color:'+_bqCountCol+';cursor:help">'+_bqCount+'</div>'
-        +(_bqNr?(_bqSec('RUNNING')+_bqRunHtml):'')
-        +(_bqNw?(_bqSec('WAITING \u00b7 '+_bqNw)+_bqWaitHtml):'')
-        +((!_bqNr&&!_bqNw)?'<div style="font-size:var(--fsxs);color:var(--text5);padding:12px 0 2px;line-height:1.6">Nothing running and nothing waiting.</div>':'')
-        +(_bqRecHtml?(_bqSec('RECENT')+_bqRecHtml):(_bqSec('RECENT')+'<div style="font-size:var(--fsxs);color:var(--text5);padding:4px 0">NO SWEEPS YET \u2014 RUN ONE</div>'))
-        +'</div></div>';
-      const _exMain=exStyle+'<div class="section ex-build'+(_exExpert?' expert':'')+'">'
-        // STEP 1 — WHAT
-        +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">1</span>WHAT ARE YOU TESTING?<span class="ex-hint">strategy &amp; data</span></div>'
-        +exrow(_fStrat+_fInst+_fTf+_fSess+_fCsv+_fDates)
-        +'<div id="ex-dataspan" style="font-size:var(--fsxs);color:var(--text5);margin:2px 0 0">—</div></div>'
-        // STEP 2 — GOAL
-        +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">2</span>HOW HARD DO YOU WANT TO GO?<span class="ex-hint">pick one — go deeper anytime</span>'+_expertToggle+'</div>'
-        +_goalsHtml+_expertHtml+'</div>'
-        // STEP 3 — TUNE (only the goal's knobs show; the rest sit in Advanced)
-        +'<div class="ex-step"><div class="ex-steplbl"><span class="ex-n">3</span>TUNE<span class="ex-hint">only what this goal needs</span></div>'
-        +exrow(_gvSearch+_gvDepth+_gvBake+_gvAkind+_fMlf+_fMlth+_fScope+_fVscope+_fEqPts+_fTrials+_fRounds+_fProv+_fDiscover+_fXfer+_fPills)
-        +'<div id="ex-modenote" style="font-size:var(--fsxs);color:var(--text5);margin:2px 0 0">—</div>'
-        +customTile
-        +'<details class="ex-adv" id="ex-adv"'+(_exExpert?' open':'')+'><summary>ADVANCED · workers, walk-forward, costs</summary>'
-        +exrow(_fWork+_fMint+_fFolds+_fWftype+_fComm+_fSlip)+'</details></div>'
-        // LOCKBOX · final pre-deploy gate (hidden by exSyncMode for validate/gate-validate)
-        +'<div id="ex-lockbox-group" class="ex-step">'+grpH('LOCKBOX · FINAL PRE-DEPLOY GATE')
-        +exrow(fld('RESERVE SINCE','<input id="ex-lockbox" type="date" value="'+(APREF.lockbox||'')+'"/>',150)+'<div style="flex:0 1 auto;display:flex;align-items:flex-end"><button class="btn-ghost" id="ex-lockbox-test" style="padding:9px 16px;border:1px solid var(--border);border-radius:10px;font-size:var(--fsxs)">🔒 TEST LAST WINNER ON LOCKBOX</button></div>')
-        +'<div style="font-size:8px;color:var(--text5);margin:2px 0 0;max-width:640px">Data on/after this date is reserved — every optimization mode caps its window before it, so it\'s never seen during the search. Once you\'ve settled on a config, test it <b>once</b> here on the untouched slice. A pass it didn\'t earn means it was overfit. You only get to look once.</div></div>'
-        // RUN SUMMARY sentence + button
-        +'<div class="ex-runbar"><div class="ex-cap">THIS IS WHAT “RUN” WILL DO</div><div class="ex-summary" id="ex-summary">—</div></div>'
-        +'<div class="ex-runrow"><button class="btn-ghost active" id="ex-run" style="flex:0 0 auto;padding:9px 30px">▶ RUN ON MY PC</button><span style="color:var(--text5);font-size:var(--fsxs)">Runs on your PC; progress + results stream into Results history.</span></div>'
-        +'</div>'
-        +gvHtml
-        +(gateHtml?tile(gateHtml):'')
-        +(topHtml?tile(topHtml):'');
-      // main column = the whole build form and its result panels; right column = the
-      //   BUILD QUEUE card. One column again under 1200px, queue below the form.
-      body=bqStyle+'<div class="bq-shell"><div class="bq-main">'+_exMain+'</div>'+bqSideHtml+'</div>';
     }else if(augurSub==='exec2'){
-      // BUILDER β - the order-ticket rebuild of BUILDER (owner 2026-09-14). It all lives in the _bb*
-      //   functions beside _liveJobs; this branch only hands them renderApp's helpers.
+      // BUILDER - the order-ticket builder (BUILDER β until owner 2026-09-14 said "migrate β"). It all
+      //   lives in the _bb* functions beside _liveJobs; this branch only hands them renderApp's helpers.
       body=_bbHtml(_bbCtx());
     }else if(augurSub==='lib'){
       const sl=metaStrats||[];
@@ -34633,203 +34332,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       _wireCmpSets(content);_wireBookNew(content);
     };
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
-    else if(augurSub==='exec'){const ss=el('ex-strat');if(ss)ss.onchange=()=>{augurExecStrat=ss.value;renderApp();};
-      // STOP / PAUSE / RESUME a queued or running job — sets `control` on the job doc;
-      // the PC runner acts on it at its next progress checkpoint.
-      content.querySelectorAll('[data-jobctl]').forEach(x=>x.onclick=async(e)=>{e.stopPropagation();const id=x.dataset.jobid,v=x.dataset.jobctl;if(v==='stop'&&!confirm('Stop this run? It will be marked cancelled.'))return;try{await btRef.doc(id).update({control:v});}catch(err){alert('control failed: '+err.message);}});
-      // a finished BUILD QUEUE row that saved a run opens that run in RESULTS
-      content.querySelectorAll('[data-bqrun]').forEach(x=>x.onclick=()=>{augurRunSel=String(x.dataset.bqrun);augurSub='runs';savePref('augurSub','runs');renderApp();});
-      // ── Pre-run sample-sizing readout: how big the in-sample window actually is ──
-      // (bars + span in years for the selected CSV/date range — so IS sizing is a
-      // decision, not a guess; pair with the post-run trades/param gauge.)
-      const exUpdateDataSpan=()=>{const cap=el('ex-dataspan');if(!cap)return;const mi=el('ex-master').value;let mm=(mi!==''&&metaMasters)?metaMasters[+mi]:null;if(!mm)mm=(metaMasters||[]).find(m=>String(m.instrument)===el('ex-inst').value&&String(m.timeframe)===el('ex-tf').value);
-        if(!mm){cap.innerHTML='<span style="color:var(--text5)">No matching data — start the runner / pick a CSV to size the in-sample window.</span>';return;}
-        const df0=String(mm.date_from||'').slice(0,10),dt0=String(mm.date_to||'').slice(0,10),rows=+mm.rows||0;
-        const a=el('ex-from').value||df0,b=el('ex-to').value||dt0,days=(x,y)=>{const d=(new Date(y)-new Date(x))/86400000;return isNaN(d)?0:Math.max(0,d);};
-        const full=days(df0,dt0),sel=days(a,b),estBars=(rows&&full>0)?Math.round(rows*Math.min(1,sel/full)):rows,yrs=sel/365.25,sliced=(a!==df0||b!==dt0);
-        const lb=el('ex-lockbox')?el('ex-lockbox').value:'';
-        const lbNote=lb?' <span style="color:var(--purple,#a78bfa)">· 🔒 lockbox reserves '+lb+'→'+b+' (optimization stops the day before)</span>':'';
-        // adaptive ETA: combos(scope) × calibrated sec/backtest × bars-scaling ÷ workers.
-        // Calibration {sec_per_bt,bars} + per-preset combo counts are synced from the PC.
-        let _etaTxt='';
-        try{
-          const _mode=el('ex-mode')?el('ex-mode').value:'grid';let _cb=null,_unit='combos';
-          if(_mode==='grid'){const _ps=el('ex-preset')?el('ex-preset').value:'';
-            if(_ps==='CUSTOM')_cb=cuCount();
-            else{const _ms=(metaStrats||[]).find(s=>s.file===(el('ex-strat')?el('ex-strat').value:''));_cb=(_ms&&_ms.preset_combos)?_ms.preset_combos[_ps]:null;}}
-          else if(_mode==='single'){_cb=1;_unit='run';}
-          else if(_mode==='auto'||_mode==='walkforward'||_mode==='validate'){_cb=parseInt(el('ex-trials')?el('ex-trials').value:0)||null;_unit='trials';}
-          if(_cb&&metaEta&&metaEta.sec_per_bt&&metaEta.bars&&estBars>0){
-            const _w=(_mode==='grid')?Math.max(1,parseInt(el('ex-work')?el('ex-work').value:1)||1):1;
-            const _secs=_cb*metaEta.sec_per_bt*(estBars/metaEta.bars)/_w;
-            _etaTxt=' · est <b style="color:var(--text3)">'+_fmtSecs(_secs)+'</b> <span style="color:var(--text5)">('+_cb.toLocaleString()+' '+_unit+(_mode==='grid'&&_w>1?' · '+_w+'w':'')+')</span>';
-          }
-        }catch(_e){}
-        cap.innerHTML='IS window: <b style="color:var(--text3)">~'+estBars.toLocaleString()+'</b> bars · '+a+' → '+b+' · <b style="color:'+(yrs>=2?'var(--text3)':'var(--yellow)')+'">≈'+yrs.toFixed(1)+' yr</b>'+(sliced?' <span style="color:var(--text5)">(sliced from '+df0+'→'+dt0+')</span>':'')+lbNote+_etaTxt+' <span style="color:var(--text5)">· aim ≥2 yr / multiple regimes; confirm trades-per-param after the run</span>';};
-      // Legacy flow: Strategy → Instrument → TF → Session drive the CSV picker, which
-      // only lists masters matching those selections. Repopulate it on any upstream change.
-      const repopMaster=()=>{const mm=el('ex-master');if(!mm)return;const prev=mm.value;mm.innerHTML=masterOptsHtml(el('ex-inst').value,el('ex-tf').value,el('ex-sess').value);if(![].some.call(mm.options,o=>o.value===prev))mm.value='';exUpdateDataSpan();};
-      ['ex-inst','ex-tf','ex-sess'].forEach(id=>{const e=el(id);if(e)e.addEventListener('change',repopMaster);});
-      const mmEl=el('ex-master');if(mmEl)mmEl.addEventListener('change',exUpdateDataSpan);
-      const lbEl=el('ex-lockbox');if(lbEl)lbEl.addEventListener('change',exUpdateDataSpan);
-      exUpdateDataSpan();
-      // ── Bounded single-calendar date-range picker (legacy AUGUR feel) ──
-      (function(){const btn=el('ex-dr-btn'),pop=el('ex-dr-pop');if(!btn||!pop)return;
-        // keep interactions inside the popover from bubbling to the outside-close handler
-        // (draw() rebuilds innerHTML, detaching the clicked node — contains() would misfire).
-        pop.addEventListener('click',e=>e.stopPropagation());
-        let a=APREF.date_from||'',b=APREF.date_to||'',anchor=null,lo='',hi='',view=new Date();
-        const ymd=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-        const label=()=>(a||b)?((a?_exFmtD(a):'start')+' → '+(b?_exFmtD(b):'end')):'All dates';
-        const setRange=(na,nb)=>{a=na;b=nb;savePref('date_from',na||'');savePref('date_to',nb||'');el('ex-from').value=na||'';el('ex-to').value=nb||'';btn.textContent=label();exUpdateDataSpan();if(window._exSummaryRefresh)window._exSummaryRefresh();};
-        const onDay=ds=>{if(anchor===null){anchor=ds;setRange(ds,ds);}else{let x=anchor,z=ds;if(x>z){const t=x;x=z;z=t;}anchor=null;setRange(x,z);}draw();};
-        const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
-        function draw(){const y=view.getFullYear(),m=view.getMonth(),sd=new Date(y,m,1).getDay(),nd=new Date(y,m+1,0).getDate();
-          let h='<div class="ex-cal-hd"><span style="display:flex;gap:1px"><button type="button" data-nav="-12" title="prev year">«</button><button type="button" data-nav="-1" title="prev month">‹</button></span><span>'+MON[m]+' '+y+'</span><span style="display:flex;gap:1px"><button type="button" data-nav="1" title="next month">›</button><button type="button" data-nav="12" title="next year">»</button></span></div><div class="ex-cal-grid">';
-          ['S','M','T','W','T','F','S'].forEach(d=>h+='<span class="ex-cal-dow">'+d+'</span>');
-          for(let i=0;i<sd;i++)h+='<span></span>';
-          for(let d=1;d<=nd;d++){const ds=ymd(y,m,d),inR=a&&b&&ds>=a&&ds<=b,end=(ds===a||ds===b),dis=(lo&&ds<lo)||(hi&&ds>hi);h+='<button type="button" class="ex-cal-day'+(end?' sel':'')+(inR&&!end?' rng':'')+'" data-day="'+ds+'"'+(dis?' disabled':'')+'>'+d+'</button>';}
-          h+='</div><div class="ex-cal-ft"><button type="button" id="ex-dr-clear">Clear</button><button type="button" id="ex-dr-done">Done</button></div>';
-          pop.innerHTML=h;
-          pop.querySelectorAll('[data-day]').forEach(x=>x.onclick=()=>onDay(x.dataset.day));
-          pop.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>{view=new Date(y,m+ +x.dataset.nav,1);draw();});
-          el('ex-dr-clear').onclick=()=>{anchor=null;setRange('','');draw();};
-          el('ex-dr-done').onclick=()=>{pop.style.display='none';};}
-        btn.onclick=()=>{const opening=pop.style.display==='none';if(opening){const mi=el('ex-master').value,mm=(mi!==''&&metaMasters)?metaMasters[+mi]:null;lo=mm&&mm.date_from?String(mm.date_from).slice(0,10):'';hi=mm&&mm.date_to?String(mm.date_to).slice(0,10):'';view=new Date((a||hi||new Date().toISOString().slice(0,10))+'T00:00');draw();pop.style.display='block';}else pop.style.display='none';};
-        if(!window._exDocClose){window._exDocClose=true;document.addEventListener('click',e=>{const p=document.getElementById('ex-dr-pop'),bb=document.getElementById('ex-dr-btn');if(p&&bb&&!p.contains(e.target)&&!bb.contains(e.target))p.style.display='none';});}
-      })();
-      // ── CUSTOM scope editor: show per-param range rows + live combo count ──
-      const cuCount=()=>{const ct=el('ex-custom');if(!ct)return 0;let prod=1;ct.querySelectorAll('input[data-k="min"]').forEach(mnEl=>{const p=mnEl.dataset.p,q=k=>ct.querySelector('input[data-p="'+CSS.escape(p)+'"][data-k="'+k+'"]');const mn=parseFloat(mnEl.value),mx=parseFloat(q('max').value),st=parseFloat(q('step').value);let n=1;if(!isNaN(mn)&&!isNaN(mx)&&!isNaN(st)&&st>0&&mx>=mn)n=Math.floor((mx-mn)/st+1e-9)+1;prod*=Math.max(1,n);});return prod;};
-      const buildCustomGrid=()=>{const ct=el('ex-custom'),g={};if(!ct)return g;ct.querySelectorAll('input[data-k="min"]').forEach(mnEl=>{const p=mnEl.dataset.p,isInt=mnEl.dataset.type==='int',q=k=>ct.querySelector('input[data-p="'+CSS.escape(p)+'"][data-k="'+k+'"]');const mn=parseFloat(mnEl.value),mx=parseFloat(q('max').value),st=parseFloat(q('step').value);if(isNaN(mn))return;let arr=[];if(isNaN(mx)||isNaN(st)||st<=0||mx<mn)arr=[isInt?Math.round(mn):mn];else for(let v=mn;v<=mx+1e-9;v+=st)arr.push(isInt?Math.round(v):+v.toFixed(6));if(arr.length)g[p]=arr;});return g;};
-      // CUSTOM is a Grid-sweep concept only — AI optimize/evolve explore params themselves
-      // (the preset just seeds round 1). If CUSTOM is left selected when switching to a
-      // non-grid mode, fall back to the first real preset so nothing invalid is queued.
-      const exApplyCustom=()=>{const ct=el('ex-custom'),ep=el('ex-preset');if(!ct||!ep)return;const isGrid=el('ex-mode').value==='grid';const co=[].find.call(ep.options,o=>o.value==='CUSTOM');if(co)co.disabled=!isGrid;if(!isGrid&&ep.value==='CUSTOM'){ep.selectedIndex=0;}const show=isGrid&&ep.value==='CUSTOM';ct.style.display=show?'':'none';if(show){const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();}};
-      content.querySelectorAll('.ex-cu').forEach(i=>i.oninput=()=>{const c=el('ex-cu-count');if(c)c.textContent=cuCount().toLocaleString();});
-      const ep=el('ex-preset');if(ep)ep.addEventListener('change',()=>{savePref('scope_tier',scopeTier(ep.value));exApplyCustom();exUpdateDataSpan();});
-      // keep the ETA estimate live as scope-sizing inputs change
-      ['ex-trials','ex-work'].forEach(id=>{const e=el(id);if(e)e.addEventListener('input',exUpdateDataSpan);});
-      // MODE (derived from the 3 axes) drives which fields apply — hide the rest.
-      const em=el('ex-mode');if(em){
-        const MODENOTE={single:'1 · Single backtest — one config, one pass',grid:'2 · Grid sweep — every combo in scope, in-sample only',auto:'3 · Auto-Optimize — Bayesian sampler, in-sample (+ diagnostic pills if ALL PILLS is on)',walkforward:'4 · Walk-Forward — Bayesian re-tuned per fold, tested on the next unseen window (+ pills if on)',ai:'5 · AI optimize — Claude proposes ranges each round · validates on a built-in 75/25 split',evolve:'6 · AI evolve — Claude rewrites the code each round · built-in 75/25 split',validate:'7 · 🧭 Auto-Validate — Bayesian → WF folds → gates → 🔒 lockbox → PASS/WEAK/FAIL',gate_validate:'8 · 🚪🧭 Gate-validate — strategy runs once; ALL gates × cut-offs ranked on PRE-lockbox data only (recovery factor); the winner gets ONE look at the 🔒 lockbox'};
-        // ── GUIDED summary + goal sync: reflect the derived #ex-mode back into the goal
-        //   ladder, show only that goal's variant controls, and spell the run out in English. ──
-        const _modeGoal=m=>({single:'backtest',grid:'optimize',auto:'optimize',walkforward:'validate',validate:'validate',gate_validate:'validate',ai:'ai',evolve:'ai'}[m]||'backtest');
-        const exBuildSummary=m=>{const K=(t,c)=>'<span class="k'+(c?' '+c:'')+'">'+t+'</span>';const g=v=>{const e=el(v);return e?e.value:'';};
-          const _fd=x=>x?(_exFmtD(x)||x):x;
-          const inst=g('ex-inst')||'NQ',tf=g('ex-tf')||'5m',sess=(g('ex-sess')||'rth').toUpperCase();
-          const on=' on '+K(inst+' '+tf+' '+sess,'b');
-          const df=g('ex-from'),dt=g('ex-to');const win='· '+K((df||dt)?((df?_fd(df):'start')+'→'+(dt?_fd(dt):'end')):'all data');
-          const ml=g('ex-mlf'),mlLbl={logistic:'🚪 logistic gate',rf:'🌲 forest gate',xgb:'⚡ XGBoost gate'}[ml];
-          const allPills='· '+K('all pills','g');
-          const trials=g('ex-trials')||'200',rounds=g('ex-rounds')||'4';
-          // lockbox holdout truncates the search window for every optimizing mode except validate
-          //   (which reserves its own) — surface it so the summary matches what actually runs.
-          const lb=g('ex-lockbox'),lbNote=lb?'· 🔒 '+K('holdout reserved'):'';
-          const pills=el('ex-pills')&&el('ex-pills').checked?allPills:'';
-          const provSel=el('ex-prov'),prov=provSel&&provSel.selectedOptions[0]?provSel.selectedOptions[0].text.replace(/ ·.*/,''):'';
-          let p=[];
-          if(m==='single'){p=[K('Single backtest','g'),on,win];if(mlLbl)p.push('· gated by '+K(mlLbl,'p'));}
-          else if(m==='grid'){p=[K('Grid sweep','g'),'· '+K(g('ex-preset')||'scope'),on,win,lbNote];}
-          else if(m==='auto'){p=[K('Bayesian search','g'),'· '+K(trials+' trials'),on,win,lbNote,pills];}
-          else if(m==='walkforward'){p=[K('Walk-forward','g'),'· '+K(trials+' trials'),'· re-tuned per fold',on,lbNote,pills];}
-          else if(m==='validate'){p=[K('Auto-Validate','g'),'· '+K(g('ex-vscope')||'medium'),on,'· '+K('WF + gates','g'),'· 🔒 '+K('lockbox'),allPills];}
-          else if(m==='gate_validate'){p=[K('Gate bake-off','g'),'· '+K('all 3 ML gates 🚪🌲⚡','p'),on,'· ranked by recovery · 🔒 '+K('one lockbox look')];}
-          else if(m==='ai'){p=[K('AI optimize','g'),'· '+K(rounds+' rounds'),prov?'· '+K(prov):'',on];}
-          else if(m==='evolve'){p=[K('AI evolve','g'),'· rewrites code · '+K(rounds+' rounds'),prov?'· '+K(prov):'',on];}
-          if(!p.length)p=[K(m||'run','g'),on];
-          return p.filter(Boolean).join(' ');};
-        const exRenderGuided=()=>{const m=em.value,gg=_modeGoal(m);
-          content.querySelectorAll('.ex-goal').forEach(c=>c.classList.toggle('sel',c.dataset.goal===gg));
-          const showV=(id,on)=>{const e=el(id);if(e){const w=e.closest('div');if(w)w.style.display=(on&&!_exExpert)?'':'none';}};
-          showV('gv-search',gg==='optimize');showV('gv-depth',gg==='validate'&&m!=='gate_validate');showV('gv-bakeoff',gg==='validate');showV('gv-akind',gg==='ai');
-          const gs=el('gv-search');if(gs)gs.value=(m==='grid'?((el('ex-preset')&&el('ex-preset').value==='CUSTOM')?'custom':'grid'):'bayes');
-          const gd=el('gv-depth');if(gd&&m!=='gate_validate')gd.value=(m==='walkforward'?'wf':'full');
-          const gb=el('gv-bakeoff');if(gb)gb.checked=(m==='gate_validate');
-          const ga=el('gv-akind');if(ga)ga.value=(m==='evolve'?'rewrite':'propose');
-          const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(m);};
-        // Summary-only refresh (does NOT re-sync/overwrite the goal + variant controls) —
-        //   safe to call from bubbled input/change events without reverting a control the
-        //   user is mid-change, and from the date picker which fires no DOM events.
-        const exRenderSummary=()=>{const su=el('ex-summary');if(su)su.innerHTML=exBuildSummary(em.value);};
-        window._exSummaryRefresh=exRenderSummary;
-        const exSyncMode=()=>{const _qm=el('ex-mode-quick');if(_qm&&_qm.value!==em.value)_qm.value=em.value;applyExMode(em.value);exApplyCustom();const lg=el('ex-lockbox-group');if(lg)lg.style.display=(em.value==='validate'||em.value==='gate_validate')?'none':'';
-          // ML gate rides Single (one gated run) or Gate-validate (the bake-off).
-          const mf=el('ex-mlf'),mth=el('ex-mlth');
-          if(mf&&mf.value!=='none'&&em.value!=='single'&&em.value!=='gate_validate'){mf.value='none';savePref('mlf','none');}
-          // cut-off input only applies to the SINGLE gated run — gate-validate sweeps all cut-offs
-          if(mth){const w=mth.closest('div');if(w)w.style.display=(_exExpert||(mf&&mf.value!=='none'&&em.value==='single'))?'':'none';}
-          const nt=el('ex-modenote');if(nt){let s=MODENOTE[em.value]||em.value;
-            if(mf&&mf.value!=='none'&&em.value==='single')s+=' · 🚪 gate: '+mf.value+' reviews each trade, cut-off '+((mth&&mth.value)||50)+'%';
-            nt.innerHTML='→ runs: '+s;}
-          exRenderGuided();exUpdateDataSpan();};
-        // 3-axis → job-type wiring: an axis change snaps the OTHER axes to the nearest
-        // ENGINE-SUPPORTED combo (folds/lockbox ride the Bayesian search; the AI modes
-        // bring their own 75/25 split), then derives the job type into #ex-mode.
-        const _axs=()=>[el('ex-search'),el('ex-valid'),el('ex-ai')];
-        const exAxChange=which=>{const x=_axs();if(x.some(e=>!e))return;const s=x[0],v=x[1],a=x[2];
-          const mf=el('ex-mlf');let gate=mf&&mf.value!=='none';
-          // leaving the gated world (grid/bayes search, or any AI) switches the gate off
-          if(gate&&((which==='search'&&s.value!=='single')||(which==='ai'&&a.value!=='off'))){mf.value='none';savePref('mlf','none');gate=false;}
-          if(gate){
-            // gated: Single search, AI off; VALIDATION picks single-gated vs the bake-off
-            s.value='single';a.value='off';
-            em.value=(v.value!=='none')?'gate_validate':'single';
-          }else{
-            if(which==='search'&&s.value!=='bayes'){v.value='none';a.value='off';}
-            if(which==='valid'&&v.value!=='none'){s.value='bayes';a.value='off';}
-            if(which==='ai'&&a.value!=='off'){s.value='bayes';v.value='none';}
-            em.value=(a.value==='rewrite')?'evolve':(a.value==='propose')?'ai':(v.value==='full')?'validate':(v.value==='wf')?'walkforward':(s.value==='grid')?'grid':(s.value==='bayes')?'auto':'single';
-          }
-          savePref('mode',em.value);exSyncMode();};
-        exSyncMode();
-        const x0=_axs();if(!x0.some(e=>!e)){x0[0].onchange=()=>exAxChange('search');x0[1].onchange=()=>exAxChange('valid');x0[2].onchange=()=>exAxChange('ai');}
-        // MODE quick-picker → snap the 3 axes (+ ML FILTER for the gate bake-off) to the
-        //   named mode, then re-derive #ex-mode & re-sync. Reverse sync (axes → picker) is in exSyncMode.
-        const qm=el('ex-mode-quick');if(qm){qm.onchange=()=>{const Q={single:['single','none','off','none'],grid:['grid','none','off','none'],auto:['bayes','none','off','none'],walkforward:['bayes','wf','off','none'],validate:['bayes','full','off','none'],ai:['bayes','none','propose','none'],evolve:['bayes','none','rewrite','none'],gate_validate:['single','full','off','xgb']}[qm.value];if(!Q)return;const x=_axs();if(x[0])x[0].value=Q[0];if(x[1])x[1].value=Q[1];if(x[2])x[2].value=Q[2];const mf=el('ex-mlf');if(mf){mf.value=Q[3];savePref('mlf',Q[3]);}em.value=qm.value;savePref('mode',qm.value);exSyncMode();};}
-        // picking a gate: Single search + AI off; VALIDATION then chooses between
-        // one gated run (none) and the gate-validate bake-off (folds / lockbox).
-        const mf0=el('ex-mlf');if(mf0){mf0.onchange=()=>{savePref('mlf',mf0.value);
-          const x=_axs();if(x.some(e=>!e))return;const s=x[0],v=x[1],a=x[2];
-          if(mf0.value!=='none'){s.value='single';a.value='off';
-            em.value=(v.value!=='none')?'gate_validate':'single';
-          }else{
-            if(v.value!=='none')s.value='bayes';
-            em.value=(v.value==='full')?'validate':(v.value==='wf')?'walkforward':(s.value==='grid')?'grid':(s.value==='bayes')?'auto':'single';
-          }
-          savePref('mode',em.value);exSyncMode();};}
-        const mth0=el('ex-mlth');if(mth0)mth0.addEventListener('input',()=>{savePref('mlth',parseInt(mth0.value)||50);exSyncMode();});
-        // ── GUIDED goal cards + variant controls: each just steers the mode-quick picker
-        //   (the single source of truth), so every derivation still runs in one place. ──
-        const _goalDefault={backtest:'single',optimize:'auto',validate:'validate',ai:'ai'};
-        const _goalModes={backtest:['single'],optimize:['auto','grid'],validate:['walkforward','validate','gate_validate'],ai:['ai','evolve']};
-        const _setMode=mm=>{const q=el('ex-mode-quick');if(q&&q.onchange){q.value=mm;q.onchange();}};
-        // Clicking a goal keeps the current sub-mode if it already belongs to that goal, else
-        //   drops to the goal's default. If the target equals the current mode, DON'T re-run the
-        //   QMODE snap (it would reset ML FILTER to none) — just re-sync the highlight.
-        content.querySelectorAll('.ex-goal').forEach(c=>c.onclick=()=>{const g=c.dataset.goal;const cur=em.value;const tgt=(_goalModes[g]||[]).indexOf(cur)>=0?cur:_goalDefault[g];if(tgt===em.value){exRenderGuided();return;}_setMode(tgt);});
-        const gsel=el('gv-search');if(gsel)gsel.onchange=()=>{if(gsel.value==='custom'){_setMode('grid');const epx=el('ex-preset');if(epx){const co=[].find.call(epx.options,o=>o.value==='CUSTOM');if(co){co.disabled=false;epx.value='CUSTOM';savePref('scope_tier','CUSTOM');}}exApplyCustom();exSyncMode();}else{if(gsel.value==='grid'){const ep=el('ex-preset');if(ep&&ep.value==='CUSTOM'){ep.selectedIndex=0;savePref('scope_tier',scopeTier(ep.value));}}_setMode(gsel.value==='grid'?'grid':'auto');}};
-        const gdep=el('gv-depth');if(gdep)gdep.onchange=()=>{if(el('gv-bakeoff')&&el('gv-bakeoff').checked)return;_setMode(gdep.value==='wf'?'walkforward':'validate');};
-        const gbk=el('gv-bakeoff');if(gbk)gbk.onchange=()=>{if(gbk.checked)_setMode('gate_validate');else{const gd2=el('gv-depth');_setMode(gd2&&gd2.value==='wf'?'walkforward':'validate');}};
-        const gak=el('gv-akind');if(gak)gak.onchange=()=>_setMode(gak.value==='rewrite'?'evolve':'ai');
-        // EXPERT view: reveal the mode picker + axes and un-gate every field at once.
-        const xt=el('ex-expert');if(xt)xt.onchange=()=>{_exExpert=xt.checked;savePref('expert',_exExpert);const bw=content.querySelector('.ex-build');if(bw)bw.classList.toggle('expert',_exExpert);const dt=el('ex-adv');if(dt&&_exExpert)dt.open=true;exSyncMode();};
-        // keep the plain-English run summary live as any knob changes
-        const _bw=content.querySelector('.ex-build');if(_bw){const _rs=()=>exRenderSummary();_bw.addEventListener('change',_rs);_bw.addEventListener('input',_rs);}
-      }
-      // LOCKBOX test: run the most recent winning config as ONE backtest over only the
-      // reserved slice (date_from = reserve-since). One look — the final overfit check.
-      const lbBtn=el('ex-lockbox-test');if(lbBtn)lbBtn.onclick=async()=>{
-        const since=el('ex-lockbox').value;
-        if(!since){alert('Set a LOCKBOX "reserve since" date first.');return;}
-        const win=backtests.find(b=>b.status==='done'&&b.result&&b.result.best_params&&Object.keys(b.result.best_params).length);
-        if(!win){alert('No completed optimization with a best config to test yet — run a grid / auto / walk-forward first.');return;}
-        if(!confirm('Test the last winner ('+(win.strategy||'')+') once on the lockbox '+since+' → end? The discipline is to look only once.'))return;
-        const j={strategy:win.strategy,instrument:win.instrument,timeframe:win.timeframe,session:win.session,source:win.source||null,params:win.result.best_params,date_from:since,date_to:'',cost_pts:win.cost_pts||0,commission_usd:win.commission_usd,slippage_pts:win.slippage_pts,mult:win.mult||instMult(win.instrument),mc_sims:1000,lockbox:true,preset:'🔒 LOCKBOX',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
-        lbBtn.textContent='QUEUED…';lbBtn.disabled=true;try{await btRef.add(j);}catch(e){alert('Queue failed: '+e.message);}renderApp();};
-      const xb=el('ex-run');if(xb)xb.onclick=async()=>{const _mk=_exMakeJob(el,buildCustomGrid);
-      if(_mk.err){alert(_mk.err);xb.disabled=false;xb.textContent='▶ RUN ON MY PC';return;}
-      const job=_mk.job;const _dup=dupeFind(job,backtests);if(_dup&&!confirm(dupeAsk(_dup)))return;if(_dup){job.repeat_of=_dup.job.id;if(_dup.runId)job.repeat_of_run=_dup.runId;job.repeat_ack=true;}xb.textContent='QUEUED…';xb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec2'){_bbWire(content,_bbCtx());}
     else if(augurSub==='cmp'||_c2Old){
       // on EXPLORE the tab's own buttons are wired as well as the board's, because the
@@ -35355,7 +34857,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const closeMenu=()=>{augurMenu='';};
       const add=el('lib-add');if(add)add.onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.py';inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>libCmd('add',{name:f.name,content:String(rd.result||'')},'Add '+f.name);rd.readAsText(f);};inp.click();};
       // active strategy + quick-launch into Builder
-      const useBtn=el('lib-use');if(useBtn)useBtn.onclick=()=>{if(augurLibSel){augurExecStrat=augurLibSel;augurSub='exec';augurMenu='';renderApp();}};
+      const useBtn=el('lib-use');if(useBtn)useBtn.onclick=()=>{if(augurLibSel){augurExecStrat=augurLibSel;augurSub='exec2';augurMenu='';renderApp();}};
       // star (forward-test pick) + archive — persisted in meta/strategyPrefs (web-owned, merge writes)
       const _spDoc=()=>metaRef?metaRef.doc('strategyPrefs'):null;
       const stBtn=el('lib-star');if(stBtn)stBtn.onclick=async()=>{const rf=_spDoc();if(!rf||!augurLibSel)return;const cur=metaStratPrefs.starred||'';try{await rf.set({starred:(cur===augurLibSel?'':augurLibSel)},{merge:true});}catch(e){alert('star save failed: '+e.message);}};

@@ -268,6 +268,12 @@ Aronson, López de Prado, Chan, Tomasini/Jaekle. Some already compute & render i
 ---
 
 ## Done (recent — website)
+- **v73.788** (2026-09-14) **BUILDER rebuilt as a Robinhood-style order ticket** and the old form retired
+  (shipped as BUILDER β in v73.785, migrated on the owner's "migrate β"). One goal switch + run type,
+  only the rows a mode feeds (All settings for the rest), a data-window bar with the lockbox hatched,
+  pinned run bar (summary, estimate, queue position), queue rail with the latest result. Jobs are built
+  by `_exMakeJob` (the old Run handler, moved unchanged); `tools/builder_parity_probe.py` proves every
+  mode and the lockbox test queue exactly what the old tab queued (pinned baseline 24433b5).
 - **v36.0** (2026-06-27) Account balance is now **live / auto-derived** instead of a static
   field. `accountEquity` is treated as the STARTING balance and the shown balance =
   starting + cumulative net P&L (new helpers `totalNetPnl()` / `liveBalance()`). Settings field
