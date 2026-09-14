@@ -253,6 +253,10 @@ def test_last_order_carries_an_iso_et_timestamp(tmp_path, monkeypatch):
     cfg = WO.load_config("__no_such_file__")
     cfg["mode"] = "OFF"
     cfg["state_path"] = str(tmp_path / "wo_state.json")
+    # All-day order window: under the default 09:30-16:00 rail this order is BLOCKED outside
+    # regular hours, last_order stays empty, and the test failed on every run after 16:00 ET.
+    cfg["rails"]["session_start"] = "00:00"
+    cfg["rails"]["session_end"] = "23:59"
     adapter = WO.OrderAdapter(config=cfg, log=NOOP)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
 
