@@ -1,0 +1,51 @@
+done #304 live crown
+done #243 retired crown
+done #316 confirm 2 bars
+done #322 lookback 16
+done #305
+done #256 skip 98, no day rule
+done #241 no volatility skip
+done #245 skip bottom, both sides
+done #225 raw NOISE, no filters
+done #321 squeeze FILTER on #243
+done #374 crown + trail 2.75R
+done #237
+done #306
+done #319 afternoon, boundary exit
+done #334 2-minute card
+done #362 15-minute card
+done #345 1-minute card
+done #344 on ES
+done C3 cost-robust corner
+done Crown settings on 15-minute bars
+done Crown + confirm 2 bars
+
+kind config                             bar    |     n  win%     net $  $/trd     PF     DD $   n/DD |  PF<24  PF24+ sealPF   seal $ | top10  PFstr | validation
+config #304 live crown                    NQ 5m  |  4824  36.5   398,775     83  1.357   19,304  20.66 |  1.358  1.357  1.274   51,722 |   24%  1.331 | PASS 6/6, folds 8/8, PBO 0.135 (#304)
+config #243 retired crown                 NQ 5m  |  4423  36.5   387,963     88  1.398   18,424  21.06 |  1.404  1.389  1.314   53,516 |   24%  1.370 | PASS 6/6, folds 7/8 (#243, #252)
+config #316 confirm 2 bars                NQ 5m  |  3779  38.5   365,054     97  1.446   10,999  33.19 |  1.501  1.354  1.269   38,595 |   25%  1.417 | PASS 7/7, folds 8/8, PBO 0.464 (#316)
+config #322 lookback 16                   NQ 5m  |  4094  37.2   361,647     88  1.426   18,108  19.97 |  1.457  1.370  1.258   38,295 |   25%  1.396 | PASS 6/6, folds 8/8, PBO 0.425 (#322)
+config #305                               NQ 5m  |  3731  38.7   334,942     90  1.376   47,472   7.06 |  1.528  1.146  1.106   18,081 |   26%  1.351 | PASS 6/6, folds 8/8, PBO 0.274 (#305)
+config #256 skip 98, no day rule          NQ 5m  |  5329  36.1   373,192     70  1.286   19,977  18.68 |  1.284  1.289  1.265   56,656 |   26%  1.262 | PASS 6/6, folds 7/8 (#256)
+config #241 no volatility skip            NQ 5m  |  5197  36.2   374,626     72  1.280   25,440  14.73 |  1.317  1.217  1.144   32,215 |   33%  1.257 | PASS 6/6, folds 7/8 (#241, #253; sweep #236)
+config #245 skip bottom, both sides       NQ 5m  |  4393  36.3   358,032     82  1.333   29,041  12.33 |  1.361  1.286  1.265   50,698 |   26%  1.309 | PASS 6/6, folds 7/8 (#245, #251)
+config #225 raw NOISE, no filters         NQ 5m  |  5615  35.7   324,482     58  1.215   30,412  10.67 |  1.224  1.200  1.126   30,436 |   39%  1.194 | PASS 7/7, folds 8/8, PBO 0.365 (#202 #203 #225 #231 #242 #254)
+config #321 squeeze FILTER on #243        NQ 5m  |  1547  40.6   232,662    150  1.627   13,063  17.81 |  1.660  1.576  1.439   28,960 |   32%  1.599 | PASS 6/6, folds 7/8, PBO 0.099 (#321)
+config #374 crown + trail 2.75R           NQ 5m  |  4832  36.6   395,702     82  1.354   19,304  20.50 |  1.358  1.346  1.253   48,455 |   24%  1.328 | WEAK 5/6, PBO 0.615 (#374)
+config #237                               NQ 5m  |  5139  36.4   343,008     67  1.313   17,071  20.09 |  1.329  1.287  1.213   42,454 |   27%  1.286 | WEAK 6/7, PBO 0.599 (#237, #302)
+config #306                               NQ 5m  |  3528  29.9   279,276     79  1.356   21,888  12.76 |  1.348  1.369  1.131   20,906 |   33%  1.328 | WEAK 5/6, PBO 0.437 (#306)
+config #319 afternoon, boundary exit      NQ 5m  |  8119  13.6   210,674     26  1.300   18,086  11.65 |  1.270  1.358  1.212   26,925 |   40%  1.231 | WEAK 5/6, PBO 0.579 (#319)
+config #334 2-minute card                 NQ 2m  |  7883  33.1   393,147     50  1.308   30,464  12.91 |  1.330  1.268  1.291   60,543 |   25%  1.271 | PASS 6/6, folds 7/8, PBO 0.460 (#334)
+config #362 15-minute card                NQ 15m |  4075  36.9   266,186     65  1.253   43,818   6.07 |  1.333  1.114  1.072   13,203 |   34%  1.230 | PASS 6/6, folds 7/8, PBO 0.464, WFE 0.6 (#362)  [tape ends 2026-06-30]
+config #345 1-minute card                 NQ 1m  |  5031  34.4   333,069     66  1.386   16,465  20.23 |  1.457  1.282  1.093   16,644 |   28%  1.350 | PASS 6/6, folds 8/8, PBO 0.210 (#345, #360)
+config #344 on ES                         ES 5m  |  3020  27.6   111,350     37  1.249   22,090   5.04 |  1.328  1.080  1.051    3,490 |   40%  1.155 | WEAK 5/6, PBO 0.675 (#344)
+config C3 cost-robust corner              NQ 5m  |  2112  31.5   209,517     99  1.457   26,582   7.88 |  1.529  1.343  1.065    6,334 |   39%  1.428 | NOT validated (hand test, rounds 38-43)
+config Crown settings on 15-minute bars   NQ 15m |  3011  41.4   376,760    125  1.446   28,050  13.43 |  1.497  1.356  1.347   48,228 |   24%  1.423 | NOT validated (hand test, round 44)  [tape ends 2026-06-30]
+config Crown + confirm 2 bars             NQ 5m  |  4075  38.0   376,427     92  1.403   17,836  21.10 |  1.464  1.299  1.262   42,114 |   24%  1.376 | NOT validated (hand test, round 45)
+tilt #243 + squeeze 1.5x (30-min gate)  NQ 5m  |  4423  36.5   504,295    114  1.435   19,991  25.23 |  1.444  1.420  1.334   67,996 |   24%  1.407 | PASS 6/6, folds 8/8, PBO 0.222 (#333) - on paper
+tilt #243 + squeeze 2.0x (30-min gate)  NQ 5m  |  4423  36.5   620,626    140  1.461   22,192  27.97 |  1.473  1.442  1.349   82,476 |   25%  1.433 | PASS 6/6, folds 8/8, PBO 0.194 (#331)
+tilt #243 + hourly squeeze 1.5x         NQ 5m  |  4423  36.5   450,185    102  1.439   17,250  26.10 |  1.446  1.429  1.358   65,018 |   23%  1.410 | NOT validated as itself - on paper
+tilt #304 + squeeze 2.0x (30-min gate)  NQ 5m  |  4824  36.5   607,987    126  1.395   27,578  22.05 |  1.411  1.367  1.275   72,343 |   24%  1.369 | PASS 6/6, folds 8/8, PBO 0.111 (#382)
+tilt #304 + hourly squeeze 1.5x         NQ 5m  |  4824  36.5   468,774     97  1.401   20,430  22.95 |  1.404  1.397  1.314   63,032 |   22%  1.374 | Cell inside #382, never picked - NEEDS VALIDATE
+tilt #243 + momentum 2.0x               NQ 5m  |  4423  36.5   664,075    150  1.460   30,194  21.99 |  1.447  1.482  1.399  101,863 |   26%  1.431 | WEAK 5/6, PBO 0.599 (#327)
+tilt #304 + momentum 2.0x               NQ 5m  |  4824  36.5   682,234    141  1.420   33,485  20.37 |  1.397  1.460  1.355   98,262 |   26%  1.393 | NOT validated

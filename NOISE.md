@@ -7,6 +7,105 @@
 
 ---
 
+## 🔬 2026-09-13 — ROUND 56: THE SCORECARD — every NOISE configuration, one tape, ranked, with its validation status (STUDIES rows 1729-1732)
+
+**Owner ask:** rank the NOISE configurations run so far, with their metrics, and say which are
+auto-validated, which are not, and which need to be.
+
+**Basis.** One continuous run per configuration, 2010-06-07 to 2026-07-16 (other bar sizes to their own
+tape's end), trades sliced by entry time, house cost 0.533 points. "Sealed year" is 2025-07-16 to
+2026-07-16 on the continuous run — not any validate's saved lockbox, which for NOISE is a cold-restart
+reload that drops about a quarter of the year (round 55). Identical settings validated more than once
+are one row. Ranked on recent profit factor first (2024 onward and the sealed year), then older profit
+factor and stressed-cost profit factor, then drawdown and sample; dollars last, because contracts
+scale. Harness `tools/r56_noise_scorecard.py`, `r56b`-`r56d`; results `tools/r37_results/r56*.txt`.
+
+### The finding the scorecard forced: the squeeze FILTER on the live crown
+
+Run #321's squeeze filter (keep a trade only if the higher-timeframe squeeze was compressed at its
+decision bar) was the best-quality validated row, but it froze its core to the retired #243. Moved
+onto the live crown:
+
+| configuration | trades | win % | net $ | PF | max DD $ | resampled 95th DD $ | PF <2024 | PF 2024+ | sealed PF | top-10 share |
+|---|---|---|---|---|---|---|---|---|---|---|
+| #304 live crown raw | 4,824 | 36.5 | 398,775 | 1.357 | 19,304 | 39,251 | 1.358 | 1.357 | 1.274 | 24% |
+| + 30-min filter (#321's pick) | 1,661 | 39.9 | 209,211 | 1.496 | 12,597 | 26,757 | 1.559 | 1.391 | 1.277 | 33% |
+| **+ textbook hourly filter** | **615** | **43.4** | **139,997** | **2.351** | **12,492** | **10,684** | **2.460** | **2.184** | **1.985** | 40% |
+| #243 + 30-min filter (**run #321**) | 1,547 | 40.6 | 232,662 | 1.627 | 13,063 | 22,892 | 1.660 | 1.576 | 1.439 | 32% |
+| #243 + textbook hourly filter | 586 | 42.5 | 124,443 | 2.233 | 12,565 | 11,387 | 2.295 | 2.140 | 1.999 | 45% |
+
+Checks on the textbook hourly filter, live crown:
+* **Year by year:** one losing year of seventeen (2010, 19 trades); profit factor above the crown's in
+  15 of 17; the soft recent year is 2025 (1.248 against the crown's 1.293).
+* **Tail:** 1.814 with its ten best trades removed, 1.457 without its twenty best. The trades it
+  rejects run at 1.256 — the crown's edge is concentrated in compressed hours.
+* **Plateau:** across #321's own 27-cell grid on the live crown, 25 cells beat the raw crown's 1.357
+  and all nine hourly cells sit between 1.68 and 2.35. **The textbook cell is the top of that plateau**
+  — its neighbours read 1.84, 2.01, 2.12 and 2.15 — so its own 2.35 carries best-of-27 inflation and
+  the honest expectation is the neighbourhood's ~2.0. The 120-minute cells are era-unstable (weak
+  before 2024, very strong after); the hourly cells hold in both eras.
+* **Not a look-ahead:** round 55 aged the same squeeze reading by a full hour and kept 97% of the gain.
+
+**Not validated on the live crown.** `NOISE_1_9_SQ304.py` is #321 re-based with its pre-registered
+27-cell grid unchanged — not re-fenced around the cell that was noticed — parity checked to the dollar,
+and queued. Its saved lockbox must be read continuously.
+
+### The scorecard
+
+| rank | configuration | trades | win % | net $ | PF | max DD $ | PF <2024 | PF 2024+ | sealed PF | validation |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | live crown + textbook hourly squeeze filter | 615 | 43.4 | 139,997 | 2.351 | 12,492 | 2.460 | 2.184 | 1.985 | NEEDS VALIDATE — queued |
+| 2 | #243 + textbook hourly squeeze filter | 586 | 42.5 | 124,443 | 2.233 | 12,565 | 2.295 | 2.140 | 1.999 | unpicked cell of #321's validated grid |
+| 3 | #321 squeeze filter (30-min) on #243 | 1,547 | 40.6 | 232,662 | 1.627 | 13,063 | 1.660 | 1.576 | 1.439 | PASS 6/6, folds 7/8, PBO 0.099 |
+| 4 | #243 retired crown | 4,423 | 36.5 | 387,963 | 1.398 | 18,424 | 1.404 | 1.389 | 1.314 | PASS 6/6, folds 7/8 |
+| 5 | #304 live crown | 4,824 | 36.5 | 398,775 | 1.357 | 19,304 | 1.358 | 1.357 | 1.274 | PASS 6/6, folds 8/8, PBO 0.135 |
+| 6 | #322 lookback 16 | 4,094 | 37.2 | 361,647 | 1.426 | 18,108 | 1.457 | 1.370 | 1.258 | PASS 6/6, folds 8/8, PBO 0.425 |
+| 7 | #316 confirm 2 bars | 3,779 | 38.5 | 365,054 | 1.446 | 10,999 | 1.501 | 1.354 | 1.269 | PASS 7/7, folds 8/8, PBO 0.464 |
+| 8 | crown settings on 15-minute bars | 3,011 | 41.4 | 376,760 | 1.446 | 28,050 | 1.497 | 1.356 | 1.347* | not validated as itself (#362 searched 15m, picked worse) |
+| 9 | #374 crown + trail 2.75R | 4,832 | 36.6 | 395,702 | 1.354 | 19,304 | 1.358 | 1.346 | 1.253 | WEAK 5/6, PBO 0.615 |
+| 10 | crown + confirm 2 bars | 4,075 | 38.0 | 376,427 | 1.403 | 17,836 | 1.464 | 1.299 | 1.262 | not validated (≈ #316, which is) |
+| 11 | #334 2-minute card | 7,883 | 33.1 | 393,147 | 1.308 | 30,464 | 1.330 | 1.268 | 1.291 | PASS 6/6, folds 7/8, PBO 0.460 |
+| 12 | #256 skip 98, no day rule | 5,329 | 36.1 | 373,192 | 1.286 | 19,977 | 1.284 | 1.289 | 1.265 | PASS 6/6, folds 7/8 |
+| 13 | #245 skip bottom, both sides | 4,393 | 36.3 | 358,032 | 1.333 | 29,041 | 1.361 | 1.286 | 1.265 | PASS 6/6, folds 7/8 |
+| 14 | #345 1-minute card | 5,031 | 34.4 | 333,069 | 1.386 | 16,465 | 1.457 | 1.282 | 1.093 | PASS 6/6, folds 8/8, PBO 0.210 |
+| 15 | #237 | 5,139 | 36.4 | 343,008 | 1.313 | 17,071 | 1.329 | 1.287 | 1.213 | WEAK 6/7, PBO 0.599 |
+| 16 | #319 afternoon, boundary exit | 8,119 | 13.6 | 210,674 | 1.300 | 18,086 | 1.270 | 1.358 | 1.212 | WEAK 5/6, PBO 0.579 |
+| 17 | #306 | 3,528 | 29.9 | 279,276 | 1.356 | 21,888 | 1.348 | 1.369 | 1.131 | WEAK 5/6, PBO 0.437 |
+| 18 | C3 cost-robust corner | 2,112 | 31.5 | 209,517 | 1.457 | 26,582 | 1.529 | 1.343 | 1.065 | not validated (does not need it) |
+| 19 | #305 | 3,731 | 38.7 | 334,942 | 1.376 | 47,472 | 1.528 | 1.146 | 1.106 | PASS 6/6, folds 8/8, PBO 0.274 |
+| 20 | #241 no volatility skip | 5,197 | 36.2 | 374,626 | 1.280 | 25,440 | 1.317 | 1.217 | 1.144 | PASS 6/6, folds 7/8 |
+| 21 | #362 15-minute card | 4,075 | 36.9 | 266,186 | 1.253 | 43,818 | 1.333 | 1.114 | 1.072* | PASS 6/6, folds 7/8, WFE 0.6 |
+| 22 | #225 raw NOISE, no filters | 5,615 | 35.7 | 324,482 | 1.215 | 30,412 | 1.224 | 1.200 | 1.126 | PASS 7/7, folds 8/8, PBO 0.365 |
+| 23 | #344 on ES | 3,020 | 27.6 | 111,350 | 1.249 | 22,090 | 1.328 | 1.080 | 1.051 | WEAK 5/6, PBO 0.675 |
+
+\* the 15-minute tape ends 2026-06-30, so its sealed year is two weeks short.
+
+Size-tilt versions (every trade kept, compressed or momentum trades sized up):
+
+| configuration | net $ | PF | max DD $ | PF <2024 | PF 2024+ | sealed PF | validation |
+|---|---|---|---|---|---|---|---|
+| #243 + momentum 2.0x | 664,075 | 1.460 | 30,194 | 1.447 | 1.482 | 1.399 | WEAK 5/6, PBO 0.599 (#327) |
+| #243 + 30-min squeeze 2.0x | 620,626 | 1.461 | 22,192 | 1.473 | 1.442 | 1.349 | PASS 6/6, PBO 0.194 (#331) |
+| #243 + hourly squeeze 1.5x | 450,185 | 1.439 | 17,250 | 1.446 | 1.429 | 1.358 | unpicked cell of #333's grid; on paper |
+| #243 + 30-min squeeze 1.5x | 504,295 | 1.435 | 19,991 | 1.444 | 1.420 | 1.334 | PASS 6/6, PBO 0.222 (#333); on paper |
+| #304 + momentum 2.0x | 682,234 | 1.420 | 33,485 | 1.397 | 1.460 | 1.355 | not validated; drawdown +34-73% |
+| #304 + hourly squeeze 1.5x | 468,774 | 1.401 | 20,430 | 1.404 | 1.397 | 1.314 | unpicked cell of #382; passes the tilt battery |
+| #304 + 30-min squeeze 2.0x | 607,987 | 1.395 | 27,578 | 1.411 | 1.367 | 1.275 | PASS 6/6 (#382), fails its own bar continuously |
+
+### Honest reading
+
+* The filter is the same edge as the tilt, packaged as fewer, better trades: 615 trades in sixteen
+  years is about three a month, and its top ten trades are 40% of its net. It earns more per unit of
+  resampled drawdown than the crown (net over resampled 95th drawdown 13.1 against 10.2), but its
+  dollars at one contract are about a third of the crown's.
+* #243 outranks the live crown on every quality number on this basis, and made slightly more in the
+  sealed year. The 2026-09-05 swap won on its own held-out window and loses on this one: a coin flip.
+* Nothing that was never validated needs a validate except the hourly filter on the live crown. The
+  15-minute crown settings tie the crown recently on 45% more drawdown; crown + confirm 2 is #316,
+  which is validated; C3 and the momentum tilt fail on their own numbers.
+
+---
+
 ## 🔬 2026-09-13 — ROUND 55: THE FRONTIER, LIKE FOR LIKE — the textbook hourly squeeze on the live crown is the one thing that beats it (STUDIES rows 1725-1728)
 
 The owner asked which NOISE configuration is most worthy of forward or live testing, and whether
