@@ -714,7 +714,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.768';
+const VERSION='73.769';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -732,7 +732,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.768',date:'2026-09-13',notes:['THE TILT, KEEL AND HYBRID TABLES UNDERSTATED DRAWDOWN ON TWO-STRETCH SAMPLES. With IS + WF or WF + LB ticked on the 1E matrix, the DD row was read off the saved equity curve - about 300 points across the whole run - so any drop that opened and closed between two saved points never showed. On run #384 all 32 of those cells read low, by 2% to 34%, and MAR, DD (R) and the heat map inherited the error.','THOSE TWO PICKS NOW READ THE ENGINE OWN FIGURES for the combined span, measured trade by trade - the same figures the GATE tab already used. On the one-lot tabs dollars and trade counts do not move; drawdowns get deeper and lose the degree sign. On the HYBRID redeploy and equal-drawdown tabs these two picks now size each column with ONE ratio across the combined span, the way the all-three pick already did - the only way the drawdown beside the dollars describes the same book - so the dollars there move too (run #384 redeploy, IS + WF: up to 21%). Runs saved before the engine wrote these spans keep the old curve reading, still marked with the degree sign.','The 1E render gate now seeds combined spans whose drawdown the curve reading, the larger of the two parts and the sum of the two parts would each get wrong, and it fails the old build.']},{v:'73.766',date:'2026-09-13',notes:['NOISE ROUND 57 - EVERY NOISE CONFIG THAT WAS NEVER AN AUTO-VALIDATE CHAMPION IS NOW QUEUED (owner: start auto validating the ones that are not). Five jobs, 900 in-sample trials each: the live crown and the retired 243 each keeping only trades taken during an hourly squeeze, the crown settings on 15-minute bars, the crown settings waiting for 2 closes, and the cost-robust corner.','Each is a fenced neighbourhood with the configuration itself as every setting default, and each was checked before queueing: its centre reproduces the scorecard numbers to the dollar and anything outside the fence is refused. Read their lockbox strips with care - for NOISE the saved lockbox restarts cold and drops part of the year.']},{v:'73.765',date:'2026-09-13',notes:['COMPARE SAYS WHICH RUNS IT IS READING (owner: go for it). The run list loads only the newest runs, and every COMPARE screen ranked, crowned, overlaid and plotted from that slice without saying so - the NOISE crown #304 was simply not on the tab. The right of each top bar now names the slice, for example NEWEST 75 RUNS #310 to #384, and offers LOAD 75 MORE (the loader Past Runs already has) and LOAD ALL (new). It replaces the leftover beta labels that sat there. One load runs at a time.','A GUARD UNDER BOTH LOADERS. If the light run-list request ever fails, the app falls back to downloading run documents in full, which is slow and heavy; that fallback now never takes more than 75 runs, whatever a LOAD MORE or LOAD ALL asked for, so a network blip after LOAD ALL cannot freeze the page pulling every run whole.','CHAMPIONS ARE HONEST ABOUT WHERE THEY COME FROM. Only one run on the account is starred, so every other family champion was simply its top score, and a book has no robustness score at all - its saved validate block has no gate counts - so the BOOKS champion fell through to money and crowned #378, a run labelled KNOB TEST. Now: a starred run always wins its family; a KNOB TEST is never champion unless starred; books rank on pre-lockbox net over drawdown, the measure book adoption has used, and never on the sealed lockbox; and each family row says either your crown or top pick, no crown, with a hover saying how to make it your crown.']},{v:'73.762',date:'2026-09-13',notes:['NOISE ROUND 56 - THE SCORECARD (owner: rank the noise configs with their metrics, and say which are auto-validated, which are not, and which need it). Every NOISE configuration run so far was replayed on one continuous tape and window at house cost, ranked on recent profit factor first. The full table, with trades, win rate, net, profit factor, drawdown, profit factor by era and sealed year, and each validation status, is in the family doc.','THE TOP ROW IS NEW: the squeeze FILTER on the live crown. Run 321 validated the filter on the retired base. Moved onto the live crown, the textbook hourly setting keeps 615 trades at profit factor 2.351, 2.184 since 2024 and 1.985 in the sealed year, with one losing year of seventeen and 1.814 without its ten best trades. 25 of the 27 grid settings beat the raw crown and all nine hourly settings sit between 1.68 and 2.35, but the textbook cell is the top of that plateau, so expect nearer 2.0.','ONLY ONE CONFIG NEEDS A VALIDATE AND IT IS QUEUED: run 321 re-based onto the live crown with its own 27-cell grid unchanged, parity checked to the dollar. Its saved lockbox must be read on a continuous replay. The other never-validated configs either duplicate a validated one or fail on their own numbers.','ALSO ON THIS BASIS the retired 243 outranks the live crown on every quality number and made slightly more in the sealed year - the crown swap was a coin flip, not an upgrade.']},{v:'73.761',date:'2026-09-13',notes:['THE ML LINES NO LONGER RUN STRAIGHT AFTER THE LOCKBOX DOOR (owner: the lockbox on the 1A funnel still shows as stretched). Measured on run 384: the gate, tilt, KEEL, hybrid, recycle and ALL CONFIGS lines each had about 20 saved points for the whole lockbox year - one point every 11 pixels, against one every 2.5 before the door - so with the lockbox a quarter of the width they drew as long straight strokes. The raw config lines never did this, because they save their lockbox stretch on its own with 80 points.','WHY. Every ML line is saved as ONE 300-point sample of the whole run. On run 384 the 273 lockbox trades are under 7 per cent of its 4,075 trades, so they get under 7 per cent of the points - about 20 - however wide the lockbox is drawn.','THE FIX. New validates save a dense lockbox section next to every ML line: up to 80 points read off the real trade-by-trade running total, never smoothed or filled in. The funnel draws the saved points up to the door, the value on the door, then that section - in ONE CURVE, DOORS, ALL CONFIGS and the fullscreen explorer. The in-sample and walk-forward part of each line is unchanged, and so is every finish figure, pill and key value, because the section ends on the same final total. A line whose saved sample already has as many lockbox points - a short run, or one whose lockbox is a big share of its trades - keeps that sample, so no lockbox is ever drawn with fewer real points than before; and a lockbox so small that only the final saved point sat past the door, the most stretched case of all, does get its section.','OLD RUNS. Runs saved before this carry no lockbox section, so they keep exactly their old look (checked byte for byte on run 384 and on the report test run) until they are backfilled or re-run - and new validates only carry it once the runner is running this version. A section that does not line up with its own curve is ignored rather than drawn in the wrong place.']},
+const CHANGELOG=[{v:'73.769',date:'2026-09-13',notes:['RUN ROWS ON EXPLORE FOLLOW THE STAGE YOU TICK (owner: the metrics should follow the sample selected). A run row used to carry figures for the LOCKBOX only: under any other tick its money followed the stage while PF, drawdown, win %, Sharpe, Sortino, EV R, DD (R) and MAR quietly read the whole run, and walk-forward per-year figures divided by the whole run. Each run row now carries its own figures for every stretch, from what the run saved.','WALK-FORWARD pools the folds - money, trades, wins, and gross wins and losses rebuilt from each fold own net and profit factor. LOCKBOX is the saved lockbox. IN-SAMPLE is the whole run minus walk-forward minus lockbox, which is exact because trades, wins and both grosses add; checked against the saved curve end to the dollar. IN-SAMPLE + WALK-FORWARD and WALK-FORWARD + LOCKBOX add the two; ALL THREE is the run own whole-run totals. A book reads its own pre-lockbox, lockbox and whole blocks.','Drawdown, Sharpe and Sortino that were never saved for a stretch are cut from the saved equity curve, which is laid out per trade - its lockbox mark sits at exactly the lockbox share of trades - so the in-sample / walk-forward boundary is placed by trade count. A drawdown cut that way carries a ~ in the MAR and DRAWDOWN cells, because the curve is thinned for storage and can only read shallow.','WHERE IT CANNOT BE DONE IT SAYS SO. On 6 of the 44 validated runs loaded today, including the ENGU-Q crown #335, the walk-forward folds hold more trades than follow the split, so they overlap the in-sample years; those runs dash every in-sample figure with that reason rather than printing a remainder that mixes the two - and any tick that includes IN-SAMPLE dashes the money-based figures too, rather than quietly adding up only the stretches that can be read; with all three ticked they read the whole-run total, which is known exactly. IN-SAMPLE + LOCKBOX has no combined drawdown or profit factor, so those dash, with the trades added.']},{v:'73.768',date:'2026-09-13',notes:['THE TILT, KEEL AND HYBRID TABLES UNDERSTATED DRAWDOWN ON TWO-STRETCH SAMPLES. With IS + WF or WF + LB ticked on the 1E matrix, the DD row was read off the saved equity curve - about 300 points across the whole run - so any drop that opened and closed between two saved points never showed. On run #384 all 32 of those cells read low, by 2% to 34%, and MAR, DD (R) and the heat map inherited the error.','THOSE TWO PICKS NOW READ THE ENGINE OWN FIGURES for the combined span, measured trade by trade - the same figures the GATE tab already used. On the one-lot tabs dollars and trade counts do not move; drawdowns get deeper and lose the degree sign. On the HYBRID redeploy and equal-drawdown tabs these two picks now size each column with ONE ratio across the combined span, the way the all-three pick already did - the only way the drawdown beside the dollars describes the same book - so the dollars there move too (run #384 redeploy, IS + WF: up to 21%). Runs saved before the engine wrote these spans keep the old curve reading, still marked with the degree sign.','The 1E render gate now seeds combined spans whose drawdown the curve reading, the larger of the two parts and the sum of the two parts would each get wrong, and it fails the old build.']},{v:'73.766',date:'2026-09-13',notes:['NOISE ROUND 57 - EVERY NOISE CONFIG THAT WAS NEVER AN AUTO-VALIDATE CHAMPION IS NOW QUEUED (owner: start auto validating the ones that are not). Five jobs, 900 in-sample trials each: the live crown and the retired 243 each keeping only trades taken during an hourly squeeze, the crown settings on 15-minute bars, the crown settings waiting for 2 closes, and the cost-robust corner.','Each is a fenced neighbourhood with the configuration itself as every setting default, and each was checked before queueing: its centre reproduces the scorecard numbers to the dollar and anything outside the fence is refused. Read their lockbox strips with care - for NOISE the saved lockbox restarts cold and drops part of the year.']},{v:'73.765',date:'2026-09-13',notes:['COMPARE SAYS WHICH RUNS IT IS READING (owner: go for it). The run list loads only the newest runs, and every COMPARE screen ranked, crowned, overlaid and plotted from that slice without saying so - the NOISE crown #304 was simply not on the tab. The right of each top bar now names the slice, for example NEWEST 75 RUNS #310 to #384, and offers LOAD 75 MORE (the loader Past Runs already has) and LOAD ALL (new). It replaces the leftover beta labels that sat there. One load runs at a time.','A GUARD UNDER BOTH LOADERS. If the light run-list request ever fails, the app falls back to downloading run documents in full, which is slow and heavy; that fallback now never takes more than 75 runs, whatever a LOAD MORE or LOAD ALL asked for, so a network blip after LOAD ALL cannot freeze the page pulling every run whole.','CHAMPIONS ARE HONEST ABOUT WHERE THEY COME FROM. Only one run on the account is starred, so every other family champion was simply its top score, and a book has no robustness score at all - its saved validate block has no gate counts - so the BOOKS champion fell through to money and crowned #378, a run labelled KNOB TEST. Now: a starred run always wins its family; a KNOB TEST is never champion unless starred; books rank on pre-lockbox net over drawdown, the measure book adoption has used, and never on the sealed lockbox; and each family row says either your crown or top pick, no crown, with a hover saying how to make it your crown.']},{v:'73.762',date:'2026-09-13',notes:['NOISE ROUND 56 - THE SCORECARD (owner: rank the noise configs with their metrics, and say which are auto-validated, which are not, and which need it). Every NOISE configuration run so far was replayed on one continuous tape and window at house cost, ranked on recent profit factor first. The full table, with trades, win rate, net, profit factor, drawdown, profit factor by era and sealed year, and each validation status, is in the family doc.','THE TOP ROW IS NEW: the squeeze FILTER on the live crown. Run 321 validated the filter on the retired base. Moved onto the live crown, the textbook hourly setting keeps 615 trades at profit factor 2.351, 2.184 since 2024 and 1.985 in the sealed year, with one losing year of seventeen and 1.814 without its ten best trades. 25 of the 27 grid settings beat the raw crown and all nine hourly settings sit between 1.68 and 2.35, but the textbook cell is the top of that plateau, so expect nearer 2.0.','ONLY ONE CONFIG NEEDS A VALIDATE AND IT IS QUEUED: run 321 re-based onto the live crown with its own 27-cell grid unchanged, parity checked to the dollar. Its saved lockbox must be read on a continuous replay. The other never-validated configs either duplicate a validated one or fail on their own numbers.','ALSO ON THIS BASIS the retired 243 outranks the live crown on every quality number and made slightly more in the sealed year - the crown swap was a coin flip, not an upgrade.']},{v:'73.761',date:'2026-09-13',notes:['THE ML LINES NO LONGER RUN STRAIGHT AFTER THE LOCKBOX DOOR (owner: the lockbox on the 1A funnel still shows as stretched). Measured on run 384: the gate, tilt, KEEL, hybrid, recycle and ALL CONFIGS lines each had about 20 saved points for the whole lockbox year - one point every 11 pixels, against one every 2.5 before the door - so with the lockbox a quarter of the width they drew as long straight strokes. The raw config lines never did this, because they save their lockbox stretch on its own with 80 points.','WHY. Every ML line is saved as ONE 300-point sample of the whole run. On run 384 the 273 lockbox trades are under 7 per cent of its 4,075 trades, so they get under 7 per cent of the points - about 20 - however wide the lockbox is drawn.','THE FIX. New validates save a dense lockbox section next to every ML line: up to 80 points read off the real trade-by-trade running total, never smoothed or filled in. The funnel draws the saved points up to the door, the value on the door, then that section - in ONE CURVE, DOORS, ALL CONFIGS and the fullscreen explorer. The in-sample and walk-forward part of each line is unchanged, and so is every finish figure, pill and key value, because the section ends on the same final total. A line whose saved sample already has as many lockbox points - a short run, or one whose lockbox is a big share of its trades - keeps that sample, so no lockbox is ever drawn with fewer real points than before; and a lockbox so small that only the final saved point sat past the door, the most stretched case of all, does get its section.','OLD RUNS. Runs saved before this carry no lockbox section, so they keep exactly their old look (checked byte for byte on run 384 and on the report test run) until they are backfilled or re-run - and new validates only carry it once the runner is running this version. A section that does not line up with its own curve is ignored rather than drawn in the wrong place.']},
 {v:'73.760',date:'2026-09-13',notes:['NOISE ROUND 55 - THE FRONTIER, LIKE FOR LIKE (owner: which noise configuration is most worthy of forward or live testing, and does anything never auto-validated approach the frontier). No two NOISE rows on the board are comparable - three different end dates, each with its own split and lockbox - so every distinct candidate was replayed on one tape, one window, two costs and the same eras.','RUN 382 CORRECTED. It returned PASS with a lockbox of 239 trades at profit factor 1.395. The continuous run takes 314 trades that year at 1.275, the crown own figure: the validate grades its lockbox by reloading the tape with no history, and NOISE needs forty prior sessions, so a quarter of the year vanishes. On the continuous basis its own pick fails the bar written into its file. Every saved NOISE lockbox is a cold-restart number, so round 54 ranking is replaced.','THE ONE THING THAT BEATS THE CROWN: the textbook hourly squeeze (hourly frame, length 20, ratio 1.0) as a 1.5x size tilt. It sat inside run 382 grid and was never picked because that search ranks on dollars. It beats the crown in both eras at both costs, passes the whole tilt battery at both costs (walk-forward drawdown falls 11 percent, zero of 2000 shifts match), sits on a plateau (all four hourly cells beat all four 30-minute cells), and keeps 97 percent of its gain when read a full hour late, so it is not a look-ahead. Thin spot: only 41 tagged trades in the sealed year.','NOTHING ELSE BEATS IT. Run 316 (confirm 2 bars) comes closest with far less drawdown, but since 2024 it earns 22 percent less on 11 percent less resampled risk. The 2-minute, 15-minute and 1-minute cards, the cost-robust corner and run 305 all lose their recent profit factor. The momentum tilt is real but adds 34 to 73 percent drawdown. The textbook squeeze on the live crown is not on paper anywhere yet.']},{v:'73.759',date:'2026-09-13',notes:['BOTH AXES OFFER THE SAME TWELVE MEASURES, IN THE SAME ORDER (owner: anything missing from the vertical or the horizontal, add it; left to right should go from risk metrics to reward metrics). The vertical axis gains DRAWDOWN in dollars - DD % was already there - and the horizontal gains RAW PROFIT, MAR and EV in dollars.','The order on both is SORTINO, SHARPE, DD (R), DD %, DRAWDOWN, MAR, PF, EV R, EV, R / YR, ROC % / YR, RAW PROFIT: risk-adjusted first, then the drawdowns, then reward over risk, then reward per trade, then reward per year, then the money itself.','On VS CROWN the point hover now names the horizontal measure it is quoting. It said drawdown whatever was across the bottom - Sortino, EV R, anything - which predates these new pairings but would have mislabelled them too.','$/TRD FOLLOW-UP: the fix one version ago also moves EV (dollars per trade) wherever it is plotted, on either axis, because the chart reads the same figure the column prints. And a row that saves per-stage figures but no trade count of its own now takes its whole-run count rather than falling back to the ticked stage.','Each new pairing uses the reader the other axis already had, so a row sits at the same value whichever side a measure is put on. Dollar drawdown up the side ranks the SHALLOWEST first, like DD % and DD (R), and is never divided per year - a drawdown is one worst event, not a rate.']},{v:'73.758',date:'2026-09-13',notes:['RUN IS ITS OWN COLUMN, AND IT SORTS (owner: auto validate has different runs, I want to be able to sort that). It sits beside FAMILY on every table, not only under ALL columns, so configurations from different runs can be grouped at a glance. Click the heading to put the newest run first; rows never saved as a run sit last. It replaces the grey RUN column that only ALL used to show, so nothing is listed twice.','TRADES / YR, beside TRADES (owner: there is a cumulative trade count but no trades per year). It is the trade count divided by the years of the ticked stretch - the same count and the same window R / YR already uses, so EV R times TRADES / YR is R / YR on every row and the two can never disagree. It sorts like every other number column.','$/TRD IS WHOLE-RUN MONEY OVER WHOLE-RUN TRADES AGAIN, as its heading has always said. On a configuration row the trade count was being read per ticked stage while the money stayed whole-run, so with only WALK-FORWARD ticked, for example, a row divided all of its money by its walk-forward trades and read several times too high. Sorting on $/TRD also used a third formula of its own; it now orders by the figure the column prints.','FIXED ON THE WAY: with IN-SAMPLE and LOCKBOX ticked and WALK-FORWARD not, a configuration row printed its WHOLE-RUN trade count and divided by a window that still included the unticked walk-forward years. That combination is the one with no saved block of its own. Trade counts now add up the ticked stretches and the years add up the ticked stretches, so TRADES, TRADES / YR, R / YR, ROC, DD (R) and the MIN TRADES chart filter all read the stretches actually ticked. Every other combination gives exactly the figures it did before, because touching stretches add up to the same span.']},{v:'73.728',date:'2026-09-11',notes:['NOISE ROUND 54 - THE FORWARD-TESTING RANKING (owner: look at the noise configs ran thus and the compare scatter plots, give me a ranking for what you think is most worthy of forward testing). Thirty-five NOISE runs are on the board. Reading the scatter cloud each one searched, rather than the row it reported, changed two answers.','WHAT ONLY THE CLOUD SHOWS. The live crown sits at the 80th percentile of its own 495 configurations - it is not the peak, which is the shape you want because the plateau test picked it rather than the maximum. Every other candidate sits at the 87th to 100th. The 2-minute card has the thinnest cloud measured, only 64 percent of its neighbours making money at all against 100 percent for the 5-minute rows. And the resampling strip says the two compression legs had a drawdown shallower than 94 to 98 percent of their own reshuffled paths, so their headline risk figure is path luck as much as edge.','THE FINDING - THE COMPRESSION TILT BELONGS ON THE RETIRED BASE. The validated tilt, and both deployed paper legs, pin lookback 44 and volatility skip 90 - which is the crown the family retired on 2026-09-05. Re-basing it onto the live crown looked like an obvious fix and the battery says it is the wrong one: identical harness and identical null, the tilt PASSES on the retired base with drawdown growing 6 percent and zero of 2000 shifts matching, and FAILS on the live crown with sealed-year drawdown growing 17.9 percent against a 10 percent tolerance. It is real on both - it beats its own flat-leverage control everywhere - it just costs more risk on the newer base, which loosened the volatility skip and so takes about 400 more trades in noisier conditions. The deployed legs are not stale by mistake; they are on the base where the tilt passes.','THE RANKING. First the live crown raw, still unbeaten across eight swept spaces and the only row off the peak of its own cloud. Second the retired base with the tilt at 1.5x, already forward-testing and the only add-on that clears the whole battery. Third the live crown with the same tilt, the most money and the best risk-adjusted return measured but failing the drawdown clause, now queued for the house verdict with the tilt switched off inside its own admissible set as the parity control. Fourth the 2-minute card at small size for the diversification. Nothing else earns a slot.']},
 {v:'73.757',date:'2026-09-12',notes:['DOORS - THE 1A FUNNEL CUT AT ITS DOORS (owner: go for the door; the lockbox seems stretched here). A new ONE CURVE / DOORS switch sits on the funnel control row. DOORS draws the same chart as three panels - in-sample, walk-forward, lockbox - and every line starts again at $0 at each door, on that panel\'s own dollar scale.','WHY THE LOCKBOX LOOKED STRETCHED. On one continuous axis the lockbox gets about five times the width per year that a walk-forward year gets, so the same pace draws about five times flatter after the door, and the gate, tilt and hybrid lines only have around twenty saved points in there. DOORS gives each stretch the full height, so the lockbox is read on its own terms.','WHAT STAYS THE SAME. The dates, the fold stripes, the lockbox stripe and the drawdown strip underneath do not change - drawdown is still one continuous account. The key rows, ALL CONFIGS, the hover link to the 1E tables and the hold-up ladder work in both modes. Each panel labels its own peak, $0 and low, each sitting at the value it names; the right-hand equity scale is left out of DOORS because there is no single scale, and the hover $ reads from the panel under the pointer.','THE KEY MOVES OUT OF THE WAY. In DOORS the in-sample panel fills its full height, so the key box shows names only (each row still gives its finish on hover, and ALL CONFIGS drops its line count) and moves to the panel corner that hides the fewest lines and no panel label.','THE LAST TRADES ARE KEPT. A saved equity curve is a sample that leaves off the final few trades; ONE CURVE shows that as a small step where the lockbox tail starts. In DOORS each raw walk-forward line and each lockbox tail ends on the true total instead, so the panels add up. On a run whose raw configs saved no lockbox curve but whose ML block has lockbox trades, the ML lines stop at the lockbox rather than carrying its money into the walk-forward panel.','HOVER $ FIXED IN BOTH MODES. The dollar readout on the right edge measured against the whole chart box, padding included, so every level read a few per cent off (the top of run 384 read $952k against a true $993k).','CHECKED. ONE CURVE is byte-for-byte what v73.756 drew. On run 384 every DOORS line equals its ONE CURVE line less its value at the door, within drawing rounding, and every walk-forward and lockbox piece starts at $0.']},
 {v:'73.756',date:'2026-09-12',notes:['THE LOCKBOX NOW TAKES A QUARTER OF THE 1A FUNNEL (owner: one curve first, the LB at 25% is fine). It used to sit where the calendar puts it - about 6 per cent of the width on a 15-year run - which was too thin to read the lines the funnel exists to judge. The walk-forward fold stripes, every line, the ALL CONFIGS lines, the drawdown strip and the hover date all moved together, and the date strip now has a tick on the lockbox door. A short run whose lockbox is already more than a quarter of its calendar keeps its true share. This deliberately undoes the calendar placement from v71.4. The expanded view and the CHAMPION tab still use the calendar, because they have real date axes, so the lockbox looks wider on this tab than on those - and the 1B monthly bars underneath are calendar-spaced, so they no longer line up under the funnel.','NEW: THE HOLD-UP LADDER, UNDER THE FUNNEL AND ITS DRAWDOWN STRIP. One small chart per family. Every config is a line through three columns - in-sample, walk-forward, lockbox - at the dollars it made inside that stretch, scaled within its family. Parallel lines mean the in-sample favourites stayed on top; crossing lines mean the order flipped. Underneath each family: how well the in-sample order held into the lockbox, from +1 (exactly the same) to -1 (fully reversed), marked only N where there are too few configs to lean on. The ring marks the most in-sample dollars in each family - named that way on purpose, because the funnel blue in-sample-best line ranks by the search own score and can be a different config.','THE LADDER NUMBERS ARE THE 1E TABLE NUMBERS. Nothing is recomputed: each line is drawn from the family table own column, with the same key its row carries. Checked in a browser on run 384 with the SAMPLE tick on in-sample, then walk-forward, then lockbox - 51 of 51 configs matched the table in every stretch - and on a second run with different families. Hovering picks the line nearest the pointer, fills a one-line readout with its three figures, and lights the same config in the 1E table (on its family tab too) and on the funnel.','DRAWDOWN STRIP. The lockbox door is now drawn down through it, so the wider lockbox has an edge there too. Two switches were broken: the KEEL key row hid KEEL line but not its drawdown line, and switching GATE off was quietly undone by its own drawdown line staying visible. Both fixed.','HYBRID LINES BENT AT THE WRONG POINT, on the funnel and inside the 1E tables. A hybrid curve runs across every trade, including the ones it skipped, but its lockbox door was placed by counting only the trades it took - so on run 384 it bent at point 272 of 300 while tilt, KEEL and gate bent at 279. Inside 1E the same counting put its in-sample / walk-forward cut at 27 per cent of the curve against a true 38. All five families now cut at the same, correct place; the tilt, KEEL and gate figures do not change.','Hovering a config now lights its lockbox stretch as well - the dotted lockbox tails were the one part of each line that never joined the highlight.']},
@@ -24923,7 +24923,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // the value of the ticked set for one row: the sum of the ticked stages it RECORDS, and
         //   null only when it records none of them.
         const _reSegsEff=_reSegPin?['is']:_reSegs;
-        const _reSegVal=rw=>{let t=0,got=0;
+        const _reSegVal=rw=>{
+          // A RUN whose in-sample cannot be separated (its folds overlap those years): with IN-SAMPLE
+          //   ticked, summing the other stretches would print their money as if it were the lot. All
+          //   three ticked is the whole run, which is known exactly; any other tick with IN-SAMPLE is a dash.
+          if(rw&&rw._isBad&&_reSegsEff.indexOf('is')>=0)
+            return (_reSegsEff.length===3&&rw.tot!=null&&isFinite(rw.tot))?+rw.tot:null;
+          let t=0,got=0;
           for(let i=0;i<_reSegsEff.length;i++){const v=_reNum(rw,_reSegsEff[i]);if(v!=null){t+=v;got++;}}
           return got?t:null;};
         // which ticked stages this row does not record as a figure of their own. Not an error -
@@ -25188,7 +25194,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    own span / wf_range / lockbox_from; anything divided by years - PER YEAR,
         //    MAR, R / YR - is wrong by the ratio of the windows without this.
         const _reYrs=(st,rw)=>{
-          if(rw&&rw._cfg&&rw._sp){const S=rw._sp,seg=_reSegsEff;
+          if(rw&&(rw._cfg||rw._stRun)&&rw._sp){const S=rw._sp,seg=_reSegsEff;
             const b={is:[S.a,S.w],wf:[S.w,S.l],lb:[S.l,S.b]};
             const on=['is','wf','lb'].filter(k=>seg.indexOf(k)>=0&&b[k][0]&&b[k][1]);
             // the YEARS OF THE TICKED STRETCHES, added up. For stretches that touch (IS+WF, WF+LB,
@@ -25197,6 +25203,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             if(on.length===seg.length){let dd=0,ok=true;
               on.forEach(k=>{const g=_reDayGap(b[k][0],b[k][1]);if(g&&g>0)dd+=g;else ok=false;});
               if(ok&&dd>0)return dd/365.25;}
+            // a run row with a ticked stretch it saved no dates for has no window to divide by
+            if(rw._stRun&&on.length!==seg.length)return null;
             if(on.length){const d=_reDayGap(b[on[0]][0],b[on[on.length-1]][1]);
               if(d&&d>0)return d/365.25;}}
           const w=_reWinOf(st,rw);if(!w)return null;
@@ -25236,7 +25244,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               if(f==='trd'&&!_reBlkKey&&_reSegsEff.length){let t=0,ok=true;
                 _reSegsEff.forEach(sg=>{const bb=r._st[sg],v=bb&&bb.num_trades;
                   if(v==null||!isFinite(+v))ok=false;else t+=+v;});
-                if(ok)return t;}}}
+                if(ok)return t;}
+              // a RUN row's top-level figures are whole-run; under a stage tick it has no
+              //   block for, the honest answer is a dash, not the whole run.
+              if(r._stRun)return null;}}
           const v=r&&r[f];return (v==null||!isFinite(v))?null:+v;};
         // every cell goes through here: a real number renders, a missing one renders as a dash
         // that says WHY on hover. There is no third path — nothing is ever silently substituted.
@@ -25277,7 +25288,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   where neither exists. Nothing is ever estimated from a neighbouring row or a rate.
         const _reTrd=rw=>{
           const v=_reNum(rw,'trd');
-          if(v!=null)return {v:v,borrowed:false,src:'recorded in the studies registry for this row.'};
+          if(v!=null)return {v:v,borrowed:false,src:(rw&&rw._stRun)?'counted for the ticked stretch from what the run saved.':'recorded in the studies registry for this row.'};
+          if(rw&&rw._stRun)return null;
           const runs=Array.isArray(rw.runs)?rw.runs:[];
           if(runs.length){const r=_reRunRec(runs[0]),V=(r&&r.validate)||{};
             const t=+((V.total_trades!=null)?V.total_trades:((r&&r.best_trades!=null)?r.best_trades:NaN));
@@ -25361,6 +25373,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   Leverage-blind, so it compares across strategies that trade different sizes:
         //   how many losing trades in a row the worst stretch was worth.
         const _reDdr=(st,rw)=>{const d=_reNum(rw,'dd');if(d==null)return null;
+          if(rw&&rw._stRun){const al=_reBlkNum(rw,'avg_loss');return (al&&al>1e-9)?(Math.abs(d)/al):null;}
           let R=null;
           if(rw&&rw.avl!=null&&isFinite(rw.avl))R=Math.abs(+rw.avl);
           else if(rw&&rw._avl!=null&&isFinite(rw._avl))R=Math.abs(+rw._avl);
@@ -25372,6 +25385,20 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _reYLow=()=>(['ddp','ddr','dd'].indexOf(_reMode())>=0);
         const _reYSgn=()=>(_reYLow()?-1:1);
         // RUN as a number, for ordering: the run the row opens, the same one its RUN cell prints.
+        // SHARPE / SORTINO off a cumulative curve: period-to-period changes, annualised on the
+        //   years the curve covers. One copy, read by configuration rows and run rows alike.
+        const _reShCum=function(cum,yrs){if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
+          const d=[];for(let i=1;i<cum.length;i++)d.push(cum[i]-cum[i-1]);
+          const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
+          const vr=d.reduce(function(a,b){return a+(b-m)*(b-m);},0)/n,sd=Math.sqrt(vr);
+          return (sd>1e-9)?((m/sd)*Math.sqrt(n/yrs)):null;};
+        const _reSoCum=function(cum,yrs){if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
+          const d=[];for(let i=1;i<cum.length;i++)d.push(cum[i]-cum[i-1]);
+          const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
+          const dn=Math.sqrt(d.reduce(function(a,b){return a+Math.min(0,b)*Math.min(0,b);},0)/n);
+          return (dn>1e-9)?((m/dn)*Math.sqrt(n/yrs)):null;};
+        // a drawdown on this row's ticked block that was cut from the thinned curve, not saved
+        const _reDdApx=rw=>{const b=_reCfgBlk(rw);return !!(b&&b._ddApx);};
         const _reRunNo=rw=>{const a=(rw&&Array.isArray(rw.runs))?rw.runs:[];const v=a.length?+a[0]:NaN;return isFinite(v)?v:null;};
         // TRADES / YR: the same trade count and the same window R / YR multiplies EV R by, so
         //   EV R x TRADES / YR is R / YR on every row, and the two can never disagree.
@@ -25514,6 +25541,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           return scale?(+v*(+r._sf||1)*(+r._mu||1)):+v;};
         const _reWrOf=(st,r)=>{
           const _b=_reBlkNum(r,'win_rate');if(_b!=null)return _b;
+          if(r&&r._stRun)return null;
           if(r&&r.wr!=null&&isFinite(r.wr))return +r.wr;
           if(r&&r._wr!=null&&isFinite(r._wr))return +r._wr;
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;
@@ -25527,6 +25555,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   instead of resting on a single day. Same source as SHARPE - the run document.
         const _reSoOf=(st,r)=>{
           const _b=_reBlkNum(r,'sortino');if(_b!=null)return _b;
+          if(r&&r._stRun)return null;
           if(r&&r.so!=null&&isFinite(r.so))return +r.so;
           if(r&&r._so!=null&&isFinite(r._so))return +r._so;
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;if(!V)return null;
@@ -25552,6 +25581,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   against 0.26 in the run report for the same #254 hybrid). The closed form is
           //   leverage-blind and is exactly what the report prints.
           if(r&&r._cfg&&_cf!=null)return _cf;
+          // a RUN row: this stretch's own average losing trade, never the whole run's
+          if(r&&r._stRun){const al=_reBlkNum(r,'avg_loss'),pp=_reSegVal(r),nn=_reNum(r,'trd');
+            return (al!=null&&al>1e-9&&pp!=null&&nn>0)?((pp/nn)/al):_cf;}
           const p2=_reSegVal(r),n=_reNum(r,'trd');
           if(p2==null||!n||n<=0)return _cf;
           let R=null;
@@ -25562,6 +25594,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           return (R&&R>1e-9)?((p2/n)/R):_cf;};
         const _reShOf=(st,r)=>{
           const _b=_reBlkNum(r,'sharpe');if(_b!=null)return _b;
+          if(r&&r._stRun)return null;
           if(r&&r.sh!=null&&isFinite(r.sh))return +r.sh;
           if(r&&r._sh!=null&&isFinite(r._sh))return +r._sh;
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;if(!V)return null;
@@ -25721,7 +25754,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             if(!(y>0))return _reDash('This row records no date window, so its MAR cannot be put on a per-year basis (MAR is net per YEAR over worst drawdown since v73.7x).');
             const tip=_reSegCap+' profit of '+_reExact(p)+' over '+y.toFixed(1)+' years, per year, over a worst drawdown of '+_reExact(Math.abs(d))
               +(miss.length?('. This row records no separate '+miss.map(sg=>_reSegLong[sg]).join(' or ')+' figure, so the profit here covers only the stages it does record - its '+((st.isLbl==='PRE-LOCKBOX')?'first money column already holds the tuning years pooled together':'missing stage was never measured')+'.'):'.');
-            return '<b title="'+_reEsc(tip)+'" style="cursor:help">'+_marAnnTxt(p,y,d)+'</b>';})();
+            return '<b title="'+_reEsc(tip+(_reDdApx(rw)?' ~ The drawdown for this stretch is cut from the saved equity curve, which is thinned for storage and can only read shallower than the true drawdown, so this MAR can only read high.':''))+'" style="cursor:help">'+(_reDdApx(rw)?'~':'')+_marAnnTxt(p,y,d)+'</b>';})();
           // -- THE COMPARISON-BASIS COLUMNS. They appear only when a basis other than RATIOS AS
           //    IS is chosen, they carry the emphasis the selected stage column normally wears
           //    (because they, and not the stage column, are what the chart is plotting), and
@@ -25752,7 +25785,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegsEff.indexOf('wf')>=0)?em:'')
             +td(_reCell(st,rw,'lb',_reMoney),null,(_reSegsEff.indexOf('lb')>=0)?em:'')
             +_reTotCell(st,rw)
-            +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'">'+_reMoneyPlain(Math.abs(v))+'</span>'))):'')
+            +td(_reCell(st,rw,'dd',v=>'<span style="color:'+_reDn+'"'+(_reDdApx(rw)?' title="cut from the thinned equity curve - can only read shallow"':'')+'>'+(_reDdApx(rw)?'~':'')+_reMoneyPlain(Math.abs(v))+'</span>'))):'')
             // the ratio block, in the 1E ALL table order: MAR SHARPE SORTINO PF WIN % EV R
             +td(pddCell)
             +td((function(){const v=_reShOf(st,rw);return (v==null||!isFinite(v))?_reDash('This row records no Sharpe.'):v.toFixed(2);})())
@@ -26593,6 +26626,81 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return here?(sel.indexOf(f.val(st,r))>=0):true;});};
         if((_reLvl==='valid'&&!_reShowCfg)||_reLvl==='crown'){
           const RR=[];
+          // ONE BLOCK PER STRETCH for a run row, from what the run saved (see the v73.764 note).
+          const _reRunStages=function(x){
+            const V=x.validate||null;if(!V)return null;
+            const mc=_mcOf(x),num=v=>(v!=null&&isFinite(+v))?+v:null,Lk=V.lockbox||null,W=V.windows||{};
+            const isBk=!!(x.book&&Array.isArray(x.book.legs));
+            const eq=(Array.isArray(V.equity)&&V.equity.length>2)?V.equity:null,n=eq?eq.length:0;
+            const li=(eq&&V.lb_idx!=null&&isFinite(+V.lb_idx))?Math.max(0,Math.min(+V.lb_idx,n-1)):null;
+            const cut=(a,b)=>(eq&&a!=null&&b!=null&&(b-a)>=2)?eq.slice(a,b+1).map(v=>+v*mc):null;
+            const ddOf=c=>{if(!c)return null;let pk=-Infinity,dd=0;c.forEach(v=>{if(!isFinite(v))return;if(v>pk)pk=v;if(pk-v>dd)dd=pk-v;});return (pk===-Infinity)?null:dd;};
+            const d10=v=>v?String(v).slice(0,10):null;
+            const sp={a:d10((W.optimize&&W.optimize[0])||x.date_from),l:d10((W.lockbox&&W.lockbox[0])||(Lk&&Lk.from)||(x.book&&x.book.lockbox_from)),
+                      b:d10((W.lockbox&&W.lockbox[1])||(Lk&&Lk.to)||x.date_to)};
+            sp.w=isBk?sp.l:d10(W.wf_split);
+            const yb=(p,q)=>{const g=(p&&q)?_reDayGap(p,q):null;return (g&&g>0)?g/365.25:null;};
+            const S={is:null,wf:null,lb:null};let isBad=false;
+            const fromBlk=b=>{if(!b)return null;const T=num(b.num_trades),wr=num(b.win_rate);
+              const Wn=(b.wins!=null)?num(b.wins):((T!=null&&wr!=null)?T*wr/100:null);
+              return {N:num(b.total_pnl),T:T,W:Wn,GW:num(b.gross_win),GL:(b.gross_loss!=null?Math.abs(+b.gross_loss):null),dd:(b.max_drawdown!=null?Math.abs(+b.max_drawdown):null)};};
+            if(isBk){S.is=fromBlk(x.book.pre_lockbox);S.lb=fromBlk(x.book.lockbox);}
+            else{
+              const fl=(Array.isArray(x.top10_results)?x.top10_results.filter(z=>z&&z.fold!=null):[]);
+              if(fl.length){let N=0,T=0,Wn=0,GW=0,GL=0,wOk=true,gOk=true;
+                fl.forEach(z=>{const p=+z.oos_pnl,pf=+z.oos_pf;N+=(isFinite(p)?p:0);T+=(+z.oos_trades||0);
+                  if(z.oos_wins==null||!isFinite(+z.oos_wins))wOk=false;else Wn+=(+z.oos_wins);
+                  if(!(pf>0)||Math.abs(pf-1)<1e-6||!isFinite(p))gOk=false;else{const g=Math.abs(p/(pf-1));GL+=g;GW+=pf*g;}});
+                S.wf={N:N*mc,T:T,W:(wOk?Wn:null),GW:(gOk?GW*mc:null),GL:(gOk?GL*mc:null),dd:null};}
+              if(Lk){const T=num(Lk.trades!=null?Lk.trades:Lk.num_trades),wr=num(Lk.win_rate),Wn=(T!=null&&wr!=null)?T*wr/100:null;
+                const aw=num(Lk.avg_win),al=(Lk.avg_loss!=null&&isFinite(+Lk.avg_loss))?Math.abs(+Lk.avg_loss):null;
+                let GW=(aw!=null&&Wn!=null)?aw*Wn:null,GL=(al!=null&&Wn!=null&&T!=null)?al*(T-Wn):null;
+                if((GW==null||GL==null)&&num(Lk.pf)>0&&Math.abs(+Lk.pf-1)>1e-6&&num(Lk.pnl)!=null){GL=Math.abs(+Lk.pnl/(+Lk.pf-1));GW=(+Lk.pf)*GL;}
+                S.lb={N:(num(Lk.pnl)!=null?(+Lk.pnl)*mc:null),T:T,W:Wn,GW:(GW!=null?GW*mc:null),GL:(GL!=null?GL*mc:null),dd:(Lk.dd!=null&&isFinite(+Lk.dd)?Math.abs(+Lk.dd)*mc:null)};}
+              // IN-SAMPLE = the whole run minus walk-forward minus lockbox. Trades, wins and the two
+              //   grosses all add, so the remainder is exact - when the folds sit after the split.
+              const T=num(V.total_trades),wr=num(V.total_win_rate),Wt=(T!=null&&wr!=null)?T*wr/100:null;
+              const aw=num(V.total_avg_win),al=(V.total_avg_loss!=null&&isFinite(+V.total_avg_loss))?Math.abs(+V.total_avg_loss):null;
+              const tot={T:T,W:Wt,GW:(aw!=null&&Wt!=null)?aw*Wt*mc:null,GL:(al!=null&&Wt!=null&&T!=null)?al*(T-Wt)*mc:null};
+              const sub=k=>{const a=tot[k],b=S.wf?S.wf[k]:0,c=S.lb?S.lb[k]:0;return (a==null||b==null||c==null)?null:(a-b-c);};
+              const iT=sub('T'),iW=sub('W'),iGW=sub('GW'),iGL=sub('GL');
+              if(iT!=null&&iW!=null&&iGW!=null&&iGL!=null&&iT>=1&&iW>=-0.5&&iW<=iT+0.5&&iGW>=-0.5&&iGL>=-0.5)
+                S.is={N:Math.max(0,iGW)-Math.max(0,iGL),T:Math.round(iT),W:Math.max(0,Math.min(iT,iW)),GW:Math.max(0,iGW),GL:Math.max(0,iGL),dd:null};
+              else if(iT!=null)isBad=true;}
+            // where the in-sample / walk-forward boundary sits on the per-trade curve
+            let iw=null;
+            if(isBk)iw=li;
+            else if(S.is&&num(V.total_trades)>0&&li!=null)iw=Math.max(0,Math.min(li,Math.round(S.is.T/(+V.total_trades)*(n-1))));
+            const mk=(parts,a,b,yrs)=>{if(!parts.length||parts.some(p=>!p))return null;
+              const sum=k=>{let t=0;for(let q=0;q<parts.length;q++){const v=parts[q][k];if(v==null||!isFinite(v))return null;t+=v;}return t;};
+              const N=sum('N'),T=sum('T'),Wn=sum('W'),GW=sum('GW'),GL=sum('GL'),c=cut(a,b);
+              const blk={total_pnl:N,num_trades:T,win_rate:(Wn!=null&&T>0)?100*Wn/T:null,
+                profit_factor:(GW!=null&&GL>0)?GW/GL:null,avg_loss:(GL!=null&&Wn!=null&&T!=null&&(T-Wn)>0.5)?GL/(T-Wn):null,
+                max_drawdown:null,_ddApx:false,sharpe:(c?_reShCum(c,yrs):null),sortino:(c?_reSoCum(c,yrs):null)};
+              if(parts.length===1&&parts[0].dd!=null)blk.max_drawdown=parts[0].dd;
+              else{const d=ddOf(c);if(d!=null){blk.max_drawdown=d;blk._ddApx=true;}}
+              return blk;};
+            const B={};
+            B.is=mk([S.is],0,iw,yb(sp.a,sp.w));
+            B.wf=isBk?null:mk([S.wf],iw,li,yb(sp.w,sp.l));
+            B.lb=mk([S.lb],li,n-1,yb(sp.l,sp.b));
+            if(B.lb&&!isBk&&Lk){if(num(Lk.sharpe)!=null)B.lb.sharpe=+Lk.sharpe;if(num(Lk.sortino)!=null)B.lb.sortino=+Lk.sortino;
+              if(B.lb.avg_loss==null&&Lk.avg_loss!=null&&isFinite(+Lk.avg_loss))B.lb.avg_loss=Math.abs(+Lk.avg_loss)*mc;}
+            B.pre=isBk?B.is:mk([S.is,S.wf],0,li,yb(sp.a,sp.l));
+            B.wf_lb=isBk?B.lb:mk([S.wf,S.lb],iw,n-1,yb(sp.w,sp.b));
+            // ALL THREE: the run's own whole-run figures
+            if(isBk){const bw=x.book.whole;const c=cut(0,n-1),y=yb(sp.a,sp.b);
+              B.full=bw?{total_pnl:num(bw.total_pnl),num_trades:num(bw.num_trades),win_rate:num(bw.win_rate),profit_factor:num(bw.profit_factor),
+                avg_loss:(bw.gross_loss!=null&&num(bw.losses)>0)?Math.abs(+bw.gross_loss)/(+bw.losses):null,
+                max_drawdown:(bw.max_drawdown!=null?Math.abs(+bw.max_drawdown):null),_ddApx:false,
+                sharpe:(c?_reShCum(c,y):null),sortino:(c?_reSoCum(c,y):null)}:null;}
+            else{const T=num(V.total_trades),wr=num(V.total_win_rate),Wt=(T!=null&&wr!=null)?T*wr/100:null;
+              const aw=num(V.total_avg_win),al=(V.total_avg_loss!=null&&isFinite(+V.total_avg_loss))?Math.abs(+V.total_avg_loss):null;
+              const GW=(aw!=null&&Wt!=null)?aw*Wt:null,GL=(al!=null&&Wt!=null&&T!=null)?al*(T-Wt):null;
+              B.full={total_pnl:null,num_trades:T,win_rate:wr,profit_factor:(GW!=null&&GL>0)?GW/GL:null,
+                avg_loss:(al!=null?al*mc:null),max_drawdown:(V.total_dd!=null&&isFinite(+V.total_dd))?Math.abs(+V.total_dd)*mc:null,_ddApx:false,
+                sharpe:num(V.total_sharpe),sortino:num(V.total_sortino)};}
+            return {B:B,sp:sp,isBad:isBad};};
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
           //   gross loss from its net and its PF, sum the grosses. A true pooled figure,
           //   never an average of ratios.
@@ -26601,7 +26709,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return gl>0?gw/gl:null;};
           rs.forEach(function(x){
             const V=x.validate||null,mc=_mcOf(x);
-            const wf=_wfA(x),lb=_lbA(x),t=_totA(x);
+            const wf=_wfA(x),lb=_lbA(x),t=_totA(x),_rst=_reRunStages(x);
             const tot=t?t.net:(+x.best_pnl_usd||null);
             if(tot==null||!isFinite(tot))return;
             const dd=(V&&V.total_dd!=null)?Math.abs(+V.total_dd)*mc:Math.abs(+x.best_dd_usd||0);
@@ -26621,30 +26729,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               read:(vd?vd.slice(0,22):'no verdict recorded'),
               what:'Auto-Validate run #'+x.id+' on '+String(x.instrument||'')+' '+String(x.timeframe||'')+'.',
               runs:[+x.id],
-              is:(t?t.is:(+x.best_pnl_usd||null)),wf:(wf?wf.net:null),lb:(lb?lb.net:null),tot:tot,
+              is:((_rst&&_rst.isBad)?null:(t?t.is:(+x.best_pnl_usd||null))),wf:(wf?wf.net:null),lb:(lb?lb.net:null),tot:tot,
               dd:(dd||null),pf:pf,trd:trd,
-              _st:(function(){const L=V&&V.lockbox;if(!L)return null;
-
-                const num=function(v){return (v!=null&&isFinite(+v))?+v:null;};
-
-                return {lb:{profit_factor:num(L.pf!=null?L.pf:L.profit_factor),
-
-                  win_rate:num(L.win_rate),sharpe:num(L.sharpe),sortino:num(L.sortino),
-
-                  num_trades:num(L.trades!=null?L.trades:L.num_trades),
-
-                  max_drawdown:(L.dd!=null?Math.abs(+L.dd)*mc:null),
-
-                  avg_loss:(L.avg_loss!=null?Math.abs(+L.avg_loss)*mc:null),
-
-                  total_pnl:(L.pnl!=null?+L.pnl*mc:null)}};})(),
-
-              _sp:{a:(x.date_from||null),w:null,
-
-                   l:((V&&V.lockbox&&V.lockbox.from)?String(V.lockbox.from).slice(0,10):null),
-
-                   b:(x.date_to||null)},
-
+              // one block per stretch; a run row reads these or dashes, never its whole-run figures
+              _st:(_rst?_rst.B:null),_stRun:(_rst?1:0),_isBad:((_rst&&_rst.isBad)?1:0),
+              _sp:(_rst?_rst.sp:{a:(x.date_from||null),w:null,l:null,b:(x.date_to||null)}),
               _mu:1,_sf:1,   // the block above is already in dollars
 
               _wr:((V&&V.total_win_rate!=null)?+V.total_win_rate:null),
@@ -26652,7 +26741,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               _so:((V&&V.total_sortino!=null)?+V.total_sortino:null),
               _avl:((V&&V.total_avg_loss!=null)?Math.abs(+V.total_avg_loss)*mc:null),
               win:((x.date_from&&x.date_to)?{from:String(x.date_from).slice(0,10),to:String(x.date_to).slice(0,10)}:null),
-              why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.'}});});
+              why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.',is:((_rst&&_rst.isBad)?'This run\u2019s walk-forward folds hold more trades than follow its in-sample split, so they overlap the in-sample years and in-sample cannot be separated from them. Nothing is shown rather than a figure that mixes the two.':'This run saved no in-sample figures.')}});});
           // WHAT MAKES A RUN CROWNED is the owner's own mark, never a computed maximum.
           //   Two marks count: a STARRED run, and a run cited by a studies row tagged as the
           //   champion of its family. A family with neither is simply absent - naming the
@@ -26770,21 +26859,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // SHARPE the same honest way the run report derives it for these candidates:
               //   period-to-period change on the candidate own cumulative curve, annualised on
               //   the run optimize window. Too few points or a flat curve returns nothing.
-              const shCum=function(cum,yrs){if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
-                const d=[];for(let i=1;i<cum.length;i++)d.push(cum[i]-cum[i-1]);
-                const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
-                const vr=d.reduce(function(a,b){return a+(b-m)*(b-m);},0)/n,sd=Math.sqrt(vr);
-                return (sd>1e-9)?((m/sd)*Math.sqrt(n/yrs)):null;};
+              const shCum=_reShCum;
               // SORTINO the same way, downside only - owner-reported 2026-08-30: the board
               //   opens on SORTINO across the bottom, and NOT ONE config row carried one, so
               //   the scatter had nothing to place and drew an empty chart. Every record that
               //   saved a curve can produce it; a GATE candidate saves none and stays blank,
               //   which is the truth rather than a fabricated number.
-              const soCum=function(cum,yrs){if(!Array.isArray(cum)||cum.length<3||!yrs||yrs<=0)return null;
-                const d=[];for(let i=1;i<cum.length;i++)d.push(cum[i]-cum[i-1]);
-                const n=d.length,m=d.reduce(function(a,b){return a+b;},0)/n;
-                const dn=Math.sqrt(d.reduce(function(a,b){return a+Math.min(0,b)*Math.min(0,b);},0)/n);
-                return (dn>1e-9)?((m/dn)*Math.sqrt(n/yrs)):null;};
+              const soCum=_reSoCum;
 
               // ---- RAW: the crown pool plus the display-only robustness extras ----
               const sel=full.selection||null;
@@ -27386,7 +27467,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ,_TONE.samp);
         // MIN TRADES (control 8). Sits beside PLOT FAILURES because it does the same job:
         //   keep a row out of the CHART without touching its table line or its figures.
-        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row - and a run row on the lockbox - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 100 is a reasonable floor for a lockbox; 250 is strict.',
+        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row or a run row - on the stretch you tick - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 100 is a reasonable floor for a lockbox; 250 is strict.',
             _reBtn('data-remintrd="0"','OFF',_reMinTrd===0,'draw every row, however few trades it took.',_TONE.samp)
             +_reBtn('data-remintrd="30"','30',_reMinTrd===30,'need at least 30 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="100"','100',_reMinTrd===100,'need at least 100 trades on the ticked stage to be drawn.',_TONE.samp)

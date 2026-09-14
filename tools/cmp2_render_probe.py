@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 15
+N_CASES = 16
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -737,6 +737,40 @@ var FIX = __FIX__;
           r.capped[v.join('/')]={call:c,txt:txt?txt[0]:null,btns:bs.length,
             wired:[].every.call(bs,function(b){return typeof b.onclick==='function';})};});
         w.eval('runsLimit='+saved+';');
+      })();
+      // -- case runstages: a RUN row follows the ticked stretch -----------------------------
+      (function(){
+        var R=JSON.parse(JSON.stringify(FIX));
+        R.validate.windows=R.validate.windows||{};R.validate.windows.wf_split='2016-06-01';
+        var V=R.validate,Lk=V.lockbox,fl=(R.top10_results||[]).filter(function(z){return z&&z.fold!=null;});
+        var T=+V.total_trades,Wt=T*(+V.total_win_rate)/100;
+        var wfT=0,wfW=0,wfGW=0,wfGL=0;fl.forEach(function(z){wfT+=(+z.oos_trades||0);wfW+=(+z.oos_wins||0);
+          var pf=+z.oos_pf,p=+z.oos_pnl,g=Math.abs(p/(pf-1));wfGL+=g;wfGW+=pf*g;});
+        var lT=+Lk.trades,lW=lT*(+Lk.win_rate)/100,lGW=(+Lk.avg_win)*lW,lGL=Math.abs(+Lk.avg_loss)*(lT-lW);
+        var tGW=(+V.total_avg_win)*Wt,tGL=Math.abs(+V.total_avg_loss)*(T-Wt);
+        var isT=Math.round(T-wfT-lT);
+        var exp={wf:{pf:(wfGW/wfGL).toFixed(2),wr:Math.round(100*wfW/wfT)+'%',trd:wfT},
+                 lb:{pf:(lGW/lGL).toFixed(2),wr:Math.round(+Lk.win_rate)+'%',trd:lT},
+                 is:{pf:((tGW-wfGW-lGW)/(tGL-wfGL-lGL)).toFixed(2),trd:isT},
+                 all:{pf:(tGW/tGL).toFixed(2),trd:T},islb:{trd:isT+lT}};
+        var wc='var F='+JSON.stringify(R)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
+        function read(segs){
+          var c=doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:segs,resAxis:'evr',resXAxis:'so',c2Tbl:true}, wc);
+          var h=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()]/g,'').trim();});
+          var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(x){return (x.textContent||'').indexOf('#'+FIX.id)>=0;})[0];
+          var at=function(nm){var q=h.indexOf(nm);return (tr&&q>=0&&tr.cells[q])?(tr.cells[q].textContent||'').trim():null;};
+          return {call:c,row:!!tr,pf:at('PF'),wr:at('WIN %'),trd:at('TRADES'),sh:at('SHARPE'),mar:at('MAR'),so:at('SORTINO'),evr:at('EV R'),rpy:at('R / YR')};}
+        var r=snap('runstages','OK');
+        r.exp=exp;
+        r.wf=read(['wf']);r.lb=read(['lb']);r.is=read(['is']);r.all=read(['is','wf','lb']);r.islb=read(['is','lb']);
+        // OVERLAP: a fold holding more trades than follow the split makes in-sample impossible.
+        //   Any tick with IN-SAMPLE must dash the money figures; ALL THREE must equal the clean run.
+        var good=wc;
+        var Rb=JSON.parse(JSON.stringify(R));var fb=(Rb.top10_results||[]).filter(function(z){return z&&z.fold!=null;});
+        fb[0].oos_trades=(+fb[0].oos_trades||0)+5000;
+        wc='var F='+JSON.stringify(Rb)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
+        r.badIs=read(['is']);r.badIsWf=read(['is','wf']);r.badAll=read(['is','wf','lb']);
+        wc=good;
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -1605,6 +1639,40 @@ def main(argv=None):
          % (un[:60], st[:60], r.get('allTxt'), r.get('allBtns'), cap))
     if not cr_ok:
         fail('crowns: champion or run-window note wrong -- see the crowns line (want BEST #910003 as top pick with the KNOB TEST passed over, RICH #910002 as your crown once starred, ALL 4 RUNS uncapped, NEWEST 4 RUNS with two wired loaders on every screen when capped)')
+    # case runstages: a RUN row follows the ticked stretch
+    r = cases.get('runstages', {})
+    ex = r.get('exp') or {}
+    def _n(v):
+        try:
+            return int(str(v).replace(',', '').strip())
+        except (TypeError, ValueError):
+            return None
+    dash = chr(0x2014)
+    rs_checks = {
+        'wf pf': (r.get('wf') or {}).get('pf') == (ex.get('wf') or {}).get('pf'),
+        'wf win': (r.get('wf') or {}).get('wr') == (ex.get('wf') or {}).get('wr'),
+        'wf trades': _n((r.get('wf') or {}).get('trd')) == (ex.get('wf') or {}).get('trd'),
+        'wf sharpe from the curve': (r.get('wf') or {}).get('sh') not in (None, '', dash),
+        'wf MAR marked ~': str((r.get('wf') or {}).get('mar') or '').startswith('~'),
+        'lb pf': (r.get('lb') or {}).get('pf') == (ex.get('lb') or {}).get('pf'),
+        'lb trades': _n((r.get('lb') or {}).get('trd')) == (ex.get('lb') or {}).get('trd'),
+        'lb MAR not ~ (saved drawdown)': not str((r.get('lb') or {}).get('mar') or '').startswith('~'),
+        'is pf': (r.get('is') or {}).get('pf') == (ex.get('is') or {}).get('pf'),
+        'is trades': _n((r.get('is') or {}).get('trd')) == (ex.get('is') or {}).get('trd'),
+        'all pf': (r.get('all') or {}).get('pf') == (ex.get('all') or {}).get('pf'),
+        'all trades': _n((r.get('all') or {}).get('trd')) == (ex.get('all') or {}).get('trd'),
+        'is+lb pf dashes': (r.get('islb') or {}).get('pf') == dash,
+        'is+lb trades add': _n((r.get('islb') or {}).get('trd')) == (ex.get('islb') or {}).get('trd'),
+        'overlap: IS dashes EV R': (r.get('badIs') or {}).get('evr') == dash,
+        'overlap: IS dashes PF': (r.get('badIs') or {}).get('pf') == dash,
+        'overlap: IS+WF dashes EV R and R/YR': (r.get('badIsWf') or {}).get('evr') == dash and (r.get('badIsWf') or {}).get('rpy') == dash,
+        'overlap: ALL THREE = the clean run': (r.get('badAll') or {}).get('evr') == (r.get('all') or {}).get('evr') not in (None, '', dash),
+    }
+    rs_ok = all(rs_checks.values()) and all((r.get(k) or {}).get('call') == 'OK' and (r.get(k) or {}).get('row') for k in ('wf', 'lb', 'is', 'all', 'islb', 'badIs', 'badIsWf', 'badAll'))
+    line('runstages', rs_ok, 'failed=%s | wf=%s lb=%s is=%s all=%s is+lb=%s | expected=%s'
+         % ([k for k, v in rs_checks.items() if not v], r.get('wf'), r.get('lb'), r.get('is'), r.get('all'), r.get('islb'), ex))
+    if not rs_ok:
+        fail('runstages: a run row is not reading the ticked stretch -- see the runstages line')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:
