@@ -1,0 +1,184 @@
+==================================================================================================================================
+PART A - is the published squeeze a plateau or an outlier?   stressed cost 0.783, 8 gate cells x 2 sizes, two bases
+
+  LIVE CROWN #304 raw: PF<24 1.323  PF24+ 1.345  sealed PF 1.264  net/DD 19.25
+  gate (tf / len / ratio)     size |  PF<24  PF24+  sealPF   n/DD  fires | 2024+ beats raw?
+  30 / 16 / 1.00               1.5 |  1.349  1.358   1.281  20.03    23% | yes
+  30 / 16 / 1.15               1.5 |  1.354  1.351   1.265  20.53    34% | yes  <- run 382 pick
+  30 / 20 / 1.00               1.5 |  1.351  1.344   1.247  19.03    15% | no
+  30 / 20 / 1.15               1.5 |  1.359  1.359   1.275  20.09    25% | yes
+  60 / 16 / 1.00               1.5 |  1.367  1.371   1.288  22.88    21% | yes
+  60 / 16 / 1.15               1.5 |  1.362  1.382   1.324  24.91    30% | yes
+  60 / 20 / 1.00               1.5 |  1.368  1.386   1.304  21.52    13% | yes  <- PUBLISHED
+  60 / 20 / 1.15               1.5 |  1.372  1.396   1.295  22.66    21% | yes
+  -> 7 of 8 cells beat the raw base on 2024+ profit factor at 1.5x
+  30 / 16 / 1.00               2.0 |  1.371  1.368   1.294  19.50    23% | yes
+  30 / 16 / 1.15               2.0 |  1.377  1.356   1.265  20.78    34% | yes  <- run 382 pick
+  30 / 20 / 1.00               2.0 |  1.376  1.342   1.233  17.83    15% | no
+  30 / 20 / 1.15               2.0 |  1.387  1.370   1.283  19.62    25% | yes
+  60 / 16 / 1.00               2.0 |  1.405  1.393   1.308  21.32    21% | yes
+  60 / 16 / 1.15               2.0 |  1.393  1.410   1.373  24.51    30% | yes
+  60 / 20 / 1.00               2.0 |  1.409  1.422   1.340  22.22    13% | yes  <- PUBLISHED
+  60 / 20 / 1.15               2.0 |  1.413  1.439   1.322  25.59    21% | yes
+  -> 7 of 8 cells beat the raw base on 2024+ profit factor at 2.0x
+
+  RETIRED #243 raw: PF<24 1.366  PF24+ 1.377  sealed PF 1.304  net/DD 18.73
+  gate (tf / len / ratio)     size |  PF<24  PF24+  sealPF   n/DD  fires | 2024+ beats raw?
+  30 / 16 / 1.00               1.5 |  1.400  1.404   1.310  20.75    23% | yes
+  30 / 16 / 1.15               1.5 |  1.406  1.408   1.324  23.13    35% | yes  <- run 382 pick
+  30 / 20 / 1.00               1.5 |  1.390  1.397   1.293  21.23    15% | yes
+  30 / 20 / 1.15               1.5 |  1.396  1.404   1.328  19.93    25% | yes
+  60 / 16 / 1.00               1.5 |  1.400  1.386   1.320  20.44    21% | yes
+  60 / 16 / 1.15               1.5 |  1.398  1.389   1.340  20.09    31% | yes
+  60 / 20 / 1.00               1.5 |  1.407  1.417   1.347  24.52    13% | yes  <- PUBLISHED
+  60 / 20 / 1.15               1.5 |  1.405  1.423   1.325  25.52    21% | yes
+  -> 8 of 8 cells beat the raw base on 2024+ profit factor at 1.5x
+  30 / 16 / 1.00               2.0 |  1.428  1.425   1.315  22.00    23% | yes
+  30 / 16 / 1.15               2.0 |  1.435  1.431   1.339  25.69    35% | yes  <- run 382 pick
+  30 / 20 / 1.00               2.0 |  1.410  1.413   1.283  19.99    15% | yes
+  30 / 20 / 1.15               2.0 |  1.419  1.426   1.347  20.48    25% | yes
+  60 / 16 / 1.00               2.0 |  1.428  1.394   1.334  21.93    21% | yes
+  60 / 16 / 1.15               2.0 |  1.422  1.398   1.368  20.76    31% | yes
+  60 / 20 / 1.00               2.0 |  1.444  1.452   1.385  26.31    13% | yes  <- PUBLISHED
+  60 / 20 / 1.15               2.0 |  1.437  1.462   1.343  28.18    21% | yes
+  -> 8 of 8 cells beat the raw base on 2024+ profit factor at 2.0x
+
+==================================================================================================================================
+PART B - the house tilt battery, shift null, 2000 shifts   (walk-forward < 2025-07-16, lockbox 2025-07-16..2026-07-16)
+
+TILT GUARD - published squeeze 1.5x on the live crown @ cost 0.533   (615 of 4824 trades tagged, 12.7%)
+  MONEY walk-forward  $   347,053 DD $  -16,917 MAR  1.37  ->  $   405,742 DD $  -15,022 MAR  1.81   net   +58,689  dd -11.2%
+  MONEY lockbox       $    51,722 DD $  -19,304 MAR  2.70  ->  $    63,032 DD $  -20,430 MAR  3.10   net   +11,310  dd +5.8%
+  C1 uniform control  same exposure via a flat 1.0637x on every trade
+     walk-forward  tilt $   405,742 MAR  1.81  |  uniform $   369,176 MAR  1.37   -> beats flat leverage
+     lockbox       tilt $    63,032 MAR  3.10  |  uniform $    55,019 MAR  2.70   -> beats flat leverage
+  C2 permutation SHIFT     real $+69,999 vs shifted $+25,820 (sd $12,477) ->   0.0% of 2000 shifts match it
+  C4 concentration walk-forward  n= 574 total $+117,378  top trade 6%  top 3 15%  median $-26
+  C4 concentration lockbox       n=  41 total $+22,620  top trade 31%  top 3 83%  median $-436
+  VERDICT: PASS
+  >>> PASS
+
+TILT GUARD - published squeeze 2.0x on the live crown @ cost 0.533   (615 of 4824 trades tagged, 12.7%)
+  MONEY walk-forward  $   347,053 DD $  -16,917 MAR  1.37  ->  $   464,431 DD $  -16,527 MAR  1.88   net  +117,378  dd -2.3%
+  MONEY lockbox       $    51,722 DD $  -19,304 MAR  2.70  ->  $    74,342 DD $  -21,556 MAR  3.47   net   +22,620  dd +11.7%
+  C1 uniform control  same exposure via a flat 1.1275x on every trade
+     walk-forward  tilt $   464,431 MAR  1.88  |  uniform $   391,298 MAR  1.37   -> beats flat leverage
+     lockbox       tilt $    74,342 MAR  3.47  |  uniform $    58,316 MAR  2.70   -> beats flat leverage
+  C2 permutation SHIFT     real $+139,998 vs shifted $+51,641 (sd $24,954) ->   0.0% of 2000 shifts match it
+  C4 concentration walk-forward  n= 574 total $+117,378  top trade 6%  top 3 15%  median $-26
+  C4 concentration lockbox       n=  41 total $+22,620  top trade 31%  top 3 83%  median $-436
+  VERDICT: FAIL - lockbox drawdown 12% worse (tolerance 10%)
+  >>> FAIL
+
+TILT GUARD - run 382 pick 2.0x on the live crown @ cost 0.533   (1661 of 4824 trades tagged, 34.4%)
+  MONEY walk-forward  $   347,053 DD $  -16,917 MAR  1.37  ->  $   535,644 DD $  -20,960 MAR  1.71   net  +188,590  dd +23.9%
+  MONEY lockbox       $    51,722 DD $  -19,304 MAR  2.70  ->  $    72,343 DD $  -27,579 MAR  2.64   net   +20,621  dd +42.9%
+  C1 uniform control  same exposure via a flat 1.3443x on every trade
+     walk-forward  tilt $   535,644 MAR  1.71  |  uniform $   466,551 MAR  1.37   -> beats flat leverage
+     lockbox       tilt $    72,343 MAR  2.64  |  uniform $    69,532 MAR  2.70   -> LOSES TO flat leverage
+  C2 permutation SHIFT     real $+209,211 vs shifted $+137,481 (sd $35,586) ->   1.8% of 2000 shifts match it
+  C4 concentration walk-forward  n=1555 total $+188,590  top trade 4%  top 3 11%  median $-61
+  C4 concentration lockbox       n= 106 total $+20,621  top trade 61%  top 3 115%  median $-441
+  VERDICT: FAIL - walk-forward drawdown 24% worse (tolerance 10%); lockbox drawdown 43% worse (tolerance 10%); one trade is 61% of the lockbox bucket (C4)
+  >>> FAIL
+
+TILT GUARD - momentum 2.0x on the live crown @ cost 0.533   (2228 of 4824 trades tagged, 46.2%)
+  MONEY walk-forward  $   347,053 DD $  -16,917 MAR  1.37  ->  $   583,972 DD $  -22,601 MAR  1.73   net  +236,918  dd +33.6%
+  MONEY lockbox       $    51,722 DD $  -19,304 MAR  2.70  ->  $    98,263 DD $  -33,486 MAR  2.95   net   +46,540  dd +73.5%
+  C1 uniform control  same exposure via a flat 1.4619x on every trade
+     walk-forward  tilt $   583,972 MAR  1.73  |  uniform $   507,342 MAR  1.37   -> beats flat leverage
+     lockbox       tilt $    98,263 MAR  2.95  |  uniform $    75,611 MAR  2.70   -> beats flat leverage
+  C2 permutation SHIFT     real $+283,458 vs shifted $+185,298 (sd $38,659) ->   0.4% of 2000 shifts match it
+  C4 concentration walk-forward  n=2070 total $+236,918  top trade 5%  top 3 11%  median $-56
+  C4 concentration lockbox       n= 158 total $+46,540  top trade 37%  top 3 80%  median $-358
+  VERDICT: FAIL - walk-forward drawdown 34% worse (tolerance 10%); lockbox drawdown 73% worse (tolerance 10%)
+  >>> FAIL
+
+TILT GUARD - momentum 1.5x ON TOP OF published squeeze 1.5x on the live crown @ cost 0.533   (2228 of 4824 trades tagged, 46.2%)
+  MONEY walk-forward  $   405,742 DD $  -15,022 MAR  1.81  ->  $   538,153 DD $  -18,429 MAR  1.95   net  +132,411  dd +22.7%
+  MONEY lockbox       $    63,032 DD $  -20,430 MAR  3.10  ->  $    91,032 DD $  -28,083 MAR  3.26   net   +28,000  dd +37.5%
+  C1 uniform control  same exposure via a flat 1.2327x on every trade
+     walk-forward  tilt $   538,153 MAR  1.95  |  uniform $   500,170 MAR  1.81   -> beats flat leverage
+     lockbox       tilt $    91,032 MAR  3.26  |  uniform $    77,702 MAR  3.10   -> beats flat leverage
+  C2 permutation SHIFT     real $+160,410 vs shifted $+108,803 (sd $20,927) ->   0.7% of 2000 shifts match it
+  C4 concentration walk-forward  n=2070 total $+264,821  top trade 4%  top 3 10%  median $-56
+  C4 concentration lockbox       n= 158 total $+55,999  top trade 31%  top 3 72%  median $-376
+  VERDICT: FAIL - walk-forward drawdown 23% worse (tolerance 10%); lockbox drawdown 37% worse (tolerance 10%)
+  >>> FAIL
+
+TILT GUARD - published squeeze 1.5x on the live crown @ cost 0.783   (615 of 4824 trades tagged, 12.7%)
+  MONEY walk-forward  $   324,503 DD $  -17,497 MAR  1.24  ->  $   381,757 DD $  -15,649 MAR  1.63   net   +57,254  dd -10.6%
+  MONEY lockbox       $    50,152 DD $  -19,459 MAR  2.59  ->  $    61,360 DD $  -20,590 MAR  3.00   net   +11,207  dd +5.8%
+  C1 uniform control  same exposure via a flat 1.0637x on every trade
+     walk-forward  tilt $   381,757 MAR  1.63  |  uniform $   345,188 MAR  1.24   -> beats flat leverage
+     lockbox       tilt $    61,360 MAR  3.00  |  uniform $    53,349 MAR  2.59   -> beats flat leverage
+  C2 permutation SHIFT     real $+68,461 vs shifted $+24,283 (sd $12,477) ->   0.0% of 2000 shifts match it
+  C4 concentration walk-forward  n= 574 total $+114,508  top trade 6%  top 3 15%  median $-31
+  C4 concentration lockbox       n=  41 total $+22,415  top trade 31%  top 3 84%  median $-441
+  VERDICT: PASS
+  >>> PASS
+
+TILT GUARD - published squeeze 2.0x on the live crown @ cost 0.783   (615 of 4824 trades tagged, 12.7%)
+  MONEY walk-forward  $   324,503 DD $  -17,497 MAR  1.24  ->  $   439,011 DD $  -16,832 MAR  1.74   net  +114,508  dd -3.8%
+  MONEY lockbox       $    50,152 DD $  -19,459 MAR  2.59  ->  $    72,567 DD $  -21,721 MAR  3.36   net   +22,415  dd +11.6%
+  C1 uniform control  same exposure via a flat 1.1275x on every trade
+     walk-forward  tilt $   439,011 MAR  1.74  |  uniform $   365,873 MAR  1.24   -> beats flat leverage
+     lockbox       tilt $    72,567 MAR  3.36  |  uniform $    56,546 MAR  2.59   -> beats flat leverage
+  C2 permutation SHIFT     real $+136,923 vs shifted $+48,566 (sd $24,954) ->   0.0% of 2000 shifts match it
+  C4 concentration walk-forward  n= 574 total $+114,508  top trade 6%  top 3 15%  median $-31
+  C4 concentration lockbox       n=  41 total $+22,415  top trade 31%  top 3 84%  median $-441
+  VERDICT: FAIL - lockbox drawdown 12% worse (tolerance 10%)
+  >>> FAIL
+
+TILT GUARD - run 382 pick 2.0x on the live crown @ cost 0.783   (1661 of 4824 trades tagged, 34.4%)
+  MONEY walk-forward  $   324,503 DD $  -17,497 MAR  1.24  ->  $   505,319 DD $  -21,215 MAR  1.59   net  +180,815  dd +21.3%
+  MONEY lockbox       $    50,152 DD $  -19,459 MAR  2.59  ->  $    70,243 DD $  -27,699 MAR  2.55   net   +20,091  dd +42.3%
+  C1 uniform control  same exposure via a flat 1.3443x on every trade
+     walk-forward  tilt $   505,319 MAR  1.59  |  uniform $   436,236 MAR  1.24   -> beats flat leverage
+     lockbox       tilt $    70,243 MAR  2.55  |  uniform $    67,421 MAR  2.59   -> LOSES TO flat leverage
+  C2 permutation SHIFT     real $+200,906 vs shifted $+129,176 (sd $35,586) ->   1.8% of 2000 shifts match it
+  C4 concentration walk-forward  n=1555 total $+180,815  top trade 4%  top 3 12%  median $-66
+  C4 concentration lockbox       n= 106 total $+20,091  top trade 62%  top 3 118%  median $-446
+  VERDICT: FAIL - walk-forward drawdown 21% worse (tolerance 10%); lockbox drawdown 42% worse (tolerance 10%); one trade is 62% of the lockbox bucket (C4)
+  >>> FAIL
+
+TILT GUARD - momentum 2.0x on the live crown @ cost 0.783   (2228 of 4824 trades tagged, 46.2%)
+  MONEY walk-forward  $   324,503 DD $  -17,497 MAR  1.24  ->  $   551,072 DD $  -23,242 MAR  1.59   net  +226,568  dd +32.8%
+  MONEY lockbox       $    50,152 DD $  -19,459 MAR  2.59  ->  $    95,903 DD $  -33,696 MAR  2.86   net   +45,750  dd +73.2%
+  C1 uniform control  same exposure via a flat 1.4619x on every trade
+     walk-forward  tilt $   551,072 MAR  1.59  |  uniform $   474,378 MAR  1.24   -> beats flat leverage
+     lockbox       tilt $    95,903 MAR  2.86  |  uniform $    73,316 MAR  2.59   -> beats flat leverage
+  C2 permutation SHIFT     real $+272,318 vs shifted $+174,158 (sd $38,659) ->   0.4% of 2000 shifts match it
+  C4 concentration walk-forward  n=2070 total $+226,568  top trade 5%  top 3 11%  median $-61
+  C4 concentration lockbox       n= 158 total $+45,750  top trade 38%  top 3 82%  median $-363
+  VERDICT: FAIL - walk-forward drawdown 33% worse (tolerance 10%); lockbox drawdown 73% worse (tolerance 10%)
+  >>> FAIL
+
+TILT GUARD - momentum 1.5x ON TOP OF published squeeze 1.5x on the live crown @ cost 0.783   (2228 of 4824 trades tagged, 46.2%)
+  MONEY walk-forward  $   381,757 DD $  -15,649 MAR  1.63  ->  $   508,623 DD $  -18,739 MAR  1.82   net  +126,866  dd +19.7%
+  MONEY lockbox       $    61,360 DD $  -20,590 MAR  3.00  ->  $    88,933 DD $  -28,273 MAR  3.16   net   +27,573  dd +37.3%
+  C1 uniform control  same exposure via a flat 1.2327x on every trade
+     walk-forward  tilt $   508,623 MAR  1.82  |  uniform $   470,603 MAR  1.63   -> beats flat leverage
+     lockbox       tilt $    88,933 MAR  3.16  |  uniform $    75,640 MAR  3.00   -> beats flat leverage
+  C2 permutation SHIFT     real $+154,439 vs shifted $+102,878 (sd $20,926) ->   0.7% of 2000 shifts match it
+  C4 concentration walk-forward  n=2070 total $+253,731  top trade 5%  top 3 10%  median $-61
+  C4 concentration lockbox       n= 158 total $+55,147  top trade 31%  top 3 73%  median $-381
+  VERDICT: FAIL - walk-forward drawdown 20% worse (tolerance 10%); lockbox drawdown 37% worse (tolerance 10%)
+  >>> FAIL
+
+==================================================================================================================================
+PART C - is run #316's lower drawdown real?   realised and resampled-95th drawdown, per era, stressed cost 0.783
+  config                 era       |     n     net $     PF     DD $  p95 DD $  n/p95
+  #304 live crown        <2024     |  4097   237,882  1.323   17,496    31,193   7.63
+  #304 live crown        2024+     |   727   136,773  1.345   19,459    41,549   3.29
+  #304 live crown        sealed    |   314    50,152  1.264   19,459    39,299   1.28
+  #304 live crown        full      |  4824   374,655  1.331   19,459    40,724   9.20
+
+  #316 confirm 2         <2024     |  3189   239,890  1.461   11,020    21,587  11.11
+  #316 confirm 2         2024+     |   590   106,269  1.343   11,049    36,889   2.88
+  #316 confirm 2         sealed    |   254    37,325  1.259   11,049    33,389   1.12
+  #316 confirm 2         full      |  3779   346,159  1.417   11,049    31,696  10.92
+
+  crown's worst drawdown: 2026-05-08 -> 2026-06-05, 33 trades, $5,349
+  #316 over the same dates: 26 trades, $13,102
+  trading days: crown 2450, #316 2062, shared 2054 (100% of #316's)

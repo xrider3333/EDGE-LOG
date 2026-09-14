@@ -1,0 +1,75 @@
+G1 parity  NOISE_1_0 + crown params vs the crowned file: 4845 vs 4845 trades -> PASS
+G2 parity  harness 2.0x tilt vs the strategy file through the engine: $627,594 vs $627,594 -> PASS
+
+====================================================================================================================================================================================================
+COST 0.533 pts a round turn   window 2010-06-07 .. 2026-07-16   (other bar sizes clipped to their own master's last bar; crown re-clipped to match)
+candidate                                  bar  |     n     net $     PF     DD $   n/DD |  PF<24  PF24+  sealPF |  ex10 $  top10 | yrs>crown   corr |  tail1  tail2 | status
+#304 LIVE CROWN                            5m   |  4824   398,775  1.357   19,304  20.66 |  1.358  1.357   1.274 | 304,687    24% |    0 of 17   1.00 |   3.08   0.95 | validated, crowned
+#243 retired crown                         5m   |  4423   387,963  1.398   18,424  21.06 |  1.404  1.389   1.314 | 294,940    24% |    8 of 17   0.93 |   0.32   1.44 | validated, retired 09-05
+#305                                       5m   |  3731   334,942  1.376   47,472   7.06 |  1.528  1.146   1.106 | 247,868    26% |   12 of 17   0.78 |   2.28   0.59 | validated PASS, never crowned
+#316 slower confirm                        5m   |  3779   365,054  1.446   10,999  33.19 |  1.501  1.354   1.269 | 275,156    25% |   11 of 17   0.87 |   0.32   1.28 | validated PASS 7/7
+#322 short lookback                        5m   |  4094   361,647  1.426   18,108  19.97 |  1.457  1.370   1.258 | 269,948    25% |   12 of 17   0.84 |   0.26   0.59 | validated PASS
+#256 skip 98, no day rule                  5m   |  5329   373,192  1.286   19,977  18.68 |  1.284  1.289   1.265 | 277,823    26% |    5 of 17   0.93 |   1.73   1.44 | validated PASS
+#241 no volatility skip                    5m   |  5197   374,626  1.280   25,440  14.73 |  1.317  1.217   1.144 | 249,488    33% |    7 of 17   0.83 |   1.99   1.44 | validated PASS
+#245 skip bottom-all                       5m   |  4393   358,032  1.333   29,041  12.33 |  1.361  1.286   1.265 | 263,863    26% |    6 of 17   0.87 |   1.70   0.83 | validated PASS
+C3 cost-robust corner                      5m   |  2112   209,517  1.457   26,582   7.88 |  1.529  1.343   1.065 | 126,983    39% |   11 of 17   0.61 |   3.04   1.94 | hand-measured r38-43, NEVER validated
+#334 2-minute card                         2m   |  7883   393,147  1.308   30,464  12.91 |  1.330  1.268   1.291 | 294,713    25% |    6 of 17   0.85 |   0.45    nan | validated PASS
+#362 15-minute card                        15m  |  4074   260,647  1.247   43,818   5.95 |  1.333  1.099   1.042 | 169,328    35% |    5 of 17   0.80 |    nan    nan | validated PASS
+#345 1-minute card                         1m   |  5031   333,069  1.386   16,465  20.23 |  1.457  1.282   1.093 | 239,396    28% |   10 of 17   0.77 |   0.30   1.41 | validated PASS
+#304 + compression 1.5x                    5m   |  4824   503,381  1.379   22,957  21.93 |  1.389  1.362   1.274 | 388,208    23% |   12 of 17   0.98 |   3.29   0.87 | validated PASS run 382 (2.0x chosen)
+#304 + compression 2.0x                    5m   |  4824   607,987  1.395   27,578  22.05 |  1.411  1.367   1.275 | 464,059    24% |   12 of 17   0.94 |   3.47   0.81 | validated PASS run 382 (2.0x chosen)
+#304 + hourly Carter squeeze 2.0x          5m   |  4824   538,773  1.442   22,241  24.22 |  1.446  1.434   1.351 | 414,204    23% |   14 of 17   0.96 |   3.08   0.95 | best net/DD cell of run 382 cloud, not its pick
+#304 + momentum 2.0x                       5m   |  4824   682,234  1.420   33,485  20.37 |  1.397  1.460   1.355 | 505,727    26% |   13 of 17   0.95 |   2.34   0.86 | NEVER validated on the crown
+#304 + compression 1.5x + momentum 1.5x    5m   |  4824   673,886  1.414   31,503  21.39 |  1.411  1.418   1.311 | 509,001    24% |   15 of 17   0.96 |   2.69   0.82 | NEVER tested - two tilts stacked
+#243 + compression 1.5x                    5m   |  4423   504,295  1.435   19,991  25.23 |  1.444  1.420   1.334 | 384,022    24% |   12 of 17   0.90 |   0.30   1.27 | validated PASS run 333, paper C15G
+#243 + compression 2.0x                    5m   |  4423   620,626  1.461   22,192  27.97 |  1.473  1.442   1.349 | 465,769    25% |   11 of 17   0.87 |   0.28   1.13 | validated PASS run 331
+#243 + momentum 2.0x                       5m   |  4423   664,075  1.460   30,194  21.99 |  1.447  1.482   1.399 | 488,368    26% |   11 of 17   0.88 |   0.16   1.33 | WEAK run 327
+#304 + trail 2.75R (run 374 pick)          5m   |  4832   395,702  1.354   19,304  20.50 |  1.358  1.346   1.253 | 301,613    24% |    6 of 17   1.00 |   3.08   0.95 | WEAK run 374
+
+====================================================================================================================================================================================================
+COST 0.783 pts a round turn   window 2010-06-07 .. 2026-07-16   (other bar sizes clipped to their own master's last bar; crown re-clipped to match)
+candidate                                  bar  |     n     net $     PF     DD $   n/DD |  PF<24  PF24+  sealPF |  ex10 $  top10 | yrs>crown   corr |  tail1  tail2 | status
+#304 LIVE CROWN                            5m   |  4824   374,655  1.331   19,459  19.25 |  1.323  1.345   1.264 | 280,617    25% |    0 of 17   1.00 |   3.07   0.94 | validated, crowned
+#243 retired crown                         5m   |  4423   365,848  1.370   19,534  18.73 |  1.366  1.377   1.304 | 272,875    25% |    8 of 17   0.93 |   0.32   1.42 | validated, retired 09-05
+#305                                       5m   |  3731   316,287  1.351   48,672   6.50 |  1.490  1.138   1.098 | 229,263    28% |   12 of 17   0.78 |   2.27   0.59 | validated PASS, never crowned
+#316 slower confirm                        5m   |  3779   346,159  1.417   11,049  31.33 |  1.461  1.343   1.259 | 256,311    26% |   11 of 17   0.87 |   0.32   1.27 | validated PASS 7/7
+#322 short lookback                        5m   |  4094   341,177  1.396   18,623  18.32 |  1.416  1.358   1.248 | 249,528    27% |   12 of 17   0.84 |   0.26   0.59 | validated PASS
+#256 skip 98, no day rule                  5m   |  5329   346,547  1.262   20,288  17.08 |  1.253  1.278   1.255 | 251,228    28% |    5 of 17   0.93 |   1.72   1.42 | validated PASS
+#241 no volatility skip                    5m   |  5197   348,641  1.257   25,565  13.64 |  1.286  1.208   1.136 | 223,553    36% |    7 of 17   0.83 |   1.98   1.42 | validated PASS
+#245 skip bottom-all                       5m   |  4393   336,067  1.309   29,751  11.30 |  1.328  1.276   1.256 | 241,948    28% |    6 of 17   0.87 |   1.69   0.83 | validated PASS
+C3 cost-robust corner                      5m   |  2112   198,957  1.428   26,977   7.38 |  1.487  1.331   1.057 | 116,473    41% |   11 of 17   0.60 |   3.02   1.91 | hand-measured r38-43, NEVER validated
+#334 2-minute card                         2m   |  7883   353,732  1.271   31,139  11.36 |  1.281  1.254   1.278 | 255,348    28% |    5 of 17   0.85 |   0.45    nan | validated PASS
+#362 15-minute card                        15m  |  4074   240,277  1.225   45,048   5.33 |  1.302  1.091   1.035 | 149,008    38% |    5 of 17   0.80 |    nan    nan | validated PASS
+#345 1-minute card                         1m   |  5031   307,914  1.350   16,505  18.66 |  1.405  1.268   1.080 | 214,291    30% |    9 of 17   0.77 |   0.29   1.38 | validated PASS
+#304 + compression 1.5x                    5m   |  4824   475,108  1.353   23,142  20.53 |  1.354  1.351   1.265 | 360,005    24% |   12 of 17   0.98 |   3.28   0.86 | validated PASS run 382 (2.0x chosen)
+#304 + compression 2.0x                    5m   |  4824   575,562  1.369   27,698  20.78 |  1.377  1.356   1.265 | 431,724    25% |   12 of 17   0.94 |   3.45   0.80 | validated PASS run 382 (2.0x chosen)
+#304 + hourly Carter squeeze 2.0x          5m   |  4824   511,578  1.414   23,021  22.22 |  1.409  1.422   1.340 | 387,094    24% |   14 of 17   0.96 |   3.07   0.94 | best net/DD cell of run 382 cloud, not its pick
+#304 + momentum 2.0x                       5m   |  4824   646,974  1.393   33,695  19.20 |  1.362  1.448   1.345 | 470,567    27% |   13 of 17   0.95 |   2.33   0.86 | NEVER validated on the crown
+#304 + compression 1.5x + momentum 1.5x    5m   |  4824   639,005  1.387   31,718  20.15 |  1.376  1.406   1.301 | 474,225    26% |   15 of 17   0.96 |   2.67   0.81 | NEVER tested - two tilts stacked
+#243 + compression 1.5x                    5m   |  4423   478,312  1.407   20,678  23.13 |  1.406  1.408   1.324 | 358,112    25% |   12 of 17   0.90 |   0.30   1.25 | validated PASS run 333, paper C15G
+#243 + compression 2.0x                    5m   |  4423   590,776  1.433   22,992  25.69 |  1.435  1.431   1.339 | 436,014    26% |   11 of 17   0.87 |   0.28   1.12 | validated PASS run 331
+#243 + momentum 2.0x                       5m   |  4423   631,515  1.431   30,389  20.78 |  1.409  1.469   1.388 | 455,908    28% |   11 of 17   0.88 |   0.16   1.31 | WEAK run 327
+#304 + trail 2.75R (run 374 pick)          5m   |  4832   371,542  1.328   19,459  19.09 |  1.323  1.335   1.243 | 277,503    25% |    6 of 17   1.00 |   3.07   0.94 | WEAK run 374
+
+====================================================================================================================================================================================================
+VERDICTS against the pre-registered clauses (both costs must hold)
+  #243 retired crown                         APPROACHES 
+  #305                                       short      0.533 era 24+ PF 1.146 vs 1.357; 0.533 net/DD 7.06 vs crown 20.66; 0.783 era 24+ PF 1.138 vs 1.345
+  #316 slower confirm                        APPROACHES 
+  #322 short lookback                        APPROACHES 
+  #256 skip 98, no day rule                  short      0.533 era <24 PF 1.284 vs 1.358; 0.533 era 24+ PF 1.289 vs 1.357; 0.783 era <24 PF 1.253 vs 1.323
+  #241 no volatility skip                    short      0.533 era <24 PF 1.317 vs 1.358; 0.533 era 24+ PF 1.217 vs 1.357; 0.533 net/DD 14.73 vs crown 20.66
+  #245 skip bottom-all                       short      0.533 era 24+ PF 1.286 vs 1.357; 0.533 net/DD 12.33 vs crown 20.66; 0.783 era 24+ PF 1.276 vs 1.345
+  C3 cost-robust corner                      short      0.533 net/DD 7.88 vs crown 20.66; 0.533 concentration ex10 $126,983 top10 39% vs 24%; 0.783 net/DD 7.38 vs crown 19.25
+  #334 2-minute card                         short      0.533 era <24 PF 1.330 vs 1.358; 0.533 era 24+ PF 1.268 vs 1.357; 0.533 net/DD 12.91 vs crown 20.66
+  #362 15-minute card                        short      0.533 era <24 PF 1.333 vs 1.358; 0.533 era 24+ PF 1.099 vs 1.378; 0.533 net/DD 5.95 vs crown 20.89
+  #345 1-minute card                         short      0.533 era 24+ PF 1.282 vs 1.357; 0.533 concentration ex10 $239,396 top10 28% vs 24%; 0.783 era 24+ PF 1.268 vs 1.345
+  #304 + compression 1.5x                    BEATS      
+  #304 + compression 2.0x                    BEATS      
+  #304 + hourly Carter squeeze 2.0x          BEATS      
+  #304 + momentum 2.0x                       APPROACHES 
+  #304 + compression 1.5x + momentum 1.5x    BEATS      
+  #243 + compression 1.5x                    BEATS      
+  #243 + compression 2.0x                    BEATS      
+  #243 + momentum 2.0x                       BEATS      
+  #304 + trail 2.75R (run 374 pick)          APPROACHES 

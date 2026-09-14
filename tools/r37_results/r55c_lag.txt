@@ -1,0 +1,26 @@
+NOISE round 55c -- lagged-squeeze leak test (tools/r55c_noise_squeeze_lag.py), 2026-09-13
+copy parity vs the validated function: 0 of 317902 bars differ -> PASS
+
+cost 0.783   raw crown: walk-forward $324,503, 2024+ PF 1.340
+reading                                fires |  WF gain $   kept  LB gain $   PF24+ | shift null ; battery
+60/20/1.00 as validated                  13% |     57,254   100%     11,207   1.380 | 0.0% of 1000 ; PASS
+60/20/1.00 one 5-minute bar older        13% |     56,393    98%     11,207   1.380 | 0.0% of 1000 ; PASS
+60/20/1.00 one full verification bar     14% |     55,358    97%     15,546   1.381 | 0.0% of 1000 ; FAIL - one trade is 56% of the lockbox bucket (C4)
+60/20/1.00 two verification bars older   13% |     47,808    84%     14,839   1.380 | 0.3% of 1000 ; FAIL - one trade is 58% of the lockbox bucket (C4)
+
+30/16/1.15 as validated                  34% |     90,407   100%      9,222   1.344 | 2.4% of 1000 ; FAIL
+30/16/1.15 one 5-minute bar older        35% |     97,597   108%     11,647   1.366 | 0.7% of 1000 ; FAIL
+30/16/1.15 one full verification bar     34% |     99,495   110%     12,944   1.381 | 0.1% of 1000 ; FAIL
+30/16/1.15 two verification bars older   33% |    107,497   119%     15,144   1.391 | 0.0% of 1000 ; FAIL
+
+Pre-registered: a LEAK if the one-hour-lagged tilt keeps under half its walk-forward gain or its
+shift null rises above 5%. It keeps 97% at 0.0%. Not a leak. The lagged versions fail the battery
+only on sealed-year concentration, while earning MORE in the sealed year.
+
+run 382 bar, like for like (tools/r55d_noise_run382_bar.py), continuous run, window 2025-07-16..2026-07-16, cost 0.533
+crown (tilt off)             sealed n 314 net $  51,722 PF 1.274 DD $ 19,304 resampled-p95 DD $ 38,096 net/DD 2.68
+tilt 1.5x                    sealed n 314 net $  62,032 PF 1.274 DD $ 22,957 resampled-p95 DD $ 47,093 net/DD 2.70
+tilt 2.0x  <- run 382 pick   sealed n 314 net $  72,343 PF 1.275 DD $ 27,578 resampled-p95 DD $ 58,084 net/DD 2.62
+2.0x pick: clause 3 realised DD 1.43x (limit 1.25) NO; resampled 1.52x NO; clause 4 MAR 2.62 vs 2.68 NO
+1.5x     : all four clauses yes (DD 1.19x, resampled 1.24x, MAR 2.70 vs 2.68)
+run 382 saved lockbox (cold-restart reload): 239 trades, PF 1.395, $79,939 -- the continuous run takes 314.

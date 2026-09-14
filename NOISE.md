@@ -7,6 +7,131 @@
 
 ---
 
+## 🔬 2026-09-13 — ROUND 55: THE FRONTIER, LIKE FOR LIKE — the textbook hourly squeeze on the live crown is the one thing that beats it (STUDIES rows 1725-1728)
+
+The owner asked which NOISE configuration is most worthy of forward or live testing, and whether
+anything that was never auto-validated approaches the crown. No two NOISE rows on the board are
+comparable: the validates ran to three different end dates, each reports its own 75% in-sample split,
+and each grades its own lockbox. So this round replays every distinct candidate — validated
+champions, validated add-ons, and the hand-measured configurations that never reached a validate —
+on ONE tape, ONE window (2010-06-07 to 2026-07-16), TWO costs, the same eras and the same
+concentration test (`tools/r55_noise_frontier.py`, results `tools/r37_results/r55_frontier.txt`).
+
+### First, a correction to run #382 — and to every NOISE lockbox on the board
+
+Run #382 (the compression tilt re-based onto the live crown, round 54's queued job) returned PASS 6
+of 6, PBO 0.111, and its search chose 2.0x on the 30-minute tuned gate. Its saved lockbox reads 239
+trades at profit factor 1.395.
+
+**The continuous run takes 314 trades in that same year, at profit factor 1.275 — the crown's own
+1.274.** The validate grades its lockbox by reloading the tape from the lockbox's first day with no
+history (`tools/continuous_lb_check.py` documents this), and NOISE needs forty prior sessions for its
+noise band and a long history for its volatility percentile, so the reload silently drops about a
+quarter of the year's trades. Live trading has the whole history. On the continuous basis, #382's
+own pick FAILS the bar pre-registered in its file: sealed drawdown 1.43x the crown's (limit 1.25),
+resampled 1.52x, MAR 2.62 against 2.68. Its 1.5x sibling clears all four clauses, narrowly.
+
+Two admissions. The bar's dollar figure ($84,580) was lifted from run #304's own lockbox, which
+covered 18 months, not #382's 12 — the clauses above are re-measured on the same calendar. And round
+54's ranking leaned on each run's saved lockbox profit factor; for NOISE those are cold-restart
+numbers, so that ranking is replaced by this one.
+
+### The replay
+
+At the stressed cost (0.783 points a round turn), selected rows:
+
+| candidate | status | PF <2024 | PF 2024+ | net/DD | top-10 share | verdict |
+|---|---|---|---|---|---|---|
+| #304 live crown | crowned | 1.323 | 1.345 | 19.25 | 25% | — |
+| #243 retired crown | retired 09-05 | 1.366 | 1.377 | 18.73 | 25% | approaches |
+| #316 confirm 2 bars | validated, not crowned | 1.461 | 1.343 | 31.33 | 26% | approaches |
+| #322 lookback 16 | validated | 1.416 | 1.358 | 18.32 | 27% | approaches |
+| #305 | validated, never crowned | 1.490 | 1.138 | 6.50 | 28% | short |
+| C3 cost-robust corner | never validated | 1.487 | 1.331 | 7.38 | 41% | short |
+| #334 2-minute card | validated | 1.281 | 1.254 | 11.36 | 28% | short |
+| #362 15-minute card | validated | 1.302 | 1.091 | 5.33 | 38% | short |
+| #345 1-minute card | validated | 1.405 | 1.268 | 18.66 | 30% | short |
+| crown + published hourly squeeze 1.5x | inside #382's grid, not picked | 1.368 | 1.386 | 21.52 | 24% | **beats** |
+| crown + #382's pick 2.0x | #382 champion | 1.377 | 1.356 | 20.78 | 25% | beats on the table, fails the battery |
+| crown + momentum 2.0x | never validated on the crown | 1.362 | 1.448 | 19.20 | 27% | approaches |
+
+Every geometry swap fails to beat the crown. The slower-confirmation card #316 is the closest — it
+has the crown's recent profit factor and far less realised drawdown — and Part C below shows why that
+is less than it looks. The three other bar sizes, the cost-robust corner and #305 all lose their
+recent profit factor. The retired #243 has a HIGHER profit factor than the live crown in both eras at
+both costs; the crown earns more only because it takes about 400 more trades. The 2026-09-05 swap was
+a coin flip on quality and a win on dollars, not an upgrade.
+
+### The one that beats it: the textbook hourly squeeze
+
+Run #382 searched 24 gate cells. Its search ranks on dollars, and the 30-minute gates fire on a third
+of all trades against the hourly gates' eighth, so it picked a 30-minute cell. The cell with every
+gate knob at its PUBLISHED value — the hourly frame, length 20, Bollinger-over-Keltner 1.0, exactly
+Carter's squeeze, and exactly what the deployed raw compression paper leg reads — was never picked by
+anything. Three tests, all pre-registered (`tools/r55b_noise_frontier_battery.py`):
+
+**A. It is on a plateau, not an outlier.** On the live crown, 7 of 8 gate cells beat the raw crown's
+2024-onward profit factor at both sizes, and all four hourly cells beat all four 30-minute cells
+(1.371-1.396 against 1.344-1.359 at 1.5x). The published cell is second of eight — its ratio-1.15
+neighbour is a hair higher. On the retired base, 8 of 8. The effect is the hourly frame, not a knob.
+
+**B. It passes the whole house tilt battery at both costs** — the first add-on on the live crown to
+do so. At 1.5x: walk-forward drawdown FALLS 11%, sealed-year drawdown rises 5.8% (tolerance 10), it
+beats its exposure-matched flat control on both stretches (walk-forward MAR 1.81 against 1.37), and
+none of 2,000 shifts match it. At 2.0x it fails by the sealed-year drawdown alone (+11.7%). The
+comparison is stark: #382's own 30-minute pick at 2.0x LOSES to flat leverage in the sealed year,
+grows drawdown 43%, and one trade is 61% of its sealed-year gain.
+
+**C. It is not a look-ahead** (`tools/r55c_noise_squeeze_lag.py`). A longer verification bar beating
+a shorter one is exactly what a higher-timeframe look-ahead produces — round 51 caught one. The code
+reads correctly, and to prove it the reading was deliberately aged: one 5-minute bar older keeps 98%
+of the walk-forward gain, one full hour older keeps 97%, two hours older 84%, with the shift null at
+0.0-0.3% throughout. A squeeze is a slow state; the edge is in the state, not in the boundary.
+
+**What is thin.** It fires on only 13% of trades, so it is a modest add — about $70,000 on the
+crown's $399,000 across the full window. In the sealed year only 41 trades were tagged and the top
+three are 83% of their gain; delaying the reading an hour keeps the money but tips that concentration
+over the battery's line. The walk-forward evidence (574 tagged trades, top trade 6%) carries it; the
+sealed year only fails to contradict it. And it was noticed on the same years it is judged on — the
+plateau, the textbook values and the shift null are why that does not sink it, but it is why the
+next test has to be forward rather than another validate on these spent years. A validate would pick
+the 30-minute cell again, and its lockbox would drop a quarter of the trades again.
+
+### #316's lower drawdown: real before 2024, mostly sequencing since
+
+| config | era | net $ | PF | realised DD $ | resampled 95th DD $ | net per resampled DD |
+|---|---|---|---|---|---|---|
+| #304 crown | before 2024 | 237,882 | 1.323 | 17,496 | 31,193 | 7.63 |
+| #316 | before 2024 | 239,890 | 1.461 | 11,020 | 21,587 | 11.11 |
+| #304 crown | 2024 on | 136,773 | 1.345 | 19,459 | 41,549 | 3.29 |
+| #316 | 2024 on | 106,269 | 1.343 | 11,049 | 36,889 | 2.88 |
+
+Before 2024 #316 is simply better. Since, it earns 22% less on only 11% less resampled risk, and its
+realised drawdown looks half the crown's largely because of the order its trades landed in — over the
+crown's own worst stretch (2026-05-08 to 06-05) #316 made $13,102. It trades on 100% the same days as
+the crown, so it adds no diversification either. A safer config for the older tape, not a better one
+for this one.
+
+### The ranking this replaces round 54's with
+
+1. **The live crown with the published hourly squeeze at 1.5x.** The only candidate that beats the
+   crown in both eras at both costs AND passes the whole battery. Not forward-testing anywhere — the
+   raw compression paper leg runs this exact gate on the retired base. The next test is a paper leg
+   beside the raw crown, not another validate.
+2. **The live crown raw.** Still the best geometry: no swap beats it, and the one that comes closest
+   is better only on the old tape.
+3. **The retired base with the published squeeze at 1.5x** — already on paper as the raw compression
+   leg. Same mechanism, slightly lower recent money, higher profit factor.
+4. **Nothing else earns a slot.** #382's own pick fails on the continuous basis; the momentum tilt is
+   real (0.4% of shifts) but costs 34-73% more drawdown; the 2-minute, 15-minute and 1-minute cards,
+   the cost-robust corner and #305 all lose their recent profit factor.
+
+Files: `tools/r55_noise_frontier.py`, `tools/r55b_noise_frontier_battery.py`,
+`tools/r55c_noise_squeeze_lag.py`, `tools/r55d_noise_run382_bar.py`; results in `tools/r37_results/`
+(`r55_frontier.txt`, `r55b_battery.txt`, `r55c_lag.txt`).
+
+---
+
 ## 🔬 2026-09-10 — ROUND 53: KEEL meets the LIVE crown for the first time — and it is leverage plus three trades (STUDIES rows 1709-1711, web v73.714)
 
 **Owner ask:** *"what's the top noise we have or think we have that may need any further testing.
