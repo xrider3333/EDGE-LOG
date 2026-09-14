@@ -185,6 +185,7 @@ import json
 import math
 import os
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -328,6 +329,58 @@ def _to_epoch_frame(df):
     })
 
 
+def _replace_with_retry(tmp, dst, log=print, what=None, retries=50, sleep=0.05):
+    """os.replace(tmp, dst), retrying briefly on Windows' transient PermissionError
+    [WinError 32]: os.replace fails outright there if ANY other process merely has
+    `dst` open for reading -- POSIX would just rename under the reader -- and these
+    QQQ bar caches are read by several short-lived processes (this module's own next
+    sync, api/cloud_signal.py's fetch of the very same file when EDGELOG_HOME is
+    unset, a replay, a test snapshot) while a writer rewrites them every 30s-2min. A
+    reader's hold is milliseconds, so the default budget (50 * 0.05s = ~2.5s) rides
+    out a normal read without ever blocking the caller for long.
+
+    SHARED (2026-09-14): this is the ONE retry helper for every risky rename in this
+    module and in api/cloud_signal.py (see that module's DATA REUSE note) -- both
+    writers of C:\\EdgeLog\\ohlc\\QQQ_*.csv now go through it, so the retry budget and
+    the failure handling live in one place instead of being copied per writer. Before
+    this, only api/cloud_signal.py's signals.csv header upgrade retried at all (see
+    its _migrate_signals_header); this writer's own os.replace, and cloud_signal's own
+    bar-cache write, did not -- which is exactly the gap that let a held-open reader
+    turn into an uncaught PermissionError instead of a quiet retry (2026-09-14,
+    `[cloud-signal] step failed: PermissionError ... QQQ_1m.csv.tmp -> QQQ_1m.csv`).
+
+    On final failure the `.tmp` is removed -- every caller's tmp here is a disposable
+    rebuild (a bar cache re-fetched next cycle, a state/heartbeat snapshot re-derived
+    next step), never the one copy of something, unlike api/qqq_exec.py's own
+    save_state, which deliberately LEAVES a failed state.json.tmp on disk because
+    state.json there is the sole record of open positions -- and the failure is
+    logged ONCE via `log` (pass log=None to stay silent), never raised: a lost write
+    here means "try again next cycle", not "silently corrupt an order".
+
+    Returns True on success, False after exhausting retries or hitting a
+    non-retryable OSError (the caller decides whether that is fatal)."""
+    last = None
+    for _ in range(retries):
+        try:
+            os.replace(tmp, dst)
+            return True
+        except PermissionError as e:      # WinError 32: someone has dst open
+            last = e
+            time.sleep(sleep)
+        except OSError as e:              # not a lock race -- retrying will not help
+            last = e
+            break
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+    if log:
+        label = what or os.path.basename(dst)
+        log(f"{label}: replace failed after {retries} attempt(s), giving up: "
+            f"{type(last).__name__}: {last}")
+    return False
+
+
 def sync_bars(timeframe):
     """Fetch fresh bars, merge into the on-disk cache (dedupe on `time`,
     newest wins), save, and return the merged epoch-schema DataFrame."""
@@ -350,9 +403,12 @@ def sync_bars(timeframe):
     # the repo. cloud_signal was fixed for its own writer; this is the OTHER writer of the very
     # same files, so leaving it torn would have kept the race alive through this path.
     # os.replace is atomic on Windows and POSIX: a reader sees the old file or the new one.
+    # RETRY (2026-09-14): the rename itself can still fail outright (not torn, just refused) if
+    # a reader has `path` open at that instant -- see _replace_with_retry. `merged` is already
+    # fully computed in memory at this point, so this call's caller gets it back either way.
     tmp = path + ".tmp"
     merged.to_csv(tmp, index=False)
-    os.replace(tmp, path)
+    _replace_with_retry(tmp, path, what=f"QQQ {timeframe} cache")
     print(f"  QQQ {timeframe}: cache now {len(merged)} bars -> {path}")
     return merged
 

@@ -749,3 +749,135 @@ def test_offline_step_without_paths_refuses(fake_live):
     with pytest.raises(ValueError, match="explicit `paths`"):
         cs.step(now=(base + pd.Timedelta(minutes=6)).to_pydatetime(), fetch=False)
     assert _tree_bytes(live["home"]) == before
+
+
+# ── 4. Rename retry / graceful cache-write degradation (2026-09-14) ─────────────────────
+# `fetch_and_merge`'s os.replace() used to be a single unretried call: a reader briefly
+# holding C:\EdgeLog\ohlc\QQQ_1m.csv/QQQ_5m.csv open (this file's OWN _snapshot_dir(), a
+# replay, tools/qqq_paper.py's independent sync of the same files) made Windows raise
+# PermissionError [WinError 32] outright, which aborted the whole step() call and made
+# cloud_signal_thread write heartbeat ok=false -- which api/qqq_exec.py's engine-mode feed
+# check reads as a stale feed, blocking new Webull paper entries over a few-millisecond
+# lock, not a real outage. See qp._replace_with_retry (tools/qqq_paper.py) for the shared
+# retry helper's own unit tests (transient-succeeds / persistent-cleans-up-and-logs-once).
+def _fake_fresh_bars():
+    """A tiny, deterministic stand-in for _fetch_webull's return shape -- avoids the real
+    Webull SDK / keys file / network entirely."""
+    return pd.DataFrame({
+        "time": [1_757_847_000, 1_757_847_060, 1_757_847_120],
+        "open": [700.0, 700.5, 701.0],
+        "high": [700.5, 701.0, 701.5],
+        "low": [699.5, 700.0, 700.5],
+        "close": [700.2, 700.8, 701.2],
+        "volume": [1000.0, 1000.0, 1000.0],
+    })
+
+
+def test_fetch_and_merge_returns_bars_and_cache_ok_false_on_persistent_lock(tmp_path, monkeypatch):
+    """The freshly fetched bars are already merged in memory before the rename is even
+    attempted, so a persistently locked replace must still hand them back -- never raise
+    -- with only `cache_ok` going False. The abandoned .tmp must not linger, and no cache
+    file must appear where none existed before (the replace never actually landed)."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    monkeypatch.setattr(cs, "_fetch_webull", lambda timeframe, log=print: _fake_fresh_bars())
+    monkeypatch.setattr(cs.qp.time, "sleep", lambda s: None)   # instant retries
+    monkeypatch.setattr(cs.os, "replace",
+                        lambda s, d: (_ for _ in ()).throw(PermissionError(32, "locked")))
+
+    logged = []
+    merged, source, cache_ok = cs.fetch_and_merge("1m", paths, log=logged.append)
+
+    assert source == "webull"
+    assert cache_ok is False
+    assert len(merged) == 3, "the in-memory merge must still happen even though the write failed"
+    assert not os.path.exists(cs._cache_path("1m", paths)), (
+        "a persistently failed replace must never land -- no cache file where none existed")
+    assert not [n for n in os.listdir(paths["ohlc_dir"]) if n.endswith(".tmp")], (
+        "the abandoned .tmp bar cache must be cleaned up, not left on disk forever")
+    assert any("1m bar cache" in m for m in logged), "the failure must be logged"
+
+
+def test_step_reports_cache_write_failed_in_warnings_without_raising(tmp_path, monkeypatch):
+    """step() must not raise when a leg's cache rename is persistently locked, and must
+    still evaluate that leg's signals off the bars fetch_and_merge already had in memory
+    -- `warnings['cache_write_failed']` is how it tells the caller, instead of the caller
+    only finding out via an exception (the old behaviour this fix removes)."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    epoch_df, base = _fixture_epoch_df()
+
+    def fake_fetch_and_merge(tf, p, log=print):
+        return epoch_df, "webull", False        # cache write persistently failed
+
+    monkeypatch.setattr(cs, "fetch_and_merge", fake_fetch_and_merge)
+    legs = _stub_legs()
+    warnings = {}
+    now = base + pd.Timedelta(minutes=6)
+    events = cs.step(now=now.to_pydatetime(), legs=legs, paths=paths, fetch=True, warnings=warnings)
+
+    assert warnings.get("cache_write_failed") is True
+    # first-ever call for this leg/store -- a cold start, so signals are still evaluated
+    # (the engine runs, discovers the trade) but absorbed as SEED rather than emitted;
+    # see test_cold_start_seeds_without_emitting. The point here is only that step() ran
+    # the engine at all off the in-memory bars instead of raising.
+    assert [e["event"] for e in events] == ["SEED"], (
+        "signals must still be evaluated off the in-memory bars despite the cache-write failure")
+    assert "absorbed 1 historical trade" in events[0]["reason"]
+
+
+def test_step_warnings_untouched_when_no_caller_asks(tmp_path, monkeypatch):
+    """warnings=None (every pre-2026-09-14 caller) must keep working -- step() only ever
+    writes into a dict it was actually handed, never assumes one exists."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    epoch_df, base = _fixture_epoch_df()
+    monkeypatch.setattr(cs, "fetch_and_merge", lambda tf, p, log=print: (epoch_df, "webull", False))
+    events = cs.step(now=(base + pd.Timedelta(minutes=6)).to_pydatetime(), legs=_stub_legs(),
+                     paths=paths, fetch=True)   # no warnings= at all
+    assert [e["event"] for e in events] == ["SEED"]
+
+
+def test_cloud_signal_thread_writes_ok_true_heartbeat_with_cache_write_failed_note(
+        fake_live, monkeypatch):
+    """END TO END. Before this fix, a persistently locked OHLC-cache rename raised out of
+    fetch_and_merge, step() never reached _write_state/_append_signals, and this thread's
+    except-branch wrote heartbeat ok=false -- which api/qqq_exec.py's `_check_feed_engine`
+    reads as a stale feed and blocks new Webull paper entries. Only the bar-cache rename
+    is blocked here (by destination basename); state.json and heartbeat.json rename
+    normally, so a real heartbeat is written and can be read back."""
+    import threading
+    live, _ = fake_live
+
+    monkeypatch.setattr(cs, "_fetch_webull", lambda timeframe, log=print: _fake_fresh_bars())
+    monkeypatch.setattr(cs.market_calendar, "is_session", lambda d: True)
+    monkeypatch.setattr(cs, "RTH_OPEN", cs._dt.time(0, 0))
+    monkeypatch.setattr(cs, "RTH_CLOSE", cs._dt.time(23, 59))
+
+    real_replace = cs.os.replace
+    stop = threading.Event()
+
+    def replace_blocks_only_the_bar_cache(src, dst):
+        if os.path.basename(str(dst)) == "QQQ_1m.csv":
+            raise PermissionError(32, "The process cannot access the file")
+        return real_replace(src, dst)
+
+    def instant_sleep_unless_the_threads_own_end_of_loop_wait(seconds):
+        # the retry helper's own backoff (small, called many times) must be instant for
+        # the test to run fast; the thread's OWN end-of-loop sleep (30s/60s) is the
+        # signal that one full iteration just finished -- stop there instead of sleeping.
+        if seconds >= 1:
+            stop.set()
+
+    monkeypatch.setattr(cs.os, "replace", replace_blocks_only_the_bar_cache)
+    monkeypatch.setattr(cs.qp.time, "sleep", instant_sleep_unless_the_threads_own_end_of_loop_wait)
+
+    cs.cloud_signal_thread(stop=stop, log=lambda *a, **k: None)
+
+    import json as _json
+    with open(live["heartbeat_path"], encoding="utf-8") as f:
+        hb = _json.load(f)
+    assert hb["ok"] is True, "a cache-write failure alone must not flip the heartbeat to ok=false"
+    assert hb.get("cache_write_failed") is True
+    assert not [n for n in os.listdir(live["ohlc_dir"]) if n.endswith(".tmp")], (
+        "the abandoned bar-cache .tmp must not be left behind")

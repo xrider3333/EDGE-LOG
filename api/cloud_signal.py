@@ -27,7 +27,11 @@ tools/qqq_paper.py, not reimplemented — those functions are pure (no path cons
 baked in) so reuse is a straight import. Only the on-disk CACHE READ/WRITE path
 differs (this module writes under EDGELOG_HOME, qqq_paper.py always writes under
 literal C:\\EdgeLog\\ohlc) — qqq_paper.py's own behaviour is completely unchanged by
-this file's existence.
+this file's existence. The rename-into-place retry (`qp._replace_with_retry`, added
+2026-09-14) is reused the same way: ONE helper backs every risky `os.replace` in both
+files, because both write the very same shared OHLC cache and Windows refuses that
+rename outright while any reader -- including the OTHER writer's own read of the same
+file -- still has it open.
 
 THE THREE CROWN LEGS (as of 2026-09-13, api/paper.py PAPER_LEGS):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
@@ -266,9 +270,10 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
 
 def fetch_and_merge(timeframe, paths=None, log=print):
     """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return
-    (merged_epoch_frame, source) where source is "webull" or "yfinance" -- whichever one
-    actually produced THIS call's fresh rows. Network call — never invoked from --replay
-    or from tests, only from a live step().
+    (merged_epoch_frame, source, cache_ok) where source is "webull" or "yfinance" --
+    whichever one actually produced THIS call's fresh rows -- and cache_ok is False
+    only when the on-disk rename could not be completed (see RENAME RETRY below).
+    Network call — never invoked from --replay or from tests, only from a live step().
 
     Webull first, yfinance as the fallback. Both are consolidated US equity prints for
     the same regular session, so they agree to the cent in normal conditions; the cache
@@ -279,7 +284,25 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     The returned `source` is what api/qqq_exec.py's engine-mode pricing (and the web
     tab's status panel) report as WEBULL/YAHOO -- see `read_bar_source` below, which
     persists this into state.json so a DIFFERENT process (the standalone qqq_exec
-    adapter) can read it without importing this module's live fetch path."""
+    adapter) can read it without importing this module's live fetch path.
+
+    RENAME RETRY (2026-09-14). `os.replace(tmp, path)` used to be a single unretried
+    call: `C:\\EdgeLog\\ohlc\\QQQ_1m.csv`/`QQQ_5m.csv` are read by several other
+    short-lived processes (tools/qqq_paper.py's own independent sync of the SAME files
+    when EDGELOG_HOME is unset, a replay, a test snapshot), and Windows refuses the
+    rename outright -- not a retry-free race, an outright PermissionError -- while any
+    of them merely has the destination open for reading. Seen live: `[cloud-signal]
+    step failed: PermissionError [WinError 32] ... 'QQQ_1m.csv.tmp' -> 'QQQ_1m.csv'`,
+    which aborted the whole step() call (this leg's bars were already fetched and
+    merged in memory, but the exception propagated before any leg's signals were
+    evaluated) and made cloud_signal_thread mark the heartbeat ok=false -- which
+    api/qqq_exec.py's engine-mode feed check reads as "stale", blocking new entries,
+    for what was really a few-millisecond reader lock. `qp._replace_with_retry` rides
+    that out (see its docstring for the budget); `merged` is already fully computed by
+    the time the rename is attempted, so this function returns it regardless of
+    whether the rename succeeded -- the caller (step()) can still evaluate signals off
+    it even when cache_ok is False, and only the ON-DISK cache is a step behind until
+    the next successful fetch."""
     import pandas as pd
     paths = paths or DEFAULT_PATHS
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
@@ -302,11 +325,13 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     # rewrites the cache every 30s and it caught the test suite red-handed, which is exactly
     # what a strategy run or a manual replay would have hit instead. Write beside it and
     # rename: os.replace is atomic on Windows and POSIX, so a reader sees the old file or
-    # the new one, never a torn one.
+    # the new one, never a torn one. RETRIED (2026-09-14, see docstring above) rather than
+    # left to raise on the first transient lock.
     tmp = path + ".tmp"
     merged.to_csv(tmp, index=False)
-    os.replace(tmp, path)
-    return merged, source
+    cache_ok = qp._replace_with_retry(tmp, path, log=log,
+                                      what=f"[cloud-signal] {timeframe} bar cache")
+    return merged, source, cache_ok
 
 
 def read_bar_source(paths=None):
@@ -487,11 +512,22 @@ def _load_state(paths):
 
 
 def _write_state(state, paths):
+    """state.json is the idempotency ledger (which trades each leg has already emitted),
+    read back by the very next step() call -- unlike the bar cache, losing this write
+    silently would let the next tick re-diff against stale memory and re-emit ENTRY/EXIT
+    rows _append_signals already wrote for THIS call. So the rename retries the same
+    transient-lock budget as every other writer here (qp._replace_with_retry -- a reader
+    such as a manual `_load_state` call or a debugging read can have this file open for
+    the same few milliseconds the OHLC cache readers do), but on final failure it RAISES
+    instead of continuing: the caller (step()) must not reach _append_signals having
+    silently failed to persist that those events were already recorded."""
     os.makedirs(paths["state_dir"], exist_ok=True)
     tmp = paths["state_path"] + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, default=str)
-    os.replace(tmp, paths["state_path"])
+    if not qp._replace_with_retry(tmp, paths["state_path"], log=print,
+                                  what="[cloud-signal] state.json"):
+        raise OSError(f"cloud_signal: could not replace {paths['state_path']} after retries")
 
 
 SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares", "reason",
@@ -533,8 +569,10 @@ def _migrate_signals_header(path, cols, _retries=20, _sleep=0.05):
     api/qqq_exec.py reads the same file every 5 s and consumes it by ROW COUNT -- a read
     landing inside the rewrite saw a short or empty ledger. The new file is written beside
     it and renamed over it, so a reader sees the old file or the new one. Windows refuses
-    that rename while any reader has the file open, so it is retried for about a second;
-    if it still fails the file is left untouched (and the next append tries again) -- never
+    that rename while any reader has the file open, so it is retried (via the shared
+    qp._replace_with_retry -- this was the first of this module's writers to retry at
+    all, before the OHLC cache write and state.json write gained the same helper); if it
+    still fails the file is left untouched (and the next append tries again) -- never
     rewritten in place."""
     import csv
     tmp = None
@@ -553,15 +591,13 @@ def _migrate_signals_header(path, cols, _retries=20, _sleep=0.05):
             w.writeheader()
             for r in old_rows:
                 w.writerow({c: r.get(c, "") for c in cols})
-        for _ in range(_retries):
-            try:
-                os.replace(tmp, path)
-                tmp = None
-                return
-            except PermissionError:
-                _time.sleep(_sleep)
-            except OSError:
-                break
+        # log=None: this call has always failed silently (the boot-time caller logs its
+        # OWN "ledger header check failed" only for a raised exception, never for this
+        # already-quiet retry-exhausted path) -- keep that, don't add a new log line here.
+        qp._replace_with_retry(tmp, path, log=None,
+                               what="[cloud-signal] signals.csv header upgrade",
+                               retries=_retries, sleep=_sleep)
+        tmp = None   # renamed away on success, or already cleaned up on failure
     except Exception:
         pass
     finally:
@@ -595,7 +631,7 @@ def _append_signals(events, paths):
 
 
 # ── The core entry point ───────────────────────────────────────────────────────────────
-def step(now=None, legs=None, paths=None, fetch=True):
+def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
     """One signal-engine tick. For each leg: load cached bars (optionally refreshed
     from yfinance first), restrict to bars CLOSED as of `now`, run the engine over the
     rolling warm-up window, and diff the resulting trade list against what was last
@@ -613,6 +649,17 @@ def step(now=None, legs=None, paths=None, fetch=True):
     through to the live ledger too, which is how a replay contaminated it twice (see
     isolated_paths), and a lone offline step into a fresh scratch store could only ever
     cold-start, so there is no useful default to give it instead.
+    `warnings`: optional dict this call may POPULATE (never reads) with non-fatal
+    problems the caller should surface without treating the whole tick as failed.
+    Currently only `cache_write_failed` (bool, 2026-09-14): at least one timeframe's
+    on-disk bar cache could not be replaced this call even after fetch_and_merge's own
+    retries, though the freshly fetched bars were still used from memory for every
+    leg's signal evaluation below (they are already in `tf_cache` by the time the
+    rename is attempted -- see fetch_and_merge). A caller that writes a heartbeat
+    (cloud_signal_thread, cmd_once, cmd_loop) uses this to still report ok=True with a
+    note instead of raising, so a transient disk/lock hiccup does not make
+    api/qqq_exec.py's engine-mode feed check see a stale heartbeat and block entries
+    over something that never affected the signals it will act on.
     """
     legs = legs if legs is not None else CROWN_LEGS
     if paths is None:
@@ -638,7 +685,9 @@ def step(now=None, legs=None, paths=None, fetch=True):
     for key, cfg in legs.items():
         tf = cfg["timeframe"]
         if fetch and tf not in tf_cache:
-            tf_cache[tf], tf_source[tf] = fetch_and_merge(tf, paths)
+            tf_cache[tf], tf_source[tf], cache_ok = fetch_and_merge(tf, paths)
+            if not cache_ok and warnings is not None:
+                warnings["cache_write_failed"] = True
         elif tf not in tf_cache:
             tf_cache[tf] = load_cached_bars(tf, paths)
         epoch_df = tf_cache[tf]
@@ -964,13 +1013,32 @@ def _fmt_nt_comparison_table(events, nt_rows):
 
 
 # ── Heartbeat ───────────────────────────────────────────────────────────────────────────
-def _write_heartbeat(paths, ok=True, note=""):
+def _write_heartbeat(paths, ok=True, note="", cache_write_failed=False):
+    """`cache_write_failed` (2026-09-14): set by a caller that saw step()'s `warnings`
+    dict carry it -- the on-disk bar cache rename failed even after retries, but the
+    step still ran off the freshly fetched bars in memory (see step()'s docstring). It
+    is recorded here (only when True, keeping the common heartbeat's shape unchanged)
+    as a visible warning alongside ok=True -- never as a reason to flip ok to False,
+    which is exactly the behaviour that used to make api/qqq_exec.py's engine-mode
+    feed check block new entries over a transient disk/lock hiccup instead of a real
+    outage.
+
+    The rename retries the same transient-lock budget as every other writer here
+    (qp._replace_with_retry): api/qqq_exec.py's `_check_feed_engine` opens this exact
+    file every tick, so a reader can hold it for the same few milliseconds the OHLC
+    cache readers do. On final failure this raises (see _write_state for why a writer
+    in this module treats an exhausted retry as fatal rather than silently moving on)
+    -- callers already wrap their heartbeat writes in a try/except for exactly this."""
     os.makedirs(paths["state_dir"], exist_ok=True)
     hb = {"ts": _dt.datetime.now(tz=_zi(TZ)).isoformat(), "ok": ok, "note": note}
+    if cache_write_failed:
+        hb["cache_write_failed"] = True
     tmp = paths["heartbeat_path"] + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(hb, f, indent=2)
-    os.replace(tmp, paths["heartbeat_path"])
+    if not qp._replace_with_retry(tmp, paths["heartbeat_path"], log=print,
+                                  what="[cloud-signal] heartbeat.json"):
+        raise OSError(f"cloud_signal: could not replace {paths['heartbeat_path']} after retries")
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────────────────
@@ -1032,8 +1100,11 @@ def cmd_replay(day, live_paths=False):
 
 def cmd_once():
     paths = DEFAULT_PATHS
-    events = step(fetch=True, paths=paths)
-    _write_heartbeat(paths, ok=True, note=f"{len(events)} event(s)")
+    warnings = {}
+    events = step(fetch=True, paths=paths, warnings=warnings)
+    cache_failed = bool(warnings.get("cache_write_failed"))
+    note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
+    _write_heartbeat(paths, ok=True, note=note, cache_write_failed=cache_failed)
     print(f"cloud_signal --once: {len(events)} new event(s)")
     print(_fmt_ledger_table(events))
 
@@ -1071,8 +1142,11 @@ def cloud_signal_thread(stop=None, log=print):
             in_session = (market_calendar.is_session(now_et.date())
                          and RTH_OPEN <= now_et.time() <= RTH_CLOSE)
             if in_session:
-                events = step(now=now_et, fetch=True, paths=DEFAULT_PATHS)
-                _write_heartbeat(DEFAULT_PATHS, ok=True, note=f"{len(events)} event(s)")
+                warnings = {}
+                events = step(now=now_et, fetch=True, paths=DEFAULT_PATHS, warnings=warnings)
+                cache_failed = bool(warnings.get("cache_write_failed"))
+                note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
+                _write_heartbeat(DEFAULT_PATHS, ok=True, note=note, cache_write_failed=cache_failed)
                 for e in events:
                     log(f"[cloud-signal] {e['event']} {e['leg']} {e.get('side','')} "
                         f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) {e.get('reason','')}")
@@ -1096,8 +1170,11 @@ def cmd_loop():
                      and RTH_OPEN <= now_et.time() <= RTH_CLOSE)
         if in_session:
             try:
-                events = step(now=now_et, fetch=True, paths=paths)
-                _write_heartbeat(paths, ok=True, note=f"{len(events)} event(s)")
+                warnings = {}
+                events = step(now=now_et, fetch=True, paths=paths, warnings=warnings)
+                cache_failed = bool(warnings.get("cache_write_failed"))
+                note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
+                _write_heartbeat(paths, ok=True, note=note, cache_write_failed=cache_failed)
                 if events:
                     print(_fmt_ledger_table(events))
             except Exception as e:                       # never let the loop die silently
