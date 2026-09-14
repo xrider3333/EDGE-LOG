@@ -762,7 +762,7 @@ var FIX = __FIX__;
           return {call:c,row:!!tr,pf:at('PF'),wr:at('WIN %'),trd:at('TRADES'),sh:at('SHARPE'),mar:at('MAR'),so:at('SORTINO'),evr:at('EV R'),rpy:at('R / YR')};}
         var r=snap('runstages','OK');
         r.exp=exp;
-        r.wf=read(['wf']);r.lb=read(['lb']);r.is=read(['is']);r.all=read(['is','wf','lb']);r.islb=read(['is','lb']);
+        r.wf=read(['wf']);r.lb=read(['lb']);r.is=read(['is']);r.all=read(['is','wf','lb']);r.islb=read(['is','lb']);r.pre=read(['is','wf']);
         // OVERLAP: a fold holding more trades than follow the split makes in-sample impossible.
         //   Any tick with IN-SAMPLE must dash the money figures; ALL THREE must equal the clean run.
         var good=wc;
@@ -1652,8 +1652,10 @@ def main(argv=None):
         'wf pf': (r.get('wf') or {}).get('pf') == (ex.get('wf') or {}).get('pf'),
         'wf win': (r.get('wf') or {}).get('wr') == (ex.get('wf') or {}).get('wr'),
         'wf trades': _n((r.get('wf') or {}).get('trd')) == (ex.get('wf') or {}).get('trd'),
-        'wf sharpe from the curve': (r.get('wf') or {}).get('sh') not in (None, '', dash),
-        'wf MAR marked ~': str((r.get('wf') or {}).get('mar') or '').startswith('~'),
+        'wf sharpe dashes (no saved boundary)': (r.get('wf') or {}).get('sh') == dash,
+        'wf MAR dashes (no saved boundary)': (r.get('wf') or {}).get('mar') == dash,
+        'is MAR dashes (no saved boundary)': (r.get('is') or {}).get('mar') == dash,
+        'is+wf MAR from the lockbox boundary, marked ~': str((r.get('pre') or {}).get('mar') or '').startswith('~'),
         'lb pf': (r.get('lb') or {}).get('pf') == (ex.get('lb') or {}).get('pf'),
         'lb trades': _n((r.get('lb') or {}).get('trd')) == (ex.get('lb') or {}).get('trd'),
         'lb MAR not ~ (saved drawdown)': not str((r.get('lb') or {}).get('mar') or '').startswith('~'),
@@ -1668,7 +1670,7 @@ def main(argv=None):
         'overlap: IS+WF dashes EV R and R/YR': (r.get('badIsWf') or {}).get('evr') == dash and (r.get('badIsWf') or {}).get('rpy') == dash,
         'overlap: ALL THREE = the clean run': (r.get('badAll') or {}).get('evr') == (r.get('all') or {}).get('evr') not in (None, '', dash),
     }
-    rs_ok = all(rs_checks.values()) and all((r.get(k) or {}).get('call') == 'OK' and (r.get(k) or {}).get('row') for k in ('wf', 'lb', 'is', 'all', 'islb', 'badIs', 'badIsWf', 'badAll'))
+    rs_ok = all(rs_checks.values()) and all((r.get(k) or {}).get('call') == 'OK' and (r.get(k) or {}).get('row') for k in ('wf', 'lb', 'is', 'all', 'islb', 'pre', 'badIs', 'badIsWf', 'badAll'))
     line('runstages', rs_ok, 'failed=%s | wf=%s lb=%s is=%s all=%s is+lb=%s | expected=%s'
          % ([k for k, v in rs_checks.items() if not v], r.get('wf'), r.get('lb'), r.get('is'), r.get('all'), r.get('islb'), ex))
     if not rs_ok:
