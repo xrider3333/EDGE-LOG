@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 17
+N_CASES = 18
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -822,6 +822,33 @@ var FIX = __FIX__;
         var iWf2=-1;hdr2.forEach(function(h,k){if(iWf2<0&&h.indexOf('WALK')===0)iWf2=k;});
         var ilb2=-1;hdr2.forEach(function(h,k){if(ilb2<0&&h.indexOf('LOCKBOX')===0)ilb2=k;});
         r.hybWfAtCombined=cellTitle(rec2,iWf2);r.hybLbAtCombined=cellTitle(rec2,ilb2);
+      })();
+      // -- case lvlall: LEVEL = ALL holds the sweeps AND the runs / configurations -----------
+      (function(){
+        var r=snap('lvlall','OK');
+        var blk=function(p,dd,n){return {total_pnl:p,max_drawdown:dd,num_trades:n,profit_factor:1.5,win_rate:40,sharpe:1.2,sortino:2.1,avg_pnl:(p/n),avg_loss:-10};};
+        var cand={model:'logistic',threshold:0.5,eligible:true,pre_pnl:10000,pre_rec:4,pre_pf:1.5,pre_wr:0.4,kept_pre:100,pre_sharpe:1.2,pre_sortino:2.1,
+          is_rng:blk(1000,-300,20),wf_rng:blk(9000,-500,80),lockbox:blk(2000,-200,25),full:blk(12000,-600,125),wf_lb:blk(11000,-550,105)};
+        var GV={span:['2010-01-04','2026-01-02'],wf_range:['2016-01-04','2025-01-02'],lockbox_from:'2025-01-02',candidates:[cand],
+          chosen:{model:'logistic',threshold:0.5},tilts:[],hybrids:[],gates:[],windows:{}};
+        var wc=FIX_WIN+'doc.gate_validate='+JSON.stringify(GV)+';runHistory=[doc];window._runCfg={};window._runCfg[String(doc.id)]=doc;';
+        function read(extra){
+          var p={c2Screen:'explore',resLvl:'all',resCfgRun:[String(FIX.id)],resAxis:'so',resXAxis:'roc',resMarks:'dot',c2Tbl:true};
+          for(var k in extra)p[k]=extra[k];
+          var c=doRender(p, wc);
+          var hdr=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()]/g,'').trim();});
+          var iRun=hdr.indexOf('RUN');
+          var trs=[].slice.call(d.querySelectorAll('tr[data-rerow]'));
+          var runTxt=function(t){return (iRun>=0&&t.cells[iRun])?(t.cells[iRun].textContent||'').trim():'';};
+          var pts=[].slice.call(d.querySelectorAll('[data-repoint]'));
+          return {call:c,rows:trs.length,
+            sweeps:trs.filter(function(t){return runTxt(t).indexOf('#')!==0;}).length,
+            runRows:trs.filter(function(t){return runTxt(t).indexOf('#'+FIX.id)===0;}).length,
+            points:pts.length,
+            gatePts:pts.filter(function(g){var t=g.querySelector('title');return !!(t&&(t.textContent||'').indexOf('GATE')>=0);}).length,
+            runBtns:d.querySelectorAll('[data-recfgrun]').length+d.querySelectorAll('[data-reshow]').length};}
+        r.cfg=read({resShow:'configs',resSegs:['wf']});
+        r.runs=read({resShow:'runs',resSegs:['lb'],resAxis:'evr',resXAxis:'pf'});
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -1750,6 +1777,22 @@ def main(argv=None):
          % ([k for k, v in chk.items() if not v], sv, cv, r.get('rbWant'), r.get('gateMarCell'), r.get('gateMarPoint'), r.get('hybWfHdr'), r.get('hybWf')))
     if not f346_ok:
         fail('fixes346: see the fixes346 line')
+    # case lvlall: LEVEL = ALL holds the sweeps AND the runs / configurations
+    r = cases.get('lvlall', {})
+    c, u = (r.get('cfg') or {}), (r.get('runs') or {})
+    la_chk = {
+        'configs view: call ok': c.get('call') == 'OK',
+        'configs view: sweeps listed': (c.get('sweeps') or 0) >= 1,
+        'configs view: config points on Sortino x ROC (WF)': (c.get('gatePts') or 0) >= 1,
+        'runs view: call ok': u.get('call') == 'OK',
+        'runs view: the run itself listed': (u.get('runRows') or 0) >= 1,
+        'runs view: sweeps listed': (u.get('sweeps') or 0) >= 1,
+        'runs view: something plotted': (u.get('points') or 0) >= 1,
+    }
+    la_ok = all(la_chk.values())
+    line('lvlall', la_ok, 'failed=%s | configs=%s | runs=%s' % ([k for k, v in la_chk.items() if not v], c, u))
+    if not la_ok:
+        fail('lvlall: LEVEL = ALL is not showing sweeps together with runs / configurations -- see the lvlall line')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:
