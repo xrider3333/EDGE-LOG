@@ -12,6 +12,7 @@ done.
 | ---: | --- | --- | --- |
 | 1 | Void the fake NOISE rows a test re-run wrote into the live signal record | **WAITING ON OWNER** | reply "apply the ledger repair" |
 | 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
+| 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
 
 ---
 
@@ -163,3 +164,83 @@ real order once the Webull broker mirror is armed.
 - Other sessions ship to `api/cloud_signal.py` and `api/qqq_exec.py` today (`550055c`, `cff0006`), so
   fetch and rebase right before pushing.
 - Never restart the runner or the shadow adapter during market hours.
+
+---
+
+## 3. Keep the QQQ lease fresh when status publishes are throttled
+
+**Status: OPEN.** Needs nothing from the owner; fix it before the cloud VM ever runs beside the
+PC. Added 2026-09-14 from the owner's chat of the same name, which was closed before any work
+started (no worktree, branch, edit or commit).
+
+**What happened, in plain words.** Only one machine may run the Webull paper trading book at a
+time. The machine running it proves it is alive by refreshing a timestamp (the "lease") each time
+it updates the status the QQQ tab reads, and another machine may take over once that timestamp is
+90 seconds old. A later change cut how often that status is written, to save the daily write
+quota: with the Webull order mirror switched OFF it goes out once a minute during the session and
+once every 10 minutes outside it. So after the close a healthy PC looks dead most of the time.
+With one machine that is harmless. With the cloud VM running it is not: the VM could take the book
+while the PC still runs (both books then run for up to 10 minutes), and overnight the VM looks
+dead too, so any PC relaunch (a runner restart, or the 06:05 premarket check) would take the book
+back from the VM, which breaks what the cloud README promises.
+
+**Evidence** (verified 2026-09-14 16:50 ET on the live PC, adapter pid 35568, main `c61d3e8`)
+- `aaca82b` added the LEASE PROTOCOL in `api/qqq_exec.py` (big comment block next to
+  `LEASE_STALE_SEC`). Every status publish to Firestore `users/{uid}/meta/qqq_exec` is also the
+  lease renewal (`_Publisher._do_set` stamps `doc["lease"] = {host_id, leased_at}`). Another host
+  may claim the lease once the stamp is older than `LEASE_STALE_SEC` = 90 s (`_lease_claimable` /
+  `_claim_lease`).
+- `ae9842d` then throttled publishes in `_should_publish`: while the broker mirror is armed
+  (PAPER/LIVE) at least every `publish_interval_armed_sec` = 20 s (fine), but while it is OFF,
+  every `publish_interval_session_sec` = 60 s in the session and every
+  `publish_interval_offhours_sec` = 600 s outside it, unless the fingerprint changes.
+- Result: with the broker OFF, outside market hours the running host's lease stamp is older than
+  90 s most of the time. Observed live: stamp age 89.8 s at 16:48:31 ET, last publish 16:47:02.
+- Consequence 1: a second host (the planned Oracle VM, `deploy/cloud/`) can claim the lease while
+  the PC is still running, and both shadow books run until the PC's next publish (up to 10 min),
+  which is a compare-and-set that then stands the PC down.
+- Consequence 2, worse for the migration: `deploy/cloud/README.md` section "Two machines, one
+  shadow book", checklist step 7, promises "a relaunched copy is refused for as long as the VM
+  holds the lease". Off-hours the VM's own stamp is stale too, so the PC runner's relaunch (every
+  runner restart via `ensure_standalone`, and `tools/premarket_ensure.py` at 06:05 local) would
+  claim the lease and take the book back overnight.
+- In-session OFF (60 s) stays under 90 s, but with only ~25 s of margin.
+
+**The task**
+Make lease freshness independent of the status-publish throttle without giving back most of the
+write savings. Two candidate designs; pick one and justify it in the protocol comment:
+- **(a) Advertised cadence.** The holder advertises its renewal cadence in the lease (e.g.
+  `lease.renew_every_sec` = the interval `_should_publish` is using), and claimers treat a lease as
+  stale only after `max(LEASE_STALE_SEC, ~1.5 x that cadence)`. Zero extra writes; off-hours
+  takeovers become slow (fine, nothing trades off-hours). Check every reader: `_check_lease`,
+  `_lease_claimable`, `_check_lease_for_broker` (own-stale rule uses `LEASE_HOLD_SEC` 60 s),
+  `_LeaseHolder.write_mode` / `within_hold` / `send_gate`, and the loop's suspended-gap re-claim.
+- **(b) Lease-only renewal.** A small merge write of just the lease field (compare-and-set when
+  outside the hold bound) whenever the throttled publish would leave the stamp older than ~45 s.
+
+Either way, keep the fail-open (shadow book) / fail-closed (real orders) split and the armed 20 s
+cadence, and update the README section's wording if the timing it describes changes.
+
+**Done when**
+- `tests/test_qqq_exec_lease.py` shows a running holder publishing at the off-hours cadence is
+  never claimable by another host, and a genuinely dead holder is still claimable in bounded time.
+- `tools/qqq_failover_sim.py` has a scenario "G: throttled holder's lease looks stale off-hours"
+  that prints GAP PRESENT on main before the fix and "gap closed" after it. The existing A/B/C
+  stay GAP PRESENT and D/E/F stay closed.
+- `python tools/qqq_failover_sim.py` and the qqq_exec tests pass, and the Linux CI job shows no
+  new failures. Baseline at hand-off: 35 pre-existing webull-SDK failures; if the CI fix lands
+  first, compare against main as it stands after that.
+- This item reads DONE and the memory note `qqq-cross-host-failover-state` records the fix.
+
+**Constraints**
+- Work in your own worktree (`python tools/wt.py new <name>`) and never commit in the shared
+  checkout. Backend-only changes may push direct to main; no `index.html` VERSION bump needed.
+- Never restart the live QQQ adapter (`python -m api.qqq_exec --serve`) during 09:25-16:05 ET,
+  and only while it holds no open lot.
+- Other sessions were changing `api/qqq_exec.py`, its tests and the failover sim on 2026-09-14
+  (runner fallback honoring the lease, exits tied to their trade, adapter tests writing live broker
+  state). Rebase onto the newest main before shipping.
+- Noted 2026-09-14, not re-checked: a test that calls `tick()` without stubbing the broker adapter
+  re-saves the LIVE `C:\EdgeLog\webull_orders\state.json`, so stub it in the new tests. And if a sim
+  scenario flips to "gap closed" without a fix aimed at it, check the simulated orders actually
+  flowed before believing it (`1ed627e` once made A and C pass vacuously).
