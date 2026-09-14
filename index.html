@@ -722,7 +722,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.787';
+const VERSION='73.788';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -740,7 +740,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.786',date:'2026-09-14',notes:['BUILDER β run summary typo: the XL scope now reads an 18-month lockbox instead of a 18-month lockbox.']},
+const CHANGELOG=[{v:'73.788',date:'2026-09-14',notes:['WEBULL PAPER TRADING -- ORDER CONNECTION STATUS. The STATUS card now has an ORDERS section in plain language: OFF / PAPER / LIVE / BLOCKED / HALTED with the reason, how much of the daily stop has been used today with a bar, the share size per strategy, which computer is running the order connection and whether the one-computer check is OK, and the last order and last error. Shows Order status not reported yet until the runner publishes the new fields.']},
+{v:'73.786',date:'2026-09-14',notes:['BUILDER β run summary typo: the XL scope now reads an 18-month lockbox instead of a 18-month lockbox.']},
 {v:'73.785',date:'2026-09-14',notes:['BUILDER β - A ROBINHOOD-STYLE BUILDER, AS A NEW TAB NEXT TO BUILDER (owner: go for the rebuild, add it as a subtab, migrate it once we like it and retire the old one). The same strategies and the same saved settings, laid out as an order ticket: one Backtest / Optimize / Validate / AI switch, only the settings that run type uses, a picture of the data window with the lockbox hatched on the end, and one big Run button that stays in view. The queue sits on the right with the latest result on top, and folds into a pill on iPad. BUILDER itself looks and works exactly as before.','BUILDER and BUILDER β now build every job with the same code, so the two tabs queue identical jobs for the same settings (checked across all 8 run types).','BUILDER β also fixes three BUILDER annoyances: the Validate time estimate uses the scope trials and years (BUILDER counts the hidden Trials box), a job progress update no longer wipes a number you are typing, and settings a run type ignores are not shown.']},
 {v:'73.783',date:'2026-09-14',notes:['RUNBOARD SIDEWAYS SHOWS THE RUNBOARD. Turning the RUNBOARD grid horizontal used to swap it for the old COMPARE metric table, whose rows ignore the SAMPLE control: its drawdown row was the in-sample optimise-window drawdown whatever sample was picked, and it had no MAR row at all on LOCKBOX or FULL. Horizontal now draws the grid own rows turned on their side - runs down, measures across - so every figure follows SAMPLE exactly as the vertical grid does, with the same ~ marks, best marks and heat. The band captions ride on each measure heading hover.']},{v:'73.782',date:'2026-09-14',notes:['LEVEL = ALL SHOWS THE SWEEPS AND THE AUTO-VALIDATE RUNS TOGETHER (owner: when I select ALL to see both the auto-validate configs and the sweeps, I get nothing). ALL listed research-registry rows only - the sweeps and the write-ups that cite a run - so it never held a real run or configuration, and on Sortino with walk-forward ticked none of those rows had a figure to plot. ALL now puts the sweeps beside the runs from Past Runs, and with SHOW on CONFIGS beside the configurations of the runs you tick; SHOW and RUNS appear on ALL as on AUTO VAL, and the strategy rail counts both.','Two things to expect. With SHOW on RUNS, a registry write-up is replaced by its run once every run it cites is loaded in Past Runs - the rule AUTO VAL has always used - while a write-up of an older run outside the loaded slice stays. With SHOW on CONFIGS no run rows are drawn, so every write-up stays beside the sweeps and the configurations of the runs you tick. Nothing that was on ALL before disappears. And a sweep records no Sharpe, Sortino or walk-forward money, and since v73.771 a run row has no walk-forward Sortino either, so on those axes the chart draws the configurations; the sweeps and runs stay in the table and are named under the chart.']},{v:'73.780',date:'2026-09-14',notes:['PAPER TRADE, NT8 FUTURES - ROBINHOOD MAKEOVER (owner: give it a better Robinhood UI makeover and make most of the info fit on one screen). One big net number with ONE bold line for all switched-on strategies together (each strategy stays as a faint line behind it) - hover the chart and the big number follows the cursor, day by day. 1W / 1M / All are tabs under the chart. A stats grid (trades, win rate, profit factor, average trade / win / loss, best and worst day, max drawdown, green days) sits beside a compact calendar. The strategy list moved to a right-hand rail, like the Webull QQQ view: filters shrink to two segmented lines and three pills, rows are tighter and each net is a coloured pill. Same numbers, same filters, same trade table and panels underneath.']},
 {v:'73.779',date:'2026-09-14',notes:['CORRECTION TO v73.775 - sized hybrids on EXPLORE follow your option A. v73.775 sized every stretch of a HYBRID recycled or HYBRID equal-DD row against its own unsized twin, calling that the run report rule. It was the report OLD rule: on 2026-09-13 you chose option A, and the report 1E tables have sized a column ONCE for the ticked sample since v73.772, so the stretch rows add up to TOTAL. The EXPLORE board now does exactly the same.','How the one size is chosen, identical to the report: the engine block for the ticked pick against its own unsized twin; for a pick with no engine block (IN-SAMPLE + LOCKBOX) REDEPLOY uses the exact trade counts over the ticked stretches and EQUAL-DD the whole-run size. Every dollar figure and the drawdown use that one size, so the in-sample, walk-forward and lockbox money add up and the MAR hover no longer needs to explain a gap. That includes TOTAL on these rows - the whole run at the ticked sample size - and its hover now says so. Consequence you accepted: a stretch figure changes when another stretch is ticked.']},{v:'73.778',date:'2026-09-14',notes:['WEBULL PAPER TRADING (owner: rename it to webull paper trading). The WEBULL QQQ view under PAPER TRADE was headed QQQ Shadow Book; it now reads Webull Paper Trading, and the word shadow is gone from its labels (status line, chart notes, trade drawer). Nothing else changed.']},
@@ -31172,6 +31173,154 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '<div class="qb-card qb-sec-status"><div class="qb-section-hd">Status</div><div class="qb-status-grid">'+items.join('')+'</div></div>';
         })();
 
+        // ── 4. ORDERS (2026-09-14, "show the ORDER CONNECTION's state on the phone so a
+        // halt or block is visible" -- see api/webull_orders.py OrderAdapter, mirrored
+        // into every qqq_exec tick by _mirror_to_broker). Reads QE.broker (built by
+        // api/qqq_exec.py::_build_broker_status, commits eee0253/bfdec9a) and QE.lease
+        // (this host's own heartbeat, same commits). Both fields are BRAND NEW -- an
+        // older doc, or a publisher that has not picked up that code yet, will not carry
+        // QE.broker at all, so this degrades to one plain line instead of a blank section
+        // or a crash. Plain language only, no field names/code words on screen
+        // (CLAUDE.md); state is carried by WORDS plus the pill's fill/border, never
+        // colour alone -- the owner runs the mono theme, where --green/--red have no hue,
+        // so every branch below still reads correctly with zero hue (--attn-red/-amber/
+        // -ok are defined identically in every theme for exactly this reason).
+        const qbOrdersHtml=(()=>{
+          try{
+            const BR=(QE&&QE.broker)||null;
+            if(!BR||BR.error){
+              return '<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Orders</div>'
+                +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>'
+                +'</div>';
+            }
+
+            // -- plain-English rewrite of the backend's own reason strings (halt_reason /
+            // lease_block_reason / a blocked order's reason / a degraded mode_reason).
+            // Anything unrecognised still shows via the fallback -- never blank.
+            const plainReason=(raw,fallback)=>{
+              const s=String(raw||'');
+              if(/reconcile mismatch/i.test(s))return 'positions at Webull don'+"'"+'t match the notebook';
+              if(/kill file/i.test(s))return 'a safety switch was thrown by hand';
+              if(/^lease unverifiable/i.test(s))return 'can'+"'"+'t confirm this is the only computer trading';
+              if(/holds a fresh lease/i.test(s))return 'another computer is currently trading';
+              if(/daily loss limit hit/i.test(s))return 'the daily loss stop has been hit';
+              if(/exceeds max_shares_per_leg/i.test(s))return 'the order was larger than the per-strategy share limit';
+              if(/exceeds max_total_position_shares/i.test(s))return 'it would push total shares over the cap';
+              if(/outside session window/i.test(s))return 'it was outside the trading session window';
+              if(/already has an open position/i.test(s))return 'this strategy already has an open position';
+              if(/no paper credentials|paper requested but no paper/i.test(s))return 'no Webull paper trading key is on file yet';
+              if(/arm file missing/i.test(s))return 'live trading has not been armed yet';
+              if(/no live credentials|but no live/i.test(s))return 'no Webull live trading key is on file yet';
+              return s||(fallback||'no reason given');
+            };
+            const modePill=(txt,col,filled)=>'<span style="font-size:11px;font-weight:800;letter-spacing:.05em;padding:5px 12px;border-radius:999px;white-space:nowrap;border:1.5px solid '+col+';color:'+(filled?'var(--bg)':col)+(filled?';background:'+col:'')+'">'+txt+'</span>';
+
+            const mode=BR.effective_mode||'OFF';
+            const requested=BR.requested_mode||mode;
+            let pillTxt,pillCol,filled,sentence;
+            if(BR.halted){
+              pillTxt='HALTED';pillCol='var(--attn-red)';filled=true;
+              sentence='Orders halted: '+plainReason(BR.halt_reason)+'.';
+            }else if((mode==='PAPER'||mode==='LIVE')&&BR.lease_ok_to_send===false){
+              pillTxt='BLOCKED';pillCol='var(--attn-amber)';filled=true;
+              sentence='Orders paused: '+plainReason(BR.lease_block_reason)+'.';
+            }else if(mode==='LIVE'){
+              pillTxt='LIVE';pillCol='var(--text)';filled=true;
+              sentence='Real money — orders are sent to the live Webull account.';
+            }else if(mode==='PAPER'){
+              pillTxt='PAPER';pillCol='var(--attn-ok)';filled=true;
+              sentence='Sending orders to the Webull paper (practice) account.';
+            }else{
+              pillTxt='OFF';pillCol='var(--text4)';filled=false;
+              sentence=(requested!=='OFF'&&requested!==mode)
+                ?('Set to '+requested+', but '+plainReason(BR.mode_reason)+' — nothing is being sent yet.')
+                :'Simulated only — no orders are sent anywhere.';
+            }
+            const modeRow='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px">'
+              +modePill(pillTxt,pillCol,filled)
+              +'<span style="font-size:13px;color:var(--text2)">'+sentence+'</span></div>';
+
+            // -- today's loss vs the daily stop. Reuses todayPnl/rails/dllLimitAbs/
+            // dllNearLimit already computed above (the RAILS panel + More-stats row read
+            // the exact same numbers) rather than the broker's own daily_pnl tracker,
+            // which nothing feeds yet (update_daily_pnl has no caller in qqq_exec.py as
+            // of this build, so it would always read $0 -- see the ship report).
+            let lossRow='';
+            if(dllLimitAbs!=null){
+              const used=Math.abs(Math.min(0,todayPnl));
+              const usedPct=Math.min(100,Math.round(used/dllLimitAbs*100));
+              const stopTripped=todayPnl<=-dllLimitAbs;
+              const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
+              lossRow='<div style="margin-bottom:10px">'
+                +'<div style="font-size:13px;color:var(--text2)">'+qeMoney(-used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'
+                +(stopTripped?' — <b style="color:var(--attn-red)">stopped for the day</b>':'')+'</div>'
+                +'<div class="qb-bar"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
+                +'</div>';
+            }
+
+            // -- size: shares per strategy trade (rails.shares is keyed per leg, same as
+            // the RAILS footer panel below) + the per-strategy cap (one number).
+            const shObj=rails.shares||{};
+            const shVals=['ORB','ENGUQ','NOISE'].map(k=>shObj[k]).filter(v=>v!=null);
+            const shSame=shVals.length&&shVals.every(v=>v===shVals[0]);
+            const shTxt=!shVals.length?null
+              :shSame?(qeInt(shVals[0])+' shares per strategy trade')
+              :('ORB '+naS(shObj.ORB)+' · ENGU-Q '+naS(shObj.ENGUQ)+' · NOISE '+naS(shObj.NOISE)+' shares per trade');
+            const sizeRow=(shTxt||rails.max_shares_per_leg!=null)
+              ?('<div style="font-size:13px;color:var(--text2);margin-bottom:10px">'
+                +(shTxt||'—')
+                +(rails.max_shares_per_leg!=null?(' · up to '+qeInt(rails.max_shares_per_leg)+' shares open in one strategy at a time'):'')
+                +'</div>')
+              :'';
+
+            // -- which computer, and the one-computer check. QE.lease is republished
+            // every tick by whichever host is currently running (see api/qqq_exec.py
+            // _lease_host_id); lease_ok_to_send is the send-time check and reads true in
+            // OFF mode by construction (nothing is gated there yet).
+            const hostTxt=(QE.lease&&QE.lease.host_id)?String(QE.lease.host_id).replace(/</g,'&lt;'):null;
+            const leaseOk=BR.lease_ok_to_send!==false;
+            const hostRow='<div style="font-size:13px;color:var(--text2);margin-bottom:10px">'
+              +'Running on <b style="color:var(--text)">'+(hostTxt||'an unknown computer')+'</b>'
+              +' · one-computer check '+(leaseOk?'<span style="color:var(--attn-ok)">OK</span>'
+                :('<span style="color:var(--attn-amber)">'+plainReason(BR.lease_block_reason)+'</span>'))
+              +'</div>';
+
+            // -- last order + last error. legDisplay/sideWord reuse the SAME leg labels
+            // and side vocabulary the rest of this tab already shows (QE_LEGS above) --
+            // never the raw ORB/ENGUQ/BUY/SELL code values.
+            const legDisplay=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
+            const sideWord=s=>({BUY:'bought',SELL:'sold',SHORT:'shorted'}[String(s||'').toUpperCase()]||null);
+            const LO=BR.last_order||{};
+            const loHasAny=LO.leg||LO.symbol||LO.side||LO.qty!=null;
+            const loStatusWord=(()=>{
+              const m=String(LO.mode||'').toUpperCase();
+              if(!m)return null;
+              if(m==='OFF')return 'recorded only, nothing sent';
+              if(m==='BLOCKED')return 'blocked';
+              if(m==='ERROR')return 'failed';
+              if(LO.ok===false)return 'not confirmed';
+              return 'sent';
+            })();
+            const lastOrderLine=!loHasAny?'No order has been attempted yet.'
+              :('Last order: '+legDisplay(LO.leg)+', '+(sideWord(LO.side)||'traded')+' '+qeInt(LO.qty)+' shares'
+                +(loStatusWord?(' — '+loStatusWord):'')
+                +((LO.mode==='BLOCKED'||LO.mode==='ERROR'||LO.ok===false)&&LO.reason?(' ('+plainReason(LO.reason)+')'):'')
+                +'.');
+            const lastErrLine=BR.last_error?('Last error: '+plainReason(BR.last_error)+'.'):'';
+            const lastRow='<div style="font-size:13px;color:var(--text3);line-height:1.6">'
+              +lastOrderLine+(lastErrLine?('<br>'+lastErrLine):'')
+              +'</div>';
+
+            return '<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Orders</div>'
+              +modeRow+lossRow+sizeRow+hostRow+lastRow
+              +'</div>';
+          }catch(e){
+            return '<div class="qb-card qb-sec-orders"><div class="qb-section-hd">Orders</div>'
+              +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>'
+              +'</div>';
+          }
+        })();
+
         // ── 3. STAT TILES + "More stats" -- same four headline numbers a Robinhood
         // position screen leads with, then the FULL RATIOS/PERFORMANCE/RISK set the old
         // sidebar rail carried, unchanged labels, behind a disclosure.
@@ -31291,6 +31440,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         body='<div class="qb-shell">'
           +qbHeroHtml
           +qbStatusHtml
+          +qbOrdersHtml
           +equityHtml
           +qbStatsCard
           +readinessCompactHtml
