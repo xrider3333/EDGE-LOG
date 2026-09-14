@@ -21,7 +21,9 @@ reproducible across machines — matching the app's _HAS_OPTUNA=False fallback p
 """
 import inspect
 import math
+import os
 import random as _random
+import threading
 
 from .strategies import load_strategy, _resolve, strategy_params
 from .data import find_master, load_master_arrays
@@ -722,22 +724,82 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
     return row
 
 
+# How long _run_folds_parallel waits for the pool to START (create the executor + submit
+# every fold) before giving up. Overridable for a machine that needs more headroom.
+_WF_POOL_BOOT_TIMEOUT_S = float(os.environ.get("EDGELOG_WF_POOL_TIMEOUT_S", "60"))
+
+
+def _boot_wf_pool(specs, nproc, strategy, master, date_from, date_to, arrays_to_send,
+                  cost_pts, session):
+    """Create the fold pool and submit every fold. Split out of _run_folds_parallel so it
+    can be run on its own thread (see _WF_POOL_BOOT_TIMEOUT_S below) and so a test can
+    swap it for a fake that never returns without touching real multiprocessing."""
+    from concurrent.futures import ProcessPoolExecutor
+    from . import wf_pool as WP
+    ex = ProcessPoolExecutor(max_workers=nproc, initializer=WP.init_worker,
+                             initargs=(strategy, master, date_from, date_to, arrays_to_send,
+                                       cost_pts, session))
+    futs = [ex.submit(WP.fold_task, s) for s in specs]
+    return ex, futs
+
+
 def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, cost_pts,
                         session, space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
                         workers, progress_cb, n_total):
     """Drive wf_pool: one process per fold up to `workers`. Progress is reported per
-    finished fold (a fold is n_trials of the total). Rows come back in fold order."""
-    from concurrent.futures import ProcessPoolExecutor, as_completed
-    from . import wf_pool as WP
+    finished fold (a fold is n_trials of the total). Rows come back in fold order.
+
+    Windows spawn note (2026-09-14). Starting a worker hands it its bootstrap data over a
+    pipe (multiprocessing.reduction.dump, stdlib) with no timeout of its own. Observed on
+    the owner's PC: with the live runner fleet (5+ processes) saturating the machine, the
+    OS was slow enough scheduling the brand-new child that this write blocked the parent
+    forever — 0% CPU, no exception, nothing for a `try` to catch. That is a gap in
+    concurrent.futures/multiprocessing on Windows under heavy contention, not a defect in
+    the fold logic itself (folds are still bit-identical to the sequential loop, and
+    GitHub Actions forks and never hits this — ~98s for the whole suite every time).
+    _WF_POOL_BOOT_TIMEOUT_S bounds ONLY the pool-creation + submit step, run on a daemon
+    thread so a stall raises TimeoutError instead of hanging; run_auto already catches any
+    exception out of this function and reruns the folds in-line (see the comment above its
+    call site), so the caller still gets correct, identical rows, just not the parallel
+    speedup for that call. See tests/test_wf_parallel.py::
+    test_parallel_pool_boot_timeout_falls_back_to_sequential.
+    """
+    from concurrent.futures import as_completed
     nproc = max(1, min(int(workers), len(fold_specs)))
     specs = [(f, s0, s1, t0, t1, space, dp, pkeys, seed, n_trials, min_trades)
              for (f, s0, s1, t0, t1) in fold_specs]
+
+    boot = {}
+    abandoned = threading.Event()
+
+    def _boot():
+        try:
+            ex, futs = _boot_wf_pool(specs, nproc, strategy, master, date_from, date_to,
+                                     arrays_to_send, cost_pts, session)
+        except BaseException as exc:
+            boot["error"] = exc
+            return
+        if abandoned.is_set():
+            ex.shutdown(wait=False, cancel_futures=True)   # caller already gave up
+            return
+        boot["ex"], boot["futs"] = ex, futs
+
+    t = threading.Thread(target=_boot, name="wf-pool-boot", daemon=True)
+    t.start()
+    t.join(_WF_POOL_BOOT_TIMEOUT_S)
+    if t.is_alive():
+        abandoned.set()
+        raise TimeoutError(
+            "walk-forward pool: starting %d worker process(es) did not complete within "
+            "%.0fs (Windows spawn handshake stalled -- usually OS scheduling contention, "
+            "e.g. the runner fleet saturating the machine)" % (nproc, _WF_POOL_BOOT_TIMEOUT_S))
+    if "error" in boot:
+        raise boot["error"]
+    ex, futs = boot["ex"], boot["futs"]
+
     rows = {}
     done = 0
-    with ProcessPoolExecutor(max_workers=nproc, initializer=WP.init_worker,
-                             initargs=(strategy, master, date_from, date_to, arrays_to_send,
-                                       cost_pts, session)) as ex:
-        futs = [ex.submit(WP.fold_task, s) for s in specs]
+    with ex:
         try:
             for fut in as_completed(futs):
                 f, row = fut.result()
