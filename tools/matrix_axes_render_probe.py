@@ -69,6 +69,9 @@ WHAT IT ASSERTS
     the saved equity curve, the larger of the two per-stretch drawdowns, or their
     sum - a run saved before the engine wrote that block keeps the curve read,
     marked with the degree sign
+  * on the HYBRID recycle tab every dollar row sizes a column ONCE for the ticked
+    SAMPLE (v73.772), so IS $ + WF $ + LB $ add up to TOTAL - current run, old run, and a
+    pick that skips a stretch
 
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE.
 Stdlib plus a subprocess call to local Chrome - and augur_engine/analytics.py (numpy,
@@ -683,6 +686,11 @@ CASES = [
     ('ml-hyb-iswf', 908, {'cfgTab': 'hyb', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
     ('ml-hyb-wflb', 908, {'cfgTab': 'hyb', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'wf,lb'}),
     ('ml-tilt-iswf-old', 923, {'cfgTab': 'tilt', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
+    # v73.772 (option A): the recycle tab sizes each column once for the ticked SAMPLE, so its
+    #   stretch rows add up to TOTAL - a current run, a pick that skips WF, and the old run.
+    ('ml-hyb2-iswf', 908, {'cfgTab': 'hyb2', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
+    ('ml-hyb2-islb', 908, {'cfgTab': 'hyb2', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,lb'}),
+    ('ml-hyb2-iswf-old', 923, {'cfgTab': 'hyb2', 'mtxView': 'table', 'mtxCols': 'both', 'g2samp': 'is,wf'}),
     # -- the 1A CONFIG FUNNEL, ALL CONFIGS on.
     ('funnel-gatecand', 906, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
     ('funnel-hybrcy', 907, {'repCols': '3', 'eqTab': 'funnel', 'a2cfgAll': 1}),
@@ -2011,6 +2019,54 @@ def main():
         if n_ok == len(rcols):
             print('  %-16s %d of %d columns keep the marked curve read on an old run'
                   % ('ml-tilt-iswf-old', n_ok, len(rcols)))
+
+    # -- 12. THE RECYCLE TAB'S STRETCH ROWS ADD UP TO TOTAL (v73.772, owner option A). REDEPLOY
+    #    sizes a hybrid column up until it spends as many contracts as the no-gate book. v73.768
+    #    sized TOTAL and DD once for the ticked SAMPLE but left IS $ / WF $ / LB $ on a separate
+    #    size per stretch, so run #384's rf hybrid read IS $49k + WF $565k beside TOTAL $746k.
+    #    Every dollar row must now use ONE size: no-gate trades over the ticked stretches divided
+    #    by the trades the column kept there. The szcand / gate_validate fixture makes the per-
+    #    stretch sizes (IS 700/560, WF 600/460, LB 100/95) differ from the pick's, so the old
+    #    rows print a different $k figure.
+    def _kfmt(v):
+        a = abs(v)
+        body = ('%d' % int(a / 1000.0 + 0.5)) if a >= 10000 else ('%.1f' % (a / 1000.0))
+        return ('-$' if v < 0 else '$') + body + 'k'
+
+    def _usdk(txt):
+        m_ = re.match(r'^(-)?\$([0-9.]+)k$', (txt or '').replace('\u00b0', '').strip())
+        return None if not m_ else (-1 if m_.group(1) else 1) * float(m_.group(2)) * 1000.0
+
+    _SEG = {'is': (66000.0, 560, 700), 'wf': (56000.0, 460, 600), 'lb': (9500.0, 95, 100)}
+    for cnm, segs in (('ml-hyb2-iswf', ('is', 'wf')), ('ml-hyb2-islb', ('is', 'lb')),
+                      ('ml-hyb2-iswf-old', ('is', 'wf'))):
+        f = sum(_SEG[g][2] for g in segs) / float(sum(_SEG[g][1] for g in segs))
+        want = dict((g, _kfmt(_SEG[g][0] * f)) for g in segs)
+        want['TOTAL'] = _kfmt(sum(_SEG[g][0] for g in segs) * f)
+        want['AVG CONTRACTS'] = '%.2f\u00d7' % f
+        cells = (cs.get(cnm) or {}).get('cells') or {}
+        cols = [k for k in cells if k.startswith('hyb2:')]
+        if len(cols) < 2:
+            bad.append('%s: no recycle columns rendered (%s)' % (cnm, sorted(cells.keys())))
+            continue
+        n_ok = 0
+        for k in cols:
+            rows = cells[k]
+            got = {'is': _row(rows, 'IS'), 'wf': _row(rows, 'WF'), 'lb': _row(rows, 'LB'),
+                   'TOTAL': _row(rows, 'TOTAL'), 'AVG CONTRACTS': _row(rows, 'AVG CONTRACTS')}
+            errs = ['%s %r, expected %r' % (w.upper(), (got.get(w) or '').strip(), want[w])
+                    for w in want if (got.get(w) or '').strip() != want[w]]
+            parts = [_usdk(got.get(g)) for g in segs]
+            tot = _usdk(got.get('TOTAL'))
+            if None not in parts and tot is not None and abs(sum(parts) - tot) > 1000.5:
+                errs.append('stretch rows sum to %.0f against TOTAL %.0f' % (sum(parts), tot))
+            if errs:
+                bad.append('%s: column %s - %s' % (cnm, k, '; '.join(errs)))
+            else:
+                n_ok += 1
+        if n_ok == len(cols):
+            print('  %-16s %d of %d recycle columns: %s = TOTAL %s at one size %s'
+                  % (cnm, n_ok, len(cols), ' + '.join(want[g] for g in segs), want['TOTAL'], want['AVG CONTRACTS']))
 
     if bad:
         print('1E AXES PROBE: FAIL')
