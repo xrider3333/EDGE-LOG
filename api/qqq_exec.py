@@ -167,7 +167,37 @@ DEFAULT_CONFIG = {
     # relaunch that the engine does not confirm are ignored (marked STARTUP-SUSPECT in
     # orders.csv, never silently dropped) -- see _relaunch_recently/_engine_confirms_entry.
     "startup_guard_minutes": 5,
+    # FIRESTORE THROTTLE (2026-09-14, FIX 1 -- see _publish_fingerprint/_should_publish):
+    # the FULL doc is published immediately on a meaningful change, otherwise at most
+    # once per interval. Two DIFFERENT regimes, chosen by whether the broker is armed:
+    # while OFF (no send-gate risk, see _should_publish), shorter during the trading
+    # session, much longer outside it; once PAPER/LIVE, publish_interval_armed_sec
+    # applies instead of BOTH of those, because every publish also renews this
+    # process's cross-host lease and a real broker send self-blocks once that renewal
+    # goes stale beyond LEASE_SEND_MAX_AGE_SEC (30s) -- see _should_publish's docstring.
+    "publish_interval_session_sec": 60,
+    "publish_interval_offhours_sec": 600,
+    "publish_interval_armed_sec": 20,
+    # LEASE VERIFY CACHE (2026-09-14): _check_lease_for_broker's Firestore READ is
+    # cached for this many seconds instead of being re-read every 5s tick.
+    "lease_verify_interval_sec": 30,
+    # BROKER RECONCILE (2026-09-14, FIX 2 -- see _maybe_run_broker_reconcile): how
+    # often, at most, the periodic (non-event-triggered) reconcile runs while the
+    # tick loop is in its active market window. Always ALSO runs at boot and right
+    # after any broker order this tick attempted to send, regardless of this value.
+    "broker_reconcile_interval_min": 5,
 }
+
+
+def _cfg_num(cfg, key, default):
+    """float(cfg[key]) with a safe fallback to `default` -- every throttle/interval
+    knob added 2026-09-14 is owner-editable in config.json but must never be able to
+    crash a tick over a typo (a string, a blank, a negative)."""
+    try:
+        v = float((cfg or {}).get(key, default))
+        return v if v > 0 else default
+    except (TypeError, ValueError):
+        return default
 
 # NT SIZING GAP (feature #50): $ per 1.00-point move of the underlying futures contract
 # (NOT the tick value -- a full point), keyed by the contract root from nt_sync.get_base.
@@ -186,6 +216,29 @@ DAYS_REQUIRED = 10
 PUBLISH_TIMEOUT_SEC = 8.0
 PUBLISH_FAIL_LOG_COOLDOWN_SEC = 10 * 60
 TICK_GAP_WARN_SEC = 120.0
+
+# FIRESTORE WRITE/READ THROTTLE (2026-09-14, FIX 1). Module-level defaults for every
+# cfg override above (_cfg_num reads cfg first, falls back to these) -- kept as real
+# constants (not just dict literals) so tests and tools can reference them by name,
+# same convention as LEASE_STALE_SEC below.
+PUBLISH_INTERVAL_SESSION_SEC = 60.0
+PUBLISH_INTERVAL_OFFHOURS_SEC = 600.0
+# Applies instead of the two above once the broker is armed (PAPER/LIVE) -- see
+# _should_publish's docstring: every publish also renews this process's cross-host
+# lease (aaca82b's _LeaseHolder), and a real order self-blocks once that renewal is
+# older than LEASE_SEND_MAX_AGE_SEC (30s), so this must stay safely under that.
+PUBLISH_INTERVAL_ARMED_SEC = 20.0
+LEASE_VERIFY_INTERVAL_SEC = 30.0
+# Hourly Firestore usage line (writes/reads this adapter issued) -- see
+# _track_fs_write/_track_fs_read/_maybe_log_fs_usage.
+FS_USAGE_LOG_INTERVAL_SEC = 60 * 60.0
+# BROKER RECONCILE (FIX 2). RECONCILE_HARD_TIMEOUT_SEC bounds the ENTIRE
+# adapter.reconcile() call to a wall-clock limit on its own worker thread -- same
+# precaution as QUOTE_HARD_TIMEOUT_SEC above for Webull quote calls (2026-09-03
+# postmortem: this SDK's own connect/read timeouts are not reliably honoured on every
+# call path; the runner's shadow thread once hung 10 hours inside get_snapshot).
+RECONCILE_HARD_TIMEOUT_SEC = 12.0
+BROKER_RECONCILE_INTERVAL_MIN = 5.0
 
 
 # -- small time helpers ------------------------------------------------------------
@@ -318,6 +371,29 @@ def _default_state():
         "tick_gap_max_s_today": 0.0,
         "_tick_gap_day": None,
         "_last_tick_wall": None,
+        # FIRESTORE THROTTLE (2026-09-14, FIX 1): _check_lease_for_broker's own
+        # Firestore READ is cached here instead of re-read every 5s tick -- see
+        # _lease_verify_cached.
+        "_lease_verify_at": 0.0,
+        "_lease_verify_ok": True,
+        "_lease_verify_reason": None,
+        # FIRESTORE USAGE COUNTERS (2026-09-14): logged once/hour, see
+        # _maybe_log_fs_usage. "_today"/"_day" reset at the ET day boundary exactly
+        # like publish_fail_today above; "_hour" resets every FS_USAGE_LOG_INTERVAL_SEC.
+        "_fs_writes_today": 0, "_fs_reads_today": 0, "_fs_usage_day": None,
+        "_fs_writes_hour": 0, "_fs_reads_hour": 0, "_fs_usage_hour_at": None,
+        # BROKER RECONCILE (2026-09-14, FIX 2): _reconcile_due is set True the moment
+        # any broker order this tick attempted to send (PAPER/LIVE) -- see
+        # _mirror_to_broker -- so the NEXT tick runs reconcile immediately rather than
+        # waiting for the periodic interval. _last_broker_reconcile_at tracks that
+        # periodic cadence, see _maybe_run_broker_reconcile.
+        "_reconcile_due": False,
+        "_last_broker_reconcile_at": 0.0,
+        # BROKER DAILY P&L WIRING (2026-09-14): feeds webull_orders.OrderAdapter's own
+        # (previously dead) update_daily_pnl() -- see _sync_broker_daily_pnl.
+        "_broker_pnl_day": None,
+        "_broker_pnl_tracked": 0.0,
+        "_broker_pnl_source": None,
     }
 
 
@@ -857,6 +933,13 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0,
     _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
                              "ok": rec.get("ok"), "reason": row["reason"]}
+    if rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+        # BROKER RECONCILE (2026-09-14, FIX 2): a real send was just attempted (ok or
+        # not) -- have _maybe_run_broker_reconcile run reconcile() on the VERY NEXT
+        # tick rather than waiting for the periodic interval. Set here (not read here)
+        # so this never depends on _mirror_to_broker's own call order relative to the
+        # housekeeping block later in tick().
+        state["_reconcile_due"] = True
     if rec.get("mode") not in (None, "OFF") and not rec.get("ok", False):
         log(f"[qqq-exec] broker {intent} for {leg} NOT ok (mode={rec.get('mode')}): "
             f"{row['reason']}")
@@ -878,6 +961,14 @@ def _build_broker_status(state=None, log=print):
         return {"error": f"{type(e).__name__}: {e}"}
     last_order = st.get("last_order") or {}
     state = state or {}
+    last_order_ts = last_order.get("ts")
+    last_order_ts_et = None
+    if last_order_ts is not None:
+        try:
+            last_order_ts_et = (datetime.fromtimestamp(float(last_order_ts), _NY) if _NY
+                                else datetime.utcfromtimestamp(float(last_order_ts))).isoformat()
+        except (TypeError, ValueError, OSError):
+            last_order_ts_et = None
     return {
         "requested_mode": st.get("requested_mode"),
         "effective_mode": st.get("effective_mode"),
@@ -896,6 +987,10 @@ def _build_broker_status(state=None, log=print):
             "intent": last_order.get("intent"), "mode": last_order.get("mode"),
             "ok": last_order.get("ok"), "sent": last_order.get("sent"),
             "reason": last_order.get("reason") or last_order.get("error"),
+            # NEW (2026-09-14): ISO-8601 US/Eastern timestamp of the last order --
+            # see coordinator's field list; every existing last_order.* key above is
+            # untouched.
+            "ts_et": last_order_ts_et,
         },
         "daily_pnl": st.get("daily_pnl"),
         "open_legs": st.get("open_legs"),
@@ -906,7 +1001,225 @@ def _build_broker_status(state=None, log=print):
         # ever gated.
         "lease_ok_to_send": bool(state.get("_broker_lease_ok", True)),
         "lease_block_reason": state.get("_broker_lease_reason"),
+        # RECONCILE HARDENING (2026-09-14, FIX 2) -- new, additive fields only:
+        "last_reconcile_at": st.get("last_reconcile_at"),
+        "last_reconcile_result": st.get("last_reconcile_result"),
+        # DAILY P&L WIRING (2026-09-14) -- which source fed update_daily_pnl() this
+        # tick, see _sync_broker_daily_pnl.
+        "daily_pnl_source": state.get("_broker_pnl_source"),
     }
+
+
+# -- broker daily P&L wiring (2026-09-14) --------------------------------------------
+# api.webull_orders.OrderAdapter.update_daily_pnl() existed since the rail was built
+# but nothing ever called it, so daily_loss_limit_usd could never trip. Fed here, once
+# per tick, from whichever source is actually available -- see _compute_broker_daily_pnl.
+def _broker_realized_today(today, log=print):
+    """(realized_total, any_broker_priced) from today's BROKER_ORDERS_CSV rows for
+    mode PAPER/LIVE with ok truthy -- FIFO pairs each leg's OPEN with its next CLOSE
+    using the row's own broker_fill_px (the documented `filled_price`, see
+    api.webull_orders.order_status_fields()/1ed627e) when present, falling back to
+    shadow_px for that one row when the broker didn't echo a fill price back yet.
+    `any_broker_priced` is True only if at least one row actually had a real
+    broker_fill_px -- see _compute_broker_daily_pnl for why that distinction decides
+    the reported source. Never raises; a CSV read problem returns (0.0, False)."""
+    realized = 0.0
+    any_broker_priced = False
+    open_px_by_leg = {}
+    try:
+        with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except Exception:
+        return 0.0, False
+    for row in rows:
+        if str(row.get("ts_et") or "")[:10] != today:
+            continue
+        if row.get("mode") not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            continue
+        if str(row.get("ok")) != "True":
+            continue
+        try:
+            shares = float(row.get("shares") or 0)
+        except (TypeError, ValueError):
+            continue
+        if shares <= 0:
+            continue
+        px_raw = row.get("broker_fill_px")
+        if px_raw not in (None, ""):
+            any_broker_priced = True
+        else:
+            px_raw = row.get("shadow_px")
+        try:
+            px = float(px_raw)
+        except (TypeError, ValueError):
+            continue
+        leg = row.get("leg")
+        if row.get("intent") == "OPEN":
+            existing = open_px_by_leg.get(leg)
+            if existing and existing.get("side") == row.get("side"):
+                # A second OPEN mirror on the same leg before any CLOSE (should not
+                # happen under one_open_position_per_leg, but average defensively
+                # rather than silently overwrite the earlier fill's price).
+                tot = existing["shares"] + shares
+                existing["px"] = (existing["px"] * existing["shares"] + px * shares) / tot
+                existing["shares"] = tot
+            else:
+                open_px_by_leg[leg] = {"px": px, "side": row.get("side"), "shares": shares}
+        elif row.get("intent") == "CLOSE" and leg in open_px_by_leg:
+            # Decrement rather than pop-on-first-row: a leg can be closed across
+            # MULTIPLE partial CLOSE mirrors (ninjatrader signal_source mode's partial
+            # exits) -- each one closes only part of what's still recorded open here.
+            opened = open_px_by_leg[leg]
+            side_mult = 1 if opened["side"] == "BUY" else -1
+            closed_shares = min(shares, opened["shares"])
+            realized += (px - opened["px"]) * side_mult * closed_shares
+            opened["shares"] -= closed_shares
+            if opened["shares"] <= 1e-9:
+                open_px_by_leg.pop(leg, None)
+    return round(realized, 2), any_broker_priced
+
+
+def _compute_broker_daily_pnl(state, adapter, log=print):
+    """(pnl, source). PREFERRED source="broker_fills": today's realized P&L computed
+    from broker_orders.csv's own recorded fills (see _broker_realized_today) plus an
+    unrealized mark, for whatever legs the broker still holds open, taken from the
+    shadow book's own per-leg mark (state["_unrl_by_leg"]) -- both sides trade the
+    identical QQQ position 1:1 (see _mirror_to_broker), so this is a network-free,
+    reasonable proxy for a live broker quote rather than a second Webull call every
+    tick. FALLBACK source="shadow_fallback" (no PAPER/LIVE broker activity recorded
+    today at all, so there is nothing broker-side to compute from yet): the shadow
+    book's own today realized+unrealized across every leg. Never raises."""
+    try:
+        today = _now_et().strftime("%Y-%m-%d")
+        realized, any_broker_priced = _broker_realized_today(today, log=log)
+        if any_broker_priced:
+            unrl_by_leg = state.get("_unrl_by_leg") or {}
+            open_legs = adapter.status().get("open_legs") or []
+            unrealized = sum(float(unrl_by_leg.get(leg, 0.0) or 0.0) for leg in open_legs)
+            return round(realized + unrealized, 2), "broker_fills"
+    except Exception as e:
+        log(f"[qqq-exec] broker-fill P&L calc failed ({type(e).__name__}: {e}) -- "
+            "falling back to the shadow book's own today figures")
+    shadow_realized = float(state.get("realized_pnl_today", 0.0) or 0.0)
+    shadow_unrealized = sum((state.get("_unrl_by_leg") or {}).values())
+    return round(shadow_realized + shadow_unrealized, 2), "shadow_fallback"
+
+
+def _sync_broker_daily_pnl(state, adapter, nowdt, log=print):
+    """Feeds api.webull_orders.OrderAdapter.update_daily_pnl() so its
+    daily_loss_limit_usd rail (previously DEAD -- nothing ever called this) can
+    actually trip. Resets once per ET trading day (adapter.reset_daily_pnl()), same
+    boundary as the shadow book's own realized_pnl_today (_roll_day). Records the
+    figure as an absolute "today's total" by pushing update_daily_pnl() a DELTA from
+    the last value it pushed (tracked in state["_broker_pnl_tracked"]) -- update_daily_pnl
+    only knows how to accumulate a delta, so this converges it to the freshly
+    recomputed absolute total every tick rather than double-counting. Never raises."""
+    try:
+        today = nowdt.strftime("%Y-%m-%d")
+        if state.get("_broker_pnl_day") != today:
+            adapter.reset_daily_pnl()
+            state["_broker_pnl_day"] = today
+            state["_broker_pnl_tracked"] = 0.0
+        pnl, source = _compute_broker_daily_pnl(state, adapter, log=log)
+        prev = float(state.get("_broker_pnl_tracked", 0.0) or 0.0)
+        delta = pnl - prev
+        if abs(delta) > 1e-9:
+            adapter.update_daily_pnl(delta)
+        state["_broker_pnl_tracked"] = pnl
+        state["_broker_pnl_source"] = source
+    except Exception as e:
+        log(f"[qqq-exec] broker daily P&L sync failed (non-fatal): {type(e).__name__}: {e}")
+
+
+# -- broker reconcile scheduling (2026-09-14, FIX 2) ---------------------------------
+_reconcile_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                             thread_name_prefix="qqq-reconcile")
+
+
+def _reconcile_with_timeout(adapter, log=print):
+    """adapter.reconcile() bounded to RECONCILE_HARD_TIMEOUT_SEC wall-clock, same
+    precaution as default_webull_quote's QUOTE_HARD_TIMEOUT_SEC (2026-09-03: this
+    SDK's own connect/read timeouts are not reliably honoured on every call path --
+    the runner's shadow thread once hung 10 hours inside get_snapshot). A timeout (or
+    any other unexpected crash escaping reconcile()'s own guarded fetch) is treated
+    exactly like reconcile()'s documented read-failure path: fail closed via
+    adapter.fail_closed(), because reconcile() itself is guaranteed thread-safe (see
+    OrderAdapter's own lock) even if the underlying network call is still running in
+    the background after this function gives up waiting on it."""
+    fut = _reconcile_executor.submit(adapter.reconcile)
+    try:
+        return fut.result(timeout=RECONCILE_HARD_TIMEOUT_SEC)
+    except concurrent.futures.TimeoutError:
+        reason = f"can't read positions at Webull: reconcile timed out after {RECONCILE_HARD_TIMEOUT_SEC:g}s"
+        log(f"[qqq-exec] {reason} -- halting new broker entries")
+        return adapter.fail_closed(reason)
+    except Exception as e:
+        reason = f"can't read positions at Webull: reconcile crashed ({type(e).__name__}: {e})"
+        log(f"[qqq-exec] {reason} -- halting new broker entries")
+        return adapter.fail_closed(reason)
+
+
+def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
+    """Runs adapter.reconcile() (see api.webull_orders.OrderAdapter.reconcile's own
+    docstring for what it checks and how it fails closed) -- at boot (see
+    _reconcile_broker_at_boot, called once before the tick loop starts, independently
+    of this scheduler), immediately after this tick attempted to send any broker order
+    (state["_reconcile_due"], set by _mirror_to_broker below), and otherwise at most
+    once every broker_reconcile_interval_min minutes while `active` (the tick loop's
+    own 09:25-16:05 ET market window) -- never on the 5s tick cadence, to stay
+    cache-friendly with Webull's rate limits. A pure no-op (no Webull call at all, see
+    reconcile()'s own OFF-mode short-circuit) once effective_mode() is OFF."""
+    try:
+        mode, _ = adapter.effective_mode()
+    except Exception as e:
+        log(f"[qqq-exec] broker reconcile scheduling skipped (effective_mode failed): "
+            f"{type(e).__name__}: {e}")
+        return
+    if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+        return  # OFF -- no broker to reconcile against, no network call, ever.
+
+    due, why = False, None
+    if state.get("_reconcile_due"):
+        due, why = True, "post-order"
+    else:
+        interval_sec = max(30.0, _cfg_num(cfg, "broker_reconcile_interval_min",
+                                          BROKER_RECONCILE_INTERVAL_MIN) * 60.0)
+        last = float(state.get("_last_broker_reconcile_at", 0) or 0)
+        if active and time.time() - last >= interval_sec:
+            due, why = True, "periodic"
+    if not due:
+        return
+
+    state["_reconcile_due"] = False
+    state["_last_broker_reconcile_at"] = time.time()
+    result = _reconcile_with_timeout(adapter, log=log)
+    if result is None:
+        return
+    if result.get("ok"):
+        log(f"[qqq-exec] broker reconcile OK ({why})")
+    else:
+        reason = result.get("error") or result.get("mismatches")
+        kind = "READ FAILURE" if result.get("error") else "MISMATCH"
+        log(f"[qqq-exec] BROKER RECONCILE {kind} ({why}) -- new broker entries "
+            f"halted: {reason}")
+        _log_event(state, "broker_reconcile_halt",
+                  f"Broker reconcile {kind.lower()} -- new broker entries halted: {reason}",
+                  log=log)
+
+
+def _run_broker_housekeeping(state, cfg, nowdt, active, log=print):
+    """ONE consolidated _get_broker_adapter() call per tick feeding both the daily P&L
+    wiring and the reconcile scheduler above -- kept as a single call site so adding
+    these two independent, Firestore-free concerns doesn't multiply how many times
+    tick() touches the broker adapter singleton. Never raises."""
+    try:
+        adapter = _get_broker_adapter(log=log)
+    except Exception as e:
+        log(f"[qqq-exec] broker housekeeping skipped (adapter unavailable): "
+            f"{type(e).__name__}: {e}")
+        return
+    _sync_broker_daily_pnl(state, adapter, nowdt, log=log)
+    _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=log)
 
 
 # -- pricing ---------------------------------------------------------------------------
@@ -2669,6 +2982,63 @@ def _record_publish_result(state, ok, err=None, log=print):
         log(f"[qqq-exec] publish result tracking failed: {type(e).__name__}: {e}")
 
 
+# -- FIRESTORE USAGE COUNTERS (2026-09-14, FIX 1) ------------------------------------
+# Plain attempt counts (not a Firestore-side audit) -- cheap, in-state bookkeeping so
+# the owner can see roughly how many writes/reads this host is issuing per hour/day
+# without opening the Firebase console. Logged once/hour by _maybe_log_fs_usage,
+# called once per tick from tick() itself.
+def _track_fs_write(state, n=1):
+    try:
+        state["_fs_writes_today"] = int(state.get("_fs_writes_today", 0) or 0) + n
+        state["_fs_writes_hour"] = int(state.get("_fs_writes_hour", 0) or 0) + n
+    except Exception:
+        pass
+
+
+def _track_fs_read(state, n=1):
+    try:
+        state["_fs_reads_today"] = int(state.get("_fs_reads_today", 0) or 0) + n
+        state["_fs_reads_hour"] = int(state.get("_fs_reads_hour", 0) or 0) + n
+    except Exception:
+        pass
+
+
+def _maybe_log_fs_usage(state, log=print):
+    """Once per FS_USAGE_LOG_INTERVAL_SEC (~hourly), print + reset the hour bucket;
+    the day bucket rolls at the ET calendar day like publish_fail_today. The FIRST
+    call ever only SEEDS the hour clock (no log line, no reset) -- state["_fs_usage_
+    day"]/["_fs_usage_hour_at"] start unset (None), which is distinguishable from a
+    genuine prior day/hour, unlike testing a numeric bucket for truthiness (0 is a
+    legitimate count, not "never happened"). Never raises -- a usage-counter bug must
+    never affect trading logic."""
+    try:
+        today = _now_et().strftime("%Y-%m-%d")
+        prior_day = state.get("_fs_usage_day")
+        if prior_day is not None and prior_day != today:
+            state["_fs_writes_today"] = 0
+            state["_fs_reads_today"] = 0
+        state["_fs_usage_day"] = today
+
+        now = time.time()
+        last = state.get("_fs_usage_hour_at")
+        if last is None:
+            state["_fs_usage_hour_at"] = now   # first call ever -- seed only
+            return
+        if now - float(last) < FS_USAGE_LOG_INTERVAL_SEC:
+            return
+        w_hr = int(state.get("_fs_writes_hour", 0) or 0)
+        r_hr = int(state.get("_fs_reads_hour", 0) or 0)
+        w_day = int(state.get("_fs_writes_today", 0) or 0)
+        r_day = int(state.get("_fs_reads_today", 0) or 0)
+        log(f"[qqq-exec] Firestore usage last hour: writes={w_hr} reads={r_hr} "
+            f"(today so far: writes={w_day} reads={r_day})")
+        state["_fs_usage_hour_at"] = now
+        state["_fs_writes_hour"] = 0
+        state["_fs_reads_hour"] = 0
+    except Exception as e:
+        log(f"[qqq-exec] Firestore usage tracking failed: {type(e).__name__}: {e}")
+
+
 class _Publisher:
     """Owns every Firestore write this adapter makes, on a SINGLE dedicated background
     thread, so a slow or failing publish can never again stall the 5s tick loop.
@@ -2830,47 +3200,151 @@ def _plain_set(ref, doc, single_attempt=False, top_level_merge=False):
 _publisher = _Publisher()
 
 
-def _should_publish(state, doc, force=False):
-    """True if `doc` differs from the last-published hash, or `force`, or 60s have
-    passed since the last publish -- unchanged throttle logic from the old `_publish`,
-    just factored out so both the sync and async publish paths share it."""
-    payload = json.dumps(doc, sort_keys=True, default=str)
-    h = str(hash(payload))
+def _publish_fingerprint(doc):
+    """A stable content signature of `doc`, used by _should_publish to decide whether
+    THIS tick's publish is a MEANINGFUL CHANGE worth sending immediately (2026-09-14,
+    FIX 1).
+
+    THE BUG THIS FIXES: hashing the WHOLE doc (the old approach) never actually
+    throttled anything, because doc["updated_at"] and doc["lease"]["leased_at"] are
+    reassigned to the current wall-clock time on EVERY tick -- so the hash differed
+    every single tick regardless of whether anything real happened, at up to 17,280
+    ticks/day. Simply excluding those two timestamp fields is not enough either: several
+    OTHER fields legitimately change nearly every tick too (feed_days' per-tick
+    counters, live-quote-derived price_status, per-leg unrealized marks, the health/
+    tick-gap counters, ratio history) and would silently re-defeat the throttle the
+    same way. So this is a deliberate ALLOWLIST of discrete/structural fields, not
+    "whole doc minus a blocklist" -- exactly the "meaningful change" list from the fix
+    spec: a lot opened/closed, an order sent/filled/rejected, a rail tripped, a
+    halt/block toggled, mode change, a new signal consumed, staleness state flip.
+    Everything else rides the periodic interval instead (see _should_publish)."""
+    positions = {leg: {"side": p.get("side"), "shares": p.get("shares")}
+                for leg, p in (doc.get("positions") or {}).items()}
+    broker = doc.get("broker") or {}
+    last_order = broker.get("last_order") or {}
+    last_reconcile = broker.get("last_reconcile_result") or {}
+    today = doc.get("today") or {}
+    return {
+        "mode": doc.get("mode"),
+        "signal_source": doc.get("signal_source"),
+        "feed_stale": doc.get("feed_stale"),
+        "px_feed_stale": doc.get("px_feed_stale"),
+        "breaker_tripped": doc.get("breaker_tripped"),
+        "kill": doc.get("kill"),
+        "positions": positions,
+        "orders_count_today": len(today.get("orders") or []),
+        "trades_count_today": len(today.get("trades") or []),
+        "events_count": len(doc.get("events") or []),
+        "broker_requested_mode": broker.get("requested_mode"),
+        "broker_effective_mode": broker.get("effective_mode"),
+        "broker_halted": broker.get("halted"),
+        "broker_halt_reason": broker.get("halt_reason"),
+        "broker_last_order": {"leg": last_order.get("leg"), "side": last_order.get("side"),
+                              "qty": last_order.get("qty"), "intent": last_order.get("intent"),
+                              "mode": last_order.get("mode"), "ok": last_order.get("ok"),
+                              "sent": last_order.get("sent")},
+        "broker_lease_ok_to_send": broker.get("lease_ok_to_send"),
+        "broker_last_reconcile_ok": last_reconcile.get("ok"),
+    }
+
+
+def _should_publish(state, doc, force=False, cfg=None):
+    """(should, hash, now). `should` is True if the doc's FINGERPRINT (see
+    _publish_fingerprint -- deliberately not the whole doc) differs from the
+    last-published one, or `force`, or the applicable interval has elapsed since the
+    last publish. Signature unchanged from before this fix (state, doc, force=) other
+    than the new OPTIONAL `cfg` -- every existing caller that doesn't pass it keeps
+    working off the module-level defaults.
+
+    INTERVAL DEPENDS ON WHETHER THE BROKER IS ARMED (2026-09-14, FIX 1, revised after
+    aaca82b's lease-renewal protocol landed): every ACTUAL publish is also this
+    process's lease renewal (_Publisher._do_set / _LeaseHolder) -- once broker mode is
+    PAPER/LIVE, api.webull_orders' own send gate (_LeaseHolder.send_gate) blocks a real
+    order the moment this host's last COMMITTED stamp is older than
+    LEASE_SEND_MAX_AGE_SEC (30s). So while armed, this ignores the configured session/
+    off-session intervals entirely (they would starve that renewal and self-block every
+    order) and instead publishes at least every publish_interval_armed_sec (default
+    20s, comfortably under that 30s bound). While NOT armed (OFF -- today's actual
+    setting, and the state at any point before the owner flips the switch), there is no
+    send-gate risk, so the original, more relaxed session(60s)/off-session(600s)
+    interval applies, both owner-configurable via cfg (see DEFAULT_CONFIG)."""
+    h = str(hash(json.dumps(_publish_fingerprint(doc), sort_keys=True, default=str)))
     now = time.time()
-    should = force or h != state.get("last_doc_hash") or now - state.get("last_publish", 0) >= 60
+    broker_mode = (doc.get("broker") or {}).get("effective_mode")
+    armed = broker_mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
+    if armed:
+        interval = _cfg_num(cfg, "publish_interval_armed_sec", PUBLISH_INTERVAL_ARMED_SEC)
+    else:
+        in_session = _in_market_window(_now_et())
+        interval = _cfg_num(cfg, "publish_interval_session_sec", PUBLISH_INTERVAL_SESSION_SEC) if in_session \
+            else _cfg_num(cfg, "publish_interval_offhours_sec", PUBLISH_INTERVAL_OFFHOURS_SEC)
+    should = force or h != state.get("last_doc_hash") or now - state.get("last_publish", 0) >= interval
     return should, h, now
 
 
-def publish_async(db, uid, doc, state, force=False, log=print):
+def publish_async(db, uid, doc, state, force=False, log=print, cfg=None):
     """Non-blocking publish for the live tick loop -- enqueues on the background
     _Publisher thread and returns immediately regardless of Firestore's health. Never
-    raises."""
+    raises. See _should_publish for the (2026-09-14, FIX 1) throttle this rides on --
+    every write that actually goes out still flows through the existing _Publisher /
+    _LeaseHolder machinery unchanged (this never bypasses it with a side-channel
+    write), so lease renewal semantics are exactly as before this fix."""
     try:
-        should, h, now = _should_publish(state, doc, force=force)
+        should, h, now = _should_publish(state, doc, force=force, cfg=cfg)
         if not should:
             return
         state["last_doc_hash"] = h
         state["last_publish"] = now
         _publisher.start(log=log)
         _publisher.submit(db, uid, doc, state, log=log)
+        _track_fs_write(state)
     except Exception as e:
         log(f"[qqq-exec] publish enqueue failed: {type(e).__name__}: {e}")
 
 
-def publish_now(db, uid, doc, state, force=True, log=print):
+def publish_now(db, uid, doc, state, force=True, log=print, cfg=None):
     """Synchronous publish for --once: the CLI process exits right after this call, so
     there is no later tick for the async publisher thread to flush a queued doc to. Still
     bounded to PUBLISH_TIMEOUT_SEC (via the same _Publisher.write_one path) so a dead
-    Firestore endpoint can't hang the CLI either."""
-    should, h, now = _should_publish(state, doc, force=force)
+    Firestore endpoint can't hang the CLI either. `force=True` by default (a manual
+    verification run should always publish), so this normally skips _should_publish's
+    interval logic entirely."""
+    should, h, now = _should_publish(state, doc, force=force, cfg=cfg)
     if not should:
         return
     state["last_doc_hash"] = h
     state["last_publish"] = now
     _publisher.write_one(db, uid, doc, state, log=log)
+    _track_fs_write(state)
 
 
 # -- one tick --------------------------------------------------------------------------------
+def _lease_verify_cached(db, uid, state, cfg, log=print):
+    """(ok, reason) -- same contract as _check_lease_for_broker, but the actual
+    Firestore READ only happens when the cached verdict (state["_lease_verify_*"])
+    is older than lease_verify_interval_sec (2026-09-14, FIX 1: default 30s, was
+    every single 5s tick, ~17k reads/day). A cache MISS (no prior verdict, or stale)
+    performs a fresh read and tracks it via _track_fs_read; a cache HIT reuses the
+    last verdict and reads nothing. Never raises -- a crash inside the cached check
+    fails CLOSED, exactly like _check_lease_for_broker's own contract."""
+    now = time.time()
+    age = now - float(state.get("_lease_verify_at", 0) or 0)
+    interval = _cfg_num(cfg, "lease_verify_interval_sec", LEASE_VERIFY_INTERVAL_SEC)
+    if state.get("_lease_verify_at") and age < interval:
+        return state.get("_lease_verify_ok", False), state.get("_lease_verify_reason")
+    try:
+        ok, reason = _check_lease_for_broker(db, uid, log=log)
+    except Exception as e:
+        ok, reason = False, f"lease unverifiable: check crashed ({type(e).__name__}: {e})"
+        log(f"[qqq-exec] broker lease check crashed ({type(e).__name__}: {e}) -- "
+            "failing CLOSED for broker sends this tick")
+    _track_fs_read(state)
+    state["_lease_verify_at"] = now
+    state["_lease_verify_ok"] = ok
+    state["_lease_verify_reason"] = reason
+    return ok, reason
+
+
 def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
          ratio_fn=default_ratio_calibration, cfg=None, state=None, force_calib=False,
          _now_wall=None, db=None, uid=None, log=print):
@@ -2923,17 +3397,17 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
                 "treating as armed and failing CLOSED for broker sends this tick")
             broker_mode = webull_orders.MODE_PAPER   # unknown -- assume the stricter case
         if broker_mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
-            try:
-                lease_ok, lease_reason = _check_lease_for_broker(db, uid, log=log)
-            except Exception as e:
-                lease_ok = False
-                lease_reason = f"lease unverifiable: check crashed ({type(e).__name__}: {e})"
-                log(f"[qqq-exec] broker lease check crashed ({type(e).__name__}: {e}) -- "
-                    "failing CLOSED for broker sends this tick")
-            # LEASE PROTOCOL step 5 (2026-09-14): the doc not naming another host is not
-            # enough for a lease-managed loop -- its OWN last committed stamp must be fresh
-            # too, or a host whose claim never landed could send. None = not lease-managed
-            # (a direct tick() call), which keeps the check above as the whole gate.
+            # LEASE VERIFY CACHE (2026-09-14, FIX 1): re-reads Firestore at most every
+            # lease_verify_interval_sec instead of every 5s tick -- see
+            # _lease_verify_cached's own docstring.
+            lease_ok, lease_reason = _lease_verify_cached(db, uid, state, cfg, log=log)
+            # LEASE PROTOCOL step 5 (2026-09-14, aaca82b): the doc not naming another
+            # host is not enough for a lease-managed loop -- its OWN last committed
+            # stamp must be fresh too, or a host whose claim never landed could send.
+            # None = not lease-managed (a direct tick() call), which keeps the cached
+            # check above as the whole gate. Always checked FRESH (cheap, local, no
+            # Firestore read) regardless of the cache above, so caching the doc-level
+            # check can never widen this tighter, always-current guard.
             local_gate = _LEASE.send_gate(uid)
             if lease_ok and local_gate is not None and not local_gate[0]:
                 lease_ok, lease_reason = local_gate
@@ -3072,6 +3546,15 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     if not kill_present:
         unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log)
 
+    # BROKER HOUSEKEEPING (2026-09-14): daily P&L wiring for webull_orders' own
+    # (previously dead) loss rail + FIX 2's reconcile scheduling. ONE
+    # _get_broker_adapter() call feeds both -- see _run_broker_housekeeping's own
+    # docstring for why this is consolidated into a single call site (keeping the
+    # broker adapter untouched when tick() is exercised with no db/uid at all is a
+    # SEPARATE, older guarantee -- see the CROSS-HOST LEASE block above -- this one is
+    # independent of Firestore entirely and always runs).
+    _run_broker_housekeeping(state, cfg, nowdt, active, log=log)
+
     # REPRICE MERGE (feature #48 half) + EOD PHONE SUMMARY (feature #55): both are
     # once-per-ET-day, time-gated jobs that must never block or crash a tick -- see
     # _maybe_run_reprice / _maybe_send_eod_summary for the schedule.
@@ -3079,6 +3562,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
     _maybe_send_eod_summary(state, doc, nowdt, log=log)
+    _maybe_log_fs_usage(state, log=log)
     save_state(state, log=log)
     return cfg, state, doc
 
@@ -3110,7 +3594,7 @@ def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
             f"realized={doc['today']['realized_pnl']} unrealized={doc['today']['unrealized_pnl']} "
             f"calib={doc.get('calib')}")
         if db is not None and uid:
-            publish_now(db, uid, doc, state, force=True, log=log)
+            publish_now(db, uid, doc, state, force=True, log=log, cfg=cfg)
             log(f"[qqq-exec] published users/{uid}/meta/qqq_exec "
                 f"(publish_fail_today={state.get('publish_fail_today', 0)})")
         return doc
@@ -3123,21 +3607,28 @@ def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
 def _reconcile_broker_at_boot(log=print):
     """Called once per process start (both the standalone serve() path and the
     in-runner-thread fallback share this function, since both are "startup" from the
-    broker adapter's point of view). Compares the broker's live positions against the
-    adapter's OWN belief -- which mirrors the shadow's open lots 1:1, since every shadow
-    open/close calls place_stock_order with the same leg/qty (see _mirror_to_broker) --
-    and halts new broker OPEN intents on any mismatch. Never raises: a reconcile problem
-    must not stop the shadow book itself from ticking."""
+    broker adapter's point of view). Compares the broker's live position against the
+    sum of this adapter's own lots that actually reached the broker (see
+    api.webull_orders.OrderAdapter.reconcile()'s own docstring) and halts new broker
+    OPEN intents on a mismatch OR a read failure/timeout (2026-09-14, FIX 2 -- this
+    used to only halt on a mismatch, silently doing nothing if the broker simply could
+    not be reached). See _maybe_run_broker_reconcile for the PERIODIC (not just boot)
+    half of this fix, run every tick thereafter. Never raises: a reconcile problem must
+    not stop the shadow book itself from ticking."""
     try:
         adapter = _get_broker_adapter(log=log)
-        result = adapter.reconcile()
+        result = _reconcile_with_timeout(adapter, log=log)
         if result is None:
             return  # OFF mode, or no broker client -- nothing to reconcile against
         if result.get("ok"):
             log("[qqq-exec] broker reconcile OK at boot")
+        elif result.get("error"):
+            log(f"[qqq-exec] BROKER RECONCILE READ FAILURE at boot -- the broker order "
+                f"adapter halts new entries until a later reconcile succeeds: "
+                f"{result.get('error')}")
         else:
             log(f"[qqq-exec] BROKER RECONCILE MISMATCH at boot -- the broker order "
-                f"adapter halts new entries until the owner clears its state: "
+                f"adapter halts new entries until a later reconcile succeeds: "
                 f"{result.get('mismatches')}")
     except Exception as e:
         log(f"[qqq-exec] broker reconcile at boot failed (non-fatal): {type(e).__name__}: {e}")
@@ -3211,7 +3702,7 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 cfg = load_config(log=log)
                 cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
                 for uid in uids:
-                    publish_async(db, uid, doc, state, log=log)
+                    publish_async(db, uid, doc, state, log=log, cfg=cfg2)
                 save_state(state, log=log)
                 _touch_serving_lock(log=log)
                 if on_tick is not None:
@@ -3254,9 +3745,23 @@ QQQ_EXEC_VBS = os.path.join(EDGELOG_HOME, "_run_qqq_exec.vbs")  # Windows launch
 # SERVING_LOCK above which only arbitrates between processes on the SAME machine. Two
 # machines (the owner's PC and the future Oracle Cloud VM) could each pass their own
 # local serving_alive() check while both believing they own the account -- the shared
-# signal that actually spans hosts is the heartbeat this adapter already publishes to
-# Firestore (users/{uid}/meta/qqq_exec) every tick. See _check_lease / _build_doc's
-# "lease" field.
+# signal that actually spans hosts is the heartbeat this adapter publishes to Firestore
+# (users/{uid}/meta/qqq_exec). See _check_lease / _build_doc's "lease" field.
+#
+# THIS VALUE is left exactly as aaca82b tuned it (do not bump for FIX 1's Firestore
+# throttle, 2026-09-14): its whole renewal-timing bound (68s < 90s) already assumes
+# it. FIX 1 DOES widen how long this host can go quiet while the broker is OFF
+# (_should_publish backs the CONTENT interval off to publish_interval_offhours_sec,
+# default 600s) -- meaning another host COULD legitimately claim the lease and start
+# serving the shadow book within that window, sooner than the old ~5s-heartbeat
+# behaviour allowed. Accepted as safe because nothing real is at stake while OFF: no
+# broker order is ever gated on this doc's lease field in that mode (see
+# _mirror_to_broker/_check_lease_for_broker, both only consulted once armed), so the
+# worst case is a shadow-book bookkeeping handoff, not a duplicate real order. Once
+# armed (PAPER/LIVE), _should_publish switches to publish_interval_armed_sec (default
+# 20s, comfortably under LEASE_SEND_MAX_AGE_SEC) specifically so real publishes -- and
+# therefore lease renewals -- keep landing often enough that this bound is never
+# actually exercised while it would matter.
 LEASE_STALE_SEC = 90.0
 
 # LEASE PROTOCOL (2026-09-14). Until now the lease was advisory: serve() read it once, the

@@ -284,9 +284,16 @@ def _loop_env(tmp_path, monkeypatch, host):
 
     def fake_tick(**kw):
         env.ticks.append(time.time())
+        # events grows every call -- a STRUCTURAL change api/qqq_exec.py's
+        # _publish_fingerprint (2026-09-14, FIX 1) actually notices, unlike
+        # updated_at/leased_at (deliberately excluded -- see that function's own
+        # docstring): these tests want a publish on every tick to observe the
+        # claim/renewal machinery repeatedly, and a bare timestamp no longer forces
+        # that once the fingerprint ignores volatile timestamps.
         doc = {"mode": "SHADOW", "updated_at": repr(time.time()), "feed_stale": False,
                "breaker_tripped": False, "positions": {}, "calib": None,
                "today": {"realized_pnl": 0.0, "unrealized_pnl": 0.0},
+               "events": [None] * len(env.ticks),
                "lease": {"host_id": host, "leased_at": time.time()}}
         return kw.get("cfg") or {"mode": "SHADOW"}, kw.get("state") or {}, doc
 

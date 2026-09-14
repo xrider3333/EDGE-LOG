@@ -459,10 +459,13 @@ def test_tick_skips_lease_check_entirely_without_db_or_uid(tmp_path, monkeypatch
     neither db nor uid -- the NEW lease-gating block must not construct/consult the
     broker adapter at all in that case.
 
-    _build_doc's own PRE-EXISTING "broker" status block (see _build_broker_status)
-    still calls _get_broker_adapter() once, unconditionally, to report mode/creds/etc
-    -- that is not new, so this counts calls (expects exactly 1) rather than asserting
-    zero, to isolate "did the lease-gate block add a SECOND call" from that existing one."""
+    Two OTHER call sites are expected regardless of db/uid, both independent of
+    Firestore entirely: _build_doc's pre-existing "broker" status block (mode/creds/
+    etc for the doc), and 2026-09-14's _run_broker_housekeeping (daily P&L wiring +
+    FIX 2's reconcile scheduling -- see api/qqq_exec.py's own docstring on that
+    function for why it's ONE consolidated call site for both). This test counts
+    calls (expects exactly 2, not 0) to isolate "did the LEASE-GATE block specifically
+    add a call" from those two pre-existing/independent ones."""
     _tick_paths(tmp_path, monkeypatch)
 
     calls = []
@@ -475,6 +478,6 @@ def test_tick_skips_lease_check_entirely_without_db_or_uid(tmp_path, monkeypatch
     cfg, state, doc = qe.tick(cfg=_tick_cfg(tmp_path), state={"legs": {}},
                               now=_OUTSIDE_MARKET_HOURS, log=lambda *_: None)
     assert "_broker_lease_ok" not in state
-    assert len(calls) == 1, ("only _build_doc's pre-existing status block may call the "
-                             "broker adapter here -- the lease-gate block must skip it "
-                             "entirely when tick() is called without db/uid")
+    assert len(calls) == 2, ("only _build_doc's status block and _run_broker_housekeeping "
+                             "may call the broker adapter here -- the LEASE-GATE block "
+                             "must skip it entirely when tick() is called without db/uid")

@@ -75,9 +75,12 @@ max shares per leg, max total believed position (shares, summed across legs), a 
 loss limit fed by the caller via update_daily_pnl(), a session time window, a kill
 file (default C:\\EdgeLog\\webull_orders\\KILL, same pattern as api/qqq_exec.py's
 KILL flatten switch), one open position per leg, and reconcile() -- comparing the
-broker's live positions (PAPER mode) against what this adapter BELIEVES it holds from
-its own order history; a mismatch halts all new entries (CLOSE intents still pass)
-until the owner clears it by restarting the adapter's state.
+broker's live position (PAPER/LIVE) against the sum of this adapter's own lots that
+actually reached the broker (see reconcile()'s own docstring for why that is NOT the
+same as this module's "believed" bookkeeping). A mismatch, OR a failed/timed-out
+position read (2026-09-14: this used to silently do nothing), halts all new entries
+(CLOSE intents still pass) -- self-clearing once a LATER reconcile succeeds, or via a
+fresh adapter/state file, same as before.
 
 IDEMPOTENCY: client_order_id is derived deterministically from the caller's signal_id
 (sanitized, or a stable sha1 if it doesn't fit Webull's 40-char field) and every order
@@ -105,6 +108,7 @@ present"), file paths, and order/rail metadata.
 import hashlib
 import json
 import os
+import threading
 import time
 from datetime import datetime
 
@@ -487,7 +491,13 @@ def _load_state(path):
     except Exception:
         pass
     return {"orders": {}, "believed_positions": {}, "open_legs": {}, "daily_pnl": 0.0,
-            "instrument_ids": {}, "account_ids": {}}
+            "instrument_ids": {}, "account_ids": {},
+            # RECONCILE HARDENING (2026-09-14): orders that actually reached the
+            # broker (PAPER/LIVE, ok=True) -- deliberately SEPARATE from
+            # believed_positions, which also absorbs OFF-mode would-be orders (see
+            # reconcile()'s docstring for why that distinction matters).
+            "broker_sent_positions": {}, "last_reconcile_at": None,
+            "last_reconcile_result": None}
 
 
 def load_paper_keys(path=None):
@@ -582,9 +592,27 @@ class OrderAdapter:
         self._last_error = None
         self._halted = False
         self._halt_reason = None
+        # HALT SOURCE (2026-09-14, reconcile hardening): which mechanism raised the
+        # current halt -- "kill_file" or "reconcile". A periodic reconcile() that
+        # later succeeds must be able to self-clear a halt IT caused (see
+        # reconcile()'s recovery branch) WITHOUT ever silently clearing a kill-file
+        # halt, which only a fresh state file (or the file's removal, on the next
+        # rails check) may lift.
+        self._halt_source = None
+        # LOCK (2026-09-14, reconcile hardening): reconcile() is now also invoked
+        # from api/qqq_exec.py wrapped in a hard wall-clock timeout on its own
+        # worker thread (see that module's _reconcile_with_timeout, mirroring the
+        # same "SDK timeouts aren't always honoured" precaution already used for
+        # Webull quote calls) -- a slow/hung call can be ABANDONED by the caller
+        # while still running here in the background. Every method that mutates
+        # self._state (and therefore calls _save_state) takes this lock so that
+        # orphaned call can never race a place_stock_order()/reconcile() happening
+        # on the tick loop's own thread and corrupt state.json.
+        self._lock = threading.RLock()
         if os.path.exists(self._kill_file()):
             self._halted = True
             self._halt_reason = "kill file present at " + self._kill_file()
+            self._halt_source = "kill_file"
 
     # -- config path accessors --
     def _state_path(self):
@@ -788,6 +816,7 @@ class OrderAdapter:
         if os.path.exists(self._kill_file()):
             self._halted = True
             self._halt_reason = "kill file present at " + self._kill_file()
+            self._halt_source = "kill_file"
         if self._halted:
             return False, f"halted: {self._halt_reason}"
         max_shares = int(rails.get("max_shares_per_leg", 0) or 0)
@@ -821,16 +850,38 @@ class OrderAdapter:
             open_legs.pop(leg, None)
         self._save_state()
 
+    def _apply_intent_to_sent(self, leg, symbol, side, qty, account_id, intent):
+        """Tracks ONLY orders that actually reached the broker with a successful ack
+        (PAPER/LIVE, record["ok"] True) -- called from the SAME place_stock_order tail
+        as _apply_intent_to_belief above, which by construction is only reachable once
+        mode is PAPER or LIVE (the OFF branch returns earlier). Kept as a SEPARATE
+        dict from believed_positions (which also absorbs OFF-mode would-be orders)
+        because reconcile() must compare the broker's real position against what this
+        adapter actually SENT it, not against a belief that includes phantom OFF-mode
+        fills -- comparing against believed_positions would false-positive the moment
+        the config flips from OFF to PAPER/LIVE with any OFF-era belief still on the
+        books. See reconcile()'s own docstring."""
+        positions = self._state.setdefault("broker_sent_positions", {})
+        signed = qty if side == "BUY" else -qty  # SELL and SHORT both reduce/short
+        cur = positions.get(leg, {"symbol": symbol, "qty": 0, "account_id": account_id})
+        cur["qty"] = cur.get("qty", 0) + signed
+        cur["symbol"] = symbol
+        cur["account_id"] = account_id
+        positions[leg] = cur
+        self._save_state()
+
     def update_daily_pnl(self, delta):
         """Caller (the strategy / a fills sync) reports realized+open P&L deltas here
         so the daily_loss_limit_usd rail has something to check against. This adapter
         does not sync fills itself."""
-        self._state["daily_pnl"] = self._state.get("daily_pnl", 0.0) + float(delta)
-        self._save_state()
+        with self._lock:
+            self._state["daily_pnl"] = self._state.get("daily_pnl", 0.0) + float(delta)
+            self._save_state()
 
     def reset_daily_pnl(self):
-        self._state["daily_pnl"] = 0.0
-        self._save_state()
+        with self._lock:
+            self._state["daily_pnl"] = 0.0
+            self._save_state()
 
     def _record_order(self, coid, record):
         self._state.setdefault("orders", {})[coid] = record
@@ -861,77 +912,82 @@ class OrderAdapter:
         if intent not in ("OPEN", "CLOSE"):
             raise ValueError(f"intent must be OPEN or CLOSE, got {intent!r}")
 
-        coid = _sanitize_client_order_id(signal_id)
-        cached = (self._state.get("orders") or {}).get(coid)
-        if cached is not None:
-            self.log(f"  [webull-orders] duplicate signal {signal_id!r} -> "
-                     f"client_order_id {coid} already recorded (mode={cached.get('mode')}); "
-                     "not sending again")
-            out = dict(cached)
-            out["duplicate"] = True
-            return out
+        with self._lock:
+            coid = _sanitize_client_order_id(signal_id)
+            cached = (self._state.get("orders") or {}).get(coid)
+            if cached is not None:
+                self.log(f"  [webull-orders] duplicate signal {signal_id!r} -> "
+                         f"client_order_id {coid} already recorded (mode={cached.get('mode')}); "
+                         "not sending again")
+                out = dict(cached)
+                out["duplicate"] = True
+                return out
 
-        record = {"signal_id": signal_id, "leg": leg, "symbol": symbol, "side": side,
-                  "qty": qty, "intent": intent, "order_type": order_type,
-                  "limit_price": limit_price, "tif": tif, "client_order_id": coid,
-                  "ts": time.time()}
+            record = {"signal_id": signal_id, "leg": leg, "symbol": symbol, "side": side,
+                      "qty": qty, "intent": intent, "order_type": order_type,
+                      "limit_price": limit_price, "tif": tif, "client_order_id": coid,
+                      "ts": time.time()}
 
-        ok, reason = self._check_rails(leg, qty, intent)
-        if not ok:
-            record.update(mode="BLOCKED", ok=False, sent=False, reason=reason)
+            ok, reason = self._check_rails(leg, qty, intent)
+            if not ok:
+                record.update(mode="BLOCKED", ok=False, sent=False, reason=reason)
+                self._record_order(coid, record)
+                self._last_error = reason
+                self.log(f"  [webull-orders] BLOCKED {symbol} {side} {qty} (leg {leg}): {reason}")
+                return record
+
+            mode, mode_reason = self.effective_mode()
+            record["mode"] = mode
+
+            if mode == MODE_OFF:
+                record.update(ok=True, sent=False, reason=mode_reason)
+                self._record_order(coid, record)
+                self._apply_intent_to_belief(leg, symbol, side, qty, intent)
+                self._last_order = record
+                self.log(f"  [webull-orders] OFF -- recorded would-be order {symbol} {side} "
+                         f"{qty} (leg {leg}, signal {signal_id}); nothing sent ({mode_reason})")
+                return record
+
+            client = self._client(mode)
+            if client is None:
+                record.update(ok=False, sent=False, reason=f"no {mode} client ({mode_reason})")
+                self._record_order(coid, record)
+                self._last_error = record["reason"]
+                self.log(f"  [webull-orders] {mode} requested but no client -- {record['reason']}")
+                return record
+
+            try:
+                account_id = account_id or self._account_id(mode, client)
+                # v3 order dict (see module docstring, ORDER API VERSION): symbol-keyed, no
+                # instrument_id lookup needed. quantity/limit_price go over as STRINGS per
+                # the documented getting-started sample.
+                new_order = {
+                    "combo_type": "NORMAL", "client_order_id": coid, "symbol": symbol,
+                    "instrument_type": "EQUITY", "market": market, "order_type": order_type,
+                    "quantity": str(qty), "support_trading_session": "CORE", "side": side,
+                    "time_in_force": tif, "entrust_type": "QTY",
+                }
+                if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT", "AT_AUCTION_LIMIT") \
+                        and limit_price is not None:
+                    new_order["limit_price"] = str(limit_price)
+                resp = client.order_v3.place_order(account_id, [new_order])
+                record.update(ok=True, sent=True, account_id=account_id,
+                              response=_safe_response(resp))
+            except Exception as e:
+                record.update(ok=False, sent=True, error=f"{type(e).__name__}: {e}")
+                self._last_error = record["error"]
+                self.log(f"  [webull-orders] {mode} place_order FAILED for {symbol} "
+                         f"{side} {qty} (leg {leg}): {record['error']}")
+
             self._record_order(coid, record)
-            self._last_error = reason
-            self.log(f"  [webull-orders] BLOCKED {symbol} {side} {qty} (leg {leg}): {reason}")
-            return record
-
-        mode, mode_reason = self.effective_mode()
-        record["mode"] = mode
-
-        if mode == MODE_OFF:
-            record.update(ok=True, sent=False, reason=mode_reason)
-            self._record_order(coid, record)
-            self._apply_intent_to_belief(leg, symbol, side, qty, intent)
+            if record.get("ok"):
+                self._apply_intent_to_belief(leg, symbol, side, qty, intent)
+                # RECONCILE HARDENING (2026-09-14): only the "actually sent" side --
+                # see _apply_intent_to_sent's docstring for why this is a separate
+                # dict from believed_positions.
+                self._apply_intent_to_sent(leg, symbol, side, qty, record.get("account_id"), intent)
             self._last_order = record
-            self.log(f"  [webull-orders] OFF -- recorded would-be order {symbol} {side} "
-                     f"{qty} (leg {leg}, signal {signal_id}); nothing sent ({mode_reason})")
             return record
-
-        client = self._client(mode)
-        if client is None:
-            record.update(ok=False, sent=False, reason=f"no {mode} client ({mode_reason})")
-            self._record_order(coid, record)
-            self._last_error = record["reason"]
-            self.log(f"  [webull-orders] {mode} requested but no client -- {record['reason']}")
-            return record
-
-        try:
-            account_id = account_id or self._account_id(mode, client)
-            # v3 order dict (see module docstring, ORDER API VERSION): symbol-keyed, no
-            # instrument_id lookup needed. quantity/limit_price go over as STRINGS per
-            # the documented getting-started sample.
-            new_order = {
-                "combo_type": "NORMAL", "client_order_id": coid, "symbol": symbol,
-                "instrument_type": "EQUITY", "market": market, "order_type": order_type,
-                "quantity": str(qty), "support_trading_session": "CORE", "side": side,
-                "time_in_force": tif, "entrust_type": "QTY",
-            }
-            if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT", "AT_AUCTION_LIMIT") \
-                    and limit_price is not None:
-                new_order["limit_price"] = str(limit_price)
-            resp = client.order_v3.place_order(account_id, [new_order])
-            record.update(ok=True, sent=True, account_id=account_id,
-                          response=_safe_response(resp))
-        except Exception as e:
-            record.update(ok=False, sent=True, error=f"{type(e).__name__}: {e}")
-            self._last_error = record["error"]
-            self.log(f"  [webull-orders] {mode} place_order FAILED for {symbol} "
-                     f"{side} {qty} (leg {leg}): {record['error']}")
-
-        self._record_order(coid, record)
-        if record.get("ok"):
-            self._apply_intent_to_belief(leg, symbol, side, qty, intent)
-        self._last_order = record
-        return record
 
     def preview_stock_order(self, *, symbol, side, qty, order_type="MARKET",
                             limit_price=None, market="US", account_id=None,
@@ -1010,11 +1066,51 @@ class OrderAdapter:
             out["error"] = f"{type(e).__name__}: {e}"
         return out
 
+    def fail_closed(self, reason):
+        """Shared fail-closed bookkeeping for "the broker position read could not be
+        completed" -- called by reconcile()'s own except-branch below AND by an
+        external hard-timeout wrapper (api/qqq_exec.py's _reconcile_with_timeout,
+        which bounds the whole reconcile() call to a wall-clock limit the same way
+        default_webull_quote bounds a quote call -- see that module's 2026-09-03
+        postmortem on SDK timeouts not always being honoured). Halts new broker
+        entries (CLOSE intents still pass, see _check_rails) until a LATER reconcile
+        actually succeeds -- never raises."""
+        with self._lock:
+            now = time.time()
+            self._halted = True
+            self._halt_reason = reason
+            self._halt_source = "reconcile"
+            result = {"ok": False, "error": reason, "checked_at": now}
+            self._state["last_reconcile_at"] = now
+            self._state["last_reconcile_result"] = result
+            self._save_state()
+            self.log(f"  [webull-orders] RECONCILE READ FAILED -- halting new broker "
+                     f"entries: {reason}")
+            return result
+
     def reconcile(self, account_id=None, broker_positions_fn=None):
-        """Compare broker positions (PAPER/LIVE only) against this adapter's belief.
-        A mismatch halts all future OPEN intents (CLOSE still passes) until the state
-        file is cleared -- a fresh OrderAdapter with a fresh state file un-halts.
-        Returns None when there's no broker to reconcile against (OFF, or no client)."""
+        """Compare the broker's live position (PAPER/LIVE only) against the sum of
+        THIS adapter's own lots that actually reached the broker with a successful ack
+        -- broker_sent_positions, NOT believed_positions (which also absorbs OFF-mode
+        would-be orders: comparing against that would false-positive the instant the
+        config flips from OFF to PAPER/LIVE with any OFF-era belief still on record).
+
+        FAIL-CLOSED (2026-09-14): a read failure (network error, timeout, no client)
+        while mode is PAPER/LIVE is no longer treated as "nothing to report" -- it
+        HALTS new broker entries via fail_closed() above, exactly like a genuine
+        mismatch, because an unattended trial cannot tell "Webull is fine, no
+        discrepancy" apart from "Webull could not be asked" unless both failure modes
+        are treated the same way: assume the worse case and stop opening new real
+        positions until a later reconcile actually succeeds. CLOSE intents always
+        still pass (see _check_rails' unconditional CLOSE bypass) so a halt here can
+        never trap the strategy in a position it cannot exit.
+
+        RECOVERY: a subsequent reconcile() that both reads successfully AND matches
+        clears the halt -- but ONLY when this adapter itself raised it (halt_source
+        == "reconcile"); a kill-file halt is left completely alone.
+
+        Returns None when there's no broker to reconcile against at all (OFF mode) --
+        that is a legitimate no-network no-op, not a failure, see the OFF-mode test."""
         mode, _ = self.effective_mode()
         if mode not in (MODE_PAPER, MODE_LIVE):
             return None
@@ -1028,27 +1124,48 @@ class OrderAdapter:
                 account_id = account_id or self._account_id(mode, client)
                 broker = _positions_from_response(client.account_v2.get_account_position(account_id))
         except Exception as e:
-            self.log(f"  [webull-orders] reconcile fetch failed: {type(e).__name__}: {e}")
-            return None
+            return self.fail_closed(f"can't read positions at Webull: {type(e).__name__}: {e}")
 
-        believed_raw = self._state.get("believed_positions", {})
-        believed = {}
-        for leg, p in believed_raw.items():
-            sym = str(p.get("symbol", "")).upper()
-            if not sym:
-                continue
-            believed[sym] = believed.get(sym, 0.0) + float(p.get("qty", 0) or 0)
+        with self._lock:
+            sent_raw = self._state.get("broker_sent_positions", {})
+            sent = {}
+            for leg, p in sent_raw.items():
+                # Per-account (2026-09-14): a lot sent under a DIFFERENT account_id
+                # than the one this reconcile call just fetched positions for (e.g. a
+                # stale entry from before an account reset) must never be folded into
+                # THIS account's comparison.
+                if account_id is not None and p.get("account_id") not in (None, account_id):
+                    continue
+                sym = str(p.get("symbol", "")).upper()
+                if not sym:
+                    continue
+                sent[sym] = sent.get(sym, 0.0) + float(p.get("qty", 0) or 0)
 
-        syms = set(broker) | set(believed)
-        mismatches = [{"symbol": s, "broker": broker.get(s, 0.0), "believed": believed.get(s, 0.0)}
-                     for s in sorted(syms) if abs(broker.get(s, 0.0) - believed.get(s, 0.0)) > 1e-6]
-        ok = not mismatches
-        if not ok:
-            self._halted = True
-            self._halt_reason = f"reconcile mismatch: {mismatches}"
-            self.log(f"  [webull-orders] \u26a0 RECONCILE MISMATCH -- halting new entries: {mismatches}")
-        return {"ok": ok, "mismatches": mismatches, "broker": broker, "believed": believed,
-               "checked_at": time.time()}
+            syms = set(broker) | set(sent)
+            mismatches = [{"symbol": s, "broker": broker.get(s, 0.0), "shadow_sent": sent.get(s, 0.0)}
+                         for s in sorted(syms) if abs(broker.get(s, 0.0) - sent.get(s, 0.0)) > 1e-6]
+            ok = not mismatches
+            now = time.time()
+            if not ok:
+                reason = "reconcile mismatch vs Webull: " + "; ".join(
+                    f"{m['symbol']} broker={m['broker']:g} shadow_sent={m['shadow_sent']:g}"
+                    for m in mismatches)
+                self._halted = True
+                self._halt_reason = reason
+                self._halt_source = "reconcile"
+                self.log(f"  [webull-orders] \u26a0 RECONCILE MISMATCH -- halting new "
+                         f"entries: {reason}")
+            elif self._halt_source == "reconcile":
+                self._halted = False
+                self._halt_reason = None
+                self._halt_source = None
+                self.log("  [webull-orders] reconcile OK -- broker halt cleared")
+            result = {"ok": ok, "mismatches": mismatches, "broker": broker,
+                     "shadow_sent": sent, "account_id": account_id, "checked_at": now}
+            self._state["last_reconcile_at"] = now
+            self._state["last_reconcile_result"] = result
+            self._save_state()
+            return result
 
     # -- futures: staged, hard-disabled --
     def resolve_futures_contract(self, product_symbol, market="US"):
@@ -1083,6 +1200,11 @@ class OrderAdapter:
             "believed_positions": self._state.get("believed_positions", {}),
             "futures_enabled": bool(self.cfg.get("futures_enabled", False)),
             "rails": rails,
+            # RECONCILE HARDENING (2026-09-14) -- new, additive fields only:
+            "halt_source": self._halt_source,
+            "last_reconcile_at": self._state.get("last_reconcile_at"),
+            "last_reconcile_result": self._state.get("last_reconcile_result"),
+            "broker_sent_positions": self._state.get("broker_sent_positions", {}),
         }
 
 
