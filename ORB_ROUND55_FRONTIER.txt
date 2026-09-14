@@ -1,0 +1,80 @@
+ROUND 55 - expand the frontier opening-range leg inside the best book (2026-09-14)
+Drivers tools/r55_frontier_orb_leg.py and tools/r55b_bound_stop.py. House book engine, run #379's own
+leg definitions read from its job, only the opening-range slot changes. PARITY with #379: EXACT to the cent.
+
+1. THE TWO UPGRADES STACK (combined squeeze leg x3, only the opening-range slot differs)
+   opening-range leg        selection    sealed sealed net sealed DD     PF slices
+   #379 as run (ORB #314)       44.35     11.02     294142    26683  1.612      8
+   #234 control                 40.57     11.16     307096    27506  1.598      8
+   #297 frontier                43.72     12.07     306042    25357  1.607      8
+   Swapping #379's leg to #297: sealed 11.02 -> 12.07, +$11,900 sealed net, $1,326 shallower drawdown.
+   The crown in this slot is worse on the sealed year than even the old control (11.02 vs 11.16).
+
+2a. FILTER SURFACE, SEALED YEAR (rows = vol-regime filter, columns = volume-pace gate)
+vp     0.60   0.70   0.75   0.80   0.85   0.90   1.00
+atr                                                  
+0.60  11.02  11.01  10.91  11.74  11.65  13.03  10.84
+0.65  11.03  11.02  10.92  11.75  11.66  13.04  10.85
+0.70  11.17  11.16  11.06  11.90  11.82  13.16  10.96
+0.75  11.32  11.32  11.21  12.07  11.98  13.23  10.90
+0.80  11.38  11.38  11.27  12.14  12.19  13.31  11.18
+0.85  11.59  11.58  11.48  12.37  12.42  13.56  11.54
+0.90  11.28  11.27  11.17  12.81  12.91  13.12  11.35
+
+2b. FILTER SURFACE, SELECTION STRETCH (rows = vol-regime filter, columns = volume-pace gate)
+vp     0.60   0.70   0.75   0.80   0.85   0.90   1.00
+atr                                                  
+0.60  32.65  41.16  37.23  44.56  45.65  38.90  27.93
+0.65  32.43  40.87  36.98  44.29  45.39  38.59  27.65
+0.70  32.19  40.57  36.73  44.00  44.86  38.08  27.45
+0.75  32.00  40.37  36.58  43.72  44.59  37.87  27.34
+0.80  31.85  39.95  36.26  43.33  44.21  37.28  27.03
+0.85  31.58  39.58  35.91  42.76  43.73  36.88  27.67
+0.90  30.86  38.71  35.13  41.90  43.03  35.93  27.14
+
+3a. STOP x BREAKEVEN bound at #297's filters, SEALED YEAR
+be      0.4    0.6    0.8    1.0
+stop                            
+1.00  10.42  10.45  11.03  11.00
+1.25  11.37  11.82  11.44  12.40
+1.50  10.54  10.23  11.45  11.72
+1.75  12.06  11.94  13.04  12.53
+2.00  11.99  12.93  12.28  12.07
+2.25  10.60  11.70  11.48  11.17
+
+3b. STOP x BREAKEVEN bound at #297's filters, SELECTION STRETCH
+be      0.4    0.6    0.8    1.0
+stop                            
+1.00  48.44  46.92  49.84  52.10
+1.25  45.59  48.63  50.17  52.80
+1.50  42.89  48.26  51.24  51.51
+1.75  41.41  48.57  48.02  46.79
+2.00  40.49  45.85  46.14  43.72
+2.25  42.70  45.57  42.14  42.22
+
+READ
+1. The two independently confirmed upgrades stack. #379 with only its opening-range leg swapped to
+   #297 is the best book measured on the sealed year: 12.07 against 11.02, with more money and a
+   shallower drawdown, 8 of 8 slices. QUEUED as a real run so it shows in Past Runs.
+2. The vol-regime filter is a genuine ridge. Every column of the sealed-year surface rises smoothly
+   with it, and #297 sits inside that ridge, not on a lucky coarse sample.
+3. The volume-pace gate at 0.90 is a one-year artifact and was NOT used. It is the best column on the
+   sealed year (13.0-13.6 in every row) and the worst non-extreme column on the selection stretch
+   (36-39 against 42-45 either side of it). A knob value that wins one stretch and loses the other
+   that badly is catching specific trades, not a mechanism.
+4. The tighter stop is NOT a lead. Round 55's best geometry cells sat on the grid's edge at stop 1.75,
+   so round 55b pushed past the edge. The sealed year is jagged - 13.04 at stop 1.75, then 10.2-11.7 at
+   1.50, then 12.40 at 1.25 - which is noise, not a peak. The selection stretch keeps improving as the
+   stop tightens and never turns over, which is what fitting looks like on the stretch round 53 showed
+   does not predict the sealed year. Neither surface supports moving the stop.
+5. #297's own stop is the most stable row on the sealed surface: stop 2.0 spans 11.99-12.93 across every
+   breakeven tested, the narrowest band of any stop. Expanding the frontier strengthened #297 rather
+   than displacing it.
+DISCIPLINE: the sealed year was already used to pick #297 in round 53, so this sweep was read for shape
+and nothing in it was crowned. The queued book combines two upgrades that were each chosen before it.
+
+HOUSE SCORER CONFIRMATION (Past Runs, same window 2010-06-07..2026-06-30, sealed from 2025-06-30)
+  #366 adopted book      selection 38.18 | sealed 10.33  net $289,811  DD $28,066  PF 1.563  8/8
+  #379 rival book        selection 44.35 | sealed 11.02  net $294,142  DD $26,683  PF 1.612  8/8
+  #397 FRONTIER book     selection 43.72 | sealed 12.07  net $306,042  DD $25,357  PF 1.607  8/8
+  #397 = #379 with only the opening-range leg swapped to #297. Matches the local harness to the cent.
