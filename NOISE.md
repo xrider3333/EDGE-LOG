@@ -7,6 +7,34 @@
 
 ---
 
+## 🧪 2026-09-14 — ROUND 57 (part two): results so far, and single validates of the exact configs
+
+**Neighbourhood Auto-Validates (900 trials).** #386 NOISE-38 (#243 + hourly squeeze filter) PASS 6/6, PBO 0.385; #387
+NOISE-39 (crown + hourly squeeze filter) PASS 6/6, PBO 0.31; #388 NOISE-40 (crown settings on 15-minute bars) PASS 6/6,
+folds 8/8, PBO 0.321. **None crowned its own centre**: #386/#387 crowned the 30-minute gate again (the hourly centre ranked
+8th/7th of 27 on first-75% dollars, 1st of 27 on net over drawdown); #388 crowned lookback 36 / lower band 1.25 / stop 1.5 /
+skip 97.5, which on a continuous replay is worse than the centre on every quality number (PF 1.366 vs 1.446, 2024 on
+1.183 vs 1.356, last year 1.135 vs 1.347). A PC restart stranded N304C2 (at 92%) and C3N (at 68%); the relaunched runner's
+boot sweep re-queued both automatically.
+
+**Single validates (Gate-validate, one fixed config, lockbox sliced from one continuous run)**, queued by
+`tools/queue_noise_r57_single_validates.py`:
+
+| run | configuration | full window (ungated) | last year (ungated, continuous) |
+|---|---|---|---|
+| #390 NOISE-42 | crown + hourly squeeze filter | 615 trades, PF 2.351, $139,997 | 41 trades, PF 1.985, $22,619 |
+| #389 NOISE-41 | #243 + hourly squeeze filter | 586 trades, PF 2.233, $124,443 | not opened |
+| #391 NOISE-43 | crown settings on 15-minute bars | 3,011 trades, PF 1.446, $376,760 | not opened |
+| #393 NOISE-45 | crown settings waiting for 2 closes | 4,076 trades, PF 1.399, $373,896 | not opened |
+| #392 NOISE-44 | cost-robust corner C3 | 2,113 trades, PF 1.454, $208,391 | not opened |
+
+Read with care: the Past Runs headline of a Gate-validate is the chosen ML filter's number, not the plain config; and
+the lockbox is opened only when an ML filter earns on the pre-lockbox years (true for #390 only), so four of five carry
+no last-year numbers on EL. The plain full-window rows reproduce the round-56 scorecard (one extra trade where the
+window includes 2026-07-16).
+
+---
+
 ## 🧪 2026-09-13 — ROUND 57: the five never-validated configs are queued (900 trials each)
 
 Owner: *"some of these configs are in an auto validate, and some aren't - start auto validating them ... keep up
