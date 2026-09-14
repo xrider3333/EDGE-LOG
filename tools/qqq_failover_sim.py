@@ -15,7 +15,8 @@ EOD summary are stubbed. Nothing touches C:\EdgeLog, Firestore, Webull or the ow
 
     python tools/qqq_failover_sim.py
 
-SCENARIOS (result on main as of 2026-09-14 -- each prints GAP PRESENT until fixed):
+SCENARIOS (result on main as of 2026-09-14 -- each prints GAP PRESENT until fixed; D and E
+print "gap closed" since the LEASE PROTOCOL in api/qqq_exec.py, same day):
   A  PC dies holding an open lot -> VM takes over: VM skips the strategy EXIT (no lot), EOD
      flatten closes nothing, broker stays long overnight; boot reconcile halts every OPEN on
      every leg (and index.html never renders the published broker.halted field).
@@ -98,9 +99,11 @@ class _Ref:
     def get(self):
         return _Snap(DOC if DOC else None)
 
-    def set(self, d, timeout=None):
-        DOC.clear()
-        DOC.update(json.loads(json.dumps(d, default=str)))
+    def set(self, d, merge=False, timeout=None, retry=None):
+        d = json.loads(json.dumps(d, default=str))
+        if not merge:
+            DOC.clear()
+        DOC.update(d)
 
 
 class _Coll:
@@ -368,13 +371,18 @@ def scenario_d():
 
     vm.activate()
     before = len(vm.grep("REFUSING"))
+    watchdog = threading.Timer(15.0, stop.set)   # a loop that waits instead of ticking must not hang the sim
+    watchdog.start()
     try:
         qe.qqq_exec_thread(FDB, ["uid1"], stop=stop, log=vm.log, on_tick=on_tick)
         time.sleep(1.5)
     finally:
+        watchdog.cancel()
         qe._should_publish, qe.TICK_SEC = orig_should, orig_tick_sec
-    with open(qe.STATE_PATH, encoding="utf-8") as f:
-        saved = json.load(f)
+    saved = {}
+    if os.path.exists(qe.STATE_PATH):   # a loop that refused never ticked, so never saved
+        with open(qe.STATE_PATH, encoding="utf-8") as f:
+            saved = json.load(f)
     print(f"in-process ticker: {ticks['n']} ticks, new refusals={len(vm.grep('REFUSING')) - before}, "
           f"doc changed on {pub['yes']}/{pub['calls']} ticks, doc lease holder now="
           f"{DOC.get('lease', {}).get('host_id')}, broker gate on last tick ok={saved.get('_broker_lease_ok')}")

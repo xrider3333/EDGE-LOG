@@ -798,16 +798,27 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts, seq=0,
     runs) are untouched, so the shadow book keeps recording simulated trades as if
     nothing happened. Nothing here is retried automatically once the lease recovers,
     same as every other BLOCKED reason in this module -- the next real shadow event
-    mirrors normally."""
+    mirrors normally.
+
+    PER ORDER, NOT ONLY PER TICK (2026-09-14): the verdict above is taken when the tick
+    starts, and a tick can outlast it -- a slow order call before the next leg's, or the PC
+    sleeping mid-tick while another host takes over. So a lease-managed process also re-checks
+    its OWN latest landed stamp right before each send (_LeaseHolder.send_gate); a process that
+    is not lease-managed (a direct call, a test) has no such state and is unaffected."""
     if not shares or shares <= 0:
         return
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq)
     try:
         adapter = _get_broker_adapter(log=log)
         mode, _mode_reason = adapter.effective_mode()
-        if (mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
-                and not state.get("_broker_lease_ok", True)):
-            reason = state.get("_broker_lease_reason") or "lease unverifiable"
+        armed = mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
+        at_send = _LEASE.send_gate(_LEASE.uid) if armed else None
+        if armed and (not state.get("_broker_lease_ok", True)
+                      or (at_send is not None and not at_send[0])):
+            if not state.get("_broker_lease_ok", True):
+                reason = state.get("_broker_lease_reason") or "lease unverifiable"
+            else:
+                reason = at_send[1]
             log(f"[qqq-exec] broker {intent} for {leg} BLOCKED before send (mode={mode}): "
                 f"{reason} -- shadow record above stands, broker mirror suppressed")
             rec = {"ok": False, "sent": False, "mode": "BLOCKED", "reason": reason,
@@ -2685,6 +2696,7 @@ class _Publisher:
         self._thread = None
         self._ex = concurrent.futures.ThreadPoolExecutor(max_workers=1,
                                                           thread_name_prefix="qqq-publish")
+        self._inflight = None       # the write currently on the worker, if any
 
     def start(self, log=print):
         if self._thread is not None and self._thread.is_alive():
@@ -2703,6 +2715,12 @@ class _Publisher:
         with self._lock:
             self._pending[uid] = (db, doc, state, log)
         self._wake.set()
+
+    def drop(self, uid):
+        """Forget the pending doc for `uid` -- a loop that stood down must not publish the
+        doc it queued just before (see qqq_exec_thread). _do_set refuses it anyway."""
+        with self._lock:
+            self._pending.pop(uid, None)
 
     def _run(self):
         while not self._stop.is_set():
@@ -2723,8 +2741,18 @@ class _Publisher:
         writer thread for the live loop, and called DIRECTLY (synchronously, on the
         caller's own thread) by publish_now for --once, where the process exits right
         after and there is no later tick for a background thread to flush to. Either way
-        this never raises -- failure is recorded via _record_publish_result, not thrown."""
+        this never raises -- failure is recorded via _record_publish_result, not thrown.
+
+        ONE WRITE AT A TIME (2026-09-14): a write still running past its wait (a hung
+        Firestore call) makes this one fail at once instead of queueing behind it. The next
+        tick carries a newer doc anyway, and a backlog of stale docs -- each possibly a
+        compare-and-set transaction -- would otherwise all go out when the hang clears."""
+        prev = self._inflight
+        if prev is not None and not prev.done():
+            _record_publish_result(state, False, err="previous publish still running", log=log)
+            return
         fut = self._ex.submit(self._do_set, db, uid, doc)
+        self._inflight = fut
         try:
             fut.result(timeout=PUBLISH_TIMEOUT_SEC)
             _record_publish_result(state, True, log=log)
@@ -2737,12 +2765,65 @@ class _Publisher:
     @staticmethod
     def _do_set(db, uid, doc):
         ref = db.collection("users").document(uid).collection("meta").document("qqq_exec")
-        try:
-            ref.set(doc, timeout=PUBLISH_TIMEOUT_SEC)
-        except TypeError:
-            # Some client stubs (and the smoke test's stub db) don't accept a `timeout`
-            # kwarg on set() -- the ThreadPoolExecutor future above is the real hard
-            # timeout backstop regardless, this is just for compatibility.
+        # LEASE PROTOCOL step 3 (2026-09-14): a lease-managed process's publish IS its lease
+        # renewal, so it decides HERE, at the moment the write actually goes out (a doc can
+        # wait behind a slow write), whether a plain overwrite is still safe -- see
+        # _LeaseHolder.write_mode. mode None = not lease-managed: exactly the old publish.
+        mode = _LEASE.write_mode(uid)
+        if mode is None:
+            _plain_set(ref, doc)
+            return
+        if mode == "skip":
+            raise _LeaseNotHeld(f"not published -- this process no longer holds the lease "
+                                f"({_LEASE.lost_reason})")
+        stamp = time.time()
+        doc = dict(doc)
+        doc["lease"] = {"host_id": _lease_host_id(), "leased_at": stamp}
+        if mode == "cas":
+            try:
+                ok, reason = _cas_publish(db, ref, doc)
+            except Exception as e:
+                # Firestore TROUBLE, not a refusal -- e.g. the daily read quota is spent while
+                # writes still work, which has happened twice. Giving up here would freeze the
+                # phone tab. Inside the hold bound a plain renewal is exactly as safe as ever;
+                # past it, publish the status WITHOUT the lease field, which cannot overwrite
+                # another host's claim (and renews nothing, so broker sends stay blocked).
+                if not _LEASE.within_hold():
+                    _plain_set(ref, {k: v for k, v in doc.items() if k != "lease"},
+                               single_attempt=True, top_level_merge=True)
+                    raise _LeaseNotRenewed(f"published WITHOUT renewing the lease -- lease "
+                                           f"check failed ({type(e).__name__}: {e})")
+            else:
+                if not ok:
+                    _LEASE.mark_lost(reason)
+                    raise _LeaseNotHeld(f"not published -- {reason}")
+                _LEASE.note_committed(stamp, checked=True)
+                return
+        # A plain renewal: ONE attempt bounded by its deadline (see _plain_set), which is
+        # what write_mode's timing bound assumes.
+        _plain_set(ref, doc, single_attempt=True)
+        _LEASE.note_committed(stamp)
+
+
+def _plain_set(ref, doc, single_attempt=False, top_level_merge=False):
+    """set() the status doc. `single_attempt`: retry=None, so the write lands within its
+    PUBLISH_TIMEOUT_SEC deadline or not at all -- the client's default commit retry re-sends
+    for up to a minute. `top_level_merge`: replace only the top-level fields present, leaving
+    the rest of the doc (the lease) as it is."""
+    kwargs = {"timeout": PUBLISH_TIMEOUT_SEC}
+    if single_attempt:
+        kwargs["retry"] = None
+    if top_level_merge:
+        kwargs["merge"] = list(doc)
+    try:
+        ref.set(doc, **kwargs)
+    except TypeError:
+        # Some client stubs (and the smoke test's stub db) don't accept a `timeout`
+        # kwarg on set() -- the ThreadPoolExecutor future in write_one is the real hard
+        # timeout backstop regardless, this is just for compatibility.
+        if top_level_merge:
+            ref.set(doc, merge=list(doc))
+        else:
             ref.set(doc)
 
 
@@ -2849,6 +2930,13 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
                 lease_reason = f"lease unverifiable: check crashed ({type(e).__name__}: {e})"
                 log(f"[qqq-exec] broker lease check crashed ({type(e).__name__}: {e}) -- "
                     "failing CLOSED for broker sends this tick")
+            # LEASE PROTOCOL step 5 (2026-09-14): the doc not naming another host is not
+            # enough for a lease-managed loop -- its OWN last committed stamp must be fresh
+            # too, or a host whose claim never landed could send. None = not lease-managed
+            # (a direct tick() call), which keeps the check above as the whole gate.
+            local_gate = _LEASE.send_gate(uid)
+            if lease_ok and local_gate is not None and not local_gate[0]:
+                lease_ok, lease_reason = local_gate
         else:
             lease_ok, lease_reason = True, None
         state["_broker_lease_ok"] = lease_ok
@@ -2996,16 +3084,40 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
 
 def run_once(uid=None, fills_path=DEFAULT_FILLS, db=None, log=print):
-    cfg, state, doc = tick(fills_path=fills_path, force_calib=True, db=db, uid=uid, log=log)
-    log(f"[qqq-exec] tick complete: mode={cfg.get('mode')} feed_stale={doc['feed_stale']} "
-        f"breaker={doc['breaker_tripped']} positions={list(doc['positions'].keys())} "
-        f"realized={doc['today']['realized_pnl']} unrealized={doc['today']['unrealized_pnl']} "
-        f"calib={doc.get('calib')}")
-    if db is not None and uid:
-        publish_now(db, uid, doc, state, force=True, log=log)
-        log(f"[qqq-exec] published users/{uid}/meta/qqq_exec "
-            f"(publish_fail_today={state.get('publish_fail_today', 0)})")
-    return doc
+    """One tick (`--once`). Runs the book like any other path, so it obeys the same LEASE
+    PROTOCOL (2026-09-14): refused while an adapter is serving on this host (a second copy
+    would tick the same book with its own memory -- and mirror its own broker orders), and,
+    when it publishes, refused while another host holds a fresh lease. While publishing it
+    is lease-managed like the loop, so a claim that only failed open can neither overwrite
+    another host's lease on publish nor send a broker order. Returns None when refused."""
+    slot, why = _enter_host_slot(log=log)
+    if slot is None:
+        log(f"[qqq-exec] REFUSING --once: {why} -- a second copy of the book on one host "
+            "would tick with its own memory")
+        return None
+    began = False
+    try:
+        if db is not None and uid:
+            ok, reason, stamp = _claim_lease(db, uid, log=log)
+            if not ok:
+                log(f"[qqq-exec] REFUSING --once for {uid}: {reason}")
+                return None
+            _LEASE.begin(uid, stamp)
+            began = True
+        cfg, state, doc = tick(fills_path=fills_path, force_calib=True, db=db, uid=uid, log=log)
+        log(f"[qqq-exec] tick complete: mode={cfg.get('mode')} feed_stale={doc['feed_stale']} "
+            f"breaker={doc['breaker_tripped']} positions={list(doc['positions'].keys())} "
+            f"realized={doc['today']['realized_pnl']} unrealized={doc['today']['unrealized_pnl']} "
+            f"calib={doc.get('calib')}")
+        if db is not None and uid:
+            publish_now(db, uid, doc, state, force=True, log=log)
+            log(f"[qqq-exec] published users/{uid}/meta/qqq_exec "
+                f"(publish_fail_today={state.get('publish_fail_today', 0)})")
+        return doc
+    finally:
+        if began:
+            _LEASE.end("--once finished")
+        _leave_host_slot(slot)
 
 
 def _reconcile_broker_at_boot(log=print):
@@ -3037,27 +3149,81 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     never takes it down. Publishes to every allow-listed uid each tick that changed,
     at least once a minute regardless (see _publish's force/throttle logic).
 
-    CROSS-HOST LEASE (2026-09-14): tick() re-verifies the lease itself every call (see
-    its own docstring) -- this thread just has to hand it db/uid. `state` here is one
-    shared adapter state across every uid in `uids` (same as every other field on it,
-    e.g. open lots/legs), so the lease is checked against the FIRST uid only; in
-    practice this list is always exactly the one owner uid (api/runner.py builds it from
-    --allow-uid), never a genuine multi-tenant fan-out."""
-    state = load_state(log=log)
-    _reconcile_broker_at_boot(log=log)
+    THE ONLY LOOP THAT RUNS THE BOOK (2026-09-14): serve() runs it in the standalone
+    process and api/runner.py runs it as the in-process fallback, so the LEASE PROTOCOL
+    lives here, where neither can skip it (tools/qqq_failover_sim.py scenario D was the
+    fallback ticking, publishing and then reading itself as the lease holder). Before the
+    first tick: take this host's serving slot, then claim the cross-host lease by
+    compare-and-set; a refused claim returns without ticking and leaves a STANDBY marker.
+    Every tick after that: stop at once if the lease was lost (the publisher discovers that
+    when a compare-and-set finds another host's fresh lease), see _stand_down.
+
+    `state` here is one shared adapter state across every uid in `uids` (same as every
+    other field on it, e.g. open lots/legs), so the lease is claimed and checked against
+    the FIRST uid only; in practice this list is always exactly the one owner uid
+    (api/runner.py builds it from --allow-uid), never a genuine multi-tenant fan-out.
+    With no db (tests, offline tools) there is nothing to hold a lease in and the loop
+    runs unmanaged, exactly as before."""
     lease_uid = uids[0] if uids else None
-    while stop is None or not stop.is_set():
-        try:
-            cfg = load_config(log=log)
-            cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
-            for uid in uids:
-                publish_async(db, uid, doc, state, log=log)
-            save_state(state, log=log)
-            if on_tick is not None:
-                on_tick(log=log)
-        except Exception as e:
-            log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
-        (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
+    managed = db is not None and bool(lease_uid)
+    slot, why = _enter_host_slot(log=log)
+    if slot is None:
+        log(f"[qqq-exec] REFUSING to run the shadow book: {why} -- one copy per host")
+        return
+    began = False
+    try:
+        if managed:
+            ok, reason, stamp = _claim_lease(db, lease_uid, log=log)
+            if not ok:
+                log(f"[qqq-exec] REFUSING to run the shadow book for {lease_uid}: {reason} -- "
+                    "standing by; this process will not tick, publish or send while another "
+                    "host holds the lease")
+                _note_standby(reason, log=log)
+                return
+            _LEASE.begin(lease_uid, stamp)
+            began = True
+            if stamp:
+                _clear_standby()   # a claim that only failed open proves nothing yet
+            log(f"[qqq-exec] lease {'claimed' if stamp else 'NOT confirmed yet (fail-open)'} "
+                f"for host {_lease_host_id()!r}: {reason}")
+        state = load_state(log=log)
+        _reconcile_broker_at_boot(log=log)
+        last_pass = time.time()
+        while stop is None or not stop.is_set():
+            if managed:
+                gap = time.time() - last_pass
+                if gap > LEASE_STALE_SEC and _LEASE.held:
+                    # SUSPENDED -- e.g. the PC slept with this process alive (2026-09-10: 21 h).
+                    # Long enough for another host to have claimed legitimately, and nothing
+                    # this process remembers says otherwise: re-claim BEFORE the next tick.
+                    ok, reason, stamp = _claim_lease(db, lease_uid, log=log)
+                    log(f"[qqq-exec] loop resumed after {gap:.0f}s -- re-claimed the lease "
+                        f"before ticking: {reason}")
+                    if not ok:
+                        _LEASE.mark_lost(reason)
+                    elif stamp:
+                        _LEASE.note_committed(stamp, checked=True)
+                if not _LEASE.held:
+                    _stand_down(state, lease_uid, _LEASE.lost_reason, log=log)
+                    return
+            last_pass = time.time()
+            try:
+                cfg = load_config(log=log)
+                cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
+                for uid in uids:
+                    publish_async(db, uid, doc, state, log=log)
+                save_state(state, log=log)
+                _touch_serving_lock(log=log)
+                if on_tick is not None:
+                    on_tick(log=log)
+            except Exception as e:
+                log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
+            (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
+    finally:
+        if began:
+            _LEASE.end("the adapter loop exited")
+            _publisher.drop(lease_uid)
+        _leave_host_slot(slot)
 
 
 # -- CLI ---------------------------------------------------------------------------------------
@@ -3076,8 +3242,10 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
 #
 # LIVENESS is a heartbeat file, not a pid: a pid can be reused and a hard kill never gets
 # to clean up. The serving process rewrites SERVING_LOCK every tick; anyone who sees a lock
-# older than SERVING_STALE_SEC treats the slot as free. Worst case on a race is a brief
-# double-tick, which is harmless -- both writers compute the same state from the same fills.
+# older than SERVING_STALE_SEC treats the slot as free. The heartbeat is only what OTHER
+# processes read: the slot itself is an OS file lock (see _acquire_host_slot), because a
+# race between two check-then-write heartbeats is two tickers with separate memory, and
+# once the broker mirror is armed each would place its own orders.
 SERVING_LOCK = os.path.join(OUT_DIR, "SERVING.lock")
 SERVING_STALE_SEC = 120.0
 QQQ_EXEC_VBS = os.path.join(EDGELOG_HOME, "_run_qqq_exec.vbs")  # Windows launcher only
@@ -3090,6 +3258,51 @@ QQQ_EXEC_VBS = os.path.join(EDGELOG_HOME, "_run_qqq_exec.vbs")  # Windows launch
 # Firestore (users/{uid}/meta/qqq_exec) every tick. See _check_lease / _build_doc's
 # "lease" field.
 LEASE_STALE_SEC = 90.0
+
+# LEASE PROTOCOL (2026-09-14). Until now the lease was advisory: serve() read it once, the
+# runner's fallback thread never read it, nothing re-read it while serving, and every
+# publish blind-wrote "lease: this host" -- so any process that published once became the
+# holder and read "ours" from then on (tools/qqq_failover_sim.py scenarios D and E). The
+# rules now, for every path that runs the book (serve(), the runner's fallback thread and
+# --once all go through qqq_exec_thread / run_once):
+#   1. ONE PROCESS PER HOST. Take this host's serving slot (_enter_host_slot) before touching
+#      the lease, so only one process per host ever competes for it.
+#   2. CLAIM BY COMPARE-AND-SET. The first stamp of ours is a Firestore transaction that
+#      re-reads the lease and writes only if it is free, ours or stale (_claim_lease). A
+#      refused process never ticks, and leaves a STANDBY marker so the runner on the same
+#      host does not start a fallback copy either (standby_fresh, ensure_standalone).
+#   3. RENEW WITHOUT CLOBBERING. Each publish still carries the lease (no extra Firestore
+#      writes), but a plain overwrite is allowed only while our last COMMITTED stamp is
+#      younger than LEASE_HOLD_SEC and a compare-and-set checked within LEASE_RECHECK_SEC;
+#      otherwise the publish is itself a compare-and-set (_Publisher._do_set). The bound:
+#      another host may claim only once our newest stamp is LEASE_STALE_SEC old, and a
+#      plain write sent before LEASE_HOLD_SEC is a single attempt that lands within
+#      PUBLISH_TIMEOUT_SEC -- 60 + 8 = 68 s < 90 s, the rest is clock-skew margin (keep the
+#      hosts on NTP; beyond ~20 s of skew this bound no longer holds). A compare-and-set that
+#      ERRORS (not refuses -- e.g. the read quota is spent) never freezes the phone tab: it
+#      falls back to a plain renewal inside that bound, and past it to publishing the status
+#      without the lease field.
+#   4. STAND DOWN. When a compare-and-set finds another host's lease fresh, the loop stops
+#      ticking and publishing at once and says so (log, event, ntfy) -- see _stand_down.
+#   5. BROKER SENDS need this process's OWN latest landed stamp to be under
+#      LEASE_SEND_MAX_AGE_SEC old, checked at tick start AND again right before each order
+#      (_LeaseHolder.send_gate), on top of _check_lease_for_broker's per-tick read of the doc.
+#      30 s leaves room for a worst-case first order (client build + account lookup +
+#      connect, ~60 s of SDK timeouts) to reach Webull before another host may claim at 90 s.
+# The fail-open / fail-closed split is unchanged: a Firestore problem never stops the shadow
+# book from ticking (_check_lease, _claim_lease), and always blocks real broker sends
+# (_check_lease_for_broker, send_gate). What this does NOT make safe is a TAKEOVER: open
+# lots, the signal cursor and the order adapter's memory are still per-host files
+# (scenarios A, B, C and F of the simulation). Known residual, needing both hosts armed:
+# a process SUSPENDED between deciding on a plain renewal and sending it (a PC going to
+# sleep in that instant) can overwrite a claim made while it slept; both hosts then renew
+# until the next compare-and-set (<= LEASE_RECHECK_SEC). The durable fix is a server-side
+# precondition on each renewal (update() with last_update_time) instead of the timing bound.
+LEASE_HOLD_SEC = 60.0
+LEASE_RECHECK_SEC = 30.0
+LEASE_SEND_MAX_AGE_SEC = 30.0
+LEASE_CLAIM_TIMEOUT_SEC = 15.0
+HOST_SLOT_WAIT_SEC = 5.0
 
 
 def _pid_alive(pid):
@@ -3138,11 +3351,143 @@ def serving_alive(path=None):
 
 def _touch_serving_lock(log=print):
     try:
-        os.makedirs(OUT_DIR, exist_ok=True)
+        os.makedirs(os.path.dirname(SERVING_LOCK) or ".", exist_ok=True)
         with open(SERVING_LOCK, "w", encoding="utf-8") as fh:
             fh.write(f"{os.getpid()} {_now_et().strftime('%Y-%m-%d %H:%M:%S')}\n")
     except Exception as e:
         log(f"[qqq-exec] could not write serving lock: {type(e).__name__}: {e}")
+
+
+# -- same-host serving slot (LEASE PROTOCOL step 1) -----------------------------------------
+def _acquire_host_slot(log=print):
+    """Open file handle holding THIS host's serving slot, or None if another holder has it.
+
+    An exclusive, non-blocking OS lock on a file next to SERVING_LOCK -- msvcrt on Windows,
+    flock on Linux -- kept for as long as the handle stays open. Unlike the heartbeat there
+    is nothing stale to reason about: the OS drops the lock the moment the holder exits,
+    hard kill included. Not re-entrant, on purpose: a second loop in the SAME process is a
+    second copy of the book too. The lock is on its own file because a locked byte range
+    cannot be read on Windows, and SERVING_LOCK is read by the runner and by
+    tools/premarket_ensure.py."""
+    path = SERVING_LOCK + ".mutex"
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        fh = open(path, "a+b")
+    except Exception as e:
+        log(f"[qqq-exec] could not open the serving slot {path}: {type(e).__name__}: {e}")
+        return None
+    try:
+        try:
+            import msvcrt
+        except ImportError:
+            msvcrt = None
+        if msvcrt is not None:
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fh
+    except OSError:
+        fh.close()
+        return None
+
+
+def _enter_host_slot(log=print):
+    """(slot, reason) -- slot is the handle to pass to _leave_host_slot, or None with the
+    reason this process may not run the book here. Checks the HEARTBEAT first, which is the
+    only thing a pre-2026-09-14 adapter process writes (it takes no OS lock), then the lock,
+    then starts this process's own heartbeat."""
+    alive, pid = serving_alive()
+    if alive and pid != os.getpid():
+        return None, f"another adapter process (pid {pid}) is already serving on this host"
+    # No live heartbeat, so a held lock is either a holder that has not written its first
+    # heartbeat yet, or one that has just died -- and Windows can release a dead process's
+    # lock a moment late. A relaunch right after a hard kill (2026-09-11 was exactly that)
+    # must not give up on the first try and leave no adapter at all.
+    deadline = time.time() + HOST_SLOT_WAIT_SEC
+    slot = _acquire_host_slot(log=log)
+    while slot is None and time.time() < deadline:
+        time.sleep(0.25)
+        slot = _acquire_host_slot(log=log)
+    if slot is None:
+        return None, "another adapter process on this host holds the serving slot"
+    _touch_serving_lock(log=log)
+    return slot, None
+
+
+def _leave_host_slot(slot):
+    """Remove our heartbeat (only if it still names this process) and release the slot."""
+    if slot is None:
+        return
+    try:
+        with open(SERVING_LOCK, encoding="utf-8") as fh:
+            owner = int((fh.read().strip().split() or ["0"])[0])
+        if owner == os.getpid():
+            os.remove(SERVING_LOCK)
+    except Exception:
+        pass
+    try:
+        # Unlock explicitly before closing: on Linux a child forked while we held the lock
+        # (the runner's process pools) shares it, and closing only OUR descriptor would leave
+        # it locked until that child exits.
+        try:
+            import msvcrt
+        except ImportError:
+            msvcrt = None
+        if msvcrt is not None:
+            slot.seek(0)
+            msvcrt.locking(slot.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(slot.fileno(), fcntl.LOCK_UN)
+    except Exception:
+        pass
+    try:
+        slot.close()
+    except Exception:
+        pass
+
+
+# -- STANDBY marker (LEASE PROTOCOL step 2) ---------------------------------------------------
+# A process that is refused the cross-host lease exits without ticking (on the VM systemd
+# restarts it every ~15 s, which is how it keeps re-checking), so between refusals nothing
+# on this host is "serving" -- and ensure_standalone() used to read exactly that as "start
+# the runner's own copy" (simulation scenario D). The marker is how a refused adapter says
+# "someone here is already waiting for the lease". Freshness is by age alone: the process
+# that wrote it has usually exited by design.
+def _standby_path():
+    return SERVING_LOCK + ".standby"
+
+
+def _note_standby(reason, log=print):
+    try:
+        path = _standby_path()
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(f"{os.getpid()} {_now_et().strftime('%Y-%m-%d %H:%M:%S')} {reason}\n")
+    except Exception as e:
+        log(f"[qqq-exec] could not write the standby marker: {type(e).__name__}: {e}")
+
+
+def _clear_standby():
+    try:
+        os.remove(_standby_path())
+    except Exception:
+        pass
+
+
+def standby_fresh(path=None):
+    """(fresh, text): did an adapter on this host get refused the lease within the last
+    SERVING_STALE_SEC? Never raises."""
+    path = path or _standby_path()
+    try:
+        if time.time() - os.path.getmtime(path) > SERVING_STALE_SEC:
+            return False, None
+        with open(path, encoding="utf-8") as fh:
+            return True, fh.read().strip()
+    except Exception:
+        return False, None
 
 
 def ensure_standalone(log=print, vbs=None):
@@ -3160,10 +3505,22 @@ def ensure_standalone(log=print, vbs=None):
     process this function launches. This function only checks the heartbeat there; if the
     unit is not yet up, it falls back to the in-runner thread exactly like the
     "no launcher" case below, and stops falling back once the unit's own heartbeat goes
-    fresh."""
+    fresh.
+
+    A unit REFUSED the cross-host lease (2026-09-14) counts as present: it exits without a
+    heartbeat, and falling back here used to start a copy of the book in the runner that
+    never checked the lease (tools/qqq_failover_sim.py scenario D). Its STANDBY marker keeps
+    the runner's thread off, and on Windows keeps the runner from relaunching a standalone
+    that would only be refused again. The fallback thread obeys the lease itself regardless
+    (see qqq_exec_thread)."""
     alive, pid = serving_alive()
     if alive:
         log(f"[qqq-exec] standalone already serving (pid {pid}) -- runner thread stays off")
+        return True
+    standby, note = standby_fresh()
+    if standby:
+        log(f"[qqq-exec] a standalone on this host is STANDING BY for the cross-host lease "
+            f"({note}) -- runner thread stays off")
         return True
     if os.name != "nt":
         log("[qqq-exec] not serving and this is not Windows -- on Linux the standalone "
@@ -3219,14 +3576,26 @@ def _check_lease(db, uid, log=print):
         log(f"[qqq-exec] lease check could not read Firestore ({type(e).__name__}: {e}) -- "
             "proceeding (fail-open)")
         return True, "lease read failed -- fail-open"
-    lease = (d or {}).get("lease") or {}
+    return _lease_claimable(d, _lease_host_id(), time.time())
+
+
+def _lease_of(doc):
+    lease = (doc or {}).get("lease") if isinstance(doc, dict) else None
+    return lease if isinstance(lease, dict) else {}
+
+
+def _lease_claimable(doc, my_host, now):
+    """(ok, reason) -- _check_lease's rule on an already-read doc, shared with _claim_lease
+    and _cas_publish so the plain read and the compare-and-set can never disagree: only a
+    DIFFERENT host's positively fresh stamp refuses; free, ours, stale, or a timestamp that
+    is missing/unreadable (fail-open, see _check_lease) is claimable."""
+    lease = _lease_of(doc)
     other_host = lease.get("host_id")
     leased_at = lease.get("leased_at")
-    my_host = _lease_host_id()
     if not other_host or other_host == my_host or leased_at is None:
         return True, "lease free or already ours"
     try:
-        age = time.time() - float(leased_at)
+        age = now - float(leased_at)
     except (TypeError, ValueError):
         return True, "lease timestamp unreadable -- treating as free"
     if age > LEASE_STALE_SEC:
@@ -3253,7 +3622,12 @@ def _check_lease_for_broker(db, uid, log=print):
     see someone else claims it but cannot tell if that claim is stale) -- returns
     ok=False with a "lease unverifiable" reason. A different host's lease that IS
     positively confirmed fresh also returns ok=False (they own it, not us), with its own,
-    more specific reason. Never raises."""
+    more specific reason. Never raises.
+
+    OUR OWN lease counts only while it is fresh (2026-09-14, simulation scenario E): a stamp
+    of ours older than LEASE_HOLD_SEC means our renewals stopped landing, and from
+    LEASE_STALE_SEC another host may legitimately claim -- which is exactly when the old
+    rule let BOTH pass, the last writer reading "ours" and the other host reading "stale"."""
     if db is None or not uid:
         return False, "lease unverifiable: no Firestore/uid configured"
     try:
@@ -3263,11 +3637,21 @@ def _check_lease_for_broker(db, uid, log=print):
         log(f"[qqq-exec] broker lease check could not read Firestore ({type(e).__name__}: "
             f"{e}) -- suppressing broker sends this tick (fail-CLOSED for real orders)")
         return False, f"lease unverifiable: Firestore read failed ({type(e).__name__}: {e})"
-    lease = (d or {}).get("lease") or {}
+    lease = _lease_of(d)
     other_host = lease.get("host_id")
     leased_at = lease.get("leased_at")
     my_host = _lease_host_id()
-    if not other_host or other_host == my_host:
+    if not other_host:
+        return True, "lease ok (free or already ours)"
+    if other_host == my_host:
+        try:
+            own_age = time.time() - float(leased_at)
+        except (TypeError, ValueError):
+            return False, "lease unverifiable: this host's own lease timestamp is missing or unreadable"
+        if own_age > LEASE_HOLD_SEC:
+            return False, (f"lease unverifiable: this host's own lease is {own_age:.0f}s old -- "
+                           "its renewals are not landing, so another host may already have "
+                           "taken over; broker sends blocked")
         return True, "lease ok (free or already ours)"
     if leased_at is None:
         return False, (f"lease unverifiable: host {other_host!r} claims the lease but its "
@@ -3283,8 +3667,203 @@ def _check_lease_for_broker(db, uid, log=print):
                    "sends blocked")
 
 
+class _LeaseNotHeld(RuntimeError):
+    """A publish this process must not make: it does not hold the lease (LEASE PROTOCOL)."""
+
+
+class _LeaseNotRenewed(RuntimeError):
+    """The status went out but the lease could not be renewed (see _Publisher._do_set)."""
+
+
+class _LeaseHolder:
+    """This process's own view of the cross-host lease -- see LEASE PROTOCOL above. Only a
+    lease-managed loop (qqq_exec_thread with a db and a uid) calls begin(); until then every
+    query answers None and callers behave exactly as they did before this existed (tests
+    that drive tick() or the publisher directly, tools/qqq_failover_sim.py's hosts).
+
+    Times are this host's wall clock, because the stamps other hosts judge are too."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.uid = None             # the uid whose lease this process manages
+        self.held = False
+        self.committed_at = 0.0     # leased_at of our newest stamp known to have landed
+        self.checked_at = 0.0       # when a compare-and-set last confirmed the lease
+        self.lost_reason = None
+
+    def begin(self, uid, stamp=None):
+        with self._lock:
+            self.uid, self.held, self.lost_reason = uid, True, None
+            self.committed_at = self.checked_at = float(stamp or 0.0)
+
+    def end(self, reason):
+        with self._lock:
+            if self.held:
+                self.held, self.lost_reason = False, reason
+
+    mark_lost = end
+
+    def note_committed(self, stamp, checked=False):
+        with self._lock:
+            if self.held:
+                self.committed_at = max(self.committed_at, float(stamp))
+                if checked:
+                    self.checked_at = max(self.checked_at, float(stamp))
+
+    def write_mode(self, uid):
+        """How a publish to `uid` may go out right now: None = not lease-managed (publish
+        as always), "skip" = we do not hold the lease, "blind" = a plain set() is still
+        inside the timing bound, "cas" = compare-and-set only."""
+        with self._lock:
+            if self.uid is None or uid != self.uid:
+                return None
+            if not self.held:
+                return "skip"
+            now = time.time()
+            if now - self.committed_at < LEASE_HOLD_SEC and now - self.checked_at < LEASE_RECHECK_SEC:
+                return "blind"
+            return "cas"
+
+    def within_hold(self):
+        """Is a plain renewal still inside the timing bound (LEASE PROTOCOL step 3)?"""
+        with self._lock:
+            return self.held and time.time() - self.committed_at < LEASE_HOLD_SEC
+
+    def send_gate(self, uid):
+        """None when not lease-managed for `uid`; else (ok, reason) for a real broker send."""
+        with self._lock:
+            if self.uid is None or uid != self.uid:
+                return None
+            if not self.held:
+                return False, f"lease lost: {self.lost_reason}"
+            age = time.time() - self.committed_at
+            if age > LEASE_SEND_MAX_AGE_SEC:
+                return False, ("lease unverifiable: no stamp of this host's has landed in "
+                               f"{age:.0f}s -- broker sends blocked until a renewal lands")
+            return True, None
+
+
+_LEASE = _LeaseHolder()
+
+
+def _lease_ref(db, uid):
+    return db.collection("users").document(uid).collection("meta").document("qqq_exec")
+
+
+def _lease_txn(db, ref, decide, merge):
+    """Run decide(current_doc) -> (doc_to_write or None, result) as ONE compare-and-set on
+    `ref` and return `result`. On a real Firestore client that is a transaction: the read
+    and the write commit together or not at all, and a concurrent writer makes it retry
+    with a fresh read. A client with no .transaction() -- only the offline fakes in tests/
+    and tools/qqq_failover_sim.py, driven from one thread -- gets a plain read-then-write."""
+    make_txn = getattr(db, "transaction", None)
+    if make_txn is None:
+        snap = ref.get()
+        write, result = decide(snap.to_dict() if getattr(snap, "exists", True) else None)
+        if write is not None:
+            ref.set(write, merge=merge)
+        return result
+    from google.cloud import firestore as _gcf
+
+    @_gcf.transactional
+    def _in_txn(transaction):
+        # One bounded attempt: the client's default read retry runs for up to five minutes,
+        # and this runs on the publisher's single worker.
+        snap = ref.get(transaction=transaction, retry=None, timeout=PUBLISH_TIMEOUT_SEC)
+        write, result = decide(snap.to_dict() if snap.exists else None)
+        if write is not None:
+            transaction.set(ref, write, merge=merge)
+        return result
+
+    try:
+        return _in_txn(make_txn())
+    except ValueError as e:
+        # The decorator reports the real Firestore error only as the CAUSE of "failed to
+        # commit in N attempts", and a BeginTransaction that fails surfaces as "has no
+        # transaction ID, so it cannot be rolled back" -- raise the error that matters.
+        inner = e.__cause__ or e.__context__
+        if inner is not None:
+            raise inner from None
+        raise
+
+
+def _claim_lease(db, uid, log=print, timeout=LEASE_CLAIM_TIMEOUT_SEC):
+    """(ok, reason, stamp) -- LEASE PROTOCOL step 2: write our lease by compare-and-set
+    before running the book. `stamp` is the leased_at we committed, None if nothing was.
+
+    ok=False ONLY when a different host's lease is positively fresh; nothing is written
+    then. Any Firestore trouble (error, timeout, a transaction that will not commit) is
+    ok=True with stamp=None -- fail-OPEN, the same rule as _check_lease, because this only
+    decides whether the shadow book may tick. Real broker sends stay blocked until a stamp
+    of ours actually lands (_LeaseHolder.send_gate), and the first publish after that is a
+    compare-and-set that stands this process down if another host got there first."""
+    if db is None or not uid:
+        return True, "no Firestore/uid configured -- lease not enforced", None
+    me = _lease_host_id()
+
+    def decide(cur):
+        now = time.time()
+        ok, reason = _lease_claimable(cur, me, now)
+        if not ok:
+            return None, (False, reason, None)
+        return {"lease": {"host_id": me, "leased_at": now}}, (True, reason, now)
+
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="qqq-lease")
+    fut = ex.submit(lambda: _lease_txn(db, _lease_ref(db, uid), decide, True))
+    ex.shutdown(wait=False)
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        why = f"lease claim timed out after {timeout:g}s"
+    except Exception as e:
+        why = f"lease claim failed ({type(e).__name__}: {e})"
+    log(f"[qqq-exec] {why} -- proceeding (fail-open for the shadow book; broker sends stay "
+        "blocked until this host's lease lands)")
+    return True, f"{why} -- fail-open", None
+
+
+def _cas_publish(db, ref, doc):
+    """(ok, reason): write the whole status doc only if the lease in Firestore is still
+    claimable by this host -- the compare-and-set form of a publish (_Publisher._do_set).
+    Raises on Firestore trouble, which the publisher records like any failed publish."""
+    me = _lease_host_id()
+
+    def decide(cur):
+        ok, reason = _lease_claimable(cur, me, time.time())
+        return (doc if ok else None), (ok, reason)
+
+    return _lease_txn(db, ref, decide, False)
+
+
+def _stand_down(state, uid, reason, log=print):
+    """LEASE PROTOCOL step 4: another host holds the lease, so this process stops running
+    the book NOW -- no more ticks, publishes or broker sends -- and says so loudly. It does
+    not fight for the lease back; a restarted process starts again from the claim."""
+    host = _lease_host_id()
+    log(f"[qqq-exec] STANDING DOWN on host {host!r}: {reason} -- this process has stopped "
+        "ticking, publishing and sending")
+    _publisher.drop(uid)
+    # Already standing by within the last few minutes means this host never really held the
+    # lease (a claim that failed open on flaky reads, then found the other host): one phone
+    # alert per real loss, not one per systemd restart while reads keep flapping.
+    repeat, _note = standby_fresh()
+    _note_standby(reason, log=log)
+    try:
+        _log_event(state, "lease_lost", f"Stood down on {host}: {reason}", log=log)
+        save_state(state, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] could not record the stand-down: {type(e).__name__}: {e}")
+    if not repeat:
+        _notify(f"QQQ SHADOW on {host} stood down: {reason}", "EDGELOG QQQ SHADOW STOOD DOWN",
+                log)
+
+
 def serve(db, uids, log=print):
-    """Run the adapter in THIS process until killed, holding the serving lock."""
+    """Run the adapter in THIS process until killed, or until it loses the cross-host
+    lease. qqq_exec_thread holds the serving slot and the heartbeat and runs the LEASE
+    PROTOCOL; this is the standalone's front door. Returns at once while another host's
+    lease is fresh, leaving a STANDBY marker -- on the VM systemd restarts the unit, which
+    is how a refused standalone keeps re-checking."""
     alive, pid = serving_alive()
     if alive and pid != os.getpid():
         log(f"[qqq-exec] another standalone is already serving (pid {pid}) -- exiting")
@@ -3294,17 +3873,11 @@ def serve(db, uids, log=print):
         if not ok:
             log(f"[qqq-exec] REFUSING to serve for {uid}: {reason} -- the owner's PC and "
                 f"the cloud VM must never run the shadow book at the same time")
+            _note_standby(reason, log=log)
             return
-    _touch_serving_lock(log=log)
     log(f"[qqq-exec] SERVING standalone (pid {os.getpid()}, host {_lease_host_id()!r}), "
         f"tick {TICK_SEC:g}s")
-    try:
-        qqq_exec_thread(db, uids, log=log, on_tick=_touch_serving_lock)
-    finally:
-        try:
-            os.remove(SERVING_LOCK)
-        except Exception:
-            pass
+    qqq_exec_thread(db, uids, log=log)
 
 
 def main():

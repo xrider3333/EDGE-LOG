@@ -58,35 +58,67 @@ personally do.
 5. **Fill in `~/edgelog/edgelog.env`** on the VM (`nano ~/edgelog/edgelog.env`) — see
    [`edgelog.env.example`](edgelog.env.example) for what every line means. At minimum,
    set `NTFY_TOPIC`. Leave `EDGELOG_HOST_ROLE=cloud` exactly as install.sh wrote it.
-6. **Enable and start the services**, qqq-exec BEFORE runner (order matters — see
+6. **Enable and start the services** — qqq-exec first, so the shadow book runs in its
+   own service rather than inside the runner (either order is safe; see
    `edgelog-qqq-exec.service`'s own comments):
    ```bash
    sudo systemctl start edgelog-qqq-exec.service
    sudo systemctl start edgelog-runner.service
    bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh
    ```
-7. **Confirm the phone tab shows CLOUD** — open the EDGELOG web app's QQQ SHADOW /
-   Webull paper tab and check the status card's "running on" reads **CLOUD**, not
-   THIS PC. If it still says THIS PC, `check.sh`'s log tail will show why
-   (`edgelog-qqq-exec.service` not started, or its heartbeat not fresh yet).
-8. **Turn the PC-side shadow adapter off**, only after step 7 confirms CLOUD is live:
-   stop `C:\EdgeLog\_run_qqq_exec.vbs`'s process (Task Manager, or however you normally
-   stop it) and don't relaunch it. **You do not have to race this** — the cross-host
-   lease guard (see below) already refuses to let the VM and the PC serve at the same
-   time, so there is no window where both place orders; this step is just cleanup so
-   the PC stops ticking uselessly.
+   While the PC's shadow adapter is still running, the VM's `qqq_exec.log` shows
+   `REFUSING to serve ... holds a fresh lease` about every 15 seconds. That is the
+   guard working — see [Two machines, one shadow book](#two-machines-one-shadow-book)
+   below.
+7. **Stop the PC-side shadow adapter** — after the market close, while no position is
+   open (the section below says why): end the `python -m api.qqq_exec --serve` process
+   in Task Manager. The PC's runner relaunches it at its next restart (and at 06:05),
+   but a relaunched copy is refused for as long as the VM holds the lease.
+8. **Confirm the phone tab shows CLOUD** — about two minutes after step 7 the VM takes
+   the lease. Open the EDGELOG web app's QQQ SHADOW / Webull paper tab and check the
+   status card's "running on" reads **CLOUD**, not THIS PC. If it still says THIS PC,
+   `check.sh`'s log tail will show why (`edgelog-qqq-exec.service` not started, or the
+   PC's copy still running).
 9. **Decide on PAPER mode** (flip it on with a one-line config change) — see
    [Webull ORDER adapter](#webull-order-adapter-paper-orders-now-live-staged-for-later)
    below for the exact steps and the LIVE 2FA caveat. Do this whenever you're ready;
    it is independent of steps 1–8 above.
 
-**Why two hosts can never both trade:** the QQQ shadow adapter publishes a heartbeat
-(`lease.host_id` / `lease.leased_at`) to the same Firestore status doc the phone tab
-reads, every tick. Before either host starts serving, it checks that doc: if the OTHER
-host's heartbeat is still fresh (under 90 seconds old), it refuses to serve and says so
-in its log, rather than risk two copies mirroring orders to the same broker account at
-once. A host only takes over once the other one's heartbeat has actually gone stale
-(crashed, stopped, or never started) — so step 8 is safe to do at your own pace.
+### Two machines, one shadow book
+
+The "lease" is a line in the same Firestore status doc the phone tab reads: which machine
+is running the shadow book, re-stamped every few seconds. As of 2026-09-14
+(`tools/qqq_failover_sim.py` scenarios D and E print "gap closed"):
+
+- **One copy per machine.** Every way the book can start — this service, the runner's
+  built-in fallback, a one-off `--once` — first takes an operating-system lock on
+  `qqq_exec/SERVING.lock.mutex`. A second copy on the same machine refuses to start. The
+  lock frees itself the moment its holder exits, crash included.
+- **One machine at a time.** A machine claims the lease with a Firestore *transaction*
+  (the read and the write happen as one step, so two machines cannot both win), and only
+  when the lease is free, already its own, or older than 90 seconds. A refused copy never
+  ticks; it leaves `qqq_exec/SERVING.lock.standby` behind so the runner on that machine
+  does not start its own copy either, and on the VM systemd retries every ~15 seconds.
+- **Standing down.** The running machine re-confirms the lease at least every 30 seconds,
+  and right away after it wakes from sleep. If another machine has taken it (say the PC
+  lost its internet for more than 90 seconds and the VM took over), it stops ticking,
+  publishing and sending at once, logs `STANDING DOWN`, and pushes a phone alert.
+- **Real orders** (PAPER/LIVE) go out only while that machine's own latest stamp reached
+  Firestore less than 30 seconds ago — checked again right before each order — and no
+  other machine's stamp is fresh. When Firestore can't be reached, the shadow book keeps
+  ticking and the phone tab keeps updating when it can, but no real order is sent.
+
+**It assumes** both machines run this version of the code (update the PC before starting
+the VM) and their clocks agree to within about 20 seconds (Windows and Ubuntu both keep
+time automatically).
+
+**It does NOT make a takeover safe.** The machine that takes over does not know what the
+other one was doing: open positions, the signal bookmark into its own signal file, today's
+P&L and loss breaker, and the order adapter's memory all live in files on each machine,
+not in Firestore (simulation scenarios A, B, C and F still print GAP PRESENT). So the lease
+stops two machines trading *at the same time*; it does not stop the new one starting from
+the wrong picture. Until those gaps are fixed: arm PAPER or LIVE on one machine only, and
+move the book after the market close while flat — never mid-session.
 
 ---
 
@@ -217,8 +249,9 @@ PC in `tools/_restart_runner.bat.example`, or pick a fresh name at <https://ntfy
 
 ## (e) Start it and confirm it's running
 
-Start the QQQ shadow adapter BEFORE the runner (see `edgelog-qqq-exec.service`'s own
-comments for why the order matters):
+Start the QQQ shadow adapter before the runner, so the book runs in its own service
+rather than inside the runner (either order is safe — see `edgelog-qqq-exec.service`'s
+own comments):
 
 ```bash
 sudo systemctl start edgelog-qqq-exec.service
@@ -475,14 +508,18 @@ cloud box today, even though several of its Windows-PC side duties don't yet.
   is normal for the free ARM shape in busy regions, not an account problem.
 - **Can't SSH in:** confirm the security list still only opens port 22 and that
   you're using the private key that matches the public key you added at creation.
-- **Phone tab still shows THIS PC, not CLOUD:** `journalctl -u edgelog-qqq-exec -n 50
-  --no-pager` — the most common cause is the log line `REFUSING to serve for <uid>:
-  host '<pc-hostname>' holds a fresh lease` (the PC-side adapter is still running and
-  ticking within the last 90 seconds — that's the cross-host guard working correctly,
-  not a bug; wait for the PC copy to stop, or stop it yourself, and the VM will take
-  over the next time its heartbeat goes stale). A missing `serviceAccount.json` or an
-  unreachable Firestore also shows up here rather than silently failing.
-- **Worried two copies might trade at once:** they can't stay running at once by
-  design — see "Why two hosts can never both trade" in the numbered checklist above —
-  but if you ever need to force a takeover immediately rather than wait ~90 seconds,
-  stop the other host's service/process first, then start this one.
+- **Phone tab still shows THIS PC, not CLOUD:** `tail -n 50 ~/edgelog/logs/qqq_exec.log`
+  — the most common cause is the log line `REFUSING to serve for <uid>: host
+  '<pc-hostname>' holds a fresh lease` (the PC-side adapter is still running — the
+  guard working correctly, not a bug). Stop the PC copy (checklist step 7) and the VM
+  takes over within about two minutes. A missing `serviceAccount.json` or an unreachable
+  Firestore also shows up here rather than silently failing.
+- **Log says `STANDING DOWN`:** another machine took the lease while this one was
+  running — usually this machine lost its internet or slept for more than 90 seconds.
+  This copy stopped trading on its own; check which machine the phone tab says is
+  running, and read [Two machines, one shadow book](#two-machines-one-shadow-book) before
+  arming anything, because the machine that took over started from its own files.
+- **Worried two copies might trade at once:** see
+  [Two machines, one shadow book](#two-machines-one-shadow-book) for exactly what is and
+  isn't protected. A takeover always waits until the other machine's last stamp is 90
+  seconds old — stopping the other machine does not skip that wait, on purpose.

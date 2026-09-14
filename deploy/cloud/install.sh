@@ -99,10 +99,10 @@ EDGELOG_WEBULL_ORDERS_KILL=${EDGELOG_HOME}/webull_orders/KILL
 EDGELOG_WEBULL_ARM_LIVE=${EDGELOG_HOME}/webull_orders/ARM_LIVE
 EDGELOG_NT_OHLC=${EDGELOG_HOME}/ohlc
 EDGELOG_QQQ_EXEC_DIR=${EDGELOG_HOME}/qqq_exec
-# Tells the QQQ shadow adapter (api/qqq_exec.py) it is the CLOUD copy, both for the
-# phone tab's "running on" label and for the cross-host lease guard (LEASE_STALE_SEC /
-# _check_lease) that stops the PC and this VM from ever trading the same account at
-# once. Leave this exactly as "cloud" -- do NOT set it on the PC.
+# Tells the QQQ shadow adapter (api/qqq_exec.py) it is the CLOUD copy, for the phone
+# tab's "running on" label. The cross-host lease tells the PC and this VM apart by
+# hostname (or EDGELOG_HOST_ID) -- what it does and does not protect is in README.md,
+# "Two machines, one shadow book". Leave this exactly as "cloud" -- do NOT set it on the PC.
 EDGELOG_HOST_ROLE=cloud
 # Fold-level parallelism inside one validate (augur_engine.wf_pool). Keep this at or
 # below the box's OCPU count -- 2 for the recommended 2-OCPU/12GB Always Free shape,
