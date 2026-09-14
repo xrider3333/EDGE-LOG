@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 16
+N_CASES = 17
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -685,7 +685,7 @@ var FIX = __FIX__;
           return c==='OK'?n:('ERR '+c).slice(0,160);}
         r.axOrdY=[].map.call(d.querySelectorAll('[data-resaxis]'),function(b){return b.getAttribute('data-resaxis');});
         r.axOrdX=[].map.call(d.querySelectorAll('[data-resxaxis]'),function(b){return b.getAttribute('data-resxaxis');});
-        r.axNew={ydd:axisPts('dd','so'),xraw:axisPts('evr','raw'),xmar:axisPts('evr','ratio'),xev:axisPts('evr','ppt')};
+        r.axNew={ydd:axisPts('dd','so'),xraw:axisPts('evr','raw'),xmar:axisPts('evr','ratio'),xev:axisPts('evr','ppt'),ywr:axisPts('wr','so'),xwr:axisPts('evr','wr')};
         // and the ALL layout, which lost its old grey RUN column as well as gaining two
         r.allCall=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
                             resSegs:['wf'],resXAxis:'roc',resMarks:'dot',c2Tbl:true,resCols:'all'}, wc);
@@ -771,6 +771,54 @@ var FIX = __FIX__;
         wc='var F='+JSON.stringify(Rb)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
         r.badIs=read(['is']);r.badIsWf=read(['is','wf']);r.badAll=read(['is','wf','lb']);
         wc=good;
+      })();
+      // -- case fixes346 -------------------------------------------------------------------
+      (function(){
+        var r=snap('fixes346','OK');
+        // (6) RUNBOARD whole-run MAR from the SAVED whole-run drawdown
+        var V=FIX.validate,mult=+FIX.multiplier||20,eq=V.equity||[];
+        var yrs=(Date.parse(String(FIX.date_to).slice(0,10))-Date.parse(String(FIX.date_from).slice(0,10)))/86400000/365.25;
+        r.rbWant=((((+eq[eq.length-1])*mult)/yrs)/(Math.abs(+V.total_dd)*mult)).toFixed(2);
+        function rbRead(win){doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',cmpIds:[String(FIX.id)]}, win, 'cmp');
+          var o={mar:null,dd:null,marBold:false};
+          [].forEach.call(d.querySelectorAll('tr'),function(tr){var c=[].map.call(tr.children,function(td){return (td.textContent||'').trim();});
+            if(c[0]==='MAR'&&o.mar===null){o.mar=c[1]||null;o.marBold=!!(tr.children[1]&&tr.children[1].querySelector('b'));}
+            if(c[0]==='DD'&&o.dd===null)o.dd=c[1]||null;});return o;}
+        r.rbSaved=rbRead(FIX_WIN);
+        var NF=JSON.parse(JSON.stringify(FIX));delete NF.validate.total_dd;
+        r.rbCurve=rbRead('var F='+JSON.stringify(NF)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();');
+        // (3) + (4) on EXPLORE configs: a gate for the MAR axis, a hybrid for per-stretch sizing
+        var blk=function(p,dd,n){return {total_pnl:p,max_drawdown:dd,num_trades:n,profit_factor:1.5,win_rate:40,sharpe:1.2,sortino:2.1,avg_pnl:(p/n),avg_loss:-10};};
+        var cand={model:'logistic',threshold:0.5,eligible:true,pre_pnl:10000,pre_rec:4,pre_pf:1.5,pre_wr:0.4,kept_pre:100,pre_sharpe:1.2,pre_sortino:2.1,
+          is_rng:blk(1000,-300,20),wf_rng:blk(9000,-500,80),lockbox:blk(2000,-200,25),full:blk(12000,-600,125),wf_lb:blk(11000,-550,105)};
+        var H={model:'xgb',n_trades:200,is_rng:blk(500,-100,40),wf_rng:blk(1000,-200,50),lockbox:blk(1500,-300,110),full:blk(3000,-400,200),
+          pre:blk(1500,-250,90),wf_lb:blk(2500,-350,160)};
+        var GV={span:['2010-01-04','2026-01-02'],wf_range:['2016-01-04','2025-01-02'],lockbox_from:'2025-01-02',candidates:[cand],
+          chosen:{model:'logistic',threshold:0.5},tilts:[],hybrids:[H],gates:[],windows:{},
+          ungated_is:{num_trades:60,max_drawdown:-150},ungated_wf:{num_trades:100,max_drawdown:-250},
+          ungated_lockbox:{num_trades:110,max_drawdown:-300},ungated_full:{num_trades:250,max_drawdown:-500},
+          ungated_pre:{num_trades:160,max_drawdown:-260},ungated_wf_lb:{num_trades:210,max_drawdown:-360}};
+        var wc=FIX_WIN+'doc.gate_validate='+JSON.stringify(GV)+';runHistory=[doc];window._runCfg={};window._runCfg[String(doc.id)]=doc;';
+        doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],resSegs:['wf'],resAxis:'ratio',resXAxis:'so',resMarks:'dot',c2Tbl:true,resCols:'all'}, wc);
+        var hdr=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()-]/g,'').trim();});
+        var trs=[].slice.call(d.querySelectorAll('tr[data-rerow]'));
+        var gate=trs.filter(function(t){return (t.textContent||'').indexOf('GATE')>=0;})[0];
+        var iMar=hdr.indexOf('MAR');
+        r.gateMarCell=(gate&&iMar>=0)?(gate.cells[iMar].textContent||'').trim():null;
+        var gp=[].filter.call(d.querySelectorAll('[data-repoint]'),function(g){var t=g.querySelector('title');return t&&(t.textContent||'').indexOf('GATE')>=0;})[0];
+        var tt=gp?(gp.querySelector('title').textContent||''):'';var mi=tt.indexOf(' MAR ');
+        r.gateMarPoint=(mi>=0)?parseFloat(tt.slice(mi+5).replace(/[^0-9.-].*$/,'')):null;
+        var rec=trs.filter(function(t){var x=t.textContent||'';return x.indexOf('HYBRID ♻')>=0;})[0];
+        var iWf=-1;hdr.forEach(function(h,k){if(iWf<0&&h.indexOf('WALK')===0)iWf=k;});
+        var cellTitle=function(tr,i){var c=(tr&&i>=0)?tr.cells[i]:null;var sp=c?c.querySelector('[title]'):null;return sp?sp.getAttribute('title'):(c?(c.textContent||'').trim():null);};
+        r.hybWf=cellTitle(rec,iWf);
+        r.hybWfHdr=iWf>=0?hdr[iWf]:null;
+        // combined tick: the recycled hybrid reads its WF+LB block total at the WF+LB factor (210/160)
+        doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],resSegs:['wf','lb'],resAxis:'evr',resXAxis:'so',resMarks:'dot',c2Tbl:true,resCols:'all'}, wc);
+        var hdr2=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()-]/g,'').trim();});
+        var rec2=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf('HYBRID ♻')>=0;})[0];
+        var im2=hdr2.indexOf('MAR');var mb=(rec2&&im2>=0)?rec2.cells[im2].querySelector('b[title]'):null;
+        r.hybWfLbTip=mb?mb.getAttribute('title'):null;
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -1579,10 +1627,10 @@ def main(argv=None):
          % (_il.get('trd'), _il.get('tpy'), _as.get('trd'), _as.get('tpy'), _ppts))
     if not stages_ok:
         fail('stage-counts: IN-SAMPLE + LOCKBOX is not reading the ticked stretches (or all three moved) -- see the stage-counts line')
-    _ORDER = ['so', 'sh', 'ddr', 'ddp', 'dd', 'ratio', 'pf', 'evr', 'ppt', 'rpy', 'roc', 'raw']
+    _ORDER = ['so', 'sh', 'ddr', 'ddp', 'dd', 'ratio', 'pf', 'wr', 'evr', 'ppt', 'rpy', 'roc', 'raw']
     _ax = r.get('axNew') or {}
     axes_ok = (r.get('axOrdY') == _ORDER and r.get('axOrdX') == _ORDER
-               and all(isinstance(v, int) and v >= 1 for v in _ax.values()) and len(_ax) == 4)
+               and all(isinstance(v, int) and v >= 1 for v in _ax.values()) and len(_ax) == 6)
     line('axes', axes_ok, 'vertical=%s horizontal=%s gate points on new pairings=%s'
          % (r.get('axOrdY'), r.get('axOrdX'), _ax))
     if not axes_ok:
@@ -1675,6 +1723,30 @@ def main(argv=None):
          % ([k for k, v in rs_checks.items() if not v], r.get('wf'), r.get('lb'), r.get('is'), r.get('all'), r.get('islb'), ex))
     if not rs_ok:
         fail('runstages: a run row is not reading the ticked stretch -- see the runstages line')
+    # case fixes346
+    r = cases.get('fixes346', {})
+    sv, cv = (r.get('rbSaved') or {}), (r.get('rbCurve') or {})
+    def _fl(x):
+        try:
+            return float(str(x).replace('~', '').replace(',', '').strip())
+        except (TypeError, ValueError):
+            return None
+    chk = {
+        '6 RUNBOARD full MAR from saved dd': sv.get('mar') == r.get('rbWant'),
+        '6 saved dd not marked ~': '~' not in str(sv.get('mar') or '') and '~' not in str(sv.get('dd') or ''),
+        '6 curve fallback marked ~': str(cv.get('mar') or '').startswith('~') and str(cv.get('dd') or '').startswith('~'),
+        '6 curve fallback never best': not cv.get('marBold'),
+        '3 chart MAR = table MAR (per year)': (_fl(r.get('gateMarCell')) is not None and r.get('gateMarPoint') is not None
+                                               and abs(_fl(r.get('gateMarCell')) - float(r.get('gateMarPoint'))) < 0.011),
+        '4 recycled hybrid WF sized by its own twin': r.get('hybWf') == '$40,000',
+        '4 combined tick reads the combined block at its own factor': 'profit of $65,625' in str(r.get('hybWfLbTip') or ''),
+        '4 hover explains the stage columns sum ($70,000)': 'add up to $70,000 instead' in str(r.get('hybWfLbTip') or ''),
+    }
+    f346_ok = all(chk.values())
+    line('fixes346', f346_ok, 'failed=%s | rb saved=%s curve=%s want=%s | gate MAR cell=%r point=%r | hybrid WF(%s)=%r'
+         % ([k for k, v in chk.items() if not v], sv, cv, r.get('rbWant'), r.get('gateMarCell'), r.get('gateMarPoint'), r.get('hybWfHdr'), r.get('hybWf')))
+    if not f346_ok:
+        fail('fixes346: see the fixes346 line')
     if bad:
         print('CMP2 PROBE: FAIL')
         for b in bad:
