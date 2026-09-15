@@ -228,6 +228,140 @@ above are post-fix.
 
 ---
 
+## Round 57 (2026-09-14) - which setups are taken
+
+**Result, said plainly: all four entry rules tested are DEAD at selection, and the crown does not
+change.** Run #335 / the R2 defaults stay the crown; paper leg `ENGUQ_335` and NinjaTrader are
+untouched. No rule got far enough for the cost stress, the R5 replication, the day-shift null or the
+lockbox look, so **no null p-value and no lockbox figure exists for any rule**, and no fenced file or
+validate was cut. Contract: `ENGUQ_R57_PREREG.md` (committed a7f0811 before any test cell ran).
+Full write-up with every cell and every clause: `tools/r37_results/r57_summary.txt`.
+
+**Why this round.** Owner, 2026-09-14: *"run more test. try to improve the frontier ENGUQ model."*
+It reopens his note parked on 2026-09-11: ENGU-Q was built to read the **context** of the trade, its
+**location**, and the **imbalance** of buyers and sellers, so it should win often at a modest profit
+factor — instead it wins 29.4% and is carried by a tail. The lever named there is the ENTRY RULE
+(which setups are taken), not exits, stops, sizing or a model. So the round asked one question: does
+any single condition known at the signal bar, written into a strategy file and run in the engine,
+take better setups than the crown?
+
+### Step 1 — the like-for-like frontier
+
+Thirteen ENGU-Q configs on the same tape, window, cost and split, selection = entries before
+2025-06-30 (`tools/r37_results/r57_frontier.txt`). The rows that matter:
+
+| config | trades | win | PF | net | MAR | worst-era top-10 | 2022 | index corr |
+|---|---|---|---|---|---|---|---|---|
+| **R2 defaults = #335 crown** | 1,831 | 29.4% | 1.717 | $524,745 | 0.90 | 65% | +$7,340 | +0.50 |
+| R4 defaults (limit 0.85) | 1,877 | 28.9% | 1.713 | $523,557 | 1.21 | 65% | +$17,489 | +0.43 |
+| R5 defaults (limit 0.85 + cap 9,660) | 2,434 | 28.4% | 1.519 | $466,910 | 1.02 | 56% | +$24,796 | +0.26 |
+| #309 ex-crown | 1,505 | 33.6% | 1.661 | $505,756 | 0.76 | 70% | −$339 | +0.58 |
+| #384 champion (900 trials) | 3,802 | 29.4% | 1.313 | $524,504 | 0.73 | 57% | −$5,673 | +0.49 |
+| #380 champion (highest win rate) | 3,120 | 38.2% | 1.257 | $422,255 | 0.39 | 85% | −$60,006 | +0.72 |
+| #335 search champion (`ENGUQ_335_VC`) | 1,216 | 16.9% | 1.893 | $491,518 | 0.49 | 108% | −$55,881 | +0.76 |
+
+- **The crown sits on every frontier except tail independence.** R4 ties it on PF (1.713 vs 1.717) and
+  its MAR lead is one lower drawdown; R5 leads on tail independence but gives up PF.
+- **Nothing in the family wins often at a good PF.** The only config above 33.6% is #380 at 38.2%, and
+  it pays with PF 1.257, an 85% worst-era top-10 share and −$60k in 2022. Win rate has so far only
+  been bought with PF.
+- **Four of the five search champions carry heavy index beta** (#376/#383, #380, #381 and #335's own
+  cell: yearly corr with NQ +0.72 to +0.76, 2022 losses of $46k–$67k); #384 avoids that only at PF
+  1.313. The plain file defaults are the robust ones.
+- On the crown the typical trade barely pays: median winner / median loser is 2.97× against the 2.40×
+  a 29.4% win rate needs to break even.
+
+### Step 2 — the winner-vs-loser anatomy at the true signal bar
+
+`tools/r37_results/r57_anatomy.txt`: 160 features on the crown's 1,831 selection trades, measured at
+the SIGNAL bar (not the fill), judged with a within-year shuffle so a feature that only tells 2012
+from 2022 cannot pass. 30 features separate winners from losers on win rate, and they collapse into
+**two factors**:
+
+1. **Volatility / stop size — winners are taken in an active tape with a bigger planned stop.**
+   Planned risk as % of price, by fifths: win 23.2 / 25.7 / 27.6 / 32.8 / 37.7%. ATR as % of price:
+   24.3% → 36.6%. The bar's ATR percentile against the prior year, ranked inside each year: 22.6 /
+   30.8 / 28.0 / 30.0 / 35.6%, equally strong in both eras. Prior-day VIX says the same. The dollar
+   tail IS this factor: the 21 best 2020-25 trades had a median stop of 171 pts against 59 for the
+   rest. This is §1.3's big-stop finding seen from the entry side.
+2. **Daily location / stretch — winners sit nearer to (or below) their daily averages.** Distance
+   above the 20-day SMA in daily ATRs, by fifths: win 36.3 / 29.2 / 27.7 / 28.4 / 25.2%; daily RSI(14):
+   35.8% → 23.6%; the 50- and 200-day SMAs read the same way. It is carried mostly by 2010-2019, and it
+   runs against "above the larger moving averages": far above the ~20-day mean wins LESS.
+
+**What did NOT separate winners from losers** (within-year win p-value):
+- **the file's own volume-spike test** (volume vs its 20-bar mean): win by fifth 30.5 / 29.0 / 30.3 /
+  29.0 / 28.1% (p 0.94) — among the setups ENGU-Q takes, its imbalance read carries no information;
+- breakout size in ATRs (p 0.16); candle body share (p 0.90); close location and upper wick (p 0.77);
+- trendline quality: R² (p 0.31), slope (p 0.24), number of lower highs (p 0.47);
+- prior-day high (p 0.37), position against round numbers (p 0.97), day of week (p 0.90), whether the
+  previous trade won (p 0.33);
+- the session clock (Asia / Europe / cash, p 0.22): its only link is net R, through the fixed cost
+  weighing more on small overnight stops;
+- **the monster winners themselves:** the 36 best trades by R differ from the rest on 0 of 158
+  features after correction — they cannot be picked out at signal time;
+- a combined model of all 160 features: out-of-period AUC 0.513 and 0.536 (0.50 = a coin flip).
+
+The ceiling this set before any rule was run: dropping the worst in-sample fifth of the strongest
+reads lifts the win rate only to 30.4–31.1%.
+
+### Step 3 — four pre-registered entry rules, run in the engine
+
+Each rule is one yes/no check at the signal bar added to the crown's existing filters, one knob at a
+time. It runs in the engine, so a skipped signal frees the slot and later signals can take it, exactly
+as the live strategy would trade. Control = the same file with the rule off; it reproduced the crown
+trade for trade (1,831 / 29.4% / PF 1.717 / $524,745). Each rule was judged ONLY at its pre-declared
+centre cell. The main bar: win rate at least +1.0 pt (30.38%), PF at least +0.02 (1.737), net at
+least 95%, concentration / era / index checks, and both grid neighbours holding a plateau.
+
+| rule (lens) | centre cell | trades | win (lift) | PF (lift) | net (vs control) | verdict — deciding numbers |
+|---|---|---|---|---|---|---|
+| **H-A** quiet-tape stand-down (context) | skip when the bar's ATR is in the bottom 20% of the prior year | 1,758 | 30.09% (+0.71) | 1.725 (+0.008) | $526,709 (100.4%) | **DEAD** — win and PF short; the 10 neighbour held no plateau (win +0.25, 2020-25 PF lift −0.009) |
+| **H-B** daily stretch cap (location) | skip when > 1.5 daily ATRs above the 20-session mean | 1,511 | 30.05% (+0.66) | 1.860 (+0.143) | $513,754 (97.9%) | **DEAD, near miss** — win short; 2.0 neighbour win +0.39 (needs +0.5); 1.0 neighbour net $450,012 (needs $472,271) |
+| **H-C** leg recovery floor (location) | skip when < 45% of the falling leg is reclaimed | 1,738 | 29.40% (+0.02) | 1.735 (+0.018) | $528,754 (100.8%) | **DEAD** — win +0.02 (its kill line was +0.75); PF 0.002 short; 2010-19 top-10 share 66.0% (limit 64.1%) |
+| **H-D** clock-unit volume (imbalance) | volume ≥ 1.25× the same clock minute's 20-session average, replacing the 20-bar test | 1,687 | 28.99% (−0.40) | 1.651 (−0.067) | $475,161 (90.6%) | **DEAD** — 22 clauses fail; 2022 −$660; added trades PF 0.60 vs removed PF 1.63 |
+
+The look-ahead alarm stayed clear on all four (largest jumps: win +0.71 on H-A, PF +0.143 on H-B,
+against +3.0 pts / +0.30). Two independent checks re-ran every cell and rebuilt every feature from
+bars up to the signal only: both confirmed, 0 disagreements, no serious finding.
+
+- **H-A.** The skipped signals were 84% Asia, 12% Europe, 0% cash session. A plain stop-size floor that
+  skips the same NUMBER of signals (235, only 112 of them the same) gives win +0.87 / PF +0.009 — the
+  same order as H-A, so its small lift is consistent with the big-stop / volatility factor, not a new
+  edge.
+- **H-B — the near miss, said plainly.** It removed late-trend chasing and lifted PF in all four eras
+  (2010-13 +0.193, 2014-17 +0.019, 2018-21 +0.310, 2022-25 +0.051), kept 94% of 2022-25 net, and passed
+  every concentration, era and index check. It failed on what the owner's framing asked for — win rate
+  — and on its plateau. **It stays dead:** no re-tune, and reading it on PF instead of win rate now
+  would be choosing the bar after seeing the answer. Any stretch-cap idea is a new pre-registration.
+- **H-C.** The mechanism moved as described (limit fills that gapped through fell from 8.4% to 7.7%),
+  but the win rate did not.
+- **H-D.** The owner's "genuine volume spike", measured against the same minute of prior sessions, adds
+  434 steady-hour trades that won 19.4% (PF 0.60, −$88k) and drops 754 that were fine (PF 1.63,
+  +$179k); its three cells disagree on the sign of the PF change. It was the weakest-evidence rule
+  going in (its anatomy read was not significant).
+
+**Why the trade-list scans over-promised.** Deleting trades from a list predicted win lifts of +1.1
+(H-A), +1.0 (H-B) and +1.5 (H-C). In the engine the freed slot is taken by the next signal, and those
+refill trades won only 23% (H-A, 116 of them), 21% (H-B, 39) and 14% (H-C, 167), so the real lifts
+were +0.71, +0.66 and +0.02. A cut on a trade list is not an entry rule; only the engine run counts.
+
+### What it means for the crown
+
+- **Run #335 / R2 stays the crown, unchanged.** No fenced file, no validate, no new paper leg.
+- **No entry filter tested here makes ENGU-Q "win often".** The best centre cell reached 30.09%;
+  the only cell of the 12 above +1 pt (H-B at 1.0, 30.8%) gave up 14% of net. The anatomy ceiling
+  (dropping the worst fifth of any strong read reaches ~31%) and the frontier (38% only at PF 1.26)
+  point the same way.
+- **The factors that do separate winners are the ones that already pay.** Big-stop, active-tape
+  trades are where the tail lives (§1.1, §1.3); skipping the quiet end drops small-stop losers, but
+  the freed slots refill with trades that win only 23%, well below the crown's 29.4%.
+- The research file `ENGUQ_1M_ETH_SEL_1_0.py` exists only in the round-57 worktree as a research
+  sibling (never to be validated as a four-knob search). All round-57 work is uncommitted pending the
+  owner.
+
+---
+
 ## §1 — ⚠ THE EDGE IS A HANDFUL OF TRADES (measured 2026-08-20) — READ BEFORE JUDGING A DRAWDOWN
 
 <a id="concentration"></a>
@@ -528,6 +662,12 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 ---
 
 ## §3 — Changelog
+
+- **2026-09-14** — **Round 57: four entry rules (which setups are taken) tested against the #335
+  crown, all DEAD at selection** — quiet-tape stand-down, daily stretch cap (near miss: PF +0.143 but
+  win +0.66 of the +1.0 needed, no plateau), leg recovery floor, clock-unit volume. Pre-registered in
+  `ENGUQ_R57_PREREG.md` (a7f0811) before any cell ran; none reached the null, cost stress or lockbox.
+  Crown unchanged. See the Round 57 section above.
 
 - **2026-09-08 (evening)** — **CROWN CHANGE → run #335 (R2).** Its Auto-Validate passed (6/6,
   WF 8/8, lockbox held) and the owner's standing instruction fired: paper leg `ENGUQ_335`

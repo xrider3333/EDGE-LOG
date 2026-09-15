@@ -1,0 +1,434 @@
+======================================================================================================================================================
+ENGU-Q ROUND 57 -- WRITE-UP (order of work item 7): which setups are taken   (generated 2026-09-14 17:06)
+contract ENGUQ_R57_PREREG.md a7f0811 | base = R2 defaults = run #335 crown | research file ENGUQ_1M_ETH_SEL_1_0.py (worktree)
+tape NQ 1m ETH db_noadj_eth | window 2010-06-07..2026-06-30 pinned | cost 0.533 pts/RT x $20 | one continuous engine backtest per cell
+SELECTION = entries before 2025-06-30 00:00 ET. The lockbox (LB) was not read by any variant this round.
+This file runs no backtest: every number below is copied from r57_sel_parity_gates.json, r57_grid.json and verify_r57_grid.json.
+======================================================================================================================================================
+
+======================================================================================================================================================
+0. BOTTOM LINE
+======================================================================================================================================================
+  Survivors of S1-S9 + section-5 extras and kills: NONE
+  H-A quiet-tape stand-down    centre quiet_pct=20           -> DEAD at selection (failed 5: S1, S2, S9-win(H-A quiet_pct=10), S9-pf(H-A quiet_pct=10), S9-E2pf(H-A quiet_pct=10))
+  H-B daily stretch cap        centre stretch_max=1.5        -> DEAD at selection (failed 3: S1, S9-win(H-B stretch_max=2), S9-net(H-B stretch_max=1))
+  H-C leg recovery floor       centre rec_min=0.45           -> DEAD at selection (failed 7: S1, S2, S5a-E1, S6c, S9-win(H-C rec_min=0.35), S9-pf(H-C rec_min=0.35), K-win)
+  H-D clock-unit volume test   centre vol_clock=1.25         -> DEAD at selection (failed 22: S1, S2, S3, S4, S5a-E2, S5c, S5d, S6a, S6b, S6d, S7a, S7c, S9-win(H-D vol_clock=1), S9-win(H-D vol_clock=1.5), S9-pf(H-D vol_clock=1.5), S9-E2pf(H-D vol_clock=1.5), X-addE1, X-addE2, X-addPF, X-0930, K-sign, K-E2pf)
+  Every centre cell fails S1 (win rate >= control + 1.0 pt = 30.3829%): win lifts H-A +0.708, H-B +0.663, H-C +0.019, H-D -0.396 pts.
+  H-B is a near miss and stays dead (prereg section 9: 'A near miss is reported as a near miss and stays dead').
+  Not run, because nothing survived item 3: S10 cost stress, S11 R5 replication, S12 day-shift null (so NO null p-values exist),
+  H-E conditional stack, and the single LB look. No fenced single-hypothesis file is cut and no validate queue script is written.
+  Both independent verifiers returned 'confirmed'. No HIGH finding; every finding is LOW and changes no verdict (section 10).
+  Crown: unchanged. Run #335 / R2 defaults stays the crown; paper leg ENGUQ_335 and NinjaTrader are untouched by this round.
+
+======================================================================================================================================================
+1. WHAT RAN, IN THE PRE-REGISTERED ORDER
+======================================================================================================================================================
+  item 1  sibling file + parity gates G1-G5 ........ ran once, ALL PASS (runtime 104 s, research beacon, one job record)
+  item 2  12 grid cells + knob-off control at R2 ... ran once (runtime 26 s, research beacon, one job record); every measure() row printed before any clause
+  item 3  A0, then S1-S9 + section-5 extras/kills .. same single run; A0 clear on all four centres; survivors: none
+  item 4  S10 / S11 / S12 for survivors ............ NOT RUN (no survivors)
+  item 5  H-E stack (needs >= 2 passes) ............ NOT RUN (0 passes)
+  item 6  single LB look for full passes ........... NOT RUN (0 passes); the LB stayed unread for every variant
+  item 7  write-up ................................. this file + prereg section 11 append + ENGUQ.md 'Round 57' section
+  independent checks after item 3: recompute + look-ahead verifier (verify_r57_grid.py, 821 s) and protocol verifier
+  (verify_r57_protocol_audit.py, read-only). Nothing was committed, pushed or queued; no runner restarted.
+
+======================================================================================================================================================
+2. PARITY GATES (item 1) -- all must pass before any cell is read
+======================================================================================================================================================
+  G1 knob-off at R2 settings vs ENGUQ_1M_ETH_R2_1_0.py: trade for trade True (mismatches entry 0 exit 0 px 0 P&L 0) | whole 1949 / $613,126 |
+     selection 1831 / win 29.38% / PF 1.7172 / $524,745 / DD $38,687 | frontier row 1 fields mismatched 0 -> PASS
+  G2 knob-off at R5 settings vs ENGUQ_1M_ETH_R5_1_0.py: trade for trade True | whole 2585 / $566,907 | selection 2434 / win 28.39% / PF 1.5188 / $466,910 / DD $30,527 -> PASS
+  G3 H-A quiet_pct=20.0 compiled vs interpreted, full window: count equal True, mismatches 0, max |dP&L| 0.0, differs from control True -> PASS
+  G3 H-B stretch_max=1.5 compiled vs interpreted, full window: count equal True, mismatches 0, max |dP&L| 0.0, differs from control True -> PASS
+  G3 H-C rec_min=0.45 compiled vs interpreted, full window: count equal True, mismatches 0, max |dP&L| 0.0, differs from control True -> PASS
+  G3 H-D vol_clock=1.25 compiled vs interpreted, full window: count equal True, mismatches 0, max |dP&L| 0.0, differs from control True -> PASS
+  G4-A quiet percentile vs local stride-23 copy: all 5439594 bars, NaN pattern identical True, max |diff| 1.42e-14 (tol 1e-9); vs anatomy CSV on 1802 signal bars: median |diff| 0.078 pts (bar 1.5), max 0.76; mask-as-override identity True -> PASS
+  G4-B daily stretch S[i] vs anatomy CSV: 1828 non-NaN signal bars, engine finite on 1828, max |diff| 4.44e-16 (tol 1e-6), over tol 0; mask-as-override identity True -> PASS
+  G4-C leg recovery rec[i] vs anatomy CSV: 1831 non-NaN signal bars, engine finite on 1831, max |diff| 4.44e-16 (tol 1e-9), over tol 0; mask-as-override identity True -> PASS
+  G4-D clock volume V/B vs anatomy CSV: 1829 non-NaN signal bars, engine finite on 1829, max |diff| 3.55e-15 (tol 1e-9), over tol 0; mask-as-override identity True -> PASS
+  G5 exec-feasibility audit, --config mode: exit 0 on all four centres, but it printed 'warn UNAUDITED' (it only looks the file up in the
+     2026-08-11 sweep list). READ IT AS A HAND AUDIT, NOT A TOOL PASS: file-level static scan 'EXEC-FEASIBILITY: PASS  (0 hard failure(s), 0 warning(s))'; signal-bar probe: 0 signal bars fail
+     their own mask on every centre; truncation at two cut bars: every feature identical. -> PASS as recorded in prereg section 11 item 6.
+  Parity gates overall: ALL PASS
+
+======================================================================================================================================================
+3. CONTROL AND THE EXACT THRESHOLDS (prereg section 11 item 11: exact control values; the prereg table's rounded figures are displays)
+======================================================================================================================================================
+  control (knob-off, R2 settings): n 1831 | win 29.3829% | PF 1.717249 | net $524745.35 | DD $38686.92 | MAR 0.901094 | EV R 0.5065 | E1/E2 top-10 62.0576% / 64.5660%
+                                   TTZ 32 | evr_ex05 0.266639 | index corr +0.499244 | 2018 $12,392 | 2022 $7,340 | era D net $272,891 | control == frontier row 1 on every selection field
+  S1 win >= 30.3829 | S2 PF >= 1.73725 | S3 net >= $498508.08 | S4 MAR >= 0.85604 | S5a E1 <= 64.0576, E2 <= 66.5660 | S5c TTZ >= 30 | S5d evr_ex05 >= 0.266639
+  S7 corr <= +0.54924 | S9 neighbours: win lift >= +0.5 pt, PF >= 1.72725, net >= $472270.81, E2 PF lift >= 0 | S8 top-20 retained >= 17 (H-A >= 18)
+  The protocol verifier re-applied the prereg table's rounded figures and an absolute S4: identical fail sets for every centre and neighbour.
+
+======================================================================================================================================================
+4. EVERY CELL (item 2) -- selection stretch, P&L after cost
+======================================================================================================================================================
+PANEL 1 -- MONEY
+  cell                   |     n    win%      PF      net $   maxDD $    MAR   EV R  R/YR | win lift  PF lift  net %
+  CTRL                   |  1831  29.383  1.7172    524,745    38,687  0.901 0.5065  61.6 |   +0.000  +0.0000 100.00
+  H-A quiet_pct=10       |  1809  29.630  1.7128    522,895    38,687  0.898 0.5016  60.3 |   +0.247  -0.0045  99.65
+  H-A quiet_pct=20       |  1758  30.091  1.7254    526,709    38,687  0.904 0.5071  59.2 |   +0.708  +0.0081 100.37
+  H-A quiet_pct=30       |  1683  30.362  1.7345    525,650    38,687  0.903 0.5115  57.2 |   +0.980  +0.0173 100.17
+  H-B stretch_max=2      |  1693  29.770  1.8072    540,402    38,676  0.928 0.5669  63.8 |   +0.387  +0.0899 102.98
+  H-B stretch_max=1.5    |  1511  30.046  1.8599    513,754    38,676  0.882 0.6016  60.4 |   +0.663  +0.1427  97.91
+  H-B stretch_max=1      |  1246  30.819  1.8790    450,012    38,676  0.773 0.6081  50.3 |   +1.436  +0.1618  85.76
+  H-C rec_min=0.35       |  1799  29.683  1.7236    526,599    38,687  0.904 0.5088  60.8 |   +0.300  +0.0063 100.35
+  H-C rec_min=0.45       |  1738  29.402  1.7350    528,754    37,195  0.944 0.5189  59.9 |   +0.019  +0.0178 100.76
+  H-C rec_min=0.55       |  1616  30.322  1.7386    517,210    37,798  0.909 0.5146  55.3 |   +0.939  +0.0214  98.56
+  H-D vol_clock=1        |  1730  28.902  1.7719    560,340    43,384  0.862 0.5488  63.4 |   -0.481  +0.0547 106.78
+  H-D vol_clock=1.25     |  1687  28.986  1.6508    475,161    42,784  0.741 0.4621  52.0 |   -0.396  -0.0665  90.55
+  H-D vol_clock=1.5      |  1630  29.509  1.6903    477,865    42,045  0.759 0.4866  52.9 |   +0.126  -0.0270  91.07
+
+PANEL 2 -- TAIL (E1 = entries to 2019-12-31, E2 = 2020-01-01..2025-06-29; top-10 share = era's 10 best / era net)
+  cell                   |  top10    ex10 $ |  E1 n  E1 PF  E1t10   E1 ex10 |  E2 n  E2 PF  E2t10   E2 ex10 | TTZ | EVRx.5% |   corr
+  CTRL                   | 51.46%   254,730 |  1218 1.4581  62.06    40,426 |   613 1.8380  64.57   148,185 |  32 |  0.2666 | +0.499
+  H-A quiet_pct=10       | 51.64%   252,880 |  1201 1.4622  61.63    41,170 |   608 1.8288  64.97   145,590 |  31 |  0.2632 | +0.497
+  H-A quiet_pct=20       | 51.26%   256,693 |  1168 1.4664  61.70    41,036 |   590 1.8452  64.36   149,538 |  32 |  0.2679 | +0.470
+  H-A quiet_pct=30       | 51.37%   255,635 |  1116 1.4829  60.81    42,603 |   567 1.8500  64.76   146,912 |  32 |  0.2895 | +0.483
+  H-B stretch_max=2      | 49.97%   270,387 |  1137 1.4658  65.32    34,943 |   556 1.9701  61.42   169,640 |  34 |  0.3277 | +0.492
+  H-B stretch_max=1.5    | 52.56%   243,739 |  1010 1.5486  63.73    37,453 |   501 2.0031  65.78   140,483 |  31 |  0.3346 | +0.524
+  H-B stretch_max=1      | 58.15%   188,320 |   809 1.7604  58.62    46,614 |   437 1.9273  77.57    75,671 |  29 |  0.3565 | +0.555
+  H-C rec_min=0.35       | 51.28%   256,584 |  1196 1.4604  62.10    40,352 |   603 1.8462  64.27   150,112 |  32 |  0.2687 | +0.496
+  H-C rec_min=0.45       | 51.07%   258,738 |  1155 1.4643  66.04    36,193 |   583 1.8620  63.96   152,154 |  32 |  0.2751 | +0.507
+  H-C rec_min=0.55       | 51.81%   249,234 |  1064 1.4903  65.84    36,207 |   552 1.8495  65.17   143,240 |  31 |  0.2897 | +0.541
+  H-D vol_clock=1        | 49.49%   283,016 |  1129 1.5217  56.63    49,806 |   601 1.8808  62.25   168,178 |  34 |  0.2987 | +0.509
+  H-D vol_clock=1.25     | 56.93%   204,661 |  1080 1.4695  59.27    41,754 |   607 1.7281  72.59   102,144 |  26 |  0.2368 | +0.605
+  H-D vol_clock=1.5      | 56.37%   208,514 |  1042 1.5379  55.21    48,673 |   588 1.7531  72.96    99,847 |  28 |  0.2519 | +0.627
+
+PANEL 3 -- FOUR ERAS (A to 2013, B 2014-17, C 2018-21, D 2022-2025-06-29), E1/E2 win, 2018 / 2022, shape (shape columns reported, never gating)
+  cell                   | A n / win / PF / net         | B                            | C                            | D                            | E1 win E2 win |   2018 $   2022 $ |   W/L    BE  scr%
+  CTRL                   |  382 25.65 1.4594    21,577 |  535 27.48 1.4256    39,818 |  560 31.43 1.7105   190,459 |  354 33.05 1.8448   272,891 |  27.59  32.95 |   12,392    7,340 |  2.97  2.40  8.47
+  H-A quiet_pct=10       |  377 26.26 1.4636    21,725 |  527 27.70 1.4245    39,680 |  555 31.35 1.7103   190,634 |  350 33.43 1.8338   270,856 |  27.81  33.22 |   12,169    7,717 |  2.94  2.38  8.07
+  H-A quiet_pct=20       |  372 26.61 1.4630    21,701 |  504 28.97 1.4516    41,212 |  543 31.68 1.7128   189,204 |  339 33.04 1.8514   274,591 |  28.51  33.22 |   12,100   12,409 |  2.81  2.32  7.91
+  H-A quiet_pct=30       |  356 27.25 1.5047    22,965 |  477 29.35 1.4705    42,081 |  527 31.50 1.7159   188,536 |  323 33.44 1.8573   272,068 |  28.85  33.33 |   12,865    8,349 |  3.03  2.29  8.44
+  H-B stretch_max=2      |  370 25.95 1.5460    24,054 |  496 27.82 1.4000    34,918 |  499 32.06 1.8771   205,899 |  328 33.54 1.9081   275,531 |  27.79  33.81 |    9,496   11,413 |  2.93  2.36  8.15
+  H-B stretch_max=1.5    |  341 26.69 1.6524    26,101 |  451 28.16 1.4449    35,206 |  413 32.93 2.0206   196,692 |  306 32.68 1.8956   255,755 |  28.42  33.33 |   13,628    3,918 |  3.09  2.33  8.27
+  H-B stretch_max=1      |  275 27.64 1.9056    29,687 |  384 28.91 1.5328    35,935 |  304 35.20 2.2537   187,552 |  283 31.80 1.7509   196,837 |  29.79  32.72 |   18,965    4,440 |  3.01  2.24  8.27
+  H-C rec_min=0.35       |  375 26.13 1.4625    21,530 |  524 27.48 1.4238    39,509 |  553 31.83 1.7207   192,022 |  347 33.43 1.8506   273,538 |  27.84  33.33 |   12,100    8,490 |  2.91  2.37  8.34
+  H-C rec_min=0.45       |  361 25.48 1.4676    21,494 |  503 26.64 1.4376    40,493 |  540 32.78 1.7462   194,289 |  334 32.34 1.8502   272,479 |  27.53  33.10 |    9,385   13,988 |  3.13  2.40  8.40
+  H-C rec_min=0.55       |  331 28.10 1.5652    24,055 |  470 27.45 1.4562    39,559 |  491 33.81 1.7850   192,870 |  324 31.48 1.8015   260,725 |  28.76  33.33 |    6,879    6,587 |  2.94  2.30  8.23
+  H-D vol_clock=1        |  355 25.92 1.4671    21,175 |  509 26.92 1.4230    39,463 |  509 31.83 1.8605   214,970 |  357 30.53 1.8438   284,732 |  27.81  30.95 |   19,806    3,445 |  3.30  2.46  9.19
+  H-D vol_clock=1.25     |  318 28.93 1.6804    26,568 |  494 25.91 1.3638    33,530 |  502 31.67 1.7698   190,896 |  373 29.49 1.6388   224,168 |  28.43  29.98 |    6,442     -660 |  3.01  2.45  8.95
+  H-D vol_clock=1.5      |  333 27.33 1.4808    20,118 |  469 26.44 1.4640    39,349 |  481 33.47 1.7817   183,711 |  347 30.26 1.7099   234,687 |  28.89  30.61 |   10,056     -223 |  3.16  2.39  8.71
+
+PANEL 4 -- TRADE-SET AUDIT vs control (prereg section 11 item 12 definitions) and the 09:30-09:35 read
+  cell                   | ident remov retim refill | refill w |  t20  t10 | n0930  PF x0930
+  CTRL                   |  1831     0     0      0 |       - |   20   10 |    52    1.6654
+  H-A quiet_pct=10       |  1748    83     5     56 |  10.71% |   20   10 |    52    1.6609
+  H-A quiet_pct=20       |  1632   199    10    116 |  23.28% |   20   10 |    51    1.6741
+  H-A quiet_pct=30       |  1517   314    24    142 |  22.54% |   20   10 |    52    1.6831
+  H-B stretch_max=2      |  1650   181     0     43 |  20.93% |   20   10 |    50    1.7419
+  H-B stretch_max=1.5    |  1472   359     0     39 |  20.51% |   19   10 |    48    1.7951
+  H-B stretch_max=1      |  1195   636     0     51 |  25.49% |   16    8 |    40    1.8041
+  H-C rec_min=0.35       |  1744    87     8     47 |  17.02% |   20   10 |    52    1.6716
+  H-C rec_min=0.45       |  1535   296    36    167 |  14.37% |   20   10 |    51    1.6796
+  H-C rec_min=0.55       |  1129   702    89    398 |  23.62% |   20   10 |    47    1.7094
+  H-D vol_clock=1        |  1231   600   203    296 |  18.24% |   16    8 |    38    1.7489
+  H-D vol_clock=1.25     |  1077   754   176    434 |  19.35% |   17    8 |    20    1.6529
+  H-D vol_clock=1.5      |   930   901   144    556 |  22.84% |   18    8 |    10    1.7009
+  refill = slot refill = a variant trade with no control entry bar inside its span; t20 / t10 = control's best 20 / 10 $ trades with a variant entry in span
+
+YEARLY SELECTION NET $ by entry year (2010 = Jun-Dec, 2025 = Jan-Jun 29)
+  cell                       2010     2011     2012     2013     2014     2015     2016     2017     2018     2019     2020     2021     2022     2023     2024     2025
+  CTRL                      7,313    2,795    9,377    2,092    6,656   10,076    5,602   17,484   12,392   32,757   57,535   87,773    7,340  101,977   88,396   75,179
+  H-A quiet_pct=10          7,241    2,905    9,454    2,125    6,599   10,028    5,487   17,567   12,169   33,716   57,535   87,214    7,717   99,574   88,387   75,179
+  H-A quiet_pct=20          7,252    2,960    9,559    1,930    7,217    9,747    6,182   18,065   12,100   32,142   56,212   88,750   12,409   98,661   87,538   75,983
+  H-A quiet_pct=30          7,250    3,131    9,970    2,614    6,862    9,638    6,968   18,613   12,865   30,811   55,786   89,073    8,349   99,759   86,259   77,701
+  H-B stretch_max=2         7,313    3,594    9,280    3,867    4,376   11,198    2,286   17,058    9,496   32,279   66,938   97,186   11,413   99,715   87,888   76,515
+  H-B stretch_max=1.5       7,416    4,430    9,872    4,382    4,481   11,244    1,623   17,858   13,628   28,321   59,081   95,662    3,918  101,450   84,247   66,141
+  H-B stretch_max=1         8,196    3,304   10,287    7,899    2,272   12,871    3,920   16,872   18,965   28,063   52,227   88,297    4,440   84,838   65,107   42,452
+  H-C rec_min=0.35          7,274    2,860    9,572    1,824    6,685    9,868    5,565   17,391   12,100   33,332   58,816   87,773    8,490  101,383   87,758   75,907
+  H-C rec_min=0.45          7,231    2,861    9,493    1,909    7,045    9,810    5,574   18,064    9,385   35,214   62,039   87,652   13,988  103,561   86,152   68,777
+  H-C rec_min=0.55          8,459    3,336    9,671    2,589    7,012    8,908    5,789   17,851    6,879   35,499   63,163   87,328    6,587  103,893   77,024   73,222
+  H-D vol_clock=1           6,624    3,381    8,495    2,676   10,235    7,447    5,297   16,484   19,806   34,394   68,755   92,015    3,445  109,419   81,991   89,877
+  H-D vol_clock=1.25        8,732    5,186    8,751    3,900   10,641    6,894    4,546   11,449    6,442   35,977   56,549   91,927     -660  111,407   61,267   52,153
+  H-D vol_clock=1.5         5,856    3,158    8,834    2,271   13,107    7,008    5,903   13,331   10,056   39,144   61,335   73,177     -223  110,983   70,997   52,929
+
+======================================================================================================================================================
+5. A0 LOOK-AHEAD ALARM (checked first; trips on win lift > +3.0 pts, PF lift > +0.30, or net > 110% of control)
+======================================================================================================================================================
+  H-A H-A quiet_pct=20       win lift +0.708 | PF lift +0.0081 | net 100.37% of control -> clear
+  H-B H-B stretch_max=1.5    win lift +0.663 | PF lift +0.1427 | net 97.91% of control -> clear
+  H-C H-C rec_min=0.45       win lift +0.019 | PF lift +0.0178 | net 100.76% of control -> clear
+  H-D H-D vol_clock=1.25     win lift -0.396 | PF lift -0.0665 | net 90.55% of control -> clear
+
+======================================================================================================================================================
+6. EVERY CLAUSE, PER HYPOTHESIS (item 3) -- centre vs the knob-off control; neighbours veto through S9 only
+======================================================================================================================================================
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+H-A QUIET-TAPE STAND-DOWN -- centre H-A quiet_pct=20 | neighbours H-A quiet_pct=10, H-A quiet_pct=30
+  SHARED BAR, centre cell:
+    S1        win rate >= control + 1.0 pt                                                                                30.0910        >= 30.3829  FAIL
+    S2        PF >= control + 0.02                                                                                        1.72538        >= 1.73725  FAIL
+    S3        net >= 95% of control ($)                                                                                 526708.66      >= 498508.08  PASS
+    S4        MAR >= 0.95 x control MAR (guard)                                                                           0.90447        >= 0.85604  PASS
+    S5a-E1    E1 top-10 share <= control + 2 pts (%)                                                                      61.7043        <= 64.0576  PASS
+    S5a-E2    E2 top-10 share <= control + 2 pts (%)                                                                      64.3578        <= 66.5660  PASS
+    S5b-E1    E1 ex-top-10 net > $0                                                                                      41035.91            > 0.00  PASS
+    S5b-E2    E2 ex-top-10 net > $0                                                                                     149538.09            > 0.00  PASS
+    S5c       trades-to-zero >= control - 2                                                                                    32             >= 30  PASS
+    S5d       proportional-tail EV R (evr_ex05) >= control's                                                             0.267917       >= 0.266639  PASS
+    S6a       PF lift > 0 in >= 3 of eras A-D (count; lifts A+0.004 B+0.026 C+0.002 D+0.007)                                    4              >= 3  PASS
+    S6b       E2 PF lift > 0                                                                                             +0.00726        > +0.00000  PASS
+    S6c       E1 win lift > 0 (pts)                                                                                       +0.9241         > +0.0000  PASS
+    S6d       E2 win lift > 0 (pts)                                                                                       +0.2676         > +0.0000  PASS
+    S7a       index corr <= control + 0.05                                                                               +0.47009       <= +0.54924  PASS
+    S7b       2018 selection P&L >= $0                                                                                   12100.49           >= 0.00  PASS
+    S7c       2022 selection P&L >= $0                                                                                   12409.37           >= 0.00  PASS
+    S8        control top-20 $ trades retained (of 20; H-A tightened to >= 18)                                                 20             >= 18  PASS
+  S9 PLATEAU, both neighbours:
+    S9-win    H-A quiet_pct=10: win lift >= +0.5 pt                                                                       +0.2468        >= +0.5000  FAIL
+    S9-pf     H-A quiet_pct=10: PF >= control + 0.01                                                                      1.71279        >= 1.72725  FAIL
+    S9-net    H-A quiet_pct=10: net >= 90% of control ($)                                                               522894.86      >= 472270.81  PASS
+    S9-E2pf   H-A quiet_pct=10: E2 PF lift >= 0                                                                          -0.00918       >= +0.00000  FAIL
+    S9-win    H-A quiet_pct=30: win lift >= +0.5 pt                                                                       +0.9796        >= +0.5000  PASS
+    S9-pf     H-A quiet_pct=30: PF >= control + 0.01                                                                      1.73451        >= 1.72725  PASS
+    S9-net    H-A quiet_pct=30: net >= 90% of control ($)                                                               525649.81      >= 472270.81  PASS
+    S9-E2pf   H-A quiet_pct=30: E2 PF lift >= 0                                                                          +0.01202       >= +0.00000  PASS
+  SECTION-5 KILL CRITERIA evaluable at item 3 (the S10-S12 kills never became evaluable):
+    K-win     kill: in-engine win lift >= +0.55 pt (half the scan's +1.1)                                                 +0.7082        >= +0.5500  PASS
+    K-top10   kill: control top-10 $ trades each keep an in-span variant entry (of 10)                                         10             >= 10  PASS  [missing: []]
+  NEIGHBOURS vs S1-S8 (record only, never gating):
+    H-A quiet_pct=10       S1:F S2:F S3:P S4:P S5a-E1:P S5a-E2:P S5b-E1:P S5b-E2:P S5c:P S5d:F S6a:F S6b:F S6c:P S6d:P S7a:P S7b:P S7c:P S8:P
+    H-A quiet_pct=30       S1:F S2:F S3:P S4:P S5a-E1:P S5a-E2:P S5b-E1:P S5b-E2:P S5c:P S5d:P S6a:P S6b:P S6c:P S6d:P S7a:P S7b:P S7c:P S8:P
+  VERDICT H-A: DEAD at selection   (failed 5: S1, S2, S9-win(H-A quiet_pct=10), S9-pf(H-A quiet_pct=10), S9-E2pf(H-A quiet_pct=10))
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+H-B DAILY STRETCH CAP -- centre H-B stretch_max=1.5 | neighbours H-B stretch_max=2, H-B stretch_max=1
+  SHARED BAR, centre cell:
+    S1        win rate >= control + 1.0 pt                                                                                30.0463        >= 30.3829  FAIL
+    S2        PF >= control + 0.02                                                                                        1.85993        >= 1.73725  PASS
+    S3        net >= 95% of control ($)                                                                                 513754.20      >= 498508.08  PASS
+    S4        MAR >= 0.95 x control MAR (guard)                                                                           0.88246        >= 0.85604  PASS
+    S5a-E1    E1 top-10 share <= control + 2 pts (%)                                                                      63.7281        <= 64.0576  PASS
+    S5a-E2    E2 top-10 share <= control + 2 pts (%)                                                                      65.7775        <= 66.5660  PASS
+    S5b-E1    E1 ex-top-10 net > $0                                                                                      37453.09            > 0.00  PASS
+    S5b-E2    E2 ex-top-10 net > $0                                                                                     140482.53            > 0.00  PASS
+    S5c       trades-to-zero >= control - 2                                                                                    31             >= 30  PASS
+    S5d       proportional-tail EV R (evr_ex05) >= control's                                                             0.334579       >= 0.266639  PASS
+    S6a       PF lift > 0 in >= 3 of eras A-D (count; lifts A+0.193 B+0.019 C+0.310 D+0.051)                                    4              >= 3  PASS
+    S6b       E2 PF lift > 0                                                                                             +0.16516        > +0.00000  PASS
+    S6c       E1 win lift > 0 (pts)                                                                                       +0.8296         > +0.0000  PASS
+    S6d       E2 win lift > 0 (pts)                                                                                       +0.3806         > +0.0000  PASS
+    S7a       index corr <= control + 0.05                                                                               +0.52396       <= +0.54924  PASS
+    S7b       2018 selection P&L >= $0                                                                                   13627.62           >= 0.00  PASS
+    S7c       2022 selection P&L >= $0                                                                                    3917.80           >= 0.00  PASS
+    S8        control top-20 $ trades retained (of 20)                                                                         19             >= 17  PASS
+  S9 PLATEAU, both neighbours:
+    S9-win    H-B stretch_max=2: win lift >= +0.5 pt                                                                      +0.3868        >= +0.5000  FAIL
+    S9-pf     H-B stretch_max=2: PF >= control + 0.01                                                                     1.80717        >= 1.72725  PASS
+    S9-net    H-B stretch_max=2: net >= 90% of control ($)                                                              540401.89      >= 472270.81  PASS
+    S9-E2pf   H-B stretch_max=2: E2 PF lift >= 0                                                                         +0.13213       >= +0.00000  PASS
+    S9-win    H-B stretch_max=1: win lift >= +0.5 pt                                                                      +1.4358        >= +0.5000  PASS
+    S9-pf     H-B stretch_max=1: PF >= control + 0.01                                                                     1.87903        >= 1.72725  PASS
+    S9-net    H-B stretch_max=1: net >= 90% of control ($)                                                              450011.53      >= 472270.81  FAIL
+    S9-E2pf   H-B stretch_max=1: E2 PF lift >= 0                                                                         +0.08935       >= +0.00000  PASS
+  SECTION-5 EXTRA CLAUSES:
+    X-eraD    extra: era D net >= 90% of control's era D net (ratio)                                                      0.93720        >= 0.90000  PASS  [variant $255,755 vs control $272,891]
+    X-winCD   extra: win lift > 0 in era C or era D (C +1.501, D -0.371)                                                     True                 -  PASS
+  NEIGHBOURS vs S1-S8 (record only, never gating):
+    H-B stretch_max=2      S1:F S2:P S3:P S4:P S5a-E1:F S5a-E2:P S5b-E1:P S5b-E2:P S5c:P S5d:P S6a:P S6b:P S6c:P S6d:P S7a:P S7b:P S7c:P S8:P
+    H-B stretch_max=1      S1:P S2:P S3:F S4:F S5a-E1:P S5a-E2:F S5b-E1:P S5b-E2:P S5c:F S5d:P S6a:P S6b:P S6c:P S6d:F S7a:F S7b:P S7c:P S8:F
+  VERDICT H-B: DEAD at selection   (failed 3: S1, S9-win(H-B stretch_max=2), S9-net(H-B stretch_max=1))
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+H-C LEG RECOVERY FLOOR -- centre H-C rec_min=0.45 | neighbours H-C rec_min=0.35, H-C rec_min=0.55
+  SHARED BAR, centre cell:
+    S1        win rate >= control + 1.0 pt                                                                                29.4016        >= 30.3829  FAIL
+    S2        PF >= control + 0.02                                                                                        1.73503        >= 1.73725  FAIL
+    S3        net >= 95% of control ($)                                                                                 528753.71      >= 498508.08  PASS
+    S4        MAR >= 0.95 x control MAR (guard)                                                                           0.94439        >= 0.85604  PASS
+    S5a-E1    E1 top-10 share <= control + 2 pts (%)                                                                      66.0428        <= 64.0576  FAIL
+    S5a-E2    E2 top-10 share <= control + 2 pts (%)                                                                      63.9590        <= 66.5660  PASS
+    S5b-E1    E1 ex-top-10 net > $0                                                                                      36193.07            > 0.00  PASS
+    S5b-E2    E2 ex-top-10 net > $0                                                                                     152153.95            > 0.00  PASS
+    S5c       trades-to-zero >= control - 2                                                                                    32             >= 30  PASS
+    S5d       proportional-tail EV R (evr_ex05) >= control's                                                             0.275133       >= 0.266639  PASS
+    S6a       PF lift > 0 in >= 3 of eras A-D (count; lifts A+0.008 B+0.012 C+0.036 D+0.005)                                    4              >= 3  PASS
+    S6b       E2 PF lift > 0                                                                                             +0.02396        > +0.00000  PASS
+    S6c       E1 win lift > 0 (pts)                                                                                       -0.0537         > +0.0000  FAIL
+    S6d       E2 win lift > 0 (pts)                                                                                       +0.1519         > +0.0000  PASS
+    S7a       index corr <= control + 0.05                                                                               +0.50671       <= +0.54924  PASS
+    S7b       2018 selection P&L >= $0                                                                                    9384.75           >= 0.00  PASS
+    S7c       2022 selection P&L >= $0                                                                                   13988.48           >= 0.00  PASS
+    S8        control top-20 $ trades retained (of 20)                                                                         20             >= 17  PASS
+  S9 PLATEAU, both neighbours:
+    S9-win    H-C rec_min=0.35: win lift >= +0.5 pt                                                                       +0.3003        >= +0.5000  FAIL
+    S9-pf     H-C rec_min=0.35: PF >= control + 0.01                                                                      1.72356        >= 1.72725  FAIL
+    S9-net    H-C rec_min=0.35: net >= 90% of control ($)                                                               526599.23      >= 472270.81  PASS
+    S9-E2pf   H-C rec_min=0.35: E2 PF lift >= 0                                                                          +0.00816       >= +0.00000  PASS
+    S9-win    H-C rec_min=0.55: win lift >= +0.5 pt                                                                       +0.9389        >= +0.5000  PASS
+    S9-pf     H-C rec_min=0.55: PF >= control + 0.01                                                                      1.73861        >= 1.72725  PASS
+    S9-net    H-C rec_min=0.55: net >= 90% of control ($)                                                               517209.94      >= 472270.81  PASS
+    S9-E2pf   H-C rec_min=0.55: E2 PF lift >= 0                                                                          +0.01151       >= +0.00000  PASS
+  SECTION-5 EXTRA CLAUSES:
+    X-gap     extra: gap-through fill share must not rise (%, variant vs control)                                          7.6525         <= 8.3561  PASS  [133 of 1738 vs 153 of 1831]
+  SECTION-5 KILL CRITERIA evaluable at item 3 (the S10-S12 kills never became evaluable):
+    K-win     kill: in-engine win lift >= +0.75 pt (half the scan's +1.5)                                                 +0.0188        >= +0.7500  FAIL
+    K-eraD    kill: era D net falls no more than 10% (ratio)                                                              0.99849        >= 0.90000  PASS  [variant $272,479 vs control $272,891]
+  NEIGHBOURS vs S1-S8 (record only, never gating):
+    H-C rec_min=0.35       S1:F S2:F S3:P S4:P S5a-E1:P S5a-E2:P S5b-E1:P S5b-E2:P S5c:P S5d:P S6a:P S6b:P S6c:P S6d:P S7a:P S7b:P S7c:P S8:P
+    H-C rec_min=0.55       S1:F S2:P S3:P S4:P S5a-E1:F S5a-E2:P S5b-E1:P S5b-E2:P S5c:P S5d:P S6a:P S6b:P S6c:P S6d:P S7a:P S7b:P S7c:P S8:P
+  VERDICT H-C: DEAD at selection   (failed 7: S1, S2, S5a-E1, S6c, S9-win(H-C rec_min=0.35), S9-pf(H-C rec_min=0.35), K-win)
+
+------------------------------------------------------------------------------------------------------------------------------------------------------
+H-D CLOCK-UNIT VOLUME TEST -- centre H-D vol_clock=1.25 | neighbours H-D vol_clock=1, H-D vol_clock=1.5
+  SHARED BAR, centre cell:
+    S1        win rate >= control + 1.0 pt                                                                                28.9864        >= 30.3829  FAIL
+    S2        PF >= control + 0.02                                                                                        1.65078        >= 1.73725  FAIL
+    S3        net >= 95% of control ($)                                                                                 475161.23      >= 498508.08  FAIL
+    S4        MAR >= 0.95 x control MAR (guard)                                                                           0.74132        >= 0.85604  FAIL
+    S5a-E1    E1 top-10 share <= control + 2 pts (%)                                                                      59.2710        <= 64.0576  PASS
+    S5a-E2    E2 top-10 share <= control + 2 pts (%)                                                                      72.5894        <= 66.5660  FAIL
+    S5b-E1    E1 ex-top-10 net > $0                                                                                      41754.01            > 0.00  PASS
+    S5b-E2    E2 ex-top-10 net > $0                                                                                     102144.26            > 0.00  PASS
+    S5c       trades-to-zero >= control - 2                                                                                    26             >= 30  FAIL
+    S5d       proportional-tail EV R (evr_ex05) >= control's                                                             0.236849       >= 0.266639  FAIL
+    S6a       PF lift > 0 in >= 3 of eras A-D (count; lifts A+0.221 B-0.062 C+0.059 D-0.206)                                    2              >= 3  FAIL
+    S6b       E2 PF lift > 0                                                                                             -0.10986        > +0.00000  FAIL
+    S6c       E1 win lift > 0 (pts)                                                                                       +0.8397         > +0.0000  PASS
+    S6d       E2 win lift > 0 (pts)                                                                                       -2.9692         > +0.0000  FAIL
+    S7a       index corr <= control + 0.05                                                                               +0.60527       <= +0.54924  FAIL
+    S7b       2018 selection P&L >= $0                                                                                    6441.90           >= 0.00  PASS
+    S7c       2022 selection P&L >= $0                                                                                    -660.14           >= 0.00  FAIL
+    S8        control top-20 $ trades retained (of 20)                                                                         17             >= 17  PASS
+  S9 PLATEAU, both neighbours:
+    S9-win    H-D vol_clock=1: win lift >= +0.5 pt                                                                        -0.4811        >= +0.5000  FAIL
+    S9-pf     H-D vol_clock=1: PF >= control + 0.01                                                                       1.77193        >= 1.72725  PASS
+    S9-net    H-D vol_clock=1: net >= 90% of control ($)                                                                560339.99      >= 472270.81  PASS
+    S9-E2pf   H-D vol_clock=1: E2 PF lift >= 0                                                                           +0.04282       >= +0.00000  PASS
+    S9-win    H-D vol_clock=1.5: win lift >= +0.5 pt                                                                      +0.1264        >= +0.5000  FAIL
+    S9-pf     H-D vol_clock=1.5: PF >= control + 0.01                                                                     1.69029        >= 1.72725  FAIL
+    S9-net    H-D vol_clock=1.5: net >= 90% of control ($)                                                              477865.21      >= 472270.81  PASS
+    S9-E2pf   H-D vol_clock=1.5: E2 PF lift >= 0                                                                         -0.08490       >= +0.00000  FAIL
+  SECTION-5 EXTRA CLAUSES:
+    X-count   extra: selection trade count within +/-40% of control (1099..2563), >= low                                     1687           >= 1099  PASS
+    X-count   extra: selection trade count within +/-40% of control (1099..2563), <= high                                    1687           <= 2563  PASS
+    X-addE1   extra: added PF >= removed PF in E1                                                                          0.8015         >= 1.6337  FAIL
+    X-addE2   extra: added PF >= removed PF in E2                                                                          0.5413         >= 1.6296  FAIL
+    X-addPF   extra: added PF >= 1.0 overall                                                                               0.6001         >= 1.0000  FAIL
+    X-0930    extra: PF lift > 0 without 09:30-09:35 ET entries (variant 1.6529, control 1.6654; removed 20 / 52)        -0.01245        > +0.00000  FAIL
+  SECTION-5 KILL CRITERIA evaluable at item 3 (the S10-S12 kills never became evaluable):
+    K-sign    kill: the three non-off cells agree in the sign of PF lift (1: +0.0547, 1.25: -0.0665, 1.5: -0.0270)          False                 -  FAIL
+    K-top20   kill: top-20 retention >= 17 (same as S8)                                                                        17             >= 17  PASS
+    K-E2pf    kill: E2 PF lift > 0 (same as S6b)                                                                         -0.10986        > +0.00000  FAIL
+  NEIGHBOURS vs S1-S8 (record only, never gating):
+    H-D vol_clock=1        S1:F S2:P S3:P S4:P S5a-E1:P S5a-E2:P S5b-E1:P S5b-E2:P S5c:P S5d:P S6a:F S6b:P S6c:P S6d:F S7a:P S7b:P S7c:P S8:F
+    H-D vol_clock=1.5      S1:F S2:F S3:F S4:F S5a-E1:P S5a-E2:F S5b-E1:P S5b-E2:P S5c:F S5d:F S6a:P S6b:F S6c:P S6d:F S7a:F S7b:P S7c:F S8:P
+  VERDICT H-D: DEAD at selection   (failed 22: S1, S2, S3, S4, S5a-E2, S5c, S5d, S6a, S6b, S6d, S7a, S7c, S9-win(H-D vol_clock=1), S9-win(H-D vol_clock=1.5), S9-pf(H-D vol_clock=1.5), S9-E2pf(H-D vol_clock=1.5), X-addE1, X-addE2, X-addPF, X-0930, K-sign, K-E2pf)
+
+======================================================================================================================================================
+7. SCAN vs FILE (reported, never tuned toward) -- the trade-list scan's prediction at the centre vs the engine
+======================================================================================================================================================
+  hyp  centre                 | scan win / PF / net            | engine win / PF / net          | gap (engine - scan)            | ident remov retim refill refill w
+  H-A  H-A quiet_pct=20       | +1.1 / +0.05 / $+14,900        | +0.708 / +0.0081 / $+1,963     | -0.392 / -0.0419 / $-12,937    |  1632   199    10    116   23.28%
+  H-B  H-B stretch_max=1.5    | +1.0 / +0.15 / $-17,600        | +0.663 / +0.1427 / $-10,991    | -0.337 / -0.0073 / $+6,609     |  1472   359     0     39   20.51%
+  H-C  H-C rec_min=0.45       | +1.5 / +0.08 / $-16,900        | +0.019 / +0.0178 / $+4,008     | -1.481 / -0.0622 / $+20,908    |  1535   296    36    167   14.37%
+  H-D  H-D vol_clock=1.25     | no prediction                  | -0.396 / -0.0665 / $-49,584    | -                              |  1077   754   176    434   19.35%
+  Why the gaps: a trade-list scan deletes trades and stops. In the engine a removed signal frees the slot, and the next signal fills it.
+  Those refill trades won only 23.3% (H-A), 20.5% (H-B), 14.4% (H-C) and 19.4% (H-D) against the control's 29.4%, so the scan over-predicted
+  win-rate lift by 0.34 to 1.48 pts. H-B lost the least (only 39 refills) and kept almost all of its PF prediction (gap -0.007).
+  H-D had no scan prediction: its added half is invisible to a trade-list scan.
+
+======================================================================================================================================================
+8. DIAGNOSTICS (reported, never gating)
+======================================================================================================================================================
+  H-A removed control selection SIGNALS by session bucket (ET clock at the signal bar): 235 of 2464 rejected (9.537%)
+    asia    removed  197 ( 83.83% of removed) | all control signals   639 ( 25.93%) | removed control trades' signal bars  162 ( 85.26%)
+    europe  removed   29 ( 12.34% of removed) | all control signals   643 ( 26.10%) | removed control trades' signal bars   20 ( 10.53%)
+    cash    removed    0 (  0.00% of removed) | all control signals  1140 ( 46.27%) | removed control trades' signal bars    0 (  0.00%)
+    other   removed    9 (  3.83% of removed) | all control signals    42 (  1.70%) | removed control trades' signal bars    8 (  4.21%)
+  H-A outcome-blind planned-risk floor: risk % of price < 0.109129% removes 235 of 2464 control signals (the SAME NUMBER as H-A's centre mask)
+    risk floor : n 1712 win 30.257% (lift +0.874) PF 1.7261 (lift +0.0088) net $525,973 (100.23% of control)
+    H-A centre : n 1758 win 30.091% (lift +0.708) PF 1.7254 (lift +0.0081) net $526,709 (100.37% of control)
+    overlap: only 112 of the 235 signals H-A rejects are also rejected by the risk floor -- the two rules remove the same COUNT, about half
+    the same signals. Reading (soft, the prereg set no tolerance for 'matches'): a stop-size floor of the same size gives a win and PF lift
+    of the same order (+0.87 / +0.009 vs +0.71 / +0.008), so H-A's small lift is consistent with the known big-stop / volatility factor.
+    It is NOT shown that H-A is that factor. This replaces the earlier summary phrase 'removes the same 235 signals' (protocol verifier).
+  H-D ADDED vs REMOVED (driver's definitions, prereg section 11 item 12):
+    E1  added n 244 PF 0.8015 win  20.49% net $   -9,893 | removed n 494 PF 1.6337 win  25.91% net $   50,648
+    E2  added n 190 PF 0.5413 win  17.89% net $  -78,183 | removed n 260 PF 1.6296 win  33.08% net $  128,686
+    all added n 434 PF 0.6001 win  19.35% net $  -88,076 | removed n 754 PF 1.6308 win  28.38% net $  179,334
+    Sensitivity (protocol verifier, independent recompute): if 'added' means no control trade OVERLAPPING the variant trade, only 17 trades
+    count (PF 0.031); if 'removed' means no variant entry inside the control trade (the S8-style test), 388 trades count (PF 0.903).
+    X-addE1, X-addE2 and X-addPF fail under all three readings; only the size of the stated mechanism depends on the reading.
+  H-C mechanism check (gating extra, passed): gap-through fills 133 of 1738 vs 153 of 1831 -- the mechanism moved as described, but win rate did not.
+
+======================================================================================================================================================
+9. ITEMS 4-6 -- S10 COST STRESS, S11 R5 REPLICATION, S12 DAY-SHIFT NULL (p-values), H-E STACK, LB LOOK
+======================================================================================================================================================
+  S10 cost stress at 0.783 pts/RT ........ NOT RUN: section 7 item 4 runs it for hypotheses still standing after item 3; none were.
+  S11 R5-settings replication ............ NOT RUN: same reason.
+  S12 day-shift null, 1,000 draws ........ NOT RUN: same reason. There are NO null p-values for any hypothesis this round;
+                                           p(win lift) and p(PF lift) are 'not computed', not 'failed' and not 'passed'.
+  H-E conditional stack .................. NOT RUN: needs two or more hypotheses passing sections 4-5 in full; zero did.
+  Single LB look (section 8) ............. NOT RUN: only for hypotheses passing everything; zero did. No variant LB trade was counted,
+                                           printed or measured (grid lb.n = 0 in all 13 cells; largest cached entry bar 5,080,233 < split bar 5,086,313).
+  Multiple-testing ledger (section 9): primary grid cells 12 of 12; controls 2 of 3 (R2 knob-off in the grid, R5 knob-off as parity gate G2;
+  the 0.783 control did not run); cost-stress 0 of <=4; replication 0 of <=4; stack 0 of <=5; null backtests 0 of <=5,000; LB looks 0 of <=5.
+  Decisions that could have declared a winner: 4 centre cells judged, 0 winners.
+
+======================================================================================================================================================
+10. INDEPENDENT VERIFICATION (after item 3) -- no HIGH finding; nothing changes a conclusion
+======================================================================================================================================================
+  Recompute + look-ahead verifier (tools/r37_results/verify_r57_grid.py): verdict CONFIRMED, disagreements 0.
+    Own engine re-run, own metrics: all 13 cells equal the grid on n, win, PF, net and both era top-10 shares (largest diff 3.6e-15 on win,
+    1.2e-10 on net); cached trade lists equal. Clause verdicts S1/S2/S3/S5a at every centre and S9 on all 8 neighbours: same as grid.
+    H-A spec-from-prereg vs file on 2621 candidate bars: value mismatches 0, mask mismatches 0 | truncation audit 60 bars, failures 0
+    H-B spec-from-prereg vs file on 2511 candidate bars: value mismatches 0, mask mismatches 0 | truncation audit 60 bars, failures 0
+    H-C spec-from-prereg vs file on 2717 candidate bars: value mismatches 0, mask mismatches 0 | truncation audit 60 bars, failures 0
+    H-D spec-from-prereg vs file on 3438 candidate bars: value mismatches 0, mask mismatches 0 | truncation audit 60 bars, failures 0
+    Perturbation: randomising bars each rule must not read never moved the value (H-A 0/18, H-B 0/20, H-C 0/10, H-D 0/20).
+    LB audit: grid lb.n = 0 in every cell; prereg diff vs a7f0811 = 101 lines added, 0 deleted (section 11 only).
+    LOW findings: (1) the file's feature memo is keyed on a fingerprint, not full content -- matters only for a future caller feeding edited
+    arrays of the same shape; (2) the H-D clock baseline uses a whole-frame cumulative sum that cancels exactly only for whole-number volumes
+    -- exact on this tape, rounding noise (not information) on fractional-volume data.
+  Protocol verifier (tools/r37_results/verify_r57_protocol_audit.py, read-only): verdict CONFIRMED.
+    Clean: commit timing (prereg 15:58:41, every round file after it); grid ran exactly once with readings 10-17 fixed before it; every
+    measure() row printed before any clause; the gated file is the file the grid ran; cells, centres and neighbours as pre-declared; feature
+    code matches section 5; all 13 rows recomputed from cached trades to <= 3.9e-16 relative; fail sets identical under exact, rounded and
+    absolute-S4 readings; extras and kills recomputed (H-D 09:30 lift -0.01245 inclusive, -0.02440 exclusive: fails either way).
+    LOW findings, each recorded in prereg section 11 (item-7 block):
+      a. H-A risk floor removes the same COUNT (235) as H-A, but only 112 of the same signals; 'matches' has no tolerance -> soft reading (section 8).
+      b. H-D added/removed numbers depend on the definition; all three readings fail X-addE1/E2/PF (section 8).
+      c. G5 was a hand audit; the named tool printed 'warn UNAUDITED' and exited 0 (section 2).
+      d. S8 counted variant selection trades only; one control top-20 trade exits after the split; that can only lower retention, no verdict moves.
+      e. The research beacon (one Firestore job record per run) was used on the 26 s grid run, though section 2 ties it to runs over ~2 min
+         and its last bullet says no Firestore writes; the launching task permitted the beacon. Bookkeeping only.
+
+======================================================================================================================================================
+11. PLAIN STATEMENTS
+======================================================================================================================================================
+  H-A QUIET-TAPE STAND-DOWN IS DEAD. Skipping breakouts whose 14-bar ATR sat in the bottom 20% of the prior year's readings lifted win rate
+    +0.71 pts (needed +1.0) and PF +0.0081 (needed +0.02). Its 10 neighbour held no plateau (win lift +0.25, E2 PF lift -0.009). Freed slots
+    refilled with trades winning 23%.
+  H-B DAILY STRETCH CAP IS DEAD (NEAR MISS). Skipping breakouts more than 1.5 daily ATRs above the 20-session mean lifted PF +0.143 overall
+    (positive in all four eras: A +0.193, B +0.019, C +0.310, D +0.051)
+    and kept 97.9% of net, but win rate rose only +0.66 pts (needed +1.0), the 2.0 neighbour's win lift was +0.39 (needed +0.5) and the 1.0
+    neighbour's net was $450,012 (needed $472,271). It stays dead: no re-tune, no PF-first re-read -- that would be a new pre-registration.
+  H-C LEG RECOVERY FLOOR IS DEAD. Skipping breakouts that had reclaimed less than 45% of the falling leg moved win rate +0.02 pts (scan said +1.5),
+    PF +0.0178 (needed +0.02), raised the E1 top-10 share to 66.0% (limit 64.06%), and freed slots refilled with trades winning 14%.
+  H-D CLOCK-UNIT VOLUME TEST IS DEAD. Judging the volume spike against the same clock minute cut win rate -0.40 pts, PF -0.0665 and net to 90.6%;
+    2022 turned negative ($-660); the 434 trades it added won 19.4% with PF 0.60 against PF 1.63 for the 754 it removed; 22 clauses failed.
+  No hypothesis survives, so no fenced single-hypothesis file is cut, no validate queue script exists, and the crown (run #335 / R2) is unchanged.
+  What the round shows, said plainly: on the crown's own trades, none of the four pre-registered entry conditions lifted the win rate by a
+  full point at its centre once the engine refilled freed slots. The only cell of the 12 above +1.0 pt was a neighbour, H-B at 1.0
+  (+1.44 pts, but net only 85.8% of control). The prereg's prior ('most or all of these will fail') held.
+
+======================================================================================================================================================
+12. FILES (worktree C:\Users\xride\AppData\Local\EdgeLog-worktrees\enguq57 unless absolute)
+======================================================================================================================================================
+  ENGUQ_R57_PREREG.md (contract a7f0811; section 11 appended, never edited above it)
+  ENGUQ.md ('Round 57 (2026-09-14) - which setups are taken' section + changelog line)
+  augur_strategies/ENGUQ_1M_ETH_SEL_1_0.py (research sibling; never to be validated as a four-knob search)
+  tests/test_enguq_sel_parity.py
+  tools/r57_sel_parity_gates.py -> tools/r37_results/r57_sel_parity_gates.txt / .json
+  tools/r57_grid.py -> tools/r37_results/r57_grid.txt / .json
+  C:\EdgeLog\_anatomy_cache\r57\r57_grid_selection_trades.json (selection trades only)
+  tools/r37_results/verify_r57_grid.py -> verify_r57_grid.txt / .json
+  tools/r37_results/verify_r57_protocol_audit.py (stdout only)
+  tools/r57_summary.py -> tools/r37_results/r57_summary.txt (this file)
+  inputs written before the prereg: tools/r57_enguq_frontier.py, tools/r57_enguq_anatomy.py, tools/r57_imbalance_probe.py, r57_frontier.txt/.json, r57_anatomy.txt

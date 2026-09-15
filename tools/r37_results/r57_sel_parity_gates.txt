@@ -1,0 +1,67 @@
+======================================================================================================================
+ENGU-Q ROUND 57 -- ORDER OF WORK ITEM 1: PARITY GATES G1-G5 for ENGUQ_1M_ETH_SEL_1_0.py   (run 2026-09-14 16:16)
+contract ENGUQ_R57_PREREG.md a7f0811 | tape NQ 1m ETH db_noadj_eth | window 2010-06-07..2026-06-30 pinned | cost 0.533 x $20
+SEL file: C:\Users\xride\AppData\Local\EdgeLog-worktrees\enguq57\augur_strategies\ENGUQ_1M_ETH_SEL_1_0.py
+numba available: True | AUGUR_TRIAL_CACHE=1 OMP_NUM_THREADS=1
+No variant performance is printed below: centre cells are compared trade list against trade list only.
+======================================================================================================================
+master NOADJ_NQ_1m_ETH.csv id 34: 5439594 bars 2010-06-07 00:00:00-04:00 .. 2026-06-30 10:49:00-04:00
+
+G1  all knobs OFF at R2 settings vs ENGUQ_1M_ETH_R2_1_0.py
+  SEL DEFAULT_PARAMS resolved: {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.55, "max_hold_bars": 0, "min_brk": 1.6, "quiet_pct": 0.0, "rec_min": 0.0, "regime_len": 10, "stop_mult": 1.0, "stretch_max": 0.0, "tl_len": 206, "trail_frac": 2.5, "vol_clock": 0.0, "vol_mult": 1.1}
+  == R2 DEFAULT_PARAMS on every R2 key, four knobs 0, max_hold_bars 0: True
+  trade for trade (full window): count 1949 vs 1949, mismatches entry 0 exit 0 entry px 0 P&L 0 (max |dP&L| 0)
+  SEL control: whole n=1949 net $613,126 | selection n=1831 win 29.4% PF 1.717 net $524,745 DD $38,687 MAR 0.90 EV R 0.507
+  want whole 1,949 / $613,126; selection 1,831 / PF 1.717 / $524,745 / DD $38,687: True
+  every selection-side measure() field == frontier row 1 (r57_frontier.json): True
+  SEL control interpreted (signal-index probe, 3s) vs compiled: identical True (count equal True, max |dP&L| 0)
+  -> G1 PASS
+
+G2  all knobs OFF at R5 settings vs ENGUQ_1M_ETH_R5_1_0.py
+  R5 settings (every param explicit): {"act_R": 1.5, "atr_len": 52, "breakeven_R": 2.0, "buf_atr": 0.3, "ema_len": 220, "er_len": 100, "er_th": 0.0, "limit_atr": 0.85, "max_hold_bars": 9660, "min_brk": 1.6, "quiet_pct": 0.0, "rec_min": 0.0, "regime_len": 10, "stop_mult": 1.0, "stretch_max": 0.0, "tl_len": 206, "trail_frac": 2.5, "vol_clock": 0.0, "vol_mult": 1.1}
+  trade for trade (full window): count 2585 vs 2585, mismatches entry 0 exit 0 entry px 0 P&L 0
+  SEL at R5 settings: whole n=2585 net $566,907 | selection n=2434 win 28.4% PF 1.519 net $466,910 DD $30,527
+  want whole 2,585 / $566,907; selection 2,434 / $466,910 (prereg also: win 28.4%, PF 1.519, DD $30,527): True
+  every selection-side measure() field == frontier row 9: True
+  -> G2 PASS
+
+G3  centre cells, compiled vs interpreted (EDGELOG_NO_FASTLOOP=1), full window; feature memo cleared between
+  H-A quiet_pct=20: compiled 2.3s (fastloop on=True) | interpreted 9.4s | count equal True, mismatches entry 0 exit 0 entry px 0 P&L 0, max |dP&L| 0 | trade list differs from the knob-off control: True -> identical
+  H-B stretch_max=1.5: compiled 1.4s (fastloop on=True) | interpreted 8.6s | count equal True, mismatches entry 0 exit 0 entry px 0 P&L 0, max |dP&L| 0 | trade list differs from the knob-off control: True -> identical
+  H-C rec_min=0.45: compiled 1.7s (fastloop on=True) | interpreted 9.0s | count equal True, mismatches entry 0 exit 0 entry px 0 P&L 0, max |dP&L| 0 | trade list differs from the knob-off control: True -> identical
+  H-D vol_clock=1.25: compiled 7.4s (fastloop on=True) | interpreted 15.2s | count equal True, mismatches entry 0 exit 0 entry px 0 P&L 0, max |dP&L| 0 | trade list differs from the knob-off control: True -> identical
+  -> G3 PASS
+
+G4  feature parity (in-engine helper features; anatomy CSV C:\EdgeLog\_anatomy_cache\r57\r57_selection_signal_features.csv)
+  CSV rows 1831; CSV fill/exit bars == SEL control selection trades (entry, exit): True; CSV signal bars that are signals of the SEL control's own interpreted walk: 1831 of 1831
+  in-engine features built in 8.7s
+  H-A helper mask as _mask_override reproduces the quiet_pct=20 trade list exactly: True
+  H-B helper mask as _mask_override reproduces the stretch_max=1.5 trade list exactly: True
+  H-C helper mask as _mask_override reproduces the rec_min=0.45 trade list exactly: True
+  H-D helper mask as _mask_override reproduces the vol_clock=1.25 trade list exactly: True
+  G4-A local copy built in 2s | all 5439594 bars: NaN pattern identical True, finite bars 5366766, max |q - copy| 1.42e-14 (tol 1e-9) | vs CSV ta_ind_atr_pctile_bar on 1802 non-NaN signal bars: median |diff| 0.078 pts (bar <= 1.5), max 0.76, engine finite on those 1802
+  -> G4-A PASS
+  G4-B S[i] vs CSV ta_lvl_sma20d_atr: 1828 non-NaN signal bars (want 1,828), engine finite on 1828, max |diff| 4.44e-16 (tol 1e-6), over tol 0 | 3 CSV-NaN rows (signal on a session's last bar), engine NaN on 1 of them
+  -> G4-B PASS
+  G4-C rec[i] vs CSV loc_pb_recovery: 1831 signal bars (want 1,831), engine finite on 1831, max |diff| 4.44e-16 (tol 1e-9)
+  -> G4-C PASS
+  G4-D V[i]/B[i] vs CSV imb_vol_vs_clock20: 1829 non-NaN signal bars (want 1,829), engine finite on 1829, max |diff| 3.55e-15 (tol 1e-9) | 2 CSV-NaN rows, engine NaN on 2 of them
+  -> G4-D PASS
+  -> G4 PASS
+
+G5  execution-feasibility audit
+  H-A --config ENGUQ_1M_ETH_SEL_1_0.py --params quiet_pct=20.0: exit 0 | EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?
+  H-B --config ENGUQ_1M_ETH_SEL_1_0.py --params stretch_max=1.5: exit 0 | EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?
+  H-C --config ENGUQ_1M_ETH_SEL_1_0.py --params rec_min=0.45: exit 0 | EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?
+  H-D --config ENGUQ_1M_ETH_SEL_1_0.py --params vol_clock=1.25: exit 0 | EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?
+  file-level static scan: exit 0 | EXEC-FEASIBILITY: PASS  (0 hard failure(s), 0 warning(s))
+  hand audit H-A: interpreted signal-index probe - signal bars failing their own mask: 0; probe walk == compiled cell: True; mask rejects at least one knob-off control signal: True
+  hand audit H-B: interpreted signal-index probe - signal bars failing their own mask: 0; probe walk == compiled cell: True; mask rejects at least one knob-off control signal: True
+  hand audit H-C: interpreted signal-index probe - signal bars failing their own mask: 0; probe walk == compiled cell: True; mask rejects at least one knob-off control signal: True
+  hand audit H-D: interpreted signal-index probe - signal bars failing their own mask: 0; probe walk == compiled cell: True
+  hand audit truncation at bar 1835828 (2016-03-09 11:16:00-05:00): features on the prefix == full-frame features on the prefix: {'q': True, 'stretch': True, 'rec': True, 'clock_base': True, 'vol_vs_clock': True}
+  hand audit truncation at bar 4471206 (2023-10-02 03:40:00-04:00): features on the prefix == full-frame features on the prefix: {'q': True, 'stretch': True, 'rec': True, 'clock_base': True, 'vol_vs_clock': True}
+  -> G5 PASS
+
+======================================================================================================================
+ITEM 1 PARITY GATES: ALL PASS   (G1 True, G2 True, G3 True, G4 True, G5 True)   runtime 104s

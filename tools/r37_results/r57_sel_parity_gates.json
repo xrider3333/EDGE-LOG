@@ -1,0 +1,270 @@
+{
+ "all_pass": true,
+ "results": [
+  {
+   "gate": "G1",
+   "passed": true,
+   "trades_identical_vs_R2": true,
+   "mismatches": {
+    "entry_bar": 0,
+    "exit_bar": 0,
+    "entry_px": 0,
+    "pnl": 0
+   },
+   "whole_n": 1949,
+   "whole_net": 613125.51,
+   "sel_n": 1831,
+   "sel_win_pct": 29.38,
+   "sel_pf": 1.7172,
+   "sel_net": 524745.35,
+   "sel_dd": 38686.92,
+   "sel_mar": 0.901,
+   "sel_evr": 0.5065,
+   "frontier_row1_fields_mismatched": 0,
+   "defaults_equal_r2": true,
+   "interpreted_equals_compiled": true
+  },
+  {
+   "gate": "G2",
+   "passed": true,
+   "trades_identical_vs_R5": true,
+   "mismatches": {
+    "entry_bar": 0,
+    "exit_bar": 0,
+    "entry_px": 0,
+    "pnl": 0
+   },
+   "whole_n": 2585,
+   "whole_net": 566907.23,
+   "sel_n": 2434,
+   "sel_win_pct": 28.39,
+   "sel_pf": 1.5188,
+   "sel_net": 466910.16,
+   "sel_dd": 30526.8,
+   "frontier_row9_fields_mismatched": 0
+  },
+  {
+   "gate": "G3-H-A",
+   "passed": true,
+   "knob": "quiet_pct",
+   "value": 20.0,
+   "count_equal": true,
+   "mismatches": {
+    "entry_bar": 0,
+    "exit_bar": 0,
+    "entry_px": 0,
+    "pnl": 0
+   },
+   "max_abs_pnl_diff": 0.0,
+   "compiled_secs": 2.27,
+   "interpreted_secs": 9.38,
+   "differs_from_control": true
+  },
+  {
+   "gate": "G3-H-B",
+   "passed": true,
+   "knob": "stretch_max",
+   "value": 1.5,
+   "count_equal": true,
+   "mismatches": {
+    "entry_bar": 0,
+    "exit_bar": 0,
+    "entry_px": 0,
+    "pnl": 0
+   },
+   "max_abs_pnl_diff": 0.0,
+   "compiled_secs": 1.36,
+   "interpreted_secs": 8.63,
+   "differs_from_control": true
+  },
+  {
+   "gate": "G3-H-C",
+   "passed": true,
+   "knob": "rec_min",
+   "value": 0.45,
+   "count_equal": true,
+   "mismatches": {
+    "entry_bar": 0,
+    "exit_bar": 0,
+    "entry_px": 0,
+    "pnl": 0
+   },
+   "max_abs_pnl_diff": 0.0,
+   "compiled_secs": 1.72,
+   "interpreted_secs": 9.04,
+   "differs_from_control": true
+  },
+  {
+   "gate": "G3-H-D",
+   "passed": true,
+   "knob": "vol_clock",
+   "value": 1.25,
+   "count_equal": true,
+   "mismatches": {
+    "entry_bar": 0,
+    "exit_bar": 0,
+    "entry_px": 0,
+    "pnl": 0
+   },
+   "max_abs_pnl_diff": 0.0,
+   "compiled_secs": 7.38,
+   "interpreted_secs": 15.2,
+   "differs_from_control": true
+  },
+  {
+   "gate": "G3",
+   "passed": true
+  },
+  {
+   "gate": "G4-A",
+   "passed": true,
+   "bars": 5439594,
+   "nan_pattern_identical": true,
+   "finite_bars": 5366766,
+   "max_abs_diff_vs_local_copy": 1.4210854715202004e-14,
+   "csv": {
+    "csv_non_nan": 1802,
+    "engine_finite_on_those": 1802,
+    "max_abs_diff": 0.7645871256029899,
+    "median_abs_diff": 0.07829652327706071,
+    "n_over_tol": 0,
+    "csv_nan_rows": 29,
+    "engine_nan_where_csv_nan": 29
+   },
+   "override_identity": true
+  },
+  {
+   "gate": "G4-B",
+   "passed": true,
+   "csv": {
+    "csv_non_nan": 1828,
+    "engine_finite_on_those": 1828,
+    "max_abs_diff": 4.440892098500626e-16,
+    "median_abs_diff": 0.0,
+    "n_over_tol": 0,
+    "csv_nan_rows": 3,
+    "engine_nan_where_csv_nan": 1
+   },
+   "override_identity": true
+  },
+  {
+   "gate": "G4-C",
+   "passed": true,
+   "csv": {
+    "csv_non_nan": 1831,
+    "engine_finite_on_those": 1831,
+    "max_abs_diff": 4.440892098500626e-16,
+    "median_abs_diff": 0.0,
+    "n_over_tol": 0,
+    "csv_nan_rows": 0,
+    "engine_nan_where_csv_nan": 0
+   },
+   "override_identity": true
+  },
+  {
+   "gate": "G4-D",
+   "passed": true,
+   "csv": {
+    "csv_non_nan": 1829,
+    "engine_finite_on_those": 1829,
+    "max_abs_diff": 3.552713678800501e-15,
+    "median_abs_diff": 0.0,
+    "n_over_tol": 0,
+    "csv_nan_rows": 2,
+    "engine_nan_where_csv_nan": 2
+   },
+   "override_identity": true
+  },
+  {
+   "gate": "G4",
+   "passed": true,
+   "csv_link_ok": true,
+   "csv_signal_bars_in_control_probe": 1831
+  },
+  {
+   "gate": "G5-H-A",
+   "passed": true,
+   "exit_code": 0,
+   "output": "EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?"
+  },
+  {
+   "gate": "G5-H-B",
+   "passed": true,
+   "exit_code": 0,
+   "output": "EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?"
+  },
+  {
+   "gate": "G5-H-C",
+   "passed": true,
+   "exit_code": 0,
+   "output": "EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?"
+  },
+  {
+   "gate": "G5-H-D",
+   "passed": true,
+   "exit_code": 0,
+   "output": "EXEC-FEASIBILITY (config): warn  UNAUDITED  ENGUQ_1M_ETH_SEL_1_0.py |   why: not covered by the 2026-08-11 sweep - audit by hand before crowning. |   do : for every fill ask: does every input exist at the moment of THIS fill?"
+  },
+  {
+   "gate": "G5-hand-signal-bar-H-A",
+   "passed": true,
+   "signal_bars_failing_mask": 0,
+   "probe_walk_equals_compiled": true,
+   "control_signals_rejected_by_mask": true
+  },
+  {
+   "gate": "G5-hand-signal-bar-H-B",
+   "passed": true,
+   "signal_bars_failing_mask": 0,
+   "probe_walk_equals_compiled": true,
+   "control_signals_rejected_by_mask": true
+  },
+  {
+   "gate": "G5-hand-signal-bar-H-C",
+   "passed": true,
+   "signal_bars_failing_mask": 0,
+   "probe_walk_equals_compiled": true,
+   "control_signals_rejected_by_mask": true
+  },
+  {
+   "gate": "G5-hand-signal-bar-H-D",
+   "passed": true,
+   "signal_bars_failing_mask": 0,
+   "probe_walk_equals_compiled": true,
+   "control_signals_rejected_by_mask": null
+  },
+  {
+   "gate": "G5-hand-truncation-1835828",
+   "passed": true,
+   "last_bar": "2016-03-09 11:16:00-05:00",
+   "per_feature": {
+    "q": true,
+    "stretch": true,
+    "rec": true,
+    "clock_base": true,
+    "vol_vs_clock": true
+   }
+  },
+  {
+   "gate": "G5-hand-truncation-4471206",
+   "passed": true,
+   "last_bar": "2023-10-02 03:40:00-04:00",
+   "per_feature": {
+    "q": true,
+    "stretch": true,
+    "rec": true,
+    "clock_base": true,
+    "vol_vs_clock": true
+   }
+  },
+  {
+   "gate": "G5",
+   "passed": true,
+   "config_mode_all_exit0": true,
+   "file_scan_exit": 0,
+   "file_scan_output": "EXEC-FEASIBILITY: PASS  (0 hard failure(s), 0 warning(s))",
+   "hand_signal_bar_ok": true,
+   "hand_truncation_ok": true
+  }
+ ]
+}

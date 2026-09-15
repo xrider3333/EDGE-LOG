@@ -1,0 +1,69 @@
+============================================================================================================================================
+INDEPENDENT VERIFIER -- ENGU-Q round 57 items 1-3   (run 2026-09-14 16:43)
+file C:\Users\xride\AppData\Local\EdgeLog-worktrees\enguq57\augur_strategies\ENGUQ_1M_ETH_SEL_1_0.py sha256 73bf2a2a99fcd7373ce251accb11462d3f2f41f47c044b6a9a453c82c2e468a7
+master NOADJ_NQ_1m_ETH.csv id 34 | 5439594 bars 2010-06-07 00:00:00-04:00 .. 2026-06-30 10:49:00-04:00 | tz US/Eastern | first bar >= split 5086313 (2025-06-30 00:00:00-04:00) | nonfinite volumes 0
+loaded module file: C:\Users\xride\AppData\Local\EdgeLog-worktrees\enguq57\augur_strategies\ENGUQ_1M_ETH_SEL_1_0.py
+
+============================================================================================================================================
+PART 1 -- ENGINE RE-RUN, OWN METRICS (selection only; LB trades dropped unread)
+  cell                   |     n     win%       PF        net $ |  E1 t10%  E2 t10% | vs r57_grid.json (max abs diff n / win / PF / net / E1t10 / E2t10)
+  CTRL                   |  1831  29.3829  1.71725    524745.35 |  62.0576  64.5660 | 0 / 0 / 0 / 1.2e-10 / 0 / 0 agree
+  H-A quiet_pct=10       |  1809  29.6296  1.71279    522894.86 |  61.6271  64.9691 | 0 / 3.6e-15 / 6.7e-16 / 0 / 0 / 0 agree
+  H-A quiet_pct=20       |  1758  30.0910  1.72538    526708.66 |  61.7043  64.3578 | 0 / 0 / 2.2e-16 / 1.2e-10 / 0 / 0 agree
+  H-A quiet_pct=30       |  1683  30.3624  1.73451    525649.81 |  60.8149  64.7631 | 0 / 0 / 4.4e-16 / 0 / 0 / 0 agree
+  H-B stretch_max=2      |  1693  29.7696  1.80717    540401.89 |  65.3156  61.4152 | 0 / 0 / 2.2e-16 / 0 / 0 / 0 agree
+  H-B stretch_max=1.5    |  1511  30.0463  1.85993    513754.20 |  63.7281  65.7775 | 0 / 0 / 2.2e-16 / 5.8e-11 / 0 / 0 agree
+  H-B stretch_max=1      |  1246  30.8186  1.87903    450011.53 |  58.6203  77.5699 | 0 / 3.6e-15 / 0 / 0 / 0 / 0 agree
+  H-C rec_min=0.35       |  1799  29.6832  1.72356    526599.23 |  62.1005  64.2698 | 0 / 0 / 2.2e-16 / 1.2e-10 / 0 / 0 agree
+  H-C rec_min=0.45       |  1738  29.4016  1.73503    528753.71 |  66.0428  63.9590 | 0 / 0 / 0 / 0 / 0 / 0 agree
+  H-C rec_min=0.55       |  1616  30.3218  1.73861    517209.94 |  65.8403  65.1667 | 0 / 3.6e-15 / 2.2e-16 / 5.8e-11 / 0 / 0 agree
+  H-D vol_clock=1        |  1730  28.9017  1.77193    560339.99 |  56.6290  62.2498 | 0 / 3.6e-15 / 0 / 1.2e-10 / 0 / 0 agree
+  H-D vol_clock=1.25     |  1687  28.9864  1.65078    475161.23 |  59.2710  72.5894 | 0 / 3.6e-15 / 4.4e-16 / 5.8e-11 / 0 / 0 agree
+  H-D vol_clock=1.5      |  1630  29.5092  1.69029    477865.21 |  55.2092  72.9556 | 0 / 3.6e-15 / 2.2e-16 / 1.2e-10 / 0 / 0 agree
+  control == prereg section-1 table (1,831 / 29.4% / 1.717 / $524,745 / E1 62.1% / E2 64.6%): True
+
+  CLAUSES recomputed (own numbers; thresholds from the control's exact values)
+  H-A H-A quiet_pct=20     S1 win 30.0910 vs >= 30.3829 F | S2 PF 1.72538 vs >= 1.73725 F | S3 net 526708.66 vs >= 498508.08 P | S5a E1 61.704<=64.058 P E2 64.358<=66.566 P | A0 win +0.708 PF +0.0081 net 100.37% tripped False | same verdicts as grid: True
+  H-B H-B stretch_max=1.5  S1 win 30.0463 vs >= 30.3829 F | S2 PF 1.85993 vs >= 1.73725 P | S3 net 513754.20 vs >= 498508.08 P | S5a E1 63.728<=64.058 P E2 65.778<=66.566 P | A0 win +0.663 PF +0.1427 net 97.91% tripped False | same verdicts as grid: True
+  H-C H-C rec_min=0.45     S1 win 29.4016 vs >= 30.3829 F | S2 PF 1.73503 vs >= 1.73725 F | S3 net 528753.71 vs >= 498508.08 P | S5a E1 66.043<=64.058 F E2 63.959<=66.566 P | A0 win +0.019 PF +0.0178 net 100.76% tripped False | same verdicts as grid: True
+  H-D H-D vol_clock=1.25   S1 win 28.9864 vs >= 30.3829 F | S2 PF 1.65078 vs >= 1.73725 F | S3 net 475161.23 vs >= 498508.08 F | S5a E1 59.271<=64.058 P E2 72.589<=66.566 F | A0 win -0.396 PF -0.0665 net 90.55% tripped False | same verdicts as grid: True
+  S9 H-A quiet_pct=10       win lift +0.2468 F | PF 1.71279 (>= 1.72725) F | net 522894.86 (>= 472270.81) P | E2 PF lift -0.00918 F | same as grid True
+  S9 H-A quiet_pct=30       win lift +0.9796 P | PF 1.73451 (>= 1.72725) P | net 525649.81 (>= 472270.81) P | E2 PF lift +0.01202 P | same as grid True
+  S9 H-B stretch_max=2      win lift +0.3868 F | PF 1.80717 (>= 1.72725) P | net 540401.89 (>= 472270.81) P | E2 PF lift +0.13213 P | same as grid True
+  S9 H-B stretch_max=1      win lift +1.4358 P | PF 1.87903 (>= 1.72725) P | net 450011.53 (>= 472270.81) F | E2 PF lift +0.08935 P | same as grid True
+  S9 H-C rec_min=0.35       win lift +0.3003 F | PF 1.72356 (>= 1.72725) F | net 526599.23 (>= 472270.81) P | E2 PF lift +0.00816 P | same as grid True
+  S9 H-C rec_min=0.55       win lift +0.9389 P | PF 1.73861 (>= 1.72725) P | net 517209.94 (>= 472270.81) P | E2 PF lift +0.01151 P | same as grid True
+  S9 H-D vol_clock=1        win lift -0.4811 F | PF 1.77193 (>= 1.72725) P | net 560339.99 (>= 472270.81) P | E2 PF lift +0.04282 P | same as grid True
+  S9 H-D vol_clock=1.5      win lift +0.1264 F | PF 1.69029 (>= 1.72725) F | net 477865.21 (>= 472270.81) P | E2 PF lift -0.08490 F | same as grid True
+  grid's cached selection trade lists == my selection trades, per cell: True | max cached entry bar 5080233 < split bar 5086313: True
+
+============================================================================================================================================
+PART 2 -- SPEC FEATURES vs THE FILE'S FEATURES AND MASKS
+  selection candidate bars: control signals 2464 | vol_mult=0 signals 2545 | centre-cell own signals {'H-A': 2374, 'H-B': 2050, 'H-C': 2319, 'H-D': 2274}
+  own TR == file TR on all bars: True | own session ids == file session ids: True | own minute == file minute: True
+  H-A spec vs file on 2621 selection candidate bars: value mismatches 0, mask mismatches 0 (spec rejects 235) | centre cell's own signal bars all pass the file mask: True
+  H-B spec vs file on 2511 selection candidate bars: value mismatches 0, mask mismatches 0 (spec rejects 461) | centre cell's own signal bars all pass the file mask: True
+  H-C spec vs file on 2717 selection candidate bars: value mismatches 0, mask mismatches 0 (spec rejects 359) | centre cell's own signal bars all pass the file mask: True
+  H-D spec vs file on 3438 selection candidate bars: value mismatches 0, mask mismatches 0 (spec rejects 1070) | centre cell's own signal bars all pass the file mask: True
+  file mask fed back via _mask_override reproduces the knob-on selection trades: {'H-A': True, 'H-B': True, 'H-C': True, 'H-D': True}
+
+============================================================================================================================================
+PART 3 -- LOOK-AHEAD AUDIT: truncate at i (bars 0..i), recompute with the memo cleared (seed 570914)
+  H-A 60 bars (50 random, 10 extra rejected; mask False on 13, of which 3 in the random 50): truncated value == full value == spec, truncated mask == full mask == spec mask, current-session prefix equal -> failures 0  (110s)
+  H-B 60 bars (50 random, 10 extra rejected; mask False on 21, of which 11 in the random 50): truncated value == full value == spec, truncated mask == full mask == spec mask, current-session prefix equal -> failures 0  (73s)
+  H-C 60 bars (50 random, 10 extra rejected; mask False on 18, of which 8 in the random 50): truncated value == full value == spec, truncated mask == full mask == spec mask, current-session prefix equal -> failures 0  (54s)
+  H-D 60 bars (50 random, 10 extra rejected; mask False on 36, of which 26 in the random 50): truncated value == full value == spec, truncated mask == full mask == spec mask, current-session prefix equal -> failures 0  (356s)
+
+  PERTURBATION (on the truncated frame, memo cleared): randomise bars the rule must not read -> value at i unchanged; randomise bars it must read -> value should move (sensitivity, reported)
+  H-A: 'must not read' perturbations 18, value moved on 0 | sensitivity perturbations 10, moved on 10 | skipped 2
+  H-B: 'must not read' perturbations 20, value moved on 0 | sensitivity perturbations 10, moved on 10 | skipped 0
+  H-C: 'must not read' perturbations 10, value moved on 0 | sensitivity perturbations 10, moved on 10 | skipped 0
+  H-D: 'must not read' perturbations 20, value moved on 0 | sensitivity perturbations 10, moved on 9 | skipped 0
+
+============================================================================================================================================
+PART 4 -- LB AUDIT
+  r57_grid.json lb.n per cell (must all be 0): [0] | whole n == sel n in every cell: True
+  prereg diff vs a7f0811 (added / deleted lines): 101	0	ENGUQ_R57_PREREG.md
+
+============================================================================================================================================
+VERIFIER RESULT: disagreements 0   (runtime 821s)

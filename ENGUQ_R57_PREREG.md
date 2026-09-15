@@ -567,3 +567,157 @@ starves below 50%; joint null p > 0.01; era D net falls more than 10%.
 
 (Append-only. Each entry: date, what changed, why, and which results were already visible when it
 changed.)
+
+### 2026-09-14 - order of work item 1 (sibling file + parity gates G1-G5)
+
+Results visible when these were decided: none. No grid cell had run; the only numbers seen were the
+parity-gate readings (knob-off controls, which equal the published frontier rows, and trade-list /
+feature identity checks that print no variant performance). No threshold, cell, definition or order
+of work was changed.
+
+1. **DEFAULT_PARAMS ranges (ambiguity).** Section 2 says "copy of R5 with DEFAULT_PARAMS reset to
+   the R2 defaults" but gives no ranges. R5's fence (limit_atr 0.70-1.00, max_hold_bars 6,900-12,000)
+   would put the R2 defaults outside their own range. Reading: the 14 R2 knobs carry R2's own
+   DEFAULT_PARAMS entries (default and range); max_hold_bars defaults to 0 with its min lowered to 0
+   (max 12,000, step 460, which contains 9,660); each new knob's range spans exactly its
+   pre-registered grid. No result depends on ranges: every run passes every parameter explicitly.
+2. **Memo key (safety extension).** Section 2 keys the knob-free arrays by (bar count, first and last
+   timestamp, volume nbytes). That key is identical for two different tapes of the same shape (NQ and
+   ES on the same window; two synthetic test tapes), which would silently hand one tape's mask to the
+   other. The key also carries the timezone, the volume sum and a price fingerprint (first and last
+   close, two sampled high/low values, sum of closes); the recovery ratio is also keyed by tl_len. On
+   any single tape this changes no value (the gates prove the masks equal fresh recomputation).
+3. **vol_clock with no volume array (unspecified).** Literal reading of "a NaN baseline FAILS": every
+   signal fails, so the run has no trades. The file does not raise for this case; it does raise for a
+   session-keyed knob without `index`, as written.
+4. **`_mask_override` semantics (unspecified detail).** It replaces the AND of every enabled rule mask
+   (one knob in a single-hypothesis run; for H-E the driver ANDs both shifted masks and passes the
+   result). It raises if no rule knob is on. The missing-`index` raise still applies when an override
+   is given (literal). H-D's switch of vol_mult to 0 still applies under an override.
+5. **`_signal_index_probe` placement.** Appended at the same point as the existing `_signal_probe`
+   (after every entry filter including the rule mask, before the limit is placed); like the other
+   probes it forces the interpreted walk.
+6. **G5 reading (ambiguity).** `exec_feasibility_audit.py --config` is a lookup table of files from the
+   2026-08-11 sweep; for this new file it prints "warn UNAUDITED ... audit by hand before crowning"
+   and exits 0. "Passes" is read literally as exit 0 / verdict not LEAK. Because config mode does not
+   inspect the file, G5 was supplemented (not replaced) by: the file-level static scan
+   (PASS, 0 failures, 0 warnings); an interpreted `_signal_index_probe` run per centre cell (0 signal
+   bars failing their own mask; probe walk == compiled cell); and a truncation check at two cut bars
+   (every feature on the prefix frame == the full-frame feature on those bars).
+7. **Added strictness, reported.** G1 also compared every selection-side `measure()` field with
+   `r57_frontier.json` row 1 (G2: row 9) and the SEL control's interpreted walk with its compiled walk;
+   G3 also required each centre cell's trade list to differ from the knob-off control (a knob that
+   removed nothing would make the compiled/interpreted identity vacuous); G4 also fed each helper-built
+   mask back through `_mask_override` and required the identical knob-on trade list, so the features
+   compared against the CSV are provably the ones the engine uses.
+8. **G4-B note.** The CSV has 3 NaN rows for `ta_lvl_sma20d_atr`; the in-engine feature is NaN on 1 of
+   them (a first-20-sessions warm-up bar) and finite on 2 (signals on a session's last bar, which the
+   anatomy NaN'd because trade_anatomy reads the day row at signal+1). The gate is on the 1,828
+   non-NaN rows, as pre-registered; the in-engine value uses the signal bar's own session, as the rule
+   in section 5 defines.
+9. **Beacon.** The gate driver was wrapped in `tools/research_beacon.py` (one job record); runtime 104 s.
+
+### 2026-09-14 - order of work items 2-3 (grid + S1-S9), readings fixed BEFORE any grid cell ran
+
+Results visible when these were decided: none from the grid. Only the parity-gate readings above
+(knob-off controls) had been seen. Driver: `tools/r57_grid.py`; these readings are written into its
+docstring (a-j) and were fixed before its first run. No threshold, cell, definition or order of work
+was changed.
+
+10. **LB discard vs "whole-window numbers (reported)" (conflict).** Section 3 lists whole-window
+    numbers as reported; section 2 (and 8) say LB trades are discarded the moment the engine returns
+    and are not printed until section 8. The stricter rule wins: only selection trades are passed to
+    `measure()`, so its `lb` block is empty and `whole` / `corr_all` / `hold_all` merely repeat the
+    selection read and are not printed. The knob-off control's selection fields must still equal
+    frontier row 1 (hard stop), which proves the slice changes no selection number.
+11. **Thresholds from exact control values.** S1 = control win + 1.0 pt, S2 = control PF + 0.02,
+    S3 = 0.95 x control net, S4 = 0.95 x control MAR ("control - 5%" read as relative), S5a = control
+    era share + 2.0 pts, S5c = control TTZ - 2, S7 = control corr + 0.05, S9 PF = control + 0.01,
+    S9 net = 0.90 x control. The table's rounded figures (30.4%, 1.737, 0.86, 64.1% ...) are displays.
+12. **Retention and trade-set audit (definitions).** Top-20 / top-10: the control's best selection
+    trades by $ (stable sort); retained if a variant selection trade's entry bar lies in the control
+    trade's [entry bar, exit bar]. "Removed" = control selection trade with no variant trade of the
+    same entry bar, exit bar and entry price. "Added" (H-D) = slot refill (section 3) = a variant
+    selection trade with no control selection trade whose entry bar lies inside the variant trade's
+    [entry bar, exit bar] (the mirror of the S8 span test). "Re-timed" = neither.
+13. **What gates (ambiguity).** Gating = S1-S8 at the centre (S8 >= 18 for H-A), S9 on both
+    neighbours, every section-5 extra clause that states a condition, and every section-5 kill
+    criterion evaluable before S10-S12. H-C's "reported mechanism check: the gap-through fill share
+    ... must not rise" is read as GATING (it says "must" and, unlike H-A's diagnostic, is not labelled
+    "not a gate"). H-D's +/-40% trade-count clause (1,099..2,563) is GATING. H-A's planned-risk floor
+    and session-bucket shares are reported only. Neighbours are shown against S1-S8 for the record and
+    veto only through S9 (and, for H-D, the three-cell PF-lift sign agreement).
+14. **Gap-through fill (H-C)** = the anatomy's definition: entry price < resting limit - 1e-9, read
+    from the interpreted walk's locals (fill probe); that walk must equal the compiled trades.
+15. **H-D 09:30-09:35** = entry bar ET clock 09:30 <= hh:mm <= 09:35, inclusive, removed from both the
+    variant's and the control's selection trades before PF.
+16. **H-A planned-risk diagnostic.** risk% = (limit - swing_low) / limit per bar, limit = c - 0.55 x
+    the file's ATR52 (NaN -> TR), swing_low = min(l[i-206..i]). Floor = the value removing
+    round(share x N) of the control's selection signals (interpreted signal-index probe, signal bar <
+    split), share = the H-A centre mask's rejection share on the same signals. Run with quiet_pct=20
+    and `_mask_override` = the risk-floor mask. Session buckets by the signal bar's ET clock: Asia
+    18:00-03:00, Europe 03:00-09:30, cash 09:30-16:00, other 16:00-18:00.
+17. **Four eras** by entry time: A < 2014-01-01, B < 2018-01-01, C < 2022-01-01, D < 2025-06-30; win
+    and PF per era on $ after cost.
+18. **Post-run note (written after items 2-3 ran; nothing above was changed).** No new deviation arose.
+    None of readings 10-17 decided a verdict: all four centre cells fail S1 (win lift H-A +0.71,
+    H-B +0.66, H-C +0.02, H-D -0.40 pts against +1.0), which also fails under the table's rounded
+    30.4%. H-C's gap-through clause and H-D's trade-count clause both passed, so reading 13 was not
+    pivotal. One of the control's top-20 trades exits after the split (reading 12); no verdict rests on
+    S8. The knob-off control reproduced frontier row 1 on every selection field from selection-only
+    trades, and its interpreted probe walk matched the compiled trades (153 gap-through fills, as in
+    the anatomy). A0 did not trip on any centre. Runtime 26 s, wrapped in the research beacon (one job
+    record). Survivors of S1-S9 + section-5 extras: none, so S10-S12, H-E and the LB look do not run.
+
+### 2026-09-14 - order of work item 7 (write-up), after both independent verifiers
+
+Results visible when these were decided: ALL of items 1-3 (every cell, every clause) and both
+verifier reports (recompute + look-ahead: confirmed, 0 disagreements; protocol: confirmed, five LOW
+findings). Nothing below changes a threshold, cell, definition, verdict or the order of work. No
+verifier finding was HIGH and none changes a conclusion. Write-up: `tools/r37_results/r57_summary.txt`,
+generated by `tools/r57_summary.py` (runs no backtest; copies every number from
+`r57_sel_parity_gates.json`, `r57_grid.json` and `verify_r57_grid.json`; only the protocol verifier's
+findings, which exist solely as its report, are typed in).
+
+19. **Null p-values and the LB look (item 7 asks for them).** Section 7 items 4-6 run only for
+    hypotheses still standing after item 3, and none were. Literal reading: S10, S11, S12, H-E and the
+    LB look did not run, so no null p-value and no LB figure exists for any variant. The write-up
+    reports them as "not computed", never as passed or failed. The LB stayed unread for every variant
+    (grid `lb.n` = 0 in all 13 cells).
+20. **H-A planned-risk diagnostic wording (protocol verifier finding a; reported, not a gate).** The
+    section-5 text says "If it matches H-A's win and PF lift, the write-up says H-A is the known
+    big-stop / volatility factor", with no tolerance for "matches". Measured: floor win lift +0.874 /
+    PF lift +0.0088 against H-A's +0.708 / +0.0081; the floor removes the same NUMBER of control
+    signals (235 of 2,464) but only 112 of the same signals. Reading adopted after seeing these
+    numbers, so stated as a soft reading: the lifts are of the same order, so the write-up says H-A's
+    small lift is "consistent with" the known big-stop / volatility factor, not that H-A "is" that
+    factor. The items 2-3 hand-off phrase "removes the same 235 of 2,464 control signals" is corrected
+    to "the same count, 112 of them the same signals". No verdict involves it (H-A fails S1, S2, S9).
+21. **H-D added / removed definitions (protocol verifier finding b).** Reading 12 stands. The verifier's
+    alternatives: "added" = no control trade overlapping the variant trade gives 17 trades (PF 0.031);
+    "removed" = no variant entry inside the control trade gives 388 trades (PF 0.903). X-addE1, X-addE2
+    and X-addPF fail under all three readings; only the size of the stated mechanism depends on the
+    reading. Reported beside the driver's numbers.
+22. **G5 (protocol verifier finding c).** Already reading 6. The write-up describes G5 as a hand audit
+    (static file scan, per-centre signal-bar probe, two-cut truncation check), not as a pass from
+    `exec_feasibility_audit.py --config`, which printed "warn UNAUDITED" and exited 0.
+23. **S8 on selection trades only (protocol verifier finding d).** Already reading 12. One control
+    top-20 trade exits after the split; counting only variant selection trades can only lower
+    retention, every centre passes S8 (H-A 20, H-B 19, H-C 20, H-D 17), so no verdict moves.
+24. **Research beacon vs "no Firestore writes" (protocol verifier finding e; bookkeeping).** Section 2
+    ties the beacon to runs over ~2 minutes when the session may write Firestore, and its last bullet
+    says no Firestore writes. The launching task explicitly permitted the beacon (one job record per
+    wrapped run). It wrapped item 1 (104 s), items 2-3 (26 s, below the ~2 min trigger) and the
+    recompute verifier (821 s): three job records, no other Firestore writes. Item 7 wrote none.
+25. **ENGUQ.md placement (instruction "after the crown sections, before section 1").** Literal
+    placement: immediately after the last subsection belonging to the crown sections ("2026-09-08: R2
+    sibling measured continuously") and before the `---` divider that opens section 1, plus one dated
+    line in the doc's section-3 changelog, which is how that doc records every change. The doc's
+    opening paragraph (which still names #309 as the crown as of 2026-09-05) was not edited: out of
+    this round's scope.
+26. **Conditional deliverables not produced.** The fenced single-hypothesis file (R6-style name) and
+    `tools/queue_r57_validate.py` are required only if a hypothesis fully survives (selection + gates
+    + LB not contradicting). None did, so neither exists.
+27. **Still uncommitted.** Section 2 forbids commits in this round; the section-11 appends, the sibling
+    file, tests, drivers, results and the ENGUQ.md section remain uncommitted in the worktree for the
+    owner's decision.
