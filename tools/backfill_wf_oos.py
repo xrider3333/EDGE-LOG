@@ -74,7 +74,11 @@ if ROOT not in sys.path:
 from augur_engine.analytics import wf_oos_block, bar_date_bounds  # noqa: E402
 
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
-SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth"}      # as the other backfill tools
+SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth",      # as the other backfill tools
+           "yahoo_adj": "rth"}   # dividend-adjusted daily ETF masters (the ETFDIP runs). A later
+                                 #   dividend rescales the whole pinned window by one factor, which
+                                 #   leaves these ratio-sized strategies' trades and dollars exactly as
+                                 #   they ran; anything that does move them is refused by the fold match
 TOOL_VERSION = "tools/backfill_wf_oos.py v1"
 # statuses that are not a refusal: main() exits 0 only when every run ended in one of these
 OK_STATUSES = ("written", "dry", "covered")
@@ -322,11 +326,19 @@ def build_fold_match(ev, index, fb, params, dp=4):
     saved = {"trades": n_s, "net": net_s, "pf": pf_s, "wins": wins_s}
     om = ev(te_s, te_e, params, keep_trades=True)
     if not om:
-        return {"fold": fold, "ok": False,
-                "reason": "the evaluator returned nothing for this fold's slice",
-                "pnls": [], "oos_pnl": 0.0, "oos_trades": 0, "oos_wins": None, "oos_pf": 0.0,
-                "saved": saved, "d_trades": -n_s, "d_net": -net_s, "d_pf": None,
-                "from": None, "to": None}
+        # The evaluator returns nothing for a slice with no trades (a long warm-up that never
+        #   clears inside a cold fold, e.g. NQDIP's 250-day trend). _wf_fold_row saves exactly
+        #   that as oos_trades 0 / oos_pnl 0.0, so an empty replay MATCHES a fold saved empty
+        #   and refuses only a fold that saved trades.
+        d0, d1 = bar_date_bounds(index, te_s, te_e)
+        empty_ok = (n_s == 0 and abs(net_s) <= NET_ABS_TOL and wins_s in (None, 0))
+        return {"fold": fold, "ok": empty_ok,
+                "reason": (None if empty_ok else
+                           f"the evaluator returned nothing for this fold's slice, but the doc "
+                           f"saved {n_s} trade(s) for it"),
+                "pnls": [], "oos_pnl": 0.0, "oos_trades": 0, "oos_wins": (0 if empty_ok else None),
+                "oos_pf": 0.0, "saved": saved, "d_trades": -n_s, "d_net": -net_s, "d_pf": None,
+                "from": d0, "to": d1}
     # `_apply_costs` (engine.py) already nets these trades of cost_pts when cost_pts > 0 --
     # read them straight, exactly like ENGINE_BRIEF D6 fixed `_wf_fold_row` to do.
     trades = list(om.get("trades") or [])

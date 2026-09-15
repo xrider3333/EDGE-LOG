@@ -346,10 +346,40 @@ def test_build_fold_match_wins_checked_only_when_saved():
 
 
 def test_build_fold_match_evaluator_returns_nothing():
-    fb = _fb()
+    fb = _fb()                                    # saved 10 trades -> an empty replay is refused
     m = B.build_fold_match(lambda a, b, p, keep_trades=False: None, None, fb, {})
     assert not m["ok"] and "evaluator returned nothing" in m["reason"]
+    assert "saved 10 trade(s)" in m["reason"]
     assert m["pnls"] == [] and m["oos_trades"] == 0
+
+
+def test_build_fold_match_empty_replay_matches_a_fold_saved_empty():
+    # a cold fold that never traded (NQDIP's 250-day trend): _wf_fold_row saves 0 / 0.0 when the
+    #   evaluator returns nothing, so the replay's nothing is a match, not a refusal
+    row = {"fold": 1, "oos_pnl": 0.0, "oos_trades": 0, "oos_pf": 0.0, "oos_wins": 0}
+    m = B.build_fold_match(lambda a, b, p, keep_trades=False: None, None, _fb(row=row), {})
+    assert m["ok"] and m["reason"] is None
+    assert m["pnls"] == [] and m["oos_trades"] == 0 and m["oos_pnl"] == 0.0
+    # a fold saved with zero trades but a non-zero win count disagrees with itself -> refused
+    row_bad = dict(row, oos_wins=2)
+    assert not B.build_fold_match(lambda a, b, p, keep_trades=False: None, None, _fb(row=row_bad), {})["ok"]
+
+
+def test_build_block_with_an_empty_leading_fold():
+    # every fold must still reach wf_oos_block, empty ones included, and the block must pool
+    #   only the folds that traded
+    empty = {"fold": 1, "ok": True, "pnls": [], "oos_pnl": 0.0, "oos_trades": 0, "oos_wins": 0,
+             "oos_pf": 0.0, "from": "2011-01-03", "to": "2012-01-03"}
+    full = {"fold": 2, "ok": True, "pnls": [2.0, -1.0, 3.0], "oos_pnl": 4.0, "oos_trades": 3,
+            "oos_wins": 2, "oos_pf": 5.0, "from": "2012-01-04", "to": "2013-01-03"}
+    blk = B.build_block([empty, full], "rolling")
+    assert blk is not None
+    assert blk["trades"] == 3 and blk["net"] == pytest.approx(4.0) and blk["n_folds"] == 2
+    assert blk["from"] == "2011-01-03"
+
+
+def test_plan_accepts_the_adjusted_daily_etf_source():
+    assert B.SESSION.get("yahoo_adj") == "rth"
 
 
 def test_build_fold_match_dates_from_the_index():
