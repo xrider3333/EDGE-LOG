@@ -1790,8 +1790,25 @@ def run_pills(arrays, *, champ_trades=None, cost_pts=0.0,
     SAME set (board §1/§2/§4/§6/§7/§8). Every entry is INFORMATIONAL — none is a gate.
 
     `arrays`      the loaded optimize-window master arrays (open/high/low/close/index…).
-    `champ_trades` the champion config's whole-window trades (rich tuples); enables the
-                  trade-level pills (conformal / causal / synthetic / feature-select / edge-sig).
+    `champ_trades` the champion config's whole-window trades (rich tuples), ALREADY NET
+                  of cost_pts (i.e. run through engine._apply_costs, or returned by
+                  engine.run_backtest itself, which applies costs internally) — enables
+                  the trade-level pills (conformal / causal / synthetic / feature-select
+                  / edge-sig). COST CONTRACT (the opposite of analytics.regime_report /
+                  context.build_context, which are GROSS-in): conformal_pnl_band,
+                  edge_significance and synthetic_day_bootstrap take no cost_pts at all
+                  and score t[2] as-is, so GROSS trades silently inflate their band
+                  centre / mean / totals; causal_entry_test DOES take cost_pts, but only
+                  to charge its own random-entry null simulations (built from raw
+                  bar-to-bar closes, so they start gross by construction) — its `real`
+                  total is summed straight from t[2], so it must already be net to sit
+                  on the same footing as the nulls it's compared against. GROSS trades
+                  here can also flip a near-breakeven trade's win/loss LABEL (sign of
+                  t[2]) in gate_feature_select. Pass None (Auto-Optimize has no lockbox)
+                  to skip the trade-level pills entirely.
+    `cost_pts`    used ONLY inside causal_entry_test (to charge its null simulations —
+                  see above); it is NOT applied to `champ_trades`, which must already be
+                  net before this call.
     `lb_start`    lockbox boundary — enables the lockbox-vs-history adversarial check.
                   Pass None (Auto-Optimize has no lockbox) to skip it.
     `sibling`     a cross-instrument sibling ticker for the lead-lag / Granger check.

@@ -1523,6 +1523,18 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             _ctrades = None
             try:
                 _cwm = fn(O, H, L, C, return_trades=True, **_cexf, **_cbp)
+                # `fn` is the raw strategy plugin -- GROSS trades, no cost applied (same
+                #   as `_eval_full` above). run_pills' champ_trades contract is NET (see
+                #   its docstring): conformal_pnl_band/edge_significance/
+                #   synthetic_day_bootstrap take no cost_pts to correct for it, and
+                #   causal_entry_test's real total must sit on the same net footing as
+                #   its own cost_pts-charged null simulations. Net here, ONCE, exactly
+                #   like `_eval_full`'s regime-report netting a few lines above --
+                #   otherwise every cost-bearing Auto-Optimize pills run reads a gross
+                #   real total against a net null (causal), a gross band centre
+                #   (conformal) and a gross mean (edge_sig).
+                if _cwm and cost_pts > 0:
+                    _cwm = _apply_costs(_cwm, cost_pts)
                 _ctrades = _cwm.get("trades") if _cwm else None
             except Exception:
                 _ctrades = None
