@@ -1614,16 +1614,18 @@ class FirestoreQueue:
                             res = nt_watchdog.state(max_age_sec=0)
                     except Exception as e:
                         res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-                    ref.update({"status": "done" if res.get("ok") else "error",
-                                "result": pack_command_result(res),
-                                "finishedAt": time.time()})
-                    # Republish the bridge snapshot so the button's own state line
-                    # updates immediately instead of waiting out the 5-minute cycle.
+                    # Republish the bridge snapshot BEFORE marking the command done: the
+                    # web re-reads that doc the moment it sees "done", and publishing after
+                    # (as this did until 2026-09-15) handed it the pre-click state, so the
+                    # switch looked like it had ignored the click.
                     try:
                         from api import nt_bridge_pub
                         nt_bridge_pub.publish(self.db, uid)
                     except Exception:
                         pass
+                    ref.update({"status": "done" if res.get("ok") else "error",
+                                "result": pack_command_result(res),
+                                "finishedAt": time.time()})
                     log(f"  nt_watchdog -> {res.get('state')} (ok={res.get('ok')})")
                     n += 1
                     continue
