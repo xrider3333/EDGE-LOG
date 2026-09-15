@@ -7,6 +7,7 @@ Faithful ports of the optimizer's Monte-Carlo drawdown and Deflated-Sharpe panel
     Sharpe expected from pure luck across N searched configs (PSR vs that luck bar).
 Both are seeded (rng=42) → reproducible, matching the app.
 """
+import datetime as _dt
 import math
 
 import numpy as np
@@ -334,10 +335,208 @@ def annualized_sr(pnls, years):
                 skew=float((z ** 3).mean()), kurt=float((z ** 4).mean()))
 
 
-def _max_dd(arr):
+def _max_dd(arr, peak_from_flat=False):
+    """Most negative (cum - running peak) of a per-trade pnl array (<= 0).
+
+    peak_from_flat=False (the default, every pre-existing caller: monte_carlo_drawdown,
+    the ensemble `_st`) seeds the running peak at the FIRST trade's cumulative value.
+    peak_from_flat=True seeds it at 0.0 - a flat account before the first trade, the
+    definition engine._apply_costs and ml_gate._stats use - so a sequence that opens
+    with losses reports the drawdown from the starting balance, not from wherever the
+    first losing trade left it. wf_oos_block uses True; the default is left alone so
+    no already-saved Monte-Carlo or ensemble figure changes meaning."""
     cum = np.cumsum(arr)
-    peak = np.maximum.accumulate(cum)
+    if peak_from_flat:
+        peak = np.maximum.accumulate(np.concatenate([[0.0], cum]))[1:]
+    else:
+        peak = np.maximum.accumulate(cum)
     return float((cum - peak).min())
+
+
+def bar_date_bounds(index, a, b):
+    """('YYYY-MM-DD', 'YYYY-MM-DD') calendar bounds of bar slice [a, b) on `index`
+    (a bar-timestamp array/DatetimeIndex over the SAME window the slice's a/b bar
+    indices are relative to), or (None, None) when there is no index or it is empty.
+
+    THE ONE DEFINITION — validate.py's `_fold_dates` (save_fold_detail's per-fold
+    rows) and auto.py's `_wf_fold_row` (a fold's oos_from/oos_to, feeding
+    `wf_oos_block` below) both delegate here so a bar-to-date mapping can never
+    drift between the two call sites."""
+    try:
+        if index is None or not len(index):
+            return None, None
+        import pandas as _pd
+        lo = max(0, min(int(a), len(index) - 1))
+        hi = max(0, min(int(b) - 1, len(index) - 1))
+        return str(_pd.Timestamp(index[lo]).date()), str(_pd.Timestamp(index[hi]).date())
+    except Exception:
+        return None, None
+
+
+def _wf_oos_parse_date(d):
+    try:
+        return _dt.date.fromisoformat(str(d)[:10])
+    except Exception:
+        return None
+
+
+def _wf_oos_fold_start_index(idx_map, offset):
+    """First position `j` in a downsampled index map (see `wf_oos_block`'s `equity`
+    below) whose original-array position is >= `offset` — i.e. the earliest point in
+    the DOWNSAMPLED curve that already reflects this fold's first trade. Falls back
+    to the last position when `offset` is past everything the downsample kept (a
+    fold so small it has no point of its own — the closest one wins)."""
+    for j, v in enumerate(idx_map):
+        if v >= offset:
+            return j
+    return (len(idx_map) - 1) if idx_map else 0
+
+
+# ── WALK-FORWARD OUT-OF-SAMPLE BLOCK (owner-approved 2026-09-15, ENGINE_BRIEF.md) ──
+#    Today no run saves a walk-forward Sharpe, Sortino or drawdown — every fold's
+#    real per-trade OOS pnls exist transiently inside auto.py's `_wf_fold_row` but are
+#    pooled into one capped, unlabeled distribution and discarded (validate.py:969-993)
+#    before the saved doc is built. This stitches the PRIMARY walk-forward scheme's
+#    per-fold OOS trades into ONE small saved block — net/PF/win-rate/avg-win-loss/
+#    drawdown/Sharpe/Sortino/equity over every fold's real OOS trades, in fold order —
+#    computed HERE, in the ONE place, so a live Auto-Validate (validate.py, reading the
+#    transient arrays before they are popped) and tools/backfill_wf_oos.py (re-running
+#    each fold's OOS slice against that fold's saved params) can never compute this
+#    differently.
+def wf_oos_block(folds, *, mode, dp=1, cap=200, src="validate"):
+    """Stitch walk-forward per-fold OOS trades into the saved `validate.wf_oos` block.
+
+    `folds` — list of dicts, ONE per fold, IN FOLD ORDER (the PRIMARY scheme's folds —
+    the alt scheme's rows carry no params and cannot be rebuilt, see ENGINE_BRIEF D1):
+        {"fold": int, "pnls": [per-trade NET pts, in trade order], "oos_pnl": pts,
+         "oos_trades": int, "oos_wins": int|None, "oos_pf": float,
+         "from": "YYYY-MM-DD"|None, "to": "YYYY-MM-DD"|None}
+    `mode`  — "rolling" | "anchored": which walk-forward scheme this is (the run's
+              wf_best_mode / PRIMARY scheme).
+    `dp`    — decimal places for the rounded points figures (net, gross_win,
+              gross_loss, avg_win, avg_loss, max_drawdown) and the equity curve's own
+              values (passed straight through as `downsample_curve`'s `ndp`).
+    `cap`   — equity curve cap: <= this many points, endpoint-pinned (downsample_curve).
+    `src`   — "validate" (built live, Stage B) or "backfill" (tools/backfill_wf_oos.py
+              re-running each fold's OOS slice against its saved params).
+
+    RECONCILIATION GUARD — never save a block that disagrees with the fold figures the
+    app already shows: for EVERY fold, len(pnls) must equal oos_trades and
+    |sum(pnls) - oos_pnl| must be within 1e-3 * max(1, oos_trades) points, and every
+    pnl and oos_pnl must be a FINITE number (a NaN passes a tolerance comparison
+    silently; an inf poisons every pooled figure). Any disagreement logs why and
+    returns None instead of saving. Because of this guard,
+    the returned block's net/trades/profit_factor equal the pooled fold figures by
+    construction — they are read straight off the SAME per-trade data that already
+    reconciled against them.
+
+    Units — engine POINTS, net of costs (the caller applies the contract multiplier).
+    `max_drawdown` / `gross_loss` / `avg_loss` are POSITIVE MAGNITUDES; `max_drawdown`
+    is peak-to-trough over the stitched per-trade cumulative net with the running peak
+    starting at 0.0 (flat before the first walk-forward trade); `win_rate` is a
+    percent (0-100), like `validate.total_win_rate`. `years` (for sharpe/sortino) is
+    the TRUE stitched calendar span — first fold's `from` to last fold's `to`,
+    days/365.25, floored at 0.1 (the validate.py `total_sharpe` precedent) — None
+    when either date is missing, in which case sharpe/sortino come back None too
+    rather than annualising on a made-up span.
+
+    Returns the block dict (v=1, mode, n_folds, from, to, years, trades, wins,
+    win_rate, net, gross_win, gross_loss, profit_factor, avg_win, avg_loss,
+    max_drawdown, sharpe, sortino, equity, equity_n, fold_idx, folds, src), or None
+    (no folds, or a reconciliation mismatch)."""
+    folds = list(folds or [])
+    if not folds:
+        return None
+
+    pnls_all = []
+    offsets = []          # each fold's first-trade position (0-based) in pnls_all
+    fold_rows = []
+    for fr in folds:
+        offsets.append(len(pnls_all))
+        try:
+            pnls = [float(x) for x in (fr.get("pnls") or [])]
+            oos_pnl = float(fr.get("oos_pnl"))
+        except (TypeError, ValueError):
+            print(f"[wf_oos_block] fold {fr.get('fold')}: a pnl or oos_pnl is not a number "
+                  f"(oos_pnl={fr.get('oos_pnl')!r}) — refusing to save the block")
+            return None
+        # NaN slips straight through the tolerance check below (abs(nan - x) > tol is
+        # False), and one inf pnl would turn net/PF/Sharpe/equity into inf/NaN that the
+        # runner's json_safe then saves as null — a block that LOOKS reconciled but is
+        # not. Refuse any non-finite value outright.
+        if not math.isfinite(oos_pnl):
+            print(f"[wf_oos_block] fold {fr.get('fold')}: oos_pnl={oos_pnl!r} is not finite "
+                  f"— refusing to save the block")
+            return None
+        _bad = next((i for i, x in enumerate(pnls) if not math.isfinite(x)), None)
+        if _bad is not None:
+            print(f"[wf_oos_block] fold {fr.get('fold')}: trade {_bad} pnl={pnls[_bad]!r} is "
+                  f"not finite — refusing to save the block")
+            return None
+        oos_trades = int(fr.get("oos_trades") or 0)
+        if len(pnls) != oos_trades:
+            print(f"[wf_oos_block] fold {fr.get('fold')}: len(pnls)={len(pnls)} != "
+                  f"oos_trades={oos_trades} — refusing to save the block")
+            return None
+        tol = 1e-3 * max(1, oos_trades)
+        disagree = abs(sum(pnls) - oos_pnl)
+        if disagree > tol:
+            print(f"[wf_oos_block] fold {fr.get('fold')}: sum(pnls)={sum(pnls):.4f} "
+                  f"disagrees with oos_pnl={oos_pnl:.4f} by {disagree:.4f} (tol "
+                  f"{tol:.4f}) — refusing to save the block")
+            return None
+        pnls_all.extend(pnls)
+        fold_rows.append({"f": fr.get("fold"), "from": fr.get("from"), "to": fr.get("to"),
+                          "trades": oos_trades, "net": round(oos_pnl, dp)})
+
+    trades = len(pnls_all)
+    wins = sum(1 for x in pnls_all if x > 0)
+    win_rate = round(100.0 * wins / trades, 2) if trades else 0.0
+    net = float(sum(pnls_all))
+    gross_win = float(sum(x for x in pnls_all if x > 0))
+    gross_loss = float(-sum(x for x in pnls_all if x < 0))      # positive magnitude
+    profit_factor = (gross_win / gross_loss) if gross_loss > 0 else None
+    win_list = [x for x in pnls_all if x > 0]
+    loss_list = [-x for x in pnls_all if x < 0]
+    avg_win = (sum(win_list) / len(win_list)) if win_list else None
+    avg_loss = (sum(loss_list) / len(loss_list)) if loss_list else None
+    # peak seeded at 0.0 (flat account before the first walk-forward trade), like
+    # engine._apply_costs / ml_gate._stats — a stitched sequence that opens with losses
+    # would otherwise measure its drawdown from the first losing trade and understate
+    # it, inflating any walk-forward MAR built on this figure.
+    max_drawdown = (abs(_max_dd(np.asarray(pnls_all, float), peak_from_flat=True))
+                    if pnls_all else 0.0)
+
+    d0 = _wf_oos_parse_date(folds[0].get("from"))
+    d1 = _wf_oos_parse_date(folds[-1].get("to"))
+    years = max(0.1, (d1 - d0).days / 365.25) if (d0 and d1) else None
+    sharpe = sharpe_from_pnls(pnls_all, years) if years else None
+    sortino = sortino_from_pnls(pnls_all, years) if years else None
+
+    cum, s = [], 0.0
+    for x in pnls_all:
+        s += x
+        cum.append(s)
+    equity = downsample_curve(cum, cap=cap, ndp=dp)
+    idx_map = downsample_curve(list(range(trades)), cap=cap, ndp=None) if trades else []
+    fold_idx = ([_wf_oos_fold_start_index(idx_map, off) for off in offsets] if trades
+                else [0] * len(folds))
+
+    return {
+        "v": 1, "mode": mode, "n_folds": len(folds),
+        "from": folds[0].get("from"), "to": folds[-1].get("to"),
+        "years": (round(years, 3) if years is not None else None),
+        "trades": trades, "wins": wins, "win_rate": win_rate,
+        "net": round(net, dp), "gross_win": round(gross_win, dp),
+        "gross_loss": round(gross_loss, dp),
+        "profit_factor": (round(profit_factor, 3) if profit_factor is not None else None),
+        "avg_win": (round(avg_win, dp) if avg_win is not None else None),
+        "avg_loss": (round(avg_loss, dp) if avg_loss is not None else None),
+        "max_drawdown": round(max_drawdown, dp),
+        "sharpe": sharpe, "sortino": sortino,
+        "equity": equity, "equity_n": trades, "fold_idx": fold_idx,
+        "folds": fold_rows, "src": src,
+    }
 
 
 def monte_carlo_drawdown(pnls, n_sims=1000, block=1, seed=42):
@@ -476,6 +675,11 @@ def regime_report(trades, index, highs, lows, closes, cost_pts=0.0):
     ratio), day-of-week — plus a monthly PnL grid. PnL is in POINTS (net of cost_pts);
     the caller multiplies by the contract multiplier. Faithful port of the app's
     _render_regime_panel. Returns None if there isn't enough warm-up history.
+
+    COST CONTRACT: each trade's t[2] is taken as GROSS and `t[2] - cost_pts` is what
+    gets bucketed. A caller whose trades already went through engine._apply_costs
+    (optimize.run_grid's and auto.run_auto's regime blocks both do) must pass
+    cost_pts=0.0 — passing the run's cost again double-charged every trade.
     """
     import pandas as pd
     if not trades:

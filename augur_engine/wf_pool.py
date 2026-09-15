@@ -46,6 +46,7 @@ def init_worker(strategy, master, date_from, date_to, arrays, cost_pts, session)
             ctx = None          # cache off for this worker; numbers are unaffected
     _W["ev"] = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=ctx)
     _W["H"], _W["L"] = arrays["high"], arrays["low"]
+    _W["IDX"] = arrays.get("index")
     _W["cost_pts"] = float(cost_pts or 0.0)
 
 
@@ -55,5 +56,6 @@ def fold_task(spec):
     from .auto import _wf_fold_row
     f, tr_start, tr_end, te_s, te_e, space, dp, pkeys, seed, n_trials, min_trades = spec
     row = _wf_fold_row(_W["ev"], _W["H"], _W["L"], space, dp, pkeys, seed, n_trials,
-                       min_trades, _W["cost_pts"], f, tr_start, tr_end, te_s, te_e)
+                       min_trades, _W["cost_pts"], f, tr_start, tr_end, te_s, te_e,
+                       index=_W.get("IDX"))
     return f, row

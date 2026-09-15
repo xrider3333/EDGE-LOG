@@ -31,7 +31,7 @@ from .engine import _apply_costs
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
                         downsample_curve, mae_mfe, relationship_scores, pdp_plateau,
-                        interaction_pairs, conditional_boundary_flags)
+                        interaction_pairs, conditional_boundary_flags, bar_date_bounds)
 from .context import build_context
 from . import trial_cache as TC
 
@@ -670,14 +670,17 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
 
 
 def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pts,
-                 f, tr_start, tr_end, te_s, te_e, tick=None):
+                 f, tr_start, tr_end, te_s, te_e, tick=None, index=None):
     """ONE walk-forward fold, exactly as run_auto's in-line loop did it: a fresh sampler
     from the run's seed (so no fold depends on another, or on the order they run in),
     n_trials evaluations on the training window, the realism gate, the fold champion,
     then that champion once on the test window. BOTH the in-line loop and the
     wf_pool workers call this, so the parallel path cannot drift from the sequential
-    one. `tick(i)` is called after each trial when given (in-line progress). Returns the
-    fold row, or None when no trial cleared min_trades."""
+    one. `tick(i)` is called after each trial when given (in-line progress). `index`
+    (optional — the optimize-window's bar timestamps) adds oos_from/oos_to (ISO dates
+    of the test slice's first/last bar) to the row via analytics.bar_date_bounds; the
+    keys are simply OMITTED (never crash) when `index` is None or has no bars in
+    range. Returns the fold row, or None when no trial cleared min_trades."""
     samp = _RandomSampler(space, seed=seed)
     recs = []
     for _i in range(n_trials):
@@ -701,7 +704,8 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
     row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
     row["oos_trades"] = int(om["num_trades"]) if om else 0
     # OOS per-trade net PnLs + heat/reach for the report's walk-forward distribution
-    # tiles (1G/1H WF scope). Best-effort — never let this break a fold.
+    # tiles (1G/1H WF scope), and the walk-forward OOS block (analytics.wf_oos_block).
+    # Best-effort — never let this break a fold.
     row["_oos_pnls"] = []
     row["_oos_mae"] = []
     row["_oos_mfe"] = []
@@ -709,7 +713,12 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
     try:
         _tr = (om or {}).get("trades") or []
         if _tr:
-            row["_oos_pnls"] = [round(float(t[2]) - cost_pts, 4) for t in _tr]
+            # `_tr` is om['trades'] — ev() already ran it through _apply_costs whenever
+            # cost_pts>0, so t[2] is ALREADY net of cost. Re-subtracting cost_pts here
+            # double-charged every OOS trade (ENGINE_BRIEF D6) — win_dist_wf and any
+            # per-trade curve built from this array must read the net value straight,
+            # exactly like row["oos_pnl"] (om['total_pnl']) already does.
+            row["_oos_pnls"] = [round(float(t[2]), 4) for t in _tr]
             from .analytics import mae_mfe as _mmfe_wf
             _mm = _mmfe_wf(_tr, H[te_s:te_e], L[te_s:te_e])
             if _mm and _mm.get("mae"):
@@ -721,6 +730,17 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
     row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
     row["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
     row["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
+    # oos_from/oos_to (ENGINE_BRIEF D7): the OOS test slice's calendar bounds, for the
+    # web and future backfills. Omitted (never a crash, never a fake date) whenever
+    # `index` isn't available on this path.
+    try:
+        if index is not None:
+            _d0, _d1 = bar_date_bounds(index, te_s, te_e)
+            if _d0:
+                row["oos_from"] = _d0
+                row["oos_to"] = _d1
+    except Exception:
+        pass
     return row
 
 
@@ -1012,7 +1032,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     progress_cb(_done[0], n_total)
             for (f, tr_start, tr_end, te_s, te_e) in fold_specs:
                 row = _wf_fold_row(_ev, H, L, space, dp, pkeys, seed, n_trials, min_trades,
-                                   cost_pts, f, tr_start, tr_end, te_s, te_e, tick=_tick)
+                                   cost_pts, f, tr_start, tr_end, te_s, te_e, tick=_tick,
+                                   index=IDX)
                 if row is not None:
                     records.append(row)
         if progress_cb:
@@ -1138,7 +1159,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         row = {k: r.get(k) for k in pkeys if k in r}
         row.update({k: r.get(k) for k in _METRIC_KEYS if k in r})
         for k in ("oos_pnl", "oos_trades", "oos_pf", "oos_wins", "oos_win_rate",
-                  "fold", "test_bars", "train_bars",
+                  "fold", "test_bars", "train_bars", "oos_from", "oos_to",
                   "_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won"):
             if k in r:
                 row[k] = r[k]
@@ -1304,7 +1325,12 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             wm = _eval_full(bp0)
             idx = arrays.get("index")
             if wm and wm.get("trades") and idx is not None:
-                rr = regime_report(wm["trades"], idx, H, L, C, cost_pts=cost_pts)
+                # cost_pts=0.0, NOT cost_pts: `_eval_full` already ran these trades through
+                #   _apply_costs, so t[2] is net. regime_report subtracts its cost_pts from
+                #   every trade again - passing the run's cost here charged it twice and left
+                #   every 1F bucket, its PF and the monthly grid n*cost below the headline
+                #   total_pnl. regime_report keeps its gross-in contract; this caller is net-in.
+                rr = regime_report(wm["trades"], idx, H, L, C, cost_pts=0.0)
                 if rr:
                     out["regime"] = rr
         if compute_neighbors:
