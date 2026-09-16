@@ -878,6 +878,10 @@ var CASES = __CASES__;
                 var nn3=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
                 if(nn3.length>=2&&Math.abs(nn3[1]-y03)>0.35&&f.dzStartBad.length<6)f.dzStartBad.push({panel:k3,y:nn3[1],zero:+y03.toFixed(2)});});}
           }catch(e){f.dzErr=String(e);}
+          // the lockbox door x: DOORS gives its lockbox panel a quarter of the width while ONE CURVE
+          //   puts the door on the calendar, so the parity check below re-maps x between the two
+          try{var dl=[].slice.call(sv.querySelectorAll('line')).filter(function(l){return l.getAttribute('x1')===l.getAttribute('x2')&&/a78bfa/i.test(l.getAttribute('stroke')||'');})[0];
+            f.lbX=dl?+dl.getAttribute('x1'):null;}catch(e){f.lbX=null;}
           // THE LOCKBOX STRIPE: its x span is the lockbox door and the right edge, and its foot is
           //   the equity pane's floor - enough to read any vertex back into dollars
           try{var lbr=sv.querySelector('rect[fill="rgba(167,139,250,.16)"]');
@@ -1496,24 +1500,76 @@ def main():
             return hi - (y - ptv) * (hi - lo) / (eqB - ptv)
 
         ones = [dict(o, xy=_xy(o['pts'])) for o in fo['lines'] if o.get('k') is None]
+        # DOORS and ONE CURVE place the lockbox door at different x (a quarter of the width vs the
+        #   calendar). Both share the plot's left and right edges and scale the optimize window
+        #   linearly up to the door, so a DOORS x maps onto ONE CURVE by two linear pieces.
+        #   The door x is where the lockbox pieces start: the raw lockbox tails on ONE CURVE, the
+        #   panel-2 pieces on DOORS.
+        _lo = [o['xy'][0][0] for o in ones if o.get('kg') == 'lb' and o['xy']]
+        _ld = [_xy(L2['pts'])[0][0] for L2 in fd['lines'] if L2.get('k') == 2 and len(L2['pts']) >= 2]
+        xFo = min(_lo) if _lo else fo.get('lbX')
+        xFd = min(_ld) if _ld else fd.get('lbX')
+        allx = [q[0] for o in ones for q in o['xy']]
+        xLo, xRo = (min(allx), max(allx)) if allx else (None, None)
+
+        def remap(x):
+            if xFo is None or xFd is None or xLo is None or abs(xFo - xFd) < 1e-6:
+                return x
+            if x <= xFd:
+                return xLo + (x - xLo) * (xFo - xLo) / max(1e-9, xFd - xLo)
+            return xFo + (x - xFd) * (xRo - xFo) / max(1e-9, xRo - xFd)
+        remapped = xFo is not None and xFd is not None and abs(xFo - xFd) > 1e-6
+
+        def side(O, k):
+            # with the door moved, look a piece up only on its own side of ONE CURVE's door,
+            #   sorted by x, and forgive the 0.1-unit rounding the re-map stretches
+            if not remapped:
+                return O['xy']
+            key = ('_s2' if k == 2 else '_s1')
+            if key not in O:
+                xy = O['xy']
+                near = [i for i, q in enumerate(xy) if q[0] <= xFo + 0.05]
+                if k == 2:   # from the LAST vertex on the door (the lockbox tail's start) onward
+                    O[key] = xy[near[-1]:] if near else xy
+                else:        # up to the FIRST vertex past the door
+                    far = [i for i, q in enumerate(xy) if q[0] > xFo + 0.05]
+                    O[key] = xy[:far[0]] if far else xy
+            return O[key]
+
+        def at(O, k, x, interp=False):
+            pts = side(O, k)
+            if not remapped:
+                return _at(pts, x)
+            if interp:   # a door value is itself interpolated between saved points, so interpolate it
+                return _at(pts, min(max(x, pts[0][0]), pts[-1][0])) if pts else (None, None)
+            # re-mapped: both renders drew the SAME saved points, so take the nearest vertex rather
+            #   than interpolating - on a jagged curve half a step of rounding is thousands of dollars.
+            #   A line that stops short of x still misses.
+            if not pts or not (pts[0][0] - 0.3 <= x <= pts[-1][0] + 0.3):
+                return None, None
+            q = min(pts, key=lambda v: abs(v[0] - x))
+            return q[1], 0.0
+
         n_ok, n_ml, fails = 0, 0, []
         for L in fd['lines']:
             k = L.get('k')
             if k is None:
                 continue
-            xy = _xy(L['pts'])
+            xy = [(remap(x), y) for (x, y) in _xy(L['pts'])]
             inner = xy[1:-1]
             if len(xy) < 3 or not inner:
                 continue
             uk = (fd['dz'][k][3] - fd['dz'][k][2]) / (eqB - ptv)
             tol = 0.06 * (u1 + uk) + 2.0
+            if remapped and k == 2:
+                tol *= 1.6   # the lockbox is re-mapped ~4x; rounding at 0.1 x units becomes interpolation noise
             best = None
             for O in ones:
                 if O['kg'] != L['kg'] or (L.get('sel') is not None and O.get('sel') != L.get('sel')):
                     continue
                 offs = []
                 for (x, y) in inner:
-                    yo, _s = _at(O['xy'], x)
+                    yo, _s = at(O, k, x)
                     if yo is None:
                         break
                     offs.append(v1(yo) - vk(y, k))
@@ -1536,7 +1592,7 @@ def main():
                     fails.append('%s in-sample: moved by $%.0f - the in-sample panel is never rebased' % (L['kg'], off))
                     continue
             else:
-                yo, step = _at(O['xy'], xd)
+                yo, step = at(O, k, xd, interp=True)
                 want = v1(yo) if yo is not None else None
                 got = vk(yd, k) + off
                 if want is None or abs(got - want) > tol + (step or 0) * u1:

@@ -13,6 +13,7 @@ import textwrap
 import time
 
 import numpy as np
+import pandas as pd
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -57,15 +58,21 @@ STRAT = textwrap.dedent('''
 ''')
 
 
-def _arrays(n=9000, seed=3):
+def _arrays(n=9000, seed=3, with_index=False):
     rng = np.random.default_rng(seed)
     c = 100.0 + np.cumsum(rng.normal(0, 0.5, n))
     o = c + rng.normal(0, 0.1, n)
     h = np.maximum(o, c) + np.abs(rng.normal(0, 0.2, n))
     l = np.minimum(o, c) - np.abs(rng.normal(0, 0.2, n))
-    return {"open": o, "high": h, "low": l, "close": c,
-            "volume": rng.integers(100, 1000, n).astype(float),
-            "day_id": np.repeat(np.arange(n // 78 + 1), 78)[:n]}
+    out = {"open": o, "high": h, "low": l, "close": c,
+           "volume": rng.integers(100, 1000, n).astype(float),
+           "day_id": np.repeat(np.arange(n // 78 + 1), 78)[:n]}
+    if with_index:
+        # ENGINE_BRIEF D7 — oos_from/oos_to: real bar timestamps so both the
+        # sequential and parallel fold paths can be checked for identical dates,
+        # not just identical numbers.
+        out["index"] = pd.date_range("2020-01-01", periods=n, freq="5min", tz="US/Eastern")
+    return out
 
 
 @pytest.fixture(scope="module")
@@ -90,6 +97,34 @@ def test_parallel_folds_match_inline_rows(strat_path):
     assert len(seq["top"]) == len(par["top"])
     assert _strip(seq["top"]) == _strip(par["top"])
     assert seq["best_params"] == par["best_params"]
+
+
+def test_parallel_folds_carry_identical_oos_dates(strat_path):
+    """ENGINE_BRIEF D7: oos_from/oos_to (the OOS test slice's calendar bounds) must
+    come back identically whether a fold ran in-line or in a worker process — the
+    parallel path reloads/forwards the SAME `index` a sequential run already has."""
+    common = dict(arrays=_arrays(with_index=True), method="walkforward", wf_folds=4,
+                  n_trials=20, seed=11, min_trades=5, cost_pts=0.1, oos=True,
+                  auto_expand=False)
+    seq = run_auto(strat_path, workers=1, **common)
+    par = run_auto(strat_path, workers=2, **common)
+    assert seq["top"] and par["top"]
+    seq_dates = [(r["fold"], r.get("oos_from"), r.get("oos_to")) for r in seq["top"]]
+    par_dates = [(r["fold"], r.get("oos_from"), r.get("oos_to")) for r in par["top"]]
+    assert seq_dates == par_dates
+    assert all(d0 and d1 and d0 <= d1 for _f, d0, d1 in seq_dates)
+
+
+def test_wf_fold_rows_omit_oos_dates_without_an_index(strat_path):
+    """The default `_arrays()` (no `index` key) must not crash — the dates are simply
+    omitted, matching validate.py's own save_fold_detail precedent
+    (tests/test_fold_detail.py::test_fold_detail_omits_dates_when_the_arrays_carry_no_index)."""
+    out = run_auto(strat_path, arrays=_arrays(), method="walkforward", wf_folds=3,
+                    n_trials=10, seed=5, min_trades=5, oos=True, auto_expand=False,
+                    workers=1)
+    assert out["top"]
+    for r in out["top"]:
+        assert "oos_from" not in r and "oos_to" not in r
 
 
 def test_parallel_pool_boot_timeout_falls_back_to_sequential(strat_path, monkeypatch):
