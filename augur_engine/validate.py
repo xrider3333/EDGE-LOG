@@ -25,8 +25,6 @@ from .analytics import strip_lb_tails
 from .analytics import (sharpe_from_trades as _sharpe_shared,
                         sortino_from_trades as _sortino_shared,
                         avg_win_loss as _avg_wl_shared)
-from .analytics import bar_date_bounds as _bar_date_bounds
-from .analytics import wf_oos_block as _wf_oos_block
 # RAW-tab per-slice metrics (v72, owner ask: RAW's MAR/PF/WIN%/SHARPE/$-per-trade should be
 #   SAMPLE-toggle-aware like GATE/TILT/HYBRID already are). Reuse GATE's exact stats shape
 #   (total_pnl/num_trades/win_rate/profit_factor/max_drawdown/avg_pnl/wins/losses) so the web
@@ -111,11 +109,15 @@ def _anchored_fold_bounds(wf_anch):
 
 def _fold_dates(index, a, b):
     """('YYYY-MM-DD', 'YYYY-MM-DD') calendar bounds of bar slice [a, b) on `index`
-    (the optimize-window bar timestamps), or (None, None) when there is no index.
-    See analytics.bar_date_bounds — THE ONE DEFINITION, shared with auto.py's
-    per-fold oos_from/oos_to and the walk-forward OOS block, so a bar-to-date mapping
-    can never drift between the two call sites."""
-    return _bar_date_bounds(index, a, b)
+    (the optimize-window bar timestamps), or (None, None) when there is no index."""
+    try:
+        if index is None or not len(index):
+            return None, None
+        lo = max(0, min(int(a), len(index) - 1))
+        hi = max(0, min(int(b) - 1, len(index) - 1))
+        return str(_pd.Timestamp(index[lo]).date()), str(_pd.Timestamp(index[hi]).date())
+    except Exception:
+        return None, None
 
 
 def _fold_detail_rows(rows, fold_bounds, arrays):
@@ -985,30 +987,6 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                           "won": (_wf_won[:600] if len(_wf_won) == len(_wf_mae) else [])}
     except Exception:
         pass
-
-    # ── WALK-FORWARD OOS BLOCK (v1, ENGINE_BRIEF.md D2-D8): the same per-fold
-    #    _oos_pnls this file just pooled into win_dist_wf, stitched into ONE saved
-    #    net/PF/win-rate/Sharpe/Sortino/drawdown/equity block — see
-    #    analytics.wf_oos_block's docstring for the maths (shared with
-    #    tools/backfill_wf_oos.py so old runs get the identical arithmetic). MUST run
-    #    before the pop loop below strips _oos_pnls off every fold row, and MUST NEVER
-    #    fail or slow a live validate — best-effort, PRIMARY scheme only (D1), only
-    #    when walk-forward actually ran (the n>=4000 gate can silently fall back to a
-    #    single split, in which case `folds` is simply empty).
-    wf_oos = None
-    try:
-        if wf_ran and folds:
-            wf_oos = _wf_oos_block(
-                [{"fold": _fr.get("fold"), "pnls": list(_fr.get("_oos_pnls") or []),
-                  "oos_pnl": _fr.get("oos_pnl"), "oos_trades": _fr.get("oos_trades"),
-                  "oos_wins": _fr.get("oos_wins"), "oos_pf": _fr.get("oos_pf"),
-                  "from": _fr.get("oos_from"), "to": _fr.get("oos_to")} for _fr in folds],
-                mode=_prim["mode"], src="validate")
-    except Exception as _wf_oos_e:
-        print(f"[validate] wf_oos_block failed ({type(_wf_oos_e).__name__}: {_wf_oos_e}) "
-              f"— omitting validate.wf_oos")
-        wf_oos = None
-
     for _rowset in (folds, (_altw.get("folds") if isinstance(_altw, dict) else None)):
         for _fr in (_rowset or []):
             for _k in ("_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won"):
@@ -1396,11 +1374,6 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "gate_bakeoff": (strip_lb_tails(gate_bakeoff) if gate_bakeoff is not None else None),
         "wf_rolling": _wf_compact(wf_roll), "wf_anchored": _wf_compact(wf_anch),
         "wf_best_mode": _prim["mode"],   # which windowing scheme was stronger (drove the gate)
-        # v1 walk-forward OOS block (ENGINE_BRIEF.md D2-D8): net/PF/win-rate/avg-win-
-        # loss/drawdown/Sharpe/Sortino/equity stitched from the PRIMARY scheme's real
-        # per-fold OOS trades — None on a run walk-forward didn't run on, or where the
-        # reconciliation guard refused to save a mismatched block (analytics.wf_oos_block).
-        "wf_oos": wf_oos,
         "flags": flags,               # advisory: gate choice · adversarial regime drift · VIF
         "champion": champ, "thresholds": th,
     }

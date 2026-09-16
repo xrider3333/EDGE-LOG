@@ -300,12 +300,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
             wm = _eval_net(bp, want_trades=True)
             idx = arrays.get("index")
             if wm and wm.get("trades") and idx is not None:
-                # cost_pts=0.0, NOT cost_pts: `_eval_net` already ran these trades through
-                #   _apply_costs, so t[2] is net. regime_report subtracts its cost_pts from
-                #   every trade again - passing the run's cost here charged it twice and left
-                #   every 1F bucket, its PF and the monthly grid n*cost below the headline
-                #   total_pnl. regime_report keeps its gross-in contract; this caller is net-in.
-                rr = regime_report(wm["trades"], idx, H, L, C, cost_pts=0.0)
+                rr = regime_report(wm["trades"], idx, H, L, C, cost_pts=cost_pts)
                 if rr:
                     out["regime"] = rr
         if compute_neighbors:
