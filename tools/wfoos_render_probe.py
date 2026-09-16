@@ -726,9 +726,11 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       anyText('joined end to end and spaced evenly by trade')&&anyText('can look shallower than the DRAWDOWN row'),'');
     var p3i=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id),NOBID]},[LW2,NOB]);
     var NC3=w._cmpEqxNoCurve||[];
+    // (deferred round, D31) the key gives that run's own reason - the sentence the reader gives, lower-cased after its label
+    var NCW=function(x){var s=H.why(x,'curve')||'';return s.charAt(0).toLowerCase()+s.slice(1);};
     A('p3i a picked run with no saved test is listed beside the chart, never drawn as its whole run','NEW',
-      clean2(p3i)&&(w._cmpEqxSeries||[]).length===1&&NC3.length===1&&NC3[0].why==='no walk-forward curve saved'
-      &&anyText('no walk-forward curve saved'),
+      clean2(p3i)&&(w._cmpEqxSeries||[]).length===1&&NC3.length===1&&!!NCW(NOB)&&NC3[0].why===NCW(NOB)
+      &&anyText(NCW(NOB)),
       'series='+(w._cmpEqxSeries||[]).length+' noCurve='+JSON.stringify(NC3));
     var p3i2=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[NOBID]},[NOB]);
     var S2=(w._cmpEqxSeries||[])[0]||{};
@@ -1178,11 +1180,14 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       var pr={c2Screen:'cmp',c2View:p[0],c2Stage:p[1],rbRank:'mar',rbHeat:false};if(p[0]==='runs')pr.cmpIds=[String(FIXW.id),NOBID];
       var c=rend2(pr,[NOBLK,NOB]),n=(w._cmpEqxSeries||[]).length;
       if(!(clean2(c)&&n===2&&!q('[data-rbwfnocurve]').length&&!anyText('saved an equity curve')))Q6.push(p.join('/')+': call '+c+' series '+n+' empty state '+q('[data-rbwfnocurve]').length);});
+    // (deferred round, D30) SPLIT: R5q was tagged NOREG but its mixed walk-forward check tested this release's own wording, so
+    //   it failed on 73.818. The off-stage half stays NOREG; the mixed pick moves to R5q2 (NEW), which expects the run's own reason.
+    A('R5q off the walk-forward stage the same runs still draw','NOREG',!Q6.length,Q6.join(' ; '));
     var r6q=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[LW2,NOB]);
-    var NCq=w._cmpEqxNoCurve||[];
-    if(!(clean2(r6q)&&(w._cmpEqxSeries||[]).length===1&&NCq.length===1&&NCq[0].why==='no walk-forward curve saved'&&!q('[data-rbwfnocurve]').length))
-      Q6.push('mixed WF: series '+(w._cmpEqxSeries||[]).length+' noCurve '+JSON.stringify(NCq)+' empty state '+q('[data-rbwfnocurve]').length);
-    A('R5q off the walk-forward stage the same runs still draw, and a mixed walk-forward pick still draws the one test and keys the other','NOREG',!Q6.length,Q6.join(' ; '));
+    var NCq=w._cmpEqxNoCurve||[],NQW=(function(){var s=H.why(NOB,'curve')||'';return s.charAt(0).toLowerCase()+s.slice(1);})();
+    A('R5q2 a mixed walk-forward pick still draws the one test and keys the other with its own reason','NEW',
+      clean2(r6q)&&(w._cmpEqxSeries||[]).length===1&&NCq.length===1&&!!NQW&&NCq[0].why===NQW&&!q('[data-rbwfnocurve]').length,
+      'series '+(w._cmpEqxSeries||[]).length+' noCurve '+JSON.stringify(NCq)+' expected '+NQW+' empty state '+q('[data-rbwfnocurve]').length);
 
     // ══ R5 THIRD ROUND - THE FULL-SCREEN VIEWER KEEPS EACH WALK-FORWARD TEST ON ITS OWN DATES ═════════
     //    The viewer (the expand button, or a double-click on the chart) read dates only from a run's
@@ -1252,6 +1257,188 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
         +' note '+(o.texts.indexOf('x = calendar time (shared)')>=0)+' DATE RANGE '+o.dateOn+' stages '+o.stages.join(',')
         +' split '+o.split+' IS label '+(o.texts.indexOf('IS')>=0)+((o.errs||[]).length?(' errors '+String(o.errs[0]).slice(0,80)):''));});
     A('R5s off the walk-forward stage the full-screen viewer keeps its calendar, DATE RANGE, IN-SAMPLE stage and IS label','NOREG',!R7n.length,R7n.join(' ; '));
+
+    // ══ DEFERRED ROUND - one case per re-verified finding (D01, D18, D19, D27, D28, D29, D31, D32, D33, D37) ══════════
+    //    Each NEW case fails on 73.820 and passes once the fix lands. DX37 is time-zone dependent: it can only fail on the
+    //    old build where the machine is west of UTC (this one is America/Los_Angeles), and passes on every zone after the fix.
+    function dxNote(){var c=q('div').filter(function(x){return x.querySelector('b')&&/not on this chart/.test(x.textContent||'');});
+      c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});return c[0]?norm(c[0].textContent):'';}
+    function dxFold(id,name,fold,mod){var x=clone(FIXB);x.id=String(id);x.strategy=name;x.starred=false;delete x.gate_validate;delete x.ml_gate;
+      (x.top10_results||[]).forEach(function(f){if(f&&f.fold===fold)mod(f);});return x;}
+    function dxNum(s){var m=String(s==null?'':s).match(/-?[0-9]+[.][0-9]+/);return m?+m[0]:null;}
+    function dxView(fn){var S=w._cmpEqxSeries||[],before=Array.prototype.slice.call(d.body.children),o={};
+      try{w.expandCompareEq(S,{noTabs:true});}catch(e){o.threw=String(e&&e.message||e);return o;}
+      var el=Array.prototype.slice.call(d.body.children).filter(function(x){return before.indexOf(x)<0;})[0];if(!el){o.none=true;return o;}
+      try{fn(el,o);}catch(e){o.threw=String(e&&e.message||e);}
+      var cl=el.querySelector('#ceqx-close');try{if(cl)cl.click();else el.remove();}catch(_){try{el.remove();}catch(__){}}
+      return o;}
+
+    // D01 - the report's older walk-forward column (no gate study, no saved test) pools an all-loss or an all-win fold the way
+    //   the LEADERBOARD and PICK RUNS do. It dropped that fold and read 1.81 against 1.76 / 1.84.
+    var D01=[];
+    [['all-loss',function(f){f.oos_pf=0;f.oos_wins=0;f.oos_pnl=-300;}],['all-win',function(f){f.oos_pf=null;f.oos_wins=f.oos_trades;f.oos_pnl=400;}]].forEach(function(p,i){
+      var x=dxFold(+FIXB.id+930001+i,'ZPOOL'+i+'_1_0.py',5,p[1]);
+      var c1=render({},[lite(x)],[full(x)],x.id),K=kpi(),rep=kc(K,'PF','WF');
+      var c2=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'pf'},[lite(x)]),fb=famBig(),lead=fb?fb.v:null;
+      var c3=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(x.id)]},[lite(x)]),T=tbl2(),pick=(T.c['WF PF']||[])[0];
+      D01.push({ok:(c1==='OK')&&clean2(c2)&&clean2(c3)&&dxNum(rep)!=null&&dxNum(rep)===dxNum(lead)&&dxNum(lead)===dxNum(pick),
+        s:p[0]+': report '+rep+' / leaderboard '+lead+' / pick runs '+pick});});
+    A('DX01 report 1E walk-forward PF with no saved test pools an all-loss or all-win fold like the LEADERBOARD and PICK RUNS','NEW',
+      D01.length===2&&D01.every(function(o){return o.ok;}),D01.map(function(o){return o.s;}).join(' | '));
+
+    // D01 (repair) - an older run with no whole-run averages saved and one walk-forward fold that broke exactly even. The first
+    //   D01 build dashed that walk-forward PF, and the same dash dropped the whole walk-forward stretch out of the Past Runs PF
+    //   and the report TOTAL PF, AVG WIN, AVG LOSS and DD (R) (Past Runs 1.36 -> 1.07). The twin's fold 2 sits a hair off even
+    //   with the same $0, which every pool reads as adding nothing, so the twin reads what 73.820 read; the even run must read
+    //   the same whole-run figures. Holds on 73.820 and after the repair; fails on the first D01 build.
+    function dxOldRun(id,name,pf){var x=dxFold(id,name,2,function(f){f.oos_pf=pf;f.oos_pnl=0;});
+      ['total_avg_win','total_avg_loss','total_win_rate'].forEach(function(k){delete x.validate[k];});
+      if(x.validate.gate_bakeoff)delete x.validate.gate_bakeoff.ungated_full;return x;}
+    var EV01=dxOldRun(+FIXB.id+930041,'ZEVENOLD_1_0.py',1.0),TW01=dxOldRun(+FIXB.id+930042,'ZEVENTWIN_1_0.py',1.0002);
+    function pastPf(x){var c=render({},[lite(x)],[],'999999'),tr=q('tr.arow[data-run]')[0];if(c!=='OK'||!tr)return '(render)';
+      var tb=tr.closest('table'),ths=tb?Array.prototype.slice.call(tb.querySelectorAll('thead th')):[];
+      var i=ths.map(function(th){return norm(th.textContent);}).findIndex(function(t){return /^PF\b/.test(t);});
+      return (i>=0&&tr.children[i])?norm(tr.children[i].textContent):'(no PF column)';}
+    function totOf(x){var c=render({},[lite(x)],[full(x)],x.id),K=kpi(),o={call:c};
+      ['PF','AVG WIN','AVG LOSS','DD (R)'].forEach(function(l){o[l]=kc(K,l,'TOTAL');});o.wf=kc(K,'PF','WF');return o;}
+    var pE01=pastPf(EV01),pT01=pastPf(TW01),kE01=totOf(EV01),kT01=totOf(TW01);
+    A('DX01b an older run with one walk-forward fold broken exactly even keeps the walk-forward stretch in the Past Runs PF and the report TOTAL column','NOREG',
+      /^[0-9]+[.][0-9]{2}$/.test(pT01)&&pE01===pT01&&kE01.call==='OK'&&kT01.call==='OK'
+      &&['PF','AVG WIN','AVG LOSS','DD (R)'].every(function(l){return !!kT01[l]&&kT01[l]!=='—'&&kE01[l]===kT01[l];}),
+      'Past Runs PF '+pE01+' vs twin '+pT01+' | TOTAL '+['PF','AVG WIN','AVG LOSS','DD (R)'].map(function(l){return l+' '+kE01[l]+' vs '+kT01[l];}).join(', ')
+      +' | WF PF '+kE01.wf+' vs twin '+kT01.wf);
+
+    // D18 - a fold that broke exactly even: every screen names it, not 'saved before walk-forward detail was recorded'
+    var BE=dxFold(+FIXB.id+930011,'ZBREAKEVEN_1_0.py',2,function(f){f.oos_pf=1.0;f.oos_pnl=0;});
+    var BEW='Walk-forward fold 2 broke exactly even (profit factor 1.00)',D18={};
+    (function(){var c=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'pf'},[lite(BE)]),f=famBig();D18.leadPF=(clean2(c)&&f)?f.t:'(render)';})();
+    (function(){var c=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'rpy'},[lite(BE)]),f=famBig();D18.leadRYR=(clean2(c)&&f)?f.t:'(render)';})();
+    (function(){var c=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(BE.id)]},[lite(BE)]),T=tbl2();
+      D18.ovlPF=clean2(c)?((T.t['PF']||[])[0]||''):'(render)';D18.ovlRYR=clean2(c)?((T.t['R / YR']||[])[0]||''):'(render)';})();
+    (function(){var c=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[lite(BE)]),T=tbl2();D18.boardPF=clean2(c)?((T.t['PF']||[])[0]||''):'(render)';})();
+    (function(){var c=render({},[lite(BE)],[full(BE)],BE.id);D18.reportPF=(c==='OK')?(kt(kpi(),'PF','WF')||''):'(render)';})();
+    A('DX18 a walk-forward fold that broke exactly even is named on the LEADERBOARD, OVERLAY, RUNBOARD and report dashes','NEW',
+      Object.keys(D18).length===6&&Object.keys(D18).every(function(k){return D18[k].indexOf(BEW)===0;}),
+      Object.keys(D18).map(function(k){return k+' {'+D18[k].slice(0,60)+'}';}).join(' | '));
+
+    // D19 - the note under the EXPLORE chart gives that same cause (and says '1 records')
+    var c19=rend2({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['wf'],resAxis:'evr',resXAxis:'so'},[lite(BE),lite(FIXB)]),N19=dxNote();
+    A('DX19 EXPLORE note: a run whose walk-forward fold broke even is counted by that cause, not as recording no average loss','NEW',
+      clean2(c19)&&N19.indexOf('a walk-forward fold broke exactly even, so no PF or EV R can be pooled')>=0
+      &&N19.indexOf('no average loss recorded for EV R')<0&&!/(^| )1 record [a-z]/.test(N19),N19.slice(0,420));
+
+    // D19 (repair) - the cause is worded by the stretch that gave it. IN-SAMPLE on a run with no whole-run average win or
+    //   loss, and LOCKBOX on a lockbox with no average win and loss and no PF, read 'walk-forward money cannot be split'
+    //   on the first 73.820 build. Walk-forward keeps its own clause, and in-sample inherits a broken-even fold's clause.
+    var OLD19=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930015);x.strategy='ZOLDAVG_1_0.py';x.starred=false;
+      delete x.validate.total_avg_win;delete x.validate.total_avg_loss;return lite(x);})();
+    var LBN19=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930016);x.strategy='ZLBNOAVG_1_0.py';x.starred=false;
+      var lb=x.validate.lockbox;delete lb.avg_win;delete lb.avg_loss;lb.pf=null;return lite(x);})();
+    var SP19=dxFold(+FIXB.id+930019,'ZSPLIT_1_0.py',3,function(f){f.oos_pf=0;delete f.oos_wins;});
+    var OK19a=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930017);x.strategy='ZFINE_1_0.py';x.starred=false;return lite(x);})();
+    var OK19b=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930018);x.strategy='ZFINE2_1_0.py';x.starred=false;return lite(x);})();
+    var N19r={},C19=[],P19={isLong:'the run saved no whole-run average win or loss, so no in-sample PF or EV R can be built',
+      isShort:'1 has no whole-run average win or loss saved, so no in-sample PF or EV R can be built',
+      lbLong:'its lockbox saved no average win and loss, so no PF or EV R can be worked out',
+      wfSplit:'its walk-forward money cannot be split into winning and losing trades, so no PF or EV R can be pooled',
+      isEven:'a walk-forward fold broke exactly even, so no PF or EV R can be pooled'};
+    [['isLong',['is'],'evr','so',[OLD19,OK19a]],['isShort',['is'],'pf','wr',[OLD19,OK19a,OK19b]],['lbLong',['lb'],'evr','so',[LBN19,OK19a]],
+     ['wfSplit',['wf'],'evr','so',[lite(SP19),OK19a]],['isEven',['is'],'evr','so',[lite(BE),OK19a]]].forEach(function(p){
+      C19.push(rend2({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:p[1],resAxis:p[2],resXAxis:p[3]},p[4]));N19r[p[0]]=dxNote();});
+    A('DX19b EXPLORE note: in-sample with no whole-run averages and a lockbox with no average win and loss name their own stretch, not walk-forward','NEW',
+      C19.every(clean2)&&Object.keys(P19).every(function(k){return (N19r[k]||'').indexOf(P19[k])>=0;})
+      &&['isLong','isShort','lbLong'].every(function(k){return N19r[k].indexOf('walk-forward')<0;})
+      &&N19r.wfSplit.indexOf('lockbox saved')<0&&N19r.wfSplit.indexOf('whole-run average')<0,
+      Object.keys(N19r).map(function(k){return k+' {'+N19r[k].slice(0,230)+'}';}).join(' | '));
+
+    // D27 - RUNBOARD WF WINDOW for a run with no saved test: the split-to-lockbox window its own years reader uses
+    var NT=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930021);x.strategy='ZNOTEST_1_0.py';x.starred=false;x.validate.windows.wf_split='2015-01-02';return x;})();
+    var c27=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[lite(NT)]),T27=tbl2();
+    var win27=(T27.c['WINDOW']||[])[0]||'',tip27=(T27.t['WINDOW']||[])[0]||'';
+    var c27o=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(NT.id)]},[lite(NT)]),yrs27=(tbl2().c['YEARS']||[])[0]||'';
+    var lb27=String(((NT.validate.windows||{}).lockbox||[])[0]||(NT.validate.lockbox||{}).from||'').slice(0,10);
+    A('DX27 RUNBOARD walk-forward WINDOW with no saved test reads the split to the lockbox door, the years the OVERLAY uses','NEW',
+      clean2(c27)&&clean2(c27o)&&!!lb27&&win27.indexOf('2015-01-02 – '+lb27)===0&&!!yrs27&&win27.slice(-(yrs27.length+1))===yrs27+'y'
+      &&tip27.indexOf('walk-forward split')>=0,'WINDOW '+win27+' {'+tip27.slice(0,70)+'} | OVERLAY YEARS '+yrs27+' | lockbox door '+lb27);
+
+    // D28 - EXPLORE on WALK-FWD alone, a saved test with no losing trade: MAR, PF and R / YR give the test's own reasons
+    var NL28=(function(){var x=clone(FIXW);x.id=String(+FIXW.id+930031);x.strategy='ZNOLOSS_1_0.py';x.starred=false;
+      var b=x.validate.wf_oos;b.profit_factor=null;b.max_drawdown=0;b.gross_loss=0;b.sortino=null;return x;})();
+    var c28=rend2({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['wf'],resAxis:'evr',resXAxis:'so',c2Tbl:true,resCols:'all'},[lite(NL28)]),R28=reRow(NL28.id);
+    var PFNL='No walk-forward trade lost, so a profit factor cannot be worked out.',NDD='This stretch never drew down, so MAR has nothing to divide by.';
+    A('DX28 EXPLORE walk-forward alone, a test with no losing trade: MAR says it never drew down, PF and R / YR say no trade lost','NEW',
+      clean2(c28)&&!!R28&&R28.v['MAR']==='—'&&R28.t('MAR')===NDD&&R28.v['PF']==='—'&&R28.t('PF')===PFNL&&R28.v['R / YR']==='—'&&R28.t('R / YR')===PFNL,
+      R28?['DRAWDOWN','MAR','PF','R / YR'].map(function(h){return h+' '+R28.v[h]+' {'+(R28.t(h)||'').slice(0,60)+'}';}).join(' | '):'(no row)');
+
+    // D29 - LEADERBOARD WF note: the second count is only runs saved before the test (never a book, never a test with no trades)
+    var ZB=lite(FIXZ),runs29=[LW2,NOB,lite(BE),lite(NL28),ZB,LBK2];
+    var exp29=runs29.filter(function(x){return H.chk(x).st==='absent';}).length,N29=[];
+    ['mar','pf','rpy'].forEach(function(rk){var c=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:rk},runs29),t=q('.c2-note').map(function(e){return norm(e.textContent);}).join(' ');
+      if(!(clean2(c)&&t.indexOf('('+exp29+' saved before the walk-forward test was recorded)')>=0&&t.indexOf('without a walk-forward figure)')<0))
+        N29.push(rk+': '+(t.match(/runs saved before that show a dash [(][^)]*[)]/)||['(no count)'])[0]);});
+    A('DX29 LEADERBOARD walk-forward note counts only the runs saved before the test','NEW',exp29===2&&!N29.length,'expected '+exp29+' | '+N29.join(' | '));
+
+    // D31 - chart keys on walk-forward: no in-sample line style, each test's length, and each missing curve's own reason
+    var ids31=[String(FIXW.id),NOBID,String(FIXZ.id),String(FIXBK.id)],runs31=[LW2,NOB,ZB,LBK2];
+    function keys31(){var o={key:q('.cmpovl-key').map(function(e){return norm(e.textContent);}).join(' || '),
+      row:q('[data-ovltog="'+FIXW.id+'"]').map(function(e){return norm(e.textContent);})[0]||'',why:{},nc:[],
+      rowH:(q('.cmpovl-key > [data-ovltog]')[0]||{}).offsetHeight||0};
+      (w._cmpEqxNoCurve||[]).forEach(function(n){o.why[String(n.id)]=n.why||'';});
+      // (repair) the no-curve rows themselves: one short line each, the run's reason in the hover
+      q('.cmpovl-key > div:not([data-ovltog])').forEach(function(e){var t=norm(e.textContent);
+        if(!/^#[0-9]+ /.test(t))return;
+        o.nc.push({t:t,tip:e.getAttribute('title')||'',ws:w.getComputedStyle(e).whiteSpace,h:e.offsetHeight});});
+      return o;}
+    // a key row for a run with no walk-forward curve stays one short line (the key box sits over the plot), its reason in the hover
+    function nc31(o,n){var whys=Object.keys(o.why).map(function(k){return o.why[k];});
+      return o.nc.length===n&&o.rowH>0&&o.nc.every(function(r){return r.ws==='nowrap'&&/ · no walk-forward curve$/.test(r.t)
+        &&!!r.tip&&whys.indexOf(r.tip)>=0&&r.t.indexOf(r.tip)<0&&r.h<=o.rowH+2;});}
+    function ok31(o,withBook){return o.key.indexOf('in-sample')<0&&/· [0-9]+[.][0-9]y/.test(o.row)
+      &&(o.why[NOBID]||'')===NCW(NOB)&&(o.why[String(FIXZ.id)]||'').indexOf('took no trades in the walk-forward folds')>=0
+      &&(!withBook||o.why[String(FIXBK.id)]==='a book tunes nothing, so it has no walk-forward folds');}
+    var c31p=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:ids31},runs31),K31p=keys31();
+    var c31o=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:ids31},runs31),K31o=keys31(),note31=q('.c2-note').map(function(e){return norm(e.textContent);}).join(' ');
+    var c31b=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[LW2,NOB,ZB]),K31b=keys31();
+    A('DX31 walk-forward chart keys: no in-sample row, each test length, and a book, an empty test and an old run each give their own reason','NEW',
+      clean2(c31p)&&clean2(c31o)&&clean2(c31b)&&ok31(K31p,true)&&ok31(K31o,true)&&ok31(K31b,false)
+      &&note31.indexOf('hover each name in the chart key for the reason')>=0&&note31.indexOf('saved no walk-forward curve')<0,
+      'PICK '+K31p.key.slice(0,90)+' '+JSON.stringify(K31p.why).slice(0,200)+' | BOARD row '+K31b.row+' | note points at the key hover '+(note31.indexOf('hover each name in the chart key for the reason')>=0));
+    A('DX31c walk-forward chart keys: a run with no curve is one short line, its own reason in the hover of that row, not wrapped over the plot','NEW',
+      nc31(K31p,3)&&nc31(K31o,3)&&nc31(K31b,2),
+      ['PICK','OVERLAY','BOARD'].map(function(nm,i){var o=[K31p,K31o,K31b][i];return nm+' rowH '+o.rowH+' '+JSON.stringify(o.nc.map(function(r){return [r.t.slice(0,50),r.ws,r.h,r.tip.slice(0,40)];}));}).join(' | '));
+
+    // D32 - the full-screen viewer on walk-forward: TRADES is off with its reason, and no hint promises trades
+    // D37 - its DATE RANGE starts on the test's saved first date, not the day before
+    var c32=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(FIXW.id)]},[LW2]);
+    var hint32=q('.cmpovl-hint').map(function(e){return norm(e.textContent);})[0]||'';
+    var v32=dxView(function(el,o){var b=el.querySelector('#ceqx-blot');o.dis=!!(b&&b.disabled);o.tip=b?(b.getAttribute('title')||''):'';
+      var vs=el.querySelector('#ceqx-view');if(vs){vs.value='custom';if(vs.onchange)vs.onchange();}
+      var cf=el.querySelector('#ceqx-cfrom'),ct=el.querySelector('#ceqx-cto');o.from=cf?cf.value:null;o.to=ct?ct.value:null;});
+    var c32o=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id)]},[LW2]);
+    var exp32=q('[data-cmpexpand]').map(function(e){return e.getAttribute('title')||'';})[0]||'';
+    A('DX32 walk-forward viewer: TRADES is switched off with its reason, and neither hint promises a trade list','NEW',
+      clean2(c32)&&clean2(c32o)&&!v32.threw&&!v32.none&&v32.dis===true&&v32.tip.indexOf('no single trade list')>=0
+      &&hint32.indexOf('trades')<0&&hint32.indexOf('more')>=0&&exp32==='open the fullscreen explorer',
+      'disabled '+v32.dis+' {'+String(v32.tip||'').slice(0,50)+'} hint '+hint32+' | expand '+exp32+(v32.threw?(' threw '+v32.threw):''));
+    A('DX37 walk-forward viewer DATE RANGE opens on the saved test dates, not a day early','NEW',
+      !v32.threw&&v32.from===String(B.from).slice(0,10)&&v32.to===String(B.to).slice(0,10),'from '+v32.from+' to '+v32.to+' saved '+B.from+' to '+B.to);
+    var c32f=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'full',cmpIds:[String(FIXW.id)]},[LW2]);
+    var hint32f=q('.cmpovl-hint').map(function(e){return norm(e.textContent);})[0]||'';
+    var v32f=dxView(function(el,o){var b=el.querySelector('#ceqx-blot');o.dis=!!(b&&b.disabled);});
+    var c32fo=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'full',cmpIds:[String(FIXW.id)]},[LW2]);
+    var exp32f=q('[data-cmpexpand]').map(function(e){return e.getAttribute('title')||'';})[0]||'';
+    A('DX32b off the walk-forward stage TRADES stays on and both hints still offer the trade list','NOREG',
+      clean2(c32f)&&clean2(c32fo)&&!v32f.threw&&v32f.dis===false&&hint32f.indexOf('trades + more')>=0&&exp32f==='open the fullscreen explorer, with the trade blotter',
+      'disabled '+v32f.dis+' hint '+hint32f+' | expand '+exp32f);
+
+    // D33 - the EXPLORE R / YR heading claims the 1E matrix figure only on LOCKBOX alone
+    function h33(segs){var c=rend2({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:segs,resAxis:'evr',resXAxis:'so',c2Tbl:true,resCols:'all'},[LW2]);
+      return clean2(c)?(q('th[data-resort="rpy"]').map(function(e){return e.getAttribute('title')||'';})[0]||''):'(render)';}
+    var H33w=h33(['wf']),H33l=h33(['lb']),H33a=h33(['is','wf','lb']);
+    A('DX33 EXPLORE R / YR heading: the 1E matrix claim only on LOCKBOX alone; WALK-FWD alone names the walk-forward test','NEW',
+      H33l.indexOf('The same figure the run report 1E matrix prints.')>=0&&H33w.indexOf('1E matrix prints')<0&&H33w.indexOf('not its 1E WF column')>=0
+      &&H33a.indexOf('1E matrix prints')<0&&H33a.indexOf('1E WF column')<0,
+      'WF '+H33w.slice(-120)+' | LB has claim '+(H33l.indexOf('1E matrix prints')>=0)+' | all three has claim '+(H33a.indexOf('1E matrix prints')>=0));
 
     delete out._v;
     finish('done');

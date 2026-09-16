@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 74
+N_CASES = 88
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -1099,7 +1099,7 @@ var FIX = __FIX__;
         var who=row?row.querySelector('.c2-who'):null;
         r.whoTxt=who?(who.textContent||'').trim():null;
         r.isCrown=r.whoTxt?/your crown/.test(r.whoTxt):false;
-        var mm=(d.body.innerText||'').match(/\+ [0-9]+ STARRED OLDER/);
+        var mm=(d.body.innerText||'').match(/\\+ [0-9]+ STARRED OLDER/);
         r.noteTxt=mm?mm[0]:null;
       })();
 
@@ -2187,7 +2187,8 @@ var FIX = __FIX__;
         var n=r4Note(),C=w.eval('window._reCause')||{};
         res.defNote=n?n.textContent.slice(0,240):null;res.defFail=C.fail;res.defFailHidden=C.failHidden;
         // (ii) a failed run with no walk-forward Sortino, Sortino up: the switch would place nothing
-        var WR=r4Win([mkRun(990325,'FAIL')]);
+        // (deferred round, D14) LOAD ALL is only offered while the loaded list is capped, so this one-run list stands for a capped one
+        var WR=r4Win([mkRun(990325,'FAIL')])+"runsLimit=1;";
         calls.push(doRender({c2Screen:'explore',resLvl:'all',resShow:'runs',resFilt:{fam:['ORB']},resSegs:['wf'],resAxis:'so',resXAxis:'roc',c2Tbl:true},WR));
         n=r4Note();C=w.eval('window._reCause')||{};
         res.soNote=n?n.textContent.slice(0,300):null;res.soFailBtn=n?!!n.querySelector('[data-resfail]'):null;res.soOlder=C.older;
@@ -2199,6 +2200,7 @@ var FIX = __FIX__;
         res.pfPlotted=r4Pts();
         if(fb&&fb.onclick)fb.onclick();
         res.pfPlottedAfter=r4Pts();
+        w.eval('runsLimit=75');
         var r=snap('r4_failnote',calls.every(function(c){return c==='OK';})?'OK':('ERR '+calls.join(' / ')));
         Object.keys(res).forEach(function(k){r[k]=res[k];});
       })();
@@ -2209,7 +2211,7 @@ var FIX = __FIX__;
         var C=w.eval('window._reCause')||{},n=r4Note();
         var r=snap('r4_relnote',call);
         r.rel=C.rel;r.shownN=w.eval('window._reShownN');
-        r.sum=(C.plotted||0)+(C.fail||0)+(C.older||0)+(C.zero||0)+(C.rel||0)+(C.missBoth||0)+(C.missX||0)+(C.missY||0);
+        r.sum=(C.plotted||0)+(C.fail||0)+(C.older||0)+(C.gone||0)+(C.zero||0)+(C.rel||0)+(C.missBoth||0)+(C.missX||0)+(C.missY||0)+(C.missGN||0);
         r.head=(n&&n.querySelector('b'))?n.querySelector('b').textContent:null;
       })();
 
@@ -2490,6 +2492,157 @@ var FIX = __FIX__;
         var r=snap('r6_split',calls.every(function(c){return c==='OK';})?'OK':('ERR '+calls.join(' / ')));
         Object.keys(res).forEach(function(k){r[k]=res[k];});
       })();
+      // ---- DEFERRED ROUND (dfx_*): one case per re-verified finding. Each check is a named boolean computed here, and
+      //      each case fails on 73.820. No backslash anywhere below: this JavaScript sits in a plain Python string.
+      function dfxN(s){return String(s==null?'':s).split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(9)).join(' ')
+        .split(String.fromCharCode(160)).join(' ').replace(/ +/g,' ').trim();}
+      function dfxClone(x){return JSON.parse(JSON.stringify(x));}
+      function dfxWin(docs,extra){return "var __D="+JSON.stringify(docs)+";var __f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+        +"runHistory=__D.map(__f);window._runFull={};runHistory.forEach(function(x){window._runFull[String(x.id)]=x;});"
+        +"window._runFullOrder=runHistory.map(function(x){return String(x.id);});window._runHydrating={};window._c2Open=new Set();window._runCfg={};window._wfoBad={};runsLimit=75;"
+        +(extra||'');}
+      function dfxRow(lbl){var o=null;[].forEach.call(d.querySelectorAll('tr'),function(tr){var c=tr.children;if(!c.length||o)return;if(dfxN(c[0].textContent)===lbl)o=[].slice.call(c,1);});return o||[];}
+      function dfxCell(td){var t=td.querySelector('[title]');return {v:dfxN(td.textContent),best:!!td.querySelector('b[style*="color:var(--green)"]'),
+        tip:t?(t.getAttribute('title')||''):'',bg:(td.style&&td.style.background)||''};}
+      function dfxTips(sub){return [].map.call(d.querySelectorAll('[title]'),function(e){return e.getAttribute('title')||'';}).filter(function(s){return s.indexOf(sub)>=0;});}
+      function dfxNote(){var c=[].filter.call(d.querySelectorAll('div'),function(x){return x.querySelector('b')&&/not on this chart/.test(x.textContent||'');});
+        c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});return c[0]?dfxN(c[0].textContent):'';}
+      function dfxCase(name,calls,ck,info){var r=snap(name,calls.every(function(c){return c==='OK';})?'OK':('ERR '+calls.join(' / ')));r.ck=ck;r.info=info||{};return r;}
+      function dfxLbRun(id,name,lb){var x=dfxClone(FIX);x.id=String(id);x.strategy=name;x.starred=false;x.validate.lockbox=Object.assign({},x.validate.lockbox,lb);return x;}
+
+      // D03 - MIN TRADES note: a configuration row judged on its ticked stretches added up is not 'judged on a WHOLE-RUN count'
+      (function(){var CID=String(FIX.id),F=dfxClone(FIX),cand=(((F.selection||{}).candidates)||[]).filter(function(c){return c&&c.crowned;})[0];
+        if(cand){cand.is_rng.num_trades=50;cand.wf_rng.num_trades=60;cand.lockbox.num_trades=40;}
+        var calls=[],tip={};
+        [['is','lb'],['is','wf','lb']].forEach(function(segs){
+          calls.push(doRender({c2Screen:'explore',resLvl:'cfg',resCfgRun:[CID],resSegs:segs,resAxis:'pf',resXAxis:'wr',resMinTrd:250},dfxWin([F],"window._runCfg['"+CID+"']=runHistory[0];")));
+          tip[segs.join('+')]=dfxTips('thin sample').join(' || ');});
+        calls.push(doRender({c2Screen:'explore',resLvl:'sweep',resSegs:['lb'],resAxis:'pf',resXAxis:'wr',resMinTrd:250},dfxWin([])));
+        tip.sweep=dfxTips('thin sample').join(' || ');
+        dfxCase('dfx_d03',calls,{
+          'the fixture has a crowned candidate':!!cand,
+          'IS + LOCKBOX: the thin-sample note is there':tip['is+lb'].indexOf('left off the chart for a thin sample')>=0,
+          'IS + LOCKBOX: no configuration row is called judged on a WHOLE-RUN count':tip['is+lb'].indexOf('WHOLE-RUN count')<0,
+          'all three: no configuration row is called judged on a WHOLE-RUN count':tip['is+wf+lb'].indexOf('thin sample')>=0&&tip['is+wf+lb'].indexOf('WHOLE-RUN count')<0,
+          'write-ups are, and the reason says they record no per-stage count':tip.sweep.indexOf('judged on a WHOLE-RUN count rather than the ticked stretches, because they record no per-stage trade count')>=0},
+          {isLb:tip['is+lb'].slice(0,260),sweep:(tip.sweep.match(/Of those[^.]*[.]/)||[''])[0]});})();
+
+      // D04 - RUNBOARD FULL 'LB $': a lockbox that took no trades prints $0 but never wins the best mark
+      (function(){var Z=dfxLbRun(910011,'ZZERO_TR_1_0.py',{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:null}),N=dfxLbRun(910012,'ZKAPPA_1_0.py',{trades:120,pnl:-250,dd:900,pf:0.9,win_rate:30});
+        var W=dfxWin([Z,N]),calls=[],res={};
+        function lb(){var ids=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');}),o={};
+          dfxRow('LB $').forEach(function(td,i){o[ids[i]]=dfxCell(td);});return o;}
+        function ok(o){var z=o[Z.id]||{},n=o[N.id]||{};return z.v==='$0'&&!z.best&&(z.tip||'').indexOf('took no trades in the lockbox')>=0&&n.best===true;}
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'net',rbHeat:true,cmpIds:[Z.id,N.id]},W,'cmp'));res.old=lb();
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',rbHeat:true},W));res.hosted=lb();
+        dfxCase('dfx_d04',calls,{'old tab FULL: $0 prints, says why, and the real lockbox takes the best mark':ok(res.old),
+          'hosted RUNBOARD FULL: the same':ok(res.hosted)},res);})();
+
+      // D05 - the CHAMPIONS chip hover names the rule the filter uses
+      (function(){var c=doRender({},dfxWin([FIX]),'runs'),t=[].map.call(d.querySelectorAll('[data-rfchamp]'),function(e){return e.getAttribute('title')||'';})[0]||'';
+        dfxCase('dfx_d05',[c],{'the chip is there':!!t,'it names the book rule, pre-lockbox net over drawdown':t.indexOf('pre-lockbox net over drawdown')>=0,
+          'it says a KNOB TEST loses unless starred':t.indexOf('KNOB TEST')>=0,'it no longer says highest SCORE':t.indexOf('highest SCORE')<0},{tip:t});})();
+
+      // D06 - the RUNBOARD inside COMPARE with no STAGE saved reads LOCKBOX, not the old tab's SAMPLE
+      (function(){var Z=dfxLbRun(910011,'ZZERO_TR_1_0.py',{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:null}),N=dfxLbRun(910012,'ZKAPPA_1_0.py',{trades:120,pnl:-250,dd:900,pf:0.9,win_rate:30});
+        var W=dfxWin([Z,N]),calls=[],res={};
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',rbSample:'full'},W));
+        res.hostRest=dfxRow('IS $ · REST').length;res.hostTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
+        calls.push(doRender({cmpMode:'board',rbSample:'full',cmpIds:[Z.id,N.id]},W,'cmp'));res.oldRest=dfxRow('IS $ · REST').length;
+        dfxCase('dfx_d06',calls,{'hosted, no STAGE saved: no FULL-only row':res.hostRest===0,
+          'hosted: the empty lockbox dashes its TOTAL, as on LOCKBOX':res.hostTotal.indexOf('—')>=0,
+          'the old tab still follows its own SAMPLE (FULL)':res.oldRest>0},res);})();
+
+      // D07 - Past Runs GROUP view: a book group's champion is its best pre-lockbox net over drawdown, and no 'score NaN'
+      (function(){function bk(id,name,pre,dd,whole){var B=dfxClone(FIX);B.id=String(id);B.strategy=name;B.starred=false;B.best_pnl_usd=whole;B.best_dd_usd=dd;B.multiplier=1;
+          B.book={name:name,legs:[{strategy:FIX.strategy,weight:1}],whole:{total_pnl:whole,max_drawdown:dd},pre_lockbox:{total_pnl:pre,max_drawdown:dd},
+            lockbox:{total_pnl:10000,num_trades:100,win_rate:40,profit_factor:1.3,max_drawdown:5000},lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+          B.validate={verdict:'PASS',lockbox:{pnl:10000,pf:1.3,trades:100,pass:true},book:true};delete B.top10_results;return B;}
+        var WEAK=bk(740002,'BOOK: PROBE WEAK',600000,60000,610000),STRONG=bk(740001,'BOOK: PROBE STRONG',300000,10000,310000);
+        var W=dfxWin([WEAK,STRONG]),calls=[],res={};
+        calls.push(doRender({resGroup:true},W,'runs'));
+        res.tiles=[].map.call(d.querySelectorAll('[data-grp]'),function(e){return dfxN(e.textContent);});
+        calls.push(doRender({rfChamp:true},W,'runs'));res.champ=[].map.call(d.querySelectorAll('tr.arow[data-run]'),function(x){return x.getAttribute('data-run');});
+        var t=res.tiles.join(' || ');
+        dfxCase('dfx_d07',calls,{'one group tile':res.tiles.length===1,'its champion is the book with the better pre-lockbox net over drawdown':t.indexOf('$310,000')>=0&&t.indexOf('$610,000')<0,
+          'no score NaN on the tile':t.indexOf('NaN')<0,'CHAMPIONS keeps the same book':res.champ.length===1&&res.champ[0]==='740001'},res);})();
+
+      // D10 - EXPLORE point hovers print a trade count as a whole number
+      (function(){var CID=String(FIX.id),c=doRender({c2Screen:'explore',resLvl:'cfg',resCfgRun:[CID],resSegs:['lb'],resAxis:'raw',resXAxis:'dd'},dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];"));
+        var tt=[].map.call(d.querySelectorAll('[data-repoint] title'),function(x){return x.textContent||'';});
+        var with2=tt.filter(function(s){return /Trades [0-9,]+[.][0-9][0-9]/.test(s);}),whole=tt.filter(function(s){return /Trades [0-9]/.test(s);});
+        dfxCase('dfx_d10',[c],{'points drew':tt.length>0,'some hover names its trades':whole.length>0,'none prints two decimals':with2.length===0},
+          {sample:(with2[0]||whole[0]||'').match(/Trades [0-9.,]+/)});})();
+
+      // D12 - PICK RUNS 'Lockbox PF': a lockbox where every trade won dashes with its reason instead of reading 0.00
+      (function(){var NL=dfxLbRun(910001,'ZNOLOSS_1_0.py',{trades:30,pnl:500,pf:null,win_rate:100,dd:0,sharpe:2,pass:true}),
+          AL=dfxLbRun(910002,'ZALLLOSS_1_0.py',{trades:30,pnl:-500,pf:0,win_rate:0,dd:500}),NM=dfxLbRun(910003,'ZNORMAL_1_0.py',{trades:30,pnl:300,pf:1.4,win_rate:40,dd:200});
+        var c=doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'lb',cmpIds:[NL.id,AL.id,NM.id]},dfxWin([NL,AL,NM])),cells=dfxRow('Lockbox PF').map(dfxCell);
+        dfxCase('dfx_d12',[c],{'three cells':cells.length===3,'no-loss lockbox dashes':!!cells[0]&&cells[0].v==='—',
+          'and says no lockbox trade lost':!!cells[0]&&cells[0].tip.indexOf('No lockbox trade lost')===0,
+          'all-loss lockbox still reads 0.00':!!cells[1]&&cells[1].v==='0.00','normal lockbox reads 1.40':!!cells[2]&&cells[2].v==='1.40'},
+          {cells:cells.map(function(x){return x.v+(x.tip?(' {'+x.tip.slice(0,40)+'}'):'');})});})();
+
+      // D13 - the note under the chart names MAR / PROFIT, never 'the vertical measure'
+      (function(){var calls=[],n={};
+        calls.push(doRender({c2Screen:'explore',resLvl:'sweep',resSegs:['lb'],resAxis:'ratio',resXAxis:'dd'},dfxWin([FIX])));n.mar=dfxNote();
+        calls.push(doRender({c2Screen:'explore',resLvl:'sweep',resSegs:['lb'],resAxis:'raw',resXAxis:'dd'},dfxWin([FIX])));n.raw=dfxNote();
+        dfxCase('dfx_d13',calls,{'MAR up: the note is there':n.mar.indexOf('not on this chart')>=0,'MAR up: it names MAR':n.mar.indexOf('neither MAR nor')>=0,
+          'PROFIT up: it names PROFIT ($)':n.raw.indexOf('neither PROFIT ($) nor')>=0,'never the vertical measure':(n.mar+n.raw).indexOf('the vertical measure')<0},
+          {mar:n.mar.slice(0,160),raw:n.raw.slice(0,160)});})();
+
+      // D14 - LOAD ALL is offered only while the loaded runs list is capped
+      (function(){var calls=[],res={};
+        calls.push(doRender({c2Screen:'explore',resLvl:'all'},dfxWin([FIX])));res.loadFull=d.querySelectorAll('[data-resloadall]').length;res.noteFull=dfxNote();
+        calls.push(doRender({c2Screen:'explore',resLvl:'all'},dfxWin([FIX],'runsLimit=1;')));res.loadCap=d.querySelectorAll('[data-resloadall]').length;res.noteCap=dfxNote();
+        w.eval('runsLimit=75');
+        dfxCase('dfx_d14',calls,{'every run loaded: no LOAD ALL':res.loadFull===0,'every run loaded: the rows cite a run not on this account':res.noteFull.indexOf('not on this account')>=0,
+          'a capped list still offers LOAD ALL for runs older than what is loaded':res.loadCap>0&&res.noteCap.indexOf('older than what is loaded')>=0},
+          {loadFull:res.loadFull,loadCap:res.loadCap,noteFull:res.noteFull.slice(0,200)});})();
+
+      // D15 - hovering a table row lights its three pinned cells too, and leaving puts them back
+      (function(){var c=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resCols:'all'},dfxWin([FIX])),res={};
+        var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return t.children.length>3&&w.getComputedStyle(t.children[0]).backgroundImage==='none';})[0];
+        function imgs(){return [0,1,2].map(function(i){return w.getComputedStyle(tr.children[i]).backgroundImage;});}
+        if(tr){res.before=imgs();tr.dispatchEvent(new w.MouseEvent('mouseenter'));res.on=imgs();tr.dispatchEvent(new w.MouseEvent('mouseleave'));res.after=imgs();
+          res.pos=w.getComputedStyle(tr.children[0]).position;res.col=w.getComputedStyle(tr.children[0]).backgroundColor;}
+        dfxCase('dfx_d15',[c],{'a plain row was found':!!tr,'its first three cells are pinned':res.pos==='sticky',
+          'hovered: all three carry the highlight layer':!!res.on&&res.on.every(function(s){return s.indexOf('gradient')>=0;}),
+          'and stay opaque':/^rgb[(]/.test(res.col||''),'left: all three are back as they were':!!res.after&&JSON.stringify(res.after)===JSON.stringify(res.before)},res);})();
+
+      // D16 - STACK layout at 1366x768: the table's sideways scrollbar sits inside the capped column
+      (function(){var fr=document.getElementById('f');fr.style.width='1366px';fr.style.height='768px';void fr.offsetHeight;
+        var c=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resCols:'all',resView:'one'},dfxWin([FIX])),res={};
+        var col=d.querySelector('[data-restackl]'),bx=col?[].filter.call(col.querySelectorAll('[data-rescroll]'),function(b){return b.offsetParent!==null;})[0]:null;
+        if(col&&bx){var cr=col.getBoundingClientRect(),br=bx.getBoundingClientRect();res.clip=Math.round(cr.top+col.clientTop+col.clientHeight);res.boxBottom=Math.round(br.bottom);
+          res.boxMax=bx.style.maxHeight;res.colMax=col.style.maxHeight;res.sideways=bx.scrollWidth>bx.clientWidth;res.boxH=Math.round(br.height);}
+        fr.style.width='1400px';fr.style.height='900px';void fr.offsetHeight;
+        dfxCase('dfx_d16',[c],{'STACK column and a table box are there':!!(col&&bx),'the table scrolls sideways (so its scrollbar matters)':res.sideways===true,
+          'the box bottom edge is inside the column':res.boxBottom!=null&&res.boxBottom<=res.clip+1,'the box keeps a usable height':(res.boxH||0)>=120},res);})();
+
+      // D17 - 1E CONFIGS: one 'not on this chart' count, not a second one beside it
+      (function(){var CID=String(FIX.id),c=doRender({c2Screen:'explore',resLvl:'all',resShow:'configs',resCfgRun:[CID],resSegs:['is','lb'],resAxis:'ratio',resXAxis:'dd'},dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];"));
+        var t=dfxN(d.body.innerText);
+        dfxCase('dfx_d17',[c],{'the breakdown note is there':/[0-9]+ of [0-9]+ not on this chart/.test(t),'no second per-run count beside it':!/#[0-9]+×[0-9]+/.test(t)},
+          {note:(t.match(/[0-9]+ of [0-9]+ not on this chart[^.]{0,60}/)||[''])[0],second:(t.match(/[0-9]+ not on this chart: #[0-9]+×[0-9]+/)||[''])[0]});})();
+
+      // D20 - the ticked stage's sticky heading is opaque, with its tint laid over the ground
+      (function(){var c=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resCols:'all',resSegs:['lb']},dfxWin([FIX])),res={};
+        [].forEach.call(d.querySelectorAll('th[data-recol]'),function(th){var k=th.getAttribute('data-recol');if((k==='LOCKBOX'||k==='IN-SAMPLE')&&!res[k]){var s=w.getComputedStyle(th);res[k]={pos:s.position,col:s.backgroundColor,img:s.backgroundImage.slice(0,40)};}});
+        var L=res.LOCKBOX||{},I=res['IN-SAMPLE']||{};
+        dfxCase('dfx_d20',[c],{'LOCKBOX heading is sticky':L.pos==='sticky','LOCKBOX heading ground is opaque':/^rgb[(]/.test(L.col||''),
+          'LOCKBOX heading still carries its tint':(L.img||'').indexOf('gradient')>=0,'an unticked heading is unchanged (opaque, no tint)':/^rgb[(]/.test(I.col||'')&&I.img==='none'},res);})();
+
+      // D21 - RUNBOARD heat map: an approximate (~) figure takes no shade and does not move the scale
+      (function(){var A=dfxClone(FIX);A.id='760001';A.strategy='ZAPX_1_0.py';delete A.validate.total_trades;
+        var Bn=dfxClone(FIX);Bn.id='760002';Bn.strategy='ZEXACT_1_0.py';var Cn=dfxClone(FIX);Cn.id='760003';Cn.strategy='ZEXACT2_1_0.py';Cn.validate.total_trades=+Cn.validate.total_trades*2;
+        var c=doRender({cmpMode:'board',rbSample:'full',rbRank:'net',rbHeat:true,cmpIds:[A.id,Bn.id,Cn.id]},dfxWin([A,Bn,Cn]),'cmp');
+        var ids=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');}),ev={};
+        dfxRow('EV').forEach(function(td,i){ev[ids[i]]=dfxCell(td);});
+        var a=ev['760001']||{},b=ev['760002']||{},cc=ev['760003']||{};
+        dfxCase('dfx_d21',[c],{'the EV row has all three runs':!!(a.v&&b.v&&cc.v),'the run with no whole-run count reads ~':(a.v||'').indexOf('~')===0,
+          'its ~ figure is not heat-shaded':!/rgba|hsla/.test(a.bg||''),'the two exact figures are shaded':/rgba|hsla/.test(b.bg||'')&&/rgba|hsla/.test(cc.bg||'')},
+          {ev:[a,b,cc].map(function(x){return (x.v||'')+' bg='+(x.bg||'').slice(0,40);})});})();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -4498,6 +4651,18 @@ def main(argv=None):
     line('r6_split', r6s_ok, 'failed=%s | h768=%s | h650=%s' % ([k for k, v in r6s_chk.items() if not v], _s7, _s6))
     if not r6s_ok:
         fail('r6_split: with the FILTERS sheet open the SPLIT tables must keep their scrollbar on screen and take the room a page scroll gives back -- see the r6_split line')
+
+    # == DEFERRED ROUND (dfx_*): each case carries its own named checks (r['ck']); all must hold ==
+    DFX = ['dfx_d03', 'dfx_d04', 'dfx_d05', 'dfx_d06', 'dfx_d07', 'dfx_d10', 'dfx_d12', 'dfx_d13', 'dfx_d14', 'dfx_d15',
+           'dfx_d16', 'dfx_d17', 'dfx_d20', 'dfx_d21']
+    for name in DFX:
+        r = cases.get(name) or {}
+        ck = r.get('ck') or {}
+        ok = r.get('call') == 'OK' and not r.get('uncaught') and bool(ck) and all(ck.values())
+        line(name, ok, 'failed=%s | call=%s | %s' % ([k for k, v in ck.items() if not v], str(r.get('call'))[:80],
+                                                     json.dumps(r.get('info'), ensure_ascii=False)[:500]))
+        if not ok:
+            fail(name + ': see the ' + name + ' line')
 
     if bad:
         print('CMP2 PROBE: FAIL')
