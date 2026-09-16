@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 88
+N_CASES = 89
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -2600,6 +2600,21 @@ var FIX = __FIX__;
           'a capped list still offers LOAD ALL for runs older than what is loaded':res.loadCap>0&&res.noteCap.indexOf('older than what is loaded')>=0},
           {loadFull:res.loadFull,loadCap:res.loadCap,noteFull:res.noteFull.slice(0,200)});})();
 
+      // D22 (deferred round 2, item 2) - a load in flight must not flip 'older than what is loaded' into
+      //   'not on this account'. _subscribeRuns bumps the reactive runsLimit to the new number BEFORE the
+      //   bigger list it asked for comes back (LOAD ALL, or a small starred-runs read re-rendering first),
+      //   so comparing the loaded list's length against runsLimit reads as uncapped for those few seconds.
+      //   Here: a list of 1 run loaded with limit 1 (window._runsLoadedLimit=1), then runsLimit bumped to
+      //   5000 with no new list ever arriving - the note must still say 'older than what is loaded' and
+      //   still offer LOAD ALL, never 'not on this account'.
+      (function(){var calls=[],res={};
+        calls.push(doRender({c2Screen:'explore',resLvl:'all'},dfxWin([FIX],"window._runsLoadedLimit=1;runsLimit=5000;")));
+        res.loadInFlight=d.querySelectorAll('[data-resloadall]').length;res.noteInFlight=dfxNote();
+        w.eval('window._runsLoadedLimit=undefined;runsLimit=75;');
+        dfxCase('dfx_d22',calls,{'a load in flight for a bigger limit still reads as capped, offering LOAD ALL':res.loadInFlight>0&&res.noteInFlight.indexOf('older than what is loaded')>=0,
+          'and never claims the run is not on this account while that bigger fetch is still out':res.noteInFlight.indexOf('not on this account')<0},
+          {loadInFlight:res.loadInFlight,noteInFlight:res.noteInFlight.slice(0,220)});})();
+
       // D15 - hovering a table row lights its three pinned cells too, and leaving puts them back
       (function(){var c=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resCols:'all'},dfxWin([FIX])),res={};
         var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return t.children.length>3&&w.getComputedStyle(t.children[0]).backgroundImage==='none';})[0];
@@ -4654,7 +4669,7 @@ def main(argv=None):
 
     # == DEFERRED ROUND (dfx_*): each case carries its own named checks (r['ck']); all must hold ==
     DFX = ['dfx_d03', 'dfx_d04', 'dfx_d05', 'dfx_d06', 'dfx_d07', 'dfx_d10', 'dfx_d12', 'dfx_d13', 'dfx_d14', 'dfx_d15',
-           'dfx_d16', 'dfx_d17', 'dfx_d20', 'dfx_d21']
+           'dfx_d16', 'dfx_d17', 'dfx_d20', 'dfx_d21', 'dfx_d22']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

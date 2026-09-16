@@ -2701,6 +2701,12 @@ function _subscribeRuns(uid,lim){
   if(!db||!uid)return;
   runsRef=db.collection('users').doc(uid).collection('runs');
   runsLimit=lim||75;
+  // (item 2, deferred round 2) the limit THIS fetch was asked for, captured now - not read back off
+  //   runsLimit later, which a LOAD ALL click bumps synchronously, seconds before its own bigger list
+  //   actually lands. Readers that ask 'is the loaded list capped' compare its length against
+  //   window._runsLoadedLimit (set below, beside runHistory), the limit the list ON SCREEN actually
+  //   came back with, so a load still in flight never misreads as an uncapped, every-run-loaded list.
+  const _fetchLim=runsLimit;
   // STARRED RUNS (item 4) - independent of the main list and of whether it succeeds, so a
   //   crowned run's own read never depends on this one's, or the other way round.
   {const g=++window._starRunsGen;_starRunsFetch(uid).then(sr=>{if(_starRunsApply(sr,g)&&activeTab==='augur')renderApp();});}
@@ -2710,6 +2716,7 @@ function _subscribeRuns(uid,lim){
     window._runsLiteOk=true;
     _wfoDropStale(list);
     runHistory=list;
+    window._runsLoadedLimit=_fetchLim;
     try{window._setStage('RUNS LOADED ('+list.length+')');}catch(_){}
     if(activeTab==='augur')renderApp();
   }).catch(e=>{
@@ -2726,6 +2733,9 @@ function _subscribeRunsFull(uid,lim){
   runsRef=db.collection('users').doc(uid).collection('runs');
   if(unsubRuns){try{unsubRuns();}catch(_){}}
   runsLimit=lim||75;
+  // (item 2, deferred round 2) same capture as the REST path above, so this fallback listener marks
+  //   the loaded list with the limit IT was asked for too.
+  const _fetchLim=runsLimit;
   // STARRED RUNS (item 4), same safety net as the REST path above - a one-shot SDK query
   //   instead of REST, since this fallback path is already off the REST route.
   {const g=++window._starRunsGen;
@@ -2735,7 +2745,7 @@ function _subscribeRunsFull(uid,lim){
   // normalize timestamp to an ISO STRING on read - some docs carry a Firestore Timestamp
   //   object instead (crashed Rankings: "(r.timestamp||'').slice is not a function").
   unsubRuns=runsRef.orderBy('timestamp','desc').limit(runsLimit).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};
-    return _bookUnitsOnRead(_isoTs(x));});if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
+    return _bookUnitsOnRead(_isoTs(x));});window._runsLoadedLimit=_fetchLim;if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
 }
 window._loadMoreRuns=()=>{if(!_runsUid)return;_subscribeRuns(_runsUid,(runsLimit||75)+75);};
 // ── LIVE JOB SET vs RECENT JOB SET ───────────────────────────────
@@ -17197,18 +17207,27 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   unknown (null) instead of pooling without it; a traded fold with no saved win count leaves the win count
     //   unknown. Returns {pf, wins}.
     //   (D18) it also returns why: the folds whose money could not be split, in the words EXPLORE uses.
-    const _foldPool=fl=>{let GW=0,GL=0,Wn=0,gOk=true,wOk=true;const flat=[],none=[];
+    const _foldPool=fl=>{let GW=0,GL=0,Wn=0,gOk=true,wOk=true;const flat=[],none=[],pf0=[];
       (Array.isArray(fl)?fl:[]).forEach(z=>{if(!z)return;
         const p=+z.oos_pnl,pf=+z.oos_pf,z0=(z.oos_trades!=null&&+z.oos_trades===0);
         const nl=(!z0&&(z.oos_pf==null||pf===Infinity)&&+z.oos_trades>0&&z.oos_wins!=null&&+z.oos_wins===+z.oos_trades&&isFinite(p)&&p>=0);
         const aL=(!z0&&(z.oos_pf==null||pf===0)&&+z.oos_trades>0&&z.oos_wins!=null&&+z.oos_wins===0&&isFinite(p)&&p<=0);
         if(!z0){if(z.oos_wins==null||!isFinite(+z.oos_wins))wOk=false;else Wn+=(+z.oos_wins);}
         if(z0){}else if(nl){GW+=p;}else if(aL){GL+=Math.abs(p);}
-        else if(!(pf>0)||Math.abs(pf-1)<1e-6||!isFinite(p)){gOk=false;((pf>0&&Math.abs(pf-1)<1e-6&&isFinite(p))?flat:none).push(z.fold);}
+        // (item 3, deferred round 2) a fold that saved profit factor 0.00 - the engine's own reading for
+        //   a fold that lost every dollar it traded - with no saved win count never qualifies for aL just
+        //   above (that also needs the win count), so it used to fall in with folds that saved NO profit
+        //   factor at all: the hover said 'saved no profit factor' over a chart that draws PF 0.00 for the
+        //   very same fold. It gets its own group and its own sentence instead - pooling is unchanged.
+        else if(!(pf>0)||Math.abs(pf-1)<1e-6||!isFinite(p)){gOk=false;
+          const bucket=(pf>0&&Math.abs(pf-1)<1e-6&&isFinite(p))?flat:((pf===0&&isFinite(p)&&p<=0&&(z.oos_wins==null||!isFinite(+z.oos_wins)))?pf0:none);
+          bucket.push(z.fold);}
         else{const g=Math.abs(p/(pf-1));GL+=g;GW+=pf*g;}});
       const fN=a=>((a.length>1)?'folds ':'fold ')+a.join(', ');
       const why=gOk?'':(flat.length
         ?('Walk-forward '+fN(flat)+' broke exactly even (profit factor 1.00), so '+((flat.length>1)?'their':'its')+' winning and losing money cannot be split and no pooled profit factor or EV in R can be worked out.')
+        :pf0.length
+        ?('Walk-forward '+fN(pf0)+' lost every dollar '+((pf0.length>1)?'they traded':'it traded')+' (profit factor 0.00) but saved no win count, so no pooled profit factor or EV in R is worked out.')
         :('Walk-forward '+fN(none)+' saved no profit factor that splits '+((none.length>1)?'their':'its')+' money into winning and losing trades, so no pooled profit factor or EV in R can be worked out.'));
       return {pf:(gOk&&GL>0)?(GW/GL):null,wins:(wOk?Wn:null),why:why};};
     const _foldSharpeOf=(folds,yrs)=>{const xs=folds.map(f=>+f.oos_pnl||0);if(xs.length<3||yrs==null)return null;const m=xs.reduce((s,x)=>s+x,0)/xs.length,sd=Math.sqrt(xs.reduce((s,x)=>s+(x-m)*(x-m),0)/xs.length);if(sd<=0)return null;return (m/sd)*Math.sqrt(xs.length/yrs);};
@@ -17716,18 +17735,23 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
            curve:curve,foldIdx:fi,foldStart:(curve?fs:[]),curveN:n(B.equity_n),
            folds:(Array.isArray(B.folds)?B.folds:[]).map(f=>({f:(f&&f.f!=null)?f.f:null,from:(f&&f.from)||null,to:(f&&f.to)||null,tr:+(f&&f.trades)||0,net:((f&&n(f.net)!=null)?+f.net*k:null)}))};}
       _wfoMemo.set(r,{mc:mc,o:o});return o;};
+    // (item 1, deferred round 2) one reason per non-'ok' walk-forward check state, in plain words -
+    //   shared so the RUNBOARD WINDOW hover and every metric's own dash (_wfOosWhy below) can never
+    //   give two different reasons for the same run. The metric dash leads lower-case, straight after
+    //   'No walk-forward X — '; the WINDOW hover leads upper-case, after 'is not used on this run — '.
+    const _wfoStReason={absent:'This run was saved before walk-forward detail was recorded, and it has not been rebuilt since.',
+      none:'No walk-forward detail was saved on this run.',nowf:'Walk-forward did not run on this run.',
+      book:'A book trades frozen configurations and tunes nothing, so it has no walk-forward folds by design.',
+      noval:'This run was never validated.',shape:'Its walk-forward detail was saved in a newer format than this page reads.',
+      mode:'Its saved walk-forward detail belongs to the other fold scheme, so it is not used.',
+      nofolds:'The fold list on this run was trimmed to save space, so the saved detail cannot be checked and is not used.',
+      mismatch:'The saved walk-forward detail does not match this run’s fold results, so it is not used.'};
     const _wfOosWhy=(r,what)=>{
       const S={dd:'No walk-forward drawdown',mar:'No walk-forward MAR',sh:'No walk-forward Sharpe',so:'No walk-forward Sortino',pf:'No walk-forward profit factor',wr:'No walk-forward win rate',net:'No walk-forward net',ev:'No walk-forward dollars per trade',yrs:'No walk-forward years',curve:'No walk-forward curve',any:'No walk-forward test detail'};
       const sub=S[what]||S.any,c=_wfOosChk(r);
       // (D18) with no accepted test the PF is pooled from the fold rows: when a fold's money could not be split, that is why
       if(c.st!=='ok'&&what==='pf'){const fw=_wfFoldWhy(r);if(fw)return fw;}
-      if(c.st!=='ok')return sub+({absent:' — this run was saved before walk-forward detail was recorded, and it has not been rebuilt since.',
-        none:' — no walk-forward detail was saved on this run.',nowf:' — walk-forward did not run on this run.',
-        book:' — a book trades frozen configurations and tunes nothing, so it has no walk-forward folds by design.',
-        noval:' — this run was never validated.',shape:' — its walk-forward detail was saved in a newer format than this page reads.',
-        mode:' — its saved walk-forward detail belongs to the other fold scheme, so it is not used.',
-        nofolds:' — the fold list on this run was trimmed to save space, so the saved detail cannot be checked and is not used.',
-        mismatch:' — the saved walk-forward detail does not match this run’s fold results, so it is not used.'}[c.st]||'.');
+      if(c.st!=='ok'){const rs=_wfoStReason[c.st];return sub+(rs?(' — '+rs.charAt(0).toLowerCase()+rs.slice(1)):'.');}
       const B=c.B,tr=+B.trades,yrs=_wfoYrs(B),num=x=>(x!=null&&isFinite(+x));
       const zero='This run took no trades in the walk-forward folds.';
       // The engine leaves a Sharpe or a Sortino empty for FOUR different reasons and only one of them
@@ -22110,7 +22134,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       if(window._c2RunsLoading&&window._c2RunsLen!==rh.length)window._c2RunsLoading=0;
       const ids=rh.map(r=>+r.id).filter(v=>isFinite(v));if(!ids.length)return '';
       let lo=ids[0],hi=ids[0];ids.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;});
-      const capped=(typeof runsLimit!=='undefined')&&rh.length>=runsLimit;
+      // (repair round 1, item 2 follow-up) same race _reMissOf already guards against: runsLimit is
+      //   bumped synchronously the instant LOAD ALL is clicked, seconds before the bigger run list
+      //   actually lands (and a starred-runs read can re-render first too) - compare the loaded list
+      //   against the limit it actually came back with (window._runsLoadedLimit), and treat a
+      //   runsLimit / window._runsLoadedLimit mismatch as still-capped too, never as 'every run loaded'.
+      const _loadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:runsLimit;
+      const _fetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
+      const capped=(typeof _loadedLim!=='undefined'&&rh.length>=_loadedLim)||_fetching;
       const btn=(k,t,tip)=>'<span data-c2loadruns="'+k+'" title="'+tip+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid var(--border);color:var(--text3);white-space:nowrap">'+t+'</span>';
       return '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap">'
         +'<span class="c2-lbl" style="'+(capped?'color:var(--yellow)':'')+'" title="'+(capped
@@ -25981,7 +26012,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           {l:'WF MAR',s:'WF MAR',v:x=>{const O=_wfoOf(x);return (O&&O.mar!=null)?O.mar:-1e15;},f:x=>{const O=_wfoOf(x);return (O&&O.mar!=null)?O.mar.toFixed(2):_wfoDash(x,'mar');},b:'max',sec:'reward ÷ risk'},
           {l:'WF Sharpe',s:'WF Sh',v:x=>{const O=_wfoOf(x);return (O&&O.sharpe!=null)?O.sharpe:-1e15;},f:x=>{const O=_wfoOf(x);return (O&&O.sharpe!=null)?O.sharpe.toFixed(2):_wfoDash(x,'sh');},b:'max',sec:'reward ÷ risk'},
           {l:'WF Sortino',s:'WF So',v:x=>{const O=_wfoOf(x);return (O&&O.sortino!=null)?O.sortino:-1e15;},f:x=>{const O=_wfoOf(x);return (O&&O.sortino!=null)?O.sortino.toFixed(2):_wfoDash(x,'so');},b:'max',sec:'reward ÷ risk'},
-          {l:'WF PF',s:'WF PF',v:x=>{const O=_wfoOf(x),a=_wfA(x),p=O?O.pf:(a?a.pf:null);return (p!=null&&isFinite(p))?p:-1e15;},f:x=>{const O=_wfoOf(x),a=_wfA(x),p=O?O.pf:(a?a.pf:null);return (p!=null&&isFinite(p))?p.toFixed(2):(O?_wfoDash(x,'pf'):'—');},b:'max',sec:'edge'},
+          // (item 4, deferred round 2) dash through the shared walk-forward dash helper always, not only
+          //   when a saved test exists - it already covers no-test, book, never-validated and no-fold
+          //   cases with the same reason RUNBOARD / OVERLAY / LEADERBOARD give; a bare dash used to drop
+          //   that reason here.
+          {l:'WF PF',s:'WF PF',v:x=>{const O=_wfoOf(x),a=_wfA(x),p=O?O.pf:(a?a.pf:null);return (p!=null&&isFinite(p))?p:-1e15;},f:x=>{const O=_wfoOf(x),a=_wfA(x),p=O?O.pf:(a?a.pf:null);return (p!=null&&isFinite(p))?p.toFixed(2):_wfoDash(x,'pf');},b:'max',sec:'edge'},
           {l:'WF win %',s:'WF win%',v:x=>{const O=_wfoOf(x),w=(O&&O.wr!=null)?O.wr:_wfPoolWr(x,null);return (w!=null&&isFinite(w))?w:-1e15;},f:x=>{const O=_wfoOf(x),w=(O&&O.wr!=null)?O.wr:_wfPoolWr(x,null);return (w!=null&&isFinite(w))?(Math.round(w)+'%'):(O?_wfoDash(x,'wr'):'—');},b:'max',sec:'edge'},
           {l:'Folds held',s:'Folds',f:x=>{const a=_wfA(x);return a?('<b style="color:'+(a.held>=a.n/2?'var(--green)':'var(--red)')+'">'+a.held+'/'+a.n+'</b>'):'—';},sec:'sample'},
           // a test that took no trades reads 0 trades - a count, not a missing figure
@@ -28098,7 +28133,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             // (D14) 'older than what is loaded' - and its LOAD ALL - only while the runs list is capped (the top bar's own
             //   test) or not loaded at all. With every run on the account loaded, a re-read of the whole list fixes nothing
             //   and costs Firestore reads: that run is simply not on this account.
-            const _capped=!(Array.isArray(runHistory)&&runHistory.length)||(typeof runsLimit!=='undefined'&&runHistory.length>=runsLimit);
+            // (item 2, deferred round 2) compare against the limit the list ON SCREEN was actually loaded
+            //   with (window._runsLoadedLimit, set wherever runHistory is replaced from a runs read), not
+            //   the reactive runsLimit a LOAD ALL click bumps synchronously before its bigger list is back.
+            //   _subscribeRuns sets runsLimit before the read it names resolves, so for the few seconds a
+            //   bigger read is in flight (or a small starred-runs read re-renders first) runsLimit and the
+            //   loaded list disagree - treat that disagreement as capped too, never as 'gone'.
+            const _loadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:runsLimit;
+            const _fetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
+            const _capped=!(Array.isArray(runHistory)&&runHistory.length)||(typeof _loadedLim!=='undefined'&&runHistory.length>=_loadedLim)||_fetching;
             const _older=_citesOut&&_capped,_gone=_citesOut&&!_capped;
             // A TICKED STRETCH THAT TOOK NO TRADES is its own cause (review round): nothing was
             //   measured there, so every measure but the whole-run $ per trade is left empty on
@@ -30278,7 +30321,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 // (D27) no saved test: the window its own years reader and the OVERLAY use - the walk-forward split to the lockbox door
                 if(!O&&!_wfoIsBook(r)){const V=r.validate||{},W=V.windows||{},a=W.wf_split,b=(W.lockbox&&W.lockbox[0])||(V.lockbox&&V.lockbox.from);
                   if(a&&b){const a1=String(a).slice(0,10),b1=String(b).slice(0,10),y=_rbWfGet(r,'yrs');
-                    return '<span title="'+_wfoEsc('No walk-forward test is saved on this run, so its walk-forward years are read from the walk-forward split ('+a1+') to the lockbox door ('+b1+').')+'" style="white-space:nowrap;color:var(--text4);cursor:help">'+a1+' – '+b1+'</span>'
+                    // (item 1, deferred round 2) a REJECTED saved test (mode / shape / nofolds / mismatch /
+                    //   nowf) is not the same as no test at all - say so, with the same reason the MAR / DD
+                    //   cells beside it already give (_wfoStReason, shared with _wfOosWhy). Only 'absent' and
+                    //   'none' (truly nothing saved) keep the old sentence.
+                    const _wst=_wfOosChk(r).st,_wmsg=(_wst==='absent'||_wst==='none')
+                      ?('No walk-forward test is saved on this run, so its walk-forward years are read from the walk-forward split ('+a1+') to the lockbox door ('+b1+').')
+                      :('The saved walk-forward test is not used on this run — '+(_wfoStReason[_wst]||_wfoStReason.none)+' So its walk-forward years are read from the walk-forward split ('+a1+') to the lockbox door ('+b1+').');
+                    return '<span title="'+_wfoEsc(_wmsg)+'" style="white-space:nowrap;color:var(--text4);cursor:help">'+a1+' – '+b1+'</span>'
                       +((y!=null)?('<div style="font-size:8px;color:var(--text5)">'+y.toFixed(1)+'y</div>'):'');}}
                 if(!(O&&O.from&&O.to))return _wfoDash(r,'yrs');
                 return '<span title="'+_wfoEsc(O.from+' to '+O.to)+'" style="white-space:nowrap;color:var(--text4)">'+O.from+' – '+O.to+'</span>'
@@ -35462,7 +35512,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // v73.19: runsLimit caps the client listener (Firestore quota) below what the account
         //   may actually hold. allRuns.length hitting the current cap is the signal there MAY
         //   be more beyond it — LOAD MORE bumps the listener +75 and re-subscribes (_subscribeRuns).
-        const _runsMoreRow=(allRuns.length>=runsLimit)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
+        // (repair round 1, item 2 follow-up) same race as _c2RunWin/_reMissOf: compare the loaded
+        //   list against the limit it actually came back with, not the reactive runsLimit a LOAD ALL
+        //   click bumps synchronously before its bigger list is back.
+        const _rmLoadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:runsLimit;
+        const _rmFetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
+        const _runsMoreRow=((typeof _rmLoadedLim!=='undefined'&&allRuns.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
         const listTile=tile('<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</span>'+_famChips+'<span style="display:flex;gap:12px;align-items:center">'+(_nArch?'<span data-rfarch title="archived runs are hidden from this list by default" style="cursor:pointer;font-size:9px;color:'+(fArch?'var(--yellow)':'var(--text5)')+';text-decoration:underline">◫ '+(fArch?'hide':'show')+' '+_nArch+' archived</span>':'')+(_anyF?'<span data-rfclear style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">'+'✕ clear filters</span>':'')+_viewSeg+'</span></div>'+tbl+_runsMoreRow);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible

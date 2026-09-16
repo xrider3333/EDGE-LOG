@@ -1259,6 +1259,8 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     A('R5s off the walk-forward stage the full-screen viewer keeps its calendar, DATE RANGE, IN-SAMPLE stage and IS label','NOREG',!R7n.length,R7n.join(' ; '));
 
     // ══ DEFERRED ROUND - one case per re-verified finding (D01, D18, D19, D27, D28, D29, D31, D32, D33, D37) ══════════
+    //    Round 2 adds D18b (item 4), D18c (item 3) and D27b (item 1) - each fails on the round-1 build and
+    //    passes once its fix lands.
     //    Each NEW case fails on 73.820 and passes once the fix lands. DX37 is time-zone dependent: it can only fail on the
     //    old build where the machine is west of UTC (this one is America/Los_Angeles), and passes on every zone after the fix.
     function dxNote(){var c=q('div').filter(function(x){return x.querySelector('b')&&/not on this chart/.test(x.textContent||'');});
@@ -1321,6 +1323,29 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       Object.keys(D18).length===6&&Object.keys(D18).every(function(k){return D18[k].indexOf(BEW)===0;}),
       Object.keys(D18).map(function(k){return k+' {'+D18[k].slice(0,60)+'}';}).join(' | '));
 
+    // D18b (deferred round 2, item 4) - PICK RUNS 'WF PF': a run with no saved test used to print a bare
+    //   dash with no reason, unlike RUNBOARD / OVERLAY / LEADERBOARD just above. It must dash through the
+    //   same walk-forward dash helper and carry the same fold reason.
+    var c18b=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(BE.id)]},[lite(BE)]),T18b=tbl2();
+    var pf18b=(T18b.c['WF PF']||[])[0]||'',tip18b=(T18b.t['WF PF']||[])[0]||'';
+    A('DX18b PICK RUNS \'WF PF\' dashes with the walk-forward fold reason (broke exactly even), not a bare dash','NEW',
+      clean2(c18b)&&pf18b==='—'&&!!tip18b&&tip18b.indexOf(BEW)===0,
+      'cell='+pf18b+' tip={'+tip18b.slice(0,120)+'}');
+
+    // D18c (deferred round 2, item 3) - a fold that saved profit factor 0.00 (the engine's own reading for
+    //   a fold that lost every dollar) with negative money and no saved win count: the fold-pooling 'why'
+    //   text used to say it 'saved no profit factor that splits its money' - contradicting the 1C chart on
+    //   the same page, which draws PF 0.00 for that very fold. It must get its own sentence, and the
+    //   pooled PF must still dash (pooling itself is unchanged).
+    var PZ=dxFold(+FIXB.id+930081,'ZPFZERO_1_0.py',3,function(f){f.oos_pf=0;f.oos_pnl=-500;delete f.oos_wins;});
+    var pzWhy=H.why(full(PZ),'pf');
+    var c18c=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[lite(PZ)]),T18c=tbl2();
+    var pf18c=(T18c.c['PF']||[])[0]||'',tip18c=(T18c.t['PF']||[])[0]||'';
+    A('DX18c a walk-forward fold with profit factor 0.00 and no saved win count gets its own pooled-PF reason, not \'saved no profit factor\'','NEW',
+      clean2(c18c)&&pzWhy.indexOf('lost every dollar')>=0&&pzWhy.indexOf('profit factor 0.00')>=0&&pzWhy.indexOf('no win count')>=0
+      &&pzWhy.indexOf('saved no profit factor that splits')<0&&pf18c==='—'&&tip18c.indexOf('lost every dollar')>=0,
+      'why={'+pzWhy.slice(0,170)+'} | RUNBOARD PF cell='+pf18c+' tip={'+tip18c.slice(0,170)+'}');
+
     // D19 - the note under the EXPLORE chart gives that same cause (and says '1 records')
     var c19=rend2({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['wf'],resAxis:'evr',resXAxis:'so'},[lite(BE),lite(FIXB)]),N19=dxNote();
     A('DX19 EXPLORE note: a run whose walk-forward fold broke even is counted by that cause, not as recording no average loss','NEW',
@@ -1360,6 +1385,24 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     A('DX27 RUNBOARD walk-forward WINDOW with no saved test reads the split to the lockbox door, the years the OVERLAY uses','NEW',
       clean2(c27)&&clean2(c27o)&&!!lb27&&win27.indexOf('2015-01-02 – '+lb27)===0&&!!yrs27&&win27.slice(-(yrs27.length+1))===yrs27+'y'
       &&tip27.indexOf('walk-forward split')>=0,'WINDOW '+win27+' {'+tip27.slice(0,70)+'} | OVERLAY YEARS '+yrs27+' | lockbox door '+lb27);
+
+    // D27b (deferred round 2, item 1) - RUNBOARD WF WINDOW for a run whose saved test is REJECTED (a
+    //   trade-count mismatch against its own fold rows), not merely absent. The hover must not claim
+    //   'No walk-forward test is saved' - it must say the saved test is not used and name the check's own
+    //   reason (the same one the neighbouring MAR / DD cells give), then still read the split-to-lockbox
+    //   window like the no-test case above.
+    var MM27=(function(){var x=clone(FIXW);x.id=String(+FIXW.id+930091);x.strategy='ZMISMATCH_1_0.py';x.starred=false;
+      x.validate=clone(FIXW.validate);x.validate.wf_oos=clone(FIXW.validate.wf_oos);
+      x.validate.wf_oos.trades=+x.validate.wf_oos.trades+7;
+      x.validate.windows=clone(FIXW.validate.windows||{});x.validate.windows.wf_split='2016-03-04';return x;})();
+    var mm27St=H.chk(lite(MM27)).st;
+    var c27m=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[lite(MM27)]),T27m=tbl2();
+    var win27m=(T27m.c['WINDOW']||[])[0]||'',tip27m=(T27m.t['WINDOW']||[])[0]||'';
+    A('DX27b RUNBOARD walk-forward WINDOW: a rejected saved test (trade-count mismatch) names the reason instead of \'No walk-forward test is saved\'','NEW',
+      clean2(c27m)&&mm27St==='mismatch'&&!!win27m&&tip27m.indexOf('No walk-forward test is saved on this run')<0
+      &&tip27m.indexOf('is not used on this run')>=0&&tip27m.indexOf('does not match this run')>=0
+      &&tip27m.indexOf('its walk-forward years are read from the walk-forward split')>=0,
+      'state='+mm27St+' WINDOW='+win27m+' tip={'+tip27m.slice(0,240)+'}');
 
     // D28 - EXPLORE on WALK-FWD alone, a saved test with no losing trade: MAR, PF and R / YR give the test's own reasons
     var NL28=(function(){var x=clone(FIXW);x.id=String(+FIXW.id+930031);x.strategy='ZNOLOSS_1_0.py';x.starred=false;
