@@ -1,0 +1,71 @@
+{
+ "note": "Past Runs row text and order for runs WITHOUT a walk-forward block (run #306 as saved, the synthetic book, a non-validated copy), per sort key. Written by tools/wfoos_render_probe.py --write-snapshot from the pre-change build.",
+ "VERSION": "73.808",
+ "rows": {
+  "id": [
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "date": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "score": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "pnl": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "perday": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "maxdd": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "mar": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "pf": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "sharpe": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "wr": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "trd": [
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "days": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ],
+  "took": [
+   "306 :: ☆ | 306 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 WEAK | 1,997 | 7 · 🧭 Auto-Validate | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "90306 :: ☆ | 90306 NOISE-22 | 8/31 17:32 | 📚 BOOK: synthetic probe book WEAK | 1,997 | 7 · Book | NQ | 5m |  | $272,854 | $46/d | -$21,888 | 0.77 | 1.36 | 1.08 | 30% | 8/8 | 84 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910",
+   "305 :: ☆ | 305 NOISE-22 | 8/31 17:32 | 12 · NOISE 1.0 | 2,406 | 1 · 🧭 Auto-Validate | NQ | 5m |  | $65,427 | $11/d | -$10,303 | 0.39 | 1.22 | 0.85 | 29% | 8/8 | 59 | 9m 21s | NQ 5m RTH - no-adj | 7 Jun '10→12 Aug '26 | 5910"
+  ]
+ }
+}
