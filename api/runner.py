@@ -187,6 +187,27 @@ def _is_protected_key(k) -> bool:
     return any(h in kl for h in _PROTECTED_KEY_HINTS)
 
 
+# ── WEB-OWNED RUN FIELDS (confirmed live 2026-09-16) ─────────────────────────────
+# The owner curates these three straight from the browser -- index.html's
+# _toggleStar/_toggleArch write {starred:nv}/{archived:nv} and the note prompt writes
+# {note:nv}, all via runsRef.doc(id).update({...}), i.e. Firestore is their ONLY
+# source of truth. `starred` and `note` are also columns in optimizer_history.db
+# (legacy: the old Streamlit app's save_run() still inserts starred=0/note='' on every
+# new row and has its own local toggle-star button -- optimizer.py's save_run/around
+# line 489), so a synced run doc ALWAYS carries some value for them, usually stale.
+# `archived` has no local column at all -- the local doc never carries it.
+#
+# sync_runs() below pushes with batch.set(doc, merge=True): merge=True means a key
+# ABSENT from `doc` leaves Firestore's existing value untouched, but a key PRESENT in
+# `doc` overwrites it -- so shipping the local starred/note here overwrote the owner's
+# web edits on every runner boot. 11 runs the owner had unstarred in the web came back
+# starred this way. Dropping these keys from the outgoing doc (not just leaving them
+# out of a hand-built dict, since they arrive for free via `SELECT *`) fixes it with
+# ZERO extra Firestore reads -- no read-before-write needed, Firestore's merge does the
+# preserving on its own once the key is simply not in the payload.
+_WEB_OWNED_RUN_FIELDS = ("starred", "note", "archived")
+
+
 def _doc_size(doc) -> int:
     """Proxy for the Firestore-encoded size of `doc`. json.dumps length isn't byte-
     identical to Firestore's wire encoding but tracks it closely enough that the
@@ -1091,6 +1112,14 @@ class FirestoreQueue:
                 doc = json_safe(doc)
                 if len(_json.dumps(doc, default=str)) > 900_000:
                     doc.pop("full_results", None); doc.pop("equity", None)
+                # Never push a web-owned field (see _WEB_OWNED_RUN_FIELDS above) -- the
+                # web is the authority for curation state, the local columns are legacy
+                # leftovers from the old Streamlit app. Popping them here (rather than
+                # reading Firestore's current value first) is what keeps this a
+                # ZERO-extra-read sync: merge=True below already preserves any key simply
+                # absent from `doc`, so dropping is the whole fix.
+                for _wk in _WEB_OWNED_RUN_FIELDS:
+                    doc.pop(_wk, None)
                 doc_bytes = _doc_size(doc)
                 if pending and (pending >= 400 or batch_bytes + doc_bytes > BATCH_BYTE_BUDGET):
                     batch.commit(); batch = self.db.batch(); pending = 0; batch_bytes = 0
