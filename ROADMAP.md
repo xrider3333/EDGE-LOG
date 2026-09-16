@@ -35,6 +35,14 @@ These three are blocked on an owner decision, not on work. Nothing here is in pr
       changes what gets SAVED, so it needs an explicit decision. Deleting existing data is
       destructive and was deliberately NOT done.
 
+## COMPARE / EXPLORE backlog - owner ideas (not scheduled)
+- [ ] **EXPLORE scatter: in-sample dot vs walk-forward dot, joined by a line** (owner 2026-09-16, not
+      urgent). For whatever is picked on the two axis tiles, draw each row twice - once from its in-sample
+      stretch, once from its walk-forward stretch - with a segment between them, so the fade from in-sample
+      to walk-forward shows per config. Decide first which walk-forward reading the dot uses (fixed settings
+      vs the re-tuned test); in-sample must be the measured stretch, never whole run minus walk-forward minus
+      lockbox.
+
 ## 0. Infra / data consolidation (loose ends)
 - [x] **Single EDGE-LOG folder for runner + edits (done 2026-06-22).** There were TWO clones
       of this repo: `C:\Users\xride\EDGE-LOG` (code-only — no cred, no `augur_uploads/` masters)
