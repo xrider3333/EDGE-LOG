@@ -3464,8 +3464,12 @@ def main(argv=None):
         'renders OK': all(r.get(k) == 'OK' for k in ('isCall', 'lbCall', 'wfCall', 'oldCall')),
         'hosted IS reads the tab stage (not SAMPLE LB)': r.get('isMar') == want_is and want_is is not None,
         'hosted LB reads the tab stage (not SAMPLE IS)': r.get('lbMar') == want_lb and want_lb is not None,
-        'hosted WF holds and names it': bool(r.get('wfHold')) and r.get('wfMar') is None and bool(r.get('wfTab')),
-        'hosted WF holds the whole view (no funnel, no panels)': (not r.get('wfFunnel')) and (r.get('wfRows') or 0) == 0,
+        # v73.817: the board reads the saved walk-forward test, so the WF sample is a real
+        # sample. Only the BOOKS table is held (its walk-forward entry is a held count, not
+        # figures). A run with no saved test dashes; it no longer takes the whole view down.
+        'hosted WF keeps its panels and holds only BOOKS': (bool(r.get('wfHold')) and bool(r.get('wfTab'))
+                                                           and bool(r.get('wfFunnel')) and (r.get('wfRows') or 0) == 1),
+        'hosted WF dashes a run that saved no walk-forward test': r.get('wfMar') in ('\u2014', None),
         'old tab SAMPLE click leaves the COMPARE stage alone': r.get('oldClickStage') == 'is',
         'SAMPLE click sets the tab stage': r.get('afterClick') == 'full',
         'outside COMPARE keeps its own SAMPLE': r.get('oldMar') == want_lb and not r.get('oldWfTab'),
@@ -3529,7 +3533,10 @@ def main(argv=None):
     aw_exp = _f(r.get('exploreRpy'))
     aw_ok = (r.get('call') == 'OK' and r.get('leadCall') == 'OK' and r.get('marCall') == 'OK'
              and aw_lead is not None and aw_exp is not None and abs(aw_lead - aw_exp) <= max(0.3, 0.03 * abs(aw_exp))
-             and 'does not mark where the folds begin' in str(r.get('marTitle') or ''))
+             # v73.817: the reason is the saved test's own. run_report.json has none, so it
+             # reads 'saved before walk-forward detail was recorded' rather than claiming a
+             # curve cut was attempted.
+             and 'saved before walk-forward detail was recorded' in str(r.get('marTitle') or ''))
     line('a_wfyrs', aw_ok, 'lead=%s explore=%s marTitle=%r'
          % (r.get('leadRpy'), r.get('exploreRpy'), r.get('marTitle')))
     if not aw_ok:

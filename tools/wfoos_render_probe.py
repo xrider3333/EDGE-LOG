@@ -23,6 +23,10 @@ FIXTURES (all built offline by tools/make_wfoos_fixture.py; nothing here touches
   tools/fixtures/run_report.json      run #306, saved before the block existed ("absent")
   tools/fixtures/run_wfoos.json       run #306 + an engine-built validate.wf_oos
   tools/fixtures/run_book_synth.json  a synthetic book (a book tunes nothing: no block, ever)
+  tools/fixtures/run_wfoos_zero.json  run #306 as id 90308, every fold tested no trade, its block built by the
+                                      engine's own wf_oos_block (tools/make_wfoos_zero_fixture.py) - the R5
+                                      cases: its $0 and 0 trades are readings on every screen, every ratio and
+                                      the drawdown dash with one sentence, and nothing it shows wins a mark
   tools/fixtures/wfoos_pastruns_snapshot.json   Past Runs row text + order for runs WITHOUT a
                                       block, written from the pre-change build with
                                       --write-snapshot; compared on every run.
@@ -73,7 +77,7 @@ import time
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
 PROBE_JS = r"""
-var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__;
+var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
 (function(){
   var reported=false, out={res:[],snap:{}}, t0=Date.now();
   function finish(why){if(reported)return;reported=true;out.why=why;out.ms=Date.now()-t0;
@@ -574,11 +578,686 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__;
     A('B1 book report: no walk-forward test figure, the book reason','NEW',q('[data-wfocurve]').length===0&&q('[data-wfochips]').length===0&&txt('[data-wfowhy]').join(' ').indexOf('a book trades frozen configurations')>=0,
       'why='+txt('[data-wfowhy]').join(' | '));
     A('B2 book report never prints the walk-forward test','NOREG',tBk.indexOf('WALK-FORWARD TEST')<0,'');
+
+    // ══ P3 / P4 - THE BOARDS AND EXPLORE READ THE SAME SAVED WALK-FORWARD TEST ══════════
+    //    The report (above) was the first reader. These cases cover the COMPARE tab's
+    //    LEADERBOARD, its comparison table and its chart, the hosted PICK RUNS table, the
+    //    hosted RUNBOARD and the EXPLORE run rows. Each renders PROJECTED rows, the way the
+    //    live list screens read them. Money and trade counts must stay pooled from the fold
+    //    results everywhere; the whole-run, tuning and lockbox stretches must not move at all.
+    function rend2(prefs,runs,sub){
+      sink.errors.length=0;sink.uncaught.length=0;
+      var arr=w.eval('[]');runs.forEach(function(x){arr.push(x);});
+      w.__runs=arr;
+      return w.eval("(function(){try{localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(prefs||{}))+");"
+        +"if(typeof APREF==='object'&&APREF){for(var k in APREF)delete APREF[k];var P="+JSON.stringify(prefs||{})+";for(var k2 in P)APREF[k2]=P[k2];}"
+        +"runHistory=window.__runs;window._runFull={};window._runFullOrder=[];window._runHydrating={};window._wfoBad={};window._c2Open=new Set();window._starRuns=[];"
+        +"activeTab='augur';augurSub='"+(sub||'cmp2')+"';augurRunSel=null;renderApp();return 'OK';"
+        +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");}
+    function clean2(call){return (call==='OK')&&!sink.errors.length&&!sink.uncaught.length;}
+    function titles2(){return q('[title]').map(function(e){return e.getAttribute('title')||'';});}
+    function anyText(s){var b=d.body?(d.body.innerText||''):'';if(b.indexOf(s)>=0)return true;
+      return titles2().concat(q('[data-infopop]').map(function(e){try{return decodeURIComponent(e.getAttribute('data-infopop')||'');}catch(_){return '';}}))
+        .some(function(t){return String(t).indexOf(s)>=0;});}
+    // every table row on screen, by the label in its first cell: the cell texts and the reason
+    //   hovers beside them. First row of a given label wins.
+    function tbl2(){var o={c:{},t:{}};
+      q('tr').forEach(function(tr){var tds=Array.prototype.slice.call(tr.children);if(tds.length<2)return;
+        var lab=norm(tds[0].textContent);if(!lab||Object.prototype.hasOwnProperty.call(o.c,lab))return;
+        o.c[lab]=tds.slice(1).map(function(td){return norm(td.textContent);});
+        o.t[lab]=tds.slice(1).map(function(td){var s=td.querySelector('[title]');return s?(s.getAttribute('title')||''):(td.getAttribute('title')||'');});});
+      return o;}
+    function bestOn(lab){var tr=q('tr').filter(function(t){return norm((t.children[0]||{}).textContent)===lab;})[0];
+      if(!tr)return null;return Array.prototype.slice.call(tr.children).slice(1).map(function(td){
+        return {v:norm(td.textContent),best:/font-weight:\s*(700|bold)/.test(td.getAttribute('style')||'')};});}
+    function famBig(){var e=q('.c2-row[data-c2fam] .c2-big')[0];
+      return e?{v:norm(e.textContent),t:(e.getAttribute('title')||'')}:null;}
+    // one EXPLORE run row, by run number, read through its own column headings
+    function reRow(id){var h=q('tr th').map(function(x){return norm(x.textContent).replace(/[^A-Z /%$()]/g,'').trim();});
+      var tr=q('tr[data-rerow]').filter(function(x){return (x.textContent||'').indexOf('#'+id)>=0;})[0];
+      if(!tr)return null;var v={};
+      h.forEach(function(nm,i){if(nm&&tr.cells[i]&&!(nm in v))v[nm]=norm(tr.cells[i].textContent);});
+      return {v:v,t:function(nm){var i=h.indexOf(nm),td=(i>=0)?tr.cells[i]:null,s=td&&td.querySelector('[title]');
+        return s?(s.getAttribute('title')||''):(td?(td.getAttribute('title')||''):'');}};}
+    // the two money formats the boards use, mirrored so an expected figure is never re-typed
+    var AB$=function(v){var a=Math.abs(v||0),sg=(v<0?'-$':'$');
+      return a>=1e6?(sg+(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'):(a>=1000?(sg+Math.round(a/1000)+'k'):(sg+Math.round(a)));};
+    var ABR=function(v){var a=Math.abs(v);if(a>=1e6)return (a/1e6).toFixed(2).replace(/0$/,'').replace(/\.0?$/,'')+'M';
+      if(a>=1e4)return String(Math.round(a/1e3))+'k';if(a>=1e3)return (a/1e3).toFixed(1)+'k';return String(Math.round(a));};
+    var USD=function(v){return ((v<0)?'-$':'$')+Math.round(Math.abs(v)).toLocaleString();};
+    // what the saved test says, read out of the fixture itself
+    var POOL=sN*M, DDW=Math.abs(B.max_drawdown)*M, MARW=(POOL/B.years)/DDW, WRW=100*B.wins/B.trades;
+    var LW2=lite(FIXW), LBK2=lite(FIXBK);
+    var NOBID=String(+FIXB.id+900001);
+    // the same run WITHOUT the saved test (the regression control), and a second run that never
+    //   saved one (so the two can be picked together)
+    var NOBLK=(function(){var x=clone(FIXW);delete x.validate.wf_oos;return lite(x);})();
+    var NOB=(function(){var x=clone(FIXB);x.id=NOBID;x.strategy='ZNOBLK_1_0.py';x.starred=false;return lite(x,NOBID);})();
+    var MM2=(function(){var x=clone(FIXW);x.validate.wf_oos.trades=x.validate.wf_oos.trades+1;return lite(x);})();
+    var PN2=(function(){var x=clone(FIXW);x.validate.wf_oos.profit_factor=null;x.validate.wf_oos.gross_loss=0;return lite(x);})();
+    var NW2=(function(){var x=clone(FIXW),b=x.validate.wf_oos;b.years=null;b.from=null;b.to=null;b.sharpe=null;b.sortino=null;
+      b.folds.forEach(function(f){f.from=null;f.to=null;});return lite(x);})();
+    var MAR3={};
+
+    // ── P0b: a job that backfills the test must not leave an open report saying "not saved" ──
+    (function(){var det='';
+      try{
+        w.__pjW=JSON.stringify(FIXW);w.__pjN=JSON.stringify((function(){var x=clone(FIXW);delete x.validate.wf_oos;return x;})());
+        det=w.eval("(function(){var W=JSON.parse(window.__pjW),N=JSON.parse(window.__pjN);"
+          +"window._runFull={};window._runFullOrder=[];window._runCfg={};"
+          +"window._runFull[String(N.id)]=N;window._runFullOrder.push(String(N.id));window._runCfg[String(N.id)]=N;"
+          +"var dropped=_wfoDropStale([W]),gone=!window._runFull[String(W.id)],cfgGone=!window._runCfg[String(W.id)],ord=window._runFullOrder.length;"
+          +"window._runFull[String(W.id)]=W;var again=_wfoDropStale([W]),kept=!!window._runFull[String(W.id)];"
+          +"return JSON.stringify({dropped:dropped,gone:gone,cfgGone:cfgGone,ord:ord,again:again,kept:kept});})()");
+        var o=JSON.parse(det);
+        A('p0b a backfilled test drops the cached whole document; an unchanged one is kept','NEW',
+          o.dropped===1&&o.gone===true&&o.cfgGone===true&&o.ord===0&&o.again===0&&o.kept===true,det);
+      }catch(e){A('p0b a backfilled test drops the cached whole document; an unchanged one is kept','NEW',false,'threw: '+String(e&&e.message||e));}})();
+
+    // ── COMPARE beta, LEADERBOARD ────────────────────────────────────────────────────────
+    var p3=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'mar'},[LW2]);
+    var g1=famBig();MAR3.lead=g1?g1.v:null;
+    A('p3a LEADERBOARD walk-forward MAR is the saved test drawdown, exact','NEW',
+      clean2(p3)&&!!g1&&g1.v===MARW.toFixed(2),'call='+p3+' got '+(g1&&g1.v)+' want '+MARW.toFixed(2));
+    var note3=q('.c2-note').map(function(e){return norm(e.textContent);}).join(' || ');
+    A('p3c LEADERBOARD note says what walk-forward MAR is built on','NEW',
+      note3.indexOf('MAR uses the drawdown of the walk-forward folds')>=0&&note3.indexOf('no run summary carries')<0,note3.slice(-300));
+    var pillWf=titles2().filter(function(t){return t.indexOf('the walk-forward folds, each re-tuned on its own past')===0;});
+    A('p3c2 the walk-forward stage pill says what the stretch is','NEW',pillWf.length>=1,'n='+pillWf.length);
+    var p3b=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'rpy'},[LW2]);
+    var g2=famBig();
+    A('p3b LEADERBOARD walk-forward R / YR needs no saved split date','NEW',
+      clean2(p3b)&&!!g2&&/^[0-9]+\.[0-9]$/.test(g2.v)&&+g2.v>0,'got '+(g2&&g2.v)+' title='+(g2&&g2.t));
+    var p3d=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'mar'},[NOB]);
+    var g3=famBig();
+    A('p3d a run saved before the test dashes, and the dash says so','NEW',
+      clean2(p3d)&&!!g3&&g3.v==='—'&&g3.t.indexOf('saved before walk-forward detail was recorded')>=0
+      &&g3.t.indexOf('does not mark where the folds begin')<0,'got '+(g3&&g3.v)+' title='+(g3&&g3.t));
+    var p3e=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'mar'},[MM2]);
+    var g4=famBig();
+    A('p3e a test that disagrees with its folds is refused, and the dash says so','NEW',
+      clean2(p3e)&&!!g4&&g4.v==='—'&&g4.t.indexOf('does not match')>=0
+      &&!!(w._wfoBad&&Object.keys(w._wfoBad).length),'title='+(g4&&g4.t)+' bad='+JSON.stringify(Object.keys(w._wfoBad||{})));
+    var p3p=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'pf'},[PN2]);
+    var g5=famBig();
+    A('p3p no losing walk-forward trade: the profit factor dashes with its own reason','NEW',
+      clean2(p3p)&&!!g5&&g5.v==='—'&&g5.t.indexOf('No walk-forward trade lost')>=0,'got '+(g5&&g5.v)+' title='+(g5&&g5.t));
+
+    // ── COMPARE beta, the comparison table ───────────────────────────────────────────────
+    var p3f=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id)],c2Heat:false},[LW2]);
+    var T3=tbl2();
+    A('p3f the comparison table on walk-forward: money pooled, risk from the saved test, no ~','NEW',
+      clean2(p3f)&&!!T3.c['DRAWDOWN']
+      &&T3.c['NET'][0]===USD(POOL)&&T3.c['TRADES'][0]===sT.toLocaleString()
+      &&T3.c['DRAWDOWN'][0]==='$'+Math.round(DDW).toLocaleString()&&T3.c['MAR'][0]===MARW.toFixed(2)
+      &&T3.c['SHARPE'][0]===(+B.sharpe).toFixed(2)&&T3.c['PF'][0]===(+B.profit_factor).toFixed(2)
+      &&T3.c['WIN %'][0]===WRW.toFixed(1)+'%'&&T3.c['YEARS'][0]===(+B.years).toFixed(1)
+      &&[T3.c['DRAWDOWN'][0],T3.c['MAR'][0],T3.c['PF'][0]].every(function(s){return s.indexOf('~')<0;}),
+      'NET '+T3.c['NET']+' TR '+T3.c['TRADES']+' DD '+T3.c['DRAWDOWN']+' MAR '+T3.c['MAR']+' SH '+T3.c['SHARPE']
+      +' PF '+T3.c['PF']+' WR '+T3.c['WIN %']+' YRS '+T3.c['YEARS']+' want DD $'+Math.round(DDW).toLocaleString()+' MAR '+MARW.toFixed(2));
+    var p3q=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id)],c2Heat:false},[NW2]);
+    var TN=tbl2();
+    A('p3q a test with no saved window: the drawdown stands, MAR, years and Sharpe dash with the reason','NEW',
+      clean2(p3q)&&!!TN.c['MAR']&&TN.c['DRAWDOWN'][0]==='$'+Math.round(DDW).toLocaleString()
+      &&TN.c['MAR'][0]==='—'&&TN.c['YEARS'][0]==='—'&&TN.c['SHARPE'][0]==='—'
+      &&(TN.t['MAR'][0]||'').indexOf('window dates are not saved')>=0
+      &&(TN.t['SHARPE'][0]||'').indexOf('window dates were not saved')>=0,
+      'DD '+TN.c['DRAWDOWN']+' MAR '+TN.c['MAR']+' / '+TN.t['MAR']+' YRS '+TN.c['YEARS']+' SH '+TN.t['SHARPE']);
+    var mdiff=[];
+    ['full','is','lb'].forEach(function(st){
+      var a=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:st,cmpIds:[String(FIXW.id)],c2Heat:false},[LW2]);
+      var ta=JSON.stringify(tbl2());
+      var b=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:st,cmpIds:[String(FIXW.id)],c2Heat:false},[NOBLK]);
+      var tb=JSON.stringify(tbl2());
+      if(a!=='OK'||b!=='OK'||ta.length<200||ta!==tb)mdiff.push(st+(ta===tb?' (render '+a+'/'+b+')':' differs'));});
+    A('p3g the whole-run, tuning and lockbox tables are untouched by the saved test','NOREG',!mdiff.length,mdiff.join(' ; '));
+
+    // ── COMPARE beta, the chart ──────────────────────────────────────────────────────────
+    var p3h=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id)]},[LW2]);
+    var SS=w._cmpEqxSeries||[],S1=SS[0]||{};
+    A('p3h the chart draws the test own curve: dashed end to end, its own dates, no trade list','NEW',
+      clean2(p3h)&&SS.length===1&&S1.wfi===0&&S1.li===null&&S1.blot===null&&!S1.wfFolds&&!S1.wfInfo
+      &&Array.isArray(S1.span)&&S1.span[0]===B.from&&S1.span[1]===B.to
+      &&Array.isArray(S1.eq)&&S1.eq.length===B.equity.length+1&&S1.eq[0]===0
+      &&anyText('DASHED = WALK-FORWARD FOLDS, JOINED END TO END'),
+      'n='+SS.length+' wfi='+S1.wfi+' li='+S1.li+' blot='+JSON.stringify(S1.blot)+' span='+JSON.stringify(S1.span)
+      +' eq0='+(S1.eq&&S1.eq[0])+' len='+(S1.eq&&S1.eq.length));
+    A('p3h2 the note says how that curve is drawn and what its drawdown pane can hide','NEW',
+      anyText('joined end to end and spaced evenly by trade')&&anyText('can look shallower than the DRAWDOWN row'),'');
+    var p3i=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id),NOBID]},[LW2,NOB]);
+    var NC3=w._cmpEqxNoCurve||[];
+    A('p3i a picked run with no saved test is listed beside the chart, never drawn as its whole run','NEW',
+      clean2(p3i)&&(w._cmpEqxSeries||[]).length===1&&NC3.length===1&&NC3[0].why==='no walk-forward curve saved'
+      &&anyText('no walk-forward curve saved'),
+      'series='+(w._cmpEqxSeries||[]).length+' noCurve='+JSON.stringify(NC3));
+    var p3i2=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[NOBID]},[NOB]);
+    var S2=(w._cmpEqxSeries||[])[0]||{};
+    A('p3i2 with no saved test at all the whole-run chart stays, and says so','NEW',
+      clean2(p3i2)&&(w._cmpEqxSeries||[]).length===1&&!S2.span&&!!(S2.blot&&S2.blot.run_id)
+      &&anyText('None of these runs saved a walk-forward curve, so the whole run is shown.'),
+      'span='+JSON.stringify(S2.span)+' blot='+!!S2.blot);
+
+    // ── PICK RUNS (hosted) ───────────────────────────────────────────────────────────────
+    var p3j=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(FIXW.id)]},[LW2]);
+    var TP=tbl2();
+    A('p3j PICK RUNS on walk-forward carries the saved test rows','NEW',
+      clean2(p3j)&&!!TP.c['WF drawdown']&&TP.c['WF drawdown'][0]===AB$(DDW)
+      &&TP.c['WF MAR'][0]===MARW.toFixed(2)&&TP.c['WF Sharpe'][0]===(+B.sharpe).toFixed(2)
+      &&TP.c['WF Sortino'][0]===(+B.sortino).toFixed(2)&&TP.c['WF PF'][0]===(+B.profit_factor).toFixed(2)
+      &&TP.c['WF win %'][0]===Math.round(WRW)+'%'&&!TP.c['Pooled fold PF'],
+      'DD '+TP.c['WF drawdown']+' MAR '+TP.c['WF MAR']+' SH '+TP.c['WF Sharpe']+' SO '+TP.c['WF Sortino']
+      +' PF '+TP.c['WF PF']+' WR '+TP.c['WF win %']+' oldPF='+!!TP.c['Pooled fold PF']);
+    var p3k=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(FIXW.id),NOBID]},[LW2,NOB]);
+    var bd=bestOn('WF drawdown')||[],bm=bestOn('WF MAR')||[];
+    A('p3k a missing walk-forward figure sinks in the order, never wins the row','NEW',
+      clean2(p3k)&&bd.length===2&&bm.length===2
+      &&bd.filter(function(o){return o.v==='—';}).length===1
+      &&bd.filter(function(o){return o.best;}).length===1&&!bd.filter(function(o){return o.v==='—';})[0].best
+      &&bm.filter(function(o){return o.best;}).length===1&&!bm.filter(function(o){return o.v==='—';})[0].best,
+      'DD '+JSON.stringify(bd)+' MAR '+JSON.stringify(bm));
+
+    // ── RUNBOARD (hosted) ────────────────────────────────────────────────────────────────
+    var p3l=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[LW2]);
+    var TR=tbl2();MAR3.board=TR.c['MAR']?TR.c['MAR'][0]:null;
+    A('p3l RUNBOARD walk-forward: real panels, pooled money, the saved test risk figures','NEW',
+      clean2(p3l)&&!!d.querySelector('#cmp-ovl-host')&&q('[data-rbrow]').length===1&&!!TR.c['MAR']
+      &&TR.c['TOTAL'][0]===AB$(POOL)&&TR.c['DD'][0]===AB$(DDW)&&TR.c['MAR'][0]===MARW.toFixed(2)
+      &&TR.c['SHARPE'][0]===(+B.sharpe).toFixed(2)&&TR.c['PF'][0]===(+B.profit_factor).toFixed(2)
+      &&TR.c['WIN %'][0]===Math.round(WRW)+'%'&&TR.c['TRADES'][0]===sT.toLocaleString()
+      &&TR.c['WINDOW'][0].indexOf(B.from)===0&&TR.c['WINDOW'][0].indexOf((+B.years).toFixed(1)+'y')>0
+      &&anyText('BOOKS HAVE NO WALK-FORWARD STAGE')&&!anyText('RUNBOARD HAS NO WALK-FORWARD STAGE'),
+      'host='+!!d.querySelector('#cmp-ovl-host')+' rows='+q('[data-rbrow]').length+' TOTAL '+TR.c['TOTAL']
+      +' DD '+TR.c['DD']+' MAR '+TR.c['MAR']+' SH '+TR.c['SHARPE']+' PF '+TR.c['PF']+' WR '+TR.c['WIN %']
+      +' TR '+TR.c['TRADES']+' WINDOW '+TR.c['WINDOW']);
+    var fn=(w._cmpEqxSeries||[])[0]||{};
+    A('p3l2 the RUNBOARD funnel draws that same curve, with no lockbox door','NEW',
+      Array.isArray(fn.eq)&&fn.eq.length===B.equity.length+1&&fn.eq[0]===0&&fn.wfi===0&&fn.li===null
+      &&fn.blot===null&&Array.isArray(fn.span)&&fn.span[0]===B.from,
+      'len='+(fn.eq&&fn.eq.length)+' wfi='+fn.wfi+' li='+fn.li+' span='+JSON.stringify(fn.span));
+    var p3m=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[LBK2]);
+    var TB=tbl2();
+    A('p3m a book on the walk-forward sample reads nothing, and says why','NEW',
+      clean2(p3m)&&!!TB.c['MAR']&&TB.c['TOTAL'][0]==='—'&&TB.c['DD'][0]==='—'&&TB.c['MAR'][0]==='—'
+      &&TB.c['SHARPE'][0]==='—'&&(TB.t['MAR'][0]||'').indexOf('book tunes nothing')>=0,
+      'TOTAL '+TB.c['TOTAL']+' DD '+TB.c['DD']+' MAR '+TB.c['MAR']+' title='+(TB.t['MAR']&&TB.t['MAR'][0]));
+    var rdiff=[];
+    ['full','is','lb'].forEach(function(st){
+      var a=rend2({c2Screen:'cmp',c2View:'board',c2Stage:st,rbRank:'mar',rbHeat:false},[LW2]);
+      var ta=JSON.stringify(tbl2());
+      var b=rend2({c2Screen:'cmp',c2View:'board',c2Stage:st,rbRank:'mar',rbHeat:false},[NOBLK]);
+      var tb=JSON.stringify(tbl2());
+      if(a!=='OK'||b!=='OK'||ta.length<200||ta!==tb)rdiff.push(st+(ta===tb?' (render '+a+'/'+b+')':' differs'));});
+    A('p3n the RUNBOARD whole-run, tuning and lockbox grids are untouched by the saved test','NOREG',!rdiff.length,rdiff.join(' ; '));
+
+    // ── EXPLORE run rows ─────────────────────────────────────────────────────────────────
+    var EP=function(segs,extra){var o={c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:segs,
+      resAxis:'evr',resXAxis:'so',resCols:'all',c2Tbl:true};if(extra)Object.keys(extra).forEach(function(k){o[k]=extra[k];});return o;};
+    var p4a=rend2(EP(['wf']),[LW2]);
+    var R4=reRow(FIXW.id);MAR3.explore=R4?R4.v['MAR']:null;
+    A('p4a EXPLORE walk-forward alone: the saved test fills the row','NEW',
+      clean2(p4a)&&!!R4&&R4.v['DRAWDOWN']==='$'+ABR(DDW)&&R4.v['MAR']===MARW.toFixed(2)
+      &&R4.v['SHARPE']===(+B.sharpe).toFixed(2)&&R4.v['SORTINO']===(+B.sortino).toFixed(2)
+      &&R4.v['PF']===(+B.profit_factor).toFixed(2)&&R4.v['WIN %']===Math.round(WRW)+'%'
+      // this run saved no walk-forward split date at all, so a per-year figure here can only
+      //   come from the test's own window
+      &&/^[0-9]+\.[0-9]R$/.test(R4.v['R / YR']||'')&&/^[0-9]+\.[0-9]%$/.test(R4.v['ROC % / YR']||''),
+      'row='+JSON.stringify(R4&&R4.v)+' want DD $'+ABR(DDW)+' MAR '+MARW.toFixed(2)+' SO '+(+B.sortino).toFixed(2));
+    A('p3o one run, one walk-forward MAR on every screen','NEW',
+      MAR3.lead!=null&&MAR3.lead===MAR3.board&&MAR3.board===MAR3.explore,JSON.stringify(MAR3));
+    A('p4d the READ hover MAR is the ticked stretch own','NEW',
+      titles2().filter(function(t){return t.indexOf('READ:')===0&&t.indexOf('#'+FIXW.id)>=0;})
+        .some(function(t){return t.indexOf('MAR · walk-forward '+MARW.toFixed(2))>=0;}),
+      (titles2().filter(function(t){return t.indexOf('READ:')===0;})[0]||'(no READ hover)').slice(0,300));
+    // the long chart note lives on the PARALLEL chart (the one with an axis per measure)
+    var p4f=rend2(EP(['wf'],{resChart:'par'}),[LW2]);
+    A('p4f the chart note says where a run row walk-forward figures come from','NEW',
+      clean2(p4f)&&anyText('On walk-forward alone a run row carries them when its walk-forward detail was saved with the run')
+      &&anyText('on walk-forward plus lockbox the two are separate trade sequences'),
+      'call='+p4f+' note='+(titles2().filter(function(t){return t.indexOf('Every axis left of NET')>=0;})[0]||'(no note)').slice(-320));
+    // the chart, and the counts under it, must follow the saved test too: a run it fills is
+    //   PLOTTED, so the "not on this chart" tally drops it
+    var p4g1=rend2(EP(['wf']),[LW2]);var sh1=w._reShownN,sk1=w._reSkipN;
+    var p4g2=rend2(EP(['wf']),[NOBLK]);var sh2=w._reShownN,sk2=w._reSkipN;
+    A('p4g the chart plots a run the saved test fills, and the tally under it says so','NEW',
+      clean2(p4g1)&&clean2(p4g2)&&sk1===0&&sk2>=1&&sh1>=1,
+      'with the test shown='+sh1+' off='+sk1+' | without shown='+sh2+' off='+sk2);
+    var p4b=rend2(EP(['wf','lb']),[LW2]);var Rb=reRow(FIXW.id);
+    var p4b2=rend2(EP(['wf','lb']),[NOBLK]);var Rb2=reRow(FIXW.id);
+    A('p4b walk-forward plus lockbox keeps its honest dashes, now with the reason','NEW',
+      clean2(p4b)&&clean2(p4b2)&&!!Rb&&!!Rb2&&Rb.v['PF']===Rb2.v['PF']&&Rb.v['WIN %']===Rb2.v['WIN %']
+      &&Rb.v['DRAWDOWN']==='—'&&Rb.v['MAR']==='—'&&Rb.v['SHARPE']==='—'&&Rb.v['SORTINO']==='—'
+      &&Rb.t('SORTINO').indexOf('two separate trade sequences')>=0&&Rb.t('DRAWDOWN').indexOf('two separate trade sequences')>=0,
+      'PF '+Rb.v['PF']+'/'+Rb2.v['PF']+' WR '+Rb.v['WIN %']+'/'+Rb2.v['WIN %']+' DD '+Rb.v['DRAWDOWN']
+      +' SO '+Rb.v['SORTINO']+' why='+Rb.t('SORTINO').slice(0,120));
+    var ediff=[];
+    [['is'],['lb'],['is','wf'],['is','wf','lb']].forEach(function(sg){
+      var a=rend2(EP(sg),[LW2]);var ra=reRow(FIXW.id);
+      var b=rend2(EP(sg),[NOBLK]);var rb=reRow(FIXW.id);
+      if(a!=='OK'||b!=='OK'||!ra||!rb||JSON.stringify(ra.v)!==JSON.stringify(rb.v))ediff.push(sg.join('+'));});
+    A('p4c every other tick is untouched by the saved test','NOREG',!ediff.length,'differ on: '+ediff.join(', '));
+    var p4e=rend2(EP(['wf']),[NOB]);var Rn=reRow(NOBID);
+    A('p4e a run saved before the test says that, not that only a run carries one','NEW',
+      clean2(p4e)&&!!Rn&&Rn.v['SORTINO']==='—'&&Rn.v['DRAWDOWN']==='—'
+      &&Rn.t('SORTINO').indexOf('saved before walk-forward detail was recorded')>=0
+      &&Rn.t('SORTINO').indexOf('Only a run')<0,
+      'SO '+(Rn&&Rn.v['SORTINO'])+' why='+(Rn?Rn.t('SORTINO'):'(no row)'));
+
+    // ══ P5 - THE THREE STATES ONLY A SAVED TEST CAN REACH ═══════════════════════════════
+    //    A test that took NO TRADES, a test with NO WINDOW on a run that does carry a
+    //    tuning-split date, and the rounding gap between a saved average loss and a saved
+    //    profit factor. Each one used to read differently on different screens.
+    // the RUNBOARD grid marks its best cell with a <b> inside the cell, not with a cell style
+    function mark2(lab){var tr=q('tr').filter(function(t){return norm((t.children[0]||{}).textContent)===lab;})[0];
+      if(!tr)return [];return Array.prototype.slice.call(tr.children).slice(1).map(function(td){
+        var s=td.querySelector('[title]');
+        return {v:norm(td.textContent),best:(/font-weight:\s*(700|800|bold)/.test(td.getAttribute('style')||'')||!!td.querySelector('b')),
+          t:(s?(s.getAttribute('title')||''):(td.getAttribute('title')||''))};});}
+    var LOCKWD='took no trades in the lockbox', FOLDWD='took no trades in the walk-forward folds';
+    // a test that took no trades, in the shape the engine writes one: 0 trades, $0, a 0.0
+    //   drawdown, no ratios, no curve - and fold rows that agree with it, so the check accepts it
+    var ZERID=String(+FIXB.id+900002);
+    var ZER=(function(){var x=clone(FIXW),b=x.validate.wf_oos;
+      x.id=ZERID;x.strategy='ZZEROWF_1_0.py';x.starred=false;
+      (x.top10_results||[]).forEach(function(f){if(f&&f.fold!=null){f.oos_trades=0;f.oos_pnl=0;f.oos_wins=0;f.oos_pf=null;}});
+      b.trades=0;b.wins=0;b.win_rate=null;b.net=0.0;b.gross_win=0;b.gross_loss=0;b.profit_factor=null;
+      b.avg_win=null;b.avg_loss=null;b.max_drawdown=0.0;b.sharpe=null;b.sortino=null;b.equity=[];b.equity_n=0;
+      b.fold_idx=[];(b.folds||[]).forEach(function(f){f.trades=0;f.net=0;});
+      return lite(x,ZERID);})();
+    // a test with no window dates on a run that DOES carry a tuning-split date - the window the
+    //   folds cover is unknown, and the split window is a longer stretch than they cover
+    var WSP=(function(){var x=clone(FIXW),b=x.validate.wf_oos;
+      x.validate.windows.wf_split='2014-01-01';
+      b.years=null;b.from=null;b.to=null;b.sharpe=null;b.sortino=null;
+      (b.folds||[]).forEach(function(f){f.from=null;f.to=null;});return lite(x);})();
+    // a test in which NO walk-forward trade lost: no profit factor, no gross loss, no average loss
+    var NLS=(function(){var x=clone(FIXW),b=x.validate.wf_oos;
+      b.wins=b.trades;b.win_rate=100;b.profit_factor=null;b.gross_win=b.net;b.gross_loss=0;b.avg_loss=null;
+      return lite(x);})();
+    // the expectancy the saved test's OWN figures imply - the number every screen must print
+    var EVR=(1-(+B.wins/+B.trades))*(+B.profit_factor-1), RPY=EVR*(+B.trades)/(+B.years);
+
+    // ── a walk-forward that took no trades ───────────────────────────────────────────────
+    var p5a=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'dd',rbHeat:false},[LW2,ZER]);
+    var Zdd=mark2('DD'),Ztot=mark2('TOTAL'),Zpf=mark2('PF'),Ztr=mark2('TRADES');
+    var Zz=function(a){return a.filter(function(o){return o.v==='—';});};
+    // (R5) the pooled $0 is a reading, printed and never the best; the drawdown and the ratios still dash
+    A('p5a RUNBOARD: a walk-forward that took no trades prints its $0, dashes its drawdown, and neither can win a row','NEW',
+      clean2(p5a)&&Zdd.length===2&&Ztot.length===2&&Zz(Zdd).length===1&&Zz(Ztot).length===0&&Zz(Zpf).length===1
+      &&Ztot.filter(function(o){return o.v==='$0'&&!o.best;}).length===1
+      &&Zdd.filter(function(o){return o.best;}).length===1&&!Zz(Zdd)[0].best
+      &&Zdd.filter(function(o){return o.best;})[0].v===AB$(DDW)
+      &&Zz(Zdd)[0].t.indexOf(FOLDWD)>=0
+      &&Ztr.filter(function(o){return o.v==='0';}).length===1,
+      'DD '+JSON.stringify(Zdd)+' TOTAL '+JSON.stringify(Ztot)+' PF '+JSON.stringify(Zpf.map(function(o){return o.v;}))
+      +' TRADES '+JSON.stringify(Ztr.map(function(o){return o.v;})));
+    // the grid's own column headings carry the rank strip ('R1 · #306'), in rank order
+    var rnk=q('th').map(function(e){return norm(e.textContent);}).filter(function(t){return /R[0-9]+ · #/.test(t);});
+    A('p5a2 RUNBOARD: ranked on drawdown, the run that never traded the folds is not first','NEW',
+      clean2(p5a)&&rnk.length===2&&rnk[0].indexOf('#'+FIXW.id)>=0&&rnk[1].indexOf('#'+ZERID)>=0,
+      JSON.stringify(rnk));
+    var p5b=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(FIXW.id),ZERID]},[LW2,ZER]);
+    var Pdd=bestOn('WF drawdown')||[],Pnet=bestOn('WF net $ (out-of-sample)')||[];
+    A('p5b PICK RUNS: the same run dashes on walk-forward drawdown and prints its $0 walk-forward money, never as the best','NEW',
+      clean2(p5b)&&Pdd.length===2&&Pnet.length===2
+      &&Pdd.filter(function(o){return o.v==='—';}).length===1&&Pnet.filter(function(o){return o.v==='—';}).length===0
+      &&Pdd.filter(function(o){return o.best;}).length===1&&!Pdd.filter(function(o){return o.v==='—';})[0].best
+      &&Pnet.filter(function(o){return o.v==='$0'&&!o.best;}).length===1,
+      'DD '+JSON.stringify(Pdd)+' NET '+JSON.stringify(Pnet));
+    var p5c=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[ZERID],c2Heat:false},[ZER]);
+    var TZ=tbl2();
+    A('p5c the comparison table prints the $0 and the 0 trades of a walk-forward that took no trades and dashes the rest','NEW',
+      clean2(p5c)&&!!TZ.c['DRAWDOWN']&&TZ.c['NET'][0]==='$0'&&TZ.c['DRAWDOWN'][0]==='—'&&TZ.c['MAR'][0]==='—'
+      &&TZ.c['PF'][0]==='—'&&TZ.c['EV R'][0]==='—'&&TZ.c['TRADES'][0]==='0',
+      'NET '+TZ.c['NET']+' DD '+TZ.c['DRAWDOWN']+' MAR '+TZ.c['MAR']+' PF '+TZ.c['PF']+' EVR '+TZ.c['EV R']+' TR '+TZ.c['TRADES']);
+    A('p5c2 and it says the folds, not the lockbox, on every one of those hovers','NEW',
+      ['DRAWDOWN','MAR','PF','WIN %','EV R','R / YR'].every(function(k){
+        var t=(TZ.t[k]&&TZ.t[k][0])||'';return t.indexOf(FOLDWD)>=0&&t.indexOf(LOCKWD)<0;}),
+      ['DRAWDOWN','MAR','PF','EV R'].map(function(k){return k+'="'+((TZ.t[k]&&TZ.t[k][0])||'')+'"';}).join(' | '));
+    var p5c3=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'mar'},[ZER]);
+    var gz=famBig();
+    A('p5c3 the LEADERBOARD gives that run the same sentence','NEW',
+      clean2(p5c3)&&!!gz&&gz.v==='—'&&gz.t.indexOf(FOLDWD)>=0,'got '+(gz&&gz.v)+' title='+(gz&&gz.t));
+    var p5c4=rend2(EP(['wf']),[ZER]);var Rz=reRow(ZERID);
+    A('p5c4 the EXPLORE row keeps its own zero-trade dashes beside them','NOREG',
+      clean2(p5c4)&&!!Rz&&Rz.v['DRAWDOWN']==='—'&&Rz.v['MAR']==='—'&&Rz.v['PF']==='—'
+      &&Rz.t('MAR').indexOf('took no trades')>=0,
+      'row='+JSON.stringify(Rz&&Rz.v)+' why='+(Rz?Rz.t('MAR'):'(no row)'));
+
+    // ── a test with no saved window, on a run that has a tuning-split date ───────────────
+    var p5d=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'mar'},[WSP]);
+    var gw=famBig();
+    A('p5d the LEADERBOARD does not annualise a windowless test on the tuning-split window','NEW',
+      clean2(p5d)&&!!gw&&gw.v==='—'&&gw.t.indexOf('window dates are not saved')>=0,
+      'got '+(gw&&gw.v)+' title='+(gw&&gw.t));
+    var p5d2=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[WSP]);
+    var TW=tbl2();
+    A('p5d2 the RUNBOARD dashes its MAR and its window, and keeps the folds own drawdown','NEW',
+      clean2(p5d2)&&!!TW.c['MAR']&&TW.c['MAR'][0]==='—'&&TW.c['WINDOW'][0]==='—'
+      &&TW.c['DD'][0]===AB$(DDW)&&(TW.t['MAR'][0]||'').indexOf('window dates are not saved')>=0,
+      'MAR '+TW.c['MAR']+' WINDOW '+TW.c['WINDOW']+' DD '+TW.c['DD']+' why='+(TW.t['MAR']&&TW.t['MAR'][0]));
+    var p5d3=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(FIXW.id)]},[WSP]);
+    var TP2=tbl2();
+    A('p5d3 PICK RUNS dashes the same MAR','NEW',
+      clean2(p5d3)&&!!TP2.c['WF MAR']&&TP2.c['WF MAR'][0]==='—'&&TP2.c['WF drawdown'][0]===AB$(DDW),
+      'MAR '+TP2.c['WF MAR']+' DD '+TP2.c['WF drawdown']);
+    var p5d4=rend2(EP(['wf']),[WSP]);var Rw=reRow(FIXW.id);
+    A('p5d4 the EXPLORE row dashes MAR, R / YR and ROC with the window as the reason','NEW',
+      clean2(p5d4)&&!!Rw&&Rw.v['MAR']==='—'&&Rw.v['R / YR']==='—'&&Rw.v['ROC % / YR']==='—'
+      &&Rw.v['DRAWDOWN']==='$'+ABR(DDW)
+      &&Rw.t('MAR').indexOf('window dates are not saved')>=0
+      &&Rw.t('MAR').indexOf('records no date window')<0,
+      'row='+JSON.stringify(Rw&&Rw.v)+' why='+(Rw?Rw.t('MAR'):'(no row)'));
+
+    // ── one expectancy, from the test's own figures, on both screens ─────────────────────
+    var p5e=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id)],c2Heat:false},[LW2]);
+    var TE=tbl2();
+    var p5e2=rend2(EP(['wf']),[LW2]);var Re=reRow(FIXW.id);
+    A('p5e EV R and R / YR are the saved test own figures on the table and on the run row alike','NEW',
+      clean2(p5e)&&clean2(p5e2)&&!!TE.c['EV R']&&!!Re
+      &&TE.c['EV R'][0]===EVR.toFixed(2)&&TE.c['R / YR'][0]===RPY.toFixed(1)
+      &&Re.v['EV R']===EVR.toFixed(2)+'R'&&Re.v['R / YR']===RPY.toFixed(1)+'R',
+      'table EVR '+TE.c['EV R']+' RPY '+TE.c['R / YR']+' | row EVR '+(Re&&Re.v['EV R'])+' RPY '+(Re&&Re.v['R / YR'])
+      +' | want '+EVR.toFixed(2)+' / '+RPY.toFixed(1));
+    var p5f=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[String(FIXW.id)],c2Heat:false},[NLS]);
+    var TL=tbl2();
+    var p5f2=rend2(EP(['wf']),[NLS]);var Rl=reRow(FIXW.id);
+    A('p5f no losing walk-forward trade: no expectancy in R on either screen','NEW',
+      clean2(p5f)&&clean2(p5f2)&&!!TL.c['EV R']&&!!Rl
+      &&TL.c['EV R'][0]==='—'&&TL.c['R / YR'][0]==='—'&&TL.c['PF'][0]==='—'
+      &&Rl.v['EV R']==='—'&&Rl.v['R / YR']==='—'&&Rl.v['PF']==='—',
+      'table EVR '+TL.c['EV R']+' RPY '+TL.c['R / YR']+' PF '+TL.c['PF']
+      +' | row EVR '+(Rl&&Rl.v['EV R'])+' RPY '+(Rl&&Rl.v['R / YR'])+' PF '+(Rl&&Rl.v['PF']));
+
+    // ══ R5 - A WALK-FORWARD THAT TOOK NO TRADES: ONE READING ON EVERY SCREEN ════════════════
+    //    The run comes from the engine's own block helper (tools/make_wfoos_zero_fixture.py):
+    //    every fold tested no trade, so the saved test is trades 0, net 0.0, max_drawdown 0.0 and
+    //    no profit factor, Sharpe, Sortino or curve. Its pooled NET ($0) and TRADES (0) are real
+    //    readings on every screen; every ratio, the drawdown and $ per trade dash with ONE
+    //    sentence; neither the $0 nor the empty drawdown takes a best mark or a heat shade; and
+    //    ranked on drawdown or MAR it sorts after the runs that traded.
+    var ZWD='This run took no trades in the walk-forward folds.';
+    var FZB=FIXZ.validate.wf_oos, ZID=String(FIXZ.id), NGID=String(+FIXZ.id+1);
+    var FZL=(FIXZ.top10_results||[]).filter(function(f){return f&&f.fold!=null;});
+    var LZ=lite(FIXZ), DZ=full(FIXZ);
+    // a run that traded the folds and LOST money over them, so a $0 is the largest net on the
+    //   row - the one place a $0 could steal a best mark it has no right to
+    var NEG=(function(){var x=clone(FIXW),b=x.validate.wf_oos;x.id=NGID;x.strategy='NEGWF_1_0.py';x.starred=false;
+      (x.top10_results||[]).forEach(function(f){if(f&&f.fold!=null)f.oos_pnl=-(+f.oos_pnl||0);});
+      b.net=-b.net;b.equity=b.equity.map(function(v){return -v;});(b.folds||[]).forEach(function(f){f.net=-f.net;});
+      return lite(x,NGID);})();
+    // one cell of a labelled row, for one run: its text, its reason hover, a best mark, a heat shade
+    function r5Row(lab){return q('tr').filter(function(t){return norm((t.children[0]||{}).textContent)===lab;})[0]||null;}
+    function r5Cell(lab,id){var tr=r5Row(lab);if(!tr)return null;
+      var td=tr.querySelector('td[data-rbc="'+id+'"]');
+      if(!td){var tb=tr.closest('table'),h0=tb?tb.querySelector('tr'):null,hd=h0?Array.prototype.slice.call(h0.children):[],k=-1;
+        hd.forEach(function(th,i){if(k<0&&i>0&&norm(th.textContent).indexOf('#'+id)>=0)k=i;});
+        td=(k>0)?tr.children[k]:null;}
+      if(!td)return null;var s=td.querySelector('[title]');
+      return {v:norm(td.textContent),t:(s?(s.getAttribute('title')||''):(td.getAttribute('title')||'')),
+        best:(/font-weight:\s*700/.test(td.getAttribute('style')||'')||!!td.querySelector('b')||!!td.querySelector('span[style*="font-weight:800"]')),
+        heat:/hsla\(/.test(td.getAttribute('style')||'')};}
+    function r5s(o){return o?(o.v+(o.best?' [best]':'')+(o.heat?' [heat]':'')+(o.t?(o.t===ZWD?' {ZWD}':(' {'+o.t.slice(0,46)+'}')):'')):'(no cell)';}
+    function r5Dash(o){return !!o&&o.v==='—'&&o.t===ZWD&&!o.best&&!o.heat;}
+    function r5v(o){return o?o.v:null;}
+
+    A('R5a the zero-trade run is the engine block, and the reader accepts it','NOREG',
+      String((FIXZ._fixture||{}).block_from||'').indexOf('engine analytics.wf_oos_block')===0
+      &&FZB.v===1&&FZB.trades===0&&FZB.net===0&&FZB.max_drawdown===0&&FZB.profit_factor===null
+      &&FZB.sharpe===null&&FZB.sortino===null&&Array.isArray(FZB.equity)&&FZB.equity.length===0
+      &&FZL.length===FZB.n_folds&&FZL.every(function(f){return +f.oos_trades===0&&+f.oos_pnl===0;})
+      &&H.chk(DZ).st==='ok'&&!!(H.of(DZ,M)&&H.of(DZ,M).zeroTr),
+      JSON.stringify({src:String((FIXZ._fixture||{}).block_from||'').slice(0,40),trades:FZB.trades,net:FZB.net,max_drawdown:FZB.max_drawdown,
+        pf:FZB.profit_factor,sharpe:FZB.sharpe,sortino:FZB.sortino,equity:(FZB.equity||[]).length,folds:FZL.length,state:H.chk(DZ).st}));
+
+    var OZ=H.of(DZ,M)||{};
+    A('R5b the reader: the $0 and the 0 trades are readings, the saved 0.0 drawdown is not','NEW',
+      OZ.poolNet===0&&OZ.tr===0&&OZ.dd===null&&OZ.mar===null&&OZ.pf===null&&OZ.wr===null&&OZ.sharpe===null&&OZ.sortino===null
+      &&H.why(DZ,'net')===''&&H.why(DZ,'ev')===ZWD&&H.why(DZ,'dd')===ZWD&&H.why(DZ,'mar')===ZWD&&H.why(DZ,'wr')===ZWD,
+      JSON.stringify({net:OZ.poolNet,trades:OZ.tr,dd:OZ.dd,mar:OZ.mar,whyNet:H.why(DZ,'net'),whyEv:H.why(DZ,'ev'),whyDd:H.why(DZ,'dd')}));
+
+    // ── LEADERBOARD: one family row per strategy, ranked on the picked figure ────────────────
+    function r5Fams(){return q('.c2-row[data-c2fam]').map(function(e){var b=e.querySelector('.c2-big');
+      return {txt:norm(e.textContent),v:b?norm(b.textContent):null,t:b?(b.getAttribute('title')||''):''};});}
+    function r5At(rows,id){for(var i=0;i<rows.length;i++){if((' '+rows[i].txt+' ').indexOf('#'+id+' ')>=0)return i;}return -1;}
+    var LEAD={};
+    ['net','mar','pf','rpy'].forEach(function(rk){var c=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:rk},[LW2,LZ,NEG]);
+      var fr=r5Fams(),iz=r5At(fr,ZID);LEAD[rk]={ok:clean2(c),n:fr.length,iz:iz,z:(iz>=0?fr[iz]:{v:null,t:''})};});
+    A('R5c LEADERBOARD: on NET the run reads $0; on MAR, PF and R / YR it dashes with the one sentence, and on MAR it sorts last','NEW',
+      ['net','mar','pf','rpy'].every(function(rk){return LEAD[rk].ok&&LEAD[rk].n===3&&LEAD[rk].iz>=0;})
+      &&LEAD.net.z.v==='$0'&&!LEAD.net.z.t
+      &&['mar','pf','rpy'].every(function(rk){return LEAD[rk].z.v==='—'&&LEAD[rk].z.t===ZWD;})
+      &&LEAD.mar.iz===2,
+      ['net','mar','pf','rpy'].map(function(rk){var o=LEAD[rk];return rk.toUpperCase()+' '+o.z.v+' (row '+(o.iz+1)+' of '+o.n+')'+(o.z.t?(o.z.t===ZWD?' {ZWD}':(' {'+o.z.t.slice(0,46)+'}')):'');}).join(' | '));
+
+    // ── comparison table: three picks (so a heat scale exists), then two (so a $0 would be the top net) ──
+    var t3=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[ZID,NGID,String(FIXW.id)],c2Heat:true},[LW2,LZ,NEG]);
+    var CT={};['NET','DRAWDOWN','MAR','SHARPE','PF','WIN %','EV R','R / YR','EV $','TRADES'].forEach(function(k){CT[k]=r5Cell(k,ZID);});
+    var CTw=r5Cell('NET',FIXW.id),CTg=r5Cell('NET',NGID);
+    var t2=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[ZID,NGID],c2Heat:true},[LZ,NEG]);
+    var C2={zNet:r5Cell('NET',ZID),gNet:r5Cell('NET',NGID),zDd:r5Cell('DRAWDOWN',ZID),gDd:r5Cell('DRAWDOWN',NGID)};
+    A('R5d comparison table: $0 and 0 trades print; the ratios, the drawdown and EV $ dash with the one sentence; no best mark or heat on the $0 or the drawdown','NEW',
+      clean2(t3)&&clean2(t2)&&!!CT.NET&&CT.NET.v==='$0'&&!CT.NET.best&&!CT.NET.heat&&!!CT.TRADES&&CT.TRADES.v==='0'
+      &&['DRAWDOWN','MAR','SHARPE','PF','WIN %','EV R','R / YR','EV $'].every(function(k){return r5Dash(CT[k]);})
+      &&!!CTw&&CTw.heat&&!!CTg&&CTg.heat
+      &&!!C2.zNet&&C2.zNet.v==='$0'&&!C2.zNet.best&&!C2.zNet.heat&&!!C2.gNet&&C2.gNet.best&&r5Dash(C2.zDd)&&!!C2.gDd&&C2.gDd.best,
+      'picks 3: '+['NET','DRAWDOWN','MAR','SHARPE','PF','WIN %','EV R','R / YR','EV $','TRADES'].map(function(k){return k+' '+r5s(CT[k]);}).join(' ; ')
+      +' || picks 2: NET '+r5s(C2.zNet)+' vs loser '+r5s(C2.gNet)+' ; DD '+r5s(C2.zDd)+' vs '+r5s(C2.gDd));
+
+    // ── PICK RUNS (hosted, walk-forward stage): beside a loser, then alone ───────────────────
+    var PKL=['WF net $ (out-of-sample)','WF drawdown','WF MAR','WF Sharpe','WF Sortino','WF PF','WF win %','OOS trades'];
+    var p2=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[ZID,NGID]},[LZ,NEG]);
+    var PK={};PKL.forEach(function(k){PK[k]=r5Cell(k,ZID);});var PKg=r5Cell(PKL[0],NGID);
+    var p1=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[ZID]},[LZ]);
+    var PK1={net:r5Cell(PKL[0],ZID),dd:r5Cell('WF drawdown',ZID),mar:r5Cell('WF MAR',ZID)};
+    A('R5e PICK RUNS: $0 and 0 OOS trades print, the $0 is never the best, the six ratio rows dash with the one sentence - alone too','NEW',
+      clean2(p2)&&clean2(p1)&&!!PK[PKL[0]]&&PK[PKL[0]].v==='$0'&&!PK[PKL[0]].best&&!!PKg&&PKg.best
+      &&!!PK['OOS trades']&&PK['OOS trades'].v==='0'
+      &&PKL.slice(1,7).every(function(k){return r5Dash(PK[k]);})
+      &&!!PK1.net&&PK1.net.v==='$0'&&!PK1.net.best&&r5Dash(PK1.dd)&&r5Dash(PK1.mar),
+      PKL.map(function(k){return k.replace(' (out-of-sample)','')+' '+r5s(PK[k]);}).join(' ; ')+' | loser net '+r5s(PKg)
+      +' || alone: net '+r5s(PK1.net)+' ; DD '+r5s(PK1.dd)+' ; MAR '+r5s(PK1.mar));
+
+    // ── RUNBOARD walk-forward sample: ranked on DD, MAR and NET, heat on ─────────────────────
+    var RB={};
+    ['dd','mar','net'].forEach(function(rk){var c=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:rk,rbHeat:true},[LW2,LZ,NEG]);
+      var cols=q('th').map(function(e){return norm(e.textContent);}).filter(function(t){return /R[0-9]+ · #/.test(t);});
+      // a column heading runs the run number straight into the family alias ('R2 · #306NOISE-22')
+      RB[rk]={ok:clean2(c),n:cols.length,iz:cols.map(function(t){return new RegExp('#'+ZID+'(?![0-9])').test(t);}).indexOf(true)};
+      if(rk==='dd'){['TOTAL','DD','MAR','SHARPE','PF','WIN %','EV','TRADES'].forEach(function(k){RB[k]=r5Cell(k,ZID);});
+        RB.wTot=r5Cell('TOTAL',FIXW.id);RB.gTot=r5Cell('TOTAL',NGID);}});
+    var r2=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'net',rbHeat:true},[LZ,NEG]);
+    RB.z2=r5Cell('TOTAL',ZID);RB.g2=r5Cell('TOTAL',NGID);
+    A('R5f RUNBOARD WF: TOTAL $0 and TRADES 0 print without a mark or a shade; DD, MAR, SHARPE, PF, WIN % and EV dash with the one sentence; last on DD and MAR','NEW',
+      RB.dd.ok&&RB.mar.ok&&RB.net.ok&&clean2(r2)&&RB.dd.n===3&&RB.dd.iz===2&&RB.mar.iz===2
+      &&!!RB.TOTAL&&RB.TOTAL.v==='$0'&&!RB.TOTAL.best&&!RB.TOTAL.heat&&!!RB.wTot&&RB.wTot.heat&&!!RB.gTot&&RB.gTot.heat
+      &&['DD','MAR','SHARPE','PF','WIN %','EV'].every(function(k){return r5Dash(RB[k]);})
+      &&!!RB.TRADES&&RB.TRADES.v==='0'
+      &&!!RB.z2&&RB.z2.v==='$0'&&!RB.z2.best&&!RB.z2.heat&&!!RB.g2&&RB.g2.best,
+      'column on DD '+(RB.dd.iz+1)+'/'+RB.dd.n+', on MAR '+(RB.mar.iz+1)+'/'+RB.mar.n+', on NET '+(RB.net.iz+1)+'/'+RB.net.n+' ; '
+      +['TOTAL','DD','MAR','SHARPE','PF','WIN %','EV','TRADES'].map(function(k){return k+' '+r5s(RB[k]);}).join(' ; ')
+      +' || beside a loser: TOTAL '+r5s(RB.z2)+' vs '+r5s(RB.g2));
+
+    // ── EXPLORE run rows, walk-forward ticked alone, ranked on DRAWDOWN and on MAR ───────────
+    var EX={};
+    [['dd','dd'],['ratio','mar']].forEach(function(p){var c=rend2(EP(['wf'],{resAxis:p[0]}),[LW2,LZ]);
+      EX[p[1]]={ok:clean2(c),z:reRow(ZID),w:reRow(FIXW.id)};});
+    var ez=EX.dd.z,ew=EX.dd.w,wk=ez?(Object.keys(ez.v).filter(function(k){return /^WALK/.test(k);})[0]||null):null;
+    var EXL=['DRAWDOWN','MAR','SHARPE','SORTINO','PF','WIN %','EV R','R / YR'];
+    A('R5g EXPLORE walk-forward tick: WALK-FWD $0 and TRADES 0 print; every ratio and the drawdown dash with the one sentence; unranked on DRAWDOWN and MAR','NEW',
+      EX.dd.ok&&EX.mar.ok&&!!ez&&!!ew&&!!wk&&ez.v[wk]==='$0'&&ez.v['TRADES']==='0'
+      &&EXL.every(function(k){return ez.v[k]==='—'&&ez.t(k)===ZWD;})
+      &&ez.v['RANK']==='—'&&ez.t('RANK')===ZWD&&ew.v['RANK']==='1'
+      &&!!EX.mar.z&&!!EX.mar.w&&EX.mar.z.v['RANK']==='—'&&EX.mar.w.v['RANK']==='1',
+      (ez?(wk+' '+ez.v[wk]+' ; TRADES '+ez.v['TRADES']+' ; '+EXL.concat(['RANK']).map(function(k){var t=ez.t(k);return k+' '+ez.v[k]+(t?(t===ZWD?' {ZWD}':(' {'+t.slice(0,22)+'}')):'');}).join(' ; ')):'(no zero row)')
+      +' || rank on DD: traded '+(ew?ew.v['RANK']:'?')+', on MAR: zero '+(EX.mar.z?EX.mar.z.v['RANK']:'?')+' traded '+(EX.mar.w?EX.mar.w.v['RANK']:'?'));
+
+    // ── run report 1C chips (the report hydrates the whole document) ─────────────────────────
+    var cR5=render({},[LZ],[DZ],FIXZ.id); clean('zero-engine',cR5);
+    function r5Chip(lbl){var e=q('[data-wfochips] > span').filter(function(x){return norm(x.textContent).indexOf(lbl+' ')===0;})[0];
+      return e?{v:norm(e.textContent).slice(lbl.length+1),t:e.getAttribute('title')||''}:null;}
+    var K1={};['NET','PF','MAX DD','MAR / YR','SHARPE','SORTINO','WIN %','TRADES'].forEach(function(l){K1[l]=r5Chip(l);});
+    A('R5h run report 1C: NET $0 and TRADES 0; PF, MAX DD, MAR, Sharpe, Sortino and win % dash with the one sentence','NEW',
+      q('[data-wfocurve]').length===0&&!!K1.NET&&K1.NET.v==='$0'&&!K1.NET.t&&!!K1.TRADES&&K1.TRADES.v==='0'
+      &&['PF','MAX DD','MAR / YR','SHARPE','SORTINO','WIN %'].every(function(l){return !!K1[l]&&K1[l].v==='—'&&K1[l].t===ZWD;})
+      &&txt('[data-wfowhy]').join(' ').indexOf('took no trades in the walk-forward folds')>=0,
+      Object.keys(K1).map(function(l){var o=K1[l];return l+' '+(o?(o.v+(o.t?(o.t===ZWD?' {ZWD}':(' {'+o.t.slice(0,40)+'}')):'')):'(no chip)');}).join(' ; ')
+      +' || why: '+txt('[data-wfowhy]').join(' | ').slice(0,90));
+
+    // ── the one reading, screen by screen ────────────────────────────────────────────────────
+    var R5N={lead:LEAD.net.z.v,table:r5v(CT.NET),pick:r5v(PK[PKL[0]]),board:r5v(RB.TOTAL),explore:(ez&&wk)?ez.v[wk]:null,report:r5v(K1.NET)};
+    var R5T={table:r5v(CT.TRADES),pick:r5v(PK['OOS trades']),board:r5v(RB.TRADES),explore:ez?ez.v['TRADES']:null,report:r5v(K1.TRADES)};
+    var R5D={lead:(LEAD.mar.z.v==='—'&&LEAD.mar.z.t===ZWD),table:r5Dash(CT.DRAWDOWN),pick:r5Dash(PK['WF drawdown']),board:r5Dash(RB.DD),
+      explore:!!(ez&&ez.v['DRAWDOWN']==='—'&&ez.t('DRAWDOWN')===ZWD),report:!!(K1['MAX DD']&&K1['MAX DD'].v==='—'&&K1['MAX DD'].t===ZWD)};
+    A('R5z one reading on all six screens: net $0, trades 0, drawdown dashed with the one sentence','NEW',
+      Object.keys(R5N).every(function(k){return R5N[k]==='$0';})&&Object.keys(R5T).every(function(k){return R5T[k]==='0';})
+      &&Object.keys(R5D).every(function(k){return R5D[k]===true;}),
+      JSON.stringify({net:R5N,trades:R5T,ddDashed:R5D}));
+
+    // ══ R5 SECOND ROUND - THE RUNBOARD WALK-FORWARD SAMPLE SAYS WHICH READING IT IS ════════════
+    //    The report has two walk-forward readings: its 1C WALK-FORWARD TEST chips and WF OOS pill
+    //    (every fold re-tuned, the unseen trades joined) and its 1E WF column (the champion held fixed
+    //    over those years). The RUNBOARD WF grid reads the first while calling itself 1E; it now says
+    //    so. And with no saved test curve to draw, its funnel (and the hosted PICK RUNS chart) no
+    //    longer claims the runs saved no equity curve and should be re-run.
+    var R6SRC='WF here is the walk-forward test: every fold re-tuned on its own past, its unseen trades joined in fold order. These are the figures the run report shows in its 1C WALK-FORWARD TEST chips and on its WF OOS pill - not its 1E WF column, which holds the champion fixed over those years and so reads different numbers.';
+    var R6EVOLD='EV = expected value: average net dollars per trade over the window this band names - net and trade count both read on that same window. The run-report 1E card carries the same row under the same name; it used to be called $ / TRADE.';
+    function r6Caps(){return q('td[colspan]').map(function(td){var s=td.querySelector('[title]');
+      return {v:norm(td.textContent),t:s?(s.getAttribute('title')||''):''};}).filter(function(o){return /^(return|reward ÷ risk) · /.test(o.v);});}
+    function r6Ev(){var s=q('span[title]').filter(function(e){return norm(e.textContent)==='EV'&&(e.getAttribute('title')||'').indexOf('EV = expected value')===0;})[0];
+      return s?(s.getAttribute('title')||''):null;}
+    function r6Info(){return infopops(/SAMPLE picks the stretch every figure is measured on/).join(' || ');}
+    function r6Src(){return q('[data-rbwfsrc]').map(function(e){return norm(e.textContent);});}
+
+    var r6a=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[LW2]);
+    var C6=r6Caps(),EV6=r6Ev(),IN6=r6Info(),SR6=r6Src(),TR6=tbl2();
+    var r6h=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false,rbOrient:'h'},[LW2]);
+    var TH6=q('table[data-rbhoriz] th[title]').map(function(e){return e.getAttribute('title')||'';});
+    var SR6h=r6Src();
+    A('R5m RUNBOARD WF grid names the walk-forward reading: the 1C WALK-FORWARD TEST chips and WF OOS pill, not the 1E WF column','NEW',
+      clean2(r6a)&&clean2(r6h)&&C6.length===2&&C6[0].v==='return · WF test'&&C6[1].v==='reward ÷ risk · WF test'
+      &&C6.every(function(o){return o.t===R6SRC;})
+      &&!!EV6&&EV6.indexOf('over the walk-forward test')>0&&EV6.indexOf(R6SRC)>0&&EV6.indexOf('carries the same row under the same name')<0
+      &&IN6.indexOf(R6SRC)>=0&&SR6.length===1&&SR6[0]===R6SRC
+      &&TH6.indexOf('return · WF test')>=0&&TH6.indexOf('reward ÷ risk · WF test')>=0&&SR6h.length===1
+      &&!!TR6.c['TOTAL']&&TR6.c['TOTAL'][0]===AB$(POOL)&&TR6.c['DD'][0]===AB$(DDW)&&TR6.c['MAR'][0]===MARW.toFixed(2),
+      'captions '+JSON.stringify(C6.map(function(o){return o.v+(o.t===R6SRC?' {SRC}':(o.t?' {'+o.t.slice(0,40)+'}':''));}))
+      +' | EV '+(EV6?EV6.slice(0,90):'(none)')+' | info has src '+(IN6.indexOf(R6SRC)>=0)+' | line '+SR6.length
+      +' | sideways heads '+TH6.filter(function(t){return / · /.test(t);}).join(', ')+' line '+SR6h.length
+      +' | TOTAL '+(TR6.c['TOTAL']||[])[0]+' DD '+(TR6.c['DD']||[])[0]+' MAR '+(TR6.c['MAR']||[])[0]);
+
+    var N6=[];
+    [['full','FULL'],['is','IS'],['lb','LB']].forEach(function(p){
+      var c=rend2({c2Screen:'cmp',c2View:'board',c2Stage:p[0],rbRank:'mar',rbHeat:false},[LW2]);
+      var cp=r6Caps(),ev=r6Ev(),inf=r6Info(),sr=r6Src();
+      var ok=clean2(c)&&cp.length===2&&cp[0].v==='return · '+p[1]&&cp[1].v==='reward ÷ risk · '+p[1]&&cp.every(function(o){return !o.t;})
+        &&ev===R6EVOLD&&inf.length>0&&inf.indexOf('WF OOS pill')<0&&sr.length===0;
+      if(!ok)N6.push(p[1]+': call '+c+' captions '+JSON.stringify(cp)+' EV '+(ev===R6EVOLD?'(unchanged)':String(ev).slice(0,60))+' info '+inf.length+' line '+sr.length);});
+    A('R5n RUNBOARD FULL, IS and LB keep their band captions, EV hover and info box word for word','NOREG',!N6.length,N6.join(' ; '));
+
+    // two runs that saved no walk-forward test: the no-block copy of the tested run, and a run saved before the test
+    function r6Empty(){var e=q('[data-rbwfnocurve]')[0];if(!e)return null;
+      return {head:norm((e.firstElementChild||{}).textContent),lines:Array.prototype.slice.call(e.children).slice(1).map(function(x){return norm(x.textContent);}),all:norm(e.textContent)};}
+    function r6EmptyOk(E){var ids=[String(FIXW.id),NOBID];
+      return !!E&&E.head==='None of the selected runs saved a walk-forward test curve, so there is no walk-forward line to draw.'
+        &&E.lines.length===2&&ids.every(function(id){return E.lines.filter(function(l){return l.indexOf('#'+id+' ')===0
+          &&l.indexOf('No walk-forward curve — this run was saved before walk-forward detail was recorded')>0;}).length===1;})
+        &&!anyText('saved an equity curve')&&!anyText('re-run them to record one');}
+    var r6o=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[NOBLK,NOB]);
+    var E6=r6Empty(),S6=(w._cmpEqxSeries||[]).length;
+    A('R5o RUNBOARD funnel, walk-forward sample, no saved test: says no run saved a walk-forward test curve and gives each run its reason','NEW',
+      clean2(r6o)&&S6===0&&r6EmptyOk(E6),
+      'series '+S6+' | '+(E6?(E6.head+' || '+E6.lines.join(' || ')):('(no walk-forward empty state) old message '+anyText('saved an equity curve'))));
+    var r6p=rend2({c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[String(FIXW.id),NOBID]},[NOBLK,NOB]);
+    var E6p=r6Empty(),S6p=(w._cmpEqxSeries||[]).length;
+    A('R5p hosted PICK RUNS chart, walk-forward stage, no saved test: the same walk-forward empty state','NEW',
+      clean2(r6p)&&S6p===0&&r6EmptyOk(E6p),
+      'series '+S6p+' | '+(E6p?(E6p.head+' || '+E6p.lines.join(' || ')):('(no walk-forward empty state) old message '+anyText('saved an equity curve'))));
+
+    var Q6=[];
+    [['board','full'],['runs','lb'],['runs','full']].forEach(function(p){
+      var pr={c2Screen:'cmp',c2View:p[0],c2Stage:p[1],rbRank:'mar',rbHeat:false};if(p[0]==='runs')pr.cmpIds=[String(FIXW.id),NOBID];
+      var c=rend2(pr,[NOBLK,NOB]),n=(w._cmpEqxSeries||[]).length;
+      if(!(clean2(c)&&n===2&&!q('[data-rbwfnocurve]').length&&!anyText('saved an equity curve')))Q6.push(p.join('/')+': call '+c+' series '+n+' empty state '+q('[data-rbwfnocurve]').length);});
+    var r6q=rend2({c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false},[LW2,NOB]);
+    var NCq=w._cmpEqxNoCurve||[];
+    if(!(clean2(r6q)&&(w._cmpEqxSeries||[]).length===1&&NCq.length===1&&NCq[0].why==='no walk-forward curve saved'&&!q('[data-rbwfnocurve]').length))
+      Q6.push('mixed WF: series '+(w._cmpEqxSeries||[]).length+' noCurve '+JSON.stringify(NCq)+' empty state '+q('[data-rbwfnocurve]').length);
+    A('R5q off the walk-forward stage the same runs still draw, and a mixed walk-forward pick still draws the one test and keys the other','NOREG',!Q6.length,Q6.join(' ; '));
+
+    // ══ R5 THIRD ROUND - THE FULL-SCREEN VIEWER KEEPS EACH WALK-FORWARD TEST ON ITS OWN DATES ═════════
+    //    The viewer (the expand button, or a double-click on the chart) read dates only from a run's
+    //    trade list, and a walk-forward test curve carries none - only its own span. So it fell back to
+    //    0..100% progress: a 1-year test and a 9-year one both began at the left edge, DATE RANGE greyed
+    //    out, the calendar note went, and an IS label and an IN-SAMPLE stage sat on a chart that has no
+    //    in-sample stretch. The in-page chart put the same curves on their real dates all along.
+    var R7ID=String(+FIXW.id+900002),R7FROM='2024-01-05';
+    // the same saved test, relabelled to a one-year window ending where #306's ends (the guard reads
+    //   trades and net against the fold rows, never the window dates)
+    var R7LATE=(function(){var x=clone(FIXW);x.id=R7ID;x.strategy='ZLATEWF_1_0.py';x.starred=false;x.validate.wf_oos.from=R7FROM;return lite(x,R7ID);})();
+    var R7F=(Date.parse(R7FROM)-Date.parse(B.from))/(Date.parse(B.to)-Date.parse(B.from));
+    // open the viewer on the series the chart just stashed, draw it now (a resize redraws at once),
+    //   switch every curve on (one group-toggle click greys them all in, so each line's own x can be
+    //   read), read the chart back, and close it
+    function r7View(){var S=w._cmpEqxSeries||[],before=Array.prototype.slice.call(d.body.children),o={n:S.length,x:{},texts:[],stages:[]};
+      o.split=S.some(function(s){return s&&(s.wfi!=null||s.li!=null);});
+      try{w.expandCompareEq(S,{noTabs:true});}catch(e){o.threw=String(e&&e.message||e);return o;}
+      var el=Array.prototype.slice.call(d.body.children).filter(function(x){return before.indexOf(x)<0;})[0];
+      if(!el){o.none=true;return o;}
+      try{w.dispatchEvent(new w.Event('resize'));var tg=el.querySelector('[data-ceqx-grp-tog="cfg"]');if(tg)tg.click();}catch(e){o.threw=String(e&&e.message||e);}
+      var sv=el.querySelector('#ceqx-svg');
+      o.texts=sv?Array.prototype.slice.call(sv.querySelectorAll('text')).map(function(t){return norm(t.textContent);}):[];
+      (sv?Array.prototype.slice.call(sv.querySelectorAll('path[data-sr]')):[]).forEach(function(p){
+        var m=(p.getAttribute('d')||'').match(/-?[0-9.]+/g)||[],xs=[];for(var i=0;i<m.length;i+=2)xs.push(+m[i]);if(!xs.length)return;
+        var id=p.getAttribute('data-sr'),a=Math.min.apply(null,xs),b=Math.max.apply(null,xs),c=o.x[id];
+        o.x[id]=c?[Math.min(c[0],a),Math.max(c[1],b)]:[a,b];});
+      var band=sv?Array.prototype.slice.call(sv.querySelectorAll('rect')).filter(function(r){return (r.getAttribute('fill')||'').indexOf('96,165,250')>=0;})[0]:null;
+      o.band=band?[+band.getAttribute('x'),(+band.getAttribute('x'))+(+band.getAttribute('width'))]:null;
+      var dg=el.querySelector('#ceqx-viewdate'),sg=el.querySelector('#ceqx-viewstage');
+      o.dateOn=!!(dg&&!dg.disabled);
+      o.stages=sg?Array.prototype.slice.call(sg.querySelectorAll('option')).map(function(x){return x.value;}):[];
+      o.errs=sink.errors.concat(sink.uncaught);
+      var cl=el.querySelector('#ceqx-close');try{if(cl)cl.click();else el.remove();}catch(_){try{el.remove();}catch(__){}}
+      return o;}
+    function r7Dates(o){return o.texts.filter(function(t){return /^[0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2}$/.test(t);});}
+    var R7={},R7bad=[];
+    [['RUNBOARD funnel',{c2Screen:'cmp',c2View:'board',c2Stage:'wf',rbRank:'mar',rbHeat:false}],
+     ['PICK RUNS chart',{c2Screen:'cmp',c2View:'runs',c2Stage:'wf',cmpIds:[R7ID,String(FIXW.id)]}],
+     ['COMPARE overlay',{c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[R7ID,String(FIXW.id)]}]].forEach(function(p){
+      var c=rend2(p[1],[R7LATE,LW2]),first=String(((w._cmpEqxSeries||[])[0]||{}).id),o=r7View();R7[p[0]]=o;
+      var xw=o.x[String(FIXW.id)],xl=o.x[R7ID],pw=xw?xw[1]:null,dd=r7Dates(o);
+      var ok=clean2(c)&&!o.threw&&!o.none&&o.n===2&&!(o.errs||[]).length&&!!xw&&!!xl&&pw>100
+        &&Math.abs(xw[0])<1&&Math.abs(xl[1]-pw)<1&&Math.abs(xl[0]/pw-R7F)<0.01
+        &&o.texts.indexOf('x = calendar time (shared)')>=0&&dd.length>=2&&o.dateOn
+        &&o.texts.indexOf('IS')<0&&o.texts.indexOf('WF')>=0&&!!o.band&&Math.abs(o.band[0])<1&&Math.abs(o.band[1]-pw)<1
+        &&o.stages.indexOf('is')<0&&o.stages.indexOf('wf')>=0;
+      if(!ok)R7bad.push(p[0]);
+      o.sum=p[0].split(' ')[1]+(clean2(c)?'':(' call '+c))+(o.threw?(' threw '+o.threw):'')+(o.n===2?'':(' n'+o.n))+' 1st #'+first
+        +': #'+FIXW.id+' '+(xw?xw.map(Math.round).join('-'):'-')+', #'+R7ID+' '+(xl?xl.map(Math.round).join('-'):'-')
+        +' at '+(xl&&pw?(xl[0]/pw).toFixed(3):'-')+'/'+R7F.toFixed(3)
+        +'; '+(dd[0]||'no date')+(o.texts.indexOf('x = calendar time (shared)')>=0?' cal':' nocal')
+        +'; RANGE '+(o.dateOn?'on':'off')+'; IS '+(o.texts.indexOf('IS')>=0?'y':'n')+' WF '+(o.texts.indexOf('WF')>=0?'y':'n')
+        +'; band '+(o.band?o.band.map(Math.round).join('-'):'-')+'; '+o.stages.join(',')+((o.errs||[]).length?(' ERR '+String(o.errs[0]).slice(0,60)):'');});
+    A('R5r full-screen viewer draws each walk-forward test over its own dates, on one calendar, with no in-sample stretch','NEW',
+      !R7bad.length,Object.keys(R7).map(function(k){return R7[k].sum;}).join(' || '));
+
+    var R7n=[];
+    [['board',{c2Screen:'cmp',c2View:'board',c2Stage:'full',rbRank:'mar',rbHeat:false}],
+     ['board is',{c2Screen:'cmp',c2View:'board',c2Stage:'is',rbRank:'mar',rbHeat:false}],
+     ['overlay',{c2Screen:'cmp',c2View:'ovl',c2Stage:'full',cmpIds:[String(FIXW.id)]}]].forEach(function(p){
+      var c=rend2(p[1],[LW2]),S0=(w._cmpEqxSeries||[])[0]||{},o=r7View();
+      var ok=clean2(c)&&!o.threw&&!o.none&&o.n===1&&!(o.errs||[]).length&&!S0.span&&!!(S0.blot&&S0.blot.date_from)
+        &&o.texts.indexOf('x = calendar time (shared)')>=0&&o.dateOn&&o.stages.join(',')==='is,wf,lb'
+        &&((o.texts.indexOf('IS')>=0)===o.split);
+      if(!ok)R7n.push(p[0]+': call '+c+(o.threw?(' threw '+o.threw):'')+' series '+o.n+' span '+JSON.stringify(S0.span||null)
+        +' note '+(o.texts.indexOf('x = calendar time (shared)')>=0)+' DATE RANGE '+o.dateOn+' stages '+o.stages.join(',')
+        +' split '+o.split+' IS label '+(o.texts.indexOf('IS')>=0)+((o.errs||[]).length?(' errors '+String(o.errs[0]).slice(0,80)):''));});
+    A('R5s off the walk-forward stage the full-screen viewer keeps its calendar, DATE RANGE, IN-SAMPLE stage and IS label','NOREG',!R7n.length,R7n.join(' ; '));
+
     delete out._v;
     finish('done');
   }
   document.getElementById('f').addEventListener('load',function(){setTimeout(function(){try{run();}catch(e){out.err=String(e&&e.stack?e.stack:e);finish('threw');}},2500);});
-  setTimeout(function(){finish('backstop');},90000);
+  setTimeout(function(){finish('backstop');},240000);
 })();
 """
 
@@ -628,12 +1307,12 @@ def make_handler(root, alt_index):
     return H
 
 
-def attempt(chrome, root, alt_index, fixb, fixw, fixbk):
+def attempt(chrome, root, alt_index, fixb, fixw, fixbk, fixz):
     pdir = os.path.join(root, '_wfoosprobe')
     os.makedirs(pdir, exist_ok=True)
     ppath = os.path.join(pdir, 'probe.html')
     js = (PROBE_JS.replace('__FIXB__', json.dumps(fixb)).replace('__FIXW__', json.dumps(fixw))
-          .replace('__FIXBK__', json.dumps(fixbk)))
+          .replace('__FIXBK__', json.dumps(fixbk)).replace('__FIXZ__', json.dumps(fixz)))
     io.open(ppath, 'w', encoding='utf-8').write(PROBE_HTML.replace('__JS__', js))
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(root, alt_index))
     port = srv.server_address[1]
@@ -642,9 +1321,9 @@ def attempt(chrome, root, alt_index, fixb, fixw, fixbk):
     try:
         dom = subprocess.run(
             [chrome, '--headless=new', '--disable-gpu', '--no-sandbox', '--user-data-dir=' + prof,
-             '--virtual-time-budget=120000', '--dump-dom',
+             '--virtual-time-budget=300000', '--dump-dom',
              'http://127.0.0.1:%d/_wfoosprobe/probe.html' % port],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=300).stdout or ''
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=900).stdout or ''
     except Exception as e:
         return None, 'chrome failed: %s' % e
     finally:
@@ -679,11 +1358,13 @@ def main(argv=None):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     fixd = os.path.join(root, 'tools', 'fixtures')
     paths = {k: os.path.join(fixd, v) for k, v in
-             (('b', 'run_report.json'), ('w', 'run_wfoos.json'), ('bk', 'run_book_synth.json'))}
+             (('b', 'run_report.json'), ('w', 'run_wfoos.json'), ('bk', 'run_book_synth.json'),
+              ('z', 'run_wfoos_zero.json'))}
     snap_path = os.path.join(fixd, 'wfoos_pastruns_snapshot.json')
     for k, p in paths.items():
         if not os.path.isfile(p):
-            print('WFOOS PROBE: INCONCLUSIVE -- fixture missing: %s (build it with tools/make_wfoos_fixture.py)' % p)
+            print('WFOOS PROBE: INCONCLUSIVE -- fixture missing: %s (build it with tools/%s)'
+                  % (p, 'make_wfoos_zero_fixture.py' if k == 'z' else 'make_wfoos_fixture.py'))
             return INCONCLUSIVE
     alt = os.path.abspath(a.file) if a.file else None
     if alt and not os.path.isfile(alt):
@@ -698,10 +1379,10 @@ def main(argv=None):
         print('WFOOS PROBE: INCONCLUSIVE -- run_wfoos.json carries no validate.wf_oos')
         return INCONCLUSIVE
 
-    data, why = attempt(chrome, root, alt, fx['b'], fx['w'], fx['bk'])
+    data, why = attempt(chrome, root, alt, fx['b'], fx['w'], fx['bk'], fx['z'])
     if data is None or data.get('why') not in ('done', 'noboot'):
         print('WFOOS PROBE: attempt 1 gave no complete readout (%s), retrying once' % (why or (data or {}).get('why')))
-        data, why = attempt(chrome, root, alt, fx['b'], fx['w'], fx['bk'])
+        data, why = attempt(chrome, root, alt, fx['b'], fx['w'], fx['bk'], fx['z'])
     if data is None:
         print('WFOOS PROBE: INCONCLUSIVE -- %s' % why)
         return INCONCLUSIVE
