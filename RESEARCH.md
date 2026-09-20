@@ -56,28 +56,48 @@ section. Data and scripts: see §5.
 
 | # | Action | Why (finding) | Cost | Status |
 |---|---|---|---|---|
-| R1 | Count trials per FAMILY (search + per-fold candidates + rounds ever run) and apply the luck-adjusted bar to crowns; show it beside the existing within-run check | §2.7; Harvey & Liu (2015), Bailey & López de Prado (2014) | Moderate: registry fields + board chip | OPEN |
-| R2 | Purge straddling trades at every cut (assign by exit, or drop from the training score) | §2.8; López de Prado (2018) purging/embargo | Small engine change | OPEN |
-| R3 | Search-adjusted p-value for the crown pick (Reality-Check-style bootstrap over the 10 finalists) | §2.1, §2.3; White (2000), Hansen (2005) | Script only — finalists' fold results are already saved | OPEN |
-| R4 | "Months until trustworthy" per crown (minimum track-record length) + a lockbox **looks counter** per run/family | §2.4; Bailey & López de Prado (2012), Dwork et al. (2015) | Small: compute from saved fields, two pills | OPEN |
-| R5 | Lockbox 24 months default / 36 for daily or long-warm-up legs, warm-started, one look, veto only | §2.4, §2.6 | Engine parameter + re-judging | OPEN — test first via R9 |
-| R6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
-| R7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | OPEN |
-| R8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | OPEN — blocks the walk-forward relabel (F14) in the COMPARE audit backlog |
-| R9 | Re-validate #257, #243, #335 with a 24-month lockbox, windows pinned | Direct test of R5 before adopting | ~20 min / ~30 min / 1–2 h runner time | OPEN |
-| R10 | Drop or correct the Stage A.5 crowning step (crown from the tuning search; then the fixed reading after the search's data ends is a clean test) | §2.3 | Small (crown rule); reverses the 2026-07-20 decision | OPEN |
-| R11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
-| R12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after R2/R7 | PARKED |
+| 1 | Count trials per FAMILY (search + per-fold candidates + rounds ever run) and apply the luck-adjusted bar to crowns; show it beside the existing within-run check | §2.7; Harvey & Liu (2015), Bailey & López de Prado (2014) | Moderate: registry fields + board chip | OPEN |
+| 2 | Purge straddling trades at every cut (assign by exit, or drop from the training score) | §2.8; López de Prado (2018) purging/embargo | Small engine change | OPEN |
+| 3 | Search-adjusted p-value for the crown pick (Reality-Check-style bootstrap over the 10 finalists) | §2.1, §2.3; White (2000), Hansen (2005) | Script only, but the DATA IS NOT THERE YET: per-fold candidate rows are only recorded on validates run since 2026-09-09 (none of the 293 cached run docs carry them, and the 351-run extract in §5 has no validate block). Either wait for new runs or rebuild from the deep-dive matrices | BLOCKED on data |
+| 4 | "Months until trustworthy" per crown (minimum track-record length) + a lockbox **looks counter** per run/family | §2.4; Bailey & López de Prado (2012), Dwork et al. (2015) | Small: compute from saved fields, two pills | OPEN |
+| 5 | Lockbox **36 months for everything**, warm-started, one look, veto only (supersedes the 24 / 36-for-slow-legs split proposed in the second dive) | §2.4, §2.6; and the second dive's own note that 36 for everything is defensible because the tuning cost is zero | Engine parameter + re-judging | OPEN — owner leaning 36 (2026-09-20); test via item 9 |
+| 6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
+| 7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | OPEN |
+| 8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | OPEN — blocks the walk-forward relabel (F14) in the COMPARE audit backlog |
+| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | OPEN — run AFTER item 7, or read the gain as an upper bound: going 12 to 24 to 36 months recovers cold-start trades as well as adding calendar, and the two effects are not separable while folds still start cold |
+| 10 | Drop or correct the Stage A.5 crowning step (crown from the tuning search; then the fixed reading after the search's data ends is a clean test) | §2.3 | Small (crown rule); reverses the 2026-07-20 decision | OPEN |
+| 11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
+| 12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after items 2 and 7 | PARKED |
+| 13 | Fix the daily dip family's fold reproduction (0 of 8 against the engine's own saved folds, §5) | Nothing in items 1–11 can judge a family whose folds do not reproduce | ~half a day of engine debugging | OPEN |
+
+---
+
+## 3a. Settled — do not re-open without new evidence
+
+**Tuning breadth stays at 900 configurations per search (owner, 2026-09-20).** The default moved
+from 200 to 900 on 2026-09-11 and is not to be reduced. The A/B that settled it (runs #383 vs #384 —
+same file, same window, same fence, only the budget differing) went against the old budget study on
+every measure that matters: overfit probability 0.603 at 900 vs 0.802 at 200, twice the held-out
+trades (277 vs 140) and three times the sealed-year profit, for 45 minutes of runner time against
+26. This supersedes the earlier "trial budget is not the bottleneck" note, which rested on one wide
+ORB space. Nothing in the action table above touches it: every item there is about how a search is
+JUDGED, not how widely it looks.
+
+**Why more sampling and a shorter tuning span are not in tension.** Depth (how many YEARS the search
+may see) measured flat from 2-3 years out to 15; breadth (how many CONFIGURATIONS it tries inside
+those years) did not — breadth is what finds a plateau rather than a spike. So the years are free to
+move to the sealed stretch (item 5) while the configuration budget stays where it is.
 
 ---
 
 ## 4. Open owner decisions (both dives)
 
-- What COMPARE ranks on (R8) — until this is settled, the report's 1E walk-forward column keeps its
+- What COMPARE ranks on (item 8) — until this is settled, the report's 1E walk-forward column keeps its
   current label and the COMPARE audit's F14 stays on hold.
-- Lockbox length and pass rule (R5, R6) — test with R9 first.
-- Crowning step (R10) and warm starts (R7) — both change every future verdict and force re-judging.
+- Lockbox length and pass rule (items 5 and 6) — owner leaning 36 months for every leg (item 5); test with item 9 first.
+- Crowning step (item 10) and warm starts (item 7) — both change every future verdict and force re-judging.
 - Tuning span: no change recommended; shortening is not harmful but buys nothing.
+- Tuning breadth: SETTLED, see §3a — the 900-configuration budget stays.
 
 ---
 
