@@ -129,9 +129,20 @@ def _seed_home(home_dir):
 def _newest_cached_session():
     """Newest session in the snapshot, EXCLUDING today: today's bars are still arriving, so
     replaying it races the live feed and the trade list can legitimately differ between two
-    runs seconds apart. A finished session is the only stable thing to assert on."""
+    runs seconds apart. A finished session is the only stable thing to assert on.
+
+    MALFORMED ROWS ARE SKIPPED, NOT FATAL (2026-09-20): the live cache is appended by more
+    than one writer, and a torn write leaves a row whose `time` is not an epoch second at
+    all (seen for real: 812 and 99877929688 in QQQ_1m.csv, 2026-09-18). pd.to_datetime then
+    raises OutOfBoundsDatetime and every test in this file fails -- which blocks the push
+    gate for changes nowhere near this module. A local data defect must not read as a code
+    defect, so rows outside a sane epoch range are dropped here."""
     df = pd.read_csv(os.path.join(_snapshot_dir(), "QQQ_1m.csv"))
-    idx = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert(cs.TZ)
+    secs = pd.to_numeric(df["time"], errors="coerce")
+    secs = secs[(secs >= 1.0e9) & (secs <= 2.0e9)]
+    if secs.empty:
+        pytest.skip("cache holds no row with a usable epoch-second timestamp")
+    idx = pd.to_datetime(secs, unit="s", utc=True).dt.tz_convert(cs.TZ)
     today = datetime.datetime.now(zoneinfo.ZoneInfo(cs.TZ)).date()
     days = sorted(d for d in set(idx.dt.date) if d < today)
     if not days:
