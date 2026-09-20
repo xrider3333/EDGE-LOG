@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 89
+N_CASES = 116
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -749,10 +749,11 @@ var FIX = __FIX__;
           var pf=+z.oos_pf,p=+z.oos_pnl,g=Math.abs(p/(pf-1));wfGL+=g;wfGW+=pf*g;});
         var lT=+Lk.trades,lW=lT*(+Lk.win_rate)/100,lGW=(+Lk.avg_win)*lW,lGL=Math.abs(+Lk.avg_loss)*(lT-lW);
         var tGW=(+V.total_avg_win)*Wt,tGL=Math.abs(+V.total_avg_loss)*(T-Wt);
-        var isT=Math.round(T-wfT-lT);
+        var gvIs=(R.gate_validate&&R.gate_validate.ungated_is)||{};
+        var isT=+gvIs.num_trades||0;
         var exp={wf:{pf:(wfGW/wfGL).toFixed(2),wr:Math.round(100*wfW/wfT)+'%',trd:wfT},
                  lb:{pf:(lGW/lGL).toFixed(2),wr:Math.round(+Lk.win_rate)+'%',trd:lT},
-                 is:{pf:((tGW-wfGW-lGW)/(tGL-wfGL-lGL)).toFixed(2),trd:isT},
+                 is:{pf:(+gvIs.profit_factor).toFixed(2),trd:isT},
                  all:{pf:(tGW/tGL).toFixed(2),trd:T},islb:{trd:isT+lT}};
         var wc='var F='+JSON.stringify(R)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
         function read(segs){
@@ -764,11 +765,11 @@ var FIX = __FIX__;
         var r=snap('runstages','OK');
         r.exp=exp;
         r.wf=read(['wf']);r.lb=read(['lb']);r.is=read(['is']);r.all=read(['is','wf','lb']);r.islb=read(['is','lb']);r.pre=read(['is','wf']);
-        // OVERLAP: a fold holding more trades than follow the split makes in-sample impossible.
-        //   Any tick with IN-SAMPLE must dash the money figures; ALL THREE must equal the clean run.
+        // MISSING SLICE: a run whose gate study never saved its ungated in-sample slice must
+        //   dash IN-SAMPLE - never fall back to a whole-run-minus-the-rest remainder. WALK-FORWARD,
+        //   LOCKBOX and ALL THREE (the run's own whole-run totals, not the IS split) are unaffected.
         var good=wc;
-        var Rb=JSON.parse(JSON.stringify(R));var fb=(Rb.top10_results||[]).filter(function(z){return z&&z.fold!=null;});
-        fb[0].oos_trades=(+fb[0].oos_trades||0)+5000;
+        var Rb=JSON.parse(JSON.stringify(R));delete Rb.gate_validate.ungated_is;
         wc='var F='+JSON.stringify(Rb)+';runHistory=[F];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();';
         r.badIs=read(['is']);r.badIsWf=read(['is','wf']);r.badAll=read(['is','wf','lb']);
         wc=good;
@@ -1520,8 +1521,21 @@ var FIX = __FIX__;
         r.nOff=head?parseInt(head[2],10):(headAll?parseInt(headAll[1],10):null);
         var sk=hint.match(/([0-9]+) of the ([0-9]+) rows now shown are not on the chart/);
         r.skip=sk?parseInt(sk[1],10):0;
-        var fo=hint.match(/([0-9]+) failed rows? (?:are|is) left off the chart on purpose/);
-        r.failOut=fo?parseInt(fo[1],10):0;
+        // g4_f20 reworded this sentence to name only the PLACEABLE failed-row count (the ones
+        //   control 5 would actually draw), with the rows that lack a figure on these axes
+        //   split into their own clause -- so the historical single-number match here now
+        //   has to add both clauses back together to get the same total failOut.length this
+        //   check was written against (nOff below is still built from the real failOut.length).
+        var foP=hint.match(/([0-9]+) failed rows? (?:are|is) left off the chart on purpose/);
+        var foZ=hint.match(/([0-9]+) failed rows? (?:has|have) no figure on these axes, so PLOT FAILURES/);
+        var flOther=hint.match(/other ([0-9]+) failed rows? (?:has|have) no figure on these axes/);
+        // repair round (F20 follow-up): a failed row held under MIN TRADES is now its OWN
+        //   clause (it has both figures - it was never missing anything) instead of being
+        //   folded into "no figure on these axes" - add it back in so this still sums to the
+        //   real failOut.length this check was written against.
+        var foMin=hint.match(/([0-9]+) failed rows? (?:are|is) held under the MIN TRADES floor/);
+        r.foMin=foMin?parseInt(foMin[1],10):0;
+        r.failOut=(foP?parseInt(foP[1],10):0)+(foZ?parseInt(foZ[1],10):0)+(flOther?parseInt(flOther[1],10):0)+r.foMin;
         var to=hint.match(/([0-9]+) rows? (?:are|is) left off the chart for a thin sample/);
         r.thinOut=to?parseInt(to[1],10):0;
         var tn=hint.match(/A further ([0-9]+) rows? records? no trade count at all/);
@@ -1822,8 +1836,10 @@ var FIX = __FIX__;
       //    unknown grosses and blanked IN-SAMPLE, PF, WIN % and TRADES under a false 'folds overlap' reason;
       //    it must read exactly like the same run with its averages saved as 0 (Z0). (W) one walk-forward
       //    fold that took no trades (the cold-start fold) did the same. (NL) a fold whose every trade won
-      //    saves its profit factor as null and must not blank them either. (B) a run whose folds really do
-      //    overlap its in-sample years still dashes, and its TRADES dash now gives that reason.
+      //    saves its profit factor as null and must not blank them either. (B) IN-SAMPLE is read straight
+      //    off the gate study's own measured slice (gate_validate.ungated_is), never derived from the fold
+      //    rows or the run's own trade count - a run with no measured slice saved dashes it, with the true
+      //    reason, and a fold-level quirk (a broken-even fold, P1) cannot leak into it.
       (function(){
         var r=snap('r_runZeroStretch','OK');
         r.unc=[];function rd(p,wc){var c=doRender(p,wc);r.unc=r.unc.concat(sink.uncaught.slice(0,5));return c;}
@@ -1839,7 +1855,8 @@ var FIX = __FIX__;
         var NL=cl(FIX);NL.id=String(+FIX.id+760004);NL.strategy='ZFOLDWIN_1_0.py';NL.starred=false;
         (function(){var z=folds(NL).slice().sort(function(a,b){return a.oos_trades-b.oos_trades;})[0];
           z.oos_wins=z.oos_trades;z.oos_pf=null;z.oos_pnl=Math.abs(z.oos_pnl);z.oos_win_rate=100;})();
-        var B=cl(FIX);B.id=String(+FIX.id+760005);B.strategy='ZOVERLAP_1_0.py';B.starred=false;B.validate.total_trades=50;
+        var B=cl(FIX);B.id=String(+FIX.id+760005);B.strategy='ZOVERLAP_1_0.py';B.starred=false;
+        delete B.gate_validate.ungated_is;
         // (review round 4) three more shapes the engine writes, each beside a control that differs only in a figure
         //   that can be split: (AL) a fold whose every trade lost - profit factor 0 - against PF 1e-7; (LL) a lockbox
         //   whose every trade lost - pf 0, no average win - against average win 0; (LW) a lockbox whose every trade
@@ -2547,8 +2564,8 @@ var FIX = __FIX__;
       (function(){var Z=dfxLbRun(910011,'ZZERO_TR_1_0.py',{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:null}),N=dfxLbRun(910012,'ZKAPPA_1_0.py',{trades:120,pnl:-250,dd:900,pf:0.9,win_rate:30});
         var W=dfxWin([Z,N]),calls=[],res={};
         calls.push(doRender({c2Screen:'cmp',c2View:'board',rbSample:'full'},W));
-        res.hostRest=dfxRow('IS $ · REST').length;res.hostTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
-        calls.push(doRender({cmpMode:'board',rbSample:'full',cmpIds:[Z.id,N.id]},W,'cmp'));res.oldRest=dfxRow('IS $ · REST').length;
+        res.hostRest=dfxRow('IS $').length;res.hostTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
+        calls.push(doRender({cmpMode:'board',rbSample:'full',cmpIds:[Z.id,N.id]},W,'cmp'));res.oldRest=dfxRow('IS $').length;
         dfxCase('dfx_d06',calls,{'hosted, no STAGE saved: no FULL-only row':res.hostRest===0,
           'hosted: the empty lockbox dashes its TOTAL, as on LOCKBOX':res.hostTotal.indexOf('—')>=0,
           'the old tab still follows its own SAMPLE (FULL)':res.oldRest>0},res);})();
@@ -2658,6 +2675,1145 @@ var FIX = __FIX__;
         dfxCase('dfx_d21',[c],{'the EV row has all three runs':!!(a.v&&b.v&&cc.v),'the run with no whole-run count reads ~':(a.v||'').indexOf('~')===0,
           'its ~ figure is not heat-shaded':!/rgba|hsla/.test(a.bg||''),'the two exact figures are shaded':/rgba|hsla/.test(b.bg||'')&&/rgba|hsla/.test(cc.bg||'')},
           {ev:[a,b,cc].map(function(x){return (x.v||'')+' bg='+(x.bg||'').slice(0,40);})});})();
+
+      // == g1-pool: Starred/older/archived pool + family grouping (F1, F6, F7, F11, F12) ==
+
+      // -- g1_f1 (F1): Past Runs must never silently fall back to the first row for an
+      //    EXPLICIT selection - a starred crown click, or any run id set from elsewhere -
+      //    that sits outside runHistory. It must find a starred-outside-the-window run
+      //    directly, and for one truly unresolved it must say LOADING, not substitute #1.
+      (function(){
+        var F=dfxClone(FIX);F.id=String(+FIX.id+810001);F.starred=false;
+        var S=dfxClone(FIX);S.id=String(+FIX.id+810002);S.strategy='ZSTARCROWN_1_0.py';S.starred=true;
+        var W1=dfxWin([F],"window._starRuns=[__f("+JSON.stringify(S)+")];augurRunSel="+JSON.stringify(S.id)+";");
+        var c1=doRender({},W1,'runs');
+        var sRow=d.querySelector('tr[data-run="'+S.id+'"]');
+        var sRowOn=d.querySelector('tr[data-run="'+S.id+'"][style*="background:var(--bg1)"]');
+        var W2=dfxWin([F],"window._starRuns=[__f("+JSON.stringify(S)+")];augurRunSel='ZNONE_G1_F1';");
+        var c2=doRender({},W2,'runs');
+        var bodyTxt2=dfxN(d.body.innerText||'');
+        var fRowOn2=d.querySelector('tr[data-run="'+F.id+'"][style*="background:var(--bg1)"]');
+        dfxCase('g1_f1',[c1,c2],{
+          'renders OK':c1==='OK'&&c2==='OK',
+          'a starred run outside the loaded window is in the explicit-selection pool':!!sRow,
+          'and it is the one actually selected, not the first row':!!sRowOn,
+          'a genuinely unresolved explicit pick shows LOADING, never the first row':bodyTxt2.indexOf('LOADING RUN #ZNONE_G1_F1')>=0,
+          'and does not silently select the first row instead':!fRowOn2
+        },{sRowFound:!!sRow,sRowOn:!!sRowOn,loading:bodyTxt2.indexOf('LOADING RUN #ZNONE_G1_F1')>=0,fRowOn2:!!fRowOn2});
+      })();
+
+      // -- g1_f6 (F6): RUNBOARD's family chips and drill-down must read the same pool as
+      //    LEADERBOARD/OVERLAY - runHistory plus any starred run outside the loaded window -
+      //    so a family whose only run is a starred older crown still gets a chip and a drill,
+      //    instead of a false empty board with no way back.
+      (function(){
+        var F=dfxClone(FIX);F.id=String(+FIX.id+820001);F.starred=false;
+        var S=dfxClone(FIX);S.id=String(+FIX.id+820002);S.strategy='ORB_1_0.py';S.starred=true;
+        var W=dfxWin([F],"window._starRuns=[__f("+JSON.stringify(S)+")];");
+        var c=doRender({cmpMode:'board',rbFam:'ORB',rbSample:'lb',rbRank:'net'},W,'cmp');
+        var bodyTxt=dfxN(d.body.innerText||'');
+        var sRow=bodyTxt.indexOf('#'+S.id)>=0;
+        var chip=d.querySelector('[data-rbfam="ORB"]');
+        dfxCase('g1_f6',[c],{
+          'renders OK':c==='OK',
+          'the ORB family chip appears even though its only run is a starred crown outside the window':!!chip,
+          'drilling into it shows the starred run, not a false empty state':sRow,
+          'the empty-board placeholder is not shown':bodyTxt.indexOf('NO SAVED RUNS YET')<0
+        },{chip:!!chip,sRow:sRow});
+      })();
+
+      // -- g1_f7 (F7): EXPLORE's LEVEL CROWN keeps one row per family (a star always wins);
+      //    a book row uses the book's own name, and its hover never reads 'on .' when the
+      //    book has no single market.
+      (function(){
+        function mkBook(idOff,name){
+          var B=dfxClone(FIX);B.id=String(+FIX.id+idOff);B.strategy=name;B.starred=true;
+          B.instrument='';B.timeframe='';
+          B.book={name:name,legs:[{strategy:'ORB_1_0.py',weight:1},{strategy:'ENGUQ_1_0.py',weight:1}],
+            whole:{total_pnl:300000,max_drawdown:30000,num_trades:2000,profit_factor:1.3},
+            pre_lockbox:{total_pnl:250000,max_drawdown:28000},
+            lockbox:{total_pnl:50000,num_trades:300,win_rate:40,profit_factor:1.3,max_drawdown:20000},
+            lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+          return B;
+        }
+        var B1=mkBook(830001,'BOOK: PROBE ONE'),B2=mkBook(830002,'BOOK: PROBE TWO');
+        var W=dfxWin([B1,B2]);
+        var c=doRender({c2Screen:'explore',resLvl:'crown',resCols:'all',c2Tbl:true},W);
+        var rows=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(x){
+          return (x.textContent||'').indexOf('#'+B1.id)>=0||(x.textContent||'').indexOf('#'+B2.id)>=0;});
+        var hasB1=rows.some(function(x){return (x.textContent||'').indexOf('#'+B1.id)>=0;});
+        var hasB2=rows.some(function(x){return (x.textContent||'').indexOf('#'+B2.id)>=0;});
+        var row2=rows.filter(function(x){return (x.textContent||'').indexOf('#'+B2.id)>=0;})[0];
+        var nameEl=row2?[].filter.call(row2.querySelectorAll('b'),function(b){return (b.textContent||'').indexOf('BOOK')>=0;})[0]:null;
+        var nameTxt=nameEl?dfxN(nameEl.textContent):'';
+        var whatCell=row2?[].filter.call(row2.querySelectorAll('td'),function(td){var t=td.textContent||'';return t.indexOf('Auto-Validate run #')>=0||t.indexOf('Book run #')>=0;})[0]:null;
+        var whatTxt=whatCell?dfxN(whatCell.textContent):'';
+        dfxCase('g1_f7',[c],{
+          'renders OK':c==='OK',
+          'exactly one row for the two starred books in the same family (the higher id wins the tie)':rows.length===1&&hasB2&&!hasB1,
+          "the surviving row uses the book's own name, not a family-abbreviated tag":nameTxt.indexOf('BOOK: PROBE TWO')>=0,
+          'its hover names the market or says it pools several, never reading blank ("on .")':whatTxt&&whatTxt.indexOf(' on .')<0,
+          // repair round (F16/item 16): a book is a book run, never an Auto-Validate one - its
+          //   own hovers say it tunes nothing and runs no walk-forward.
+          "a book row's WHAT IT DOES never claims it is an Auto-Validate run":whatTxt&&whatTxt.indexOf('Auto-Validate')<0,
+          "a book row's WHAT IT DOES calls it a book run and says it pools several strategies and markets":whatTxt&&whatTxt.indexOf('Book run #')>=0&&whatTxt.indexOf('pooled')>=0
+        },{rowsN:rows.length,nameTxt:nameTxt,whatSnippet:whatTxt.slice(0,200)});
+      })();
+
+      // -- g1_f11 (F11): archived runs are left out of the LEADERBOARD champion pick and the
+      //    RUNBOARD pool, matching what Past Runs itself hides by default.
+      (function(){
+        var A=dfxClone(FIX);A.id=String(+FIX.id+840001);A.strategy='ZARCHFAM_1_0.py';A.starred=false;A.archived=true;A.best_pnl_usd=999999;A.best_dd_usd=1;
+        var B=dfxClone(FIX);B.id=String(+FIX.id+840002);B.strategy='ZARCHFAM_1_0.py';B.starred=false;B.archived=false;B.best_pnl_usd=1000;B.best_dd_usd=500;
+        var W=dfxWin([A,B]);
+        var c=doRender({c2Screen:'lead',c2Stage:'is',c2Rank:'net'},W);
+        var row=d.querySelector('.c2-row[data-c2fam="ZARCHFAM_1_0"]');
+        var big=row?row.querySelector('.c2-big'):null;
+        var bigTxt=big?dfxN(big.textContent):'';
+        var c2=doRender({cmpMode:'board',rbSample:'is',rbRank:'net'},W,'cmp');
+        var colIds=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');});
+        dfxCase('g1_f11',[c,c2],{
+          'renders OK':c==='OK'&&c2==='OK',
+          "LEADERBOARD champion is the live run, not the archived one's bigger number":bigTxt.indexOf('999,999')<0,
+          'RUNBOARD pool never shows the archived run as a column':colIds.indexOf(A.id)<0,
+          'RUNBOARD pool still shows the live run':colIds.indexOf(B.id)>=0
+        },{bigTxt:bigTxt,colIds:colIds});
+      })();
+
+      // -- g1_f12 (F12): family grouping falls back to the family-keyword table, which now
+      //    matches ETFDIP, so several ETFDIP files pool into one family instead of one row
+      //    per file name.
+      (function(){
+        var A=dfxClone(FIX);A.id=String(+FIX.id+850001);A.strategy='ETFDIP_1_0.py';A.starred=false;
+        var B=dfxClone(FIX);B.id=String(+FIX.id+850002);B.strategy='ETFDIP_2_3.py';B.starred=false;
+        var W=dfxWin([A,B]);
+        var c=doRender({c2Screen:'lead',c2Stage:'is',c2Rank:'net'},W);
+        var rows=[].slice.call(d.querySelectorAll('.c2-row[data-c2fam]'));
+        var famKeys=rows.map(function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'');});
+        dfxCase('g1_f12',[c],{
+          'renders OK':c==='OK',
+          'two ETFDIP files pool into ONE family row, not two':famKeys.filter(function(k){return k==='ETFDIP';}).length===1,
+          'no leftover per-file ETFDIP_1_0 / ETFDIP_2_3 rows remain':famKeys.indexOf('ETFDIP_1_0')<0&&famKeys.indexOf('ETFDIP_2_3')<0
+        },{famKeys:famKeys});
+      })();
+
+      // -- g2_f2 (F2): EXPLORE run rows, RUNBOARD FULL and PICK RUNS FULL all read the
+      //    champion's own measured in-sample slice (gate_validate.ungated_is), never the
+      //    whole-run-minus-walk-forward-minus-lockbox remainder, which mixed the fixed
+      //    champion with the re-fitted folds - and dash with the true reason, never that
+      //    remainder, when the run never saved the slice.
+      (function(){
+        var A=dfxClone(FIX);A.id=String(+FIX.id+870001);A.strategy='ZGVIS_1_0.py';A.starred=false;
+        var N=dfxClone(FIX);N.id=String(+FIX.id+870002);N.strategy='ZNOGVIS_1_0.py';N.starred=false;
+        delete N.gate_validate.ungated_is;
+        var gv=A.gate_validate.ungated_is;
+        var wantPf=(+gv.profit_factor).toFixed(2),wantTr=(+gv.num_trades).toLocaleString();
+        var W=dfxWin([A,N]);
+        var c1=doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is'],resAxis:'pf',resXAxis:'wr',c2Tbl:true},W);
+        var hdr=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()]/g,'').trim();});
+        function g2RowOf(id){return [].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf('#'+id)>=0;})[0];}
+        function g2CellOf(id,nm){var tr=g2RowOf(id),q=hdr.indexOf(nm);return (tr&&q>=0)?dfxN(tr.cells[q].textContent):null;}
+        var expPf=g2CellOf(A.id,'PF'),expTr=g2CellOf(A.id,'TRADES');
+        var c2=doRender({cmpMode:'board',rbSample:'full',cmpIds:[A.id,N.id]},W,'cmp');
+        var colIds=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');});
+        function g2RbCell(id,lbl){var i=colIds.indexOf(String(id)),cells=dfxRow(lbl);return (i>=0&&cells[i])?dfxCell(cells[i]):null;}
+        var rbA=g2RbCell(A.id,'IS $'),rbN=g2RbCell(N.id,'IS $');
+        var c3=doRender({cmpScope:'tot',cmpIds:[A.id,N.id]},W,'cmp');
+        var prCells=dfxRow(String.fromCharCode(0x251c)+' in-sample $');
+        var prA=prCells[0]?dfxCell(prCells[0]):null,prN=prCells[1]?dfxCell(prCells[1]):null;
+        dfxCase('g2_f2',[c1,c2,c3],{
+          'renders OK':c1==='OK'&&c2==='OK'&&c3==='OK',
+          'EXPLORE run row IN-SAMPLE PF is the measured slice, not a remainder':expPf===wantPf,
+          'EXPLORE run row IN-SAMPLE TRADES is the measured slice count':expTr===wantTr,
+          'RUNBOARD FULL "IS $" reads the measured slice ($11k)':!!rbA&&rbA.v==='$11k',
+          'RUNBOARD FULL "IS $" label drops the misleading REST suffix':dfxRow('IS $ '+String.fromCharCode(0xb7)+' REST').length===0,
+          'RUNBOARD FULL "IS $" dashes with the true reason when the slice was never saved':!!rbN&&rbN.v===String.fromCharCode(0x2014)&&rbN.tip.indexOf('in-sample')>=0,
+          'PICK RUNS FULL in-sample $ reads the same measured slice':!!prA&&prA.v.indexOf('11k')>=0,
+          'PICK RUNS FULL in-sample $ dashes (never a remainder) when the slice was never saved':!!prN&&prN.v===String.fromCharCode(0x2014)
+        },{expPf:expPf,expTr:expTr,rbA:rbA,rbN:rbN,prA:prA,prN:prN});
+      })();
+
+      // -- g2_f10 (F10): a Gate-Validate JOB TYPE run saves no validate block, so its curve
+      //    (net) is the UNGATED whole-run backtest while best_pf/best_trades/best_dd_usd are
+      //    the GATED headline pick - a different population. FULL PF/TRADES/DRAWDOWN must
+      //    come from gate_validate.ungated_full (the same population as the curve), on both
+      //    the LEADERBOARD and the OVERLAY table, never the gated headline beside the ungated
+      //    net; IS must dash rather than annualise the gated headline over the whole run.
+      (function(){
+        var G={id:String(+FIX.id+890001),strategy:'ZGVFULL_1_0.py',starred:false,instrument:'NQ',timeframe:'5m',
+          timestamp:'2026-09-01 00:00',multiplier:20,date_from:'2010-01-01',date_to:'2026-01-01',
+          scope:String.fromCharCode(0x1f6aa)+String.fromCharCode(0x1f9ed)+' Gate-Validate',
+          best_pf:2.50,best_trades:34,best_pnl_usd:16000,best_dd_usd:2000,best_win_rate:50,
+          equity:{cum:[0,2000,5000]},
+          gate_validate:{ungated_full:{num_trades:600,total_pnl:5000,profit_factor:1.30,win_rate:32,max_drawdown:-400}}};
+        var W=dfxWin([G]);
+        var c1=doRender({c2Screen:'lead',c2Stage:'full',c2Rank:'pf'},W);
+        var row=d.querySelector('.c2-row[data-c2fam]');
+        var fullPfTxt=row?dfxN((row.querySelector('.c2-big')||{}).textContent):null;
+        var c2=doRender({c2Screen:'lead',c2Stage:'is',c2Rank:'pf'},W);
+        var row2=d.querySelector('.c2-row[data-c2fam]');
+        var isPfBig=row2?row2.querySelector('.c2-big'):null;
+        var isPfTxt=isPfBig?dfxN(isPfBig.textContent):null;
+        var isPfTitle=isPfBig?(isPfBig.getAttribute('title')||''):'';
+        var c3=doRender({c2Screen:'cmp',c2View:'ovl',c2Stage:'full',cmpIds:[G.id]},W);
+        var ovlPfCells=dfxRow('PF');
+        var ovlPfTxt=ovlPfCells[0]?dfxN(ovlPfCells[0].textContent):null;
+        dfxCase('g2_f10',[c1,c2,c3],{
+          'renders OK':c1==='OK'&&c2==='OK'&&c3==='OK',
+          'LEADERBOARD FULL PF is the ungated_full reading, not the gated headline best_pf':fullPfTxt==='1.30',
+          'LEADERBOARD IS dashes rather than annualise the gated headline over the whole run':isPfTxt===String.fromCharCode(0x2014),
+          'LEADERBOARD IS dash names a real reason':isPfTitle.length>0,
+          'the OVERLAY table FULL PF matches the LEADERBOARD, not best_pf':ovlPfTxt==='1.30'
+        },{fullPfTxt:fullPfTxt,isPfTxt:isPfTxt,isPfTitle:isPfTitle,ovlPfTxt:ovlPfTxt});
+      })();
+
+      // -- g2_f3 (F3): a book's run report 1E KPI MATRIX builds IS / LB / TOTAL from the
+      //    book's own pre_lockbox / lockbox / whole blocks - net, PF, trades, drawdown all
+      //    measured, never a residual off a curve this run type never saves the windows for
+      //    - and no WF column, since a book tunes nothing and never runs one.
+      (function(){
+        function bkBlk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;
+          return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,
+            gross_win:gw,gross_loss:gl};}
+        var pre=bkBlk(1395904,9085,3000,6085,33.02,1.49,34000);
+        var lb=bkBlk(289811,622,200,422,32.15,1.56,28066);
+        var whole=bkBlk(1685715,9707,3200,6507,32.97,1.50,36562);
+        var B=dfxClone(FIX);B.id=String(+FIX.id+900001);B.strategy='BOOK: PROBE F3';B.starred=false;B.multiplier=1;
+        B.best_pnl_usd=pre.total_pnl;B.best_pf=pre.profit_factor;B.best_trades=pre.num_trades;B.best_dd_usd=pre.max_drawdown;B.best_win_rate=pre.win_rate;
+        B.book={name:'BOOK: PROBE F3',legs:[{strategy:FIX.strategy,weight:1}],whole:whole,pre_lockbox:pre,lockbox:lb,
+          lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-13'};
+        B.validate={verdict:'PASS',lockbox:{pnl:lb.total_pnl,pf:lb.profit_factor,trades:lb.num_trades,pass:true},book:true};
+        delete B.top10_results;delete B.gate_validate;delete B.ml_gate;
+        var W=dfxWin([B],"augurRunSel='"+B.id+"';");
+        var c=doRender({},W,'runs');
+        var ths=[].slice.call(d.querySelectorAll('#res-detail th[title]'));
+        var bookIsTh=ths.filter(function(th){return (th.getAttribute('title')||'').indexOf('A book pools every leg over one window')>=0;})[0];
+        var bookLbTh=ths.filter(function(th){return (th.getAttribute('title')||'').indexOf('the book')>=0&&(th.getAttribute('title')||'').indexOf('lockbox backtest')>=0;})[0];
+        var bookTotTh=ths.filter(function(th){return (th.getAttribute('title')||'').indexOf('no walk-forward stage')>=0;})[0];
+        var wfTh=ths.filter(function(th){return dfxN(th.textContent)==='WF';})[0];
+        function colIndex(th){if(!th)return -1;var tr=th.closest('tr');return [].indexOf.call(tr.children,th);}
+        var iIS=colIndex(bookIsTh),iLB=colIndex(bookLbTh),iTOT=colIndex(bookTotTh);
+        function metricRow(lbl){var rows=[].slice.call(d.querySelectorAll('#res-detail tbody tr'));
+          for(var i=0;i<rows.length;i++){var td=rows[i].children[0];if(td&&dfxN(td.textContent)===lbl)return rows[i];}
+          return null;}
+        function cellTitle(row,ci){if(!row||ci<0)return null;var td=row.children[ci];if(!td)return null;
+          var sp=td.querySelector('[title]');return sp?sp.getAttribute('title'):null;}
+        var netRow=metricRow('NET P&L'),ddRow=metricRow('DD'),pfRow=metricRow('PF'),trRow=metricRow('TRADES');
+        var netIS=cellTitle(netRow,iIS),netLB=cellTitle(netRow,iLB),netTOT=cellTitle(netRow,iTOT);
+        var pfTxt=function(row,ci){return (row&&row.children[ci])?dfxN(row.children[ci].textContent):null;};
+        var pfIS=pfTxt(pfRow,iIS),pfTOT=pfTxt(pfRow,iTOT),trIS=pfTxt(trRow,iIS),trTOT=pfTxt(trRow,iTOT);
+        dfxCase('g2_f3',[c],{
+          'renders OK, #res-detail exists':c==='OK'&&!!d.getElementById('res-detail'),
+          'the matrix has exactly three columns: IS, LB, TOTAL (no WF)':iIS>=0&&iLB>=0&&iTOT>=0&&!wfTh,
+          'IS NET is the book\u2019s own pre_lockbox net, not a near-zero residual':netIS==='$1,395,904',
+          'LB NET is the book\u2019s own lockbox net':netLB==='$289,811',
+          'TOTAL NET is the book\u2019s own whole net, not the lockbox PF mislabelled':netTOT==='$1,685,715',
+          'IS PF is measured (1.49), not dashed':pfIS==='1.49',
+          'TOTAL PF is the whole-book PF (1.50), not the lockbox PF standing in for it':pfTOT==='1.50',
+          'IS TRADES is the pre-lockbox count (9,085), not a lockbox-only count':trIS==='9,085',
+          'TOTAL TRADES is the whole-book count (9,707)':trTOT==='9,707'
+        },{iIS:iIS,iLB:iLB,iTOT:iTOT,hasWf:!!wfTh,netIS:netIS,netLB:netLB,netTOT:netTOT,pfIS:pfIS,pfTOT:pfTOT,trIS:trIS,trTOT:trTOT});
+      })();
+
+      // -- g2_f13 (F13): EXPLORE must not rebuild a book's Sharpe/Sortino from the thinned
+      //    saved curve - the engine never measures either for a book (book.whole /
+      //    book.lockbox carry neither), and the curve is thinned for storage, so an estimate
+      //    off it reads nothing like a true measurement and, unmarked, took the top ranks.
+      //    OVERLAY and RUNBOARD already dash a book's Sharpe/Sortino outright; EXPLORE must
+      //    dash with the same reason, not estimate off the curve.
+      (function(){
+        function bkBlk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;
+          return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,
+            gross_win:gw,gross_loss:gl};}
+        var pre=bkBlk(500000,3000,1000,2000,33.33,1.45,40000);
+        var lb=bkBlk(120000,700,230,470,32.86,1.40,20000);
+        var whole=bkBlk(620000,3700,1230,2470,33.24,1.44,45000);
+        var eq=[0,20000,15000,35000,50000,30000,60000,80000,70000,100000,120000,110000,140000,160000,150000,180000,200000,190000,220000,240000];
+        var B=dfxClone(FIX);B.id=String(+FIX.id+910001);B.strategy='BOOK: PROBE F13';B.starred=false;B.multiplier=1;
+        B.best_pnl_usd=pre.total_pnl;B.best_pf=pre.profit_factor;B.best_trades=pre.num_trades;B.best_dd_usd=pre.max_drawdown;B.best_win_rate=pre.win_rate;
+        B.book={name:'BOOK: PROBE F13',legs:[{strategy:FIX.strategy,weight:1}],whole:whole,pre_lockbox:pre,lockbox:lb,
+          lockbox_from:'2022-01-01',date_from:'2010-01-01',date_to:'2025-01-01'};
+        B.validate={verdict:'PASS',equity:eq,lb_idx:15,lockbox:{pnl:lb.total_pnl,pf:lb.profit_factor,trades:lb.num_trades,pass:true},book:true};
+        delete B.top10_results;delete B.gate_validate;delete B.ml_gate;
+        var W=dfxWin([B]);
+        function hdrOf(){return [].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()]/g,'').trim();});}
+        function rowOf(id){return [].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf('#'+id)>=0;})[0];}
+        function cellTitleAt(tr,q){var td=tr&&tr.cells[q];if(!td)return null;var sp=td.querySelector('[title]');return sp?sp.getAttribute('title'):null;}
+        function read(segs){
+          var c=doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:segs,resAxis:'pf',resXAxis:'wr',c2Tbl:true},W);
+          var h=hdrOf(),tr=rowOf(B.id);
+          var qSh=h.indexOf('SHARPE'),qSo=h.indexOf('SORTINO');
+          return {call:c,sh:(tr&&qSh>=0)?dfxN(tr.cells[qSh].textContent):null,so:(tr&&qSo>=0)?dfxN(tr.cells[qSo].textContent):null,
+            shTip:cellTitleAt(tr,qSh),soTip:cellTitleAt(tr,qSo)};}
+        var isR=read(['is']),lbR=read(['lb']),allR=read(['is','wf','lb']);
+        var wantReason='This run is a book. A book pools every leg\u2019s trades into one line and never saves a Sharpe or a Sortino for it.';
+        dfxCase('g2_f13',[isR.call,lbR.call,allR.call],{
+          'renders OK':isR.call==='OK'&&lbR.call==='OK'&&allR.call==='OK',
+          'IN-SAMPLE SHARPE dashes rather than estimate off the thinned curve':isR.sh===String.fromCharCode(0x2014),
+          'IN-SAMPLE SORTINO dashes too':isR.so===String.fromCharCode(0x2014),
+          'IN-SAMPLE dash names the real reason (a book saves neither)':(isR.shTip||'').indexOf(wantReason)>=0,
+          'LOCKBOX SHARPE dashes rather than estimate off the thinned curve':lbR.sh===String.fromCharCode(0x2014),
+          'LOCKBOX SORTINO dashes too':lbR.so===String.fromCharCode(0x2014),
+          'ALL THREE (whole run) SHARPE dashes rather than estimate off the thinned curve':allR.sh===String.fromCharCode(0x2014),
+          'ALL THREE (whole run) SORTINO dashes too':allR.so===String.fromCharCode(0x2014)
+        },{isR:isR,lbR:lbR,allR:allR});
+      })();
+
+      // -- g2_f18 (F18): a champion whose own window covers under two years must sink below
+      //    every full-length champion on the LEADERBOARD family list and in COMPARE CHAMPIONS'
+      //    own TOP 10 pick - it still shows (RUNBOARD's own rule: a short sample is a caveat,
+      //    not a disqualifier here) but it must never rank above a full-length run just because
+      //    a near-zero drawdown inflated its ratio, and it must carry a mark saying why.
+      (function(){
+        var A=dfxClone(FIX);A.id=String(+FIX.id+920001);A.strategy='ZLONGYR_1_0.py';A.starred=false;
+        var B=dfxClone(FIX);B.id=String(+FIX.id+920002);B.strategy='ZSHORTYR_1_0.py';B.starred=false;
+        B.date_from='2026-05-10';B.date_to='2026-05-28';   // 18 days, the real #42 evidence from the audit
+        delete B.validate.equity;delete B.equity;
+        B.best_pnl_usd=5000000;B.validate.total_dd=-200;B.validate.total_trades=500;B.validate.total_win_rate=90;
+        var W=dfxWin([A,B]);
+        var c1=doRender({c2Screen:'lead',c2Stage:'full',c2Rank:'mar'},W);
+        function famOrder(){return [].map.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'');});}
+        var order=famOrder();
+        var iA=order.indexOf('ZLONGYR_1_0'),iB=order.indexOf('ZSHORTYR_1_0');
+        function pillTitleFor(fk){var row=[].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'')===fk;})[0];
+          if(!row)return null;var pills=[].slice.call(row.querySelectorAll('.c2-pill'));
+          var p=pills.filter(function(x){return (x.textContent||'').indexOf('short window')>=0;})[0];
+          return p?p.getAttribute('title'):null;}
+        var bPill=pillTitleFor('ZSHORTYR_1_0'),aPill=pillTitleFor('ZLONGYR_1_0');
+        var c2=doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'champ',c2Stage:'full',c2Rank:'mar'},W);
+        var champOrder=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');});
+        var jA=champOrder.indexOf(A.id),jB=champOrder.indexOf(B.id);
+        // F18 fix (repair round): column ORDER already sank the short-window champion, but the
+        //   per-row BEST mark (bold + "best of the picked runs on this row") is a SEPARATE
+        //   mechanism and used to still land on it regardless of order - checked here on MAR,
+        //   the row named in the audit evidence.
+        function marBestCol(){var cells=dfxRow('MAR');for(var i2=0;i2<cells.length;i2++){
+          var b=cells[i2].querySelector('[title="best of the picked runs on this row"]');if(b)return i2;}return -1;}
+        var marBestIdx=marBestCol();
+        // TOP RUNS (BEST), ranked on MAR - the LEADERBOARD's own top-runs strip.
+        var c3=doRender({c2Screen:'lead',c2Stage:'full',c2Rank:'mar',c2Top:'best'},W);
+        function topRunsOrder(){return [].map.call(d.querySelectorAll('[data-c2run]'),function(x){return x.getAttribute('data-c2run');});}
+        var topOrder=topRunsOrder();
+        dfxCase('g2_f18',[c1,c2,c3],{
+          'renders OK':c1==='OK'&&c2==='OK'&&c3==='OK',
+          'both strategies appear on the LEADERBOARD':iA>=0&&iB>=0,
+          'the 18-day run sinks BELOW the full-length one on the LEADERBOARD despite its far larger MAR':iA<iB,
+          'the 18-day run carries a short-window mark naming a real reason':!!bPill&&bPill.length>0,
+          'the full-length run carries no such mark':aPill===null,
+          'both champions appear in COMPARE CHAMPIONS':jA>=0&&jB>=0,
+          'COMPARE CHAMPIONS ranks the 18-day champion BELOW the full-length one too':jA<jB,
+          'COMPARE CHAMPIONS: the MAR best-in-row mark goes to the full-length column, not the short-window one':marBestIdx>=0&&marBestIdx===jA,
+          'TOP RUNS (BEST) puts the full-length run ahead of the short-window one on MAR':topOrder.indexOf(A.id)>=0&&topOrder.indexOf(B.id)>=0&&topOrder.indexOf(A.id)<topOrder.indexOf(B.id)
+        },{iA:iA,iB:iB,bPill:bPill,aPill:aPill,jA:jA,jB:jB,champOrder:champOrder,marBestIdx:marBestIdx,topOrder:topOrder});
+      })();
+
+      // == g3-books-picks: Book flags and PICK RUNS marks/tiles (F4, F8, F9, F22) ==
+
+      // -- g3_f4 (F4): the ORB look-ahead badge (and its always-on note) must flag only the
+      //    touch-entry ORB family - ORB_2_0, ORB_3_0 to ORB_3_3 and their forks, ORB_3_1_125 but
+      //    not its fixed close-confirmed fork _125C - never the legal ORB_3_6 line, on both the
+      //    RUNBOARD books tile and the native BOOKS view, and "CHAMPION included" must be gone.
+      (function(){
+        function mkBook(idOff,name,legNames){
+          var B=dfxClone(FIX);B.id=String(+FIX.id+idOff);B.strategy=name;B.starred=false;
+          B.best_pnl_usd=250000;B.best_dd_usd=30000;B.multiplier=20;
+          B.book={name:name,legs:legNames.map(function(n){return {strategy:n,weight:1};}),
+            whole:{total_pnl:320000,max_drawdown:32000},pre_lockbox:{total_pnl:250000,max_drawdown:30000},
+            lockbox:{total_pnl:70000,num_trades:400,win_rate:44.5,profit_factor:1.4,max_drawdown:25000},
+            slices_held:8,slices_n:8,lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+          B.validate={verdict:'PASS',lockbox:{pnl:70000,pf:1.4,trades:400,pass:true},book:true};
+          return B;
+        }
+        var LEGAL=mkBook(931001,'BOOK: G3F4 LEGAL',['ORB_3_6_C2.py','ENGUQ_1_0.py']);
+        var FLAGGED=mkBook(931002,'BOOK: G3F4 FLAGGED',['ORB_3_0.py','ENGUQ_1_0.py']);
+        var FIXEDFORK=mkBook(931003,'BOOK: G3F4 FIXEDFORK',['ORB_3_1_125C.py','ENGUQ_1_0.py']);
+        var STILLBAD=mkBook(931004,'BOOK: G3F4 STILLBAD',['ORB_3_1_125.py','ENGUQ_1_0.py']);
+        var W=dfxWin([LEGAL,FLAGGED,FIXEDFORK,STILLBAD]);
+        var calls=[];
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',rbSample:'full'},W));
+        var rbTxt=dfxN(d.body.innerText||'');
+        function rbBadged(id){var row=d.querySelector('tr[data-rank-run="'+id+'"]');return !!(row&&/ORB leg/.test(row.textContent||''));}
+        var rb={legal:rbBadged(LEGAL.id),flagged:rbBadged(FLAGGED.id),fixedfork:rbBadged(FIXEDFORK.id),stillbad:rbBadged(STILLBAD.id)};
+        var rbNoteGone=rbTxt.indexOf('CHAMPION included')<0;
+        calls.push(doRender({c2Screen:'cmp',c2View:'books',c2Stage:'full'},W));
+        var bkTxt=dfxN(d.body.innerText||'');
+        function bkBadged(id){var row=d.querySelector('tr[data-c2run="'+id+'"]');return !!(row&&/ORB leg/.test(row.textContent||''));}
+        var bk={legal:bkBadged(LEGAL.id),flagged:bkBadged(FLAGGED.id),fixedfork:bkBadged(FIXEDFORK.id),stillbad:bkBadged(STILLBAD.id)};
+        var bkNoteGone=bkTxt.indexOf('CHAMPION included')<0;
+        dfxCase('g3_f4',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'RUNBOARD: the legal ORB 3.6 leg carries no badge':!rb.legal,
+          'RUNBOARD: a touch-entry ORB leg (3.0) carries the badge':rb.flagged,
+          'RUNBOARD: the fixed close-confirmed 3.1_125C fork carries no badge':!rb.fixedfork,
+          'RUNBOARD: the still-open 3.1_125 fork carries the badge':rb.stillbad,
+          'RUNBOARD: the always-on CHAMPION-included note is gone':rbNoteGone,
+          'BOOKS: the legal ORB 3.6 leg carries no badge':!bk.legal,
+          'BOOKS: a touch-entry ORB leg (3.0) carries the badge':bk.flagged,
+          'BOOKS: the fixed close-confirmed 3.1_125C fork carries no badge':!bk.fixedfork,
+          'BOOKS: the still-open 3.1_125 fork carries the badge':bk.stillbad,
+          'BOOKS: the always-on CHAMPION-included note is gone':bkNoteGone
+        },{rb:rb,bk:bk});
+      })();
+
+      // -- g3_f8 (F8): PICK RUNS "Max DD" (IS) and "Max DD (in-sample)" (FULL) must compare the
+      //    ABSOLUTE drawdown - smallest wins - and a missing drawdown must dash and never win.
+      //    A book saves its drawdown positive and a single run saves it negative; before the
+      //    fix the raw signed value was ranked with 'max', so any picked book always won.
+      (function(){
+        var BK=dfxClone(FIX);BK.id=String(+FIX.id+941001);BK.strategy='BOOK: G3F8';BK.starred=false;
+        BK.best_dd_usd=36562.4;
+        BK.book={legs:[{strategy:FIX.strategy}],whole:{total_pnl:1,max_drawdown:1},
+          pre_lockbox:{total_pnl:1,max_drawdown:1},
+          lockbox:{total_pnl:1,num_trades:1,win_rate:1,profit_factor:1,max_drawdown:1},
+          lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:1,pf:1,trades:1,pass:true},book:true};
+        var SMALL=dfxClone(FIX);SMALL.id=String(+FIX.id+941002);SMALL.strategy='ZG3F8SMALL_1_0.py';SMALL.starred=false;SMALL.best_dd_usd=-14297.8;
+        var BIG=dfxClone(FIX);BIG.id=String(+FIX.id+941003);BIG.strategy='ZG3F8BIG_1_0.py';BIG.starred=false;BIG.best_dd_usd=-53925;
+        var NONE=dfxClone(FIX);NONE.id=String(+FIX.id+941004);NONE.strategy='ZG3F8NONE_1_0.py';NONE.starred=false;delete NONE.best_dd_usd;
+        var ids=[BK.id,SMALL.id,BIG.id,NONE.id];
+        var W=dfxWin([BK,SMALL,BIG,NONE]);
+        function cellOf(td){return {v:dfxN(td.textContent),best:/color:var\(--green\)/.test(td.getAttribute('style')||'')};}
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'is',cmpIds:ids},W));
+        res.is=dfxRow('Max DD').map(cellOf);
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'full',cmpIds:ids},W));
+        res.full=dfxRow('Max DD (in-sample)').map(cellOf);
+        function chk(cells){
+          return {n4:cells.length===4,
+            bookAbs:!!cells[0]&&cells[0].v==='$37k',
+            smallAbs:!!cells[1]&&cells[1].v==='$14k',
+            bigAbs:!!cells[2]&&cells[2].v==='$54k',
+            noneDash:!!cells[3]&&cells[3].v==='—',
+            smallestWins:!!cells[1]&&cells[1].best===true,
+            bookNotBest:!!cells[0]&&cells[0].best!==true,
+            noneNotBest:!!cells[3]&&cells[3].best!==true};
+        }
+        var ci=chk(res.is),cf=chk(res.full);
+        dfxCase('g3_f8',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'IS: four cells, all printed as positive dollar amounts':ci.n4&&ci.bookAbs&&ci.smallAbs&&ci.bigAbs,
+          'IS: a missing drawdown dashes':ci.noneDash,
+          'IS: the smallest ABSOLUTE drawdown wins, not the books positive sign':ci.smallestWins&&ci.bookNotBest,
+          'IS: the missing figure never wins':ci.noneNotBest,
+          'FULL: four cells, all printed as positive dollar amounts':cf.n4&&cf.bookAbs&&cf.smallAbs&&cf.bigAbs,
+          'FULL: a missing drawdown dashes':cf.noneDash,
+          'FULL: the smallest ABSOLUTE drawdown wins, not the books positive sign':cf.smallestWins&&cf.bookNotBest,
+          'FULL: the missing figure never wins':cf.noneNotBest
+        },{is:res.is.map(function(x){return x.v+(x.best?' [BEST]':'');}),full:res.full.map(function(x){return x.v+(x.best?' [BEST]':'');})});
+      })();
+
+      // -- g3_f9 (F9): the PICK RUNS NET P&L tile must follow STAGE (TOTAL/LB/WF/IS) instead of
+      //    always showing the in-sample tuning-score money labelled "whole-run", and a missing
+      //    figure must dash instead of printing $0.
+      (function(){
+        var F0=dfxClone(FIX);
+        var E=dfxClone(FIX);E.id=String(+FIX.id+951001);E.strategy='ZG3F9EMPTY_1_0.py';E.starred=false;
+        delete E.best_pnl_usd;delete E.top10_results;delete E.validate.lockbox;
+        var ids=[String(F0.id),E.id];
+        var W=dfxWin([F0,E]);
+        function tileInfo(){
+          var lbl=[].filter.call(d.querySelectorAll('.lbl'),function(e){return (e.textContent||'').indexOf('NET P&L')===0;})[0];
+          if(!lbl)return null;
+          var span=lbl.querySelector('span');
+          var bars=lbl.nextElementSibling;
+          var rows=bars?[].slice.call(bars.children):[];
+          return {label:span?dfxN(span.textContent):null,
+            vals:rows.map(function(row){var sp=row.querySelectorAll('span');return sp.length?dfxN(sp[sp.length-1].textContent):null;})};
+        }
+        var calls=[],res={};
+        ['is','wf','lb','full'].forEach(function(st){
+          calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:st,cmpIds:ids},W));
+          res[st]=tileInfo();
+        });
+        dfxCase('g3_f9',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'IS labelled in-sample (tuning), not whole-run':!!res.is&&/in-sample/i.test(res.is.label||'')&&!/whole-run/i.test(res.is.label||''),
+          'IS reads the tuning-score money ($65,427, the fixtures best_pnl_usd)':!!res.is&&res.is.vals[0]==='$65,427',
+          'IS: a run with no tuning score dashes, not $0':!!res.is&&res.is.vals[1]==='—',
+          'WF labelled walk-forward':!!res.wf&&/walk-forward/i.test(res.wf.label||''),
+          'WF reads a different figure than IS (the walk-forward net, not the tuning score)':!!res.wf&&!!res.is&&res.wf.vals[0]!==res.is.vals[0]&&res.wf.vals[0]!=='—',
+          'WF: a run with no saved folds dashes, not $0':!!res.wf&&res.wf.vals[1]==='—',
+          'LB labelled lockbox':!!res.lb&&/lockbox/i.test(res.lb.label||''),
+          'LB reads a different figure than IS (the lockbox net, not the tuning score)':!!res.lb&&!!res.is&&res.lb.vals[0]!==res.is.vals[0]&&res.lb.vals[0]!=='—',
+          'LB: a run with no saved lockbox dashes, not $0':!!res.lb&&res.lb.vals[1]==='—',
+          'FULL labelled whole-run':!!res.full&&/whole-run/i.test(res.full.label||''),
+          'FULL reads a different figure than IS (the whole-run total, not the tuning score)':!!res.full&&!!res.is&&res.full.vals[0]!==res.is.vals[0]
+        },res);
+      })();
+
+      // -- g3_f22 (F22, NaN part only): PICK RUNS Robustness must print a dash with a reason for
+      //    a book (its validate block saves no per-gate pass count) instead of the literal text
+      //    "NaN", and GROUP mode must order every group - book or strategy - by the CHAMPIONS
+      //    book rule (crown, then robustness / pre-lockbox net over drawdown, then money)
+      //    instead of a raw scoreRun difference, which is NaN-vs-NaN for two book groups.
+      (function(){
+        var calls=[],res={};
+        // -- Robustness dash-with-reason, IS and FULL --
+        var BK=dfxClone(FIX);BK.id=String(+FIX.id+961001);BK.strategy='BOOK: G3F22 ROB';BK.starred=false;
+        BK.book={legs:[{strategy:FIX.strategy}],whole:{total_pnl:1,max_drawdown:1},
+          pre_lockbox:{total_pnl:1,max_drawdown:1},
+          lockbox:{total_pnl:1,num_trades:1,win_rate:1,profit_factor:1,max_drawdown:1},
+          lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:1,pf:1,trades:1,pass:true},book:true};
+        var robIds=[String(FIX.id),BK.id];
+        var Wr=dfxWin([dfxClone(FIX),BK]);
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'is',cmpIds:robIds},Wr));
+        res.robIs=dfxRow('Robustness').map(dfxCell);
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Stage:'full',cmpIds:robIds},Wr));
+        res.robFull=dfxRow('Robustness').map(dfxCell);
+        // -- GROUP order: two book-only groups (distinct _labOf labels via distinct file-style
+        //    strategy strings), inserted LOW-before-HIGH (LOW gets the larger id so the
+        //    id-descending picker pool visits it first) so a stable, order-preserving sort over
+        //    an always-NaN comparator would leave the WRONG book (LOW) on top. --
+        function mkBook2(idOff,name,net,dd){
+          var B=dfxClone(FIX);B.id=String(+FIX.id+idOff);B.strategy=name;B.starred=false;
+          B.book={legs:[{strategy:FIX.strategy}],whole:{total_pnl:net,max_drawdown:dd},
+            pre_lockbox:{total_pnl:net,max_drawdown:dd},
+            lockbox:{total_pnl:1,num_trades:1,win_rate:1,profit_factor:1,max_drawdown:1},
+            lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+          B.validate={verdict:'PASS',lockbox:{pnl:1,pf:1,trades:1,pass:true},book:true};
+          return B;
+        }
+        var HIGH=mkBook2(962001,'ZBKHI_1_0.py',300000,10000);   // pre-lockbox net / dd = 30 - the real champions-rule winner
+        var LOW=mkBook2(962002,'ZBKLO_1_0.py',50000,10000);     // pre-lockbox net / dd = 5
+        var Wg=dfxWin([LOW,HIGH]);   // insertion order LOW, HIGH; LOW.id > HIGH.id so the id-sorted pool visits LOW first
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',cmpGroup:true,cmpIds:[LOW.id]},Wg));
+        // read the actual GROUP header rows in DOM order - not raw page HTML, which also lists
+        //   every strategy label in a <select> filter built off the unsorted run pool and would
+        //   give a false pass/fail unrelated to gs.sort.
+        var grpTxt=[].map.call(d.querySelectorAll('[data-cmpgrp]'),function(e){return e.textContent||'';});
+        var jHigh=grpTxt.findIndex(function(s){return s.indexOf('ZBKHI')>=0;});
+        var jLow=grpTxt.findIndex(function(s){return s.indexOf('ZBKLO')>=0;});
+        var highBeforeLow=(jHigh>=0&&jLow>=0&&jHigh<jLow);
+        dfxCase('g3_f22',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'IS Robustness: a normal run still reads a real number':!!res.robIs[0]&&/^[0-9]+$/.test(res.robIs[0].v),
+          'IS Robustness: the book reads a dash, never the text NaN':!!res.robIs[1]&&res.robIs[1].v==='—'&&res.robIs[1].v.indexOf('NaN')<0,
+          'IS Robustness: the books dash carries a reason on hover':!!res.robIs[1]&&res.robIs[1].tip.length>0,
+          'FULL Robustness: a normal run still reads a real number':!!res.robFull[0]&&/^[0-9]+$/.test(res.robFull[0].v),
+          'FULL Robustness: the book reads a dash, never the text NaN':!!res.robFull[1]&&res.robFull[1].v==='—'&&res.robFull[1].v.indexOf('NaN')<0,
+          'FULL Robustness: the books dash carries a reason on hover':!!res.robFull[1]&&res.robFull[1].tip.length>0,
+          'GROUP: the book with the better pre-lockbox net over drawdown (CHAMPIONS rule) is listed first':highBeforeLow
+        },{robIs:res.robIs.map(function(x){return x.v;}),robFull:res.robFull.map(function(x){return x.v;}),jHigh:jHigh,jLow:jLow,grpTxt:grpTxt});
+      })();
+
+      // ============================================================================
+      // g4-charts (F5, F15, F16, F17, F19, F20, F21): chart dates, full-screen view,
+      // +ADD, EXPLORE hovers. Built on top of g1/g2/g3's fixtures and helpers.
+      // ============================================================================
+
+      // -- g4_f5 (F5): RUNBOARD 1A FUNNEL on LB/IS must slice the curve to ITS OWN calendar
+      //    span (the lockbox door to date_to on LB; date_from to the lockbox door on IS)
+      //    instead of the whole run's [date_from,date_to], and the key's ending $ must read
+      //    the table's own stage figure (_netOf), marked ~, instead of the raw endpoint of
+      //    a downsampled, differently-anchored curve slice.
+      //    REPAIR ROUND additions: the IS half only got half-fixed (span still ran to the
+      //    lockbox door, and the key still printed best_pnl_usd, a DIFFERENT overlapping
+      //    window) -- the IS span must end at the first walk-forward fold instead, and its
+      //    key must read the slice's own endpoint, not a swapped-in table figure. --
+      (function(){
+        var calls=[],res={};
+        function lbSeries(){
+          var raw=w.eval("JSON.stringify((window._cmpEqxSeries||[]).map(function(s){return {id:s.id,span:s.span||null,keyEnd:(s.keyEnd==null?null:s.keyEnd),keyApx:!!s.keyApx};}))");
+          var arr=JSON.parse(raw);
+          for(var i=0;i<arr.length;i++){if(String(arr[i].id)===String(FIX.id))return arr[i];}
+          return {};
+        }
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp'));
+        var sLb=lbSeries();res.lbSpan=sLb.span;res.lbKeyEnd=sLb.keyEnd;res.lbKeyApx=sLb.keyApx;
+        var keyRowLb=d.querySelector('.cmpovl-key [data-ovltog="'+FIX.id+'"]');
+        res.lbKeyText=keyRowLb?dfxN(keyRowLb.textContent):null;
+        res.lbKeyTilde=!!(res.lbKeyText&&res.lbKeyText.indexOf('~')>=0);
+        var lbYrsM=/\xb7 ([0-9.]+)y/.exec(res.lbKeyText||'');res.lbKeyYrs=lbYrsM?+lbYrsM[1]:null;
+        var expBtn=d.querySelector('[data-cmpexpand]');
+        res.hasExpandBtn=!!expBtn;
+        if(expBtn&&expBtn.onclick)expBtn.onclick();
+        try{w.dispatchEvent(new w.Event('resize'));}catch(_rf){}
+        var dateLabels=[].map.call(d.querySelectorAll('#ceqx-svg text[font-size="7.5"]'),function(t){return t.textContent||'';});
+        res.fsFirstLabel=dateLabels[0]||null;
+        var fsYm=/\/(\d{2})$/.exec(res.fsFirstLabel||'');res.fsFirstYear=fsYm?(2000+ +fsYm[1]):null;
+        var fsClose=d.querySelector('#ceqx-close');if(fsClose&&fsClose.onclick)fsClose.onclick();
+        calls.push(doRender({cmpMode:'board',rbSample:'is',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp'));
+        var sIs=lbSeries();res.isSpan=sIs.span;res.isKeyEnd=sIs.keyEnd;res.isKeyApx=sIs.keyApx;
+        var keyRowIs=d.querySelector('.cmpovl-key [data-ovltog="'+FIX.id+'"]');
+        res.isKeyText=keyRowIs?dfxN(keyRowIs.textContent):null;
+        res.isKeyTilde=!!(res.isKeyText&&res.isKeyText.indexOf('~')>=0);
+        var expLbNet=FIX.validate.lockbox.pnl*(FIX.multiplier||20);
+        var expIsNet=FIX.best_pnl_usd;
+        var _folds=(FIX.top10_results||[]).filter(function(f){return f&&f.fold!=null&&(+f.test_bars>0);}).sort(function(a,b){return a.fold-b.fold;});
+        var _tr0=+_folds[0].train_bars||0,_tbSum=_folds.reduce(function(s,f){return s+(+f.test_bars||0);},0);
+        var _frac0=_tr0/(_tr0+_tbSum);
+        var _dp=function(s){var m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(s||''));return m?+new Date(+m[1],+m[2]-1,+m[3]):Date.parse(s||'');};
+        var _t0=_dp(FIX.date_from),_tLb=_dp(FIX.validate.lockbox.from);
+        var _expIsEndMs=_t0+_frac0*(_tLb-_t0);
+        var _p2=function(n){return n<10?('0'+n):(''+n);};
+        var _expIsEndD=new Date(_expIsEndMs);
+        var expIsEnd=_expIsEndD.getFullYear()+'-'+_p2(_expIsEndD.getMonth()+1)+'-'+_p2(_expIsEndD.getDate());
+        var BK=dfxClone(FIX);BK.id=+FIX.id+969001;BK.strategy='BOOK G5: NOISE + ORB';BK.starred=false;BK.multiplier=1;
+        delete BK.date_from;delete BK.date_to;
+        BK.book={name:BK.strategy,legs:[{strategy:'NOISE_1_0.py',weight:1},{strategy:'ORB_1_0.py',weight:1}],
+          whole:{total_pnl:300000,max_drawdown:20000,num_trades:2000,profit_factor:1.3},
+          pre_lockbox:{total_pnl:250000,max_drawdown:18000},
+          lockbox:{total_pnl:70000,num_trades:400,win_rate:44.5,profit_factor:1.4,max_drawdown:9000},
+          lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:70000,pf:1.4,trades:400,pass:true},book:true,
+          equity:FIX.validate.equity.slice(),lb_idx:FIX.validate.lb_idx};
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'net'}, dfxWin([FIX,BK]), 'cmp'));
+        var rawBk=w.eval("JSON.stringify((window._cmpEqxSeries||[]).map(function(s){return {id:s.id,span:s.span||null};}))");
+        var arrBk=JSON.parse(rawBk);
+        function findSpan(bid){for(var i=0;i<arrBk.length;i++){if(String(arrBk[i].id)===String(bid))return arrBk[i].span;}return null;}
+        res.bkSpan=findSpan(BK.id);
+        res.fixSpanWithBook=findSpan(FIX.id);
+        dfxCase('g4_f5',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'LB slice gets its OWN span, not the whole run (does not start at date_from)':Array.isArray(res.lbSpan)&&res.lbSpan.length===2&&res.lbSpan[0]!==FIX.date_from,
+          'LB span starts at the saved lockbox door':Array.isArray(res.lbSpan)&&String(res.lbSpan[0]).slice(0,10)===FIX.validate.lockbox.from,
+          'LB span ends at date_to':Array.isArray(res.lbSpan)&&String(res.lbSpan[1]).slice(0,10)===FIX.date_to,
+          'LB key reads the table figure for lockbox net, not the raw curve tail':res.lbKeyEnd!=null&&Math.abs(res.lbKeyEnd-expLbNet)<1,
+          'LB key is marked approximate (sourced from the table, not the drawn slice)':res.lbKeyApx===true,
+          'LB key row shows the ~ mark on screen':res.lbKeyTilde,
+          'LB key years read the SLICE span (about 1.5y), not the whole 16-year run':res.lbKeyYrs!=null&&res.lbKeyYrs>0.5&&res.lbKeyYrs<3,
+          'IS slice gets its OWN span, not the whole run (does not run out to date_to)':Array.isArray(res.isSpan)&&res.isSpan.length===2&&res.isSpan[1]!==FIX.date_to,
+          'IS span starts at date_from':Array.isArray(res.isSpan)&&String(res.isSpan[0]).slice(0,10)===FIX.date_from,
+          'IS span ends at the first walk-forward fold, not the lockbox door':Array.isArray(res.isSpan)&&String(res.isSpan[1]).slice(0,10)===expIsEnd,
+          'IS span end is well before the lockbox door (the fold, not the door)':Array.isArray(res.isSpan)&&String(res.isSpan[1]).slice(0,10)!==FIX.validate.lockbox.from,
+          'IS key does NOT read best_pnl_usd (a different, overlapping tuning-score window)':res.isKeyEnd==null,
+          'IS key is NOT marked approximate (it is the slice line own endpoint, not a swapped-in table figure)':res.isKeyApx===false,
+          'IS key row shows no ~ mark on screen':!res.isKeyTilde,
+          'a BOOK gets a real LB span from its own lockbox_from, not null':Array.isArray(res.bkSpan)&&res.bkSpan.length===2,
+          'a BOOK LB span starts at its own book.lockbox_from':Array.isArray(res.bkSpan)&&String(res.bkSpan[0]).slice(0,10)===BK.book.lockbox_from,
+          'a BOOK LB span ends at its own book.date_to':Array.isArray(res.bkSpan)&&String(res.bkSpan[1]).slice(0,10)===BK.book.date_to,
+          'with a book on the board, the OTHER run keeps its own short LB span':Array.isArray(res.fixSpanWithBook)&&res.fixSpanWithBook.length===2&&res.fixSpanWithBook[0]!==FIX.date_from,
+          'fullscreen: the LB slice keeps its own span (earliest x-axis date is 2025 or later)':res.fsFirstYear!=null&&res.fsFirstYear>=2025
+        },res);
+      })();
+
+      // -- g4_f15 (F15): OVERLAY / PICK RUNS / RUNBOARD FULL must place the lockbox door at
+      //    its own saved calendar date, not spread evenly across [date_from,date_to] as if
+      //    the curve's points were dated one per day. Checked by reading each series' OWN
+      //    pts[li].x AFTER cmpOvlMount has run (cmpOvlMount mutates the series objects in
+      //    place, so window._cmpEqxSeries[i].pts is the real drawn geometry, not a re-derived
+      //    guess). --
+      (function(){
+        var calls=[],res={};
+        function doorInfo(){
+          var raw=w.eval("JSON.stringify((window._cmpEqxSeries||[]).map(function(s){return {id:s.id,li:s.li,n:(s.pts?s.pts.length:((s.eq&&s.eq.length)||0)),doorX:(s.pts&&s.li!=null&&s.pts[s.li])?s.pts[s.li].x:null};}))");
+          var arr=JSON.parse(raw);
+          for(var i=0;i<arr.length;i++){if(String(arr[i].id)===String(FIX.id))return arr[i];}
+          return {};
+        }
+        var t0=new Date(2010,5,7).getTime(), t1=new Date(2026,7,12).getTime(), tLb=new Date(2025,1,11).getTime();
+        var correctFrac=(tLb-t0)/(t1-t0);
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp'));
+        var rb=doorInfo();res.rbDoorX=rb.doorX;
+        var naiveFrac=(rb.li!=null&&rb.n>1)?(rb.li/(rb.n-1)):null;
+        calls.push(doRender({cmpMode:'runs',cmpIds:[String(FIX.id)]}, FIX_WIN, 'cmp'));
+        var pr=doorInfo();res.prDoorX=pr.doorX;
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:[String(FIX.id)]}, FIX_WIN));
+        var ov=doorInfo();res.ovDoorX=ov.doorX;
+        res.naiveFrac=naiveFrac;res.correctFrac=correctFrac;
+        function close(a,b,tol){return a!=null&&b!=null&&Math.abs(a-b)<tol;}
+        function far(a,b,tol){return a!=null&&b!=null&&Math.abs(a-b)>tol;}
+        dfxCase('g4_f15',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the fixture is a real test: the naive trade-count fraction and the true calendar fraction differ by a measurable amount':far(naiveFrac,correctFrac,0.004),
+          'RUNBOARD FULL: the lockbox door lands on its real saved date':close(res.rbDoorX,correctFrac,0.001),
+          'RUNBOARD FULL: the door is NOT the naive even-by-trade-count spread':far(res.rbDoorX,naiveFrac,0.003),
+          'PICK RUNS: the lockbox door lands on its real saved date':close(res.prDoorX,correctFrac,0.001),
+          'PICK RUNS: the door is NOT the naive even-by-trade-count spread':far(res.prDoorX,naiveFrac,0.003),
+          'OVERLAY: the lockbox door lands on its real saved date':close(res.ovDoorX,correctFrac,0.001),
+          'OVERLAY: the door is NOT the naive even-by-trade-count spread':far(res.ovDoorX,naiveFrac,0.003)
+        },res);
+      })();
+
+      // -- g4_f16 (F16): the fullscreen explorer must open with every picked/visible run
+      //    drawn, not collapse to a single "RAW (n)" row showing only the highest-ending
+      //    line -- and that group must be labelled RUNS (these are different strategies),
+      //    not RAW (raw configs of one run). --
+      (function(){
+        var calls=[],res={};
+        var A=dfxClone(FIX);
+        var B=dfxClone(FIX);B.id=+FIX.id+964001;B.strategy='ZG16B_1_0.py';B.starred=false;
+        B.validate.equity=B.validate.equity.map(function(v){return v*0.5;});
+        var C=dfxClone(FIX);C.id=+FIX.id+964002;C.strategy='ZG16C_1_0.py';C.starred=false;
+        C.validate.equity=C.validate.equity.map(function(v){return v*0.25;});
+        var ids=[String(A.id),String(B.id),String(C.id)];
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'full',cmpIds:ids}, dfxWin([A,B,C])));
+        var btn=d.querySelector('[data-cmpexpand]');
+        res.hasBtn=!!btn;
+        if(btn&&btn.onclick)btn.onclick();
+        // the modal's first paint is scheduled via requestAnimationFrame, which will not have
+        //   fired yet in this same synchronous tick; a dispatched resize event runs render()
+        //   synchronously (its own onResize handler calls render() unconditionally) without
+        //   waiting on a real animation frame.
+        try{w.dispatchEvent(new w.Event('resize'));}catch(_rf){}
+        var legend=d.querySelector('#ceqx-legend');
+        res.legendHtml=legend?legend.innerHTML:'';
+        var drawnSet={};
+        [].forEach.call(d.querySelectorAll('#ceqx-chart path[data-sr]'),function(p){drawnSet[p.getAttribute('data-sr')]=1;});
+        res.drawnIds=Object.keys(drawnSet);
+        res.allThreeDrawn=ids.every(function(id){return !!drawnSet[id];});
+        var closeBtn=d.querySelector('#ceqx-close');if(closeBtn&&closeBtn.onclick)closeBtn.onclick();
+        dfxCase('g4_f16',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the expand button exists':res.hasBtn,
+          'the fullscreen legend opens':!!legend,
+          'every picked run is drawn, not just the highest-ending one':res.allThreeDrawn,
+          'the group is labelled RUNS, not RAW (these are different strategies, not raw configs of one run)':res.legendHtml.indexOf('RUNS')>=0
+        },res);
+      })();
+
+      // -- g4_f17 (F17): a run greyed or hidden in the OVERLAY chart key must stay
+      //    greyed/hidden in the fullscreen view (id type mismatch: the key stores hidden
+      //    ids as STRINGS, a series id off a lite read is a NUMBER). --
+      (function(){
+        var calls=[],res={};
+        var A=dfxClone(FIX);
+        var B=dfxClone(FIX);B.id=+FIX.id+965001;B.strategy='ZG17B_1_0.py';B.starred=false;
+        // B must end HIGHER than A: with F16 also live, expandCompareEq's default-visibility
+        //   pick is "whichever line ends highest" -- with a tie (two clones) that pick alone
+        //   could mask F17 (B would coincidentally not be drawn even while genuinely still
+        //   counted as "visible" by the buggy id-mismatch filter). Scaling B up makes it the
+        //   one line F16's own default WOULD show, so seeing it correctly excluded proves the
+        //   hidden-run filter, not F16's separate default-visibility pick.
+        B.validate.equity=B.validate.equity.map(function(v){return v*1.5;});
+        var ids=[String(A.id),String(B.id)];
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'full',cmpIds:ids}, dfxWin([A,B])));
+        var keyRow=d.querySelector('.cmpovl-key [data-ovltog="'+B.id+'"]');
+        res.hasKeyRow=!!keyRow;
+        if(keyRow){
+          keyRow.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
+          keyRow.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
+        }
+        res.hiddenSet=w.eval("JSON.stringify(Array.from(window._cmpOvlHide||[]))");
+        var btn=d.querySelector('[data-cmpexpand]');
+        if(btn&&btn.onclick)btn.onclick();
+        try{w.dispatchEvent(new w.Event('resize'));}catch(_rf){}
+        var drawn={};
+        [].forEach.call(d.querySelectorAll('#ceqx-chart path[data-sr]'),function(p){drawn[p.getAttribute('data-sr')]=1;});
+        res.aDrawn=!!drawn[String(A.id)];res.bDrawn=!!drawn[String(B.id)];
+        var closeBtn=d.querySelector('#ceqx-close');if(closeBtn&&closeBtn.onclick)closeBtn.onclick();
+        dfxCase('g4_f17',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the key row exists':res.hasKeyRow,
+          'the hidden set records the run as hidden, keyed by its string id':res.hiddenSet.indexOf(String(B.id))>=0,
+          'run A stays drawn in the fullscreen view':res.aDrawn,
+          'run B (hidden in the key) stays OUT of the fullscreen view':!res.bDrawn
+        },res);
+      })();
+
+      // -- g4_f19 (F19): RUNBOARD +ADD must always get a hand-added run a column, even when
+      //    10 family champions already fill the board, by re-packing the champion list
+      //    around the pin rather than pushing the pin past a full slice -- and the overflow
+      //    note must name the real cap and RANK BY, not a fixed "top-8 score cutoff". --
+      (function(){
+        var calls=[],res={};
+        var docs=[],baseNet=FIX.validate.equity[FIX.validate.equity.length-1];
+        for(var i=0;i<13;i++){
+          var r=dfxClone(FIX);
+          r.id=+FIX.id+968000+i;
+          r.strategy='ZG19FAM'+i+'_1_0.py';
+          r.starred=false;
+          r.validate.equity=FIX.validate.equity.map(function(v){return v*(1-i*0.01);});
+          docs.push(r);
+        }
+        var lowestId=docs[10].id;    // rank 11 -- cut even with no pins at all (original case)
+        var rank9Id=docs[8].id;      // rank 9  -- a column BEFORE any pin is added
+        var rank10Id=docs[9].id;     // rank 10 -- a column BEFORE any pin is added
+        var outA=docs[11].id;        // rank 12 -- always outside the cutoff
+        var outB=docs[12].id;        // rank 13 -- always outside the cutoff
+        var Wr=dfxWin(docs);
+        function findNote(){
+          var c=[].filter.call(d.querySelectorAll('div'),function(x){var t=x.textContent||'';return t.indexOf('more famil')>=0&&t.indexOf('cutoff')>=0;});
+          c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});
+          return c[0]?dfxN(c[0].textContent):'';
+        }
+        function seriesIds(){return JSON.parse(w.eval("JSON.stringify((window._cmpEqxSeries||[]).map(function(s){return String(s.id);}))"));}
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'net'}, Wr, 'cmp'));
+        var before=seriesIds();res.beforeCount=before.length;res.beforeHasLowest=before.indexOf(String(lowestId))>=0;
+        // the overflow note before +ADD: with 13 families and a cap of 10, three are genuinely
+        //   cut here, so this is the state that actually exercises the note's wording.
+        res.noteText=findNote();
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'net',rbAdd:[String(lowestId)]}, Wr, 'cmp'));
+        var after=seriesIds();res.afterCount=after.length;res.afterHasLowest=after.indexOf(String(lowestId))>=0;
+
+        // -- F19 REGRESSION (a): two pins, BOTH already outside the top 10. The two
+        //    champions they push out (rank 9 and rank 10) must land in the overflow note,
+        //    not vanish -- that note exists precisely so nothing does. --
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'net',rbAdd:[String(outA),String(outB)]}, Wr, 'cmp'));
+        var segA=seriesIds();
+        res.aCount=segA.length;
+        res.aHasOutA=segA.indexOf(String(outA))>=0;
+        res.aHasOutB=segA.indexOf(String(outB))>=0;
+        res.aHasRank9=segA.indexOf(String(rank9Id))>=0;
+        res.aHasRank10=segA.indexOf(String(rank10Id))>=0;
+        res.aNote=findNote();
+        var aNoteM=/\+(\d+) more/.exec(res.aNote);res.aNoteCount=aNoteM?+aNoteM[1]:null;
+
+        // -- F19 REGRESSION (b): a pin already sitting at column 9, together with two
+        //    outside pins. All three must survive as columns -- the already-seated pin
+        //    must never be the one that gets sliced away to make room for the others. --
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'net',rbAdd:[String(rank9Id),String(outA),String(outB)]}, Wr, 'cmp'));
+        var segB=seriesIds();
+        res.bCount=segB.length;
+        res.bHasRank9=segB.indexOf(String(rank9Id))>=0;
+        res.bHasOutA=segB.indexOf(String(outA))>=0;
+        res.bHasOutB=segB.indexOf(String(outB))>=0;
+
+        dfxCase('g4_f19',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'before +ADD: exactly 10 champion columns (the RUNBOARD cap)':res.beforeCount===10,
+          'before +ADD: the 11th-ranked family is cut, as expected':!res.beforeHasLowest,
+          'after +ADD: the hand-added run actually joins the chart and matrix':res.afterHasLowest,
+          'after +ADD: still at most 10 columns (re-packed, not broken)':res.afterCount<=10,
+          'the overflow note names the real cap (10), not a fixed "top-8"':res.noteText.indexOf('top-8')<0&&res.noteText.indexOf('10 column')>=0,
+          'the overflow note blames RANK BY, not an unrelated "score" cutoff':res.noteText.indexOf('score cutoff')<0,
+          'regression (a): both outside pins join the columns':res.aHasOutA&&res.aHasOutB,
+          'regression (a): still at most 10 columns':res.aCount<=10,
+          'regression (a): the two champions the pins displaced (rank 9 and 10) are pushed out, not dropped silently':!res.aHasRank9&&!res.aHasRank10,
+          'regression (a): the overflow note reports all 3 families the pins pushed below the cutoff':res.aNoteCount===3,
+          'regression (b): a pin already at column 9 survives when other pins are added too':res.bHasRank9,
+          'regression (b): both outside pins also join alongside it':res.bHasOutA&&res.bHasOutB,
+          'regression (b): at most 10 columns total':res.bCount<=10
+        },res);
+      })();
+
+      // -- g4_f20 (F20): EXPLORE's "N of M rows plotted" hover must count only the failed
+      //    rows PLOT FAILURES would actually draw (both figures present), not every hidden
+      //    failed row, and must say so about the rest instead of promising the switch draws
+      //    all of them. --
+      (function(){
+        var calls=[],res={};
+        var PASS=dfxClone(FIX);PASS.id=+FIX.id+967001;PASS.strategy='ZG20PASS_1_0.py';PASS.starred=false;PASS.validate.verdict='PASS';
+        var FAILPL=dfxClone(FIX);FAILPL.id=+FIX.id+967002;FAILPL.strategy='ZG20FAILPL_1_0.py';FAILPL.starred=false;FAILPL.validate.verdict='FAIL';
+        var FAILNF=dfxClone(FIX);FAILNF.id=+FIX.id+967003;FAILNF.strategy='ZG20FAILNF_1_0.py';FAILNF.starred=false;FAILNF.validate.verdict='FAIL';
+        delete FAILNF.validate.lockbox;
+        var Wr=dfxWin([PASS,FAILPL,FAILNF]);
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['lb'],resAxis:'raw',resXAxis:'dd',resFail:'0'}, Wr));
+        var hintOff=dfxTips('rows plotted')[0]||'';
+        res.hintOff=hintOff;
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['lb'],resAxis:'raw',resXAxis:'dd',resFail:'1'}, Wr));
+        var plottedTitles=[].map.call(d.querySelectorAll('[data-repoint] title'),function(t){return t.textContent||'';});
+        res.failPlDrawnOn=plottedTitles.some(function(s){return s.indexOf('#'+FAILPL.id)>=0;});
+        // F20 follow-up (repair round): a failed row held under MIN TRADES has BOTH figures -
+        //   it is not missing anything - so it must get its own sentence, not be folded into
+        //   "no figure on these axes" (which used to be the ONLY sentence shown when every
+        //   placeable failure also happened to sit under the floor).
+        var FAILMIN=dfxClone(FIX);FAILMIN.id=+FIX.id+967004;FAILMIN.strategy='ZG20FAILMIN_1_0.py';FAILMIN.starred=false;FAILMIN.validate.verdict='FAIL';
+        FAILMIN.validate.lockbox.trades=10;   // below the 30-trade floor; FAILPL's own 301 stays above it
+        var Wr2=dfxWin([PASS,FAILPL,FAILNF,FAILMIN]);
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['lb'],resAxis:'raw',resXAxis:'dd',resFail:'0',resMinTrd:'30'}, Wr2));
+        var hintMin=dfxTips('rows plotted')[0]||'';
+        var _mtIdx=hintMin.indexOf('held under the MIN TRADES floor');
+        delete res.hintOff;
+        res.hintMinTail=_mtIdx>=0?hintMin.slice(Math.max(0,_mtIdx-60),_mtIdx+200):('NOT FOUND: '+hintMin.slice(0,400));
+        dfxCase('g4_f20',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the hover names the PLACEABLE failed-row count (1), not every failed row (2)':hintOff.indexOf(' 1 failed row is left off')>=0,
+          'the hover does not claim 2 failed rows are left off on purpose':hintOff.indexOf(' 2 failed row')<0,
+          'the hover separately names the failed row with no figure on these axes':hintOff.indexOf('no figure on these axes')>=0,
+          'turning PLOT FAILURES on actually draws the placeable failed row':res.failPlDrawnOn,
+          'MIN TRADES: a failed row under the floor names that real reason':hintMin.indexOf('held under the MIN TRADES floor')>=0,
+          'MIN TRADES: that row is not ALSO folded into "no figure on these axes"':(function(){
+            var noFig=hintMin.match(/([0-9]+) failed rows? (?:has|have) no figure on these axes/);
+            return !noFig||parseInt(noFig[1],10)===1;})()
+        },res);
+      })();
+
+      // -- g4_f21 (F21): EXPLORE's PF axis-button hover must not claim PF ignores PROFIT
+      //    STAGE "and says so on the axis" -- PF follows the stage on run/configuration
+      //    rows, and the axis caption never made that claim. --
+      (function(){
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs'}, FIX_WIN));
+        var btn=d.querySelector('[data-resaxis="pf"]');
+        res.pfHover=btn?(btn.getAttribute('title')||''):'';
+        dfxCase('g4_f21',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the PF axis button exists':!!btn,
+          'the hover no longer claims PF ignores PROFIT STAGE':res.pfHover.indexOf('ignores PROFIT STAGE')<0,
+          'the hover says PF follows PROFIT STAGE on run and configuration rows':res.pfHover.indexOf('follows PROFIT STAGE')>=0,
+          'the hover no longer points to a false "says so on the axis" claim':res.pfHover.indexOf('says so on the axis')<0
+        },res);
+      })();
+
+      // -- g5_gv (repair round, item 4): a GATE-VALIDATE JOB (no `validate` block at all) must
+      //    print its whole-run and in-sample money off its own ungated backtest -
+      //    x.equity.cum and gate_validate.ungated_is/ungated_full - never the GATED headline
+      //    pick (best_pnl_usd/best_pf/best_trades/best_dd_usd, sometimes the lockbox trades
+      //    themselves), on PICK RUNS FULL, PICK RUNS IS, RUNBOARD's family drill and EXPLORE. --
+      (function(){
+        var calls=[],res={};
+        var G=dfxClone(FIX);G.id=String(+FIX.id+972001);G.strategy='ZGATEVAL_1_0.py';G.starred=false;
+        delete G.validate;delete G.top10_results;
+        G.scope='Gate-Validate';
+        var W=dfxWin([G]);
+        var gf=G.gate_validate.ungated_full,gi=G.gate_validate.ungated_is,mc=+G.multiplier||20;
+        var wantFullNet=_ab$Like((+G.equity.cum[G.equity.cum.length-1]||0)*mc);
+        var wantIsNet=_ab$Like((+gi.total_pnl||0)*mc);
+        var wantGatedIs=_ab$Like(+G.best_pnl_usd);
+        function _ab$Like(v){var a=Math.abs(v||0),sg=(v<0?'-$':'$');
+          return a>=1e6?(sg+(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'):(a>=1000?(sg+Math.round(a/1000)+'k'):(sg+Math.round(a)));}
+        // PICK RUNS FULL (old tab, cmpScope 'tot')
+        calls.push(doRender({cmpScope:'tot',cmpIds:[G.id]},W,'cmp'));
+        var totCells=dfxRow('Total net $ (whole run)');
+        var isCells=dfxRow(String.fromCharCode(0x251c)+' in-sample $');
+        res.fullTotTxt=totCells[0]?dfxN(totCells[0].textContent):null;
+        res.fullIsTxt=isCells[0]?dfxCell(isCells[0]).v:null;
+        res.fullHasIsOnlyPill=res.fullTotTxt?(res.fullTotTxt.indexOf('IS only')>=0):null;
+        // PICK RUNS IS (old tab, default scope 'all')
+        calls.push(doRender({cmpScope:'all',cmpIds:[G.id]},W,'cmp'));
+        var netRow=dfxRow('Net P&L'),pfRow=dfxRow('PF'),trRow=dfxRow('Trades');
+        res.isNetTxt=netRow[0]?dfxN(netRow[0].textContent):null;
+        res.isPfTxt=pfRow[0]?dfxN(pfRow[0].textContent):null;
+        res.isTrTxt=trRow[0]?dfxN(trRow[0].textContent):null;
+        // EXPLORE (LEVEL AUTO-VAL, run rows table - mirrors g2_f2's own layout)
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is','wf','lb'],resAxis:'raw',resXAxis:'dd',resCols:'all',c2Tbl:true},W));
+        var exRow=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf('#'+G.id)>=0;})[0];
+        var whatCell=exRow?[].filter.call(exRow.querySelectorAll('td'),function(td){var t=td.textContent||'';return t.indexOf('Auto-Validate run #')>=0||t.indexOf('Gate-Validate job #')>=0;})[0]:null;
+        res.exWhat=whatCell?dfxN(whatCell.textContent):null;
+        res.exRowTxt=exRow?dfxN(exRow.textContent):null;
+        var hdrEx=[].map.call(d.querySelectorAll('tr th'),function(x){return (x.textContent||'').replace(/[^A-Z /%$()]/g,'').trim();});
+        res.exHdr=hdrEx;
+        function exCellOf2(nm){var q=hdrEx.indexOf(nm);return (exRow&&q>=0)?dfxN(exRow.cells[q].textContent):null;}
+        res.exTotalCell=exCellOf2('TOTAL');
+        res.exDdCell=exCellOf2('DRAWDOWN');
+        res.exPfCell=exCellOf2('PF');
+        res.exTradesCell=exCellOf2('TRADES');
+        res.exWfCell=exCellOf2('WALKFWD');
+        res.exLbCell=exCellOf2('LOCKBOX');
+        dfxCase('g5_gv',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'PICK RUNS FULL: Total net $ reads the ungated whole-run curve, not the gated headline':!!res.fullTotTxt&&res.fullTotTxt.indexOf(wantFullNet)>=0,
+          'PICK RUNS FULL: Total net $ never shows the gated headline figure instead':!!res.fullTotTxt&&res.fullTotTxt.indexOf(wantGatedIs)<0,
+          'PICK RUNS FULL: no false "IS only" pill (this run has an honest whole-run curve)':res.fullHasIsOnlyPill===false,
+          'PICK RUNS FULL: in-sample $ reads the measured pre-fold slice, not the gated headline':res.fullIsTxt===wantIsNet,
+          'PICK RUNS IS: Net P&L reads the measured pre-fold slice, not the gated headline':!!res.isNetTxt&&res.isNetTxt.indexOf(wantIsNet)>=0&&res.isNetTxt.indexOf(wantGatedIs)<0,
+          'PICK RUNS IS: PF reads the measured slice profit factor':!!res.isPfTxt&&res.isPfTxt.indexOf((+gi.profit_factor).toFixed(2))>=0,
+          'PICK RUNS IS: Trades reads the measured slice trade count':!!res.isTrTxt&&res.isTrTxt.indexOf(String(gi.num_trades))>=0,
+          'EXPLORE: TOTAL reads the ungated whole-run net, not the gated headline':res.exTotalCell===wantFullNet,
+          'EXPLORE: DRAWDOWN reads the ungated whole-run drawdown':res.exDdCell==='$22k',
+          'EXPLORE: PF reads the ungated whole-run profit factor':!!res.exPfCell&&res.exPfCell.indexOf((+gf.profit_factor).toFixed(2))>=0,
+          'EXPLORE: TRADES reads the ungated whole-run trade count':!!res.exTradesCell&&res.exTradesCell.replace(/,/g,'')===String(gf.num_trades),
+          'EXPLORE: WALKFWD dashes (this job saved no walk-forward folds of its own)':res.exWfCell==='—',
+          'EXPLORE: LOCKBOX dashes (this job saved no lockbox slice of its own)':res.exLbCell==='—',
+          'EXPLORE: WHAT IT DOES calls it a Gate-Validate job, not an Auto-Validate run':!!res.exWhat&&res.exWhat.indexOf('Gate-Validate job #'+G.id)>=0
+        },res);
+      })();
+
+      // -- g5_bookis (repair round, item 5 - F2 REGRESSION): a BOOK never saves gate_validate
+      //    (it pools legs, not an ML-gate bake-off), so gvIS in _totA used to read null for
+      //    every book and PICK RUNS FULL / RUNBOARD FULL dashed "in-sample $" with a false
+      //    "no in-sample figures" reason even though book.pre_lockbox carries exactly that
+      //    figure - the same one LEADERBOARD IS / OVERLAY IS / the run report already print,
+      //    and the one that makes IS + WF + LB add back up to TOTAL. --
+      (function(){
+        var calls=[],res={};
+        var BK=dfxClone(FIX);BK.id=String(+FIX.id+973001);BK.strategy='BOOK G2: NOISE + ORB';BK.starred=false;BK.multiplier=1;
+        delete BK.top10_results;delete BK.gate_validate;
+        BK.book={name:BK.strategy,legs:[{strategy:'NOISE_1_0.py',weight:1},{strategy:'ORB_1_0.py',weight:1}],
+          whole:{total_pnl:1685715,max_drawdown:22000,num_trades:9707,profit_factor:1.50},
+          pre_lockbox:{total_pnl:1395904,max_drawdown:18000},
+          lockbox:{total_pnl:289811,num_trades:622,win_rate:44.5,profit_factor:1.49,max_drawdown:9000},
+          lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-08-12'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:289811,pf:1.49,trades:622,pass:true},book:true,
+          equity:[0,500000,1000000,1685715],lb_idx:2};
+        var W=dfxWin([BK]);
+        // PICK RUNS FULL (old tab, cmpScope 'tot')
+        calls.push(doRender({cmpScope:'tot',cmpIds:[BK.id]},W,'cmp'));
+        var isCells=dfxRow(String.fromCharCode(0x251c)+' in-sample $');
+        var isCell=isCells[0]?dfxCell(isCells[0]):null;
+        res.prIsTxt=isCell?isCell.v:null;
+        res.prIsTip=isCell?isCell.tip:null;
+        var totCells=dfxRow('Total net $ (whole run)');
+        res.prTotTxt=totCells[0]?dfxN(totCells[0].textContent):null;
+        var wfCells=dfxRow(String.fromCharCode(0x251c)+' walk-forward $');
+        res.prWfTxt=wfCells[0]?dfxN(wfCells[0].textContent):null;
+        var lbCells=dfxRow(String.fromCharCode(0x2514)+' lockbox $');
+        res.prLbTxt=lbCells[0]?dfxN(lbCells[0].textContent):null;
+        // RUNBOARD FULL "IS $" row
+        calls.push(doRender({cmpMode:'board',rbSample:'full',cmpIds:[BK.id]},W,'cmp'));
+        var colIds=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');});
+        function rbCellOf(lbl){var i=colIds.indexOf(String(BK.id)),cells=dfxRow(lbl);return (i>=0&&cells[i])?dfxCell(cells[i]):null;}
+        var rbIs=rbCellOf('IS $');
+        res.rbIsTxt=rbIs?rbIs.v:null;
+        res.rbIsTip=rbIs?rbIs.tip:null;
+        dfxCase('g5_bookis',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'PICK RUNS FULL: a book’s in-sample $ reads its own pre_lockbox pool, not a dash':res.prIsTxt==='$1.4M',
+          'PICK RUNS FULL: the in-sample $ dash reason is gone for a book':!res.prIsTip,
+          'PICK RUNS FULL: the whole-run total still reads the book’s own curve endpoint':!!res.prTotTxt&&res.prTotTxt.indexOf('$1.69M')>=0,
+          'RUNBOARD FULL: "IS $" reads the book’s pre_lockbox pool too, not a bare dash':res.rbIsTxt==='$1.4M',
+          'RUNBOARD FULL: "IS $" carries no empty/false reason once it has a real figure':!res.rbIsTip
+        },res);
+      })();
+
+      // -- g5_archpick (repair round, item 13): a PICKED run that is ARCHIVED must read as
+      //    archived, not as "older than the loaded runs" with a false LOAD ALL promise - LOAD
+      //    ALL (a full-account Firestore read) can never bring an archived run back; only
+      //    switching on archived runs in Past Runs can. --
+      (function(){
+        var calls=[],res={};
+        var A=dfxClone(FIX);A.id=String(+FIX.id+974001);A.strategy='ZARCHPICK_1_0.py';A.starred=false;A.archived=true;
+        var N=dfxClone(FIX);N.id=String(+FIX.id+974002);N.strategy='ZARCHPICK2_1_0.py';N.starred=false;
+        var W=dfxWin([A,N]);
+        // PICK RUNS (old tab)
+        calls.push(doRender({cmpIds:[A.id]},W,'cmp'));
+        var bodyTxt=dfxN(d.body.innerText||'');
+        res.prHasArchNote=bodyTxt.indexOf('is archived - switch on archived runs in Past Runs')>=0;
+        res.prHasFalseOlderNote=bodyTxt.indexOf(String(A.id))>=0&&bodyTxt.indexOf('older than the loaded runs - LOAD ALL')>=0;
+        // OVERLAY (cmp2, PICKED source)
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:[A.id,N.id]},W));
+        var bodyTxt2=dfxN(d.body.innerText||'');
+        res.ovlHasArchNote=bodyTxt2.indexOf('archived, so')>=0&&bodyTxt2.indexOf('switch on archived runs in Past Runs')>=0;
+        res.ovlHasFalseOlderNote=bodyTxt2.indexOf('older than the loaded runs, so')>=0;
+        res.ovlHasWrongLoadAllPastRuns=bodyTxt2.indexOf('LOAD ALL on Past Runs')>=0;
+        dfxCase('g5_archpick',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'PICK RUNS: an archived pick reads "is archived - switch on archived runs", not older-than-loaded':res.prHasArchNote&&!res.prHasFalseOlderNote,
+          'OVERLAY: an archived pick reads the same true reason, not the false older-than-loaded promise':res.ovlHasArchNote&&!res.ovlHasFalseOlderNote,
+          'OVERLAY: never points to the non-existent "LOAD ALL on Past Runs" button':!res.ovlHasWrongLoadAllPastRuns
+        },res);
+      })();
+
+      // -- g5_wfrange (repair round, item 7): a run validated through the ML-gate bake-off (the
+      //    crowns evidence) saves gate_validate.wf_range - the fold-1 boundary under a different
+      //    name - but no validate.windows.wf_split. _reRunStages could then never place BOTH ends
+      //    of the in-sample stretch, so IN-SAMPLE and the default all-three-stage view dashed MAR
+      //    and R / YR with "This row records no date window", even though DATA WINDOW on the very
+      //    same row showed real dates and OVERLAY FULL printed MAR / R-per-YR for the identical run. --
+      (function(){
+        var calls=[],res={};
+        var CR=dfxClone(FIX);CR.id=String(+FIX.id+975001);CR.strategy='ZWFRANGE_1_0.py';CR.starred=true;
+        res.hasWfRange=!!(CR.gate_validate&&Array.isArray(CR.gate_validate.wf_range)&&CR.gate_validate.wf_range[0]);
+        res.hasWfSplit=!!(CR.validate&&CR.validate.windows&&CR.validate.windows.wf_split);
+        var W=dfxWin([CR]);
+        function numTxt(t){return t!=null&&/^-?[0-9]/.test(t);}
+        calls.push(doRender({c2Screen:'explore',resLvl:'all',resShow:'runs',resSegs:['is'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
+        var isRow=r4Row('runs:'+CR.id)||{};
+        res.isMar=isRow['MAR']?isRow['MAR'].t:null;res.isMarTip=isRow['MAR']?isRow['MAR'].tip:null;
+        res.isRpy=isRow['R / YR']?isRow['R / YR'].t:null;
+        res.isWin=isRow['DATA WINDOW']?isRow['DATA WINDOW'].t:null;
+        calls.push(doRender({c2Screen:'explore',resLvl:'all',resShow:'runs',resSegs:['is','wf','lb'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
+        var allRow=r4Row('runs:'+CR.id)||{};
+        res.allMar=allRow['MAR']?allRow['MAR'].t:null;res.allMarTip=allRow['MAR']?allRow['MAR'].tip:null;
+        res.allRpy=allRow['R / YR']?allRow['R / YR'].t:null;
+        dfxCase('g5_wfrange',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'fixture actually matches the evidence: wf_range present, wf_split absent':res.hasWfRange&&!res.hasWfSplit,
+          'IN-SAMPLE: MAR is a real number, not dashed for a missing date window':numTxt(res.isMar),
+          'IN-SAMPLE: R / YR is a real number, not dashed':numTxt(res.isRpy),
+          'IN-SAMPLE: the false "records no date window" reason is gone':!res.isMarTip||res.isMarTip.indexOf('records no date window')<0,
+          'ALL THREE STAGES: MAR is a real number, not dashed':numTxt(res.allMar),
+          'ALL THREE STAGES: R / YR is a real number, not dashed':numTxt(res.allRpy),
+          'ALL THREE STAGES: the false "records no date window" reason is gone':!res.allMarTip||res.allMarTip.indexOf('records no date window')<0
+        },res);
+      })();
+
+      // -- g6_gvisyrs (repair round): a Gate-Validate JOB TYPE run (no `validate` block at
+      //    all) switched PICK RUNS' IN-SAMPLE row - Net P&L / Max DD / PF / Win % / Trades -
+      //    to the measured gate_validate.ungated_is slice, but left MAR, R / YR and $/day on
+      //    the OLD gated headline (best_pnl_usd / best_dd_usd / best_win_rate / best_pf /
+      //    best_trades) divided by the WHOLE run's years - reviewer reproduction: MAR 0.39,
+      //    R / YR 23.3, exactly $65,427 over $10,303 across the run's 16.2 years. The WHOLE-
+      //    RUN tab's "Max DD (in-sample)" row, and RUNBOARD's FULL-sample "DD" row, had the
+      //    matching gap: both kept printing the gated headline drawdown instead of the
+      //    ungated one (live #390: "in-sample $ --" beside "Max DD (in-sample)" still the
+      //    gated figure; #391 / #393: "IS $ --" beside "DD" still the gated figure). RUNBOARD's
+      //    IS-sample MAR shares _isYrs with PICK RUNS through _rbYrs and read a THIRD wrong
+      //    number off the SAME measured net/drawdown (0.13, since those two cells were already
+      //    correct there pre-fix and only the years were wrong). --
+      (function(){
+        var calls=[],res={};
+        var G=dfxClone(FIX);G.id=String(+FIX.id+994001);G.strategy='ZGVISYR_1_0.py';G.starred=false;
+        delete G.validate;delete G.top10_results;G.scope='Gate-Validate';
+        var N=dfxClone(G);N.id=String(+FIX.id+994002);N.strategy='ZGVISYRB_1_0.py';
+        delete N.gate_validate.ungated_is;
+        var W=dfxWin([G,N]);
+        // PICK RUNS IN-SAMPLE (old tab, cmpScope 'all')
+        calls.push(doRender({cmpScope:'all',cmpIds:[G.id,N.id]},W,'cmp'));
+        var marRow=dfxRow('MAR'),rpyRow=dfxRow('R/yr'),dayRow=dfxRow(String.fromCharCode(36)+'/day');
+        res.prIsMarG=marRow[0]?dfxN(marRow[0].textContent):null;
+        res.prIsMarN=marRow[1]?dfxN(marRow[1].textContent):null;
+        res.prIsRpyG=rpyRow[0]?dfxN(rpyRow[0].textContent):null;
+        res.prIsRpyN=rpyRow[1]?dfxN(rpyRow[1].textContent):null;
+        res.prIsDayG=dayRow[0]?dfxN(dayRow[0].textContent):null;
+        res.prIsDayN=dayRow[1]?dfxN(dayRow[1].textContent):null;
+        // PICK RUNS WHOLE-RUN (old tab, cmpScope 'tot')
+        calls.push(doRender({cmpScope:'tot',cmpIds:[G.id,N.id]},W,'cmp'));
+        var ddisRow=dfxRow('Max DD (in-sample)');
+        var ddisG=ddisRow[0]?dfxCell(ddisRow[0]):null,ddisN=ddisRow[1]?dfxCell(ddisRow[1]):null;
+        res.prTotDdisG=ddisG?ddisG.v:null;
+        res.prTotDdisN=ddisN?ddisN.v:null;res.prTotDdisNTip=ddisN?ddisN.tip:null;
+        // RUNBOARD FULL sample: the "DD" and "MAR" rows
+        calls.push(doRender({cmpMode:'board',rbSample:'full',cmpIds:[G.id,N.id]},W,'cmp'));
+        var colIdsF=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');});
+        function rbCellF(lbl,id){var i=colIdsF.indexOf(String(id)),cells=dfxRow(lbl);return (i>=0&&cells[i])?dfxCell(cells[i]):null;}
+        var rbDdG=rbCellF('DD',G.id),rbMarF=rbCellF('MAR',G.id);
+        res.rbFullDdG=rbDdG?rbDdG.v:null;
+        res.rbFullMarG=rbMarF?rbMarF.v:null;
+        // RUNBOARD IS sample: the "MAR" cell (shares _rbYrs / _isYrs with PICK RUNS)
+        calls.push(doRender({cmpMode:'board',rbSample:'is',cmpIds:[G.id,N.id]},W,'cmp'));
+        var colIdsI=[].map.call(d.querySelectorAll('th[data-rbc]'),function(x){return x.getAttribute('data-rbc');});
+        function rbCellI(lbl,id){var i=colIdsI.indexOf(String(id)),cells=dfxRow(lbl);return (i>=0&&cells[i])?dfxCell(cells[i]):null;}
+        var rbMarG=rbCellI('MAR',G.id),rbMarN=rbCellI('MAR',N.id);
+        res.rbIsMarG=rbMarG?rbMarG.v:null;
+        res.rbIsMarN=rbMarN?rbMarN.v:null;
+        dfxCase('g6_gvisyrs',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'PICK RUNS IS: MAR reads the measured in-sample slice over its OWN in-sample years, not the gated headline over the whole run':res.prIsMarG==='0.37',
+          'PICK RUNS IS: MAR dashes (never the gated headline) when the run saved no measured slice':res.prIsMarN===String.fromCharCode(0x2014),
+          'PICK RUNS IS: R / YR reads the same measured slice and years':res.prIsRpyG==='19.6',
+          'PICK RUNS IS: R / YR dashes when the run saved no measured slice':res.prIsRpyN===String.fromCharCode(0x2014),
+          'PICK RUNS IS: $/day reads the measured slice over its own in-sample day count':res.prIsDayG==='$5',
+          'PICK RUNS IS: $/day dashes when the run saved no measured slice':res.prIsDayN===String.fromCharCode(0x2014),
+          'PICK RUNS WHOLE-RUN: Max DD (in-sample) reads the measured slice drawdown, not the gated headline':res.prTotDdisG==='$5k',
+          'PICK RUNS WHOLE-RUN: Max DD (in-sample) dashes with the true reason when the run saved no measured slice':res.prTotDdisN===String.fromCharCode(0x2014)&&res.prTotDdisNTip.indexOf('in-sample')>=0,
+          'RUNBOARD FULL: DD reads the ungated whole-run drawdown, not the gated headline':res.rbFullDdG==='$22k',
+          'RUNBOARD FULL: MAR follows that corrected drawdown':res.rbFullMarG==='0.77',
+          'RUNBOARD IS: MAR matches PICK RUNS IS MAR (the same shared in-sample-years helper)':res.rbIsMarG==='0.37',
+          'RUNBOARD IS: MAR dashes when the run saved no measured slice':res.rbIsMarN===String.fromCharCode(0x2014)
+        },res);
+      })();
+
+      // -- g6_gvexplore (repair round): EXPLORE's run-row stage builder (_reRunStages) bailed
+      //    out entirely for a Gate-Validate JOB TYPE run (it saves no `validate` block at
+      //    all), so its IN-SAMPLE tick and the default all-three-stretches tick both fell
+      //    through to the whole-row date_from/date_to window for MAR / R per YR / ROC % per
+      //    YR - reproduced MAR 0.03 on BOTH ticks (the all-three tick silently summed the
+      //    in-sample money alone over the whole-run span, the in-sample tick divided the
+      //    correct in-sample money by the wrong whole-run drawdown and years). --
+      (function(){
+        var calls=[],res={};
+        var G=dfxClone(FIX);G.id=String(+FIX.id+994003);G.strategy='ZGVEXPA_1_0.py';G.starred=false;
+        delete G.validate;delete G.top10_results;G.scope='Gate-Validate';
+        var N=dfxClone(G);N.id=String(+FIX.id+994004);N.strategy='ZGVEXPB_1_0.py';
+        delete N.gate_validate.ungated_is;
+        var W=dfxWin([G,N]);
+        function numTxt(t){return t!=null&&/^-?[0-9]/.test(t);}
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
+        var isRowG=r4Row('runs:'+G.id)||{},isRowN=r4Row('runs:'+N.id)||{};
+        res.isMarG=isRowG['MAR']?isRowG['MAR'].t:null;
+        res.isRpyG=isRowG['R / YR']?isRowG['R / YR'].t:null;
+        res.isRocG=isRowG['ROC % / YR']?isRowG['ROC % / YR'].t:null;
+        res.isMarN=isRowN['MAR']?isRowN['MAR'].t:null;
+        res.isMarNTip=isRowN['MAR']?isRowN['MAR'].tip:null;
+        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is','wf','lb'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
+        var allRowG=r4Row('runs:'+G.id)||{};
+        res.allMarG=allRowG['MAR']?allRowG['MAR'].t:null;
+        res.allRpyG=allRowG['R / YR']?allRowG['R / YR'].t:null;
+        res.allRocG=allRowG['ROC % / YR']?allRowG['ROC % / YR'].t:null;
+        dfxCase('g6_gvexplore',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'IN-SAMPLE tick: MAR reads the measured slice over its own in-sample years, not the whole run':res.isMarG==='0.37',
+          'IN-SAMPLE tick: R / YR matches the same measured slice and years':res.isRpyG==='19.6R',
+          'IN-SAMPLE tick: ROC % / YR matches':res.isRocG==='1.9%',
+          'IN-SAMPLE tick: MAR dashes with a real reason (never the whole run) when the run saved no measured slice':!numTxt(res.isMarN)&&!!res.isMarNTip,
+          'ALL-THREE-STRETCHES tick (the default view): MAR is the real whole-run figure, not the old 0.03':res.allMarG==='0.78',
+          'ALL-THREE-STRETCHES tick: R / YR matches':res.allRpyG==='53.2R',
+          'ALL-THREE-STRETCHES tick: ROC % / YR matches':res.allRocG==='17.0%'
+        },res);
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -3540,7 +4696,7 @@ def main(argv=None):
         'wf trades': _n((r.get('wf') or {}).get('trd')) == (ex.get('wf') or {}).get('trd'),
         'wf sharpe dashes (no saved boundary)': (r.get('wf') or {}).get('sh') == dash,
         'wf MAR dashes (no saved boundary)': (r.get('wf') or {}).get('mar') == dash,
-        'is MAR dashes (no saved boundary)': (r.get('is') or {}).get('mar') == dash,
+        'is MAR is a number now that its own measured drawdown is known': (r.get('is') or {}).get('mar') not in (None, '', dash),
         'is+wf MAR from the lockbox boundary, marked ~': str((r.get('pre') or {}).get('mar') or '').startswith('~'),
         'lb pf': (r.get('lb') or {}).get('pf') == (ex.get('lb') or {}).get('pf'),
         'lb trades': _n((r.get('lb') or {}).get('trd')) == (ex.get('lb') or {}).get('trd'),
@@ -3551,10 +4707,10 @@ def main(argv=None):
         'all trades': _n((r.get('all') or {}).get('trd')) == (ex.get('all') or {}).get('trd'),
         'is+lb pf dashes': (r.get('islb') or {}).get('pf') == dash,
         'is+lb trades add': _n((r.get('islb') or {}).get('trd')) == (ex.get('islb') or {}).get('trd'),
-        'overlap: IS dashes EV R': (r.get('badIs') or {}).get('evr') == dash,
-        'overlap: IS dashes PF': (r.get('badIs') or {}).get('pf') == dash,
-        'overlap: IS+WF dashes EV R and R/YR': (r.get('badIsWf') or {}).get('evr') == dash and (r.get('badIsWf') or {}).get('rpy') == dash,
-        'overlap: ALL THREE = the clean run': (r.get('badAll') or {}).get('evr') == (r.get('all') or {}).get('evr') not in (None, '', dash),
+        'no measured slice: IS dashes EV R': (r.get('badIs') or {}).get('evr') == dash,
+        'no measured slice: IS dashes PF': (r.get('badIs') or {}).get('pf') == dash,
+        'no measured slice: IS+WF dashes EV R and R/YR': (r.get('badIsWf') or {}).get('evr') == dash and (r.get('badIsWf') or {}).get('rpy') == dash,
+        'no measured slice: ALL THREE = the clean run': (r.get('badAll') or {}).get('evr') == (r.get('all') or {}).get('evr') not in (None, '', dash),
     }
     rs_ok = all(rs_checks.values()) and all((r.get(k) or {}).get('call') == 'OK' and (r.get(k) or {}).get('row') for k in ('wf', 'lb', 'is', 'all', 'islb', 'pre', 'badIs', 'badIsWf', 'badAll'))
     line('runstages', rs_ok, 'failed=%s | wf=%s lb=%s is=%s all=%s is+lb=%s | expected=%s'
@@ -4164,9 +5320,10 @@ def main(argv=None):
         '(W) WALK-FWD ticked: its PF is a figure': _fig(rwf, Ws, 'PF'),
         '(NL) a fold whose every trade won: IN-SAMPLE, PF, WIN %, TRADES are figures': all(_fig(ri, NLs, h) for h in H4),
         '(NL) WALK-FWD ticked: its PF is a figure': _fig(rwf, NLs, 'PF'),
-        '(B) folds that really overlap the in-sample years still dash IN-SAMPLE': _v(ri, Bs, 'IN-SAMPLE')[0] == dash,
-        '(B) its TRADES dash gives the overlap reason, not the studies-registry one':
-            _v(ri, Bs, 'TRADES')[0] == dash and 'overlap' in str(_v(ri, Bs, 'TRADES')[1] or '')
+        '(B) a run with no measured in-sample slice dashes IN-SAMPLE': _v(ri, Bs, 'IN-SAMPLE')[0] == dash,
+        '(B) its TRADES dash names the true reason, not the old overlap or studies-registry ones':
+            _v(ri, Bs, 'TRADES')[0] == dash and 'measured' in str(_v(ri, Bs, 'TRADES')[1] or '')
+            and 'overlap' not in str(_v(ri, Bs, 'TRADES')[1] or '')
             and 'studies registry' not in str(_v(ri, Bs, 'TRADES')[1] or ''),
     }
     # review round 4: an all-loss fold, an all-loss lockbox and an all-win lockbox read exactly like controls whose
@@ -4194,8 +5351,8 @@ def main(argv=None):
             _v(rlb, 'ZLBLOSS_1_0.py', 'PF')[0] == '0.00' and _v(rlb, 'ZLBLOSSC_1_0.py', 'PF')[0] == '0.00',
         '(P1) the fixture fold number is known': p1f is not None,
         '(P1) IN-SAMPLE ticked: IN-SAMPLE, WIN %, TRADES are figures': all(_fig(ri, P1s, h) for h in ('IN-SAMPLE', 'WIN %', 'TRADES')),
-        '(P1) IN-SAMPLE ticked: PF and EV R dash, naming the fold that broke even (not the overlap reason)':
-            all(_v(ri, P1s, h)[0] == dash and _p1why(ri, h) for h in ('PF', 'EV R')),
+        '(P1) IN-SAMPLE ticked: PF and EV R are figures too - a walk-forward fold breaking even cannot leak into a slice that never reads the fold rows':
+            all(_fig(ri, P1s, h) for h in ('PF', 'EV R')),
         '(P1) WALK-FWD ticked: WIN % and TRADES are figures, PF and EV R dash naming the fold':
             all(_fig(rwf, P1s, h) for h in ('WIN %', 'TRADES')) and all(_v(rwf, P1s, h)[0] == dash and _p1why(rwf, h) for h in ('PF', 'EV R')),
         '(P1) IN-SAMPLE + WALK-FWD ticked: TRADES a figure, PF dashes naming the fold':
@@ -4669,7 +5826,19 @@ def main(argv=None):
 
     # == DEFERRED ROUND (dfx_*): each case carries its own named checks (r['ck']); all must hold ==
     DFX = ['dfx_d03', 'dfx_d04', 'dfx_d05', 'dfx_d06', 'dfx_d07', 'dfx_d10', 'dfx_d12', 'dfx_d13', 'dfx_d14', 'dfx_d15',
-           'dfx_d16', 'dfx_d17', 'dfx_d20', 'dfx_d21', 'dfx_d22']
+           'dfx_d16', 'dfx_d17', 'dfx_d20', 'dfx_d21', 'dfx_d22',
+           # g1-pool (Starred/older/archived pool + family grouping): F1, F6, F7, F11, F12
+           'g1_f1', 'g1_f6', 'g1_f7', 'g1_f11', 'g1_f12',
+           # g2-stage (Stage math and book reports): F2, F3, F10, F13, F18
+           'g2_f2', 'g2_f3', 'g2_f10', 'g2_f13', 'g2_f18',
+           # g3-books-picks (Book flags and PICK RUNS marks/tiles): F4, F8, F9, F22
+           'g3_f4', 'g3_f8', 'g3_f9', 'g3_f22',
+           # g4-charts (Chart dates, full-screen view, +ADD, EXPLORE hovers): F5, F15, F16, F17, F19, F20, F21
+           'g4_f5', 'g4_f15', 'g4_f16', 'g4_f17', 'g4_f19', 'g4_f20', 'g4_f21',
+           # g5 (repair round): F4 Gate-Validate job headline money
+           'g5_gv', 'g5_bookis', 'g5_archpick', 'g5_wfrange',
+           # g6 (repair round): Gate-Validate job in-sample years for MAR / R per YR / ROC % per YR
+           'g6_gvisyrs', 'g6_gvexplore']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

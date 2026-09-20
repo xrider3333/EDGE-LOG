@@ -2534,7 +2534,7 @@ return true;}catch(e){console.error(e);return false;}}
 //    blocked request can never leave the list empty.
 //    NOT the fix: offline persistence. It was deliberately removed in v71.61 and must not
 //    come back - see the note in initFB above.
-const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.wf_oos,validate.book'.split(',');
+const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.wf_oos,validate.book,gate_validate.ungated_is,gate_validate.ungated_wf,gate_validate.ungated_lockbox,gate_validate.ungated_full,gate_validate.span,gate_validate.wf_range,gate_validate.lockbox_from'.split(',');
 function _fsVal(v){
   if(!v||typeof v!=='object')return null;
   if('stringValue' in v)return v.stringValue;
@@ -7297,8 +7297,12 @@ window.expandCompareEq=function(series,opts){
   //   is written with local getters, so in a US time zone each date read one day early (4/20/16 for a test starting
   //   2016-04-21). Parsed as local midnight, the saved date is the date printed. Anything else still goes to Date.parse.
   const _pd=s=>{const m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(String(s||''));return m?+new Date(+m[1],+m[2]-1,+m[3]):Date.parse(s||'');};
-  const _trOf=s=>{if(s.blot&&s.blot.date_from&&s.blot.date_to){const a=_pd(s.blot.date_from),b=_pd(s.blot.date_to);if(!isNaN(a)&&!isNaN(b)&&b>a)return [a,b];}
-    if(Array.isArray(s.span)){const a=_pd(s.span[0]||''),b=_pd(s.span[1]||'');if(!isNaN(a)&&!isNaN(b)&&b>a)return [a,b];}
+  // F5 fix (repair round): a full-screen series must be dated by its OWN span first — a
+  //   RUNBOARD IS/LB slice always carries the run's whole-window blot dates alongside its new
+  //   span, and blot-first here stretched the slice back across the whole calendar in the very
+  //   view meant to zoom in on it. A walk-forward test curve (no blot at all) is unaffected.
+  const _trOf=s=>{if(Array.isArray(s.span)){const a=_pd(s.span[0]||''),b=_pd(s.span[1]||'');if(!isNaN(a)&&!isNaN(b)&&b>a)return [a,b];}
+    if(s.blot&&s.blot.date_from&&s.blot.date_to){const a=_pd(s.blot.date_from),b=_pd(s.blot.date_to);if(!isNaN(a)&&!isNaN(b)&&b>a)return [a,b];}
     return null;};
   const PS=S.map(s=>{const n=s.eq.length,li=(s.li!=null)?Math.max(0,Math.min(+s.li,n-1)):null,
       wfi=(s.wfi!=null)?Math.max(0,Math.min(+s.wfi,n-1)):null,
@@ -7540,10 +7544,18 @@ window.expandCompareEq=function(series,opts){
   //   the exact same one-line-per-section default the other four families already had — no more
   //   top-three carve-out. OTHER RAW is deliberately excluded: it is the unranked grey noise
   //   cloud, not a section with a "top", and stays fully opt-in.
-  [_mainPS,_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(!g.length)return;_grpTop(g).vis='on';}catch(_te){}});
+  // F16 fix: that one-line default is right for the report's config funnel (dozens of configs of
+  //   ONE run, a "top" makes sense), but a COMPARE caller (OVERLAY / PICK RUNS / RUNBOARD;
+  //   opts.noTabs) hands this explorer the exact small set of DIFFERENT STRATEGIES already drawn
+  //   on the small chart — there is no runner-up to hide. Every one of them starts on, in the
+  //   group already expanded, instead of collapsing to the single highest-ending run under a
+  //   "RAW (n)" row that took three clicks to undo.
+  if(opts.noTabs)_mainPS().forEach(function(s){s.vis='on';});
+  else [_mainPS,_gatePS,_tiltPS,_hybPS,_hybRPS].forEach(function(fn){try{const g=fn();if(!g.length)return;_grpTop(g).vis='on';}catch(_te){}});
   // per-group expand/collapse state — all three start COLLAPSED (one row each); replaces the old
-  //   single-purpose gateExpanded flag.
-  let _grpExpanded={cfg:false,gate:false,tilt:false,hyb:false,hybr:false,oth:false};
+  //   single-purpose gateExpanded flag. noTabs opens 'cfg' (the only group these callers ever
+  //   populate) pre-expanded, so every run's own line is visible in the key without a click.
+  let _grpExpanded={cfg:!!opts.noTabs,gate:false,tilt:false,hyb:false,hybr:false,oth:false};
   // CHANGE 4: a group aggregate vis state, for the group header look and for what a group click
   //   cycles FROM. "mixed" (members disagree) reads and acts like "on" — full brightness, and
   //   the next click dims the whole group, the same first step an all-on group would take.
@@ -7632,7 +7644,9 @@ window.expandCompareEq=function(series,opts){
     // v71.65 (owner: "the key is not ranked by PnL like the non-expanded one"): the tile key lists
     //   the families BEST-FIRST by where each one finishes. This key had them in a fixed RAW,
     //   GATES, TILTS, HYBRID order, so the two read in different orders side by side.
-    legendEl.innerHTML=[['cfg','RAW',_mainPS()],['gate','GATES',_gatePS()],['tilt','TILTS',_tiltPS()],
+    // F16: a COMPARE caller's "RAW" group is not raw configs of one run, it is the picked runs
+    //   themselves — label it RUNS there so the key does not misname what it lists.
+    legendEl.innerHTML=[['cfg',(opts.noTabs?'RUNS':'RAW'),_mainPS()],['gate','GATES',_gatePS()],['tilt','TILTS',_tiltPS()],
       ['hyb','HYBRID',_hybPS()],['hybr','HYBRID ♻',_hybRPS()]]
       .filter(function(g){return g[2].length;})
       // v73.7 (third bug in this block): the groups were ORDERED by their best finisher while each
@@ -8566,8 +8580,17 @@ window.cmpOvlMount=function(hostId){
   let tMin=null,tMax=null;
   _spans.forEach(sp=>{if(sp){if(tMin==null||sp[0]<tMin)tMin=sp[0];if(tMax==null||sp[1]>tMax)tMax=sp[1];}});
   const timeMode=tMin!=null&&tMax!=null&&tMax>tMin;
+  // F15 fix: a series may carry its own PIECEWISE per-point date array (ts[], set when the
+  //   payload knows exactly where the lockbox door falls on the calendar) instead of just a
+  //   two-date span — the same ts[] expandCompareEq's rebakeDomain already prefers over an even
+  //   spread. Without it, a curve indexed by TRADE (not by day) had its points spread evenly
+  //   across [date_from,date_to], which routinely misplaced the door by months whenever the
+  //   lockbox took a different SHARE of trades than it took of the calendar.
   S.forEach((sr,si)=>{const n=(sr.eq||[]).length;
-    if(timeMode){const sp=_spans[si]||[tMin,tMax],t0=sp[0],t1=sp[1]>t0?sp[1]:t0+1;
+    const tsArr=(Array.isArray(sr.ts)&&sr.ts.length===n)?sr.ts:null;
+    if(timeMode&&tsArr){
+      sr.pts=(sr.eq||[]).map((v,i)=>({x:(tsArr[i]-tMin)/((tMax-tMin)||1),v:v}));
+    }else if(timeMode){const sp=_spans[si]||[tMin,tMax],t0=sp[0],t1=sp[1]>t0?sp[1]:t0+1;
       sr.pts=(sr.eq||[]).map((v,i)=>({x:(t0+(n>1?i/(n-1):0)*(t1-t0)-tMin)/((tMax-tMin)||1),v:v}));
     }else{sr.pts=(sr.eq||[]).map((v,i)=>({x:(n>1?i/(n-1):0),v:v}));}});
   const _mdyy=ms=>{const d=new Date(ms);return (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);};
@@ -8622,14 +8645,27 @@ window.cmpOvlMount=function(hostId){
   //   few weeks draws as a hairline next to a 15-year run, and without this the short one just
   //   looks like a rendering glitch instead of a much smaller sample.
   // (D31) a walk-forward test curve has no trade-list payload: its length comes from its own span
+  // F5 fix (repair round): the key text used to read the run's WHOLE-WINDOW blot dates before
+  //   its own slice span, so a 1.5-year lockbox tail or a pre-fold in-sample stretch still
+  //   printed the run's full 16-year figure beside a curve that (after the fixes above) now
+  //   actually draws its own short span. sr.span wins when the series carries one; the "short
+  //   sample" warning is about an actually-short RUN, so it is suppressed for an intentional
+  //   slice (sr.keyApx) — that flag is only ever set on a deliberately sliced IS/LB stage.
   const _spanTxt=sr=>{const _sp=Array.isArray(sr.span)?sr.span:[];
-    const a=Date.parse((sr.blot&&sr.blot.date_from)||_sp[0]||''),b=Date.parse((sr.blot&&sr.blot.date_to)||_sp[1]||'');
+    const a=Date.parse(_sp[0]||(sr.blot&&sr.blot.date_from)||''),b=Date.parse(_sp[1]||(sr.blot&&sr.blot.date_to)||'');
     if(isNaN(a)||isNaN(b)||b<=a)return '';
     const d=Math.round((b-a)/86400000),y=d/365.25;
+    if(sr.keyApx)return ' <span style="color:var(--text5)">· '+y.toFixed(1)+'y</span>';
     return (y>=1.5)?(' <span style="color:var(--text5)">· '+y.toFixed(1)+'y</span>')
       :(' <span style="color:var(--yellow)" title="short sample - this curve only covers '+d+' days, so it draws as a hairline beside the full-history runs">· '+d+'d ⚠</span>');};
-  keyEl.innerHTML=ALL.map(sr=>{const lastV=(sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0,off=HID.has(String(sr.id)),gry=GRY.has(String(sr.id));
-      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+'<span class="cmpovl-kv" data-end="'+_ab$(lastV)+'">'+_ab$(lastV)+'</span>'+((ONE_A||sr.wfoCurve)?_spanTxt(sr):'')+'</div>';}).join('')
+  // F5 fix: a sliced IS/LB series carries its own keyEnd (the table's stage figure) instead of
+  //   the raw curve endpoint, which for a downsampled slice routinely disagreed with the table —
+  //   shown with a ~ mark and a hover explaining why, rather than silently swapped in as if it
+  //   were what the line itself draws to.
+  keyEl.innerHTML=ALL.map(sr=>{const _apx=!!sr.keyApx,
+      lastV=(sr.keyEnd!=null)?sr.keyEnd:((sr.eq&&sr.eq.length)?sr.eq[sr.eq.length-1]:0),
+      off=HID.has(String(sr.id)),gry=GRY.has(String(sr.id));
+      return '<div data-ovltog="'+sr.id+'" title="'+(off?'click to bring this strategy back':(gry?'click again to remove it from the chart':'click to grey this strategy out - it stays on the chart, faint. Click again to remove it, once more to bring it back.'))+'" style="white-space:nowrap;cursor:pointer;user-select:none;color:'+(off?'var(--text5)':sr.color)+(off?';text-decoration:line-through':'')+'"><b>'+(off?'▭':(gry?'▬':'▬'))+'</b> '+(sr.rank?('<span style="color:var(--text5)">R'+sr.rank+'</span> '):'')+'#'+sr.id+' '+sr.label+' · '+(_apx?'<span title="this reads the table’s own figure for the stage on screen - the drawn line is a thinned, trade-indexed slice and its last drawn point does not necessarily land on exactly this dollar amount or date" style="cursor:help">~</span>':'')+'<span class="cmpovl-kv" data-end="'+_ab$(lastV)+'">'+_ab$(lastV)+'</span>'+((ONE_A||sr.wfoCurve)?_spanTxt(sr):'')+'</div>';}).join('')
     // v72.0 (owner: "remove the in-sample wf lb in the key on 1A"): the line-style legend only
     //   shows on the plain COMPARE chart. On the RUNBOARD the info icon already explains it.
     // (D31) a chart of walk-forward tests has no in-sample stretch, so no in-sample line style
@@ -12923,7 +12959,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
     // Family keyword, searched ANYWHERE in the string (legacy run names often led with
     // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
-    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM'],[/nqdip/,'NQDIP'],[/emapb/,'EMAPB'],[/gapgo/,'GAPGO']];
+    const _FAMRE=[[/opening|orb/,'ORB'],[/overnight/,'OVN'],[/engu/,'ENGU'],[/etfdip/,'ETFDIP'],[/supertrend/,'ST'],[/revert/,'RVT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM'],[/nqdip/,'NQDIP'],[/emapb/,'EMAPB'],[/gapgo/,'GAPGO']];
     const _famKey=s=>{const raw=String(s||'');
       // repair round (independent check, item 3): the book-name test must run on the
       //   RAW string, BEFORE normalisation. Normalising first turns every underscore
@@ -17287,7 +17323,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _O=_wfOosOf(r,mult);
         return {net:nTOT,pf:totPf,trades:totTr,days:days,perDay:(days?nTOT/days:null),dd:_tDd,sharpe:_tSh,wr:_tWr,sharpeOOS:(_O?_O.sharpe:null),wf:_O,wfWhy:(_O?'':_wfOosWhy(r,'any')),isWr:(folds[0]&&folds[0].win_rate!=null?+folds[0].win_rate:null),oosNet:oosNet,scope:'total',validated:true};
       }
-      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(r&&r.days_in_test)||null,perDay:(r&&r.best_pnl_per_day)||null,dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,wf:null,wfWhy:'',scope:'best',validated:false};
+      // A BOOK'S days_in_test IS THE WHOLE RUN - date_from to date_to - but best_pnl_usd
+      //   above (book.pre_lockbox) only covers date_from to lockbox_from. Annualising the
+      //   pre-lockbox net over the whole-run day count reads MAR (and any $/day figure built
+      //   on it) low; the in-sample day count is the one the run report and every COMPARE
+      //   screen use for a book (F3).
+      const _bkDays=(r&&r.book&&r.book.date_from&&r.book.lockbox_from)?(()=>{
+        const a=Date.parse(String(r.book.date_from).slice(0,10)+'T00:00:00Z'),b=Date.parse(String(r.book.lockbox_from).slice(0,10)+'T00:00:00Z');
+        return (isFinite(a)&&isFinite(b)&&b>a)?Math.round((b-a)/864e5):null;})():null;
+      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(_bkDays!=null?_bkDays:(r&&r.days_in_test)||null),perDay:(r&&r.best_pnl_per_day)||null,dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,wf:null,wfWhy:'',scope:'best',validated:false};
     };
     // ── VALIDATION METHOD · read the run object and say plainly HOW it was validated, so every
     //    run reads as its own method (no mixing). Drives a banner on every report + which sections
@@ -17611,6 +17655,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   `scope` string is an emoji-prefixed label, not the bare English words, so a strict
       //   === match against 'Auto-Optimize' never fires on live data; match loosely instead.
       if(/auto[- ]?optim|🤖/.test(String((x&&x.scope)||'').toLowerCase())){const y=_runYrs(x);return (y!=null)?y*_IS_SPLIT:null;}
+      // A GATE-VALIDATE JOB TYPE RUN SAVES NO validate BLOCK, SO IT NEVER SPLITS A TUNING
+      //   WINDOW AT ALL (repair round, owner: reviewer reproduction on a synthetic run read
+      //   MAR 0.39 / R per YR 23.3 - exactly the OLD gated headline ($65,427 over $10,303)
+      //   divided by the WHOLE 16.2-year run). Its own in-sample stretch is
+      //   gate_validate.span[0] to wf_range[0] - the SAME boundary _gvYrs already hands the
+      //   COMPARE-beta screen - so this shared helper (the run list, RUNBOARD and PICK RUNS
+      //   all call it) uses the identical span instead of falling through to the whole-run
+      //   reading below. Either boundary missing leaves the years unknown, not a whole-run guess.
+      if(_isGvJob(x)){const d=_gvYrs(x);return (d&&d.a&&d.w)?_yrsBetween(d.a,d.w):null;}
       return _runYrs(x);};
     // THE CHAMPION'S OWN WHOLE-RUN PROFIT FACTOR (item 1, owner: FULL PF read 1.48 - pooled
     //   across re-fitted walk-forward folds - the day the CHAMPION config, held constant end
@@ -17625,6 +17678,25 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const wr=(+wrIn>1)?(+wrIn/100):+wrIn;
       if(!(wr>0)||wr>=1||!(W>0)||!(L>0))return null;
       return (wr*W)/((1-wr)*L);};
+    // THE GATE STUDY'S OWN MEASURED SLICES (F2 / F10): gate_validate.ungated_is /
+    //   ungated_wf / ungated_lockbox / ungated_full - the champion's own trades, no ML
+    //   filter, split at the SAME calendar boundaries the run report's 1E EXACT path
+    //   reads (kpiMatrixHtml). Saved on every validated run whose gate bake-off completed
+    //   - a Gate-Validate JOB TYPE run included, which saves no `validate` block at all, so
+    //   this is its ONLY honest whole-run reading. Never the old "whole run minus
+    //   walk-forward minus lockbox" remainder, which mixed the fixed champion with the
+    //   RE-FITTED folds (F2) and, on a Gate-Validate run, could print the LOCKBOX trades
+    //   themselves labelled in-sample (F10). Top-level (not tab-scoped): both the old tab
+    //   and the COMPARE-beta screen read it.
+    const _gvB=(x,k)=>{const b=x&&x.gate_validate&&x.gate_validate[k];
+      return (b&&b.num_trades!=null&&b.total_pnl!=null)?b:null;};
+    const _isGvJob=x=>!(x&&x.validate)&&/gate-validate/i.test(String((x&&x.scope)||''));
+    const _gvYrs=x=>{const G=x&&x.gate_validate;if(!G)return null;
+      const sp=Array.isArray(G.span)?G.span:null,wr=Array.isArray(G.wf_range)?G.wf_range:null;
+      return {a:(sp&&sp[0])?String(sp[0]).slice(0,10):null,
+              w:(wr&&wr[0])?String(wr[0]).slice(0,10):null,
+              l:G.lockbox_from?String(G.lockbox_from).slice(0,10):((wr&&wr[1])?String(wr[1]).slice(0,10):null),
+              b:(sp&&sp[1])?String(sp[1]).slice(0,10):null};};
     // STARRED RUNS OUTSIDE THE LOADED WINDOW (item 4). The run list loads only the newest N
     //   (a Firestore read budget); a run you starred can be far older than that slice and still
     //   belong at the head of its family everywhere a crown is read. window._starRuns is filled
@@ -17632,8 +17704,20 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   Dedupe by id: a starred run already inside the loaded window is not repeated.
     const _c2StarExtra=base=>{const have=new Set((base||[]).filter(r=>r&&r.id!=null).map(r=>String(r.id)));
       return (Array.isArray(window._starRuns)?window._starRuns:[]).filter(r=>r&&r.id!=null&&!have.has(String(r.id)));};
-    const _runMarAnn=x=>_marAnn(+x.best_pnl_usd||0,_isYrs(x),+x.best_dd_usd||0);
-    const _runRPerYr=x=>_rPerYr(_evInR(x.best_win_rate,x.best_pf,(+x.best_trades||0)),(+x.best_trades||0),_isYrs(x));
+    // A GATE-VALIDATE JOB'S best_pnl_usd / best_dd_usd / best_win_rate / best_pf /
+    //   best_trades ARE ITS GATED HEADLINE PICK (repair round, same F4 fact PICK RUNS' own
+    //   Net P&L / Max DD / PF / Win % / Trades rows already act on via _gvIsOf) - sometimes
+    //   the lockbox trades themselves, never an in-sample reading. MAR and R / YR must divide
+    //   the SAME measured gate_validate.ungated_is slice this row's other cells already print,
+    //   never the gated headline over the whole run. Dash, never that headline, when the run
+    //   saved no measured slice at all (live #390: this row's net and drawdown already dash).
+    const _runGvIs=x=>{const g=_gvB(x,'ungated_is');if(!g)return null;const mc=x.multiplier||instMult(x.instrument)||20;
+      return {net:(+g.total_pnl||0)*mc,dd:(g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*mc:null,
+        wr:(g.win_rate!=null?+g.win_rate:null),pf:(g.profit_factor!=null?+g.profit_factor:null),tr:(g.num_trades!=null?+g.num_trades:0)};};
+    const _runMarAnn=x=>{if(_isGvJob(x)){const g=_runGvIs(x);return g?_marAnn(g.net,_isYrs(x),g.dd):null;}
+      return _marAnn(+x.best_pnl_usd||0,_isYrs(x),+x.best_dd_usd||0);};
+    const _runRPerYr=x=>{if(_isGvJob(x)){const g=_runGvIs(x);return g?_rPerYr(_evInR(g.wr,g.pf,g.tr),g.tr,_isYrs(x)):null;}
+      return _rPerYr(_evInR(x.best_win_rate,x.best_pf,(+x.best_trades||0)),(+x.best_trades||0),_isYrs(x));};
     // ── RETURN ON CAPITAL (owner 2026-09-01). Every other ratio on this board is scale-free:
     //    numerator and denominator both scale with position size, so leverage cancels. That is
     //    why HYBRID RECYCLE - which is pure leverage, the capacity the gate freed spent on the
@@ -17964,8 +18048,44 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     // the 1E EXACT path: all four ungated gate-study blocks present (the same test kpiMatrixHtml runs)
     const _kpiExactOf=d=>{const G=d&&(d.gate_validate||d.ml_gate);const ok=k=>{const x=G&&G[k];return !!(x&&x.num_trades!=null&&x.total_pnl!=null);};
       return ok('ungated_is')&&ok('ungated_wf')&&ok('ungated_lockbox')&&ok('ungated_full');};
+    // A BOOK'S OWN THREE STAGES for the 1E KPI MATRIX (F3): IN-SAMPLE = pre_lockbox (every
+    //   leg pooled, frozen params, before the sealed test), LOCKBOX = the sealed holdout,
+    //   TOTAL = the whole run - no WF phase, because a book tunes nothing and never runs one.
+    //   Net, PF, trades and win rate are the block's own measured figures (never a residual);
+    //   average win/loss come from the block's own gross win/loss, exactly as book.py saves
+    //   them. Years are date_from→lockbox_from, lockbox_from→date_to, date_from→date_to -
+    //   read through DAYS, which _phYr (shared with every other phase) turns into years.
+    //   Sharpe/Sortino are left blank: a book saves neither (F13).
+    const _bookKpiPhases=(d,mult)=>{
+      const bk=d.book||{};
+      const _dstr=x=>x?String(x).slice(0,10):null;
+      const _gapD=(a,b)=>{if(!a||!b)return null;const t0=Date.parse(a+'T00:00:00Z'),t1=Date.parse(b+'T00:00:00Z');
+        return (isFinite(t0)&&isFinite(t1)&&t1>t0)?Math.round((t1-t0)/864e5):null;};
+      const _dr2=(a,b)=>{if(!a||!b)return '';const yy=x=>'’'+x.slice(2,4);return yy(a)+'–'+yy(b);};
+      const dFrom=_dstr(bk.date_from||d.date_from),lbFrom=_dstr(bk.lockbox_from),dTo=_dstr(bk.date_to||d.date_to);
+      const _mkPh=(blk,sh_,sub,col,a,b,tip,total)=>{if(!blk)return null;
+        const T=(blk.num_trades!=null)?+blk.num_trades:null;
+        const Wn=(blk.wins!=null)?+blk.wins:null,Ln=(blk.losses!=null)?+blk.losses:null;
+        const gw=(blk.gross_win!=null)?+blk.gross_win*mult:null,gl=(blk.gross_loss!=null)?+blk.gross_loss*mult:null;
+        const days=_gapD(a,b);
+        return {sh_:sh_,sub:sub,col:col,total:!!total,dr:_dr2(a,b),days:days,bars:null,
+          net:(blk.total_pnl!=null?+blk.total_pnl*mult:null),
+          dd:(blk.max_drawdown!=null?Math.abs(+blk.max_drawdown)*mult:null),
+          pf:(blk.profit_factor!=null?+blk.profit_factor:null),
+          wr:(blk.win_rate!=null?+blk.win_rate:null),
+          aw:(gw!=null&&Wn>0)?gw/Wn:null,al:(gl!=null&&Ln>0)?gl/Ln:null,
+          sh:null,sortino:null,tr:T,tip:tip};};
+      return [
+        _mkPh(bk.pre_lockbox,'IS','tuning years','var(--text2)',dFrom,lbFrom,
+          'IN-SAMPLE = the years before the sealed lockbox. A book pools every leg over one window with every parameter already frozen - it tunes nothing - so this is the book\u2019s own measured pre-lockbox trades, not a residual.'),
+        _mkPh(bk.lockbox,'LB','purple','#a78bfa',lbFrom,dTo,
+          'LOCKBOX = the sealed final stretch, held out and opened once. NET P&L is the book\u2019s own lockbox backtest.'),
+        _mkPh(bk.whole,'TOTAL','whole run','var(--green)',dFrom,dTo,
+          'TOTAL = the whole book, IN-SAMPLE plus LOCKBOX. A book has no walk-forward stage - it tunes nothing, so there is no WF column here.',true)
+      ].filter(Boolean);};
     const kpiMatrixHtml=(d,mult,bare,hdr)=>{
       const V=d.validate;if(!V)return '';
+      const _isBookRpt=!!(d.book&&Array.isArray(d.book.legs));
       const _wfO=_wfOosOf(d,mult);   // the saved walk-forward test, checked against these fold rows (or null)
       const folds=(Array.isArray(d.top10_results)?d.top10_results.filter(x=>x&&x.fold!=null):[]).slice().sort((a,b)=>(a.fold-b.fold));
       const lb=V.lockbox||{},f1=folds[0]||{};
@@ -18034,7 +18154,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _WFSRC='This figure comes from the saved walk-forward test: every fold re-tuned on its own past, its unseen trades joined in fold order.';
       const _WFPOOL='This figure is pooled across the fold rows, not measured on the joined walk-forward trades.';
       const ddIS=_ddOf(V.is_dd,0,wEnd+1),ddLB=_ddOf(lb.dd,Math.max(0,li-1),eq.length),ddTOT=_ddOf(V.total_dd,0,eq.length);
-      const phases=[
+      const phases=_isBookRpt?_bookKpiPhases(d,mult):[
         {sh_:'IS', sub:'no shading', col:'var(--text2)', dr:_dr(optS,isEndMs), days:_days(optS,isEndMs), bars:tr0||null, net:nIS, dd:ddIS, pf:(f1.profit_factor!=null?+f1.profit_factor:null), wr:(f1.win_rate!=null?+f1.win_rate:null), aw:awIS.aw, al:awIS.al, sh:V.is_sharpe, tr:(f1.num_trades!=null?+f1.num_trades:null),
           tip:'IN-SAMPLE = the knob-tuning start of the graph. NET here is a RESIDUAL (TOTAL − WALK-FORWARD − LOCKBOX) so the three sections reconcile to the whole-run total — it is NOT a measured slice. The RAW and GATE tabs show the exact calendar in-sample figure (every trade before the first walk-forward fold), and it differs from this by whatever the fold test slices do not cover. PF / Win% / Trades here come from fold 1 in-sample backtest; DAYS are read off the curve.'},
         // WALK-FORWARD (legacy path): NET and TRADES stay pooled across the fold rows; drawdown, PF, win %,
@@ -18731,7 +18851,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
     // 0–100 robustness score: blends OOS strength (DSR, walk-forward, lockbox), PF, sample.
     const scoreRun=(r)=>{
-      if(r.validate){const V=r.validate;let s=(V.n_pass/(V.n_gates||5))*60;if(V.lockbox&&V.lockbox.pass)s+=20;s+=Math.max(0,Math.min(1,V.wfe||0))*10;if(V.dsr!=null)s+=Math.max(0,Math.min(1,V.dsr))*10;return Math.round(Math.max(0,Math.min(100,s)));}
+      // F22 fix: a validate block with no per-gate pass count (every book's - a book tunes
+      //   nothing, so it has no gates to pass) cannot produce a real score. Returning null
+      //   instead of NaN here fixes it at the source; every caller already treats null and
+      //   NaN the same way (isFinite checks), so this changes no non-book run's score.
+      if(r.validate){const V=r.validate;if(V.n_pass==null)return null;let s=(V.n_pass/(V.n_gates||5))*60;if(V.lockbox&&V.lockbox.pass)s+=20;s+=Math.max(0,Math.min(1,V.wfe||0))*10;if(V.dsr!=null)s+=Math.max(0,Math.min(1,V.dsr))*10;return Math.round(Math.max(0,Math.min(100,s)));}
       let s=0;if(r.dsr&&r.dsr.dsr!=null)s+=Math.max(0,Math.min(1,r.dsr.dsr))*35;
       s+=Math.max(0,Math.min(25,((r.best_pf||0)-1)*25));
       s+=Math.max(0,Math.min(15,(r.best_trades||0)/300*15));
@@ -22145,7 +22269,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const btn=(k,t,tip)=>'<span data-c2loadruns="'+k+'" title="'+tip+'" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid var(--border);color:var(--text3);white-space:nowrap">'+t+'</span>';
       return '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap">'
         +'<span class="c2-lbl" style="'+(capped?'color:var(--yellow)':'')+'" title="'+(capped
-          ?'Every screen on this tab reads only these runs. A run older than #'+lo+' is not ranked, crowned, overlaid or plotted until more are loaded - except a run you starred: the leaderboard and the overlay fetch starred runs on their own (+ N STARRED OLDER).'
+          ?'Every screen on this tab reads only these runs. A run older than #'+lo+' is not ranked, crowned, overlaid or plotted until more are loaded - except a run you starred: the leaderboard, the overlay, RUNBOARD, PICK RUNS and EXPLORE all fetch starred runs on their own (+ N STARRED OLDER).'
           :'Every run on the account is loaded.')+'">'
         +(capped?'NEWEST ':'ALL ')+rh.length+' RUNS \u00b7 #'+lo+' \u2013 #'+hi+'</span>'
         +(capped?(btn('75','LOAD 75 MORE','load the next 75 older runs - about 75 more Firestore reads')
@@ -22165,6 +22289,18 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   ENGU-Q, NOISE and NQDIP lost their rows on the live page (2026-09-08). Own row, like RUNBOARD.
     //   Word boundary so a strategy merely NAMED 'COMBINED_...' is not swept in.
     const _c2IsBook=r=>!!(r.book&&Array.isArray(r.book.legs))||(String(r.scope||'').indexOf('Book')>=0)||/^(BOOK:|COMBINED\b)/i.test(String(r.strategy||''));
+    // F18 (owner rule, RUNBOARD v71.85 - "remove the engu thats only 19 days lol"): a run
+    //   whose own window covers under two years scores ratios that explode against a
+    //   near-zero drawdown (an 18-day run at MAR 35,888 topped every multi-year book). RUNBOARD
+    //   drops these outright; the LEADERBOARD family list and COMPARE CHAMPIONS keep showing
+    //   them - a short sample is a caveat, not a disqualifier there - but they must sink below
+    //   every full-length run rather than take the top spot, and carry a mark saying why.
+    const _c2ShortWin=r=>{const a=Date.parse((r&&r.date_from)||''),b=Date.parse((r&&r.date_to)||'');
+      return (!isNaN(a)&&!isNaN(b)&&b>a)?(((b-a)/86400000)/365.25<2):false;};
+    const _c2ShortWinWhy=r=>{const a=Date.parse((r&&r.date_from)||''),b=Date.parse((r&&r.date_to)||'');
+      const dd=(!isNaN(a)&&!isNaN(b)&&b>a)?Math.round((b-a)/86400000):null;
+      return 'This run only covers '+(dd!=null?(dd+' day'+(dd===1?'':'s')):'under two years')
+        +' - too short to compare fairly against a multi-year run, so a ratio built on it can explode against a near-zero drawdown. It still shows here, but it never ranks above a full-length run.';};
     // WHICH FAMILY A RUN BELONGS TO, and which run is that family's champion. Written
     //   once because both screens ask: the LEADERBOARD lists champions, and the COMPARE
     //   overlay can fill itself with them. A second copy would drift, and then the two
@@ -22202,6 +22338,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const RB_RTH_TIP='This book pools the ENGU-Q RTH leg, whose backtest manages its stop only during the day session -- run 227 measured a real 24h stop costing about $178,340 versus these numbers. The certified deployment variant is the ETH leg (run 226). Treat this row as an upper bound, not a tradeable book.';
       // (retired la:true rows removed 2026-08-18; RB_ORB_LA_TIP kept for the renderer)
       const RB_ORB_LA_TIP='This book pools the ORB leg, and ORB fills on a bar using that same bars FINISHED volume, which a live trader could not have known yet. Most of the ORB edge traces to that gap. This net dollar figure is not something a live account could have achieved, so this book baseline is under review.';
+      // F4 fix: the volume-filter look-ahead documented in PAPER_TRADING.md was only ever
+      //   true of the touch-entry ORB family - ORB_2_0, ORB_3_0 to ORB_3_3 and their forks,
+      //   ORB_3_1_125 but not its fixed close-confirmed fork _125C. ORB_3_6 (and its C2 / R6
+      //   forks) enter on a finished bar's close and were never in scope, so a plain /ORB/i
+      //   test was flagging 22 of 26 live books - adopted #366 and recommended #396 included.
+      //   One helper, shared by both book tables below, replaces the two regex copies.
+      const _orbLegLookahead=legs=>String(legs||'').split(/\s*\+\s*/).some(leg=>{
+        leg=String(leg).replace(/\.py$/i,'').trim();
+        if(/^ORB_3_1_125C$/i.test(leg))return false;
+        return /^ORB_(2_0|3_[0-3])(_[A-Za-z0-9]+)*$/i.test(leg);
+      });
       /* RUNBOARD DATA — regenerate with: python tools/t5_runboard.py (paste rows) */
       const RB_BOOKS=[
         {st:'BLEND',vr:'LIVE-HONEST baseline: legal ORB #234 + ENGU-Q ETH #226',md:'ORB 3.6 C2 + ENGU-Q ETH (both certified; the two paper legs)',wf:'7/8',v:'champion',
@@ -22511,7 +22658,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       body+='<div style="margin-top:18px">'+_detsP('libParams','◫ PARAM LIBRARY',plibTile)+'</div>';
       body+='<div style="margin-top:14px">'+_detsP('libModes','◎ MODES',modesTile)+'</div>';
     }else if(augurSub==='cmp'||_c2Old){
-      const rs=runHistory.slice().sort((a,b)=>b.id-a.id);
+      // F1/F6/F7/F11: the shared pool for PICK RUNS, RUNBOARD (family chips, drill,
+      //   +ADD pins) and EXPLORE's crown level - runHistory plus any starred run outside
+      //   the loaded window, with archived runs left out (matching what Past Runs itself
+      //   hides by default).
+      const rs=runHistory.slice()
+        .concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[])
+        .filter(r=>r&&(!r.archived||!!APREF.rfArch))
+        .sort((a,b)=>b.id-a.id);
       // v67.6 (owner ask): BY STRATEGY mode — one curve per strategy family (its champion config,
       //   picked automatically by score) instead of manually picked runs. PICK RUNS stays the
       //   default, so every existing Compare behaviour below is unchanged unless this flips.
@@ -25567,6 +25721,28 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   longer exist are reported instead of being dropped in silence.
         const _rawSel=(APREF.cmpIds||[]).map(String);
         const _missSel=_rawSel.filter(id=>!find(id));
+        // repair round (item 13): a missing id is missing for one of THREE different reasons,
+        //   and the old note assumed only one (older than the loaded window) - so an ARCHIVED
+        //   pick (deliberately filtered out of rs, but still on the account) read the same
+        //   "older than the loaded runs - LOAD ALL to include it" as a run below the loaded
+        //   window, even though LOAD ALL (a full-account Firestore read) can never bring an
+        //   archived run back, and a run genuinely gone from the account got that same false
+        //   promise too. Telling them apart needs the UNFILTERED pool - runHistory plus any
+        //   starred-outside-window extras - because rs already excludes archived runs by design.
+        const _c2AllPool=(typeof runHistory!=='undefined'&&Array.isArray(runHistory))
+          ?runHistory.concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]):[];
+        const _c2LoadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:(typeof runsLimit!=='undefined'?runsLimit:null);
+        const _c2Fetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
+        const _c2Capped=(_c2LoadedLim!=null&&_c2AllPool.length>=_c2LoadedLim)||_c2Fetching;
+        const _missKind=id=>{if(_c2AllPool.some(r2=>String(r2.id)===id))return 'archived';return _c2Capped?'older':'gone';};
+        const _missArch=_missSel.filter(id=>_missKind(id)==='archived');
+        const _missOlder=_missSel.filter(id=>_missKind(id)==='older');
+        const _missGone=_missSel.filter(id=>_missKind(id)==='gone');
+        const _missNote=grp=>{if(!grp.length)return '';
+          const ids2='('+grp.map(x2=>'#'+x2).join(' ')+')',n2=grp.length,pl=n2===1?'':'s',be=n2===1?'is':'are',it=n2===1?'it':'them';
+          if(grp===_missArch)return '<span style="font-size:8px;color:var(--yellow);margin-left:6px" title="an archived run is filtered off every list on purpose - switch on archived runs in Past Runs to bring it back into this tab / set">⚠ '+n2+' saved run'+pl+' '+ids2+' '+be+' archived - switch on archived runs in Past Runs to include '+it+'</span>';
+          if(grp===_missOlder)return '<span style="font-size:8px;color:var(--yellow);margin-left:6px" title="these run ids were saved in this tab / set but are older than the runs currently loaded - LOAD ALL (in the bar above) to include them">⚠ '+n2+' saved run'+pl+' '+ids2+' '+be+' older than the loaded runs - LOAD ALL (in the bar above) to include '+it+'</span>';
+          return '<span style="font-size:8px;color:var(--yellow);margin-left:6px" title="every run on the account is already loaded, and these ids are not among them">⚠ '+n2+' saved run'+pl+' '+ids2+' '+be+' no longer in your history</span>';};
         // v64.57 (owner: tabs/sets all show the same runs): a tab opened with ＋ is DELIBERATELY
         //   empty and must stay empty. Before, an empty tab fell back to "the latest 3" for
         //   display, and the row-click handler then toggled against that fallback — so the first
@@ -25639,9 +25815,28 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   underneath. IS is the residual (TOTAL − WF − LB), exactly as the matrix computes it.
         const _totA=x=>{const m=_mcOf(x),V=x.validate,eq=(V&&Array.isArray(V.equity))?V.equity:null;
           const wf=_wfA(x),lb=_lbA(x),wfN=wf?wf.net:0,lbN=lb?lb.net:0;
-          if(eq&&eq.length){const tot=(+eq[eq.length-1]||0)*m;return {net:tot,is:tot-wfN-lbN,wf:wfN,lb:lbN,whole:true};}
+          // A GATE-VALIDATE JOB SAVES NO validate BLOCK AT ALL (repair round, mirrors the
+          //   LEADERBOARD/OVERLAY F10 fix in _c2full/_c2is): x.equity.cum is its own UNGATED
+          //   whole-run backtest and gate_validate.ungated_is its measured pre-fold slice - the
+          //   only honest whole-run/in-sample reading for a run type with no walk-forward or
+          //   lockbox split of its own. best_pnl_usd here is the GATED headline pick (sometimes
+          //   the lockbox trades themselves), a different population from that curve.
+          if(_isGvJob(x)){
+            const eq0=(x.equity&&Array.isArray(x.equity.cum)&&x.equity.cum.length>2)?x.equity.cum:null;
+            const net0=eq0?((+eq0[eq0.length-1]||0)*m):null;
+            const gi0=_gvB(x,'ungated_is'),isM0=gi0?(+gi0.total_pnl||0)*m:null;
+            if(net0!=null)return {net:net0,is:isM0,isWhy:(isM0==null?'This run saved no in-sample figures.':null),_isRem:null,wf:null,lb:null,whole:true};
+          }
+          // A BOOK NEVER SAVES gate_validate (F2 REGRESSION, repair round): it pools legs, not an
+          //   ML-gate bake-off, so gvIS below is always null for one and its IS $ dashed even
+          //   though book.pre_lockbox carries exactly this figure - the same one every other
+          //   screen (LEADERBOARD IS, OVERLAY IS, the run report 1E IS) already prints.
+          const bkIs=(x.book&&x.book.pre_lockbox&&x.book.pre_lockbox.total_pnl!=null)?(+x.book.pre_lockbox.total_pnl):null;
+          const gvIS=_gvB(x,'ungated_is'),isM=(bkIs!=null)?bkIs:(gvIS?(+gvIS.total_pnl||0)*m:null);
+          if(eq&&eq.length){const tot=(+eq[eq.length-1]||0)*m;
+            return {net:tot,is:isM,isWhy:(isM==null?'This run saved no in-sample figures.':null),_isRem:tot-wfN-lbN,wf:wfN,lb:lbN,whole:true};}
           // no validate curve (plain sweep): the whole run IS the in-sample window
-          return {net:(+x.best_pnl_usd||0),is:(+x.best_pnl_usd||0),wf:wfN,lb:lbN,whole:false};};
+          return {net:(+x.best_pnl_usd||0),is:(+x.best_pnl_usd||0),_isRem:(+x.best_pnl_usd||0),wf:wfN,lb:lbN,whole:false};};
         // RUNBOARD drawdown off the stored champion curve (the only place a FULL-window or
         //   lockbox-only DD exists). The curve is DOWNSAMPLED for transport, so this slightly
         //   UNDER-reads the true peak-to-trough — every board row shares the same treatment,
@@ -25675,6 +25870,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   saved 0 beside a positive trade count counts; a lockbox that took no trades is dashed before this (_rbZeroLb).
         const _pfZero=(v,n)=>(v!=null&&v!==''&&isFinite(+v)&&+v===0&&n!=null&&n!==''&&isFinite(+n)&&+n>0);
         const _netOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'net');if(_rbZeroLb(r))return null;const b=_bw(r);if(b)return +b.total_pnl||0;
+          // A GATE-VALIDATE JOB'S best_pnl_usd IS ITS GATED HEADLINE (repair round) - sometimes
+          //   the lockbox trades themselves - not an in-sample reading. gate_validate.ungated_is
+          //   is the measured pre-fold slice on the SAME ungated population the FULL sample's
+          //   curve draws; missing that, the IS sample dashes rather than mislabel the headline.
+          if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return g?(+g.total_pnl||0)*_mcOf(r):null;}
           return (_rbS==='is')?(+r.best_pnl_usd||0):((_rbS==='lb')?((_lbA(r)||{}).net):(_totA(r).net));};
         // the STORED lockbox drawdown wins over one measured off the saved curve: that curve is
         //   downsampled, so a peak-to-trough read from it can only come out too small, and too
@@ -25684,6 +25884,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(lb&&lb.dd!=null&&isFinite(+lb.dd))return Math.abs(+lb.dd)*_mcOf(r);
           return _eqDD(r,'lb');};
         const _ddOf2=r=>{if(_rbS==='wf')return _rbWfGet(r,'dd');if(_rbZeroLb(r))return null;const b=_bw(r);if(b)return (b.max_drawdown!=null&&isFinite(+b.max_drawdown))?Math.abs(+b.max_drawdown):null;
+          if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(r):null;}
+          // A GATE-VALIDATE JOB'S FULL-SAMPLE DRAWDOWN IS gate_validate.ungated_full - the
+          //   same ungated population TOTAL already draws from on this row (_netOf's _totA
+          //   branch) - never best_dd_usd, the GATED headline that read $24k / $17k on live
+          //   runs #391 / #393 beside a correctly dashed "IS $". This run type saves no
+          //   validate block and no equity curve, so the two generic fallbacks below
+          //   (validate.total_dd, the downsampled-curve estimate) can never fire for it
+          //   anyway; this only stops best_dd_usd from filling in behind them.
+          if(_rbS==='full'&&_isGvJob(r)){const g=_gvB(r,'ungated_full');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(r):null;}
           return (_rbS==='is')?((r.best_dd_usd!=null&&isFinite(+r.best_dd_usd))?Math.abs(+r.best_dd_usd):null)
             :((_rbS==='lb')?_lbDDof(r):(((r.validate&&r.validate.total_dd!=null&&isFinite(+r.validate.total_dd))?Math.abs(+r.validate.total_dd)*_mcOf(r):null)
               ||_eqDD(r,'full')||((r.best_dd_usd!=null&&isFinite(+r.best_dd_usd))?Math.abs(+r.best_dd_usd):null)));};
@@ -25718,6 +25927,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(!_wfA(r)&&!_lbA(r))return false;
           return _champPfOf(r)==null;};
         const _pfOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'pf');if(_rbZeroLb(r))return null;const b=_bw(r);if(b)return _pfZero(b.profit_factor,b.num_trades)?0:_pf2(+b.profit_factor);
+          if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return g?(_pfZero(g.profit_factor,g.num_trades)?0:_pf2(+g.profit_factor)):null;}
           if(_rbS==='is')return _pfZero(r.best_pf,r.best_trades)?0:_pf2(+r.best_pf);
           if(_rbS==='lb'){const lb0=r&&r.validate&&r.validate.lockbox;
             return (lb0&&_pfZero(lb0.pf,lb0.trades))?0:_pf2((_lbA(r)||{}).pf);}
@@ -25727,11 +25937,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           // window IS the whole run, so its own PF is already the whole-run PF. That is why
           // plain Auto-Optimize runs used to show a dash here.
           if(!a&&!lb)return _pf2(+r.best_pf);
-          return _pf2(_poolPF([{net:t.is,pf:+r.best_pf||0},
+          return _pf2(_poolPF([{net:t._isRem,pf:+r.best_pf||0},
                                {net:(a?a.net:0),pf:(a&&a.pf!=null)?a.pf:0},
                                {net:(lb?lb.net:0),pf:(lb?lb.pf:0)}]));};
         const _wrOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'wr');if(_rbZeroLb(r))return null;const b=_bw(r);if(b)return (b.win_rate!=null)?+b.win_rate:null;
           const V=r.validate;
+          if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return (g&&g.win_rate!=null)?+g.win_rate:null;}
           if(_rbS==='is')return (r.best_win_rate!=null)?+r.best_win_rate:null;
           if(_rbS==='lb'){const lb=V&&V.lockbox;return (lb&&lb.win_rate!=null)?+lb.win_rate:null;}
           if(V&&V.total_win_rate!=null)return +V.total_win_rate;
@@ -25758,6 +25969,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(!_wfA(r)&&!_lbA(r))return false;
           const V=r&&r.validate;return !(V&&V.total_trades!=null&&isFinite(+V.total_trades));};
         const _trOf=r=>{if(_rbS==='wf')return _rbWfGet(r,'tr');if(_rbZeroLb(r))return 0;const b=_bw(r);if(b)return +b.num_trades||0;
+          if(_rbS==='is'&&_isGvJob(r)){const g=_gvB(r,'ungated_is');return g?(+g.num_trades||0):null;}
           if(_rbS==='is')return +r.best_trades||0;
           if(_rbS==='lb')return (_lbA(r)||{}).tr;
           const V=r.validate;
@@ -25846,7 +26058,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   mention. window._starRuns (group A's star query) is folded in so an
           //   old crown outside the loaded run window still heads its family here
           //   too, same as the LEADERBOARD.
-          const _rbPool=rs.concat((window._starRuns||[]).filter(sr=>rs.every(r=>String(r.id)!==String(sr.id))));
+          const _rbPool=rs;   // F1/F6/F11: rs already folds in starred runs outside the loaded window and excludes archived ones
           let famRuns=_c2FamsOf(_rbPool).map(f=>f.ch)
             .sort((a,b)=>{const x=_c2Pick(a),y=_c2Pick(b);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return y-x;});
           // RUNBOARD: same champion-per-family pool, but the ORDER (funnel key, matrix columns,
@@ -25870,11 +26082,27 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             //   silently, and the TOP 10 panel still reaches every run including these.
             _rbHidden=famRuns.filter(_shortRun);
             famRuns=famRuns.filter(r=>!_shortRun(r)).sort((a,b)=>_rbVal(b,_rbR)-_rbVal(a,_rbR));
-            // …plus any runs added by hand with the ＋ ADD button on the funnel.
-            const _pin=(Array.isArray(APREF.rbAdd)?APREF.rbAdd:[]).map(String);
-            if(_pin.length){const have={};famRuns.forEach(r=>{have[String(r.id)]=1;});
-              _pin.forEach(id=>{if(have[id])return;
-                const r=rs.filter(x=>String(x.id)===id)[0];if(r){famRuns.push(r);have[id]=1;}});}
+            // …plus any runs added by hand with the ＋ ADD button on the funnel. F19 fix: a pin
+            //   used to be PUSHED onto the end of the already-10-long champion list and then cut
+            //   away by the slice below, so with 10 (or more) family champions on the board +ADD
+            //   could never actually add anything, no matter what the dialog promised. A genuinely
+            //   NEW pin (not already one of the champions) now reserves its own seat by trimming
+            //   the champion list first, so it always survives into the kept slice.
+            const _rbCap=10; // board mode's own column cap — this branch only runs in board mode
+            const _pin=(Array.isArray(APREF.rbAdd)?APREF.rbAdd:[]).slice(0,_rbCap).map(String);
+            if(_pin.length){
+              // F19 REGRESSION fix: pins go FIRST, never trimmed-in-after. The old code checked
+              //   "already there" against the top _rbCap slice, then cut THAT SAME slice to make
+              //   room for the genuinely-new pins — so a pin already sitting inside the top
+              //   _rbCap (e.g. column 9) read as "already there" and then got sliced away by the
+              //   very trim meant to seat the OTHER pins, and the note (built after the trim) never
+              //   saw the displaced champions. Reserving every valid pin's seat up front means a
+              //   pin can never be displaced, and every champion it bumps lands past the cap in
+              //   famRuns, where the existing famMore slice (and its cutoff note) already counts it.
+              const _pinned=_pin.map(id=>rs.filter(x=>String(x.id)===id)[0]).filter(Boolean);
+              const _pinIds=new Set(_pinned.map(r=>String(r.id)));
+              famRuns=_pinned.concat(famRuns.filter(r=>!_pinIds.has(String(r.id))));
+            }
           }
           famMore=famRuns.slice(_cmpMode==='board'?10:8);
           runs=famRuns.slice(0,_cmpMode==='board'?10:8);
@@ -25902,7 +26130,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const gs=Object.keys(gm).map(k=>{const all=gm[k].slice();
             const champ=all.slice().sort((a,b)=>scoreRun(b)-scoreRun(a)||((b.best_pnl_usd||0)-(a.best_pnl_usd||0)))[0];
             return {k:k,rs:all.sort((a,b)=>(+b.id||0)-(+a.id||0)),champ:champ};});
-          gs.sort((a,b)=>scoreRun(b.champ)-scoreRun(a.champ));
+          gs.sort((a,b)=>_c2FamSort(a.champ,b.champ));
           pickBody=gs.map(g=>{const open=window._cmpGrpOpen.has(g.k),ch=g.champ,nSel=g.rs.filter(r=>ids.indexOf(String(r.id))>=0).length;
             return '<div style="margin-bottom:3px">'
               +'<div data-cmpgrp="'+encodeURIComponent(g.k)+'" title="click to expand / collapse" style="display:flex;align-items:center;gap:7px;padding:4px 8px;border-radius:6px;cursor:pointer;background:color-mix(in srgb,var(--border) 22%,transparent);font-size:var(--fsxs)">'
@@ -25932,7 +26160,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // why-nothing-changed note: the empty-tab fallback and vanished run ids used to be silent.
         const _selNote=(_delibEmpty?'<span style="font-size:8px;color:var(--blue)" title="this tab is empty — pick runs in the list below and they stay in THIS tab only">this tab is empty — pick runs below</span>':'')
           +(_usedDefault?'<span style="font-size:8px;color:var(--yellow)" title="no runs picked yet, so the comparison falls back to the most recent 3 runs">⚠ showing the latest '+ids.length+' by default</span>':'')
-          +(_missSel.length?'<span style="font-size:8px;color:var(--yellow);margin-left:6px" title="these run ids were saved in this tab / set but are not in your run history any more">⚠ '+_missSel.length+' saved run'+(_missSel.length===1?'':'s')+' no longer exist ('+_missSel.map(x2=>'#'+x2).join(' ')+')</span>':'');
+          +_missNote(_missArch)+_missNote(_missOlder)+_missNote(_missGone);
         const _tabsRow='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:-2px 0 6px"><span style="font-size:8px;letter-spacing:1px;color:var(--text5)" title="each tab is its own live comparison — switch freely, nothing needs saving">TABS</span>'+_tabChips+'<span data-cmptabnew title="open a NEW empty comparison tab and start picking runs immediately" style="cursor:pointer;font-size:10px;font-weight:700;padding:2px 9px;border-radius:9px;border:1px dashed var(--border);color:var(--text4)">＋</span>'+_selNote+'</div>';
         // ── #47 SAVED COMPARISON SETS: name the current selection, switch between saved
         //    comparisons with one click (e.g. an ORB set vs a TTIBS set). Chips persist.
@@ -25961,7 +26189,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +'</div>';};
         // hidden short-window strategies are COUNTED here so nothing disappears silently
         const _rbHideNote=(_cmpMode==='board'&&_rbHidden.length)?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">'+_rbHidden.length+' strateg'+(_rbHidden.length===1?'y':'ies')+' hidden - window under 2 years, so their figures do not compare: '+_rbHidden.map(r=>'#'+r.id).join(' ')+'. The TOP 10 panel still reaches them.</div>'):'';
-        const _famMoreNote=(famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the top-8 score cutoff: '+famMore.map(_labOf).join(', ')+'</div>'):'')+_rbHideNote;
+        // F19 fix: this note was hard-coded "top-8 score cutoff" on both tiles, which was wrong
+        //   on the board three ways — the cap there is 10 not 8, the order is whatever RANK BY is
+        //   set to (not a robustness score), and since +ADD pins now always reserve their own
+        //   seat (above), anything actually cut is a family, never a hand-added run.
+        const _famCap=(_cmpMode==='board')?10:8;
+        const _famCutBy=(_cmpMode==='board')?('RANK BY '+({mar:'MAR',pf:'PF',net:'NET $',dd:'MAX DD'}[_rbR]||_rbR.toUpperCase())):'robustness score';
+        const _famMoreNote=(famMore.length?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')+'</div>'):'')+_rbHideNote;
         const famTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">BY STRATEGY</span><span style="font-size:8px;color:var(--text5)">top config per family · auto-updates as new runs land</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
@@ -25985,17 +26219,26 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // Rows below are ordered into the SAME five sections as the Auto-Validate KPI matrix
         //   (return · drawdown · reward ÷ risk · edge · sample — CHANGELOG v49.1) so a small
         //   uppercase divider can precede each block; Verdict stays its own row at the bottom.
+        // F22 fix: print a dash with a reason instead of the literal text 'NaN' for a run
+        //   whose validate block saves no per-gate pass count (every book's).
+        const _robFmt=x=>{const v=scoreRun(x);if(v!=null&&isFinite(v))return Math.round(v);
+          return '<span title="'+(_c2IsBook(x)?'A book tunes nothing, so its validate block saves no per-gate pass count to score.':'This run saved no per-gate pass count, so it has no robustness score.')+'" style="cursor:help;color:var(--text5)">—</span>';};
+        // A GATE-VALIDATE JOB'S best_* IS ITS GATED HEADLINE (repair round, F4), not an
+        //   in-sample reading - sometimes the lockbox trades themselves. gate_validate.ungated_is
+        //   is its measured pre-fold slice on the ungated population; missing that, these cells
+        //   dash rather than print the gated pick under an IN-SAMPLE header.
+        const _gvIsOf=x=>_isGvJob(x)?_gvB(x,'ungated_is'):null;
         const M_all=[
-          {l:'Net P&L',s:'Net $',v:x=>x.best_pnl_usd||0,f:x=>_ab$(x.best_pnl_usd),b:'max',sec:'return'},
-          {l:'$/day',s:'$/day',v:x=>x.best_pnl_per_day||0,f:x=>_ab$(x.best_pnl_per_day||0),b:'max',sec:'return'},
-          {l:'Max DD',s:'Max DD',v:x=>x.best_dd_usd||0,f:x=>_ab$(x.best_dd_usd||0),b:'max',sec:'drawdown'},
+          {l:'Net P&L',s:'Net $',v:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?(+g.total_pnl||0)*_mcOf(x):-1e15):(x.best_pnl_usd||0);},f:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?_ab$((+g.total_pnl||0)*_mcOf(x)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>'):_ab$(x.best_pnl_usd);},b:'max',sec:'return'},
+          {l:'$/day',s:'$/day',v:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?g.net/(y*365.25):-1e15;}return x.best_pnl_per_day||0;},f:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?_ab$(g.net/(y*365.25)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}return _ab$(x.best_pnl_per_day||0);},b:'max',sec:'return'},
+          {l:'Max DD',s:'Max DD',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(x):null;return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?_ab$(Math.abs(+g.max_drawdown)*_mcOf(x)):'—';return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?_ab$(Math.abs(+x.best_dd_usd)):'—';},b:'min',sec:'drawdown'},
           {l:'MAR',s:'MAR',v:x=>{var m=_runMarAnn(x);return m!=null?m:-1e15;},f:x=>{var m=_runMarAnn(x);return m!=null?m.toFixed(2):'\u2014';},b:'max',sec:'reward ÷ risk'},
           {l:'R/yr',s:'R/yr',v:x=>{var v=_runRPerYr(x);return v!=null?v:-1e15;},f:x=>{var v=_runRPerYr(x);return v!=null?v.toFixed(1):'\u2014';},b:'max',sec:'reward ÷ risk'},
-          {l:'PF',s:'PF',v:x=>x.best_pf||0,f:x=>(x.best_pf||0).toFixed(2),b:'max',sec:'edge'},
-          {l:'Win %',s:'Win%',v:x=>x.best_win_rate||0,f:x=>Math.round(x.best_win_rate||0)+'%',b:'max',sec:'edge'},
-          {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
+          {l:'PF',s:'PF',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.profit_factor!=null&&isFinite(+g.profit_factor)&&+g.profit_factor>0)?+g.profit_factor:0;return x.best_pf||0;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.profit_factor!=null&&isFinite(+g.profit_factor)&&+g.profit_factor>0)?(+g.profit_factor).toFixed(2):'—';return (x.best_pf||0).toFixed(2);},b:'max',sec:'edge'},
+          {l:'Win %',s:'Win%',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.win_rate!=null)?+g.win_rate:0;return x.best_win_rate||0;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.win_rate!=null)?(Math.round(+g.win_rate)+'%'):'—';return Math.round(x.best_win_rate||0)+'%';},b:'max',sec:'edge'},
+          {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>_robFmt(x),b:'max',sec:'edge'},
           {l:'DSR',s:'DSR',f:x=>(x.dsr&&x.dsr.dsr!=null?Math.round(x.dsr.dsr*100)+'%':'—'),sec:'edge'},
-          {l:'Trades',s:'Trades',f:x=>(x.best_trades||0),sec:'sample'},
+          {l:'Trades',s:'Trades',f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.num_trades!=null)?+g.num_trades:'—';return (x.best_trades||0);},sec:'sample'},
           {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         const M_wf=[
           // A TEST THAT TOOK NO TRADES made exactly $0, and that $0 prints - pooled from the fold rows like
@@ -26033,11 +26276,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const M_tot=[
           {l:'Total net $ (whole run)',s:'Total $',v:x=>{const a=_totA(x);return a?a.net:-1e15;},f:x=>{const a=_totA(x);if(!a)return '—';
             return '<b>'+_ab$(a.net)+'</b>'+(a.whole?'':'<span title="this run has no walk-forward / lockbox stages — its whole run IS the in-sample window, so this equals the in-sample figure" style="color:var(--yellow);font-size:8px"> IS only</span>');},b:'max',sec:'return'},
-          {l:'  ├ in-sample $',s:'IS $',v:x=>{const a=_totA(x);return a?a.is:-1e15;},f:x=>{const a=_totA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.is)+'</span>':'—';},sec:'return'},
+          {l:'  ├ in-sample $',s:'IS $',v:x=>{const a=_totA(x);return (a&&a.is!=null)?a.is:-1e15;},f:x=>{const a=_totA(x);return (a&&a.is!=null)?'<span style="color:var(--text4)">'+_ab$(a.is)+'</span>':'<span style="color:var(--text5)" title="'+_wfoEsc((a&&a.isWhy)||'This run saved no in-sample figures.')+'">—</span>';},sec:'return'},
           {l:'  ├ walk-forward $',s:'WF $',v:x=>{const a=_wfA(x);return a?a.net:-1e15;},f:x=>{const a=_wfA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.net)+'</span>':'—';},sec:'return'},
           {l:'  └ lockbox $',s:'LB $',v:x=>{const a=_lbA(x);return a?a.net:-1e15;},f:x=>{const a=_lbA(x);return a?'<span style="color:var(--text4)">'+_ab$(a.net)+'</span>':'—';},sec:'return'},
-          {l:'Max DD (in-sample)',s:'Max DD',v:x=>x.best_dd_usd||0,f:x=>_ab$(x.best_dd_usd||0),b:'max',sec:'drawdown'},
-          {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>scoreRun(x),b:'max',sec:'edge'},
+          {l:'Max DD (in-sample)',s:'Max DD',v:x=>{if(_isGvJob(x)){const g=_gvB(x,'ungated_is');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(x):null;}return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null;},f:x=>{if(_isGvJob(x)){const g=_gvB(x,'ungated_is');return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?_ab$(Math.abs(+g.max_drawdown)*_mcOf(x)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?_ab$(Math.abs(+x.best_dd_usd)):'—';},b:'min',sec:'drawdown'},
+          {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>_robFmt(x),b:'max',sec:'edge'},
           {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         // RUNBOARD: the board's own SAMPLE control drives the table scope — FULL = the whole run
         //   (TOTAL, with its IS/WF/LB split rows), IS = the optimize window, LB = the lockbox year.
@@ -26126,16 +26369,76 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   joined end to end, over the fold dates, with no lockbox door - and a run that
           //   saved none goes to the no-curve list rather than showing its whole run under a
           //   walk-forward caption. Nothing is rebased: the curve already starts at $0.
-          let _wfoSpan=null,_wfoWhy=null;
+          let _wfoSpan=null,_wfoWhy=null,_keyEnd=null,_keyApx=false,_tsArr=null;
           if(_rbWfCv){const O=_wfoOf(r);
             if(O&&O.curve&&O.curve.length>2){eq=O.curve;li=null;wf=[];_wfoSpan=[O.from,O.to];}
             else{eq=null;li=null;wf=[];_wfoWhy=_wfoNoCurveWhy(r);}}
           else if(_cmpMode==='board'&&_rbS!=='full'&&eq){
-            const n0=eq.length,_w0=(wf.length&&li!=null)?Math.max(0,Math.min(li,Math.round(wf[0][0]*li))):null;
-            if(_rbS==='is'){const end=(_w0!=null?_w0:(li!=null?li:n0-1));eq=(end>1)?eq.slice(0,end+1):null;li=null;wf=[];}
-            else{if(li!=null&&li<n0-2){const b0=eq[li];eq=eq.slice(li).map(v=>v-b0);}else eq=null;li=null;wf=[];}
+            // F5 fix: a slice used to keep the curve's own [date_from,date_to] blot dates as its
+            //   drawn span — nothing here ever set one — so a one-year lockbox tail or an
+            //   in-sample stretch that actually ends years early was stretched across the WHOLE
+            //   run's width, and the key's ending $ (the last point of this approximate,
+            //   downsampled slice) never matched the table's own TOTAL figure for the same stage.
+            //   The slice now gets its OWN calendar span (the lockbox door to date_to on LB;
+            //   date_from to the lockbox door on IS) and the key reads the table's own _netOf
+            //   figure for this stage, marked ~ since a thinned, trade-indexed slice cannot be
+            //   guaranteed to land on that exact dollar amount or that exact date.
+            // F5 repair round: three follow-on defects in this same block.
+            //   (1) a BOOK never saves validate.windows.lockbox or validate.lockbox.from (book.py
+            //       only writes pnl/pf/trades/pass there) — its door is book.lockbox_from, and a
+            //       book can also lack run-level date_from/date_to. Falling through to those book
+            //       fields keeps a book's slice from collapsing back to "no span" (which then drew
+            //       the WHOLE calendar, the F5 symptom coming right back for every run on the board).
+            //   (2) the IS span used to run all the way to the lockbox door even though the curve
+            //       itself is cut at the first WALK-FORWARD FOLD, well before that door — stretching
+            //       an in-sample line ~2.5x wide. The fold-1 fraction that decides the cut (_w0) is
+            //       mapped onto the same [date_from, lockbox door] calendar span instead.
+            //   (3) the IS key used to read best_pnl_usd — the Stage-A TUNING score, measured over a
+            //       different, OVERLAPPING window — as if it were this slice's own endpoint. That
+            //       substitution only ever matched the line on LB (net dollars, ungated); on IS it is
+            //       left null so the caller falls back to the slice's own last drawn point.
+            const n0=eq.length,_wf0Frac=(wf.length?wf[0][0]:null),_w0=(_wf0Frac!=null&&li!=null)?Math.max(0,Math.min(li,Math.round(_wf0Frac*li))):null;
+            const _winLB=(V&&V.windows)||{};
+            const _rbBk=r&&r.book;
+            const _rbDFrom=r.date_from||(_rbBk&&_rbBk.date_from)||null;
+            const _rbDTo=r.date_to||(_rbBk&&_rbBk.date_to)||null;
+            const _lbFromStr=(_winLB.lockbox&&_winLB.lockbox[0])||(V&&V.lockbox&&V.lockbox.from)||(_rbBk&&_rbBk.lockbox_from)||null;
+            const _rbPd=s=>{const m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(s||''));return m?+new Date(+m[1],+m[2]-1,+m[3]):Date.parse(s||'');};
+            const _rbFmt=t=>{const dt=new Date(t);const p2=n2=>String(n2).padStart(2,'0');return dt.getFullYear()+'-'+p2(dt.getMonth()+1)+'-'+p2(dt.getDate());};
+            if(_rbS==='is'){const end=(_w0!=null?_w0:(li!=null?li:n0-1));eq=(end>1)?eq.slice(0,end+1):null;li=null;wf=[];
+              if(eq&&_rbDFrom&&_lbFromStr){
+                const _t0=_rbPd(_rbDFrom),_tLb=_rbPd(_lbFromStr);
+                const _isEnd=(_w0!=null&&_wf0Frac!=null&&!isNaN(_t0)&&!isNaN(_tLb)&&_tLb>_t0)?_rbFmt(_t0+_wf0Frac*(_tLb-_t0)):_lbFromStr;
+                _wfoSpan=[_rbDFrom,_isEnd];
+              }}
+            else{if(li!=null&&li<n0-2){const b0=eq[li];eq=eq.slice(li).map(v=>v-b0);}else eq=null;li=null;wf=[];
+              if(eq&&_lbFromStr&&_rbDTo)_wfoSpan=[_lbFromStr,_rbDTo];
+              if(eq){const nv=_netOf(r);if(nv!=null&&isFinite(nv)){_keyEnd=nv;_keyApx=true;}}}
           }
-          return {r:r,c:_curveColor(r,i),eq:eq,li:li,wf:wf,wfo:(_rbWfCv?1:0),span:_wfoSpan,why:_wfoWhy};});
+          else if(eq&&li!=null){
+            // F15 fix: the saved curve is indexed by TRADE, not by day, so spreading its points
+            //   evenly across [date_from,date_to] (all cmpOvlMount/expandCompareEq had to go on
+            //   for a COMPARE-built series) routinely misplaced the lockbox door by months — a
+            //   run whose lockbox took a small share of its trades but a large share of its
+            //   calendar (or the reverse) drew the door at the wrong date. A piecewise date array
+            //   — date_from at index 0, the SAVED lockbox start at index li, date_to at the last
+            //   point, straight-line interpolated on either side — lands the door where it
+            //   actually falls. expandCompareEq's rebakeDomain already prefers an explicit ts[]
+            //   over the uniform spread (its v64.74 fix); it just never received one from a
+            //   COMPARE series before, and cmpOvlMount never read one at all until now.
+            const _pdRb=s=>{const m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(s||''));return m?+new Date(+m[1],+m[2]-1,+m[3]):Date.parse(s||'');};
+            const t0=_pdRb(r.date_from||''),t1=_pdRb(r.date_to||'');
+            const _winLB2=(V&&V.windows)||{};
+            const tLb=_pdRb((_winLB2.lockbox&&_winLB2.lockbox[0])||(V&&V.lockbox&&V.lockbox.from)||'');
+            const n=eq.length;
+            if(!isNaN(t0)&&!isNaN(t1)&&t1>t0&&!isNaN(tLb)&&tLb>t0&&tLb<t1&&li>0&&li<n-1){
+              const arr=new Array(n);
+              for(let k=0;k<=li;k++)arr[k]=t0+(k/li)*(tLb-t0);
+              for(let k=li+1;k<n;k++)arr[k]=tLb+((k-li)/(n-1-li))*(t1-tLb);
+              _tsArr=arr;
+            }
+          }
+          return {r:r,c:_curveColor(r,i),eq:eq,li:li,wf:wf,wfo:(_rbWfCv?1:0),span:_wfoSpan,why:_wfoWhy,keyEnd:_keyEnd,keyApx:_keyApx,ts:_tsArr};});
         // compact run header (v68.0, owner: condense the table) — swatch dot in the curve
         //   colour + #id + the famKey chip (e.g. "ORB-4"); the long strategy tag is dropped from
         //   the header itself (it was the widest thing in the table) and rides in title= instead.
@@ -26182,6 +26485,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         window._cmpEqxSeries=withEq.map(c=>{const _mc=c.r.multiplier||instMult(c.r.instrument)||20;
           return {id:c.r.id,label:(stratTag(c.r.strategy)||'').replace(/<[^>]*>/g,'').trim()||('#'+c.r.id),color:c.c,eq:c.eq,li:c.li,
             wfoCurve:(c.wfo?1:0),span:(c.span||null),
+            // F5: the table's own stage figure for a sliced (IS/LB) curve, so the key can show
+            //   the true number instead of the approximate slice's own last point — see keyApx.
+            keyEnd:(c.keyEnd!=null?c.keyEnd:null),keyApx:!!c.keyApx,
+            // F15: a piecewise date per point (date_from -> the lockbox door -> date_to), read
+            //   by cmpOvlMount/expandCompareEq instead of an even trade-count spread.
+            ts:(c.ts||null),
             wfi:(c.wf&&c.wf.length&&c.li!=null)?Math.max(0,Math.min(c.li,Math.round(c.wf[0][0]*c.li))):null,
             // the run's individual walk-forward folds — the funnel stripes one blue band per fold
             rank:(runs.indexOf(c.r)+1)||null,
@@ -26265,13 +26574,24 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         }else ovl='<div style="font-size:var(--fsxs);color:var(--text5);padding:10px 0">none of the selected runs saved an equity curve — re-run them to record one</div>';
         // net P&L — horizontal HTML bars (the old stretched SVG squished text on wide screens);
         //   colour keyed to the overlay legend, exact $ at the right.
-        const pnls=runs.map(r=>r.best_pnl_usd||0),amx=Math.max.apply(null,pnls.map(Math.abs))||1;
-        const pnlBars='<div style="display:flex;flex-direction:column;gap:5px">'+runs.map((r,i)=>{const p=pnls[i],w=Math.max(1,Math.abs(p)/amx*100);
+        // F9 fix: this tile used to always read best_pnl_usd (the in-sample tuning score) and
+        //   label it whole-run even on FULL/LB/WF, understating a picked run by roughly half
+        //   (#335 $281k vs its real $541k whole run). It now reads the same stage reader the
+        //   table above already uses, a missing figure dashes instead of printing $0, and the
+        //   label names the stage actually shown.
+        const _pnlOf=r=>{
+          if(_cSc==='wf'){const a=_wfA(r);return a?a.net:null;}
+          if(_cSc==='lb'){if(_lbZeroTr(r))return null;const a=_lbA(r);return a?a.net:null;}
+          if(_cSc==='tot'){const a=_totA(r);return a?a.net:null;}
+          return (r.best_pnl_usd!=null)?+r.best_pnl_usd:null;};
+        const _pnlLbl={wf:'walk-forward $',lb:'lockbox $',tot:'whole-run $'}[_cSc]||'in-sample (tuning-score) $';
+        const pnls=runs.map(_pnlOf),amx=Math.max.apply(null,pnls.filter(v=>v!=null).map(Math.abs))||1;
+        const pnlBars='<div style="display:flex;flex-direction:column;gap:5px">'+runs.map((r,i)=>{const p=pnls[i],w=(p==null)?0:Math.max(1,Math.abs(p)/amx*100);
           return '<div style="display:flex;align-items:center;gap:8px;font-size:var(--fsxs)">'
             +'<span style="flex:0 0 10px;height:10px;background:'+curves[i].c+';border-radius:3px"></span>'
             +'<span style="flex:0 0 36px;text-align:right;color:var(--text3)">#'+r.id+'</span>'
             +'<span style="flex:1;height:13px;background:color-mix(in srgb,var(--border) 16%,transparent);border-radius:3px;position:relative;overflow:hidden"><span style="position:absolute;left:0;top:0;height:100%;width:'+w.toFixed(1)+'%;background:'+curves[i].c+';opacity:0.8;border-radius:3px"></span></span>'
-            +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+(p>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(Math.round(p))+'</span>'
+            +'<span style="flex:0 0 78px;text-align:right;font-weight:700;color:'+((p==null)?'var(--text5)':(p>=0?'var(--green)':'var(--red)'))+'">'+((p==null)?'—':fmtUsd(Math.round(p)))+'</span>'
             +'</div>';}).join('')+'</div>';
         // scope toggle: OVERALL (whole-run best-config numbers) ⇄ WALK-FORWARD ⇄ LOCKBOX slices
         const _scBtn2=(k2,lab)=>'<button data-cmpscope="'+k2+'" style="height:20px;padding:0 8px;font-size:8px;letter-spacing:.5px;border-radius:6px;border:1px solid '+(_cSc===k2?'color-mix(in srgb,var(--text4) 55%,var(--border))':'var(--border)')+';background:'+(_cSc===k2?'var(--bg2)':'var(--bg1)')+';color:'+(_cSc===k2?'var(--text)':'var(--text4)')+';cursor:pointer">'+lab+'</button>';
@@ -26416,11 +26736,15 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   (This test reads the TICKED block, so a stretch override is only honest on a row that saves no
           //   stretch blocks - a write-up - which is the only kind item 12 recomputes with one.)
           if(rw&&rw._st&&_reBlkZero(rw))return null;
-          // A RUN whose in-sample cannot be separated (its folds overlap those years): with IN-SAMPLE
-          //   ticked, summing the other stretches would print their money as if it were the lot. All
-          //   three ticked is the whole run, which is known exactly; any other tick with IN-SAMPLE is a dash.
-          if(rw&&rw._isBad&&segs.indexOf('is')>=0)
-            return (segs.length===3&&rw.tot!=null&&isFinite(rw.tot))?+rw.tot:null;
+          // ALL THREE STAGES TICKED IS THE WHOLE RUN, known exactly off the saved curve (F2). Summing
+          //   three INDEPENDENTLY measured parts - the gate study's own in-sample slice, the pooled
+          //   walk-forward folds and the lockbox strip - need not land back on that same curve endpoint,
+          //   the same reason the run report's own EXACT path says its sections need not add up to
+          //   TOTAL either. The known total is always the better reading here.
+          if(rw&&rw._stRun&&segs.length===3&&rw.tot!=null&&isFinite(rw.tot))return +rw.tot;
+          // A RUN whose in-sample cannot be separated at all: with IN-SAMPLE ticked alongside any OTHER
+          //   stage, summing would print partial money as if it were the lot.
+          if(rw&&rw._isBad&&segs.indexOf('is')>=0)return null;
           let t=0,got=0;
           for(let i=0;i<segs.length;i++){const v=_reNum(rw,segs[i]);if(v!=null){t+=v;got++;}}
           return got?t:null;};
@@ -27305,7 +27629,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(!(rw&&rw._stRun&&b&&b._oos)||_reBlkZero(rw))return '';
           const d=_reRunDoc(rw);return d?(_wfOosWhy(d,'yrs')||''):'';};
         // SHARPE / SORTINO share the same missing-block test as the DRAWDOWN reason above.
+        // F13: A BOOK SAVES NO SHARPE OR SORTINO AT ALL - book.whole / book.lockbox carry neither,
+        //   and EXPLORE no longer estimates one off the thinned curve (see mk's noSh above) - so a
+        //   book row names that reason directly rather than the generic 'this row records no...'.
+        const _reBookShWhy=rw=>{if(!(rw&&rw._stRun))return '';
+          const d=_reRunDoc(rw);return (d&&_c2IsBook(d))
+            ?'This run is a book. A book pools every leg\u2019s trades into one line and never saves a Sharpe or a Sortino for it.':'';};
         const _reCfgDashWhy=(rw,generic,what)=>{if(rw&&rw._st&&_reBlkZero(rw))return _reZeroWhy(rw);
+          if((what==='sh'||what==='so')&&rw&&rw._stRun){const bw=_reBookShWhy(rw);if(bw)return bw;}
           if(rw&&rw._stRun){const w=_reRunCurveWhy(rw,what||'sh');if(w)return w;}
           return (rw&&rw._cfg&&!rw._stRun&&rw._st&&_reCfgBlk(rw)==null)?_reCfgCurveWhy(rw):generic;};
         const _reWrOf=(st,r)=>{
@@ -28098,7 +28429,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   says how many rows the chart would hold after the switch, never a tally of just the missing ones (which
           //   read 'IS 225' on a switch that left 225 points where 394 had been). _reFailPl holds the hidden failures
           //   that WOULD be drawn with PLOT FAILURES on.
-          const _reElig=[],_reFailPl=[];
+          const _reElig=[],_reFailPl=[],_reFailMinTrd=[];
           // CAN LOADING THE CITED RUN SUPPLY THIS MEASURE? A write-up citing a run outside the loaded slice used to go
           //   under LOAD ALL whatever it lacked, though a registry-only figure never comes off a run. On ALL + RUNS a
           //   write-up whose runs all load gives way to each run's own row, so the evidence is whether any run row on
@@ -28176,8 +28507,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               if(_reRel){const fb=_reBaseOf(_reFamOf(o.st,o.r));
                 if(!fb){_reCauseRows.push({o:o,rel:true,noChamp:true,fail:true});return;}
                 if(_reXv(fb.st,fb.r)==null||_reYv(fb.st,fb.r,com)==null){_reCauseRows.push({o:o,rel:true,noChamp:false,fail:true});return;}}
-              // a failure under the MIN TRADES floor would stay off after the switch as well
-              if(_reMinTrd>0){const _ft=_reTrd(o.r);if(_ft!=null&&_ft.v<_reMinTrd)return;}
+              // a failure under the MIN TRADES floor would stay off after the switch as well -
+              //   counted separately (F20 fix, repair round): it has BOTH figures, so lumping it
+              //   into "no figure on these axes" was false the moment MIN TRADES rose above 0.
+              if(_reMinTrd>0){const _ft=_reTrd(o.r);if(_ft!=null&&_ft.v<_reMinTrd){_reFailMinTrd.push(o);return;}}
               _reFailPl.push(o);return;}
             // too few trades to mean anything - see _reMinTrd. Reads the same figure the
             //   TRADES column prints, borrowed run counts included, so a row cannot show 25
@@ -28424,10 +28757,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   ?' Most of these record no figure for the STAGE now ticked rather than none at all, and the reasons above say which figure is missing. Widening the stage rail, or reading them on PF or EV R, puts them back.'
                   :' Most rows that record nothing here are older sweep rows, which were scored on money and profit factor - put RAW PROFIT or PF up the side and DRAWDOWN across and they come back.')
                 :'');}
-          if(failOut.length){const _fdd=failOut.map(o=>_reNum(o.r,'dd')).filter(v=>v!=null);
-            omit+=' '+failOut.length+' failed row'+(failOut.length>1?'s are':' is')+' left off the chart on purpose (control 5, PLOT FAILURES)'
-              +(_fdd.length?(', the worst of them drawing down '+_reExact(Math.max.apply(null,_fdd))):'')
-              +'. They are all still in the tables with every figure they hold - this only stops a handful of very deep drawdowns setting the width of the axis for everything else. Switch control 5 to ON to draw them.';}
+          // F20 fix: this used to name the FULL hidden-failure count (failOut, every failed row) and
+          //   the worst drawdown among ALL of them, then tell the reader "switch control 5 to ON to
+          //   draw them" - but the switch only ever draws the PLACEABLE subset (_reFailPl: has both
+          //   figures, clears MIN TRADES, has a champion baseline under COMPARE ON). On the real
+          //   board that was 21 rows switched on out of 610 named, and the "worst" drawdown quoted
+          //   came from a row the switch never draws at all. Both the count and the drawdown now
+          //   come from _reFailPl, and the rows that would never be drawn either way get their own
+          //   sentence instead of being folded into a promise the switch cannot keep.
+          if(failOut.length){const _flPlc=_reFailPl.length,_flMin=_reFailMinTrd.length,_flLack=failOut.length-_flPlc-_flMin;
+            if(_flPlc>0){const _fdd=_reFailPl.map(o=>_reNum(o.r,'dd')).filter(v=>v!=null);
+              omit+=' '+_flPlc+' failed row'+(_flPlc===1?' is':'s are')+' left off the chart on purpose (control 5, PLOT FAILURES)'
+                +(_fdd.length?(', the worst of them drawing down '+_reExact(Math.max.apply(null,_fdd))):'')
+                +'. They are all still in the tables with every figure they hold - this only stops a handful of very deep drawdowns setting the width of the axis for everything else. Switch control 5 to ON to draw them.';
+            }
+            // F20 fix (repair round): a failed row held under MIN TRADES has BOTH figures - it is
+            //   not missing anything, so it gets its own sentence naming the real reason instead
+            //   of being folded into "no figure on these axes", which PLOT FAILURES would not
+            //   fix either way and which used to be the ONLY sentence shown when every placeable
+            //   failure happened to also be under the MIN TRADES floor (_flPlc===0).
+            if(_flMin>0)omit+=' '+_flMin+' failed row'+(_flMin===1?' is':'s are')+' held under the MIN TRADES floor (control 4), the same as any other row - PLOT FAILURES would not draw '+(_flMin===1?'it':'them')+' either.';
+            if(_flLack>0)omit+=(_flPlc>0||_flMin>0)
+                ?(' The other '+_flLack+' failed row'+(_flLack===1?' has':' have')+' no figure on these axes and would not be drawn either way.')
+                :(' '+_flLack+' failed row'+(_flLack===1?' has':' have')+' no figure on these axes, so PLOT FAILURES would not draw '+(_flLack===1?'it':'any of them')+' either.');
+          }
           if(thinOut.length||thinNoCt.length){
             const _mx=thinOut.length?Math.max.apply(null,thinOut.map(t=>t.n)):null;
             const _wh=thinOut.filter(t=>t.whole).length;
@@ -28639,17 +28992,39 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const RR=[];
           // ONE BLOCK PER STRETCH for a run row, from what the run saved (see the v73.764 note).
           const _reRunStages=function(x){
-            const V=x.validate||null;if(!V)return null;
-            const mc=_mcOf(x),num=v=>(v!=null&&isFinite(+v))?+v:null,Lk=V.lockbox||null,W=V.windows||{};
+            // A GATE-VALIDATE JOB TYPE RUN SAVES NO validate BLOCK AT ALL (repair round). It
+            //   still measures its own in-sample and whole-run slices - gate_validate.ungated_is
+            //   / ungated_full - so this reader continues below for one instead of dashing every
+            //   figure the row is capable of showing; V stays null throughout and every V-only
+            //   read (fold pooling, the saved lockbox, the champion's whole-run averages) is
+            //   guarded off rather than assumed. Fixes MAR / R per YR / ROC % / YR on EXPLORE's
+            //   IN-SAMPLE tick and the default all-three tick (reproduced MAR 0.03: the all-
+            //   three tick silently summed the in-sample money alone over the whole-run span).
+            const V=x.validate||null;if(!V&&!_isGvJob(x))return null;
+            const mc=_mcOf(x),num=v=>(v!=null&&isFinite(+v))?+v:null,Lk=(V&&V.lockbox)||null,W=(V&&V.windows)||{};
             const isBk=!!(x.book&&Array.isArray(x.book.legs));
-            const eq=(Array.isArray(V.equity)&&V.equity.length>2)?V.equity:null,n=eq?eq.length:0;
+            const eq=(V&&Array.isArray(V.equity)&&V.equity.length>2)?V.equity:null,n=eq?eq.length:0;
             const li=(eq&&V.lb_idx!=null&&isFinite(+V.lb_idx))?Math.max(0,Math.min(+V.lb_idx,n-1)):null;
             const cut=(a,b)=>(eq&&a!=null&&b!=null&&(b-a)>=2)?eq.slice(a,b+1).map(v=>+v*mc):null;
             const ddOf=c=>{if(!c)return null;let pk=-Infinity,dd=0;c.forEach(v=>{if(!isFinite(v))return;if(v>pk)pk=v;if(pk-v>dd)dd=pk-v;});return (pk===-Infinity)?null:dd;};
             const d10=v=>v?String(v).slice(0,10):null;
-            const sp={a:d10((W.optimize&&W.optimize[0])||x.date_from),l:d10((W.lockbox&&W.lockbox[0])||(Lk&&Lk.from)||(x.book&&x.book.lockbox_from)),
-                      b:d10((W.lockbox&&W.lockbox[1])||(Lk&&Lk.to)||x.date_to)};
-            sp.w=isBk?sp.l:d10(W.wf_split);
+            // sp.a / sp.l / sp.b ALL FALL BACK TO gate_validate (span[0], lockbox_from,
+            //   span[1]) FOR A GATE-VALIDATE JOB, the same way sp.w already falls back to
+            //   wf_range[0] above - without sp.l, the all-three-stretches tick could place
+            //   'is' alone (sp.a -> sp.w) but never 'wf' or 'lb' (both need sp.l), so it
+            //   honestly dashed MAR / R per YR / ROC % / YR rather than divide by a window it
+            //   could not confirm - correct, but this run's own gate_validate block states
+            //   that window exactly, so use it instead of leaving a real reading dashed.
+            const sp={a:d10((W.optimize&&W.optimize[0])||(x.gate_validate&&Array.isArray(x.gate_validate.span)&&x.gate_validate.span[0])||x.date_from),
+                      l:d10((W.lockbox&&W.lockbox[0])||(Lk&&Lk.from)||(x.book&&x.book.lockbox_from)||(x.gate_validate&&x.gate_validate.lockbox_from)),
+                      b:d10((W.lockbox&&W.lockbox[1])||(Lk&&Lk.to)||(x.gate_validate&&Array.isArray(x.gate_validate.span)&&x.gate_validate.span[1])||x.date_to)};
+            // repair round (item 7): a run validated through the ML-gate bake-off (the crowns
+            //   #243/#257 evidence) saves no validate.windows.wf_split, but carries
+            //   gate_validate.wf_range[0] - the same fold-1 boundary under a different name.
+            //   Without either, sp.w stayed null, so IN-SAMPLE and the default all-three stage
+            //   could never place BOTH ends of the in-sample span and dashed MAR / R per YR
+            //   even though DATA WINDOW (date_from -> date_to) was right there on the row.
+            sp.w=isBk?sp.l:d10(W.wf_split||(x.gate_validate&&Array.isArray(x.gate_validate.wf_range)&&x.gate_validate.wf_range[0]));
             const yb=(p,q)=>{const g=(p&&q)?_reDayGap(p,q):null;return (g&&g>0)?g/365.25:null;};
             const S={is:null,wf:null,lb:null};let isBad=false;
             // WHY A STRETCH'S WINNING AND LOSING MONEY ARE NOT KNOWN, when they are not - so its PF and EV R dash
@@ -28694,27 +29069,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 if((GW==null||GL==null)&&num(Lk.pf)>0&&Math.abs(+Lk.pf-1)>1e-6&&num(Lk.pnl)!=null){GL=Math.abs(+Lk.pnl/(+Lk.pf-1));GW=(+Lk.pf)*GL;}
                 if(GW==null||GL==null)gWhy.lb='The lockbox saved neither an average win and loss nor a profit factor that splits its money into winning and losing trades';
                 S.lb={N:(num(Lk.pnl)!=null?(+Lk.pnl)*mc:null),T:T,W:Wn,GW:(GW!=null?GW*mc:null),GL:(GL!=null?GL*mc:null),dd:(Lk.dd!=null&&isFinite(+Lk.dd)?Math.abs(+Lk.dd)*mc:null)};}
-              // IN-SAMPLE = the whole run minus walk-forward minus lockbox. Trades, wins and the two
-              //   grosses all add, so the remainder is exact - when the folds sit after the split.
-              const T=num(V.total_trades),wr=num(V.total_win_rate),Wt=(T!=null&&wr!=null)?T*wr/100:null;
-              const aw=num(V.total_avg_win),al=(V.total_avg_loss!=null&&isFinite(+V.total_avg_loss))?Math.abs(+V.total_avg_loss):null;
-              const tot={T:T,W:Wt,GW:(aw!=null&&Wt!=null)?aw*Wt*mc:null,GL:(al!=null&&Wt!=null&&T!=null)?al*(T-Wt)*mc:null};
-              if(T>0&&Wt===0)tot.GW=0;
-              if(T>0&&Wt!=null&&Math.abs(T-Wt)<1e-6)tot.GL=0;
-              const sub=k=>{const a=tot[k],b=S.wf?S.wf[k]:0,c=S.lb?S.lb[k]:0;return (a==null||b==null||c==null)?null:(a-b-c);};
-              const iT=sub('T'),iW=sub('W'),iGW=sub('GW'),iGL=sub('GL'),gK=(iGW!=null&&iGL!=null);
-              // TRADES AND WINS ARE TESTED APART FROM THE GROSSES. The overlap test is the counts (and the grosses
-              //   when they are known). Grosses that cannot be split - a fold that broke exactly even - used to fail
-              //   the whole test, which dashed IN-SAMPLE, TRADES and WIN % under the false 'folds overlap' reason.
-              //   Now only the profit factor and EV R dash, and they name the stretch that could not be split.
-              if(iT!=null&&iT>=1&&(iW==null||(iW>=-0.5&&iW<=iT+0.5))&&(!gK||(iGW>=-0.5&&iGL>=-0.5))){
-                S.is={N:gK?(Math.max(0,iGW)-Math.max(0,iGL)):null,T:Math.round(iT),W:(iW!=null?Math.max(0,Math.min(iT,iW)):null),
-                      GW:gK?Math.max(0,iGW):null,GL:gK?Math.max(0,iGL):null,dd:null};
-                if(!gK){const src=[(S.wf&&(S.wf.GW==null||S.wf.GL==null))?gWhy.wf:null,(S.lb&&(S.lb.GW==null||S.lb.GL==null))?gWhy.lb:null,
-                    (tot.GW==null||tot.GL==null)?'The run saved no whole-run average win or loss':null].filter(Boolean);
-                  gWhy.is=(src.length?src.join('. '):'The winning and losing money of the other stretches are not known')
-                    +'. In-sample is the whole run minus walk-forward and lockbox, so its profit factor and EV in R cannot be built. Its trades, win rate and money still add, so those are shown.';}}
-              else if(iT!=null)isBad=true;
+              // IN-SAMPLE reads the MEASURED gate-study slice (gate_validate.ungated_is - the champion's
+              //   own trades before the first walk-forward fold), never the whole run minus walk-forward
+              //   minus lockbox - a remainder that mixed the FIXED champion with the RE-FITTED folds and
+              //   read up to 100x off on real runs. Missing the measured slice dashes with the true
+              //   reason, never a computed leftover.
+              const _gvIsB=_gvB(x,'ungated_is');
+              if(_gvIsB){
+                const T=num(_gvIsB.num_trades),wr=num(_gvIsB.win_rate),
+                  Wn=(_gvIsB.wins!=null)?num(_gvIsB.wins):((T!=null&&wr!=null)?T*wr/100:null);
+                const N=(num(_gvIsB.total_pnl)!=null)?num(_gvIsB.total_pnl)*mc:null;
+                const pf0=num(_gvIsB.profit_factor);
+                // gross win / loss are rebuilt from the block's own net and profit factor - the same
+                //   closed form the walk-forward and lockbox slices above use - not trusted off a
+                //   stored average win/loss, which this slice does not reliably carry.
+                let GW=null,GL=null;
+                if(pf0!=null&&pf0>0&&Math.abs(pf0-1)>1e-6&&N!=null){GL=Math.abs(N/(pf0-1));GW=pf0*GL;}
+                S.is={N:N,T:T,W:Wn,GW:GW,GL:GL,dd:(_gvIsB.max_drawdown!=null?Math.abs(+_gvIsB.max_drawdown)*mc:null)};
+                if(GW==null||GL==null)gWhy.is='This run\u2019s in-sample slice saved no profit factor that splits its money into winning and losing trades, so no profit factor or EV in R can be built for it here. Its trades, win rate and money still add, so those are shown.';
+              }else{
+                isBad=true;
+                gWhy.is='This run saved no measured in-sample slice - only its walk-forward and lockbox stretches, and the whole run.';
+              }
               if(gWhy.wf)gWhy.wf+=', so no profit factor or EV in R can be pooled over walk-forward. Its trades, win rate and money still add, so those are shown.';
               if(gWhy.lb)gWhy.lb+=', so its profit factor cannot be stated.';}
             // WHERE WALK-FORWARD STARTS ON THE CURVE IS NOT KNOWN. The curve is the champion held
@@ -28722,19 +29098,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   the boundary by their trade count measured the wrong stretch (v73.770). Only the
             //   LOCKBOX boundary is saved. A book has no walk-forward, so its split is that boundary.
             const iw=isBk?li:null;
-            const mk=(parts,a,b,yrs)=>{if(!parts.length||parts.some(p=>!p))return null;
+            const mk=(parts,a,b,yrs,noSh)=>{if(!parts.length||parts.some(p=>!p))return null;
               const sum=k=>{let t=0;for(let q=0;q<parts.length;q++){const v=parts[q][k];if(v==null||!isFinite(v))return null;t+=v;}return t;};
               const N=sum('N'),T=sum('T'),Wn=sum('W'),GW=sum('GW'),GL=sum('GL'),c=cut(a,b);
               const blk={total_pnl:N,num_trades:T,win_rate:(Wn!=null&&T>0)?100*Wn/T:null,
                 profit_factor:(GW!=null&&GL>0)?GW/GL:null,avg_loss:(GL!=null&&Wn!=null&&T!=null&&(T-Wn)>0.5)?GL/(T-Wn):null,
-                max_drawdown:null,_ddApx:false,sharpe:(c?_reShCum(c,yrs):null),sortino:(c?_reSoCum(c,yrs):null)};
+                // F13: noSh (set for a book) skips the curve estimate rather than standing in for a
+                //   figure the engine never measures - see the note above mk's declaration.
+                max_drawdown:null,_ddApx:false,sharpe:(c&&!noSh?_reShCum(c,yrs):null),sortino:(c&&!noSh?_reSoCum(c,yrs):null)};
               if(parts.length===1&&parts[0].dd!=null)blk.max_drawdown=parts[0].dd;
               else{const d=ddOf(c);if(d!=null){blk.max_drawdown=d;blk._ddApx=true;}}
               return blk;};
             const B={};
-            B.is=mk([S.is],0,iw,yb(sp.a,sp.w));
+            B.is=mk([S.is],0,iw,yb(sp.a,sp.w),isBk);
             B.wf=isBk?null:mk([S.wf],iw,li,yb(sp.w,sp.l));
-            B.lb=mk([S.lb],li,n-1,yb(sp.l,sp.b));
+            B.lb=mk([S.lb],li,n-1,yb(sp.l,sp.b),isBk);
             if(B.lb&&!isBk&&Lk){if(num(Lk.sharpe)!=null)B.lb.sharpe=+Lk.sharpe;if(num(Lk.sortino)!=null)B.lb.sortino=+Lk.sortino;
               if(B.lb.avg_loss==null&&Lk.avg_loss!=null&&isFinite(+Lk.avg_loss))B.lb.avg_loss=Math.abs(+Lk.avg_loss)*mc;}
             B.pre=isBk?B.is:mk([S.is,S.wf],0,li,yb(sp.a,sp.l));
@@ -28757,17 +29135,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 ?(_wfoO.grossLoss/(_wfoO.tr-_wfoO.wins)):null);
               B.wf._yrs=_wfoO.yrs;B.wf._oos=1;}
             // ALL THREE: the run's own whole-run figures
-            if(isBk){const bw=x.book.whole;const c=cut(0,n-1),y=yb(sp.a,sp.b);
+            if(isBk){const bw=x.book.whole;
+              // F13: a book's whole-run Sharpe/Sortino are never rebuilt off the curve either -
+              //   same reason as B.is / B.lb above.
               B.full=bw?{total_pnl:num(bw.total_pnl),num_trades:num(bw.num_trades),win_rate:num(bw.win_rate),profit_factor:num(bw.profit_factor),
                 avg_loss:(bw.gross_loss!=null&&num(bw.losses)>0)?Math.abs(+bw.gross_loss)/(+bw.losses):null,
                 max_drawdown:(bw.max_drawdown!=null?Math.abs(+bw.max_drawdown):null),_ddApx:false,
-                sharpe:(c?_reShCum(c,y):null),sortino:(c?_reSoCum(c,y):null)}:null;}
-            else{const T=num(V.total_trades),wr=num(V.total_win_rate),Wt=(T!=null&&wr!=null)?T*wr/100:null;
+                sharpe:null,sortino:null}:null;}
+            else if(V){const T=num(V.total_trades),wr=num(V.total_win_rate),Wt=(T!=null&&wr!=null)?T*wr/100:null;
               const aw=num(V.total_avg_win),al=(V.total_avg_loss!=null&&isFinite(+V.total_avg_loss))?Math.abs(+V.total_avg_loss):null;
               const GW=(aw!=null&&Wt!=null)?aw*Wt:null,GL=(al!=null&&Wt!=null&&T!=null)?al*(T-Wt):null;
               B.full={total_pnl:null,num_trades:T,win_rate:wr,profit_factor:(GW!=null&&GL>0)?GW/GL:null,
                 avg_loss:(al!=null?al*mc:null),max_drawdown:(V.total_dd!=null&&isFinite(+V.total_dd))?Math.abs(+V.total_dd)*mc:null,_ddApx:false,
                 sharpe:num(V.total_sharpe),sortino:num(V.total_sortino)};}
+            else{
+              // A GATE-VALIDATE JOB TYPE RUN (no validate block): its whole-run reading is
+              //   gate_validate.ungated_full - the SAME ungated population this row's own
+              //   TOTAL / DRAWDOWN / PF / TRADES cells already read (_gvFull, in the forEach
+              //   below that calls this function) - so the all-three-stretches tick prices
+              //   the whole run off the identical figures instead of dashing a row that
+              //   plainly has a full-window reading.
+              const gf=_gvB(x,'ungated_full');
+              B.full=gf?{total_pnl:null,num_trades:num(gf.num_trades),win_rate:num(gf.win_rate),
+                profit_factor:(gf.profit_factor!=null&&isFinite(+gf.profit_factor)&&+gf.profit_factor>0)?+gf.profit_factor:null,
+                avg_loss:null,max_drawdown:(gf.max_drawdown!=null&&isFinite(+gf.max_drawdown))?Math.abs(+gf.max_drawdown)*mc:null,_ddApx:false,
+                sharpe:num(gf.sharpe),sortino:num(gf.sortino)}:null;}
             return {B:B,sp:sp,isBad:isBad,gWhy:gWhy,wfo:_wfoC.st};};
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
           //   gross loss from its net and its PF, sum the grosses. A true pooled figure,
@@ -28780,24 +29172,42 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const wf=_wfA(x),lb=_lbA(x),t=_totA(x),_rst=_reRunStages(x);
             const tot=t?t.net:(+x.best_pnl_usd||null);
             if(tot==null||!isFinite(tot))return;
-            const dd=(V&&V.total_dd!=null)?Math.abs(+V.total_dd)*mc:Math.abs(+x.best_dd_usd||0);
-            const pf=poolPF([{net:(t?t.is:(+x.best_pnl_usd||0)),pf:+x.best_pf||0},
+            // A GATE-VALIDATE JOB SAVES NO validate BLOCK (repair round): its DD/PF/trades must
+            //   come off gate_validate.ungated_full - the SAME ungated population t.net (above)
+            //   already reads off the curve for - never the GATED headline (best_dd_usd/best_pf/
+            //   best_trades), and never pooled with a walk-forward/lockbox split this job never
+            //   saved (_wfA/_lbA both read x.validate, so they are already null here).
+            const _gvFull=_isGvJob(x)?_gvB(x,'ungated_full'):null;
+            const dd=_gvFull?((_gvFull.max_drawdown!=null&&isFinite(+_gvFull.max_drawdown))?Math.abs(+_gvFull.max_drawdown)*mc:null)
+              :((V&&V.total_dd!=null)?Math.abs(+V.total_dd)*mc:Math.abs(+x.best_dd_usd||0));
+            const pf=_gvFull?((_gvFull.profit_factor!=null&&isFinite(+_gvFull.profit_factor)&&+_gvFull.profit_factor>0)?+_gvFull.profit_factor:null)
+              :poolPF([{net:(t?t.is:(+x.best_pnl_usd||0)),pf:+x.best_pf||0},
                              {net:(wf?wf.net:0),pf:(wf&&wf.pf!=null)?wf.pf:0},
                              {net:(lb?lb.net:0),pf:(lb?lb.pf:0)}]);
-            const trd=(V&&V.total_trades!=null)?+V.total_trades
-                     :((+x.best_trades||0)+((wf&&wf.tr)||0)+((lb&&lb.tr)||0))||null;
+            const trd=_gvFull?(_gvFull.num_trades!=null?+_gvFull.num_trades:null)
+              :((V&&V.total_trades!=null)?+V.total_trades
+                     :((+x.best_trades||0)+((wf&&wf.tr)||0)+((lb&&lb.tr)||0))||null);
             const vd=String((V&&V.verdict)||'').toUpperCase();
             const tone=x.starred?'champ':(/PASS/.test(vd)?'good':(/FAIL/.test(vd)?'fail':'ref'));
             // _labOf prefixes the family ORDINAL ('12 - NOISE'), which read as a second
             //   number beside the run number. The run number is the identity here, so drop it.
             const lbl=String(((typeof _labOf==='function')?_labOf(x):(x.strategy||''))||'')
               .replace(/^\s*\d+\s*·\s*/,'');
-            RR.push({n:+x.id,name:'#'+x.id+' \u00b7 '+String(lbl||x.strategy||'').replace(/\.py$/,''),
-              fam:(_canonFam(x.strategy)||'UNTAGGED'),tone:tone,
+            const _rrIsBk=(typeof _c2IsBook==='function')&&_c2IsBook(x);
+            const _rrName=_rrIsBk?String(x.strategy||'book').replace(/[<>&]/g,''):String(lbl||x.strategy||'').replace(/\.py$/,'');
+            const _rrMkt=(String(x.instrument||'')+' '+String(x.timeframe||'')).trim();
+            RR.push({n:+x.id,name:'#'+x.id+' · '+_rrName,
+              fam:((typeof _c2FamOf==='function')?_c2FamOf(x):(_canonFam(x.strategy)||'UNTAGGED')),tone:tone,
               read:(vd?vd.slice(0,22):'no verdict recorded'),
-              what:'Auto-Validate run #'+x.id+' on '+String(x.instrument||'')+' '+String(x.timeframe||'')+'.',
+              // repair round: a BOOK is a book run, not an Auto-Validate one (its own hovers say
+              //   it tunes nothing and runs no walk-forward) - and a GATE-VALIDATE JOB (F4) is
+              //   named for what it actually is too, since its money above is the ungated
+              //   backtest, not a gated Auto-Validate headline.
+              what:(_rrIsBk?('Book run #'+x.id+' - several strategies and markets pooled.')
+                :(_isGvJob(x)?('Gate-Validate job #'+x.id+(_rrMkt?(' on '+_rrMkt):'')+'.')
+                :('Auto-Validate run #'+x.id+(_rrMkt?(' on '+_rrMkt):'')+'.'))),
               runs:[+x.id],
-              is:((_rst&&_rst.isBad)?null:(t?t.is:(+x.best_pnl_usd||null))),wf:(wf?wf.net:null),lb:(lb?lb.net:null),tot:tot,
+              is:((_rst&&_rst.B&&_rst.B.is&&_rst.B.is.total_pnl!=null)?_rst.B.is.total_pnl:(t?t.is:null)),wf:(wf?wf.net:null),lb:(lb?lb.net:null),tot:tot,
               dd:(dd||null),pf:pf,trd:trd,
               // one block per stretch; a run row reads these or dashes, never its whole-run figures
               _st:(_rst?_rst.B:null),_stRun:(_rst?1:0),_isBad:((_rst&&_rst.isBad)?1:0),_gWhy:(_rst?_rst.gWhy:null),_wfoSt:(_rst?_rst.wfo:null),
@@ -28809,7 +29219,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               _so:((V&&V.total_sortino!=null)?+V.total_sortino:null),
               _avl:((V&&V.total_avg_loss!=null)?Math.abs(+V.total_avg_loss)*mc:null),
               win:((x.date_from&&x.date_to)?{from:String(x.date_from).slice(0,10),to:String(x.date_to).slice(0,10)}:null),
-              why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.',is:((_rst&&_rst.isBad)?'This run\u2019s walk-forward folds hold more trades than follow its in-sample split, so they overlap the in-sample years and in-sample cannot be separated from them. Nothing is shown rather than a figure that mixes the two.':'This run saved no in-sample figures.')}});});
+              why:{wf:'This run saved no walk-forward folds.',lb:'This run saved no lockbox slice.',is:((_rst&&_rst.isBad)?'This run saved no measured in-sample slice - only its walk-forward and lockbox stretches, and the whole run.':'This run saved no in-sample figures.')}});});
           // WHAT MAKES A RUN CROWNED is the owner's own mark, never a computed maximum.
           //   Two marks count: a STARRED run, and a run cited by a studies row tagged as the
           //   champion of its family. A family with neither is simply absent - naming the
@@ -28819,9 +29229,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const crowned={};
             RESEARCH_STUDIES.forEach(function(st){(st.rows||[]).forEach(function(r){
               if(String(r.tone)==='champ')(r.runs||[]).forEach(function(id){crowned[String(id)]=1;});});});
-            for(let i2=RR.length-1;i2>=0;i2--){const x=RR[i2];
-              const doc=_reRunDoc(x)||{};
-              if(!(doc.starred||crowned[String(x.n)]))RR.splice(i2,1);else x.tone='champ';}
+            // F7: "one row per family - its standing champion" was not enforced - every
+            //   starred-or-crowned run stood, so an old registry write-up and today's crown
+            //   could both show at once. A star always wins its family; with no star inside
+            //   a family, the highest-id registry champion stands in.
+            const _eligible=RR.filter(function(x){const doc=_reRunDoc(x)||{};x._starred=!!doc.starred;return x._starred||crowned[String(x.n)];});
+            const _byFam={};
+            _eligible.forEach(function(x){const cur=_byFam[x.fam];
+              if(!cur||(x._starred&&!cur._starred)||(x._starred===cur._starred&&x.n>cur.n))_byFam[x.fam]=x;});
+            RR.length=0;
+            Object.keys(_byFam).forEach(function(f){const x=_byFam[f];x.tone='champ';RR.push(x);});
           }
           // the STRATEGY rail and the filter chips narrow runs exactly as they narrow rows.
           //   NOT _rePass: that now asks the LEVEL gate first, and the level gate says no to
@@ -29570,7 +29987,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resaxis="ddp"','DD %',_reAxis==='ddp','plot the worst peak-to-trough loss as a percent of that same account. LOWER is better, so the good rows sit toward the LEFT on this axis.',_TONE.samp)
            +_reBtn('data-resaxis="dd"','DRAWDOWN',_reAxis==='dd','plot the worst peak-to-trough loss in DOLLARS. LOWER is better, so the good rows sit toward the BOTTOM and the ranking puts the shallowest first. Dollars scale with size and with how long the row ran, so use DD % or DD (R) to compare strategies traded at different sizes.',_TONE.samp)
            +_reBtn('data-resaxis="ratio"','MAR',_reAxis==='ratio','plot MAR - profit PER YEAR divided by the worst drawdown, the same annualised MAR the MAR column, the RUNBOARD and the 1E matrix print. The ticks read as plain numbers, not dollars. Be careful with it: a drawdown is one single worst event, and this project measured the confidence interval around a maximum drawdown to be WIDER than the drawdown itself, so this is the most fragile of the readings here',_TONE.rank)
-           +_reBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores PROFIT STAGE and COMPARE ON and says so on the axis, because a profit factor is recorded once per row',_TONE.rank)
+           // F21 fix: this claimed PF ignores PROFIT STAGE "and says so on the axis" - false on both
+           //   counts. A run or configuration row saves PF per stretch, so the plotted value (and
+           //   the table cell) DOES follow the stage - only a sweep/write-up row, which never split
+           //   its trades by stretch, records one PF for the whole row. The axis caption itself
+           //   never said otherwise; it just reads "Profit factor — HIGHER is better".
+           +_reBtn('data-resaxis="pf"','PF',_reAxis==='pf','plot profit factor - gross winnings over gross losses. With $/TRADE it is the most window-robust reading on this board, because it counts trades rather than calendar, so two rows covering different years can still be read against each other. It ignores COMPARE ON, which changes the tables only - but PF follows PROFIT STAGE on a run or a configuration row, each ticked stretch saving its own; a sweep or write-up row instead records one PF for the whole row, because it never split its trades by stretch',_TONE.rank)
            +_reBtn('data-resaxis="wr"','WIN %',_reAxis==='wr','plot the share of trades that won, for the ticked stretch. Read it beside PF: a system can win a minority of its trades and still be the better one when its winners are large - ENGU-Q wins about a quarter of the time by design.',_TONE.samp)
            +_reBtn('data-resaxis="evr"','EV R',_reAxis==='evr','plot expectancy in R - the average trade divided by the average LOSING trade. This is the leverage-blind one: a row trading one contract and a row trading ten land on the same number, which dollar expectancy cannot do.',_TONE.samp)
            +_reBtn('data-resaxis="ppt"','EV',_reAxis==='ppt','plot expectancy in DOLLARS - whole-run money per trade. With profit factor it is among the most window-robust readings here, because both are properties of the trade population rather than of the calendar.',_TONE.samp)
@@ -29811,7 +30233,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const plural=(n,one,many)=>(n===1)?one:many;
           const stretchNm=(_reSegsEff.map(sg=>_reSegLong[sg]).join(' + ')||'ticked stretches');
           // PLOT FAILURES ON carries the number it would actually draw, and is never offered for none
-          const failBtn=()=>btn('data-resfail="1"','PLOT FAILURES ON · '+C.fail,'draw every row, failures included - the same switch as control 5 above. '+C.fail+' failed row'+plural(C.fail,' is',' are')+' ready to place; a failed row missing a figure is counted by what it lacks instead.');
+          // F20 grammar fix: plural() only swapped is/are, so a count above 1 read "21 failed row are" - "row" itself never pluralised.
+          const failBtn=()=>btn('data-resfail="1"','PLOT FAILURES ON · '+C.fail,'draw every row, failures included - the same switch as control 5 above. '+C.fail+' failed row'+plural(C.fail,' is','s are')+' ready to place; a failed row missing a figure is counted by what it lacks instead.');
           // LOAD ALL says what loading does ON THIS LEVEL: on ALL + RUNS a write-up whose runs all load is replaced by
           //   the runs' own rows; on 1E CONFIGS it stays and reads what its run saved.
           const loadBtn=()=>btn('data-resloadall="1"','LOAD ALL',(_reLvl==='all'&&!_reShowCfg)
@@ -30155,7 +30578,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   drills the whole board (funnel, matrix, list) into that family's own top runs.
         const _rbFams=[...new Set(rs.filter(r=>r&&!r.archived).map(r=>_canonFam(r.strategy)).filter(Boolean))]
           .sort((x,y)=>((typeof famNum==='function'?famNum(x):99)||99)-((typeof famNum==='function'?famNum(y):99)||99));
-        const _rbFamBar=_rbFams.length>1?('<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:7px">'
+        const _rbFamBar=(_rbFams.length>1||_rbFam)?('<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:7px">'
           +'<span title="click a strategy to load ITS top runs instead of one champion per strategy" style="font-size:7.5px;font-weight:700;letter-spacing:.6px;color:var(--text5);cursor:help">FAMILY</span>'
           +_rbFams.map(f=>{const on=(_rbFam===f),col=((typeof stratColor==='function')&&stratColor(f))||'var(--text4)';
             return '<span data-rbfam="'+String(f).replace(/"/g,'')+'" title="'+(on?'click to go back to one run per strategy':'show the top runs of '+f)+'" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(on?col:'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+col+' 20%,transparent)':'var(--bg1)')+'">'+f+'</span>';}).join('')
@@ -30292,7 +30715,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   when it genuinely measures a different one (FOLDS HELD is always walk-forward,
           //   ROBUSTNESS is always whole-run) — otherwise it inherits the band's.
           {name:_rbBand('return'),rows:((_rbS==='full')?[
-            _mk('<span title="the whole run minus the walk-forward and lockbox stretches - the remainder, not the tuning-score figure the IS tab shows, which is scored on a different, overlapping window" style="border-bottom:1px dotted var(--text5);cursor:help">IS $ · REST</span>',r=>{const b=_bw(r);return b?null:_totA(r).is;},_mSub,'max'),
+            // repair round: a BOOK used to dash here unconditionally - _totA now reads its
+            //   pre_lockbox pool for a book (and a Gate-Validate job's ungated_is), so both read
+            //   the same figure every other screen prints instead of a blanket "no reason" dash.
+            _mk('<span title="the champion\u2019s own trades before the first walk-forward fold - the same measured slice the run report reads" style="border-bottom:1px dotted var(--text5);cursor:help">IS $</span>',r=>_totA(r).is,_mSub,'max',{_why:r=>_totA(r).isWhy}),
             _mk('WF $',r=>{const a=_wfA(r);return a?a.net:null;},_mSub,'max'),
             _mk('LB $',r=>{const a=_lbA(r);return a?a.net:null;},_mSub,'max',{_noRank:_lbZeroTr,_noRankWhy:_rbZeroWhy+' Its $0 still adds to the whole run, but it is not a lockbox result, so it takes no best mark and no heat shade here - the LB sample dashes it.'})
           ]:[]).concat([
@@ -30393,7 +30819,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<b style="color:var(--text4)">The plain rows below them</b> — the older offline figures, computed by a script and pasted in. They stay until a real book run replaces each one. Same SAMPLE and RANK BY picks apply to both.<br>'
           +'<b style="color:var(--text4)">STRATEGY</b> — BLEND means two strategies traded side by side in one account, 1 contract each; the VERSION column says what is different about that book. ENGU-Q ETH is a single strategy on its own.<br>'
           +'<b style="color:var(--text4)">NET ÷ DD</b> = net divided by the worst drawdown of that sample. <b style="color:var(--text4)">SLICES</b> = the history cut into 8 equal stretches, how many were profitable - not walk-forward, which a book never runs. MAX DD is shown positive.<br>'
-          +'<b style="color:var(--yellow)">⚠ ORB leg</b> — this book includes the ORB strategy, which has a documented look-ahead bug in its volume filter (see PAPER_TRADING.md). Its backtest numbers are not something a live account could have achieved, so any net dollar figure on that row is inflated versus real trading, CHAMPION included.<br>'
           +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
         // ── v71.35 (owner: "yes do the book job type"): REAL book runs. A book is now an ordinary
         //    job the PC runner can execute — every leg replayed over one window with its frozen
@@ -30459,7 +30884,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // v73.14: a LIVE book run gets the same look-ahead badge as the hard-coded rows
           // above whenever any of its legs is a touch-entry ORB file. Without this the top
           // row of the table could show an ORB book at full net with no warning at all.
-          const _lrLa=/(^|[^A-Z])ORB/i.test(legs)&&!/ORB_FADE|ORB_1_0|_125C/i.test(legs);
+          const _lrLa=_orbLegLookahead(legs);
           const _lrB=_lrLa?'<span title="'+RB_ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">⚠ ORB leg</span>':'';
           return '<tr data-rank-run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
             +td('<span style="color:var(--green)">▸</span>','left')
@@ -30764,7 +31189,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   host div so a re-mount never clobbers its click handler.
             +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">EQUITY OVERLAY<button data-cmpexpand title="open the fullscreen multi-curve explorer" style="margin-left:auto;flex:0 0 auto;background:none;border:1px solid var(--border);color:var(--text3);padding:2px 8px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:6px">⛶</button></div><div id="cmp-ovl-host" style="position:relative;min-height:300px">'+ovl+'</div>')
             +tile('<div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:8px">COMPARE · '+runs.length+' run'+(runs.length===1?'':'s')+' <span style="font-weight:400;color:var(--text5);font-size:8px">· green = best in row'+(_cmpMode==='fam'?'':' · ✕ removes a run')+'</span>'+scopeSeg+orientSeg+'</div><div style="overflow-x:auto"><table class="table"><thead>'+hdr+'</thead><tbody>'+mrows+'</tbody></table></div>'+_scNote)
-            +tile('<div class="lbl" style="margin-bottom:6px">NET P&L <span style="font-weight:400;color:var(--text5);font-size:8px">· whole-run best-config $ (see the scope note above)</span></div>'+pnlBars)
+            +tile('<div class="lbl" style="margin-bottom:6px">NET P&L <span style="font-weight:400;color:var(--text5);font-size:8px">· '+_pnlLbl+'</span></div>'+pnlBars)
           +'</div>'))+'</div>';
       }
     }else if(augurSub==='cmp2'){
@@ -30794,6 +31219,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const a=AV.auc,c=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)',
           lbl=a<0.55?'clean':a<0.70?'mild':a<0.85?'moderate':'severe';
         return '<span class="c2-pill" style="color:'+c+';border-color:color-mix(in srgb,'+c+' 45%,transparent)" title="regime drift vs training (adversarial-validation AUC) — is the lockbox a different market regime than what this was trained on">drift '+lbl+'</span>';};
+      // F18: the same short-window mark the LEADERBOARD sink above needs a badge for -
+      //   shown wherever a run this short is displayed, so nobody mistakes it for the real best.
+      const _c2ShortPill=r=>_c2ShortWin(r)?('<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)" title="'+_reEscC2(_c2ShortWinWhy(r))+'">short window</span>'):'';
       // ── the same three stage reads the old COMPARE uses, mirrored here so this branch
       //    never reaches into that one. Kept tiny on purpose.
       // _c2IsBook moved to renderApp scope, right before _C2VIEWS (owner-approved
@@ -30907,6 +31335,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   run saved no curve. Profit factor is POOLED from the stages rather than averaged,
       //   the same reconstruction the report and the walk-forward read use.
       const _c2full=x=>{const V=x.validate||{},mc=_c2mc(x);
+        // A GATE-VALIDATE JOB SAVES NO validate BLOCK AT ALL (F10). Its curve (below) is the
+        //   UNGATED whole-run backtest, but best_pf / best_trades / best_dd_usd are the GATED
+        //   headline pick - sometimes the LOCKBOX itself - a different population from that
+        //   curve. gate_validate.ungated_full is measured on the SAME population as the curve,
+        //   so PF / trades / drawdown read it, or dash, rather than pairing the gated headline
+        //   beside the ungated net.
+        if(_isGvJob(x)){
+          const gf=_gvB(x,'ungated_full');
+          const eq0=(x.equity&&Array.isArray(x.equity.cum)&&x.equity.cum.length>2)?x.equity.cum:null;
+          const net0=eq0?((+eq0[eq0.length-1]||0)*mc):null;
+          if(net0!=null)return {net:net0,
+            pf:(gf&&gf.profit_factor!=null&&isFinite(+gf.profit_factor)&&+gf.profit_factor>0)?+gf.profit_factor:null,pfApx:false,
+            tr:(gf?+gf.num_trades:null),
+            wr:(gf&&gf.win_rate!=null?+gf.win_rate:null),
+            dd:(gf&&gf.max_drawdown!=null?Math.abs(+gf.max_drawdown)*mc:null),ddApx:false,
+            yrs:_runYrs(x),sh:null};
+        }
         // A BOOK ALREADY HAS A WHOLE-RUN BLOCK. Falling through to best_pnl_usd gave its
         //   PRE-LOCKBOX net under a column labelled end to end - the sealed year silently
         //   missing. This is the same block the RUNBOARD reads for the same book.
@@ -30956,11 +31401,26 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(_c2Stage==='lb')return (V.lockbox&&V.lockbox.sharpe!=null)?+V.lockbox.sharpe:null;
         if(_c2Stage==='full')return (V.total_sharpe!=null)?+V.total_sharpe:null;
         return null;};
-      const _c2is=x=>({net:((x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd))?+x.best_pnl_usd:null),
+      const _c2is=x=>{
+        // A GATE-VALIDATE JOB SAVES NO validate BLOCK (F10): best_* is the GATED headline pick,
+        //   sometimes the LOCKBOX trades themselves - printing that as "in-sample" mislabels a
+        //   sealed test. gate_validate.ungated_is is the true pre-walk-forward slice when this
+        //   job saved one; a plain Gate-Validate job never splits a walk-forward window, so this
+        //   stage honestly dashes for it rather than annualising the headline over the whole run.
+        if(_isGvJob(x)){
+          const gi=_gvB(x,'ungated_is');if(!gi)return {net:null,pf:null,tr:null,wr:null,dd:null,yrs:null};
+          const mc=_c2mc(x),d=_gvYrs(x);
+          return {net:(+gi.total_pnl||0)*mc,
+            pf:(gi.profit_factor!=null&&isFinite(+gi.profit_factor)&&+gi.profit_factor>0)?+gi.profit_factor:null,
+            tr:(gi.num_trades!=null?+gi.num_trades:0),wr:(gi.win_rate!=null?+gi.win_rate:null),
+            dd:(gi.max_drawdown!=null?Math.abs(+gi.max_drawdown)*mc:null),
+            yrs:(d&&d.a&&d.w)?_yrsBetween(d.a,d.w):null};
+        }
+        return {net:((x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd))?+x.best_pnl_usd:null),
         pf:(x.best_pf!=null?+x.best_pf:null),tr:(+x.best_trades||0),
         wr:(x.best_win_rate!=null?+x.best_win_rate:null),
         dd:((x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null),
-        yrs:_isYrs(x)});
+        yrs:_isYrs(x)};};
       // ── state (namespaced c2*, so the two tabs never fight over a pref) ─────────────
       const _c2Screen=(['lead','cmp','explore'].indexOf(APREF.c2Screen)>=0)?APREF.c2Screen:'lead';
       const _c2Stage=(['is','wf','lb','full'].indexOf(APREF.c2Stage)>=0)?APREF.c2Stage:'lb';
@@ -30979,10 +31439,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   and R per year are all built on money and a drawdown this stretch never had a
         //   chance to make, not a genuine $0.
         //   A WALK-FORWARD that took no trades is the one exception, and only on NET: its pooled $0 is
-        //   the reading every screen prints for it. Every other rank still dashes with the reason, and
+        //   the reading every screen prints for it, so it is not dashed here - but (g5-sink, owner
+        //   2026-09-16) that $0 still never outranks a run that traded, so every sort below checks
+        //   the zeroWf flag set on the net branch. Every other rank still dashes with the reason, and
         //   the lockbox rule is untouched.
         if(S.zeroTr&&!(_c2Stage==='wf'&&_c2Rank==='net'))return {v:null,why:'This run took no trades in '+((_c2Stage==='wf')?'the walk-forward folds.':'the lockbox.')};
-        if(_c2Rank==='net')return {v:S.net,why:(S.net==null?('No '+_c2StageNm+' net is saved on this run.'):'')};
+        // g5-sink (owner 2026-09-16): a walk-forward test that took no trades still prints its
+        //   pooled $0 net - that $0 is a genuine reading, not a dash - but it is not a result to
+        //   RANK: it must sink below every run that actually traded the folds, on every walk-
+        //   forward screen and even on NET, the one rank that used to let it compete on its raw
+        //   (zero) value. zeroWf flags that case so every sort below can push it to the bottom
+        //   without changing what prints.
+        if(_c2Rank==='net')return {v:S.net,why:(S.net==null?('No '+_c2StageNm+' net is saved on this run.'):''),zeroWf:!!(S.zeroTr&&_c2Stage==='wf')};
         // PF 0.00 is a real reading (every trade in the stretch lost) - only a missing PF is a
         //   dash. Requiring >0 dashed a stretch that lost every trade right next to one that
         //   made money, which is not the same thing (item 11), and hid a run's own FULL PF
@@ -31069,7 +31537,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    tab writes, so a selection made there is already made here, and every figure
         //    follows the STAGE control - in-sample, walk-forward and lockbox are one click
         //    apart instead of three separate screens.
-        const rs2=(runHistory||[]).filter(r=>r&&r.id!=null).concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]);
+        const rs2=(runHistory||[]).filter(r=>r&&r.id!=null).concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).filter(r=>!r.archived||!!APREF.rfArch);   // F11: archived runs stay out of CHAMPIONS, matching Past Runs
         // PICKED or CHAMPIONS. The old BY STRATEGY view was the second of these and nothing
         //   else - one curve per family, its champion picked for you - so it lives here now
         //   rather than as a screen of its own. Ten is the cap the old board used.
@@ -31077,11 +31545,36 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _c2Pick=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String);
         const _c2FamAll=_c2FamsOf(rs2);
         const _c2Champs=_c2FamAll.map(f=>({f:f,v:_c2Val(f.ch)}))
-          .sort((a,b)=>{const av=a.v.v,bv=b.v.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return bv-av;})
+          .sort((a,b)=>{const av=a.v.v,bv=b.v.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;
+            // g5-sink: a walk-forward zero-trade $0 net never outranks a run that traded the folds.
+            const az=!!a.v.zeroWf,bz=!!b.v.zeroWf;if(az!==bz)return az?1:-1;
+            // F18: a short-window champion sinks below every full-length one, so it can no
+            //   longer take a TOP 10 slot on its inflated ratio alone.
+            const as=_c2ShortWin(a.f.ch),bs=_c2ShortWin(b.f.ch);if(as!==bs)return as?1:-1;
+            return bv-av;})
           .map(o=>o.f.ch).slice(0,10);
         const picked=(_c2Src==='champ')?_c2Champs
           :_c2Pick.map(id=>rs2.filter(r=>String(r.id)===id)[0]).filter(Boolean);
         const gone=(_c2Src==='champ')?0:(_c2Pick.length-picked.length);
+        // repair round (item 13): tell apart WHY a picked id is missing from rs2 - archived
+        //   (filtered out on purpose, but still on the account - LOAD ALL can never bring it
+        //   back), older than the currently loaded window (LOAD ALL, in the bar above this
+        //   card, actually would), or genuinely gone from the account. The old note assumed
+        //   only the middle case for all three.
+        const _ovlAllPool=(_c2Src==='champ')?[]:((typeof runHistory!=='undefined'&&Array.isArray(runHistory))
+          ?runHistory.concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]):[]);
+        const _ovlLoadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:(typeof runsLimit!=='undefined'?runsLimit:null);
+        const _ovlFetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
+        const _ovlCapped=(_ovlLoadedLim!=null&&_ovlAllPool.length>=_ovlLoadedLim)||_ovlFetching;
+        const _goneIds=(_c2Src==='champ')?[]:_c2Pick.filter(id2=>!rs2.some(r2=>String(r2.id)===id2));
+        const _goneArch=_goneIds.filter(id2=>_ovlAllPool.some(r2=>String(r2.id)===id2));
+        const _goneOlder=_goneIds.filter(id2=>!_ovlAllPool.some(r2=>String(r2.id)===id2)&&_ovlCapped);
+        const _goneReal=_goneIds.filter(id2=>!_ovlAllPool.some(r2=>String(r2.id)===id2)&&!_ovlCapped);
+        const _goneNote=grp2=>{if(!grp2.length)return '';
+          const n2=grp2.length,pl2=n2===1?' run is':' runs are',verb2=n2===1?'it was':'they were',it2=n2===1?'it':'them';
+          if(grp2===_goneArch)return ' '+n2+' picked'+pl2+' archived, so '+verb2+' skipped - switch on archived runs in Past Runs to include '+it2+'.';
+          if(grp2===_goneOlder)return ' '+n2+' picked'+pl2+' older than the loaded runs, so '+verb2+' skipped - LOAD ALL (in the bar above) to include '+it2+'.';
+          return ' '+n2+' picked'+pl2+' no longer in your history, so '+verb2+' skipped.';};
         // ── TABS + SAVED SETS ─────────────────────────────
         //    Both hold runs YOU picked, so they only mean anything under PICKED - the
         //    champions list fills itself from your history every time it draws, and a
@@ -31182,7 +31675,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // a LIVE book run gets the same look-ahead badge as the offline rows below
               //   whenever any of its legs is a touch-entry opening-range file. Without this
               //   the top row could show that book at full net with no warning at all.
-              const _lrLa=/(^|[^A-Z])ORB/i.test(legs)&&!/ORB_FADE|ORB_1_0|_125C/i.test(legs);
+              const _lrLa=_orbLegLookahead(legs);
               const _lrB=_lrLa?'<span title="'+_reEscC2(RB_ORB_LA_TIP)+'" style="margin-left:6px;font-size:8px;font-weight:600;padding:1px 6px;border-radius:999px;border:1px solid var(--yellow);color:var(--yellow);opacity:.85;cursor:help">\u26a0 ORB leg</span>':'';
               // MAR in THIS table is net divided by the drawdown of the same stretch, with no
               //   years in it. That is what the old tile printed in this column and what the
@@ -31222,7 +31715,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<b style="color:var(--text4)">The plain rows below them</b> — the older offline figures, computed by a script and pasted in. They stay until a real book run replaces each one. The STAGE pick above drives both. The number in the first column is the row order these were pasted in, not a ranking.<br>'
               +'<b style="color:var(--text4)">STRATEGY</b> — BLEND means two strategies traded side by side in one account, 1 contract each; the VERSION column says what is different about that book. ENGU-Q ETH is a single strategy on its own.<br>'
               +'<b style="color:var(--text4)">NET ÷ DD</b> = net divided by the worst drawdown of that sample. <b style="color:var(--text4)">SLICES</b> = the history cut into 8 equal stretches, how many were profitable - not walk-forward, which a book never runs. MAX DD is shown positive.<br>'
-              +'<b style="color:var(--yellow)">⚠ ORB leg</b> — this book includes the ORB strategy, which has a documented look-ahead bug in its volume filter (see PAPER_TRADING.md). Its backtest numbers are not something a live account could have achieved, so any net dollar figure on that row is inflated versus real trading, CHAMPION included.<br>'
               +'Window 2010-06-07 to 2026-06-30 · NQ · costs in · trades counted on exit date. Rebuild the numbers with tools/t5_runboard.py.</div>';
             // THE LAUNCHER LIVES HERE. It queues a real job on your PC, so it says so before
             //   you press it and it asks for the legs and the window in its own panel.
@@ -31292,9 +31784,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           window._rbHwm=_c2Hwm;
           window._cmpEqxSeries=items2.map((x,i)=>({x:x,i:i})).filter(o=>o.x.c).map(o=>{const x=o.x,i=o.i,r=x.r,mc=_c2mc(r);
             const fl=(Array.isArray(r.top10_results)?r.top10_results.filter(f=>f&&f.fold!=null):[]).slice().sort((a,b)=>a.fold-b.fold);
+            // F15 fix: OVERLAY's curve is trade-indexed but drawn on a shared calendar axis, so an
+            //   even trade-count spread across [date_from,date_to] routinely misplaces the
+            //   lockbox door — give it a piecewise date array instead (date_from at index 0, the
+            //   SAVED lockbox start at li, date_to at the last point), which cmpOvlMount and the
+            //   fullscreen explorer both already prefer over the uniform spread once one exists.
+            let _c2Ts=null;
+            if(x.c.li!=null){const _pdC2=s=>{const m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(s||''));return m?+new Date(+m[1],+m[2]-1,+m[3]):Date.parse(s||'');};
+              const _V0=r.validate||{},_W0=_V0.windows||{};
+              const t0=_pdC2(r.date_from||''),t1=_pdC2(r.date_to||''),
+                tLb=_pdC2((_W0.lockbox&&_W0.lockbox[0])||(_V0.lockbox&&_V0.lockbox.from)||''),
+                n=x.c.v.length,li2=x.c.li;
+              if(!isNaN(t0)&&!isNaN(t1)&&t1>t0&&!isNaN(tLb)&&tLb>t0&&tLb<t1&&li2>0&&li2<n-1){
+                _c2Ts=new Array(n);
+                for(let k=0;k<=li2;k++)_c2Ts[k]=t0+(k/li2)*(tLb-t0);
+                for(let k=li2+1;k<n;k++)_c2Ts[k]=tLb+((k-li2)/(n-1-li2))*(t1-tLb);
+              }}
             return {id:r.id,
               label:((((typeof _canonFam==='function')&&_canonFam(r.strategy))?(typeof stratTag==='function'?(stratTag(r.strategy)||''):''):_reEscC2(String(r.strategy||'').replace(/[.]py$/,''))).replace(/<[^>]*>/g,'').trim())||('#'+r.id),
-              color:x.col,eq:x.c.v,li:x.c.li,wfi:null,rank:i+1,wfFolds:null,
+              color:x.col,eq:x.c.v,li:x.c.li,wfi:null,rank:i+1,wfFolds:null,ts:_c2Ts,
               wfInfo:(fl.length?fl.map(f=>({n:f.fold,pnl:(+f.oos_pnl||0)*mc,pf:(+f.oos_pf||0),tr:(+f.oos_trades||0)})):null),
               blot:{run_id:r.id,instrument:r.instrument||'',timeframe:r.timeframe||'5m',session:r.session||'rth',
                 strategy:r.strategy||'',params:r.best_params||null,
@@ -31394,10 +31902,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   reading it is, but that $0 is not a result, so it never takes a best mark or a heat shade
           //   (ROBUSTNESS reads the whole run and keeps its place).
           const _mZero=(m,x2)=>(m.k!=='score')&&!!(x2.S&&x2.S.zeroTr);
+          // F18 fix (repair round): the short-window hover promises "it never ranks above a
+          //   full-length run", but this table let an 18-day run's inflated ratio take the best
+          //   mark and the heat shade over a real multi-year run. Excluded the same way _mZero
+          //   already is, everywhere that check is made.
+          const _mShort=(m,x2)=>(m.k!=='score')&&_c2ShortWin(x2.r);
           const _mBest={};
           MROWS.forEach(m=>{if(!m.hi)return;let bv=null,bi=-1;
             items.forEach((x,i2)=>{const v=mval(x,m.k);if(v==null||!isFinite(v))return;
-              if(_mApx(m,x)||_mZero(m,x))return;
+              if(_mApx(m,x)||_mZero(m,x)||_mShort(m,x))return;
               if(bv==null||((m.hi>0)?(v>bv):(v<bv))){bv=v;bi=i2;}});
             _mBest[m.k]=bi;});
           // rank shading, the board's rule: position in the row, not distance in value, so one
@@ -31405,9 +31918,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _mHeat=(m)=>{if(!_c2Heat||!m.hi)return null;
             // an approximate reading is left out of the ranking entirely - it must not win by
             //   shading any more than by bold.
-            const vs=items.filter(x=>!_mApx(m,x)&&!_mZero(m,x)).map(x=>mval(x,m.k)).filter(v=>v!=null&&isFinite(v));
+            const vs=items.filter(x=>!_mApx(m,x)&&!_mZero(m,x)&&!_mShort(m,x)).map(x=>mval(x,m.k)).filter(v=>v!=null&&isFinite(v));
             if(vs.length<2)return null;
-            return (col)=>{if(_mApx(m,col.x)||_mZero(m,col.x))return null;const v=mval(col.x,m.k);if(v==null||!isFinite(v))return null;
+            return (col)=>{if(_mApx(m,col.x)||_mZero(m,col.x)||_mShort(m,col.x))return null;const v=mval(col.x,m.k);if(v==null||!isFinite(v))return null;
               let below=0,ties=0;vs.forEach(o=>{if(o<v)below++;else if(o===v)ties++;});
               let t=(below+(ties-1)/2)/(vs.length-1);if(m.hi<0)t=1-t;
               return 'hsla('+(4+116*t).toFixed(0)+',62%,44%,'+(0.06+0.32*Math.abs(t-0.5)).toFixed(3)+')';};};
@@ -31415,7 +31928,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // the chart reaches across and dims every column that is not the curve under
             //   the cursor. It looks for this exact attribute, so it has to be this name.
             dataAttr:' data-rbc="'+x.r.id+'"',
-            lbl:'#'+x.r.id,
+            // F18: a short-window run (a CHAMPIONS pick or a hand-picked one) carries the same
+            //   warning here as on the LEADERBOARD row.
+            lbl:'#'+x.r.id+(_c2ShortWin(x.r)?(' <span style="color:var(--yellow);cursor:help" title="'+_reEscC2(_c2ShortWinWhy(x.r))+'">⚠</span>'):''),
             sub:_reEscC2(_nm(x.r)),
             tip:_reEscC2(String(x.r.strategy||'')+' \u00b7 #'+x.r.id+' \u00b7 '+String(x.r.instrument||'')+' '+String(x.r.timeframe||'')
               +(x.r.date_from?(' \u00b7 '+String(x.r.date_from).slice(0,10)+' to '+String(x.r.date_to||'').slice(0,10)):''))}));
@@ -31483,23 +31998,36 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div style="margin-top:6px"><span data-c2heat="1" style="font-size:9px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid '
               +(_c2Heat?'color-mix(in srgb,var(--yellow) 55%,transparent);color:var(--yellow)':'var(--border);color:var(--text3)')+'" title="shade each row by where a run places in it, best to worst - position in the row, not distance in value, so one runaway number cannot wash the rest flat">HEAT</span></div>'
             +'<div class="c2-note">'+((_c2Src==='champ')?'These are the best run of each strategy, chosen the same way the LEADERBOARD chooses them: your crown first where you have set one, then the robustness score, then the money. Switch to PICKED to choose them yourself. ':'')+'Every figure in the table follows the STAGE control and is the same read the LEADERBOARD uses, except ROBUSTNESS and VERDICT, which describe the whole run whatever stage is picked, and FOLDS HELD, which is always the walk-forward. '+(_c2wfCv?'On the walk-forward stretch the chart shows each run\u2019s own walk-forward folds, joined end to end and spaced evenly by trade, so the dates along the bottom are approximate; the drawdown drawn under it is read off at most 200 points and can look shallower than the DRAWDOWN row. ':(_c2wfNone?'None of these runs saved a walk-forward curve, so the whole run is shown. ':'The chart always shows the whole run. '))
-            +'The chart puts every run on ONE calendar, so two runs over different years line up by date rather than by progress, and a run that had not started yet simply has no line there. Hover a curve to lift it and dim the rest, including its column in the table; click a name in the key to grey it, click again to hide it and rescale. If that chart cannot start, a simpler one is drawn in its place and says so - it spreads each run across its own window instead of a shared calendar.'
+            // F15 fix: this used to claim every point "lines up by date", when the curve is
+            //   spaced by TRADE and was spread evenly across the run's whole window regardless -
+            //   the lockbox door alone could land months off. Now a run's start, its own lockbox
+            //   door and its end are placed on their real saved dates; only the points in between
+            //   (which the saved curve does not date individually) are interpolated, so the note
+            //   says so instead of promising exact dates throughout.
+            +'The chart puts every run on ONE calendar: each line’s start, its own lockbox door and its end land on their real saved dates, but the points in between are spaced evenly by trade, not by day, so a date read off the middle of a stretch is approximate. A run that had not started yet simply has no line there. Hover a curve to lift it and dim the rest, including its column in the table; click a name in the key to grey it, click again to hide it and rescale. If that chart cannot start, a simpler one is drawn in its place and says so - it spreads each run across its own window instead of a shared calendar.'
             +(apx?' A ~ marks a reading that had to be rebuilt rather than read straight off the run: a drawdown measured off the saved curve (downsampled, so it can only under-state the real number) on the drawdown or MAR rows, or on FULL a profit factor pooled from the stretches because the run saved no whole-run averages - and EV R / R per YR follow that same pooled PF wherever it applies. A run marked that way never takes the best mark on the rows it touches.':'')
             // (D31) on walk-forward the reasons differ run by run (a book, a test with no trades, a run saved before the test)
             +(noCurve?(_c2wfCv?(' '+noCurve+' of these runs '+((noCurve>1)?'have':'has')+' no walk-forward curve, so '+((noCurve>1)?'they appear':'it appears')+' in the table but not on the chart - hover '+((noCurve>1)?'each name':'its name')+' in the chart key for the reason.')
               :(' '+noCurve+' of these runs saved no equity curve, so they appear in the table but not on the chart.')):'')
-            +(gone?(' '+gone+((gone===1)?' picked run is':' picked runs are')+' no longer in your history, so '+((gone===1)?'it was':'they were')+' skipped.'):'')
+            +_goneNote(_goneArch)+_goneNote(_goneOlder)+_goneNote(_goneReal)
             +'</div>';
         }
       }else{
         // ── LEADERBOARD: one row per strategy family, its champion by the robustness
         //    score (the same rule BY STRATEGY and RUNBOARD use), ranked on ONE figure
         //    measured on ONE stage. Tap a family for its runs; tap a run for its report.
-        const rs=(runHistory||[]).filter(r=>r&&r.id!=null).concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]);
+        const rs=(runHistory||[]).filter(r=>r&&r.id!=null).concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).filter(r=>!r.archived||!!APREF.rfArch);   // F11: archived runs stay out of LEADERBOARD / TOP RUNS, matching Past Runs
         // an unrecognised strategy keeps its own name as its family - merging every one of
         //   them under one row labelled with the champion name mislabelled the others
         const fams=_c2FamsOf(rs).map(f=>({k:f.k,runs:f.runs,ch:f.ch,val:_c2Val(f.ch)}));
-        fams.sort((a,b)=>{const av=a.val.v,bv=b.val.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;return bv-av;});
+        fams.sort((a,b)=>{const av=a.val.v,bv=b.val.v;if(av==null&&bv==null)return 0;if(av==null)return 1;if(bv==null)return -1;
+          // g5-sink: a walk-forward test that took no trades never outranks one that traded,
+          //   even on NET where its $0 is a real printed reading - it still can't win the row.
+          const az=!!a.val.zeroWf,bz=!!b.val.zeroWf;if(az!==bz)return az?1:-1;
+          // F18: same sink as COMPARE CHAMPIONS above - a short-window champion never outranks
+          //   a full-length one, on any RANK ON / STAGE combination.
+          const as=_c2ShortWin(a.ch),bs=_c2ShortWin(b.ch);if(as!==bs)return as?1:-1;
+          return bv-av;});
         const noFig=fams.filter(f=>f.val.v==null).length;
         // how many of the listed champions actually saved the walk-forward test, so the note can
         //   say what MAR is built on instead of claiming nothing carries it
@@ -31527,7 +32055,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    family on whatever is picked above, so the best run of a family that never won
         //    anything is one click away - and so is the WORST, which is usually the more
         //    informative click. Runs with a window under two years are included rather than
-        //    dropped, and marked, because a short sample is a caveat and not a disqualifier.
+        //    dropped, and marked, because a short sample is a caveat and not a disqualifier -
+        //    but (F18 fix, repair round) it still never OUTRANKS a full-length run on BEST: its
+        //    ratio can explode against a near-zero drawdown, so it sinks the same way a
+        //    walk-forward zero-trade $0 net does, just above it (still shown, never on top).
         const _c2Top=(['best','worst','recent'].indexOf(APREF.c2Top)>=0)?APREF.c2Top:'';
         const _c2TopRows=(function(){if(!_c2Top)return [];
           const xs=rs.map(r=>({r:r,v:_c2Val(r)})).filter(o=>o.v&&o.v.v!=null&&isFinite(o.v.v));
@@ -31535,7 +32066,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // every read this screen offers - R per year, MAR, profit factor, net - is better when
           //   it is LARGER, so best is simply descending. If a smaller-is-better read is ever
           //   added to the rank strip, this needs a direction flag with it.
-          xs.sort((a,b)=>(_c2Top==='best')?(b.v.v-a.v.v):(a.v.v-b.v.v));
+          // g5-sink: a walk-forward zero-trade $0 net sinks to the bottom on BOTH BEST and WORST -
+          //   it never wins the top slot on BEST, and it is not a genuine "worst" result either.
+          // F18 fix (repair round): a short-window run's ratio (MAR, R/yr) can explode against a
+          //   near-zero drawdown, so the short-window hover promises it "never ranks above a
+          //   full-length run" - this sink makes that true here too, the same way the OVERLAY
+          //   table's best mark and heat shade already exclude it.
+          xs.sort((a,b)=>{const az=!!a.v.zeroWf,bz=!!b.v.zeroWf;if(az!==bz)return az?1:-1;
+            const as=_c2ShortWin(a.r),bs=_c2ShortWin(b.r);if(as!==bs)return as?1:-1;
+            return (_c2Top==='best')?(b.v.v-a.v.v):(a.v.v-b.v.v);});
           return xs.slice(0,10);})();
         const _c2TopBar='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">'
           +'<span class="c2-lbl">TOP RUNS</span>'
@@ -31561,7 +32100,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const eq=(ch.equity&&Array.isArray(ch.equity.cum)&&ch.equity.cum.length>2)?ch.equity.cum:null;
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
-            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+(eq?_c2Spark(eq,64,18):'')+'</div>'
+            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+(eq?_c2Spark(eq,64,18):'')+'</div>'
             +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString():''))+'</div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+(f.val.apx?'~':'')+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
@@ -35376,7 +35915,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
       }
     }else{
-      const allRuns=runHistory.slice();
+      const allRuns=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]);   // F1: the selection pool includes starred runs outside the loaded window too
       if(!allRuns.length){body='<div style="border:1px dashed var(--border);padding:60px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px">NO RUN HISTORY YET — run the runner with --sync-runs</div>';}
       else{
         // ── filters + sort over Past Runs (full-width table, legacy-AUGUR style) ──
@@ -35419,7 +35958,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const pickFrom=sorted.length?sorted:allRuns.slice().sort(SC.id);
         const selId=augurRunSel||pickFrom[0].id;
         let d=null;for(let i=0;i<allRuns.length;i++){if(String(allRuns[i].id)===String(selId))d=allRuns[i];}
-        if(!d)d=pickFrom[0];
+        if(!d){
+          if(augurRunSel!=null){
+            // F1: an explicit selection (e.g. a starred crown click) that this pool still
+            //   doesn't have - a lite stub the existing hydration below fetches for real
+            //   and shows LOADING for. Never silently substitute the first row of Past
+            //   Runs for a pick the user actually made.
+            d={id:selId,_lite:true};
+          }else d=pickFrom[0];
+        }
         // The list rows come from the projected read, which deliberately leaves out the heavy
         //   report-only blocks. The REPORT needs them, so the first time a run is opened we
         //   fetch that one whole document and re-render with it. _runHydrating gates the
@@ -36102,7 +36649,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
        if(_cx)_cx.onclick=()=>{try{
          const all=(window._cmpEqxSeries||[]);
          const hid=window._cmpOvlHide,gry=window._cmpOvlGrey;
-         const vis=all.filter(s2=>!(hid&&hid.has&&hid.has(s2.id))&&!(gry&&gry.has&&gry.has(s2.id)));
+         // F17: hid/gry are keyed by the STRING the key row wrote (String(rw.dataset.ovltog)); a
+         //   series id off a Firestore lite read is a NUMBER, so a plain .has(s2.id) never matched
+         //   and every greyed/hidden run came back at full strength here. Compare as strings, the
+         //   same way the RUNBOARD/PICK RUNS expand handler below already does.
+         const vis=all.filter(s2=>!(hid&&hid.has&&hid.has(String(s2.id)))&&!(gry&&gry.has&&gry.has(String(s2.id))));
          if(typeof window.expandCompareEq==='function')window.expandCompareEq(vis.length?vis:all,{noTabs:true});
        }catch(e){console.warn('[compare] explorer failed:',(e&&e.message)||e);}};}
       content.querySelectorAll('[data-c2hwm]').forEach(b=>{b.onclick=()=>{
@@ -36197,7 +36748,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       if(_c2Old)_wireC2(content);
       // v64.57: mirrors the renderer — a deliberately empty tab starts from EMPTY, so picking a run
       //   adds just that run instead of the "latest 3" fallback plus that run.
-      const _cur=()=>{const rs=runHistory.slice().sort((a,b)=>b.id-a.id);let ids=(APREF.cmpIds||[]).map(String).filter(id=>rs.some(r=>String(r.id)===id));if(!ids.length&&!cmpTabEmpty())ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));return ids;};
+      // F6: never drop an unresolved id here - a saved pick that is merely older than the
+      //   loaded window (or a starred crown outside it) must survive a click on another
+      //   row, not be silently stripped out on the next savePref.
+      const _cur=()=>{let ids=(APREF.cmpIds||[]).map(String);
+        if(!ids.length&&!cmpTabEmpty()){const rs=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).sort((a,b)=>b.id-a.id);ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));}
+        return ids;};
       // picker rows: click toggles the run in / out of the comparison (cap 8)
       content.querySelectorAll('[data-cmpk]').forEach(x=>{x.onclick=()=>{const id=String(x.dataset.cmpk);let ids=_cur();
         if(ids.indexOf(id)>=0)ids=ids.filter(i2=>i2!==id);else{if(ids.length>=8)return;ids.push(id);}
@@ -37327,7 +37883,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-rffam]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const f=ch.dataset.rffam;savePref('rfFam',(APREF.rfFam===f)?'':f);renderApp();};});
       content.querySelectorAll('[data-rfchamp]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const on=!APREF.rfChamp;savePref('rfChamp',on);if(on)savePref('rfFam','');renderApp();};});
       // star a run (write-back to Firestore; snapshot re-renders). stopPropagation so the row doesn't also select.
-      const _toggleStar=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;const nv=r.starred?0:1;runsRef.doc(String(id)).update({starred:nv}).then(()=>{r.starred=nv;const f=(window._runFull||{})[String(id)];if(f)f.starred=nv;
+      // F1: search the starred-outside-the-window list (and the hydrated-full cache) too,
+      //   so starring or archiving a crown found only there doesn't silently no-op.
+      const _findRunAny=(id)=>{let r=runHistory.find(x=>String(x.id)===String(id));
+        if(!r&&Array.isArray(window._starRuns))r=window._starRuns.find(x=>String(x.id)===String(id));
+        if(!r){const f=(window._runFull||{})[String(id)];if(f)r=f;}
+        return r;};
+      const _toggleStar=(id)=>{const r=_findRunAny(id);if(!r||!runsRef)return;const nv=r.starred?0:1;runsRef.doc(String(id)).update({starred:nv}).then(()=>{r.starred=nv;const f=(window._runFull||{})[String(id)];if(f)f.starred=nv;
         // KEEP THE STARRED-OLDER LIST IN STEP (item 4) - cheap, a handful of runs at most,
         //   and every crown pool that reads window._starRuns needs it current right away
         //   rather than waiting for the next full runs refresh.
@@ -37337,7 +37899,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _ds=content.querySelector('[data-detstar]');if(_ds)_ds.onclick=()=>_toggleStar(_ds.dataset.detstar);
       // archive / un-archive a run: sets a web-only `archived` flag on the Firestore doc, which
       //   the Past Runs filter hides by default (runner sync_runs uses merge=True so it survives).
-      const _toggleArch=(id)=>{const r=runHistory.find(x=>String(x.id)===String(id));if(!r||!runsRef)return;const nv=r.archived?0:1;runsRef.doc(String(id)).update({archived:nv}).then(()=>{r.archived=nv;const f=(window._runFull||{})[String(id)];if(f)f.archived=nv;renderApp();}).catch(e=>alert('archive failed: '+e.message));};
+      const _toggleArch=(id)=>{const r=_findRunAny(id);if(!r||!runsRef)return;const nv=r.archived?0:1;runsRef.doc(String(id)).update({archived:nv}).then(()=>{r.archived=nv;const f=(window._runFull||{})[String(id)];if(f)f.archived=nv;renderApp();}).catch(e=>alert('archive failed: '+e.message));};
       const _da=content.querySelector('[data-arch-id]');if(_da)_da.onclick=()=>_toggleArch(_da.dataset.archId);
       // CHART METRIC toggle (item L): re-render the §2 param charts on NET $ / MAX DD / MAR
       content.querySelectorAll('[data-pmet]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();savePref('pMetric',b.dataset.pmet);renderApp();};});

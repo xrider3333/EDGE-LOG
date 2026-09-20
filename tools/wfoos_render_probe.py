@@ -1031,6 +1031,39 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       &&LEAD.mar.iz===2,
       ['net','mar','pf','rpy'].map(function(rk){var o=LEAD[rk];return rk.toUpperCase()+' '+o.z.v+' (row '+(o.iz+1)+' of '+o.n+')'+(o.z.t?(o.z.t===ZWD?' {ZWD}':(' {'+o.z.t.slice(0,46)+'}')):'');}).join(' | '));
 
+    // ══ g5-sink (owner decision 2026-09-16) - A WALK-FORWARD ZERO-TRADE RUN NEVER OUTRANKS A
+    //    TRADED ONE, EVEN ON NET ═══════════════════════════════════════════════════════════
+    //    LEADERBOARD, COMPARE CHAMPIONS and TOP RUNS share one ranking function (_c2Val). Before
+    //    this fix it let a walk-forward test's pooled $0 net compete on its raw (zero) value, so
+    //    against NEG - a run that traded the folds and LOST money - the $0 sat ABOVE the loss on
+    //    NET while it correctly sank BELOW it on every other rank (see LEAD.mar.iz===2 above,
+    //    already true beforehand). RUNBOARD (M_wf's -1e15 sentinel) and the comparison table
+    //    (_mZero) already sank it correctly on NET too, so only _c2Val carried the exception.
+    A('g5_sink_lead LEADERBOARD on NET: the zero-trade run still reads its pooled $0 (not a dash) but sorts LAST, behind the run that traded and lost','NEW',
+      LEAD.net.ok&&LEAD.net.n===3&&LEAD.net.z.v==='$0'&&!LEAD.net.z.t&&LEAD.net.iz===2,
+      'NET column: zero-trade run at row '+(LEAD.net.iz+1)+' of '+LEAD.net.n+' (want row 3, last, behind the loser)');
+
+    function rbcOrder(){return q('th[data-rbc]').map(function(e){return e.getAttribute('data-rbc');});}
+    var champWf=rend2({c2Screen:'cmp',c2View:'ovl',c2Src:'champ',c2Stage:'wf',c2Rank:'net',c2Heat:false},[LW2,LZ,NEG]);
+    var champOrd=rbcOrder(), champIz=champOrd.indexOf(ZID);
+    A('g5_sink_champ COMPARE CHAMPIONS on walk-forward NET: the zero-trade champion sorts LAST of the three picked columns','NEW',
+      clean2(champWf)&&champOrd.length===3&&champIz===2,
+      'champion column order '+JSON.stringify(champOrd)+' (zero-trade run '+ZID+' at position '+(champIz+1)+', want 3)');
+
+    var topWf=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'net',c2Top:'best'},[LW2,LZ,NEG]);
+    var topRows=q('.c2-card .c2-row.sub[data-c2run]').map(function(e){return e.getAttribute('data-c2run');});
+    var topIz=topRows.indexOf(ZID);
+    A('g5_sink_top TOP RUNS · BEST on walk-forward NET: the zero-trade run never takes the top slot and sorts LAST','NEW',
+      clean2(topWf)&&topRows.length===3&&topIz===2&&topRows[0]===String(FIXW.id),
+      'TOP RUNS order '+JSON.stringify(topRows)+' (zero-trade run '+ZID+' at position '+(topIz+1)+', want 3; best should be #'+FIXW.id+')');
+
+    var topWfWorst=rend2({c2Screen:'lead',c2Stage:'wf',c2Rank:'net',c2Top:'worst'},[LW2,LZ,NEG]);
+    var topRowsW=q('.c2-card .c2-row.sub[data-c2run]').map(function(e){return e.getAttribute('data-c2run');});
+    var topIzW=topRowsW.indexOf(ZID);
+    A('g5_sink_top2 TOP RUNS · WORST on walk-forward NET: the zero-trade run is not a genuine "worst" result either, so it still sorts LAST, behind the actual loser','NEW',
+      clean2(topWfWorst)&&topRowsW.length===3&&topIzW===2&&topRowsW[0]===NGID,
+      'TOP RUNS WORST order '+JSON.stringify(topRowsW)+' (zero-trade run '+ZID+' at position '+(topIzW+1)+', want 3; worst should be the actual loser #'+NGID+')');
+
     // ── comparison table: three picks (so a heat scale exists), then two (so a $0 would be the top net) ──
     var t3=rend2({c2Screen:'cmp',c2View:'ovl',c2Stage:'wf',cmpIds:[ZID,NGID,String(FIXW.id)],c2Heat:true},[LW2,LZ,NEG]);
     var CT={};['NET','DRAWDOWN','MAR','SHARPE','PF','WIN %','EV R','R / YR','EV $','TRADES'].forEach(function(k){CT[k]=r5Cell(k,ZID);});
@@ -1250,10 +1283,15 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
      ['board is',{c2Screen:'cmp',c2View:'board',c2Stage:'is',rbRank:'mar',rbHeat:false}],
      ['overlay',{c2Screen:'cmp',c2View:'ovl',c2Stage:'full',cmpIds:[String(FIXW.id)]}]].forEach(function(p){
       var c=rend2(p[1],[LW2]),S0=(w._cmpEqxSeries||[])[0]||{},o=r7View();
-      var ok=clean2(c)&&!o.threw&&!o.none&&o.n===1&&!(o.errs||[]).length&&!S0.span&&!!(S0.blot&&S0.blot.date_from)
+      // F5 (audit round 3) gave a RUNBOARD IS/LB slice its OWN [from,to] span too, so it can
+      //   draw on its own stretch of calendar in the inline funnel instead of the whole run's
+      //   width — a second, unrelated reason for a series to carry `span`, so this guard now
+      //   checks the one thing R5 is actually about (a walk-forward TEST curve, which has no
+      //   trade list and is dated by span alone) rather than "no span at all".
+      var ok=clean2(c)&&!o.threw&&!o.none&&o.n===1&&!(o.errs||[]).length&&!S0.wfoCurve&&!!(S0.blot&&S0.blot.date_from)
         &&o.texts.indexOf('x = calendar time (shared)')>=0&&o.dateOn&&o.stages.join(',')==='is,wf,lb'
         &&((o.texts.indexOf('IS')>=0)===o.split);
-      if(!ok)R7n.push(p[0]+': call '+c+(o.threw?(' threw '+o.threw):'')+' series '+o.n+' span '+JSON.stringify(S0.span||null)
+      if(!ok)R7n.push(p[0]+': call '+c+(o.threw?(' threw '+o.threw):'')+' series '+o.n+' wfoCurve '+JSON.stringify(!!S0.wfoCurve)+' span '+JSON.stringify(S0.span||null)
         +' note '+(o.texts.indexOf('x = calendar time (shared)')>=0)+' DATE RANGE '+o.dateOn+' stages '+o.stages.join(',')
         +' split '+o.split+' IS label '+(o.texts.indexOf('IS')>=0)+((o.errs||[]).length?(' errors '+String(o.errs[0]).slice(0,80)):''));});
     A('R5s off the walk-forward stage the full-screen viewer keeps its calendar, DATE RANGE, IN-SAMPLE stage and IS label','NOREG',!R7n.length,R7n.join(' ; '));
@@ -1362,17 +1400,23 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     var SP19=dxFold(+FIXB.id+930019,'ZSPLIT_1_0.py',3,function(f){f.oos_pf=0;delete f.oos_wins;});
     var OK19a=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930017);x.strategy='ZFINE_1_0.py';x.starred=false;return lite(x);})();
     var OK19b=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930018);x.strategy='ZFINE2_1_0.py';x.starred=false;return lite(x);})();
-    var N19r={},C19=[],P19={isLong:'the run saved no whole-run average win or loss, so no in-sample PF or EV R can be built',
-      isShort:'1 has no whole-run average win or loss saved, so no in-sample PF or EV R can be built',
-      lbLong:'its lockbox saved no average win and loss, so no PF or EV R can be worked out',
-      wfSplit:'its walk-forward money cannot be split into winning and losing trades, so no PF or EV R can be pooled',
-      isEven:'a walk-forward fold broke exactly even, so no PF or EV R can be pooled'};
-    [['isLong',['is'],'evr','so',[OLD19,OK19a]],['isShort',['is'],'pf','wr',[OLD19,OK19a,OK19b]],['lbLong',['lb'],'evr','so',[LBN19,OK19a]],
-     ['wfSplit',['wf'],'evr','so',[lite(SP19),OK19a]],['isEven',['is'],'evr','so',[lite(BE),OK19a]]].forEach(function(p){
+    // F2 (g2-stage) supersedes the isLong / isShort / isEven premises below: IN-SAMPLE on a
+    //   run row now reads the champion's own measured gate-study slice (gate_validate.
+    //   ungated_is), never a figure derived from the run's whole-run averages or its
+    //   walk-forward fold rows - so a run missing either no longer dashes IN-SAMPLE at all
+    //   (isLong / isShort now plot cleanly, moved off the SORTINO axis, which IN-SAMPLE
+    //   still never saves, onto PF, which it now does). isEven's premise (a broken-even WF
+    //   fold blanking IN-SAMPLE) cannot be reproduced any more - IN-SAMPLE cannot see the
+    //   fold rows at all now - so that sub-case is retired outright. LOCKBOX and
+    //   WALK-FORWARD keep their own clause, unchanged.
+    var N19r={},C19=[],P19={lbLong:'its lockbox saved no average win and loss, so no PF or EV R can be worked out',
+      wfSplit:'its walk-forward money cannot be split into winning and losing trades, so no PF or EV R can be pooled'};
+    [['isLong',['is'],'evr','pf',[OLD19,OK19a]],['isShort',['is'],'pf','wr',[OLD19,OK19a,OK19b]],['lbLong',['lb'],'evr','so',[LBN19,OK19a]],
+     ['wfSplit',['wf'],'evr','so',[lite(SP19),OK19a]]].forEach(function(p){
       C19.push(rend2({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:p[1],resAxis:p[2],resXAxis:p[3]},p[4]));N19r[p[0]]=dxNote();});
-    A('DX19b EXPLORE note: in-sample with no whole-run averages and a lockbox with no average win and loss name their own stretch, not walk-forward','NEW',
-      C19.every(clean2)&&Object.keys(P19).every(function(k){return (N19r[k]||'').indexOf(P19[k])>=0;})
-      &&['isLong','isShort','lbLong'].every(function(k){return N19r[k].indexOf('walk-forward')<0;})
+    A('DX19b EXPLORE note: F2 - a run missing its whole-run averages no longer dashes IN-SAMPLE at all (isLong / isShort plot clean); LOCKBOX and WALK-FORWARD keep their own clause','NEW',
+      C19.every(clean2)&&!N19r.isLong&&!N19r.isShort
+      &&(N19r.lbLong||'').indexOf(P19.lbLong)>=0&&(N19r.wfSplit||'').indexOf(P19.wfSplit)>=0
       &&N19r.wfSplit.indexOf('lockbox saved')<0&&N19r.wfSplit.indexOf('whole-run average')<0,
       Object.keys(N19r).map(function(k){return k+' {'+N19r[k].slice(0,230)+'}';}).join(' | '));
 
