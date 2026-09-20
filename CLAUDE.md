@@ -309,6 +309,14 @@ port (tab-by-tab gaps), engine research items (#11–23), and remaining `optimiz
 Streamlit bugs (#1–9). `docs/` holds reference (architecture, go-live, port plan).
 Update `ROADMAP.md` as work ships; keep this file for durable context/conventions only.
 
+## Validation-methodology research
+**`RESEARCH.md`** (repo root) holds what we have learned about HOW we validate — walk-forward vs
+lockbox, how much history tuning needs, selection bias across many runs — with an action table that
+turns each finding into a proposed EDGELOG change, and pointers to the deep dives in
+`docs/WF_LOCKBOX_DEEP_DIVE.md` and `docs/IS_LENGTH_OOS_VALIDATION.md` (the latter carries the
+literature sources). Strategy findings stay in their own files; machinery status stays in
+`BACKTESTING_STACK.md`; scheduled work moves to `ROADMAP.md`.
+
 ## Guardrails / security (hard lines — keep across sessions)
 - **Secrets stay local.** `serviceAccount.json` (Firebase admin key) is backend-only and
   gitignored — NEVER commit it. The Anthropic API key is read from local
