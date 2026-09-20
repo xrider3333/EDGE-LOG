@@ -202,3 +202,24 @@ def test_an_adapter_failure_never_raises_into_the_tick(tmp_path, monkeypatch):
     monkeypatch.setattr(qe, "_get_broker_adapter", boom)
     qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 35))     # must not raise
     assert not trigger.exists(), "a failed repair still consumes its trigger"
+
+
+def test_the_trigger_path_follows_the_current_out_dir_not_an_import_time_default(
+        tmp_path, monkeypatch):
+    r"""REGRESSION (caught by tests/test_live_system_guard.py, 2026-09-20): the first cut
+    put the path in DEFAULT_CONFIG, which load_config deep-copies -- so a test that
+    repointed OUT_DIR still got the REAL C:\EdgeLog trigger and tick() tried to
+    os.rename the owner's live, armed file. The path must resolve against OUT_DIR as it
+    is at call time."""
+    assert "flatten_broker_file" not in qe.DEFAULT_CONFIG, \
+        "a baked-in default survives a monkeypatched OUT_DIR -- see the guard failure"
+
+    cfg, state, adapter, client, trigger, out = _setup(
+        tmp_path, monkeypatch, believed={"ENGUQ": 10}, shadow_legs=[])
+    # exactly what a config merged from DEFAULT_CONFIG looks like: no override at all
+    cfg.pop("flatten_broker_file", None)
+
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 35))
+
+    assert [r["leg"] for r in _broker_rows(out)] == ["ENGUQ"]
+    assert not trigger.exists(), "the tmp trigger, not the live one, was consumed"

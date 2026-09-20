@@ -150,11 +150,12 @@ DEFAULT_CONFIG = {
     "daily_loss_limit_usd": 150,
     "session": {"open": "09:31", "last_entry": "15:55", "flat_by": "15:58"},
     "kill_file": os.path.join(OUT_DIR, "KILL"),
-    # ORPHAN BROKER REPAIR (2026-09-20): one-shot trigger file, absent in normal
-    # operation. See _maybe_flatten_orphan_broker -- it exists because a flat_by set to
-    # the 16:00 bell made every EOD market sell an extended-hours order, which Webull
-    # rejects, leaving real broker lots open that the shadow book had already closed.
-    "flatten_broker_file": os.path.join(OUT_DIR, "FLATTEN_BROKER"),
+    # NOTE: "flatten_broker_file" is deliberately NOT defaulted here. load_config deep-
+    # copies this dict, so any path baked in at import time would survive a test's
+    # monkeypatch of OUT_DIR and point tick() at the REAL C:\EdgeLog trigger -- which
+    # tests/test_live_system_guard.py caught doing an os.rename on the live file. The
+    # path is resolved against the CURRENT OUT_DIR inside _maybe_flatten_orphan_broker;
+    # set the key by hand in config.json only to override it.
     "slippage_per_share": 0.01,
     # NT SIZING GAP (feature #50): "fixed" (default, unchanged behaviour) uses the
     # `shares` table above verbatim. "nt_notional" instead sizes each lot off the $
@@ -2277,6 +2278,9 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
     trigger file exists AND we are inside regular trading hours (a market order outside
     09:30-16:00 ET is exactly what created the orphan). Consumed either way, so it can
     never fire twice; never raises -- a failure here must not stop the tick."""
+    # Resolved against the CURRENT OUT_DIR, never a value baked in at import time --
+    # see the note in DEFAULT_CONFIG. A test that repoints OUT_DIR is then fully isolated
+    # from the live trigger file, including the os.replace that consumes it.
     path = cfg.get("flatten_broker_file") or os.path.join(OUT_DIR, "FLATTEN_BROKER")
     if not os.path.exists(path):
         return
