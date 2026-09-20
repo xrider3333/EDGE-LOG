@@ -150,6 +150,11 @@ DEFAULT_CONFIG = {
     "daily_loss_limit_usd": 150,
     "session": {"open": "09:31", "last_entry": "15:55", "flat_by": "15:58"},
     "kill_file": os.path.join(OUT_DIR, "KILL"),
+    # ORPHAN BROKER REPAIR (2026-09-20): one-shot trigger file, absent in normal
+    # operation. See _maybe_flatten_orphan_broker -- it exists because a flat_by set to
+    # the 16:00 bell made every EOD market sell an extended-hours order, which Webull
+    # rejects, leaving real broker lots open that the shadow book had already closed.
+    "flatten_broker_file": os.path.join(OUT_DIR, "FLATTEN_BROKER"),
     "slippage_per_share": 0.01,
     # NT SIZING GAP (feature #50): "fixed" (default, unchanged behaviour) uses the
     # `shares` table above verbatim. "nt_notional" instead sizes each lot off the $
@@ -2254,6 +2259,79 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
                    signal_source=cfg.get("signal_source"))
 
 
+# -- orphan broker repair ------------------------------------------------------------------
+# WHY THIS EXISTS (2026-09-20). The broker mirror can end up holding a position the shadow
+# book does not: _close_all writes the shadow exit unconditionally, but the matching broker
+# CLOSE is a best-effort mirror that can be rejected. It happened for real on 2026-09-17 and
+# 2026-09-18, when session.flat_by was set to "16:00": the 5s tick fires the flatten at
+# 16:00:02-16:00:05 ET, i.e. AFTER the regular close, so Webull answers every market sell
+# with "only limit orders are supported for extended-hours trading" (HTTP 417
+# OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET). The shadow book then reads flat while
+# 20 real paper shares stayed open, and the adapter's own one-open-position-per-leg rail
+# BLOCKED the next day's entry for those legs. flat_by is back inside the session, but an
+# orphan that already exists needs an explicit, in-session, market-hours repair -- and it has
+# to run INSIDE this process, because the OrderAdapter loads its state file once at
+# construction (see _get_broker_adapter) and a second process writing that file would race.
+def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
+    """One-shot: close any broker leg this book has no open lot for. No-op unless the
+    trigger file exists AND we are inside regular trading hours (a market order outside
+    09:30-16:00 ET is exactly what created the orphan). Consumed either way, so it can
+    never fire twice; never raises -- a failure here must not stop the tick."""
+    path = cfg.get("flatten_broker_file") or os.path.join(OUT_DIR, "FLATTEN_BROKER")
+    if not os.path.exists(path):
+        return
+    sess = cfg.get("session") or {}
+    # Strictly inside the session: after `open` so the order is a regular-hours market
+    # order, and at/before `last_entry` so a repair can never collide with the flat_by
+    # rail closing a lot opened the same day. OUTSIDE those hours the trigger is LEFT IN
+    # PLACE, not consumed -- dropping the file on a Sunday has to survive until Monday's
+    # open, which is the whole point of a trigger rather than a one-off script.
+    if not (_is_weekday(nowdt)
+            and _hhmm(sess.get("open", "09:31")) <= _et_hhmm(nowdt)
+            <= _hhmm(sess.get("last_entry", "15:55"))):
+        return
+    try:
+        adapter = _get_broker_adapter(log=log)
+        st = adapter.status()
+        believed = st.get("believed_positions") or {}
+        shadow_open = set((state.get("legs") or {}).keys())
+        orphans = {leg: int(abs(p.get("qty") or 0)) for leg, p in believed.items()
+                   if int(abs(p.get("qty") or 0)) > 0 and leg not in shadow_open}
+        stamp = nowdt.strftime("%Y%m%d")
+        if not orphans:
+            log("[qqq-exec] FLATTEN_BROKER trigger present but no orphan broker lot "
+                "(every leg the broker holds is also open in the shadow book) -- nothing sent")
+            _log_event(state, "broker", "Flatten-broker trigger consumed -- no orphan to close",
+                      log=log)
+        for leg, qty in sorted(orphans.items()):
+            qqq_px, src = _engine_mark_price(leg, log=log)
+            log(f"[qqq-exec] FLATTEN_BROKER: closing orphan broker lot {leg} {qty} sh "
+                f"(shadow book holds no lot for it)")
+            # A repair id of its own, never the original close's -- that one was already
+            # sent and rejected, and Webull refuses a repeated client_order_id.
+            _mirror_to_broker(state, leg=leg, side="long", shares=qty, shadow_px=qqq_px,
+                             intent="CLOSE", ts=nowdt, trade_id=f"FIX-{leg}-{stamp}", log=log)
+            _log_event(state, "broker",
+                      f"Flatten-broker repair: sent CLOSE for orphan {leg} {qty} sh "
+                      f"(mark {qqq_px if qqq_px is not None else 'n/a'}, source {src or 'n/a'})",
+                      log=log)
+        if orphans:
+            _notify(f"QQQ SHADOW: flattened orphan broker lots -- "
+                    f"{', '.join(f'{k} {v}sh' for k, v in sorted(orphans.items()))}",
+                    "EDGELOG QQQ BROKER REPAIR", log)
+    except Exception as e:
+        log(f"[qqq-exec] flatten-broker repair failed (non-fatal): {type(e).__name__}: {e}")
+    finally:
+        # Consume the trigger even on failure: a file that silently re-fires every tick
+        # would be worse than one that needs to be dropped again on purpose.
+        try:
+            if os.path.exists(path):
+                os.replace(path, f"{path}.done-{_now_et():%Y%m%d-%H%M%S}")
+        except Exception as e:
+            log(f"[qqq-exec] could not consume the FLATTEN_BROKER trigger at {path}: "
+                f"{type(e).__name__}: {e}")
+
+
 # -- fill routing ------------------------------------------------------------------------
 def _route_fills(state, cfg, fills, quote_fn, ratio_fn, entries_blocked, log=print):
     """Walk NEW fills in file order, updating per-group position and opening/reducing
@@ -3703,6 +3781,11 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         log("[qqq-exec] kill file cleared")
         _log_event(state, "kill_clear", "Kill file cleared -- adapter resuming normal operation",
                   log=log)
+
+    # Runs right after KILL so a flatten trigger is honoured even on a killed adapter --
+    # webull_orders._check_rails lets a CLOSE through unconditionally for exactly this
+    # reason ("a halted adapter must still be able to flatten").
+    _maybe_flatten_orphan_broker(state, cfg, nowdt, log=log)
 
     src_mode = str(cfg.get("signal_source") or "engine").strip().lower()
     if src_mode not in ("engine", "ninjatrader"):
