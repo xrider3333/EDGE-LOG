@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 116
+N_CASES = 129
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -458,7 +458,7 @@ var FIX = __FIX__;
             booksBtn:d.querySelectorAll('[data-c2view=books]').length,
             hold:!!d.querySelector('.c2-hold'),
             noWf:txt.indexOf('NO WALK-FORWARD STAGE')>=0,
-            note:txt.indexOf('t5_runboard.py')>=0,
+            note:txt.indexOf('trades counted on exit date')>=0,
             launcher:txt.indexOf('RUN A BOOK')>=0,
             errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
         });
@@ -1704,14 +1704,15 @@ var FIX = __FIX__;
         r.ids=[].map.call(d.querySelectorAll('tr.arow[data-run]'),function(x){return x.getAttribute('data-run');});
       })();
 
-      // -- case r_pickStageDefault (B3): no STAGE saved yet - PICK RUNS hosted in COMPARE
-      //    falls back to the tab's own default, LOCKBOX, like the LEADERBOARD and RUNBOARD. ----
+      // -- case r_pickStageDefault (B3, updated 2026-09-20 - owner moved the default to
+      //    WALK-FORWARD, item 1): no STAGE saved yet - PICK RUNS hosted in COMPARE falls
+      //    back to the tab's own default, WALK-FORWARD, like the LEADERBOARD and RUNBOARD. --
       (function(){
         var call=doRender({c2Screen:'cmp',c2View:'runs',cmpIds:[String(FIX.id)]}, FIX_WIN);
         var r=snap('r_pickStageDefault',call);
         function lit(k){var b=d.querySelector('[data-cmpscope="'+k+'"]');
           return !!(b&&(b.getAttribute('style')||'').indexOf('text4) 55%')>=0);}
-        r.lbLit=lit('lb');r.isLit=lit('all');r.btns=d.querySelectorAll('[data-cmpscope]').length;
+        r.lbLit=lit('lb');r.isLit=lit('all');r.wfLit=lit('wf');r.btns=d.querySelectorAll('[data-cmpscope]').length;
       })();
       // -- case r_zeroTrBlk (repair round): a stretch that TOOK NO TRADES. The engine still
       //    writes profit factor 0, win rate 0 and drawdown 0 on it, and EXPLORE read them as
@@ -2560,14 +2561,22 @@ var FIX = __FIX__;
         dfxCase('dfx_d05',[c],{'the chip is there':!!t,'it names the book rule, pre-lockbox net over drawdown':t.indexOf('pre-lockbox net over drawdown')>=0,
           'it says a KNOB TEST loses unless starred':t.indexOf('KNOB TEST')>=0,'it no longer says highest SCORE':t.indexOf('highest SCORE')<0},{tip:t});})();
 
-      // D06 - the RUNBOARD inside COMPARE with no STAGE saved reads LOCKBOX, not the old tab's SAMPLE
+      // D06 (rewritten 2026-09-20, item 1): the RUNBOARD inside COMPARE with no STAGE saved
+      //    now reads WALK-FORWARD, not LOCKBOX and not the old tab's own SAMPLE pref -
+      //    proved directly: the no-stage render must match an explicit WF render and must
+      //    differ from an explicit LB render.
       (function(){var Z=dfxLbRun(910011,'ZZERO_TR_1_0.py',{trades:0,pnl:0,dd:0,pf:0,win_rate:0,sharpe:null}),N=dfxLbRun(910012,'ZKAPPA_1_0.py',{trades:120,pnl:-250,dd:900,pf:0.9,win_rate:30});
         var W=dfxWin([Z,N]),calls=[],res={};
-        calls.push(doRender({c2Screen:'cmp',c2View:'board',rbSample:'full'},W));
-        res.hostRest=dfxRow('IS $').length;res.hostTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
+        calls.push(doRender({c2Screen:'cmp',c2View:'board'},W));
+        res.hostRest=dfxRow('IS $').length;res.defaultTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'wf'},W));
+        res.wfTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'lb'},W));
+        res.lbTotal=dfxRow('TOTAL').map(function(td){return dfxCell(td).v;});
         calls.push(doRender({cmpMode:'board',rbSample:'full',cmpIds:[Z.id,N.id]},W,'cmp'));res.oldRest=dfxRow('IS $').length;
         dfxCase('dfx_d06',calls,{'hosted, no STAGE saved: no FULL-only row':res.hostRest===0,
-          'hosted: the empty lockbox dashes its TOTAL, as on LOCKBOX':res.hostTotal.indexOf('—')>=0,
+          'hosted with no STAGE saved matches an explicit WALK-FORWARD stage':JSON.stringify(res.defaultTotal)===JSON.stringify(res.wfTotal),
+          'hosted with no STAGE saved differs from LOCKBOX, the old default':JSON.stringify(res.defaultTotal)!==JSON.stringify(res.lbTotal),
           'the old tab still follows its own SAMPLE (FULL)':res.oldRest>0},res);})();
 
       // D07 - Past Runs GROUP view: a book group's champion is its best pre-lockbox net over drawdown, and no 'score NaN'
@@ -3030,7 +3039,7 @@ var FIX = __FIX__;
         var STILLBAD=mkBook(931004,'BOOK: G3F4 STILLBAD',['ORB_3_1_125.py','ENGUQ_1_0.py']);
         var W=dfxWin([LEGAL,FLAGGED,FIXEDFORK,STILLBAD]);
         var calls=[];
-        calls.push(doRender({c2Screen:'cmp',c2View:'board',rbSample:'full'},W));
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full'},W));
         var rbTxt=dfxN(d.body.innerText||'');
         function rbBadged(id){var row=d.querySelector('tr[data-rank-run="'+id+'"]');return !!(row&&/ORB leg/.test(row.textContent||''));}
         var rb={legal:rbBadged(LEGAL.id),flagged:rbBadged(FLAGGED.id),fixedfork:rbBadged(FIXEDFORK.id),stillbad:rbBadged(STILLBAD.id)};
@@ -3812,6 +3821,281 @@ var FIX = __FIX__;
           'ALL-THREE-STRETCHES tick (the default view): MAR is the real whole-run figure, not the old 0.03':res.allMarG==='0.78',
           'ALL-THREE-STRETCHES tick: R / YR matches':res.allRpyG==='53.2R',
           'ALL-THREE-STRETCHES tick: ROC % / YR matches':res.allRocG==='17.0%'
+        },res);
+      })();
+
+      // ═══════════════════════════════════════════════════════════════════════════
+      // WALK-FORWARD RANKING ROUND (2026-09-20, RESEARCH.md item 8): default stage
+      // moves to WALK-FORWARD, a thin walk-forward test (under 30 trades) sinks below
+      // one that cleared the floor but stays above a zero-trade test, a gap chip reads
+      // the crowning score against the walk-forward test, and the lockbox stage carries
+      // a veto note instead of ranking. Cases h1-h14.
+      // ═══════════════════════════════════════════════════════════════════════════
+
+      // -- h1: LEADERBOARD, no STAGE saved -> WALK-FORWARD is the lit default (item 1) --
+      (function(){
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'lead'}, FIX_WIN));
+        function lit(k){var e=d.querySelector('[data-c2stage="'+k+'"]');return !!(e&&e.className==='on');}
+        res.wfOn=lit('wf');res.lbOn=lit('lb');
+        dfxCase('h1_defaultstage_lead',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'no saved STAGE: WALK-FORWARD is lit on the LEADERBOARD':res.wfOn,
+          'LOCKBOX is not lit':!res.lbOn
+        },res);
+      })();
+
+      // -- h2: an explicitly saved LOCKBOX stage still wins - only the default changed --
+      (function(){
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'lead',c2Stage:'lb'}, FIX_WIN));
+        function lit(k){var e=d.querySelector('[data-c2stage="'+k+'"]');return !!(e&&e.className==='on');}
+        res.wfOn=lit('wf');res.lbOn=lit('lb');
+        dfxCase('h2_defaultstage_persists',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'an explicitly saved LOCKBOX stage still wins':res.lbOn,
+          'WALK-FORWARD is not lit once LOCKBOX was explicitly saved':!res.wfOn
+        },res);
+      })();
+
+      // -- h3: CHAMPIONS, no STAGE saved -> WALK-FORWARD is the lit default (item 1) --
+      (function(){
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'champ'}, FIX_WIN));
+        function lit(k){var e=d.querySelector('[data-c2stage="'+k+'"]');return !!(e&&e.className==='on');}
+        res.wfOn=lit('wf');res.lbOn=lit('lb');
+        dfxCase('h3_defaultstage_champions',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'no saved STAGE: WALK-FORWARD is lit on CHAMPIONS':res.wfOn,
+          'LOCKBOX is not lit':!res.lbOn
+        },res);
+      })();
+
+      // shared fixture builder for h5-h9: one walk-forward fold, a controlled trade
+      // count and net so the thin-test floor (under 30 trades) can be aimed exactly.
+      function hWfFold(id,name,tr,net,pf){
+        var x=dfxClone(FIX);x.id=String(id);x.strategy=name;x.starred=false;
+        x.top10_results=[{fold:1,oos_trades:tr,oos_pnl:net,oos_wins:Math.round(tr*0.55),oos_pf:pf,total_pnl:net}];
+        x.multiplier=1;
+        delete x.validate.wf_oos;
+        return x;
+      }
+      // a proper zero-trade walk-forward TEST (not just an empty fold list) needs its own
+      // consistent validate.wf_oos block, matching the g5-sink fixture shape exactly, so
+      // the engine-level zero-trade check (not just an absent test) is what is compared.
+      function hWfZero(id,name){
+        var x=dfxClone(FIX);x.id=String(id);x.strategy=name;x.starred=false;
+        x.top10_results=[{fold:1,oos_trades:0,oos_pnl:0,oos_wins:0,oos_pf:0,total_pnl:0}];
+        x.multiplier=1;
+        x.validate.wf_oos={v:1,trades:0,net:0,wins:0,profit_factor:null,gross_loss:0,n_folds:1,
+          from:'2016-05-02',to:'2025-02-11',years:8.8,max_drawdown:0,sharpe:null,sortino:null,equity:[],
+          folds:[{f:1,from:'2016-05-02',to:'2025-02-11',trades:0,net:0}],fold_idx:[]};
+        return x;
+      }
+
+      // -- h5: LEADERBOARD, rank NET, WF stage - a thin test (15 trades) must sink below a
+      //    run that cleared the 30-trade floor, even though the thin run's raw net is far
+      //    larger. Reuses the g5 zero-trade sink pattern (item 8, RESEARCH.md).
+      (function(){
+        var THIN=hWfFold(960001,'ZTHIN_1_0.py',15,87000,3.0);
+        var CLEAR=hWfFold(960002,'ZCLEAR_1_0.py',40,9000,1.4);
+        var W=dfxWin([THIN,CLEAR]),calls=[],res={};
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'wf'},W));
+        var famRows=d.querySelectorAll('.c2-row[data-c2fam]');
+        res.order=[].map.call(famRows,function(e){return decodeURIComponent(e.getAttribute('data-c2fam'));});
+        var thinIdx=res.order.indexOf('ZTHIN_1_0'),clearIdx=res.order.indexOf('ZCLEAR_1_0');
+        res.thinIdx=thinIdx;res.clearIdx=clearIdx;
+        res.thinBodyHasBigNet=(d.body.innerText||'').indexOf('$87,000')>=0;
+        dfxCase('h5_thin_sinks_below_cleared',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'both families are on the board':thinIdx>=0&&clearIdx>=0,
+          'the run that cleared 30 trades ranks ahead of the 15-trade thin test on NET':clearIdx<thinIdx,
+          'the thin run still prints its real (larger) net rather than a dash':res.thinBodyHasBigNet
+        },res);
+      })();
+
+      // -- h6: a zero-trade walk-forward test must rank below a thin (but traded) one --
+      (function(){
+        var THIN=hWfFold(960003,'ZTHINB_1_0.py',15,-500,0.8);
+        var ZERO=hWfZero(960004,'ZZEROWFB_1_0.py');
+        var W=dfxWin([THIN,ZERO]),calls=[],res={};
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'wf'},W));
+        var famRows=d.querySelectorAll('.c2-row[data-c2fam]');
+        res.order=[].map.call(famRows,function(e){return decodeURIComponent(e.getAttribute('data-c2fam'));});
+        var thinIdx=res.order.indexOf('ZTHINB_1_0'),zeroIdx=res.order.indexOf('ZZEROWFB_1_0');
+        res.thinIdx=thinIdx;res.zeroIdx=zeroIdx;
+        dfxCase('h6_zero_sinks_below_thin',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'both families are on the board':thinIdx>=0&&zeroIdx>=0,
+          'the thin (traded, net -$500) run ranks ahead of the zero-trade ($0) run on NET':thinIdx<zeroIdx
+        },res);
+      })();
+
+      // -- h7: the thin run's expanded row still shows its real figures, with a small mark
+      //    and a hover saying the test is too thin to rank on --
+      (function(){
+        var THIN=hWfFold(960005,'ZTHINC_1_0.py',12,4400,2.1);
+        var W=dfxWin([THIN]),calls=[],res={};
+        var wc=W+"window._c2Open=new Set(['ZTHINC_1_0']);";
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'wf'},wc));
+        res.bodyText=d.body.innerText||'';
+        res.hasRealNet=res.bodyText.indexOf('$4,400')>=0;
+        res.hasThinWord=res.bodyText.toLowerCase().indexOf('thin test')>=0;
+        var markEl=[].filter.call(d.querySelectorAll('[title]'),function(e){
+          return /took only 12 trade/i.test(e.getAttribute('title')||'');})[0];
+        res.markTitle=markEl?markEl.getAttribute('title'):null;
+        dfxCase('h7_thin_shows_figures_and_mark',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the thin run still prints its real net, not a dash':res.hasRealNet,
+          'a "thin test" mark is shown':res.hasThinWord,
+          'the mark hover names the exact trade count and the 30-trade floor':!!res.markTitle&&res.markTitle.indexOf('30')>=0
+        },res);
+      })();
+
+      // -- h8: the comparison table (PICK RUNS/CHAMPIONS) never gives a thin test the best
+      //    mark, even when its raw NET is the larger of the two picked runs --
+      (function(){
+        var THIN=hWfFold(960006,'ZTHIND_1_0.py',10,120000,4.0);
+        var CLEAR=hWfFold(960007,'ZCLEARD_1_0.py',35,6000,1.3);
+        var W=dfxWin([THIN,CLEAR]),calls=[],res={};
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',cmpIds:[THIN.id,CLEAR.id],c2Stage:'wf'},W));
+        var bestSpans=[].map.call(d.querySelectorAll('span[title="best of the picked runs on this row"]'),
+          function(s){return (s.textContent||'').trim();});
+        res.bestSpans=bestSpans;
+        res.thinNeverBest=bestSpans.indexOf('$120,000')<0;
+        res.clearIsBestSomewhere=bestSpans.indexOf('$6,000')>=0;
+        dfxCase('h8_thin_never_bestmark',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the thin run (bigger raw NET) never takes the best mark':res.thinNeverBest,
+          'the run that cleared the floor takes a best mark somewhere':res.clearIsBestSomewhere
+        },res);
+      })();
+
+      // -- h9: the thin-test floor is a WALK-FORWARD-only rule - the same run on the
+      //    LOCKBOX stage carries no thin mark and is not sunk --
+      (function(){
+        var THIN=hWfFold(960008,'ZTHINE_1_0.py',10,500,1.2);
+        THIN.validate.lockbox=Object.assign({},THIN.validate.lockbox,{trades:200,pnl:5000,pf:1.3,win_rate:35,pass:true});
+        var W=dfxWin([THIN]),calls=[],res={};
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'lb'},W));
+        res.bodyText=d.body.innerText||'';
+        res.hasThinWordOnLb=res.bodyText.toLowerCase().indexOf('thin test')>=0;
+        res.hasLbNet=res.bodyText.indexOf('$5,000')>=0;
+        dfxCase('h9_thin_floor_only_on_wf',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'on LOCKBOX the same run carries no thin-test mark':!res.hasThinWordOnLb,
+          'its LOCKBOX net prints normally':res.hasLbNet
+        },res);
+      })();
+
+      // shared fixture builder for h10-h12 (gap chip): a run with BOTH the crowning score
+      // (gate_validate.ungated_wf) and the walk-forward test (validate.wf_oos), pooled
+      // trades/net kept consistent with FIX's own 8 folds so the engine's own consistency
+      // check accepts the test.
+      function hGapRun(id,name,fixedPf,retunedPf,dropWfOos,dropCrown){
+        var x=dfxClone(FIX);x.id=String(id);x.strategy=name;x.starred=false;
+        if(dropCrown){delete x.gate_validate;delete x.ml_gate;}
+        else{x.gate_validate.ungated_wf=Object.assign({},x.gate_validate.ungated_wf,{profit_factor:fixedPf,num_trades:1895,total_pnl:12169.71});}
+        var folds=x.top10_results.filter(function(f){return f&&f.fold!=null;});
+        var sT=folds.reduce(function(a,f){return a+(+f.oos_trades||0);},0);
+        var sN=folds.reduce(function(a,f){return a+(+f.oos_pnl||0);},0);
+        if(!dropWfOos){
+          x.validate.wf_oos={v:1,trades:sT,net:sN,wins:300,profit_factor:retunedPf,gross_loss:1,n_folds:folds.length,
+            from:'2016-05-02',to:'2025-02-11',years:8.8,max_drawdown:-500,sharpe:1.1,sortino:1.5,
+            equity:folds.map(function(_,i){return (i+1)*100;}),
+            folds:folds.map(function(f){return {f:f.fold,from:'2016-05-02',to:'2025-02-11',trades:f.oos_trades,net:f.oos_pnl};}),
+            fold_idx:folds.map(function(_,i){return i;})};
+        }else{delete x.validate.wf_oos;}
+        return x;
+      }
+
+      // -- h10: the gap chip reads (fixed - retuned) / fixed as a percentage of the
+      //    crowning score, on the leaderboard's expanded run row --
+      (function(){
+        var G=hGapRun(960020,'ZGAP_1_0.py',1.50,1.20,false,false);
+        var W=dfxWin([G]),calls=[],res={};
+        var wc=W+"window._c2Open=new Set(['ZGAP_1_0']);";
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'wf'},wc));
+        var chip=[].filter.call(d.querySelectorAll('.c2-pill'),function(e){return /^gap /i.test((e.textContent||'').trim());})[0];
+        res.chipText=chip?(chip.textContent||'').trim():null;
+        res.chipTitle=chip?chip.getAttribute('title'):null;
+        dfxCase('h10_gapchip_percent',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'a gap chip is shown':!!chip,
+          'the chip reads gap 20% ((1.50-1.20)/1.50)':res.chipText==='gap 20%',
+          'the hover names the crowning score as 20% above the walk-forward test':!!res.chipTitle&&res.chipTitle.indexOf('20%')>=0&&res.chipTitle.indexOf('above')>=0&&res.chipTitle.indexOf('walk-forward test')>=0
+        },res);
+      })();
+
+      // -- h11: a pinned run (fixed PF === re-tuned PF) shows 'same reading', never 'gap 0%' --
+      (function(){
+        var G=hGapRun(960021,'ZGAPPIN_1_0.py',1.35,1.35,false,false);
+        var W=dfxWin([G]),calls=[],res={};
+        var wc=W+"window._c2Open=new Set(['ZGAPPIN_1_0']);";
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'wf'},wc));
+        var pills=[].map.call(d.querySelectorAll('.c2-pill'),function(e){return (e.textContent||'').trim();});
+        res.pills=pills;
+        res.hasSame=pills.indexOf('same reading')>=0;
+        res.hasZeroPct=pills.indexOf('gap 0%')>=0;
+        dfxCase('h11_gapchip_pinned_equal',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the chip says same reading, not a number':res.hasSame,
+          'it never shows gap 0%':!res.hasZeroPct
+        },res);
+      })();
+
+      // -- h12: only one of the two readings saved -> no gap chip at all --
+      (function(){
+        var G=hGapRun(960022,'ZGAPMISS_1_0.py',1.50,1.20,true,false);
+        var W=dfxWin([G]),calls=[],res={};
+        var wc=W+"window._c2Open=new Set(['ZGAPMISS_1_0']);";
+        calls.push(doRender({c2Screen:'lead',c2Rank:'net',c2Stage:'wf'},wc));
+        var pills=[].map.call(d.querySelectorAll('.c2-pill'),function(e){return (e.textContent||'').trim();});
+        res.pills=pills;
+        res.hasGapWord=pills.some(function(t){return /^gap /i.test(t)||t==='same reading';});
+        dfxCase('h12_gapchip_missing_reading',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'no gap chip shows when the walk-forward test was not saved':!res.hasGapWord
+        },res);
+      })();
+
+      // -- h13: LOCKBOX is framed as a veto, not a ranking, on the LEADERBOARD and on
+      //    PICK RUNS/CHAMPIONS - present on the LOCKBOX stage, absent elsewhere --
+      (function(){
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'lead',c2Stage:'lb'}, FIX_WIN));
+        var noteLb=d.querySelector('.c2-note');
+        res.leadLbNote=noteLb?(noteLb.textContent||''):'';
+        calls.push(doRender({c2Screen:'lead',c2Stage:'wf'}, FIX_WIN));
+        var noteWf=d.querySelector('.c2-note');
+        res.leadWfNote=noteWf?(noteWf.textContent||''):'';
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',cmpIds:[String(FIX.id)],c2Stage:'lb'}, FIX_WIN));
+        var notePick=d.querySelector('.c2-note');
+        res.pickLbNote=notePick?(notePick.textContent||''):'';
+        function saysVeto(t){return t.indexOf('one look')>=0&&t.indexOf('11%')>=0&&t.indexOf('half the time')>=0;}
+        dfxCase('h13_lockbox_veto_note',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'LEADERBOARD, LOCKBOX stage: the veto note is there':saysVeto(res.leadLbNote),
+          'LEADERBOARD, WALK-FORWARD stage: no veto note':!saysVeto(res.leadWfNote),
+          'PICK RUNS, LOCKBOX stage: the veto note is there too':saysVeto(res.pickLbNote)
+        },res);
+      })();
+
+      // -- h14: the RUNBOARD carries the same veto wording in its info hover on LOCKBOX --
+      (function(){
+        var calls=[],res={};
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'lb'}, FIX_WIN));
+        var pops=[].map.call(d.querySelectorAll('[data-infopop]'),function(e){
+          try{return decodeURIComponent(e.getAttribute('data-infopop'));}catch(_){return '';}});
+        res.lbPop=pops.filter(function(t){return t.indexOf('one look')>=0;})[0]||'';
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'wf'}, FIX_WIN));
+        var popsWf=[].map.call(d.querySelectorAll('[data-infopop]'),function(e){
+          try{return decodeURIComponent(e.getAttribute('data-infopop'));}catch(_){return '';}});
+        res.wfHasVeto=popsWf.some(function(t){return t.indexOf('one look')>=0&&t.indexOf('pass-or-fail')>=0;});
+        dfxCase('h14_lockbox_veto_runboard',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'RUNBOARD info hover on LOCKBOX names the veto (one look, 11%, half the time)':res.lbPop.indexOf('11%')>=0&&res.lbPop.indexOf('half the time')>=0,
+          'the same hover on WALK-FORWARD does not carry the veto wording':!res.wfHasVeto
         },res);
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
@@ -5200,11 +5484,13 @@ def main(argv=None):
     if not ok:
         fail('r_champBooks: see the r_champBooks line')
 
-    # case r_pickStageDefault (B3): hosted PICK RUNS with no STAGE saved reads LOCKBOX
+    # case r_pickStageDefault (B3, updated 2026-09-20): hosted PICK RUNS with no STAGE
+    # saved now reads WALK-FORWARD (item 1) - LOCKBOX is no longer the default.
     r = cases.get('r_pickStageDefault', {})
     ck = {
         'renders OK': r.get('call') == 'OK',
-        'LOCKBOX is lit': bool(r.get('lbLit')),
+        'WALK-FORWARD is lit': bool(r.get('wfLit')),
+        'LOCKBOX is not lit': not r.get('lbLit'),
         'IN-SAMPLE is not lit': not r.get('isLit'),
     }
     ok = all(ck.values())
@@ -5838,7 +6124,14 @@ def main(argv=None):
            # g5 (repair round): F4 Gate-Validate job headline money
            'g5_gv', 'g5_bookis', 'g5_archpick', 'g5_wfrange',
            # g6 (repair round): Gate-Validate job in-sample years for MAR / R per YR / ROC % per YR
-           'g6_gvisyrs', 'g6_gvexplore']
+           'g6_gvisyrs', 'g6_gvexplore',
+           # h1-h14 (2026-09-20): WALK-FORWARD default stage, thin-test floor, gap chip,
+           # and the lockbox veto note (RESEARCH.md item 8)
+           'h1_defaultstage_lead', 'h2_defaultstage_persists', 'h3_defaultstage_champions',
+           'h5_thin_sinks_below_cleared', 'h6_zero_sinks_below_thin', 'h7_thin_shows_figures_and_mark',
+           'h8_thin_never_bestmark', 'h9_thin_floor_only_on_wf',
+           'h10_gapchip_percent', 'h11_gapchip_pinned_equal', 'h12_gapchip_missing_reading',
+           'h13_lockbox_veto_note', 'h14_lockbox_veto_runboard']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}

@@ -120,7 +120,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       return {id:tr.getAttribute('data-run'),cells:tds.map(function(td){return (td.innerText||'').replace(/\s+/g,' ').trim();}),titles:tds.map(function(td){return td.getAttribute('title')||'';})};});}
     function kpi(){var t=q('table').filter(function(t){var h=t.querySelector('thead');return h&&/METRIC/.test(h.innerText)&&/TOTAL/.test(h.innerText);})[0];
       if(!t)return null;var head=Array.prototype.map.call(t.querySelectorAll('thead th'),function(x){return (x.innerText||'').replace(/\s+/g,' ').trim();});
-      var o={head:head,col:{},cell:{},title:{}};head.forEach(function(h,i){var m=h.match(/^(IS|WF|LB|TOTAL)/);if(m)o.col[m[1]]=i;});
+      var o={head:head,col:{},cell:{},title:{}};head.forEach(function(h,i){var m=h.match(/^(IS|WF|LB|TOTAL)/);if(m)o.col[m[1]]=i;else if(/^(CROWNING SCORE|WALK-FORWARD TEST|POOLED RE-TUNED FOLDS)/.test(h))o.col.WF=i;});
       Array.prototype.forEach.call(t.querySelectorAll('tbody tr'),function(tr){var tds=tr.children;if(tds.length<2)return;var lbl=(tds[0].innerText||'').trim();
         o.cell[lbl]=Array.prototype.map.call(tds,function(td){return (td.innerText||'').trim();});
         o.title[lbl]=Array.prototype.map.call(tds,function(td){var s=td.querySelector('[title]');return s?s.getAttribute('title'):'';});});
@@ -129,7 +129,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     function kt(K,lbl,col){return (K&&K.title[lbl]&&K.col[col]!=null)?K.title[lbl][K.col[col]]:null;}
     // the hover on one 1E column heading (the heading says where each figure in that column came from)
     function kpiHeadTip(col){var t=q('table').filter(function(t){var h=t.querySelector('thead');return h&&/METRIC/.test(h.innerText)&&/TOTAL/.test(h.innerText);})[0];
-      if(!t)return '';var th=Array.prototype.slice.call(t.querySelectorAll('thead th')).filter(function(x){return new RegExp('^'+col+'\\b').test(norm(x.textContent));})[0];
+      if(!t)return '';var pat=(col==='WF')?/^(WF|CROWNING SCORE|WALK-FORWARD TEST|POOLED RE-TUNED FOLDS)\b/:new RegExp('^'+col+'\\b');var th=Array.prototype.slice.call(t.querySelectorAll('thead th')).filter(function(x){return pat.test(norm(x.textContent));})[0];
       return th?(th.getAttribute('title')||''):'';}
     // one chip under the 1C walk-forward curve, by its label
     function chipOf(lbl){var e=q('[data-wfochips] span').filter(function(x){return norm(x.textContent).indexOf(lbl+' ')===0;})[0];
@@ -255,14 +255,14 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     var LBv=FIXW.validate.lockbox||{};
     A('R7 1E exact LB Sortino follows the lockbox strip','NOREG',kc(K,'SORTINO','LB')===(+LBv.sortino).toFixed(2)&&kc(K,'SHARPE','LB')===(+LBv.sharpe).toFixed(2),'LB '+kc(K,'SHARPE','LB')+'/'+kc(K,'SORTINO','LB'));
     A('R8 1E exact TOTAL Sharpe / Sortino unchanged','NOREG',kc(K,'SHARPE','TOTAL')===(+FIXW.validate.total_sharpe).toFixed(2)&&kc(K,'SORTINO','TOTAL')===(+FIXW.validate.total_sortino).toFixed(2),'TOTAL '+kc(K,'SHARPE','TOTAL')+'/'+kc(K,'SORTINO','TOTAL'));
-    var pill=q('span[title]').map(function(e){return e.getAttribute('title');}).filter(function(t){return t.indexOf('walk-forward PROCEDURE result')>=0;})[0]||'';
-    A('R9 WF OOS pill: fold count + the block','NEW',pill.indexOf(FL.length+' folds')>=0&&pill.indexOf('see 1C for the curve')>=0&&pill.indexOf('PF '+(+B.profit_factor).toFixed(2))>=0&&pill.indexOf('eight folds')<0,pill);
+    var pill=q('span[title]').map(function(e){return e.getAttribute('title');}).filter(function(t){return t.indexOf('each re-picking its OWN best config')>=0;})[0]||'';
+    A('R9 WF TEST pill: fold count + the block','NEW',pill.indexOf(FL.length+' folds')>=0&&pill.indexOf('see 1C for the curve')>=0&&pill.indexOf('PF '+(+B.profit_factor).toFixed(2))>=0&&pill.indexOf('eight folds')<0,pill);
     var mtEx=infopops(/Three sections/);
-    A('R10 1E info text on the exact path','NEW',mtEx.length>=1&&mtEx.every(function(t){return t.indexOf('champion held constant over the walk-forward years')>=0;}),JSON.stringify(mtEx.map(function(t){return t.slice(0,140);})));
+    A('R10 1E info text on the exact path','NEW',mtEx.length>=1&&mtEx.every(function(t){return t.indexOf('crowned settings held constant over the walk-forward years')>=0;}),JSON.stringify(mtEx.map(function(t){return t.slice(0,140);})));
     var mtExact=mtEx[0]||'';
     var knetW=K&&K.cell['NET P&L']?K.cell['NET P&L'].join('|'):'';
     var tipEx=testTip();
-    A('R10b walk-forward test label hover, exact path: a separate reading from the champion columns, never in TOTAL','NEW',tipEx.indexOf('never added into TOTAL')>=0&&tipEx.indexOf('holds the champion constant')>=0,tipEx);
+    A('R10b walk-forward test label hover, exact path: a separate reading from the champion columns, never in TOTAL','NEW',tipEx.indexOf('never added into TOTAL')>=0&&tipEx.indexOf('holds the crowned settings constant')>=0,tipEx);
     var chipTc=q('[data-wfochips]').map(function(e){return norm(e.textContent);}).join(' || ');
     A('R1b chips read apart as plain text (a space between chips)','NEW',chipTc.indexOf('NET '+fmtUsd(sN*M)+' PF ')>=0&&chipTc.indexOf('TRADES '+(+B.trades).toLocaleString()+' ')>=0,chipTc);
 
@@ -361,7 +361,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       'DD '+kc(KB,'DD','WF')+' title='+kt(KB,'DD','WF')+' SH '+kc(KB,'SHARPE','WF'));
 
     var cB=render({},[lite(FIXB)],[full(FIXB)],FIXB.id); clean('base',cB);
-    var pillB=q('span[title]').map(function(e){return e.getAttribute('title');}).filter(function(t){return t.indexOf('walk-forward PROCEDURE result')>=0;})[0]||'';
+    var pillB=q('span[title]').map(function(e){return e.getAttribute('title');}).filter(function(t){return t.indexOf('each re-picking its OWN best config')>=0;})[0]||'';
     A('R16 run saved before the block: no curve, the reason, fold count on the pill','NEW',q('[data-wfocurve]').length===0&&txt('[data-wfowhy]').join(' ').indexOf('No walk-forward curve — this run was saved before walk-forward detail was recorded')>=0&&pillB.indexOf(FL.length+' folds')>=0,
       'why='+txt('[data-wfowhy]').join(' | ')+' pill='+pillB.slice(0,80));
     var KB2=kpi(),knetB=KB2&&KB2.cell['NET P&L']?KB2.cell['NET P&L'].join('|'):'';
@@ -514,7 +514,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       '1E '+kc(KL2,'MAR','WF')+' chip '+marL+' heading='+tipL.slice(-200));
 
     // ...and the PARALLEL view of the same table reads the same years, or draws no point at all
-    var pTip=function(ph,ax){var t=tips().filter(function(t){return t.indexOf('<b>'+ph+'</b>')===0&&t.indexOf(' '+ax+'<br>')>0;})[0]||'';
+    var pTip=function(ph,ax){var nms=(ph==='WF')?['WF','CROWNING SCORE','WALK-FORWARD TEST','POOLED RE-TUNED FOLDS']:[ph];var t=tips().filter(function(t){return nms.some(function(n){return t.indexOf('<b>'+n+'</b>')===0;})&&t.indexOf(' '+ax+'<br>')>0;})[0]||'';
       var m=t.match(/<br><b>([^<]*)<\/b>/);return m?m[1]:null;};
     var cPar=render({mtxView:'parallel'},[lite(fLg)],[full(fLg)],FIXW.id); clean('legacy-parallel',cPar);
     var parMar=pTip('WF','MAR'),parRpy=pTip('WF','R / YR');
@@ -528,7 +528,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     var ttl=function(K,l){return (kt(K,l,'WF')||'');};
     A('F4 legacy WF with the block: heading, info text, the 1C label and every cell name one source per figure','NEW',
       tipL.indexOf('NET and TRADES are pooled across the fold rows')>=0
-      &&tipL.indexOf('PF and WIN % come from the saved walk-forward test when the run has one')>=0
+      &&tipL.indexOf('PF, WIN %, SHARPE and SORTINO come from that saved, joined test')>=0
       &&tipL.indexOf('NET, PF, WIN % and TRADES are pooled')<0
       &&mtL.indexOf('its PF and win % as well')>=0&&mtL.indexOf('stay pooled across the fold rows')>=0
       &&tstL.indexOf('PF and win % all come from here')>=0
@@ -540,7 +540,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     var KB3=kpi(),tipB=kpiHeadTip('WF');
     A('F4b legacy WF without the block: PF and WIN % say they are pooled, and the heading says the same','NEW',
       ttl(KB3,'PF').indexOf('pooled across the fold rows')>=0&&ttl(KB3,'WIN %').indexOf('pooled across the fold rows')>=0
-      &&ttl(KB3,'PF').indexOf('saved walk-forward test')<0&&tipB.indexOf('are pooled across the fold rows when it does not')>=0,
+      &&ttl(KB3,'PF').indexOf('saved walk-forward test')<0&&tipB.indexOf('PF, WIN % pooled the same way when no saved test overrides them')>=0,
       'PF cell='+ttl(KB3,'PF')+' || WIN % cell='+ttl(KB3,'WIN %')+' || heading='+tipB.slice(0,200));
 
     // ── Past Runs (projected rows only) ─────────────────────────────────────────────────
@@ -1154,7 +1154,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     //    over those years). The RUNBOARD WF grid reads the first while calling itself 1E; it now says
     //    so. And with no saved test curve to draw, its funnel (and the hosted PICK RUNS chart) no
     //    longer claims the runs saved no equity curve and should be re-run.
-    var R6SRC='WF here is the walk-forward test: every fold re-tuned on its own past, its unseen trades joined in fold order. These are the figures the run report shows in its 1C WALK-FORWARD TEST chips and on its WF OOS pill - not its 1E WF column, which holds the champion fixed over those years and so reads different numbers.';
+    var R6SRC='WF here is the walk-forward test: every fold re-tuned on its own past, its unseen trades joined in fold order. These are the figures the run report shows in its 1C WALK-FORWARD TEST chips and on its WF TEST pill - not its 1E CROWNING SCORE column, which holds the crowned settings fixed over those years and so reads different numbers.';
     var R6EVOLD='EV = expected value: average net dollars per trade over the window this band names - net and trade count both read on that same window. The run-report 1E card carries the same row under the same name; it used to be called $ / TRADE.';
     function r6Caps(){return q('td[colspan]').map(function(td){var s=td.querySelector('[title]');
       return {v:norm(td.textContent),t:s?(s.getAttribute('title')||''):''};}).filter(function(o){return /^(return|reward ÷ risk) · /.test(o.v);});}
@@ -1523,8 +1523,8 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       return clean2(c)?(q('th[data-resort="rpy"]').map(function(e){return e.getAttribute('title')||'';})[0]||''):'(render)';}
     var H33w=h33(['wf']),H33l=h33(['lb']),H33a=h33(['is','wf','lb']);
     A('DX33 EXPLORE R / YR heading: the 1E matrix claim only on LOCKBOX alone; WALK-FWD alone names the walk-forward test','NEW',
-      H33l.indexOf('The same figure the run report 1E matrix prints.')>=0&&H33w.indexOf('1E matrix prints')<0&&H33w.indexOf('not its 1E WF column')>=0
-      &&H33a.indexOf('1E matrix prints')<0&&H33a.indexOf('1E WF column')<0,
+      H33l.indexOf('The same figure the run report 1E matrix prints.')>=0&&H33w.indexOf('1E matrix prints')<0&&H33w.indexOf('not its 1E CROWNING SCORE column')>=0
+      &&H33a.indexOf('1E matrix prints')<0&&H33a.indexOf('1E CROWNING SCORE column')<0,
       'WF '+H33w.slice(-120)+' | LB has claim '+(H33l.indexOf('1E matrix prints')>=0)+' | all three has claim '+(H33a.indexOf('1E matrix prints')>=0));
 
     delete out._v;
