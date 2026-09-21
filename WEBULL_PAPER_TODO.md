@@ -15,7 +15,7 @@ done.
 | 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
 | 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **FIX LIVE** (cloud box, 2026-09-21 11:57 ET) | nothing; after-close check pending; do NOT buy the 10 QQQ by hand |
-| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **STEP 1 QUEUED** (2026-09-21) | nothing until the bake-off result; twin beside raw NOISE chosen |
+| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **NOISE FAILED STEP 1** (run #408, 2026-09-21) | test ORB #314 next, or close the item |
 
 ---
 
@@ -351,13 +351,32 @@ refused by Webull, and the books read flat after the close (broker 0 = sent 0 fo
 
 ## 6. ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q)
 
-**Status: STEP 1 QUEUED 2026-09-21** (owner: "go, run it as a twin beside NOISE") with
+**Status: NOISE FAILED STEP 1 - nothing built (run #408, 2026-09-21 15:27 ET).** Result below; the owner
+decides whether ORB #314 gets the same one-job test or the item closes. Step 1 was queued
+2026-09-21 (owner: "go, run it as a twin beside NOISE") with
 `tools/queue_noise304_gate_validate.py --queue`; the result lands as a run in PAST RUNS and is judged
 against the pre-registered pass below before anything else is built. Asked 2026-09-21 (owner: "yes plan the ML
 for webull, start with NOISE"), after learning the Webull book trades all three crowns with NO ML filter:
 the owner's 2026-09-01 plan was the ML configs, but the filters were never refit when the crowns changed
 (2026-09-05..08) and the cloud signal engine went live without them. Step 1 is a pass/fail test; nothing
 is built for the cloud unless the filter passes it.
+
+**STEP 1 RESULT - FAIL (run #408, job BZWazqipZT9tvUEGO9n1, pinned to run #304; points x $20).**
+The engine chose a LOGISTIC filter at the 45% cut-off (selection rule: net $ within 80% of the best
+pre-held-out MAR). Against the pre-registered money rule:
+- 15-year walk-forward stretch (2010-08..2025-08; the filter refits every 25 trades on past trades
+  only): filtered $347,398 vs plain $350,650 - $3,252 LESS money, with a slightly smaller drawdown
+  ($15,775 vs $16,917) and a higher PF (1.41 vs 1.37). That is a drawdown dial, not an upgrade.
+- Held-out year (2025-08..2026-08): filtered $65,994 vs plain $62,605 (+$3,389), same drawdown - but
+  it skipped only 6 of 288 trades, so the gain is noise-sized.
+- Resizing (hybrid) versions at the same 45% floor, judged at equal drawdown: every one made LESS
+  money than plain NOISE in the held-out year (logistic $50,115, rf $48,063, et $55,725, tree
+  $38,109, xgb $1,436 vs plain $62,605), even though four of them led in the 15-year stretch.
+- The run report shows the engine's green "LOCKBOX HELD" chip: that grades money-per-drawdown in the
+  held-out year only (2.69 vs 2.55). The rule fixed before the run needs more MONEY in both
+  stretches, so NOISE fails. No other candidate is picked from the hindsight numbers - that would
+  be shopping.
+Consequence: plain NOISE keeps trading on Webull; no model file, no cloud scorer, no NOISE-ML leg.
 
 **Where things stand (read-only research, 2026-09-21).**
 - No ML filter has ever been built or tested on NOISE's current crown, run #304 (`NOISE_1_1_NBHD.py`,
