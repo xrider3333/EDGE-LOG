@@ -666,6 +666,15 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 # false when the point of the run is to grade a neighbourhood rather than
                 # to discover one (run #381 widened 13 params and crowned impossible values).
                 auto_expand=bool(job.get("auto_expand", True)),
+                # WARM STARTS (RESEARCH.md item 7, live 2026-09-20). Every stretch a
+                # validate SCORES out of sample -- each walk-forward fold's test leg,
+                # Stage A's 25% split, the lockbox -- now runs from this many trading
+                # sessions BEFORE it opens, keeping only the trades that ENTER inside
+                # it. It reads nothing from after a stretch's own end, so it adds no
+                # look-ahead; it removes the blind opening stretch that used to cost a
+                # 250-day trend filter 86% of its fold trades. Put "warm_days": 0 on a
+                # job to reproduce an older run exactly.
+                warm_days=int(job.get("warm_days", ae.auto.WARM_DAYS)),
                 progress_cb=progress_cb)
         elif jtype == "book":
             # BOOK (RUNBOARD item B): N strategy files traded side by side over ONE window,

@@ -27,9 +27,12 @@ module-level here and importable by name.
 _W = {}
 
 
-def init_worker(strategy, master, date_from, date_to, arrays, cost_pts, session):
+def init_worker(strategy, master, date_from, date_to, arrays, cost_pts, session,
+                warm_days=0):
     """Pool initializer: one evaluator per worker process, built the way run_auto builds
-    its own. `arrays` is None when the worker should reload from `master`."""
+    its own. `arrays` is None when the worker should reload from `master`. `warm_days`
+    (RESEARCH.md item 7) is handed straight to make_slice_evaluator so a worker's fold
+    warms up exactly like the in-line loop's does; 0 keeps the old behaviour."""
     from .strategies import load_strategy
     from .data import load_master_arrays
     from . import trial_cache as TC
@@ -44,7 +47,9 @@ def init_worker(strategy, master, date_from, date_to, arrays, cost_pts, session)
                                date_from=date_from, date_to=date_to, master=master)
         except Exception:
             ctx = None          # cache off for this worker; numbers are unaffected
-    _W["ev"] = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=ctx)
+    _W["ev"] = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=ctx,
+                                    warm_days=int(warm_days or 0))
+    _W["warm"] = int(warm_days or 0) > 0
     _W["H"], _W["L"] = arrays["high"], arrays["low"]
     _W["IDX"] = arrays.get("index")
     _W["cost_pts"] = float(cost_pts or 0.0)
@@ -52,10 +57,14 @@ def init_worker(strategy, master, date_from, date_to, arrays, cost_pts, session)
 
 def fold_task(spec):
     """One fold. spec = (f, tr_start, tr_end, te_s, te_e, space, dp, pkeys, seed,
-    n_trials, min_trades). Returns (f, row-or-None)."""
+    n_trials, min_trades[, warm_days]). Returns (f, row-or-None). The trailing
+    warm_days is optional so a spec built by older code (the tests build them by hand)
+    still runs, cold, exactly as it did."""
     from .auto import _wf_fold_row
-    f, tr_start, tr_end, te_s, te_e, space, dp, pkeys, seed, n_trials, min_trades = spec
+    (f, tr_start, tr_end, te_s, te_e, space, dp, pkeys, seed, n_trials,
+     min_trades) = spec[:11]
+    warm = bool(int(spec[11])) if len(spec) > 11 else bool(_W.get("warm"))
     row = _wf_fold_row(_W["ev"], _W["H"], _W["L"], space, dp, pkeys, seed, n_trials,
                        min_trades, _W["cost_pts"], f, tr_start, tr_end, te_s, te_e,
-                       index=_W.get("IDX"))
+                       index=_W.get("IDX"), warm=warm)
     return f, row

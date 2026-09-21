@@ -62,13 +62,51 @@ section. Data and scripts: see §5.
 | 4 | "Months until trustworthy" per crown (minimum track-record length) + a lockbox **looks counter** per run/family | §2.4; Bailey & López de Prado (2012), Dwork et al. (2015) | Small: compute from saved fields, two pills | OPEN |
 | 5 | Lockbox **36 months for everything**, warm-started, one look, veto only (supersedes the 24 / 36-for-slow-legs split proposed in the second dive) | §2.4, §2.6; and the second dive's own note that 36 for everything is defensible because the tuning cost is zero | Engine parameter + re-judging | OPEN — owner leaning 36 (2026-09-20); test via item 9 |
 | 6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
-| 7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | OPEN |
+| 7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | **SHIPPED 2026-09-20** — see §3b |
 | 8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | **DECIDED 2026-09-20** (owner: rank on the re-tuned test). Being built now by the COMPARE session; the walk-forward relabel (F14) is unblocked. Rank metric stays return-per-year for now - profit-factor-first is still an owner call |
 | 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | **OWNER ORDERED 2026-09-20: run the 24-month arm** (see 3b for the catch); propose the 36-month arm alongside. Otherwise run AFTER item 7, or read the gain as an upper bound: going 12 to 24 to 36 months recovers cold-start trades as well as adding calendar, and the two effects are not separable while folds still start cold |
 | 10 | Drop or correct the Stage A.5 crowning step (crown from the tuning search; then the fixed reading after the search's data ends is a clean test) | §2.3 | Small (crown rule); reverses the 2026-07-20 decision | OPEN |
 | 11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
 | 12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after items 2 and 7 | PARKED |
 | 13 | Fix the daily dip family's fold reproduction (0 of 8 against the engine's own saved folds, §5) | Nothing in items 1–11 can judge a family whose folds do not reproduce | ~half a day of engine debugging | OPEN |
+
+---
+
+## 3b. Item 7 — warm starts, shipped 2026-09-20
+
+**What changed.** Every stretch a validate SCORES out of sample now runs from 300 trading
+sessions before it opens, keeping only the trades that ENTER inside the stretch: each
+walk-forward fold's test leg, Stage A's 25% split, the lockbox, and every candidate carried
+into the lockbox. Training windows are untouched — an anchored fold already trains from the
+first bar, and warming a rolling fold's TRAINING window would change which config is picked,
+which is a different question and is not part of this.
+
+**Why it cannot leak.** A warmed stretch still ends exactly where it always did, so nothing
+after its own end is read. A test pins this directly: rewrite every bar after the stretch and
+the warmed result does not move.
+
+**Why 300 sessions and not all history.** The longest look-back in the book is a 250-day
+trend filter, so 300 covers every strategy we run with headroom, and it costs one pass over
+the warm-up bars per scored stretch instead of a pass over the whole history. Measured
+against warming from the first bar (the 2026-09-15 audit's own method) the two agree to the
+dollar on all four legs checked.
+
+**Verification** (`tools/warm_start_parity.py`, engine path vs the independent 2026-09-15
+implementation, per fold):
+
+| Leg | Cold trades / net | Warm trades / net | Cold start cost | Engine vs audit |
+|---|---|---|---|---|
+| QQQ RSI2, 250-day trend | 28 / $18,962 | 191 / $124,675 | 85% of its trades | exact |
+| GLD N-day low, 125-day trend | 54 / $44,789 | 97 / $65,051 | 44% | exact |
+| NOISE crown #304 | 2,402 / 12,188 pts | 2,812 / 16,468 pts | 15% | exact |
+| ORB crown #234 (control) | 1,457 / 15,534 pts | 1,448 / 15,417 pts | none (−1%) | exact |
+
+**What it does NOT do.** It does not re-judge anything by itself. Every stored verdict was
+formed on cold folds and a cold lockbox; the daily long-trend failures (NQDIP 1.1, the ETF
+stack's walk-forward efficiency) stay on the books until those runs are re-run.
+
+**Opting out.** `warm_days: 0` on a job reproduces a pre-2026-09-20 run exactly. Each saved
+run records the setting it used, so cold and warm runs stay distinguishable.
 
 ---
 

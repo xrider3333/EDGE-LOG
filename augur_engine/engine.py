@@ -54,6 +54,78 @@ def _apply_costs(m, cost_pts):
     return out
 
 
+def keep_trades_entering_at_or_after(m, first_idx, rebase=True):
+    """WARM-START SUPPORT (RESEARCH.md item 7). Given a metrics dict from a backtest
+    run over a slice that STARTS EARLIER than the stretch we want to score, keep only
+    the trades whose ENTRY bar lands at or after `first_idx` and re-derive the metrics
+    from them.
+
+    WHY. Every walk-forward test fold and the lockbox used to be run on their own bars
+    only, so a strategy with a long look-back spent the first part of every slice
+    unable to trade at all: a 250-day trend filter lost 86% of its fold trades and the
+    whole family then failed on walk-forward efficiency for a reason that was an
+    artifact of the measurement (tools/wf_coldstart_audit.py, 2026-09-15). Running the
+    same fixed config from earlier bars and then DROPPING the trades that entered
+    before the stretch begins measures the stretch with the indicators already warm,
+    and uses no information from after the stretch's own end.
+
+    `first_idx` is in the coordinates of the slice `m` was produced on. With
+    `rebase=True` the surviving trades' entry/exit bar indices are shifted so that
+    `first_idx` becomes 0 — i.e. they come back in the coordinates of the stretch
+    itself, so callers that index bar arrays by trade index (mae_mfe and friends) need
+    no change.
+
+    The arithmetic is deliberately the same as `_apply_costs` above (trade-level
+    cumulative drawdown, profit factor from gross win / gross loss); tests pin the two
+    against each other. Trades are NOT re-costed: whatever cost treatment `m` already
+    carries rides through untouched."""
+    trades = m.get("trades") if isinstance(m, dict) else None
+    if trades is None:
+        return m
+    first_idx = int(first_idx)
+    kept = []
+    for t in trades:
+        if not isinstance(t, (list, tuple)) or not t:
+            continue
+        try:
+            ei = int(t[0])
+        except (TypeError, ValueError):
+            continue
+        if ei < first_idx:
+            continue
+        if rebase and first_idx:
+            nt = list(t)
+            nt[0] = ei - first_idx
+            if len(nt) >= 2:
+                try:
+                    nt[1] = int(nt[1]) - first_idx
+                except (TypeError, ValueError):
+                    pass
+            kept.append(tuple(nt))
+        else:
+            kept.append(tuple(t))
+    pnls = [float(t[2]) for t in kept if len(t) >= 3]
+    n = len(pnls)
+    wins = sum(1 for x in pnls if x > 0)
+    losses = sum(1 for x in pnls if x < 0)
+    gw = sum(x for x in pnls if x > 0)
+    gl = -sum(x for x in pnls if x < 0)
+    total = float(sum(pnls))
+    pf = (gw / gl) if gl > 1e-9 else (float("inf") if gw > 0 else 0.0)
+    cum = peak = mdd = 0.0
+    for x in pnls:
+        cum += x
+        peak = max(peak, cum)
+        mdd = min(mdd, cum - peak)
+    out = dict(m)
+    out.update({"total_pnl": total, "num_trades": n,
+                "win_rate": (100.0 * wins / n) if n else 0.0,
+                "profit_factor": pf, "max_drawdown": float(mdd),
+                "avg_pnl": (total / n) if n else 0.0,
+                "wins": wins, "losses": losses, "trades": kept})
+    return out
+
+
 # Stamped on every result the risk enrichment has been through, and required on a
 #   cache hit. Bump only if the risk arithmetic itself changes.
 _RISK_V = 1

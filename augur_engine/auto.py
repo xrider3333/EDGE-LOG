@@ -25,9 +25,11 @@ import os
 import random as _random
 import threading
 
+import numpy as _np
+
 from .strategies import load_strategy, _resolve, strategy_params
 from .data import find_master, load_master_arrays
-from .engine import _apply_costs
+from .engine import _apply_costs, keep_trades_entering_at_or_after
 from .analytics import (annualized_sr, deflated_sharpe, monte_carlo_drawdown,
                         regime_report, neighborhood, downsample_pnls, downsample_points,
                         downsample_curve, mae_mfe, relationship_scores, pdp_plateau,
@@ -43,6 +45,19 @@ WF_MIN_SIDE = 5
 MAX_TRADE_RATE = 0.015
 MAX_PF = 6.0
 OOS_SPLIT = 0.75
+
+# WARM-START (RESEARCH.md item 7, engine defect found 2026-09-15). How many TRADING
+# SESSIONS of earlier bars a scored stretch (a walk-forward test fold, the single-split
+# out-of-sample leg, the lockbox) may run over before its own first bar, so the
+# strategy's look-backs are already filled when the stretch opens. Trades that ENTER
+# before the stretch are then dropped, so no profit from outside the stretch is ever
+# counted and nothing after the stretch's end is read.
+#
+# 300 sessions covers every look-back in the book with headroom — the longest is a
+# 250-day trend filter (NQDIP 1.1 / the ETF legs), which lost 86% of its fold trades
+# when folds started cold. Cost is one extra pass over the warm-up bars per SCORED
+# stretch (never per training trial), which is a rounding error against n_trials.
+WARM_DAYS = 300
 
 # AUTO-EXPAND-AND-RESAMPLE (owner request 2026-07-18: "if adjusting a knob continues
 # to help, push the knob further") — the follow-through on the boundary-peak detector
@@ -70,7 +85,7 @@ _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl", "wins", "losses")
 
 
-def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None):
+def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_days=0):
     """Factored out of run_auto's per-trial `_ev` closure (#88, OOS-checked champion
     selection) so a FIXED param set can be evaluated on an arbitrary bar-index slice
     via the EXACT kwarg-detection (volumes/day_id/index) + cost-application path every
@@ -90,7 +105,15 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None):
     a, b) — the (a, b) slice bounds are part of the key precisely because this same
     function serves BOTH the IS-window evaluator and every walk-forward fold's
     differently-bounded test slice, so two different slices must never collide.
-    NEVER cached when keep_trades=True (the trades-bypass guard, docs' hard rule)."""
+    NEVER cached when keep_trades=True (the trades-bypass guard, docs' hard rule).
+
+    `warm_days` (RESEARCH.md item 7) — how many earlier TRADING SESSIONS a call that
+    asks for it may run over before its own first bar. It changes nothing by itself:
+    only a call that passes `warm=True` warms up, and with `warm_days=0` (the default)
+    even those calls behave exactly as they always did, byte for byte. A warm call is
+    never served from or written to the trial cache (it needs the trade list, and the
+    trades-bypass guard above covers that), so a warmed stretch and a cold slice with
+    the same bounds can never collide on a cache key."""
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
     fn = mod.run_backtest
     sp = inspect.signature(fn).parameters
@@ -101,8 +124,37 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None):
     pass_vol = V is not None and (has_kw or "volumes" in sp)
     pass_day = did is not None and (has_kw or "day_id" in sp)
     pass_idx = IDX is not None and "index" in sp
+    warm_days = int(warm_days or 0)
 
-    def ev(a, b, params, keep_trades=False):
+    def warm_start_bar(a):
+        """First bar of the session `warm_days` trading sessions before bar `a` — the
+        bar a warmed evaluation of a stretch beginning at `a` starts from. Falls back
+        to `a` itself (no warm-up) when there is no day index to count sessions with,
+        so a master without day_id simply keeps today's behaviour."""
+        a = int(a)
+        if warm_days <= 0 or a <= 0 or did is None or len(did) == 0:
+            return a
+        target = int(did[a]) - warm_days
+        if target <= int(did[0]):
+            return 0
+        return int(_np.searchsorted(did, target, side="left"))
+
+    def ev(a, b, params, keep_trades=False, warm=False):
+        w = warm_start_bar(a) if warm else int(a)
+        if w >= int(a):
+            return _ev_cold(a, b, params, keep_trades)
+        m = _ev_cold(w, b, params, keep_trades=True)
+        # A strategy that returns no trade list cannot be warmed — its numbers would
+        # then include profit earned BEFORE the stretch, which is exactly the error
+        # this path exists to avoid. Fall back to the plain cold evaluation instead.
+        if not m or m.get("trades") is None:
+            return _ev_cold(a, b, params, keep_trades)
+        m = keep_trades_entering_at_or_after(m, int(a) - w)
+        if not keep_trades:
+            m.pop("trades", None)
+        return m
+
+    def _ev_cold(a, b, params, keep_trades=False):
         key = None
         if cache_ctx is not None and not keep_trades:
             try:
@@ -143,7 +195,8 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None):
     return ev
 
 
-def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pts=0.0):
+def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pts=0.0,
+                              warm_days=0):
     """#88 (OOS-checked champion selection) -- score each candidate's FIXED params on
     the SAME walk-forward test slices the champion normally runs. Reuses
     `make_slice_evaluator` (the identical kwarg-detection + cost-apply path every
@@ -179,13 +232,15 @@ def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pt
     # function) -- build_ctx correctly leaves those None, consistent with every
     # other ctx built for a path that has no such concept in scope.
     cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts) if TC.is_enabled() else None
-    ev = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=cache_ctx)
+    ev = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=cache_ctx,
+                              warm_days=warm_days)
+    _warm = bool(int(warm_days or 0))
     out = []
     for params in candidates:
         rows = []
         for (a, b) in fold_bounds:
             a = max(0, int(a)); b = min(n, int(b))
-            m = ev(a, b, params) if b > a else None
+            m = ev(a, b, params, warm=_warm) if b > a else None
             pnl = float(m.get("total_pnl", 0) or 0) if m else 0.0
             pf = float(m.get("profit_factor", 0) or 0) if m else 0.0
             tr = int(m.get("num_trades", 0) or 0) if m else 0
@@ -670,7 +725,7 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
 
 
 def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pts,
-                 f, tr_start, tr_end, te_s, te_e, tick=None, index=None):
+                 f, tr_start, tr_end, te_s, te_e, tick=None, index=None, warm=False):
     """ONE walk-forward fold, exactly as run_auto's in-line loop did it: a fresh sampler
     from the run's seed (so no fold depends on another, or on the order they run in),
     n_trials evaluations on the training window, the realism gate, the fold champion,
@@ -695,7 +750,11 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
     gated = [r for r in recs if _is_real(r, tr_end - tr_start)]
     champ = max(gated or recs, key=lambda r: float(r.get("total_pnl", 0) or 0))
     pp = {k: champ[k] for k in pkeys if k in champ}
-    om = ev(te_s, te_e, pp, keep_trades=True)
+    # `warm` (RESEARCH.md item 7): score the TEST fold with the champion's look-backs
+    # already filled, by running it from earlier bars and dropping the trades that
+    # entered before the fold opened. The TRAINING loop above is untouched — it is
+    # already anchored at bar 0 (or at its own rolling window start).
+    om = ev(te_s, te_e, pp, keep_trades=True, warm=bool(warm))
     row = {k: champ.get(k) for k in pkeys}
     row.update({k: champ.get(k) for k in _METRIC_KEYS})
     row["fold"] = f + 1
@@ -750,7 +809,7 @@ _WF_POOL_BOOT_TIMEOUT_S = float(os.environ.get("EDGELOG_WF_POOL_TIMEOUT_S", "60"
 
 
 def _boot_wf_pool(specs, nproc, strategy, master, date_from, date_to, arrays_to_send,
-                  cost_pts, session):
+                  cost_pts, session, warm_days=0):
     """Create the fold pool and submit every fold. Split out of _run_folds_parallel so it
     can be run on its own thread (see _WF_POOL_BOOT_TIMEOUT_S below) and so a test can
     swap it for a fake that never returns without touching real multiprocessing."""
@@ -758,14 +817,14 @@ def _boot_wf_pool(specs, nproc, strategy, master, date_from, date_to, arrays_to_
     from . import wf_pool as WP
     ex = ProcessPoolExecutor(max_workers=nproc, initializer=WP.init_worker,
                              initargs=(strategy, master, date_from, date_to, arrays_to_send,
-                                       cost_pts, session))
+                                       cost_pts, session, int(warm_days or 0)))
     futs = [ex.submit(WP.fold_task, s) for s in specs]
     return ex, futs
 
 
 def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, cost_pts,
                         session, space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
-                        workers, progress_cb, n_total):
+                        workers, progress_cb, n_total, warm_days=0):
     """Drive wf_pool: one process per fold up to `workers`. Progress is reported per
     finished fold (a fold is n_trials of the total). Rows come back in fold order.
 
@@ -786,7 +845,8 @@ def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, co
     """
     from concurrent.futures import as_completed
     nproc = max(1, min(int(workers), len(fold_specs)))
-    specs = [(f, s0, s1, t0, t1, space, dp, pkeys, seed, n_trials, min_trades)
+    specs = [(f, s0, s1, t0, t1, space, dp, pkeys, seed, n_trials, min_trades,
+              int(warm_days or 0))
              for (f, s0, s1, t0, t1) in fold_specs]
 
     boot = {}
@@ -795,7 +855,8 @@ def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, co
     def _boot():
         try:
             ex, futs = _boot_wf_pool(specs, nproc, strategy, master, date_from, date_to,
-                                     arrays_to_send, cost_pts, session)
+                                     arrays_to_send, cost_pts, session,
+                                     int(warm_days or 0))
         except BaseException as exc:
             boot["error"] = exc
             return
@@ -845,12 +906,20 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
              compute_surrogate=False,
              auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15,
-             steer_method="gp", workers=1):
+             steer_method="gp", workers=1, warm_days=0):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
 
     workers (2026-09-08): walk-forward folds run in this many processes (see
     augur_engine.wf_pool). 1 = the in-line loop. Results are identical either way;
     only wall-clock changes. Ignored by method="single".
+
+    warm_days (2026-09-20, RESEARCH.md item 7): warm up every SCORED out-of-sample
+    stretch — each walk-forward fold's test leg, and the single-split run's 25% leg —
+    over this many earlier trading sessions, keeping only the trades that ENTER inside
+    the stretch. 0 (the default) is the old behaviour, bit for bit. Training windows
+    are NOT touched: an anchored fold already trains from bar 0, and warming a rolling
+    fold's training window would change which config is picked, which is a separate
+    question. See WARM_DAYS above for why 300 and what it cost.
 
     compute_context (default True): TRADE CONTEXT (augur_engine.context) — see
     run_grid's docstring; identical contract here, on the same winner trade list
@@ -981,7 +1050,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     if TC.is_enabled():
         _cache_ctx = TC.build_ctx(mod, arrays, cost_pts=cost_pts, session=session,
                                   date_from=date_from, date_to=date_to, master=master)
-    _ev = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=_cache_ctx)
+    _warm_days = int(warm_days or 0)
+    _warm = _warm_days > 0
+    _ev = make_slice_evaluator(mod, arrays, cost_pts, cache_ctx=_cache_ctx,
+                               warm_days=_warm_days)
 
     n = len(C)
     oos_on = bool(oos) and n >= 200
@@ -1016,7 +1088,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     strategy, master, date_from, date_to,
                     arrays if _arrays_supplied else None, cost_pts, session,
                     space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
-                    int(workers), progress_cb, n_total)
+                    int(workers), progress_cb, n_total, warm_days=_warm_days)
             except Exception as _pe:
                 print(f"[wf] parallel folds failed ({type(_pe).__name__}: {_pe}) - "
                       f"running the folds in-line instead")
@@ -1033,7 +1105,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             for (f, tr_start, tr_end, te_s, te_e) in fold_specs:
                 row = _wf_fold_row(_ev, H, L, space, dp, pkeys, seed, n_trials, min_trades,
                                    cost_pts, f, tr_start, tr_end, te_s, te_e, tick=_tick,
-                                   index=IDX)
+                                   index=IDX, warm=_warm)
                 if row is not None:
                     records.append(row)
         if progress_cb:
@@ -1124,7 +1196,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         if oos_on:
             for rec in records:
                 pp = {k: rec[k] for k in pkeys if k in rec}
-                om = _ev(ksplit, n, pp)
+                om = _ev(ksplit, n, pp, warm=_warm)
                 rec["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
                 rec["oos_trades"] = int(om["num_trades"]) if om else 0
                 rec["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0

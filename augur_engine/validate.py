@@ -18,7 +18,7 @@ import random as _random
 from .data import find_master, load_master_arrays
 from .engine import run_backtest
 from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METRIC_KEYS,
-                   make_slice_evaluator, score_candidates_on_folds)
+                   make_slice_evaluator, score_candidates_on_folds, WARM_DAYS)
 from .optimize import run_grid
 from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
 from .analytics import strip_lb_tails
@@ -169,8 +169,54 @@ def _apply_fold_budget(selection, budget=None):
     return True
 
 
+def _make_lockbox_runner(strategy, master, instrument, timeframe, session, source,
+                         full_from, lb_from, date_to, cost_pts, warm_days):
+    """One way to run ANY config on the lockbox slice, warm or cold (RESEARCH.md item 7).
+
+    Cold (warm_days <= 0, and whenever the warm path cannot be set up) is the call this
+    function replaced, unchanged: load the lockbox window on its own and back-test it.
+    The strategy then opens the held-out stretch with every look-back empty, which is
+    why a 250-day trend filter used to take almost no lockbox trades at all.
+
+    Warm loads the WHOLE run window once, runs the config from `warm_days` sessions
+    before the lockbox opens, and keeps only the trades that ENTER inside the lockbox.
+    Nothing past the lockbox end is read either way, and the surviving trades' bar
+    indices are rebased to the lockbox's own first bar, so every caller (the equity
+    curve, the excursion charts loaded from `lb_from`) indexes them exactly as before.
+
+    Returns `run(params) -> metrics dict | None`. The metrics always carry the trade
+    list; a caller that passed return_trades=False before simply ignores it."""
+    warm_days = int(warm_days or 0)
+    if warm_days > 0:
+        try:
+            import pandas as _pd
+            _arrs = load_master_arrays(master, date_from=full_from, date_to=date_to)
+            _idx = _arrs.get("index")
+            _n = len(_arrs["close"])
+            _lb_i = int(_idx.searchsorted(_pd.Timestamp(lb_from, tz="US/Eastern"))) \
+                if _idx is not None else 0
+            if 0 < _lb_i < _n:
+                _ev = make_slice_evaluator(strategy, _arrs, cost_pts, warm_days=warm_days)
+
+                def _warm_run(params):
+                    return _ev(_lb_i, _n, params, keep_trades=True, warm=True)
+
+                return _warm_run
+        except Exception:
+            pass      # any setup problem -> the cold path below, never a failed run
+
+    def _cold_run(params):
+        return run_backtest(strategy, instrument=instrument, timeframe=timeframe,
+                            session=session, source=source, params=params,
+                            cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
+                            return_trades=True)
+
+    return _cold_run
+
+
 def _stratified_oos_sample(strategy, arrays, points, pkeys, fold_bounds, exclude_sigs,
-                           k, cost_pts=0.0, seed=42, n_bins=10, save_fold_detail=False):
+                           k, cost_pts=0.0, seed=42, n_bins=10, save_fold_detail=False,
+                           warm_days=0):
     """`oos_sample_k` — score a STRATIFIED sample of the SEARCHED CLOUD out of sample.
 
     Why not the top k: the ten configs we already score out of sample are the ten the
@@ -250,7 +296,8 @@ def _stratified_oos_sample(strategy, arrays, points, pkeys, fold_bounds, exclude
         return []
 
     fold_scores = score_candidates_on_folds(strategy, arrays, [s["params"] for s in picked],
-                                            fold_bounds, cost_pts=cost_pts)
+                                            fold_bounds, cost_pts=cost_pts,
+                                            warm_days=warm_days)
     ev = make_slice_evaluator(strategy, arrays, cost_pts)
     n_bars = len(arrays["close"])
     out = []
@@ -272,7 +319,7 @@ def _stratified_oos_sample(strategy, arrays, points, pkeys, fold_bounds, exclude
 
 
 def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.0, k=5,
-                         save_fold_detail=False):
+                         save_fold_detail=False, warm_days=0):
     """#88 OOS-checked champion selection (owner-approved 2026-07-20). Motivating
     evidence: run #167 crowned the sharpest realism-gated IN-SAMPLE config (IS
     $257,873) which then collapsed on the lockbox ($35,083, PBO gate fired, verdict
@@ -383,7 +430,8 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
         }
 
     fold_scores = score_candidates_on_folds(strategy, arrays, [c["params"] for c in cands],
-                                            fold_bounds, cost_pts=cost_pts)
+                                            fold_bounds, cost_pts=cost_pts,
+                                            warm_days=warm_days)
     for c, rows in zip(cands, fold_scores):
         c["wf_oos_pnl"] = sum(r["oos_pnl"] for r in rows)
         c["folds_held"] = sum(1 for r in rows if r["held"])
@@ -552,7 +600,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  #    strategy cannot mean - then failed that cell in the lockbox. Nothing
                  #    upstream could ask it to stop, because no caller could pass the flag.
                  #    Default stays True, so every existing call is byte-identical.
-                 auto_expand=True):
+                 auto_expand=True,
+                 # ── WARM STARTS (RESEARCH.md item 7, owner go-ahead 2026-09-20).
+                 #    Every stretch this function SCORES out of sample - each walk-forward
+                 #    fold's test leg, Stage A's 25% split, the lockbox, and every candidate
+                 #    carried into the lockbox - is run from `warm_days` trading sessions
+                 #    BEFORE it opens, and only the trades that ENTER inside the stretch are
+                 #    kept. Nothing after a stretch's own end is ever read, so this adds no
+                 #    look-ahead; what it removes is the blind opening stretch a long
+                 #    look-back used to spend unable to trade (a 250-day trend filter lost
+                 #    86% of its fold trades: tools/wf_coldstart_audit.py). Pass 0 to get
+                 #    the old cold behaviour back, bit for bit, for a reproduction run.
+                 warm_days=WARM_DAYS):
     # Walk-forward folds in parallel processes (augur_engine.wf_pool). The runner sets
     # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
     # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
@@ -566,6 +625,9 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         print(f"[validate] walk-forward folds in {_wf_workers} processes")
     th = {"trades_per_param": 30, "wfe": 0.5, "fold_frac": 0.66, "dsr": 0.8}
     th.update(thresholds or {})
+    _warm_days = max(0, int(warm_days or 0))
+    if _warm_days:
+        print(f"[validate] scored stretches warm up over {_warm_days} prior sessions")
 
     # ── resolve the data window + lockbox cutoff ──────────────────────────────
     master = find_master(instrument, timeframe, session, source)
@@ -622,6 +684,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  # default stays False (library neutrality); this call site is the opt-in.
                  auto_steer=True,
                  auto_expand=auto_expand,   # see the note on the signature above
+                 warm_days=_warm_days,
                  date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
     # #88 (2026-07-20): `select_oos_topk` USED to follow the same "library default off,
     # production opts in at its one call site" pattern as auto_steer above. It no longer
@@ -654,6 +717,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                       wf_folds=wf_folds, n_trials=n_trials, cost_pts=cost_pts,
                       min_trades=min_trades, top_n=20, seed=seed,
                       date_from=opt_from, date_to=opt_to, progress_cb=_stage(c0, c1),
+                      warm_days=_warm_days,
                       workers=_wf_workers) or {}
         ran = bool(Bm.get("wf"))
         fl = Bm.get("top") or []
@@ -721,7 +785,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             _arr_sel = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
             champ, bestA, selection = _select_oos_champion(
                 strategy, _arr_sel, champ, bestA, A, wf_anch, cost_pts=cost_pts, k=_select_k,
-                save_fold_detail=_fold_detail)
+                save_fold_detail=_fold_detail, warm_days=_warm_days)
             is_trades = int(bestA.get("num_trades", 0) or 0)
             tpp = (is_trades / nparam) if nparam else 0.0
         except Exception as _sel_e:
@@ -753,7 +817,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     _excl.add(tuple(sorted((kk, _cp.get(kk)) for kk in _pk_s)))
                 _smp = _stratified_oos_sample(strategy, _arr_sel, _pts_s, _pk_s, _fb_s, _excl,
                                               _sample_k, cost_pts=cost_pts, seed=seed,
-                                              save_fold_detail=_fold_detail)
+                                              save_fold_detail=_fold_detail,
+                                              warm_days=_warm_days)
                 if selection is None:
                     # champion selection is off on this call; give the sample the same
                     # no-op-shaped selection envelope the empty paths already produce.
@@ -776,15 +841,15 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "luck": (not dsr) or float(dsr.get("dsr", 1) or 1) >= th["dsr"],
     }
     # ── Stage C — lockbox one-shot (champion on the reserved slice) ───────────
+    _lb_run = _make_lockbox_runner(strategy, master, instrument, timeframe, session,
+                                   source, opt_from, lb_from, date_to, cost_pts,
+                                   _warm_days)
     lb = None
     if champ:
         if progress_cb:
             progress_cb(92, 100)
         try:
-            lb = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
-                              session=session, source=source, params=champ,
-                              cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
-                              return_trades=True)
+            lb = _lb_run(champ)
         except Exception:
             lb = None
     # extend the equity curve through the (never-optimized) lockbox slice
@@ -831,10 +896,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             for c in _lb_rows:
                 base = float(((c.get("equity") or {}).get("final")) or 0.0)
                 c_sig = tuple(sorted((kk, (c.get("params") or {}).get(kk)) for kk in (c.get("params") or {})))
-                _cbt = lb if (c_sig == champ_sig and lb) else run_backtest(
-                    strategy, instrument=instrument, timeframe=timeframe, session=session,
-                    source=source, params=c["params"], cost_pts=cost_pts,
-                    date_from=lb_from, date_to=date_to, return_trades=True)
+                _cbt = lb if (c_sig == champ_sig and lb) else _lb_run(c["params"])
                 _ctr = (_cbt or {}).get("trades") or []
                 # v72 (owner ask: RAW's reward/risk rows should be SAMPLE-toggle-aware like
                 #   GATE/TILT/HYBRID): this backtest already ran for the lb_equity curve below —
@@ -888,10 +950,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if isinstance(selection, dict) and selection.get("oos_sample"):
         for _s in selection["oos_sample"]:
             try:
-                _sbt = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
-                                    session=session, source=source, params=_s["params"],
-                                    cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
-                                    return_trades=False)
+                _sbt = _lb_run(_s["params"])
                 _s["lockbox"] = ({kk: (round(_sbt.get(kk), 4) if isinstance(_sbt.get(kk), float)
                                        else _sbt.get(kk))     # ints (num_trades) stay ints
                                   for kk in ("total_pnl", "num_trades", "profit_factor",
@@ -1124,7 +1183,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             _champ_p = {k: champ.get(k) for k in (champ or {})}
             _all = _picks + ([_champ_p] if _champ_p else [])
             _sel_arr = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
-            _sc = score_candidates_on_folds(strategy, _sel_arr, _all, _fb2, cost_pts=cost_pts)
+            _sc = score_candidates_on_folds(strategy, _sel_arr, _all, _fb2, cost_pts=cost_pts,
+                                            warm_days=_warm_days)
             # v66.8: 2K "real" came from the 75/25 TRAINING SPLIT while 2B/2C use the
             #   contiguous calendar slice before walk-forward - the same mismatch just fixed
             #   between 2B and 2C, one layer up. Slice each pick the same way so all three agree.
@@ -1180,10 +1240,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 if not isinstance(_pp2, dict):
                     continue
                 try:
-                    _lbm = run_backtest(strategy, instrument=instrument, timeframe=timeframe,
-                                        session=session, source=source, params=_pp2,
-                                        cost_pts=cost_pts, date_from=lb_from, date_to=date_to,
-                                        return_trades=False)
+                    _lbm = _lb_run(_pp2)
                     if isinstance(_lbm, dict):
                         _m["lb"] = {k: _lbm.get(k) for k in
                                     ("total_pnl", "num_trades", "profit_factor",
@@ -1371,6 +1428,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
                     "lockbox_months": lockbox_months,
+                    # RESEARCH.md item 7: how many prior trading sessions each SCORED
+                    #   out-of-sample stretch (folds, the 25% split, the lockbox) was
+                    #   allowed to warm up over. 0 = the old cold behaviour, so a reader
+                    #   can always tell which of the two a saved run is.
+                    "warm_days": _warm_days,
                     # v73.7x: the calendar date the optimize window splits into IS | WF -
                     #   the first anchored fold test start, the SAME bar the RAW candidate
                     #   is_rng / wf_rng blocks and the gate wf_range are cut at. Lets the

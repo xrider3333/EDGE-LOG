@@ -402,7 +402,16 @@ def validate_runs(_patched_data_layer):
     kwargs = dict(instrument="SYN_SEL", timeframe="5m", session="rth", source=None,
                   cost_pts=0.0, min_trades=1, n_trials=40, wf_folds=3, seed=42,
                   lockbox_months=0.2, date_from=None, date_to=None,
-                  equity_points=200, discover="auto")
+                  equity_points=200, discover="auto",
+                  # WARM STARTS OFF for this fixture (they default ON since 2026-09-20,
+                  # RESEARCH.md item 7). This synthetic strategy reports every trade at
+                  # bar indices 0-9 of whatever slice it is handed rather than at real
+                  # bar positions, so warming a stretch and keeping only the trades that
+                  # ENTER inside it correctly drops all ten and flattens every candidate
+                  # to zero. Real strategy files record true bar indices (ORB, NQDIP and
+                  # the rest were checked); this test is about the CROWNING rule, so it
+                  # pins the cold behaviour it was written against.
+                  warm_days=0)
     # 2026-09-13 (1A funnel lockbox tails): this strategy books 10 trades, so every 300-point
     #   saved ML curve already holds every trade and the engine rightly writes no tail. The k0
     #   run switches that density rule off - only for k0 - so the wiring test below still
