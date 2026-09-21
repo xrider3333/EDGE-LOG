@@ -14,7 +14,8 @@ done.
 | 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
 | 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
-| 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **IN PROGRESS** (fix built 2026-09-21) | today only: whether to restart the cloud book before the close to load the guard; do NOT buy the 10 QQQ by hand |
+| 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **FIX LIVE** (cloud box, 2026-09-21 11:57 ET) | nothing; after-close check pending; do NOT buy the 10 QQQ by hand |
+| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **PLANNED** | "go" for step 1 (one validate job on the PC runner); twin beside raw NOISE, or replace it |
 
 ---
 
@@ -290,7 +291,10 @@ recorded as left in place, with the reason.
 
 ## 5. NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold
 
-**Status: IN PROGRESS.** Handed over 2026-09-21 ~11:10 ET by the system-check session ("Paper: NT8")
+**Status: FIX LIVE since 2026-09-21 11:57 ET** (main 60fa741; the owner approved a one-time in-hours
+restart of the cloud book to load it - SERVING, lease claimed, reconcile OK, NOISE still open in the
+book). Closes after the after-close check reads the books flat.
+Handed over 2026-09-21 ~11:10 ET by the system-check session ("Paper: NT8")
 at the owner's request; taken by the session that shipped the 30-second reconcile grace (c7d07ae).
 Fix built on branch `session/noise-blocked-open` (api/webull_orders.py, api/qqq_exec.py,
 tests/test_qqq_exec_broker_resend.py). Code reaches the cloud box only at an after-close restart
@@ -342,3 +346,79 @@ the guard (a one-time waiver of the no-restart rule); otherwise it goes live at 
 
 **Done when** the fixes run on the box, today's NOISE close either sent nothing (guard) or was
 refused by Webull, and the books read flat after the close (broker 0 = sent 0 for every leg).
+
+---
+
+## 6. ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q)
+
+**Status: PLANNED - waiting on the owner's "go" for step 1.** Asked 2026-09-21 (owner: "yes plan the ML
+for webull, start with NOISE"), after learning the Webull book trades all three crowns with NO ML filter:
+the owner's 2026-09-01 plan was the ML configs, but the filters were never refit when the crowns changed
+(2026-09-05..08) and the cloud signal engine went live without them. Step 1 is a pass/fail test; nothing
+is built for the cloud unless the filter passes it.
+
+**Where things stand (read-only research, 2026-09-21).**
+- No ML filter has ever been built or tested on NOISE's current crown, run #304 (`NOISE_1_1_NBHD.py`,
+  NQ 5m RTH, 2010-06-07..2026-07-16: 4,824 trades, PF 1.357, net $398,775, about 300 trades a year).
+  The PC's live filters for NinjaTrader sit on retired NOISE configs: #225 tree@0.55, #231 rf@0.55,
+  #243 et@0.50 (`api/paper.py` PAPER_LEGS, served by `api/gate_live.py`).
+- The evidence on NOISE is MIXED, which is why step 1 comes first:
+  - formal cut-filter tests on #219/#225/#243 (logistic@55, et@50) lost to raw in the held-out year
+    once the look-ahead was fixed (NOISE.md "ML gate - still closed");
+  - the 2026-08-27 year-by-year re-measure found the et HYBRID on #243 added +$13.3k a year (t=3.0,
+    13 of 15 years helped) - the only leg of the three with a signal that clears noise
+    (memory ml-overlay-evidence-2026-08);
+  - resizing alone (TILT) is dead on NOISE (0 of 18 cells), and KEEL on #304 was leverage, not skill.
+- All 13 filter inputs are scale-free (moves in ATRs, ATR ratios, range position, trend correlation,
+  prior-day distances in ATRs, touch count, clock) and none uses volume (`augur_engine/ml_gate.py`
+  entry_features), so an NQ-trained filter can in principle read QQQ bars. That carry-over has only
+  ever been ASSERTED (`tools/qqq_paper.py` docstring), never measured.
+- The cloud box has no scoring service, and its scikit-learn is 1.9.1 against the PC's 1.6.1, so a
+  pickled model is not safe to ship there (`gate_live.py` writes joblib pickles).
+- QQQ 5-minute history on both machines starts 2026-06-08 (about 3.5 months); 1-minute starts 2026-08-11.
+
+**The plan.**
+1. **Test the filter on #304 (NQ, PC runner) - the go/no-go.** One GATE VALIDATE of
+   `NOISE_1_1_NBHD.py` with #304's own settings, its window and master pinned to the crown run. The
+   engine's standard search: five model types (logistic, rf, xgb, tree, et) x cut-offs 45/50/55/60,
+   causal features, a held-out stretch at the end (the engine default is 12 months; use 36 if the
+   RESEARCH.md item 9 lockbox proposal is adopted first), candidates chosen by net $ within 80% of the
+   best MAR. PRE-REGISTERED PASS, judged on money like the ORB crown: the chosen filter makes MORE money
+   than raw #304 on BOTH the walk-forward stretch and the held-out stretch - for a resizing (hybrid)
+   filter, at equal drawdown (the HYBRID equal-drawdown tab), so leverage cannot fake a win. Earning
+   less with a smaller drawdown is a "drawdown dial": reported, not adopted. FAIL = NOISE stops here.
+   Cost: one runner job; nothing live changes.
+2. **Measure the NQ-to-QQQ carry-over.** Score the chosen filter on every 5-minute RTH bar since
+   2026-06-08 on BOTH tapes (about 5,000 bars), and on #304's own signals run on both tapes over that
+   window. PRE-REGISTERED PASS: probabilities correlate at 0.9 or better and keep/skip agrees on 90% of
+   bars or more. FAIL = the filter is not trusted on QQQ; stop and report.
+3. **Ship the model as a plain data file.** Fit the chosen filter on all #304 NQ history on the PC and
+   export it as a JSON model file in the repo (scaler, trees or coefficients, cut-off, training window,
+   checksum), scored by a small numpy function - no pickle, so the scikit-learn version gap cannot bite.
+   A test proves the file reproduces scikit-learn's probabilities on 1,000 rows, on both machines. Refit
+   monthly on the PC (the engine's walk refits every 25 trades, about a month of NOISE); the box picks
+   the new file up at an after-close restart.
+4. **Add a filtered twin, "NOISE-ML", beside raw NOISE on Webull.** The cloud signal engine filters
+   NOISE's OWN trade list (no second backtest - the pattern of `api/paper_gate.py` apply_gate), so
+   NOISE-ML's trades are exactly raw NOISE's minus the ones the filter skips. Every NOISE signal logs its
+   probability and keep/skip; kept signals trade 10 QQQ at Webull under the new leg, and raw NOISE keeps
+   trading as the matched control. Places to change: `api/cloud_signal.py` (CROWN_LEGS + a derived-leg
+   hook), `api/qqq_exec.py` (LEGS, ENGINE_LEG_MAP, shares), `index.html` Webull tab (a 4th QE_LEGS entry
+   plus the two hard-coded leg lists in the chart), and a keep/skip list on the tab. When both legs take
+   a trade Webull holds 20 QQQ; their identical same-bar orders collide as duplicates and the second goes
+   a tick later (item 5's re-send). Deploy after the close only.
+5. **Forward test, then decide.** NOISE fires about 1-2 times a week on QQQ, so judge after about 20
+   signals (roughly 3 months), with a monthly readout. Then either keep NOISE-ML and repeat steps 1-4
+   for ORB #314, and after it ENGU-Q #335 (last: its ETH-tuned crown already runs on an RTH-only QQQ
+   tape), or retire it with the reason.
+
+**Needs from the owner.**
+- "go" for step 1 (it only queues one validate job).
+- Twin beside raw NOISE (recommended: a clean comparison on the same signals) or replace raw NOISE.
+- If a resizing (hybrid) filter wins, whether NOISE-ML may trade a variable share count (for example
+  5-15) instead of a fixed 10 - decide when the result is in.
+- Not part of this item: the hourly-squeeze NOISE (#398) passed its fenced re-search but is not
+  crowned. If it is crowned later, the filter is refit on it.
+
+**Done when** NOISE has a keep-or-retire decision after its forward test, and the recipe is either
+under way for ORB or closed with the reason.
