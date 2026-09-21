@@ -14,7 +14,7 @@ done.
 | 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
 | 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
-| 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **FIX LIVE** (cloud box, 2026-09-21 11:57 ET) | nothing; after-close check pending; do NOT buy the 10 QQQ by hand |
+| 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **DONE** (2026-09-21, after-close check passed) | nothing |
 | 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **NOISE FAILED STEP 1** (run #408, 2026-09-21) | test ORB #314 next, or close the item |
 
 ---
@@ -291,9 +291,14 @@ recorded as left in place, with the reason.
 
 ## 5. NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold
 
-**Status: FIX LIVE since 2026-09-21 11:57 ET** (main 60fa741; the owner approved a one-time in-hours
-restart of the cloud book to load it - SERVING, lease claimed, reconcile OK, NOISE still open in the
-book). Closes after the after-close check reads the books flat.
+**Status: DONE 2026-09-21** (after-close check 16:14 ET). The fix went live at 11:57 ET (main 60fa741,
+one-time in-hours restart the owner approved). Outcome: NOISE closed in the book at the 15:59 flatten
+(10 @ 741.58, +$117.60 - a BOOK-ONLY result, Webull never held this trade), and the guard stopped its
+sell - broker row BLOCKED "nothing to close", no order sent. No other broker orders, re-sends, halts or
+duplicate rejects after 11:57; 50 periodic reconciles all OK, the last at 16:05:39 ET (broker {} = sent
+0). Books flat on every side: book legs {}, re-send queue empty, the adapter's sent and believed
+positions 0 on every leg, open_legs {}, Webull stock-account positions {} and 0 open orders in all
+five paper accounts. The published curve carries no NaN and ends at +$164.88.
 Handed over 2026-09-21 ~11:10 ET by the system-check session ("Paper: NT8")
 at the owner's request; taken by the session that shipped the 30-second reconcile grace (c7d07ae).
 Fix built on branch `session/noise-blocked-open` (api/webull_orders.py, api/qqq_exec.py,
