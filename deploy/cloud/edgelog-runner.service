@@ -1,5 +1,5 @@
 [Unit]
-Description=EDGE-LOG runner - Firestore job queue + QQQ shadow adapter (cloud, no NinjaTrader)
+Description=EDGE-LOG job runner - refuses to start on the cloud box (the PC runs the job queue)
 Documentation=https://github.com/xrider3333/EDGE-LOG/blob/main/deploy/cloud/README.md
 After=network-online.target
 Wants=network-online.target

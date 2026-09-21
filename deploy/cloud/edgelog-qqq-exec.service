@@ -22,10 +22,9 @@ EnvironmentFile=__EDGELOG_HOME__/edgelog.env
 # exits the same way. So starting this unit is always safe to try; it just won't trade
 # while the PC is still the active host.
 #
-# START ORDER: start THIS unit, then edgelog-runner.service, so the book runs here and
-# not in the runner's fallback thread. Either order is safe -- the slot lock means one
-# copy per machine -- but a fallback copy that wins the lock first keeps the book inside
-# the runner process until the runner restarts.
+# START ORDER: start this unit with edgelog-cloud-signal.service, which writes the signals
+# it consumes. The job runner does not run on the cloud box (api/runner.py refuses on
+# EDGELOG_HOST_ROLE=cloud since 2026-09-21), so there is no fallback thread here to race.
 Environment=EDGELOG_HOST_ROLE=cloud
 ExecStart=__EDGELOG_VENV__/bin/python -u -m api.qqq_exec --serve --uid __EDGELOG_ALLOW_UID__ --cred serviceAccount.json
 Restart=always

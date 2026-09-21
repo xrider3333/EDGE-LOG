@@ -13,6 +13,7 @@ done.
 | 1 | Void the fake NOISE rows a test re-run wrote into the live signal record | **WAITING ON OWNER** | reply "apply the ledger repair" |
 | 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
 | 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
+| 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
 
 ---
 
@@ -244,3 +245,42 @@ cadence, and update the README section's wording if the timing it describes chan
   re-saves the LIVE `C:\EdgeLog\webull_orders\state.json`, so stub it in the new tests. And if a sim
   scenario flips to "gap closed" without a fix aimed at it, check the simulated orders actually
   flowed before believing it (`1ed627e` once made A and C pass vacuously).
+
+---
+
+## 4. A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row
+
+**Status: OPEN.** Nothing needed from the owner to check it. Voiding the row, if you decide it
+should be, follows item 1's rule: build and apply only after the owner says "apply the ledger
+repair". Added 2026-09-21 by the session that fixed the GATE DOWN header chip.
+
+**What happened, in plain words.** The job runner on the cloud box was switched off on 2026-09-20,
+but its 5-minute healthcheck saw the stopped runner's log go quiet and started it again at 00:37
+UTC on 2026-09-21. That runner ran its own copy of the signal engine, so from the cold move
+(edgelog-cloud-signal.service, ~02:09 UTC) until it was stopped at ~14:33 UTC the box had two
+writers of the live signal record - the case item 2 describes, from a different door. The runner
+is now stopped, its healthcheck timer disabled, and `api/runner.py` refuses to start on
+`EDGELOG_HOST_ROLE=cloud` (commit "Cloud box never runs the job runner"). Neither paper service
+was touched.
+
+**Evidence (read-only, 2026-09-21 ~10:45 ET)**
+- `~/edgelog/cloud_signal/signals.csv`: the last two rows are the same event twice - NOISE_304
+  ENTRY long, ref 09:40 ET @ 729.81, trade id `NOISE_304-20260921T134000Z-L`, emitted 09:45:09.41
+  and 09:45:10.06 ET.
+- `~/edgelog/logs/qqq_exec.log`: `WARN entry_duplicate: NOISE entry signal repeats the trade
+  already open ... ignored`. One shadow ENTER in `qqq_exec/orders.csv` (09:45:12). No second
+  order: the broker row for that entry was BLOCKED by the reconcile halt anyway.
+- Earlier trade ids appearing twice in the file are ENTRY + EXIT pairs, not duplicates. Rows from
+  02:09 to 13:45 UTC were not checked one by one for lost state records (the second failure mode
+  item 2 names); `state.json` was not inspected.
+
+**The task**
+1. Confirm the duplicate row is the only damage: check `state.json`'s NOISE_304 / ENGUQ_335 /
+   ORB_R6 records against `signals.csv` for 2026-09-21 00:37-14:33 UTC.
+2. Decide whether the duplicate ENTRY row should be relabelled `VOID_*` in place (never deleted -
+   the adapter reads by row-number cursor), and if so ask the owner, as item 1.
+3. Item 2's fix does not cover this door (the runner's thread is the one it deliberately never
+   refuses); the runner-side refusal does. Nothing else to build here.
+
+**Done when** the check in step 1 is written up here, and the row is either voided (owner OK) or
+recorded as left in place, with the reason.
