@@ -298,10 +298,40 @@ def _load_artifact(key):
 
 
 # ── live bars: cached recent master window + incrementally-read fresh ticks ───────
-def _refresh_live_arrays(leg):
+def _file_last_tick(path):
+    """Unix time on the LAST row of a 10s capture file (tail read, no full parse), or None."""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            fh.seek(max(0, size - 4096))
+            tail = fh.read().decode("utf-8", "replace").strip().splitlines()
+        return int(float(tail[-1].split(",")[0])) if tail else None
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _reset_live_cache(leg, why):
+    """Throw away this series' cached window + incremental tick state; the next refresh
+    rebuilds it from the files on disk."""
+    _live_caches.pop(_series_key(leg), None)
+    _log(f"live window RESET for {'/'.join(_series_key(leg))}: {why}")
+
+
+def _refresh_live_arrays(leg, _resynced=False):
     """A 5m bar series ending at the most recent CLOSED bar, cheap enough to call per
     request: the master window is cached per day, and the 10s capture file is read
-    incrementally (only bytes appended since the last request)."""
+    incrementally (only bytes appended since the last request).
+
+    SELF-HEAL (owner 2026-09-21: "fix the ML gate so it doesnt go stale"). That morning
+    the service started at 09:23 ET while NinjaTrader was still down, and when the 10s
+    capture came back at 10:27 ET the long-running process never took the new bars in:
+    it kept scoring Friday's 15:55 bar, NinjaTrader's 10:30 NOISE entry hit the bar
+    interlock and went through UNGATED. A fresh process read the same files correctly,
+    so the defect is stale incremental state, whatever tripped it. Two guards now: the
+    cached ticks are compared with the file's own last row on every refresh (more than
+    a minute behind = rebuild from disk), and decide() rebuilds once on a bar mismatch
+    before it falls open."""
     from augur_engine.data import find_master, load_master_arrays
     from api import paper
 
@@ -357,6 +387,14 @@ def _refresh_live_arrays(leg):
                                                    ignore_index=True)
         except Exception as e:
             _log(f"tick parse: {type(e).__name__}: {e}")
+
+    if not _resynced:
+        file_last = _file_last_tick(path)
+        tdf = _live_cache["tick_df"]
+        have_last = int(tdf["time"].max()) if tdf is not None and len(tdf) else None
+        if file_last is not None and (have_last is None or file_last - have_last > 60):
+            _reset_live_cache(leg, f"cached ticks end {have_last}, file {path} ends {file_last}")
+            return _refresh_live_arrays(leg, _resynced=True)
 
     from api import paper as _p
     arrays = _live_cache["arrays"]
@@ -601,6 +639,16 @@ def decide(leg_key, nt_bar=None, *, source="internal"):
         # measured step look like 17 hours, and the tolerance would swallow anything.
         step = pd.Timedelta(minutes=5 if str(leg["timeframe"]).startswith("5") else 1)
         bar_state, bar_delta = _bar_interlock(nt_bar, idx[-1], step)
+        if bar_state == "mismatch":
+            # Rebuild from disk once before giving up: a mismatch is far more often our
+            # own stale cache than NinjaTrader being wrong (see _refresh_live_arrays).
+            with _lock:
+                _reset_live_cache(leg, f"bar mismatch vs NinjaTrader ({bar_delta}s)")
+                arrays = _refresh_live_arrays(leg)
+            idx = arrays["index"]
+            bar_state, bar_delta = _bar_interlock(nt_bar, idx[-1], step)
+            if bar_state == "ok":
+                _log(f"decide {leg_key}: bar mismatch cleared by a rebuild - scoring normally")
         base["bar_check"] = bar_state
         if bar_state == "unparseable":
             _log(f"decide {leg_key}: could not read bar={str(nt_bar).strip()!r} "
