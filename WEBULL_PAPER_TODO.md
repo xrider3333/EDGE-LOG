@@ -14,6 +14,7 @@ done.
 | 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
 | 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
+| 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **IN PROGRESS** (fix built 2026-09-21) | today only: whether to restart the cloud book before the close to load the guard; do NOT buy the 10 QQQ by hand |
 
 ---
 
@@ -284,3 +285,60 @@ was touched.
 
 **Done when** the check in step 1 is written up here, and the row is either voided (owner OK) or
 recorded as left in place, with the reason.
+
+---
+
+## 5. NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold
+
+**Status: IN PROGRESS.** Handed over 2026-09-21 ~11:10 ET by the system-check session ("Paper: NT8")
+at the owner's request; taken by the session that shipped the 30-second reconcile grace (c7d07ae).
+Fix built on branch `session/noise-blocked-open` (api/webull_orders.py, api/qqq_exec.py,
+tests/test_qqq_exec_broker_resend.py). Code reaches the cloud box only at an after-close restart
+(the no-restart-during-hours rule), unless the owner waives it.
+
+**What happened, in plain words** (cloud box `~/edgelog/logs/qqq_exec.log` and
+`~/edgelog/qqq_exec/broker_orders.csv`):
+- 09:31:00 the open-time repair sold Friday's 20 stuck QQQ. ENGU-Q's sell filled; ORB's identical
+  sell, sent in the same instant, was rejected as a duplicate (Webull compares the ORDER, not our id).
+- 09:42:10 the repair's retry sold ORB's 10 (one per tick since 2f99aad). The reconcile on the very
+  next tick read Webull's positions before that fill showed up (broker 10 vs sent 0) and halted new
+  entries on every leg.
+- 09:45:12 NOISE_304 entered in the book (long 10 @ 729.82, trade `NOISE_304-20260921T134000Z-L`).
+  Its Webull buy was BLOCKED by that halt. The halt cleared seconds later, but nothing ever re-sent
+  the buy, so since then the book holds NOISE and Webull holds nothing (checked ~11:15 ET: the
+  Individual Cash paper account has no position and no open orders).
+- Hazard for the rest of the day: when NOISE exits, the running code still sends SELL 10 QQQ,
+  because a close skips every rail and nothing checks that the leg was ever bought at Webull. On a
+  cash account Webull most likely refuses it, but its order preview does not check holdings (it
+  returned a cost estimate with no error), so that cannot be confirmed without a real order.
+- Do NOT buy the 10 QQQ by hand to "match" the book: the system never recorded that buy, so the next
+  reconcile reads broker 10 vs sent 0 and freezes ENGU-Q and ORB buys for the rest of the day, and
+  after NOISE's sell the books read sent -10 vs broker 0, which carries the freeze into tomorrow.
+
+**Answers to the three asks.**
+1. Re-send a blocked buy once the halt clears: built (below).
+2. Don't let the orphan-close window halt other legs: the halt came from looking 5 s after a fill.
+   The 30-second grace (c7d07ae, on main) waits before that look, and while a halt is on the check
+   now repeats every 30 s instead of every 5 minutes, so a false freeze lasts seconds, not minutes.
+3. The 09:31 duplicate reject was NOT "already closing": it was ENGU-Q's identical sell. Treating
+   it as closing would have left ORB's 10 shares at Webull. The right handling is to send it again a
+   tick later under a fresh id, which is now built for every order, not only repairs.
+
+**What was built.**
+- Never sell what was never bought: a close goes to Webull only for shares this system actually
+  sent there for that leg; otherwise it is skipped, logged and pushed to the phone. A close larger
+  than what was sent is trimmed to it.
+- A buy blocked by the system's own reconcile halt is re-sent once the halt clears, but only while
+  the book still holds that very trade, within 10 minutes of the first try and before the
+  last-entry time; otherwise it is dropped with a phone alert. A kill-file halt, a lease block or a
+  rails refusal is never re-sent.
+- An order Webull rejects as a same-instant duplicate is re-sent a tick later under a fresh id (the
+  id gains R1, R2, R3), one re-send per tick, at most 3, then a phone alert. This also covers an
+  end-of-day flatten with two legs open and two legs buying on the same bar.
+- While halted by its own reconcile, the system looks at Webull again every 30 s.
+
+**Needs from the owner.** Today only: whether to restart the cloud book before the close to load
+the guard (a one-time waiver of the no-restart rule); otherwise it goes live at the 16:12 ET restart.
+
+**Done when** the fixes run on the box, today's NOISE close either sent nothing (guard) or was
+refused by Webull, and the books read flat after the close (broker 0 = sent 0 for every leg).

@@ -255,6 +255,14 @@ BROKER_RECONCILE_INTERVAL_MIN = 5.0
 # 5-minute periodic check cleared it -- twice on 2026-09-21 (broker 20 vs sent 10 at
 # 09:31, broker 10 vs sent 0 at 09:42), both false. See _maybe_run_broker_reconcile.
 BROKER_RECONCILE_POST_ORDER_GRACE_SEC = 30.0
+# HALTED RE-CHECK + RE-SEND (2026-09-21, NOISE's buy never reached Webull). While this
+# adapter's own reconcile halt is on, look again every 30 s instead of every 5 min, and
+# once it clears re-send the OPEN it blocked (see _maybe_resend_broker_orders). The same
+# queue re-sends an order Webull rejected as a same-instant DUPLICATE of another leg's.
+BROKER_RECONCILE_HALTED_RECHECK_SEC = 30.0
+BROKER_OPEN_RESEND_WINDOW_MIN = 10.0    # an OPEN later than this after its first try is dropped
+BROKER_RESEND_MAX_TRIES = 3             # re-sends per order, each under a fresh client_order_id
+BROKER_RESEND_MIN_GAP_SEC = 4.0         # never in the tick right after the failure
 
 
 # -- small time helpers ------------------------------------------------------------
@@ -895,7 +903,7 @@ def _extract_broker_fill_price(record):
 
 
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, seq=0,
-                      trade_id=None, log=print):
+                      trade_id=None, resend=0, requeue=True, log=print):
     """Call after the shadow's own order/trade row is already recorded. Never raises.
 
     CROSS-HOST LEASE GATE (2026-09-14, "fail CLOSED once real orders can flow"): before
@@ -915,7 +923,12 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     runs) are untouched, so the shadow book keeps recording simulated trades as if
     nothing happened. Nothing here is retried automatically once the lease recovers,
     same as every other BLOCKED reason in this module -- the next real shadow event
-    mirrors normally.
+    mirrors normally. The two exceptions (2026-09-21) are an OPEN blocked by the
+    adapter's own RECONCILE halt and any order Webull rejected as a same-instant
+    DUPLICATE: those are queued and re-sent by _maybe_resend_broker_orders (`resend` is
+    that re-send's number -- it suffixes the id with R<n>, because Webull and the
+    adapter's idempotency cache both refuse a reused client_order_id). `requeue=False`
+    opts a caller out (the orphan repair runs its own retries).
 
     PER ORDER, NOT ONLY PER TICK (2026-09-14): the verdict above is taken when the tick
     starts, and a tick can outlast it -- a slow order call before the next leg's, or the PC
@@ -925,6 +938,8 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     if not shares or shares <= 0:
         return
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq, trade_id=trade_id)
+    if resend:
+        signal_id = f"{signal_id}R{int(resend)}"   # 28 + 2 chars for NOISE/ENGUQ, inside 32
     try:
         adapter = _get_broker_adapter(log=log)
         mode, _mode_reason = adapter.effective_mode()
@@ -987,6 +1002,156 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     if rec.get("mode") not in (None, "OFF") and not rec.get("ok", False):
         log(f"[qqq-exec] broker {intent} for {leg} NOT ok (mode={rec.get('mode')}): "
             f"{row['reason']}")
+    if rec.get("nothing_to_close"):
+        msg = (f"QQQ BROKER: {leg} closed in the book, but Webull never held it (its buy "
+               f"never went through) -- no sell sent, Webull stays flat for {leg}")
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log)
+    if requeue:
+        _queue_broker_resend(state, rec, leg=leg, side=side, shares=shares,
+                             shadow_px=shadow_px, intent=intent, ts=ts, seq=seq,
+                             trade_id=trade_id, resend=resend, log=log)
+
+
+# -- broker RE-SEND (2026-09-21) ---------------------------------------------------------
+def _broker_halt_source(log=print):
+    """The adapter's halt source while it is halted ("reconcile" / "kill_file"), else
+    None. Never raises; an adapter without halt_state() (a test fake) reads as not halted."""
+    try:
+        halted, source, _reason = _get_broker_adapter(log=log).halt_state()
+        return (source or "unknown") if halted else None
+    except Exception:
+        return None
+
+
+def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts, seq,
+                         trade_id, resend, log=print):
+    """Queue a broker order that did not go through for another try later
+    (state["_broker_resend"], keyed "<leg>:<intent>"), or drop it from the queue once it
+    has gone through. Never raises.
+
+    Only two failures are worth another try -- both are timing glitches, not decisions:
+      * an OPEN the adapter BLOCKED because of its OWN reconcile halt. 2026-09-21: a false
+        post-order mismatch halted entries at 09:42, NOISE entered at 09:45:12, its buy
+        was blocked, the halt cleared seconds later -- and nothing ever sent the buy, so
+        the book held NOISE all day and Webull did not;
+      * ANY order Webull rejected as a duplicate of one still in its book (417
+        OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK). Webull compares the ORDER, not our
+        id, so two legs sending the identical SELL/BUY 10 QQQ in one instant collide: the
+        09:31 orphan repair, an end-of-day flatten with two legs open, two legs entering
+        on the same bar. That order was never placed, so it goes again a tick later,
+        after the one it collided with has filled.
+    A kill-file halt, a lease block, a rails refusal, "nothing to close" and an OFF /
+    ERROR record are never re-sent: those are decisions (or a broken adapter)."""
+    try:
+        q = state.setdefault("_broker_resend", {})
+        key = f"{leg}:{intent}"
+        mine = bool(trade_id) and (q.get(key) or {}).get("trade_id") == trade_id
+        if rec.get("ok"):
+            if mine:
+                q.pop(key, None)
+            return
+        text = str(rec.get("reason") or rec.get("error") or "")
+        why = None
+        if "DUPLICATE_ORDER_CHECK" in text:
+            why = "duplicate"
+        elif (intent == "OPEN" and rec.get("mode") == "BLOCKED" and text.startswith("halted:")
+              and _broker_halt_source(log=log) == "reconcile"):
+            why = "halt"
+        if not why or not trade_id:
+            return
+        now = time.time()
+        q[key] = {"leg": leg, "intent": intent, "side": side, "shares": shares,
+                  "shadow_px": shadow_px, "ts": None if ts is None else str(ts),
+                  "seq": seq, "trade_id": trade_id, "why": why,
+                  "tries": int(resend or 0),
+                  "first_at": (q[key].get("first_at") if mine else None) or now,
+                  "last_at": now}
+        log(f"[qqq-exec] broker {intent} for {leg} queued for a re-send ("
+            + ("Webull saw a same-instant duplicate" if why == "duplicate"
+               else "blocked by a reconcile halt")
+            + f"; {int(resend or 0)} of {BROKER_RESEND_MAX_TRIES} re-sends used)")
+    except Exception as e:
+        log(f"[qqq-exec] broker re-send bookkeeping failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
+    """Send ONE queued order (see _queue_broker_resend) per tick, when it is safe to.
+    Never raises.
+      * one per tick, oldest first, never in the tick right after its failure -- so a
+        re-send cannot itself collide with another order;
+      * an OPEN goes only while the book still holds that very trade (same trade id),
+        at or before session.last_entry and within broker_open_resend_window_min of its
+        first try (a late entry at a stale price is worse than none); one blocked by a
+        halt also waits until the adapter is no longer halted (the halted re-check in
+        _maybe_run_broker_reconcile looks every 30 s, so a false halt clears fast);
+      * a CLOSE goes whatever the book says (the book already closed the lot, the shares
+        are still at Webull); webull_orders refuses it if nothing is held there;
+      * at most BROKER_RESEND_MAX_TRIES re-sends, each under a fresh id. Giving up, or
+        running out of window or market, logs an event and sends a phone alert."""
+    q = state.get("_broker_resend") or {}
+    if not q:
+        return
+    try:
+        now = time.time()
+        sess = cfg.get("session") or {}
+        window_min = _cfg_num(cfg, "broker_open_resend_window_min", BROKER_OPEN_RESEND_WINDOW_MIN)
+        for key in sorted(q, key=lambda k: float(q[k].get("first_at") or 0)):
+            item = q[key]
+            leg, intent, why = item.get("leg"), item.get("intent"), item.get("why")
+            tries = int(item.get("tries") or 0)
+            what = "buy" if intent == "OPEN" else "sell"
+            lot = (state.get("legs") or {}).get(leg)
+            if intent == "OPEN" and (not lot or lot.get("trade_id") != item.get("trade_id")):
+                q.pop(key, None)
+                msg = (f"Re-send of the {leg} buy dropped: the book closed that trade before "
+                       f"Webull could get it")
+                log(f"[qqq-exec] {msg}")
+                _log_event(state, "broker", msg, log=log)
+                continue
+            late = intent == "OPEN" and (
+                (now - float(item.get("first_at") or now)) / 60.0 > window_min
+                or _et_hhmm(nowdt) > _hhmm(sess.get("last_entry", "15:55")))
+            if tries >= BROKER_RESEND_MAX_TRIES or late or not active:
+                q.pop(key, None)
+                cause = ("its window passed" if late else "the market window closed" if not active
+                         else f"{tries} re-sends failed")
+                msg = (f"QQQ BROKER: gave up re-sending the {leg} {what} ({cause}; first try "
+                       + ("blocked by a reconcile halt" if why == "halt"
+                          else "rejected by Webull as a duplicate") + "). "
+                       + (f"The book holds {leg} but Webull does not." if intent == "OPEN"
+                          else f"Webull may still hold {leg}'s shares -- check and sell by hand."))
+                log(f"[qqq-exec] {msg}")
+                _log_event(state, "broker", msg, log=log)
+                _notify(msg, "EDGELOG QQQ BROKER", log)
+                continue
+            if why == "halt" and _broker_halt_source(log=log) is not None:
+                continue  # still halted -- the 30 s halted re-check clears a false one
+            if now - float(item.get("last_at") or 0) < BROKER_RESEND_MIN_GAP_SEC:
+                continue
+            shares = lot.get("shares_remaining") if intent == "OPEN" else item.get("shares")
+            log(f"[qqq-exec] broker RE-SEND {intent} for {leg} (re-send {tries + 1} of "
+                f"{BROKER_RESEND_MAX_TRIES}; first try {why})")
+            _mirror_to_broker(state, leg=leg, side=item.get("side"), shares=shares,
+                              shadow_px=item.get("shadow_px"), intent=intent,
+                              ts=item.get("ts"), seq=item.get("seq") or 0,
+                              trade_id=item.get("trade_id"), resend=tries + 1, log=log)
+            last = state.get("_broker_last") or {}
+            if last.get("ok") and last.get("leg") == leg:
+                msg = (f"QQQ BROKER: {leg} {what} re-sent and accepted ("
+                       + ("after the reconcile halt cleared" if why == "halt"
+                          else "after a same-instant duplicate") + ")")
+                _log_event(state, "broker", msg, log=log)
+                _notify(msg, "EDGELOG QQQ BROKER", log)
+            elif key in q and int(q[key].get("tries") or 0) == tries:
+                # failed for a reason that is not worth another try (kill file, rails,
+                # nothing held at Webull) -- _mirror_to_broker already logged why
+                q.pop(key, None)
+                _log_event(state, "broker", f"Re-send of the {leg} {what} refused: "
+                          f"{last.get('reason') or 'see the broker log'}", log=log)
+            return  # ONE re-send per tick
+    except Exception as e:
+        log(f"[qqq-exec] broker re-send failed (non-fatal): {type(e).__name__}: {e}")
 
 
 def _build_broker_status(state=None, log=print):
@@ -1241,9 +1406,23 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
     else:
         interval_sec = max(30.0, _cfg_num(cfg, "broker_reconcile_interval_min",
                                           BROKER_RECONCILE_INTERVAL_MIN) * 60.0)
+        # HALTED RE-CHECK (2026-09-21): a reconcile halt blocks every leg's entries until
+        # a later look agrees, and the next look used to be the 5-minute periodic one --
+        # so a FALSE halt (Webull's positions lagging a fill) froze entries for up to 5
+        # minutes, long enough to swallow NOISE's 09:45 buy. While this adapter's OWN
+        # reconcile halt is on, look every broker_reconcile_halted_recheck_sec instead;
+        # a kill-file halt is the owner's and waits for the file to go.
+        try:
+            halted, source, _reason = adapter.halt_state()
+        except Exception:
+            halted, source = False, None
+        rechecking = bool(halted) and source == "reconcile"
+        if rechecking:
+            interval_sec = min(interval_sec, max(10.0, _cfg_num(
+                cfg, "broker_reconcile_halted_recheck_sec", BROKER_RECONCILE_HALTED_RECHECK_SEC)))
         last = float(state.get("_last_broker_reconcile_at", 0) or 0)
         if active and time.time() - last >= interval_sec:
-            due, why = True, "periodic"
+            due, why = True, ("halted re-check" if rechecking else "periodic")
     if not due:
         return
 
@@ -2366,7 +2545,7 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
             log(f"[qqq-exec] FLATTEN_BROKER: closing orphan broker lot {leg} {qty} sh "
                 f"(attempt {tries[key]} of {FLATTEN_MAX_TRIES}; shadow book holds no lot for it)")
             _mirror_to_broker(state, leg=leg, side="long", shares=qty, shadow_px=qqq_px,
-                             intent="CLOSE", ts=nowdt,
+                             intent="CLOSE", ts=nowdt, requeue=False,
                              trade_id=f"FIX-{leg}-{nowdt:%Y%m%d%H%M%S}", log=log)
             _log_event(state, "broker",
                       f"Flatten-broker repair: sent CLOSE for orphan {leg} {qty} sh "
@@ -3940,6 +4119,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # SEPARATE, older guarantee -- see the CROSS-HOST LEASE block above -- this one is
     # independent of Firestore entirely and always runs).
     _run_broker_housekeeping(state, cfg, nowdt, active, log=log)
+    # BROKER RE-SEND (2026-09-21): after housekeeping, so a reconcile that just cleared a
+    # halt lets the OPEN it blocked go out in the same tick -- see _maybe_resend_broker_orders.
+    _maybe_resend_broker_orders(state, cfg, nowdt, active, log=log)
 
     # REPRICE MERGE (feature #48 half) + EOD PHONE SUMMARY (feature #55): both are
     # once-per-ET-day, time-gated jobs that must never block or crash a tick -- see

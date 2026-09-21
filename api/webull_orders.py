@@ -984,6 +984,37 @@ class OrderAdapter:
                          f"{qty} (leg {leg}, signal {signal_id}); nothing sent ({mode_reason})")
                 return record
 
+            # NOTHING TO CLOSE (2026-09-21). A CLOSE goes to the broker only for shares
+            # THIS adapter actually put there for this leg (broker_sent_positions, the
+            # same book reconcile() trusts). On 2026-09-21 NOISE's buy was BLOCKED by a
+            # reconcile halt while the shadow book still opened the lot, so when the book
+            # later closed it the old code would have sent SELL 10 QQQ for shares Webull
+            # never held -- a CLOSE skips every rail on purpose ("never trap a position"),
+            # so nothing stood in the way. On the cash account that is refused at best;
+            # wherever shorting is allowed it opens a short nobody tracks. A CLOSE larger
+            # than what was sent is clamped to it for the same reason.
+            if intent == "CLOSE":
+                held = float(((self._state.get("broker_sent_positions") or {}).get(leg) or {})
+                             .get("qty", 0) or 0)
+                closes_long = side == "SELL"
+                if not ((closes_long and held > 1e-9) or (not closes_long and held < -1e-9)):
+                    reason = (f"nothing to close at the broker for leg {leg!r}: no position "
+                              f"this adapter sent is held there (sent qty {held:g}) -- its OPEN "
+                              f"was blocked or failed, so this {side} would only open a new "
+                              f"position")
+                    record.update(mode="BLOCKED", ok=False, sent=False, reason=reason,
+                                  nothing_to_close=True)
+                    self._record_order(coid, record)
+                    self._last_error = reason
+                    self.log(f"  [webull-orders] NOT SENT {symbol} {side} {qty} (leg {leg}): {reason}")
+                    return record
+                if qty > abs(held) + 1e-9:
+                    self.log(f"  [webull-orders] CLOSE {symbol} {side} {qty} (leg {leg}) clamped "
+                             f"to {abs(held):g} -- only that much of this leg reached the broker")
+                    record["qty_requested"] = qty
+                    qty = int(round(abs(held)))
+                    record["qty"] = qty
+
             client = self._client(mode)
             if client is None:
                 record.update(ok=False, sent=False, reason=f"no {mode} client ({mode_reason})")
@@ -1213,6 +1244,14 @@ class OrderAdapter:
 
     def place_futures_order(self, *args, **kwargs):
         raise NotImplementedError(FUTURES_NOT_ENABLED)
+
+    def halt_state(self):
+        """(halted, halt_source, halt_reason) -- no disk or network read, so a per-tick
+        caller can ask every 5 s (api/qqq_exec.py: how soon to look at Webull again while
+        halted, and whether an OPEN a halt blocked may be re-sent). halt_source is
+        "reconcile" for this adapter's own mismatch / read-failure halt (it clears itself
+        on a later matching reconcile) and "kill_file" for the owner's kill file."""
+        return self._halted, self._halt_source, self._halt_reason
 
     # -- status, for the web tab (a function, not a UI edit) --
     def status(self):

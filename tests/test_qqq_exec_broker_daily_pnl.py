@@ -241,6 +241,10 @@ def test_a_losing_day_crosses_the_limit_and_blocks_opens_but_not_exits(tmp_path,
     assert blocked["mode"] == "BLOCKED"
     assert "daily loss limit" in blocked["reason"]
 
+    # a flatten closes shares the adapter actually sent -- since 2026-09-21 it refuses a
+    # CLOSE for shares that never reached the broker (NOTHING TO CLOSE guard)
+    adapter._state["broker_sent_positions"] = {
+        "ORB": {"symbol": "QQQ", "qty": 5, "account_id": "ACCT1"}}
     exit_rec = adapter.place_stock_order(leg="ORB", signal_id="flatten", symbol="QQQ",
                                          side="SELL", qty=5, intent="CLOSE")
     assert exit_rec["mode"] != "BLOCKED", "a flatten must still be allowed once the daily stop trips"

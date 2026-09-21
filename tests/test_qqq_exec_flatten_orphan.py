@@ -78,6 +78,11 @@ def _setup(tmp_path, monkeypatch, *, believed, shadow_legs):
     adapter._state["believed_positions"] = {
         leg: {"symbol": "QQQ", "qty": qty} for leg, qty in believed.items()}
     adapter._state["open_legs"] = {leg: True for leg, qty in believed.items() if qty}
+    # A real orphan is a lot whose OPEN reached Webull, so the SENT book carries it too --
+    # and since 2026-09-21 webull_orders refuses a CLOSE for shares it never sent (NOTHING
+    # TO CLOSE guard, tests/test_qqq_exec_broker_resend.py).
+    adapter._state["broker_sent_positions"] = {
+        leg: {"symbol": "QQQ", "qty": qty, "account_id": "ACCT1"} for leg, qty in believed.items()}
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
     monkeypatch.setattr(qe, "_engine_mark_price", lambda leg, log=print: (712.5, "test"))
     monkeypatch.setattr(qe, "_notify", lambda *a, **k: None)
