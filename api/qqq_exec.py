@@ -64,6 +64,7 @@ import concurrent.futures
 import re
 import csv
 import json
+import math
 import os
 import statistics
 import subprocess
@@ -2895,11 +2896,31 @@ def _all_trades_from_csv(cap=500):
     return rows[-cap:]
 
 
+def _curve_pnl(t):
+    """What one closed trade adds to the curve: `pnl` when it is a real number, else
+    the tape-repriced `real_pnl` (merged onto the row by _merge_reprice), else 0 -- the
+    same fallback the web tab uses for its table, calendar and KPIs (qePnlOf).
+
+    2026-09-21 (owner: "webull paper chart doesnt show all the trades"): an exit the
+    adapter could not mark is written as pnl "nan", and float("nan") does not raise --
+    so the old float(pnl) added NaN to the running total, and every later point of that
+    leg and of TOTAL was NaN. The 09-17 / 09-18 after-the-bell exits did exactly that."""
+    for fld in ("pnl", "real_pnl"):
+        try:
+            v = float(t.get(fld))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(v):
+            return v
+    return 0.0
+
+
 def _cum_pnl_by_leg(all_trades):
     """{leg: [{"date","cum_pnl"}, ...], total: [...]} -- one point per
     calendar date (ET, off exit_ts) a leg had at least one close, cumulative sum of
-    `pnl` in chronological order. Powers the equity-curve chart and the per-leg
-    since-start KPI without the client re-deriving it from trades_all."""
+    each trade's _curve_pnl in chronological order. The web tab now draws its curve
+    from trades_all itself (2026-09-21); this published copy stays for other readers
+    and must never carry a NaN."""
     out = {leg: [] for leg in LEGS}
     running = {leg: 0.0 for leg in LEGS}
     by_leg_date = {leg: {} for leg in LEGS}
@@ -2910,11 +2931,7 @@ def _cum_pnl_by_leg(all_trades):
         date = str(t.get("exit_ts") or t.get("entry_ts") or "")[:10]
         if not date:
             continue
-        try:
-            pnl = float(t.get("pnl") or 0)
-        except Exception:
-            pnl = 0.0
-        running[leg] = round(running[leg] + pnl, 2)
+        running[leg] = round(running[leg] + _curve_pnl(t), 2)
         by_leg_date[leg][date] = running[leg]  # last value wins for that date
     for leg in LEGS:
         out[leg] = [{"date": d, "cum_pnl": v} for d, v in sorted(by_leg_date[leg].items())]
@@ -3211,7 +3228,6 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # since LIVE_FROM, not just the last 100 kept for the TODAY'S ORDERS panel.
     all_trades = _all_trades_from_csv(cap=500)
     trades_all_raw = list(reversed(all_trades))  # newest first, per the web tab's table convention
-    cum_pnl = _cum_pnl_by_leg(all_trades)
 
     # NT PARITY (feature 1): every row of trades_all carries the parity fields computed
     # fresh from its own CSV columns (works identically for a trade just closed this
@@ -3227,6 +3243,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # REPRICE MERGE (feature #48 half): merges broker-verified fields onto trades_all
     # IN PLACE and returns the coverage summary.
     reprice = _merge_reprice(trades_all, log=log)
+    # The curve is built AFTER the merge, so an exit the adapter could not mark counts at
+    # its tape-repriced real_pnl -- exactly as the web tab counts it (see _curve_pnl).
+    cum_pnl = _cum_pnl_by_leg(trades_all)
 
     feed_days = _build_feed_days(state)
     ratio_hist = (state.get("ratio_hist") or [])[-500:]
