@@ -64,7 +64,7 @@ section. Data and scripts: see §5.
 | 6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
 | 7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | **SHIPPED 2026-09-20** — see §3b |
 | 8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | **DECIDED 2026-09-20** (owner: rank on the re-tuned test). Being built now by the COMPARE session; the walk-forward relabel (F14) is unblocked. Rank metric stays return-per-year for now - profit-factor-first is still an owner call |
-| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | **OWNER ORDERED 2026-09-20: run the 24-month arm** (see 3b for the catch); propose the 36-month arm alongside. Otherwise run AFTER item 7, or read the gain as an upper bound: going 12 to 24 to 36 months recovers cold-start trades as well as adding calendar, and the two effects are not separable while folds still start cold |
+| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | **RAN 2026-09-21** — see §3c |
 | 10 | Drop or correct the Stage A.5 crowning step (crown from the tuning search; then the fixed reading after the search's data ends is a clean test) | §2.3 | Small (crown rule); reverses the 2026-07-20 decision | OPEN |
 | 11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
 | 12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after items 2 and 7 | PARKED |
@@ -107,6 +107,34 @@ stack's walk-forward efficiency) stay on the books until those runs are re-run.
 
 **Opting out.** `warm_days: 0` on a job reproduces a pre-2026-09-20 run exactly. Each saved
 run records the setting it used, so cold and warm runs stay distinguishable.
+
+---
+
+## 3c. Item 9 — 12 vs 36-month lockbox, ran 2026-09-21
+
+Paired arms, same file / window / 900 trials, warm starts on in both (`tools/queue_lockbox_36mo.py`).
+ORB and NOISE searched their declared PARENT files (the crowns' own files are pinned), so those two
+rows are about the family, not crowns #257 / #243. Lockbox $ = points x $20.
+
+| Family | 12-month arm | 36-month arm | Same crown? |
+|---|---|---|---|
+| ORB (ORB_3_6) | #404 FAIL — LB -$19,480, PF 0.92, 193 trades | #403 FAIL — LB +$97,400, PF 1.11, 746 trades | No |
+| NOISE (NOISE_1_0) | #406 PASS — LB +$50,380, PF 1.31, 288 trades | #405 WEAK — LB +$95,720, PF 1.24, 733 trades | No |
+| ENGU-Q (R2) | #402 WEAK — LB +$65,960, PF 1.22, 197 trades | #407 PASS — LB +$147,200, PF 1.59, 273 trades | No |
+
+**Reading.** The crown moved in all three families, and the verdict changed in two of them in
+OPPOSITE directions (NOISE PASS -> WEAK, ENGU-Q WEAK -> PASS). That is what an unstable pick and a
+noisy verdict look like, not evidence that the three extra tuning years were load-bearing: the
+candidate board already showed the choice among near-equal finalists is a coin flip, so a different
+crown from a different window is expected even when pick QUALITY is unchanged. What the longer arm
+reliably buys is sample: 2.5-3.8x the lockbox trades in every family. Nothing here shows the 36-month
+arm costing anything.
+
+**Limits.** One run per arm, three families; the crowns differ, so the two arms' lockboxes score
+different configs on overlapping-but-different stretches and cannot be compared dollar for dollar.
+
+**Recommendation:** adopt item 5 (36 months, warm, veto only), and stop reading a single validate's
+PASS/WEAK/FAIL as a property of the family — two of three flipped on the lockbox length alone.
 
 ---
 
