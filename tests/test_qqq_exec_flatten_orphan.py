@@ -106,39 +106,87 @@ def _at(h, m):
 
 # ── the repair itself ──────────────────────────────────────────────────────────────
 
-def test_orphan_leg_is_closed_in_market_hours(tmp_path, monkeypatch):
-    """The 2026-09-18 state exactly: broker holds ENGUQ 10 + ORB 10, shadow book flat."""
+def test_orphans_close_one_per_tick_then_the_trigger_is_consumed(tmp_path, monkeypatch):
+    """The 2026-09-18 state exactly: broker holds ENGUQ 10 + ORB 10, shadow book flat.
+
+    LIVE REGRESSION (2026-09-21 09:31 ET): the first version sent both CLOSEs in the same
+    instant, and Webull filled the first and rejected the second as a duplicate order
+    (417 OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK) -- two legs on one symbol make
+    identical orders. So: one leg per tick, the trigger kept until nothing is left."""
     cfg, state, adapter, client, trigger, out = _setup(
         tmp_path, monkeypatch, believed={"ENGUQ": 10, "ORB": 10, "NOISE": 0}, shadow_legs=[])
 
-    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 35))
-
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 31))
     rows = _broker_rows(out)
-    assert [r["leg"] for r in rows] == ["ENGUQ", "ORB"], rows
+    assert [r["leg"] for r in rows] == ["ENGUQ"], "one order per tick, never two at once"
+    assert trigger.exists(), "ORB is still orphaned, so the trigger must stay armed"
+
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 32))
+    rows = _broker_rows(out)
+    assert [r["leg"] for r in rows] == ["ENGUQ", "ORB"]
     for r in rows:
-        assert r["intent"] == "CLOSE"
-        assert r["side"] == "SELL"          # closing a long
-        assert r["shares"] == "10"
-        assert r["mode"] == "PAPER"
-        assert r["ok"] == "True", r["reason"]
-    # a repair id of its own, never the original close's (Webull refuses a repeat)
-    assert {r["client_order_id"] for r in rows} == {"qxFIXENGUQ20260921C", "qxFIXORB20260921C"}
-    # the adapter's own belief went to zero, so a later reconcile agrees with a flat broker
+        assert r["intent"] == "CLOSE" and r["side"] == "SELL" and r["shares"] == "10"
+        assert r["mode"] == "PAPER" and r["ok"] == "True", r["reason"]
     assert adapter._state["believed_positions"]["ENGUQ"]["qty"] == 0
     assert adapter._state["believed_positions"]["ORB"]["qty"] == 0
+    assert trigger.exists(), "consumed only by the tick that finds nothing left"
+
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 33))
+    assert len(_broker_rows(out)) == 2, "nothing more is sent"
+    assert not trigger.exists()
+    assert [p.name for p in out.iterdir() if p.name.startswith("FLATTEN_BROKER.done-")]
+
+
+def test_every_attempt_gets_a_fresh_order_id(tmp_path, monkeypatch):
+    """LIVE REGRESSION (2026-09-21): ids were FIX-<leg>-<YYYYMMDD>, so a same-day retry
+    rebuilt the SAME client_order_id, and OrderAdapter.place_stock_order returns an
+    already-recorded id from its cache WITHOUT sending -- re-arming would have done
+    nothing. Ids now carry the second, so a retry is a new order."""
+    cfg, state, adapter, client, trigger, out = _setup(
+        tmp_path, monkeypatch, believed={"ORB": 10}, shadow_legs=[])
+    # Webull refuses the first attempt the way it did live
+    client.order_v3.place_order.side_effect = [RuntimeError("417 DUPLICATE_ORDER_CHECK"), None]
+    client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
+
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 31))
+    qe._maybe_flatten_orphan_broker(state, cfg, datetime.datetime(2026, 9, 21, 9, 31, 5))
+
+    ids = [r["client_order_id"] for r in _broker_rows(out)]
+    assert len(ids) == 2 and ids[0] != ids[1], ids
+    assert ids[0] == "qxFIXORB20260921093100C", ids
+    assert all(len(i) <= 32 for i in ids), "Webull caps client_order_id at 32"
+    assert not any(r["duplicate"] == "True" for r in _broker_rows(out)), \
+        "a retry must reach the broker, not come back from the local cache"
+
+
+def test_a_leg_that_keeps_failing_gives_up_after_three_tries(tmp_path, monkeypatch):
+    cfg, state, adapter, client, trigger, out = _setup(
+        tmp_path, monkeypatch, believed={"ORB": 10}, shadow_legs=[])
+    client.order_v3.place_order.side_effect = RuntimeError("broker says no")
+    sent = []
+    monkeypatch.setattr(qe, "_notify", lambda msg, title, log: sent.append(title))
+
+    for sec in range(4):
+        qe._maybe_flatten_orphan_broker(state, cfg, datetime.datetime(2026, 9, 21, 9, 31, sec * 5))
+
+    assert len(_broker_rows(out)) == qe.FLATTEN_MAX_TRIES == 3
+    assert not trigger.exists(), "gives up and stops, rather than hammering Webull every 5 s"
+    assert sent == ["EDGELOG QQQ BROKER REPAIR FAILED"], "and tells the owner on the phone"
+    assert adapter._state["believed_positions"]["ORB"]["qty"] == 10, "still held -- say so"
 
 
 def test_trigger_is_consumed_so_it_cannot_fire_twice(tmp_path, monkeypatch):
     cfg, state, adapter, client, trigger, out = _setup(
         tmp_path, monkeypatch, believed={"ENGUQ": 10}, shadow_legs=[])
 
-    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 35))
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 35))   # sends
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 36))   # finds nothing left, consumes
     assert not trigger.exists()
     assert [p.name for p in out.iterdir() if p.name.startswith("FLATTEN_BROKER.done-")]
 
     before = len(_broker_rows(out))
     qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 40))
-    assert len(_broker_rows(out)) == before    # nothing sent the second time
+    assert len(_broker_rows(out)) == before    # nothing sent once consumed
 
 
 def test_a_leg_the_shadow_book_still_holds_is_left_alone(tmp_path, monkeypatch):
@@ -220,6 +268,7 @@ def test_the_trigger_path_follows_the_current_out_dir_not_an_import_time_default
     cfg.pop("flatten_broker_file", None)
 
     qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 35))
+    qe._maybe_flatten_orphan_broker(state, cfg, _at(9, 36))
 
     assert [r["leg"] for r in _broker_rows(out)] == ["ENGUQ"]
     assert not trigger.exists(), "the tmp trigger, not the live one, was consumed"

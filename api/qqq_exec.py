@@ -129,6 +129,7 @@ ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
 ENGINE_SHORT_READ_TICKS = 3           # consecutive short ledger reads before accepting a replaced file
+FLATTEN_MAX_TRIES = 3                 # orphan-repair attempts per leg per day (_maybe_flatten_orphan_broker)
 # The ET calendar date shadow trading actually began (first tick of api/qqq_exec.py in
 # production). Published in every doc as `live_from` so the web tab can show a
 # "since start" figure without hardcoding the date client-side.
@@ -2274,10 +2275,25 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print):
 # to run INSIDE this process, because the OrderAdapter loads its state file once at
 # construction (see _get_broker_adapter) and a second process writing that file would race.
 def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
-    """One-shot: close any broker leg this book has no open lot for. No-op unless the
-    trigger file exists AND we are inside regular trading hours (a market order outside
-    09:30-16:00 ET is exactly what created the orphan). Consumed either way, so it can
-    never fire twice; never raises -- a failure here must not stop the tick."""
+    """Close broker legs this book has no open lot for, ONE PER TICK, until none are left.
+    No-op unless the trigger file exists AND we are inside regular trading hours (a market
+    order outside 09:30-16:00 ET is exactly what created the orphan). Never raises -- a
+    failure here must not stop the tick.
+
+    WHY ONE PER TICK, AND A FRESH ID EVERY ATTEMPT (2026-09-21, the first live run). The
+    first version sent every orphan's CLOSE in the same instant and named each repair
+    FIX-<leg>-<YYYYMMDD>. At 09:31:00 it sent SELL 10 QQQ for ENGUQ and SELL 10 QQQ for ORB
+    back to back; Webull filled the first and REJECTED the second with 417
+    OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK ("You already have an existing order
+    with the exact same order details") -- its risk rule compares the ORDER, not our
+    client_order_id, and two legs holding the same symbol produce identical orders. Worse,
+    a same-day retry would have rebuilt the SAME id, and OrderAdapter.place_stock_order
+    returns an already-recorded id from its idempotency cache without sending anything,
+    so re-arming the trigger would have silently done nothing. Now: one leg per tick (the
+    next goes 5 s later, after the first has filled and left Webull's open-order book),
+    an id stamped to the second so every attempt is new (qxFIXORB20260921093105C, 23-25
+    chars, inside Webull's 32), at most FLATTEN_MAX_TRIES attempts per leg per day, and
+    the trigger is consumed only once no orphan is left (or every one has given up)."""
     # Resolved against the CURRENT OUT_DIR, never a value baked in at import time --
     # see the note in DEFAULT_CONFIG. A test that repoints OUT_DIR is then fully isolated
     # from the live trigger file, including the os.replace that consumes it.
@@ -2294,40 +2310,51 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
             and _hhmm(sess.get("open", "09:31")) <= _et_hhmm(nowdt)
             <= _hhmm(sess.get("last_entry", "15:55"))):
         return
+    consume = False
     try:
         adapter = _get_broker_adapter(log=log)
-        st = adapter.status()
-        believed = st.get("believed_positions") or {}
+        believed = adapter.status().get("believed_positions") or {}
         shadow_open = set((state.get("legs") or {}).keys())
-        orphans = {leg: int(abs(p.get("qty") or 0)) for leg, p in believed.items()
-                   if int(abs(p.get("qty") or 0)) > 0 and leg not in shadow_open}
-        stamp = nowdt.strftime("%Y%m%d")
+        orphans = sorted((leg, int(abs(p.get("qty") or 0))) for leg, p in believed.items()
+                         if int(abs(p.get("qty") or 0)) > 0 and leg not in shadow_open)
+        tries = state.setdefault("_flatten_tries", {})
+        day = nowdt.strftime("%Y%m%d")
+        live = [(leg, qty) for leg, qty in orphans
+                if int(tries.get(f"{day}:{leg}", 0)) < FLATTEN_MAX_TRIES]
         if not orphans:
-            log("[qqq-exec] FLATTEN_BROKER trigger present but no orphan broker lot "
-                "(every leg the broker holds is also open in the shadow book) -- nothing sent")
-            _log_event(state, "broker", "Flatten-broker trigger consumed -- no orphan to close",
+            log("[qqq-exec] FLATTEN_BROKER: no orphan broker lot left -- trigger consumed")
+            _log_event(state, "broker", "Flatten-broker repair complete -- no orphan left",
                       log=log)
-        for leg, qty in sorted(orphans.items()):
+            consume = True
+        elif not live:
+            gave_up = ", ".join(f"{leg} {qty}sh" for leg, qty in orphans)
+            log(f"[qqq-exec] FLATTEN_BROKER: GAVE UP after {FLATTEN_MAX_TRIES} attempts each "
+                f"on {gave_up} -- still held at the broker, trigger consumed")
+            _log_event(state, "broker", f"Flatten-broker repair gave up -- still held: {gave_up}",
+                      log=log)
+            _notify(f"QQQ SHADOW: could NOT flatten {gave_up} after {FLATTEN_MAX_TRIES} "
+                    f"tries each -- sell by hand", "EDGELOG QQQ BROKER REPAIR FAILED", log)
+            consume = True
+        else:
+            leg, qty = live[0]
+            key = f"{day}:{leg}"
+            tries[key] = int(tries.get(key, 0)) + 1
             qqq_px, src = _engine_mark_price(leg, log=log)
             log(f"[qqq-exec] FLATTEN_BROKER: closing orphan broker lot {leg} {qty} sh "
-                f"(shadow book holds no lot for it)")
-            # A repair id of its own, never the original close's -- that one was already
-            # sent and rejected, and Webull refuses a repeated client_order_id.
+                f"(attempt {tries[key]} of {FLATTEN_MAX_TRIES}; shadow book holds no lot for it)")
             _mirror_to_broker(state, leg=leg, side="long", shares=qty, shadow_px=qqq_px,
-                             intent="CLOSE", ts=nowdt, trade_id=f"FIX-{leg}-{stamp}", log=log)
+                             intent="CLOSE", ts=nowdt,
+                             trade_id=f"FIX-{leg}-{nowdt:%Y%m%d%H%M%S}", log=log)
             _log_event(state, "broker",
                       f"Flatten-broker repair: sent CLOSE for orphan {leg} {qty} sh "
-                      f"(mark {qqq_px if qqq_px is not None else 'n/a'}, source {src or 'n/a'})",
-                      log=log)
-        if orphans:
-            _notify(f"QQQ SHADOW: flattened orphan broker lots -- "
-                    f"{', '.join(f'{k} {v}sh' for k, v in sorted(orphans.items()))}",
-                    "EDGELOG QQQ BROKER REPAIR", log)
+                      f"(attempt {tries[key]}, mark {qqq_px if qqq_px is not None else 'n/a'}, "
+                      f"source {src or 'n/a'})", log=log)
     except Exception as e:
         log(f"[qqq-exec] flatten-broker repair failed (non-fatal): {type(e).__name__}: {e}")
-    finally:
-        # Consume the trigger even on failure: a file that silently re-fires every tick
-        # would be worse than one that needs to be dropped again on purpose.
+        # a file that re-fires every 5 s on an exception would be worse than one that has
+        # to be dropped again on purpose
+        consume = True
+    if consume:
         try:
             if os.path.exists(path):
                 os.replace(path, f"{path}.done-{_now_et():%Y%m%d-%H%M%S}")
