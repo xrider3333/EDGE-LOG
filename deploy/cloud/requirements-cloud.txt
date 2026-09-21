@@ -30,5 +30,12 @@ tzdata           # load_master_arrays converts to US/Eastern; belt-and-suspender
 fastapi
 uvicorn
 firebase-admin
-webull-openapi-python-sdk   # official Webull OpenAPI (webull_sync daily trade pull +
-                             # the QQQ shadow adapter's order/quote calls)
+# PINNED 2026-09-20 to the version the owner's PC actually runs. Unpinned, a fresh
+# cloud install pulled 3.0.1, and api/cloud_signal.py's _fetch_webull died on every
+# call with "TypeError: Object of type Category is not JSON serializable" -- caught
+# and swallowed into a silent None, so the box quietly fell back to yfinance bars
+# while the ORDER path kept working and looked healthy. Same dependency-drift class
+# as the pandas 3 pin in requirements-dev.txt. Move it only on purpose, after
+# re-testing _fetch_webull on the box.
+webull-openapi-python-sdk==2.0.12   # official Webull OpenAPI (webull_sync daily trade
+                             # pull + the QQQ shadow adapter's order/quote calls)
