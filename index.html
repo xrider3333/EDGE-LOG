@@ -2650,23 +2650,65 @@ function _hydrateCfg(id){
   if(window._runFull&&window._runFull[id]){window._runCfg[id]=window._runFull[id];return;}
   if(!auth||!auth.currentUser||!_runsUid)return;
   if(window._runCfgQ.indexOf(id)>=0)return;
-  if(Object.keys(window._runCfgBusy).length>=3){window._runCfgQ.push(id);return;}
+  // SIX IN FLIGHT, NOT THREE (owner 2026-09-21: EXPLORE measured 8.6s and 23 renderApp()
+  //   calls - 133s of a frozen tab - loading 41 Auto-Validate runs' worth of configs, one
+  //   redraw per run landing). This masked read is a few-field projection, kilobytes rather
+  //   than the multi-megabyte whole document _hydrateRun fetches below, so twice as many can
+  //   sit in flight without the browser choking on the responses. _hydrateRun keeps its cap
+  //   of 3 - it is still fetching whole run documents.
+  if(Object.keys(window._runCfgBusy).length>=6){window._runCfgQ.push(id);return;}
   window._runCfgBusy[id]=1;
   const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
   const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'
     +_runsUid+'/runs/'+id+'?'+RUN_CFG_FIELDS.map(f=>'mask.fieldPaths='+encodeURIComponent(f)).join('&');
+  // A 30-SECOND TIMEOUT (owner 2026-09-21). A masked read that never lands used to hold its
+  //   slot forever, slowly starving a whole burst down to nothing. AbortController is not on
+  //   every embedded browser, so this only fires where it exists; a timed-out read falls down
+  //   the same catch path as any other failure, straight into the whole-document fallback.
+  const _cfgAbortOk=(typeof AbortController==='function');
+  const _cfgAc=_cfgAbortOk?new AbortController():null;
+  const _cfgTo=_cfgAbortOk?setTimeout(function(){_cfgAc.abort();},30000):null;
   auth.currentUser.getIdToken()
-    .then(tok=>fetch(url,{headers:{'Authorization':'Bearer '+tok}}))
+    .then(tok=>fetch(url,Object.assign({headers:{'Authorization':'Bearer '+tok}},_cfgAbortOk?{signal:_cfgAc.signal}:{})))
     .then(r=>{if(!r.ok)throw new Error('cfg REST '+r.status);return r.json();})
     .then(doc=>{
+      clearTimeout(_cfgTo);
       delete window._runCfgBusy[id];_runCfgNext();
       window._runCfg[id]=Object.assign({id:id},_fsFields((doc||{}).fields||{}));
-      renderApp();})
-    .catch(e=>{delete window._runCfgBusy[id];_runCfgNext();
-      // a mask the rules refuse, or an old document without these fields: fall back to the
-      //   whole-document path rather than leaving the view stuck on LOADING for ever.
+      _runCfgSettled();})
+    .catch(e=>{
+      clearTimeout(_cfgTo);
+      delete window._runCfgBusy[id];_runCfgNext();
+      // a mask the rules refuse, an old document without these fields, or the 30s timeout
+      //   above: fall back to the whole-document path rather than leaving the view stuck on
+      //   LOADING for ever.
       console.warn('[cfg] projected fetch failed for',id,(e&&e.message)||e);
-      if(typeof _hydrateRun==='function')_hydrateRun(id);});
+      if(typeof _hydrateRun==='function')_hydrateRun(id);
+      _runCfgSettled();});
+}
+// ONE REDRAW PER BURST, NOT ONE PER RUN (owner 2026-09-21: ticking 41 Auto-Validate runs on
+//   EXPLORE measured 23 renderApp() calls costing 133s of a frozen tab - every masked read
+//   that landed called renderApp() on its own, re-laying-out a 15.9MB, 90,000-element table
+//   before the next read had even come back). A read still redraws immediately when it is
+//   the only one in flight, exactly as before; a burst of several now waits for the LAST one
+//   to land and draws once.
+function _runCfgSettled(){
+  if(Object.keys(window._runCfgBusy).length||window._runCfgQ.length){_runCfgProgress();return;}
+  renderApp();
+}
+// TEXT ONLY, NEVER A REDRAW. Updates the "N of M runs in" line the EXPLORE loading panels
+//   show while a burst is still in flight, straight in the DOM - calling renderApp() here
+//   would recreate the very race this exists to avoid.
+function _runCfgProgress(){
+  try{
+    document.querySelectorAll('[data-recfgprog]').forEach(function(el){
+      const ids=String(el.getAttribute('data-recfgids')||'').split(',').filter(Boolean);
+      if(!ids.length)return;
+      let got=0;
+      ids.forEach(function(id){if((window._runCfg&&window._runCfg[id])||(window._runFull&&window._runFull[id]))got++;});
+      el.textContent=got+' of '+ids.length+' runs in - the board draws once, when the last one lands.';
+    });
+  }catch(e){}
 }
 window._runHydrateQ=window._runHydrateQ||[];
 function _runHydrateNext(){const n=window._runHydrateQ.shift();if(n)_hydrateRun(n);}
@@ -26822,7 +26864,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   tables are untouched and the line under the chart says what was left off.
         const _reFailOn=(APREF.resFail==='1');
         const _reMinTrd=(function(){const v=+APREF.resMinTrd;
-          return ([0,30,100,250].indexOf(v)>=0)?v:0;})();
+          return ([0,10,30,100,250].indexOf(v)>=0)?v:0;})();
         // stored as a JSON STRING by every writer on this board, but an object handed
         //   straight in used to vanish (JSON.parse of an object throws -> {}), so a
         //   caller could set a filter and watch the board ignore it. Both shapes read.
@@ -27068,6 +27110,19 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   table lays out on its own widths and long text ellipses instead of stretching.
         const _reTblFix=Object.keys(_reColW).length?'table-layout:fixed;':'';
         const _reNCols=(_reFull?24:16)+((_reBasis==='year')?3:0);   // +RUN moved beside FAMILY, +TRADES / YR
+        // DRAW THE FIRST 300 ROWS, NOT EVERY ROW (owner 2026-09-21: measured 15.9MB of HTML
+        //   for 2,236 rows on the merged ONE TABLE alone - about 7KB per row, mostly repeated
+        //   inline styles - and building the hidden rows' HTML was most of an 8.6s render).
+        //   Ranks are still computed on every row; only the HTML for rows past the cap is
+        //   skipped, and a footer row always offers to draw the rest.
+        const _reTblCap=300;
+        const _reTblAll=(APREF.resTblAll===true);
+        const _reTblFooter=n=>{const sb=(attr,txt,tip)=>'<span '+attr+' title="'+_reEsc(tip)+'" style="display:inline-flex;align-items:center;margin-left:6px;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:5px;cursor:pointer;color:var(--text2);border:1px solid var(--border);background:var(--bg1)">'+_reEsc(txt)+'</span>';
+          return '<tr><td colspan="'+_reNCols+'" style="padding:7px 8px;color:var(--text5);font-size:9px;border-bottom:1px solid var(--border2)">'
+            +(_reTblAll
+              ?('Showing all '+n+' rows, in the order above. '+sb('data-retblall="0"','SHOW FIRST 300','draw only the first 300 rows - faster')+' - faster.')
+              :('Showing the first 300 of '+n+' rows, in the order above. '+sb('data-retblall="1"','SHOW ALL '+n,'draw every row - slower, every row is drawn')+' - slower, every row is drawn.'))
+            +'</td></tr>';};
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         //    A CONFIG ROW MEASURES THE TICKED STRETCH, not the whole run. The report
         //    spans the first ticked stretch's start to the last one's end, off the run's
@@ -27798,6 +27853,43 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   the same blue it already uses on the funnel, so one family is one colour app-wide.
         const _reCfgPal={'RAW':'#1d9e75','GATE':'#e24b4a','TILT':'#f0b429',
           'HYBRID':'#c084fc','HYBRID \u267b':'#f0abfc','HYBRID \u2193DD':'#2dd4bf','KEEL':'#38bdf8'};
+        // COLOUR = STRATEGY (owner 2026-08-30 asked for 1E family colour; 2026-09-21: with two
+        //   strategies' runs ticked at once on 1E CONFIGS, colour stopped being enough on its
+        //   own - a RAW row from ENGU-Q and a RAW row from NOISE painted identically. Fixed
+        //   hex, same reason _reCfgPal above is fixed hex: bright enough to read on the
+        //   owner's greyscale MONO theme, which these are never asked to follow.
+        const _reStratPal={'ENGU-Q':'#5b9cf6','NOISE':'#f59e0b','ORB':'#34d399','TTM':'#f87171',
+          'NQDIP':'#c084fc','ETFDIP':'#22d3ee','GAPGO':'#facc15','BOOK':'#f472b6'};
+        const _reStratFallback=['#a3e635','#fb923c','#94a3b8','#e879f9','#2dd4bf','#fda4af'];
+        const _reStratCol=name=>{const k=String(name||'');
+          if(_reStratPal[k])return _reStratPal[k];
+          let h=0;for(let i=0;i<k.length;i++)h=((h<<5)-h+k.charCodeAt(i))|0;
+          return _reStratFallback[Math.abs(h)%_reStratFallback.length];};
+        // ONE SHAPE PER CONFIG TYPE (owner 2026-09-21), so the config type still reads once
+        //   colour stops meaning it - COLOUR = STRATEGY makes every RAW row a different
+        //   colour, and the shape is what still says RAW. `h` is the mark's own half-size,
+        //   the same role `s`/`sz` plays in _reShape above; `champ` draws the same crowned-
+        //   config outline every shape already carries elsewhere on this board, and `dim`
+        //   follows the chart's own faded-point rule (a row never run as a validate run).
+        const _reCfgMark=(type,cx,cy,h,col,fo,champ,dim)=>{
+          const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
+          const foV=(fo==null)?1:fo,so=dim?0.3:1;
+          const champRing=champ?(' stroke="var(--text)" stroke-opacity="'+so+'" stroke-width="1.2"'):'';
+          const ring=champ?('<circle cx="'+x+'" cy="'+y+'" r="'+(h+2.4).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="1" stroke-opacity="'+so+'"/>'):'';
+          const sw=Math.max(1.4,h*0.55).toFixed(2);
+          if(type==='GATE'){const hh=h*0.88;
+            return '<rect x="'+(cx-hh).toFixed(1)+'" y="'+(cy-hh).toFixed(1)+'" width="'+(2*hh).toFixed(1)+'" height="'+(2*hh).toFixed(1)+'" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+          if(type==='TILT'){const hh=h*1.15;
+            return '<path d="M'+x+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy+hh*0.85).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+(cy+hh*0.85).toFixed(1)+'Z" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+          if(type==='HYBRID'){const hh=h*1.1;
+            return '<path d="M'+x+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+y+'L'+x+' '+(cy+hh).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+y+'Z" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+          if(type==='HYBRID \u267b'){const hh=h*1.15;
+            return '<path d="M'+x+' '+(cy+hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy-hh*0.85).toFixed(1)+'L'+(cx-hh).toFixed(1)+' '+(cy-hh*0.85).toFixed(1)+'Z" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';}
+          if(type==='HYBRID \u2193DD')
+            return ring+'<path d="M'+(cx-h).toFixed(1)+' '+y+'L'+(cx+h).toFixed(1)+' '+y+'M'+x+' '+(cy-h).toFixed(1)+'L'+x+' '+(cy+h).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-opacity="'+so+'"/>';
+          if(type==='KEEL'){const hh=h*0.9;
+            return ring+'<path d="M'+(cx-hh).toFixed(1)+' '+(cy-hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy+hh).toFixed(1)+'M'+(cx-hh).toFixed(1)+' '+(cy+hh).toFixed(1)+'L'+(cx+hh).toFixed(1)+' '+(cy-hh).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+sw+'" stroke-linecap="round" stroke-opacity="'+so+'"/>';}
+          return '<circle cx="'+x+'" cy="'+y+'" r="'+(h*0.85).toFixed(1)+'" fill="'+col+'" fill-opacity="'+foV+'"'+champRing+'/>';};
         const _reSz={champ:9,good:6.6,frag:6.6,fail:6.2,ref:6.4};
         // MARKS: plain dots by default. A verdict shape per point - circle, square,
         //   triangle, cross - is readable at twenty points and a wall of icons at eight
@@ -27958,8 +28050,17 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +(bg?(' title="'+_reEsc(_reBgWhy[rw.tone]||'')+'"'):'')
             +' style="'+(runs.length?'cursor:pointer;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash(_reZeroOr(rw,'This row has no figure for the stage now selected, so it cannot be ranked on it.')))+'</span>','left',_reStickyCss('RANK',1)+_reStickyBg(bg))
-            +td((function(){const fam=String((rw._cfg&&rw.fam)||'RAW'),fc=_reCfgPal[fam]||'var(--text3)';
-                return '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+fc+';margin-right:5px"></span><span style="color:'+fc+';font-weight:700">'+_reEsc(fam)+'</span>';})(),'left',_reStickyCss('FAMILY',1)+_reStickyBg(bg))
+            +td((function(){const isCfg=!!rw._cfg,fam=String((isCfg&&rw.fam)||'RAW');
+                const stratCol=(isCfg&&_reByStrat&&rw._strat)?_reStratCol(rw._strat):null;
+                const fc=stratCol||_reCfgPal[fam]||'var(--text3)';
+                // THE MARK MATCHES THE CHART POINT (owner 2026-09-21): a plain dot used to
+                //   carry only the config type's colour, which stopped being unique the
+                //   moment colour started meaning STRATEGY (two strategies can both have a
+                //   RAW row). The shape still says the config type, whatever colour is doing.
+                const mark=isCfg?('<svg width="10" height="10" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:5px">'+_reCfgMark(fam,8,8,4.2,fc,1,rw.tone==='champ',false)+'</svg>')
+                                :('<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+fc+';margin-right:5px"></span>');
+                const stratTag=(isCfg&&_reByStrat&&rw._strat)?('<span title="'+_reEsc('Strategy: '+rw._strat)+'" style="color:'+fc+';font-size:7px;font-weight:700;margin-left:3px;cursor:help">'+_reEsc(rw._strat)+'</span>'):'';
+                return mark+'<span style="color:'+fc+';font-weight:700">'+_reEsc(fam)+'</span>'+stratTag;})(),'left',_reStickyCss('FAMILY',1)+_reStickyBg(bg))
             +td(runCell,null,_reStickyCss('RUN',1)+_reStickyBg(bg))
             +(_reFull?(td(_reCell(st,rw,'is',_reMoney),null,(_reSegsEff.indexOf('is')>=0)?em:'')
             +td(_reCell(st,rw,'wf',v=>_reMoney(v)),null,(_reSegsEff.indexOf('wf')>=0)?em:'')
@@ -28610,6 +28711,47 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const yf=_reYfmt(),xf=(['dd','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num';
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
           const showN=(pts.length<=_reLblMax);
+          // THIN-POINT STRETCH HINT (owner 2026-09-21): three GATE points on 4-6 lockbox
+          //   trades measured Sortino 384-750 and squashed every other point on a board to
+          //   the bottom of the chart. MIN TRADES (control 4) already fixes this - it was
+          //   just off by default and the owner never found it. This never touches the axes
+          //   themselves (VALUE ZOOM was removed 2026-08-19, the chart still fits every point
+          //   it draws) - it only offers the existing switch when a thin point is PROVABLY
+          //   why the chart looks stretched.
+          let _reThinHint='';
+          (function(){
+            if(_reMinTrd>=100||pts.length<8)return;
+            const _wt=pts.map(p=>{const t=_reTrd(p.r);return {p:p,v:(t&&isFinite(t.v))?t.v:null};});
+            const _core=_wt.filter(o=>o.v!=null&&o.v>=30);
+            if(_core.length<5)return;
+            const _cxs=_core.map(o=>o.p.x),_cys=_core.map(o=>o.p.y);
+            const _xLo=Math.min.apply(null,_cxs),_xHi=Math.max.apply(null,_cxs);
+            const _yLo=Math.min.apply(null,_cys),_yHi=Math.max.apply(null,_cys);
+            const _xR=_xHi-_xLo,_yR=_yHi-_yLo;
+            const _stretch=[];
+            _wt.forEach(o=>{
+              if(o.v==null||o.v>=30)return;
+              const sx=(o.p.x<_xLo-0.25*_xR)||(o.p.x>_xHi+0.25*_xR);
+              const sy=(o.p.y<_yLo-0.25*_yR)||(o.p.y>_yHi+0.25*_yR);
+              if(sx||sy)_stretch.push({p:o.p,v:o.v,sx:sx,sy:sy});});
+            if(!_stretch.length)return;
+            const _mxTrd=Math.max.apply(null,_stretch.map(s=>s.v));
+            const _hT=(10>_mxTrd&&10>_reMinTrd)?10:((30>_mxTrd&&30>_reMinTrd)?30:null);
+            if(_hT==null)return;
+            const _mnV=Math.min.apply(null,_stretch.map(s=>s.v)),_mxV=_mxTrd;
+            const _trdTxt=(_mnV===_mxV)?(_mnV+' trade'+(_mnV===1?'':'s')):(_mnV+'-'+_mxV+' trades');
+            const _ySt=_stretch.some(s=>s.sy),_xSt=_stretch.some(s=>s.sx);
+            let _meas='';
+            if(_ySt){const _nm=(String(_reYcapShort[_reMode()]||'').split(' —')[0]||'the vertical measure').toUpperCase();
+              const _mv=Math.max.apply(null,_stretch.filter(s=>s.sy).map(s=>Math.abs(s.p.y)));
+              _meas=_nm+' up to '+_reVal(_mv,yf);}
+            if(_xSt){const _xnm=String(_reXNm[_reXAxis]||'THE HORIZONTAL MEASURE');
+              const _mv2=Math.max.apply(null,_stretch.filter(s=>s.sx).map(s=>Math.abs(s.p.x)));
+              const _xTxt=_xnm+' up to '+_reVal(_mv2,xf);
+              _meas=_meas?(_meas+', '+_xTxt):_xTxt;}
+            _reThinHint='\u26a0 '+_stretch.length+' point'+(_stretch.length===1?'':'s')+' with only '+_trdTxt+' stretch'+(_stretch.length===1?'es':'')+' this chart'+(_meas?(' ('+_meas+')'):'')+'. A figure off that few trades is an anecdote. '
+              +'<span data-remintrd="'+_hT+'" style="display:inline-flex;align-items:center;margin-left:2px;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:5px;cursor:pointer;color:var(--text2);border:1px solid var(--border);background:var(--bg1)">HIDE UNDER '+_hT+' TRADES</span>';
+          })();
           let g='';
           if(pts.length){
             // the axes span ONLY the rows now shown, so the STRATEGY rail and the filters
@@ -28687,7 +28829,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   until a lockbox judges it - so the one thing worth telling apart is
               //   WHICH of the six 1E families a point belongs to.
               const r=p.r,st=p.st,champ=(r.tone==='champ');
-              const col=(r._cfg&&_reCfgPal[r.fam])||_reTone[r.tone]||'var(--text4)';
+              const col=r._cfg?(_reByStrat?_reStratCol(r._strat):(_reCfgPal[r.fam]||_reTone[r.tone]||'var(--text4)')):(_reTone[r.tone]||'var(--text4)');
 
               const runs=Array.isArray(r.runs)?r.runs:[];
               // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
@@ -28723,7 +28865,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
 
               // THE HEADLINE: rank, row, total money, profit factor. Everything else is detail.
               const _tot=_reNum(r,'tot'),_pf=_reNum(r,'pf');
-              let tp='ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()+'  \u00b7  '+String(_reFamOf(st,r)).toUpperCase()
+              let tp='ROW '+r.n+'  \u00b7  '+String(r.name).toUpperCase()+'  \u00b7  '+String(_reFamOf(st,r)).toUpperCase()+((r._cfg&&r._strat)?('  \u00b7  '+String(r._strat).toUpperCase()):'')
                 +'\n'+(grank[st.key+':'+r.n]?('RANK '+grank[st.key+':'+r.n]+' of '+pts.length):'UNRANKED')
                 +'   TOTAL '+((_tot==null)?'not measured':_reVal(_tot,'money'))
                 +'   PF '+((_pf==null)?'not measured':_pf.toFixed(2))
@@ -28765,10 +28907,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   is a slightly larger dot with a white ring. Under 250 points the shape
                 //   system draws exactly as before.
                 +((pts.length>250)
-                  ?('<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(champ?'3.4':'2')
+                  ?(r._cfg?_reCfgMark(r.fam,cx,cy,champ?3.8:2.8,col,dim?0.16:(champ?1:0.7),champ,dim):('<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(champ?'3.4':'2')
                     +'" fill="'+col+'" fill-opacity="'+(dim?'0.16':(champ?'1':'0.7'))
-                    +(champ?('" stroke="var(--text)" stroke-opacity="'+(dim?'0.3':'1')+'" stroke-width="1.2'):'')+'"/>')
-                  :_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1))
+                    +(champ?('" stroke="var(--text)" stroke-opacity="'+(dim?'0.3':'1')+'" stroke-width="1.2'):'')+'"/>'))
+                  :(r._cfg?_reCfgMark(r.fam,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),champ,dim):_reShape(r.tone,cx,cy,sz,col,dim?0.16:(champ?0.95:0.72),dim?0.3:1)))
                 +(showN?('<text x="'+(cx+sz+4.5).toFixed(1)+'" y="'+(cy+4+Math.min(_di,6)*10).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(dim?0.4:1)+'" font-size="11" font-weight="700" style="pointer-events:none">'+_reEsc((_reFamsOn.length>1)?(_reFamOf(st,r)+' '+r.n):String(r.n))+'</text>'):'')
                 +'<title>'+_reEsc(tp)+'</title></g>';});
           }else{
@@ -28968,13 +29110,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div data-rechh="board" title="'+_reEsc('Drag up or down to make the chart shorter or taller. The size is remembered and survives a reload. Double-click to put it back to the standard height.')+'" style="height:10px;margin:5px 0 1px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:52px;height:3px;border-radius:2px;background:var(--border)"></div></div>'
             +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:5px">'
             +(_reShowCfg
-              ?('<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
-                +Object.keys(_reCfgPal).map(function(k){return '<span style="display:inline-flex;align-items:center;gap:4px">'
-                  +'<span style="width:8px;height:8px;border-radius:50%;background:'+_reCfgPal[k]+'"></span>'+_reEsc(k)+'</span>';}).join('')
-                +'<span title="the blue ring still marks the configuration this run CROWNED or CHOSE" style="cursor:help">\u24d8 colour = 1E family</span></span>')
-              :_reLegend(''))
+                ?((function(){
+                    const _legChip=function(k){
+                      const hidden=!!(_reCfgFam.length&&_reCfgFam.indexOf(k)<0);
+                      const mCol=_reByStrat?'var(--text3)':(_reCfgPal[k]||'var(--text3)');
+                      return '<span data-recfgleg="'+_reEsc(k)+'" title="'+_reEsc('click to hide '+String(k).toUpperCase()+' rows from the chart and the tables, click again to bring them back - the same switch as FILTERS > 1E FAMILY')+'" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer'+(hidden?';opacity:.4;text-decoration:line-through':'')+'">'
+                        +'<svg width="11" height="11" viewBox="0 0 16 16" style="display:inline-block;vertical-align:middle">'+_reCfgMark(k,8,8,4.6,mCol,1,false,false)+'</svg>'
+                        +_reEsc(k)+'</span>';};
+                    const typeGrp='<span style="display:inline-flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'+Object.keys(_reCfgPal).map(_legChip).join('')+'</span>';
+                    if(_reByStrat){
+                      const stratGrp='<span style="display:inline-flex;gap:11px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
+                        +_reCfgStrats.map(function(s){return '<span style="display:inline-flex;align-items:center;gap:4px">'
+                          +'<span style="width:8px;height:8px;border-radius:50%;background:'+_reStratCol(s)+'"></span>'+_reEsc(s)+'</span>';}).join('')+'</span>';
+                      return '<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5)">COLOUR = STRATEGY</span>'+stratGrp
+                        +'<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5);margin-left:8px">SHAPE = CONFIG TYPE</span>'+typeGrp
+                        +'<span title="the blue ring still marks the configuration this run CROWNED or CHOSE" style="cursor:help">\u24d8 colour = strategy, shape = 1E config type</span>';
+                    }
+                    return typeGrp+'<span title="the blue ring still marks the configuration this run CROWNED or CHOSE" style="cursor:help">\u24d8 colour = 1E family</span>';
+                  })())
+                :_reLegend(''))
             +'<span title="'+_reEsc(_hint)+'" style="font-size:9px;color:var(--text5);cursor:help">\u24d8</span>'
             +(mixed?('<span title="'+_reEsc(mixed)+'" style="font-size:8px;color:'+_reWarnC+';cursor:help">\u26a0 IN-SAMPLE is not one thing here</span>'):'')
+            +(_reThinHint?('<span style="font-size:8px;color:'+_reWarnC+'">'+_reThinHint+'</span>'):'')
             +'</div></div>';};
         let _reShown=0,_reHidden=0,_reFiltOut=0,_reScopeOut=0,_reNoDate=[],_reWinAll=[],_reWinNone=[];
         // how many rows the SELECTED comparison basis can actually place, counted honestly so the
@@ -29375,6 +29532,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(!full){if(typeof _hydrateCfg==='function')_hydrateCfg(RID);
               _reCfgWait.push(RID);return;}
             {
+              // WHICH STRATEGY THIS RUN IS (owner 2026-09-21): a config row (RAW / GATE /
+              //   TILT / HYBRID / KEEL) carries no strategy of its own - fam here is the
+              //   CONFIG TYPE - so with more than one strategy's runs ticked at once there
+              //   was no way to tell them apart except the row name. _canonFam reads the
+              //   run's own full.strategy, the same reader the STRATEGY rail already uses
+              //   a few lines above (_canonFam(r.strategy)).
+              const _stratNm=_canonFam(full.strategy)||'UNTAGGED';
               const mult=(+full.multiplier||20);
               const V=full.validate||null;
               const optW=(V&&V.windows&&V.windows.optimize)||null;
@@ -29428,7 +29592,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const ddRaw=(mm.max_drawdown!=null&&isFinite(+mm.max_drawdown))?Math.abs(+mm.max_drawdown)
                            :((c.equity&&Array.isArray(c.equity.cum))?ddCum(c.equity.cum):null);
                 _cn++;_reCfgCounts.raw++;
-                CROWS.push({n:_cn,name:'#'+RID+' RAW '+(c.crowned?'crowned':('#'+(i+1))),fam:'RAW',
+                CROWS.push({n:_cn,name:'#'+RID+' RAW '+(c.crowned?'crowned':('#'+(i+1))),fam:'RAW',_strat:_stratNm,
                       what:'A raw configuration from run #'+RID+'. Scored on the optimize window; the lockbox never judged it.',
                       tone:(c.crowned?'champ':'ref'),read:(c.crowned?'Crowned in this run':'Candidate'),
                       is:isV,wf:wfV,lb:lbSlice,tot:((lbEnd!=null)?lbEnd:((isV||0)+(wfV||0))),
@@ -29462,7 +29626,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const _gsp=(_gis!=null&&_gwf!=null&&isFinite(_gis)&&isFinite(_gwf));
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
-                  CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',
+                  CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
                         tone:(isCh?'champ':'ref'),read:(isCh?'Chosen gate':'Gate variant'),
                         // pre_pnl is the PRE-LOCKBOX pool (tuning years); the gate also
@@ -29537,7 +29701,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const net=(st2.total_pnl!=null)?st2.total_pnl*mult*f:null;
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
-                CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,
+                CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
                       what:'A '+tabNm.toLowerCase()+' variant from run #'+RID+'.',
                       tone:'ref',read:tabNm+' variant',
                       // every stretch at the ONE size of the ticked sample, so they add up
@@ -29602,6 +29766,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
         // the distinct families now on screen. One means the family never needs restating.
         const _reFamsOn=(()=>{const o=[];_reItems.forEach(it=>{const f=_reFamOf(it.st,it.r);if(o.indexOf(f)<0)o.push(f);});return o;})();
+        // COLOUR = STRATEGY when more than one is on the 1E CONFIGS chart at once (owner
+        //   2026-09-21: config rows carry no strategy of their own - r.fam here is RAW /
+        //   GATE / TILT / HYBRID, the CONFIG TYPE - so with two strategies ticked every
+        //   point wore the same six colours whichever run it came from). Ticking a single
+        //   strategy still reads exactly as before: colour is the config type, unchanged.
+        const _reCfgStrats=(()=>{const o=[];_reItems.forEach(it=>{if(it.r&&it.r._cfg&&it.r._strat&&o.indexOf(it.r._strat)<0)o.push(it.r._strat);});return o;})();
+        const _reByStrat=_reShowCfg&&_reCfgStrats.length>1;
         const _reFamTag=(st,rw)=>(_reFamsOn.length>1)
           ?('<span title="'+_reEsc('This row is a '+_reFamOf(st,rw)+' variant. More than one strategy is on the board, so every row says which one it belongs to.')+'" style="font-size:7px;font-weight:700;letter-spacing:.5px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text4);border:1px solid var(--border);cursor:help">'+_reEsc(_reFamOf(st,rw))+'</span>'):'';
         // Which study tables are open. Closed is the default, because sixteen open tables were
@@ -29748,11 +29919,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
                 if(da===db)return 0;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
             }
+            const _reCap300=(!_reTblAll&&sorted.length>_reTblCap);
+            const _reDrawRows=_reCap300?sorted.slice(0,_reTblCap):sorted;
             if(!_reSplitRun){
-              bodyRows=sorted.map(r=>_reRow(st,r,rank[r.n],com)).join('');
+              bodyRows=_reDrawRows.map(r=>_reRow(st,r,rank[r.n],com)).join('');
             }else{
-              const withRun=sorted.filter(r=>Array.isArray(r.runs)&&r.runs.length);
-              const noRun=sorted.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
+              const withRun=_reDrawRows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
+              const noRun=_reDrawRows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
               const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:4px 8px 3px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
               // ONE SECTION NEEDS NO SECTION HEADING. When every row falls on the same
               // side of the split the label says nothing the reader cannot already see,
@@ -29766,6 +29939,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('');
             }
           }
+          // DRAW THE FIRST 300, NOT ALL OF THEM (owner 2026-09-21: measured 15.9MB of HTML for
+          //   2,236 rows on this board's ONE TABLE alone - most of an 8.6s render was building
+          //   HTML nobody could see without scrolling for a long time). RANK above is computed
+          //   on the full row set either way; only the hidden rows' HTML is skipped, and rows.length
+          //   (not sorted, which is out of scope once the branch above closes) still counts every row.
+          if(rows.length>_reTblCap)bodyRows+=_reTblFooter(rows.length);
           const _emH=_reEmH;
           const _hd=_reHdCell;
           const hd=_reHd(st);
@@ -29857,21 +30036,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             .sort((a,b)=>_reYv(b.st,b.r,com)-_reYv(a.st,a.r,com))
             .forEach((it,i)=>{rk[it.st.key+':'+it.r.n]=i+1;});
           let bodyRows;
+          const _reCap300=(!_reTblAll&&sorted.length>_reTblCap);
+          const _reDrawRows=_reCap300?sorted.slice(0,_reTblCap):sorted;
           if(!_reSplitRun){
             // the study chip is worth showing only when the rows come from MORE THAN ONE
             //   study. On the configs view they all come from the same pick, and the chip
             //   repeated the identical text on every row - the heading above says it once.
             const _reManySt=(function(){const k={};sorted.forEach(it=>{k[it.st.key]=1;});
               return Object.keys(k).length>1;})();
-            bodyRows=sorted.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0)).join('');
+            bodyRows=_reDrawRows.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0)).join('');
           }else{
             const has=it=>Array.isArray(it.r.runs)&&it.r.runs.length;
             const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
-            const a=sorted.filter(has),b=sorted.filter(it=>!has(it));
+            const a=_reDrawRows.filter(has),b=_reDrawRows.filter(it=>!has(it));
             // no section headings - see the note at the other split
             bodyRows=a.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')
               +b.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('');
           }
+          // DRAW THE FIRST 300 OF 2,236, NOT ALL OF THEM (owner 2026-09-21): the merged ONE
+          //   TABLE view is exactly the board that measured 15.9MB of HTML and 90,000 elements
+          //   at 41 runs ticked. RANK above is still computed on every row; only the HTML for
+          //   rows past the cap is skipped, and the footer row always offers the opposite switch.
+          if(sorted.length>_reTblCap)bodyRows+=_reTblFooter(sorted.length);
           const lbls=_reIsLbls(items);
           const synth={isLbl:(lbls.length===1)?lbls[0]:''};
           const nst=(()=>{const o={};items.forEach(it=>{o[it.st.key]=1;});return Object.keys(o).length;})();
@@ -30051,8 +30237,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ,_TONE.samp);
         // MIN TRADES (control 8). Sits beside PLOT FAILURES because it does the same job:
         //   keep a row out of the CHART without touching its table line or its figures.
-        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row or a run row - on the stretch you tick - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 100 is a reasonable floor for a lockbox; 250 is strict.',
+        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row or a run row - on the stretch you tick - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 10 clears only the thinnest handful; 100 is a reasonable floor for a lockbox; 250 is strict.',
             _reBtn('data-remintrd="0"','OFF',_reMinTrd===0,'draw every row, however few trades it took.',_TONE.samp)
+            +_reBtn('data-remintrd="10"','10',_reMinTrd===10,'need at least 10 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="30"','30',_reMinTrd===30,'need at least 30 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="100"','100',_reMinTrd===100,'need at least 100 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="250"','250',_reMinTrd===250,'need at least 250 trades on the ticked stage to be drawn.',_TONE.samp)
@@ -30219,7 +30406,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // CONFIGS: what stands in for the chart while the run document is in flight, or
         //   when the picked run turns out to hold no configuration records at all.
         const _reCfgState='<div style="border:1px dashed var(--border);padding:44px 20px;text-align:center;color:var(--text5);font-size:10px;line-height:1.9">'
-          +(_reCfgWait.length?('LOADING RUN #'+_reEsc(_reCfgWait.join(', #'))+'<br><span style="font-size:8.5px">Configuration records are not part of the fast page load, so the full run document is being fetched. This happens once per run.</span>')
+          +(_reCfgWait.length?('LOADING RUN #'+_reEsc(_reCfgWait.join(', #'))+'<br><span style="font-size:8.5px">Configuration records are not part of the fast page load, so the full run document is being fetched. This happens once per run.</span>'
+                      // ONE REDRAW WHEN THE LAST ONE LANDS (owner 2026-09-21), not one per run - see _runCfgSettled.
+                      +'<br><span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'" style="font-size:8.5px">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span>')
                       :_reEsc(_reCfgMsg))+'</div>';
         // ── THREE COLUMNS (owner 2026-08-28: "locked sidebar is all the tabs, then the
         //    tables, then the parallel chart - those last two can split"). ───────────────
@@ -30416,7 +30605,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +((_reShowCfg&&_reCfgWait.length&&_reItems.length)
               ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">Still fetching '
                 +_reCfgWait.length+' run'+((_reCfgWait.length===1)?'':'s')+' (#'+_reCfgWait.join(', #')
-                +') - what has arrived is already drawn.</div>'):'')
+                // REWORDED (owner 2026-09-21): this used to say "what has arrived is already
+                //   drawn", which stopped being true once a burst waits for its LAST read
+                //   before the one shared redraw - see _runCfgSettled.
+                +') - <span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span></div>'):'')
             +_reLvlNote
             +'<div style="margin-top:10px">'+_reChartBody+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
@@ -37030,6 +37222,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(late||(Array.isArray(runHistory)?runHistory.length:0)===_n0){window._c2RunsLoading=0;b.textContent='LOAD ALL';}},400);};});
       content.querySelectorAll('[data-remintrd]').forEach(b=>{b.onclick=()=>{
         savePref('resMinTrd',+b.getAttribute('data-remintrd'));renderApp();};});
+      // SHOW ALL / SHOW FIRST 300 (owner 2026-09-21) - the footer row _reTblFooter draws
+      //   under a table once it is capped; see _reTblCap / _reTblAll.
+      content.querySelectorAll('[data-retblall]').forEach(b=>{b.onclick=()=>{
+        savePref('resTblAll',b.getAttribute('data-retblall')==='1');renderApp();};});
       // DRAG A HEADING'S RIGHT EDGE to set that column's width; double-click to hand it
       //   back to the browser. Stored by column NAME so the width survives the KEY / ALL
       //   switch, and remembered across reloads.
@@ -37083,6 +37279,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
         const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
         savePref('resCfgFam',cur);renderApp();};});
+      // A LEGEND CHIP IS THE SAME SWITCH AS 1E FAMILY (owner 2026-09-21) - click a config
+      //   type in the chart legend to hide it, click again to bring it back. resCfgFam keeps
+      //   its existing meaning: empty = show everything, a list = show only those ticked.
+      content.querySelectorAll('[data-recfgleg]').forEach(b=>{b.onclick=()=>{
+        const ALL=['RAW','GATE','TILT','HYBRID','HYBRID ♻','HYBRID ↓DD','KEEL'];
+        const v=b.getAttribute('data-recfgleg');
+        const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        let shown=cur.length?ALL.filter(t=>cur.indexOf(t)>=0):ALL.slice();
+        const i3=shown.indexOf(v);
+        if(i3>=0){if(shown.length===1)return;shown.splice(i3,1);}else shown.push(v);
+        savePref('resCfgFam',(shown.length===ALL.length)?[]:ALL.filter(t=>shown.indexOf(t)>=0));
+        renderApp();};});
       content.querySelectorAll('[data-reshow]').forEach(b=>{b.onclick=()=>{
         // leaving the legacy 'cfg' level behind the first time the view is chosen by hand
         if(String(APREF.resLvl||'')==='cfg')savePref('resLvl','valid');
@@ -37404,7 +37612,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           p.addEventListener('mouseenter',()=>setHL(k,true));
           p.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});
           p.addEventListener('click',()=>{
+            // THE FIRST 300 ROWS, NOT EVERY ROW (owner 2026-09-21): a point past the table's
+            //   own row cap has no tr[data-rerow] to jump to yet. Rather than a click that
+            //   looks like it did nothing, this asks for every row and replays the same click
+            //   once the table has redrawn with the row actually in it - see the jump-to block
+            //   at the end of this wiring.
+            let found=false;
             rws.forEach(t=>{if(t.getAttribute('data-rerow')!==k)return;
+              found=true;
               // the row may live in a study table that is closed. Open it first, otherwise the
               // click looks like it did nothing: the row is in the DOM but its section is not
               // on screen, and a scroll inside a hidden box goes nowhere.
@@ -37416,11 +37631,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // whose row is already on screen still leaves the page exactly where it was.
               const rc=t.getBoundingClientRect();
               if(rc.top<60||rc.bottom>window.innerHeight-20)t.scrollIntoView({block:'center'});});
+            if(!found){window._reJumpTo=k;savePref('resTblAll',true);renderApp();return;}
             setHL(k,true);if(timer)clearTimeout(timer);
             timer=setTimeout(()=>{timer=null;setHL(k,false);},2800);});});
         rws.forEach(t=>{const k=t.getAttribute('data-rerow');
           t.addEventListener('mouseenter',()=>setHL(k,true));
           t.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});});
+        // JUMP TO A ROW THE CLICK ABOVE JUST UNLOCKED. Set once, by the click handler above,
+        //   right before it asks SHOW ALL for every row; consumed the very next time this
+        //   wiring runs (the render that follows), by replaying the click on the same point
+        //   now that its row actually exists.
+        if(window._reJumpTo){
+          const _jk=window._reJumpTo;window._reJumpTo=null;
+          pts.forEach(p=>{if(p.getAttribute('data-repoint')===_jk)p.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
+        }
       })();
       // SAMPLE writes the COMPARE tab's STAGE too - only inside that tab, so the old tab never moves it
       content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{const v=b.dataset.rbs;
