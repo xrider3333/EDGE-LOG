@@ -248,6 +248,12 @@ FS_USAGE_LOG_INTERVAL_SEC = 60 * 60.0
 # call path; the runner's shadow thread once hung 10 hours inside get_snapshot).
 RECONCILE_HARD_TIMEOUT_SEC = 12.0
 BROKER_RECONCILE_INTERVAL_MIN = 5.0
+# POST-ORDER GRACE (2026-09-21, owner: "wait 30 seconds and look again before panicking").
+# Webull paper's POSITIONS lag a FILL by more than one 5 s tick, so a reconcile on the
+# next tick read the pre-fill position and HALTED new entries on every leg until the
+# 5-minute periodic check cleared it -- twice on 2026-09-21 (broker 20 vs sent 10 at
+# 09:31, broker 10 vs sent 0 at 09:42), both false. See _maybe_run_broker_reconcile.
+BROKER_RECONCILE_POST_ORDER_GRACE_SEC = 30.0
 
 
 # -- small time helpers ------------------------------------------------------------
@@ -974,6 +980,9 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         # so this never depends on _mirror_to_broker's own call order relative to the
         # housekeeping block later in tick().
         state["_reconcile_due"] = True
+        # the post-order check waits out BROKER_RECONCILE_POST_ORDER_GRACE_SEC from the
+        # LAST send, so a burst of orders is checked once, after every fill has landed
+        state["_last_broker_send_at"] = time.time()
     if rec.get("mode") not in (None, "OFF") and not rec.get("ok", False):
         log(f"[qqq-exec] broker {intent} for {leg} NOT ok (mode={rec.get('mode')}): "
             f"{row['reason']}")
@@ -1197,8 +1206,9 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
     """Runs adapter.reconcile() (see api.webull_orders.OrderAdapter.reconcile's own
     docstring for what it checks and how it fails closed) -- at boot (see
     _reconcile_broker_at_boot, called once before the tick loop starts, independently
-    of this scheduler), immediately after this tick attempted to send any broker order
-    (state["_reconcile_due"], set by _mirror_to_broker below), and otherwise at most
+    of this scheduler), BROKER_RECONCILE_POST_ORDER_GRACE_SEC after the last broker
+    order this process sent (state["_reconcile_due"] + ["_last_broker_send_at"], set by
+    _mirror_to_broker below -- see the grace comment inline), and otherwise at most
     once every broker_reconcile_interval_min minutes while `active` (the tick loop's
     own 09:25-16:05 ET market window) -- never on the 5s tick cadence, to stay
     cache-friendly with Webull's rate limits. A pure no-op (no Webull call at all, see
@@ -1214,6 +1224,18 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
 
     due, why = False, None
     if state.get("_reconcile_due"):
+        # LOOK AGAIN BEFORE PANICKING (2026-09-21): a fill that has not reached Webull's
+        # positions yet reads as a mismatch, and reconcile() halts on a mismatch. So the
+        # post-order look waits until the grace has passed since the LAST send -- and
+        # returning here also holds the PERIODIC look off for that window, since a
+        # periodic check landing mid-fill would false-halt exactly the same way. A
+        # mismatch still there after the grace is real and halts as before. State
+        # written before this field existed has no send time and runs at once.
+        grace = max(0.0, _cfg_num(cfg, "broker_reconcile_post_order_grace_sec",
+                                  BROKER_RECONCILE_POST_ORDER_GRACE_SEC))
+        sent_at = float(state.get("_last_broker_send_at", 0) or 0)
+        if time.time() - sent_at < grace:
+            return
         due, why = True, "post-order"
     else:
         interval_sec = max(30.0, _cfg_num(cfg, "broker_reconcile_interval_min",
