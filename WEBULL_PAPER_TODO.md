@@ -15,7 +15,7 @@ done.
 | 3 | Keep the QQQ lease fresh when status publishes are throttled | **OPEN** | nothing; fix before the cloud VM runs beside the PC |
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
 | 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **FIX LIVE** (cloud box, 2026-09-21 11:57 ET) | nothing; after-close check pending; do NOT buy the 10 QQQ by hand |
-| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **PLANNED** | "go" for step 1 (one validate job on the PC runner); twin beside raw NOISE, or replace it |
+| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **STEP 1 QUEUED** (2026-09-21) | nothing until the bake-off result; twin beside raw NOISE chosen |
 
 ---
 
@@ -351,7 +351,9 @@ refused by Webull, and the books read flat after the close (broker 0 = sent 0 fo
 
 ## 6. ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q)
 
-**Status: PLANNED - waiting on the owner's "go" for step 1.** Asked 2026-09-21 (owner: "yes plan the ML
+**Status: STEP 1 QUEUED 2026-09-21** (owner: "go, run it as a twin beside NOISE") with
+`tools/queue_noise304_gate_validate.py --queue`; the result lands as a run in PAST RUNS and is judged
+against the pre-registered pass below before anything else is built. Asked 2026-09-21 (owner: "yes plan the ML
 for webull, start with NOISE"), after learning the Webull book trades all three crowns with NO ML filter:
 the owner's 2026-09-01 plan was the ML configs, but the filters were never refit when the crowns changed
 (2026-09-05..08) and the cloud signal engine went live without them. Step 1 is a pass/fail test; nothing
@@ -413,8 +415,8 @@ is built for the cloud unless the filter passes it.
    tape), or retire it with the reason.
 
 **Needs from the owner.**
-- "go" for step 1 (it only queues one validate job).
-- Twin beside raw NOISE (recommended: a clean comparison on the same signals) or replace raw NOISE.
+- ~~"go" for step 1~~ - given 2026-09-21.
+- ~~Twin beside raw NOISE, or replace it~~ - TWIN beside raw NOISE (owner 2026-09-21).
 - If a resizing (hybrid) filter wins, whether NOISE-ML may trade a variable share count (for example
   5-15) instead of a fixed 10 - decide when the result is in.
 - Not part of this item: the hourly-squeeze NOISE (#398) passed its fenced re-search but is not
