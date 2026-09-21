@@ -63,8 +63,8 @@ section. Data and scripts: see §5.
 | 5 | Lockbox **36 months for everything**, warm-started, one look, veto only (supersedes the 24 / 36-for-slow-legs split proposed in the second dive) | §2.4, §2.6; and the second dive's own note that 36 for everything is defensible because the tuning cost is zero | Engine parameter + re-judging | OPEN — owner leaning 36 (2026-09-20); test via item 9 |
 | 6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
 | 7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | OPEN |
-| 8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | OPEN — blocks the walk-forward relabel (F14) in the COMPARE audit backlog |
-| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | OPEN — run AFTER item 7, or read the gain as an upper bound: going 12 to 24 to 36 months recovers cold-start trades as well as adding calendar, and the two effects are not separable while folds still start cold |
+| 8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | **DECIDED 2026-09-20** (owner: rank on the re-tuned test). Being built now by the COMPARE session; the walk-forward relabel (F14) is unblocked. Rank metric stays return-per-year for now - profit-factor-first is still an owner call |
+| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | **OWNER ORDERED 2026-09-20: run the 24-month arm** (see 3b for the catch); propose the 36-month arm alongside. Otherwise run AFTER item 7, or read the gain as an upper bound: going 12 to 24 to 36 months recovers cold-start trades as well as adding calendar, and the two effects are not separable while folds still start cold |
 | 10 | Drop or correct the Stage A.5 crowning step (crown from the tuning search; then the fixed reading after the search's data ends is a clean test) | §2.3 | Small (crown rule); reverses the 2026-07-20 decision | OPEN |
 | 11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
 | 12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after items 2 and 7 | PARKED |
@@ -87,6 +87,39 @@ JUDGED, not how widely it looks.
 may see) measured flat from 2-3 years out to 15; breadth (how many CONFIGURATIONS it tries inside
 those years) did not — breadth is what finds a plateau rather than a spike. So the years are free to
 move to the sealed stretch (item 5) while the configuration budget stays where it is.
+
+---
+
+## 3b. Handed to the features chat (backtesting side), 2026-09-20
+
+The owner asked that the runner-side work be evaluated from the features chat rather than the COMPARE
+session. Nothing below has been queued.
+
+**Item 9, the 24-month re-validates (owner ordered).** Re-validate the three crowns with a 24-month
+lockbox, everything else pinned to each baseline run - same strategy file, instrument, timeframe,
+session, data source, cost, trial budget, seed, fold count and the exact date_from / date_to - so the
+lockbox length is the only difference. The question: do the crown and the verdict move when a year
+leaves the tuning window?
+
+- **The catch:** #257 (ORB) and #243 (NOISE) are PINNED files - every knob min == max - and the runner
+  refuses a validate on a zero-knob file (guard since v73.350) and names the declared parent instead
+  (ORB_3_6_C2 -> ORB_3_6.py, NOISE_1_1_SBS_V90 -> NOISE_1_0.py). Running a parent re-searches and may
+  crown a different config, which answers a different question than "the same frozen config over a
+  longer sealed window". Decide which question to answer before queueing.
+- If parents are used, queue a matched 12-month arm on the same file, window and budget: the existing
+  parent re-runs (2026-08-28) used 12 months for ORB at 200 trials and 18 months for NOISE at 300, so
+  they are not a clean control for each other.
+- #335 (ENGU-Q, 14 free knobs) re-validates directly, and its own run is the 12-month control.
+- Rough runner cost per arm: ORB 5m about 20 minutes, NOISE 5m about 30, ENGU-Q 1m one to two hours.
+
+**Also engine-side, if the owner points you at them:** items 2 (purge straddling trades), 7 (warm-start
+the folds and the sealed stretch), 1 (per-family trial ledger behind the luck bar), 4 (minimum track
+record and a looks counter) and 13 (the daily dip family whose folds no longer reproduce - worth doing
+first, since no other item can judge a family whose folds do not reproduce).
+
+**RUNBOARD backlog E, from RUNBOARD.md.** The Overlay x ENS stacked book is an untested sixth row;
+both upgrades modify the ORB half, so it needs its own pre-registration and a book run before it can
+be judged. Not a web change - it belongs with the backtesting work above.
 
 ---
 
