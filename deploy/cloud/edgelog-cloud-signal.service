@@ -1,0 +1,25 @@
+[Unit]
+# The SIGNAL ENGINE, on its own. On the PC it runs as a thread inside api.runner (primary
+# only). The runner does not run on the cloud box (api/runner.py, _cloud_runner_refusal),
+# so without this unit the adapter would have nothing to consume: signals.csv would never
+# grow and the book would sit idle all session. Same entry point the runner thread uses
+# (cloud_signal_thread -- header migration at boot, heartbeat every cycle), no job queue.
+# Written on the box by hand 2026-09-20 for the cold move; kept in the repo since
+# 2026-09-21 so install.sh can rebuild the box without it.
+Description=EDGE-LOG cloud signal engine (QQQ bar signals, no job queue)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u -c 'from api.cloud_signal import cloud_signal_thread; cloud_signal_thread()'
+Restart=always
+RestartSec=20
+StandardOutput=append:__EDGELOG_HOME__/logs/cloud_signal.log
+StandardError=append:__EDGELOG_HOME__/logs/cloud_signal.log
+
+[Install]
+WantedBy=multi-user.target

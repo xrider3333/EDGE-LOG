@@ -23,6 +23,16 @@ _ntfy() {
     || echo "[healthcheck] ntfy push failed (non-fatal)"
 }
 
+# A STOPPED runner stays stopped (2026-09-21). `systemctl restart` on a stopped unit
+# STARTS it, so this check used to revive a runner the owner had switched off: its
+# runner.log went quiet, this read that as a hang and started it, and the cloud box then
+# ran PC duties for 14 hours (see api/runner.py, _cloud_runner_refusal). Only a runner
+# systemd reports as running can be hung, and try-restart below never starts one.
+if ! systemctl is-active --quiet edgelog-runner.service; then
+  echo "[healthcheck] edgelog-runner.service is not running (stopped on purpose) -- nothing to watch"
+  exit 0
+fi
+
 if [ ! -f "$LOG_FILE" ]; then
   echo "[healthcheck] ${LOG_FILE} does not exist yet -- runner may still be starting, skipping"
   exit 0
@@ -34,7 +44,7 @@ age=$(( now_epoch - mtime_epoch ))
 
 if [ "$age" -gt "$STALE_SEC" ]; then
   echo "[healthcheck] runner.log is ${age}s old (> ${STALE_SEC}s) -- restarting edgelog-runner.service"
-  systemctl restart edgelog-runner.service
+  systemctl try-restart edgelog-runner.service
   _ntfy "EDGE-LOG cloud runner: log was stale (${age}s old), restarted the service."
 else
   echo "[healthcheck] runner.log is ${age}s old -- OK"

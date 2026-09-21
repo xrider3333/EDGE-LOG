@@ -8,6 +8,11 @@ loop, for that piece of the stack. This is a runbook for **you** — every step 
 "I have nothing" to "the runner is live" is here. Every technical term is explained the
 first time it's used.
 
+> **2026-09-21: this box runs the Webull paper book only, and the job runner refuses to
+> start here.** See [Why the job runner is off on this box](#why-the-job-runner-is-off-on-this-box).
+> The runner-on-the-cloud plan described below is the original 2026-09-08 design, kept for
+> reference; the numbered steps and the day-to-day table are current.
+
 **Cost: $0.** Oracle Cloud's "Always Free" tier includes an Ampere A1 (ARM)
 virtual machine, up to 4 OCPU / 24 GB RAM, forever — not a trial. This guide uses 2
 OCPU / 12 GB, which is plenty; you can resize later without losing anything.
@@ -18,7 +23,8 @@ OCPU / 12 GB, which is plenty; you can resize later without losing anything.
 
 | | Cloud VM (this guide) | Your PC |
 |---|---|---|
-| Job queue runner (Auto-Validate, backtests, master-data refresh) | **Yes** — 24/7 | No longer needed for this |
+| Job queue runner (Auto-Validate, backtests, master-data refresh) | **No** — `api/runner.py` refuses to start here (2026-09-21) | **Yes** — the PC's runner fleet drains the queue |
+| Cloud signal engine (`edgelog-cloud-signal.service`) | **Yes** — feeds the paper book | Only as a thread inside the PC's runner |
 | QQQ shadow adapter (paper only, no live money) | Yes, once switched to CLOUD mode (a separate follow-up — this bundle just gets the box ready) | Currently runs here |
 | NinjaTrader + the local NT bridge (live futures execution) | **No** — NinjaTrader is Windows-only and isn't part of this bundle | Yes, stays here until the owner decides to decommission it |
 | Streamlit app (`optimizer.py`) | No — it's a desktop UI, not meant to run headless | Yes, when you want it |
@@ -44,7 +50,7 @@ personally do.
 3. **SSH in and run the installer** — see [(b) SSH in](#b-ssh-in) and
    [(c) Install everything with one command](#c-install-everything-with-one-command).
    This clones the repo, builds the Python environment, and installs (but does not
-   start) `edgelog-runner.service` and `edgelog-qqq-exec.service`.
+   start) `edgelog-qqq-exec.service` and `edgelog-cloud-signal.service`.
 4. **Copy your secrets up from the PC**, using `push_secrets.ps1` from a PowerShell
    window ON YOUR PC (never run this on the VM, and this script never prints a secret's
    contents — only file names/sizes):
@@ -58,12 +64,11 @@ personally do.
 5. **Fill in `~/edgelog/edgelog.env`** on the VM (`nano ~/edgelog/edgelog.env`) — see
    [`edgelog.env.example`](edgelog.env.example) for what every line means. At minimum,
    set `NTFY_TOPIC`. Leave `EDGELOG_HOST_ROLE=cloud` exactly as install.sh wrote it.
-6. **Enable and start the services** — qqq-exec first, so the shadow book runs in its
-   own service rather than inside the runner (either order is safe; see
-   `edgelog-qqq-exec.service`'s own comments):
+6. **Start the paper book** — the signal engine and the adapter. The job runner stays
+   off on this box:
    ```bash
+   sudo systemctl start edgelog-cloud-signal.service
    sudo systemctl start edgelog-qqq-exec.service
-   sudo systemctl start edgelog-runner.service
    bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh
    ```
    While the PC's shadow adapter is still running, the VM's `qqq_exec.log` shows
@@ -249,13 +254,12 @@ PC in `tools/_restart_runner.bat.example`, or pick a fresh name at <https://ntfy
 
 ## (e) Start it and confirm it's running
 
-Start the QQQ shadow adapter before the runner, so the book runs in its own service
-rather than inside the runner (either order is safe — see `edgelog-qqq-exec.service`'s
-own comments):
+Start the signal engine and the QQQ shadow adapter. The job runner stays off on this box
+(see [Why the job runner is off on this box](#why-the-job-runner-is-off-on-this-box)):
 
 ```bash
+sudo systemctl start edgelog-cloud-signal.service
 sudo systemctl start edgelog-qqq-exec.service
-sudo systemctl start edgelog-runner.service
 bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh
 ```
 
@@ -271,19 +275,34 @@ same queue as the website.
 
 | Task | Command (run on the VM) |
 |---|---|
-| **See live logs** | `tail -f ~/edgelog/logs/runner.log` (Ctrl+C to stop watching) |
+| **See live logs** | `tail -f ~/edgelog/logs/qqq_exec.log` (the book) or `~/edgelog/logs/cloud_signal.log` (the signals); Ctrl+C to stop watching |
 | **Check status + secrets** | `bash ~/edgelog/EDGE-LOG/deploy/cloud/check.sh` |
-| **Restart** (e.g. after editing edgelog.env) | `sudo systemctl restart edgelog-runner.service` |
-| **Stop** | `sudo systemctl stop edgelog-runner.service` |
-| **Update to the latest code** | `cd ~/edgelog/EDGE-LOG && git pull && bash deploy/cloud/install.sh && sudo systemctl restart edgelog-runner.service` |
-| **Full status incl. the healthcheck timer** | `systemctl status edgelog-runner.service edgelog-healthcheck.timer` |
+| **Restart** (e.g. after editing edgelog.env; outside market hours) | `sudo systemctl restart edgelog-cloud-signal.service edgelog-qqq-exec.service` |
+| **Stop** | `sudo systemctl stop edgelog-qqq-exec.service edgelog-cloud-signal.service` |
+| **Update to the latest code** | `cd ~/edgelog/EDGE-LOG && git pull && bash deploy/cloud/install.sh`, then, outside market hours, `sudo systemctl restart edgelog-cloud-signal.service edgelog-qqq-exec.service` |
+| **Full status** | `systemctl status edgelog-qqq-exec.service edgelog-cloud-signal.service` |
 
-The service is set to **restart automatically** if it ever crashes (`Restart=always`,
-15-second backoff), and a separate **healthcheck runs every 5 minutes**: if
-`runner.log` hasn't been touched in over 10 minutes (a sign the process is hung, not
-just quiet), it force-restarts the service and pushes an alert to your phone via
-`ntfy.sh`. Both start automatically on every reboot — you never need to log back in
-after a VM reboot for the runner to come back.
+Both paper services **restart automatically** if they ever crash (`Restart=always`) and
+start on every reboot, so you never need to log back in after a VM reboot. The
+5-minute healthcheck only ever watched the job runner, so it is off along with it.
+
+### Why the job runner is off on this box
+
+On 2026-09-20 the owner kept this box for the Webull paper book: its one core is for the
+adapter, not backtests, so `edgelog-runner.service` was disabled. That same night the
+5-minute healthcheck saw the stopped runner's log go quiet, read it as a hang, and ran
+`systemctl restart` — which STARTS a stopped unit. The runner that came up called itself
+the primary (it was the only runner on its machine) and for 14 hours did the PC's jobs from
+a box with no NinjaTrader: it published the live gate as down every 5 minutes over the PC's
+healthy status (the web header's GATE DOWN chip), logged a false 9am NinjaTrader preflight
+problem, ran a second copy of the signal engine next to `edgelog-cloud-signal.service`, and
+took two re-validate jobs off the PC's queue with none of their market data here.
+
+Three locks now keep it off: `api/runner.py` refuses to start on `EDGELOG_HOST_ROLE=cloud`
+(exit 78, which the unit treats as a clean stop); `healthcheck.sh` never starts a stopped
+runner; and `install.sh` leaves the runner and its healthcheck switched off at boot.
+Running backtests here would be a design job (market data on the box, host-aware job
+claims and orphan checks), not a switch.
 
 ### The Always-Free idle-reclaim rule
 

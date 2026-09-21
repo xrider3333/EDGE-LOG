@@ -123,7 +123,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-healthcheck.service edgelog-healthcheck.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -134,14 +134,18 @@ for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-healthcheck.
 done
 
 sudo systemctl daemon-reload
-# edgelog-qqq-exec.service is ENABLED (starts on boot) but not started here -- same
-# "installed, not started" convention as edgelog-runner.service below, so the owner
-# copies secrets and reviews rails/mode before either process can place a single order.
-sudo systemctl enable edgelog-runner.service edgelog-qqq-exec.service edgelog-healthcheck.timer
-sudo systemctl start edgelog-healthcheck.timer
+# The paper book's two services are ENABLED (start on boot) but not started here, so the
+# owner copies secrets and reviews rails/mode before either can place a single order.
+sudo systemctl enable edgelog-qqq-exec.service edgelog-cloud-signal.service
+# The job runner does NOT run on this box (2026-09-21 -- api/runner.py refuses on
+# EDGELOG_HOST_ROLE=cloud; see _cloud_runner_refusal there for what went wrong when one
+# did). Its unit is still installed so the refusal is logged if anyone starts it, but it
+# is switched off at boot, and so is the healthcheck that only ever watched it. A re-run
+# of this script on an older box turns both off.
+sudo systemctl disable --now edgelog-runner.service edgelog-healthcheck.timer 2>/dev/null || true
 
 echo
-echo "==> install.sh done. The runner is NOT started yet. Next steps:"
+echo "==> install.sh done. Nothing is started yet. Next steps:"
 echo "    1. Copy secrets from the PC (README.md step (d)):"
 echo "         serviceAccount.json   -> ${REPO_DIR}/serviceAccount.json"
 echo "         webull_keys.json      -> ${EDGELOG_HOME}/webull_keys.json"
@@ -149,10 +153,10 @@ echo "         webull_token/token.txt -> ${EDGELOG_HOME}/webull_token/token.txt"
 echo "       (Webull ORDER adapter paper credentials, once you have them, go in"
 echo "        ${EDGELOG_HOME}/webull_paper_keys.json -- see README.md \"Webull ORDER adapter\".)"
 echo "    2. Edit ${ENV_FILE} (set NTFY_TOPIC)."
-echo "    3. Start the QQQ shadow adapter FIRST, then the runner (order matters -- see"
-echo "       edgelog-qqq-exec.service's own comments):"
+echo "    3. Start the paper book (the job runner stays off on this box -- api/runner.py"
+echo "       refuses to run here; the PC's runner owns the job queue):"
+echo "         sudo systemctl start edgelog-cloud-signal.service"
 echo "         sudo systemctl start edgelog-qqq-exec.service"
-echo "         sudo systemctl start edgelog-runner.service"
 echo "    4. Check it:          bash ${REPO_DIR}/deploy/cloud/check.sh"
 echo "    5. Turn OFF the PC-side shadow adapter once the phone tab shows CLOUD (see"
 echo "       README.md's numbered checklist) -- never run both at once."

@@ -16,6 +16,10 @@ EnvironmentFile=__EDGELOG_HOME__/edgelog.env
 ExecStart=__EDGELOG_VENV__/bin/python -u -m api.runner --firestore --cred serviceAccount.json --allow-uid __EDGELOG_ALLOW_UID__ --watch --refresh-min 240 --interval 30 --trades-sec 20
 Restart=always
 RestartSec=15
+# api/runner.py refuses to run on the cloud box and exits 78 (_cloud_runner_refusal,
+# 2026-09-21). Count that as a clean stop, and do not retry it every 15 seconds.
+SuccessExitStatus=78
+RestartPreventExitStatus=78
 StandardOutput=append:__EDGELOG_HOME__/logs/runner.log
 StandardError=append:__EDGELOG_HOME__/logs/runner.log
 Nice=5

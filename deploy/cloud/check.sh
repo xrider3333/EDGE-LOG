@@ -14,6 +14,7 @@ hr; echo "SERVICE STATUS"; hr
 systemctl status edgelog-runner.service --no-pager -l 2>&1 || echo "(edgelog-runner.service not found -- run install.sh)"
 echo
 systemctl status edgelog-qqq-exec.service --no-pager -l 2>&1 || echo "(edgelog-qqq-exec.service not found -- run install.sh)"
+systemctl status edgelog-cloud-signal.service --no-pager -l 2>&1 || echo "(edgelog-cloud-signal.service not found -- run install.sh)"
 echo
 systemctl list-timers edgelog-healthcheck.timer --no-pager 2>&1 || echo "(edgelog-healthcheck.timer not found -- run install.sh)"
 

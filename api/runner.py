@@ -422,6 +422,33 @@ _WORKER_ID = f"runner-{os.getpid()}-{uuid.uuid4().hex[:6]}"
 #   rewrite the same file at once. See the guards in the watch loop below.
 _IS_WORKER = bool(os.environ.get("EDGELOG_WORKER"))
 
+# THE RUNNER DOES NOT RUN ON THE CLOUD BOX (2026-09-21). The Oracle box is the Webull paper
+#   book's machine (owner 2026-09-20: its one core is for the adapter, not backtests), and
+#   every duty a runner takes on was written for the PC. On 2026-09-21 a runner there that
+#   nobody meant to start -- the healthcheck timer "restarted" the disabled unit because
+#   runner.log had gone quiet, and to systemd a restart of a stopped unit is a start --
+#   called itself PRIMARY, because it was the only runner on ITS machine, and for 14 hours:
+#   wrote "gate down" over the PC's healthy gate status every 5 minutes (the header's GATE
+#   DOWN chip); logged a false 9am NinjaTrader preflight problem; ran a second copy of the
+#   cloud signal engine beside edgelog-cloud-signal.service; and claimed two re-validate
+#   jobs off the PC's queue on a box that has none of their market data (the ENGU-Q one
+#   failed "no master"). A runner there would also answer the web's Library commands
+#   against the wrong disk. So main() refuses on EDGELOG_HOST_ROLE=cloud (deploy/cloud's
+#   edgelog.env sets it; the PC never does). Backtests on the box would be a design job --
+#   market data up there, host-aware claims and orphan checks -- not a switch to flip.
+CLOUD_REFUSAL_EXIT = 78   # EX_CONFIG. edgelog-runner.service treats it as a clean stop.
+
+
+def _cloud_runner_refusal(env=None):
+    """The reason this runner must not start on this machine, or None when it may."""
+    env = os.environ if env is None else env
+    if str(env.get("EDGELOG_HOST_ROLE") or "").strip().lower() != "cloud":
+        return None
+    return ("runner: NOT starting - this is the cloud box (EDGELOG_HOST_ROLE=cloud). It runs "
+            "the Webull paper book only (edgelog-qqq-exec + edgelog-cloud-signal). The job "
+            "queue and every PC duty - NinjaTrader and gate status, the 9am preflight, data "
+            "health, Library commands - belong to the runner on the PC.")
+
 # ── LIVENESS + ORPHAN VERDICT (2026-09-07) ───────────────────────────────────────
 # Three runner restarts on the night of 2026-09-06 (other sessions shipping) each killed
 # the job in flight. The boot sweep below only trusted "no write for 60 min", and a job
@@ -2446,6 +2473,10 @@ def main(argv=None):
                     help="AI provider for auto-pine: ollama (free local qwen, default) | claude-cli "
                          "(uses Claude credits) | anthropic")
     a = ap.parse_args(argv)
+    _refusal = _cloud_runner_refusal()
+    if _refusal:
+        print(_refusal, flush=True)
+        sys.exit(CLOUD_REFUSAL_EXIT)
 
     def _refresh(tag="auto-refresh"):
         """Pull fresh Yahoo bars + ingest the TradingView watch-folder into masters
