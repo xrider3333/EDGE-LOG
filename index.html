@@ -2651,8 +2651,9 @@ function _hydrateCfg(id){
   if(window._runFull&&window._runFull[id]){window._runCfg[id]=window._runFull[id];return;}
   if(!auth||!auth.currentUser||!_runsUid)return;
   if(window._runCfgQ.indexOf(id)>=0)return;
-  // SIX IN FLIGHT, NOT THREE (owner 2026-09-21: EXPLORE measured 8.6s and 23 renderApp()
-  //   calls - 133s of a frozen tab - loading 41 Auto-Validate runs' worth of configs, one
+  // SIX IN FLIGHT, NOT THREE (owner 2026-09-21: "it takes quite awile to load big data sets
+  //   like this one". Measured that day in the owner's browser: 41 Auto-Validate runs' worth
+  //   of configs cost 23 renderApp() calls, 8.6s each by the end - 133s of a frozen tab, one
   //   redraw per run landing). This masked read is a few-field projection, kilobytes rather
   //   than the multi-megabyte whole document _hydrateRun fetches below, so twice as many can
   //   sit in flight without the browser choking on the responses. _hydrateRun keeps its cap
@@ -2662,7 +2663,7 @@ function _hydrateCfg(id){
   const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
   const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'
     +_runsUid+'/runs/'+id+'?'+RUN_CFG_FIELDS.map(f=>'mask.fieldPaths='+encodeURIComponent(f)).join('&');
-  // A 30-SECOND TIMEOUT (owner 2026-09-21). A masked read that never lands used to hold its
+  // A 30-SECOND TIMEOUT (2026-09-21). A masked read that never lands used to hold its
   //   slot forever, slowly starving a whole burst down to nothing. AbortController is not on
   //   every embedded browser, so this only fires where it exists; a timed-out read falls down
   //   the same catch path as any other failure, straight into the whole-document fallback.
@@ -2687,8 +2688,8 @@ function _hydrateCfg(id){
       if(typeof _hydrateRun==='function')_hydrateRun(id);
       _runCfgSettled();});
 }
-// ONE REDRAW PER BURST, NOT ONE PER RUN (owner 2026-09-21: ticking 41 Auto-Validate runs on
-//   EXPLORE measured 23 renderApp() calls costing 133s of a frozen tab - every masked read
+// ONE REDRAW PER BURST, NOT ONE PER RUN (2026-09-21, measured in the owner's browser: ticking
+//   41 Auto-Validate runs on EXPLORE cost 23 renderApp() calls, 133s of a frozen tab - every masked read
 //   that landed called renderApp() on its own, re-laying-out a 15.9MB, 90,000-element table
 //   before the next read had even come back). A read still redraws immediately when it is
 //   the only one in flight, exactly as before; a burst of several now waits for the LAST one
@@ -37528,10 +37529,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             Array.prototype.forEach.call(t.children,function(td){if(td.style.position!=='sticky')return;
               if(td.dataset.rebg==null)td.dataset.rebg=td.style.background||'';
               td.style.background=on?('linear-gradient('+HL+','+HL+'),'+(td.dataset.rebg||'var(--bg2)')):(td.dataset.rebg||'');});});};
-        // REDRAW JUST THE CHART (owner 2026-09-22: "it takes quite awile to load big data
-        //   sets like this one with lots of different stratgies") - hiding one dot used to
-        //   mean the same renderApp() as every other click, rebuilding every table on the
-        //   board to move a handful of pixels. window._reChartRedo (set beside _reChartBody)
+        // REDRAW JUST THE CHART (owner 2026-09-22: "remove said dot on the chart and the chart
+        //   will then reconfigure"). A full renderApp() rebuilds every table on the board - about
+        //   9s on the owner's 2,235-row board, measured 2026-09-21 - which is far too slow for
+        //   hiding one dot, so a hide rebuilds only the chart. window._reChartRedo (set beside _reChartBody)
         //   exists only when the scatter is what is actually drawn; anything else - configs
         //   still loading, LATTICE, RADAR, PARALLEL - has no redo function, so this falls back
         //   to the full render exactly as it worked before.
