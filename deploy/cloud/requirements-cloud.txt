@@ -27,6 +27,12 @@ scikit-learn     # ml_gate / analytics relationship-scores paths
 requests         # augur_engine.ai imports it at package-init time
 tzdata           # load_master_arrays converts to US/Eastern; belt-and-suspenders next
                  # to the apt tzdata package installed by install.sh
+# ADDED 2026-09-22 (it was missing since the cold move): tools/qqq_reprice.py, which the book
+# runs every weekday after 16:20 ET to re-price trades off the real 1-minute tape, needs it, and
+# api/cloud_signal.py falls back to it for QQQ bars when the Webull fetch fails. Without it the
+# 2026-09-21 re-price exited with "yfinance not importable" and the bar fallback could not run.
+# 1.7.0 is what the box got on 2026-09-22 (it added 8 packages and upgraded none).
+yfinance==1.7.0
 fastapi
 uvicorn
 firebase-admin
