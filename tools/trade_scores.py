@@ -115,7 +115,11 @@ def derive(t, refresh=False):
         raise SystemExit('cached bars for %s hold no rows on %s' % (sym, date))
     step = 1 if iv == '1m' else int(re.sub(r'\D', '', iv))
     E, X, stop = float(t['entry']), float(t['exit']), float(t['stop'])
-    bo, i0, i1 = t['breakout_candle'], t['entry_time'], t['exit_time']
+    # shift_min: the journal clock was not ET for this trade (e.g. -180 = logged in Pacific).
+    # entry_time stays the journal time (it is the key); the bars are read at the ET time.
+    sh = pd.Timedelta(minutes=int(t.get('shift_min', 0)))
+    at = lambda hm: (pd.Timestamp(date + ' ' + hm) + sh).strftime('%H:%M')
+    bo, i0, i1 = t['breakout_candle'], at(t['entry_time']), at(t['exit_time'])
 
     bo_row = day.between_time(bo, bo)
     if not len(bo_row):
@@ -166,7 +170,12 @@ def key_of(t):
     """date|SYM|HH:MM for everything the daily routine writes (one score per trade); the
     original hand-authored entries have no key_time and stay date|SYM."""
     k = '%s|%s' % (t['date'], t['sym'].upper())
-    return k + '|' + t['entry_time'][:5] if t.get('key_time') else k
+    if not t.get('key_time'):
+        return k
+    k += '|' + t['entry_time'][:5]
+    if t.get('trade_id'):               # two trades in the same symbol in the same minute
+        k += '|' + t['trade_id']
+    return k
 
 
 def emit(spec, refresh=False):

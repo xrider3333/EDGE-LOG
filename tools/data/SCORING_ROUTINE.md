@@ -15,6 +15,9 @@ alike. A trade it cannot get price data for is marked **NA**, and the pill says 
    and append one object to `trades` in `tools/data/trade_scores.json`:
    - `sym, date, dir, entry_time, exit_time, entry, exit, qty` copied from the worksheet.
    - `"key_time": true` (one score per trade; required).
+   - `trade_id` copied from the worksheet when it is set (two trades in the same symbol in the
+     same minute - the id keeps their scores apart).
+   - `interval` copied from the worksheet (1m, or 5m for an older stock).
    - `interval: "1m"`, `breakout_candle` (HH:MM of the signal bar), `stop` (the structural
      stop: the signal bar low for a long, its high for a short).
    - `hold_from` only when the fill came at the close of the entry bar - set it to the next bar.
@@ -24,7 +27,10 @@ alike. A trade it cannot get price data for is marked **NA**, and the pill says 
 5. `python tools/trade_scores.py --apply`, then bump VERSION + prepend a one-line CHANGELOG
    note ("SCORES: n trades from <date> scored, m marked NA"), and
    `python C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\wt.py ship score-<YYYYMMDD>`.
-6. Never delete anything in `tools/data/score_bars/` - once Yahoo ages a day out (~30 days for
+6. Bars come from Yahoo 1m (~30 days), then the local unadjusted ES / NQ 1-minute masters in
+   augur_uploads for futures (any age, except their Jul 1 - Aug 5 2026 gap), then Yahoo 5m
+   (~60 days) for stocks. `python tools/score_day.py --all` re-checks the whole journal.
+7. Never delete anything in `tools/data/score_bars/` - once Yahoo ages a day out (~30 days for
    1m) the cache is the only copy.
 
 ## Rubric
