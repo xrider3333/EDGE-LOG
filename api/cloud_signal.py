@@ -434,12 +434,82 @@ def run_leg_trades(cfg, arrays):
         return []
     idx = arrays["index"]
     n_bars = len(arrays["close"])
+    last_close = float(arrays["close"][n_bars - 1])
+
+    # PRICE-BASED "STILL OPEN AT THE BOUNDARY" TEST -- SAFE ONLY WHEN THE LEG PROMISES
+    # eod_marks_at_close (default True; see the AMBIGUOUS BOUNDARY comment in the loop
+    # below). Two known ways a plugin can break that promise, and the escape hatch for
+    # both (2026-09-22 audit):
+    #   - ORB_3_6.py:346-350's EOD-flat block does not always mark an unresolved end-of-
+    #     data position at a clean last-bar close: whenever a partial exit already fired
+    #     (p_done, gated on `partial_exit_R > 0` at ORB_3_6.py:320 and :338), the reported
+    #     pnl is a 50/50 blend of the partial fill and the final close (line 348), so the
+    #     price test would usually read the still-half-open position as a genuine close.
+    #     The live ORB_R6 leg pins partial_exit_R=0.0 (api/paper.py:177-180, ORB_314), so
+    #     this is inert today -- but that is a PARAMS fact, not a code fact, and a params
+    #     change must not silently arm a mechanism that flattens a live position early.
+    #     Checked explicitly below, every call, rather than trusted to stay zero.
+    #   - NOISE_1_8_CT304.py folds a per-trade size multiplier into pnl_pts (lines
+    #     154-163: `pts = s*raw - (s-1)*_COST_PTS`) for its own bookkeeping, which
+    #     invalidates the exit-price reconstruction itself -- see the SYNTHETIC EXIT
+    #     PRICE comment in the loop below. Not a CROWN_LEGS strategy today, so not
+    #     reachable here, but if it (or any future plugin folding size into pnl_pts) is
+    #     ever wired in, its leg config MUST set eod_marks_at_close=False.
+    # A leg opts out of the price test -- falling back to the OLD, conservative rule
+    # that ANY trade still sitting at the boundary reads as open, price notwithstanding
+    # -- either explicitly (cfg["eod_marks_at_close"] = False) or automatically the
+    # moment its own declared params turn on ORB's partial-exit blend. An explicit True
+    # never overrides the partial_exit_R check; only the strategy's own params can prove
+    # it safe.
+    _partial_exit_r = float((cfg.get("params") or {}).get("partial_exit_R") or 0)
+    eod_marks_at_close = cfg.get("eod_marks_at_close", True) and not (_partial_exit_r > 0)
+
     out = []
     for (entry_bar, exit_bar, pnl_pts, side, entry_px) in sorted(res["trades"], key=lambda t: t[0]):
         entry_bar = int(entry_bar); exit_bar = int(exit_bar)
         entry_px = float(entry_px)
+        # SYNTHETIC EXIT PRICE (2026-09-22): reconstructed from entry_px and the reported
+        # pnl_pts alone, which is only ever the real fill price when pnl_pts is a raw
+        # price difference. NOISE_1_8_CT304.py is not: it folds a per-trade size
+        # multiplier into pnl_pts as a bookkeeping convenience (lines 154-163), so for a
+        # trade whose entry sat in a "compressed" bar, exit_px below is a synthetic,
+        # cost/size-scaled number, not a price -- and the still-open price test is
+        # invalid for such a leg at ANY tolerance (it must set eod_marks_at_close=False;
+        # see above). Not fixed here: giving the engine a real per-trade size field,
+        # separate from pnl_pts, is separate follow-up work the owner wants done before
+        # that file can go on the live book.
         exit_px = entry_px + pnl_pts * side
-        still_open = exit_bar >= n_bars - 1
+        if exit_bar < n_bars - 1:
+            still_open = False
+        elif not eod_marks_at_close:
+            # OLD, conservative rule for a leg whose boundary price can't be trusted (see
+            # above): any trade still sitting at the boundary reads as open, no matter
+            # what its (possibly blended or synthetic) reported price says.
+            still_open = True
+        else:
+            # AMBIGUOUS BOUNDARY (2026-09-22): every plugin reachable here with
+            # eod_marks_at_close true force-closes a position that is still open when its
+            # data runs out by marking it at the newest bar's own CLOSE (NOISE_1_0.py's
+            # "STEP E" EOD backstop, ORB_3_6.py's "EOD flat" block when no partial exit
+            # has fired, ENGUQ_1M_ETH_R2_1_0.py's end-of-walk fallback and its compiled
+            # twin in augur_engine/fastloop.py's _walk_jit all do this). So exit_bar ==
+            # n_bars - 1 is produced BOTH by a position that is genuinely still open (the
+            # strategy simply ran out of bars) and by one that closed for real exactly on
+            # the newest bar — the two are NOT distinguishable by bar index alone, which
+            # is what the old `exit_bar >= n_bars - 1` rule assumed, and why every real
+            # exit on the newest bar was emitted a bar late and collided with whatever
+            # entered next.
+            #
+            # They ARE distinguishable by price: a genuine close can land anywhere (an
+            # open-fill, a stop or band level, ...), but the data-end fallback is ALWAYS
+            # the last bar's own close, exactly. So a reported exit price that differs
+            # from that close by more than a hair means the position really closed; one
+            # that matches it means the plugin never got a chance to do anything but the
+            # boilerplate flatten, i.e. it is still open. Relative tolerance, not exact
+            # equality: pnl_pts round-trips through a subtraction (close - entry) and
+            # back (entry + pnl), which can lose the last ULP even when both sides mean
+            # the same price.
+            still_open = abs(exit_px - last_close) <= 1e-6 * abs(last_close) + 1e-9
         shares = int(math.floor(NOTIONAL_PER_LEG / entry_px)) if entry_px > 0 else 0
         out.append({
             "side": "long" if side > 0 else "short",
