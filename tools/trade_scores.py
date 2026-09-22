@@ -51,18 +51,36 @@ def cache_path(sym, date, interval):
     return os.path.join(CACHE, '%s_%s_%s.csv' % (sym, date, interval))
 
 
-def load_bars(sym, date, interval, refresh=False):
+# Futures roots as they appear in the journal -> Yahoo continuous front-month ticker.
+FUT_ROOTS = {'ES', 'MES', 'NQ', 'MNQ', 'YM', 'MYM', 'RTY', 'M2K', 'CL', 'MCL', 'GC', 'MGC',
+             'SI', 'SIL', 'NG', 'ZB', 'ZN', 'HG', '6E', '6J'}
+
+
+def yahoo_ticker(sym):
+    return sym + '=F' if sym.upper() in FUT_ROOTS else sym
+
+
+def to_et(d):
+    """Journal times are US/Eastern; Yahoo futures come back in exchange time. Normalise."""
+    if isinstance(d.index, pd.DatetimeIndex) and d.index.tz is not None:
+        d = d.copy()
+        d.index = d.index.tz_convert('America/New_York')
+    return d
+
+
+def load_bars(sym, date, interval, refresh=False, ticker=None):
     """Cached 1m/5m OHLCV for one session, prepost included. Cache is authoritative."""
     fp = cache_path(sym, date, interval)
     if os.path.exists(fp) and not refresh:
         d = pd.read_csv(fp, index_col=0, parse_dates=True)
-        return d
+        return to_et(d)
     import yfinance as yf
+    sym_fetch = ticker or yahoo_ticker(sym)
     d0 = pd.Timestamp(date)
     # 1m is capped at 8 days per request; keep the window tight and include the prior session
     start = (d0 - pd.Timedelta(days=4)).strftime('%Y-%m-%d')
     end = (d0 + pd.Timedelta(days=1)).strftime('%Y-%m-%d')
-    raw = yf.download(sym, start=start, end=end, interval=interval,
+    raw = yf.download(sym_fetch, start=start, end=end, interval=interval,
                       prepost=True, progress=False, auto_adjust=False)
     if not len(raw):
         raise SystemExit(
@@ -74,7 +92,7 @@ def load_bars(sym, date, interval, refresh=False):
             raw.columns = raw.columns.droplevel(1)
         except Exception:
             pass
-    d = raw[['Open', 'High', 'Low', 'Close', 'Volume']]
+    d = to_et(raw[['Open', 'High', 'Low', 'Close', 'Volume']])
     os.makedirs(CACHE, exist_ok=True)
     d.to_csv(fp)
     return d
@@ -91,7 +109,7 @@ def num(v):
 def derive(t, refresh=False):
     """Everything the report shows that is measured rather than judged."""
     sym, date, iv = t['sym'], t['date'], t['interval']
-    d = load_bars(sym, date, iv, refresh)
+    d = load_bars(sym, date, iv, refresh, t.get('ticker'))
     day = d[d.index.date == pd.Timestamp(date).date()]
     if not len(day):
         raise SystemExit('cached bars for %s hold no rows on %s' % (sym, date))
@@ -105,11 +123,19 @@ def derive(t, refresh=False):
     bo_close = round(float(bo_row.Close.iloc[0]), 4)
     bo_range = round(float(bo_row.High.iloc[0] - bo_row.Low.iloc[0]), 4)
 
-    risk = round(E - stop, 4)
-    reward = round(X - E, 4)
-    hold = day.between_time(i0, i1)
-    mae = float(hold.Low.min()) if len(hold) else E
-    mfe = float(hold.High.max()) if len(hold) else E
+    # sgn flips every distance for a SHORT so risk/reward/chase/MAE/MFE read the same way
+    sgn = -1 if str(t.get('dir', 'LONG')).upper() == 'SHORT' else 1
+    risk = round(sgn * (E - stop), 4)
+    reward = round(sgn * (X - E), 4)
+    # hold_from: first bar AFTER the fill, when the fill came at the close of the entry bar
+    # (otherwise that bar's pre-fill low would count as drawdown)
+    hold = day.between_time(t.get('hold_from', i0), i1)
+    if sgn > 0:
+        mae = float(hold.Low.min()) if len(hold) else E
+        mfe = float(hold.High.max()) if len(hold) else E
+    else:
+        mae = float(hold.High.max()) if len(hold) else E
+        mfe = float(hold.Low.min()) if len(hold) else E
     rth = day.between_time('09:30', '16:00')
 
     lo = (pd.Timestamp(date + ' ' + bo) - pd.Timedelta(minutes=PRE_BARS * step)).strftime('%H:%M')
@@ -120,11 +146,11 @@ def derive(t, refresh=False):
 
     return {
         'bo': bo, 'boClose': bo_close, 'boRange': bo_range,
-        'chase': round((E - bo_close) / bo_range * 100, 1) if bo_range else None,
+        'chase': round(sgn * (E - bo_close) / bo_range * 100, 1) if bo_range else None,
         'stop': stop, 'risk': risk, 'reward': reward,
         'R': round(reward / risk, 2) if risk else None,
-        'maePct': round((E - mae) / risk * 100) if risk else None,
-        'mfeCap': round(reward / (mfe - E) * 100) if mfe > E else None,
+        'maePct': round(sgn * (E - mae) / risk * 100) if risk else None,
+        'mfeCap': round(reward / (sgn * (mfe - E)) * 100) if sgn * (mfe - E) > 0 else None,
         'dayClose': round(float(rth.Close.iloc[-1]), 4) if len(rth) else None,
         'bars': bars,
     }
@@ -136,19 +162,29 @@ def factors_js(rows):
         for r in rows) + ']'
 
 
+def key_of(t):
+    """date|SYM|HH:MM for everything the daily routine writes (one score per trade); the
+    original hand-authored entries have no key_time and stay date|SYM."""
+    k = '%s|%s' % (t['date'], t['sym'].upper())
+    return k + '|' + t['entry_time'][:5] if t.get('key_time') else k
+
+
 def emit(spec, refresh=False):
     out = []
+    for n in spec.get('na', []):
+        out.append("'%s':{na:true,reason:'%s'}," % (key_of(dict(n, key_time=True)),
+                                                     esc(n.get('reason', 'no price data'))))
     for t in spec['trades']:
         s = derive(t, refresh)
         set_total = sum(r['score'] for r in t['setup'])
         exe_total = sum(r['score'] for r in t['exec'])
         out.append(
-            "'%s|%s':{overall:%d,tf:'%s',summary:'%s',\n"
+            "'%s':{overall:%d,tf:'%s',summary:'%s',\n"
             "  stats:{bo:'%s',boClose:%s,boRange:%s,chase:%s,stop:%s,risk:%s,reward:%s,R:%s,"
             "maePct:%s,mfeCap:%s,dayClose:%s},\n"
             "  bars:%s,mark:{entry:%s,exit:%s,stop:%s,boT:'%s',inT:'%s',outT:'%s'},\n"
             "  setup:{total:%d,f:%s},\n  exec:{total:%d,f:%s}},"
-            % (t['date'], t['sym'], t['overall'], t['interval'], esc(t['summary']),
+            % (key_of(t), t['overall'], t['interval'], esc(t['summary']),
                s['bo'], num(s['boClose']), num(s['boRange']), num(s['chase']), num(s['stop']),
                num(s['risk']), num(s['reward']), num(s['R']), num(s['maePct']),
                num(s['mfeCap']), num(s['dayClose']),

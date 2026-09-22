@@ -990,6 +990,192 @@
      "note": "Scratch was a reasonable read"
     }
    ]
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-09-22",
+   "key_time": true,
+   "dir": "LONG",
+   "interval": "1m",
+   "entry_time": "09:30",
+   "hold_from": "09:31",
+   "exit_time": "09:31",
+   "entry": 30815.0,
+   "exit": 30842.25,
+   "qty": 1,
+   "breakout_candle": "09:30",
+   "stop": 30763.25,
+   "overall": 68,
+   "summary": "A clean ENGU on the opening drive with no chase, and the stop was never threatened. The exit was the leak. You took 27 points in one minute, and the move ran another 85 points by 09:43 without coming back to the entry. Your own note says it: should have held.",
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 14,
+     "note": "Premarket held a tight 30750-30778 box. The 09:30 bar broke out of it on 17k contracts, about 6x the premarket bars"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 14,
+     "note": "Filled 2.25 points above the engulfing close, at the top of a 52-point candle"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 8,
+     "note": "Structural stop at the engulfing low 30763.25, but that is 52 points ($104) away"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 4,
+     "note": "No target level set. The realised 0.53R was below the 1R the risk asked for"
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 13,
+     "note": "A textbook ENGU: the 09:30 bar engulfed the 09:29 bar and closed near its high"
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "Deepest minute of the day"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 5,
+     "note": "First minute of the cash session, the fastest and least predictable minute"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 21,
+     "note": "Bought the candle close, not the spike inside it"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 23,
+     "note": "Worst price after the fill was 30809.5, only 11% of the planned risk"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 11,
+     "note": "Sold at 30842.25. The trend ran to 30927.5 by 09:43, so you kept about 24% of the move"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 11,
+     "note": "1 MNQ with $104 at risk is sensible for a first-minute trade"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 6,
+     "note": "Entry and stop followed the plan. The exit came before any target"
+    }
+   ]
+  },
+  {
+   "sym": "MES",
+   "date": "2026-09-16",
+   "key_time": true,
+   "dir": "LONG",
+   "interval": "1m",
+   "entry_time": "09:46",
+   "exit_time": "09:49",
+   "entry": 7676.25,
+   "exit": 7678.625,
+   "qty": 2,
+   "breakout_candle": "09:45",
+   "stop": 7669.5,
+   "overall": 74,
+   "summary": "A tight, well-placed ENGU reversal. You filled a quarter point from the candle close and never went more than 1 point against you. Taking 2.4 points left most of it behind: the move reached 7686.5, which is 1.5R.",
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 12,
+     "note": "Came after a 10-minute drift lower from 7677 to 7669, so this was a counter-trend reversal"
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 17,
+     "note": "Filled 7676.25 against a 7676.00 close, which is effectively the close"
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 13,
+     "note": "Stop at the engulfing low 7669.5, 6.75 points ($67 on 2 MES). Tight and structural"
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 7,
+     "note": "The 7677 drift high sat right overhead. Clearing it opened 1.5R to 7686"
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 13,
+     "note": "A clean ENGU: the 09:45 bar engulfed 10 minutes of chop on 8.7k contracts, about 3x the prior bars"
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "Normal morning MES liquidity"
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 8,
+     "note": "09:45, after the opening noise had settled"
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 23,
+     "note": "No chase"
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 23,
+     "note": "Worst price was 7675.25, only 15% of the planned risk"
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 9,
+     "note": "Sold at 7678.625 when 7681.75 printed during the hold, and 7686.5 came 4 minutes later"
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "2 MES, $67 at risk"
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 7,
+     "note": "Graded A+, but it was exited at 0.35R"
+    }
+   ]
   }
- ]
+ ],
+ "na": []
 }

@@ -94,3 +94,4 @@ docs/anatomy/*_trades.csv
 
 # FOMC decision-day list used by tools/leg_scan_ideas.py + trade_anatomy calendar features (tiny reference data, overrides *.csv)
 !tools/data/fomc_dates.csv
+tools/data/score_pending.json
