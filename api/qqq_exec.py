@@ -456,6 +456,63 @@ def load_state(path=None, log=print):
     return base
 
 
+def _replace_with_retry(tmp, dst, log=None, what=None, retries=12, sleep=0.05,
+                        keep_tmp_on_failure=False):
+    """os.replace(tmp, dst), retrying briefly on Windows' transient PermissionError
+    [WinError 32]: `os.replace` fails outright there if ANY OTHER PROCESS merely has
+    `dst` open, even just for reading (POSIX would simply rename under the reader).
+
+    THE ONE retry-replace helper for every risky rename in THIS module -- the same
+    shared-helper convention tools/qqq_paper.py and api/cloud_signal.py already use
+    for the QQQ bar caches (that module's own `_replace_with_retry`, pinned by
+    tests/test_qqq_cache_atomic.py: "neither writer may grow its OWN retry loop").
+    save_state and _update_broker_order_row both call THIS one instead of each
+    growing their own -- see save_state's docstring for the incident (100,570 dropped
+    state writes) that made the first version of this necessary, and
+    _update_broker_order_row's for why a plain `open(path, "w")` over a live CSV is
+    exactly the failure class that once garbled the QQQ bar cache and blocked every
+    push gate.
+
+    `keep_tmp_on_failure` differs per caller ON PURPOSE: save_state passes True --
+    state.json is the SOLE record of open positions, so losing the write silently is
+    worse than leaving a recoverable `.tmp` copy on disk for a human to rename by
+    hand. _update_broker_order_row passes False -- that rewrite is safely re-derivable
+    (the fill-capture job that produced it just tries again later), so an abandoned
+    `.tmp` beside the live ledger forever would be pure clutter, never a rescue.
+
+    NEVER RAISES. Returns True once `os.replace` actually lands, False after
+    exhausting `retries` or hitting a non-retryable OSError -- `dst` is UNTOUCHED on a
+    False return, exactly as it was before this call (os.replace either fully
+    replaces the destination or does not touch it at all -- there is no partial
+    state), and a persistent failure is logged at most ONCE, never once per retry."""
+    last = None
+    for i in range(retries):
+        try:
+            os.replace(tmp, dst)
+            return True
+        except PermissionError as e:          # WinError 32: someone has it open
+            last = e
+            time.sleep(sleep * (i + 1))
+        except OSError as e:
+            last = e
+            break
+    if not keep_tmp_on_failure:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+    if log:
+        label = what or os.path.basename(dst)
+        if keep_tmp_on_failure:
+            log(f"[qqq-exec] {label} could not swap into place after {retries} tries "
+                f"({last}); the new content is kept at {tmp} -- rename it over {dst} "
+                f"once whatever holds it lets go.")
+        else:
+            log(f"[qqq-exec] {label} replace failed after {retries} attempt(s), "
+                f"giving up: {type(last).__name__}: {last}")
+    return False
+
+
 def save_state(state, path=None, _retries=12, _sleep=0.05, log=None):
     """Atomically replace the state file, surviving a Windows reader lock.
 
@@ -473,10 +530,11 @@ def save_state(state, path=None, _retries=12, _sleep=0.05, log=None):
     every failed save DROPPED the state write for that tick, and state.json is the
     source of truth for the cursor, the open lots and the rail state.
 
-    So: a unique temp name per writer, fsync before the swap, and retry the swap for
-    about a second, because a reader lock lasts milliseconds. If it still cannot swap,
-    the temp file is LEFT ON DISK rather than deleted -- losing the write silently is
-    worse than leaving a recoverable copy -- and the caller is told.
+    So: a unique temp name per writer, fsync before the swap, and retry the swap
+    (_replace_with_retry, SHARED -- see its own docstring) for about a second, because
+    a reader lock lasts milliseconds. If it still cannot swap, the temp file is LEFT ON
+    DISK rather than deleted -- losing the write silently is worse than leaving a
+    recoverable copy -- and the caller is told.
     """
     path = path if path is not None else STATE_PATH
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -485,22 +543,8 @@ def save_state(state, path=None, _retries=12, _sleep=0.05, log=None):
         json.dump(state, f, indent=2, default=str)
         f.flush()
         os.fsync(f.fileno())
-    last = None
-    for i in range(_retries):
-        try:
-            os.replace(tmp, path)
-            return True
-        except PermissionError as e:          # WinError 32: someone has it open
-            last = e
-            time.sleep(_sleep * (i + 1))
-        except OSError as e:
-            last = e
-            break
-    if log:
-        log("[qqq-exec] state write could not swap into place after %d tries (%s); the new "
-            "state is kept at %s -- rename it over %s once whatever holds it lets go."
-            % (_retries, last, tmp, path))
-    return False
+    return _replace_with_retry(tmp, path, log=log, what="state write",
+                               retries=_retries, sleep=_sleep, keep_tmp_on_failure=True)
 
 
 def _roll_day(state, today):
@@ -719,7 +763,14 @@ SIZING_COLS = ["nt_mult", "nt_notional_usd", "shadow_notional_usd", "notional_ra
 TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px",
               "pnl", "nq_pnl_points", "exit_reason"] + NT_PARITY_COLS + SIZING_COLS
               # appended, never inserted -- see ORDER_COLS's signal_source note.
-              + ["signal_source"])
+              + ["signal_source"]
+              # ENGINE-VS-BROKER PARITY (feature #56, 2026-09-22): the lot's own trade
+              # id (api/trade_id.py), so _broker_trade_parity can re-derive the EXACT
+              # client_order_id _broker_signal_id gave this trade's OPEN/CLOSE and look
+              # them up in broker_orders.csv -- a trades.csv row closed before this
+              # shipped reads back "", which _broker_trade_parity treats as "not
+              # checked" (never an error, see its own docstring).
+              + ["trade_id"])
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
@@ -789,6 +840,9 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     except Exception as e:
         log(f"[qqq-exec] sizing-gap fields dropped from trade row: {type(e).__name__}: {e}")
     row["signal_source"] = lot.get("signal_source") or ""
+    # ENGINE-VS-BROKER PARITY (feature #56): see TRADE_COLS -- the join key
+    # _broker_trade_parity uses to find this trade's broker_orders.csv rows.
+    row["trade_id"] = lot.get("trade_id") or ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -902,6 +956,96 @@ def _extract_broker_fill_price(record):
         return None
 
 
+# -- broker fill-price CAPTURE (feature #57, 2026-09-22; DEFERRED 2026-09-22) --------
+# WHY THIS EXISTS: _extract_broker_fill_price above only ever reads the place_order()
+# ACK -- the response captured at the instant the order was submitted. Webull documents
+# filled_price on that endpoint as "may be zero or null" before the order has actually
+# executed, and nothing previously asked again later, so broker_fill_px/slippage in
+# broker_orders.csv were ALWAYS blank for a real send (confirmed by reading this file
+# and api/webull_orders.py -- there is no other code path that ever wrote a non-empty
+# broker_fill_px). This is the "ask again" -- a bounded order_status() query, tried a
+# few times over about a minute from a DEFERRED queue (_maybe_capture_broker_fills),
+# never from the order path itself.
+#
+# WHY DEFERRED, NOT INLINE (2026-09-22 review): the first cut called this function
+# directly from _mirror_to_broker, once, right after the send. Two problems: (a) a
+# market order is rarely filled in the milliseconds between the place_order ack and the
+# very next call, so the common outcome was "no fill price yet", recorded once and never
+# asked again -- the column stayed blank and the feature did nothing; (b) when two legs
+# act on the same tick (this book's own trades do -- an exit and an entry landing in the
+# same second), leg A's query delayed leg B's send by up to ORDER_STATUS_HARD_TIMEOUT_SEC,
+# unacceptable while a 5-minute lag is being taken out of this exact path. So capture is
+# now QUEUED (_queue_broker_fill_capture, called from _mirror_to_broker -- a pure state
+# write, no network, cannot block or raise) and serviced from tick() the same way a
+# broker re-send is (_maybe_capture_broker_fills, modelled directly on
+# _queue_broker_resend / _maybe_resend_broker_orders): first attempt at least
+# BROKER_FILL_CAPTURE_FIRST_DELAY_SEC after the send, a few retries spaced
+# BROKER_FILL_CAPTURE_RETRY_GAP_SEC apart, giving up after
+# BROKER_FILL_CAPTURE_MAX_AGE_SEC and recording why. This function's OWN bounded
+# worker-thread timeout stays -- a hung SDK call still cannot wedge the tick that
+# happens to service it, it can only delay that one job's own next retry.
+#
+# PAPER FILL-PRICE REALITY (verified from the installed SDK's own source and Webull's
+# documented schema, per api/webull_orders.py's ORDER STATUS section and
+# order_status_fields()'s docstring -- NOT from a live sandbox call, per this task's own
+# offline-only rule and because no paper credentials exist on this machine anyway): a v3
+# get_order_detail response nests status/filled_quantity/filled_price one level down in
+# response["orders"][], and filled_price is documented to read zero/null only BEFORE the
+# order executes -- nothing in the SDK or Webull's docs says the PAPER/sandbox
+# environment specifically withholds a fill price once an order actually fills (unlike,
+# say, a market-data entitlement gate elsewhere in this SDK). The SDK also exposes a
+# push channel (webull.trade.trade_events_client.TradeEventsClient) that would report a
+# fill the instant it happens instead of polling -- not wired here, same call already
+# made for reconcile()'s own position reads (see api/webull_orders.py's ORDER STATUS
+# note) -- so this bounded, retried poll is the adequate first cut; a fill that never
+# lands inside the give-up window stays "not checked" and falls back to the
+# tape-repriced price the next day (see _broker_trade_parity).
+ORDER_STATUS_HARD_TIMEOUT_SEC = 4.0
+_order_status_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="qqq-orderstatus")
+
+
+def _query_broker_fill(adapter, signal_id, account_id=None, log=print):
+    """(filled_price_or_None, note_or_None) -- asks Webull for this order's CURRENT
+    status, bounded to ORDER_STATUS_HARD_TIMEOUT_SEC wall-clock on its own worker
+    thread: the same precaution as _reconcile_with_timeout / default_webull_quote's
+    QUOTE_HARD_TIMEOUT_SEC (this SDK's own connect/read timeouts are not reliably
+    honoured on every call path). Called once per attempt of a deferred fill-capture
+    job -- see _maybe_capture_broker_fills -- never from the order path itself.
+
+    STRICTLY ADDITIVE, NEVER RAISES, NEVER BLOCKS THE CALLER LONGER THAN THE TIMEOUT: a
+    slow call, a timeout, a stub/fake adapter with no order_status method, an SDK
+    exception, or a response with no parseable filled_price all come back (None,
+    <reason>) -- the broker/shadow order rows were already recorded before this job was
+    even queued, and this never undoes, retries-inline or stalls anything off its
+    result. The caller (the capture job) only fills in broker_fill_px/slippage when a
+    real price comes back, and otherwise keeps <reason> for its own give-up path (see
+    _finish_fill_capture) so a human can see WHY it is still blank instead of just
+    guessing."""
+    try:
+        fut = _order_status_executor.submit(adapter.order_status, signal_id, account_id)
+        result = fut.result(timeout=ORDER_STATUS_HARD_TIMEOUT_SEC)
+    except concurrent.futures.TimeoutError:
+        return None, f"order-status query timed out after {ORDER_STATUS_HARD_TIMEOUT_SEC:g}s"
+    except Exception as e:
+        return None, f"order-status query failed: {type(e).__name__}: {e}"
+    try:
+        if not isinstance(result, dict) or not result.get("ok"):
+            reason = (result or {}).get("reason") or "order-status query returned not-ok"
+            return None, reason
+        fields = webull_orders.order_status_fields(
+            result.get("response"), result.get("client_order_id") or signal_id)
+        px = fields.get("filled_price")
+        if px in (None, ""):
+            return None, f"no fill price yet (status={fields.get('status') or 'unknown'})"
+        try:
+            return float(px), None
+        except (TypeError, ValueError):
+            return None, f"unparseable filled_price {px!r}"
+    except Exception as e:
+        return None, f"order-status parse failed: {type(e).__name__}: {e}"
+
+
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, seq=0,
                       trade_id=None, resend=0, requeue=True, log=print):
     """Call after the shadow's own order/trade row is already recorded. Never raises.
@@ -989,6 +1133,16 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
                              "ok": rec.get("ok"), "reason": row["reason"]}
+    if rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE) \
+            and rec.get("ok") and rec.get("sent"):
+        # FILL-PRICE CAPTURE (feature #57, DEFERRED 2026-09-22): queued for a LATER
+        # tick, never attempted here -- see _maybe_capture_broker_fills for why an
+        # inline query at this exact call site was wrong (asked before a fill existed,
+        # and risked stalling the next leg's send). This call only writes into
+        # state -- no network, cannot block or raise into this tick.
+        _queue_broker_fill_capture(state, leg=leg, intent=intent, signal_id=signal_id,
+                                   account_id=rec.get("account_id"), shadow_px=shadow_px,
+                                   log=log)
     if rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
         # BROKER RECONCILE (2026-09-14, FIX 2): a real send was just attempted (ok or
         # not) -- have _maybe_run_broker_reconcile run reconcile() on the VERY NEXT
@@ -1217,6 +1371,213 @@ def _build_broker_status(state=None, log=print):
         # tick, see _sync_broker_daily_pnl.
         "daily_pnl_source": state.get("_broker_pnl_source"),
     }
+
+
+# -- broker FILL CAPTURE, deferred (feature #57, DEFERRED 2026-09-22) ----------------
+# See the "broker fill-price CAPTURE" section far above (_query_broker_fill) for WHY
+# this exists and why it does not run inline from _mirror_to_broker any more. Modelled
+# directly on the broker RE-SEND section above (_queue_broker_resend /
+# _maybe_resend_broker_orders): state["_broker_fill_capture"] is a queue of jobs, one
+# per "<leg>:<intent>", keyed and serviced the same way.
+#
+# RESTART SURVIVAL: this queue lives in the SAME `state` dict that load_state()/
+# save_state() already round-trip through state.json AS A WHOLE (json.dump(state,...)/
+# base.update(json.load(...))) -- neither this queue nor the resend one is special-
+# cased in _default_state(), both are created on first use via state.setdefault and
+# read back with state.get(...) or {}. So this queue survives a restart exactly like
+# the resend queue does, for the identical reason -- no separate persistence code
+# needed or written.
+BROKER_FILL_CAPTURE_FIRST_DELAY_SEC = 3.0    # a market order is rarely filled sooner
+BROKER_FILL_CAPTURE_RETRY_GAP_SEC = 10.0     # never two attempts at one job back to back
+BROKER_FILL_CAPTURE_MAX_AGE_SEC = 60.0       # give up "after about a minute"
+
+
+def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, shadow_px,
+                               log=print):
+    """Queue a deferred order_status() query for a just-accepted real send -- serviced
+    later by _maybe_capture_broker_fills, from tick(). A pure `state` write: no network
+    call, cannot block or raise into the order path. Never raises.
+
+    KEYED EXACTLY LIKE _queue_broker_resend's OWN QUEUE ("<leg>:<intent>"): a second
+    real send for the same leg+intent before the first job resolves overwrites it --
+    the same tradeoff the resend queue already accepts (see its own docstring). Engine-
+    mode trades are single-shot per leg (module docstring), so in practice this only
+    bites a rapid ninjatrader-mode reduce sequence, and those rows never reach
+    _broker_trade_parity anyway (see _apply_broker_parity) -- their own NT parity is
+    unaffected either way."""
+    try:
+        key = f"{leg}:{intent}"
+        now = time.time()
+        state.setdefault("_broker_fill_capture", {})[key] = {
+            "leg": leg, "intent": intent, "signal_id": signal_id,
+            "account_id": account_id, "shadow_px": shadow_px,
+            "tries": 0, "first_at": now, "last_at": 0.0, "last_note": None,
+        }
+    except Exception as e:
+        log(f"[qqq-exec] fill-capture queueing failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _update_broker_order_row(signal_id, updates, log=print):
+    """Rewrites broker_orders.csv's own row for `signal_id`, merging `updates` in --
+    the ONLY place this file's already-written history is ever mutated (every other
+    writer only appends, see _append_csv). Used solely by _finish_fill_capture, to fill
+    in broker_fill_px/slippage/reason once a deferred capture attempt resolves, on the
+    row _mirror_to_broker already wrote at send time. Preserves whatever columns are
+    ACTUALLY on disk (not necessarily today's BROKER_ORDER_COLS -- an old file migrates
+    lazily, on its next _append_csv, not here).
+
+    ATOMIC (2026-09-22 review): the rewritten rows are written to a private temp file
+    beside the real one, fsynced, then swapped in with _replace_with_retry -- the SAME
+    shared helper save_state uses -- rather than truncating the live ledger in place
+    with a plain `open(path, "w")`. That plain-overwrite shape is exactly the failure
+    class that once garbled the QQQ bar cache and blocked every push gate (see
+    tests/test_qqq_cache_atomic.py): a crash, a kill, a disk hiccup or a reader holding
+    the file mid-write would otherwise truncate broker_orders.csv -- this book's own
+    record of what it sent to Webull -- not just skip one field update. `os.replace` is
+    atomic on both Windows and POSIX, so a concurrent reader only ever sees the OLD
+    file or the fully-written NEW one, never a half-written one -- the same property
+    tests/test_qqq_cache_atomic.py pins for the other shared CSV writers in this repo.
+
+    NEVER RAISES. Returns True if a row was found and rewritten -- False when the row
+    is missing (aged out of the file's own ORDERS_KEEP trim), the file cannot be read,
+    the temp file cannot be written, or the swap itself fails -- and on EVERY False
+    path the original file is left completely untouched and no `.tmp` is left behind
+    (keep_tmp_on_failure=False -- see _replace_with_retry's own docstring for why that
+    differs from save_state)."""
+    try:
+        with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            rows = list(reader)
+    except Exception as e:
+        log(f"[qqq-exec] fill-capture row update failed (read): {type(e).__name__}: {e}")
+        return False
+    if not fieldnames:
+        return False
+    found = False
+    for row in rows:
+        if row.get("signal_id") == signal_id:
+            row.update(updates)
+            found = True
+            break
+    if not found:
+        return False
+    tmp = "%s.%d.%d.tmp" % (BROKER_ORDERS_CSV, os.getpid(), int(time.time() * 1000) % 100000)
+    try:
+        with open(tmp, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=fieldnames)
+            w.writeheader()
+            w.writerows(rows)
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception as e:
+        log(f"[qqq-exec] fill-capture row update failed (write): {type(e).__name__}: {e}")
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        return False
+    return _replace_with_retry(tmp, BROKER_ORDERS_CSV, log=log,
+                               what="broker_orders.csv row update",
+                               keep_tmp_on_failure=False)
+
+
+def _finish_fill_capture(item, px, note, log=print):
+    """Terminal step for one fill-capture job -- either a captured price or a final
+    give-up. Updates broker_orders.csv's own row for this order (see
+    _update_broker_order_row) and logs the outcome. Never raises."""
+    try:
+        updates = {}
+        if px is not None:
+            shadow_px = item.get("shadow_px")
+            slippage = None
+            if shadow_px is not None:
+                try:
+                    slippage = round(float(px) - float(shadow_px), 4)
+                except (TypeError, ValueError):
+                    slippage = None
+            updates["broker_fill_px"] = px
+            updates["slippage"] = slippage if slippage is not None else ""
+        elif note:
+            # only ever fills an otherwise-blank reason cell -- a capture job exists
+            # only for a row that was already ok+sent (see _queue_broker_fill_capture),
+            # so there is never a real block/error reason here to overwrite.
+            updates["reason"] = note
+        if updates and not _update_broker_order_row(item.get("signal_id"), updates, log=log):
+            log(f"[qqq-exec] fill-capture: broker_orders.csv row for signal "
+                f"{item.get('signal_id')} not found (aged out of ORDERS_KEEP) -- "
+                f"capture result dropped")
+        if px is not None:
+            log(f"[qqq-exec] fill-capture CAPTURED {item.get('leg')} {item.get('intent')} "
+                f"(signal {item.get('signal_id')}): broker_fill_px={px}")
+        else:
+            log(f"[qqq-exec] fill-capture GAVE UP for {item.get('leg')} {item.get('intent')} "
+                f"(signal {item.get('signal_id')}) after {item.get('tries', 0)} "
+                f"attempt(s): {note}")
+    except Exception as e:
+        log(f"[qqq-exec] fill-capture finish failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
+    """Service the queued fill-price jobs (see _queue_broker_fill_capture) -- modelled
+    on _maybe_resend_broker_orders: giving up on a stale job is cheap local bookkeeping
+    (no network) and every overdue one is cleared in the same tick, but at most ONE
+    job's actual order_status() SDK call happens per tick, oldest first -- so a burst of
+    queued jobs can never itself stack network calls onto one tick the way the ORIGINAL
+    inline design effectively could. Never raises.
+
+    A job waits BROKER_FILL_CAPTURE_FIRST_DELAY_SEC before its first attempt (a market
+    order is rarely filled in the same instant it was sent), tries again at most once
+    every BROKER_FILL_CAPTURE_RETRY_GAP_SEC, and gives up (recording why, via
+    _finish_fill_capture) once it has been queued longer than
+    BROKER_FILL_CAPTURE_MAX_AGE_SEC -- "a few retries over about a minute". The
+    underlying SDK call is still bounded by ORDER_STATUS_HARD_TIMEOUT_SEC on its own
+    worker thread (_query_broker_fill), so a hung call can delay only THIS job's own
+    next retry, never another leg's send on this or a later tick.
+
+    `cfg` is accepted (unused today) for the same call shape as
+    _maybe_resend_broker_orders/_maybe_run_broker_reconcile, in case a future knob
+    needs it. Runs regardless of `active` -- a status READ is not a trading action, and
+    a job still has to age out on its own clock even if the session window has closed
+    (a CLOSE from 15:59 must not be left uncaptured forever just because it is now
+    after hours)."""
+    q = state.get("_broker_fill_capture") or {}
+    if not q:
+        return
+    try:
+        adapter = _get_broker_adapter(log=log)
+    except Exception as e:
+        log(f"[qqq-exec] fill-capture skipped (adapter unavailable): {type(e).__name__}: {e}")
+        return
+    try:
+        now = time.time()
+        for key in sorted(q, key=lambda k: float(q[k].get("first_at") or 0)):
+            item = q[key]
+            age = now - float(item.get("first_at") or now)
+            if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC:
+                q.pop(key, None)
+                _finish_fill_capture(
+                    item, None, item.get("last_note") or "gave up waiting for a fill price",
+                    log=log)
+                continue
+            if age < BROKER_FILL_CAPTURE_FIRST_DELAY_SEC:
+                continue
+            if now - float(item.get("last_at") or 0) < BROKER_FILL_CAPTURE_RETRY_GAP_SEC:
+                continue
+            item["tries"] = int(item.get("tries") or 0) + 1
+            item["last_at"] = now
+            px, note = _query_broker_fill(adapter, item.get("signal_id"),
+                                          account_id=item.get("account_id"), log=log)
+            if px is not None:
+                q.pop(key, None)
+                _finish_fill_capture(item, px, None, log=log)
+            else:
+                item["last_note"] = note
+                log(f"[qqq-exec] fill-capture retry {item['tries']} for {item.get('leg')} "
+                    f"{item.get('intent')} (signal {item.get('signal_id')}): {note}")
+            return  # ONE order_status() SDK call per tick
+    except Exception as e:
+        log(f"[qqq-exec] fill-capture housekeeping failed (non-fatal): {type(e).__name__}: {e}")
 
 
 # -- broker daily P&L wiring (2026-09-14) --------------------------------------------
@@ -3062,6 +3423,223 @@ def _parity_summary(trades_all):
            "reconstructed_worst_err_usd": round(recon_worst, 2),
            "worst_err_usd": round(worst, 2), "note": note}
 
+
+# -- engine-vs-broker parity (feature #56, 2026-09-22) -------------------------------
+# OWNER (2026-09-22), on this book's PARITY NOTE chip painting red on every single
+# closed trade: "why are we comparing to NT... for parity shouldn't it just be EL OHLC
+# values to Webull?" -- exactly right: this book's config runs signal_source="engine"
+# (see DEFAULT_CONFIG), so there never WAS a NinjaTrader fill for _trade_parity above to
+# compare against -- every row was structurally guaranteed to read "insufficient NT fill
+# data to check parity", and index.html's parityChip painted that non-empty NOTE text
+# red regardless of parity_ok being None ("not checked"), not False ("failed"). See
+# RESEARCH.md-style framing: _trade_parity/_parity_summary above are UNTOUCHED by this
+# section and still run for every row (a row that genuinely mirrors NinjaTrader,
+# signal_source=="ninjatrader", keeps exactly that read -- see _build_doc).
+#
+# This section is the comparison the owner asked for instead: the engine's own booked
+# entry_px/exit_px (computed off OHLC bars, see module docstring PRICING) against the
+# best BROKER-side truth available for that fill -- Webull's own reported fill price
+# (broker_orders.csv's broker_fill_px, captured by _query_broker_fill above) when we
+# have it, else the tape-repriced price (reprice.csv via _merge_reprice,
+# real_entry_px/real_exit_px) as a fallback -- independently per LEG of the round trip,
+# so a trade can have a Webull fill on one leg and only a repriced price on the other.
+_RESEND_SUFFIX_RE = re.compile(r"R\d+$")
+
+
+def _signal_id_base(signal_id):
+    """Strips a resend suffix ("R<n>", see _mirror_to_broker's `resend` param) off a
+    broker_orders.csv signal_id so an original attempt and its resends group under one
+    key. The base _broker_signal_id builds always ends in a letter (the O/C intent code,
+    or the pre-trade-id fallback form's "OPEN"/"CLOSE") -- never a digit -- so this is
+    unambiguous against the OTHER numeric suffix _broker_signal_id can append (`seq`, a
+    ninjatrader-mode reduce count): a bare digit suffix is left alone, only a
+    trailing-R-then-digits one is stripped."""
+    s = str(signal_id or "")
+    m = _RESEND_SUFFIX_RE.search(s)
+    return s[:m.start()] if m else s
+
+
+def _broker_orders_by_base(rows):
+    """{signal_id_base: [row, ...]} in file order (oldest first) -- see
+    _signal_id_base / _best_broker_row / _broker_order_for."""
+    out = {}
+    for row in rows:
+        out.setdefault(_signal_id_base(row.get("signal_id")), []).append(row)
+    return out
+
+
+def _best_broker_row(rows):
+    """Among every attempt sharing one signal-id base (an original try plus any
+    resends, oldest first), the most authoritative: the LAST one that actually reached
+    the broker OK, else the last attempt on file at all (so its reason/mode still
+    explains why there is no fill price). None for an empty/absent list."""
+    if not rows:
+        return None
+    for row in reversed(rows):
+        if str(row.get("ok")).strip().lower() in ("true", "1"):
+            return row
+    return rows[-1]
+
+
+def _broker_order_for(trade_id, intent, by_base):
+    """The broker_orders.csv row (see _best_broker_row) for one leg (OPEN/CLOSE) of a
+    trade id, or None when there is no trade id (a trades.csv row closed before feature
+    #56 shipped, or a lot that lost its id) or no matching row at all (this leg's order
+    aged out of broker_orders.csv's own ORDERS_KEEP trim -- see BROKER_ORDER_COLS)."""
+    if not trade_id:
+        return None
+    sig_id = _broker_signal_id(None, None, intent, trade_id=trade_id)
+    return _best_broker_row(by_base.get(sig_id))
+
+
+def _all_broker_orders_from_csv(cap=1000):
+    """Every broker_orders.csv row on file (oldest-first, as the CSV stores them),
+    capped defensively to the newest `cap` -- mirrors _all_trades_from_csv. The file
+    itself never holds more than ORDERS_KEEP rows (trimmed at write time), so this cap
+    is a second, independent ceiling, not the normal limiter. Never raises."""
+    try:
+        with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except Exception:
+        return []
+    return rows[-cap:]
+
+
+def _broker_trade_parity(row, by_base, log=print):
+    """Compute the ENGINE-vs-BROKER parity block for one trades.csv row (a dict of
+    strings, as read back by csv.DictReader, already carrying reprice fields merged in
+    by _merge_reprice -- this must run AFTER that merge). Returns broker_* fields;
+    broker_parity_ok is None ("not checked" -- NOT an error, see module docstring) when
+    neither a Webull fill nor a repriced tape price is available for BOTH legs yet (the
+    normal state for a trade closed before feature #56/#57 shipped, or one still waiting
+    on tonight's reprice run). Never raises."""
+    try:
+        trade_id = str(row.get("trade_id") or "").strip()
+        shares = _f_or_none(row.get("shares")) or 0.0
+        side = row.get("side")
+        dir_mult = 1 if side == "long" else -1
+        engine_entry = _f_or_none(row.get("entry_px"))
+        engine_exit = _f_or_none(row.get("exit_px"))
+
+        def _leg_price(intent, real_field):
+            """(price, source) for one leg of the round trip -- a real Webull fill
+            beats the repriced tape price, which beats nothing."""
+            brow = _broker_order_for(trade_id, intent, by_base)
+            if brow is not None and str(brow.get("ok")).strip().lower() in ("true", "1"):
+                px = _f_or_none(brow.get("broker_fill_px"))
+                if px is not None:
+                    return px, "webull_fill"
+            real_px = _f_or_none(row.get(real_field))
+            if real_px is not None:
+                return real_px, "repriced_tape"
+            return None, None
+
+        entry_px, entry_src = _leg_price("OPEN", "real_entry_px")
+        exit_px, exit_src = _leg_price("CLOSE", "real_exit_px")
+
+        if entry_px is None or exit_px is None or engine_entry is None or engine_exit is None:
+            return {"broker_entry_px": entry_px, "broker_exit_px": exit_px,
+                   "broker_entry_source": entry_src, "broker_exit_source": exit_src,
+                   "broker_slip_entry_ps": None, "broker_slip_exit_ps": None,
+                   "broker_expected_usd": None, "broker_track_err_usd": None,
+                   "broker_parity_ok": None, "broker_parity_source": None,
+                   "broker_parity_note": "not checked -- no Webull fill or repriced tape "
+                                         "price for this trade yet"}
+
+        slip_entry_ps = round(entry_px - engine_entry, 4)
+        slip_exit_ps = round(exit_px - engine_exit, 4)
+        broker_points = round((exit_px - entry_px) * dir_mult, 4)
+        expected_usd = round(broker_points * shares, 2)
+        pnl = _f_or_none(row.get("pnl")) or 0.0
+        track_err = round(pnl - expected_usd, 2)
+        tol = max(0.05, 0.02 * abs(expected_usd))
+        ok = abs(track_err) <= tol
+        source = entry_src if entry_src == exit_src else "mixed"
+        note = ""
+        if not ok:
+            note = (f"engine booked ${pnl:.2f} but {source.replace('_', ' ')} price(s) "
+                    f"imply ${expected_usd:.2f} -- tracking error ${track_err:.2f} "
+                    f"exceeds tolerance ${tol:.2f}")
+        return {"broker_entry_px": entry_px, "broker_exit_px": exit_px,
+               "broker_entry_source": entry_src, "broker_exit_source": exit_src,
+               "broker_slip_entry_ps": slip_entry_ps, "broker_slip_exit_ps": slip_exit_ps,
+               "broker_expected_usd": expected_usd, "broker_track_err_usd": track_err,
+               "broker_parity_ok": bool(ok), "broker_parity_source": source,
+               "broker_parity_note": note}
+    except Exception as e:
+        log(f"[qqq-exec] broker parity calc failed for a trade row: {type(e).__name__}: {e}")
+        return {"broker_entry_px": None, "broker_exit_px": None,
+               "broker_entry_source": None, "broker_exit_source": None,
+               "broker_slip_entry_ps": None, "broker_slip_exit_ps": None,
+               "broker_expected_usd": None, "broker_track_err_usd": None,
+               "broker_parity_ok": None, "broker_parity_source": None,
+               "broker_parity_note": f"parity calc failed: {type(e).__name__}"}
+
+
+_NT_MIRROR_NOTE = "n/a -- this trade mirrors NinjaTrader, see NT parity"
+
+
+def _broker_parity_summary(trades_all):
+    """Headline ENGINE-vs-BROKER parity read -- see _broker_trade_parity. Counts only
+    rows this check actually applies to (signal_source != "ninjatrader"); a
+    NinjaTrader-mirrored row keeps its own NT parity (_parity_summary above) and never
+    counts here, matching how those rows are computed in _build_doc."""
+    checked = ok = failed = not_checked = 0
+    worst = 0.0
+    worst_note = ""
+    for t in trades_all:
+        if str(t.get("signal_source") or "").strip().lower() == "ninjatrader":
+            continue
+        pok = t.get("broker_parity_ok")
+        if pok is None:
+            not_checked += 1
+            continue
+        checked += 1
+        te = t.get("broker_track_err_usd")
+        if pok:
+            ok += 1
+        else:
+            failed += 1
+        if te is not None and abs(te) > abs(worst):
+            worst = te
+            worst_note = t.get("broker_parity_note") or ""
+    if checked == 0:
+        note = (f"{not_checked} trade(s) awaiting a Webull fill price or a repriced tape "
+                f"price -- not an error, just not checked yet" if not_checked else
+                "no engine-signal trades recorded yet")
+    elif failed == 0:
+        note = "every checked trade tracks its broker-side price within tolerance"
+        if not_checked:
+            note += f" ({not_checked} more not yet checked)"
+    else:
+        note = f"{failed} of {checked} trade(s) miss their broker-side price"
+        if worst_note:
+            note += f" -- worst: {worst_note}"
+    return {"checked": checked, "ok": ok, "failed": failed, "not_checked": not_checked,
+           "worst_err_usd": round(worst, 2), "note": note}
+
+
+def _apply_broker_parity(trades_all, broker_by_base, log=print):
+    """Updates every row of trades_all IN PLACE with its broker_* fields (see
+    _broker_trade_parity) -- factored out of _build_doc so the dispatch rule itself
+    ("which rows get the new check") is unit-testable on its own. A row whose
+    signal_source is "ninjatrader" (a genuine NinjaTrader-mirrored trade, see module
+    docstring) is left with a clear placeholder instead: _trade_parity's OWN NT-parity
+    fields on that row (parity_ok/parity_note, computed separately in _build_doc,
+    BEFORE this runs) are exactly what applied to it before feature #56 existed, and
+    this function never reads or writes them. Never raises."""
+    for row in trades_all:
+        if str(row.get("signal_source") or "").strip().lower() == "ninjatrader":
+            row.update({"broker_entry_px": None, "broker_exit_px": None,
+                       "broker_entry_source": None, "broker_exit_source": None,
+                       "broker_slip_entry_ps": None, "broker_slip_exit_ps": None,
+                       "broker_expected_usd": None, "broker_track_err_usd": None,
+                       "broker_parity_ok": None, "broker_parity_source": None,
+                       "broker_parity_note": _NT_MIRROR_NOTE})
+        else:
+            row.update(_broker_trade_parity(row, broker_by_base, log=log))
+
+
 def _all_trades_from_csv(cap=500):
     """Every closed shadow trade recorded since inception, oldest-first as the CSV
     stores them (trades.csv is append-only, trimmed to TRADES_KEEP by _append_csv).
@@ -3422,6 +4000,17 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # REPRICE MERGE (feature #48 half): merges broker-verified fields onto trades_all
     # IN PLACE and returns the coverage summary.
     reprice = _merge_reprice(trades_all, log=log)
+
+    # ENGINE-VS-BROKER PARITY (feature #56): a SEPARATE read from the NT parity above,
+    # for every row that never had a NinjaTrader fill to mirror (signal_source !=
+    # "ninjatrader") -- must run AFTER the reprice merge just above, since it falls back
+    # to real_entry_px/real_exit_px when there is no captured Webull fill. A row that
+    # genuinely mirrors NinjaTrader is left exactly as _trade_parity already computed it
+    # -- see _apply_broker_parity/_broker_trade_parity's own docstrings for why.
+    broker_by_base = _broker_orders_by_base(_all_broker_orders_from_csv())
+    _apply_broker_parity(trades_all, broker_by_base, log=log)
+    broker_parity = _broker_parity_summary(trades_all)
+
     # The curve is built AFTER the merge, so an exit the adapter could not mark counts at
     # its tape-repriced real_pnl -- exactly as the web tab counts it (see _curve_pnl).
     cum_pnl = _cum_pnl_by_leg(trades_all)
@@ -3484,6 +4073,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                   "unrealized_pnl": round(unrealized, 2)},
         "trades_all": trades_all,
         "parity": parity,
+        # ENGINE-VS-BROKER PARITY (feature #56): sibling summary to "parity" above --
+        # see _broker_parity_summary. Untouched NT rows never contribute to this one.
+        "broker_parity": broker_parity,
         "feed_days": feed_days,
         "ratio_hist": ratio_hist,
         "ratio_health": ratio_health,
@@ -4122,6 +4714,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER RE-SEND (2026-09-21): after housekeeping, so a reconcile that just cleared a
     # halt lets the OPEN it blocked go out in the same tick -- see _maybe_resend_broker_orders.
     _maybe_resend_broker_orders(state, cfg, nowdt, active, log=log)
+    # BROKER FILL CAPTURE (feature #57, DEFERRED 2026-09-22): queued by _mirror_to_broker,
+    # serviced here -- see _maybe_capture_broker_fills for why this is off the order path.
+    _maybe_capture_broker_fills(state, cfg, nowdt, active, log=log)
 
     # REPRICE MERGE (feature #48 half) + EOD PHONE SUMMARY (feature #55): both are
     # once-per-ET-day, time-gated jobs that must never block or crash a tick -- see

@@ -73,6 +73,10 @@ def test_build_doc_builds_the_curve_after_the_reprice_merge(tmp_path, monkeypatc
     sidecar = {(r["leg"], r["entry_ts"]): {"real_pnl": r["real_pnl"]} for r in LIVE}
     monkeypatch.setattr(qe, "ORDERS_CSV", str(tmp_path / "orders.csv"))
     monkeypatch.setattr(qe, "TRADES_CSV", str(tmp_path / "trades.csv"))
+    # feature #56 (engine-vs-broker parity) reads BROKER_ORDERS_CSV inside _build_doc --
+    # isolate it from the real EDGELOG_HOME exactly like ORDERS_CSV/TRADES_CSV above
+    # (the file need not exist: _all_broker_orders_from_csv returns [] when it doesn't).
+    monkeypatch.setattr(qe, "BROKER_ORDERS_CSV", str(tmp_path / "broker_orders.csv"))
     monkeypatch.setattr(qe, "_all_trades_from_csv", lambda cap=500: [dict(r) for r in raw])
     monkeypatch.setattr(qe, "_trade_parity", lambda row, log=print: {})
     monkeypatch.setattr(qe, "_load_reprice_sidecar", lambda log=print: sidecar)
