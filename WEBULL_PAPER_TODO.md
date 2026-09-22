@@ -382,9 +382,19 @@ pre-held-out MAR). Against the pre-registered money rule:
   stretches, so NOISE fails. No other candidate is picked from the hindsight numbers - that would
   be shopping.
 Consequence: plain NOISE keeps trading on Webull; no model file, no cloud scorer, no NOISE-ML leg.
+Same verdict as the ML tab of run #304's own Auto-Validate (FAILED, 18-month held-out stretch) - see
+the correction below. RULE FOR THE NEXT LEG: every Auto-Validate already stores a full ML bake-off,
+so read the crown run's GATE / TILT / HYBRID tabs first; queue a separate Gate bake-off only when
+the run has none.
 
 **Where things stand (read-only research, 2026-09-21).**
-- No ML filter has ever been built or tested on NOISE's current crown, run #304 (`NOISE_1_1_NBHD.py`,
+- **CORRECTION 2026-09-22 (owner: "theres proably about 20 auto validates on past runs"):** the line below
+  was WRONG. Run #304's own Auto-Validate (2026-08-30) already carries the same ML bake-off (5 models x
+  cut-offs 45/50/55/60, the GATE / TILT / HYBRID tabs of its report). It chose logistic at 50% and
+  FAILED its 18-month held-out stretch: filtered $72,006 vs plain $82,123, and $324,491 vs $331,132
+  before it. The research behind this plan read only the docs, never the run itself, so step 1 (run
+  #408) repeated a test that already existed. It reached the same answer.
+- (superseded) No ML filter has ever been built or tested on NOISE's current crown, run #304 (`NOISE_1_1_NBHD.py`,
   NQ 5m RTH, 2010-06-07..2026-07-16: 4,824 trades, PF 1.357, net $398,775, about 300 trades a year).
   The PC's live filters for NinjaTrader sit on retired NOISE configs: #225 tree@0.55, #231 rf@0.55,
   #243 et@0.50 (`api/paper.py` PAPER_LEGS, served by `api/gate_live.py`).
