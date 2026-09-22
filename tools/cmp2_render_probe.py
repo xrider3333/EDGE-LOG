@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 129
+N_CASES = 130
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -1485,6 +1485,42 @@ var FIX = __FIX__;
         r.hasWinLabel=!!(tip&&tip.indexOf('WIN %')>=0);
         r.hasSortinoLabel=!!(tip&&tip.toLowerCase().indexOf('sortino')>=0);
         r.mislabeledProfit=!!(tip&&tip.indexOf('profit 31.23')>=0);
+      })();
+
+      // ── case c_hidedot: item 4 - right-click a point on the configs scatter hides it
+      //    via a chart-only redraw (window._reRedrawChart), the SHOW ALL chip appears, the
+      //    table underneath is untouched, and the chip brings the point back.
+      (function(){
+        var CID=String(FIX.id);
+        var wc="var F="+JSON.stringify(FIX)+";var doc=(typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(F)):F;"
+          // window._runCfg is reset here too, not just window._runFull: an earlier case
+          //   (gatewf) leaves a stale, gate_validate-only doc parked under this same run id,
+          //   and the config-row builder checks window._runCfg before window._runFull.
+          +"runHistory=[doc];window._runFull={};window._runFull['"+CID+"']=doc;window._runFullOrder=['"+CID+"'];window._runHydrating={};window._c2Open=new Set();window._reHidePts={};window._runCfg={};";
+        var call=doRender({c2Screen:'explore',resLvl:'cfg',resCfgRun:[CID]}, wc);
+        var r=snap('c_hidedot', call==='OK'?'OK':('ERR '+call));
+        var pts0=d.querySelectorAll('[data-repoint]');
+        r.pts0=pts0.length;
+        r.rows0=d.querySelectorAll('tr[data-rerow]').length;
+        r.chipBefore=!!d.querySelector('[data-reunhide]');
+        if(pts0.length>=2){
+          var target=pts0[0];
+          var hk=target.getAttribute('data-rehide');
+          r.hkPresent=!!hk;
+          try{target.dispatchEvent(new w.MouseEvent('contextmenu',{bubbles:true,cancelable:true}));}catch(e){r.dispatchErr=String(e);}
+          r.pts1=d.querySelectorAll('[data-repoint]').length;
+          var chip=d.querySelector('[data-reunhide]');
+          r.chipAfter=!!chip;
+          r.rows1=d.querySelectorAll('tr[data-rerow]').length;
+          r.hkStillThere=[].some.call(d.querySelectorAll('[data-repoint]'),function(p){return p.getAttribute('data-rehide')===hk;});
+          if(chip){
+            try{chip.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));}catch(e){r.unhideErr=String(e);}
+          }
+          r.pts2=d.querySelectorAll('[data-repoint]').length;
+          r.chipAfterUnhide=!!d.querySelector('[data-reunhide]');
+        }
+        r.errorsAfter=sink.errors.slice(0,10);
+        r.uncaughtAfter=sink.uncaught.slice(0,10);
       })();
 
       // ── case c_qual: item 11(a) - the QUALITY preset's click (and its lit state) match
@@ -5353,6 +5389,30 @@ def main(argv=None):
     line('c_hover', c_hover_ok, 'failed=%s | tip=%r' % ([k for k, v in c_hover_chk.items() if not v], r.get('tip')))
     if not c_hover_ok:
         fail('c_hover: the point hover should name WIN % and SORTINO, not label WIN % as profit -- see the c_hover line')
+    # case c_hidedot: item 4 - right-click hides a point via a chart-only redraw; SHOW ALL
+    #   restores it; the table row count never moves
+    r = cases.get('c_hidedot', {})
+    pts0, pts1, pts2 = r.get('pts0'), r.get('pts1'), r.get('pts2')
+    c_hidedot_chk = {
+        'renders OK': r.get('call') == 'OK',
+        'fixture has at least 2 points': (pts0 or 0) >= 2,
+        'no SHOW ALL chip before any hide': not r.get('chipBefore'),
+        'the hidden point carried a data-rehide key': bool(r.get('hkPresent')),
+        'point count drops by exactly one after the hide': (None not in (pts0, pts1)) and (pts1 == pts0 - 1),
+        'SHOW ALL chip appears after the hide': bool(r.get('chipAfter')),
+        'table row count is unchanged by a chart-only hide': r.get('rows1') == r.get('rows0'),
+        "the hidden point's own key is gone from the chart": not r.get('hkStillThere'),
+        'point count is restored after clicking SHOW ALL': (None not in (pts0, pts2)) and (pts2 == pts0),
+        'the chip clears itself once nothing is hidden': not r.get('chipAfterUnhide'),
+        'no console errors': not r.get('errorsAfter'),
+        'no uncaught exceptions': not r.get('uncaughtAfter'),
+    }
+    c_hidedot_ok = all(c_hidedot_chk.values())
+    line('c_hidedot', c_hidedot_ok, 'failed=%s | pts0=%s pts1=%s pts2=%s rows0=%s rows1=%s'
+         % ([k for k, v in c_hidedot_chk.items() if not v], pts0, pts1, pts2, r.get('rows0'), r.get('rows1')))
+    if not c_hidedot_ok:
+        fail('c_hidedot: right-click-to-hide should drop the point count by one, show the SHOW ALL chip, '
+             'leave the table row count unchanged, and restore the point on click -- see the c_hidedot line')
     # case c_qual: item 11(a) - QUALITY preset matches its own description
     r = cases.get('c_qual', {})
     c_qual_chk = {

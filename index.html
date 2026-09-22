@@ -709,6 +709,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 @media (max-width:520px){
   .hm-dtable .hm-col-dur,.hm-dtable .hm-col-in,.hm-dtable .hm-col-out{display:none}
 }
+.retd{padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -26864,7 +26865,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   tables are untouched and the line under the chart says what was left off.
         const _reFailOn=(APREF.resFail==='1');
         const _reMinTrd=(function(){const v=+APREF.resMinTrd;
-          return ([0,10,30,100,250].indexOf(v)>=0)?v:0;})();
+          return ([0,30,100,250].indexOf(v)>=0)?v:0;})();
         // stored as a JSON STRING by every writer on this board, but an object handed
         //   straight in used to vanish (JSON.parse of an object throws -> {}), so a
         //   caller could set a filter and watch the board ignore it. Both shapes read.
@@ -27110,19 +27111,6 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   table lays out on its own widths and long text ellipses instead of stretching.
         const _reTblFix=Object.keys(_reColW).length?'table-layout:fixed;':'';
         const _reNCols=(_reFull?24:16)+((_reBasis==='year')?3:0);   // +RUN moved beside FAMILY, +TRADES / YR
-        // DRAW THE FIRST 300 ROWS, NOT EVERY ROW (owner 2026-09-21: measured 15.9MB of HTML
-        //   for 2,236 rows on the merged ONE TABLE alone - about 7KB per row, mostly repeated
-        //   inline styles - and building the hidden rows' HTML was most of an 8.6s render).
-        //   Ranks are still computed on every row; only the HTML for rows past the cap is
-        //   skipped, and a footer row always offers to draw the rest.
-        const _reTblCap=300;
-        const _reTblAll=(APREF.resTblAll===true);
-        const _reTblFooter=n=>{const sb=(attr,txt,tip)=>'<span '+attr+' title="'+_reEsc(tip)+'" style="display:inline-flex;align-items:center;margin-left:6px;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:5px;cursor:pointer;color:var(--text2);border:1px solid var(--border);background:var(--bg1)">'+_reEsc(txt)+'</span>';
-          return '<tr><td colspan="'+_reNCols+'" style="padding:7px 8px;color:var(--text5);font-size:9px;border-bottom:1px solid var(--border2)">'
-            +(_reTblAll
-              ?('Showing all '+n+' rows, in the order above. '+sb('data-retblall="0"','SHOW FIRST 300','draw only the first 300 rows - faster')+' - faster.')
-              :('Showing the first 300 of '+n+' rows, in the order above. '+sb('data-retblall="1"','SHOW ALL '+n,'draw every row - slower, every row is drawn')+' - slower, every row is drawn.'))
-            +'</td></tr>';};
         // how many years the row OWN window covers. PER YEAR divides by this and nothing else.
         //    A CONFIG ROW MEASURES THE TICKED STRETCH, not the whole run. The report
         //    spans the first ticked stretch's start to the last one's end, off the run's
@@ -27853,11 +27841,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   the same blue it already uses on the funnel, so one family is one colour app-wide.
         const _reCfgPal={'RAW':'#1d9e75','GATE':'#e24b4a','TILT':'#f0b429',
           'HYBRID':'#c084fc','HYBRID \u267b':'#f0abfc','HYBRID \u2193DD':'#2dd4bf','KEEL':'#38bdf8'};
-        // COLOUR = STRATEGY (owner 2026-08-30 asked for 1E family colour; 2026-09-21: with two
-        //   strategies' runs ticked at once on 1E CONFIGS, colour stopped being enough on its
-        //   own - a RAW row from ENGU-Q and a RAW row from NOISE painted identically. Fixed
-        //   hex, same reason _reCfgPal above is fixed hex: bright enough to read on the
-        //   owner's greyscale MONO theme, which these are never asked to follow.
+        // COLOUR = STRATEGY. The owner: "when i have multible stratgies ploted, any way to
+        //   make ea stratgy come up as a color, and the type of config (raw/gate/hybrid etc
+        //   as a icon/symbol?" Fixed hex, same reason _reCfgPal above is fixed hex: bright
+        //   enough to read on the owner's greyscale MONO theme, which these are never asked
+        //   to follow.
         const _reStratPal={'ENGU-Q':'#5b9cf6','NOISE':'#f59e0b','ORB':'#34d399','TTM':'#f87171',
           'NQDIP':'#c084fc','ETFDIP':'#22d3ee','GAPGO':'#facc15','BOOK':'#f472b6'};
         const _reStratFallback=['#a3e635','#fb923c','#94a3b8','#e879f9','#2dd4bf','#fda4af'];
@@ -27865,12 +27853,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reStratPal[k])return _reStratPal[k];
           let h=0;for(let i=0;i<k.length;i++)h=((h<<5)-h+k.charCodeAt(i))|0;
           return _reStratFallback[Math.abs(h)%_reStratFallback.length];};
-        // ONE SHAPE PER CONFIG TYPE (owner 2026-09-21), so the config type still reads once
-        //   colour stops meaning it - COLOUR = STRATEGY makes every RAW row a different
-        //   colour, and the shape is what still says RAW. `h` is the mark's own half-size,
-        //   the same role `s`/`sz` plays in _reShape above; `champ` draws the same crowned-
-        //   config outline every shape already carries elsewhere on this board, and `dim`
-        //   follows the chart's own faded-point rule (a row never run as a validate run).
+        // ONE SHAPE PER CONFIG TYPE, so the config type still reads once colour stops
+        //   meaning it - COLOUR = STRATEGY makes every RAW row a different colour, and the
+        //   shape is what still says RAW. `h` is the mark's own half-size, the same role
+        //   `s`/`sz` plays in _reShape above; `champ` draws the same crowned-config outline
+        //   every shape already carries elsewhere on this board, and `dim` follows the
+        //   chart's own faded-point rule (a row never run as a validate run).
         const _reCfgMark=(type,cx,cy,h,col,fo,champ,dim)=>{
           const x=(+cx).toFixed(1),y=(+cy).toFixed(1);
           const foV=(fo==null)?1:fo,so=dim?0.3:1;
@@ -27962,7 +27950,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           void g;void pb;
           return (tone==='champ')?('color-mix(in srgb,'+b+' '+pa+',transparent)'):'';};
         const _reRow=(st,rw,rank,com,showSt)=>{
-          const td=(c,al,extra)=>'<td style="text-align:'+(al||'right')+';padding:2px 5px;border-bottom:1px solid var(--border2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums'+(extra||'')+'">'+c+'</td>';
+          const td=(c,al,extra)=>'<td class="retd" style="text-align:'+(al||'right')+(extra||'')+'">'+c+'</td>';
           // a prose cell is clamped to one line and carries its full text on hover. Wrapping
           //   these two columns was what made a row three lines tall.
           const tdw=(txt,colr,w)=>td('<span title="'+_reEsc(txt)+'" style="color:'+colr+';display:inline-block;max-width:'+w+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(txt)+'</span>','left');
@@ -28053,10 +28041,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td((function(){const isCfg=!!rw._cfg,fam=String((isCfg&&rw.fam)||'RAW');
                 const stratCol=(isCfg&&_reByStrat&&rw._strat)?_reStratCol(rw._strat):null;
                 const fc=stratCol||_reCfgPal[fam]||'var(--text3)';
-                // THE MARK MATCHES THE CHART POINT (owner 2026-09-21): a plain dot used to
-                //   carry only the config type's colour, which stopped being unique the
-                //   moment colour started meaning STRATEGY (two strategies can both have a
-                //   RAW row). The shape still says the config type, whatever colour is doing.
+                // THE MARK MATCHES THE CHART POINT: a plain dot used to carry only the
+                //   config type's colour, which stopped being unique the moment colour
+                //   started meaning STRATEGY (two strategies can both have a RAW row). The
+                //   shape still says the config type, whatever colour is doing.
                 const mark=isCfg?('<svg width="10" height="10" viewBox="0 0 16 16" style="vertical-align:-2px;margin-right:5px">'+_reCfgMark(fam,8,8,4.2,fc,1,rw.tone==='champ',false)+'</svg>')
                                 :('<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+fc+';margin-right:5px"></span>');
                 const stratTag=(isCfg&&_reByStrat&&rw._strat)?('<span title="'+_reEsc('Strategy: '+rw._strat)+'" style="color:'+fc+';font-size:7px;font-weight:700;margin-left:3px;cursor:help">'+_reEsc(rw._strat)+'</span>'):'';
@@ -28175,6 +28163,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
 
         const _reXCap='Worst drawdown \u2014 further LEFT is better';
         const _reFamOf=(st,r)=>String((r&&r.fam)||(st&&st.fam)||'UNTAGGED');
+        // A STABLE KEY FOR HIDE-THIS-DOT. A configuration row has no run number that survives
+        //   a reload - the live Firestore read can renumber or drop rows - so its key is its
+        //   own name and family; every other row keeps a run number that never moves, so it
+        //   reuses the same st.key+run pairing the point's own data-repoint already carries.
+        const _reHideKey=(st,r)=>(r&&r._cfg)?('cfg|'+r.name+'|'+r.fam):(st.key+':'+r.n);
         // the horizontal caption follows the reading: under VS CROWN the axis is no longer a
         //   drawdown, it is the difference between two drawdowns, and it has to say so.
         // The caption and the tick format follow the HORIZONTAL AXIS pick, not just the
@@ -28569,7 +28562,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
 
         };
         const _reChartAll=(items,com)=>{
-          const pts=[],skip=[],failOut=[],thinOut=[],thinNoCt=[];
+          const pts=[],skip=[],failOut=[],thinOut=[],thinNoCt=[],hidden=[];
+          window._reHidePts=window._reHidePts||{};
           window._reSkipBy={};   // run number -> points the ticked axes could not place
           window._reSkipN=0;window._reShownN=0;   // for the visible note under the chart
           const _reDupAt={};   // how many marks have already landed on each pixel
@@ -28702,6 +28696,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(bx==null||by==null){skip.push({o:o,w:'The row this family reads against, row '+b.r.n+', has no figure of its own on the stage and basis now selected, so there is nothing to measure the difference from. Nothing was substituted for it.'});
                 _reCauseRows.push({o:o,rel:true,noChamp:false,fail:false});return;}
               x=x0-bx;y=y0-by;}
+            const _hk=_reHideKey(o.st,o.r);
+            if(window._reHidePts[_hk]){hidden.push({k:_hk,name:String((o.r&&o.r.name)||(o.r&&o.r.n)||'')});return;}
             pts.push({o:o,st:o.st,r:o.r,x:x,y:y,x0:x0,y0:y0});});
           // The rank a point quotes on hover is its place among the points ON THIS CHART,
           //   board-wide. The RANK column in each table below is still a within-study rank, and
@@ -28711,47 +28707,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const yf=_reYfmt(),xf=(['dd','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num';
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
           const showN=(pts.length<=_reLblMax);
-          // THIN-POINT STRETCH HINT (owner 2026-09-21): three GATE points on 4-6 lockbox
-          //   trades measured Sortino 384-750 and squashed every other point on a board to
-          //   the bottom of the chart. MIN TRADES (control 4) already fixes this - it was
-          //   just off by default and the owner never found it. This never touches the axes
-          //   themselves (VALUE ZOOM was removed 2026-08-19, the chart still fits every point
-          //   it draws) - it only offers the existing switch when a thin point is PROVABLY
-          //   why the chart looks stretched.
-          let _reThinHint='';
-          (function(){
-            if(_reMinTrd>=100||pts.length<8)return;
-            const _wt=pts.map(p=>{const t=_reTrd(p.r);return {p:p,v:(t&&isFinite(t.v))?t.v:null};});
-            const _core=_wt.filter(o=>o.v!=null&&o.v>=30);
-            if(_core.length<5)return;
-            const _cxs=_core.map(o=>o.p.x),_cys=_core.map(o=>o.p.y);
-            const _xLo=Math.min.apply(null,_cxs),_xHi=Math.max.apply(null,_cxs);
-            const _yLo=Math.min.apply(null,_cys),_yHi=Math.max.apply(null,_cys);
-            const _xR=_xHi-_xLo,_yR=_yHi-_yLo;
-            const _stretch=[];
-            _wt.forEach(o=>{
-              if(o.v==null||o.v>=30)return;
-              const sx=(o.p.x<_xLo-0.25*_xR)||(o.p.x>_xHi+0.25*_xR);
-              const sy=(o.p.y<_yLo-0.25*_yR)||(o.p.y>_yHi+0.25*_yR);
-              if(sx||sy)_stretch.push({p:o.p,v:o.v,sx:sx,sy:sy});});
-            if(!_stretch.length)return;
-            const _mxTrd=Math.max.apply(null,_stretch.map(s=>s.v));
-            const _hT=(10>_mxTrd&&10>_reMinTrd)?10:((30>_mxTrd&&30>_reMinTrd)?30:null);
-            if(_hT==null)return;
-            const _mnV=Math.min.apply(null,_stretch.map(s=>s.v)),_mxV=_mxTrd;
-            const _trdTxt=(_mnV===_mxV)?(_mnV+' trade'+(_mnV===1?'':'s')):(_mnV+'-'+_mxV+' trades');
-            const _ySt=_stretch.some(s=>s.sy),_xSt=_stretch.some(s=>s.sx);
-            let _meas='';
-            if(_ySt){const _nm=(String(_reYcapShort[_reMode()]||'').split(' —')[0]||'the vertical measure').toUpperCase();
-              const _mv=Math.max.apply(null,_stretch.filter(s=>s.sy).map(s=>Math.abs(s.p.y)));
-              _meas=_nm+' up to '+_reVal(_mv,yf);}
-            if(_xSt){const _xnm=String(_reXNm[_reXAxis]||'THE HORIZONTAL MEASURE');
-              const _mv2=Math.max.apply(null,_stretch.filter(s=>s.sx).map(s=>Math.abs(s.p.x)));
-              const _xTxt=_xnm+' up to '+_reVal(_mv2,xf);
-              _meas=_meas?(_meas+', '+_xTxt):_xTxt;}
-            _reThinHint='\u26a0 '+_stretch.length+' point'+(_stretch.length===1?'':'s')+' with only '+_trdTxt+' stretch'+(_stretch.length===1?'es':'')+' this chart'+(_meas?(' ('+_meas+')'):'')+'. A figure off that few trades is an anecdote. '
-              +'<span data-remintrd="'+_hT+'" style="display:inline-flex;align-items:center;margin-left:2px;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:5px;cursor:pointer;color:var(--text2);border:1px solid var(--border);background:var(--bg1)">HIDE UNDER '+_hT+' TRADES</span>';
-          })();
           let g='';
           if(pts.length){
             // the axes span ONLY the rows now shown, so the STRATEGY rail and the filters
@@ -28886,6 +28841,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
               if(dim)tp+=' | never run as a validate run';
               tp+=' | click to jump to its row in its own study table below';
+              tp+=' | right-click to hide this dot for now - the chart refits, and SHOW ALL under the chart brings it back';
               // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
               // around it and the two never fight: a thin solid ring means crowned, a dashed
               // green ring means it is running in paper right now, and a row that is both wears
@@ -28895,7 +28851,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               let ring='';
               if(lv==='crown'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+3.2).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="1.1" opacity="'+(dim?0.22:0.62)+'"/>';
               if(lv==='paper'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+5.6).toFixed(1)+'" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-dasharray="3,3" opacity="'+(dim?0.25:0.9)+'"/>';
-              g+='<g data-repoint="'+st.key+':'+r.n+'" style="cursor:pointer">'
+              g+='<g data-repoint="'+st.key+':'+r.n+'" data-rehide="'+_reEsc(_reHideKey(st,r))+'" style="cursor:pointer">'
                 +'<circle class="rehl" cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+((pts.length>250)?7:(sz+8)).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="2" opacity="0"/>'
                 +'<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+((pts.length>250)?6:(sz+9)).toFixed(1)+'" fill="transparent"/>'
                 +ring
@@ -29131,7 +29087,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 :_reLegend(''))
             +'<span title="'+_reEsc(_hint)+'" style="font-size:9px;color:var(--text5);cursor:help">\u24d8</span>'
             +(mixed?('<span title="'+_reEsc(mixed)+'" style="font-size:8px;color:'+_reWarnC+';cursor:help">\u26a0 IN-SAMPLE is not one thing here</span>'):'')
-            +(_reThinHint?('<span style="font-size:8px;color:'+_reWarnC+'">'+_reThinHint+'</span>'):'')
+            +(hidden.length?('<span data-reunhide="1" title="'+_reEsc(hidden.slice(0,10).map(function(h){return h.name;}).join(', ')+(hidden.length>10?(' and '+(hidden.length-10)+' more'):''))+'" style="font-size:8px;color:var(--text4);cursor:pointer;text-decoration:underline">'+hidden.length+' DOT'+(hidden.length===1?'':'S')+' HIDDEN \u00b7 SHOW ALL</span>'):'')
             +'</div></div>';};
         let _reShown=0,_reHidden=0,_reFiltOut=0,_reScopeOut=0,_reNoDate=[],_reWinAll=[],_reWinNone=[];
         // how many rows the SELECTED comparison basis can actually place, counted honestly so the
@@ -29532,12 +29488,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(!full){if(typeof _hydrateCfg==='function')_hydrateCfg(RID);
               _reCfgWait.push(RID);return;}
             {
-              // WHICH STRATEGY THIS RUN IS (owner 2026-09-21): a config row (RAW / GATE /
-              //   TILT / HYBRID / KEEL) carries no strategy of its own - fam here is the
-              //   CONFIG TYPE - so with more than one strategy's runs ticked at once there
-              //   was no way to tell them apart except the row name. _canonFam reads the
-              //   run's own full.strategy, the same reader the STRATEGY rail already uses
-              //   a few lines above (_canonFam(r.strategy)).
+              // WHICH STRATEGY THIS RUN IS: a config row (RAW / GATE / TILT / HYBRID / KEEL)
+              //   carries no strategy of its own - fam here is the CONFIG TYPE - so with
+              //   more than one strategy's runs ticked at once there was no way to tell them
+              //   apart except the row name. _canonFam reads the run's own full.strategy,
+              //   the same reader the STRATEGY rail already uses a few lines above
+              //   (_canonFam(r.strategy)).
               const _stratNm=_canonFam(full.strategy)||'UNTAGGED';
               const mult=(+full.multiplier||20);
               const V=full.validate||null;
@@ -29766,11 +29722,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
         // the distinct families now on screen. One means the family never needs restating.
         const _reFamsOn=(()=>{const o=[];_reItems.forEach(it=>{const f=_reFamOf(it.st,it.r);if(o.indexOf(f)<0)o.push(f);});return o;})();
-        // COLOUR = STRATEGY when more than one is on the 1E CONFIGS chart at once (owner
-        //   2026-09-21: config rows carry no strategy of their own - r.fam here is RAW /
-        //   GATE / TILT / HYBRID, the CONFIG TYPE - so with two strategies ticked every
-        //   point wore the same six colours whichever run it came from). Ticking a single
-        //   strategy still reads exactly as before: colour is the config type, unchanged.
+        // COLOUR = STRATEGY when more than one is on the 1E CONFIGS chart at once: config
+        //   rows carry no strategy of their own - r.fam here is RAW / GATE / TILT / HYBRID,
+        //   the CONFIG TYPE - so with two strategies ticked every point wore the same six
+        //   colours whichever run it came from. Ticking a single strategy still reads
+        //   exactly as before: colour is the config type, unchanged.
         const _reCfgStrats=(()=>{const o=[];_reItems.forEach(it=>{if(it.r&&it.r._cfg&&it.r._strat&&o.indexOf(it.r._strat)<0)o.push(it.r._strat);});return o;})();
         const _reByStrat=_reShowCfg&&_reCfgStrats.length>1;
         const _reFamTag=(st,rw)=>(_reFamsOn.length>1)
@@ -29919,13 +29875,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
                 if(da===db)return 0;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
             }
-            const _reCap300=(!_reTblAll&&sorted.length>_reTblCap);
-            const _reDrawRows=_reCap300?sorted.slice(0,_reTblCap):sorted;
             if(!_reSplitRun){
-              bodyRows=_reDrawRows.map(r=>_reRow(st,r,rank[r.n],com)).join('');
+              bodyRows=sorted.map(r=>_reRow(st,r,rank[r.n],com)).join('');
             }else{
-              const withRun=_reDrawRows.filter(r=>Array.isArray(r.runs)&&r.runs.length);
-              const noRun=_reDrawRows.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
+              const withRun=sorted.filter(r=>Array.isArray(r.runs)&&r.runs.length);
+              const noRun=sorted.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
               const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:4px 8px 3px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
               // ONE SECTION NEEDS NO SECTION HEADING. When every row falls on the same
               // side of the split the label says nothing the reader cannot already see,
@@ -29939,12 +29893,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('');
             }
           }
-          // DRAW THE FIRST 300, NOT ALL OF THEM (owner 2026-09-21: measured 15.9MB of HTML for
-          //   2,236 rows on this board's ONE TABLE alone - most of an 8.6s render was building
-          //   HTML nobody could see without scrolling for a long time). RANK above is computed
-          //   on the full row set either way; only the hidden rows' HTML is skipped, and rows.length
-          //   (not sorted, which is out of scope once the branch above closes) still counts every row.
-          if(rows.length>_reTblCap)bodyRows+=_reTblFooter(rows.length);
           const _emH=_reEmH;
           const _hd=_reHdCell;
           const hd=_reHd(st);
@@ -30036,28 +29984,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             .sort((a,b)=>_reYv(b.st,b.r,com)-_reYv(a.st,a.r,com))
             .forEach((it,i)=>{rk[it.st.key+':'+it.r.n]=i+1;});
           let bodyRows;
-          const _reCap300=(!_reTblAll&&sorted.length>_reTblCap);
-          const _reDrawRows=_reCap300?sorted.slice(0,_reTblCap):sorted;
           if(!_reSplitRun){
             // the study chip is worth showing only when the rows come from MORE THAN ONE
             //   study. On the configs view they all come from the same pick, and the chip
             //   repeated the identical text on every row - the heading above says it once.
             const _reManySt=(function(){const k={};sorted.forEach(it=>{k[it.st.key]=1;});
               return Object.keys(k).length>1;})();
-            bodyRows=_reDrawRows.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0)).join('');
+            bodyRows=sorted.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0)).join('');
           }else{
             const has=it=>Array.isArray(it.r.runs)&&it.r.runs.length;
             const sep=(t,tip)=>'<tr><td colspan="'+_reNCols+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
-            const a=_reDrawRows.filter(has),b=_reDrawRows.filter(it=>!has(it));
+            const a=sorted.filter(has),b=sorted.filter(it=>!has(it));
             // no section headings - see the note at the other split
             bodyRows=a.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')
               +b.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('');
           }
-          // DRAW THE FIRST 300 OF 2,236, NOT ALL OF THEM (owner 2026-09-21): the merged ONE
-          //   TABLE view is exactly the board that measured 15.9MB of HTML and 90,000 elements
-          //   at 41 runs ticked. RANK above is still computed on every row; only the HTML for
-          //   rows past the cap is skipped, and the footer row always offers the opposite switch.
-          if(sorted.length>_reTblCap)bodyRows+=_reTblFooter(sorted.length);
           const lbls=_reIsLbls(items);
           const synth={isLbl:(lbls.length===1)?lbls[0]:''};
           const nst=(()=>{const o={};items.forEach(it=>{o[it.st.key]=1;});return Object.keys(o).length;})();
@@ -30237,9 +30178,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           ,_TONE.samp);
         // MIN TRADES (control 8). Sits beside PLOT FAILURES because it does the same job:
         //   keep a row out of the CHART without touching its table line or its figures.
-        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row or a run row - on the stretch you tick - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 10 clears only the thinnest handful; 100 is a reasonable floor for a lockbox; 250 is strict.',
+        const _reMinTrdBtns=_reCtl(8,'MIN TRADES','the fewest trades a row must have before any chart will draw it. It reads the same figure the TRADES column prints. Only a configuration row or a run row - on the stretch you tick - records a per-stage count; every other row is judged on its whole-run count, and the note under the chart says how many were. A profit factor or an expectancy read off a handful of trades is an anecdote with two decimal places, and on a shared chart it sets the scale for everything else. Measured on the lockbox 2026-09-05: the best TTM run showed EV R 1.19 from 25 trades beside NOISE at 0.59 from 389, and the chart gave them equal weight. Rows below the floor keep their table lines and every figure they hold - this only stops them being drawn. 100 is a reasonable floor for a lockbox; 250 is strict.',
             _reBtn('data-remintrd="0"','OFF',_reMinTrd===0,'draw every row, however few trades it took.',_TONE.samp)
-            +_reBtn('data-remintrd="10"','10',_reMinTrd===10,'need at least 10 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="30"','30',_reMinTrd===30,'need at least 30 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="100"','100',_reMinTrd===100,'need at least 100 trades on the ticked stage to be drawn.',_TONE.samp)
             +_reBtn('data-remintrd="250"','250',_reMinTrd===250,'need at least 250 trades on the ticked stage to be drawn.',_TONE.samp)
@@ -30407,7 +30347,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   when the picked run turns out to hold no configuration records at all.
         const _reCfgState='<div style="border:1px dashed var(--border);padding:44px 20px;text-align:center;color:var(--text5);font-size:10px;line-height:1.9">'
           +(_reCfgWait.length?('LOADING RUN #'+_reEsc(_reCfgWait.join(', #'))+'<br><span style="font-size:8.5px">Configuration records are not part of the fast page load, so the full run document is being fetched. This happens once per run.</span>'
-                      // ONE REDRAW WHEN THE LAST ONE LANDS (owner 2026-09-21), not one per run - see _runCfgSettled.
+                      // ONE REDRAW WHEN THE LAST ONE LANDS, not one per run - see _runCfgSettled.
                       +'<br><span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'" style="font-size:8.5px">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span>')
                       :_reEsc(_reCfgMsg))+'</div>';
         // ── THREE COLUMNS (owner 2026-08-28: "locked sidebar is all the tabs, then the
@@ -30437,8 +30377,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // on ALL the sweeps are still there to draw, so a 'no run ticked' message only takes the chart
         //   over when nothing at all is left to plot
         window._reCause=null;   // item 12: only a scatter drawn in THIS render may explain its own empty spots
-        const _reChartBody=((_reShowCfg&&((_reCfgWait.length&&!_reItems.length)||(_reCfgMsg&&(_reLvl!=='all'||!_reItems.length))))?_reCfgState:
+        // A CHART-ONLY REDO, WHEN THERE IS ONE TO OFFER (owner 2026-09-22: "if i dont want to
+        //   see a dot maybe an option to where i can temporaily remove said dot on the chart
+        //   and the chart will then reconfigure"). Only the scatter branch below knows how to
+        //   redraw itself from _reItems/_reComAll alone; the configs-loading state and the
+        //   LATTICE/RADAR/PARALLEL views do not, so they leave window._reChartRedo null and a
+        //   hide click falls back to the full renderApp() - see _reRedrawChart.
+        window._reChartRedo=null;
+        const _reCfgStateOn=(_reShowCfg&&((_reCfgWait.length&&!_reItems.length)||(_reCfgMsg&&(_reLvl!=='all'||!_reItems.length))));
+        const _reChartBody=(_reCfgStateOn?_reCfgState:
           (_reLatOn?_reLatAll(_reItems):(_reRadOn?_reRadAll(_reItems):(_reParOn?_reParAll(_reItems):_reChartAll(_reItems,_reComAll)))));
+        if(!_reCfgStateOn&&!_reLatOn&&!_reRadOn&&!_reParOn)window._reChartRedo=function(){return _reChartAll(_reItems,_reComAll);};
         // only the scatter places rows by these two axes, so only the scatter reports on them
         // A CHART MISSING MOST OF ITS ROWS SAYS SO IN PLAIN SIGHT (owner 2026-09-05:
         //   "look for any errors or anything missing"). Measured that day: SWEEPS drew 86
@@ -30605,12 +30554,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +((_reShowCfg&&_reCfgWait.length&&_reItems.length)
               ?('<div style="font-size:8.5px;color:var(--text5);margin-top:7px">Still fetching '
                 +_reCfgWait.length+' run'+((_reCfgWait.length===1)?'':'s')+' (#'+_reCfgWait.join(', #')
-                // REWORDED (owner 2026-09-21): this used to say "what has arrived is already
-                //   drawn", which stopped being true once a burst waits for its LAST read
-                //   before the one shared redraw - see _runCfgSettled.
+                // REWORDED: this used to say "what has arrived is already drawn", which
+                //   stopped being true once a burst waits for its LAST read before the one
+                //   shared redraw - see _runCfgSettled.
                 +') - <span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span></div>'):'')
             +_reLvlNote
-            +'<div style="margin-top:10px">'+_reChartBody+'</div>',0);
+            +'<div data-rechartbox="1" style="margin-top:10px">'+_reChartBody+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
@@ -37222,10 +37171,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(late||(Array.isArray(runHistory)?runHistory.length:0)===_n0){window._c2RunsLoading=0;b.textContent='LOAD ALL';}},400);};});
       content.querySelectorAll('[data-remintrd]').forEach(b=>{b.onclick=()=>{
         savePref('resMinTrd',+b.getAttribute('data-remintrd'));renderApp();};});
-      // SHOW ALL / SHOW FIRST 300 (owner 2026-09-21) - the footer row _reTblFooter draws
-      //   under a table once it is capped; see _reTblCap / _reTblAll.
-      content.querySelectorAll('[data-retblall]').forEach(b=>{b.onclick=()=>{
-        savePref('resTblAll',b.getAttribute('data-retblall')==='1');renderApp();};});
       // DRAG A HEADING'S RIGHT EDGE to set that column's width; double-click to hand it
       //   back to the browser. Stored by column NAME so the width survives the KEY / ALL
       //   switch, and remembered across reloads.
@@ -37279,18 +37224,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
         const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
         savePref('resCfgFam',cur);renderApp();};});
-      // A LEGEND CHIP IS THE SAME SWITCH AS 1E FAMILY (owner 2026-09-21) - click a config
-      //   type in the chart legend to hide it, click again to bring it back. resCfgFam keeps
-      //   its existing meaning: empty = show everything, a list = show only those ticked.
-      content.querySelectorAll('[data-recfgleg]').forEach(b=>{b.onclick=()=>{
-        const ALL=['RAW','GATE','TILT','HYBRID','HYBRID ♻','HYBRID ↓DD','KEEL'];
-        const v=b.getAttribute('data-recfgleg');
-        const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
-        let shown=cur.length?ALL.filter(t=>cur.indexOf(t)>=0):ALL.slice();
-        const i3=shown.indexOf(v);
-        if(i3>=0){if(shown.length===1)return;shown.splice(i3,1);}else shown.push(v);
-        savePref('resCfgFam',(shown.length===ALL.length)?[]:ALL.filter(t=>shown.indexOf(t)>=0));
-        renderApp();};});
       content.querySelectorAll('[data-reshow]').forEach(b=>{b.onclick=()=>{
         // leaving the legacy 'cfg' level behind the first time the view is chosen by hand
         if(String(APREF.resLvl||'')==='cfg')savePref('resLvl','valid');
@@ -37472,22 +37405,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   chart drawing height in its own units, not pixels, so the chart still fills the width
       //   of its tile at any browser size and the captions, ticks and legend keep their size -
       //   the plot area is the part that grows. Double-click puts the chart back to standard.
-      content.querySelectorAll('[data-rechh]').forEach(g=>{
-        const key=g.dataset.rechh;
-        const prev=g.previousElementSibling;
-        const svg=(prev&&prev.tagName&&prev.tagName.toLowerCase()==='svg')?prev:(prev?prev.querySelector('svg'):null);
-        if(!svg)return;
-        const _map=()=>Object.assign({},(APREF.resChH&&typeof APREF.resChH==='object')?APREF.resChH:{});
-        g.addEventListener('pointerdown',e=>{e.preventDefault();
-          const r0=svg.getBoundingClientRect(),y0=e.clientY,h0=r0.height,w=r0.width||1;
-          const vb=(svg.getAttribute('viewBox')||'0 0 980 440').split(/\s+/),vbW=(+vb[2])||980;
-          let hpx=h0;svg.style.height=h0+'px';
-          const mv=ev=>{hpx=Math.max(120,Math.min(1600,h0+(ev.clientY-y0)));svg.style.height=hpx+'px';};
-          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
-            const m=_map();m[key]=Math.max(260,Math.min(1400,Math.round(hpx*vbW/w)));
-            savePref('resChH',m);renderApp();};
-          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
-        g.addEventListener('dblclick',()=>{const m=_map();delete m[key];savePref('resChH',m);renderApp();});});
       // item 15 (owner: "the table keeps snapping me back to the upper left ... cant see the
       //   scroll to the right slider bc i have to scroll the entire page down"): EXPLORE table
       //   scroll state.
@@ -37593,58 +37510,107 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   centred, brings it into view if it is not already, and lights it up;
       //   hovering a row lights up its point. Nothing here re-renders, so nothing flickers.
       (()=>{
-        const pts=content.querySelectorAll('[data-repoint]'),rws=content.querySelectorAll('tr[data-rerow]');
-        if(!pts.length&&!rws.length)return;
-        const HL='color-mix(in srgb,var(--text) 16%,transparent)';
-        const setHL=(k,on)=>{
-          pts.forEach(p=>{if(p.getAttribute('data-repoint')!==k)return;
+        // HIGHLIGHT BY ATTRIBUTE, LIVE (owner 2026-09-22: a hide click below redraws only
+        //   the chart - see _reRedrawChart - so a highlight helper that remembers specific
+        //   elements from a render that is already gone would light up nothing. This looks up
+        //   its targets fresh, by data-repoint / data-rerow, every time it is called, so it
+        //   works the same whether the point it is lighting came from the last full render or
+        //   from a chart-only redraw just now.
+        window._reSetHL=function(k,on){
+          const HL='color-mix(in srgb,var(--text) 16%,transparent)';
+          document.querySelectorAll('[data-repoint="'+CSS.escape(k)+'"]').forEach(function(p){
             const h=p.querySelector('.rehl');if(h)h.setAttribute('opacity',on?'1':'0');});
-          rws.forEach(t=>{if(t.getAttribute('data-rerow')!==k)return;
+          document.querySelectorAll('tr[data-rerow="'+CSS.escape(k)+'"]').forEach(function(t){
             if(on){if(t.dataset.rebg==null)t.dataset.rebg=t.style.background||'';t.style.background=HL;}
             else{t.style.background=t.dataset.rebg||'';}
             // (D15) the pinned RANK / FAMILY / RUN cells paint their own opaque ground, which hid the row tint: the
             //   highlight is laid over that ground, so they light with the row and stay opaque
-            Array.prototype.forEach.call(t.children,td=>{if(td.style.position!=='sticky')return;
+            Array.prototype.forEach.call(t.children,function(td){if(td.style.position!=='sticky')return;
               if(td.dataset.rebg==null)td.dataset.rebg=td.style.background||'';
               td.style.background=on?('linear-gradient('+HL+','+HL+'),'+(td.dataset.rebg||'var(--bg2)')):(td.dataset.rebg||'');});});};
-        let timer=null;
-        pts.forEach(p=>{const k=p.getAttribute('data-repoint');
-          p.addEventListener('mouseenter',()=>setHL(k,true));
-          p.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});
-          p.addEventListener('click',()=>{
-            // THE FIRST 300 ROWS, NOT EVERY ROW (owner 2026-09-21): a point past the table's
-            //   own row cap has no tr[data-rerow] to jump to yet. Rather than a click that
-            //   looks like it did nothing, this asks for every row and replays the same click
-            //   once the table has redrawn with the row actually in it - see the jump-to block
-            //   at the end of this wiring.
-            let found=false;
-            rws.forEach(t=>{if(t.getAttribute('data-rerow')!==k)return;
-              found=true;
-              // the row may live in a study table that is closed. Open it first, otherwise the
-              // click looks like it did nothing: the row is in the DOM but its section is not
-              // on screen, and a scroll inside a hidden box goes nowhere.
-              const bd=t.closest('[data-rebody]');
-              if(bd&&bd.style.display==='none'&&typeof _reSetOpen==='function')_reSetOpen(bd.dataset.rebody,true);
-              const sc=t.closest('[data-rescroll]');
-              if(sc)sc.scrollTop=Math.max(0,t.offsetTop-sc.clientHeight/2+t.offsetHeight/2);
-              // and bring it into view only if it is not already there, so a click on a point
-              // whose row is already on screen still leaves the page exactly where it was.
-              const rc=t.getBoundingClientRect();
-              if(rc.top<60||rc.bottom>window.innerHeight-20)t.scrollIntoView({block:'center'});});
-            if(!found){window._reJumpTo=k;savePref('resTblAll',true);renderApp();return;}
-            setHL(k,true);if(timer)clearTimeout(timer);
-            timer=setTimeout(()=>{timer=null;setHL(k,false);},2800);});});
-        rws.forEach(t=>{const k=t.getAttribute('data-rerow');
-          t.addEventListener('mouseenter',()=>setHL(k,true));
-          t.addEventListener('mouseleave',()=>{if(!timer)setHL(k,false);});});
-        // JUMP TO A ROW THE CLICK ABOVE JUST UNLOCKED. Set once, by the click handler above,
-        //   right before it asks SHOW ALL for every row; consumed the very next time this
-        //   wiring runs (the render that follows), by replaying the click on the same point
-        //   now that its row actually exists.
-        if(window._reJumpTo){
-          const _jk=window._reJumpTo;window._reJumpTo=null;
-          pts.forEach(p=>{if(p.getAttribute('data-repoint')===_jk)p.dispatchEvent(new MouseEvent('click',{bubbles:true}));});
-        }
+        // REDRAW JUST THE CHART (owner 2026-09-22: "it takes quite awile to load big data
+        //   sets like this one with lots of different stratgies") - hiding one dot used to
+        //   mean the same renderApp() as every other click, rebuilding every table on the
+        //   board to move a handful of pixels. window._reChartRedo (set beside _reChartBody)
+        //   exists only when the scatter is what is actually drawn; anything else - configs
+        //   still loading, LATTICE, RADAR, PARALLEL - has no redo function, so this falls back
+        //   to the full render exactly as it worked before.
+        window._reRedrawChart=function(){
+          try{
+            const box=document.querySelector('[data-rechartbox]');
+            if(!box||!window._reChartRedo){renderApp();return;}
+            box.innerHTML=window._reChartRedo();
+            window._reWireChart(box);
+          }catch(e){renderApp();}
+        };
+        // EVERY HANDLER A CHART REDRAW HAS TO REATTACH, IN ONE PLACE. Called with the whole
+        //   rendered page after a normal render (nothing here changes) and again with just the
+        //   chart box after _reRedrawChart swaps its innerHTML, so the drag handle, the legend
+        //   chips and each point's click / hide still work the second time without a page-wide
+        //   render.
+        window._reWireChart=function(root){
+          root.querySelectorAll('[data-rechh]').forEach(g=>{
+        const key=g.dataset.rechh;
+        const prev=g.previousElementSibling;
+        const svg=(prev&&prev.tagName&&prev.tagName.toLowerCase()==='svg')?prev:(prev?prev.querySelector('svg'):null);
+        if(!svg)return;
+        const _map=()=>Object.assign({},(APREF.resChH&&typeof APREF.resChH==='object')?APREF.resChH:{});
+        g.addEventListener('pointerdown',e=>{e.preventDefault();
+          const r0=svg.getBoundingClientRect(),y0=e.clientY,h0=r0.height,w=r0.width||1;
+          const vb=(svg.getAttribute('viewBox')||'0 0 980 440').split(/\s+/),vbW=(+vb[2])||980;
+          let hpx=h0;svg.style.height=h0+'px';
+          const mv=ev=>{hpx=Math.max(120,Math.min(1600,h0+(ev.clientY-y0)));svg.style.height=hpx+'px';};
+          const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            const m=_map();m[key]=Math.max(260,Math.min(1400,Math.round(hpx*vbW/w)));
+            savePref('resChH',m);renderApp();};
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);});
+        g.addEventListener('dblclick',()=>{const m=_map();delete m[key];savePref('resChH',m);renderApp();});});
+          // A LEGEND CHIP IS THE SAME SWITCH AS 1E FAMILY - click a config type in the chart
+          //   legend to hide it, click again to bring it back. resCfgFam keeps its existing
+          //   meaning: empty = show everything, a list = show only those ticked.
+          root.querySelectorAll('[data-recfgleg]').forEach(b=>{b.onclick=()=>{
+        const ALL=['RAW','GATE','TILT','HYBRID','HYBRID ♻','HYBRID ↓DD','KEEL'];
+        const v=b.getAttribute('data-recfgleg');
+        const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        let shown=cur.length?ALL.filter(t=>cur.indexOf(t)>=0):ALL.slice();
+        const i3=shown.indexOf(v);
+        if(i3>=0){if(shown.length===1)return;shown.splice(i3,1);}else shown.push(v);
+        savePref('resCfgFam',(shown.length===ALL.length)?[]:ALL.filter(t=>shown.indexOf(t)>=0));
+        renderApp();};});
+          root.querySelectorAll('[data-repoint]').forEach(p=>{const k=p.getAttribute('data-repoint'),hk=p.getAttribute('data-rehide')||k;
+            p.addEventListener('mouseenter',()=>window._reSetHL(k,true));
+            p.addEventListener('mouseleave',()=>{if(!window._reHLTimer)window._reSetHL(k,false);});
+            p.addEventListener('click',()=>{
+              document.querySelectorAll('tr[data-rerow="'+CSS.escape(k)+'"]').forEach(t=>{
+                // the row may live in a study table that is closed. Open it first, otherwise the
+                // click looks like it did nothing: the row is in the DOM but its section is not
+                // on screen, and a scroll inside a hidden box goes nowhere.
+                const bd=t.closest('[data-rebody]');
+                if(bd&&bd.style.display==='none'&&typeof _reSetOpen==='function')_reSetOpen(bd.dataset.rebody,true);
+                const sc=t.closest('[data-rescroll]');
+                if(sc)sc.scrollTop=Math.max(0,t.offsetTop-sc.clientHeight/2+t.offsetHeight/2);
+                // and bring it into view only if it is not already there, so a click on a point
+                // whose row is already on screen still leaves the page exactly where it was.
+                const rc=t.getBoundingClientRect();
+                if(rc.top<60||rc.bottom>window.innerHeight-20)t.scrollIntoView({block:'center'});});
+              window._reSetHL(k,true);if(window._reHLTimer)clearTimeout(window._reHLTimer);
+              window._reHLTimer=setTimeout(()=>{window._reHLTimer=null;window._reSetHL(k,false);},2800);});
+            // RIGHT-CLICK TO HIDE, FOR NOW (owner 2026-09-22: "if i dont want to see a dot maybe
+            //   an option to where i can temporaily remove said dot on the chart and the chart
+            //   will then reconfigure"). window._reHidePts is memory-only - see _reChartAll - so
+            //   a reload brings every dot back, and SHOW ALL under the chart clears it sooner.
+            p.addEventListener('contextmenu',e=>{e.preventDefault();
+              window._reHidePts=window._reHidePts||{};window._reHidePts[hk]=1;
+              _reRedrawChart();});});
+          root.querySelectorAll('[data-reunhide]').forEach(b=>{b.onclick=()=>{window._reHidePts={};_reRedrawChart();};});
+        };
+        // ROW HOVER STAYS HERE, OUTSIDE THE CHART BOX. A chart-only redraw never touches the
+        //   table, so these rows and their listeners survive it untouched; window._reWireChart
+        //   above covers everything that lives inside the chart box instead.
+        content.querySelectorAll('tr[data-rerow]').forEach(t=>{const k=t.getAttribute('data-rerow');
+          t.addEventListener('mouseenter',()=>window._reSetHL(k,true));
+          t.addEventListener('mouseleave',()=>{if(!window._reHLTimer)window._reSetHL(k,false);});});
+        window._reWireChart(content);
       })();
       // SAMPLE writes the COMPARE tab's STAGE too - only inside that tab, so the old tab never moves it
       content.querySelectorAll('[data-rbs]').forEach(b=>{b.onclick=()=>{const v=b.dataset.rbs;
