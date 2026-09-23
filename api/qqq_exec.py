@@ -1202,6 +1202,7 @@ def _build_positions_live(state, cfg, log=print):
 # journal's "Webull" pill). See api.webull_orders.OrderAdapter.get_stock_account_balance,
 # the one new (read-only) method added there for this.
 ACCOUNT_EQUITY_REFRESH_SEC = 60.0
+_EQUITY_BOOT_READ_DONE = False   # set by the first _maybe_read_account_equity call of this process
 
 
 def _maybe_read_account_equity(state, cfg, nowdt, log=print):
@@ -1217,14 +1218,19 @@ def _maybe_read_account_equity(state, cfg, nowdt, log=print):
     e.g. the broker resend/fill-capture queues' own docstrings for this same
     convention) -- no extra plumbing needed."""
     try:
+        global _EQUITY_BOOT_READ_DONE
         eq = state.setdefault("equity", {})
         last_epoch = eq.get("_epoch")
-        due = last_epoch is None
+        # Every PROCESS reads once at boot, even off-hours: the persisted reading can be
+        # hours old after a restart (2026-09-23 17:00 ET showed a 16:49 value as STALE).
+        boot_read = not _EQUITY_BOOT_READ_DONE
+        _EQUITY_BOOT_READ_DONE = True
+        due = last_epoch is None or boot_read
         if not due:
             due = (time.time() - float(last_epoch)) >= ACCOUNT_EQUITY_REFRESH_SEC
         if not due:
             return
-        if last_epoch is not None and not _in_market_window(nowdt):
+        if last_epoch is not None and not boot_read and not _in_market_window(nowdt):
             return   # already have at least one reading and the market is shut
         adapter = _get_broker_adapter(log=log)
         bal = adapter.get_stock_account_balance()
@@ -1263,7 +1269,11 @@ def _build_equity_status(state, nowdt, log=print):
                                  - datetime.strptime(as_of, "%Y-%m-%d %H:%M:%S")).total_seconds() / 60.0, 1)
             except Exception:
                 age_min = None
-        stale = age_min is None or (age_min * 60.0) > (ACCOUNT_EQUITY_REFRESH_SEC * 3)
+        # Off-hours the balance is deliberately not re-read (it cannot move while the book
+        # is flat), so an old reading then is expected, not a fault -- STALE only while the
+        # market window is open and refreshes are actually due.
+        stale = _in_market_window(nowdt) and (age_min is None
+                                              or (age_min * 60.0) > (ACCOUNT_EQUITY_REFRESH_SEC * 3))
         first = eq.get("first_net_liq_today")
         change_today = round(net_liq - first, 2) if first is not None else None
         change_today_pct = (round((net_liq - first) / first * 100.0, 3)

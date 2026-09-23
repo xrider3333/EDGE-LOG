@@ -21,6 +21,14 @@ from api import qqq_exec as qe
 NOOP = lambda *a, **k: None  # noqa: E731
 
 
+@pytest.fixture(autouse=True)
+def _steady_state_after_boot_read(monkeypatch):
+    """_maybe_read_account_equity forces ONE read per process at boot (module-level flag).
+    Every test here starts in the steady state AFTER that read, so the flag can never leak
+    between tests; the boot behaviour itself is pinned by the tests that set it False."""
+    monkeypatch.setattr(qe, "_EQUITY_BOOT_READ_DONE", True)
+
+
 def _cfg(**overrides):
     cfg = dict(qe.DEFAULT_CONFIG)
     cfg.update(overrides)
@@ -387,3 +395,35 @@ def test_publish_throttle_never_loosens_the_armed_interval(monkeypatch):
 
 def test_publish_throttle_worst_case_constant_is_10s():
     assert qe.PUBLISH_INTERVAL_POSITION_OPEN_SEC == 10.0
+
+# -- 2026-09-23 17:00 ET: a restart showed the 16:49 reading as STALE all evening ------------
+
+def test_every_process_reads_once_at_boot_even_with_an_older_persisted_reading(monkeypatch):
+    adapter = _FakeBalanceAdapter({"account_id": "a1", "net_liq": 100100.0, "cash": 5000.0})
+    monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
+    monkeypatch.setattr(qe, "_EQUITY_BOOT_READ_DONE", False)   # a fresh process
+    state = {"equity": {"_epoch": qe.time.time() - 600, "net_liq": 100000.0,
+                        "day": "2026-09-23", "first_net_liq_today": 100000.0,
+                        "as_of_et": "2026-09-23 16:49:51"}}
+    after_close = datetime(2026, 9, 23, 17, 0, 0)
+    qe._maybe_read_account_equity(state, _cfg(), after_close, log=NOOP)
+    assert adapter.calls == 1, "the boot read happens even off-hours"
+    assert state["equity"]["net_liq"] == 100100.0
+    assert state["equity"]["first_net_liq_today"] == 100000.0, "same day keeps its baseline"
+    qe._maybe_read_account_equity(state, _cfg(), after_close + timedelta(minutes=5), log=NOOP)
+    assert adapter.calls == 1, "only ONE boot read; off-hours refreshes stay off"
+
+
+def test_equity_status_never_stale_while_the_market_is_shut():
+    state = {"equity": {"net_liq": 100500.0, "cash": 5000.0,
+                        "as_of_et": "2026-09-23 16:49:51", "first_net_liq_today": 100000.0}}
+    out = qe._build_equity_status(state, datetime(2026, 9, 23, 21, 0, 0), log=NOOP)
+    assert out["stale"] is False
+    assert out["note"] is None
+
+
+def test_equity_status_stale_in_the_market_window_when_reads_stop():
+    state = {"equity": {"net_liq": 100500.0, "cash": 5000.0,
+                        "as_of_et": "2026-09-24 09:40:00", "first_net_liq_today": 100000.0}}
+    out = qe._build_equity_status(state, datetime(2026, 9, 24, 9, 50, 0), log=NOOP)
+    assert out["stale"] is True
