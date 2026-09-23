@@ -42,6 +42,7 @@ Everything here is exception-proof: a fill reviewer must never take down the wat
 """
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -76,20 +77,44 @@ REVIEW_WINDOW_MINUTES = 15
 # ---- per-strategy expected fingerprint --------------------------------------------
 # Static, small, hand-maintained. Instrument is matched by PREFIX (bridge fill rows carry
 # NinjaTrader's Instrument.FullName, e.g. "NQ 09-25", which includes the contract month --
-# see tools/nt/EdgeLogBridge.cs Executions()). Account + roster confirmed against
-# api/nt_preflight.py's EXPECTED list and C:\EdgeLog\bridge.json's allowed accounts
-# (both DEMO7240108-only, LIVE 1810769 refused at the bridge's L1 regardless).
+# see tools/nt/EdgeLogBridge.cs Executions()). Account confirmed against
+# C:\EdgeLog\bridge.json's allowed accounts (DEMO7240108-only, LIVE 1810769 refused at the
+# bridge's L1 regardless). The roster itself now lives in one place, the NinjaTrader
+# watchdog's $expected line (see api/nt_preflight.py's _expected_roster, which reads the
+# same C:\EdgeLog\nt_recover.ps1) -- this dict's keys should track that list so the two
+# cannot drift the way this file's EdgeLogORBV2 entry did (removed 2026-09-23: ORBV2 was
+# switched off 2026-08-17 and taken off the watchdog roster 2026-09-09/10, but this
+# fingerprint dict still had it -- and _match_strategy only checked account, so it never
+# actually mattered which fingerprint matched; every demo fill silently landed on
+# whichever dict entry the iteration reached first, which happened to be EdgeLogNOISE).
 #
-# Max qty: NOT found anywhere in the repo or in the .cs strategy files' [Display] Quantity
-# property (tools/nt/EdgeLog{NOISE,ORBV2,ENGUQ1m}.cs each just declare `public int Qty`
-# with no compiled-in default -- it's set live in the NT Strategies dialog, not in code).
-# 1 contract/strategy is a reasonable assumption for these DEMO-account single-lot
-# strategies, not a confirmed number -- tighten this if the owner runs multi-lot.
+# Max qty + instrument, CONFIRMED against the live bridge on 2026-09-23 (replaces the old
+# "1 contract/strategy is a reasonable assumption" guess -- the .cs strategy files'
+# [Display] Quantity property has no compiled-in default, so it can only be read from
+# actual fills, not from code). Today's fills: EdgeLogNOISE traded MNQ, 5 fills of qty 3;
+# the NQ fills were qty 1 (EdgeLogENGUQ1m enters 1 NQ -- its leftover long 1 was flattened
+# by hand through the bridge at 10:10 ET, which is one of today's two NQ fills). Both on
+# DEMO7240108. Update these numbers (and retest) if the owner changes either strategy's size
+# in the NT Strategies dialog.
 EXPECTED = {
-    "EdgeLogNOISE":   {"instrument_prefix": "NQ", "account": "DEMO7240108", "max_qty": 1},
-    "EdgeLogORBV2":   {"instrument_prefix": "NQ", "account": "DEMO7240108", "max_qty": 1},
-    "EdgeLogENGUQ1m": {"instrument_prefix": "NQ", "account": "DEMO7240108", "max_qty": 1},
+    "EdgeLogNOISE":   {"instrument_prefix": "MNQ", "account": "DEMO7240108", "max_qty": 3},
+    "EdgeLogENGUQ1m": {"instrument_prefix": "NQ",  "account": "DEMO7240108", "max_qty": 1},
 }
+
+
+def _safe_print(msg):
+    """print(), but tolerant of a console stdout that can't encode everything (this runs
+    under the Windows runner, where stdout is cp1252). A flagged fill's message contains
+    \u26a0, which cp1252 cannot encode -- printing it directly raised AFTER the phone alert
+    had already gone out (see _respond_to_flagged_fill), so the crash's own log line
+    ("respond failed: UnicodeEncodeError...") hid a successful notify behind what looked
+    like a failure. Fall back to the stream's own encoding with unencodable characters
+    replaced, so the console always shows something instead of raising."""
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        enc = getattr(sys.stdout, "encoding", None) or "ascii"
+        print(msg.encode(enc, errors="replace").decode(enc, errors="replace"))
 
 
 def _get(path):
@@ -126,7 +151,7 @@ def _save_seen(seen_set):
         with open(STATE_PATH, "w", encoding="utf-8") as f:
             json.dump({"seen": rows, "saved_at": time.time()}, f)
     except Exception as e:
-        print(f"[exec-review] state save failed: {type(e).__name__}: {e}")
+        _safe_print(f"[exec-review] state save failed: {type(e).__name__}: {e}")
 
 
 def _notify(message):
@@ -136,7 +161,7 @@ def _notify(message):
     the local runner loop, which must never go down over a missing notification channel."""
     topic = os.environ.get("NTFY_TOPIC")
     if not topic:
-        print(f"[exec-review] NTFY_TOPIC not set, logging only: {message}")
+        _safe_print(f"[exec-review] NTFY_TOPIC not set, logging only: {message}")
         return
     try:
         if requests is not None:
@@ -147,7 +172,7 @@ def _notify(message):
                 f"https://ntfy.sh/{topic}", data=message.encode("utf-8"), method="POST")
             urllib.request.urlopen(req, timeout=TIMEOUT_SEC)
     except Exception as e:
-        print(f"[exec-review] notify failed: {type(e).__name__}: {e}")
+        _safe_print(f"[exec-review] notify failed: {type(e).__name__}: {e}")
 
 
 def _respond_to_flagged_fill(fill, reason):
@@ -176,14 +201,20 @@ def _format_message(fill, reason=None):
 
 
 def _match_strategy(fill):
-    """Best-effort guess at which EXPECTED entry this fill belongs to. The /executions
-    endpoint doesn't carry a strategy name (see EdgeLogBridge.cs Executions() -- account,
-    exec_id, time_utc, instrument, side, qty, price only), so match by account: every
-    strategy here trades the same DEMO account, so an account match is the only signal
-    available without a bridge change. Returns None if nothing matches."""
+    """The (name, fingerprint) EXPECTED entry whose account AND instrument prefix both
+    match this fill, or (None, None). Matching by account alone (the previous behavior)
+    silently paired EVERY DEMO7240108 fill with whichever fingerprint the dict iteration
+    reached first -- always "EdgeLogNOISE", since both strategies share that account and
+    Python dicts preserve insertion order -- so a genuine mismatch on that account (wrong
+    instrument, e.g.) could never be detected, and every NOISE fill on MNQ was judged
+    against the NOISE entry, which expected NQ, and marked REVIEW every time. The instrument
+    prefix is what actually distinguishes NOISE's MNQ fills from ENGU-Q's NQ fills sharing
+    the same demo account; plain str.startswith is naturally exact here -- "MNQ 12-26"
+    does not start with "NQ", and "NQ 12-26" does not start with "MNQ"."""
     acct = fill.get("account")
+    instrument = str(fill.get("instrument") or "")
     for name, exp in EXPECTED.items():
-        if exp.get("account") == acct:
+        if exp.get("account") == acct and instrument.startswith(exp["instrument_prefix"]):
             return name, exp
     return None, None
 
@@ -191,14 +222,17 @@ def _match_strategy(fill):
 def evaluate(fill):
     """Pure function: fill dict -> (is_flagged: bool, reason: str or None). No I/O --
     kept separate from publish() so it's trivially testable."""
+    acct = fill.get("account")
+    instrument = str(fill.get("instrument") or "")
+
+    known_accounts = {exp["account"] for exp in EXPECTED.values()}
+    if acct not in known_accounts:
+        return True, f"no known strategy trades account {acct!r}"
+
     name, exp = _match_strategy(fill)
     if exp is None:
-        return True, f"no known strategy trades account {fill.get('account')!r}"
-
-    instrument = str(fill.get("instrument") or "")
-    if not instrument.startswith(exp["instrument_prefix"]):
-        return True, (f"instrument {instrument!r} does not match {name}'s expected "
-                       f"prefix {exp['instrument_prefix']!r}")
+        return True, (f"no known strategy on account {acct!r} trades instrument "
+                       f"{instrument!r}")
 
     try:
         qty = abs(float(fill.get("qty") or 0))
@@ -219,7 +253,7 @@ def publish():
     try:
         data = _get("/executions")
     except Exception as e:
-        print(f"[exec-review] poll failed: {type(e).__name__}: {e}")
+        _safe_print(f"[exec-review] poll failed: {type(e).__name__}: {e}")
         return
     if data is None:
         return  # bridge down -- nt_bridge_pub/nt_heartbeat already cover that alarm
@@ -237,17 +271,17 @@ def publish():
         try:
             flagged, reason = evaluate(fill)
         except Exception as e:
-            print(f"[exec-review] evaluate failed: {type(e).__name__}: {e}")
+            _safe_print(f"[exec-review] evaluate failed: {type(e).__name__}: {e}")
             flagged, reason = True, f"evaluate() raised {type(e).__name__}"
         try:
             if flagged:
                 _respond_to_flagged_fill(fill, reason)
-                print(f"[exec-review] REVIEW: {_format_message(fill, reason)}")
+                _safe_print(f"[exec-review] REVIEW: {_format_message(fill, reason)}")
             else:
                 _notify(_format_message(fill))
-                print(f"[exec-review] {_format_message(fill)}")
+                _safe_print(f"[exec-review] {_format_message(fill)}")
         except Exception as e:
-            print(f"[exec-review] respond failed: {type(e).__name__}: {e}")
+            _safe_print(f"[exec-review] respond failed: {type(e).__name__}: {e}")
 
     if new_count:
         _save_seen(seen)

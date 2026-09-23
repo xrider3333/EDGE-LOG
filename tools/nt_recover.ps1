@@ -26,7 +26,7 @@ param([switch]$WhatIf)
 $ErrorActionPreference = 'Stop'
 $bridge   = 'http://127.0.0.1:8391'
 $py       = 'C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0\python3.13.exe'
-$cli      = 'C:\Users\xride\AppData\Local\EdgeLog-worktrees\paper\tools\nt_bridge.py'
+$cli      = 'C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\nt_bridge.py'
 $loginPs1 = 'C:\EdgeLog\nt_login.ps1'
 $logPath  = 'C:\EdgeLog\nt_recover.log'
 # The roster this box is supposed to be running.
@@ -40,13 +40,35 @@ $logPath  = 'C:\EdgeLog\nt_recover.log'
 # config. EdgeLogORB230 ADDED 2026-08-17 (owner's call): the honest #230 port,
 # created offline via nt_reconfig --add-orb230 and live on ORBV2's NQ 5-min chart.
 # Its fills still owe a reconcile against the engine's blotter -- forward, as they land.
-$expected = @('EdgeLogNOISE', 'EdgeLogENGUQ1m', 'EdgeLogORB230')
+$expected = @('EdgeLogNOISE', 'EdgeLogENGUQ1m')   # 2026-09-10: ORBPAR REMOVED - naming a PAR row to the bridge wedges NT -
+#   it shares Sim101 + NQ 09-26 with EdgeLogORBPAR and the two net into one position.
+#   ORBPAR was added here 2026-09-09 so the forward test would survive a restart. That was
+#   WRONG and is reverted 2026-09-10: this roster is applied by ENABLING the named row through
+#   the bridge, and naming ANY PAR row to the bridge wedges NinjaTrader (see the memory note
+#   nt-par-rows-hang-bridge). It did exactly that at 02:12:21Z on 2026-09-10 - the enable is
+#   the last line in the bridge log before a FIFTEEN HOUR silence, and NinjaTrader sat hung
+#   through the whole overnight session and this morning's open with all three paper
+#   strategies dead. HistFills was already false, so that flag is not the whole story.
+#   Do not put a PAR row in this list. ORB230 is a normal row and is safe to add back if an
+#   ORB leg should survive restarts - that is an owner call, it changes which config trades.
 $connName = 'Simulation'
 
 function Log($m){
   $line = "{0}  {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m
   Write-Host $line
   try { Add-Content -Path $logPath -Value $line -Encoding utf8 } catch {}
+}
+
+# ROLL PAUSE (2026-09-15). tools/nt_rollover.py stops NinjaTrader on purpose to move the
+# strategies to the next futures contract (workspace + database are edited while it is
+# closed). Relaunching it in the middle of that edit would load half-rolled files, so the
+# roll drops C:\EdgeLog\nt_recover.PAUSE for the few minutes it needs. A pause older than
+# 30 minutes is treated as left behind by a crashed roll and ignored.
+$pausePath = 'C:\EdgeLog\nt_recover.PAUSE'
+if (Test-Path $pausePath) {
+  $pauseAge = ((Get-Date) - (Get-Item $pausePath).LastWriteTime).TotalMinutes
+  if ($pauseAge -lt 30) { Log ('paused by ' + ((Get-Content $pausePath -Raw) -replace '\s+$','') + ' - not touching NinjaTrader'); exit 0 }
+  Log ('ignoring a stale pause file ({0:N0} min old)' -f $pauseAge)
 }
 
 function BridgeUp {
@@ -62,6 +84,27 @@ function Roster {
 }
 
 function RealtimeNames { (Roster | Where-Object { $_.state -eq 'Realtime' } | ForEach-Object { $_.name }) }
+
+# STARTING UP IS NOT DOWN. NinjaTrader walks a strategy through Transition / DataLoaded /
+# Historical / Configure on its way to Realtime, and for ENGU-Q that takes 30-60s because
+# it loads a 1380-period EMA on 1-minute bars. Every state here means "busy coming up".
+#
+# WHY THIS EXISTS (2026-08-26). This script only ever asked "is it Realtime?" and treated
+# every other answer as "enable it". The watchdog task runs on a repeating trigger, so a
+# strategy that needed 40s to load got re-enabled at ~5s and ~19s intervals, restarting
+# its load from scratch every time. It could never finish. The NinjaTrader log showed
+# dozens of Disabling/Enabling pairs and nothing else - no error, because nothing had
+# gone wrong; the strategy was simply never given time to start.
+#
+# It got worse than a livelock: the churn left an 'EQ' entry order stuck in CancelPending
+# at the broker, and from then on every start attempt died 40s in with "Unable to cancel
+# out live orders. Strategy was not started." That took a full NinjaTrader restart to
+# clear. So the cost of impatience here is not a slow recovery, it is a dead strategy
+# plus a stuck broker order.
+function LoadingNames {
+  (Roster | Where-Object { $_.state -in @('Transition','DataLoaded','Historical','Configure','Active') } |
+    ForEach-Object { $_.name })
+}
 
 # ── SYNC CHECK ─────────────────────────────────────────────────────────────────────
 # "Realtime" is not the same as "working". ENGU-Q sat Realtime for a full day holding a
@@ -173,6 +216,85 @@ function MaybeRecycle {
   } catch { return $false }
 }
 
+# ── STALE-DATA RESTART (owner 2026-09-21: "build the stale data restart") ─────────────
+# "Realtime" is not "receiving bars". After a connection drop NinjaTrader can come back
+# with every strategy still Realtime while its market data never resumes - the 10-second
+# export (C:\EdgeLog\ohlc\NQ_10s.csv) simply stops growing, and the check above calls it
+# healthy all day. On 2026-09-15 and 09-18 a restart was the only thing that revived it.
+# So: while CME is open, if that file has not been written for $StaleMin minutes and
+# the account is FLAT, restart NinjaTrader and let the login path below bring it back.
+# Guards: never with a position or working order; never within $StaleMin of a launch;
+# at most one restart per 20 minutes and $StaleMaxPerDay per day (a holiday or a feed
+# that is genuinely down would otherwise restart it all day).
+# Tuned 2026-09-22 (owner: "its restarted 3 time on me this morning"): 8 min / 20 min apart /
+# 6 a day restarted too eagerly - a restart can take a while to get the feed flowing again.
+$StaleMin = 12
+$StaleGapMin = 30
+$StaleMaxPerDay = 3
+$staleState = 'C:\EdgeLog\nt_stale_restart.json'
+$tenSecFile = 'C:\EdgeLog\ohlc\NQ_10s.csv'
+function InCmeSession {
+  $et = [TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date), 'Eastern Standard Time')
+  $m = $et.Hour * 60 + $et.Minute
+  switch ($et.DayOfWeek) {
+    'Saturday' { return $false }
+    'Sunday'   { return ($m -ge (18 * 60 + 15)) }
+    'Friday'   { if ($m -ge 17 * 60) { return $false } }
+  }
+  # the 17:00-18:00 daily halt, plus 15 minutes for the reopen to print bars
+  if ($m -ge 17 * 60 -and $m -lt (18 * 60 + 15)) { return $false }
+  return $true
+}
+function MaybeStaleRestart {
+  try {
+    if (-not (InCmeSession)) { return $false }
+    if (-not (Test-Path $tenSecFile)) { return $false }
+    # Age of the NEWEST BAR in the file, not the file's modified time: the bar is what the
+    # strategies and the gate actually consume.
+    $age = ((Get-Date) - (Get-Item $tenSecFile).LastWriteTime).TotalMinutes
+    try {
+      $tailLine = (Get-Content $tenSecFile -Tail 1).Trim()
+      $lastBar = [DateTimeOffset]::FromUnixTimeSeconds([long][double]($tailLine.Split(',')[0])).LocalDateTime
+      # take the FRESHER of the two readings - only restart when both say stale
+      $age = [Math]::Min($age, ((Get-Date) - $lastBar).TotalMinutes)
+    } catch {}
+    if ($age -lt $StaleMin) { return $false }
+    $p = @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)
+    if ($p.Count -eq 0) { return $false }
+    if (((Get-Date) - $p[0].StartTime).TotalMinutes -lt $StaleMin) { return $false }   # still warming up
+    $today = (Get-Date).ToString('yyyy-MM-dd'); $last = $null; $count = 0
+    if (Test-Path $staleState) {
+      try { $j = Get-Content $staleState -Raw | ConvertFrom-Json
+            if ($j.day -eq $today) { $count = [int]$j.count }
+            if ($j.last) { $last = [datetime]$j.last } } catch {}
+    }
+    if ($last -and ((Get-Date) - $last).TotalMinutes -lt $StaleGapMin) { return $false }
+    if ($count -ge $StaleMaxPerDay) {
+      Log ("10s data stale {0:N0} min, but NinjaTrader was already restarted {1}x today for this - not again (check the feed by hand)" -f $age, $count)
+      return $false
+    }
+    $pos = ''; $ord = ''; $rost = @()
+    try {
+      $pos = (Invoke-WebRequest -Uri "$bridge/positions" -TimeoutSec 8 -UseBasicParsing).Content
+      $ord = (Invoke-WebRequest -Uri "$bridge/orders" -TimeoutSec 8 -UseBasicParsing).Content
+      $rost = @(Roster)
+    } catch { return $false }
+    $held = @($rost | Where-Object { "$($_.position)" -match '^(Long|Short)' })
+    if ($pos -notmatch '"positions"\s*:\s*\[\s*\]' -or $ord -notmatch '"orders"\s*:\s*\[\s*\]' -or $held.Count -gt 0) {
+      Log ("10s data stale {0:N0} min but a position or working order is OPEN - leaving NinjaTrader alone" -f $age)
+      return $false
+    }
+    Log ("10s NQ data has not updated for {0:N0} min while the market is open and the account is flat - restarting NinjaTrader to revive the feed (restart {1} today)" -f $age, ($count + 1))
+    @{ day = $today; count = $count + 1; last = (Get-Date).ToString('s') } | ConvertTo-Json | Set-Content $staleState -Encoding utf8
+    try { Invoke-WebRequest -Uri "$bridge/shutdown" -Method POST -TimeoutSec 8 -UseBasicParsing | Out-Null } catch {}
+    $t0 = Get-Date
+    while ((Get-Process NinjaTrader -ErrorAction SilentlyContinue) -and ((Get-Date) - $t0).TotalSeconds -lt 45) { Start-Sleep -Seconds 3 }
+    foreach ($q in @(Get-Process NinjaTrader -ErrorAction SilentlyContinue)) { try { Stop-Process -Id $q.Id -Force -ErrorAction Stop } catch {} }
+    Start-Sleep -Seconds 8
+    return $true
+  } catch { return $false }
+}
+
 Log "=== recover start (WhatIf=$WhatIf) ==="
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────
@@ -188,6 +310,7 @@ if (BridgeUp) {
       exit 4
     }
     if (MaybeRecycle) { Log "recycled - continuing to bring it back up" }
+    elseif ((-not $WhatIf) -and (MaybeStaleRestart)) { Log "restarted for stale data - continuing to bring it back up" }
     else {
       Log "healthy: bridge up, all expected strategies Realtime ($($expected -join ', ')), in sync with the account"
       exit 0
@@ -232,6 +355,13 @@ if (-not (BridgeUp)) {
   while ((Get-Date) -lt $deadline -and -not (BridgeUp)) { Start-Sleep -Seconds 5 }
   if (-not (BridgeUp)) { Log "FATAL: bridge still unreachable after login attempt"; exit 2 }
   Log "bridge is up"
+  # Owner 2026-09-15: keep NinjaTrader off the 49in working screen. Charts and dialogs keep
+  # appearing for a minute or two after login, so the mover makes several passes in the
+  # background instead of holding up the recovery.
+  try {
+    Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','C:\EdgeLog\nt_windows_to_side.ps1','-Passes','8','-GapSec','15'
+    Log "moving NinjaTrader windows to the side screen (background)"
+  } catch { Log "window move skipped: $($_.Exception.Message)" }
   }
 }
 
@@ -297,6 +427,13 @@ $deadline4 = (Get-Date).AddMinutes(4)
 do {
   $pending = @($expected | Where-Object { @(RealtimeNames) -notcontains $_ })
   if ($pending.Count -eq 0) { break }
+  # Leave the ones that are mid-startup alone - see LoadingNames. Touching them here is
+  # what caused the 2026-08-26 livelock.
+  $loading = @(LoadingNames)
+  $starting = @($pending | Where-Object { $loading -contains $_ })
+  if ($starting.Count -gt 0) { Log "still starting (leaving alone): $($starting -join ', ')" }
+  $pending = @($pending | Where-Object { $loading -notcontains $_ })
+  if ($pending.Count -eq 0) { Start-Sleep -Seconds 10; continue }
   foreach ($s in $pending) {
     Log "enabling $s..."
     & $py $cli strategy enable --name $s --yes 2>&1 | ForEach-Object { Log "  [enable] $_" }
