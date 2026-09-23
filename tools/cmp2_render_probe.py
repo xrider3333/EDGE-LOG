@@ -529,6 +529,8 @@ var FIX = __FIX__;
           pre_lockbox:{total_pnl:24000,max_drawdown:6000,num_trades:250},
           lockbox:{total_pnl:6000,num_trades:50,win_rate:44,profit_factor:1.2,max_drawdown:3000},
           worst_stretch:{from:'2020-06-01',to:'2020-07-15',depth:6000,trading_days:42},
+          // its own lockbox stretch (review 2026-09-23): LB reads THIS one, ~0.7 mo
+          worst_stretch_lockbox:{from:'2021-03-01',to:'2021-03-20',depth:3000,trading_days:14},
           lockbox_from:'2021-01-05',date_from:'2019-01-05',date_to:'2022-01-05'};
         BK.validate={verdict:'PASS',lockbox:{pnl:6000,pf:1.2,trades:50,pass:true},book:true};
         var wc="var F="+JSON.stringify(R)+";var FD="+JSON.stringify(FULLDOC)+";var B="+JSON.stringify(BK)+";"
@@ -549,7 +551,14 @@ var FIX = __FIX__;
           var call=doRender({cmpMode:'board',rbSample:smp,rbRank:'mar',cmpIds:[RID,PID,BKID]}, wc, 'cmp');
           per[smp]={call:call,row:rowsOf(),errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
         });
-        var ok=['full','is','lb'].every(function(k){return per[k].call==='OK';});
+        // WALK-FORWARD (review 2026-09-23): only the board hosted in COMPARE reaches this stage (the
+        //   stand-alone board's own sample control stops at full / is / lb), and that hosted board is
+        //   the one the owner uses - so this render goes through it, picked runs, stage WF.
+        (function(){
+          var call=doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'wf',cmpIds:[RID,PID,BKID]}, wc);
+          per.wf={call:call,row:rowsOf(),errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
+        })();
+        var ok=['full','is','lb','wf'].every(function(k){return per[k].call==='OK';});
         var r=snap('task1rb', ok?'OK':'ERR');
         r.per=per;
         r.full=(per.full.row['WORST MONTH']||[]).concat(per.full.row['LONGEST FLAT STRETCH']||[])
@@ -4933,7 +4942,7 @@ def main(argv=None):
     def _row(stage, label):
         return (((per.get(stage) or {}).get('row') or {}).get(label) or [])
     t1_ok = (r.get('call') == 'OK'
-             and all((per.get(k) or {}).get('call') == 'OK' for k in ('full', 'is', 'lb'))
+             and all((per.get(k) or {}).get('call') == 'OK' for k in ('full', 'is', 'lb', 'wf'))
              # the full-grid run
              and any(v == '-$5k Jul ’20' for v in _row('full', 'WORST MONTH'))
              and any(v == '10 mo' for v in _row('full', 'LONGEST FLAT STRETCH'))
@@ -4946,17 +4955,25 @@ def main(argv=None):
              and any(v == '~9 mo' for v in _row('full', 'LONGEST FLAT STRETCH'))
              and _row('lb', 'WORST MONTH').count('—') == 2
              and _row('lb', 'LONGEST FLAT STRETCH').count('—') == 1
-             # the book
+             # the book: its own stretch for each stage - whole run on FULL and (it ended
+             #   before the lockbox) IS, its lockbox stretch on LB, nothing on WF
              and _row('full', 'WORST MONTH').count('—') == 1
              and any(('~2.0 mo' in v and 'DD span' in v) for v in _row('full', 'LONGEST FLAT STRETCH'))
+             and any(('~2.0 mo' in v and 'DD span' in v) for v in _row('is', 'LONGEST FLAT STRETCH'))
+             and any(('~0.7 mo' in v and 'DD span' in v) for v in _row('lb', 'LONGEST FLAT STRETCH'))
+             and not any('~2.0 mo' in v for v in _row('lb', 'LONGEST FLAT STRETCH'))
+             # walk-forward: no month can be read, for runs or the book
+             and len(_row('wf', 'WORST MONTH')) == 3 and _row('wf', 'WORST MONTH').count('—') == 3
+             and len(_row('wf', 'LONGEST FLAT STRETCH')) == 3 and _row('wf', 'LONGEST FLAT STRETCH').count('—') == 3
              and len(_row('full', 'TRADES / YR')) == 3 and not _row('full', 'AVG $ / TRADE'))
-    line('task1rb', t1_ok, 'full worst=%s flat=%s | is worst=%s flat=%s | lb worst=%s flat=%s | tradesPerYr=%s'
+    line('task1rb', t1_ok, 'full worst=%s flat=%s | is worst=%s flat=%s | lb worst=%s flat=%s | wf worst=%s flat=%s | tradesPerYr=%s'
          % (_row('full', 'WORST MONTH'), _row('full', 'LONGEST FLAT STRETCH'),
             _row('is', 'WORST MONTH'), _row('is', 'LONGEST FLAT STRETCH'),
             _row('lb', 'WORST MONTH'), _row('lb', 'LONGEST FLAT STRETCH'),
+            _row('wf', 'WORST MONTH'), _row('wf', 'LONGEST FLAT STRETCH'),
             _row('full', 'TRADES / YR')))
     if not t1_ok:
-        for k in ('full', 'is', 'lb'):
+        for k in ('full', 'is', 'lb', 'wf'):
             p = per.get(k) or {}
             if p.get('call') != 'OK':
                 fail('task1rb: %s stage threw -- %s' % (k, str(p.get('call'))[:300]))
