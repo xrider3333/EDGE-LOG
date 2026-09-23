@@ -5,6 +5,10 @@ Strategy findings stay in their own files (`ORB.md`, `NOISE.md`, `ENGUQ.md`, `BO
 status of the machinery stays in `BACKTESTING_STACK.md`; shipping backlog stays in `ROADMAP.md`.
 This file is the bridge: **what we learned → what EDGELOG should change**.
 
+`RESEARCH_LEDGER.md` (repo root) indexes EVERY line of work tried or added - validation
+changes, edge hunts and tools - each with the document holding its evidence and the verdict
+it earned. Start there to find something; come here for what it means.
+
 Owner pointed the research chat here on 2026-09-20. Add to the action table as findings land; move an
 item to ROADMAP.md when it becomes scheduled work, and record the outcome back here.
 
