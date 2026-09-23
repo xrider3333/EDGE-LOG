@@ -348,3 +348,39 @@ def test_plain_error_matches_the_real_live_code_with_its_intent_suffix():
 def test_plain_error_prefix_match_needs_an_underscore_boundary():
     raw = "ServerException: HTTP Status: 417, Code: OPENAPI_GENERATE_NEW_SHORT_POSITIONX, Msg: x"
     assert qe._plain_broker_error(raw) == "Webull refused the order (code OPENAPI_GENERATE_NEW_SHORT_POSITIONX)"
+
+# -- rows written before the after_close_s column existed (2026-09-23 evening) ------------
+
+def test_build_latency_derives_after_close_for_pre_column_engine_rows():
+    # The real 2026-09-23 rows: orders.csv had no after_close_s column yet, so without the
+    # derivation the chip fell back to the bar-START reading (~330 s) and showed SLOW LATENCY.
+    orders = [
+        {"leg": "NOISE", "latency_s": "329.751", "signal_source": "engine"},
+        {"leg": "ENGUQ", "latency_s": "89.892", "signal_source": "engine"},
+        {"leg": "NOISE", "latency_s": "309.767", "signal_source": "engine"},
+        {"leg": "ENGUQ", "latency_s": "", "signal_source": "engine"},   # EOD flatten: no latency
+    ]
+    out = qe._build_latency(orders, log=NOOP)
+    ac = out["after_close"]
+    assert ac["n"] == 3
+    assert ac["median_s"] == pytest.approx(29.751)
+    assert ac["max_s"] == pytest.approx(29.892)
+    assert ac["warn"] is False
+    assert out["n"] == 3          # the old bar-start measure is still reported, untouched
+
+
+def test_build_latency_explicit_after_close_wins_over_derivation():
+    orders = [{"leg": "NOISE", "latency_s": "329.0", "after_close_s": "12.5",
+               "signal_source": "engine"}]
+    out = qe._build_latency(orders, log=NOOP)
+    assert out["after_close"]["n"] == 1
+    assert out["after_close"]["median_s"] == pytest.approx(12.5)
+
+
+def test_derived_after_close_ignores_non_engine_and_unmapped_rows():
+    assert qe._derived_after_close({"leg": "NOISE", "latency_s": "2.0",
+                                    "signal_source": "ninjatrader"}) is None
+    assert qe._derived_after_close({"leg": "NOT_A_REAL_LEG", "latency_s": "300",
+                                    "signal_source": "engine"}) is None
+    assert qe._derived_after_close({"leg": "NOISE", "latency_s": "",
+                                    "signal_source": "engine"}) is None

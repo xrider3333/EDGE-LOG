@@ -4612,6 +4612,25 @@ def _latency_stats(vals):
            "last_s": round(vals[-1], 3)}
 
 
+def _derived_after_close(o, log=print):
+    """after_close_s for an orders.csv row that predates the column: latency_s minus the
+    leg's own timeframe, for engine-mode rows only (the same rule _record_order applies
+    when it writes the column). None when the row is not engine-mode, has no numeric
+    latency_s, or the leg has no live timeframe. Never raises."""
+    try:
+        if str(o.get("signal_source") or "").strip().lower() != "engine":
+            return None
+        lat = o.get("latency_s")
+        if lat in (None, ""):
+            return None
+        tf_sec = _leg_timeframe_seconds(o.get("leg"), log=log)
+        if tf_sec is None:
+            return None
+        return round(float(lat) - tf_sec, 3)
+    except Exception:
+        return None
+
+
 def _build_latency(orders, log=print):
     """{n,median_s,p95_s,max_s,last_s,after_close:{...,warn}} over today's orders.
 
@@ -4637,6 +4656,13 @@ def _build_latency(orders, log=print):
                 except Exception:
                     pass
             av = o.get("after_close_s")
+            if av in (None, ""):
+                # A row written BEFORE the after_close_s column existed (2026-09-23 and
+                # earlier): derive it exactly as _record_order would have -- engine-mode
+                # rows only, latency_s minus that leg's own bar length -- so the first
+                # evening after the upgrade does not fall back to the bar-START reading
+                # and raise SLOW LATENCY for orders that were in fact on time.
+                av = _derived_after_close(o, log=log)
             if av not in (None, ""):
                 try:
                     ac_vals.append(float(av))
