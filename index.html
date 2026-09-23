@@ -757,7 +757,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.870';
+const VERSION='73.871';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -33769,7 +33769,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">SIZE &amp; NOTIONAL</div>'
                 +'<div style="font-size:var(--fsxs);line-height:1.7">NT '+(t.nt_qty!=null?qeInt(t.nt_qty):'—')+' &times; '+(t.nt_mult!=null?qeInt(t.nt_mult):'—')+' mult = '+(t.nt_notional_usd!=null?qeMoney(t.nt_notional_usd):'—')+'<br>'
                 +'shadow '+qeInt(shares)+' sh = '+(t.shadow_notional_usd!=null?qeMoney(t.shadow_notional_usd):'—')+'<br>'
-                +'<span style="color:var(--text4)">ratio</span> '+(t.notional_ratio!=null?Number(t.notional_ratio).toFixed(3):'—')+'</div></div>'
+                +'<span style="color:var(--text4)">ratio</span> '+(t.notional_ratio!=null?Number(t.notional_ratio).toFixed(3):'—')+(t.size!=null&&String(t.size)!==''&&Number(t.size)!==1?('<br><span style="color:var(--text4)">signal size</span> '+Number(t.size).toFixed(2)+'x'+(t.shares_wanted!=null&&Number(t.shares_wanted)!==shares?(' &rarr; wanted '+qeInt(t.shares_wanted)+' sh, capped to '+qeInt(shares)):'')):'')+'</div></div>'
                 +'<div class="qe-drawer-col"><div class="qe-drawer-lbl">RATIO-PRICED vs REAL QQQ</div>'
                 +(repriced?('<div style="font-size:var(--fsxs);line-height:1.7">entry '+qeMoney(t.entry_px)+' &rarr; '+qeMoney(t.real_entry_px)+' <span style="color:var(--text4)">('+(t.slip_entry_ps!=null?(Number(t.slip_entry_ps)>=0?'+':'')+qeNum(t.slip_entry_ps,3):'—')+'/sh)</span><br>'
                   +'exit '+qeMoney(t.exit_px)+' &rarr; '+qeMoney(t.real_exit_px)+' <span style="color:var(--text4)">('+(t.slip_exit_ps!=null?(Number(t.slip_exit_ps)>=0?'+':'')+qeNum(t.slip_exit_ps,3):'—')+'/sh)</span><br>'
@@ -38352,7 +38352,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const cols=['entry_ts','exit_ts','leg','side','shares','entry_px','exit_px','pnl','exit_reason',
           'nt_entry_ts','nt_exit_ts','nt_qty','nt_mult','nt_notional_usd','shadow_notional_usd','notional_ratio',
           'latency_s','real_entry_px','real_exit_px','real_pnl','slip_entry_ps','slip_exit_ps','repriced_at',
-          'nt_points','expected_usd','track_err_usd','parity_ok','parity_note','note'];
+          'nt_points','expected_usd','track_err_usd','parity_ok','parity_note','note','size','shares_wanted'];
         const esc=v=>{if(v===null||v===undefined)return '';const s=String(v);return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;};
         const csv=[cols.join(',')].concat(rows.map(t=>cols.map(c=>esc(t[c])).join(','))).join('\r\n');
         _libDownload('qqq_shadow_book_closed_trades.csv',csv);

@@ -746,7 +746,16 @@ ORDER_COLS = ["ts_et", "leg", "action", "side", "shares", "nq_px", "qqq_px",
               # appended, never inserted (existing readers/consumers index by position
               # via csv.DictReader's header, which stays stable) -- "engine" or
               # "ninjatrader", see DEFAULT_CONFIG["signal_source"].
-              "signal_source"]
+              "signal_source",
+              # SIZE ORDERS (2026-09-23): appended, never inserted -- same backward-
+              # compat convention as signal_source above ("" on every row written
+              # before this shipped). "size" is the resolved per-trade multiplier
+              # (_resolve_entry_size -- 1.0 for a leg/mode that does not size); "shares"
+              # (existing column, above) is what was actually SENT after the
+              # max_shares_per_leg clamp, "shares_wanted" is what sizing asked for
+              # before that clamp -- equal to "shares" whenever the rail did not bite.
+              # See _open_lot's SIZED branch for when they diverge.
+              "size", "shares_wanted"]
 # NT PARITY (feature 1): columns appended to the END so pre-existing trades.csv rows
 # (written before this feature shipped) still parse -- missing values read back as "".
 # ratio_at_entry/ratio_at_exit and nt_reconstructed are this adapter's own bookkeeping
@@ -770,14 +779,25 @@ TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit
               # them up in broker_orders.csv -- a trades.csv row closed before this
               # shipped reads back "", which _broker_trade_parity treats as "not
               # checked" (never an error, see its own docstring).
-              + ["trade_id"])
+              + ["trade_id"]
+              # SIZE ORDERS (2026-09-23): appended, never inserted -- see ORDER_COLS'
+              # own size/shares_wanted comment; same meaning here, captured on the lot
+              # at open (_open_lot) and carried onto the closed-trade row unchanged --
+              # a CLOSE never re-sizes (see _reduce_lot).
+              + ["size", "shares_wanted"])
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
-                  fill_dt=None, signal_source=None):
+                  fill_dt=None, signal_source=None, size=None, shares_wanted=None):
     """`fill_dt` (feature #51 LATENCY): the ET timestamp of the NT fill this order
     mirrors, when one exists -- absent for rail-driven closes (BREAKER/EOD/KILL flatten
-    has no single triggering fill). latency_s = now (adapter order time) - fill_dt."""
+    has no single triggering fill). latency_s = now (adapter order time) - fill_dt.
+
+    `size`/`shares_wanted` (2026-09-23): default to 1.0 / `shares` when the caller
+    does not pass them -- every call site that predates sizing (ninjatrader-mode
+    entries, rail-driven closes, the REFUSED/blocked logs) gets exactly the values it
+    always implied (unsized, wanted == sent), so their rows are unchanged in meaning
+    even though the CSV header now carries two more columns."""
     latency_s = None
     if fill_dt is not None:
         try:
@@ -790,7 +810,9 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
            "qqq_px": round(qqq_px, 4) if qqq_px is not None else "",
            "px_source": px_source or "", "reason": reason or "",
            "latency_s": latency_s if latency_s is not None else "",
-           "signal_source": signal_source or ""}
+           "signal_source": signal_source or "",
+           "size": size if size is not None else 1.0,
+           "shares_wanted": shares_wanted if shares_wanted is not None else shares}
     _append_csv(ORDERS_CSV, ORDER_COLS, row, ORDERS_KEEP)
     log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
         f"({px_source}) -- {reason}")
@@ -843,6 +865,14 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     # ENGINE-VS-BROKER PARITY (feature #56): see TRADE_COLS -- the join key
     # _broker_trade_parity uses to find this trade's broker_orders.csv rows.
     row["trade_id"] = lot.get("trade_id") or ""
+    # SIZE ORDERS (2026-09-23): captured on the lot at open -- a lot opened before this
+    # feature shipped (an in-flight position carried across the upgrade) has neither
+    # key, so it publishes as wanted == sent (shares_total, the only quantity such a
+    # lot ever had) and size 1.0, never a blank -- there is no "wanted vs sent" story
+    # to tell for a lot this code never sized, so the honest default is "no clamp".
+    row["size"] = lot.get("size") if lot.get("size") is not None else 1.0
+    row["shares_wanted"] = (lot.get("shares_wanted") if lot.get("shares_wanted") is not None
+                            else lot["shares_total"])
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -2419,7 +2449,15 @@ def _consume_engine_signals(state, cfg, now, log=print):
                        "bar_source": r.get("bar_source") or "",
                        # "" for a row written before cloud_signal wrote trade ids -- see
                        # _route_engine_events' OLD ROWS rule for what that means
-                       "trade_id": str(r.get("trade_id") or "").strip()})
+                       "trade_id": str(r.get("trade_id") or "").strip(),
+                       # SIZE ORDERS (2026-09-23): raw signals.csv value, unparsed --
+                       # "" on SEED rows, on any row written before the "size" column
+                       # existed, and on an EXIT (cloud_signal writes the entry's size
+                       # there too, but only an ENTRY's size ever reaches _open_lot;
+                       # see _route_engine_events). _resolve_entry_size (api/qqq_exec.py)
+                       # is the one place this is turned into a number, at the point of
+                       # use, exactly like ref_price is parsed above.
+                       "size": r.get("size")})
         except Exception as e:
             log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
     return out
@@ -2594,7 +2632,8 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             opened = _open_lot(state, cfg, leg, e["side"], shares, None, float(e["ref_price"]),
                                cfg.get("slippage_per_share", 0.0), f=None, log=log,
                                sig_dt=sig_dt, signal_source=cfg.get("signal_source"),
-                               trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""))
+                               trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""),
+                               size=e.get("size"))
             _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
         elif e["event"] == "EXIT":
@@ -2635,8 +2674,50 @@ def _apply_slippage(px, side, entering, slip):
 
 
 # -- lot lifecycle ---------------------------------------------------------------------
+# SIZE ORDERS (2026-09-23, the order-side half of the run #382 NOISE_1_8_CT304 / later
+# KEEL prerequisite -- see api/cloud_signal.py's per-trade size contract and SIGNAL_COLS'
+# "size" column). These two helpers are the ONLY place a signal's size becomes an order
+# quantity; everything downstream of _open_lot (the lot dict, _reduce_lot, _mirror_to_broker,
+# the resend queue, deferred fill capture, book-only) reads shares_total/shares_remaining
+# off the lot itself and never recomputes from cfg or size again.
+def _resolve_entry_size(raw):
+    """The per-trade size multiplier an engine ENTRY signal may carry. None, an empty/
+    blank string, anything that does not parse as a number, and any non-positive or
+    non-finite value all resolve to 1.0 -- unsized, exactly an old ledger row written
+    before signals.csv grew its "size" column. This is the ONLY input that can move the
+    OPEN quantity away from the leg's plain configured share count (see
+    _sized_shares), so a value that cannot be trusted must fall back to "unsized",
+    never to a guess."""
+    if raw is None:
+        return 1.0
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if not raw:
+            return 1.0
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return 1.0
+    if not math.isfinite(v) or v <= 0:
+        return 1.0
+    return v
+
+
+def _sized_shares(base_shares, size):
+    """The WANTED order quantity: `base_shares` (the leg's configured share count,
+    cfg["shares"][leg]) scaled by `size` (see _resolve_entry_size), rounded to the
+    nearest share and floored at 1 -- never at 0, so a valid size that happens to round
+    down does not silently vanish the trade. A leg configured at 0 shares (owner-
+    disabled) is left at 0: zero times any size is still zero, and the caller's own
+    pre-existing `shares <= 0` skip must still see a real zero, not a phantom 1-share
+    order for a leg the owner turned off."""
+    if base_shares <= 0:
+        return 0
+    return max(1, int(round(base_shares * size)))
+
+
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
-              sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None):
+              sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None):
     """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
     to know this to tell TAKEN from REFUSED).
 
@@ -2650,7 +2731,11 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     stored on the lot -- only an EXIT with the same id closes it (_route_engine_events) and
     the broker order ids derive from it (_broker_signal_id). With no id given but an NT
     fill, the id is derived from that fill (leg "NT_<leg>", the fill's own timestamp, side),
-    never from this process's clock."""
+    never from this process's clock.
+
+    `size` (2026-09-23): the per-trade multiplier an engine ENTRY signal may carry --
+    see _resolve_entry_size/_sized_shares just above. Never given by a NinjaTrader-
+    mirrored fill (`f` set): fills.csv has no size column, and _route_fills passes none."""
     max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
     size_mode = str(cfg.get("size_mode") or "fixed").strip().lower()
     instrument = (f.get("instrument") if f else "") or ""
@@ -2663,17 +2748,47 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         # cap easily and refusing every overshoot would defeat the point of the mode.
         nt_notional_usd = round(nq_qty * nt_mult * nq_px, 2)
         size_fraction = float(cfg.get("size_fraction", 0.01) or 0.01)
-        shares = int(round(nt_notional_usd * size_fraction / qqq_px_raw))
+        wanted_shares = int(round(nt_notional_usd * size_fraction / qqq_px_raw))
+        shares = wanted_shares
         if max_shares:
             shares = min(shares, max_shares)
+        # Not the engine per-trade SIZE contract above (this mode's own $ notional sizing
+        # is unrelated to a signal's "size" field) -- shares_wanted still records what
+        # this mode wanted before the SAME rail clamped it, same as the branch below.
+        sized = 1.0
     else:
-        # Default behaviour (size_mode == "fixed"): unchanged from before this feature.
-        shares = int(cfg["shares"].get(leg, 0))
-        if shares > max_shares:
-            _record_order(leg, "ENTER", side, shares, nq_px, None, None,
-                          f"REFUSED shares {shares} > max_shares_per_leg {max_shares}", log,
-                          fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source)
-            return False
+        # Default behaviour (size_mode == "fixed").
+        base_shares = int(cfg["shares"].get(leg, 0))
+        sized = _resolve_entry_size(size)
+        wanted_shares = _sized_shares(base_shares, sized)
+        if sized == 1.0:
+            # UNCHANGED: no signal size in play -- an old ledger row written before the
+            # "size" column existed, a blank/unparseable value, or a literal 1.0, so
+            # wanted_shares == base_shares exactly (see _sized_shares) and this is BYTE
+            # FOR BYTE the original rail: refuse the WHOLE lot rather than silently send
+            # a different count than configured.
+            shares = wanted_shares
+            if shares > max_shares:
+                _record_order(leg, "ENTER", side, shares, nq_px, None, None,
+                              f"REFUSED shares {shares} > max_shares_per_leg {max_shares}", log,
+                              fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source)
+                return False
+        else:
+            # SIZED (2026-09-23): an engine ENTRY signal declared a per-trade size (run
+            # #382 NOISE_1_8_CT304 today, KEEL later). RAILS STAY THE OWNER'S DECISION:
+            # clamp to max_shares_per_leg instead of refusing the whole trade, exactly
+            # like the nt_notional branch above already does for its own dynamically
+            # computed size (see its comment) -- a size this module did not choose can
+            # overshoot the cap easily, and refusing every overshoot would silently drop
+            # a trade the sizing strategy is relying on the rail to cap, not cancel.
+            shares = min(wanted_shares, max_shares) if max_shares else wanted_shares
+            if shares < wanted_shares:
+                log(f"[qqq-exec] {leg} entry sized {base_shares} x {sized:g} = "
+                    f"{wanted_shares} wanted, clamped to max_shares_per_leg {max_shares}")
+                _log_event(state, "size_clamped",
+                          f"{leg} entry wanted {wanted_shares} shares ({base_shares} "
+                          f"configured x {sized:g} size), clamped to {shares} by "
+                          f"max_shares_per_leg {max_shares}", log=log)
 
     if shares <= 0:
         return False
@@ -2684,6 +2799,11 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         "nq_qty_total": nq_qty, "nq_qty_remaining": nq_qty,
         "entry_px": fill_px, "nq_entry_px": nq_px, "last_nq_px": nq_px,
         "entry_ts": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
+        # SIZE ORDERS: the pre-clamp wanted quantity and the resolved size multiplier
+        # that produced it -- travels onto the closed-trade row (_record_trade) exactly
+        # like the NT sizing-gap fields below. _reduce_lot never reads either one; it
+        # only ever closes shares_total/shares_remaining, see its own docstring.
+        "shares_wanted": wanted_shares, "size": sized,
     }
     if not trade_id and f is not None and f.get("dt") is not None:
         trade_id = _trade_id.make(f"NT_{leg}", f["dt"], side, default_tz=_NY)
@@ -2724,7 +2844,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     lot["signal_source"] = signal_source or ""
     _record_order(leg, "ENTER", side, shares, nq_px, fill_px, state["_px_source"],
                  "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
-                 signal_source=signal_source)
+                 signal_source=signal_source, shares_wanted=wanted_shares, size=sized)
     _notify(f"QQQ SHADOW {leg} {side} {shares} @ {fill_px:.2f}", "EDGELOG QQQ SHADOW", log)
     # BROKER MIRROR: after the shadow's own order is already recorded above -- see the
     # "broker mirror" section docstring near _mirror_to_broker. A broker error here
@@ -2774,7 +2894,8 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
         log(f"[qqq-exec] NT parity exit fields not captured for {leg}: {type(e).__name__}: {e}")
     _record_order(leg, "EXIT", lot["side"], shares_close, nq_px, fill_px,
                  state["_px_source"], reason, log, fill_dt=(f.get("dt") if f else sig_dt),
-                 signal_source=(signal_source or lot.get("signal_source")))
+                 signal_source=(signal_source or lot.get("signal_source")),
+                 size=lot.get("size"))
     _notify(f"QQQ SHADOW {leg} {reason.lower()} {shares_close} @ {fill_px:.2f}",
            "EDGELOG QQQ SHADOW", log)
     # BROKER MIRROR: mirrors every reduce, not just a full close -- a ninjatrader-mode
