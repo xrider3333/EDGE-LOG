@@ -51,10 +51,10 @@ def _mock_client():
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
         # account_class is what _account_id() now selects on (default purpose "stock"
-        # wants INDIVIDUAL_CASH, see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT) --
+        # wants INDIVIDUAL_MARGIN, see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT) --
         # without it, a single-account mock like this used to still work because the
         # old code just took accts[0] unconditionally.
-        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]
     }
     client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     client.account_v2.get_account_position.return_value.json.return_value = {"data": []}
@@ -408,10 +408,10 @@ def test_load_config_malformed_file_does_not_raise(tmp_path):
     assert cfg["mode"] == WO.MODE_OFF
 
 
-def test_load_config_default_account_selection_is_individual_cash(tmp_path):
+def test_load_config_default_account_selection_is_individual_margin(tmp_path):
     cfg = WO.load_config(str(tmp_path / "nope.json"))
     assert cfg["account"] == WO.DEFAULT_ACCOUNT_SELECT
-    assert cfg["account"]["stock"] == "INDIVIDUAL_CASH"
+    assert cfg["account"]["stock"] == "INDIVIDUAL_MARGIN"
 
 
 def test_load_config_account_override_merges_not_replaces(tmp_path):
@@ -503,14 +503,18 @@ def test_fees_total_handles_empty_fees_and_commission():
 
 # ── deliberate account selection (first LIVE paper smoke test, 2026-09-14) ─────────
 # _account_id() used to take accts[0] unconditionally. The real sandbox account list
-# came back Individual Margin, Futures, Individual Cash, Events, Crypto -- Individual
-# Cash (the one stock orders must use) sits in the MIDDLE, not first, and a paper
-# account RESET renumbers accounts on top of that.
+# came back Individual Margin, Futures, Individual Cash, Events, Crypto -- a paper
+# account RESET renumbers accounts on top of that. Individual Margin (the one stock
+# orders use since 2026-09-23, see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT)
+# happens to sit FIRST in that real order -- see
+# test_account_selection_picks_individual_margin_regardless_of_list_order below for
+# why it reorders a copy before asserting (Individual Cash sat in the MIDDLE, not
+# first, back when it was the class stock orders used).
 
-def _accounts_real_order(cash_id="CASH_ID"):
+def _accounts_real_order(cash_id="CASH_ID", margin_id="MARGIN_ID"):
     """Same order/labelling the real sandbox account list came back in that day."""
     return [
-        {"account_id": "MARGIN_ID", "account_number": "111100000000HM55",
+        {"account_id": margin_id, "account_number": "111100000000HM55",
          "account_class": "INDIVIDUAL_MARGIN", "account_type": "MARGIN"},
         {"account_id": "FUT_ID", "account_number": "222200000000HAZ7",
          "account_class": "FUTURES", "account_type": "MARGIN"},
@@ -523,18 +527,26 @@ def _accounts_real_order(cash_id="CASH_ID"):
     ]
 
 
-def test_account_selection_picks_individual_cash_regardless_of_list_order(tmp_path, monkeypatch):
+def test_account_selection_picks_individual_margin_regardless_of_list_order(tmp_path, monkeypatch):
     cfg = _cfg(tmp_path, mode="PAPER")
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
-    mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": _accounts_real_order("CASH_ID")}
+    # Individual Margin sits FIRST in _accounts_real_order()'s real-world ordering (see
+    # the comment above that helper) -- reorder a copy so it is NOT accts[0] here, the
+    # same way Individual Cash sat in the MIDDLE when this test was written against the
+    # old CASH default. Otherwise the retired "just take accts[0]" bug would pass this
+    # test by accident.
+    accts = _accounts_real_order()
+    margin_entry = next(a for a in accts if a["account_class"] == "INDIVIDUAL_MARGIN")
+    accts.remove(margin_entry)
+    accts.insert(2, margin_entry)
+    mock_client.account_v2.get_account_list.return_value.json.return_value = {"data": accts}
 
     rec = adapter.place_stock_order(leg="L1", signal_id="s1", symbol="AAPL", side="BUY", qty=1)
     assert rec["mode"] == "PAPER" and rec["ok"] is True
     args, _ = mock_client.order_v3.place_order.call_args
     account_id, _new_orders = args
-    assert account_id == "CASH_ID", "must select Individual Cash, not accts[0] (Individual Margin)"
+    assert account_id == "MARGIN_ID", "must select Individual Margin, not accts[0] (now Futures)"
 
 
 def test_account_selection_raises_when_class_not_found(tmp_path, monkeypatch):
@@ -542,7 +554,7 @@ def test_account_selection_raises_when_class_not_found(tmp_path, monkeypatch):
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "MARGIN_ID", "account_class": "INDIVIDUAL_MARGIN"}]}
+        "data": [{"account_id": "CASH_ID", "account_class": "INDIVIDUAL_CASH"}]}
     with pytest.raises(RuntimeError, match="no account matches"):
         adapter._account_id("PAPER", mock_client)
 
@@ -552,8 +564,8 @@ def test_account_selection_raises_when_ambiguous(tmp_path, monkeypatch):
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "A1", "account_class": "INDIVIDUAL_CASH"},
-                 {"account_id": "A2", "account_class": "INDIVIDUAL_CASH"}]}
+        "data": [{"account_id": "A1", "account_class": "INDIVIDUAL_MARGIN"},
+                 {"account_id": "A2", "account_class": "INDIVIDUAL_MARGIN"}]}
     with pytest.raises(RuntimeError, match="ambiguous"):
         adapter._account_id("PAPER", mock_client)
 
@@ -575,11 +587,11 @@ def test_account_selection_configured_class_change_invalidates_cache(tmp_path, m
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": _accounts_real_order("CASH_ID")}
-    assert adapter._account_id("PAPER", mock_client) == "CASH_ID"
+        "data": _accounts_real_order()}
+    assert adapter._account_id("PAPER", mock_client) == "MARGIN_ID"
 
     # A FRESH adapter instance (simulated restart) reading the SAME on-disk state, now
-    # configured for a DIFFERENT class -- must re-resolve live, not reuse CASH_ID.
+    # configured for a DIFFERENT class -- must re-resolve live, not reuse MARGIN_ID.
     cfg2 = dict(cfg)
     cfg2["account"] = {"stock": "FUTURES"}
     adapter2 = WO.OrderAdapter(config=cfg2, log=lambda *a, **k: None)
@@ -595,17 +607,17 @@ def test_account_selection_disk_cache_refreshed_after_account_reset(tmp_path, mo
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": _accounts_real_order("CASH_ID_OLD")}
-    assert adapter._account_id("PAPER", mock_client) == "CASH_ID_OLD"
+        "data": _accounts_real_order(margin_id="MARGIN_ID_OLD")}
+    assert adapter._account_id("PAPER", mock_client) == "MARGIN_ID_OLD"
 
     # Simulated restart with a FRESH adapter (same state file) after Webull reset the
     # paper account -- same class, brand new account_id; the old id is gone entirely.
     adapter2 = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
     mock_client2 = MagicMock()
     mock_client2.account_v2.get_account_list.return_value.json.return_value = {
-        "data": _accounts_real_order("CASH_ID_NEW")}
+        "data": _accounts_real_order(margin_id="MARGIN_ID_NEW")}
     monkeypatch.setattr(adapter2, "_build_client", lambda mode: mock_client2)
-    assert adapter2._account_id("PAPER", mock_client2) == "CASH_ID_NEW"
+    assert adapter2._account_id("PAPER", mock_client2) == "MARGIN_ID_NEW"
 
 
 def test_account_selection_falls_back_to_disk_cache_when_live_fetch_fails(tmp_path, monkeypatch):
@@ -615,30 +627,30 @@ def test_account_selection_falls_back_to_disk_cache_when_live_fetch_fails(tmp_pa
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": _accounts_real_order("CASH_ID")}
-    assert adapter._account_id("PAPER", mock_client) == "CASH_ID"
+        "data": _accounts_real_order()}
+    assert adapter._account_id("PAPER", mock_client) == "MARGIN_ID"
 
     adapter2 = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
     broken_client = MagicMock()
     broken_client.account_v2.get_account_list.side_effect = RuntimeError("network down")
     monkeypatch.setattr(adapter2, "_build_client", lambda mode: broken_client)
-    assert adapter2._account_id("PAPER", broken_client) == "CASH_ID"
+    assert adapter2._account_id("PAPER", broken_client) == "MARGIN_ID"
 
 
 def test_account_selection_disk_cache_ignored_when_last4_override_added(tmp_path, monkeypatch):
     """A disk-cached id resolved under the CLASS-based default must not be resurrected
     to answer a DIFFERENT selector (a newly-added last4 override) just because a naive
     comparison only checked the resolved CLASS -- caught in review: comparing on class
-    alone, this scenario would wrongly hand back CASH_ID (cached under "class:
-    INDIVIDUAL_CASH") to satisfy a "last4:HAZ7" selector it was never resolved under,
-    even though CASH_ID isn't even the HAZ7 account."""
+    alone, this scenario would wrongly hand back MARGIN_ID (cached under "class:
+    INDIVIDUAL_MARGIN") to satisfy a "last4:HAZ7" selector it was never resolved under,
+    even though MARGIN_ID isn't even the HAZ7 account."""
     cfg = _cfg(tmp_path, mode="PAPER")
     _write_keys(cfg["paper_keys_path"])
     adapter, mock_client = _adapter_with_mock_client(monkeypatch, cfg)
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": _accounts_real_order("CASH_ID")}
-    assert adapter._account_id("PAPER", mock_client) == "CASH_ID"
-    # disk cache now holds {"account_id": "CASH_ID", "selector": "class:INDIVIDUAL_CASH"}
+        "data": _accounts_real_order()}
+    assert adapter._account_id("PAPER", mock_client) == "MARGIN_ID"
+    # disk cache now holds {"account_id": "MARGIN_ID", "selector": "class:INDIVIDUAL_MARGIN"}
 
     # A fresh adapter, SAME disk state, now configured with a last4 override -- but its
     # OWN live call fails. The cache was tagged under the OLD class-based selector, not

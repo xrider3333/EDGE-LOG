@@ -43,7 +43,7 @@ def _broker_cfg(tmp_path, mode="PAPER"):
 def _mock_client():
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]
     }
     client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     client.account_v2.get_account_position.return_value.json.return_value = {"data": []}

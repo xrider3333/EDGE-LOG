@@ -197,8 +197,21 @@ DEFAULT_RAILS = {
 # futures stays hard-disabled (place_futures_order raises before ever calling
 # _account_id) -- the "futures" entry is here so the config shape is already right for
 # whenever that changes, per this module's existing "staged, not wired" convention.
+#
+# STOCK MOVED CASH -> MARGIN (2026-09-23, owner: "switch it to the margin paper
+# account"). A CASH account cannot hold short stock, and the QQQ book's legs are
+# two-sided. The first short the cloud book ever signalled -- NOISE, 2026-09-23 10:10 ET,
+# SHORT 10 QQQ -- came back HTTP 417 OPENAPI_GENERATE_NEW_SHORT_POSITION, "This order
+# will generate new short stock positions, which do not match your account type", so the
+# book held a short that Webull never did (the CLOSE was then correctly refused by the
+# nothing-to-close guard). Every future short would have failed the same way: 22 entries
+# since the cloud book went live, 21 long and that one. Paper accounts on this login:
+# INDIVIDUAL_MARGIN ...HM55 (now used for stock, $1,000,000 and flat when switched) and
+# INDIVIDUAL_CASH ...HLZ5 (previously used). Changing the shared default rather than one
+# host's config file is deliberate -- the PC and the cloud box must resolve the SAME
+# account or a failover would trade a different one.
 DEFAULT_ACCOUNT_SELECT = {
-    "stock": "INDIVIDUAL_CASH",
+    "stock": "INDIVIDUAL_MARGIN",
     "futures": "FUTURES",
 }
 

@@ -168,7 +168,7 @@ def test_mirror_to_broker_records_when_it_sent(tmp_path, monkeypatch):
     adapter = WO.OrderAdapter(config=cfg, log=NOOP)
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]}
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]}
     client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     monkeypatch.setattr(adapter, "_build_client", lambda mode: client)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)

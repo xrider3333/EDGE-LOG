@@ -39,8 +39,8 @@ def _mock_client(fill_price=None):
     client = MagicMock()
     client.account_v2.get_account_list.return_value.json.return_value = {
         # account_class is what _account_id() selects on by default (purpose "stock"
-        # wants INDIVIDUAL_CASH -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
-        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]
+        # wants INDIVIDUAL_MARGIN -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]
     }
     resp = {"status": "SUBMITTED"}
     if fill_price is not None:

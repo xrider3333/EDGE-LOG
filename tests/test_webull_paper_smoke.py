@@ -53,9 +53,9 @@ def _mock_client(accounts=None, balance_usd="1000000.00"):
     account listing + balance (--check) and place/status/cancel/status (--order-test)."""
     if accounts is None:
         # account_class is what _account_id() selects on by default (purpose "stock"
-        # wants INDIVIDUAL_CASH -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
+        # wants INDIVIDUAL_MARGIN -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
         accounts = [{"account_id": "ACCT1", "account_number": "PA123456789012",
-                    "account_type": "CASH", "account_class": "INDIVIDUAL_CASH"}]
+                    "account_type": "CASH", "account_class": "INDIVIDUAL_MARGIN"}]
     client = MagicMock()
     client.account_v2.get_account_list.return_value = _json_mock({"data": accounts})
     client.account_v2.get_account_balance.return_value = _json_mock({

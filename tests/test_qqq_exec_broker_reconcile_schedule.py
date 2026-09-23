@@ -93,7 +93,7 @@ def test_mirror_to_broker_sets_reconcile_due_on_a_real_paper_send(tmp_path, monk
     adapter = WO.OrderAdapter(config=cfg, log=NOOP)
     mock_client = MagicMock()
     mock_client.account_v2.get_account_list.return_value.json.return_value = {
-        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_CASH"}]}
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]}
     mock_client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     monkeypatch.setattr(adapter, "_build_client", lambda mode: mock_client)
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
