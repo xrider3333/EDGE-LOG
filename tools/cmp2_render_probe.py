@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 130
+N_CASES = 133
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -227,10 +227,14 @@ var FIX = __FIX__;
         r.sidebar=d.querySelectorAll('[data-residel]').length;
         r.stage=d.querySelectorAll('[data-resstage]').length;
         r.help=d.querySelectorAll('[data-rehelptog]').length;
-        // the study tables are built ON DEMAND here (they are ~3.5 MB of markup and were
-        //   rebuilt on every click). Off by default; the button must bring them back, and
-        //   the chart must be unaffected either way.
+        // the study tables are built ON DEMAND here (measured around a dozen megabytes of
+        //   markup with a full run history loaded, and were rebuilt on every click). Off by
+        //   default; the button must bring them back, and the chart must be unaffected either
+        //   way. F40 (audit3_report.md): the hover used to claim "about three and a half
+        //   megabytes" - a re-measure on this build found the true cost close to 12 MB / ~73k
+        //   elements, so the button's own hover text is checked here too, not just its count.
         r.tblBtn=d.querySelectorAll('[data-c2tbl]').length;
+        r.tblBtnTitle=(d.querySelector('[data-c2tbl]')||{}).title||'';
         // the controls sheet renders as MENUS laid across, with the real buttons hidden
         //   behind them - and a menu must actually drive the button it stands for.
         doRender({c2Screen:'explore',resLvl:'sweep',c2Sheet:'filters'}, FIX_WIN);
@@ -358,7 +362,10 @@ var FIX = __FIX__;
             cols:d.querySelectorAll('.c2-card table th').length,
             rows:d.querySelectorAll('.c2-card table tr').length,
             best:d.querySelectorAll('[title="best of the picked runs on this row"]').length,
-            note:((d.querySelector('.c2-note')||{}).textContent||'').slice(0,1400),
+            // F32 (2026-09-23) added a permanent sentence to this note (the chart drawdown
+            //   tag is read off thinned curves on every stage, not only walk-forward), so the
+            //   cap grew from 1400 to keep the later noCurve/apx disclosures within it.
+            note:((d.querySelector('.c2-note')||{}).textContent||'').slice(0,2200),
             // read named rows out of the matrix by their label, so a wrong number in a
             //   specific measure fails rather than hiding behind a row count.
             row:(function(){var o={};
@@ -464,6 +471,114 @@ var FIX = __FIX__;
         });
         var ok=['lb','is','full','wf'].every(function(k){return per[k].call==='OK';});
         var r=snap('books', ok?'OK':'ERR');
+        r.per=per;
+      })();
+
+      // ── TASK 1 case (RUNBOARD backlog item D, 2026-09-23): TRADES / YR,
+      //    WORST MONTH and LONGEST FLAT STRETCH on the RUNBOARD 1E matrix (average $ per trade
+      //    is the EV row already on the board, so it has no row of its own). The last two read
+      //    the saved month-by-month P&L grid (top-level regime.monthly) via its own masked
+      //    fetch (_hydrateRbMonthly), cached in window._rbMonthly - pre-seeding
+      //    window._runFull lets this probe reach a resolved value with no Firebase sign-in
+      //    (the fast whole-document cache path inside _hydrateRbMonthly). Every expected
+      //    figure below is hand-computed from the seeded grid, so a wrong number fails here,
+      //    not just a missing cell. A second run, a BOOK, proves the book-specific paths:
+      //    WORST MONTH dashes (a book saves no regime block) and LONGEST FLAT STRETCH falls
+      //    back to the book's own worst_stretch.trading_days, marked ~ and labelled DD span.
+      (function(){
+        var RID=String(+FIX.id+610000), BKID=String(+FIX.id+610500);
+        var R=JSON.parse(JSON.stringify(FIX));
+        R.id=RID;R.strategy='ZT1MONTHLY_1_0.py';R.starred=false;R.multiplier=1;
+        R.date_from='2019-01-05';R.date_to='2022-01-05';
+        R.best_pnl_usd=24500;R.best_dd_usd=5000;R.best_pf=1.3;R.best_trades=240;
+        R.validate={verdict:'PASS',equity:[0,100,200,300,400],lb_idx:3,
+          total_dd:-5000,total_sharpe:0.8,total_sortino:1.1,
+          lockbox:{pnl:12500,pf:1.3,trades:60,pass:true},total_win_rate:45,total_avg_win:600,total_avg_loss:-400,
+          // lite run data carries validate.windows (it is in RUNS_LITE_FIELDS), so the IS
+          //   stretch reads its length from here exactly as the IS money rows do
+          windows:{optimize:['2019-01-05','2021-03-05'],lockbox:['2021-03-05','2022-01-05']}};
+        // 36 months, Jan 2019 - Dec 2021 (date_to is 2022-01-05, so January 2022 itself is
+        //   outside every stage's own need-list and is deliberately left out of the grid).
+        //   A steady $1,000/month climb, ONE bad month (July 2020, -$5,000) and five weak
+        //   months after it (a peak at $18,000 in June 2020, a new high only in May 2021).
+        var rows=[{year:2019,months:[1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]},
+                  {year:2020,months:[1000,1000,1000,1000,1000,1000,-5000,200,200,200,200,200]},
+                  {year:2021,months:[1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000,1000]}];
+        var FULLDOC=JSON.parse(JSON.stringify(R));
+        FULLDOC.regime={monthly:{years:[2019,2020,2021],rows:rows}};
+        FULLDOC.validate.windows={optimize:['2019-01-05','2021-03-05'],lockbox:['2021-03-05','2022-01-05']};
+        // Review 2026-09-23: IS = the first 75% of the tuning window, 2019-01-05 to about
+        //   2020-08-19, so Jan 2019 - Aug 2020: worst Jul '20, flat 2 mo (Jul, Aug). LB =
+        //   Mar - Dec 2021: every month +$1k, worst Mar '21, flat 0 mo.
+        // A second run whose grid STOPS at March 2021, April - December blank: the shape of a
+        //   grid built over the tuning window only. Those blanks were never recorded, so they
+        //   must not read as $0 months: FULL covers 27 of 36 months (~, worst Jul '20, flat
+        //   ~9 mo - the first build read 18), LB covers 1 of 10 and dashes (the first build
+        //   printed $0 Apr '21 and a 9 mo flat stretch).
+        var PID=String(+FIX.id+610250);
+        var P=JSON.parse(JSON.stringify(R));P.id=PID;P.strategy='ZT1PARTIAL_1_0.py';
+        var prow=JSON.parse(JSON.stringify(rows));
+        prow[2]={year:2021,months:[1000,1000,1000,null,null,null,null,null,null,null,null,null]};
+        var PFULL=JSON.parse(JSON.stringify(FULLDOC));PFULL.id=PID;PFULL.strategy='ZT1PARTIAL_1_0.py';
+        PFULL.regime={monthly:{years:[2019,2020,2021],rows:prow}};
+        var BK=JSON.parse(JSON.stringify(FIX));
+        BK.id=BKID;BK.strategy='BOOK: T1 probe';BK.starred=false;BK.multiplier=1;
+        BK.date_from='2019-01-05';BK.date_to='2022-01-05';
+        BK.book={name:'T1 PROBE BOOK',legs:[{strategy:'AAA_1_0.py',weight:1},{strategy:'BBB_1_0.py',weight:1}],
+          whole:{total_pnl:30000,max_drawdown:6000,num_trades:300,profit_factor:1.3},
+          pre_lockbox:{total_pnl:24000,max_drawdown:6000,num_trades:250},
+          lockbox:{total_pnl:6000,num_trades:50,win_rate:44,profit_factor:1.2,max_drawdown:3000},
+          worst_stretch:{from:'2020-06-01',to:'2020-07-15',depth:6000,trading_days:42},
+          lockbox_from:'2021-01-05',date_from:'2019-01-05',date_to:'2022-01-05'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:6000,pf:1.2,trades:50,pass:true},book:true};
+        var wc="var F="+JSON.stringify(R)+";var FD="+JSON.stringify(FULLDOC)+";var B="+JSON.stringify(BK)+";"
+          +"var P="+JSON.stringify(P)+";var PD="+JSON.stringify(PFULL)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"var doc=f(F),pdoc=f(P),bdoc=f(B);runHistory=[doc,pdoc,bdoc];window._runFull={};"
+          +"window._runFull[String(doc.id)]=f(FD);window._runFull[String(pdoc.id)]=f(PD);"
+          +"window._rbMonthly={};window._rbMonthlyBusy={};window._rbMonthlyQ=[];"
+          +"window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+        function rowsOf(){var o={};
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(tr){
+            var c=tr.children;if(c.length<2)return;
+            var lab=(c[0].textContent||'').trim();if(!lab)return;
+            o[lab]=[].slice.call(c,1).map(function(td){return (td.textContent||'').trim();});});
+          return o;}
+        var per={};
+        ['full','is','lb'].forEach(function(smp){
+          var call=doRender({cmpMode:'board',rbSample:smp,rbRank:'mar',cmpIds:[RID,PID,BKID]}, wc, 'cmp');
+          per[smp]={call:call,row:rowsOf(),errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
+        });
+        var ok=['full','is','lb'].every(function(k){return per[k].call==='OK';});
+        var r=snap('task1rb', ok?'OK':'ERR');
+        r.per=per;
+        r.full=(per.full.row['WORST MONTH']||[]).concat(per.full.row['LONGEST FLAT STRETCH']||[])
+          .concat(per.full.row['TRADES / YR']||[]);
+      })();
+
+      // ── F41 case (audit3_report.md, 2026-09-23): an old or hand-edited saved pick list
+      //    (APREF.cmpIds) or saved set (APREF.cmpSets) in the wrong shape used to throw
+      //    inside the shared render path - .map()/.filter() on a non-array truthy value -
+      //    blanking RUNBOARD, PICK RUNS and FEATURES on every visit. Three malformed shapes
+      //    at once: cmpIds saved as a bare object, and cmpSets holding a null entry and an
+      //    entry whose own .ids is a string instead of an array. Driven through the same
+      //    augurPrefs JSON channel every other case in this file uses - APREF itself lives
+      //    inside the app's own closure (not reachable from this outer page), so it can only
+      //    be shaped by what renderApp() reads back out of localStorage, never poked directly.
+      (function(){
+        var per={};
+        ['board','runs','feat'].forEach(function(v){
+          var badPrefs={c2Screen:'cmp',c2View:v,cmpIds:{bad:1},cmpSets:[null,{name:'ok'},{name:'bad',ids:'nope'}]};
+          var call=w.eval("(function(){try{"
+            +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(badPrefs))+");"
+            +"runHistory=window.__runs||[];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];"
+            +"activeTab='augur';augurSub='cmp2';augurRunSel=null;renderApp();return 'OK';"
+            +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
+          var ap=d.getElementById('app');
+          per[v]={call:call,len:ap?ap.innerHTML.length:-1,errors:sink.errors.slice(0,4),uncaught:sink.uncaught.slice(0,4)};
+        });
+        var ok=['board','runs','feat'].every(function(v){return per[v].call==='OK';});
+        var r=snap('f41badshape', ok?'OK':'ERR');
         r.per=per;
       })();
 
@@ -3447,6 +3562,54 @@ var FIX = __FIX__;
         },res);
       })();
 
+      // -- g4_f29 (F29, audit3_report.md): the fullscreen multi-run chart used to draw ONE
+      //    SHARED lockbox (and walk-forward) band, positioned at whichever series happened to
+      //    be first, and apply it to every run on screen -- even a run whose own lockbox door
+      //    sits somewhere else on the shared calendar axis. _regionBounds' opts.noTabs branch
+      //    now checks every VISIBLE series' own door and only returns a position when they all
+      //    agree; disagreeing runs must draw with no band at all, never a borrowed one. Checked
+      //    by mutating the already-mounted series geometry directly (the same objects
+      //    expandCompareEq itself reads on every redraw -- see g4_f15's own note on why this is
+      //    the real drawn geometry, not a re-derived guess) so the two doors provably disagree,
+      //    then counting the lockbox band's own <rect fill="rgba(167,139,250,...)"> elements. --
+      (function(){
+        var calls=[],res={};
+        var A=dfxClone(FIX);
+        var B=dfxClone(FIX);B.id=+FIX.id+929001;B.strategy='ZG29B_1_0.py';B.starred=false;
+        var ids=[String(A.id),String(B.id)];
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'full',cmpIds:ids}, dfxWin([A,B])));
+        function lbRectCount(){return d.querySelectorAll('#ceqx-chart rect[fill*="167,139,250"]').length;}
+        function openFresh(){var b2=d.querySelector('[data-cmpexpand]');if(b2&&b2.onclick)b2.onclick();
+          try{w.dispatchEvent(new w.Event('resize'));}catch(_rf){}}
+        function closeIt(){var c=d.querySelector('#ceqx-close');if(c&&c.onclick)c.onclick();}
+        res.hasBtn=!!d.querySelector('[data-cmpexpand]');
+        // baseline: two identical clones naturally agree on their own door (same dates, same
+        //   lb_idx) -- the band must draw, proving the test is not just always-off.
+        openFresh();
+        res.agreeCount=lbRectCount();
+        closeIt();
+        // force genuine disagreement on the mounted series -- each keeps its OWN pts array
+        //   (real per-run calendar fractions), so two clearly different indices give two doors
+        //   that are not coincidentally equal.
+        var mutated=w.eval("(function(){var S=window._cmpEqxSeries||[];if(S.length<2)return 'too few: '+S.length;"
+          +"var a=S[0],b=S[1];if(!a.pts||!a.pts.length||!b.pts||!b.pts.length)return 'no pts';"
+          +"var ia=Math.round(a.pts.length*0.2),ib=Math.round(b.pts.length*0.8);"
+          +"a.li=ia;b.li=ib;return JSON.stringify({ax:a.pts[ia].x,bx:b.pts[ib].x});})()");
+        res.mutated=mutated;
+        openFresh();
+        res.disagreeCount=lbRectCount();
+        closeIt();
+        var mObj=(function(){try{return JSON.parse(mutated);}catch(_e){return null;}})();
+        res.doorGap=(mObj&&mObj.ax!=null&&mObj.bx!=null)?Math.abs(mObj.ax-mObj.bx):null;
+        dfxCase('g4_f29',calls,{
+          'renders OK':calls.every(function(c){return c==='OK';}),
+          'the expand button exists':res.hasBtn,
+          'the fixture is a real test: two agreeing runs DO draw a lockbox band':res.agreeCount>0,
+          'the mutation genuinely put the two doors at different x positions':res.doorGap!=null&&res.doorGap>0.05,
+          'two runs that genuinely disagree on their own lockbox door draw NO shared lockbox band':res.disagreeCount===0
+        },res);
+      })();
+
       // -- g4_f19 (F19): RUNBOARD +ADD must always get a hand-added run a column, even when
       //    10 family champions already fill the board, by re-packing the champion list
       //    around the pin rather than pushing the pin past a full slice -- and the overflow
@@ -4372,6 +4535,9 @@ def main(argv=None):
              and (r.get('points') or 0) >= 1
              and (r.get('rail') or 0) >= 1
              and r.get('tblBtn') == 1           # the TABLES button is there
+             # F40 (audit3_report.md): the hover figure was re-measured and corrected
+             and 'three and a half' not in (r.get('tblBtnTitle') or '')
+             and 'dozen megabytes' in (r.get('tblBtnTitle') or '')
              and r.get('menuHost') is True
              and (r.get('groups') or 0) >= 5
              and (r.get('menus') or 0) >= 3      # single-choice groups became menus
@@ -4423,6 +4589,9 @@ def main(argv=None):
         if r.get('tblBtn') != 1:
             fail('explore: the TABLES button is missing, so the study tables would be '
                  'unreachable on this screen')
+        if 'three and a half' in (r.get('tblBtnTitle') or '') or 'dozen megabytes' not in (r.get('tblBtnTitle') or ''):
+            fail('explore: F40 -- the TABLES hover still claims the old, re-measured-as-wrong '
+                 'figure (title=%r)' % (r.get('tblBtnTitle') or ''))
         if (r.get('rowsOff') or 0) != 0:
             fail('explore: %s table rows built while the tables are off - the whole point is '
                  'that they are not assembled' % r.get('rowsOff'))
@@ -4528,6 +4697,12 @@ def main(argv=None):
               and (lb.get('apx') or 0) >= 1         # the curve-derived drawdown path ran at all
               and 'no equity curve' in (lb.get('note') or '')
               and 'under-state' in (lb.get('note') or '')
+              # F32 (audit3_report.md): the chart's dashed drawdown line is read off the
+              # thinned, saved curve on EVERY stage, not only when a walk-forward test curve
+              # is drawn - the disclosure sentence must say so on IS / LB / FULL as well,
+              # not just WF, where it used to be the only stage that ever showed it.
+              and all('thinned for storage on every' in ((per.get(k) or {}).get('note') or '')
+                      for k in ('is', 'lb', 'full'))
               # the walk-forward fold count must actually render - it was dead on arrival
               # once because the stage reader did not carry the counts at all
               and any('/' in c for c in ((lb.get('row') or {}).get('FOLDS HELD') or []))
@@ -4593,6 +4768,12 @@ def main(argv=None):
         if 'under-state' not in (lb.get('note') or ''):
             fail('compare: the note does not disclose that a derived drawdown under-states '
                  '(note=%r)' % (lb.get('note') or '')[:180])
+        for _k in ('is', 'lb', 'full'):
+            _note = (per.get(_k) or {}).get('note') or ''
+            if 'thinned for storage on every' not in _note:
+                fail('compare: F32 -- the %s stage note does not disclose that the chart '
+                     'drawdown tag is read off a thinned curve on every stage, not only '
+                     'walk-forward (note=%r)' % (_k, _note[-260:]))
         if not any('/' in c for c in ((lb.get('row') or {}).get('FOLDS HELD') or [])):
             fail('compare: FOLDS HELD renders no fold count on any run (%r) - the '
                  'walk-forward reader is not carrying held/n'
@@ -4742,6 +4923,79 @@ def main(argv=None):
                  'blank or invented' % (wfb.get('ths'), wfb.get('bodyRows')))
         if not (wfb.get('noWf') and wfb.get('hold')):
             fail('books: the walk-forward stage does not explain why there is nothing to show')
+
+    # TASK 1 (RUNBOARD backlog item D): TRADES / YR, WORST MONTH, LONGEST FLAT STRETCH.
+    # Expected figures hand-computed from the seeded regime.monthly grids -- see the JS case
+    # comment for the full derivation (review 2026-09-23: IS stretch + partial-grid run).
+    r = cases.get('task1rb', {})
+    per = r.get('per') or {}
+
+    def _row(stage, label):
+        return (((per.get(stage) or {}).get('row') or {}).get(label) or [])
+    t1_ok = (r.get('call') == 'OK'
+             and all((per.get(k) or {}).get('call') == 'OK' for k in ('full', 'is', 'lb'))
+             # the full-grid run
+             and any(v == '-$5k Jul ’20' for v in _row('full', 'WORST MONTH'))
+             and any(v == '10 mo' for v in _row('full', 'LONGEST FLAT STRETCH'))
+             and any(v == '-$5k Jul ’20' for v in _row('is', 'WORST MONTH'))
+             and any(v == '2 mo' for v in _row('is', 'LONGEST FLAT STRETCH'))
+             and any(v == '$1k Mar ’21' for v in _row('lb', 'WORST MONTH'))
+             and any(v == '0 mo' for v in _row('lb', 'LONGEST FLAT STRETCH'))
+             # the grid that stops at March 2021: partial on FULL, a dash on LB
+             and any(v == '~-$5k Jul ’20' for v in _row('full', 'WORST MONTH'))
+             and any(v == '~9 mo' for v in _row('full', 'LONGEST FLAT STRETCH'))
+             and _row('lb', 'WORST MONTH').count('—') == 2
+             and _row('lb', 'LONGEST FLAT STRETCH').count('—') == 1
+             # the book
+             and _row('full', 'WORST MONTH').count('—') == 1
+             and any(('~2.0 mo' in v and 'DD span' in v) for v in _row('full', 'LONGEST FLAT STRETCH'))
+             and len(_row('full', 'TRADES / YR')) == 3 and not _row('full', 'AVG $ / TRADE'))
+    line('task1rb', t1_ok, 'full worst=%s flat=%s | is worst=%s flat=%s | lb worst=%s flat=%s | tradesPerYr=%s'
+         % (_row('full', 'WORST MONTH'), _row('full', 'LONGEST FLAT STRETCH'),
+            _row('is', 'WORST MONTH'), _row('is', 'LONGEST FLAT STRETCH'),
+            _row('lb', 'WORST MONTH'), _row('lb', 'LONGEST FLAT STRETCH'),
+            _row('full', 'TRADES / YR')))
+    if not t1_ok:
+        for k in ('full', 'is', 'lb'):
+            p = per.get(k) or {}
+            if p.get('call') != 'OK':
+                fail('task1rb: %s stage threw -- %s' % (k, str(p.get('call'))[:300]))
+            if p.get('errors'):
+                fail('task1rb: %s console.error -- %s' % (k, p['errors'][0][:200]))
+            if p.get('uncaught'):
+                fail('task1rb: %s uncaught -- %s' % (k, p['uncaught'][0][:200]))
+        if not (_row('full', 'TRADES / YR')
+                and _row('full', 'WORST MONTH') and _row('full', 'LONGEST FLAT STRETCH')):
+            fail('task1rb: one or more of the three new rows never rendered at all')
+        else:
+            fail('task1rb: a new row read a figure that does not match the hand-computed grid '
+                 '(see the JS case comment for the derivation) -- '
+                 'full=%s/%s is=%s/%s lb=%s/%s' % (_row('full', 'WORST MONTH'), _row('full', 'LONGEST FLAT STRETCH'),
+                                                    _row('is', 'WORST MONTH'), _row('is', 'LONGEST FLAT STRETCH'),
+                                                    _row('lb', 'WORST MONTH'), _row('lb', 'LONGEST FLAT STRETCH')))
+
+    # F41 (audit3_report.md): a malformed saved cmpIds / cmpSets shape must not blank
+    # RUNBOARD, PICK RUNS or FEATURES.
+    r = cases.get('f41badshape', {})
+    per = r.get('per') or {}
+    f41_ok = (r.get('call') == 'OK'
+              and all((per.get(v) or {}).get('call') == 'OK' for v in ('board', 'runs', 'feat'))
+              and all((per.get(v) or {}).get('len', -1) > 200 for v in ('board', 'runs', 'feat'))
+              and not any((per.get(v) or {}).get('errors') or (per.get(v) or {}).get('uncaught')
+                          for v in ('board', 'runs', 'feat')))
+    line('f41badshape', f41_ok, 'board=(call=%s len=%s) runs=(call=%s len=%s) feat=(call=%s len=%s)'
+         % (tuple(x for v in ('board', 'runs', 'feat') for x in ((per.get(v) or {}).get('call'), (per.get(v) or {}).get('len')))))
+    if not f41_ok:
+        for v in ('board', 'runs', 'feat'):
+            p = per.get(v) or {}
+            if p.get('call') != 'OK':
+                fail('f41badshape: %s view threw on a malformed cmpIds/cmpSets shape -- %s' % (v, str(p.get('call'))[:400]))
+            if p.get('errors'):
+                fail('f41badshape: %s console.error -- %s' % (v, p['errors'][0][:200]))
+            if p.get('uncaught'):
+                fail('f41badshape: %s uncaught -- %s' % (v, p['uncaught'][0][:200]))
+            if p.get('call') == 'OK' and p.get('len', -1) <= 200:
+                fail('f41badshape: %s rendered almost nothing (%s chars) - a swallowed error blanked the screen instead of throwing where we can see it' % (v, p.get('len')))
 
     # case 11: top runs
     r = cases.get('toprun', {})
@@ -5234,7 +5488,13 @@ def main(argv=None):
     r = cases.get('b_famBook', {})
     fb_chk = {
         'renders OK': r.get('call') == 'OK',
-        'RUNBOARD family chips show BOOK': 'BOOK' in (r.get('chips') or []),
+        # TASK 2 (2026-09-23): the RUNBOARD chip list and its drill-down now key on
+        # _c2FamOf (the structural r.book.legs test every book run always satisfies),
+        # not _canonFam's own "does the label start with BOOK" guess - so every real
+        # book groups the same way here as it already does in the champion pool just
+        # above it (_c2FamsOf), under the same 'BOOKS' string. _canonFam keeps its own
+        # 'BOOK' singular for the EXPLORE rail below, untouched by this change.
+        'RUNBOARD family chips show BOOKS': 'BOOKS' in (r.get('chips') or []),
         'the book does not fold into an ENGU-Q chip': 'ENGU-Q' not in (r.get('chips') or []),
         'EXPLORE strategy rail shows BOOK (fixed for free by the same matcher)': bool(r.get('railHasBook')),
     }
@@ -6179,8 +6439,8 @@ def main(argv=None):
            'g2_f2', 'g2_f3', 'g2_f10', 'g2_f13', 'g2_f18',
            # g3-books-picks (Book flags and PICK RUNS marks/tiles): F4, F8, F9, F22
            'g3_f4', 'g3_f8', 'g3_f9', 'g3_f22',
-           # g4-charts (Chart dates, full-screen view, +ADD, EXPLORE hovers): F5, F15, F16, F17, F19, F20, F21
-           'g4_f5', 'g4_f15', 'g4_f16', 'g4_f17', 'g4_f19', 'g4_f20', 'g4_f21',
+           # g4-charts (Chart dates, full-screen view, +ADD, EXPLORE hovers): F5, F15, F16, F17, F19, F20, F21, F29
+           'g4_f5', 'g4_f15', 'g4_f16', 'g4_f17', 'g4_f19', 'g4_f20', 'g4_f21', 'g4_f29',
            # g5 (repair round): F4 Gate-Validate job headline money
            'g5_gv', 'g5_bookis', 'g5_archpick', 'g5_wfrange',
            # g6 (repair round): Gate-Validate job in-sample years for MAR / R per YR / ROC % per YR

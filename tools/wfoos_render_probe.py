@@ -579,6 +579,28 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       'why='+txt('[data-wfowhy]').join(' | '));
     A('B2 book report never prints the walk-forward test','NOREG',tBk.indexOf('WALK-FORWARD TEST')<0,'');
 
+    // ── F-EXTRA (audit3_report.md, 2026-09-23): the book report's own KPI table used to derive
+    //    its printed date span from the book's own first/last trade (book.date_from/date_to),
+    //    drifting from the RUN WINDOW (date_from/date_to) that the leaderboard, RUNBOARD, PICK
+    //    RUNS and EXPLORE already use for a book's in-sample years (_isYrs). A clone of the book
+    //    fixture with the two spans deliberately disagreeing on both ends (2018-2022 run window
+    //    vs a 2019-2021 first/last trade) catches which one the TOTAL column heading shows.
+    var bkYrs=clone(FIXBK);bkYrs.id=String(+FIXBK.id+700000);
+    bkYrs.date_from='2018-01-01';bkYrs.date_to='2022-01-01';
+    bkYrs.book=bkYrs.book||{};bkYrs.book.date_from='2019-06-15';bkYrs.book.date_to='2021-03-10';bkYrs.book.lockbox_from='2021-06-01';
+    render({mtxView:'table'},[lite(bkYrs)],[full(bkYrs)],bkYrs.id);
+    var Kb=kpi();
+    var totHead=(Kb&&Kb.head||[]).filter(function(h){return h.indexOf('TOTAL')===0;})[0]||'';
+    A('B3 book report TOTAL date span reads the run window, not the books own first/last trade','NEW',
+      totHead.indexOf('18')>=0&&totHead.indexOf('22')>=0&&totHead.indexOf('19')<0&&totHead.indexOf('21')<0,
+      'totHead='+totHead);
+    // a book has no single-strategy gated/ungated comparison, so a gate_validate block left
+    //   over on a book-shaped doc (this fixture's origin) must not resurrect the WF column
+    //   or overwrite the IS / LB spans just checked above.
+    var Kb2=kpi();
+    A('B3b book report still has no WF column with a leftover gate_validate block','NOREG',
+      !Kb2||Kb2.col.WF==null,'col='+JSON.stringify(Kb2&&Kb2.col));
+
     // ══ P3 / P4 - THE BOARDS AND EXPLORE READ THE SAME SAVED WALK-FORWARD TEST ══════════
     //    The report (above) was the first reader. These cases cover the COMPARE tab's
     //    LEADERBOARD, its comparison table and its chart, the hosted PICK RUNS table, the
