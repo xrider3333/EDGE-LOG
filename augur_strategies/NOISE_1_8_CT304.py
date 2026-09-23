@@ -151,6 +151,7 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     s_on = float(tilt_mult)
     out_trades = []
     pnls = []
+    sizes = []
     for t in r["trades"]:
         dec = int(t[0]) - 1                       # the decision bar is the one before the fill
         on = 0 <= dec < n and bool(comp[dec])
@@ -158,6 +159,7 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         raw = float(t[2])
         pts = s * raw - (s - 1.0) * _COST_PTS     # engine then subtracts cost once -> s*(raw-cost)
         pnls.append(pts)
+        sizes.append(s)
         tt = list(t)
         tt[2] = pts
         out_trades.append(tuple(tt))
@@ -178,4 +180,17 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     }
     if return_trades:
         out["trades"] = out_trades
+        # ADDITIVE SIZE CONTRACT (2026-09-23): trade_sizes is the per-trade multiplier
+        # `s` the loop above already computed and folded into pts as
+        # pts = s*raw - (s-1)*_COST_PTS, same length/order as out_trades; size_cost_pts
+        # is the cost constant it folded in. Both keys are new and purely additive --
+        # nothing in this file reads them back, and every metric above (total_pnl,
+        # num_trades, win_rate, profit_factor, max_drawdown, avg_pnl, wins, losses) is
+        # computed exactly as before from `pnls`, which is unchanged by this addition.
+        # A caller that knows this contract (api/cloud_signal.py's run_leg_trades) can
+        # invert the fold to recover the real per-trade price; one that does not is
+        # unaffected -- see augur_engine/engine.py's _apply_costs, which already
+        # preserves unknown extra keys via `out = dict(m)`.
+        out["trade_sizes"] = sizes
+        out["size_cost_pts"] = _COST_PTS
     return out

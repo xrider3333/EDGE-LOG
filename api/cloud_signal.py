@@ -422,12 +422,84 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
 
 
 # ── One leg's trades -> canonical records ────────────────────────────────────────────────
-def run_leg_trades(cfg, arrays):
+class _TradeSizeContractError(Exception):
+    """Raised by _resolve_trade_sizes when a plugin DECLARES the additive per-trade
+    size contract (trade_sizes/size_cost_pts -- see NOISE_1_8_CT304.py's ADDITIVE
+    SIZE CONTRACT comment) but the declaration itself is broken. Always caught by
+    run_leg_trades, which fails that leg's WHOLE call closed rather than guess."""
+
+
+def _leg_label(cfg, leg_key):
+    """Best-effort human-readable name for a leg in a log line, for a caller (a
+    test, or a standalone tool) that did not pass leg_key -- step() always does."""
+    if leg_key:
+        return str(leg_key)
+    strat = cfg.get("strategy")
+    if isinstance(strat, str):
+        return strat
+    return getattr(strat, "STRATEGY_NAME", None) or getattr(strat, "__name__", None) or repr(strat)
+
+
+def _resolve_trade_sizes(res, n_trades, label):
+    """Validates the additive per-trade size contract a sizing plugin's result dict
+    may carry (trade_sizes: list of floats, same length/order as `trades`;
+    size_cost_pts: the cost constant it folded in -- see NOISE_1_8_CT304.py's
+    ADDITIVE SIZE CONTRACT comment). Returns (sizes, cost) -- a list of validated
+    floats and a float -- when the contract is present and sound, or (None, None)
+    when the plugin simply does not size at all (no `trade_sizes` key: the ordinary,
+    unaffected case). Raises _TradeSizeContractError the instant a DECLARED contract
+    looks wrong in any way -- caught by run_leg_trades, which fails that whole call
+    closed rather than guess. There is no partial-credit path: a badly-declared size
+    is exactly as dangerous as an undeclared one, so a broken declaration is never
+    quietly treated as "not sizing".
+    """
+    sizes = res.get("trade_sizes")
+    if sizes is None:
+        return None, None
+    cost = res.get("size_cost_pts")
+    if cost is None:
+        raise _TradeSizeContractError(
+            f"{label}: trade_sizes present ({len(sizes)} value(s)) but size_cost_pts is missing")
+    try:
+        cost = float(cost)
+    except (TypeError, ValueError):
+        raise _TradeSizeContractError(f"{label}: size_cost_pts {cost!r} is not a number")
+    if not math.isfinite(cost):
+        raise _TradeSizeContractError(f"{label}: size_cost_pts {cost!r} is not finite")
+    if len(sizes) != n_trades:
+        raise _TradeSizeContractError(
+            f"{label}: trade_sizes has {len(sizes)} entries for {n_trades} trade(s)")
+    out = []
+    for idx, s in enumerate(sizes):
+        try:
+            sf = float(s)
+        except (TypeError, ValueError):
+            sf = float("nan")
+        if not math.isfinite(sf) or sf <= 0:
+            raise _TradeSizeContractError(
+                f"{label}: trade_sizes[{idx}] = {s!r} is not a finite positive size")
+        out.append(sf)
+    return out, cost
+
+
+def run_leg_trades(cfg, arrays, leg_key=None, log=print):
     """Runs the plugin (or a stub module override) via the shared engine wrapper and
     converts the raw (entry_bar, exit_bar, pnl_pts, side, entry_px) tuples into
     canonical dicts keyed by wall-clock timestamps (not bar indices — those are only
     valid for the exact arrays slice they came from, and the rolling window's start
-    shifts every call)."""
+    shifts every call).
+
+    PER-TRADE SIZE (2026-09-23). A sizing plugin (NOISE_1_8_CT304.py today; the KEEL
+    overlay later) can additively declare trade_sizes/size_cost_pts in its result dict
+    -- see that file's ADDITIVE SIZE CONTRACT comment and this module's
+    _resolve_trade_sizes. When declared and valid, every trade dict below carries the
+    real per-trade size in "size" and a real, inverted exit_px. A plugin that never
+    sizes gets "size": 1.0 on every trade and the exact exit_px arithmetic this
+    function has always used -- byte-for-byte unaffected. A plugin whose declaration
+    is broken (see _resolve_trade_sizes) fails the WHOLE call closed: this returns []
+    and logs why, rather than guess at a price that would mis-size every order
+    downstream.
+    """
     res = engine_run_backtest(cfg["strategy"], arrays=arrays, params=cfg["params"],
                               cost_pts=0.0, return_trades=True)
     if not res or not res.get("trades"):
@@ -436,10 +508,20 @@ def run_leg_trades(cfg, arrays):
     n_bars = len(arrays["close"])
     last_close = float(arrays["close"][n_bars - 1])
 
+    trades_raw = res["trades"]
+    label = _leg_label(cfg, leg_key)
+    try:
+        leg_sizes, size_cost_pts = _resolve_trade_sizes(res, len(trades_raw), label)
+    except _TradeSizeContractError as e:
+        log(f"[cloud-signal] {e} -- refusing to emit signals for {label} this call "
+           f"(a wrong size inversion would mis-price every order it sends)")
+        return []
+    sizes_declared = leg_sizes is not None
+
     # PRICE-BASED "STILL OPEN AT THE BOUNDARY" TEST -- SAFE ONLY WHEN THE LEG PROMISES
     # eod_marks_at_close (default True; see the AMBIGUOUS BOUNDARY comment in the loop
-    # below). Two known ways a plugin can break that promise, and the escape hatch for
-    # both (2026-09-22 audit):
+    # below). Two known ways a plugin can break that promise, and what makes each safe
+    # (2026-09-22 audit; sizing contract added 2026-09-23):
     #   - ORB_3_6.py:346-350's EOD-flat block does not always mark an unresolved end-of-
     #     data position at a clean last-bar close: whenever a partial exit already fired
     #     (p_done, gated on `partial_exit_R > 0` at ORB_3_6.py:320 and :338), the reported
@@ -448,37 +530,56 @@ def run_leg_trades(cfg, arrays):
     #     The live ORB_R6 leg pins partial_exit_R=0.0 (api/paper.py:177-180, ORB_314), so
     #     this is inert today -- but that is a PARAMS fact, not a code fact, and a params
     #     change must not silently arm a mechanism that flattens a live position early.
-    #     Checked explicitly below, every call, rather than trusted to stay zero.
-    #   - NOISE_1_8_CT304.py folds a per-trade size multiplier into pnl_pts (lines
-    #     154-163: `pts = s*raw - (s-1)*_COST_PTS`) for its own bookkeeping, which
-    #     invalidates the exit-price reconstruction itself -- see the SYNTHETIC EXIT
-    #     PRICE comment in the loop below. Not a CROWN_LEGS strategy today, so not
-    #     reachable here, but if it (or any future plugin folding size into pnl_pts) is
-    #     ever wired in, its leg config MUST set eod_marks_at_close=False.
-    # A leg opts out of the price test -- falling back to the OLD, conservative rule
-    # that ANY trade still sitting at the boundary reads as open, price notwithstanding
-    # -- either explicitly (cfg["eod_marks_at_close"] = False) or automatically the
-    # moment its own declared params turn on ORB's partial-exit blend. An explicit True
-    # never overrides the partial_exit_R check; only the strategy's own params can prove
-    # it safe.
+    #     Checked explicitly below, every call, unrelated to sizing.
+    #   - A plugin that folds a per-trade size multiplier into pnl_pts (NOISE_1_8_CT304.py
+    #     -- see its ADDITIVE SIZE CONTRACT comment) breaks the exit-price reconstruction
+    #     UNLESS it declares trade_sizes/size_cost_pts: `sizes_declared` above is only
+    #     True once that declaration has passed _resolve_trade_sizes, at which point the
+    #     fold is inverted below and exit_px is real again -- the price test needs no help
+    #     from this leg's cfg. The manual escape hatch (cfg["eod_marks_at_close"] = False)
+    #     is required ONLY for a plugin that folds size into pnl_pts WITHOUT declaring it:
+    #     there is no way to detect that case from the result dict alone, so it stays an
+    #     explicit, manual promise on the leg config -- exactly as before this contract
+    #     existed.
+    # A leg opts out of the price test -- falling back to the OLD, conservative rule that
+    # ANY trade still sitting at the boundary reads as open, price notwithstanding -- via
+    # an explicit cfg["eod_marks_at_close"] = False (ALWAYS honoured, even when sizes are
+    # declared) or automatically the moment its own declared params turn on
+    # ORB's partial-exit blend. An explicit True never overrides the partial_exit_R check;
+    # only the strategy's own params, or a validated size declaration, can prove the price
+    # safe.
     _partial_exit_r = float((cfg.get("params") or {}).get("partial_exit_R") or 0)
-    eod_marks_at_close = cfg.get("eod_marks_at_close", True) and not (_partial_exit_r > 0)
+    # An explicit eod_marks_at_close=False is ALWAYS honoured, sizes declared or not: the
+    # conservative rule can only delay an exit by a bar, never invent one, so a caution a
+    # human wrote on a leg must not be overridden by a contract they may not know about.
+    # A valid size declaration only removes the NEED for that flag on a size-folding leg.
+    _eod_promise = cfg.get("eod_marks_at_close", True)
+    eod_marks_at_close = _eod_promise and not (_partial_exit_r > 0)
+
+    if sizes_declared:
+        paired = list(zip(trades_raw, leg_sizes))
+    else:
+        paired = [(t, 1.0) for t in trades_raw]
+    paired.sort(key=lambda p: p[0][0])
 
     out = []
-    for (entry_bar, exit_bar, pnl_pts, side, entry_px) in sorted(res["trades"], key=lambda t: t[0]):
+    for (entry_bar, exit_bar, pnl_pts, side, entry_px), size in paired:
         entry_bar = int(entry_bar); exit_bar = int(exit_bar)
         entry_px = float(entry_px)
-        # SYNTHETIC EXIT PRICE (2026-09-22): reconstructed from entry_px and the reported
-        # pnl_pts alone, which is only ever the real fill price when pnl_pts is a raw
-        # price difference. NOISE_1_8_CT304.py is not: it folds a per-trade size
-        # multiplier into pnl_pts as a bookkeeping convenience (lines 154-163), so for a
-        # trade whose entry sat in a "compressed" bar, exit_px below is a synthetic,
-        # cost/size-scaled number, not a price -- and the still-open price test is
-        # invalid for such a leg at ANY tolerance (it must set eod_marks_at_close=False;
-        # see above). Not fixed here: giving the engine a real per-trade size field,
-        # separate from pnl_pts, is separate follow-up work the owner wants done before
-        # that file can go on the live book.
-        exit_px = entry_px + pnl_pts * side
+        if sizes_declared:
+            # INVERTED EXIT PRICE (2026-09-23): the plugin folded
+            # pts = size*raw - (size-1)*size_cost_pts before handing this trade back
+            # (see its ADDITIVE SIZE CONTRACT comment); this is the exact algebraic
+            # inverse, recovering the real raw price move, so exit_px below is a real
+            # price again -- not a synthetic, cost/size-scaled number.
+            raw = (pnl_pts + (size - 1.0) * size_cost_pts) / size
+            exit_px = entry_px + raw * side
+        else:
+            # UNCHANGED: reconstructed from entry_px and the reported pnl_pts alone,
+            # which is only ever the real fill price when pnl_pts is a raw price
+            # difference -- true for every plugin that does not fold a size multiplier
+            # into it.
+            exit_px = entry_px + pnl_pts * side
         if exit_bar < n_bars - 1:
             still_open = False
         elif not eod_marks_at_close:
@@ -509,6 +610,8 @@ def run_leg_trades(cfg, arrays):
             # equality: pnl_pts round-trips through a subtraction (close - entry) and
             # back (entry + pnl), which can lose the last ULP even when both sides mean
             # the same price.
+            # The inverted size fold above is exact algebraically, so this reasoning
+            # holds for a declared-size leg too.
             still_open = abs(exit_px - last_close) <= 1e-6 * abs(last_close) + 1e-9
         shares = int(math.floor(NOTIONAL_PER_LEG / entry_px)) if entry_px > 0 else 0
         out.append({
@@ -519,6 +622,7 @@ def run_leg_trades(cfg, arrays):
             "exit_time": None if still_open else idx[min(exit_bar, n_bars - 1)].isoformat(),
             "exit_px": None if still_open else round(exit_px, 4),
             "still_open": still_open,
+            "size": size,
         })
     return out
 
@@ -608,7 +712,13 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # (api/trade_id.py: leg + entry bar time + side), IDENTICAL on its ENTRY and
               # its EXIT row. An EXIT's ref_time is the exit bar, so without this column an
               # EXIT row cannot say which trade it closes. "" on SEED rows.
-              "trade_id"]
+              "trade_id",
+              # appended, never inserted (2026-09-23) -- the per-trade size multiplier
+              # (api/cloud_signal.py's run_leg_trades: 1.0 for a leg that does not size,
+              # the declared size otherwise). "" on SEED rows and on any row written
+              # before this column existed -- a blank here means "1.0, unsized", never
+              # "unknown".
+              "size"]
 
 
 def _read_signals_header(path):
@@ -788,7 +898,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         if arrays is None:
             continue
 
-        trades = run_leg_trades(cfg, arrays)
+        trades = run_leg_trades(cfg, arrays, leg_key=key)
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.
@@ -874,7 +984,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
         events.append({
             "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
             "leg": leg_key, "event": "SEED", "side": "", "ref_time": "",
-            "ref_price": "", "shares": "", "bar_source": bar_source or "", "trade_id": "",
+            "ref_price": "", "shares": "", "bar_source": bar_source or "", "trade_id": "", "size": "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
                        f"emitting; open_at_seed={open_at_seed}"),
         })
@@ -924,6 +1034,9 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "ref_time": t["entry_time"], "ref_price": t["entry_px"],
                 "shares": t["shares"], "reason": "", "bar_source": bar_source or "",
                 "trade_id": tid,
+                # real per-trade size when the leg declares one, else 1.0 -- see
+                # run_leg_trades's PER-TRADE SIZE contract and SIGNAL_COLS's "size" column
+                "size": t.get("size", 1.0),
             })
             rec = recorded[key]
         if (not t["still_open"]) and (not rec["exit_emitted"]):
@@ -938,6 +1051,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "bar_source": bar_source or "",
                 # the ENTRY's id, not one built from the exit bar -- see SIGNAL_COLS
                 "trade_id": tid,
+                # the same per-trade size as the ENTRY event -- see SIGNAL_COLS
+                "size": t.get("size", 1.0),
             })
     return events
 

@@ -376,7 +376,7 @@ def test_entry_and_exit_rows_carry_the_same_trade_id(tmp_path):
         header = f.readline().strip().split(",")
         f.seek(0)
         rows = list(csv.DictReader(f))
-    assert header == cs.SIGNAL_COLS and header[-1] == "trade_id"
+    assert header == cs.SIGNAL_COLS and header[-1] == "size"
     assert [r["event"] for r in rows] == ["SEED", "ENTRY", "EXIT"]
     assert rows[0]["trade_id"] == "" and rows[1]["trade_id"] == rows[2]["trade_id"] == want
 
@@ -439,7 +439,7 @@ def _old_ledger(paths):
     import csv
     old_cols = cs.SIGNAL_COLS[:-1]
     assert old_cols == ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares",
-                        "reason", "bar_source"], "trade_id must be APPENDED at the end, never inserted"
+                        "reason", "bar_source", "trade_id"], "size must be APPENDED at the end, never inserted"
     os.makedirs(paths["state_dir"], exist_ok=True)
     with open(paths["signals_path"], "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=old_cols)
