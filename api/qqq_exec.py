@@ -3640,6 +3640,122 @@ def _apply_broker_parity(trades_all, broker_by_base, log=print):
             row.update(_broker_trade_parity(row, broker_by_base, log=log))
 
 
+def _book_only_status(row, by_base, log=print):
+    """Whether this trade's OPEN ever reached the broker at all -- a DIFFERENT question
+    from _broker_trade_parity's above (which asks "did the price match", never "did
+    Webull ever hold this"). Reuses the SAME join (_broker_order_for / by_base, the
+    dict _broker_orders_by_base built once in _build_doc) rather than a second reader
+    of broker_orders.csv -- see module docstring PRICING for why that join is the one
+    source of truth for "what did the broker actually do with this trade id".
+
+    Looks ONLY at the trade's OWN OPEN leg (never the CLOSE -- see PARTIAL MIRRORS
+    below) and reads off that one broker_orders.csv row:
+
+      UNKNOWN (book_only False, "" reason) --
+      * no trade_id, or _broker_order_for finds no matching row at all: either this
+        trade predates trade ids, or its OPEN order aged out of broker_orders.csv's own
+        ORDERS_KEEP trim (see BROKER_ORDER_COLS). There is no record either way, so
+        this is NOT marked book-only -- that would claim more than the data supports.
+      * mode == "OFF": the broker adapter was not mirroring AT ALL when this OPEN
+        happened (webull_orders.MODE_OFF, a deliberate config-level no-op -- see
+        place_stock_order, which always records ok=True/sent=False for OFF). ok is
+        already True on every OFF row, so this branch never changes the verdict below;
+        it exists so a reader (and a future change to OFF's own ok/sent values) cannot
+        mistake "not mirroring" for "reached the broker and succeeded". Also UNKNOWN,
+        not book-only: whether Webull would have accepted or refused this OPEN is
+        something this book chose not to find out that day.
+
+      BOOK ONLY (book_only True, reason = the broker's own words) --
+      * ok is False for every other mode: BLOCKED (this module's pre-send lease gate,
+        or webull_orders' own rails -- max_shares/session/etc, or the "nothing to
+        close" guard on a CLOSE, though that never applies to an OPEN), ERROR (an
+        exception before any network call), or a genuine PAPER/LIVE send Webull itself
+        refused -- e.g. 2026-09-23's HTTP 417 OPENAPI_GENERATE_NEW_SHORT_POSITION
+        short-sale rejection, ok=False/sent=True. No shares were ever held at the
+        broker in any of these, so the book's own pnl for this trade is fiction as far
+        as Webull is concerned. `reason` is read straight off the row's own "reason"
+        column -- _mirror_to_broker already folds rec["reason"] or rec["error"] into
+        that column at write time (see its own docstring), so this is genuinely the
+        broker/rail's own words, never re-derived.
+
+      NOT BOOK ONLY (book_only False, "" reason) --
+      * ok is True: the OPEN reached the broker and Webull accepted it, so shares WERE
+        held there (mode is PAPER or LIVE whenever ok is True and mode != OFF).
+
+    PARTIAL MIRRORS (owner ask, 2026-09-23): a trade whose OPEN succeeded but whose
+    CLOSE later failed, was blocked, or never mirrored is deliberately left NOT
+    book_only by this function -- it only ever reads the OPEN leg. Flipping it to
+    book_only because the EXIT didn't mirror would UNDERSTATE what happened (shares
+    really were held at the broker at some point) and would conflate two different
+    failures: "the broker never had this trade" (what this flag means) versus "the
+    broker still holds a position this book's own record shows flat" (a real but
+    separate position-reconciliation problem, not built here). A CLOSE that failed
+    after a successful OPEN still shows up in its own right -- broker_parity_ok either
+    stays unchecked or fails outright, and the adapter's own "nothing to close" log
+    line already warns operationally. This function's silence on that case is
+    intentional, not an oversight -- see the docstring above.
+
+    Never raises: any lookup failure degrades to UNKNOWN, the same as a missing row."""
+    try:
+        trade_id = str(row.get("trade_id") or "").strip()
+        open_row = _broker_order_for(trade_id, "OPEN", by_base)
+        if open_row is None:
+            return {"book_only": False, "book_only_reason": ""}
+        mode = str(open_row.get("mode") or "").strip().upper()
+        if mode == "OFF":
+            return {"book_only": False, "book_only_reason": ""}
+        ok = str(open_row.get("ok")).strip().lower() in ("true", "1")
+        if ok:
+            return {"book_only": False, "book_only_reason": ""}
+        reason = str(open_row.get("reason") or "").strip()
+        if not reason:
+            reason = f"broker OPEN did not go through (mode={mode or 'unknown'})"
+        return {"book_only": True, "book_only_reason": reason}
+    except Exception as e:
+        log(f"[qqq-exec] book-only calc failed for a trade row: {type(e).__name__}: {e}")
+        return {"book_only": False, "book_only_reason": ""}
+
+
+def _apply_book_only(trades_all, broker_by_base, log=print):
+    """Updates every row of trades_all IN PLACE with book_only/book_only_reason (see
+    _book_only_status) -- same shape and dispatch rule as _apply_broker_parity just
+    above: a genuinely NinjaTrader-mirrored row (signal_source == "ninjatrader") is
+    left NOT book-only unconditionally, never looked up. broker_orders.csv's signal-id
+    space belongs to THIS book's own Webull mirror attempts; an NT-mirrored row's
+    trade is settled by NinjaTrader, so whatever this module's Webull adapter did or
+    did not do under that same trade id is not what "book only" is asking about for
+    that row. Never raises."""
+    for row in trades_all:
+        if str(row.get("signal_source") or "").strip().lower() == "ninjatrader":
+            row["book_only"] = False
+            row["book_only_reason"] = ""
+        else:
+            row.update(_book_only_status(row, broker_by_base, log=log))
+
+
+def _book_only_summary(trades_all):
+    """Book vs broker headline totals over trades_all's own pnl (_curve_pnl -- the SAME
+    fallback pnl/real_pnl rule the equity curve, the closed-trades table and the
+    calendar all use, so this total always agrees with what the tab already shows
+    elsewhere). `book_net` is every closed trade, exactly what the tab has always
+    summed; `broker_net` is the same sum with every book_only trade left out -- what
+    Webull's own side actually made. Equal whenever nothing is book-only. Never
+    raises -- a trade whose own pnl fields are unusable contributes 0.0 either way,
+    the same as _curve_pnl already does for the curve."""
+    book_net = 0.0
+    broker_net = 0.0
+    book_only_n = 0
+    for t in trades_all:
+        pnl = _curve_pnl(t)
+        book_net += pnl
+        if t.get("book_only"):
+            book_only_n += 1
+        else:
+            broker_net += pnl
+    return {"book_net": round(book_net, 2), "broker_net": round(broker_net, 2),
+           "book_only_count": book_only_n}
+
+
 def _all_trades_from_csv(cap=500):
     """Every closed shadow trade recorded since inception, oldest-first as the CSV
     stores them (trades.csv is append-only, trimmed to TRADES_KEEP by _append_csv).
@@ -4011,6 +4127,15 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     _apply_broker_parity(trades_all, broker_by_base, log=log)
     broker_parity = _broker_parity_summary(trades_all)
 
+    # BOOK-ONLY MARKING (2026-09-23, owner: "mark the book only trades" -- Webull
+    # refused NOISE's 10:10 ET short, HTTP 417 OPENAPI_GENERATE_NEW_SHORT_POSITION,
+    # and the book still counted +$4.90 for it as though Webull had made it too).
+    # A SEPARATE read from the parity check above -- "did any shares ever reach the
+    # broker" rather than "did the price match" -- reusing the SAME broker_by_base
+    # join, never a second one. See _apply_book_only/_book_only_status.
+    _apply_book_only(trades_all, broker_by_base, log=log)
+    book_only_summary = _book_only_summary(trades_all)
+
     # The curve is built AFTER the merge, so an exit the adapter could not mark counts at
     # its tape-repriced real_pnl -- exactly as the web tab counts it (see _curve_pnl).
     cum_pnl = _cum_pnl_by_leg(trades_all)
@@ -4076,6 +4201,10 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         # ENGINE-VS-BROKER PARITY (feature #56): sibling summary to "parity" above --
         # see _broker_parity_summary. Untouched NT rows never contribute to this one.
         "broker_parity": broker_parity,
+        # BOOK-ONLY (2026-09-23): sibling summary to "broker_parity" above -- book
+        # vs broker totals, see _book_only_summary. Each trade in trades_all also
+        # carries its own book_only/book_only_reason (see _apply_book_only).
+        "book_only_summary": book_only_summary,
         "feed_days": feed_days,
         "ratio_hist": ratio_hist,
         "ratio_health": ratio_health,
