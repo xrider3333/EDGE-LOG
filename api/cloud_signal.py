@@ -163,6 +163,30 @@ DEFAULT_PATHS = _paths()
 # tilt_mult in {1.0, 1.5, 2.0} -- every value below sits on one of those points.
 NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15}
 
+
+# ── KEEL v12 overlay (OWNER DECISION 2026-09-23) ─────────────────────────────────────────
+# "Put KEEL v12 on top of run #382 on the live Webull NOISE leg, train it on the NQ
+# backtest like the validation." See augur_engine/ml_keel.py's keel_build_state /
+# keel_score_from_state (the build-once/score-many split this overlay is built on) and
+# tools/keel_live_state.py (the nightly job that writes the files keel_paths() below
+# names). AN OVERLAY, NEVER A GATE: every failure path in _keel_size_for_entry returns
+# keel_size 1.0 (unsized -- exactly today's un-overlaid behaviour), logged, never raised
+# -- see that function's own docstring. KEEL_MAX_STALE_SESSIONS caps how many trading
+# sessions a state may lag "now" before it is treated as unavailable rather than trusted.
+KEEL_MAX_STALE_SESSIONS = 5
+
+
+def keel_paths(leg_key, version, home=None):
+    """Where tools/keel_live_state.py writes -- and this module reads -- a leg's KEEL
+    state (joblib, this-host-only, never copied across machines) and its JSON summary
+    (plain-safe, freely readable). Same EDGELOG_HOME convention as _paths() above."""
+    home = home or edgelog_home()
+    d = os.path.join(home, "cloud_signal", "keel")
+    return {"dir": d,
+           "state_path": os.path.join(d, f"{leg_key}_{version}_state.joblib"),
+           "summary_path": os.path.join(d, f"{leg_key}_{version}_summary.json")}
+
+
 CROWN_LEGS = {
     "ORB_R6": {
         "strategy": "ORB_3_6_R6.py",
@@ -177,6 +201,10 @@ CROWN_LEGS = {
         # same warm-up as every other crown leg -- the owner's spec calls for no change
         # here, only the strategy file + params under it.
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        # KEEL v12 overlay -- see the block comment above keel_paths(). Any OTHER leg's
+        # cfg simply has no "keel" key, and every keel-aware code path below treats a
+        # missing key exactly like today's pre-KEEL behaviour (see _diff_leg).
+        "keel": dict(version="v12", **keel_paths("NOISE_382", "v12")),
     },
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
@@ -638,8 +666,98 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print):
             "exit_px": None if still_open else round(exit_px, 4),
             "still_open": still_open,
             "size": size,
+            # additive (2026-09-23, KEEL overlay): the entry's own bar index into THIS
+            # call's `arrays` -- needed to slice a feature row for the KEEL overlay (see
+            # _keel_size_for_entry) at the exact bar the trade fired on. Nothing before
+            # this reads it, so it changes no existing behaviour.
+            "entry_bar": entry_bar,
         })
     return out
+
+
+# ── KEEL v12 overlay -- see the block comment above keel_paths() near CROWN_LEGS ─────────
+_KEEL_STATE_CACHE = {}   # state_path -> (mtime, state, summary-or-None)
+
+
+def _load_keel_state(state_path, summary_path, log=print):
+    """Best-effort load of a KEEL state + its JSON summary, cached by the state file's
+    OWN mtime so a fresh nightly rebuild is picked up without restarting this process,
+    and a repeat call within the same tick never re-reads a multi-MB joblib file twice.
+    Returns (state, summary) -- summary may be None even when state loads fine (its
+    file missing/unreadable is not fatal, only staleness reporting degrades). NEVER
+    raises: every failure returns (None, None), which _keel_size_for_entry turns into
+    the safe keel_size 1.0 fallback."""
+    try:
+        mtime = os.path.getmtime(state_path)
+    except OSError:
+        return None, None
+    cached = _KEEL_STATE_CACHE.get(state_path)
+    if cached and cached[0] == mtime:
+        return cached[1], cached[2]
+    try:
+        import joblib
+        state = joblib.load(state_path)
+    except Exception as e:
+        log(f"[cloud-signal] KEEL state unreadable ({state_path}): {type(e).__name__}: {e}")
+        return None, None
+    summary = None
+    try:
+        if os.path.exists(summary_path):
+            with open(summary_path, encoding="utf-8") as f:
+                summary = json.load(f)
+    except Exception as e:
+        log(f"[cloud-signal] KEEL summary unreadable ({summary_path}): {type(e).__name__}: {e}")
+    _KEEL_STATE_CACHE[state_path] = (mtime, state, summary)
+    return state, summary
+
+
+def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
+    """The KEEL multiplier for ONE new entry about to be emitted (design: "compute the
+    KEEL size once" -- see _diff_leg, the only caller). Reads the trade's own feature
+    row from `keel_features` on `arrays` (the QQQ arrays the leg already uses) at
+    `entry_bar`, and scores it against the nightly-built NQ state -- see
+    augur_engine.ml_keel.keel_score_from_state.
+
+    ALWAYS returns a finite float > 0 as its first element -- 1.0 (unsized, i.e.
+    "behave exactly like no overlay") on ANY failure: the state file missing or
+    unreadable, feature columns that do not match what the state was built on, more
+    than KEEL_MAX_STALE_SESSIONS trading sessions between the state's last trained NQ
+    session and this entry's own session, or an exception anywhere in the scoring
+    call. Every failure is logged with a short reason (the second return value) and
+    NEVER raised -- KEEL is an OVERLAY, not a gate, so a broken overlay must never
+    block or delay the trade it would have merely resized. The second return value is
+    a short human-readable reason string on any fallback, or a diagnostics dict
+    (z/trust/rho/t_fast) on a real score -- for logging only.
+    """
+    if not keel_cfg or entry_bar is None:
+        return 1.0, None
+    state, summary = _load_keel_state(keel_cfg["state_path"], keel_cfg.get("summary_path", ""),
+                                      log=log)
+    if state is None:
+        return 1.0, "keel state unavailable"
+    try:
+        last_session = (summary or {}).get("last_nq_session")
+        if last_session:
+            entered = entry_time
+            if isinstance(entered, str):
+                entered = _dt.datetime.fromisoformat(entered)
+            sessions = market_calendar.sessions_between(last_session, entered.date().isoformat())
+            n_stale = max(0, len(sessions) - 1)
+            if n_stale > KEEL_MAX_STALE_SESSIONS:
+                return 1.0, (f"keel state stale: {n_stale} session(s) since {last_session}")
+        from augur_engine import ml_keel as _keel
+        F, names = _keel.keel_features(arrays)
+        if list(names) != list(state.get("feature_names") or []):
+            return 1.0, "keel feature columns do not match the state"
+        row = int(min(max(int(entry_bar), 0), len(F) - 1))
+        size, diag = _keel.keel_score_from_state(state, arrays, row, x_row=F[row:row + 1],
+                                                 cross_series=True)
+        if not math.isfinite(size) or size <= 0:
+            return 1.0, f"keel scoring returned a non-finite/non-positive size ({size!r})"
+        return float(size), diag
+    except Exception as e:
+        log(f"[cloud-signal] KEEL scoring failed: {type(e).__name__}: {e}")
+        return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
 
 
 def _entry_key(leg, trade):
@@ -728,12 +846,27 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # its EXIT row. An EXIT's ref_time is the exit bar, so without this column an
               # EXIT row cannot say which trade it closes. "" on SEED rows.
               "trade_id",
-              # appended, never inserted (2026-09-23) -- the per-trade size multiplier
-              # (api/cloud_signal.py's run_leg_trades: 1.0 for a leg that does not size,
-              # the declared size otherwise). "" on SEED rows and on any row written
+              # appended, never inserted (2026-09-23) -- the per-trade size multiplier.
+              # For a leg with NO "keel" block in CROWN_LEGS this is the plugin's own
+              # declared size (run_leg_trades: 1.0 for a leg that does not size at all)
+              # -- UNCHANGED by the KEEL overlay below. For a leg WITH a "keel" block
+              # (NOISE_382 today) this is the PRODUCT plugin_size * keel_size (see
+              # _diff_leg / _keel_size_for_entry) -- the executor's existing
+              # size-to-shares multiply (api/qqq_exec.py's _sized_shares) needs no
+              # change to pick up KEEL sizing, because it already multiplies by
+              # whatever is in this column. "" on SEED rows and on any row written
               # before this column existed -- a blank here means "1.0, unsized", never
               # "unknown".
-              "size"]
+              "size",
+              # appended, never inserted (2026-09-23, KEEL overlay) -- the KEEL
+              # multiplier ALONE (this leg's "size" column above is plugin_size x this
+              # value), for the trade drawer's breakdown display and for telling apart
+              # "no keel overlay on this leg" (blank) from "keel ran and stood down at
+              # 1.0" or "keel failed safe to 1.0" (a real 1.0, logged -- see
+              # _keel_size_for_entry) -- both real numbers, never blank. Blank on SEED
+              # rows, on every non-KEEL leg's rows, and on any row written before this
+              # column existed.
+              "keel_size"]
 
 
 def _read_signals_header(path):
@@ -920,7 +1053,8 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
         events = _diff_leg(key, trades, leg_state, now,
                            max_entry_age_sec=cfg.get("max_entry_age_sec",
                                                      3 * TIMEFRAME_SECONDS[tf]),
-                           bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")))
+                           bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")),
+                           cfg=cfg, arrays=arrays)
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
@@ -939,9 +1073,20 @@ def _zi(name):
         return pytz.timezone(name)
 
 
-def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None):
+def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None,
+             cfg=None, arrays=None, log=print):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
+
+    `cfg`/`arrays` (2026-09-23, KEEL overlay): `cfg` is this leg's own CROWN_LEGS entry
+    (step() always passes it; a caller that omits it -- every test written before this
+    feature, and any leg with no "keel" block -- gets EXACTLY today's pre-KEEL
+    behaviour, see the ENTRY branch below) and `arrays` are the QQQ arrays `trades` was
+    computed from, needed to slice the new entry's own feature row. KEEL is scored
+    ONCE, only for a leg whose cfg carries a "keel" block, only at the moment an ENTRY
+    is about to be emitted (never during SEED -- see the COLD START note below -- and
+    never recomputed for that trade's later EXIT, which reuses the value this call
+    stores on `rec`).
 
     `bar_source` ("webull"/"yfinance"/None) is stamped onto every event this call emits
     (including SEED) so a downstream consumer -- api/qqq_exec.py's engine mode, or the
@@ -1000,6 +1145,11 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
             "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
             "leg": leg_key, "event": "SEED", "side": "", "ref_time": "",
             "ref_price": "", "shares": "", "bar_source": bar_source or "", "trade_id": "", "size": "",
+            # KEEL is never scored during a cold-start SEED (design: "the cold-start
+            # SEED path must not score or emit anything") -- a batch of dozens of
+            # absorbed historical trades is not one live entry, and none of them are
+            # ever acted on, so there is nothing meaningful to size.
+            "keel_size": "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
                        f"emitting; open_at_seed={open_at_seed}"),
         })
@@ -1043,21 +1193,54 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 counter = f"{skip}_skipped"
                 leg_state[counter] = int(leg_state.get(counter, 0)) + 1
                 continue
+            # real per-trade size when the leg declares one, else 1.0 -- see
+            # run_leg_trades's PER-TRADE SIZE contract and SIGNAL_COLS's "size" column.
+            # This is the PLUGIN's own size -- KEEL (below) multiplies IT, never the
+            # other way around, and the P&L un-fold inside run_leg_trades already used
+            # this same plugin size alone (KEEL is computed after that un-fold, so it
+            # cannot touch it).
+            plugin_size = t.get("size", 1.0)
+            keel_size = ""
+            final_size = plugin_size
+            keel_cfg = (cfg or {}).get("keel")
+            if keel_cfg:
+                # KEEL SCORED ONCE, HERE -- exactly when this new entry is about to be
+                # emitted (design: "compute the KEEL size once and emit size = plugin
+                # size x keel size"). Never recomputed for this trade again -- the
+                # EXIT branch below reuses `rec`'s stored values -- and never called
+                # during SEED (see that branch, above).
+                ks, _diag = _keel_size_for_entry(keel_cfg, arrays, t.get("entry_bar"),
+                                                 t["entry_time"], log=log)
+                keel_size = ks
+                final_size = plugin_size * ks
+            rec = recorded[key]
+            rec["size"] = final_size
+            rec["keel_size"] = keel_size
             events.append({
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
                 "leg": leg_key, "event": "ENTRY", "side": t["side"],
                 "ref_time": t["entry_time"], "ref_price": t["entry_px"],
                 "shares": t["shares"], "reason": "", "bar_source": bar_source or "",
                 "trade_id": tid,
-                # real per-trade size when the leg declares one, else 1.0 -- see
-                # run_leg_trades's PER-TRADE SIZE contract and SIGNAL_COLS's "size" column
-                "size": t.get("size", 1.0),
+                "size": final_size,
+                "keel_size": keel_size,
             })
-            rec = recorded[key]
         if (not t["still_open"]) and (not rec["exit_emitted"]):
             rec["exit_emitted"] = True
             rec["exit_time"] = t["exit_time"]
             rec["exit_px"] = t["exit_px"]
+            # SIZE NEVER CHANGES AFTER ENTRY (design). A keel-scored leg reuses exactly
+            # the size/keel_size this SAME trade's ENTRY stored on `rec` above -- never
+            # a fresh KEEL score (the ledger/state may have moved on by exit time, and
+            # re-scoring would let one trade's order size drift after the fact). A leg
+            # with no "keel" block is completely unaffected: same t.get("size", 1.0)
+            # this line has always read.
+            if (cfg or {}).get("keel"):
+                exit_size = rec.get("size", t.get("size", 1.0))
+                exit_keel_size = rec.get("keel_size", "")
+            else:
+                exit_size = t.get("size", 1.0)
+                exit_keel_size = ""
             events.append({
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
                 "leg": leg_key, "event": "EXIT", "side": t["side"],
@@ -1067,7 +1250,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # the ENTRY's id, not one built from the exit bar -- see SIGNAL_COLS
                 "trade_id": tid,
                 # the same per-trade size as the ENTRY event -- see SIGNAL_COLS
-                "size": t.get("size", 1.0),
+                "size": exit_size,
+                "keel_size": exit_keel_size,
             })
     return events
 

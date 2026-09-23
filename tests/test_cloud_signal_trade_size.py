@@ -364,8 +364,15 @@ def test_signals_csv_size_column_migrates_cleanly(tmp_path):
     import csv
 
     path = tmp_path / "signals.csv"
-    old_cols = cs.SIGNAL_COLS[:-1]
+    # two columns behind current SIGNAL_COLS -- a ledger from before size (and the
+    # later keel_size) existed. Migrates here only as far as SIGNAL_COLS[:-1] (a header
+    # WITH size but not yet keel_size) so this test keeps proving exactly what its name
+    # says -- the size column's own migration -- independent of keel_size, which gets
+    # its own test right below (test_signals_csv_keel_size_column_migrates_cleanly).
+    old_cols = cs.SIGNAL_COLS[:-2]
+    target_cols = cs.SIGNAL_COLS[:-1]
     assert old_cols[-1] == "trade_id" and "size" not in old_cols
+    assert target_cols[-1] == "size" and "keel_size" not in target_cols
     old_row = {"emitted_at": "2026-09-01T00:00:00-04:00", "leg": "NOISE_304",
               "event": "ENTRY", "side": "long", "ref_time": "2026-09-01T09:30:00-04:00",
               "ref_price": "700.0", "shares": "1", "reason": "", "bar_source": "yfinance",
@@ -377,10 +384,10 @@ def test_signals_csv_size_column_migrates_cleanly(tmp_path):
 
     assert cs._read_signals_header(str(path)) == old_cols
 
-    cs._migrate_signals_header(str(path), cs.SIGNAL_COLS)
+    cs._migrate_signals_header(str(path), target_cols)
 
     new_header = cs._read_signals_header(str(path))
-    assert new_header == cs.SIGNAL_COLS
+    assert new_header == target_cols
     assert new_header[-1] == "size"
 
     with open(path, encoding="utf-8", newline="") as f:
@@ -409,6 +416,61 @@ def test_signals_csv_size_column_migrates_cleanly(tmp_path):
     assert len(rows) == 2
     assert rows[1]["size"] == "1.5"
     assert rows[1]["trade_id"] == "def456"
+
+
+def test_signals_csv_keel_size_column_migrates_cleanly(tmp_path):
+    """The KEEL overlay's own trailing column (2026-09-23) migrates through the exact
+    same generic path the size column above does, one column later: a ledger written
+    after "size" existed but before "keel_size" did gains a blank keel_size, every
+    existing value (including "size" itself) is untouched, and an older reader that
+    only knows the pre-keel_size columns still reads them all correctly."""
+    import csv
+
+    path = tmp_path / "signals.csv"
+    old_cols = cs.SIGNAL_COLS[:-1]
+    assert old_cols[-1] == "size" and "keel_size" not in old_cols
+    old_row = {"emitted_at": "2026-09-20T00:00:00-04:00", "leg": "NOISE_382",
+              "event": "ENTRY", "side": "long", "ref_time": "2026-09-20T09:30:00-04:00",
+              "ref_price": "700.0", "shares": "1", "reason": "", "bar_source": "yfinance",
+              "trade_id": "xyz789", "size": "2.0"}
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=old_cols)
+        w.writeheader()
+        w.writerow(old_row)
+
+    assert cs._read_signals_header(str(path)) == old_cols
+
+    cs._migrate_signals_header(str(path), cs.SIGNAL_COLS)
+
+    new_header = cs._read_signals_header(str(path))
+    assert new_header == cs.SIGNAL_COLS
+    assert new_header[-1] == "keel_size"
+
+    with open(path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 1
+    assert rows[0]["keel_size"] == ""          # blank pad -- same convention as size/
+                                               # bar_source/trade_id before it
+    assert rows[0]["size"] == "2.0"            # untouched by the upgrade
+    assert rows[0]["trade_id"] == "xyz789"
+
+    # an "older reader" that only knows the pre-keel_size columns still reads every one
+    # correctly (DictReader keys by name).
+    with open(path, encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        old_view = [{k: r[k] for k in old_cols} for r in reader]
+    assert old_view == [old_row]
+
+    # a NEW row appended after the migration carries a real keel_size value straight
+    # through _append_signals's normal path.
+    cs._append_signals([dict(old_row, emitted_at="2026-09-21T00:00:00-04:00",
+                            trade_id="def456", size="2.7", keel_size=1.35)],
+                       {"state_dir": str(tmp_path), "signals_path": str(path)})
+    with open(path, encoding="utf-8", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 2
+    assert rows[1]["size"] == "2.7"
+    assert rows[1]["keel_size"] == "1.35"
 
 
 def test_seed_and_entry_and_exit_events_all_carry_a_size_field(tmp_path):

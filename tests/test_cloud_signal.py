@@ -376,7 +376,7 @@ def test_entry_and_exit_rows_carry_the_same_trade_id(tmp_path):
         header = f.readline().strip().split(",")
         f.seek(0)
         rows = list(csv.DictReader(f))
-    assert header == cs.SIGNAL_COLS and header[-1] == "size"
+    assert header == cs.SIGNAL_COLS and header[-1] == "keel_size"
     assert [r["event"] for r in rows] == ["SEED", "ENTRY", "EXIT"]
     assert rows[0]["trade_id"] == "" and rows[1]["trade_id"] == rows[2]["trade_id"] == want
 
@@ -437,9 +437,15 @@ def test_pre_upgrade_price_keyed_memory_is_rekeyed_and_open_trade_still_exits(tm
 
 def _old_ledger(paths):
     import csv
-    old_cols = cs.SIGNAL_COLS[:-1]
+    # two columns behind current SIGNAL_COLS -- a ledger from before EITHER "size" or
+    # "keel_size" existed (the trade_id migration this helper feeds is about the column
+    # before both of them; test_cloud_signal_trade_size.py's own
+    # test_signals_csv_size_column_migrates_cleanly and this file's
+    # test_keel_size_column_migrates_cleanly cover the two newer columns in isolation).
+    old_cols = cs.SIGNAL_COLS[:-2]
     assert old_cols == ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares",
-                        "reason", "bar_source", "trade_id"], "size must be APPENDED at the end, never inserted"
+                        "reason", "bar_source", "trade_id"], \
+        "size/keel_size must be APPENDED at the end, never inserted"
     os.makedirs(paths["state_dir"], exist_ok=True)
     with open(paths["signals_path"], "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=old_cols)
@@ -498,7 +504,7 @@ def test_header_upgrade_that_cannot_swap_in_leaves_the_ledger_untouched(tmp_path
                          "trade_id": "ORB_R6-20260914T140500Z-L"}], paths)
     with open(paths["signals_path"], encoding="utf-8", newline="") as f:
         raw = list(csv.reader(f))
-    assert raw[0] == cs.SIGNAL_COLS[:-1] and all(len(r) == len(raw[0]) for r in raw), \
+    assert raw[0] == cs.SIGNAL_COLS[:-2] and all(len(r) == len(raw[0]) for r in raw), \
         "rows appended under the old header must stay aligned with it"
     assert raw[2][1:3] == ["ORB_R6", "ENTRY"]
 

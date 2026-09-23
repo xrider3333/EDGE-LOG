@@ -820,7 +820,15 @@ TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit
               # own size/shares_wanted comment; same meaning here, captured on the lot
               # at open (_open_lot) and carried onto the closed-trade row unchanged --
               # a CLOSE never re-sizes (see _reduce_lot).
-              + ["size", "shares_wanted"])
+              + ["size", "shares_wanted"]
+              # KEEL OVERLAY (2026-09-23): appended, never inserted -- the KEEL
+              # multiplier ALONE that "size" above already includes (size =
+              # plugin_size * keel_size for a keel-scored entry -- see
+              # api/cloud_signal.py's SIGNAL_COLS "keel_size" comment). "" for a lot
+              # with no keel_size on its ENTRY signal -- no overlay on that leg, or a
+              # trade opened before this column existed -- never a guess. The web tab's
+              # trade drawer uses this to show the plugin_size x keel_size breakdown.
+              + ["keel_size"])
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
@@ -930,6 +938,9 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     row["size"] = lot.get("size") if lot.get("size") is not None else 1.0
     row["shares_wanted"] = (lot.get("shares_wanted") if lot.get("shares_wanted") is not None
                             else lot["shares_total"])
+    # KEEL OVERLAY (2026-09-23): "" (never a guessed number) for a lot with no
+    # keel_size -- no overlay on that leg, or a lot opened before this column existed.
+    row["keel_size"] = lot.get("keel_size") if lot.get("keel_size") is not None else ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -3285,7 +3296,7 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                                cfg.get("slippage_per_share", 0.0), f=None, log=log,
                                sig_dt=sig_dt, signal_source=cfg.get("signal_source"),
                                trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""),
-                               size=e.get("size"))
+                               size=e.get("size"), keel_size=e.get("keel_size"))
             _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
             _accumulate_signal(state, sig_dt or _now_et(), leg, "taken" if opened else "refused", log=log)
         elif e["event"] == "EXIT":
@@ -3355,6 +3366,27 @@ def _resolve_entry_size(raw):
     return v
 
 
+def _resolve_keel_size(raw):
+    """The KEEL multiplier ALONE, for DISPLAY only (see _open_lot's docstring and
+    TRADE_COLS' own comment) -- unlike _resolve_entry_size above, this never affects an
+    order quantity, so a value that cannot be trusted degrades to None (rendered as ""
+    on the trade row) rather than a guessed number: None/blank/unparseable/non-finite
+    all mean "nothing meaningful to show", never "1.0" (a real 1.0 is a real KEEL
+    result -- overlay ran and stood down -- and must stay visibly different from "no
+    overlay data")."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if not raw:
+            return None
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
 def _sized_shares(base_shares, size):
     """The WANTED order quantity: `base_shares` (the leg's configured share count,
     cfg["shares"][leg]) scaled by `size` (see _resolve_entry_size), rounded to the
@@ -3369,9 +3401,15 @@ def _sized_shares(base_shares, size):
 
 
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
-              sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None):
+              sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None,
+              keel_size=None):
     """Returns True if a shadow lot opened, False if refused/skipped (feature #55 needs
     to know this to tell TAKEN from REFUSED).
+
+    `keel_size` (2026-09-23): the KEEL multiplier ALONE from the ENTRY signal's own
+    "keel_size" column (blank/None for a leg with no KEEL overlay, or an older row) --
+    stored on the lot purely for display (see TRADE_COLS's own comment); it plays no
+    part in sizing the order, which is already folded into `size` above.
 
     `f` is a NinjaTrader-fill-shaped dict (ninjatrader mode) or None (engine mode --
     there is no NT fill to mirror, exactly like a rail-driven BREAKER/EOD/KILL close
@@ -3456,6 +3494,9 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         # like the NT sizing-gap fields below. _reduce_lot never reads either one; it
         # only ever closes shares_total/shares_remaining, see its own docstring.
         "shares_wanted": wanted_shares, "size": sized,
+        # KEEL OVERLAY: display-only (see this function's own docstring) -- never
+        # affects shares_total/wanted_shares above, which are already final by here.
+        "keel_size": _resolve_keel_size(keel_size),
     }
     if not trade_id and f is not None and f.get("dt") is not None:
         trade_id = _trade_id.make(f"NT_{leg}", f["dt"], side, default_tz=_NY)
@@ -4948,6 +4989,45 @@ def _build_run_location():
     return {"label": label, "host": host}
 
 
+def _build_keel_status(log=print):
+    """Best-effort read of every KEEL-overlaid leg's small JSON summary (see
+    api/cloud_signal.py's keel_paths and tools/keel_live_state.py, the nightly builder)
+    for the web tab's NOISE LEGS row (design doc G: "the state's freshness"). Returns
+    {exec_leg_key: {"version", "trained_through", "n_trades"}} -- keyed by THIS
+    module's own exec leg names (ENGINE_LEG_MAP's values, e.g. "NOISE"), not
+    cloud_signal's engine keys (e.g. "NOISE_382"), since that is what the published doc's
+    other per-leg fields (positions, cum_pnl, ...) are already keyed by. Never raises,
+    never touches the (potentially large) pickled state file itself -- only the small
+    JSON sidecar. Returns {} on any import/read failure, which the web tab already
+    treats as "no freshness data" (same null-safety as every other optional field on
+    this doc)."""
+    out = {}
+    try:
+        from . import cloud_signal as _cs
+    except Exception as e:
+        log(f"[qqq-exec] KEEL status: cloud_signal unavailable ({type(e).__name__}: {e})")
+        return out
+    for engine_key, leg_cfg in (getattr(_cs, "CROWN_LEGS", None) or {}).items():
+        keel_cfg = (leg_cfg or {}).get("keel")
+        if not keel_cfg:
+            continue
+        exec_key = ENGINE_LEG_MAP.get(engine_key, engine_key)
+        summary_path = keel_cfg.get("summary_path", "")
+        if not summary_path or not os.path.exists(summary_path):
+            continue
+        try:
+            with open(summary_path, encoding="utf-8") as f:
+                summary = json.load(f)
+            out[exec_key] = {
+                "version": summary.get("version") or keel_cfg.get("version"),
+                "trained_through": summary.get("last_nq_session"),
+                "n_trades": summary.get("n_trades"),
+            }
+        except Exception as e:
+            log(f"[qqq-exec] KEEL status unreadable for {engine_key}: {type(e).__name__}: {e}")
+    return out
+
+
 def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     orders = []
     try:
@@ -5061,6 +5141,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # LIVE POSITIONS + ACCOUNT EQUITY (2026-09-23, item 3).
     positions_live = _build_positions_live(state, cfg, log=log)
     equity = _build_equity_status(state, _now_et(), log=log)
+    keel_status = _build_keel_status(log=log)
 
     return {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
@@ -5068,6 +5149,12 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "signal_source": cfg.get("signal_source"),
         "price_status": price_status,
         "run_location": run_location,
+        # KEEL OVERLAY (2026-09-23, design doc G): {exec_leg_key: {version,
+        # trained_through, n_trades}} for every engine leg that declares a "keel"
+        # block in api/cloud_signal.py's CROWN_LEGS -- see _build_keel_status. {} (the
+        # web tab already degrades cleanly) when cloud_signal cannot be imported or no
+        # leg has one.
+        "keel": keel_status,
         "feed_stale": bool(feed_stale), "breaker_tripped": bool(state.get("breaker_tripped")),
         "px_feed_stale": bool(state.get("px_feed_stale")),
         "kill": bool(state.get("kill_done")), "calib": state.get("calib"),

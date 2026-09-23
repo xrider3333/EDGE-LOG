@@ -1,0 +1,10 @@
+[Unit]
+Description=Nightly KEEL v12 live state build (18:30 ET Mon-Fri, after the PC's 17:20 ET NQ push)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 18:30:00 America/New_York
+Persistent=true
+Unit=edgelog-keel-state.service
+
+[Install]
+WantedBy=timers.target

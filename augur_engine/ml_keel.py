@@ -632,3 +632,288 @@ def keel_block(arrays, trades, slicer, lb_start, wf0=None, wf1=None, version=DEF
         except Exception:
             pass
     return row
+
+
+# ── LIVE STATE: build once (nightly), score many (2026-09-23 KEEL-on-#382 overlay) ────────
+# THE PROBLEM. keel_walk is a batch function: hand it the WHOLE trade list, it walks it
+# chronologically and returns per-trade sizes. The live NOISE_382 leg trades QQQ, one new
+# entry at a time, and the owner's design is to score each new entry as ONE MORE TRADE
+# APPENDED to the NQ walk run #382 was judged on -- model members, refit schedule and
+# ledgers all come from the (fixed, nightly-rebuilt) NQ history; only the new trade's own
+# feature row and its Friday/compression/FOMC inputs come from the live QQQ side. Re-running
+# keel_walk over the full NQ history on every live entry would refit the ensemble from
+# scratch every time (seconds each) and cannot even accept a QQQ feature row in the first
+# place (X is built from ONE arrays/keel_features call). These two functions split
+# keel_walk's own loop body into "everything that only depends on the NQ trades already
+# resolved" (build) and "everything that depends on the ONE new trade" (score), without
+# changing one line of keel_walk itself -- see tests/test_ml_keel_state.py for the proof
+# that the split reproduces keel_walk's own numbers to 1e-12 at many cut points, including
+# a refit boundary, a shade case, a Friday, a compressed bar and an FOMC morning.
+#
+# WHY A SEPARATE _maybe_refit HELPER. keel_build_state bakes in "the refit due for the
+# NEXT trade" at build time (nd = every trade in the state, since a live trade is always
+# chronologically AFTER the whole NQ history that trained it) -- this is what makes
+# scoring many live trades against one nightly state cheap: the expensive sklearn fit
+# happens once, at build time, not once per live entry. keel_score_from_state calls the
+# SAME helper again with the nd/ledger it actually computes for the trade being scored,
+# which is a no-op whenever that nd matches build time's (always true for a live QQQ
+# trade; also true for a same-series NQ trade UNLESS an earlier trade's exit lands on
+# EXACTLY the same bar as this trade's entry -- verified absent from the real run #382
+# walk, see tools/keel_live_state.py's build log, but handled correctly either way
+# because both call sites share this one function).
+def _maybe_refit(sc, members, fitted_on, n_fits, X, P, led, nd, seed, cfg):
+    """One refit-or-not decision, byte-identical to the check keel_walk makes inside its
+    own per-trade loop (`if members is None or (nd - fitted_on) >= REFIT_EVERY`). `X`/`P`
+    are the FULL training feature matrix / pnl array; `led` are the indices (into X/P)
+    of the trades resolved before the trade about to be scored, `nd = len(led)`. Returns
+    (sc, members, fitted_on, n_fits) -- unchanged unless a refit fired."""
+    if members is None or (nd - fitted_on) >= REFIT_EVERY:
+        age = (nd - 1 - np.arange(nd)).astype(float)
+        w = np.exp(-age / TAU)
+        sc, members = _fit_members(X[led], P[led], w, seed, target=cfg["target"], use=cfg["members"])
+        return sc, members, nd, n_fits + 1
+    return sc, members, fitted_on, n_fits
+
+
+def keel_build_state(arrays, trades, feats=None, seed=SEED, trust_mode="skill", version=DEFAULT_VERSION):
+    """Walk `trades` exactly as keel_walk does (same sort, same warm-up, same refit
+    cadence, same recency weights) and return the END STATE: the fitted scaler/members
+    as the walk would hold them going into the VERY NEXT trade -- one that has not
+    happened yet, so by construction every trade already in `trades` is resolved before
+    it -- plus the ledgers (per-member z, combined z, pnl) `keel_score_from_state` needs
+    to score that next trade with byte-identical math, and the feature matrix so a refit
+    can be repeated later (score_from_state re-checks the refit condition rather than
+    trusting this bake-in blindly -- see _maybe_refit's docstring).
+
+    Nothing here mutates or re-implements keel_walk's math with different arithmetic:
+    every expression below is copied from keel_walk's own loop body. This function may
+    NOT change keel_walk's own outputs (it is not called from there), and adding it
+    changes no existing behaviour -- see tests/test_ml_keel_state.py's dedicated
+    "keel_walk unchanged" regression check.
+    """
+    cfg = CFG[version]
+    W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
+    fast = cfg.get("fast")
+    shade = cfg.get("shade")
+    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in trades], key=lambda t: t[0])
+    E = np.array([t[0] for t in T], dtype=np.int64)
+    Xi = np.array([t[1] for t in T], dtype=np.int64)
+    P = np.array([t[2] for t in T], dtype=float)
+    n = len(T)
+    F, names = feats if feats is not None else keel_features(arrays)
+    X = F[np.clip(E, 0, len(F) - 1)]
+    z = np.full(n, np.nan); trust = np.zeros(n); rho = np.full(n, np.nan)
+    zm = {k: np.full(n, np.nan) for k in ("logit", "et", "huber")}
+    tm = {k: np.zeros(n) for k in ("logit", "et", "huber")}
+    sc = members = None; fitted_on = -1; n_fits = 0
+    for k in range(n):
+        done = Xi[:k] < E[k]
+        nd = int(done.sum())
+        if nd < MIN_HISTORY:
+            continue
+        idx = np.where(done)[0]
+        sc, members, fitted_on, n_fits = _maybe_refit(sc, members, fitted_on, n_fits,
+                                                       X, P, idx, nd, seed, cfg)
+        zs = _predict_z(sc, members, X[k:k + 1])
+        for kk, v in zs.items():
+            zm[kk][k] = v
+        led = idx
+        if cfg["stack"] == "equal":
+            z[k] = float(np.mean(list(zs.values())))
+        else:
+            num = 0.0; den = 0.0
+            for kk, v in zs.items():
+                t_m, _, _ = _trust(zm[kk][led], P[led], W, t_lo, t_hi, ledger) if len(led) else (0.0, np.nan, 0.0)
+                tm[kk][k] = t_m
+                num += t_m * v; den += t_m
+            z[k] = float(num / den) if den > 0 else 0.0
+        if trust_mode == "skill":
+            tr, rh, _ = _trust(z[led], P[led], W, t_lo, t_hi, ledger) if len(led) else (0.0, np.nan, 0.0)
+            if cfg["stack"] != "equal" and den <= 0:
+                tr = 0.0
+        else:
+            tr, rh = 1.0, np.nan
+        t_fast = None
+        if fast and len(led) and (tr > 0 or shade):
+            _, _, t_fast = _trust(z[led], P[led], fast["W"], 0.0, 1.0, ledger)
+            tr *= float(np.clip((t_fast - fast["lo"]) / (fast["hi"] - fast["lo"]), 0.0, 1.0))
+        trust[k] = tr; rho[k] = rh
+    # Bake in the refit due for the NEXT trade (production semantics: a live trade is
+    # always chronologically after the whole NQ history that trained it, so its ledger
+    # is every trade already in `trades` -- nd = n, led = arange(n)). Guarded by
+    # MIN_HISTORY exactly like keel_walk's own per-trade loop -- with n < MIN_HISTORY
+    # (state built from too few trades, e.g. an empty or near-empty prefix in the
+    # exactness self-test) there is nothing to fit yet, and _fit_members raises on an
+    # empty slice.
+    trust_now, t_fast_now = 0.0, None
+    if n >= MIN_HISTORY:
+        led_next = np.arange(n)
+        sc, members, fitted_on, n_fits = _maybe_refit(sc, members, fitted_on, n_fits,
+                                                       X, P, led_next, n, seed, cfg)
+        # Informational only (JSON summary / status fields, e.g. tools/keel_live_state.py)
+        # -- the skill trust the ledger would offer the next trade before that trade's OWN
+        # ensemble weighting (den) is known. Never used inside keel_score_from_state's own
+        # arithmetic -- that recomputes tr from scratch per trade, exactly like keel_walk.
+        trust_now, _rho_now, _ = _trust(z[led_next], P[led_next], W, t_lo, t_hi, ledger)
+        if fast:
+            _, _, t_fast_now = _trust(z[led_next], P[led_next], fast["W"], 0.0, 1.0, ledger)
+    return {"version": version, "seed": seed, "trust_mode": trust_mode, "cfg": cfg,
+            "sc": sc, "members": members, "fitted_on": fitted_on, "n_fits": n_fits,
+            "trust_now": float(trust_now),
+            "t_fast_now": (float(t_fast_now) if t_fast_now is not None else None),
+            "n": n, "E": E, "Xi": Xi, "X": X, "P": P, "z": z, "z_members": zm,
+            "trust": trust, "rho": rho, "feature_names": names}
+
+
+def keel_score_from_state(state, arrays, entry_bar, x_row=None, feats=None, cross_series=True):
+    """Score ONE trade appended to the walk `state` (from keel_build_state) summarises,
+    reusing its fitted scaler/members and ledgers, and reading the NEW trade's own inputs
+    -- feature row, weekday, FOMC/compression bit -- from `arrays`/`entry_bar` (design
+    doc B: "the trade's own feature row from keel_features on the QQQ arrays the leg
+    already uses, at the trade's entry index; Friday / FOMC / compression multipliers
+    from that QQQ row and timestamp").
+
+    `cross_series=True` (the live/production default): every trade in `state` counts as
+    resolved (a live QQQ entry is always chronologically after the whole NQ history that
+    trained the state) -- cheap, no ledger filtering, matches keel_build_state's own
+    end-of-walk bake-in exactly so no refit repeats itself on every live score call.
+    `cross_series=False` is the EXACTNESS SELF-TEST path: `entry_bar` is then a bar index
+    into the SAME arrays/series `state` was built from (state["Xi"] and `entry_bar` are
+    directly comparable), and the ledger is correctly restricted to
+    `state["Xi"] < entry_bar` -- keel_walk's own strict-less-than "resolved before this
+    trade's entry" rule -- so the two functions agree with keel_walk trade-for-trade even
+    at a boundary where an earlier trade has not yet exited (none exist in the real
+    run #382 walk -- verified empirically, zero overlaps and zero same-bar reversals over
+    4,825 trades -- but this is correct either way, not merely on that one series).
+
+    `x_row`: the new trade's own (1, n_features) row, already sliced at `entry_bar` (from
+    keel_features(arrays)) -- pass this when scoring many live trades against the SAME
+    arrays object to skip recomputing keel_features every call. `feats` (that (F, names)
+    pair) does the slicing here instead. Neither given -> computes keel_features(arrays)
+    itself (fine for a test or a one-off call, wasteful in a hot loop).
+
+    Returns (size, diag): `size` is the final KEEL multiplier, proven byte-identical (to
+    1e-12) to keel_walk(...)['size'][k] when `state` = keel_build_state(arrays,
+    trades[:k]) and this call scores trades[k] on the SAME arrays with cross_series=False
+    -- see tests/test_ml_keel_state.py. `diag` (z / trust / rho / t_fast / nd / a refit
+    flag) is for logging only, never required for `size` to be correct.
+    """
+    version = state["version"]
+    cfg = state.get("cfg") or CFG[version]
+    W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
+    K, lo, hi = cfg.get("K", K_MAX), cfg.get("LO", LO), cfg.get("HI", HI)
+    fast = cfg.get("fast")
+    shade = cfg.get("shade")
+    names = state["feature_names"]
+    entry_bar = int(entry_bar)
+
+    if x_row is None:
+        F, feat_names = feats if feats is not None else keel_features(arrays)
+        if list(feat_names) != list(names):
+            raise ValueError("keel_score_from_state: feature columns %r do not match the "
+                             "state's own %r" % (list(feat_names), list(names)))
+        row = int(np.clip(entry_bar, 0, len(F) - 1))
+        x_row = F[row:row + 1]
+
+    if cross_series:
+        led = np.arange(state["n"])
+    else:
+        led = np.where(state["Xi"] < entry_bar)[0]
+    nd = int(len(led))
+
+    size = 1.0
+    diag = {"z": float("nan"), "trust": 0.0, "rho": float("nan"), "t_fast": None,
+           "z_members": {}, "nd": nd, "refit": False, "n_fits": state["n_fits"]}
+
+    if nd >= MIN_HISTORY:
+        sc, members, fitted_on, n_fits = _maybe_refit(
+            state["sc"], state["members"], state["fitted_on"], state["n_fits"],
+            state["X"], state["P"], led, nd, state["seed"], cfg)
+        diag["refit"] = n_fits != state["n_fits"]
+        diag["n_fits"] = n_fits
+
+        zs = _predict_z(sc, members, x_row)
+        diag["z_members"] = zs
+        P_led = state["P"][led]
+        if cfg["stack"] == "equal":
+            z_new = float(np.mean(list(zs.values())))
+            den = 1.0
+        else:
+            num = 0.0; den = 0.0
+            for kk, v in zs.items():
+                t_m, _, _ = _trust(state["z_members"][kk][led], P_led, W, t_lo, t_hi, ledger)
+                num += t_m * v; den += t_m
+            z_new = float(num / den) if den > 0 else 0.0
+        tr, rh, _ = _trust(state["z"][led], P_led, W, t_lo, t_hi, ledger)
+        if cfg["stack"] != "equal" and den <= 0:
+            tr = 0.0
+        t_fast = None
+        if fast and (tr > 0 or shade):
+            _, _, t_fast = _trust(state["z"][led], P_led, fast["W"], 0.0, 1.0, ledger)
+            tr *= float(np.clip((t_fast - fast["lo"]) / (fast["hi"] - fast["lo"]), 0.0, 1.0))
+        diag.update({"z": z_new, "trust": tr, "rho": rh, "t_fast": t_fast})
+        if shade and t_fast is not None and t_fast < shade["t"] and z_new != 0:
+            size = float(np.clip(1.0 - shade["k"] * z_new, shade["lo"], shade["hi"]))
+        else:
+            size = float(np.clip(1.0 + K * tr * z_new, lo, hi))
+    # a-priori multipliers, applied in keel_walk's own order (dow -> comp -> event) and
+    # UNCONDITIONALLY -- keel_walk applies these to the whole `size` array, including
+    # trades still in warm-up (nd < MIN_HISTORY), so this runs whether or not the model
+    # branch above fired.
+    dow = cfg.get("dow")
+    if dow:
+        wd = int(pd.DatetimeIndex(arrays["index"])[np.clip(entry_bar, 0, len(arrays["index"]) - 1)]
+                .dayofweek)
+        size = min(size * float(dow.get(str(wd), 1.0)), float(dow.get("cap", 3.0)))
+    comp = cfg.get("comp")
+    if comp and comp["feature"] in names:
+        on = bool(x_row[0, names.index(comp["feature"])] > 0)
+        size = min(size * float(comp["mult"]) if on else size, float(comp.get("cap", 3.0)))
+    ev = cfg.get("event")
+    if ev:
+        _pre = bool(pre_statement_mask(arrays, np.array([entry_bar]), ev.get("cut_hour", 14))[0])
+        if ev.get("bls") and not _pre:
+            _pre = bool(pre_release_mask(arrays, np.array([entry_bar]))[0])
+        if _pre:
+            size = size * float(ev.get("mult", 0.5))
+    return float(size), diag
+
+
+def keel_state_summary(state, arrays=None, extra=None):
+    """Plain-JSON-safe summary of a keel_build_state() result -- the sidecar
+    tools/keel_live_state.py writes next to the pickled state, and (a minimal read of)
+    what api/cloud_signal.py may surface on its published status (design doc E/G): no
+    numpy types, no sklearn objects, no arrays. `arrays` (optional): the same series
+    `state` was built from, to report the calendar date of its last trade -- omit it to
+    get a summary with `last_nq_session` left null (state alone knows only bar
+    indices, not calendar dates). `extra`: caller-supplied fields merged in last (e.g.
+    nq_file_hash, build_seconds, nq_file_path) -- never overwritten by this function's
+    own keys, so a caller cannot accidentally shadow (or be shadowed by) them; pass a
+    dict without those collisions.
+    """
+    import sklearn
+    last_session = None
+    if arrays is not None and state["n"] > 0:
+        try:
+            idx = pd.DatetimeIndex(arrays["index"])
+            last_bar = int(max(state["Xi"].max(), state["E"].max()))
+            last_session = str(idx[min(last_bar, len(idx) - 1)].date())
+        except Exception:
+            last_session = None
+    out = {
+        "version": state["version"],
+        "n_trades": int(state["n"]),
+        "last_nq_session": last_session,
+        "trust_now": state.get("trust_now"),
+        "t_fast_now": state.get("t_fast_now"),
+        "n_fits": int(state["n_fits"]),
+        "fitted_on_trade_index": int(state["fitted_on"]),
+        "has_model": state.get("sc") is not None and bool(state.get("members")),
+        "feature_names": list(state["feature_names"]),
+        "sklearn_version": sklearn.__version__,
+        "numpy_version": np.__version__,
+        "pandas_version": pd.__version__,
+    }
+    for k, v in (extra or {}).items():
+        out.setdefault(k, v)
+    return out

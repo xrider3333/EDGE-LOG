@@ -123,7 +123,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -137,6 +137,8 @@ sudo systemctl daemon-reload
 # The paper book's two services are ENABLED (start on boot) but not started here, so the
 # owner copies secrets and reviews rails/mode before either can place a single order.
 sudo systemctl enable edgelog-qqq-exec.service edgelog-cloud-signal.service
+# KEEL v12 nightly state build (needs the NQ master the PC pushes into ${EDGELOG_HOME}/nq/).
+sudo systemctl enable edgelog-keel-state.timer
 # The job runner does NOT run on this box (2026-09-21 -- api/runner.py refuses on
 # EDGELOG_HOST_ROLE=cloud; see _cloud_runner_refusal there for what went wrong when one
 # did). Its unit is still installed so the refusal is logged if anyone starts it, but it
