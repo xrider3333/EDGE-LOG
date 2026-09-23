@@ -72,6 +72,45 @@ adequate for this first cut (status/reconcile are called on demand, not on a tig
 loop) and avoids a second long-lived connection per mode; revisit if fill latency
 against the shadow book's own price ever matters enough to justify it.
 
+ORDER NETTING (2026-09-24, "three legs, one Webull account"). Every leg calling this
+adapter (ORB/ENGUQ/NOISE, all trading QQQ) shares ONE Webull margin paper account, and
+Webull holds exactly ONE position per symbol -- it has no idea a "leg" exists. Before
+this, a leg's own SELL/SHORT/BUY request went straight to the broker as that literal
+side, so two legs that disagreed (one long, one wanting short) collided: Webull refused
+the second one with HTTP 417 (OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION -- "close your
+existing long positions... before placing a short order"), and the book recorded a trade
+Webull never held. place_stock_order (PAPER/LIVE only -- OFF never talks to a broker, so
+there is nothing to net against) now plans the ACTUAL broker order(s) from the ACCOUNT's
+current net position for that symbol (_account_net -- the sum of every leg's
+broker_sent_positions, the same "what actually reached the broker" book reconcile()
+trusts, never believed_positions) rather than the leg's own literal side:
+
+  * a SELL-direction request (a long leg closing, or a short leg opening) sends SELL
+    while the account has enough long to absorb it, SHORT once the account is at or
+    below flat, and SPLITS into SELL-the-rest-of-the-long + SHORT-the-remainder when
+    the requested qty would cross through zero;
+  * a BUY-direction request (a long leg opening, or a short leg closing) sends a plain
+    BUY, unless the account is short by less than the requested qty, in which case it
+    SPLITS into BUY-to-flat + BUY-the-remainder.
+
+See _plan_broker_parts for the exact boundary rules and GUESSED BEHAVIOUR below for why
+splitting exists at all. Every per-leg protection (max_shares_per_leg, the nothing-to-
+close guard, one_open_position_per_leg, the daily-loss/session/kill-file rails) is
+evaluated ONCE, before any of this, against the leg's own requested qty exactly as
+before -- netting only changes what gets SENT, never what gets ALLOWED. One
+place_stock_order call is always ONE returned record (see its own docstring for the
+`parts` field this adds), regardless of how many broker orders it took.
+
+GUESSED BEHAVIOUR (no live sandbox to confirm against, per this module's own standing
+disclaimer -- flagging per this feature's own build note): Webull's docs do not say
+whether a single order that would cross an account from short to long (or long to
+short) is accepted as one order or refused the way a same-direction crossing is
+documented to be (the 417 above). This module assumes the WORSE case -- that crossing
+zero in one order is never safe -- and always splits at the zero point instead of
+finding out by sending the risky single order. If Webull actually accepts a
+crossing order fine, this is one harmless extra API call per crossing event, not a
+correctness bug.
+
 RAILS (enforced inside this adapter in EVERY mode, including OFF -- a blocked order
 is recorded with mode="BLOCKED" and never reaches the mode dispatch below it):
 max shares per leg, max total believed position (shares, summed across legs), a daily
@@ -525,6 +564,71 @@ def _sanitize_client_order_id(signal_id):
     return "sig" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:CLIENT_ORDER_ID_MAX - 3]
 
 
+# ── ORDER NETTING (2026-09-24) -- see the module docstring's ORDER NETTING section for
+# why this exists. Both helpers are pure/stateless (no self, no I/O) so the split
+# arithmetic and the id scheme can be tested directly, with no adapter/state/SDK at all.
+
+def _plan_broker_parts(net, direction, qty):
+    """The broker order(s) that implement a `direction`-qty request for one symbol,
+    given the ACCOUNT's current net position `net` for that symbol (see _account_net --
+    the sum of every leg's broker_sent_positions, not this one leg's own belief).
+    Returns a list of (side, qty) tuples, side in ORDER_SIDES, each qty a positive int,
+    in the order they must be sent; a plain (unsplit) request comes back as a
+    single-element list.
+
+    `direction` is "SELL" for a SELL-direction request (a long leg closing, or a short
+    leg opening -- both move the account toward more negative) or "BUY" for a
+    BUY-direction request (a long leg opening, or a short leg closing -- both move it
+    toward more positive). This is deliberately NOT the same thing as the leg's own
+    literal side (SELL vs SHORT, BUY vs BUY) -- see the module docstring: Webull has one
+    position per symbol, so what matters is only which way this request pushes it and
+    by how much, never which of SELL/SHORT the leg itself asked for.
+
+      SELL-direction qty:
+        net >= qty       -> [("SELL", qty)]            -- enough long to absorb it
+        net <= 0         -> [("SHORT", qty)]            -- already flat or short
+        0 < net < qty    -> [("SELL", net), ("SHORT", qty - net)]   -- crosses zero
+
+      BUY-direction qty:
+        net < 0 and qty > -net -> [("BUY", -net), ("BUY", qty - (-net))]  -- crosses zero
+        otherwise               -> [("BUY", qty)]
+
+    See the module docstring's GUESSED BEHAVIOUR paragraph for why a crossing request is
+    always split rather than sent as one order that happens to cross through zero."""
+    qty = int(round(qty))
+    if qty <= 0:
+        return []
+    if direction == "SELL":
+        if net >= qty:
+            return [("SELL", qty)]
+        if net <= 0:
+            return [("SHORT", qty)]
+        net_i = int(round(net))
+        return [("SELL", net_i), ("SHORT", qty - net_i)]
+    # BUY-direction.
+    if net < 0 and qty > -net:
+        cover = int(round(-net))
+        return [("BUY", cover), ("BUY", qty - cover)]
+    return [("BUY", qty)]
+
+
+def _part_client_order_id(base, index, total):
+    """client_order_id for one broker part of a place_stock_order call. Returned AS-IS
+    (`base`, the same id a non-split order has always used) when `total` <= 1 -- a leg
+    event that does not collide with another leg's position sends the EXACT id it
+    always has, byte for byte. A real split gets a distinct, deterministic id per part
+    ("-1", "-2", ...) truncated to fit Webull's documented 32-character max (see
+    CLIENT_ORDER_ID_MAX) -- `base` is already <= 32 chars (_sanitize_client_order_id's
+    own contract), so trimming a couple of characters off it to make room for the
+    suffix still leaves it effectively unique (the base is either the caller's own
+    short id or a sha1 hash -- losing its last 2-3 hex digits does not create
+    collisions in practice)."""
+    if total <= 1:
+        return base
+    suffix = f"-{index}"
+    return base[:max(0, CLIENT_ORDER_ID_MAX - len(suffix))] + suffix
+
+
 def _now_ny():
     return datetime.now(_NY) if _NY else datetime.utcnow()
 
@@ -899,16 +1003,20 @@ class OrderAdapter:
         self._save_state()
 
     def _apply_intent_to_sent(self, leg, symbol, side, qty, account_id, intent):
-        """Tracks ONLY orders that actually reached the broker with a successful ack
-        (PAPER/LIVE, record["ok"] True) -- called from the SAME place_stock_order tail
-        as _apply_intent_to_belief above, which by construction is only reachable once
-        mode is PAPER or LIVE (the OFF branch returns earlier). Kept as a SEPARATE
-        dict from believed_positions (which also absorbs OFF-mode would-be orders)
-        because reconcile() must compare the broker's real position against what this
-        adapter actually SENT it, not against a belief that includes phantom OFF-mode
-        fills -- comparing against believed_positions would false-positive the moment
-        the config flips from OFF to PAPER/LIVE with any OFF-era belief still on the
-        books. See reconcile()'s own docstring."""
+        """Tracks ONLY orders that actually reached the broker with a successful ack.
+        Called once per ACCEPTED broker part (ORDER NETTING, 2026-09-24 -- see
+        place_stock_order and _plan_broker_parts) with that part's own side/qty, so a
+        leg event split into several broker orders moves this book by exactly the
+        parts that were accepted, never the whole requested qty when one part was
+        refused. `side` here is the part's REAL broker-facing side (SELL/SHORT/BUY),
+        which is why the sign below is exactly right even when it differs from the
+        leg's own literal request. Kept as a SEPARATE dict from believed_positions
+        (which also absorbs OFF-mode would-be orders, in one shot, from the leg's own
+        requested qty) because both reconcile() and _account_net()'s own netting math
+        must compare against what this adapter actually SENT the broker, not a belief
+        that includes phantom OFF-mode fills -- comparing against believed_positions
+        would false-positive the moment the config flips from OFF to PAPER/LIVE with
+        any OFF-era belief still on the books. See reconcile()'s own docstring."""
         positions = self._state.setdefault("broker_sent_positions", {})
         signed = qty if side == "BUY" else -qty  # SELL and SHORT both reduce/short
         cur = positions.get(leg, {"symbol": symbol, "qty": 0, "account_id": account_id})
@@ -917,6 +1025,34 @@ class OrderAdapter:
         cur["account_id"] = account_id
         positions[leg] = cur
         self._save_state()
+
+    def _account_net(self, symbol, account_id=None):
+        """The account-level net position Webull actually holds (as far as this
+        adapter's own record of what reached the broker goes) for `symbol` RIGHT NOW --
+        the sum of every leg's broker_sent_positions qty for that symbol. This is what
+        ORDER NETTING plans against (_plan_broker_parts): Webull has exactly one
+        position per symbol shared by every leg trading it, so no single leg's own
+        belief means anything to the broker -- only this sum is real, mirroring
+        reconcile()'s own `sent` computation (broker_sent_positions, never
+        believed_positions -- see _apply_intent_to_sent's docstring for why).
+
+        `account_id`, when given, restricts the sum to lots sent under that SAME
+        account (a lot recorded under a different one -- e.g. a stale entry from
+        before an account reset -- must never be netted against a different account's
+        real position), the same per-account discipline reconcile() already applies to
+        this same dict."""
+        sent = self._state.get("broker_sent_positions") or {}
+        total = 0.0
+        want_symbol = str(symbol).upper()
+        for p in sent.values():
+            if not isinstance(p, dict):
+                continue
+            if str(p.get("symbol", "")).upper() != want_symbol:
+                continue
+            if account_id is not None and p.get("account_id") not in (None, account_id):
+                continue
+            total += float(p.get("qty", 0) or 0)
+        return total
 
     def update_daily_pnl(self, delta):
         """Caller (the strategy / a fills sync) reports realized+open P&L deltas here
@@ -947,7 +1083,25 @@ class OrderAdapter:
         Validates side/order_type/tif against the local ORDER_SIDES/ORDER_TYPES/
         ORDER_TIFS mirrors (see their module-level comment) rather than importing the
         SDK's enums here -- this runs on EVERY call, including OFF mode, so it must
-        never be the thing that imports webull."""
+        never be the thing that imports webull.
+
+        ORDER NETTING (2026-09-24, PAPER/LIVE only -- see the module docstring's ORDER
+        NETTING section): `side`/`qty` describe what THIS LEG wants, not necessarily
+        what gets sent -- the actual broker order(s) are planned from the ACCOUNT's
+        current net position for `symbol` (_account_net / _plan_broker_parts), because
+        Webull holds one position per symbol shared by every leg. One call here is
+        always ONE record, whatever that plan takes to execute: `record["parts"]` is a
+        list of {side, qty, client_order_id, ok, sent, reason, response}, one per
+        broker order actually attempted (length 1 for the common, non-colliding case --
+        same client_order_id as always, see _part_client_order_id). `record["ok"]` is
+        True only when EVERY part was accepted; a partial (some parts ok, some refused)
+        sets `record["partial"] = True` and still moves broker_sent_positions/
+        believed_positions by exactly the ACCEPTED parts, never the refused ones --
+        never gated on the call's overall ok. `record["side"]`/`record["qty"]` keep
+        their existing meaning (the leg's own request), even when the actual part(s)
+        used a different broker-facing side (e.g. a leg's own "SELL" sent as SHORT
+        because the account was already flat) -- read `record["parts"]` for what
+        actually happened at the broker."""
         side = str(side).upper()
         intent = str(intent).upper()
         order_type = str(order_type).upper()
@@ -1038,21 +1192,90 @@ class OrderAdapter:
 
             try:
                 account_id = account_id or self._account_id(mode, client)
-                # v3 order dict (see module docstring, ORDER API VERSION): symbol-keyed, no
-                # instrument_id lookup needed. quantity/limit_price go over as STRINGS per
-                # the documented getting-started sample.
-                new_order = {
-                    "combo_type": "NORMAL", "client_order_id": coid, "symbol": symbol,
-                    "instrument_type": "EQUITY", "market": market, "order_type": order_type,
-                    "quantity": str(qty), "support_trading_session": "CORE", "side": side,
-                    "time_in_force": tif, "entrust_type": "QTY",
-                }
-                if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT", "AT_AUCTION_LIMIT") \
-                        and limit_price is not None:
-                    new_order["limit_price"] = str(limit_price)
-                resp = client.order_v3.place_order(account_id, [new_order])
-                record.update(ok=True, sent=True, account_id=account_id,
-                              response=_safe_response(resp))
+
+                # ORDER NETTING (2026-09-24): plan the REAL broker order(s) for this
+                # request from the account's current net position, not the leg's own
+                # literal side -- see the module docstring's ORDER NETTING section and
+                # _plan_broker_parts. direction collapses SELL/SHORT (both push the
+                # account toward more negative) onto "SELL", and BUY (which always
+                # pushes toward more positive, whether opening long or covering a
+                # short) onto "BUY" -- see _plan_broker_parts for why that collapse is
+                # exactly what Webull's single shared position needs.
+                net_before = self._account_net(symbol, account_id)
+                direction = "BUY" if side == "BUY" else "SELL"
+                parts_plan = _plan_broker_parts(net_before, direction, qty)
+                if not parts_plan:
+                    # qty rounded to <= 0 (should not happen -- every real caller
+                    # guards qty > 0 upstream; see api/qqq_exec.py's _mirror_to_broker)
+                    # -- degrade to the pre-netting shape rather than sending nothing
+                    # silently and calling it ok.
+                    parts_plan = [(side, int(round(qty)))]
+
+                parts = []
+                for i, (part_side, part_qty) in enumerate(parts_plan, start=1):
+                    part_coid = _part_client_order_id(coid, i, len(parts_plan))
+                    # v3 order dict (see module docstring, ORDER API VERSION): symbol-keyed,
+                    # no instrument_id lookup needed. quantity/limit_price go over as
+                    # STRINGS per the documented getting-started sample.
+                    new_order = {
+                        "combo_type": "NORMAL", "client_order_id": part_coid, "symbol": symbol,
+                        "instrument_type": "EQUITY", "market": market, "order_type": order_type,
+                        "quantity": str(part_qty), "support_trading_session": "CORE",
+                        "side": part_side, "time_in_force": tif, "entrust_type": "QTY",
+                    }
+                    if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT",
+                                      "AT_AUCTION_LIMIT") and limit_price is not None:
+                        new_order["limit_price"] = str(limit_price)
+                    try:
+                        resp = client.order_v3.place_order(account_id, [new_order])
+                        part_rec = {"side": part_side, "qty": part_qty,
+                                   "client_order_id": part_coid, "ok": True, "sent": True,
+                                   "reason": "", "response": _safe_response(resp)}
+                    except Exception as e:
+                        part_rec = {"side": part_side, "qty": part_qty,
+                                   "client_order_id": part_coid, "ok": False, "sent": True,
+                                   "reason": f"{type(e).__name__}: {e}", "response": None}
+                        self.log(f"  [webull-orders] {mode} place_order FAILED for {symbol} "
+                                 f"{part_side} {part_qty} (leg {leg}"
+                                 + (f", part {i}/{len(parts_plan)}" if len(parts_plan) > 1 else "")
+                                 + f"): {part_rec['reason']}")
+                    parts.append(part_rec)
+                    # Apply belief/sent bookkeeping per ACCEPTED part, immediately -- a
+                    # part refused later in the same call must never roll back a part
+                    # that already succeeded, and a part accepted later must still
+                    # count even if an earlier one in this same call was refused. See
+                    # _apply_intent_to_sent's docstring.
+                    if part_rec["ok"]:
+                        self._apply_intent_to_belief(leg, symbol, part_side, part_qty, intent)
+                        self._apply_intent_to_sent(leg, symbol, part_side, part_qty,
+                                                   account_id, intent)
+
+                all_ok = all(p["ok"] for p in parts)
+                record.update(ok=all_ok, sent=True, account_id=account_id, parts=parts)
+                if not all_ok:
+                    # Keep the status panel's "last error" honest: before netting, a failed
+                    # place_order raised into the outer except below, which set _last_error;
+                    # each part now catches its own failure, so record it here instead.
+                    self._last_error = next((p["reason"] for p in parts if not p["ok"]), None)
+                if len(parts) == 1:
+                    # Exactly today's shape when there was nothing to net against.
+                    record["response"] = parts[0]["response"]
+                    if not all_ok:
+                        record["error"] = parts[0]["reason"]
+                else:
+                    accepted_qty = sum(p["qty"] for p in parts if p["ok"])
+                    detail = "; ".join(
+                        f"{p['side']} {p['qty']}" + ("" if p["ok"] else f" REFUSED ({p['reason']})")
+                        for p in parts)
+                    record["reason"] = (f"netted against account position {net_before:g}: split "
+                                        f"into {len(parts)} broker orders ({detail})")
+                    if all_ok:
+                        self.log(f"  [webull-orders] {mode} {symbol} {direction}-direction "
+                                 f"{qty} (leg {leg}) split on account net {net_before:g}: {detail}")
+                    else:
+                        record["partial"] = accepted_qty > 0
+                        self.log(f"  [webull-orders] {mode} PARTIAL for {symbol} (leg {leg}, "
+                                 f"intent {intent}): {record['reason']}")
             except Exception as e:
                 record.update(ok=False, sent=True, error=f"{type(e).__name__}: {e}")
                 self._last_error = record["error"]
@@ -1060,12 +1283,6 @@ class OrderAdapter:
                          f"{side} {qty} (leg {leg}): {record['error']}")
 
             self._record_order(coid, record)
-            if record.get("ok"):
-                self._apply_intent_to_belief(leg, symbol, side, qty, intent)
-                # RECONCILE HARDENING (2026-09-14): only the "actually sent" side --
-                # see _apply_intent_to_sent's docstring for why this is a separate
-                # dict from believed_positions.
-                self._apply_intent_to_sent(leg, symbol, side, qty, record.get("account_id"), intent)
             self._last_order = record
             return record
 

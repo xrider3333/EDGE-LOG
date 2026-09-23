@@ -1094,6 +1094,16 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                       trade_id=None, resend=0, requeue=True, log=print):
     """Call after the shadow's own order/trade row is already recorded. Never raises.
 
+    ORDER NETTING (2026-09-24): the three legs share ONE Webull account, and
+    webull_orders.OrderAdapter.place_stock_order plans the real broker order(s) for
+    `side`/`shares` from the ACCOUNT's current net position, not this leg's own literal
+    side -- see that function's own docstring. This function still only ever sees ONE
+    record back (`rec`) whatever that took, and still writes ONE broker_orders.csv row
+    per call, keyed by `signal_id` exactly as before: `rec["parts"]` (when there is more
+    than one -- the ordinary case is exactly one) is what actually reached Webull, and
+    is passed through to _queue_broker_fill_capture so a colliding leg event still ends
+    up with a single, quantity-weighted broker_fill_px on its own row.
+
     CROSS-HOST LEASE GATE (2026-09-14, "fail CLOSED once real orders can flow"): before
     actually sending, checks state["_broker_lease_ok"] -- set ONCE PER TICK by tick()'s
     call into _check_lease_for_broker (see that function's docstring for what "ok" means)
@@ -1184,8 +1194,17 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         # inline query at this exact call site was wrong (asked before a fill existed,
         # and risked stalling the next leg's send). This call only writes into
         # state -- no network, cannot block or raise into this tick.
+        # ORDER NETTING (2026-09-24): a leg event that collided with another leg's
+        # position may have gone out as more than one broker order (see
+        # api.webull_orders.place_stock_order's own docstring, `record["parts"]`) --
+        # only pass `parts` through when there is genuinely more than one, so a plain
+        # (non-colliding, still the overwhelming majority) send keeps queuing a job
+        # shaped exactly like it always has (see _queue_broker_fill_capture's own
+        # backward-compatibility note).
+        rec_parts = rec.get("parts")
         _queue_broker_fill_capture(state, leg=leg, intent=intent, signal_id=signal_id,
                                    account_id=rec.get("account_id"), shadow_px=shadow_px,
+                                   parts=rec_parts if rec_parts and len(rec_parts) > 1 else None,
                                    log=log)
     if rec.get("mode") in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
         # BROKER RECONCILE (2026-09-14, FIX 2): a real send was just attempted (ok or
@@ -1203,6 +1222,18 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     if rec.get("nothing_to_close"):
         msg = (f"QQQ BROKER: {leg} closed in the book, but Webull never held it (its buy "
                f"never went through) -- no sell sent, Webull stays flat for {leg}")
+        _log_event(state, "broker", msg, log=log)
+        _notify(msg, "EDGELOG QQQ BROKER", log)
+    if rec.get("partial"):
+        # ORDER NETTING (2026-09-24): one or more of this leg event's broker parts (see
+        # api.webull_orders.place_stock_order's `parts`) was refused while at least one
+        # other part landed -- broker_sent_positions[leg] only moved by the accepted
+        # share of it (see that function's own docstring), so this leg's book and
+        # Webull's real position for it are now off by the refused remainder. Worth a
+        # push the same way "nothing to close" is -- both are "the book and the broker
+        # disagree" situations the owner needs to look at, not something later ticks
+        # self-heal.
+        msg = (f"QQQ BROKER: {leg} {intent} only PARTIALLY reached Webull: {row['reason']}")
         _log_event(state, "broker", msg, log=log)
         _notify(msg, "EDGELOG QQQ BROKER", log)
     if requeue:
@@ -1437,7 +1468,7 @@ BROKER_FILL_CAPTURE_MAX_AGE_SEC = 60.0       # give up "after about a minute"
 
 
 def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, shadow_px,
-                               log=print):
+                               parts=None, log=print):
     """Queue a deferred order_status() query for a just-accepted real send -- serviced
     later by _maybe_capture_broker_fills, from tick(). A pure `state` write: no network
     call, cannot block or raise into the order path. Never raises.
@@ -1448,15 +1479,37 @@ def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, sha
     mode trades are single-shot per leg (module docstring), so in practice this only
     bites a rapid ninjatrader-mode reduce sequence, and those rows never reach
     _broker_trade_parity anyway (see _apply_broker_parity) -- their own NT parity is
-    unaffected either way."""
+    unaffected either way.
+
+    `parts` (ORDER NETTING, 2026-09-24): the caller's own list of ACCEPTED broker parts
+    (api.webull_orders.place_stock_order's `record["parts"]`) when a leg event was
+    split into more than one broker order -- omit (the default) for the ordinary,
+    non-colliding case, which queues a job shaped EXACTLY as it always has (this
+    parameter and the "parts" key below did not exist before this feature; every
+    pre-existing caller/test that never passes it gets the identical job dict as
+    before, `signal_id` included, serviced by the unchanged single-id path in
+    _maybe_capture_broker_fills). When given with more than one entry, each part gets
+    its OWN client_order_id/qty/resolved-tracking so the eventual capture can query
+    every part and combine their fill prices (see _finish_fill_capture_parts) --
+    `signal_id` is still stored and still the one _finish_fill_capture writes back to
+    broker_orders.csv under (the row is keyed by the LEG EVENT's signal_id, never by a
+    part's own id -- see _update_broker_order_row)."""
     try:
         key = f"{leg}:{intent}"
         now = time.time()
-        state.setdefault("_broker_fill_capture", {})[key] = {
+        job = {
             "leg": leg, "intent": intent, "signal_id": signal_id,
             "account_id": account_id, "shadow_px": shadow_px,
             "tries": 0, "first_at": now, "last_at": 0.0, "last_note": None,
         }
+        if parts and len(parts) > 1:
+            job["parts"] = [
+                {"client_order_id": p.get("client_order_id"), "qty": p.get("qty"),
+                 "resolved": False, "price": None, "tries": 0, "last_at": 0.0,
+                 "last_note": None}
+                for p in parts if p.get("client_order_id")
+            ]
+        state.setdefault("_broker_fill_capture", {})[key] = job
     except Exception as e:
         log(f"[qqq-exec] fill-capture queueing failed (non-fatal): {type(e).__name__}: {e}")
 
@@ -1562,6 +1615,30 @@ def _finish_fill_capture(item, px, note, log=print):
         log(f"[qqq-exec] fill-capture finish failed (non-fatal): {type(e).__name__}: {e}")
 
 
+def _finish_fill_capture_parts(item, log=print):
+    """Terminal step for a MULTI-part fill-capture job (ORDER NETTING, 2026-09-24 --
+    see _queue_broker_fill_capture's `parts`). Combines whichever parts actually
+    resolved a price into ONE quantity-weighted fill price for the leg event -- a part
+    that never got a price (refused at the broker, or its own query gave up) is left
+    out of the weighting entirely, not treated as a zero -- and hands that single
+    number to _finish_fill_capture exactly like the single-order path would, so the
+    broker_orders.csv row (keyed by the leg event's own signal_id, never a part's id)
+    and the log line are identical in shape either way. If NOT ONE part ever priced,
+    this is a full give-up, same as the single-order path's own give-up. Never raises
+    (delegates the actual work to _finish_fill_capture, which already never raises)."""
+    parts = item.get("parts") or []
+    priced = [(p.get("qty") or 0, p["price"]) for p in parts if p.get("price") is not None]
+    total_qty = sum(q for q, _ in priced)
+    if priced and total_qty:
+        px = round(sum(q * p for q, p in priced) / total_qty, 4)
+        note = None
+    else:
+        px = None
+        notes = [p.get("last_note") for p in parts if p.get("last_note")]
+        note = "; ".join(dict.fromkeys(notes)) or "gave up waiting for a fill price"
+    _finish_fill_capture(item, px, note, log=log)
+
+
 def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
     """Service the queued fill-price jobs (see _queue_broker_fill_capture) -- modelled
     on _maybe_resend_broker_orders: giving up on a stale job is cheap local bookkeeping
@@ -1598,6 +1675,47 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
         for key in sorted(q, key=lambda k: float(q[k].get("first_at") or 0)):
             item = q[key]
             age = now - float(item.get("first_at") or now)
+            parts = item.get("parts")
+            if parts:
+                # ORDER NETTING (2026-09-24): a job with more than one broker part --
+                # see _queue_broker_fill_capture's `parts` and _finish_fill_capture_parts
+                # for the quantity-weighted combine. The whole job still ages out on ONE
+                # shared clock (`first_at`, set once at queue time) so a part that never
+                # resolves cannot keep the job alive past the ordinary give-up window;
+                # each part gets its OWN retry-gap/tries so one already-priced part is
+                # never re-queried while a sibling still waits.
+                if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC:
+                    q.pop(key, None)
+                    _finish_fill_capture_parts(item, log=log)
+                    continue
+                if age < BROKER_FILL_CAPTURE_FIRST_DELAY_SEC:
+                    continue
+                target = None
+                for p in parts:
+                    if p.get("resolved"):
+                        continue
+                    if now - float(p.get("last_at") or 0) < BROKER_FILL_CAPTURE_RETRY_GAP_SEC:
+                        continue
+                    target = p
+                    break
+                if target is None:
+                    continue  # every part is either resolved or in its own retry cooldown
+                target["tries"] = int(target.get("tries") or 0) + 1
+                target["last_at"] = now
+                px, note = _query_broker_fill(adapter, target["client_order_id"],
+                                              account_id=item.get("account_id"), log=log)
+                if px is not None:
+                    target["resolved"] = True
+                    target["price"] = px
+                else:
+                    target["last_note"] = note
+                    log(f"[qqq-exec] fill-capture retry {target['tries']} for {item.get('leg')} "
+                        f"{item.get('intent')} part {target['client_order_id']}: {note}")
+                if all(p.get("resolved") for p in parts):
+                    q.pop(key, None)
+                    _finish_fill_capture_parts(item, log=log)
+                return  # ONE order_status() SDK call per tick
+            # -- ordinary, single-order job: unchanged from before ORDER NETTING --
             if age > BROKER_FILL_CAPTURE_MAX_AGE_SEC:
                 q.pop(key, None)
                 _finish_fill_capture(
