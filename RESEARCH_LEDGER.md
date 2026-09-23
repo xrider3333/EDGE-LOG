@@ -23,7 +23,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 1.2 | How much tuning history is needed, and could more go to the lockbox | `docs/IS_LENGTH_OOS_VALIDATION.md` (91 sources, each marked for what was actually read) | Two to three years picks settings as well as fifteen; a warm-started 24-month lockbox costs the pick nothing; no lockbox length can confirm an edge |
 | 1.3 | The 13-item action table turning both dives into proposed changes | `RESEARCH.md` §3 | 2 done, 1 blocked on data, 10 open owner decisions |
 | 1.4 | **Warm starts** — every scored out-of-sample stretch now runs from 300 earlier sessions, keeping only trades that enter inside it | `RESEARCH.md` §3b · memory `edgelog-validate-coldstart-folds` | **SHIPPED v73.841.** The old cold start cost a 250-day trend filter 85% of its trades and 0% for an intraday leg; verified per fold against an independent implementation, identical to the dollar |
-| 1.5 | 12 vs 36-month lockbox, paired arms, same file/window/budget | `RESEARCH.md` §3c · runs #402–#407 | Winner moved in all 3 families, verdict flipped in 2 of 3 in OPPOSITE directions; 36 months gave 2.5–3.8x the lockbox trades at no measurable cost — **recommend adopting, owner call open** |
+| 1.5 | 12 vs 36-month lockbox, paired arms, same file/window/budget | `RESEARCH.md` §3c · runs #402–#407 | Winner moved in all 3 families and the verdict flipped in 2 of 3 in OPPOSITE directions (noise, not signal). **Correction 2026-09-23:** the longer arm DID cost something — overfit probability rose in 2 of 3 (NOISE 0.448→0.825) and ENGU-Q's crown collapsed to a config trading a quarter as often. **Recommendation downgraded to DO NOT ADOPT on this evidence;** the only clean gain is 2.5–3.8x the lockbox trades |
 | 1.6 | Re-run of the top NOISE validate under both engines | memory `edgelog-validate-coldstart-folds` · runs #409 cold, #410 warm | Cold arm reproduced stored run #382 exactly; warm arm added 76 lockbox trades, lockbox $79,939 → $69,060, walk-forward score 2.47 → 3.02, same winner, PASS both ways |
 | 1.7 | Is the final tie-break among the ten finalists worth anything | `docs/candidates/CANDIDATE_BOARD.md` | No — 19 wins in 46 runs (p=0.30); walk-forward rank does not order the sealed year (rho +0.02) |
 | 1.8 | Does the shortlist itself beat the searched field | `docs/candidates/CANDIDATE_BOARD.md` · run #360 | Yes on one run: finalists +$6,224 mean vs −$930 for the field, per-trade p=0.039 — direction consistent on all four measures, still one run |
@@ -66,7 +66,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 
 | # | Open item | Where it is written up |
 |---|---|---|
-| 4.1 | Adopt the 36-month lockbox as the default | `RESEARCH.md` items 5 and 9 |
+| 4.1 | Lockbox length: 36 months is ON HOLD (see the 2026-09-23 correction); the live options are repeating the pair on more families, trying 24 months, or picking the length that makes the pass rule calibrated | `RESEARCH.md` §3c, items 5, 6 and 9 |
 | 4.2 | Drop the walk-forward tie-break and relabel what the comparison view ranks on | `RESEARCH.md` items 10 and 8 |
 | 4.3 | Count search attempts per FAMILY and raise the bar accordingly — expect some current crowns to stop clearing it | `RESEARCH.md` item 1 |
 | 4.4 | Apply the freeze-8 / widen-6 knob list to the strategy files | `docs/candidates/KNOB_AUDIT.md` |

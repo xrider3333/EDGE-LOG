@@ -64,11 +64,11 @@ section. Data and scripts: see §5.
 | 2 | Purge straddling trades at every cut (assign by exit, or drop from the training score) | §2.8; López de Prado (2018) purging/embargo | Small engine change | OPEN |
 | 3 | Search-adjusted p-value for the crown pick (Reality-Check-style bootstrap over the 10 finalists) | §2.1, §2.3; White (2000), Hansen (2005) | Script only, but the DATA IS NOT THERE YET: per-fold candidate rows are only recorded on validates run since 2026-09-09 (none of the 293 cached run docs carry them, and the 351-run extract in §5 has no validate block). Either wait for new runs or rebuild from the deep-dive matrices | BLOCKED on data |
 | 4 | "Months until trustworthy" per crown (minimum track-record length) + a lockbox **looks counter** per run/family | §2.4; Bailey & López de Prado (2012), Dwork et al. (2015) | Small: compute from saved fields, two pills | OPEN |
-| 5 | Lockbox **36 months for everything**, warm-started, one look, veto only (supersedes the 24 / 36-for-slow-legs split proposed in the second dive) | §2.4, §2.6; and the second dive's own note that 36 for everything is defensible because the tuning cost is zero | Engine parameter + re-judging | OPEN — owner leaning 36 (2026-09-20); test via item 9 |
+| 5 | Lockbox **36 months for everything**, warm-started, one look, veto only (supersedes the 24 / 36-for-slow-legs split proposed in the second dive) | §2.4, §2.6; and the second dive's own note that 36 for everything is defensible because the tuning cost is zero | Engine parameter + re-judging | **ON HOLD 2026-09-23** — item 9 ran and the evidence is AGAINST a blanket 36; see 3c |
 | 6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
 | 7 | Warm-start the walk-forward folds and the sealed stretch (evaluate on all history to the slice end, keep only trades entering inside it) | §2.6; also the long-standing cold-start defect | ~1 day engineering; re-judge NQDIP 1.1 and the ETF stack afterwards | **SHIPPED 2026-09-20** — see §3b |
 | 8 | Rank COMPARE on the re-tuned walk-forward test (PF + trade floor); show fixed as "crowning score" with a gap chip; lockbox = pass gate, never a ranking column | §2.1–§2.4; the gap predicts the sealed shortfall (ρ 0.52) | Web change | **DECIDED 2026-09-20** (owner: rank on the re-tuned test). Being built now by the COMPARE session; the walk-forward relabel (F14) is unblocked. Rank metric stays return-per-year for now - profit-factor-first is still an owner call |
-| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | **RAN 2026-09-21** — see §3c |
+| 9 | Re-validate #257, #243, #335 at **36 months** (and 24 as a control), windows pinned | Direct test of item 5 before adopting | ~20 min / ~30 min / 1–2 h runner time per length | **RAN 2026-09-21, read CORRECTED 2026-09-23** — see §3c |
 | 10 | Drop or correct the Stage A.5 crowning step (crown from the tuning search; then the fixed reading after the search's data ends is a clean test) | §2.3 | Small (crown rule); reverses the 2026-07-20 decision | OPEN |
 | 11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
 | 12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after items 2 and 7 | PARKED |
@@ -126,19 +126,46 @@ rows are about the family, not crowns #257 / #243. Lockbox $ = points x $20.
 | NOISE (NOISE_1_0) | #406 PASS — LB +$50,380, PF 1.31, 288 trades | #405 WEAK — LB +$95,720, PF 1.24, 733 trades | No |
 | ENGU-Q (R2) | #402 WEAK — LB +$65,960, PF 1.22, 197 trades | #407 PASS — LB +$147,200, PF 1.59, 273 trades | No |
 
-**Reading.** The crown moved in all three families, and the verdict changed in two of them in
-OPPOSITE directions (NOISE PASS -> WEAK, ENGU-Q WEAK -> PASS). That is what an unstable pick and a
-noisy verdict look like, not evidence that the three extra tuning years were load-bearing: the
-candidate board already showed the choice among near-equal finalists is a coin flip, so a different
-crown from a different window is expected even when pick QUALITY is unchanged. What the longer arm
-reliably buys is sample: 2.5-3.8x the lockbox trades in every family. Nothing here shows the 36-month
-arm costing anything.
+**Reading (CORRECTED 2026-09-23 — the first write-up of this table said the longer arm cost
+nothing; that was wrong, and it was wrong because it only looked at verdicts and trade counts).**
 
-**Limits.** One run per arm, three families; the crowns differ, so the two arms' lockboxes score
-different configs on overlapping-but-different stretches and cannot be compared dollar for dollar.
+Two separate questions hide in "is 36 months better", and this test answers only one of them.
 
-**Recommendation:** adopt item 5 (36 months, warm, veto only), and stop reading a single validate's
-PASS/WEAK/FAIL as a property of the family — two of three flipped on the lockbox length alone.
+**Did the longer sealed stretch pay for itself? UNKNOWN, and this test cannot say.** A verdict is
+only better if it makes better go/no-go decisions, and there is no ground truth here to check it
+against - three families, one run per arm, and the two arms crown different configs, so their
+lockboxes score different things on different stretches. The verdict flipped in two of three in
+OPPOSITE directions (NOISE PASS -> WEAK, ENGU-Q WEAK -> PASS), which is noise, not a signal about
+length.
+
+**Did tuning get penalised for giving up three years? YES, in two of three, and the evidence was
+sitting in the run docs all along:**
+
+| Family | Overfit probability 12mo -> 36mo | In-sample trades | Walk-forward efficiency | Folds held |
+|---|---|---|---|---|
+| ORB | 0.778 -> 0.532 (better) | 2,251 -> 2,459 | 1.82 -> 1.45 | 7/8 -> 6/8 |
+| NOISE | 0.448 -> **0.825** (much worse) | 3,506 -> 2,178 | 2.75 -> 2.72 | 8/8 -> 8/8 |
+| ENGU-Q | 0.091 -> 0.306 (worse) | **2,350 -> 566** | 1.64 -> 1.30 | 8/8 -> 7/8 |
+
+- NOISE's overfit probability nearly doubled. Some of that is mechanical - a shorter window makes the
+  split test noisier - but 0.825 is the value at which we refuse a crown, and the 12-month arm was at
+  0.448 on the same file and the same search.
+- ENGU-Q's 36-month arm crowned a config that trades **a quarter as often** for a 20% shorter window.
+  That is not "the same edge measured on less tape", that is the search walking to a rarer cell, which
+  is the classic shape of selection drift. Its profit factor looks glorious (2.52) on 566 trades.
+- Walk-forward efficiency fell in two of three.
+
+**So the honest verdict: the evidence is against adopting 36 months as a blanket default, and the
+recommendation in item 5 is DOWNGRADED from "adopt" to "do not adopt on this evidence".** What the
+deep dive showed is that pick QUALITY is flat with tuning depth; what this test adds is that the
+crown's STABILITY is not, at least on two of these three files. The one real gain stands: the longer
+stretch carries 2.5-3.8x the trades, so as a veto it is far less of a coin flip.
+
+**What would actually settle it,** in order of cost: (a) repeat the pair on four or five more
+families and see whether the overfit-probability rise is systematic or is NOISE and ENGU-Q being
+unlucky; (b) try 24 months, which buys most of the extra trades for half the tuning cost; (c) decide
+the question the other way round - pick the lockbox length that makes the PASS rule calibrated (item
+6), rather than picking a length first and re-judging everything afterwards.
 
 ---
 
