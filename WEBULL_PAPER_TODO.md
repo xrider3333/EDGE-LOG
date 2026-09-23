@@ -16,6 +16,13 @@ done.
 | 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
 | 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **DONE** (2026-09-21, after-close check passed) | nothing |
 | 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **NOISE FAILED STEP 1** (run #408, 2026-09-21) | test ORB #314 next, or close the item |
+| 7 | One Webull account, three strategies: net the orders | **DONE** (2026-09-23, d14e2a3) | nothing; watch the first split order |
+| 8 | Live positions + account equity, honest warnings, plain-English broker errors | **DONE** (2026-09-23) | nothing; watch the live feed's load at the open |
+| 9 | KEEL v12 on top of run #382 on the NOISE leg | **IN PROGRESS** | nothing yet |
+| 10 | Fire orders at the bar close from the live price feed | **OPEN** | nothing |
+| 11 | Re-price trades from Webull's own tape, not Yahoo | **OPEN** | nothing |
+| 12 | NOISE's volatility skip never fires live | **OPEN** | nothing |
+| 13 | Share cap vs #382 x KEEL sizes | **OWNER CALL** | "keep 20" or a new NOISE cap |
 
 ---
 
@@ -458,3 +465,114 @@ the run has none.
 
 **Done when** NOISE has a keep-or-retire decision after its forward test, and the recipe is either
 under way for ORB or closed with the reason.
+
+---
+
+## 7. One Webull account, three strategies: net the orders
+
+**Status: DONE (2026-09-23, main d14e2a3, box deployed 16:14 ET while flat).** ORB, ENGU-Q and NOISE
+all trade QQQ through ONE Webull margin paper account, and Webull holds one position per symbol. Each
+leg's own side went out as-is, so legs that disagreed collided: after ENGU-Q bought 10 at 14:01,
+NOISE's 14:10, 14:30, ~15:10, ~15:20 and 15:50 shorts came back HTTP 417
+OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN ("close your existing long positions ... before placing
+a short order") and became book-only. Earlier that day ENGU-Q's buy had silently covered NOISE's
+accepted short; the account net stayed right only by luck.
+
+**What changed.** The adapter plans the broker order(s) from the ACCOUNT net (sum of every leg's
+accepted sends) instead of the leg's literal side: a short while the account is long becomes a SELL,
+a short from flat stays a SHORT, and an order that would cross zero is split in two. Every per-leg
+guard still runs first on the leg's own request (share caps, daily stop, session window, kill file,
+one open position per leg, nothing-to-close). A replay of 2026-09-23 against a fake broker that
+enforces Webull's refusals: every order accepted, flat after the 15:59 flatten.
+
+**Watch at the open.** The first split order ever sent to the real broker, and whether Webull would
+have accepted a single BUY that crosses from short to long (assumed NOT, so it is split; if Webull
+allows it, the split is only one extra call).
+
+**Needs from the owner.** Nothing.
+
+---
+
+## 8. Live positions + account equity, honest warnings, plain-English broker errors
+
+**Status: DONE (2026-09-23: c87131f, 2877795, 20f2742; box deployed by 17:09 ET while flat).**
+Owner's screenshot asks: the RATIO DRIFT and SLOW LATENCY badges, the empty gap under STATUS, the raw
+Webull error text, and "show the positions live and potentially equity".
+- POSITIONS - LIVE card under STATUS: each open leg's side, shares, entry, live price (Webull's live
+  price feed, running on the serving host only; last closed bar when the feed is quiet), open P&L,
+  time in trade; total open P&L; the margin account's equity with today's change (read at boot and
+  every ~60 s in market hours; STALE only when those reads stop in market hours); a check that
+  Webull's position equals the legs' sum.
+- RATIO DRIFT: the QQQ:NQ ratio prices nothing in engine mode - now "ratio not used".
+- SLOW LATENCY: engine-mode latency counted from the signal bar's START, so every 5m order read
+  ~330 s. Now timed from the bar's CLOSE (new orders.csv column after_close_s; older rows derived the
+  same way): ~30 s on 2026-09-23; the badge needs more than 60 s.
+- NOT READY counts Webull parity, not NinjaTrader. Webull refusals show as one plain sentence with the
+  raw text behind "details", never twice.
+
+**Watch at the open.** The live price feed's load on the one-core box (messages per minute, CPU,
+order timing) and the regular-hours trading-session label it reports. Kill switch if needed:
+`live_stream_enabled: false` in the box's qqq_exec config, then an after-close restart.
+
+**Needs from the owner.** Nothing.
+
+---
+
+## 9. KEEL v12 on top of run #382 on the NOISE leg
+
+**Status: IN PROGRESS (asked 2026-09-23: "after that add the keel v12 on top", "train it on the NQ
+backtest like the validation").** NOISE moved to run #382 for the session of 2026-09-24 (main 840b164):
+the #304 core plus the validated squeeze size tilt (2x on a 30-minute squeeze). KEEL v12 goes on top.
+- Training = the validation's own walk: run #382 on the NQ 5m RTH master, KEEL v12 over those NQ
+  trades, rebuilt NIGHTLY on the box (its scikit-learn differs from the PC's, so no model file crosses
+  machines).
+- Each new NOISE trade on QQQ is scored as one more trade appended to that walk, from QQQ's own bars.
+  Final size = #382 size x KEEL size. Any KEEL failure = size 1.0, never a blocked trade.
+- Needs the NQ master on the box every night (pushed from the PC, which refreshes it daily).
+- Caveat recorded 2026-09-10 (round 53): on #304, KEEL v12's back-tested gain was mostly bigger
+  average size (about 1.2x), so this is a forward test, not a proven edge.
+
+**Needs from the owner.** Nothing yet; see item 13 for the share cap.
+
+---
+
+## 10. Fire orders at the bar close from the live price feed
+
+**Status: OPEN.** Orders go out ~30 s after a bar closes: the signal engine waits for Webull's REST
+bar to settle and then polls. The live feed (item 8) already builds its own 1m/5m bars from every
+trade, so the engine can run the moment a bar closes and cut ~30 s to about a second. The feed runs
+in the exec process and the engine in its own service, so the bars need a hand-off (the feed already
+writes ohlc_stream/QQQ_*.csv every 10 s), plus a guard that REST stays the record of truth.
+
+**Needs from the owner.** Nothing.
+
+---
+
+## 11. Re-price trades from Webull's own tape, not Yahoo
+
+**Status: OPEN.** The nightly re-price (reprice.csv) reads yfinance 1-minute bars. Webull's own 1m
+bars (REST history, or the live feed's ohlc_stream files) are the tape the orders actually traded on.
+
+**Needs from the owner.** Nothing.
+
+---
+
+## 12. NOISE's volatility skip never fires live
+
+**Status: OPEN.** NOISE's volatility skip looks back 60 sessions, and the live window hands the
+strategy exactly 60, so the look-back is never complete and the skip never engages. Needs a longer
+QQQ history window on the box (its 5m cache starts 2026-06-08; the rest from Alpaca's 1m SIP history,
+free since 2016) and a check that the live trades then match a full-history re-run.
+
+**Needs from the owner.** Nothing.
+
+---
+
+## 13. Share cap vs #382 x KEEL sizes
+
+**Status: OWNER CALL (when KEEL goes live).** Caps since 2026-09-23: 20 shares per strategy, 40 in
+total, $400 daily stop, on both machines. #382 alone wants 10 or 20 shares; with KEEL on top a NOISE
+trade can want up to 60 (2x times up to 3x). Anything over 20 is cut to 20, and the tab shows how many
+were wanted. Keep 20, or raise NOISE's own cap so the sizes the validation assumed can trade.
+
+**Needs from the owner.** "Keep 20" or a new NOISE cap.
