@@ -126,7 +126,21 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # module's short leg keys. Kept explicit (not derived) so a cloud_signal rename never
 # silently breaks this mapping -- update BOTH sides in the same commit. See
 # api/cloud_signal.py's "THE THREE CROWN LEGS" docstring for the current crown/run per key.
-ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_304": "NOISE"}
+#
+# TWO KEYS CAN MAP TO ONE EXEC LEG (2026-09-24, the NOISE #304 -> #382 swap): NOISE_304 is
+# GONE from cloud_signal.CROWN_LEGS (replaced, not kept alongside -- see that module), but
+# it is kept HERE, still pointing at "NOISE", purely so an EXIT row cloud_signal already
+# wrote under the old key, or a trade id already embedded in an open lot/broker order,
+# keeps resolving after the swap. NOISE_382 is the live key. Everything downstream of this
+# map (state["legs"][leg], cfg["shares"][leg], the resend queue, deferred fill capture,
+# book-only -- see _open_lot's own SIZE ORDERS comment) keys on the EXEC leg ("NOISE")
+# string, never on the engine key, so both mapped keys already carry straight through
+# there with NO further change. The two spots that go the OTHER way -- EXEC leg back to
+# an engine key, to consult cloud_signal.CROWN_LEGS or filter its signals.csv by leg --
+# are _engine_mark_price and _engine_confirms_entry below; see _engine_key_for_leg's own
+# docstring for why a naive "first mapped key" reverse lookup is not safe once two engine
+# keys share one EXEC leg.
+ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
 ENGINE_SHORT_READ_TICKS = 3           # consecutive short ledger reads before accepting a replaced file
@@ -2266,6 +2280,35 @@ def _check_feed_engine(state, log=print):
     return stale
 
 
+def _engine_key_for_leg(leg, cs=None):
+    """Reverse ENGINE_LEG_MAP: which cloud_signal engine key currently backs this EXEC
+    leg, for the two call sites (_engine_mark_price, _engine_confirms_entry) that need to
+    go from the EXEC leg BACK to an engine key rather than forward.
+
+    WHY THIS CANNOT BE A PLAIN next(...) OVER ENGINE_LEG_MAP.items() (2026-09-24). A leg
+    swap keeps the RETIRED engine key in ENGINE_LEG_MAP (see its own comment -- an old
+    ledger row or in-flight trade id must keep resolving), so by design more than one
+    engine key can map to the same EXEC leg at once ("NOISE_304" and "NOISE_382" both ->
+    "NOISE" today). cloud_signal.CROWN_LEGS, though, holds only the LIVE key -- the
+    retired one is REPLACED there, not kept alongside -- so whichever mapped key a naive
+    first-match lookup happens to hit first can easily be the retired one, find nothing in
+    CROWN_LEGS, and silently read as "this leg's cache is empty". That is not hypothetical:
+    it is exactly what plain dict-order iteration would have hit here the day NOISE_304
+    was replaced by NOISE_382, and it would have zeroed the live NOISE leg's mark price
+    (unrealized P&L, EOD/breaker flatten, orphan-broker repair all call _engine_mark_price).
+
+    So this prefers a mapped key that IS present in CROWN_LEGS (the live one) and only
+    falls back to the first mapped key at all when NONE of them are (every mapped key for
+    this leg has been retired -- callers already treat a missing CROWN_LEGS entry as "no
+    price available", so this never raises)."""
+    cs = cs or _cs_module()
+    keys = [k for k, short in ENGINE_LEG_MAP.items() if short == leg]
+    for k in keys:
+        if k in cs.CROWN_LEGS:
+            return k
+    return keys[0] if keys else None
+
+
 def _engine_mark_price(leg, log=print):
     """(qqq_px, source) for marking/closing an OPEN leg when signal_source == 'engine' --
     the newest CLOSED bar close from api.cloud_signal's own on-disk cache (Webull bar if
@@ -2274,7 +2317,7 @@ def _engine_mark_price(leg, log=print):
     unmarked/unclosed, exactly like NinjaTrader mode's 'no quote/ratio available' case."""
     try:
         cs = _cs_module()
-        cs_key = next((k for k, short in ENGINE_LEG_MAP.items() if short == leg), None)
+        cs_key = _engine_key_for_leg(leg, cs)
         cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
         if not cfg_leg:
             return None, None
@@ -2316,11 +2359,11 @@ def _engine_confirms_entry(leg, f_dt, tolerance_sec=180):
     only to decide whether a startup-window fill (_relaunch_recently) is a real signal
     or relaunch noise. An unmapped leg or an unreadable ledger both read as 'not
     confirmed' -- conservative, matching the task: ignore what the engine doesn't back."""
-    cs_key = next((k for k, short in ENGINE_LEG_MAP.items() if short == leg), None)
-    if cs_key is None:
-        return False
     try:
         cs = _cs_module()
+        cs_key = _engine_key_for_leg(leg, cs)
+        if cs_key is None:
+            return False
         sig_path = cs.DEFAULT_PATHS["signals_path"]
         if not os.path.exists(sig_path):
             return False

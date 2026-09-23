@@ -3,8 +3,9 @@ entries/exits from api/cloud_signal.py's own signal ledger instead of NinjaTrade
 fills.csv (2026-09-13, "move QQQ shadow off NinjaTrader").
 
 Coverage:
-  1. The NOISE leg resolves to the api/paper.py PAPER_LEGS run #304 definition, not
-     the retired #243 SBS_V90 config.
+  1. The NOISE leg resolves to run #382's definition (NOISE_1_8_CT304.py, OWNER DECISION
+     2026-09-23), and the retired run #304 engine key still resolves through qqq_exec's
+     own leg map even though it is gone from cloud_signal.CROWN_LEGS.
   2. Consuming api.cloud_signal's signals.csv is idempotent across a simulated adapter
      restart: the same rows are never re-entered/re-exited twice.
   3. First-ever activation of engine mode absorbs any PRE-EXISTING signal rows without
@@ -34,23 +35,34 @@ if ROOT not in sys.path:
 
 from api import qqq_exec as qe                 # noqa: E402
 from api import cloud_signal as cs              # noqa: E402
-from api import paper                           # noqa: E402
 from api import trade_id                        # noqa: E402
 from api import webull_orders as WO             # noqa: E402
 
 
 # ── 1. leg definition -----------------------------------------------------------------
-def test_noise_leg_resolves_to_run_304():
-    """api/cloud_signal.py's NOISE leg must be exactly api.paper's own run #304
-    definition (NOISE_304_NBHD on NOISE_1_1_NBHD.py) -- not re-derived, not left on the
-    retired #243 SBS_V90 config."""
-    assert "NOISE_304" in cs.CROWN_LEGS
+def test_noise_leg_resolves_to_run_382():
+    """api/cloud_signal.py's NOISE leg must be exactly run #382's definition
+    (NOISE_1_8_CT304.py: the #304 crown's own core, frozen literally inside that file,
+    plus the validated hourly-compression SIZE tilt) -- OWNER DECISION 2026-09-23, not
+    re-derived, not left on the retired #304 config. The retired #304 engine key must be
+    GONE from CROWN_LEGS (replaced, not kept alongside) but must still resolve through
+    qqq_exec's own leg map, so an old signals.csv row or an in-flight trade id from
+    before the swap is never orphaned."""
+    assert "NOISE_382" in cs.CROWN_LEGS
+    assert "NOISE_304" not in cs.CROWN_LEGS, (
+        "the retired #304 engine key must be gone from CROWN_LEGS, not just added-alongside")
     assert "NOISE_SBS_V90" not in cs.CROWN_LEGS, "the stale #243 key must be gone, not just added-alongside"
-    leg = cs.CROWN_LEGS["NOISE_304"]
-    assert leg["strategy"] == "NOISE_1_1_NBHD.py"
-    assert leg["params"] == paper.NOISE_304_NBHD
-    assert qe.ENGINE_LEG_MAP.get("NOISE_304") == "NOISE", (
+    leg = cs.CROWN_LEGS["NOISE_382"]
+    assert leg["strategy"] == "NOISE_1_8_CT304.py"
+    assert leg["timeframe"] == "5m"
+    assert leg["params"] == {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16,
+                             "gate_ratio": 1.15}
+    assert leg["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS, "same warm-up as before the swap"
+    assert qe.ENGINE_LEG_MAP.get("NOISE_382") == "NOISE", (
         "qqq_exec's own leg map must track the cloud_signal rename")
+    assert qe.ENGINE_LEG_MAP.get("NOISE_304") == "NOISE", (
+        "the retired engine key must still resolve to the same exec leg, so an old ledger "
+        "row or in-flight trade id from before the swap is never orphaned")
 
 
 def _cfg(tmp_path, **overrides):

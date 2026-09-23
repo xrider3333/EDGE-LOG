@@ -33,13 +33,18 @@ files, because both write the very same shared OHLC cache and Windows refuses th
 rename outright while any reader -- including the OTHER writer's own read of the same
 file -- still has it open.
 
-THE THREE CROWN LEGS (as of 2026-09-13, api/paper.py PAPER_LEGS):
+THE THREE CROWN LEGS (as of 2026-09-24; NOISE swapped by OWNER DECISION 2026-09-23):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
-  NOISE_304   run #304, NOISE_1_1_NBHD.py, api.paper.NOISE_304_NBHD, 5m RTH, no gate.
-              (repointed 2026-09-13 -- the NOISE crown moved to #304 on 2026-09-05; this
-              module's leg had been left on the retired #243 SBS_V90 config. #304 is one
-              step from #243 in two knobs, see api/paper.py's own comment beside
-              NOISE_304_NBHD for why it took the crown.)
+  NOISE_382   run #382, NOISE_1_8_CT304.py, params below, 5m RTH, no gate.
+              (repointed 2026-09-24 -- run #382 is the #304 crown's own core, written out
+              literally inside that file, plus the validated hourly-compression SIZE tilt
+              (tilt_mult 2.0, gate_tf_min 30, gate_len 16, gate_ratio 1.15 -- all inside
+              that file's own FENCED admissible set). #304 stays in api/qqq_exec.py's
+              ENGINE_LEG_MAP (-> the same "NOISE" exec leg) purely so an in-flight trade
+              id or an old signals.csv row keeps resolving; it is GONE from CROWN_LEGS
+              itself, not kept alongside. api/paper.py's OWN "NOISE_304" leg (the
+              NinjaTrader PAPER board, api.paper.NOISE_304_NBHD) is a DIFFERENT book and
+              is UNCHANGED and unrelated to this one.)
   ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
 
 ENGINE LIMITATION, READ BEFORE TRUSTING THE ENGUQ_335 LEG. The ENGU-Q family crown
@@ -102,7 +107,7 @@ if ROOT not in sys.path:
 from augur_engine.engine import run_backtest as engine_run_backtest          # noqa: E402
 from api import market_calendar                                             # noqa: E402
 from api import trade_id as _trade_id                                       # noqa: E402
-from api.paper import ORB_314, ENGUQ_335, NOISE_304_NBHD                   # noqa: E402
+from api.paper import ORB_314, ENGUQ_335                                    # noqa: E402
 import tools.qqq_paper as qp                                                # noqa: E402
 
 TZ = qp.TZ                             # "US/Eastern" — same convention everywhere in this repo
@@ -149,7 +154,15 @@ def _paths(home=None):
 # run gets isolated_paths() or an explicit paths dict (see isolated_paths, 2026-09-14).
 DEFAULT_PATHS = _paths()
 
-# ── Crown legs (current as of 2026-09-08 — see api/paper.py PAPER_LEGS) ─────────────────
+# ── Crown legs (current as of 2026-09-24 — see api/paper.py PAPER_LEGS) ─────────────────
+# NOISE_382 (OWNER DECISION 2026-09-23): run #382's champion cell, read literally from the
+# run's own doc. NOISE_1_8_CT304.py is FENCED (_ADMISSIBLE/_in_neighbourhood) -- it REFUSES
+# (returns None) a configuration outside its declared neighbourhood rather than clamp one,
+# so this dict must carry the exact cell the run picked, never a rounded/nearby guess.
+# gate_tf_min in {30, 60}, gate_len in {16, 20}, gate_ratio in {1.0, 1.15},
+# tilt_mult in {1.0, 1.5, 2.0} -- every value below sits on one of those points.
+NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15}
+
 CROWN_LEGS = {
     "ORB_R6": {
         "strategy": "ORB_3_6_R6.py",
@@ -157,10 +170,12 @@ CROWN_LEGS = {
         "params": dict(ORB_314),
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
     },
-    "NOISE_304": {
-        "strategy": "NOISE_1_1_NBHD.py",
+    "NOISE_382": {
+        "strategy": "NOISE_1_8_CT304.py",
         "timeframe": "5m",
-        "params": dict(NOISE_304_NBHD),
+        "params": dict(NOISE_382_PARAMS),
+        # same warm-up as every other crown leg -- the owner's spec calls for no change
+        # here, only the strategy file + params under it.
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
     },
     "ENGUQ_335": {
