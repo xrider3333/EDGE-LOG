@@ -2742,7 +2742,7 @@
     }
    ],
    "overall": 60,
-   "summary": "You sold the CBD at the bottom of a 40-point drop, took 9.75 points of heat, and covered near breakeven just before a 34-point rally, which was the right call. The entry had little room below the 7366.5 low. This fill shares its minute with a second short at 7434.25, so one of the two may be a journal sync artefact or duplicate."
+   "summary": "You sold the CBD at the bottom of a 40-point drop, took 9.75 points of heat, and covered near breakeven just before a 34-point rally, which was the right call. The entry had little room below the 7366.5 low. The 7434.25 short in the same minute was a separate trade on the September contract, placed 26 seconds before this one."
   },
   {
    "sym": "MES",
@@ -2757,85 +2757,86 @@
    "qty": 1,
    "trade_id": "QAtdNA9CM43qpawy7lLA",
    "breakout_candle": "09:45",
-   "stop": 7382.75,
+   "stop": 7448.0,
    "setup": [
     {
      "label": "Trend / context",
      "weight": 20,
-     "score": 14,
-     "note": "A clean slide from 7408.5 at 09:40 to 7368 at 09:45 with lower highs"
+     "score": 15,
+     "note": "Price drove from 7408.5 at 09:40 to 7368 at 09:45 (June prices), with five lower closes in six bars"
     },
     {
      "label": "Entry location",
      "weight": 20,
-     "score": 0,
-     "note": "The recorded entry 7434.25 is 57.75 points above the 09:46 high 7376.5 and above the day high 7424.75, a price that never traded"
+     "score": 8,
+     "note": "Sold at the low of a 40-point move; the 09:45 bar closed just 1.25 above its low"
     },
     {
      "label": "Risk definition",
      "weight": 15,
      "score": 4,
-     "note": "The 09:45 high 7382.75 sits below the recorded short entry, so the stop defines no risk"
+     "note": "Structural stop was the 09:45 high (7448.00 in September terms), but the order was a 3-point stop at 7436.75"
     },
     {
      "label": "R:R to a real level",
      "weight": 10,
-     "score": 1,
-     "note": "The trade as recorded offers no reward to any real level"
+     "score": 4,
+     "note": "No clear room below: price only reached 7366.5 (June) by 09:49"
     },
     {
      "label": "Setup match",
      "weight": 15,
-     "score": 10,
-     "note": "The 09:45 bar closed at 7369.25 near its low and broke the 09:42 low 7375.25"
+     "score": 9,
+     "note": "A continuation short after the drive, but taken late in the leg"
     },
     {
      "label": "Liquidity / volatility",
      "weight": 10,
-     "score": 9,
-     "note": "5-8k contracts a minute in an active open"
+     "score": 8,
+     "note": "Roll week, so September was already liquid"
     },
     {
      "label": "Time of day",
      "weight": 10,
-     "score": 8,
-     "note": "09:46, the first 20 minutes of the session"
+     "score": 7,
+     "note": "09:46, after the opening drive"
     }
    ],
    "exec": [
     {
      "label": "Entry timing",
      "weight": 25,
-     "score": 3,
-     "note": "No 09:46 fill near 7434.25 is possible, since the bar traded 7368.5-7376.5"
+     "score": 10,
+     "note": "Market order on the wrong contract month"
     },
     {
      "label": "Risk control / MAE",
      "weight": 25,
-     "score": 5,
-     "note": "A 3-point loss is recorded, but the fills cannot be matched to the tape"
+     "score": 12,
+     "note": "The loss was capped at 3 points ($15), but the stop sat inside the 8-point range of the 09:46 bar"
     },
     {
      "label": "Exit vs MFE",
      "weight": 25,
-     "score": 5,
-     "note": "Covered at 7437.25 in the same minute. In the 15 minutes after entry the tape offered a low of 7366.5 at 09:49, which the recorded prices do not reflect"
+     "score": 8,
+     "note": "Stopped in 3 seconds; over the next 15 minutes the move gave only 2.5 more points and chopped back up to 7380 (June) by 09:52"
     },
     {
      "label": "Sizing",
      "weight": 15,
-     "score": 8,
-     "note": "1 MES, but the -$16.90 result comes from prices that did not trade"
+     "score": 12,
+     "note": "1 MES"
     },
     {
      "label": "Plan adherence",
      "weight": 10,
-     "score": 1,
-     "note": "The recorded fills do not match the market at all"
+     "score": 2,
+     "note": "Wrong contract month; every other trade that day was on June"
     }
    ],
-   "overall": 34,
-   "summary": "The recorded entry of 7434.25 is nowhere near the market: the 09:46 bar traded 7368.5-7376.5 and the day high was 7424.75. This looks like a journal sync artefact or duplicate of your 7370 short in the same minute, so check the broker record. The score reflects the setup on the tape, not a real fill."
+   "overall": 50,
+   "summary": "This was a real trade, not a duplicate: you sold the September contract (MESU6) by mistake while the rest of the day was on June. The short idea itself followed a strong 40-point drive down, but you sold right at its low with a 3-point stop inside normal noise, and it stopped out in 3 seconds for -$15. You re-entered on the June contract 26 seconds later.",
+   "px_offset": 65.25
   },
   {
    "sym": "MES",
@@ -4231,7 +4232,7 @@
    "breakout_candle": "09:38",
    "stop": 4.83,
    "overall": 48,
-   "summary": "This may be a journal sync artefact: both fills are in the same minute 31 cents apart, and the 4.94 entry matches the exit of your 09:30 VEEA trade. Taken on its own terms, you bought the 09:39 flush at 4.94 and sold at 4.63, 20 cents through the 4.83 stop. The stock then reached 5.54 by 09:52.",
+   "summary": "This is a separate Webull order from your 09:30 VEEA trade, a small 10-share re-entry. You bought the 09:39 flush at 4.94 and sold at 4.63, 20 cents through the 4.83 stop. The stock then reached 5.54 by 09:52.",
    "setup": [
     {
      "label": "Catalyst / RVOL",
@@ -4313,12 +4314,11 @@
    "sym": "MES",
    "date": "2026-04-15",
    "dir": "LONG",
-   "entry_time": "14:12",
-   "exit_time": "14:14",
+   "entry_time": "11:12",
+   "exit_time": "11:14",
    "entry": 7034,
    "exit": 7034.25,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "11:12",
@@ -4407,12 +4407,11 @@
    "sym": "MES",
    "date": "2026-04-15",
    "dir": "LONG",
-   "entry_time": "18:50",
-   "exit_time": "18:53",
+   "entry_time": "15:50",
+   "exit_time": "15:53",
    "entry": 7062,
    "exit": 7056.5,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "15:50",
@@ -4500,12 +4499,11 @@
    "sym": "MES",
    "date": "2026-04-21",
    "dir": "SHORT",
-   "entry_time": "12:52",
-   "exit_time": "12:52",
+   "entry_time": "09:52",
+   "exit_time": "09:52",
    "entry": 7165.25,
    "exit": 7165.0,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "trade_id": "HDCJ9HN1GXvrdKi3k46x",
    "interval": "1m",
@@ -4588,18 +4586,17 @@
     }
    ],
    "overall": 48,
-   "summary": "Your note says fat finger, and this short sold into the 09:52 breakout of a rally from 7149.5, so it had no setup behind it. You fixed it well by covering at 7165.0 inside the minute, before the tape rose to 7169.75 by 10:01. It shares its 09:52 minute and 7165.25 fill with an opposite long, which is likely a journal sync duplicate, so each is scored on its own terms."
+   "summary": "Your note says fat finger, and this short sold into the 09:52 breakout of a rally from 7149.5, so it had no setup behind it. You fixed it well by covering at 7165.0 inside the minute, before the tape rose to 7169.75 by 10:01. The broker fills confirm it was a real trade: you covered 3 seconds after selling, then went long 12 seconds later."
   },
   {
    "sym": "MES",
    "date": "2026-04-21",
    "dir": "LONG",
-   "entry_time": "12:52",
-   "exit_time": "12:53",
+   "entry_time": "09:52",
+   "exit_time": "09:53",
    "entry": 7165.25,
    "exit": 7166.75,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "trade_id": "Q9K9i4nXMMFAzG2q7JLs",
    "interval": "1m",
@@ -4683,18 +4680,17 @@
     }
    ],
    "overall": 72,
-   "summary": "You bought the 09:52 break of the 7164.0 high with the morning trend, filled at the close, and the stop at 7162.0 was never tested. You sold at 7166.75 a minute later while the tape went on to 7169.75 by 10:01, so a third of the move was banked. This long shares its 09:52 minute and 7165.25 fill with an opposite short, which is likely a journal sync duplicate, so each is scored on its own terms."
+   "summary": "You bought the 09:52 break of the 7164.0 high with the morning trend, filled at the close, and the stop at 7162.0 was never tested. You sold at 7166.75 a minute later while the tape went on to 7169.75 by 10:01, so a third of the move was banked. It came 12 seconds after you covered the fat-finger short, a separate real trade in the broker fills."
   },
   {
    "sym": "MES",
    "date": "2026-04-27",
    "dir": "LONG",
-   "entry_time": "18:45",
-   "exit_time": "18:48",
+   "entry_time": "15:45",
+   "exit_time": "15:48",
    "entry": 7207.5,
    "exit": 7208.25,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "15:45",
@@ -4782,12 +4778,11 @@
    "sym": "MES",
    "date": "2026-04-28",
    "dir": "SHORT",
-   "entry_time": "13:36",
-   "exit_time": "13:36",
+   "entry_time": "10:36",
+   "exit_time": "10:36",
    "entry": 7158.75,
    "exit": 7157.25,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "10:35",
@@ -4875,12 +4870,11 @@
    "sym": "MES",
    "date": "2026-04-29",
    "dir": "LONG",
-   "entry_time": "16:20",
-   "exit_time": "16:25",
+   "entry_time": "13:20",
+   "exit_time": "13:25",
    "entry": 7152.25,
    "exit": 7148.75,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "13:20",
@@ -4968,12 +4962,11 @@
    "sym": "MES",
    "date": "2026-05-01",
    "dir": "LONG",
-   "entry_time": "14:38",
-   "exit_time": "14:47",
+   "entry_time": "11:38",
+   "exit_time": "11:47",
    "entry": 7290.5,
    "exit": 7294.5,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "11:37",
@@ -5061,12 +5054,11 @@
    "sym": "MES",
    "date": "2026-05-04",
    "dir": "SHORT",
-   "entry_time": "15:08",
-   "exit_time": "15:08",
+   "entry_time": "12:08",
+   "exit_time": "12:08",
    "entry": 7207,
    "exit": 7200.25,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "12:07",
@@ -5154,12 +5146,11 @@
    "sym": "MES",
    "date": "2026-05-06",
    "dir": "LONG",
-   "entry_time": "14:45",
-   "exit_time": "14:47",
+   "entry_time": "11:45",
+   "exit_time": "11:47",
    "entry": 7364.25,
    "exit": 7364.75,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "11:44",
@@ -5247,12 +5238,11 @@
    "sym": "MES",
    "date": "2026-05-07",
    "dir": "SHORT",
-   "entry_time": "17:10",
-   "exit_time": "17:12",
+   "entry_time": "14:10",
+   "exit_time": "14:12",
    "entry": 7362,
    "exit": 7365.5,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "14:09",
@@ -5340,12 +5330,11 @@
    "sym": "MNQ",
    "date": "2026-05-08",
    "dir": "LONG",
-   "entry_time": "14:37",
-   "exit_time": "14:42",
+   "entry_time": "11:37",
+   "exit_time": "11:42",
    "entry": 29215,
    "exit": 29189.75,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "11:36",
@@ -5433,12 +5422,11 @@
    "sym": "MES",
    "date": "2026-05-13",
    "dir": "SHORT",
-   "entry_time": "12:31",
-   "exit_time": "12:31",
+   "entry_time": "09:31",
+   "exit_time": "09:31",
    "entry": 7422.25,
    "exit": 7419.5,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "09:30",
@@ -5526,12 +5514,11 @@
    "sym": "MES",
    "date": "2026-05-15",
    "dir": "LONG",
-   "entry_time": "12:40",
-   "exit_time": "12:40",
+   "entry_time": "09:40",
+   "exit_time": "09:40",
    "entry": 7438.75,
    "exit": 7441.5,
    "qty": 2,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "09:40",
@@ -5619,12 +5606,11 @@
    "sym": "MES",
    "date": "2026-05-18",
    "dir": "LONG",
-   "entry_time": "13:07",
-   "exit_time": "13:08",
+   "entry_time": "10:07",
+   "exit_time": "10:08",
    "entry": 7439.75,
    "exit": 7443,
    "qty": 1,
-   "shift_min": -180,
    "key_time": true,
    "interval": "1m",
    "breakout_candle": "10:06",

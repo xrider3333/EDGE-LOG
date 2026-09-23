@@ -113,6 +113,9 @@ def derive(t, refresh=False):
     day = d[d.index.date == pd.Timestamp(date).date()]
     if not len(day):
         raise SystemExit('cached bars for %s hold no rows on %s' % (sym, date))
+    if t.get('px_offset'):              # traded another contract month: shift the bars by the spread
+        day = day.copy()
+        day[['Open', 'High', 'Low', 'Close']] += float(t['px_offset'])
     step = 1 if iv == '1m' else int(re.sub(r'\D', '', iv))
     E, X, stop = float(t['entry']), float(t['exit']), float(t['stop'])
     # shift_min: the journal clock was not ET for this trade (e.g. -180 = logged in Pacific).
