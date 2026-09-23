@@ -82,7 +82,7 @@ def test_build_doc_builds_the_curve_after_the_reprice_merge(tmp_path, monkeypatc
     monkeypatch.setattr(qe, "_load_reprice_sidecar", lambda log=print: sidecar)
     monkeypatch.setattr(qe, "_build_price_status", lambda cfg, state, log=print: {})
     monkeypatch.setattr(qe, "_build_run_location", lambda: {})
-    monkeypatch.setattr(qe, "_build_ratio_health", lambda state, nowdt, log=print: {})
+    monkeypatch.setattr(qe, "_build_ratio_health", lambda state, nowdt, cfg=None, log=print: {})
     monkeypatch.setattr(qe, "_build_broker_status", lambda state, log=print: {})
     monkeypatch.setattr(qe, "_build_trade_id_status", lambda state, day: {})
     doc = qe._build_doc({}, {"trading_day": "2026-09-21"}, False, 0.0, log=NOOP)

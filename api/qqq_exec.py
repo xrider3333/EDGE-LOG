@@ -210,6 +210,11 @@ DEFAULT_CONFIG = {
     # tick loop is in its active market window. Always ALSO runs at boot and right
     # after any broker order this tick attempted to send, regardless of this value.
     "broker_reconcile_interval_min": 5,
+    # LIVE WEBULL STREAM (2026-09-23, item 3): owner-editable kill switch for the
+    # background WebullBarStreamer qqq_exec_thread starts once SERVING -- see
+    # _start_qqq_stream. False falls back to bar-close pricing everywhere (exactly
+    # like a failed/never-attempted connect), never a crash.
+    "live_stream_enabled": True,
 }
 
 
@@ -252,6 +257,16 @@ PUBLISH_INTERVAL_OFFHOURS_SEC = 600.0
 # lease (aaca82b's _LeaseHolder), and a real order self-blocks once that renewal is
 # older than LEASE_SEND_MAX_AGE_SEC (30s), so this must stay safely under that.
 PUBLISH_INTERVAL_ARMED_SEC = 20.0
+# LIVE POSITIONS (2026-09-23, item 3's Firestore-quota rule): "live marks may republish
+# at most every 10s, only during market hours and only while a position is open" -- a
+# CEILING on how often the open-leg live price/P&L marks refresh, applied ONLY in that
+# narrow window (session hours + an open position) since positions_live/equity are
+# deliberately excluded from _publish_fingerprint (see that function's own docstring on
+# why per-tick price noise must never itself force a publish) -- without a tightened
+# heartbeat here they would otherwise sit as stale as the OTHER applicable interval
+# (up to 600s off-session, or 20s once armed) between meaningful events. See
+# _should_publish's own docstring for the worst-case publish count this adds.
+PUBLISH_INTERVAL_POSITION_OPEN_SEC = 10.0
 LEASE_VERIFY_INTERVAL_SEC = 30.0
 # Hourly Firestore usage line (writes/reads this adapter issued) -- see
 # _track_fs_write/_track_fs_read/_maybe_log_fs_usage.
@@ -769,7 +784,14 @@ ORDER_COLS = ["ts_et", "leg", "action", "side", "shares", "nq_px", "qqq_px",
               # max_shares_per_leg clamp, "shares_wanted" is what sizing asked for
               # before that clamp -- equal to "shares" whenever the rail did not bite.
               # See _open_lot's SIZED branch for when they diverge.
-              "size", "shares_wanted"]
+              "size", "shares_wanted",
+              # AFTER-CLOSE LATENCY (2026-09-23, "HONEST WARNINGS" item 1b): appended,
+              # never inserted -- same backward-compat convention as every column
+              # above ("" on every row written before this shipped, and on every
+              # ninjatrader-mode row, which has no bar to measure against). See
+              # _record_order's own docstring for what this measures and why
+              # latency_s alone reads engine-mode orders as ~5x too slow.
+              "after_close_s"]
 # NT PARITY (feature 1): columns appended to the END so pre-existing trades.csv rows
 # (written before this feature shipped) still parse -- missing values read back as "".
 # ratio_at_entry/ratio_at_exit and nt_reconstructed are this adapter's own bookkeeping
@@ -811,13 +833,33 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
     does not pass them -- every call site that predates sizing (ninjatrader-mode
     entries, rail-driven closes, the REFUSED/blocked logs) gets exactly the values it
     always implied (unsized, wanted == sent), so their rows are unchanged in meaning
-    even though the CSV header now carries two more columns."""
+    even though the CSV header now carries two more columns.
+
+    AFTER-CLOSE LATENCY (2026-09-23, "HONEST WARNINGS" item 1b). In engine mode,
+    `fill_dt` is the SIGNAL BAR'S OWN START stamp (_route_engine_events passes
+    `sig_dt` = the ENTRY/EXIT row's `ref_time`, see that function and _open_lot/
+    _reduce_lot) -- not a real fill time the way ninjatrader mode's is. So latency_s
+    there is "now minus when the bar OPENED", which reads a perfectly-timed order on
+    every 5-minute bar as ~300s+ "late" and every 1-minute ENGUQ bar as ~60s+ "late"
+    -- not a reaction-time measurement at all. after_close_s is the real one: now
+    minus when that bar actually CLOSED (start + this leg's own timeframe, read from
+    api.cloud_signal.CROWN_LEGS via ENGINE_LEG_MAP -- never hard-coded, so a future
+    leg swapped onto a different timeframe is picked up automatically). Left blank
+    ("") for ninjatrader-mode rows (fill_dt there already IS a real fill time --
+    latency_s already answers this question for them) and for any row with no
+    resolvable leg timeframe."""
     latency_s = None
     if fill_dt is not None:
         try:
             latency_s = round((_now_et() - fill_dt).total_seconds(), 3)
         except Exception as e:
             log(f"[qqq-exec] latency calc failed: {type(e).__name__}: {e}")
+    after_close_s = None
+    if (fill_dt is not None and latency_s is not None
+            and str(signal_source or "").strip().lower() == "engine"):
+        tf_sec = _leg_timeframe_seconds(leg, log=log)
+        if tf_sec is not None:
+            after_close_s = round(latency_s - tf_sec, 3)
     row = {"ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": leg, "action": action,
            "side": side, "shares": shares,
            "nq_px": round(nq_px, 4) if nq_px is not None else "",
@@ -826,7 +868,8 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
            "latency_s": latency_s if latency_s is not None else "",
            "signal_source": signal_source or "",
            "size": size if size is not None else 1.0,
-           "shares_wanted": shares_wanted if shares_wanted is not None else shares}
+           "shares_wanted": shares_wanted if shares_wanted is not None else shares,
+           "after_close_s": after_close_s if after_close_s is not None else ""}
     _append_csv(ORDERS_CSV, ORDER_COLS, row, ORDERS_KEEP)
     log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
         f"({px_source}) -- {reason}")
@@ -922,6 +965,319 @@ def _get_broker_adapter(log=print):
     if _ORDER_ADAPTER is None:
         _ORDER_ADAPTER = webull_orders.OrderAdapter(log=log)
     return _ORDER_ADAPTER
+
+
+# -- LIVE WEBULL STREAM (2026-09-23, "LIVE POSITIONS + ACCOUNT EQUITY", item 3) ---------
+# The owner: "since we are live with live pricing, can you show the positions live? and
+# potentially equity as well." api.webull_stream.WebullBarStreamer already exists (a
+# Level-1 MQTT stream -> live trade/bar reader) but nothing runs it -- this wires ONE
+# instance in, on its own guarded background thread, only while THIS process is actually
+# SERVING (see qqq_exec_thread): the standby host must never hold a second live session
+# on the same Webull key, which can kick the serving host's own connection.
+_QQQ_STREAM_SYMBOL = "QQQ"
+_qqq_stream_lock = threading.Lock()
+_qqq_stream_state = {"streamer": None, "starting": False, "stop_requested": False}
+
+
+def _webull_stream_factory():
+    """Returns the WebullBarStreamer CLASS this module should instantiate -- indirected
+    through a function, never imported and constructed directly at the call site,
+    purely so tests can swap in a fake that touches neither a thread nor the network
+    (see tests/conftest.py's autouse _isolate_qqq_stream, which does exactly that for
+    every test in this repo -- belt-and-suspenders alongside that fixture, never a
+    substitute for it). Production always returns the real class. Lazy import so a
+    broken/missing api.webull_stream can never break THIS module's own import."""
+    from . import webull_stream
+    return webull_stream.WebullBarStreamer
+
+
+def _qqq_stream_instance():
+    """The currently-running streamer, or None if one was never started (a standby
+    host, an unmanaged/offline caller, --once, a start still connecting, or one that
+    failed) -- every reader (_live_price_for_leg, _build_price_status) already treats
+    None as 'no live price yet, fall back to the bar cache'."""
+    with _qqq_stream_lock:
+        return _qqq_stream_state.get("streamer")
+
+
+def _start_qqq_stream(cfg, log=print):
+    """Best-effort: start WebullBarStreamer for QQQ on its OWN daemon thread. Called
+    once this process has actually entered SERVING (holds the host slot and, cross-
+    host, the lease) -- never call this from a process that only MIGHT end up serving.
+    `cfg["live_stream_enabled"]` (default True) is an owner-editable kill switch,
+    checked once here, each call.
+
+    NEVER BLOCKS OR CRASHES THE TICK LOOP: construction and .start() (which itself
+    blocks up to ~20s connecting -- see WebullBarStreamer._connect_once) run on a NEW
+    daemon thread, never the caller's, so even a slow/hanging connect only delays this
+    helper's OWN background thread. Every exception (missing module, missing/bad keys,
+    an SDK error, a raised PermissionError from a test's own network guard, ...) is
+    caught here and logged -- the tick loop's own price/positions code already has the
+    closed-bar fallback (_live_price_for_leg) regardless of whether this ever
+    succeeds. Idempotent: a second call while a streamer is already starting/running
+    is a no-op.
+
+    THE STOP-WHILE-CONNECTING RACE: if _stop_qqq_stream runs while this thread is still
+    inside .start() (this host lost the lease moments after claiming it), the streamer
+    must never be published into _qqq_stream_state and left running -- `stop_requested`
+    is re-checked right after .start() returns, and a torn-down streamer is stopped
+    again immediately rather than handed to the rest of this process."""
+    try:
+        if not bool((cfg or {}).get("live_stream_enabled", True)):
+            return
+        with _qqq_stream_lock:
+            if _qqq_stream_state.get("streamer") is not None or _qqq_stream_state.get("starting"):
+                return
+            _qqq_stream_state["starting"] = True
+            _qqq_stream_state["stop_requested"] = False
+
+        def _run():
+            streamer = None
+            try:
+                cls = _webull_stream_factory()
+                streamer = cls(symbols=[_QQQ_STREAM_SYMBOL], log=log)
+                streamer.start()
+                with _qqq_stream_lock:
+                    stood_down = bool(_qqq_stream_state.get("stop_requested"))
+                    if not stood_down:
+                        _qqq_stream_state["streamer"] = streamer
+                if stood_down:
+                    streamer.stop()
+                    log(f"[qqq-exec] Webull live stream connected but this host had "
+                        f"already stood down -- stopped immediately")
+                else:
+                    log(f"[qqq-exec] Webull live stream started for {_QQQ_STREAM_SYMBOL}")
+            except Exception as e:
+                log(f"[qqq-exec] Webull live stream failed to start (non-fatal -- "
+                    f"positions/price fall back to the bar cache): {type(e).__name__}: {e}")
+            finally:
+                with _qqq_stream_lock:
+                    _qqq_stream_state["starting"] = False
+
+        threading.Thread(target=_run, name="qqq-webull-stream", daemon=True).start()
+    except Exception as e:
+        log(f"[qqq-exec] could not launch the Webull live stream thread (non-fatal): "
+            f"{type(e).__name__}: {e}")
+        with _qqq_stream_lock:
+            _qqq_stream_state["starting"] = False
+
+
+def _stop_qqq_stream(log=print):
+    """Best-effort teardown, called whenever this process is no longer serving (normal
+    loop exit, mid-loop stand-down, an exception -- see qqq_exec_thread's `finally`, so
+    this always runs) so the standby/former host never holds a second live session
+    against the same Webull key. Safe to call even when nothing was ever started or one
+    is still connecting (see _start_qqq_stream's stop-while-connecting handling).
+    Never raises."""
+    with _qqq_stream_lock:
+        streamer = _qqq_stream_state.get("streamer")
+        _qqq_stream_state["streamer"] = None
+        _qqq_stream_state["stop_requested"] = True
+    if streamer is not None:
+        try:
+            streamer.stop()
+        except Exception as e:
+            log(f"[qqq-exec] Webull live stream stop failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _live_price_for_leg(leg, log=print):
+    """(price, age_seconds, source) for the POSITIONS-LIVE card. 'source' is 'stream'
+    (api.webull_stream's own live tick, only when its health().fresh is True) or 'bar'
+    (the newest CLOSED engine bar -- _engine_mark_price, exactly what already marks
+    unrealized P&L / the daily-loss breaker). (None, None, None) if neither is
+    available yet. Never raises.
+
+    ONE STREAM FOR THREE LEGS: the live tick is QQQ-wide (one Webull symbol), not
+    per-leg, so every open leg reads the SAME price -- 'source'/'age' still travel
+    per-leg on the published doc so a caller reading one leg's card never has to
+    cross-reference a separate top-level field to know how fresh ITS OWN price is."""
+    streamer = _qqq_stream_instance()
+    if streamer is not None:
+        try:
+            if streamer.is_fresh():
+                t = streamer.last_trade()
+                if t and t.get("price") is not None:
+                    return float(t["price"]), float(t.get("age") or 0.0), "stream"
+        except Exception as e:
+            log(f"[qqq-exec] live stream read failed for {leg} (falling back to the bar "
+                f"cache): {type(e).__name__}: {e}")
+    px, _src = _engine_mark_price(leg, log=log)
+    if px is None:
+        return None, None, None
+    age = _leg_timeframe_bar_close_age(leg, log=log)
+    return float(px), age, "bar"
+
+
+def _leg_timeframe_bar_close_age(leg, log=print):
+    """Seconds since the newest CLOSED bar backing this leg's engine price actually
+    closed -- the SAME fix as _build_price_status/_bar_close_age (item 1c), applied
+    per-leg for the positions-live card's 'bar' fallback age. None if unavailable."""
+    try:
+        cs = _cs_module()
+        cs_key = _engine_key_for_leg(leg, cs)
+        cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
+        if not cfg_leg:
+            return None
+        return _bar_close_age(cfg_leg["timeframe"], log=log)
+    except Exception as e:
+        log(f"[qqq-exec] bar close age lookup failed for {leg}: {type(e).__name__}: {e}")
+        return None
+
+
+def _build_positions_live(state, cfg, log=print):
+    """Per-open-leg LIVE read for the web tab's 'POSITIONS - LIVE' card: leg, side,
+    shares, entry price, a LIVE price (+ its own age/source), this leg's own open P&L
+    off THAT live price, and time in trade -- plus the book's total open P&L and a
+    broker-vs-book net-QQQ cross-check. Never raises; a flat book returns an empty
+    'legs' list and the tab shows 'flat'.
+
+    DELIBERATELY A SEPARATE NUMBER FROM state['_unrl_by_leg'] (2026-09-23): that field
+    is the bar-close mark _mark_and_check_breaker uses for the daily-loss RAIL -- a
+    risk-critical figure this change does not touch, on this book's existing bar
+    cadence, on purpose. This card's own open P&L is instead computed off the SAME live
+    price shown right next to it (self-consistent for a reader looking at one card),
+    which is why the two numbers can differ by a few cents intraday -- expected, not a
+    bug, given they are honestly two different price sources.
+
+    BROKER-VS-BOOK CROSS-CHECK: broker_sent_positions (api.webull_orders.OrderAdapter's
+    own record of orders that actually reached Webull with a successful ack -- see that
+    module's docstring, and its nothing-to-close guard, which is built on the exact
+    same figure) is what the adapter BELIEVES is really at the broker; legs_net_qty is
+    this shadow book's own tally, entirely independent of the broker adapter. The two
+    should always agree while every OPEN/CLOSE has gone through cleanly -- 'mismatch'
+    is the one-line amber check on the web tab ('Webull holds long 10 - legs sum to
+    long 10')."""
+    try:
+        legs_out = []
+        total_open_pnl = 0.0
+        nowdt = _now_et()
+        for leg, lot in (state.get("legs") or {}).items():
+            side = lot.get("side")
+            shares = lot.get("shares_remaining")
+            entry_px = lot.get("entry_px")
+            live_px, live_age, live_src = _live_price_for_leg(leg, log=log)
+            open_pnl = None
+            if live_px is not None and entry_px is not None and shares is not None:
+                side_mult = 1 if side == "long" else -1
+                open_pnl = round((live_px - entry_px) * side_mult * shares, 2)
+                total_open_pnl += open_pnl
+            time_in_trade_min = None
+            try:
+                entry_dt = datetime.strptime(lot["entry_ts"], "%Y-%m-%d %H:%M:%S")
+                time_in_trade_min = round(
+                    (nowdt.replace(tzinfo=None) - entry_dt).total_seconds() / 60.0, 1)
+            except Exception:
+                time_in_trade_min = None
+            legs_out.append({
+                "leg": leg, "side": side, "shares": shares, "entry_px": entry_px,
+                "trade_id": lot.get("trade_id"),
+                "live_px": live_px,
+                "live_age_s": round(live_age, 1) if live_age is not None else None,
+                "live_source": live_src,
+                "open_pnl": open_pnl, "time_in_trade_min": time_in_trade_min,
+            })
+        legs_net = sum((lot.get("shares_remaining") or 0) * (1 if lot.get("side") == "long" else -1)
+                       for lot in (state.get("legs") or {}).values())
+        broker_net = None
+        try:
+            adapter = _get_broker_adapter(log=log)
+            sent = adapter.status().get("broker_sent_positions") or {}
+            broker_net = sum(float(p.get("qty", 0) or 0) for p in sent.values())
+        except Exception as e:
+            log(f"[qqq-exec] positions_live broker cross-check failed: {type(e).__name__}: {e}")
+        mismatch = bool(broker_net is not None and abs(broker_net - legs_net) > 1e-9)
+        return {"legs": legs_out, "total_open_pnl": round(total_open_pnl, 2) if legs_out else 0.0,
+               "legs_net_qty": legs_net, "broker_net_qty": broker_net, "mismatch": mismatch}
+    except Exception as e:
+        log(f"[qqq-exec] positions_live build failed: {type(e).__name__}: {e}")
+        return {"legs": [], "total_open_pnl": 0.0, "legs_net_qty": 0, "broker_net_qty": None,
+               "mismatch": False}
+
+
+# -- ACCOUNT EQUITY (2026-09-23, item 3) ------------------------------------------------
+# Same account_v2.get_account_balance(account_id) call api/webull_sync.py's fetch_balance
+# uses -- but for the ONE stock-purpose account this adapter itself trades through (the
+# paper MARGIN account since 2026-09-23, DEFAULT_ACCOUNT_SELECT), not fetch_balance's own
+# summed-across-every-stock-account figure (a different, broader read used by the
+# journal's "Webull" pill). See api.webull_orders.OrderAdapter.get_stock_account_balance,
+# the one new (read-only) method added there for this.
+ACCOUNT_EQUITY_REFRESH_SEC = 60.0
+
+
+def _maybe_read_account_equity(state, cfg, nowdt, log=print):
+    """Refreshes state['equity'] at BOOT (the very first call this process ever makes,
+    regardless of session) and about once a minute WHILE THE MARKET IS OPEN thereafter
+    -- never more often, since each read is a real Webull HTTP round trip. A failed or
+    skipped read leaves the PREVIOUS reading in place (see _build_equity_status, which
+    is what actually decides 'stale' for the published doc off its own age). Never
+    raises -- an equity probe must not be able to stop the tick loop.
+
+    first_net_liq_today/day PERSIST ACROSS RESTARTS for free: state['equity'] rides
+    inside the SAME state dict save_state()/load_state() round-trips as a whole (see
+    e.g. the broker resend/fill-capture queues' own docstrings for this same
+    convention) -- no extra plumbing needed."""
+    try:
+        eq = state.setdefault("equity", {})
+        last_epoch = eq.get("_epoch")
+        due = last_epoch is None
+        if not due:
+            due = (time.time() - float(last_epoch)) >= ACCOUNT_EQUITY_REFRESH_SEC
+        if not due:
+            return
+        if last_epoch is not None and not _in_market_window(nowdt):
+            return   # already have at least one reading and the market is shut
+        adapter = _get_broker_adapter(log=log)
+        bal = adapter.get_stock_account_balance()
+        eq["_epoch"] = time.time()
+        if not bal or bal.get("net_liq") is None:
+            return   # keep whatever was read before; _build_equity_status ages it out
+        today = nowdt.strftime("%Y-%m-%d")
+        if eq.get("day") != today or "first_net_liq_today" not in eq:
+            eq["first_net_liq_today"] = bal["net_liq"]
+            eq["day"] = today
+        eq["net_liq"] = bal["net_liq"]
+        eq["cash"] = bal.get("cash")
+        eq["account_id"] = bal.get("account_id")
+        eq["as_of_et"] = nowdt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception as e:
+        log(f"[qqq-exec] account equity read failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _build_equity_status(state, nowdt, log=print):
+    """{net_liq,cash,change_today,change_today_pct,as_of_et,age_min,stale,note} for the
+    web tab's account-equity card. `stale` trips past 3 missed refreshes worth of age
+    (a single skipped minute during a network blip should not paint the whole card
+    broken) rather than exactly ACCOUNT_EQUITY_REFRESH_SEC. Never raises."""
+    try:
+        eq = state.get("equity") or {}
+        net_liq = eq.get("net_liq")
+        if net_liq is None:
+            return {"net_liq": None, "cash": None, "change_today": None,
+                   "change_today_pct": None, "as_of_et": None, "age_min": None,
+                   "stale": True, "note": "account balance not read yet"}
+        as_of = eq.get("as_of_et")
+        age_min = None
+        if as_of:
+            try:
+                age_min = round((nowdt.replace(tzinfo=None)
+                                 - datetime.strptime(as_of, "%Y-%m-%d %H:%M:%S")).total_seconds() / 60.0, 1)
+            except Exception:
+                age_min = None
+        stale = age_min is None or (age_min * 60.0) > (ACCOUNT_EQUITY_REFRESH_SEC * 3)
+        first = eq.get("first_net_liq_today")
+        change_today = round(net_liq - first, 2) if first is not None else None
+        change_today_pct = (round((net_liq - first) / first * 100.0, 3)
+                            if first else None)
+        return {"net_liq": net_liq, "cash": eq.get("cash"), "change_today": change_today,
+               "change_today_pct": change_today_pct, "as_of_et": as_of, "age_min": age_min,
+               "stale": bool(stale),
+               "note": ("last successful balance read is aging -- showing the most "
+                        "recent value" if stale else None)}
+    except Exception as e:
+        log(f"[qqq-exec] equity status build failed: {type(e).__name__}: {e}")
+        return {"net_liq": None, "cash": None, "change_today": None, "change_today_pct": None,
+               "as_of_et": None, "age_min": None, "stale": True,
+               "note": f"equity status unavailable: {type(e).__name__}"}
 
 
 def _broker_side(side, intent):
@@ -1383,6 +1739,56 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
         log(f"[qqq-exec] broker re-send failed (non-fatal): {type(e).__name__}: {e}")
 
 
+# -- PLAIN-ENGLISH BROKER ERRORS (2026-09-23, "HONEST WARNINGS" item 2) ----------------
+# api.webull_orders.OrderAdapter records a raw Webull ServerException verbatim into
+# record["error"]/self._last_error (that module is NOT changed here -- see its own
+# place_stock_order -- this only reads the text it already produces), e.g.:
+#   "ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION,
+#    Msg: ..., RequestID: ..."
+# That is exactly what the owner's screenshot showed twice (once as "Last order", once
+# as "Last error") with a large empty gap left over from nothing but that raw text. One
+# sentence per KNOWN code below; an unrecognised Webull code still gets a short, honest
+# fallback instead of the raw dump, and the raw text always still travels alongside (see
+# _build_broker_status) for a click-to-expand "details" on the web tab -- never lost,
+# never the FIRST thing shown.
+_WEBULL_ERROR_CODE_RE = re.compile(r"Code:\s*([A-Za-z0-9_]+)")
+
+WEBULL_ERROR_SENTENCES = {
+    "OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION":
+        "Webull refused: the account already holds the opposite side of QQQ from another strategy",
+    "OPENAPI_GENERATE_NEW_SHORT_POSITION":
+        "Webull refused: this account type cannot short",
+}
+
+
+def _plain_broker_error(raw):
+    """One-sentence, human-readable rewrite of a raw broker/adapter error or reason
+    string, or None if `raw` is empty. A recognised `Code: OPENAPI_...` token (see
+    WEBULL_ERROR_SENTENCES) gets its own hand-written sentence; a Code: token this
+    dict does not know yet gets a generic-but-honest fallback ("Webull refused the
+    order (code X)") instead of the raw SDK dump; a string with no Code: token at all
+    (a rail refusal already written in plain English, a non-Webull exception, ...) is
+    returned UNCHANGED -- there is nothing to translate, and this must never mangle an
+    already-readable reason. Never raises."""
+    try:
+        s = str(raw or "").strip()
+        if not s:
+            return None
+        m = _WEBULL_ERROR_CODE_RE.search(s)
+        if not m:
+            return s
+        code = m.group(1)
+        # Webull suffixes some codes by order intent -- the live 2026-09-23 refusal read
+        # OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN -- so a known code also matches
+        # as a prefix followed by "_".
+        for known, sentence in WEBULL_ERROR_SENTENCES.items():
+            if code == known or code.startswith(known + "_"):
+                return sentence
+        return f"Webull refused the order (code {code})"
+    except Exception:
+        return str(raw) if raw else None
+
+
 def _build_broker_status(state=None, log=print):
     """Small, flat summary of api.webull_orders' own status() for the "broker" key in
     the published doc (see _build_doc) -- trimmed so the phone tab's future broker card
@@ -1419,12 +1825,20 @@ def _build_broker_status(state=None, log=print):
         "halted": st.get("halted"),
         "halt_reason": st.get("halt_reason"),
         "last_error": st.get("last_error"),
+        # PLAIN-ENGLISH BROKER ERRORS (2026-09-23, item 2): the raw text above stays
+        # exactly as before (a details toggle on the web tab can still show it); this
+        # is the one-sentence rewrite for the primary display -- see
+        # _plain_broker_error. None when there is no last_error at all.
+        "last_error_plain": _plain_broker_error(st.get("last_error")),
         "last_order": {
             "leg": last_order.get("leg"), "symbol": last_order.get("symbol"),
             "side": last_order.get("side"), "qty": last_order.get("qty"),
             "intent": last_order.get("intent"), "mode": last_order.get("mode"),
             "ok": last_order.get("ok"), "sent": last_order.get("sent"),
             "reason": last_order.get("reason") or last_order.get("error"),
+            # PLAIN-ENGLISH BROKER ERRORS (2026-09-23, item 2): same rewrite as
+            # last_error_plain above, applied to THIS order's own raw reason/error.
+            "reason_plain": _plain_broker_error(last_order.get("reason") or last_order.get("error")),
             # NEW (2026-09-14): ISO-8601 US/Eastern timestamp of the last order --
             # see coordinator's field list; every existing last_order.* key above is
             # untouched.
@@ -2281,12 +2695,26 @@ def _maybe_calibrate(state, ratio_fn, log=print):
     return state.get("calib")
 
 
-def _build_ratio_health(state, nowdt, log=print):
-    """{current,at,source,age_min,mean_20,drift_pct,band_lo,band_hi,warn,note} -- see
-    module docstring feature (3). Every shadow fill priced off the nq_ratio path is
+def _build_ratio_health(state, nowdt, cfg=None, log=print):
+    """{current,at,source,age_min,mean_20,drift_pct,band_lo,band_hi,warn,used,note} --
+    see module docstring feature (3). Every shadow fill priced off the nq_ratio path is
     biased by however stale/drifted this ratio is, so this block is what lets the owner
-    (and the web tab) tell a healthy calibration from one quietly going bad."""
+    (and the web tab) tell a healthy calibration from one quietly going bad.
+
+    NOT USED IN ENGINE MODE (2026-09-23, "HONEST WARNINGS" item 1a). resolve_price/
+    the nq_ratio px_source are NinjaTrader-mode-only (see that function's own docstring
+    and _engine_mark_price, which never touches the ratio at all -- in engine mode "no
+    price uses that ratio" is not a special case to detect, it is simply true by
+    construction every tick). A calibration can therefore sit there stale/drifted
+    forever in engine mode and it would never bias a single real price, so warning on
+    it (the RATIO DRIFT chip) was a false alarm. `used` is False whenever
+    `cfg["signal_source"]` is "engine" (same default as _build_price_status) --
+    unconditionally, no drift/staleness math even attempted -- and this returns
+    `warn=False` plus a plain "not used" note instead. NinjaTrader mode keeps EXACTLY
+    today's behaviour, unconditionally -- this function does not change its read for
+    that mode at all."""
     try:
+        engine_mode = str((cfg or {}).get("signal_source") or "engine").strip().lower() == "engine"
         calib = state.get("calib") or {}
         hist = state.get("ratio_hist") or []
         current = calib.get("ratio")
@@ -2307,6 +2735,13 @@ def _build_ratio_health(state, nowdt, log=print):
             drift_pct = round((float(current) - mean_20) / mean_20 * 100.0, 3)
         band_lo = round(mean_20 * 0.99, 5) if mean_20 else None
         band_hi = round(mean_20 * 1.01, 5) if mean_20 else None
+        base = {"current": current, "at": at, "source": source, "age_min": age_min,
+               "mean_20": mean_20, "drift_pct": drift_pct, "band_lo": band_lo, "band_hi": band_hi}
+        if engine_mode:
+            base.update(warn=False, used=False,
+                       note="not used -- prices come straight from Webull")
+            return base
+        # NinjaTrader mode below -- unchanged from before this fix.
         active = _in_market_window(nowdt)
         warn = False
         notes = []
@@ -2329,14 +2764,13 @@ def _build_ratio_health(state, nowdt, log=print):
                             "recalibrates at the next open")
             else:
                 notes.append("ratio looks healthy -- fills should track NT closely")
-        return {"current": current, "at": at, "source": source, "age_min": age_min,
-               "mean_20": mean_20, "drift_pct": drift_pct, "band_lo": band_lo,
-               "band_hi": band_hi, "warn": bool(warn), "note": "; ".join(notes)}
+        base.update(warn=bool(warn), used=True, note="; ".join(notes))
+        return base
     except Exception as e:
         log(f"[qqq-exec] ratio_health build failed: {type(e).__name__}: {e}")
         return {"current": None, "at": None, "source": None, "age_min": None,
                "mean_20": None, "drift_pct": None, "band_lo": None, "band_hi": None,
-               "warn": False, "note": f"ratio_health unavailable: {type(e).__name__}"}
+               "warn": False, "used": None, "note": f"ratio_health unavailable: {type(e).__name__}"}
 
 
 def resolve_price(cfg, state, nq_px, quote_fn, ratio_fn, log=print):
@@ -2451,6 +2885,53 @@ def _engine_mark_price(leg, log=print):
     except Exception as e:
         log(f"[qqq-exec] engine mark price failed for {leg}: {type(e).__name__}: {e}")
         return None, None
+
+
+def _leg_timeframe_seconds(leg, log=print):
+    """Seconds in ONE bar of this EXEC leg's own LIVE engine timeframe (ORB/NOISE 5m,
+    ENGUQ 1m today) -- read from api.cloud_signal.CROWN_LEGS via _engine_key_for_leg/
+    ENGINE_LEG_MAP, never hard-coded, so a future leg swapped onto a different
+    timeframe (like the 2026-09-24 NOISE_304 -> NOISE_382 swap) is picked up here
+    automatically. None for a leg with no live engine mapping."""
+    try:
+        cs = _cs_module()
+        cs_key = _engine_key_for_leg(leg, cs)
+        cfg_leg = cs.CROWN_LEGS.get(cs_key) if cs_key else None
+        if not cfg_leg:
+            return None
+        return cs.TIMEFRAME_SECONDS.get(cfg_leg["timeframe"])
+    except Exception as e:
+        log(f"[qqq-exec] leg timeframe lookup failed for {leg}: {type(e).__name__}: {e}")
+        return None
+
+
+def _bar_close_age(timeframe, bar_source=None, log=print):
+    """Seconds since the newest bar of `timeframe` ('1m'/'5m') actually CLOSED, or
+    None if no bar has been attributed for that timeframe yet.
+
+    THE BAR-START BUG (2026-09-23, "HONEST WARNINGS" items 1b/1c). api.cloud_signal.
+    read_bar_source()'s own `newest_epoch` is the bar's OPENING instant (see that
+    module's _closed_cutoff_epoch: bars are filtered on `time <= now - grace -
+    timeframe`, i.e. `time` is the bar START) -- ageing a status line directly off it
+    reads a bar that just closed as still "~300s behind" for the next 5 minutes, which
+    is exactly the "PRICE SOURCE WEBULL 389s behind" reading the owner saw on a feed
+    that was, in fact, current. This adds back that leg's own timeframe before ageing.
+
+    `bar_source`: a caller that already has a read_bar_source() dict this tick (e.g.
+    _build_price_status, scanning every timeframe for the freshest one) passes it
+    straight through instead of triggering a second state.json read; omitted, this
+    reads it itself."""
+    try:
+        cs = _cs_module()
+        bs = bar_source if bar_source is not None else (cs.read_bar_source(cs.DEFAULT_PATHS) or {})
+        info = bs.get(timeframe)
+        if not info or info.get("newest_epoch") is None:
+            return None
+        tf_sec = cs.TIMEFRAME_SECONDS.get(timeframe, 0)
+        return max(0.0, time.time() - (float(info["newest_epoch"]) + tf_sec))
+    except Exception as e:
+        log(f"[qqq-exec] bar close age calc failed for {timeframe}: {type(e).__name__}: {e}")
+        return None
 
 
 def _relaunch_recently(state, cfg, f_dt):
@@ -4107,34 +4588,70 @@ def _cum_pnl_by_leg(all_trades):
 
 
 # -- latency (feature #51) -----------------------------------------------------------
+# AFTER-CLOSE LATENCY chip threshold (2026-09-23, "HONEST WARNINGS" item 1b): the
+# engine-mode reaction-time measure (order time - the signal bar's own CLOSE, see
+# _record_order) is expected to read ~30s in a healthy book -- this is the bar past
+# which the SLOW LATENCY chip should actually fire for it, replacing the old raw
+# latency_s > 10s check that engine mode could never pass (every 5m bar reads >=300s
+# on that measure by construction, an honest-warnings false alarm in its own right).
+AFTER_CLOSE_WARN_SEC = 60.0
+
+
+def _latency_stats(vals):
+    """{n,median_s,p95_s,max_s,last_s} over a plain list of floats, `vals[-1]` taken
+    as the most recent (caller passes them in file/append order). Shared by
+    _build_latency's two measures (latency_s and after_close_s) so both are computed
+    identically."""
+    if not vals:
+        return {"n": 0, "median_s": None, "p95_s": None, "max_s": None, "last_s": None}
+    vals_sorted = sorted(vals)
+    n = len(vals_sorted)
+    idx95 = min(n - 1, int(round(0.95 * (n - 1))))
+    return {"n": n, "median_s": round(statistics.median(vals_sorted), 3),
+           "p95_s": round(vals_sorted[idx95], 3), "max_s": round(vals_sorted[-1], 3),
+           "last_s": round(vals[-1], 3)}
+
+
 def _build_latency(orders, log=print):
-    """{n,median_s,p95_s,max_s,last_s} over today's orders that carry a latency_s
-    (adapter order time - NT fill time, ET). `orders` is assumed in file order
-    (ascending by append time), so the last value seen is the most recent order's."""
+    """{n,median_s,p95_s,max_s,last_s,after_close:{...,warn}} over today's orders.
+
+    The top-level fields are latency_s (adapter order time - NT fill time, ET) --
+    unchanged from before this fix, meaningful for ninjatrader-mode rows. `after_close`
+    is the SEPARATE engine-mode reaction-time measure (order time - the signal bar's
+    own CLOSE; see _record_order's own docstring for why latency_s reads an
+    on-time engine order as ~5m/~1m "late") over whichever rows carry a numeric
+    after_close_s -- empty (n=0, every stat None) on a book with no engine-mode orders
+    today, e.g. a pure ninjatrader-mode day. `after_close.warn` is the ONE new
+    HONEST-WARNINGS threshold: p95 after-close past AFTER_CLOSE_WARN_SEC (60s; a
+    healthy book reads ~30s) -- see the web tab's SLOW LATENCY chip, which now reads
+    this instead of the old raw-latency_s>10s check in engine mode.
+
+    `orders` is assumed in file order (ascending by append time)."""
     try:
-        vals = []
-        last = None
+        vals, ac_vals = [], []
         for o in orders:
             v = o.get("latency_s")
-            if v in (None, ""):
-                continue
-            try:
-                fv = float(v)
-            except Exception:
-                continue
-            vals.append(fv)
-            last = fv
-        if not vals:
-            return {"n": 0, "median_s": None, "p95_s": None, "max_s": None, "last_s": None}
-        vals_sorted = sorted(vals)
-        n = len(vals_sorted)
-        idx95 = min(n - 1, int(round(0.95 * (n - 1))))
-        return {"n": n, "median_s": round(statistics.median(vals_sorted), 3),
-               "p95_s": round(vals_sorted[idx95], 3), "max_s": round(vals_sorted[-1], 3),
-               "last_s": round(last, 3)}
+            if v not in (None, ""):
+                try:
+                    vals.append(float(v))
+                except Exception:
+                    pass
+            av = o.get("after_close_s")
+            if av not in (None, ""):
+                try:
+                    ac_vals.append(float(av))
+                except Exception:
+                    pass
+        out = _latency_stats(vals)
+        ac = _latency_stats(ac_vals)
+        ac["warn"] = bool(ac["n"] and ac["p95_s"] is not None and ac["p95_s"] > AFTER_CLOSE_WARN_SEC)
+        out["after_close"] = ac
+        return out
     except Exception as e:
         log(f"[qqq-exec] latency build failed: {type(e).__name__}: {e}")
-        return {"n": 0, "median_s": None, "p95_s": None, "max_s": None, "last_s": None}
+        return {"n": 0, "median_s": None, "p95_s": None, "max_s": None, "last_s": None,
+               "after_close": {"n": 0, "median_s": None, "p95_s": None, "max_s": None,
+                              "last_s": None, "warn": False}}
 
 
 # -- reprice merge (feature #48 half) -------------------------------------------------
@@ -4228,7 +4745,21 @@ def _build_readiness(feed_days, parity, reprice, state, log=print):
     uptime_mean_10,rail_trips_unexplained,reprice_coverage_pct,missing,note} -- the
     single go/no-go read for "is the shadow book real evidence yet". Reconstructed
     rows never count toward live_parity_* because _parity_summary already excludes
-    them from checked/failed."""
+    them from checked/failed.
+
+    RE-BASED ON WEBULL PARITY (2026-09-23, "HONEST WARNINGS" item 1d). `parity` is
+    whichever summary actually applies to THIS book's own signal source: _build_doc
+    now passes broker_parity (_broker_parity_summary -- engine-signal entries/exits vs
+    Webull's own fill price or a tape reprice, see that function's docstring) instead
+    of the old NinjaTrader-mirror summary (_parity_summary), because this book runs
+    signal_source="engine" and therefore never had a NinjaTrader fill for the OLD
+    summary to check anything against -- "0 live-captured trades parity-checked
+    against NinjaTrader (need 10)" was permanently, structurally stale, never a real
+    reading of this book's own health. Both summaries share the exact same
+    checked/failed field names (see _parity_summary/_broker_parity_summary), so this
+    function's own arithmetic is unchanged -- only which summary the caller hands it,
+    and the wording below, moved. Every OTHER check here (feed uptime, rail trips,
+    reprice coverage, days valid) is untouched."""
     try:
         days_valid = sum(1 for d in feed_days if d.get("valid"))
         live_parity_checked = int(parity.get("checked") or 0)
@@ -4251,10 +4782,10 @@ def _build_readiness(feed_days, parity, reprice, state, log=print):
             missing.append(f"only {days_valid} of {DAYS_REQUIRED} valid trading days recorded so far")
         if live_parity_checked < DAYS_REQUIRED:
             missing.append(f"only {live_parity_checked} live-captured trade(s) have been "
-                           f"parity-checked against NinjaTrader (need {DAYS_REQUIRED})")
+                           f"parity-checked against Webull (need {DAYS_REQUIRED})")
         if live_parity_failed > 0:
             missing.append(f"{live_parity_failed} live-captured trade(s) failed the "
-                           f"NinjaTrader parity check")
+                           f"Webull parity check")
         if uptime_mean_10 < 0.95:
             missing.append(f"average feed uptime over the last {len(last10)} day(s) is "
                            f"{uptime_mean_10 * 100:.1f}% (need at least 95%)")
@@ -4308,27 +4839,52 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
 
 def _build_price_status(cfg, state, log=print):
     """{"source": "WEBULL"/"YAHOO"/None, "age_sec": int|None} for the web tab's status
-    panel. Engine mode reads api.cloud_signal's own bar-source attribution (never a
-    live call -- a plain state.json read); NinjaTrader mode reports the source of the
-    LAST fill/mark this tick actually priced (state['_px_source'], best-effort -- a
-    tick with no fill and no open lot to mark has nothing to report)."""
+    panel. Engine mode prefers api.webull_stream's own LIVE tick (item 3) when it is
+    demonstrably fresh -- genuinely near-real-time, unlike anything below -- else falls
+    back to api.cloud_signal's own bar-source attribution (never a live call itself --
+    a plain state.json read); NinjaTrader mode reports the source of the LAST fill/mark
+    this tick actually priced (state['_px_source'], best-effort -- a tick with no fill
+    and no open lot to mark has nothing to report).
+
+    THE BAR-START BUG (2026-09-23, "HONEST WARNINGS" item 1c, same root cause as item
+    1b's latency fix): the bar-source branch used to age off `newest_epoch` directly,
+    which is the newest usable bar's OPENING instant (see _bar_close_age's own
+    docstring) -- a 5-minute bar that just closed read as "~300s behind" for the next
+    five minutes even though the feed was completely current. This now ages off that
+    bar's CLOSE (start + its own timeframe, via _bar_close_age) instead -- what the
+    owner's screenshot ("PRICE SOURCE WEBULL 389s behind") should have read as roughly
+    the fetch/processing delay alone, not the bar's own width on top of it."""
     try:
         engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
         if engine_mode:
+            streamer = _qqq_stream_instance()
+            if streamer is not None:
+                try:
+                    if streamer.is_fresh():
+                        t = streamer.last_trade()
+                        if t and t.get("price") is not None:
+                            return {"source": "WEBULL", "age_sec": int(round(t.get("age") or 0.0))}
+                except Exception as e:
+                    log(f"[qqq-exec] price_status live stream read failed (falling back to "
+                        f"the bar cache): {type(e).__name__}: {e}")
             cs = _cs_module()
             bs = cs.read_bar_source(cs.DEFAULT_PATHS) or {}
-            best = None
-            for info in bs.values():
+            best_tf, best = None, None
+            for tf, info in bs.items():
                 if info and (best is None or (info.get("checked_at") or "") > (best.get("checked_at") or "")):
-                    best = info
+                    best, best_tf = info, tf
             if not best:
                 return {"source": None, "age_sec": None}
-            age = None
-            try:
-                age = int(max(0, time.time() - float(best.get("newest_epoch") or 0)))
-            except Exception:
-                age = None
-            return {"source": (best.get("source") or "").upper() or None, "age_sec": age}
+            age = _bar_close_age(best_tf, bar_source=bs, log=log)
+            if age is None:
+                # unknown timeframe (no TIMEFRAME_SECONDS entry) -- degrade to the old
+                # bar-START measure rather than publish nothing at all.
+                try:
+                    age = max(0.0, time.time() - float(best.get("newest_epoch") or 0))
+                except Exception:
+                    age = None
+            return {"source": (best.get("source") or "").upper() or None,
+                   "age_sec": int(round(age)) if age is not None else None}
         src = state.get("_px_source")
         label = "WEBULL" if src == "webull_quote" else "NQ_RATIO" if src == "nq_ratio" else None
         return {"source": label, "age_sec": None}
@@ -4424,7 +4980,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
 
     feed_days = _build_feed_days(state)
     ratio_hist = (state.get("ratio_hist") or [])[-500:]
-    ratio_health = _build_ratio_health(state, _now_et(), log=log)
+    ratio_health = _build_ratio_health(state, _now_et(), cfg=cfg, log=log)
     unrl_by_leg = state.get("_unrl_by_leg") or {}
     positions = {}
     for leg, lot in state.get("legs", {}).items():
@@ -4448,7 +5004,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     signals_day = _build_signals_day(state)
     events = list(reversed((state.get("events") or [])))[:EVENTS_KEEP]
     # READINESS (feature #53): the single go/no-go read, built off everything above.
-    readiness = _build_readiness(feed_days, parity, reprice, state, log=log)
+    # HONEST WARNINGS item 1d (2026-09-23): broker_parity (engine-vs-Webull), not the
+    # NinjaTrader-mirror `parity` -- see _build_readiness's own docstring for why.
+    readiness = _build_readiness(feed_days, broker_parity, reprice, state, log=log)
     # HEALTH (2026-09-08 fix): the adapter's own operational vitals -- publish failures
     # and the largest tick-loop stall today -- independent of trading/feed logic, so a
     # silent infrastructure problem (Firestore down, the loop stalling) is visible on the
@@ -4464,6 +5022,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # _build_price_status / _build_run_location).
     price_status = _build_price_status(cfg, state, log=log)
     run_location = _build_run_location()
+    # LIVE POSITIONS + ACCOUNT EQUITY (2026-09-23, item 3).
+    positions_live = _build_positions_live(state, cfg, log=log)
+    equity = _build_equity_status(state, _now_et(), log=log)
 
     return {
         "mode": cfg.get("mode"), "updated_at": _now_et().strftime("%Y-%m-%d %H:%M:%S"),
@@ -4475,6 +5036,13 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "px_feed_stale": bool(state.get("px_feed_stale")),
         "kill": bool(state.get("kill_done")), "calib": state.get("calib"),
         "positions": positions,
+        # LIVE POSITIONS + ACCOUNT EQUITY (2026-09-23, item 3, owner: "since we are
+        # live with live pricing, can you show the positions live? and potentially
+        # equity as well"). Sibling to "positions" above, not a replacement -- see
+        # _build_positions_live/_build_equity_status for why the P&L figure here can
+        # differ slightly from state['_unrl_by_leg']'s bar-close mark.
+        "positions_live": positions_live,
+        "equity": equity,
         "today": {"orders": orders, "trades": trades,
                   "realized_pnl": state.get("realized_pnl_today", 0.0),
                   "unrealized_pnl": round(unrealized, 2)},
@@ -4830,17 +5398,33 @@ def _should_publish(state, doc, force=False, cfg=None):
     20s, comfortably under that 30s bound). While NOT armed (OFF -- today's actual
     setting, and the state at any point before the owner flips the switch), there is no
     send-gate risk, so the original, more relaxed session(60s)/off-session(600s)
-    interval applies, both owner-configurable via cfg (see DEFAULT_CONFIG)."""
+    interval applies, both owner-configurable via cfg (see DEFAULT_CONFIG).
+
+    LIVE POSITIONS CEILING (2026-09-23, item 3's Firestore-quota rule): "live marks may
+    republish at most every 10s, only during market hours and only while a position is
+    open". positions_live/equity are deliberately NOT in _publish_fingerprint's
+    allowlist (a live price/mark tick must never itself force an immediate publish --
+    same reasoning as unrealized_pnl/price_status already being excluded there), so
+    without this they would only ever refresh on whatever OTHER interval applied (up
+    to 600s off-session, or 20s once armed) -- stale for a card whose whole point is to
+    look live. Whenever the book is in-session AND doc["positions"] is non-empty, the
+    interval computed above is tightened to publish_interval_position_open_sec
+    (default 10s) if that would be SHORTER -- never longer, and never outside that
+    narrow window (flat, or off-hours, keep whichever interval already applied)."""
     h = str(hash(json.dumps(_publish_fingerprint(doc), sort_keys=True, default=str)))
     now = time.time()
     broker_mode = (doc.get("broker") or {}).get("effective_mode")
     armed = broker_mode in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE)
+    in_session = _in_market_window(_now_et())
     if armed:
         interval = _cfg_num(cfg, "publish_interval_armed_sec", PUBLISH_INTERVAL_ARMED_SEC)
     else:
-        in_session = _in_market_window(_now_et())
         interval = _cfg_num(cfg, "publish_interval_session_sec", PUBLISH_INTERVAL_SESSION_SEC) if in_session \
             else _cfg_num(cfg, "publish_interval_offhours_sec", PUBLISH_INTERVAL_OFFHOURS_SEC)
+    if in_session and doc.get("positions"):
+        position_open_interval = _cfg_num(cfg, "publish_interval_position_open_sec",
+                                          PUBLISH_INTERVAL_POSITION_OPEN_SEC)
+        interval = min(interval, position_open_interval)
     should = force or h != state.get("last_doc_hash") or now - state.get("last_publish", 0) >= interval
     return should, h, now
 
@@ -5128,6 +5712,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER FILL CAPTURE (feature #57, DEFERRED 2026-09-22): queued by _mirror_to_broker,
     # serviced here -- see _maybe_capture_broker_fills for why this is off the order path.
     _maybe_capture_broker_fills(state, cfg, nowdt, active, log=log)
+    # ACCOUNT EQUITY (2026-09-23, item 3): self-gated (at boot, then ~once/min while the
+    # market is open) -- see _maybe_read_account_equity's own docstring.
+    _maybe_read_account_equity(state, cfg, nowdt, log=log)
 
     # REPRICE MERGE (feature #48 half) + EOD PHONE SUMMARY (feature #55): both are
     # once-per-ET-day, time-gated jobs that must never block or crash a tick -- see
@@ -5253,6 +5840,10 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 f"for host {_lease_host_id()!r}: {reason}")
         state = load_state(log=log)
         _reconcile_broker_at_boot(log=log)
+        # LIVE WEBULL STREAM (2026-09-23, item 3): only from here on is this process
+        # actually SERVING (past the standby return above) -- see _start_qqq_stream's
+        # own docstring for why the standby host must never reach this line.
+        _start_qqq_stream(load_config(log=log), log=log)
         last_pass = time.time()
         while stop is None or not stop.is_set():
             if managed:
@@ -5285,6 +5876,12 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
             (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
     finally:
+        # LIVE WEBULL STREAM (2026-09-23, item 3): unconditional and first -- covers a
+        # normal loop exit, a mid-loop stand-down (_stand_down above returns through
+        # this SAME try/finally) and any exception, so the stream is never left running
+        # once this process is no longer serving. Safe even when nothing was started
+        # (e.g. this call never got past the standby check above).
+        _stop_qqq_stream(log=log)
         if began:
             _LEASE.end("the adapter loop exited")
             _publisher.drop(lease_uid)

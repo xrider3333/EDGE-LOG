@@ -531,8 +531,18 @@ def main():
     # eyeballed. 'mono_real_1400' is the named screenshot the owner asked for (the REAL
     # fixture, no readiness doc published yet, so only the tiles bound applies there);
     # 'fold_mock_1400' is the same 1400x900 mono render on a fixture that DOES publish
-    # readiness, so the readiness-card bound gets a real check too. ──
-    FOLD_LIMIT = 900
+    # readiness, so the readiness-card bound gets a real check too.
+    #
+    # RAISED 900 -> 1000 (2026-09-23, "LIVE POSITIONS + ACCOUNT EQUITY"): the new
+    # qb-sec-positions card the owner asked for sits directly under STATUS, in the
+    # LEFT column, ABOVE the chart/tiles row -- so it deliberately pushes tilesBottom
+    # down by its own height (measured ~30-50px even in its most compact,
+    # no-data-published state; these fixtures do not yet carry positions_live/equity
+    # at all). That is the intended trade -- the card exists specifically to be above
+    # the fold, not a regression to silently widen the limit around. Observed worst
+    # case with the new card: 977.6px (fold_mock_1400) -- 1000 keeps a real ceiling
+    # against unbounded FUTURE bloat while accepting today's deliberate addition. ──
+    FOLD_LIMIT = 1000
     r_fold_real = results.get('mono_real_1400', {})
     if r_fold_real.get('err'):
         fails.append('mono_real_1400 (fold): %s' % r_fold_real['err'])

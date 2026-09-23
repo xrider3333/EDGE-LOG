@@ -27,6 +27,19 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
    died of KeyboardInterrupt a few dozen tests later, and the PowerShell that launched it died too.
    Run from Git Bash, as the pre-push gate runs it, pytest survives that, which is why nothing
    noticed. Blocked, it fails the test that tried, in every shell.
+4. _isolate_qqq_stream (autouse, 2026-09-23) covers the SAME class of leak for
+   api/qqq_exec.py's live Webull price stream (item 3, "LIVE POSITIONS + ACCOUNT
+   EQUITY"): qqq_exec_thread can start api.webull_stream.WebullBarStreamer -- a real
+   MQTT session against the owner's Webull key -- on a background thread once it holds
+   the serving lease (_start_qqq_stream). An un-isolated test that drives
+   qqq_exec_thread for real (tests/test_qqq_exec_lease.py does, more than once) would
+   build that streamer from the owner's real webull_keys.json and dial out exactly
+   like the ORDER adapter leak above. Swapped for an inert stub (_InertStreamer) that
+   records start()/stop() calls and touches neither a thread nor the network; a test
+   that wants the real wiring logic (guarded-thread, exception-containment, standby-
+   never-streams) overrides qqq_exec._webull_stream_factory with its OWN fake via
+   monkeypatch, never the genuine class. Belt-and-suspenders alongside guard #2 above,
+   which independently blocks any socket connect to a "webull"-named host regardless.
 """
 import errno
 import itertools
@@ -189,4 +202,56 @@ def _isolate_broker_adapter(live_system_guard, monkeypatch, _broker_isolation_ro
                live_token_dir=str(d / "live_token"))
     monkeypatch.setattr(qe, "_ORDER_ADAPTER", wo.OrderAdapter(config=cfg, log=lambda *a, **k: None))
     monkeypatch.setattr(qe, "BROKER_ORDERS_CSV", str(d / "broker_orders.csv"))
+    yield
+
+
+# ── 4. the QQQ shadow's live Webull price stream ─────────────────────────────────────────
+class _InertStreamer:
+    """Stand-in for api.webull_stream.WebullBarStreamer: records start()/stop() calls,
+    starts no thread, opens no socket. The default every test gets from
+    qqq_exec._webull_stream_factory() (see _isolate_qqq_stream) -- a test that wants to
+    exercise the REAL wiring (guarded-thread, exception containment, standby-never-
+    streams) installs its own fake via monkeypatch instead, never this one and never
+    the genuine class."""
+    instances = []
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.started = False
+        self.stopped = False
+        _InertStreamer.instances.append(self)
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+
+    def last_trade(self):
+        return None
+
+    def is_fresh(self):
+        return False
+
+    def health(self):
+        return {"connected": False, "fresh": False, "last_message_age_s": None,
+                "messages_per_min": 0.0, "reconnects": 0, "subscribed_symbols": [],
+                "trading_session_counts": {}}
+
+
+@pytest.fixture(autouse=True)
+def _isolate_qqq_stream(live_system_guard, monkeypatch):
+    try:
+        from api import qqq_exec as qe
+    except ImportError:
+        yield
+        return
+    _InertStreamer.instances = []
+    monkeypatch.setattr(qe, "_webull_stream_factory", lambda: _InertStreamer)
+    # A stray streamer left running by a test that bypassed _start_qqq_stream (or by
+    # this fixture's own prior run, belt-and-suspenders) must never survive into the
+    # next test.
+    monkeypatch.setattr(qe, "_qqq_stream_state",
+                        {"streamer": None, "starting": False, "stop_requested": False})
     yield

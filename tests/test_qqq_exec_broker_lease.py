@@ -459,13 +459,18 @@ def test_tick_skips_lease_check_entirely_without_db_or_uid(tmp_path, monkeypatch
     neither db nor uid -- the NEW lease-gating block must not construct/consult the
     broker adapter at all in that case.
 
-    Two OTHER call sites are expected regardless of db/uid, both independent of
+    FOUR other call sites are expected regardless of db/uid, all independent of
     Firestore entirely: _build_doc's pre-existing "broker" status block (mode/creds/
-    etc for the doc), and 2026-09-14's _run_broker_housekeeping (daily P&L wiring +
-    FIX 2's reconcile scheduling -- see api/qqq_exec.py's own docstring on that
-    function for why it's ONE consolidated call site for both). This test counts
-    calls (expects exactly 2, not 0) to isolate "did the LEASE-GATE block specifically
-    add a call" from those two pre-existing/independent ones."""
+    etc for the doc), 2026-09-14's _run_broker_housekeeping (daily P&L wiring + FIX 2's
+    reconcile scheduling -- see api/qqq_exec.py's own docstring on that function for
+    why it's ONE consolidated call site for both), and two 2026-09-23 additions for
+    item 3 ("LIVE POSITIONS + ACCOUNT EQUITY"): _build_positions_live's broker-vs-book
+    net-QQQ cross-check (also inside _build_doc), and _maybe_read_account_equity's
+    balance read -- which fires here specifically because `state` has no prior
+    'equity' reading yet, i.e. this call is that read's own "at boot" case, unconditional
+    of market hours by design (see that function's docstring). This test counts calls
+    (expects exactly 4, not 0) to isolate "did the LEASE-GATE block specifically add a
+    call" from those four pre-existing/independent ones."""
     _tick_paths(tmp_path, monkeypatch)
 
     calls = []
@@ -478,6 +483,8 @@ def test_tick_skips_lease_check_entirely_without_db_or_uid(tmp_path, monkeypatch
     cfg, state, doc = qe.tick(cfg=_tick_cfg(tmp_path), state={"legs": {}},
                               now=_OUTSIDE_MARKET_HOURS, log=lambda *_: None)
     assert "_broker_lease_ok" not in state
-    assert len(calls) == 2, ("only _build_doc's status block and _run_broker_housekeeping "
-                             "may call the broker adapter here -- the LEASE-GATE block "
-                             "must skip it entirely when tick() is called without db/uid")
+    assert len(calls) == 4, ("only _build_doc's status block, _run_broker_housekeeping, "
+                             "_build_positions_live's cross-check and "
+                             "_maybe_read_account_equity's boot-time read may call the "
+                             "broker adapter here -- the LEASE-GATE block must skip it "
+                             "entirely when tick() is called without db/uid")

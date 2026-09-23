@@ -1483,6 +1483,39 @@ class OrderAdapter:
         on a later matching reconcile) and "kill_file" for the owner's kill file."""
         return self._halted, self._halt_source, self._halt_reason
 
+    # -- account equity, for the web tab's live positions/equity card (2026-09-23,
+    # api/qqq_exec.py item 3 -- "since we are live with live pricing, can you show the
+    # positions live? and potentially equity as well"). READ ONLY: no order, no state
+    # mutation, no _save_state -- a pure account_v2.get_account_balance(account_id)
+    # call against the SAME account THIS adapter already resolves/trades through for
+    # "stock" (_account_id, DEFAULT_ACCOUNT_SELECT -- the paper MARGIN account since
+    # 2026-09-23), via the identical account_v2.get_account_balance call
+    # api/webull_sync.py's own fetch_balance uses for its separate, summed-across-every-
+    # stock-account figure (a different, broader read for the journal's "Webull" pill,
+    # unaffected by this addition).
+    def get_stock_account_balance(self):
+        """{account_id, net_liq, cash} for the stock-purpose account, or None if the
+        adapter is OFF, has no client, or the call fails -- a read-only balance probe
+        called every ~60s from a live tick loop must never raise into its caller."""
+        try:
+            mode, _reason = self.effective_mode()
+            if mode not in (MODE_PAPER, MODE_LIVE):
+                return None
+            client = self._client(mode)
+            if client is None:
+                return None
+            account_id = self._account_id(mode, client, purpose="stock")
+            b = _safe_response(client.account_v2.get_account_balance(account_id))
+            net_liq = _field(b, "total_net_liquidation_value", "net_liquidation",
+                             "netLiquidation", default=None)
+            cash = _field(b, "total_cash_balance", "cash_balance", "cashBalance", default=None)
+            return {"account_id": account_id,
+                   "net_liq": float(net_liq) if net_liq is not None else None,
+                   "cash": float(cash) if cash is not None else None}
+        except Exception as e:
+            self.log(f"  [webull-orders] account balance read failed: {type(e).__name__}: {e}")
+            return None
+
     # -- status, for the web tab (a function, not a UI edit) --
     def status(self):
         mode, reason = self.effective_mode()
