@@ -698,3 +698,26 @@ Both are engine-side; NinjaTrader runs RAW only (`EdgeLogENGUQ1m` on DEMO7240108
 - **2026-08-20** — File created. §1 written after the owner asked why ENGU-Q RAW was
   "hitting a lot of losses recently": the answer is §1.1, the answer is *not* a fault, and
   the sanctioned follow-up is §1.4.
+
+## 2026-09-24 - the certified sealed year of ENGU-Q #335 is ONE trade
+
+Measured on one continuous replay, entry-sliced, pinned to the crown's own window and cost
+(NQ 1m ETH, db_noadj_eth, 2010-06-07..2026-06-30, split 2025-06-30, cost 0.533, mult 20; house
+parity self-test #226 = 2,843 trades / $434,721.12 PASS).
+
+- Sealed year 2025-06-30..2026-06-30: 118 trades, $88,380, PF 1.675 - the figure on the paper card.
+- ONE trade carries all of it: entered 2026-04-07 12:47 ET, exited 2026-05-12 12:41 ET, +$91,157,
+  a genuine 35-day hold. That is 103.1% of the sealed net.
+- The other 117 sealed trades LOSE $2,776 at PF 0.979.
+- The 2024-onward stretch tells the same story: top-10 share 105.7%, ex-top-10 -$14,266 at PF 0.951
+  (at round 47's own 0.783 cost convention: 106.3% and -$15,676 at PF 0.946, reproducing
+  BOOKMARKS round 47 to the dollar - that record needs no correction).
+- Whole window is NOT a tail artifact: 1,949 trades, $613,126, PF 1.711, top-10 share 55.6%,
+  ex-top-10 PF 1.316.
+
+**How to read it.** This does not unwind run #335's PASS and does not move the crown: the whole
+window is broad, and a single large winner is the documented shape of this family
+(`ENGUQ.md` section 1, memory `enguq-384-tail-economics`). What it does mean is that the sealed
+year is not independent evidence - it is one trade - so the sealed PF 1.675 must never be quoted as
+a forward expectation, and the R3 hold-cap sibling (cap the hold at 8,280 bars) now has a second
+independent argument for a per-stretch battery.

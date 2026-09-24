@@ -107,3 +107,16 @@ For each FREEZE knob: inside a single run, did the ten short-listed finalists ca
 4. Nothing here says a frozen knob is worthless. It says the search, as run, could not tell -- and for the artifact-flagged ones it never even asked.
 
 Row-level numbers for every knob, including every UNCLEAR one: `docs/candidates/knob_audit.csv` (and the same rows as `knob_audit.json`, because the repo does not track CSV files).
+
+## 2026-09-24 - CONTRADICTED rows (measured, not argued)
+
+- **NOISE `confirm_bars` (WIDEN 1-4 -> 1-6): CONTRADICTED.** Measured on the crown geometry,
+  continuous and entry-sliced, values 1-7: every value above the crowned 1 loses sealed-year money
+  (crown $82,123 vs $45,034-$60,941) and loses across 2024-2026 by $29,609 to $51,287, and tuning
+  net falls monotonically past value 2. On the live NOISE #382 cell no value reaches the
+  incumbent's annualised MAR. Full table: NOISE.md round 59. Do NOT re-declare the range.
+- **Method caution for every other row here.** This audit is built from cached run documents and
+  has no era check, so an end-stop frequency cannot tell whether the fence hides a better cell or
+  whether the search simply walks to the wall on one metric. The NOISE row also overstated its own
+  frequency: crowned-on-ceiling is 33% of genuine runs, not half. Treat a WIDEN row as a question
+  for a pinned sweep, never as a recommendation to widen a file.

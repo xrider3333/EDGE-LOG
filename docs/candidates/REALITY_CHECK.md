@@ -46,3 +46,23 @@ The crown's rank column is where the crowned config sits among its own
 finalists on mean fold net - a rank far from 1 means the crowning rule chose
 something other than the walk-forward leader, which it is entitled to do
 (it ranks on the fold TOTAL and the count of folds held, not the mean).
+
+## 2026-09-24 - how much this table is worth (measured)
+
+The search-adjusted p-value in this table clears every PASSED run, and that is close to the
+problem. Four measurements, all on the cached run documents:
+
+1. **It does not discriminate.** Seven of the eight FAIL/WEAK runs in #385-#410 clear the same
+   0.05 bar the PASSes clear, and a stored-FAIL run (GAPGO #399, p 0.000107) outscores most of the
+   PASSes. Necessary, not sufficient - never cite it in a crown decision.
+2. **The multiplicity correction is usually small and occasionally decisive.** Ratio of the
+   adjusted p to the crowned row alone: median about 1.16x across the cached runs, but 3 runs
+   exceed 10x (ENGU-Q #380 387x or more, ENGU-Q #402 107x, ENGU-Q #383 24x). Report the ratio.
+3. **It adjusts for ten when the search looked at hundreds.** Read at the true search size, two
+   PASSED runs stop being significant: NOISE #406 (2,144 configurations) 0.0001 -> about 0.18 and
+   ENGU-Q #407 (1,486) 0.0032 -> about 0.89. Both are lockbox-length arms, neither is a crown, so
+   nothing unwinds - but neither may be promoted on its walk-forward record. Record n_evaluated.
+4. **Some headline p-values are resolution limits, not tails.** With eight folds a re-centred mean
+   cannot exceed (best fold - mean fold), so several runs' own p is a structural zero at any number
+   of draws (NOISE #409 is still exactly 0.000000 at 2,000,000). Print "below the resolution of an
+   eight-fold resample", not "<0.0001". The fix is more folds, not more draws.

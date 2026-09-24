@@ -3071,3 +3071,44 @@ should not settle this on its own -- and a search that lands on 1.0 closes the q
    exit-management fork #374 came back WEAK and its own search chose no breakeven. The KEEL
    overlays are leverage by their own exposure-matched control.
 
+
+## Round 59 (2026-09-24) - measurement round, no configuration changes
+
+Owner: "auto validate anything promising and continue searching." Nothing earned a runner slot;
+three measurements ran locally instead, each against a bar written before the result. Drivers and
+raw output: session scratchpad (volatile) - the numbers below are the record.
+
+**1. End convention, closed.** Rounds 55/56 measure with an EXCLUSIVE end date
+(`tools/r55_noise_frontier.py` declares 2026-07-16 as the first day NOT in the judged window), so
+NOISE.md's sealed-year figures reproduce only when the same convention is used. Confirmed on one
+continuous replay of NOISE_1_8_CT304.py (NQ 5m RTH, db_noadj_rth, 2010-06-07..2026-07-16, cost
+0.533, mult 20, sealed from 2025-07-16): NOISE #382 end-exclusive 314 trades / PF 1.2746 (doc says
+314 / 1.275); end-inclusive 315 / PF 1.2590 / $69,062. The extra trade is one loser entered
+2026-07-16, and it is a TILTED trade. Quote the convention whenever these lines are cited.
+
+**2. Whole-window concentration baselines** (continuous replay, entry-sliced, each pinned to its
+own crowning run). Record them so the next session compares against a measured number:
+NOISE #304 - 4,833 trades, $413,255, PF 1.368, top-10 share 23.6%, ex-top-10 PF 1.281.
+NOISE #382 - 4,825 trades, $604,706, PF 1.392, top-10 share 23.8%, ex-top-10 PF 1.299.
+Neither is a whole-window tail artifact. CAUTION on the sealed stretch: the house concentration
+tools hard-code ten trades, and ten trades are 0.2-0.4% of a sixteen-year window but 2.4-6.0% of a
+one-year stretch, so a fixed top-10 flag on a sealed year is not comparable to the whole-window
+read. Rate-matched (k = 10 x stretch-years / window-years), both NOISE legs clear their sealed year.
+
+**3. #382 is #304 re-sized, not a second signal.** Run to the same end date the two carry 4,825
+trades each with identical entry and exit bars in order; 65.6% of trades are identical in dollars
+and the rest are the 2.0x tilt. Treat them as ONE stream in any book or correlation read.
+
+**4. Entry confirmation (`confirm_bars`) - the knob audit's WIDEN row is contradicted.** The audit
+flags the crowned value as sitting on its declared ceiling; measured, it sits there in 33% of
+genuine runs, not half. Sweep on the crown geometry (continuous, entry-sliced, pinned to #304:
+2010-06-07..2026-08-12, cost 0.533, mult 20), values 1 through 7, with value 1 reproducing #304 to
+the dollar (4,424 tuning trades, PF 1.379, $331,132): every other value loses money where it counts.
+Sealed net: crown $82,123 against $49,928 / $45,034 / $48,696 / $60,941 / $48,876 for values 2 to 6.
+Across 2024-2026 every value is behind the crown, by $29,609 to $51,287. Values above 4 (new ground
+- round 45 only tested 1 to 4) buy a higher profit factor by trading less: tuning net falls
+monotonically from $337,698 at value 2 to $237,758 at value 6. On the live NOISE #382 cell no value
+from 2 to 6 reaches the incumbent's annualised MAR of 1.692, though all five beat its profit factor.
+VERDICT: do not re-declare this range, and do not re-test values 1 to 4 (round 45 closed those).
+The open half, honestly stated: values 5 and 6 win on profit factor and drawdown while losing on
+dollars, and that trade-off has only been read on years already spent.

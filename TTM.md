@@ -157,3 +157,11 @@ The baseline book is cached in `tools/data/ttmsqz_round8_base.npz` — delete it
 
 Board: COMPARE ▸ STUDIES, study keys `ttmsqz` through `ttmsqz12`. Bookmark: **B28**.
 Memory: `edgelog-ttm-squeeze-study`.
+
+## 2026-09-24 - concentration baseline for TTM #369 (measured)
+
+One continuous replay, entry-sliced, pinned to the run: 354 trades, $135,884, PF 3.117, top-10
+share 52.0%, ex-top-10 PF 2.017 - matching TTM.md's own whole-run line. The sealed stretch holds
+15 trades, so a ten-trade concentration test carries no information about this leg in either
+direction (ten of fifteen trades is not a tail test); rate-match or say nothing. The leg clears the
+house concentration bar on the only stretch where the test is meaningful.

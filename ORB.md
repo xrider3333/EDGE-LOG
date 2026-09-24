@@ -1552,3 +1552,14 @@ to interrogate.
 
 *(Note: there is no ORBQ.md — this file is the ORB family's single doc; the ENGU-Q family's
 equivalent context lives with its own project docs.)*
+
+## 2026-09-24 - concentration baseline for ORB #314 (measured, for future comparison)
+
+One continuous replay, entry-sliced, pinned to the run's own window, master, cost and multiplier:
+2,299 trades, $397,150, PF 1.371, top-10 share 37.7%, ex-top-10 PF 1.231 - reproducing
+ORB_314.md's ungated whole-run figures exactly. The 2024-onward stretch is tail-leaning
+(top-10 78.2% of that stretch's net). Note the resolution trap before quoting a sealed-year
+concentration figure: the house tools hard-code ten trades, which is 0.2-0.4% of the whole window
+but 2.4-6.0% of a one-year stretch, so rate-match (k = 10 x stretch-years / window-years) before
+calling a sealed year concentrated - rate-matched, ORB #314's sealed year clears at 22.0% with an
+ex-top-k PF of 1.414.
