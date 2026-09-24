@@ -18,11 +18,11 @@ done.
 | 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **NOISE FAILED STEP 1** (run #408, 2026-09-21) | test ORB #314 next, or close the item |
 | 7 | One Webull account, three strategies: net the orders | **DONE** (2026-09-23, d14e2a3) | nothing; watch the first split order |
 | 8 | Live positions + account equity, honest warnings, plain-English broker errors | **DONE** (2026-09-23) | nothing; watch the live feed's load at the open |
-| 9 | KEEL v12 on top of run #382 on the NOISE leg | **IN PROGRESS** | nothing yet |
+| 9 | KEEL v12 on top of run #382 on the NOISE leg | **LIVE** (2026-09-24, 5326d02) | nothing |
 | 10 | Fire orders at the bar close from the live price feed | **OPEN** | nothing |
 | 11 | Re-price trades from Webull's own tape, not Yahoo | **OPEN** | nothing |
 | 12 | NOISE's volatility skip never fires live | **OPEN** | nothing |
-| 13 | Share cap vs #382 x KEEL sizes | **OWNER CALL** | "keep 20" or a new NOISE cap |
+| 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
 
 ---
 
@@ -520,8 +520,8 @@ order timing) and the regular-hours trading-session label it reports. Kill switc
 
 ## 9. KEEL v12 on top of run #382 on the NOISE leg
 
-**Status: IN PROGRESS (asked 2026-09-23: "after that add the keel v12 on top", "train it on the NQ
-backtest like the validation").** NOISE moved to run #382 for the session of 2026-09-24 (main 840b164):
+**Status: LIVE from the 2026-09-24 session (main 5326d02; asked 2026-09-23: "after that add the keel v12 on
+top", "train it on the NQ backtest like the validation").** NOISE moved to run #382 for the session of 2026-09-24 (main 840b164):
 the #304 core plus the validated squeeze size tilt (2x on a 30-minute squeeze). KEEL v12 goes on top.
 - Training = the validation's own walk: run #382 on the NQ 5m RTH master, KEEL v12 over those NQ
   trades, rebuilt NIGHTLY on the box (its scikit-learn differs from the PC's, so no model file crosses
@@ -532,7 +532,15 @@ the #304 core plus the validated squeeze size tilt (2x on a 30-minute squeeze). 
 - Caveat recorded 2026-09-10 (round 53): on #304, KEEL v12's back-tested gain was mostly bigger
   average size (about 1.2x), so this is a forward test, not a proven edge.
 
-**Needs from the owner.** Nothing yet; see item 13 for the share cap.
+**Live facts.** Box and PC builds agree (same file, 4,855 trades, 194 fits, trust 0; one ledger reading
+differs 0.1% across library versions). Owner 2026-09-24: "pick up from where the price action was prior
+to us taking it live" - the state was rebuilt at 11:43 ET through 2026-09-23 (the last session before
+go-live, 4,860 trades), and the nightly push now tops the NQ master up with the full session first, so
+each night's build includes that day. Trades of the SAME day join the model that evening (the
+validation's walk would already count earlier same-day trades - a one-day lag of a few trades out of
+600/50 in its ledgers).
+
+**Needs from the owner.** Nothing.
 
 ---
 
@@ -570,9 +578,14 @@ free since 2016) and a check that the live trades then match a full-history re-r
 
 ## 13. Share cap vs #382 x KEEL sizes
 
-**Status: OWNER CALL (when KEEL goes live).** Caps since 2026-09-23: 20 shares per strategy, 40 in
+**Status: DONE (owner 2026-09-24: "keep it as honest to the backtest as possible. im fine with
+raising").** Per-leg cap 60 (the most #382 x KEEL can ask: 2.0 x 3.0 x 10) and total 80, on both
+machines, live from the next after-close restart. The $400 daily stop stays: over #382's last 12
+months NOISE's worst day at uncapped KEEL sizes was -$177 (it never binds). Uncapped vs capped at
+20 over that year: $1,361 vs $1,132 - the cap would have cost about a sixth of NOISE's money.
+Earlier text, kept for the record: Caps since 2026-09-23: 20 shares per strategy, 40 in
 total, $400 daily stop, on both machines. #382 alone wants 10 or 20 shares; with KEEL on top a NOISE
 trade can want up to 60 (2x times up to 3x). Anything over 20 is cut to 20, and the tab shows how many
 were wanted. Keep 20, or raise NOISE's own cap so the sizes the validation assumed can trade.
 
-**Needs from the owner.** "Keep 20" or a new NOISE cap.
+**Needs from the owner.** Nothing.

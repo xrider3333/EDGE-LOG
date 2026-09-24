@@ -4,6 +4,10 @@ for the KEEL v12 live state that tools/keel_live_state.py rebuilds THERE on a sy
 keeps augur_uploads/NOADJ_NQ_5m_RTH.csv current through the day.
 
 What it does, and nothing else:
+  0. tops the master up with the day's FULL session first (tools/refresh_noadj_yahoo.py, the
+     project's own non-adjusted refresher) -- the PC's copy otherwise often stops mid-afternoon,
+     the nightly build then drops that day as incomplete, and KEEL would train one session
+     behind (owner 2026-09-24: pick up from the price action right before each trading day);
   1. sha256 of the local master; skip everything if the box already holds the same bytes;
   2. scp it to <remote dir>/<name>.tmp, check the remote sha256, then `mv` it into place
      (atomic on the box, so the nightly build never reads a half-written file);
@@ -51,6 +55,21 @@ def _sha256(path):
     return h.hexdigest()
 
 
+def _refresh_master():
+    """Run tools/refresh_noadj_yahoo.py in a child process (it appends Yahoo NQ=F bars after the
+    master's last bar). Returns (ok, note). Never raises: a failed refresh still lets the push
+    go ahead with whatever the master holds -- the box build drops an incomplete last session."""
+    tool = os.path.join(ROOT, "tools", "refresh_noadj_yahoo.py")
+    try:
+        r = subprocess.run([sys.executable, tool], capture_output=True, text=True, timeout=600,
+                           cwd=ROOT)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return False, f"{type(e).__name__}: {e}"
+    lines = [ln.strip() for ln in (r.stdout or "").splitlines() if NAME in ln]
+    note = "; ".join(lines) or (r.stderr or "").strip()[-200:] or "no output"
+    return r.returncode == 0, note[:300]
+
+
 def _ssh(cmd, timeout=120):
     return subprocess.run(["ssh", *SSH_OPTS, HOST, cmd], capture_output=True, text=True,
                           timeout=timeout)
@@ -65,8 +84,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="report what would happen, change nothing")
     ap.add_argument("--local", default=LOCAL, help="the master to push (default: this checkout's augur_uploads copy)")
+    ap.add_argument("--no-refresh", action="store_true", help="push the master as it is, without topping it up first")
     args = ap.parse_args(argv)
     local = args.local
+    if not (args.no_refresh or args.dry_run):
+        ok, note = _refresh_master()
+        _log(("REFRESH ok: " if ok else "REFRESH FAILED (pushing the master as it is): ") + note)
     if not os.path.exists(local):
         _log(f"FAIL local master missing: {local}")
         return 2

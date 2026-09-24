@@ -116,6 +116,8 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
 
     state_path = out_dir / "NOISE_382_v12_state.joblib"
     summary_path = out_dir / "NOISE_382_v12_summary.json"
+    # atomic swap (2026-09-24): both files land by rename -- nothing half-written is left behind
+    assert not [p for p in out_dir.iterdir() if p.name.endswith(".tmp")]
     assert state_path.exists() and summary_path.exists()
 
     import joblib

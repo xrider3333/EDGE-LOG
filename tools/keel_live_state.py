@@ -191,7 +191,13 @@ def build(nq_file, out_dir, version=VERSION, log=print):
 
     import joblib
     t0 = time.time()
-    joblib.dump(state, state_path)
+    # ATOMIC SWAP (2026-09-24): write both files beside their targets first and rename them
+    # into place only once complete -- summary FIRST, state LAST -- because api/cloud_signal
+    # reloads the state by its mtime and reads the summary at that moment. A rebuild during
+    # market hours (owner 2026-09-24: train right up to the last session before go-live)
+    # must never let a live entry read a half-written file or a new state with an old summary.
+    state_tmp = state_path + ".tmp"
+    joblib.dump(state, state_tmp)
     save_s = time.time() - t0
 
     total_s = time.time() - t_start
@@ -212,8 +218,13 @@ def build(nq_file, out_dir, version=VERSION, log=print):
                             "save": round(save_s, 2)},
         "state_path": state_path,
     })
-    with open(summary_path, "w", encoding="utf-8") as f:
+    summary_tmp = summary_path + ".tmp"
+    with open(summary_tmp, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, default=str)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(summary_tmp, summary_path)
+    os.replace(state_tmp, state_path)
 
     log(f"[keel-live-state] wrote {state_path}")
     log(f"[keel-live-state] wrote {summary_path}")
