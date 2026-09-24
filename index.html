@@ -461,7 +461,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qb-hero{padding:8px 0 12px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .qb-hero-left{min-width:0}
 .qb-hero-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text4);font-weight:700}
-.qb-hero-num{font-variant-numeric:tabular-nums;font-size:40px;font-weight:600;line-height:1.05;margin-top:4px;word-break:break-word}
+.qb-hero-num{font-variant-numeric:tabular-nums;font-size:44px;font-weight:700;line-height:1.05;margin-top:4px;word-break:break-word}
 .qb-hero-sub{font-size:12px;color:var(--text3);margin-top:2px}
 .qb-hero-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-top:6px;max-width:100%}
 .qb-hero-statusline{font-size:12px;color:var(--text4);white-space:nowrap}
@@ -470,9 +470,9 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qb-chart-wrap{margin:0 0 16px;position:relative}
 .qb-chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:0}
 .qb-chart-head .lbl2{font-size:11px;color:var(--text4);letter-spacing:.04em}
-.qb-chart-svg{display:block;width:100%;height:220px}
+.qb-chart-svg{display:block;width:100%;height:300px}
 .qb-chart-legend{margin-top:8px}
-@media(max-width:600px){.qb-chart-svg{height:180px}}
+@media(max-width:600px){.qb-chart-svg{height:220px}}
 .qb-card{background:var(--bg1);border-radius:16px;padding:14px 16px;margin-bottom:16px;overflow-x:auto}
 [data-theme="paper"] .qb-card{border:1px solid var(--border)}
 .qb-section-hd{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text4);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -535,60 +535,82 @@ select option:checked{background:var(--bg3);color:var(--text)}
 @keyframes qbSlideUp{from{transform:translateY(16px);opacity:.6}to{transform:translateY(0);opacity:1}}
 .qb-attn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:7px;flex:0 0 auto}
 .qb-hairline-top{border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);margin-top:6px;padding-top:10px}
-@media(max-width:760px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:34px}.qb-chart-head{flex-wrap:wrap}}
-/* ── two-column shell at >=1100px: left = chart/tiles/activity/trades/footer, right =
-   a sticky rail (readiness -> legs -> integrity). Paired grid rows (chart+ready,
-   tiles+legs, activity+integrity) so each right-rail card starts level with its
-   left-column counterpart, then sticks at top:54px (same offset as the QQQ overview
-   tab's own sticky rail) while its row scrolls past, handing off to the next. ── */
+@media(max-width:760px){.qb-shell{padding:0 16px}.qb-hero-num{font-size:34px}.qb-chart-head{flex-wrap:wrap}.qbx-chart-tabs{gap:12px}}
+/* ── QBX — Robinhood-style re-composition (2026-09-24, owner: "make more like
+   robinhood pls. peep the real trading log"). Reuses every qb- class and every
+   data-qb*/data-qe* attribute already wired above (nothing renamed, nothing
+   rewired) -- these qbx- classes only govern the NEW shell shape: a big headline,
+   an edge-to-edge chart, a thin status strip (replacing the old top-right chip
+   row), hairline-separated sections (Account/Stats/History/Activity/System)
+   instead of boxed qb-cards, and a Robinhood "Strategies" sidebar list that is
+   the SAME legListHtml rows (data-qblegrow untouched) plus a live-position line
+   sourced from QE.positions_live. Below 1100px every qbx- section is a plain
+   block, so the DOM order below IS the mobile reading order: hero -> chart +
+   status -> Strategies (+ a compact orders summary) -> Account -> Stats ->
+   History -> Activity -> System -> footer -- deliberately mirrors a Robinhood
+   mobile screen (price/chart, then holdings, then account detail), not just a
+   collapsed desktop grid. */
+.qbx-hero-today{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.qbx-today-suffix{color:var(--text4);font-weight:500;margin-left:4px}
+.qbx-chart-cap{font-size:11px;color:var(--text4);letter-spacing:.04em}
+.qbx-chart-tabs{display:flex;align-items:center;gap:20px;margin-top:8px;flex-wrap:wrap}
+.qbx-chart-tabs button{background:none;border:none;padding:0 0 5px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;cursor:pointer;font-family:inherit}
+.qbx-chart-tabs button.on{color:var(--text);border-bottom-color:var(--text)}
+.qbx-chart-readout{position:absolute;top:4px;right:0;font-size:11px;color:var(--text3);background:var(--bg1);border:1px solid var(--border);border-radius:6px;padding:3px 8px;pointer-events:none;opacity:0;transition:opacity .1s;white-space:nowrap;font-variant-numeric:tabular-nums}
+.qbx-chart-readout.on{opacity:1}
+.qbx-status-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);font-size:12px;color:var(--text4)}
+.qbx-status-strip .qb-hero-refresh{margin-left:auto}
+.qbx-section{padding:22px 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.qbx-section>.qb-section-hd{margin-bottom:12px}
+.qbx-stat-strip{display:flex;flex-wrap:wrap;gap:28px 36px}
+.qbx-stat-cell{min-width:88px}
+.qbx-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text4)}
+.qbx-stat-val{font-variant-numeric:tabular-nums;font-size:18px;font-weight:700;margin-top:3px}
+.qbx-side{padding-top:4px}
+.qbx-side-hd{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text4);font-weight:700;margin-bottom:6px}
+.qbx-leg-live{padding:0 0 8px;font-size:11px;color:var(--text4);line-height:1.5}
+.qbx-leg-live b{font-weight:700}
+.qbx-orders-mini{margin-top:14px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)}
+.qbx-orders-mini-line{font-size:12px;color:var(--text3);margin-top:8px;line-height:1.5}
+.qbx-system-body{margin-top:6px}
+.qbx-system-body .qb-section-hd{margin-top:16px}
+.qbx-system-body .qb-section-hd:first-child{margin-top:2px}
 @media(min-width:1100px){
   .qb-shell{
+    max-width:1320px;
     display:grid;
-    grid-template-columns:minmax(0,1fr) 360px;
+    grid-template-columns:minmax(0,1fr) 340px;
+    column-gap:40px;
     grid-template-areas:
-      "hero hero"
-      "status broker"
-      "positions broker"
-      "chart ready"
-      "tiles legs"
-      "activity integrity"
-      "trades ."
-      "orders ."
-      "footer .";
-    gap:20px;
+      "hero side"
+      "chart side"
+      "account side"
+      "stats side"
+      "history side"
+      "activity side"
+      "system side"
+      "footer side";
     align-items:start;
   }
   .qb-shell .qb-card{margin-bottom:0}
-  .qb-chart-wrap{margin:0}
-  .qb-hero{grid-area:hero}
-  .qb-chart-wrap{grid-area:chart}
-  .qb-sec-tiles{grid-area:tiles}
-  .qb-sec-ready{grid-area:ready;position:sticky;top:54px}
-  .qb-sec-legs{grid-area:legs;position:sticky;top:54px}
-  .qb-sec-activity{grid-area:activity}
-  .qb-sec-integrity{grid-area:integrity;position:sticky;top:54px}
-  .qb-sec-trades{grid-area:trades}
-  .qb-sec-orders{grid-area:orders}
-  .qb-sec-footer{grid-area:footer}
-  /* 2026-09-14: STATUS (v73.770) had no explicit area and was auto-placed into
-     whichever "." cell happened to be free (observed: the "trades ." row's right
-     cell) -- harmless but accidental. Giving both STATUS and the new order-
-     connection card (qb-sec-broker, added the same day -- named "broker" to
-     avoid colliding with the PRE-EXISTING qb-sec-orders class used by the
-     "Today's orders" table below) their own row keeps them paired right under
-     the hero, matching their DOM order and the single-column layout below
-     1100px. */
-  .qb-sec-status{grid-area:status}
-  .qb-sec-broker{grid-area:broker}
-  /* 2026-09-23, "LIVE POSITIONS + ACCOUNT EQUITY" item 2/3: the owner's screenshot
-     showed a short 4-field STATUS card beside a very tall broker/orders card (long
-     Webull error text, printed twice) -- once "broker" is fixed to actually be short
-     again, pairing it with only "status" left an awkward empty gap in the LEFT column
-     for the rest of that row's height. POSITIONS-LIVE goes directly under STATUS, in
-     the SAME column -- "broker" repeats in both rows above so it spans them as one
-     rectangle (ordinary grid-template-areas behaviour), balancing both columns
-     instead of leaving dead space. */
-  .qb-sec-positions{grid-area:positions}
+  .qbx-hero{grid-area:hero}
+  .qbx-chart{grid-area:chart}
+  /* REVIEW FIX 1 (2026-09-24): "side" now starts in the SAME row as "hero" (was
+     "hero hero" spanning both columns, which left the Strategies column starting a
+     whole hero-height lower than the headline -- an empty band top-right, see
+     qqq_overview_rh_positions_1366x768_mono.png before this fix). padding-top:8px
+     matches .qb-hero's own padding-top:8px so the "STRATEGIES" label and the
+     "WEBULL PAPER TRADING" eyebrow start at the same line (checked by the probe's
+     heroLabelTop/sideHdTop read, within 8px). max-height + overflow-y keep every
+     row reachable by scrolling the sidebar itself on a short (768px) screen instead
+     of the row silently running off past the viewport bottom. */
+  .qbx-side{grid-area:side;position:sticky;top:54px;padding-top:8px;max-height:calc(100vh - 64px);overflow-y:auto}
+  .qbx-account{grid-area:account}
+  .qbx-stats{grid-area:stats}
+  .qbx-history{grid-area:history}
+  .qbx-activity{grid-area:activity}
+  .qbx-system{grid-area:system}
+  .qbx-footer{grid-area:footer}
 }
 
 /* ══════════════════════════ HOME tab (v73.651) ══════════════════════════
@@ -776,7 +798,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.890';
+const VERSION='73.891';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -794,7 +816,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.890',date:'2026-09-23',notes:['RUNBOARD\'S WINDOW ROW SHOWS THE STAGE ON SCREEN. On the in-sample and lockbox stages it printed the whole run\'s span beside figures measured over that stage alone - #369\'s lockbox MAR of 11.58 came from 1.0 year while the row said 16.1y. It now shows that stage\'s own dates and years, the same ones its MAR and TRADES / YR divide by, and the hover still gives the whole run\'s span. The whole-run and walk-forward stages are unchanged.','R-NUMBERS ONLY WHERE THE ORDER IS A RANKING. On a hand-picked OVERLAY or PICK RUNS comparison the chart key printed R1, R2, R3 in the order you picked the runs, as if ranked, and reversing the picks swapped them. Picked lists now carry no R-number; CHAMPIONS, BY STRATEGY and RUNBOARD, which really are ranked, keep theirs.','A BOOK IS NAMED AS A BOOK IN THE OVERLAY KEY. The key\'s list of runs with no curve read a book\'s name like a strategy file name, so a leg\'s run number showed as the book\'s version - #366, #396 and #397 read 17 · BOOK 304, and 304 is their NOISE leg. That list now names a book by its own name with the book mark, as the other keys already did.','SMALLER FIXES. A RUNBOARD column head no longer prints a run\'s number twice when the run has no family number. ETFDIP now reads ETFDIP everywhere - some screens cut it to ETFDI - and its hover describes the family. The lockbox chart key\'s wording for a lockbox that took no trades was checked and is already right, so it is unchanged.']},{v:'73.888',date:'2026-09-24',notes:['IMPORTED TRADE TIMES ARE NOW ALWAYS SAVED IN EASTERN (owner: imported NinjaTrader trades showed times 3 hours off). NinjaTrader prints times in whatever zone your platform is set to display, with no label - your own downloads switch between Pacific and Eastern - and the daily PDF statement prints GMT. The importer saved them exactly as printed, so a Pacific export landed 3 hours early and a PDF 4 hours late. Each file is now read in its real zone and saved in Eastern. The Apr 15 - May 18 rows repaired on Sep 23 were pushed 3 hours late by a one-off time repair in June that assumed every export was Pacific, not by this importer.','HOW THE ZONE IS FOUND. Drop the Fills export together with the other files and the zone is proven exactly - Fills is the one NinjaTrader file with true UTC times. Otherwise the new EXPORT TIME ZONE setting under the drop box decides (Auto by default), and Auto takes the only zone that puts the times inside market hours. When it cannot tell, nothing from that file is saved: it asks, with one button per zone.','TWO MORE GUARDS. Re-importing a trade whose saved times sit a whole number of hours away from the file now flags it in the import result, without changing it. Short trades no longer get their entry and exit times swapped.']},{v:'73.886',date:'2026-09-24',notes:['THE EVENING SCORE ROUTINE NO LONGER STALLS. Its first two runs sat waiting for a permission click nobody was there to give. It now runs through one script with a standing permission, so it scores the day and publishes by itself.']},{v:'73.885',date:'2026-09-23',notes:['KEEL V12 NOW SIZES THE WEBULL NOISE LEG (owner: add the keel v12 on top of #382, train it on the NQ backtest like the validation). Every weekday evening the cloud box re-runs the validated KEEL walk on run #382 over its full NQ history, and each new NOISE trade on QQQ is scored as one more trade of that walk. Final size = the #382 size times the KEEL size. If KEEL cannot score (no training yet, training more than 5 sessions old, or any error) the trade goes at the #382 size - KEEL never blocks a trade.','WHAT IT DOES TODAY. Its learned part is standing down - it has shown no recent skill on NQ, so it adds nothing of its own - which leaves its fixed rules: 1.5x on Fridays, 1.5x when the hourly range is compressed, and half size on Fed decision mornings before 2 pm. The trade drawer shows #382 size x KEEL = total and any share cap, and the NOISE row under LEGS says what KEEL was trained through.']},{v:'73.884',date:'2026-09-23',notes:['A BOOK\'S LONGEST FLAT STRETCH ON RUNBOARD NOW FOLLOWS THE STAGE. Checking v73.883 on the live board, book #366 showed its whole-run drawdown length on every stage, walk-forward included. The lockbox stage now shows the book\'s own lockbox stretch, the in-sample stage shows the whole-run stretch only when it ended before the lockbox began, and the walk-forward stage shows a dash - a book has no walk-forward test.']},{v:'73.883',date:'2026-09-23',notes:['RUNBOARD HAS THREE NEW ROWS: TRADES / YR, WORST MONTH AND LONGEST FLAT STRETCH. All three follow the STAGE control like every other row. WORST MONTH is the worst calendar month on that stage and LONGEST FLAT STRETCH the longest run of months without a new equity high, both read from the month-by-month profit grid each run saves. The grid loads only for the runs on the board, a few kilobytes each, so those cells show a moment of dots and then fill in. Where the grid does not reach a stage - the walk-forward test, which re-tunes fold by fold, or a lockbox the grid was not built over - the cell shows a dash with the reason on hover, and a ~ means part of the stage is missing from the grid. A book saves no monthly grid, so its WORST MONTH dashes and its flat-stretch cell shows the length of its worst drawdown instead, labelled DD span.','TWO OF THE REQUESTED COLUMNS ARE NOT NEW ROWS. Average $ per trade was already on the board as the EV row, so it has no second copy. A worst single DAY and a correlation to the current book cannot be shown yet: no run saves a daily series, and books save no monthly one, so both need the engine to save that first.','RUNBOARD FILES EVERY BOOK UNDER ONE BOOKS CHIP. Its family chips grouped books by the name on each run rather than the way the rest of COMPARE groups them, so picking the book family could miss books the leaderboard counts. Every book now sits under BOOKS, as on the leaderboard, so that chip lists every book and draws each one\'s saved curve on the funnel.','THE FULL-SCREEN CHART\'S LOCKBOX BAND FOLLOWS THE RUNS ON SCREEN. With several runs on, one band was drawn at the first run\'s lockbox date for all of them and stayed there after that run was switched off - #335, #400 and #314 all showed #335\'s date. The band is now drawn only where the runs on screen share one lockbox date, and left off when they disagree.','THE DRAWDOWN FIGURE ON THE COMPARE CHARTS IS MARKED ~ ON EVERY STAGE, not only walk-forward. It is read off the stored curve, which is thinned, so it can only match or read shallower than the DRAWDOWN row - on the whole run #243 showed -$14k against a row of $22,096. It now carries a ~, and the hover and the note under the RUNBOARD table say why.','A DAMAGED SAVED PICK LIST NO LONGER BLANKS THE SCREEN. An old or hand-edited saved pick list or saved set in the wrong shape left RUNBOARD, PICK RUNS and FEATURES blank on every visit until browser storage was cleared. A bad pick list now reads as nothing picked yet, and a bad saved set shows as an empty chip you can delete.','SMALLER FIXES. EXPLORE\'s TABLES button hover now gives the real cost - about a dozen megabytes of tables with a full run history loaded, not three and a half; the tables themselves are unchanged. A book\'s own report now counts its in-sample years from the run window, the same rule the leaderboard, RUNBOARD, PICK RUNS and EXPLORE use, so they cannot drift apart; on today\'s books the dates already agree, so no figure moves.','NINJATRADER CHECKS FOLLOW TODAY\'S LINEUP (live since 3:31 PM ET today, no page change needed). The 9 AM check on the PAPER tab\'s NinjaTrader card flagged ORB V2 as missing every morning, although ORB V2 was switched off in August; it now reads its list from the NinjaTrader watchdog, so the two cannot drift apart again. The fill alerts still expected NOISE on full-size NQ, so every NOISE fill on the micro contract was pushed to your phone as REVIEW; they now know NOISE trades 3 micro contracts and ENGU-Q 1 NQ.']},{v:'73.881',date:'2026-09-23',notes:['ACCOUNT EQUITY NO LONGER SAYS STALE AFTER THE CLOSE. The balance is read once whenever the service starts, and while the market is shut an older reading is expected rather than stale. During market hours it still turns STALE if the one-minute reads stop.']},{v:'73.880',date:'2026-09-23',notes:['SLOW LATENCY NO LONGER FIRES ON ORDERS SENT BEFORE THE FIX. Orders logged before the after-close timing existed are now measured the same way - their time minus the bar length - so the badge reads about 30 seconds after the close instead of falling back to the old reading of about 330 seconds. The header line also says ratio not used on this book.']},{v:'73.879',date:'2026-09-23',notes:['WEBULL TAB: LIVE POSITIONS AND ACCOUNT EQUITY (owner ask). A new POSITIONS - LIVE card under STATUS lists each open strategy with its side, shares, entry, live price, open P&amp;L and time in trade, then the total open P&amp;L and the Webull paper account’s equity with today’s change. The live price comes from Webull’s live price feed, or from the last closed bar when the feed is quiet, and each row says which. A last line checks that Webull’s position equals what the three strategies add up to, and turns amber when it does not.','THE THREE STRATEGIES NO LONGER BLOCK EACH OTHER AT WEBULL. They share one Webull account, and Webull refuses a short while that account is long - on Sep 23 five NOISE shorts were refused while ENGU-Q was long, so they became book-only. Orders are now combined into one account position: a NOISE short while ENGU-Q is long simply sells ENGU-Q’s shares at Webull. Each strategy’s own trades and P&amp;L are unchanged.','HONEST WARNINGS. RATIO DRIFT no longer fires on this book - it watched an NQ-to-QQQ conversion that no price uses any more, and INTEGRITY now says Ratio: not used. Latency is timed from when the bar CLOSED, not when it opened, so it reads about 30 seconds instead of about 330 and only warns past 60 seconds. NOT READY now counts trades checked against Webull instead of NinjaTrader. A Webull refusal shows as one plain sentence with the raw text behind details, and is no longer repeated as a second Last error line.']},{v:'73.877',date:'2026-09-23',notes:['WEBULL PAPER NOISE LEG MOVES FROM RUN #304 TO RUN #382 (owner decision). Starting the session of Sep 24, the NOISE leg on the Webull paper trading tab trades run #382 instead of #304 - the same #304 crown at its core, plus a validated size tilt that doubles the trade when the market is coiled (a squeeze on the 30-minute chart). Every past trade, the P&amp;L total and the chart history stay exactly as they were; only new trades from Sep 24 onward use the new version.','THE LEGS LIST, CHART AND TRADE ROWS ALL SAY WHICH VERSION. The NOISE row under LEGS now reads #382 since Sep 24, was #304; the P&amp;L chart marks the switch date with a dashed line and a small #304 to #382 label; and each NOISE trade row carries a muted tag naming the run that took it. The NinjaTrader paper board is a separate book and is not part of this change.']},{v:'73.874',date:'2026-09-23',notes:['FIXED 15 TRADE TIMES FROM APR 15 TO MAY 18. An import had added 3 hours to those futures trades. The broker fill timestamps confirm the correct Eastern times, and the journal and their scores now use them.','THE 6/12 09:46 SHORT AT 7434.25 IS A REAL TRADE, NOT A DUPLICATE. It was placed on the September contract (MESU6) while the rest of the day was on June, which is why its price looked off. It is now scored against September prices.','The 4/21 long and short in the same minute, and the two 9/15 VEEA trades, are also confirmed as separate real trades from the broker records.']},{v:'73.869',date:'2026-09-23',notes:['QQQ BOOK: A TRADE THE BROKER NEVER MADE IS NOW MARKED BOOK ONLY (owner: mark the book only trades). Today at 10:10 ET a NOISE short was refused by Webull because its stock orders were still routed to the cash account, which cannot hold a short - but the book still counted +$4.90 for that trade as if Webull had made it too. A trade whose entry order was refused or blocked before it ever reached the broker now carries a muted BOOK ONLY tag on its row, with the reason Webull or the safety rails gave shown in the tooltip. It looks nothing like the red PARITY NOTE tag on purpose: this is not a mismatched price, the order never existed at the broker at all. A trade closed while the broker mirror was simply switched off, or whose broker record has since aged out of the log, is left alone either way - there is no way to know what would have happened, so nothing is claimed.','BOTH TOTALS, SIDE BY SIDE. The hero number keeps showing the book total - this is a forward test of the strategy itself, not of Webull - but whenever at least one trade is book only, a smaller line under it shows what the broker side actually made with those trades left out. The month calendar hatches a book-only day exactly the way it already hatches a re-priced exit or a failed parity check, and the hover text now says which one it is.']},{v:'73.867',date:'2026-09-22',notes:['PARITY NOW COMPARES TO WEBULL, NOT NINJATRADER, ON THIS BOOK (owner: why are we comparing to NT for parity, it should just be EL OHLC values against Webull). Every closed trade showed a red PARITY NOTE chip for one reason only - this book has no NinjaTrader side to compare against, so the check always came back not checked, yet the chip still painted red. The chip and the INTEGRITY Parity row now compare the price this page booked to the price Webull actually filled at, or to the overnight re-priced tape price when Webull has not reported a fill yet. A trade still waiting on either now shows a plain grey NOT CHECKED tag, never red - red stays reserved for a real mismatch. A trade that genuinely does mirror NinjaTrader is completely untouched.','THE PAGE NOW ASKS WEBULL FOR THE REAL FILL PRICE. An accepted order only ever reported back a price of zero or blank at the instant it was placed, so the fill price and slippage recorded behind the scenes stayed blank forever - nothing ever asked again. Right after an order is accepted the page now asks Webull once more for that exact order, and records the real fill price and the resulting slippage when Webull has one ready. A failed check only gets logged - it can never stop, slow down or undo a trade.']},{v:'73.864',date:'2026-09-22',notes:['EVERY TRADE NOW HAS A SCORE OR NA. 49 older trades were scored from 1-minute bars (futures back to April from the local ES and NQ files, recent stocks from Yahoo). 20 show NA because no price data exists: stocks older than about 60 days, and futures from Jul 1 to Aug 5 where the local files have a gap.','TRADES LOGGED IN PACIFIC TIME ARE READ CORRECTLY. The journal stored futures trades from Apr 15 to May 18 in Pacific time. Scoring now spots this and reads the market at the real Eastern time.','Two trades in the same symbol in the same minute now keep separate scores.']},{v:'73.862',date:'2026-09-22',notes:['HOME TABLE NO LONGER JUMPS AFTER AN EDIT. Pressing Enter on a note or changing a grade used to shove the table down while the AI ASSESSMENT box above it refilled, and the search box grabbed focus. Both are fixed.','SCORE COLUMN FILLS ITSELF EVERY EVENING. A routine now scores every trade taken that day after the close, futures and stocks alike. A trade with no price data shows NA, and clicking it says why. Each trade gets its own score, even with several MES trades on one day. First two done: MNQ 9/22 scored 68 and MES 9/16 scored 74.']},{v:'73.861',date:'2026-09-22',notes:['TRADE TABLES KEEP THEIR SCROLL POSITION. Changing a grade, setup, TF, tag or note on the HOME table or the TRADES table no longer snaps the table back to the far left.']},{v:'73.859',date:'2026-09-22',notes:['COMPARE > EXPLORE LOADS IN SECONDS, NOT MINUTES. With 1E CONFIGS showing 41 Auto-Validate runs, the board redrew itself every time one run\'s configurations arrived - measured on 2026-09-21 at up to 9 seconds a redraw, about two and a half minutes of a frozen tab. It now fetches six runs at a time, counts them in on the loading line, and draws everything you picked once, when the last one lands. A read that hangs gives up after 30 seconds instead of holding the rest back.','RIGHT-CLICK A DOT TO HIDE IT FOR NOW. The chart refits without it straight away - only the chart is redrawn, not the tables - and the row stays in the table. A line under the chart counts the dots you have hidden and SHOW ALL brings them back; a reload brings every dot back too. Handy for the three GATE configs from runs #370 and #377 whose 4 to 6 lockbox trades gave a Sortino of 384 to 750 and squashed everything else onto the floor of the chart.','COLOUR IS THE STRATEGY, SHAPE IS THE CONFIG TYPE. With more than one strategy on the 1E CONFIGS chart, each strategy has its own colour and each config type its own shape: RAW circle, GATE square, TILT triangle, HYBRID diamond, HYBRID ♻ upside-down triangle, HYBRID ↓DD plus, KEEL cross. The FAMILY column in the table carries the same mark and names the strategy. With one strategy on the chart, colour stays the config type. Click a config type in the key under the chart to hide it from the chart and the tables, and click it again to bring it back - the same switch as FILTERS > 1E FAMILY.','THE EXPLORE TABLE IS LIGHTER TO DRAW. Every cell used to carry its own copy of the same styling; it now shares one rule, which makes the same table about 15 per cent smaller for the browser to read. Nothing looks different.']},{v:'73.849',date:'2026-09-21',notes:['WEBULL PAPER CHART NOW SHOWS EVERY TRADE (owner: the chart does not show all the trades). The three exits that fired after the bell on Sep 17 and 18 had no price, and one missing price turned the running total into not-a-number for every later day, so the line fell back to $0 and those trades vanished. The curve and the leg sparklines are now built from the closed trades themselves, counting each trade exactly as the table, the calendar and the totals do, so the line ends on the same closed P&L the page shows.','Each trading day is now a dot on the TOTAL line; hovering it shows the day total and how many trades closed. A faint amber column marks the days the calendar hatches (an exit priced from the 1-minute tape, or a failed parity check) - those trades still count, the column only flags the caveat.']},
+const CHANGELOG=[{v:'73.891',date:'2026-09-24',notes:['WEBULL TAB REDESIGNED FOR A LAPTOP SCREEN, ROBINHOOD STYLE (owner ask). The book total sits big at the top with the change today under it, then one large P&amp;L chart with 1W, 1M, 3M and ALL under it - hover the chart to read any day and its total. On a laptop or wider, a STRATEGIES list sits on the right: ORB #314, ENGU-Q #335 and NOISE #382, each with its side, a small curve and its P&amp;L, and a strategy holding shares shows its entry, live price and open P&amp;L on a second line.','EVERYTHING ELSE IS STILL THERE, JUST CALMER. Account, stats, the full trade history, the orders placed today and the calendar follow the chart as plain sections instead of boxed cards, in the same look as the TRADING LOG home tab. Status, the full Orders card, Ready for real shares and Integrity now sit together in one SYSTEM section that starts closed. Warnings still show as chips under the chart, and on a phone the page stacks into one column.','SMALL FIXES. The NOISE row reads #382 on one line, with since Sep 24, was #304, KEEL v12 and its training date underneath. The chart marker for the switch reads NOISE #304 to #382 and is no longer cut off at the right edge. Max drawdown shows as a positive dollar figure, since the label already says drawdown.']},{v:'73.890',date:'2026-09-23',notes:['RUNBOARD\'S WINDOW ROW SHOWS THE STAGE ON SCREEN. On the in-sample and lockbox stages it printed the whole run\'s span beside figures measured over that stage alone - #369\'s lockbox MAR of 11.58 came from 1.0 year while the row said 16.1y. It now shows that stage\'s own dates and years, the same ones its MAR and TRADES / YR divide by, and the hover still gives the whole run\'s span. The whole-run and walk-forward stages are unchanged.','R-NUMBERS ONLY WHERE THE ORDER IS A RANKING. On a hand-picked OVERLAY or PICK RUNS comparison the chart key printed R1, R2, R3 in the order you picked the runs, as if ranked, and reversing the picks swapped them. Picked lists now carry no R-number; CHAMPIONS, BY STRATEGY and RUNBOARD, which really are ranked, keep theirs.','A BOOK IS NAMED AS A BOOK IN THE OVERLAY KEY. The key\'s list of runs with no curve read a book\'s name like a strategy file name, so a leg\'s run number showed as the book\'s version - #366, #396 and #397 read 17 · BOOK 304, and 304 is their NOISE leg. That list now names a book by its own name with the book mark, as the other keys already did.','SMALLER FIXES. A RUNBOARD column head no longer prints a run\'s number twice when the run has no family number. ETFDIP now reads ETFDIP everywhere - some screens cut it to ETFDI - and its hover describes the family. The lockbox chart key\'s wording for a lockbox that took no trades was checked and is already right, so it is unchanged.']},{v:'73.888',date:'2026-09-24',notes:['IMPORTED TRADE TIMES ARE NOW ALWAYS SAVED IN EASTERN (owner: imported NinjaTrader trades showed times 3 hours off). NinjaTrader prints times in whatever zone your platform is set to display, with no label - your own downloads switch between Pacific and Eastern - and the daily PDF statement prints GMT. The importer saved them exactly as printed, so a Pacific export landed 3 hours early and a PDF 4 hours late. Each file is now read in its real zone and saved in Eastern. The Apr 15 - May 18 rows repaired on Sep 23 were pushed 3 hours late by a one-off time repair in June that assumed every export was Pacific, not by this importer.','HOW THE ZONE IS FOUND. Drop the Fills export together with the other files and the zone is proven exactly - Fills is the one NinjaTrader file with true UTC times. Otherwise the new EXPORT TIME ZONE setting under the drop box decides (Auto by default), and Auto takes the only zone that puts the times inside market hours. When it cannot tell, nothing from that file is saved: it asks, with one button per zone.','TWO MORE GUARDS. Re-importing a trade whose saved times sit a whole number of hours away from the file now flags it in the import result, without changing it. Short trades no longer get their entry and exit times swapped.']},{v:'73.886',date:'2026-09-24',notes:['THE EVENING SCORE ROUTINE NO LONGER STALLS. Its first two runs sat waiting for a permission click nobody was there to give. It now runs through one script with a standing permission, so it scores the day and publishes by itself.']},{v:'73.885',date:'2026-09-23',notes:['KEEL V12 NOW SIZES THE WEBULL NOISE LEG (owner: add the keel v12 on top of #382, train it on the NQ backtest like the validation). Every weekday evening the cloud box re-runs the validated KEEL walk on run #382 over its full NQ history, and each new NOISE trade on QQQ is scored as one more trade of that walk. Final size = the #382 size times the KEEL size. If KEEL cannot score (no training yet, training more than 5 sessions old, or any error) the trade goes at the #382 size - KEEL never blocks a trade.','WHAT IT DOES TODAY. Its learned part is standing down - it has shown no recent skill on NQ, so it adds nothing of its own - which leaves its fixed rules: 1.5x on Fridays, 1.5x when the hourly range is compressed, and half size on Fed decision mornings before 2 pm. The trade drawer shows #382 size x KEEL = total and any share cap, and the NOISE row under LEGS says what KEEL was trained through.']},{v:'73.884',date:'2026-09-23',notes:['A BOOK\'S LONGEST FLAT STRETCH ON RUNBOARD NOW FOLLOWS THE STAGE. Checking v73.883 on the live board, book #366 showed its whole-run drawdown length on every stage, walk-forward included. The lockbox stage now shows the book\'s own lockbox stretch, the in-sample stage shows the whole-run stretch only when it ended before the lockbox began, and the walk-forward stage shows a dash - a book has no walk-forward test.']},{v:'73.883',date:'2026-09-23',notes:['RUNBOARD HAS THREE NEW ROWS: TRADES / YR, WORST MONTH AND LONGEST FLAT STRETCH. All three follow the STAGE control like every other row. WORST MONTH is the worst calendar month on that stage and LONGEST FLAT STRETCH the longest run of months without a new equity high, both read from the month-by-month profit grid each run saves. The grid loads only for the runs on the board, a few kilobytes each, so those cells show a moment of dots and then fill in. Where the grid does not reach a stage - the walk-forward test, which re-tunes fold by fold, or a lockbox the grid was not built over - the cell shows a dash with the reason on hover, and a ~ means part of the stage is missing from the grid. A book saves no monthly grid, so its WORST MONTH dashes and its flat-stretch cell shows the length of its worst drawdown instead, labelled DD span.','TWO OF THE REQUESTED COLUMNS ARE NOT NEW ROWS. Average $ per trade was already on the board as the EV row, so it has no second copy. A worst single DAY and a correlation to the current book cannot be shown yet: no run saves a daily series, and books save no monthly one, so both need the engine to save that first.','RUNBOARD FILES EVERY BOOK UNDER ONE BOOKS CHIP. Its family chips grouped books by the name on each run rather than the way the rest of COMPARE groups them, so picking the book family could miss books the leaderboard counts. Every book now sits under BOOKS, as on the leaderboard, so that chip lists every book and draws each one\'s saved curve on the funnel.','THE FULL-SCREEN CHART\'S LOCKBOX BAND FOLLOWS THE RUNS ON SCREEN. With several runs on, one band was drawn at the first run\'s lockbox date for all of them and stayed there after that run was switched off - #335, #400 and #314 all showed #335\'s date. The band is now drawn only where the runs on screen share one lockbox date, and left off when they disagree.','THE DRAWDOWN FIGURE ON THE COMPARE CHARTS IS MARKED ~ ON EVERY STAGE, not only walk-forward. It is read off the stored curve, which is thinned, so it can only match or read shallower than the DRAWDOWN row - on the whole run #243 showed -$14k against a row of $22,096. It now carries a ~, and the hover and the note under the RUNBOARD table say why.','A DAMAGED SAVED PICK LIST NO LONGER BLANKS THE SCREEN. An old or hand-edited saved pick list or saved set in the wrong shape left RUNBOARD, PICK RUNS and FEATURES blank on every visit until browser storage was cleared. A bad pick list now reads as nothing picked yet, and a bad saved set shows as an empty chip you can delete.','SMALLER FIXES. EXPLORE\'s TABLES button hover now gives the real cost - about a dozen megabytes of tables with a full run history loaded, not three and a half; the tables themselves are unchanged. A book\'s own report now counts its in-sample years from the run window, the same rule the leaderboard, RUNBOARD, PICK RUNS and EXPLORE use, so they cannot drift apart; on today\'s books the dates already agree, so no figure moves.','NINJATRADER CHECKS FOLLOW TODAY\'S LINEUP (live since 3:31 PM ET today, no page change needed). The 9 AM check on the PAPER tab\'s NinjaTrader card flagged ORB V2 as missing every morning, although ORB V2 was switched off in August; it now reads its list from the NinjaTrader watchdog, so the two cannot drift apart again. The fill alerts still expected NOISE on full-size NQ, so every NOISE fill on the micro contract was pushed to your phone as REVIEW; they now know NOISE trades 3 micro contracts and ENGU-Q 1 NQ.']},{v:'73.881',date:'2026-09-23',notes:['ACCOUNT EQUITY NO LONGER SAYS STALE AFTER THE CLOSE. The balance is read once whenever the service starts, and while the market is shut an older reading is expected rather than stale. During market hours it still turns STALE if the one-minute reads stop.']},{v:'73.880',date:'2026-09-23',notes:['SLOW LATENCY NO LONGER FIRES ON ORDERS SENT BEFORE THE FIX. Orders logged before the after-close timing existed are now measured the same way - their time minus the bar length - so the badge reads about 30 seconds after the close instead of falling back to the old reading of about 330 seconds. The header line also says ratio not used on this book.']},{v:'73.879',date:'2026-09-23',notes:['WEBULL TAB: LIVE POSITIONS AND ACCOUNT EQUITY (owner ask). A new POSITIONS - LIVE card under STATUS lists each open strategy with its side, shares, entry, live price, open P&amp;L and time in trade, then the total open P&amp;L and the Webull paper account’s equity with today’s change. The live price comes from Webull’s live price feed, or from the last closed bar when the feed is quiet, and each row says which. A last line checks that Webull’s position equals what the three strategies add up to, and turns amber when it does not.','THE THREE STRATEGIES NO LONGER BLOCK EACH OTHER AT WEBULL. They share one Webull account, and Webull refuses a short while that account is long - on Sep 23 five NOISE shorts were refused while ENGU-Q was long, so they became book-only. Orders are now combined into one account position: a NOISE short while ENGU-Q is long simply sells ENGU-Q’s shares at Webull. Each strategy’s own trades and P&amp;L are unchanged.','HONEST WARNINGS. RATIO DRIFT no longer fires on this book - it watched an NQ-to-QQQ conversion that no price uses any more, and INTEGRITY now says Ratio: not used. Latency is timed from when the bar CLOSED, not when it opened, so it reads about 30 seconds instead of about 330 and only warns past 60 seconds. NOT READY now counts trades checked against Webull instead of NinjaTrader. A Webull refusal shows as one plain sentence with the raw text behind details, and is no longer repeated as a second Last error line.']},{v:'73.877',date:'2026-09-23',notes:['WEBULL PAPER NOISE LEG MOVES FROM RUN #304 TO RUN #382 (owner decision). Starting the session of Sep 24, the NOISE leg on the Webull paper trading tab trades run #382 instead of #304 - the same #304 crown at its core, plus a validated size tilt that doubles the trade when the market is coiled (a squeeze on the 30-minute chart). Every past trade, the P&amp;L total and the chart history stay exactly as they were; only new trades from Sep 24 onward use the new version.','THE LEGS LIST, CHART AND TRADE ROWS ALL SAY WHICH VERSION. The NOISE row under LEGS now reads #382 since Sep 24, was #304; the P&amp;L chart marks the switch date with a dashed line and a small #304 to #382 label; and each NOISE trade row carries a muted tag naming the run that took it. The NinjaTrader paper board is a separate book and is not part of this change.']},{v:'73.874',date:'2026-09-23',notes:['FIXED 15 TRADE TIMES FROM APR 15 TO MAY 18. An import had added 3 hours to those futures trades. The broker fill timestamps confirm the correct Eastern times, and the journal and their scores now use them.','THE 6/12 09:46 SHORT AT 7434.25 IS A REAL TRADE, NOT A DUPLICATE. It was placed on the September contract (MESU6) while the rest of the day was on June, which is why its price looked off. It is now scored against September prices.','The 4/21 long and short in the same minute, and the two 9/15 VEEA trades, are also confirmed as separate real trades from the broker records.']},{v:'73.869',date:'2026-09-23',notes:['QQQ BOOK: A TRADE THE BROKER NEVER MADE IS NOW MARKED BOOK ONLY (owner: mark the book only trades). Today at 10:10 ET a NOISE short was refused by Webull because its stock orders were still routed to the cash account, which cannot hold a short - but the book still counted +$4.90 for that trade as if Webull had made it too. A trade whose entry order was refused or blocked before it ever reached the broker now carries a muted BOOK ONLY tag on its row, with the reason Webull or the safety rails gave shown in the tooltip. It looks nothing like the red PARITY NOTE tag on purpose: this is not a mismatched price, the order never existed at the broker at all. A trade closed while the broker mirror was simply switched off, or whose broker record has since aged out of the log, is left alone either way - there is no way to know what would have happened, so nothing is claimed.','BOTH TOTALS, SIDE BY SIDE. The hero number keeps showing the book total - this is a forward test of the strategy itself, not of Webull - but whenever at least one trade is book only, a smaller line under it shows what the broker side actually made with those trades left out. The month calendar hatches a book-only day exactly the way it already hatches a re-priced exit or a failed parity check, and the hover text now says which one it is.']},{v:'73.867',date:'2026-09-22',notes:['PARITY NOW COMPARES TO WEBULL, NOT NINJATRADER, ON THIS BOOK (owner: why are we comparing to NT for parity, it should just be EL OHLC values against Webull). Every closed trade showed a red PARITY NOTE chip for one reason only - this book has no NinjaTrader side to compare against, so the check always came back not checked, yet the chip still painted red. The chip and the INTEGRITY Parity row now compare the price this page booked to the price Webull actually filled at, or to the overnight re-priced tape price when Webull has not reported a fill yet. A trade still waiting on either now shows a plain grey NOT CHECKED tag, never red - red stays reserved for a real mismatch. A trade that genuinely does mirror NinjaTrader is completely untouched.','THE PAGE NOW ASKS WEBULL FOR THE REAL FILL PRICE. An accepted order only ever reported back a price of zero or blank at the instant it was placed, so the fill price and slippage recorded behind the scenes stayed blank forever - nothing ever asked again. Right after an order is accepted the page now asks Webull once more for that exact order, and records the real fill price and the resulting slippage when Webull has one ready. A failed check only gets logged - it can never stop, slow down or undo a trade.']},{v:'73.864',date:'2026-09-22',notes:['EVERY TRADE NOW HAS A SCORE OR NA. 49 older trades were scored from 1-minute bars (futures back to April from the local ES and NQ files, recent stocks from Yahoo). 20 show NA because no price data exists: stocks older than about 60 days, and futures from Jul 1 to Aug 5 where the local files have a gap.','TRADES LOGGED IN PACIFIC TIME ARE READ CORRECTLY. The journal stored futures trades from Apr 15 to May 18 in Pacific time. Scoring now spots this and reads the market at the real Eastern time.','Two trades in the same symbol in the same minute now keep separate scores.']},{v:'73.862',date:'2026-09-22',notes:['HOME TABLE NO LONGER JUMPS AFTER AN EDIT. Pressing Enter on a note or changing a grade used to shove the table down while the AI ASSESSMENT box above it refilled, and the search box grabbed focus. Both are fixed.','SCORE COLUMN FILLS ITSELF EVERY EVENING. A routine now scores every trade taken that day after the close, futures and stocks alike. A trade with no price data shows NA, and clicking it says why. Each trade gets its own score, even with several MES trades on one day. First two done: MNQ 9/22 scored 68 and MES 9/16 scored 74.']},{v:'73.861',date:'2026-09-22',notes:['TRADE TABLES KEEP THEIR SCROLL POSITION. Changing a grade, setup, TF, tag or note on the HOME table or the TRADES table no longer snaps the table back to the far left.']},{v:'73.859',date:'2026-09-22',notes:['COMPARE > EXPLORE LOADS IN SECONDS, NOT MINUTES. With 1E CONFIGS showing 41 Auto-Validate runs, the board redrew itself every time one run\'s configurations arrived - measured on 2026-09-21 at up to 9 seconds a redraw, about two and a half minutes of a frozen tab. It now fetches six runs at a time, counts them in on the loading line, and draws everything you picked once, when the last one lands. A read that hangs gives up after 30 seconds instead of holding the rest back.','RIGHT-CLICK A DOT TO HIDE IT FOR NOW. The chart refits without it straight away - only the chart is redrawn, not the tables - and the row stays in the table. A line under the chart counts the dots you have hidden and SHOW ALL brings them back; a reload brings every dot back too. Handy for the three GATE configs from runs #370 and #377 whose 4 to 6 lockbox trades gave a Sortino of 384 to 750 and squashed everything else onto the floor of the chart.','COLOUR IS THE STRATEGY, SHAPE IS THE CONFIG TYPE. With more than one strategy on the 1E CONFIGS chart, each strategy has its own colour and each config type its own shape: RAW circle, GATE square, TILT triangle, HYBRID diamond, HYBRID ♻ upside-down triangle, HYBRID ↓DD plus, KEEL cross. The FAMILY column in the table carries the same mark and names the strategy. With one strategy on the chart, colour stays the config type. Click a config type in the key under the chart to hide it from the chart and the tables, and click it again to bring it back - the same switch as FILTERS > 1E FAMILY.','THE EXPLORE TABLE IS LIGHTER TO DRAW. Every cell used to carry its own copy of the same styling; it now shares one rule, which makes the same table about 15 per cent smaller for the browser to read. Nothing looks different.']},{v:'73.849',date:'2026-09-21',notes:['WEBULL PAPER CHART NOW SHOWS EVERY TRADE (owner: the chart does not show all the trades). The three exits that fired after the bell on Sep 17 and 18 had no price, and one missing price turned the running total into not-a-number for every later day, so the line fell back to $0 and those trades vanished. The curve and the leg sparklines are now built from the closed trades themselves, counting each trade exactly as the table, the calendar and the totals do, so the line ends on the same closed P&L the page shows.','Each trading day is now a dot on the TOTAL line; hovering it shows the day total and how many trades closed. A faint amber column marks the days the calendar hatches (an exit priced from the 1-minute tape, or a failed parity check) - those trades still count, the column only flags the caveat.']},
 {v:'73.845',date:'2026-09-20',notes:['COMPARE NOW RANKS ON THE WALK-FORWARD TEST (owner decision). Every COMPARE screen - the leaderboard, TOP RUNS, CHAMPIONS, the RUNBOARD inside COMPARE and PICK RUNS - opens on the walk-forward stage instead of the lockbox. A stage you pick yourself still wins and still sticks. Research behind it: the walk-forward test is the only reading never used to pick a config, and across 151 runs the sealed year\'s profit factor landed within one to two per cent of it, while the other reading ran about five per cent high.','THE TWO WALK-FORWARD READINGS NOW HAVE DIFFERENT NAMES. The crowned settings replayed over the walk-forward years is the score the crown was SELECTED on, so it is now called the CROWNING SCORE - on the run report column, in the chart key for the dashed stretch, and in the notes - never a test. The folds re-tuned on their own past and traded blind stay the WALK-FORWARD TEST (the pill now reads WF TEST). A run too old to have either saves pooled re-tuned folds in that column and now says so, instead of one heading meaning three things by run age. Where a run has both readings, its row carries a gap chip: the crowning score sits N per cent above the test, and in our own record a bigger gap went with a weaker sealed year. A run with only one candidate reads SAME READING.','A WALK-FORWARD TEST UNDER 30 TRADES NO LONGER RANKS AHEAD OF A REAL ONE. It still shows its figures with a THIN TEST mark, sinks below every run that cleared the floor, and can never take a best mark, a heat shade or a RUNBOARD column; a test that took no trades still sinks below that. On the lockbox stage every screen now says what the sealed year is: one look and a pass-or-fail check, not a ranking - a 12-month lockbox has roughly an 11 per cent chance of confirming a real edge, and a strategy with no edge passes its money-above-zero test about half the time.','FOURTEEN THINGS THE SCREEN SAID THAT WERE NOT TRUE. In an expanded family the first run no longer wears a star it does not have; a lockbox that took no trades says so instead of \'no curve saved\'; the RUNBOARD window row says RUN WINDOW and its hover names the stretch the figures use; the MAR hovers say net per year over the worst drawdown, which is what the board ranks on; the funnel info box no longer describes stripes, a wash and a door the chart does not draw; the books notes drop a renamed column and a file name; a book\'s name in chart keys and tables is its own, not a leg\'s run number; two EXPLORE hovers and the run-rows subtitle now match what the chart does; FEATURES tells apart loading, not built yet and a real error; and the study rows that still called #234 and #226 the standing champions now read as the paper control and a reference, leaving your crowns #257 and #335.','A book\'s in-sample years now start at the run window like every other figure, so its in-sample MAR and return per year line up with the rest of the board and in-sample plus lockbox add up to the whole run.']},{v:'73.843',date:'2026-09-20',notes:['EVERY WEBULL PAPER TRADE NOW HAS A CHART BUTTON (owner: add that to the trades so i can look at the price action). It opens the same candle viewer the run blotter uses, centred on that trade, with QQQ 1-minute bars for ENGU-Q and 5-minute for ORB and NOISE. Worth knowing: this does NOT come from NinjaTrader. Its bridge has no bars feature at all and only listens to your own PC, and NinjaTrader here only ever records ES and NQ - it holds no QQQ. The bars come from the QQQ history the engine already keeps, and as with the futures paper tab the chart needs your PC awake to serve them.']},{v:'73.841',date:'2026-09-20',notes:['ON THE WEBULL PAPER CALENDAR, COLOUR NOW MEANS MONEY AND HATCHING MEANS DATA (owner: having calendar show red is confusing as that would normally indicate a loss). A day with a flagged price feed used to be painted red whatever it earned, so 3 September read as a red loss when it actually made 5.78 dollars. Green and red are now always the day P and L, and anything that makes the numbers less trustworthy shows as diagonal hatching in that same colour with one amber dot. Three things hatch a day: the feed was flagged invalid, an exit could not be marked so its money came from the 1-minute tape, or a trade failed its parity check - so 17 and 18 September are now hatched too. The tooltip says which.']},{v:'73.840',date:'2026-09-20',notes:['Dragging the 1E table tile shorter now scrolls the TABLE inside it again, with its headings pinned, instead of scrolling the whole card. Releasing the grow-to-fit floor had also thrown away the box own height cap.']},{v:'73.839',date:'2026-09-20',notes:['DAYS WITH A MISSING EXIT PRICE NO LONGER READ AS $0. When the book could not mark an exit - which happened on 17 and 18 September, because the end of day sell fired two seconds after the closing bell and there was no live price - the trade carried no profit figure, and every total on the Webull paper trading tab quietly counted it as zero. Both days showed $0 with three real trades in them. The calendar, month total, leg rows, running curve and the trade list now fall back to the price recovered from the 1-minute tape, and a day tooltip says how many of its trades were priced that way. About $58 of profit was hidden on those two days.']},{v:'73.838',date:'2026-09-20',notes:['THE 1E TABLE TILE CAN BE RESIZED AGAIN (owner: i cant resize the table). Making the tile grow to show every row put a floor under it as tall as the whole table, and the drag handle could not get beneath that floor, so the tile would not shrink. Now the grow only applies while the tile is on automatic height: drag the handle and your height wins - the table scrolls inside, as it did before - and double-click the handle to go back to automatic, where it fits every row again.']},{v:'73.836',date:'2026-09-20',notes:['CLICKING ONE OF YOUR OLDER CROWNS NOW OPENS THAT RUN. A starred run older than the newest 75 - today #243 NOISE and #257 ORB - opened the book #366 report instead, and the star, archive and delete buttons on that page acted on the book. Those runs now open their own report, or say they are loading. The same older runs also reach PICK RUNS, EXPLORE and the RUNBOARD family chips and pins, which could not see them before; a screen that cannot resolve a saved pick now says the run is older than what is loaded instead of claiming it no longer exists, and one click no longer erases it from your saved picks.','IN-SAMPLE MONEY IS NOW THE MEASURED IN-SAMPLE. EXPLORE run rows, the RUNBOARD whole-run in-sample column and the PICK RUNS in-sample row worked it out as the whole run minus the walk-forward tests minus the lockbox, which mixes one fixed configuration with re-tuned ones: crown #335 read $155k there against $44k on its own report, and 30 of 44 validated runs were off by more than 0.10 of profit factor. All three now read the run\'s own measured in-sample stretch, or dash with the reason. A book run report also builds its in-sample, lockbox and whole-run columns from the book\'s own blocks - #366 read minus $2.1k in-sample and 622 trades against a real $1,395,904 and 9,707.','RANKING NO LONGER REWARDS THE WRONG RUNS. Archived runs are out of every leaderboard, champion and RUNBOARD ranking, as they already are on Past Runs. A run shorter than two years sinks below full-length runs instead of topping them on ratios built from a near-zero drawdown (an 18-day run ranked first). A walk-forward test that took no trades now sinks below every run that traded on NET as well, so $0 can no longer outrank a loss or take a column. Every ETFDIP variant is one family again. Books no longer win the smallest-drawdown mark from a sign difference, and their robustness cell says why it is blank instead of printing NaN.','BOOKS WITH AN ORB LEG ARE NO LONGER FLAGGED FOR A BUG THEY DO NOT HAVE. 22 of 26 books, adopted #366 and #396 included, carried an ORB look-ahead warning that belongs to the old touch-entry ORB files only; the always-on note under the table is gone and the badge now appears only for those files. Gate-Validate runs read the same whole-run and in-sample figures on every screen, EXPLORE stops rebuilding a book\'s Sharpe and Sortino from a thinned curve, and the PICK RUNS money tile follows the stage you are looking at instead of always showing the tuning figure.','CHARTS: THE LOCKBOX AND IN-SAMPLE SLICES SIT ON THEIR OWN DATES. On the RUNBOARD funnel a one-year lockbox curve was drawn across the whole 16-year width, and its key read the whole run\'s years and a different stretch\'s dollars. Each slice now has its own span, and the key shows the stage\'s own figure marked as approximate. Saved curves place their lockbox door at its real date rather than spreading trades evenly, so a door no longer lands months early. The full-screen view opens with every picked run drawn and keeps the runs you greyed or hid switched off, a hand-added run always gets its own column, and two EXPLORE hovers that described the wrong rows or the wrong rule now say what actually happens.']},{v:'73.831',date:'2026-09-16',notes:['WALK-FORWARD PF ON OLDER RUNS NOW MATCHES COMPARE. The run report\'s older walk-forward column left out a fold that lost every trade, or won every trade, when it pooled profit factor, so the same run could read 1.81 on the report and 1.76 on every COMPARE screen. It now pools them the same way. Every screen also names the fold behind a dash - a fold that broke exactly even, or one that lost every dollar but saved no win count - instead of calling the run too old.','EXPLORE: hovering a table row lights its pinned RANK / FAMILY / RUN cells too; in the STACK layout the sideways scrollbar stays inside its column; the ticked column heading is no longer see-through; trade counts show as whole numbers. The note under the chart names MAR or PROFIT, counts each cause once, words the MIN TRADES note correctly, and offers LOAD ALL only when runs are really missing - including while a LOAD ALL is still arriving, when it used to claim the runs were not on this account. 1E CONFIGS prints one off-chart line instead of two that disagreed.','RUNBOARD / PICK RUNS: a lockbox that took no trades no longer wins the LB $ best mark with $0; a lockbox where every trade won shows a dash with its reason instead of PF 0.00; figures marked ~ take no heat shading; the RUNBOARD inside COMPARE opens on LOCKBOX when no stage was saved; the walk-forward WINDOW shows the split-to-lockbox dates on runs without a usable test and says why a saved test is not used; a PICK RUNS WF PF dash gives its reason. The top bar and Past Runs keep LOAD 75 MORE / LOAD ALL on screen while a bigger load is on its way.','Walk-forward charts: the key drops the in-sample line style, shows each test\'s length and gives each missing curve its own reason. The full-screen TRADES button is off on walk-forward, with the reason on hover, and dates no longer show a day early in US time zones. Past Runs GROUP view picks a book group\'s champion by pre-lockbox net over drawdown, the same rule as CHAMPIONS, and no longer prints score NaN; the CHAMPIONS hover describes that rule.']},{v:'73.830',date:'2026-09-15',notes:['1E MATRIX ALL table: the tile now grows to show every row, so the table no longer scrolls inside it. A dragged tile height still applies to the other tabs.','The unit under each heading: ROC over % / YR, WIN over %, DD over %, EV over R, R over / YR, DD over (R), NET over $. Those headings were the widest thing in their columns - ROC % / YR made its column about twice as wide as its numbers - and the cell padding is tighter too, so the table is much narrower.','1A funnel DOORS view: the lockbox panel is back to a quarter of the width. DOORS restarts every line at $0 in each panel, so it is not a timeline and has no reason to squeeze the lockbox; ONE CURVE stays on the calendar.']},{v:'73.829',date:'2026-09-15',notes:['1E MATRIX ALL table is denser so more of it fits in the tile: rows lost most of their padding (about 12 px a row instead of 17) and the four-line explanation above the table is now one line - ALL CONFIGS, the count, PBO, the account chip - with the how-to moved into the hover on the info mark. About 40 per cent more rows show before the table scrolls.']},{v:'73.828',date:'2026-09-15',notes:['1A CONFIG FUNNEL: THE LOCKBOX IS BACK ON THE CALENDAR. It had been fixed at a quarter of the width, which drew its one year about five times wider than any other year, so every lockbox line looked stretched even on runs where every lockbox trade is saved. The lockbox door now sits at its real date - about 6 per cent of the width on a 16-year run - so the chart reads as performance over time. The funnel, the expanded view, the CHAMPION tab and the 1B monthly bars underneath line up again.']},{v:'73.827',date:'2026-09-16',notes:['A TRADE CAN HAVE MORE THAN ONE TIMEFRAME (owner: this trade was 10s and 1m). The TF box on the HOME table, the TRADES table and the edit dialog now opens a small panel of timeframes: tick as many as you used, tick again to remove one, CLEAR to empty it. It saves as you tick and the box reads 10s + 1m. Trades with one timeframe are unchanged.','In ANALYTICS, BY TIMEFRAME counts a two-timeframe trade under both, so those rows can add up to more than your total, and the TRADES table TF filter finds a trade under either of its timeframes.']},{v:'73.826',date:'2026-09-16',notes:['DROPDOWN LISTS ARE READABLE AGAIN (owner: the TF selector shows all white when clicked). When a dropdown opened - TF, SETUP, GRADE and every other one in the app - the browser drew its list on a white sheet while the words used the theme light text, so the choices were white on white. The open list now uses the theme dark background with light text, and the chosen item is shaded.']},{v:'73.825',date:'2026-09-16',notes:['SECTION 1 IN TWO ROWS WHEN BOTH 1E CARDS ARE OPEN. The first row is the 1A config funnel beside the second 1E card (your scatter), so the scatter gets the width it lost as one of three tiles. The first 1E card - the table - now has a full-width row of its own underneath, so every column shows without scrolling sideways. Close the second 1E card and the row goes back to 1A beside 1E as before. Tile heights you dragged still apply; the width split in the new top row is remembered on its own.']},{v:'73.824',date:'2026-09-16',notes:['MAX DRAWDOWN MATCHES THE CHART AGAIN (owner: keep drawdown matching the chart). A trade marked IGNORE IN METRICS now stays in MAX DD, the same as it stays in P&L and the equity chart. It is still left out of win rate, profit factor, averages, streaks and the breakdowns.']},{v:'73.823',date:'2026-09-16',notes:['NOTES CAN BE ADDED AGAIN (owner: cant add notes). The NOTES column on the HOME table was plain text, and the trade panel showed notes without a way to change them. The column is now a box like CHART - click it, type, press Enter - and the panel has a notes area that saves when you click away.','IGNORE IN METRICS (owner: some trades were testing settings on the live account). Click a trade to open its panel and tick IGNORE IN METRICS. That trade still counts in P&L, the equity chart and the account balance, so everything still reconciles, but it is left out of win rate, profit factor, averages, drawdown, streaks, the AI assessment and the ANALYTICS breakdowns. An ignored trade shows a small crossed-circle beside its symbol, and the WIN RATE tile says how many are being ignored.']},{v:'73.822',date:'2026-09-16',notes:['HOME P&L PERCENT FIXED (owner: why does this say 100% all time?). In P&L view the percent under the big number divided your profit by your profit, so on ALL it always read +100.00%. It now divides by the money in the account: what the account held at the start of the range plus any deposits made during it. All time that is $79.66 on $4,476.08 put in, +1.78%. Hovering the chart measures each point the same way. EQUITY view is unchanged.']},{v:'73.821',date:'2026-09-16',notes:['HOME TABLE: NEWEST TRADE ON TOP. The table view listed trades oldest first while the feed view lists newest first, so yesterday\'s VEEA trades sat at the very bottom of the table and a February SPY trade sat near the top - nothing was missing, the two views were in opposite order. The table now opens on your most recent trade, like the feed.','HOME TABLE: THE LEFT COLUMNS STAY PUT (owner: lock the columns up to the instrument name). The row number, DATE, IN, OUT, DUR and SYM now stay pinned on the left while you scroll the table sideways, so when you reach CHART, TAGS or NOTES you can still see which trade the row is.']},{v:'73.819',date:'2026-09-15',notes:['COMPARE ON WALK-FORWARD NOW READS THE SAVED WALK-FORWARD TEST. The LEADERBOARD, the comparison table and PICK RUNS fill in the drawdown, MAR, Sharpe, Sortino, profit factor, win rate and window length of the folds\u2019 own unseen trades joined in fold order. Money, trade counts and folds held are still pooled from the fold results, and nothing on the whole-run, tuning or lockbox stretches moved. MAR and Sharpe now rank on walk-forward; a run saved before that detail existed shows a dash saying so and sorts last.','THE COMPARE CHART DRAWS THAT TEST. On the walk-forward stretch each picked run is drawn as its folds joined end to end over their own dates - one dashed line, no sealed-lockbox tail - and a run that saved none is listed beside the chart instead of showing its whole run under a walk-forward heading.','RUNBOARD HAS A WALK-FORWARD SAMPLE. The funnel, the grid and the strategy list now read that stretch instead of holding the whole view, every empty cell says why in plain words, and the window row shows the dates the test covers. Books keep a hold of their own: a book trades frozen configurations and tunes nothing, so it has no walk-forward stage.','EXPLORE: a run row ticked on walk-forward alone now plots its drawdown, MAR, Sharpe, Sortino, profit factor, win rate and years, and the READ hover MAR is the ticked stretch\u2019s own. Walk-forward plus lockbox still dashes - they are two separate trade sequences and no joined one is saved - and now says that. A report left open while a job finishes no longer keeps saying the detail was never saved.','A WALK-FORWARD THAT TOOK NO TRADES READS $0 AND 0 TRADES, AND NOTHING ELSE. Its pooled money and trade count print as the readings they are; its profit factor, win rate, drawdown, MAR, Sharpe, Sortino and expectancy - and its dollars per trade, where a screen shows that for the folds - dash with one sentence, that the run took no trades in the walk-forward folds, on the leaderboard, the comparison table, PICK RUNS, the RUNBOARD, EXPLORE and the report alike. Neither that $0 nor the empty drawdown takes a best mark or a heat shade, and ranked on drawdown or MAR the run sorts after every run that traded, so a strategy that never traded the folds can no longer take the smallest-drawdown mark, or the top of the order, from one that did. A test that saved no window dates leaves MAR, R / YR and ROC blank on all five rather than annualising the folds\u2019 own money over the longer tuning-split window. And one expectancy in R is read off that test everywhere it is shown, instead of two figures a rounding apart.']},{v:'73.818',date:'2026-09-15',notes:['PAST RUNS AND THE REPORT NOW AGREE ON HOW MANY TRADES A RUN TOOK. The runs table said 1,257 on run 398 where the report header, and the run own saved record, both say 996. The row was adding the in-sample fit to the walk-forward folds re-tuned trades and the lockbox - three different configurations - so the walk-forward years were counted twice. The count now comes from the run own whole-run record, as its net dollars, drawdown, Sharpe and win rate already did.','The same row PROFIT FACTOR was pooled from those three pieces and is now the champion measured one: run 398 reads 2.01 against the pooled 1.67. Runs saved before those figures existed keep the pooled numbers. The TOTAL column of the report stage table is fixed the same way, so the two never disagree again.']},{v:'73.817',date:'2026-09-15',notes:['CHART COLUMN ON THE HOME TRADE TABLE ACCEPTS A LINK AGAIN (owner: \'i cant add a link to the chart here\'). That column only ever drew an icon when a chart link was already saved, and a row without one showed a dash with nothing behind it - the only way in was the pencil at the end of the row. It is now the same paste box the TRADES tab has: click the dash, paste the link, press Enter. A saved link keeps its small chart icon, the icon still opens the chart in a new tab, and hovering it previews the snapshot. Clicking into the box no longer opens the trade detail panel behind it.']},{v:'73.816',date:'2026-09-15',notes:['RUN REPORT 1C NOW DRAWS THE WALK-FORWARD TEST ITSELF. The engine saves, on every validate, the walk-forward folds\' own unseen trades joined in fold order - each fold re-tuned on its own past - and 160 older runs were rebuilt the same way. 1C now draws that curve with a divider at each fold and chips beside it: net, PF, win %, trades, max drawdown, MAR per year, Sharpe, Sortino and the window. A fold that took no trades is marked as such instead of borrowing the fold before it, and a run with nothing saved says why in plain words (saved before this existed, walk-forward did not run, or a book, which tunes nothing).','1E WALK-FORWARD COLUMN: SHARPE AND SORTINO WERE THE WRONG MEASUREMENT. That column is the champion held constant over the walk-forward years, but its Sharpe came from a fold-by-fold series and Sortino was blank (run 306: 0.79 and a dash, now 1.69 and 3.60). IN-SAMPLE Sharpe on that path changes for the same reason. Every hover on the screen now names one source per figure: net and trades pooled across the folds, PF and win % from the saved walk-forward test when the run has one, drawdown, Sharpe and Sortino from that test alone. A test that saved no window dates leaves MAR, ROC and R / YR blank rather than divide by an estimate.','PAST RUNS: hovering a run\'s WF cell shows its walk-forward test figures, and the fold hovers on the equity chart, the funnel and 1C now carry the real fold dates and trade counts instead of estimates. The run list carries this detail with each run at no extra read cost.']},{v:'73.815',date:'2026-09-15',notes:['EXPLORE TABLES: KPIS FIRST, CONFIG LAST (owner: \'move this junk to the end of the row\'). Every table now reads RANK, FAMILY, RUN, then MAR, SHARPE, SORTINO, PF, WIN %, EV R, R / YR, ROC % / YR, $/TRD, TRADES, TRADES / YR, then READ, with the long configuration name and its badges at the very end. RANK, FAMILY and RUN stay pinned on the left while you scroll right, and the heading row stays pinned to the top of the table.','EXPLORE TABLES NO LONGER SNAP BACK (owner: \'the table keeps snapping me back to the upper left\'). Changing an unrelated control keeps the table exactly where you scrolled it; only a new LEVEL, SHOW or strategy starts a fresh table at the top left. In the side-by-side layout the table area is now bounded to your window, so its sideways scrollbar is on screen instead of below the fold - on a laptop a table 9,988 pixels tall now sits in a 667 pixel box.','EXPLORE EMPTY CHART EXPLAINS ITSELF (owner: \'why is this not showing anything?\'). When rows are missing from the chart the note underneath breaks them down by cause with counts - failed runs hidden, a measure never recorded for that stretch, rows citing runs older than the ones loaded, a stretch that took no trades - and offers one-click buttons (PLOT FAILURES ON, SHOW 1E CONFIGS, another stretch, another measure, LOAD ALL), each showing how many rows it would actually place, counted with the same readers the chart uses.','WRITE-UP ROWS NO LONGER INVENT A PER-YEAR FIGURE. A study row that records one window for the whole row used to divide one stretch\'s money by the whole window\'s years - a one-year lockbox over sixteen years read 5.5% a year. It now shows that figure only when the ticked stretches are the row\'s whole recorded window, or when the row cites a loaded run whose saved windows give the stretch\'s real dates; otherwise it dashes and says why.','COMPARE AUDIT ROUND 2 (11 fixes) plus the fixes three independent reviews found on top of them. FULL profit factor reads the champion\'s own whole-run figure (#335 read 1.48 where the champion ran 1.82); books are no longer counted as a strategy anywhere (#397 sat in the ENGU-Q column where #335 belongs); a run you starred stays on the board when it is older than the loaded runs; IN-SAMPLE MAR and R / YR are annualised over the tuning years the search actually scored (they read about 25% low); RUNBOARD trade counts, sort order and best marks follow what the table prints; a lockbox or stretch that took no trades dashes with the reason everywhere instead of showing $0, 0.00 or a best mark; strategy files sharing one short label show their own names; EXPLORE stretch combinations a run never saved together are pooled honestly or dashed with the reason; chart hovers name the measures actually plotted.','COMPARE AUDIT ROUND 2 (11 fixes). FULL profit factor on the LEADERBOARD, OVERLAY and RUNBOARD now reads the champion\'s own whole-run figure instead of mixing the champion with the walk-forward re-tests (#335 read 1.48; the champion itself ran the whole window at 1.82). Old runs that never saved the numbers show a rebuilt figure marked ~ that can never win a best mark, and EV R and R / YR built from it carry the same ~.','Books are no longer counted as a strategy. A book whose name mentions a strategy (21 books mention ENGU-Q) used to fill that strategy\'s RUNBOARD column and EXPLORE list, so #397 sat where #335 belongs. Every book now sits in its own BOOKS group, RUNBOARD uses the leaderboard\'s champion rule (your star wins), and a strategy file whose name merely starts with COMBINED is no longer mistaken for a book.','A run you starred stays on the LEADERBOARD, the OVERLAY and its family crown even when it is older than the loaded runs; the run-count note shows + N STARRED OLDER and names them on hover.','IN-SAMPLE means the tuning search\'s own pick on the first 75% of the tuning years, and its MAR and R / YR are now annualised over those years (they read about 25% low). A book\'s in-sample years stop where its lockbox starts. Walk-forward R / YR on the LEADERBOARD and OVERLAY now shows a number that matches EXPLORE.','RUNBOARD: whole-run trades use the run\'s own saved total (#382 read 6,020, real 4,825); sorting by PF, drawdown or net sorts by the printed number; most trades and highest win % are no longer marked best; books tables say NET / DD and SLICES instead of MAR and WF; top 10 recent shows a dash, not $0, for a run with no figure; live books follow RANK BY.','A lockbox with no trades shows a dash with the reason on every figure instead of $0 (a lockbox that lost every trade shows PF 0.00). Strategy files sharing one short label (three ETF-dip files all read ETFDI 1.0) show their own names on the LEADERBOARD and OVERLAY. The TOP RUNS short-window badge no longer says the champion list leaves the run out.','EXPLORE: ticking stretches a run never saved together (IN-SAMPLE + LOCKBOX always) now builds PF and win rate from the ticked stretches and dashes drawdown, MAR, Sharpe and Sortino with the reason, instead of showing the whole-run figure (766 of 894 NOISE config rows were outside their own IS and LB range). Chart hovers name the measures actually plotted, the QUALITY preset plots EV R up and Sortino across as described, and MIN TRADES no longer double-counts rows.']},{v:'73.812',date:'2026-09-15',notes:['1E MATRIX ALL table: the tile now grows to show every row, so the table no longer scrolls inside it. A dragged tile height still applies to the other tabs.','The unit under each heading: ROC over % / YR, WIN over %, DD over %, EV over R, R over / YR, DD over (R), NET over $. Those headings were the widest thing in their columns - ROC % / YR made its column about twice as wide as its numbers - and the cell padding is tighter too, so the table is much narrower.','1A funnel DOORS view: the lockbox panel is back to a quarter of the width. DOORS restarts every line at $0 in each panel, so it is not a timeline and has no reason to squeeze the lockbox; ONE CURVE stays on the calendar.']},{v:'73.810',date:'2026-09-15',notes:['ROC % / YR FIXED IN THE GATE, TILT, KEEL, HYBRID, HYBRID recycled and HYBRID equal-drawdown tabs (section 2B CONFIGS). The row divided the net in POINTS by the account instead of the net in DOLLARS, so on NQ it read 20 times too low and on ES 50 times too low - run 326 xgb hybrid on the HYBRID recycled tab with WF ticked showed 5.6 per cent, the true figure is 112.7 per cent, the same number the 1E ALL table and STUDIES already printed. RAW tab, 1E ALL table and STUDIES were already correct and are unchanged.']},{v:'73.809',date:'2026-09-15',notes:['1E MATRIX ALL table is denser so more of it fits in the tile: rows lost most of their padding (about 12 px a row instead of 17) and the four-line explanation above the table is now one line - ALL CONFIGS, the count, PBO, the account chip - with the how-to moved into the hover on the info mark. About 40 per cent more rows show before the table scrolls.']},{v:'73.808',date:'2026-09-15',notes:['1A CONFIG FUNNEL: THE LOCKBOX IS BACK ON THE CALENDAR. It had been fixed at a quarter of the width, which drew its one year about five times wider than any other year, so every lockbox line looked stretched even on runs where every lockbox trade is saved. The lockbox door now sits at its real date - about 6 per cent of the width on a 16-year run - so the chart reads as performance over time. The funnel, the expanded view, the CHAMPION tab and the 1B monthly bars underneath line up again.']},{v:'73.806',date:'2026-09-15',notes:['EXPLORE: ORB now shows its best configurations with walk-forward money. Six validated ORB runs (257, 239, 234, 314, 297, 298) are a new study, rows 1739 to 1744, each carrying its in-sample, walk-forward and lockbox money plus Sharpe, Sortino, win rate and expectancy in R. Before this, runs 297, 298 and 314 were not on the board as runs at all, and 234, 239 and 257 recorded no walk-forward figure and no Sortino, so with WF ticked and Sortino on the vertical axis all 125 ORB rows fell off the chart.','The ranking is by money, not by one ratio: run 257 earns the most walk-forward money and the most by calendar year against the control, run 239 is the free upgrade, and the two tightened-filter runs earn less. Do not tick IN-SAMPLE and WF together on these rows - on a single pinned configuration those stretches overlap.']},{v:'73.805',date:'2026-09-15',notes:['Webull paper trading: the status card now refreshes itself every minute while open, so LAST TICK no longer shows a false STALE on a page left open.']},
 {v:'73.803',date:'2026-09-15',notes:['AUTO-RECOVER SWITCH SHOWED THE OLD STATE (owner: the auto recover button not working). The PC was turning NinjaTrader auto-recover on, but the page re-read the status a few seconds before the PC had republished it, so the switch still said OFF and looked broken. The switch now shows what the PC reported back for your click straight away.']},
 {v:'73.798',date:'2026-09-14',notes:['STUDIES BOARD: BOOK ROUND 55, rows 1733 to 1738. Seven newly validated alternatives were each swapped into one slot of #379 and none clears the pre-registered bar; the hourly squeeze tilt on the noise leg lifts both stretches but beats only 84 to 87 percent of null subsets in the held-back year, so it is parked.','CORRECTION: judged by calendar year, #379 does not robustly beat the adopted #366 (dominates 5 of 15 full years, loses 4) - its ratio lead is mostly the 2020 drawdown. Split by slot, the squeeze swap earns more in 13 of 15 years while the opening-range swap is a coin flip. Run #396 - #366 with only the squeeze file changed - PASSES with the best held-back year of any untuned four-leg book, 307,096 dollars, and is the recommended book. Adoption is the owner call.']},{v:'73.797',date:'2026-09-14',notes:['ONE STAGE ACROSS THE COMPARE TAB. RUNBOARD kept its own SAMPLE setting apart from the STAGE the overlay, BOOKS and the leaderboard share, so moving between COMPARE views silently changed what stage meant. Inside the COMPARE tab RUNBOARD now follows that one STAGE, and its SAMPLE tabs set it. RUNBOARD has no walk-forward grid - its rows need a drawdown and a curve cut the folds do not save - so on WF the whole RUNBOARD view - funnel, grid, strategy list and BOOKS - is held with that explanation and a pointer to the overlay and the leaderboard, which pool the folds, and no panel shows another stage figures under the WF tab. RUNBOARD opened outside the COMPARE tab keeps its own setting as before, and its SAMPLE tabs there no longer move the COMPARE tab stage.']},{v:'73.796',date:'2026-09-14',notes:['LEADERBOARD STAGE HAS FULL. The stage setting is shared across COMPARE, and COMPARE BOOKS offers FULL, so switching back to the leaderboard after picking it left the strip with no button lit while every number was already the whole-run one. FULL is a button here now, and its note explains the ~ a whole-run drawdown carries when it has to be measured off the saved curve.','CHAMPIONS SAYS WHAT CHOSE THEM. The overlay on CHAMPIONS keeps the top ten strategies by the leaderboard RANK ON setting, which was not on this screen - so the cut could be decided by a setting out of sight. RANK ON is beside SHOW now, and the label reads for example 10 OF 14 STRATEGIES, TOP 10 BY R / YR ON LB.','SMALL THINGS. A ninth or tenth champion curve used to repeat a colour already on the chart when every palette colour was taken; it gets a fresh hue. Two lockbox tooltips on EXPLORE read as broken sentences and now say plainly that the variant saved no lockbox slice. EV on the parallel chart follows the ticked stretch while $/TRD in the table is always whole-run - the axis is labelled EV STRETCH and the column hover says the two differ. And the horizontal axis ticks now carry % for ROC, DD % and WIN % and R for DD (R), as the vertical ones do.']},{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
@@ -33300,7 +33322,34 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const QE_LEG_VERSIONS=[{leg:'NOISE',date:'2026-09-24',from:'#304',to:'#382',note:'the #304 crown’s own core plus the validated compression size tilt (squeeze on the 30-minute chart doubles the trade)'}];
       // "#382 since Sep 24 &middot; was #304" for a leg QE_LEG_VERSIONS covers; the plain
       // runNo (e.g. "#314") for one it does not.
-      const qeLegRunLabel=(key,runNo)=>{const vs=QE_LEG_VERSIONS.filter(v=>v.leg===key).sort((a,b)=>a.date<b.date?1:-1);if(!vs.length)return runNo;const v=vs[0];const d=new Date(v.date+'T00:00:00');const since=isNaN(d.getTime())?v.date:(d.toLocaleString('en',{month:'short'})+' '+d.getDate());return v.to+' since '+since+' &middot; was '+v.from;}; const qeKeelTagHtml=(key)=>{const k=QE&&QE.keel&&QE.keel[key];if(!k||!k.version)return '';let through='';if(k.trained_through){const d=new Date(k.trained_through+'T00:00:00');through=isNaN(d.getTime())?String(k.trained_through):(d.toLocaleString('en',{month:'short'})+' '+d.getDate());}return ' &middot; KEEL '+k.version+(through?(' (trained on NQ through '+through+')'):'');};
+      // REVIEW FIX 2 (2026-09-24): the combined "#382 since Sep 24 &middot; was #304
+      // &middot; KEEL v12 (trained on NQ through Sep 20)" string used to sit INLINE next
+      // to the leg name, wrapping the sidebar row into a 6-7 line column at the 340px
+      // sidebar width. qeLegShortTag is now the ONLY thing shown inline (same small
+      // grey slot ORB "#314"/ENGU-Q "#335" use -- just the CURRENT run number); the
+      // "since/was/KEEL" detail moves to qeLegSubLineHtml, its own full-width line under
+      // the row (styled exactly like the ENGU-Q caveat line beneath it).
+      const qeLegShortTag=(key,runNo)=>{const vs=QE_LEG_VERSIONS.filter(v=>v.leg===key);return vs.length?vs.sort((a,b)=>a.date<b.date?1:-1)[0].to:runNo;};
+      const qeLegSubLineHtml=(key)=>{
+        const vs=QE_LEG_VERSIONS.filter(v=>v.leg===key).sort((a,b)=>a.date<b.date?1:-1);
+        const parts=[];
+        if(vs.length){
+          const v=vs[0];
+          const d=new Date(v.date+'T00:00:00');
+          const since=isNaN(d.getTime())?v.date:(d.toLocaleString('en',{month:'short'})+' '+d.getDate());
+          parts.push('since '+since+' &middot; was '+v.from);
+        }
+        const k=QE&&QE.keel&&QE.keel[key];
+        if(k&&k.version){
+          let through='';
+          if(k.trained_through){
+            const d2=new Date(k.trained_through+'T00:00:00');
+            through=isNaN(d2.getTime())?String(k.trained_through):(d2.toLocaleString('en',{month:'short'})+' '+d2.getDate());
+          }
+          parts.push('KEEL '+k.version+(through?(', trained on NQ through '+through):''));
+        }
+        return parts.length?('<div style="padding:0 0 6px;font-size:10px;color:var(--text4);line-height:1.4">'+parts.join(' &middot; ')+'</div>'):'';
+      };
       // which run took ONE trade, straight from its trade id's own engine-leg prefix
       // (api/trade_id.py: "<engine leg>-<entry bar UTC>-<L|S>") -- never from the trade's
       // date, so it stays correct even if a switch date is edited later. null (no tag) for
@@ -33380,7 +33429,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // QREADY fields the old badge row read; nothing recomputed. Alarm chips only render
       // when something is actually wrong -- a clean book shows one quiet status sentence.
       const qbChip=(txt,col)=>'<span class="qb-chip" style="color:'+col+'">'+txt+'</span>';
-      const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo)=>{
+      // ROBINHOOD RE-COMPOSITION (2026-09-24, owner: "make more like robinhood pls"):
+      // qbHeroBuild now returns {main,strip} instead of one string -- `main` is JUST the
+      // headline (title/number/today-delta/since-label/book-only note), `strip` is the
+      // thin status-strip (status sentence + attention chips + Refresh) that used to sit
+      // top-right of the hero and now sits directly under the chart instead (still the
+      // SAME statusBits/chips computation, only re-homed -- see qbx-status-strip below).
+      // todayVal/todayPct are NEW params (both nullable): the caller passes whatever the
+      // published doc already carries for "today" (QEQUITY.change_today(_pct) when the
+      // equity feed is live, else the existing today.realized+unrealized read) rather than
+      // inventing a new backend field.
+      const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,todayPct)=>{
         const chips=[];
         if(QE&&QE.breaker_tripped)chips.push(qbChip('BREAKER TRIPPED','var(--attn-red)'));
         if(QE&&QE.kill)chips.push(qbChip('KILL ACTIVE','var(--attn-red)'));
@@ -33392,26 +33451,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const statusBits=['paper only',(mOpen?'market open':'market closed'),
           (QE?(QE.feed_stale?'feed stale':'feed OK'):'feed unknown'),
           (QRHEALTH?(QRHEALTH.used===false?'ratio not used':(QRHEALTH.warn?'ratio warn':'ratio fresh')):null)].filter(Boolean).join(' · ');
-        // density pass 2026-09-08 (owner: too much scroll before the fold) -- title+number
-        // on the left, status sentence + attention chips (only when present) + Refresh all
-        // share ONE row on the right, so the whole hero fits under ~120px on desktop.
-        return '<div class="qb-hero">'
+        const todayLine=(todayVal==null||isNaN(todayVal))?'':('<div class="qbx-hero-today" style="color:'+pnlCol(todayVal)+'">'
+          +(todayVal>=0?'+':'')+qeMoney(todayVal)
+          +(todayPct!=null&&!isNaN(todayPct)?(' ('+(todayPct>=0?'+':'')+qeNum(todayPct,2)+'%)'):'')
+          +'<span class="qbx-today-suffix">today</span></div>');
+        const mainHtml='<div class="qb-hero">'
           +'<div class="qb-hero-left">'
           +'<div class="qb-hero-title">Webull Paper Trading</div>'
           +'<div class="qb-hero-num" style="color:'+(netVal==null?'var(--text)':pnlCol(netVal))+'">'+(netVal==null?'—':qeMoney(netVal))+'</div>'
+          +todayLine
           +'<div class="qb-hero-sub">'+sinceLabel+'</div>'
           // BOOK ONLY (2026-09-23): the book number above stays PRIMARY (this is
-          // the strategy own forward test) -- this second line only shows up once
+          // the strategy own forward test) -- this line only shows up once
           // at least one trade never reached the broker, and says what the broker
           // side actually made with those trades excluded.
           +(brokerInfo&&brokerInfo.book_only_count>0?('<div class="qb-hero-sub" style="color:var(--attn-amber)" title="'+brokerInfo.book_only_count+' trade'+(brokerInfo.book_only_count===1?'':'s')+' never reached the broker - see the BOOK ONLY tag in the trade list below">broker made '+qeMoney(brokerInfo.broker_net)+' of that ('+brokerInfo.book_only_count+' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)</div>'):'')
           +'</div>'
-          +'<div class="qb-hero-right">'
-          +'<span class="qb-hero-statusline">'+statusBits+'</span>'
+          +'</div>';
+        const stripHtml='<div class="qbx-status-strip">'
+          +'<span>'+statusBits+'</span>'
           +chips.join('')
           +'<button class="qb-hero-refresh" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'
-          +'</div>'
           +'</div>';
+        return {main:mainHtml,strip:stripHtml};
       };
 
       // ── RATIO HEALTH panel — every shadow price is an NQ price divided by the calibration
@@ -33515,8 +33577,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // checklist (readinessHtml's rows), nothing recomputed.
         const passedN=checks.filter(c=>c[1]===true).length, totalN=checks.length;
         const topMissing=(missing.length?missing:checks.filter(c=>c[1]===false).map(c=>c[2])).slice(0,2);
-        readinessCompactHtml='<div class="qb-card qb-sec-ready">'
-          +'<div class="qb-section-hd">Ready for real shares?</div>'
+        // Was its own sticky qb-card qb-sec-ready sidebar card; now lives inside the
+        // collapsed SYSTEM section below (owner spec point 2: "READY FOR REAL SHARES"),
+        // so only the qb-card wrapper is gone -- content/behaviour untouched.
+        readinessCompactHtml='<div class="qb-section-hd">Ready for real shares?</div>'
           +'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">'
           +'<div style="font-size:20px;font-weight:800;color:'+(QREADY.ready?'var(--attn-ok)':'var(--attn-amber)')+'">'+(QREADY.ready?'READY':'NOT READY')+'</div>'
           +'<div style="font-size:12px;color:var(--text4)">'+passedN+' of '+totalN+' checks passed</div>'
@@ -33524,8 +33588,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div class="qb-bar"><div style="width:'+Math.round(passedN/totalN*100)+'%;background:'+(QREADY.ready?'var(--attn-ok)':'var(--attn-amber)')+'"></div></div>'
           +topMissing.map(m=>'<div style="margin-top:8px;font-size:12px;color:var(--text3)">• '+String(m).replace(/</g,'&lt;')+'</div>').join('')
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="allchecks"><span class="qb-disclosure-arrow">'+(allChecksOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">All checks</span></div>'
-          +(allChecksOpen?('<div style="margin-top:2px">'+readinessHtml+'</div>'):'')
-          +'</div>';
+          +(allChecksOpen?('<div style="margin-top:2px">'+readinessHtml+'</div>'):'');
       }
 
       // ── MODEL section (collapsed by default, remembers open/closed in localStorage) —
@@ -33699,11 +33762,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +(modelOpen?('<div style="margin-top:8px">'+modelBody+'</div>'):'');
 
       if(qeErr){
-        body='<div class="qb-shell">'+qbHeroBuild(null,'—',0)
+        const qh=qbHeroBuild(null,'—',0);
+        body='<div class="qb-shell">'+qh.main+qh.strip
           +tile('<div style="color:var(--red);font-size:var(--fsxs)">load failed: '+String(qeErr).replace(/</g,'&lt;')+'</div>')
           +modelSection+'</div>';
       }else if(!QE){
-        body='<div class="qb-shell">'+qbHeroBuild(null,'—',0)
+        const qh=qbHeroBuild(null,'—',0);
+        body='<div class="qb-shell">'+qh.main+qh.strip
           +tile('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:20px;min-height:140px;display:flex;align-items:center;justify-content:center">'+(qeLoading?'loading…':'no qqq_exec doc yet — the runner publishes users/{uid}/meta/qqq_exec once its own thread ticks (every ~5s, 09:25-16:05 ET Mon-Fri)')+'</div>')
           +modelSection+'</div>';
       }else{
@@ -34085,16 +34150,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'</div>';
 
           const legOpenNow=qbLegOpenSet.has(key);
+          // SIDEBAR LIVE LINE (2026-09-24, owner spec point 3): "when a leg holds a
+          // position the row also shows side x shares, entry, live price and open P&L
+          // (from the POSITIONS - LIVE data)". This legListHtml IS the "Strategies"
+          // sidebar list (unchanged data-qblegrow markup, just re-homed into qbx-side
+          // below) -- reads QPOSLIVE.legs (the SAME feed the old qb-sec-positions card
+          // read) rather than the older `positions[key]`/legUnreal figures, which stay
+          // exactly as they were, still reachable one tap away in qb-leg-detail below.
+          const liveLeg=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.find(l=>l&&l.leg===key):null;
+          const liveLineHtml=liveLeg?('<div class="qbx-leg-live">'
+            +(liveLeg.side==='long'?'Long':liveLeg.side==='short'?'Short':naS(liveLeg.side))+' '+qeInt(liveLeg.shares)
+            +' · entry '+(liveLeg.entry_px!=null?qeMoney(liveLeg.entry_px):'—')
+            +' · now '+(liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')
+            +' · <b style="color:'+(liveLeg.open_pnl!=null?pnlCol(liveLeg.open_pnl):'var(--text5)')+'">'+(liveLeg.open_pnl!=null?qeMoney(liveLeg.open_pnl):'—')+' open</b>'
+            +'</div>'):'';
           legListHtml+='<div class="qb-row qb-leg-row">'
             +'<div class="qb-leg-row-top qb-tap" data-qblegrow="'+key+'">'
             +'<span style="font-size:13px;font-weight:600;color:'+color+'">'+label+'</span>'
-            +'<span style="font-size:10px;color:var(--text5);font-weight:600">'+qeLegRunLabel(key,runNo)+qeKeelTagHtml(key)+'</span>'
+            +'<span style="font-size:10px;color:var(--text5);font-weight:600;white-space:nowrap">'+qeLegShortTag(key,runNo)+'</span>'
             +'<span class="qb-pill" style="color:'+badgeColor+'">'+badge+'</span>'
             +'<span style="flex:1"></span>'
             +'<span class="qb-spark-cell">'+(sparkData.length>=2?sparkline(sparkData,color,60,26,false):'')+'</span>'
             +'<span class="qb-row-value" style="color:'+pnlCol(legClosedSum)+'">'+qeMoney(legClosedSum)+'</span>'
             +'<span class="qb-chevron">'+(legOpenNow?'⌄':'›')+'</span>'
             +'</div>'
+            +qeLegSubLineHtml(key)
+            +liveLineHtml
             +(caveat?('<div style="padding:0 0 8px;font-size:10px;color:var(--text4);line-height:1.4">'+caveat+'</div>'):'')
             +(legOpenNow?('<div class="qb-leg-detail">'
               +'<div><div class="qb-row-sublabel">UNREALIZED</div><div style="font-size:14px;font-weight:600;color:'+(p?pnlCol(legUnreal):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
@@ -34133,13 +34214,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const cD=p=>(p&&p.date!==undefined)?p.date:((p||[])[0]);
           const cV=p=>Number((p&&p.cum_pnl!==undefined)?p.cum_pnl:((p||[])[1]))||0;
           const totalSeries=cum.total||[];
-          const periodSeg=qbSegHtml('period',[['1W','1W'],['1M','1M'],['3M','3M'],['ALL','ALL']],qbChartPeriod);
+          // ROBINHOOD RE-COMPOSITION (2026-09-24): the period control moves from a pill
+          // qb-seg ABOVE the chart to a plain text/underline tab row BELOW it (matching
+          // the TRADING LOG home tab's own hm-range-pills) -- same data-qbseg="period" /
+          // data-qbsegval attributes, so the EXISTING wiring below keeps working untouched.
+          const periodTabsHtml='<div class="qbx-chart-tabs" data-qbseg="period">'
+            +[['1W','1W'],['1M','1M'],['3M','3M'],['ALL','ALL']].map(([val,lbl])=>'<button data-qbsegval="'+val+'" class="'+(qbChartPeriod===val?'on':'')+'">'+lbl+'</button>').join('')
+            +'</div>';
           if(!totalSeries.length){
-            equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L</span>'+periodSeg+'</div>'
+            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">Cumulative P&amp;L</div>'
               +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:8px 0 0">curve starts with the first closed trade</div>'
-              +'<svg class="qb-chart-svg" viewBox="0 0 760 50" preserveAspectRatio="none"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg></div>';
+              +'<svg class="qb-chart-svg" viewBox="0 0 760 50" preserveAspectRatio="none"><line x1="10" y1="25" x2="750" y2="25" stroke="var(--border)" stroke-dasharray="3,3"/></svg>'
+              +periodTabsHtml+'</div>';
           }else{
-            const W=760,H=220,padL=8,padR=8,padT=14,padB=22;
+            const W=760,H=300,padL=8,padR=8,padT=14,padB=22;
             const plotW=W-padL-padR,plotH=H-padT-padB;
             let ymin=0,ymax=0;
             ['ORB','ENGUQ','NOISE','total'].forEach(k=>{(cum[k]||[]).forEach(p=>{ymin=Math.min(ymin,cV(p));ymax=Math.max(ymax,cV(p));});});
@@ -34196,21 +34284,47 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // has scrolled it out of view -- rather than draw a marker pinned to an edge
             // that misstates when the switch really happened.
             const markerDates=Array.from(new Set(QE_LEG_VERSIONS.map(v=>v.date))).sort();
+            const qeLegFamName=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;};
             markerDates.forEach(md=>{
               if(!allDates.length||md<allDates[0]||md>allDates[allDates.length-1])return;
               const idx=allDates.findIndex(d=>d>=md);
               if(idx<0)return;
-              const mx=x(idx).toFixed(1);
+              const mxN=x(idx);
+              const mx=mxN.toFixed(1);
               const chg=QE_LEG_VERSIONS.filter(v=>v.date===md);
-              const label=chg.map(v=>v.from+' → '+v.to).join(', ');
-              const tip=md+' — '+chg.map(v=>v.leg+' '+v.from+' → '+v.to+(v.note?(': '+v.note):'')).join('; ');
+              // REVIEW FIX 3 (2026-09-24): prefix the FAMILY name (owner's family-
+              // vocabulary rule: family + run number, e.g. "NOISE #304 -> #382"), not
+              // just the bare from/to run numbers.
+              const label=chg.map(v=>qeLegFamName(v.leg)+' '+v.from+' &rarr; '+v.to).join(', ');
+              const tip=md+' — '+chg.map(v=>qeLegFamName(v.leg)+' '+v.from+' → '+v.to+(v.note?(': '+v.note):'')).join('; ');
+              // KEEP THE LABEL ON-CANVAS: text-anchor="middle" clipped it whenever the
+              // switch date sits near an edge (e.g. the most recent plotted day) --
+              // anchor "end"/"start" (with a small x offset away from the guide line)
+              // in the right/left 15% of the plot instead, so the full label always
+              // stays inside the viewBox at every width (anchor math is in SVG
+              // user-space, so it is identical regardless of the CSS-rendered size).
+              const frac=(mxN-padL)/plotW;
+              const anchor=frac>0.85?'end':(frac<0.15?'start':'middle');
+              const tx=(anchor==='end'?(mxN-4):(anchor==='start'?(mxN+4):mxN)).toFixed(1);
               svg+='<line x1="'+mx+'" y1="'+padT+'" x2="'+mx+'" y2="'+(H-padB)+'" stroke="var(--text4)" stroke-dasharray="2,3" opacity="0.55"/>';
-              svg+='<text x="'+mx+'" y="'+(padT-4)+'" font-size="8" fill="var(--text4)" text-anchor="middle">'+label+'</text>';
+              svg+='<text x="'+tx+'" y="'+(padT-4)+'" font-size="8" fill="var(--text4)" text-anchor="'+anchor+'">'+label+'</text>';
               chg.forEach(v=>{if(hiddenSet[v.leg])return;const s=cum[v.leg]||[];const pt=s.find(p=>cD(p)===allDates[idx]);if(pt)svg+='<circle cx="'+mx+'" cy="'+y(cV(pt)).toFixed(1)+'" r="5.5" fill="none" stroke="'+legColorQE(v.leg)+'" stroke-width="1.6"/>';});
               if(!hiddenSet.total){const tp=(cum.total||[]).find(p=>cD(p)===allDates[idx]);if(tp)svg+='<circle cx="'+mx+'" cy="'+y(cV(tp)).toFixed(1)+'" r="5.5" fill="none" stroke="var(--text)" stroke-width="1.6"/>';}
               svg+='<circle cx="'+mx+'" cy="'+(padT-4)+'" r="9" fill="transparent" stroke="none"><title>'+tip+'</title></circle>';
             });
             svg+=hoverDots;
+            // ── HOVER CROSSHAIR (2026-09-24, owner spec: "hover crosshair with date +
+            // value") -- a vertical guide + dot on the TOTAL line that tracks the mouse,
+            // snapping to the nearest plotted day. Wired in the separate DOM-wiring pass
+            // below (never calls renderApp() on mousemove, so a scrub stays smooth even
+            // while this tab is re-publishing in the background every ~10s -- see the
+            // "never block the page" performance note in the owner spec).
+            // window._qbChartHover carries just enough of this closure's own allDates/cum
+            // math for that wiring code to reuse -- nothing recomputed differently.
+            window._qbChartHover={dates:allDates,total:allDates.map(d=>{const p=(cum.total||[]).find(pp=>cD(pp)===d);return p?cV(p):null;}),plotL:padL,plotR:W-padR,plotT:padT,plotB:H-padB,W:W,H:H,ymin:ymin,ymax:ymax};
+            svg+='<line id="qbCrossLine" x1="0" y1="'+padT+'" x2="0" y2="'+(H-padB)+'" stroke="var(--text5)" stroke-width="1" stroke-dasharray="3,3" visibility="hidden"/>';
+            svg+='<circle id="qbCrossDot" cx="0" cy="0" r="4" fill="var(--text)" stroke="var(--bg1)" stroke-width="1.5" visibility="hidden"/>';
+            svg+='<rect id="qbCrossCapture" x="0" y="0" width="'+W+'" height="'+H+'" fill="transparent"/>';
             svg+='</svg>';
             const legItem=(key,label,color)=>'<span class="qe-legend-item'+(hiddenSet[key]?' off':'')+'" data-qelegend="'+key+'" title="click to show/hide this line" style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;background:'+color+'"></span><span style="font-size:var(--fsxs);color:var(--text3)">'+label+'</span></span>';
             const legend=legItem('total','TOTAL','var(--text)')
@@ -34222,7 +34336,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // order never existed at the broker at all. Same amber family, so it
               // still reads as "a caveat" at a glance, never as an error (red).
               +(QBO&&QBO.book_only_count>0?'<span title="a muted BOOK ONLY tag on a trade row means its order was refused or blocked before it ever reached the broker - see the trade list below" style="display:inline-flex;align-items:center;gap:5px;margin-right:14px"><span style="width:9px;height:9px;border-radius:2px;border:1px solid var(--attn-amber)"></span><span style="font-size:var(--fsxs);color:var(--text3)">book only</span></span>':'');
-            equityHtml='<div class="qb-chart-wrap"><div class="qb-chart-head"><span class="lbl2">Cumulative P&amp;L since '+naS(QE.live_from)+'</span>'+periodSeg+'</div>'+svg+'<div class="qb-chart-legend">'+legend+'</div></div>';
+            equityHtml='<div class="qb-chart-wrap"><div class="qbx-chart-cap">Cumulative P&amp;L since '+naS(QE.live_from)+'</div>'+svg
+              +'<div class="qbx-chart-readout" id="qbChartReadout"></div>'
+              +periodTabsHtml
+              +'<div class="qb-chart-legend">'+legend+'</div></div>';
           }
         }
 
@@ -34436,12 +34553,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const a=qeFmtET(t.entry_ts),b=qeFmtET(t.exit_ts);
               return a+' → '+b;
             };
+            // ROBINHOOD RE-COMPOSITION (2026-09-24, owner spec point 2: "HISTORY (the
+            // trades list as clean rows: leg + run tag, side, shares, entry -> exit,
+            // P&L right-aligned)") -- same row/tags/sheet-open behaviour as before, the
+            // label column now leads with SIDE + SHARES (a Robinhood fill line) over the
+            // existing entry->exit + parity/BOOK ONLY/version-tag sub-line.
             tradesListHtml='<div class="qb-list">'+visible.map((t,i)=>{
               const pnl=qePnlOf(t);
               const tag=bookOnlyChip(t)+(parityChip(t)||tagFor(t.exit_reason));
+              const sideTxt=t.side?String(t.side).toUpperCase():'—';
               return '<div class="qb-row qb-tap" data-qbtraderow="'+i+'">'
                 +'<span style="font-size:11px;font-weight:700;color:'+legColorQE(t.leg)+';flex:0 0 auto">'+naS(t.leg)+qeVerTagHtml(t)+'</span>'
-                +'<span class="qb-row-label" style="flex:1.6">'+qbDateRange(t)+(tag?(' '+tag):'')+'</span>'
+                +'<div class="qb-row-label" style="flex:1.6">'+sideTxt+' '+qeInt(t.shares)+' sh<div class="qb-row-sublabel">'+qbDateRange(t)+(tag?(' '+tag):'')+'</div></div>'
                 +'<span class="qb-row-value" style="color:'+pnlCol(pnl)+'">'+qeMoney(pnl)+'</span>'
                 +'<span class="qb-chevron">›</span>'
                 +'</div>';
@@ -34562,7 +34685,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // railsHtml/eventsHtml/modelSection) built above -- nothing recomputed here,
         // only assembled and restyled.
         const qbSinceLabel='since '+naS(QE.live_from)+' · '+(QST.n?(QST.n+' closed trade'+(QST.n===1?'':'s')):'no closed trades yet');
-        const qbHeroHtml=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,QBO);
+        // "+$X (+Y%) today" (owner spec, 2026-09-24): prefer the published equity feed's
+        // own today read (QEQUITY.change_today(_pct) -- the SAME figure the ACCOUNT section
+        // shows) since that is the account's actual daily move; fall back to the existing
+        // today.realized+unrealized read (todayPnl, computed above) with no percent when the
+        // equity feed has not published yet. Never invents a new backend field.
+        const heroTodayVal=(QEQUITY&&QEQUITY.change_today!=null)?Number(QEQUITY.change_today):(isFinite(todayPnl)?todayPnl:null);
+        const heroTodayPct=(QEQUITY&&QEQUITY.change_today_pct!=null)?Number(QEQUITY.change_today_pct):null;
+        const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,QBO,heroTodayVal,heroTodayPct);
+        const qbHeroHtml=qbHero.main;
+        const qbStatusStripHtml=qbHero.strip;
 
         // ── STATUS STRIP (2026-09-13, "move QQQ shadow off NinjaTrader" — plain-
         // language status for checking from the phone). Reads NEW backend fields
@@ -34607,7 +34739,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             item('RUNNING ON',(loc&&loc.label)?chip(loc.label):'—'),
             item('LAST TICK',tickAgeSec!=null?((tickStale?(chip('STALE')+' <span class="qb-status-sub">'+tickAgeSec+'s ago</span>'):(tickAgeSec+'s ago'))+pageStaleSub):'—')
           ];
-          return '<div class="qb-card qb-sec-status"><div class="qb-section-hd">Status</div><div class="qb-status-grid">'+items.join('')+'</div></div>';
+          // Was its own qb-card qb-sec-status card; now the first sub-section inside the
+          // collapsed SYSTEM area below (owner spec point 2) -- content untouched.
+          return '<div class="qb-section-hd">Status</div><div class="qb-status-grid">'+items.join('')+'</div>';
         })();
 
         // ── 4. ORDERS (2026-09-14, "show the ORDER CONNECTION's state on the phone so a
@@ -34626,9 +34760,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           try{
             const BR=(QE&&QE.broker)||null;
             if(!BR||BR.error){
-              return '<div class="qb-card qb-sec-broker"><div class="qb-section-hd">Orders</div>'
-                +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>'
-                +'</div>';
+              return '<div class="qb-section-hd">Orders</div>'
+                +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>';
             }
 
             // -- plain-English rewrite of the backend's own reason strings (halt_reason /
@@ -34780,13 +34913,56 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +lastOrderLine+(lastErrLine?('<br>'+lastErrLine):'')
               +'</div>';
 
-            return '<div class="qb-card qb-sec-broker"><div class="qb-section-hd">Orders</div>'
-              +modeRow+lossRow+sizeRow+hostRow+lastRow
-              +'</div>';
+            return '<div class="qb-section-hd">Orders</div>'
+              +modeRow+lossRow+sizeRow+hostRow+lastRow;
           }catch(e){
-            return '<div class="qb-card qb-sec-broker"><div class="qb-section-hd">Orders</div>'
-              +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>'
-              +'</div>';
+            return '<div class="qb-section-hd">Orders</div>'
+              +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>';
+          }
+        })();
+
+        // SIDEBAR "Orders" MINI SUMMARY (2026-09-24, owner spec point 3: "Below the
+        // list, a compact 'Orders' summary (mode pill PAPER, daily stop used bar, last
+        // order one-liner)"). A deliberately SHORTER read of the SAME QE.broker/rails/
+        // todayPnl the full Orders card above already reads -- no raw-error rewrite or
+        // details toggle here, that stays reachable one section down in the collapsed
+        // SYSTEM area's Orders card. Kept as its OWN small IIFE (not a refactor of
+        // qbOrdersHtml) so that card's carefully-reasoned edge cases stay untouched.
+        const qbOrdersCompactHtml=(()=>{
+          try{
+            const BR=(QE&&QE.broker)||null;
+            if(!BR||BR.error){
+              return '<div class="qbx-orders-mini-line" style="color:var(--text4)">Orders not reported yet.</div>';
+            }
+            const mode=BR.effective_mode||'OFF';
+            const modePillMini=(txt,col,filled)=>'<span style="font-size:10px;font-weight:800;letter-spacing:.05em;padding:3px 10px;border-radius:999px;white-space:nowrap;border:1.5px solid '+col+';color:'+(filled?'var(--bg)':col)+(filled?';background:'+col:'')+'">'+txt+'</span>';
+            let pillTxt,pillCol,filled;
+            if(BR.halted){pillTxt='HALTED';pillCol='var(--attn-red)';filled=true;}
+            else if((mode==='PAPER'||mode==='LIVE')&&BR.lease_ok_to_send===false){pillTxt='BLOCKED';pillCol='var(--attn-amber)';filled=true;}
+            else if(mode==='LIVE'){pillTxt='LIVE';pillCol='var(--text)';filled=true;}
+            else if(mode==='PAPER'){pillTxt='PAPER';pillCol='var(--attn-ok)';filled=true;}
+            else{pillTxt='OFF';pillCol='var(--text4)';filled=false;}
+            let barHtml='';
+            if(dllLimitAbs!=null){
+              const used=Math.abs(Math.min(0,todayPnl));
+              const usedPct=Math.min(100,Math.round(used/dllLimitAbs*100));
+              const stopTripped=todayPnl<=-dllLimitAbs;
+              const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
+              barHtml='<div class="qb-bar" style="margin-top:8px"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
+                +'<div style="font-size:11px;color:var(--text4);margin-top:4px">'+qeMoney(-used)+' of '+qeMoney(dllLimitAbs)+' daily stop used</div>';
+            }
+            const LO=BR.last_order||{};
+            const legDisplayMini=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
+            const sideWordMini=s=>({BUY:'bought',SELL:'sold',SHORT:'shorted'}[String(s||'').toUpperCase()]||'traded');
+            const lastLine=(LO.leg||LO.symbol||LO.side||LO.qty!=null)
+              ?('Last order: '+legDisplayMini(LO.leg)+', '+sideWordMini(LO.side)+' '+qeInt(LO.qty)+' shares'
+                +(LO.ok===false?' (not confirmed)':(LO.mode==='BLOCKED'?' (blocked)':(LO.mode==='ERROR'?' (failed)':'')))+'.')
+              :'No order has been attempted yet.';
+            return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+modePillMini(pillTxt,pillCol,filled)+'</div>'
+              +barHtml
+              +'<div class="qbx-orders-mini-line">'+lastLine+'</div>';
+          }catch(e){
+            return '<div class="qbx-orders-mini-line" style="color:var(--text4)">Orders not reported yet.</div>';
           }
         })();
 
@@ -34799,10 +34975,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // Orders card beside them -- see that grid-template-areas comment. Text/words
         // alongside every colour (LONG/SHORT, +/-, OK/MISMATCH) -- never colour-only,
         // the owner runs the mono theme where --green/--red have no hue.
-        const qbPositionsLiveHtml=(()=>{
+        // ── ACCOUNT (2026-09-24 Robinhood re-composition, owner spec point 2: "ACCOUNT
+        // (Webull equity, today's change, cash, as-of; the 'Webull holds X · legs sum to
+        // X' check)"). Per-leg open-position detail (side/shares/entry/live price/open
+        // P&L) moved to the Strategies SIDEBAR list above (qbx-leg-live, reads this SAME
+        // QPOSLIVE.legs feed via the liveLeg lookup in the legListHtml forEach) so it is
+        // not shown twice -- this section keeps only the one account-level total across
+        // every leg, plus the equity block itself. Was qbPositionsLiveHtml/"Positions ·
+        // Live"; the qb-card wrapper + its own header move to the shared qbx-section
+        // wrapper at final composition time, same as Stats/History/Activity below.
+        const qbAccountHtml=(()=>{
           try{
-            const legRunTag=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[3]:'';};
-            const legLbl=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
             const qtyWord=q=>{
               if(q==null)return null;
               const n=Math.round(Math.abs(q));
@@ -34810,7 +34993,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             };
             const eqBlockHtml=(()=>{
               if(!QEQUITY||QEQUITY.net_liq==null){
-                return '<div style="font-size:12px;color:var(--text4);padding:8px 0 2px">Account equity not read yet.</div>';
+                return '<div style="font-size:12px;color:var(--text4);padding:2px 0">Account equity not read yet.</div>';
               }
               const chg=QEQUITY.change_today;
               const chgHtml=chg==null?'':(' <span style="color:'+pnlCol(chg)+';font-weight:700;font-size:13px">'
@@ -34818,7 +35001,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +(QEQUITY.change_today_pct!=null?(' ('+(chg>=0?'+':'')+qeNum(QEQUITY.change_today_pct,2)+'%)'):'')
                 +'</span>');
               const staleHtml=QEQUITY.stale?' <span class="qb-status-chip" style="border-color:var(--attn-amber);color:var(--attn-amber)">STALE</span>':'';
-              return '<div style="padding:10px 0 2px;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent)">'
+              return '<div>'
                 +'<div style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--text5);margin-bottom:3px">Account equity</div>'
                 +'<div style="font-size:18px;font-weight:800;color:var(--text)">'+qeMoney(QEQUITY.net_liq)+chgHtml+staleHtml+'</div>'
                 +'<div style="font-size:11px;color:var(--text5);margin-top:2px">'
@@ -34828,69 +35011,49 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             })();
             if(!QPOSLIVE&&!QEQUITY){
               // Older doc, neither field ever published -- one compact line rather
-              // than this card's two separate empty-states stacked (they always ship
-              // together, see api/qqq_exec.py _build_doc).
-              return '<div class="qb-card qb-sec-positions"><div class="qb-section-hd">Positions &middot; Live</div>'
-                +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Not reported yet.</div>'
-                +'</div>';
+              // than two separate empty-states stacked (they always ship together,
+              // see api/qqq_exec.py _build_doc).
+              return '<div style="font-size:13px;color:var(--text4);padding:2px 0">Not reported yet.</div>';
             }
             if(!QPOSLIVE){
-              return '<div class="qb-card qb-sec-positions"><div class="qb-section-hd">Positions &middot; Live</div>'
-                +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 8px">Live positions not reported yet.</div>'
-                +eqBlockHtml+'</div>';
+              return '<div style="font-size:13px;color:var(--text4);padding:2px 0 10px">Live positions not reported yet.</div>'+eqBlockHtml;
             }
             const legs=QPOSLIVE.legs||[];
-            const legRowHtml=L=>{
-              const nm=legLbl(L.leg)+(legRunTag(L.leg)?(' <span style="color:var(--text5);font-weight:600;font-size:10px">'+legRunTag(L.leg)+'</span>'):'');
-              const sideTxt=L.side==='long'?'Long':L.side==='short'?'Short':'—';
-              const pxTxt=L.live_px!=null?qeMoney(L.live_px):'—';
-              const srcTxt=L.live_source==='stream'?'live':(L.live_source==='bar'?'last bar':null);
-              const ageTxt=L.live_age_s!=null?(L.live_age_s<1?'<1s':qeInt(Math.round(L.live_age_s))+'s'):null;
-              const subBits=[srcTxt,ageTxt].filter(Boolean).join(' · ');
-              const tmin=L.time_in_trade_min==null?'—'
-                :(L.time_in_trade_min<60?(qeInt(Math.round(L.time_in_trade_min))+'m'):((L.time_in_trade_min/60).toFixed(1)+'h'));
-              return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid color-mix(in srgb,var(--border) 45%,transparent)">'
-                +'<div style="min-width:0;flex:1">'
-                +'<div style="font-size:13px;font-weight:700;color:var(--text)">'+nm+'</div>'
-                +'<div style="font-size:11px;color:var(--text4)">'+sideTxt+' '+qeInt(L.shares)+' · entry '+(L.entry_px!=null?qeMoney(L.entry_px):'—')+' · '+tmin+' in trade</div>'
-                +'</div>'
-                +'<div style="text-align:right;flex:0 0 auto">'
-                +'<div style="font-size:13px;font-weight:700;color:'+pnlCol(L.open_pnl)+'">'+(L.open_pnl!=null?qeMoney(L.open_pnl):'—')+'</div>'
-                +'<div style="font-size:10px;color:var(--text5)">'+pxTxt+(subBits?(' · '+subBits):'')+'</div>'
-                +'</div></div>';
-            };
             const bw=qtyWord(QPOSLIVE.broker_net_qty), lw=qtyWord(QPOSLIVE.legs_net_qty);
             const checkHtml=(bw==null||lw==null)?''
               :('<div style="font-size:12px;padding-top:8px;color:'+(QPOSLIVE.mismatch?'var(--attn-amber)':'var(--text4)')+'">'
                 +(QPOSLIVE.mismatch?'<b>MISMATCH</b> — ':'<b style="color:var(--attn-ok)">OK</b> — ')
                 +'Webull holds '+bw+' &middot; legs sum to '+lw+'</div>');
             if(!legs.length){
-              return '<div class="qb-card qb-sec-positions"><div class="qb-section-hd">Positions &middot; Live</div>'
-                +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 8px">Flat — no open positions.</div>'
-                +eqBlockHtml+checkHtml+'</div>';
+              return '<div style="font-size:13px;color:var(--text4);padding:2px 0 10px">Flat — no open positions.</div>'+eqBlockHtml+checkHtml;
             }
-            const totalHtml='<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;font-size:13px">'
+            const totalHtml='<div style="display:flex;justify-content:space-between;align-items:center;padding:0 0 10px;font-size:13px">'
               +'<span style="color:var(--text3)">Total open P&amp;L</span>'
               +'<span style="font-weight:800;color:'+pnlCol(QPOSLIVE.total_open_pnl)+'">'+qeMoney(QPOSLIVE.total_open_pnl)+'</span></div>';
-            return '<div class="qb-card qb-sec-positions"><div class="qb-section-hd">Positions &middot; Live</div>'
-              +legs.map(legRowHtml).join('')
-              +totalHtml+eqBlockHtml+checkHtml+'</div>';
+            return totalHtml+eqBlockHtml+checkHtml;
           }catch(e){
-            return '<div class="qb-card qb-sec-positions"><div class="qb-section-hd">Positions &middot; Live</div>'
-              +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Live positions not reported yet.</div>'
-              +'</div>';
+            return '<div style="font-size:13px;color:var(--text4);padding:2px 0">Live positions not reported yet.</div>';
           }
         })();
 
         // ── 3. STAT TILES + "More stats" -- same four headline numbers a Robinhood
         // position screen leads with, then the FULL RATIOS/PERFORMANCE/RISK set the old
         // sidebar rail carried, unchanged labels, behind a disclosure.
-        const qbTile=(lbl,val,col)=>'<div class="qb-tile"><div class="qb-tile-lbl">'+lbl+'</div><div class="qb-tile-val" style="'+(col?('color:'+col):'')+'">'+val+'</div></div>';
-        const qbTilesHtml='<div class="qb-tiles">'
+        // ROBINHOOD RE-COMPOSITION (2026-09-24, owner spec point 2: "STATS (win rate,
+        // profit factor, trades, max drawdown as a clean key-value row)"). Same four
+        // headline numbers, same thresholds/colors -- qb-tile's boxed grid is now a
+        // whitespace-separated row (qbx-stat-strip/qbx-stat-cell), no card, no dividers.
+        const qbTile=(lbl,val,col)=>'<div class="qbx-stat-cell"><div class="qbx-stat-lbl">'+lbl+'</div><div class="qbx-stat-val" style="'+(col?('color:'+col):'')+'">'+val+'</div></div>';
+        const qbTilesHtml='<div class="qbx-stat-strip">'
           +qbTile('Win rate',QST.n?Math.round(QST.wr*100)+'%':'—',QST.n?(QST.wr>=0.5?'var(--green)':'var(--red)'):null)
           +qbTile('Profit factor',QST.n?(QST.pf>=99?'∞':QST.pf.toFixed(2)):'—',QST.n?(QST.pf>=1?'var(--green)':'var(--red)'):null)
           +qbTile('Trades',QST.n||'—')
-          +qbTile('Max drawdown',QST.n?qeMoney(-QST.maxDD):'—','var(--red)')
+          // REVIEW FIX 4 (2026-09-24, owner rule): drawdown is shown as a POSITIVE
+          // number since the label already says "drawdown" -- was qeMoney(-QST.maxDD).
+          // QST.maxDD is already a plain magnitude (peak-run, never negative -- see
+          // qqqStats above), so this is just dropping the sign flip; the loss colour
+          // stays.
+          +qbTile('Max drawdown',QST.n?qeMoney(QST.maxDD):'—','var(--red)')
           +'</div>';
         const qbStatRow=(label,val,col)=>'<div class="qb-row"><span class="qb-row-label">'+label+'</span><span class="qb-row-value" style="'+(col?('color:'+col):'')+'">'+val+'</span></div>';
         const qbMoreStatsBody='<div class="qb-section-hd" style="margin-top:8px">Ratios</div><div class="qb-list">'
@@ -34907,35 +35070,32 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +qbStatRow('Worst',QST.n?qeMoney(QST.worst):'—',QST.n?pnlCol(QST.worst):null)
           +qbStatRow('Current streak',QST.n?((QST.sdir>0?'+':'-')+QST.streak+(QST.sdir>0?'W':'L')):'—',QST.n?(QST.sdir>0?'var(--green)':'var(--red)'):null)
           +'</div><div class="qb-section-hd" style="margin-top:14px">Risk</div><div class="qb-list">'
-          +qbStatRow('Max drawdown',QST.n?qeMoney(-QST.maxDD):'—','var(--red)')
+          // REVIEW FIX 4 (2026-09-24): same positive-magnitude convention as the
+          // primary stats row above -- was qeMoney(-QST.maxDD).
+          +qbStatRow('Max drawdown',QST.n?qeMoney(QST.maxDD):'—','var(--red)')
           +qbStatRow('Recovery factor',(QST.n&&QST.maxDD>0)?QST.recovery.toFixed(2)+'×':'—',(QST.n&&QST.maxDD>0)?(QST.recovery>=1?'var(--green)':'var(--red)'):null)
           +qbStatRow('Open exposure',qeMoney(openExposure),posCount?(posCount+' leg'+(posCount===1?'':'s')+' open'):null)
           +qbStatRow('Daily loss limit',rails.daily_loss_limit_usd!=null?qeMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'—',dllNearLimit?'var(--attn-red)':null)
           +'</div>';
-        const qbStatsCard='<div class="qb-card qb-sec-tiles">'
-          +qbTilesHtml
+        const qbStatsCard=qbTilesHtml
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="morestats"><span class="qb-disclosure-arrow">'+(moreStatsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">More stats</span></div>'
-          +(moreStatsOpen?qbMoreStatsBody:'')
-          +'</div>';
+          +(moreStatsOpen?qbMoreStatsBody:'');
 
         // ── 6. ACTIVITY — calendar restyled, feed/signals strips behind a disclosure.
-        const qbActivityCard='<div class="qb-card qb-sec-activity"><div class="qb-section-hd">Activity</div>'
-          +qeCalHtml.cal
+        const qbActivityCard=qeCalHtml.cal
           +(qeCalHtml.hasStrips?('<div class="qb-disclosure qb-tap" data-qbdisclosure="feedsig"><span class="qb-disclosure-arrow">'+(feedSigOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Feed &amp; signals</span></div>'
-            +(feedSigOpen?('<div style="margin-top:4px">'+qeCalHtml.strips+'</div>'):'')):'')
-          +'</div>';
+            +(feedSigOpen?('<div style="margin-top:4px">'+qeCalHtml.strips+'</div>'):'')):'');
 
         // ── 7. TRADES — List | Table qb-seg, CSV icon button in the header. Today's
         // orders shown only when non-empty.
         const qbTradesSeg=qbSegHtml('tradesview',[['list','List'],['table','Table']],qbTradesView);
         const qbCsvBtn='<button class="qb-hero-refresh" data-qeexportcsv title="Export CSV" style="padding:5px 10px">⬇</button>';
-        const qbTradesCard='<div class="qb-card qb-sec-trades"><div id="qe-trades-section"></div>'
+        const qbTradesCard='<div id="qe-trades-section"></div>'
           +'<div class="qb-section-hd" style="justify-content:space-between">'
           +'<span>Trades ('+closedN+')</span>'
           +'<span style="display:flex;gap:8px;align-items:center;flex:0 0 auto">'+qbTradesSeg+qbCsvBtn+'</span>'
           +'</div>'
-          +(qbTradesView==='table'?tradesHtml:tradesListHtml)
-          +'</div>';
+          +(qbTradesView==='table'?tradesHtml:tradesListHtml);
 
         // ── 8. INTEGRITY — Parity / Feed uptime / Ratio / Latency / Re-price coverage,
         // each with an attention dot and a tap-to-open sheet with the SAME detail panel
@@ -34955,23 +35115,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           :(QLAT?qeNum(QLAT.median_s,1)+'s median':'—');
         const qbRepriceDotCol=QREPRICE?(qeCovPct(QREPRICE.coverage_pct)>=90?null:'var(--attn-amber)'):null;
         const qbFeedDotCol=feedMean!=null?(feedMean>=99?null:feedMean>=95?'var(--attn-amber)':'var(--attn-red)'):null;
-        const qbIntegrityCard='<div class="qb-card qb-sec-integrity"><div class="qb-section-hd">Integrity</div><div class="qb-list">'
+        // Was its own qb-card qb-sec-integrity card; now the last sub-section inside the
+        // collapsed SYSTEM area below (owner spec point 2) -- rows/sheets untouched.
+        const qbIntegrityCard='<div class="qb-section-hd">Integrity</div><div class="qb-list">'
           +qbIntegrityRow('Parity',(effParTotal!=null)?(effParMatched+' / '+effParTotal):'—',effParFailed>0?'var(--attn-red)':null,'parity')
           +qbIntegrityRow('Feed uptime',feedMean!=null?feedMean.toFixed(1)+'%':'—',qbFeedDotCol,'feeduptime')
           +qbIntegrityRow('Ratio',(QRHEALTH&&QRHEALTH.used===false)?'not used':(QE&&QE.calib?qeNum(QE.calib.ratio,3):'—'),(QRHEALTH&&QRHEALTH.warn)?'var(--attn-amber)':null,'ratio')
           +qbIntegrityRow('Latency',qbLatencyHeadline,qbLatencyDotCol,'latency')
           +qbIntegrityRow('Re-price coverage',QREPRICE?qeNum(qeCovPct(QREPRICE.coverage_pct),0)+'%':'—',qbRepriceDotCol,'reprice')
-          +'</div></div>';
+          +'</div>';
 
-        // ── 9. FOOTER DISCLOSURES — Rails / Event timeline / Model reference, collapsed,
-        // state remembered per browser same as the MODEL section already did.
-        const qbFooter='<div class="qb-card qb-sec-footer">'
-          +'<div class="qb-disclosure qb-tap" data-qbdisclosure="rails" style="border-top:none"><span class="qb-disclosure-arrow">'+(railsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Rails</span></div>'
+        // ── FOOTER DISCLOSURES — Rails / Event timeline / Model reference, collapsed,
+        // state remembered per browser same as the MODEL section already did. Was its
+        // own qb-card qb-sec-footer; the qbx-footer.qbx-section wrapper at final
+        // composition time now supplies the card-less thin-rule framing instead.
+        const qbFooter='<div class="qb-disclosure qb-tap" data-qbdisclosure="rails" style="border-top:none"><span class="qb-disclosure-arrow">'+(railsOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Rails</span></div>'
           +(railsOpen?('<div style="margin-top:4px">'+railsHtml+'</div>'):'')
           +'<div class="qb-disclosure qb-tap" data-qbdisclosure="events"><span class="qb-disclosure-arrow">'+(eventsOpenState?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">Event timeline'+(QEVT&&QEVT.length?(' ('+QEVT.length+')'):'')+'</span></div>'
           +(eventsOpenState?('<div style="margin-top:4px">'+(eventsHtml||'<div style="color:var(--text5);font-size:var(--fsxs);padding:8px 0">no events published yet</div>')+'</div>'):'')
-          +modelSection
-          +'</div>';
+          +modelSection;
 
         // ── SHEET RENDERER — one qb-sheet at a time. window._qbSheet is either
         // {kind:'trade',idx} (List row tap -> the SAME buildDrawer(t) breakdown the
@@ -35040,20 +35202,46 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'</div></div>';
         }
 
-        body='<div class="qb-shell">'
-          +qbHeroHtml
+        // ── QB FINAL COMPOSITION — ROBINHOOD RE-COMPOSITION (2026-09-24, owner: "make
+        // more like robinhood pls. peep the real trading log"). Two columns >=1100px (a
+        // MAIN column and a sticky "Strategies" SIDEBAR -- see the qbx- grid CSS above),
+        // one column below it. DOM order is deliberately hero -> chart+status ->
+        // Strategies sidebar -> Account -> Stats -> History -> Activity -> System ->
+        // footer, so a phone (where the grid never applies) reads top to bottom in
+        // exactly that order -- a Robinhood mobile screen (price/chart, then holdings,
+        // then account detail), not just a collapsed desktop grid. Every value below is
+        // read from the SAME helper output already built above (qbHeroHtml/
+        // qbStatusStripHtml/legListHtml/qbOrdersCompactHtml/qbAccountHtml/qbStatsCard/
+        // qbTradesCard/qbActivityCard/qbStatusHtml/qbOrdersHtml/readinessCompactHtml/
+        // qbIntegrityCard/qbFooter) -- nothing recomputed here, only assembled and
+        // restyled. STATUS/ORDERS(full)/READY FOR REAL SHARES/INTEGRITY move together
+        // behind ONE new collapsed "System" disclosure at the bottom (owner spec point
+        // 2) -- same per-browser open/closed memory (APREF) as every other disclosure
+        // on this tab, nothing about their own content or sheets changed.
+        const systemOpen=APREF.qqqSystemOpen==null?0:+APREF.qqqSystemOpen; // collapsed by default
+        const qbSystemBody='<div class="qbx-system-body">'
           +qbStatusHtml
-          +qbPositionsLiveHtml
           +qbOrdersHtml
-          +equityHtml
-          +qbStatsCard
           +readinessCompactHtml
-          +'<div class="qb-card qb-sec-legs"><div class="qb-section-hd">Legs</div>'+legListHtml+'</div>'
-          +qbActivityCard
-          +qbTradesCard
-          +(ordersHtml||'')
           +qbIntegrityCard
-          +qbFooter
+          +'</div>';
+        const qbSystemSection='<div class="qb-disclosure qb-tap" data-qbdisclosure="system" style="border-top:none"><span class="qb-disclosure-arrow">'+(systemOpen?'▾':'▸')+'</span><span style="font-size:12px;color:var(--text3)">System — status, orders, readiness, integrity</span></div>'
+          +(systemOpen?qbSystemBody:'');
+
+        body='<div class="qb-shell">'
+          +'<div class="qbx-hero">'+qbHeroHtml+'</div>'
+          +'<div class="qbx-chart">'+equityHtml+qbStatusStripHtml+'</div>'
+          +'<div class="qbx-side">'
+            +'<div class="qbx-side-hd">Strategies</div>'
+            +legListHtml
+            +'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>'
+          +'</div>'
+          +'<div class="qbx-account qbx-section"><div class="qb-section-hd">Account</div>'+qbAccountHtml+'</div>'
+          +'<div class="qbx-stats qbx-section"><div class="qb-section-hd">Stats</div>'+qbStatsCard+'</div>'
+          +'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+(ordersHtml||'')+'</div>'
+          +'<div class="qbx-activity qbx-section"><div class="qb-section-hd">Activity</div>'+qbActivityCard+'</div>'
+          +'<div class="qbx-system qbx-section">'+qbSystemSection+'</div>'
+          +'<div class="qbx-footer qbx-section">'+qbFooter+'</div>'
           +'</div>'
           +qbSheetHtml;
       }
@@ -39115,7 +39303,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // Disclosures — each remembers open/closed per browser, same mechanism as the
       // pre-existing qqqModelOpen toggle.
       const QB_DISC_PREF={morestats:'qqqMoreStatsOpen',allchecks:'qqqChecksOpen',
-        feedsig:'qqqFeedSigOpen',rails:'qqqRailsOpen',events:'qqqEventsOpen'};
+        feedsig:'qqqFeedSigOpen',rails:'qqqRailsOpen',events:'qqqEventsOpen',
+        system:'qqqSystemOpen'};
       content.querySelectorAll('[data-qbdisclosure]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-qbdisclosure'),pk=QB_DISC_PREF[k];
         if(pk)savePref(pk,(APREF[pk]==null?0:+APREF[pk])?0:1);
@@ -39144,6 +39333,57 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
         });
       }
+      // ── HOVER CROSSHAIR (2026-09-24, owner spec: "hover crosshair with date +
+      // value") -- a vertical guide + dot on the TOTAL line that tracks the mouse,
+      // snapping to the nearest plotted day, plus a small "date · value" readout.
+      // Reads window._qbChartHover, stashed at render time (see equityHtml in the
+      // render pass above) -- direct DOM writes only, same technique as the TRADING
+      // LOG home tab's own chart scrub (_hmWireChart): this NEVER calls renderApp()
+      // on mousemove, so it stays smooth even while this tab republishes every ~10s
+      // in the background (owner performance note).
+      (function(){
+        const hov=window._qbChartHover;
+        const cap=content.querySelector('#qbCrossCapture');
+        const xline=content.querySelector('#qbCrossLine');
+        const dot=content.querySelector('#qbCrossDot');
+        const readout=content.querySelector('#qbChartReadout');
+        if(!hov||!cap||!xline||!dot||!hov.dates||!hov.dates.length)return;
+        const fmtMoneyMini=v=>(v==null||isNaN(v))?'—':(((v)<0?'-$':'$')+Math.abs(Number(v)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+        const n=hov.dates.length;
+        const xFor=i=>hov.plotL+(n<=1?(hov.plotR-hov.plotL)/2:(i/(n-1))*(hov.plotR-hov.plotL));
+        // the chart's OWN vertical range (it spans every leg, not just TOTAL) -- a range
+        // rebuilt from TOTAL alone floats the dot off the line whenever a leg runs wider
+        const ymin=hov.ymin,ymax=hov.ymax;
+        const yFor=v=>hov.plotT+(hov.plotB-hov.plotT)-((v-ymin)/(ymax-ymin))*(hov.plotB-hov.plotT);
+        cap.onmousemove=(e)=>{
+          const svgEl=cap.ownerSVGElement;
+          if(!svgEl)return;
+          const rect=svgEl.getBoundingClientRect();
+          if(!rect.width)return;
+          const scale=hov.W/rect.width;
+          const vx=(e.clientX-rect.left)*scale;
+          let t=(vx-hov.plotL)/(hov.plotR-hov.plotL);
+          t=Math.max(0,Math.min(1,t));
+          const idx=Math.round(t*(n-1));
+          const v=hov.total[idx];
+          const x=xFor(idx).toFixed(1);
+          xline.setAttribute('x1',x);xline.setAttribute('x2',x);xline.setAttribute('visibility','visible');
+          if(v!=null){
+            dot.setAttribute('cx',x);dot.setAttribute('cy',yFor(v).toFixed(1));dot.setAttribute('visibility','visible');
+          }else{
+            dot.setAttribute('visibility','hidden');
+          }
+          if(readout){
+            readout.textContent=hov.dates[idx]+(v!=null?(' · '+fmtMoneyMini(v)):'');
+            readout.classList.add('on');
+          }
+        };
+        cap.onmouseleave=()=>{
+          xline.setAttribute('visibility','hidden');
+          dot.setAttribute('visibility','hidden');
+          if(readout){readout.classList.remove('on');readout.textContent='';}
+        };
+      })();
     }
     else if(augurSub==='paper'||augurSub==='paper2'){
       const rb=content.querySelector('[data-paperrefresh]');if(rb)rb.onclick=()=>{loadPaper(null,true);renderApp();};
