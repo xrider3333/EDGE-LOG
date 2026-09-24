@@ -73,6 +73,7 @@ section. Data and scripts: see §5.
 | 11 | Rank/gate on risk-shape stability across folds (volatility, drawdown), not profit alone; size live expectations with a haircut | Wiecki et al. (2016): backtest Sharpe R² ≈ 0.02 to live, volatility 0.67, drawdown 0.34; Suhonen et al. (2017): median 73% Sharpe haircut live | Moderate | OPEN |
 | 12 | Consider a combinatorial purged cross-validation path (many walk-forward paths instead of one) for a distribution rather than a single number | López de Prado (2018) ch. 12 | Large — evaluate after items 2 and 7 | PARKED |
 | 13 | Fix the daily dip family's fold reproduction (0 of 8 against the engine's own saved folds, §5) | Nothing in items 1–11 can judge a family whose folds do not reproduce | ~half a day of engine debugging | OPEN |
+| 14 | Report the overfit probability as a resampled BAND, not one draw, and stop gating on a hard 0.5 until the band is narrow | §3d: same strategy, same months, redrawing which 24 elites go in moves it 0.159-0.913 | Small: the resampling exists in `tools/pbo_probe.py` | OPEN |
 
 ---
 
@@ -166,6 +167,56 @@ families and see whether the overfit-probability rise is systematic or is NOISE 
 unlucky; (b) try 24 months, which buys most of the extra trades for half the tuning cost; (c) decide
 the question the other way round - pick the lockbox length that makes the PASS rule calibrated (item
 6), rather than picking a length first and re-judging everything afterwards.
+
+---
+
+## 3d. The overfit-probability number is mostly measurement (2026-09-24)
+
+**Owner's question, after the item 9 table:** "why did the overfit probability spike? if it's the
+same config with the same results then maybe it's something to do with the overfit calculator."
+Correct. It is.
+
+**How the number is built.** Take the 24 best configs of the in-sample search, re-run each over the
+whole pre-lockbox window, bin every trade into calendar months, and ask - over all 252 ways of
+splitting those months half in-sample / half out - how often the config that looked best in-sample
+lands below the median out-of-sample. That is CSCV, and the method is fine. The INPUT is the problem.
+
+**Three things differ between two arms of the same strategy, and only one is about the strategy:**
+which 24 configs went in, how many months there were, and the strategy's actual robustness. The two
+NOISE arms shared **5 of their 24 configs** - each arm searched its own window, so each has its own
+elite set.
+
+**Measured** (`tools/pbo_probe.py`, NOISE #406 vs #405, one factor changed at a time):
+
+| Cell | Months | Overfit probability |
+|---|---|---|
+| A: one arm's configs, its own months | 183 | 0.821 |
+| B: the SAME configs, the other arm's shorter months | 159 | 0.504 |
+| C: the other arm's configs, those same months | 158 | 0.476 |
+
+**And the decisive one — same strategy, same file, same months, only the 24 configs redrawn from the
+48 pooled elites, 300 draws:** the number ranges **0.159 to 0.913**, median 0.524, and **58% of draws
+land at or above the 0.5 refusal line**. Shortening the month count alone moved it 0.32.
+
+**So NOISE's 0.448 -> 0.825 between the two lockbox arms sits comfortably inside the spread you get
+from shuffling which near-equal elites are fed in.** It is not evidence about the strategy, and the
+WEAK verdict it produced on run #405 should not be read as "this is overfit".
+
+**Why it behaves this way.** The 24 configs are the TOP 24 - all elite, all near-identical in
+quality. Asking which of 24 near-ties wins out of sample is close to asking which way a coin lands,
+which is the same thing the candidate board found directly (the tie-break among finalists is a coin
+flip). A near-tie pushes the statistic toward 0.5 with a wide spread around it, and our refusal line
+sits exactly at 0.5.
+
+**What this does NOT overturn.** ENGU-Q's 36-month arm crowned a config trading a quarter as often
+as its 12-month arm - that is a real difference in what was picked, not a calculator artifact. The
+honest net of item 9 remains: the arms crown different configs, so their metrics are not comparable,
+and the test established neither benefit nor cost.
+
+**Proposed fix (item 14, open):** stop reporting the overfit probability as one number from one draw,
+and stop gating on it at a hard 0.5. Report it with the band a resample produces, and treat the check
+as informative only until the band is narrow enough to act on. Cheap: the resampling already exists
+in `tools/pbo_probe.py`.
 
 ---
 
