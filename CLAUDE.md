@@ -393,6 +393,12 @@ shipped in v53.3 (an opening HTML tag missing its closing `>` immediately follow
   `report_render_probe.py --selftest`, which pulls the v73.367 / v73.442 / v73.443 builds out of
   git history and refuses the push unless the gate still FAILS all three and PASSES the current
   index.html - a gate that has gone blind must not keep printing PASS.
+- Ship also runs `tools/import_tz_probe.py` when `index.html` changed (added 2026-09-24): TRADING
+  LOG > IMPORT must save every trade time in US/Eastern. NinjaTrader exports print the platform's
+  DISPLAY zone with no label (the owner's downloads flip Pacific / Eastern) and the PDF statement
+  prints GMT; the importer resolves each file's zone (Fills fill ids > EXPORT TIME ZONE pick >
+  market hours > ask) before saving. Never save an import timestamp as printed, and never build
+  it with `new Date(y,m,d,h,...)` - that is the device's zone. Use `_impStamp` / `_impET`.
 
 ## Working style the user likes
 Iterative, version-bumped releases (`__version__`), each targeting specific bugs/features.

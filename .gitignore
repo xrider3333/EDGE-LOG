@@ -85,6 +85,8 @@ tools/_allpools_probe.html
 _paperprobe_dump.json
 # report_render_probe.py debug dump (REPORTPROBE_DUMP=1)
 _reportprobe_dump.json
+# import_tz_probe.py scratch page dir (self-cleaned; an interrupted run can leave one behind)
+_importtzprobe-*/
 
 # exit_autopsy.py per-leg rich-trade cache (rebuilt from the engine any time)
 tools/_exit_cache/

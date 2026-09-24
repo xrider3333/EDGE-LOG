@@ -21,7 +21,7 @@ USAGE
   python tools/wt.py new  <name>     create + print the worktree path to cd into
   python tools/wt.py ship [name]     rebase onto origin/main, fix VERSION, preflight, push
                                      (gates: boot, STUDIES, PAPER, run REPORT, 1E AXES /
-                                     1A funnel line procedure, row numbers)
+                                     1A funnel line procedure, IMPORT time zones, row numbers)
   python tools/wt.py list            show every session worktree
   python tools/wt.py drop <name>     remove a worktree (refuses if it has uncommitted work)
 
@@ -416,6 +416,39 @@ def cmd_ship(name, message):
         if r.returncode == 1:
             sys.stderr.write(out)
             raise SystemExit('COMPARE beta (cmp2) render gate FAILED - not pushing')
+
+    # IMPORT TIME-ZONE GATE (2026-09-24): TRADING LOG > IMPORT must save every trade time in
+    # US/Eastern. NinjaTrader's exports print times in the platform's display zone with no label
+    # (the owner's own downloads flip between Pacific and Eastern) and its PDF statement prints
+    # GMT; until the 2026-09-24 fix the importer saved them exactly as printed, and journal rows sat hours
+    # off until they were repaired by hand on 2026-09-23. import_tz_probe.py feeds the app's own
+    # importCSV / importPDF synthetic exports with known fill times and fails on any saved time
+    # that is not the true New York time, a short saved with its entry and exit swapped, or an
+    # unclear file saved instead of held for the owner's answer. Only runs when index.html
+    # changed; its --selftest (does it still catch v73.885?) runs when the probe itself changed.
+    # INCONCLUSIVE (exit 2, e.g. no local Chrome) never blocks.
+    itz = os.path.join(wt, 'tools', 'import_tz_probe.py')
+    if touched_index.strip() and os.path.isfile(itz):
+        r = subprocess.run([sys.executable, itz], cwd=wt, capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        verdict = [l for l in out.strip().splitlines() if l.startswith('IMPORTTZPROBE:')]
+        print(verdict[-1] if verdict else '(import time-zone probe produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('import time-zone gate FAILED - not pushing')
+    touched_itz = run(['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--',
+                       'tools/import_tz_probe.py'], check=False)
+    if touched_itz.strip() and os.path.isfile(itz):
+        r = subprocess.run([sys.executable, itz, '--selftest'], cwd=wt, capture_output=True,
+                           text=True, encoding='utf-8', errors='replace')
+        out = (r.stdout or '') + (r.stderr or '')
+        last = [l for l in out.strip().splitlines() if l.startswith('SELFTEST:')]
+        print(last[-1] if last else '(import time-zone probe self-test produced no output)')
+        if r.returncode == 1:
+            sys.stderr.write(out)
+            raise SystemExit('import time-zone gate SELF-TEST FAILED - the gate no longer catches '
+                             'the pre-fix build - not pushing')
 
     # FOURTH GATE: STUDIES row numbers must stay unique (2026-08-26). The render probe proves
     # the board DRAWS; it says nothing about the registry contract. Two sessions numbering rows

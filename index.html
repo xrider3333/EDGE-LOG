@@ -776,7 +776,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.887';
+const VERSION='73.888';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -794,7 +794,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.886',date:'2026-09-24',notes:['THE EVENING SCORE ROUTINE NO LONGER STALLS. Its first two runs sat waiting for a permission click nobody was there to give. It now runs through one script with a standing permission, so it scores the day and publishes by itself.']},{v:'73.885',date:'2026-09-23',notes:['KEEL V12 NOW SIZES THE WEBULL NOISE LEG (owner: add the keel v12 on top of #382, train it on the NQ backtest like the validation). Every weekday evening the cloud box re-runs the validated KEEL walk on run #382 over its full NQ history, and each new NOISE trade on QQQ is scored as one more trade of that walk. Final size = the #382 size times the KEEL size. If KEEL cannot score (no training yet, training more than 5 sessions old, or any error) the trade goes at the #382 size - KEEL never blocks a trade.','WHAT IT DOES TODAY. Its learned part is standing down - it has shown no recent skill on NQ, so it adds nothing of its own - which leaves its fixed rules: 1.5x on Fridays, 1.5x when the hourly range is compressed, and half size on Fed decision mornings before 2 pm. The trade drawer shows #382 size x KEEL = total and any share cap, and the NOISE row under LEGS says what KEEL was trained through.']},{v:'73.884',date:'2026-09-23',notes:['A BOOK\'S LONGEST FLAT STRETCH ON RUNBOARD NOW FOLLOWS THE STAGE. Checking v73.883 on the live board, book #366 showed its whole-run drawdown length on every stage, walk-forward included. The lockbox stage now shows the book\'s own lockbox stretch, the in-sample stage shows the whole-run stretch only when it ended before the lockbox began, and the walk-forward stage shows a dash - a book has no walk-forward test.']},{v:'73.883',date:'2026-09-23',notes:['RUNBOARD HAS THREE NEW ROWS: TRADES / YR, WORST MONTH AND LONGEST FLAT STRETCH. All three follow the STAGE control like every other row. WORST MONTH is the worst calendar month on that stage and LONGEST FLAT STRETCH the longest run of months without a new equity high, both read from the month-by-month profit grid each run saves. The grid loads only for the runs on the board, a few kilobytes each, so those cells show a moment of dots and then fill in. Where the grid does not reach a stage - the walk-forward test, which re-tunes fold by fold, or a lockbox the grid was not built over - the cell shows a dash with the reason on hover, and a ~ means part of the stage is missing from the grid. A book saves no monthly grid, so its WORST MONTH dashes and its flat-stretch cell shows the length of its worst drawdown instead, labelled DD span.','TWO OF THE REQUESTED COLUMNS ARE NOT NEW ROWS. Average $ per trade was already on the board as the EV row, so it has no second copy. A worst single DAY and a correlation to the current book cannot be shown yet: no run saves a daily series, and books save no monthly one, so both need the engine to save that first.','RUNBOARD FILES EVERY BOOK UNDER ONE BOOKS CHIP. Its family chips grouped books by the name on each run rather than the way the rest of COMPARE groups them, so picking the book family could miss books the leaderboard counts. Every book now sits under BOOKS, as on the leaderboard, so that chip lists every book and draws each one\'s saved curve on the funnel.','THE FULL-SCREEN CHART\'S LOCKBOX BAND FOLLOWS THE RUNS ON SCREEN. With several runs on, one band was drawn at the first run\'s lockbox date for all of them and stayed there after that run was switched off - #335, #400 and #314 all showed #335\'s date. The band is now drawn only where the runs on screen share one lockbox date, and left off when they disagree.','THE DRAWDOWN FIGURE ON THE COMPARE CHARTS IS MARKED ~ ON EVERY STAGE, not only walk-forward. It is read off the stored curve, which is thinned, so it can only match or read shallower than the DRAWDOWN row - on the whole run #243 showed -$14k against a row of $22,096. It now carries a ~, and the hover and the note under the RUNBOARD table say why.','A DAMAGED SAVED PICK LIST NO LONGER BLANKS THE SCREEN. An old or hand-edited saved pick list or saved set in the wrong shape left RUNBOARD, PICK RUNS and FEATURES blank on every visit until browser storage was cleared. A bad pick list now reads as nothing picked yet, and a bad saved set shows as an empty chip you can delete.','SMALLER FIXES. EXPLORE\'s TABLES button hover now gives the real cost - about a dozen megabytes of tables with a full run history loaded, not three and a half; the tables themselves are unchanged. A book\'s own report now counts its in-sample years from the run window, the same rule the leaderboard, RUNBOARD, PICK RUNS and EXPLORE use, so they cannot drift apart; on today\'s books the dates already agree, so no figure moves.','NINJATRADER CHECKS FOLLOW TODAY\'S LINEUP (live since 3:31 PM ET today, no page change needed). The 9 AM check on the PAPER tab\'s NinjaTrader card flagged ORB V2 as missing every morning, although ORB V2 was switched off in August; it now reads its list from the NinjaTrader watchdog, so the two cannot drift apart again. The fill alerts still expected NOISE on full-size NQ, so every NOISE fill on the micro contract was pushed to your phone as REVIEW; they now know NOISE trades 3 micro contracts and ENGU-Q 1 NQ.']},{v:'73.881',date:'2026-09-23',notes:['ACCOUNT EQUITY NO LONGER SAYS STALE AFTER THE CLOSE. The balance is read once whenever the service starts, and while the market is shut an older reading is expected rather than stale. During market hours it still turns STALE if the one-minute reads stop.']},{v:'73.880',date:'2026-09-23',notes:['SLOW LATENCY NO LONGER FIRES ON ORDERS SENT BEFORE THE FIX. Orders logged before the after-close timing existed are now measured the same way - their time minus the bar length - so the badge reads about 30 seconds after the close instead of falling back to the old reading of about 330 seconds. The header line also says ratio not used on this book.']},{v:'73.879',date:'2026-09-23',notes:['WEBULL TAB: LIVE POSITIONS AND ACCOUNT EQUITY (owner ask). A new POSITIONS - LIVE card under STATUS lists each open strategy with its side, shares, entry, live price, open P&amp;L and time in trade, then the total open P&amp;L and the Webull paper account’s equity with today’s change. The live price comes from Webull’s live price feed, or from the last closed bar when the feed is quiet, and each row says which. A last line checks that Webull’s position equals what the three strategies add up to, and turns amber when it does not.','THE THREE STRATEGIES NO LONGER BLOCK EACH OTHER AT WEBULL. They share one Webull account, and Webull refuses a short while that account is long - on Sep 23 five NOISE shorts were refused while ENGU-Q was long, so they became book-only. Orders are now combined into one account position: a NOISE short while ENGU-Q is long simply sells ENGU-Q’s shares at Webull. Each strategy’s own trades and P&amp;L are unchanged.','HONEST WARNINGS. RATIO DRIFT no longer fires on this book - it watched an NQ-to-QQQ conversion that no price uses any more, and INTEGRITY now says Ratio: not used. Latency is timed from when the bar CLOSED, not when it opened, so it reads about 30 seconds instead of about 330 and only warns past 60 seconds. NOT READY now counts trades checked against Webull instead of NinjaTrader. A Webull refusal shows as one plain sentence with the raw text behind details, and is no longer repeated as a second Last error line.']},{v:'73.877',date:'2026-09-23',notes:['WEBULL PAPER NOISE LEG MOVES FROM RUN #304 TO RUN #382 (owner decision). Starting the session of Sep 24, the NOISE leg on the Webull paper trading tab trades run #382 instead of #304 - the same #304 crown at its core, plus a validated size tilt that doubles the trade when the market is coiled (a squeeze on the 30-minute chart). Every past trade, the P&amp;L total and the chart history stay exactly as they were; only new trades from Sep 24 onward use the new version.','THE LEGS LIST, CHART AND TRADE ROWS ALL SAY WHICH VERSION. The NOISE row under LEGS now reads #382 since Sep 24, was #304; the P&amp;L chart marks the switch date with a dashed line and a small #304 to #382 label; and each NOISE trade row carries a muted tag naming the run that took it. The NinjaTrader paper board is a separate book and is not part of this change.']},{v:'73.874',date:'2026-09-23',notes:['FIXED 15 TRADE TIMES FROM APR 15 TO MAY 18. An import had added 3 hours to those futures trades. The broker fill timestamps confirm the correct Eastern times, and the journal and their scores now use them.','THE 6/12 09:46 SHORT AT 7434.25 IS A REAL TRADE, NOT A DUPLICATE. It was placed on the September contract (MESU6) while the rest of the day was on June, which is why its price looked off. It is now scored against September prices.','The 4/21 long and short in the same minute, and the two 9/15 VEEA trades, are also confirmed as separate real trades from the broker records.']},{v:'73.869',date:'2026-09-23',notes:['QQQ BOOK: A TRADE THE BROKER NEVER MADE IS NOW MARKED BOOK ONLY (owner: mark the book only trades). Today at 10:10 ET a NOISE short was refused by Webull because its stock orders were still routed to the cash account, which cannot hold a short - but the book still counted +$4.90 for that trade as if Webull had made it too. A trade whose entry order was refused or blocked before it ever reached the broker now carries a muted BOOK ONLY tag on its row, with the reason Webull or the safety rails gave shown in the tooltip. It looks nothing like the red PARITY NOTE tag on purpose: this is not a mismatched price, the order never existed at the broker at all. A trade closed while the broker mirror was simply switched off, or whose broker record has since aged out of the log, is left alone either way - there is no way to know what would have happened, so nothing is claimed.','BOTH TOTALS, SIDE BY SIDE. The hero number keeps showing the book total - this is a forward test of the strategy itself, not of Webull - but whenever at least one trade is book only, a smaller line under it shows what the broker side actually made with those trades left out. The month calendar hatches a book-only day exactly the way it already hatches a re-priced exit or a failed parity check, and the hover text now says which one it is.']},{v:'73.867',date:'2026-09-22',notes:['PARITY NOW COMPARES TO WEBULL, NOT NINJATRADER, ON THIS BOOK (owner: why are we comparing to NT for parity, it should just be EL OHLC values against Webull). Every closed trade showed a red PARITY NOTE chip for one reason only - this book has no NinjaTrader side to compare against, so the check always came back not checked, yet the chip still painted red. The chip and the INTEGRITY Parity row now compare the price this page booked to the price Webull actually filled at, or to the overnight re-priced tape price when Webull has not reported a fill yet. A trade still waiting on either now shows a plain grey NOT CHECKED tag, never red - red stays reserved for a real mismatch. A trade that genuinely does mirror NinjaTrader is completely untouched.','THE PAGE NOW ASKS WEBULL FOR THE REAL FILL PRICE. An accepted order only ever reported back a price of zero or blank at the instant it was placed, so the fill price and slippage recorded behind the scenes stayed blank forever - nothing ever asked again. Right after an order is accepted the page now asks Webull once more for that exact order, and records the real fill price and the resulting slippage when Webull has one ready. A failed check only gets logged - it can never stop, slow down or undo a trade.']},{v:'73.864',date:'2026-09-22',notes:['EVERY TRADE NOW HAS A SCORE OR NA. 49 older trades were scored from 1-minute bars (futures back to April from the local ES and NQ files, recent stocks from Yahoo). 20 show NA because no price data exists: stocks older than about 60 days, and futures from Jul 1 to Aug 5 where the local files have a gap.','TRADES LOGGED IN PACIFIC TIME ARE READ CORRECTLY. The journal stored futures trades from Apr 15 to May 18 in Pacific time. Scoring now spots this and reads the market at the real Eastern time.','Two trades in the same symbol in the same minute now keep separate scores.']},{v:'73.862',date:'2026-09-22',notes:['HOME TABLE NO LONGER JUMPS AFTER AN EDIT. Pressing Enter on a note or changing a grade used to shove the table down while the AI ASSESSMENT box above it refilled, and the search box grabbed focus. Both are fixed.','SCORE COLUMN FILLS ITSELF EVERY EVENING. A routine now scores every trade taken that day after the close, futures and stocks alike. A trade with no price data shows NA, and clicking it says why. Each trade gets its own score, even with several MES trades on one day. First two done: MNQ 9/22 scored 68 and MES 9/16 scored 74.']},{v:'73.861',date:'2026-09-22',notes:['TRADE TABLES KEEP THEIR SCROLL POSITION. Changing a grade, setup, TF, tag or note on the HOME table or the TRADES table no longer snaps the table back to the far left.']},{v:'73.859',date:'2026-09-22',notes:['COMPARE > EXPLORE LOADS IN SECONDS, NOT MINUTES. With 1E CONFIGS showing 41 Auto-Validate runs, the board redrew itself every time one run\'s configurations arrived - measured on 2026-09-21 at up to 9 seconds a redraw, about two and a half minutes of a frozen tab. It now fetches six runs at a time, counts them in on the loading line, and draws everything you picked once, when the last one lands. A read that hangs gives up after 30 seconds instead of holding the rest back.','RIGHT-CLICK A DOT TO HIDE IT FOR NOW. The chart refits without it straight away - only the chart is redrawn, not the tables - and the row stays in the table. A line under the chart counts the dots you have hidden and SHOW ALL brings them back; a reload brings every dot back too. Handy for the three GATE configs from runs #370 and #377 whose 4 to 6 lockbox trades gave a Sortino of 384 to 750 and squashed everything else onto the floor of the chart.','COLOUR IS THE STRATEGY, SHAPE IS THE CONFIG TYPE. With more than one strategy on the 1E CONFIGS chart, each strategy has its own colour and each config type its own shape: RAW circle, GATE square, TILT triangle, HYBRID diamond, HYBRID ♻ upside-down triangle, HYBRID ↓DD plus, KEEL cross. The FAMILY column in the table carries the same mark and names the strategy. With one strategy on the chart, colour stays the config type. Click a config type in the key under the chart to hide it from the chart and the tables, and click it again to bring it back - the same switch as FILTERS > 1E FAMILY.','THE EXPLORE TABLE IS LIGHTER TO DRAW. Every cell used to carry its own copy of the same styling; it now shares one rule, which makes the same table about 15 per cent smaller for the browser to read. Nothing looks different.']},{v:'73.849',date:'2026-09-21',notes:['WEBULL PAPER CHART NOW SHOWS EVERY TRADE (owner: the chart does not show all the trades). The three exits that fired after the bell on Sep 17 and 18 had no price, and one missing price turned the running total into not-a-number for every later day, so the line fell back to $0 and those trades vanished. The curve and the leg sparklines are now built from the closed trades themselves, counting each trade exactly as the table, the calendar and the totals do, so the line ends on the same closed P&L the page shows.','Each trading day is now a dot on the TOTAL line; hovering it shows the day total and how many trades closed. A faint amber column marks the days the calendar hatches (an exit priced from the 1-minute tape, or a failed parity check) - those trades still count, the column only flags the caveat.']},
+const CHANGELOG=[{v:'73.888',date:'2026-09-24',notes:['IMPORTED TRADE TIMES ARE NOW ALWAYS SAVED IN EASTERN (owner: imported NinjaTrader trades showed times 3 hours off). NinjaTrader prints times in whatever zone your platform is set to display, with no label - your own downloads switch between Pacific and Eastern - and the daily PDF statement prints GMT. The importer saved them exactly as printed, so a Pacific export landed 3 hours early and a PDF 4 hours late. Each file is now read in its real zone and saved in Eastern. The Apr 15 - May 18 rows repaired on Sep 23 were pushed 3 hours late by a one-off time repair in June that assumed every export was Pacific, not by this importer.','HOW THE ZONE IS FOUND. Drop the Fills export together with the other files and the zone is proven exactly - Fills is the one NinjaTrader file with true UTC times. Otherwise the new EXPORT TIME ZONE setting under the drop box decides (Auto by default), and Auto takes the only zone that puts the times inside market hours. When it cannot tell, nothing from that file is saved: it asks, with one button per zone.','TWO MORE GUARDS. Re-importing a trade whose saved times sit a whole number of hours away from the file now flags it in the import result, without changing it. Short trades no longer get their entry and exit times swapped.']},{v:'73.886',date:'2026-09-24',notes:['THE EVENING SCORE ROUTINE NO LONGER STALLS. Its first two runs sat waiting for a permission click nobody was there to give. It now runs through one script with a standing permission, so it scores the day and publishes by itself.']},{v:'73.885',date:'2026-09-23',notes:['KEEL V12 NOW SIZES THE WEBULL NOISE LEG (owner: add the keel v12 on top of #382, train it on the NQ backtest like the validation). Every weekday evening the cloud box re-runs the validated KEEL walk on run #382 over its full NQ history, and each new NOISE trade on QQQ is scored as one more trade of that walk. Final size = the #382 size times the KEEL size. If KEEL cannot score (no training yet, training more than 5 sessions old, or any error) the trade goes at the #382 size - KEEL never blocks a trade.','WHAT IT DOES TODAY. Its learned part is standing down - it has shown no recent skill on NQ, so it adds nothing of its own - which leaves its fixed rules: 1.5x on Fridays, 1.5x when the hourly range is compressed, and half size on Fed decision mornings before 2 pm. The trade drawer shows #382 size x KEEL = total and any share cap, and the NOISE row under LEGS says what KEEL was trained through.']},{v:'73.884',date:'2026-09-23',notes:['A BOOK\'S LONGEST FLAT STRETCH ON RUNBOARD NOW FOLLOWS THE STAGE. Checking v73.883 on the live board, book #366 showed its whole-run drawdown length on every stage, walk-forward included. The lockbox stage now shows the book\'s own lockbox stretch, the in-sample stage shows the whole-run stretch only when it ended before the lockbox began, and the walk-forward stage shows a dash - a book has no walk-forward test.']},{v:'73.883',date:'2026-09-23',notes:['RUNBOARD HAS THREE NEW ROWS: TRADES / YR, WORST MONTH AND LONGEST FLAT STRETCH. All three follow the STAGE control like every other row. WORST MONTH is the worst calendar month on that stage and LONGEST FLAT STRETCH the longest run of months without a new equity high, both read from the month-by-month profit grid each run saves. The grid loads only for the runs on the board, a few kilobytes each, so those cells show a moment of dots and then fill in. Where the grid does not reach a stage - the walk-forward test, which re-tunes fold by fold, or a lockbox the grid was not built over - the cell shows a dash with the reason on hover, and a ~ means part of the stage is missing from the grid. A book saves no monthly grid, so its WORST MONTH dashes and its flat-stretch cell shows the length of its worst drawdown instead, labelled DD span.','TWO OF THE REQUESTED COLUMNS ARE NOT NEW ROWS. Average $ per trade was already on the board as the EV row, so it has no second copy. A worst single DAY and a correlation to the current book cannot be shown yet: no run saves a daily series, and books save no monthly one, so both need the engine to save that first.','RUNBOARD FILES EVERY BOOK UNDER ONE BOOKS CHIP. Its family chips grouped books by the name on each run rather than the way the rest of COMPARE groups them, so picking the book family could miss books the leaderboard counts. Every book now sits under BOOKS, as on the leaderboard, so that chip lists every book and draws each one\'s saved curve on the funnel.','THE FULL-SCREEN CHART\'S LOCKBOX BAND FOLLOWS THE RUNS ON SCREEN. With several runs on, one band was drawn at the first run\'s lockbox date for all of them and stayed there after that run was switched off - #335, #400 and #314 all showed #335\'s date. The band is now drawn only where the runs on screen share one lockbox date, and left off when they disagree.','THE DRAWDOWN FIGURE ON THE COMPARE CHARTS IS MARKED ~ ON EVERY STAGE, not only walk-forward. It is read off the stored curve, which is thinned, so it can only match or read shallower than the DRAWDOWN row - on the whole run #243 showed -$14k against a row of $22,096. It now carries a ~, and the hover and the note under the RUNBOARD table say why.','A DAMAGED SAVED PICK LIST NO LONGER BLANKS THE SCREEN. An old or hand-edited saved pick list or saved set in the wrong shape left RUNBOARD, PICK RUNS and FEATURES blank on every visit until browser storage was cleared. A bad pick list now reads as nothing picked yet, and a bad saved set shows as an empty chip you can delete.','SMALLER FIXES. EXPLORE\'s TABLES button hover now gives the real cost - about a dozen megabytes of tables with a full run history loaded, not three and a half; the tables themselves are unchanged. A book\'s own report now counts its in-sample years from the run window, the same rule the leaderboard, RUNBOARD, PICK RUNS and EXPLORE use, so they cannot drift apart; on today\'s books the dates already agree, so no figure moves.','NINJATRADER CHECKS FOLLOW TODAY\'S LINEUP (live since 3:31 PM ET today, no page change needed). The 9 AM check on the PAPER tab\'s NinjaTrader card flagged ORB V2 as missing every morning, although ORB V2 was switched off in August; it now reads its list from the NinjaTrader watchdog, so the two cannot drift apart again. The fill alerts still expected NOISE on full-size NQ, so every NOISE fill on the micro contract was pushed to your phone as REVIEW; they now know NOISE trades 3 micro contracts and ENGU-Q 1 NQ.']},{v:'73.881',date:'2026-09-23',notes:['ACCOUNT EQUITY NO LONGER SAYS STALE AFTER THE CLOSE. The balance is read once whenever the service starts, and while the market is shut an older reading is expected rather than stale. During market hours it still turns STALE if the one-minute reads stop.']},{v:'73.880',date:'2026-09-23',notes:['SLOW LATENCY NO LONGER FIRES ON ORDERS SENT BEFORE THE FIX. Orders logged before the after-close timing existed are now measured the same way - their time minus the bar length - so the badge reads about 30 seconds after the close instead of falling back to the old reading of about 330 seconds. The header line also says ratio not used on this book.']},{v:'73.879',date:'2026-09-23',notes:['WEBULL TAB: LIVE POSITIONS AND ACCOUNT EQUITY (owner ask). A new POSITIONS - LIVE card under STATUS lists each open strategy with its side, shares, entry, live price, open P&amp;L and time in trade, then the total open P&amp;L and the Webull paper account’s equity with today’s change. The live price comes from Webull’s live price feed, or from the last closed bar when the feed is quiet, and each row says which. A last line checks that Webull’s position equals what the three strategies add up to, and turns amber when it does not.','THE THREE STRATEGIES NO LONGER BLOCK EACH OTHER AT WEBULL. They share one Webull account, and Webull refuses a short while that account is long - on Sep 23 five NOISE shorts were refused while ENGU-Q was long, so they became book-only. Orders are now combined into one account position: a NOISE short while ENGU-Q is long simply sells ENGU-Q’s shares at Webull. Each strategy’s own trades and P&amp;L are unchanged.','HONEST WARNINGS. RATIO DRIFT no longer fires on this book - it watched an NQ-to-QQQ conversion that no price uses any more, and INTEGRITY now says Ratio: not used. Latency is timed from when the bar CLOSED, not when it opened, so it reads about 30 seconds instead of about 330 and only warns past 60 seconds. NOT READY now counts trades checked against Webull instead of NinjaTrader. A Webull refusal shows as one plain sentence with the raw text behind details, and is no longer repeated as a second Last error line.']},{v:'73.877',date:'2026-09-23',notes:['WEBULL PAPER NOISE LEG MOVES FROM RUN #304 TO RUN #382 (owner decision). Starting the session of Sep 24, the NOISE leg on the Webull paper trading tab trades run #382 instead of #304 - the same #304 crown at its core, plus a validated size tilt that doubles the trade when the market is coiled (a squeeze on the 30-minute chart). Every past trade, the P&amp;L total and the chart history stay exactly as they were; only new trades from Sep 24 onward use the new version.','THE LEGS LIST, CHART AND TRADE ROWS ALL SAY WHICH VERSION. The NOISE row under LEGS now reads #382 since Sep 24, was #304; the P&amp;L chart marks the switch date with a dashed line and a small #304 to #382 label; and each NOISE trade row carries a muted tag naming the run that took it. The NinjaTrader paper board is a separate book and is not part of this change.']},{v:'73.874',date:'2026-09-23',notes:['FIXED 15 TRADE TIMES FROM APR 15 TO MAY 18. An import had added 3 hours to those futures trades. The broker fill timestamps confirm the correct Eastern times, and the journal and their scores now use them.','THE 6/12 09:46 SHORT AT 7434.25 IS A REAL TRADE, NOT A DUPLICATE. It was placed on the September contract (MESU6) while the rest of the day was on June, which is why its price looked off. It is now scored against September prices.','The 4/21 long and short in the same minute, and the two 9/15 VEEA trades, are also confirmed as separate real trades from the broker records.']},{v:'73.869',date:'2026-09-23',notes:['QQQ BOOK: A TRADE THE BROKER NEVER MADE IS NOW MARKED BOOK ONLY (owner: mark the book only trades). Today at 10:10 ET a NOISE short was refused by Webull because its stock orders were still routed to the cash account, which cannot hold a short - but the book still counted +$4.90 for that trade as if Webull had made it too. A trade whose entry order was refused or blocked before it ever reached the broker now carries a muted BOOK ONLY tag on its row, with the reason Webull or the safety rails gave shown in the tooltip. It looks nothing like the red PARITY NOTE tag on purpose: this is not a mismatched price, the order never existed at the broker at all. A trade closed while the broker mirror was simply switched off, or whose broker record has since aged out of the log, is left alone either way - there is no way to know what would have happened, so nothing is claimed.','BOTH TOTALS, SIDE BY SIDE. The hero number keeps showing the book total - this is a forward test of the strategy itself, not of Webull - but whenever at least one trade is book only, a smaller line under it shows what the broker side actually made with those trades left out. The month calendar hatches a book-only day exactly the way it already hatches a re-priced exit or a failed parity check, and the hover text now says which one it is.']},{v:'73.867',date:'2026-09-22',notes:['PARITY NOW COMPARES TO WEBULL, NOT NINJATRADER, ON THIS BOOK (owner: why are we comparing to NT for parity, it should just be EL OHLC values against Webull). Every closed trade showed a red PARITY NOTE chip for one reason only - this book has no NinjaTrader side to compare against, so the check always came back not checked, yet the chip still painted red. The chip and the INTEGRITY Parity row now compare the price this page booked to the price Webull actually filled at, or to the overnight re-priced tape price when Webull has not reported a fill yet. A trade still waiting on either now shows a plain grey NOT CHECKED tag, never red - red stays reserved for a real mismatch. A trade that genuinely does mirror NinjaTrader is completely untouched.','THE PAGE NOW ASKS WEBULL FOR THE REAL FILL PRICE. An accepted order only ever reported back a price of zero or blank at the instant it was placed, so the fill price and slippage recorded behind the scenes stayed blank forever - nothing ever asked again. Right after an order is accepted the page now asks Webull once more for that exact order, and records the real fill price and the resulting slippage when Webull has one ready. A failed check only gets logged - it can never stop, slow down or undo a trade.']},{v:'73.864',date:'2026-09-22',notes:['EVERY TRADE NOW HAS A SCORE OR NA. 49 older trades were scored from 1-minute bars (futures back to April from the local ES and NQ files, recent stocks from Yahoo). 20 show NA because no price data exists: stocks older than about 60 days, and futures from Jul 1 to Aug 5 where the local files have a gap.','TRADES LOGGED IN PACIFIC TIME ARE READ CORRECTLY. The journal stored futures trades from Apr 15 to May 18 in Pacific time. Scoring now spots this and reads the market at the real Eastern time.','Two trades in the same symbol in the same minute now keep separate scores.']},{v:'73.862',date:'2026-09-22',notes:['HOME TABLE NO LONGER JUMPS AFTER AN EDIT. Pressing Enter on a note or changing a grade used to shove the table down while the AI ASSESSMENT box above it refilled, and the search box grabbed focus. Both are fixed.','SCORE COLUMN FILLS ITSELF EVERY EVENING. A routine now scores every trade taken that day after the close, futures and stocks alike. A trade with no price data shows NA, and clicking it says why. Each trade gets its own score, even with several MES trades on one day. First two done: MNQ 9/22 scored 68 and MES 9/16 scored 74.']},{v:'73.861',date:'2026-09-22',notes:['TRADE TABLES KEEP THEIR SCROLL POSITION. Changing a grade, setup, TF, tag or note on the HOME table or the TRADES table no longer snaps the table back to the far left.']},{v:'73.859',date:'2026-09-22',notes:['COMPARE > EXPLORE LOADS IN SECONDS, NOT MINUTES. With 1E CONFIGS showing 41 Auto-Validate runs, the board redrew itself every time one run\'s configurations arrived - measured on 2026-09-21 at up to 9 seconds a redraw, about two and a half minutes of a frozen tab. It now fetches six runs at a time, counts them in on the loading line, and draws everything you picked once, when the last one lands. A read that hangs gives up after 30 seconds instead of holding the rest back.','RIGHT-CLICK A DOT TO HIDE IT FOR NOW. The chart refits without it straight away - only the chart is redrawn, not the tables - and the row stays in the table. A line under the chart counts the dots you have hidden and SHOW ALL brings them back; a reload brings every dot back too. Handy for the three GATE configs from runs #370 and #377 whose 4 to 6 lockbox trades gave a Sortino of 384 to 750 and squashed everything else onto the floor of the chart.','COLOUR IS THE STRATEGY, SHAPE IS THE CONFIG TYPE. With more than one strategy on the 1E CONFIGS chart, each strategy has its own colour and each config type its own shape: RAW circle, GATE square, TILT triangle, HYBRID diamond, HYBRID ♻ upside-down triangle, HYBRID ↓DD plus, KEEL cross. The FAMILY column in the table carries the same mark and names the strategy. With one strategy on the chart, colour stays the config type. Click a config type in the key under the chart to hide it from the chart and the tables, and click it again to bring it back - the same switch as FILTERS > 1E FAMILY.','THE EXPLORE TABLE IS LIGHTER TO DRAW. Every cell used to carry its own copy of the same styling; it now shares one rule, which makes the same table about 15 per cent smaller for the browser to read. Nothing looks different.']},{v:'73.849',date:'2026-09-21',notes:['WEBULL PAPER CHART NOW SHOWS EVERY TRADE (owner: the chart does not show all the trades). The three exits that fired after the bell on Sep 17 and 18 had no price, and one missing price turned the running total into not-a-number for every later day, so the line fell back to $0 and those trades vanished. The curve and the leg sparklines are now built from the closed trades themselves, counting each trade exactly as the table, the calendar and the totals do, so the line ends on the same closed P&L the page shows.','Each trading day is now a dot on the TOTAL line; hovering it shows the day total and how many trades closed. A faint amber column marks the days the calendar hatches (an exit priced from the 1-minute tape, or a failed parity check) - those trades still count, the column only flags the caveat.']},
 {v:'73.845',date:'2026-09-20',notes:['COMPARE NOW RANKS ON THE WALK-FORWARD TEST (owner decision). Every COMPARE screen - the leaderboard, TOP RUNS, CHAMPIONS, the RUNBOARD inside COMPARE and PICK RUNS - opens on the walk-forward stage instead of the lockbox. A stage you pick yourself still wins and still sticks. Research behind it: the walk-forward test is the only reading never used to pick a config, and across 151 runs the sealed year\'s profit factor landed within one to two per cent of it, while the other reading ran about five per cent high.','THE TWO WALK-FORWARD READINGS NOW HAVE DIFFERENT NAMES. The crowned settings replayed over the walk-forward years is the score the crown was SELECTED on, so it is now called the CROWNING SCORE - on the run report column, in the chart key for the dashed stretch, and in the notes - never a test. The folds re-tuned on their own past and traded blind stay the WALK-FORWARD TEST (the pill now reads WF TEST). A run too old to have either saves pooled re-tuned folds in that column and now says so, instead of one heading meaning three things by run age. Where a run has both readings, its row carries a gap chip: the crowning score sits N per cent above the test, and in our own record a bigger gap went with a weaker sealed year. A run with only one candidate reads SAME READING.','A WALK-FORWARD TEST UNDER 30 TRADES NO LONGER RANKS AHEAD OF A REAL ONE. It still shows its figures with a THIN TEST mark, sinks below every run that cleared the floor, and can never take a best mark, a heat shade or a RUNBOARD column; a test that took no trades still sinks below that. On the lockbox stage every screen now says what the sealed year is: one look and a pass-or-fail check, not a ranking - a 12-month lockbox has roughly an 11 per cent chance of confirming a real edge, and a strategy with no edge passes its money-above-zero test about half the time.','FOURTEEN THINGS THE SCREEN SAID THAT WERE NOT TRUE. In an expanded family the first run no longer wears a star it does not have; a lockbox that took no trades says so instead of \'no curve saved\'; the RUNBOARD window row says RUN WINDOW and its hover names the stretch the figures use; the MAR hovers say net per year over the worst drawdown, which is what the board ranks on; the funnel info box no longer describes stripes, a wash and a door the chart does not draw; the books notes drop a renamed column and a file name; a book\'s name in chart keys and tables is its own, not a leg\'s run number; two EXPLORE hovers and the run-rows subtitle now match what the chart does; FEATURES tells apart loading, not built yet and a real error; and the study rows that still called #234 and #226 the standing champions now read as the paper control and a reference, leaving your crowns #257 and #335.','A book\'s in-sample years now start at the run window like every other figure, so its in-sample MAR and return per year line up with the rest of the board and in-sample plus lockbox add up to the whole run.']},{v:'73.843',date:'2026-09-20',notes:['EVERY WEBULL PAPER TRADE NOW HAS A CHART BUTTON (owner: add that to the trades so i can look at the price action). It opens the same candle viewer the run blotter uses, centred on that trade, with QQQ 1-minute bars for ENGU-Q and 5-minute for ORB and NOISE. Worth knowing: this does NOT come from NinjaTrader. Its bridge has no bars feature at all and only listens to your own PC, and NinjaTrader here only ever records ES and NQ - it holds no QQQ. The bars come from the QQQ history the engine already keeps, and as with the futures paper tab the chart needs your PC awake to serve them.']},{v:'73.841',date:'2026-09-20',notes:['ON THE WEBULL PAPER CALENDAR, COLOUR NOW MEANS MONEY AND HATCHING MEANS DATA (owner: having calendar show red is confusing as that would normally indicate a loss). A day with a flagged price feed used to be painted red whatever it earned, so 3 September read as a red loss when it actually made 5.78 dollars. Green and red are now always the day P and L, and anything that makes the numbers less trustworthy shows as diagonal hatching in that same colour with one amber dot. Three things hatch a day: the feed was flagged invalid, an exit could not be marked so its money came from the 1-minute tape, or a trade failed its parity check - so 17 and 18 September are now hatched too. The tooltip says which.']},{v:'73.840',date:'2026-09-20',notes:['Dragging the 1E table tile shorter now scrolls the TABLE inside it again, with its headings pinned, instead of scrolling the whole card. Releasing the grow-to-fit floor had also thrown away the box own height cap.']},{v:'73.839',date:'2026-09-20',notes:['DAYS WITH A MISSING EXIT PRICE NO LONGER READ AS $0. When the book could not mark an exit - which happened on 17 and 18 September, because the end of day sell fired two seconds after the closing bell and there was no live price - the trade carried no profit figure, and every total on the Webull paper trading tab quietly counted it as zero. Both days showed $0 with three real trades in them. The calendar, month total, leg rows, running curve and the trade list now fall back to the price recovered from the 1-minute tape, and a day tooltip says how many of its trades were priced that way. About $58 of profit was hidden on those two days.']},{v:'73.838',date:'2026-09-20',notes:['THE 1E TABLE TILE CAN BE RESIZED AGAIN (owner: i cant resize the table). Making the tile grow to show every row put a floor under it as tall as the whole table, and the drag handle could not get beneath that floor, so the tile would not shrink. Now the grow only applies while the tile is on automatic height: drag the handle and your height wins - the table scrolls inside, as it did before - and double-click the handle to go back to automatic, where it fits every row again.']},{v:'73.836',date:'2026-09-20',notes:['CLICKING ONE OF YOUR OLDER CROWNS NOW OPENS THAT RUN. A starred run older than the newest 75 - today #243 NOISE and #257 ORB - opened the book #366 report instead, and the star, archive and delete buttons on that page acted on the book. Those runs now open their own report, or say they are loading. The same older runs also reach PICK RUNS, EXPLORE and the RUNBOARD family chips and pins, which could not see them before; a screen that cannot resolve a saved pick now says the run is older than what is loaded instead of claiming it no longer exists, and one click no longer erases it from your saved picks.','IN-SAMPLE MONEY IS NOW THE MEASURED IN-SAMPLE. EXPLORE run rows, the RUNBOARD whole-run in-sample column and the PICK RUNS in-sample row worked it out as the whole run minus the walk-forward tests minus the lockbox, which mixes one fixed configuration with re-tuned ones: crown #335 read $155k there against $44k on its own report, and 30 of 44 validated runs were off by more than 0.10 of profit factor. All three now read the run\'s own measured in-sample stretch, or dash with the reason. A book run report also builds its in-sample, lockbox and whole-run columns from the book\'s own blocks - #366 read minus $2.1k in-sample and 622 trades against a real $1,395,904 and 9,707.','RANKING NO LONGER REWARDS THE WRONG RUNS. Archived runs are out of every leaderboard, champion and RUNBOARD ranking, as they already are on Past Runs. A run shorter than two years sinks below full-length runs instead of topping them on ratios built from a near-zero drawdown (an 18-day run ranked first). A walk-forward test that took no trades now sinks below every run that traded on NET as well, so $0 can no longer outrank a loss or take a column. Every ETFDIP variant is one family again. Books no longer win the smallest-drawdown mark from a sign difference, and their robustness cell says why it is blank instead of printing NaN.','BOOKS WITH AN ORB LEG ARE NO LONGER FLAGGED FOR A BUG THEY DO NOT HAVE. 22 of 26 books, adopted #366 and #396 included, carried an ORB look-ahead warning that belongs to the old touch-entry ORB files only; the always-on note under the table is gone and the badge now appears only for those files. Gate-Validate runs read the same whole-run and in-sample figures on every screen, EXPLORE stops rebuilding a book\'s Sharpe and Sortino from a thinned curve, and the PICK RUNS money tile follows the stage you are looking at instead of always showing the tuning figure.','CHARTS: THE LOCKBOX AND IN-SAMPLE SLICES SIT ON THEIR OWN DATES. On the RUNBOARD funnel a one-year lockbox curve was drawn across the whole 16-year width, and its key read the whole run\'s years and a different stretch\'s dollars. Each slice now has its own span, and the key shows the stage\'s own figure marked as approximate. Saved curves place their lockbox door at its real date rather than spreading trades evenly, so a door no longer lands months early. The full-screen view opens with every picked run drawn and keeps the runs you greyed or hid switched off, a hand-added run always gets its own column, and two EXPLORE hovers that described the wrong rows or the wrong rule now say what actually happens.']},{v:'73.831',date:'2026-09-16',notes:['WALK-FORWARD PF ON OLDER RUNS NOW MATCHES COMPARE. The run report\'s older walk-forward column left out a fold that lost every trade, or won every trade, when it pooled profit factor, so the same run could read 1.81 on the report and 1.76 on every COMPARE screen. It now pools them the same way. Every screen also names the fold behind a dash - a fold that broke exactly even, or one that lost every dollar but saved no win count - instead of calling the run too old.','EXPLORE: hovering a table row lights its pinned RANK / FAMILY / RUN cells too; in the STACK layout the sideways scrollbar stays inside its column; the ticked column heading is no longer see-through; trade counts show as whole numbers. The note under the chart names MAR or PROFIT, counts each cause once, words the MIN TRADES note correctly, and offers LOAD ALL only when runs are really missing - including while a LOAD ALL is still arriving, when it used to claim the runs were not on this account. 1E CONFIGS prints one off-chart line instead of two that disagreed.','RUNBOARD / PICK RUNS: a lockbox that took no trades no longer wins the LB $ best mark with $0; a lockbox where every trade won shows a dash with its reason instead of PF 0.00; figures marked ~ take no heat shading; the RUNBOARD inside COMPARE opens on LOCKBOX when no stage was saved; the walk-forward WINDOW shows the split-to-lockbox dates on runs without a usable test and says why a saved test is not used; a PICK RUNS WF PF dash gives its reason. The top bar and Past Runs keep LOAD 75 MORE / LOAD ALL on screen while a bigger load is on its way.','Walk-forward charts: the key drops the in-sample line style, shows each test\'s length and gives each missing curve its own reason. The full-screen TRADES button is off on walk-forward, with the reason on hover, and dates no longer show a day early in US time zones. Past Runs GROUP view picks a book group\'s champion by pre-lockbox net over drawdown, the same rule as CHAMPIONS, and no longer prints score NaN; the CHAMPIONS hover describes that rule.']},{v:'73.830',date:'2026-09-15',notes:['1E MATRIX ALL table: the tile now grows to show every row, so the table no longer scrolls inside it. A dragged tile height still applies to the other tabs.','The unit under each heading: ROC over % / YR, WIN over %, DD over %, EV over R, R over / YR, DD over (R), NET over $. Those headings were the widest thing in their columns - ROC % / YR made its column about twice as wide as its numbers - and the cell padding is tighter too, so the table is much narrower.','1A funnel DOORS view: the lockbox panel is back to a quarter of the width. DOORS restarts every line at $0 in each panel, so it is not a timeline and has no reason to squeeze the lockbox; ONE CURVE stays on the calendar.']},{v:'73.829',date:'2026-09-15',notes:['1E MATRIX ALL table is denser so more of it fits in the tile: rows lost most of their padding (about 12 px a row instead of 17) and the four-line explanation above the table is now one line - ALL CONFIGS, the count, PBO, the account chip - with the how-to moved into the hover on the info mark. About 40 per cent more rows show before the table scrolls.']},{v:'73.828',date:'2026-09-15',notes:['1A CONFIG FUNNEL: THE LOCKBOX IS BACK ON THE CALENDAR. It had been fixed at a quarter of the width, which drew its one year about five times wider than any other year, so every lockbox line looked stretched even on runs where every lockbox trade is saved. The lockbox door now sits at its real date - about 6 per cent of the width on a 16-year run - so the chart reads as performance over time. The funnel, the expanded view, the CHAMPION tab and the 1B monthly bars underneath line up again.']},{v:'73.827',date:'2026-09-16',notes:['A TRADE CAN HAVE MORE THAN ONE TIMEFRAME (owner: this trade was 10s and 1m). The TF box on the HOME table, the TRADES table and the edit dialog now opens a small panel of timeframes: tick as many as you used, tick again to remove one, CLEAR to empty it. It saves as you tick and the box reads 10s + 1m. Trades with one timeframe are unchanged.','In ANALYTICS, BY TIMEFRAME counts a two-timeframe trade under both, so those rows can add up to more than your total, and the TRADES table TF filter finds a trade under either of its timeframes.']},{v:'73.826',date:'2026-09-16',notes:['DROPDOWN LISTS ARE READABLE AGAIN (owner: the TF selector shows all white when clicked). When a dropdown opened - TF, SETUP, GRADE and every other one in the app - the browser drew its list on a white sheet while the words used the theme light text, so the choices were white on white. The open list now uses the theme dark background with light text, and the chosen item is shaded.']},{v:'73.825',date:'2026-09-16',notes:['SECTION 1 IN TWO ROWS WHEN BOTH 1E CARDS ARE OPEN. The first row is the 1A config funnel beside the second 1E card (your scatter), so the scatter gets the width it lost as one of three tiles. The first 1E card - the table - now has a full-width row of its own underneath, so every column shows without scrolling sideways. Close the second 1E card and the row goes back to 1A beside 1E as before. Tile heights you dragged still apply; the width split in the new top row is remembered on its own.']},{v:'73.824',date:'2026-09-16',notes:['MAX DRAWDOWN MATCHES THE CHART AGAIN (owner: keep drawdown matching the chart). A trade marked IGNORE IN METRICS now stays in MAX DD, the same as it stays in P&L and the equity chart. It is still left out of win rate, profit factor, averages, streaks and the breakdowns.']},{v:'73.823',date:'2026-09-16',notes:['NOTES CAN BE ADDED AGAIN (owner: cant add notes). The NOTES column on the HOME table was plain text, and the trade panel showed notes without a way to change them. The column is now a box like CHART - click it, type, press Enter - and the panel has a notes area that saves when you click away.','IGNORE IN METRICS (owner: some trades were testing settings on the live account). Click a trade to open its panel and tick IGNORE IN METRICS. That trade still counts in P&L, the equity chart and the account balance, so everything still reconciles, but it is left out of win rate, profit factor, averages, drawdown, streaks, the AI assessment and the ANALYTICS breakdowns. An ignored trade shows a small crossed-circle beside its symbol, and the WIN RATE tile says how many are being ignored.']},{v:'73.822',date:'2026-09-16',notes:['HOME P&L PERCENT FIXED (owner: why does this say 100% all time?). In P&L view the percent under the big number divided your profit by your profit, so on ALL it always read +100.00%. It now divides by the money in the account: what the account held at the start of the range plus any deposits made during it. All time that is $79.66 on $4,476.08 put in, +1.78%. Hovering the chart measures each point the same way. EQUITY view is unchanged.']},{v:'73.821',date:'2026-09-16',notes:['HOME TABLE: NEWEST TRADE ON TOP. The table view listed trades oldest first while the feed view lists newest first, so yesterday\'s VEEA trades sat at the very bottom of the table and a February SPY trade sat near the top - nothing was missing, the two views were in opposite order. The table now opens on your most recent trade, like the feed.','HOME TABLE: THE LEFT COLUMNS STAY PUT (owner: lock the columns up to the instrument name). The row number, DATE, IN, OUT, DUR and SYM now stay pinned on the left while you scroll the table sideways, so when you reach CHART, TAGS or NOTES you can still see which trade the row is.']},{v:'73.819',date:'2026-09-15',notes:['COMPARE ON WALK-FORWARD NOW READS THE SAVED WALK-FORWARD TEST. The LEADERBOARD, the comparison table and PICK RUNS fill in the drawdown, MAR, Sharpe, Sortino, profit factor, win rate and window length of the folds\u2019 own unseen trades joined in fold order. Money, trade counts and folds held are still pooled from the fold results, and nothing on the whole-run, tuning or lockbox stretches moved. MAR and Sharpe now rank on walk-forward; a run saved before that detail existed shows a dash saying so and sorts last.','THE COMPARE CHART DRAWS THAT TEST. On the walk-forward stretch each picked run is drawn as its folds joined end to end over their own dates - one dashed line, no sealed-lockbox tail - and a run that saved none is listed beside the chart instead of showing its whole run under a walk-forward heading.','RUNBOARD HAS A WALK-FORWARD SAMPLE. The funnel, the grid and the strategy list now read that stretch instead of holding the whole view, every empty cell says why in plain words, and the window row shows the dates the test covers. Books keep a hold of their own: a book trades frozen configurations and tunes nothing, so it has no walk-forward stage.','EXPLORE: a run row ticked on walk-forward alone now plots its drawdown, MAR, Sharpe, Sortino, profit factor, win rate and years, and the READ hover MAR is the ticked stretch\u2019s own. Walk-forward plus lockbox still dashes - they are two separate trade sequences and no joined one is saved - and now says that. A report left open while a job finishes no longer keeps saying the detail was never saved.','A WALK-FORWARD THAT TOOK NO TRADES READS $0 AND 0 TRADES, AND NOTHING ELSE. Its pooled money and trade count print as the readings they are; its profit factor, win rate, drawdown, MAR, Sharpe, Sortino and expectancy - and its dollars per trade, where a screen shows that for the folds - dash with one sentence, that the run took no trades in the walk-forward folds, on the leaderboard, the comparison table, PICK RUNS, the RUNBOARD, EXPLORE and the report alike. Neither that $0 nor the empty drawdown takes a best mark or a heat shade, and ranked on drawdown or MAR the run sorts after every run that traded, so a strategy that never traded the folds can no longer take the smallest-drawdown mark, or the top of the order, from one that did. A test that saved no window dates leaves MAR, R / YR and ROC blank on all five rather than annualising the folds\u2019 own money over the longer tuning-split window. And one expectancy in R is read off that test everywhere it is shown, instead of two figures a rounding apart.']},{v:'73.818',date:'2026-09-15',notes:['PAST RUNS AND THE REPORT NOW AGREE ON HOW MANY TRADES A RUN TOOK. The runs table said 1,257 on run 398 where the report header, and the run own saved record, both say 996. The row was adding the in-sample fit to the walk-forward folds re-tuned trades and the lockbox - three different configurations - so the walk-forward years were counted twice. The count now comes from the run own whole-run record, as its net dollars, drawdown, Sharpe and win rate already did.','The same row PROFIT FACTOR was pooled from those three pieces and is now the champion measured one: run 398 reads 2.01 against the pooled 1.67. Runs saved before those figures existed keep the pooled numbers. The TOTAL column of the report stage table is fixed the same way, so the two never disagree again.']},{v:'73.817',date:'2026-09-15',notes:['CHART COLUMN ON THE HOME TRADE TABLE ACCEPTS A LINK AGAIN (owner: \'i cant add a link to the chart here\'). That column only ever drew an icon when a chart link was already saved, and a row without one showed a dash with nothing behind it - the only way in was the pencil at the end of the row. It is now the same paste box the TRADES tab has: click the dash, paste the link, press Enter. A saved link keeps its small chart icon, the icon still opens the chart in a new tab, and hovering it previews the snapshot. Clicking into the box no longer opens the trade detail panel behind it.']},{v:'73.816',date:'2026-09-15',notes:['RUN REPORT 1C NOW DRAWS THE WALK-FORWARD TEST ITSELF. The engine saves, on every validate, the walk-forward folds\' own unseen trades joined in fold order - each fold re-tuned on its own past - and 160 older runs were rebuilt the same way. 1C now draws that curve with a divider at each fold and chips beside it: net, PF, win %, trades, max drawdown, MAR per year, Sharpe, Sortino and the window. A fold that took no trades is marked as such instead of borrowing the fold before it, and a run with nothing saved says why in plain words (saved before this existed, walk-forward did not run, or a book, which tunes nothing).','1E WALK-FORWARD COLUMN: SHARPE AND SORTINO WERE THE WRONG MEASUREMENT. That column is the champion held constant over the walk-forward years, but its Sharpe came from a fold-by-fold series and Sortino was blank (run 306: 0.79 and a dash, now 1.69 and 3.60). IN-SAMPLE Sharpe on that path changes for the same reason. Every hover on the screen now names one source per figure: net and trades pooled across the folds, PF and win % from the saved walk-forward test when the run has one, drawdown, Sharpe and Sortino from that test alone. A test that saved no window dates leaves MAR, ROC and R / YR blank rather than divide by an estimate.','PAST RUNS: hovering a run\'s WF cell shows its walk-forward test figures, and the fold hovers on the equity chart, the funnel and 1C now carry the real fold dates and trade counts instead of estimates. The run list carries this detail with each run at no extra read cost.']},{v:'73.815',date:'2026-09-15',notes:['EXPLORE TABLES: KPIS FIRST, CONFIG LAST (owner: \'move this junk to the end of the row\'). Every table now reads RANK, FAMILY, RUN, then MAR, SHARPE, SORTINO, PF, WIN %, EV R, R / YR, ROC % / YR, $/TRD, TRADES, TRADES / YR, then READ, with the long configuration name and its badges at the very end. RANK, FAMILY and RUN stay pinned on the left while you scroll right, and the heading row stays pinned to the top of the table.','EXPLORE TABLES NO LONGER SNAP BACK (owner: \'the table keeps snapping me back to the upper left\'). Changing an unrelated control keeps the table exactly where you scrolled it; only a new LEVEL, SHOW or strategy starts a fresh table at the top left. In the side-by-side layout the table area is now bounded to your window, so its sideways scrollbar is on screen instead of below the fold - on a laptop a table 9,988 pixels tall now sits in a 667 pixel box.','EXPLORE EMPTY CHART EXPLAINS ITSELF (owner: \'why is this not showing anything?\'). When rows are missing from the chart the note underneath breaks them down by cause with counts - failed runs hidden, a measure never recorded for that stretch, rows citing runs older than the ones loaded, a stretch that took no trades - and offers one-click buttons (PLOT FAILURES ON, SHOW 1E CONFIGS, another stretch, another measure, LOAD ALL), each showing how many rows it would actually place, counted with the same readers the chart uses.','WRITE-UP ROWS NO LONGER INVENT A PER-YEAR FIGURE. A study row that records one window for the whole row used to divide one stretch\'s money by the whole window\'s years - a one-year lockbox over sixteen years read 5.5% a year. It now shows that figure only when the ticked stretches are the row\'s whole recorded window, or when the row cites a loaded run whose saved windows give the stretch\'s real dates; otherwise it dashes and says why.','COMPARE AUDIT ROUND 2 (11 fixes) plus the fixes three independent reviews found on top of them. FULL profit factor reads the champion\'s own whole-run figure (#335 read 1.48 where the champion ran 1.82); books are no longer counted as a strategy anywhere (#397 sat in the ENGU-Q column where #335 belongs); a run you starred stays on the board when it is older than the loaded runs; IN-SAMPLE MAR and R / YR are annualised over the tuning years the search actually scored (they read about 25% low); RUNBOARD trade counts, sort order and best marks follow what the table prints; a lockbox or stretch that took no trades dashes with the reason everywhere instead of showing $0, 0.00 or a best mark; strategy files sharing one short label show their own names; EXPLORE stretch combinations a run never saved together are pooled honestly or dashed with the reason; chart hovers name the measures actually plotted.','COMPARE AUDIT ROUND 2 (11 fixes). FULL profit factor on the LEADERBOARD, OVERLAY and RUNBOARD now reads the champion\'s own whole-run figure instead of mixing the champion with the walk-forward re-tests (#335 read 1.48; the champion itself ran the whole window at 1.82). Old runs that never saved the numbers show a rebuilt figure marked ~ that can never win a best mark, and EV R and R / YR built from it carry the same ~.','Books are no longer counted as a strategy. A book whose name mentions a strategy (21 books mention ENGU-Q) used to fill that strategy\'s RUNBOARD column and EXPLORE list, so #397 sat where #335 belongs. Every book now sits in its own BOOKS group, RUNBOARD uses the leaderboard\'s champion rule (your star wins), and a strategy file whose name merely starts with COMBINED is no longer mistaken for a book.','A run you starred stays on the LEADERBOARD, the OVERLAY and its family crown even when it is older than the loaded runs; the run-count note shows + N STARRED OLDER and names them on hover.','IN-SAMPLE means the tuning search\'s own pick on the first 75% of the tuning years, and its MAR and R / YR are now annualised over those years (they read about 25% low). A book\'s in-sample years stop where its lockbox starts. Walk-forward R / YR on the LEADERBOARD and OVERLAY now shows a number that matches EXPLORE.','RUNBOARD: whole-run trades use the run\'s own saved total (#382 read 6,020, real 4,825); sorting by PF, drawdown or net sorts by the printed number; most trades and highest win % are no longer marked best; books tables say NET / DD and SLICES instead of MAR and WF; top 10 recent shows a dash, not $0, for a run with no figure; live books follow RANK BY.','A lockbox with no trades shows a dash with the reason on every figure instead of $0 (a lockbox that lost every trade shows PF 0.00). Strategy files sharing one short label (three ETF-dip files all read ETFDI 1.0) show their own names on the LEADERBOARD and OVERLAY. The TOP RUNS short-window badge no longer says the champion list leaves the run out.','EXPLORE: ticking stretches a run never saved together (IN-SAMPLE + LOCKBOX always) now builds PF and win rate from the ticked stretches and dashes drawdown, MAR, Sharpe and Sortino with the reason, instead of showing the whole-run figure (766 of 894 NOISE config rows were outside their own IS and LB range). Chart hovers name the measures actually plotted, the QUALITY preset plots EV R up and Sortino across as described, and MIN TRADES no longer double-counts rows.']},{v:'73.812',date:'2026-09-15',notes:['1E MATRIX ALL table: the tile now grows to show every row, so the table no longer scrolls inside it. A dragged tile height still applies to the other tabs.','The unit under each heading: ROC over % / YR, WIN over %, DD over %, EV over R, R over / YR, DD over (R), NET over $. Those headings were the widest thing in their columns - ROC % / YR made its column about twice as wide as its numbers - and the cell padding is tighter too, so the table is much narrower.','1A funnel DOORS view: the lockbox panel is back to a quarter of the width. DOORS restarts every line at $0 in each panel, so it is not a timeline and has no reason to squeeze the lockbox; ONE CURVE stays on the calendar.']},{v:'73.810',date:'2026-09-15',notes:['ROC % / YR FIXED IN THE GATE, TILT, KEEL, HYBRID, HYBRID recycled and HYBRID equal-drawdown tabs (section 2B CONFIGS). The row divided the net in POINTS by the account instead of the net in DOLLARS, so on NQ it read 20 times too low and on ES 50 times too low - run 326 xgb hybrid on the HYBRID recycled tab with WF ticked showed 5.6 per cent, the true figure is 112.7 per cent, the same number the 1E ALL table and STUDIES already printed. RAW tab, 1E ALL table and STUDIES were already correct and are unchanged.']},{v:'73.809',date:'2026-09-15',notes:['1E MATRIX ALL table is denser so more of it fits in the tile: rows lost most of their padding (about 12 px a row instead of 17) and the four-line explanation above the table is now one line - ALL CONFIGS, the count, PBO, the account chip - with the how-to moved into the hover on the info mark. About 40 per cent more rows show before the table scrolls.']},{v:'73.808',date:'2026-09-15',notes:['1A CONFIG FUNNEL: THE LOCKBOX IS BACK ON THE CALENDAR. It had been fixed at a quarter of the width, which drew its one year about five times wider than any other year, so every lockbox line looked stretched even on runs where every lockbox trade is saved. The lockbox door now sits at its real date - about 6 per cent of the width on a 16-year run - so the chart reads as performance over time. The funnel, the expanded view, the CHAMPION tab and the 1B monthly bars underneath line up again.']},{v:'73.806',date:'2026-09-15',notes:['EXPLORE: ORB now shows its best configurations with walk-forward money. Six validated ORB runs (257, 239, 234, 314, 297, 298) are a new study, rows 1739 to 1744, each carrying its in-sample, walk-forward and lockbox money plus Sharpe, Sortino, win rate and expectancy in R. Before this, runs 297, 298 and 314 were not on the board as runs at all, and 234, 239 and 257 recorded no walk-forward figure and no Sortino, so with WF ticked and Sortino on the vertical axis all 125 ORB rows fell off the chart.','The ranking is by money, not by one ratio: run 257 earns the most walk-forward money and the most by calendar year against the control, run 239 is the free upgrade, and the two tightened-filter runs earn less. Do not tick IN-SAMPLE and WF together on these rows - on a single pinned configuration those stretches overlap.']},{v:'73.805',date:'2026-09-15',notes:['Webull paper trading: the status card now refreshes itself every minute while open, so LAST TICK no longer shows a false STALE on a page left open.']},
 {v:'73.803',date:'2026-09-15',notes:['AUTO-RECOVER SWITCH SHOWED THE OLD STATE (owner: the auto recover button not working). The PC was turning NinjaTrader auto-recover on, but the page re-read the status a few seconds before the PC had republished it, so the switch still said OFF and looked broken. The switch now shows what the PC reported back for your click straight away.']},
 {v:'73.798',date:'2026-09-14',notes:['STUDIES BOARD: BOOK ROUND 55, rows 1733 to 1738. Seven newly validated alternatives were each swapped into one slot of #379 and none clears the pre-registered bar; the hourly squeeze tilt on the noise leg lifts both stretches but beats only 84 to 87 percent of null subsets in the held-back year, so it is parked.','CORRECTION: judged by calendar year, #379 does not robustly beat the adopted #366 (dominates 5 of 15 full years, loses 4) - its ratio lead is mostly the 2020 drawdown. Split by slot, the squeeze swap earns more in 13 of 15 years while the opening-range swap is a coin flip. Run #396 - #366 with only the squeeze file changed - PASSES with the best held-back year of any untuned four-leg book, 307,096 dollars, and is the recommended book. Adoption is the owner call.']},{v:'73.797',date:'2026-09-14',notes:['ONE STAGE ACROSS THE COMPARE TAB. RUNBOARD kept its own SAMPLE setting apart from the STAGE the overlay, BOOKS and the leaderboard share, so moving between COMPARE views silently changed what stage meant. Inside the COMPARE tab RUNBOARD now follows that one STAGE, and its SAMPLE tabs set it. RUNBOARD has no walk-forward grid - its rows need a drawdown and a curve cut the folds do not save - so on WF the whole RUNBOARD view - funnel, grid, strategy list and BOOKS - is held with that explanation and a pointer to the overlay and the leaderboard, which pool the folds, and no panel shows another stage figures under the WF tab. RUNBOARD opened outside the COMPARE tab keeps its own setting as before, and its SAMPLE tabs there no longer move the COMPARE tab stage.']},{v:'73.796',date:'2026-09-14',notes:['LEADERBOARD STAGE HAS FULL. The stage setting is shared across COMPARE, and COMPARE BOOKS offers FULL, so switching back to the leaderboard after picking it left the strip with no button lit while every number was already the whole-run one. FULL is a button here now, and its note explains the ~ a whole-run drawdown carries when it has to be measured off the saved curve.','CHAMPIONS SAYS WHAT CHOSE THEM. The overlay on CHAMPIONS keeps the top ten strategies by the leaderboard RANK ON setting, which was not on this screen - so the cut could be decided by a setting out of sight. RANK ON is beside SHOW now, and the label reads for example 10 OF 14 STRATEGIES, TOP 10 BY R / YR ON LB.','SMALL THINGS. A ninth or tenth champion curve used to repeat a colour already on the chart when every palette colour was taken; it gets a fresh hue. Two lockbox tooltips on EXPLORE read as broken sentences and now say plainly that the variant saved no lockbox slice. EV on the parallel chart follows the ticked stretch while $/TRD in the table is always whole-run - the axis is labelled EV STRETCH and the column hover says the two differ. And the horizontal axis ticks now carry % for ROC, DD % and WIN % and R for DD (R), as the vertical ones do.']},{v:'73.794',date:'2026-09-14',notes:['TEST ON LOCKBOX MOVED TO RESULTS (owner: move test last winner on lockbox to results). Every run report with a best config has a lock in its action tray, next to note, relabel, archive and delete. It runs one backtest of THAT run winner from a lockbox date to the end of the data: it asks for the date and suggests your BUILDER holdout, or the day after the run window. Still one look. The BUILDER Holdout row keeps the date and points here.']},
@@ -4274,7 +4274,8 @@ async function addLesson(e){if(lessonRef)await lessonRef.add({...e,createdAt:fir
 async function deleteLesson(id){if(lessonRef&&confirm('Delete?'))await lessonRef.doc(id).delete();}
 
 // ── NinjaTrader PDF Statement Parser ─────────────────────────────
-async function importPDF(file){
+// opts: same as importCSV's (the statement prints GMT, so it never needs asking in practice).
+async function importPDF(file,opts){
   if(!window.pdfjsLib){throw new Error('PDF library not loaded. Refresh and try again.');}
   const arrayBuf=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:arrayBuf}).promise;
@@ -4368,7 +4369,10 @@ async function importPDF(file){
   // Format per line:
   //   "MM/DD/YYYY HH:MM:SS PM(GMT) FILL <buyQty> <sellQty> <price> <orderId>"
   // After "Trading details for SYMBOL Name - Date (TICKER)"
-  const fillsBySymDate={};
+  // The (GMT) is real - 01:31:22 PM(GMT) is 09:31:22 in New York in summer - so every fill keeps
+  // its absolute instant, and trades are paired in true time order and dated by their New York
+  // day (a GMT day splits an evening session at 8 pm New York).
+  const pdfFills=[];
   let currentSym=null;
   for(let j=0;j<allLines.length;j++){
     const line=allLines[j];
@@ -4376,22 +4380,10 @@ async function importPDF(file){
     if(symMatch){currentSym=getBase(symMatch[1]);continue;}
     if(!currentSym)continue;
     // Match fill line - flexible to handle both AM/PM and GMT variations
-    const fillMatch=line.match(/^\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*\(?GMT?\)?\s+FILL/i);
+    const fillMatch=line.match(/^\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s*(AM|PM)?\s*(\(?\s*(?:GMT|UTC)\s*\)?)?\s+FILL/i);
     if(!fillMatch)continue;
-    const date=parseDate(fillMatch[1]);
-    let time=fillMatch[2];
-    // Convert to 24h if PM
-    if(fillMatch[3]&&fillMatch[3].toUpperCase()==='PM'){
-      const parts=time.split(':');
-      let h=parseInt(parts[0]);
-      if(h<12)h+=12;
-      time=String(h).padStart(2,'0')+':'+parts[1]+':'+parts[2];
-    } else if(fillMatch[3]&&fillMatch[3].toUpperCase()==='AM'){
-      const parts=time.split(':');
-      let h=parseInt(parts[0]);
-      if(h===12)h=0;
-      time=String(h).padStart(2,'0')+':'+parts[1]+':'+parts[2];
-    }
+    const st=_impStamp(fillMatch[1]+' '+fillMatch[2]+(fillMatch[3]?' '+fillMatch[3]:'')+(fillMatch[4]?' GMT':''));
+    if(!st)continue;
     // Extract rest of line after FILL keyword
     const afterFill=line.substring(fillMatch[0].length).trim();
     // Split into tokens, replace '-' with null
@@ -4404,13 +4396,21 @@ async function importPDF(file){
     if(!price)continue;
     const side=buyQty?'BUY':'SELL';
     const qty=buyQty||sellQty||1;
-    const key=currentSym+'|'+date;
-    if(!fillsBySymDate[key])fillsBySymDate[key]=[];
-    fillsBySymDate[key].push({time,side,price,qty,orderId});
+    pdfFills.push({sym:currentSym,st,side,price,qty,orderId});
   }
+  // Resolve the zone (GMT-stamped fills need no guess) and group by symbol + New York day.
+  const Zp=_impResolveZone(pdfFills.map(f=>({st:f.st,fid:''})),opts);
+  if(Zp.ask){result.tzAsk=Zp;return result;}
+  result.tzNote=Zp;result.tzDrift=[];
+  const fillsBySymDate={};
+  pdfFills.forEach(f=>{
+    const e=_impET(f.st,Zp.tz),key=f.sym+'|'+e.date;
+    if(!fillsBySymDate[key])fillsBySymDate[key]=[];
+    fillsBySymDate[key].push({ms:e.ms,time:e.hm,side:f.side,price:f.price,qty:f.qty,orderId:f.orderId});
+  });
   // ── Pair fills into round-trip trades ─────────────────────────
   Object.entries(fillsBySymDate).forEach(([key,fills])=>{
-    fills.sort((a,b)=>a.time.localeCompare(b.time));
+    fills.sort((a,b)=>a.ms-b.ms);
     const [sym,date]=key.split('|');
     const useSym=PRESETS[sym]?sym:sym;
     const dayInfo=dailyData[key];
@@ -4419,8 +4419,8 @@ async function importPDF(file){
     // A trade opens when position leaves zero and closes when it returns to zero
     const trades_=[];
     let pos=0;
-    let entryQty=0,entryNotional=0,entryTime=null,entrySide=null,entryOid='';
-    let exitQty=0,exitNotional=0,exitTime=null;
+    let entryQty=0,entryNotional=0,entryTime=null,entryMs=null,entrySide=null,entryOid='';
+    let exitQty=0,exitNotional=0,exitTime=null,exitMs=null;
     fills.forEach(f=>{
       const delta=f.side==='BUY'?f.qty:-f.qty;
       const newPos=pos+delta;
@@ -4429,9 +4429,9 @@ async function importPDF(file){
       if(isAddToPosition){
         if(pos===0){
           // First fill of a new trade - initialize entry tracking
-          entrySide=f.side;entryOid=f.orderId;entryTime=f.time;
+          entrySide=f.side;entryOid=f.orderId;entryTime=f.time;entryMs=f.ms;
           entryQty=Math.abs(delta);entryNotional=f.price*Math.abs(delta);
-          exitQty=0;exitNotional=0;exitTime=null;
+          exitQty=0;exitNotional=0;exitTime=null;exitMs=null;
         } else {
           // Scale-in: accumulate entry size & weighted price
           entryQty+=Math.abs(delta);entryNotional+=f.price*Math.abs(delta);
@@ -4440,7 +4440,7 @@ async function importPDF(file){
         // Scale-out: accumulate exit size & weighted price
         const closingQty=Math.min(Math.abs(delta),Math.abs(pos));
         exitQty+=closingQty;exitNotional+=f.price*closingQty;
-        exitTime=f.time;
+        exitTime=f.time;exitMs=f.ms;
       }
       // Check if trade is fully closed
       if(pos!==0&&newPos===0){
@@ -4451,12 +4451,13 @@ async function importPDF(file){
           dir:entrySide==='BUY'?'LONG':'SHORT',
           entry:avgEntry,exit:avgExit,
           entryTime,exitTime,
+          durMin:entryMs!=null&&exitMs!=null?Math.round((exitMs-entryMs)/60000):null,
           size:entryQty,
           orderId:entryOid
         });
         // Reset
-        entryQty=0;entryNotional=0;entryTime=null;entrySide=null;entryOid='';
-        exitQty=0;exitNotional=0;exitTime=null;
+        entryQty=0;entryNotional=0;entryTime=null;entryMs=null;entrySide=null;entryOid='';
+        exitQty=0;exitNotional=0;exitTime=null;exitMs=null;
       }
       pos=newPos;
     });
@@ -4467,6 +4468,7 @@ async function importPDF(file){
       existing.forEach(t=>{
         const matchingPair=trades_.find(p=>Math.abs(p.entry-t.entry)<0.5||Math.abs(p.exit-t.exit)<0.5);
         if(!matchingPair)return;
+        const dr=_impDrift(t,matchingPair.entryTime,matchingPair.exitTime);if(dr)result.tzDrift.push(dr);
         const updates={};
         if(t.type!==matchingPair.dir)updates.type=matchingPair.dir;
         if(Math.abs((t.size||1)-matchingPair.size)>0)updates.size=matchingPair.size;
@@ -4492,22 +4494,13 @@ async function importPDF(file){
       trades_.forEach(p=>{
         const fees=+(feePerContract*p.size).toFixed(2);
         const calc=tradeCalc(useSym,p.dir,p.entry,p.exit,p.size,fees);
-        const eT=p.entryTime?p.entryTime.slice(0,5):null;
-        const xT=p.exitTime?p.exitTime.slice(0,5):null;
-        let durMin=null;
-        if(eT&&xT){
-          const [eh,em]=eT.split(':').map(Number);
-          const [xh,xm]=xT.split(':').map(Number);
-          const s=eh*60+em,e=xh*60+xm;
-          durMin=e>=s?e-s:(e+1440)-s;
-        }
         result.batch.push({
           date,symbol:useSym,type:p.dir,
           entry:+p.entry.toFixed(4),exit:+p.exit.toFixed(4),
           size:p.size,fees,grossPnl:calc.grossPnl,pnl:calc.pnl,
           setup:'—',grade:'—',timeframe:'—',
           notes:'',chartUrl:'',
-          durationMins:durMin,entryTime:eT,exitTime:xT,
+          durationMins:p.durMin,entryTime:p.entryTime,exitTime:p.exitTime,
           orderId:p.orderId||'',
           source:'PDF Statement',assetType:'futures'
         });
@@ -4534,21 +4527,181 @@ async function importPDF(file){
 // CSV Parsing
 function parseLine(l){const r=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){r.push(c.trim());c='';}else c+=ch;}r.push(c.trim());return r.map(f=>f.replace(/^"|"$/g,'').trim());}
 function parseDate(s){if(!s)return'';let m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');m=s.match(/(\d{4})-(\d{2})-(\d{2})/);if(m)return m[0];return s.slice(0,10);}
-function parseDT(s){
-  if(!s)return null;
-  s=String(s).trim();
-  // Try MM/DD/YYYY HH:MM:SS (US format)
-  let m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([APap])\.?[Mm]\.?)?$/);
-  if(m){let h=+m[4];if(m[7]){const isPM=/p/i.test(m[7]);if(isPM&&h<12)h+=12;else if(!isPM&&h===12)h=0;}return new Date(+m[3],+m[1]-1,+m[2],h,+m[5],+(m[6]||0));}
-  // YYYY-MM-DD HH:MM:SS (ISO-like)
-  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[\sT](\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if(m)return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));
-  // Fallback: native Date parse
-  const d=new Date(s);
-  return isNaN(d.getTime())?null:d;
+// ── IMPORTED TIMES ARE ALWAYS SAVED IN US/EASTERN (2026-09-24) ─────────────────────────
+// Every entryTime / exitTime in the journal is New York wall-clock (HH:MM) - the convention the
+// NinjaTrader auto-sync (api/nt_sync.py) and the Webull sync already write. The import files do
+// not share one convention, so no timestamp may be saved exactly as printed:
+//  * NinjaTrader's web exports (Position History, Performance, Orders, and the Timestamp column
+//    of Fills) print times in whatever zone the platform is set to DISPLAY, with no label. The
+//    owner's own downloads flip: Pacific on Apr 9-17 and Jun 1-28, Eastern on Apr 22 - May 23.
+//    The old parseDT built a Date in the DEVICE's zone and read it back the same way, so it
+//    could only ever hand back the printed wall-clock - a Pacific export landed 3 hours EARLY.
+//  * Fills' _timestamp column is absolute UTC ("2026-04-21 13:52:41.151Z") - the one anchor
+//    NinjaTrader gives. Its fill ids tie it to the Position History / Performance rows.
+//  * The daily PDF statement prints GMT ("01:31:22 PM(GMT)"); saved as printed it read
+//    4 hours LATE in summer (5 in winter).
+// So each file's zone is RESOLVED before any of its times are saved (_impResolveZone): proven
+// by fill ids when a Fills export is known, else the EXPORT TIME ZONE picked in the import
+// panel, else the one zone that puts the times inside market hours - and when none of those is
+// decisive the file is held back and the owner is asked. Nothing here reads the device's own
+// zone (the PC runs on Pacific; the iPad may not).
+const _IMP_ET='America/New_York';
+// The zones NinjaTrader has actually been seen printing here (Eastern, Pacific, UTC) plus the
+// exchange's own (Central). Kept short on purpose: every extra candidate is one more zone that can
+// tie with the right one on a small file and turn a clear answer into a question.
+const _IMP_ZONES=[{tz:'America/New_York',nm:'Eastern'},{tz:'America/Chicago',nm:'Central'},
+  {tz:'America/Los_Angeles',nm:'Pacific'},{tz:'UTC',nm:'UTC'}];
+function _impZoneName(tz){
+  const z=_IMP_ZONES.find(x=>x.tz===tz);if(z)return z.nm;
+  const m=/^FIXED:(-?\d+)$/.exec(tz||'');
+  if(m){const o=+m[1],a=Math.abs(o);return 'UTC'+(o<0?'-':'+')+String(Math.floor(a/60)).padStart(2,'0')+':'+String(a%60).padStart(2,'0');}
+  return String(tz||'?');
+}
+const _impFmtCache={};
+// Wall-clock parts of the instant `ms` in zone `tz` (an IANA name, or 'FIXED:<minutes east of UTC>').
+function _impParts(ms,tz){
+  const fx=/^FIXED:(-?\d+)$/.exec(tz);
+  if(fx){const d=new Date(ms+(+fx[1])*60000);return{y:d.getUTCFullYear(),mo:d.getUTCMonth()+1,d:d.getUTCDate(),h:d.getUTCHours(),mi:d.getUTCMinutes(),s:d.getUTCSeconds()};}
+  const f=_impFmtCache[tz]||(_impFmtCache[tz]=new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  const p={};f.formatToParts(new Date(ms)).forEach(x=>{p[x.type]=x.value;});
+  return{y:+p.year,mo:+p.month,d:+p.day,h:(+p.hour)%24,mi:+p.minute,s:+p.second};
+}
+// A wall-clock {y,mo,d,h,mi,s} read in zone `tz` -> the absolute instant (ms). DST-correct.
+function _impWallToMs(w,tz){
+  const guess=Date.UTC(w.y,w.mo-1,w.d,w.h,w.mi,w.s||0);
+  const off=ms=>{const p=_impParts(ms,tz);return Date.UTC(p.y,p.mo-1,p.d,p.h,p.mi,p.s)-Math.floor(ms/1000)*1000;};
+  let ms=guess-off(guess);
+  const o2=off(ms);if(guess-o2!==ms)ms=guess-o2;
+  return ms;
+}
+// Zone markers a timestamp can carry, in minutes east of UTC.
+const _IMP_ABBR={Z:0,UTC:0,GMT:0,EST:-300,EDT:-240,CST:-360,CDT:-300,MST:-420,MDT:-360,PST:-480,PDT:-420};
+function _impZoneOf(rest){
+  const r=String(rest||'').replace(/[()\s]/g,'').toUpperCase();
+  if(!r)return null;
+  if(Object.prototype.hasOwnProperty.call(_IMP_ABBR,r))return _IMP_ABBR[r];
+  const m=/^(?:UTC|GMT)?([+-])(\d{1,2}):?(\d{2})?$/.exec(r);
+  return m?(m[1]==='-'?-1:1)*((+m[2])*60+(+(m[3]||0))):null;
+}
+// One timestamp -> {w:{y,mo,d,h,mi,s}, abs}. `abs` is the absolute instant (ms) when the string
+// names its own zone ("...Z", "+02:00", "(GMT)", "UTC", "EDT"), else null: a bare wall-clock
+// whose zone the file's resolver decides. Replaces parseDT (see the block comment above).
+function _impStamp(s){
+  if(s==null)return null;s=String(s).trim();if(!s)return null;
+  let w=null,rest='',m=/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:\s*([AaPp])\.?[Mm]\.?)?(.*)$/.exec(s);
+  if(m){w={y:m[3].length===2?2000+(+m[3]):+m[3],mo:+m[1],d:+m[2],h:+m[4],mi:+m[5],s:+(m[6]||0)};}
+  else if((m=/^(\d{4})-(\d{1,2})-(\d{1,2})[\sT]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:\s*([AaPp])\.?[Mm]\.?)?(.*)$/.exec(s))){w={y:+m[1],mo:+m[2],d:+m[3],h:+m[4],mi:+m[5],s:+(m[6]||0)};}
+  if(w){
+    if(m[7]){const pm=/p/i.test(m[7]);if(pm&&w.h<12)w.h+=12;else if(!pm&&w.h===12)w.h=0;}
+    rest=m[8];
+    const oz=_impZoneOf(rest);
+    return{w,abs:oz==null?null:Date.UTC(w.y,w.mo-1,w.d,w.h,w.mi,w.s)-oz*60000};
+  }
+  // Anything else ("Apr 7, 2026 10:29:06 AM", ...): let the browser read it, but the zone stays
+  // an open question unless the string names one itself. A bare date is not a time.
+  if(!/\d{1,2}:\d{2}/.test(s))return null;
+  const d=new Date(s);if(isNaN(d.getTime()))return null;
+  if(/(?:\bZ|GMT|UTC|[+-]\d{2}:?\d{2})\s*$/i.test(s))return{w:_impParts(d.getTime(),'UTC'),abs:d.getTime()};
+  return{w:{y:d.getFullYear(),mo:d.getMonth()+1,d:d.getDate(),h:d.getHours(),mi:d.getMinutes(),s:d.getSeconds()},abs:null};
+}
+// A parsed stamp read in the file's resolved zone -> its instant and New York date / HH:MM.
+function _impET(st,tz){
+  if(!st)return null;
+  const ms=st.abs!=null?st.abs:_impWallToMs(st.w,tz||_IMP_ET);
+  const p=_impParts(ms,_IMP_ET),z=n=>String(n).padStart(2,'0');
+  return{ms,date:p.y+'-'+z(p.mo)+'-'+z(p.d),hm:z(p.h)+':'+z(p.mi)};
+}
+// How many of a file's times land inside US market hours (09:30-16:00 New York, Mon-Fri) when
+// read in each candidate zone - best first.
+function _impHoursRank(naive){
+  return _IMP_ZONES.map(z=>{
+    let n=0;
+    naive.forEach(x=>{const e=_impParts(_impWallToMs(x.st.w,z.tz),_IMP_ET),t=e.h*60+e.mi,dow=new Date(Date.UTC(e.y,e.mo-1,e.d)).getUTCDay();if(dow>=1&&dow<=5&&t>=570&&t<=960)n++;});
+    return{tz:z.tz,n};
+  }).sort((a,b)=>b.n-a.n);
+}
+// THE GUARD. Decide ONE file's zone before any of its times are saved.
+// samples: every entry/exit time in the file as {st:_impStamp(..), fid:<fill id or ''>}.
+// opts.fillUTC {fillId: UTC ms} from NinjaTrader Fills exports; opts.tz 'auto' or the zone picked
+// under EXPORT TIME ZONE; opts.force = the owner answered this file's question.
+// Returns {tz, how:'fills'|'chosen'|'hours'|'absolute'|'none', n, ...} or {ask:true, why, rank, n}.
+function _impResolveZone(samples,opts){
+  opts=opts||{};
+  const naive=samples.filter(x=>x&&x.st&&x.st.abs==null);
+  if(!naive.length)return{tz:_IMP_ET,how:samples.some(x=>x&&x.st)?'absolute':'none',n:samples.length};
+  const pick=opts.tz&&opts.tz!=='auto'?opts.tz:null;
+  // 0) The owner's answer to this file's question is final.
+  if(pick&&opts.force)return{tz:pick,how:'chosen',n:naive.length,inHours:(_impHoursRank(naive).find(r=>r.tz===pick)||{n:0}).n};
+  // 1) PROOF: fills whose absolute time is known from a Fills export. Exact, so it beats a pick.
+  const fu=opts.fillUTC||{},anch=naive.filter(x=>x.fid&&fu[x.fid]!=null);
+  if(anch.length){
+    const z=_IMP_ZONES.find(z=>anch.every(x=>Math.abs(_impWallToMs(x.st.w,z.tz)-fu[x.fid])<1500));
+    if(z)return{tz:z.tz,how:'fills',n:anch.length,overrode:pick&&pick!==z.tz?pick:null};
+    // no named zone explains them all: use the one fixed offset they share, if they share one
+    const offs=new Set(anch.map(x=>Math.round((Date.UTC(x.st.w.y,x.st.w.mo-1,x.st.w.d,x.st.w.h,x.st.w.mi,x.st.w.s)-fu[x.fid])/60000)));
+    if(offs.size===1)return{tz:'FIXED:'+[...offs][0],how:'fills',n:anch.length,overrode:null};
+    return{ask:true,why:'fills',rank:_impHoursRank(naive),n:naive.length};
+  }
+  const rank=_impHoursRank(naive),best=rank[0],N=naive.length;
+  // 2) The owner's pick - unless market hours flatly contradict it.
+  if(pick){
+    const mine=rank.find(r=>r.tz===pick)||{n:0};
+    if(!(best.tz!==pick&&best.n>=Math.ceil(N*0.9)&&mine.n<=Math.floor(N/2)))return{tz:pick,how:'chosen',n:N,inHours:mine.n};
+    return{ask:true,why:'contradicts',pick,rank,n:N};
+  }
+  // 3) Market hours - only when ONE zone clearly explains the times.
+  if(best.n>=Math.ceil(N*0.6)&&best.n>rank[1].n)return{tz:best.tz,how:'hours',n:N,inHours:best.n};
+  return{ask:true,why:'unclear',rank,n:N};
+}
+// An existing trade whose saved entry AND exit sit the same whole number of hours away from this
+// file's (resolved) Eastern times was almost certainly saved in the wrong zone. Flagged in the
+// import result; never rewritten here.
+function _impDrift(t,eHM,xHM){
+  const mins=s=>{const m=/^(\d{1,2}):(\d{2})/.exec(s||'');return m?(+m[1])*60+(+m[2]):null;};
+  const hrs=(a,b)=>{if(a==null||b==null)return null;let d=a-b;if(d>720)d-=1440;if(d<-720)d+=1440;const h=Math.round(d/60);return h&&Math.abs(d-h*60)<=1?h:0;};
+  const he=hrs(mins(t.entryTime),mins(eHM));if(!he)return null;
+  const hx=hrs(mins(t.exitTime),mins(xHM));if(hx!==null&&hx!==he)return null;
+  return{id:t.id,date:t.date,symbol:t.symbol,saved:t.entryTime+(t.exitTime?'-'+t.exitTime:''),file:eHM+(xHM?'-'+xHM:''),hours:he};
+}
+// NinjaTrader's Fills export is the one file with ABSOLUTE times: fill id -> UTC ms.
+function _impFillsUTC(lines,hdr){
+  const iId=hdr.indexOf('fillid'),iTs=hdr.indexOf('_timestamp');
+  if(iId<0||iTs<0)return null;
+  const out={};let n=0;
+  for(let i=1;i<lines.length;i++){const row=parseLine(lines[i]),id=String(row[iId]||'').trim(),st=_impStamp(row[iTs]);if(id&&st&&st.abs!=null){out[id]=st.abs;n++;}}
+  return n?out:null;
+}
+function _impFillsFromText(text){
+  const lines=String(text||'').split('\n').filter(l=>l.trim());
+  return lines.length<2?null:_impFillsUTC(lines,parseLine(lines[0]).map(h=>h.toLowerCase().replace(/\s+/g,'')));
+}
+// Fills seen in earlier drops on this device, so a Position History imported later is still proven.
+const _IMP_FILLS_KEY='el_fill_utc';
+function _impFillCache(){try{return JSON.parse(localStorage.getItem(_IMP_FILLS_KEY)||'{}')||{};}catch(e){return{};}}
+function _impRememberFills(map){
+  if(!map)return;
+  try{
+    const all=Object.assign(_impFillCache(),map),ks=Object.keys(all);
+    if(ks.length>5000){ks.sort((a,b)=>all[b]-all[a]);ks.slice(5000).forEach(k=>{delete all[k];});}
+    localStorage.setItem(_IMP_FILLS_KEY,JSON.stringify(all));
+  }catch(e){}
+}
+function _impTzPref(){try{return localStorage.getItem('el_imp_tz')||'auto';}catch(e){return 'auto';}}
+function _impLastTz(){try{return localStorage.getItem('el_imp_tz_last')||'';}catch(e){return '';}}
+// One plain-English line per file for the import result.
+function _impTzLine(z,lastTz){
+  if(!z||z.ask||z.how==='none')return '';
+  const nm=_impZoneName(z.tz),was=lastTz&&lastTz!==z.tz&&['fills','hours','chosen'].includes(z.how)?' Your previous import was read as '+_impZoneName(lastTz)+'.':'';
+  if(z.how==='fillsfile')return z.n+' fill times remembered. They prove the time zone of any Position History or Performance file dropped with them or later.';
+  if(z.how==='absolute')return 'Times carry their own time zone (GMT) and were saved in Eastern.';
+  if(z.how==='fills')return 'Times read as '+nm+', proven by '+z.n+' fill time'+(z.n===1?'':'s')+' from your NinjaTrader Fills export, and saved in Eastern.'+(z.overrode?' Your EXPORT TIME ZONE pick ('+_impZoneName(z.overrode)+') did not match them, so it was not used.':'')+was;
+  if(z.how==='chosen')return 'Times read as '+nm+' (your pick) and saved in Eastern.'+was;
+  if(z.how==='hours')return 'Times read as '+nm+', the only zone that puts them in market hours ('+z.inHours+' of '+z.n+'), and saved in Eastern.'+was;
+  return '';
 }
 function detectType(hdr){
   const h=hdr.join(' ').toLowerCase();
+  if(hdr.includes('_timestamp')&&hdr.includes('fillid'))return'fills_utc';   // NinjaTrader Fills export
   if(h.includes('buyprice')&&h.includes('sellprice')&&h.includes('pairedqty'))return'position_history';
   if(h.includes('buyfillid')&&h.includes('sellfillid'))return'performance_v2';
   if(h.includes('cashchangetype'))return'cash';
@@ -4560,12 +4713,29 @@ function detectType(hdr){
   return'generic';
 }
 
-function importCSV(text,label){
+// opts: {tz, fillUTC, force} - see _impResolveZone. A result carrying tzAsk saved nothing yet:
+// the caller must ask the owner for the file's time zone and run it again with {tz, force:true}.
+function importCSV(text,label,opts){
   const lines=text.split('\n').filter(l=>l.trim());
   if(lines.length<2)return{imported:0,skipped:0,merged:0,type:'empty',batch:[],merges:[],feeUpdates:[],balRows:[]};
   const hdr=parseLine(lines[0]).map(h=>h.toLowerCase().replace(/\s+/g,''));
   const type=detectType(hdr);
   const gc2=(row,keys)=>{for(const k of keys){const i=hdr.findIndex(h=>h.includes(k.replace(/\s/g,'')));if(i!==-1&&row[i]!=null&&row[i]!=='')return row[i];}return'';};
+  // Resolve THIS file's time zone from every entry/exit time in it (pairs: [time keys, fill-id keys]).
+  const tzOf=(pairs,minCols)=>{
+    const S=[];
+    for(let i=1;i<lines.length;i++){const row=parseLine(lines[i]);if(row.length<minCols)continue;
+      pairs.forEach(([tk,fk])=>{const st=_impStamp(gc2(row,tk));if(st)S.push({st,fid:String(gc2(row,fk)||'').trim()});});}
+    return _impResolveZone(S,opts);
+  };
+  const held=Z=>({imported:0,skipped:0,merged:0,type,batch:[],merges:[],feeUpdates:[],balRows:[],tzAsk:Z});
+
+  if(type==='fills_utc'){
+    // Saves no trades; its absolute fill times are remembered (commitImport) to prove the zone of
+    // the Position History / Performance files that share its fill ids.
+    const fu=_impFillsUTC(lines,hdr)||{};
+    return{imported:0,skipped:0,merged:0,type:'fills',batch:[],merges:[],feeUpdates:[],balRows:[],fillUTC:fu,tzNote:{how:'fillsfile',n:Object.keys(fu).length}};
+  }
 
   if(type==='cash'){
     // NT8 Cash History: Account,Transaction ID,Timestamp,Date,Delta,Amount,Cash Change Type,Currency,Contract
@@ -4712,7 +4882,9 @@ function importCSV(text,label){
   // Cols: symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,
   //       qty,buyPrice,sellPrice,pnl,boughtTimestamp,soldTimestamp,duration
   if(type==='performance_v2'){
-    const batch=[],merges=[];let skipped=0;
+    const batch=[],merges=[],drift=[];let skipped=0;
+    const Z=tzOf([[['boughttimestamp','bought timestamp'],['buyfillid','buy fill id']],[['soldtimestamp','sold timestamp'],['sellfillid','sell fill id']]],10);
+    if(Z.ask)return held(Z);
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<10)continue;
       const sym=getBase(gc2(row,['symbol','product'])||'MES')||'MES';
@@ -4732,11 +4904,12 @@ function importCSV(text,label){
       // SHORT = sell entry first → SoldTimestamp < BoughtTimestamp
       const btRaw=gc2(row,['boughttimestamp','bought timestamp']);
       const stRaw=gc2(row,['soldtimestamp','sold timestamp']);
-      const btDT=parseDT(btRaw),stDT=parseDT(stRaw);
+      // Both times read in the file's resolved zone (Z) and turned into Eastern.
+      const bET=_impET(_impStamp(btRaw),Z.tz),sET=_impET(_impStamp(stRaw),Z.tz);
       let dir='LONG';
-      if(btDT&&stDT){
+      if(bET&&sET){
         // Primary: use timestamps
-        dir=btDT<=stDT?'LONG':'SHORT';
+        dir=bET.ms<=sET.ms?'LONG':'SHORT';
         // Cross-check with P/L — if they disagree, trust timestamps over P/L
         // (P/L can be 0 on breakeven trades, timestamps are always reliable)
       } else {
@@ -4746,10 +4919,13 @@ function importCSV(text,label){
       // Entry = price paid to open, Exit = price received to close
       const entry=dir==='LONG'?buyR:sellR;
       const exit=dir==='LONG'?sellR:buyR;
-      const date=parseDate(btRaw);if(!date)continue;
-      const entryTime=btDT?btDT.toTimeString().slice(0,5):null;
-      const exitTime=stDT?stDT.toTimeString().slice(0,5):null;
-      const durationMins=btDT&&stDT?Math.round(Math.abs(stDT-btDT)/60000):null;
+      // The ENTRY fill is the buy on a long and the sell on a short (this used to take the bought
+      // time for every trade, so each short had its entry and exit times swapped).
+      const eET=dir==='LONG'?bET:sET,xET=dir==='LONG'?sET:bET;
+      const date=(eET&&eET.date)||parseDate(btRaw);if(!date)continue;
+      const entryTime=eET?eET.hm:null;
+      const exitTime=xET?xET.hm:null;
+      const durationMins=bET&&sET?Math.round(Math.abs(sET.ms-bET.ms)/60000):null;
       // Use CSV pnl if available (it's gross), else calculate
       const grossPnl=!isNaN(plR)?+plR.toFixed(2):calcPnl(useSym,dir,entry,exit,qty,0).gross;
       // Honor an explicit fees column if the CSV carries one (comprehensive/merged export),
@@ -4764,7 +4940,9 @@ function importCSV(text,label){
         if(durationMins&&!existing.durationMins)upd.durationMins=durationMins;
         if(entryTime&&!existing.entryTime)upd.entryTime=entryTime;
         if(exitTime&&!existing.exitTime)upd.exitTime=exitTime;
-        if(existing.type!==dir)upd.type=dir;
+        // A direction fix flips which fill is the entry, so prices and times move with it.
+        if(existing.type!==dir){upd.type=dir;upd.entry=entry;upd.exit=exit;if(entryTime)upd.entryTime=entryTime;if(exitTime)upd.exitTime=exitTime;}
+        else{const dr=_impDrift(existing,entryTime,exitTime);if(dr)drift.push(dr);}
         if(Object.keys(upd).length>0)merges.push({id:existing.id,updates:upd,desc:Object.keys(upd).join(', ')});
         else skipped++;
         continue;
@@ -4775,7 +4953,7 @@ function importCSV(text,label){
         orderId:buyFillId||sellFillId||'',feeFromCash:csvHasFee,
         source:csvHasFee?'Comprehensive CSV':'Performance CSV',assetType:'futures'});
     }
-    return{imported:batch.length,skipped,merged:merges.length,type:'performance_v2',batch,merges,feeUpdates:[],balRows:[]};
+    return{imported:batch.length,skipped,merged:merges.length,type:'performance_v2',batch,merges,feeUpdates:[],balRows:[],tzNote:Z,tzDrift:drift};
   }
 
   // ── Account Balance History CSV ───────────────────────────────
@@ -4833,7 +5011,9 @@ function importCSV(text,label){
   //          Account,Contract,Product,...,Pair ID,Buy Fill ID,Sell Fill ID,Paired Qty,
   //          Buy Price,Sell Price,P/L,Currency,Bought Timestamp,Sold Timestamp
   if(type==='position_history'){
-    const batch=[],merges=[];let skipped=0;
+    const batch=[],merges=[],drift=[];let skipped=0;
+    const Z=tzOf([[['boughttimestamp','bought timestamp'],['buyfillid','buy fill id']],[['soldtimestamp','sold timestamp'],['sellfillid','sell fill id']]],20);
+    if(Z.ask)return held(Z);
     for(let i=1;i<lines.length;i++){
       const row=parseLine(lines[i]);if(row.length<20)continue;
       const sym=getBase(gc2(row,['product','contract'])||'MES')||'MES';
@@ -4851,25 +5031,25 @@ function importCSV(text,label){
       // If (sellPrice - buyPrice) * P/L > 0 → LONG (prices confirm P/L direction)
       // If (sellPrice - buyPrice) * P/L < 0 → SHORT (prices inverse of P/L)
       // When P/L = 0 or prices equal → use timestamps: earlier = entry
-      // Direction: timestamps ONLY (NT8 P/L = sell-buy always, can't determine direction)
-      const _bt2=parseDT(gc2(row,['boughttimestamp','bought timestamp']));
-      const _st2=parseDT(gc2(row,['soldtimestamp','sold timestamp']));
+      // Direction: timestamps ONLY (NT8 P/L = sell-buy always, can't determine direction).
+      // Both times read in the file's resolved zone (Z) and turned into Eastern.
+      const bET=_impET(_impStamp(gc2(row,['boughttimestamp','bought timestamp'])),Z.tz);
+      const sET=_impET(_impStamp(gc2(row,['soldtimestamp','sold timestamp'])),Z.tz);
       let dir='LONG';
-      if(_bt2&&_st2){
-        dir=_bt2<=_st2?'LONG':'SHORT';
+      if(bET&&sET){
+        dir=bET.ms<=sET.ms?'LONG':'SHORT';
       }
       const entry=dir==='LONG'?buyR:sellR;
       const exit=dir==='LONG'?sellR:buyR;
-      // Date
+      // The ENTRY fill is the buy on a long and the sell on a short (this used to take the bought
+      // time for every trade, so each short had its entry and exit times swapped).
+      const eET=dir==='LONG'?bET:sET,xET=dir==='LONG'?sET:bET;
+      // Date: the Eastern day of the entry, like every other trade source; Trade Date if no time.
       const dateRaw=gc2(row,['trade date','tradedate','date','timestamp']);
-      const date=parseDate(dateRaw);if(!date)continue;
-      // Timestamps
-      const btRaw=gc2(row,['boughttimestamp','bought timestamp']);
-      const stRaw=gc2(row,['soldtimestamp','sold timestamp']);
-      const btDT=parseDT(btRaw),stDT=parseDT(stRaw);
-      const entryTime=btDT?btDT.toTimeString().slice(0,5):null;
-      const exitTime=stDT?stDT.toTimeString().slice(0,5):null;
-      const durationMins=btDT&&stDT?Math.round(Math.abs(stDT-btDT)/60000):null;
+      const date=(eET&&eET.date)||parseDate(dateRaw);if(!date)continue;
+      const entryTime=eET?eET.hm:null;
+      const exitTime=xET?xET.hm:null;
+      const durationMins=bET&&sET?Math.round(Math.abs(sET.ms-bET.ms)/60000):null;
       // P/L: use the CSV's P/L column directly (it's already gross P/L)
       const grossPnl=isNaN(plR)?0:+plR.toFixed(2);
       // Fees come from Cash History — use per-instrument default for now
@@ -4887,8 +5067,9 @@ function importCSV(text,label){
         if(sellFillId&&!existing.sellFillId)upd.sellFillId=sellFillId;
         if(positionId&&!existing.positionId)upd.positionId=positionId;
         if(pairId&&!existing.pairId)upd.pairId=pairId;
-        // Update direction if existing was wrong
-        if(existing.type!==dir){upd.type=dir;upd.entry=entry;upd.exit=exit;}
+        // Update direction if existing was wrong - which fill is the entry flips with it
+        if(existing.type!==dir){upd.type=dir;upd.entry=entry;upd.exit=exit;if(entryTime)upd.entryTime=entryTime;if(exitTime)upd.exitTime=exitTime;}
+        else{const dr=_impDrift(existing,entryTime,exitTime);if(dr)drift.push(dr);}
         if(Object.keys(upd).length>0)merges.push({id:existing.id,updates:upd,desc:Object.keys(upd).join(', ')});
         else skipped++;
         continue;
@@ -4898,10 +5079,14 @@ function importCSV(text,label){
         notes:'',chartUrl:'',durationMins,entryTime,exitTime,eqPct,
         source:label||'Position History',assetType:'futures',buyFillId,sellFillId,positionId,pairId,orderId:buyFillId||sellFillId||''});
     }
-    return{imported:batch.length,skipped,merged:merges.length,type:'position_history',batch,merges,feeUpdates:[],balRows:[]};
+    return{imported:batch.length,skipped,merged:merges.length,type:'position_history',batch,merges,feeUpdates:[],balRows:[],tzNote:Z,tzDrift:drift};
   }
 
-  const batch=[],merges=[];let skipped=0;
+  // Generic / other brokers - and the NinjaScript EdgeLogExport trades.csv, which logs in the PC's
+  // NinjaTrader display zone. Its times go through the same zone resolver as the NT exports.
+  const Zg=tzOf([[['boughttimestamp','bought timestamp','entrytime','entry time'],['buyfillid','buy fill id']],[['soldtimestamp','sold timestamp','exittime','exit time'],['sellfillid','sell fill id']]],4);
+  if(Zg.ask)return held(Zg);
+  const batch=[],merges=[],drift=[];let skipped=0;
   for(let i=1;i<lines.length;i++){
     const row=parseLine(lines[i]);if(row.length<4)continue;
     const rawSym=gc2(row,['symbol','instrument'])||'MES',base=getBase(rawSym);
@@ -4909,17 +5094,17 @@ function importCSV(text,label){
     const qty=parseInt(gc2(row,['qty','quantity','contracts','size','shares']))||1;
     const buyR=parseFloat(gc2(row,['buyprice','buy price'])),sellR=parseFloat(gc2(row,['sellprice','sell price']));
     const entR=parseFloat(gc2(row,['entryprice','entry price','avg entry','entry','open'])),extR=parseFloat(gc2(row,['exitprice','exit price','avg exit','exit','close']));
-    let entry,exit,dir;
+    // Both times read in the file's resolved zone (Zg) and turned into Eastern.
+    const aET=_impET(_impStamp(gc2(row,['boughttimestamp','bought timestamp','entrytime','entry time'])),Zg.tz);
+    const zET=_impET(_impStamp(gc2(row,['soldtimestamp','sold timestamp','exittime','exit time'])),Zg.tz);
+    let entry,exit,dir,eET=aET,xET=zET;
     if(!isNaN(buyR)&&!isNaN(sellR)&&buyR>0&&sellR>0){
       // NT8 BuyPrice/SellPrice DON'T indicate direction.
       // They just show what price the buy/sell sides filled at.
       // Must use timestamps to determine which came first (= entry direction)
-      const _btRaw=gc2(row,['boughttimestamp','bought timestamp','entrytime','entry time']);
-      const _stRaw=gc2(row,['soldtimestamp','sold timestamp','exittime','exit time']);
-      const _btDT=parseDT(_btRaw),_stDT=parseDT(_stRaw);
-      if(_btDT&&_stDT){
+      if(aET&&zET){
         // Bought before sold = LONG, sold before bought = SHORT
-        dir=_btDT<=_stDT?'LONG':'SHORT';
+        dir=aET.ms<=zET.ms?'LONG':'SHORT';
       } else {
         // No timestamps: cannot reliably determine from prices alone
         // Default LONG, will be corrected by Orders CSV if imported
@@ -4927,14 +5112,15 @@ function importCSV(text,label){
       }
       entry=dir==='LONG'?buyR:sellR;
       exit=dir==='LONG'?sellR:buyR;
+      // on a short the SOLD time is the entry (it used to be saved as the exit)
+      if(dir==='SHORT'){eET=zET;xET=aET;}
     }
     else if(!isNaN(entR)&&!isNaN(extR)&&entR>0&&extR>0){entry=entR;exit=extR;const ds=(gc2(row,['action','side','direction','type'])||'').toLowerCase();dir=ds.includes('buy')||ds.includes('long')?'LONG':'SHORT';}
     else continue;
     const dtR=gc2(row,['boughttimestamp','soldtimestamp','entrytime','entry time','entrydate','date','time']);
-    const date=parseDate(dtR);if(!date)continue;
-    const buyDT=parseDT(gc2(row,['boughttimestamp','entrytime','entry time'])),sellDT=parseDT(gc2(row,['soldtimestamp','exittime','exit time']));
-    const durationMins=buyDT&&sellDT?Math.round(Math.abs(sellDT-buyDT)/60000):null;
-    const entryTime=buyDT?buyDT.toTimeString().slice(0,5):null,exitTime=sellDT?sellDT.toTimeString().slice(0,5):null;
+    const date=(eET&&eET.date)||parseDate(dtR);if(!date)continue;
+    const durationMins=aET&&zET?Math.round(Math.abs(zET.ms-aET.ms)/60000):null;
+    const entryTime=eET?eET.hm:null,exitTime=xET?xET.hm:null;
     // Fee: use CSV commission column if present, else use per-instrument fee
     // Fee detection — try many NT8 column name variants
     const feeRaw=parseFloat(gc2(row,[
@@ -4954,6 +5140,7 @@ function importCSV(text,label){
       if(durationMins&&!existing.durationMins)upd.durationMins=durationMins;
       if(entryTime&&!existing.entryTime)upd.entryTime=entryTime;
       if(exitTime&&!existing.exitTime)upd.exitTime=exitTime;
+      const dr=_impDrift(existing,entryTime,exitTime);if(dr)drift.push(dr);
       if(orderId&&!existing.orderId)upd.orderId=orderId;
       // Fee override — if user manually set fee, require approval before changing
       if(!isNaN(feeRaw)&&feeRaw>0&&Math.abs((existing.fees||0)-feeRaw)>0.001){
@@ -4976,7 +5163,7 @@ function importCSV(text,label){
     const eqPct=accountEquity>0?+((Math.abs(calc.gross)/accountEquity)*100).toFixed(2):null;
 batch.push({date,symbol:sym,type:dir,entry:+entry.toFixed(4),exit:+exit.toFixed(4),size:qty,fees,...calc,setup:'—',grade:'—',timeframe:'—',notes:'',chartUrl:'',orderId,durationMins,entryTime,exitTime,source:label||'Import',assetType:isFut(sym)?'futures':'stock',eqPct});
   }
-  return{imported:batch.length,skipped,merged:merges.length,type,batch,merges,feeUpdates:[],balRows:[]};
+  return{imported:batch.length,skipped,merged:merges.length,type,batch,merges,feeUpdates:[],balRows:[],tzNote:Zg,tzDrift:drift};
 }
 
 // ── Order-independent fee buffer ──────────────────────────────────
@@ -4997,6 +5184,10 @@ async function applyPendingFees(extraTrades){
   return applied;
 }
 async function commitImport(r,skipApproval){
+  // A file whose time zone is still an open question saves NOTHING (see _impResolveZone).
+  if(r.tzAsk)return;
+  if(r.fillUTC)_impRememberFills(r.fillUTC);
+  if(r.tzNote&&['fills','chosen','hours'].includes(r.tzNote.how)&&(r.batch||[]).length+(r.merges||[]).length){try{localStorage.setItem('el_imp_tz_last',r.tzNote.tz);}catch(e){}}
   const addedIds=[];
   const _aid=localStorage.getItem('el_account_id')||'';
   const _brk=localStorage.getItem('el_broker_name')||'';
@@ -5082,7 +5273,7 @@ async function commitImport(r,skipApproval){
     });
     const feeDetails=(r.feeUpdates||[]).map(f=>({id:f.id,oldFee:f.trade?.fees||0,newFee:f.fees,symbol:f.trade?.symbol||'?',date:f.trade?.date||'?'}));
     const addedDetails=(r.batch||[]).map((t,idx)=>({id:addedIds[idx],symbol:t.symbol,date:t.date,type:t.type,entry:t.entry,exit:t.exit,size:t.size,pnl:t.pnl}));
-    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:(r.batch||[]).length,merged:(r.merges||[]).length,feeUpdates:(r.feeUpdates||[]).length,ledgerEvents:(r.ledgerEvents||[]).length,tradeIds:addedIds||[],mergeDetails,feeDetails,addedDetails};
+    const entry={ts:new Date().toISOString(),label:r.label||'Import',type:r.type,added:(r.batch||[]).length,merged:(r.merges||[]).length,feeUpdates:(r.feeUpdates||[]).length,ledgerEvents:(r.ledgerEvents||[]).length,tradeIds:addedIds||[],mergeDetails,feeDetails,addedDetails,tz:_impTzLine(r.tzNote)};
     uploadHistory.unshift(entry);if(uploadHistory.length>50)uploadHistory=uploadHistory.slice(0,50);
     localStorage.setItem('el_uploads',JSON.stringify(uploadHistory));
   }
@@ -5133,7 +5324,7 @@ function rejectAllChanges(){pendingMerges=[];document.getElementById('approval-m
 
 // Auto import
 async function startAutoImport(){if(!window.showOpenFilePicker){alert('Auto-import requires Chrome or Edge.');return;}try{const[h]=await window.showOpenFilePicker({types:[{description:'CSV',accept:{'text/csv':['.csv']}}]});autoHandle=h;runAutoImport();if(el('auto-status'))el('auto-status').style.display='flex';if(el('auto-start-btn'))el('auto-start-btn').style.display='none';if(el('auto-stop-btn'))el('auto-stop-btn').style.display='inline-block';}catch(e){if(e.name!=='AbortError')alert('Error: '+e.message);}}
-async function runAutoImport(){if(!autoHandle)return;try{const file=await autoHandle.getFile(),text=await file.text(),r=importCSV(text,'Auto-Import');if(r.batch.length>0||r.merges.length>0){await commitImport(r);if(el('auto-last'))el('auto-last').textContent='Synced '+new Date().toLocaleTimeString()+' · +'+r.imported+' new · '+r.merged+' merged';}else{if(el('auto-last'))el('auto-last').textContent='Checked '+new Date().toLocaleTimeString()+' · no changes';}}catch(e){console.error(e);}const secs=parseInt((el('auto-interval')||{value:60}).value)||60;autoTimer=setTimeout(runAutoImport,secs*1000);}
+async function runAutoImport(){if(!autoHandle)return;try{const file=await autoHandle.getFile(),text=await file.text(),r=importCSV(text,'Auto-Import',{tz:_impTzPref(),fillUTC:_impFillCache()});if(r.tzAsk){if(el('auto-last'))el('auto-last').textContent='Checked '+new Date().toLocaleTimeString()+' · paused: cannot tell which time zone this file uses. Pick one under EXPORT TIME ZONE in MANUAL IMPORT.';}else if(r.batch.length>0||r.merges.length>0){await commitImport(r);if(el('auto-last'))el('auto-last').textContent='Synced '+new Date().toLocaleTimeString()+' · +'+r.imported+' new · '+r.merged+' merged';}else{if(el('auto-last'))el('auto-last').textContent='Checked '+new Date().toLocaleTimeString()+' · no changes';}}catch(e){console.error(e);}const secs=parseInt((el('auto-interval')||{value:60}).value)||60;autoTimer=setTimeout(runAutoImport,secs*1000);}
 function stopAutoImport(){autoHandle=null;if(autoTimer){clearTimeout(autoTimer);autoTimer=null;}if(el('auto-status'))el('auto-status').style.display='none';if(el('auto-start-btn'))el('auto-start-btn').style.display='inline-block';if(el('auto-stop-btn'))el('auto-stop-btn').style.display='none';}
 
 // SVG Charts
@@ -13025,6 +13216,11 @@ function renderApp(){
             <div style="font-size:var(--fsxs);color:var(--text5);margin-top:8px;line-height:2">NT8 Position History · NT8 Cash History · Performance CSV · Fills · Stocks · Multiple files OK</div>
             <input type="file" id="csv-input" accept=".csv,.pdf" multiple style="display:none"/>
           </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px">
+            <label class="lbl" for="imp-tz" style="margin:0">EXPORT TIME ZONE</label>
+            <select id="imp-tz" style="width:auto">${[['auto','Auto'],..._IMP_ZONES.map(z=>[z.tz,z.nm])].map(([v,n])=>`<option value="${v}"${_impTzPref()===v?' selected':''}>${n}</option>`).join('')}</select>
+            <span style="font-size:var(--fsxs);color:var(--text5);line-height:1.6;flex:1;min-width:220px">Times are always saved in Eastern. NinjaTrader prints them in whatever zone your platform displays, with no label. Auto proves the zone from a Fills file dropped alongside, else from market hours, and asks when it cannot tell.</span>
+          </div>
           <div id="import-result" style="display:none;margin-top:9px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border2);font-size:var(--fsm);color:var(--text3)"></div>
         </div>
       </div>
@@ -13107,21 +13303,28 @@ namespace NinjaTrader.NinjaScript.Strategies {
         if(el('auto-start-btn'))el('auto-start-btn').onclick=startAutoImport;
         if(el('auto-stop-btn'))el('auto-stop-btn').onclick=stopAutoImport;
         const nst=el('ns-toggle2');if(nst)nst.onclick=e=>{e.preventDefault();const nsc=el('ns-code2');if(nsc)nsc.style.display=nsc.style.display==='none'?'block':'none';};
+        const tzSel=el('imp-tz');if(tzSel)tzSel.onchange=()=>{try{localStorage.setItem('el_imp_tz',tzSel.value);}catch(e){}};
         const dz=el('drop-zone'),ci=el('csv-input');if(!dz||!ci)return;
+        // TIME ZONES (2026-09-24). Every CSV in the drop is read once up front, so a NinjaTrader Fills
+        // export anywhere in it proves the zone of the Position History / Performance files beside it
+        // (they share fill ids, and Fills' _timestamp is absolute UTC). A file whose zone is still an
+        // open question is HELD - nothing from it is saved - until the owner answers with one click.
+        const isPdf=f=>f.name.toLowerCase().endsWith('.pdf')||f.type==='application/pdf';
+        const runOne=async(f,text,opts)=>{const r=isPdf(f)?await importPDF(f,opts):importCSV(text,f.name,opts);r.label=f.name;return r;};
+        const summary=(f,r)=>({name:f.name,type:r.type,imported:r.imported||0,skipped:r.skipped||0,merged:r.merged||0,merges:r.merges||[],feeUpdates:r.feeUpdates||[],balRows:r.balRows||[],tzNote:r.tzNote||null,tzDrift:r.tzDrift||[]});
         const handle=async files=>{
-          let tot=0,totS=0,totM=0,totF=0;const results=[];
+          const results=[],texts=new Map(),fillUTC=_impFillCache(),tzPick=_impTzPref(),lastTz=_impLastTz();
+          for(const f of files)if(!isPdf(f)){const t=await f.text();texts.set(f,t);const fu=_impFillsFromText(t);if(fu)Object.assign(fillUTC,fu);}
           for(const f of files){
             let r;
-            const isPDF=f.name.toLowerCase().endsWith('.pdf')||f.type==='application/pdf';
-            if(isPDF){
+            if(isPdf(f)){
               if(!window.pdfjsLib){
                 alert('PDF library not loaded. Refresh the page and try again.');
                 results.push({name:f.name,type:'error',imported:0,skipped:0,merged:0,merges:[],feeUpdates:[],balRows:[],error:'PDF library not loaded'});
                 continue;
               }
               try{
-                r=await importPDF(f);
-                r.label=f.name;
+                r=await runOne(f,null,{tz:tzPick,fillUTC});
               }catch(e){
                 console.error('PDF parse error',e);
                 alert('PDF parse failed for '+f.name+': '+(e.message||e));
@@ -13129,27 +13332,56 @@ namespace NinjaTrader.NinjaScript.Strategies {
                 continue;
               }
             } else {
-              const text=await f.text();
-              r=importCSV(text,f.name);
-              r.label=f.name;
+              r=await runOne(f,texts.get(f),{tz:tzPick,fillUTC});
             }
+            if(r.tzAsk){results.push({name:f.name,type:r.type,ask:r.tzAsk,file:f,text:texts.get(f)});continue;}
             await commitImport(r);
-            results.push({name:f.name,type:r.type,imported:r.imported||0,skipped:r.skipped||0,merged:r.merged||0,merges:r.merges||[],feeUpdates:r.feeUpdates||[],balRows:r.balRows||[]});
-            tot+=(r.imported||0);totS+=(r.skipped||0);totM+=(r.merged||0);totF+=(r.feeUpdates||[]).length;
+            results.push(summary(f,r));
           }
           const rd=el('import-result');
-          if(rd){rd.style.display='block';
-            rd.innerHTML=`<div style="color:var(--green);margin-bottom:9px">✅ IMPORT COMPLETE · ${tot} added · ${totM} merged${totF>0?' · '+totF+' fee updates':''}${totS>0?' · '+totS+' dupes':''}</div>`+
-              results.map(r=>{
-                const noChanges=!r.imported&&!r.merged&&!(r.feeUpdates||[]).length&&!(r.balRows||[]).length;
+          const askHtml=(a,i)=>{
+            const best=a.rank&&a.rank[0],mine=a.rank&&a.rank.find(x=>x.tz===a.pick);
+            const sug=lastTz&&best&&a.rank.some(x=>x.tz===lastTz&&x.n===best.n)?lastTz:(best?best.tz:'');
+            const why=a.why==='contradicts'?`You picked ${_impZoneName(a.pick)}, but read that way only ${mine?mine.n:0} of its ${a.n} times fall in market hours, against ${best.n} read as ${_impZoneName(best.tz)}.`
+              :a.why==='fills'?'Its times do not line up with your Fills export in any single time zone.'
+              :'Its times carry no time zone, and more than one zone puts them inside market hours.';
+            return `<div style="margin-top:4px;padding:7px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ Nothing was saved from this file yet. ${why} Which time zone was it exported in?
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_IMP_ZONES.map(z=>`<button class="btn-ghost" data-imp-ask="${i}" data-tz="${z.tz}" style="padding:3px 10px;border:1px solid ${z.tz===sug?'var(--green)':'var(--border2)'};color:${z.tz===sug?'var(--green)':'var(--text3)'};border-radius:6px">${z.nm}</button>`).join('')}</div>
+              <div style="color:var(--text5);margin-top:5px">Tip: drop the Fills export together with it and the zone is proven for you.</div></div>`;
+          };
+          const driftHtml=d=>d.length?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow);line-height:1.7">⚠ ${d.length} trade${d.length===1?' is':'s are'} already in your journal with times a whole number of hours away from this file, so ${d.length===1?'it was':'they were'} probably saved in the wrong time zone. Nothing was changed. Fix them in each trade's edit window.<br>${d.slice(0,8).map(x=>`${x.date} ${x.symbol}: saved ${x.saved}, this file says ${x.file} Eastern (${x.hours>0?'+':''}${x.hours}h)`).join('<br>')}${d.length>8?'<br>… and '+(d.length-8)+' more':''}</div>`:'';
+          const paint=()=>{
+            if(!rd)return;
+            let tot=0,totS=0,totM=0,totF=0;const held=results.filter(r=>r.ask).length;
+            results.forEach(r=>{if(r.ask)return;tot+=r.imported||0;totS+=r.skipped||0;totM+=r.merged||0;totF+=(r.feeUpdates||[]).length;});
+            rd.style.display='block';
+            rd.innerHTML=`<div style="color:${held?'var(--yellow)':'var(--green)'};margin-bottom:9px">${held?'⚠':'✅'} IMPORT ${held?'WAITING ON '+held+' FILE'+(held===1?'':'S'):'COMPLETE'} · ${tot} added · ${totM} merged${totF>0?' · '+totF+' fee updates':''}${totS>0?' · '+totS+' dupes':''}</div>`+
+              results.map((r,i)=>{
+                if(r.ask)return`<div style="border-top:1px solid var(--border);padding:6px 0"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span><span style="color:var(--yellow)">⏸ held</span></div>${askHtml(r.ask,i)}</div>`;
+                const tzl=_impTzLine(r.tzNote,lastTz);
+                const noChanges=!r.imported&&!r.merged&&!(r.feeUpdates||[]).length&&!(r.balRows||[]).length&&r.type!=='fills';
                 const md=(r.merges||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--text4)">📝 Updated: ${[...new Set(r.merges.flatMap(m=>(m.desc||'').split(', ')))].filter(Boolean).join(', ')||'(misc)'}</div>`:'';
                 const fd2=(r.feeUpdates||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--yellow)">💰 Updated fees on ${r.feeUpdates.length} trade(s)</div>`:'';
                 const bd=(r.balRows||[]).length?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--blue)">📈 ${r.balRows.length} balance entries added to chart</div>`:'';
+                const tzd=tzl?`<div style="margin-top:4px;padding:5px 10px;background:var(--bg2);font-size:var(--fsxs);color:var(--text4)">🕒 ${tzl}</div>`:'';
                 const nc=noChanges?`<div style="margin-top:4px;padding:5px 10px;background:color-mix(in srgb,var(--yellow) 10%,transparent);font-size:var(--fsxs);color:var(--yellow)">⚠ No changes — file recognized as <b>${r.type}</b> but ${r.type==='cash'?'no fees or deposits matched existing trades':r.type==='orders'?'no orders matched existing trades by symbol+date':r.type==='balance_history'?'balance rows added to chart only (no trade changes expected)':'all data was duplicates or did not match'}.<br>Try importing Position History first, then this file.</div>`:'';
-                return`<div style="border-top:1px solid var(--border);padding:6px 0"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span>${r.imported?`<span style="color:var(--green)">+${r.imported} new</span>`:''}${r.merged?`<span style="color:var(--yellow)">~${r.merged} merged</span>`:''}${r.skipped?`<span style="color:var(--text5)">${r.skipped} dupe</span>`:''}${noChanges?`<span style="color:var(--yellow)">⚠ no changes</span>`:''}</div>${md}${fd2}${bd}${nc}</div>`;
+                return`<div style="border-top:1px solid var(--border);padding:6px 0"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center"><span style="color:var(--text3)">${r.name}</span><span class="tag">${r.type}</span>${r.imported?`<span style="color:var(--green)">+${r.imported} new</span>`:''}${r.merged?`<span style="color:var(--yellow)">~${r.merged} merged</span>`:''}${r.skipped?`<span style="color:var(--text5)">${r.skipped} dupe</span>`:''}${noChanges?`<span style="color:var(--yellow)">⚠ no changes</span>`:''}</div>${tzd}${md}${fd2}${bd}${driftHtml(r.tzDrift||[])}${nc}</div>`;
               }).join('');
-          }
-          if(tot>0)setTimeout(()=>{window._dataSubTab='history';renderApp();},1800);
+            // Answering a held file's question imports it with that zone.
+            rd.querySelectorAll('[data-imp-ask]').forEach(b=>{b.onclick=async()=>{
+              const i=+b.getAttribute('data-imp-ask'),h=results[i];if(!h||!h.ask||h.busy)return;h.busy=true;
+              try{
+                const r=await runOne(h.file,h.text,{tz:b.getAttribute('data-tz'),force:true,fillUTC});
+                if(r.tzAsk){h.busy=false;return;}
+                await commitImport(r);
+                results[i]=summary(h.file,r);paint();
+              }catch(e){h.busy=false;alert('Import failed for '+h.name+': '+(e.message||e));}
+            };});
+            return{tot,held,drift:results.some(r=>(r.tzDrift||[]).length)};
+          };
+          const s=paint();
+          // Jump to the history tab only when nothing here still needs reading or answering.
+          if(s&&s.tot>0&&!s.held&&!s.drift)setTimeout(()=>{window._dataSubTab='history';renderApp();},1800);
         };
         dz.onclick=()=>ci.click();dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag');};dz.ondragleave=()=>dz.classList.remove('drag');
         dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');handle([...e.dataTransfer.files]);};
@@ -13215,6 +13447,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
               </tr>
               ${window._expHist===i?`<tr style="background:var(--bg3)">
                 <td colspan="7" style="padding:14px 18px;border-bottom:1px solid var(--border)">
+                  ${u.tz?`<div style="margin-bottom:12px;font-size:var(--fsxs);color:var(--text4)">🕒 ${u.tz}</div>`:''}
                   ${u.addedDetails&&u.addedDetails.length?`<div style="margin-bottom:14px">
                     <div style="color:var(--green);letter-spacing:1px;margin-bottom:6px;font-size:var(--fsxs)">＋ TRADES ADDED (${u.addedDetails.length})</div>
                     <table style="width:100%;font-size:var(--fsxs)"><thead><tr style="color:var(--text5)"><th style="text-align:left;padding:3px 6px">DATE</th><th style="text-align:left">SYM</th><th>DIR</th><th>SIZE</th><th>ENTRY</th><th>EXIT</th><th style="text-align:right">P&L</th></tr></thead><tbody>
