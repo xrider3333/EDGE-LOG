@@ -29,6 +29,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 1.8 | Does the shortlist itself beat the searched field | `docs/candidates/CANDIDATE_BOARD.md` · run #360 | Yes on one run: finalists +$6,224 mean vs −$930 for the field, per-trade p=0.039 — direction consistent on all four measures, still one run |
 | 1.9 | Carry the finalists as a basket instead of crowning one | `docs/candidates/POOL_VS_CROWN.md` | **RETRACTED my own advice.** A 1/N basket's net IS the average finalist's net by arithmetic; its 11.8% shallower drawdown is what averaging near-copies predicts (finalist profits correlate +0.79). Pool across FAMILIES, never within one shortlist |
 | 1.10 | Per-knob audit: which knobs to freeze, which ranges to widen | `docs/candidates/KNOB_AUDIT.md` | 8 to freeze (3 of them never actually varied, flagged), 6 ranges to widen; the strongest is a threshold sitting on its ceiling in 92% of runs — **reported, not yet applied to any strategy file** |
+| 1.13 | Search-adjusted p-value for the crown (item 3) | `RESEARCH.md` §3e · `docs/candidates/REALITY_CHECK.md` | Ran on 28 runs now that per-fold rows are saved: 25 clear p<0.05 — but the finalists are near-copies, so the multiplicity penalty is weak by construction and this does NOT answer "did the search find something". Item 1 still open |
 | 1.12 | Is the overfit-probability number stable enough to gate on | `RESEARCH.md` §3d · `tools/pbo_probe.py` | **No.** Same strategy, same months, only redrawing which 24 near-equal configs go in moves it 0.159–0.913 (median 0.524, 58% above the 0.5 refusal line); shortening the months alone moved it 0.32. The NOISE spike that looked like a cost of the longer lockbox is inside that spread — **new item 14: report a band, stop gating on one draw** |
 | 1.11 | Is a bigger tuning budget better | `RESEARCH.md` §3a · runs #383 vs #384 | 900 configurations beat 200 on every measure that matters — **SETTLED, the budget stays at 900** |
 
@@ -55,6 +56,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 3.2 | `tools/feature_board.py`, `tools/exit_autopsy.py` | `docs/FEATURE_BOARD.md`, `docs/EXIT_AUTOPSY.md` | 2.2, 2.3 |
 | 3.3 | `tools/leg_scan_ideas.py`, `tools/event_size_scan.py` | `docs/anatomy/LEG_SCAN_IDEAS.md`, `EVENT_SIZE_SCAN.md` | 2.5, 2.6 |
 | 3.4 | `tools/candidate_board.py`, `tools/knob_audit.py`, `tools/pool_vs_crown.py` | `docs/candidates/` | 1.7–1.10 |
+| 3.10 | `tools/pbo_probe.py`, `tools/reality_check.py` | the overfit-probability sensitivity test and `docs/candidates/REALITY_CHECK.md` | 1.12, 1.13 |
 | 3.5 | `tools/wf_coldstart_audit.py` | the 2026-09-15 cold-start measurement | 1.4 |
 | 3.6 | `tools/warm_start_parity.py` | engine-vs-audit parity per fold | 1.4 |
 | 3.7 | `tools/queue_lockbox_36mo.py` | the six paired lockbox-length runs | 1.5 |

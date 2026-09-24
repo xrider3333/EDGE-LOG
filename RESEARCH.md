@@ -62,7 +62,7 @@ section. Data and scripts: see §5.
 |---|---|---|---|---|
 | 1 | Count trials per FAMILY (search + per-fold candidates + rounds ever run) and apply the luck-adjusted bar to crowns; show it beside the existing within-run check | §2.7; Harvey & Liu (2015), Bailey & López de Prado (2014) | Moderate: registry fields + board chip | OPEN |
 | 2 | Purge straddling trades at every cut (assign by exit, or drop from the training score) | §2.8; López de Prado (2018) purging/embargo | Small engine change | OPEN |
-| 3 | Search-adjusted p-value for the crown pick (Reality-Check-style bootstrap over the 10 finalists) | §2.1, §2.3; White (2000), Hansen (2005) | Script only, but the DATA IS NOT THERE YET: per-fold candidate rows are only recorded on validates run since 2026-09-09 (none of the 293 cached run docs carry them, and the 351-run extract in §5 has no validate block). Either wait for new runs or rebuild from the deep-dive matrices | BLOCKED on data |
+| 3 | Search-adjusted p-value for the crown pick (Reality-Check-style bootstrap over the 10 finalists) | §2.1, §2.3; White (2000), Hansen (2005) | Script only, but the DATA IS NOT THERE YET: per-fold candidate rows are only recorded on validates run since 2026-09-09 (none of the 293 cached run docs carry them, and the 351-run extract in §5 has no validate block). Either wait for new runs or rebuild from the deep-dive matrices | **RAN 2026-09-24** — `docs/candidates/REALITY_CHECK.md`; read §3e first |
 | 4 | "Months until trustworthy" per crown (minimum track-record length) + a lockbox **looks counter** per run/family | §2.4; Bailey & López de Prado (2012), Dwork et al. (2015) | Small: compute from saved fields, two pills | OPEN |
 | 5 | Lockbox **36 months for everything**, warm-started, one look, veto only (supersedes the 24 / 36-for-slow-legs split proposed in the second dive) | §2.4, §2.6; and the second dive's own note that 36 for everything is defensible because the tuning cost is zero | Engine parameter + re-judging | **ON HOLD 2026-09-23** — item 9 ran and the evidence is AGAINST a blanket 36; see 3c |
 | 6 | Pass rule = sealed PF within a margin (~0.15) of the re-tuned walk-forward PF + trade floor (~60 trades / 24 mo) + the luck bar | §2.2, §2.4 | Small (verdict + web pill) | OPEN |
@@ -217,6 +217,28 @@ and the test established neither benefit nor cost.
 and stop gating on it at a hard 0.5. Report it with the band a resample produces, and treat the check
 as informative only until the band is narrow enough to act on. Cheap: the resampling already exists
 in `tools/pbo_probe.py`.
+
+---
+
+## 3e. Item 3 ran, and it is weaker than it looks (2026-09-24)
+
+`tools/reality_check.py` -> `docs/candidates/REALITY_CHECK.md`. White's Reality Check over each
+run's finalists and their walk-forward folds: resample the folds, re-centre every config on its own
+mean so the null holds, and ask how often the best of them beats the observed best.
+
+**Result: 25 of 28 runs clear p < 0.05, median p 0.001; widening the candidate set to the sampled
+cloud (up to 40 configs) barely moves it (23 of 27).** Do NOT read that as "the crowns are real".
+
+**Why it is weak here.** The finalists trade the same tape with near-identical settings, so their
+fold results are highly correlated, and a multiplicity adjustment over correlated candidates is
+small by construction. The test therefore collapses towards asking whether the best finalist's mean
+fold result is large next to fold-to-fold noise - which it usually is. It adjusts for ten (or forty)
+when the search looked at nine hundred, and not at all for how many rounds a family has already had.
+
+**So item 3 is answered but does not close the question item 1 asks.** Counting trials per FAMILY is
+still the test that matters, and it is still open. The one genuinely useful column is the p for runs
+that FAILED on other grounds: the two ORB arms (0.07 and 0.02) and three of the five daily dip runs
+sit far weaker than the NOISE and ENGU-Q runs, which is at least consistent with their verdicts.
 
 ---
 
