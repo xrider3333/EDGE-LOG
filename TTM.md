@@ -24,6 +24,14 @@
 >   **BOOK #371**: MAR ×1.0798 on a ×1.05 bar, lockbox +7.5%, **lockbox drawdown identical**, 8/8
 >   slices. Three swaps in one day, each on a complete evidence chain.
 > - `TTM_299_SS`, `TTM_299_T` and `TTM_299` all keep running beside it as matched controls.
+> - **2026-09-24:** three more forward-only legs - `TTM_299_SSO` (#368 alone), `TTM_299_SSF2` (#364 alone),
+>   completing a two-by-two with `_SS` and `_SSOF2`, and `TTM_299_SSL` (#352, 41 trades a year) for
+>   evidence speed. The family fired ONE forward trade in its first ten sessions (-$143 a contract, -$68
+>   on the combined leg) - the backtest rate, and the reason a forward verdict is years away.
+> - **Rounds 16-17 (2026-09-24): six hunts, six negatives, and two warnings.** The hourly verification is
+>   a one-value spike (90 minutes keeps 31% of the MAR; every other frame falls below the ungated floor),
+>   and only the structural stop transfers to NQ - both tilts and the later fade reverse there. Do not raise
+>   the book weight on this family until forward trades exist.
 
 ---
 
@@ -67,6 +75,8 @@ paper legs (see `KEEL.md` / memory `edgelog-keel-overlay`).
 | 10 | How many contracts? | Crowned nothing — and found the book drawdown clause is inert here | `ttmsqz10`, rows 1457–1468 |
 | 11 | Can the tilted leg be traded in whole contracts? Cost stress | 3→4 keeps 98.5% of it; leg survives 3x house cost | `ttmsqz11`, rows 1470–1484 |
 | 12 | Five parallel hunts for a new version of the squeeze | Four dead, one lead (the structural stop), one look-ahead bug caught | `ttmsqz12`, rows 1584–1599 |
+| 16 | Fade count, size ladder, verification frame, direction | All four at their peak already; the hourly frame is a SPIKE, not a plateau | `ttmsqz16`, rows 1745–1751 |
+| 17 | The whole stack on NQ, unchanged; the 90/150-minute frames | Does not transfer (1 of 4 steps); 90 minutes collapses like 120 | `ttmsqz16`, rows 1745–1751 |
 
 ## Validated runs
 
