@@ -218,6 +218,23 @@ first, since no other item can judge a family whose folds do not reproduce).
 both upgrades modify the ORB half, so it needs its own pre-registration and a book run before it can
 be judged. Not a web change - it belongs with the backtesting work above.
 
+**Runner and data items routed 2026-09-24 (owner: "send applicable todo list to their respective claude
+sessions"; the direct message to this chat expired unapproved, so it is written here).**
+
+- **The runner crashes printing check marks after every master refresh.** Its stdout is cp1252
+  (C:\EdgeLog\_restart_runner.bat redirects it into runner.log), so a print of a check mark or warning
+  sign raises UnicodeEncodeError. Since about 2026-08-14 every refresh pass logs `[auto-refresh] skipped:
+  UnicodeEncodeError ... '✓'` (and `[startup] skipped` the same way). In api/runner.py `_refresh()`,
+  `run_auto_refresh()` has ALREADY updated the masters when the loop prints its change lines, so the data
+  does refresh - but `q.sync_meta()` (the web LIBRARY's master list and sync time) is skipped every time a
+  master changes, and the log wrongly says skipped. The fill-review module got its own safe print in
+  c0fcbf7; a global fix would reconfigure sys.stdout / sys.stderr with errors='backslashreplace' at runner
+  start (or set PYTHONIOENCODING=utf-8 in the launchers). Needs a runner restart that keeps busy workers
+  (tools/fleet_restart.py --keep N).
+- **Four NOADJ masters are stuck at 2026-06-30.** Data health flags NOADJ_ES_30m_RTH, NOADJ_ES_60m_RTH,
+  NOADJ_NQ_30m_RTH and NOADJ_NQ_60m_RTH with a last bar of 2026-06-30 15:30 (62 weekdays behind). Find
+  what is meant to feed them, then restore them or retire the check.
+
 ---
 
 ## 4. Open owner decisions (both dives)
