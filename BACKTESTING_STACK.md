@@ -1277,6 +1277,73 @@ yes, on this evidence it is the best overlay available for them and there is no 
 close. Everywhere else in the family: forward test only, because the out-of-sample runs buy their
 extra money with materially more drawdown. That split is the finding, not a hedge.
 
+**CORRECTION 2026-09-24 - the #304 walk-forward read above was flattered by where the stretch ends.**
+NOISE round 60 (`tools/r60_noise_keel_base_shootout.py`) read #304 + KEEL at walk-forward return per
+drawdown 2.20 against 2.16 raw, where the table above says 3.46 against 2.13. Both are arithmetically
+right - the raw legs agree to the dollar. The whole gap is ONE KEEL drawdown that peaks before
+2025-02-11 and bottoms on 2025-06-23: this table's walk-forward ends at 2025-02-11 and cuts it in half,
+round 60's ends at 2025-07-16 and holds all of it. `tools/keel_boundary_check.py` reads each leg over one
+continuous stretch, 2016-05 to the end of the tape, so no boundary can decide it:
+
+| leg | raw | KEEL | KEEL vs raw | money | drawdown |
+|---|---|---|---|---|---|
+| #304 crown | 1.59 | 2.32 | x1.47 | +61% | +10% |
+| #243 paper leg | 1.61 | 3.07 | x1.91 | +71% | -10% |
+
+On both, KEEL's drawdown is below what flat leverage at its own mean size would give (x0.89 and x0.70),
+so the extra size is placed, not just added. **The verdict stands, at a smaller size on #304:** x1.47,
+not the x1.63 above, and bought with 10% more drawdown rather than flat. Round 60's second point also
+stands and is not answered here: its lockbox (from 2025-07-16) sits inside the months KEEL's tilts were
+designed on, so every lockbox read of v9-v12 is partly in-sample, this table's included. The walk-forward
+is the honest number for KEEL, and on #304 it depends on the boundary; the continuous read above is the
+fairest single figure available until forward data accrues.
+
+### The guard's concentration check was measuring sample size (2026-09-24)
+
+On 2026-09-09 the #243 compression-inside-v12 case failed on the concentration check (C4) alone,
+and that check was flagged as a decision to settle on its own evidence, not while rescuing a result.
+This is that evidence. `tools/c4_calibration.py` asks what C4 says about RANDOM, untagged buckets of
+the same size drawn from the same leg's own trades - the null it never had.
+
+| bucket size | random buckets the old rule fails | median share of NET from the top trade | 95th pct share of GROSS |
+|---|---|---|---|
+| 10 | 79% | 88% | 56% |
+| 20 | 73% | 79% | 38% |
+| 50 | 62% | 64% | 22% |
+| 100 | 52% | 53% | 13% |
+| 400 | 21% | 28% | 4% |
+
+Averaged over NOISE #243, #304 and ORB #314, every stretch. **The old rule - one trade over 50% of
+the lockbox bucket - fails about three random 20-trade buckets in four.** It was a sample-size
+detector. The cause is the denominator: a bucket's NET is its gross winnings minus its gross losses,
+so on a leg at profit factor 1.2 it is about a sixth of the money that moved and the ratio explodes
+on small buckets. Its 95th percentile runs to 650-780%, so no percentile of it is usable either.
+
+**The replacement asks the same question of the bucket's GROSS** - what share of all the money that
+moved did the biggest single trade move - which is bounded and tight, and judges it against the
+leg's own same-size null at the 5% line C2 and C3 already use. Scope is unchanged (the lockbox
+decides; the walk-forward is reported). The synthetic one-monster case still fails, now far more
+clearly: 99% of gross against a chance ceiling of 31%, where the old statistic read 100% of net and
+37% of random buckets read higher. Two new tests pin both halves: the monster is caught, and random
+20-trade tags on a fat-tailed leg trip C4 at roughly its 5% rate (the old rule is also measured in
+the same test, still firing on most of them).
+
+**Every decided case re-run** (`tools/c4_rejudge.py`, the regression harness these decisions never
+had). Eight of ten reproduce. Two move, and neither changes anything live:
+
+| case | old | new | why it does not change a decision |
+|---|---|---|---|
+| NOISE #243 compression inside v12 | FAIL (C4 only) | PASS | top trade 54% of net, but 62% of random same-size buckets are MORE concentrated; 13% of gross vs a 26% ceiling. v12 already carries this tilt |
+| NOISE #304 Friday 1.5x | FAIL | PASS (single call) | Friday was rejected on the five-weekday comparison - every weekday makes money at 1.5x, and Friday was picked from five. It still fails on #243 (lockbox drawdown +11%), and on #304 its lockbox drawdown sits exactly on the 10% line |
+
+The v12 adoption is unaffected on both runs. The C4 numbers also show what the old statistic
+printed on small buckets: ORB's four-trade FOMC lockbox bucket read "2,401% of net".
+
+**One open conflict, logged rather than settled.** NOISE round 60 (`docs/PREREG_earnings_2026-09-24.md`)
+was pre-registered this morning against the OLD C4. `guard(..., c4="net50")` restores that rule
+exactly so the round can be judged on the bar it wrote down; a message to that session expired
+unread, so this line is the notice.
+
 ### Key finding: gates barely help ORB
 - **ORB 3.0 (strong):** never needed a gate — passes clean ungated.
 - **ORB 1.0 (weak) on 6yr / 4.5yr:** no gate earned its keep.

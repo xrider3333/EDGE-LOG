@@ -66,7 +66,8 @@ def _years(ts, m):
 
 
 def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, window=None,
-          permute="days", label="candidate", perm=2000, seed=20260909, cap=3.0, dd_tol=0.10, min_trades=25):
+          permute="days", label="candidate", perm=2000, seed=20260909, cap=3.0, dd_tol=0.10, min_trades=25,
+          c4="gross"):
     """pnl: per-trade dollars (unsized). ts: DatetimeIndex of entries. base: the sizing the
     candidate sits on top of. mask: where the tilt applies. mult: its multiplier.
     wf / lb: boolean stretch masks. subgroup: the set the base already tilts (e.g. Fridays).
@@ -178,16 +179,60 @@ def guard(pnl, ts, base, mask, mult, wf, lb, subgroup=None, placebo_mask=None, w
                            f"({'not special at all' if nm == 'any day' else 'not special within the subgroup the base already tilts'})")
 
     # ---- C4 concentration ----------------------------------------------------------------
+    # Until 2026-09-24 this failed a candidate when one trade was more than 50% of its LOCKBOX
+    # bucket's NET. tools/c4_calibration.py measured that line against the only null it never
+    # had - random UNTAGGED buckets of the same size drawn from the leg's own trades in the
+    # same stretch - and it fails 73% of them at n=20 and still 52% at n=100. The median
+    # random 20-trade bucket has a top-1 share of 79% of net. It was a sample-size detector,
+    # not a concentration detector, because the denominator is NET: a profit-factor-1.2 leg
+    # turns six dollars of gross into one of net, so the ratio blows up on exactly the small
+    # buckets every lockbox has. Its p95 across legs runs to 650-780%, so no percentile of it
+    # is usable either - the statistic itself is the problem.
+    #
+    # What replaces it asks the same question of the bucket's GROSS: what share of all the
+    # money that moved did the single biggest trade move? That is bounded in [0, 100] and its
+    # null is tight and scales with n (p95 38% at n=20, 13% at n=100), so it is judged the way
+    # C2 and C3 judge theirs - against the leg's own same-size null, at the same 5% line.
+    # SCOPE IS UNCHANGED ON PURPOSE: the lockbox still decides, the walk-forward is reported.
+    # c4="net50" restores the old rule exactly, for tests pre-registered before this change.
+    # The old net-share is still printed beside how often chance beats it, because it is
+    # informative once you can see what chance does with it.
+    _rng4 = np.random.default_rng(20260924)
     for nm, m in stages:
         p = (pnl * base)[mask & m]
         if len(p) < 3 or abs(p.sum()) < 1e-9:
             L.append(f"  C4 concentration {nm:13s} n={len(p)} - too few to judge"); continue
         srt = np.sort(p)[::-1] if p.sum() > 0 else np.sort(p)
-        top1 = 100 * srt[0] / p.sum(); top3 = 100 * srt[:3].sum() / p.sum()
-        L.append(f"  C4 concentration {nm:13s} n={len(p):4d} total ${p.sum():+,.0f}  top trade {top1:.0f}%"
-                 f"  top 3 {top3:.0f}%  median ${np.median(p):+,.0f}")
-        if top1 > 50 and nm == "lockbox":
-            ok = False; reasons.append(f"one trade is {top1:.0f}% of the lockbox bucket (C4)")
+        top1 = 100 * srt[0] / p.sum()
+        gro = float(np.abs(p).sum())
+        obs = 100 * float(np.abs(p).max()) / gro if gro > 1e-9 else float("nan")
+        uni = (pnl * base)[m]
+        p95 = chance = float("nan")
+        if len(uni) > len(p) + 1:
+            dn, dg = [], []
+            for _ in range(1000):
+                q = _rng4.choice(uni, size=len(p), replace=False)
+                qs, qg = float(q.sum()), float(np.abs(q).sum())
+                if abs(qs) > 1e-9:
+                    dn.append(100 * (np.sort(q)[::-1] if qs > 0 else np.sort(q))[0] / qs)
+                if qg > 1e-9:
+                    dg.append(100 * float(np.abs(q).max()) / qg)
+            if dn:
+                chance = 100 * float(np.mean(np.asarray(dn) >= top1))
+            if dg:
+                p95 = float(np.percentile(dg, 95))
+        L.append(f"  C4 concentration {nm:13s} n={len(p):4d} total ${p.sum():+,.0f}  "
+                 f"top trade {top1:.0f}% of net ({chance:.0f}% of random same-size buckets "
+                 f"are worse), {obs:.0f}% of gross vs a chance ceiling of {p95:.0f}%")
+        if c4 == "net50":
+            # the pre-2026-09-24 rule, kept ONLY so a test pre-registered under it (NOISE round 60,
+            # docs/PREREG_earnings_2026-09-24.md) can be judged on the bar it was written against
+            if top1 > 50 and nm == "lockbox":
+                ok = False; reasons.append(f"one trade is {top1:.0f}% of the lockbox bucket (C4, old net rule)")
+        elif nm == "lockbox" and np.isfinite(p95) and obs > p95:
+            ok = False
+            reasons.append(f"one trade moved {obs:.0f}% of the lockbox bucket's money, past the "
+                           f"{p95:.0f}% only 5% of random same-size buckets reach (C4)")
 
     # ---- C5 placebo ----------------------------------------------------------------------
     if placebo_mask is not None:
