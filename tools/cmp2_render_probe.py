@@ -96,7 +96,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 133
+N_CASES = 137
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -4306,6 +4306,199 @@ var FIX = __FIX__;
           'the same hover on WALK-FORWARD does not carry the veto wording':!res.wfHasVeto
         },res);
       })();
+
+      // -- i1 (F25, audit3_report.md, 2026-09-24): RUNBOARD grid, WINDOW row on IS and LB now
+      //    reads THIS STAGE'S OWN stretch (dates + years, the same _rbYrs the MAR / TRADES-per-
+      //    YR rows beside it divide by), instead of the whole run's span next to figures measured
+      //    over a fraction of it. Three run shapes, rendered through the board hosted in COMPARE
+      //    (the one the owner uses): a plain run (IS = 75% of the tuning window from its own
+      //    start, LB = the saved lockbox dates), a BOOK (IS = book start to its own lockbox door,
+      //    LB = that door to book end - exact dates, no reconstruction), and a LEGACY run with no
+      //    windows/lockbox saved at all (LB dashes honestly with a reason instead of showing the
+      //    whole run under the LB caption). FULL and WF are unchanged, checked here to prove it.
+      //    Every figure below is hand-computed from the seeded dates (_yrsBetween's own linear
+      //    ms/365.25-day formula: 2010-06-07..2020-06-07 is 10.0y, x0.75 IS-split = 7.5y,
+      //    reconstructed via the SAME t0+y*365.25*864e5 arithmetic _rbStageRange itself uses ->
+      //    2017-12-06; 2025-06-30..2026-06-30 = 1.0y exactly, no reconstruction on LB;
+      //    2010-06-07..2024-06-07 = 14.0y and 2024-06-07..2026-06-30 = 2.1y for the book, both
+      //    exact, no reconstruction at all) and was checked against a real render before being
+      //    written here, so a wrong number fails, not just a missing row.
+      (function(){
+        var RID=String(+FIX.id+620101), BID=String(+FIX.id+620102), LID=String(+FIX.id+620103);
+        var R=JSON.parse(JSON.stringify(FIX));
+        R.id=RID;R.strategy='ZF25WIN_1_0.py';R.starred=false;R.multiplier=1;
+        R.date_from='2010-06-07';R.date_to='2026-06-30';
+        R.best_pnl_usd=50000;R.best_dd_usd=5000;R.best_pf=1.2;R.best_trades=300;
+        R.validate={verdict:'PASS',total_dd:-5000,total_win_rate:45,total_avg_win:600,total_avg_loss:-400,
+          lockbox:{pnl:8000,pf:1.2,trades:40,pass:true},
+          windows:{optimize:['2010-06-07','2020-06-07'],lockbox:['2025-06-30','2026-06-30']}};
+        var BK=JSON.parse(JSON.stringify(FIX));
+        BK.id=BID;BK.strategy='BOOK: F25 PROBE';BK.starred=false;BK.multiplier=1;
+        BK.date_from='2010-06-07';BK.date_to='2026-06-30';
+        BK.book={name:'F25 PROBE',legs:[{strategy:'AAA_1_0.py',weight:1},{strategy:'BBB_1_0.py',weight:1}],
+          whole:{total_pnl:40000,max_drawdown:6000,num_trades:400,profit_factor:1.3},
+          pre_lockbox:{total_pnl:30000,max_drawdown:6000,num_trades:300},
+          lockbox:{total_pnl:10000,num_trades:100,win_rate:44,profit_factor:1.25,max_drawdown:4000},
+          lockbox_from:'2024-06-07',date_from:'2010-06-07',date_to:'2026-06-30'};
+        BK.validate={verdict:'PASS',lockbox:{pnl:10000,pf:1.25,trades:100,pass:true},book:true};
+        var L=JSON.parse(JSON.stringify(FIX));
+        L.id=LID;L.strategy='ZF25LEGACY_1_0.py';L.starred=false;L.multiplier=1;
+        L.date_from='2010-06-07';L.date_to='2026-06-30';
+        L.best_pnl_usd=20000;L.best_dd_usd=4000;L.best_pf=1.1;L.best_trades=150;
+        L.validate={verdict:'PASS',total_dd:-4000};   // no windows, no lockbox saved at all
+        var wc="var R="+JSON.stringify(R)+";var B="+JSON.stringify(BK)+";var L="+JSON.stringify(L)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(R),f(B),f(L)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();";
+        function rowsOf(){var o={};
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(tr){
+            var c=tr.children;if(c.length<2)return;
+            var lab=(c[0].textContent||'').trim();if(!lab)return;
+            o[lab]=[].slice.call(c,1).map(function(td){return (td.textContent||'').trim();});});
+          return o;}
+        function titleFor(lab,substr){var found=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(tr){
+            var c=tr.children;if(c.length<2)return;
+            if((c[0].textContent||'').trim()!==lab)return;
+            [].forEach.call(c,function(td){if(found)return;
+              var t=(td.textContent||'').trim();if(t.indexOf(substr)<0)return;
+              var h=td.querySelector('[title]');found=h?h.getAttribute('title'):(td.getAttribute('title')||'');});});
+          return found;}
+        var calls=[],per={},titles={};
+        ['is','lb','full','wf'].forEach(function(smp){
+          calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:smp,cmpIds:[RID,BID,LID]}, wc));
+          per[smp]=rowsOf();
+          // read the dash's own hover WHILE this stage's render is still on screen - titleFor
+          //   reads the live DOM, so it must run inside this loop, not after it has moved on.
+          titles[smp]=titleFor('WINDOW','—');
+        });
+        var isTxt=(per.is['WINDOW']||[]).join(' | '), lbTxt=(per.lb['WINDOW']||[]).join(' | '),
+            fullTxt=(per.full['RUN WINDOW']||[]).join(' | ');
+        var lbDashCount=(per.lb['WINDOW']||[]).filter(function(t){return t==='—';}).length;
+        var legacyLbTitle=titles.lb;
+        dfxCase('i1_f25_window_stage', calls, {
+          'renders OK on IS / LB / FULL / WF': calls.every(function(c){return c==='OK';}),
+          'IS and LB use the label WINDOW (not RUN WINDOW)': !!per.is['WINDOW']&&!!per.lb['WINDOW'],
+          'WF also uses the label WINDOW': !!per.wf['WINDOW'],
+          'FULL keeps the label RUN WINDOW, not WINDOW': !!per.full['RUN WINDOW']&&!per.full['WINDOW'],
+          'plain run, IS: starts at the tuning-window date (2010-06-07)': isTxt.indexOf('2010-06-07')>=0,
+          'plain run, IS: ends at 2017-12-06 - 75% of the 2010-2020 tuning window, not the lockbox door or run end': isTxt.indexOf('2017-12-06')>=0,
+          'plain run, IS: reads 7.5y, never the whole run 16.1y': isTxt.indexOf('7.5y')>=0,
+          'plain run, LB: reads the saved lockbox dates 2025-06-30 to 2026-06-30, 1.0y': lbTxt.indexOf('2025-06-30')>=0&&lbTxt.indexOf('2026-06-30')>=0&&lbTxt.indexOf('1.0y')>=0,
+          'book, IS: run start to its own lockbox door (2010-06-07 to 2024-06-07), 14.0y - exact': isTxt.indexOf('2024-06-07')>=0&&isTxt.indexOf('14.0y')>=0,
+          'book, LB: lockbox door to run end (2024-06-07 to 2026-06-30), 2.1y': lbTxt.indexOf('2024-06-07')>=0&&lbTxt.indexOf('2026-06-30')>=0&&lbTxt.indexOf('2.1y')>=0,
+          'legacy run with no saved windows: exactly one dash on LB, not the other two': lbDashCount===1,
+          'that dash carries a plain-language reason on hover naming the lockbox': !!legacyLbTitle&&/lockbox window/i.test(legacyLbTitle),
+          'FULL is unaffected: every run still reads its whole-run 16.1y': fullTxt.split(' | ').filter(function(t){return t.indexOf('16.1y')>=0;}).length===3
+        }, {is:per.is['WINDOW'],lb:per.lb['WINDOW'],full:per.full['RUN WINDOW'],wf:per.wf['WINDOW'],legacyLbTitle:legacyLbTitle});
+      })();
+
+      // -- i2 (F30, audit3_report.md, 2026-09-24): book names read like strategy file names on
+      //    OVERLAY's own no-curve label builder (never checked r.book), the RUNBOARD matrix
+      //    header doubled a run's id when it carries no famKey/famSeq (the audit's own live
+      //    "#19 #19"), and ETFDIP read two different abbreviations depending on which screen was
+      //    reading it ("ETFDI", un-curated stratInfo fallback, vs "ETFDIP", the family-key table).
+      (function(){
+        var BID2=String(+FIX.id+630001), EID=String(+FIX.id+630002), PID=String(+FIX.id+630003);
+        var BK2=JSON.parse(JSON.stringify(FIX));
+        BK2.id=BID2;BK2.strategy='BOOK: FOUR-LEG: ORB 234 + ENGU-Q 335 + TTM SS x3 + NOISE 304';BK2.starred=false;BK2.multiplier=1;
+        delete BK2.equity;
+        BK2.book={name:'FOUR-LEG',legs:[{strategy:'ORB_234.py',weight:1},{strategy:'ENGUQ_335.py',weight:1}],
+          whole:{total_pnl:500000,max_drawdown:40000,num_trades:4000,profit_factor:1.3},
+          pre_lockbox:{total_pnl:400000,max_drawdown:40000,num_trades:3600},
+          lockbox:{total_pnl:100000,num_trades:400,win_rate:44,profit_factor:1.3,max_drawdown:20000},
+          lockbox_from:'2025-02-11',date_from:'2010-06-07',date_to:'2026-06-30'};
+        BK2.validate={verdict:'PASS',lockbox:{pnl:100000,pf:1.3,trades:400,pass:true},book:true};
+        var ET=JSON.parse(JSON.stringify(FIX));
+        ET.id=EID;ET.strategy='ETFDIP_2_0.py';ET.starred=false;ET.multiplier=1;
+        delete ET.famKey;delete ET.famSeq;
+        var PL=JSON.parse(JSON.stringify(FIX));
+        PL.id=PID;PL.strategy='ZOLDRUN_1_0.py';PL.starred=true;PL.multiplier=1;
+        delete PL.famKey;delete PL.famSeq;
+        var wc2="var B="+JSON.stringify(BK2)+";var E="+JSON.stringify(ET)+";var P="+JSON.stringify(PL)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(B),f(E),f(P)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var calls=[];
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:[BID2]}, wc2));
+        var noCurve=JSON.parse(w.eval("JSON.stringify((window._cmpEqxNoCurve||[]).map(function(s){return {id:String(s.id),label:s.label};}))"));
+        var bookLabel=(noCurve.filter(function(s){return s.id===BID2;})[0]||{}).label||'';
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Stage:'full',cmpIds:[PID,EID]}, wc2));
+        var headers=[].map.call(d.querySelectorAll('#rb-mtx-box table th'),function(th){return th.innerHTML;});
+        var plainHeader=headers.filter(function(h){return h.indexOf('#'+PID)>=0;})[0]||'';
+        var idOccurrences=(plainHeader.match(new RegExp('#'+PID,'g'))||[]).length;
+        var rbFamText=[].map.call(d.querySelectorAll('[data-rbfam]'),function(e){return (e.textContent||'').trim();});
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'champ',c2Stage:'lb'}, wc2));
+        var ovlAll=JSON.parse(w.eval("JSON.stringify((window._cmpEqxSeries||[]).concat(window._cmpEqxNoCurve||[]).map(function(s){return {id:String(s.id),label:s.label};}))"));
+        var etfOverlayLabel=(ovlAll.filter(function(s){return s.id===EID;})[0]||{}).label||'';
+        dfxCase('i2_f30_book_and_naming', calls, {
+          'renders OK': calls.every(function(c){return c==='OK';}),
+          'a curve-less book on OVERLAY reads as a book, its full name verbatim': bookLabel.indexOf('BOOK: FOUR-LEG: ORB 234 + ENGU-Q 335 + TTM SS x3 + NOISE 304')>=0,
+          'RUNBOARD matrix header: a run with no famKey/famSeq shows its id once, not twice': idOccurrences===1,
+          'RUNBOARD family chip reads ETFDIP in full': rbFamText.indexOf('ETFDIP')>=0,
+          'OVERLAY run label also reads ETFDIP in full, not truncated to ETFDI': etfOverlayLabel.indexOf('ETFDIP')===0
+        }, {bookLabel:bookLabel,plainHeader:plainHeader,idOccurrences:idOccurrences,rbFamText:rbFamText,etfOverlayLabel:etfOverlayLabel});
+      })();
+
+      // -- i3 (F30, audit3_report.md, 2026-09-24): a rank number (R1..Rn) belongs only on a
+      //    genuinely ranked list (CHAMPIONS or RUNBOARD); a hand-picked list used to print R1..Rn
+      //    in pick order as if it were one, on both the newer c2Screen 'cmp' code (OVERLAY / PICK
+      //    RUNS) and the older shared _cmpMode code the old tab and the hosted RUNBOARD reuse.
+      (function(){
+        var AID3=String(+FIX.id+630011), BID3=String(+FIX.id+630012);
+        var A3=JSON.parse(JSON.stringify(FIX));A3.id=AID3;A3.strategy='ZRANKA_1_0.py';A3.starred=false;
+        var B3=JSON.parse(JSON.stringify(FIX));B3.id=BID3;B3.strategy='ZRANKB_1_0.py';B3.starred=false;
+        var wc3="var A="+JSON.stringify(A3)+";var B="+JSON.stringify(B3)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(A),f(B)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var calls=[];
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:[AID3,BID3]}, wc3));
+        var ovlPickedFwd=w.eval("(window._cmpEqxSeries||[]).some(function(s){return s.rank!=null;})");
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:[BID3,AID3]}, wc3));
+        var ovlPickedRev=w.eval("(window._cmpEqxSeries||[]).some(function(s){return s.rank!=null;})");
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'champ',c2Stage:'lb'}, wc3));
+        var ovlChampHasRank=w.eval("(window._cmpEqxSeries||[]).length>0&&(window._cmpEqxSeries||[]).every(function(s){return s.rank!=null;})");
+        calls.push(doRender({c2Screen:'cmp',c2View:'runs',c2Src:'pick',c2Stage:'lb',cmpIds:[AID3,BID3]}, wc3));
+        var runsPickedNoRank=w.eval("(window._cmpEqxSeries||[]).length>0&&(window._cmpEqxSeries||[]).every(function(s){return s.rank==null;})");
+        calls.push(doRender({cmpMode:'fam'}, wc3, 'cmp'));
+        var oldFamHasRank=w.eval("(window._cmpEqxSeries||[]).length>0&&(window._cmpEqxSeries||[]).every(function(s){return s.rank!=null;})");
+        dfxCase('i3_f30_rank_on_picked', calls, {
+          'renders OK': calls.every(function(c){return c==='OK';}),
+          'OVERLAY PICKED: no run carries a rank number': !ovlPickedFwd,
+          'OVERLAY PICKED, reversed pick order: still no rank number': !ovlPickedRev,
+          'OVERLAY CHAMPIONS: every drawn run carries a rank number': ovlChampHasRank,
+          'PICK RUNS (hosted), PICKED: no run carries a rank number': runsPickedNoRank,
+          'the old tab, BY STRATEGY (its own CHAMPIONS mode): every drawn run carries a rank number': oldFamHasRank
+        }, {});
+      })();
+
+      // -- i4 (F31, audit3_report.md, 2026-09-24): RUNBOARD chart key on LB, a run whose lockbox
+      //    took no trades. CONFIRMED ALREADY FIXED on current origin/main (no index.html change
+      //    made for this item, per the task's own "verify with a probe case either way; fix only
+      //    if still wrong" instruction) - the reason is genuinely "the lockbox took no trades",
+      //    not the old false "no curve saved" (the curve IS saved; only the lockbox slice of it
+      //    is empty). Locked in here as a regression guard - the audit's own note says the
+      //    visible caption wording ("no walk-forward curve") is a separate, already being-fixed
+      //    item this task does not touch, so only the underlying reason is asserted here.
+      (function(){
+        var EQi4=[];for(var _k=0;_k<343;_k++)EQi4.push(Math.round(_k*50));
+        var ZID=String(+FIX.id+630021);
+        var Z=JSON.parse(JSON.stringify(FIX));
+        Z.id=ZID;Z.strategy='ZLBZERO_1_0.py';Z.starred=false;Z.multiplier=1;Z.equity=EQi4;
+        Z.validate={verdict:'FAIL',equity:EQi4,lb_idx:341,total_dd:-3000,
+          windows:{optimize:['2010-06-07','2024-06-07'],lockbox:['2025-06-30','2026-06-30']},
+          lockbox:{pnl:0,pf:0,trades:0,pass:false}};
+        var wc4="var Z="+JSON.stringify(Z)+";"
+          +"var f=function(x){return (typeof _bookUnitsOnRead==='function'&&typeof _isoTs==='function')?_bookUnitsOnRead(_isoTs(x)):x;};"
+          +"runHistory=[f(Z)];window._runFull={};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";
+        var call=doRender({c2Screen:'cmp',c2View:'board',c2Stage:'lb',cmpIds:[ZID]}, wc4);
+        var noCurve4=JSON.parse(w.eval("JSON.stringify((window._cmpEqxNoCurve||[]).map(function(s){return {id:String(s.id),why:s.why};}))"));
+        var zWhy=(noCurve4.filter(function(s){return s.id===ZID;})[0]||{}).why||'';
+        dfxCase('i4_f31_lb_zero_reason', [call], {
+          'renders OK': call==='OK',
+          'a zero-trade lockbox is placed in the no-curve list with a reason, not silently': !!zWhy,
+          'the reason names the true cause - the lockbox took no trades': /lockbox.*took no trades/i.test(zWhy),
+          'the reason does not claim the curve was never saved (it is saved; only the lockbox slice is empty)': !/no curve saved/i.test(zWhy)&&/is saved/i.test(zWhy)
+        }, {zWhy:zWhy});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -6468,7 +6661,11 @@ def main(argv=None):
            'h5_thin_sinks_below_cleared', 'h6_zero_sinks_below_thin', 'h7_thin_shows_figures_and_mark',
            'h8_thin_never_bestmark', 'h9_thin_floor_only_on_wf',
            'h10_gapchip_percent', 'h11_gapchip_pinned_equal', 'h12_gapchip_missing_reading',
-           'h13_lockbox_veto_note', 'h14_lockbox_veto_runboard']
+           'h13_lockbox_veto_note', 'h14_lockbox_veto_runboard',
+           # i1-i4 (audit3_report.md round, 2026-09-24): F25 WINDOW row stage stretch,
+           # F30 book-name labels + rank-on-picked + side issues, F31 LB zero-trade reason.
+           'i1_f25_window_stage', 'i2_f30_book_and_naming', 'i3_f30_rank_on_picked',
+           'i4_f31_lb_zero_reason']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
