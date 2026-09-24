@@ -87,6 +87,9 @@ LEG_LIVE_FROM = {
     "TTM_299_T": "2026-09-10", # the same leg with the VALIDATED deep-squeeze size tilt (run 340) - TTM_299 is its control
     "TTM_299_SS": "2026-09-10", # the same leg again with the VALIDATED structural stop (run 353) - TTM_299_T is its control
     "TTM_299_SSOF2": "2026-09-10", # the same leg with BOTH later validated changes (runs 368 + 364) - TTM_299_SS is its control
+    "TTM_299_SSO": "2026-09-24",  # the open-bar tilt ALONE (run 368) - one half of the combined leg, for attribution
+    "TTM_299_SSF2": "2026-09-24", # the later fade ALONE (run 364) - the other half; the four TTM legs now form a 2x2
+    "TTM_299_SSL": "2026-09-24",  # the structural stop at the LOOSER verification length (run 352) - 41 trades a year
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
     "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
     "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
@@ -669,6 +672,25 @@ TTM_299_SS = dict(kc_mult=1.5, eod_cutoff=1)
 # 1.0 / 1.5 / 2.25 contract ladder. Round 11's whole-contract answer covered one tilt, not two.
 TTM_299_SSOF2 = dict(TTM_299_SS)
 
+# THE TWO HALVES, SEPARATELY (added 2026-09-24). The combined leg bundles two changes, so a forward
+# result on it cannot say which one earned it. With the open-bar tilt alone (run #368) and the later
+# fade alone (run #364) running beside the leg with neither (TTM_299_SS) and the leg with both
+# (TTM_299_SSOF2), the four legs are a complete two-by-two on the same trades. Both halves passed
+# their own validates and cleared bars written before they ran. The verification length is pinned at
+# 20 inside both files, so the params are the same shape as TTM_299_SS. FORWARD EVIDENCE ONLY.
+TTM_299_SSO = dict(TTM_299_SS)
+TTM_299_SSF2 = dict(TTM_299_SS)
+
+# THE FAST LEG (added 2026-09-24). Run #352 is the structural-stop file with the verification length
+# left free; its search walked to 16 and it PASSED every gate but missed its bar on drawdown ($7,143
+# against a $5,004 cap), so it was never the book leg and is not one now. It is here for a different
+# reason: it trades 665 times in 16 years against 357, and its lockbox holds 40 trades against 15 or
+# 16 for every other leg in the family. At the rate the family has fired forward so far - one trade in
+# its first ten sessions - that is the only way to get a forward read on the structural stop inside a
+# year. Config reproduced to the dollar before this was written: kc 1.5, entry cutoff 1, length 16 ->
+# 665 trades, $109,651, PF 2.00, lockbox $22,404 at PF 2.93. FORWARD EVIDENCE ONLY.
+TTM_299_SSL = dict(kc_mult=1.5, eod_cutoff=1, gate_len=16)
+
 NOISE_243_COMP15G = {"mode": "comp", "model": "compression", "mult": 1.5,
                      "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "source_run": 243}
 # KEEL v11 (2026-09-08) = v10 x 1.5 on Friday entries. Same structural scan that found the
@@ -1136,6 +1158,33 @@ LEG_SOURCE = {
                 "TTM_299_SS is the exact matched control. Reported per one contract; the deep-squeeze and "
                 "open-bar tilts multiply, so the leg trades a 1.0 / 1.5 / 2.25 ladder.",
     },
+    "TTM_299_SSO": {
+        "run": 368, "run_label": "#368 (TTM-ES30SSO) the structural-stop leg with the open-bar tilt only",
+        "strategy_file": "TTMSQZ_3_0_ES30SSO.py", "picked": "2026-09-24",
+        "note": "One half of the combined book leg: 1.5 contracts on the session open-bar entry, where "
+                "the overnight gap releases into an hour that is still coiled. Run #368 passed all six "
+                "gates and cleared the bar written before it ran. It runs beside TTM_299_SS (neither "
+                "change), TTM_299_SSF2 (the other half) and TTM_299_SSOF2 (both) so a forward result "
+                "can be attributed. Reported per one contract; not in the book figure.",
+    },
+    "TTM_299_SSF2": {
+        "run": 364, "run_label": "#364 (TTM-ES30SSF2) the structural-stop leg leaving on the second fading bar",
+        "strategy_file": "TTMSQZ_3_0_ES30SSF2.py", "picked": "2026-09-24",
+        "note": "The other half of the combined book leg: the momentum-fade exit waits for a second "
+                "fading bar. Better on every base measured, and round 16a showed two bars is a sharp "
+                "peak - three or more gives the drawdown back. Run #364 passed all six gates and "
+                "cleared the bar written before it ran. Completes the two-by-two with TTM_299_SS, "
+                "TTM_299_SSO and TTM_299_SSOF2. Reported per one contract; not in the book figure.",
+    },
+    "TTM_299_SSL": {
+        "run": 352, "run_label": "#352 (TTM-ES30SS) the structural stop at verification length 16",
+        "strategy_file": "TTMSQZ_3_0_ES30SS.py", "picked": "2026-09-24",
+        "note": "The structural-stop file with the verification length at 16 instead of 20. It passed "
+                "every gate and missed its bar on drawdown, so it is NOT a book candidate. It is here "
+                "because it trades 41 times a year against 22 and its lockbox holds 40 trades against "
+                "15 or 16 for every other TTM leg, so it gives a forward read on the structural stop in "
+                "half the time. Reported per one contract; not in the book figure.",
+    },
     "TTM_299_SS": {
         "run": 353, "run_label": "#353 (TTM-ES30SS20) the tilted ES 30m leg with the structural stop",
         "strategy_file": "TTMSQZ_3_0_ES30SS20.py", "picked": "2026-09-09",
@@ -1544,6 +1593,21 @@ PAPER_LEGS = [
      "timeframe": "30m", "session": "rth", "params": TTM_299_SS,
      "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
      "source": LEG_SOURCE["TTM_299_SS"]},
+    # ADDED 2026-09-24: the two halves of the combined leg, each alone, so the four structural-stop legs
+    # form a complete two-by-two, plus the fast leg (run 352) for evidence speed. FORWARD EVIDENCE ONLY -
+    # none of the three is in the book figure.
+    {"key": "TTM_299_SSO", "strategy": "TTMSQZ_3_0_ES30SSO.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299_SSO,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "source": LEG_SOURCE["TTM_299_SSO"]},
+    {"key": "TTM_299_SSF2", "strategy": "TTMSQZ_3_0_ES30SSF2.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299_SSF2,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "source": LEG_SOURCE["TTM_299_SSF2"]},
+    {"key": "TTM_299_SSL", "strategy": "TTMSQZ_3_0_ES30SS.py", "instrument": "ES",
+     "timeframe": "30m", "session": "rth", "params": TTM_299_SSL,
+     "cost_pts": _ES_COST_PTS, "mult": _ES_MULT,
+     "source": LEG_SOURCE["TTM_299_SSL"]},
     # ADDED 2026-09-08 (owner): the validated-gate tilt leg beside C15. FORWARD EVIDENCE ONLY.
     {"key": "NOISE_SBS_V90_C15G", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
