@@ -1,5 +1,17 @@
 # ORB — the best configurations to use, with walk-forward performance (2026-09-14)
 
+> **CORRECTION 2026-09-24 — read this before the table.** #257 stays the pick, but not for the reason
+> this page gave. Round 59 (`ORB_ROUND59_FILTER_INTERIOR.md`) mapped the volatility filter from off to
+> 0.80 and found every setting up to 0.40 gives the identical result, so the gate never binds below
+> 0.45. #257's filter of 0.50 removes just **eleven trades of 2,762**, worth $6,470; one step further
+> gives back $13,779. Removing eleven random trades does as well 8.5% of the time, and **none of the
+> eleven is later than July 2021** — the filter has not acted in five years. So of #257's +$26,507 over
+> the control, $20,038 comes from the wider stop and bigger buffer and is robust, and $6,470 is a
+> spike that cannot recur. **Treat #257 and #266 as the same strategy**; #266 (filter off) is the more
+> honest of the two. Loosening the filter from the control's 0.70 is itself robust (215 trades,
+> $24,656) — it is only the exact 0.50 that is fragile. A ranged validate of #257's region was queued
+> the same day to test this the re-fitted way.
+
 Supersedes the pick order in `ORB_FORWARD_RANKING.md`, which ranked on a return-over-drawdown ratio and was
 corrected the same day. This version is judged the way the house now judges book changes: by MONEY, in the
 walk-forward stage and by calendar year against the control, with drawdown reported beside it rather than
