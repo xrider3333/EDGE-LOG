@@ -98,3 +98,5 @@ docs/anatomy/*_trades.csv
 !tools/data/fomc_dates.csv
 tools/data/score_pending.json
 tools/data/score_inbox/
+# setup-journal bar windows: the permanent OHLC record behind setups/*.md (same reason as above)
+!tools/data/setup_bars/*.csv
