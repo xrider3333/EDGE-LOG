@@ -1326,15 +1326,22 @@ class FirestoreQueue:
     def _family_of(self, strategy) -> str:
         """Coarse master family for a strategy (must match the web resolver + backfill), so every
         ORB / TTIBS / ENGU-Q run gets one stable per-family number (ORB-1, ORB-2, ...)."""
+        # ONE FAMILY VOCABULARY (owner 2026-09-24: "family names consistent, 1-2 words max").
+        #   The same list is in index.html (STRAT_FAM / _FAMRE / FAM) and CLAUDE.md. The market a
+        #   run traded is a property of the run, never part of its family name (NQDIP and ETFDIP
+        #   are both DIP; TTMSQZ is TTM). Renaming a family = run tools/family_rename.py.
         import re
         s0 = str(strategy or "").upper()
-        if "ORB_FADE" in s0 or "ORBFADE" in s0 or "ORB FADE" in s0: return "ORB-FADE"
-        if s0.startswith("ORB"): return "ORB"
-        if s0.startswith("ENGUQ"): return "ENGU-Q"
+        if s0.startswith("BOOK") or s0.startswith("COMBINED"): return "BOOK"
+        if s0.startswith("ORB") or s0.startswith("OPENING RANGE"): return "ORB"
+        if s0.startswith("ENGUQ") or s0.startswith("ENGUDQ") or s0.startswith("ENGU-Q"): return "ENGU-Q"
+        if s0.startswith("NOISE"): return "NOISE"
+        if s0.startswith("TTMSQZ") or s0.startswith("TTM"): return "TTM"
+        if s0.startswith("NQDIP") or s0.startswith("ETFDIP"): return "DIP"
         if s0.startswith("TTIBS") or s0.startswith("TBISS"): return "TTIBS"
         if s0.startswith("REVERT"): return "REVERT"
         if "SUPERTREND" in s0 or s0.startswith("STRICT"): return "SUPERTREND"
-        if s0.startswith("VWAP"): return "VWAP-FADE"
+        if s0.startswith("VWAP"): return "VWAP"
         if s0.startswith("OVERNIGHT"): return "OVERNIGHT"
         if s0.startswith("RSIDIV"): return "RSIDIV"
         # new/unknown strategy -> derive a key from the leading name token (strip version/ext)
