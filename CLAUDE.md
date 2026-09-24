@@ -144,6 +144,34 @@ Structure EVERY substantive reply top-to-bottom as:
    • Money in $ with thousands separators; PF and net/DD to 2 dp; Verdict is one of
      ⭐ champion / 🟡 candidate / ⏸️ parked / ❌ dead, plus a ≤6-word reason.
 
+## Chat inbox - hand issues between chats with no approvals (owner 2026-09-24, hard rule)
+Owner: "make sure other chats get the messages when ... messages from one chat surface issues that another
+chat needs to address ... dont want to have to approve it everytime or be on it 24/7." A live SendMessage
+is held for the owner's approval when the receiving chat runs a stricter permission mode, and expires if
+nobody clicks - so the durable channel is a file inbox per chat at `C:\EdgeLog\chat_inbox\<CHAT>.jsonl`
+(outside git; instant; survives restarts). Your chat's name is the first line of `ListAgents`.
+- **Start of every task AND before you finish one:** `python tools/chat_inbox.py read <your name>`. Act on
+  what is addressed to you, reply by posting back to the sender, close it: `done <your name> <id> "note"`.
+- **When you find an issue another chat owns:** `python tools/chat_inbox.py post <THEIR NAME> --from <YOU> "..."`
+  - one self-contained item (what, where, evidence, what you need) - THEN also try SendMessage (faster
+  when it gets through). Never rely on SendMessage alone.
+- `python tools/chat_inbox.py all` = every chat's open items; say "check the inboxes" to see them.
+
+## Strategy FAMILY names - one vocabulary, 1-2 words (owner 2026-09-24, hard rule)
+Owner: "make sure you and all the other strategies are using/adopting family names that are consistent
+and 1-2 words max." Use EXACTLY these names in replies, docs, STUDIES rows, run ids and the app:
+**ORB · NOISE · ENGU-Q · TTM · DIP · GAPGO · TTIBS · VWAP · REVERT · SUPERTREND · RSIDIV · OVERNIGHT ·
+EMAPB · REPLAY · RFML · ENGU** (the pre-ENGU-Q legacy family), plus **BOOK** for pooled multi-strategy
+books and **MISC** for hunts that span families. Retired names - never write them: TTMSQZ, TTM Squeeze
+leg, NQDIP, ETFDIP, "the dip strategy/book", VWAP-FADE, ORB-FADE, COMBINED, RVT, ST, OVN, SCALP,
+"opening-range strategy", "noise-band", "engulfing strategy", "squeeze strategy".
+- **The market is not part of the family.** DIP on NQ, ES or QQQ is still DIP; say "DIP on ES".
+- **A variant is family + its run number, never a new name:** "NOISE #382", "ORB #314", "TTM #369".
+- One source of truth per layer, all in step: `api/runner.py` `_family_of` (stamps new run ids),
+  `index.html` STRAT_FAM / _FAMRE / FAM, and `tools/family_rename.py` (re-stamps stored run ids).
+  `tests/test_family_vocabulary.py` fails if the runner and the tool disagree. A new family = add it to
+  all three and this list in the same commit.
+
 ## Delegate execution to Sonnet; you stay the supervisor (owner ask, 2026-07-21)
 Owner: "spawn the top sonnet agent for simpler tasks to save tokens (simple executions, codes etc)
 and you remain the supervisor. if anything is off or not good enough feel free to then take it over
