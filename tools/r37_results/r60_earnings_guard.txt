@@ -1,0 +1,66 @@
+reaction sessions 347 of 4180 (8.3%), placebo sessions 346, earnings-season weeks 220
+sessions with 2+ releases: 84
+
+##############################################################################################################
+PRIMARY - live crown #304: 4847 trades, 413 tagged (8.5%), 311 placebo, 1260 in earnings-season weeks
+stretch           n tag EV R tag EV R rest  $/trade |   n plac EVR plac EVR seas
+IS                  136    0.289    0.057       37 |      128   -0.092   -0.136
+WF                  220    0.315    0.256      175 |      154    0.290    0.220
+LB                   57   -0.004    0.227       -4 |       29    0.764    0.572
+TILT GUARD - earnings reaction sessions 1.5x - PRIMARY - live crown #304   (413 of 4847 trades tagged, 8.5%)
+  MONEY walk-forward  $   316,495 DD $  -16,917 MAR  2.13  ->  $   335,760 DD $  -17,476 MAR  2.19   net   +19,265  dd +3.3%
+  MONEY lockbox       $    80,464 DD $  -24,510 MAR  2.07  ->  $    80,346 DD $  -24,510 MAR  2.07   net      -118  dd +0.0%
+  C1 uniform control  same exposure via a flat 1.0426x on every trade
+     walk-forward  tilt $   335,760 MAR  2.19  |  uniform $   329,979 MAR  2.13   -> beats flat leverage
+     lockbox       tilt $    80,346 MAR  2.07  |  uniform $    83,892 MAR  2.07   -> LOSES TO flat leverage
+  C2 permutation any day   real $+19,146 vs random $+16,631 (sd $9,833) ->  39.6% of 2000 match it
+  C3 permutation subgroup  real $+19,146 vs random $+17,784 (sd $8,392) ->  43.5% of 2000 match it
+  C4 concentration walk-forward  n= 220 total $+38,529  top trade 16% of net (85% of random same-size buckets are worse), 3% of gross vs a chance ceiling of 7%
+  C4 concentration lockbox       n=  57 total $-237  top trade 2044% of net (1% of random same-size buckets are worse), 10% of gross vs a chance ceiling of 20%
+  C5 placebo walk-forward  $   +9,836 vs the candidate's   +19,265
+  C5 placebo lockbox       $   +8,095 vs the candidate's      -118
+  VERDICT: FAIL - loses money in the lockbox; 39.6% of random any day sets do as well (not special at all); 43.5% of random subgroup sets do as well (not special within the subgroup the base already tilts)
+  VERDICT (H1, pre-registered): FAILS
+  per company (descriptive, WF+LB only):
+    AAPL  n   67  EV R  0.327  net $   11,563
+    MSFT  n   64  EV R -0.057  net $   -2,905
+    NVDA  n   51  EV R  0.389  net $   17,232
+    AMZN  n   53  EV R  0.248  net $    9,122
+    GOOGL n   47  EV R -0.089  net $   -3,557
+    META  n   75  EV R  0.162  net $    6,178
+    TSLA  n   59  EV R  0.423  net $    8,950
+    2+ releases same session  n   95  EV R  0.056
+
+##############################################################################################################
+REPLICATION - retired crown #243: 4441 trades, 383 tagged (8.6%), 293 placebo, 1154 in earnings-season weeks
+stretch           n tag EV R tag EV R rest  $/trade |   n plac EVR plac EVR seas
+IS                  124    0.285    0.085       34 |      121   -0.011   -0.067
+WF                  199    0.416    0.274      209 |      147    0.230    0.258
+LB                   60   -0.007    0.200       -7 |       25    0.600    0.502
+TILT GUARD - earnings reaction sessions 1.5x - REPLICATION - retired crown #243   (383 of 4441 trades tagged, 8.6%)
+  MONEY walk-forward  $   303,685 DD $  -18,425 MAR  1.88  ->  $   324,485 DD $  -17,831 MAR  2.07   net   +20,800  dd -3.2%
+  MONEY lockbox       $    61,317 DD $  -22,096 MAR  1.75  ->  $    61,111 DD $  -24,031 MAR  1.60   net      -206  dd +8.8%
+  C1 uniform control  same exposure via a flat 1.0431x on every trade
+     walk-forward  tilt $   324,485 MAR  2.07  |  uniform $   316,780 MAR  1.88   -> beats flat leverage
+     lockbox       tilt $    61,111 MAR  1.60  |  uniform $    63,961 MAR  1.75   -> LOSES TO flat leverage
+  C2 permutation any day   real $+20,595 vs random $+15,099 (sd $9,283) ->  27.2% of 2000 match it
+  C3 permutation subgroup  real $+20,595 vs random $+17,838 (sd $7,484) ->  35.9% of 2000 match it
+  C4 concentration walk-forward  n= 199 total $+41,601  top trade 15% of net (92% of random same-size buckets are worse), 4% of gross vs a chance ceiling of 8%
+  C4 concentration lockbox       n=  60 total $-411  top trade 1127% of net (2% of random same-size buckets are worse), 10% of gross vs a chance ceiling of 18%
+  C5 placebo walk-forward  $   +6,680 vs the candidate's   +20,800
+  C5 placebo lockbox       $   +6,214 vs the candidate's      -206
+  VERDICT: FAIL - loses money in the lockbox; 27.2% of random any day sets do as well (not special at all); 35.9% of random subgroup sets do as well (not special within the subgroup the base already tilts)
+  VERDICT (H1, pre-registered): FAILS
+  per company (descriptive, WF+LB only):
+    AAPL  n   59  EV R  0.119  net $    4,005
+    MSFT  n   57  EV R  0.275  net $    9,370
+    NVDA  n   53  EV R  0.373  net $   15,496
+    AMZN  n   44  EV R  0.289  net $    8,976
+    GOOGL n   39  EV R -0.045  net $   -1,701
+    META  n   70  EV R  0.321  net $    9,878
+    TSLA  n   62  EV R  0.194  net $    5,245
+    2+ releases same session  n   85  EV R  0.114
+
+==============================================================================================================
+H1 (1.5x on reaction sessions), BOTH bases: FAIL
+bucket not negative in every stretch on both bases -> no post-hoc shrink test (pre-registered rule)

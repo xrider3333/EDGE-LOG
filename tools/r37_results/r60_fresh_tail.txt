@@ -1,0 +1,13 @@
+fresh tail: 2026-07-16 .. 2026-09-16 (unseen by the round 54-60 validates) and 2026-08-12 .. 2026-09-16 (unseen by every NOISE validate)
+config                                         | 2026-07-16 .. 09-16                                | 2026-08-12 .. 09-16                               
+#304 live crown, raw                           |   23 tr  $  12,819  PF  1.84  DD $ 6,727  win  39% |   14 tr  $  -1,659  PF  0.80  DD $ 4,632  win  36%
+#243 retired crown, raw                        |   18 tr  $  -6,516  PF  0.60  DD $10,628  win  28% |   12 tr  $     702  PF  1.12  DD $ 3,061  win  33%
+#382 pick: 30-min squeeze 2.0x (Webull base)   |   23 tr  $  18,331  PF  2.01  DD $ 8,368  win  39% |   14 tr  $  -2,865  PF  0.70  DD $ 5,878  win  36%
+hourly squeeze 1.5x (round-55 pick)            |   23 tr  $  12,819  PF  1.84  DD $ 6,727  win  39% |   14 tr  $  -1,659  PF  0.80  DD $ 4,632  win  36%
+hourly FILTER 20/1.0 (textbook)                |   0 trades                                         |   0 trades                                        
+hourly FILTER 20/1.15 (#398 crown)             |    1 tr  $   3,409  PF   inf  DD $     0  win 100% |   0 trades                                        
+#394 crown waits 2 closes                      |   20 tr  $   9,656  PF  1.59  DD $ 9,348  win  40% |   11 tr  $  -1,542  PF  0.78  DD $ 4,728  win  36%
+
+hourly squeeze FILTER dry spells, full history to 2026-09-16 (sessions between consecutive kept trades)
+  20/1.0 (textbook)       427 trade days; median gap 6 sessions; longest gaps: 64 from 2011-11-08, 55 from 2026-06-29, 53 from 2025-03-24, 52 from 2011-08-26, 50 from 2015-07-07
+  20/1.15 (#398 crown)    656 trade days; median gap 4 sessions; longest gaps: 52 from 2011-08-26, 49 from 2025-03-24, 49 from 2020-04-14, 42 from 2022-03-04, 40 from 2011-12-12

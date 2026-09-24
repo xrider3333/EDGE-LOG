@@ -7,6 +7,47 @@
 
 ---
 
+## 🧪 2026-09-24 — ROUND 60: two validates queued, the earnings calendar is a NO, and the filter has gone quiet
+
+Owner: "where we at. auto validate anything promising and continue searching."
+
+**Catch-up, rounds 58-59 (never written here).** Round 58 queued the hourly squeeze FILTER on the live crown with the
+frame fixed at 60 minutes: **run #398 NOISE-48 PASS, 7 folds, overfit 0.198**, crowned length 20 / threshold **1.15**
+(not the textbook 1.0), 758 in-sample trades. Round 59 (`tools/r59_noise_capital_board.py`, v73.807) ranked every
+saved NOISE row on return per year AND return per dollar of drawdown, walk-forward and lockbox: the recycled xgb
+hybrid tops walk-forward ROC on several runs but beats plain on return-per-drawdown on only 2 of 31 runs; the best
+row that holds in the lockbox is **#304 + KEEL v12** (walk-forward MAR 3.46, lockbox 3.58).
+
+**Queued (900 trials each, window 2010-06-07 .. 2026-07-16, cost 0.533, 12-month lockbox), parity-checked to the dollar:**
+- `NOISE_1_9_GEO304.py` (job x7Q1AhXTYiiIEX0SDOqI) — the crown's entry GEOMETRY searched again on compressed hours only:
+  lookback / both bands / stop / volatility skip one step either side of #304 (243 cells), filter frozen at #398's
+  60/20/1.15. Centre 996 trades, $188,870. Nobody had asked whether a book that only trades the quiet hour wants the
+  same bands as the whole tape. Bar: PASS, overfit <= 0.198, AND beats the centre continuously on PF both before and
+  after 2024 - more in-sample dollars alone crowned the 30-minute gate three times.
+- `NOISE_1_8_CT304H.py` (job nq8kuwwTpXUW7ggY4yiu) — the hourly compression SIZE tilt at 1.25 / 1.5 / 1.75x, frame
+  frozen at 60 minutes (27 cells). Runs #382, #409 and #410 all crowned the 30-minute gate at 2.0x, which round 55
+  rejected continuously (drawdown +43%, one trade 61% of the gain). The cell round 55 recommended has never been a
+  validate champion; this file makes it the only kind of cell available. Centre (20 / 1.0 / 1.5x) $468,775 vs the
+  crown's $398,776 on 4,824 trades.
+
+**Earnings calendar — pre-registered, clean NO** (`docs/PREREG_earnings_2026-09-24.md`, committed 7ca2af2 before any
+trade was tagged; calendar `tools/data/megacap_earnings.csv` from the SEC's own 8-K Item 2.02 index, seven companies,
+461 releases, Tesla delivery reports removed; driver `tools/r60_noise_earnings_guard.py`). 347 reaction sessions,
+8.3% of the tape, 413 crown trades. The bucket DID earn more before the lockbox (EV R 0.29 vs 0.06 in-sample,
+0.32 vs 0.26 walk-forward) but **random day-sets of the same size match it 40% of the time (28% on #243), 44% / 36%
+of random sessions from the same earnings weeks match it, and in the lockbox it earns nothing (EV R 0.00 vs 0.23)**.
+Fails on both bases; the bucket is not negative everywhere, so no shrink test (pre-registered rule). Per-company rows
+are descriptive and were not used. The last calendar lever named by the KEEL study is now closed; order flow
+(~October) is what remains.
+
+**Fresh tail — sessions no validate has seen** (`tools/r60_noise_fresh_tail.py`, 2026-07-16 .. 2026-09-16, the last
+Databento bar; Yahoo-appended sessions after it excluded). Reported, never judged: the crown made 23 trades, +$12,819,
+PF 1.84 (-$1,659 on the 14 since 08-12); the #382 Webull base +$18,331 (-$2,865 since 08-12). **The hourly squeeze
+filter has been almost silent: 0 trades (textbook) and 1 trade (#398's 1.15) in two months.** Its current dry spell
+is 55 sessions, the second-longest since 2010 (record 64, 2011); the other long spells were 2025-03 and 2020-04 -
+high-volatility regimes, when the hour never compresses. A filter leg trades rarely and in bursts; any forward test
+of one needs to be read over quarters, not weeks.
+
 ## 🧪 2026-09-14 — ROUND 57 (part two): results so far, and single validates of the exact configs
 
 **Neighbourhood Auto-Validates (900 trials).** #386 NOISE-38 (#243 + hourly squeeze filter) PASS 6/6, PBO 0.385; #387
