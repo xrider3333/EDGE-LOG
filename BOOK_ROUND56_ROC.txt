@@ -1,0 +1,174 @@
+BOOK ROUND 56 - ROC / YR ON THE FRONTIER BOOKS  (2026-09-24)
+==============================================================
+
+Owner ask: "take a look at our frontier models on EL that we've backtested, specifically the ones
+with the best ROC/yr. try to improve those."
+
+ROC % / YR is EL's own column: net profit per year as a percentage of a fixed account ($100k unless
+the account setting says otherwise). Pre-lockbox = 2010-06-07 .. 2025-06-29; lockbox (the held-back
+year) = 2025-06-30 .. 2026-06-30. Every figure below is on that one window.
+
+
+1. WHICH BOOKS ARE "FRONTIER", AND WHICH ONE TO IMPROVE
+-------------------------------------------------------
+Seven stored book runs carry FRONTIER in their name. ROC % / YR, pre-lockbox / lockbox:
+
+  #397  FRONTIER: ORB #297 filters + ENGU-Q #335 + squeeze combined x3 + NOISE #304   97.4 / 306.3
+  #372  FRONTIER PENTA                                                              91.8 / 284.0
+  #367  FRONTIER QUAD                                                               80.1 / 233.8
+  #363  FRONTIER PAIR REPAIRED                                                      53.5 / 181.2
+  #324  FRONTIER TRIO                                                               53.0 / 158.2
+  #323  FRONTIER PAIR with the R2 leg                                               43.3 / 136.0
+  #317  FRONTIER PAIR v2                                                            42.1 / 133.1
+
+#372 trails #397 on every measure (ROC both stretches, drawdown both stretches, MAR both stretches),
+and its extra leg (the NOISE R/YR config) already failed an even-handed tail test on 2026-09-09. Its
+upgrade path exists already: drop that leg and swap the squeeze file and it becomes #396. So the book
+to improve is #397. #396 (the recommended book, ORB #234 in the ORB slot) is carried as a reference.
+
+ROC / YR SCALES WITH CONTRACTS. The same #397 at x0.5 / x1 / x1.5 / x2 contracts:
+  ROC 48.7 / 97.4 / 146.1 / 194.8 %/yr   with worst drop $16,783 / $33,567 / $50,350 / $67,133.
+So "improve ROC / YR" was read as MORE ROC / YR AT THE SAME DRAWDOWN. Every candidate is reported at
+its own size AND scaled (micro contracts make 0.1-contract steps tradeable) to #397's pre-lockbox
+drawdown - scale fixed on the pre-lockbox stretch only, then carried unchanged into the lockbox.
+
+
+2. THE DATA IS THE RUNS' OWN NUMBERS
+------------------------------------
+tools/book56_leg_dailies.py runs every distinct leg of #397, #396 and #372 plus three candidate legs
+through tools/book_dd_attribution.leg_daily (the same code path a BOOK job runs) at weight 1 and caches
+the daily dollars. Rebuilt from that table, all three stored books match to the cent on pre-lockbox
+net, pre-lockbox drawdown, lockbox net and lockbox drawdown; one augur_engine.book.run_book() call
+reproduces #397 exactly (diff 0.0000). Data lives outside git in C:\EdgeLog\_anatomy_cache\book56\.
+
+
+3. PRE-REGISTERED TESTS (written into tools/book56_analysis.py before any number was computed)
+----------------------------------------------------------------------------------------------
+TEST A - does RE-WEIGHTING the four legs beat leaving them at 1/1/3/1, FORWARD, at equal risk?
+  (The book-level twin of ORB_META_WF.txt. BOOK.md s5 tried weights once, in-sample, with one
+  held-out read, and did not adopt them; this is the walk-forward version it never had.)
+  12 forward years, July-June, Jul 2013 .. Jun 2025; the lockbox reported on its own. At each start,
+  from the trailing 3 years only:
+   A1 SELECT: 216 weight vectors (ORB 0.5-1.5, ENGU-Q 0.5-1.5, squeeze 1-6, NOISE 0.5-2), pick the best
+      trailing MAR, scale to 1/1/3/1's trailing daily risk, round to 0.1 contract.
+   A2 INVERSE-RISK RULE, no search: weight = 1 / the leg's trailing daily risk, same scaling.
+   A3 NULL: 500 random vectors per year scaled the same way -> where A1's pick lands among them.
+  PASS: more forward net than 1/1/3/1 in >= 8 of 12 years AND more total AND forward max drawdown
+  no worse than 1.05x (A1 must also average above the null's 50th percentile).
+
+TEST C - a FIFTH leg at weight 0.5 or 1: ENGU-Q R2 on ES (run #370's champion), the NQ 15m squeeze
+  break (run #280's champion), and both. House bar (BOOK.md s10): annualised MAR >= 1.05x #397, LOCKBOX
+  drawdown within 5%, lockbox net >=. Plus calendar years 2011-2025, dominate / lose vs #397.
+
+
+4. RESULTS
+----------
+TEST A - FAIL, both rules. The weights stay 1/1/3/1.
+  A1 (pick the best past mix): beats 1/1/3/1 in 6 of 12 forward years; forward net $1,308,540 vs
+     $1,421,130; its pick lands at the 49th percentile of random mixes on average - a coin flip.
+  A2 (inverse-risk rule): beats 1/1/3/1 in 6 of 12; forward net $1,495,580 vs $1,421,130 but forward
+     worst drop $36,573 vs $33,567 - more money for proportionally more risk, i.e. leverage.
+  Lockbox year: A1 $327,319 (drop $28,185), A2 $336,974 (drop $31,311), 1/1/3/1 $306,042 ($25,357).
+  Same answer as the ORB meta walk-forward: choosing by past results has not predicted the next year.
+  (A1 put the squeeze leg at 4-5 contracts in 11 of 13 years - the recorded "squeeze x4" knob, #378 -
+  but the rule as a whole still lost; the squeeze weight remains an owner risk call, see below.)
+
+TEST C and references (own size | scaled to #397's pre-lockbox drawdown; bar = MAR / LB drawdown / LB net)
+
+  book                              ROC pre  ROC LB  drop pre  drop LB   MAR  LB MAR  @same drop  bar   years dom/lose/more-net
+  #397 FRONTIER as run                97.4   306.3   $33,567  $25,357   2.90  12.08         -       -         -
+  + ENGU-Q on ES #370 x0.5           106.5   360.3   $37,423  $25,357   2.85  14.21   95.5/323.1  nYY   6 / 1 / 12
+  + ENGU-Q on ES #370 x1             115.6   414.2   $41,279  $25,357   2.80  16.34   94.0/336.9  nYY   6 / 1 / 12
+  + NQ 15m squeeze #280 x0.5          99.5   315.4   $33,396  $27,693   2.98  11.39  100.0/317.0  nnY   6 / 3 / 10
+  + NQ 15m squeeze #280 x1           101.5   324.5   $34,082  $30,030   2.98  10.80  100.0/319.6  nnY   5 / 3 / 10
+  + both x1                          119.7   432.5   $40,938  $30,030   2.92  14.40   98.1/354.6  nnY   4 / 1 / 14
+  REF #396 (ORB #234)                 98.5   307.3   $36,562  $27,506   2.69  11.17   90.4/282.1  nnY   6 / 6 / 6
+  REF NOISE slot = #382 (live leg)   110.2   327.6   $35,745  $28,771   3.08  11.39  103.5/307.7  YnY   2 / 0 / 15
+  hindsight: ORB x0.5                 88.0   270.5   $28,903  $22,525   3.04  12.01  102.2/314.1  nYn   3 / 0 / 3
+  hindsight: squeeze x4 (#378)       104.9   329.0   $33,567  $26,967   3.13  12.20  104.9/329.0  YnY   5 / 2 / 13
+
+  Nothing clears the pre-registered bar. Notes:
+  - ENGU-Q on ES looks like the big lockbox win (+$108k) but that is ONE trade: entered 2025-04-09,
+    closed 2026-03-22 (347 days), +$72,964, booked on its exit day inside the lockbox. Counted by
+    ENTRY date the leg's lockbox is $34,960, not $107,924; its own run #370 recorded $25,372.
+  - NOISE slot = #382 earns more in 15 of 15 years, but at equal drawdown it is +6% pre-lockbox and
+    flat in the lockbox: mostly the 2x size tilt. Another session queued this swap as book jobs at
+    15:55 UTC 2026-09-24 ("BOOK #396 + LIVE NOISE LEG", "BOOK #366 + LIVE NOISE LEG"); read those runs.
+  - Squeeze x4 adds 7.5 ROC points for no whole-run drawdown (the squeeze leg is absent from the 2020
+    stretch) and +$1,610 lockbox drawdown - it misses the 5% clause by a hair. It is a cheap dial, not
+    an edge: Test A says past-performance weighting does not pay forward. Owner risk call.
+
+
+5. THE BIGGER FINDING - EL'S BOOK DRAWDOWN MISSES ENGU-Q'S OPEN TRADES
+---------------------------------------------------------------------
+A book curve books each trade on the day it CLOSES. Every leg in #397 is intraday except ENGU-Q, whose
+trades stay open for days to months: on NQ, median 0.23 days but 90th percentile 4.6 days, longest 143
+days, and the 182 trades held over 5 days carry $901,692 (the whole leg nets $603,381). While those
+trades are open their swings never reach the book's curve.
+
+tools/book56_mtm_check.py values every open ENGU-Q position at the last close of each day it is open
+(same day stamp as the book). Per trade, the day-by-day increments sum exactly to the closed P&L, so
+nothing is added or lost - only WHEN it is counted moves.
+
+                                   closed-trade curve (EL today)     marked to market daily
+  #397 pre-lockbox worst drop       $33,567 (trough 2020-03-27)      $34,449 (trough 2020-03-27)
+  #397 LOCKBOX worst drop           $25,357 (trough 2025-12-11)      $49,855 (trough 2026-06-26)
+  #397 lockbox net                  $306,042                         $290,729
+  ENGU-Q NQ leg alone, pre drop     $38,872                          $48,599
+  ENGU-Q NQ leg alone, LB drop      $39,550                          $48,413
+  ENGU-Q ES #370 alone, LB drop     $7,108                           $31,708
+
+  Worked example: the ENGU-Q long entered 2026-06-11 was up $36,184 on 2026-06-16 and closed on
+  2026-06-24 at +$7,095. The account gave back $29,089 on that one position; the closed-trade curve
+  only ever saw +$7,095.
+
+  So #397's lockbox MAR is about 5.8 on an account basis, not the 12.1 EL shows, and $15,313 of the
+  lockbox's booked profit was earned before the lockbox began. The pre-lockbox figures barely move
+  because the worst stretch there (the 2020 crash) belongs to the intraday legs. This applies to EVERY
+  stored book and validate that carries an ENGU-Q leg, and to any sizing decision made off them.
+
+  NOT CHANGED: every stored book drawdown is on the closed-trade rule; switching would move them all
+  at once (same situation as the day-stamping item in BOOK.md s10b). Owner call: add a marked-to-market
+  reading beside the closed-trade one on book runs (RUNBOARD BOOKS row) - the engine has the bars; the
+  daily mark is ~40 lines in augur_engine/book.py.
+
+5b. A SECOND MULTI-DAY ARTEFACT - CONTRACT ROLLS ON THE NO-ADJUST MASTERS
+------------------------------------------------------------------------
+Measured by the sibling session "Strategy beating frontier models on ROC/y" (2026-09-24), on this
+round's own leg parameters. The masters are no-adjust stitched series: at each quarterly roll the price
+steps up by the carry between the two contracts (~1% of price when rates are high). An intraday leg
+never holds across a stitch; a multi-week long does, and books the step as profit it never earned.
+
+  ENGU-Q NQ leg (#397's):  23 trades cross a stitch, $39,580 booked = 6.6% of the leg's net
+                           pre-lockbox 21 trades $26,595 | lockbox 2 trades $12,985 (12-15% of the leg's lockbox)
+                           ~$0 in 2010-17 (rates near zero); 2022 $3,810, 2023 $7,750, 2024 $15,620, 2025 $4,745, 2026 $8,240
+  ENGU-Q ES #370 leg:      30 trades cross, $33,912 = 8.9% of net; lockbox 4 trades $11,575 (a third of its
+                           lockbox counted by entry date)
+  Method: seam days from the house roll-seam detector on daily RTH bars; stitch bar = largest 1-minute
+  open-vs-previous-close jump within 4 days before to 1 day after; a trade crosses when fill < stitch <=
+  exit; booked = side x jump x multiplier. Approximate - each stitch bar is a Sunday open, so its size
+  includes that weekend's gap - but 2022+ steps are consistently positive and scale with price (NQ
+  +178..+412 points), i.e. the carry, so the bias is real.
+
+  Together for #397's lockbox: booked $306,042 -> about $290,729 marked to market -> about $277,700 once
+  the two roll steps are removed; worst drop $49,855. That is a lockbox ROC of roughly 278 %/yr at a MAR
+  near 5.6, against the 306 %/yr and 12.1 EL prints today. Pre-lockbox: about $26,600 of $1,467,499.
+
+
+6. VERDICT
+----------
+- #397 stays the FRONTIER book with the best ROC / YR; no pre-registered change beats it at equal risk.
+- Weights stay 1/1/3/1 (Test A: 6 of 12 years, 49th percentile - no forward skill).
+- No fifth leg: ENGU-Q on ES was one 347-day trade; the NQ 15m squeeze adds risk faster than money.
+- More ROC / YR is available only by adding contracts, and the real drawdown per contract is larger
+  than EL shows once ENGU-Q's open trades are counted - size off the marked-to-market figure.
+- ENGU-Q's profit also carries roll steps it never earned (6.6% of the NQ leg, rising since 2022); a
+  multi-day leg should run on a roll-adjusted master or book the step out.
+
+
+7. REPRODUCE
+------------
+  python tools/book56_leg_dailies.py     # leg table + parity vs #397/#396/#372 + run_book check (~2 min)
+  python tools/book56_analysis.py        # tests A and C (seconds; reads the cached leg table)
+  python tools/book56_mtm_check.py       # marked-to-market vs closed-trade drawdown (~1 min)
+Data folder: C:\EdgeLog\_anatomy_cache\book56\ (override with EDGELOG_BOOK56_DIR).

@@ -32,6 +32,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 1.13 | Search-adjusted p-value for the crown (item 3) | `RESEARCH.md` §3e · `docs/candidates/REALITY_CHECK.md` | Ran on 28 runs now that per-fold rows are saved: 25 clear p<0.05 — but the finalists are near-copies, so the multiplicity penalty is weak by construction and this does NOT answer "did the search find something". Item 1 still open |
 | 1.12 | Is the overfit-probability number stable enough to gate on | `RESEARCH.md` §3d · `tools/pbo_probe.py` | **No.** Same strategy, same months, only redrawing which 24 near-equal configs go in moves it 0.159–0.913 (median 0.524, 58% above the 0.5 refusal line); shortening the months alone moved it 0.32. The NOISE spike that looked like a cost of the longer lockbox is inside that spread — **new item 14: report a band, stop gating on one draw** |
 | 1.11 | Is a bigger tuning budget better | `RESEARCH.md` §3a · runs #383 vs #384 | 900 configurations beat 200 on every measure that matters — **SETTLED, the budget stays at 900** |
+| 1.14 | Does a book's drawdown see the risk of a leg that holds for weeks | `BOOK_ROUND56_ROC.txt` §5 · `tools/book56_mtm_check.py` | **No.** A book books each trade on its exit day; ENGU-Q holds up to 143 days on NQ. Marked to market daily, FRONTIER book #397's lockbox worst drop is **$49,855, not the stored $25,357** (pre-lockbox $34,449 vs $33,567). Nothing changed — owner call |
 
 ## 2. Edge hunting
 
@@ -47,6 +48,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 2.8 | The same compression signal as a SIZE TILT | `docs/FEATURE_BOARD.md` · runs #331, #382 | +60% money for +20% drawdown; #382 passed 6/6 — but the 24-setting landscape sorts almost purely by tilt size, which is the leverage pattern to be careful of |
 | 2.9 | Weak-edge ETF dip book | `BOOKMARKS.md` (B1) · runs #332, #338 | Passed twice as a book and got a no-orders shadow leg; **caveat: the individual legs were later judged to fail walk-forward efficiency, and that judgement was made with cold starts, so it is unsettled** |
 | 2.10 | Machine-learning overlays as a gate, a tilt, and a hybrid | memory `ml-overlay-evidence-2026-08`, `edgelog-gate-tilt` | The original gate edge was a look-ahead leak, now fixed; as a size tilt 0 of 12 forms cleared on causal scores |
+| 2.11 | Book round 56: raise ROC / YR on the FRONTIER books — walk-forward re-weighting of #397's four legs, and a fifth leg (ENGU-Q on ES #370, NQ 15m squeeze #280) | `BOOK_ROUND56_ROC.txt` | **Nothing clears.** Re-weighting won 6 of 12 forward years, its pick at the 49th percentile of random mixes — weights stay 1/1/3/1. The ES leg's lockbox gain was one trade held 347 days, booked on its exit day |
 
 ## 3. Tools added (all re-runnable)
 
@@ -62,6 +64,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 3.7 | `tools/queue_lockbox_36mo.py` | the six paired lockbox-length runs | 1.5 |
 | 3.8 | `tools/queue_noise382_rerun.py` | the cold/warm re-run pair | 1.6 |
 | 3.9 | `tools/wfdive/` and `tools/wfdive/isdepth/` | both deep dives' data (~145 MB, outside git) | 1.1, 1.2 |
+| 3.11 | `tools/book56_leg_dailies.py`, `tools/book56_analysis.py`, `tools/book56_mtm_check.py` | an 11-leg daily table exact to the cent vs runs #397/#396/#372 (data outside git, `C:\EdgeLog\_anatomy_cache\book56`) | 1.14, 2.11 |
 
 ---
 
@@ -75,6 +78,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 4.4 | Apply the freeze-8 / widen-6 knob list to the strategy files | `docs/candidates/KNOB_AUDIT.md` |
 | 4.5 | Re-judge the dip book and the ETF stack, whose failures were measured with cold starts | `RESEARCH.md` §3b · `BOOKMARKS.md` |
 | 4.6 | The daily dip family reproduces 0 of 8 folds — nothing else can judge it until that is fixed | `RESEARCH.md` item 13 |
+| 4.7 | Show a marked-to-market drawdown beside the closed-trade one on book runs (and on validates of multi-day legs such as ENGU-Q); and book out the quarterly-roll steps a multi-week leg carries on the no-adjust masters — measured at $39,580 = 6.6% of the ENGU-Q NQ leg's net (23 trades, rising since 2022) | `BOOK_ROUND56_ROC.txt` §5, §5b |
 
 ## 4b. The outside research each item came from
 
