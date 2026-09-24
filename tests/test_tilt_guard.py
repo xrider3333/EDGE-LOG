@@ -82,3 +82,38 @@ def test_shift_null_accepts_a_condition_that_really_picks_the_trades():
     wf = np.arange(n) < int(n * 0.8)
     r = guard(pnl, ts, np.ones(n), tag, 0.5, wf, ~wf, permute="shift", perm=300, label="real condition")
     assert r["passed"], r["report"]
+
+
+def _c4_fired(r):
+    return any("C4" in x for x in r["reasons"])
+
+
+def test_c4_catches_a_one_trade_lockbox_bucket():
+    """The artifact C4 exists for: one monster carries a small lockbox bucket."""
+    rng = np.random.default_rng(31)
+    n = 4000
+    ts = pd.DatetimeIndex(pd.bdate_range("2012-01-02", periods=n, freq="B"))
+    pnl = rng.normal(5, 200, n)
+    lb = np.arange(n) >= int(n * 0.85)
+    tag = np.zeros(n, bool); tag[rng.choice(np.where(lb)[0], 12, replace=False)] = True
+    pnl[np.where(tag)[0][0]] = 90_000
+    r = guard(pnl, ts, np.ones(n), tag, 1.5, ~lb, lb, perm=200, label="one trade")
+    assert _c4_fired(r), r["report"]
+
+
+def test_c4_does_not_fire_on_ordinary_small_buckets():
+    """2026-09-24 calibration: the old 50%-of-net line failed ~73% of RANDOM 20-trade buckets on
+    fat-tailed legs. Random tags on a fat-tailed leg must now trip C4 only at about its 5% rate."""
+    fired_new = fired_old = 0
+    for seed in range(40):
+        rng = np.random.default_rng(100 + seed)
+        n = 3000
+        ts = pd.DatetimeIndex(pd.bdate_range("2012-01-02", periods=n, freq="B"))
+        pnl = 150 * rng.standard_t(3, n) + 25           # fat tails, PF ~1.2 like the real legs
+        lb = np.arange(n) >= int(n * 0.85)
+        tag = np.zeros(n, bool); tag[rng.choice(np.where(lb)[0], 20, replace=False)] = True
+        fired_new += _c4_fired(guard(pnl, ts, np.ones(n), tag, 1.5, ~lb, lb, perm=50, label="r"))
+        fired_old += _c4_fired(guard(pnl, ts, np.ones(n), tag, 1.5, ~lb, lb, perm=50, label="r",
+                                     c4="net50"))
+    assert fired_new <= 6, fired_new                     # ~5% of 40 = 2; allow noise
+    assert fired_old >= 16, fired_old                    # the defect this replaced, still measurable
