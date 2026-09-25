@@ -4855,8 +4855,12 @@ def _build_latency(orders, log=print):
 
 
 # -- reprice merge (feature #48 half) -------------------------------------------------
+# "price_source" (item 11, 2026-09-25): tools/qqq_reprice.py now records which of
+# webull_stream_1m/webull_rest_1m/yfinance_1m actually priced each trade. Purely
+# additive -- nothing in index.html reads it yet, and "source" (kept for backward
+# compatibility, now carrying the same value) is unaffected.
 REPRICE_MERGE_FIELDS = ["real_entry_px", "real_exit_px", "real_pnl", "slip_entry_ps",
-                        "slip_exit_ps", "repriced_at", "source", "note"]
+                        "slip_exit_ps", "repriced_at", "source", "price_source", "note"]
 
 
 def _load_reprice_sidecar(log=print):
