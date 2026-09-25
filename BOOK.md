@@ -557,6 +557,45 @@ was never the weak link. **The legs were.** The lesson is the older one, sharpen
 measures how a pile of legs behaves together and can look excellent while every leg in it is
 individually unvalidated. Run #315 taught it for NQDIP_1_1; this is the same lesson at book scale.
 
+### 10e. OPEN TRADES VALUED DAILY — a second drawdown reading on every book (2026-09-25, v73.898)
+
+**Why.** Every book figure counts a trade on the day it CLOSES. That is exact for an intraday leg
+and blind for one that holds for weeks: ENGU-Q (`ENGUQ_1M_ETH_R2_1_0.py`) has held a trade 143
+days on NQ, and its 182 trades held over 5 days carry $901,692 of a leg that nets $603,381. While
+those trades are open their swings never reach the book's daily curve. Found in book round 56
+(`BOOK_ROUND56_ROC.txt` section 5).
+
+**What changed.** `augur_engine/book.py` scores the same dollars twice. The headline - every
+stored number, every bar - stays the at-close reading. `book.mtm` values each open position at
+the last close of every day it is open (the book's own day stamp) and lets the exit day carry the
+remainder, so each trade's increments sum EXACTLY to its closed dollars. Keys: `whole`,
+`pre_lockbox`, `lockbox` (each `{total_pnl, max_drawdown}`), `worst_stretch`,
+`worst_stretch_lockbox`, `marked_trades`, `multi_day_legs`, `drawdown_differs`, `net_differs`.
+Same policy as `day_rule` (10b): a second reading, never a replacement. COMPARE's book rows (the
+RUNBOARD tile and the BOOKS view) print it under the book's name for the stage on screen, only
+when it differs - never for an intraday-only book.
+
+| book | stage | at close | open trades valued daily |
+|---|---|---|---|
+| #397 FRONTIER | lockbox drawdown | $25,357 | **$49,855** (2026-06-18 to 06-26) |
+| #397 FRONTIER | pre-lockbox drawdown | $33,567 | $34,449 |
+| #396 (recommended) | lockbox drawdown | $27,506 | $49,855 |
+| #372 FRONTIER PENTA | lockbox drawdown | $34,205 | $54,539 |
+
+Whole-run net is identical to the cent on all three, and the at-close figures reproduce the stored
+runs exactly (756 ENGU-Q trades marked, none unmarkable).
+
+**Bars.** Book bars (section 10's clause) are still written on the at-close figures; whether a bar
+should use the valued-daily reading is an owner call. Sizing should read the valued-daily drawdown.
+
+**Backfill.** `python tools/backfill_book_mtm.py --runs <ids> [--write]` re-runs a stored book,
+refuses unless its at-close figures match the stored run to the cent, and writes only `book.mtm`.
+Gates: `tests/test_book_mtm.py`, `tools/runboard_books_probe.py` (both book tables, every stage).
+
+**Not in this change:** the quarterly-roll steps a multi-week leg books on the no-adjust masters
+(about $39,580 = 6.6% of the ENGU-Q NQ leg's net, measured by the sibling session; see
+`BOOK_ROUND56_ROC.txt` section 5b).
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the

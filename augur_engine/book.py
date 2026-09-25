@@ -19,6 +19,9 @@ Honesty boundaries — these are deliberate, do not "improve" them without readi
     last `lockbox_months` are a genuine unseen-data read for the book as a whole.
   * The 8-equal-stretch consistency count rides under `book.slices` as its OWN thing. It is
     a house test, NOT the app's walk-forward, and must never be merged into a WF column.
+  * Every headline figure counts a trade on the day it CLOSES. `book.mtm` is the second
+    reading with open positions valued daily (see _mtm_increments); it never replaces the
+    first, the same way `book.day_rule` never replaces the engine's day stamp.
 """
 from __future__ import annotations
 
@@ -170,7 +173,78 @@ def _leg_trades(leg, date_from, date_to):
                 if gate_info.get(k) is not None:
                     info["gate"][k] = gate_info[k]
     info["_session_day"] = out_sess
+    # OPEN TRADES VALUED DAILY (2026-09-24) - see _mtm_increments. Reported beside the
+    # closed-trade figures as book.mtm; nothing that scores the book reads it.
+    try:
+        _m, _mk, _um = _mtm_increments(days_idx, arr.get("close"), sized, mult, weight)
+        info["mtm_marked"] = int(_mk)
+        if _um:
+            info["mtm_unmarked"] = int(_um)
+    except Exception as _e:               # a reporting extra must never fail a book run
+        _m = list(out)
+        info["mtm_error"] = "%s: %s" % (type(_e).__name__, _e)
+    info["_mtm_day"] = _m
     return out, info
+
+
+def _mtm_increments(days_idx, close, sized, mult, weight):
+    """Each trade's dollars spread over the days it was OPEN, valued at each day's last close.
+
+    A book books a trade on its EXIT day. That is exact for an intraday leg and blind for a leg
+    that holds for weeks - the open position's swings never reach the daily curve, so neither
+    does the drawdown they cause (book round 56: on the FRONTIER book #397 the lockbox drawdown is
+    $49,855 valued daily against $25,357 at close, all of it ENGU-Q, which holds up to 143 days).
+
+    Here a trade whose exit falls on a later day than its fill is valued at the last bar close
+    of every day it is still open - `days_idx` is the book's own day stamp, so "a day" means
+    exactly what it means for the closed-trade curve - and the exit day carries the remainder.
+    Each trade's increments therefore sum EXACTLY to its closed dollars: the money never
+    changes, only the day it is counted. A same-day trade books whole on its exit day, which
+    is why an intraday-only book reads identically either way.
+
+    Needs the trade's side (+1 / -1) at index 3 and entry price at index 4, the tuple the
+    engine's strategies return. A multi-day trade without them is booked at close and counted
+    in `unmarked` rather than guessed at.
+
+    Returns ([(day, $)], marked, unmarked).
+    """
+    n = len(days_idx)
+    if not n:
+        return [], 0, 0
+    last = n - 1
+    close = np.asarray(close, dtype=float) if close is not None else None
+    # bar k is the last bar of its day when the next bar falls on a different day
+    ends = np.flatnonzero(days_idx[1:] != days_idx[:-1])
+    out, marked, unmarked = [], 0, 0
+    for t, size in sized:
+        try:
+            e = min(max(int(t[0]), 0), last)
+            x = min(int(t[1]), last)
+            scale = float(mult) * float(weight) * float(size)
+            usd = float(t[2]) * scale
+        except Exception:
+            continue
+        if x <= e or days_idx[e] == days_idx[x]:
+            out.append((days_idx[x], usd))
+            continue
+        try:
+            side, px = float(t[3]), float(t[4])
+            ok = close is not None and abs(side) == 1.0 and np.isfinite(px) and px > 0
+        except Exception:
+            ok = False
+        if not ok:
+            unmarked += 1
+            out.append((days_idx[x], usd))
+            continue
+        prev = 0.0
+        # the day-end bars inside [fill, exit): one mark per day the position was still open
+        for k in ends[np.searchsorted(ends, e, side="left"):np.searchsorted(ends, x, side="left")]:
+            val = side * (float(close[k]) - px) * scale
+            out.append((days_idx[k], val - prev))
+            prev = val
+        out.append((days_idx[x], usd - prev))
+        marked += 1
+    return out, marked, unmarked
 
 
 def _daily(trades):
@@ -284,8 +358,10 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
 
     pooled = []
     pooled_sess = []      # the same trades on the ET session day - see _leg_trades
+    pooled_mtm = []       # the same dollars with open trades valued daily - see _mtm_increments
     leg_info = []
     per_leg = []
+    per_leg_mtm = []
     for i, leg in enumerate(legs):
         if progress_cb:
             progress_cb(int(5 + 70.0 * i / len(legs)), 100)
@@ -293,6 +369,10 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
         pooled.extend(tr)
         per_leg.append(tr)
         pooled_sess.extend(info.pop("_session_day", None) or [])
+        _m = info.pop("_mtm_day", None)
+        _m = list(tr) if _m is None else _m          # no marks -> the closed-trade series itself
+        pooled_mtm.extend(_m)
+        per_leg_mtm.append(_m)
         leg_info.append(info)
     if not pooled:
         raise ValueError("the book produced no trades over this window")
@@ -371,6 +451,49 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
     except Exception as _e:                     # a reporting extra must never fail a book run
         day_rule["error"] = "%s: %s" % (type(_e).__name__, _e)
 
+    # ── OPEN TRADES VALUED DAILY, MADE VISIBLE (2026-09-24, book round 56) ───────────────
+    # Every figure above books a trade on the day it CLOSES. For a leg that holds for weeks
+    # that hides the swings of the open position, and so part of the drawdown the account
+    # would actually have lived through. The same dollars are scored here with each open
+    # position valued at every day's close (_mtm_increments). Net over the whole run is the
+    # same to the cent; the pre-lockbox and lockbox nets can differ by the open-trade money
+    # that crosses the boundary. Same policy as day_rule: the headline stays the closed-trade
+    # reading, this is the second reading, and nothing downstream decides on it.
+    mtm = {"note": ("Figures above count each trade on the day it closes. This reading values "
+                    "every open position at each day's last close, so a leg that holds for "
+                    "weeks shows the swings the account would really have seen. Net is the "
+                    "same over the whole run; only the day each dollar is counted moves.")}
+    try:
+        def _curve(incs):
+            if not incs:
+                return None
+            _dd_days, _dd_p = _daily(incs)
+            _c = np.cumsum(_dd_p)
+            _dd = float((_c - np.maximum.accumulate(_c)).min()) if len(_c) else 0.0
+            return {"total_pnl": round(float(_dd_p.sum()), 2), "max_drawdown": round(abs(_dd), 2)}
+        pooled_mtm.sort(key=lambda t: t[0])
+        m_pre = [t for t in pooled_mtm if lb_from is None or t[0] < lb_from]
+        m_lb = [t for t in pooled_mtm if lb_from is not None and t[0] >= lb_from]
+        mtm["whole"], mtm["pre_lockbox"], mtm["lockbox"] = _curve(pooled_mtm), _curve(m_pre), _curve(m_lb)
+        mtm["worst_stretch"] = _stretch_attribution(pooled_mtm, per_leg_mtm, leg_info)
+        mtm["worst_stretch_lockbox"] = _stretch_attribution(
+            m_lb, [[t for t in tr if lb_from is not None and t[0] >= lb_from] for tr in per_leg_mtm],
+            leg_info)
+        mtm["marked_trades"] = int(sum(int(i.get("mtm_marked") or 0) for i in leg_info))
+        mtm["multi_day_legs"] = [str(i.get("strategy") or "?") for i in leg_info if i.get("mtm_marked")]
+        _um = int(sum(int(i.get("mtm_unmarked") or 0) for i in leg_info))
+        if _um:
+            mtm["unmarked_trades"] = _um
+
+        def _off(a, b, k):
+            return bool(a and b and abs(float(a[k]) - float(b[k])) > 0.005)
+        _pre_closed = _stats(pre) if pre else None
+        mtm["drawdown_differs"] = any(_off(a, b, "max_drawdown") for a, b in (
+            (mtm["whole"], whole), (mtm["pre_lockbox"], _pre_closed), (mtm["lockbox"], lb_st)))
+        mtm["net_differs"] = _off(mtm["whole"], whole, "total_pnl")
+    except Exception as _e:                     # a reporting extra must never fail a book run
+        mtm["error"] = "%s: %s" % (type(_e).__name__, _e)
+
     worst = _stretch_attribution(pooled, per_leg, leg_info)
     worst_lb = _stretch_attribution(lb, [[t for t in tr if lb_from is not None and t[0] >= lb_from]
                                          for tr in per_leg], leg_info)
@@ -396,6 +519,7 @@ def run_book(legs, *, date_from=None, date_to=None, lockbox_months=12,
             "inert_legs": ([l["leg"] for l in (worst or {}).get("legs") or [] if not l["days"]]
                            if worst else []),
             "day_rule": day_rule,
+            "mtm": mtm,
         },
         # the report card the app already knows how to read. WF is deliberately absent.
         "validate": {

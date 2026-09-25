@@ -131,6 +131,8 @@ nothing is added or lost - only WHEN it is counted moves.
   at once (same situation as the day-stamping item in BOOK.md s10b). Owner call: add a marked-to-market
   reading beside the closed-trade one on book runs (RUNBOARD BOOKS row) - the engine has the bars; the
   daily mark is ~40 lines in augur_engine/book.py.
+  UPDATE 2026-09-25: shipped as that second reading, v73.898 (BOOK.md section 10e) - the at-close
+  figures are untouched; COMPARE's book rows print the valued-daily drawdown when it differs.
 
 5b. A SECOND MULTI-DAY ARTEFACT - CONTRACT ROLLS ON THE NO-ADJUST MASTERS
 ------------------------------------------------------------------------

@@ -88,7 +88,7 @@ eras in raw dollars — NQ's amplitude grew about seven-fold over the window.
 | 4.4 | Apply the freeze-8 / widen-6 knob list to the strategy files | `docs/candidates/KNOB_AUDIT.md` |
 | 4.5 | Re-judge the dip book and the ETF stack, whose failures were measured with cold starts | `RESEARCH.md` §3b · `BOOKMARKS.md` |
 | 4.6 | The daily dip family reproduces 0 of 8 folds — nothing else can judge it until that is fixed | `RESEARCH.md` item 13 |
-| 4.7 | Show a marked-to-market drawdown beside the closed-trade one on book runs (and on validates of multi-day legs such as ENGU-Q); and book out the quarterly-roll steps a multi-week leg carries on the no-adjust masters — measured at $39,580 = 6.6% of the ENGU-Q NQ leg's net (23 trades, rising since 2022) | `BOOK_ROUND56_ROC.txt` §5, §5b |
+| 4.7 | **Book rows: DONE v73.898** (BOOK.md 10e) — every book now also scores its drawdown with open trades valued daily and COMPARE's book rows print it when it differs. Still open: the same reading on validates of multi-day legs such as ENGU-Q; and book out the quarterly-roll steps a multi-week leg carries on the no-adjust masters — measured at $39,580 = 6.6% of the ENGU-Q NQ leg's net (23 trades, rising since 2022) | `BOOK_ROUND56_ROC.txt` §5, §5b |
 
 ## 4b. The outside research each item came from
 
