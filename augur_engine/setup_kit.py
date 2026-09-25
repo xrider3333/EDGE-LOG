@@ -42,7 +42,7 @@ _PREP_CACHE = []             # [(fp, P), ...] index 0 = least recently used
 
 _ROLL_CACHE = {}
 _ROLL_ORDER = []
-_ROLL_MAX = 16
+_ROLL_MAX = 8            # ~40 MB per full-history 1m array; validate runs 3 fold processes
 
 
 def _prep_cache_get(fp):
@@ -192,7 +192,9 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
                          ("None" if index is None else len(index), n))
     v = None if volumes is None else np.asarray(volumes, float)
 
-    fp = fingerprint(o, h, l, c, side)
+    # volumes presence is part of the key: a frame first seen without volumes must never
+    # hand its all-NaN volume baseline to a later call that has them (silent no-trade)
+    fp = fingerprint(o, h, l, c, side) + (v is not None,)
     hit = _prep_cache_get(fp)
     if hit is not None:
         return hit
@@ -366,12 +368,15 @@ def volume_ok(vol_base, v, vol_mult):
 # ─────────────────────────────────────────────────────────────────────────────
 def decision_mask(P, end_min, first_bar='allow'):
     """Bars eligible as a DECISION bar i: in the RTH window, i+1 (entry) closes no later
-    than end_min minutes after 09:30, i is not the session's last RTH bar (so i+1 is never
-    the last RTH bar either -- SETUPS_PREREG.md section 3/4), and, if first_bar=='skip',
+    than end_min minutes after 09:30, neither i nor i+1 is the session's last RTH bar
+    (SETUPS_PREREG.md section 3), and, if first_bar=='skip',
     i is not the session's first RTH bar."""
     minute = P['minute']; rth = P['rth_mask']; barlen = P['barlen']
     close_from_open = (minute - RTH_START_MIN) + barlen        # minutes 09:30 -> this bar's CLOSE
-    m = rth & (close_from_open <= end_min) & (~P['is_last_rth'])
+    # the ENTRY bar i+1 must not be the session's last RTH bar either (latest entry 15:58 on
+    # 1-minute bars; matters on early-close days and for end_min near the close)
+    next_is_last = np.r_[P['is_last_rth'][1:], False]
+    m = rth & (close_from_open <= end_min) & (~P['is_last_rth']) & (~next_is_last)
     if first_bar == 'skip':
         m = m & (~P['is_first_rth'])
     return m
