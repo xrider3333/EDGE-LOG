@@ -367,7 +367,26 @@ def _atr_by_session(h, l, sess_bounds, period):
     return atr
 
 
-def _vol_percentile(h, l, c, sess_bounds, ref_n=252, min_obs=60):
+# How many REFERENCE sessions (strictly before the "prior day" _vol_percentile ranks --
+# see its own docstring) the vol_skip_pct filter needs before it stops returning NaN and
+# actually starts judging days. A module constant, not just a default argument, so a
+# caller sizing a LIVE rolling history window (api/cloud_signal.py) can ask this file
+# how much history it needs instead of a second copy of the number going stale beside
+# it (WEBULL_PAPER_TODO.md item 12, 2026-09-25: the live engine handed this strategy
+# exactly 60 sessions total, so the session being judged was never more than 59 sessions
+# into that window -- one short of the 60 REFERENCE sessions this needs BEFORE it -- and
+# the skip could never engage live no matter how much history the box had accumulated).
+VOL_SKIP_LOOKBACK_SESSIONS = 60
+
+# Generic contract a live-history caller (api/cloud_signal.py) reads off WHICHEVER
+# concrete strategy file a leg names, without needing to know it is this file's own
+# vol_skip_pct filter driving the number -- see that module's required_lookback_sessions.
+# NOISE_1_1_NBHD.py and NOISE_1_8_CT304.py each re-export this same attribute from their
+# own `_base` so the leg still resolves it through either wrapper.
+REQUIRED_LOOKBACK_SESSIONS = VOL_SKIP_LOOKBACK_SESSIONS
+
+
+def _vol_percentile(h, l, c, sess_bounds, ref_n=252, min_obs=VOL_SKIP_LOOKBACK_SESSIONS):
     """vol_skip_pct helper (2026-08-17): pct[si] = percentile rank of the PRIOR
     session's (H-L)/C among the ref_n sessions strictly before that prior session.
     NaN when fewer than min_obs reference sessions exist (treated as not-extreme,

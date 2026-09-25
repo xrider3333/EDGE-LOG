@@ -85,9 +85,22 @@ CLI
                                                      live <home>/cloud_signal ledger +
                                                      state; refused while a live
                                                      writer's heartbeat is fresh
-  python -m api.cloud_signal --once                 one live step() and exit
+  python -m api.cloud_signal --once                 one live step() and exit. REFUSED
+                                                     (exit code 2) while a live writer's
+                                                     heartbeat is fresh -- the runner's
+                                                     own parallel run, or another
+                                                     --loop/--once -- naming the
+                                                     heartbeat's age and path, so a
+                                                     hand-run step can never become a
+                                                     second writer of state.json /
+                                                     signals.csv beside it
   python -m api.cloud_signal --loop                 step() every 20s during session
-                                                     hours, sleep outside them
+                                                     hours, sleep outside them. Same
+                                                     fresh-heartbeat refusal as --once,
+                                                     checked ONCE at startup before this
+                                                     loop's own first heartbeat write
+                                                     (never re-checked inside the loop --
+                                                     it would see its own stamp)
 """
 import argparse
 import datetime as _dt
@@ -119,8 +132,10 @@ CLOSE_GRACE_SECONDS = 5
 
 # Default rolling-window depth: "last N sessions" per the task spec. Actual depth used
 # is always min(this, sessions available in the cache) — the cache today only holds
-# ~25 sessions of 1m and ~65 of 5m, so this is a ceiling, not a promise of 60 real
-# sessions of history.
+# ~25 sessions of 1m and ~77 of 5m, so this is a ceiling, not a promise of 60 real
+# sessions of history. A LEG WHOSE STRATEGY DECLARES A LONGER LOOK-BACK GETS MORE THAN
+# THIS -- see leg_warmup_sessions() below (WEBULL_PAPER_TODO.md item 12): this constant
+# is only the floor every leg starts from, not the last word for all of them.
 DEFAULT_WARMUP_SESSIONS = 60
 
 TIMEFRAME_SECONDS = {"1m": 60, "5m": 300}
@@ -462,6 +477,142 @@ def closed_arrays(all_epoch_df, now, timeframe, warmup_sessions):
     mask = np.array(mask)
     out = {k: (v[mask] if k != "index" else v[mask]) for k, v in arrays.items()}
     return out
+
+
+# ── Live history window sizing (WEBULL_PAPER_TODO.md item 12, 2026-09-25) ────────────────
+# A strategy file MAY declare a module-level REQUIRED_LOOKBACK_SESSIONS: how many
+# TRAILING sessions one of its own internal look-backs needs fully available (strictly
+# BEFORE the session being judged) before that look-back stops truncating. Only
+# NOISE_1_8_CT304.py (via NOISE_1_1_NBHD.py, via NOISE_1_0.py's vol_skip_pct filter)
+# declares one today -- see NOISE_1_0.py's own VOL_SKIP_LOOKBACK_SESSIONS /
+# REQUIRED_LOOKBACK_SESSIONS. ORB_3_6_R6.py and ENGUQ_1M_ETH_R2_1_0.py declare nothing,
+# so leg_warmup_sessions() below is a complete no-op for them -- byte-identical to the
+# plain cfg["warmup_sessions"] read step() used before this existed.
+#
+# THE BUG THIS FIXES. warmup_sessions (DEFAULT_WARMUP_SESSIONS, 60 -- same for every leg)
+# hands closed_arrays() exactly 60 sessions TOTAL, so the session being judged ("today")
+# sits in the LAST slot of that window -- never more than 59 sessions deep into it.
+# NOISE's vol_skip_pct filter needs 60 REFERENCE sessions strictly BEFORE the day it
+# ranks (see NOISE_1_0.py's _vol_percentile) before it produces anything but NaN, and
+# NaN reads as "not extreme" -- i.e. the skip silently stands down forever, no matter
+# how much real history the box has accumulated. Live NOISE_382 therefore traded days
+# the backtest -- which always sees its FULL history -- would have skipped, exactly the
+# "dishonest to the backtest" gap item 12 names.
+#
+# WARMUP_MARGIN_SESSIONS is slack ABOVE a strategy's bare declared minimum: the exact
+# analytical floor is a session or two tighter than the declared number (NOISE_1_0.py's
+# _vol_percentile needs the JUDGED session's own index to clear min_obs by 2, not 1 --
+# see that function's index arithmetic), and a "session" in a live rolling window is not
+# always a full trading day (a holiday-shortened session can eat one without shrinking
+# the DISTINCT-DAY count closed_arrays trims to). Ten sessions of slack clears that
+# uncertainty with room to spare instead of shaving it to the exact bar.
+WARMUP_MARGIN_SESSIONS = 10
+
+
+def _strategy_module_for_sizing(strategy):
+    """Best-effort module lookup for WINDOW SIZING only. `strategy` is whatever a leg's
+    cfg["strategy"] holds -- a bare filename (CROWN_LEGS, always) or an already-loaded
+    module (a test's stub). Never raises: this runs before the engine call that would
+    surface a real load failure loudly (run_leg_trades), so a strategy this can't
+    resolve just declares no requirement (falls back to the leg's plain
+    warmup_sessions) rather than blocking step()."""
+    if hasattr(strategy, "run_backtest"):
+        return strategy
+    try:
+        from augur_engine.strategies import load_strategy
+        return load_strategy(strategy)
+    except Exception:
+        return None
+
+
+def required_lookback_sessions(strategy):
+    """This leg's strategy's own declared REQUIRED_LOOKBACK_SESSIONS (see block comment
+    above), or None when it declares nothing -- true today for every CROWN_LEGS
+    strategy except NOISE_1_8_CT304.py."""
+    mod = _strategy_module_for_sizing(strategy)
+    if mod is None:
+        return None
+    n = getattr(mod, "REQUIRED_LOOKBACK_SESSIONS", None)
+    try:
+        n = int(n)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def leg_warmup_sessions(cfg):
+    """The number of trailing sessions to hand this leg's engine call: its own
+    cfg["warmup_sessions"] (DEFAULT_WARMUP_SESSIONS for every leg today), OR enough for
+    its strategy's declared REQUIRED_LOOKBACK_SESSIONS plus WARMUP_MARGIN_SESSIONS of
+    slack, WHICHEVER IS LARGER. A leg whose strategy declares nothing gets exactly its
+    existing warmup_sessions back -- unaffected by this function's existence.
+    closed_arrays() already trims to however many distinct sessions the cache actually
+    holds when that is fewer than what this returns (see its own "keep_days" slicing),
+    so the CAP is automatic; this only ever asks for more, never less."""
+    base = int(cfg.get("warmup_sessions", DEFAULT_WARMUP_SESSIONS))
+    need = required_lookback_sessions(cfg.get("strategy"))
+    return base if need is None else max(base, need + WARMUP_MARGIN_SESSIONS)
+
+
+def _cache_session_count(tf, paths):
+    """How many DISTINCT RTH sessions the on-disk bar cache holds for `tf` right now --
+    the same day-bucketing build_arrays/closed_arrays use, so this number means the
+    same thing as a leg's warmup_sessions. 0 when there is no cache yet. Only ever
+    called from log_history_windows (STARTUP, never the per-tick path) -- paying
+    build_arrays' full tz-aware/factorize cost once here is fine even though
+    closed_arrays deliberately avoids it per-tick (see that function's own PERFORMANCE
+    note)."""
+    epoch_df = load_cached_bars(tf, paths)
+    if epoch_df is None or not len(epoch_df):
+        return 0
+    arrays = build_arrays(epoch_df)
+    if arrays is None or not len(arrays.get("close", [])):
+        return 0
+    return len(set(arrays["day_id"].tolist()))
+
+
+def log_history_windows(legs=None, paths=None, log=print):
+    """ONE clear line per leg naming the history window it will use and whether that
+    covers its strategy's own declared look-back (item 12, WEBULL_PAPER_TODO.md).
+    Called once at STARTUP (cmd_once, cmd_loop, cloud_signal_thread) -- never per-tick,
+    the same rule as the cost note on _cache_session_count. Best-effort/diagnostic
+    only: a leg whose cache can't be read yet logs that and moves on rather than
+    raising -- this never gates step(), which sizes its own window fresh every call via
+    leg_warmup_sessions()."""
+    legs = legs if legs is not None else CROWN_LEGS
+    paths = paths or DEFAULT_PATHS
+    cache_counts = {}
+    for key, cfg in legs.items():
+        tf = cfg["timeframe"]
+        if tf not in cache_counts:
+            try:
+                cache_counts[tf] = _cache_session_count(tf, paths)
+            except Exception as e:
+                log(f"[cloud-signal] history window {key}: could not read the {tf} cache "
+                    f"({type(e).__name__}: {e}) -- window sizing continues off the default")
+                cache_counts[tf] = None
+        available = cache_counts[tf]
+        if available is None:
+            continue   # already logged above
+        base = int(cfg.get("warmup_sessions", DEFAULT_WARMUP_SESSIONS))
+        need = required_lookback_sessions(cfg.get("strategy"))
+        wanted = base if need is None else max(base, need + WARMUP_MARGIN_SESSIONS)
+        actual = min(wanted, available)
+        if need is None:
+            log(f"[cloud-signal] history window {key}: {actual} session(s) "
+                f"(default {base}; cache holds {available}) -- no declared look-back "
+                f"requirement beyond the default")
+        elif actual >= wanted:
+            log(f"[cloud-signal] history window {key}: {actual} session(s) "
+                f"(strategy needs >= {need}; wanted {wanted} = {need}+{WARMUP_MARGIN_SESSIONS} "
+                f"margin; cache holds {available}) -- look-back COMPLETE")
+        else:
+            short = max(0, need - actual)
+            log(f"[cloud-signal] history window {key}: {actual} session(s) "
+                f"(strategy needs >= {need}; wanted {wanted} = {need}+{WARMUP_MARGIN_SESSIONS} "
+                f"margin; cache holds only {available}) -- look-back TRUNCATED"
+                + (f", {short} session(s) short of the strategy's own minimum" if short > 0
+                   else " (below the margin, but at/above the strategy's own minimum)"))
 
 
 # ── One leg's trades -> canonical records ────────────────────────────────────────────────
@@ -1052,7 +1203,7 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None):
             continue
         leg_state["last_bar_epoch"] = latest_bar_epoch
 
-        arrays = closed_arrays(epoch_df, now, tf, cfg.get("warmup_sessions", DEFAULT_WARMUP_SESSIONS))
+        arrays = closed_arrays(epoch_df, now, tf, leg_warmup_sessions(cfg))
         if arrays is None:
             continue
 
@@ -1459,6 +1610,33 @@ def _live_writer_age_sec(paths):
         return 0.0
 
 
+def _refuse_beside_live_writer(paths, label):
+    """Shared refusal check for cmd_once/cmd_loop (WEBULL_PAPER_TODO.md item 2): a
+    hand-run step beside a fresh live writer (the runner's cloud_signal_thread, or
+    another --loop/--once) becomes a SECOND writer of state.json/signals.csv, which can
+    double-emit an ENTRY or drop a trade's bookkeeping so its ENTRY re-fires after its
+    EXIT (see WEBULL_PAPER_TODO.md item 2's "What can go wrong" section). Reuses the
+    exact same heartbeat freshness test --live-paths already uses (_live_writer_age_sec /
+    LIVE_WRITER_FRESH_SEC), so "fresh" means the same thing everywhere in this file.
+
+    Returns 2 (the process exit code to use) and prints a message naming the
+    heartbeat's age and path when a writer stamped it within LIVE_WRITER_FRESH_SEC;
+    returns None (proceed as before) when the heartbeat is stale or absent.
+
+    NEVER call this from cloud_signal_thread: a stale heartbeat left by an old --loop
+    (or a runner restart) must never stop the runner's own live parallel run -- see
+    that function's own docstring."""
+    age = _live_writer_age_sec(paths)
+    if age is None or age >= LIVE_WRITER_FRESH_SEC:
+        return None
+    print(f"cloud_signal {label}: REFUSED -- a live writer stamped {paths['heartbeat_path']} "
+          f"{age:.0f}s ago (fresh threshold {LIVE_WRITER_FRESH_SEC:.0f}s). Running {label} "
+          f"beside it would give the live signal record a second writer -- stop the runner's "
+          f"cloud_signal thread (or the other --loop/--once) first, or wait for the heartbeat "
+          f"to go stale.")
+    return 2
+
+
 def cmd_replay(day, live_paths=False):
     """--replay. Isolated by default: the session replays in an isolated_paths() copy that
     is kept and named on screen, so its state.json/signals.csv can be read afterwards,
@@ -1493,7 +1671,15 @@ def cmd_replay(day, live_paths=False):
 
 
 def cmd_once():
+    """One live step() and exit. Refused (returns 2) while a live writer's heartbeat is
+    fresh -- see _refuse_beside_live_writer -- so this can never become a second writer
+    of the live signal record beside the runner's own cloud_signal_thread or another
+    --loop/--once. Returns the process exit code; main() passes it to sys.exit()."""
     paths = DEFAULT_PATHS
+    rc = _refuse_beside_live_writer(paths, "--once")
+    if rc:
+        return rc
+    log_history_windows(paths=paths)
     warnings = {}
     events = step(fetch=True, paths=paths, warnings=warnings)
     cache_failed = bool(warnings.get("cache_write_failed"))
@@ -1501,6 +1687,7 @@ def cmd_once():
     _write_heartbeat(paths, ok=True, note=note, cache_write_failed=cache_failed)
     print(f"cloud_signal --once: {len(events)} new event(s)")
     print(_fmt_ledger_table(events))
+    return 0
 
 
 THREAD_STEP_SEC = 30.0   # see cloud_signal_thread
@@ -1535,8 +1722,16 @@ def cloud_signal_thread(stop=None, log=print):
     instead of the classic ~30s;
     api.cloud_signal_stream.run_stream_aware_step throttles the actual network fetch back
     to this thread's normal THREAD_STEP_SEC cadence regardless of how often it is called,
-    so the fast poll never turns into a fast REST-fetch loop."""
+    so the fast poll never turns into a fast REST-fetch loop.
+
+    NEVER refuses beside a fresh heartbeat (unlike cmd_once/cmd_loop, see
+    _refuse_beside_live_writer's own docstring) -- this IS the live writer, and a stale
+    heartbeat left by an old --loop or a runner restart must not stop it from starting."""
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
+    try:
+        log_history_windows(log=log)
+    except Exception as e:                     # diagnostic only -- must never block startup
+        log(f"[cloud-signal] history window logging failed ({type(e).__name__}: {e}) -- continuing")
     try:
         from api import cloud_signal_stream as _stream_mod
     except Exception as e:
@@ -1599,7 +1794,21 @@ def cloud_signal_thread(stop=None, log=print):
 
 
 def cmd_loop():
+    """step() every 20s during session hours, sleep outside them, until Ctrl+C. Refused
+    (returns 2) while a live writer's heartbeat is fresh -- see
+    _refuse_beside_live_writer -- so this can never become a second writer beside the
+    runner's own cloud_signal_thread or another --loop/--once.
+
+    The check runs EXACTLY ONCE, here, before this loop's own first heartbeat write --
+    never inside the loop below. This loop writes the heartbeat itself every iteration
+    (ok=True, "outside session hours" or an event count), so checking freshness again
+    inside the loop would see the stamp IT JUST WROTE a moment before and refuse itself
+    on the very next pass."""
     paths = DEFAULT_PATHS
+    rc = _refuse_beside_live_writer(paths, "--loop")
+    if rc:
+        return rc
+    log_history_windows(paths=paths)
     print("cloud_signal --loop: stepping every 20s during session hours (Ctrl+C to stop)")
     while True:
         now_et = _dt.datetime.now(tz=_zi(TZ))
@@ -1641,9 +1850,13 @@ def main(argv=None):
         if rc:
             sys.exit(rc)
     elif args.once:
-        cmd_once()
+        rc = cmd_once()
+        if rc:
+            sys.exit(rc)
     elif args.loop:
-        cmd_loop()
+        rc = cmd_loop()
+        if rc:
+            sys.exit(rc)
     else:
         ap.print_help()
         sys.exit(1)

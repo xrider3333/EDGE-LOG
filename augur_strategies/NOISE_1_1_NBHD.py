@@ -65,6 +65,12 @@ STRATEGY_NAME = 'NOISE 1.1 NBHD - champion core, geometry neighbourhood open'
 _AUGUR_MARKET = {"instrument": "NQ", "timeframe": "5m"}
 _AUGUR_PARENT = "NOISE_1_0.py"
 
+# Re-exported so a caller sizing a LIVE history window (api/cloud_signal.py's
+# required_lookback_sessions) can read this off NOISE_1_1_NBHD.py too, without caring
+# that the number actually comes from NOISE_1_0.py's vol_skip_pct filter -- see that
+# file's own REQUIRED_LOOKBACK_SESSIONS.
+REQUIRED_LOOKBACK_SESSIONS = getattr(_base, "REQUIRED_LOOKBACK_SESSIONS", None)
+
 # The crowned SBS_V90 configuration. Every knob below either equals one of these
 #   values (pinned) or is centred on it (open).
 _CHAMP = {

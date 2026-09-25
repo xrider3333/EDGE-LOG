@@ -898,3 +898,338 @@ def test_cloud_signal_thread_writes_ok_true_heartbeat_with_cache_write_failed_no
     assert hb.get("cache_write_failed") is True
     assert not [n for n in os.listdir(live["ohlc_dir"]) if n.endswith(".tmp")], (
         "the abandoned bar-cache .tmp must not be left behind")
+
+
+# ── 5. Hand-run refusal beside a live writer (WEBULL_PAPER_TODO.md item 2, 2026-09-25) ──
+# `cmd_once`/`cmd_loop` must refuse (exit code 2) while a live writer's heartbeat is
+# fresh -- running either beside the runner's own cloud_signal_thread (or another
+# --loop/--once) makes state.json/signals.csv have two writers (see the module
+# docstring's item-2 note above CLOSE_GRACE_SECONDS). `cloud_signal_thread` itself must
+# NEVER refuse -- that is tested separately, by NOT testing it here: every existing
+# cloud_signal_thread test above stamps/reads heartbeats freely with no refusal path.
+def test_cmd_once_refuses_beside_a_fresh_live_writer(fake_live):
+    live, _ = fake_live
+    _stamp_heartbeat(live, age_sec=20)             # a live writer is alive
+    before = _tree_bytes(live["home"])
+
+    with pytest.raises(SystemExit) as refused:
+        cs.main(["--once"])
+    assert refused.value.code == 2
+    assert _tree_bytes(live["home"]) == before, "a refused --once must change no file"
+
+
+def test_cmd_once_proceeds_with_a_stale_heartbeat(fake_live, monkeypatch):
+    live, _ = fake_live
+    _stamp_heartbeat(live, age_sec=cs.LIVE_WRITER_FRESH_SEC + 60)   # the old writer stopped
+    epoch_df, _ = _fixture_epoch_df()
+    monkeypatch.setattr(cs, "fetch_and_merge", lambda tf, paths, log=print: (epoch_df, "webull", True))
+
+    cs.main(["--once"])                            # must NOT raise SystemExit
+
+    age = cs._live_writer_age_sec(live)
+    assert age is not None and age < 5, "--once must stamp its own fresh heartbeat once it runs"
+
+
+def test_cmd_once_proceeds_with_no_heartbeat_at_all(fake_live, monkeypatch):
+    live, _ = fake_live
+    assert cs._live_writer_age_sec(live) is None, "fake_live must start with no heartbeat file"
+    epoch_df, _ = _fixture_epoch_df()
+    monkeypatch.setattr(cs, "fetch_and_merge", lambda tf, paths, log=print: (epoch_df, "webull", True))
+
+    cs.main(["--once"])                            # must NOT raise SystemExit
+
+    assert os.path.exists(live["heartbeat_path"]), "--once must run to completion and heartbeat"
+
+
+def test_cmd_loop_refuses_beside_a_fresh_live_writer_before_its_first_iteration(fake_live):
+    """The refusal check runs ONCE, before cmd_loop's own first heartbeat write --
+    proven here by asserting nothing under the live home changed at all: if the check
+    ran AFTER even one iteration, that iteration's own heartbeat write would already
+    have touched the tree."""
+    live, _ = fake_live
+    _stamp_heartbeat(live, age_sec=20)
+    before = _tree_bytes(live["home"])
+
+    with pytest.raises(SystemExit) as refused:
+        cs.main(["--loop"])
+    assert refused.value.code == 2
+    assert _tree_bytes(live["home"]) == before, "a refused --loop must change no file"
+
+
+def test_cmd_once_and_cmd_loop_return_the_exit_code_directly():
+    """'Found while filing' in WEBULL_PAPER_TODO.md item 2: main() used to discard
+    cmd_once()/cmd_loop()'s return value entirely (only --replay's rc reached
+    sys.exit()). Both must now hand back 2 on refusal so main() can propagate it --
+    tested at the function level, independent of argparse/main()."""
+    live = cs._paths(home=str(tempfile.mkdtemp(prefix="cloud_signal_rc_test_")))
+    os.makedirs(live["state_dir"], exist_ok=True)
+    try:
+        _stamp_heartbeat(live, age_sec=20)
+        assert cs._refuse_beside_live_writer(live, "--once") == 2
+        assert cs._refuse_beside_live_writer(live, "--loop") == 2
+        _stamp_heartbeat(live, age_sec=cs.LIVE_WRITER_FRESH_SEC + 60)
+        assert cs._refuse_beside_live_writer(live, "--once") is None
+        assert cs._refuse_beside_live_writer(live, "--loop") is None
+    finally:
+        shutil.rmtree(live["home"], ignore_errors=True)
+
+
+# ── 6. Live history window sizing (WEBULL_PAPER_TODO.md item 12, 2026-09-25) ────────────
+# NOISE_1_8_CT304.py's vol_skip_pct filter (frozen on at 95.0, see its _FROZEN dict)
+# needs 60 REFERENCE sessions before it ever produces anything but NaN (NOISE_1_0.py's
+# _vol_percentile, VOL_SKIP_LOOKBACK_SESSIONS) -- and the live engine used to hand it
+# exactly 60 sessions TOTAL, one short of that, so the skip could never engage. These
+# tests cover leg_warmup_sessions()/required_lookback_sessions() (the fix), plus a
+# synthetic proof against the real strategy function, and log_history_windows()'s
+# startup diagnostic (complete vs degraded).
+def test_required_lookback_sessions_reads_the_real_noise_strategy_chain():
+    """End to end on the REAL repo files: NOISE_1_8_CT304.py (the filename CROWN_LEGS
+    actually names for the live NOISE_382 leg) re-exports REQUIRED_LOOKBACK_SESSIONS
+    from NOISE_1_1_NBHD.py, which re-exports it from NOISE_1_0.py's own
+    VOL_SKIP_LOOKBACK_SESSIONS -- ties this test to that number wherever it is actually
+    defined, so a future change to it is caught here rather than silently drifting from
+    what cloud_signal uses."""
+    assert cs.required_lookback_sessions("NOISE_1_8_CT304.py") == 60
+    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["NOISE_382"]) == 60 + cs.WARMUP_MARGIN_SESSIONS
+
+
+def test_orb_and_enguq_declare_no_lookback_requirement_today():
+    """Documents today's fact (2026-09-25) so a FUTURE change to either strategy file's
+    own look-back is caught here instead of silently going untreated: neither
+    ORB_3_6_R6.py nor ENGUQ_1M_ETH_R2_1_0.py declares REQUIRED_LOOKBACK_SESSIONS, so
+    leg_warmup_sessions() is a complete no-op for both today -- exactly
+    DEFAULT_WARMUP_SESSIONS, unaffected by item 12."""
+    assert cs.required_lookback_sessions("ORB_3_6_R6.py") is None
+    assert cs.required_lookback_sessions("ENGUQ_1M_ETH_R2_1_0.py") is None
+    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["ORB_R6"]) == cs.DEFAULT_WARMUP_SESSIONS
+    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["ENGUQ_335"]) == cs.DEFAULT_WARMUP_SESSIONS
+
+
+def test_leg_warmup_sessions_widens_only_when_the_strategy_declares_a_requirement():
+    """Isolated arithmetic, off lightweight stub modules rather than the real (slower,
+    delegation-chain) NOISE files -- test_required_lookback_sessions_reads_the_real_
+    noise_strategy_chain above already ties the real chain to this same function."""
+    needs_70 = types.ModuleType("stub_needs_70")
+    needs_70.REQUIRED_LOOKBACK_SESSIONS = 60
+    needs_70.run_backtest = lambda *a, **k: None
+    declares_nothing = types.ModuleType("stub_declares_nothing")
+    declares_nothing.run_backtest = lambda *a, **k: None
+    needs_less_than_default = types.ModuleType("stub_needs_5")
+    needs_less_than_default.REQUIRED_LOOKBACK_SESSIONS = 5
+    needs_less_than_default.run_backtest = lambda *a, **k: None
+
+    assert cs.leg_warmup_sessions(
+        {"strategy": needs_70, "warmup_sessions": cs.DEFAULT_WARMUP_SESSIONS}
+    ) == 60 + cs.WARMUP_MARGIN_SESSIONS
+    assert cs.leg_warmup_sessions(
+        {"strategy": declares_nothing, "warmup_sessions": cs.DEFAULT_WARMUP_SESSIONS}
+    ) == cs.DEFAULT_WARMUP_SESSIONS
+    # a declared requirement SMALLER than the existing default must never SHRINK the
+    # window -- this function only ever asks for more history, never less.
+    assert cs.leg_warmup_sessions(
+        {"strategy": needs_less_than_default, "warmup_sessions": cs.DEFAULT_WARMUP_SESSIONS}
+    ) == cs.DEFAULT_WARMUP_SESSIONS
+
+
+def test_step_hands_the_engine_the_widened_window_when_the_cache_allows(tmp_path):
+    """Integration proof that step() -> closed_arrays() actually receives
+    leg_warmup_sessions()'s number, not the leg's own plain warmup_sessions: a stub leg
+    declares it needs 15 sessions (-> wants 15+WARMUP_MARGIN_SESSIONS with the real
+    margin), its own cfg["warmup_sessions"] is a much smaller 5, and the cache holds 40
+    -- enough for either number, so whatever the strategy actually SEES is attributable
+    to leg_warmup_sessions(), not a cache that only happened to hold one particular
+    count."""
+    seen = {}
+
+    def spy_run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
+                         index=None, return_trades=False, **kw):
+        seen["n_sessions"] = len(set(day_id.tolist())) if day_id is not None else None
+        return None   # no trades -- this test only cares what window it was handed
+
+    stub = types.ModuleType("stub_needs_15")
+    stub.REQUIRED_LOOKBACK_SESSIONS = 15
+    stub.run_backtest = spy_run_backtest
+
+    n_sessions, bars_per_session = 40, 5
+    base_days = pd.bdate_range("2026-06-01", periods=n_sessions, tz=cs.TZ)
+    times, opens = [], []
+    for day in base_days:
+        day_open = day + pd.Timedelta(hours=9, minutes=30)
+        for k in range(bars_per_session):
+            times.append(day_open + pd.Timedelta(minutes=k))
+            opens.append(100.0)
+    epoch = [int(t.tz_convert("UTC").timestamp()) for t in times]
+    epoch_df = pd.DataFrame({"time": epoch, "open": opens, "high": opens, "low": opens,
+                             "close": opens, "volume": [1000.0] * len(opens)})
+
+    paths = cs._paths(home=str(tmp_path / "widen_home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    epoch_df.to_csv(cs._cache_path("5m", paths), index=False)
+
+    legs = {"WIDE": {"strategy": stub, "timeframe": "5m", "params": {}, "warmup_sessions": 5}}
+    now = (times[-1] + pd.Timedelta(minutes=10)).to_pydatetime()
+    cs.step(now=now, legs=legs, paths=paths, fetch=False)
+
+    assert seen.get("n_sessions") == 15 + cs.WARMUP_MARGIN_SESSIONS, (
+        "the engine must be handed the WIDENED window (need+margin), not the leg's own "
+        "smaller warmup_sessions, whenever the cache holds enough")
+
+
+def _stub_needing(n, cfg_warmup=5):
+    mod = types.ModuleType(f"stub_needs_{n}")
+    mod.REQUIRED_LOOKBACK_SESSIONS = n
+    mod.run_backtest = lambda *a, **k: None
+    return {"NEEDER": {"strategy": mod, "timeframe": "5m", "params": {},
+                       "warmup_sessions": cfg_warmup}}
+
+
+def _write_5m_cache(paths, n_sessions, bars_per_session=3):
+    base_days = pd.bdate_range("2026-01-05", periods=n_sessions, tz=cs.TZ)
+    times, opens = [], []
+    for day in base_days:
+        day_open = day + pd.Timedelta(hours=9, minutes=30)
+        for k in range(bars_per_session):
+            times.append(day_open + pd.Timedelta(minutes=5 * k))
+            opens.append(100.0)
+    epoch = [int(t.tz_convert("UTC").timestamp()) for t in times]
+    epoch_df = pd.DataFrame({"time": epoch, "open": opens, "high": opens, "low": opens,
+                             "close": opens, "volume": [1000.0] * len(opens)})
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    epoch_df.to_csv(cs._cache_path("5m", paths), index=False)
+
+
+def test_log_history_windows_reports_complete_when_the_cache_covers_the_window(tmp_path):
+    paths = cs._paths(home=str(tmp_path / "complete_home"))
+    _write_5m_cache(paths, n_sessions=25)          # >= wanted (10 + 10 margin = 20)
+    legs = _stub_needing(10)
+    logged = []
+
+    cs.log_history_windows(legs=legs, paths=paths, log=logged.append)
+
+    assert len(logged) == 1
+    line = logged[0]
+    assert "NEEDER" in line and "COMPLETE" in line
+    assert "20 session(s)" in line, line
+    assert "cache holds 25" in line, line
+
+
+def test_log_history_windows_degrades_with_a_clear_log_line_when_the_cache_is_shorter(tmp_path):
+    paths = cs._paths(home=str(tmp_path / "degraded_home"))
+    _write_5m_cache(paths, n_sessions=12)          # < wanted (10 + 10 margin = 20), >= need (10)
+    legs = _stub_needing(10)
+    logged = []
+
+    cs.log_history_windows(legs=legs, paths=paths, log=logged.append)
+
+    assert len(logged) == 1
+    line = logged[0]
+    assert "NEEDER" in line and "TRUNCATED" in line, line
+    assert "12 session(s)" in line, line
+    assert "cache holds only 12" in line, line
+
+    # a cache shorter than even the BARE minimum says so explicitly, by how much
+    paths2 = cs._paths(home=str(tmp_path / "degraded_home_2"))
+    _write_5m_cache(paths2, n_sessions=4)          # < need (10) too
+    logged2 = []
+    cs.log_history_windows(legs=legs, paths=paths2, log=logged2.append)
+    assert "6 session(s) short of the strategy's own minimum" in logged2[0], logged2[0]
+
+
+def test_log_history_windows_handles_a_missing_cache_without_raising(tmp_path):
+    paths = cs._paths(home=str(tmp_path / "no_cache_home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)     # no CSV written at all
+    legs = _stub_needing(10)
+    logged = []
+
+    cs.log_history_windows(legs=legs, paths=paths, log=logged.append)   # must not raise
+
+    assert len(logged) == 1
+    assert "NEEDER" in logged[0]
+
+
+# ── Synthetic check: the real vol_skip_pct filter cannot engage at 60 sessions, can at
+# 70+ (WEBULL_PAPER_TODO.md item 12's own required test) ─────────────────────────────────
+def _noise_vol_skip_bars(n_sessions, outlier_idx, base=100.0):
+    """Tiny synthetic RTH-shaped bars (4 bars/session) for exercising NOISE_1_0.py's
+    vol_skip_pct filter DIRECTLY. Every session is byte-identical -- flat open, spike
+    +3 on bar 1 (crosses the near-zero test bands used below and triggers a long),
+    reverse to -3 on bar 2 (crosses back, exit queued), flat close on bar 3 (so
+    prev_close is always exactly `base` -- no session-to-session drift to control for,
+    so any difference between two runs is attributable to vol_skip_pct, not the data).
+    `outlier_idx` gets an enormous intrabar HIGH on bar 1 only -- its own open/close (and
+    therefore its own trading, and the FOLLOWING session's reference levels) are
+    untouched -- which is the one thing _vol_percentile ranks, so once enough reference
+    history exists the session that reads it (outlier_idx + 1) ranks it at the 100th
+    percentile no matter the exact vol_skip_pct threshold used below."""
+    opens, highs, lows, closes, day_id = [], [], [], [], []
+    session_o = [base, base, base + 3.0, base - 3.0]
+    session_c = [base, base + 3.0, base - 3.0, base]
+    for si in range(n_sessions):
+        for k in range(4):
+            o, c = session_o[k], session_c[k]
+            h = max(o, c) + 0.05
+            l = min(o, c) - 0.05
+            if si == outlier_idx and k == 1:
+                h = base + 80.0            # outsized intrabar spike; open/close untouched
+            opens.append(o); highs.append(h); lows.append(l); closes.append(c)
+            day_id.append(si)
+    return opens, highs, lows, closes, day_id
+
+
+def _run_noise_core(n_sessions, outlier_idx, vol_skip_pct):
+    """Calls the REAL NOISE_1_0.run_backtest (the function that implements
+    vol_skip_pct) directly, not NOISE_1_8_CT304's wrapper -- that wrapper freezes
+    vol_skip_pct=95.0 and cannot toggle it through its own public params (see its
+    _FROZEN dict), and this test needs both 95 (NOISE_382's real, live value) and 0
+    (off) to isolate the filter's effect. band_mult is intentionally tiny so a trade
+    fires deterministically every unblocked session -- the point under test is whether
+    the filter can ENGAGE at all, not NOISE_382's specific trade shape."""
+    import augur_strategies.NOISE_1_0 as noise10
+    opens, highs, lows, closes, day_id = _noise_vol_skip_bars(n_sessions, outlier_idx)
+    return noise10.run_backtest(
+        opens, highs, lows, closes, day_id=day_id,
+        lookback=1, band_mult_long=0.001, band_mult_short=0.001,
+        exit_mode="band", side="Both", window="all_day", flat_eod=True,
+        skip_holidays=False, stop_mode="off", confirm_bars=1, daytype_mode="off",
+        vol_skip_pct=vol_skip_pct, return_trades=True)
+
+
+def _entries_in_last_session(res, n_sessions, bars_per_session=4):
+    last_start = (n_sessions - 1) * bars_per_session
+    return [t for t in (res or {}).get("trades", [])
+           if last_start <= t[0] < last_start + bars_per_session]
+
+
+def test_noise_vol_skip_cannot_engage_at_60_sessions_but_can_at_70_or_more():
+    """Synthetic proof of WEBULL_PAPER_TODO.md item 12, on the REAL strategy function
+    (NOISE_1_0.py's run_backtest, imported directly -- not reimplemented or mocked):
+    _vol_percentile needs 60 REFERENCE sessions strictly before the session it ranks
+    (VOL_SKIP_LOOKBACK_SESSIONS) before it produces anything but NaN, so an array of
+    EXACTLY 60 sessions can never let vol_skip_pct engage no matter what the price data
+    looks like -- while cloud_signal's new 70-session window (60 + WARMUP_MARGIN_SESSIONS)
+    gives it room. Compares vol_skip_pct=95 (NOISE_382's real, frozen value) against
+    vol_skip_pct=0 (off) at each window size: IDENTICAL trades at 60 sessions proves the
+    filter had zero effect (fully NaN-gated); the judged session's entry disappearing
+    only once 75 sessions are available proves it engaged."""
+    outlier_60 = 60 - 2   # the session _vol_percentile reads as "yesterday" relative to
+                          # the LAST (judged) session -- see _noise_vol_skip_bars
+    on_60 = _run_noise_core(60, outlier_60, vol_skip_pct=95.0)
+    off_60 = _run_noise_core(60, outlier_60, vol_skip_pct=0.0)
+    assert _entries_in_last_session(off_60, 60), (
+        "sanity check: the synthetic bars must fire a trade on the judged session when "
+        "nothing blocks it")
+    assert on_60["trades"] == off_60["trades"], (
+        "60 sessions is exactly the case item 12 reports: the skip must be a total "
+        "no-op, identical to vol_skip_pct=0, because _vol_percentile cannot produce a "
+        "real number yet no matter how extreme the data is")
+
+    outlier_75 = 75 - 2
+    on_75 = _run_noise_core(75, outlier_75, vol_skip_pct=95.0)
+    off_75 = _run_noise_core(75, outlier_75, vol_skip_pct=0.0)
+    assert _entries_in_last_session(off_75, 75), (
+        "sanity check: with the skip off, the judged session still fires normally")
+    assert not _entries_in_last_session(on_75, 75), (
+        "75 sessions is comfortably inside what leg_warmup_sessions() now hands "
+        "NOISE_382 (60+10 margin): with a full 60-session reference available, the "
+        "outlier 'yesterday' ranks at the 100th percentile and vol_skip_pct=95 must "
+        "block the judged session's entry")
