@@ -5693,6 +5693,98 @@
    ],
    "overall": 75,
    "summary": "A clean ENGU on the 10:06 ET pullback in a morning uptrend, filled at 7439.75 without chasing. You sold 7443 after a minute while price reached 7448 by 10:20, so your own note, HOLD MORE, is right. It never got to the 7454.25 high, so a partial there with the rest trailed would fit this setup."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-09-24",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "12:20",
+   "exit_time": "12:20",
+   "entry": 30687.0,
+   "exit": 30700.0,
+   "qty": 1,
+   "breakout_candle": "12:19",
+   "stop": 30664.75,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 15,
+     "note": "Price ripped from 30507.50 at 12:13 to 30748.25 at 12:18, so the long was with a strong fresh thrust."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 13,
+     "note": "You bought 30687 on the first pullback, about 61 points under the 30748.25 high and 22 points above the 12:19 low."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 10,
+     "note": "The 12:19 pullback low at 30664.75 gave a clear stop about 22 points below the fill."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 8,
+     "note": "A retest of the 30748.25 spike high offered roughly 2.7R against the 30664.75 stop."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 7,
+     "note": "No setup was tagged, so the trade reads as an untagged pullback buy after a momentum spike."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "Volume ran 10,000 to 28,000 contracts a minute during the spike, so fills were easy and range was wide."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 5,
+     "note": "The trade came at 12:20 in the lunch hour, although the spike brought unusual activity."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 17,
+     "note": "You entered in the 12:20 bar right after the 12:19 pullback held 30664.75, which was a reasonable but not ideal spot."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 20,
+     "note": "The 12:20 bar low of 30677.75 put the worst possible heat at about 9 points on a same-minute trade."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 18,
+     "note": "You took 13 points of the 23.75 available at the 30710.75 high, and the next 15 minutes dipped to 30650.75 before 12:36, so the quick exit was sound."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "One MNQ contract kept risk small in a fast, volatile tape."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 5,
+     "note": "No setup, timeframe, grade or notes were logged, so the plan cannot be checked."
+    }
+   ],
+   "overall": 70,
+   "summary": "You bought the first pullback after a 240-point spike and banked 13 points in the same minute. The exit was sensible because price chopped down to 30650.75 over the next several minutes before running higher later. Log the setup and your stop next time so the plan can be graded."
   }
  ],
  "na": [
