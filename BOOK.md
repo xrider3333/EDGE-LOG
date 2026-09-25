@@ -557,7 +557,7 @@ was never the weak link. **The legs were.** The lesson is the older one, sharpen
 measures how a pile of legs behaves together and can look excellent while every leg in it is
 individually unvalidated. Run #315 taught it for NQDIP_1_1; this is the same lesson at book scale.
 
-### 10e. OPEN TRADES VALUED DAILY — a second drawdown reading on every book (2026-09-25, v73.898)
+### 10e. OPEN TRADES VALUED DAILY — a second drawdown reading on every book (2026-09-25, v73.899)
 
 **Why.** Every book figure counts a trade on the day it CLOSES. That is exact for an intraday leg
 and blind for one that holds for weeks: ENGU-Q (`ENGUQ_1M_ETH_R2_1_0.py`) has held a trade 143
