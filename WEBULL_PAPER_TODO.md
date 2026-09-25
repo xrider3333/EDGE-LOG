@@ -23,6 +23,8 @@ done.
 | 11 | Re-price trades from Webull's own tape, not Yahoo | **OPEN** | nothing |
 | 12 | NOISE's volatility skip never fires live | **OPEN** | nothing |
 | 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
+| 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **OPEN** (2026-09-25) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q |
+| 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **OPEN** (2026-09-25) | nothing |
 
 ---
 
@@ -611,3 +613,32 @@ trade can want up to 60 (2x times up to 3x). Anything over 20 is cut to 20, and 
 were wanted. Keep 20, or raise NOISE's own cap so the sizes the validation assumed can trade.
 
 **Needs from the owner.** Nothing.
+
+---
+
+## 14. Taking the book live: the go-live punch list
+
+**Status: OPEN.** Added 2026-09-25. The full list is in WEBULL_GO_LIVE.md: 12 things Claude must
+fix before any real share, 10 owner decisions, 12 fixes before sizing up, and a staged plan.
+Stage 1 is NOISE only at 1-3 shares with the owner watching.
+
+**Done when:** every item in its section 1 is fixed, the owner has settled its section 2, and a
+supervised 1-share live test leaves both the book and Webull flat.
+
+---
+
+## 15. ORB never enters before about 14:05 ET
+
+**Status: OPEN.** Added 2026-09-25 (go-live audit, checked by hand).
+
+**What is wrong.** ORB #314 skips half days by comparing each session's length to 70% of a
+normal session. On the live engine, today's session is still being built, so until about 14:05 ET
+it looks shorter than that and is dropped as a half day. By the time it counts as a full day, the
+morning breakout is hours old and the engine skips it as late. The backtests never see this,
+because every session in them is complete. This is why the ORB leg has been silent.
+
+**Fix.** Judge a half day from the market calendar (or leave the unfinished last session out of
+the length test) on the live path only. Then replay 60 sessions and check the ORB entries match
+the backtest one for one.
+
+**Done when:** the replay matches and ORB can take a morning entry on paper.
