@@ -10,18 +10,18 @@ done.
 
 | # | item | status | needs from owner |
 | ---: | --- | --- | --- |
-| 1 | Void the fake NOISE rows a test re-run wrote into the live signal record | **WAITING ON OWNER** | reply "apply the ledger repair" |
-| 2 | Stop a hand-run signal step from writing beside the live signal thread | **OPEN** | nothing |
-| 3 | Keep the QQQ lease fresh when status publishes are throttled | **BUILT, NOT SHIPPED** (2026-09-25, worktree `bookfix`) | nothing; ship when convenient |
-| 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **OPEN** | nothing, unless the row is to be voided (then "apply the ledger repair", as item 1) |
+| 1 | Void the fake NOISE rows a test re-run wrote into the live signal record | **DONE** (2026-09-25, applied on the box after the close) | nothing |
+| 2 | Stop a hand-run signal step from writing beside the live signal thread | **DONE** (2026-09-25, 307a128, live on the box) | nothing |
+| 3 | Keep the QQQ lease fresh when status publishes are throttled | **DONE** (2026-09-25, 7cdd490, live on the box) | nothing |
+| 4 | A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row to judge | **DONE** (2026-09-25, row voided with item 1) | nothing |
 | 5 | NOISE bought in the book but never at Webull: re-send a blocked buy, never sell what Webull does not hold, retry a same-instant duplicate | **DONE** (2026-09-21, after-close check passed) | nothing |
-| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **NOISE FAILED STEP 1** (run #408, 2026-09-21) | test ORB #314 next, or close the item |
+| 6 | ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q) | **CLOSED** (2026-09-25): no filter passes on any leg | optional: a resizing-only test, pre-registered |
 | 7 | One Webull account, three strategies: net the orders | **DONE** (2026-09-23, d14e2a3) | nothing; watch the first split order |
 | 8 | Live positions + account equity, honest warnings, plain-English broker errors | **DONE** (2026-09-23) | nothing; watch the live feed's load at the open |
 | 9 | KEEL v12 on top of run #382 on the NOISE leg | **LIVE** (2026-09-24, 5326d02) | nothing |
-| 10 | Fire orders at the bar close from the live price feed | **OPEN** | nothing |
-| 11 | Re-price trades from Webull's own tape, not Yahoo | **OPEN** | nothing |
-| 12 | NOISE's volatility skip never fires live | **OPEN** | nothing |
+| 10 | Fire orders at the bar close from the live price feed | **SHADOW** (2026-09-25, 4aaabc8, live on the box, switch off) | after about a week of shadow numbers: switch it on or not |
+| 11 | Re-price trades from Webull's own tape, not Yahoo | **DONE** (2026-09-25, 9805414, live on the box) | nothing |
+| 12 | NOISE's volatility skip never fires live | **PARTLY DONE** (2026-09-25, 307a128): the skip now engages live; full match needs 252 sessions | nothing |
 | 13 | Share cap vs #382 x KEEL sizes | **DONE** (2026-09-24: 60 per leg, 80 total) | nothing |
 | 14 | Taking the book live: the go-live punch list (WEBULL_GO_LIVE.md) | **OPEN** (2026-09-25) | decisions in its section 2: account, size and the day-trade rule, shorting, token, KEEL stack, ENGU-Q |
 | 15 | ORB never enters before about 14:05 ET: the half-day test drops today's unfinished session | **OPEN** (2026-09-25) | nothing |
@@ -30,7 +30,14 @@ done.
 
 ## 1. Void the fake NOISE rows a test re-run wrote into the live signal record
 
-**Status: WAITING ON OWNER.** Build nothing that writes the live files, and apply nothing, until
+**Status: DONE 2026-09-25.** Applied on the cloud box at 16:07 ET on the owner's "fix all now", with both
+services stopped and the book flat. The dry run listed exactly rows 8-12 and row 24 (item 4) and
+the NOISE_304 leg record; `--apply` voided them (VOID_SEED / VOID_ENTRY / VOID_EXIT, reason kept),
+removed the leg record, and wrote backups (`signals.csv.pre-repair-20260914`,
+`state.json.pre-repair-20260914`) and the audit trail `cloud_signal/corrections.log`. Tool:
+`tools/cloud_signal_repair_20260914.py` (0260c73).
+
+**Earlier status: WAITING ON OWNER.** Build nothing that writes the live files, and apply nothing, until
 the owner says "apply the ledger repair" in chat. Added 2026-09-14.
 
 **What happened, in plain words.** At 00:55 ET on 2026-09-14 a background Claude session
@@ -106,7 +113,10 @@ tracked as item 2.
 
 ## 2. Stop a hand-run signal step from writing beside the live signal thread
 
-**Status: OPEN.** Nothing needed from the owner: build, test and push. Added 2026-09-14 from the
+**Status: DONE 2026-09-25** (307a128; live on the box from the 16:07 ET restart). A hand-run signal step
+now refuses to run beside the live signal thread and exits with code 2.
+
+**Earlier status: OPEN.** Nothing needed from the owner: build, test and push. Added 2026-09-14 from the
 owner's spec below. Checked read-only at ~16:55 ET on 2026-09-14 against origin/main `c61d3e8`:
 the gap is still open, and no session branch or worktree held an unshipped edit to
 `api/cloud_signal.py`.
@@ -181,7 +191,10 @@ real order once the Webull broker mirror is armed.
 
 ## 3. Keep the QQQ lease fresh when status publishes are throttled
 
-**Status: BUILT, NOT SHIPPED (2026-09-25, worktree `bookfix`).** Needs nothing from the owner.
+**Status: DONE 2026-09-25** (7cdd490; live on the box from the 16:07 ET restart). The same commit puts
+the engine's KEEL size on the trade row and stops the false morning tick-gap warning.
+
+**Earlier status: BUILT, NOT SHIPPED (2026-09-25, worktree `bookfix`).** Needs nothing from the owner.
 Added 2026-09-14 from the owner's chat of the same name, which was closed before any work
 started (no worktree, branch, edit or commit).
 
@@ -283,7 +296,10 @@ cadence, and update the README section's wording if the timing it describes chan
 
 ## 4. A second signal engine ran on the cloud box for 12 hours: one duplicate NOISE entry row
 
-**Status: OPEN.** Nothing needed from the owner to check it. Voiding the row, if you decide it
+**Status: DONE 2026-09-25.** Row 24 (the duplicate NOISE_304 ENTRY) was voided with item 1's repair;
+row 23 is kept.
+
+**Earlier status: OPEN.** Nothing needed from the owner to check it. Voiding the row, if you decide it
 should be, follows item 1's rule: build and apply only after the owner says "apply the ledger
 repair". Added 2026-09-21 by the session that fixed the GATE DOWN header chip.
 
@@ -387,7 +403,16 @@ refused by Webull, and the books read flat after the close (broker 0 = sent 0 fo
 
 ## 6. ML filter for the Webull book, NOISE first (then ORB, then ENGU-Q)
 
-**Status: NOISE FAILED STEP 1 - nothing built (run #408, 2026-09-21 15:27 ET).** Result below; the owner
+**Status: CLOSED 2026-09-25.**
+
+**Item 6 result (2026-09-25): CLOSED - no ML filter on any Webull leg.** The same pre-registered money test (the filter must make MORE than plain on BOTH the walk-forward stretch and the held-out year) was applied to all three legs, and none passes, so plain trading continues on NOISE, ORB and ENGU-Q.
+- NOISE (run #408, a fresh gate_validate 2026-09-21): lost over the long history ($347,398 vs $350,650 plain); beat plain in the held-out year by only $3,389 on 6 skipped trades of 288 - too small to trust.
+- ORB (run #314's own stored bake-off, validated 2026-09-04, after the 2026-08-10 causal-feature fix - no new run): Extra Trees @ 45% made $4,946 more over the long history but skipped 0 of 168 held-out trades, so the held-out year is a tie, not a win.
+- ENGU-Q (run #335's own stored bake-off, validated 2026-09-08 - no new run): Random Forest @ 45% cut over half the trades and made $121,162 LESS over the long history ($370,356 vs $491,518) and $205 less in the held-out year.
+- In all three the app's green "lockbox held" light measured a smaller drawdown, not more money - the drawdown-dial trap this rule exists to catch.
+- Curiosity, not a result: most resizing hybrids beat plain in the held-out year on ORB and ENGU-Q (some with less drawdown), but picking one after seeing the numbers is shopping. The only legitimate next step is a resizing-only test pre-registered before looking, if the owner wants it.
+
+**Earlier status: NOISE FAILED STEP 1 - nothing built (run #408, 2026-09-21 15:27 ET).** Result below; the owner
 decides whether ORB #314 gets the same one-job test or the item closes. Step 1 was queued
 2026-09-21 (owner: "go, run it as a twin beside NOISE") with
 `tools/queue_noise304_gate_validate.py --queue`; the result lands as a run in PAST RUNS and is judged
@@ -570,7 +595,12 @@ validation's walk would already count earlier same-day trades - a one-day lag of
 
 ## 10. Fire orders at the bar close from the live price feed
 
-**Status: OPEN.** Orders go out ~30 s after a bar closes: the signal engine waits for Webull's REST
+**Status: SHADOW 2026-09-25** (4aaabc8; live on the box from the 16:07 ET restart, switch
+`bar_close_from_stream` off). The engine still fires from Webull's REST bar. Beside it, it logs
+whether the live feed's closed bar agrees and how many seconds it would save. After about a week
+of those numbers, the owner decides whether to switch it on.
+
+**Earlier status: OPEN.** Orders go out ~30 s after a bar closes: the signal engine waits for Webull's REST
 bar to settle and then polls. The live feed (item 8) already builds its own 1m/5m bars from every
 trade, so the engine can run the moment a bar closes and cut ~30 s to about a second. The feed runs
 in the exec process and the engine in its own service, so the bars need a hand-off (the feed already
@@ -582,7 +612,11 @@ writes ohlc_stream/QQQ_*.csv every 10 s), plus a guard that REST stays the recor
 
 ## 11. Re-price trades from Webull's own tape, not Yahoo
 
-**Status: OPEN.** The nightly re-price (reprice.csv) reads yfinance 1-minute bars. Webull's own 1m
+**Status: DONE 2026-09-25** (9805414; live on the box from the 16:07 ET restart). The re-price reads
+the live feed's 1m bars first, then Webull's REST history, then Yahoo, and records which one it
+used on each row.
+
+**Earlier status: OPEN.** The nightly re-price (reprice.csv) reads yfinance 1-minute bars. Webull's own 1m
 bars (REST history, or the live feed's ohlc_stream files) are the tape the orders actually traded on.
 
 **Needs from the owner.** Nothing.
@@ -591,7 +625,12 @@ bars (REST history, or the live feed's ohlc_stream files) are the tape the order
 
 ## 12. NOISE's volatility skip never fires live
 
-**Status: OPEN.** NOISE's volatility skip looks back 60 sessions, and the live window hands the
+**Status: PARTLY DONE 2026-09-25** (307a128; live from the 16:07 ET restart). The engine now hands
+NOISE 70 sessions (the log reads "look-back COMPLETE"), so the skip can engage live. The
+backtest still ranks against up to 252 sessions, not about 70, so some skip days will differ.
+A full match needs at least 262 sessions of QQQ 5m bars on the box (go-live list item 3.8).
+
+**Earlier status: OPEN.** NOISE's volatility skip looks back 60 sessions, and the live window hands the
 strategy exactly 60, so the look-back is never complete and the skip never engages. Needs a longer
 QQQ history window on the box (its 5m cache starts 2026-06-08; the rest from Alpaca's 1m SIP history,
 free since 2016) and a check that the live trades then match a full-history re-run.
