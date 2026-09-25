@@ -61,7 +61,7 @@ DEFAULT_PARAMS = {
                      'tooltip': 'Skip a signal whose stop distance is this tight or tighter (0=off).'},
     'end_min': {'default': 360, 'min': 30, 'max': 360, 'step': 30, 'type': 'int',
                'label': 'Latest entry (minutes after 09:30)',
-               'tooltip': 'No new signal once the entry bar would close later than this.'},
+               'tooltip': 'No new signal from a bar that closes later than this many minutes after 09:30.'},
     'vol_mult': {'default': 0.0, 'min': 0.0, 'max': 4.0, 'step': 1.0, 'type': 'float',
                 'label': 'Volume filter (x baseline, 0=off)',
                 'tooltip': "Signal bar volume must clear this multiple of the 10-bar baseline "

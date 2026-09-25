@@ -4,7 +4,7 @@ close breaks out to a new regular-session high above a premarket or prior-day le
 Pre-registered: SETUPS_PREREG.md (sections 3-6), committed before any result for this file
 existed. This file implements sections 3 (shared mechanics) and 4A (the CBU rule) exactly
 as written there; the trade walk, sessions, ATR14, RTH/premarket/prior-day levels, the
-volume baseline and the roll-seam handling all live in augur_engine/setup_kit.py, shared
+volume baseline and the roll-day handling all live in augur_engine/setup_kit.py, shared
 with CBDQ_1M_1_0.py (the short mirror), EBUQ_1M_1_0.py and the two ENGU 2.0 files, so the
 long/short mechanics cannot drift between them.
 
@@ -12,7 +12,7 @@ Rule (SETUPS_PREREG.md section 4A): at bar i, close > the highest high of today'
 regular-session bars before i (skipped at the session's first RTH bar -- there is no
 earlier bar to compare against, but the level test below still applies there); close >
 `level` (level_mode: pm = premarket high, pdh = prior-day regular-session high, both =
-above both); the entry (bar i+1) closes no later than `end_min` minutes after 09:30;
+above both); the signal bar i closes no later than `end_min` minutes after 09:30;
 `first_bar` allow/skip controls whether the session's first RTH bar may even be a decision
 bar; volume >= vol_mult x its baseline (0 = off); if base_bars > 0, the high-low span of
 the base_bars bars before i must be <= base_k x ATR14 (a tight base before the break).
@@ -57,7 +57,7 @@ DEFAULT_PARAMS = {
                      'tooltip': 'Skip a signal whose stop distance is this tight or tighter (0=off).'},
     'end_min': {'default': 120, 'min': 30, 'max': 360, 'step': 30, 'type': 'int',
                'label': 'Latest entry (minutes after 09:30)',
-               'tooltip': 'No new signal once the entry bar would close later than this.'},
+               'tooltip': 'No new signal from a bar that closes later than this many minutes after 09:30.'},
     'vol_mult': {'default': 0.0, 'min': 0.0, 'max': 4.0, 'step': 1.0, 'type': 'float',
                 'label': 'Volume filter (x baseline, 0=off)',
                 'tooltip': "Signal bar volume must clear this multiple of the 10-bar baseline "

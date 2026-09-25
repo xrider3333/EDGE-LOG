@@ -169,3 +169,19 @@ a new pre-registration.
   uses) -- read from "trail = as ride, AND once breakeven is armed the stop also trails..."
   in section 3. Before arming, `trail` behaves exactly like `ride` pre-arm (the original
   stop, untouched).
+- 2026-09-25, DEVIATION before any triage result (found by the independent re-implementation
+  check, which matched every trade of CBU-Q and ENGU 2.0 on 1,792 cells): the house
+  `detect_roll_seams` named in section 3 compares a session's open with the prior session's
+  close, but these 24-hour masters switch contracts at 00:00 UTC (19:00/20:00 ET) INSIDE a
+  session. It caught 3 of 61 NQ and 1 of 61 ES rolls 2010-2025 and blanked ~20 ordinary
+  Monday gaps instead, so on missed roll days the prior-day level came from the old contract
+  (100-300 NQ points off in 2022-25; up to 0.076 PF on a pdh/both triage cell). Replaced by
+  `setup_kit.contract_switch_sessions`: per quarterly window (third Wednesday -14..+4 days)
+  the bar at 00:00 UTC or at a session's 18:00 open (ES sometimes switches there) with the
+  largest |open - prior close| marks the switch session, whose
+  prior-day level is blanked. Same intent as section 3, correct for this tape; pm-only cells,
+  EBU and ENGU are unaffected. The window maximum reads up to 4 days ahead, which only picks
+  which one session per quarter loses its prior-day level.
+- 2026-09-25, clarification before any result: early-close sessions (last RTH bar 12:59 or
+  11:29, ~85 in 15 years) count as sessions and as the "prior day"; only sessions with no
+  RTH bars at all are skipped as holidays.

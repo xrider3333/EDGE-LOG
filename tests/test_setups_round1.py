@@ -368,3 +368,30 @@ def test_ebu_signal_not_one_bar_early(mods):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# contract switch (roll day): the 24-hour masters switch contracts at 00:00 UTC INSIDE a
+# session; that session's prior-day level (old contract) must be blanked, no other.
+# ─────────────────────────────────────────────────────────────────────────────
+def test_contract_switch_blanks_only_the_switch_session():
+    from augur_engine import setup_kit as SK
+    rng = np.random.default_rng(5)
+    ts = pd.date_range('2024-06-09 18:00', '2024-06-21 16:59', freq='1min', tz='US/Eastern')
+    ts = ts[ts.hour != 17]
+    n = len(ts)
+    c = 19000.0 + np.cumsum(rng.normal(0, 1.0, n))
+    k_sw = int(np.flatnonzero(ts == pd.Timestamp('2024-06-16 20:00', tz='US/Eastern'))[0])
+    c[k_sw:] += 250.0                                  # the switch: +250 at 00:00 UTC
+    o = np.r_[c[0], c[:-1]]
+    o[k_sw] = c[k_sw]                                  # the jump is open vs prior close
+    h = np.maximum(o, c) + 0.5
+    l = np.minimum(o, c) - 0.5
+    v = np.full(n, 300.0)
+    sess, minute, starts, ends, _ = SK.sessions(ts)
+    sw = SK.contract_switch_sessions(o, c, ts, sess)
+    assert sw == {int(sess[k_sw])}
+    P = SK.prep(o, h, l, c, v, ts)
+    rth_first = np.flatnonzero(P['is_first_rth'])
+    blank = [str(ts[i].date()) for i in rth_first[1:] if np.isnan(P['priorday_hi'][i])]
+    assert blank == ['2024-06-17']

@@ -4,7 +4,7 @@ One session engine, one level engine, one trade walk, one short-mirror helper, u
 augur_strategies/CBUQ_1M_1_0.py, CBDQ_1M_1_0.py, EBUQ_1M_1_0.py, ENGU_2_0.py and
 ENGU_2_0_D.py -- so the long/short trade mechanics (SETUPS_PREREG.md section 3) cannot
 drift between the five files. The rule-specific tests (section 4) live in each file;
-everything else -- sessions, ATR14, the RTH/premarket/prior-day levels, roll seams, the
+everything else -- sessions, ATR14, the RTH/premarket/prior-day levels, roll days, the
 per-bar volume baseline, the decision-bar mask, the risk check and the exit walk -- lives
 here exactly once.
 
@@ -117,7 +117,12 @@ def sessions(index):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# roll seams -- COPIED VERBATIM from augur_strategies/AOSTOCH_1_0.py (same defaults)
+# contract switches (roll days). The no-adj 24-hour masters switch contracts at 00:00 UTC
+# (19:00 or 20:00 ET) on the vendor's roll day -- mostly INSIDE an 18:00 session, not at a
+# session boundary (ES sometimes at the Sunday 18:00 reopen). The house detect_roll_seams (session open vs prior session close, used by
+# AOSTOCH/TTIBS on RTH day bars) therefore misses them on this tape: 3 of 61 NQ rolls and 1
+# of 61 ES rolls 2010-2025, while blanking ~20 ordinary Monday news gaps instead (independent
+# verification 2026-09-25; SETUPS_PREREG.md section 10). Replaced before any triage result.
 # ─────────────────────────────────────────────────────────────────────────────
 def _third_weekday(year, month, weekday=2):
     d0 = pd.Timestamp(year=year, month=month, day=1)
@@ -126,44 +131,40 @@ def _third_weekday(year, month, weekday=2):
     return first + pd.Timedelta(weeks=2)
 
 
-def detect_roll_seams(day_open, day_close, day_ts, ratio_th=2.5, abs_th=15.0,
-                      base_win=60, pre_days=12, post_days=2):
-    """Identical method + calibration to AOSTOCH_1_0.detect_roll_seams / TTIBS_1_0's:
-    calendar-scoped local-outlier search around each quarter's 3rd Wednesday; returns
-    indices s where close[s-1]->open[s] is a roll seam. Fed our own SESSION (18:00 ET
-    roll) opens/closes/first-bar timestamps, not calendar-day ones."""
-    n = len(day_close)
-    if n < base_win + 5:
-        return []
-    ts = pd.DatetimeIndex(day_ts)
-    if ts.tz is not None:
-        ts = ts.tz_localize(None)
-    gap = np.empty(n); gap[:] = np.nan
-    gap[1:] = day_open[1:] - day_close[:-1]
-    abs_gap = np.abs(gap)
-
-    baseline = np.full(n, np.nan)
-    for i in range(base_win, n):
-        window = abs_gap[i - base_win:i]
-        window = window[~np.isnan(window)]
-        if len(window) >= max(10, base_win // 3):
-            baseline[i] = np.median(window)
-
-    quarters = sorted({(t.year, t.month) for t in ts if t.month in (3, 6, 9, 12)})
-    seams = []
-    for (y, m) in quarters:
-        wed3 = _third_weekday(y, m)
-        win_start = wed3 - pd.Timedelta(days=pre_days)
-        win_end = wed3 + pd.Timedelta(days=post_days)
-        idx_in_win = [i for i in range(n) if win_start <= ts[i] <= win_end
-                      and not np.isnan(gap[i]) and not np.isnan(baseline[i])]
-        if not idx_in_win:
-            continue
-        best = max(idx_in_win, key=lambda i: abs_gap[i])
-        if abs_gap[best] >= abs_th and baseline[best] > 0 and \
-           (abs_gap[best] / baseline[best]) >= ratio_th:
-            seams.append(best)
-    return sorted(seams)
+def contract_switch_sessions(o, c, index, sess, pre_days=14, post_days=4):
+    """Set of session ids that hold a contract switch. Per quarterly window (third Wednesday
+    of Mar/Jun/Sep/Dec, minus pre_days .. plus post_days), the bar stamped 00:00 UTC or
+    opening a session with the largest |open - prior bar close| is the switch; its session's prior-day level comes from
+    the OLD contract (100-300 NQ points off in 2022-25) and is blanked by prep().
+    Look-ahead note: taking the largest jump in the window reads up to post_days ahead, but
+    it only decides which ONE session per quarter loses its prior-day level (a live trader
+    always sees the new contract's own prior-day levels), never a price or a signal."""
+    ix = pd.DatetimeIndex(index)
+    if ix.tz is None:
+        ix = ix.tz_localize("US/Eastern")
+    utc = ix.tz_convert("UTC")
+    at0 = np.flatnonzero((np.asarray(utc.hour) == 0) & (np.asarray(utc.minute) == 0))
+    # ES sometimes switches at the Sunday 18:00 reopen instead (2022-12, 2023-06/09, 2024-06):
+    # every session's first bar is a candidate too
+    first = np.flatnonzero(np.r_[False, np.asarray(sess[1:]) != np.asarray(sess[:-1])])
+    at0 = np.union1d(at0, first)
+    at0 = at0[at0 > 0]
+    if len(at0) == 0:
+        return set()
+    jump = np.abs(o[at0] - c[at0 - 1])
+    wall = ix.tz_localize(None)
+    t0 = wall[at0]
+    out = set()
+    for y in sorted(set(wall.year)):
+        for m in (3, 6, 9, 12):
+            wed3 = _third_weekday(y, m)
+            sel = np.flatnonzero((t0 >= wed3 - pd.Timedelta(days=pre_days)) &
+                                 (t0 <= wed3 + pd.Timedelta(days=post_days)))
+            if len(sel) == 0:
+                continue
+            k = int(at0[sel[int(np.argmax(jump[sel]))]])
+            out.add(int(sess[k]))
+    return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -220,10 +221,7 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
     is_last_rth = np.zeros(n, dtype=bool)
     last_rth_idx = np.full(n_sess, -1, dtype=np.int64)
 
-    day_open = o[starts]
-    day_close = c[ends - 1]
-    day_ts = list(pd.DatetimeIndex(index)[starts])
-    seam_sessions = set(detect_roll_seams(day_open, day_close, day_ts))
+    seam_sessions = contract_switch_sessions(o, c, index, sess)
 
     first_rth_vol_hist = deque(maxlen=_VOL_FIRSTBAR_SESSIONS)
     have_prior = False
@@ -257,7 +255,7 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
         if have_prior and s not in seam_sessions:
             priorday_hi[ridx] = prior_hi
             priorday_lo[ridx] = prior_lo
-        # else: stays NaN (no earlier RTH session yet, or this session is a roll seam)
+        # else: stays NaN (no earlier RTH session yet, or a contract switch sits between)
 
         fidx = ridx[0]
         if v is not None:
@@ -302,14 +300,21 @@ def _swv_before(arr, w, agg):
     return out
 
 
+def _arr_tag(arr):
+    """Which array (not only which frame) a rolling cache entry was built from."""
+    a = np.asarray(arr, float)
+    n = len(a)
+    return (float(a[0]), float(a[n // 3]), float(a[(2 * n) // 3]), float(a[-1])) if n else ()
+
+
 def rolling_max_before(arr, n_bars, fp):
     n_bars = int(n_bars)
-    return _roll_cached(('rmaxb', fp, n_bars), lambda: _swv_before(arr, n_bars, np.max))
+    return _roll_cached(('rmaxb', fp, _arr_tag(arr), n_bars), lambda: _swv_before(arr, n_bars, np.max))
 
 
 def rolling_min_before(arr, n_bars, fp):
     n_bars = int(n_bars)
-    return _roll_cached(('rminb', fp, n_bars), lambda: _swv_before(arr, n_bars, np.min))
+    return _roll_cached(('rminb', fp, _arr_tag(arr), n_bars), lambda: _swv_before(arr, n_bars, np.min))
 
 
 def rolling_median_abs_body_before(o, c, n_bars, fp):
@@ -340,7 +345,7 @@ def rolling_min_incl(arr, n_bars, fp):
         if w > 1:
             out[:w - 1] = np.minimum.accumulate(a[:w - 1])
         return out
-    return _roll_cached(('rminincl', fp, n_bars), _compute)
+    return _roll_cached(('rminincl', fp, _arr_tag(arr), n_bars), _compute)
 
 
 def base_ok(h, l, atr14, base_bars, base_k, fp):
@@ -367,8 +372,8 @@ def volume_ok(vol_base, v, vol_mult):
 # decision-bar mask (shared: RTH window, end_min, first_bar, "not the last RTH bar")
 # ─────────────────────────────────────────────────────────────────────────────
 def decision_mask(P, end_min, first_bar='allow'):
-    """Bars eligible as a DECISION bar i: in the RTH window, i+1 (entry) closes no later
-    than end_min minutes after 09:30, neither i nor i+1 is the session's last RTH bar
+    """Bars eligible as a DECISION bar i: in the RTH window, bar i itself closes no later
+    than end_min minutes after 09:30 (section 4A), neither i nor i+1 is the session's last RTH bar
     (SETUPS_PREREG.md section 3), and, if first_bar=='skip',
     i is not the session's first RTH bar."""
     minute = P['minute']; rth = P['rth_mask']; barlen = P['barlen']
