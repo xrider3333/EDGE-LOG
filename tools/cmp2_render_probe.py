@@ -2961,7 +2961,7 @@ var FIX = __FIX__;
         var famKeys=rows.map(function(x){return decodeURIComponent(x.getAttribute('data-c2fam')||'');});
         dfxCase('g1_f12',[c],{
           'renders OK':c==='OK',
-          'two ETFDIP files pool into ONE family row, not two':famKeys.filter(function(k){return k==='ETFDIP';}).length===1,
+          'two ETFDIP files pool into ONE family row (DIP since the v73.893 vocabulary), not two':famKeys.filter(function(k){return k==='DIP';}).length===1,
           'no leftover per-file ETFDIP_1_0 / ETFDIP_2_3 rows remain':famKeys.indexOf('ETFDIP_1_0')<0&&famKeys.indexOf('ETFDIP_2_3')<0
         },{famKeys:famKeys});
       })();
@@ -4433,8 +4433,8 @@ var FIX = __FIX__;
           'renders OK': calls.every(function(c){return c==='OK';}),
           'a curve-less book on OVERLAY reads as a book, its full name verbatim': bookLabel.indexOf('BOOK: FOUR-LEG: ORB 234 + ENGU-Q 335 + TTM SS x3 + NOISE 304')>=0,
           'RUNBOARD matrix header: a run with no famKey/famSeq shows its id once, not twice': idOccurrences===1,
-          'RUNBOARD family chip reads ETFDIP in full': rbFamText.indexOf('ETFDIP')>=0,
-          'OVERLAY run label also reads ETFDIP in full, not truncated to ETFDI': etfOverlayLabel.indexOf('ETFDIP')===0
+          'RUNBOARD family chip reads the family in full (DIP since the v73.893 vocabulary)': rbFamText.indexOf('DIP')>=0,
+          'OVERLAY run label also reads the family in full (DIP), not truncated': /(^|[^A-Z])DIP [0-9]/.test(etfOverlayLabel)
         }, {bookLabel:bookLabel,plainHeader:plainHeader,idOccurrences:idOccurrences,rbFamText:rbFamText,etfOverlayLabel:etfOverlayLabel});
       })();
 
