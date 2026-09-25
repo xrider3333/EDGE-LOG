@@ -635,7 +635,8 @@ supervised 1-share live test leaves both the book and Webull flat.
 normal session. On the live engine, today's session is still being built, so until about 14:05 ET
 it looks shorter than that and is dropped as a half day. By the time it counts as a full day, the
 morning breakout is hours old and the engine skips it as late. The backtests never see this,
-because every session in them is complete. This is why the ORB leg has been silent.
+because every session in them is complete. On the box, ORB has fired once since 09-09 (a 15:45
+entry on 09-18) and has 6 late skips.
 
 **Fix.** Judge a half day from the market calendar (or leave the unfinished last session out of
 the length test) on the live path only. Then replay 60 sessions and check the ORB entries match
