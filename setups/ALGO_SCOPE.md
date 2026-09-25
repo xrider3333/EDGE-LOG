@@ -7,6 +7,16 @@
 > It extends the discretionary-to-quant brief (`DISCRETIONARY_QUANT.md`, Path A: a rule, with your real
 > trades as the answer key, not training data).
 
+## Round 1 result (2026-09-25)
+
+Tested as pre-registered in `SETUPS_PREREG.md`: five strategy files (CBU-Q, CBD-Q, EBU-Q, ENGU 2.0 and its short
+mirror) over 516 pre-declared cells on NQ and ES 1-minute 24-hour bars, 2010-06-07 to 2025-07-06. An independent
+re-implementation matched every CBU-Q and ENGU 2.0 trade before any result was read. **One cell passes the house bar:
+CBU on NQ** (new day high above the prior-day high, first 30 minutes, 2x volume, breakeven at 1R then ride): 617
+trades, $52,868, PF 1.81, net/DD 8.8, 8 of 8 slices - but concentrated (top ten trades 85% of net) and the pre-queue
+guard shows that cell losing on 27 trades in the sealed stretch. Its Auto-Validate is queued
+(`tools/queue_setups_r1_validate.py`). ENGU, CBD, EBU and ENGD have no edge as written rules. STUDIES rows 1752-1764.
+
 ## The short version
 
 1. **The mechanical versions of these setups are already dead or closed here.** The shop tested almost
