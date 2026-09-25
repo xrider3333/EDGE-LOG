@@ -1335,6 +1335,7 @@ class FirestoreQueue:
         if s0.startswith("BOOK") or s0.startswith("COMBINED"): return "BOOK"
         if s0.startswith("ORB") or s0.startswith("OPENING RANGE"): return "ORB"
         if s0.startswith("ENGUQ") or s0.startswith("ENGUDQ") or s0.startswith("ENGU-Q"): return "ENGU-Q"
+        if s0.startswith("CBUQ") or s0.startswith("CBDQ") or s0.startswith("EBUQ"): return "CBU-Q"
         if s0.startswith("NOISE"): return "NOISE"
         if s0.startswith("TTMSQZ") or s0.startswith("TTM"): return "TTM"
         if s0.startswith("NQDIP") or s0.startswith("ETFDIP"): return "DIP"

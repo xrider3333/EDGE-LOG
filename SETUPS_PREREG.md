@@ -133,4 +133,39 @@ a new pre-registration.
 
 ## 10. Deviations log (append only)
 
-- (none yet)
+- 2026-09-25, clarification before any result: a candidate bar that satisfies every rule
+  test but fails ONLY the risk check (`risk <= max(0, min_risk_atr x ATR14)`) does not use
+  up the session -- the scan continues to the next candidate bar in the same session. Read
+  from section 3's "no trade when risk <=..." sitting apart from section 4's "the FIRST
+  bar" framing; without this a single cramped-stop bar would silently kill a session that
+  had a real signal a few bars later.
+- 2026-09-25, clarification before any result: the look-ahead test (A0, section 9) is
+  checked two ways -- every trade FILLED at or before bar k must be byte-identical after
+  perturbing bars strictly after k, and additionally every trade that also EXITS at or
+  before k must be identical start to finish. A trade that fills at/before k but is still
+  open across k is allowed to change (its unrealized path legitimately depends on bars
+  after k) -- only its fill bar and entry price are held fixed.
+- 2026-09-25, clarification before any result: CBU/CBD's session-first RTH bar, under
+  `first_bar='allow'` (the default), CAN itself be a valid signal if its own close already
+  clears the level -- only the "new day high" test is skipped there (section 4A), the
+  level test is not. Easy to misread as "the first bar never fires"; it can, and does, on
+  real NQ data (the third sample trade in section 5 of the sanity report below).
+- 2026-09-25, clarification before any result: every "N bars before i" lookback that is
+  not explicitly session-scoped (EBU's `brk_n`, ENGU's `eng_n`/the fixed 10-bar body-median
+  and pullback-low windows, and the A/B base-length test) is a PLAIN rolling window over
+  the 24-hour tape, the same convention ATR14 already uses -- it is free to reach into
+  premarket or the prior session's tail bars near the start of RTH. The spec does not say
+  these reset at the session boundary, and the shared engine (`setup_kit.decision_mask`)
+  already excludes the session's first RTH bar (and, for CBU, optionally excludes it via
+  `first_bar`) wherever a rule needs an earlier bar to exist at all.
+- 2026-09-25, clarification before any result: `detect_roll_seams` is fed OUR 18:00-ET-
+  rolled session boundaries (first-bar open, last-bar close, first-bar timestamp), not
+  AOSTOCH's RTH calendar-day `day_id` boundaries -- there is no RTH day_id on a 24-hour ETH
+  tape. The function body is unchanged from AOSTOCH_1_0.py; only its inputs are re-scoped
+  to this file's own session definition, as section 3 asks ("the house `detect_roll_seams`,
+  copied verbatim").
+- 2026-09-25, clarification before any result: in `trail` mode, the trailing-low floor
+  (`trail_bars`) only starts moving once breakeven has armed (the same `be_R` gate `ride`
+  uses) -- read from "trail = as ride, AND once breakeven is armed the stop also trails..."
+  in section 3. Before arming, `trail` behaves exactly like `ride` pre-arm (the original
+  stop, untouched).

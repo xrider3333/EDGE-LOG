@@ -4,8 +4,8 @@ import glob, importlib.util, os, re
 import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VOCAB = {"ORB", "NOISE", "ENGU-Q", "ENGU", "TTM", "DIP", "GAPGO", "TTIBS", "VWAP", "REVERT", "SUPERTREND",
-         "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC"}
+VOCAB = {"ORB", "NOISE", "ENGU-Q", "ENGU", "CBU-Q", "TTM", "DIP", "GAPGO", "TTIBS", "VWAP", "REVERT",
+         "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC"}
 
 
 def _load(path, name):
@@ -31,7 +31,9 @@ def _tool_family():
 CASES = {"TTMSQZ_3_0_ES30SSOF2.py": "TTM", "NQDIP_1_1.py": "DIP", "ETFDIP_RSI2_1_0.py": "DIP",
          "ORB_3_6_R6.py": "ORB", "ORB_FADE_1_0.py": "ORB", "ENGUQ_1M_ETH_R2_1_0.py": "ENGU-Q",
          "ENGUDQ_1M_1_0.py": "ENGU-Q", "NOISE_1_8_CT304.py": "NOISE", "VWAP_FADE_1_0.py": "VWAP",
-         "BOOK: ORB 234 + NOISE": "BOOK", "COMBINED (REAL): ORB234": "BOOK", "GAPGO_TRAVEL_1_0.py": "GAPGO"}
+         "BOOK: ORB 234 + NOISE": "BOOK", "COMBINED (REAL): ORB234": "BOOK", "GAPGO_TRAVEL_1_0.py": "GAPGO",
+         "CBUQ_1M_1_0.py": "CBU-Q", "CBDQ_1M_1_0.py": "CBU-Q", "EBUQ_1M_1_0.py": "CBU-Q",
+         "ENGU_2_0.py": "ENGU", "ENGU_2_0_D.py": "ENGU"}
 
 
 @pytest.mark.parametrize("name,fam", sorted(CASES.items()))

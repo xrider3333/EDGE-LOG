@@ -161,10 +161,11 @@ nobody clicks - so the durable channel is a file inbox per chat at `C:\EdgeLog\c
 Owner: "make sure you and all the other strategies are using/adopting family names that are consistent
 and 1-2 words max." Use EXACTLY these names in replies, docs, STUDIES rows, run ids and the app:
 **ORB · NOISE · ENGU-Q · TTM · DIP · GAPGO · TTIBS · VWAP · REVERT · SUPERTREND · RSIDIV · OVERNIGHT ·
-EMAPB · REPLAY · RFML · ENGU** (the pre-ENGU-Q legacy family), plus **BOOK** for pooled multi-strategy
-books and **MISC** for hunts that span families. Retired names - never write them: TTMSQZ, TTM Squeeze
-leg, NQDIP, ETFDIP, "the dip strategy/book", VWAP-FADE, ORB-FADE, COMBINED, RVT, ST, OVN, SCALP,
-"opening-range strategy", "noise-band", "engulfing strategy", "squeeze strategy".
+EMAPB · REPLAY · RFML · ENGU** (the pre-ENGU-Q legacy family), plus **CBU-Q** (the owner's
+close-at-new-high setups CBU/CBD/EBU, automated -- SETUPS_PREREG.md), **BOOK** for pooled
+multi-strategy books and **MISC** for hunts that span families. Retired names - never write them:
+TTMSQZ, TTM Squeeze leg, NQDIP, ETFDIP, "the dip strategy/book", VWAP-FADE, ORB-FADE, COMBINED, RVT,
+ST, OVN, SCALP, "opening-range strategy", "noise-band", "engulfing strategy", "squeeze strategy".
 - **The market is not part of the family.** DIP on NQ, ES or QQQ is still DIP; say "DIP on ES".
 - **A variant is family + its run number, never a new name:** "NOISE #382", "ORB #314", "TTM #369".
 - One source of truth per layer, all in step: `api/runner.py` `_family_of` (stamps new run ids),
