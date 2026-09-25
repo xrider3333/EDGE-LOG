@@ -136,6 +136,43 @@ def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
     # keel_state_summary hands back is already a plain type.
     json.dumps(summary)
 
+    # item D (2026-09-25): "data_through" is the last BAR used (post-drop), independent
+    # of whether any trade landed on it -- this file has no incomplete final session,
+    # so it should equal the last day load_nq_arrays itself returns.
+    arr_check, dropped_check = kls.load_nq_arrays(str(path), date_from=None)
+    assert dropped_check is None
+    expected_data_through = str(pd.DatetimeIndex(arr_check["index"])[-1].date())
+    assert disk_summary["data_through"] == expected_data_through
+
+
+# ── item D (2026-09-25): "trained through" means the data, not the last trade ────────────
+def test_data_through_is_the_last_bar_even_with_no_recent_trade(tmp_path, monkeypatch):
+    """The exact bug this item fixes: on several quiet closing sessions with no NQ
+    #382 trade at all, ml_keel.py's own 'last_nq_session' (the last TRADE's date)
+    stays behind, but 'data_through' (the last BAR actually used) must still reflect
+    the newest complete session."""
+    path = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=7)
+    out_dir = tmp_path / "out"
+
+    # Force every trade's bar indices into the FIRST of the 10 sessions -- simulates
+    # nine quiet closing sessions in a row with no NQ trade whatsoever.
+    early_trades = [(5, 8, 12.5), (20, 25, -4.0), (40, 44, 6.25)]
+    monkeypatch.setattr(kls, "run_nq_backtest",
+                        lambda arr, log=print: (list(early_trades), {"total_pnl": 14.75}))
+
+    state, summary = kls.build(str(path), str(out_dir), version="v12", log=lambda *a, **k: None)
+
+    arr_check, dropped_check = kls.load_nq_arrays(str(path), date_from=None)
+    assert dropped_check is None
+    expected_data_through = str(pd.DatetimeIndex(arr_check["index"])[-1].date())
+
+    assert summary["data_through"] == expected_data_through
+    assert summary["last_nq_session"] is not None
+    assert summary["last_nq_session"] != summary["data_through"]
+    # the last trade's session must be EARLIER than the data's own last session --
+    # string YYYY-MM-DD dates compare lexicographically the same as chronologically.
+    assert summary["last_nq_session"] < summary["data_through"]
+
 
 def test_default_paths_are_portable_and_do_not_touch_the_shared_or_live_home(tmp_path, monkeypatch):
     """_default_out_dir must honour EDGELOG_HOME (never hardcode C:\\EdgeLog) so a test

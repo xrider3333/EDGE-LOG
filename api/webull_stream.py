@@ -95,6 +95,18 @@ anything back. All of it reads `self._clock()` (defaults to `time.time`, overrid
 which are untouched -- this is a narrow, additive seam for the new accessors' tests, not a
 change to the connect/subscribe/watchdog/teardown sequence itself.
 
+SDK LOG FLOOD + WATCHDOG WINDOW (2026-09-25, items A/B -- see _configure_sdk_loggers
+and _in_stream_window for the full detail). Two independent fixes for the same
+overnight incident (203 MB / 1.1M lines in two days): (A) the installed SDK ignores
+our logger_enable=False and adds a new stdout+file handler to its OWN loggers on every
+reconnect -- `_connect_once` now disables that per-client, and the loggers are also
+capped module-wide (WARNING, propagate False, one deduping handler each) as a second
+line of defense. (B) `_watchdog` no longer reconnects a stale feed outside a
+09:29-16:02 ET window -- belt-and-braces alongside api/qqq_exec.py's own market-hours
+start/stop of this whole streamer (that module's `_stream_should_run` is the real
+authority, including holidays/half-days; this module's own window check is
+deliberately simpler, clock-only).
+
 NO ORDER CODE. This module only ever opens a market-data (quotes) streaming session. It
 never imports webull.trade.*, never touches an account/order endpoint.
 
@@ -132,6 +144,13 @@ EXTRA_BAR_SECONDS = (300,)             # 5-minute, built alongside the 1-minute 
 
 RTH_OPEN = dtime(9, 30)
 RTH_CLOSE = dtime(16, 0)
+
+# Belt-and-braces watchdog window (item B, 2026-09-25) -- see _in_stream_window. Not
+# the same constants as api/qqq_exec.py's own _stream_should_run (its window is the
+# authority; this is a second, independent, deliberately SIMPLER guard with no
+# holiday/half-day calendar -- see _in_stream_window's own docstring for why).
+STREAM_WINDOW_OPEN_ET = dtime(9, 29)
+STREAM_WINDOW_CLOSE_ET = dtime(16, 2)
 # Blacklist, not a whitelist -- see module docstring's TRADING SESSION FILTERING for why a
 # whitelist was tried and rejected. Only 'ath' is actually confirmed (from a live extended-
 # hours dump); the rest are obvious vendor spellings for the same concept, kept so the
@@ -157,6 +176,117 @@ _PLACEHOLDERS = ("", "PASTE_APP_KEY_HERE", "PASTE_APP_SECRET_HERE")
 logging.getLogger("webull.core.client").setLevel(logging.CRITICAL)
 logging.getLogger("webull.core").addHandler(logging.NullHandler())
 logging.getLogger("webull.data").addHandler(logging.NullHandler())
+
+
+# ── SDK log flood mitigation (item A, 2026-09-25) ───────────────────────────────────
+# POSTMORTEM: overnight 2026-09-24/25 the installed SDK logged
+# "webull.data ERROR exception:loop ack code: 1, msg: Protocol not supported" and
+# "next retry will be started in 10000 ms" with every line repeated up to ~26 times
+# (same thread id, same millisecond) -- qqq_exec.log reached 203 MB / 1.1M lines in two
+# days. Root cause, read from the installed SDK
+# (webull/data/internal/quotes_client.py): connect_and_loop_start(timeout,
+# logger_enable, customer_logger) calls connect_and_loop_async(timeout, True,
+# logger_enable, customer_logger), which starts a thread with
+# target=self.connect_and_loop_forever and args=(timeout,) ONLY -- our
+# logger_enable=False is dropped, so connect_and_loop_forever always runs with ITS OWN
+# default logger_enable=True and calls self._init_logger(True, None), which calls
+# set_stream_logger(stream=sys.stdout, ...) and set_file_logger(...), each of which
+# ADDS a new handler to the global 'webull.data' logger (and 'webull.core'). Every
+# reconnect by our watchdog builds a NEW client, so handlers pile up without bound and
+# every SDK line prints once per accumulated handler. The SDK's own retry loop runs
+# max_retry_times=-1 (forever) at a fixed 10s delay, so after market hours (server
+# answers "Protocol not supported") it retries, and floods, all night.
+#
+# Fix (1), in _connect_once: disable the SDK's OWN logger setup on that ONE client
+# instance directly (`client._init_logger = lambda *a, **k: None`) -- this is the
+# primary fix, since it stops the SDK from ever adding a new handler in the first
+# place, no matter how many times this process reconnects.
+#
+# Fix (2), here: configure 'webull.data'/'webull.core' ourselves, once, as a
+# belt-and-braces backstop -- WARNING level (the SDK's retry/backoff chatter is
+# INFO/ERROR-adjacent noise, not something this process needs to see live), propagate
+# False (never double-print via the root logger), and exactly ONE StreamHandler each,
+# carrying a filter that collapses an identical repeated line into one, tagged with
+# how many times it repeated. Even if fix (1) ever stops applying (a future SDK
+# version, a code path this module doesn't control), this caps the damage instead of
+# letting it grow unbounded again.
+_SDK_LOG_SETUP_DONE = False
+_SDK_HANDLER_MARK = "_edgelog_sdk_dedup"   # marks OUR one handler per SDK logger
+_SDK_LOG_SETUP_LOCK = threading.Lock()
+
+
+class _DedupLogFilter(logging.Filter):
+    """logging.Filter that suppresses an identical (logger, formatted message)
+    repeated within `window_seconds` of the last time it was ALLOWED through, and
+    tags the next occurrence let through afterward with '(repeated N times)' so the
+    suppressed count is never silently lost -- exactly the shape item A calls for.
+    Keyed on the fully FORMATTED message text (record.getMessage()), not the raw
+    format string, since the SDK repeats the literal same line (see item A's
+    postmortem: same thread id, same millisecond). Plain dict, no lock: a handler's
+    filters are already only ever called from within logging's own module lock, so
+    this never races within one process."""
+
+    def __init__(self, window_seconds=60.0, clock=time.time):
+        super().__init__()
+        self._window = window_seconds
+        self._clock = clock
+        self._last = {}   # (logger_name, message) -> [last_allowed_epoch, suppressed_count]
+
+    def filter(self, record):
+        try:
+            msg = record.getMessage()
+        except Exception:
+            return True   # never let a formatting bug swallow a log line
+        key = (record.name, msg)
+        now = self._clock()
+        entry = self._last.get(key)
+        if entry is None or (now - entry[0]) > self._window:
+            suppressed = entry[1] if entry is not None else 0
+            if suppressed:
+                # record.msg (not the already-formatted `msg`) so any %-args on the
+                # record still format correctly -- getMessage() does `msg % args`,
+                # and this suffix has no '%' in it, so appending here is safe either
+                # way (args untouched).
+                record.msg = f"{record.msg} (repeated {suppressed} times)"
+            self._last[key] = [now, 0]
+            return True
+        entry[1] += 1
+        return False
+
+
+def _configure_sdk_loggers():
+    """Cap the SDK's OWN 'webull.data' and 'webull.core' loggers -- level WARNING,
+    propagate False, exactly ONE StreamHandler to stderr each (ours, marked, carrying a
+    _DedupLogFilter) -- see the block comment above for why. RE-ASSERTED ON EVERY CALL,
+    not just the first: the SDK adds handlers from more places than the streaming
+    client (TradeClient/DataClient constructors call their own _init_logger ->
+    api_client.set_stream_logger/set_file_logger on 'webull.core'), so a one-shot setup
+    would let them pile up again later in the same process. Every call removes any
+    handler that is not ours and keeps a single one of ours; cheap enough to run on
+    every watchdog pass. `_SDK_LOG_SETUP_DONE` is still set for callers/tests that read
+    it, but no longer gates anything."""
+    global _SDK_LOG_SETUP_DONE
+    with _SDK_LOG_SETUP_LOCK:
+        for name in ("webull.data", "webull.core"):
+            sdk_logger = logging.getLogger(name)
+            ours = [h for h in sdk_logger.handlers if getattr(h, _SDK_HANDLER_MARK, False)]
+            for h in list(sdk_logger.handlers):
+                if h in ours[:1]:
+                    continue
+                sdk_logger.removeHandler(h)
+                if not getattr(h, _SDK_HANDLER_MARK, False):
+                    try:
+                        h.close()   # the SDK's own file handlers hold open files
+                    except Exception:
+                        pass
+            if not ours:
+                handler = logging.StreamHandler(sys.stderr)
+                setattr(handler, _SDK_HANDLER_MARK, True)
+                handler.addFilter(_DedupLogFilter())
+                sdk_logger.addHandler(handler)
+            sdk_logger.setLevel(logging.WARNING)
+            sdk_logger.propagate = False
+        _SDK_LOG_SETUP_DONE = True
 
 
 def edgelog_home():
@@ -231,6 +361,26 @@ def is_regular_session(trading_session, epoch, tz=TZ):
         if label in KNOWN_EXTENDED_SESSIONS:
             return False
     return True
+
+
+def _in_stream_window(epoch, tz=TZ):
+    """Weekday + 09:29-16:02 ET clock check ONLY -- deliberately NO holiday/half-day
+    calendar here (item B, 2026-09-25's "keep it simple" belt-and-braces guard inside
+    _watchdog). This is independent of, and simpler than, api/qqq_exec.py's own
+    _stream_should_run, which IS the market-hours authority (full NYSE/Nasdaq holiday
+    + half-day calendar via api/market_calendar.py) and already stops this streamer
+    entirely outside trading days/hours via stop() -- on a holiday this streamer is
+    simply never started at all, so _watchdog never runs that day either, and this
+    function never needs to know what a holiday is. What THIS function guards against
+    is narrower: a stale feed late at night (or on a caller that runs this streamer
+    directly, e.g. `--run`, bypassing qqq_exec's own window management) must never
+    make the watchdog reconnect against a closed venue every flush_every_seconds --
+    that reconnect-forever-after-hours pattern is exactly what caused item A's
+    overnight log flood."""
+    dt_et = datetime.fromtimestamp(epoch, tz=ZoneInfo(tz))
+    if dt_et.weekday() >= 5:
+        return False
+    return STREAM_WINDOW_OPEN_ET <= dt_et.time() <= STREAM_WINDOW_CLOSE_ET
 
 
 # ── normalized feed events ───────────────────────────────────────────────────
@@ -487,6 +637,14 @@ class WebullBarStreamer:
         self.backoff_cap = backoff_cap
         self.flush_every_seconds = flush_every_seconds
         self.log = log
+        # SDK LOG FLOOD (item A, 2026-09-25) -- see _configure_sdk_loggers's own
+        # docstring. Called here (construction), not start(), so even a caller that
+        # builds a streamer and never calls .start() (e.g. a future accessor-only use)
+        # still gets the SDK loggers capped; idempotent, so every reconnect's
+        # implicit re-construction of nothing here (this class itself is constructed
+        # once per process, not per reconnect -- only the SDK client is rebuilt, in
+        # _connect_once) costs nothing extra either way.
+        _configure_sdk_loggers()
         # Only the NEW read-API + the two lines noted in _connect_once/_watchdog use this
         # (defaults to the real wall clock); the rest of the connect/watchdog sequence is
         # untouched. See module docstring's LIVE-READ API paragraph.
@@ -599,6 +757,24 @@ class WebullBarStreamer:
         os.makedirs(self.token_dir, exist_ok=True)
         client.set_token_dir(self.token_dir)
 
+        # SDK LOG FLOOD (item A, 2026-09-25) -- see the module-level block comment
+        # above _configure_sdk_loggers for the full postmortem. In short: the
+        # installed SDK's connect_and_loop_start DROPS our logger_enable=False (its
+        # connect_and_loop_async starts connect_and_loop_forever's thread with
+        # args=(timeout,) ONLY), so connect_and_loop_forever always calls
+        # self._init_logger(True, None), which ADDS a new stdout+file handler to
+        # 'webull.data'/'webull.core' on EVERY connect -- our watchdog reconnects
+        # build a new client each time, so handlers pile up without bound. Disable
+        # the SDK's own logger setup on THIS client instance directly, at the source,
+        # rather than trying to clean up handlers it adds later. Best-effort: a
+        # future SDK version that renames/removes _init_logger must not break
+        # connecting, only lose this specific belt (_configure_sdk_loggers, called
+        # from __init__, is the other one).
+        try:
+            client._init_logger = lambda *a, **k: None
+        except Exception:
+            pass
+
         client.connect_and_loop_start(timeout=1, logger_enable=False)
         if not connected.wait(timeout=20):
             try:
@@ -628,23 +804,47 @@ class WebullBarStreamer:
             self._stop.wait(self.flush_every_seconds)
             if self._stop.is_set():
                 break
-            self._flush_pending()
-            if is_stale(self._last_message_epoch, self._clock(), self.stale_after_seconds):
-                self.log(f"[webull-stream] feed stale (> {self.stale_after_seconds}s), reconnecting")
-                self._teardown_client()
-                delay = next_backoff(attempt, self.backoff_base, self.backoff_cap)
-                attempt += 1
-                if self._stop.wait(delay):
-                    break
-                try:
-                    self._client = self._connect_once()
-                    with self._lock:
-                        self._reconnect_count += 1
-                    attempt = 0
-                except Exception as e:
-                    self.log(f"[webull-stream] reconnect failed: {type(e).__name__}: {e}")
-            else:
-                attempt = 0
+            attempt = self._watchdog_pass(attempt)
+            if attempt is None:
+                break
+
+    def _watchdog_pass(self, attempt):
+        """One watchdog iteration -- pulled out of _watchdog's loop (2026-09-25, item
+        B) so it can be unit-tested directly (fakes for _connect_once/_teardown_client,
+        an injected clock) without spinning up a real thread or waiting on
+        flush_every_seconds. Same control flow as the original inline loop body:
+        returns the next `attempt` count, or None if the stop event fired while
+        backing off -- the caller must break out of its own loop in that case,
+        exactly like the original `if self._stop.wait(delay): break`.
+
+        BELT AND BRACES (item B): a stale feed OUTSIDE _in_stream_window just waits --
+        it does NOT reconnect. api/qqq_exec.py's own market-hours window management
+        already stops this streamer entirely outside trading hours (tearing down the
+        client and joining this very thread) well before a 90s-default staleness
+        threshold would even fire post-close; this is the fallback for any caller that
+        doesn't go through that path (e.g. the CLI's `--run`). Reconnecting against a
+        closed venue all night, over and over, is exactly what item A's postmortem
+        describes -- this is the second half of that fix, alongside the logger
+        changes above."""
+        _configure_sdk_loggers()   # re-cap SDK handlers added since the last pass
+        self._flush_pending()
+        if not is_stale(self._last_message_epoch, self._clock(), self.stale_after_seconds):
+            return 0
+        if not _in_stream_window(self._clock()):
+            return 0   # stale but outside the window: just wait, don't reconnect
+        self.log(f"[webull-stream] feed stale (> {self.stale_after_seconds}s), reconnecting")
+        self._teardown_client()
+        delay = next_backoff(attempt, self.backoff_base, self.backoff_cap)
+        if self._stop.wait(delay):
+            return None
+        try:
+            self._client = self._connect_once()
+            with self._lock:
+                self._reconnect_count += 1
+            return 0
+        except Exception as e:
+            self.log(f"[webull-stream] reconnect failed: {type(e).__name__}: {e}")
+            return attempt + 1
 
     def _teardown_client(self):
         if self._client is not None:

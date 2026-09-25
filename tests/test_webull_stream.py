@@ -4,6 +4,9 @@ Everything here runs against BarBuilder / merge_and_write / the pure helpers dir
 No network, no MQTT, no webull SDK import is exercised (the SDK only appears inside
 WebullBarStreamer._connect_once, which these tests never call).
 """
+import logging
+import sys
+import types
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -327,6 +330,111 @@ def test_is_regular_session_falls_back_to_clock_when_label_missing():
     assert S.is_regular_session(None, weekend) is False
 
 
+# ── item B (2026-09-25): belt-and-braces watchdog window (_in_stream_window) ─────────────
+def test_in_stream_window_before_open_is_false():
+    assert S._in_stream_window(_epoch(2026, 9, 8, 9, 28, 0)) is False   # Tuesday
+
+
+def test_in_stream_window_at_open_is_true():
+    assert S._in_stream_window(_epoch(2026, 9, 8, 9, 29, 0)) is True
+
+
+def test_in_stream_window_at_close_boundary_is_true():
+    assert S._in_stream_window(_epoch(2026, 9, 8, 16, 2, 0)) is True
+
+
+def test_in_stream_window_past_close_is_false():
+    assert S._in_stream_window(_epoch(2026, 9, 8, 16, 3, 0)) is False
+
+
+def test_in_stream_window_weekend_is_false():
+    assert S._in_stream_window(_epoch(2026, 9, 5, 10, 0, 0)) is False   # Saturday
+
+
+def test_in_stream_window_has_no_holiday_calendar_by_design():
+    """Deliberately simpler than api/qqq_exec.py's own _stream_should_run (see this
+    function's own docstring): a weekday holiday still reads as 'in window' by the
+    clock alone here -- api/qqq_exec.py's OWN window management is what keeps this
+    streamer from ever being started at all on a holiday, so _watchdog never even
+    runs that day and this simplification is safe."""
+    labor_day = _epoch(2026, 9, 7, 10, 0, 0)   # a Monday, but Labor Day
+    assert S._in_stream_window(labor_day) is True
+
+
+# ── item B: _watchdog_pass -- stale outside the window just waits, never reconnects ──────
+def test_watchdog_pass_not_stale_resets_attempt_and_never_reconnects():
+    streamer, box = _mk_streamer(stale_after_seconds=90)
+    streamer._last_message_epoch = box["t"]   # just heard from it -- not stale
+    calls = []
+    streamer._connect_once = lambda: (calls.append("connect"), object())[1]
+
+    result = streamer._watchdog_pass(attempt=3)
+
+    assert result == 0
+    assert calls == []
+
+
+def test_watchdog_pass_stale_outside_window_just_waits():
+    box_t = _epoch(2026, 9, 8, 20, 0, 0)   # 20:00 ET, well outside 09:29-16:02
+    streamer, box = _mk_streamer(now=box_t, stale_after_seconds=10)
+    streamer._last_message_epoch = box_t - 100   # comfortably stale
+    calls = []
+    streamer._connect_once = lambda: (calls.append("connect"), object())[1]
+    streamer._teardown_client = lambda: calls.append("teardown")
+
+    result = streamer._watchdog_pass(attempt=2)
+
+    assert result == 0, "outside the window, attempt resets rather than backing off further"
+    assert calls == [], "must not reconnect (or even tear down) a stale feed outside the window"
+
+
+def test_watchdog_pass_stale_inside_window_reconnects():
+    box_t = _epoch(2026, 9, 8, 10, 0, 0)   # well inside the window
+    streamer, box = _mk_streamer(now=box_t, stale_after_seconds=10, backoff_base=0.01,
+                                 backoff_cap=0.01)
+    streamer._last_message_epoch = box_t - 100
+    calls = []
+    fake_client = object()
+    streamer._teardown_client = lambda: calls.append("teardown")
+    streamer._connect_once = lambda: (calls.append("connect"), fake_client)[1]
+
+    result = streamer._watchdog_pass(attempt=0)
+
+    assert calls == ["teardown", "connect"]
+    assert result == 0
+    assert streamer._client is fake_client
+    assert streamer._reconnect_count == 1
+
+
+def test_watchdog_pass_stale_inside_window_reconnect_failure_backs_off():
+    box_t = _epoch(2026, 9, 8, 10, 0, 0)
+    streamer, box = _mk_streamer(now=box_t, stale_after_seconds=10, backoff_base=0.01,
+                                 backoff_cap=0.01)
+    streamer._last_message_epoch = box_t - 100
+    streamer._teardown_client = lambda: None
+
+    def boom():
+        raise RuntimeError("simulated: MQTT connect failed")
+    streamer._connect_once = boom
+
+    result = streamer._watchdog_pass(attempt=0)
+
+    assert result == 1   # attempt incremented, ready to back off further next pass
+    assert streamer._reconnect_count == 0
+
+
+def test_watchdog_pass_returns_none_when_stop_fires_during_backoff():
+    box_t = _epoch(2026, 9, 8, 10, 0, 0)
+    streamer, box = _mk_streamer(now=box_t, stale_after_seconds=10, backoff_base=5.0)
+    streamer._last_message_epoch = box_t - 100
+    streamer._teardown_client = lambda: None
+    streamer._stop.set()   # a stop request arrives during the backoff wait
+
+    result = streamer._watchdog_pass(attempt=0)
+
+    assert result is None
+
+
 # ── WebullBarStreamer: live-read API + session gating (drives _on_message directly --
 # no SDK, no network; _connect_once/_watchdog/start/stop are untouched and still
 # exercised by nothing here, exactly like the rest of this file) ───────────────────
@@ -544,3 +652,204 @@ def test_on_message_never_raises_on_malformed_payloads():
     # still fully usable afterward
     streamer._on_message("tick", _FakeTick(ts_ms, 500.0, 1, trading_session="RTH"))
     assert streamer.current_bar("1m")["close"] == 500.0
+
+
+# ── item A (2026-09-25): SDK log flood mitigation ────────────────────────────────────────
+def test_dedup_log_filter_suppresses_within_window_then_tags_repeat_count():
+    box = {"t": 1000.0}
+    f = S._DedupLogFilter(window_seconds=60.0, clock=lambda: box["t"])
+
+    def _rec(msg):
+        return logging.LogRecord("webull.data", logging.ERROR, __file__, 1, msg, None, None)
+
+    r1 = _rec("boom")
+    assert f.filter(r1) is True         # first occurrence always allowed
+    box["t"] += 1
+    assert f.filter(_rec("boom")) is False    # repeat within the window: suppressed
+    box["t"] += 1
+    assert f.filter(_rec("boom")) is False    # a second repeat: still suppressed
+
+    box["t"] += 61   # past the 60s window
+    r4 = _rec("boom")
+    assert f.filter(r4) is True
+    assert r4.getMessage() == "boom (repeated 2 times)"
+
+    # a fresh message right after must NOT carry the previous message's tag
+    r5 = _rec("boom")
+    box["t"] += 1
+    assert f.filter(r5) is False   # immediately inside r4's own new window
+    # a DIFFERENT message is never suppressed by another message's state
+    assert f.filter(_rec("something else")) is True
+
+
+def test_dedup_log_filter_never_raises_on_a_record_with_percent_args():
+    box = {"t": 0.0}
+    f = S._DedupLogFilter(window_seconds=60.0, clock=lambda: box["t"])
+    rec = logging.LogRecord("webull.data", logging.ERROR, __file__, 1,
+                            "exception:loop ack code: %s, msg: %s", (1, "Protocol not supported"),
+                            None)
+    assert f.filter(rec) is True
+    assert rec.getMessage() == "exception:loop ack code: 1, msg: Protocol not supported"
+    box["t"] += 1
+    rec2 = logging.LogRecord("webull.data", logging.ERROR, __file__, 1,
+                             "exception:loop ack code: %s, msg: %s", (1, "Protocol not supported"),
+                             None)
+    assert f.filter(rec2) is False   # same formatted message, still inside the window
+    box["t"] += 61
+    rec3 = logging.LogRecord("webull.data", logging.ERROR, __file__, 1,
+                             "exception:loop ack code: %s, msg: %s", (1, "Protocol not supported"),
+                             None)
+    assert f.filter(rec3) is True
+    # the %-args must still format correctly even after the '(repeated N times)' suffix
+    # was appended to record.msg (the raw format string), not to the formatted message
+    assert rec3.getMessage() == ("exception:loop ack code: 1, msg: Protocol not supported "
+                                 "(repeated 1 times)")
+
+
+def test_configure_sdk_loggers_is_idempotent():
+    logging.getLogger("webull.data").handlers.clear()
+    logging.getLogger("webull.core").handlers.clear()
+    S._SDK_LOG_SETUP_DONE = False
+    try:
+        S._configure_sdk_loggers()
+        S._configure_sdk_loggers()   # a second call must never add a second handler
+        S._configure_sdk_loggers()
+        for name in ("webull.data", "webull.core"):
+            logger = logging.getLogger(name)
+            assert len(logger.handlers) == 1
+            assert isinstance(logger.handlers[0], logging.StreamHandler)
+            assert logger.level == logging.WARNING
+            assert logger.propagate is False
+    finally:
+        S._SDK_LOG_SETUP_DONE = True   # restore: the first real call already did this
+
+
+class _FakeSdkStreamingClient:
+    """Fake webull.data.data_streaming_client.DataStreamingClient, close enough to
+    exercise _connect_once's fix: its OWN _init_logger (unless overridden -- exactly
+    the override _connect_once now applies) adds a new handler to 'webull.data' every
+    time it is called, mirroring the installed SDK's real quotes_client.py:
+    connect_and_loop_forever -> self._init_logger(True, None) -> ADDS a handler (see
+    module docstring's item A). connect_and_loop_start also reproduces the exact
+    dropped-argument bug (ITS OWN logger_enable argument is ignored; _init_logger is
+    always invoked with (True, None) regardless), and calls on_connect_success
+    synchronously so the test never waits on the real 20s timeout."""
+    instances = []
+
+    def __init__(self, app_key, app_secret, region, session_id, tls_enable=True):
+        self.app_key, self.app_secret, self.region = app_key, app_secret, region
+        self.session_id = session_id
+        self.api_client = object()
+        self.on_connect_success = None
+        self.on_quotes_message = None
+        self.token_dir = None
+        _FakeSdkStreamingClient.instances.append(self)
+
+    def _init_logger(self, logger_enable, customer_logger):
+        logging.getLogger("webull.data").addHandler(logging.StreamHandler())
+
+    def set_token_dir(self, path):
+        self.token_dir = path
+
+    def connect_and_loop_start(self, timeout, logger_enable):
+        self._init_logger(True, None)   # the SDK's own dropped-argument bug, reproduced
+        if self.on_connect_success:
+            self.on_connect_success(self, self.api_client, self.session_id)
+
+    def loop_stop(self):
+        pass
+
+    def disconnect(self):
+        pass
+
+
+class _FakeMarketDataStreaming:
+    def __init__(self, api_client):
+        self.api_client = api_client
+
+    def subscribe(self, session_id, symbols, market, topics):
+        return types.SimpleNamespace(status_code=200)
+
+
+def _install_fake_webull_sdk(monkeypatch, client_cls):
+    """Injects a minimal fake 'webull.data.data_streaming_client'/
+    'webull.data.quotes.market_streaming_data' package tree into sys.modules so
+    _connect_once's real `from webull.data... import ...` statements succeed. The
+    real SDK is not importable in this test environment and the network is blocked
+    (tests/conftest.py's live-system guard) -- this is the only way to exercise
+    _connect_once ITSELF (not a substitute for it)."""
+    pkg_webull = types.ModuleType("webull")
+    pkg_data = types.ModuleType("webull.data")
+    mod_dsc = types.ModuleType("webull.data.data_streaming_client")
+    mod_dsc.DataStreamingClient = client_cls
+    pkg_quotes = types.ModuleType("webull.data.quotes")
+    mod_mds = types.ModuleType("webull.data.quotes.market_streaming_data")
+    mod_mds.MarketDataStreaming = _FakeMarketDataStreaming
+
+    for name, mod in (("webull", pkg_webull), ("webull.data", pkg_data),
+                     ("webull.data.data_streaming_client", mod_dsc),
+                     ("webull.data.quotes", pkg_quotes),
+                     ("webull.data.quotes.market_streaming_data", mod_mds)):
+        monkeypatch.setitem(sys.modules, name, mod)
+
+
+def test_connect_once_disables_sdk_logger_setup_and_caps_handlers(tmp_path, monkeypatch):
+    logging.getLogger("webull.data").handlers.clear()
+    logging.getLogger("webull.core").handlers.clear()
+    S._SDK_LOG_SETUP_DONE = False
+    _FakeSdkStreamingClient.instances = []
+
+    _install_fake_webull_sdk(monkeypatch, _FakeSdkStreamingClient)
+    monkeypatch.setattr(S, "load_keys",
+                        lambda path=None: {"app_key": "k", "app_secret": "s", "region": "us"})
+
+    streamer = S.WebullBarStreamer(symbols=["QQQ"], token_dir=str(tmp_path / "token"))
+    # our OWN belt-and-braces handler must already be in place right after
+    # construction (_configure_sdk_loggers is called from __init__).
+    assert len(logging.getLogger("webull.data").handlers) == 1
+
+    clients = [streamer._connect_once() for _ in range(4)]   # simulate several reconnects
+
+    assert len({id(c) for c in clients}) == 4, "expected a genuinely new client each time"
+    for c in clients:
+        # the override was actually applied to THIS instance (shadowing the class's
+        # own _init_logger method), not merely present on the class
+        assert "_init_logger" in c.__dict__
+    handlers = logging.getLogger("webull.data").handlers
+    assert len(handlers) == 1, (
+        "the SDK's own _init_logger must never add a handler once _connect_once's "
+        "per-instance override is applied -- a regression here would grow this by "
+        "one for every reconnect, exactly like the overnight log flood")
+    assert isinstance(handlers[0], logging.StreamHandler)
+
+
+def test_sdk_logger_cap_reasserts_after_later_sdk_handlers():
+    """TradeClient/DataClient constructors add their own handlers to 'webull.core' long
+    after the streamer's first setup; every later _configure_sdk_loggers call (each
+    watchdog pass) must prune them back to our single marked handler."""
+    import logging as _logging
+    S._configure_sdk_loggers()
+    core = _logging.getLogger("webull.core")
+
+    class _Closable(_logging.Handler):
+        closed = False
+        def emit(self, record):
+            pass
+        def close(self):
+            type(self).closed = True
+            super().close()
+
+    extra_stream = _logging.StreamHandler()
+    extra_file = _Closable()
+    core.addHandler(extra_stream)
+    core.addHandler(extra_file)
+    assert len(core.handlers) == 3
+
+    S._configure_sdk_loggers()
+    assert len(core.handlers) == 1
+    assert getattr(core.handlers[0], S._SDK_HANDLER_MARK, False)
+    assert _Closable.closed is True
+    assert core.level == _logging.WARNING and core.propagate is False
+
+    S._configure_sdk_loggers()           # idempotent: still exactly one of ours
+    assert len(core.handlers) == 1

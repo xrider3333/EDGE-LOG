@@ -316,6 +316,45 @@ glancing at the instance's utilization graph in the Oracle console occasionally 
 bundle does not attempt to work around the idle-reclaim rule, it just documents it so
 a VM disappearing isn't a mystery.
 
+### KEEL v12 state rebuild (NOISE_382 leg)
+
+`tools/keel_live_state.py` rebuilds the KEEL v12 live-scoring state from the NQ 5m RTH
+master the PC pushes into `~/edgelog/nq/NOADJ_NQ_5m_RTH.csv`
+(`tools/push_nq_master_to_box.py`, ~17:20 ET). Two independent triggers run the exact
+same `edgelog-keel-state.service` oneshot — either is enough on its own:
+
+| Unit | Fires |
+|---|---|
+| `edgelog-keel-state.timer` | Every trading day at 18:30 ET (the fallback, regardless of anything else) |
+| `edgelog-keel-state.path` | Immediately whenever the master file itself changes (added 2026-09-25) |
+
+The `.path` unit exists because on 2026-09-24 the owner's PC was asleep at its usual
+push time: the master didn't land here until 08:14 ET the *next* morning, well after
+that night's 18:30 timer had already built KEEL on stale data. Now a late push, at any
+time, triggers its own rebuild the moment it lands instead of waiting for the next
+18:30 slot. A mid-session push (the master updates intraday too) is harmless — the
+builder always drops an incomplete final session before training and swaps the new
+state in atomically (summary written first, state file last), so it just rebuilds
+through the *previous* session and never serves a half-written state.
+
+Check either trigger: `systemctl list-timers edgelog-keel-state.timer` (next scheduled
+run) and `systemctl status edgelog-keel-state.path` (watching, or the last time it
+fired); build logs land in `~/edgelog/logs/keel_state.log`.
+
+### Log rotation
+
+Every service here appends to `~/edgelog/logs/*.log` via systemd's own
+`StandardOutput=append:...`/`StandardError=append:...` (not journald) — nothing
+rotates those files on its own. `install.sh` installs `deploy/cloud/edgelog.logrotate`
+to `/etc/logrotate.d/edgelog` (daily, 14 days kept, compressed, force-rotated early if
+any single file passes 100 MB) so a stuck retry loop or any other runaway logger can
+fill at most ~100 MB before the next `logrotate` run catches it. This is a direct
+response to a real incident: an overnight Webull SDK reconnect storm reached 203 MB /
+1.1M lines in two days before the fix in `api/webull_stream.py` (which stops the flood
+at its source) shipped alongside this backstop. `copytruncate` is required (not the
+usual rename-and-reopen) because these services write through systemd's own held-open
+file handle, not one they reopen per line — see the template's own comments for detail.
+
 ---
 
 ## Webull ORDER adapter (paper orders now, live staged for later)

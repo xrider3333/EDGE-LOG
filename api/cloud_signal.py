@@ -736,7 +736,17 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print):
     if state is None:
         return 1.0, "keel state unavailable"
     try:
-        last_session = (summary or {}).get("last_nq_session")
+        # ITEM D (2026-09-25): staleness must be counted from the DATA, not the last
+        # trade. "last_nq_session" (ml_keel.py's own field) is the date of the last NQ
+        # #382 TRADE the state was fitted on -- on a quiet run of NQ sessions with no
+        # trade at all, that date stops advancing even though tools/keel_live_state.py
+        # keeps rebuilding on fully current data every night, which would eventually
+        # (after KEEL_MAX_STALE_SESSIONS quiet sessions) trip this guard and fall back
+        # to size 1.0 for no real reason. "data_through" (the ET date of the last BAR
+        # actually used -- see tools/keel_live_state.py's build()) tracks the data
+        # itself, so prefer it; fall back to last_nq_session for a summary written
+        # before this field existed.
+        last_session = (summary or {}).get("data_through") or (summary or {}).get("last_nq_session")
         if last_session:
             entered = entry_time
             if isinstance(entered, str):

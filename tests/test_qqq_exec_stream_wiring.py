@@ -206,6 +206,13 @@ def _thread_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(qe, "_reconcile_broker_at_boot", lambda log=print: None)
     monkeypatch.setattr(qe, "publish_async", lambda *a, **k: None)
     monkeypatch.setattr(qe, "TICK_SEC", 0.02)
+    # Item B (2026-09-25): qqq_exec_thread now only starts the stream INSIDE
+    # _stream_should_run's market-hours window (see _qqq_stream_window_step), which
+    # depends on the real wall clock at whatever moment this test suite happens to
+    # run. These lifecycle/wiring tests care about thread start/stop/exception
+    # handling, not the window decision itself (that's tests/test_qqq_exec_stream_window.py's
+    # job) -- force it on so they pass at any time of day.
+    monkeypatch.setattr(qe, "_stream_should_run", lambda now_et: True)
 
 
 def _fake_doc(positions=None):

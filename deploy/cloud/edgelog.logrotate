@@ -1,0 +1,37 @@
+# EDGE-LOG cloud logrotate template (item C, 2026-09-25) -- installed by install.sh to
+# /etc/logrotate.d/edgelog with the same __EDGELOG_*__ placeholder substitution the
+# systemd unit templates in this directory use (see install.sh's `sed` calls, or any
+# .service file here, for the pattern).
+#
+# WHY: item A's postmortem (api/webull_stream.py's module docstring) -- an overnight
+# Webull SDK reconnect storm filled __EDGELOG_HOME__/logs/qqq_exec.log to 203 MB /
+# 1.1M lines in two days. Item A fixes that flood at its source (the SDK's own logger
+# setup is disabled, and a dedup filter caps any repeat that still gets through); this
+# is the belt-and-braces disk-usage backstop so ANY runaway logger -- this one or a
+# future one, in any of these services -- can never fill the disk unbounded again.
+#
+# copytruncate is required, NOT the usual rename-then-signal rotation: every service
+# here writes through systemd's own `StandardOutput=append:...` / `StandardError=
+# append:...` (see e.g. edgelog-qqq-exec.service), which holds the log file open for
+# the life of the unit -- there is no logger process to SIGHUP into reopening a
+# renamed-away file, and restarting every service on every rotation just to reopen a
+# handle would be worse than the problem it solves. copytruncate instead copies the
+# current content out, then truncates the SAME inode in place, so the already-open
+# handle keeps appending to it with no restart and no gap.
+#
+# su runs logrotate's own file access as the service user/group rather than root, to
+# match the ownership these append-mode log files already have (created by each
+# service's own `User=__EDGELOG_USER__`); this assumes that user's primary group
+# shares its name, true for the default Ubuntu user this installer already relies on
+# elsewhere (see install.sh's RUN_USER).
+__EDGELOG_HOME__/logs/*.log {
+    daily
+    rotate 14
+    maxsize 100M
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su __EDGELOG_USER__ __EDGELOG_USER__
+}

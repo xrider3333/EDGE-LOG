@@ -1,0 +1,31 @@
+[Unit]
+# ITEM E (2026-09-25): rebuild KEEL v12 the moment a new NQ 5m RTH master lands,
+# instead of waiting for edgelog-keel-state.timer's 18:30 ET fallback. On 2026-09-24
+# the owner's PC was asleep at its usual ~17:20 ET push (tools/push_nq_master_to_box.py);
+# the master didn't reach this box until 08:14 ET the NEXT morning, well after that
+# night's 18:30 timer had already built KEEL on stale data. This unit closes that gap
+# by watching the master file itself and rebuilding as soon as it actually changes,
+# whatever time that turns out to be -- a late push (any time, any day) now triggers
+# its own rebuild instead of sitting stale until the next scheduled slot.
+#
+# HARMLESS MID-SESSION: the master file updates intraday too, so this can fire during
+# market hours. That's fine -- tools/keel_live_state.py always drops an incomplete
+# final session before training (load_nq_arrays, see its own docstring) and swaps the
+# new state in atomically (summary written first, state file last), so a same-day
+# rebuild just retrains through the PREVIOUS session and can never serve
+# api/cloud_signal.py a half-written or partial-session state.
+Description=Watch the NQ 5m RTH master for changes -> rebuild KEEL v12 immediately
+Documentation=https://github.com/xrider3333/EDGE-LOG/blob/main/deploy/cloud/README.md
+
+[Path]
+# tools/push_nq_master_to_box.py scp's to a .tmp file, then `mv`s it onto the final
+# path -- PathChanged= fires on that rename (inotify reports the watched path's
+# content as changed), which is exactly what we want to catch. PathModified= would be
+# the wrong choice here: some filesystems/kernels only fire it for a write to an
+# already-open handle on the existing inode, not for a rename that swaps a new inode
+# onto the path, so a PathModified= watch could silently miss every push.
+PathChanged=__EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv
+Unit=edgelog-keel-state.service
+
+[Install]
+WantedBy=multi-user.target

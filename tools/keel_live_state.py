@@ -53,8 +53,13 @@ WRITES under --out-dir (nothing else on the filesystem, no Firestore writes, no 
                                           wrote it.
   NOISE_382_<version>_summary.json    -- keel_state_summary() plus build metadata
                                           (file hash, timings, dropped-session date,
-                                          versions). Plain JSON -- safe to read from any
-                                          process/host as a status field.
+                                          data_through -- the ET date of the last bar
+                                          actually used, added 2026-09-25 item D, see
+                                          `build`'s own comment for why this is NOT
+                                          the same as keel_state_summary's own
+                                          last_nq_session -- versions). Plain JSON --
+                                          safe to read from any process/host as a
+                                          status field.
 """
 import argparse
 import hashlib
@@ -201,12 +206,30 @@ def build(nq_file, out_dir, version=VERSION, log=print):
     save_s = time.time() - t0
 
     total_s = time.time() - t_start
+    # DATA_THROUGH (item D, 2026-09-25): the ET calendar date of the LAST BAR actually
+    # used, i.e. AFTER load_nq_arrays already dropped an incomplete final session --
+    # `arr` here is that post-drop array, so this is simply its last index entry.
+    # Deliberately NOT the same thing as keel_state_summary's own "last_nq_session"
+    # (the date of the last NQ #382 TRADE the state was fitted on, computed from trade
+    # bar indices, untouched by this change): on a quiet day with no trade at all,
+    # last_nq_session stays behind even though the DATA (and therefore the state) is
+    # fully current through today. See api/cloud_signal.py's staleness check and
+    # api/qqq_exec.py's _build_keel_status, both updated to prefer this field.
+    data_through = None
+    try:
+        import pandas as pd
+        idx = pd.DatetimeIndex(arr["index"])
+        if len(idx):
+            data_through = str(idx[-1].date())
+    except Exception as e:
+        log(f"[keel-live-state] data_through unavailable: {type(e).__name__}: {e}")
     summary = K.keel_state_summary(state, arrays=arr, extra={
         "leg": LEG_KEY,
         "strategy": STRATEGY_FILE,
         "params": STRATEGY_PARAMS,
         "cost_pts": COST_PTS,
         "date_from": DATE_FROM,
+        "data_through": data_through,
         "dropped_incomplete_session": dropped_session,
         "nq_file": os.path.abspath(nq_file),
         "nq_file_sha256": file_hash,

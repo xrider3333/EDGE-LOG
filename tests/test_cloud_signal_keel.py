@@ -74,16 +74,23 @@ def _fitted_state(arrays, seed=5, n_trades=40):
     return K.keel_build_state(arrays, trades, version="v12"), trades
 
 
-def _write_state(tmp_path, state, last_nq_session="2026-09-05", name="NOISE_382_v12"):
+def _write_state(tmp_path, state, last_nq_session="2026-09-05", name="NOISE_382_v12",
+                 data_through=None):
+    """data_through defaults to None -- OMITTED from the summary entirely (not just
+    null) when the caller doesn't pass it, so a test that never mentions it exercises
+    the "old summary written before item D shipped" fallback path exactly as it would
+    look on disk, not just a null-valued key."""
     import joblib
     d = tmp_path / "keel"
     d.mkdir(exist_ok=True)
     state_path = d / f"{name}_state.joblib"
     summary_path = d / f"{name}_summary.json"
     joblib.dump(state, str(state_path))
+    summary = {"last_nq_session": last_nq_session, "feature_names": state["feature_names"]}
+    if data_through is not None:
+        summary["data_through"] = data_through
     with open(summary_path, "w", encoding="utf-8") as f:
-        json.dump({"last_nq_session": last_nq_session, "feature_names": state["feature_names"]},
-                  f)
+        json.dump(summary, f)
     return {"version": "v12", "state_path": str(state_path), "summary_path": str(summary_path)}
 
 
@@ -270,12 +277,33 @@ def test_stale_state_falls_back_to_1_0(tmp_path):
     arrays = _arrays(base=pd.Timestamp("2026-09-08 09:30:00", tz=cs.TZ))
     state, _ = _fitted_state(arrays)
     # last_nq_session 30 sessions before the entry -- comfortably over
-    # KEEL_MAX_STALE_SESSIONS.
+    # KEEL_MAX_STALE_SESSIONS. No data_through on this summary either (the "old
+    # summary written before item D shipped" shape), so this also doubles as the
+    # fallback-to-last_nq_session regression check.
     keel_cfg = _write_state(tmp_path, state, last_nq_session="2026-07-01")
     entry_time = arrays["index"][10]
     size, reason = cs._keel_size_for_entry(keel_cfg, arrays, 10, entry_time)
     assert size == 1.0
     assert "stale" in reason
+
+
+def test_staleness_is_counted_from_data_through_not_last_nq_session(tmp_path):
+    """ITEM D (2026-09-25): a summary's last_nq_session (the last NQ #382 TRADE's
+    date) can sit behind data_through (the last BAR actually used) on a quiet run of
+    sessions with no trade -- staleness must be counted from data_through when it is
+    present, or api/cloud_signal.py would wrongly fall back to size 1.0 after
+    KEEL_MAX_STALE_SESSIONS quiet (tradeless) sessions even though the nightly
+    rebuild kept the state fully current every night."""
+    arrays = _arrays(base=pd.Timestamp("2026-09-08 09:30:00", tz=cs.TZ))
+    state, _ = _fitted_state(arrays)
+    entry_date = arrays["index"][10].date().isoformat()
+    # last_nq_session is comfortably stale on its own (30+ sessions back), but
+    # data_through is the entry's OWN date -- fresh. data_through must win.
+    keel_cfg = _write_state(tmp_path, state, last_nq_session="2026-07-01",
+                            data_through=entry_date)
+    size, diag = cs._keel_size_for_entry(keel_cfg, arrays, 10, arrays["index"][10])
+    assert isinstance(diag, dict), "expected a real score, not a stale-fallback reason string"
+    assert size > 0 and np.isfinite(size)
 
 
 def test_fresh_state_within_budget_is_not_treated_as_stale(tmp_path):

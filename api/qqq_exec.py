@@ -320,6 +320,39 @@ def _in_market_window(dt):
     return (9, 25) <= _et_hhmm(dt) <= (16, 5)
 
 
+# Item B (2026-09-25): the live Webull stream's own, NARROWER window -- see
+# _stream_should_run. Not the same constants as _in_market_window above (that one is
+# broader on purpose, for flatten/breaker/heartbeat logic unrelated to the stream).
+_STREAM_WINDOW_OPEN = (9, 29)
+_STREAM_WINDOW_CLOSE = (16, 2)
+_STREAM_HALF_DAY_CLOSE = (13, 2)
+
+
+def _stream_should_run(now_et):
+    """Pure decision (item B, 2026-09-25): should the live Webull MQTT stream
+    (api/webull_stream.py's WebullBarStreamer) be running at this US/Eastern instant?
+
+    Before this, the stream started once when the process entered SERVING and ran all
+    night regardless -- root cause of the overnight SDK log flood (see
+    api/webull_stream.py's item A docstring: the stream stayed connected while the
+    venue was closed, so our own watchdog kept reconnecting against a server that
+    replies "Protocol not supported" after hours). Now it only runs on a trading day,
+    09:29-16:02 ET -- one minute before the 09:30 entry window opens (so the very
+    first bar builds cleanly from the first tick) to two minutes past the 16:00 close
+    (for a final flush) -- narrowed to 13:02 ET on a recognised half day
+    (market_calendar.session_close_et != '16:00'; the OPEN side never moves).
+
+    Trading-day-ness is market_calendar.is_session (weekday AND not a NYSE/Nasdaq
+    holiday) -- the same calendar tick()'s own holiday short-circuit and half-day
+    flat_by clamp already use, just consulted here for a narrower purpose. Tuple-based
+    time comparison mirrors _in_market_window's own (h, m) <= (h, m) style."""
+    if not market_calendar.is_session(now_et):
+        return False
+    close = (_STREAM_HALF_DAY_CLOSE if market_calendar.session_close_et(now_et) != "16:00"
+             else _STREAM_WINDOW_CLOSE)
+    return _STREAM_WINDOW_OPEN <= _et_hhmm(now_et) <= close
+
+
 def _in_entry_window(dt, sess):
     o = _hhmm(sess.get("open", "09:31"))
     le = _hhmm(sess.get("last_entry", "15:55"))
@@ -1089,6 +1122,68 @@ def _stop_qqq_stream(log=print):
             streamer.stop()
         except Exception as e:
             log(f"[qqq-exec] Webull live stream stop failed (non-fatal): {type(e).__name__}: {e}")
+
+
+# Item B (2026-09-25): at most one START ATTEMPT per this many seconds -- see
+# _qqq_stream_window_step's own docstring for why this gate exists.
+_QQQ_STREAM_START_RETRY_SEC = 120.0
+
+
+def _qqq_stream_window_step(cfg, last_start_attempt, now_et=None, now_wall=None, log=print):
+    """Called once per tick from qqq_exec_thread's loop (item B, 2026-09-25): starts or
+    stops the live Webull stream to keep it running only inside _stream_should_run's
+    market-hours window, replacing the old behaviour of starting it once at boot and
+    running it all night regardless (root cause of api/webull_stream.py's overnight
+    SDK log flood -- see that module's item A docstring).
+
+    RULES:
+      - inside the window, no streamer running or starting -> _start_qqq_stream (still
+        subject to cfg['live_stream_enabled'], the owner kill switch, enforced inside
+        _start_qqq_stream itself -- unchanged by this function);
+      - outside the window, a streamer running -> _stop_qqq_stream, logged once here
+        (unlike the routine per-tick case, this is a state change worth a line);
+      - outside the window, NO streamer running -> do nothing, log nothing -- calling
+        _stop_qqq_stream every tick all night (it's a safe no-op, but a noisy one)
+        would just reintroduce a smaller version of the exact log-spam problem item A
+        fixes.
+
+    RETRY SPACING: _start_qqq_stream is already idempotent while a streamer is running
+    or mid-connect ('starting'), but a FAILED start (bad keys, an SDK import error, a
+    raised exception anywhere in connect/subscribe) clears 'starting' immediately --
+    see its own docstring -- so calling this every TICK_SEC (5s) with no gate would
+    retry a hard failure 12 times a minute all day. Only attempt a (re)start at most
+    once every _QQQ_STREAM_START_RETRY_SEC; `last_start_attempt` (0.0 the first time a
+    caller has never attempted one) is the caller's own fold/accumulator, returned
+    here rather than stored on _qqq_stream_state, since it's a per-loop retry timer,
+    not shared streamer state -- a process restart naturally re-arms it, which is
+    fine. `_stop_qqq_stream` sets stop_requested=True, but `_start_qqq_stream` resets
+    it on every call (see that function), so a later window's start always works
+    again after an earlier window's stop.
+
+    `now_et`/`now_wall` are both injectable (default to the real ET wall clock /
+    time.time()) purely so this can be unit-tested deterministically regardless of
+    when the test actually runs. Never raises -- any failure here must not take down
+    qqq_exec_thread's own tick loop, exactly like every other best-effort helper it
+    calls."""
+    try:
+        now_et = now_et if now_et is not None else _now_et()
+        now_wall = now_wall if now_wall is not None else time.time()
+        should_run = _stream_should_run(now_et)
+        streamer = _qqq_stream_instance()
+        with _qqq_stream_lock:
+            starting = bool(_qqq_stream_state.get("starting"))
+        if should_run:
+            if (streamer is None and not starting
+                    and (now_wall - last_start_attempt) >= _QQQ_STREAM_START_RETRY_SEC):
+                last_start_attempt = now_wall
+                _start_qqq_stream(cfg, log=log)
+        elif streamer is not None:
+            log(f"[qqq-exec] {now_et.strftime('%H:%M')} ET is outside the live-stream "
+                f"window -- stopping the Webull stream")
+            _stop_qqq_stream(log=log)
+    except Exception as e:
+        log(f"[qqq-exec] stream window step failed (non-fatal): {type(e).__name__}: {e}")
+    return last_start_attempt
 
 
 def _live_price_for_leg(leg, log=print):
@@ -5018,9 +5113,19 @@ def _build_keel_status(log=print):
         try:
             with open(summary_path, encoding="utf-8") as f:
                 summary = json.load(f)
+            # ITEM D (2026-09-25): "trained through" means the DATA, not the last
+            # trade -- "data_through" (the ET date of the last BAR used, see
+            # tools/keel_live_state.py's build()) stays current even on a quiet day
+            # with no NQ #382 trade, when "last_nq_session" (the last TRADE's date,
+            # ml_keel.py's own field, untouched by this change) would otherwise sit
+            # behind and make the web tab show a stale-looking date. Fall back to
+            # last_nq_session for a summary written before data_through existed.
+            # last_trade_session is published separately (never dropped) since it is
+            # still meaningful on its own -- "when did NOISE_382 last actually trade".
             out[exec_key] = {
                 "version": summary.get("version") or keel_cfg.get("version"),
-                "trained_through": summary.get("last_nq_session"),
+                "trained_through": summary.get("data_through") or summary.get("last_nq_session"),
+                "last_trade_session": summary.get("last_nq_session"),
                 "n_trades": summary.get("n_trades"),
             }
         except Exception as e:
@@ -5963,10 +6068,15 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 f"for host {_lease_host_id()!r}: {reason}")
         state = load_state(log=log)
         _reconcile_broker_at_boot(log=log)
-        # LIVE WEBULL STREAM (2026-09-23, item 3): only from here on is this process
-        # actually SERVING (past the standby return above) -- see _start_qqq_stream's
-        # own docstring for why the standby host must never reach this line.
-        _start_qqq_stream(load_config(log=log), log=log)
+        # LIVE WEBULL STREAM (2026-09-23, item 3; WINDOWED 2026-09-25, item B): only
+        # from here on is this process actually SERVING (past the standby return
+        # above) -- see _start_qqq_stream's own docstring for why the standby host
+        # must never reach this line. No unconditional start here any more: the first
+        # tick below (like every tick after it) starts/stops the stream through
+        # _qqq_stream_window_step, kept in step with _stream_should_run's market-hours
+        # window instead of running all night regardless of the clock (root cause of
+        # the overnight SDK log flood -- see api/webull_stream.py's item A docstring).
+        last_stream_start_attempt = 0.0
         last_pass = time.time()
         while stop is None or not stop.is_set():
             if managed:
@@ -5988,6 +6098,13 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
             last_pass = time.time()
             try:
                 cfg = load_config(log=log)
+                # WINDOWED LIVE STREAM (item B, 2026-09-25) -- see
+                # _qqq_stream_window_step's own docstring. Every tick, not just once at
+                # boot, so the stream comes up/down with the market-hours window
+                # (and the owner's live_stream_enabled kill switch) without needing a
+                # restart.
+                last_stream_start_attempt = _qqq_stream_window_step(
+                    cfg, last_stream_start_attempt, log=log)
                 cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
                 for uid in uids:
                     publish_async(db, uid, doc, state, log=log, cfg=cfg2)

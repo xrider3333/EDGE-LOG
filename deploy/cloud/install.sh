@@ -12,7 +12,9 @@
 #   4. create ~/edgelog/{ohlc,qqq_exec,logs,webull_token}
 #   5. write ~/edgelog/edgelog.env ONCE (fill in the CHANGE-ME lines yourself)
 #   6. install + enable the systemd units (edgelog-runner.service,
-#      edgelog-healthcheck.timer/.service)
+#      edgelog-healthcheck.timer/.service, edgelog-keel-state.timer/.path/.service)
+#   7. install /etc/logrotate.d/edgelog (daily, size-capped -- see
+#      deploy/cloud/edgelog.logrotate)
 #
 # Usage (see README.md for the full runbook):
 #   curl -fsSL https://raw.githubusercontent.com/xrider3333/EDGE-LOG/main/deploy/cloud/install.sh | bash
@@ -44,7 +46,7 @@ echo "==> apt: python3.12 + venv + build deps"
 sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends \
   python3.12 python3.12-venv python3-pip \
-  build-essential git curl ca-certificates tzdata
+  build-essential git curl ca-certificates tzdata logrotate
 
 # 2. Clone / update the repo ----------------------------------------------------
 mkdir -p "$EDGELOG_HOME"
@@ -123,7 +125,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -137,14 +139,28 @@ sudo systemctl daemon-reload
 # The paper book's two services are ENABLED (start on boot) but not started here, so the
 # owner copies secrets and reviews rails/mode before either can place a single order.
 sudo systemctl enable edgelog-qqq-exec.service edgelog-cloud-signal.service
-# KEEL v12 nightly state build (needs the NQ master the PC pushes into ${EDGELOG_HOME}/nq/).
-sudo systemctl enable edgelog-keel-state.timer
+# KEEL v12 state build: the 18:30 ET nightly timer (fallback) PLUS the path unit that
+# rebuilds immediately whenever the NQ master itself changes (item E, 2026-09-25 --
+# closes the gap a late/overnight push left, see edgelog-keel-state.path's own comment).
+sudo systemctl enable edgelog-keel-state.timer edgelog-keel-state.path
 # The job runner does NOT run on this box (2026-09-21 -- api/runner.py refuses on
 # EDGELOG_HOST_ROLE=cloud; see _cloud_runner_refusal there for what went wrong when one
 # did). Its unit is still installed so the refusal is logged if anyone starts it, but it
 # is switched off at boot, and so is the healthcheck that only ever watched it. A re-run
 # of this script on an older box turns both off.
 sudo systemctl disable --now edgelog-runner.service edgelog-healthcheck.timer 2>/dev/null || true
+
+# 7. log rotation (item C, 2026-09-25) -----------------------------------------------
+# Daily, size-capped, so a runaway logger (the overnight SDK reconnect flood item A
+# fixes at the source, or any future one) can never fill the disk unbounded again --
+# see deploy/cloud/edgelog.logrotate for the exact policy and why copytruncate is
+# required here. logrotate itself already runs daily via Ubuntu's own
+# cron.daily/logrotate (or logrotate.timer on newer releases) -- no separate unit needed.
+echo "==> installing logrotate config -> /etc/logrotate.d/edgelog"
+sed \
+  -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
+  -e "s#__EDGELOG_HOME__#${EDGELOG_HOME}#g" \
+  "${UNIT_SRC}/edgelog.logrotate" | sudo tee "/etc/logrotate.d/edgelog" >/dev/null
 
 echo
 echo "==> install.sh done. Nothing is started yet. Next steps:"
