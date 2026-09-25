@@ -113,3 +113,73 @@ def test_short_trades_and_unmarkable_trades():
 
 def test_empty_leg_is_empty_not_a_crash():
     assert _mtm_increments(np.array([], dtype="datetime64[D]"), np.array([]), [], 20.0, 1.0) == ([], 0, 0)
+
+
+# ── SELF-SIZING FILES (2026-09-25) ─────────────────────────────────────────────────────────
+# The DIP files return DOLLARS at their own size and run at mult 1, so the price formula above
+# valued their open positions at $1 a point. They now value their own open trades
+# (mark_open_trades, see tests/test_dip_open_marks.py) and the book prefers those values.
+
+def test_a_strategy_files_own_marks_replace_the_price_formula():
+    days = _days(("2021-01-04", 1), ("2021-01-05", 1), ("2021-01-06", 1))
+    close = np.array([100.0, 90.0, 95.0])
+    t = (0, 2, 1200.0, 1, 100.0)                  # $1,200 closed, already in dollars (mult 1)
+    marks = {id(t): [(0, 0.0), (1, -4000.0)]}     # the file's own value: 400 shares, down $10
+    inc, marked, unmarked = _mtm_increments(days, close, [(t, 1.5)], 1.0, 2.0, plugin_marks=marks,
+                                            usd_units=True)
+    assert (marked, unmarked) == (1, 0)
+    # weight 2 x gate size 1.5 = 3x the file's own dollars; the exit day carries the remainder
+    assert [round(p, 6) for _, p in inc] == [0.0, -12000.0, 15600.0]
+    assert round(sum(p for _, p in inc), 6) == 3600.0
+    # the price formula would have said -10 x $1 x 3 = -$30 on day 2: that was the bug
+    inc_old, _, _ = _mtm_increments(days, close, [(t, 1.5)], 1.0, 2.0)
+    assert [round(p, 6) for _, p in inc_old][:2] == [0.0, -30.0]
+
+
+def test_a_dollar_pnl_trade_the_file_did_not_value_is_booked_at_close_not_at_a_dollar_a_point():
+    days = _days(("2021-01-04", 1), ("2021-01-05", 1), ("2021-01-06", 1))
+    close = np.array([100.0, 90.0, 95.0])
+    t = (0, 2, 1200.0, 1, 100.0)
+    for marks in (None, {}, {id(t): [(5, 1.0)]}, {id(t): [(1, float("nan"))]}):   # none / missing / bad bar / nan
+        inc, marked, unmarked = _mtm_increments(days, close, [(t, 1.0)], 1.0, 1.0,
+                                                plugin_marks=marks, usd_units=True)
+        assert (marked, unmarked) == (0, 1)
+        assert [(str(a), b) for a, b in inc] == [("2021-01-06", 1200.0)]
+    # a same-day trade needs no marks at all
+    inc, marked, unmarked = _mtm_increments(days, close, [((1, 1, 50.0, 1, 90.0), 1.0)], 1.0, 1.0,
+                                            plugin_marks={}, usd_units=True)
+    assert (marked, unmarked) == (0, 0) and [(str(a), b) for a, b in inc] == [("2021-01-05", 50.0)]
+
+
+def test_plugin_marks_asks_the_strategy_file_and_degrades_to_unmarked(monkeypatch):
+    import types
+    import augur_engine.book as B
+    import augur_engine.strategies as S
+
+    arr = {"open": np.zeros(3), "high": np.zeros(3), "low": np.zeros(3), "close": np.zeros(3),
+           "volume": None, "day_id": np.arange(3), "index": None}
+    t1, t2 = (0, 2, 10.0, 1, 1.0), (1, 2, 5.0, 1, 1.0)
+    seen = {}
+
+    def hook(trades, o, h, l, c, volumes=None, day_id=None, index=None, **params):
+        seen["params"] = params
+        return [[(0, 1.0)], [(1, 2.0)]]
+
+    mods = {"usd_hook.py": types.SimpleNamespace(PNL_UNITS="usd", mark_open_trades=hook),
+            "usd_nohook.py": types.SimpleNamespace(PNL_UNITS="usd"),
+            "usd_broken.py": types.SimpleNamespace(PNL_UNITS="usd", mark_open_trades=lambda *a, **k: [[]]),
+            "points.py": types.SimpleNamespace()}
+    monkeypatch.setattr(S, "load_strategy", lambda name: mods[name])
+
+    pm, usd, note = B._plugin_marks({"strategy": "usd_hook.py", "params": {"notional": 50000}}, arr,
+                                    [(t2, 1.0), (t1, 2.0)])      # gate order, not entry order
+    assert usd is True and note is None and seen["params"] == {"notional": 50000}
+    assert pm == {id(t2): [(0, 1.0)], id(t1): [(1, 2.0)]}
+
+    pm, usd, note = B._plugin_marks({"strategy": "usd_nohook.py"}, arr, [(t1, 1.0)])
+    assert pm is None and usd is True and "booked at close" in note
+
+    pm, usd, note = B._plugin_marks({"strategy": "usd_broken.py"}, arr, [(t1, 1.0), (t2, 1.0)])
+    assert pm is None and usd is True and "failed" in note          # 1 list for 2 trades
+
+    assert B._plugin_marks({"strategy": "points.py"}, arr, [(t1, 1.0)]) == (None, False, None)

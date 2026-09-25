@@ -33,6 +33,8 @@ IWM / QQQ / SPY 1d masters (source `yahoo_adj`) built by tools/build_etf_masters
 parallel coords / surfaces / PBO). Sizing knobs are pinned min=max on purpose: the search
 space is about the edge, not the leverage.
 """
+import inspect as _inspect
+
 import numpy as np
 
 STRATEGY_NAME = 'ETFDIP DBL7 1.0 · N-day-low dip buy (r25 weak-edge book leg)'
@@ -142,4 +144,35 @@ def _score(trades, return_trades):
            "avg_pnl": float(p.mean()), "wins": int(len(w)), "losses": int(len(l))}
     if return_trades:
         out["trades"] = trades
+    return out
+
+
+# ── OPEN-TRADE VALUES FOR A BOOK (2026-09-25) ─────────────────────────────────────────
+# t[2] is DOLLARS at this file's own size (shares = notional / entry open) and a book runs
+# the file at mult 1, so the book's generic open-trade mark - side x (close - entry) x mult -
+# valued an open position at $1 a point. This hook gives the book the position's real value;
+# see augur_engine/book.py _plugin_marks. Nothing in the backtest above reads it.
+PNL_UNITS = "usd"
+
+
+def mark_open_trades(trades, opens, highs, lows, closes, volumes=None, day_id=None, **params):
+    """Each trade's open value in dollars at the close of every session it is held through,
+    before the session it exits in: one [(bar, usd), ...] list per trade, in trade order.
+    Costs are left out - they land on the exit day with the rest of the closed P&L."""
+    p = {k: v.default for k, v in _inspect.signature(run_backtest).parameters.items()
+         if v.default is not _inspect.Parameter.empty}
+    p.update(params)
+    c = np.asarray(closes, float)
+    n = len(c)
+    if day_id is None or len(day_id) != n:
+        bounds = [(i, i + 1) for i in range(n)]
+    else:
+        bounds = _sessions(np.asarray(day_id), n)
+    close_bar = np.array([b - 1 for a, b in bounds])
+    out = []
+    for t in trades:
+        e, x, side, ep = int(t[0]), int(t[1]), float(t[3]), float(t[4])
+        sh = float(p["notional"]) / ep
+        held = close_bar[(close_bar >= e) & (close_bar < x)]
+        out.append([(int(k), side * (float(c[k]) - ep) * sh) for k in held])
     return out

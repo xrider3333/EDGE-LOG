@@ -27,6 +27,8 @@ rsi_len / rsi_thr / rsi_thr_short / rsi_exit / trend_len are OPEN; sizing is pin
 `allow_shorts` is the one structural switch (r25 kept IWM and QQQ on "both", the rest
 long-only), so it is a bool, not a swept number.
 """
+import inspect as _inspect
+
 import numpy as np
 
 STRATEGY_NAME = 'ETFDIP RSI2 1.0 · short-RSI mean reversion (r25 weak-edge book leg)'
@@ -149,7 +151,7 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
                 ep = float(do[de]); xp = float(do[d + 1])
                 sh = float(notional) / ep
                 pnl = pos * (xp - ep) * sh - float(notional) * float(cost_bps) / 10000.0
-                trades.append((int(open_bar[de]), int(open_bar[d + 1]), float(pnl), 1, ep, xp))
+                trades.append((int(open_bar[de]), int(open_bar[d + 1]), float(pnl), int(pos), ep, xp))
                 pos = 0
         d += 1
     return _score(trades, return_trades)
@@ -170,4 +172,35 @@ def _score(trades, return_trades):
            "avg_pnl": float(p.mean()), "wins": int(len(w)), "losses": int(len(l))}
     if return_trades:
         out["trades"] = trades
+    return out
+
+
+# ── OPEN-TRADE VALUES FOR A BOOK (2026-09-25) ─────────────────────────────────────────
+# t[2] is DOLLARS at this file's own size (shares = notional / entry open) and a book runs
+# the file at mult 1, so the book's generic open-trade mark - side x (close - entry) x mult -
+# valued an open position at $1 a point. This hook gives the book the position's real value;
+# see augur_engine/book.py _plugin_marks. Nothing in the backtest above reads it.
+PNL_UNITS = "usd"
+
+
+def mark_open_trades(trades, opens, highs, lows, closes, volumes=None, day_id=None, **params):
+    """Each trade's open value in dollars at the close of every session it is held through,
+    before the session it exits in: one [(bar, usd), ...] list per trade, in trade order.
+    Costs are left out - they land on the exit day with the rest of the closed P&L."""
+    p = {k: v.default for k, v in _inspect.signature(run_backtest).parameters.items()
+         if v.default is not _inspect.Parameter.empty}
+    p.update(params)
+    c = np.asarray(closes, float)
+    n = len(c)
+    if day_id is None or len(day_id) != n:
+        bounds = [(i, i + 1) for i in range(n)]
+    else:
+        bounds = _sessions(np.asarray(day_id), n)
+    close_bar = np.array([b - 1 for a, b in bounds])
+    out = []
+    for t in trades:
+        e, x, side, ep = int(t[0]), int(t[1]), float(t[3]), float(t[4])
+        sh = float(p["notional"]) / ep
+        held = close_bar[(close_bar >= e) & (close_bar < x)]
+        out.append([(int(k), side * (float(c[k]) - ep) * sh) for k in held])
     return out

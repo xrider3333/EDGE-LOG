@@ -14,6 +14,10 @@ WHAT IT DOES, per book run:
      is reported and skipped, never re-scored into a different book;
   4. with --write, updates ONLY the field `book.mtm` on that run doc. Nothing else is touched.
 
+Re-running it over a run that already has `book.mtm` REPLACES that block - which is how a
+correction reaches stored runs (2026-09-25: DIP / ETF legs had been valued at $1 a point; the
+dry run prints the stored reading beside the new one).
+
 Run from the shared checkout (the masters live there - BACKTEST_SPEED.md rule 3):
     python tools/backfill_book_mtm.py --runs 397 396 372          # dry run: prints what it would write
     python tools/backfill_book_mtm.py --runs 397 396 372 --write
@@ -107,11 +111,20 @@ def main():
             print(f"#{rid}: SKIP - mtm error {m['error']}")
             skipped += 1
             continue
-        lb, wh = m.get("lockbox") or {}, m.get("whole") or {}
-        print(f"#{rid}: reproduces to the cent | valued daily: whole DD ${wh.get('max_drawdown', 0):,.0f} "
-              f"(at close ${stored['whole']['max_drawdown']:,.0f}), lockbox DD ${lb.get('max_drawdown', 0):,.0f} "
-              f"(at close ${(stored.get('lockbox') or {}).get('max_drawdown', 0):,.0f}), differs={m.get('drawdown_differs')}"
-              f"{' -> WRITTEN' if a.write else ' (dry run)'}")
+        old = stored.get("mtm") or {}
+
+        def _dd(block, st):
+            v = (block.get(st) or {}).get("max_drawdown")
+            return "none" if v is None else f"${v:,.0f}"
+        # every stretch, as: valued daily now [stored valued daily before | at close]. The stored
+        # reading matters because a re-run can CORRECT an earlier book.mtm (2026-09-25: the DIP
+        # files' open trades had been valued at $1 a point).
+        parts = [f"{st} {_dd(m, st)} [was {_dd(old, st)} | at close {_dd(stored, st)}]"
+                 for st in ("whole", "pre_lockbox", "lockbox")]
+        print(f"#{rid}: reproduces to the cent | valued daily: " + ", ".join(parts)
+              + f", differs={m.get('drawdown_differs')}"
+              + (f", unmarked={m.get('unmarked_trades')}" if m.get("unmarked_trades") else "")
+              + f"{' -> WRITTEN' if a.write else ' (dry run)'}")
         if a.write:
             u.collection("runs").document(str(rid)).update({"book.mtm": m})
             wrote += 1

@@ -59,6 +59,8 @@ length, RSI threshold/exit, N-day low, pullback EMA/hold, capitulation size/hold
 Sizing/cost knobs are fixed (min = max) so the search space is about the edge, not
 the leverage. Requires day_id AND index (roll seams, dates).
 """
+import inspect as _inspect
+
 import numpy as np
 import pandas as pd
 
@@ -355,4 +357,53 @@ def run_backtest(
     }
     if return_trades:
         out["trades"] = trade_log
+    return out
+
+
+# ── OPEN-TRADE VALUES FOR A BOOK (2026-09-25) ─────────────────────────────────────────
+# t[2] is DOLLARS at this file's own size and a book runs the file at mult 1, so the book's
+# generic open-trade mark - side x (close - entry) x mult - valued an open position at $1 a
+# point; and chain() leaves each quarterly roll gap out of the P&L, which a close-minus-entry
+# mark cannot know. This hook values the position exactly as chain() prices it: size() - whole
+# MNQ micros at $2/pt on an intraday master, shares for the notional on a daily one - and the
+# gap of every roll seam crossed so far left out. See augur_engine/book.py _plugin_marks.
+PNL_UNITS = "usd"
+
+
+def mark_open_trades(trades, opens, highs, lows, closes, volumes=None, day_id=None, index=None,
+                     **params):
+    """Each trade's open value in dollars at the close of every session it is held through,
+    before the session it exits in: one [(bar, usd), ...] list per trade, in trade order (None
+    for a trade whose bars are not session opens). Costs, including the per-roll charge, are
+    left out - they land on the exit day with the rest of the closed P&L."""
+    p = {k: v.default for k, v in _inspect.signature(run_backtest).parameters.items()
+         if v.default is not _inspect.Parameter.empty}
+    p.update(params)
+    o = np.asarray(opens, float); c = np.asarray(closes, float)
+    n = len(c)
+    if day_id is None or index is None or len(day_id) != n:
+        return None
+    bounds = _session_bounds(np.asarray(day_id), n)
+    asset = p["asset"]
+    if asset == "auto":
+        asset = "ETF" if n == len(bounds) else "NQ"
+    idx = pd.DatetimeIndex(index)
+    do = np.array([o[a] for a, b in bounds]); dc = np.array([c[b - 1] for a, b in bounds])
+    seams = set(detect_roll_seams(do, dc, [idx[a] for a, b in bounds])) if asset == "NQ" else set()
+    sess = {int(a): j for j, (a, b) in enumerate(bounds)}
+    notional = float(p["notional"])
+    out = []
+    for t in trades:
+        de, dx = sess.get(int(t[0])), sess.get(int(t[1]))
+        if de is None or dx is None:
+            out.append(None)
+            continue
+        side, ep = float(t[3]), float(t[4])
+        dpp = max(1, int(round(notional / (ep * 2.0)))) * 2.0 if asset == "NQ" else notional / ep
+        adj, marks = 0.0, []
+        for j in range(de, dx):
+            if j > de and j in seams:
+                adj += do[j] - dc[j - 1]
+            marks.append((int(bounds[j][1] - 1), side * (float(dc[j]) - ep - adj) * dpp))
+        out.append(marks)
     return out

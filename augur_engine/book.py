@@ -176,10 +176,16 @@ def _leg_trades(leg, date_from, date_to):
     # OPEN TRADES VALUED DAILY (2026-09-24) - see _mtm_increments. Reported beside the
     # closed-trade figures as book.mtm; nothing that scores the book reads it.
     try:
-        _m, _mk, _um = _mtm_increments(days_idx, arr.get("close"), sized, mult, weight)
+        _pm, _usd, _pm_note = _plugin_marks(leg, arr, sized)
+        _m, _mk, _um = _mtm_increments(days_idx, arr.get("close"), sized, mult, weight,
+                                       plugin_marks=_pm, usd_units=_usd)
         info["mtm_marked"] = int(_mk)
         if _um:
             info["mtm_unmarked"] = int(_um)
+        if _pm is not None:
+            info["mtm_source"] = "strategy file"
+        if _pm_note:
+            info["mtm_note"] = _pm_note
     except Exception as _e:               # a reporting extra must never fail a book run
         _m = list(out)
         info["mtm_error"] = "%s: %s" % (type(_e).__name__, _e)
@@ -187,7 +193,49 @@ def _leg_trades(leg, date_from, date_to):
     return out, info
 
 
-def _mtm_increments(days_idx, close, sized, mult, weight):
+def _plugin_marks(leg, arr, sized):
+    """Open-trade values a SELF-SIZING strategy file computes for its own trades.
+
+    WHY (2026-09-25). The generic mark below is side x (close - entry) x mult. That is right
+    for a file whose P&L is in POINTS, but the DIP files (NQDIP_*, ETFDIP_*) size themselves -
+    whole MNQ micros or shares for a fixed notional - and hand back DOLLARS, so a book runs
+    them at mult 1 and the generic mark valued their open positions at $1 per point (DIP on
+    NQ #423's pre-lockbox drawdown read $36,497 instead of $57,455). NQDIP also leaves the
+    quarterly roll gap out of its P&L, which a close-minus-entry mark cannot know about.
+
+    So a file whose P&L is not in points says so (module constant PNL_UNITS = "usd") and
+    values its own open positions in `mark_open_trades` - the same arrays and params the
+    backtest saw, one list of (bar, value) per trade, values in the units of t[2]. A file
+    that declares dollars but has no hook, or whose hook fails, gets its multi-day trades
+    booked at close and counted as unmarked: never priced at $1 a point.
+
+    Returns (marks keyed by id(trade) or None, pnl_in_dollars, note or None).
+    """
+    try:
+        from .strategies import load_strategy
+        mod = load_strategy(leg.get("strategy"))
+    except Exception:
+        return None, False, None
+    usd = str(getattr(mod, "PNL_UNITS", "points") or "points").lower() == "usd"
+    hook = getattr(mod, "mark_open_trades", None)
+    if hook is None:
+        return None, usd, ("P&L is in dollars and the strategy file has no mark_open_trades(), "
+                           "so its multi-day trades are booked at close" if usd else None)
+    trades = [t for t, _ in sized]
+    try:
+        marks = hook(trades, arr["open"], arr["high"], arr["low"], arr["close"],
+                     volumes=arr.get("volume"), day_id=arr.get("day_id"), index=arr.get("index"),
+                     **dict(leg.get("params") or {}))
+        if marks is None or len(marks) != len(trades):
+            raise ValueError("returned %s marks for %d trades"
+                             % ("no" if marks is None else len(marks), len(trades)))
+    except Exception as _e:
+        return None, usd, ("mark_open_trades failed (%s: %s); multi-day trades booked at close"
+                           % (type(_e).__name__, _e) if usd else None)
+    return {id(t): m for t, m in zip(trades, marks)}, usd, None
+
+
+def _mtm_increments(days_idx, close, sized, mult, weight, plugin_marks=None, usd_units=False):
     """Each trade's dollars spread over the days it was OPEN, valued at each day's last close.
 
     A book books a trade on its EXIT day. That is exact for an intraday leg and blind for a leg
@@ -205,6 +253,11 @@ def _mtm_increments(days_idx, close, sized, mult, weight):
     Needs the trade's side (+1 / -1) at index 3 and entry price at index 4, the tuple the
     engine's strategies return. A multi-day trade without them is booked at close and counted
     in `unmarked` rather than guessed at.
+
+    SELF-SIZING FILES (see _plugin_marks): `plugin_marks` maps id(trade) to the file's own
+    [(bar, value)] list and is used instead of the price formula, scaled like t[2]. With
+    `usd_units` set, a multi-day trade the file did not value is booked at close (unmarked):
+    the price formula would read a dollar P&L as points and value the position at $1 a point.
 
     Returns ([(day, $)], marked, unmarked).
     """
@@ -225,6 +278,28 @@ def _mtm_increments(days_idx, close, sized, mult, weight):
         except Exception:
             continue
         if x <= e or days_idx[e] == days_idx[x]:
+            out.append((days_idx[x], usd))
+            continue
+        pm = plugin_marks.get(id(t)) if plugin_marks is not None else None
+        if pm is not None:
+            try:
+                pts = [(int(k), float(v)) for k, v in pm]
+                ok = bool(pts) and all(e <= k < x and np.isfinite(v) for k, v in pts)
+            except Exception:
+                ok = False
+            if ok:
+                prev = 0.0
+                for k, v in sorted(pts):
+                    out.append((days_idx[k], v * scale - prev))
+                    prev = v * scale
+                out.append((days_idx[x], usd - prev))
+                marked += 1
+                continue
+            unmarked += 1
+            out.append((days_idx[x], usd))
+            continue
+        if usd_units:
+            unmarked += 1
             out.append((days_idx[x], usd))
             continue
         try:

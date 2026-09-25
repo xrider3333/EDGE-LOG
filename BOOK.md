@@ -596,6 +596,34 @@ Gates: `tests/test_book_mtm.py`, `tools/runboard_books_probe.py` (both book tabl
 (about $39,580 = 6.6% of the ENGU-Q NQ leg's net, measured by the sibling session; see
 `BOOK_ROUND56_ROC.txt` section 5b).
 
+**Correction for the DIP legs (2026-09-25, after v73.899).** The first version valued every open
+position as side x (close - entry) x the leg's multiplier. The DIP files (`NQDIP_1_0.py`,
+`NQDIP_1_1.py`, `ETFDIP_DBL7/PB20/RSI2_1_0.py`) size themselves - whole MNQ micros, or shares for a
+$100k notional - and return DOLLARS, so a book runs them at multiplier 1 and their open positions
+were valued at $1 a point. NQDIP also leaves each quarterly roll gap out of its P&L. Each of those
+files now declares `PNL_UNITS = "usd"` and values its own open trades in `mark_open_trades()`, which
+the book uses in place of the price formula (`book._plugin_marks`); a dollar-P&L file without the
+hook has its multi-day trades booked at close and counted as unmarked, never priced at $1 a point.
+Same commit: `ETFDIP_RSI2_1_0.py` recorded a short's side as +1 (net was always right; open values
+and the side column were inverted). Checked against an independent calculation on all nine DIP
+runs to 1e-12 (e.g. DIP on NQ #423 pre-lockbox drawdown valued daily $57,455, was $36,497; DIP on ES
+#425 lockbox $22,371, was $11,800). The stored book runs with DIP legs are re-scored with the backfill
+right after this ship (its dry run: at-close figures reproduce to the cent; points-only books unchanged):
+
+| book | whole-run drawdown valued daily | lockbox, valued daily |
+|---|---|---|
+| #311 | $128,341 (was $112,129) | $41,942 (was $43,749) |
+| #332 | $114,320 (was $73,038) | $70,136 (was $61,426) |
+| #338 | $68,855 (was $43,814) | $42,122 (was $35,556) |
+| #346 | $194,056 (was $152,619) | $60,094 (was $42,060) |
+| #348 | $90,758 (was $78,208) | $42,803 (was $40,823) |
+| #349 | $110,605 (was $95,466) | $57,430 (was $40,269) |
+| #350 | $68,855 (was $43,814) | $44,905 (was $24,994) |
+| #351 | $68,000 (was $57,074) | $52,500 (was $36,424) |
+
+Gates: `tests/test_dip_open_marks.py` (each file's open values plus its own costs rebuild its closed
+P&L to the cent, across roll seams; every file with a `notional` knob must have the hook).
+
 ### 10b. An open item this audit turned up: two day-stamping rules disagree
 
 The recorded finding put the baseline's worst stretch in **2020-02-21..2020-03-25 at $34,903**; the
